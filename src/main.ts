@@ -1,3 +1,4 @@
+import './engine/editor/snapshot';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/ui.css';
@@ -6,7 +7,7 @@ import './components';
 import { decks, fixed } from 'virtual:decks';
 import { esc } from './engine/html';
 import { startPresenter } from './engine/presenter';
-import { startShow } from './engine/show';
+import { startShow, updateFavicon } from './engine/show';
 import { initTheme } from './engine/theme';
 import type { Deck } from './types';
 
@@ -19,12 +20,7 @@ const name = fixed ?? params.get('deck') ?? (names.length === 1 ? names[0] : nul
 function setMeta(deck: Deck): void {
   document.title = deck.title;
   document.documentElement.lang = deck.lang ?? 'ru';
-  if (deck.brand?.logo) {
-    const link = document.createElement('link');
-    link.rel = 'icon';
-    link.href = deck.brand.logo;
-    document.head.appendChild(link);
-  }
+  updateFavicon(deck.brand?.logo);
 }
 
 function picker(): void {
@@ -55,7 +51,8 @@ async function boot(): Promise<void> {
   }
   setMeta(deck);
   if (params.get('view') === 'presenter') startPresenter(deck, name);
-  else startShow(deck, name);
+  // В yarn dev правки пишутся в deck.yaml; в собранном файле — в копию HTML
+  else startShow(deck, name, import.meta.env.DEV && !fixed);
 }
 
 boot().catch((e) => {

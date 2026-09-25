@@ -1,6 +1,8 @@
 import { defineTemplate } from '../../engine/component';
 import { asArray, esc, t } from '../../engine/html';
+import { ea, eurl, tx } from '../../engine/marks';
 import { qrSvg } from '../qr';
+import { logoImg } from './content';
 import { button, linkText, words, type FinaleSlide } from './finale';
 import './space.css';
 
@@ -42,13 +44,13 @@ defineTemplate<SpaceSlide>('space', {
       `<path pathLength="1" d="M${HUBS[a][0]} ${HUBS[a][1]}L${HUBS[b][0]} ${HUBS[b][1]}" style="animation-delay:${(0.3 + k * 0.25).toFixed(2)}s"/>`).join('');
 
     const logo = ctx.logo
-      ? `<div class="sp-logow r"><div class="sp-halo"></div><div class="sp-orbit"><i></i></div><div class="sp-tile"><img src="${esc(ctx.logo)}" alt=""></div></div>`
+      ? `<div class="sp-logow r"><div class="sp-halo"></div><div class="sp-orbit"><i></i></div><div class="sp-tile">${logoImg(ctx.logo)}</div></div>`
       : '';
     const l = s.link;
     const card = l
-      ? `<a class="sp-card" href="${esc(l.url)}" target="_blank" rel="noopener">`
+      ? `<a class="sp-card" href="${esc(l.url)}" target="_blank" rel="noopener"${eurl(l, 'url')}>`
         + (l.qr !== false ? `<div class="sp-qrbox">${qrSvg(l.url, ctx.logo, `QR-код: ${l.url}`)}</div>` : '')
-        + `<div>${l.label ? `<small>${t(l.label)}</small>` : ''}<b>${t(linkText(l))}</b></div></a>`
+        + `<div>${l.label ? `<small${ea(l, 'label')}>${t(l.label)}</small>` : ''}<b${ea(l, 'text')}>${t(linkText(l))}</b></div></a>`
       : '';
     const bts = asArray(s.buttons).map((b) => button(b, 'sp-gbt')).join('');
 
@@ -57,11 +59,11 @@ defineTemplate<SpaceSlide>('space', {
       + `<div class="sp-hubs">${hubs}</div>`
       + `<div class="sp-shoot a"></div><div class="sp-shoot b" style="--sx:70%;--sy:8%"></div>`
       + `<div class="sp-wrap">`
-      + (s.badge ? `<div class="sp-badge r"><i class="sp-dot"></i>${t(s.badge)}</div>` : '')
+      + (s.badge ? `<div class="sp-badge r"><i class="sp-dot"></i>${tx(s, 'badge')}</div>` : '')
       + logo
-      + `<h1 aria-label="${esc(s.title)}">${words(s.title, 'sp-w', 0.4, 0.3)}</h1>`
+      + `<h1 aria-label="${esc(s.title)}"${ea(s, 'title')}>${words(s.title, 'sp-w', 0.4, 0.3)}</h1>`
       + `<div class="sp-rule"></div>`
-      + (s.lead ? `<p class="sp-lead">${t(s.lead)}</p>` : '')
+      + (s.lead ? `<p class="sp-lead"${ea(s, 'lead')}>${t(s.lead)}</p>` : '')
       + card
       + (bts ? `<div class="sp-row">${bts}</div>` : '')
       + `</div>`;

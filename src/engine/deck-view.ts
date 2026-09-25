@@ -9,19 +9,29 @@ export const reducedMotion = (): boolean => matchMedia('(prefers-reduced-motion:
 /** Все слайды колоды на одной сцене 1280×720; показывается слайд с классом .on */
 export class DeckView {
   readonly stage: HTMLElement;
-  readonly slides: HTMLElement[];
+  slides: HTMLElement[] = [];
   private current = -1;
+  private cleanup: (() => void) | null = null;
 
   constructor(deck: Deck, container: HTMLElement) {
     this.stage = document.createElement('div');
     this.stage.className = 'stage canvas';
+    container.appendChild(this.stage);
+    this.build(deck);
+  }
+
+  /** Перерисовывает все слайды из данных, оставаясь на текущем слайде. */
+  build(deck: Deck): void {
+    this.cleanup?.();
     const r = new Renderer(deck, deck.brand?.logo);
     this.stage.innerHTML = deck.slides.map((s, i) => r.slide(s, i)).join('');
-    container.appendChild(this.stage);
     this.slides = [...this.stage.querySelectorAll<HTMLElement>(':scope > .slide')];
     // Порядок появления блоков: каждому .r на слайде — свой индекс задержки
     this.slides.forEach((s) => s.querySelectorAll<HTMLElement>('.r').forEach((e, k) => e.style.setProperty('--i', String(k))));
-    r.activate(this.stage, { stage: this.stage, reducedMotion: reducedMotion() });
+    this.cleanup = r.activate(this.stage, { stage: this.stage, reducedMotion: reducedMotion() });
+    const cur = this.current;
+    this.current = -1;
+    if (cur >= 0 && this.slides.length) this.show(Math.min(cur, this.slides.length - 1));
   }
 
   get index(): number {
@@ -36,7 +46,7 @@ export class DeckView {
 
   /** Вписывает сцену в прямоугольник с сохранением пропорций. */
   fit(width: number, height: number, offsetY = 0): number {
-    const s = Math.min(width / W, height / H);
+    const s = Math.max(0.05, Math.min(width / W, height / H));
     this.stage.style.transform = `translate(-50%, -50%) scale(${s})`;
     this.stage.style.top = `calc(50% + ${offsetY}px)`;
     return s;
@@ -67,6 +77,12 @@ export function staticSlide(deck: Deck, index: number, width?: number): HTMLElem
   // SMIL-анимации CSS не останавливает: убираем их из статичной копии
   inner.querySelectorAll('animateMotion').forEach((a) => a.parentElement?.remove());
   inner.querySelectorAll('animate').forEach((a) => a.remove());
+  // Миниатюра — картинка, а не место для правки
+  inner.querySelectorAll('[data-edit],[data-edit-img],[data-edit-url]').forEach((e) => {
+    e.removeAttribute('data-edit');
+    e.removeAttribute('data-edit-img');
+    e.removeAttribute('data-edit-url');
+  });
   box.appendChild(inner);
   thumbObserver?.observe(box);
   return box;

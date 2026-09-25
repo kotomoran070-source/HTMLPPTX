@@ -78,7 +78,7 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
   background: var(--logo-bg);
   border: 2px solid var(--acb);
   border-radius: 20px;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, .14);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--ac) 14%, transparent);
 }
 .logo img { width: 70%; height: 70%; display: block; }
 

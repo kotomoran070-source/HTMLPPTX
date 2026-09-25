@@ -1,3 +1,4 @@
+import type { Deck } from '../types';
 import type { Theme } from './theme';
 
 export type SyncMsg =
@@ -5,6 +6,7 @@ export type SyncMsg =
   | { type: 'goto'; index: number }
   | { type: 'theme'; theme: Theme }
   | { type: 'black'; value: boolean }
+  | { type: 'deck'; deck: Deck }
   | { type: 'hello' };
 
 interface Envelope { ns: 'htmlpptx'; deck: string; id: string; msg: SyncMsg }

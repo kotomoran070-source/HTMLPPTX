@@ -1,6 +1,9 @@
 import { icon } from '../components/icons';
 import type { Deck } from '../types';
+import { applyAccent } from './accent';
 import { DeckView, staticSlide } from './deck-view';
+import { Editor, SLIDE_PRESETS } from './editor/editor';
+import { canSaveFile } from './editor/persist';
 import { esc } from './html';
 import { slideLabel } from './render';
 import { Sync } from './sync';
@@ -14,9 +17,24 @@ export function presenterUrl(): string {
   return u.toString();
 }
 
-/** Основное окно показа: сцена, навигация, обзор, связь с окном докладчика. */
-export function startShow(deck: Deck, deckKey: string): void {
-  const n = deck.slides.length;
+export function updateFavicon(url: string | undefined): void {
+  let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+  if (!url) {
+    link?.remove();
+    return;
+  }
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.appendChild(link);
+  }
+  if (link.href !== url) link.href = url;
+}
+
+/** Основное окно показа: сцена, навигация, обзор, режим правки, связь с окном докладчика. */
+export function startShow(deck: Deck, deckKey: string, devServer: boolean): void {
+  const count = () => deck.slides.length;
+  const editable = devServer || canSaveFile();
   document.body.classList.add('show');
   document.body.insertAdjacentHTML('beforeend', `
 <div class="progress-top" id="pg"></div>
@@ -31,6 +49,7 @@ export function startShow(deck: Deck, deckKey: string): void {
     <button class="btn primary" id="nx" type="button">Далее</button>
   </div>
   <div class="navside r">
+    ${editable ? `<button class="ibtn" id="ed-btn" type="button" aria-pressed="false" aria-label="Режим правки (E)" title="Режим правки (E)">${icon('pencil')}</button>` : ''}
     <button class="ibtn" id="ov" type="button" aria-label="Все слайды (O)" title="Все слайды (O)">${icon('grid')}</button>
     <button class="ibtn" id="pr" type="button" aria-label="Режим докладчика (P)" title="Режим докладчика (P)">${icon('presenter')}</button>
     <button class="ibtn" id="fs" type="button" aria-label="Во весь экран (F)" title="Во весь экран (F)">${icon('fullscreen')}</button>
@@ -39,8 +58,9 @@ export function startShow(deck: Deck, deckKey: string): void {
 <div class="ovbd" id="ovbd" role="dialog" aria-modal="true" aria-label="Все слайды">
   <div class="ovpanel">
     <div class="ovhead"><b>Все слайды</b><button class="ibtn small" id="ovx" type="button" aria-label="Закрыть">${icon('close')}</button></div>
+    <p class="mu ovedit-hint">Перетащите слайд, чтобы поменять порядок. Кнопки на миниатюре: дублировать и удалить. С клавиатуры: Alt + ← → переставить, Delete — удалить.</p>
     <div class="ovgrid" id="ovgrid"></div>
-    <p class="mu ovkeys">← → пробел — листать · Home/End — в начало/конец · номер + Enter — перейти · O — обзор · P — докладчик · F — весь экран · T — тема · B — чёрный экран</p>
+    <p class="mu ovkeys">← → пробел — листать · Home/End — в начало/конец · номер + Enter — перейти · O — обзор · P — докладчик · F — весь экран · T — тема · B — чёрный экран${editable ? ' · E — правка' : ''}</p>
   </div>
 </div>
 <div class="blackout" id="blk"></div>`);
@@ -51,50 +71,143 @@ export function startShow(deck: Deck, deckKey: string): void {
   const sync = new Sync(deckKey);
   let index = 0;
   let black = false;
+  let editor: Editor | null = null;
 
   const fit = () => {
     const full = document.body.classList.contains('fs');
     const navH = full ? 0 : NAV_H;
-    view.fit(innerWidth, innerHeight - navH, -navH / 2);
+    const ins = editor?.insets() ?? { top: 0, bottom: 0 };
+    const h = innerHeight - navH - ins.top - ins.bottom;
+    view.fit(innerWidth, h, ins.top / 2 - (navH + ins.bottom) / 2);
   };
   addEventListener('resize', fit);
   fit();
 
   const broadcast = () => sync.send({ type: 'state', index, theme: currentTheme(), black });
+  let deckTimer = 0;
+  const broadcastDeck = () => {
+    clearTimeout(deckTimer);
+    deckTimer = window.setTimeout(() => sync.send({ type: 'deck', deck: JSON.parse(JSON.stringify(deck)) }), 250);
+  };
 
-  function go(i: number, push = true): void {
-    const next = Math.max(0, Math.min(n - 1, i));
-    const changed = next !== index || view.index === -1;
-    index = next;
-    view.show(index);
+  function updateChrome(): void {
+    const n = count();
     $('ct').textContent = `${index + 1} из ${n}`;
-    $('nx').style.visibility = index === n - 1 ? 'hidden' : 'visible';
+    $('nx').style.visibility = index >= n - 1 ? 'hidden' : 'visible';
     $('pv').style.visibility = index ? 'visible' : 'hidden';
     $('pg').style.width = `${((index + 1) / n) * 100}%`;
+  }
+
+  function go(i: number, push = true): void {
+    const next = Math.max(0, Math.min(count() - 1, i));
+    const changed = next !== index || view.index !== next;
+    index = next;
+    view.show(index);
+    updateChrome();
     if (push && changed) history.replaceState(null, '', `#${index + 1}`);
-    if (changed) broadcast();
+    if (changed) {
+      broadcast();
+      editor?.onSlideChange();
+      if (ovOpen()) markCurrent();
+    }
   }
 
   // --- обзор ---
   const ovbd = $('ovbd');
   const ovgrid = $('ovgrid');
   let ovBuilt = false;
-  const ovCards: HTMLElement[] = [];
-  function ovShow(): void {
-    if (!ovBuilt) {
-      deck.slides.forEach((s, i) => {
-        const card = document.createElement('button');
-        card.type = 'button';
-        card.className = 'ovcard';
-        card.appendChild(staticSlide(deck, i));
-        card.insertAdjacentHTML('beforeend', `<span class="ovmeta"><span class="ovnum">${i + 1}</span><span class="ovttl">${esc(slideLabel(s, i))}</span></span>`);
-        card.addEventListener('click', () => { go(i); ovHide(); });
-        ovgrid.appendChild(card);
-        ovCards.push(card);
+  let ovCards: HTMLElement[] = [];
+  let dragFrom = -1;
+
+  function buildOverview(): void {
+    ovgrid.innerHTML = '';
+    ovCards = deck.slides.map((s, i) => {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'ovcard';
+      card.appendChild(staticSlide(deck, i));
+      card.insertAdjacentHTML('beforeend', `<span class="ovmeta"><span class="ovnum">${i + 1}</span><span class="ovttl">${esc(slideLabel(s, i))}</span></span>`
+        + `<span class="ovtools"><span data-a="dup" title="Дублировать слайд" role="button" aria-label="Дублировать слайд">${icon('copy')}</span>`
+        + `<span data-a="del" class="danger" title="Удалить слайд" role="button" aria-label="Удалить слайд">${icon('trash')}</span></span>`);
+      card.addEventListener('click', (e) => {
+        const a = (e.target as Element).closest<HTMLElement>('[data-a]')?.dataset.a;
+        if (a === 'dup' && editor?.active) return editor.duplicateSlide(i);
+        if (a === 'del' && editor?.active) return editor.deleteSlide(i);
+        go(i);
+        ovHide();
       });
-      ovBuilt = true;
+      card.addEventListener('keydown', (e) => {
+        if (!editor?.active) return;
+        if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+          e.preventDefault();
+          e.stopPropagation();
+          const to = i + (e.key === 'ArrowLeft' ? -1 : 1);
+          editor.moveSlide(i, to);
+          ovCards[Math.max(0, Math.min(count() - 1, to))]?.focus();
+        } else if (e.key === 'Delete') {
+          e.preventDefault();
+          e.stopPropagation();
+          editor.deleteSlide(i);
+          ovCards[Math.min(i, count() - 1)]?.focus();
+        }
+      });
+      // Перетаскивание для смены порядка
+      card.draggable = !!editor?.active;
+      card.addEventListener('dragstart', (e) => {
+        dragFrom = i;
+        card.classList.add('dragging');
+        e.dataTransfer?.setData('text/plain', String(i));
+        if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+      });
+      card.addEventListener('dragend', () => {
+        dragFrom = -1;
+        ovCards.forEach((c) => c.classList.remove('dragging', 'drop-before', 'drop-after'));
+      });
+      card.addEventListener('dragover', (e) => {
+        if (dragFrom < 0) return;
+        e.preventDefault();
+        const r = card.getBoundingClientRect();
+        const after = e.clientX > r.left + r.width / 2;
+        ovCards.forEach((c) => c.classList.remove('drop-before', 'drop-after'));
+        card.classList.add(after ? 'drop-after' : 'drop-before');
+      });
+      card.addEventListener('drop', (e) => {
+        if (dragFrom < 0) return;
+        e.preventDefault();
+        const r = card.getBoundingClientRect();
+        const after = e.clientX > r.left + r.width / 2;
+        let to = i + (after ? 1 : 0);
+        if (dragFrom < to) to -= 1;
+        const from = dragFrom;
+        dragFrom = -1;
+        editor?.moveSlide(from, to);
+      });
+      ovgrid.appendChild(card);
+      return card;
+    });
+    if (editor?.active) {
+      const add = document.createElement('div');
+      add.className = 'ovadd';
+      add.innerHTML = `<b>Новый слайд после текущего</b>` + SLIDE_PRESETS.map((p, k) =>
+        `<button type="button" data-p="${k}">${icon('plus')}${esc(p.name)}</button>`).join('');
+      add.addEventListener('click', (e) => {
+        const k = (e.target as Element).closest<HTMLElement>('[data-p]')?.dataset.p;
+        if (k === undefined) return;
+        editor?.addSlide(index, Number(k));
+        ovHide();
+      });
+      ovgrid.appendChild(add);
     }
+    ovBuilt = true;
+  }
+
+  function markCurrent(): void {
     ovCards.forEach((c, i) => c.classList.toggle('cur', i === index));
+  }
+
+  function ovShow(): void {
+    if (!ovBuilt) buildOverview();
+    markCurrent();
     ovbd.classList.add('on');
     ovCards[index]?.focus({ preventScroll: true });
     ovCards[index]?.scrollIntoView({ block: 'nearest' });
@@ -103,6 +216,40 @@ export function startShow(deck: Deck, deckKey: string): void {
     ovbd.classList.remove('on');
   }
   const ovOpen = () => ovbd.classList.contains('on');
+
+  // --- режим правки ---
+  if (editable) {
+    editor = new Editor({
+      deck,
+      deckKey,
+      stage: () => view.stage,
+      index: () => index,
+      go: (i) => go(i),
+      refresh: (rebuild) => {
+        if (rebuild) {
+          view.build(deck);
+          if (index > count() - 1) index = count() - 1;
+          view.show(index);
+          updateChrome();
+          ovBuilt = false;
+          if (ovOpen()) {
+            const focused = ovCards.indexOf(document.activeElement as HTMLElement);
+            buildOverview();
+            markCurrent();
+            if (focused >= 0) ovCards[Math.min(focused, ovCards.length - 1)]?.focus();
+          }
+        }
+        updateFavicon(deck.brand?.logo);
+        broadcastDeck();
+      },
+      relayout: () => {
+        fit();
+        ovBuilt = false;
+        if (ovOpen()) { buildOverview(); markCurrent(); }
+      },
+    }, devServer);
+    $('ed-btn').addEventListener('click', () => editor!.toggle());
+  }
 
   // --- чёрный экран ---
   function setBlack(v: boolean): void {
@@ -152,9 +299,11 @@ export function startShow(deck: Deck, deckKey: string): void {
   let digits = '';
   let digitsTimer = 0;
   document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-    const tag = (e.target as HTMLElement)?.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    const el = e.target as HTMLElement;
+    const typing = el?.isContentEditable || el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.tagName === 'SELECT';
+    // Esc сначала закрывает обзор, и только потом — режим правки
+    if (!typing && !(ovOpen() && e.key === 'Escape') && editor?.handleKey(e)) return;
+    if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key;
     if (ovOpen()) {
       if (k === 'Escape' || k === 'o' || k === 'O' || k === 'щ' || k === 'Щ') { e.preventDefault(); ovHide(); }
@@ -176,7 +325,7 @@ export function startShow(deck: Deck, deckKey: string): void {
     const act: Record<string, () => void> = {
       ArrowRight: () => go(index + 1), ArrowDown: () => go(index + 1), PageDown: () => go(index + 1), ' ': () => go(index + 1),
       ArrowLeft: () => go(index - 1), ArrowUp: () => go(index - 1), PageUp: () => go(index - 1), Backspace: () => go(index - 1),
-      Home: () => go(0), End: () => go(n - 1),
+      Home: () => go(0), End: () => go(count() - 1),
     };
     // Буквенные клавиши работают и в русской раскладке
     const letters: Record<string, () => void> = {
@@ -186,6 +335,10 @@ export function startShow(deck: Deck, deckKey: string): void {
       p: openPresenter, 'з': openPresenter,
       b: () => setBlack(!black), 'и': () => setBlack(!black), '.': () => setBlack(!black),
     };
+    if (editor) {
+      letters.e = () => editor!.toggle();
+      letters['у'] = () => editor!.toggle();
+    }
     const fn = act[k] ?? letters[lower];
     if (fn) {
       e.preventDefault();
@@ -198,7 +351,7 @@ export function startShow(deck: Deck, deckKey: string): void {
   let ty = 0;
   addEventListener('touchstart', (e) => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
   addEventListener('touchend', (e) => {
-    if (ovOpen()) return;
+    if (ovOpen() || editor?.active) return;
     const dx = e.changedTouches[0].clientX - tx;
     const dy = e.changedTouches[0].clientY - ty;
     if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy)) go(index + (dx < 0 ? 1 : -1));
@@ -214,11 +367,14 @@ export function startShow(deck: Deck, deckKey: string): void {
   // --- сообщения от окна докладчика ---
   sync.on((m) => {
     if (m.type === 'goto') go(m.index);
-    else if (m.type === 'hello') broadcast();
-    else if (m.type === 'theme' && m.theme !== currentTheme()) setTheme(m.theme);
+    else if (m.type === 'hello') {
+      if (editor?.touched) sync.send({ type: 'deck', deck: JSON.parse(JSON.stringify(deck)) });
+      broadcast();
+    } else if (m.type === 'theme' && m.theme !== currentTheme()) setTheme(m.theme);
     else if (m.type === 'black' && m.value !== black) setBlack(m.value);
   });
 
+  applyAccent(deck.theme?.accent);
   index = -1;
   go(fromHash(), false);
 }

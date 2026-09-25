@@ -6,6 +6,9 @@ lang: ru
 brand:
   name: "{{title}}"
   logo: ./assets/logo.svg
+# Акцентный цвет презентации (без этой строки — стандартный синий):
+# theme:
+#   accent: "#16A34A"
 
 slides:
 

@@ -1,0 +1,127 @@
+/* Режим правки */
+
+/* Анимации на сцене выключены: элементы стоят на местах и по ним удобно кликать */
+body.editing .stage *, body.editing .stage *::before, body.editing .stage *::after,
+body.editing .stage .slide.on { animation: none !important; transition: none !important; }
+body.editing .stage .fin .rg circle { opacity: .35; }
+
+/* Подписи кнопок на финальных слайдах видны всегда, чтобы их можно было править */
+body.editing .stage .bt span, body.editing .stage .sp-gbt span { max-width: none; opacity: 1; margin-right: 14px; }
+
+body.editing .stage [data-edit] { cursor: text; border-radius: 3px; }
+body.editing .stage [data-edit]:not(svg *):hover { outline: 2px dashed color-mix(in srgb, var(--ac) 70%, transparent); outline-offset: 3px; }
+body.editing .stage svg [data-edit]:hover { fill: var(--ac); text-decoration: underline; }
+body.editing .stage .space [data-edit]:not(svg *):hover { outline-color: rgba(125, 211, 252, .8); }
+body.editing .stage [data-edit-img] { cursor: pointer; }
+body.editing .stage [data-edit-img]:not(image):hover { outline: 2px solid color-mix(in srgb, var(--ac) 70%, transparent); outline-offset: 2px; }
+body.editing .stage image[data-edit-img]:hover { opacity: .75; }
+body.editing .stage .ed-drop { outline: 3px solid var(--ac) !important; outline-offset: 2px; filter: brightness(1.05); }
+body.editing .stage .ed-active {
+  outline: 2px solid var(--ac) !important; outline-offset: 3px; cursor: text;
+  background: color-mix(in srgb, var(--surf) 85%, transparent); box-shadow: 0 0 0 6px color-mix(in srgb, var(--ac) 12%, transparent);
+  white-space: pre-wrap; caret-color: var(--ac); -webkit-user-modify: read-write-plaintext-only;
+}
+body.editing .stage .space .ed-active { background: rgba(5, 7, 15, .6); }
+body.editing .stage .fin h1.ed-active, body.editing .stage .space h1.ed-active { display: block; }
+body.editing .stage a[data-edit-url] { cursor: default; }
+
+/* Кнопка режима правки в панели навигации */
+#ed-btn[aria-pressed="true"] { background: var(--ac); color: #fff; border-color: var(--ac); }
+
+/* Верхняя панель */
+.edbar {
+  position: fixed; top: 0; left: 0; right: 0; height: 52px; z-index: 12;
+  display: none; align-items: center; justify-content: space-between; gap: 12px; padding: 0 12px;
+  background: var(--surf); border-bottom: 1px solid var(--bd); box-shadow: 0 2px 10px rgba(15, 23, 42, .06);
+}
+body.editing .edbar { display: flex; }
+body.editing .progress-top { top: 52px; }
+.edbar-l, .edbar-c, .edbar-r { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.edbar-title { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 14px; color: var(--ach); margin-right: 4px; white-space: nowrap; }
+.edbar-title .ic, .edbar .btn .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.btn.small { padding: 6px 12px; font-size: 13px; }
+.edbar .btn[aria-pressed="true"] { background: var(--acs); }
+.ibtn[disabled] { opacity: .4; cursor: default; box-shadow: none; }
+.edcolor { display: inline-flex; align-items: center; gap: 6px; font: 600 13px var(--font); color: var(--tx2); cursor: pointer; padding: 3px 10px 3px 4px; border: 1px solid var(--bd); border-radius: 9999px; }
+.edcolor:hover { border-color: var(--acb); }
+.edcolor input { width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+.edcolor input::-webkit-color-swatch-wrapper { padding: 0; }
+.edcolor input::-webkit-color-swatch { border: 1px solid rgba(0, 0, 0, .15); border-radius: 50%; }
+.edcolor input::-moz-color-swatch { border: 1px solid rgba(0, 0, 0, .15); border-radius: 50%; }
+.edstatus { font-size: 12px; color: var(--mu); white-space: nowrap; }
+.edstatus.ok { color: #16A34A; }
+.edstatus.warn { color: #B45309; }
+.edstatus.err { color: #DC2626; font-weight: 600; }
+:root[data-theme="dark"] .edstatus.ok { color: #4ADE80; }
+:root[data-theme="dark"] .edstatus.warn { color: #FBBF24; }
+@media (max-width: 980px) {
+  .edbar .btn span, .edcolor span, .edstatus { display: none; }
+}
+
+/* Заметки */
+.ednotes {
+  position: fixed; left: 0; right: 0; bottom: 56px; z-index: 11; height: 150px;
+  display: none; flex-direction: column; gap: 6px; padding: 10px 16px 12px;
+  background: var(--surf); border-top: 1px solid var(--bd);
+}
+body.editing .ednotes.on { display: flex; }
+.ednotes label { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--mu); }
+.ednotes textarea { flex: 1; resize: none; font: 15px/1.5 var(--font); color: var(--tx); background: var(--bg); border: 1px solid var(--bd); border-radius: 10px; padding: 8px 12px; }
+.ednotes textarea:focus { outline: 2px solid var(--ac); outline-offset: 0; border-color: transparent; }
+
+/* Подсказка у картинок и ссылок */
+.edhint {
+  position: fixed; z-index: 13; display: none; align-items: center; gap: 8px; padding: 4px;
+  background: var(--surf); border: 1px solid var(--bd); border-radius: 10px; box-shadow: 0 6px 20px rgba(15, 23, 42, .18);
+}
+.edhint.on { display: flex; }
+.edhint button { display: inline-flex; align-items: center; gap: 6px; border: 0; background: var(--ac); color: #fff; border-radius: 7px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+.edhint .ic { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.edhint small { font-size: 11px; color: var(--mu); padding-right: 6px; }
+
+/* Всплывающее поле */
+.edpop {
+  position: fixed; z-index: 14; display: none; width: 360px; max-width: calc(100vw - 16px); padding: 12px;
+  background: var(--surf); border: 1px solid var(--bd); border-radius: 12px; box-shadow: 0 16px 40px rgba(15, 23, 42, .25);
+}
+.edpop.on { display: block; }
+.edpop label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 700; color: var(--mu); }
+.edpop input { font: 15px var(--font); color: var(--tx); background: var(--bg); border: 1px solid var(--bd2); border-radius: 8px; padding: 8px 10px; }
+.edpop input:focus { outline: 2px solid var(--ac); outline-offset: 0; }
+.edpop-hint { margin: 8px 0 0; font-size: 12px; color: var(--mu); max-width: none; }
+.edpop-err { margin: 8px 0 0; font-size: 12px; color: #DC2626; max-width: none; }
+.edpop-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+
+/* Уведомления */
+.edtoast {
+  position: fixed; left: 50%; bottom: 76px; z-index: 15; transform: translate(-50%, 12px); opacity: 0; pointer-events: none;
+  max-width: min(640px, calc(100vw - 32px)); padding: 10px 16px; border-radius: 10px;
+  background: #0F172A; color: #E6EBF3; font-size: 14px; line-height: 1.4; box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+  transition: opacity .2s, transform .2s var(--ease);
+}
+.edtoast.on { opacity: 1; transform: translate(-50%, 0); }
+.edtoast.err { background: #7F1D1D; }
+body.editing .ednotes.on ~ .edtoast { bottom: 226px; }
+
+/* Обзор в режиме правки: перестановка, дублирование, удаление */
+.ovcard { position: relative; }
+.ovtools { position: absolute; top: 12px; right: 12px; display: none; gap: 4px; }
+body.editing .ovcard:hover .ovtools, body.editing .ovcard:focus-within .ovtools { display: flex; }
+.ovtools span { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--surf); border: 1px solid var(--bd); color: var(--tx2); cursor: pointer; box-shadow: 0 2px 6px rgba(15, 23, 42, .12); }
+.ovtools span:hover { color: var(--ac); border-color: var(--acb); }
+.ovtools span.danger:hover { color: #DC2626; border-color: #FCA5A5; }
+.ovtools .ic { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+body.editing .ovcard[draggable="true"] { cursor: grab; }
+.ovcard.dragging { opacity: .4; }
+.ovcard.drop-before { box-shadow: -4px 0 0 0 var(--ac); }
+.ovcard.drop-after { box-shadow: 4px 0 0 0 var(--ac); }
+.ovadd { border: 2px dashed var(--bd2); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; justify-content: center; gap: 8px; background: transparent; }
+.ovadd b { font-size: 13px; color: var(--mu); }
+.ovadd button { text-align: left; border: 1px solid var(--bd); background: var(--surf); border-radius: 8px; padding: 7px 10px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.ovadd button:hover { border-color: var(--acb); color: var(--ach); }
+.ovadd .ic { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.ovedit-hint { display: none; }
+body.editing .ovedit-hint { display: block; }
+
+/* [hidden] сильнее display у кнопок */
+.edbar [hidden], .ovadd [hidden] { display: none !important; }

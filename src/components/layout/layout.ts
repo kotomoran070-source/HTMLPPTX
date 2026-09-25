@@ -1,5 +1,6 @@
 import { defineBlock } from '../../engine/component';
 import { asArray, esc, styleAttr, t } from '../../engine/html';
+import { ea, eimg } from '../../engine/marks';
 import type { Block } from '../../types';
 import './layout.css';
 
@@ -65,14 +66,14 @@ interface TextProps extends Block {
 defineBlock<TextProps>('text', {
   render(p) {
     const cls = p.size === 'lead' ? 'lead' : p.size === 'small' ? 'mu' : '';
-    return `<p class="${cls}"${styleAttr(p.style)}>${t(p.text)}</p>`;
+    return `<p class="${cls}"${ea(p, 'text')}${styleAttr(p.style)}>${t(p.text)}</p>`;
   },
 });
 
 /** Мелкая приглушённая подпись. */
 defineBlock<TextProps>('note', {
   render(p) {
-    return `<p class="mu note"${styleAttr(p.style)}>${t(p.text)}</p>`;
+    return `<p class="mu note"${ea(p, 'text')}${styleAttr(p.style)}>${t(p.text)}</p>`;
   },
 });
 
@@ -82,7 +83,8 @@ interface ListProps extends Block {
 
 defineBlock<ListProps>('list', {
   render(p) {
-    return `<ul class="list"${styleAttr(p.style)}>${asArray(p.items).map((i) => `<li>${t(i)}</li>`).join('')}</ul>`;
+    const items = asArray(p.items);
+    return `<ul class="list"${styleAttr(p.style)}>${items.map((i, k) => `<li${ea(items, k)}>${t(i)}</li>`).join('')}</ul>`;
   },
 });
 
@@ -96,8 +98,10 @@ interface ImageProps extends Block {
 /** Картинка из папки презентации: src: ./assets/photo.jpg */
 defineBlock<ImageProps>('image', {
   render(p) {
-    const img = `<img src="${esc(p.src)}" alt="${esc(p.alt ?? p.caption ?? '')}" style="object-fit:${p.fit ?? 'cover'}">`;
-    const cap = p.caption ? `<figcaption class="mu">${t(p.caption)}</figcaption>` : '';
+    const img = p.src
+      ? `<img src="${esc(p.src)}" alt="${esc(p.alt ?? p.caption ?? '')}" style="object-fit:${p.fit ?? 'cover'}"${eimg(p, 'src')}>`
+      : `<div class="image-empty"${eimg(p, 'src')}>Нет картинки: укажите src в deck.yaml или перетащите файл в режиме правки</div>`;
+    const cap = p.caption ? `<figcaption class="mu"${ea(p, 'caption')}>${t(p.caption)}</figcaption>` : '';
     return `<figure class="image r"${styleAttr(p.style)}>${img}${cap}</figure>`;
   },
 });

@@ -5,7 +5,7 @@
 .fin .rg circle { fill: none; stroke: var(--ac); stroke-width: 1.3; vector-effect: non-scaling-stroke; transform-box: fill-box; transform-origin: center; animation: ring2 6s ease-out infinite; animation-delay: var(--d); opacity: 0; }
 .static .fin .rg circle, .fin.static .rg circle { opacity: .4; }
 
-.fin .beam { position: absolute; top: 0; bottom: 0; left: 0; width: 200px; background: linear-gradient(90deg, transparent, rgba(37, 99, 235, .12), transparent); transform: translateX(-300px) skewX(-18deg); pointer-events: none; z-index: 1; }
+.fin .beam { position: absolute; top: 0; bottom: 0; left: 0; width: 200px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ac) 12%, transparent), transparent); transform: translateX(-300px) skewX(-18deg); pointer-events: none; z-index: 1; }
 .slide.on.fin .beam { animation: beam 2.6s ease-in-out 1.5s both; }
 
 .fin > .cap { position: absolute; top: 44px; left: 0; right: 0; color: var(--mu); font-size: 14px; letter-spacing: .12em; }
@@ -64,7 +64,7 @@
 .bt.neutral:hover { background: var(--bd); box-shadow: none; }
 
 @keyframes ring2 { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(9.5); opacity: 0; } }
-@keyframes glow { 50% { box-shadow: 0 0 0 12px rgba(37, 99, 235, .10), 0 2px 8px rgba(37, 99, 235, .14); } }
+@keyframes glow { 50% { box-shadow: 0 0 0 12px color-mix(in srgb, var(--ac) 10%, transparent), 0 2px 8px color-mix(in srgb, var(--ac) 14%, transparent); } }
 @keyframes wd { from { opacity: 0; filter: blur(16px); letter-spacing: .22em; transform: translateY(16px); } }
 @keyframes ex { from { width: 0; opacity: 0; } }
 @keyframes tr { from { opacity: 0; letter-spacing: .3em; } }

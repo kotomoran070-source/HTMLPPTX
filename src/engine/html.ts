@@ -1,5 +1,3 @@
-import type { ChipData } from '../types';
-
 const ESC: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 
 /** Экранирование для текста и значений атрибутов. */
@@ -18,23 +16,6 @@ export function t(value: unknown): string {
 export function styleAttr(...parts: (string | number | undefined | null | false)[]): string {
   const css = parts.filter(Boolean).join(';');
   return css ? ` style="${esc(css)}"` : '';
-}
-
-export function chip(c: ChipData): string {
-  let text: string;
-  let accent: boolean;
-  if (typeof c === 'string') {
-    accent = c.endsWith('*');
-    text = accent ? c.slice(0, -1).trimEnd() : c;
-  } else {
-    text = c.text;
-    accent = !!c.accent;
-  }
-  return `<span class="chip${accent ? ' a' : ''}">${t(text)}</span>`;
-}
-
-export function chips(list: ChipData[] | undefined): string {
-  return (list ?? []).map(chip).join('');
 }
 
 export function asArray<T>(v: T | T[] | undefined | null): T[] {

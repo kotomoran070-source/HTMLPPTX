@@ -16,8 +16,9 @@ export default defineConfig(({ command }) => ({
   build: {
     outDir: process.env.OUT_DIR || 'dist/.build',
     emptyOutDir: true,
-    // Всё внутрь HTML: картинки, шрифты, видео — файл открывается без интернета
-    assetsInlineLimit: () => true,
+    // Всё внутрь HTML: картинки, шрифты, видео — файл открывается без интернета.
+    // В yarn dev картинки остаются файлами: режим правки сохраняет их пути в deck.yaml
+    assetsInlineLimit: command === 'build' ? () => true : 0,
     cssCodeSplit: false,
     reportCompressedSize: false,
     chunkSizeWarningLimit: 4096,

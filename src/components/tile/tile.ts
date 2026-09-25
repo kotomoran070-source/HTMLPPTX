@@ -1,5 +1,6 @@
 import { defineBlock } from '../../engine/component';
 import { esc, styleAttr, t } from '../../engine/html';
+import { ea, eimg } from '../../engine/marks';
 import type { Block } from '../../types';
 import './tile.css';
 
@@ -51,7 +52,7 @@ defineBlock<TileProps>('tile', {
       const il = ILLUSTRATIONS[p.illustration ?? 'assembly'] ?? ILLUSTRATIONS.assembly;
       media = `<svg viewBox="${il.viewBox}"${styleAttr(il.maxWidth && `max-width:${il.maxWidth}px`)} aria-hidden="true">${il.svg}</svg>`;
     }
-    const cap = p.caption ? `<span class="mu">${t(p.caption)}</span>` : '';
-    return `<div class="tile r${p.image ? ' photo' : ''}"${styleAttr(p.style)}>${media}${cap}</div>`;
+    const cap = p.caption ? `<span class="mu"${ea(p, 'caption')}>${t(p.caption)}</span>` : '';
+    return `<div class="tile r${p.image ? ' photo' : ''}"${eimg(p, 'image')}${styleAttr(p.style)}>${media}${cap}</div>`;
   },
 });

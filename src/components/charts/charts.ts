@@ -1,5 +1,6 @@
 import { defineBlock } from '../../engine/component';
 import { asArray, esc, num, styleAttr, t } from '../../engine/html';
+import { ea } from '../../engine/marks';
 import type { Block } from '../../types';
 import './charts.css';
 
@@ -43,8 +44,8 @@ defineBlock<LineChartProps>('line-chart', {
       grid += `<line x1="${x0}" x2="${x1}" y1="${yy}" y2="${yy}" stroke="var(--bd)"/>`
         + `<text class="tx" x="0" y="${yy + 3}">${label}${unit ? ' ' + esc(unit) : ''}</text>`;
     }
-    if (p.start) grid += `<text class="tx" x="${x0}" y="184">${esc(p.start)}</text>`;
-    if (p.end) grid += `<text class="tx" x="${x1}" y="184" text-anchor="end">${esc(p.end)}</text>`;
+    if (p.start) grid += `<text class="tx" x="${x0}" y="184"${ea(p, 'start')}>${esc(p.start)}</text>`;
+    if (p.end) grid += `<text class="tx" x="${x1}" y="184" text-anchor="end"${ea(p, 'end')}>${esc(p.end)}</text>`;
     return `<svg class="line-chart" viewBox="0 0 560 190"${styleAttr(p.style)} role="img" aria-label="График">${grid}`
       + `<path class="fd" d="${path}L${x1} 160L${x0} 160Z" fill="var(--acs)"/>`
       + `<path class="dr" pathLength="1" d="${path}" fill="none" stroke="var(--ac)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
@@ -83,10 +84,10 @@ defineBlock<BarsProps>('bars', {
   render(p) {
     const vals = asArray(p.values).map(Number);
     const max = p.max ?? Math.max(...vals) * 1.05;
-    const labels = asArray(p.labels);
+    const labels = Array.isArray(p.labels) ? p.labels : [];
     const bars = vals.map((v, k) =>
       `<div style="--k:${k};height:${((v / max) * 100).toFixed(1)}%"><small>${num(v)}</small>`
-      + (labels[k] ? `<em>${t(labels[k])}</em>` : '') + `</div>`).join('');
+      + (labels[k] ? `<em${ea(labels, k)}>${t(labels[k])}</em>` : '') + `</div>`).join('');
     return `<div class="bars${labels.length ? ' labeled' : ''}"${styleAttr(p.height && `height:${p.height}px`, p.style)}>${bars}</div>`;
   },
 });

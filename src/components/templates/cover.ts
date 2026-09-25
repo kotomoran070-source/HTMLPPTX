@@ -1,6 +1,8 @@
 import { defineTemplate } from '../../engine/component';
-import { esc, t } from '../../engine/html';
+import { t } from '../../engine/html';
+import { ea } from '../../engine/marks';
 import type { Block, SlideData } from '../../types';
+import { logoImg } from './content';
 import './cover.css';
 
 interface CoverSlide extends SlideData {
@@ -15,12 +17,12 @@ interface CoverSlide extends SlideData {
 defineTemplate<CoverSlide>('cover', {
   className: 'cover',
   render(s, ctx) {
-    const logo = ctx.logo ? `<div class="logo r"><img src="${esc(ctx.logo)}" alt=""></div>` : '';
+    const logo = ctx.logo ? `<div class="logo r">${logoImg(ctx.logo)}</div>` : '';
     return `<div class="cover-grid${s.visual ? '' : ' solo'}">`
       + `<div class="cover-text">${logo}`
-      + `<h1 class="r">${t(s.title)}</h1>`
-      + (s.lead ? `<p class="lead r">${t(s.lead)}</p>` : '')
-      + (s.meta ? `<p class="mu r">${t(s.meta)}</p>` : '')
+      + `<h1 class="r"${ea(s, 'title')}>${t(s.title)}</h1>`
+      + (s.lead ? `<p class="lead r"${ea(s, 'lead')}>${t(s.lead)}</p>` : '')
+      + (s.meta ? `<p class="mu r"${ea(s, 'meta')}>${t(s.meta)}</p>` : '')
       + `</div>`
       + (s.visual ? `<div class="cover-visual r">${ctx.block(s.visual)}</div>` : '')
       + `</div>`;

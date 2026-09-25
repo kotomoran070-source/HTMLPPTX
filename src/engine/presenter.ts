@@ -1,5 +1,7 @@
 import { icon } from '../components/icons';
 import type { Deck } from '../types';
+import { applyAccent } from './accent';
+import { replaceContents } from './data';
 import { DeckView, staticSlide } from './deck-view';
 import { esc, t } from './html';
 import { slideLabel } from './render';
@@ -13,7 +15,7 @@ const FONT_KEY = 'htmlpptx-notes-size';
  * Синхронизировано с основным окном в обе стороны.
  */
 export function startPresenter(deck: Deck, deckKey: string): void {
-  const n = deck.slides.length;
+  const count = () => deck.slides.length;
   document.title = `Докладчик — ${deck.title}`;
   document.body.classList.add('presenter');
   document.body.innerHTML = `
@@ -55,6 +57,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
 
   const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
   const cur = $('cur');
+  applyAccent(deck.theme?.accent);
   const view = new DeckView(deck, cur);
   const sync = new Sync(deckKey);
   let index = -1;
@@ -76,14 +79,14 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   $('fp').addEventListener('click', () => { fontSize = Math.min(48, fontSize + 2); applyFont(); });
 
   function render(i: number): void {
-    index = Math.max(0, Math.min(n - 1, i));
+    index = Math.max(0, Math.min(count() - 1, i));
     view.show(index);
     const s = deck.slides[index];
-    $('curl').textContent = `Слайд ${index + 1} из ${n} · ${slideLabel(s, index)}`;
-    $('ct').textContent = `${index + 1} / ${n}`;
+    $('curl').textContent = `Слайд ${index + 1} из ${count()} · ${slideLabel(s, index)}`;
+    $('ct').textContent = `${index + 1} / ${count()}`;
     const next = $('next');
     next.innerHTML = '';
-    if (index + 1 < n) {
+    if (index + 1 < count()) {
       const box = staticSlide(deck, index + 1);
       next.appendChild(box);
       next.insertAdjacentHTML('beforeend', `<div class="mu">${esc(slideLabel(deck.slides[index + 1], index + 1))}</div>`);
@@ -92,11 +95,11 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     }
     $('notes').innerHTML = s.notes ? t(s.notes) : '<span class="mu">Заметок к этому слайду нет. Добавьте поле notes в deck.yaml.</span>';
     $('pv').toggleAttribute('disabled', index === 0);
-    $('nx').toggleAttribute('disabled', index === n - 1);
+    $('nx').toggleAttribute('disabled', index === count() - 1);
   }
 
   function go(i: number): void {
-    const target = Math.max(0, Math.min(n - 1, i));
+    const target = Math.max(0, Math.min(count() - 1, i));
     if (target === index) return;
     render(target);
     sync.send({ type: 'goto', index: target });
@@ -156,7 +159,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     const map: Record<string, () => void> = {
       ArrowRight: () => go(index + 1), ArrowDown: () => go(index + 1), PageDown: () => go(index + 1), ' ': () => go(index + 1),
       ArrowLeft: () => go(index - 1), ArrowUp: () => go(index - 1), PageUp: () => go(index - 1), Backspace: () => go(index - 1),
-      Home: () => go(0), End: () => go(n - 1),
+      Home: () => go(0), End: () => go(count() - 1),
     };
     const letters: Record<string, () => void> = {
       b: () => setBlack(!black), 'и': () => setBlack(!black), '.': () => setBlack(!black),
@@ -167,7 +170,17 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   });
 
   sync.on((m) => {
-    if (m.type === 'state') {
+    if (m.type === 'deck') {
+      // Правки из режима правки основного окна
+      const next = JSON.stringify(m.deck);
+      if (next === JSON.stringify(deck)) return;
+      replaceContents(deck as unknown as Record<string, unknown>, JSON.parse(next));
+      applyAccent(deck.theme?.accent);
+      view.build(deck);
+      const i = Math.min(index, deck.slides.length - 1);
+      index = -1;
+      render(i);
+    } else if (m.type === 'state') {
       $('link').textContent = 'Связь с окном показа есть';
       $('link').classList.add('ok');
       if (m.index !== index) render(m.index);

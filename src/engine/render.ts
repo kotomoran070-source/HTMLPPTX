@@ -4,6 +4,7 @@ import {
   type Component, type MountCtx, type RenderCtx,
 } from './component';
 import { asArray, esc } from './html';
+import { indexPaths } from './marks';
 
 let uidCounter = 0;
 
@@ -19,7 +20,10 @@ interface PendingMount {
 export class Renderer {
   private mounts = new Map<string, PendingMount>();
 
-  constructor(private deck: Deck, private logo?: string) {}
+  constructor(private deck: Deck, private logo?: string) {
+    // Пути нужны для режима правки: каждый элемент знает, какое значение он показывает
+    indexPaths(deck);
+  }
 
   slide(slide: SlideData, index: number, extraClass = ''): string {
     const name = slide.template ?? 'content';

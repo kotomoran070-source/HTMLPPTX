@@ -7,6 +7,10 @@ export interface Deck {
     /** Путь к логотипу относительно deck.yaml, например ./assets/logo.svg */
     logo?: string;
   };
+  theme?: {
+    /** Акцентный цвет, например "#2563EB". Оттенки для обеих тем строятся из него */
+    accent?: string;
+  };
   slides: SlideData[];
 }
 
