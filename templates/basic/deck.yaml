@@ -1,0 +1,80 @@
+# Новая презентация. Справочник компонентов: docs/COMPONENTS.md
+# Логотип: замените assets/logo.svg своим файлом (svg, png или jpg) и поправьте путь ниже.
+
+title: "{{title}}"
+lang: ru
+brand:
+  name: "{{title}}"
+  logo: ./assets/logo.svg
+
+slides:
+
+  - id: cover
+    template: cover
+    label: Титульный слайд
+    title: "{{title}}"
+    lead: "Подзаголовок: о чём эта презентация, одним предложением."
+    meta: "[Месяц год], [команда]"
+    visual:
+      type: network
+      nodes: 6
+    notes: Представиться и назвать тему.
+
+  - id: points
+    title: Главное
+    body:
+      type: grid
+      columns: 3
+      items:
+        - type: card
+          title: Первый итог
+          text: Короткое пояснение в одну-две строки.
+        - type: card
+          title: Второй итог
+          text: Короткое пояснение в одну-две строки.
+        - type: card
+          title: Третий итог
+          text: Короткое пояснение в одну-две строки.
+    notes: Три итога, по одной фразе на каждый.
+
+  - id: process
+    title: Как это работает
+    body:
+      - type: pipeline
+        steps:
+          - title: Шаг 1
+            sub: пояснение
+          - title: Шаг 2
+            sub: пояснение
+          - title: Шаг 3
+            sub: пояснение
+      - type: grid
+        columns: 1fr 1fr
+        items:
+          - type: card
+            title: Цифры
+            body:
+              type: kv
+              keyWidth: 160
+              rows:
+                Показатель А: "[значение]"
+                Показатель Б: "[значение]"
+          - type: card
+            title: Динамика
+            body:
+              type: bars
+              values: [3, 5, 4, 7]
+              labels: [Q1, Q2, Q3, Q4]
+
+  - id: thanks
+    template: finale
+    label: Спасибо за внимание
+    title: Спасибо за внимание
+    lead: Готовы ответить на вопросы
+    link:
+      label: Сайт
+      url: https://example.com/
+    buttons:
+      - icon: mail
+        label: Почта
+        url: mailto:hello@example.com

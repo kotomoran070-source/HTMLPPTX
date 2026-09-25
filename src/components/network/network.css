@@ -1,0 +1,6 @@
+.network { width: 100%; height: auto; display: block; }
+.network .ring { fill: none; stroke: var(--ac); stroke-width: 1.5; transform-box: fill-box; transform-origin: center; animation: ring 3.2s ease-out infinite; animation-delay: var(--d); }
+.network .ln { stroke: var(--bd2); stroke-width: 1.5; stroke-dasharray: 4 5; }
+.network .ndv { fill: var(--surf); stroke: var(--acb); stroke-width: 1.5; }
+.network .pk, .network .sta { fill: var(--ac); }
+@keyframes ring { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(4.2); opacity: 0; } }

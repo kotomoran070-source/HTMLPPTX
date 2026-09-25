@@ -1,0 +1,122 @@
+/* Каркас: сцена 1280×720, слайды, типографика и общие элементы (карточки, чипы). */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { height: 100%; }
+
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--alt);
+  color: var(--tx);
+  font: 16px/1.5 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1280px;
+  height: 720px;
+  transform-origin: center;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid var(--bd);
+  box-shadow: var(--shadow-md);
+  background: radial-gradient(var(--bd) 1px, transparent 1px) 0 0 / 26px 26px, var(--bg);
+}
+
+.slide {
+  display: none;
+  position: absolute;
+  inset: 0;
+  padding: 48px 64px;
+  overflow: hidden;
+}
+
+.slide.on { display: block; }
+.stage .slide.on { animation: enter .55s var(--ease) both; }
+
+/* Появление блоков по очереди: движок проставляет --i каждому .r на слайде */
+.slide.on .r {
+  animation: up .6s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 90ms + 120ms);
+}
+
+/* Статичный режим: миниатюры, превью следующего слайда, печать */
+.static *, .static *::before, .static *::after,
+.static.slide.on { animation: none !important; transition: none !important; }
+
+h1 { font-size: 46px; line-height: 1.1; margin: 22px 0 16px; font-weight: 800; letter-spacing: -.02em; }
+h2 { font-size: 32px; line-height: 1.2; margin: 0 0 24px; font-weight: 700; letter-spacing: -.01em; }
+h3 { font-size: 17px; margin: 0 0 10px; font-weight: 600; }
+p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
+
+.lead { font-size: 20px; color: var(--tx2); }
+.mu { color: var(--mu); font-size: 14px; }
+
+.slide-head { display: flex; align-items: center; gap: 12px; margin: 0 0 24px; padding-right: 56px; }
+.slide-head h2 { margin: 0; }
+
+.logo.corner-logo {
+  position: absolute;
+  top: 22px;
+  right: 28px;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  border-width: 1.5px;
+  z-index: 2;
+}
+
+.logo {
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  background: var(--logo-bg);
+  border: 2px solid var(--acb);
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, .14);
+}
+.logo img { width: 70%; height: 70%; display: block; }
+
+.card {
+  background: var(--surf);
+  border: 1px solid var(--bd);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  padding: 20px;
+}
+
+.chip {
+  display: inline-block;
+  border: 1px solid var(--bd2);
+  border-radius: 9999px;
+  padding: 1px 11px;
+  margin: 0 6px 5px 0;
+  font-size: 13px;
+  background: var(--surf);
+  color: var(--tx);
+  white-space: nowrap;
+}
+.chip.a { background: var(--acs); border-color: var(--acb); color: var(--ach); font-weight: 600; }
+.slide-head .chip { margin: 0; font-size: 12px; }
+
+.block-error {
+  border: 2px dashed #DC2626;
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: #DC2626;
+  background: rgba(220, 38, 38, .06);
+  font: 600 14px/1.4 var(--font);
+}
+
+@keyframes enter { from { opacity: 0; transform: translateX(28px); } }
+@keyframes up { from { opacity: 0; transform: translateY(16px); } }
+@keyframes fi { from { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

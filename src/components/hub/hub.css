@@ -1,0 +1,18 @@
+.hub { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; height: 540px; }
+.hub-item { border-radius: 10px; padding: 14px; border-top: 1px solid var(--bd); transition: background .2s; outline: none; cursor: default; }
+.hub-item:first-child { border-top: 0; }
+.hub-item b { display: block; font-size: 19px; margin-bottom: 2px; }
+.hub-item.hl { background: var(--acs); }
+
+.hb { width: 100%; display: block; overflow: visible; }
+.hb .hub-center { fill: var(--logo-bg); stroke: var(--acb); stroke-width: 2; }
+.hb .nd { outline: none; cursor: default; }
+.hb .nd rect { fill: var(--surf); stroke: var(--bd2); stroke-width: 1.5; transition: fill .2s, stroke .2s; }
+.hb .nd text { fill: var(--tx); font-size: 14px; font-weight: 600; transition: fill .2s; }
+.hb .nd .sb { font-size: 11px; font-weight: 400; fill: var(--mu); }
+.hb .nd.hl rect { fill: var(--ac); stroke: var(--ac); }
+.hb .nd.hl text { fill: var(--on-ac); }
+.hb .nd.hl .sb { fill: var(--hl-sub); }
+.hb .ln { stroke: var(--acb); stroke-width: 1.5; stroke-dasharray: 4 5; animation: dash 1.4s linear infinite; }
+.hb .ln.hl { stroke: var(--ac); }
+@keyframes dash { to { stroke-dashoffset: -18; } }

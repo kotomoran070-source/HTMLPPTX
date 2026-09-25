@@ -1,0 +1,64 @@
+/* Цветовые токены. Светлая тема по умолчанию, тёмная — по системной настройке
+   или по явному выбору (html[data-theme="dark"]). Компоненты используют только эти переменные. */
+:root {
+  --bg: #F8FAFC;
+  --surf: #FDFEFF;
+  --alt: #F3F4F6;
+  --tx: #111827;
+  --tx2: #374151;
+  --mu: #6B7280;
+  --bd: #E5E7EB;
+  --bd2: #D1D5DB;
+  --ac: #2563EB;
+  --ach: #1D4ED8;
+  --acs: #EFF6FF;
+  --acb: #93C5FD;
+  --on-ac: #FFFFFF;
+  --hl-sub: #DBEAFE;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, .06);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, .10);
+  --logo-bg: #FDFEFF;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F172A;
+    --surf: #162033;
+    --alt: #0B1220;
+    --tx: #E6EBF3;
+    --tx2: #CBD5E1;
+    --mu: #94A3B8;
+    --bd: #263449;
+    --bd2: #334155;
+    --ac: #3B82F6;
+    --ach: #93C5FD;
+    --acs: #172554;
+    --acb: #2563EB;
+    --hl-sub: #DBEAFE;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, .35);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0F172A;
+  --surf: #162033;
+  --alt: #0B1220;
+  --tx: #E6EBF3;
+  --tx2: #CBD5E1;
+  --mu: #94A3B8;
+  --bd: #263449;
+  --bd2: #334155;
+  --ac: #3B82F6;
+  --ach: #93C5FD;
+  --acs: #172554;
+  --acb: #2563EB;
+  --hl-sub: #DBEAFE;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, .35);
+  color-scheme: dark;
+}

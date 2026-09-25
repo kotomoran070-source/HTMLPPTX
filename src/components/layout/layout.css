@@ -1,0 +1,15 @@
+.grid { display: grid; gap: 22px; }
+.gi { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.gi > * { flex: 1 1 auto; }
+
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.slide-body > .stack, .slide-body { display: flex; flex-direction: column; gap: 22px; }
+
+.list { margin: 0 0 10px; padding-left: 1.2em; color: var(--tx2); }
+.list li { margin: 0 0 6px; }
+
+.note { margin: 12px 0 0; }
+
+.image { margin: 0; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.image img { width: 100%; height: 100%; min-height: 0; flex: 1; border-radius: 12px; display: block; }
+.image figcaption { text-align: center; }
