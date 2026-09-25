@@ -1,0 +1,19 @@
+.pipe { display: grid; gap: 8px; }
+.st { text-align: center; position: relative; padding-top: 6px; }
+.st i {
+  display: grid; place-items: center; width: 34px; height: 34px; margin: 0 auto 8px;
+  border-radius: 9999px; font-style: normal; font-weight: 700;
+  background: var(--alt); color: var(--mu); border: 1px solid var(--bd2);
+  position: relative; z-index: 1;
+  animation: act var(--cycle, 6s) infinite;
+  animation-delay: calc(var(--k) * var(--step, 1s));
+}
+.st::before { content: ""; position: absolute; top: 23px; left: -50%; width: 100%; height: 2px; background: var(--bd2); }
+.st:first-child::before { display: none; }
+.st b { display: block; font-size: 15px; }
+.st span { font-size: 13px; color: var(--mu); }
+@keyframes act {
+  0%, 4% { background: var(--alt); color: var(--mu); border-color: var(--bd2); }
+  8%, 84% { background: var(--ac); color: var(--on-ac); border-color: var(--ac); }
+  94%, 100% { background: var(--alt); color: var(--mu); border-color: var(--bd2); }
+}

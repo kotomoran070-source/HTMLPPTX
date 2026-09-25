@@ -1,0 +1,290 @@
+# Презентация как данные. Справочник компонентов: docs/COMPONENTS.md
+# Правки видны сразу в yarn dev; файл для отправки: yarn build microclimate
+
+title: Результаты применения комплекса контроля микроклимата
+lang: ru
+brand:
+  name: Palorax
+  logo: ./assets/logo.svg
+
+slides:
+
+  - id: cover
+    template: cover
+    label: Титульный слайд
+    title: Результаты применения комплекса контроля микроклимата
+    lead: Оборудование, программное обеспечение, инфраструктура и результаты эксплуатации.
+    meta: Сентябрь 2026, команда Palorax
+    visual:
+      type: network
+      nodes: 7
+    notes: |
+      Представиться. Тема: результаты применения комплекса контроля микроклимата.
+      План: оборудование, программное обеспечение, инфраструктура, результаты эксплуатации.
+
+  - id: results
+    title: Что получилось
+    body:
+      type: hub
+      items:
+        - title: Собран рабочий комплекс
+          text: Оконечные устройства и базовая станция прошли сборку и работают в эксплуатации.
+          node: Оборудование
+          sub: устройства и станция
+        - title: Развёрнута серверная часть
+          text: Сервер, базы данных, веб-интерфейс и лендинг.
+          node: Серверная часть
+          sub: сервер, БД, интерфейсы
+        - title: Работает собственная прошивка
+          text: Устройства настраиваются удалённо, без выезда на объект.
+          node: Прошивка
+          sub: C, C++
+        - title: Собирается статистика
+          text: Данные по работе комплекса накапливаются.
+          node: Статистика
+          sub: накапливается
+    notes: |
+      Четыре итога: комплекс собран и работает, серверная часть развёрнута,
+      прошивка своя и настраивается удалённо, статистика накапливается.
+      При наведении на пункт подсвечивается блок на схеме.
+
+  - id: hardware
+    title: Оборудование
+    body:
+      type: grid
+      columns: 1.6fr 1fr
+      rows: 1fr 1fr
+      gap: 20
+      height: 540
+      items:
+        - type: tile
+          rows: 2
+          illustration: assembly
+          caption: Комплекс в сборке
+        - type: tile
+          illustration: endpoints
+          caption: Оконечные устройства
+        - type: tile
+          illustration: station
+          caption: Базовая станция
+    notes: |
+      Слева комплекс в сборке, справа оконечные устройства и базовая станция.
+      Иллюстрации можно заменить фотографиями: image: ./assets/фото.jpg
+
+  - id: system
+    title: Из чего состоит система
+    body:
+      type: system
+      hardware:
+        title: Оборудование
+        flow:
+          - icon: sensor
+            title: Оконечные устройства
+            text: Собирают данные на объектах
+          - icon: station
+            title: Базовая станция
+            text: Приём данных, выход в сеть
+        items:
+          - icon: chip
+            title: Прошивки
+            chips: [C*, C++*]
+          - icon: tool
+            title: Прикладное ПО
+            text: инструменты
+            chips: [QML*, C++*]
+      server:
+        title: Сервер
+        text: Управление сетью, обработка данных
+        groups:
+          - label: Backend
+            chips: [Go*, REST API, JWT, Webhooks и внешние API]
+          - label: Frontend
+            chips: [Next.js*, React, TypeScript, Tailwind]
+          - label: Тесты
+            chips: [Testify, Jest]
+      database:
+        title: Базы данных
+        text: Хранение и история
+        chips: [PostgreSQL*, TimescaleDB*, Redis*, HashiCorp Vault]
+      interfaces:
+        title: Интерфейсы
+        items:
+          - icon: browser
+            title: Лендинг
+            text: Сайт проекта
+          - icon: sliders
+            title: Admin panel
+            text: Управление, настройка
+          - icon: chart
+            title: User panel
+            text: Дашборды, анализ, оповещения
+      host:
+        title: Серверный ПК
+        chips: [Proxmox*, GitLab*, "k3s: сервер в кластере*", TLS (self-signed)]
+    notes: |
+      Слева направо: оборудование, сервер с базами данных, интерфейсы.
+      Внизу серверный ПК, на котором всё работает.
+      Наведение на блок подсвечивает связанные с ним.
+
+  - id: infra
+    title: Инфраструктура и развёртывание
+    body:
+      - type: pipeline
+        steps:
+          - title: Коммит
+            sub: GitLab
+          - title: Сборка
+            sub: GitLab CI
+          - title: Тесты
+            sub: Testify, Jest
+          - title: Выпуск
+            sub: в k3s на Proxmox
+      - type: grid
+        columns: 1fr 1fr
+        items:
+          - type: panel
+            title: Серверный ПК, Proxmox
+            cells:
+              - title: GitLab
+                sub: репозитории и CI
+              - title: k3s
+                sub: сервер админки и пользователей
+              - title: PostgreSQL + TimescaleDB
+                sub: данные и временные ряды
+              - title: Redis
+              - title: HashiCorp Vault
+                cols: 2
+          - type: card
+            title: Эксплуатация
+            body:
+              type: kv
+              rows:
+                Доступ: TLS с self-signed сертификатами
+                Секреты: хранятся в Vault, не в коде
+                Тесты: Testify для Go, Jest для интерфейса
+                Выпуск: из GitLab, без ручных правок на сервере
+    notes: |
+      Путь изменения: коммит, сборка, тесты, выпуск в k3s на Proxmox.
+      Секреты в Vault, выпуск из GitLab без ручных правок на сервере.
+
+  - id: firmware
+    title: Прошивка и удалённая настройка
+    body:
+      type: grid
+      columns: 1fr 1fr
+      items:
+        - type: card
+          title: Обновление по воздуху
+          body:
+            - type: text
+              text: Сборка образа в GitLab, публикация версии на сервере, доставка через станцию и проверка версии на устройстве.
+            - type: progress
+              label: Версия 1.4.2
+              value: 24 из 24 устройств
+              percent: 100
+            - type: note
+              text: Раскатка идёт партиями. При сбое устройство возвращается на прежнюю версию.
+        - type: card
+          title: Удалённая конфигурация
+          body:
+            - type: sliders
+              rows:
+                - label: Интервал отправки
+                  value: 60 с
+                  position: 0.74
+                - label: Порог тревоги
+                  value: 28 °C
+                  position: 0.47
+                - label: Фактор расширения
+                  value: SF9
+                  position: 0.94
+            - type: note
+              text: Параметры применяются без перезагрузки и без выезда.
+    notes: |
+      Обновление по воздуху: версия 1.4.2 на всех 24 устройствах, раскатка партиями с откатом.
+      Настройки меняются удалённо, без перезагрузки и выезда.
+
+  - id: ops
+    title: Результаты эксплуатации
+    badge: демо-данные
+    gap: 8
+    body:
+      - type: chips
+        items:
+          - 24 устройства в работе
+          - "Сообщений: 3,4 млн"
+          - "Доступность: 99,7%"
+          - Задержка в среднем 1,6 с
+      - type: grid
+        columns: 1.7fr 1fr
+        items:
+          - type: card
+            title: Сообщений в сутки
+            body:
+              type: line-chart
+              start: начало эксплуатации
+              end: сегодня
+              min: 42301
+              max: 67192
+              values: [53501, 53906, 57302, 55741, 54844, 50237, 46063, 58011, 56375, 55662, 54495, 58145, 51793, 45301, 61405, 60447, 61939, 56815, 61783, 51830, 52458, 58956, 61973, 61249, 55995, 56512, 48977, 49083, 59875, 62967, 60156, 60812, 60110, 50955, 48175, 58667, 62893, 58449, 63033, 59392, 47606, 51591, 59498, 60821, 62036, 59405, 60853, 51796, 54034, 59407, 58730, 59471, 60937, 64107, 50837, 55379, 61496, 63825, 64192, 62213]
+          - type: stack
+            items:
+              - type: card
+                title: Доступность по дням
+                body:
+                  - type: uptime
+                    threshold: 99.5
+                    values: [99.66, 99.7, 99.74, 99.86, 99.79, 99.54, 99.8, 99.62, 99.51, 99.86, 99.94, 98.83, 99.95, 99.9, 99.58, 99.87, 99.72, 99.51, 99.68, 98.9, 99.84, 99.72, 99.71, 99.61, 99.09, 99.78, 99.55, 99.79, 99.55, 99.89, 99.93, 99.65, 99.98, 99.57, 99.85, 99.68, 99.75, 99.9, 99.88, 99.72, 98.14, 99.9, 99.99, 99.59, 99.62, 99.81, 99.75, 99.81, 99.78, 99.69, 99.69, 99.96, 99.92, 99.62, 99.66, 99.78, 99.72, 99.04, 99.04, 99.5]
+                  - type: note
+                    text: "Тёмные ячейки: доступность выше 99,5%."
+              - type: card
+                title: Задержка доставки, с
+                body:
+                  type: bars
+                  max: 2
+                  values: [1.9, 1.7, 1.6, 1.4]
+    notes: |
+      Цифры пока демонстрационные. Когда будут реальные данные, заменить values в deck.yaml.
+      24 устройства, 3,4 млн сообщений, доступность 99,7%, средняя задержка 1,6 с.
+
+  - id: thanks
+    template: finale
+    label: Спасибо за внимание
+    caption: Комплекс контроля микроклимата
+    title: Спасибо за внимание
+    lead: Готовы ответить на вопросы
+    link:
+      label: Сайт проекта
+      url: https://lora-alliance.org/
+    buttons:
+      - icon: mail
+        label: Почта
+        url: mailto:info.lorax@gmail.com
+      - icon: sliders
+        label: Admin panel
+      - icon: chart
+        label: User panel
+      - icon: tool
+        label: Прикладное ПО
+    notes: Поблагодарить, перейти к вопросам. QR-код ведёт на сайт проекта.
+
+  - id: space
+    template: space
+    label: Спасибо за внимание — космос
+    badge: КОМПЛЕКС КОНТРОЛЯ МИКРОКЛИМАТА
+    title: Спасибо за внимание
+    lead: Готовы ответить на вопросы
+    link:
+      label: Сайт проекта
+      url: https://lora-alliance.org/
+    buttons:
+      - icon: mail
+        label: Почта
+        url: mailto:info.lorax@gmail.com
+      - icon: sliders
+        label: Admin panel
+      - icon: chart
+        label: User panel
+      - icon: tool
+        label: Прикладное ПО
+    notes: Альтернативный финальный слайд в тёмном стиле. Оставить один из двух.

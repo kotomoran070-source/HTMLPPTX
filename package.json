@@ -1,0 +1,29 @@
+{
+  "name": "htmlpptx",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Движок HTML-презентаций: презентация как данные, библиотека компонентов, сборка в один HTML-файл",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "node scripts/build.mjs",
+    "preview": "vite preview",
+    "new": "node scripts/new-deck.mjs",
+    "typecheck": "tsc --noEmit",
+    "verify": "tsc --noEmit && node scripts/build.mjs"
+  },
+  "dependencies": {
+    "qrcode-generator": "^2.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.3",
+    "vite-plugin-singlefile": "^2.3.3",
+    "yaml": "^2.9.1"
+  }
+}
