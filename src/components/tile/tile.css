@@ -11,5 +11,8 @@
   min-height: 0;
 }
 .tile svg { max-height: 100%; width: 100%; }
-.tile.photo { grid-template-rows: 1fr auto; align-content: stretch; }
-.tile.photo img { width: 100%; height: 100%; min-height: 0; border-radius: 8px; display: block; }
+.tile.photo { grid-template-rows: 1fr auto; place-items: stretch; align-content: stretch; }
+.tile.photo > .mu { text-align: center; }
+.tile.photo .imgbox { border-radius: 8px; min-height: 0; }
+.tile.photo:not(:has(> .mu)) { grid-template-rows: 1fr; }
+.tile-empty { color: var(--mu); font-size: 14px; border: 2px dashed var(--bd2); border-radius: 10px; padding: 18px 24px; }

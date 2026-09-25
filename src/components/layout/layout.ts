@@ -1,6 +1,6 @@
 import { defineBlock } from '../../engine/component';
 import { asArray, esc, styleAttr, t } from '../../engine/html';
-import { ea, eimg } from '../../engine/marks';
+import { ea, eimg, frameCss, type ImageFrame } from '../../engine/marks';
 import type { Block } from '../../types';
 import './layout.css';
 
@@ -66,14 +66,14 @@ interface TextProps extends Block {
 defineBlock<TextProps>('text', {
   render(p) {
     const cls = p.size === 'lead' ? 'lead' : p.size === 'small' ? 'mu' : '';
-    return `<p class="${cls}"${ea(p, 'text')}${styleAttr(p.style)}>${t(p.text)}</p>`;
+    return `<p class="${cls}"${ea(p, 'text', { style: p.style })}>${t(p.text)}</p>`;
   },
 });
 
 /** Мелкая приглушённая подпись. */
 defineBlock<TextProps>('note', {
   render(p) {
-    return `<p class="mu note"${ea(p, 'text')}${styleAttr(p.style)}>${t(p.text)}</p>`;
+    return `<p class="mu note"${ea(p, 'text', { style: p.style })}>${t(p.text)}</p>`;
   },
 });
 
@@ -88,21 +88,23 @@ defineBlock<ListProps>('list', {
   },
 });
 
-interface ImageProps extends Block {
+interface ImageProps extends Block, ImageFrame {
   src: string;
   alt?: string;
-  fit?: 'cover' | 'contain';
   caption?: string;
+  /** Высота блока в пикселях слайда */
+  height?: number;
 }
 
 /** Картинка из папки презентации: src: ./assets/photo.jpg */
 defineBlock<ImageProps>('image', {
   render(p) {
     const img = p.src
-      ? `<img src="${esc(p.src)}" alt="${esc(p.alt ?? p.caption ?? '')}" style="object-fit:${p.fit ?? 'cover'}"${eimg(p, 'src')}>`
+      ? `<div class="imgbox"${eimg(p, 'src')}><img src="${esc(p.src)}" alt="${esc(p.alt ?? p.caption ?? '')}" style="${frameCss(p)}"></div>`
       : `<div class="image-empty"${eimg(p, 'src')}>Нет картинки: укажите src в deck.yaml или перетащите файл в режиме правки</div>`;
     const cap = p.caption ? `<figcaption class="mu"${ea(p, 'caption')}>${t(p.caption)}</figcaption>` : '';
-    return `<figure class="image r"${styleAttr(p.style)}>${img}${cap}</figure>`;
+    const h = Number(p.height);
+    return `<figure class="image r"${styleAttr(h > 0 && `height:${h}px`, p.style)}>${img}${cap}</figure>`;
   },
 });
 

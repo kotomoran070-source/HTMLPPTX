@@ -13,13 +13,17 @@ body.editing .stage [data-edit]:not(svg *):hover { outline: 2px dashed color-mix
 body.editing .stage svg [data-edit]:hover { fill: var(--ac); text-decoration: underline; }
 body.editing .stage .space [data-edit]:not(svg *):hover { outline-color: rgba(125, 211, 252, .8); }
 body.editing .stage [data-edit-img] { cursor: pointer; }
-body.editing .stage [data-edit-img]:not(image):hover { outline: 2px solid color-mix(in srgb, var(--ac) 70%, transparent); outline-offset: 2px; }
+body.editing .stage [data-edit-img]:not(image):hover { outline: 2px solid color-mix(in srgb, var(--ac) 55%, transparent); outline-offset: 2px; }
+body.editing .stage .ed-selected { outline: 3px solid var(--ac) !important; outline-offset: 2px; }
+body.editing .stage image.ed-selected { opacity: .8; }
+body.editing .stage .ed-pan, body.editing .stage .ed-pan * { cursor: grab; }
+body.editing .stage .ed-pan:active, body.editing .stage .ed-pan:active * { cursor: grabbing; }
 body.editing .stage image[data-edit-img]:hover { opacity: .75; }
 body.editing .stage .ed-drop { outline: 3px solid var(--ac) !important; outline-offset: 2px; filter: brightness(1.05); }
 body.editing .stage .ed-active {
   outline: 2px solid var(--ac) !important; outline-offset: 3px; cursor: text;
   background: color-mix(in srgb, var(--surf) 85%, transparent); box-shadow: 0 0 0 6px color-mix(in srgb, var(--ac) 12%, transparent);
-  white-space: pre-wrap; caret-color: var(--ac); -webkit-user-modify: read-write-plaintext-only;
+  caret-color: var(--ac);
 }
 body.editing .stage .space .ed-active { background: rgba(5, 7, 15, .6); }
 body.editing .stage .fin h1.ed-active, body.editing .stage .space h1.ed-active { display: block; }
@@ -125,3 +129,75 @@ body.editing .ovedit-hint { display: block; }
 
 /* [hidden] сильнее display у кнопок */
 .edbar [hidden], .ovadd [hidden] { display: none !important; }
+
+/* Общее для плавающих панелей текста и картинки */
+.edtext, .edimg {
+  position: fixed; z-index: 13; display: none; align-items: center; gap: 2px; padding: 4px;
+  background: var(--surf); color: var(--tx); border: 1px solid var(--bd); border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, .18); font: 13px var(--font); white-space: nowrap;
+}
+.edtext.on, .edimg.on { display: flex; }
+.edtext [hidden], .edimg [hidden] { display: none !important; }
+.edtext button, .edimg button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 30px; height: 30px; padding: 0 7px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--tx); cursor: pointer; font: 600 13px var(--font);
+}
+.edtext button:hover, .edimg button:hover { background: var(--alt); }
+.edtext button.on, .edimg button.on { background: var(--acs); color: var(--ach); }
+.edtext button.danger:hover, .edimg button.danger:hover { background: #FEE2E2; color: #B91C1C; }
+.edtext .ic, .edimg .ic { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.edtext b, .edtext i, .edtext u { font-size: 15px; }
+.edsep { width: 1px; height: 20px; background: var(--bd); margin: 0 4px; flex: none; }
+.edtext select {
+  height: 30px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--tx);
+  font: 600 13px var(--font); padding: 0 6px; cursor: pointer; max-width: 150px;
+}
+.edtext select:hover { background: var(--alt); }
+.edsize { display: inline-flex; align-items: center; border: 1px solid var(--bd); border-radius: 8px; margin-left: 2px; }
+.edsize button { min-width: 24px; height: 28px; padding: 0; font-size: 15px; }
+.edsize input {
+  width: 40px; height: 28px; border: 0; background: transparent; color: var(--tx); text-align: center;
+  font: 600 13px var(--font); -moz-appearance: textfield; appearance: textfield;
+}
+.edsize input::-webkit-inner-spin-button, .edsize input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.edsize input:focus { outline: 2px solid var(--ac); border-radius: 4px; }
+.edswatch span { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--surf); box-shadow: 0 0 0 1px var(--bd2); }
+
+/* Палитра цветов текста */
+.edcolors {
+  position: fixed; z-index: 14; display: none; flex-direction: column; gap: 8px; padding: 10px;
+  background: var(--surf); border: 1px solid var(--bd); border-radius: 12px; box-shadow: 0 12px 32px rgba(15, 23, 42, .22);
+}
+.edcolors.on { display: flex; }
+.edcolors-row { display: flex; gap: 6px; }
+.edcolors-row button { width: 24px; height: 24px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, .15); cursor: pointer; padding: 0; }
+.edcolors-row button:hover { transform: scale(1.12); }
+.edcolors-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; font: 600 12px var(--font); color: var(--tx2); }
+.edcolors-foot label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.edcolors-foot input { width: 24px; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; }
+
+/* Панель картинки */
+.edseg { display: inline-flex; background: var(--alt); border-radius: 9px; padding: 2px; }
+.edseg button { height: 26px; }
+.edseg button.on { background: var(--surf); color: var(--ach); box-shadow: 0 1px 3px rgba(15, 23, 42, .15); }
+.edzoom { display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; color: var(--tx2); }
+.edzoom input { width: 110px; accent-color: var(--ac); }
+.edzoom output { min-width: 36px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.edtip { display: inline-flex; align-items: center; gap: 5px; color: var(--mu); font-size: 12px; padding: 0 6px; }
+.edtip .ic { width: 14px; height: 14px; }
+.edhandle {
+  position: fixed; z-index: 13; display: none; width: 48px; height: 10px; border-radius: 6px; cursor: ns-resize;
+  background: var(--ac); box-shadow: 0 0 0 2px var(--surf), 0 2px 6px rgba(15, 23, 42, .3);
+}
+.edhandle.on { display: block; }
+
+/* Меню «Вставить» */
+.edmenu { position: relative; }
+.edmenu-list {
+  position: absolute; top: calc(100% + 6px); left: 0; display: none; flex-direction: column; gap: 2px; padding: 4px; min-width: 160px;
+  background: var(--surf); border: 1px solid var(--bd); border-radius: 10px; box-shadow: 0 10px 28px rgba(15, 23, 42, .18); z-index: 14;
+}
+.edmenu-list.on { display: flex; }
+.edmenu-list button { display: flex; align-items: center; gap: 8px; border: 0; background: transparent; border-radius: 7px; padding: 7px 10px; font: 600 13px var(--font); color: var(--tx); cursor: pointer; text-align: left; }
+.edmenu-list button:hover { background: var(--alt); }
+.edmenu-list .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }

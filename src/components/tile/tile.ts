@@ -1,6 +1,6 @@
 import { defineBlock } from '../../engine/component';
 import { esc, styleAttr, t } from '../../engine/html';
-import { ea, eimg } from '../../engine/marks';
+import { ea, eimg, frameCss, type ImageFrame } from '../../engine/marks';
 import type { Block } from '../../types';
 import './tile.css';
 
@@ -33,7 +33,7 @@ const ILLUSTRATIONS: Record<string, { viewBox: string; maxWidth?: number; svg: s
   },
 };
 
-interface TileProps extends Block {
+interface TileProps extends Block, ImageFrame {
   /** Встроенная иллюстрация: assembly, endpoints, station */
   illustration?: string;
   /** Или своя картинка: ./assets/photo.jpg */
@@ -46,13 +46,16 @@ interface TileProps extends Block {
 defineBlock<TileProps>('tile', {
   render(p) {
     let media = '';
+    const il = p.illustration ? ILLUSTRATIONS[p.illustration] : undefined;
     if (p.image) {
-      media = `<img src="${esc(p.image)}" alt="${esc(p.caption ?? '')}" style="object-fit:${p.fit ?? 'cover'}">`;
-    } else {
-      const il = ILLUSTRATIONS[p.illustration ?? 'assembly'] ?? ILLUSTRATIONS.assembly;
+      media = `<div class="imgbox"><img src="${esc(p.image)}" alt="${esc(p.caption ?? '')}" style="${frameCss(p)}"></div>`;
+    } else if (il) {
       media = `<svg viewBox="${il.viewBox}"${styleAttr(il.maxWidth && `max-width:${il.maxWidth}px`)} aria-hidden="true">${il.svg}</svg>`;
+    } else {
+      media = `<div class="tile-empty">Нет картинки</div>`;
     }
     const cap = p.caption ? `<span class="mu"${ea(p, 'caption')}>${t(p.caption)}</span>` : '';
-    return `<div class="tile r${p.image ? ' photo' : ''}"${eimg(p, 'image')}${styleAttr(p.style)}>${media}${cap}</div>`;
+    const cls = p.image ? ' photo' : il ? '' : ' empty';
+    return `<div class="tile r${cls}"${eimg(p, 'image')}${styleAttr(p.style)}>${media}${cap}</div>`;
   },
 });

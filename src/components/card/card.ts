@@ -58,7 +58,7 @@ defineBlock<KvProps>('kv', {
       rows = p.rows.map((r) => row(r[0], r[1], ea(r, 0), ea(r, 1)));
     } else {
       const map = p.rows ?? {};
-      rows = Object.entries(map).map(([k, v]) => row(k, v, ekey(map, k), ea(map, k)));
+      rows = Object.entries(map).map(([k, v]) => row(k, v, ekey(map, k), ea(map, k, { noStyle: true })));
     }
     return `<div class="kvs"${styleAttr(p.style)}>${rows.join('')}</div>`;
   },

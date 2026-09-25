@@ -10,7 +10,13 @@
 
 .note { margin: 12px 0 0; }
 
-.image { margin: 0; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
-.image img { width: 100%; height: 100%; min-height: 0; flex: 1; border-radius: 12px; display: block; }
+.image { margin: 0; display: flex; flex-direction: column; gap: 8px; min-height: 200px; }
+.imgbox { position: relative; flex: 1; min-height: 0; overflow: hidden; border-radius: 12px; }
+.imgbox img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .image figcaption { text-align: center; }
-.image-empty { flex: 1; min-height: 160px; display: grid; place-items: center; text-align: center; padding: 24px; border: 2px dashed var(--bd2); border-radius: 12px; color: var(--mu); font-size: 15px; background: var(--alt); }
+.image-empty { flex: 1; min-height: 120px; display: grid; place-items: center; text-align: center; padding: 24px; border: 2px dashed var(--bd2); border-radius: 12px; color: var(--mu); font-size: 15px; background: var(--alt); }
+
+/* Разметка в тексте: списки и ссылки */
+.md-li { display: block; position: relative; padding-left: 1.1em; }
+.md-li::before { content: ""; position: absolute; left: .25em; top: .62em; width: .32em; height: .32em; border-radius: 50%; background: var(--ac); }
+.md-a { color: var(--ach); text-decoration: underline; text-underline-offset: 2px; }
