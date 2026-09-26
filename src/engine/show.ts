@@ -11,9 +11,11 @@ import { currentTheme, onThemeChange, setTheme, toggleTheme } from './theme';
 
 const NAV_H = 56;
 
-export function presenterUrl(): string {
+export function presenterUrl(mainId: string): string {
   const u = new URL(location.href);
   u.searchParams.set('view', 'presenter');
+  // Окно докладчика привязано к этому окну показа
+  u.searchParams.set('main', mainId);
   return u.toString();
 }
 
@@ -279,7 +281,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
 
   // --- окно докладчика ---
   function openPresenter(): void {
-    const w = window.open(presenterUrl(), `htmlpptx-presenter-${deckKey}`, 'popup,width=1280,height=800');
+    const w = window.open(presenterUrl(sync.self), `htmlpptx-presenter-${deckKey}-${sync.self}`, 'popup,width=1280,height=800');
     sync.addPeer(w);
   }
 
@@ -365,11 +367,13 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   addEventListener('hashchange', () => go(fromHash(), false));
 
   // --- сообщения от окна докладчика ---
-  sync.on((m) => {
+  // Команды принимаются только адресованные этому окну (Sync отсеивает чужие по полю to)
+  sync.on((m, from) => {
     if (m.type === 'goto') go(m.index);
     else if (m.type === 'hello') {
-      if (editor?.touched) sync.send({ type: 'deck', deck: JSON.parse(JSON.stringify(deck)) });
-      broadcast();
+      // Новому окну докладчика — актуальные данные (с несохранёнными правками) и положение
+      if (editor?.touched) sync.send({ type: 'deck', deck: JSON.parse(JSON.stringify(deck)) }, from);
+      sync.send({ type: 'state', index, theme: currentTheme(), black }, from);
     } else if (m.type === 'theme' && m.theme !== currentTheme()) setTheme(m.theme);
     else if (m.type === 'black' && m.value !== black) setBlack(m.value);
   });

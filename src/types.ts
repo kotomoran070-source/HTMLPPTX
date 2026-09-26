@@ -28,6 +28,8 @@ export interface SlideData {
   /** Показывать логотип в углу (content-слайды, по умолчанию да) */
   logo?: boolean;
   body?: Block | Block[];
+  /** Свободные объекты поверх раскладки: блоки с place: { x, y, w, h } */
+  free?: Block[];
   [key: string]: unknown;
 }
 

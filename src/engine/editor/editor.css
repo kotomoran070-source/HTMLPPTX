@@ -201,3 +201,49 @@ body.editing .ovedit-hint { display: block; }
 .edmenu-list button { display: flex; align-items: center; gap: 8px; border: 0; background: transparent; border-radius: 7px; padding: 7px 10px; font: 600 13px var(--font); color: var(--tx); cursor: pointer; text-align: left; }
 .edmenu-list button:hover { background: var(--alt); }
 .edmenu-list .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Блоки: подсветка под мышью и выделение */
+body.editing .stage .ed-block-hover:not(.ed-block-sel) { outline: 1px dashed color-mix(in srgb, var(--ac) 45%, transparent); outline-offset: 4px; }
+body.editing .stage [data-block].ed-block-sel { outline: 2px solid var(--ac); outline-offset: 4px; }
+body.editing .stage .free { cursor: pointer; }
+body.editing .stage .free.ed-block-sel { cursor: move; }
+body.editing .stage .free.ed-block-sel [data-edit]:not(.ed-active) { cursor: text; }
+body.editing .stage .free.auto-h:empty, body.editing .stage .free > p:empty { min-height: 24px; }
+
+/* Рамка свободного объекта с ручками */
+.edframe { position: fixed; z-index: 12; display: none; pointer-events: none; }
+.edframe.on.free { display: block; outline: 2px solid var(--ac); outline-offset: 0; }
+.edframe i {
+  position: absolute; width: 11px; height: 11px; margin: -6px 0 0 -6px; pointer-events: auto;
+  background: #fff; border: 2px solid var(--ac); border-radius: 3px; box-shadow: 0 1px 3px rgba(15, 23, 42, .3);
+}
+.edframe .h-nw { left: 0; top: 0; cursor: nwse-resize; }
+.edframe .h-n { left: 50%; top: 0; cursor: ns-resize; }
+.edframe .h-ne { left: 100%; top: 0; cursor: nesw-resize; }
+.edframe .h-e { left: 100%; top: 50%; cursor: ew-resize; }
+.edframe .h-se { left: 100%; top: 100%; cursor: nwse-resize; }
+.edframe .h-s { left: 50%; top: 100%; cursor: ns-resize; }
+.edframe .h-sw { left: 0; top: 100%; cursor: nesw-resize; }
+.edframe .h-w { left: 0; top: 50%; cursor: ew-resize; }
+
+/* Направляющие при перетаскивании */
+.edguides i { position: fixed; z-index: 12; pointer-events: none; background: #EC4899; }
+.edguides .gv { width: 1px; }
+.edguides .gh { height: 1px; }
+
+/* Панель блока */
+.edblock {
+  position: fixed; z-index: 13; display: none; align-items: center; gap: 2px; padding: 4px;
+  background: var(--surf); color: var(--tx); border: 1px solid var(--bd); border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, .18); font: 13px var(--font); white-space: nowrap;
+}
+.edblock.on { display: flex; }
+.edblock [hidden] { display: none !important; }
+.edblock-name { font-weight: 700; color: var(--mu); padding: 0 8px; font-size: 12px; }
+.edblock button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 30px; height: 30px; padding: 0 7px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--tx); cursor: pointer; font: 600 13px var(--font);
+}
+.edblock button:hover { background: var(--alt); }
+.edblock button.danger:hover { background: #FEE2E2; color: #B91C1C; }
+.edblock .ic { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }

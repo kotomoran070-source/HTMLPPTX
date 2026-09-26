@@ -117,7 +117,7 @@ export interface ImageFrame {
   fit?: 'cover' | 'contain';
   /** Точка кадра для «заполнить»: "50% 30%" */
   position?: string;
-  /** Увеличение 1–4 */
+  /** Масштаб 0.3–4: меньше 1 — картинка уменьшена внутри рамки */
   zoom?: number;
 }
 
@@ -127,8 +127,8 @@ const POS = /^(\d{1,3}(\.\d+)?)% (\d{1,3}(\.\d+)?)%$/;
 export function frameCss(f: ImageFrame, defaultFit: 'cover' | 'contain' = 'cover'): string {
   const fit = f.fit === 'contain' || f.fit === 'cover' ? f.fit : defaultFit;
   const pos = typeof f.position === 'string' && POS.test(f.position) ? f.position : '50% 50%';
-  const zoom = Math.max(1, Math.min(4, Number(f.zoom) || 1));
+  const zoom = Math.max(0.3, Math.min(4, Number(f.zoom) || 1));
   let css = `object-fit:${fit};object-position:${pos}`;
-  if (zoom > 1) css += `;transform:scale(${zoom});transform-origin:${pos}`;
+  if (zoom !== 1) css += `;transform:scale(${zoom});transform-origin:${pos}`;
   return css;
 }

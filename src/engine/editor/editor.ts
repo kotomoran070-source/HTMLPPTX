@@ -3,6 +3,7 @@ import type { Deck, SlideData } from '../../types';
 import { applyAccent, HEX_RE } from '../accent';
 import { clone, getAt, replaceContents, setAt, type Path } from '../data';
 import { esc } from '../html';
+import { BlockEditor } from './block-edit';
 import { ImageEditor } from './image-edit';
 import {
   blobToDataUrl, buildHtml, canSaveFile, MAX_FILE, prepareImage, saveHtmlFile,
@@ -82,6 +83,7 @@ export class Editor {
 
   private text!: TextEditor;
   private image!: ImageEditor;
+  private blocks!: BlockEditor;
   private notesOpen = false;
   private lastIndex = -1;
   private hintTarget: Element | null = null;
@@ -119,7 +121,15 @@ export class Editor {
       blockOf: (p) => this.blockOf(p),
       removeBlock: (p) => this.removeBlock(p),
     });
-    addEventListener('resize', () => { this.text.position(); this.image.position(); });
+    this.blocks = new BlockEditor({
+      deck: () => this.host.deck,
+      stage: () => this.host.stage(),
+      index: () => this.host.index(),
+      commit: (fn, opts) => this.commit(fn, opts),
+      toast: (t, ms, err) => this.toast(t, ms, err),
+      clearOthers: () => { this.text.finish(true); this.image.clear(); },
+    });
+    addEventListener('resize', () => this.reposition());
     addEventListener('beforeunload', (e) => {
       if (this.mode === 'project' && (this.dirty || this.saving)) {
         // Последняя попытка записать правки перед закрытием вкладки
@@ -148,7 +158,7 @@ export class Editor {
     <button class="btn ghost small" id="ed-accent-reset" type="button" title="Вернуть стандартный цвет">Сбросить</button>
     <button class="btn ghost small" id="ed-notes" type="button" aria-pressed="false">${icon('notes')}<span>Заметки</span></button>
     <span class="edmenu">
-      <button class="btn ghost small" id="ed-insert" type="button" aria-haspopup="true" aria-expanded="false" title="Добавить на слайд текст или картинку">${icon('plus')}<span>Вставить</span></button>
+      <button class="btn ghost small" id="ed-insert" type="button" aria-haspopup="true" aria-expanded="false" title="Добавить на слайд свободный текст или картинку">${icon('plus')}<span>Вставить</span></button>
       <span class="edmenu-list" id="ed-insert-menu" role="menu">
         <button type="button" role="menuitem" data-add="text">${icon('text')} Текст</button>
         <button type="button" role="menuitem" data-add="image">${icon('image')} Картинку</button>
@@ -226,6 +236,7 @@ export class Editor {
     if (!on) {
       this.text.finish(true);
       this.image.clear();
+      this.blocks.clear();
     }
     this.active = on;
     document.body.classList.toggle('editing', on);
@@ -242,8 +253,8 @@ export class Editor {
       } catch { /* хранилище недоступно — просто покажем подсказку */ }
       if (!seen) {
         this.toast(this.mode === 'project'
-          ? 'Кликните по тексту, чтобы исправить, — появится панель оформления. Клик по картинке — её настройки. Правки сразу сохраняются в deck.yaml.'
-          : 'Кликните по тексту, чтобы исправить, — появится панель оформления. Клик по картинке — её настройки. Чтобы не потерять правки, нажмите «Сохранить».', 6000);
+          ? 'Клик по тексту — правка и оформление, по картинке — её настройки, по блоку — удалить или «Свободно» (двигать и масштабировать). Правки сразу сохраняются в deck.yaml.'
+          : 'Клик по тексту — правка и оформление, по картинке — её настройки, по блоку — удалить или «Свободно» (двигать и масштабировать). Чтобы не потерять правки, нажмите «Сохранить».', 7000);
       }
     } else {
       this.detach();
@@ -252,6 +263,7 @@ export class Editor {
       if (this.mode === 'project') void this.flush();
     }
     this.host.relayout();
+    this.reposition();
   }
 
   private attach(): void {
@@ -266,6 +278,12 @@ export class Editor {
       if (this.text.active && !this.text.owns(e.target as Node)) e.preventDefault();
     }, true);
     on(stage, 'pointerdown', (e) => {
+      if (this.text.active && this.text.owns(e.target as Node)) return;
+      // Перемещение свободного объекта; иначе — сдвиг кадра выделенной картинки
+      if (this.blocks.pointerDown(e, this.image.selected)) {
+        if (this.text.active) this.text.finish(true);
+        return;
+      }
       if (!this.text.active) this.image.pointerDown(e);
     }, true);
     // Клик вне слайда и панелей завершает правку текста и снимает выделение картинки
@@ -273,14 +291,15 @@ export class Editor {
       const t = e.target as Element;
       if (stage.contains(t) || this.pop.contains(t) || this.bar.contains(t) || this.notes.contains(t)) return;
       if (this.text.active && !this.text.owns(t)) this.text.finish(true);
-      if (this.image.selected && !this.image.owns(t)) this.image.clear();
+      if (this.image.selected && !this.image.owns(t) && !this.blocks.owns(t)) this.image.clear();
+      if (this.blocks.selected && !this.blocks.owns(t) && !this.image.owns(t) && !this.text.owns(t)) this.blocks.clear();
     }, true);
-    on(document.querySelector('.viewport') ?? stage, 'click', (e) => {
-      if (e.target === e.currentTarget) this.image.clear();
-    });
     on(stage, 'click', (e) => this.onClick(e), true);
     on(stage, 'dblclick', (e) => this.onDblClick(e), true);
-    on(stage, 'mouseover', (e) => this.onOver(e));
+    on(stage, 'mouseover', (e) => {
+      this.onOver(e);
+      this.blocks.onOver(e.target as Element);
+    });
     on(stage, 'mouseleave', () => this.scheduleHintHide());
     on(stage, 'dragover', (e) => this.onDragOver(e));
     on(stage, 'dragleave', (e) => this.onDragLeave(e));
@@ -353,7 +372,10 @@ export class Editor {
     this.dirty = true;
     applyAccent(this.host.deck.theme?.accent);
     this.host.refresh(rebuild);
-    if (rebuild) this.image.refresh();
+    if (rebuild) {
+      this.image.refresh();
+      this.blocks.refresh();
+    }
     this.syncBar();
     if (this.mode === 'project') {
       clearTimeout(this.saveTimer);
@@ -466,7 +488,7 @@ export class Editor {
     this.notes.classList.toggle('on', this.notesOpen);
     document.getElementById('ed-notes')?.setAttribute('aria-pressed', String(this.notesOpen));
     this.host.relayout();
-    this.image.position();
+    this.reposition();
     if (this.notesOpen) (document.getElementById('ed-notes-text') as HTMLTextAreaElement).focus();
   }
 
@@ -476,7 +498,10 @@ export class Editor {
     this.hideHint();
     this.closePop();
     const i = this.host.index();
-    if (i !== this.lastIndex) this.image.clear();
+    if (i !== this.lastIndex) {
+      this.image.clear();
+      this.blocks.clear();
+    }
     this.lastIndex = i;
     const text = document.getElementById('ed-notes-text') as HTMLTextAreaElement | null;
     if (!text) return;
@@ -512,14 +537,31 @@ export class Editor {
     }
     if (e.key === 'Escape' && !mod) {
       if (this.pop.classList.contains('on')) this.closePop();
-      else if (this.image.selected) this.image.clear();
-      else this.toggle(false);
+      else if (this.image.selected || this.blocks.selected) {
+        this.image.clear();
+        this.blocks.clear();
+      } else this.toggle(false);
       e.preventDefault();
       return true;
     }
-    if ((e.key === 'Delete' || e.key === 'Backspace') && this.image.selected && !mod) {
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !mod && (this.image.selected || this.blocks.selected)) {
       e.preventDefault();
-      this.bar.ownerDocument.querySelector<HTMLElement>('#ed-img [data-i="remove"]:not([hidden])')?.click();
+      // Выделен свободный объект — удаляется объект; выделена картинка в раскладке — убирается картинка
+      if (this.blocks.selected && (this.blocks.isFree || !this.image.selected)) this.blocks.remove();
+      else document.querySelector<HTMLElement>('#ed-img [data-i="remove"]:not([hidden])')?.click();
+      this.image.clear();
+      return true;
+    }
+    if (this.blocks.isFree && !mod && e.key.startsWith('Arrow')) {
+      e.preventDefault();
+      const step = e.shiftKey ? 10 : 1;
+      const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+      if (d) this.blocks.nudge(d[0], d[1]);
+      return true;
+    }
+    if (this.blocks.isFree && mod && (k === 'd' || k === 'в')) {
+      e.preventDefault();
+      this.blocks.duplicate();
       return true;
     }
     return false;
@@ -529,7 +571,25 @@ export class Editor {
 
   private onClick(e: MouseEvent): void {
     const target = e.target as Element;
+    if (this.blocks.justDragged) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if (this.text.owns(target)) return;
+    const free = target.closest<HTMLElement>('[data-free]');
+    // Первый клик по свободному объекту выделяет его целиком (двигать, масштабировать)
+    if (free && !this.blocks.isSelected(free)) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.text.finish(true);
+      this.image.clear();
+      this.blocks.select(free);
+      const img = free.querySelector<HTMLElement>('[data-edit-img]');
+      const path = img ? readPath(img, 'data-edit-img') : null;
+      if (img && path && getAt(this.host.deck, path)) this.image.select(img);
+      return;
+    }
     const text = target.closest('[data-edit]');
     const img = target.closest('[data-edit-img]');
     // Внутри плитки подпись — это текст; сама плитка — картинка
@@ -537,12 +597,19 @@ export class Editor {
       e.preventDefault();
       e.stopPropagation();
       this.image.clear();
+      if (!free) this.blocks.clear();
       this.startEdit(text as HTMLElement, { x: e.clientX, y: e.clientY });
       return;
     }
     if (img) {
       e.preventDefault();
       e.stopPropagation();
+      if (!free) {
+        // Вместе с картинкой выделяется её блок (плитка, картинка): его можно удалить или сделать свободным
+        const owner = img.closest<HTMLElement>('[data-block]');
+        if (owner) this.blocks.select(owner);
+        else this.blocks.clear();
+      }
       const path = readPath(img, 'data-edit-img');
       const value = path ? getAt(this.host.deck, path) : null;
       // Пустое место — сразу выбор файла; картинка — выделение и её панель
@@ -556,6 +623,15 @@ export class Editor {
       e.preventDefault();
       const link = target.closest('[data-edit-url]');
       if (link) this.editUrl(link);
+      return;
+    }
+    // Остальное — выделение блока: удалить, сделать свободным
+    const block = target.closest<HTMLElement>('[data-block]');
+    if (block && !free) {
+      e.preventDefault();
+      this.blocks.select(block);
+    } else if (!free) {
+      this.blocks.clear();
     }
   }
 
@@ -631,38 +707,44 @@ export class Editor {
       const parent = getAt(d, path.slice(0, -1));
       if (Array.isArray(parent) && typeof last === 'number') parent.splice(last, 1);
       else setAt(d, path, undefined);
+      // Пустой список свободных объектов в данных не нужен
+      const sl = d.slides[Number(path[1])];
+      if (Array.isArray(sl?.free) && !sl.free.length) delete sl.free;
     }, { rebuild: true })) this.toast('Блок удалён. Вернуть: Ctrl+Z', 3000);
   }
 
-  /** Вставка текста или картинки в конец текущего слайда. */
+  /** Вставка текста или картинки свободным объектом в центр текущего слайда. */
   addBlock(kind: 'text' | 'image'): void {
     const i = this.host.index();
-    const slide = this.host.deck.slides[i];
-    if (slide.template && slide.template !== 'content') {
-      this.toast('На этот слайд блоки не добавляются: у него своя раскладка. Добавьте новый слайд в «Слайды».', 4000);
-      return;
-    }
-    const block = kind === 'text' ? { type: 'text', text: 'Новый текст' } : { type: 'image', src: '', height: 240 };
-    let at: Path = [];
+    const n = (this.host.deck.slides[i].free ?? []).length;
+    // Каждый новый объект чуть смещён, чтобы не лечь ровно поверх предыдущего
+    const shift = (n % 6) * 24;
+    const block = kind === 'text'
+      ? { type: 'text', text: 'Новый текст', place: { x: 440 + shift, y: 330 + shift, w: 400 } }
+      : { type: 'image', src: '', place: { x: 400 + shift, y: 190 + shift, w: 480, h: 320 } };
+    let at = -1;
     this.commit((d) => {
       const s = d.slides[i];
-      if (s.body === undefined) {
-        s.body = block;
-        at = ['slides', i, 'body'];
-      } else if (Array.isArray(s.body)) {
-        s.body.push(block);
-        at = ['slides', i, 'body', s.body.length - 1];
-      } else {
-        s.body = [s.body, block];
-        at = ['slides', i, 'body', 1];
-      }
+      s.free = Array.isArray(s.free) ? s.free : [];
+      s.free.push(block);
+      at = s.free.length - 1;
     }, { rebuild: true });
-    if (!at.length) return;
-    const key = JSON.stringify([...at, kind === 'text' ? 'text' : 'src']);
-    const el = [...this.host.stage().querySelectorAll<HTMLElement>(kind === 'text' ? '.slide.on [data-edit]' : '.slide.on [data-edit-img]')]
-      .find((x) => x.getAttribute(kind === 'text' ? 'data-edit' : 'data-edit-img') === key);
-    if (kind === 'text' && el) this.text.start(el);
-    else if (kind === 'image') this.pickImage([...at, 'src']);
+    if (at < 0) return;
+    this.blocks.selectFree(i, at);
+    const path: Path = ['slides', i, 'free', at, kind === 'text' ? 'text' : 'src'];
+    if (kind === 'text') {
+      const el = [...this.host.stage().querySelectorAll<HTMLElement>('.slide.on [data-edit]')]
+        .find((x) => x.getAttribute('data-edit') === JSON.stringify(path));
+      if (el) this.text.start(el);
+    } else {
+      this.pickImage(path);
+    }
+  }
+
+  private reposition(): void {
+    this.text.position();
+    this.image.position();
+    this.blocks.position();
   }
 
   // ---------------- всплывающее поле ----------------

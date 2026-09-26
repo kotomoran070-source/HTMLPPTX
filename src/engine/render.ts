@@ -4,7 +4,7 @@ import {
   type Component, type MountCtx, type RenderCtx,
 } from './component';
 import { asArray, esc } from './html';
-import { indexPaths } from './marks';
+import { indexPaths, pathOf } from './marks';
 
 let uidCounter = 0;
 
@@ -40,7 +40,21 @@ export class Renderer {
       if (tpl.mount) attrs = ctx.mount(tpl, slide);
     }
     if (extraClass) cls += ' ' + extraClass;
-    return `<section class="${cls}" data-index="${index}" data-tpl="${esc(name)}"${attrs}>${inner}</section>`;
+    return `<section class="${cls}" data-index="${index}" data-tpl="${esc(name)}"${attrs}>${inner}${this.freeLayer(slide, ctx)}</section>`;
+  }
+
+  /**
+   * Свободные объекты слайда (slide.free): лежат поверх раскладки на своих координатах.
+   * place: { x, y, w, h } — в пикселях слайда 1280×720; без h высота по содержимому.
+   */
+  private freeLayer(slide: SlideData, ctx: RenderCtx): string {
+    const list = Array.isArray(slide.free) ? (slide.free as Block[]) : [];
+    return list.map((b, i) => {
+      const pl = placeOf(b);
+      const p = pathOf(b);
+      const css = `left:${pl.x}px;top:${pl.y}px;width:${pl.w}px;${pl.h ? `height:${pl.h}px;` : ''}z-index:${10 + i}`;
+      return `<div class="free${pl.h ? '' : ' auto-h'}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
+    }).join('');
   }
 
   /** Вызывает mount() у всех компонентов внутри root. Возвращает функцию очистки. */
@@ -82,7 +96,10 @@ export class Renderer {
     const c = getBlock(b.type);
     if (!c) return errorBox(`Неизвестный компонент «${esc(b.type)}». Доступны: ${blockNames().join(', ')}`);
     let html = safe(() => c.render(b, ctx), `компоненте «${b.type}»`);
-    if (c.mount) html = html.replace(/^(\s*)<([a-z0-9-]+)/i, `$1<$2${ctx.mount(c, b)}`);
+    // Корень блока знает свой путь: режим правки выделяет, открепляет и удаляет блоки
+    const p = pathOf(b);
+    const attrs = (c.mount ? ctx.mount(c, b) : '') + (p ? ` data-block="${esc(JSON.stringify(p))}" data-type="${esc(b.type)}"` : '');
+    if (attrs) html = html.replace(/^(\s*)<([a-z0-9-]+)/i, `$1<$2${attrs}`);
     return html;
   }
 }
@@ -103,4 +120,22 @@ export function errorBox(msg: string): string {
 /** Название слайда для обзора и режима докладчика. */
 export function slideLabel(slide: SlideData, index: number): string {
   return slide.label ?? slide.title ?? `Слайд ${index + 1}`;
+}
+
+export interface Place { x: number; y: number; w: number; h?: number }
+
+/** Координаты свободного объекта с проверкой и значениями по умолчанию. */
+export function placeOf(b: unknown): Place {
+  const pl = (b as { place?: Partial<Place> })?.place ?? {};
+  const n = (v: unknown, d: number, min: number, max: number) => {
+    const x = Number(v);
+    return Number.isFinite(x) ? Math.round(Math.max(min, Math.min(max, x))) : d;
+  };
+  const h = Number(pl.h);
+  return {
+    x: n(pl.x, 440, -1280, 2560),
+    y: n(pl.y, 300, -720, 1440),
+    w: n(pl.w, 400, 20, 2560),
+    h: Number.isFinite(h) && h > 0 ? n(h, 0, 20, 1440) : undefined,
+  };
 }

@@ -59,7 +59,11 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   const cur = $('cur');
   applyAccent(deck.theme?.accent);
   const view = new DeckView(deck, cur);
-  const sync = new Sync(deckKey);
+  // У окна докладчика свой id (sessionStorage всплывающего окна копируется из основного)
+  const sync = new Sync(deckKey, 'p-' + Math.random().toString(36).slice(2, 10));
+  // Окно показа, за которым следует это окно; без параметра — первое ответившее
+  let mainId = new URLSearchParams(location.search).get('main');
+  const toMain = () => mainId ?? undefined;
   let index = -1;
   let black = false;
 
@@ -102,13 +106,13 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     const target = Math.max(0, Math.min(count() - 1, i));
     if (target === index) return;
     render(target);
-    sync.send({ type: 'goto', index: target });
+    sync.send({ type: 'goto', index: target }, toMain());
   }
 
   function setBlack(v: boolean, send = true): void {
     black = v;
     $('bk').classList.toggle('active', v);
-    if (send) sync.send({ type: 'black', value: v });
+    if (send) sync.send({ type: 'black', value: v }, toMain());
   }
 
   // --- таймер и часы ---
@@ -150,7 +154,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   $('bk').addEventListener('click', () => setBlack(!black));
   $('thm').addEventListener('click', () => toggleTheme());
   let remoteTheme = false;
-  onThemeChange((th) => { if (!remoteTheme) sync.send({ type: 'theme', theme: th }); });
+  onThemeChange((th) => { if (!remoteTheme) sync.send({ type: 'theme', theme: th }, toMain()); });
 
   document.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -169,7 +173,11 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     if (fn) { e.preventDefault(); fn(); }
   });
 
-  sync.on((m) => {
+  sync.on((m, from) => {
+    // Только своё окно показа: другие вкладки этой же презентации не мешают
+    if (m.type !== 'deck' && m.type !== 'state') return;
+    if (!mainId) mainId = from;
+    if (from !== mainId) return;
     if (m.type === 'deck') {
       // Правки из режима правки основного окна
       const next = JSON.stringify(m.deck);
@@ -192,7 +200,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   $('link').textContent = 'Окно показа не отвечает: листайте здесь';
   const m = /^#(\d+)$/.exec(location.hash);
   render(m ? parseInt(m[1], 10) - 1 : 0);
-  sync.send({ type: 'hello' });
+  sync.send({ type: 'hello' }, toMain());
   // Если основное окно перезагрузили, оно снова найдёт это окно по регулярному «привет»
-  setInterval(() => sync.send({ type: 'hello' }), 3000);
+  setInterval(() => sync.send({ type: 'hello' }, toMain()), 3000);
 }

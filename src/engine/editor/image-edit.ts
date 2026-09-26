@@ -51,12 +51,11 @@ export class ImageEditor {
     <button type="button" data-i="contain" title="Вписать целиком, без обрезки">${icon('contain')}<span>Целиком</span></button>
     <button type="button" data-i="cover" title="Заполнить блок, лишнее обрезается">${icon('cover')}<span>Заполнить</span></button>
   </span>
-  <label class="edzoom" data-g="cover" title="Масштаб">${icon('search')}<input type="range" data-i="zoom" min="100" max="300" step="5" aria-label="Масштаб"><output></output></label>
-  <span class="edtip" data-g="cover">${icon('move')} тяните картинку, чтобы выбрать кадр</span>
+  <label class="edzoom" data-g="photo" title="Масштаб: меньше 100% — картинка уменьшается внутри рамки">${icon('search')}<input type="range" data-i="zoom" min="30" max="300" step="5" aria-label="Масштаб"><output></output></label>
+  <span class="edtip" data-g="pan">${icon('move')} тяните картинку, чтобы сдвинуть</span>
   <button type="button" data-i="reset" data-g="framed" title="Вернуть кадр по центру и без увеличения">Сбросить кадр</button>
   <i class="edsep"></i>
-  <button type="button" data-i="remove" class="danger" title="Убрать картинку">${icon('close')}<span>Убрать</span></button>
-  <button type="button" data-i="delete" class="danger" title="Удалить блок целиком">${icon('trash')}</button>
+  <button type="button" data-i="remove" class="danger" title="Убрать картинку (Delete)" aria-label="Убрать картинку">${icon('close')}</button>
 </div>
 <div class="edhandle" id="ed-handle" title="Потяните, чтобы изменить высоту" aria-hidden="true"></div>`);
     this.bar = document.getElementById('ed-img')!;
@@ -121,26 +120,32 @@ export class ImageEditor {
     const f = this.frame();
     const photo = s.kind === 'photo' && hasImage && !!s.owner;
     const cover = photo && f.fit !== 'contain';
-    const framed = photo && (!!f.position || (Number(f.zoom) || 1) > 1);
+    const z = Number(f.zoom) || 1;
+    const framed = photo && (!!f.position || z !== 1);
+    // Сдвигать есть что, когда картинка обрезана или уменьшена/увеличена
+    const pannable = photo && (cover || z !== 1);
     const block = s.owner ? this.host.blockOf(s.owner) : null;
     const isImageBlock = !!block && (getAt(this.host.deck(), block) as { type?: string })?.type === 'image';
     const show = (g: string, v: boolean) => this.bar.querySelectorAll<HTMLElement>(`[data-g="${g}"]`).forEach((e) => (e.hidden = !v));
     show('photo', photo);
-    show('cover', cover);
+    show('pan', pannable);
     show('framed', framed);
     const q = (k: string) => this.bar.querySelector<HTMLElement>(`[data-i="${k}"]`)!;
     q('replace').querySelector('span')!.textContent = hasImage ? 'Заменить' : 'Вставить';
     q('contain').classList.toggle('on', photo && !cover);
     q('cover').classList.toggle('on', cover);
     q('remove').hidden = !hasImage;
-    q('remove').querySelector('span')!.textContent = s.kind === 'logo' ? 'Убрать логотип' : 'Убрать';
-    q('delete').hidden = !isImageBlock;
+    q('remove').title = s.kind === 'logo' ? 'Убрать логотип со всех слайдов (Delete)' : 'Убрать картинку (Delete)';
     const zoom = this.bar.querySelector<HTMLInputElement>('[data-i="zoom"]')!;
     zoom.value = String(Math.round((Number(f.zoom) || 1) * 100));
     this.bar.querySelector('output')!.textContent = `${zoom.value}%`;
-    s.el.classList.toggle('ed-pan', cover);
+    s.el.classList.toggle('ed-pan', pannable);
     this.bar.classList.add('on');
-    this.handle.classList.toggle('on', isImageBlock);
+    // Свободной картинке высоту задают ручки рамки объекта
+    const inFree = !!s.el.closest('[data-free]');
+    this.handle.classList.toggle('on', isImageBlock && !inFree);
+    const tip = this.bar.querySelector<HTMLElement>('.edtip');
+    if (tip) tip.lastChild!.textContent = inFree ? ' Alt + тяните картинку — сдвинуть кадр' : ' тяните картинку, чтобы сдвинуть';
     this.position();
   }
 
@@ -196,12 +201,6 @@ export class ImageEditor {
           }
           break;
         }
-        case 'delete': {
-          const block = s.owner ? this.host.blockOf(s.owner) : null;
-          this.clear();
-          if (block) this.host.removeBlock(block);
-          break;
-        }
       }
     });
 
@@ -215,7 +214,7 @@ export class ImageEditor {
     });
     zoom.addEventListener('change', () => {
       const z = Number(zoom.value) / 100;
-      this.setFrame({ zoom: z > 1.001 ? Math.round(z * 100) / 100 : undefined }, 'zoom');
+      this.setFrame({ zoom: Math.abs(z - 1) > 0.001 ? Math.round(z * 100) / 100 : undefined }, 'zoom');
     });
     zoom.addEventListener('keydown', (e) => e.stopPropagation());
 
@@ -245,29 +244,37 @@ export class ImageEditor {
     });
   }
 
-  /** Перетаскивание кадра внутри выделенной картинки (режим «Заполнить»). */
+  /**
+   * Перетаскивание картинки внутри рамки: картинка идёт за мышью.
+   * Левый край картинки в рамке = p · (ширина рамки − ширина картинки с учётом масштаба),
+   * поэтому сдвиг мыши dx меняет p на dx / (рамка − картинка): знак сам учитывает,
+   * больше картинка рамки или меньше.
+   */
   pointerDown(e: PointerEvent): boolean {
     const s = this.sel;
     if (!s || !s.el.contains(e.target as Node) || !s.el.classList.contains('ed-pan')) return false;
+    // У свободной картинки обычное перетаскивание двигает объект, кадр — с Alt
+    if (s.el.closest('[data-free]') && !e.altKey) return false;
     const img = this.img();
-    if (!img) return false;
+    if (!img || !img.naturalWidth) return false;
     e.preventDefault();
     const f = this.frame();
     const m = POS.exec(f.position ?? '');
     const start = { x: m ? Number(m[1]) : 50, y: m ? Number(m[2]) : 50 };
-    const r = s.el.getBoundingClientRect();
-    const zoom = Math.max(1, Number(f.zoom) || 1);
+    const box = (img.parentElement ?? s.el).getBoundingClientRect();
+    const zoom = Math.max(0.3, Math.min(4, Number(f.zoom) || 1));
+    const base = (f.fit === 'contain' ? Math.min : Math.max)(box.width / img.naturalWidth, box.height / img.naturalHeight);
+    const rangeX = box.width - img.naturalWidth * base * zoom;
+    const rangeY = box.height - img.naturalHeight * base * zoom;
     let pos = start;
     let moved = false;
     const move = (ev: PointerEvent) => {
       const dx = ev.clientX - e.clientX;
       const dy = ev.clientY - e.clientY;
       if (Math.abs(dx) + Math.abs(dy) > 2) moved = true;
-      // Тянем вправо — картинка едет вправо, то есть виден её левый край
-      const k = 100 / zoom;
       pos = {
-        x: clamp(start.x - (dx / r.width) * k),
-        y: clamp(start.y - (dy / r.height) * k),
+        x: Math.abs(rangeX) < 1 ? start.x : clamp(start.x + (dx / rangeX) * 100),
+        y: Math.abs(rangeY) < 1 ? start.y : clamp(start.y + (dy / rangeY) * 100),
       };
       img.setAttribute('style', frameCss({ ...f, position: `${pos.x}% ${pos.y}%` }));
     };
