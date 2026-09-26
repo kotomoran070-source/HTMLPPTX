@@ -104,7 +104,11 @@ function stamp(): string {
 export function importHtml(html: string, o: ImportOptions): ImportResult {
   const theirsRaw = extract(html, DATA_ID);
   if (!theirsRaw || typeof theirsRaw !== 'object') {
-    throw new Error('В файле нет данных презентации HTMLPPTX. Импортировать можно файл, собранный командой yarn build (в том числе сохранённый после правок).');
+    // Самая первая версия движка собирала файл без данных для правки
+    if (/id="?ovbd|htmlpptx/i.test(html)) {
+      throw new Error('Файл собран старой версией проекта: в нём ещё нет данных для импорта. Соберите презентацию заново (yarn build), правьте новый файл из dist/ — его можно будет импортировать.');
+    }
+    throw new Error('Это не файл HTMLPPTX. Импортировать можно только файл, собранный этим проектом (yarn build → dist/<имя>.html), в том числе сохранённый после правок в браузере. Исходную HTML-презентацию или экспорт из другого сервиса так импортировать нельзя.');
   }
   const baseRaw = extract(html, BASE_ID) as { name?: string; deck?: Deck } | undefined;
   const fromFile = o.fileName ? slug(path.basename(o.fileName).replace(/\.html?$/i, '')) : '';
