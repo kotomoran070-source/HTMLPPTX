@@ -28,16 +28,16 @@ interface Motion {
 }
 
 const SLIDE_W = 1280;
-const EFFECTS = new Set(['fade', 'rise', 'drop', 'left', 'right', 'scale', 'pop']);
+export const EFFECTS = new Set(['fade', 'rise', 'drop', 'left', 'right', 'scale', 'pop']);
 
 /** Файл похож на экспорт Claude Design: слайды-секции с рамками. */
 export function isDesignExport(html: string): boolean {
   return /class="deck-slide"/.test(html) && /data-frame-id=/.test(html);
 }
 
-const round = (v: number, d = 1) => Math.round(v * 10 ** d) / 10 ** d;
+export const round = (v: number, d = 1) => Math.round(v * 10 ** d) / 10 ** d;
 
-function styleOf(el: El): Record<string, string> {
+export function styleOf(el: El): Record<string, string> {
   const out: Record<string, string> = {};
   for (const part of (el.getAttribute('style') ?? '').split(';')) {
     const i = part.indexOf(':');
@@ -46,17 +46,24 @@ function styleOf(el: El): Record<string, string> {
   return out;
 }
 
-const px = (v: string | undefined) => {
+export const px = (v: string | undefined) => {
   const n = parseFloat(v ?? '');
   return Number.isFinite(n) ? n : undefined;
 };
 
-function hex(c: string): string | null {
+export function hex(c: string): string | null {
   const s = c.trim().toLowerCase();
   if (/^#[0-9a-f]{3}([0-9a-f]{3})?$/.test(s)) return s;
   const m = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)(?:[\s,/]+([\d.]+))?\s*\)$/.exec(s);
   if (!m || (m[4] !== undefined && Number(m[4]) === 0)) return null;
   return '#' + [m[1], m[2], m[3]].map((x) => Number(x).toString(16).padStart(2, '0')).join('');
+}
+
+/** var(--ac) → accent: цвет темы в разметке текста */
+const THEME_NAMES: Record<string, string> = { ac: 'accent', ach: 'accent2', tx: 'text', tx2: 'text2', mu: 'muted' };
+function themeName(c: string): string | null {
+  const m = /^var\(\s*--([a-z0-9-]+)\s*(,[^)]*)?\)$/i.exec(c.trim());
+  return m ? THEME_NAMES[m[1].toLowerCase()] ?? null : null;
 }
 
 function wrap(mark: string, inner: string): string {
@@ -82,7 +89,7 @@ function markup(node: Node): string {
   const st = styleOf(el);
   let s = inner();
   const color = el.getAttribute('color') ?? st.color;
-  const c = color ? hex(color) : null;
+  const c = color ? hex(color) ?? themeName(color) : null;
   if (c) s = wrapColor(c, s);
   if (tag === 'U' || /underline/.test(st['text-decoration'] ?? '')) s = wrap('__', s);
   if (tag === 'I' || tag === 'EM' || st['font-style'] === 'italic') s = wrap('*', s);
@@ -91,7 +98,7 @@ function markup(node: Node): string {
   return s;
 }
 
-function textOf(el: El): string {
+export function textOf(el: El): string {
   return el.childNodes.map(markup).join('')
     .replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/^\n+|\n+$/g, '')
     // Строка текста, похожая на пункт списка, остаётся обычной строкой
@@ -109,7 +116,7 @@ function plainStyle(css: string): string {
 }
 
 /** Служебные атрибуты редактора-источника и всё исполняемое убираем. */
-function cleanTree(root: El): void {
+export function cleanTree(root: El, keepData = false): void {
   root.querySelectorAll('script, iframe, object, embed, link, meta').forEach((x) => x.remove());
   for (const el of [root, ...root.querySelectorAll('*')]) {
     const st = el.getAttribute('style');
@@ -117,18 +124,18 @@ function cleanTree(root: El): void {
     for (const name of Object.keys(el.attributes)) {
       const n = name.toLowerCase();
       if (n === 'data-t' || n === 'data-i') continue;
-      if (n.startsWith('on') || n.startsWith('data-') || n === 'draggable' || n === 'contenteditable') el.removeAttribute(name);
+      if (n.startsWith('on') || (n.startsWith('data-') && !keepData) || n === 'draggable' || n === 'contenteditable') el.removeAttribute(name);
       else if ((n === 'href' || n === 'src') && /^\s*javascript:/i.test(el.getAttribute(name) ?? '')) el.removeAttribute(name);
     }
   }
 }
 
 /** Разметка → простой текст (для названия слайда). */
-function plain(s: string): string {
+export function plain(s: string): string {
   return s.replace(/\{(#[0-9a-f]{3,8}|[a-z0-9]+)\|/gi, '').replace(/\\(.)/g, '$1').replace(/[*_{}]/g, '');
 }
 
-function firstText(el: El | null | undefined): string {
+export function firstText(el: El | null | undefined): string {
   return (el?.text ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
 }
 

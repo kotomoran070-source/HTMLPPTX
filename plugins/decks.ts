@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 import { parseDocument } from 'yaml';
 import { AssetStore } from './assets';
-import { BASE_ID, importHtml } from './import';
+import { BASE_ID, bindProject, importHtml } from './import';
 import { packDeck } from '../src/engine/pack';
 import { mergeYaml } from './yaml-merge';
 
@@ -156,6 +156,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
       name: url.searchParams.get('deck') || undefined,
       fileName: url.searchParams.get('file') || undefined,
       dryRun: url.searchParams.get('dry') === '1',
+      theme: url.searchParams.get('theme') !== '0',
     });
     send(res, 200, result);
   }
@@ -209,6 +210,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           const url = new URL(req.url, 'http://localhost');
           if (url.pathname === API + 'import') return await handleImport(url, req, res);
           const name = assertDeck(url.searchParams.get('deck'));
+          if (url.pathname === API + 'bind-theme') return send(res, 200, bindProject(dir, name, url.searchParams.get('dry') === '1'));
           if (url.pathname === API + 'save') return await handleSave(name, req, res);
           if (url.pathname === API + 'asset') return await handleAsset(name, url.searchParams.get('name') ?? 'image.png', req, res);
           send(res, 404, { error: 'Неизвестная команда' });

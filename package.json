@@ -14,6 +14,7 @@
     "preview": "vite preview",
     "new": "node scripts/new-deck.mjs",
     "merge-html": "node scripts/import.mjs",
+    "bind-theme": "node scripts/bind-theme.mjs",
     "typecheck": "tsc --noEmit",
     "verify": "tsc --noEmit && node scripts/build.mjs"
   },

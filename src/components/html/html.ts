@@ -1,4 +1,6 @@
+import { ACCENT_EVENT } from '../../engine/accent';
 import { defineBlock } from '../../engine/component';
+import { onThemeChange } from '../../engine/theme';
 import { esc, t } from '../../engine/html';
 import { fieldStyle, frameCss, pathOf, type ImageFrame } from '../../engine/marks';
 import type { Block } from '../../types';
@@ -91,6 +93,19 @@ defineBlock<HtmlProps>('html', {
 interface EmbedProps extends Block {
   src?: string;
   poster?: string;
+  /** Вставка берёт цвета темы: получает их при показе и перезапускается при смене темы */
+  theme?: boolean;
+}
+
+/** Цвета темы, которые передаются во вставку */
+const TOKENS = ['--bg', '--surf', '--alt', '--tx', '--tx2', '--mu', '--bd', '--bd2', '--ac', '--ach', '--acs', '--acb', '--on-ac', '--font'];
+
+/** Документ вставки с текущими цветами темы: :root:root сильнее :root самой вставки. */
+function withTheme(html: string): string {
+  const cs = getComputedStyle(document.documentElement);
+  const vars = TOKENS.map((t) => `${t}:${cs.getPropertyValue(t).trim()}`).join(';');
+  const style = `<style id="htmlpptx-theme">:root:root{${vars};color-scheme:${cs.colorScheme || 'light'}}</style>`;
+  return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => m + style) : style + html;
 }
 
 const docs = new Map<string, Promise<string>>();
@@ -107,7 +122,7 @@ const load = (url: string) => {
 defineBlock<EmbedProps>('embed', {
   render(p) {
     const poster = p.poster ? `<img class="embed-poster" src="${esc(p.poster)}" alt="">` : '';
-    return `<div class="embed">${poster}</div>`;
+    return `<div class="embed${p.theme ? ' themed' : ''}">${poster}</div>`;
   },
   mount(el, p, ctx) {
     if (!p.src) return;
@@ -126,11 +141,21 @@ defineBlock<EmbedProps>('embed', {
       frame = f;
       load(p.src!).then((html) => {
         if (frame !== f) return;
-        f.srcdoc = html;
+        f.srcdoc = p.theme ? withTheme(html) : html;
         f.addEventListener('load', () => f.classList.add('on'), { once: true });
         el.append(f);
       }).catch(() => { /* остаётся заставка */ });
     };
+    // Сменилась тема или акцент — вставка перезапускается с новыми цветами
+    const recolor = () => {
+      if (!p.theme || !frame) return;
+      const f = frame;
+      load(p.src!).then((html) => {
+        if (frame === f) f.srcdoc = withTheme(html);
+      }).catch(() => {});
+    };
+    const offTheme = onThemeChange(recolor);
+    addEventListener(ACCENT_EVENT, recolor);
     const off = () => {
       clearTimeout(timer);
       // Небольшая задержка: при перелистывании туда-обратно анимация не начинается заново
@@ -144,6 +169,8 @@ defineBlock<EmbedProps>('embed', {
     mo.observe(ctx.slide, { attributes: true, attributeFilter: ['class'] });
     sync();
     return () => {
+      offTheme();
+      removeEventListener(ACCENT_EVENT, recolor);
       mo.disconnect();
       clearTimeout(timer);
       frame?.remove();

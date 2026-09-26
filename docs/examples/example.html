@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ru" data-accent="#2563EB">
+<head>
+<meta charset="utf-8">
+<title>Пример: свой HTML для HTMLPPTX</title>
+<!--
+  Файл по правилам docs/HTML.md. Его можно открыть в браузере как есть (слайды столбиком),
+  а можно импортировать в проект: перетащить на страницу в yarn dev
+  или выполнить yarn merge-html docs/examples/example.html example.
+-->
+<!-- Только для просмотра файла в браузере: цвета темы и слайды 1280×720 столбиком. В проект не переносится -->
+<style data-preview>
+  :root {
+    --bg: #F8FAFC; --surf: #FDFEFF; --alt: #F3F4F6; --tx: #111827; --tx2: #374151; --mu: #6B7280;
+    --bd: #E5E7EB; --bd2: #D1D5DB; --ac: #2563EB; --ach: #1D4ED8; --acs: #EFF6FF; --acb: #93C5FD; --on-ac: #FFFFFF;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  body { margin: 0; padding: 24px; background: #CBD5E1; }
+  section.slide { position: relative; width: 1280px; height: 720px; box-sizing: border-box; padding: 48px 64px; margin: 0 auto 24px; overflow: hidden; }
+</style>
+<style>
+  /* Стили презентации: только переменные темы, никаких #цветов */
+  .slide { background: var(--bg); color: var(--tx); display: flex; flex-direction: column; gap: 24px; }
+  h1 { font-size: 56px; line-height: 1.1; margin: 0; letter-spacing: -1px; }
+  h2 { font-size: 36px; margin: 0; }
+  .lead { font-size: 22px; color: var(--tx2); margin: 0; max-width: 760px; }
+  .muted { color: var(--mu); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .card { background: var(--surf); border: 1px solid var(--bd); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 8px; }
+  .card b { font-size: 20px; }
+  .card p { margin: 0; color: var(--tx2); font-size: 15px; }
+  .num { font-size: 44px; font-weight: 800; color: var(--ac); }
+  .chip { display: inline-block; padding: 4px 12px; border-radius: 999px; background: var(--acs); color: var(--ach); border: 1px solid var(--acb); font-size: 14px; font-weight: 600; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .accent-bar { height: 6px; width: 120px; border-radius: 3px; background: var(--ac); }
+  .badge { background: var(--ac); color: var(--on-ac); border-radius: 12px; padding: 14px 18px; font-weight: 700; font-size: 18px; }
+  .pulse { animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 50% { transform: scale(1.05); } }
+</style>
+</head>
+<body>
+
+<section class="slide" data-id="intro" data-notes="Приветствие. Коротко о проекте и о том, что покажем.">
+  <div class="accent-bar"></div>
+  <h1>Итоги квартала</h1>
+  <p class="lead">Что сделали, что получилось и что дальше. Все цвета — из темы, поэтому слайды перекрашиваются вместе с ней.</p>
+  <div class="row"><span class="chip">Q3 2026</span><span class="chip">команда Palorax</span></div>
+  <!-- Свободный объект: координаты в пикселях слайда 1280×720, двигается мышью -->
+  <div class="badge pulse" style="position: absolute; left: 960px; top: 560px; width: 240px" data-enter="pop" data-delay="400">24 устройства в работе</div>
+</section>
+
+<section class="slide" data-id="results">
+  <h2>Результаты</h2>
+  <div class="grid">
+    <div class="card"><span class="num">99,7 %</span><b>Доступность</b><p>Сервер работал без простоев весь квартал.</p></div>
+    <div class="card"><span class="num">3,4 млн</span><b>Сообщений</b><p>Принято от оконечных устройств.</p></div>
+    <div class="card"><span class="num">0</span><b>Выездов</b><p>Настройка устройств — <b>удалённо</b>.</p></div>
+  </div>
+  <p class="muted">Данные за июль — сентябрь. Подробности — на <a href="https://example.com">сайте проекта</a>.</p>
+  <aside class="notes">Акцент на нуле выездов: это главная экономия.</aside>
+</section>
+
+<section class="slide" data-id="plan">
+  <h2>План на следующий квартал</h2>
+  <div class="card">
+    <b>Три шага</b>
+    <p>1. Обновить прошивку до 1.5.<br>2. Подключить ещё 12 объектов.<br>3. Выпустить мобильное приложение.</p>
+  </div>
+  <!-- «Живая» вставка: отдельный документ в iframe, цвета — тоже из темы -->
+  <iframe style="position: absolute; left: 760px; top: 300px; width: 440px; height: 320px; border: 0" srcdoc="&lt;!doctype html&gt;&lt;style&gt;html,body{margin:0;height:100%;background:transparent}svg{width:100%;height:100%}circle{fill:var(--ac,#2563EB);animation:b 1.6s ease-in-out infinite alternate}circle:nth-child(2){animation-delay:.4s}circle:nth-child(3){animation-delay:.8s}@keyframes b{to{transform:translateY(-30px)}}&lt;/style&gt;&lt;svg viewBox='0 0 300 200'&gt;&lt;circle cx='80' cy='120' r='18'/&gt;&lt;circle cx='150' cy='120' r='18'/&gt;&lt;circle cx='220' cy='120' r='18'/&gt;&lt;/svg&gt;"></iframe>
+</section>
+
+</body>
+</html>

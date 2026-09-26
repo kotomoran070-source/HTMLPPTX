@@ -3,6 +3,8 @@
  * Из одного цвета строятся все оттенки для светлой и тёмной темы.
  */
 const ID = 'htmlpptx-accent';
+/** Событие окна: акцентный цвет изменился (для «живых» вставок) */
+export const ACCENT_EVENT = 'htmlpptx:accent';
 export const HEX_RE = /^#[0-9a-f]{6}$/i;
 
 type RGB = [number, number, number];
@@ -45,8 +47,10 @@ const block = (vars: Record<string, string>) => Object.entries(vars).map(([k, v]
 /** Применяет акцентный цвет; без цвета возвращает стандартную палитру. */
 export function applyAccent(accent: unknown): void {
   let el = document.getElementById(ID);
+  const before = el?.textContent ?? '';
   if (typeof accent !== 'string' || !HEX_RE.test(accent)) {
     el?.remove();
+    if (before) dispatchEvent(new Event(ACCENT_EVENT));
     return;
   }
   const { light, dark } = accentTokens(accent);
@@ -59,4 +63,5 @@ export function applyAccent(accent: unknown): void {
   el.textContent = `:root{${block(light)}}`
     + `@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){${block(dark)}}}`
     + `:root[data-theme="dark"]{${block(dark)}}`;
+  if (el.textContent !== before) dispatchEvent(new Event(ACCENT_EVENT));
 }

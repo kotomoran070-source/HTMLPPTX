@@ -61,7 +61,7 @@ body.fs .progress-top { opacity: .7; }
 .ovpanel { background: var(--surf); border: 1px solid var(--bd); border-radius: 16px; padding: 22px; max-width: 790px; width: 100%; max-height: 88vh; overflow: auto; box-shadow: 0 24px 60px rgba(0, 0, 0, .35); }
 .ovhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .ovhead b { font-size: 18px; }
-.ovhead .ovimp { margin: 0 10px 0 auto; }
+.ovhead .ovtools-dev { display: flex; gap: 8px; margin: 0 10px 0 auto; }
 .ovgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .ovcard { border: 1px solid var(--bd); border-radius: 12px; padding: 8px; text-align: left; cursor: pointer; background: var(--surf); transition: border-color .2s, box-shadow .2s; display: flex; flex-direction: column; gap: 8px; font-weight: 400; }
 .ovcard:hover { border-color: var(--acb); box-shadow: 0 2px 8px rgba(15, 23, 42, .08); }

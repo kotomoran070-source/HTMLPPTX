@@ -4,6 +4,7 @@ import {
   type Component, type MountCtx, type RenderCtx,
 } from './component';
 import { asArray, esc } from './html';
+import { applyDeckCss } from './deck-css';
 import { indexPaths, pathOf } from './marks';
 
 let uidCounter = 0;
@@ -26,6 +27,8 @@ export class Renderer {
   constructor(private deck: Deck, private logo?: string) {
     // Пути нужны для режима правки: каждый элемент знает, какое значение он показывает
     indexPaths(deck);
+    // Стили презентации (из импортированного HTML) — только внутри слайдов-холстов
+    applyDeckCss((deck as { css?: unknown }).css);
   }
 
   slide(slide: SlideData, index: number, extraClass = ''): string {

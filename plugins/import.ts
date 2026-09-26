@@ -3,6 +3,8 @@ import path from 'node:path';
 import { Document, isMap, isPair, isScalar, visit } from 'yaml';
 import { AssetStore } from './assets';
 import { fromDesign, isDesignExport } from './design-import';
+import { fromSlidesHtml, isSlidesHtml } from './html-import';
+import { bindDeck, readDataUrl, toDataUrl, type BindReport } from './theme-bind';
 import { readYaml } from './decks';
 import { deepEqual, merge3, type Conflict } from './merge3';
 import { unpackDeck } from '../src/engine/pack';
@@ -24,12 +26,18 @@ export interface ImportOptions {
   fileName?: string;
   /** Только показать, что изменится */
   dryRun?: boolean;
+  /** Привязать цвета вёрстки к теме (для Claude Design и своего HTML; по умолчанию да) */
+  theme?: boolean;
 }
 
 export interface ImportResult {
   name: string;
-  /** Откуда файл: сборка этого проекта или экспорт Claude Design */
-  source: 'htmlpptx' | 'design';
+  /** Откуда файл: сборка этого проекта, экспорт Claude Design или свой HTML по правилам */
+  source: 'htmlpptx' | 'design' | 'html';
+  /** Привязка цветов к теме (если выполнялась) */
+  theme?: BindReport;
+  /** Что стоит поправить в исходном файле */
+  warnings: string[];
   /** create — новая презентация; merge — слияние с исходной версией; replace — без исходной версии */
   mode: 'create' | 'merge' | 'replace';
   changed: boolean;
@@ -122,16 +130,25 @@ export function importHtml(html: string, o: ImportOptions): ImportResult {
   let theirsRaw = unpackDeck(extract(html, DATA_ID));
   let origin: ImportResult['source'] = 'htmlpptx';
   // Экспорт Claude Design: слайды превращаются в холсты со свободными объектами
+  let warnings: string[] = [];
   if (!theirsRaw && isDesignExport(html)) {
     theirsRaw = fromDesign(html);
     origin = 'design';
+  } else if (!theirsRaw && isSlidesHtml(html)) {
+    ({ deck: theirsRaw, warnings } = fromSlidesHtml(html));
+    origin = 'html';
+  }
+  // Цвета вёрстки → цвета темы: работают тёмная тема и смена акцента
+  let theme: BindReport | undefined;
+  if (theirsRaw && origin !== 'htmlpptx' && o.theme !== false) {
+    theme = bindDeck(theirsRaw as Deck, { read: readDataUrl, write: (_src, text) => toDataUrl(text) });
   }
   if (!theirsRaw || typeof theirsRaw !== 'object') {
     // Самая первая версия движка собирала файл без данных для правки
     if (/id="?ovbd|htmlpptx/i.test(html)) {
       throw new Error('Файл собран старой версией проекта: в нём ещё нет данных для импорта. Соберите презентацию заново (yarn build), правьте новый файл из dist/ — его можно будет импортировать.');
     }
-    throw new Error('Формат файла не распознан. Импортируются: файл, собранный этим проектом (yarn build → dist/<имя>.html, в том числе сохранённый после правок), и HTML-экспорт из Claude Design. Если это экспорт другого сервиса — пришлите пример, добавим.');
+    throw new Error('Формат файла не распознан. Импортируются: файл, собранный этим проектом (yarn build → dist/<имя>.html), HTML-экспорт из Claude Design и свой HTML со слайдами <section class="slide"> (правила — docs/HTML.md).');
   }
   const baseRaw = extract(html, BASE_ID) as { name?: string; deck?: Deck } | undefined;
   const fromFile = o.fileName ? slug(path.basename(o.fileName).replace(/\.html?$/i, '')) : '';
@@ -146,7 +163,7 @@ export function importHtml(html: string, o: ImportOptions): ImportResult {
   const conflicts: Conflict[] = [];
   const result = (mode: ImportResult['mode'], before: Deck, after: Deck, changed: boolean): ImportResult => ({
     name, source: origin, mode, changed, dryRun: !!o.dryRun, slides: after.slides?.length ?? 0,
-    ...describe(before, after), conflicts, newAssets: assets.added,
+    ...describe(before, after), conflicts, newAssets: assets.added, theme, warnings,
   });
 
   if (!exists) {
@@ -154,7 +171,7 @@ export function importHtml(html: string, o: ImportOptions): ImportResult {
     if (!o.dryRun) {
       fs.mkdirSync(deckDir, { recursive: true });
       assets.flush();
-      const what = origin === 'design' ? 'экспорта Claude Design' : 'HTML-файла';
+      const what = origin === 'design' ? 'экспорта Claude Design' : origin === 'html' ? 'HTML' : 'HTML-файла';
       fs.writeFileSync(file, `# Импортировано из ${what} ${o.fileName ?? ''}. Справочник компонентов: docs/COMPONENTS.md\n\n${compactYaml(theirs)}`);
     }
     return res;
@@ -180,6 +197,70 @@ export function importHtml(html: string, o: ImportOptions): ImportResult {
   return res;
 }
 
+export interface BindResult {
+  name: string;
+  changed: boolean;
+  dryRun: boolean;
+  theme: BindReport;
+  backup?: string;
+}
+
+/**
+ * Привязка цветов к теме у презентации, которая уже есть в проекте (импортированной раньше
+ * или без привязки). Меняет deck.yaml (с резервной копией) и документы вставок в assets/.
+ */
+export function bindProject(dir: string, name: string, dryRun = false): BindResult {
+  const deckDir = path.join(dir, name);
+  const file = path.join(deckDir, 'deck.yaml');
+  if (!fs.existsSync(file)) throw new Error(`Презентация «${name}» не найдена`);
+  const source = fs.readFileSync(file, 'utf8');
+  const deck = readYaml(file, source) as Deck;
+  const inside = (src: string) => {
+    const abs = path.resolve(deckDir, src);
+    return abs.startsWith(deckDir + path.sep) ? abs : null;
+  };
+  const writes = new Map<string, string>();
+  const theme = bindDeck(deck, {
+    read: (src) => {
+      if (src.startsWith('data:')) return readDataUrl(src);
+      const abs = inside(src);
+      return abs && fs.existsSync(abs) ? writes.get(abs) ?? fs.readFileSync(abs, 'utf8') : null;
+    },
+    write: (src, text) => {
+      if (src.startsWith('data:')) return toDataUrl(text);
+      const abs = inside(src);
+      if (abs) writes.set(abs, text);
+      return src;
+    },
+  });
+  const next = mergeYaml(source, deck);
+  const changed = next !== source || writes.size > 0;
+  const res: BindResult = { name, changed, dryRun, theme };
+  if (changed && !dryRun) {
+    const backupDir = path.join(deckDir, '.backup');
+    fs.mkdirSync(backupDir, { recursive: true });
+    const backup = path.join(backupDir, `deck-${stamp()}.yaml`);
+    fs.writeFileSync(backup, source);
+    res.backup = path.relative(process.cwd(), backup);
+    for (const [abs, text] of writes) fs.writeFileSync(abs, text);
+    fs.writeFileSync(file, next);
+  }
+  return res;
+}
+
+/** Отчёт о привязке цветов к теме. */
+export function themeLines(t: BindReport): string[] {
+  const out = [`Цвета привязаны к теме: ${t.bound}`];
+  if (t.accent) out.push(`Акцентный цвет макета: ${t.accent} (записан в theme.accent)`);
+  const kept = Object.entries(t.kept).sort((a, b) => b[1] - a[1]);
+  if (kept.length) {
+    const top = kept.slice(0, 8).map(([c, n]) => `${c} ×${n}`).join(', ');
+    out.push(`Без пары в теме, остаются как есть (${kept.length}): ${top}${kept.length > 8 ? ', …' : ''}`);
+  }
+  if (t.darkSlides.length) out.push(`Тёмные слайды остаются тёмными: ${t.darkSlides.join(', ')}`);
+  return out;
+}
+
 /** Список новых файлов; длинный — числом: «12 картинок, 3 вставки». */
 export function filesSummary(files: string[]): string {
   if (files.length <= 6) return files.map((f) => f.replace('./assets/', '')).join(', ');
@@ -192,7 +273,7 @@ export function filesSummary(files: string[]): string {
 export function report(r: ImportResult): string {
   const lines: string[] = [];
   const where = `presentations/${r.name}/deck.yaml`;
-  const from = r.source === 'design' ? ' из экспорта Claude Design' : '';
+  const from = r.source === 'design' ? ' из экспорта Claude Design' : r.source === 'html' ? ' из HTML' : '';
   if (r.mode === 'create') lines.push(`${r.dryRun ? 'Будет создана' : 'Создана'} презентация ${where}${from}: ${r.slides} слайдов`);
   else if (!r.changed) lines.push(`Изменений нет: ${where} уже содержит эти данные`);
   else lines.push(`${r.dryRun ? 'Будет обновлена' : 'Обновлена'} ${where}${r.mode === 'merge' ? ' (слияние с исходной версией)' : ''}`);
@@ -214,6 +295,11 @@ export function report(r: ImportResult): string {
       const why = c.kind === 'both-changed' ? '' : c.kind === 'deleted-in-file' ? ' (в файле удалено, в проекте изменено — оставлено)' : ' (в проекте удалено, в файле изменено — восстановлено)';
       lines.push(`    • ${c.path}${why}`);
     }
+  }
+  if (r.theme) lines.push(...themeLines(r.theme).map((l) => `  ${l}`));
+  if (r.warnings.length) {
+    lines.push('  Стоит поправить в исходном файле:');
+    for (const w of r.warnings) lines.push(`    • ${w}`);
   }
   if (r.backup) lines.push(`  Прежняя версия сохранена: ${r.backup}`);
   return lines.join('\n');

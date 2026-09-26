@@ -35,8 +35,10 @@ export function toggleTheme(): Theme {
   return next;
 }
 
-export function onThemeChange(cb: (t: Theme) => void): void {
+/** Подписка на смену темы; возвращает отписку. */
+export function onThemeChange(cb: (t: Theme) => void): () => void {
   listeners.add(cb);
+  return () => listeners.delete(cb);
 }
 
 export function initTheme(): void {

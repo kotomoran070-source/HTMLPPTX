@@ -265,6 +265,9 @@ export class Editor {
       this.detach();
       this.hideHint();
       this.closePop();
+      // Подсказка про режим правки вне его не нужна
+      clearTimeout(this.toastTimer);
+      this.toastEl.classList.remove('on');
       if (this.mode === 'project') void this.flush();
     }
     this.host.relayout();

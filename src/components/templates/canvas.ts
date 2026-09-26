@@ -6,7 +6,7 @@ interface CanvasSlide extends SlideData {
   bg?: string;
 }
 
-const BG = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%/]+\)|[a-z]+)$/i;
+const BG = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%/]+\)|[a-z]+|var\(--[a-z0-9-]+\))$/i;
 
 /**
  * Пустой холст: всё содержимое — свободные объекты (free) на своих координатах.
