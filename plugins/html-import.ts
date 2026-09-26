@@ -192,8 +192,9 @@ export function fromSlidesHtml(source: string): SlidesHtmlResult {
   if (css.trim()) {
     if (/@import|url\(\s*["']?https?:/i.test(css)) warnings.push('стили подключают внешние файлы или шрифты (@import, url(https://…)) — без интернета они не загрузятся');
     // Цвета темы даёт проект: их объявления (для предпросмотра файла в браузере) не переносим
-    const tokens = /(^|[;{\s])--(bg|surf|alt|tx|tx2|mu|bd|bd2|ac|ach|acs|acb|on-ac|hl-sub)\s*:[^;}]*;?/g;
-    deck.css = dedent(css.replace(/@import[^;]*;/gi, '').replace(tokens, '$1').replace(/[^{}]*\{\s*\}/g, ''));
+    // Просмотр назад, без захвата: иначе «;» съедается и каждое второе объявление остаётся
+    const tokens = /(?<=^|[;{\s])--(bg|surf|alt|tx|tx2|mu|bd|bd2|ac|ach|acs|acb|on-ac|hl-sub|logo-bg)\s*:[^;}]*;?/g;
+    deck.css = dedent(css.replace(/@import[^;]*;/gi, '').replace(tokens, '').replace(/[^{}]*\{\s*\}/g, ''));
   }
   if (doc.querySelector('link[rel~="stylesheet"]')) warnings.push('внешние таблицы стилей (<link rel="stylesheet">) не переносятся: стили нужно писать в <style>');
   const scripts = doc.querySelectorAll('script').length;

@@ -34,6 +34,20 @@ body.picker-page {
 .pk-badge { position: absolute; top: -13px; right: 12px; font-size: 11.5px; font-weight: 700; letter-spacing: .02em; padding: 3px 10px; border-radius: 999px;
   background: var(--acs); color: var(--ach); border: 1px solid var(--acb); }
 
+/* Удаление: кнопка в углу миниатюры, видна при наведении на карточку */
+.pk-item { position: relative; display: flex; transition: opacity .3s, transform .3s; }
+.pk-item > .pk-card { flex: 1; min-width: 0; }
+.pk-item.pk-gone { opacity: 0; transform: scale(.96); }
+.pk-del { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; border-radius: 10px; padding: 0; cursor: pointer;
+  display: grid; place-items: center; color: var(--mu); background: color-mix(in srgb, var(--surf) 88%, transparent);
+  border: 1px solid var(--bd); box-shadow: var(--shadow-sm); opacity: 0; transform: translateY(-2px); transition: opacity .2s, transform .2s, color .2s, border-color .2s; }
+.pk-item:hover .pk-del, .pk-del:focus-visible { opacity: 1; transform: none; }
+.pk-del:hover { color: #DC2626; border-color: #FCA5A5; }
+.pk-del .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+@media (hover: none) { .pk-del { opacity: 1; transform: none; } }
+.btn.primary.pk-danger { background: #DC2626; color: #fff; }
+.btn.primary.pk-danger:hover { background: #B91C1C; color: #fff; }
+
 /* Карточки-действия: импорт и новая презентация */
 .pk-action { align-items: center; justify-content: center; gap: 8px; text-align: center; padding: 28px 22px; min-height: 250px;
   border: 1.5px dashed var(--bd2); background: color-mix(in srgb, var(--surf) 60%, transparent); box-shadow: none; }

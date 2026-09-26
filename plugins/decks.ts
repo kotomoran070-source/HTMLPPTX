@@ -121,6 +121,21 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     return name;
   };
 
+  /**
+   * Удаление с карточки на странице выбора: папка не стирается, а переносится в
+   * presentations/.trash/<имя>-<время> — вернуть можно, перенеся её обратно.
+   */
+  function trashDeck(name: string): { trashed: string } {
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, '0');
+    const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+    const trash = path.join(dir, '.trash');
+    fs.mkdirSync(trash, { recursive: true });
+    const target = path.join(trash, `${name}-${stamp}`);
+    fs.renameSync(path.join(dir, name), target);
+    return { trashed: path.relative(root, target).split(path.sep).join('/') };
+  }
+
   async function handleSave(name: string, req: IncomingMessage, res: ServerResponse): Promise<void> {
     const body = JSON.parse((await readBody(req)).toString('utf8')) as { deck?: unknown };
     if (!body.deck || typeof body.deck !== 'object') throw new Error('Нет данных презентации');
@@ -214,6 +229,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
             return send(res, 200, listDecks(dir).map((n) => ({ name: n, mtime: Math.round(fs.statSync(deckFile(n)).mtimeMs) })));
           }
           const name = assertDeck(url.searchParams.get('deck'));
+          if (url.pathname === API + 'delete') return send(res, 200, trashDeck(name));
           if (url.pathname === API + 'bind-theme') return send(res, 200, bindProject(dir, name, url.searchParams.get('dry') === '1'));
           if (url.pathname === API + 'save') return await handleSave(name, req, res);
           if (url.pathname === API + 'asset') return await handleAsset(name, url.searchParams.get('name') ?? 'image.png', req, res);

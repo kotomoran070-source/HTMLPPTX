@@ -44,7 +44,42 @@ function addStyle(el: Element, css: string): void {
   el.setAttribute('style', cur && !cur.trim().endsWith(';') ? `${cur};${css}` : cur + css);
 }
 
+/**
+ * Связанная подсветка без скриптов из файла: наведение на элемент с data-k (или data-h —
+ * список ключей через пробел) даёт класс hl всем элементам слайда с этими ключами.
+ * Так устроены схемы в артефактах этого проекта; как выглядит hl, задают стили презентации.
+ */
+const linked = new WeakSet<HTMLElement>();
+function linkHighlight(slide: HTMLElement): () => void {
+  if (linked.has(slide) || !slide.querySelector('[data-k]')) return () => {};
+  linked.add(slide);
+  const items = () => [...slide.querySelectorAll<HTMLElement>('[data-k]')];
+  const set = (keys: string[]) => items().forEach((e) => e.classList.toggle('hl', keys.includes(e.dataset.k ?? '')));
+  const over = (e: Event) => {
+    const t = (e.target as Element).closest<HTMLElement>('[data-k],[data-h]');
+    if (!t || !slide.contains(t) || document.body.classList.contains('editing')) return;
+    set((t.dataset.h ?? t.dataset.k ?? '').split(/\s+/).filter(Boolean));
+  };
+  const out = (e: MouseEvent) => {
+    const t = (e.target as Element).closest('[data-k],[data-h]');
+    const to = (e.relatedTarget as Element | null)?.closest?.('[data-k],[data-h]');
+    if (t && t !== to) set([]);
+  };
+  slide.addEventListener('mouseover', over);
+  slide.addEventListener('mouseout', out);
+  slide.addEventListener('focusin', over);
+  slide.addEventListener('focusout', () => set([]));
+  return () => {
+    linked.delete(slide);
+    slide.removeEventListener('mouseover', over);
+    slide.removeEventListener('mouseout', out);
+  };
+}
+
 defineBlock<HtmlProps>('html', {
+  mount(_el, _p, ctx) {
+    return linkHighlight(ctx.slide);
+  },
   render(p) {
     const scale = Number(p.scale) > 0 && Number(p.scale) <= 4 ? Number(p.scale) : 1;
     const f = fragment(String(p.html ?? ''));

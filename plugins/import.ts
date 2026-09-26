@@ -143,7 +143,11 @@ export async function importHtml(html: string, o: ImportOptions): Promise<Import
   }
   // Цвета вёрстки → цвета темы: работают тёмная тема и смена акцента
   let theme: BindReport | undefined;
-  if (theirsRaw && origin !== 'htmlpptx' && o.theme !== false) {
+  // Свой HTML, который уже пишет цвета через переменные темы: прямые цвета в нём — намеренные
+  // (белая плашка логотипа, цвета статусов), их не трогаем
+  const themedByAuthor = origin === 'html' && usesThemeVars(theirsRaw as Deck);
+  if (themedByAuthor) warnings.push('файл уже использует цвета темы (var(--…)): цвета, заданные прямо, оставлены как есть — они не меняются с темой');
+  if (theirsRaw && origin !== 'htmlpptx' && o.theme !== false && !themedByAuthor) {
     theme = bindDeck(theirsRaw as Deck, { read: readDataUrl, write: (_src, text) => toDataUrl(text) });
   }
   // Картинки чужой вёрстки — до нужного размера и в WebP: файл легче, показ быстрее
@@ -254,6 +258,14 @@ export function bindProject(dir: string, name: string, dryRun = false): BindResu
 }
 
 export const kb = (n: number) => (n >= 1e6 ? `${(n / 1048576).toFixed(1)} МБ` : `${Math.max(1, Math.round(n / 1024))} КБ`);
+
+/** Вёрстка в основном пишет цвета через переменные темы. */
+function usesThemeVars(deck: Deck & { css?: string }): boolean {
+  const text = (deck.css ?? '') + JSON.stringify(deck.slides ?? []);
+  const vars = (text.match(/var\(--(bg|surf|alt|tx|tx2|mu|bd|bd2|ac|ach|acs|acb|on-ac)\b/g) ?? []).length;
+  const literals = (text.match(/#[0-9a-f]{6}\b|#[0-9a-f]{3}\b|rgba?\(/gi) ?? []).length;
+  return vars >= 10 && vars >= literals * 0.5;
+}
 
 /** Отчёт о привязке цветов к теме. */
 export function themeLines(t: BindReport): string[] {

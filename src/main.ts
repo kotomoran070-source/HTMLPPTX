@@ -15,7 +15,8 @@ initTheme();
 
 const params = new URLSearchParams(location.search);
 const names = Object.keys(decks);
-const name = fixed ?? params.get('deck') ?? (names.length === 1 ? names[0] : null);
+// ?all — страница выбора, даже если презентация одна
+const name = fixed ?? params.get('deck') ?? (names.length === 1 && !params.has('all') ? names[0] : null);
 
 function setMeta(deck: Deck): void {
   document.title = deck.title;

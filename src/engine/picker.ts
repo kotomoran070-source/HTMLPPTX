@@ -40,6 +40,47 @@ async function mtimes(): Promise<Record<string, number>> {
   }
 }
 
+/** Подтверждение и удаление презентации (папка уходит в presentations/.trash). */
+async function remove(name: string, item: HTMLElement): Promise<void> {
+  const title = item.querySelector('.pk-title')?.textContent ?? name;
+  const box = document.createElement('div');
+  box.className = 'imp-bd';
+  box.innerHTML = `<div class="imp" role="alertdialog" aria-modal="true" aria-labelledby="del-h">
+    <h2 id="del-h">Удалить презентацию?</h2>
+    <div class="imp-body"><p><b>${esc(title)}</b></p>
+      <p class="mu">Папка <code>presentations/${esc(name)}</code> переместится в <code>presentations/.trash/</code>. Вернуть: перенесите её обратно в <code>presentations/</code>.</p></div>
+    <div class="imp-actions"><button type="button" class="btn ghost" data-a="cancel">Отмена</button><button type="button" class="btn primary pk-danger" data-a="ok">Удалить</button></div>
+  </div>`;
+  document.body.append(box);
+  await import('./import-ui.css');
+  const ok = box.querySelector<HTMLButtonElement>('[data-a="ok"]')!;
+  const cancel = box.querySelector<HTMLButtonElement>('[data-a="cancel"]')!;
+  const close = () => { box.remove(); removeEventListener('keydown', onKey, true); };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') { e.preventDefault(); close(); }
+    e.stopPropagation();
+  };
+  addEventListener('keydown', onKey, true);
+  cancel.onclick = close;
+  box.addEventListener('mousedown', (e) => { if (e.target === box) close(); });
+  cancel.focus();
+  ok.onclick = async () => {
+    ok.disabled = cancel.disabled = true;
+    try {
+      const res = await fetch(`/__htmlpptx/delete?deck=${encodeURIComponent(name)}`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? `ошибка ${res.status}`);
+      close();
+      item.classList.add('pk-gone');
+      // Остаёмся на странице выбора, даже если осталась одна презентация
+      setTimeout(() => { location.href = './?all'; }, 300);
+    } catch (e) {
+      box.querySelector('.imp-body')!.insertAdjacentHTML('beforeend', `<p class="imp-err">Не удалось: ${esc((e as Error).message)}</p>`);
+      ok.disabled = cancel.disabled = false;
+    }
+  };
+}
+
 /** Цвета акцента презентации для её миниатюры (у каждой карточки свои). */
 function accentVars(deck: Deck): string {
   const a = deck.theme?.accent;
@@ -69,13 +110,13 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
       : 'Пока ни одной. Создайте новую или импортируйте HTML.'}</p>
   </section>
   <div class="pk-grid" id="pk-grid">
-    ${names.map((n) => `<a class="pk-card" href="?deck=${encodeURIComponent(n)}" data-name="${esc(n)}">
+    ${names.map((n) => `<div class="pk-item"><a class="pk-card" href="?deck=${encodeURIComponent(n)}" data-name="${esc(n)}">
       <div class="pk-thumb"><div class="pk-ph"></div></div>
       <div class="pk-info">
         <b class="pk-title">${esc(n)}</b>
         <span class="pk-meta"><code>${esc(n)}</code></span>
       </div>
-    </a>`).join('')}
+    </a>${dev ? `<button type="button" class="pk-del" data-del="${esc(n)}" title="Удалить презентацию" aria-label="Удалить презентацию ${esc(n)}">${icon('trash')}</button>` : ''}</div>`).join('')}
     ${dev ? `<button class="pk-card pk-action" id="pk-import" type="button">
       <span class="pk-icon">${icon('upload')}</span>
       <b>Импорт HTML</b>
@@ -120,6 +161,10 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
       } catch { /* буфер обмена недоступен */ }
     };
   }
+
+  document.querySelectorAll<HTMLButtonElement>('.pk-del').forEach((b) => {
+    b.onclick = () => void remove(b.dataset.del!, b.closest<HTMLElement>('.pk-item')!);
+  });
 
   if (dev) {
     const m = await import('./import-ui');
