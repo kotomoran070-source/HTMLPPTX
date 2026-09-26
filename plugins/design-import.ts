@@ -139,6 +139,34 @@ export function firstText(el: El | null | undefined): string {
   return (el?.text ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
 }
 
+/**
+ * Служебный скрипт Claude Design в начале каждой вставки (связь с их редактором: кадры,
+ * выделение). Вне Claude Design он не нужен; убираем, если вставка к нему не обращается.
+ */
+export function stripRuntime(doc: string): string {
+  const m = /<script>\s*\(function\s*\w*\(\)\{[\s\S]*?appifact-embed[\s\S]*?<\/script>/.exec(doc);
+  if (!m) return doc;
+  const rest = doc.slice(0, m.index) + doc.slice(m.index + m[0].length);
+  return /appifactEmbed/.test(rest) ? doc : rest;
+}
+
+const MOVING = /@keyframes|animation\s*:|requestAnimationFrame|setInterval|setTimeout|<canvas|<video|animateMotion|<animate|\.animate\(/i;
+
+/**
+ * Вставка — неподвижный фон: один элемент с CSS-фоном, без анимаций.
+ * Возвращает значение background (например, сетка точек) или null.
+ */
+function staticBackground(doc: string): string | null {
+  if (MOVING.test(doc)) return null;
+  const body = doc.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '');
+  const els = body.match(/<(?!\/|!|html|head|body|meta)[a-z]+/gi) ?? [];
+  if (els.length !== 1) return null;
+  const idm = /\bid="([\w-]+)"/.exec(body);
+  const rule = idm ? new RegExp(`#${idm[1]}\\s*\\{([^}]*)\\}`).exec(doc) : null;
+  const bgm = rule && /(?:^|;)\s*background\s*:\s*([^;}]+)/.exec(rule[1]);
+  return bgm && !/url\(/i.test(bgm[1]) ? bgm[1].trim() : null;
+}
+
 /** Экспорт Claude Design → данные презентации (картинки пока как data:, их заберёт AssetStore). */
 export function fromDesign(html: string): Deck {
   const doc = parse(html, { comment: false, blockTextElements: { script: true, style: true } });
@@ -165,6 +193,7 @@ export function fromDesign(html: string): Deck {
     }));
     const buildMs = motion.buildMs ?? 380;
     let heading = '';
+    let slideBg: string | null = null;
 
     const free = canvas.childNodes.filter((n): n is El => n.nodeType === 1 && (n as El).hasAttribute('data-frame-id')).map((frame): Block | null => {
       const id = frame.getAttribute('data-frame-id')!;
@@ -179,7 +208,13 @@ export function fromDesign(html: string): Deck {
       const poster = frame.querySelector('img[alt="web embed"]');
       if (embeds.has(id) || (poster && frame.querySelectorAll('img').length === 1 && !frame.querySelector('[data-text-path]'))) {
         block = { type: 'embed' };
-        const doc = embeds.get(id);
+        const doc = embeds.has(id) ? stripRuntime(embeds.get(id)!) : undefined;
+        // Неподвижный фон на весь слайд: вместо отдельного документа — просто фон слайда
+        const still = doc && fh && x === 0 && y === 0 && fw >= w - 1 && fh >= (px(cs.height) ?? fh) - 1 ? staticBackground(doc) : null;
+        if (still) {
+          slideBg = still;
+          return null;
+        }
         if (doc) block.src = `data:text/html;base64,${Buffer.from(doc, 'utf8').toString('base64')}`;
         const p = poster?.getAttribute('src');
         if (p) block.poster = p;
@@ -223,8 +258,8 @@ export function fromDesign(html: string): Deck {
     }
     const slide: Slide = { id: `s${si + 1}`, template: 'canvas' };
     if (heading) slide.label = heading;
-    const bg = info.bg ?? cs.background ?? cs['background-color'];
-    if (bg) slide.bg = hex(bg) ?? bg;
+    const bg = slideBg ?? info.bg ?? cs.background ?? cs['background-color'];
+    if (bg) slide.bg = hex(bg) ?? bg.trim();
     slide.free = free;
     return slide;
   });

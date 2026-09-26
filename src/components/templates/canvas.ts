@@ -6,7 +6,9 @@ interface CanvasSlide extends SlideData {
   bg?: string;
 }
 
-const BG = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%/]+\)|[a-z]+|var\(--[a-z0-9-]+\))$/i;
+/** Цвет или слои фона (градиенты); без url() и символов, ломающих атрибут style */
+const BG = /^[^;{}<>"\\]+$/;
+const safeBg = (v: string) => BG.test(v) && !/url\s*\(|expression|javascript:/i.test(v);
 
 /**
  * Пустой холст: всё содержимое — свободные объекты (free) на своих координатах.
@@ -15,7 +17,7 @@ const BG = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%/]+\)|[a-z]+|var\(--[a-z0-9-]+\))$/i
 defineTemplate<CanvasSlide>('canvas', {
   className: 'canvas-slide',
   render(s, ctx) {
-    const bg = typeof s.bg === 'string' && BG.test(s.bg.trim()) ? `<div class="canvas-bg" style="background:${s.bg.trim()}"></div>` : '';
+    const bg = typeof s.bg === 'string' && safeBg(s.bg.trim()) ? `<div class="canvas-bg" style="background:${s.bg.trim()}"></div>` : '';
     return `${bg}${s.body ? `<div class="slide-body">${ctx.block(s.body)}</div>` : ''}`;
   },
 });

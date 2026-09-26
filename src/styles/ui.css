@@ -109,14 +109,8 @@ body.presenter { overflow: hidden; background: var(--alt); }
 /* Выбор презентации (yarn dev) */
 .picker { max-width: 760px; margin: 0 auto; padding: 48px 24px; height: 100%; overflow: auto; }
 .picker h1 { font-size: 32px; margin: 0 0 8px; }
-.picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 24px; }
-.picker-grid a { display: block; padding: 18px; border: 1px solid var(--bd); border-radius: 12px; background: var(--surf); color: var(--tx); text-decoration: none; transition: border-color .2s, box-shadow .2s; }
-.picker-grid a:hover { border-color: var(--acb); box-shadow: 0 2px 8px rgba(15, 23, 42, .08); }
-.picker-grid b { display: block; font-size: 16px; }
 .picker code { background: var(--alt); border: 1px solid var(--bd); border-radius: 6px; padding: 1px 6px; font-size: 13px; }
 body.picker-page { overflow: auto; }
-.picker-import { display: flex; align-items: center; gap: 14px; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--bd); font-size: 14px; }
-.picker-import .btn { flex: none; }
 .yaml-error { background: var(--surf); border: 1px solid #DC2626; border-radius: 10px; padding: 14px 16px; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; color: var(--tx); overflow: auto; }
 
 /* Печать и «Сохранить как PDF»: каждый слайд на своей странице, анимации выключены */

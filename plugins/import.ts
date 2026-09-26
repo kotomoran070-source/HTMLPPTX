@@ -4,6 +4,7 @@ import { Document, isMap, isPair, isScalar, visit } from 'yaml';
 import { AssetStore } from './assets';
 import { fromDesign, isDesignExport } from './design-import';
 import { fromSlidesHtml, isSlidesHtml } from './html-import';
+import { optimizeImages, type OptimizeReport } from './optimize';
 import { bindDeck, readDataUrl, toDataUrl, type BindReport } from './theme-bind';
 import { readYaml } from './decks';
 import { deepEqual, merge3, type Conflict } from './merge3';
@@ -38,6 +39,8 @@ export interface ImportResult {
   theme?: BindReport;
   /** Что стоит поправить в исходном файле */
   warnings: string[];
+  /** Сжатие картинок (для Claude Design и своего HTML) */
+  optimized?: OptimizeReport;
   /** create — новая презентация; merge — слияние с исходной версией; replace — без исходной версии */
   mode: 'create' | 'merge' | 'replace';
   changed: boolean;
@@ -126,7 +129,7 @@ function stamp(): string {
  * Правки из файла переносятся в deck.yaml (с сохранением комментариев), встроенные картинки —
  * в assets/. Перед записью старый deck.yaml копируется в .backup/.
  */
-export function importHtml(html: string, o: ImportOptions): ImportResult {
+export async function importHtml(html: string, o: ImportOptions): Promise<ImportResult> {
   let theirsRaw = unpackDeck(extract(html, DATA_ID));
   let origin: ImportResult['source'] = 'htmlpptx';
   // Экспорт Claude Design: слайды превращаются в холсты со свободными объектами
@@ -143,6 +146,8 @@ export function importHtml(html: string, o: ImportOptions): ImportResult {
   if (theirsRaw && origin !== 'htmlpptx' && o.theme !== false) {
     theme = bindDeck(theirsRaw as Deck, { read: readDataUrl, write: (_src, text) => toDataUrl(text) });
   }
+  // Картинки чужой вёрстки — до нужного размера и в WebP: файл легче, показ быстрее
+  const optimized = theirsRaw && origin !== 'htmlpptx' ? await optimizeImages(theirsRaw as Deck) : undefined;
   if (!theirsRaw || typeof theirsRaw !== 'object') {
     // Самая первая версия движка собирала файл без данных для правки
     if (/id="?ovbd|htmlpptx/i.test(html)) {
@@ -163,7 +168,7 @@ export function importHtml(html: string, o: ImportOptions): ImportResult {
   const conflicts: Conflict[] = [];
   const result = (mode: ImportResult['mode'], before: Deck, after: Deck, changed: boolean): ImportResult => ({
     name, source: origin, mode, changed, dryRun: !!o.dryRun, slides: after.slides?.length ?? 0,
-    ...describe(before, after), conflicts, newAssets: assets.added, theme, warnings,
+    ...describe(before, after), conflicts, newAssets: assets.added, theme, warnings, optimized,
   });
 
   if (!exists) {
@@ -248,6 +253,8 @@ export function bindProject(dir: string, name: string, dryRun = false): BindResu
   return res;
 }
 
+export const kb = (n: number) => (n >= 1e6 ? `${(n / 1048576).toFixed(1)} МБ` : `${Math.max(1, Math.round(n / 1024))} КБ`);
+
 /** Отчёт о привязке цветов к теме. */
 export function themeLines(t: BindReport): string[] {
   const out = [`Цвета привязаны к теме: ${t.bound}`];
@@ -296,6 +303,7 @@ export function report(r: ImportResult): string {
       lines.push(`    • ${c.path}${why}`);
     }
   }
+  if (r.optimized?.images) lines.push(`  Картинки сжаты: ${r.optimized.images} шт., ${kb(r.optimized.before)} → ${kb(r.optimized.after)}`);
   if (r.theme) lines.push(...themeLines(r.theme).map((l) => `  ${l}`));
   if (r.warnings.length) {
     lines.push('  Стоит поправить в исходном файле:');

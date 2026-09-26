@@ -23,28 +23,13 @@ function setMeta(deck: Deck): void {
   updateFavicon(deck.brand?.logo);
 }
 
-function picker(): void {
-  document.body.classList.add('picker-page');
-  const items = names.map((n) => `<a href="?deck=${encodeURIComponent(n)}"><b>${esc(n)}</b><span class="mu">presentations/${esc(n)}/deck.yaml</span></a>`).join('');
-  document.body.innerHTML = `<div class="picker"><h1>Презентации</h1>`
-    + `<p class="mu">Откройте презентацию или создайте новую: <code>yarn new имя</code>. Файл для отправки: <code>yarn build имя</code>.</p>`
-    + (items ? `<div class="picker-grid">${items}</div>` : '<p>В папке presentations пока нет ни одной презентации.</p>')
-    + (import.meta.env.DEV && !fixed
-      ? `<div class="picker-import"><button type="button" class="btn ghost" id="imp-btn">Импорт HTML…</button>`
-        + `<span class="mu">Файл, собранный <code>yarn build</code> и поправленный в браузере: правки вернутся в deck.yaml. Файл можно просто перетащить на страницу.</span></div>`
-      : '')
-    + `</div>`;
-  if (import.meta.env.DEV && !fixed) {
-    void import('./engine/import-ui').then((m) => {
-      const ui = m.setupImport();
-      document.getElementById('imp-btn')!.onclick = ui.pick;
-    });
-  }
-}
-
 async function boot(): Promise<void> {
   if (!name || !decks[name]) {
-    picker();
+    // Страница выбора есть только в yarn dev: собранный файл всегда открывает свою презентацию
+    if (import.meta.env.DEV) {
+      const { showPicker } = await import('./engine/picker');
+      await showPicker(decks, !fixed);
+    }
     return;
   }
   const deck = await decks[name]();

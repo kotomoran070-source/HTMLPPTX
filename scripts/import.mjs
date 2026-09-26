@@ -25,7 +25,7 @@ const root = process.cwd();
 const server = await createServer({ configFile: false, root, logLevel: 'silent', server: { middlewareMode: true }, appType: 'custom', optimizeDeps: { noDiscovery: true } });
 try {
   const { importHtml, report } = await server.ssrLoadModule('/plugins/import.ts');
-  const result = importHtml(fs.readFileSync(file, 'utf8'), {
+  const result = await importHtml(fs.readFileSync(file, 'utf8'), {
     dir: path.join(root, 'presentations'),
     name,
     fileName: path.basename(file),

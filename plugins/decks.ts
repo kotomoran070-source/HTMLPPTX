@@ -151,7 +151,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
 
   async function handleImport(url: URL, req: IncomingMessage, res: ServerResponse): Promise<void> {
     const html = (await readBody(req)).toString('utf8');
-    const result = importHtml(html, {
+    const result = await importHtml(html, {
       dir,
       name: url.searchParams.get('deck') || undefined,
       fileName: url.searchParams.get('file') || undefined,
@@ -209,6 +209,10 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           if (origin && new URL(origin).host !== req.headers.host) return send(res, 403, { error: 'Чужой источник запроса' });
           const url = new URL(req.url, 'http://localhost');
           if (url.pathname === API + 'import') return await handleImport(url, req, res);
+          // Для страницы выбора: когда каждую презентацию меняли в последний раз
+          if (url.pathname === API + 'list') {
+            return send(res, 200, listDecks(dir).map((n) => ({ name: n, mtime: Math.round(fs.statSync(deckFile(n)).mtimeMs) })));
+          }
           const name = assertDeck(url.searchParams.get('deck'));
           if (url.pathname === API + 'bind-theme') return send(res, 200, bindProject(dir, name, url.searchParams.get('dry') === '1'));
           if (url.pathname === API + 'save') return await handleSave(name, req, res);

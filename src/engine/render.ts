@@ -23,12 +23,13 @@ interface PendingMount {
  */
 export class Renderer {
   private mounts = new Map<string, PendingMount>();
+  private cssKey: string | null;
 
   constructor(private deck: Deck, private logo?: string) {
     // Пути нужны для режима правки: каждый элемент знает, какое значение он показывает
     indexPaths(deck);
-    // Стили презентации (из импортированного HTML) — только внутри слайдов-холстов
-    applyDeckCss((deck as { css?: unknown }).css);
+    // Стили презентации (из импортированного HTML) — только внутри её слайдов-холстов
+    this.cssKey = applyDeckCss((deck as { css?: unknown }).css);
   }
 
   slide(slide: SlideData, index: number, extraClass = ''): string {
@@ -46,6 +47,7 @@ export class Renderer {
       if (tpl.mount) attrs = ctx.mount(tpl, slide);
     }
     if (extraClass) cls += ' ' + extraClass;
+    if (this.cssKey) attrs += ` data-css="${this.cssKey}"`;
     return `<section class="${cls}" data-index="${index}" data-tpl="${esc(name)}"${attrs}>${inner}${this.freeLayer(slide, ctx)}</section>`;
   }
 

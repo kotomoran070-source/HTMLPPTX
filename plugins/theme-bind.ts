@@ -159,7 +159,7 @@ export class ThemeBinder {
   }
 
   /** Значение CSS-свойства: цвета → var(--…). fallback — оставить исходный цвет запасным (для вставок). */
-  private value(prop: string, value: string, fallback: boolean): string {
+  value(prop: string, value: string, fallback: boolean): string {
     const role = roleOf(prop);
     if (!role) return value;
     // Цвета внутри var(…) уже привязаны: не трогаем
@@ -275,7 +275,9 @@ function ownBackground(style: string): boolean {
 /** Слайд задуман тёмным: фон тёмный в светлой теме. */
 export function isDarkBg(bg: unknown): boolean {
   if (typeof bg !== 'string') return false;
-  const c = rgbOf(bg);
+  // У слоёного фона основной цвет — последний: «radial-gradient(…) 0 0/26px 26px, #F8FAFC»
+  const all = [...bg.replace(/var\([^()]*\)/g, '').matchAll(COLOR_RE)].map((m) => rgbOf(m[0])).filter((c) => c && c.alpha >= 0.5);
+  const c = all[all.length - 1];
   return !!c && luminance(c.rgb) < 0.2;
 }
 
@@ -342,13 +344,8 @@ export function bindDeck(deck: Deck, io: EmbedIO): BindReport {
       binder.report.darkSlides.push(i + 1);
       return;
     }
-    if (typeof s.bg === 'string' && !s.bg.startsWith('var(')) {
-      const tok = binder.token(s.bg, 'bg');
-      if (tok) {
-        s.bg = `var(--${tok})`;
-        binder.report.bound++;
-      }
-    }
+    // Фон слайда: цвет или слои (сетка точек поверх цвета) — цвета внутри тоже к теме
+    if (typeof s.bg === 'string') s.bg = binder.value('background', s.bg, false);
     for (const b of blocksOf([s.body, s.free])) {
       if (b.type === 'html') {
         binder.fixedTexts.clear();

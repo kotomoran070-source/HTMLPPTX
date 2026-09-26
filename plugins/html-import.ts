@@ -147,7 +147,7 @@ export function fromSlidesHtml(source: string): SlidesHtmlResult {
   const warnings: string[] = [];
   const htmlEl = doc.querySelector('html');
   const title = firstText(doc.querySelector('title')) || 'Презентация';
-  const deck: Deck = { title, slides: [] };
+  const deck: Deck = { title, source: 'HTML', slides: [] };
   const lang = htmlEl?.getAttribute('lang');
   if (lang && lang !== 'ru') deck.lang = lang;
   const accent = htmlEl?.getAttribute('data-accent') ?? doc.querySelector('meta[name="htmlpptx-accent"]')?.getAttribute('content');

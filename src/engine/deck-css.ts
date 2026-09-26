@@ -45,8 +45,8 @@ function selectors(list: string): string {
     .replace(/\.slide(?![\w-])/g, '.slide-root')).join(', ');
 }
 
-/** CSS презентации → CSS, действующий только внутри слайдов. */
-export function scopeCss(css: string): string {
+/** CSS презентации → CSS, действующий только внутри слайдов этой презентации (scope — селектор). */
+export function scopeCss(css: string, scope = '.canvas-slide'): string {
   const top: string[] = [];
   const inner: string[] = [];
   for (const st of statements(css.replace(/\/\*[\s\S]*?\*\//g, ''))) {
@@ -62,7 +62,7 @@ export function scopeCss(css: string): string {
     if (head.startsWith('@')) inner.push(`${head}{${statements(st.slice(brace + 1, -1)).map(rule).join('')}}`);
     else inner.push(rule(st));
   }
-  return `${top.join('\n')}\n.canvas-slide{${inner.join('\n')}}`;
+  return `${top.join('\n')}\n${scope}{${inner.join('\n')}}`;
 }
 
 function rule(st: string): string {
@@ -71,22 +71,27 @@ function rule(st: string): string {
   return `${selectors(st.slice(0, brace))}${st.slice(brace)}`;
 }
 
-let applied: string | null = null;
+/** Короткий отпечаток текста: метка слайдов и их стилей */
+export function cssKey(css: string): string {
+  let h = 5381;
+  for (let i = 0; i < css.length; i++) h = ((h << 5) + h + css.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
 
-/** Подключает стили презентации к документу (или убирает их). */
-export function applyDeckCss(css: unknown): void {
+/**
+ * Подключает стили презентации к документу и возвращает метку для её слайдов
+ * (data-css="…"). У каждой презентации свои стили: на странице выбора их несколько сразу.
+ */
+export function applyDeckCss(css: unknown): string | null {
   const text = typeof css === 'string' && css.trim() ? css : '';
-  if (text === applied) return;
-  applied = text;
-  let el = document.getElementById(ID);
-  if (!text) {
-    el?.remove();
-    return;
-  }
-  if (!el) {
-    el = document.createElement('style');
-    el.id = ID;
+  if (!text) return null;
+  const key = cssKey(text);
+  const id = `${ID}-${key}`;
+  if (!document.getElementById(id)) {
+    const el = document.createElement('style');
+    el.id = id;
+    el.textContent = scopeCss(text, `.canvas-slide[data-css="${key}"]`);
     document.head.appendChild(el);
   }
-  el.textContent = scopeCss(text);
+  return key;
 }
