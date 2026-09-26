@@ -4,6 +4,8 @@ import { Document, isMap, isPair, isScalar, visit } from 'yaml';
 import { AssetStore } from './assets';
 import { fromDesign, isDesignExport } from './design-import';
 import { fromSlidesHtml, isSlidesHtml } from './html-import';
+import { parse as parseHtml } from 'node-html-parser';
+import { pickSelector } from '../src/engine/live-slides';
 import { optimizeImages, type OptimizeReport } from './optimize';
 import { bindDeck, readDataUrl, toDataUrl, type BindReport } from './theme-bind';
 import { readYaml } from './decks';
@@ -29,12 +31,16 @@ export interface ImportOptions {
   dryRun?: boolean;
   /** Привязать цвета вёрстки к теме (для Claude Design и своего HTML; по умолчанию да) */
   theme?: boolean;
+  /** Живые слайды: исходный файл показывается как есть, со скриптами (любой HTML) */
+  live?: boolean;
+  /** Исходный файл для живых слайдов, если html — снимок после скриптов */
+  raw?: string;
 }
 
 export interface ImportResult {
   name: string;
   /** Откуда файл: сборка этого проекта, экспорт Claude Design или свой HTML по правилам */
-  source: 'htmlpptx' | 'design' | 'html';
+  source: 'htmlpptx' | 'design' | 'html' | 'live';
   /** Привязка цветов к теме (если выполнялась) */
   theme?: BindReport;
   /** Что стоит поправить в исходном файле */
@@ -134,7 +140,10 @@ export async function importHtml(html: string, o: ImportOptions): Promise<Import
   let origin: ImportResult['source'] = 'htmlpptx';
   // Экспорт Claude Design: слайды превращаются в холсты со свободными объектами
   let warnings: string[] = [];
-  if (!theirsRaw && isDesignExport(html)) {
+  if (!theirsRaw && o.live) {
+    theirsRaw = liveDeck(html, o.raw ?? html);
+    origin = 'live';
+  } else if (!theirsRaw && isDesignExport(html)) {
     theirsRaw = fromDesign(html);
     origin = 'design';
   } else if (!theirsRaw && isSlidesHtml(html)) {
@@ -147,7 +156,8 @@ export async function importHtml(html: string, o: ImportOptions): Promise<Import
   // (белая плашка логотипа, цвета статусов), их не трогаем
   const themedByAuthor = origin === 'html' && usesThemeVars(theirsRaw as Deck);
   if (themedByAuthor) warnings.push('файл уже использует цвета темы (var(--…)): цвета, заданные прямо, оставлены как есть — они не меняются с темой');
-  if (theirsRaw && origin !== 'htmlpptx' && o.theme !== false && !themedByAuthor) {
+  // Живые слайды показывают файл как есть: его цвета — его дело
+  if (theirsRaw && origin !== 'htmlpptx' && origin !== 'live' && o.theme !== false && !themedByAuthor) {
     theme = bindDeck(theirsRaw as Deck, { read: readDataUrl, write: (_src, text) => toDataUrl(text) });
   }
   // Картинки чужой вёрстки — до нужного размера и в WebP: файл легче, показ быстрее
@@ -180,7 +190,7 @@ export async function importHtml(html: string, o: ImportOptions): Promise<Import
     if (!o.dryRun) {
       fs.mkdirSync(deckDir, { recursive: true });
       assets.flush();
-      const what = origin === 'design' ? 'экспорта Claude Design' : origin === 'html' ? 'HTML' : 'HTML-файла';
+      const what = origin === 'design' ? 'экспорта Claude Design' : origin === 'html' ? 'HTML' : origin === 'live' ? 'HTML (живые слайды)' : 'HTML-файла';
       fs.writeFileSync(file, `# Импортировано из ${what} ${o.fileName ?? ''}. Справочник компонентов: docs/COMPONENTS.md\n\n${compactYaml(theirs)}`);
     }
     return res;
@@ -259,6 +269,38 @@ export function bindProject(dir: string, name: string, dryRun = false): BindResu
 
 export const kb = (n: number) => (n >= 1e6 ? `${(n / 1048576).toFixed(1)} МБ` : `${Math.max(1, Math.round(n / 1024))} КБ`);
 
+/**
+ * Презентация из живых слайдов: каждый слайд показывает исходный файл (со скриптами) в рамке.
+ * Под рамкой — обычная копия слайда, если файл распознан (для миниатюр, печати и правки
+ * после «Сделать редактируемым»); иначе пустой холст с названием.
+ */
+function liveDeck(snapshot: string, raw: string): Deck {
+  const doc = parseHtml(snapshot, { comment: false, blockTextElements: { script: true, style: true } });
+  const det = pickSelector((sel) => {
+    try { return doc.querySelectorAll(sel).length; } catch { return 0; }
+  });
+  const title = (doc.querySelector('title')?.text ?? '').replace(/\s+/g, ' ').trim() || 'Презентация';
+  let copy: Deck | undefined;
+  try {
+    if (isDesignExport(snapshot)) copy = fromDesign(snapshot) as Deck;
+    else if (isSlidesHtml(snapshot)) copy = fromSlidesHtml(snapshot).deck as Deck;
+  } catch { /* копии нет — только живые */ }
+  const els = det.selector ? doc.querySelectorAll(det.selector) : [];
+  if (!copy || copy.slides?.length !== det.count) {
+    copy = {
+      title,
+      slides: Array.from({ length: det.count }, (_, i) => {
+        const h = els[i]?.querySelector('h1, h2, h3');
+        const label = (h?.text ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+        return { id: `s${i + 1}`, template: 'canvas', ...(label ? { label } : {}) };
+      }),
+    };
+  }
+  const src = toDataUrl(raw);
+  copy.slides!.forEach((s, i) => { (s as Record<string, unknown>).live = { src, index: i, selector: det.selector }; });
+  return copy;
+}
+
 /** Вёрстка в основном пишет цвета через переменные темы. */
 function usesThemeVars(deck: Deck & { css?: string }): boolean {
   const text = (deck.css ?? '') + JSON.stringify(deck.slides ?? []);
@@ -292,7 +334,7 @@ export function filesSummary(files: string[]): string {
 export function report(r: ImportResult): string {
   const lines: string[] = [];
   const where = `presentations/${r.name}/deck.yaml`;
-  const from = r.source === 'design' ? ' из экспорта Claude Design' : r.source === 'html' ? ' из HTML' : '';
+  const from = r.source === 'design' ? ' из экспорта Claude Design' : r.source === 'html' ? ' из HTML' : r.source === 'live' ? ' из HTML, живыми слайдами' : '';
   if (r.mode === 'create') lines.push(`${r.dryRun ? 'Будет создана' : 'Создана'} презентация ${where}${from}: ${r.slides} слайдов`);
   else if (!r.changed) lines.push(`Изменений нет: ${where} уже содержит эти данные`);
   else lines.push(`${r.dryRun ? 'Будет обновлена' : 'Обновлена'} ${where}${r.mode === 'merge' ? ' (слияние с исходной версией)' : ''}`);

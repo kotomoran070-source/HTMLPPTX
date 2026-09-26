@@ -3,6 +3,7 @@
 //   yarn merge-html файл.html имя            — в указанную (или новую) презентацию
 //   yarn merge-html файл.html --dry-run      — только показать, что изменится
 //   yarn merge-html файл.html --no-theme     — не привязывать цвета вёрстки к теме
+//   yarn merge-html файл.html --live         — живые слайды: файл как есть, со скриптами (любой HTML)
 import fs from 'node:fs';
 import path from 'node:path';
 import { createServer } from 'vite';
@@ -10,9 +11,10 @@ import { createServer } from 'vite';
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run') || args.includes('-n');
 const theme = !args.includes('--no-theme');
+const live = args.includes('--live');
 const [file, name] = args.filter((a) => !a.startsWith('-'));
 if (!file) {
-  console.error('Использование: yarn merge-html путь/к/файлу.html [имя-презентации] [--dry-run] [--no-theme]');
+  console.error('Использование: yarn merge-html путь/к/файлу.html [имя-презентации] [--dry-run] [--no-theme] [--live]');
   process.exit(1);
 }
 if (!fs.existsSync(file)) {
@@ -31,6 +33,7 @@ try {
     fileName: path.basename(file),
     dryRun,
     theme,
+    live,
   });
   console.log(report(result));
   if (dryRun && result.changed) console.log('\nЭто предпросмотр. Чтобы записать, запустите без --dry-run.');

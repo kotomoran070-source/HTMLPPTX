@@ -45,8 +45,30 @@ body.picker-page {
 .pk-del:hover { color: #DC2626; border-color: #FCA5A5; }
 .pk-del .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 @media (hover: none) { .pk-del { opacity: 1; transform: none; } }
-.btn.primary.pk-danger { background: #DC2626; color: #fff; }
-.btn.primary.pk-danger:hover { background: #B91C1C; color: #fff; }
+/* Окно подтверждения удаления: красный — только на действии, остальное спокойное */
+.pk-confirm { width: min(460px, 100%); }
+.pk-confirm-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.pk-confirm-head h2 { margin: 0; }
+.pk-confirm-icon { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center;
+  color: #DC2626; background: color-mix(in srgb, #DC2626 10%, var(--surf)); border: 1px solid color-mix(in srgb, #DC2626 25%, var(--surf)); }
+.pk-confirm-icon .ic, .pk-danger .ic { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pk-confirm-deck { display: flex; align-items: center; gap: 14px; padding: 10px; border: 1px solid var(--bd); border-radius: 12px; background: var(--bg); }
+.pk-confirm-thumb { width: 120px; flex: none; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; border: 1px solid var(--bd); background: var(--alt); position: relative; }
+.pk-confirm-thumb .thumb { width: 100%; border-radius: 0; }
+.pk-confirm-deck b { display: block; font-size: 14px; line-height: 1.35; margin-bottom: 4px; }
+.pk-confirm-deck span { font-size: 12.5px; color: var(--mu); }
+.pk-confirm-note { font-size: 13px; color: var(--mu); margin: 14px 0 0 !important; line-height: 1.55; }
+.btn.pk-neutral { background: var(--surf); color: var(--tx2); border: 1px solid var(--bd2); }
+.btn.pk-neutral:hover { background: var(--alt); }
+.btn.pk-danger { background: #DC2626; color: #fff; border: 0; }
+.btn.pk-danger:hover { background: #B91C1C; }
+.btn.pk-danger:focus-visible { outline-color: #DC2626; }
+:root[data-theme="dark"] .btn.pk-danger { background: #EF4444; }
+:root[data-theme="dark"] .btn.pk-danger:hover { background: #DC2626; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .btn.pk-danger { background: #EF4444; }
+  :root:not([data-theme="light"]) .btn.pk-danger:hover { background: #DC2626; }
+}
 
 /* Карточки-действия: импорт и новая презентация */
 .pk-action { align-items: center; justify-content: center; gap: 8px; text-align: center; padding: 28px 22px; min-height: 250px;

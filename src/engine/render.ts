@@ -49,7 +49,12 @@ export class Renderer {
     }
     if (extraClass) cls += ' ' + extraClass;
     if (this.cssKey) attrs += ` data-css="${this.cssKey}"`;
-    return `<section class="${cls}" data-index="${index}" data-tpl="${esc(name)}"${attrs}>${inner}${this.freeLayer(slide, ctx)}</section>`;
+    // Живой слайд: исходный файл в рамке поверх обычной копии (см. components/live)
+    const empty = !slide.body && !(Array.isArray(slide.free) && slide.free.length);
+    const live = slide.live && typeof slide.live === 'object'
+      ? this.block({ ...(slide.live as object), type: 'live', empty, label: slideLabel(slide, index) } as Block, ctx) : '';
+    if (live) cls += ' live-slide';
+    return `<section class="${cls}" data-index="${index}" data-tpl="${esc(name)}"${attrs}>${inner}${this.freeLayer(slide, ctx)}${live}</section>`;
   }
 
   /**

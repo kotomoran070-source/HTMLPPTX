@@ -165,8 +165,18 @@ export function decksPlugin(opts: DecksOptions): Plugin {
   }
 
   async function handleImport(url: URL, req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const html = (await readBody(req)).toString('utf8');
+    // Текст файла или JSON { html, raw }: снимок после скриптов и исходный файл (для живых слайдов)
+    const body = (await readBody(req)).toString('utf8');
+    let html = body;
+    let raw: string | undefined;
+    if (String(req.headers['content-type'] ?? '').startsWith('application/json')) {
+      const j = JSON.parse(body) as { html?: string; raw?: string };
+      html = String(j.html ?? '');
+      raw = typeof j.raw === 'string' ? j.raw : undefined;
+    }
     const result = await importHtml(html, {
+      raw,
+      live: url.searchParams.get('live') === '1',
       dir,
       name: url.searchParams.get('deck') || undefined,
       fileName: url.searchParams.get('file') || undefined,

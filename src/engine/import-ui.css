@@ -27,3 +27,14 @@
 .imp-check small { font-weight: 400; }
 .imp-sw { display: inline-flex; align-items: center; gap: 4px; margin: 0 8px 2px 0; font: 12px ui-monospace, Menlo, Consolas, monospace; }
 .imp-sw i { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--bd2); display: inline-block; }
+/* Выбор режима слайдов: редактируемые или живые */
+.imp-mode { border: 0; padding: 0; margin: 14px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.imp-mode[hidden] { display: none; }
+.imp-mode legend { font-size: 13px; font-weight: 600; color: var(--tx2); margin-bottom: 6px; padding: 0; }
+.imp-mode label { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--bd); border-radius: 12px; cursor: pointer; transition: border-color .2s, background .2s; }
+.imp-mode label:has(input:checked) { border-color: var(--ac); background: var(--acs); }
+.imp-mode label:has(input:disabled) { opacity: .5; cursor: default; }
+.imp-mode input { margin: 3px 0 0; accent-color: var(--ac); }
+.imp-mode b { display: block; font-size: 14px; }
+.imp-mode small { display: block; font-size: 12.5px; color: var(--mu); line-height: 1.45; margin-top: 2px; }
+@media (max-width: 480px) { .imp-mode { grid-template-columns: 1fr; } }

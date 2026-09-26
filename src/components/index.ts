@@ -17,3 +17,4 @@ import './system/system';
 import './pipeline/pipeline';
 import './charts/charts';
 import './html/html';
+import './live/live';

@@ -45,14 +45,22 @@ async function remove(name: string, item: HTMLElement): Promise<void> {
   const title = item.querySelector('.pk-title')?.textContent ?? name;
   const box = document.createElement('div');
   box.className = 'imp-bd';
-  box.innerHTML = `<div class="imp" role="alertdialog" aria-modal="true" aria-labelledby="del-h">
-    <h2 id="del-h">Удалить презентацию?</h2>
-    <div class="imp-body"><p><b>${esc(title)}</b></p>
-      <p class="mu">Папка <code>presentations/${esc(name)}</code> переместится в <code>presentations/.trash/</code>. Вернуть: перенесите её обратно в <code>presentations/</code>.</p></div>
-    <div class="imp-actions"><button type="button" class="btn ghost" data-a="cancel">Отмена</button><button type="button" class="btn primary pk-danger" data-a="ok">Удалить</button></div>
+  const meta = item.querySelector('.pk-meta span')?.textContent ?? '';
+  box.innerHTML = `<div class="imp pk-confirm" role="alertdialog" aria-modal="true" aria-labelledby="del-h" aria-describedby="del-d">
+    <div class="pk-confirm-head"><span class="pk-confirm-icon">${icon('trash')}</span><h2 id="del-h">Удалить презентацию?</h2></div>
+    <div class="pk-confirm-deck"><div class="pk-confirm-thumb"></div><div><b>${esc(title)}</b><span><code>${esc(name)}</code>${meta ? ` · ${esc(meta)}` : ''}</span></div></div>
+    <p class="pk-confirm-note" id="del-d">Папка переместится в <code>presentations/.trash/</code>. Передумаете — перенесите её обратно в <code>presentations/</code>.</p>
+    <div class="imp-actions"><button type="button" class="btn pk-neutral" data-a="cancel">Отмена</button><button type="button" class="btn pk-danger" data-a="ok">${icon('trash')}Удалить</button></div>
   </div>`;
+  // Миниатюра первого слайда — та же, что на карточке
+  const thumb = item.querySelector('.pk-thumb .thumb');
+  const holder = box.querySelector<HTMLElement>('.pk-confirm-thumb')!;
+  if (thumb) holder.appendChild(thumb.cloneNode(true));
   document.body.append(box);
   await import('./import-ui.css');
+  // Копия миниатюры не знает своего размера: масштаб под ширину окна
+  const stage = holder.querySelector<HTMLElement>('.thumb-stage');
+  if (stage) stage.style.transform = `scale(${holder.clientWidth / 1280})`;
   const ok = box.querySelector<HTMLButtonElement>('[data-a="ok"]')!;
   const cancel = box.querySelector<HTMLButtonElement>('[data-a="cancel"]')!;
   const close = () => { box.remove(); removeEventListener('keydown', onKey, true); };

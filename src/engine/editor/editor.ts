@@ -135,6 +135,14 @@ export class Editor {
       clearOthers: () => { this.text.finish(true); this.image.clear(); },
     });
     addEventListener('resize', () => this.reposition());
+    // «Сделать редактируемым» у живого слайда: остаётся обычная копия, которую можно править
+    addEventListener('htmlpptx:unlive', (e) => {
+      const i = (e as CustomEvent<{ index: number }>).detail?.index;
+      if (!this.active || !Number.isInteger(i) || !this.host.deck.slides[i]) return;
+      if (this.commit((d) => { delete d.slides[i].live; }, { rebuild: true })) {
+        this.toast('Слайд стал редактируемым: скрипты исходного файла на нём больше не работают. Вернуть: Ctrl+Z', 4000);
+      }
+    });
     addEventListener('beforeunload', (e) => {
       if (this.mode === 'project' && (this.dirty || this.saving)) {
         // Последняя попытка записать правки перед закрытием вкладки

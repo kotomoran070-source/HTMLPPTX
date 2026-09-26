@@ -30,6 +30,8 @@ export interface SlideData {
   body?: Block | Block[];
   /** Свободные объекты поверх раскладки: блоки с place: { x, y, w, h } */
   free?: Block[];
+  /** Живой слайд: исходный HTML-файл со скриптами, показан слайд index (см. components/live) */
+  live?: { src: string; index: number; selector?: string | null };
   [key: string]: unknown;
 }
 
