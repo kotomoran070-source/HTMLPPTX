@@ -39,10 +39,21 @@ function statements(css: string): string[] {
   return out.filter(Boolean);
 }
 
+/**
+ * Классы «слайд показан» у самодельных движков (артефакты, reveal.js): .slide.on, .slide.active.
+ * Их роль у нас играет показанный слайд движка: «.slide.on .r» → «&.on .slide-root .r».
+ */
+const STATE = new Set(['on', 'active', 'current', 'present', 'visible', 'show', 'shown', 'is-active']);
+
 function selectors(list: string): string {
   return list.split(',').map((s) => s.trim()
     .replace(/^(:root|html|body)(?![\w-])/i, '&')
-    .replace(/\.slide(?![\w-])/g, '.slide-root')).join(', ');
+    .replace(/(?:section)?\.slide((?:\.[\w-]+)*)(?![\w-])/g, (_, rest: string) => {
+      const cls = rest.split('.').filter(Boolean);
+      const state = cls.filter((c) => STATE.has(c));
+      const own = cls.filter((c) => !STATE.has(c)).map((c) => `.${c}`).join('');
+      return state.length ? `&.on .slide-root${own}` : `.slide-root${own}`;
+    })).join(', ');
 }
 
 /** CSS презентации → CSS, действующий только внутри слайдов этой презентации (scope — селектор). */
@@ -94,4 +105,21 @@ export function applyDeckCss(css: unknown): string | null {
     document.head.appendChild(el);
   }
   return key;
+}
+
+/**
+ * SVG-определения презентации (deck.defs): символы (<symbol id="lg"> — логотип) и градиенты,
+ * на которые ссылаются слайды через <use href="#lg"> и url(#gA). Лежат один раз на странице,
+ * вне слайдов: определения внутри скрытого слайда браузер не рисует.
+ */
+export function applyDeckDefs(defs: unknown): void {
+  if (typeof defs !== 'string' || !defs.trim()) return;
+  const id = `htmlpptx-defs-${cssKey(defs)}`;
+  if (document.getElementById(id)) return;
+  const tpl = document.createElement('template');
+  tpl.innerHTML = `<svg id="${id}" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden"><defs>${defs}</defs></svg>`;
+  // Только определения: без скриптов и обработчиков
+  tpl.content.querySelectorAll('script, foreignObject').forEach((x) => x.remove());
+  tpl.content.querySelectorAll('*').forEach((el) => [...el.attributes].forEach((a) => /^on/i.test(a.name) && el.removeAttribute(a.name)));
+  document.body.appendChild(tpl.content);
 }

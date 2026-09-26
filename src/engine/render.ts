@@ -4,7 +4,7 @@ import {
   type Component, type MountCtx, type RenderCtx,
 } from './component';
 import { asArray, esc } from './html';
-import { applyDeckCss } from './deck-css';
+import { applyDeckCss, applyDeckDefs } from './deck-css';
 import { indexPaths, pathOf } from './marks';
 
 let uidCounter = 0;
@@ -30,6 +30,7 @@ export class Renderer {
     indexPaths(deck);
     // Стили презентации (из импортированного HTML) — только внутри её слайдов-холстов
     this.cssKey = applyDeckCss((deck as { css?: unknown }).css);
+    applyDeckDefs((deck as { defs?: unknown }).defs);
   }
 
   slide(slide: SlideData, index: number, extraClass = ''): string {

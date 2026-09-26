@@ -12,7 +12,7 @@
 import { parse, type HTMLElement as El, type Node } from 'node-html-parser';
 import { cleanTree, EFFECTS, firstText, hex, plain, styleOf, textOf } from './design-import';
 
-type Deck = { title: string; lang?: string; source?: string; theme?: { accent?: string }; css?: string; slides: Record<string, unknown>[] };
+type Deck = { title: string; lang?: string; source?: string; theme?: { accent?: string }; css?: string; defs?: string; slides: Record<string, unknown>[] };
 type Block = Record<string, unknown>;
 
 const SLIDE_RE = /<section\b[^>]*\bclass\s*=\s*["'][^"']*\bslide\b/i;
@@ -126,6 +126,38 @@ function slugId(s: string): string {
 }
 
 /** Блок html из элемента (или корня слайда). */
+/** SVG-определения вне слайдов (символы логотипа, градиенты), на которые слайды ссылаются: #id → разметка */
+type Sprites = Map<string, string>;
+const SPRITE_TAGS = new Set(['symbol', 'lineargradient', 'radialgradient', 'pattern', 'filter', 'clippath', 'mask', 'marker']);
+
+function collectSprites(doc: El, sections: El[]): Sprites {
+  const out: Sprites = new Map();
+  for (const el of doc.querySelectorAll('[id]')) {
+    if (!SPRITE_TAGS.has(el.tagName.toLowerCase())) continue;
+    const id = el.getAttribute('id');
+    const sec = el.closest('section');
+    if (!id || (sec && sections.includes(sec))) continue;
+    out.set(id, el.toString());
+  }
+  return out;
+}
+
+/** Определения, нужные фрагменту (со ссылками внутри самих определений). */
+function spritesFor(html: string, sprites: Sprites): string {
+  if (!sprites.size) return '';
+  const need = new Set<string>();
+  const scan = (text: string) => {
+    for (const m of text.matchAll(/(?:href="#|url\(\s*["']?#)([\w.-]+)/g)) {
+      const id = m[1];
+      if (need.has(id) || !sprites.has(id) || new RegExp(`\\bid="${id}"`).test(html)) continue;
+      need.add(id);
+      scan(sprites.get(id)!);
+    }
+  };
+  scan(html);
+  return [...need].map((id) => sprites.get(id)).join('');
+}
+
 function htmlBlock(el: El, warn: (s: string) => void): Block | null {
   const { texts, images } = extractContent(el, warn);
   cleanTree(el, true);
@@ -165,11 +197,12 @@ export function fromSlidesHtml(source: string): SlidesHtmlResult {
   }
   if (doc.querySelector('link[rel~="stylesheet"]')) warnings.push('внешние таблицы стилей (<link rel="stylesheet">) не переносятся: стили нужно писать в <style>');
   const scripts = doc.querySelectorAll('script').length;
-  if (scripts) warnings.push(`скрипты (${scripts}) не переносятся: анимации — через CSS (@keyframes) или «живую» вставку <iframe srcdoc>`);
+  if (scripts) warnings.push(`скрипты (${scripts}) не выполнены: то, что они рисуют, не попадёт в проект. Импортируйте через yarn dev (перетащить файл на страницу) — там импорт сначала запускает скрипты и берёт готовые слайды`);
 
   const sections = doc.querySelectorAll('section').filter((s) => /\bslide\b/.test(s.getAttribute('class') ?? '') && !s.parentNode?.closest?.('section'));
   if (!sections.length) throw new Error('В файле нет слайдов: каждый слайд — <section class="slide">…</section>');
   const ids = new Set<string>();
+  const sprites = collectSprites(doc, sections);
 
   sections.forEach((sec, i) => {
     const warn = (s: string) => warnings.push(`слайд ${i + 1}: ${s}`);
@@ -246,6 +279,11 @@ export function fromSlidesHtml(source: string): SlidesHtmlResult {
     return !['SECTION', 'SCRIPT', 'STYLE', 'NOSCRIPT'].includes(el.tagName) && !el.querySelector('section.slide') && !!el.text.trim();
   }).length;
   if (outside) warnings.push('содержимое вне <section class="slide"> пропущено');
+
+  // SVG-определения вне слайдов (символ логотипа, градиенты): один раз на всю презентацию
+  const allHtml = JSON.stringify(deck.slides);
+  const defs = spritesFor(allHtml.replace(/\\"/g, '"'), sprites);
+  if (defs) deck.defs = defs;
 
   // Порядок полей в deck.yaml: сначала общее, потом слайды
   const { slides, ...head } = deck;

@@ -299,7 +299,9 @@ export function guessAccent(texts: string[]): string | undefined {
   }
   const top = [...count.entries()].sort((a, b) => b[1] - a[1])[0];
   if (!top || top[1] < 3) return undefined;
-  return dist(rgbOf(top[0])!.rgb, rgbOf(DEFAULT_ACCENT)!.rgb) <= NEAR ? undefined : top[0];
+  // Оттенки стандартного синего (тёмный, светлый) — это не «свой» акцент
+  const family = [BASE.ac, BASE.ach, BASE.acb, BASE.acs].map((c) => rgbOf(c)!.rgb);
+  return family.some((c) => dist(rgbOf(top[0])!.rgb, c) <= NEAR) ? undefined : top[0];
 }
 
 type Deck = { theme?: { accent?: string }; css?: string; slides?: Record<string, unknown>[] };

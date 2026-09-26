@@ -52,6 +52,45 @@ async function request(html: string, file: string, deck: string | undefined, dry
   return data as ImportResult;
 }
 
+/** Свой HTML со слайдами и скриптами: не сборка проекта и не экспорт Claude Design. */
+function needsSnapshot(html: string): boolean {
+  return /<script\b/i.test(html) && /<section\b[^>]*\bclass\s*=\s*["'][^"']*\bslide\b/i.test(html)
+    && !/id="htmlpptx-deck"/.test(html) && !/class="deck-slide"/.test(html);
+}
+
+/**
+ * Открывает файл в изолированной рамке (только скрипты, без доступа к странице), ждёт,
+ * пока скрипты нарисуют слайды, и возвращает получившуюся разметку. Холсты (canvas)
+ * превращаются в картинки. null — не получилось (тогда импортируется исходный файл).
+ */
+function snapshot(html: string): Promise<string | null> {
+  const token = Math.random().toString(36).slice(2);
+  const probe = `<script>(function(){function shot(){try{document.querySelectorAll('script').forEach(function(s){s.remove()});document.querySelectorAll('canvas').forEach(function(c){try{var i=document.createElement('img');i.src=c.toDataURL('image/png');i.setAttribute('style',c.getAttribute('style')||'');i.className=c.className;if(c.width)i.width=c.width;if(c.height)i.height=c.height;c.replaceWith(i)}catch(e){}});`
+    + `parent.postMessage({htmlpptxSnapshot:${JSON.stringify(token)},html:'<!doctype html>'+document.documentElement.outerHTML},'*')}catch(e){parent.postMessage({htmlpptxSnapshot:${JSON.stringify(token)},html:null},'*')}}`
+    + `if(document.readyState==='complete')setTimeout(shot,1500);else addEventListener('load',function(){setTimeout(shot,1500)})})()<\/script>`;
+  const doc = /<\/body>/i.test(html) ? html.replace(/<\/body>(?![\s\S]*<\/body>)/i, `${probe}</body>`) : html + probe;
+  return new Promise((resolve) => {
+    const f = document.createElement('iframe');
+    f.setAttribute('sandbox', 'allow-scripts');
+    f.setAttribute('aria-hidden', 'true');
+    f.style.cssText = 'position:fixed;left:-20000px;top:0;width:1440px;height:900px;border:0;visibility:hidden';
+    const done = (v: string | null) => {
+      clearTimeout(timer);
+      removeEventListener('message', onMsg);
+      f.remove();
+      resolve(v);
+    };
+    const onMsg = (e: MessageEvent) => {
+      if (e.source !== f.contentWindow || e.data?.htmlpptxSnapshot !== token) return;
+      done(typeof e.data.html === 'string' ? e.data.html : null);
+    };
+    const timer = window.setTimeout(() => done(null), 8000);
+    addEventListener('message', onMsg);
+    f.srcdoc = doc;
+    document.body.appendChild(f);
+  });
+}
+
 const isHtml = (f: File) => /\.html?$/i.test(f.name) || f.type === 'text/html';
 
 /** Перетаскивают файл, похожий на HTML (имя при dragover недоступно, только тип). */
@@ -177,7 +216,7 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
 
   async function open(file: File): Promise<void> {
     busy = true;
-    const html = await file.text();
+    const raw = await file.text();
     const box = document.createElement('div');
     box.className = 'imp-bd';
     box.innerHTML = `<div class="imp" role="dialog" aria-modal="true" aria-labelledby="imp-h">
@@ -198,6 +237,17 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
     const cancel = box.querySelector<HTMLButtonElement>('[data-a="cancel"]')!;
     let last: ImportResult | null = null;
     let seq = 0;
+    // Свой HTML со скриптами (например, артефакт): сначала даём скриптам нарисовать слайды
+    let html = raw;
+    let snapped = false;
+    if (needsSnapshot(raw)) {
+      body.innerHTML = '<p class="mu">Запускаю скрипты файла, чтобы взять готовые слайды…</p>';
+      const shot = await snapshot(raw);
+      if (shot) {
+        html = shot;
+        snapped = true;
+      }
+    }
 
     const close = () => {
       box.remove();
@@ -221,7 +271,9 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
         const r = await request(html, file.name, deck, true, themeIn.checked);
         if (my !== seq) return;
         last = r;
-        body.innerHTML = summary(r);
+        body.innerHTML = summary(r) + (snapped
+          ? '<p class="mu">Скрипты файла выполнены: взят снимок слайдов, как они выглядят в браузере. Анимации на CSS и SVG сохранятся, реакции на скрипты — нет.</p>'
+          : '');
         if (nameRow.hidden) {
           nameRow.hidden = false;
           nameIn.value = r.name;
