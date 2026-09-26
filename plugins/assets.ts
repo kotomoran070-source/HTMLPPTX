@@ -4,10 +4,12 @@ import path from 'node:path';
 
 const EXT: Record<string, string> = {
   'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp',
-  'image/avif': 'avif', 'image/svg+xml': 'svg',
+  'image/avif': 'avif', 'image/svg+xml': 'svg', 'text/html': 'htm',
 };
 
-export const DATA_URL_RE = /^data:(image\/(?:png|jpeg|gif|webp|avif|svg\+xml));base64,([a-z0-9+/=\s]+)$/i;
+export const DATA_URL_RE = /^data:(image\/(?:png|jpeg|gif|webp|avif|svg\+xml)|text\/html);base64,([a-z0-9+/=\s]+)$/i;
+
+const TEXT_URL_RE = /^data:(image\/svg\+xml|text\/html)(?:;charset=[\w-]+)?,([\s\S]*)$/i;
 
 const sha = (b: Buffer) => createHash('sha1').update(b).digest('hex');
 
@@ -30,13 +32,20 @@ export class AssetStore {
 
   /** Путь ./assets/… для встроенной картинки; новый файл записывается при flush(). */
   pathFor(dataUrl: string): string | null {
-    const m = DATA_URL_RE.exec(dataUrl);
-    if (!m) return null;
-    const buf = Buffer.from(m[2].replace(/\s+/g, ''), 'base64');
+    let m = DATA_URL_RE.exec(dataUrl);
+    let buf: Buffer;
+    if (m) buf = Buffer.from(m[2].replace(/\s+/g, ''), 'base64');
+    else {
+      // Текстовые форматы бывают и без base64: data:image/svg+xml;charset=utf-8,%3Csvg…
+      m = TEXT_URL_RE.exec(dataUrl);
+      if (!m) return null;
+      try { buf = Buffer.from(decodeURIComponent(m[2]), 'utf8'); } catch { return null; }
+    }
     const h = sha(buf);
     const known = this.byHash.get(h);
     if (known) return known;
-    const rel = `./assets/image-${h.slice(0, 10)}.${EXT[m[1].toLowerCase()] ?? 'png'}`;
+    const ext = EXT[m[1].toLowerCase()] ?? 'png';
+    const rel = `./assets/${ext === 'htm' ? 'embed' : 'image'}-${h.slice(0, 10)}.${ext}`;
     this.byHash.set(h, rel);
     this.pending.set(rel, buf);
     return rel;

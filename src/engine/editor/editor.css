@@ -3,6 +3,7 @@
 /* Анимации на сцене выключены: элементы стоят на местах и по ним удобно кликать */
 body.editing .stage *, body.editing .stage *::before, body.editing .stage *::after,
 body.editing .stage .slide.on { animation: none !important; transition: none !important; }
+body.editing .stage .slide.on > .free.fx { animation: none !important; }
 body.editing .stage .fin .rg circle { opacity: .35; }
 
 /* Подписи кнопок на финальных слайдах видны всегда, чтобы их можно было править */

@@ -8,6 +8,9 @@ import { indexPaths, pathOf } from './marks';
 
 let uidCounter = 0;
 
+/** Эффекты появления свободных объектов: enter: rise (см. base.css) */
+const FX = new Set(['fade', 'rise', 'drop', 'left', 'right', 'scale', 'pop']);
+
 interface PendingMount {
   component: Component;
   props: unknown;
@@ -46,14 +49,17 @@ export class Renderer {
   /**
    * Свободные объекты слайда (slide.free): лежат поверх раскладки на своих координатах.
    * place: { x, y, w, h } — в пикселях слайда 1280×720; без h высота по содержимому.
+   * enter: rise (fade, drop, left, right, scale, pop) и delay: 380 — появление при открытии слайда.
    */
   private freeLayer(slide: SlideData, ctx: RenderCtx): string {
     const list = Array.isArray(slide.free) ? (slide.free as Block[]) : [];
     return list.map((b, i) => {
       const pl = placeOf(b);
       const p = pathOf(b);
-      const css = `left:${pl.x}px;top:${pl.y}px;width:${pl.w}px;${pl.h ? `height:${pl.h}px;` : ''}z-index:${10 + i}`;
-      return `<div class="free${pl.h ? '' : ' auto-h'}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
+      const fx = FX.has(String(b.enter)) ? ` fx fx-${b.enter}` : '';
+      const delay = fx && Number(b.delay) > 0 ? `--fx-d:${Math.min(20000, Math.round(Number(b.delay)))}ms;` : '';
+      const css = `left:${pl.x}px;top:${pl.y}px;width:${pl.w}px;${pl.h ? `height:${pl.h}px;` : ''}z-index:${10 + i};${delay}`;
+      return `<div class="free${pl.h ? '' : ' auto-h'}${fx}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
     }).join('');
   }
 
@@ -129,7 +135,8 @@ export function placeOf(b: unknown): Place {
   const pl = (b as { place?: Partial<Place> })?.place ?? {};
   const n = (v: unknown, d: number, min: number, max: number) => {
     const x = Number(v);
-    return Number.isFinite(x) ? Math.round(Math.max(min, Math.min(max, x))) : d;
+    // Десятые доли пикселя: импортированная вёрстка (1920 → 1280) переносится без сдвигов
+    return Number.isFinite(x) ? Math.round(Math.max(min, Math.min(max, x)) * 10) / 10 : d;
   };
   const h = Number(pl.h);
   return {

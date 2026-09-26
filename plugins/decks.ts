@@ -5,16 +5,19 @@ import type { Plugin, ViteDevServer } from 'vite';
 import { parseDocument } from 'yaml';
 import { AssetStore } from './assets';
 import { BASE_ID, importHtml } from './import';
+import { packDeck } from '../src/engine/pack';
 import { mergeYaml } from './yaml-merge';
 
 const VIRTUAL = 'virtual:decks';
 const RESOLVED = '\0' + VIRTUAL;
 /** Строки в deck.yaml, похожие на путь к файлу рядом с презентацией, превращаются в картинки */
-const ASSET_RE = /^\.{1,2}\/[^\s]+\.(png|jpe?g|gif|webp|avif|svg|mp4|webm|mp3|woff2?|pdf)$/i;
+const ASSET_RE = /^\.{1,2}\/[^\s]+\.(png|jpe?g|gif|webp|avif|svg|mp4|webm|mp3|woff2?|pdf|htm)$/i;
 const MIME: Record<string, string> = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
   avif: 'image/avif', svg: 'image/svg+xml', mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg',
   woff: 'font/woff', woff2: 'font/woff2', pdf: 'application/pdf',
+  // Документы «живых» вставок (embed): .htm, чтобы Vite не принимал их за страницы приложения
+  htm: 'text/html',
 };
 const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg']);
 /** id тега с данными презентации внутри собранного HTML */
@@ -239,8 +242,9 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           throw new Error(`Презентация «${opts.only}» не найдена. Есть: ${all.join(', ') || 'ни одной'}`);
         }
         // Данные лежат в HTML: так сохранённая из браузера копия несёт свои правки
-        return `const el = document.getElementById(${JSON.stringify(DATA_ID)});\n`
-          + `export const decks = { ${JSON.stringify(opts.only)}: async () => JSON.parse(el.textContent) };\n`
+        return `import { unpackDeck } from ${JSON.stringify(path.join(root, 'src/engine/pack.ts'))};\n`
+          + `const el = document.getElementById(${JSON.stringify(DATA_ID)});\n`
+          + `export const decks = { ${JSON.stringify(opts.only)}: async () => unpackDeck(JSON.parse(el.textContent)) };\n`
           + `export const fixed = ${JSON.stringify(opts.only)};\n`;
       }
       const entries = all.map((n) => `  ${JSON.stringify(n)}: () => import(${JSON.stringify(urlOf(deckFile(n)))}).then((m) => m.default)`);
@@ -293,7 +297,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
       if (deck?.lang) out = out.replace(/<html lang="[^"]*">/, `<html lang="${escapeHtml(deck.lang)}">`);
       // Рядом — исходная версия данных (с путями к файлам): по ней yarn merge-html сольёт правки из файла с проектом
       const base = { name: opts.only, deck };
-      return out.replace('<body>', `<body>\n<script type="application/json" id="${DATA_ID}">${scriptJson(embedded)}</script>`
+      return out.replace('<body>', `<body>\n<script type="application/json" id="${DATA_ID}">${scriptJson(packDeck(embedded))}</script>`
         + `\n<script type="application/json" id="${BASE_ID}">${scriptJson(base)}</script>`);
     },
   };

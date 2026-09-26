@@ -1,4 +1,5 @@
 import type { Deck } from '../../types';
+import { packDeck } from '../pack';
 
 /** id тега с данными презентации в собранном HTML (см. plugins/decks.ts) */
 export const DATA_ID = 'htmlpptx-deck';
@@ -34,7 +35,7 @@ export function buildHtml(deck: Deck): string {
   const start = snapshot.indexOf(open);
   const end = snapshot.indexOf('</script>', start);
   if (start < 0 || end < 0) throw new Error('В файле не найдены данные презентации');
-  let html = snapshot.slice(0, start + open.length) + scriptJson(deck) + snapshot.slice(end);
+  let html = snapshot.slice(0, start + open.length) + scriptJson(packDeck(deck)) + snapshot.slice(end);
   html = html.replace(/<title>[\s\S]*?<\/title>/, () => `<title>${escapeHtml(deck.title ?? '')}</title>`);
   return html;
 }

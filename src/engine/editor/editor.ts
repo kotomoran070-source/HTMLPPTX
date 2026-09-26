@@ -52,6 +52,8 @@ export const SLIDE_PRESETS: { name: string; make: () => SlideData }[] = [
     }),
   },
   { name: 'Картинка', make: () => ({ title: 'Новый слайд', body: { type: 'image', src: '', caption: 'Подпись', height: 520 } }) },
+  // Для импортированных слайдов: фон как у соседнего, содержимое — «Вставить»
+  { name: 'Пустой холст', make: () => ({ template: 'canvas', label: 'Новый слайд', free: [] }) },
 ];
 
 const readPath = (el: Element, attr: string): Path | null => {
@@ -982,6 +984,16 @@ export class Editor {
   addSlide(after: number, preset = 0): void {
     const s = (SLIDE_PRESETS[preset] ?? SLIDE_PRESETS[0]).make();
     s.id = this.uniqueId('slide');
+    const near = this.host.deck.slides[after];
+    if (s.template === 'canvas' && near?.template === 'canvas') {
+      // Фон соседнего слайда: цвет и фоновая вставка на весь слайд
+      if (near.bg) s.bg = near.bg;
+      const back = (Array.isArray(near.free) ? near.free : []).filter((b) => {
+        const pl = (b as { place?: { x?: number; y?: number; w?: number; h?: number } }).place;
+        return b.type === 'embed' && pl && !pl.x && !pl.y && pl.w === 1280 && pl.h === 720;
+      });
+      s.free = clone(back).map((b) => ({ ...b, enter: undefined, delay: undefined }));
+    }
     if (this.commit((d) => d.slides.splice(after + 1, 0, s))) this.host.go(after + 1);
   }
 

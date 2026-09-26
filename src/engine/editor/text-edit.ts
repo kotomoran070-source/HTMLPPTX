@@ -55,6 +55,8 @@ interface Session {
  */
 export class TextEditor {
   private s: Session | null = null;
+  /** Выделение, к которому применится цвет из палитры */
+  private partial: Range | null = null;
   readonly bar: HTMLElement;
   private colors: HTMLElement;
 
@@ -429,20 +431,63 @@ export class TextEditor {
     this.colors.addEventListener('click', (e) => {
       const b = (e.target as Element).closest<HTMLElement>('button[data-c]');
       if (!b) return;
-      this.setStyle({ color: b.dataset.c || undefined });
+      if (!this.colorSelection(b.dataset.c ?? '')) this.setStyle({ color: b.dataset.c || undefined });
       this.colors.classList.remove('on');
       this.s?.el.focus({ preventScroll: true });
     });
     const custom = this.colors.querySelector<HTMLInputElement>('input[data-c="custom"]')!;
-    custom.addEventListener('input', () => this.setStyle({ color: custom.value.toUpperCase() }));
+    custom.addEventListener('input', () => {
+      if (!this.partial) this.setStyle({ color: custom.value.toUpperCase() });
+    });
     custom.addEventListener('change', () => {
+      if (this.partial) this.colorSelection(custom.value.toUpperCase());
       this.colors.classList.remove('on');
       this.s?.el.focus({ preventScroll: true });
     });
   }
 
+  /**
+   * Цвет выделенной части текста: {#DC2626|слово}. Без выделения — false (цвет всего поля).
+   * c: #RRGGBB, цвет темы (accent…) или '' — вернуть обычный цвет.
+   */
+  private colorSelection(c: string): boolean {
+    const s = this.s;
+    const range = this.partial;
+    this.partial = null;
+    if (!s || !range || s.isKey) return false;
+    s.el.focus({ preventScroll: true });
+    const sel = getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(range);
+    // Метка-цвет, по которой находим созданные браузером <font>, и превращаем их в наши span
+    const MARK = '#010203';
+    document.execCommand('foreColor', false, MARK);
+    s.el.querySelectorAll('font').forEach((f) => {
+      if ((f.getAttribute('color') ?? '').toLowerCase() !== MARK) return;
+      // Внутри выделения прежние цвета больше не действуют
+      f.querySelectorAll('font[color], span.md-c').forEach((x) => x.replaceWith(...x.childNodes));
+      if (!c) {
+        f.replaceWith(...f.childNodes);
+        return;
+      }
+      const span = document.createElement('span');
+      span.className = 'md-c';
+      span.setAttribute('data-c', c);
+      span.style.color = colorCss(c) ?? c;
+      span.append(...f.childNodes);
+      f.replaceWith(span);
+    });
+    s.el.normalize();
+    this.syncButtons();
+    return true;
+  }
+
   private toggleColors(anchor: HTMLElement): void {
     const on = !this.colors.classList.contains('on');
+    // Выделенная часть текста запоминается: клик по палитре её не сбросит
+    const sel = getSelection();
+    this.partial = on && this.s && !this.s.isKey && this.selectionInside() && sel && !sel.isCollapsed ? sel.getRangeAt(0).cloneRange() : null;
+    this.colors.querySelector<HTMLElement>('.edcolors-foot button')!.textContent = this.partial ? 'Как у всего текста' : 'Как в теме';
     this.colors.classList.toggle('on', on);
     if (!on) return;
     const r = anchor.getBoundingClientRect();

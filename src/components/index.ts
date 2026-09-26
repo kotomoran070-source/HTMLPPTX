@@ -6,6 +6,7 @@ import './templates/content';
 import './templates/cover';
 import './templates/finale';
 import './templates/space';
+import './templates/canvas';
 
 import './layout/layout';
 import './card/card';
@@ -15,3 +16,4 @@ import './tile/tile';
 import './system/system';
 import './pipeline/pipeline';
 import './charts/charts';
+import './html/html';

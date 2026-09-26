@@ -126,3 +126,25 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
 .slide > .free > * { flex: 1 1 auto; width: 100%; min-height: 0; margin: 0; max-width: none; }
 .slide > .free.auto-h > * { flex: none; }
 .slide > .free > figure.image { height: auto !important; min-height: 0; }
+
+/* Появление свободного объекта: enter (эффект) и delay (мс) — как в импортированных слайдах */
+.stage .slide.on:not(.static) > .free.fx { animation: var(--fx) .38s cubic-bezier(.2, .7, .2, 1) var(--fx-d, 0ms) both; }
+.free.fx-fade { --fx: fx-fade; }
+.free.fx-rise { --fx: fx-rise; }
+.free.fx-drop { --fx: fx-drop; }
+.free.fx-left { --fx: fx-left; }
+.free.fx-right { --fx: fx-right; }
+.free.fx-scale { --fx: fx-scale; }
+.free.fx-pop { --fx: fx-pop; }
+.stage .slide.on:not(.static) > .free.fx-pop { animation-timing-function: cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes fx-fade { from { opacity: 0; } }
+@keyframes fx-rise { from { opacity: 0; transform: translateY(32px); } }
+@keyframes fx-drop { from { opacity: 0; transform: translateY(-32px); } }
+@keyframes fx-left { from { opacity: 0; transform: translateX(-48px); } }
+@keyframes fx-right { from { opacity: 0; transform: translateX(48px); } }
+@keyframes fx-scale { from { opacity: 0; transform: scale(.8); } }
+@keyframes fx-pop { from { opacity: 0; transform: scale(.5); } }
+
+/* Холст: фон на весь слайд, содержимое — свободные объекты */
+.slide.canvas-slide > .canvas-bg { position: absolute; inset: 0; }
+.slide.canvas-slide > .slide-body { position: relative; }

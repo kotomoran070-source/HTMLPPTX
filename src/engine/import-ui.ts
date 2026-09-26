@@ -4,6 +4,7 @@ import './import-ui.css';
 /** Ответ /__htmlpptx/import (см. plugins/import.ts) */
 interface ImportResult {
   name: string;
+  source: 'htmlpptx' | 'design';
   mode: 'create' | 'merge' | 'replace';
   changed: boolean;
   slides: number;
@@ -53,17 +54,32 @@ function list(title: string, items: string[]): string {
   return items.length ? `<div class="imp-row"><b>${esc(title)}</b><span>${items.map(esc).join(', ')}</span></div>` : '';
 }
 
+/** Как filesSummary() в plugins/import.ts */
+function files_(list: string[]): string {
+  if (list.length <= 6) return list.map((f) => f.replace('./assets/', '')).join(', ');
+  const embeds = list.filter((f) => f.endsWith('.htm')).length;
+  const images = list.length - embeds;
+  return [images && `картинок: ${images}`, embeds && `живых вставок: ${embeds}`].filter(Boolean).join(', ');
+}
+
 function summary(r: ImportResult): string {
   const where = `presentations/${esc(r.name)}/deck.yaml`;
+  const files = files_(r.newAssets);
   if (r.mode === 'create') {
-    return `<p>Будет создана новая презентация <code>${where}</code>: ${r.slides} слайдов.</p>`
-      + list('Картинки', r.newAssets.map((a) => a.replace('./assets/', '')));
+    const from = r.source === 'design' ? ' из экспорта Claude Design' : '';
+    return `<p>Будет создана новая презентация <code>${where}</code>${from}: ${r.slides} слайдов.</p>`
+      + (r.source === 'design' ? '<p class="mu">Каждый элемент слайда станет свободным объектом: тексты правятся на месте, картинки заменяются, объекты двигаются и масштабируются. Анимации сохранятся.</p>' : '')
+      + (files ? list('Файлы в assets/', [files]) : '');
   }
   if (!r.changed) return `<p>Изменений нет: <code>${where}</code> уже содержит все правки из файла.</p>`;
   let s = `<p>Правки из файла будут перенесены в <code>${where}</code>${r.mode === 'merge' ? '. Изменения, сделанные в проекте после сборки файла, сохранятся.' : '.'}</p>`;
-  if (r.mode === 'replace') s += '<p class="imp-warn">В файле нет исходной версии этой презентации: данные файла заменят данные проекта целиком.</p>';
+  if (r.mode === 'replace') {
+    s += r.source === 'design'
+      ? '<p class="imp-warn">Такая презентация уже есть: слайды из экспорта заменят её содержимое, правки, сделанные здесь, пропадут. Чтобы сохранить обе версии, введите ниже другое имя.</p>'
+      : '<p class="imp-warn">В файле нет исходной версии этой презентации: данные файла заменят данные проекта целиком.</p>';
+  }
   s += list('Изменены', r.edited) + list('Добавлены', r.added) + list('Удалены', r.removed) + list('Также', r.other)
-    + list('Новые картинки', r.newAssets.map((a) => a.replace('./assets/', '')));
+    + (files ? list('Новые файлы', [files]) : '');
   if (r.conflicts.length) {
     const why = { 'both-changed': '', 'deleted-in-file': ' — в файле удалено, в проекте изменено: оставлено', 'deleted-in-project': ' — в проекте удалено, в файле изменено: восстановлено' };
     s += `<div class="imp-conf"><b>Изменено и в проекте, и в файле — будет взята версия из файла:</b><ul>`

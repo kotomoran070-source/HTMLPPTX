@@ -10,6 +10,8 @@ export default defineConfig(({ command }) => ({
     decksPlugin({ dir: 'presentations', only }),
     ...(command === 'build' ? [viteSingleFile({ removeViteModuleLoader: true })] : []),
   ],
+  // Документы «живых» вставок (компонент embed) — обычные файлы-ассеты
+  assetsInclude: ['**/*.htm'],
   server: {
     open: true,
   },

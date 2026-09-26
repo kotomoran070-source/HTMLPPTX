@@ -20,6 +20,7 @@ const NAMES: Record<string, string> = {
   grid: 'Сетка', stack: 'Столбик', panel: 'Панель', kv: 'Таблица', progress: 'Прогресс', sliders: 'Ползунки',
   chips: 'Чипы', network: 'Схема сети', hub: 'Схема итогов', system: 'Схема системы', pipeline: 'Пайплайн',
   'line-chart': 'График', uptime: 'Доступность', bars: 'Столбцы', spacer: 'Отступ',
+  html: 'Элемент', embed: 'Живая вставка',
 };
 
 const readPath = (el: Element, attr: string): Path | null => {
