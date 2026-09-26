@@ -10,3 +10,4 @@ dist/
 
 # Резервные копии перед импортом (yarn merge-html)
 .backup/
+shots/
