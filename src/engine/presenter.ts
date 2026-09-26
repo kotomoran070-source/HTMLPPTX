@@ -5,6 +5,7 @@ import { replaceContents } from './data';
 import { DeckView, staticSlide } from './deck-view';
 import { esc, t } from './html';
 import { slideLabel } from './render';
+import { Ink, inkInput, type InkTool } from './ink';
 import { Sync } from './sync';
 import { currentTheme, onThemeChange, setTheme, toggleTheme } from './theme';
 
@@ -51,6 +52,11 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     <span class="counter" id="ct"></span>
     <button class="btn primary" id="nx" type="button">Далее ${icon('next')}</button>
     <button class="btn ghost" id="bk" type="button" title="Чёрный экран у зрителей (B)">Чёрный экран</button>
+    <span class="pres-tools">
+      <button class="btn ghost" id="tl" type="button" title="Указка: водите мышью по слайду (L)">Указка</button>
+      <button class="btn ghost" id="tpn" type="button" title="Перо: рисуйте по слайду (D)">Перо</button>
+      <button class="btn ghost" id="tcl" type="button" title="Стереть рисунки (C)">Стереть</button>
+    </span>
     <span class="pres-link" id="link"></span>
   </footer>
 </div>`;
@@ -66,6 +72,21 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   const toMain = () => mainId ?? undefined;
   let index = -1;
   let black = false;
+
+  // --- указка и перо: рисунок виден и здесь, и у зрителей ---
+  const ink = new Ink(view.stage);
+  let tool: InkTool = 'none';
+  const sendInk = (m: Parameters<Ink['apply']>[0]) => sync.send({ type: 'ink', ink: m }, toMain());
+  inkInput(cur, ink, () => tool, sendInk);
+  const clearInk = () => { ink.apply({ op: 'clear' }); sendInk({ op: 'clear' }); };
+  function setTool(t: InkTool): void {
+    tool = tool === t ? 'none' : t;
+    if (tool !== 'laser') { ink.apply({ op: 'laser-off' }); sendInk({ op: 'laser-off' }); }
+    cur.classList.toggle('tool-laser', tool === 'laser');
+    cur.classList.toggle('tool-pen', tool === 'pen');
+    $('tl').classList.toggle('active', tool === 'laser');
+    $('tpn').classList.toggle('active', tool === 'pen');
+  }
 
   const fit = () => view.fit(cur.clientWidth, cur.clientHeight);
   new ResizeObserver(fit).observe(cur);
@@ -83,7 +104,9 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   $('fp').addEventListener('click', () => { fontSize = Math.min(48, fontSize + 2); applyFont(); });
 
   function render(i: number): void {
+    const was = index;
     index = Math.max(0, Math.min(count() - 1, i));
+    if (index !== was) ink.apply({ op: 'clear' });
     view.show(index);
     const s = deck.slides[index];
     $('curl').textContent = `Слайд ${index + 1} из ${count()} · ${slideLabel(s, index)}`;
@@ -153,6 +176,9 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   $('pv').addEventListener('click', () => go(index - 1));
   $('bk').addEventListener('click', () => setBlack(!black));
   $('thm').addEventListener('click', () => toggleTheme());
+  $('tl').addEventListener('click', () => setTool('laser'));
+  $('tpn').addEventListener('click', () => setTool('pen'));
+  $('tcl').addEventListener('click', clearInk);
   let remoteTheme = false;
   onThemeChange((th) => { if (!remoteTheme) sync.send({ type: 'theme', theme: th }, toMain()); });
 
@@ -168,6 +194,10 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     const letters: Record<string, () => void> = {
       b: () => setBlack(!black), 'и': () => setBlack(!black), '.': () => setBlack(!black),
       t: () => toggleTheme(), 'е': () => toggleTheme(),
+      l: () => setTool('laser'), 'д': () => setTool('laser'),
+      d: () => setTool('pen'), 'в': () => setTool('pen'),
+      c: () => clearInk(), 'с': () => clearInk(),
+      escape: () => { if (tool !== 'none') setTool(tool); },
     };
     const fn = map[k] ?? letters[lower];
     if (fn) { e.preventDefault(); fn(); }

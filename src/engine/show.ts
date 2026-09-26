@@ -6,6 +6,7 @@ import { Editor, SLIDE_PRESETS } from './editor/editor';
 import { canSaveFile } from './editor/persist';
 import { esc } from './html';
 import { slideLabel } from './render';
+import { Ink } from './ink';
 import { Sync } from './sync';
 import { currentTheme, onThemeChange, setTheme, toggleTheme } from './theme';
 
@@ -71,6 +72,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   const vp = $('vp');
   const view = new DeckView(deck, vp);
   const sync = new Sync(deckKey);
+  const ink = new Ink(view.stage);
   let index = 0;
   let black = false;
   let editor: Editor | null = null;
@@ -108,6 +110,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     updateChrome();
     if (push && changed) history.replaceState(null, '', `#${index + 1}`);
     if (changed) {
+      ink.apply({ op: 'clear' });
       broadcast();
       editor?.onSlideChange();
       if (ovOpen()) markCurrent();
@@ -379,6 +382,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   // Команды принимаются только адресованные этому окну (Sync отсеивает чужие по полю to)
   sync.on((m, from) => {
     if (m.type === 'goto') go(m.index);
+    else if (m.type === 'ink') ink.apply(m.ink);
     else if (m.type === 'hello') {
       // Новому окну докладчика — актуальные данные (с несохранёнными правками) и положение
       if (editor?.touched) sync.send({ type: 'deck', deck: JSON.parse(JSON.stringify(deck)) }, from);

@@ -1,4 +1,5 @@
 import type { Deck } from '../types';
+import type { InkMsg } from './ink';
 import type { Theme } from './theme';
 
 export type SyncMsg =
@@ -7,6 +8,7 @@ export type SyncMsg =
   | { type: 'theme'; theme: Theme }
   | { type: 'black'; value: boolean }
   | { type: 'deck'; deck: Deck }
+  | { type: 'ink'; ink: InkMsg }
   | { type: 'hello' };
 
 interface Envelope {
