@@ -9,6 +9,8 @@ import './space.css';
 interface SpaceSlide extends FinaleSlide {
   /** Надпись в «пилюле» над логотипом */
   badge?: string;
+  /** orbit — орбиты вокруг стеклянного логотипа, надпись в углу, кнопки внутри карточки */
+  layout?: 'orbit';
 }
 
 function rng(seed: number) {
@@ -43,41 +45,52 @@ defineTemplate<SpaceSlide>('space', {
     const lines = LINKS.map(([a, b], k) =>
       `<path pathLength="1" d="M${HUBS[a][0]} ${HUBS[a][1]}L${HUBS[b][0]} ${HUBS[b][1]}" style="animation-delay:${(0.3 + k * 0.25).toFixed(2)}s"/>`).join('');
 
+    const orbit = s.layout === 'orbit';
     const logo = ctx.logo
-      ? `<div class="sp-logow r"><div class="sp-halo"></div><div class="sp-orbit"><i></i></div><div class="sp-tile">${logoImg(ctx.logo)}</div></div>`
+      ? `<div class="sp-logow r"><div class="sp-halo"></div>${orbit ? '' : '<div class="sp-orbit"><i></i></div>'}<div class="sp-tile">${logoImg(ctx.logo)}</div></div>`
       : '';
     const l = s.link;
-    const card = l
+    const link = l
       ? `<a class="sp-card" href="${esc(l.url)}" target="_blank" rel="noopener"${eurl(l, 'url')}>`
         + (l.qr !== false ? `<div class="sp-qrbox">${qrSvg(l.url, ctx.logo, `QR-код: ${l.url}`)}</div>` : '')
         + `<div>${l.label ? `<small${ea(l, 'label')}>${t(l.label)}</small>` : ''}<b${ea(l, 'text')}>${t(linkText(l))}</b></div></a>`
       : '';
     const bts = asArray(s.buttons).map((b) => button(b, 'sp-gbt')).join('');
+    // В варианте «орбита» ссылка и кнопки — одна широкая карточка
+    const card = orbit && (link || bts)
+      ? `<div class="sp-panel">${link}${link && bts ? '<i class="sp-sep"></i>' : ''}${bts ? `<div class="sp-row">${bts}</div>` : ''}</div>`
+      : link;
+    const rings = orbit
+      ? `<div class="sp-rings" aria-hidden="true"><div class="sp-r r1"><i></i></div><div class="sp-r r2"><i></i></div></div>`
+      : '';
 
     return `<div class="sp-sky"></div><div class="sp-stars">${stars}</div>`
       + `<svg class="sp-lines" viewBox="0 0 1280 720" aria-hidden="true">${lines}</svg>`
       + `<div class="sp-hubs">${hubs}</div>`
       + `<div class="sp-shoot a"></div><div class="sp-shoot b" style="--sx:70%;--sy:8%"></div>`
-      + `<div class="sp-wrap">`
-      + (s.badge ? `<div class="sp-badge r"><i class="sp-dot"></i>${tx(s, 'badge')}</div>` : '')
+      + rings
+      + `<div class="sp-wrap${orbit ? ' orbit' : ''}">`
+      + (s.badge ? `<div class="sp-badge r">${orbit ? '' : '<i class="sp-dot"></i>'}${tx(s, 'badge')}</div>` : '')
       + logo
       + `<h1 aria-label="${esc(s.title)}"${ea(s, 'title')}>${words(s.title, 'sp-w', 0.4, 0.3)}</h1>`
-      + `<div class="sp-rule"></div>`
+      + (orbit ? '' : `<div class="sp-rule"></div>`)
       + (s.lead ? `<p class="sp-lead"${ea(s, 'lead')}>${t(s.lead)}</p>` : '')
       + card
-      + (bts ? `<div class="sp-row">${bts}</div>` : '')
+      + (!orbit && bts ? `<div class="sp-row">${bts}</div>` : '')
       + `</div>`;
   },
   mount(el, _p, ctx) {
     if (ctx.reducedMotion) return;
     const hubs = el.querySelector<HTMLElement>('.sp-hubs');
     const stars = el.querySelector<HTMLElement>('.sp-stars');
+    const rings = el.querySelector<HTMLElement>('.sp-rings');
     const onMove = (e: MouseEvent) => {
       if (!el.classList.contains('on')) return;
       const r = ctx.stage.getBoundingClientRect();
       const px = (e.clientX - r.left) / r.width - 0.5;
       const py = (e.clientY - r.top) / r.height - 0.5;
       if (hubs) hubs.style.transform = `translate(${px * -14}px,${py * -14}px)`;
+      if (rings) rings.style.transform = `translate(${px * 8}px,${py * 8}px)`;
       if (stars) stars.style.transform = `translate(${px * -6}px,${py * -6}px)`;
     };
     ctx.stage.addEventListener('mousemove', onMove);

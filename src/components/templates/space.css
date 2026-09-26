@@ -76,3 +76,36 @@
 .sp-gbt .ic { width: 18px; height: 18px; fill: none; stroke: #B9C4DD; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .sp-gbt span { max-width: 0; opacity: 0; white-space: nowrap; font-size: 13px; font-weight: 600; color: #DCE4F5; transition: max-width .35s var(--ease), opacity .25s, margin .35s; }
 .sp-gbt:hover span, .sp-gbt:focus-visible span { max-width: 160px; opacity: 1; margin-right: 12px; }
+
+/* Вариант «орбита» (layout: orbit): орбиты со спутниками вокруг стеклянного логотипа */
+.sp-rings { position: absolute; inset: 0; pointer-events: none; transition: transform .3s ease-out; }
+.sp-r { position: absolute; left: 640px; top: 232px; border-radius: 50%; transform: translate(-50%, -50%); }
+.sp-r.r1 { width: 520px; height: 520px; border: 1px solid rgba(56, 189, 248, .16); animation: spRing 50s linear infinite; }
+.sp-r.r2 { width: 760px; height: 760px; border: 1px dashed rgba(129, 140, 248, .14); animation: spRingR 85s linear infinite; }
+.sp-r i { position: absolute; width: 8px; height: 8px; border-radius: 50%; }
+.sp-r.r1 i { top: -4px; left: 50%; margin-left: -4px; background: #38BDF8; box-shadow: 0 0 10px #38BDF8, 0 0 20px #38BDF8; }
+.sp-r.r2 i { top: 50%; right: -4px; margin-top: -4px; background: #818CF8; box-shadow: 0 0 10px #818CF8, 0 0 20px #818CF8; }
+@keyframes spRing { to { transform: translate(-50%, -50%) rotate(360deg); } }
+@keyframes spRingR { to { transform: translate(-50%, -50%) rotate(-360deg); } }
+
+.sp-wrap.orbit { justify-content: flex-start; padding-top: 170px; }
+.sp-wrap.orbit .sp-badge { position: absolute; left: 46px; top: 10px; margin: 0; padding: 8px 58px; font-size: 11px; letter-spacing: .22em; }
+.sp-wrap.orbit .sp-logow { width: 124px; height: 124px; margin-bottom: 52px; animation: spFloat 6s ease-in-out infinite; }
+@keyframes spFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+.sp-wrap.orbit .sp-halo { inset: -70px; background: radial-gradient(circle, rgba(56, 132, 255, .55), transparent 66%); }
+.sp-wrap.orbit .sp-tile { border-radius: 30px; background: linear-gradient(150deg, rgba(150, 175, 235, .42), rgba(60, 85, 160, .38)); border: 1px solid rgba(190, 210, 255, .45);
+  box-shadow: 0 0 60px 10px rgba(56, 132, 255, .35), inset 0 1px 0 rgba(255, 255, 255, .35); backdrop-filter: blur(6px); }
+.sp-wrap.orbit .sp-tile img { width: 58%; height: 58%; }
+.sp-wrap.orbit h1 { font-size: 64px; text-shadow: 0 0 24px rgba(160, 190, 255, .55), 0 0 60px rgba(90, 140, 255, .35); }
+.sp-wrap.orbit .sp-lead { margin: 18px 0 64px; font-size: 20px; color: #C7D2EA; }
+.sp-panel { display: flex; align-items: center; gap: 22px; padding: 8px 20px 8px 8px; border-radius: 22px; background: rgba(10, 16, 34, .72);
+  border: 1px solid rgba(255, 255, 255, .14); box-shadow: 0 16px 40px rgba(0, 0, 0, .45); text-align: left; }
+.slide.on .sp-panel { animation: up 1s var(--ease) 2.3s both; }
+.sp-panel .sp-card { padding: 0 36px 0 0; background: none; border: 0; box-shadow: none; animation: none !important; }
+.sp-panel .sp-card:hover b { text-decoration: underline; }
+.sp-panel .sp-qrbox { width: 78px; height: 78px; }
+.sp-panel .sp-card b { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; font-size: 21px; }
+.sp-sep { width: 1px; align-self: stretch; margin: 10px 0; background: rgba(255, 255, 255, .14); }
+.sp-panel .sp-row { margin: 0; animation: none !important; }
+.sp-panel .sp-gbt { height: 40px; min-width: 40px; border-radius: 11px; }
+.sp-panel .sp-gbt i { flex-basis: 40px; height: 40px; }

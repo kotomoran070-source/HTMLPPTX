@@ -76,9 +76,80 @@ function linkHighlight(slide: HTMLElement): () => void {
   };
 }
 
+/**
+ * Подгонка текста (как в Claude Design): длинное слово, которое не помещается в блок при другом
+ * системном шрифте («Bootloader» в узкой плашке), не рвётся посередине — шрифт чуть уменьшается.
+ * Только на показанном слайде: у скрытого нет размеров.
+ */
+function fitWords(root: HTMLElement): void {
+  root.querySelectorAll<HTMLElement>('[data-edit]').forEach((el) => {
+    if (el.dataset.fit || el.classList.contains('ed-active')) return;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'inline' || !el.clientWidth || !(el.textContent ?? '').trim()) return;
+    el.dataset.fit = '1';
+    const orig = parseFloat(cs.fontSize);
+    const prevWrap = el.style.overflowWrap;
+    el.style.overflowWrap = 'normal';
+    let size = orig;
+    while (el.scrollWidth > el.clientWidth + 2 && size > orig * 0.72) {
+      size -= Math.max(0.5, orig * 0.03);
+      el.style.fontSize = `${size}px`;
+    }
+    if (el.scrollWidth > el.clientWidth + 2) {
+      // Не помещается и мельче — пусть переносится, как раньше
+      el.style.fontSize = '';
+      el.style.overflowWrap = prevWrap;
+    }
+    // Текст перенёсся на лишнюю строку, а высота его места ограничена (соседи наезжают)
+    // Лишняя строка — это переполнение больше чем на полстроки (выносные элементы букв не в счёт)
+    const extra = () => {
+      const lh = parseFloat(getComputedStyle(el).lineHeight) || parseFloat(getComputedStyle(el).fontSize) * 1.2;
+      return el.clientHeight > 0 && el.scrollHeight > el.clientHeight + lh * 0.5;
+    };
+    let h = parseFloat(el.style.fontSize) || orig;
+    while (extra() && h > orig * 0.72) {
+      h -= Math.max(0.5, orig * 0.03);
+      el.style.fontSize = `${h}px`;
+    }
+  });
+}
+
+/**
+ * Блок с заданной высотой, содержимое которого перестало помещаться (другой шрифт — заголовок
+ * перенёсся на вторую строку): весь блок чуть уменьшается, но не больше чем на 15%.
+ */
+function fitBlock(block: HTMLElement): void {
+  const inner = block.querySelector<HTMLElement>(':scope > .html-inner');
+  const free = block.parentElement;
+  if (!inner || block.dataset.fit || !free?.classList.contains('free') || free.classList.contains('auto-h')) return;
+  block.dataset.fit = '1';
+  const base = parseFloat(inner.style.zoom) || 1;
+  // Нижний край содержимого ниже рамки блока (все потомки: переполнение бывает внутри вложенных блоков)
+  const over = () => Math.max(0, ...[...inner.querySelectorAll<HTMLElement>('*')].map((k) => k.getBoundingClientRect().bottom))
+    > block.getBoundingClientRect().bottom + 1;
+  let f = 1;
+  while (over() && f > 0.85) {
+    f -= 0.02;
+    inner.style.zoom = String(base * f);
+  }
+}
+
 defineBlock<HtmlProps>('html', {
-  mount(_el, _p, ctx) {
-    return linkHighlight(ctx.slide);
+  mount(el, _p, ctx) {
+    const off = linkHighlight(ctx.slide);
+    const run = () => {
+      if (!ctx.slide.classList.contains('on')) return;
+      const go = () => { fitWords(el); fitBlock(el); };
+      if (document.fonts?.status === 'loaded') go();
+      else document.fonts?.ready.then(go);
+    };
+    const mo = new MutationObserver(run);
+    mo.observe(ctx.slide, { attributes: true, attributeFilter: ['class'] });
+    run();
+    return () => {
+      off();
+      mo.disconnect();
+    };
   },
   render(p) {
     const scale = Number(p.scale) > 0 && Number(p.scale) <= 4 ? Number(p.scale) : 1;

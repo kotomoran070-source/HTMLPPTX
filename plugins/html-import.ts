@@ -29,8 +29,23 @@ const OPAQUE = new Set(['SVG', 'IMG', 'IFRAME', 'VIDEO', 'AUDIO', 'CANVAS', 'STY
 /** Оформление, которое разметка текста умеет сохранить */
 const SIMPLE_STYLE = /^\s*((color|font-weight|font-style|text-decoration)\s*:[^;]*;?\s*)*$/i;
 
+/**
+ * Строчные теги, которые стили файла оформляют сами («.row em { flex: 0 0 130px }»):
+ * такой тег — не оформление текста, а отдельный элемент со своим текстом.
+ */
+let styledInline = new Set<string>();
+
+export function styledTags(css: string): Set<string> {
+  const out = new Set<string>();
+  const sels = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{[^{}]*\}/g, ',').split(',');
+  for (const sel of sels) {
+    for (const m of sel.matchAll(/(?:^|[\s>+~(])(b|strong|i|em|u|a|span|font)(?=$|[\s.:#[>+~)])/gi)) out.add(m[1].toUpperCase());
+  }
+  return out;
+}
+
 function simpleInline(el: El): boolean {
-  if (!INLINE.has(el.tagName)) return false;
+  if (!INLINE.has(el.tagName) || styledInline.has(el.tagName)) return false;
   if (el.tagName === 'SPAN' || el.tagName === 'FONT') {
     if (el.getAttribute('class')) return false;
     if (!SIMPLE_STYLE.test(el.getAttribute('style') ?? '')) return false;
@@ -189,6 +204,7 @@ export function fromSlidesHtml(source: string): SlidesHtmlResult {
   // Стили презентации: всё, кроме внешних подключений
   // <style data-preview> — только для просмотра файла в браузере, в проект не переносится
   const css = doc.querySelectorAll('style').filter((s) => !s.hasAttribute('data-preview')).map((s) => s.text).join('\n');
+  styledInline = styledTags(css);
   if (css.trim()) {
     if (/@import|url\(\s*["']?https?:/i.test(css)) warnings.push('стили подключают внешние файлы или шрифты (@import, url(https://…)) — без интернета они не загрузятся');
     // Цвета темы даёт проект: их объявления (для предпросмотра файла в браузере) не переносим
