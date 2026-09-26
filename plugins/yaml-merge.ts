@@ -53,6 +53,8 @@ function merge(doc: Document, node: unknown, value: Json): Node {
     // Элементы с id (слайды) сопоставляются по id: перестановка не путает комментарии
     const useIds = ids.some((id) => id !== undefined && byId.has(id));
     const used = new Set<unknown>();
+    // Если элементы списка разделены пустыми строками (слайды), новые получают такую же
+    const spaced = old.some((n, i) => i > 0 && (n as { spaceBefore?: boolean })?.spaceBefore);
     seq.items = value.map((v, i) => {
       let prev: unknown;
       if (useIds) {
@@ -62,7 +64,11 @@ function merge(doc: Document, node: unknown, value: Json): Node {
       } else {
         prev = old[i];
       }
-      if (prev === undefined) return doc.createNode(v);
+      if (prev === undefined) {
+        const node = doc.createNode(v) as Node & { spaceBefore?: boolean };
+        if (spaced && i > 0) node.spaceBefore = true;
+        return node;
+      }
       used.add(prev);
       return merge(doc, prev, v);
     });

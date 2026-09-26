@@ -12,6 +12,9 @@ import {
 import { TextEditor } from './text-edit';
 import './editor.css';
 
+/** Перетаскивают HTML-файл: это импорт презентации в yarn dev, а не картинка. */
+const draggingHtml = (e: DragEvent) => [...(e.dataTransfer?.items ?? [])].some((i) => i.kind === 'file' && i.type === 'text/html');
+
 export interface EditorHost {
   deck: Deck;
   deckKey: string;
@@ -402,6 +405,16 @@ export class Editor {
       this.saveError = (e as Error).message;
       this.status();
       this.toast(`Не удалось сохранить: ${this.saveError}`, 5000, true);
+    }
+  }
+
+  /** Дописать все правки в deck.yaml и дождаться записи (перед импортом файла). */
+  async settle(): Promise<void> {
+    this.text.finish(true);
+    if (this.mode !== 'project') return;
+    for (let i = 0; i < 100 && (this.dirty || this.saving); i++) {
+      if (this.saving) await new Promise((r) => setTimeout(r, 100));
+      else await this.flush();
     }
   }
 
@@ -867,7 +880,8 @@ export class Editor {
   }
 
   private onDragOver(e: DragEvent): void {
-    if (!e.dataTransfer?.types.includes('Files')) return;
+    // HTML-файл — это импорт презентации (import-ui), не картинка
+    if (!e.dataTransfer?.types.includes('Files') || draggingHtml(e)) return;
     e.preventDefault();
     const t = this.dropTarget(e);
     e.dataTransfer.dropEffect = t ? 'copy' : 'none';
@@ -881,7 +895,7 @@ export class Editor {
   }
 
   private onDrop(e: DragEvent): void {
-    if (!e.dataTransfer?.files.length) return;
+    if (!e.dataTransfer?.files.length || /\.html?$/i.test(e.dataTransfer.files[0].name)) return;
     e.preventDefault();
     this.host.stage().querySelectorAll('.ed-drop').forEach((x) => x.classList.remove('ed-drop'));
     const t = this.dropTarget(e);

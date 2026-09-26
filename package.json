@@ -13,6 +13,7 @@
     "build": "node scripts/build.mjs",
     "preview": "vite preview",
     "new": "node scripts/new-deck.mjs",
+    "merge-html": "node scripts/import.mjs",
     "typecheck": "tsc --noEmit",
     "verify": "tsc --noEmit && node scripts/build.mjs"
   },

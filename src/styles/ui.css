@@ -61,6 +61,7 @@ body.fs .progress-top { opacity: .7; }
 .ovpanel { background: var(--surf); border: 1px solid var(--bd); border-radius: 16px; padding: 22px; max-width: 790px; width: 100%; max-height: 88vh; overflow: auto; box-shadow: 0 24px 60px rgba(0, 0, 0, .35); }
 .ovhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .ovhead b { font-size: 18px; }
+.ovhead .ovimp { margin: 0 10px 0 auto; }
 .ovgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .ovcard { border: 1px solid var(--bd); border-radius: 12px; padding: 8px; text-align: left; cursor: pointer; background: var(--surf); transition: border-color .2s, box-shadow .2s; display: flex; flex-direction: column; gap: 8px; font-weight: 400; }
 .ovcard:hover { border-color: var(--acb); box-shadow: 0 2px 8px rgba(15, 23, 42, .08); }
@@ -114,6 +115,8 @@ body.presenter { overflow: hidden; background: var(--alt); }
 .picker-grid b { display: block; font-size: 16px; }
 .picker code { background: var(--alt); border: 1px solid var(--bd); border-radius: 6px; padding: 1px 6px; font-size: 13px; }
 body.picker-page { overflow: auto; }
+.picker-import { display: flex; align-items: center; gap: 14px; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--bd); font-size: 14px; }
+.picker-import .btn { flex: none; }
 .yaml-error { background: var(--surf); border: 1px solid #DC2626; border-radius: 10px; padding: 14px 16px; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; color: var(--tx); overflow: auto; }
 
 /* Печать и «Сохранить как PDF»: каждый слайд на своей странице, анимации выключены */

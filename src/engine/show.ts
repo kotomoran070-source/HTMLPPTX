@@ -59,7 +59,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
 </nav>
 <div class="ovbd" id="ovbd" role="dialog" aria-modal="true" aria-label="Все слайды">
   <div class="ovpanel">
-    <div class="ovhead"><b>Все слайды</b><button class="ibtn small" id="ovx" type="button" aria-label="Закрыть">${icon('close')}</button></div>
+    <div class="ovhead"><b>Все слайды</b>${import.meta.env.DEV && devServer ? `<button class="btn ghost small ovimp" id="ovimp" type="button" title="Вернуть в проект правки из HTML-файла (или перетащите файл на страницу)">Импорт HTML…</button>` : ''}<button class="ibtn small" id="ovx" type="button" aria-label="Закрыть">${icon('close')}</button></div>
     <p class="mu ovedit-hint">Перетащите слайд, чтобы поменять порядок. Кнопки на миниатюре: дублировать и удалить. С клавиатуры: Alt + ← → переставить, Delete — удалить.</p>
     <div class="ovgrid" id="ovgrid"></div>
     <p class="mu ovkeys">← → пробел — листать · Home/End — в начало/конец · номер + Enter — перейти · O — обзор · P — докладчик · F — весь экран · T — тема · B — чёрный экран${editable ? ' · E — правка' : ''}</p>
@@ -251,6 +251,13 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       },
     }, devServer);
     $('ed-btn').addEventListener('click', () => editor!.toggle());
+  }
+  // Перетащенный HTML-файл презентации — импорт правок в проект (только yarn dev)
+  if (import.meta.env.DEV && devServer) {
+    void import('./import-ui').then((m) => {
+      const ui = m.setupImport({ current: deckKey, beforeImport: () => editor?.settle() });
+      $('ovimp').onclick = () => { ovHide(); ui.pick(); };
+    });
   }
 
   // --- чёрный экран ---

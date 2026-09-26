@@ -1,9 +1,10 @@
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 import { parseDocument } from 'yaml';
+import { AssetStore } from './assets';
+import { BASE_ID, importHtml } from './import';
 import { mergeYaml } from './yaml-merge';
 
 const VIRTUAL = 'virtual:decks';
@@ -123,10 +124,10 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     // Адреса картинок из yarn dev (/presentations/имя/assets/x.png) → снова ./assets/x.png,
     // встроенные картинки (data:) → файлы в assets/: в deck.yaml остаются только пути
     const prefix = urlOf(path.join(dir, name)) + '/';
+    const store = new AssetStore(path.join(dir, name));
     const toPaths = (v: unknown): unknown => {
       if (typeof v === 'string') {
-        const data = /^data:image\/(png|jpeg|gif|webp|avif|svg\+xml);base64,([a-z0-9+/=\s]+)$/i.exec(v);
-        if (data) return saveDataUrl(name, data[1].toLowerCase(), Buffer.from(data[2], 'base64'));
+        if (v.startsWith('data:')) return store.pathFor(v) ?? v;
         const clean = v.split('?')[0];
         return clean.startsWith(prefix) ? './' + decodeURI(clean.slice(prefix.length)) : v;
       }
@@ -137,6 +138,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     const file = deckFile(name);
     const source = fs.readFileSync(file, 'utf8');
     const next = mergeYaml(source, toPaths(body.deck));
+    store.flush();
     if (next !== source) {
       written.set(file, next);
       fs.writeFileSync(file, next);
@@ -144,14 +146,15 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     send(res, 200, { ok: true, changed: next !== source });
   }
 
-  function saveDataUrl(name: string, type: string, data: Buffer): string {
-    const ext = type === 'jpeg' ? 'jpg' : type === 'svg+xml' ? 'svg' : type;
-    const file = `image-${createHash('sha1').update(data).digest('hex').slice(0, 10)}.${ext}`;
-    const assets = path.join(dir, name, 'assets');
-    fs.mkdirSync(assets, { recursive: true });
-    const target = path.join(assets, file);
-    if (!fs.existsSync(target)) fs.writeFileSync(target, data);
-    return './assets/' + file;
+  async function handleImport(url: URL, req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const html = (await readBody(req)).toString('utf8');
+    const result = importHtml(html, {
+      dir,
+      name: url.searchParams.get('deck') || undefined,
+      fileName: url.searchParams.get('file') || undefined,
+      dryRun: url.searchParams.get('dry') === '1',
+    });
+    send(res, 200, result);
   }
 
   async function handleAsset(name: string, fileName: string, req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -201,6 +204,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           const origin = req.headers.origin;
           if (origin && new URL(origin).host !== req.headers.host) return send(res, 403, { error: 'Чужой источник запроса' });
           const url = new URL(req.url, 'http://localhost');
+          if (url.pathname === API + 'import') return await handleImport(url, req, res);
           const name = assertDeck(url.searchParams.get('deck'));
           if (url.pathname === API + 'save') return await handleSave(name, req, res);
           if (url.pathname === API + 'asset') return await handleAsset(name, url.searchParams.get('name') ?? 'image.png', req, res);
@@ -287,7 +291,10 @@ export function decksPlugin(opts: DecksOptions): Plugin {
       let out = html;
       if (deck?.title) out = out.replace(/<title>.*?<\/title>/, `<title>${escapeHtml(deck.title)}</title>`);
       if (deck?.lang) out = out.replace(/<html lang="[^"]*">/, `<html lang="${escapeHtml(deck.lang)}">`);
-      return out.replace('<body>', `<body>\n<script type="application/json" id="${DATA_ID}">${scriptJson(embedded)}</script>`);
+      // Рядом — исходная версия данных (с путями к файлам): по ней yarn merge-html сольёт правки из файла с проектом
+      const base = { name: opts.only, deck };
+      return out.replace('<body>', `<body>\n<script type="application/json" id="${DATA_ID}">${scriptJson(embedded)}</script>`
+        + `\n<script type="application/json" id="${BASE_ID}">${scriptJson(base)}</script>`);
     },
   };
 }
