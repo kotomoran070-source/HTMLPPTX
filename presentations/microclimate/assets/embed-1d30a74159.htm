@@ -1,0 +1,58 @@
+<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; worker-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'"><meta name="referrer" content="no-referrer"><style>html,body{margin:0;padding:0;overflow:hidden}</style></head><body><style>html,body{margin:0;height:100%;overflow:hidden;background:transparent}
+#s{position:absolute;left:0;top:0;width:614px;height:533px;transform-origin:0 0;border-radius:10px;overflow:hidden;box-shadow:0 18px 40px rgba(15,23,42,.28),0 0 0 1px rgba(15,23,42,.18);background:#000;display:flex;flex-direction:column}
+.bar{height:26px;flex:none;display:flex;align-items:center;gap:7px;padding:0 0 0 9px;background:var(--alt, #F3F4F6);border-bottom:1px solid var(--bd2, #D1D5DB);font:12px/1 "Segoe UI",system-ui,sans-serif;color:var(--tx, #111827)}
+.bar b{font-weight:400;flex:1}.bar i{width:36px;height:26px;display:grid;place-items:center;font-style:normal;color:var(--mu, #6B7280);font-size:13px}
+pre{margin:0;flex:1;padding:6px 10px;font:10.3px/1.36 Consolas,"Cascadia Mono","DejaVu Sans Mono",monospace;color:color-mix(in srgb, var(--bg, #BBBBBB) 72%, var(--tx, #BBBBBB));white-space:pre;overflow:hidden}
+.cur{display:inline-block;width:7px;height:13px;background:#BBBBBB;vertical-align:-2px;animation:bl 1s steps(1) infinite}@keyframes bl{50%{opacity:0}}
+</style>
+<div id="s"><div class="bar"><svg width="16" height="14" viewBox="0 0 16 14"><rect x="1" y="1" width="9" height="7" fill="#DBEAFE" stroke="#1D4ED8" style="fill: color-mix(in srgb, var(--acs, #DBEAFE) 78%, var(--acb, #DBEAFE)); stroke: var(--ach, #1D4ED8)"></rect><rect x="6" y="5" width="9" height="7" fill="#FDFEFF" stroke="#1D4ED8" style="fill: var(--surf, #FDFEFF); stroke: var(--ach, #1D4ED8)"></rect><path d="M8 13h5" stroke="#1D4ED8" style="stroke: var(--ach, #1D4ED8)"></path></svg><b>root@OpenWrt: ~</b><i>—</i><i>□</i><i>✕</i></div><pre id="t"></pre></div>
+<script>
+var L=['',
+'',
+'BusyBox v1.37.0 (2025-03-12 12:12:12 UTC) built-in shell (ash)',
+'',
+'  _______                     ________        __',
+' |       |.-----.-----.-----.|  |  |  |.----.|  |_',
+' |   -   ||  _  |  -__|     ||  |  |  ||   _||   _|',
+' |_______||   __|_____|__|__||________||__|  |____|',
+'          |__| W I R E L E S S   F R E E D O M',
+' -----------------------------------------------------',
+' OpenWrt SNAPSHOT, r28971-939628f6b8',
+' -----------------------------------------------------',
+'=== WARNING! =====================================',
+'There is no root password defined on this device!',
+'Use the "passwd" command to set up a new password',
+'in order to prevent unauthorized SSH logins.',
+'--------------------------------------------------',
+'',
+' OpenWrt recently switched to the "apk" package manager!',
+'',
+' OPKG Command           APK Equivalent      Description',
+' ------------------------------------------------------------------',
+' opkg install <pkg>     apk add <pkg>       Install a package',
+' opkg remove <pkg>      apk del <pkg>       Remove a package',
+' opkg upgrade           apk upgrade         Upgrade all packages',
+' opkg files <pkg>       apk info -L <pkg>   List package contents',
+' opkg list-installed    apk info            List installed packages',
+' opkg update            apk update          Update package lists',
+' opkg search <pkg>      apk search <pkg>    Search for packages',
+' ------------------------------------------------------------------',
+'',
+'For more https://openwrt.org/docs/guide-user/additional-software/opkg-to-apk-cheatsheet',
+''];
+var t=document.getElementById('t'),s=document.getElementById('s'),tm=[];
+function fit(){s.style.transform='scale('+innerWidth/614+')'}addEventListener('resize',fit);fit();
+function clr(){tm.forEach(clearTimeout);tm=[]}
+function at(ms,f){tm.push(setTimeout(f,ms))}
+function cur(){var c=document.createElement('span');c.className='cur';return c}
+function run(){clr();t.textContent='';var p=document.createTextNode('login as: ');t.appendChild(p);t.appendChild(cur());
+var w='root',d=500;
+w.split('').forEach(function(ch,i){at(d+i*140,function(){t.lastChild.remove();p.textContent+=ch;t.appendChild(cur())})});
+d+=w.length*140+450;
+L.forEach(function(l,i){at(d+i*45,function(){t.lastChild.remove();p.textContent+='\n'+l;t.appendChild(cur())})});
+d+=L.length*45+300;
+at(d,function(){t.lastChild.remove();p.textContent+='root@OpenWrt:~# ';t.appendChild(cur())})}
+function stat(){clr();t.textContent='login as: root\n'+L.join('\n')+'\nroot@OpenWrt:~# ';t.appendChild(cur())}
+stat();
+if(window.IntersectionObserver)new IntersectionObserver(function(e){if(e[e.length-1].isIntersecting)run();else stat()}).observe(document.body);
+</script></body></html>

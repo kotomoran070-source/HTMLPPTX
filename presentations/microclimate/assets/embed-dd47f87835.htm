@@ -1,0 +1,15 @@
+<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; worker-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'"><meta name="referrer" content="no-referrer"><style>html,body{margin:0;padding:0;overflow:hidden}</style></head><body><style>html,body{margin:0;height:100%;overflow:hidden}
+#s{position:absolute;left:0;top:0;width:163px;height:120px;transform-origin:0 0;font:600 11px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.tr{position:absolute;left:0;right:0;top:59px;height:2px;background:var(--bd2, #D1D5DB)}
+.pk{position:absolute;top:56px;width:8px;height:8px;border-radius:50%;background:var(--ac, #2563EB);animation:mv 3.2s linear infinite}
+@keyframes mv{0%{left:-8px;opacity:1}40%{left:62px;opacity:1}45%{opacity:0;left:62px}60%{opacity:0;left:92px}62%{opacity:1;left:92px}100%{left:165px}}
+.b{position:absolute;left:58px;top:36px;width:46px;height:46px;border-radius:50%;background:var(--surf, #FDFEFF);border:2px solid var(--acb, #93C5FD);display:grid;place-items:center;color:var(--ach, #1D4ED8);animation:ok 3.2s linear infinite}
+.b span{animation:tx 3.2s steps(1) infinite}
+.b:before{content:"";position:absolute;inset:-6px;border-radius:50%;border:2px solid transparent;border-top-color:var(--ac, #2563EB);animation:sp .8s linear infinite,rg 3.2s steps(1) infinite}
+@keyframes sp{to{transform:rotate(360deg)}}@keyframes rg{0%{opacity:1}55%{opacity:0}}
+@keyframes ok{0%,52%{background:var(--surf, #FDFEFF);border-color:var(--acb, #93C5FD);color:var(--ach, #1D4ED8)}56%,92%{background:#16A34A;border-color:#16A34A;color:#fff}100%{background:var(--surf, #FDFEFF)}}
+.lb{position:absolute;left:0;right:0;top:92px;text-align:center;color:var(--mu, #6B7280);font-weight:500;font-size:10px}
+@media(prefers-reduced-motion:reduce){*,*:before{animation:none!important}}</style>
+<div id="s"><div class="tr"></div><i class="pk"></i><div class="b"><span id="x">HMAC</span></div><div class="lb">проверка подписи</div></div>
+<script>var s=document.getElementById('s'),x=document.getElementById('x');function f(){s.style.transform='scale('+innerWidth/163+')'}addEventListener('resize',f);f();
+var t0=Date.now();setInterval(function(){var p=((Date.now()-t0)%3200)/3200;x.textContent=(p>.55&&p<.93)?'✓':'HMAC';x.style.fontSize=(p>.55&&p<.93)?'20px':'11px'},60)</script></body></html>
