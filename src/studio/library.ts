@@ -158,9 +158,9 @@ export const LIBRARY: Category[] = [
   },
 ];
 
-const PREVIEW_W = 164;
-const PREVIEW_H = 92;
-const PAD = 8;
+const PREVIEW_W = 136;
+const PREVIEW_H = 76;
+const PAD = 6;
 
 /** Миниатюра блока: рендер настоящим движком в отдельной сцене, вписанный в карточку по центру. */
 function preview(deck: Deck, p: Preset): HTMLElement {
@@ -187,51 +187,29 @@ function preview(deck: Deck, p: Preset): HTMLElement {
 }
 
 let openEl: HTMLElement | null = null;
-let lastCat = 0;
 
 export function closeLibrary(): void {
   openEl?.remove();
   openEl = null;
 }
 
-/** Галерея блоков под кнопкой ленты: категории слева, карточки справа. pick — вставить выбранный. */
+/**
+ * Галерея блоков под кнопкой ленты, как галерея фигур в PowerPoint:
+ * разделы с заголовками одной прокручиваемой панелью. pick — вставить выбранный.
+ */
 export function showLibrary(anchor: HTMLElement, deck: Deck, pick: (p: Preset) => void): void {
   if (openEl) return closeLibrary();
   const el = document.createElement('div');
   el.className = 'st-lib';
   el.dataset.edKeep = '';
   el.setAttribute('role', 'dialog');
-  el.setAttribute('aria-label', 'Библиотека блоков');
-  el.innerHTML = `<nav class="st-lib-cats" role="tablist" aria-label="Категории">${LIBRARY.map((c, ci) =>
-    `<button type="button" role="tab" data-cat="${ci}" aria-selected="false">${icon(c.icon)}<span>${esc(c.name)}</span><em>${c.items.length}</em></button>`).join('')}</nav>
-<div class="st-lib-main"><div class="st-lib-head"><b></b><span>Вставляется в центр слайда</span><button type="button" class="st-f-x" data-close aria-label="Закрыть">${icon('close')}</button></div>
-<div class="st-lib-grid" role="tabpanel"></div></div>`;
+  el.setAttribute('aria-label', 'Блоки');
+  el.innerHTML = LIBRARY.map((c, ci) => `<section><h4>${icon(c.icon)}<span>${esc(c.name)}</span></h4><div class="st-lib-grid">${c.items.map((p, pi) =>
+    `<button type="button" class="st-lib-item" data-c="${ci}" data-p="${pi}" title="Вставить: ${esc(p.name)}"><span class="st-lib-slot"></span><span class="st-lib-name">${esc(p.name)}</span></button>`).join('')}</div></section>`).join('');
   document.body.appendChild(el);
-  const grid = el.querySelector<HTMLElement>('.st-lib-grid')!;
-  const cache = new Map<number, HTMLElement[]>();
-
-  const show = (ci: number) => {
-    lastCat = ci;
-    el.querySelectorAll<HTMLElement>('[data-cat]').forEach((b) => b.setAttribute('aria-selected', String(Number(b.dataset.cat) === ci)));
-    el.querySelector('.st-lib-head b')!.textContent = LIBRARY[ci].name;
-    // Миниатюры категории строятся один раз
-    if (!cache.has(ci)) {
-      cache.set(ci, LIBRARY[ci].items.map((p, pi) => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'st-lib-item';
-        b.dataset.c = String(ci);
-        b.dataset.p = String(pi);
-        b.title = `Вставить: ${p.name}`;
-        b.appendChild(preview(deck, p));
-        b.insertAdjacentHTML('beforeend', `<span class="st-lib-name">${esc(p.name)}</span>`);
-        return b;
-      }));
-    }
-    grid.replaceChildren(...cache.get(ci)!);
-  };
-  show(Math.min(lastCat, LIBRARY.length - 1));
-
+  el.querySelectorAll<HTMLElement>('.st-lib-item').forEach((b) => {
+    b.querySelector('.st-lib-slot')!.appendChild(preview(deck, LIBRARY[Number(b.dataset.c)].items[Number(b.dataset.p)]));
+  });
   const r = anchor.getBoundingClientRect();
   el.style.left = `${Math.max(8, Math.min(innerWidth - el.offsetWidth - 8, r.left))}px`;
   el.style.top = `${r.bottom + 6}px`;
@@ -245,30 +223,32 @@ export function showLibrary(anchor: HTMLElement, deck: Deck, pick: (p: Preset) =
   const outside = (e: PointerEvent) => {
     if (!el.contains(e.target as Node) && !anchor.contains(e.target as Node)) close();
   };
+  const items = () => [...el.querySelectorAll<HTMLElement>('.st-lib-item')];
   const onKey = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
       close();
       anchor.focus();
+      return;
     }
+    // Стрелки — по карточкам
+    const list = items();
+    const i = list.indexOf(document.activeElement as HTMLElement);
+    if (i < 0 || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const cols = Math.max(1, Math.round(el.querySelector('.st-lib-grid')!.clientWidth / (list[0].offsetWidth + 8)));
+    const d = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -cols, ArrowDown: cols }[e.key]!;
+    list[Math.max(0, Math.min(list.length - 1, i + d))].focus();
   };
   el.addEventListener('click', (e) => {
-    const t = e.target as Element;
-    if (t.closest('[data-close]')) return close();
-    const cat = t.closest<HTMLElement>('[data-cat]');
-    if (cat) return show(Number(cat.dataset.cat));
-    const b = t.closest<HTMLElement>('.st-lib-item');
+    const b = (e.target as Element).closest<HTMLElement>('.st-lib-item');
     if (!b) return;
     close();
     pick(LIBRARY[Number(b.dataset.c)].items[Number(b.dataset.p)]);
   });
-  // Наведение на категорию тоже переключает: быстро пробежаться глазами
-  el.querySelector('.st-lib-cats')!.addEventListener('pointerover', (e) => {
-    const cat = (e.target as Element).closest<HTMLElement>('[data-cat]');
-    if (cat && (e as PointerEvent).pointerType === 'mouse') show(Number(cat.dataset.cat));
-  });
   addEventListener('pointerdown', outside, true);
   addEventListener('keydown', onKey, true);
-  el.querySelector<HTMLElement>(`[data-cat="${lastCat}"]`)?.focus();
+  items()[0]?.focus({ preventScroll: true });
 }
