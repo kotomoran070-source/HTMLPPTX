@@ -10,6 +10,7 @@ import { onThemeChange, toggleTheme } from '../engine/theme';
 import type { Block, Deck } from '../types';
 import { CLIP_TYPE, putClip, takeClip, type Clip } from './clipboard';
 import type { CodeView } from './code';
+import { tableGrips } from './table-grips';
 import { contextCommands, contextPanelsHtml, contextTab, contextTabsHtml, syncSwatches, type ContextTab } from './context-tabs';
 import { Inspector } from './inspector';
 import { closeLibrary, showLibrary, type Preset } from './library';
@@ -680,7 +681,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ]),
     },
   };
-  Object.assign(cmds, contextCommands({ deck, editor: ed, stage: () => view.stage }));
+  Object.assign(cmds, contextCommands({ deck, editor: ed, stage: () => view.stage, run: (c) => run(c) }));
+  const grips = tableGrips({ deck, editor: ed, stage: () => view.stage });
   cmds['tab.shape'] = { run: () => setTab('shape') };
   cmds['tab.table'] = { run: () => setTab('table') };
   for (const k of ['left', 'center', 'right', 'top', 'middle', 'bottom']) cmds[`align.${k}`] = { run: () => align(k), enabled: hasFree };
@@ -873,19 +875,25 @@ export function startStudio(deck: Deck, deckKey: string): void {
 
   /** Контекстная вкладка ленты: появляется с выделением фигуры или таблицы и сразу открывается. */
   let ctxTab: ContextTab | null = null;
+  let ctxKey = '';
   function syncContextTab(): void {
     const next = contextTab(deck, ed);
     document.querySelectorAll<HTMLElement>('.st-tabs .ctx').forEach((t) => { t.hidden = t.dataset.tab !== next; });
-    if (next !== ctxTab) {
+    // Вкладка открывается, когда выделили другой объект, — и не мешает, пока правят тот же
+    const sel = ed.selection;
+    const key = next && sel ? JSON.stringify(sel.group.length > 1 ? sel.group : sel.block) : '';
+    if (next !== ctxTab || key !== ctxKey) {
       if (next) setTab(next);
       else if (tab === 'shape' || tab === 'table') setTab('home');
       ctxTab = next;
+      ctxKey = key;
     }
   }
 
   function syncUi(): void {
     syncContextTab();
     syncSwatches(deck, ed);
+    grips.sync();
     document.querySelectorAll<HTMLButtonElement>('[data-cmd]').forEach((b) => {
       const c = cmds[b.dataset.cmd!];
       if (!c) return;

@@ -1,15 +1,16 @@
 import { icon } from '../components/icons';
-import { SHAPE_COLORS } from '../components/shape/shape';
+import { SHAPE_COLORS, SHAPE_GRADIENT, SHAPE_STYLES, SHAPE_SWATCHES, shapeFill } from '../components/shape/shape';
 import { getAt, setAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
 import type { Block, Deck } from '../types';
-import { showMenu, type MenuEntry } from './menu';
+import { showMenu, showPopover } from './menu';
 
 /**
- * Контекстные вкладки ленты, как «Формат фигуры» и «Конструктор таблиц» в PowerPoint:
+ * Контекстные вкладки ленты, как «Формат фигуры» и «Макет таблицы» в PowerPoint:
  * появляются, пока выделена фигура или таблица, и несут её оформление —
  * панель свойств справа остаётся для содержимого и положения.
+ * Из PowerPoint взято только то, чем пользуются каждый день.
  */
 
 interface Command {
@@ -22,6 +23,8 @@ export interface ContextHost {
   deck: Deck;
   editor: Editor;
   stage(): HTMLElement;
+  /** Выполнить общую команду студии (удаление объекта) */
+  run(cmd: string): void;
 }
 
 export type ContextTab = 'shape' | 'table';
@@ -37,19 +40,45 @@ export function contextTab(deck: Deck, ed: Editor): ContextTab | null {
   return t === 'shape' || t === 'table' ? t : null;
 }
 
-const btn = (cmd: string, ic: string, label: string, opts: { big?: boolean; menu?: boolean; title?: string; swatch?: string } = {}) =>
-  `<button type="button" class="st-rb${opts.big ? ' big' : ''}" data-cmd="${cmd}" title="${esc(opts.title ?? label)}"${opts.menu ? ' aria-haspopup="menu"' : ''}>`
-  + `${icon(ic)}${opts.swatch ? `<i class="st-rb-sw" data-sw="${opts.swatch}"></i>` : ''}<span>${esc(label)}${opts.menu ? ' ▾' : ''}</span></button>`;
+interface BtnOpts { big?: boolean; menu?: boolean; title?: string; swatch?: string; ico?: boolean; chk?: boolean }
+
+const btn = (cmd: string, ic: string, label: string, o: BtnOpts = {}) =>
+  `<button type="button" class="st-rb${o.big ? ' big' : ''}${o.ico ? ' ico' : ''}${o.chk ? ' st-chk' : ''}" data-cmd="${cmd}" title="${esc(o.title ?? label)}"${o.menu ? ' aria-haspopup="true"' : ''}${o.ico ? ` aria-label="${esc(label)}"` : ''}>`
+  + (o.chk ? `<i class="st-box">${icon('check')}</i>` : icon(ic))
+  + (o.swatch ? `<i class="st-rb-sw" data-sw="${o.swatch}"></i>` : '')
+  + (o.ico ? '' : `<span>${esc(label)}${o.menu ? '<b class="st-caret"></b>' : ''}</span>`) + `</button>`;
 
 const group = (label: string, body: string) =>
   `<div class="st-rgroup" role="group" aria-label="${esc(label)}"><div class="st-rgroup-body">${body}</div><div class="st-rgroup-label">${esc(label)}</div></div>`;
+
+const row = (...b: string[]) => `<div class="st-rrow">${b.join('')}</div>`;
+const stack = (...b: string[]) => `<div class="st-rstack">${b.join('')}</div>`;
 
 const KINDS: [string, string, string][] = [
   ['round', 'sh-round', 'Скруглённый'], ['rect', 'sh-rect', 'Прямоугольник'], ['pill', 'sh-pill', 'Капсула'],
   ['ellipse', 'sh-ellipse', 'Овал'], ['line', 'sh-line', 'Линия'], ['arrow', 'sh-arrow', 'Стрелка'],
 ];
 
-const VARIANTS: [string, string][] = [['lines', 'Линии'], ['stripes', 'Зебра'], ['boxed', 'Сетка'], ['accent', 'Акцентная шапка']];
+const VARIANTS: [string, string][] = [
+  ['lines', 'Линии'], ['stripes', 'Зебра'], ['boxed', 'Сетка'], ['accent', 'Акцент'], ['soft', 'Мягкая'], ['dark', 'Тёмная шапка'],
+];
+
+/** Живой образец стиля фигуры: те же цвета темы, что на слайде */
+const styleTile = (s: (typeof SHAPE_STYLES)[number]) => {
+  const p = s.props;
+  const fill = shapeFill(p.fill) ?? 'var(--acs)';
+  const on = p.fill === 'gradient' ? SHAPE_GRADIENT.on : SHAPE_COLORS[p.fill ?? '']?.on ?? 'var(--tx)';
+  const border = p.width ? `${p.width > 1 ? 1.5 : 1}px ${p.dash ? 'dashed' : 'solid'} ${SHAPE_COLORS[p.stroke ?? '']?.css ?? 'var(--bd2)'}` : '1px solid transparent';
+  return `<button type="button" class="st-stile" data-cmd="shape.style.${s.id}" title="${esc(s.name)}" aria-label="${esc(s.name)}">`
+    + `<i style="background:${fill};color:${on};border:${border}${p.shadow ? ';box-shadow:0 1px 3px rgba(15,23,42,.25)' : ''}">Аа</i></button>`;
+};
+
+/** Живой образец стиля таблицы: настоящая таблица в миниатюре */
+const tableTile = ([v, label]: [string, string]) => {
+  const tr = (tag: string) => `<tr>${[0, 1, 2].map(() => `<${tag}><i></i></${tag}>`).join('')}</tr>`;
+  return `<button type="button" class="st-ttile" data-cmd="table.variant.${v}" title="${esc(label)}" aria-label="${esc(label)}">`
+    + `<span class="tbl tbl-${v} st-tmini"><table><thead>${tr('th')}</thead><tbody>${tr('td')}${tr('td')}${tr('td')}</tbody></table></span></button>`;
+};
 
 /** Вкладки и панели ленты (скрыты, пока нет подходящего выделения). */
 export function contextTabsHtml(): string {
@@ -59,24 +88,36 @@ export function contextTabsHtml(): string {
 
 export function contextPanelsHtml(): string {
   return `<div class="st-rpanel" data-panel="shape" hidden>
-  ${group('Форма', `<div class="st-rgrid">${KINDS.map(([k, ic, l]) => btn(`shape.kind.${k}`, ic, l)).join('')}</div>`)}
-  ${group('Цвет', btn('shape.fill', 'fill', 'Заливка', { big: true, menu: true, swatch: 'fill' }) + btn('shape.stroke', 'outline', 'Контур', { big: true, menu: true, swatch: 'stroke' }) + btn('shape.width', 'weight', 'Толщина', { big: true, menu: true }))}
-  ${group('Эффекты', `<div class="st-rstack">${btn('shape.shadow', 'shadow', 'Тень', { menu: true })}${btn('shape.radius', 'corner', 'Скругление', { menu: true })}</div><div class="st-rstack">${btn('shape.rotate', 'rotate', 'Поворот', { menu: true })}</div>`)}
+  ${group('Стили', `<div class="st-gallery">${SHAPE_STYLES.map(styleTile).join('')}</div>`)}
+  ${group('Форма', `<div class="st-rgrid">${KINDS.map(([k, ic, l]) => btn(`shape.kind.${k}`, ic, l, { ico: true })).join('')}</div>`)}
+  ${group('Цвет', btn('shape.fill', 'fill', 'Заливка', { big: true, menu: true, swatch: 'fill' }) + btn('shape.stroke', 'outline', 'Контур', { big: true, menu: true, swatch: 'stroke', title: 'Цвет, толщина и штрих контура' }))}
+  ${group('Текст', btn('shape.text', 'text-box', 'Надпись', { big: true, title: 'Добавить или править текст внутри фигуры' })
+    + stack(
+      row(btn('shape.font.up', 'text-up', 'Крупнее', { ico: true }), btn('shape.font.down', 'text-down', 'Мельче', { ico: true }), btn('shape.bold', 'bold', 'Жирный', { ico: true })),
+      row(btn('shape.align.left', 'align-left', 'По левому краю', { ico: true }), btn('shape.align.center', 'align-center', 'По центру', { ico: true }), btn('shape.align.right', 'align-right', 'По правому краю', { ico: true })),
+      row(btn('shape.valign.top', 'v-top', 'Сверху', { ico: true }), btn('shape.valign.middle', 'v-middle', 'Посередине по высоте', { ico: true }), btn('shape.valign.bottom', 'v-bottom', 'Снизу', { ico: true })),
+    ))}
+  ${group('Эффекты', stack(btn('shape.shadow', 'shadow', 'Тень', { menu: true }), btn('shape.radius', 'corner', 'Скругление', { menu: true }))
+    + stack(btn('shape.rotate', 'rotate', 'Поворот', { menu: true }), btn('shape.opacity', 'opacity', 'Прозрачность', { menu: true })))}
 </div>
 <div class="st-rpanel" data-panel="table" hidden>
-  ${group('Стиль таблицы', VARIANTS.map(([v, l]) => `<button type="button" class="st-rb big st-tstyle" data-cmd="table.variant.${v}" title="${l}"><i class="st-tprev ${v}"><b></b><b></b><b></b><b></b></i><span>${l}</span></button>`).join(''))}
-  ${group('Параметры', `<div class="st-rstack">${btn('table.head', 'check', 'Строка заголовка')}${btn('table.labels', 'check', 'Первый столбец')}</div><div class="st-rstack">${btn('table.highlight', 'check', 'Выделить строку', { title: 'Выделить строку, в которой курсор' })}</div>`)}
-  ${group('Строки и столбцы', `<div class="st-rstack">${btn('table.row.above', 'row-add', 'Строка выше')}${btn('table.row.below', 'row-add', 'Строка ниже')}</div><div class="st-rstack">${btn('table.col.left', 'col-add', 'Столбец слева')}${btn('table.col.right', 'col-add', 'Столбец справа')}</div><div class="st-rstack">${btn('table.row.del', 'row-del', 'Удалить строку')}${btn('table.col.del', 'col-del', 'Удалить столбец')}</div>`)}
-  ${group('Текст', `<div class="st-rstack">${btn('table.size.up', 'text-up', 'Крупнее')}${btn('table.size.down', 'text-down', 'Мельче')}</div>`)}
+  ${group('Стиль таблицы', `<div class="st-gallery t">${VARIANTS.map(tableTile).join('')}</div>`)}
+  ${group('Показать', stack(btn('table.head', '', 'Строка заголовка', { chk: true }), btn('table.labels', '', 'Первый столбец', { chk: true, title: 'Первый столбец жирным — подписи строк' }))
+    + stack(btn('table.total', '', 'Итоговая строка', { chk: true, title: 'Последняя строка — итог' }), btn('table.highlight', '', 'Выделить строку', { chk: true, title: 'Выделить строку, в которой курсор' })))}
+  ${group('Строки и столбцы', stack(btn('table.row.above', 'row-above', 'Вставить сверху'), btn('table.row.below', 'row-below', 'Вставить снизу'))
+    + stack(btn('table.col.left', 'col-left', 'Вставить слева'), btn('table.col.right', 'col-right', 'Вставить справа'))
+    + btn('table.del', 'table-del', 'Удалить', { big: true, menu: true, title: 'Удалить строку, столбец или таблицу' }))}
+  ${group('Ячейки', stack(
+    row(btn('table.align.left', 'align-left', 'Столбец — по левому краю', { ico: true }), btn('table.align.center', 'align-center', 'Столбец — по центру', { ico: true }), btn('table.align.right', 'align-right', 'Столбец — по правому краю', { ico: true })),
+    btn('table.cols.equal', 'eq-cols', 'Выровнять ширину', { title: 'Сделать столбцы одинаковой ширины. Ширину столбца можно тянуть за границу прямо на слайде' }),
+  ) + stack(btn('table.density', 'density', 'Плотность', { menu: true, title: 'Отступы в ячейках' }), row(btn('table.size.up', 'text-up', 'Крупнее', { ico: true }), btn('table.size.down', 'text-down', 'Мельче', { ico: true }))))}
 </div>`;
 }
 
 /** Цвет из данных фигуры → CSS для образца на кнопке. */
-const swatchCss = (v: unknown, fallback: string): string => {
-  if (v === 'none') return 'transparent';
-  if (typeof v === 'string' && SHAPE_COLORS[v]) return SHAPE_COLORS[v].css;
-  return typeof v === 'string' && /^#[0-9a-f]{3,8}$/i.test(v) ? v : fallback;
-};
+const swatchCss = (v: unknown, fallback: string): string => shapeFill(v) ?? fallback;
+
+const FONT_STEPS = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72, 96];
 
 export function contextCommands(h: ContextHost): Record<string, Command> {
   const { deck, editor: ed } = h;
@@ -91,42 +132,113 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const p = targets(type)[0];
     return p ? (getAt(deck, p) as Block) : null;
   };
+  const clean = (v: unknown) => (v === '' || v === null ? undefined : v);
   const setAll = (type: string, key: string, value: unknown) => {
     const paths = targets(type);
     if (!paths.length) return;
-    ed.commit((d) => paths.forEach((p) => setAt(d, [...p, key], value === undefined || value === '' ? undefined : value)), { rebuild: true });
+    ed.commit((d) => paths.forEach((p) => setAt(d, [...p, key], clean(value))), { rebuild: true });
   };
   const isShape = () => targets('shape').length > 0;
   const isTable = () => targets('table').length > 0;
+  const isLine = (b: Block | null) => b?.kind === 'line' || b?.kind === 'arrow';
+  /** Фигуры, у которых есть тело (не линии) */
+  const isBody = () => isShape() && !isLine(first('shape'));
   const anchor = (cmd: string) => document.querySelector<HTMLElement>(`.st-ribbon [data-cmd="${cmd}"]`)!;
 
-  /** Меню цвета: роли темы, «нет», свой цвет. */
-  const colorMenu = (cmd: string, key: 'fill' | 'stroke') => {
-    const cur = first('shape')?.[key];
-    const items: MenuEntry[] = [
-      { label: 'Нет', swatch: 'linear-gradient(135deg, transparent 45%, #EF4444 45% 55%, transparent 55%), var(--surf)', checked: cur === 'none', run: () => setAll('shape', key, 'none') },
-      null,
-      ...Object.entries(SHAPE_COLORS).map(([k, c]) => ({ label: c.name, swatch: c.css, checked: cur === k, run: () => setAll('shape', key, k) })),
-      null,
-      {
-        label: 'Другой цвет…', swatch: 'conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)', checked: typeof cur === 'string' && cur.startsWith('#'),
-        run: () => {
-          const input = document.createElement('input');
-          input.type = 'color';
-          if (typeof cur === 'string' && /^#[0-9a-f]{6}$/i.test(cur)) input.value = cur;
-          input.addEventListener('change', () => setAll('shape', key, input.value.toUpperCase()));
-          input.click();
-        },
-      },
-    ];
-    showMenu(anchor(cmd), items);
+  // ---------- фигура: цвета ----------
+
+  /** Палитра, как в PowerPoint: цвета темы, постоянные цвета, «нет», другой цвет. У контура — ещё толщина и штрих. */
+  const palette = (cmd: string, key: 'fill' | 'stroke') => {
+    const b = first('shape');
+    const line = isLine(b);
+    // У линии цвет хранится в stroke (или по старинке в fill)
+    const k = line ? 'stroke' : key;
+    const cur = line ? b?.stroke ?? b?.fill : b?.[key];
+    const sw = (v: string, css: string, name: string) =>
+      `<button type="button" class="st-psw${cur === v ? ' on' : ''}" data-v="${esc(v)}" style="--c:${css}" title="${esc(name)}" aria-label="${esc(name)}"></button>`;
+    const theme = Object.entries(SHAPE_COLORS).filter(([v]) => v !== 'bg').map(([v, c]) => sw(v, c.css, c.name)).join('')
+      + (key === 'fill' && !line ? sw('gradient', SHAPE_GRADIENT.css, SHAPE_GRADIENT.name) : '');
+    const width = Number(b?.width ?? (line ? 3 : 0));
+    const outline = key === 'stroke' || line;
+    const html = `${line ? '' : `<button type="button" class="st-pnone${cur === 'none' || (key === 'stroke' && !width) ? ' on' : ''}" data-v="none">${icon('close')}<span>${key === 'fill' ? 'Без заливки' : 'Без контура'}</span></button>`}
+      <div class="st-plabel">Цвета темы</div><div class="st-pgrid">${theme}</div>
+      <div class="st-plabel">Постоянные</div><div class="st-pgrid">${SHAPE_SWATCHES.map((c) => sw(c, c, c)).join('')}</div>
+      <button type="button" class="st-pmore" data-v="custom"><i style="background:conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)"></i><span>Другой цвет…</span></button>
+      ${outline ? `<div class="st-plabel">Толщина</div><div class="st-pseg">${[1, 2, 3, 4, 6, 8].map((w) => `<button type="button" data-w="${w}" class="${width === w ? 'on' : ''}" title="${w} px"><i style="height:${Math.min(w, 6)}px"></i></button>`).join('')}</div>
+      <div class="st-plabel">Штрих</div><div class="st-pseg">${([['', 'Сплошной'], ['dash', 'Пунктир'], ['dot', 'Точки']] as const).map(([v, l]) => `<button type="button" data-dash="${v}" class="${(b?.dash ?? '') === v ? 'on' : ''}" title="${l}"><i class="d-${v || 'solid'}"></i></button>`).join('')}</div>` : ''}`;
+    // Рамка появляется вместе с цветом: без толщины её не видно
+    const withWidth = (d: Deck, p: Path) => {
+      if (k === 'stroke' && !line && !Number((getAt(d, p) as Block).width)) setAt(d, [...p, 'width'], 2);
+    };
+    const apply = (fn: (d: Deck, p: Path) => void) => {
+      const paths = targets('shape');
+      ed.commit((d) => paths.forEach((p) => fn(d, p)), { rebuild: true });
+    };
+    showPopover(anchor(cmd), html, (el) => {
+      const v = el.dataset.v;
+      if (v === 'custom') {
+        return {
+          run: () => {
+            const input = document.createElement('input');
+            input.type = 'color';
+            if (typeof cur === 'string' && /^#[0-9a-f]{6}$/i.test(cur)) input.value = cur;
+            input.addEventListener('change', () => apply((d, p) => { setAt(d, [...p, k], input.value.toUpperCase()); withWidth(d, p); }));
+            input.click();
+          },
+        };
+      }
+      if (v === 'none') return { run: () => apply((d, p) => setAt(d, [...p, k === 'stroke' ? 'width' : 'fill'], k === 'stroke' ? undefined : 'none')) };
+      if (v) return { run: () => apply((d, p) => { setAt(d, [...p, k], v); withWidth(d, p); }) };
+      if (el.dataset.w) {
+        const w = Number(el.dataset.w);
+        return { keep: true, run: () => { apply((d, p) => setAt(d, [...p, 'width'], w)); mark(el); } };
+      }
+      if (el.dataset.dash !== undefined) {
+        const dv = el.dataset.dash;
+        return { keep: true, run: () => { apply((d, p) => { setAt(d, [...p, 'dash'], dv || undefined); withWidth(d, p); }); mark(el); } };
+      }
+      return null;
+    }, 'st-palette');
   };
+  const mark = (el: HTMLElement) => el.parentElement?.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === el));
+
   const choice = (cmd: string, key: string, options: [unknown, string][], def: unknown) => {
     const cur = first('shape')?.[key] ?? def;
     showMenu(anchor(cmd), options.map(([v, l]) => ({ label: l, checked: cur === v, run: () => setAll('shape', key, v === def ? undefined : v) })));
   };
 
+  // ---------- фигура: текст ----------
+  const textStyle = (b: Block | null) => ((b?.styles as Record<string, Record<string, unknown>> | undefined)?.text ?? {});
+  const hasText = () => isBody() && targets('shape').some((p) => !!(getAt(deck, p) as Block).text);
+  const setText = (key: string, value: unknown) => {
+    const paths = targets('shape');
+    ed.commit((d) => paths.forEach((p) => {
+      const b = getAt(d, p) as Block;
+      if (isLine(b)) return;
+      setAt(d, [...p, 'styles', 'text', key], clean(value));
+      const st = b.styles as Record<string, Record<string, unknown>> | undefined;
+      if (st?.text && !Object.keys(st.text).length) delete st.text;
+      if (st && !Object.keys(st).length) delete b.styles;
+    }), { rebuild: true });
+  };
+  const fontStep = (dir: 1 | -1) => {
+    const cur = Number(textStyle(first('shape')).size) || 18;
+    const next = dir > 0 ? FONT_STEPS.find((s) => s > cur) ?? cur : [...FONT_STEPS].reverse().find((s) => s < cur) ?? cur;
+    setText('size', next === 18 ? undefined : next);
+  };
+  const editShapeText = () => {
+    const p = targets('shape')[0];
+    const b = first('shape');
+    if (!p || !b) return;
+    if (!b.text) ed.commit((d) => setAt(d, [...p, 'text'], 'Текст'), { rebuild: true });
+    requestAnimationFrame(() => {
+      const el = h.stage().querySelector<HTMLElement>(`[data-edit="${CSS.escape(JSON.stringify([...p, 'text']))}"]`);
+      if (el) ed.editField(el, { keep: true, selectAll: true });
+    });
+  };
+
   // ---------- таблица: ячейка, в которой был курсор ----------
+  let lastCell: { table: string; r: number; c: number } | null = null;
   const cell = (): { r: number; c: number } => {
     const t = first('table');
     const rows = (t?.rows as unknown[][] | undefined) ?? [];
@@ -134,7 +246,6 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     if (!lastCell || lastCell.table !== JSON.stringify(targets('table')[0])) return last;
     return { r: lastCell.r, c: lastCell.c };
   };
-  let lastCell: { table: string; r: number; c: number } | null = null;
   h.stage().addEventListener('pointerdown', (e) => {
     const el = (e.target as Element).closest<HTMLElement>('td[data-edit], th[data-edit]');
     const tbl = el?.closest<HTMLElement>('[data-type="table"]');
@@ -146,12 +257,13 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     } catch { /* не ячейка */ }
   }, true);
 
-  const editTable = (fn: (t: { header?: unknown[]; rows: unknown[][]; widths?: number[]; align?: string[] } & Record<string, unknown>, at: { r: number; c: number }) => void) => {
+  type TableData = { header?: unknown[]; rows: unknown[][]; widths?: number[]; align?: string[] } & Record<string, unknown>;
+  const editTable = (fn: (t: TableData, at: { r: number; c: number }) => void) => {
     const p = targets('table')[0];
     if (!p) return;
     const at = cell();
     ed.commit((d) => {
-      const t = getAt(d, p) as { header?: unknown[]; rows: unknown[][] } & Record<string, unknown>;
+      const t = getAt(d, p) as TableData;
       t.rows = Array.isArray(t.rows) ? t.rows : [];
       fn(t, at);
     }, { rebuild: true });
@@ -166,24 +278,58 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   });
   const addCol = (right: boolean) => editTable((t, at) => {
     const i = at.c + (right ? 1 : 0);
+    const n = cols(t);
     t.header?.splice(i, 0, 'Столбец');
-    t.rows.forEach((r) => r.splice(i, 0, ''));
-    for (const k of ['widths', 'align'] as const) {
-      const a = t[k] as unknown[] | undefined;
-      if (Array.isArray(a)) a.splice(i, 0, k === 'widths' ? 1 : 'left');
+    t.rows.forEach((r) => { while (r.length < n) r.push(''); r.splice(i, 0, ''); });
+    // Новый столбец — средней ширины среди остальных
+    if (Array.isArray(t.widths)) t.widths.splice(i, 0, Math.round((t.widths.reduce((a, b) => a + Number(b), 0) / t.widths.length) * 100) / 100);
+    if (Array.isArray(t.align)) t.align.splice(i, 0, '');
+    lastCell = null;
+  });
+  const delRow = () => editTable((t, at) => {
+    if (at.r < 0 || t.rows.length < 2) return;
+    t.rows.splice(at.r, 1);
+    const hl = Number(t.highlight);
+    if (Number.isInteger(t.highlight)) {
+      if (hl === at.r) delete t.highlight;
+      else if (hl > at.r) t.highlight = hl - 1;
     }
     lastCell = null;
   });
+  const delCol = () => editTable((t, at) => {
+    if (cols(t) < 2) return;
+    t.header?.splice(at.c, 1);
+    t.rows.forEach((r) => r.splice(at.c, 1));
+    for (const k of ['widths', 'align'] as const) { const a = t[k]; if (Array.isArray(a)) a.splice(at.c, 1); }
+    lastCell = null;
+  });
+  /** Выравнивание столбца с курсором: заданное или то, что таблица выбрала сама (числа — вправо) */
+  const colAlign = (): string => {
+    const t = first('table');
+    const c = cell().c;
+    const set = Array.isArray(t?.align) ? (t.align as string[])[c] : '';
+    if (set) return set;
+    const td = h.stage().querySelector(`[data-block="${CSS.escape(JSON.stringify(targets('table')[0]))}"] tr > :nth-child(${c + 1})`);
+    return td?.classList.contains('a-right') ? 'right' : td?.classList.contains('a-center') ? 'center' : 'left';
+  };
 
   const cmds: Record<string, Command> = {
-    'shape.fill': { run: () => colorMenu('shape.fill', 'fill'), enabled: isShape },
-    'shape.stroke': { run: () => colorMenu('shape.stroke', 'stroke'), enabled: isShape },
-    'shape.width': { run: () => choice('shape.width', 'width', [[0, 'Без контура'], [1, '1 px'], [2, '2 px'], [3, '3 px'], [4, '4 px'], [6, '6 px'], [8, '8 px']], undefined), enabled: isShape },
-    'shape.shadow': { run: () => choice('shape.shadow', 'shadow', [[undefined, 'Без тени'], ['sm', 'Лёгкая'], ['md', 'Заметная']], undefined), enabled: isShape },
-    'shape.radius': { run: () => choice('shape.radius', 'radius', [[0, 'Острые углы'], [8, '8 px'], [16, '16 px'], [24, '24 px'], [40, '40 px']], undefined), enabled: () => isShape() && ['round', 'rect', undefined].includes(first('shape')?.kind as string | undefined) },
+    'shape.fill': { run: () => palette('shape.fill', 'fill'), enabled: isBody },
+    'shape.stroke': { run: () => palette('shape.stroke', 'stroke'), enabled: isShape },
+    'shape.shadow': { run: () => choice('shape.shadow', 'shadow', [[undefined, 'Без тени'], ['sm', 'Лёгкая'], ['md', 'Заметная']], undefined), enabled: isBody },
+    'shape.radius': { run: () => choice('shape.radius', 'radius', [[0, 'Острые углы'], [8, 'Малое — 8 px'], [16, 'Среднее — 16 px'], [24, 'Большое — 24 px'], [40, 'Очень большое — 40 px']], undefined), enabled: () => isShape() && ['round', 'rect', undefined].includes(first('shape')?.kind as string | undefined) },
     'shape.rotate': { run: () => choice('shape.rotate', 'rotate', [[undefined, 'Без поворота'], [45, '45°'], [90, '90°'], [135, '135°'], [180, '180°'], [-45, '−45°'], [-90, '−90°']], undefined), enabled: isShape },
+    'shape.opacity': { run: () => choice('shape.opacity', 'opacity', [[undefined, 'Непрозрачная'], [0.8, '80 %'], [0.6, '60 %'], [0.4, '40 %'], [0.2, '20 %']], undefined), enabled: isShape },
+    'shape.text': { run: editShapeText, enabled: () => isBody() && targets('shape').length === 1 },
+    'shape.font.up': { run: () => fontStep(1), enabled: hasText },
+    'shape.font.down': { run: () => fontStep(-1), enabled: hasText },
+    'shape.bold': {
+      run: () => setText('weight', (Number(textStyle(first('shape')).weight) || 600) >= 600 ? 400 : undefined),
+      enabled: hasText, active: () => hasText() && (Number(textStyle(first('shape')).weight) || 600) >= 600,
+    },
     'table.head': { run: () => setAll('table', 'head', first('table')?.head === false ? undefined : false), enabled: () => isTable() && Array.isArray(first('table')?.header), active: () => isTable() && first('table')?.head !== false && Array.isArray(first('table')?.header) },
     'table.labels': { run: () => setAll('table', 'labels', first('table')?.labels ? undefined : true), enabled: isTable, active: () => !!first('table')?.labels },
+    'table.total': { run: () => setAll('table', 'total', first('table')?.total ? undefined : true), enabled: () => isTable() && ((first('table')?.rows as unknown[]) ?? []).length > 1, active: () => !!first('table')?.total },
     'table.highlight': {
       run: () => { const at = cell(); setAll('table', 'highlight', first('table')?.highlight === at.r || at.r < 0 ? undefined : at.r); },
       enabled: isTable, active: () => isTable() && Number.isInteger(first('table')?.highlight),
@@ -192,32 +338,96 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     'table.row.below': { run: () => addRow(true), enabled: isTable },
     'table.col.left': { run: () => addCol(false), enabled: isTable },
     'table.col.right': { run: () => addCol(true), enabled: isTable },
-    'table.row.del': {
-      run: () => editTable((t, at) => {
-        if (at.r < 0 || t.rows.length < 2) return;
-        t.rows.splice(at.r, 1);
-        const hl = Number(t.highlight);
-        if (Number.isInteger(t.highlight)) {
-          if (hl === at.r) delete t.highlight;
-          else if (hl > at.r) t.highlight = hl - 1;
-        }
-        lastCell = null;
-      }), enabled: () => isTable() && (((first('table')?.rows as unknown[]) ?? []).length > 1) },
-    'table.col.del': {
-      run: () => editTable((t, at) => {
-        if (cols(t) < 2) return;
-        t.header?.splice(at.c, 1);
-        t.rows.forEach((r) => r.splice(at.c, 1));
-        for (const k of ['widths', 'align'] as const) { const a = t[k]; if (Array.isArray(a)) a.splice(at.c, 1); }
-        lastCell = null;
-      }),
+    'table.row.del': { run: delRow, enabled: () => isTable() && (((first('table')?.rows as unknown[]) ?? []).length > 1) },
+    'table.col.del': { run: delCol, enabled: isTable },
+    'table.del': {
+      run: () => {
+        const t = first('table');
+        const rows = ((t?.rows as unknown[]) ?? []).length;
+        const at = cell();
+        showMenu(anchor('table.del'), [
+          { label: 'Удалить строку', icon: 'row-del', disabled: rows < 2 || at.r < 0, run: delRow },
+          { label: 'Удалить столбец', icon: 'col-del', disabled: cols({ header: t?.header as unknown[], rows: (t?.rows as unknown[][]) ?? [] }) < 2, run: delCol },
+          null,
+          { label: 'Удалить таблицу', icon: 'trash', danger: true, run: () => h.run('obj.del') },
+        ]);
+      },
+      enabled: isTable,
+    },
+    'table.cols.equal': { run: () => setAll('table', 'widths', undefined), enabled: () => isTable() && Array.isArray(first('table')?.widths) },
+    'table.density': {
+      run: () => {
+        const cur = first('table')?.density;
+        showMenu(anchor('table.density'), ([[undefined, 'Обычная'], ['compact', 'Компактная'], ['roomy', 'Свободная']] as const).map(([v, l]) => ({ label: l, checked: cur === v, run: () => setAll('table', 'density', v) })));
+      },
       enabled: isTable,
     },
     'table.size.up': { run: () => setAll('table', 'size', Math.min(40, (Number(first('table')?.size) || 17) + 1)), enabled: isTable },
     'table.size.down': { run: () => setAll('table', 'size', Math.max(10, (Number(first('table')?.size) || 17) - 1)), enabled: isTable },
   };
   for (const [k] of KINDS) {
-    cmds[`shape.kind.${k}`] = { run: () => setAll('shape', 'kind', k === 'round' ? undefined : k), enabled: isShape, active: () => isShape() && (first('shape')?.kind ?? 'round') === k };
+    cmds[`shape.kind.${k}`] = {
+      run: () => {
+        const paths = targets('shape');
+        ed.commit((d) => paths.forEach((p) => {
+          const b = getAt(d, p) as Block;
+          const wasLine = isLine(b);
+          const toLine = k === 'line' || k === 'arrow';
+          setAt(d, [...p, 'kind'], k === 'round' ? undefined : k);
+          // Линия берёт цвет у заливки, фигура из линии — обычную заливку
+          if (toLine && !wasLine) {
+            if (!b.stroke || !Number(b.width)) b.stroke = b.fill && b.fill !== 'none' && b.fill !== 'gradient' ? b.fill : 'accent';
+            delete b.width;
+          }
+          if (!toLine && wasLine) {
+            delete b.width;
+            if (!b.fill) b.fill = 'soft';
+          }
+        }), { rebuild: true });
+      },
+      enabled: isShape, active: () => isShape() && (first('shape')?.kind ?? 'round') === k,
+    };
+  }
+  const STYLE_KEYS = ['fill', 'stroke', 'width', 'shadow', 'dash'] as const;
+  for (const s of SHAPE_STYLES) {
+    cmds[`shape.style.${s.id}`] = {
+      run: () => {
+        const paths = targets('shape');
+        ed.commit((d) => paths.forEach((p) => {
+          const b = getAt(d, p) as Block;
+          if (isLine(b)) {
+            b.stroke = s.line;
+            if (s.props.dash) b.dash = s.props.dash;
+            else delete b.dash;
+            return;
+          }
+          for (const k of STYLE_KEYS) delete b[k];
+          Object.assign(b, s.props);
+        }), { rebuild: true });
+      },
+      enabled: isShape,
+      active: () => {
+        const b = first('shape');
+        if (!b) return false;
+        if (isLine(b)) return (b.stroke ?? b.fill) === s.line && b.dash === s.props.dash;
+        return STYLE_KEYS.every((k) => b[k] === (s.props as Record<string, unknown>)[k]);
+      },
+    };
+  }
+  for (const a of ['left', 'center', 'right']) {
+    cmds[`shape.align.${a}`] = { run: () => setText('align', a === 'center' ? undefined : a), enabled: hasText, active: () => hasText() && (textStyle(first('shape')).align ?? 'center') === a };
+    cmds[`table.align.${a}`] = {
+      run: () => editTable((t, at) => {
+        const list = Array.isArray(t.align) ? t.align : [];
+        while (list.length < cols(t)) list.push('');
+        list[at.c] = a;
+        t.align = list;
+      }),
+      enabled: isTable, active: () => isTable() && colAlign() === a,
+    };
+  }
+  for (const v of ['top', 'middle', 'bottom']) {
+    cmds[`shape.valign.${v}`] = { run: () => setAll('shape', 'valign', v === 'middle' ? undefined : v), enabled: hasText, active: () => hasText() && (first('shape')?.valign ?? 'middle') === v };
   }
   for (const [v] of VARIANTS) {
     cmds[`table.variant.${v}`] = { run: () => setAll('table', 'variant', v === 'lines' ? undefined : v), enabled: isTable, active: () => isTable() && (first('table')?.variant ?? 'lines') === v };
@@ -229,8 +439,15 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
 export function syncSwatches(deck: Deck, ed: Editor): void {
   const sel = ed.selection;
   const b = sel ? (getAt(deck, sel.block) as Block | undefined) : undefined;
+  const line = b?.kind === 'line' || b?.kind === 'arrow';
   document.querySelectorAll<HTMLElement>('.st-rb-sw').forEach((el) => {
     const key = el.dataset.sw as 'fill' | 'stroke';
-    el.style.background = b?.type === 'shape' ? swatchCss(b[key], key === 'fill' ? 'var(--acs)' : 'transparent') : 'transparent';
+    let css = 'transparent';
+    if (b?.type === 'shape') {
+      if (line) css = key === 'stroke' ? swatchCss(b.stroke ?? b.fill, 'var(--ac)') : 'transparent';
+      else if (key === 'fill') css = swatchCss(b.fill, 'var(--acs)');
+      else css = Number(b.width) ? swatchCss(b.stroke, 'var(--acb)') : 'transparent';
+    }
+    el.style.background = css;
   });
 }

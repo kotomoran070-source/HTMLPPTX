@@ -29,15 +29,41 @@ export function closeMenu(): void {
  * Закрывается кликом мимо, прокруткой и сменой размера окна.
  */
 export function showMenu(at: { x: number; y: number } | HTMLElement, items: MenuEntry[]): void {
-  closeMenu();
   const el = document.createElement('div');
   el.className = 'st-menu';
   el.setAttribute('role', 'menu');
-  el.dataset.edKeep = '';
   el.innerHTML = items.map((it, k) => it === null
     ? '<i class="st-menu-sep" role="separator"></i>'
     : `<button type="button" role="menuitem" data-k="${k}"${it.disabled ? ' disabled' : ''}${it.danger ? ' class="danger"' : ''}>`
       + `${it.swatch ? `<i class="st-sw" style="background:${it.swatch}"></i>` : it.icon ? icon(it.icon) : '<span class="ic"></span>'}<span>${esc(it.label)}</span>${it.checked ? icon('check') : ''}${it.hint ? `<kbd>${esc(it.hint)}</kbd>` : ''}</button>`).join('');
+  mount(at, el, (b) => {
+    const it = items[Number(b.dataset.k)];
+    return it ? () => it.run() : null;
+  }, true);
+}
+
+/**
+ * Всплывающая панель со своей разметкой (палитра цветов и т. п.).
+ * pick(кнопка) возвращает действие; true в keep — панель остаётся открытой после клика.
+ */
+export function showPopover(at: HTMLElement, html: string, pick: (b: HTMLButtonElement) => { run(): void; keep?: boolean } | null, cls = ''): HTMLElement {
+  const el = document.createElement('div');
+  el.className = `st-menu st-pop ${cls}`.trim();
+  el.setAttribute('role', 'dialog');
+  el.innerHTML = html;
+  mount(at, el, (b) => {
+    const a = pick(b);
+    if (!a) return null;
+    return a.keep ? Object.assign(() => a.run(), { keep: true }) : () => a.run();
+  }, false);
+  return el;
+}
+
+type Action = (() => void) & { keep?: boolean };
+
+function mount(at: { x: number; y: number } | HTMLElement, el: HTMLElement, action: (b: HTMLButtonElement) => Action | null, arrows: boolean): void {
+  closeMenu();
+  el.dataset.edKeep = '';
   document.body.appendChild(el);
 
   let x: number;
@@ -57,7 +83,7 @@ export function showMenu(at: { x: number; y: number } | HTMLElement, items: Menu
   el.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, x))}px`;
   el.style.top = `${y + h > innerHeight - 8 ? Math.max(8, y - h - (anchor ? anchor.offsetHeight + 8 : 0)) : y}px`;
 
-  const buttons = [...el.querySelectorAll<HTMLButtonElement>('button:not([disabled])')];
+  const buttons = () => [...el.querySelectorAll<HTMLButtonElement>('button:not([disabled])')];
   const close = () => {
     el.remove();
     anchor?.setAttribute('aria-expanded', 'false');
@@ -71,29 +97,34 @@ export function showMenu(at: { x: number; y: number } | HTMLElement, items: Menu
     if (!el.contains(e.target as Node) && e.target !== anchor && !anchor?.contains(e.target as Node)) close();
   };
   const onKey = (e: KeyboardEvent) => {
-    const i = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    const list = buttons();
+    const i = list.indexOf(document.activeElement as HTMLButtonElement);
     if (e.key === 'Escape') close();
-    else if (e.key === 'ArrowDown') buttons[(i + 1) % buttons.length]?.focus();
-    else if (e.key === 'ArrowUp') buttons[(i - 1 + buttons.length) % buttons.length]?.focus();
-    else if (e.key === 'Home') buttons[0]?.focus();
-    else if (e.key === 'End') buttons[buttons.length - 1]?.focus();
-    else if (e.key === 'Tab') close();
+    else if (e.key === 'Tab' && arrows) close();
+    else if (!arrows && e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') list[(i + 1) % list.length]?.focus();
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') list[(i - 1 + list.length) % list.length]?.focus();
+    else if (e.key === 'Home') list[0]?.focus();
+    else if (e.key === 'End') list[list.length - 1]?.focus();
     else return;
     e.preventDefault();
     e.stopPropagation();
   };
   el.addEventListener('click', (e) => {
-    const b = (e.target as Element).closest<HTMLButtonElement>('button[data-k]');
-    if (!b || b.disabled) return;
-    const it = items[Number(b.dataset.k)];
-    close();
-    anchor?.focus();
-    it?.run();
+    const b = (e.target as Element).closest<HTMLButtonElement>('button');
+    if (!b || b.disabled || !el.contains(b)) return;
+    const run = action(b);
+    if (!run) return;
+    if (!run.keep) {
+      close();
+      anchor?.focus();
+    }
+    run();
   });
   addEventListener('pointerdown', outside, true);
   addEventListener('keydown', onKey, true);
   addEventListener('resize', close);
   addEventListener('scroll', close, true);
   open = { el, close };
-  buttons[0]?.focus({ preventScroll: true });
+  (el.querySelector<HTMLButtonElement>('button[aria-checked="true"], button.on') ?? buttons()[0])?.focus({ preventScroll: true });
 }

@@ -9,8 +9,11 @@ body.editing .stage .fin .rg circle { opacity: .35; }
 /* Подписи кнопок на финальных слайдах видны всегда, чтобы их можно было править */
 body.editing .stage .bt span, body.editing .stage .sp-gbt span { max-width: none; opacity: 1; margin-right: 14px; }
 
-body.editing .stage [data-edit] { cursor: text; border-radius: 3px; }
+body.editing .stage [data-edit] { cursor: text; }
+body.editing .stage [data-edit]:not(td, th) { border-radius: 3px; }
 body.editing .stage [data-edit]:not(svg *):hover { outline: 2px dashed color-mix(in srgb, var(--ac) 70%, transparent); outline-offset: 3px; }
+/* Ячейка таблицы: рамка внутри, чтобы не наезжать на соседние */
+body.editing .stage :is(td, th)[data-edit]:hover { outline-offset: -3px; }
 body.editing .stage svg [data-edit]:hover { fill: var(--ac); text-decoration: underline; }
 body.editing .stage .space [data-edit]:not(svg *):hover { outline-color: rgba(125, 211, 252, .8); }
 body.editing .stage [data-edit-img] { cursor: pointer; }

@@ -876,11 +876,16 @@ export class Editor {
     this.blocks.select(el);
   }
 
-  /** Начать правку текстового поля (из списка частей блока). */
-  editField(el: HTMLElement): void {
+  /**
+   * Начать правку текстового поля (из списка частей блока).
+   * keep — не снимать выделение объекта (текст фигуры), selectAll — выделить весь текст.
+   */
+  editField(el: HTMLElement, opts: { keep?: boolean; selectAll?: boolean } = {}): void {
     this.image.clear();
-    this.blocks.clear();
+    if (!opts.keep) this.blocks.clear();
     this.startEdit(el);
+    const cur = document.activeElement;
+    if (opts.selectAll && cur instanceof HTMLElement && cur.isContentEditable) getSelection()?.selectAllChildren(cur);
   }
 
   /** Выделить несколько свободных объектов слайда (Ctrl+A, вставка). */

@@ -47,6 +47,9 @@ export const LIBRARY: Category[] = [
       { name: 'Карточка с тенью', w: 360, h: 200, make: () => ({ type: 'shape', fill: 'surface', stroke: 'border', width: 1, radius: 16, shadow: true }) },
       { name: 'Плашка с текстом', w: 360, h: 72, make: () => ({ type: 'shape', kind: 'pill', fill: 'accent', text: 'Главное' }) },
       { name: 'Метка', w: 200, h: 44, make: () => ({ type: 'shape', kind: 'pill', fill: 'soft', stroke: 'accent', width: 1, text: 'метка', styles: { text: { size: 15 } } }) },
+      { name: 'Градиентная плашка', w: 360, h: 120, make: () => ({ type: 'shape', fill: 'gradient', shadow: 'sm', text: 'Ключевая мысль', styles: { text: { size: 24 } } }) },
+      { name: 'Зона пунктиром', w: 420, h: 240, make: () => ({ type: 'shape', fill: 'none', stroke: 'border', width: 2, dash: 'dash', radius: 20 }) },
+      { name: 'Карточка с заголовком', w: 360, h: 200, make: () => ({ type: 'shape', fill: 'surface', stroke: 'line', width: 1, shadow: 'sm', valign: 'top', text: 'Заголовок\nКороткое пояснение в две строки', styles: { text: { align: 'left', size: 20 } } }) },
       { name: 'Круг', w: 180, h: 180, make: () => ({ type: 'shape', kind: 'ellipse', fill: 'soft', stroke: 'accent', width: 2 }) },
       { name: 'Линия', w: 400, h: 16, make: () => ({ type: 'shape', kind: 'line', stroke: 'border', width: 2 }) },
       { name: 'Стрелка', w: 260, h: 24, make: () => ({ type: 'shape', kind: 'arrow', stroke: 'accent', width: 3 }) },
@@ -111,6 +114,20 @@ export const LIBRARY: Category[] = [
           type: 'table', variant: 'accent', header: ['Тариф', 'Устройств', 'Цена в месяц'],
           rows: [['Старт', 10, '4 900 ₽'], ['Бизнес', 50, '19 900 ₽'], ['Объект', 'без ограничений', 'по запросу']],
           widths: [2, 1, 1], labels: true, highlight: 1,
+        }),
+      },
+      {
+        name: 'Мягкая с итогом', w: 760, pw: 520, make: () => ({
+          type: 'table', variant: 'soft', header: ['Статья', 'I кв.', 'II кв.'],
+          rows: [['Оборудование', '1,2 млн', '0,8 млн'], ['Монтаж', '0,4 млн', '0,3 млн'], ['Сопровождение', '0,2 млн', '0,2 млн'], ['Итого', '1,8 млн', '1,3 млн']],
+          widths: [2, 1, 1], labels: true, total: true,
+        }),
+      },
+      {
+        name: 'Тёмная шапка', w: 760, pw: 520, make: () => ({
+          type: 'table', variant: 'dark', density: 'compact', header: ['Параметр', 'Значение'],
+          rows: [['Питание', '3,6 В, батарея'], ['Связь', 'LoRaWAN, 868 МГц'], ['Дальность', 'до 10 км'], ['Защита', 'IP67']],
+          widths: [1, 2], labels: true,
         }),
       },
       {

@@ -13,9 +13,10 @@ interface TableProps extends Block {
   rows: Cell[][];
   /**
    * Вид: lines — тонкие линии между строками (по умолчанию), stripes — зебра,
-   * boxed — сетка в рамке, accent — шапка акцентного цвета
+   * boxed — сетка в рамке, accent — шапка акцентного цвета,
+   * soft — мягкая карточка без линий, dark — тёмная шапка
    */
-  variant?: 'lines' | 'stripes' | 'boxed' | 'accent';
+  variant?: 'lines' | 'stripes' | 'boxed' | 'accent' | 'soft' | 'dark';
   /** Доли ширины столбцов: [1, 4, 2]; без них — поровну, первый уже */
   widths?: number[];
   /** Выравнивание столбцов: left, center, right. Без него числа — вправо */
@@ -28,7 +29,13 @@ interface TableProps extends Block {
   labels?: boolean;
   /** false — шапку не показывать (данные шапки сохраняются) */
   head?: boolean;
+  /** Последняя строка — итог: жирным, с чертой сверху */
+  total?: boolean;
+  /** Плотность строк: compact — плотнее, roomy — свободнее */
+  density?: 'compact' | 'roomy';
 }
+
+const VARIANTS = ['stripes', 'boxed', 'accent', 'soft', 'dark'];
 
 const NUMERIC = /^[\s+−–-]?[\d\s.,]+\s?(%|₽|\$|€|млн|тыс|млрд|с|мс|ч|шт|дБм|°C)?$/i;
 
@@ -50,10 +57,11 @@ defineBlock<TableProps>('table', {
       const v = list[c];
       return `<${tag} class="a-${align(c)}"${extra}${ea(list, c)}>${v === undefined || v === null ? '' : t(v)}</${tag}>`;
     };
-    const variant = ['stripes', 'boxed', 'accent'].includes(String(p.variant)) ? p.variant : 'lines';
+    const variant = VARIANTS.includes(String(p.variant)) ? p.variant : 'lines';
+    const density = p.density === 'compact' || p.density === 'roomy' ? ` tbl-${p.density}` : '';
     const size = Number(p.size) >= 10 && Number(p.size) <= 40 ? Number(p.size) : 0;
     const colgroup = widths ? `<colgroup>${widths.map((w) => `<col style="width:${((w / widths.reduce((a, b) => a + b, 0)) * 100).toFixed(2)}%">`).join('')}</colgroup>` : '';
-    return `<div class="tbl r tbl-${variant}${p.labels ? ' tbl-labels' : ''}"${size || p.style ? ` style="${size ? `--ts:${size}px;` : ''}${esc(p.style ?? '')}"` : ''}>`
+    return `<div class="tbl r tbl-${variant}${density}${p.labels ? ' tbl-labels' : ''}${p.total && rows.length > 1 ? ' tbl-total' : ''}"${size || p.style ? ` style="${size ? `--ts:${size}px;` : ''}${esc(p.style ?? '')}"` : ''}>`
       + `<table>${colgroup}`
       + (header.length && p.head !== false ? `<thead><tr>${Array.from({ length: cols }, (_x, c) => cell('th', header, c)).join('')}</tr></thead>` : '')
       + `<tbody>${rows.map((r, k) => `<tr${k === p.highlight ? ' class="hl"' : ''} style="--k:${k}">${Array.from({ length: cols }, (_x, c) => cell('td', r, c)).join('')}</tr>`).join('')}</tbody>`
