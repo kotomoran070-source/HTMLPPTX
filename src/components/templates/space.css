@@ -78,6 +78,12 @@
 .sp-gbt:hover span, .sp-gbt:focus-visible span { max-width: 160px; opacity: 1; margin-right: 12px; }
 
 /* Вариант «орбита» (layout: orbit): орбиты со спутниками вокруг стеклянного логотипа */
+.sp-sky.neb { background: radial-gradient(ellipse 90% 70% at 50% 45%, #081126 0%, #030712 70%, #010206 100%); }
+.sp-sky.neb::before { width: 720px; height: 560px; left: 50%; top: 38%; right: auto; transform: translate(-50%, -50%); filter: blur(75px); opacity: 1; animation: none;
+  background: radial-gradient(circle, rgba(14, 165, 233, .18) 0%, rgba(99, 102, 241, .08) 45%, transparent 75%); }
+.sp-sky.neb::after { width: 550px; height: 420px; left: 45%; top: 48%; bottom: auto; transform: translate(-50%, -50%); filter: blur(65px); opacity: 1; animation: none;
+  background: radial-gradient(circle, rgba(168, 85, 247, .14) 0%, rgba(59, 130, 246, .05) 50%, transparent 80%); }
+.sp-cv { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .sp-rings { position: absolute; inset: 0; pointer-events: none; transition: transform .3s ease-out; }
 .sp-r { position: absolute; left: 640px; top: 232px; border-radius: 50%; transform: translate(-50%, -50%); }
 .sp-r.r1 { width: 520px; height: 520px; border: 1px solid rgba(56, 189, 248, .16); animation: spRing 50s linear infinite; }

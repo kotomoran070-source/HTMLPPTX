@@ -64,11 +64,14 @@ defineTemplate<SpaceSlide>('space', {
       ? `<div class="sp-rings" aria-hidden="true"><div class="sp-r r1"><i></i></div><div class="sp-r r2"><i></i></div></div>`
       : '';
 
-    return `<div class="sp-sky"></div><div class="sp-stars">${stars}</div>`
-      + `<svg class="sp-lines" viewBox="0 0 1280 720" aria-hidden="true">${lines}</svg>`
-      + `<div class="sp-hubs">${hubs}</div>`
-      + `<div class="sp-shoot a"></div><div class="sp-shoot b" style="--sx:70%;--sy:8%"></div>`
-      + rings
+    // «Орбита»: небо рисуется на canvas (звёзды, дрейфующие узлы-созвездия, импульсы от логотипа)
+    const sky = orbit
+      ? `<div class="sp-sky neb"></div><canvas class="sp-cv" width="2560" height="1440" aria-hidden="true"></canvas>`
+      : `<div class="sp-sky"></div><div class="sp-stars">${stars}</div>`
+        + `<svg class="sp-lines" viewBox="0 0 1280 720" aria-hidden="true">${lines}</svg>`
+        + `<div class="sp-hubs">${hubs}</div>`
+        + `<div class="sp-shoot a"></div><div class="sp-shoot b" style="--sx:70%;--sy:8%"></div>`;
+    return sky + rings
       + `<div class="sp-wrap${orbit ? ' orbit' : ''}">`
       + (s.badge ? `<div class="sp-badge r">${orbit ? '' : '<i class="sp-dot"></i>'}${tx(s, 'badge')}</div>` : '')
       + logo
@@ -80,7 +83,9 @@ defineTemplate<SpaceSlide>('space', {
       + `</div>`;
   },
   mount(el, _p, ctx) {
-    if (ctx.reducedMotion) return;
+    const cv = el.querySelector<HTMLCanvasElement>('.sp-cv');
+    const stopSky = cv ? cosmos(el, cv, ctx.stage, ctx.reducedMotion) : undefined;
+    if (ctx.reducedMotion) return stopSky;
     const hubs = el.querySelector<HTMLElement>('.sp-hubs');
     const stars = el.querySelector<HTMLElement>('.sp-stars');
     const rings = el.querySelector<HTMLElement>('.sp-rings');
@@ -94,6 +99,120 @@ defineTemplate<SpaceSlide>('space', {
       if (stars) stars.style.transform = `translate(${px * -6}px,${py * -6}px)`;
     };
     ctx.stage.addEventListener('mousemove', onMove);
-    return () => ctx.stage.removeEventListener('mousemove', onMove);
+    return () => { ctx.stage.removeEventListener('mousemove', onMove); stopSky?.(); };
   },
 });
+
+const W = 1280;
+const H = 720;
+/** Центр логотипа в варианте «орбита»: отсюда расходятся импульсы */
+const PULSE: [number, number] = [640, 232];
+const NODE_COLORS = ['56, 189, 248', '129, 140, 248', '52, 211, 153', '96, 165, 250', '167, 139, 250'];
+
+/**
+ * Небо «орбиты»: мерцающие звёзды, немного медленно дрейфующих узлов со связями,
+ * узлы расступаются от курсора, от логотипа раз в ~4 с расходится волна, клик — своя волна.
+ * Анимация идёт только пока слайд показан.
+ */
+function cosmos(el: HTMLElement, cv: HTMLCanvasElement, stage: HTMLElement, still: boolean): () => void {
+  const g = cv.getContext('2d');
+  if (!g) return () => {};
+  g.scale(cv.width / W, cv.height / H);
+  const r = rng(7);
+  const stars = Array.from({ length: 120 }, () => ({ x: r() * W, y: r() * H, rad: r() * 1.5 + 0.3, a: r() * 0.7 + 0.2, sp: r() * 0.03 + 0.01, ph: r() * 6.28 }));
+  const nodes = Array.from({ length: 16 }, () => ({
+    x: r() * W, y: r() * H, vx: (r() - 0.5) * 0.24, vy: (r() - 0.5) * 0.24,
+    rad: r() * 1.6 + 1.3, c: NODE_COLORS[Math.floor(r() * NODE_COLORS.length)], glow: r() * 6 + 5,
+  }));
+  const waves: { x: number; y: number; rad: number; max: number; a: number }[] = [];
+  const mouse = { x: 0, y: 0, on: false };
+  let lastPulse = 0;
+  let raf = 0;
+
+  const frame = (now: number) => {
+    g.clearRect(0, 0, W, H);
+    for (const s of stars) {
+      if (!still) s.ph += s.sp;
+      g.beginPath();
+      g.arc(s.x, s.y, s.rad, 0, 6.2832);
+      g.fillStyle = `rgba(255,255,255,${s.a * (0.6 + 0.4 * Math.sin(s.ph))})`;
+      g.fill();
+    }
+    if (!still && now - lastPulse > 3800) {
+      lastPulse = now;
+      waves.push({ x: PULSE[0], y: PULSE[1], rad: 20, max: 960, a: 0.75 });
+    }
+    for (let i = waves.length - 1; i >= 0; i--) {
+      const w = waves[i];
+      w.rad += 2.8;
+      w.a *= 0.972;
+      g.lineWidth = 1.6;
+      g.strokeStyle = `rgba(56,189,248,${w.a * 0.75})`;
+      g.beginPath(); g.arc(w.x, w.y, w.rad, 0, 6.2832); g.stroke();
+      if (w.rad > 40) {
+        g.lineWidth = 0.9;
+        g.strokeStyle = `rgba(129,140,248,${w.a * 0.35})`;
+        g.beginPath(); g.arc(w.x, w.y, w.rad * 0.82, 0, 6.2832); g.stroke();
+      }
+      if (w.a < 0.015 || w.rad > w.max) waves.splice(i, 1);
+    }
+    nodes.forEach((p, i) => {
+      if (!still) {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < -10) p.x = W + 10; else if (p.x > W + 10) p.x = -10;
+        if (p.y < -10) p.y = H + 10; else if (p.y > H + 10) p.y = -10;
+        if (mouse.on) {
+          const dx = mouse.x - p.x;
+          const dy = mouse.y - p.y;
+          const d = Math.hypot(dx, dy);
+          if (d < 150 && d > 1) { const f = (150 - d) / 150; p.x -= (dx / d) * f * 1.2; p.y -= (dy / d) * f * 1.2; }
+        }
+      }
+      g.beginPath();
+      g.arc(p.x, p.y, p.rad, 0, 6.2832);
+      g.fillStyle = `rgba(${p.c},.95)`;
+      g.shadowColor = `rgba(${p.c},.8)`;
+      g.shadowBlur = p.glow;
+      g.fill();
+      g.shadowBlur = 0;
+      for (let j = i + 1; j < nodes.length; j++) {
+        const q = nodes[j];
+        const d = Math.hypot(p.x - q.x, p.y - q.y);
+        if (d < 170) {
+          g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(q.x, q.y);
+          g.strokeStyle = `rgba(96,165,250,${(1 - d / 170) * 0.24})`;
+          g.lineWidth = 0.85;
+          g.stroke();
+        }
+      }
+    });
+    raf = !still && el.classList.contains('on') ? requestAnimationFrame(frame) : 0;
+  };
+  frame(0);
+  if (still) return () => {};
+
+  const toSlide = (e: MouseEvent) => {
+    const b = stage.getBoundingClientRect();
+    return { x: ((e.clientX - b.left) / b.width) * W, y: ((e.clientY - b.top) / b.height) * H };
+  };
+  const onMove = (e: MouseEvent) => { Object.assign(mouse, toSlide(e), { on: true }); };
+  const onLeave = () => { mouse.on = false; };
+  const onClick = (e: MouseEvent) => {
+    if ((e.target as Element).closest('a, button, .sp-panel') || document.body.classList.contains('editing')) return;
+    const p = toSlide(e);
+    waves.push({ x: p.x, y: p.y, rad: 10, max: 380, a: 1 });
+  };
+  el.addEventListener('mousemove', onMove);
+  el.addEventListener('mouseleave', onLeave);
+  el.addEventListener('click', onClick);
+  // Слайд показан — анимация идёт, скрыт — стоит
+  const mo = new MutationObserver(() => { if (el.classList.contains('on') && !raf) raf = requestAnimationFrame(frame); });
+  mo.observe(el, { attributes: true, attributeFilter: ['class'] });
+  return () => {
+    cancelAnimationFrame(raf);
+    mo.disconnect();
+    el.removeEventListener('mousemove', onMove);
+    el.removeEventListener('mouseleave', onLeave);
+    el.removeEventListener('click', onClick);
+  };
+}
