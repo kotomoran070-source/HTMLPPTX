@@ -13,6 +13,7 @@ import type { CodeView } from './code';
 import { applyFormat, hasFormat, takeFormat, type Format } from './format-painter';
 import { tableGrips } from './table-grips';
 import { GRID_STEPS, ViewAids } from './view-aids';
+import { setupMarquee } from './marquee';
 import { setSnapLines } from '../engine/editor/block-edit';
 import { animCommands, animPanelHtml, animTabHtml, bindDelayField, syncAnimTab, type AnimHost } from './anim-tab';
 import { contextCommands, contextPanelsHtml, contextTab, contextTabsHtml, syncSwatches, type ContextTab } from './context-tabs';
@@ -1051,6 +1052,20 @@ export function startStudio(deck: Deck, deckKey: string): void {
     changed: () => { lay.guides = aids!.state.guides; applyLayout(); queueState(); },
   }, { ruler: lay.ruler, grid: lay.grid, guides: lay.guides, step: GRID_STEPS.includes(lay.step) ? lay.step : 40 });
   setSnapLines(() => aids!.snapLines());
+
+  // ---------------- выделение рамкой ----------------
+  setupMarquee({
+    canvas,
+    stage: () => view.stage,
+    index: () => index,
+    selected: () => selPaths().map((p) => Number(p[3])),
+    select: (ks) => {
+      if (!ks.length) ed.clearSelection();
+      else if (ks.length === 1) ed.selectFree(index, ks[0]);
+      else ed.selectMany(index, ks);
+    },
+    busy: () => !!painter || document.body.classList.contains('st-previewing'),
+  });
   function toggleAid(k: 'ruler' | 'grid' | 'guides', on = !lay[k]): void {
     lay[k] = on;
     aids!.state[k] = on;
