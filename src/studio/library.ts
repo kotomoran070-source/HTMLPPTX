@@ -11,12 +11,16 @@ export interface Preset {
   h?: number;
   /** Ширина блока в миниатюре галереи, если отличается (мелкое читается крупнее) */
   pw?: number;
+  /** Значок вместо живой миниатюры (простые формы): SVG 48×32 */
+  glyph?: string;
   make(): Block;
 }
 
 export interface Category {
   name: string;
   icon: string;
+  /** Мелкие плитки со значками — как галерея фигур в PowerPoint */
+  compact?: boolean;
   items: Preset[];
 }
 
@@ -41,18 +45,27 @@ export const LIBRARY: Category[] = [
   {
     name: 'Фигуры',
     icon: 'frame',
+    compact: true,
     items: [
-      { name: 'Скруглённый', w: 320, h: 180, make: () => ({ type: 'shape', fill: 'soft' }) },
-      { name: 'Прямоугольник', w: 320, h: 180, make: () => ({ type: 'shape', kind: 'rect', fill: 'surface', stroke: 'border', width: 1 }) },
+      { name: 'Прямоугольник', w: 320, h: 180, glyph: '<rect x="5" y="6" width="38" height="20"/>', make: () => ({ type: 'shape', kind: 'rect', fill: 'soft', stroke: 'accent', width: 2 }) },
+      { name: 'Скруглённый', w: 320, h: 180, glyph: '<rect x="5" y="6" width="38" height="20" rx="6"/>', make: () => ({ type: 'shape', fill: 'soft', stroke: 'accent', width: 2, radius: 24 }) },
+      { name: 'Капсула', w: 320, h: 96, glyph: '<rect x="5" y="8" width="38" height="16" rx="8"/>', make: () => ({ type: 'shape', kind: 'pill', fill: 'soft', stroke: 'accent', width: 2 }) },
+      { name: 'Круг', w: 180, h: 180, glyph: '<circle cx="24" cy="16" r="10.5"/>', make: () => ({ type: 'shape', kind: 'ellipse', fill: 'soft', stroke: 'accent', width: 2 }) },
+      { name: 'Овал', w: 300, h: 180, glyph: '<ellipse cx="24" cy="16" rx="19" ry="10.5"/>', make: () => ({ type: 'shape', kind: 'ellipse', fill: 'soft', stroke: 'accent', width: 2 }) },
+      { name: 'Линия', w: 400, h: 16, glyph: '<path class="ln" d="M6 16h36"/>', make: () => ({ type: 'shape', kind: 'line', stroke: 'accent', width: 3 }) },
+      { name: 'Стрелка', w: 260, h: 24, glyph: '<path class="ln" d="M6 16h34M33 10l7 6-7 6"/>', make: () => ({ type: 'shape', kind: 'arrow', stroke: 'accent', width: 3 }) },
+    ],
+  },
+  {
+    name: 'Плашки',
+    icon: 'layers',
+    items: [
       { name: 'Карточка с тенью', w: 360, h: 200, make: () => ({ type: 'shape', fill: 'surface', stroke: 'border', width: 1, radius: 16, shadow: true }) },
-      { name: 'Плашка с текстом', w: 360, h: 72, make: () => ({ type: 'shape', kind: 'pill', fill: 'accent', text: 'Главное' }) },
-      { name: 'Метка', w: 200, h: 44, make: () => ({ type: 'shape', kind: 'pill', fill: 'soft', stroke: 'accent', width: 1, text: 'метка', styles: { text: { size: 15 } } }) },
-      { name: 'Градиентная плашка', w: 360, h: 120, make: () => ({ type: 'shape', fill: 'gradient', shadow: 'sm', text: 'Ключевая мысль', styles: { text: { size: 24 } } }) },
-      { name: 'Зона пунктиром', w: 420, h: 240, make: () => ({ type: 'shape', fill: 'none', stroke: 'border', width: 2, dash: 'dash', radius: 20 }) },
       { name: 'Карточка с заголовком', w: 360, h: 200, make: () => ({ type: 'shape', fill: 'surface', stroke: 'line', width: 1, shadow: 'sm', valign: 'top', text: 'Заголовок\nКороткое пояснение в две строки', styles: { text: { align: 'left', size: 20 } } }) },
-      { name: 'Круг', w: 180, h: 180, make: () => ({ type: 'shape', kind: 'ellipse', fill: 'soft', stroke: 'accent', width: 2 }) },
-      { name: 'Линия', w: 400, h: 16, make: () => ({ type: 'shape', kind: 'line', stroke: 'border', width: 2 }) },
-      { name: 'Стрелка', w: 260, h: 24, make: () => ({ type: 'shape', kind: 'arrow', stroke: 'accent', width: 3 }) },
+      { name: 'Плашка с текстом', w: 360, h: 72, make: () => ({ type: 'shape', kind: 'pill', fill: 'accent', text: 'Главное' }) },
+      { name: 'Градиентная плашка', w: 360, h: 120, make: () => ({ type: 'shape', fill: 'gradient', shadow: 'sm', text: 'Ключевая мысль', styles: { text: { size: 24 } } }) },
+      { name: 'Метка', w: 200, h: 44, make: () => ({ type: 'shape', kind: 'pill', fill: 'soft', stroke: 'accent', width: 1, text: 'метка', styles: { text: { size: 15 } } }) },
+      { name: 'Зона пунктиром', w: 420, h: 240, make: () => ({ type: 'shape', fill: 'none', stroke: 'border', width: 2, dash: 'dash', radius: 20 }) },
     ],
   },
   {
@@ -225,7 +238,7 @@ export const LIBRARY: Category[] = [
     items: [
       { name: 'Картинка', w: 480, h: 320, make: () => ({ type: 'image', src: '' }) },
       { name: 'Картинка с подписью', w: 480, make: () => ({ type: 'image', src: '', height: 280, caption: 'Подпись к картинке' }) },
-      { name: 'Плитка с иллюстрацией', w: 420, h: 300, make: () => ({ type: 'tile', illustration: 'station', caption: 'Подпись к иллюстрации' }) },
+      { name: 'Плитка с фото', w: 420, h: 300, make: () => ({ type: 'tile', caption: 'Подпись к фото' }) },
       { name: 'Видео', w: 640, h: 360, make: () => ({ type: 'video' }) },
       { name: '3D-модель', w: 420, h: 420, make: () => ({ type: 'model' }) },
     ],
@@ -278,11 +291,12 @@ export function showLibrary(anchor: HTMLElement, deck: Deck, pick: (p: Preset) =
   el.dataset.edKeep = '';
   el.setAttribute('role', 'dialog');
   el.setAttribute('aria-label', 'Блоки');
-  el.innerHTML = LIBRARY.map((c, ci) => `<section><h4>${icon(c.icon)}<span>${esc(c.name)}</span></h4><div class="st-lib-grid">${c.items.map((p, pi) =>
-    `<button type="button" class="st-lib-item" data-c="${ci}" data-p="${pi}" title="Вставить: ${esc(p.name)}"><span class="st-lib-slot"></span><span class="st-lib-name">${esc(p.name)}</span></button>`).join('')}</div></section>`).join('');
+  el.innerHTML = LIBRARY.map((c, ci) => `<section><h4>${icon(c.icon)}<span>${esc(c.name)}</span></h4><div class="st-lib-grid${c.compact ? ' compact' : ''}">${c.items.map((p, pi) =>
+    `<button type="button" class="st-lib-item" data-c="${ci}" data-p="${pi}" title="Вставить: ${esc(p.name)}"><span class="st-lib-slot">${p.glyph ? `<svg class="st-lib-glyph" viewBox="0 0 48 32" aria-hidden="true">${p.glyph}</svg>` : ''}</span><span class="st-lib-name">${esc(p.name)}</span></button>`).join('')}</div></section>`).join('');
   document.body.appendChild(el);
   el.querySelectorAll<HTMLElement>('.st-lib-item').forEach((b) => {
-    b.querySelector('.st-lib-slot')!.appendChild(preview(deck, LIBRARY[Number(b.dataset.c)].items[Number(b.dataset.p)]));
+    const p = LIBRARY[Number(b.dataset.c)].items[Number(b.dataset.p)];
+    if (!p.glyph) b.querySelector('.st-lib-slot')!.appendChild(preview(deck, p));
   });
   const r = anchor.getBoundingClientRect();
   el.style.left = `${Math.max(8, Math.min(innerWidth - el.offsetWidth - 8, r.left))}px`;

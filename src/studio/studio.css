@@ -194,7 +194,7 @@ body.studio { background: var(--alt); }
 .st-code-ed .cm-scroller { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; line-height: 1.55; }
 
 /* Библиотека блоков: разделы одной панелью, как галерея фигур в PowerPoint */
-.st-lib { position: fixed; z-index: 40; width: min(628px, calc(100vw - 16px)); max-height: min(520px, calc(100vh - 170px)); overflow-y: auto; padding: 4px 12px 12px;
+.st-lib { position: fixed; z-index: 40; width: min(684px, calc(100vw - 16px)); max-height: min(520px, calc(100vh - 170px)); overflow-y: auto; padding: 4px 12px 12px;
   background: var(--surf); border: 1px solid var(--bd); border-radius: 12px; box-shadow: 0 18px 44px rgba(15, 23, 42, .24); }
 .st-lib section + section { border-top: 1px solid var(--bd); }
 .st-lib h4 { display: flex; align-items: center; gap: 6px; margin: 0; padding: 10px 2px 7px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--mu); }
@@ -649,3 +649,12 @@ body.st-previewing :is(.st-grid, .st-guides) { display: none; }
 .st-marquee[hidden] { display: none; }
 body.st-marqueeing, body.st-marqueeing * { user-select: none !important; cursor: crosshair !important; }
 .st-paper .slide.on > .st-marquee-hit { outline: 2px solid color-mix(in srgb, var(--ac) 70%, transparent); outline-offset: 2px; }
+
+/* Галерея простых фигур: мелкие плитки со значками одного масштаба */
+.st-lib-grid.compact { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.st-lib-grid.compact .st-lib-item { align-items: center; padding: 4px 0 5px; }
+.st-lib-grid.compact .st-lib-slot { display: grid; place-items: center; width: 100%; height: 46px; border: 1px solid var(--bd); border-radius: 8px; background: var(--bg); }
+.st-lib-grid.compact .st-lib-name { font-size: 10.5px; letter-spacing: -.02em; overflow: visible; text-overflow: clip; padding: 0; text-align: center; max-width: 100%; }
+.st-lib-glyph { width: 44px; height: 30px; fill: var(--acs); stroke: var(--ac); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.st-lib-glyph .ln { fill: none; stroke-width: 2.4; }
+.st-lib-item:hover .st-lib-glyph { fill: color-mix(in srgb, var(--ac) 22%, transparent); }
