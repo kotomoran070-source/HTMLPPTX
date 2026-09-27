@@ -6,8 +6,9 @@ import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
 import { placeOf, slideLabel } from '../engine/render';
 import type { Block, Deck } from '../types';
-import { fillForm, formHtml, formSig, onFieldAction, onFieldChange, type FormEdit } from './form';
+import { fillForm, formHtml, formSig, onFieldAction, onFieldChange, onGridPaste, type FormEdit } from './form';
 import { BLOCKS, STYLE_FIELD, TEMPLATES, type Field } from './schema';
+import { partsOf, type Part } from './structure';
 
 export interface InspectorHost {
   deck(): Deck;
@@ -21,6 +22,7 @@ export interface InspectorHost {
   groupEffect(effect: string): void;
   /** Появление по очереди в порядке чтения (выделенные или указанные объекты) */
   sequence(paths?: Path[]): void;
+  stage(): HTMLElement;
 }
 
 /** Шаг между появлениями при перестановке в списке, мс */
@@ -73,6 +75,8 @@ export class Inspector {
   private fields: Field[] = [];
   private base: Path = [];
   private edit: FormEdit;
+  /** Части выделенного блока (раздел «Состав») */
+  private parts: Part[] = [];
 
   constructor(private root: HTMLElement, private host: InspectorHost) {
     this.edit = {
@@ -87,6 +91,17 @@ export class Inspector {
       }
       if (el.dataset.anim !== undefined) return this.setAnim(Number(el.dataset.anim), el.value);
       this.onChange(el);
+    });
+    // Наведение на часть блока подсвечивает её на слайде
+    root.addEventListener('pointerover', (e) => {
+      const part = (e.target as Element).closest<HTMLElement>('[data-part]');
+      this.peek(part ? this.parts[Number(part.dataset.part)]?.el ?? null : null);
+    });
+    root.addEventListener('pointerleave', () => this.peek(null));
+    root.addEventListener('paste', (e) => {
+      const el = e.target as HTMLInputElement;
+      const text = e.clipboardData?.getData('text/plain') ?? '';
+      if (onGridPaste(el, text, this.edit)) e.preventDefault();
     });
     root.addEventListener('input', (e) => {
       const el = e.target as HTMLInputElement;
@@ -116,6 +131,14 @@ export class Inspector {
         onFieldAction(act, this.fields, this.base, this.edit);
         return;
       }
+      const part = t.closest<HTMLElement>('[data-part]');
+      if (part) {
+        const it = this.parts[Number(part.dataset.part)];
+        this.peek(null);
+        if (it?.kind === 'block') this.host.editor().selectBlock(it.el);
+        else if (it) this.host.editor().editField(it.el);
+        return;
+      }
       const mv = t.closest<HTMLElement>('[data-anim-move]');
       if (mv) return this.moveAnim(Number(mv.dataset.animMove), Number(mv.dataset.dir) as 1 | -1);
       if (t.closest('[data-a="seq-all"]')) {
@@ -128,6 +151,20 @@ export class Inspector {
       if (layer !== undefined && !t.closest('select')) this.host.editor().selectFree(this.host.index(), Number(layer));
       if (t.closest('[data-a="accent-reset"]')) this.host.editor().setAccent(null);
     });
+  }
+
+  private peeked: HTMLElement | null = null;
+  private peek(el: HTMLElement | null): void {
+    if (el === this.peeked) return;
+    this.peeked?.classList.remove('st-peek');
+    this.peeked = el;
+    el?.classList.add('st-peek');
+  }
+
+  /** Элемент выделенного блока на слайде. */
+  private blockEl(block: Path): HTMLElement | null {
+    const key = JSON.stringify(block);
+    return [...this.host.stage().querySelectorAll<HTMLElement>('.slide.on [data-block]')].find((x) => x.getAttribute('data-block') === key) ?? null;
   }
 
   /** Перестроить панель, если сменился предмет, и обновить значения полей. */
@@ -154,8 +191,10 @@ export class Inspector {
       this.base = ['slides', i];
     }
     const sig = formSig(this.fields, deck, this.base);
+    const el = sel ? this.blockEl(sel.block) : null;
+    this.parts = el ? partsOf(el) : [];
     const key = sel
-      ? `b:${JSON.stringify(sel.free ?? sel.block)}:${sel.type}:${sig}`
+      ? `b:${JSON.stringify(sel.free ?? sel.block)}:${sel.type}:${sig}:${this.parts.map((x) => x.label + x.snippet).join('|')}`
       : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${this.animSig()}:${String(deck.slides[i]?.bg ?? '')}`;
     if (key !== this.key) {
       this.key = key;
@@ -181,7 +220,8 @@ export class Inspector {
     const contentSec = own.length || schema?.about
       ? `<section class="st-p-sec"><h3>Содержимое</h3>${schema?.about ? `<p class="st-p-note">${esc(schema.about)}</p>` : ''}${formHtml(own, deck, sel.block)}</section>`
       : '';
-    const extra = `<details class="st-p-sec st-p-more"><summary>Дополнительно</summary>${formHtml([STYLE_FIELD], deck, sel.block)}</details>`;
+    const extra = `<details class="st-p-sec st-p-more"><summary>Дополнительно</summary>${formHtml([STYLE_FIELD], deck, sel.block)}</details>`
+      + this.partsHtml();
     if (!sel.free) {
       return head + contentSec + `<section class="st-p-sec"><h3>Раскладка</h3><p class="st-p-note">Блок стоит в раскладке слайда и двигается вместе с ней. Сделайте его свободным, чтобы перемещать мышью, менять размер и задать анимацию.</p>
 <div class="st-p-col">${cmdBtn('obj.free', 'move', 'Сделать свободным', 'primary')}${cmdBtn('obj.ungroup', 'ungroup', 'Разгруппировать')}${sel.hasParent ? cmdBtn('obj.parent', 'up', 'Выделить внешний блок') : ''}</div></section>
@@ -237,6 +277,16 @@ ${this.animHtml()}
 <label class="st-p-field"><span>Название</span><input type="text" data-f="title"></label>
 <label class="st-p-field"><span>Акцентный цвет</span><span class="st-p-color"><input type="color" data-f="accent" aria-label="Акцентный цвет"><button type="button" class="st-link" data-a="accent-reset">Стандартный</button></span></label>
 </section>`;
+  }
+
+  /** Раздел «Состав»: вложенные блоки и поля выделенного блока. Клик — выделить или править. */
+  private partsHtml(): string {
+    const list = this.parts;
+    // Для блока из одного поля состав очевиден
+    if (list.length < 2 && !list.some((x) => x.kind === 'block')) return '';
+    return `<section class="st-p-sec"><h3>Состав <span class="st-p-count">${list.length}</span></h3><div class="st-parts">${list.map((x, k) =>
+      `<button type="button" class="st-part ${x.kind}" data-part="${k}" title="${x.kind === 'block' ? 'Выделить' : 'Править текст'}"><b>${esc(x.label)}</b>${x.snippet ? `<span>${esc(x.snippet)}</span>` : ''}<i aria-hidden="true">${x.kind === 'block' ? '›' : '✎'}</i></button>`).join('')}</div>
+<p class="st-p-note">Esc — к внешнему блоку. Путь к выделенному — над слайдом.</p></section>`;
   }
 
   private multiHtml(n: number): string {

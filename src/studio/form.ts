@@ -95,6 +95,22 @@ function fieldHtml(f: Field, data: unknown, p: Path): string {
     }
     case 'group':
       return `<fieldset class="st-f-group"><legend>${esc(f.label)}</legend>${formHtml(f.fields, data, p)}</fieldset>`;
+    case 'grid': {
+      // Шапка лежит рядом со строками: base + header
+      const base = p.slice(0, -1);
+      const header = getAt(data, [...base, 'header']);
+      const rows = (Array.isArray(v) ? v : []).filter(Array.isArray) as unknown[][];
+      const cols = Math.max(Array.isArray(header) ? header.length : 0, ...rows.map((r) => r.length), 1);
+      const hp = [...base, 'header'];
+      const col = (c: number) => `<button type="button" class="st-g-x" data-act="gcoldel" data-p="${P(base)}" data-i="${c}" title="Удалить столбец" aria-label="Удалить столбец ${c + 1}"${cols < 2 ? ' disabled' : ''}>×</button>`;
+      return `<div class="st-f-list"><span class="st-f-l">${esc(f.label)}</span><div class="st-g" style="--cols:${cols}">`
+        + `<span></span>${Array.from({ length: cols }, (_x, c) => `<span class="st-g-h">${col(c)}</span>`).join('')}`
+        + `<span class="st-g-n" title="Шапка">Ш</span>${Array.from({ length: cols }, (_x, c) => `<input type="text" class="th" data-t="cell" data-p="${P([...hp, c])}" data-grid="${P(base)}" aria-label="Шапка, столбец ${c + 1}">`).join('')}`
+        + rows.map((_r, r) => `<button type="button" class="st-g-n" data-act="growdel" data-p="${P(base)}" data-i="${r}" title="Удалить строку ${r + 1}" aria-label="Удалить строку ${r + 1}">${r + 1}</button>`
+          + Array.from({ length: cols }, (_x, c) => `<input type="text" data-t="cell" data-p="${P([...p, r, c])}" data-grid="${P(base)}" aria-label="Строка ${r + 1}, столбец ${c + 1}">`).join('')).join('')
+        + `</div><span class="st-p-row"><button type="button" class="st-f-add" data-act="growadd" data-p="${P(base)}">${icon('plus')}<span>Строка</span></button>`
+        + `<button type="button" class="st-f-add" data-act="gcoladd" data-p="${P(base)}">${icon('plus')}<span>Столбец</span></button></span></div>`;
+    }
     case 'color':
       return `<div class="st-f"><span class="st-f-l">${esc(f.label)}</span><span class="st-f-colors" data-cp="${P(p)}">`
         + (f.none ? `<button type="button" class="none" data-act="setcolor" data-p="${P(p)}" data-v="none" title="Нет" aria-label="Без цвета"></button>` : '')
@@ -114,6 +130,10 @@ export function formSig(fields: Field[], data: unknown, base: Path): string {
     if (f.type === 'strings' || f.type === 'chips') return `${f.k}:${Array.isArray(v) ? v.length : 0}`;
     if (f.type === 'kv') return `${f.k}:${v && typeof v === 'object' ? Object.keys(v).join('|') : ''}`;
     if (f.type === 'image') return `${f.k}:${v ? 1 : 0}`;
+    if (f.type === 'grid') {
+      const h = getAt(data, [...base, 'header']);
+      return `${f.k}:${Array.isArray(v) ? v.map((r) => (Array.isArray(r) ? r.length : 0)).join('.') : ''}|${Array.isArray(h) ? h.length : 0}`;
+    }
     if (f.type === 'group') return `${f.k}{${formSig(f.fields, data, [...base, f.k])}}`;
     return '';
   }).join(';');
@@ -208,6 +228,14 @@ export function onFieldChange(el: HTMLInputElement, e: FormEdit): boolean {
       const text = raw.trim();
       setAt(d, p, accent ? `${text}*` : text);
     });
+  } else if (t === 'cell') {
+    const text = raw.replace(/\s+$/, '');
+    e.commit((d) => {
+      // Числа остаются числами: так их удобно считать и выравнивать
+      const tt = text.trim().replace(',', '.');
+      const num = /^-?\d+(\.\d+)?$/.test(tt) && !/^0\d/.test(tt) ? Number(tt) : null;
+      setAt(d, p, num !== null && String(num) === tt ? num : text);
+    });
   } else if (t === 'colorhex') {
     e.commit((d) => write(d, p, raw.toUpperCase(), as));
   } else if (t === 'kvkey') {
@@ -289,6 +317,34 @@ export function onFieldAction(btn: HTMLElement, fields: Field[], base: Path, e: 
       });
       return true;
     }
+    case 'growadd':
+      e.commit((d) => {
+        const rows = (getAt(d, [...p, 'rows']) as unknown[][] | undefined) ?? [];
+        const cols = Math.max(((getAt(d, [...p, 'header']) as unknown[]) ?? []).length, ...rows.map((r) => r.length), 1);
+        setAt(d, [...p, 'rows'], [...rows, Array.from({ length: cols }, () => '')]);
+      });
+      return true;
+    case 'growdel':
+      e.commit((d) => { (getAt(d, [...p, 'rows']) as unknown[][]).splice(i, 1); });
+      return true;
+    case 'gcoladd':
+      e.commit((d) => {
+        const h = getAt(d, [...p, 'header']);
+        if (Array.isArray(h)) h.push('Столбец');
+        ((getAt(d, [...p, 'rows']) as unknown[][]) ?? []).forEach((r) => r.push(''));
+      });
+      return true;
+    case 'gcoldel':
+      e.commit((d) => {
+        const h = getAt(d, [...p, 'header']);
+        if (Array.isArray(h)) h.splice(i, 1);
+        ((getAt(d, [...p, 'rows']) as unknown[][]) ?? []).forEach((r) => r.splice(i, 1));
+        for (const k of ['widths', 'align']) {
+          const a = getAt(d, [...p, k]);
+          if (Array.isArray(a)) a.splice(i, 1);
+        }
+      });
+      return true;
     case 'setcolor':
       e.commit((d) => setAt(d, p, btn.dataset.v || undefined));
       return true;
@@ -313,4 +369,42 @@ function findField(fields: Field[], base: Path, p: Path): Field | undefined {
     list = found.type === 'rows' || found.type === 'group' ? found.fields : [];
   }
   return found;
+}
+
+/**
+ * Вставка таблицы из Excel / Google Таблиц в ячейку: строки через перевод строки,
+ * ячейки через табуляцию. Заполняет таблицу начиная с этой ячейки, добавляя строки и столбцы.
+ */
+export function onGridPaste(el: HTMLInputElement, text: string, e: FormEdit): boolean {
+  if (el.dataset.t !== 'cell' || !el.dataset.grid || !/[\t\n]/.test(text.trim())) return false;
+  const base = JSON.parse(el.dataset.grid) as Path;
+  const p = readP(el);
+  const isHead = p[p.length - 2] === 'header';
+  const r0 = isHead ? -1 : Number(p[p.length - 2]);
+  const c0 = Number(p[p.length - 1]);
+  const lines = text.replace(/\r/g, '').replace(/\n+$/, '').split('\n').map((l) => l.split('\t'));
+  e.commit((d) => {
+    const rows = ((getAt(d, [...base, 'rows']) as unknown[][] | undefined) ?? []).map((r) => [...r]);
+    let header = getAt(d, [...base, 'header']) as unknown[] | undefined;
+    header = Array.isArray(header) ? [...header] : undefined;
+    lines.forEach((cells, k) => {
+      const r = r0 + k;
+      cells.forEach((v, j) => {
+        const c = c0 + j;
+        const val = /^-?\d+([.,]\d+)?$/.test(v.trim()) ? Number(v.trim().replace(',', '.')) : v.trim();
+        if (r < 0) {
+          header = header ?? [];
+          header[c] = val;
+        } else {
+          while (rows.length <= r) rows.push([]);
+          rows[r][c] = val;
+        }
+      });
+    });
+    const cols = Math.max(header?.length ?? 0, ...rows.map((r) => r.length));
+    const fillRow = (r: unknown[]) => Array.from({ length: cols }, (_x, c) => r[c] ?? '');
+    setAt(d, [...base, 'rows'], rows.map(fillRow));
+    if (header) setAt(d, [...base, 'header'], fillRow(header));
+  });
+  return true;
 }

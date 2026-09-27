@@ -625,7 +625,11 @@ export class Editor {
     }
     if (e.key === 'Escape' && !mod) {
       if (this.pop.classList.contains('on')) this.closePop();
-      else if (this.image.selected || this.blocks.selected) {
+      // В студии Esc поднимается к внешнему блоку, а с самого внешнего — снимает выделение
+      else if (this.studio && this.blocks.info?.hasParent && !this.blocks.isMulti) {
+        this.image.clear();
+        this.blocks.selectParent();
+      } else if (this.image.selected || this.blocks.selected) {
         this.image.clear();
         this.blocks.clear();
       } else if (!this.studio) this.toggle(false);
@@ -862,6 +866,20 @@ export class Editor {
     this.text.finish(true);
     this.image.clear();
     this.blocks.selectFree(slide, index);
+  }
+
+  /** Выделить блок по его элементу на слайде (навигация по составу). */
+  selectBlock(el: HTMLElement): void {
+    this.text.finish(true);
+    this.image.clear();
+    this.blocks.select(el);
+  }
+
+  /** Начать правку текстового поля (из списка частей блока). */
+  editField(el: HTMLElement): void {
+    this.image.clear();
+    this.blocks.clear();
+    this.startEdit(el);
   }
 
   /** Выделить несколько свободных объектов слайда (Ctrl+A, вставка). */

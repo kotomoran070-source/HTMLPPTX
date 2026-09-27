@@ -24,7 +24,9 @@ export type Field =
   /** Вложенный объект (ссылка финального слайда) */
   | { k: string; label: string; type: 'group'; fields: Field[] }
   /** Цвет фигуры: роли темы или свой #RRGGBB; none — без цвета */
-  | { k: string; label: string; type: 'color'; none?: boolean };
+  | { k: string; label: string; type: 'color'; none?: boolean }
+  /** Таблица: шапка header и строки rows (списки ячеек) — сеткой полей */
+  | { k: string; label: string; type: 'grid' };
 
 export interface Schema {
   /** Короткая подсказка, что это за блок */
@@ -193,6 +195,16 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'radius', label: 'Скругление, px', type: 'number', min: 0, max: 200, placeholder: '16' },
       { k: 'rotate', label: 'Поворот, °', type: 'number', min: -180, max: 180, step: 5, placeholder: '0' },
       { k: 'shadow', label: 'Тень', type: 'bool' },
+    ],
+  },
+  table: {
+    about: 'Ячейки правятся прямо на слайде или здесь. Таблицу из Excel или Google Таблиц можно вставить в любую ячейку — она заполнится вся.',
+    fields: [
+      { k: 'rows', label: 'Данные', type: 'grid' },
+      { k: 'variant', label: 'Вид', type: 'select', options: [['', 'Линии'], ['stripes', 'Зебра'], ['boxed', 'Сетка'], ['accent', 'Акцентная шапка']] },
+      { k: 'labels', label: 'Первый столбец — подписи (жирным)', type: 'bool' },
+      { k: 'highlight', label: 'Выделенная строка', type: 'number', min: 0, placeholder: 'нет', hint: 'Номер с нуля' },
+      { k: 'size', label: 'Размер текста, px', type: 'number', min: 10, max: 40, placeholder: '17' },
     ],
   },
   stat: {

@@ -1,0 +1,37 @@
+/* Таблица: четыре вида, числа вправо, выделенная строка, строки проявляются по очереди */
+.tbl { --ts: 17px; width: 100%; font-size: var(--ts); line-height: 1.4; color: var(--tx); }
+.tbl table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+.tbl th, .tbl td { padding: .62em .9em; text-align: left; vertical-align: middle; overflow-wrap: anywhere; }
+.tbl th { font-size: .78em; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--mu); }
+.tbl .a-center { text-align: center; }
+.tbl .a-right { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl-labels td:first-child { font-weight: 600; }
+
+/* lines — линии между строками */
+.tbl-lines th { border-bottom: 2px solid var(--bd2); }
+.tbl-lines td { border-bottom: 1px solid var(--bd); }
+.tbl-lines tr:last-child td { border-bottom: 0; }
+
+/* stripes — зебра в скруглённой рамке */
+.tbl-stripes table { border: 1px solid var(--bd); border-radius: 14px; overflow: hidden; background: var(--surf); }
+.tbl-stripes th { background: var(--alt); border-bottom: 1px solid var(--bd); }
+.tbl-stripes tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--alt) 70%, var(--surf)); }
+
+/* boxed — сетка */
+.tbl-boxed table { border: 1px solid var(--bd2); border-radius: 12px; overflow: hidden; background: var(--surf); }
+.tbl-boxed th, .tbl-boxed td { border-right: 1px solid var(--bd); border-bottom: 1px solid var(--bd); }
+.tbl-boxed th:last-child, .tbl-boxed td:last-child { border-right: 0; }
+.tbl-boxed tr:last-child td { border-bottom: 0; }
+.tbl-boxed th { background: var(--alt); }
+
+/* accent — шапка акцентного цвета */
+.tbl-accent table { border-radius: 14px; overflow: hidden; background: var(--surf); box-shadow: var(--shadow-sm); border: 1px solid var(--bd); }
+.tbl-accent th { background: var(--ac); color: var(--on-ac); }
+.tbl-accent td { border-bottom: 1px solid var(--bd); }
+.tbl-accent tr:last-child td { border-bottom: 0; }
+
+/* Выделенная строка */
+.tbl tr.hl td { background: var(--acs) !important; color: var(--ach); font-weight: 600; }
+.tbl tr.hl td:first-child { box-shadow: inset 3px 0 0 var(--ac); }
+
+.slide.on .tbl tbody tr { animation: up .5s var(--ease) both; animation-delay: calc(.25s + var(--k) * .07s); }

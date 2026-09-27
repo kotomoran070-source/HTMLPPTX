@@ -14,6 +14,7 @@ import { Inspector } from './inspector';
 import { closeLibrary, showLibrary, type Preset } from './library';
 import { closeMenu, showMenu, type MenuEntry } from './menu';
 import { SlidesPanel } from './slides-panel';
+import { crumbs, type Crumb } from './structure';
 import { canUngroup, ungroup } from './ungroup';
 import './studio.css';
 
@@ -105,7 +106,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
     <main class="st-main">
       <div class="st-work">
         <section class="st-code" id="st-code" data-ed-keep hidden aria-label="Код слайда"></section>
-        <div class="st-canvas" id="st-canvas"><div class="st-paper" id="st-paper"></div></div>
+        <div class="st-view">
+          <nav class="st-crumbs" id="st-crumbs" aria-label="Где находится выделенное" data-ed-keep></nav>
+          <div class="st-canvas" id="st-canvas"><div class="st-paper" id="st-paper"></div></div>
+        </div>
       </div>
       <section class="st-notes" id="st-notes" data-ed-keep>
         <label for="st-notes-text" id="st-notes-label">Заметки докладчика</label>
@@ -759,7 +763,39 @@ export function startStudio(deck: Deck, deckKey: string): void {
     measure,
     groupEffect: setGroupEffect,
     sequence,
+    stage: () => view.stage,
   });
+
+  // ---------------- путь к выделенному ----------------
+  let crumbList: Crumb[] = [];
+  const selectedEl = (): HTMLElement | null => {
+    const sel = ed.selection;
+    if (!sel || sel.group.length > 1) return null;
+    return [...view.stage.querySelectorAll<HTMLElement>('.slide.on [data-block]')].find((x) => x.getAttribute('data-block') === JSON.stringify(sel.block)) ?? null;
+  };
+  function drawCrumbs(hover: Element | null = null): void {
+    const box = $('st-crumbs');
+    const multi = (ed.selection?.group.length ?? 0) > 1;
+    const target = hover ?? selectedEl();
+    crumbList = crumbs(target, `Слайд ${index + 1}`);
+    if (!hover && multi) crumbList.push({ label: `Выделено: ${ed.selection!.group.length}` });
+    box.classList.toggle('hover', !!hover);
+    box.innerHTML = crumbList.map((c, k) => {
+      const last = k === crumbList.length - 1;
+      const btn = !hover && (c.el || c.field || k === 0) && !last;
+      return (k ? '<i aria-hidden="true">›</i>' : '') + (btn ? `<button type="button" data-k="${k}">${esc(c.label)}</button>` : `<span${last ? ' class="cur"' : ''}>${esc(c.label)}</span>`);
+    }).join('');
+  }
+  $('st-crumbs').addEventListener('click', (e) => {
+    const k = (e.target as Element).closest<HTMLElement>('[data-k]')?.dataset.k;
+    if (k === undefined) return;
+    const c = crumbList[Number(k)];
+    if (c.el) ed.selectBlock(c.el);
+    else if (c.field) ed.editField(c.field);
+    else ed.clearSelection();
+  });
+  view.stage.addEventListener('mouseover', (e) => drawCrumbs((e.target as Element).closest('.slide') ? e.target as Element : null));
+  view.stage.addEventListener('mouseleave', () => drawCrumbs());
 
   function syncUi(): void {
     document.querySelectorAll<HTMLButtonElement>('[data-cmd]').forEach((b) => {
@@ -779,6 +815,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     $('st-pos').textContent = `Слайд ${index + 1} из ${count()} · ${slideLabel(deck.slides[index], index)}`;
     syncNotes();
     inspector.sync();
+    drawCrumbs();
   }
 
   // ---------------- мышь на холсте ----------------

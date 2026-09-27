@@ -107,6 +107,28 @@ body.studio { background: var(--alt); }
 .st-lib-name { font: 500 12px/1.3 var(--font); color: var(--tx2); padding: 0 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .st-lib-item:hover .st-lib-name { color: var(--ach); }
 
+/* Путь к выделенному над слайдом */
+.st-view { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.st-crumbs { flex: none; display: flex; align-items: center; gap: 4px; height: 30px; padding: 0 14px; background: var(--alt); font: 500 12px var(--font); color: var(--tx2); overflow: hidden; white-space: nowrap; border-bottom: 1px solid color-mix(in srgb, var(--bd) 60%, transparent); }
+.st-crumbs i { font-style: normal; color: var(--bd2); }
+.st-crumbs button { border: 0; background: none; padding: 3px 6px; border-radius: 5px; font: inherit; color: var(--ach); cursor: pointer; }
+.st-crumbs button:hover { background: var(--acs); }
+.st-crumbs span { padding: 3px 6px; }
+.st-crumbs span.cur { font-weight: 700; color: var(--tx); }
+.st-crumbs.hover span, .st-crumbs.hover span.cur { color: var(--mu); font-weight: 500; }
+
+/* Состав блока */
+.st-p-count { font-weight: 500; color: var(--mu); }
+.st-parts { display: flex; flex-direction: column; border: 1px solid var(--bd); border-radius: 8px; overflow: hidden; }
+.st-part { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; gap: 8px; padding: 7px 10px; border: 0; border-bottom: 1px solid var(--bd); background: none; text-align: left; cursor: pointer; font: 12.5px var(--font); }
+.st-part:last-child { border-bottom: 0; }
+.st-part:hover { background: var(--acs); }
+.st-part b { color: var(--tx); font-weight: 600; white-space: nowrap; }
+.st-part span { color: var(--mu); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-part i { font-style: normal; color: var(--mu); }
+.st-part.block b { color: var(--ach); }
+body.editing .stage .st-peek { outline: 2px dashed var(--ac) !important; outline-offset: 3px; background-color: color-mix(in srgb, var(--ac) 8%, transparent); }
+
 /* Холст */
 .st-canvas { flex: 1; min-height: 0; overflow: auto; display: flex; padding: 40px; background: var(--alt); }
 .st-work.with-code .st-canvas { padding: 24px; }
@@ -216,6 +238,21 @@ body.studio .edblock { display: none !important; }
 .st-p-more summary::before { content: "▸"; font-size: 10px; color: var(--mu); transition: transform .15s; }
 .st-p-more[open] summary::before { transform: rotate(90deg); }
 .st-p-more summary::-webkit-details-marker { display: none; }
+
+/* Таблица в панели свойств: сетка полей, как маленькая электронная таблица */
+.st-g { display: grid; grid-template-columns: 22px repeat(var(--cols), minmax(56px, 1fr)); gap: 3px; overflow-x: auto; padding-bottom: 2px; }
+.st-props .st-g input { width: 100%; min-width: 0; height: 28px; padding: 0 6px; border: 1px solid var(--bd); border-radius: 5px; background: var(--bg); font-size: 12px; }
+.st-props .st-g input.th { font-weight: 700; background: var(--alt); }
+.st-props .st-g input:focus { outline: none; border-color: var(--ac); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 20%, transparent); }
+.st-g-n { display: grid; place-items: center; padding: 0; border: 0; border-radius: 5px; background: none; font: 600 11px var(--font); color: var(--mu); }
+button.st-g-n { cursor: pointer; }
+button.st-g-n:hover { background: #FEF2F2; color: #DC2626; }
+button.st-g-n:hover::after { content: "×"; position: absolute; }
+button.st-g-n { position: relative; }
+.st-g-h { display: flex; justify-content: center; }
+.st-g-x { width: 20px; height: 16px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--mu); font-size: 13px; line-height: 1; cursor: pointer; }
+.st-g-x:hover:not(:disabled) { background: #FEF2F2; color: #DC2626; }
+.st-g-x:disabled { opacity: .3; cursor: default; }
 
 /* Цвет фигуры: роли темы, «нет» и свой */
 .st-f-colors { display: flex; flex-wrap: wrap; gap: 6px; }
