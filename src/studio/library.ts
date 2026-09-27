@@ -226,6 +226,7 @@ export const LIBRARY: Category[] = [
       { name: 'Картинка', w: 480, h: 320, make: () => ({ type: 'image', src: '' }) },
       { name: 'Картинка с подписью', w: 480, make: () => ({ type: 'image', src: '', height: 280, caption: 'Подпись к картинке' }) },
       { name: 'Плитка с иллюстрацией', w: 420, h: 300, make: () => ({ type: 'tile', illustration: 'station', caption: 'Базовая станция' }) },
+      { name: 'Видео', w: 640, h: 360, make: () => ({ type: 'video' }) },
     ],
   },
 ];

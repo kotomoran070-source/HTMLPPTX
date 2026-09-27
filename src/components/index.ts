@@ -20,5 +20,6 @@ import './facts/facts';
 import './shape/shape';
 import './table/table';
 import './group/group';
+import './media/video';
 import './html/html';
 import './live/live';

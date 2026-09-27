@@ -12,6 +12,22 @@ import {
 import { TextEditor } from './text-edit';
 import './editor.css';
 
+export type MediaKind = 'video' | 'model';
+
+/** Видео и 3D-модели: что принимаем и как проверяем файл */
+const MEDIA: Record<MediaKind, { accept: string; formats: string; test(f: File): boolean }> = {
+  video: { accept: 'video/mp4,video/webm,.mp4,.webm', formats: 'MP4 и WebM', test: (f) => /^video\/(mp4|webm)$/.test(f.type) || /\.(mp4|webm)$/i.test(f.name) },
+  model: { accept: '.glb,model/gltf-binary', formats: 'GLB', test: (f) => /\.glb$/i.test(f.name) },
+};
+const MAX_MEDIA = 60 * 1024 * 1024;
+
+function mediaKind(f: File | undefined): MediaKind | null {
+  if (!f) return null;
+  if (MEDIA.video.test(f)) return 'video';
+  if (MEDIA.model.test(f)) return 'model';
+  return null;
+}
+
 /** Перетаскивают HTML-файл: это импорт презентации в yarn dev, а не картинка. */
 const draggingHtml = (e: DragEvent) => [...(e.dataTransfer?.items ?? [])].some((i) => i.kind === 'file' && i.type === 'text/html');
 
@@ -1008,6 +1024,80 @@ export class Editor {
 
   // ---------------- картинки ----------------
 
+  /** Видео или 3D-модель для поля формы: выбор файла, загрузка в assets/, путь — в данные. */
+  pickMedia(path: Path, kind: MediaKind): void {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = MEDIA[kind].accept;
+    input.onchange = () => {
+      const f = input.files?.[0];
+      if (!f) return;
+      void this.uploadMedia(f, kind).then((url) => {
+        if (url) this.commit((d) => setAt(d, path, url), { rebuild: true });
+      });
+    };
+    input.click();
+  }
+
+  /** Загрузить видео или модель; null — не подошёл формат или не удалось. */
+  private async uploadMedia(file: File, kind: MediaKind): Promise<string | null> {
+    const m = MEDIA[kind];
+    if (!m.test(file)) {
+      this.toast(`Формат не поддерживается. Подойдут ${m.formats}.`, 3500, true);
+      return null;
+    }
+    if (file.size > MAX_MEDIA) {
+      this.toast(`Файл больше ${MAX_MEDIA / 1024 / 1024} МБ`, 4000, true);
+      return null;
+    }
+    this.toast(kind === 'video' ? 'Загрузка видео…' : 'Загрузка модели…', 0);
+    try {
+      const url = this.mode === 'project'
+        ? (await this.storage.uploadAsset(this.host.deckKey, file, file.name)).url
+        : await blobToDataUrl(file);
+      this.toast(kind === 'video' ? 'Видео добавлено' : 'Модель добавлена', 1500);
+      return url;
+    } catch (e) {
+      this.toast(`Не удалось загрузить файл: ${(e as Error).message}`, 5000, true);
+      return null;
+    }
+  }
+
+  /** Видео или модель, брошенные на слайд: новый свободный объект в точке броска. */
+  async insertMediaFile(file: File, kind: MediaKind, at?: { x: number; y: number }): Promise<void> {
+    const i = this.host.index();
+    const url = await this.uploadMedia(file, kind);
+    if (!url) return;
+    let w = kind === 'video' ? 640 : 420;
+    let h = kind === 'video' ? 360 : 420;
+    if (kind === 'video') {
+      // Пропорции самого ролика
+      const dims = await new Promise<{ w: number; h: number } | null>((resolve) => {
+        const v = document.createElement('video');
+        v.preload = 'metadata';
+        v.onloadedmetadata = () => resolve(v.videoWidth ? { w: v.videoWidth, h: v.videoHeight } : null);
+        v.onerror = () => resolve(null);
+        v.src = url;
+      });
+      if (dims) {
+        const k = Math.min(640 / dims.w, 400 / dims.h);
+        w = Math.round(dims.w * k);
+        h = Math.round(dims.h * k);
+      }
+    }
+    const cx = at?.x ?? 640;
+    const cy = at?.y ?? 360;
+    const place = { x: Math.round(Math.max(0, Math.min(1280 - w, cx - w / 2))), y: Math.round(Math.max(0, Math.min(720 - h, cy - h / 2))), w, h };
+    let idx = -1;
+    this.commit((d) => {
+      const sl = d.slides[i];
+      sl.free = Array.isArray(sl.free) ? sl.free : [];
+      sl.free.push({ type: kind, src: url, place });
+      idx = sl.free.length - 1;
+    }, { rebuild: true });
+    if (idx >= 0) this.selectFree(i, idx);
+  }
+
   pickImage(path: Path): void {
     this.file.value = '';
     this.file.onchange = () => {
@@ -1109,6 +1199,13 @@ export class Editor {
     if (!e.dataTransfer?.files.length || /\.html?$/i.test(e.dataTransfer.files[0].name)) return;
     e.preventDefault();
     this.host.stage().querySelectorAll('.ed-drop').forEach((x) => x.classList.remove('ed-drop'));
+    const file = e.dataTransfer.files[0];
+    const media = mediaKind(file);
+    if (media) {
+      if (this.studio) void this.insertMediaFile(file, media, this.toSlide(e.clientX, e.clientY));
+      else this.toast('Видео и 3D-модели добавляются в редакторе', 2500);
+      return;
+    }
     const t = this.dropTarget(e);
     if (!t && this.studio) {
       void this.insertImageFile(e.dataTransfer.files[0], this.toSlide(e.clientX, e.clientY));

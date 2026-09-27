@@ -509,3 +509,8 @@ body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
 .st-rgroup.min :is(.st-rstack, .st-rrow) > .st-rb:not(.st-chk) { padding: 4px 6px; }
 .st-rgroup.min2 .st-rb.big > span { display: none; }
 .st-rgroup.min2 .st-rb.big { min-width: 40px; padding: 6px; }
+.st-f-media { display: flex; gap: 6px; }
+.st-f-media input { flex: 1; min-width: 0; }
+.st-f-media .st-pbtn { flex: none; }
+.st-f-media input[readonly] { background: var(--alt); color: var(--tx2); cursor: default; }
+.st-f-media .st-f-x { align-self: center; }

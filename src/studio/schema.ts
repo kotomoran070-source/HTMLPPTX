@@ -11,6 +11,8 @@ export type Field =
   | { k: string; label: string; type: 'bool'; default?: boolean; hint?: string }
   | { k: string; label: string; type: 'icon' }
   | { k: string; label: string; type: 'image'; hint?: string }
+  /** Видео или 3D-модель: путь или ссылка текстом и кнопка выбора файла */
+  | { k: string; label: string; type: 'media'; kind: 'video' | 'model'; placeholder?: string; hint?: string }
   /** Список строк (пункты, подписи) */
   | { k: string; label: string; type: 'strings'; item: string }
   /** Чипы: строка, звёздочка в конце — выделенный чип */
@@ -250,6 +252,18 @@ export const BLOCKS: Record<string, Schema> = {
     fields: [
       { k: 'poster', label: 'Заставка', type: 'image' },
       { k: 'theme', label: 'Цвета темы внутри вставки', type: 'bool' },
+    ],
+  },
+  video: {
+    fields: [
+      { k: 'src', label: 'Видео', type: 'media', kind: 'video', placeholder: 'Файл MP4 или ссылка на YouTube, Vimeo' },
+      { k: 'poster', label: 'Обложка', type: 'image', hint: 'Видна до запуска и при печати' },
+      { k: 'autoplay', label: 'Запускать при открытии слайда', type: 'bool', default: true },
+      { k: 'muted', label: 'Без звука', type: 'bool', default: true },
+      { k: 'loop', label: 'По кругу', type: 'bool' },
+      { k: 'controls', label: 'Кнопки плеера', type: 'bool', default: true },
+      { k: 'fit', label: 'Кадр', type: 'select', options: [['', 'Целиком'], ['cover', 'Заполнить рамку']] },
+      { k: 'caption', label: 'Подпись', type: 'text' },
     ],
   },
 };

@@ -485,7 +485,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-      ed.toast(`Файл готов: ${name}`, 3000);
+      const mb = blob.size / 1024 / 1024;
+      // Видео и модели внутри одного файла: большой файл неудобно отправлять
+      if (mb > 20) ed.toast(`Файл готов: ${name}, ${Math.round(mb)} МБ. Большую часть занимают видео и 3D-модели — для отправки удобнее ссылка на YouTube или облако.`, 8000);
+      else ed.toast(`Файл готов: ${name}`, 3000);
     } catch (e) {
       ed.toast(`Экспорт не удался: ${(e as Error).message}`, 6000, true);
     } finally {

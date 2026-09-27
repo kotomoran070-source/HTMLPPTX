@@ -54,6 +54,11 @@ function fieldHtml(f: Field, data: unknown, p: Path): string {
         + `<button type="button" class="st-pbtn" data-act="pick" data-p="${P(p)}">${icon('image')}<span>${v ? 'Заменить' : 'Выбрать'}…</span></button>`
         + (v ? `<button type="button" class="st-f-x" data-act="clear" data-p="${P(p)}" title="Убрать" aria-label="Убрать картинку">${icon('close')}</button>` : '')
         + `</span>`, f.hint, true);
+    case 'media':
+      return row(f.label, `<span class="st-f-media"><input type="text" data-t="media" data-p="${P(p)}" placeholder="${esc(f.placeholder ?? '')}" spellcheck="false">`
+        + `<button type="button" class="st-pbtn" data-act="pick-media" data-kind="${f.kind}" data-p="${P(p)}" title="Выбрать файл">${icon(f.kind === 'video' ? 'play' : 'layers')}<span>Файл…</span></button>`
+        + (v ? `<button type="button" class="st-f-x" data-act="clear" data-p="${P(p)}" title="Убрать" aria-label="Убрать файл">${icon('close')}</button>` : '')
+        + `</span>`, f.hint, true);
     case 'numbers':
       return row(f.label, `<textarea rows="2" data-t="numbers" data-p="${P(p)}" spellcheck="false"></textarea>`,
         f.hint ?? 'Через пробел или запятую, дробные — через точку', true);
@@ -129,7 +134,7 @@ export function formSig(fields: Field[], data: unknown, base: Path): string {
     }
     if (f.type === 'strings' || f.type === 'chips') return `${f.k}:${Array.isArray(v) ? v.length : 0}`;
     if (f.type === 'kv') return `${f.k}:${v && typeof v === 'object' ? Object.keys(v).join('|') : ''}`;
-    if (f.type === 'image') return `${f.k}:${v ? 1 : 0}`;
+    if (f.type === 'image' || f.type === 'media') return `${f.k}:${v ? 1 : 0}`;
     if (f.type === 'grid') {
       const h = getAt(data, [...base, 'header']);
       return `${f.k}:${Array.isArray(v) ? v.map((r) => (Array.isArray(r) ? r.length : 0)).join('.') : ''}|${Array.isArray(h) ? h.length : 0}`;
@@ -162,6 +167,13 @@ export function fillForm(root: HTMLElement, data: unknown, resolveUrl: (src: str
       el.parentElement?.querySelector('.st-f-star')?.classList.toggle('on', accent);
     } else if (t === 'kvkey') {
       el.value = el.dataset.key ?? '';
+    } else if (t === 'media') {
+      // Файл из папки презентации — его имя (менять кнопкой «Файл…»), ссылку можно править
+      const s = typeof v === 'string' ? v : '';
+      const local = !!s && !/^https?:/i.test(s);
+      el.value = local ? decodeURIComponent(s.split(/[/\\]/).pop() ?? s) : s;
+      el.readOnly = local;
+      el.title = local ? 'Файл презентации' : '';
     } else if (t === 'colorhex') {
       if (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)) el.value = v.toLowerCase();
     } else {
@@ -197,6 +209,7 @@ function write(d: unknown, p: Path, value: unknown, as?: string): void {
 export interface FormEdit {
   commit(fn: (d: unknown) => void): void;
   pickImage(path: Path): void;
+  pickMedia(path: Path, kind: 'video' | 'model'): void;
 }
 
 /** Правка из поля формы (change). Возвращает false, если значение не принято. */
@@ -206,7 +219,8 @@ export function onFieldChange(el: HTMLInputElement, e: FormEdit): boolean {
   const p = readP(el);
   const raw = el.value;
   const as = el.dataset.as || undefined;
-  if (t === 'text' || t === 'select') {
+  if (t === 'media' && el.readOnly) return false;
+  if (t === 'text' || t === 'select' || t === 'media') {
     const keep = el.hasAttribute('data-keep-empty');
     const v = t === 'text' ? raw.replace(/\s+$/, '') : raw;
     e.commit((d) => write(d, p, v.trim() || keep ? v : undefined, as));
@@ -350,6 +364,9 @@ export function onFieldAction(btn: HTMLElement, fields: Field[], base: Path, e: 
       return true;
     case 'pick':
       e.pickImage(p);
+      return true;
+    case 'pick-media':
+      e.pickMedia(p, btn.dataset.kind === 'model' ? 'model' : 'video');
       return true;
     case 'clear':
       e.commit((d) => setAt(d, p, undefined));

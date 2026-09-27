@@ -98,6 +98,7 @@ export class Inspector {
     this.edit = {
       commit: (fn) => { this.host.editor().commit((d) => fn(d), { rebuild: true }); },
       pickImage: (p) => this.host.editor().pickImage(p),
+      pickMedia: (p, k) => this.host.editor().pickMedia(p, k),
     };
     root.addEventListener('toggle', (e) => {
       const d = e.target as HTMLDetailsElement;
@@ -244,7 +245,8 @@ export class Inspector {
     const schema = BLOCKS[sel.type];
     const ribbon = ON_RIBBON[sel.type];
     // Кадр картинки (обрезка, увеличение) нужен реже: отдельный свёрнутый раздел
-    const FRAME = ['fit', 'zoom', 'position'];
+    // Кадр — у картинок (с увеличением); у видео «Кадр» остаётся среди основных полей
+    const FRAME = schema?.fields.some((f) => f.k === 'zoom') ? ['fit', 'zoom', 'position'] : [];
     const all = (schema?.fields ?? []).filter((f) => !ribbon?.keys.includes(f.k));
     const own = all.filter((f) => !FRAME.includes(f.k));
     const frame = all.filter((f) => FRAME.includes(f.k));
