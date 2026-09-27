@@ -22,5 +22,6 @@ import './table/table';
 import './group/group';
 import './media/video';
 import './media/model';
+import './backdrop/backdrop';
 import './html/html';
 import './live/live';

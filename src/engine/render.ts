@@ -54,7 +54,12 @@ export class Renderer {
     const live = slide.live && typeof slide.live === 'object'
       ? this.block({ ...(slide.live as object), type: 'live', empty, label: slideLabel(slide, index) } as Block, ctx) : '';
     if (live) cls += ' live-slide';
-    return `<section class="${cls}" data-index="${index}" data-tpl="${esc(name)}"${attrs}>${inner}${this.freeLayer(slide, ctx)}${live}</section>`;
+    // Анимированный фон (частицы, сияние, сетка): первым слоем, под содержимым
+    const kind = slide.backdrop;
+    const backdrop = typeof kind === 'string' && ['particles', 'aurora', 'grid'].includes(kind) && getBlock('backdrop')
+      ? this.block({ type: 'backdrop', kind } as Block, ctx) : '';
+    if (backdrop) cls += ' has-backdrop';
+    return `<section class="${cls}" data-index="${index}" data-tpl="${esc(name)}"${attrs}>${backdrop}${inner}${this.freeLayer(slide, ctx)}${live}</section>`;
   }
 
   /**

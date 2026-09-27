@@ -190,6 +190,7 @@ yarn build      # собрать все презентации в dist/<имя>.
             value: 24 из 24 устройств
             percent: 100
   notes: Текст для окна докладчика.
+  backdrop: particles   # анимированный фон: particles, aurora, grid
 ```
 
 - **Порядок слайдов** — порядок в списке `slides`.

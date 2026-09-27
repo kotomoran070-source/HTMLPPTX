@@ -514,3 +514,6 @@ body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
 .st-f-media .st-pbtn { flex: none; }
 .st-f-media input[readonly] { background: var(--alt); color: var(--tx2); cursor: default; }
 .st-f-media .st-f-x { align-self: center; }
+.st-bds { grid-template-columns: repeat(4, 1fr); }
+.st-bds i { background-color: var(--bg); }
+.st-bds i.backdrop { position: relative; inset: auto; z-index: auto; background-color: var(--bg); }

@@ -1,6 +1,7 @@
 import { icon } from '../components/icons';
 import { HEX_RE } from '../engine/accent';
 import { getAt, setAt, type Path } from '../engine/data';
+import { BACKDROPS } from '../components/backdrop/backdrop';
 import { blockName } from '../engine/editor/block-edit';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
@@ -171,6 +172,15 @@ export class Inspector {
       }
       const bg = t.closest<HTMLElement>('[data-bg]');
       if (bg) return this.setBg(bg.dataset.bg ?? '');
+      const bd = t.closest<HTMLElement>('[data-backdrop]');
+      if (bd) {
+        const i = this.host.index();
+        const v = bd.dataset.backdrop;
+        return void this.host.editor().commit((d) => {
+          if (v) d.slides[i].backdrop = v;
+          else delete d.slides[i].backdrop;
+        }, { rebuild: true });
+      }
       const layer = t.closest<HTMLElement>('[data-layer]')?.dataset.layer;
       if (layer !== undefined && !t.closest('select')) this.host.editor().selectFree(this.host.index(), Number(layer));
       if (t.closest('[data-a="accent-reset"]')) this.host.editor().setAccent(null);
@@ -220,7 +230,7 @@ export class Inspector {
     this.parts = el ? partsOf(el) : [];
     const key = sel
       ? `b:${JSON.stringify(sel.free ?? sel.block)}:${sel.type}:${sig}:${this.parts.map((x) => x.label + x.snippet).join('|')}`
-      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${this.animSig()}:${String(deck.slides[i]?.bg ?? '')}`;
+      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${this.animSig()}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}`;
     if (key !== this.key) {
       this.key = key;
       // Прокрутка панели сохраняется, когда форма перестраивается (добавили пункт)
@@ -293,6 +303,13 @@ ${!known ? `<p class="st-p-note">Сейчас: <code>${esc(cur.length > 60 ? cur
 <details class="st-p-more"><summary>CSS фона</summary><label class="st-p-field"><input type="text" data-f="bg" placeholder="как у темы" spellcheck="false"></label></details>`;
   }
 
+  /** Анимированный фон: образцы — тот же статичный вид, что в миниатюрах */
+  private backdropHtml(cur: string): string {
+    const opts: [string, string][] = [['', 'Нет'], ...BACKDROPS];
+    return `<div class="st-p-field"><span>Анимация фона</span><div class="st-bgs st-bds" role="radiogroup" aria-label="Анимация фона">${opts.map(([v, l]) =>
+      `<button type="button" role="radio" aria-checked="${v === cur}" data-backdrop="${v}" title="${esc(l)}"><i class="${v ? `backdrop bd-${v}` : ''}"></i><span>${esc(l)}</span></button>`).join('')}</div></div>`;
+  }
+
   private slideHtml(): string {
     const deck = this.host.deck();
     const i = this.host.index();
@@ -303,6 +320,7 @@ ${!known ? `<p class="st-p-note">Сейчас: <code>${esc(cur.length > 60 ? cur
 <section class="st-p-sec"><h3>Слайд</h3>
 <label class="st-p-field"><span>Название в списке</span><input type="text" data-f="label" placeholder="${esc(s.title ?? `Слайд ${i + 1}`)}"></label>
 ${tpl === 'canvas' ? this.bgHtml(typeof s.bg === 'string' ? s.bg.trim() : '') : ''}
+${this.backdropHtml(typeof s.backdrop === 'string' ? s.backdrop : '')}
 ${formHtml(this.fields, deck, ['slides', i])}
 ${cmdBtn('show.preview', 'play', 'Просмотр анимации слайда')}
 </section>
