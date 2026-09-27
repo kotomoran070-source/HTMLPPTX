@@ -1,0 +1,72 @@
+/* Окно докладчика: раскладка с перетаскиваемыми границами и панель инструментов под слайдом */
+.pres .pres-main { grid-template-columns: minmax(0, var(--pw, 64%)) 14px minmax(220px, 1fr); gap: 0; }
+.pres .pres-cur { gap: 10px; }
+/* Слайд занимает ровно свою высоту по ширине колонки: панель инструментов сразу под ним */
+.pres .pres-vp { flex: 0 1 auto; width: 100%; aspect-ratio: 16 / 9; max-height: calc(100% - 90px); }
+.pres .pres-side { display: grid; grid-template-rows: minmax(0, var(--nh, 40%)) 14px minmax(0, 1fr); gap: 0; min-height: 0; }
+.pres-nextbox, .pres-notesbox { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.pres .pres-next { flex: 1; min-height: 0; overflow: hidden; align-items: flex-start; }
+.pres .pres-next .thumb { max-width: 100%; border-radius: 8px; box-shadow: var(--shadow-sm); }
+.pres .pres-next .mu { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* Границы: тонкая линия, при наведении — заметная ручка */
+.pres-split { position: relative; touch-action: none; }
+.pres-split::after { content: ""; position: absolute; border-radius: 3px; background: var(--bd2); opacity: 0; transition: opacity .15s, background .15s; }
+.pres-split.v { cursor: col-resize; }
+.pres-split.v::after { left: 5px; width: 4px; top: 50%; height: 56px; transform: translateY(-50%); }
+.pres-split.h { cursor: row-resize; }
+.pres-split.h::after { top: 5px; height: 4px; left: 50%; width: 56px; transform: translateX(-50%); }
+.pres-split:hover::after, .pres-split:focus-visible::after, .pres.resizing .pres-split::after { opacity: 1; }
+.pres-split:hover::after, .pres-split:focus-visible::after { background: var(--ac); }
+.pres-split:focus-visible { outline: none; }
+.pres.resizing, .pres.resizing * { user-select: none; }
+.pres.resizing .pres-vp { pointer-events: none; }
+
+/* Панель инструментов под слайдом */
+.pres-dock { align-self: center; display: flex; align-items: center; gap: 2px; padding: 5px; border-radius: 14px;
+  background: color-mix(in srgb, var(--surf) 94%, transparent); border: 1px solid var(--bd); box-shadow: 0 6px 20px rgba(15, 23, 42, .10); }
+.pd-btn { position: relative; display: grid; place-items: center; width: 40px; height: 36px; padding: 0; border: 0; border-radius: 10px; background: none; color: var(--tx2); cursor: pointer; transition: background .15s, color .15s; }
+.pd-btn .ic { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.pd-btn:hover { background: var(--alt); color: var(--tx); }
+.pd-btn:focus-visible { outline: 2px solid var(--ac); outline-offset: 1px; }
+.pd-btn[aria-pressed="true"] { background: var(--acs); color: var(--ach); box-shadow: inset 0 0 0 1px var(--acb); }
+.pd-btn[data-tool="laser"][aria-pressed="true"] { background: rgba(239, 68, 68, .12); color: #DC2626; box-shadow: inset 0 0 0 1px rgba(239, 68, 68, .45); }
+.pd-btn[data-tool="marker"][aria-pressed="true"] { background: rgba(250, 204, 21, .18); color: #A16207; box-shadow: inset 0 0 0 1px rgba(234, 179, 8, .5); }
+:root[data-theme="dark"] .pd-btn[data-tool="laser"][aria-pressed="true"] { color: #F87171; }
+:root[data-theme="dark"] .pd-btn[data-tool="marker"][aria-pressed="true"] { color: #FACC15; }
+#bk[aria-pressed="true"] { background: #0B1220; color: #fff; box-shadow: inset 0 0 0 1px #334155; }
+.pd-dot { position: absolute; right: 7px; bottom: 6px; width: 7px; height: 7px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--surf), 0 0 0 2.5px var(--bd2); }
+.pd-sep { width: 1px; height: 22px; margin: 0 5px; background: var(--bd); }
+.pd-pen { display: inline-flex; align-items: center; }
+/* Цвета пера выезжают, пока перо выбрано */
+.pd-colors { display: inline-flex; align-items: center; gap: 5px; max-width: 0; overflow: hidden; opacity: 0; padding: 0; transition: max-width .25s var(--ease), opacity .2s, padding .25s; }
+.pd-colors.on { max-width: 150px; opacity: 1; padding: 0 6px 0 4px; }
+.pd-colors button { flex: none; width: 18px; height: 18px; padding: 0; border-radius: 50%; border: 0; background: var(--c); cursor: pointer; box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .18); transition: transform .12s; }
+.pd-colors button:hover { transform: scale(1.12); }
+.pd-colors button[aria-checked="true"] { box-shadow: 0 0 0 2px var(--surf), 0 0 0 4px var(--c), inset 0 0 0 1px rgba(15, 23, 42, .18); }
+
+/* Курсор над слайдом по инструменту */
+.pres-vp[data-tool="laser"] { cursor: none; }
+.pres-vp[data-tool="pen"], .pres-vp[data-tool="marker"] { cursor: crosshair; touch-action: none; }
+
+/* Все слайды */
+.pres-grid { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; gap: 14px; padding: 20px 24px; background: color-mix(in srgb, var(--alt) 94%, transparent); backdrop-filter: blur(6px); }
+.pres-grid[hidden] { display: none; }
+.pres-grid-head { display: flex; align-items: center; gap: 12px; }
+.pres-grid-head b { font-size: 18px; }
+.pres-grid-head span { color: var(--mu); font-size: 13px; }
+.pres-grid-head .ibtn { margin-left: auto; }
+.pres-grid-list { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; align-content: start; padding: 4px; }
+.pres-grid-item { display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 2px solid transparent; border-radius: 12px; background: var(--surf); cursor: pointer; text-align: left; box-shadow: var(--shadow-sm); }
+.pres-grid-item .thumb { width: 100%; border-radius: 7px; }
+.pres-grid-item > span { display: flex; gap: 8px; font: 500 13px var(--font); color: var(--tx2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pres-grid-item > span b { color: var(--mu); font-variant-numeric: tabular-nums; }
+.pres-grid-item:hover { border-color: var(--acb); }
+.pres-grid-item.cur { border-color: var(--ac); }
+.pres-grid-item:focus-visible { outline: none; border-color: var(--ac); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ac) 20%, transparent); }
+
+@media (max-width: 900px) {
+  .pres .pres-main { grid-template-columns: 1fr; grid-template-rows: auto auto; overflow-y: auto; }
+  .pres-split { display: none; }
+  .pres .pres-side { grid-template-rows: auto auto; }
+}

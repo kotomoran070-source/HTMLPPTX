@@ -1,14 +1,16 @@
-/* Указка и перо поверх слайда */
+/* Указка, перо и маркер поверх слайда */
 .ink { position: absolute; inset: 0; z-index: 90; pointer-events: none; }
 .ink svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.ink path { fill: none; stroke: #EF4444; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .25)); }
-.ink-dot { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%; opacity: 0;
-  background: radial-gradient(circle, #fff 0 18%, #FF3B30 30%, rgba(255, 59, 48, .55) 60%, transparent 72%);
-  box-shadow: 0 0 18px 6px rgba(255, 59, 48, .45); transition: opacity .15s; }
-.ink-dot.on { opacity: 1; }
+.ink path { fill: none; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, .22)); }
+.ink path.marker { stroke-opacity: .38; filter: none; stroke-linecap: square; }
+.ink-trail line { stroke: #FF3B30; stroke-linecap: round; }
 
-/* Окно докладчика: инструменты */
-.pres-tools { display: flex; gap: 6px; align-items: center; }
-.pres-tools .btn.active { background: var(--acs); border-color: var(--ac); }
-.pres-vp.tool-laser { cursor: none; }
-.pres-vp.tool-pen { cursor: crosshair; touch-action: none; }
+/* Точка указки: яркое ядро, мягкое свечение и тонкое кольцо, которое «дышит» */
+.ink-dot { position: absolute; left: -8px; top: -8px; width: 16px; height: 16px; opacity: 0; transition: opacity .18s; will-change: transform; }
+.ink-dot.on { opacity: 1; }
+.ink-dot::before { content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle at 42% 38%, #fff 0 16%, #FF6B5E 34%, #FF2D1F 62%, #E0120A 100%);
+  box-shadow: 0 0 6px 2px rgba(255, 45, 31, .85), 0 0 22px 8px rgba(255, 45, 31, .38); }
+.ink-dot i { position: absolute; inset: -7px; border-radius: 50%; border: 1.5px solid rgba(255, 70, 55, .55); animation: inkRing 1.6s ease-out infinite; }
+@keyframes inkRing { from { transform: scale(.55); opacity: .9; } to { transform: scale(1.35); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ink-dot i { animation: none; opacity: .4; } }

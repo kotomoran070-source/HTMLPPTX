@@ -59,6 +59,10 @@ const PATHS: Record<string, string> = {
   sparkle: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
   'dist-h': '<path d="M4 3v18M20 3v18"/><rect x="9.5" y="7" width="5" height="10" rx="1"/>',
   'dist-v': '<path d="M3 4h18M3 20h18"/><rect x="7" y="9.5" width="10" height="5" rx="1"/>',
+  laser: '<circle cx="8" cy="16" r="2.6"/><path d="M10 14 20 4"/><path d="M4.5 12.5 3 11M8 20.5V22M11.5 19.5l1.5 1.5"/>',
+  pen: '<path d="M15.5 4.5 19.5 8.5 9 19H5v-4z"/><path d="m13.5 6.5 4 4"/>',
+  marker: '<path d="m9 17-3-3 8.5-8.5a2.1 2.1 0 0 1 3 3z"/><path d="m6 14-2 5 5-2"/><path d="M13 21h8"/>',
+  'screen-off': '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M4 3l16 16"/>',
   home: '<path d="m3 11 9-7 9 7"/><path d="M5 10v10h14V10"/>',
   drag: '<circle cx="9" cy="6" r="1.2"/><circle cx="15" cy="6" r="1.2"/><circle cx="9" cy="12" r="1.2"/><circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="18" r="1.2"/><circle cx="15" cy="18" r="1.2"/>',
 };

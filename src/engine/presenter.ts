@@ -5,11 +5,17 @@ import { replaceContents } from './data';
 import { DeckView, staticSlide } from './deck-view';
 import { esc, t } from './html';
 import { slideLabel } from './render';
-import { Ink, inkInput, type InkTool } from './ink';
+import { Ink, inkInput, type InkMsg, type InkTool, type StrokeStyle } from './ink';
+import './presenter.css';
 import { Sync } from './sync';
 import { currentTheme, onThemeChange, setTheme, toggleTheme } from './theme';
 
 const FONT_KEY = 'htmlpptx-notes-size';
+const LAYOUT_KEY = 'htmlpptx-pres-layout';
+/** Ширина текущего слайда и высота «Далее» по умолчанию, % */
+const DEFAULT_LAYOUT = { pw: 64, nh: 40 };
+const PEN_COLORS = ['#EF4444', '#F59E0B', '#2563EB', '#10B981', '#FFFFFF'];
+const MARKER: StrokeStyle = { color: '#FACC15', width: 24, marker: true };
 
 /**
  * Окно докладчика: текущий слайд, следующий, заметки, таймер и часы.
@@ -33,32 +39,49 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       <button class="ibtn theme-btn" id="thm" type="button" aria-label="Переключить тему" title="Тема (T)">${icon('sun', 'ic sun')}${icon('moon', 'ic moon')}</button>
     </div>
   </header>
-  <main class="pres-main">
+  <main class="pres-main" id="pmain">
     <section class="pres-cur">
       <div class="pres-label" id="curl"></div>
       <div class="pres-vp" id="cur"></div>
-    </section>
-    <aside class="pres-side">
-      <div class="pres-label">Далее</div>
-      <div class="pres-next" id="next"></div>
-      <div class="pres-label pres-notes-head">Заметки
-        <span><button class="ibtn small" id="fm" type="button" aria-label="Мельче">A−</button><button class="ibtn small" id="fp" type="button" aria-label="Крупнее">A+</button></span>
+      <div class="pres-dock" role="toolbar" aria-label="Инструменты показа">
+        <button type="button" class="pd-btn" data-tool="laser" aria-pressed="false" title="Указка (L)">${icon('laser')}</button>
+        <span class="pd-pen">
+          <button type="button" class="pd-btn" data-tool="pen" aria-pressed="false" title="Перо (D)">${icon('pen')}<i class="pd-dot" id="pdot"></i></button>
+          <span class="pd-colors" id="pcolors" role="radiogroup" aria-label="Цвет пера">${PEN_COLORS.map((c, k) =>
+            `<button type="button" role="radio" aria-checked="${k === 0}" data-color="${c}" style="--c:${c}" title="Цвет пера" aria-label="Цвет ${k + 1}"></button>`).join('')}</span>
+        </span>
+        <button type="button" class="pd-btn" data-tool="marker" aria-pressed="false" title="Маркер (H)">${icon('marker')}</button>
+        <button type="button" class="pd-btn" id="tcl" title="Стереть всё нарисованное (C)" aria-label="Стереть всё нарисованное">${icon('eraser')}</button>
+        <i class="pd-sep" aria-hidden="true"></i>
+        <button type="button" class="pd-btn" id="tgrid" title="Все слайды (G)" aria-label="Все слайды">${icon('grid')}</button>
+        <button type="button" class="pd-btn" id="bk" aria-pressed="false" title="Чёрный экран у зрителей (B)" aria-label="Чёрный экран">${icon('screen-off')}</button>
       </div>
-      <div class="pres-notes" id="notes"></div>
+    </section>
+    <div class="pres-split v" id="sv" role="separator" aria-orientation="vertical" aria-label="Размер текущего слайда" tabindex="0" title="Потяните, чтобы изменить размер. Двойной клик — как было"></div>
+    <aside class="pres-side" id="pside">
+      <section class="pres-nextbox">
+        <div class="pres-label">Далее</div>
+        <div class="pres-next" id="next"></div>
+      </section>
+      <div class="pres-split h" id="sh" role="separator" aria-orientation="horizontal" aria-label="Размер следующего слайда и заметок" tabindex="0" title="Потяните, чтобы изменить размер. Двойной клик — как было"></div>
+      <section class="pres-notesbox">
+        <div class="pres-label pres-notes-head">Заметки
+          <span><button class="ibtn small" id="fm" type="button" aria-label="Мельче">A−</button><button class="ibtn small" id="fp" type="button" aria-label="Крупнее">A+</button></span>
+        </div>
+        <div class="pres-notes" id="notes"></div>
+      </section>
     </aside>
   </main>
   <footer class="pres-bottom">
     <button class="btn ghost" id="pv" type="button">${icon('prev')} Назад</button>
     <span class="counter" id="ct"></span>
     <button class="btn primary" id="nx" type="button">Далее ${icon('next')}</button>
-    <button class="btn ghost" id="bk" type="button" title="Чёрный экран у зрителей (B)">Чёрный экран</button>
-    <span class="pres-tools">
-      <button class="btn ghost" id="tl" type="button" title="Указка: водите мышью по слайду (L)">Указка</button>
-      <button class="btn ghost" id="tpn" type="button" title="Перо: рисуйте по слайду (D)">Перо</button>
-      <button class="btn ghost" id="tcl" type="button" title="Стереть рисунки (C)">Стереть</button>
-    </span>
     <span class="pres-link" id="link"></span>
   </footer>
+</div>
+<div class="pres-grid" id="pgrid" hidden role="dialog" aria-modal="true" aria-label="Все слайды">
+  <div class="pres-grid-head"><b>Все слайды</b><span>Клик — перейти, Esc — закрыть</span><button class="ibtn small" id="pgx" type="button" aria-label="Закрыть">${icon('close')}</button></div>
+  <div class="pres-grid-list" id="pglist"></div>
 </div>`;
 
   const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -73,24 +96,120 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   let index = -1;
   let black = false;
 
-  // --- указка и перо: рисунок виден и здесь, и у зрителей ---
+  // --- указка, перо и маркер: рисунок виден и здесь, и у зрителей ---
   const ink = new Ink(view.stage);
   let tool: InkTool = 'none';
-  const sendInk = (m: Parameters<Ink['apply']>[0]) => sync.send({ type: 'ink', ink: m }, toMain());
-  inkInput(cur, ink, () => tool, sendInk);
+  let penColor = PEN_COLORS[0];
+  const sendInk = (m: InkMsg) => sync.send({ type: 'ink', ink: m }, toMain());
+  inkInput(cur, ink, () => tool, () => (tool === 'marker' ? MARKER : { color: penColor, width: 5 }), sendInk);
   const clearInk = () => { ink.apply({ op: 'clear' }); sendInk({ op: 'clear' }); };
   function setTool(t: InkTool): void {
     tool = tool === t ? 'none' : t;
     if (tool !== 'laser') { ink.apply({ op: 'laser-off' }); sendInk({ op: 'laser-off' }); }
-    cur.classList.toggle('tool-laser', tool === 'laser');
-    cur.classList.toggle('tool-pen', tool === 'pen');
-    $('tl').classList.toggle('active', tool === 'laser');
-    $('tpn').classList.toggle('active', tool === 'pen');
+    cur.dataset.tool = tool;
+    document.querySelectorAll<HTMLElement>('.pres-dock [data-tool]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tool === tool)));
+    $('pcolors').classList.toggle('on', tool === 'pen');
   }
+  function setPenColor(c: string): void {
+    penColor = c;
+    $('pdot').style.background = c;
+    document.querySelectorAll<HTMLElement>('#pcolors [data-color]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.color === c)));
+    if (tool !== 'pen') setTool('pen');
+  }
+  setPenColor(penColor);
+  setTool('none');
+  document.querySelector('.pres-dock')!.addEventListener('click', (e) => {
+    const t = e.target as Element;
+    const color = t.closest<HTMLElement>('[data-color]')?.dataset.color;
+    if (color) return setPenColor(color);
+    const which = t.closest<HTMLElement>('[data-tool]')?.dataset.tool as InkTool | undefined;
+    if (which) setTool(which);
+  });
 
   const fit = () => view.fit(cur.clientWidth, cur.clientHeight);
   new ResizeObserver(fit).observe(cur);
   fit();
+
+  // --- раскладка окна: перетаскиваемые границы, как в PowerPoint ---
+  const pres = document.querySelector<HTMLElement>('.pres')!;
+  let lay = { ...DEFAULT_LAYOUT };
+  try { lay = { ...lay, ...JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}') }; } catch { /* нет сохранённой раскладки */ }
+  const applyLayout = (save = true) => {
+    lay.pw = Math.max(30, Math.min(82, lay.pw));
+    lay.nh = Math.max(12, Math.min(80, lay.nh));
+    pres.style.setProperty('--pw', `${lay.pw}%`);
+    pres.style.setProperty('--nh', `${lay.nh}%`);
+    $('sv').setAttribute('aria-valuenow', String(Math.round(lay.pw)));
+    $('sh').setAttribute('aria-valuenow', String(Math.round(lay.nh)));
+    if (save) try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(lay)); } catch { /* нет доступа */ }
+  };
+  applyLayout(false);
+  function splitter(el: HTMLElement, axis: 'pw' | 'nh', box: () => DOMRect): void {
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      el.setPointerCapture(e.pointerId);
+      pres.classList.add('resizing');
+      const move = (ev: PointerEvent) => {
+        const r = box();
+        lay[axis] = axis === 'pw' ? ((ev.clientX - r.left) / r.width) * 100 : ((ev.clientY - r.top) / r.height) * 100;
+        applyLayout(false);
+      };
+      const up = () => {
+        el.removeEventListener('pointermove', move);
+        el.removeEventListener('pointerup', up);
+        pres.classList.remove('resizing');
+        applyLayout();
+      };
+      el.addEventListener('pointermove', move);
+      el.addEventListener('pointerup', up);
+    });
+    el.addEventListener('dblclick', () => { lay[axis] = DEFAULT_LAYOUT[axis]; applyLayout(); });
+    el.addEventListener('keydown', (e) => {
+      const d = { ArrowLeft: -2, ArrowUp: -2, ArrowRight: 2, ArrowDown: 2 }[e.key];
+      if (d === undefined) return;
+      e.preventDefault();
+      e.stopPropagation();
+      lay[axis] += d;
+      applyLayout();
+    });
+  }
+  splitter($('sv'), 'pw', () => $('pmain').getBoundingClientRect());
+  splitter($('sh'), 'nh', () => $('pside').getBoundingClientRect());
+
+  // Следующий слайд вписывается в свою область по ширине и высоте
+  const fitNext = () => {
+    const box = $('next');
+    const th = box.querySelector<HTMLElement>('.thumb');
+    if (!th) return;
+    const cap = box.querySelector<HTMLElement>('.mu')?.offsetHeight ?? 0;
+    th.style.width = `${Math.max(80, Math.min(box.clientWidth, ((box.clientHeight - cap - 6) * 16) / 9))}px`;
+  };
+  new ResizeObserver(fitNext).observe($('next'));
+
+  // --- все слайды ---
+  const grid = $('pgrid');
+  function openGrid(): void {
+    const list = $('pglist');
+    list.innerHTML = '';
+    deck.slides.forEach((sl, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pres-grid-item' + (i === index ? ' cur' : '');
+      b.appendChild(staticSlide(deck, i));
+      b.insertAdjacentHTML('beforeend', `<span><b>${i + 1}</b>${esc(slideLabel(sl, i))}</span>`);
+      b.onclick = () => { closeGrid(); go(i); };
+      list.appendChild(b);
+    });
+    grid.hidden = false;
+    list.querySelector<HTMLElement>('.cur')?.focus();
+    list.querySelector<HTMLElement>('.cur')?.scrollIntoView({ block: 'center' });
+  }
+  function closeGrid(): void {
+    grid.hidden = true;
+  }
+  $('tgrid').addEventListener('click', openGrid);
+  $('pgx').addEventListener('click', closeGrid);
+  grid.addEventListener('click', (e) => { if (e.target === grid) closeGrid(); });
 
   // --- заметки ---
   let fontSize = 20;
@@ -117,6 +236,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       const box = staticSlide(deck, index + 1);
       next.appendChild(box);
       next.insertAdjacentHTML('beforeend', `<div class="mu">${esc(slideLabel(deck.slides[index + 1], index + 1))}</div>`);
+      fitNext();
     } else {
       next.innerHTML = '<div class="pres-end">Конец презентации</div>';
     }
@@ -134,7 +254,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
 
   function setBlack(v: boolean, send = true): void {
     black = v;
-    $('bk').classList.toggle('active', v);
+    $('bk').setAttribute('aria-pressed', String(v));
     if (send) sync.send({ type: 'black', value: v }, toMain());
   }
 
@@ -175,10 +295,8 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   $('nx').addEventListener('click', () => go(index + 1));
   $('pv').addEventListener('click', () => go(index - 1));
   $('bk').addEventListener('click', () => setBlack(!black));
-  $('thm').addEventListener('click', () => toggleTheme());
-  $('tl').addEventListener('click', () => setTool('laser'));
-  $('tpn').addEventListener('click', () => setTool('pen'));
   $('tcl').addEventListener('click', clearInk);
+  $('thm').addEventListener('click', () => toggleTheme());
   let remoteTheme = false;
   onThemeChange((th) => { if (!remoteTheme) sync.send({ type: 'theme', theme: th }, toMain()); });
 
@@ -186,6 +304,11 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key;
     const lower = k.toLowerCase();
+    // Все слайды открыты: только закрыть или выбрать
+    if (!grid.hidden) {
+      if (k === 'Escape' || lower === 'g' || lower === 'п') { e.preventDefault(); closeGrid(); }
+      return;
+    }
     const map: Record<string, () => void> = {
       ArrowRight: () => go(index + 1), ArrowDown: () => go(index + 1), PageDown: () => go(index + 1), ' ': () => go(index + 1),
       ArrowLeft: () => go(index - 1), ArrowUp: () => go(index - 1), PageUp: () => go(index - 1), Backspace: () => go(index - 1),
@@ -196,7 +319,9 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       t: () => toggleTheme(), 'е': () => toggleTheme(),
       l: () => setTool('laser'), 'д': () => setTool('laser'),
       d: () => setTool('pen'), 'в': () => setTool('pen'),
+      h: () => setTool('marker'), 'р': () => setTool('marker'),
       c: () => clearInk(), 'с': () => clearInk(),
+      g: openGrid, 'п': openGrid,
       escape: () => { if (tool !== 'none') setTool(tool); },
     };
     const fn = map[k] ?? letters[lower];
