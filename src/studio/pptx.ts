@@ -791,7 +791,24 @@ async function repair(blob: Blob): Promise<Blob> {
     });
     if (fixed !== x) zip.file(name, fixed);
   }
-  return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', compression: 'DEFLATE' });
+  // Упаковка как у самого PowerPoint: настольная версия строже веб-версии
+  const out = new JSZip();
+  const files = Object.values(zip.files).filter((f) => !f.dir);
+  const names = new Set(files.map((f) => f.name));
+  let types = await zip.file('[Content_Types].xml')!.async('string');
+  // Типы только для частей, которые есть в файле
+  types = types
+    .replace(/<Override PartName="\/([^"]+)"[^>]*\/>/g, (m, part: string) => (names.has(part) ? m : ''))
+    .replace('<Default Extension="jpg" ContentType="image/jpg"/>', '<Default Extension="jpg" ContentType="image/jpeg"/>');
+  out.file('[Content_Types].xml', types);
+  for (const f of files) {
+    if (f.name === '[Content_Types].xml') continue;
+    let data: string | Uint8Array = await f.async(/\.(xml|rels)$/.test(f.name) ? 'string' : 'uint8array');
+    // Фон слайда: PowerPoint всегда пишет список эффектов после заливки
+    if (typeof data === 'string' && /^ppt\/slides\/slide\d+\.xml$/.test(f.name)) data = data.replace(/<\/p:bgPr>/g, (m) => '<a:effectLst/>' + m).replace(/<a:effectLst\/><a:effectLst\/>/g, '<a:effectLst/>');
+    out.file(f.name, data, { createFolders: false });
+  }
+  return out.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', compression: 'DEFLATE' });
 }
 
 function lighten(hex: string, k: number): string {
