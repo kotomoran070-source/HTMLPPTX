@@ -8,10 +8,12 @@ import { decks, fixed } from 'virtual:decks';
 import { esc } from './engine/html';
 import { startPresenter } from './engine/presenter';
 import { startShow, updateFavicon } from './engine/show';
+import { setupSelectMenus } from './engine/select-menu';
 import { initTheme } from './engine/theme';
 import type { Deck } from './types';
 
 initTheme();
+setupSelectMenus();
 
 const params = new URLSearchParams(location.search);
 const names = Object.keys(decks);

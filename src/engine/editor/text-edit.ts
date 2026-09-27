@@ -70,7 +70,7 @@ export class TextEditor {
 <div class="edtext" id="ed-text" role="toolbar" aria-label="Оформление текста">
   <select data-t="font" title="Шрифт" aria-label="Шрифт">
     <option value="">Шрифт темы</option>
-    ${Object.entries(FONTS).map(([k, f]) => `<option value="${k}">${esc(f.name)}</option>`).join('')}
+    ${Object.entries(FONTS).map(([k, f]) => `<option value="${k}" style="font-family:${esc(f.css)}">${esc(f.name)}</option>`).join('')}
   </select>
   <span class="edsize" title="Размер шрифта, px">
     <button type="button" data-t="size-" aria-label="Меньше">−</button>
