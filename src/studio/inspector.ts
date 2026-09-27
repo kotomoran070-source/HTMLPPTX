@@ -25,6 +25,22 @@ export interface InspectorHost {
   stage(): HTMLElement;
 }
 
+/** Оформление этих блоков — на контекстной вкладке ленты, в панели его не дублируем */
+const ON_RIBBON: Record<string, { tab: string; name: string; keys: string[] }> = {
+  shape: { tab: 'shape', name: 'Фигура', keys: ['kind', 'fill', 'stroke', 'width', 'radius', 'rotate', 'shadow'] },
+  table: { tab: 'table', name: 'Таблица', keys: ['variant', 'labels', 'highlight', 'size'] },
+};
+
+/** Какие разделы панели развёрнуты: запоминается между выделениями и сеансами */
+const FOLD_KEY = 'htmlpptx-studio-folds';
+const FOLD_DEFAULT: Record<string, boolean> = { frame: false, pos: true, anim: false, parts: false, more: false, layout: true, objects: true, deck: false };
+let folds: Record<string, boolean> = { ...FOLD_DEFAULT };
+try { folds = { ...folds, ...JSON.parse(localStorage.getItem(FOLD_KEY) ?? '{}') }; } catch { /* нет сохранённого */ }
+
+/** Сворачиваемый раздел панели. */
+const sec = (key: string, title: string, body: string, extra = '') =>
+  `<details class="st-p-sec st-p-fold" data-sec="${key}"${folds[key] ? ' open' : ''}><summary>${title}${extra}</summary><div class="st-p-body">${body}</div></details>`;
+
 /** Шаг между появлениями при перестановке в списке, мс */
 const STEP = 300;
 
@@ -83,6 +99,13 @@ export class Inspector {
       commit: (fn) => { this.host.editor().commit((d) => fn(d), { rebuild: true }); },
       pickImage: (p) => this.host.editor().pickImage(p),
     };
+    root.addEventListener('toggle', (e) => {
+      const d = e.target as HTMLDetailsElement;
+      const key = d.dataset?.sec;
+      if (!key) return;
+      folds[key] = d.open;
+      try { localStorage.setItem(FOLD_KEY, JSON.stringify(folds)); } catch { /* нет доступа */ }
+    }, true);
     root.addEventListener('change', (e) => {
       const el = e.target as HTMLInputElement;
       if (el.dataset.t) {
@@ -184,7 +207,8 @@ export class Inspector {
       return this.fill();
     }
     if (sel) {
-      this.fields = [...(BLOCKS[sel.type]?.fields ?? []), STYLE_FIELD];
+      const skip = new Set(ON_RIBBON[sel.type]?.keys ?? []);
+      this.fields = [...(BLOCKS[sel.type]?.fields ?? []).filter((f) => !skip.has(f.k)), STYLE_FIELD];
       this.base = sel.block;
     } else {
       this.fields = TEMPLATES[deck.slides[i]?.template ?? 'content']?.fields ?? [];
@@ -216,36 +240,39 @@ export class Inspector {
     const content = (deck.slides[this.host.index()]?.template ?? 'content') === 'content';
     const head = `<header class="st-p-head"><span class="st-p-kind">${sel.free ? 'Свободный объект' : 'Блок в раскладке'}</span><h2>${blockName(sel.type)}</h2></header>`;
     const schema = BLOCKS[sel.type];
-    const own = schema?.fields ?? [];
-    const contentSec = own.length || schema?.about
-      ? `<section class="st-p-sec"><h3>Содержимое</h3>${schema?.about ? `<p class="st-p-note">${esc(schema.about)}</p>` : ''}${formHtml(own, deck, sel.block)}</section>`
+    const ribbon = ON_RIBBON[sel.type];
+    // Кадр картинки (обрезка, увеличение) нужен реже: отдельный свёрнутый раздел
+    const FRAME = ['fit', 'zoom', 'position'];
+    const all = (schema?.fields ?? []).filter((f) => !ribbon?.keys.includes(f.k));
+    const own = all.filter((f) => !FRAME.includes(f.k));
+    const frame = all.filter((f) => FRAME.includes(f.k));
+    const ribbonNote = ribbon ? `<button type="button" class="st-p-hint" data-cmd="tab.${ribbon.tab}">${icon('layers')}<span>Цвета и вид — на вкладке «${ribbon.name}» ленты</span></button>` : '';
+    const contentSec = own.length || schema?.about || ribbon
+      ? `<section class="st-p-sec"><h3>Содержимое</h3>${ribbonNote}${schema?.about ? `<p class="st-p-note">${esc(schema.about)}</p>` : ''}${formHtml(own, deck, sel.block)}</section>`
+        + (frame.length ? sec('frame', 'Кадр картинки', formHtml(frame, deck, sel.block)) : '')
       : '';
-    const extra = `<details class="st-p-sec st-p-more"><summary>Дополнительно</summary>${formHtml([STYLE_FIELD], deck, sel.block)}</details>`
-      + this.partsHtml();
+    const extra = this.partsHtml() + sec('more', 'Дополнительно', formHtml([STYLE_FIELD], deck, sel.block));
+    // Действия — одной строкой значков: они же есть на ленте и в меню по правому клику
+    const actions = (list: [string, string, string, string?][]) => `<section class="st-p-sec st-p-end"><div class="st-p-acts">${list.map(([c, ic, l, cls]) =>
+      `<button type="button" class="st-pbtn${cls ? ` ${cls}` : ''}" data-cmd="${c}" title="${esc(l)}" aria-label="${esc(l)}">${icon(ic)}</button>`).join('')}</div></section>`;
     if (!sel.free) {
-      return head + contentSec + `<section class="st-p-sec"><h3>Раскладка</h3><p class="st-p-note">Блок стоит в раскладке слайда и двигается вместе с ней. Сделайте его свободным, чтобы перемещать мышью, менять размер и задать анимацию.</p>
-<div class="st-p-col">${cmdBtn('obj.free', 'move', 'Сделать свободным', 'primary')}${cmdBtn('obj.ungroup', 'ungroup', 'Разгруппировать')}${sel.hasParent ? cmdBtn('obj.parent', 'up', 'Выделить внешний блок') : ''}</div></section>
-${extra}<section class="st-p-sec st-p-end">${cmdBtn('obj.del', 'trash', 'Удалить блок', 'danger')}</section>`;
+      return head + contentSec + sec('layout', 'Раскладка', `<p class="st-p-note">Блок стоит в раскладке слайда. Потяните его мышью или нажмите «Сделать свободным», чтобы двигать, менять размер и задать анимацию.</p>
+<div class="st-p-col">${cmdBtn('obj.free', 'move', 'Сделать свободным', 'primary')}${sel.hasParent ? cmdBtn('obj.parent', 'up', 'Выделить внешний блок') : ''}</div>`)
+        + extra + actions([['obj.ungroup', 'ungroup', 'Разгруппировать'], ['obj.del', 'trash', 'Удалить блок', 'danger']]);
     }
-    return head + contentSec + `<section class="st-p-sec"><h3>Положение и размер</h3>
-<div class="st-p-grid">
+    return head + contentSec
+      + sec('pos', 'Положение и размер', `<div class="st-p-grid">
   <label><span>X</span><input type="number" data-f="x" step="1"></label>
   <label><span>Y</span><input type="number" data-f="y" step="1"></label>
   <label><span>Ширина</span><input type="number" data-f="w" min="20" step="1"></label>
   <label><span>Высота</span><input type="number" data-f="h" min="20" step="1"></label>
 </div>
-<div class="st-p-icons" role="group" aria-label="Выровнять на слайде">${ALIGN.map(([c, ic, l]) => `<button type="button" data-cmd="${c}" title="${l}" aria-label="${l}">${icon(ic)}</button>`).join('')}</div>
-</section>
-<section class="st-p-sec"><h3>Анимация появления</h3>
-<label class="st-p-field"><span>Эффект</span><select data-f="enter">${EFFECTS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></label>
+<div class="st-p-icons" role="group" aria-label="Выровнять на слайде">${ALIGN.map(([c, ic, l]) => `<button type="button" data-cmd="${c}" title="${l}" aria-label="${l}">${icon(ic)}</button>`).join('')}</div>`)
+      + sec('anim', 'Анимация появления', `<label class="st-p-field"><span>Эффект</span><select data-f="enter">${EFFECTS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></label>
 <label class="st-p-field"><span>Задержка, мс</span><input type="number" data-f="delay" min="0" max="20000" step="100"></label>
-${cmdBtn('show.preview', 'play', 'Просмотр анимации слайда')}
-</section>
-<section class="st-p-sec"><h3>Порядок</h3>
-<div class="st-p-row">${cmdBtn('obj.front', 'front', 'Вперёд')}${cmdBtn('obj.back', 'back', 'Назад')}</div>
-</section>
-${extra}<section class="st-p-sec st-p-end">${cmdBtn('obj.ungroup', 'ungroup', 'Разгруппировать на части')}<div class="st-p-row">${cmdBtn('obj.dup', 'copy', 'Дублировать')}${content ? cmdBtn('obj.attach', 'grid', 'В раскладку') : ''}</div>
-${cmdBtn('obj.del', 'trash', 'Удалить', 'danger')}</section>`;
+${cmdBtn('show.preview', 'play', 'Просмотр анимации слайда')}`, `<span class="st-p-sum" data-sum="enter"></span>`)
+      + extra
+      + actions([['obj.dup', 'copy', 'Дублировать (Ctrl+D)'], ['obj.front', 'front', 'На передний план'], ['obj.back', 'back', 'На задний план'], ['obj.ungroup', 'ungroup', 'Разгруппировать'], ...(content ? [['obj.attach', 'grid', 'В раскладку'] as [string, string, string]] : []), ['obj.del', 'trash', 'Удалить (Delete)', 'danger']]);
   }
 
   private bgHtml(cur: string): string {
@@ -270,13 +297,9 @@ ${tpl === 'canvas' ? this.bgHtml(typeof s.bg === 'string' ? s.bg.trim() : '') : 
 ${formHtml(this.fields, deck, ['slides', i])}
 ${cmdBtn('show.preview', 'play', 'Просмотр анимации слайда')}
 </section>
-<section class="st-p-sec"><h3>Объекты и порядок появления</h3>
-${this.animHtml()}
-</section>
-<section class="st-p-sec"><h3>Презентация</h3>
-<label class="st-p-field"><span>Название</span><input type="text" data-f="title"></label>
-<label class="st-p-field"><span>Акцентный цвет</span><span class="st-p-color"><input type="color" data-f="accent" aria-label="Акцентный цвет"><button type="button" class="st-link" data-a="accent-reset">Стандартный</button></span></label>
-</section>`;
+${sec('objects', 'Объекты и порядок появления', this.animHtml())}
+${sec('deck', 'Презентация', `<label class="st-p-field"><span>Название</span><input type="text" data-f="title"></label>
+<label class="st-p-field"><span>Акцентный цвет</span><span class="st-p-color"><input type="color" data-f="accent" aria-label="Акцентный цвет"><button type="button" class="st-link" data-a="accent-reset">Стандартный</button></span></label>`)}`;
   }
 
   /** Раздел «Состав»: вложенные блоки и поля выделенного блока. Клик — выделить или править. */
@@ -284,9 +307,9 @@ ${this.animHtml()}
     const list = this.parts;
     // Для блока из одного поля состав очевиден
     if (list.length < 2 && !list.some((x) => x.kind === 'block')) return '';
-    return `<section class="st-p-sec"><h3>Состав <span class="st-p-count">${list.length}</span></h3><div class="st-parts">${list.map((x, k) =>
+    return sec('parts', 'Состав', `<div class="st-parts">${list.map((x, k) =>
       `<button type="button" class="st-part ${x.kind}" data-part="${k}" title="${x.kind === 'block' ? 'Выделить' : 'Править текст'}"><b>${esc(x.label)}</b>${x.snippet ? `<span>${esc(x.snippet)}</span>` : ''}<i aria-hidden="true">${x.kind === 'block' ? '›' : '✎'}</i></button>`).join('')}</div>
-<p class="st-p-note">Esc — к внешнему блоку. Путь к выделенному — над слайдом.</p></section>`;
+<p class="st-p-note">Esc — к внешнему блоку. Путь к выделенному — над слайдом.</p>`, ` <span class="st-p-count">${list.length}</span>`);
   }
 
   private multiHtml(n: number): string {
@@ -427,6 +450,8 @@ ${cmdBtn('anim.sequence', 'sparkle', 'Появляться по очереди')
     if (h && sel?.free) h.placeholder = `авто · ${this.host.measure(sel.free)?.h ?? ''}`;
     const reset = this.root.querySelector<HTMLElement>('[data-a="accent-reset"]');
     if (reset) reset.hidden = !this.host.deck().theme?.accent;
+    const sum = this.root.querySelector<HTMLElement>('[data-sum="enter"]');
+    if (sum) sum.textContent = v.enter ? EFFECTS.find(([k]) => k === v.enter)?.[1] ?? '' : '';
     const delay = this.root.querySelector<HTMLInputElement>('[data-f="delay"]');
     if (delay) delay.disabled = !v.enter;
   }

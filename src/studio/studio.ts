@@ -10,6 +10,7 @@ import { onThemeChange, toggleTheme } from '../engine/theme';
 import type { Block, Deck } from '../types';
 import { CLIP_TYPE, putClip, takeClip, type Clip } from './clipboard';
 import type { CodeView } from './code';
+import { contextCommands, contextPanelsHtml, contextTab, contextTabsHtml, syncSwatches, type ContextTab } from './context-tabs';
 import { Inspector } from './inspector';
 import { closeLibrary, showLibrary, type Preset } from './library';
 import { closeMenu, showMenu, type MenuEntry } from './menu';
@@ -69,6 +70,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       <button type="button" role="tab" data-tab="design" aria-selected="false">Дизайн</button>
       <button type="button" role="tab" data-tab="show" aria-selected="false">Показ</button>
       <button type="button" role="tab" data-tab="view" aria-selected="false">Вид</button>
+      ${contextTabsHtml()}
       <button type="button" class="st-ribbon-toggle" id="st-rt" title="Свернуть ленту (Ctrl+F1)" aria-label="Свернуть ленту" aria-expanded="true">${icon('up')}</button>
     </nav>
     <div class="st-top-r">
@@ -101,6 +103,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Панели', rb('view.code', 'terminal', 'Код слайда', { big: true, key: 'Ctrl+`', title: 'Код слайда (YAML) и стили (CSS) рядом со слайдом' }) + rb('view.notes', 'notes', 'Заметки', { big: true }))}
       ${group('Масштаб', rb('view.fit', 'fullscreen', 'Вписать', { big: true }) + `<div class="st-rstack">${rb('view.zoom-in', 'plus', 'Крупнее')}${rb('view.zoom-out', 'minus', 'Мельче')}</div>`)}
     </div>
+    ${contextPanelsHtml()}
   </div>
   <div class="st-body" id="st-body">
     <aside class="st-slides" id="st-slides" aria-label="Слайды"></aside>
@@ -677,6 +680,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ]),
     },
   };
+  Object.assign(cmds, contextCommands({ deck, editor: ed, stage: () => view.stage }));
+  cmds['tab.shape'] = { run: () => setTab('shape') };
+  cmds['tab.table'] = { run: () => setTab('table') };
   for (const k of ['left', 'center', 'right', 'top', 'middle', 'bottom']) cmds[`align.${k}`] = { run: () => align(k), enabled: hasFree };
   SLIDE_PRESETS.forEach((_p, k) => { cmds[`slide.preset.${k}`] = { run: () => ed.addSlide(index, k) }; });
 
@@ -865,7 +871,21 @@ export function startStudio(deck: Deck, deckKey: string): void {
   view.stage.addEventListener('mouseover', (e) => drawCrumbs((e.target as Element).closest('.slide') ? e.target as Element : null));
   view.stage.addEventListener('mouseleave', () => drawCrumbs());
 
+  /** Контекстная вкладка ленты: появляется с выделением фигуры или таблицы и сразу открывается. */
+  let ctxTab: ContextTab | null = null;
+  function syncContextTab(): void {
+    const next = contextTab(deck, ed);
+    document.querySelectorAll<HTMLElement>('.st-tabs .ctx').forEach((t) => { t.hidden = t.dataset.tab !== next; });
+    if (next !== ctxTab) {
+      if (next) setTab(next);
+      else if (tab === 'shape' || tab === 'table') setTab('home');
+      ctxTab = next;
+    }
+  }
+
   function syncUi(): void {
+    syncContextTab();
+    syncSwatches(deck, ed);
     document.querySelectorAll<HTMLButtonElement>('[data-cmd]').forEach((b) => {
       const c = cmds[b.dataset.cmd!];
       if (!c) return;

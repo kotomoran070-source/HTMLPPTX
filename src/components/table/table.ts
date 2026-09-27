@@ -26,6 +26,8 @@ interface TableProps extends Block {
   size?: number;
   /** Первый столбец — жирным, как подписи строк */
   labels?: boolean;
+  /** false — шапку не показывать (данные шапки сохраняются) */
+  head?: boolean;
 }
 
 const NUMERIC = /^[\s+−–-]?[\d\s.,]+\s?(%|₽|\$|€|млн|тыс|млрд|с|мс|ч|шт|дБм|°C)?$/i;
@@ -53,7 +55,7 @@ defineBlock<TableProps>('table', {
     const colgroup = widths ? `<colgroup>${widths.map((w) => `<col style="width:${((w / widths.reduce((a, b) => a + b, 0)) * 100).toFixed(2)}%">`).join('')}</colgroup>` : '';
     return `<div class="tbl r tbl-${variant}${p.labels ? ' tbl-labels' : ''}"${size || p.style ? ` style="${size ? `--ts:${size}px;` : ''}${esc(p.style ?? '')}"` : ''}>`
       + `<table>${colgroup}`
-      + (header.length ? `<thead><tr>${Array.from({ length: cols }, (_x, c) => cell('th', header, c)).join('')}</tr></thead>` : '')
+      + (header.length && p.head !== false ? `<thead><tr>${Array.from({ length: cols }, (_x, c) => cell('th', header, c)).join('')}</tr></thead>` : '')
       + `<tbody>${rows.map((r, k) => `<tr${k === p.highlight ? ' class="hl"' : ''} style="--k:${k}">${Array.from({ length: cols }, (_x, c) => cell('td', r, c)).join('')}</tr>`).join('')}</tbody>`
       + `</table></div>`;
   },

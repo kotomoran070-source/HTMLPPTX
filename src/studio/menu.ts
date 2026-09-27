@@ -8,6 +8,10 @@ export interface MenuItem {
   hint?: string;
   danger?: boolean;
   disabled?: boolean;
+  /** Образец цвета вместо иконки (меню заливки и контура) */
+  swatch?: string;
+  /** Отмечено галочкой: текущее значение */
+  checked?: boolean;
   run(): void;
 }
 
@@ -33,7 +37,7 @@ export function showMenu(at: { x: number; y: number } | HTMLElement, items: Menu
   el.innerHTML = items.map((it, k) => it === null
     ? '<i class="st-menu-sep" role="separator"></i>'
     : `<button type="button" role="menuitem" data-k="${k}"${it.disabled ? ' disabled' : ''}${it.danger ? ' class="danger"' : ''}>`
-      + `${it.icon ? icon(it.icon) : '<span class="ic"></span>'}<span>${esc(it.label)}</span>${it.hint ? `<kbd>${esc(it.hint)}</kbd>` : ''}</button>`).join('');
+      + `${it.swatch ? `<i class="st-sw" style="background:${it.swatch}"></i>` : it.icon ? icon(it.icon) : '<span class="ic"></span>'}<span>${esc(it.label)}</span>${it.checked ? icon('check') : ''}${it.hint ? `<kbd>${esc(it.hint)}</kbd>` : ''}</button>`).join('');
   document.body.appendChild(el);
 
   let x: number;
