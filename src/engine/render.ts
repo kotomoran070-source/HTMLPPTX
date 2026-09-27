@@ -77,7 +77,9 @@ export class Renderer {
   /** Вызывает mount() у всех компонентов внутри root. Возвращает функцию очистки. */
   activate(root: HTMLElement, base: Omit<MountCtx, 'slide'>): () => void {
     const cleanups: (() => void)[] = [];
-    root.querySelectorAll<HTMLElement>('[data-mount]').forEach((el) => {
+    // Корень тоже может быть компонентом (слайд с mount() у шаблона)
+    const els = [...(root.matches('[data-mount]') ? [root] : []), ...root.querySelectorAll<HTMLElement>('[data-mount]')];
+    els.forEach((el) => {
       const m = this.mounts.get(el.dataset.mount!);
       if (!m?.component.mount) return;
       const slide = el.closest<HTMLElement>('.slide') ?? root;

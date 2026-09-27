@@ -186,6 +186,11 @@ body.editing .ovedit-hint { display: block; }
 .edzoom output { min-width: 36px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .edtip { display: inline-flex; align-items: center; gap: 5px; color: var(--mu); font-size: 12px; padding: 0 6px; }
 .edtip .ic { width: 14px; height: 14px; }
+/* Ширина текста: вертикальная ручка справа от поля */
+.edwidth { position: fixed; z-index: 13; display: none; width: 10px; height: 34px; margin-top: -17px; border-radius: 6px; cursor: ew-resize;
+  background: var(--surf); border: 2px solid var(--ac); box-shadow: 0 1px 4px rgba(15, 23, 42, .3); }
+.edwidth::after { content: ""; position: absolute; left: 2px; right: 2px; top: 10px; bottom: 10px; border-left: 1px solid var(--ac); border-right: 1px solid var(--ac); opacity: .6; }
+.edwidth.on { display: block; }
 .edhandle {
   position: fixed; z-index: 13; display: none; width: 48px; height: 10px; border-radius: 6px; cursor: ns-resize;
   background: var(--ac); box-shadow: 0 0 0 2px var(--surf), 0 2px 6px rgba(15, 23, 42, .3);

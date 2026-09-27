@@ -1,3 +1,5 @@
 .cover-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 22px; align-items: center; height: 100%; }
 .cover-grid.solo { grid-template-columns: 1fr; }
+/* Без блока справа текст не растягивается на весь слайд (шире — ручкой ширины в режиме правки) */
+.cover-grid.solo .cover-text > :is(h1, .lead) { max-width: 700px; }
 .cover-visual > * { width: 100%; }

@@ -233,7 +233,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       go: (i) => go(i),
       refresh: (rebuild) => {
         if (rebuild) {
-          view.build(deck);
+          view.update(deck);
           if (index > count() - 1) index = count() - 1;
           view.show(index);
           updateChrome();

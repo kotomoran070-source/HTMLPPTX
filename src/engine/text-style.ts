@@ -11,6 +11,8 @@ export interface TextStyle {
   color?: string;
   align?: 'left' | 'center' | 'right' | 'justify';
   font?: string;
+  /** Наибольшая ширина поля в пикселях слайда: текст переносится раньше */
+  width?: number;
 }
 
 export const FONTS: Record<string, { name: string; css: string }> = {
@@ -51,5 +53,7 @@ export function textStyleCss(st: unknown): string {
   if (color) out.push(`color:${color}`, `fill:${color}`);
   if (s.align && ALIGN.has(s.align)) out.push(`text-align:${s.align}`);
   if (s.font && FONTS[s.font]) out.push(`font-family:${FONTS[s.font].css}`);
+  const w = Number(s.width);
+  if (Number.isFinite(w) && w >= 40 && w <= 1280) out.push(`max-width:${Math.round(w)}px`);
   return out.join(';');
 }

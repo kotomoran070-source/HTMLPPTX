@@ -339,7 +339,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       if (next === JSON.stringify(deck)) return;
       replaceContents(deck as unknown as Record<string, unknown>, JSON.parse(next));
       applyAccent(deck.theme?.accent);
-      view.build(deck);
+      view.update(deck);
       const i = Math.min(index, deck.slides.length - 1);
       index = -1;
       render(i);

@@ -59,6 +59,8 @@ export class TextEditor {
   private partial: Range | null = null;
   readonly bar: HTMLElement;
   private colors: HTMLElement;
+  /** Ручка справа от текста: тянуть — ширина поля (где переносятся строки) */
+  private widthHandle: HTMLElement;
 
   constructor(private host: TextHost) {
     document.body.insertAdjacentHTML('beforeend', `
@@ -94,7 +96,12 @@ export class TextEditor {
 </div>`);
     this.bar = document.getElementById('ed-text')!;
     this.colors = document.getElementById('ed-colors')!;
+    this.widthHandle = document.createElement('div');
+    this.widthHandle.className = 'edwidth';
+    this.widthHandle.title = 'Потяните, чтобы изменить ширину текста. Двойной клик — как было';
+    document.body.appendChild(this.widthHandle);
     this.bindBar();
+    this.bindWidth();
   }
 
   get active(): boolean {
@@ -108,7 +115,7 @@ export class TextEditor {
   /** Клик пришёлся в зону, которая относится к текущей правке (текст, панель, палитра). */
   owns(node: Node | null): boolean {
     if (!node || !this.s) return false;
-    return this.s.el.contains(node) || this.bar.contains(node) || this.colors.contains(node);
+    return this.s.el.contains(node) || this.bar.contains(node) || this.colors.contains(node) || this.widthHandle.contains(node);
   }
 
   // ---------------- начало и конец правки ----------------
@@ -343,8 +350,9 @@ export class TextEditor {
     // Сначала исходный style элемента, поверх — новое оформление
     if (s.styleAttr === null) s.el.removeAttribute('style');
     else s.el.setAttribute('style', s.styleAttr);
-    for (const p of ['font-size', 'color', 'fill', 'text-align', 'font-family']) st.removeProperty(p);
+    for (const p of ['font-size', 'color', 'fill', 'text-align', 'font-family', 'max-width']) st.removeProperty(p);
     if (size) st.fontSize = `${size}px`;
+    if (s.styles.width) st.maxWidth = `${s.styles.width}px`;
     const c = colorCss(s.styles.color);
     if (c) {
       st.color = c;
@@ -361,7 +369,7 @@ export class TextEditor {
     // Исходное оформление компонента без сохранённых styles поля
     if (s.styleAttr === null) s.el.removeAttribute('style');
     else s.el.setAttribute('style', s.styleAttr);
-    for (const p of ['font-size', 'color', 'fill', 'text-align', 'font-family']) s.el.style.removeProperty(p);
+    for (const p of ['font-size', 'color', 'fill', 'text-align', 'font-family', 'max-width']) s.el.style.removeProperty(p);
     s.el.innerHTML = t(plainMarkup(s.el));
     placeCaret(s.el, undefined, true);
     this.syncButtons();
@@ -514,6 +522,35 @@ export class TextEditor {
   private hideBar(): void {
     this.bar.classList.remove('on');
     this.colors.classList.remove('on');
+    this.widthHandle.classList.remove('on');
+  }
+
+  /** Ширина поля мышью: только у текста, который хранит оформление и стоит блоком. */
+  private bindWidth(): void {
+    const h = this.widthHandle;
+    h.addEventListener('mousedown', (e) => e.preventDefault());
+    h.addEventListener('pointerdown', (e) => {
+      const s = this.s;
+      if (!s) return;
+      e.preventDefault();
+      h.setPointerCapture(e.pointerId);
+      const k = this.host.stage().getBoundingClientRect().width / 1280;
+      const left = s.el.getBoundingClientRect().left;
+      const move = (ev: PointerEvent) => {
+        const w = Math.round(Math.max(60, Math.min(1280, (ev.clientX - left) / k)));
+        s.styles.width = w;
+        s.el.style.maxWidth = `${w}px`;
+        this.position();
+      };
+      const up = () => {
+        h.removeEventListener('pointermove', move);
+        h.removeEventListener('pointerup', up);
+        this.setStyle({ width: s.styles.width });
+      };
+      h.addEventListener('pointermove', move);
+      h.addEventListener('pointerup', up);
+    });
+    h.addEventListener('dblclick', () => this.setStyle({ width: undefined }));
   }
 
   /** Панель над текстом (или под ним, если сверху нет места). */
@@ -526,6 +563,13 @@ export class TextEditor {
     const top = r.top - h - 10 > 60 ? r.top - h - 10 : r.bottom + 10;
     this.bar.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left))}px`;
     this.bar.style.top = `${Math.min(innerHeight - h - 8, top)}px`;
+    // Ручка ширины — у текста-блока с оформлением (у свободного объекта ширину задаёт рамка)
+    const block = getComputedStyle(s.el).display !== 'inline' && !!s.owner && !s.el.closest('.free');
+    this.widthHandle.classList.toggle('on', block);
+    if (block) {
+      this.widthHandle.style.left = `${r.right + 6}px`;
+      this.widthHandle.style.top = `${r.top + r.height / 2}px`;
+    }
   }
 
   private syncButtons(): void {
@@ -559,6 +603,7 @@ function clean(st: TextStyle): TextStyle {
   if (st.align && st.align !== 'left') out.align = st.align;
   else if (st.align === 'left') out.align = 'left';
   if (st.font) out.font = st.font;
+  if (st.width) out.width = Math.round(Number(st.width));
   return out;
 }
 

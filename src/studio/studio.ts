@@ -203,7 +203,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     go,
     refresh: (rebuild) => {
       if (rebuild) {
-        view.build(deck);
+        view.update(deck);
         if (index > count() - 1) index = count() - 1;
         view.show(index);
       }

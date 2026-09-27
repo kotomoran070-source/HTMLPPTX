@@ -11,7 +11,11 @@ export class DeckView {
   readonly stage: HTMLElement;
   slides: HTMLElement[] = [];
   private current = -1;
-  private cleanup: (() => void) | null = null;
+  /** Очистка mount() каждого слайда: слайд можно перерисовать отдельно */
+  private cleanups: ((() => void) | null)[] = [];
+  /** Данные, по которым нарисован каждый слайд, и общие поля презентации */
+  private sigs: string[] = [];
+  private deckSig = '';
 
   constructor(deck: Deck, container: HTMLElement) {
     this.stage = document.createElement('div');
@@ -20,18 +24,56 @@ export class DeckView {
     this.build(deck);
   }
 
+  private base() {
+    return { stage: this.stage, reducedMotion: reducedMotion() };
+  }
+
+  /** Порядок появления блоков: каждому .r на слайде — свой индекс задержки. */
+  private static order(slide: HTMLElement): void {
+    slide.querySelectorAll<HTMLElement>('.r').forEach((e, k) => e.style.setProperty('--i', String(k)));
+  }
+
   /** Перерисовывает все слайды из данных, оставаясь на текущем слайде. */
   build(deck: Deck): void {
-    this.cleanup?.();
+    this.cleanups.forEach((c) => c?.());
     const r = new Renderer(deck, deck.brand?.logo);
+    // Слой указки и другие вложения сцены не относятся к слайдам: сохраняем их
+    const extras = [...this.stage.children].filter((el) => !el.classList.contains('slide'));
     this.stage.innerHTML = deck.slides.map((s, i) => r.slide(s, i)).join('');
+    extras.forEach((el) => this.stage.appendChild(el));
     this.slides = [...this.stage.querySelectorAll<HTMLElement>(':scope > .slide')];
-    // Порядок появления блоков: каждому .r на слайде — свой индекс задержки
-    this.slides.forEach((s) => s.querySelectorAll<HTMLElement>('.r').forEach((e, k) => e.style.setProperty('--i', String(k))));
-    this.cleanup = r.activate(this.stage, { stage: this.stage, reducedMotion: reducedMotion() });
+    this.slides.forEach(DeckView.order);
+    this.cleanups = this.slides.map((el) => r.activate(el, this.base()));
+    this.sigs = deck.slides.map((s) => JSON.stringify(s));
+    this.deckSig = deckSignature(deck);
     const cur = this.current;
     this.current = -1;
     if (cur >= 0 && this.slides.length) this.show(Math.min(cur, this.slides.length - 1));
+  }
+
+  /**
+   * Перерисовывает только изменившиеся слайды: остальные остаются как есть —
+   * без мигания, перезапуска живой графики и перезагрузки вставок.
+   * Если поменялось общее (тема, стили, логотип) или число слайдов — всё заново.
+   */
+  update(deck: Deck): void {
+    if (deckSignature(deck) !== this.deckSig || deck.slides.length !== this.slides.length) return this.build(deck);
+    let r: Renderer | null = null;
+    deck.slides.forEach((s, i) => {
+      const sig = JSON.stringify(s);
+      if (sig === this.sigs[i]) return;
+      r ??= new Renderer(deck, deck.brand?.logo);
+      this.cleanups[i]?.();
+      const tmp = document.createElement('div');
+      tmp.innerHTML = r.slide(s, i);
+      const el = tmp.firstElementChild as HTMLElement;
+      DeckView.order(el);
+      if (i === this.current) el.classList.add('on');
+      this.slides[i].replaceWith(el);
+      this.slides[i] = el;
+      this.cleanups[i] = r.activate(el, this.base());
+      this.sigs[i] = sig;
+    });
   }
 
   get index(): number {
@@ -51,6 +93,12 @@ export class DeckView {
     this.stage.style.top = `calc(50% + ${offsetY}px)`;
     return s;
   }
+}
+
+/** Всё, что влияет на вид любого слайда, кроме самих слайдов. */
+function deckSignature(deck: Deck): string {
+  const { slides: _s, title: _t, ...rest } = deck;
+  return JSON.stringify(rest);
 }
 
 const thumbObserver = typeof ResizeObserver === 'function'
