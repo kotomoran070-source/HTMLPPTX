@@ -428,3 +428,25 @@ body.st-previewing .st-preview-shield { display: block; }
 :root[data-theme="dark"] :is(.st-psw, .st-sw, .st-rb-sw) { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .2); }
 :root[data-theme="dark"] .st-psw:is(:hover, :focus-visible) { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .2), 0 0 0 2px var(--surf), 0 0 0 3.5px var(--acb); }
 :root[data-theme="dark"] .st-psw.on { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .2), 0 0 0 2px var(--surf), 0 0 0 3.5px var(--ac); }
+
+/* Оформление текста — на ленте «Главная», как «Шрифт» и «Абзац» в PowerPoint */
+.st-textdock { display: flex; align-self: stretch; align-items: center; }
+.edtext.docked { position: static; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 0; background: none; border: 0; box-shadow: none; }
+.edtext.docked .edtext-row { display: flex; align-items: center; gap: 1px; }
+.edtext.docked button { min-width: 28px; height: 28px; padding: 0 5px; border-radius: 6px; font-weight: 500; color: var(--tx2); }
+.edtext.docked button:hover { background: var(--acs); color: var(--ach); }
+.edtext.docked button.on { background: var(--acs); color: var(--ach); box-shadow: inset 0 0 0 1px var(--acb); }
+.edtext.docked .ic { width: 16px; height: 16px; }
+.edtext.docked select { height: 28px; min-width: 150px; border-color: var(--bd); border-radius: 6px; font-weight: 500; background: var(--bg); }
+.edtext.docked .edsize { border-radius: 6px; background: var(--bg); }
+.edtext.docked .edsize button { height: 26px; min-width: 24px; }
+.edtext.docked .edsize input { height: 26px; }
+.edtext.docked .edsep { height: 18px; margin: 0 3px; }
+/* Пока текст не правится — панель видна, но неактивна */
+.edtext.docked.idle { opacity: .42; pointer-events: none; }
+
+/* Меню выбора без значков: узкое, текст в строку, текущее значение — цветом */
+.st-menu.plain { min-width: 150px; }
+.st-menu:not(.st-pop) button span { white-space: nowrap; }
+.st-menu.plain button { padding: 6px 10px 6px 12px; }
+.st-menu.plain button[aria-checked="true"] { color: var(--ach); font-weight: 600; }

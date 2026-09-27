@@ -36,6 +36,8 @@ export interface EditorOptions {
    */
   studio?: boolean;
   storage?: DeckStorage;
+  /** Куда встроить панель оформления текста (лента студии); без него панель всплывает над текстом */
+  textDock?: HTMLElement;
 }
 
 /** Выделенный блок: путь блока в данных, путь свободного объекта (если он свободный) и тип. */
@@ -145,7 +147,7 @@ export class Editor {
       blockOf: (p) => this.blockOf(p),
       removeBlock: (p) => this.removeBlock(p),
       normalizeUrl,
-    });
+    }, opts.textDock);
     this.image = new ImageEditor({
       deck, commit,
       stage: () => this.host.stage(),

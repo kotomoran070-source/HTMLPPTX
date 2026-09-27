@@ -62,7 +62,10 @@ export class TextEditor {
   /** Ручка справа от текста: тянуть — ширина поля (где переносятся строки) */
   private widthHandle: HTMLElement;
 
-  constructor(private host: TextHost) {
+  /** Панель встроена в ленту: видна всегда, без правки текста — неактивна */
+  private docked: boolean;
+
+  constructor(private host: TextHost, dock?: HTMLElement) {
     document.body.insertAdjacentHTML('beforeend', `
 <div class="edtext" id="ed-text" role="toolbar" aria-label="Оформление текста">
   <select data-t="font" title="Шрифт" aria-label="Шрифт">
@@ -96,6 +99,23 @@ export class TextEditor {
 </div>`);
     this.bar = document.getElementById('ed-text')!;
     this.colors = document.getElementById('ed-colors')!;
+    this.docked = !!dock;
+    if (dock) {
+      dock.appendChild(this.bar);
+      this.bar.classList.add('docked', 'idle');
+      this.bar.setAttribute('title', 'Оформление текста: щёлкните текст на слайде');
+      // Ряды как в PowerPoint: шрифт и размер сверху, начертание и абзац снизу
+      const row2 = document.createElement('div');
+      row2.className = 'edtext-row';
+      const color = this.bar.querySelector('[data-t="color"]')!;
+      const first = [...this.bar.children].slice(0, [...this.bar.children].indexOf(color));
+      const row1 = document.createElement('div');
+      row1.className = 'edtext-row';
+      row1.append(...first.filter((x) => !x.classList.contains('edsep')));
+      row2.append(...[...this.bar.children].filter((x) => x !== row1 && !first.includes(x)));
+      this.bar.append(row1, row2);
+      [...this.bar.children].forEach((x) => { if (x !== row1 && x !== row2) x.remove(); });
+    }
     this.widthHandle = document.createElement('div');
     this.widthHandle.className = 'edwidth';
     this.widthHandle.title = 'Потяните, чтобы изменить ширину текста. Двойной клик — как было';
@@ -515,12 +535,17 @@ export class TextEditor {
     this.bar.querySelectorAll<HTMLElement>('select[data-t="font"],.edsize,[data-t="color"]').forEach((b) => (b.hidden = !styleable));
     (this.bar.querySelector('[data-t="delete"]') as HTMLElement).hidden = !s.block;
     this.bar.classList.add('on');
+    this.bar.classList.remove('idle');
     this.syncButtons();
     this.position();
   }
 
   private hideBar(): void {
     this.bar.classList.remove('on');
+    if (this.docked) {
+      this.bar.classList.add('idle');
+      this.bar.querySelectorAll('.on').forEach((b) => b.classList.remove('on'));
+    }
     this.colors.classList.remove('on');
     this.widthHandle.classList.remove('on');
   }
@@ -558,11 +583,13 @@ export class TextEditor {
     const s = this.s;
     if (!s) return;
     const r = s.el.getBoundingClientRect();
-    const w = this.bar.offsetWidth;
-    const h = this.bar.offsetHeight;
-    const top = r.top - h - 10 > 60 ? r.top - h - 10 : r.bottom + 10;
-    this.bar.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left))}px`;
-    this.bar.style.top = `${Math.min(innerHeight - h - 8, top)}px`;
+    if (!this.docked) {
+      const w = this.bar.offsetWidth;
+      const h = this.bar.offsetHeight;
+      const top = r.top - h - 10 > 60 ? r.top - h - 10 : r.bottom + 10;
+      this.bar.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left))}px`;
+      this.bar.style.top = `${Math.min(innerHeight - h - 8, top)}px`;
+    }
     // Ручка ширины — у текста-блока с оформлением (у свободного объекта ширину задаёт рамка)
     const block = getComputedStyle(s.el).display !== 'inline' && !!s.owner && !s.el.closest('.free');
     this.widthHandle.classList.toggle('on', block);

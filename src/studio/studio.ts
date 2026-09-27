@@ -84,8 +84,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
     <div class="st-rpanel" data-panel="home">
       ${group('Слайды', rb('slide.new', 'slide-add', 'Новый слайд', { big: true, key: 'Ctrl+M', menu: true }) + `<div class="st-rstack">${rb('slide.dup', 'copy', 'Дублировать')}${rb('slide.del', 'trash', 'Удалить')}</div>`)}
       ${group('Правка', `<div class="st-rstack">${rb('undo', 'undo', 'Отменить', { key: 'Ctrl+Z' })}${rb('redo', 'redo', 'Повторить', { key: 'Ctrl+Y' })}</div>`)}
-      ${group('Вставка', rb('insert.blocks', 'grid', 'Блоки', { big: true, menu: true, title: 'Библиотека блоков: карточки, графики, схемы' }) + rb('insert.text', 'text', 'Текст', { big: true }) + rb('insert.image', 'image', 'Картинка', { big: true }))}
-      ${group('Упорядочить', `<div class="st-rstack">${rb('obj.front', 'front', 'Вперёд')}${rb('obj.back', 'back', 'Назад')}</div><div class="st-rstack">${rb('obj.dup', 'copy', 'Дублировать', { key: 'Ctrl+D' })}${rb('obj.del', 'trash', 'Удалить', { key: 'Delete' })}</div><div class="st-rstack">${rb('obj.group', 'group', 'Сгруппировать', { key: 'Ctrl+G', title: 'Объединить выделенные объекты: двигаются и растягиваются вместе' })}${rb('obj.ungroup', 'ungroup', 'Разгруппировать', { key: 'Ctrl+Shift+G', title: 'Разобрать группу или блок на отдельные объекты' })}</div><div class="st-rstack">${rb('obj.free', 'move', 'Сделать свободным', { title: 'Вынуть блок из раскладки: двигать и менять размер мышью' })}</div>`)}
+      ${group('Текст', '<div id="st-textdock" class="st-textdock"></div>')}
+      ${group('Вставка', rb('insert.blocks', 'grid', 'Блоки', { big: true, menu: true, title: 'Библиотека блоков: карточки, графики, схемы' }) + `<div class="st-rstack">${rb('insert.text', 'text', 'Надпись')}${rb('insert.image', 'image', 'Картинка')}</div>`)}
+      ${group('Упорядочить', `<div class="st-rstack">${rb('obj.front', 'front', 'Вперёд')}${rb('obj.back', 'back', 'Назад')}</div><div class="st-rstack">${rb('obj.group', 'group', 'Сгруппировать', { key: 'Ctrl+G', title: 'Объединить выделенные объекты: двигаются и растягиваются вместе' })}${rb('obj.ungroup', 'ungroup', 'Разгруппировать', { key: 'Ctrl+Shift+G', title: 'Разобрать группу или блок на отдельные объекты' })}${rb('obj.free', 'move', 'Сделать свободным', { title: 'Вынуть блок из раскладки: двигать и менять размер мышью' })}</div>`)}
       ${group('Выровнять', `<div class="st-rgrid">${rb('align.left', 'obj-left', 'Слева')}${rb('align.center', 'obj-center', 'По центру')}${rb('align.right', 'obj-right', 'Справа')}${rb('align.top', 'obj-top', 'Сверху')}${rb('align.middle', 'obj-middle', 'Посередине')}${rb('align.bottom', 'obj-bottom', 'Снизу')}</div><div class="st-rstack">${rb('dist.h', 'dist-h', 'По ширине', { title: 'Распределить по ширине: равные промежутки' })}${rb('dist.v', 'dist-v', 'По высоте', { title: 'Распределить по высоте: равные промежутки' })}</div>`)}
     </div>
     <div class="st-rpanel" data-panel="insert" hidden>
@@ -229,7 +230,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     },
     relayout: layout,
     state: queueState,
-  }, true, { studio: true });
+  }, true, { studio: true, textDock: $('st-textdock') });
   const ed = editor;
 
   const slides = new SlidesPanel($('st-slides'), {

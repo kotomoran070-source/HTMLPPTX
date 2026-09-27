@@ -30,12 +30,14 @@ export function closeMenu(): void {
  */
 export function showMenu(at: { x: number; y: number } | HTMLElement, items: MenuEntry[]): void {
   const el = document.createElement('div');
-  el.className = 'st-menu';
+  // Меню выбора без значков (угол, толщина): короткий список, отмеченное — галочкой и цветом
+  const plain = !items.some((it) => it && (it.icon || it.swatch));
+  el.className = `st-menu${plain ? ' plain' : ''}`;
   el.setAttribute('role', 'menu');
   el.innerHTML = items.map((it, k) => it === null
     ? '<i class="st-menu-sep" role="separator"></i>'
-    : `<button type="button" role="menuitem" data-k="${k}"${it.disabled ? ' disabled' : ''}${it.danger ? ' class="danger"' : ''}>`
-      + `${it.swatch ? `<i class="st-sw" style="background:${it.swatch}"></i>` : it.icon ? icon(it.icon) : '<span class="ic"></span>'}<span>${esc(it.label)}</span>${it.checked ? icon('check') : ''}${it.hint ? `<kbd>${esc(it.hint)}</kbd>` : ''}</button>`).join('');
+    : `<button type="button" role="${it.checked === undefined ? 'menuitem' : 'menuitemradio'}" data-k="${k}"${it.disabled ? ' disabled' : ''}${it.checked === undefined ? '' : ` aria-checked="${it.checked}"`}${it.danger ? ' class="danger"' : ''}>`
+      + `${it.swatch ? `<i class="st-sw" style="background:${it.swatch}"></i>` : it.icon ? icon(it.icon) : plain ? '' : '<i class="ic"></i>'}<span>${esc(it.label)}</span>${it.checked ? icon('check') : ''}${it.hint ? `<kbd>${esc(it.hint)}</kbd>` : ''}</button>`).join('');
   mount(at, el, (b) => {
     const it = items[Number(b.dataset.k)];
     return it ? () => it.run() : null;
@@ -126,5 +128,5 @@ function mount(at: { x: number; y: number } | HTMLElement, el: HTMLElement, acti
   addEventListener('resize', close);
   addEventListener('scroll', close, true);
   open = { el, close };
-  (el.querySelector<HTMLButtonElement>('button[aria-checked="true"], button.on') ?? buttons()[0])?.focus({ preventScroll: true });
+  (el.querySelector<HTMLButtonElement>("button[aria-checked=\"true\"]:not([disabled]), button.on") ?? buttons()[0])?.focus({ preventScroll: true });
 }
