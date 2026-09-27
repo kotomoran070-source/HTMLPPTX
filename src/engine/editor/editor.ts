@@ -312,8 +312,8 @@ export class Editor {
       } catch { /* хранилище недоступно — просто покажем подсказку */ }
       if (!seen && !this.studio) {
         this.toast(this.mode === 'project'
-          ? 'Клик по тексту — правка и оформление, по картинке — её настройки, по блоку — удалить или «Свободно» (двигать и масштабировать). Правки сразу сохраняются в deck.yaml.'
-          : 'Клик по тексту — правка и оформление, по картинке — её настройки, по блоку — удалить или «Свободно» (двигать и масштабировать). Чтобы не потерять правки, нажмите «Сохранить».', 7000);
+          ? 'Щёлкните текст, чтобы изменить его. Изменения сохраняются автоматически.'
+          : 'Щёлкните текст, чтобы изменить его. Чтобы не потерять изменения, нажмите «Сохранить».', 7000);
       }
     } else {
       this.detach();
@@ -486,7 +486,7 @@ export class Editor {
       return;
     }
     if (!this.dirty) {
-      if (announce) this.toast('Все правки уже в deck.yaml', 1800);
+      if (announce) this.toast('Всё сохранено', 1800);
       return;
     }
     this.saving = true;
@@ -495,11 +495,11 @@ export class Editor {
     try {
       await this.storage.save(this.host.deckKey, this.host.deck);
       this.saveError = '';
-      if (announce) this.toast('Сохранено в deck.yaml', 1800);
+      if (announce) this.toast('Сохранено', 1800);
     } catch (e) {
       this.dirty = true;
       this.saveError = (e as Error).message;
-      this.toast(`Не удалось сохранить в deck.yaml: ${this.saveError}`, 5000, true);
+      this.toast(`Не удалось сохранить: ${this.saveError}`, 5000, true);
     } finally {
       this.saving = false;
       this.status();
@@ -514,7 +514,7 @@ export class Editor {
       text = this.mode === 'project' ? 'Не сохранено — повторить' : 'Не сохранено';
       cls = 'err';
     } else if (this.mode === 'project') {
-      text = this.saving || this.dirty ? 'Сохранение…' : this.touched ? 'Сохранено в deck.yaml' : 'Правки сохраняются в deck.yaml';
+      text = this.saving || this.dirty ? 'Сохранение…' : this.touched ? 'Сохранено' : 'Автосохранение';
       cls = this.saving || this.dirty ? '' : 'ok';
     } else {
       text = this.dirty ? 'Есть несохранённые правки' : this.touched ? 'Все правки сохранены' : '';
@@ -725,6 +725,11 @@ export class Editor {
         const owner = img.closest<HTMLElement>('[data-block]');
         if (owner) this.blocks.select(owner);
         else this.blocks.clear();
+      }
+      // В студии картинка настраивается в панели свойств: щелчок выделяет её блок, двойной — замена файла
+      if (this.studio) {
+        if (free) this.blocks.select(free);
+        return;
       }
       const path = readPath(img, 'data-edit-img');
       const value = path ? getAt(this.host.deck, path) : null;

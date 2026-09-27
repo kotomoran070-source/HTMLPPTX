@@ -239,7 +239,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     } else {
       next.innerHTML = '<div class="pres-end">Конец презентации</div>';
     }
-    $('notes').innerHTML = s.notes ? t(s.notes) : '<span class="mu">Заметок к этому слайду нет. Добавьте поле notes в deck.yaml.</span>';
+    $('notes').innerHTML = s.notes ? t(s.notes) : '<span class="mu">Заметок нет</span>';
     $('pv').toggleAttribute('disabled', index === 0);
     $('nx').toggleAttribute('disabled', index === count() - 1);
   }

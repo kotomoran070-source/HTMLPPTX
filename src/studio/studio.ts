@@ -47,7 +47,7 @@ const readPath = (el: Element, attr: string): Path | null => {
 function rb(cmd: string, ic: string, label: string, opts: { big?: boolean; key?: string; menu?: boolean; title?: string } = {}): string {
   const tip = (opts.title ?? label) + (opts.key ? ` (${opts.key})` : '');
   return `<button type="button" class="st-rb${opts.big ? ' big' : ''}" data-cmd="${cmd}" title="${esc(tip)}"${opts.menu ? ' aria-haspopup="menu" aria-expanded="false"' : ''}>`
-    + `${icon(ic)}<span>${esc(label)}${opts.menu ? ' ▾' : ''}</span></button>`;
+    + `${icon(ic)}<span>${esc(label)}${opts.menu ? '<b class="st-caret"></b>' : ''}</span></button>`;
 }
 
 function group(label: string, body: string): string {
@@ -839,7 +839,24 @@ export function startStudio(deck: Deck, deckKey: string): void {
     tab = name;
     document.querySelectorAll<HTMLElement>('.st-tabs [data-tab]').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
     document.querySelectorAll<HTMLElement>('.st-rpanel').forEach((p) => { p.hidden = p.dataset.panel !== name; });
+    fitRibbon();
   }
+
+  /**
+   * Лента в узком окне, как в PowerPoint: группы справа налево сначала теряют подписи
+   * маленьких кнопок, потом и больших — остаются значки с подсказками.
+   */
+  function fitRibbon(): void {
+    const panel = document.querySelector<HTMLElement>('.st-rpanel:not([hidden])');
+    if (!panel) return;
+    const groups = [...panel.querySelectorAll<HTMLElement>('.st-rgroup')];
+    groups.forEach((g) => g.classList.remove('min', 'min2'));
+    const over = () => panel.scrollWidth > panel.clientWidth + 1;
+    for (const level of ['min', 'min2']) {
+      for (let i = groups.length - 1; i >= 0 && over(); i--) groups[i].classList.add(level);
+    }
+  }
+  new ResizeObserver(() => fitRibbon()).observe($('st-ribbon'));
   document.querySelector('.st-tabs')!.addEventListener('click', (e) => {
     const t = (e.target as Element).closest<HTMLElement>('[data-tab]');
     if (t) {

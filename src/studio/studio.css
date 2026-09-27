@@ -489,3 +489,23 @@ body.st-previewing .st-preview-shield { display: block; }
 body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
   cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23fff' stroke='%23111827' stroke-width='1.6' stroke-linejoin='round'%3E%3Cpath d='M14.5 3.5 20.5 9.5 12 18l-6-6z'/%3E%3Cpath d='m9 15-3.2 3.2a2 2 0 0 1-2.8 0 2 2 0 0 1 0-2.8L6.2 12.2'/%3E%3C/svg%3E") 3 21, copy !important;
 }
+
+/* Окно студии не шире экрана: лишнее сжимается внутри рядов, а не распирает страницу */
+.studio-app { grid-template-columns: minmax(0, 1fr); }
+.st-top { min-width: 0; }
+.st-top-r { min-width: 0; }
+.st-status { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 1200px) {
+  .st-title { width: 170px; }
+  .st-top .st-export span { display: none; }
+}
+@media (max-width: 1080px) {
+  .st-status { max-width: 150px; }
+  .st-tabs button { padding: 0 10px; }
+}
+
+/* Узкая лента: группа без подписей у маленьких кнопок (min), затем и у больших (min2) */
+.st-rgroup.min :is(.st-rstack, .st-rrow, .st-rgrid) > .st-rb:not(.st-chk) > span { display: none; }
+.st-rgroup.min :is(.st-rstack, .st-rrow) > .st-rb:not(.st-chk) { padding: 4px 6px; }
+.st-rgroup.min2 .st-rb.big > span { display: none; }
+.st-rgroup.min2 .st-rb.big { min-width: 40px; padding: 6px; }

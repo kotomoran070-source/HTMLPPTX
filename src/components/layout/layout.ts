@@ -101,7 +101,7 @@ defineBlock<ImageProps>('image', {
   render(p) {
     const img = p.src
       ? `<div class="imgbox"${eimg(p, 'src')}><img src="${esc(p.src)}" alt="${esc(p.alt ?? p.caption ?? '')}" style="${frameCss(p)}"></div>`
-      : `<div class="image-empty"${eimg(p, 'src')}>Нет картинки: укажите src в deck.yaml или перетащите файл в режиме правки</div>`;
+      : `<div class="image-empty"${eimg(p, 'src')}>Перетащите изображение сюда</div>`;
     const cap = p.caption ? `<figcaption class="mu"${ea(p, 'caption')}>${t(p.caption)}</figcaption>` : '';
     const h = Number(p.height);
     return `<figure class="image r"${styleAttr(h > 0 && `height:${h}px`, p.style)}>${img}${cap}</figure>`;
