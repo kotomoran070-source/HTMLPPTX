@@ -127,6 +127,8 @@ export function staticSlide(deck: Deck, index: number, width?: number): HTMLElem
   inner.querySelectorAll('animate').forEach((a) => a.remove());
   // Миниатюра — картинка, а не место для правки
   inner.querySelectorAll('[data-edit],[data-edit-img],[data-edit-url]').forEach((e) => {
+    // Пометка «здесь текст»: по ней экспорт подгоняет текст импортированной вёрстки
+    if (e.hasAttribute('data-edit')) e.setAttribute('data-text', '');
     e.removeAttribute('data-edit');
     e.removeAttribute('data-edit-img');
     e.removeAttribute('data-edit-url');

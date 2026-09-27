@@ -469,6 +469,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   const EXPORTS: [string, string, string, string][] = [
     ['clean', 'play', 'HTML для показа', 'Один файл для просмотра в браузере'],
     ['edit', 'pencil', 'HTML с правкой', 'Файл, в котором можно править текст'],
+    ['pptx', 'layers', 'PowerPoint', 'Файл PPTX: тексты, фигуры, таблицы и диаграммы правятся в PowerPoint'],
     ['pdf', 'notes', 'PDF', 'Один слайд на странице'],
   ];
   function exportMenu(): void {
@@ -479,6 +480,16 @@ export function startStudio(deck: Deck, deckKey: string): void {
     }, 'st-exportpop');
   }
   let exporting = false;
+  function download(blob: Blob, name: string): void {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.hidden = true;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  }
   async function runExport(mode: string): Promise<void> {
     if (exporting) return;
     await ed.settle();
@@ -492,6 +503,19 @@ export function startStudio(deck: Deck, deckKey: string): void {
     }
     exporting = true;
     ed.toast('Подготовка файла…', 60000);
+    if (mode === 'pptx') {
+      try {
+        const { exportPptx } = await import('./pptx');
+        const blob = await exportPptx(deck, (i, n) => ed.toast(i < n ? `PowerPoint: слайд ${i + 1} из ${n}…` : 'PowerPoint: сохранение…', 60000));
+        download(blob, `${deckKey}.pptx`);
+        ed.toast(`Файл готов: ${deckKey}.pptx`, 3000);
+      } catch (e) {
+        ed.toast(`Экспорт не удался: ${(e as Error).message}`, 6000, true);
+      } finally {
+        exporting = false;
+      }
+      return;
+    }
     try {
       const blob = await projectStorage.exportHtml(deckKey, mode === 'clean');
       // Имя — как у папки презентации (и у yarn build): латиница открывается везде

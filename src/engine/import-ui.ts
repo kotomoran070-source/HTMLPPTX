@@ -71,7 +71,7 @@ function needsSnapshot(html: string): boolean {
  * пока скрипты нарисуют слайды, и возвращает получившуюся разметку. Холсты (canvas)
  * превращаются в картинки. null — не получилось (тогда импортируется исходный файл).
  */
-function snapshot(html: string): Promise<string | null> {
+export function snapshot(html: string, size = { w: 1440, h: 900 }): Promise<string | null> {
   const token = Math.random().toString(36).slice(2);
   const probe = `<script>(function(){function shot(){try{document.querySelectorAll('script').forEach(function(s){s.remove()});document.querySelectorAll('canvas').forEach(function(c){try{var i=document.createElement('img');i.src=c.toDataURL('image/png');i.setAttribute('style',c.getAttribute('style')||'');i.className=c.className;if(c.width)i.width=c.width;if(c.height)i.height=c.height;c.replaceWith(i)}catch(e){}});`
     + `parent.postMessage({htmlpptxSnapshot:${JSON.stringify(token)},html:'<!doctype html>'+document.documentElement.outerHTML},'*')}catch(e){parent.postMessage({htmlpptxSnapshot:${JSON.stringify(token)},html:null},'*')}}`
@@ -81,7 +81,7 @@ function snapshot(html: string): Promise<string | null> {
     const f = document.createElement('iframe');
     f.setAttribute('sandbox', 'allow-scripts');
     f.setAttribute('aria-hidden', 'true');
-    f.style.cssText = 'position:fixed;left:-20000px;top:0;width:1440px;height:900px;border:0;visibility:hidden';
+    f.style.cssText = `position:fixed;left:-20000px;top:0;width:${size.w}px;height:${size.h}px;border:0;visibility:hidden`;
     const done = (v: string | null) => {
       clearTimeout(timer);
       removeEventListener('message', onMsg);

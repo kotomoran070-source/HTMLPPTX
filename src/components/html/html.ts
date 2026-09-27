@@ -82,7 +82,7 @@ function linkHighlight(slide: HTMLElement): () => void {
  * Только на показанном слайде: у скрытого нет размеров.
  */
 function fitWords(root: HTMLElement): void {
-  root.querySelectorAll<HTMLElement>('[data-edit]').forEach((el) => {
+  root.querySelectorAll<HTMLElement>('[data-edit], [data-text]').forEach((el) => {
     if (el.dataset.fit || el.classList.contains('ed-active')) return;
     const cs = getComputedStyle(el);
     if (cs.display === 'inline' || !el.clientWidth || !(el.textContent ?? '').trim()) return;
@@ -132,6 +132,12 @@ function fitBlock(block: HTMLElement): void {
     f -= 0.02;
     inner.style.zoom = String(base * f);
   }
+}
+
+/** Подгонка текста импортированной вёрстки под рамку — и для неподвижной копии слайда (экспорт) */
+export function fitHtml(block: HTMLElement): void {
+  fitWords(block);
+  fitBlock(block);
 }
 
 defineBlock<HtmlProps>('html', {
@@ -212,6 +218,12 @@ function withTheme(html: string): string {
   const vars = TOKENS.map((t) => `${t}:${cs.getPropertyValue(t).trim()}`).join(';');
   const style = `<style id="htmlpptx-theme">:root:root{${vars};color-scheme:${cs.colorScheme || 'light'}}</style>`;
   return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => m + style) : style + html;
+}
+
+/** Документ живой вставки таким, каким его видит рамка на слайде (для экспорта) */
+export function embedHtml(p: { src?: string; theme?: boolean }): Promise<string> {
+  if (!p.src) return Promise.reject(new Error('нет src'));
+  return load(p.src).then((html) => (p.theme ? withTheme(html) : html));
 }
 
 const docs = new Map<string, Promise<string>>();
