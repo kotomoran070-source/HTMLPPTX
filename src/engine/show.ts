@@ -53,6 +53,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   </div>
   <div class="navside r">
     ${editable ? `<button class="ibtn" id="ed-btn" type="button" aria-pressed="false" aria-label="Режим правки (E)" title="Режим правки (E)">${icon('pencil')}</button>` : ''}
+    ${import.meta.env.DEV && devServer ? `<a class="ibtn" id="studio-btn" href="?deck=${encodeURIComponent(deckKey)}&amp;studio" aria-label="Открыть в редакторе" title="Открыть в редакторе">${icon('layers')}</a>` : ''}
     <button class="ibtn" id="ov" type="button" aria-label="Все слайды (O)" title="Все слайды (O)">${icon('grid')}</button>
     <button class="ibtn" id="pr" type="button" aria-label="Режим докладчика (P)" title="Режим докладчика (P)">${icon('presenter')}</button>
     <button class="ibtn" id="fs" type="button" aria-label="Во весь экран (F)" title="Во весь экран (F)">${icon('fullscreen')}</button>
@@ -298,6 +299,10 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   }
 
   // --- кнопки ---
+  document.getElementById('studio-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    void (editor?.settle() ?? Promise.resolve()).then(() => { location.href = `?deck=${encodeURIComponent(deckKey)}&studio#${index + 1}`; });
+  });
   $('nx').addEventListener('click', () => go(index + 1));
   $('pv').addEventListener('click', () => go(index - 1));
   $('thm').addEventListener('click', () => toggleTheme());

@@ -44,7 +44,13 @@ body.picker-page {
 .pk-item:hover .pk-del, .pk-del:focus-visible { opacity: 1; transform: none; }
 .pk-del:hover { color: #DC2626; border-color: #FCA5A5; }
 .pk-del .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-@media (hover: none) { .pk-del { opacity: 1; transform: none; } }
+.pk-edit { position: absolute; top: 10px; right: 52px; height: 34px; padding: 0 12px; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px;
+  font: 600 13px var(--font); color: var(--ach); text-decoration: none; background: color-mix(in srgb, var(--surf) 88%, transparent);
+  border: 1px solid var(--bd); box-shadow: var(--shadow-sm); opacity: 0; transform: translateY(-2px); transition: opacity .2s, transform .2s, border-color .2s, background .2s; }
+.pk-item:hover .pk-edit, .pk-edit:focus-visible { opacity: 1; transform: none; }
+.pk-edit:hover { border-color: var(--acb); background: var(--acs); }
+.pk-edit .ic { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+@media (hover: none) { .pk-del, .pk-edit { opacity: 1; transform: none; } }
 /* Окно подтверждения удаления: красный — только на действии, остальное спокойное */
 .pk-confirm { width: min(460px, 100%); }
 .pk-confirm-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }

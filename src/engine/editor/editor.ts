@@ -5,9 +5,9 @@ import { clone, getAt, replaceContents, setAt, type Path } from '../data';
 import { esc } from '../html';
 import { BlockEditor } from './block-edit';
 import { ImageEditor } from './image-edit';
+import { projectStorage, type DeckStorage } from '../storage';
 import {
-  blobToDataUrl, buildHtml, canSaveFile, MAX_FILE, prepareImage, saveHtmlFile,
-  saveToProject, suggestedFileName, uploadAsset,
+  blobToDataUrl, buildHtml, canSaveFile, MAX_FILE, prepareImage, saveHtmlFile, suggestedFileName,
 } from './persist';
 import { TextEditor } from './text-edit';
 import './editor.css';
@@ -25,6 +25,26 @@ export interface EditorHost {
   refresh(rebuild: boolean): void;
   /** Раскладка изменилась (панель правки, заметки) — пересчитать размер сцены */
   relayout(): void;
+  /** Изменилось выделение блока, история или состояние сохранения (для панелей студии) */
+  state?(): void;
+}
+
+export interface EditorOptions {
+  /**
+   * Студия: у редактора нет своей верхней панели и заметок (их даёт окно студии),
+   * режим правки включён всегда, панель блока заменяет панель свойств.
+   */
+  studio?: boolean;
+  storage?: DeckStorage;
+}
+
+/** Выделенный блок: путь блока в данных, путь свободного объекта (если он свободный) и тип. */
+export interface BlockSelection {
+  block: Path;
+  free: Path | null;
+  type: string;
+  /** Есть внешний блок, который можно выделить («Выше») */
+  hasParent: boolean;
 }
 
 type Mode = 'project' | 'file';
@@ -75,6 +95,10 @@ export class Editor {
   /** Данные менялись с момента открытия (окну докладчика нужно их прислать) */
   touched = false;
   readonly mode: Mode;
+  readonly studio: boolean;
+  private storage: DeckStorage;
+  /** Текст и вид строки состояния сохранения */
+  statusInfo = { text: '', cls: '' };
 
   private past: string[] = [];
   private future: string[] = [];
@@ -102,8 +126,10 @@ export class Editor {
   private toastEl!: HTMLElement;
   private file!: HTMLInputElement;
 
-  constructor(private host: EditorHost, devServer: boolean) {
+  constructor(private host: EditorHost, devServer: boolean, opts: EditorOptions = {}) {
     this.mode = devServer ? 'project' : 'file';
+    this.studio = !!opts.studio;
+    this.storage = opts.storage ?? projectStorage;
     this.buildUi();
     const deck = () => this.host.deck as unknown as Record<string, unknown>;
     const commit = (fn: (d: Record<string, unknown>) => void, opts?: Commit) => this.commit((d) => fn(d as unknown as Record<string, unknown>), opts);
@@ -133,6 +159,7 @@ export class Editor {
       commit: (fn, opts) => this.commit(fn, opts),
       toast: (t, ms, err) => this.toast(t, ms, err),
       clearOthers: () => { this.text.finish(true); this.image.clear(); },
+      selected: () => this.host.state?.(),
     });
     addEventListener('resize', () => this.reposition());
     // «Сделать редактируемым» у живого слайда: остаётся обычная копия, которую можно править
@@ -146,7 +173,7 @@ export class Editor {
     addEventListener('beforeunload', (e) => {
       if (this.mode === 'project' && (this.dirty || this.saving)) {
         // Последняя попытка записать правки перед закрытием вкладки
-        saveToProject(this.host.deckKey, this.host.deck, true).catch(() => {});
+        this.storage.save(this.host.deckKey, this.host.deck, true).catch(() => {});
       }
       if (this.mode === 'file' && this.dirty) {
         e.preventDefault();
@@ -158,6 +185,21 @@ export class Editor {
   // ---------------- интерфейс ----------------
 
   private buildUi(): void {
+    if (this.studio) {
+      // Панели даёт студия; здесь только всплывающие элементы у выделенного
+      document.body.insertAdjacentHTML('beforeend', `
+<div class="edhint" id="ed-hint" role="tooltip"></div>
+<div class="edpop" id="ed-pop" role="dialog" aria-modal="false"></div>
+<div class="edtoast" id="ed-toast" role="status" aria-live="polite"></div>
+<input type="file" id="ed-file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/svg+xml" hidden>`);
+      this.bar = document.createElement('div');
+      this.notes = document.createElement('div');
+      this.hint = document.getElementById('ed-hint')!;
+      this.pop = document.getElementById('ed-pop')!;
+      this.toastEl = document.getElementById('ed-toast')!;
+      this.file = document.getElementById('ed-file') as HTMLInputElement;
+      return;
+    }
     const saveLabel = this.mode === 'project' ? '' : `<button class="btn primary small" id="ed-save" type="button" title="Сохранить файл с правками (Ctrl+S)">${icon('save')}<span>Сохранить</span></button>`;
     document.body.insertAdjacentHTML('beforeend', `
 <div class="edbar" id="edbar" role="toolbar" aria-label="Режим правки">
@@ -264,7 +306,7 @@ export class Editor {
         seen = !!sessionStorage.getItem('htmlpptx-edit-hint');
         sessionStorage.setItem('htmlpptx-edit-hint', '1');
       } catch { /* хранилище недоступно — просто покажем подсказку */ }
-      if (!seen) {
+      if (!seen && !this.studio) {
         this.toast(this.mode === 'project'
           ? 'Клик по тексту — правка и оформление, по картинке — её настройки, по блоку — удалить или «Свободно» (двигать и масштабировать). Правки сразу сохраняются в deck.yaml.'
           : 'Клик по тексту — правка и оформление, по картинке — её настройки, по блоку — удалить или «Свободно» (двигать и масштабировать). Чтобы не потерять правки, нажмите «Сохранить».', 7000);
@@ -306,6 +348,8 @@ export class Editor {
     on(document, 'pointerdown', (e) => {
       const t = e.target as Element;
       if (stage.contains(t) || this.pop.contains(t) || this.bar.contains(t) || this.notes.contains(t)) return;
+      // Панели студии (свойства, лента) работают с выделенным: клик по ним его не снимает
+      if (t.closest?.('[data-ed-keep]')) return;
       if (this.text.active && !this.text.owns(t)) this.text.finish(true);
       if (this.image.selected && !this.image.owns(t) && !this.blocks.owns(t)) this.image.clear();
       if (this.blocks.selected && !this.blocks.owns(t) && !this.image.owns(t) && !this.text.owns(t)) this.blocks.clear();
@@ -445,7 +489,7 @@ export class Editor {
     this.dirty = false;
     this.status();
     try {
-      await saveToProject(this.host.deckKey, this.host.deck);
+      await this.storage.save(this.host.deckKey, this.host.deck);
       this.saveError = '';
       if (announce) this.toast('Сохранено в deck.yaml', 1800);
     } catch (e) {
@@ -460,7 +504,6 @@ export class Editor {
 
   private status(): void {
     const el = document.getElementById('ed-status');
-    if (!el) return;
     let text: string;
     let cls = '';
     if (this.saveError) {
@@ -473,6 +516,9 @@ export class Editor {
       text = this.dirty ? 'Есть несохранённые правки' : this.touched ? 'Все правки сохранены' : '';
       cls = this.dirty ? 'warn' : 'ok';
     }
+    this.statusInfo = { text, cls };
+    this.host.state?.();
+    if (!el) return;
     el.textContent = text;
     el.className = 'edstatus ' + cls;
     el.style.cursor = this.saveError && this.mode === 'project' ? 'pointer' : '';
@@ -489,9 +535,23 @@ export class Editor {
     document.getElementById('ed-undo')?.toggleAttribute('disabled', !this.past.length);
     document.getElementById('ed-redo')?.toggleAttribute('disabled', !this.future.length);
     this.onSlideChange();
+    this.host.state?.();
   }
 
-  private setAccent(value: string | null): void {
+  get canUndo(): boolean {
+    return this.past.length > 0;
+  }
+
+  get canRedo(): boolean {
+    return this.future.length > 0;
+  }
+
+  /** Повторить сохранение после ошибки (клик по строке состояния). */
+  retrySave(): void {
+    if (this.saveError) void this.save();
+  }
+
+  setAccent(value: string | null): void {
     this.commit((d) => {
       if (value && HEX_RE.test(value)) {
         if (!d.theme) {
@@ -566,7 +626,7 @@ export class Editor {
       else if (this.image.selected || this.blocks.selected) {
         this.image.clear();
         this.blocks.clear();
-      } else this.toggle(false);
+      } else if (!this.studio) this.toggle(false);
       e.preventDefault();
       return true;
     }
@@ -767,7 +827,32 @@ export class Editor {
     }
   }
 
-  private reposition(): void {
+  // ---------------- для панелей студии ----------------
+
+  get selection(): BlockSelection | null {
+    return this.blocks.info;
+  }
+
+  get blockEditor(): BlockEditor {
+    return this.blocks;
+  }
+
+  /** Снять любое выделение: текст, картинку, блок. */
+  clearSelection(): void {
+    this.text.finish(true);
+    this.image.clear();
+    this.blocks.clear();
+    this.closePop();
+  }
+
+  /** Выделить свободный объект по номеру (после вставки, из списка слоёв). */
+  selectFree(slide: number, index: number): void {
+    this.text.finish(true);
+    this.image.clear();
+    this.blocks.selectFree(slide, index);
+  }
+
+  reposition(): void {
     this.text.position();
     this.image.position();
     this.blocks.position();
@@ -874,7 +959,7 @@ export class Editor {
     try {
       const { blob, name, resized } = await prepareImage(file);
       const url = this.mode === 'project'
-        ? (await uploadAsset(this.host.deckKey, blob, name)).url
+        ? (await this.storage.uploadAsset(this.host.deckKey, blob, name)).url
         : await blobToDataUrl(blob);
       const isLogo = path.join('.') === 'brand.logo';
       this.commit((d) => setAt(d, path, url), { rebuild: true });

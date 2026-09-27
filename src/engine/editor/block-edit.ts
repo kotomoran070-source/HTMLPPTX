@@ -13,6 +13,8 @@ export interface BlockHost {
   toast(text: string, ms?: number, error?: boolean): void;
   /** Снять выделение текста и картинки (выделен блок) */
   clearOthers(): void;
+  /** Выделение появилось, сменилось или снято */
+  selected?(): void;
 }
 
 const NAMES: Record<string, string> = {
@@ -92,6 +94,20 @@ export class BlockEditor {
     return !!node && (this.bar.contains(node) || this.frame.contains(node));
   }
 
+  /** Что выделено: для панели свойств студии. */
+  get info(): { block: Path; free: Path | null; type: string; hasParent: boolean } | null {
+    const s = this.sel;
+    if (!s) return null;
+    const obj = getAt(this.host.deck(), s.block) as { type?: string } | undefined;
+    return { block: s.block, free: s.free, type: obj?.type ?? '', hasParent: !s.free && !!s.el.parentElement?.closest('[data-block]') };
+  }
+
+  /** Выделить внешний блок. */
+  selectParent(): void {
+    const p = this.sel?.el.parentElement?.closest<HTMLElement>('[data-block]');
+    if (p) this.select(p);
+  }
+
   isSelected(el: Element): boolean {
     return this.sel?.el === el;
   }
@@ -108,14 +124,17 @@ export class BlockEditor {
     this.sel = { el, attr, key: el.getAttribute(attr)!, block, free: free ? readPath(el, 'data-free') : null };
     el.classList.add('ed-block-sel');
     this.render();
+    this.host.selected?.();
   }
 
   clear(): void {
+    const had = !!this.sel;
     this.sel?.el.classList.remove('ed-block-sel');
     this.sel = null;
     this.bar.classList.remove('on');
     this.frame.classList.remove('on', 'free');
     this.guides.innerHTML = '';
+    if (had) this.host.selected?.();
   }
 
   refresh(): void {
@@ -186,11 +205,7 @@ export class BlockEditor {
       const b = (e.target as Element).closest<HTMLElement>('button[data-b]');
       if (!b || !this.sel) return;
       switch (b.dataset.b) {
-        case 'parent': {
-          const p = this.sel.el.parentElement?.closest<HTMLElement>('[data-block]');
-          if (p) this.select(p);
-          break;
-        }
+        case 'parent': this.selectParent(); break;
         case 'detach': this.detach(); break;
         case 'attach': this.attach(); break;
         case 'dup': this.duplicate(); break;
@@ -221,7 +236,7 @@ export class BlockEditor {
   }
 
   /** Блок из раскладки → свободный объект на том же месте и того же размера. */
-  private detach(): void {
+  detach(): void {
     const s = this.sel;
     if (!s) return;
     const place = this.measure(s.el);
@@ -250,7 +265,7 @@ export class BlockEditor {
   }
 
   /** Свободный объект → в конец раскладки слайда. */
-  private attach(): void {
+  attach(): void {
     const s = this.sel;
     if (!s?.free) return;
     const free = s.free;
@@ -282,7 +297,7 @@ export class BlockEditor {
     }, { rebuild: true })) this.selectFree(i, at);
   }
 
-  private reorder(dir: 1 | -1): void {
+  reorder(dir: 1 | -1): void {
     const s = this.sel;
     if (!s?.free) return;
     const i = Number(s.free[1]);

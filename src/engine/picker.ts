@@ -124,7 +124,7 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
         <b class="pk-title">${esc(n)}</b>
         <span class="pk-meta"><code>${esc(n)}</code></span>
       </div>
-    </a>${dev ? `<button type="button" class="pk-del" data-del="${esc(n)}" title="Удалить презентацию" aria-label="Удалить презентацию ${esc(n)}">${icon('trash')}</button>` : ''}</div>`).join('')}
+    </a>${dev ? `<a class="pk-edit" href="?deck=${encodeURIComponent(n)}&amp;studio" title="Открыть в редакторе" aria-label="Открыть в редакторе ${esc(n)}">${icon('pencil')}<span>Редактор</span></a>` : ''}${dev ? `<button type="button" class="pk-del" data-del="${esc(n)}" title="Удалить презентацию" aria-label="Удалить презентацию ${esc(n)}">${icon('trash')}</button>` : ''}</div>`).join('')}
     ${dev ? `<button class="pk-card pk-action" id="pk-import" type="button">
       <span class="pk-icon">${icon('upload')}</span>
       <b>Импорт HTML</b>

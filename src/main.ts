@@ -46,6 +46,11 @@ async function boot(): Promise<void> {
     return;
   }
   setMeta(deck);
+  // Студия (редактор как в PowerPoint) есть только в yarn dev: в собранный файл её код не попадает
+  if (import.meta.env.DEV && !fixed && params.has('studio')) {
+    const { startStudio } = await import('./studio/studio');
+    return startStudio(deck, name);
+  }
   if (params.get('view') === 'presenter') startPresenter(deck, name);
   // В yarn dev правки пишутся в deck.yaml; в собранном файле — в копию HTML
   else startShow(deck, name, import.meta.env.DEV && !fixed);
