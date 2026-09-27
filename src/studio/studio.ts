@@ -76,7 +76,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       <button type="button" role="tab" data-tab="show" aria-selected="false">Показ</button>
       <button type="button" role="tab" data-tab="view" aria-selected="false">Вид</button>
       ${contextTabsHtml()}
-      <button type="button" class="st-ribbon-toggle" id="st-rt" title="Свернуть ленту (Ctrl+F1)" aria-label="Свернуть ленту" aria-expanded="true">${icon('up')}</button>
+      <button type="button" class="st-ribbon-toggle" id="st-rt" title="Свернуть ленту (Ctrl+F1)" aria-label="Свернуть ленту" aria-expanded="true">${icon('chev-up')}</button>
     </nav>
     <div class="st-top-r">
       <button type="button" class="st-status" id="st-status" role="status" aria-live="polite"></button>

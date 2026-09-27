@@ -94,8 +94,10 @@ body.studio { background: var(--alt); }
 .st-menu button .ic + .ic, .st-menu button span + .ic { color: var(--ac); }
 
 /* Лента */
-.st-ribbon { background: var(--surf); border-bottom: 1px solid var(--bd); padding: 6px 6px 2px; overflow-x: auto; overflow-y: hidden; }
-.st-rpanel { display: flex; align-items: stretch; min-height: 82px; }
+.st-ribbon { background: var(--surf); border-bottom: 1px solid var(--bd); padding: 6px 6px 2px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.st-ribbon::-webkit-scrollbar { display: none; }
+/* Одна высота у всех вкладок: лента не прыгает при переключении (по самой высокой — три строки кнопок) */
+.st-rpanel { display: flex; align-items: stretch; height: 104px; }
 .st-rpanel[hidden] { display: none; }
 .st-rgroup { display: flex; flex-direction: column; padding: 0 8px; border-right: 1px solid var(--bd); flex: none; }
 .st-rgroup:last-child { border-right: 0; }
@@ -146,7 +148,7 @@ body.studio { background: var(--alt); }
 /* Свёрнутая лента: остаются вкладки, клик по вкладке — развернуть */
 .st-ribbon-toggle { align-self: center; margin-left: 4px; width: 26px; height: 26px; display: grid; place-items: center; border: 0; border-radius: 6px; background: none; color: var(--mu); cursor: pointer; }
 .st-ribbon-toggle:hover { background: var(--alt); color: var(--tx); }
-.st-ribbon-toggle .ic { width: 15px !important; height: 15px !important; transition: transform .2s; }
+.st-ribbon-toggle .ic { width: 16px !important; height: 16px !important; stroke-width: 2.2 !important; transition: transform .2s; }
 .ribbon-min .st-ribbon-toggle .ic { transform: rotate(180deg); }
 .ribbon-min .st-ribbon { display: none; }
 .ribbon-min .st-tabs button[aria-selected="true"] { border-bottom-color: transparent; }
