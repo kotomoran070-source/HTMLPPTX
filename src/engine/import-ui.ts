@@ -125,12 +125,12 @@ export function themeHtml(t: ThemeReport): string {
   const kept = Object.entries(t.kept).sort((a, b) => b[1] - a[1]);
   const sw = (c: string, n: number) => `<span class="imp-sw" title="${c}: ${n}"><i style="background:${c}"></i>${c}</span>`;
   let s = list('Цвета → тема', [t.bound || kept.length
-    ? `привязано ${t.bound}: тёмная тема и смена акцента будут работать`
+    ? `привязано: ${t.bound}`
     : 'все цвета уже заданы через тему']);
   if (t.accent) s += list('Акцент макета', [`${t.accent} — записан в theme.accent`]);
   if (kept.length) {
     s += `<div class="imp-row"><b>Остаются своими</b><span>${kept.slice(0, 12).map(([c, n]) => sw(c, n)).join(' ')}${kept.length > 12 ? ' …' : ''}`
-      + `<br><small class="mu">Для них нет пары в теме (например, красный «важно»). В тёмной теме они не изменятся.</small></span></div>`;
+      + `<br><small class="mu">Не меняются в тёмной теме.</small></span></div>`;
   }
   if (t.darkSlides.length) s += list('Тёмные слайды', [`${t.darkSlides.join(', ')} — остаются тёмными в обеих темах`]);
   return s;
@@ -149,29 +149,29 @@ function summary(r: ImportResult): string {
   if (r.mode === 'create') {
     const from = r.source === 'design' ? ' из экспорта Claude Design' : r.source === 'html' ? ' из HTML' : r.source === 'live' ? ', живыми слайдами' : '';
     return `<p>Будет создана новая презентация <code>${where}</code>${from}: ${r.slides} слайдов.</p>`
-      + (r.source === 'design' ? '<p class="mu">Каждый элемент слайда станет свободным объектом: тексты правятся на месте, картинки заменяются, объекты двигаются и масштабируются. Анимации сохранятся.</p>' : '')
-      + (r.source === 'html' ? '<p class="mu">Тексты правятся на месте, картинки заменяются. Элементы с position: absolute (или data-x, data-y) станут свободными объектами.</p>' : '')
+      + (r.source === 'design' ? '<p class="mu">Элементы слайдов станут свободными объектами.</p>' : '')
+      + (r.source === 'html' ? '' : '')
       + (files ? list('Файлы в assets/', [files]) : '')
       + (r.theme ? themeHtml(r.theme) : '')
       + warningsHtml(r.warnings);
   }
   if (!r.changed) return `<p>Изменений нет: <code>${where}</code> уже содержит все правки из файла.</p>`;
-  let s = `<p>Правки из файла будут перенесены в <code>${where}</code>${r.mode === 'merge' ? '. Изменения, сделанные в проекте после сборки файла, сохранятся.' : '.'}</p>`;
+  let s = `<p>Правки из файла будут перенесены в <code>${where}</code>${r.mode === 'merge' ? '. Изменения в проекте после сборки сохранятся.' : '.'}</p>`;
   if (r.mode === 'replace') {
     s += r.source === 'design'
-      ? '<p class="imp-warn">Такая презентация уже есть: слайды из экспорта заменят её содержимое, правки, сделанные здесь, пропадут. Чтобы сохранить обе версии, введите ниже другое имя.</p>'
-      : '<p class="imp-warn">В файле нет исходной версии этой презентации: данные файла заменят данные проекта целиком.</p>';
+      ? '<p class="imp-warn">Презентация с таким именем будет заменена. Чтобы сохранить обе, укажите другое имя.</p>'
+      : '<p class="imp-warn">Данные проекта будут полностью заменены данными файла.</p>';
   }
   s += list('Изменены', r.edited) + list('Добавлены', r.added) + list('Удалены', r.removed) + list('Также', r.other)
     + (files ? list('Новые файлы', [files]) : '');
   if (r.conflicts.length) {
     const why = { 'both-changed': '', 'deleted-in-file': ' — в файле удалено, в проекте изменено: оставлено', 'deleted-in-project': ' — в проекте удалено, в файле изменено: восстановлено' };
-    s += `<div class="imp-conf"><b>Изменено и в проекте, и в файле — будет взята версия из файла:</b><ul>`
+    s += `<div class="imp-conf"><b>Изменено и в проекте, и в файле (будет взята версия файла):</b><ul>`
       + r.conflicts.map((c) => `<li>${esc(c.path)}${why[c.kind]}</li>`).join('') + `</ul></div>`;
   }
   if (r.theme) s += themeHtml(r.theme);
   s += warningsHtml(r.warnings ?? []);
-  s += '<p class="mu">Прежняя версия deck.yaml сохранится в папке .backup рядом с ней.</p>';
+  s += '<p class="mu">Предыдущая версия сохранится в папке .backup.</p>';
   return s;
 }
 
@@ -230,12 +230,12 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
     box.innerHTML = `<div class="imp" role="dialog" aria-modal="true" aria-labelledby="imp-h">
       <h2 id="imp-h">Импорт «${esc(file.name)}»</h2>
       <div class="imp-body"><p class="mu">Проверяю файл…</p></div>
-      <label class="imp-name" hidden>Презентация <input spellcheck="false" autocomplete="off"><small class="mu">другое имя — импортировать как отдельную презентацию</small></label>
+      <label class="imp-name" hidden>Презентация <input spellcheck="false" autocomplete="off"><small class="mu">новое имя — отдельная презентация</small></label>
       <fieldset class="imp-mode" hidden><legend>Слайды</legend>
-        <label><input type="radio" name="imp-mode" value="edit" checked><span><b>Редактируемые</b><small>Тексты и картинки правятся на месте, тема и акцент. Скрипты файла не работают.</small></span></label>
-        <label><input type="radio" name="imp-mode" value="live"><span><b>Живые</b><small>Как в файле: скрипты, наведение, анимации. Правится только целым слайдом.</small></span></label>
+        <label><input type="radio" name="imp-mode" value="edit" checked><span><b>Редактируемые</b><small>Текст и изображения можно править. Скрипты файла отключаются.</small></span></label>
+        <label><input type="radio" name="imp-mode" value="live"><span><b>Живые</b><small>Как в исходном файле, со скриптами. Без правки на месте.</small></span></label>
       </fieldset>
-      <label class="imp-check" hidden><input type="checkbox" checked> Привязать цвета к теме <small class="mu">— работают тёмная тема и смена акцента</small></label>
+      <label class="imp-check" hidden><input type="checkbox" checked> Привязать цвета к теме</label>
       <div class="imp-actions"><button type="button" class="btn ghost" data-a="cancel">Отмена</button><button type="button" class="btn primary" data-a="ok" disabled>Импортировать</button></div>
     </div>`;
     document.body.append(box);
@@ -300,11 +300,11 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
         if (my !== seq) return;
         last = r;
         body.innerHTML = summary(r) + (liveOnly
-          ? '<p class="imp-warn">Структура файла незнакома, поэтому правка на месте недоступна. Слайды будут живыми: файл показывается как есть, со всеми скриптами.</p>'
+          ? '<p class="imp-warn">Формат файла не распознан: слайды будут показаны как есть, без правки на месте.</p>'
           : r.source === 'live'
-            ? '<p class="mu">Живые слайды показывают исходный файл как есть. Для миниатюр и печати — обычная копия слайдов. В режиме правки у слайда есть кнопка «Сделать редактируемым».</p>'
+            ? ''
             : snapped
-              ? '<p class="mu">Скрипты файла выполнены: взят снимок слайдов, как они выглядят в браузере. Анимации на CSS и SVG сохранятся, реакции на скрипты — нет. Нужны и они — выберите «Живые».</p>'
+              ? '<p class="mu">Слайды сохранены в том виде, как их отрисовали скрипты файла.</p>'
               : '');
         if (nameRow.hidden) {
           nameRow.hidden = false;
@@ -404,9 +404,9 @@ export async function bindThemeDialog(deck: string, beforeWrite?: () => Promise<
   try {
     const r = await call(true);
     body.innerHTML = r.changed
-      ? '<p>Цвета вёрстки, совпадающие с цветами темы, станут ссылками на тему: слайды будут перекрашиваться в тёмной теме и при смене акцентного цвета.</p>'
-        + themeHtml(r.theme) + '<p class="mu">Прежняя версия deck.yaml сохранится в папке .backup.</p>'
-      : '<p>Привязывать нечего: цвета уже привязаны к теме.</p>' + (Object.keys(r.theme.kept).length ? themeHtml(r.theme) : '');
+      ? '<p>Цвета, совпадающие с цветами темы, будут привязаны к ней.</p>'
+        + themeHtml(r.theme) + '<p class="mu">Предыдущая версия сохранится в папке .backup.</p>'
+      : '<p>Цвета уже привязаны к теме.</p>' + (Object.keys(r.theme.kept).length ? themeHtml(r.theme) : '');
     ok.disabled = !r.changed;
     ok.focus();
   } catch (e) {

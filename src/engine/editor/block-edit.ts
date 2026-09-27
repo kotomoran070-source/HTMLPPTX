@@ -72,7 +72,7 @@ export class BlockEditor {
 <div class="edblock" id="ed-block" role="toolbar" aria-label="Блок">
   <span class="edblock-name"></span>
   <button type="button" data-b="parent" title="Выделить внешний блок">${icon('up')}<span>Выше</span></button>
-  <button type="button" data-b="detach" title="Сделать свободным: двигать и масштабировать мышью">${icon('move')}<span>Свободно</span></button>
+  <button type="button" data-b="detach" title="Сделать свободным">${icon('move')}<span>Свободно</span></button>
   <button type="button" data-b="dup" title="Дублировать (Ctrl+D)">${icon('copy')}</button>
   <button type="button" data-b="front" title="На передний план">${icon('front')}</button>
   <button type="button" data-b="back" title="На задний план">${icon('back')}</button>
@@ -367,7 +367,7 @@ export class BlockEditor {
     }, { rebuild: true });
     if (ok) {
       this.selectFree(i, newIndex);
-      this.host.toast('Блок стал свободным: тяните, чтобы переместить, за углы — чтобы изменить размер', 4000);
+      this.host.toast('Блок стал свободным', 4000);
     }
   }
 

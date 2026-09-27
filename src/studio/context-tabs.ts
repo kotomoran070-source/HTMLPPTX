@@ -91,7 +91,7 @@ export function contextPanelsHtml(): string {
   ${group('Стили', `<div class="st-gallery">${SHAPE_STYLES.map(styleTile).join('')}</div>`)}
   ${group('Форма', `<div class="st-rgrid">${KINDS.map(([k, ic, l]) => btn(`shape.kind.${k}`, ic, l, { ico: true })).join('')}</div>`)}
   ${group('Цвет', btn('shape.fill', 'fill', 'Заливка', { big: true, menu: true, swatch: 'fill' }) + btn('shape.stroke', 'outline', 'Контур', { big: true, menu: true, swatch: 'stroke', title: 'Цвет, толщина и штрих контура' }))}
-  ${group('Текст', btn('shape.text', 'text-box', 'Надпись', { big: true, title: 'Добавить или править текст внутри фигуры' })
+  ${group('Текст', btn('shape.text', 'text-box', 'Надпись', { big: true, title: 'Текст внутри фигуры' })
     + stack(
       row(btn('shape.font.up', 'text-up', 'Крупнее', { ico: true }), btn('shape.font.down', 'text-down', 'Мельче', { ico: true }), btn('shape.bold', 'bold', 'Жирный', { ico: true })),
       row(btn('shape.align.left', 'align-left', 'По левому краю', { ico: true }), btn('shape.align.center', 'align-center', 'По центру', { ico: true }), btn('shape.align.right', 'align-right', 'По правому краю', { ico: true })),
@@ -102,14 +102,14 @@ export function contextPanelsHtml(): string {
 </div>
 <div class="st-rpanel" data-panel="table" hidden>
   ${group('Стиль таблицы', `<div class="st-gallery t">${VARIANTS.map(tableTile).join('')}</div>`)}
-  ${group('Показать', stack(btn('table.head', '', 'Строка заголовка', { chk: true }), btn('table.labels', '', 'Первый столбец', { chk: true, title: 'Первый столбец жирным — подписи строк' }))
-    + stack(btn('table.total', '', 'Итоговая строка', { chk: true, title: 'Последняя строка — итог' }), btn('table.highlight', '', 'Выделить строку', { chk: true, title: 'Выделить строку, в которой курсор' })))}
+  ${group('Показать', stack(btn('table.head', '', 'Строка заголовка', { chk: true }), btn('table.labels', '', 'Первый столбец', { chk: true, title: 'Выделить первый столбец' }))
+    + stack(btn('table.total', '', 'Итоговая строка', { chk: true, title: 'Последняя строка как итог' }), btn('table.highlight', '', 'Выделить строку', { chk: true, title: 'Выделить текущую строку' })))}
   ${group('Строки и столбцы', stack(btn('table.row.above', 'row-above', 'Вставить сверху'), btn('table.row.below', 'row-below', 'Вставить снизу'))
     + stack(btn('table.col.left', 'col-left', 'Вставить слева'), btn('table.col.right', 'col-right', 'Вставить справа'))
     + btn('table.del', 'table-del', 'Удалить', { big: true, menu: true, title: 'Удалить строку, столбец или таблицу' }))}
   ${group('Ячейки', stack(
     row(btn('table.align.left', 'align-left', 'Столбец — по левому краю', { ico: true }), btn('table.align.center', 'align-center', 'Столбец — по центру', { ico: true }), btn('table.align.right', 'align-right', 'Столбец — по правому краю', { ico: true })),
-    btn('table.cols.equal', 'eq-cols', 'Выровнять ширину', { title: 'Сделать столбцы одинаковой ширины. Ширину столбца можно тянуть за границу прямо на слайде' }),
+    btn('table.cols.equal', 'eq-cols', 'Выровнять ширину', { title: 'Одинаковая ширина столбцов' }),
   ) + stack(btn('table.density', 'density', 'Плотность', { menu: true, title: 'Отступы в ячейках' }), row(btn('table.size.up', 'text-up', 'Крупнее', { ico: true }), btn('table.size.down', 'text-down', 'Мельче', { ico: true }))))}
 </div>`;
 }

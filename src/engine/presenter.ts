@@ -56,13 +56,13 @@ export function startPresenter(deck: Deck, deckKey: string): void {
         <button type="button" class="pd-btn" id="bk" aria-pressed="false" title="Чёрный экран у зрителей (B)" aria-label="Чёрный экран">${icon('screen-off')}</button>
       </div>
     </section>
-    <div class="pres-split v" id="sv" role="separator" aria-orientation="vertical" aria-label="Размер текущего слайда" tabindex="0" title="Потяните, чтобы изменить размер. Двойной клик — как было"></div>
+    <div class="pres-split v" id="sv" role="separator" aria-orientation="vertical" aria-label="Размер текущего слайда" tabindex="0" title="Потяните, чтобы изменить размер. Двойной щелчок — сбросить"></div>
     <aside class="pres-side" id="pside">
       <section class="pres-nextbox">
         <div class="pres-label">Далее</div>
         <div class="pres-next" id="next"></div>
       </section>
-      <div class="pres-split h" id="sh" role="separator" aria-orientation="horizontal" aria-label="Размер следующего слайда и заметок" tabindex="0" title="Потяните, чтобы изменить размер. Двойной клик — как было"></div>
+      <div class="pres-split h" id="sh" role="separator" aria-orientation="horizontal" aria-label="Размер следующего слайда и заметок" tabindex="0" title="Потяните, чтобы изменить размер. Двойной щелчок — сбросить"></div>
       <section class="pres-notesbox">
         <div class="pres-label pres-notes-head">Заметки
           <span><button class="ibtn small" id="fm" type="button" aria-label="Мельче">A−</button><button class="ibtn small" id="fp" type="button" aria-label="Крупнее">A+</button></span>

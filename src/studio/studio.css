@@ -484,3 +484,8 @@ body.st-previewing .st-preview-shield { display: block; }
 .st-tree-empty { margin: 4px 8px 10px; font-size: 12px; color: var(--mu); }
 .st-code-ed .cm-st-hl { background: color-mix(in srgb, var(--ac) 10%, transparent); box-shadow: inset 2px 0 0 var(--ac); }
 .st-paper .st-code-peek { outline: 2px dashed color-mix(in srgb, var(--ac) 75%, transparent) !important; outline-offset: 3px; }
+
+/* Формат по образцу: курсор-кисть над слайдом */
+body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23fff' stroke='%23111827' stroke-width='1.6' stroke-linejoin='round'%3E%3Cpath d='M14.5 3.5 20.5 9.5 12 18l-6-6z'/%3E%3Cpath d='m9 15-3.2 3.2a2 2 0 0 1-2.8 0 2 2 0 0 1 0-2.8L6.2 12.2'/%3E%3C/svg%3E") 3 21, copy !important;
+}

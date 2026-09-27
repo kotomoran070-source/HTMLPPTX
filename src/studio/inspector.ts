@@ -239,7 +239,7 @@ export class Inspector {
     const deck = this.host.deck();
     const content = (deck.slides[this.host.index()]?.template ?? 'content') === 'content';
     const inGroup = !sel.free && sel.block.at(-2) === 'items' && (getAt(deck, sel.block.slice(0, -2)) as Block | undefined)?.type === 'group';
-    const kind = sel.free ? 'Свободный объект' : inGroup ? 'Объект группы · Esc — вся группа' : 'Блок в раскладке';
+    const kind = sel.free ? 'Свободный объект' : inGroup ? 'Объект группы' : 'Блок в раскладке';
     const head = `<header class="st-p-head"><span class="st-p-kind">${kind}</span><h2>${blockName(sel.type)}</h2></header>`;
     const schema = BLOCKS[sel.type];
     const ribbon = ON_RIBBON[sel.type];
@@ -248,7 +248,7 @@ export class Inspector {
     const all = (schema?.fields ?? []).filter((f) => !ribbon?.keys.includes(f.k));
     const own = all.filter((f) => !FRAME.includes(f.k));
     const frame = all.filter((f) => FRAME.includes(f.k));
-    const ribbonNote = ribbon ? `<button type="button" class="st-p-hint" data-cmd="tab.${ribbon.tab}">${icon('layers')}<span>Цвета и вид — на вкладке «${ribbon.name}» ленты</span></button>` : '';
+    const ribbonNote = ribbon ? `<button type="button" class="st-p-hint" data-cmd="tab.${ribbon.tab}">${icon('layers')}<span>Оформление — на вкладке «${ribbon.name}»</span></button>` : '';
     const contentSec = own.length || schema?.about || ribbon
       ? `<section class="st-p-sec"><h3>Содержимое</h3>${ribbonNote}${schema?.about ? `<p class="st-p-note">${esc(schema.about)}</p>` : ''}${formHtml(own, deck, sel.block)}</section>`
         + (frame.length ? sec('frame', 'Кадр картинки', formHtml(frame, deck, sel.block)) : '')
@@ -259,11 +259,11 @@ export class Inspector {
       `<button type="button" class="st-pbtn${cls ? ` ${cls}` : ''}" data-cmd="${c}" title="${esc(l)}" aria-label="${esc(l)}">${icon(ic)}</button>`).join('')}</div></section>`;
     if (!sel.free) {
       if (inGroup) {
-        return head + contentSec + sec('layout', 'В группе', `<p class="st-p-note">Объект двигается мышью внутри группы. Чтобы менять размер или задать свою анимацию — выньте его из группы.</p>
-<div class="st-p-col">${cmdBtn('obj.free', 'move', 'Вынуть из группы', 'primary')}${cmdBtn('obj.parent', 'up', 'Выделить группу')}</div>`)
+        return head + contentSec + sec('layout', 'В группе', `<p class="st-p-note">Объект перемещается внутри группы. Чтобы изменить размер, извлеките его из группы.</p>
+<div class="st-p-col">${cmdBtn('obj.free', 'move', 'Извлечь из группы', 'primary')}${cmdBtn('obj.parent', 'up', 'Выделить группу')}</div>`)
           + sec('more', 'Дополнительно', formHtml([STYLE_FIELD], deck, sel.block)) + actions([['obj.del', 'trash', 'Удалить из группы', 'danger']]);
       }
-      return head + contentSec + sec('layout', 'Раскладка', `<p class="st-p-note">Блок стоит в раскладке слайда. Потяните его мышью или нажмите «Сделать свободным», чтобы двигать, менять размер и задать анимацию.</p>
+      return head + contentSec + sec('layout', 'Раскладка', `<p class="st-p-note">Блок закреплён в макете слайда. Сделайте его свободным, чтобы перемещать и менять размер.</p>
 <div class="st-p-col">${cmdBtn('obj.free', 'move', 'Сделать свободным', 'primary')}${sel.hasParent ? cmdBtn('obj.parent', 'up', 'Выделить внешний блок') : ''}</div>`)
         + extra + actions([['obj.ungroup', 'ungroup', 'Разгруппировать'], ['obj.del', 'trash', 'Удалить блок', 'danger']]);
     }
@@ -316,7 +316,7 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
     if (list.length < 2 && !list.some((x) => x.kind === 'block')) return '';
     return sec('parts', 'Состав', `<div class="st-parts">${list.map((x, k) =>
       `<button type="button" class="st-part ${x.kind}" data-part="${k}" title="${x.kind === 'block' ? 'Выделить' : 'Править текст'}"><b>${esc(x.label)}</b>${x.snippet ? `<span>${esc(x.snippet)}</span>` : ''}<i aria-hidden="true">${x.kind === 'block' ? '›' : '✎'}</i></button>`).join('')}</div>
-<p class="st-p-note">Esc — к внешнему блоку. Путь к выделенному — над слайдом.</p>`, ` <span class="st-p-count">${list.length}</span>`);
+<p class="st-p-note">Esc — выделить внешний блок.</p>`, ` <span class="st-p-count">${list.length}</span>`);
   }
 
   private multiHtml(n: number): string {
@@ -327,12 +327,12 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
   <button type="button" data-cmd="dist.h" title="Равные промежутки по ширине" aria-label="Распределить по ширине">${icon('dist-h')}</button>
   <button type="button" data-cmd="dist.v" title="Равные промежутки по высоте" aria-label="Распределить по высоте">${icon('dist-v')}</button>
 </div>
-<p class="st-p-note">Распределение — от трёх объектов. Тяните любой из выделенных, чтобы переместить всех; стрелки сдвигают на 1 px.</p>
+<p class="st-p-note">Распределение доступно от трёх объектов.</p>
 </section>
 <section class="st-p-sec"><h3>Анимация появления</h3>
 <label class="st-p-field"><span>Эффект для всех</span><select data-f="genter"><option value="" disabled hidden>Разные</option>${EFFECTS.map(([v, l]) => `<option value="${v || 'none'}">${l}</option>`).join('')}</select></label>
 ${cmdBtn('anim.sequence', 'sparkle', 'Появляться по очереди')}
-<p class="st-p-note">По очереди — сверху вниз и слева направо, шаг ${STEP / 1000} с.</p>
+<p class="st-p-note">Порядок: сверху вниз, слева направо, интервал ${String(STEP / 1000).replace('.', ',')} с.</p>
 </section>
 <section class="st-p-sec st-p-end"><div class="st-p-row">${cmdBtn('obj.dup', 'copy', 'Дублировать')}${cmdBtn('obj.del', 'trash', 'Удалить', 'danger')}</div></section>`;
   }
@@ -350,7 +350,7 @@ ${cmdBtn('anim.sequence', 'sparkle', 'Появляться по очереди')
 
   private animHtml(): string {
     const list = this.animOrder();
-    if (!list.length) return '<p class="st-p-note">Свободных объектов нет. Добавьте блок на вкладке «Вставка» или сделайте свободным блок раскладки.</p>';
+    if (!list.length) return '<p class="st-p-note">На слайде нет свободных объектов.</p>';
     const animated = list.filter((o) => o.on);
     return `<div class="st-anim">${list.map((o, pos) => {
       const snip = objectLabel(o.b);

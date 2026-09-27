@@ -171,7 +171,7 @@ export class Editor {
       const i = (e as CustomEvent<{ index: number }>).detail?.index;
       if (!this.active || !Number.isInteger(i) || !this.host.deck.slides[i]) return;
       if (this.commit((d) => { delete d.slides[i].live; }, { rebuild: true })) {
-        this.toast('Слайд стал редактируемым: скрипты исходного файла на нём больше не работают. Вернуть: Ctrl+Z', 4000);
+        this.toast('Слайд преобразован для правки. Отменить: Ctrl+Z', 4000);
       }
     });
     addEventListener('beforeunload', (e) => {
@@ -217,13 +217,13 @@ export class Editor {
     <button class="btn ghost small" id="ed-accent-reset" type="button" title="Вернуть стандартный цвет">Сбросить</button>
     <button class="btn ghost small" id="ed-notes" type="button" aria-pressed="false">${icon('notes')}<span>Заметки</span></button>
     <span class="edmenu">
-      <button class="btn ghost small" id="ed-insert" type="button" aria-haspopup="true" aria-expanded="false" title="Добавить на слайд свободный текст или картинку">${icon('plus')}<span>Вставить</span></button>
+      <button class="btn ghost small" id="ed-insert" type="button" aria-haspopup="true" aria-expanded="false" title="Добавить текст или изображение">${icon('plus')}<span>Вставить</span></button>
       <span class="edmenu-list" id="ed-insert-menu" role="menu">
         <button type="button" role="menuitem" data-add="text">${icon('text')} Текст</button>
         <button type="button" role="menuitem" data-add="image">${icon('image')} Картинку</button>
       </span>
     </span>
-    <button class="btn ghost small" id="ed-add" type="button" title="Слайды: добавить, переставить, удалить">${icon('grid')}<span>Слайды</span></button>
+    <button class="btn ghost small" id="ed-add" type="button" title="Слайды">${icon('grid')}<span>Слайды</span></button>
   </div>
   <div class="edbar-r">
     <span class="edstatus" id="ed-status" role="status" aria-live="polite"></span>
@@ -1013,8 +1013,8 @@ export class Editor {
   }
 
   private async replaceImage(path: Path, file: File): Promise<void> {
-    if (!/^image\//.test(file.type)) return this.toast('Это не картинка. Подойдут png, jpg, gif, webp, avif, svg.', 3500, true);
-    if (file.size > MAX_FILE) return this.toast('Файл больше 25 МБ — уменьшите его и попробуйте снова', 4000, true);
+    if (!/^image\//.test(file.type)) return this.toast('Формат не поддерживается. Подойдут PNG, JPG, GIF, WebP, AVIF, SVG.', 3500, true);
+    if (file.size > MAX_FILE) return this.toast('Файл больше 25 МБ', 4000, true);
     this.toast('Загрузка картинки…', 0);
     try {
       const { blob, name, resized } = await prepareImage(file);
@@ -1038,8 +1038,8 @@ export class Editor {
    * at — точка на слайде, куда поставить центр; без неё — центр слайда.
    */
   async insertImageFile(file: File, at?: { x: number; y: number }): Promise<void> {
-    if (!/^image\//.test(file.type)) return this.toast('Это не картинка. Подойдут png, jpg, gif, webp, avif, svg.', 3500, true);
-    if (file.size > MAX_FILE) return this.toast('Файл больше 25 МБ — уменьшите его и попробуйте снова', 4000, true);
+    if (!/^image\//.test(file.type)) return this.toast('Формат не поддерживается. Подойдут PNG, JPG, GIF, WebP, AVIF, SVG.', 3500, true);
+    if (file.size > MAX_FILE) return this.toast('Файл больше 25 МБ', 4000, true);
     const i = this.host.index();
     this.toast('Загрузка картинки…', 0);
     try {

@@ -352,7 +352,7 @@ export class TextEditor {
     const s = this.s;
     if (!s) return;
     if (!s.owner) {
-      this.host.toast('У этого текста оформление не настраивается', 2500);
+      this.host.toast('Для этого текста оформление недоступно', 2500);
       return;
     }
     Object.assign(s.styles, patch);

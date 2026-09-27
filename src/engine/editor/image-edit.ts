@@ -45,15 +45,15 @@ export class ImageEditor {
   constructor(private host: ImageHost) {
     document.body.insertAdjacentHTML('beforeend', `
 <div class="edimg" id="ed-img" role="toolbar" aria-label="Картинка">
-  <button type="button" data-i="replace" title="Заменить картинку (или перетащите файл)">${icon('image')}<span>Заменить</span></button>
+  <button type="button" data-i="replace" title="Заменить изображение">${icon('image')}<span>Заменить</span></button>
   <i class="edsep" data-g="photo"></i>
   <span class="edseg" data-g="photo" role="group" aria-label="Как показывать">
     <button type="button" data-i="contain" title="Вписать целиком, без обрезки">${icon('contain')}<span>Целиком</span></button>
-    <button type="button" data-i="cover" title="Заполнить блок, лишнее обрезается">${icon('cover')}<span>Заполнить</span></button>
+    <button type="button" data-i="cover" title="Заполнить рамку">${icon('cover')}<span>Заполнить</span></button>
   </span>
-  <label class="edzoom" data-g="photo" title="Масштаб: меньше 100% — картинка уменьшается внутри рамки">${icon('search')}<input type="range" data-i="zoom" min="30" max="300" step="5" aria-label="Масштаб"><output></output></label>
+  <label class="edzoom" data-g="photo" title="Масштаб">${icon('search')}<input type="range" data-i="zoom" min="30" max="300" step="5" aria-label="Масштаб"><output></output></label>
   <span class="edtip" data-g="pan">${icon('move')} тяните картинку, чтобы сдвинуть</span>
-  <button type="button" data-i="reset" data-g="framed" title="Вернуть кадр по центру и без увеличения">Сбросить кадр</button>
+  <button type="button" data-i="reset" data-g="framed" title="Сбросить кадр">Сбросить кадр</button>
   <i class="edsep"></i>
   <button type="button" data-i="remove" class="danger" title="Убрать картинку (Delete)" aria-label="Убрать картинку">${icon('close')}</button>
 </div>

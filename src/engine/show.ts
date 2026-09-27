@@ -62,7 +62,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
 </nav>
 <div class="ovbd" id="ovbd" role="dialog" aria-modal="true" aria-label="Все слайды">
   <div class="ovpanel">
-    <div class="ovhead"><b>Все слайды</b>${import.meta.env.DEV && devServer ? `<span class="ovtools-dev"><a class="btn ghost small" href="./?all" title="Страница выбора презентации: импорт, новая, удаление">Все презентации</a>${deck.slides.some((x) => x.template === 'canvas') ? `<button class="btn ghost small" id="ovtheme" type="button" title="Цвета импортированной вёрстки → цвета темы: заработают тёмная тема и смена акцента">Цвета → тема…</button>` : ''}<button class="btn ghost small" id="ovimp" type="button" title="Импорт HTML: Claude Design, свой HTML по правилам или правки из собранного файла (можно перетащить файл на страницу)">Импорт HTML…</button></span>` : ''}<button class="ibtn small" id="ovx" type="button" aria-label="Закрыть">${icon('close')}</button></div>
+    <div class="ovhead"><b>Все слайды</b>${import.meta.env.DEV && devServer ? `<span class="ovtools-dev"><a class="btn ghost small" href="./?all" title="Все презентации">Все презентации</a>${deck.slides.some((x) => x.template === 'canvas') ? `<button class="btn ghost small" id="ovtheme" type="button" title="Привязать цвета к теме">Цвета → тема…</button>` : ''}<button class="btn ghost small" id="ovimp" type="button" title="Импорт HTML-файла">Импорт HTML…</button></span>` : ''}<button class="ibtn small" id="ovx" type="button" aria-label="Закрыть">${icon('close')}</button></div>
     <p class="mu ovedit-hint">Перетащите слайд, чтобы поменять порядок. Кнопки на миниатюре: дублировать и удалить. С клавиатуры: Alt + ← → переставить, Delete — удалить.</p>
     <div class="ovgrid" id="ovgrid"></div>
     <p class="mu ovkeys">← → пробел — листать · Home/End — в начало/конец · номер + Enter — перейти · O — обзор · P — докладчик · F — весь экран · T — тема · B — чёрный экран${editable ? ' · E — правка' : ''}</p>
@@ -314,22 +314,20 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
           await fullscreenOn(plan.audience);
         } catch {
           // После вопроса о разрешении браузер уже не считает это нажатием пользователя: нужен ещё один клик
-          if (asked) return showNote('Разрешение получено. Показ откроется на втором экране, а окно докладчика — здесь.', 'Начать показ', () => void openPresenter());
-          return showNote('Не удалось вывести показ на второй экран. Перетащите это окно на проектор и нажмите F.');
+          if (asked) return showNote('Разрешение получено.', 'Начать показ', () => void openPresenter());
+          return showNote('Не удалось открыть показ на втором экране. Перенесите окно на проектор и нажмите F.');
         }
         const w = window.open(url, name, popupOn(plan.here));
         if (w) sync.addPeer(w);
-        else showNote('Браузер не дал открыть окно докладчика: разрешите всплывающие окна для этой страницы и нажмите P ещё раз.');
+        else showNote('Браузер заблокировал окно докладчика. Разрешите всплывающие окна и нажмите P.');
         return;
       }
       const w = window.open(url, name, 'popup,width=1280,height=800');
       if (w) sync.addPeer(w);
       if (plan.kind === 'single') {
-        showNote('Второй экран не найден. Если проектор подключён, включите режим «Расширить», а не «Повторить» (Windows: Win+P; macOS: Настройки → Мониторы). Тогда показ сам откроется на проекторе, а окно докладчика останется у вас.');
+        showNote('Второй экран не найден. Включите режим «Расширить» (Win+P), чтобы показ открылся на проекторе.');
       } else {
-        showNote(plan.denied
-          ? 'Без разрешения «Управление окнами» окна не разложить по экранам. Перетащите это окно на проектор и нажмите F — окно докладчика останется у вас.'
-          : 'Перетащите это окно на проектор и нажмите F — окно докладчика останется у вас. В Chrome и Edge окна раскладываются по экранам сами.');
+        showNote('Перенесите окно показа на проектор и нажмите F.');
       }
     } finally {
       opening = false;
@@ -365,7 +363,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     const u = new URL(location.href);
     u.searchParams.delete('present');
     history.replaceState(history.state, '', u);
-    showNote('Показ готов. Он откроется во весь экран на проекторе, а окно докладчика — здесь.', 'Начать показ', () => void openPresenter());
+    showNote('Показ откроется на втором экране, заметки — на этом.', 'Начать показ', () => void openPresenter());
   }
 
   // --- кнопки ---

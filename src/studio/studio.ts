@@ -10,6 +10,7 @@ import { onThemeChange, toggleTheme } from '../engine/theme';
 import type { Block, Deck } from '../types';
 import { CLIP_TYPE, putClip, takeClip, type Clip } from './clipboard';
 import type { CodeView } from './code';
+import { applyFormat, hasFormat, takeFormat, type Format } from './format-painter';
 import { tableGrips } from './table-grips';
 import { contextCommands, contextPanelsHtml, contextTab, contextTabsHtml, syncSwatches, type ContextTab } from './context-tabs';
 import { Inspector } from './inspector';
@@ -85,45 +86,45 @@ export function startStudio(deck: Deck, deckKey: string): void {
   <div class="st-ribbon" id="st-ribbon" data-ed-keep>
     <div class="st-rpanel" data-panel="home">
       ${group('Слайды', rb('slide.new', 'slide-add', 'Новый слайд', { big: true, key: 'Ctrl+M', menu: true }) + `<div class="st-rstack">${rb('slide.dup', 'copy', 'Дублировать')}${rb('slide.del', 'trash', 'Удалить')}</div>`)}
-      ${group('Правка', `<div class="st-rstack">${rb('undo', 'undo', 'Отменить', { key: 'Ctrl+Z' })}${rb('redo', 'redo', 'Повторить', { key: 'Ctrl+Y' })}</div>`)}
+      ${group('Правка', `<div class="st-rstack">${rb('undo', 'undo', 'Отменить', { key: 'Ctrl+Z' })}${rb('redo', 'redo', 'Повторить', { key: 'Ctrl+Y' })}${rb('format.painter', 'brush', 'Формат по образцу', { title: 'Перенести оформление на другой объект. Двойной щелчок — на несколько объектов' })}</div>`)}
       ${group('Текст', '<div id="st-textdock" class="st-textdock"></div>')}
-      ${group('Вставка', rb('insert.blocks', 'grid', 'Блоки', { big: true, menu: true, title: 'Библиотека блоков: карточки, графики, схемы' }) + `<div class="st-rstack">${rb('insert.text', 'text', 'Надпись')}${rb('insert.image', 'image', 'Картинка')}</div>`)}
-      ${group('Упорядочить', `<div class="st-rstack">${rb('obj.front', 'front', 'Вперёд')}${rb('obj.back', 'back', 'Назад')}</div><div class="st-rstack">${rb('obj.group', 'group', 'Сгруппировать', { key: 'Ctrl+G', title: 'Объединить выделенные объекты: двигаются и растягиваются вместе' })}${rb('obj.ungroup', 'ungroup', 'Разгруппировать', { key: 'Ctrl+Shift+G', title: 'Разобрать группу или блок на отдельные объекты' })}${rb('obj.free', 'move', 'Сделать свободным', { title: 'Вынуть блок из раскладки: двигать и менять размер мышью' })}</div>`)}
-      ${group('Выровнять', `<div class="st-rgrid">${rb('align.left', 'obj-left', 'Слева')}${rb('align.center', 'obj-center', 'По центру')}${rb('align.right', 'obj-right', 'Справа')}${rb('align.top', 'obj-top', 'Сверху')}${rb('align.middle', 'obj-middle', 'Посередине')}${rb('align.bottom', 'obj-bottom', 'Снизу')}</div><div class="st-rstack">${rb('dist.h', 'dist-h', 'По ширине', { title: 'Распределить по ширине: равные промежутки' })}${rb('dist.v', 'dist-v', 'По высоте', { title: 'Распределить по высоте: равные промежутки' })}</div>`)}
+      ${group('Вставка', rb('insert.blocks', 'grid', 'Блоки', { big: true, menu: true, title: 'Готовые блоки: карточки, графики, схемы' }) + `<div class="st-rstack">${rb('insert.text', 'text', 'Надпись')}${rb('insert.image', 'image', 'Картинка')}</div>`)}
+      ${group('Упорядочить', `<div class="st-rstack">${rb('obj.front', 'front', 'Вперёд')}${rb('obj.back', 'back', 'Назад')}</div><div class="st-rstack">${rb('obj.group', 'group', 'Сгруппировать', { key: 'Ctrl+G', title: 'Объединить выделенные объекты в группу' })}${rb('obj.ungroup', 'ungroup', 'Разгруппировать', { key: 'Ctrl+Shift+G', title: 'Разделить на отдельные объекты' })}${rb('obj.free', 'move', 'Сделать свободным', { title: 'Свободно перемещать и менять размер' })}</div>`)}
+      ${group('Выровнять', `<div class="st-rgrid">${rb('align.left', 'obj-left', 'Слева')}${rb('align.center', 'obj-center', 'По центру')}${rb('align.right', 'obj-right', 'Справа')}${rb('align.top', 'obj-top', 'Сверху')}${rb('align.middle', 'obj-middle', 'Посередине')}${rb('align.bottom', 'obj-bottom', 'Снизу')}</div><div class="st-rstack">${rb('dist.h', 'dist-h', 'По ширине', { title: 'Равные промежутки по горизонтали' })}${rb('dist.v', 'dist-v', 'По высоте', { title: 'Равные промежутки по вертикали' })}</div>`)}
     </div>
     <div class="st-rpanel" data-panel="insert" hidden>
       ${group('Новый слайд', SLIDE_PRESETS.map((p, k) => rb(`slide.preset.${k}`, ['text', 'grid', 'image', 'frame'][k] ?? 'slide-add', p.name, { big: true })).join(''))}
-      ${group('Объекты', rb('insert.blocks', 'grid', 'Блоки', { big: true, menu: true, title: 'Библиотека блоков: карточки, графики, схемы' }) + rb('insert.text', 'text', 'Текст', { big: true }) + rb('insert.image', 'image', 'Картинка', { big: true }))}
+      ${group('Объекты', rb('insert.blocks', 'grid', 'Блоки', { big: true, menu: true, title: 'Готовые блоки: карточки, графики, схемы' }) + rb('insert.text', 'text', 'Текст', { big: true }) + rb('insert.image', 'image', 'Картинка', { big: true }))}
     </div>
     <div class="st-rpanel" data-panel="design" hidden>
       ${group('Цвет', `<label class="st-accent" title="Акцентный цвет презентации"><input type="color" id="st-accent" aria-label="Акцентный цвет"><span>Акцент</span></label>${rb('design.accent-reset', 'reset', 'Стандартный')}`)}
       ${group('Тема', rb('design.theme', 'moon', 'Светлая / тёмная', { big: true, key: 'T' }))}
     </div>
     <div class="st-rpanel" data-panel="show" hidden>
-      ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'next', 'С текущего слайда', { big: true, key: 'Shift+F5' }) + rb('show.presenter', 'presenter', 'Режим докладчика', { big: true, key: 'Alt+F5', title: 'Показ на проекторе, заметки и следующий слайд — у вас на экране' }))}
-      ${group('Анимация', rb('show.preview', 'sparkle', 'Просмотр слайда', { big: true, title: 'Проиграть появление объектов на текущем слайде' }))}
+      ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'next', 'С текущего слайда', { big: true, key: 'Shift+F5' }) + rb('show.presenter', 'presenter', 'Режим докладчика', { big: true, key: 'Alt+F5', title: 'Показ на втором экране, заметки — на вашем' }))}
+      ${group('Анимация', rb('show.preview', 'sparkle', 'Просмотр слайда', { big: true, title: 'Воспроизвести анимацию слайда' }))}
     </div>
     <div class="st-rpanel" data-panel="view" hidden>
-      ${group('Панели', rb('view.code', 'terminal', 'Код слайда', { big: true, key: 'Ctrl+`', title: 'Код слайда (YAML) и стили (CSS) рядом со слайдом' }) + rb('view.notes', 'notes', 'Заметки', { big: true }))}
+      ${group('Панели', rb('view.code', 'terminal', 'Код слайда', { big: true, key: 'Ctrl+`', title: 'Код слайда (YAML) и стили (CSS)' }) + rb('view.notes', 'notes', 'Заметки', { big: true }))}
       ${group('Масштаб', rb('view.fit', 'fullscreen', 'Вписать', { big: true }) + `<div class="st-rstack">${rb('view.zoom-in', 'plus', 'Крупнее')}${rb('view.zoom-out', 'minus', 'Мельче')}</div>`)}
     </div>
     ${contextPanelsHtml()}
   </div>
   <div class="st-body" id="st-body">
     <aside class="st-slides" id="st-slides" aria-label="Слайды"></aside>
-    <div class="st-split v" id="st-sl" role="separator" aria-orientation="vertical" aria-label="Ширина ленты слайдов" tabindex="0" title="Потяните, чтобы изменить ширину. Двойной клик — как было"></div>
-    <div class="st-split v" id="st-sr" role="separator" aria-orientation="vertical" aria-label="Ширина панели свойств" tabindex="0" title="Потяните, чтобы изменить ширину. Двойной клик — как было"></div>
+    <div class="st-split v" id="st-sl" role="separator" aria-orientation="vertical" aria-label="Ширина ленты слайдов" tabindex="0" title="Потяните, чтобы изменить ширину. Двойной щелчок — сбросить"></div>
+    <div class="st-split v" id="st-sr" role="separator" aria-orientation="vertical" aria-label="Ширина панели свойств" tabindex="0" title="Потяните, чтобы изменить ширину. Двойной щелчок — сбросить"></div>
     <main class="st-main">
       <div class="st-work">
         <section class="st-code" id="st-code" data-ed-keep hidden aria-label="Код слайда"></section>
-        <div class="st-split v st-sc" id="st-sc" role="separator" aria-orientation="vertical" aria-label="Ширина кода" tabindex="0" title="Потяните, чтобы изменить ширину. Двойной клик — как было" hidden></div>
+        <div class="st-split v st-sc" id="st-sc" role="separator" aria-orientation="vertical" aria-label="Ширина кода" tabindex="0" title="Потяните, чтобы изменить ширину. Двойной щелчок — сбросить" hidden></div>
         <div class="st-view">
           <nav class="st-crumbs" id="st-crumbs" aria-label="Где находится выделенное" data-ed-keep></nav>
           <div class="st-canvas" id="st-canvas"><div class="st-paper" id="st-paper"></div></div>
         </div>
       </div>
       <section class="st-notes" id="st-notes" data-ed-keep>
-        <div class="st-split h" id="st-sn" role="separator" aria-orientation="horizontal" aria-label="Высота заметок" tabindex="0" title="Потяните, чтобы изменить высоту. Двойной клик — как было"></div>
+        <div class="st-split h" id="st-sn" role="separator" aria-orientation="horizontal" aria-label="Высота заметок" tabindex="0" title="Потяните, чтобы изменить высоту. Двойной щелчок — сбросить"></div>
         <label for="st-notes-text" id="st-notes-label">Заметки докладчика</label>
         <textarea id="st-notes-text" spellcheck="true" placeholder="Что сказать на этом слайде. Видно только в окне докладчика."></textarea>
       </section>
@@ -375,11 +376,81 @@ export function startStudio(deck: Deck, deckKey: string): void {
     window.open(u.toString(), `htmlpptx-show-${deckKey}`);
   }
 
+  // ---------------- формат по образцу ----------------
+  let painter: { f: Format; sticky: boolean } | null = null;
+  let formatClip: Format | null = null;
+  const singleSel = () => !!ed.selection && ed.selection.group.length <= 1;
+  const selectedBlock = () => (ed.selection ? (getAt(deck, ed.selection.block) as Block | undefined) : undefined);
+  function sourceFormat(): Format | null {
+    const b = selectedBlock();
+    if (!b) return null;
+    const f = takeFormat(b);
+    if (!hasFormat(f)) {
+      ed.toast('У объекта нет оформления для переноса', 2000);
+      return null;
+    }
+    return f;
+  }
+  function startPainter(sticky: boolean): void {
+    const f = painter?.f ?? sourceFormat();
+    if (!f) return;
+    painter = { f, sticky };
+    document.body.classList.add('st-painting');
+    ed.toast(sticky ? 'Щёлкайте объекты, чтобы применить оформление. Esc — готово' : 'Щёлкните объект, чтобы применить оформление', 2500);
+    syncUi();
+  }
+  function stopPainter(): void {
+    painter = null;
+    document.body.classList.remove('st-painting');
+    syncUi();
+  }
+  /** Применить оформление к блокам; после — выделить первый из них. */
+  function paint(f: Format, paths: Path[]): void {
+    let n = 0;
+    ed.commit((d) => paths.forEach((p) => { if (applyFormat(d, p, f)) n++; }), { rebuild: true });
+    if (!n) ed.toast('К этому объекту оформление не подходит', 2000);
+    const key = JSON.stringify(paths[0]);
+    const el = [...view.stage.querySelectorAll<HTMLElement>('.slide.on [data-block]')].find((x) => x.getAttribute('data-block') === key);
+    if (el && paths.length === 1) ed.selectBlock(el.parentElement?.hasAttribute('data-free') ? el.parentElement : el);
+  }
+  function copyFormat(): void {
+    const f = sourceFormat();
+    if (!f) return;
+    formatClip = f;
+    ed.toast('Оформление скопировано', 1400);
+  }
+  function pasteFormat(): void {
+    const sel = ed.selection;
+    if (!formatClip || !sel) return;
+    paint(formatClip, sel.group.length > 1 ? sel.group : [sel.block]);
+  }
+  // Кисть включена: щелчок по объекту переносит на него оформление, мимо объекта — выключает
+  let swallowClick = false;
+  view.stage.addEventListener('pointerdown', (e) => {
+    if (!painter || e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    swallowClick = true;
+    const el = (e.target as Element).closest<HTMLElement>('.slide.on [data-block]');
+    const path = el ? JSON.parse(el.getAttribute('data-block')!) as Path : null;
+    if (!path) return stopPainter();
+    const { f, sticky } = painter;
+    paint(f, [path]);
+    if (!sticky) stopPainter();
+  }, true);
+  view.stage.addEventListener('click', (e) => {
+    if (!swallowClick) return;
+    swallowClick = false;
+    e.preventDefault();
+    e.stopPropagation();
+  }, true);
+  document.querySelector('.st-ribbon [data-cmd="format.painter"]')!.addEventListener('dblclick', () => startPainter(true));
+
   // ---------------- экспорт ----------------
   const EXPORTS: [string, string, string, string][] = [
-    ['clean', 'play', 'HTML для показа', 'Один файл без редактора: открыть в браузере, отправить, загрузить в другой сервис'],
-    ['edit', 'pencil', 'HTML с правкой', 'Тот же файл с режимом правки (E): поправят текст в браузере, правки вернутся через импорт'],
-    ['pdf', 'notes', 'PDF', 'Слайд на страницу, анимации в конечном виде: в окне печати — «Сохранить как PDF»'],
+    ['clean', 'play', 'HTML для показа', 'Один файл для просмотра в браузере'],
+    ['edit', 'pencil', 'HTML с правкой', 'Файл, в котором можно править текст'],
+    ['pdf', 'notes', 'PDF', 'Один слайд на странице'],
   ];
   function exportMenu(): void {
     const html = EXPORTS.map(([k, ic, t, d]) => `<button type="button" class="st-xopt" data-x="${k}">${icon(ic)}<span><b>${esc(t)}</b><small>${esc(d)}</small></span></button>`).join('');
@@ -401,7 +472,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       return;
     }
     exporting = true;
-    ed.toast('Собираю файл… обычно это несколько секунд', 60000);
+    ed.toast('Подготовка файла…', 60000);
     try {
       const blob = await projectStorage.exportHtml(deckKey, mode === 'clean');
       // Имя — как у папки презентации (и у yarn build): латиница открывается везде
@@ -414,7 +485,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-      ed.toast(`Готово: «${name}», ${Math.round(blob.size / 1024)} КБ`, 4000);
+      ed.toast(`Файл готов: ${name}`, 3000);
     } catch (e) {
       ed.toast(`Экспорт не удался: ${(e as Error).message}`, 6000, true);
     } finally {
@@ -463,6 +534,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
       { label: 'Копировать', icon: 'copy', hint: 'Ctrl+C', run: () => copy(false) },
       { label: 'Вырезать', icon: 'eraser', hint: 'Ctrl+X', run: () => copy(true) },
       { label: 'Вставить', icon: 'plus', hint: 'Ctrl+V', disabled: !clip, run: () => clip && pasteClip(clip) },
+      { label: 'Копировать оформление', icon: 'brush', hint: 'Ctrl+Shift+C', disabled: multi(), run: () => run('format.copy') },
+      { label: 'Вставить оформление', icon: 'brush', hint: 'Ctrl+Shift+V', disabled: !formatClip, run: () => run('format.paste') },
       null,
       { label: 'Дублировать', icon: 'copy', hint: 'Ctrl+D', run: () => run('obj.dup') },
       ...(multi() ? [
@@ -539,7 +612,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
 
   function pasteClip(clip: Clip): void {
     if (clip.deck !== deckKey) {
-      ed.toast('Вставка из другой презентации пока не поддерживается: картинки лежат в её папке', 4000, true);
+      ed.toast('Вставка объектов из другой презентации не поддерживается', 4000, true);
       return;
     }
     if (clip.kind === 'slides') {
@@ -726,6 +799,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'show.current': { run: () => void openShow(index) },
     'show.presenter': { run: () => void openShow(index, true) },
     'file.export': { run: () => exportMenu() },
+    'format.painter': { run: () => (painter ? stopPainter() : startPainter(false)), enabled: () => !!painter || singleSel(), active: () => !!painter },
+    'format.copy': { run: copyFormat, enabled: singleSel },
+    'format.paste': { run: pasteFormat, enabled: () => !!formatClip && !!ed.selection },
     'show.preview': { run: preview },
     'view.notes': { run: () => setNotes(!notesOpen), active: () => notesOpen },
     'view.zoom-in': { run: () => stepZoom(1) },
@@ -1002,6 +1078,14 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const typing = el?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el?.tagName ?? '');
     const mod = e.ctrlKey || e.metaKey;
     const k = e.key.toLowerCase();
+    if (painter && e.key === 'Escape') {
+      e.preventDefault();
+      return stopPainter();
+    }
+    if (mod && e.shiftKey && !typing && (e.code === 'KeyC' || e.code === 'KeyV')) {
+      e.preventDefault();
+      return run(e.code === 'KeyC' ? 'format.copy' : 'format.paste');
+    }
     if (document.body.classList.contains('st-previewing') && e.key === 'Escape') {
       e.preventDefault();
       return endPreview();

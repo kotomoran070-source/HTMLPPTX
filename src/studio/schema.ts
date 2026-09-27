@@ -40,13 +40,13 @@ const ALIGN: [string, string][] = [['', 'Растянуть'], ['start', 'По �
 const frame: Field[] = [
   { k: 'fit', label: 'Кадр', type: 'select', options: FIT },
   { k: 'zoom', label: 'Увеличение', type: 'number', min: 1, max: 4, step: 0.1, placeholder: '1' },
-  { k: 'position', label: 'Видимая часть', type: 'text', placeholder: '50% 50%', hint: 'По горизонтали и вертикали; удобнее тянуть картинку мышью' },
+  { k: 'position', label: 'Видимая часть', type: 'text', placeholder: '50% 50%', hint: 'Положение изображения в рамке' },
 ];
 
 export const BLOCKS: Record<string, Schema> = {
   text: {
     fields: [
-      { k: 'text', label: 'Текст', type: 'textarea', hint: '**жирный**, *курсив*, {accent|цвет}, строки с «- » — список' },
+      { k: 'text', label: 'Текст', type: 'textarea', hint: '**жирный**, *курсив*, «- » в начале строки — список' },
       { k: 'size', label: 'Размер', type: 'select', options: [['', 'Обычный'], ['lead', 'Крупный'], ['small', 'Мелкий, серый']] },
     ],
   },
@@ -64,7 +64,7 @@ export const BLOCKS: Record<string, Schema> = {
   },
   tile: {
     fields: [
-      { k: 'image', label: 'Фото', type: 'image', hint: 'Поверх иллюстрации; убрали фото — снова видна иллюстрация' },
+      { k: 'image', label: 'Фото', type: 'image', hint: 'Показывается поверх иллюстрации' },
       { k: 'illustration', label: 'Иллюстрация', type: 'select', options: [['', 'Нет'], ['assembly', 'Комплекс в сборке'], ['endpoints', 'Оконечные устройства'], ['station', 'Базовая станция']] },
       { k: 'caption', label: 'Подпись', type: 'text' },
       ...frame,
@@ -117,7 +117,7 @@ export const BLOCKS: Record<string, Schema> = {
     }],
   },
   grid: {
-    about: 'Раскладывает блоки по колонкам. Сами блоки выделяйте на слайде.',
+    about: 'Блоки в несколько колонок.',
     fields: [
       { k: 'columns', label: 'Колонки', type: 'text', placeholder: '1fr 1fr', hint: 'Число колонок (3) или доли: 1.6fr 1fr' },
       { k: 'rows', label: 'Строки', type: 'text', placeholder: 'по содержимому' },
@@ -127,7 +127,7 @@ export const BLOCKS: Record<string, Schema> = {
     ],
   },
   stack: {
-    about: 'Блоки друг под другом. Сами блоки выделяйте на слайде.',
+    about: 'Блоки друг под другом.',
     fields: [{ k: 'gap', label: 'Промежуток, px', type: 'number', min: 0, max: 120, placeholder: '16' }],
   },
   network: { fields: [{ k: 'nodes', label: 'Устройств вокруг станции', type: 'number', min: 2, max: 16, placeholder: '7' }] },
@@ -198,7 +198,7 @@ export const BLOCKS: Record<string, Schema> = {
     ],
   },
   table: {
-    about: 'Ячейки правятся прямо на слайде или здесь. Таблицу из Excel или Google Таблиц можно вставить в любую ячейку — она заполнится вся.',
+    about: 'Таблицу из Excel можно вставить в любую ячейку.',
     fields: [
       { k: 'rows', label: 'Данные', type: 'grid' },
       { k: 'variant', label: 'Вид', type: 'select', options: [['', 'Линии'], ['stripes', 'Зебра'], ['boxed', 'Сетка'], ['accent', 'Акцентная шапка']] },
@@ -211,7 +211,7 @@ export const BLOCKS: Record<string, Schema> = {
     fields: [
       { k: 'value', label: 'Значение', type: 'text', placeholder: '3,4 млн' },
       { k: 'label', label: 'Подпись', type: 'text' },
-      { k: 'delta', label: 'Изменение', type: 'text', placeholder: '+12 %', hint: 'С минусом — красное со стрелкой вниз' },
+      { k: 'delta', label: 'Изменение', type: 'text', placeholder: '+12 %', hint: 'Отрицательное значение выделяется красным' },
       { k: 'note', label: 'Мелкая подпись', type: 'text' },
     ],
   },
@@ -235,18 +235,18 @@ export const BLOCKS: Record<string, Schema> = {
     }],
   },
   system: {
-    about: 'Схема системы: тексты правятся прямо на слайде, структура — во вкладке «Код».',
+    about: 'Структура схемы — в режиме кода.',
     fields: [],
   },
   html: {
-    about: 'Вёрстка из импорта. Тексты и картинки правятся на слайде или здесь, разметка — во вкладке «Код».',
+    about: 'Импортированный фрагмент. Разметка — в режиме кода.',
     fields: [
       { k: 'texts', label: 'Тексты', type: 'strings', item: 'Текст' },
       { k: 'scale', label: 'Масштаб вёрстки', type: 'number', min: 0.1, max: 4, step: 0.05, placeholder: '1' },
     ],
   },
   embed: {
-    about: 'Живая вставка: отдельный HTML-документ со скриптами.',
+    about: 'Интерактивная HTML-вставка.',
     fields: [
       { k: 'poster', label: 'Заставка', type: 'image' },
       { k: 'theme', label: 'Цвета темы внутри вставки', type: 'bool' },
@@ -313,4 +313,4 @@ export const TEMPLATES: Record<string, Schema> = {
 };
 
 /** Поле «CSS блока» — запасной выход, есть у всех блоков. */
-export const STYLE_FIELD: Field = { k: 'style', label: 'CSS блока', type: 'text', placeholder: 'margin-top: 12px', hint: 'Для корневого элемента блока, если нужной настройки нет' };
+export const STYLE_FIELD: Field = { k: 'style', label: 'CSS блока', type: 'text', placeholder: 'margin-top: 12px', hint: 'Дополнительные стили блока' };
