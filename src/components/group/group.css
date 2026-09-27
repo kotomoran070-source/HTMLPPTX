@@ -1,0 +1,6 @@
+/* Группа: объекты на своих местах внутри общей рамки — как свободные объекты слайда */
+.grp { position: relative; width: 100%; height: 100%; }
+.grp-item { position: absolute; display: flex; flex-direction: column; }
+.grp-item > * { flex: 1 1 auto; width: 100%; min-height: 0; margin: 0; max-width: none; }
+.grp-item.auto-h > * { flex: none; }
+.grp-item > figure.image { height: auto !important; min-height: 0; }

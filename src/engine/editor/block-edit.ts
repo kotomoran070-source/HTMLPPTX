@@ -22,7 +22,7 @@ const NAMES: Record<string, string> = {
   grid: 'Сетка', stack: 'Столбик', panel: 'Панель', kv: 'Таблица', progress: 'Прогресс', sliders: 'Ползунки',
   chips: 'Чипы', network: 'Схема сети', hub: 'Схема итогов', system: 'Схема системы', pipeline: 'Пайплайн',
   'line-chart': 'График', uptime: 'Доступность', bars: 'Столбцы', spacer: 'Отступ',
-  html: 'Элемент', embed: 'Живая вставка', stat: 'Число', quote: 'Цитата', timeline: 'Хронология', shape: 'Фигура', table: 'Таблица',
+  html: 'Элемент', embed: 'Живая вставка', stat: 'Число', quote: 'Цитата', timeline: 'Хронология', shape: 'Фигура', table: 'Таблица', group: 'Группа',
 };
 
 const readPath = (el: Element, attr: string): Path | null => {
@@ -172,11 +172,19 @@ export class BlockEditor {
   /** Выделить внешний блок. */
   selectParent(): void {
     const p = this.sel?.el.parentElement?.closest<HTMLElement>('[data-block]');
-    if (p) this.select(p);
+    // Корень свободного объекта (группа, карточка) выделяется вместе с обёрткой: его можно двигать
+    const wrap = p?.parentElement;
+    if (p) this.select(wrap?.hasAttribute('data-free') ? wrap : p);
   }
 
   isSelected(el: Element): boolean {
     return this.sel?.el === el;
+  }
+
+  /** Выделенный объект внутри группы (не сама группа) — его элемент. */
+  get groupChild(): HTMLElement | null {
+    const s = this.sel;
+    return s && !s.free && s.el.parentElement?.classList.contains('grp-item') ? s.el : null;
   }
 
   // ---------------- выделение ----------------
@@ -327,6 +335,7 @@ export class BlockEditor {
       const parent = getAt(d, target.slice(0, -1));
       if (Array.isArray(parent) && typeof last === 'number') parent.splice(last, 1);
       else setAt(d, target, undefined);
+      dropEmptyGroup(d, target);
       const sl = d.slides[Number(target[1])];
       if (Array.isArray(sl?.free) && !sl.free.length) delete sl.free;
     }, { rebuild: true })) this.host.toast('Удалено. Вернуть: Ctrl+Z', 2500);
@@ -347,6 +356,7 @@ export class BlockEditor {
       const parent = getAt(d, blockPath.slice(0, -1));
       if (Array.isArray(parent) && typeof last === 'number') parent.splice(last, 1);
       else setAt(d, blockPath, undefined);
+      dropEmptyGroup(d, blockPath);
       // Элемент сетки со span больше не занимает ячейки
       delete value.cols;
       delete value.rows;
@@ -474,15 +484,21 @@ export class BlockEditor {
   pointerDown(e: PointerEvent, allowImagePan: boolean): boolean {
     this.pressSelected = false;
     // Shift — это добавление к выделению, а не перетаскивание
-    if (e.shiftKey || e.button !== 0) return false;
     const target = e.target as Element;
+    // Shift+клик добавляет объект к выделению: без выделения текста на странице
+    if (e.shiftKey && e.button === 0 && target.closest('[data-free]')) e.preventDefault();
+    if (e.shiftKey || e.button !== 0) return false;
     if (target.closest('[contenteditable="true"]')) return false;
     if (this.isMulti && this.members.some((m) => m.el.contains(target))) return this.groupDrag(e);
     if (allowImagePan && e.altKey) return false;
     const s = this.sel;
     if (s?.free && s.el.contains(target)) return this.dragFree(s, e);
     // Свободный объект, ещё не выделенный: нажал и тянешь — сразу перемещение, без лишнего клика
+    // Выделенный объект группы: двигается внутри неё
+    if (this.groupChild?.contains(target)) return this.dragChild(this.sel!, e);
     const freeEl = target.closest<HTMLElement>('.slide.on [data-free]');
+    // Выделен объект группы, нажали на соседний: клик выделит соседа, группа не едет
+    if (freeEl && this.groupChild && freeEl.contains(this.groupChild) && target.closest('.grp-item')) return false;
     if (freeEl && this.host.stage().contains(freeEl)) {
       this.host.clearOthers();
       this.select(freeEl);
@@ -530,6 +546,49 @@ export class BlockEditor {
       setTimeout(() => { this.dragging = false; }, 0);
       const path = s.free!;
       this.host.commit((d) => setAt(d, [...path, 'place'], cur.h ? cur : { x: cur.x, y: cur.y, w: cur.w }), { rebuild: true });
+    };
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+    return true;
+  }
+
+  /** Объект внутри группы: место считается в единицах группы (base), чтобы растянутая группа не сбивала шаг. */
+  private dragChild(s: Sel, e: PointerEvent): boolean {
+    e.preventDefault();
+    const item = s.el.parentElement as HTMLElement;
+    const box = item.parentElement!.getBoundingClientRect();
+    const deck = this.host.deck();
+    const g = getAt(deck, s.block.slice(0, -2)) as { base?: { w?: number; h?: number } } | undefined;
+    const fx = (Number(g?.base?.w) || box.width) / box.width;
+    const fy = (Number(g?.base?.h) || box.height) / box.height;
+    const start = placeOf(getAt(deck, s.block));
+    const k = this.scale();
+    let dx = 0;
+    let dy = 0;
+    let moved = false;
+    const move = (ev: PointerEvent) => {
+      dx = ev.clientX - e.clientX;
+      dy = ev.clientY - e.clientY;
+      if (!moved && Math.abs(dx) + Math.abs(dy) < 3) return;
+      moved = true;
+      this.dragging = true;
+      item.style.transform = `translate(${dx / k}px, ${dy / k}px)`;
+      this.position();
+    };
+    const up = () => {
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', up);
+      if (!moved) return;
+      setTimeout(() => { this.dragging = false; }, 0);
+      const path = s.block;
+      const place: Place = { ...start, x: Math.round(start.x + dx * fx), y: Math.round(start.y + dy * fy) };
+      if (!start.h) delete place.h;
+      // Высоты объектов по содержимому — с экрана, в единицах группы
+      const heights = [...item.parentElement!.children].map((c) => c.getBoundingClientRect().height * fy);
+      this.host.commit((d) => {
+        setAt(d, [...path, 'place'], place);
+        fitGroup(d, path.slice(0, -2), heights);
+      }, { rebuild: true });
     };
     addEventListener('pointermove', move);
     addEventListener('pointerup', up);
@@ -746,4 +805,45 @@ export class BlockEditor {
 
 export function blockName(type: string): string {
   return esc(NAMES[type] ?? type);
+}
+
+/** Рамка группы обнимает все её объекты: объект вынесли за край — группа растёт, а не обрезает. */
+function fitGroup(d: Deck, groupPath: Path, heights: number[]): void {
+  const g = getAt(d, groupPath) as { items?: unknown[]; base?: { w: number; h: number }; place?: Place } | undefined;
+  if (!g || !Array.isArray(g.items) || !g.items.length) return;
+  const gp = placeOf(g);
+  const bw = Number(g.base?.w) || gp.w;
+  const bh = Number(g.base?.h) || gp.h || 1;
+  const sx = gp.w / bw;
+  const sy = (gp.h ?? bh) / bh;
+  const boxes = g.items.map((it, k) => {
+    const pl = placeOf(it);
+    return { x: pl.x, y: pl.y, r: pl.x + pl.w, b: pl.y + (pl.h ?? heights[k] ?? 0) };
+  });
+  const x0 = Math.min(...boxes.map((b) => b.x));
+  const y0 = Math.min(...boxes.map((b) => b.y));
+  const x1 = Math.max(...boxes.map((b) => b.r));
+  const y1 = Math.max(...boxes.map((b) => b.b));
+  if (x0 >= 0 && y0 >= 0 && x1 <= bw && y1 <= bh) return;
+  const nx0 = Math.min(0, x0);
+  const ny0 = Math.min(0, y0);
+  const nw = Math.max(x1, bw) - nx0;
+  const nh = Math.max(y1, bh) - ny0;
+  g.items.forEach((it) => {
+    const o = it as { place?: Place };
+    const pl = placeOf(o);
+    o.place = { ...pl, x: Math.round(pl.x - nx0), y: Math.round(pl.y - ny0) };
+    if (!pl.h) delete o.place.h;
+  });
+  g.base = { w: Math.round(nw), h: Math.round(nh) };
+  g.place = { x: Math.round(gp.x + nx0 * sx), y: Math.round(gp.y + ny0 * sy), w: Math.round(nw * sx), h: Math.round(nh * sy) };
+}
+
+/** Из группы убрали последний объект — пустая группа уходит со слайда. */
+function dropEmptyGroup(d: Deck, removed: Path): void {
+  if (removed[removed.length - 2] !== 'items' || removed[2] !== 'free' || removed.length !== 6) return;
+  const g = getAt(d, removed.slice(0, -2)) as { type?: string; items?: unknown[] } | undefined;
+  if (g?.type !== 'group' || (Array.isArray(g.items) && g.items.length)) return;
+  const list = d.slides[Number(removed[1])].free;
+  list?.splice(Number(removed[3]), 1);
 }

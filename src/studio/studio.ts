@@ -17,7 +17,7 @@ import { closeLibrary, showLibrary, type Preset } from './library';
 import { closeMenu, showMenu, type MenuEntry } from './menu';
 import { SlidesPanel } from './slides-panel';
 import { crumbs, type Crumb } from './structure';
-import { canUngroup, ungroup } from './ungroup';
+import { canUngroup, groupObjects, ungroup } from './ungroup';
 import './studio.css';
 
 interface Command {
@@ -85,7 +85,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Слайды', rb('slide.new', 'slide-add', 'Новый слайд', { big: true, key: 'Ctrl+M', menu: true }) + `<div class="st-rstack">${rb('slide.dup', 'copy', 'Дублировать')}${rb('slide.del', 'trash', 'Удалить')}</div>`)}
       ${group('Правка', `<div class="st-rstack">${rb('undo', 'undo', 'Отменить', { key: 'Ctrl+Z' })}${rb('redo', 'redo', 'Повторить', { key: 'Ctrl+Y' })}</div>`)}
       ${group('Вставка', rb('insert.blocks', 'grid', 'Блоки', { big: true, menu: true, title: 'Библиотека блоков: карточки, графики, схемы' }) + rb('insert.text', 'text', 'Текст', { big: true }) + rb('insert.image', 'image', 'Картинка', { big: true }))}
-      ${group('Упорядочить', `<div class="st-rstack">${rb('obj.front', 'front', 'Вперёд')}${rb('obj.back', 'back', 'Назад')}</div><div class="st-rstack">${rb('obj.dup', 'copy', 'Дублировать', { key: 'Ctrl+D' })}${rb('obj.del', 'trash', 'Удалить', { key: 'Delete' })}</div><div class="st-rstack">${rb('obj.ungroup', 'ungroup', 'Разгруппировать', { key: 'Ctrl+Shift+G', title: 'Разобрать блок на отдельные объекты: подложки, тексты, картинки' })}${rb('obj.free', 'move', 'Сделать свободным', { title: 'Вынуть блок из раскладки: двигать и менять размер мышью' })}</div>`)}
+      ${group('Упорядочить', `<div class="st-rstack">${rb('obj.front', 'front', 'Вперёд')}${rb('obj.back', 'back', 'Назад')}</div><div class="st-rstack">${rb('obj.dup', 'copy', 'Дублировать', { key: 'Ctrl+D' })}${rb('obj.del', 'trash', 'Удалить', { key: 'Delete' })}</div><div class="st-rstack">${rb('obj.group', 'group', 'Сгруппировать', { key: 'Ctrl+G', title: 'Объединить выделенные объекты: двигаются и растягиваются вместе' })}${rb('obj.ungroup', 'ungroup', 'Разгруппировать', { key: 'Ctrl+Shift+G', title: 'Разобрать группу или блок на отдельные объекты' })}</div><div class="st-rstack">${rb('obj.free', 'move', 'Сделать свободным', { title: 'Вынуть блок из раскладки: двигать и менять размер мышью' })}</div>`)}
       ${group('Выровнять', `<div class="st-rgrid">${rb('align.left', 'obj-left', 'Слева')}${rb('align.center', 'obj-center', 'По центру')}${rb('align.right', 'obj-right', 'Справа')}${rb('align.top', 'obj-top', 'Сверху')}${rb('align.middle', 'obj-middle', 'Посередине')}${rb('align.bottom', 'obj-bottom', 'Снизу')}</div><div class="st-rstack">${rb('dist.h', 'dist-h', 'По ширине', { title: 'Распределить по ширине: равные промежутки' })}${rb('dist.v', 'dist-v', 'По высоте', { title: 'Распределить по высоте: равные промежутки' })}</div>`)}
     </div>
     <div class="st-rpanel" data-panel="insert" hidden>
@@ -97,7 +97,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Тема', rb('design.theme', 'moon', 'Светлая / тёмная', { big: true, key: 'T' }))}
     </div>
     <div class="st-rpanel" data-panel="show" hidden>
-      ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'presenter', 'С текущего слайда', { big: true, key: 'Shift+F5' }))}
+      ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'next', 'С текущего слайда', { big: true, key: 'Shift+F5' }) + rb('show.presenter', 'presenter', 'Режим докладчика', { big: true, key: 'Alt+F5', title: 'Показ на проекторе, заметки и следующий слайд — у вас на экране' }))}
       ${group('Анимация', rb('show.preview', 'sparkle', 'Просмотр слайда', { big: true, title: 'Проиграть появление объектов на текущем слайде' }))}
     </div>
     <div class="st-rpanel" data-panel="view" hidden>
@@ -363,10 +363,11 @@ export function startStudio(deck: Deck, deckKey: string): void {
   $('st-shield').addEventListener('click', endPreview);
 
   // ---------------- показ ----------------
-  async function openShow(from: number): Promise<void> {
+  async function openShow(from: number, present = false): Promise<void> {
     await ed.settle();
     const u = new URL(location.href);
     u.searchParams.delete('studio');
+    if (present) u.searchParams.set('present', '');
     u.hash = `#${from + 1}`;
     window.open(u.toString(), `htmlpptx-show-${deckKey}`);
   }
@@ -415,6 +416,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       null,
       { label: 'Дублировать', icon: 'copy', hint: 'Ctrl+D', run: () => run('obj.dup') },
       ...(multi() ? [
+        { label: 'Сгруппировать', icon: 'group', hint: 'Ctrl+G', run: () => run('obj.group') },
         { label: 'Появляться по очереди', icon: 'sparkle', run: () => sequence() },
       ] : [
         { label: 'Разгруппировать', icon: 'ungroup', hint: 'Ctrl+Shift+G', disabled: !cmds['obj.ungroup'].enabled!(), run: () => run('obj.ungroup') },
@@ -652,6 +654,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'obj.select-all': { run: selectAll },
     'obj.dup': { run: () => ed.blockEditor.duplicate(), enabled: hasFree },
     'obj.del': { run: () => ed.blockEditor.remove(), enabled: () => !!ed.selection },
+    'obj.group': {
+      run: () => { const sel = ed.selection; if (sel && sel.group.length > 1) groupObjects({ deck, stage: view.stage, editor: ed }, index, sel.group); },
+      enabled: multi,
+    },
     'obj.ungroup': {
       run: () => { const sel = ed.selection; if (sel) ungroup({ deck, stage: view.stage, editor: ed }, index, sel); },
       enabled: () => {
@@ -668,6 +674,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'design.theme': { run: () => toggleTheme() },
     'show.start': { run: () => void openShow(0) },
     'show.current': { run: () => void openShow(index) },
+    'show.presenter': { run: () => void openShow(index, true) },
     'show.preview': { run: preview },
     'view.notes': { run: () => setNotes(!notesOpen), active: () => notesOpen },
     'view.zoom-in': { run: () => stepZoom(1) },
@@ -962,13 +969,13 @@ export function startStudio(deck: Deck, deckKey: string): void {
     }
     if (e.key === 'F5') {
       e.preventDefault();
-      return run(e.shiftKey ? 'show.current' : 'show.start');
+      return run(e.altKey ? 'show.presenter' : e.shiftKey ? 'show.current' : 'show.start');
     }
     if (typing) return;
     if (ed.handleKey(e)) return;
-    if (mod && e.shiftKey && (k === 'g' || k === 'п')) {
+    if (mod && (k === 'g' || k === 'п')) {
       e.preventDefault();
-      return run('obj.ungroup');
+      return run(e.shiftKey ? 'obj.ungroup' : 'obj.group');
     }
     if (mod && !e.shiftKey && (k === 'a' || k === 'ф')) {
       e.preventDefault();

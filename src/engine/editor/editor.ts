@@ -679,9 +679,20 @@ export class Editor {
       this.blocks.toggleGroup(free);
       return;
     }
+    // Группа: второй клик выделяет объект внутри неё; пока он выделен, клики по нему — правка
+    const member = free?.querySelector(':scope > [data-type="group"]') ? target.closest<HTMLElement>('.grp-item > [data-block]') : null;
+    const child = this.blocks.groupChild;
+    const inChild = !!free && !!child && free.contains(child);
+    if (inChild && member && member !== child) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.text.finish(true);
+      this.blocks.select(member);
+      return;
+    }
     // Первый клик по свободному объекту выделяет его целиком (двигать, масштабировать);
     // если он уже выделен нажатием мыши — этот клик тоже первый, не правка текста
-    if (free && (!this.blocks.isSelected(free) || this.blocks.takePressSelected())) {
+    if (free && !(inChild && child!.contains(target)) && (!this.blocks.isSelected(free) || this.blocks.takePressSelected())) {
       e.preventDefault();
       e.stopPropagation();
       this.text.finish(true);
@@ -733,6 +744,9 @@ export class Editor {
     if (block && !free) {
       e.preventDefault();
       this.blocks.select(block);
+    } else if (member && member !== child) {
+      e.preventDefault();
+      this.blocks.select(member);
     } else if (!free) {
       this.blocks.clear();
     }

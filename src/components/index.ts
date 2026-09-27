@@ -19,5 +19,6 @@ import './charts/charts';
 import './facts/facts';
 import './shape/shape';
 import './table/table';
+import './group/group';
 import './html/html';
 import './live/live';

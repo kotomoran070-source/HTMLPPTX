@@ -7,6 +7,7 @@ import { canSaveFile } from './editor/persist';
 import { esc } from './html';
 import { slideLabel } from './render';
 import { Ink } from './ink';
+import { fullscreenOn, planScreens, popupOn, screensGranted } from './screens';
 import { Sync } from './sync';
 import { currentTheme, onThemeChange, setTheme, toggleTheme } from './theme';
 
@@ -67,7 +68,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     <p class="mu ovkeys">← → пробел — листать · Home/End — в начало/конец · номер + Enter — перейти · O — обзор · P — докладчик · F — весь экран · T — тема · B — чёрный экран${editable ? ' · E — правка' : ''}</p>
   </div>
 </div>
-<div class="blackout" id="blk"></div>`);
+<div class="blackout" id="blk"></div>
+<div class="show-note" id="snote" role="status"><p></p><button class="btn primary small show-note-go" type="button" hidden></button><button class="ibtn small show-note-x" type="button" aria-label="Закрыть">${icon('close')}</button></div>`);
 
   const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
   const vp = $('vp');
@@ -293,9 +295,70 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   });
 
   // --- окно докладчика ---
-  function openPresenter(): void {
-    const w = window.open(presenterUrl(sync.self), `htmlpptx-presenter-${deckKey}-${sync.self}`, 'popup,width=1280,height=800');
-    sync.addPeer(w);
+  /**
+   * Два экрана: это окно уходит во весь экран на проектор, окно докладчика открывается
+   * на весь экран здесь. Один экран — окно докладчика рядом и подсказка, что сделать.
+   */
+  let opening = false;
+  async function openPresenter(): Promise<void> {
+    if (opening) return;
+    opening = true;
+    try {
+      hideNote();
+      const url = presenterUrl(sync.self);
+      const name = `htmlpptx-presenter-${deckKey}-${sync.self}`;
+      const asked = !(await screensGranted());
+      const plan = await planScreens();
+      if (plan.kind === 'two') {
+        try {
+          await fullscreenOn(plan.audience);
+        } catch {
+          // После вопроса о разрешении браузер уже не считает это нажатием пользователя: нужен ещё один клик
+          if (asked) return showNote('Разрешение получено. Показ откроется на втором экране, а окно докладчика — здесь.', 'Начать показ', () => void openPresenter());
+          return showNote('Не удалось вывести показ на второй экран. Перетащите это окно на проектор и нажмите F.');
+        }
+        const w = window.open(url, name, popupOn(plan.here));
+        if (w) sync.addPeer(w);
+        else showNote('Браузер не дал открыть окно докладчика: разрешите всплывающие окна для этой страницы и нажмите P ещё раз.');
+        return;
+      }
+      const w = window.open(url, name, 'popup,width=1280,height=800');
+      if (w) sync.addPeer(w);
+      if (plan.kind === 'single') {
+        showNote('Второй экран не найден. Если проектор подключён, включите режим «Расширить», а не «Повторить» (Windows: Win+P; macOS: Настройки → Мониторы). Тогда показ сам откроется на проекторе, а окно докладчика останется у вас.');
+      } else {
+        showNote(plan.denied
+          ? 'Без разрешения «Управление окнами» окна не разложить по экранам. Перетащите это окно на проектор и нажмите F — окно докладчика останется у вас.'
+          : 'Перетащите это окно на проектор и нажмите F — окно докладчика останется у вас. В Chrome и Edge окна раскладываются по экранам сами.');
+      }
+    } finally {
+      opening = false;
+    }
+  }
+
+  // --- подсказка внизу экрана ---
+  let noteTimer = 0;
+  function showNote(text: string, action?: string, run?: () => void): void {
+    const el = $('snote');
+    el.querySelector('p')!.textContent = text;
+    const b = el.querySelector<HTMLButtonElement>('.show-note-go')!;
+    b.hidden = !action;
+    b.textContent = action ?? '';
+    b.onclick = run ? () => { hideNote(); run(); } : null;
+    el.classList.add('on');
+    clearTimeout(noteTimer);
+    if (!action) noteTimer = window.setTimeout(hideNote, 12000);
+  }
+  function hideNote(): void {
+    $('snote').classList.remove('on');
+  }
+  $('snote').querySelector('.show-note-x')!.addEventListener('click', hideNote);
+  // Из редактора: «Режим докладчика» — показ ждёт одного нажатия, чтобы занять второй экран
+  if (new URLSearchParams(location.search).has('present')) {
+    const u = new URL(location.href);
+    u.searchParams.delete('present');
+    history.replaceState(history.state, '', u);
+    showNote('Показ готов. Он откроется во весь экран на проекторе, а окно докладчика — здесь.', 'Начать показ', () => void openPresenter());
   }
 
   // --- кнопки ---
@@ -309,7 +372,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   $('ov').addEventListener('click', ovShow);
   $('ovx').addEventListener('click', ovHide);
   ovbd.addEventListener('click', (e) => { if (e.target === ovbd) ovHide(); });
-  $('pr').addEventListener('click', openPresenter);
+  $('pr').addEventListener('click', () => void openPresenter());
   $('fs').addEventListener('click', toggleFullscreen);
   $('blk').addEventListener('click', () => setBlack(false));
   onThemeChange(() => broadcast());
@@ -351,7 +414,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       f: toggleFullscreen, 'а': toggleFullscreen,
       t: () => toggleTheme(), 'е': () => toggleTheme(),
       o: ovShow, 'щ': ovShow,
-      p: openPresenter, 'з': openPresenter,
+      p: () => void openPresenter(), 'з': () => void openPresenter(),
       b: () => setBlack(!black), 'и': () => setBlack(!black), '.': () => setBlack(!black),
     };
     if (editor) {

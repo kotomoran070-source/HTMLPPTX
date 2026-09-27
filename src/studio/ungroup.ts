@@ -1,5 +1,6 @@
 import { SHAPE_COLORS } from '../components/shape/shape';
-import { getAt, setAt, type Path } from '../engine/data';
+import { clone, getAt, setAt, type Path } from '../engine/data';
+import { placeOf, type Place } from '../engine/render';
 import type { Editor } from '../engine/editor/editor';
 import { THEME_COLORS, type TextStyle } from '../engine/text-style';
 import type { Block, Deck } from '../types';
@@ -68,6 +69,7 @@ export function ungroup(host: Host, slide: number, sel: { block: Path; free: Pat
   const root = [...stage.querySelectorAll<HTMLElement>('.slide.on [data-block]')].find((x) => x.getAttribute('data-block') === key);
   const blk = getAt(deck, sel.block) as Block | undefined;
   if (!root || !blk) return false;
+  if (blk.type === 'group' && sel.free) return splitGroup(host, slide, sel.free, blk);
   if (!canUngroup(blk.type, root)) {
     editor.toast('Этот блок не разгруппировывается: он рисуется целиком (график, схема, картинка)', 3500);
     return false;
@@ -229,6 +231,92 @@ export function ungroup(host: Host, slide: number, sel: { block: Path; free: Pat
   }, { rebuild: true });
   if (!ok) return false;
   editor.selectMany(slide, parts.map((_p, k) => from + k));
-  editor.toast(`Разгруппировано: ${parts.length} ${parts.length % 10 === 1 && parts.length % 100 !== 11 ? 'объект' : 'объектов'}. Вернуть: Ctrl+Z`, 3000);
+  editor.toast(`Разгруппировано: ${objects(parts.length)}. Вернуть: Ctrl+Z`, 3000);
   return true;
+}
+
+const r1 = (n: number) => Math.round(n * 10) / 10;
+
+/** Группа → её объекты снова отдельные, на тех же местах и того же размера, что сейчас на слайде. */
+function splitGroup(host: Host, slide: number, freePath: Path, g: Block): boolean {
+  const { editor } = host;
+  const gp = placeOf(g);
+  const items = (Array.isArray(g.items) ? g.items : []) as Block[];
+  if (!items.length) return false;
+  const base = g.base as { w?: number; h?: number } | undefined;
+  const bw = Number(base?.w) || gp.w;
+  const bh = Number(base?.h) || gp.h || 1;
+  const sx = gp.w / bw;
+  const sy = (gp.h ?? bh) / bh;
+  const parts = items.map((it) => {
+    const c = clone(it) as Block;
+    const pl = placeOf(c);
+    const place: Place = { x: r1(gp.x + pl.x * sx), y: r1(gp.y + pl.y * sy), w: r1(pl.w * sx) };
+    if (pl.h) place.h = r1(pl.h * sy);
+    c.place = place;
+    return c;
+  });
+  const from = Number(freePath[3]);
+  const ok = editor.commit((d) => { d.slides[slide].free!.splice(from, 1, ...parts); }, { rebuild: true });
+  if (!ok) return false;
+  editor.selectMany(slide, parts.map((_p, k) => from + k));
+  editor.toast(`Группа разобрана: ${objects(parts.length)}. Вернуть: Ctrl+Z`, 2500);
+  return true;
+}
+
+/** Выделенные свободные объекты → одна группа: двигаются, выравниваются и растягиваются вместе. */
+export function groupObjects(host: Host, slide: number, paths: Path[]): boolean {
+  const { deck, stage, editor } = host;
+  if (paths.length < 2) return false;
+  const sorted = [...paths].sort((a, b) => Number(a[3]) - Number(b[3]));
+  const items = sorted.map((p) => {
+    const b = clone(getAt(deck, p)) as Block;
+    const pl = placeOf(b);
+    let h = pl.h;
+    if (!h) {
+      // Высота по содержимому: берётся с отрисованного слайда
+      const el = [...stage.querySelectorAll<HTMLElement>('.slide.on [data-free]')].find((x) => x.getAttribute('data-free') === JSON.stringify(p));
+      if (el) {
+        const r = el.getBoundingClientRect();
+        h = editor.toSlide(r.left, r.bottom).y - editor.toSlide(r.left, r.top).y;
+      }
+    }
+    return { b, pl, h: h ?? 40 };
+  });
+  const x0 = Math.min(...items.map((i) => i.pl.x));
+  const y0 = Math.min(...items.map((i) => i.pl.y));
+  const w = r1(Math.max(...items.map((i) => i.pl.x + i.pl.w)) - x0);
+  const h = r1(Math.max(...items.map((i) => i.pl.y + i.h)) - y0);
+  const group: Block = {
+    type: 'group',
+    items: items.map(({ b, pl }) => ({ ...b, place: { x: r1(pl.x - x0), y: r1(pl.y - y0), w: pl.w, ...(pl.h ? { h: pl.h } : {}) } })),
+    base: { w, h },
+    place: { x: x0, y: y0, w, h },
+  };
+  // Появление группы — как у первого появляющегося объекта; у самих объектов оно сохраняется до разгруппировки
+  const fx = items.map((i) => i.b).filter((b) => b.enter).sort((a, b) => (Number(a.delay) || 0) - (Number(b.delay) || 0))[0];
+  if (fx) {
+    group.enter = fx.enter;
+    if (fx.delay) group.delay = fx.delay;
+  }
+  let at = 0;
+  const ok = editor.commit((d) => {
+    const list = d.slides[slide].free!;
+    [...sorted].reverse().forEach((p) => list.splice(Number(p[3]), 1));
+    // Группа встаёт на место самого верхнего объекта
+    at = Number(sorted[sorted.length - 1][3]) - (sorted.length - 1);
+    list.splice(at, 0, group);
+  }, { rebuild: true });
+  if (!ok) return false;
+  editor.selectFree(slide, at);
+  editor.toast('Сгруппировано. Разгруппировать: Ctrl+Shift+G', 2500);
+  return true;
+}
+
+/** 1 объект, 2 объекта, 5 объектов */
+function objects(n: number): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  const w = m10 === 1 && m100 !== 11 ? 'объект' : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? 'объекта' : 'объектов';
+  return `${n} ${w}`;
 }

@@ -63,6 +63,7 @@ const PATHS: Record<string, string> = {
   pen: '<path d="M15.5 4.5 19.5 8.5 9 19H5v-4z"/><path d="m13.5 6.5 4 4"/>',
   marker: '<path d="m9 17-3-3 8.5-8.5a2.1 2.1 0 0 1 3 3z"/><path d="m6 14-2 5 5-2"/><path d="M13 21h8"/>',
   'screen-off': '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M4 3l16 16"/>',
+  group: '<rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="3 2.2"/><rect x="6.5" y="6.5" width="6" height="6" rx="1"/><rect x="11.5" y="11.5" width="6" height="6" rx="1"/>',
   ungroup: '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/><path d="M15 3h6v6M3 15v6h6" stroke-dasharray="2 2"/>',
   'sh-rect': '<rect x="4" y="6" width="16" height="12"/>',
   'sh-round': '<rect x="4" y="6" width="16" height="12" rx="4"/>',

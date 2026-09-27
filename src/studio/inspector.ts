@@ -238,7 +238,9 @@ export class Inspector {
     const sel = this.host.editor().selection!;
     const deck = this.host.deck();
     const content = (deck.slides[this.host.index()]?.template ?? 'content') === 'content';
-    const head = `<header class="st-p-head"><span class="st-p-kind">${sel.free ? 'Свободный объект' : 'Блок в раскладке'}</span><h2>${blockName(sel.type)}</h2></header>`;
+    const inGroup = !sel.free && sel.block.at(-2) === 'items' && (getAt(deck, sel.block.slice(0, -2)) as Block | undefined)?.type === 'group';
+    const kind = sel.free ? 'Свободный объект' : inGroup ? 'Объект группы · Esc — вся группа' : 'Блок в раскладке';
+    const head = `<header class="st-p-head"><span class="st-p-kind">${kind}</span><h2>${blockName(sel.type)}</h2></header>`;
     const schema = BLOCKS[sel.type];
     const ribbon = ON_RIBBON[sel.type];
     // Кадр картинки (обрезка, увеличение) нужен реже: отдельный свёрнутый раздел
@@ -256,6 +258,11 @@ export class Inspector {
     const actions = (list: [string, string, string, string?][]) => `<section class="st-p-sec st-p-end"><div class="st-p-acts">${list.map(([c, ic, l, cls]) =>
       `<button type="button" class="st-pbtn${cls ? ` ${cls}` : ''}" data-cmd="${c}" title="${esc(l)}" aria-label="${esc(l)}">${icon(ic)}</button>`).join('')}</div></section>`;
     if (!sel.free) {
+      if (inGroup) {
+        return head + contentSec + sec('layout', 'В группе', `<p class="st-p-note">Объект двигается мышью внутри группы. Чтобы менять размер или задать свою анимацию — выньте его из группы.</p>
+<div class="st-p-col">${cmdBtn('obj.free', 'move', 'Вынуть из группы', 'primary')}${cmdBtn('obj.parent', 'up', 'Выделить группу')}</div>`)
+          + sec('more', 'Дополнительно', formHtml([STYLE_FIELD], deck, sel.block)) + actions([['obj.del', 'trash', 'Удалить из группы', 'danger']]);
+      }
       return head + contentSec + sec('layout', 'Раскладка', `<p class="st-p-note">Блок стоит в раскладке слайда. Потяните его мышью или нажмите «Сделать свободным», чтобы двигать, менять размер и задать анимацию.</p>
 <div class="st-p-col">${cmdBtn('obj.free', 'move', 'Сделать свободным', 'primary')}${sel.hasParent ? cmdBtn('obj.parent', 'up', 'Выделить внешний блок') : ''}</div>`)
         + extra + actions([['obj.ungroup', 'ungroup', 'Разгруппировать'], ['obj.del', 'trash', 'Удалить блок', 'danger']]);

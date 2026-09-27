@@ -127,3 +127,11 @@ body.picker-page { overflow: auto; }
   .stage > .slide.space { background: #05070F; }
   .fin .rg circle { opacity: .4; }
 }
+
+/* Подсказка показа: второй экран, разрешения */
+.show-note { position: fixed; left: 50%; bottom: 84px; z-index: 30; display: flex; align-items: center; gap: 12px; max-width: min(640px, calc(100vw - 32px)); padding: 12px 12px 12px 18px; border-radius: 12px; background: var(--surf); color: var(--tx); border: 1px solid var(--bd); box-shadow: 0 12px 32px rgba(15, 23, 42, .22); font-size: 14px; line-height: 1.45; opacity: 0; pointer-events: none; transform: translate(-50%, 8px); transition: opacity .2s, transform .2s; }
+.show-note.on { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+.show-note p { margin: 0; flex: 1; max-width: none; }
+.show-note .btn { flex: none; white-space: nowrap; }
+.show-note .btn[hidden] { display: none; }
+.fs .show-note { bottom: 24px; }
