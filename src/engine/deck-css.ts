@@ -45,15 +45,31 @@ function statements(css: string): string[] {
  */
 const STATE = new Set(['on', 'active', 'current', 'present', 'visible', 'show', 'shown', 'is-active']);
 
+/**
+ * Встроенные блоки движка (график, карточка, чипы…) на холсте не должны получать стили
+ * импортированной вёрстки с теми же именами классов (.bars, .card): к селектору
+ * добавляется «не внутри встроенного блока». Вёрстка импорта — блоки html/embed/live — как была.
+ */
+const NATIVE = '[data-type]:not([data-type="html"]):not([data-type="embed"]):not([data-type="live"])';
+const GUARD = `:not(:where(${NATIVE}, ${NATIVE} *))`;
+
+function guard(sel: string): string {
+  // Сам слайд (&, &.on) — не блок
+  if (/^&[\w.:-]*$/.test(sel)) return sel;
+  // Псевдоэлемент в конце: условие ставится перед ним
+  const m = /(::?(?:before|after|first-line|first-letter|placeholder|marker|selection|backdrop|file-selector-button)(?:\([^)]*\))?)$/i.exec(sel);
+  return m ? `${sel.slice(0, m.index)}${GUARD}${m[1]}` : `${sel}${GUARD}`;
+}
+
 function selectors(list: string): string {
-  return list.split(',').map((s) => s.trim()
+  return list.split(',').map((s) => guard(s.trim()
     .replace(/^(:root|html|body)(?![\w-])/i, '&')
     .replace(/(?:section)?\.slide((?:\.[\w-]+)*)(?![\w-])/g, (_, rest: string) => {
       const cls = rest.split('.').filter(Boolean);
       const state = cls.filter((c) => STATE.has(c));
       const own = cls.filter((c) => !STATE.has(c)).map((c) => `.${c}`).join('');
       return state.length ? `&.on .slide-root${own}` : `.slide-root${own}`;
-    })).join(', ');
+    }))).join(', ');
 }
 
 /** CSS презентации → CSS, действующий только внутри слайдов этой презентации (scope — селектор). */

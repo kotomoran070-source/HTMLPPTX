@@ -176,9 +176,37 @@ export const BLOCKS: Record<string, Schema> = {
     fields: [
       { k: 'values', label: 'Значения', type: 'numbers' },
       { k: 'labels', label: 'Подписи', type: 'strings', item: 'Подпись' },
+      { k: 'highlight', label: 'Выделенный столбец', type: 'number', min: 0, placeholder: 'последний', hint: 'Номер с нуля' },
       { k: 'max', label: 'Значение для полной высоты', type: 'number', placeholder: 'максимум' },
       { k: 'height', label: 'Высота, px', type: 'number', min: 40, max: 600, placeholder: '100' },
     ],
+  },
+  stat: {
+    fields: [
+      { k: 'value', label: 'Значение', type: 'text', placeholder: '3,4 млн' },
+      { k: 'label', label: 'Подпись', type: 'text' },
+      { k: 'delta', label: 'Изменение', type: 'text', placeholder: '+12 %', hint: 'С минусом — красное со стрелкой вниз' },
+      { k: 'note', label: 'Мелкая подпись', type: 'text' },
+    ],
+  },
+  quote: {
+    fields: [
+      { k: 'text', label: 'Цитата', type: 'textarea' },
+      { k: 'author', label: 'Автор', type: 'text' },
+      { k: 'role', label: 'Должность или источник', type: 'text' },
+    ],
+  },
+  timeline: {
+    fields: [{
+      k: 'items', label: 'Этапы', type: 'rows', item: 'Этап',
+      make: () => ({ date: 'Дата', title: 'Новый этап' }),
+      fields: [
+        { k: 'date', label: 'Дата', type: 'text' },
+        { k: 'title', label: 'Название', type: 'text' },
+        { k: 'text', label: 'Пояснение', type: 'text' },
+        { k: 'done', label: 'Пройден', type: 'bool' },
+      ],
+    }],
   },
   system: {
     about: 'Схема системы: тексты правятся прямо на слайде, структура — во вкладке «Код».',
