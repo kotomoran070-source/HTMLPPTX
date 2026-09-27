@@ -1,5 +1,8 @@
 /// <reference types="vite/client" />
 
+/** false — сборка «для показа»: без режима правки (yarn build --clean) */
+declare const __EDITABLE__: boolean;
+
 declare module 'virtual:decks' {
   import type { Deck } from './types';
   /** Загрузчики презентаций по имени папки в presentations/ */

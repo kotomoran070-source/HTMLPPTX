@@ -38,7 +38,7 @@ export function updateFavicon(url: string | undefined): void {
 /** Основное окно показа: сцена, навигация, обзор, режим правки, связь с окном докладчика. */
 export function startShow(deck: Deck, deckKey: string, devServer: boolean): void {
   const count = () => deck.slides.length;
-  const editable = devServer || canSaveFile();
+  const editable = __EDITABLE__ && (devServer || canSaveFile());
   document.body.classList.add('show');
   document.body.insertAdjacentHTML('beforeend', `
 <div class="progress-top" id="pg"></div>
@@ -353,6 +353,13 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     $('snote').classList.remove('on');
   }
   $('snote').querySelector('.show-note-x')!.addEventListener('click', hideNote);
+  // Из редактора: «Экспорт → PDF» — окно печати, когда слайды и шрифты готовы
+  if (new URLSearchParams(location.search).has('print')) {
+    const u = new URL(location.href);
+    u.searchParams.delete('print');
+    history.replaceState(history.state, '', u);
+    void document.fonts.ready.then(() => setTimeout(() => window.print(), 600));
+  }
   // Из редактора: «Режим докладчика» — показ ждёт одного нажатия, чтобы занять второй экран
   if (new URLSearchParams(location.search).has('present')) {
     const u = new URL(location.href);

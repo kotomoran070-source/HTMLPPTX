@@ -1,4 +1,6 @@
+import { execFile } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
@@ -250,6 +252,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           if (url.pathname === API + 'delete') return send(res, 200, trashDeck(name));
           if (url.pathname === API + 'bind-theme') return send(res, 200, bindProject(dir, name, url.searchParams.get('dry') === '1'));
           if (url.pathname === API + 'save') return await handleSave(name, req, res);
+          if (url.pathname === API + 'export') return await handleExport(root, name, url.searchParams.get('mode') === 'clean', res);
           if (url.pathname === API + 'asset') return await handleAsset(name, url.searchParams.get('name') ?? 'image.png', req, res);
           send(res, 404, { error: 'Неизвестная команда' });
         } catch (e) {
@@ -349,4 +352,31 @@ export function decksPlugin(opts: DecksOptions): Plugin {
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+}
+
+/**
+ * «Экспорт» из редактора: та же сборка, что yarn build, в отдельном процессе и во временную папку
+ * (сервер разработки не видит промежуточных файлов). Ответ — готовый HTML.
+ */
+function handleExport(root: string, name: string, clean: boolean, res: ServerResponse): Promise<void> {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'htmlpptx-export-'));
+  const out = path.join(tmp, `${name}.html`);
+  const args = [path.join(root, 'scripts/build.mjs'), name, `--out=${out}`, ...(clean ? ['--clean'] : [])];
+  return new Promise((resolve) => {
+    execFile(process.execPath, args, { cwd: root, env: { ...process.env, BUILD_TMP: tmp }, maxBuffer: 8 << 20 }, (err, _stdout, stderr) => {
+      try {
+        if (err || !fs.existsSync(out)) {
+          const msg = (stderr || (err as Error | null)?.message || 'Сборка не удалась').trim().split('\n').slice(-3).join(' ');
+          send(res, 500, { error: msg });
+        } else {
+          const body = fs.readFileSync(out);
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': body.length, 'Cache-Control': 'no-store' });
+          res.end(body);
+        }
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+        resolve();
+      }
+    });
+  });
 }

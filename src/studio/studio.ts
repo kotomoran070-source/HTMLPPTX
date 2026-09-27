@@ -14,7 +14,8 @@ import { tableGrips } from './table-grips';
 import { contextCommands, contextPanelsHtml, contextTab, contextTabsHtml, syncSwatches, type ContextTab } from './context-tabs';
 import { Inspector } from './inspector';
 import { closeLibrary, showLibrary, type Preset } from './library';
-import { closeMenu, showMenu, type MenuEntry } from './menu';
+import { closeMenu, showMenu, showPopover, type MenuEntry } from './menu';
+import { projectStorage } from '../engine/storage';
 import { SlidesPanel } from './slides-panel';
 import { crumbs, type Crumb } from './structure';
 import { canUngroup, groupObjects, ungroup } from './ungroup';
@@ -76,6 +77,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     </nav>
     <div class="st-top-r">
       <button type="button" class="st-status" id="st-status" role="status" aria-live="polite"></button>
+      <button class="btn ghost small st-export" type="button" data-cmd="file.export" title="Скачать один HTML-файл или PDF" aria-haspopup="true">${icon('save')}<span>Экспорт</span></button>
       <button class="ibtn small theme-btn" id="st-theme" type="button" aria-label="Тема интерфейса" title="Тема">${icon('sun', 'ic sun')}${icon('moon', 'ic moon')}</button>
       <button class="btn primary small" type="button" data-cmd="show.current" title="Показ с текущего слайда (Shift+F5)">${icon('play')}<span>Показ</span></button>
     </div>
@@ -373,6 +375,53 @@ export function startStudio(deck: Deck, deckKey: string): void {
     window.open(u.toString(), `htmlpptx-show-${deckKey}`);
   }
 
+  // ---------------- экспорт ----------------
+  const EXPORTS: [string, string, string, string][] = [
+    ['clean', 'play', 'HTML для показа', 'Один файл без редактора: открыть в браузере, отправить, загрузить в другой сервис'],
+    ['edit', 'pencil', 'HTML с правкой', 'Тот же файл с режимом правки (E): поправят текст в браузере, правки вернутся через импорт'],
+    ['pdf', 'notes', 'PDF', 'Слайд на страницу, анимации в конечном виде: в окне печати — «Сохранить как PDF»'],
+  ];
+  function exportMenu(): void {
+    const html = EXPORTS.map(([k, ic, t, d]) => `<button type="button" class="st-xopt" data-x="${k}">${icon(ic)}<span><b>${esc(t)}</b><small>${esc(d)}</small></span></button>`).join('');
+    showPopover(document.querySelector<HTMLElement>('.st-top [data-cmd="file.export"]')!, html, (b) => {
+      const m = b.dataset.x;
+      return m ? { run: () => void runExport(m) } : null;
+    }, 'st-exportpop');
+  }
+  let exporting = false;
+  async function runExport(mode: string): Promise<void> {
+    if (exporting) return;
+    await ed.settle();
+    if (mode === 'pdf') {
+      const u = new URL(location.href);
+      u.searchParams.delete('studio');
+      u.searchParams.set('print', '');
+      u.hash = '#1';
+      window.open(u.toString(), `htmlpptx-print-${deckKey}`);
+      return;
+    }
+    exporting = true;
+    ed.toast('Собираю файл… обычно это несколько секунд', 60000);
+    try {
+      const blob = await projectStorage.exportHtml(deckKey, mode === 'clean');
+      // Имя — как у папки презентации (и у yarn build): латиница открывается везде
+      const name = `${deckKey}${mode === 'clean' ? '' : '-edit'}.html`;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.hidden = true;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      ed.toast(`Готово: «${name}», ${Math.round(blob.size / 1024)} КБ`, 4000);
+    } catch (e) {
+      ed.toast(`Экспорт не удался: ${(e as Error).message}`, 6000, true);
+    } finally {
+      exporting = false;
+    }
+  }
+
   // ---------------- меню ----------------
   function newSlideMenu(anchor: HTMLElement): void {
     showMenu(anchor, SLIDE_PRESETS.map((p, k) => ({
@@ -617,7 +666,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     if (codeOpen && !code) {
       // Редактор кода тяжёлый: загружается при первом открытии
       const m = await import('./code');
-      code = new m.CodeView(box, { deck: () => deck, index: () => index, editor: () => ed });
+      code = new m.CodeView(box, { deck: () => deck, index: () => index, editor: () => ed, stage: () => view.stage });
     }
     box.hidden = !codeOpen;
     $('st-sc').hidden = !codeOpen;
@@ -676,6 +725,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'show.start': { run: () => void openShow(0) },
     'show.current': { run: () => void openShow(index) },
     'show.presenter': { run: () => void openShow(index, true) },
+    'file.export': { run: () => exportMenu() },
     'show.preview': { run: preview },
     'view.notes': { run: () => setNotes(!notesOpen), active: () => notesOpen },
     'view.zoom-in': { run: () => stepZoom(1) },
@@ -902,6 +952,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     syncContextTab();
     syncSwatches(deck, ed);
     grips.sync();
+    code?.syncSelection();
     document.querySelectorAll<HTMLButtonElement>('[data-cmd]').forEach((b) => {
       const c = cmds[b.dataset.cmd!];
       if (!c) return;

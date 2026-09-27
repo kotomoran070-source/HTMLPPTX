@@ -450,3 +450,37 @@ body.st-previewing .st-preview-shield { display: block; }
 .st-menu:not(.st-pop) button span { white-space: nowrap; }
 .st-menu.plain button { padding: 6px 10px 6px 12px; }
 .st-menu.plain button[aria-checked="true"] { color: var(--ach); font-weight: 600; }
+
+/* Экспорт: три понятных варианта с пояснением */
+.st-exportpop { width: 340px; padding: 6px; gap: 2px; }
+.st-xopt { display: flex; align-items: flex-start; gap: 12px; width: 100%; padding: 10px 12px; border: 0; border-radius: 8px; background: none; color: var(--tx); text-align: left; cursor: pointer; font: 13px var(--font); }
+.st-xopt:hover, .st-xopt:focus-visible { background: var(--acs); outline: none; }
+.st-xopt .ic { width: 18px !important; height: 18px !important; margin-top: 1px; color: var(--ac); }
+.st-xopt span { display: flex; flex-direction: column; gap: 2px; }
+.st-xopt b { font-weight: 600; }
+.st-xopt small { font-size: 12px; line-height: 1.4; color: var(--mu); }
+.st-top .st-export .ic { width: 14px; height: 14px; }
+
+/* Инспектор объектов в режиме кода: дерево блоков над YAML */
+.st-code-tree { display: flex; flex-direction: column; max-height: 38%; min-height: 0; border-bottom: 1px solid var(--bd); }
+.st-code-tree[hidden] { display: none; }
+.st-tree-head { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border: 0; background: none; color: var(--tx2); font: 600 12px var(--font); cursor: pointer; text-align: left; }
+.st-tree-head:hover { color: var(--tx); }
+.st-tree-head .ic { width: 13px !important; height: 13px !important; transform: rotate(180deg); transition: transform .15s; color: var(--mu); }
+.st-code-tree.folded .st-tree-head .ic { transform: rotate(90deg); }
+.st-tree-count { margin-left: 2px; font-weight: 500; color: var(--mu); }
+.st-code-tree.folded .st-tree-list { display: none; }
+.st-tree-list { overflow-y: auto; padding: 0 6px 8px; scrollbar-width: thin; }
+.st-tree-sec { padding: 6px 6px 3px; font: 600 10.5px var(--font); letter-spacing: .05em; text-transform: uppercase; color: var(--mu); }
+.st-tree-node { display: flex; align-items: baseline; gap: 8px; width: 100%; min-width: 0; padding: 4px 8px 4px calc(8px + var(--d) * 16px); border: 0; border-radius: 6px; background: none; color: var(--tx); font: 12.5px var(--font); text-align: left; cursor: pointer; }
+.st-tree-node b { flex: none; font-weight: 600; }
+.st-tree-node span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx2); }
+.st-tree-node code { flex: none; margin-left: auto; font: 11px ui-monospace, Menlo, Consolas, monospace; color: var(--mu); opacity: 0; transition: opacity .12s; }
+.st-tree-node:hover code, .st-tree-node[aria-selected="true"] code { opacity: 1; }
+.st-tree-node:hover, .st-tree-node:focus-visible { background: var(--alt); outline: none; }
+.st-tree-node.peek { box-shadow: inset 2px 0 0 var(--acb); }
+.st-tree-node[aria-selected="true"] { background: var(--acs); color: var(--ach); }
+.st-tree-node[aria-selected="true"] span { color: inherit; }
+.st-tree-empty { margin: 4px 8px 10px; font-size: 12px; color: var(--mu); }
+.st-code-ed .cm-st-hl { background: color-mix(in srgb, var(--ac) 10%, transparent); box-shadow: inset 2px 0 0 var(--ac); }
+.st-paper .st-code-peek { outline: 2px dashed color-mix(in srgb, var(--ac) 75%, transparent) !important; outline-offset: 3px; }

@@ -10,6 +10,8 @@ export default defineConfig(({ command }) => ({
     decksPlugin({ dir: 'presentations', only }),
     ...(command === 'build' ? [viteSingleFile({ removeViteModuleLoader: true })] : []),
   ],
+  // Сборка «для показа» (yarn build --clean): режим правки не попадает в файл
+  define: { __EDITABLE__: JSON.stringify(process.env.CLEAN !== '1') },
   // Документы «живых» вставок (компонент embed) — обычные файлы-ассеты
   assetsInclude: ['**/*.htm'],
   server: {

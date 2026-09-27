@@ -1,6 +1,8 @@
 // Сборка презентаций в самодостаточные HTML-файлы: dist/<имя>.html
 //   yarn build            — все презентации
 //   yarn build microclimate — одну
+//   --clean                — «для показа»: без режима правки, файл dist/<имя>.show.html
+//   --out=путь             — куда положить файл (одна презентация; так собирает кнопка «Экспорт» редактора)
 import fs from 'node:fs';
 import path from 'node:path';
 import { build } from 'vite';
@@ -15,7 +17,12 @@ const all = fs.existsSync(presDir)
     .sort()
   : [];
 
-const wanted = process.argv.slice(2).filter((a) => !a.startsWith('-'));
+const args = process.argv.slice(2);
+const wanted = args.filter((a) => !a.startsWith('-'));
+const clean = args.includes('--clean');
+const outArg = args.find((a) => a.startsWith('--out='))?.slice(6);
+// Временная папка сборки: для «Экспорта» — вне проекта, чтобы не будить наблюдение за файлами
+const tmpRoot = process.env.BUILD_TMP || null;
 const names = wanted.length ? wanted : all;
 const missing = names.filter((n) => !all.includes(n));
 if (missing.length) {
@@ -30,8 +37,14 @@ if (!names.length) {
 const dist = path.join(root, 'dist');
 fs.mkdirSync(dist, { recursive: true });
 
+if (outArg && names.length !== 1) {
+  console.error('--out работает для одной презентации: yarn build имя --out=файл.html');
+  process.exit(1);
+}
+if (clean) process.env.CLEAN = '1';
+
 for (const name of names) {
-  const tmp = path.join(dist, `.build-${name}`);
+  const tmp = path.join(tmpRoot ?? dist, `.build-${name}-${process.pid}`);
   process.env.DECK = name;
   process.env.OUT_DIR = tmp;
   try {
@@ -42,9 +55,11 @@ for (const name of names) {
     process.exitCode = 1;
     continue;
   }
-  const out = path.join(dist, `${name}.html`);
-  fs.renameSync(path.join(tmp, 'index.html'), out);
+  const out = outArg ? path.resolve(outArg) : path.join(dist, `${name}${clean ? '.show' : ''}.html`);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  // copyFile: временная папка может быть на другом диске
+  fs.copyFileSync(path.join(tmp, 'index.html'), out);
   fs.rmSync(tmp, { recursive: true, force: true });
   const kb = (fs.statSync(out).size / 1024).toFixed(0);
-  console.log(`✓ ${path.relative(root, out)}  ${kb} КБ`);
+  console.log(`✓ ${path.relative(root, out)}  ${kb} КБ${clean ? ' · для показа' : ''}`);
 }
