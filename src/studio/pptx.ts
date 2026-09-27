@@ -17,6 +17,8 @@ type Slide = PptxGenJS.Slide;
 type Pptx = PptxGenJS;
 
 const PX = 96;
+/** Язык текста: иначе PowerPoint проверяет русский текст как английский и подчёркивает каждое слово */
+let LANG = 'ru-RU';
 const inch = (px: number) => Math.round((px / PX) * 1000) / 1000;
 const pt = (px: number) => Math.round(px * 0.75 * 10) / 10;
 
@@ -152,6 +154,8 @@ export async function exportPptx(deck: Deck, progress?: PptxProgress): Promise<B
   const pptx: Pptx = new Pptx();
   pptx.layout = 'LAYOUT_WIDE';
   pptx.title = deck.title ?? '';
+  const lang = String((deck as { lang?: unknown }).lang ?? 'ru');
+  LANG = lang.includes('-') ? lang : lang === 'en' ? 'en-US' : `${lang}-${lang.toUpperCase()}`;
 
   // Слайды рисуются в светлой теме — так PowerPoint-файл выглядит привычно
   const root = document.documentElement;
@@ -174,7 +178,7 @@ export async function exportPptx(deck: Deck, progress?: PptxProgress): Promise<B
       if (typeof notes === 'string' && notes.trim()) slide.addNotes(notes);
     }
     progress?.(deck.slides.length, deck.slides.length);
-    return await pptx.write({ outputType: 'blob' }) as Blob;
+    return await repair(await pptx.write({ outputType: 'blob' }) as Blob);
   } finally {
     host.remove();
     if (theme === null) root.removeAttribute('data-theme');
@@ -326,7 +330,7 @@ class Converter {
         ...this.pos(at),
         fill: fill ? { color: fill.hex, transparency: transparency(fill.a * op) } : { type: 'none' } as never,
         line: uniform ? { color: sides[0].c!.hex, width: pt(sides[0].w), transparency: transparency(sides[0].c!.a * op), dashType: dash } : { type: 'none' } as never,
-        rectRadius: radius > 0.5 && !ellipse ? inch(Math.min(radius, Math.min(at.w, at.h) / 2)) : undefined,
+        rectRadius: radius > 0.5 && !ellipse ? cornerRadius(radius, at.w, at.h) : undefined,
         rotate: rot || undefined,
         shadow: shadow ?? undefined,
       });
@@ -373,11 +377,12 @@ class Converter {
       if (!fill && !bc) continue;
       const radius = (parseFloat(p.borderTopLeftRadius) || 0) * k;
       const round = p.borderTopLeftRadius.endsWith('%') || radius >= Math.min(w, h) / 2 - 0.5;
-      this.slide.addShape(round && Math.abs(w - h) < 1 ? this.pptx.ShapeType.ellipse : radius ? this.pptx.ShapeType.roundRect : this.pptx.ShapeType.rect, {
+      const ellipse = round && Math.abs(w - h) < 1;
+      this.slide.addShape(ellipse ? this.pptx.ShapeType.ellipse : radius ? this.pptx.ShapeType.roundRect : this.pptx.ShapeType.rect, {
         x: inch(b.x + left), y: inch(b.y + top), w: inch(w), h: inch(h),
         fill: fill ? { color: fill.hex, transparency: transparency(fill.a * op) } : { type: 'none' } as never,
         line: bc ? { color: bc.hex, width: pt(bw), transparency: transparency(bc.a * op) } : { type: 'none' } as never,
-        rectRadius: radius ? inch(Math.min(radius, Math.min(w, h) / 2)) : undefined,
+        rectRadius: radius && !ellipse ? cornerRadius(radius, w, h) : undefined,
       });
     }
   }
@@ -446,7 +451,7 @@ class Converter {
           options: {
             color: color?.hex, transparency: color ? transparency(color.a * op) : undefined,
             bold: Number(cs.fontWeight) >= 600, italic: cs.fontStyle === 'italic', underline: /underline/.test(cs.textDecorationLine) ? { style: 'sng' } : undefined,
-            fontSize: pt(size), fontFace: fontFace(cs.fontFamily),
+            fontSize: pt(size), fontFace: fontFace(cs.fontFamily), lang: LANG,
             charSpacing: Number.isFinite(ls) && ls ? pt(ls) : undefined,
             hyperlink: parent.closest('a[href]') ? { url: (parent.closest('a[href]') as HTMLAnchorElement).href } : undefined,
           },
@@ -537,7 +542,7 @@ class Converter {
     if (cs.textTransform === 'uppercase') text = text.toUpperCase();
     this.slide.addText(text, {
       x: inch(rect.left - this.origin.left), y: inch(rect.top - this.origin.top), w: inch(rect.width + 6), h: inch(rect.height),
-      margin: 0, wrap: false, fontSize: pt(parseFloat(cs.fontSize) * k), fontFace: fontFace(cs.fontFamily), bold: Number(cs.fontWeight) >= 600,
+      margin: 0, wrap: false, lang: LANG, fontSize: pt(parseFloat(cs.fontSize) * k), fontFace: fontFace(cs.fontFamily), bold: Number(cs.fontWeight) >= 600,
       color: color?.hex, transparency: color ? transparency(color.a * op) : undefined, valign: 'top', fit: 'none',
     });
   }
@@ -687,7 +692,7 @@ class Converter {
           text,
           options: {
             fill: fill ? { color: fill.hex, transparency: transparency(fill.a) } : undefined,
-            color: color?.hex, bold: Number(cs.fontWeight) >= 600, fontSize: pt(parseFloat(cs.fontSize) * k), fontFace: fontFace(cs.fontFamily),
+            color: color?.hex, bold: Number(cs.fontWeight) >= 600, fontSize: pt(parseFloat(cs.fontSize) * k), fontFace: fontFace(cs.fontFamily), lang: LANG,
             align: cs.textAlign === 'center' ? 'center' : cs.textAlign === 'right' ? 'right' : 'left', valign: 'middle',
             margin: [pt(parseFloat(cs.paddingTop) * k), pt(parseFloat(cs.paddingRight) * k), pt(parseFloat(cs.paddingBottom) * k), pt(parseFloat(cs.paddingLeft) * k)],
             border: [side('top'), side('right'), side('bottom'), side('left')],
@@ -743,6 +748,50 @@ function getComputedColor(el: HTMLElement, css: string): string {
   const c = getComputedStyle(probe).color;
   probe.remove();
   return c;
+}
+
+/**
+ * Скругление углов для PowerPoint: не больше половины меньшей стороны с запасом на округление —
+ * иначе параметр фигуры выходит за допустимые 50 000 и PowerPoint не открывает слайд.
+ */
+function cornerRadius(r: number, w: number, h: number): number {
+  return Math.floor((Math.min(r, (Math.min(w, h) / 2) * 0.98) / PX) * 1000) / 1000;
+}
+
+/**
+ * Поправки к файлу pptxgenjs, без которых PowerPoint для компьютера файл не открывает
+ * (просмотрщики и веб-версия прощают):
+ *  - список мастеров заметок должен идти сразу за списком мастеров слайдов;
+ *  - у абзаца одно свойство абзаца (a:pPr) — первым, а не перед каждым куском текста.
+ */
+async function repair(blob: Blob): Promise<Blob> {
+  const { default: JSZip } = await import('jszip');
+  const zip = await JSZip.loadAsync(blob);
+  const pres = zip.file('ppt/presentation.xml');
+  if (pres) {
+    let x = await pres.async('string');
+    const notes = /<p:notesMasterIdLst>[\s\S]*?<\/p:notesMasterIdLst>/.exec(x)?.[0];
+    if (notes) {
+      x = x.replace(notes, '').replace('</p:sldMasterIdLst>', `</p:sldMasterIdLst>${notes}`);
+      zip.file('ppt/presentation.xml', x);
+    }
+  }
+  const pPr = /<a:pPr\b[^>]*?(?:\/>|>[\s\S]*?<\/a:pPr>)/g;
+  for (const name of Object.keys(zip.files).filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n))) {
+    const x = await zip.file(name)!.async('string');
+    const fixed = x.replace(/<a:p>([\s\S]*?)<\/a:p>/g, (_m, inner: string) => {
+      let first = true;
+      return `<a:p>${inner.replace(pPr, (p) => {
+        if (first && inner.startsWith(p)) {
+          first = false;
+          return p;
+        }
+        return '';
+      })}</a:p>`;
+    });
+    if (fixed !== x) zip.file(name, fixed);
+  }
+  return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', compression: 'DEFLATE' });
 }
 
 function lighten(hex: string, k: number): string {

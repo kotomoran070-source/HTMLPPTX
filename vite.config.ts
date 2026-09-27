@@ -28,6 +28,11 @@ export default defineConfig(({ command }) => ({
   },
   // Документы «живых» вставок (компонент embed) — обычные файлы-ассеты
   assetsInclude: ['**/*.htm', '**/*.glb'],
+  // Библиотеки, которые подключаются по требованию (экспорт PPTX, 3D): собираются сразу при запуске,
+  // иначе первое обращение к ним перезагружает страницу посреди работы
+  optimizeDeps: {
+    include: ['pptxgenjs', 'html-to-image', 'jszip', 'yaml', 'codemirror', '@codemirror/lang-yaml', '@codemirror/lang-css', '@codemirror/theme-one-dark'],
+  },
   server: {
     open: true,
   },
