@@ -614,8 +614,6 @@ export class Editor {
     const notes = this.host.deck.slides[i]?.notes;
     if (document.activeElement !== text || text.dataset.slide !== String(i)) text.value = typeof notes === 'string' ? notes : '';
     text.dataset.slide = String(i);
-    const label = document.getElementById('ed-notes-label');
-    if (label) label.textContent = `Заметки докладчика · слайд ${i + 1}`;
   }
 
   // ---------------- клавиатура ----------------

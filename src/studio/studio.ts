@@ -1014,7 +1014,6 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const n = deck.slides[index]?.notes;
     if (document.activeElement !== notesText || notesText.dataset.slide !== String(index)) notesText.value = typeof n === 'string' ? n : '';
     notesText.dataset.slide = String(index);
-    $('st-notes-label').textContent = `Заметки докладчика · слайд ${index + 1}`;
   }
   notesText.addEventListener('input', () => {
     const i = Number(notesText.dataset.slide);

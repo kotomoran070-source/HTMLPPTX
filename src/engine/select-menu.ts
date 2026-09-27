@@ -2,11 +2,15 @@
  * Выпадающие списки в стиле интерфейса вместо системных.
  * Сам <select> остаётся: он хранит значение и шлёт input/change, поэтому
  * код, который с ним работает, не меняется. Подменяется только открытый список.
+ *
+ * Список раскрывается из самого поля: выбранный пункт встаёт на место поля,
+ * остальные разворачиваются вверх и вниз. Подсветка одна и скользит между пунктами.
  */
 
 let current: { select: HTMLSelectElement; close(): void } | null = null;
 
-const CHECK = '<svg class="sel-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const EASE = 'cubic-bezier(.2, .8, .2, 1)';
+const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function usable(t: EventTarget | null): t is HTMLSelectElement {
   return t instanceof HTMLSelectElement && !t.multiple && t.size <= 1 && !t.disabled && !t.closest('[data-native-select]');
@@ -28,6 +32,9 @@ function open(select: HTMLSelectElement): void {
   menu.dataset.edKeep = '';
   const label = select.getAttribute('aria-label') ?? select.title;
   if (label) menu.setAttribute('aria-label', label);
+  const glide = document.createElement('i');
+  glide.className = 'sel-glide';
+  menu.append(glide);
 
   const items: HTMLButtonElement[] = [];
   let group: HTMLOptGroupElement | null = null;
@@ -47,55 +54,93 @@ function open(select: HTMLSelectElement): void {
     b.dataset.i = String(i);
     b.disabled = o.disabled || !!g?.disabled;
     b.setAttribute('aria-selected', String(i === select.selectedIndex));
-    const span = document.createElement('span');
-    span.textContent = o.text;
+    b.textContent = o.text;
     // Список шрифтов показывает каждый шрифт им самим
-    if (o.style.fontFamily) span.style.fontFamily = o.style.fontFamily;
-    b.append(span);
-    if (i === select.selectedIndex) b.insertAdjacentHTML('beforeend', CHECK);
+    if (o.style.fontFamily) b.style.fontFamily = o.style.fontFamily;
     menu.append(b);
     items.push(b);
   });
   document.body.append(menu);
 
-  // Место: под списком, а если внизу тесно — над ним; ширина не меньше самого поля
-  const place = () => {
+  const enabled = () => items.filter((b) => !b.disabled);
+  const sel = items.find((b) => b.getAttribute('aria-selected') === 'true' && !b.disabled) ?? enabled()[0];
+
+  // Место: выбранный пункт — на месте поля, текст пунктов — там же, где текст поля
+  let dy = 0;
+  const place = (first: boolean) => {
     const r = select.getBoundingClientRect();
-    menu.style.minWidth = `${Math.round(r.width)}px`;
-    menu.style.maxHeight = '';
-    const below = innerHeight - r.bottom - 12;
-    const above = r.top - 12;
-    const up = menu.scrollHeight > below && above > below;
-    menu.style.maxHeight = `${Math.max(120, Math.min(360, up ? above : below))}px`;
+    const pad = parseFloat(getComputedStyle(select).paddingLeft) || 8;
+    const shift = (sel ? parseFloat(getComputedStyle(sel).paddingLeft) : 12) + 4 - pad;
+    menu.style.minWidth = `${Math.round(r.width + shift + 4)}px`;
+    if (first) {
+      menu.style.maxHeight = `${Math.min(360, innerHeight - 16)}px`;
+      const h = menu.offsetHeight;
+      let top = sel ? r.top + (r.height - sel.offsetHeight) / 2 - sel.offsetTop : r.bottom + 4;
+      // Вверху тесно — список прокручивается так, чтобы выбранный пункт остался у поля
+      if (top < 8) {
+        const room = menu.scrollHeight - menu.clientHeight;
+        const s = Math.min(room, 8 - top);
+        menu.scrollTop = s;
+        top += s;
+      }
+      top = Math.max(8, Math.min(innerHeight - 8 - h, top));
+      dy = top - r.top;
+    }
     const w = menu.offsetWidth;
-    menu.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left))}px`;
-    menu.style.top = up ? `${Math.max(8, r.top - 4 - menu.offsetHeight)}px` : `${r.bottom + 4}px`;
-    menu.classList.toggle('up', up);
+    menu.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left - shift))}px`;
+    menu.style.top = `${r.top + dy}px`;
     return r;
   };
-  place();
+  const field = place(true);
 
-  const enabled = () => items.filter((b) => !b.disabled);
-  // Список шрифтов на панели текста не забирает фокус: выделение в тексте остаётся
+  // Подсветка одна: переезжает к пункту под курсором или выбранному стрелками
+  let cur: HTMLButtonElement | null = null;
   const keepFocus = !!select.closest('.edtext');
-  const focus = (b: HTMLButtonElement | undefined) => {
+  const mark = (b: HTMLButtonElement | undefined, scroll = true) => {
     if (!b) return;
-    items.forEach((x) => x.classList.toggle('cur', x === b));
+    cur?.classList.remove('cur');
+    cur = b;
+    b.classList.add('cur');
+    glide.style.transform = `translateY(${b.offsetTop}px)`;
+    glide.style.height = `${b.offsetHeight}px`;
+    glide.classList.toggle('on-sel', b.getAttribute('aria-selected') === 'true');
+    // Список шрифтов на панели текста не забирает фокус: выделение в тексте остаётся
     if (!keepFocus) b.focus({ preventScroll: true });
-    b.scrollIntoView({ block: 'nearest' });
+    if (scroll) b.scrollIntoView({ block: 'nearest' });
   };
+  mark(sel, false);
+  void glide.offsetWidth;
+  glide.classList.add('ready');
 
-  const close = (refocus = false) => {
-    menu.remove();
+  // Раскрытие из прямоугольника поля
+  const m = menu.getBoundingClientRect();
+  const fromField = `inset(${Math.max(0, field.top - m.top)}px 0 ${Math.max(0, m.bottom - field.bottom)}px 0 round 8px)`;
+  if (!reduced()) {
+    menu.animate([{ clipPath: fromField, opacity: 0.7 }, { clipPath: 'inset(0 0 0 0 round 12px)', opacity: 1 }], { duration: 200, easing: EASE });
+  }
+
+  let closed = false;
+  const close = (refocus = false, to?: HTMLButtonElement) => {
+    if (closed) return;
+    closed = true;
     select.removeAttribute('data-open');
     removeEventListener('pointerdown', outside, true);
     removeEventListener('keydown', onKey, true);
     removeEventListener('resize', onClose);
-    mo.disconnect();
     removeEventListener('scroll', onScroll, true);
     removeEventListener('blur', onClose);
+    mo.disconnect();
     if (current?.select === select) current = null;
     if (refocus && !keepFocus) select.focus({ preventScroll: true });
+    // Выбранный пункт сворачивается обратно в поле
+    if (reduced() || !to || !select.isConnected) return menu.remove();
+    menu.style.pointerEvents = 'none';
+    const mr = menu.getBoundingClientRect();
+    const t = to.getBoundingClientRect();
+    menu.animate(
+      [{ clipPath: 'inset(0 0 0 0 round 12px)', opacity: 1 }, { clipPath: `inset(${t.top - mr.top}px 0 ${mr.bottom - t.bottom}px 0 round 8px)`, opacity: 0 }],
+      { duration: 140, easing: EASE, fill: 'forwards' },
+    ).finished.then(() => menu.remove(), () => menu.remove());
   };
   const onClose = () => close();
   const outside = (e: PointerEvent) => {
@@ -105,28 +150,31 @@ function open(select: HTMLSelectElement): void {
   const onScroll = (e: Event) => {
     if (menu.contains(e.target as Node)) return;
     if (!select.isConnected) return close();
-    const r = place();
+    const r = place(false);
     if (r.bottom < 0 || r.top > innerHeight || (!r.width && !r.height)) close();
+  };
+  const pick = (b: HTMLButtonElement) => {
+    close(true, b);
+    choose(select, Number(b.dataset.i));
   };
   let typed = '';
   let typedAt = 0;
   const onKey = (e: KeyboardEvent) => {
     const list = enabled();
-    const i = list.findIndex((b) => b.classList.contains('cur'));
-    if (e.key === 'Escape' || e.key === 'Tab') close(e.key === 'Escape');
-    else if (e.key === 'ArrowDown') focus(list[Math.min(list.length - 1, i + 1)]);
-    else if (e.key === 'ArrowUp') focus(list[Math.max(0, i - 1)]);
-    else if (e.key === 'Home' || e.key === 'PageUp') focus(list[0]);
-    else if (e.key === 'End' || e.key === 'PageDown') focus(list[list.length - 1]);
+    const i = cur ? list.indexOf(cur) : -1;
+    if (e.key === 'Escape' || e.key === 'Tab') close(e.key === 'Escape', sel);
+    else if (e.key === 'ArrowDown') mark(list[Math.min(list.length - 1, i + 1)]);
+    else if (e.key === 'ArrowUp') mark(list[Math.max(0, i - 1)]);
+    else if (e.key === 'Home' || e.key === 'PageUp') mark(list[0]);
+    else if (e.key === 'End' || e.key === 'PageDown') mark(list[list.length - 1]);
     else if (e.key === 'Enter' || e.key === ' ') {
       if (i < 0) return;
-      close(true);
-      choose(select, Number(list[i].dataset.i));
+      pick(list[i]);
     } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
       // Быстрый переход по первым буквам
       typed = (e.timeStamp - typedAt > 700 ? '' : typed) + e.key.toLowerCase();
       typedAt = e.timeStamp;
-      focus(list.find((b) => b.textContent!.trim().toLowerCase().startsWith(typed)));
+      mark(list.find((b) => b.textContent!.trim().toLowerCase().startsWith(typed)));
     } else return;
     if (e.key !== 'Tab') e.preventDefault();
     e.stopPropagation();
@@ -135,16 +183,11 @@ function open(select: HTMLSelectElement): void {
   menu.addEventListener('mousedown', (e) => e.preventDefault());
   menu.addEventListener('click', (e) => {
     const b = (e.target as Element).closest<HTMLButtonElement>('button[data-i]');
-    if (!b || b.disabled) return;
-    close(true);
-    choose(select, Number(b.dataset.i));
+    if (b && !b.disabled) pick(b);
   });
   menu.addEventListener('mousemove', (e) => {
     const b = (e.target as Element).closest<HTMLButtonElement>('button[data-i]:not(:disabled)');
-    if (b && !b.classList.contains('cur')) {
-      items.forEach((x) => x.classList.toggle('cur', x === b));
-      if (!keepFocus) b.focus({ preventScroll: true });
-    }
+    if (b && b !== cur) mark(b, false);
   });
 
   addEventListener('pointerdown', outside, true);
@@ -156,13 +199,7 @@ function open(select: HTMLSelectElement): void {
   addEventListener('scroll', onScroll, true);
   addEventListener('blur', onClose);
   select.setAttribute('data-open', '');
-  current = { select, close };
-  const sel = items.find((b) => b.getAttribute('aria-selected') === 'true' && !b.disabled) ?? enabled()[0];
-  if (sel) {
-    // Выбранный пункт виден и отмечен сразу
-    sel.scrollIntoView({ block: 'nearest' });
-    focus(sel);
-  }
+  current = { select, close: () => close(false, sel) };
 }
 
 /** Подключается один раз на всё приложение */
