@@ -19,6 +19,7 @@
     "verify": "tsc --noEmit && node scripts/build.mjs"
   },
   "dependencies": {
+    "@google/model-viewer": "4.2.0",
     "qrcode-generator": "^2.0.4"
   },
   "devDependencies": {

@@ -446,6 +446,25 @@ export function startStudio(deck: Deck, deckKey: string): void {
   }, true);
   document.querySelector('.st-ribbon [data-cmd="format.painter"]')!.addEventListener('dblclick', () => startPainter(true));
 
+  // ---------------- снимок 3D-модели ----------------
+  async function modelSnapshot(): Promise<void> {
+    const sel = ed.selection;
+    if (!sel) return;
+    const key = JSON.stringify(sel.block);
+    const el = [...view.stage.querySelectorAll<HTMLElement>('.slide.on [data-block]')].find((x) => x.getAttribute('data-block') === key);
+    const mv = el?.querySelector('model-viewer') as (HTMLElement & { loaded?: boolean; toBlob?(o: object): Promise<Blob> }) | null;
+    if (!mv?.toBlob || !mv.loaded) return ed.toast('Модель ещё загружается', 2000);
+    try {
+      const blob = await mv.toBlob({ mimeType: 'image/png', idealAspect: true });
+      const { url } = await projectStorage.uploadAsset(deckKey, blob, 'model-snapshot.png');
+      const path = sel.block;
+      ed.commit((d) => setAt(d, [...path, 'poster'], url), { rebuild: true });
+      ed.toast('Снимок сохранён', 1500);
+    } catch (e) {
+      ed.toast(`Не удалось сделать снимок: ${(e as Error).message}`, 4000, true);
+    }
+  }
+
   // ---------------- экспорт ----------------
   const EXPORTS: [string, string, string, string][] = [
     ['clean', 'play', 'HTML для показа', 'Один файл для просмотра в браузере'],
@@ -802,6 +821,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'show.current': { run: () => void openShow(index) },
     'show.presenter': { run: () => void openShow(index, true) },
     'file.export': { run: () => exportMenu() },
+    'model.snapshot': { run: () => void modelSnapshot(), enabled: () => ed.selection?.type === 'model' },
     'format.painter': { run: () => (painter ? stopPainter() : startPainter(false)), enabled: () => !!painter || singleSel(), active: () => !!painter },
     'format.copy': { run: copyFormat, enabled: singleSel },
     'format.paste': { run: pasteFormat, enabled: () => !!formatClip && !!ed.selection },

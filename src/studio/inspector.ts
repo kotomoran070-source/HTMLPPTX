@@ -252,7 +252,7 @@ export class Inspector {
     const frame = all.filter((f) => FRAME.includes(f.k));
     const ribbonNote = ribbon ? `<button type="button" class="st-p-hint" data-cmd="tab.${ribbon.tab}">${icon('layers')}<span>Оформление — на вкладке «${ribbon.name}»</span></button>` : '';
     const contentSec = own.length || schema?.about || ribbon
-      ? `<section class="st-p-sec"><h3>Содержимое</h3>${ribbonNote}${schema?.about ? `<p class="st-p-note">${esc(schema.about)}</p>` : ''}${formHtml(own, deck, sel.block)}</section>`
+      ? `<section class="st-p-sec"><h3>Содержимое</h3>${ribbonNote}${schema?.about ? `<p class="st-p-note">${esc(schema.about)}</p>` : ''}${formHtml(own, deck, sel.block)}${sel.type === 'model' ? `<div class="st-p-col">${cmdBtn('model.snapshot', 'image', 'Снимок текущего вида')}</div>` : ''}</section>`
         + (frame.length ? sec('frame', 'Кадр картинки', formHtml(frame, deck, sel.block)) : '')
       : '';
     const extra = this.partsHtml() + sec('more', 'Дополнительно', formHtml([STYLE_FIELD], deck, sel.block));

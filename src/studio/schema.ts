@@ -254,6 +254,17 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'theme', label: 'Цвета темы внутри вставки', type: 'bool' },
     ],
   },
+  model: {
+    about: 'Снимок нужен для печати, PDF, миниатюр и окна докладчика.',
+    fields: [
+      { k: 'src', label: 'Модель', type: 'media', kind: 'model', placeholder: 'Файл GLB' },
+      { k: 'poster', label: 'Снимок', type: 'image' },
+      { k: 'rotate', label: 'Вращается сама', type: 'bool', default: true },
+      { k: 'controls', label: 'Вращать мышью при показе', type: 'bool', default: true },
+      { k: 'exposure', label: 'Яркость', type: 'number', min: 0.2, max: 3, step: 0.1, placeholder: '1' },
+      { k: 'caption', label: 'Подпись', type: 'text' },
+    ],
+  },
   video: {
     fields: [
       { k: 'src', label: 'Видео', type: 'media', kind: 'video', placeholder: 'Файл MP4 или ссылка на YouTube, Vimeo' },

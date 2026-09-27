@@ -21,5 +21,6 @@ import './shape/shape';
 import './table/table';
 import './group/group';
 import './media/video';
+import './media/model';
 import './html/html';
 import './live/live';
