@@ -17,7 +17,25 @@ export interface InspectorHost {
   run(cmd: string): void;
   /** Размер свободного объекта на слайде (высота по содержимому, если она не задана) */
   measure(free: Path): { w: number; h: number } | null;
+  /** Один эффект появления всем выделенным */
+  groupEffect(effect: string): void;
+  /** Появление по очереди в порядке чтения (выделенные или указанные объекты) */
+  sequence(paths?: Path[]): void;
 }
+
+/** Шаг между появлениями при перестановке в списке, мс */
+const STEP = 300;
+
+/** Готовые фоны холста: значение поля bg и как выглядит образец. */
+const BACKGROUNDS: [string, string, string][] = [
+  ['', 'Точки', 'radial-gradient(var(--bd2) 1px, transparent 1px) 0 0 / 6px 6px, var(--bg)'],
+  ['var(--bg)', 'Ровный', 'var(--bg)'],
+  ['var(--surf)', 'Светлый', 'var(--surf)'],
+  ['var(--acs)', 'Акцентный', 'var(--acs)'],
+  ['linear-gradient(135deg, var(--acs), var(--bg) 70%)', 'Градиент', 'linear-gradient(135deg, var(--acs), var(--bg) 70%)'],
+];
+
+const fmtDelay = (ms: number) => (ms ? `${(ms / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 2 })} с` : 'сразу');
 
 export const EFFECTS: [string, string][] = [
   ['', 'Без анимации'], ['fade', 'Проявление'], ['rise', 'Всплытие снизу'], ['drop', 'Появление сверху'],
@@ -67,6 +85,7 @@ export class Inspector {
         if (!onFieldChange(el, this.edit)) this.fill();
         return;
       }
+      if (el.dataset.anim !== undefined) return this.setAnim(Number(el.dataset.anim), el.value);
       this.onChange(el);
     });
     root.addEventListener('input', (e) => {
@@ -97,8 +116,16 @@ export class Inspector {
         onFieldAction(act, this.fields, this.base, this.edit);
         return;
       }
+      const mv = t.closest<HTMLElement>('[data-anim-move]');
+      if (mv) return this.moveAnim(Number(mv.dataset.animMove), Number(mv.dataset.dir) as 1 | -1);
+      if (t.closest('[data-a="seq-all"]')) {
+        const n = (this.host.deck().slides[this.host.index()].free ?? []).length;
+        return this.host.sequence(Array.from({ length: n }, (_x, k) => ['slides', this.host.index(), 'free', k]));
+      }
+      const bg = t.closest<HTMLElement>('[data-bg]');
+      if (bg) return this.setBg(bg.dataset.bg ?? '');
       const layer = t.closest<HTMLElement>('[data-layer]')?.dataset.layer;
-      if (layer !== undefined) this.host.editor().selectFree(this.host.index(), Number(layer));
+      if (layer !== undefined && !t.closest('select')) this.host.editor().selectFree(this.host.index(), Number(layer));
       if (t.closest('[data-a="accent-reset"]')) this.host.editor().setAccent(null);
     });
   }
@@ -108,6 +135,17 @@ export class Inspector {
     const sel = this.host.editor().selection;
     const i = this.host.index();
     const deck = this.host.deck();
+    if (sel && sel.group.length > 1) {
+      this.fields = [];
+      this.base = [];
+      const key = `m:${JSON.stringify(sel.group)}`;
+      if (key !== this.key) {
+        this.key = key;
+        this.root.innerHTML = this.multiHtml(sel.group.length);
+        this.root.dataset.subject = key;
+      }
+      return this.fill();
+    }
     if (sel) {
       this.fields = [...(BLOCKS[sel.type]?.fields ?? []), STYLE_FIELD];
       this.base = sel.block;
@@ -118,7 +156,7 @@ export class Inspector {
     const sig = formSig(this.fields, deck, this.base);
     const key = sel
       ? `b:${JSON.stringify(sel.free ?? sel.block)}:${sel.type}:${sig}`
-      : `s:${i}:${deck.slides[i]?.template ?? ''}:${(deck.slides[i]?.free ?? []).length}:${sig}`;
+      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${this.animSig()}:${String(deck.slides[i]?.bg ?? '')}`;
     if (key !== this.key) {
       this.key = key;
       // Прокрутка панели сохраняется, когда форма перестраивается (добавили пункт)
@@ -170,31 +208,124 @@ ${extra}<section class="st-p-sec st-p-end"><div class="st-p-row">${cmdBtn('obj.d
 ${cmdBtn('obj.del', 'trash', 'Удалить', 'danger')}</section>`;
   }
 
+  private bgHtml(cur: string): string {
+    const known = BACKGROUNDS.some(([v]) => v === cur);
+    return `<div class="st-p-field"><span>Фон</span><div class="st-bgs" role="radiogroup" aria-label="Фон слайда">${BACKGROUNDS.map(([v, l, look]) =>
+      `<button type="button" role="radio" aria-checked="${v === cur}" data-bg="${esc(v)}" title="${esc(l)}"><i style="background:${look}"></i><span>${esc(l)}</span></button>`).join('')}
+<label class="st-bg-own" title="Свой цвет"><i style="background:${!known && HEX_RE.test(cur) ? cur : 'conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)'}"></i><input type="color" data-f="bgcolor" aria-label="Свой цвет фона"><span>Свой</span></label></div>
+${!known ? `<p class="st-p-note">Сейчас: <code>${esc(cur.length > 60 ? cur.slice(0, 60) + '…' : cur)}</code></p>` : ''}</div>
+<details class="st-p-more"><summary>CSS фона</summary><label class="st-p-field"><input type="text" data-f="bg" placeholder="как у темы" spellcheck="false"></label></details>`;
+  }
+
   private slideHtml(): string {
     const deck = this.host.deck();
     const i = this.host.index();
     const s = deck.slides[i];
     if (!s) return '';
     const tpl = s.template ?? 'content';
-    const free = Array.isArray(s.free) ? (s.free as Block[]) : [];
-    const layers = free.map((b, k) => ({ b, k })).reverse().map(({ b, k }) => {
-      const snip = objectLabel(b);
-      return `<button type="button" class="st-layer" data-layer="${k}"><b>${blockName(b.type)}</b>${snip ? `<span>${esc(snip)}</span>` : ''}</button>`;
-    }).join('');
     return `<header class="st-p-head"><span class="st-p-kind">Слайд ${i + 1} · ${esc(TEMPLATE_NAMES[tpl] ?? tpl)}</span><h2>${esc(slideLabel(s, i))}</h2></header>
 <section class="st-p-sec"><h3>Слайд</h3>
 <label class="st-p-field"><span>Название в списке</span><input type="text" data-f="label" placeholder="${esc(s.title ?? `Слайд ${i + 1}`)}"></label>
-${tpl === 'canvas' ? `<label class="st-p-field"><span>Фон</span><span class="st-p-color"><input type="color" data-f="bgcolor" aria-label="Цвет фона"><input type="text" data-f="bg" placeholder="как у темы" spellcheck="false"></span></label>` : ''}
+${tpl === 'canvas' ? this.bgHtml(typeof s.bg === 'string' ? s.bg.trim() : '') : ''}
 ${formHtml(this.fields, deck, ['slides', i])}
 ${cmdBtn('show.preview', 'play', 'Просмотр анимации слайда')}
 </section>
-<section class="st-p-sec"><h3>Объекты на слайде</h3>
-${layers ? `<div class="st-layers">${layers}</div>` : '<p class="st-p-note">Свободных объектов нет. Добавьте текст или картинку на вкладке «Вставка» или сделайте свободным блок раскладки.</p>'}
+<section class="st-p-sec"><h3>Объекты и порядок появления</h3>
+${this.animHtml()}
 </section>
 <section class="st-p-sec"><h3>Презентация</h3>
 <label class="st-p-field"><span>Название</span><input type="text" data-f="title"></label>
 <label class="st-p-field"><span>Акцентный цвет</span><span class="st-p-color"><input type="color" data-f="accent" aria-label="Акцентный цвет"><button type="button" class="st-link" data-a="accent-reset">Стандартный</button></span></label>
 </section>`;
+  }
+
+  private multiHtml(n: number): string {
+    return `<header class="st-p-head"><span class="st-p-kind">Несколько объектов</span><h2>Выделено: ${n}</h2></header>
+<section class="st-p-sec"><h3>Выровнять относительно друг друга</h3>
+<div class="st-p-icons" role="group" aria-label="Выровнять">${ALIGN.map(([c, ic, l]) => `<button type="button" data-cmd="${c}" title="${l}" aria-label="${l}">${icon(ic)}</button>`).join('')}</div>
+<div class="st-p-icons" role="group" aria-label="Распределить">
+  <button type="button" data-cmd="dist.h" title="Равные промежутки по ширине" aria-label="Распределить по ширине">${icon('dist-h')}</button>
+  <button type="button" data-cmd="dist.v" title="Равные промежутки по высоте" aria-label="Распределить по высоте">${icon('dist-v')}</button>
+</div>
+<p class="st-p-note">Распределение — от трёх объектов. Тяните любой из выделенных, чтобы переместить всех; стрелки сдвигают на 1 px.</p>
+</section>
+<section class="st-p-sec"><h3>Анимация появления</h3>
+<label class="st-p-field"><span>Эффект для всех</span><select data-f="genter"><option value="" disabled hidden>Разные</option>${EFFECTS.map(([v, l]) => `<option value="${v || 'none'}">${l}</option>`).join('')}</select></label>
+${cmdBtn('anim.sequence', 'sparkle', 'Появляться по очереди')}
+<p class="st-p-note">По очереди — сверху вниз и слева направо, шаг ${STEP / 1000} с.</p>
+</section>
+<section class="st-p-sec st-p-end"><div class="st-p-row">${cmdBtn('obj.dup', 'copy', 'Дублировать')}${cmdBtn('obj.del', 'trash', 'Удалить', 'danger')}</div></section>`;
+  }
+
+  /** Свободные объекты слайда в порядке появления: сначала анимированные по задержке, потом остальные. */
+  private animOrder(): { b: Block; k: number; delay: number; on: boolean }[] {
+    const free = (this.host.deck().slides[this.host.index()]?.free ?? []) as Block[];
+    return free.map((b, k) => ({ b, k, delay: Number(b.delay) || 0, on: EFFECTS.some(([v]) => v && v === b.enter) }))
+      .sort((a, b) => (a.on === b.on ? a.delay - b.delay || a.k - b.k : a.on ? -1 : 1));
+  }
+
+  private animSig(): string {
+    return this.animOrder().map((o) => `${o.k}:${o.on ? o.b.enter : ''}:${o.delay}`).join(',');
+  }
+
+  private animHtml(): string {
+    const list = this.animOrder();
+    if (!list.length) return '<p class="st-p-note">Свободных объектов нет. Добавьте блок на вкладке «Вставка» или сделайте свободным блок раскладки.</p>';
+    const animated = list.filter((o) => o.on);
+    return `<div class="st-anim">${list.map((o, pos) => {
+      const snip = objectLabel(o.b);
+      const n = animated.indexOf(o);
+      return `<div class="st-anim-row${o.on ? '' : ' still'}" data-layer="${o.k}" role="button" tabindex="0" title="Выделить объект">
+  <span class="st-anim-n">${o.on ? n + 1 : '·'}</span>
+  <span class="st-anim-name"><b>${blockName(o.b.type)}</b>${snip ? `<span>${esc(snip)}</span>` : ''}</span>
+  <span class="st-anim-t">${o.on ? fmtDelay(o.delay) : ''}</span>
+  <select data-anim="${o.k}" aria-label="Эффект появления">${EFFECTS.map(([v, l]) => `<option value="${v}"${(o.on ? o.b.enter : '') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+  <span class="st-f-tools">${o.on ? `<button type="button" data-anim-move="${o.k}" data-dir="-1" title="Раньше" aria-label="Появляться раньше"${n === 0 ? ' disabled' : ''}>${icon('up')}</button><button type="button" data-anim-move="${o.k}" data-dir="1" title="Позже" aria-label="Появляться позже"${n === animated.length - 1 ? ' disabled' : ''}>${icon('back')}</button>` : ''}</span>
+</div>`.replace(/\n/g, '') + (pos === animated.length - 1 && pos < list.length - 1 ? '<div class="st-anim-sep">Без анимации: видны сразу</div>' : '');
+    }).join('')}</div>
+<div class="st-p-row">${`<button type="button" class="st-pbtn" data-a="seq-all">${icon('sparkle')}<span>Все по очереди</span></button>`}${cmdBtn('show.preview', 'play', 'Просмотр')}</div>`;
+  }
+
+  /** Эффект объекта из списка: новый анимированный появляется последним. */
+  private setAnim(k: number, effect: string): void {
+    const i = this.host.index();
+    const order = this.animOrder().filter((o) => o.on && o.k !== k);
+    const last = order.length ? Math.max(...order.map((o) => o.delay)) + STEP : 0;
+    this.host.editor().commit((d) => {
+      const b = d.slides[i].free![k] as Block;
+      const was = EFFECTS.some(([v]) => v && v === b.enter);
+      if (!effect) { delete b.enter; delete b.delay; return; }
+      b.enter = effect;
+      if (!was) {
+        if (last) b.delay = last;
+        else delete b.delay;
+      }
+    }, { rebuild: true });
+  }
+
+  /** Раньше/позже: порядок анимированных меняется, задержки пересчитываются с равным шагом. */
+  private moveAnim(k: number, dir: 1 | -1): void {
+    const i = this.host.index();
+    const order = this.animOrder().filter((o) => o.on);
+    const at = order.findIndex((o) => o.k === k);
+    const to = at + dir;
+    if (at < 0 || to < 0 || to >= order.length) return;
+    [order[at], order[to]] = [order[to], order[at]];
+    const first = Math.min(...order.map((o) => o.delay));
+    this.host.editor().commit((d) => order.forEach((o, n) => {
+      const b = d.slides[i].free![o.k] as Block;
+      const delay = first + n * STEP;
+      if (delay) b.delay = delay;
+      else delete b.delay;
+    }), { rebuild: true, merge: `anim:${i}` });
+  }
+
+  private setBg(value: string): void {
+    const i = this.host.index();
+    this.host.editor().commit((d) => {
+      if (value) d.slides[i].bg = value;
+      else delete d.slides[i].bg;
+    }, { rebuild: true });
   }
 
   // ---------------- значения ----------------
@@ -210,6 +341,13 @@ ${layers ? `<div class="st-layers">${layers}</div>` : '<p class="st-p-note">Св
         enter: EFFECTS.some(([v]) => v === b.enter) ? String(b.enter) : '',
         delay: Number(b.delay) > 0 ? String(b.delay) : '',
       };
+    }
+    if (sel && sel.group.length > 1) {
+      const effects = new Set(sel.group.map((p) => {
+        const e = (getAt(deck, p) as Block).enter;
+        return EFFECTS.some(([v]) => v && v === e) ? String(e) : 'none';
+      }));
+      return { genter: effects.size === 1 ? [...effects][0] : '' };
     }
     if (sel) return {};
     const s = deck.slides[this.host.index()];
@@ -293,6 +431,8 @@ ${layers ? `<div class="st-layers">${layers}</div>` : '<p class="st-p-note">Св
       if (!raw) return this.fill();
       ed.commit((d) => { d.title = raw; }, { rebuild: false, merge: 'title' });
       document.title = `${raw} — редактор`;
+    } else if (f === 'genter') {
+      this.host.groupEffect(raw === 'none' ? '' : raw);
     } else if (f === 'accent') {
       ed.setAccent(raw);
     }

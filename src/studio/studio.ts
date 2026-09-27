@@ -8,6 +8,7 @@ import { placeOf, slideLabel } from '../engine/render';
 import { updateFavicon } from '../engine/show';
 import { onThemeChange, toggleTheme } from '../engine/theme';
 import type { Block, Deck } from '../types';
+import { CLIP_TYPE, putClip, takeClip, type Clip } from './clipboard';
 import type { CodeView } from './code';
 import { Inspector } from './inspector';
 import { closeLibrary, showLibrary, type Preset } from './library';
@@ -21,6 +22,8 @@ interface Command {
   active?(): boolean;
 }
 
+/** Шаг между появлениями объектов «по очереди», мс */
+export const STEP = 300;
 const ZOOMS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.25, 1.5, 2];
 const PAD = 40;
 const NOTES_KEY = 'htmlpptx-studio-notes';
@@ -77,7 +80,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Правка', `<div class="st-rstack">${rb('undo', 'undo', 'Отменить', { key: 'Ctrl+Z' })}${rb('redo', 'redo', 'Повторить', { key: 'Ctrl+Y' })}</div>`)}
       ${group('Вставка', rb('insert.blocks', 'grid', 'Блоки', { big: true, menu: true, title: 'Библиотека блоков: карточки, графики, схемы' }) + rb('insert.text', 'text', 'Текст', { big: true }) + rb('insert.image', 'image', 'Картинка', { big: true }))}
       ${group('Упорядочить', `<div class="st-rstack">${rb('obj.front', 'front', 'Вперёд')}${rb('obj.back', 'back', 'Назад')}</div><div class="st-rstack">${rb('obj.dup', 'copy', 'Дублировать', { key: 'Ctrl+D' })}${rb('obj.del', 'trash', 'Удалить', { key: 'Delete' })}</div>`)}
-      ${group('Выровнять', `<div class="st-rgrid">${rb('align.left', 'obj-left', 'Слева')}${rb('align.center', 'obj-center', 'По центру')}${rb('align.right', 'obj-right', 'Справа')}${rb('align.top', 'obj-top', 'Сверху')}${rb('align.middle', 'obj-middle', 'Посередине')}${rb('align.bottom', 'obj-bottom', 'Снизу')}</div>`)}
+      ${group('Выровнять', `<div class="st-rgrid">${rb('align.left', 'obj-left', 'Слева')}${rb('align.center', 'obj-center', 'По центру')}${rb('align.right', 'obj-right', 'Справа')}${rb('align.top', 'obj-top', 'Сверху')}${rb('align.middle', 'obj-middle', 'Посередине')}${rb('align.bottom', 'obj-bottom', 'Снизу')}</div><div class="st-rstack">${rb('dist.h', 'dist-h', 'По ширине', { title: 'Распределить по ширине: равные промежутки' })}${rb('dist.v', 'dist-v', 'По высоте', { title: 'Распределить по высоте: равные промежутки' })}</div>`)}
     </div>
     <div class="st-rpanel" data-panel="insert" hidden>
       ${group('Новый слайд', SLIDE_PRESETS.map((p, k) => rb(`slide.preset.${k}`, ['text', 'grid', 'image', 'frame'][k] ?? 'slide-add', p.name, { big: true })).join(''))}
@@ -235,24 +238,89 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const r = el.getBoundingClientRect();
     return { w: Math.round(r.width / scale), h: Math.round(r.height / scale) };
   }
-  const selFree = () => ed.selection?.free ?? null;
 
-  function align(kind: string): void {
-    const free = selFree();
-    if (!free) return;
-    const b = getAt(deck, free) as Block;
-    const pl = placeOf(b);
-    const size = measure(free);
-    const h = pl.h ?? size?.h ?? 0;
-    const next = { ...pl };
-    if (kind === 'left') next.x = 0;
-    if (kind === 'center') next.x = Math.round((W - pl.w) / 2);
-    if (kind === 'right') next.x = W - pl.w;
-    if (kind === 'top') next.y = 0;
-    if (kind === 'middle') next.y = Math.round((H - h) / 2);
-    if (kind === 'bottom') next.y = H - h;
-    if (next.h === undefined) delete next.h;
-    ed.commit((d) => setAt(d, [...free, 'place'], next), { rebuild: true });
+  /** Выделенные свободные объекты: один или группа. */
+  const selPaths = (): Path[] => {
+    const sel = ed.selection;
+    if (!sel?.free) return [];
+    return sel.group.length ? sel.group : [sel.free];
+  };
+  const boxes = (paths: Path[]) => paths.map((p) => {
+    const pl = placeOf(getAt(deck, p));
+    return { p, pl, h: pl.h ?? measure(p)?.h ?? 0 };
+  });
+  function writePlaces(items: { p: Path; pl: ReturnType<typeof placeOf> }[]): void {
+    ed.commit((d) => items.forEach(({ p, pl }) => {
+      const { h, ...rest } = pl;
+      setAt(d, [...p, 'place'], h ? { ...rest, h } : rest);
+    }), { rebuild: true });
+  }
+
+  /** Один объект — по слайду; несколько — относительно друг друга. */
+  function align(...kinds: string[]): void {
+    const items = boxes(selPaths());
+    if (!items.length) return;
+    const multi = items.length > 1;
+    const fx = multi ? Math.min(...items.map((b) => b.pl.x)) : 0;
+    const fy = multi ? Math.min(...items.map((b) => b.pl.y)) : 0;
+    const fr = multi ? Math.max(...items.map((b) => b.pl.x + b.pl.w)) : W;
+    const fb = multi ? Math.max(...items.map((b) => b.pl.y + b.h)) : H;
+    const has = (k: string) => kinds.includes(k);
+    writePlaces(items.map((b) => {
+      const pl = { ...b.pl };
+      if (has('left')) pl.x = fx;
+      if (has('center')) pl.x = Math.round((fx + fr - pl.w) / 2);
+      if (has('right')) pl.x = fr - pl.w;
+      if (has('top')) pl.y = fy;
+      if (has('middle')) pl.y = Math.round((fy + fb - b.h) / 2);
+      if (has('bottom')) pl.y = fb - b.h;
+      return { p: b.p, pl };
+    }));
+  }
+
+  /** Равные промежутки между объектами по горизонтали или вертикали (от трёх объектов). */
+  function distribute(axis: 'h' | 'v'): void {
+    const items = boxes(selPaths());
+    if (items.length < 3) return;
+    const pos = (b: typeof items[number]) => (axis === 'h' ? b.pl.x : b.pl.y);
+    const size = (b: typeof items[number]) => (axis === 'h' ? b.pl.w : b.h);
+    items.sort((a, b) => pos(a) - pos(b));
+    const start = pos(items[0]);
+    const end = Math.max(...items.map((b) => pos(b) + size(b)));
+    const gap = (end - start - items.reduce((sum, b) => sum + size(b), 0)) / (items.length - 1);
+    let at = start;
+    writePlaces(items.map((b) => {
+      const pl = { ...b.pl, [axis === 'h' ? 'x' : 'y']: Math.round(at) };
+      at += size(b) + gap;
+      return { p: b.p, pl };
+    }));
+  }
+
+  /** Анимация группы: один эффект всем или появление по очереди (в порядке чтения). */
+  function setGroupEffect(effect: string): void {
+    const paths = selPaths();
+    ed.commit((d) => paths.forEach((p) => {
+      const b = getAt(d, p) as Block;
+      if (effect) b.enter = effect;
+      else { delete b.enter; delete b.delay; }
+    }), { rebuild: true });
+  }
+  function sequence(paths = selPaths()): void {
+    const items = boxes(paths).sort((a, b) => (Math.abs(a.pl.y - b.pl.y) > 24 ? a.pl.y - b.pl.y : a.pl.x - b.pl.x));
+    const first = Math.min(...items.map((b) => Number((getAt(deck, b.p) as Block).delay) || 0));
+    ed.commit((d) => items.forEach((b, k) => {
+      const blk = getAt(d, b.p) as Block;
+      if (!blk.enter) blk.enter = 'rise';
+      const delay = first + k * STEP;
+      if (delay) blk.delay = delay;
+      else delete blk.delay;
+    }), { rebuild: true });
+  }
+
+  function selectAll(): void {
+    const n = (deck.slides[index].free ?? []).length;
+    if (!n) return ed.toast('На слайде нет свободных объектов', 1800);
+    ed.selectMany(index, Array.from({ length: n }, (_x, k) => k));
   }
 
   // ---------------- просмотр анимации ----------------
@@ -297,7 +365,11 @@ export function startStudio(deck: Deck, deckKey: string): void {
   }
   function slideMenu(i: number): MenuEntry[] {
     const n = count();
+    const clip = takeClip();
     return [
+      { label: 'Копировать слайд', icon: 'copy', hint: 'Ctrl+C', run: () => copy(false) },
+      { label: 'Вставить', icon: 'plus', hint: 'Ctrl+V', disabled: !clip, run: () => clip && pasteClip(clip) },
+      null,
       { label: 'Новый слайд после этого', icon: 'slide-add', hint: 'Ctrl+M', run: () => ed.addSlide(i, 0) },
       { label: 'Дублировать слайд', icon: 'copy', hint: 'Ctrl+D', run: () => ed.duplicateSlide(i) },
       null,
@@ -320,16 +392,175 @@ export function startStudio(deck: Deck, deckKey: string): void {
         { label: 'Удалить блок', icon: 'trash', danger: true, hint: 'Delete', run: () => run('obj.del') },
       ];
     }
+    const clip = takeClip();
     return [
+      { label: 'Копировать', icon: 'copy', hint: 'Ctrl+C', run: () => copy(false) },
+      { label: 'Вырезать', icon: 'eraser', hint: 'Ctrl+X', run: () => copy(true) },
+      { label: 'Вставить', icon: 'plus', hint: 'Ctrl+V', disabled: !clip, run: () => clip && pasteClip(clip) },
+      null,
       { label: 'Дублировать', icon: 'copy', hint: 'Ctrl+D', run: () => run('obj.dup') },
-      { label: 'На передний план', icon: 'front', run: () => run('obj.front') },
-      { label: 'На задний план', icon: 'back', run: () => run('obj.back') },
+      ...(multi() ? [
+        { label: 'Появляться по очереди', icon: 'sparkle', run: () => sequence() },
+      ] : [
+        { label: 'На передний план', icon: 'front', run: () => run('obj.front') },
+        { label: 'На задний план', icon: 'back', run: () => run('obj.back') },
+        null,
+        { label: 'По центру слайда', icon: 'obj-center', run: () => align('center', 'middle') },
+      ]),
       null,
-      { label: 'По центру слайда', icon: 'obj-center', run: () => { align('center'); align('middle'); } },
-      null,
-      { label: 'Удалить', icon: 'trash', danger: true, hint: 'Delete', run: () => run('obj.del') },
+      { label: multi() ? 'Удалить выделенные' : 'Удалить', icon: 'trash', danger: true, hint: 'Delete', run: () => run('obj.del') },
     ];
   }
+
+  // ---------------- копирование и вставка ----------------
+  const isTyping = () => {
+    const a = document.activeElement as HTMLElement | null;
+    return !!a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || !!a.closest('.cm-editor'));
+  };
+  const pasted = new Map<string, number>();
+
+  /** Что скопировать: выделенные объекты или текущий слайд. */
+  function makeClip(): { clip: Clip; text: string } | null {
+    const sel = ed.selection;
+    if (sel) {
+      const paths = sel.group.length ? sel.group : [sel.free ?? sel.block];
+      const items = paths.map((p) => {
+        const b = JSON.parse(JSON.stringify(getAt(deck, p))) as Block & { place?: unknown; cols?: unknown; rows?: unknown };
+        if (!sel.free) {
+          // Блок раскладки становится свободным объектом того же размера
+          delete b.cols;
+          delete b.rows;
+          const el = [...view.stage.querySelectorAll<HTMLElement>('.slide.on [data-block]')].find((x) => x.getAttribute('data-block') === JSON.stringify(p));
+          if (el) {
+            const r = el.getBoundingClientRect();
+            const a = ed.toSlide(r.left, r.top);
+            const z = ed.toSlide(r.right, r.bottom);
+            b.place = { x: Math.round(a.x), y: Math.round(a.y), w: Math.round(z.x - a.x), h: Math.round(z.y - a.y) };
+          }
+        }
+        return b;
+      });
+      const text = items.map((b) => [b.text, b.title, ...(Array.isArray(b.texts) ? b.texts : [])].filter((x) => typeof x === 'string').join('\n')).filter(Boolean).join('\n\n');
+      return { clip: putClip({ deck: deckKey, kind: 'objects', items, slide: index }), text };
+    }
+    const s = deck.slides[index];
+    return { clip: putClip({ deck: deckKey, kind: 'slides', items: [JSON.parse(JSON.stringify(s))], slide: index }), text: slideLabel(s, index) };
+  }
+
+  function copy(cut: boolean, data?: DataTransfer | null): boolean {
+    const made = makeClip();
+    if (!made) return false;
+    data?.setData(CLIP_TYPE, made.clip.id);
+    data?.setData('text/plain', made.text);
+    const n = made.clip.items.length;
+    if (cut) {
+      if (made.clip.kind === 'slides') ed.deleteSlide(index);
+      else ed.blockEditor.remove();
+    } else {
+      ed.toast(made.clip.kind === 'slides' ? 'Слайд скопирован' : n > 1 ? `Скопировано объектов: ${n}` : 'Скопировано', 1400);
+    }
+    return true;
+  }
+
+  function uniqueSlideId(base: string): string {
+    const ids = new Set(deck.slides.map((s) => s.id));
+    const stem = (base || 'slide').replace(/-\d+$/, '');
+    if (!ids.has(stem)) return stem;
+    for (let n = 2; ; n++) if (!ids.has(`${stem}-${n}`)) return `${stem}-${n}`;
+  }
+
+  function pasteClip(clip: Clip): void {
+    if (clip.deck !== deckKey) {
+      ed.toast('Вставка из другой презентации пока не поддерживается: картинки лежат в её папке', 4000, true);
+      return;
+    }
+    if (clip.kind === 'slides') {
+      const copies = clip.items.map((raw) => {
+        const s = JSON.parse(JSON.stringify(raw)) as Deck['slides'][number];
+        s.id = uniqueSlideId(typeof s.id === 'string' ? s.id : 'slide');
+        return s;
+      });
+      const at = index + 1;
+      if (ed.commit((d) => d.slides.splice(at, 0, ...copies))) go(at);
+      return;
+    }
+    // На тот же слайд — со сдвигом, чтобы копия не легла ровно поверх; на другой — на то же место
+    const key = `${clip.id}:${index}`;
+    const times = (pasted.get(key) ?? 0) + (clip.slide === index ? 1 : 0);
+    pasted.set(key, times);
+    const i = index;
+    const blocks = clip.items.map((raw) => {
+      const b = JSON.parse(JSON.stringify(raw)) as Block;
+      const pl = placeOf(b);
+      const { h, ...rest } = { ...pl, x: pl.x + times * 24, y: pl.y + times * 24 };
+      b.place = h ? { ...rest, h } : rest;
+      return b;
+    });
+    let from = 0;
+    if (!ed.commit((d) => {
+      const s = d.slides[i];
+      s.free = Array.isArray(s.free) ? s.free : [];
+      from = s.free.length;
+      s.free.push(...blocks);
+    }, { rebuild: true })) return;
+    ed.selectMany(i, blocks.map((_b, k) => from + k));
+  }
+
+  function pasteText(text: string): void {
+    const t = text.replace(/\r/g, '').trim().slice(0, 5000);
+    if (!t) return;
+    const i = index;
+    let at = -1;
+    if (ed.commit((d) => {
+      const s = d.slides[i];
+      s.free = Array.isArray(s.free) ? s.free : [];
+      s.free.push({ type: 'text', text: t, place: { x: 340, y: 300, w: 600 } });
+      at = s.free.length - 1;
+    }, { rebuild: true })) ed.selectFree(i, at);
+  }
+
+  document.addEventListener('copy', (e) => {
+    if (isTyping() || getSelection()?.toString()) return;
+    if (copy(false, e.clipboardData)) e.preventDefault();
+  });
+  document.addEventListener('cut', (e) => {
+    if (isTyping()) return;
+    if (copy(true, e.clipboardData)) e.preventDefault();
+  });
+  document.addEventListener('paste', (e) => {
+    if (isTyping() || !e.clipboardData) return;
+    const data = e.clipboardData;
+    const clip = takeClip(data.getData(CLIP_TYPE) || '__none__');
+    if (clip) {
+      e.preventDefault();
+      return pasteClip(clip);
+    }
+    const file = [...data.files].find((f) => f.type.startsWith('image/'));
+    if (file) {
+      e.preventDefault();
+      void ed.insertImageFile(file);
+      return;
+    }
+    const text = data.getData('text/plain');
+    if (text.trim()) {
+      e.preventDefault();
+      pasteText(text);
+    }
+  });
+  // Картинка, брошенная мимо слайда (на серое поле), тоже встаёт на слайд
+  canvas.addEventListener('dragover', (e) => {
+    if (e.dataTransfer?.types.includes('Files') && !view.stage.contains(e.target as Node)) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  });
+  canvas.addEventListener('drop', (e) => {
+    if (view.stage.contains(e.target as Node)) return;
+    const f = [...(e.dataTransfer?.files ?? [])].find((x) => x.type.startsWith('image/'));
+    if (!f) return;
+    e.preventDefault();
+    void ed.insertImageFile(f);
+  });
 
   // ---------------- библиотека блоков ----------------
   function openLibrary(): void {
@@ -383,6 +614,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
 
   // ---------------- команды ----------------
   const hasFree = () => !!ed.selection?.free;
+  const multi = () => (ed.selection?.group.length ?? 0) > 1;
+  const single = () => hasFree() && !multi();
   const content = () => (deck.slides[index]?.template ?? 'content') === 'content';
   const cmds: Record<string, Command> = {
     undo: { run: () => ed.undo(), enabled: () => ed.canUndo },
@@ -394,12 +627,16 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'insert.blocks': { run: () => openLibrary() },
     'view.code': { run: () => void toggleCode(), active: () => codeOpen },
     'insert.image': { run: () => ed.addBlock('image') },
-    'obj.front': { run: () => ed.blockEditor.reorder(1), enabled: hasFree },
-    'obj.back': { run: () => ed.blockEditor.reorder(-1), enabled: hasFree },
+    'obj.front': { run: () => ed.blockEditor.reorder(1), enabled: single },
+    'obj.back': { run: () => ed.blockEditor.reorder(-1), enabled: single },
+    'dist.h': { run: () => distribute('h'), enabled: () => (ed.selection?.group.length ?? 0) > 2 },
+    'dist.v': { run: () => distribute('v'), enabled: () => (ed.selection?.group.length ?? 0) > 2 },
+    'anim.sequence': { run: () => sequence(), enabled: multi },
+    'obj.select-all': { run: selectAll },
     'obj.dup': { run: () => ed.blockEditor.duplicate(), enabled: hasFree },
     'obj.del': { run: () => ed.blockEditor.remove(), enabled: () => !!ed.selection },
     'obj.free': { run: () => ed.blockEditor.detach(), enabled: () => !!ed.selection && !hasFree() },
-    'obj.attach': { run: () => ed.blockEditor.attach(), enabled: () => hasFree() && content() },
+    'obj.attach': { run: () => ed.blockEditor.attach(), enabled: () => single() && content() },
     'obj.parent': { run: () => ed.blockEditor.selectParent(), enabled: () => !!ed.selection?.hasParent },
     'design.accent-reset': { run: () => ed.setAccent(null), enabled: () => !!deck.theme?.accent },
     'design.theme': { run: () => toggleTheme() },
@@ -508,6 +745,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
     editor: () => ed,
     run,
     measure,
+    groupEffect: setGroupEffect,
+    sequence,
   });
 
   function syncUi(): void {
@@ -546,7 +785,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
     e.preventDefault();
     const freeHost = (e.target as Element).closest('[data-free]');
     const path = freeHost ? readPath(freeHost, 'data-free') : null;
-    if (path && JSON.stringify(ed.selection?.free) !== JSON.stringify(path)) ed.selectFree(Number(path[1]), Number(path[3]));
+    // Правый клик по объекту из выделенной группы не сбрасывает группу
+    const inSel = path && (ed.selection?.group ?? []).some((p) => JSON.stringify(p) === JSON.stringify(path));
+    if (path && !inSel) ed.selectFree(Number(path[1]), Number(path[3]));
     showMenu({ x: e.clientX, y: e.clientY }, freeHost || ed.selection ? objectMenu() : slideMenu(index));
   });
   new ResizeObserver(() => { if (zoom === 'fit') layout(); else ed.reposition(); }).observe(canvas);
@@ -576,6 +817,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
     }
     if (typing) return;
     if (ed.handleKey(e)) return;
+    if (mod && !e.shiftKey && (k === 'a' || k === 'ф')) {
+      e.preventDefault();
+      return selectAll();
+    }
     if (mod && !e.shiftKey && (k === 'm' || k === 'ь')) {
       e.preventDefault();
       return ed.addSlide(index, 0);

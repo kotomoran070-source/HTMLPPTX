@@ -57,6 +57,8 @@ const PATHS: Record<string, string> = {
   'slide-add': '<rect x="3" y="5" width="14" height="10" rx="1.5"/><path d="M7 19h10a2 2 0 0 0 2-2V9M19.5 1.5v5M17 4h5"/>',
   frame: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h10M7 13h6"/>',
   sparkle: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
+  'dist-h': '<path d="M4 3v18M20 3v18"/><rect x="9.5" y="7" width="5" height="10" rx="1"/>',
+  'dist-v': '<path d="M3 4h18M3 20h18"/><rect x="7" y="9.5" width="10" height="5" rx="1"/>',
   home: '<path d="m3 11 9-7 9 7"/><path d="M5 10v10h14V10"/>',
   drag: '<circle cx="9" cy="6" r="1.2"/><circle cx="15" cy="6" r="1.2"/><circle cx="9" cy="12" r="1.2"/><circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="18" r="1.2"/><circle cx="15" cy="18" r="1.2"/>',
 };

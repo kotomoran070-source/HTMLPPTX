@@ -55,6 +55,8 @@ const SNAP = 6;
  */
 export class BlockEditor {
   private sel: Sel | null = null;
+  /** Другие свободные объекты, выделенные вместе с sel (Shift+клик, Ctrl+A) */
+  private group: Sel[] = [];
   private hover: HTMLElement | null = null;
   readonly bar: HTMLElement;
   private frame: HTMLElement;
@@ -95,11 +97,74 @@ export class BlockEditor {
   }
 
   /** Что выделено: для панели свойств студии. */
-  get info(): { block: Path; free: Path | null; type: string; hasParent: boolean } | null {
+  get info(): { block: Path; free: Path | null; type: string; hasParent: boolean; group: Path[] } | null {
     const s = this.sel;
     if (!s) return null;
     const obj = getAt(this.host.deck(), s.block) as { type?: string } | undefined;
-    return { block: s.block, free: s.free, type: obj?.type ?? '', hasParent: !s.free && !!s.el.parentElement?.closest('[data-block]') };
+    return {
+      block: s.block, free: s.free, type: obj?.type ?? '', hasParent: !s.free && !!s.el.parentElement?.closest('[data-block]'),
+      group: this.members.filter((m) => m.free).map((m) => m.free!),
+    };
+  }
+
+  /** Все выделенные: главный и группа. */
+  private get members(): Sel[] {
+    return this.sel ? [this.sel, ...this.group] : [];
+  }
+
+  get isMulti(): boolean {
+    return this.group.length > 0;
+  }
+
+  /** Свободный объект по элементу-обёртке. */
+  private freeSel(el: HTMLElement): Sel | null {
+    const blockEl = el.querySelector<HTMLElement>('[data-block]');
+    const block = blockEl ? readPath(blockEl, 'data-block') : null;
+    const free = readPath(el, 'data-free');
+    return block && free ? { el, attr: 'data-free', key: el.getAttribute('data-free')!, block, free } : null;
+  }
+
+  /** Shift+клик: добавить свободный объект к выделению или убрать из него. */
+  toggleGroup(el: HTMLElement): void {
+    if (!this.sel?.free) return this.select(el);
+    const key = el.getAttribute('data-free');
+    const all = this.members;
+    const hit = all.findIndex((m) => m.key === key);
+    if (hit < 0) {
+      const add = this.freeSel(el);
+      if (!add || add.free![1] !== this.sel.free[1]) return;
+      el.classList.add('ed-block-sel');
+      this.group.push(add);
+    } else {
+      if (all.length === 1) return this.clear();
+      all[hit].el.classList.remove('ed-block-sel');
+      all.splice(hit, 1);
+      [this.sel, ...this.group] = all;
+      this.group = all.slice(1);
+    }
+    this.render();
+    this.host.selected?.();
+  }
+
+  /** Выделить несколько свободных объектов слайда по номерам. */
+  selectMany(slide: number, indexes: number[]): void {
+    const els = indexes.map((i) => this.findFree(slide, i)).filter((x): x is HTMLElement => !!x);
+    if (!els.length) return this.clear();
+    this.host.clearOthers();
+    this.select(els[0]);
+    for (const el of els.slice(1)) {
+      const add = this.freeSel(el);
+      if (!add) continue;
+      el.classList.add('ed-block-sel');
+      this.group.push(add);
+    }
+    this.render();
+    this.host.selected?.();
+  }
+
+  private findFree(slide: number, index: number): HTMLElement | null {
+    const key = JSON.stringify(['slides', slide, 'free', index]);
+    return [...this.host.stage().querySelectorAll<HTMLElement>('.slide.on [data-free]')].find((x) => x.getAttribute('data-free') === key) ?? null;
   }
 
   /** Выделить внешний блок. */
@@ -129,20 +194,33 @@ export class BlockEditor {
 
   clear(): void {
     const had = !!this.sel;
-    this.sel?.el.classList.remove('ed-block-sel');
+    this.members.forEach((m) => m.el.classList.remove('ed-block-sel'));
     this.sel = null;
+    this.group = [];
     this.bar.classList.remove('on');
-    this.frame.classList.remove('on', 'free');
+    this.frame.classList.remove('on', 'free', 'multi');
     this.guides.innerHTML = '';
     if (had) this.host.selected?.();
   }
 
   refresh(): void {
     if (!this.sel) return;
-    const { attr, key } = this.sel;
-    const el = [...this.host.stage().querySelectorAll<HTMLElement>(`.slide.on [${attr}]`)].find((x) => x.getAttribute(attr) === key);
-    if (el) this.select(el);
-    else this.clear();
+    const keys = this.members.map((m) => [m.attr, m.key] as const);
+    const find = ([attr, key]: readonly [string, string]) =>
+      [...this.host.stage().querySelectorAll<HTMLElement>(`.slide.on [${attr}]`)].find((x) => x.getAttribute(attr) === key);
+    const els = keys.map(find).filter((x): x is HTMLElement => !!x);
+    if (!els.length) return this.clear();
+    this.select(els[0]);
+    for (const el of els.slice(1)) {
+      const add = this.freeSel(el);
+      if (!add) continue;
+      el.classList.add('ed-block-sel');
+      this.group.push(add);
+    }
+    if (this.group.length) {
+      this.render();
+      this.host.selected?.();
+    }
   }
 
   /** Подсветка блока под мышью (самого внутреннего). */
@@ -181,13 +259,19 @@ export class BlockEditor {
     this.bar.classList.add('on');
     this.frame.classList.add('on');
     this.frame.classList.toggle('free', !!s.free);
+    // Несколько объектов: общая рамка без ручек размера
+    this.frame.classList.toggle('multi', this.isMulti);
     this.position();
   }
 
   position(): void {
     const s = this.sel;
     if (!s) return;
-    const r = s.el.getBoundingClientRect();
+    const rects = this.members.map((m) => m.el.getBoundingClientRect());
+    const x0 = Math.min(...rects.map((x) => x.left));
+    const y0 = Math.min(...rects.map((x) => x.top));
+    const y1 = Math.max(...rects.map((x) => x.bottom));
+    const r = { left: x0, top: y0, width: Math.max(...rects.map((x) => x.right)) - x0, height: y1 - y0, bottom: y1 };
     Object.assign(this.frame.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });
     const w = this.bar.offsetWidth;
     const h = this.bar.offsetHeight;
@@ -223,6 +307,17 @@ export class BlockEditor {
   remove(): void {
     const s = this.sel;
     if (!s) return;
+    if (this.isMulti) {
+      const paths = this.members.map((m) => m.free!).sort((a, b) => Number(b[3]) - Number(a[3]));
+      const i = Number(paths[0][1]);
+      this.clear();
+      if (this.host.commit((d) => {
+        const list = d.slides[i].free!;
+        paths.forEach((p) => list.splice(Number(p[3]), 1));
+        if (!list.length) delete d.slides[i].free;
+      }, { rebuild: true })) this.host.toast(`Удалено объектов: ${paths.length}. Вернуть: Ctrl+Z`, 2500);
+      return;
+    }
     const target = s.free ?? s.block;
     const last = target[target.length - 1];
     this.clear();
@@ -286,6 +381,23 @@ export class BlockEditor {
   duplicate(): void {
     const s = this.sel;
     if (!s?.free) return;
+    if (this.isMulti) {
+      const paths = this.members.map((m) => m.free!);
+      const i = Number(s.free[1]);
+      const copies = paths.map((p) => {
+        const c = clone(getAt(this.host.deck(), p)) as { place?: Place };
+        const pl = placeOf(c);
+        c.place = { ...pl, x: pl.x + 24, y: pl.y + 24 };
+        return c;
+      });
+      let from = 0;
+      if (this.host.commit((d) => {
+        const list = d.slides[i].free!;
+        from = list.length;
+        list.push(...(copies as never[]));
+      }, { rebuild: true })) this.selectMany(i, copies.map((_c, k) => from + k));
+      return;
+    }
     const i = Number(s.free[1]);
     const copy = clone(getAt(this.host.deck(), s.free)) as { place?: Place };
     const pl = placeOf(copy);
@@ -325,6 +437,14 @@ export class BlockEditor {
   nudge(dx: number, dy: number): void {
     const s = this.sel;
     if (!s?.free) return;
+    if (this.isMulti) {
+      const paths = this.members.map((m) => m.free!);
+      this.host.commit((d) => paths.forEach((p) => {
+        const pl = placeOf(getAt(d, p));
+        setAt(d, [...p, 'place'], { ...pl, x: pl.x + dx, y: pl.y + dy, ...(pl.h ? {} : { h: undefined }) });
+      }), { rebuild: true, merge: `nudge:${paths.map((p) => p.join('.')).join('|')}` });
+      return;
+    }
     const pl = placeOf(getAt(this.host.deck(), s.free));
     const path = s.free;
     this.host.commit((d) => setAt(d, [...path, 'place'], { ...pl, x: pl.x + dx, y: pl.y + dy, ...(pl.h ? {} : { h: undefined }) }),
@@ -351,6 +471,9 @@ export class BlockEditor {
    */
   pointerDown(e: PointerEvent, allowImagePan: boolean): boolean {
     const s = this.sel;
+    // Shift — это добавление к выделению, а не перетаскивание
+    if (e.shiftKey) return false;
+    if (this.isMulti && e.button === 0 && this.members.some((m) => m.el.contains(e.target as Node))) return this.groupDrag(e);
     if (!s?.free || !s.el.contains(e.target as Node) || e.button !== 0) return false;
     if ((e.target as Element).closest('[contenteditable="true"]')) return false;
     if (allowImagePan && e.altKey) return false;
@@ -381,6 +504,53 @@ export class BlockEditor {
       setTimeout(() => { this.dragging = false; }, 0);
       const path = s.free!;
       this.host.commit((d) => setAt(d, [...path, 'place'], cur.h ? cur : { x: cur.x, y: cur.y, w: cur.w }), { rebuild: true });
+    };
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+    return true;
+  }
+
+  /** Перетаскивание нескольких объектов: общая рамка прилипает как один объект. */
+  private groupDrag(e: PointerEvent): boolean {
+    e.preventDefault();
+    const deck = this.host.deck();
+    const items = this.members.map((m) => {
+      const pl = placeOf(getAt(deck, m.free!));
+      return { m, pl, h: pl.h ?? this.measure(m.el).h! };
+    });
+    const bx = Math.min(...items.map((it) => it.pl.x));
+    const by = Math.min(...items.map((it) => it.pl.y));
+    const bw = Math.max(...items.map((it) => it.pl.x + it.pl.w)) - bx;
+    const bh = Math.max(...items.map((it) => it.pl.y + it.h)) - by;
+    const k = this.scale();
+    let moved = false;
+    let ddx = 0;
+    let ddy = 0;
+    const move = (ev: PointerEvent) => {
+      const dx = (ev.clientX - e.clientX) / k;
+      const dy = (ev.clientY - e.clientY) / k;
+      if (!moved && Math.abs(dx) + Math.abs(dy) < 3 / k) return;
+      moved = true;
+      this.dragging = true;
+      const snapped = this.snapMove({ x: bx + dx, y: by + dy, w: bw, h: bh }, ev.altKey);
+      ddx = Math.round(snapped.x - bx);
+      ddy = Math.round(snapped.y - by);
+      items.forEach((it) => {
+        it.m.el.style.left = `${it.pl.x + ddx}px`;
+        it.m.el.style.top = `${it.pl.y + ddy}px`;
+      });
+      this.position();
+    };
+    const up = () => {
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', up);
+      this.guides.innerHTML = '';
+      if (!moved) return;
+      setTimeout(() => { this.dragging = false; }, 0);
+      this.host.commit((d) => items.forEach((it) => {
+        const { h, ...rest } = { ...it.pl, x: it.pl.x + ddx, y: it.pl.y + ddy };
+        setAt(d, [...it.m.free!, 'place'], h ? { ...rest, h } : rest);
+      }), { rebuild: true });
     };
     addEventListener('pointermove', move);
     addEventListener('pointerup', up);
@@ -450,8 +620,9 @@ export class BlockEditor {
     const h = [0, 48, H / 2, H - 48, H];
     const s = this.sel;
     const list = this.slide().free ?? [];
+    const own = new Set(this.members.filter((m) => m.free).map((m) => Number(m.free![3])));
     list.forEach((b, i) => {
-      if (s?.free && Number(s.free[3]) === i) return;
+      if (s?.free && own.has(i)) return;
       const p = placeOf(b);
       const el = this.host.stage().querySelector(`.slide.on [data-free='${JSON.stringify(['slides', this.slideIndex(), 'free', i])}']`) as HTMLElement | null;
       const ph = p.h ?? (el ? this.measure(el).h! : 0);

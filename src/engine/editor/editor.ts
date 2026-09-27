@@ -45,6 +45,8 @@ export interface BlockSelection {
   type: string;
   /** Есть внешний блок, который можно выделить («Выше») */
   hasParent: boolean;
+  /** Все выделенные свободные объекты (больше одного — выделена группа) */
+  group: Path[];
 }
 
 type Mode = 'project' | 'file';
@@ -664,6 +666,15 @@ export class Editor {
     }
     if (this.text.owns(target)) return;
     const free = target.closest<HTMLElement>('[data-free]');
+    // Shift+клик по свободному объекту — добавить к выделению или убрать из него
+    if (free && e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.text.finish(true);
+      this.image.clear();
+      this.blocks.toggleGroup(free);
+      return;
+    }
     // Первый клик по свободному объекту выделяет его целиком (двигать, масштабировать)
     if (free && !this.blocks.isSelected(free)) {
       e.preventDefault();
@@ -853,6 +864,14 @@ export class Editor {
     this.blocks.selectFree(slide, index);
   }
 
+  /** Выделить несколько свободных объектов слайда (Ctrl+A, вставка). */
+  selectMany(slide: number, indexes: number[]): void {
+    this.text.finish(true);
+    this.image.clear();
+    if (indexes.length === 1) this.blocks.selectFree(slide, indexes[0]);
+    else this.blocks.selectMany(slide, indexes);
+  }
+
   reposition(): void {
     this.text.position();
     this.image.position();
@@ -974,6 +993,53 @@ export class Editor {
     }
   }
 
+  /**
+   * Новая картинка свободным объектом (вставка из буфера, перетаскивание на пустое место).
+   * at — точка на слайде, куда поставить центр; без неё — центр слайда.
+   */
+  async insertImageFile(file: File, at?: { x: number; y: number }): Promise<void> {
+    if (!/^image\//.test(file.type)) return this.toast('Это не картинка. Подойдут png, jpg, gif, webp, avif, svg.', 3500, true);
+    if (file.size > MAX_FILE) return this.toast('Файл больше 25 МБ — уменьшите его и попробуйте снова', 4000, true);
+    const i = this.host.index();
+    this.toast('Загрузка картинки…', 0);
+    try {
+      const { blob, name } = await prepareImage(file);
+      const url = this.mode === 'project'
+        ? (await this.storage.uploadAsset(this.host.deckKey, blob, name)).url
+        : await blobToDataUrl(blob);
+      // Размер по пропорциям картинки, не больше половины слайда
+      const dims = await new Promise<{ w: number; h: number }>((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve({ w: img.naturalWidth || 480, h: img.naturalHeight || 320 });
+        img.onerror = () => resolve({ w: 480, h: 320 });
+        img.src = url;
+      });
+      const k = Math.min(1, 640 / dims.w, 400 / dims.h);
+      const w = Math.max(40, Math.round(dims.w * k));
+      const h = Math.max(40, Math.round(dims.h * k));
+      const cx = at?.x ?? 640;
+      const cy = at?.y ?? 360;
+      const place = { x: Math.round(Math.max(0, Math.min(1280 - w, cx - w / 2))), y: Math.round(Math.max(0, Math.min(720 - h, cy - h / 2))), w, h };
+      let idx = -1;
+      this.commit((d) => {
+        const sl = d.slides[i];
+        sl.free = Array.isArray(sl.free) ? sl.free : [];
+        sl.free.push({ type: 'image', src: url, place });
+        idx = sl.free.length - 1;
+      }, { rebuild: true });
+      if (idx >= 0) this.selectFree(i, idx);
+      this.toast('Картинка добавлена', 1800);
+    } catch (e) {
+      this.toast(`Не удалось добавить картинку: ${(e as Error).message}`, 5000, true);
+    }
+  }
+
+  /** Точка экрана → координаты слайда 1280×720. */
+  toSlide(clientX: number, clientY: number): { x: number; y: number } {
+    const r = this.host.stage().getBoundingClientRect();
+    return { x: ((clientX - r.left) / r.width) * 1280, y: ((clientY - r.top) / r.height) * 720 };
+  }
+
   private dropTarget(e: DragEvent): Element | null {
     return (e.target as Element)?.closest?.('[data-edit-img]') ?? null;
   }
@@ -983,7 +1049,8 @@ export class Editor {
     if (!e.dataTransfer?.types.includes('Files') || draggingHtml(e)) return;
     e.preventDefault();
     const t = this.dropTarget(e);
-    e.dataTransfer.dropEffect = t ? 'copy' : 'none';
+    // В студии файл на пустом месте — новая картинка
+    e.dataTransfer.dropEffect = t || this.studio ? 'copy' : 'none';
     this.host.stage().querySelectorAll('.ed-drop').forEach((x) => x !== t && x.classList.remove('ed-drop'));
     t?.classList.add('ed-drop');
   }
@@ -998,6 +1065,10 @@ export class Editor {
     e.preventDefault();
     this.host.stage().querySelectorAll('.ed-drop').forEach((x) => x.classList.remove('ed-drop'));
     const t = this.dropTarget(e);
+    if (!t && this.studio) {
+      void this.insertImageFile(e.dataTransfer.files[0], this.toSlide(e.clientX, e.clientY));
+      return;
+    }
     if (!t) return this.toast('Перетащите файл на картинку или логотип', 2500);
     const path = readPath(t, 'data-edit-img');
     if (path) void this.replaceImage(path, e.dataTransfer.files[0]);

@@ -214,6 +214,8 @@ body.editing .stage .free.auto-h:empty, body.editing .stage .free > p:empty { mi
 /* Рамка свободного объекта с ручками */
 .edframe { position: fixed; z-index: 12; display: none; pointer-events: none; }
 .edframe.on.free { display: block; outline: 2px solid var(--ac); outline-offset: 0; }
+.edframe.on.multi { outline: 1px dashed var(--ac); outline-offset: 6px; }
+.edframe.multi i { display: none; }
 .edframe i {
   position: absolute; width: 11px; height: 11px; margin: -6px 0 0 -6px; pointer-events: auto;
   background: #fff; border: 2px solid var(--ac); border-radius: 3px; box-shadow: 0 1px 3px rgba(15, 23, 42, .3);

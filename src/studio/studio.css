@@ -220,6 +220,32 @@ body.studio .edblock { display: none !important; }
 .st-p-more[open] summary::before { transform: rotate(90deg); }
 .st-p-more summary::-webkit-details-marker { display: none; }
 
+/* Объекты и порядок появления */
+.st-anim { display: flex; flex-direction: column; border: 1px solid var(--bd); border-radius: 8px; overflow: hidden; }
+.st-anim-row { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; grid-template-areas: "n name t" "n fx tools"; align-items: center; gap: 2px 8px; padding: 7px 8px 7px 10px; border-bottom: 1px solid var(--bd); cursor: pointer; }
+.st-anim-row:last-child { border-bottom: 0; }
+.st-anim-row:hover { background: var(--acs); }
+.st-anim-row:focus-visible { outline: 2px solid var(--ac); outline-offset: -2px; }
+.st-anim-n { grid-area: n; align-self: start; padding-top: 1px; font: 700 12px var(--font); color: var(--ac); text-align: center; font-variant-numeric: tabular-nums; }
+.st-anim-row.still .st-anim-n { color: var(--mu); }
+.st-anim-name { grid-area: name; display: flex; flex-direction: column; min-width: 0; }
+.st-anim-name b { font-size: 12.5px; color: var(--tx); }
+.st-anim-name span { font-size: 11.5px; color: var(--mu); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-anim-t { grid-area: t; align-self: start; font-size: 11.5px; color: var(--mu); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.st-anim-row select { grid-area: fx; height: 26px; padding: 0 6px; border: 1px solid var(--bd); border-radius: 6px; background: var(--bg); font: 12px var(--font); color: var(--tx2); max-width: 100%; }
+.st-anim-row .st-f-tools { grid-area: tools; }
+.st-anim-sep { padding: 6px 10px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--mu); background: var(--alt); border-bottom: 1px solid var(--bd); }
+
+/* Фон холста */
+.st-bgs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.st-bgs button, .st-bg-own { display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 4px; border: 1px solid var(--bd); border-radius: 8px; background: var(--surf); font: 500 11px var(--font); color: var(--tx2); cursor: pointer; text-align: center; }
+.st-bgs i, .st-bg-own i { display: block; height: 30px; border-radius: 5px; border: 1px solid var(--bd); }
+.st-bgs button:hover, .st-bg-own:hover { border-color: var(--acb); }
+.st-bgs button[aria-checked="true"] { border-color: var(--ac); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 22%, transparent); color: var(--ach); }
+.st-bg-own { position: relative; }
+.st-bg-own input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.st-p-note code { font-size: 11px; overflow-wrap: anywhere; }
+
 /* Меню */
 .st-menu { position: fixed; z-index: 40; min-width: 220px; padding: 4px; background: var(--surf); border: 1px solid var(--bd); border-radius: 10px; box-shadow: 0 12px 32px rgba(15, 23, 42, .2); display: flex; flex-direction: column; }
 .st-menu button { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 0; border-radius: 6px; background: none; font: 500 13px var(--font); color: var(--tx); text-align: left; cursor: pointer; }
