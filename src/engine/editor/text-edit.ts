@@ -604,6 +604,11 @@ function clean(st: TextStyle): TextStyle {
   else if (st.align === 'left') out.align = 'left';
   if (st.font) out.font = st.font;
   if (st.width) out.width = Math.round(Number(st.width));
+  // Остальное оформление (например, после разгруппировки) переносится как есть
+  if (st.weight) out.weight = st.weight;
+  if (st.upper) out.upper = true;
+  if (st.spacing) out.spacing = st.spacing;
+  if (st.leading) out.leading = st.leading;
   return out;
 }
 

@@ -22,7 +22,9 @@ export type Field =
   /** Список объектов. Элемент-строка (если допустим) правится как поле asString */
   | { k: string; label: string; type: 'rows'; item: string; fields: Field[]; make: () => unknown; asString?: string }
   /** Вложенный объект (ссылка финального слайда) */
-  | { k: string; label: string; type: 'group'; fields: Field[] };
+  | { k: string; label: string; type: 'group'; fields: Field[] }
+  /** Цвет фигуры: роли темы или свой #RRGGBB; none — без цвета */
+  | { k: string; label: string; type: 'color'; none?: boolean };
 
 export interface Schema {
   /** Короткая подсказка, что это за блок */
@@ -179,6 +181,18 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'highlight', label: 'Выделенный столбец', type: 'number', min: 0, placeholder: 'последний', hint: 'Номер с нуля' },
       { k: 'max', label: 'Значение для полной высоты', type: 'number', placeholder: 'максимум' },
       { k: 'height', label: 'Высота, px', type: 'number', min: 40, max: 600, placeholder: '100' },
+    ],
+  },
+  shape: {
+    fields: [
+      { k: 'kind', label: 'Форма', type: 'select', options: [['', 'Скруглённый прямоугольник'], ['rect', 'Прямоугольник'], ['pill', 'Капсула'], ['ellipse', 'Овал'], ['line', 'Линия'], ['arrow', 'Стрелка']] },
+      { k: 'text', label: 'Текст внутри', type: 'textarea' },
+      { k: 'fill', label: 'Заливка', type: 'color', none: true },
+      { k: 'stroke', label: 'Рамка / цвет линии', type: 'color', none: true },
+      { k: 'width', label: 'Толщина рамки или линии, px', type: 'number', min: 0, max: 40, placeholder: '0' },
+      { k: 'radius', label: 'Скругление, px', type: 'number', min: 0, max: 200, placeholder: '16' },
+      { k: 'rotate', label: 'Поворот, °', type: 'number', min: -180, max: 180, step: 5, placeholder: '0' },
+      { k: 'shadow', label: 'Тень', type: 'bool' },
     ],
   },
   stat: {

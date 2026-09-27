@@ -39,6 +39,20 @@ export const LIBRARY: Category[] = [
     ],
   },
   {
+    name: 'Фигуры',
+    icon: 'frame',
+    items: [
+      { name: 'Скруглённый', w: 320, h: 180, make: () => ({ type: 'shape', fill: 'soft' }) },
+      { name: 'Прямоугольник', w: 320, h: 180, make: () => ({ type: 'shape', kind: 'rect', fill: 'surface', stroke: 'border', width: 1 }) },
+      { name: 'Карточка с тенью', w: 360, h: 200, make: () => ({ type: 'shape', fill: 'surface', stroke: 'border', width: 1, radius: 16, shadow: true }) },
+      { name: 'Плашка с текстом', w: 360, h: 72, make: () => ({ type: 'shape', kind: 'pill', fill: 'accent', text: 'Главное' }) },
+      { name: 'Метка', w: 200, h: 44, make: () => ({ type: 'shape', kind: 'pill', fill: 'soft', stroke: 'accent', width: 1, text: 'метка', styles: { text: { size: 15 } } }) },
+      { name: 'Круг', w: 180, h: 180, make: () => ({ type: 'shape', kind: 'ellipse', fill: 'soft', stroke: 'accent', width: 2 }) },
+      { name: 'Линия', w: 400, h: 16, make: () => ({ type: 'shape', kind: 'line', stroke: 'border', width: 2 }) },
+      { name: 'Стрелка', w: 260, h: 24, make: () => ({ type: 'shape', kind: 'arrow', stroke: 'accent', width: 3 }) },
+    ],
+  },
+  {
     name: 'Числа',
     icon: 'sliders',
     items: [

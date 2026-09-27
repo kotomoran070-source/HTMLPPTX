@@ -1,0 +1,6 @@
+/* Фигуры. Размер задаёт свободный объект (place), в раскладке — минимальная высота */
+.shape { position: relative; display: flex; align-items: center; justify-content: center; min-height: 40px; box-sizing: border-box; overflow: hidden; }
+.shape-t { padding: 8px 14px; text-align: center; font-size: 18px; font-weight: 600; line-height: 1.3; }
+.shape-line { background: none; overflow: visible; min-height: 12px; justify-content: flex-start; }
+.shape-bar { flex: 1; height: var(--w); border-radius: var(--w); background: var(--c); }
+.shape-head { flex: none; width: 0; height: 0; margin-left: calc(var(--w) * -1); border-left: var(--h) solid var(--c); border-top: calc(var(--h) * .6) solid transparent; border-bottom: calc(var(--h) * .6) solid transparent; }

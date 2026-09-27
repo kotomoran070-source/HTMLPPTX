@@ -51,7 +51,9 @@ const STATE = new Set(['on', 'active', 'current', 'present', 'visible', 'show', 
  * добавляется «не внутри встроенного блока». Вёрстка импорта — блоки html/embed/live — как была.
  */
 const NATIVE = '[data-type]:not([data-type="html"]):not([data-type="embed"]):not([data-type="live"])';
-const GUARD = `:not(:where(${NATIVE}, ${NATIVE} *))`;
+// Обёртка свободного объекта со встроенным блоком (.free, .fx — классы движка) тоже не отдаётся
+// стилям импорта; обёртки импортированной вёрстки остаются как были — по ним выверен её вид
+const GUARD = `:not(:where(${NATIVE}, ${NATIVE} *, .slide > .free:has(> ${NATIVE})))`;
 
 function guard(sel: string): string {
   // Сам слайд (&, &.on) — не блок

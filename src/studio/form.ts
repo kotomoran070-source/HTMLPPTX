@@ -1,4 +1,5 @@
 import { icon, iconNames } from '../components/icons';
+import { SHAPE_COLORS } from '../components/shape/shape';
 import { getAt, setAt, type Path } from '../engine/data';
 import { esc } from '../engine/html';
 import type { Field } from './schema';
@@ -94,6 +95,11 @@ function fieldHtml(f: Field, data: unknown, p: Path): string {
     }
     case 'group':
       return `<fieldset class="st-f-group"><legend>${esc(f.label)}</legend>${formHtml(f.fields, data, p)}</fieldset>`;
+    case 'color':
+      return `<div class="st-f"><span class="st-f-l">${esc(f.label)}</span><span class="st-f-colors" data-cp="${P(p)}">`
+        + (f.none ? `<button type="button" class="none" data-act="setcolor" data-p="${P(p)}" data-v="none" title="Нет" aria-label="Без цвета"></button>` : '')
+        + Object.entries(SHAPE_COLORS).map(([k, c]) => `<button type="button" data-act="setcolor" data-p="${P(p)}" data-v="${k}" style="--c:${c.css}" title="${esc(c.name)}" aria-label="${esc(c.name)}"></button>`).join('')
+        + `<label class="st-f-own" title="Свой цвет"><input type="color" data-t="colorhex" data-p="${P(p)}" aria-label="Свой цвет"></label></span></div>`;
   }
 }
 
@@ -136,9 +142,19 @@ export function fillForm(root: HTMLElement, data: unknown, resolveUrl: (src: str
       el.parentElement?.querySelector('.st-f-star')?.classList.toggle('on', accent);
     } else if (t === 'kvkey') {
       el.value = el.dataset.key ?? '';
+    } else if (t === 'colorhex') {
+      if (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)) el.value = v.toLowerCase();
     } else {
       el.value = v === undefined || v === null ? '' : String(v);
     }
+  });
+  root.querySelectorAll<HTMLElement>('[data-cp]').forEach((el) => {
+    const v = getAt(data, JSON.parse(el.dataset.cp!));
+    el.querySelectorAll<HTMLElement>('[data-v]').forEach((b) => b.classList.toggle('on', b.dataset.v === v));
+    const own = el.querySelector<HTMLElement>('.st-f-own');
+    const hex = typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
+    own?.classList.toggle('on', hex);
+    if (own) own.style.setProperty('--c', hex ? String(v) : 'conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)');
   });
   root.querySelectorAll<HTMLElement>('[data-icon-prev]').forEach((el) => {
     const v = getAt(data, JSON.parse(el.dataset.iconPrev!));
@@ -192,6 +208,8 @@ export function onFieldChange(el: HTMLInputElement, e: FormEdit): boolean {
       const text = raw.trim();
       setAt(d, p, accent ? `${text}*` : text);
     });
+  } else if (t === 'colorhex') {
+    e.commit((d) => write(d, p, raw.toUpperCase(), as));
   } else if (t === 'kvkey') {
     const from = el.dataset.key ?? '';
     const to = raw.trim();
@@ -271,6 +289,9 @@ export function onFieldAction(btn: HTMLElement, fields: Field[], base: Path, e: 
       });
       return true;
     }
+    case 'setcolor':
+      e.commit((d) => setAt(d, p, btn.dataset.v || undefined));
+      return true;
     case 'pick':
       e.pickImage(p);
       return true;

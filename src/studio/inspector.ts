@@ -184,7 +184,7 @@ export class Inspector {
     const extra = `<details class="st-p-sec st-p-more"><summary>Дополнительно</summary>${formHtml([STYLE_FIELD], deck, sel.block)}</details>`;
     if (!sel.free) {
       return head + contentSec + `<section class="st-p-sec"><h3>Раскладка</h3><p class="st-p-note">Блок стоит в раскладке слайда и двигается вместе с ней. Сделайте его свободным, чтобы перемещать мышью, менять размер и задать анимацию.</p>
-<div class="st-p-col">${cmdBtn('obj.free', 'move', 'Сделать свободным', 'primary')}${sel.hasParent ? cmdBtn('obj.parent', 'up', 'Выделить внешний блок') : ''}</div></section>
+<div class="st-p-col">${cmdBtn('obj.free', 'move', 'Сделать свободным', 'primary')}${cmdBtn('obj.ungroup', 'ungroup', 'Разгруппировать')}${sel.hasParent ? cmdBtn('obj.parent', 'up', 'Выделить внешний блок') : ''}</div></section>
 ${extra}<section class="st-p-sec st-p-end">${cmdBtn('obj.del', 'trash', 'Удалить блок', 'danger')}</section>`;
     }
     return head + contentSec + `<section class="st-p-sec"><h3>Положение и размер</h3>
@@ -204,7 +204,7 @@ ${cmdBtn('show.preview', 'play', 'Просмотр анимации слайда
 <section class="st-p-sec"><h3>Порядок</h3>
 <div class="st-p-row">${cmdBtn('obj.front', 'front', 'Вперёд')}${cmdBtn('obj.back', 'back', 'Назад')}</div>
 </section>
-${extra}<section class="st-p-sec st-p-end"><div class="st-p-row">${cmdBtn('obj.dup', 'copy', 'Дублировать')}${content ? cmdBtn('obj.attach', 'grid', 'В раскладку') : ''}</div>
+${extra}<section class="st-p-sec st-p-end">${cmdBtn('obj.ungroup', 'ungroup', 'Разгруппировать на части')}<div class="st-p-row">${cmdBtn('obj.dup', 'copy', 'Дублировать')}${content ? cmdBtn('obj.attach', 'grid', 'В раскладку') : ''}</div>
 ${cmdBtn('obj.del', 'trash', 'Удалить', 'danger')}</section>`;
   }
 

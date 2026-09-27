@@ -13,6 +13,14 @@ export interface TextStyle {
   font?: string;
   /** Наибольшая ширина поля в пикселях слайда: текст переносится раньше */
   width?: number;
+  /** Насыщенность шрифта: 400 — обычный, 700 — жирный */
+  weight?: number;
+  /** Заглавными буквами */
+  upper?: boolean;
+  /** Межбуквенный интервал, em */
+  spacing?: number;
+  /** Межстрочный интервал (множитель) */
+  leading?: number;
 }
 
 export const FONTS: Record<string, { name: string; css: string }> = {
@@ -55,5 +63,12 @@ export function textStyleCss(st: unknown): string {
   if (s.font && FONTS[s.font]) out.push(`font-family:${FONTS[s.font].css}`);
   const w = Number(s.width);
   if (Number.isFinite(w) && w >= 40 && w <= 1280) out.push(`max-width:${Math.round(w)}px`);
+  const wt = Number(s.weight);
+  if (Number.isFinite(wt) && wt >= 100 && wt <= 900) out.push(`font-weight:${Math.round(wt / 100) * 100}`);
+  if (s.upper === true) out.push('text-transform:uppercase');
+  const sp = Number(s.spacing);
+  if (Number.isFinite(sp) && sp !== 0 && Math.abs(sp) <= 1) out.push(`letter-spacing:${sp}em`);
+  const ld = Number(s.leading);
+  if (Number.isFinite(ld) && ld >= 0.8 && ld <= 3) out.push(`line-height:${ld}`);
   return out.join(';');
 }
