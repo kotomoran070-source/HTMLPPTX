@@ -15,7 +15,7 @@ const LAYOUT_KEY = 'htmlpptx-pres-layout';
 /** Ширина текущего слайда и высота «Далее» по умолчанию, % */
 const DEFAULT_LAYOUT = { pw: 64, nh: 40 };
 const PEN_COLORS = ['#EF4444', '#F59E0B', '#2563EB', '#10B981', '#FFFFFF'];
-const MARKER: StrokeStyle = { color: '#FACC15', width: 24, marker: true };
+
 
 /**
  * Окно докладчика: текущий слайд, следующий, заметки, таймер и часы.
@@ -50,7 +50,6 @@ export function startPresenter(deck: Deck, deckKey: string): void {
           <span class="pd-colors" id="pcolors" role="radiogroup" aria-label="Цвет пера">${PEN_COLORS.map((c, k) =>
             `<button type="button" role="radio" aria-checked="${k === 0}" data-color="${c}" style="--c:${c}" title="Цвет пера" aria-label="Цвет ${k + 1}"></button>`).join('')}</span>
         </span>
-        <button type="button" class="pd-btn" data-tool="marker" aria-pressed="false" title="Маркер (H)">${icon('marker')}</button>
         <button type="button" class="pd-btn" id="tcl" title="Стереть всё нарисованное (C)" aria-label="Стереть всё нарисованное">${icon('eraser')}</button>
         <i class="pd-sep" aria-hidden="true"></i>
         <button type="button" class="pd-btn" id="tgrid" title="Все слайды (G)" aria-label="Все слайды">${icon('grid')}</button>
@@ -101,7 +100,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   let tool: InkTool = 'none';
   let penColor = PEN_COLORS[0];
   const sendInk = (m: InkMsg) => sync.send({ type: 'ink', ink: m }, toMain());
-  inkInput(cur, ink, () => tool, () => (tool === 'marker' ? MARKER : { color: penColor, width: 5 }), sendInk);
+  inkInput(cur, ink, () => tool, (): StrokeStyle => ({ color: penColor, width: 5 }), sendInk);
   const clearInk = () => { ink.apply({ op: 'clear' }); sendInk({ op: 'clear' }); };
   function setTool(t: InkTool): void {
     tool = tool === t ? 'none' : t;
@@ -319,7 +318,6 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       t: () => toggleTheme(), 'е': () => toggleTheme(),
       l: () => setTool('laser'), 'д': () => setTool('laser'),
       d: () => setTool('pen'), 'в': () => setTool('pen'),
-      h: () => setTool('marker'), 'р': () => setTool('marker'),
       c: () => clearInk(), 'с': () => clearInk(),
       g: openGrid, 'п': openGrid,
       escape: () => { if (tool !== 'none') setTool(tool); },
