@@ -12,6 +12,8 @@ import { CLIP_TYPE, putClip, takeClip, type Clip } from './clipboard';
 import type { CodeView } from './code';
 import { applyFormat, hasFormat, takeFormat, type Format } from './format-painter';
 import { tableGrips } from './table-grips';
+import { GRID_STEPS, ViewAids } from './view-aids';
+import { setSnapLines } from '../engine/editor/block-edit';
 import { animCommands, animPanelHtml, animTabHtml, bindDelayField, syncAnimTab, type AnimHost } from './anim-tab';
 import { contextCommands, contextPanelsHtml, contextTab, contextTabsHtml, syncSwatches, type ContextTab } from './context-tabs';
 import { Inspector } from './inspector';
@@ -51,6 +53,11 @@ function rb(cmd: string, ic: string, label: string, opts: { big?: boolean; key?:
     + `${icon(ic)}<span>${esc(label)}${opts.menu ? '<b class="st-caret"></b>' : ''}</span></button>`;
 }
 
+/** Флажок на ленте: отмечен, когда команда активна */
+function chk(cmd: string, label: string, title?: string): string {
+  return `<button type="button" class="st-rb st-chk" data-cmd="${cmd}" title="${esc(title ?? label)}"><i class="st-box">${icon('check')}</i><span>${esc(label)}</span></button>`;
+}
+
 function group(label: string, body: string): string {
   return `<div class="st-rgroup" role="group" aria-label="${esc(label)}"><div class="st-rgroup-body">${body}</div><div class="st-rgroup-label">${esc(label)}</div></div>`;
 }
@@ -71,7 +78,6 @@ export function startStudio(deck: Deck, deckKey: string): void {
     <nav class="st-tabs" role="tablist" aria-label="Вкладки ленты">
       <button type="button" role="tab" data-tab="home" aria-selected="true">Главная</button>
       <button type="button" role="tab" data-tab="insert" aria-selected="false">Вставка</button>
-      <button type="button" role="tab" data-tab="design" aria-selected="false">Дизайн</button>
       ${animTabHtml()}
       <button type="button" role="tab" data-tab="show" aria-selected="false">Показ</button>
       <button type="button" role="tab" data-tab="view" aria-selected="false">Вид</button>
@@ -98,17 +104,15 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Новый слайд', SLIDE_PRESETS.map((p, k) => rb(`slide.preset.${k}`, ['text', 'grid', 'image', 'frame'][k] ?? 'slide-add', p.name, { big: true })).join(''))}
       ${group('Объекты', rb('insert.blocks', 'grid', 'Блоки', { big: true, menu: true, title: 'Готовые блоки: карточки, графики, схемы' }) + rb('insert.text', 'text', 'Текст', { big: true }) + rb('insert.image', 'image', 'Картинка', { big: true }))}
     </div>
-    <div class="st-rpanel" data-panel="design" hidden>
-      ${group('Цвет', `<label class="st-accent" title="Акцентный цвет презентации"><input type="color" id="st-accent" aria-label="Акцентный цвет"><span>Акцент</span></label>${rb('design.accent-reset', 'reset', 'Стандартный')}`)}
-      ${group('Тема', rb('design.theme', 'moon', 'Светлая / тёмная', { big: true, key: 'T' }))}
-    </div>
     ${animPanelHtml()}
     <div class="st-rpanel" data-panel="show" hidden>
       ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'next', 'С текущего слайда', { big: true, key: 'Shift+F5' }) + rb('show.presenter', 'presenter', 'Режим докладчика', { big: true, key: 'Alt+F5', title: 'Показ на втором экране, заметки — на вашем' }))}
     </div>
     <div class="st-rpanel" data-panel="view" hidden>
       ${group('Панели', rb('view.slides', 'grid', 'Слайды', { big: true, key: 'Ctrl+Shift+1', title: 'Список слайдов слева' }) + rb('view.props', 'sliders', 'Свойства', { big: true, key: 'Ctrl+Shift+2', title: 'Панель свойств справа' }) + rb('view.notes', 'notes', 'Заметки', { big: true, key: 'Ctrl+Shift+3' }) + rb('view.code', 'terminal', 'Код слайда', { big: true, key: 'Ctrl+`', title: 'Код слайда (YAML) и стили (CSS)' }))}
+      ${group('Показать', `<div class="st-rstack">${chk('view.ruler', 'Линейка', 'Линейка сверху и слева; из неё вытягиваются направляющие')}${chk('view.grid', 'Сетка', 'Сетка на слайде, объекты прилипают к ней (Shift+F9)')}${chk('view.guides', 'Направляющие', 'Свои направляющие; объекты прилипают к ним (Alt+F9)')}</div><div class="st-rstack">${rb('view.grid-step', 'grid', 'Шаг сетки', { menu: true })}${rb('view.guides-reset', 'reset', 'Сбросить направляющие', { title: 'Оставить одну вертикальную и одну горизонтальную по центру' })}</div>`)}
       ${group('Масштаб', rb('view.fit', 'fullscreen', 'Вписать', { big: true }) + `<div class="st-rstack">${rb('view.zoom-in', 'plus', 'Крупнее')}${rb('view.zoom-out', 'minus', 'Мельче')}</div>`)}
+      ${group('Оформление', `<label class="st-accent" title="Акцентный цвет презентации"><input type="color" id="st-accent" aria-label="Акцентный цвет"><span>Акцент</span></label>${rb('design.accent-reset', 'reset', 'Стандартный')}`)}
     </div>
     ${contextPanelsHtml()}
   </div>
@@ -170,6 +174,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   view.show(index);
 
   // ---------------- масштаб ----------------
+  let aids: ViewAids | null = null;
   let zoom: number | 'fit' = 'fit';
   let scale = 1;
   function fitScale(): number {
@@ -183,6 +188,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     view.fit(W * scale, H * scale);
     $('st-zoom').textContent = `${Math.round(scale * 100)}%`;
     editor?.reposition();
+    aids?.redraw();
   }
   function setZoom(z: number | 'fit'): void {
     zoom = z === 'fit' ? 'fit' : Math.max(0.1, Math.min(3, z));
@@ -821,6 +827,17 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'insert.text': { run: () => ed.addBlock('text') },
     'insert.blocks': { run: () => openLibrary() },
     'view.code': { run: () => void toggleCode(), active: () => codeOpen },
+    'view.ruler': { run: () => toggleAid('ruler'), active: () => lay.ruler },
+    'view.grid': { run: () => toggleAid('grid'), active: () => lay.grid },
+    'view.guides': { run: () => toggleAid('guides'), active: () => lay.guides },
+    'view.guides-reset': { run: () => { aids!.resetGuides(); if (!lay.guides) toggleAid('guides', true); } },
+    'view.grid-step': {
+      run: () => showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="view.grid-step"]')!, GRID_STEPS.map((st) => ({
+        label: `${st} px`,
+        checked: lay.step === st,
+        run: () => { lay.step = st; aids!.state.step = st; aids!.apply(); applyLayout(); if (!lay.grid) toggleAid('grid', true); },
+      }))),
+    },
     'view.slides': { run: () => togglePanel('left'), active: () => lay.left },
     'view.props': { run: () => togglePanel('right'), active: () => lay.right },
     'insert.image': { run: () => ed.addBlock('image') },
@@ -958,7 +975,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
 
   // ---------------- раскладка окна: панели тянутся, лента сворачивается ----------------
   const LAYOUT_KEY = 'htmlpptx-studio-layout';
-  const DEFAULTS = { lw: 212, rw: 292, nh: 128, cw: 44, ribbon: true, left: true, right: true };
+  const DEFAULTS = { lw: 212, rw: 292, nh: 128, cw: 44, ribbon: true, left: true, right: true, ruler: false, grid: false, guides: false, step: 40 };
   const LIMITS = { lw: [120, 380], rw: [220, 520], nh: [64, 420], cw: [22, 70] } as const;
   let lay = { ...DEFAULTS };
   try { lay = { ...lay, ...JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}') }; } catch { /* раскладки ещё нет */ }
@@ -1026,6 +1043,21 @@ export function startStudio(deck: Deck, deckKey: string): void {
   }
   $('st-rt').addEventListener('click', () => toggleRibbon());
   applyLayout(false);
+
+  // ---------------- линейка, сетка, направляющие ----------------
+  aids = new ViewAids({
+    canvas, paper, stage: () => view.stage, deckKey,
+    selected: () => selectedEl(),
+    changed: () => { lay.guides = aids!.state.guides; applyLayout(); queueState(); },
+  }, { ruler: lay.ruler, grid: lay.grid, guides: lay.guides, step: GRID_STEPS.includes(lay.step) ? lay.step : 40 });
+  setSnapLines(() => aids!.snapLines());
+  function toggleAid(k: 'ruler' | 'grid' | 'guides', on = !lay[k]): void {
+    lay[k] = on;
+    aids!.state[k] = on;
+    aids!.apply();
+    applyLayout();
+    queueState();
+  }
 
   // ---------------- заметки ----------------
   let notesOpen = true;
@@ -1116,6 +1148,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     syncContextTab();
     syncSwatches(deck, ed);
     syncAnimTab(animHost);
+    aids?.redraw();
     grips.sync();
     code?.syncSelection();
     document.querySelectorAll<HTMLButtonElement>('[data-cmd]').forEach((b) => {
@@ -1194,6 +1227,11 @@ export function startStudio(deck: Deck, deckKey: string): void {
       if (e.code === 'Digit1') return togglePanel('left');
       if (e.code === 'Digit2') return togglePanel('right');
       return setNotes(!notesOpen);
+    }
+    // Как в PowerPoint: Shift+F9 — сетка, Alt+F9 — направляющие
+    if (e.key === 'F9' && (e.shiftKey || e.altKey) && !mod) {
+      e.preventDefault();
+      return toggleAid(e.shiftKey ? 'grid' : 'guides');
     }
     if (mod && e.key === 'F1') {
       e.preventDefault();

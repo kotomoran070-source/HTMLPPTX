@@ -48,6 +48,12 @@ type Dir = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 const DIRS: Dir[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 const SNAP = 6;
 
+/** Дополнительные линии прилипания: направляющие и сетка студии */
+let extraLines: () => { v: number[]; h: number[] } = () => ({ v: [], h: [] });
+export function setSnapLines(fn: () => { v: number[]; h: number[] }): void {
+  extraLines = fn;
+}
+
 /**
  * Блоки и свободные объекты в режиме правки.
  * Любой блок можно выделить, удалить или «сделать свободным» — тогда он лежит поверх
@@ -726,8 +732,9 @@ export class BlockEditor {
 
   /** Линии, к которым прилипают края: края и центр слайда, поля, другие свободные объекты. */
   private lines(): { v: number[]; h: number[] } {
-    const v = [0, 64, W / 2, W - 64, W];
-    const h = [0, 48, H / 2, H - 48, H];
+    const extra = extraLines();
+    const v = [0, 64, W / 2, W - 64, W, ...extra.v];
+    const h = [0, 48, H / 2, H - 48, H, ...extra.h];
     const s = this.sel;
     const list = this.slide().free ?? [];
     const own = new Set(this.members.filter((m) => m.free).map((m) => Number(m.free![3])));

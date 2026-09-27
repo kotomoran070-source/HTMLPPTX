@@ -619,3 +619,27 @@ body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
 .st-aorder-mv[data-dir="1"] .ic, .st-rb[data-cmd="anim.later"] .ic { transform: rotate(180deg); }
 .st-aorder-empty, .st-aorder-still { margin: 0; padding: 8px 10px; font: 500 12px var(--font); color: var(--mu); }
 .st-aorder-still { border-top: 1px solid var(--bd); margin-top: 4px; }
+
+/* Линейка, сетка, направляющие (view-aids.ts) */
+.st-view { position: relative; }
+.st-ruler { position: absolute; z-index: 6; display: block; cursor: default; }
+.st-ruler.h { height: 20px; cursor: s-resize; }
+.st-ruler.v { width: 20px; cursor: e-resize; }
+.st-ruler[hidden], .st-ruler-corner[hidden] { display: none; }
+.st-ruler-corner { position: absolute; z-index: 6; width: 20px; height: 20px; background: var(--alt); border-right: 1px solid var(--bd); border-bottom: 1px solid var(--bd); box-sizing: border-box; }
+.st-grid { position: absolute; inset: 0; z-index: 3; pointer-events: none; --gs: 40px;
+  background-image: linear-gradient(to right, color-mix(in srgb, var(--ac) 22%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--ac) 22%, transparent) 1px, transparent 1px);
+  background-size: var(--gs) var(--gs); background-position: -.5px -.5px; }
+.st-grid[hidden], .st-guides[hidden] { display: none; }
+.st-guides { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.st-guide { position: absolute; pointer-events: auto; }
+.st-guide.v { top: 0; bottom: 0; width: 9px; margin-left: -4px; cursor: ew-resize; }
+.st-guide.h { left: 0; right: 0; height: 9px; margin-top: -4px; cursor: ns-resize; }
+.st-guide::after { content: ""; position: absolute; }
+.st-guide.v::after { top: 0; bottom: 0; left: 4px; border-left: 1px dashed color-mix(in srgb, var(--ac) 80%, transparent); }
+.st-guide.h::after { left: 0; right: 0; top: 4px; border-top: 1px dashed color-mix(in srgb, var(--ac) 80%, transparent); }
+.st-guide:hover::after, .st-guide.moving::after { border-style: solid; border-color: var(--ac); }
+.st-guide.out::after { border-color: #DC2626; }
+.st-guide-tip { position: absolute; z-index: 5; padding: 2px 6px; border-radius: 5px; background: var(--tx); color: var(--surf); font: 600 11px var(--font); pointer-events: none; white-space: nowrap; }
+.st-guide-tip[hidden] { display: none; }
+body.st-previewing :is(.st-grid, .st-guides) { display: none; }
