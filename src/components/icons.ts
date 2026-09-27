@@ -41,6 +41,8 @@ const PATHS: Record<string, string> = {
   move: '<path d="M12 3v18M3 12h18"/><path d="m9 6 3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/>',
   up: '<path d="m6 11 6-6 6 6M12 5v14"/>',
   'chev-up': '<path d="m6 15 6-6 6 6"/>',
+  leading: '<path d="M11 6h9M11 12h9M11 18h9"/><path d="M4 8l2.5-3L9 8M4 16l2.5 3L9 16M6.5 5v14"/>',
+  tracking: '<path d="M4 13 7.5 4 11 13M5.3 10h4.4M13 4l3.5 9L20 4"/><path d="M4 19h16M6.5 16.5 4 19l2.5 2.5M17.5 16.5 20 19l-2.5 2.5"/>',
   upload: '<path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
   terminal: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M12.5 15H17"/>',
   layers: '<path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/>',

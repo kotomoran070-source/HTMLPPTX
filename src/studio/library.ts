@@ -59,27 +59,27 @@ export const LIBRARY: Category[] = [
     name: 'Числа',
     icon: 'sliders',
     items: [
-      { name: 'Ключевое число', w: 300, make: () => stat('24', 'устройства в работе', '+6 за месяц') },
+      { name: 'Ключевое число', w: 300, make: () => stat('128', 'новых клиентов', '+18 за месяц') },
       {
         name: 'Три числа', w: 1040, pw: 620, make: () => ({
           type: 'grid', columns: 3, gap: 40,
-          items: [stat('3,4 млн', 'сообщений получено', '+12 %'), stat('99,7 %', 'доступность сервиса'), stat('1,4 с', 'задержка доставки', '−18 %')],
+          items: [stat('4,2 млн ₽', 'выручка за квартал', '+12 %'), stat('92 %', 'довольных клиентов'), stat('3 дня', 'средний срок заказа', '−1 день')],
         }),
       },
-      { name: 'Прогресс', w: 460, pw: 320, make: () => ({ type: 'progress', label: 'Готовность', value: '18 из 24', percent: 75 }) },
+      { name: 'Прогресс', w: 460, pw: 320, make: () => ({ type: 'progress', label: 'План продаж', value: '75 из 100', percent: 75 }) },
       {
         name: 'Три прогресса', w: 520, pw: 380, make: () => ({
           type: 'stack', gap: 4,
           items: [
-            { type: 'progress', label: 'Прошивка', value: '100 %', percent: 100 },
-            { type: 'progress', label: 'Сервер', value: '80 %', percent: 80 },
-            { type: 'progress', label: 'Интерфейсы', value: '55 %', percent: 55 },
+            { type: 'progress', label: 'Исследование', value: '100 %', percent: 100 },
+            { type: 'progress', label: 'Дизайн', value: '80 %', percent: 80 },
+            { type: 'progress', label: 'Разработка', value: '55 %', percent: 55 },
           ],
         }),
       },
       {
         name: 'Ключ — значение', w: 520, pw: 380, make: () => ({
-          type: 'kv', rows: { 'Доступ': 'TLS-сертификаты', 'Секреты': 'в хранилище, не в коде', 'Резерв': 'каждую ночь' },
+          type: 'kv', rows: { 'Срок': '3 месяца', 'Команда': '5 человек', 'Бюджет': '1,2 млн ₽' },
         }),
       },
     ],
@@ -91,7 +91,7 @@ export const LIBRARY: Category[] = [
       {
         name: 'Линии', w: 760, pw: 520, make: () => ({
           type: 'table', header: ['Показатель', 'План', 'Факт'],
-          rows: [['Устройств в работе', 20, 24], ['Доступность, %', 99.5, 99.7], ['Задержка, с', 2, 1.4], ['Сообщений, млн', 3, 3.4]],
+          rows: [['Новых клиентов', 100, 128], ['Выручка, млн ₽', 4, 4.2], ['Средний чек, тыс. ₽', 32, 33], ['Отток, %', 5, 4]],
           widths: [2, 1, 1], labels: true,
         }),
       },
@@ -111,7 +111,7 @@ export const LIBRARY: Category[] = [
       },
       {
         name: 'Акцентная шапка', w: 760, pw: 520, make: () => ({
-          type: 'table', variant: 'accent', header: ['Тариф', 'Устройств', 'Цена в месяц'],
+          type: 'table', variant: 'accent', header: ['Тариф', 'Пользователей', 'Цена в месяц'],
           rows: [['Старт', 10, '4 900 ₽'], ['Бизнес', 50, '19 900 ₽'], ['Объект', 'без ограничений', 'по запросу']],
           widths: [2, 1, 1], labels: true, highlight: 1,
         }),
@@ -119,21 +119,21 @@ export const LIBRARY: Category[] = [
       {
         name: 'Мягкая с итогом', w: 760, pw: 520, make: () => ({
           type: 'table', variant: 'soft', header: ['Статья', 'I кв.', 'II кв.'],
-          rows: [['Оборудование', '1,2 млн', '0,8 млн'], ['Монтаж', '0,4 млн', '0,3 млн'], ['Сопровождение', '0,2 млн', '0,2 млн'], ['Итого', '1,8 млн', '1,3 млн']],
+          rows: [['Маркетинг', '1,2 млн', '0,8 млн'], ['Разработка', '0,4 млн', '0,3 млн'], ['Поддержка', '0,2 млн', '0,2 млн'], ['Итого', '1,8 млн', '1,3 млн']],
           widths: [2, 1, 1], labels: true, total: true,
         }),
       },
       {
         name: 'Тёмная шапка', w: 760, pw: 520, make: () => ({
           type: 'table', variant: 'dark', density: 'compact', header: ['Параметр', 'Значение'],
-          rows: [['Питание', '3,6 В, батарея'], ['Связь', 'LoRaWAN, 868 МГц'], ['Дальность', 'до 10 км'], ['Защита', 'IP67']],
+          rows: [['Формат', 'онлайн и очно'], ['Длительность', '2 дня'], ['Участников', 'до 40'], ['Язык', 'русский']],
           widths: [1, 2], labels: true,
         }),
       },
       {
         name: 'Сравнение', w: 760, pw: 520, make: () => ({
           type: 'table', header: ['', 'Было', 'Стало'],
-          rows: [['Сбор данных', 'вручную, раз в неделю', '**автоматически, каждую минуту**'], ['Оповещения', '—', '{accent|✓} при выходе за порог'], ['История', 'таблицы Excel', '{accent|✓} графики за год']],
+          rows: [['Отчёты', 'вручную, раз в месяц', '**автоматически, каждый день**'], ['Напоминания', '—', '{accent|✓} по почте и в чате'], ['История', 'таблицы Excel', '{accent|✓} графики за год']],
           widths: [1.2, 1.5, 1.8], labels: true,
         }),
       },
@@ -145,7 +145,7 @@ export const LIBRARY: Category[] = [
     items: [
       {
         name: 'График в карточке', w: 620, pw: 420, make: () => ({
-          type: 'card', title: 'Сообщений в сутки',
+          type: 'card', title: 'Продажи по месяцам',
           body: { type: 'line-chart', values: [120, 128, 124, 141, 156, 151, 170, 186, 194, 218], start: 'январь', end: 'октябрь' },
         }),
       },
@@ -156,7 +156,7 @@ export const LIBRARY: Category[] = [
       },
       {
         name: 'Столбцы в карточке', w: 480, pw: 360, make: () => ({
-          type: 'card', title: 'Задержка доставки, с',
+          type: 'card', title: 'Время ответа, мин',
           body: { type: 'bars', values: [1.9, 1.7, 1.6, 1.4, 1.2], labels: ['Янв', 'Фев', 'Мар', 'Апр', 'Май'], height: 150 },
         }),
       },
@@ -175,16 +175,16 @@ export const LIBRARY: Category[] = [
     items: [
       { name: 'Карточка', w: 380, pw: 300, make: () => card('Заголовок', 'Пояснение в пару строк.') },
       { name: 'Три карточки', w: 1040, pw: 640, make: () => ({ type: 'grid', columns: 3, items: [1, 2, 3].map((k) => card(`Пункт ${k}`, 'Короткое пояснение')) }) },
-      { name: 'Было — стало', w: 820, pw: 460, make: () => ({ type: 'grid', columns: 2, items: [card('Было', 'Данные собирали вручную раз в неделю'), card('Стало', 'Показания приходят каждую минуту')] }) },
+      { name: 'Было — стало', w: 820, pw: 460, make: () => ({ type: 'grid', columns: 2, items: [card('Было', 'Отчёт собирали вручную два дня'), card('Стало', 'Отчёт готов за минуту')] }) },
       {
         name: 'Панель', w: 520, make: () => ({
-          type: 'panel', title: 'Серверная часть', columns: 2,
-          cells: [{ title: 'GitLab', sub: 'репозитории и CI' }, { title: 'Grafana', sub: 'мониторинг' }, 'Redis', 'PostgreSQL'],
+          type: 'panel', title: 'Команда проекта', columns: 2,
+          cells: [{ title: 'Анна', sub: 'руководитель' }, { title: 'Игорь', sub: 'дизайн' }, 'Аналитика', 'Разработка'],
         }),
       },
       {
         name: 'Ползунки', w: 460, pw: 320, make: () => ({
-          type: 'sliders', rows: [{ label: 'Интервал', value: '60 с', position: 0.6 }, { label: 'Мощность', value: '14 дБм', position: 0.8 }],
+          type: 'sliders', rows: [{ label: 'Скорость', value: '70 %', position: 0.7 }, { label: 'Качество', value: '90 %', position: 0.9 }],
         }),
       },
     ],
@@ -196,19 +196,19 @@ export const LIBRARY: Category[] = [
       {
         name: 'Хронология', w: 1040, pw: 640, make: () => ({
           type: 'timeline', items: [
-            { date: 'Март', title: 'Прототип', text: 'первые датчики', done: true },
-            { date: 'Май', title: 'Пилот', text: '12 устройств', done: true },
-            { date: 'Сентябрь', title: 'Эксплуатация', text: '24 устройства', done: true },
-            { date: 'Декабрь', title: 'Масштабирование', text: 'новые объекты' },
+            { date: 'Март', title: 'Прототип', text: 'первая версия', done: true },
+            { date: 'Май', title: 'Пилот', text: '12 клиентов', done: true },
+            { date: 'Сентябрь', title: 'Эксплуатация', text: 'для всех', done: true },
+            { date: 'Декабрь', title: 'Масштабирование', text: 'новые рынки' },
           ],
         }),
       },
       {
         name: 'Шаги по очереди', w: 900, pw: 560, make: () => ({
-          type: 'pipeline', steps: [{ title: 'Коммит', sub: 'GitLab' }, { title: 'Сборка', sub: 'CI' }, { title: 'Тесты', sub: 'автоматически' }, { title: 'Выкладка', sub: 'сервер' }],
+          type: 'pipeline', steps: [{ title: 'Заявка', sub: 'онлайн' }, { title: 'Согласование', sub: '1 день' }, { title: 'Работа', sub: 'по плану' }, { title: 'Сдача', sub: 'акт и отчёт' }],
         }),
       },
-      { name: 'Сеть устройств', w: 520, h: 360, make: () => ({ type: 'network', nodes: 7 }) },
+      { name: 'Схема связей', w: 520, h: 360, make: () => ({ type: 'network', nodes: 7 }) },
       {
         name: 'Итоги вокруг логотипа', w: 1040, pw: 760, make: () => ({
           type: 'hub', items: [
@@ -225,7 +225,7 @@ export const LIBRARY: Category[] = [
     items: [
       { name: 'Картинка', w: 480, h: 320, make: () => ({ type: 'image', src: '' }) },
       { name: 'Картинка с подписью', w: 480, make: () => ({ type: 'image', src: '', height: 280, caption: 'Подпись к картинке' }) },
-      { name: 'Плитка с иллюстрацией', w: 420, h: 300, make: () => ({ type: 'tile', illustration: 'station', caption: 'Базовая станция' }) },
+      { name: 'Плитка с иллюстрацией', w: 420, h: 300, make: () => ({ type: 'tile', illustration: 'station', caption: 'Подпись к иллюстрации' }) },
       { name: 'Видео', w: 640, h: 360, make: () => ({ type: 'video' }) },
       { name: '3D-модель', w: 420, h: 420, make: () => ({ type: 'model' }) },
     ],

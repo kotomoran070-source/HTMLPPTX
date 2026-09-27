@@ -132,7 +132,7 @@ export const BLOCKS: Record<string, Schema> = {
     about: 'Блоки друг под другом.',
     fields: [{ k: 'gap', label: 'Промежуток, px', type: 'number', min: 0, max: 120, placeholder: '16' }],
   },
-  network: { fields: [{ k: 'nodes', label: 'Устройств вокруг станции', type: 'number', min: 2, max: 16, placeholder: '7' }] },
+  network: { fields: [{ k: 'nodes', label: 'Узлов вокруг центра', type: 'number', min: 2, max: 16, placeholder: '7' }] },
   hub: {
     fields: [
       { k: 'height', label: 'Высота, px', type: 'number', min: 200, max: 720, placeholder: 'авто' },

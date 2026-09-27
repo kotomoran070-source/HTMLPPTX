@@ -59,6 +59,8 @@ export class TextEditor {
   private partial: Range | null = null;
   readonly bar: HTMLElement;
   private colors: HTMLElement;
+  /** Выпадающий список интервалов (строк и букв) */
+  private menu: HTMLElement;
   /** Ручка справа от текста: тянуть — ширина поля (где переносятся строки) */
   private widthHandle: HTMLElement;
 
@@ -88,10 +90,13 @@ export class TextEditor {
   <button type="button" data-t="align-left" data-g="block" title="По левому краю" aria-label="По левому краю">${icon('align-left')}</button>
   <button type="button" data-t="align-center" data-g="block" title="По центру" aria-label="По центру">${icon('align-center')}</button>
   <button type="button" data-t="align-right" data-g="block" title="По правому краю" aria-label="По правому краю">${icon('align-right')}</button>
+  <button type="button" data-t="leading" data-g="block" class="edpick" title="Междустрочный интервал" aria-label="Междустрочный интервал" aria-haspopup="true">${icon('leading')}</button>
+  <button type="button" data-t="spacing" class="edpick" title="Интервал между буквами" aria-label="Интервал между буквами" aria-haspopup="true">${icon('tracking')}</button>
   <i class="edsep"></i>
   <button type="button" data-t="reset" title="Сбросить оформление" aria-label="Сбросить оформление">${icon('eraser')}</button>
   <button type="button" data-t="delete" class="danger" title="Удалить блок" aria-label="Удалить блок">${icon('trash')}</button>
 </div>
+<div class="edmenu" id="ed-menu" role="menu"></div>
 <div class="edcolors" id="ed-colors" role="dialog" aria-label="Цвет текста">
   <div class="edcolors-row">${Object.entries(THEME_COLORS).map(([k, c]) => `<button type="button" data-c="${k}" title="${esc(c.name)}" style="background:${c.css}"></button>`).join('')}</div>
   <div class="edcolors-row">${SWATCHES.map((c) => `<button type="button" data-c="${c}" title="${c}" style="background:${c}"></button>`).join('')}</div>
@@ -99,6 +104,7 @@ export class TextEditor {
 </div>`);
     this.bar = document.getElementById('ed-text')!;
     this.colors = document.getElementById('ed-colors')!;
+    this.menu = document.getElementById('ed-menu')!;
     this.docked = !!dock;
     if (dock) {
       dock.appendChild(this.bar);
@@ -135,7 +141,7 @@ export class TextEditor {
   /** Клик пришёлся в зону, которая относится к текущей правке (текст, панель, палитра). */
   owns(node: Node | null): boolean {
     if (!node || !this.s) return false;
-    return this.s.el.contains(node) || this.bar.contains(node) || this.colors.contains(node) || this.widthHandle.contains(node);
+    return this.s.el.contains(node) || this.bar.contains(node) || this.colors.contains(node) || this.menu.contains(node) || this.widthHandle.contains(node);
   }
 
   // ---------------- начало и конец правки ----------------
@@ -380,6 +386,8 @@ export class TextEditor {
     }
     if (s.styles.align) st.textAlign = s.styles.align;
     if (s.styles.font && FONTS[s.styles.font]) st.fontFamily = FONTS[s.styles.font].css;
+    if (Number(s.styles.leading)) st.lineHeight = String(s.styles.leading);
+    if (s.styles.spacing !== undefined) st.letterSpacing = `${Number(s.styles.spacing) || 0}em`;
   }
 
   private reset(): void {
@@ -412,6 +420,7 @@ export class TextEditor {
       if (!b || !this.s) return;
       const cmd = b.dataset.t!;
       if (cmd !== 'color') this.colors.classList.remove('on');
+      if (cmd !== 'leading' && cmd !== 'spacing') this.menu.classList.remove('on');
       switch (cmd) {
         case 'bold': case 'italic': case 'underline': this.format(cmd); break;
         case 'link': void this.link(); break;
@@ -427,6 +436,7 @@ export class TextEditor {
           break;
         }
         case 'color': this.toggleColors(b); break;
+        case 'leading': case 'spacing': this.toggleMenu(cmd, b); break;
         case 'reset': this.reset(); break;
         case 'delete': {
           const block = this.s.block;
@@ -510,6 +520,55 @@ export class TextEditor {
     return true;
   }
 
+  /** Интервалы как в PowerPoint: готовые значения и точное — числом */
+  private toggleMenu(kind: 'leading' | 'spacing', anchor: HTMLElement): void {
+    const s = this.s;
+    if (!s) return;
+    if (this.menu.classList.contains('on') && this.menu.dataset.kind === kind) {
+      this.menu.classList.remove('on');
+      return;
+    }
+    const cs = getComputedStyle(s.el);
+    const fs = parseFloat(cs.fontSize) || 16;
+    const cur = kind === 'leading'
+      ? Number(s.styles.leading) || (cs.lineHeight === 'normal' ? 1.2 : Math.round((parseFloat(cs.lineHeight) / fs) * 100) / 100)
+      : s.styles.spacing !== undefined ? Number(s.styles.spacing) : (cs.letterSpacing === 'normal' ? 0 : Math.round((parseFloat(cs.letterSpacing) / fs) * 1000) / 1000);
+    const opts: [number, string][] = kind === 'leading'
+      ? [[1, '1,0'], [1.15, '1,15'], [1.3, '1,3'], [1.5, '1,5'], [2, '2,0'], [2.5, '2,5']]
+      : [[-0.05, 'Очень плотный'], [-0.02, 'Плотный'], [0, 'Обычный'], [0.05, 'Разреженный'], [0.12, 'Очень разреженный']];
+    const near = (a: number, b: number) => Math.abs(a - b) < 0.006;
+    this.menu.dataset.kind = kind;
+    this.menu.innerHTML = `<div class="edmenu-title">${kind === 'leading' ? 'Междустрочный интервал' : 'Интервал между буквами'}</div>`
+      + opts.map(([v, l]) => `<button type="button" role="menuitemradio" aria-checked="${near(v, cur)}" data-v="${v}"><span>${l}</span>${near(v, cur) ? icon('check') : ''}</button>`).join('')
+      + `<label class="edmenu-exact"><span>${kind === 'leading' ? 'Множитель' : 'Точно, em'}</span><input type="number" step="${kind === 'leading' ? 0.05 : 0.01}" min="${kind === 'leading' ? 0.8 : -0.2}" max="${kind === 'leading' ? 3 : 0.5}" value="${cur}"></label>`
+      + `<button type="button" class="edmenu-reset" data-v="">Как в оформлении блока</button>`;
+    const apply = (raw: string) => {
+      const v = raw === '' ? undefined : Number(raw);
+      if (v !== undefined && !Number.isFinite(v)) return;
+      this.setStyle(kind === 'leading' ? { leading: v } : { spacing: v });
+    };
+    this.menu.onmousedown = (e) => { if ((e.target as HTMLElement).tagName !== 'INPUT') e.preventDefault(); };
+    this.menu.onclick = (e) => {
+      const b = (e.target as Element).closest<HTMLButtonElement>('button[data-v]');
+      if (!b) return;
+      apply(b.dataset.v!);
+      this.menu.classList.remove('on');
+      this.s?.el.focus({ preventScroll: true });
+    };
+    const input = this.menu.querySelector('input')!;
+    input.onchange = () => apply(input.value.replace(',', '.'));
+    input.onkeydown = (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') { e.preventDefault(); apply(input.value.replace(',', '.')); this.menu.classList.remove('on'); this.s?.el.focus({ preventScroll: true }); }
+      if (e.key === 'Escape') { this.menu.classList.remove('on'); this.s?.el.focus({ preventScroll: true }); }
+    };
+    this.menu.classList.add('on');
+    const r = anchor.getBoundingClientRect();
+    const w = this.menu.offsetWidth;
+    this.menu.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left - 8))}px`;
+    this.menu.style.top = `${r.bottom + 6}px`;
+  }
+
   private toggleColors(anchor: HTMLElement): void {
     const on = !this.colors.classList.contains('on');
     // Выделенная часть текста запоминается: клик по палитре её не сбросит
@@ -532,7 +591,9 @@ export class TextEditor {
     this.bar.querySelectorAll<HTMLElement>('[data-t="bold"],[data-t="italic"],[data-t="underline"],[data-t="link"],[data-t="reset"]')
       .forEach((b) => (b.hidden = s.isKey));
     const styleable = !!s.owner;
-    this.bar.querySelectorAll<HTMLElement>('select[data-t="font"],.edsize,[data-t="color"]').forEach((b) => (b.hidden = !styleable));
+    this.bar.querySelectorAll<HTMLElement>('select[data-t="font"],.edsize,[data-t="color"],[data-t="spacing"]').forEach((b) => (b.hidden = !styleable));
+    const lead = this.bar.querySelector<HTMLElement>('[data-t="leading"]');
+    if (lead && !styleable) lead.hidden = true;
     (this.bar.querySelector('[data-t="delete"]') as HTMLElement).hidden = !s.block;
     this.bar.classList.add('on');
     this.bar.classList.remove('idle');
@@ -547,6 +608,7 @@ export class TextEditor {
       this.bar.querySelectorAll('.on').forEach((b) => b.classList.remove('on'));
     }
     this.colors.classList.remove('on');
+    this.menu.classList.remove('on');
     this.widthHandle.classList.remove('on');
   }
 

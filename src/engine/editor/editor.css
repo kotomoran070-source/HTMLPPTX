@@ -263,3 +263,16 @@ body.editing .stage .free.auto-h:empty, body.editing .stage .free > p:empty { mi
 .edblock button:hover { background: var(--alt); }
 .edblock button.danger:hover { background: #FEE2E2; color: #B91C1C; }
 .edblock .ic { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Интервалы строк и букв (text-edit.ts) */
+.edmenu { position: fixed; z-index: 60; display: none; flex-direction: column; gap: 1px; min-width: 210px; padding: 6px; background: var(--surf); color: var(--tx); border: 1px solid var(--bd); border-radius: 12px; box-shadow: 0 16px 40px -8px rgba(15, 23, 42, .28), 0 2px 6px rgba(15, 23, 42, .08); font: 500 13px var(--font); }
+.edmenu.on { display: flex; }
+.edmenu-title { padding: 4px 8px 6px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--mu); }
+.edmenu button { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 30px; padding: 5px 10px; border: 0; border-radius: 7px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.edmenu button:hover { background: color-mix(in srgb, var(--tx) 7%, transparent); }
+.edmenu button[aria-checked="true"] { color: var(--ach); font-weight: 650; }
+.edmenu button .ic { width: 15px; height: 15px; fill: none; stroke: var(--ac); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.edmenu-exact { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; padding: 8px 10px 4px; border-top: 1px solid var(--bd); color: var(--tx2); font-size: 12.5px; }
+.edmenu-exact input { width: 70px; height: 26px; padding: 0 6px; border: 1px solid var(--bd); border-radius: 6px; background: var(--bg); color: var(--tx); font: 500 12.5px var(--font); text-align: right; }
+.edmenu-exact input:focus { outline: none; border-color: var(--ac); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 18%, transparent); }
+.edmenu button.edmenu-reset { justify-content: center; margin-top: 4px; font-size: 12px; color: var(--tx2); }
