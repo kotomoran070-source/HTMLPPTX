@@ -8,7 +8,9 @@ import { placeOf, slideLabel } from '../engine/render';
 import { updateFavicon } from '../engine/show';
 import { onThemeChange, toggleTheme } from '../engine/theme';
 import type { Block, Deck } from '../types';
+import type { CodeView } from './code';
 import { Inspector } from './inspector';
+import { closeLibrary, showLibrary, type Preset } from './library';
 import { closeMenu, showMenu, type MenuEntry } from './menu';
 import { SlidesPanel } from './slides-panel';
 import './studio.css';
@@ -61,6 +63,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       <button type="button" role="tab" data-tab="insert" aria-selected="false">Вставка</button>
       <button type="button" role="tab" data-tab="design" aria-selected="false">Дизайн</button>
       <button type="button" role="tab" data-tab="show" aria-selected="false">Показ</button>
+      <button type="button" role="tab" data-tab="view" aria-selected="false">Вид</button>
     </nav>
     <div class="st-top-r">
       <button type="button" class="st-status" id="st-status" role="status" aria-live="polite"></button>
@@ -72,13 +75,13 @@ export function startStudio(deck: Deck, deckKey: string): void {
     <div class="st-rpanel" data-panel="home">
       ${group('Слайды', rb('slide.new', 'slide-add', 'Новый слайд', { big: true, key: 'Ctrl+M', menu: true }) + `<div class="st-rstack">${rb('slide.dup', 'copy', 'Дублировать')}${rb('slide.del', 'trash', 'Удалить')}</div>`)}
       ${group('Правка', `<div class="st-rstack">${rb('undo', 'undo', 'Отменить', { key: 'Ctrl+Z' })}${rb('redo', 'redo', 'Повторить', { key: 'Ctrl+Y' })}</div>`)}
-      ${group('Вставка', rb('insert.text', 'text', 'Текст', { big: true }) + rb('insert.image', 'image', 'Картинка', { big: true }))}
+      ${group('Вставка', rb('insert.blocks', 'grid', 'Блоки', { big: true, menu: true, title: 'Библиотека блоков: карточки, графики, схемы' }) + rb('insert.text', 'text', 'Текст', { big: true }) + rb('insert.image', 'image', 'Картинка', { big: true }))}
       ${group('Упорядочить', `<div class="st-rstack">${rb('obj.front', 'front', 'Вперёд')}${rb('obj.back', 'back', 'Назад')}</div><div class="st-rstack">${rb('obj.dup', 'copy', 'Дублировать', { key: 'Ctrl+D' })}${rb('obj.del', 'trash', 'Удалить', { key: 'Delete' })}</div>`)}
       ${group('Выровнять', `<div class="st-rgrid">${rb('align.left', 'obj-left', 'Слева')}${rb('align.center', 'obj-center', 'По центру')}${rb('align.right', 'obj-right', 'Справа')}${rb('align.top', 'obj-top', 'Сверху')}${rb('align.middle', 'obj-middle', 'Посередине')}${rb('align.bottom', 'obj-bottom', 'Снизу')}</div>`)}
     </div>
     <div class="st-rpanel" data-panel="insert" hidden>
       ${group('Новый слайд', SLIDE_PRESETS.map((p, k) => rb(`slide.preset.${k}`, ['text', 'grid', 'image', 'frame'][k] ?? 'slide-add', p.name, { big: true })).join(''))}
-      ${group('Объекты', rb('insert.text', 'text', 'Текст', { big: true }) + rb('insert.image', 'image', 'Картинка', { big: true }))}
+      ${group('Объекты', rb('insert.blocks', 'grid', 'Блоки', { big: true, menu: true, title: 'Библиотека блоков: карточки, графики, схемы' }) + rb('insert.text', 'text', 'Текст', { big: true }) + rb('insert.image', 'image', 'Картинка', { big: true }))}
     </div>
     <div class="st-rpanel" data-panel="design" hidden>
       ${group('Цвет', `<label class="st-accent" title="Акцентный цвет презентации"><input type="color" id="st-accent" aria-label="Акцентный цвет"><span>Акцент</span></label>${rb('design.accent-reset', 'reset', 'Стандартный')}`)}
@@ -88,11 +91,18 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'presenter', 'С текущего слайда', { big: true, key: 'Shift+F5' }))}
       ${group('Анимация', rb('show.preview', 'sparkle', 'Просмотр слайда', { big: true, title: 'Проиграть появление объектов на текущем слайде' }))}
     </div>
+    <div class="st-rpanel" data-panel="view" hidden>
+      ${group('Панели', rb('view.code', 'terminal', 'Код слайда', { big: true, key: 'Ctrl+`', title: 'Код слайда (YAML) и стили (CSS) рядом со слайдом' }) + rb('view.notes', 'notes', 'Заметки', { big: true }))}
+      ${group('Масштаб', rb('view.fit', 'fullscreen', 'Вписать', { big: true }) + `<div class="st-rstack">${rb('view.zoom-in', 'plus', 'Крупнее')}${rb('view.zoom-out', 'minus', 'Мельче')}</div>`)}
+    </div>
   </div>
   <div class="st-body">
     <aside class="st-slides" id="st-slides" aria-label="Слайды"></aside>
     <main class="st-main">
-      <div class="st-canvas" id="st-canvas"><div class="st-paper" id="st-paper"></div></div>
+      <div class="st-work">
+        <section class="st-code" id="st-code" data-ed-keep hidden aria-label="Код слайда"></section>
+        <div class="st-canvas" id="st-canvas"><div class="st-paper" id="st-paper"></div></div>
+      </div>
       <section class="st-notes" id="st-notes" data-ed-keep>
         <label for="st-notes-text" id="st-notes-label">Заметки докладчика</label>
         <textarea id="st-notes-text" spellcheck="true" placeholder="Что сказать на этом слайде. Видно только в окне докладчика."></textarea>
@@ -103,6 +113,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   <footer class="st-foot" data-ed-keep>
     <span id="st-pos"></span>
     <span class="st-foot-r">
+      <button type="button" class="st-fbtn" data-cmd="view.code" title="Код слайда (Ctrl+\`)">${icon('terminal')}<span>Код</span></button>
       <button type="button" class="st-fbtn" data-cmd="view.notes" title="Заметки докладчика">${icon('notes')}<span>Заметки</span></button>
       <span class="st-zoom" role="group" aria-label="Масштаб">
         <button type="button" class="st-fbtn" data-cmd="view.zoom-out" title="Уменьшить (Ctrl + колесо)" aria-label="Уменьшить">${icon('minus')}</button>
@@ -177,6 +188,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     editor?.onSlideChange();
     slides.mark();
     syncNotes();
+    code?.update();
     queueState();
   }
 
@@ -195,6 +207,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       applyAccent(deck.theme?.accent);
       updateFavicon(deck.brand?.logo);
       slides.update();
+      code?.update();
       queueState();
     },
     relayout: layout,
@@ -318,6 +331,56 @@ export function startStudio(deck: Deck, deckKey: string): void {
     ];
   }
 
+  // ---------------- библиотека блоков ----------------
+  function openLibrary(): void {
+    const anchor = [...document.querySelectorAll<HTMLElement>('.st-ribbon [data-cmd="insert.blocks"]')].find((b) => b.offsetParent) ?? $('st-slides');
+    showLibrary(anchor, deck, insertPreset);
+  }
+  function insertPreset(p: Preset): void {
+    const i = index;
+    const n = (deck.slides[i].free ?? []).length;
+    const shift = (n % 5) * 20;
+    const block = { ...p.make(), place: { x: Math.round((W - p.w) / 2) + shift, y: Math.round((H - (p.h ?? 160)) / 2) + shift, w: p.w, ...(p.h ? { h: p.h } : {}) } };
+    let at = -1;
+    if (!ed.commit((d) => {
+      const s = d.slides[i];
+      s.free = Array.isArray(s.free) ? s.free : [];
+      s.free.push(block);
+      at = s.free.length - 1;
+    }, { rebuild: true, merge: `lib:${i}` })) return;
+    // Высота по содержимому известна только после отрисовки: ставим блок по центру точно
+    const path: Path = ['slides', i, 'free', at];
+    const size = !p.h ? measure(path) : null;
+    if (size) {
+      const y = Math.max(0, Math.round((H - size.h) / 2) + shift);
+      ed.commit((d) => setAt(d, [...path, 'place', 'y'], y), { rebuild: true, merge: `lib:${i}` });
+    }
+    ed.selectFree(i, at);
+  }
+
+  // ---------------- код ----------------
+  let code: CodeView | null = null;
+  let codeOpen = false;
+  async function toggleCode(force?: boolean): Promise<void> {
+    codeOpen = force ?? !codeOpen;
+    const box = $('st-code');
+    if (codeOpen && !code) {
+      // Редактор кода тяжёлый: загружается при первом открытии
+      const m = await import('./code');
+      code = new m.CodeView(box, { deck: () => deck, index: () => index, editor: () => ed });
+    }
+    box.hidden = !codeOpen;
+    document.querySelector('.st-work')!.classList.toggle('with-code', codeOpen);
+    if (codeOpen) {
+      code!.update(true);
+      code!.focus();
+    } else {
+      code?.apply();
+    }
+    layout();
+    queueState();
+  }
+
   // ---------------- команды ----------------
   const hasFree = () => !!ed.selection?.free;
   const content = () => (deck.slides[index]?.template ?? 'content') === 'content';
@@ -328,6 +391,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'slide.dup': { run: () => ed.duplicateSlide(index) },
     'slide.del': { run: () => ed.deleteSlide(index), enabled: () => count() > 1 },
     'insert.text': { run: () => ed.addBlock('text') },
+    'insert.blocks': { run: () => openLibrary() },
+    'view.code': { run: () => void toggleCode(), active: () => codeOpen },
     'insert.image': { run: () => ed.addBlock('image') },
     'obj.front': { run: () => ed.blockEditor.reorder(1), enabled: hasFree },
     'obj.back': { run: () => ed.blockEditor.reorder(-1), enabled: hasFree },
@@ -501,6 +566,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
       void ed.save();
       return;
     }
+    if (mod && (e.key === '`' || e.key === 'ё' || e.code === 'Backquote')) {
+      e.preventDefault();
+      return void toggleCode();
+    }
     if (e.key === 'F5') {
       e.preventDefault();
       return run(e.shiftKey ? 'show.current' : 'show.start');
@@ -527,6 +596,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     if (fn) {
       e.preventDefault();
       closeMenu();
+      closeLibrary();
       fn();
     }
   });

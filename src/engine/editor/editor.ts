@@ -671,7 +671,8 @@ export class Editor {
       this.text.finish(true);
       this.image.clear();
       this.blocks.select(free);
-      const img = free.querySelector<HTMLElement>('[data-edit-img]');
+      // В студии настройки картинки — в панели свойств; панель у картинки — по клику на неё
+      const img = this.studio ? null : free.querySelector<HTMLElement>('[data-edit-img]');
       const path = img ? readPath(img, 'data-edit-img') : null;
       if (img && path && getAt(this.host.deck, path)) this.image.select(img);
       return;
@@ -943,7 +944,7 @@ export class Editor {
 
   // ---------------- картинки ----------------
 
-  private pickImage(path: Path): void {
+  pickImage(path: Path): void {
     this.file.value = '';
     this.file.onchange = () => {
       const f = this.file.files?.[0];

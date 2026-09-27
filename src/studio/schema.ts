@@ -1,0 +1,262 @@
+/**
+ * Описание полей блоков и шаблонов слайдов для панели свойств студии.
+ * По этим описаниям строится форма (см. form.ts): поле схемы = поле в deck.yaml.
+ * Новый компонент получает редактор свойств, если описать его здесь.
+ */
+
+export type Field =
+  | { k: string; label: string; type: 'text' | 'textarea' | 'url'; placeholder?: string; hint?: string }
+  | { k: string; label: string; type: 'number'; min?: number; max?: number; step?: number; placeholder?: string; hint?: string }
+  | { k: string; label: string; type: 'select'; options: [string, string][]; hint?: string }
+  | { k: string; label: string; type: 'bool'; default?: boolean; hint?: string }
+  | { k: string; label: string; type: 'icon' }
+  | { k: string; label: string; type: 'image'; hint?: string }
+  /** Список строк (пункты, подписи) */
+  | { k: string; label: string; type: 'strings'; item: string }
+  /** Чипы: строка, звёздочка в конце — выделенный чип */
+  | { k: string; label: string; type: 'chips' }
+  /** Числа через пробел или запятую */
+  | { k: string; label: string; type: 'numbers'; hint?: string }
+  /** Словарь «ключ — значение» */
+  | { k: string; label: string; type: 'kv' }
+  /** Список объектов. Элемент-строка (если допустим) правится как поле asString */
+  | { k: string; label: string; type: 'rows'; item: string; fields: Field[]; make: () => unknown; asString?: string }
+  /** Вложенный объект (ссылка финального слайда) */
+  | { k: string; label: string; type: 'group'; fields: Field[] };
+
+export interface Schema {
+  /** Короткая подсказка, что это за блок */
+  about?: string;
+  fields: Field[];
+}
+
+const FIT: [string, string][] = [['', 'Заполнить (обрезать края)'], ['contain', 'Целиком']];
+const ALIGN: [string, string][] = [['', 'Растянуть'], ['start', 'По верху'], ['center', 'По центру'], ['end', 'По низу']];
+
+const frame: Field[] = [
+  { k: 'fit', label: 'Кадр', type: 'select', options: FIT },
+  { k: 'zoom', label: 'Увеличение', type: 'number', min: 1, max: 4, step: 0.1, placeholder: '1' },
+  { k: 'position', label: 'Видимая часть', type: 'text', placeholder: '50% 50%', hint: 'По горизонтали и вертикали; удобнее тянуть картинку мышью' },
+];
+
+export const BLOCKS: Record<string, Schema> = {
+  text: {
+    fields: [
+      { k: 'text', label: 'Текст', type: 'textarea', hint: '**жирный**, *курсив*, {accent|цвет}, строки с «- » — список' },
+      { k: 'size', label: 'Размер', type: 'select', options: [['', 'Обычный'], ['lead', 'Крупный'], ['small', 'Мелкий, серый']] },
+    ],
+  },
+  note: { fields: [{ k: 'text', label: 'Текст', type: 'textarea' }] },
+  list: { fields: [{ k: 'items', label: 'Пункты', type: 'strings', item: 'Пункт' }] },
+  spacer: { fields: [{ k: 'size', label: 'Высота отступа, px', type: 'number', min: 0, max: 400, placeholder: '24' }] },
+  image: {
+    fields: [
+      { k: 'src', label: 'Картинка', type: 'image' },
+      { k: 'caption', label: 'Подпись', type: 'text' },
+      { k: 'alt', label: 'Описание для незрячих', type: 'text' },
+      { k: 'height', label: 'Высота, px', type: 'number', min: 40, max: 720, placeholder: 'по картинке' },
+      ...frame,
+    ],
+  },
+  tile: {
+    fields: [
+      { k: 'image', label: 'Фото', type: 'image', hint: 'Поверх иллюстрации; убрали фото — снова видна иллюстрация' },
+      { k: 'illustration', label: 'Иллюстрация', type: 'select', options: [['', 'Нет'], ['assembly', 'Комплекс в сборке'], ['endpoints', 'Оконечные устройства'], ['station', 'Базовая станция']] },
+      { k: 'caption', label: 'Подпись', type: 'text' },
+      ...frame,
+    ],
+  },
+  card: {
+    fields: [
+      { k: 'title', label: 'Заголовок', type: 'text' },
+      { k: 'text', label: 'Текст', type: 'textarea' },
+    ],
+  },
+  panel: {
+    fields: [
+      { k: 'title', label: 'Заголовок', type: 'text' },
+      { k: 'columns', label: 'Колонок', type: 'number', min: 1, max: 6, placeholder: '2' },
+      {
+        k: 'cells', label: 'Ячейки', type: 'rows', item: 'Ячейка', asString: 'title',
+        make: () => ({ title: 'Новая ячейка', sub: 'подпись' }),
+        fields: [
+          { k: 'title', label: 'Название', type: 'text' },
+          { k: 'sub', label: 'Подпись', type: 'text' },
+          { k: 'cols', label: 'Ширина, колонок', type: 'number', min: 1, max: 6, placeholder: '1' },
+        ],
+      },
+    ],
+  },
+  kv: {
+    fields: [
+      { k: 'keyWidth', label: 'Ширина колонки ключей, px', type: 'number', min: 40, max: 600, placeholder: 'авто' },
+      { k: 'rows', label: 'Строки', type: 'kv' },
+    ],
+  },
+  chips: { fields: [{ k: 'items', label: 'Чипы', type: 'chips' }] },
+  progress: {
+    fields: [
+      { k: 'label', label: 'Подпись', type: 'text' },
+      { k: 'value', label: 'Значение', type: 'text' },
+      { k: 'percent', label: 'Заполнение, %', type: 'number', min: 0, max: 100 },
+    ],
+  },
+  sliders: {
+    fields: [{
+      k: 'rows', label: 'Ползунки', type: 'rows', item: 'Ползунок',
+      make: () => ({ label: 'Параметр', value: '50 %', position: 0.5 }),
+      fields: [
+        { k: 'label', label: 'Название', type: 'text' },
+        { k: 'value', label: 'Значение', type: 'text' },
+        { k: 'position', label: 'Положение, 0–1', type: 'number', min: 0, max: 1, step: 0.05 },
+      ],
+    }],
+  },
+  grid: {
+    about: 'Раскладывает блоки по колонкам. Сами блоки выделяйте на слайде.',
+    fields: [
+      { k: 'columns', label: 'Колонки', type: 'text', placeholder: '1fr 1fr', hint: 'Число колонок (3) или доли: 1.6fr 1fr' },
+      { k: 'rows', label: 'Строки', type: 'text', placeholder: 'по содержимому' },
+      { k: 'gap', label: 'Промежуток, px', type: 'number', min: 0, max: 120, placeholder: '22' },
+      { k: 'height', label: 'Высота, px', type: 'number', min: 40, max: 720, placeholder: 'по содержимому' },
+      { k: 'align', label: 'Выравнивание', type: 'select', options: ALIGN },
+    ],
+  },
+  stack: {
+    about: 'Блоки друг под другом. Сами блоки выделяйте на слайде.',
+    fields: [{ k: 'gap', label: 'Промежуток, px', type: 'number', min: 0, max: 120, placeholder: '16' }],
+  },
+  network: { fields: [{ k: 'nodes', label: 'Устройств вокруг станции', type: 'number', min: 2, max: 16, placeholder: '7' }] },
+  hub: {
+    fields: [
+      { k: 'height', label: 'Высота, px', type: 'number', min: 200, max: 720, placeholder: 'авто' },
+      {
+        k: 'items', label: 'Пункты', type: 'rows', item: 'Пункт',
+        make: () => ({ title: 'Новый пункт', text: 'Пояснение' }),
+        fields: [
+          { k: 'title', label: 'Пункт', type: 'text' },
+          { k: 'text', label: 'Пояснение', type: 'text' },
+          { k: 'node', label: 'Подпись узла', type: 'text', placeholder: 'как пункт' },
+          { k: 'sub', label: 'Мелкая подпись узла', type: 'text' },
+        ],
+      },
+    ],
+  },
+  pipeline: {
+    fields: [
+      { k: 'stepSeconds', label: 'Секунд на шаг', type: 'number', min: 0.3, max: 10, step: 0.1, placeholder: '1' },
+      {
+        k: 'steps', label: 'Шаги', type: 'rows', item: 'Шаг',
+        make: () => ({ title: 'Шаг', sub: 'подпись' }),
+        fields: [
+          { k: 'title', label: 'Название', type: 'text' },
+          { k: 'sub', label: 'Подпись', type: 'text' },
+        ],
+      },
+    ],
+  },
+  'line-chart': {
+    fields: [
+      { k: 'values', label: 'Значения', type: 'numbers' },
+      { k: 'start', label: 'Подпись слева', type: 'text' },
+      { k: 'end', label: 'Подпись справа', type: 'text' },
+      { k: 'unit', label: 'Единица оси', type: 'text', placeholder: 'тыс' },
+      { k: 'scale', label: 'Делитель подписей оси', type: 'number', min: 1, placeholder: 'авто' },
+      { k: 'min', label: 'Минимум оси', type: 'number', placeholder: 'авто' },
+      { k: 'max', label: 'Максимум оси', type: 'number', placeholder: 'авто' },
+    ],
+  },
+  uptime: {
+    fields: [
+      { k: 'values', label: 'Доступность по дням, %', type: 'numbers' },
+      { k: 'threshold', label: 'Порог, %', type: 'number', min: 0, max: 100, step: 0.1, placeholder: '99.5', hint: 'Дни ниже порога бледнее' },
+    ],
+  },
+  bars: {
+    fields: [
+      { k: 'values', label: 'Значения', type: 'numbers' },
+      { k: 'labels', label: 'Подписи', type: 'strings', item: 'Подпись' },
+      { k: 'max', label: 'Значение для полной высоты', type: 'number', placeholder: 'максимум' },
+      { k: 'height', label: 'Высота, px', type: 'number', min: 40, max: 600, placeholder: '100' },
+    ],
+  },
+  system: {
+    about: 'Схема системы: тексты правятся прямо на слайде, структура — во вкладке «Код».',
+    fields: [],
+  },
+  html: {
+    about: 'Вёрстка из импорта. Тексты и картинки правятся на слайде или здесь, разметка — во вкладке «Код».',
+    fields: [
+      { k: 'texts', label: 'Тексты', type: 'strings', item: 'Текст' },
+      { k: 'scale', label: 'Масштаб вёрстки', type: 'number', min: 0.1, max: 4, step: 0.05, placeholder: '1' },
+    ],
+  },
+  embed: {
+    about: 'Живая вставка: отдельный HTML-документ со скриптами.',
+    fields: [
+      { k: 'poster', label: 'Заставка', type: 'image' },
+      { k: 'theme', label: 'Цвета темы внутри вставки', type: 'bool' },
+    ],
+  },
+};
+
+const LINK: Field = {
+  k: 'link', label: 'Ссылка и QR-код', type: 'group',
+  fields: [
+    { k: 'label', label: 'Надпись над ссылкой', type: 'text' },
+    { k: 'url', label: 'Адрес', type: 'url', placeholder: 'https://…' },
+    { k: 'text', label: 'Текст ссылки', type: 'text', placeholder: 'адрес без https://' },
+    { k: 'qr', label: 'QR-код', type: 'bool', default: true },
+  ],
+};
+
+const BUTTONS: Field = {
+  k: 'buttons', label: 'Кнопки', type: 'rows', item: 'Кнопка',
+  make: () => ({ icon: 'link', label: 'Кнопка' }),
+  fields: [
+    { k: 'icon', label: 'Иконка', type: 'icon' },
+    { k: 'label', label: 'Подпись', type: 'text' },
+    { k: 'url', label: 'Ссылка', type: 'url', placeholder: 'https://… или mailto:…' },
+  ],
+};
+
+export const TEMPLATES: Record<string, Schema> = {
+  content: {
+    fields: [
+      { k: 'title', label: 'Заголовок', type: 'text' },
+      { k: 'badge', label: 'Чип у заголовка', type: 'text', placeholder: 'например, демо-данные' },
+      { k: 'gap', label: 'Промежуток между блоками, px', type: 'number', min: 0, max: 120, placeholder: '22' },
+      { k: 'logo', label: 'Логотип в углу', type: 'bool', default: true },
+    ],
+  },
+  cover: {
+    fields: [
+      { k: 'title', label: 'Заголовок', type: 'textarea' },
+      { k: 'lead', label: 'Подзаголовок', type: 'textarea' },
+      { k: 'meta', label: 'Мелкая строка', type: 'text', placeholder: 'дата, команда' },
+    ],
+  },
+  finale: {
+    fields: [
+      { k: 'caption', label: 'Надпись сверху', type: 'text' },
+      { k: 'title', label: 'Заголовок', type: 'text' },
+      { k: 'lead', label: 'Подзаголовок', type: 'text' },
+      LINK,
+      BUTTONS,
+    ],
+  },
+  space: {
+    fields: [
+      { k: 'layout', label: 'Вариант', type: 'select', options: [['', 'Обычный'], ['orbit', 'Орбита']] },
+      { k: 'badge', label: 'Надпись в пилюле', type: 'text' },
+      { k: 'title', label: 'Заголовок', type: 'text' },
+      { k: 'lead', label: 'Подзаголовок', type: 'text' },
+      LINK,
+      BUTTONS,
+    ],
+  },
+  canvas: { fields: [] },
+};
+
+/** Поле «CSS блока» — запасной выход, есть у всех блоков. */
+export const STYLE_FIELD: Field = { k: 'style', label: 'CSS блока', type: 'text', placeholder: 'margin-top: 12px', hint: 'Для корневого элемента блока, если нужной настройки нет' };

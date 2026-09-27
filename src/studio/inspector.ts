@@ -6,6 +6,8 @@ import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
 import { placeOf, slideLabel } from '../engine/render';
 import type { Block, Deck } from '../types';
+import { fillForm, formHtml, formSig, onFieldAction, onFieldChange, type FormEdit } from './form';
+import { BLOCKS, STYLE_FIELD, TEMPLATES, type Field } from './schema';
 
 export interface InspectorHost {
   deck(): Deck;
@@ -22,7 +24,7 @@ export const EFFECTS: [string, string][] = [
   ['left', 'Выезд слева'], ['right', 'Выезд справа'], ['scale', 'Увеличение'], ['pop', 'Пружина'],
 ];
 
-const TEMPLATES: Record<string, string> = {
+const TEMPLATE_NAMES: Record<string, string> = {
   content: 'Обычный', cover: 'Обложка', finale: 'Финал', space: 'Космос', canvas: 'Холст',
 };
 
@@ -49,9 +51,24 @@ const cmdBtn = (cmd: string, ic: string, label: string, cls = '') =>
  */
 export class Inspector {
   private key = '';
+  /** Поля формы на панели сейчас и путь объекта, которому они принадлежат */
+  private fields: Field[] = [];
+  private base: Path = [];
+  private edit: FormEdit;
 
   constructor(private root: HTMLElement, private host: InspectorHost) {
-    root.addEventListener('change', (e) => this.onChange(e.target as HTMLInputElement));
+    this.edit = {
+      commit: (fn) => { this.host.editor().commit((d) => fn(d), { rebuild: true }); },
+      pickImage: (p) => this.host.editor().pickImage(p),
+    };
+    root.addEventListener('change', (e) => {
+      const el = e.target as HTMLInputElement;
+      if (el.dataset.t) {
+        if (!onFieldChange(el, this.edit)) this.fill();
+        return;
+      }
+      this.onChange(el);
+    });
     root.addEventListener('input', (e) => {
       const el = e.target as HTMLInputElement;
       // Цвет меняется сразу, пока тянут ползунок палитры
@@ -59,10 +76,11 @@ export class Inspector {
     });
     root.addEventListener('keydown', (e) => {
       const el = e.target as HTMLInputElement;
-      if (e.key === 'Enter' && el.tagName === 'INPUT') {
+      if (e.key === 'Enter' && el.tagName === 'INPUT' && el.type !== 'checkbox') {
         e.preventDefault();
-        this.onChange(el);
-        el.select?.();
+        // Enter — применить; для полей формы значение уходит через change при потере фокуса
+        if (el.dataset.t) el.blur();
+        else { this.onChange(el); el.select?.(); }
       }
       if (e.key === 'Escape') {
         el.blur();
@@ -74,6 +92,11 @@ export class Inspector {
       const t = e.target as Element;
       const cmd = t.closest<HTMLElement>('[data-cmd]')?.dataset.cmd;
       if (cmd) return this.host.run(cmd);
+      const act = t.closest<HTMLElement>('[data-act]');
+      if (act) {
+        onFieldAction(act, this.fields, this.base, this.edit);
+        return;
+      }
       const layer = t.closest<HTMLElement>('[data-layer]')?.dataset.layer;
       if (layer !== undefined) this.host.editor().selectFree(this.host.index(), Number(layer));
       if (t.closest('[data-a="accent-reset"]')) this.host.editor().setAccent(null);
@@ -85,10 +108,25 @@ export class Inspector {
     const sel = this.host.editor().selection;
     const i = this.host.index();
     const deck = this.host.deck();
-    const key = sel ? `b:${JSON.stringify(sel.free ?? sel.block)}:${sel.type}` : `s:${i}:${deck.slides[i]?.template ?? ''}:${(deck.slides[i]?.free ?? []).length}`;
+    if (sel) {
+      this.fields = [...(BLOCKS[sel.type]?.fields ?? []), STYLE_FIELD];
+      this.base = sel.block;
+    } else {
+      this.fields = TEMPLATES[deck.slides[i]?.template ?? 'content']?.fields ?? [];
+      this.base = ['slides', i];
+    }
+    const sig = formSig(this.fields, deck, this.base);
+    const key = sel
+      ? `b:${JSON.stringify(sel.free ?? sel.block)}:${sel.type}:${sig}`
+      : `s:${i}:${deck.slides[i]?.template ?? ''}:${(deck.slides[i]?.free ?? []).length}:${sig}`;
     if (key !== this.key) {
       this.key = key;
+      // Прокрутка панели сохраняется, когда форма перестраивается (добавили пункт)
+      const top = this.root.scrollTop;
+      const same = this.root.dataset.subject === (sel ? JSON.stringify(sel.block) : `s${i}`);
       this.root.innerHTML = sel ? this.blockHtml() : this.slideHtml();
+      this.root.dataset.subject = sel ? JSON.stringify(sel.block) : `s${i}`;
+      if (same) this.root.scrollTop = top;
     }
     this.fill();
   }
@@ -100,12 +138,18 @@ export class Inspector {
     const deck = this.host.deck();
     const content = (deck.slides[this.host.index()]?.template ?? 'content') === 'content';
     const head = `<header class="st-p-head"><span class="st-p-kind">${sel.free ? 'Свободный объект' : 'Блок в раскладке'}</span><h2>${blockName(sel.type)}</h2></header>`;
+    const schema = BLOCKS[sel.type];
+    const own = schema?.fields ?? [];
+    const contentSec = own.length || schema?.about
+      ? `<section class="st-p-sec"><h3>Содержимое</h3>${schema?.about ? `<p class="st-p-note">${esc(schema.about)}</p>` : ''}${formHtml(own, deck, sel.block)}</section>`
+      : '';
+    const extra = `<details class="st-p-sec st-p-more"><summary>Дополнительно</summary>${formHtml([STYLE_FIELD], deck, sel.block)}</details>`;
     if (!sel.free) {
-      return head + `<section class="st-p-sec"><p class="st-p-note">Блок стоит в раскладке слайда и двигается вместе с ней. Сделайте его свободным, чтобы перемещать мышью, менять размер и задать анимацию.</p>
+      return head + contentSec + `<section class="st-p-sec"><h3>Раскладка</h3><p class="st-p-note">Блок стоит в раскладке слайда и двигается вместе с ней. Сделайте его свободным, чтобы перемещать мышью, менять размер и задать анимацию.</p>
 <div class="st-p-col">${cmdBtn('obj.free', 'move', 'Сделать свободным', 'primary')}${sel.hasParent ? cmdBtn('obj.parent', 'up', 'Выделить внешний блок') : ''}</div></section>
-<section class="st-p-sec st-p-end">${cmdBtn('obj.del', 'trash', 'Удалить блок', 'danger')}</section>`;
+${extra}<section class="st-p-sec st-p-end">${cmdBtn('obj.del', 'trash', 'Удалить блок', 'danger')}</section>`;
     }
-    return head + `<section class="st-p-sec"><h3>Положение и размер</h3>
+    return head + contentSec + `<section class="st-p-sec"><h3>Положение и размер</h3>
 <div class="st-p-grid">
   <label><span>X</span><input type="number" data-f="x" step="1"></label>
   <label><span>Y</span><input type="number" data-f="y" step="1"></label>
@@ -122,7 +166,7 @@ ${cmdBtn('show.preview', 'play', 'Просмотр анимации слайда
 <section class="st-p-sec"><h3>Порядок</h3>
 <div class="st-p-row">${cmdBtn('obj.front', 'front', 'Вперёд')}${cmdBtn('obj.back', 'back', 'Назад')}</div>
 </section>
-<section class="st-p-sec st-p-end"><div class="st-p-row">${cmdBtn('obj.dup', 'copy', 'Дублировать')}${content ? cmdBtn('obj.attach', 'grid', 'В раскладку') : ''}</div>
+${extra}<section class="st-p-sec st-p-end"><div class="st-p-row">${cmdBtn('obj.dup', 'copy', 'Дублировать')}${content ? cmdBtn('obj.attach', 'grid', 'В раскладку') : ''}</div>
 ${cmdBtn('obj.del', 'trash', 'Удалить', 'danger')}</section>`;
   }
 
@@ -137,11 +181,11 @@ ${cmdBtn('obj.del', 'trash', 'Удалить', 'danger')}</section>`;
       const snip = objectLabel(b);
       return `<button type="button" class="st-layer" data-layer="${k}"><b>${blockName(b.type)}</b>${snip ? `<span>${esc(snip)}</span>` : ''}</button>`;
     }).join('');
-    return `<header class="st-p-head"><span class="st-p-kind">Слайд ${i + 1} · ${esc(TEMPLATES[tpl] ?? tpl)}</span><h2>${esc(slideLabel(s, i))}</h2></header>
+    return `<header class="st-p-head"><span class="st-p-kind">Слайд ${i + 1} · ${esc(TEMPLATE_NAMES[tpl] ?? tpl)}</span><h2>${esc(slideLabel(s, i))}</h2></header>
 <section class="st-p-sec"><h3>Слайд</h3>
 <label class="st-p-field"><span>Название в списке</span><input type="text" data-f="label" placeholder="${esc(s.title ?? `Слайд ${i + 1}`)}"></label>
 ${tpl === 'canvas' ? `<label class="st-p-field"><span>Фон</span><span class="st-p-color"><input type="color" data-f="bgcolor" aria-label="Цвет фона"><input type="text" data-f="bg" placeholder="как у темы" spellcheck="false"></span></label>` : ''}
-${tpl === 'content' ? `<label class="st-p-check"><input type="checkbox" data-f="logo"><span>Логотип в углу</span></label>` : ''}
+${formHtml(this.fields, deck, ['slides', i])}
 ${cmdBtn('show.preview', 'play', 'Просмотр анимации слайда')}
 </section>
 <section class="st-p-sec"><h3>Объекты на слайде</h3>
@@ -175,13 +219,13 @@ ${layers ? `<div class="st-layers">${layers}</div>` : '<p class="st-p-note">Св
       label: typeof s?.label === 'string' ? s.label : '',
       bg,
       bgcolor: HEX_RE.test(bg.trim()) ? bg.trim().toLowerCase() : '#ffffff',
-      logo: s?.logo !== false,
       title: deck.title ?? '',
       accent: (typeof accent === 'string' && HEX_RE.test(accent) ? accent : getComputedStyle(document.documentElement).getPropertyValue('--ac').trim()).toLowerCase(),
     };
   }
 
   private fill(): void {
+    fillForm(this.root, this.host.deck(), (u) => u);
     const v = this.values();
     const sel = this.host.editor().selection;
     this.root.querySelectorAll<HTMLInputElement>('[data-f]').forEach((el) => {
@@ -240,11 +284,6 @@ ${layers ? `<div class="st-layers">${layers}</div>` : '<p class="st-p-note">Св
         if (raw) d.slides[i].label = raw;
         else delete d.slides[i].label;
       }, { rebuild: false, merge: `label:${i}` });
-    } else if (f === 'logo') {
-      ed.commit((d) => {
-        if (el.checked) delete d.slides[i].logo;
-        else d.slides[i].logo = false;
-      }, { rebuild: true });
     } else if (f === 'bg' || f === 'bgcolor') {
       ed.commit((d) => {
         if (raw) d.slides[i].bg = raw;
