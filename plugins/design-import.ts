@@ -229,6 +229,15 @@ export function fromDesign(html: string): Deck {
           el.set_content('');
           el.setAttribute('data-t', String(texts.length - 1));
         });
+        // Ячейки таблиц Claude Design без data-text-path: текст прямо в элементе без вложенных тегов
+        root.querySelectorAll('div, span, td, th, p').forEach((el) => {
+          if (el.hasAttribute('data-t') || el.closest('[data-t]') || el.childNodes.some((c) => c.nodeType === 1)) return;
+          const tx = el.textContent.trim();
+          if (!tx) return;
+          texts.push(tx);
+          el.set_content('');
+          el.setAttribute('data-t', String(texts.length - 1));
+        });
         root.querySelectorAll('img').forEach((img) => {
           const src = img.getAttribute('src') ?? '';
           images.push(src ? { src } : {});

@@ -89,7 +89,7 @@
 @keyframes spRingR { to { transform: translate(-50%, -50%) rotate(-360deg); } }
 
 .sp-wrap.orbit { justify-content: flex-start; padding-top: 170px; }
-.sp-wrap.orbit .sp-badge { position: absolute; left: 46px; top: 10px; margin: 0; padding: 8px 58px; font-size: 11px; letter-spacing: .22em; }
+.sp-wrap.orbit .sp-badge { position: absolute; left: 0; right: 0; top: 40px; width: fit-content; margin: 0 auto; padding: 8px calc(40px - .22em) 8px 40px; font-size: 11px; letter-spacing: .22em; }
 .sp-wrap.orbit .sp-logow { width: 124px; height: 124px; margin-bottom: 52px; animation: spFloat 6s ease-in-out infinite; }
 @keyframes spFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 .sp-wrap.orbit .sp-halo { inset: -70px; background: radial-gradient(circle, rgba(56, 132, 255, .55), transparent 66%); }
