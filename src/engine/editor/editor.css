@@ -211,9 +211,11 @@ body.editing .ovedit-hint { display: block; }
 /* Блоки: подсветка под мышью и выделение */
 body.editing .stage .ed-block-hover:not(.ed-block-sel) { outline: 1px dashed color-mix(in srgb, var(--ac) 45%, transparent); outline-offset: 4px; }
 body.editing .stage [data-block].ed-block-sel { outline: 2px solid var(--ac); outline-offset: 4px; }
-body.editing .stage .free { cursor: pointer; }
-body.editing .stage .free.ed-block-sel { cursor: move; }
-body.editing .stage .free.ed-block-sel [data-edit]:not(.ed-active) { cursor: text; }
+/* Свободный объект тянется за любое место: курсор «переместить» везде, кроме текста в правке */
+body.editing .stage .free, body.editing .stage .free * { cursor: move; }
+body.editing .stage .free .ed-active, body.editing .stage .free .ed-active * { cursor: text; }
+/* Выделенный блок раскладки тоже можно потянуть — он станет свободным */
+body.editing .stage [data-block].ed-block-sel { cursor: grab; }
 body.editing .stage .free.auto-h:empty, body.editing .stage .free > p:empty { min-height: 24px; }
 
 /* Рамка свободного объекта с ручками */
@@ -222,9 +224,11 @@ body.editing .stage .free.auto-h:empty, body.editing .stage .free > p:empty { mi
 .edframe.on.multi { outline: 1px dashed var(--ac); outline-offset: 6px; }
 .edframe.multi i { display: none; }
 .edframe i {
-  position: absolute; width: 11px; height: 11px; margin: -6px 0 0 -6px; pointer-events: auto;
+  position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; pointer-events: auto;
   background: #fff; border: 2px solid var(--ac); border-radius: 3px; box-shadow: 0 1px 3px rgba(15, 23, 42, .3);
 }
+.edframe i::before { content: ""; position: absolute; inset: -7px; }
+.edframe i:hover { background: var(--ac); transform: scale(1.15); }
 .edframe .h-nw { left: 0; top: 0; cursor: nwse-resize; }
 .edframe .h-n { left: 50%; top: 0; cursor: ns-resize; }
 .edframe .h-ne { left: 100%; top: 0; cursor: nesw-resize; }

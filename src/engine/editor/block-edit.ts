@@ -62,6 +62,8 @@ export class BlockEditor {
   private frame: HTMLElement;
   private guides: HTMLElement;
   private dragging = false;
+  /** Объект выделен нажатием мыши (перед click) */
+  private pressSelected = false;
 
   constructor(private host: BlockHost) {
     document.body.insertAdjacentHTML('beforeend', `
@@ -470,15 +472,38 @@ export class BlockEditor {
    * Возвращает true, если событие обработано. Клик без сдвига проходит дальше (правка текста).
    */
   pointerDown(e: PointerEvent, allowImagePan: boolean): boolean {
-    const s = this.sel;
+    this.pressSelected = false;
     // Shift — это добавление к выделению, а не перетаскивание
-    if (e.shiftKey) return false;
-    if (this.isMulti && e.button === 0 && this.members.some((m) => m.el.contains(e.target as Node))) return this.groupDrag(e);
-    if (!s?.free || !s.el.contains(e.target as Node) || e.button !== 0) return false;
-    if ((e.target as Element).closest('[contenteditable="true"]')) return false;
+    if (e.shiftKey || e.button !== 0) return false;
+    const target = e.target as Element;
+    if (target.closest('[contenteditable="true"]')) return false;
+    if (this.isMulti && this.members.some((m) => m.el.contains(target))) return this.groupDrag(e);
     if (allowImagePan && e.altKey) return false;
+    const s = this.sel;
+    if (s?.free && s.el.contains(target)) return this.dragFree(s, e);
+    // Свободный объект, ещё не выделенный: нажал и тянешь — сразу перемещение, без лишнего клика
+    const freeEl = target.closest<HTMLElement>('.slide.on [data-free]');
+    if (freeEl && this.host.stage().contains(freeEl)) {
+      this.host.clearOthers();
+      this.select(freeEl);
+      this.pressSelected = true;
+      return this.dragFree(this.sel!, e);
+    }
+    // Выделенный блок раскладки: потянул — он становится свободным и едет за мышью
+    if (s && !s.free && s.el.contains(target)) return this.pullOut(e);
+    return false;
+  }
+
+  /** Объект выделен нажатием (без клика): следующий click — это выделение, а не правка текста. */
+  takePressSelected(): boolean {
+    const v = this.pressSelected;
+    this.pressSelected = false;
+    return v;
+  }
+
+  private dragFree(s: Sel, e: PointerEvent): boolean {
     e.preventDefault();
-    const start = placeOf(getAt(this.host.deck(), s.free));
+    const start = placeOf(getAt(this.host.deck(), s.free!));
     const startH = start.h ?? this.measure(s.el).h!;
     const k = this.scale();
     let moved = false;
@@ -500,6 +525,7 @@ export class BlockEditor {
       removeEventListener('pointerup', up);
       this.guides.innerHTML = '';
       if (!moved) return;
+      this.pressSelected = false;
       // Клик после перетаскивания не должен начинать правку текста
       setTimeout(() => { this.dragging = false; }, 0);
       const path = s.free!;
@@ -508,6 +534,31 @@ export class BlockEditor {
     addEventListener('pointermove', move);
     addEventListener('pointerup', up);
     return true;
+  }
+
+  /** Блок из раскладки, который потянули: «Свободно» и дальше обычное перемещение. */
+  private pullOut(e: PointerEvent): boolean {
+    const move = (ev: PointerEvent) => {
+      if (Math.abs(ev.clientX - e.clientX) + Math.abs(ev.clientY - e.clientY) < 8) return;
+      stop();
+      this.dragging = true;
+      this.detach();
+      // Новый свободный объект стоит там же, где был блок: тянем его от той же точки
+      if (this.sel?.free) {
+        this.dragFree(this.sel, e);
+        dispatchEvent(new PointerEvent('pointermove', { clientX: ev.clientX, clientY: ev.clientY }));
+      } else {
+        setTimeout(() => { this.dragging = false; }, 0);
+      }
+    };
+    const stop = () => {
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', stop);
+    };
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', stop);
+    // Не забираем событие: без движения клик по тексту блока начнёт его правку, как раньше
+    return false;
   }
 
   /** Перетаскивание нескольких объектов: общая рамка прилипает как один объект. */

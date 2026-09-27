@@ -50,7 +50,32 @@ body.studio { background: var(--alt); }
 .st-accent input { width: 30px; height: 26px; padding: 0; border: 1px solid var(--bd); border-radius: 6px; background: none; cursor: pointer; }
 
 /* Основная область */
-.st-body { display: grid; grid-template-columns: 212px minmax(0, 1fr) 292px; min-height: 0; }
+.st-body { position: relative; display: grid; grid-template-columns: var(--lw, 212px) minmax(0, 1fr) var(--rw, 292px); min-height: 0; }
+
+/* Границы панелей: тонкая зона захвата, при наведении — акцентная линия */
+.st-split { position: absolute; z-index: 5; touch-action: none; }
+.st-split::after { content: ""; position: absolute; background: var(--ac); opacity: 0; transition: opacity .15s; }
+.st-split:hover::after, .st-split:focus-visible::after, .resizing .st-split::after { opacity: .9; }
+.st-split:focus-visible { outline: none; }
+.st-split.v { top: 0; bottom: 0; width: 9px; cursor: col-resize; }
+.st-split.v::after { top: 0; bottom: 0; left: 3px; width: 3px; }
+.st-split.h { left: 0; right: 0; height: 9px; cursor: row-resize; }
+.st-split.h::after { left: 0; right: 0; top: 3px; height: 3px; }
+#st-sl { left: calc(var(--lw, 212px) - 5px); }
+#st-sr { right: calc(var(--rw, 292px) - 4px); }
+#st-sn { top: -5px; }
+.st-split.st-sc { position: relative; flex: none; width: 7px; margin: 0 -3px; }
+.st-split.st-sc[hidden] { display: none; }
+.studio-app.resizing, .studio-app.resizing * { user-select: none; }
+.studio-app.resizing .st-canvas { pointer-events: none; }
+
+/* Свёрнутая лента: остаются вкладки, клик по вкладке — развернуть */
+.st-ribbon-toggle { align-self: center; margin-left: 4px; width: 26px; height: 26px; display: grid; place-items: center; border: 0; border-radius: 6px; background: none; color: var(--mu); cursor: pointer; }
+.st-ribbon-toggle:hover { background: var(--alt); color: var(--tx); }
+.st-ribbon-toggle .ic { width: 15px !important; height: 15px !important; transition: transform .2s; }
+.ribbon-min .st-ribbon-toggle .ic { transform: rotate(180deg); }
+.ribbon-min .st-ribbon { display: none; }
+.ribbon-min .st-tabs button[aria-selected="true"] { border-bottom-color: transparent; }
 .st-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 
 /* Миниатюры */
@@ -76,7 +101,7 @@ body.studio { background: var(--alt); }
 /* Рабочая область: код слева (если открыт), слайд справа */
 .st-work { flex: 1; min-height: 0; display: flex; }
 .st-work > .st-canvas { flex: 1; min-width: 0; }
-.st-code { flex: 0 0 44%; min-width: 320px; max-width: 760px; display: flex; flex-direction: column; border-right: 1px solid var(--bd); background: var(--surf); }
+.st-code { flex: 0 0 var(--cw, 44%); min-width: 320px; max-width: 760px; display: flex; flex-direction: column; border-right: 1px solid var(--bd); background: var(--surf); }
 .st-code[hidden] { display: none; }
 .st-code-bar { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-bottom: 1px solid var(--bd); }
 .st-seg { display: inline-flex; padding: 2px; border-radius: 8px; background: var(--alt); }
@@ -138,7 +163,7 @@ body.editing .stage .st-peek { outline: 2px dashed var(--ac) !important; outline
 body.studio .edblock { display: none !important; }
 
 /* Заметки */
-.st-notes { flex: none; height: 128px; display: flex; flex-direction: column; gap: 4px; padding: 8px 14px 10px; background: var(--surf); border-top: 1px solid var(--bd); }
+.st-notes { position: relative; flex: none; height: var(--nh, 128px); display: flex; flex-direction: column; gap: 4px; padding: 8px 14px 10px; background: var(--surf); border-top: 1px solid var(--bd); }
 .st-notes[hidden] { display: none; }
 .st-notes label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--mu); }
 .st-notes textarea { flex: 1; resize: none; font-size: 14px !important; line-height: 1.5; background: none; border: 1px solid transparent; border-radius: 6px; padding: 4px 6px; }
@@ -309,11 +334,12 @@ button.st-g-n { position: relative; }
 body.st-previewing .st-preview-shield { display: block; }
 
 @media (max-width: 1180px) {
-  .st-body { grid-template-columns: 180px minmax(0, 1fr) 250px; }
+  .st-body { grid-template-columns: var(--lw, 180px) minmax(0, 1fr) var(--rw, 250px); }
   .st-title { width: 160px; }
 }
 @media (max-width: 900px) {
-  .st-body { grid-template-columns: 140px minmax(0, 1fr); }
+  .st-body { grid-template-columns: var(--lw, 140px) minmax(0, 1fr); }
+  #st-sr { display: none; }
   .st-props { display: none; }
   .st-status { display: none; }
 }

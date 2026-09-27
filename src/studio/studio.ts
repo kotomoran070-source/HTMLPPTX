@@ -69,6 +69,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       <button type="button" role="tab" data-tab="design" aria-selected="false">Дизайн</button>
       <button type="button" role="tab" data-tab="show" aria-selected="false">Показ</button>
       <button type="button" role="tab" data-tab="view" aria-selected="false">Вид</button>
+      <button type="button" class="st-ribbon-toggle" id="st-rt" title="Свернуть ленту (Ctrl+F1)" aria-label="Свернуть ленту" aria-expanded="true">${icon('up')}</button>
     </nav>
     <div class="st-top-r">
       <button type="button" class="st-status" id="st-status" role="status" aria-live="polite"></button>
@@ -101,17 +102,21 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Масштаб', rb('view.fit', 'fullscreen', 'Вписать', { big: true }) + `<div class="st-rstack">${rb('view.zoom-in', 'plus', 'Крупнее')}${rb('view.zoom-out', 'minus', 'Мельче')}</div>`)}
     </div>
   </div>
-  <div class="st-body">
+  <div class="st-body" id="st-body">
     <aside class="st-slides" id="st-slides" aria-label="Слайды"></aside>
+    <div class="st-split v" id="st-sl" role="separator" aria-orientation="vertical" aria-label="Ширина ленты слайдов" tabindex="0" title="Потяните, чтобы изменить ширину. Двойной клик — как было"></div>
+    <div class="st-split v" id="st-sr" role="separator" aria-orientation="vertical" aria-label="Ширина панели свойств" tabindex="0" title="Потяните, чтобы изменить ширину. Двойной клик — как было"></div>
     <main class="st-main">
       <div class="st-work">
         <section class="st-code" id="st-code" data-ed-keep hidden aria-label="Код слайда"></section>
+        <div class="st-split v st-sc" id="st-sc" role="separator" aria-orientation="vertical" aria-label="Ширина кода" tabindex="0" title="Потяните, чтобы изменить ширину. Двойной клик — как было" hidden></div>
         <div class="st-view">
           <nav class="st-crumbs" id="st-crumbs" aria-label="Где находится выделенное" data-ed-keep></nav>
           <div class="st-canvas" id="st-canvas"><div class="st-paper" id="st-paper"></div></div>
         </div>
       </div>
       <section class="st-notes" id="st-notes" data-ed-keep>
+        <div class="st-split h" id="st-sn" role="separator" aria-orientation="horizontal" aria-label="Высота заметок" tabindex="0" title="Потяните, чтобы изменить высоту. Двойной клик — как было"></div>
         <label for="st-notes-text" id="st-notes-label">Заметки докладчика</label>
         <textarea id="st-notes-text" spellcheck="true" placeholder="Что сказать на этом слайде. Видно только в окне докладчика."></textarea>
       </section>
@@ -608,6 +613,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       code = new m.CodeView(box, { deck: () => deck, index: () => index, editor: () => ed });
     }
     box.hidden = !codeOpen;
+    $('st-sc').hidden = !codeOpen;
     document.querySelector('.st-work')!.classList.toggle('with-code', codeOpen);
     if (codeOpen) {
       code!.update(true);
@@ -694,7 +700,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
   }
   document.querySelector('.st-tabs')!.addEventListener('click', (e) => {
     const t = (e.target as Element).closest<HTMLElement>('[data-tab]');
-    if (t) setTab(t.dataset.tab!);
+    if (t) {
+      setTab(t.dataset.tab!);
+      if (!lay.ribbon) toggleRibbon(true);
+    }
   });
   document.querySelector('.st-tabs')!.addEventListener('keydown', (e) => {
     const k = (e as KeyboardEvent).key;
@@ -725,6 +734,65 @@ export function startStudio(deck: Deck, deckKey: string): void {
   const accent = $<HTMLInputElement>('st-accent');
   accent.addEventListener('input', () => ed.setAccent(accent.value));
   onThemeChange(() => { slides.update(); queueState(); });
+
+  // ---------------- раскладка окна: панели тянутся, лента сворачивается ----------------
+  const LAYOUT_KEY = 'htmlpptx-studio-layout';
+  const DEFAULTS = { lw: 212, rw: 292, nh: 128, cw: 44, ribbon: true };
+  const LIMITS = { lw: [120, 380], rw: [220, 520], nh: [64, 420], cw: [22, 70] } as const;
+  let lay = { ...DEFAULTS };
+  try { lay = { ...lay, ...JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}') }; } catch { /* раскладки ещё нет */ }
+  const app = document.querySelector<HTMLElement>('.studio-app')!;
+  function applyLayout(save = true): void {
+    for (const k of ['lw', 'rw', 'nh', 'cw'] as const) lay[k] = Math.round(Math.max(LIMITS[k][0], Math.min(LIMITS[k][1], lay[k])));
+    app.style.setProperty('--lw', `${lay.lw}px`);
+    app.style.setProperty('--rw', `${lay.rw}px`);
+    app.style.setProperty('--nh', `${lay.nh}px`);
+    app.style.setProperty('--cw', `${lay.cw}%`);
+    app.classList.toggle('ribbon-min', !lay.ribbon);
+    $('st-rt').setAttribute('aria-expanded', String(lay.ribbon));
+    $('st-rt').title = lay.ribbon ? 'Свернуть ленту (Ctrl+F1)' : 'Развернуть ленту (Ctrl+F1)';
+    if (save) try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(lay)); } catch { /* нет доступа */ }
+    layout();
+  }
+  /** Граница панели: тянуть мышью, стрелки ±8 px, двойной клик — как было. */
+  function splitter(el: HTMLElement, key: 'lw' | 'rw' | 'nh' | 'cw', value: (e: PointerEvent) => number): void {
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      el.setPointerCapture(e.pointerId);
+      app.classList.add('resizing');
+      const move = (ev: PointerEvent) => { lay[key] = value(ev); applyLayout(false); };
+      const up = () => {
+        el.removeEventListener('pointermove', move);
+        el.removeEventListener('pointerup', up);
+        app.classList.remove('resizing');
+        applyLayout();
+      };
+      el.addEventListener('pointermove', move);
+      el.addEventListener('pointerup', up);
+    });
+    el.addEventListener('dblclick', () => { lay[key] = DEFAULTS[key]; applyLayout(); });
+    el.addEventListener('keydown', (e) => {
+      const d = { ArrowLeft: -8, ArrowUp: -8, ArrowRight: 8, ArrowDown: 8 }[e.key];
+      if (d === undefined) return;
+      e.preventDefault();
+      e.stopPropagation();
+      // Правая панель и заметки растут в обратную сторону
+      lay[key] += key === 'rw' || key === 'nh' ? -d : key === 'cw' ? d / 8 : d;
+      applyLayout();
+    });
+  }
+  const bodyRect = () => $('st-body').getBoundingClientRect();
+  splitter($('st-sl'), 'lw', (e) => e.clientX - bodyRect().left);
+  splitter($('st-sr'), 'rw', (e) => bodyRect().right - e.clientX);
+  splitter($('st-sn'), 'nh', (e) => document.querySelector('.st-main')!.getBoundingClientRect().bottom - e.clientY);
+  splitter($('st-sc'), 'cw', (e) => {
+    const r = document.querySelector('.st-work')!.getBoundingClientRect();
+    return ((e.clientX - r.left) / r.width) * 100;
+  });
+  const toggleRibbon = (on = !lay.ribbon) => { lay.ribbon = on; applyLayout(); };
+  $('st-rt').addEventListener('click', () => toggleRibbon());
+  applyLayout(false);
 
   // ---------------- заметки ----------------
   let notesOpen = true;
@@ -859,6 +927,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
     if (mod && (e.key === '`' || e.key === 'ё' || e.code === 'Backquote')) {
       e.preventDefault();
       return void toggleCode();
+    }
+    if (mod && e.key === 'F1') {
+      e.preventDefault();
+      return toggleRibbon();
     }
     if (e.key === 'F5') {
       e.preventDefault();

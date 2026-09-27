@@ -679,8 +679,9 @@ export class Editor {
       this.blocks.toggleGroup(free);
       return;
     }
-    // Первый клик по свободному объекту выделяет его целиком (двигать, масштабировать)
-    if (free && !this.blocks.isSelected(free)) {
+    // Первый клик по свободному объекту выделяет его целиком (двигать, масштабировать);
+    // если он уже выделен нажатием мыши — этот клик тоже первый, не правка текста
+    if (free && (!this.blocks.isSelected(free) || this.blocks.takePressSelected())) {
       e.preventDefault();
       e.stopPropagation();
       this.text.finish(true);

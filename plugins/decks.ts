@@ -109,8 +109,16 @@ export function decksPlugin(opts: DecksOptions): Plugin {
   const dir = path.resolve(opts.dir);
   let root = process.cwd();
   let server: ViteDevServer | undefined;
-  /** Что редактор записал в deck.yaml последним: такое изменение не перезагружает страницу */
-  const written = new Map<string, string>();
+  /**
+   * Что редактор записал в deck.yaml последним: такое изменение не перезагружает страницу.
+   * Ключ — нормализованный путь: на Windows редактор пишет C:\\…\\deck.yaml, а Vite сообщает
+   * об изменении C:/…/deck.yaml — без нормализации это разные строки и страница перезагружалась.
+   */
+  const written = new Map<string, { text: string; at: number }>();
+  const fileKey = (f: string) => {
+    const r = path.resolve(f).split(path.sep).join('/');
+    return process.platform === 'win32' || process.platform === 'darwin' ? r.toLowerCase() : r;
+  };
 
   /** Путь от корня проекта: /presentations/имя/… (одинаково работает на Windows) */
   const urlOf = (abs: string) => '/' + path.relative(root, abs).split(path.sep).join('/');
@@ -158,7 +166,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     const next = mergeYaml(source, toPaths(body.deck));
     store.flush();
     if (next !== source) {
-      written.set(file, next);
+      written.set(fileKey(file), { text: next, at: Date.now() });
       fs.writeFileSync(file, next);
     }
     send(res, 200, { ok: true, changed: next !== source });
@@ -253,11 +261,15 @@ export function decksPlugin(opts: DecksOptions): Plugin {
 
     async handleHotUpdate(ctx) {
       // Файл записал редактор: страница уже показывает эти данные, перезагружать не нужно
-      const mine = written.get(ctx.file);
+      const key = fileKey(ctx.file);
+      const mine = written.get(key);
       if (mine !== undefined) {
-        const now = await ctx.read();
-        if (now === mine) return [];
-        written.delete(ctx.file);
+        const lf = (x: string) => x.replace(/\r\n/g, '\n');
+        const now = lf(await ctx.read());
+        if (now === lf(mine.text)) return [];
+        // Файл ещё дописывается (на Windows событие приходит раньше конца записи): не перезагружаем
+        if (Date.now() - mine.at < 1500 && lf(mine.text).startsWith(now)) return [];
+        written.delete(key);
       }
       return undefined;
     },
