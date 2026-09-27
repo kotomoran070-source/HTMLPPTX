@@ -25,6 +25,10 @@ export interface SlideData {
   notes?: string;
   /** Название в обзоре слайдов, если отличается от заголовка */
   label?: string;
+  /** Переход к слайду: none, fade, push, cover, zoom, blur (без поля — стандартный) */
+  transition?: string;
+  /** Длительность перехода, мс (по умолчанию 600) */
+  transitionMs?: number;
   /** Показывать логотип в углу (content-слайды, по умолчанию да) */
   logo?: boolean;
   body?: Block | Block[];

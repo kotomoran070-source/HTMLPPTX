@@ -41,7 +41,8 @@ function statements(css: string): string[] {
 
 /**
  * Классы «слайд показан» у самодельных движков (артефакты, reveal.js): .slide.on, .slide.active.
- * Их роль у нас играет показанный слайд движка: «.slide.on .r» → «&.on .slide-root .r».
+ * Их роль у нас играет показанный слайд движка: «.slide.on .r» → «&:is(.on, .out) .slide-root .r»
+ * (.out — слайд, который уходит во время перехода: он остаётся видимым).
  */
 const STATE = new Set(['on', 'active', 'current', 'present', 'visible', 'show', 'shown', 'is-active']);
 
@@ -70,7 +71,7 @@ function selectors(list: string): string {
       const cls = rest.split('.').filter(Boolean);
       const state = cls.filter((c) => STATE.has(c));
       const own = cls.filter((c) => !STATE.has(c)).map((c) => `.${c}`).join('');
-      return state.length ? `&.on .slide-root${own}` : `.slide-root${own}`;
+      return state.length ? `&:is(.on, .out) .slide-root${own}` : `.slide-root${own}`;
     }))).join(', ');
 }
 

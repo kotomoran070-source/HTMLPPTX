@@ -38,6 +38,37 @@ body {
 .slide.on { display: block; }
 .stage .slide.on { animation: enter .55s var(--ease) both; }
 
+/* Переходы между слайдами: data-tr у входящего слайда, уходящий — .out (deck-view.ts) */
+.stage[data-dir="back"] { --tr-s: -1; }
+.stage > .slide.out { display: block; z-index: 0; pointer-events: none; }
+/* На время перехода у слайда свой фон (если шаблон не задал другой), чтобы слайды не просвечивали */
+:where(.stage[data-tr] > .slide) { background: radial-gradient(var(--bd) 1px, transparent 1px) 0 0 / 26px 26px, var(--bg); }
+.stage > .slide.on[data-tr] { z-index: 1; }
+.stage .slide.on[data-tr="none"] { animation: none; }
+.stage .slide.on[data-tr="fade"] { animation: tr-fade var(--tr-ms, 600ms) ease both; }
+.stage[data-tr="fade"] > .slide.out { animation: tr-fade-out var(--tr-ms, 600ms) ease both; }
+.stage .slide.on[data-tr="push"] { animation: tr-push-in var(--tr-ms, 600ms) cubic-bezier(.65, 0, .35, 1) both; }
+.stage[data-tr="push"] > .slide.out { animation: tr-push-out var(--tr-ms, 600ms) cubic-bezier(.65, 0, .35, 1) both; }
+.stage .slide.on[data-tr="cover"] { animation: tr-cover-in var(--tr-ms, 600ms) cubic-bezier(.22, 1, .36, 1) both; box-shadow: -24px 0 48px rgba(15, 23, 42, .18); }
+.stage[data-tr="cover"] > .slide.out { animation: tr-cover-out var(--tr-ms, 600ms) ease both; }
+.stage .slide.on[data-tr="zoom"] { animation: tr-zoom-in var(--tr-ms, 600ms) cubic-bezier(.22, 1, .36, 1) both; }
+.stage[data-tr="zoom"] > .slide.out { animation: tr-zoom-out var(--tr-ms, 600ms) ease both; }
+.stage .slide.on[data-tr="blur"] { animation: tr-blur-in var(--tr-ms, 600ms) ease both; }
+.stage[data-tr="blur"] > .slide.out { animation: tr-blur-out var(--tr-ms, 600ms) ease both; }
+/* Объекты слайда появляются после перехода */
+.stage .slide.on[data-tr]:not([data-tr="none"]) .r { animation-delay: calc(var(--i, 0) * 90ms + 120ms + var(--tr-ms, 600ms)); }
+.stage .slide.on[data-tr]:not([data-tr="none"]):not(.static) > .free.fx { animation-delay: calc(var(--fx-d, 0ms) + var(--tr-ms, 600ms)); }
+@keyframes tr-fade { from { opacity: 0; } }
+@keyframes tr-fade-out { to { opacity: 0; } }
+@keyframes tr-push-in { from { transform: translateX(calc(100% * var(--tr-s, 1))); } }
+@keyframes tr-push-out { to { transform: translateX(calc(-100% * var(--tr-s, 1))); } }
+@keyframes tr-cover-in { from { transform: translateX(calc(100% * var(--tr-s, 1))); } }
+@keyframes tr-cover-out { to { transform: scale(.94); opacity: .35; } }
+@keyframes tr-zoom-in { from { transform: scale(.82); opacity: 0; } }
+@keyframes tr-zoom-out { to { transform: scale(1.1); opacity: 0; } }
+@keyframes tr-blur-in { from { filter: blur(24px); opacity: 0; } }
+@keyframes tr-blur-out { to { filter: blur(24px); opacity: 0; } }
+
 /* Появление блоков по очереди: движок проставляет --i каждому .r на слайде */
 .slide.on .r {
   animation: up .6s var(--ease) both;

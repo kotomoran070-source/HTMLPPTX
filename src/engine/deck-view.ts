@@ -80,10 +80,47 @@ export class DeckView {
     return this.current;
   }
 
+  /** Переходы между слайдами (в редакторе выключены: там слайды листаются мгновенно) */
+  transitions = true;
+  private outTimer = 0;
+
   show(i: number): void {
     if (i === this.current) return;
+    const prev = this.slides[this.current];
+    const back = i < this.current;
     this.current = i;
+    this.endOut();
     this.slides.forEach((s, k) => s.classList.toggle('on', k === i));
+    if (this.transitions && prev) this.runOut(prev, this.slides[i], back);
+  }
+
+  /** Заново проиграть появление слайда — вместе с переходом от предыдущего */
+  replay(i: number): void {
+    const el = this.slides[i];
+    if (!el) return;
+    this.endOut();
+    el.classList.remove('on');
+    void el.offsetWidth;
+    el.classList.add('on');
+    const prev = this.slides[i - 1];
+    if (prev) this.runOut(prev, el, false);
+  }
+
+  /** Уходящий слайд остаётся видимым, пока идёт переход (растворение, сдвиг, наплыв…) */
+  private runOut(prev: HTMLElement, next: HTMLElement | undefined, back: boolean): void {
+    const tr = next?.dataset.tr;
+    if (!next || !tr || tr === 'none' || reducedMotion()) return;
+    const ms = parseFloat(getComputedStyle(next).getPropertyValue('--tr-ms')) || 600;
+    this.stage.dataset.tr = tr;
+    this.stage.dataset.dir = back ? 'back' : 'fwd';
+    prev.classList.add('out');
+    this.outTimer = window.setTimeout(() => this.endOut(), ms + 60);
+  }
+
+  private endOut(): void {
+    clearTimeout(this.outTimer);
+    this.stage.querySelectorAll(':scope > .slide.out').forEach((s) => s.classList.remove('out'));
+    delete this.stage.dataset.tr;
   }
 
   /** Вписывает сцену в прямоугольник с сохранением пропорций. */

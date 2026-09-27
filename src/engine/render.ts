@@ -7,6 +7,9 @@ import { asArray, esc } from './html';
 import { applyDeckCss, applyDeckDefs } from './deck-css';
 import { indexPaths, pathOf } from './marks';
 
+/** Переходы между слайдами (slide.transition); без поля — стандартное появление */
+export const TRANSITION_IDS = new Set(['none', 'fade', 'push', 'cover', 'zoom', 'blur']);
+
 let uidCounter = 0;
 
 /** Эффекты появления свободных объектов: enter: rise (см. base.css) */
@@ -49,6 +52,10 @@ export class Renderer {
     }
     if (extraClass) cls += ' ' + extraClass;
     if (this.cssKey) attrs += ` data-css="${this.cssKey}"`;
+    // Переход к слайду и его длительность
+    if (typeof slide.transition === 'string' && TRANSITION_IDS.has(slide.transition)) attrs += ` data-tr="${slide.transition}"`;
+    const trMs = Number(slide.transitionMs);
+    if (trMs > 0) attrs += ` style="--tr-ms:${Math.min(3000, Math.round(trMs))}ms"`;
     // Живой слайд: исходный файл в рамке поверх обычной копии (см. components/live)
     const empty = !slide.body && !(Array.isArray(slide.free) && slide.free.length);
     const live = slide.live && typeof slide.live === 'object'

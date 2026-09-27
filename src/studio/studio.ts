@@ -12,6 +12,7 @@ import { CLIP_TYPE, putClip, takeClip, type Clip } from './clipboard';
 import type { CodeView } from './code';
 import { applyFormat, hasFormat, takeFormat, type Format } from './format-painter';
 import { tableGrips } from './table-grips';
+import { animCommands, animPanelHtml, animTabHtml, bindDelayField, syncAnimTab, type AnimHost } from './anim-tab';
 import { contextCommands, contextPanelsHtml, contextTab, contextTabsHtml, syncSwatches, type ContextTab } from './context-tabs';
 import { Inspector } from './inspector';
 import { closeLibrary, showLibrary, type Preset } from './library';
@@ -71,6 +72,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       <button type="button" role="tab" data-tab="home" aria-selected="true">Главная</button>
       <button type="button" role="tab" data-tab="insert" aria-selected="false">Вставка</button>
       <button type="button" role="tab" data-tab="design" aria-selected="false">Дизайн</button>
+      ${animTabHtml()}
       <button type="button" role="tab" data-tab="show" aria-selected="false">Показ</button>
       <button type="button" role="tab" data-tab="view" aria-selected="false">Вид</button>
       ${contextTabsHtml()}
@@ -100,12 +102,12 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Цвет', `<label class="st-accent" title="Акцентный цвет презентации"><input type="color" id="st-accent" aria-label="Акцентный цвет"><span>Акцент</span></label>${rb('design.accent-reset', 'reset', 'Стандартный')}`)}
       ${group('Тема', rb('design.theme', 'moon', 'Светлая / тёмная', { big: true, key: 'T' }))}
     </div>
+    ${animPanelHtml()}
     <div class="st-rpanel" data-panel="show" hidden>
       ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'next', 'С текущего слайда', { big: true, key: 'Shift+F5' }) + rb('show.presenter', 'presenter', 'Режим докладчика', { big: true, key: 'Alt+F5', title: 'Показ на втором экране, заметки — на вашем' }))}
-      ${group('Анимация', rb('show.preview', 'sparkle', 'Просмотр слайда', { big: true, title: 'Воспроизвести анимацию слайда' }))}
     </div>
     <div class="st-rpanel" data-panel="view" hidden>
-      ${group('Панели', rb('view.code', 'terminal', 'Код слайда', { big: true, key: 'Ctrl+`', title: 'Код слайда (YAML) и стили (CSS)' }) + rb('view.notes', 'notes', 'Заметки', { big: true }))}
+      ${group('Панели', rb('view.slides', 'grid', 'Слайды', { big: true, key: 'Ctrl+Shift+1', title: 'Список слайдов слева' }) + rb('view.props', 'sliders', 'Свойства', { big: true, key: 'Ctrl+Shift+2', title: 'Панель свойств справа' }) + rb('view.notes', 'notes', 'Заметки', { big: true, key: 'Ctrl+Shift+3' }) + rb('view.code', 'terminal', 'Код слайда', { big: true, key: 'Ctrl+`', title: 'Код слайда (YAML) и стили (CSS)' }))}
       ${group('Масштаб', rb('view.fit', 'fullscreen', 'Вписать', { big: true }) + `<div class="st-rstack">${rb('view.zoom-in', 'plus', 'Крупнее')}${rb('view.zoom-out', 'minus', 'Мельче')}</div>`)}
     </div>
     ${contextPanelsHtml()}
@@ -134,6 +136,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
   <footer class="st-foot" data-ed-keep>
     <span id="st-pos"></span>
     <span class="st-foot-r">
+      <button type="button" class="st-fbtn" data-cmd="view.slides" title="Слайды слева (Ctrl+Shift+1)">${icon('grid')}<span>Слайды</span></button>
+      <button type="button" class="st-fbtn" data-cmd="view.props" title="Свойства справа (Ctrl+Shift+2)">${icon('sliders')}<span>Свойства</span></button>
       <button type="button" class="st-fbtn" data-cmd="view.code" title="Код слайда (Ctrl+\`)">${icon('terminal')}<span>Код</span></button>
       <button type="button" class="st-fbtn" data-cmd="view.notes" title="Заметки докладчика">${icon('notes')}<span>Заметки</span></button>
       <span class="st-zoom" role="group" aria-label="Масштаб">
@@ -156,6 +160,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
   applyAccent(deck.theme?.accent);
   updateFavicon(deck.brand?.logo);
   const view = new DeckView(deck, paper);
+  // Слайды в редакторе листаются мгновенно; переход виден в «Просмотре» и в показе
+  view.transitions = false;
   const hashIndex = () => {
     const m = /^#(\d+)$/.exec(location.hash);
     return m ? Math.max(0, Math.min(count() - 1, parseInt(m[1], 10) - 1)) : 0;
@@ -314,15 +320,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     }));
   }
 
-  /** Анимация группы: один эффект всем или появление по очереди (в порядке чтения). */
-  function setGroupEffect(effect: string): void {
-    const paths = selPaths();
-    ed.commit((d) => paths.forEach((p) => {
-      const b = getAt(d, p) as Block;
-      if (effect) b.enter = effect;
-      else { delete b.enter; delete b.delay; }
-    }), { rebuild: true });
-  }
+  /** Появление по очереди в порядке чтения. */
   function sequence(paths = selPaths()): void {
     const items = boxes(paths).sort((a, b) => (Math.abs(a.pl.y - b.pl.y) > 24 ? a.pl.y - b.pl.y : a.pl.x - b.pl.x));
     const first = Math.min(...items.map((b) => Number((getAt(deck, b.p) as Block).delay) || 0));
@@ -343,26 +341,35 @@ export function startStudio(deck: Deck, deckKey: string): void {
 
   // ---------------- просмотр анимации ----------------
   let previewTimer = 0;
+  /** Что было выделено до просмотра: после него выделение возвращается */
+  let previewSel: { slide: number; free: number[] } | null = null;
   function endPreview(): void {
     clearTimeout(previewTimer);
     if (!document.body.classList.contains('st-previewing')) return;
     document.body.classList.remove('st-previewing');
     document.body.classList.add('editing');
+    const back = previewSel;
+    previewSel = null;
+    if (back && back.slide === index && back.free.length) {
+      if (back.free.length === 1) ed.selectFree(index, back.free[0]);
+      else ed.selectMany(index, back.free);
+    }
   }
   function preview(): void {
     endPreview();
-    ed.clearSelection();
     const slide = view.slides[index];
     if (!slide) return;
+    previewSel = { slide: index, free: selPaths().map((p) => Number(p[3])) };
+    ed.clearSelection();
     const free = (deck.slides[index].free ?? []) as Block[];
     const longest = Math.max(0, ...free.map((b) => (b.enter ? Number(b.delay) || 0 : 0)));
+    const s = deck.slides[index];
+    const tr = s.transition && s.transition !== 'none' ? Number(s.transitionMs) || 600 : 0;
     document.body.classList.remove('editing');
     document.body.classList.add('st-previewing');
-    // Перезапуск появления: слайд заново становится «показанным»
-    slide.classList.remove('on');
-    void slide.offsetWidth;
-    slide.classList.add('on');
-    previewTimer = window.setTimeout(endPreview, Math.min(8000, longest + 1600));
+    // Перезапуск: переход от предыдущего слайда и появление объектов
+    view.replay(index);
+    previewTimer = window.setTimeout(endPreview, Math.min(9000, longest + tr + 1600));
   }
   $('st-shield').addEventListener('click', endPreview);
 
@@ -814,6 +821,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'insert.text': { run: () => ed.addBlock('text') },
     'insert.blocks': { run: () => openLibrary() },
     'view.code': { run: () => void toggleCode(), active: () => codeOpen },
+    'view.slides': { run: () => togglePanel('left'), active: () => lay.left },
+    'view.props': { run: () => togglePanel('right'), active: () => lay.right },
     'insert.image': { run: () => ed.addBlock('image') },
     'obj.front': { run: () => ed.blockEditor.reorder(1), enabled: single },
     'obj.back': { run: () => ed.blockEditor.reorder(-1), enabled: single },
@@ -862,14 +871,20 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ]),
     },
   };
+  const animHost: AnimHost = { deck, editor: ed, index: () => index, selPaths, sequence, preview };
+  Object.assign(cmds, animCommands(animHost));
+  bindDelayField(animHost);
   Object.assign(cmds, contextCommands({ deck, editor: ed, stage: () => view.stage, run: (c) => run(c) }));
   const grips = tableGrips({ deck, editor: ed, stage: () => view.stage });
   cmds['tab.shape'] = { run: () => setTab('shape') };
+  cmds['tab.anim'] = { run: () => { setTab('anim'); if (!lay.ribbon) toggleRibbon(true); } };
   cmds['tab.table'] = { run: () => setTab('table') };
   for (const k of ['left', 'center', 'right', 'top', 'middle', 'bottom']) cmds[`align.${k}`] = { run: () => align(k), enabled: hasFree };
   SLIDE_PRESETS.forEach((_p, k) => { cmds[`slide.preset.${k}`] = { run: () => ed.addSlide(index, k) }; });
 
   function run(cmd: string): void {
+    // Команда во время просмотра: просмотр заканчивается, выделение возвращается
+    if (cmd !== 'show.preview') endPreview();
     const c = cmds[cmd];
     if (!c || (c.enabled && !c.enabled())) return;
     c.run();
@@ -943,7 +958,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
 
   // ---------------- раскладка окна: панели тянутся, лента сворачивается ----------------
   const LAYOUT_KEY = 'htmlpptx-studio-layout';
-  const DEFAULTS = { lw: 212, rw: 292, nh: 128, cw: 44, ribbon: true };
+  const DEFAULTS = { lw: 212, rw: 292, nh: 128, cw: 44, ribbon: true, left: true, right: true };
   const LIMITS = { lw: [120, 380], rw: [220, 520], nh: [64, 420], cw: [22, 70] } as const;
   let lay = { ...DEFAULTS };
   try { lay = { ...lay, ...JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}') }; } catch { /* раскладки ещё нет */ }
@@ -955,6 +970,12 @@ export function startStudio(deck: Deck, deckKey: string): void {
     app.style.setProperty('--nh', `${lay.nh}px`);
     app.style.setProperty('--cw', `${lay.cw}%`);
     app.classList.toggle('ribbon-min', !lay.ribbon);
+    app.classList.toggle('no-left', !lay.left);
+    app.classList.toggle('no-right', !lay.right);
+    $('st-slides').hidden = !lay.left;
+    $('st-props').hidden = !lay.right;
+    $('st-sl').hidden = !lay.left;
+    $('st-sr').hidden = !lay.right;
     $('st-rt').setAttribute('aria-expanded', String(lay.ribbon));
     $('st-rt').title = lay.ribbon ? 'Свернуть ленту (Ctrl+F1)' : 'Развернуть ленту (Ctrl+F1)';
     if (save) try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(lay)); } catch { /* нет доступа */ }
@@ -997,6 +1018,12 @@ export function startStudio(deck: Deck, deckKey: string): void {
     return ((e.clientX - r.left) / r.width) * 100;
   });
   const toggleRibbon = (on = !lay.ribbon) => { lay.ribbon = on; applyLayout(); };
+  /** Скрыть или показать боковую панель: место отдаётся слайду */
+  function togglePanel(side: 'left' | 'right', on = !lay[side]): void {
+    lay[side] = on;
+    applyLayout();
+    queueState();
+  }
   $('st-rt').addEventListener('click', () => toggleRibbon());
   applyLayout(false);
 
@@ -1034,8 +1061,6 @@ export function startStudio(deck: Deck, deckKey: string): void {
     editor: () => ed,
     run,
     measure,
-    groupEffect: setGroupEffect,
-    sequence,
     stage: () => view.stage,
   });
 
@@ -1090,6 +1115,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   function syncUi(): void {
     syncContextTab();
     syncSwatches(deck, ed);
+    syncAnimTab(animHost);
     grips.sync();
     code?.syncSelection();
     document.querySelectorAll<HTMLButtonElement>('[data-cmd]').forEach((b) => {
@@ -1161,6 +1187,13 @@ export function startStudio(deck: Deck, deckKey: string): void {
     if (mod && (e.key === '`' || e.key === 'ё' || e.code === 'Backquote')) {
       e.preventDefault();
       return void toggleCode();
+    }
+    // Ctrl+Shift+1/2/3 — скрыть или показать слайды, свойства, заметки
+    if (mod && e.shiftKey && ['Digit1', 'Digit2', 'Digit3'].includes(e.code)) {
+      e.preventDefault();
+      if (e.code === 'Digit1') return togglePanel('left');
+      if (e.code === 'Digit2') return togglePanel('right');
+      return setNotes(!notesOpen);
     }
     if (mod && e.key === 'F1') {
       e.preventDefault();
