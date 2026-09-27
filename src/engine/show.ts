@@ -7,6 +7,7 @@ import { canSaveFile } from './editor/persist';
 import { esc } from './html';
 import { slideLabel } from './render';
 import { Ink } from './ink';
+import { printDeck, setupPrint } from './print';
 import { fullscreenOn, planScreens, popupOn, screensGranted } from './screens';
 import { Sync } from './sync';
 import { currentTheme, onThemeChange, setTheme, toggleTheme } from './theme';
@@ -352,11 +353,12 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   }
   $('snote').querySelector('.show-note-x')!.addEventListener('click', hideNote);
   // Из редактора: «Экспорт → PDF» — окно печати, когда слайды и шрифты готовы
+  setupPrint(() => deck);
   if (new URLSearchParams(location.search).has('print')) {
     const u = new URL(location.href);
     u.searchParams.delete('print');
     history.replaceState(history.state, '', u);
-    void document.fonts.ready.then(() => setTimeout(() => window.print(), 600));
+    void printDeck(deck);
   }
   // Из редактора: «Режим докладчика» — показ ждёт одного нажатия, чтобы занять второй экран
   if (new URLSearchParams(location.search).has('present')) {
