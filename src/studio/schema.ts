@@ -259,7 +259,7 @@ export const BLOCKS: Record<string, Schema> = {
     fields: [
       { k: 'src', label: 'Модель', type: 'media', kind: 'model', placeholder: 'Файл GLB' },
       { k: 'poster', label: 'Снимок', type: 'image' },
-      { k: 'rotate', label: 'Вращается сама', type: 'bool', default: true },
+      { k: 'rotate', label: 'Вращается сама', type: 'bool', default: false },
       { k: 'controls', label: 'Вращать мышью при показе', type: 'bool', default: true },
       { k: 'exposure', label: 'Яркость', type: 'number', min: 0.2, max: 3, step: 0.1, placeholder: '1' },
       { k: 'caption', label: 'Подпись', type: 'text' },

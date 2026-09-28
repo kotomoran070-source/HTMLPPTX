@@ -17,7 +17,11 @@ export type InkMsg =
   | { op: 'laser-off' }
   | { op: 'start'; id: string; x: number; y: number; style?: StrokeStyle }
   | { op: 'pt'; id: string; x: number; y: number }
-  | { op: 'clear' };
+  | { op: 'clear' }
+  /** Обычная мышь докладчика над слайдом: курсор и наведение у зрителей */
+  | { op: 'cursor'; x: number; y: number }
+  | { op: 'cursor-off' }
+  | { op: 'click'; x: number; y: number };
 
 const NS = 'http://www.w3.org/2000/svg';
 /** Сколько живёт след указки, мс */
@@ -47,6 +51,8 @@ export class Ink {
   private lines: SVGGElement;
   private trail: SVGGElement;
   private dot: HTMLElement;
+  private cur: HTMLElement;
+  private curTimer = 0;
   private strokes = new Map<string, Stroke>();
   private track: { x: number; y: number; t: number }[] = [];
   private raf = 0;
@@ -54,12 +60,13 @@ export class Ink {
   constructor(private stage: HTMLElement) {
     this.layer = document.createElement('div');
     this.layer.className = 'ink';
-    this.layer.innerHTML = `<svg viewBox="0 0 1280 720" preserveAspectRatio="none"><g class="ink-marks"></g><g class="ink-lines"></g><g class="ink-trail"></g></svg><div class="ink-dot"><i></i></div>`;
+    this.layer.innerHTML = `<svg viewBox="0 0 1280 720" preserveAspectRatio="none"><g class="ink-marks"></g><g class="ink-lines"></g><g class="ink-trail"></g></svg><div class="ink-dot"><i></i></div><div class="ink-cur" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 3l14 8.2-6.3 1.5L10 19z"/></svg></div>`;
     this.svg = this.layer.querySelector('svg')!;
     this.marks = this.svg.querySelector('.ink-marks')!;
     this.lines = this.svg.querySelector('.ink-lines')!;
     this.trail = this.svg.querySelector('.ink-trail')!;
     this.dot = this.layer.querySelector('.ink-dot')!;
+    this.cur = this.layer.querySelector('.ink-cur')!;
     // Сцена перестраивается (правки, смена темы) — слой возвращается на место
     const keep = () => { if (this.layer.parentElement !== stage) stage.appendChild(this.layer); };
     new MutationObserver(keep).observe(stage, { childList: true });
@@ -67,7 +74,19 @@ export class Ink {
   }
 
   apply(m: InkMsg): void {
-    if (m.op === 'laser') {
+    if (m.op === 'cursor') {
+      // Курсор прячется, если мышь стоит: как в PowerPoint
+      this.cur.style.transform = `translate(${m.x}px, ${m.y}px)`;
+      this.cur.classList.add('on');
+      clearTimeout(this.curTimer);
+      this.curTimer = window.setTimeout(() => this.cur.classList.remove('on'), 2500);
+    } else if (m.op === 'cursor-off') {
+      clearTimeout(this.curTimer);
+      this.cur.classList.remove('on');
+    } else if (m.op === 'click') {
+      // Сам щелчок повторяет окно показа (RemoteHover); здесь — только курсор на месте
+      this.apply({ op: 'cursor', x: m.x, y: m.y });
+    } else if (m.op === 'laser') {
       this.dot.style.transform = `translate(${m.x}px, ${m.y}px)`;
       this.dot.classList.add('on');
       this.track.push({ x: m.x, y: m.y, t: performance.now() });
@@ -154,6 +173,24 @@ export function inkInput(area: HTMLElement, ink: Ink, tool: () => InkTool, style
     stroke = Math.random().toString(36).slice(2, 9);
     emit({ op: 'start', id: stroke, ...p, style: style() });
   });
+  // Без инструмента — обычная мышь: зрители видят курсор и наведение (у себя не рисуем — есть свой)
+  let curRaf = 0;
+  let curAt: { x: number; y: number } | null = null;
+  area.addEventListener('pointermove', (e) => {
+    if (tool() !== 'none' || e.pointerType === 'touch') return;
+    curAt = ink.toSlide(e);
+    if (curRaf) return;
+    curRaf = requestAnimationFrame(() => {
+      curRaf = 0;
+      if (curAt) send(inside(curAt) ? { op: 'cursor', ...curAt } : { op: 'cursor-off' });
+    });
+  });
+  area.addEventListener('click', (e) => {
+    if (tool() !== 'none' || e.button !== 0) return;
+    const p = ink.toSlide(e as PointerEvent);
+    if (inside(p)) send({ op: 'click', ...p });
+  });
+  area.addEventListener('pointerleave', () => { if (tool() === 'none') send({ op: 'cursor-off' }); });
   area.addEventListener('pointermove', (e) => {
     const t = tool();
     if (t === 'none') return;

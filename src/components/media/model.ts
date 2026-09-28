@@ -10,7 +10,7 @@ interface ModelProps extends Block {
   src?: string;
   /** Снимок модели: миниатюры, печать, PDF и окно докладчика */
   poster?: string;
-  /** Медленно вращается сама (по умолчанию да) */
+  /** Медленно вращается сама (по умолчанию нет: модель поворачивают мышью) */
   rotate?: boolean;
   /** Вращать мышью во время показа (по умолчанию да) */
   controls?: boolean;
@@ -62,7 +62,8 @@ defineBlock<ModelProps>('model', {
         if (mv || !ctx.slide.classList.contains('on')) return;
         const m = document.createElement('model-viewer');
         m.setAttribute('src', box.dataset.model!);
-        if (p.rotate !== false && !ctx.reducedMotion) m.setAttribute('auto-rotate', '');
+        // Сама не крутится, пока не попросят (rotate: true): модель поворачивают мышью
+        if (p.rotate === true && !ctx.reducedMotion) m.setAttribute('auto-rotate', '');
         m.setAttribute('rotation-per-second', '14deg');
         m.setAttribute('auto-rotate-delay', '0');
         if (p.controls !== false && !editing()) m.setAttribute('camera-controls', '');

@@ -7,6 +7,7 @@ import { canSaveFile } from './editor/persist';
 import { esc } from './html';
 import { slideLabel } from './render';
 import { Ink } from './ink';
+import { RemoteHover } from './remote-hover';
 import { printDeck, setupPrint } from './print';
 import { fullscreenOn, planScreens, popupOn, screensGranted } from './screens';
 import { Sync } from './sync';
@@ -77,6 +78,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   const view = new DeckView(deck, vp);
   const sync = new Sync(deckKey);
   const ink = new Ink(view.stage);
+  // Мышь докладчика над слайдом: курсор и наведение у зрителей
+  const hover = new RemoteHover(view.stage);
   let index = 0;
   let black = false;
   let editor: Editor | null = null;
@@ -115,6 +118,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     if (push && changed) history.replaceState(null, '', `#${index + 1}`);
     if (changed) {
       ink.apply({ op: 'clear' });
+      hover.off();
       broadcast();
       editor?.onSlideChange();
       if (ovOpen()) markCurrent();
@@ -287,7 +291,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   });
   let peekTimer = 0;
   addEventListener('mousemove', (e) => {
-    if (!document.body.classList.contains('fs')) return;
+    // Мышь докладчика, повторённая здесь (RemoteHover), панель показа не выдвигает
+    if (!e.isTrusted || !document.body.classList.contains('fs')) return;
     if (e.clientY > innerHeight - 90) {
       document.body.classList.add('peek');
       clearTimeout(peekTimer);
@@ -457,7 +462,12 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   // Команды принимаются только адресованные этому окну (Sync отсеивает чужие по полю to)
   sync.on((m, from) => {
     if (m.type === 'goto') go(m.index);
-    else if (m.type === 'ink') ink.apply(m.ink);
+    else if (m.type === 'ink') {
+      ink.apply(m.ink);
+      if (m.ink.op === 'cursor') hover.move(m.ink.x, m.ink.y);
+      else if (m.ink.op === 'cursor-off') hover.off();
+      else if (m.ink.op === 'click') hover.click(m.ink.x, m.ink.y);
+    }
     else if (m.type === 'hello') {
       // Новому окну докладчика — актуальные данные (с несохранёнными правками) и положение
       if (editor?.touched) sync.send({ type: 'deck', deck: JSON.parse(JSON.stringify(deck)) }, from);
