@@ -14,7 +14,9 @@ import { applyFormat, hasFormat, takeFormat, type Format } from './format-painte
 import { tableGrips } from './table-grips';
 import { GRID_STEPS, ViewAids } from './view-aids';
 import { setupMarquee } from './marquee';
-import { setSnapLines } from '../engine/editor/block-edit';
+import { blockName, setSnapLines } from '../engine/editor/block-edit';
+import { blobToDataUrl } from '../engine/editor/persist';
+import { addTemplate, assetUrls, deckWithTemplate, listTemplates, pickCss, pickDefs, removeTemplate, replaceUrls, type Template } from './templates';
 import { animCommands, animPanelHtml, animTabHtml, bindDelayField, syncAnimTab, type AnimHost } from './anim-tab';
 import { contextCommands, contextPanelsHtml, contextTab, contextTabsHtml, syncSwatches, type ContextTab } from './context-tabs';
 import { Inspector } from './inspector';
@@ -598,6 +600,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       { label: 'Вставить оформление', icon: 'brush', hint: 'Ctrl+Shift+V', disabled: !formatClip, run: () => run('format.paste') },
       null,
       { label: 'Дублировать', icon: 'copy', hint: 'Ctrl+D', run: () => run('obj.dup') },
+      { label: 'Сохранить как шаблон…', icon: 'sparkle', run: () => run('obj.template') },
       ...(multi() ? [
         { label: 'Сгруппировать', icon: 'group', hint: 'Ctrl+G', run: () => run('obj.group') },
         { label: 'Появляться по очереди', icon: 'sparkle', run: () => sequence() },
@@ -766,7 +769,136 @@ export function startStudio(deck: Deck, deckKey: string): void {
   // ---------------- библиотека блоков ----------------
   function openLibrary(): void {
     const anchor = [...document.querySelectorAll<HTMLElement>('.st-ribbon [data-cmd="insert.blocks"]')].find((b) => b.offsetParent) ?? $('st-slides');
-    showLibrary(anchor, deck, insertPreset);
+    showLibrary(anchor, deck, insertPreset, {
+      list: listTemplates(),
+      pick: (t) => void insertTemplate(t),
+      remove: (t) => { removeTemplate(t.id); ed.toast(`Шаблон «${t.name}» удалён`, 1800); },
+    });
+  }
+
+  // ---------------- мои шаблоны ----------------
+  /** Выделенные объекты → шаблон: объекты, их стили и анимации, картинки */
+  async function makeTemplate(name: string): Promise<void> {
+    const paths = selPaths();
+    if (!paths.length) return;
+    const els = paths.map((p) => view.stage.querySelector<HTMLElement>(`.slide.on > [data-free='${JSON.stringify(p)}']`));
+    const boxes = paths.map((p, k) => {
+      const pl = placeOf(getAt(deck, p));
+      return { pl, h: pl.h ?? (els[k] ? measure(p)?.h ?? 0 : 0) };
+    });
+    const x0 = Math.min(...boxes.map((b) => b.pl.x));
+    const y0 = Math.min(...boxes.map((b) => b.pl.y));
+    const x1 = Math.max(...boxes.map((b) => b.pl.x + b.pl.w));
+    const y1 = Math.max(...boxes.map((b) => b.pl.y + b.h));
+    const items = paths.map((p, k) => {
+      const b = JSON.parse(JSON.stringify(getAt(deck, p))) as Block;
+      const { pl } = boxes[k];
+      b.place = { ...pl, x: Math.round(pl.x - x0), y: Math.round(pl.y - y0) };
+      return b;
+    });
+    ed.toast('Сохраняю шаблон…', 0);
+    // Картинки и вставки — содержимым: шаблон работает и в другой презентации
+    const assets: Record<string, string> = {};
+    for (const url of assetUrls(items)) {
+      try {
+        const blob = await (await fetch(url)).blob();
+        if (blob.size > 4 * 1024 * 1024) continue;
+        assets[url] = await blobToDataUrl(blob);
+      } catch { /* файл недоступен — останется ссылкой */ }
+    }
+    let preview: string | undefined;
+    try {
+      preview = await templatePreview(els.filter((e): e is HTMLElement => !!e), { x0, y0, w: x1 - x0, h: y1 - y0 });
+    } catch { /* без картинки в галерее */ }
+    const d = deck as Deck & { css?: string; defs?: string };
+    const t: Template = {
+      id: Math.random().toString(36).slice(2, 10), name, created: Date.now(),
+      w: Math.round(x1 - x0), h: Math.round(y1 - y0), items,
+      css: pickCss(d.css, items) || undefined, defs: pickDefs(d.defs, items) || undefined,
+      assets: Object.keys(assets).length ? assets : undefined, preview,
+    };
+    if (!addTemplate(t)) return ed.toast('Не хватает места в хранилище браузера: удалите ненужные шаблоны', 4500, true);
+    ed.toast(`Шаблон «${name}» сохранён — он в «Блоках», раздел «Мои шаблоны»`, 3000);
+  }
+
+  /** Картинка шаблона для галереи: слайд только с этими объектами, обрезанный по ним */
+  async function templatePreview(els: HTMLElement[], r: { x0: number; y0: number; w: number; h: number }): Promise<string> {
+    const slide = view.stage.querySelector<HTMLElement>(':scope > .slide.on');
+    if (!slide || !els.length) throw new Error('нет слайда');
+    const { toPng } = await import('html-to-image');
+    const k = Math.min(1, 480 / Math.max(r.w, r.h * 1.8));
+    const keep = new Set<Node>(els);
+    const full = await toPng(slide, {
+      pixelRatio: k, cacheBust: false, skipFonts: true,
+      style: { transform: 'none', animation: 'none' },
+      filter: (n) => n.parentElement !== slide || keep.has(n),
+    });
+    const img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = full; });
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(r.w * k));
+    c.height = Math.max(1, Math.round(r.h * k));
+    c.getContext('2d')!.drawImage(img, r.x0 * k, r.y0 * k, r.w * k, r.h * k, 0, 0, c.width, c.height);
+    return c.toDataURL('image/png');
+  }
+
+  /** Вставить шаблон: файлы копируются в эту презентацию, стили добавляются, объекты — в центр */
+  async function insertTemplate(t: Template): Promise<void> {
+    const i = index;
+    const map = new Map<string, string>();
+    const entries = Object.entries(t.assets ?? {});
+    if (entries.length) ed.toast('Копирую файлы шаблона…', 0);
+    for (const [url, data] of entries) {
+      try {
+        const blob = await (await fetch(data)).blob();
+        const name = decodeURIComponent(url.split('/').pop()!.split('?')[0]);
+        map.set(url, ed.mode === 'project' ? (await projectStorage.uploadAsset(deckKey, blob, name)).url : data);
+      } catch { /* останется прежний адрес */ }
+    }
+    const shift = ((deck.slides[i].free ?? []).length % 5) * 20;
+    const dx = Math.round((W - t.w) / 2) + shift;
+    const dy = Math.max(0, Math.round((H - t.h) / 2)) + shift;
+    const items = replaceUrls(t.items, map).map((b) => {
+      const pl = placeOf(b);
+      return { ...b, place: { ...pl, x: pl.x + dx, y: pl.y + dy } };
+    });
+    let from = 0;
+    if (!ed.commit((d) => {
+      deckWithTemplate(d, t);
+      const s = d.slides[i];
+      s.free = Array.isArray(s.free) ? s.free : [];
+      from = s.free.length;
+      s.free.push(...items);
+    }, { rebuild: true })) return;
+    ed.toast(`Вставлен шаблон «${t.name}»`, 1600);
+    if (items.length === 1) ed.selectFree(i, from);
+    else ed.selectMany(i, items.map((_b, k) => from + k));
+  }
+
+  /** Спросить имя и сохранить */
+  function askTemplateName(): void {
+    if (!selPaths().length) return ed.toast('Выделите объекты на слайде', 2000);
+    const anchor = selectedEl() ?? $('st-canvas');
+    const first = getAt(deck, selPaths()[0]) as Block;
+    const guess = [first.title, first.text, ...(Array.isArray(first.texts) ? first.texts : [])]
+      .find((v) => typeof v === 'string' && v.trim()) as string | undefined;
+    const suggestion = (guess ?? blockName(first.type)).replace(/\{[\w#-]+\|([^}]*)\}|[*_`]/g, '$1').slice(0, 40);
+    const pop = showPopover(anchor, `<form class="st-tpl-form"><div class="st-plabel">Сохранить как шаблон</div>
+<input type="text" name="n" maxlength="60" value="${esc(suggestion)}" aria-label="Название шаблона">
+<p class="st-tpl-note">Объекты сохранятся вместе с анимацией, стилями и картинками и появятся в «Блоках» → «Мои шаблоны».</p>
+<div class="st-tpl-acts"><button type="button" class="btn ghost small" data-a="cancel">Отмена</button><button type="button" class="btn primary small" data-a="save">Сохранить</button></div></form>`, (b) => {
+      if (b.dataset.a === 'cancel') return { run: () => {} };
+      if (b.dataset.a === 'save') return { run: () => save() };
+      return null;
+    }, 'st-tpl-pop');
+    const input = pop.querySelector<HTMLInputElement>('input')!;
+    const save = () => {
+      const name = input.value.trim() || suggestion;
+      void makeTemplate(name);
+    };
+    pop.querySelector('form')!.addEventListener('submit', (e) => { e.preventDefault(); closeMenu(); save(); });
+    input.addEventListener('keydown', (e) => e.stopPropagation());
+    requestAnimationFrame(() => { input.focus(); input.select(); });
   }
   function insertPreset(p: Preset): void {
     const i = index;
@@ -875,6 +1007,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'model.snapshot': { run: () => void modelSnapshot(), enabled: () => ed.selection?.type === 'model' },
     'format.painter': { run: () => (painter ? stopPainter() : startPainter(false)), enabled: () => !!painter || singleSel(), active: () => !!painter },
     'format.copy': { run: copyFormat, enabled: singleSel },
+    'obj.template': { run: askTemplateName, enabled: () => selPaths().length > 0 },
     'format.paste': { run: pasteFormat, enabled: () => !!formatClip && !!ed.selection },
     'show.preview': { run: preview },
     'view.notes': { run: () => setNotes(!notesOpen), active: () => notesOpen },

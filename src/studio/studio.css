@@ -146,8 +146,10 @@ body.studio { background: var(--alt); }
 .studio-app.resizing .st-canvas { pointer-events: none; }
 
 /* Свёрнутая лента: остаются вкладки, клик по вкладке — развернуть */
-.st-ribbon-toggle { align-self: center; margin-left: 4px; width: 26px; height: 26px; display: grid; place-items: center; border: 0; border-radius: 6px; background: none; color: var(--mu); cursor: pointer; }
-.st-ribbon-toggle:hover { background: var(--alt); color: var(--tx); }
+/* Сворачивание ленты: своя кнопка, без отступов и линии вкладок */
+.st-tabs .st-ribbon-toggle { align-self: center; flex: none; margin: 0 0 0 6px; padding: 0; width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--mu); cursor: pointer; transition: background .15s, color .15s; }
+.st-tabs .st-ribbon-toggle:hover { background: var(--acs); color: var(--ach); }
+.st-tabs .st-ribbon-toggle:focus-visible { outline: 2px solid var(--ac); outline-offset: 1px; }
 .st-ribbon-toggle .ic { width: 16px !important; height: 16px !important; stroke-width: 2.2 !important; transition: transform .2s; }
 .ribbon-min .st-ribbon-toggle .ic { transform: rotate(180deg); }
 .ribbon-min .st-ribbon { display: none; }
@@ -206,6 +208,22 @@ body.studio { background: var(--alt); }
 .st-lib-prev .thumb-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; background: none; }
 .st-lib-prev .slide { padding: 0; background: none !important; }
 .st-lib-name { font: 500 12px/1.3 var(--font); color: var(--tx2); padding: 0 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Мои шаблоны: картинка-превью и кнопка удаления при наведении */
+.st-lib-own { position: relative; }
+.st-lib-own .st-lib-item { width: 100%; }
+.st-lib-own .st-lib-slot, .st-lib-own .st-lib-prev { display: block; }
+.st-lib-prev img { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); object-fit: contain; }
+.st-lib-del { position: absolute; top: 6px; right: 8px; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 1px solid var(--bd); border-radius: 6px; background: var(--surf); color: var(--mu); cursor: pointer; opacity: 0; transition: opacity .12s; }
+.st-lib-del .ic { width: 12px !important; height: 12px !important; }
+.st-lib-own:hover .st-lib-del, .st-lib-del:focus-visible { opacity: 1; }
+.st-lib-del:hover { color: #DC2626; border-color: #FCA5A5; }
+/* Окно «Сохранить как шаблон» */
+.st-tpl-pop { width: 300px; padding: 12px; }
+.st-tpl-form { display: flex; flex-direction: column; gap: 8px; }
+.st-tpl-form input { height: 32px; padding: 0 10px; border: 1px solid var(--bd); border-radius: 8px; background: var(--bg); color: var(--tx); font: 500 13px var(--font); }
+.st-tpl-form input:focus { outline: none; border-color: var(--ac); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 18%, transparent); }
+.st-tpl-note { margin: 0; font: 12px/1.45 var(--font); color: var(--mu); max-width: none; }
+.st-tpl-acts { display: flex; justify-content: flex-end; gap: 6px; }
 .st-lib-item:hover .st-lib-name { color: var(--ach); }
 
 /* Путь к выделенному над слайдом */

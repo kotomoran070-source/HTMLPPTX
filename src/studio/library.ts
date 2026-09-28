@@ -3,6 +3,7 @@ import { H, W } from '../engine/deck-view';
 import { esc } from '../engine/html';
 import { Renderer } from '../engine/render';
 import type { Block, Deck } from '../types';
+import type { Template } from './templates';
 
 export interface Preset {
   name: string;
@@ -284,17 +285,29 @@ export function closeLibrary(): void {
  * Галерея блоков под кнопкой ленты, как галерея фигур в PowerPoint:
  * разделы с заголовками одной прокручиваемой панелью. pick — вставить выбранный.
  */
-export function showLibrary(anchor: HTMLElement, deck: Deck, pick: (p: Preset) => void): void {
+export interface MineOpts {
+  list: Template[];
+  pick(t: Template): void;
+  remove(t: Template): void;
+}
+
+export function showLibrary(anchor: HTMLElement, deck: Deck, pick: (p: Preset) => void, mine?: MineOpts): void {
   if (openEl) return closeLibrary();
   const el = document.createElement('div');
   el.className = 'st-lib';
   el.dataset.edKeep = '';
   el.setAttribute('role', 'dialog');
   el.setAttribute('aria-label', 'Блоки');
-  el.innerHTML = LIBRARY.map((c, ci) => `<section><h4>${icon(c.icon)}<span>${esc(c.name)}</span></h4><div class="st-lib-grid${c.compact ? ' compact' : ''}">${c.items.map((p, pi) =>
+  // Свои шаблоны — первым разделом, если они есть
+  const own = mine?.list.length
+    ? `<section class="st-lib-mine"><h4>${icon('sparkle')}<span>Мои шаблоны</span></h4><div class="st-lib-grid">${mine.list.map((t, ti) =>
+      `<div class="st-lib-own"><button type="button" class="st-lib-item" data-t="${ti}" title="Вставить: ${esc(t.name)}"><span class="st-lib-slot"><span class="st-lib-prev">${t.preview ? `<img src="${esc(t.preview)}" alt="">` : ''}</span></span><span class="st-lib-name">${esc(t.name)}</span></button>`
+      + `<button type="button" class="st-lib-del" data-del="${ti}" title="Удалить шаблон" aria-label="Удалить шаблон «${esc(t.name)}»">${icon('close')}</button></div>`).join('')}</div></section>`
+    : '';
+  el.innerHTML = own + LIBRARY.map((c, ci) => `<section><h4>${icon(c.icon)}<span>${esc(c.name)}</span></h4><div class="st-lib-grid${c.compact ? ' compact' : ''}">${c.items.map((p, pi) =>
     `<button type="button" class="st-lib-item" data-c="${ci}" data-p="${pi}" title="Вставить: ${esc(p.name)}"><span class="st-lib-slot">${p.glyph ? `<svg class="st-lib-glyph" viewBox="0 0 48 32" aria-hidden="true">${p.glyph}</svg>` : ''}</span><span class="st-lib-name">${esc(p.name)}</span></button>`).join('')}</div></section>`).join('');
   document.body.appendChild(el);
-  el.querySelectorAll<HTMLElement>('.st-lib-item').forEach((b) => {
+  el.querySelectorAll<HTMLElement>('.st-lib-item[data-c]').forEach((b) => {
     const p = LIBRARY[Number(b.dataset.c)].items[Number(b.dataset.p)];
     if (!p.glyph) b.querySelector('.st-lib-slot')!.appendChild(preview(deck, p));
   });
@@ -331,10 +344,19 @@ export function showLibrary(anchor: HTMLElement, deck: Deck, pick: (p: Preset) =
     list[Math.max(0, Math.min(list.length - 1, i + d))].focus();
   };
   el.addEventListener('click', (e) => {
+    const del = (e.target as Element).closest<HTMLElement>('[data-del]');
+    if (del && mine) {
+      const t = mine.list[Number(del.dataset.del)];
+      mine.remove(t);
+      del.parentElement!.remove();
+      if (!el.querySelector('.st-lib-own')) el.querySelector('.st-lib-mine')?.remove();
+      return;
+    }
     const b = (e.target as Element).closest<HTMLElement>('.st-lib-item');
     if (!b) return;
     close();
-    pick(LIBRARY[Number(b.dataset.c)].items[Number(b.dataset.p)]);
+    if (b.dataset.t !== undefined && mine) mine.pick(mine.list[Number(b.dataset.t)]);
+    else pick(LIBRARY[Number(b.dataset.c)].items[Number(b.dataset.p)]);
   });
   addEventListener('pointerdown', outside, true);
   addEventListener('keydown', onKey, true);

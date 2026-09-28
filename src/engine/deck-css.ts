@@ -10,7 +10,7 @@ const ID = 'htmlpptx-deck-css';
 const TOP = /^@(-webkit-)?(keyframes|font-face|property|counter-style|font-feature-values)\b/i;
 
 /** Верхнеуровневые правила: учитывает строки, комментарии и вложенные скобки. */
-function statements(css: string): string[] {
+export function statements(css: string): string[] {
   const out: string[] = [];
   let depth = 0;
   let start = 0;
