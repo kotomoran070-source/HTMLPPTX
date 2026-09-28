@@ -27,20 +27,21 @@ const YOUTUBE = /(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|sho
 const VIMEO = /vimeo\.com\/(?:video\/)?(\d+)/i;
 
 /** Ролик с YouTube или Vimeo: адрес плеера и обложка. */
-export function videoEmbed(src: string, o: { autoplay: boolean; muted: boolean; loop: boolean; controls: boolean }): { url: string; thumb?: string; service: string } | null {
+export function videoEmbed(src: string, o: { autoplay: boolean; muted: boolean; loop: boolean; controls: boolean }): { url: string; thumb?: string; service: string; watch: string } | null {
   const b = (v: boolean) => (v ? 1 : 0);
   const yt = YOUTUBE.exec(src);
   if (yt) {
     const id = yt[1];
     return {
       service: 'YouTube',
+      watch: `https://www.youtube.com/watch?v=${id}`,
       thumb: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
       url: `https://www.youtube-nocookie.com/embed/${id}?autoplay=${b(o.autoplay)}&mute=${b(o.muted)}&loop=${b(o.loop)}&playlist=${id}&controls=${b(o.controls)}&rel=0&playsinline=1&modestbranding=1`,
     };
   }
   const vm = VIMEO.exec(src);
   if (vm) {
-    return { service: 'Vimeo', url: `https://player.vimeo.com/video/${vm[1]}?autoplay=${b(o.autoplay)}&muted=${b(o.muted)}&loop=${b(o.loop)}&controls=${b(o.controls)}&dnt=1` };
+    return { service: 'Vimeo', watch: `https://vimeo.com/${vm[1]}`, url: `https://player.vimeo.com/video/${vm[1]}?autoplay=${b(o.autoplay)}&muted=${b(o.muted)}&loop=${b(o.loop)}&controls=${b(o.controls)}&dnt=1` };
   }
   return null;
 }
@@ -67,7 +68,7 @@ defineBlock<VideoProps>('video', {
       box = `<div class="video-box video-empty">${icon('play')}<b>Видео</b><small>Перетащите MP4 на слайд или укажите ссылку</small></div>`;
     } else if (embed) {
       const cover = poster || embed.thumb;
-      box = `<div class="video-box video-embed" data-embed="${esc(embed.url)}">`
+      box = `<div class="video-box video-embed" data-embed="${esc(embed.url)}" data-watch="${esc(embed.watch)}" data-service="${esc(embed.service)}">`
         + (cover ? `<img class="video-cover" src="${esc(cover)}" alt="" loading="lazy">` : '')
         + `<span class="video-badge">${icon('play')}${esc(embed.service)}</span></div>`;
     } else {
@@ -92,8 +93,16 @@ defineBlock<VideoProps>('video', {
           video.currentTime = 0;
           void video.play().catch(() => { /* браузер не дал запустить со звуком: остаётся кнопка плеера */ });
         }
+      } else if (embed && !frame && !editing() && location.protocol === 'file:') {
+        // Файл с диска: у страницы нет адреса, и YouTube не показывает встроенный плеер (ошибка 153).
+        // Вместо сломанного плеера — обложка и переход к ролику на сайте сервиса
+        if (!embed.querySelector('.video-out')) {
+          embed.insertAdjacentHTML('beforeend', `<a class="video-out" href="${esc(embed.dataset.watch ?? '')}" target="_blank" rel="noopener">${icon('play')}Смотреть на ${esc(embed.dataset.service ?? 'сайте')}</a>`);
+        }
       } else if (embed && !frame && !editing()) {
         const f = document.createElement('iframe');
+        // Плеер узнаёт, на каком сайте он встроен: без этого YouTube отвечает ошибкой 153
+        f.referrerPolicy = 'strict-origin-when-cross-origin';
         const url = presenter() ? embed.dataset.embed!.replace(/([?&])(mute|muted)=0/, '$1$2=1') : embed.dataset.embed!;
         f.src = url;
         f.allow = 'autoplay; fullscreen; picture-in-picture; encrypted-media';
