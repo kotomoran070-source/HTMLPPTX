@@ -694,10 +694,17 @@ class Converter {
           const c = rgba(cs.getPropertyValue(`border-${s}-color`));
           return w > 0 && c && cs.getPropertyValue(`border-${s}-style`) !== 'none' ? { type: 'solid', pt: pt(w), color: c.hex } : { type: 'none' };
         };
-        let text = (cell as HTMLElement).innerText.replace(/\s+/g, ' ').trim();
+        // Переносы строк внутри ячейки (задача и результат) сохраняются
+        let text = (cell as HTMLElement).innerText.replace(/[^\S\n]+/g, ' ').replace(/ *\n */g, '\n').trim();
         if (cs.textTransform === 'uppercase') text = text.toUpperCase();
+        // Оформление внутри ячейки (жирная строка задачи, цветная метка) — фрагментами, как в надписях
+        const rich = (cell as HTMLElement).querySelector('b, i, u, .md-c, br, .tbl-badge') ? this.runs(cell as HTMLElement, 1, k) : null;
+        // Метка: цветная точка — знаком «●» того же цвета
+        const dot = (cell as HTMLElement).querySelector<HTMLElement>('.tbl-badge > i');
+        const dc = dot ? rgba(getComputedStyle(dot).backgroundColor) : null;
+        if (rich?.length && dc) rich.unshift({ text: '● ', options: { ...rich[0].options, color: dc.hex, bold: false } });
         return {
-          text,
+          text: rich?.length ? rich : text,
           options: {
             fill: fill ? { color: fill.hex, transparency: transparency(fill.a) } : undefined,
             color: color?.hex, bold: Number(cs.fontWeight) >= 600, fontSize: pt(parseFloat(cs.fontSize) * k), fontFace: fontFace(cs.fontFamily), lang: LANG,
@@ -709,6 +716,9 @@ class Converter {
       }));
     });
     this.slide.addTable(rows, { x: inch(tb.x), y: inch(tb.y), w: inch(tb.w), colW: widths.map(inch), rowH: heights.map(inch) });
+    // Строка итога под таблицей — подложкой и текстом, как на слайде
+    const foot = el.querySelector<HTMLElement>(':scope > .tbl-foot');
+    if (foot) await this.walk(foot, 1, k);
   }
 
   // ---------------- графики ----------------

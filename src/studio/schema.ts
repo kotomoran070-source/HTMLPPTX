@@ -203,10 +203,13 @@ export const BLOCKS: Record<string, Schema> = {
     about: 'Таблицу из Excel можно вставить в любую ячейку.',
     fields: [
       { k: 'rows', label: 'Данные', type: 'grid' },
-      { k: 'variant', label: 'Вид', type: 'select', options: [['', 'Линии'], ['stripes', 'Зебра'], ['boxed', 'Сетка'], ['accent', 'Акцентная шапка']] },
+      { k: 'variant', label: 'Вид', type: 'select', options: [['', 'Линии'], ['stripes', 'Зебра'], ['boxed', 'Сетка'], ['accent', 'Акцентная шапка'], ['soft', 'Мягкая'], ['dark', 'Тёмная шапка'], ['plan', 'План с приоритетами']] },
       { k: 'labels', label: 'Первый столбец — подписи (жирным)', type: 'bool' },
       { k: 'highlight', label: 'Выделенная строка', type: 'number', min: 0, placeholder: 'нет', hint: 'Номер с нуля' },
       { k: 'size', label: 'Размер текста, px', type: 'number', min: 10, max: 40, placeholder: '17' },
+      { k: 'badge', label: 'Столбец меток', type: 'number', min: 0, placeholder: 'нет', hint: 'Номер с нуля. Ячейки — метки с точкой: «Высокий», «Готово» или {#16A34A|свой цвет}' },
+      { k: 'footer', label: 'Итог под таблицей', type: 'text', placeholder: 'Всего позиций: {rows}', hint: '{rows} — число строк' },
+      { k: 'footnote', label: 'Подпись справа', type: 'text' },
     ],
   },
   stat: {

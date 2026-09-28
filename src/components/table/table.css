@@ -45,6 +45,29 @@
 .tbl-dark th { color: var(--bg); }
 .tbl-dark td { border-bottom: 1px solid var(--bd); }
 
+/* plan — план работ: спокойная карточка, номер строки, задача в две строки, метки приоритета */
+.tbl-plan thead tr { background: var(--alt); }
+.tbl-plan th { border-bottom: 1px solid var(--bd); }
+.tbl-plan td { border-bottom: 1px solid var(--bd); color: var(--tx2); }
+.tbl-plan td b { color: var(--tx); font-weight: 600; }
+/* Второй столбец — направление: основным цветом, как подпись строки */
+.tbl-plan td:nth-child(2) { color: var(--tx); }
+.tbl-plan td:first-child { color: var(--mu); font-size: .86em; font-variant-numeric: tabular-nums; }
+.tbl-plan tbody tr { transition: background-color .15s; }
+.tbl-plan tbody tr:hover { background: color-mix(in srgb, var(--alt) 60%, var(--surf)); }
+
+/* Метка в ячейке: рамка и цветная точка (приоритет, статус) */
+.tbl-badge { display: inline-flex; align-items: center; gap: .5em; padding: .22em .75em; border: 1px solid var(--bd); border-radius: 8px; background: var(--surf); color: var(--tx2); font-size: .82em; font-weight: 600; line-height: 1.35; white-space: nowrap; }
+.tbl-badge i { flex: none; width: .55em; height: .55em; border-radius: 50%; background: var(--dot, var(--mu)); }
+
+/* Строка итога под таблицей — продолжение карточки */
+.tbl-foot { display: flex; justify-content: space-between; gap: 1em; padding: .6em var(--px); color: var(--mu); font-size: .76em; font-variant-numeric: tabular-nums; }
+.tbl-foot b { color: var(--tx); }
+.tbl-foot span:empty { display: none; }
+.tbl-footed:not(.tbl-lines) table { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.tbl-footed:not(.tbl-lines) .tbl-foot { border: 1px solid var(--bd); border-top: 0; border-radius: 0 0 var(--r) var(--r); background: var(--alt); }
+.tbl-footed.tbl-lines .tbl-foot { padding-left: 0; padding-right: 0; border-top: 2px solid var(--bd2); }
+
 /* У последней строки нет нижней линии: её роль играет рамка */
 .tbl tbody tr:last-child td { border-bottom: 0; }
 
