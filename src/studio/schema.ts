@@ -299,6 +299,11 @@ const BUTTONS: Field = {
   ],
 };
 
+// Ссылка и кнопки финальных слайдов после разбора: те же поля, что у шаблона
+BLOCKS['link-card'] = { fields: [LINK] };
+BLOCKS['link-buttons'] = { fields: [BUTTONS] };
+BLOCKS['link-plate'] = { fields: [LINK, BUTTONS] };
+
 export const TEMPLATES: Record<string, Schema> = {
   content: {
     fields: [

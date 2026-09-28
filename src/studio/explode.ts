@@ -21,6 +21,8 @@ interface Host {
 }
 
 const TEMPLATES = new Set(['content', 'cover', 'finale', 'space']);
+/** Части с логикой (ссылка → QR, кнопки): не делятся и становятся живыми блоками */
+const LIVE = '.sp-card, .sp-row, .sp-panel, .plate';
 
 export function canExplode(slide: SlideData | undefined): boolean {
   return !!slide && TEMPLATES.has(slide.template ?? 'content') && !slide.live;
@@ -69,7 +71,7 @@ export function explodeSlide(host: Host, index: number): boolean {
     return bg || cs.backgroundImage !== 'none' || parseFloat(cs.borderTopWidth) > 0 || cs.boxShadow !== 'none';
   };
   const expand = (el: Element): Element[] => {
-    if (el.matches('[data-edit],[data-edit-img],[data-block]') || el.matches('a,button') || boxed(el)) return [el];
+    if (el.matches('[data-edit],[data-edit-img],[data-block]') || el.matches('a,button') || boxed(el) || el.matches(LIVE)) return [el];
     const inner = kids(el);
     const withFields = inner.filter(editable);
     // Обёртка ровно вокруг одного блока — это сам блок
@@ -106,8 +108,14 @@ export function explodeSlide(host: Host, index: number): boolean {
   };
   const effects: UserEffect[] = [];
   const shared = new Map<string, string>();
+  const look = data.template === 'finale' ? 'fin' : data.layout === 'orbit' ? 'orbit' : 'space';
+  const copy = <T>(v: T): T | undefined => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
   const toBlock = (el: Element): Block | null => {
     const place = rect(el);
+    // Ссылка с QR и кнопки — живыми блоками: адрес правится, QR строится заново
+    if (el.matches('.sp-card') && data.link) return { type: 'link-card', look, link: copy(data.link), place };
+    if (el.matches('.sp-row') && Array.isArray(data.buttons)) return { type: 'link-buttons', look, buttons: copy(data.buttons), place };
+    if (el.matches('.sp-panel, .plate')) return { type: 'link-plate', look, ...(data.link ? { link: copy(data.link) } : {}), ...(Array.isArray(data.buttons) ? { buttons: copy(data.buttons) } : {}), place };
     if (el.hasAttribute('data-block')) {
       // Встроенный блок (график, схема на обложке) — его данные как есть
       const path = JSON.parse(el.getAttribute('data-block')!) as Path;
@@ -118,7 +126,7 @@ export function explodeSlide(host: Host, index: number): boolean {
     }
     const clone = el.cloneNode(true) as HTMLElement;
     const texts: unknown[] = [];
-    const images: { src: string }[] = [];
+    const images: ({ src: string } | { brand: true })[] = [];
     // Поля текста → тексты вёрстки; их внутренняя разметка (слова заголовка) уходит
     const origEdits = [el, ...el.querySelectorAll('[data-edit]')].filter((x) => x.hasAttribute('data-edit'));
     const cloneEdits = [clone, ...clone.querySelectorAll('[data-edit]')].filter((x) => x.hasAttribute('data-edit'));
@@ -145,7 +153,8 @@ export function explodeSlide(host: Host, index: number): boolean {
       if (!src) return;
       img.removeAttribute('src');
       img.setAttribute('data-i', String(images.length));
-      images.push({ src });
+      // Логотип презентации остаётся её логотипом: сменят — сменится и здесь
+      images.push(img.getAttribute('data-edit-img') === JSON.stringify(['brand', 'logo']) ? { brand: true } : { src });
     });
     // Служебные пометки редактора — не часть вёрстки
     [clone, ...clone.querySelectorAll('*')].forEach((x) => {

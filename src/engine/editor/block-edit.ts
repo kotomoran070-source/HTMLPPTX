@@ -23,6 +23,7 @@ const NAMES: Record<string, string> = {
   chips: 'Чипы', network: 'Схема сети', hub: 'Схема итогов', system: 'Схема системы', pipeline: 'Пайплайн',
   'line-chart': 'График', uptime: 'Доступность', bars: 'Столбцы', spacer: 'Отступ',
   html: 'Элемент', embed: 'Живая вставка', stat: 'Число', quote: 'Цитата', timeline: 'Хронология', shape: 'Фигура', table: 'Таблица', group: 'Группа', video: 'Видео', model: '3D-модель',
+  'link-card': 'Ссылка с QR', 'link-buttons': 'Кнопки-ссылки', 'link-plate': 'Контакты', 'space-sky': 'Звёздное небо',
 };
 
 const readPath = (el: Element, attr: string): Path | null => {

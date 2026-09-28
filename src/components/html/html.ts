@@ -18,7 +18,7 @@ import './html.css';
 interface HtmlProps extends Block {
   html?: string;
   texts?: unknown[];
-  images?: (ImageFrame & { src?: string })[];
+  images?: (ImageFrame & { src?: string; brand?: boolean })[];
   scale?: number;
 }
 
@@ -157,7 +157,7 @@ defineBlock<HtmlProps>('html', {
       mo.disconnect();
     };
   },
-  render(p) {
+  render(p, ctx) {
     const scale = Number(p.scale) > 0 && Number(p.scale) <= 4 ? Number(p.scale) : 1;
     const f = fragment(String(p.html ?? ''));
     const texts = Array.isArray(p.texts) ? p.texts : [];
@@ -179,9 +179,16 @@ defineBlock<HtmlProps>('html', {
       const i = Number(img.getAttribute('data-i'));
       img.removeAttribute('data-i');
       const item = images[i];
-      const src = item && typeof item === 'object' ? item.src : undefined;
+      // brand: true — логотип презентации (после разбора шаблона): меняется вместе с ним
+      const src = item && typeof item === 'object' ? (item.brand ? ctx.logo : item.src) : undefined;
       if (src) img.setAttribute('src', src);
       else img.classList.add('html-empty');
+      if (item && typeof item === 'object' && item.brand && !item.src) {
+        // Замена такой картинки — замена логотипа презентации, как на исходном слайде
+        img.setAttribute('data-edit-img', JSON.stringify(['brand', 'logo']));
+        img.setAttribute('data-img-kind', 'logo');
+        return;
+      }
       if (item && typeof item === 'object' && (item.fit || item.position || item.zoom)) addStyle(img, frameCss(item, 'contain'));
       // Как eimg(): картинку можно заменить, убрать, вписать или кадрировать
       const ip = item && typeof item === 'object' ? pathOf(item) : undefined;

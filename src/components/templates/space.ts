@@ -3,7 +3,7 @@ import { asArray, esc, t } from '../../engine/html';
 import { ea, eurl, tx } from '../../engine/marks';
 import { qrSvg } from '../qr';
 import { logoImg } from './content';
-import { button, linkText, words, type FinaleSlide } from './finale';
+import { button, linkText, words, type FinaleLink, type FinaleSlide } from './finale';
 import './space.css';
 
 interface SpaceSlide extends FinaleSlide {
@@ -33,17 +33,10 @@ defineTemplate<SpaceSlide>('space', {
     const logo = ctx.logo
       ? `<div class="sp-logow r"><div class="sp-halo"></div>${orbit ? '' : '<div class="sp-orbit"><i></i></div>'}<div class="sp-tile">${logoImg(ctx.logo)}</div></div>`
       : '';
-    const l = s.link;
-    const link = l
-      ? `<a class="sp-card" href="${esc(l.url)}" target="_blank" rel="noopener"${eurl(l, 'url')}>`
-        + (l.qr !== false ? `<div class="sp-qrbox">${qrSvg(l.url, ctx.logo, `QR-код: ${l.url}`)}</div>` : '')
-        + `<div>${l.label ? `<small${ea(l, 'label')}>${t(l.label)}</small>` : ''}<b${ea(l, 'text')}>${t(linkText(l))}</b></div></a>`
-      : '';
+    const link = spaceCardHtml(s.link, ctx.logo);
     const bts = asArray(s.buttons).map((b) => button(b, 'sp-gbt')).join('');
     // В варианте «орбита» ссылка и кнопки — одна широкая карточка
-    const card = orbit && (link || bts)
-      ? `<div class="sp-panel">${link}${link && bts ? '<i class="sp-sep"></i>' : ''}${bts ? `<div class="sp-row">${bts}</div>` : ''}</div>`
-      : link;
+    const card = orbit && (link || bts) ? spacePanelHtml(link, bts) : link;
     return skyHtml(orbit)
       + `<div class="sp-wrap${orbit ? ' orbit' : ''}">`
       + (s.badge ? `<div class="sp-badge r">${orbit ? '' : '<i class="sp-dot"></i>'}${tx(s, 'badge')}</div>` : '')
@@ -59,6 +52,20 @@ defineTemplate<SpaceSlide>('space', {
     return mountSky(el, el, ctx.stage, ctx.reducedMotion);
   },
 });
+
+/** Карточка ссылки с QR «Космоса» (шаблон и блок «Ссылка с QR» после разбора) */
+export function spaceCardHtml(l: FinaleLink | undefined, logo?: string): string {
+  return l
+    ? `<a class="sp-card" href="${esc(l.url)}" target="_blank" rel="noopener"${eurl(l, 'url')}>`
+      + (l.qr !== false ? `<div class="sp-qrbox">${qrSvg(l.url, logo, `QR-код: ${l.url}`)}</div>` : '')
+      + `<div>${l.label ? `<small${ea(l, 'label')}>${t(l.label)}</small>` : ''}<b${ea(l, 'text')}>${t(linkText(l))}</b></div></a>`
+    : '';
+}
+
+/** Широкая карточка «орбиты»: ссылка и кнопки вместе */
+export function spacePanelHtml(link: string, bts: string): string {
+  return `<div class="sp-panel">${link}${link && bts ? '<i class="sp-sep"></i>' : ''}${bts ? `<div class="sp-row">${bts}</div>` : ''}</div>`;
+}
 
 /** Звёздное небо «Космоса»: звёзды, связи, метеоры; у «орбиты» — небо на canvas и кольца */
 function skyHtml(orbit: boolean): string {

@@ -262,6 +262,14 @@ class Converter {
   private async walk(el: HTMLElement, opacity: number, parentK: number): Promise<void> {
     const cs = getComputedStyle(el);
     if (cs.display === 'none' || cs.visibility === 'hidden') return;
+    // Обёртка без своей рамки (display: contents — части разобранного шаблона): только её дети
+    if (cs.display === 'contents') {
+      for (const n of el.childNodes) {
+        if (n.nodeType === Node.TEXT_NODE && n.textContent?.trim()) this.looseText(n as Text, cs, opacity, parentK);
+        else if (n.nodeType === Node.ELEMENT_NODE) await this.walk(n as HTMLElement, opacity, parentK);
+      }
+      return;
+    }
     const op = opacity * Number(cs.opacity || 1);
     if (op < 0.03) return;
     const k = this.unit(el, parentK);

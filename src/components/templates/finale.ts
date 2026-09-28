@@ -49,23 +49,26 @@ export function button(b: FinaleButton, cls: string): string {
     : `<div class="${cls}" tabindex="0" aria-label="${esc(b.label)}"${eurl(b, 'url')}>${inner}</div>`;
 }
 
+/** Плашка «Финала»: QR, главная ссылка и кнопки (шаблон и блок «Контакты» после разбора) */
+export function plateHtml(s: { link?: FinaleLink; buttons?: FinaleButton[] }, logo?: string): string {
+  if (!s.link && !s.buttons?.length) return '';
+  const l = s.link;
+  const qr = l && l.qr !== false ? `<div class="qr">${qrSvg(l.url, logo, `QR-код: ${l.url}`)}</div>` : '';
+  const primary = l
+    ? `<a class="it primary" href="${esc(l.url)}" target="_blank" rel="noopener"${eurl(l, 'url')}><i>${icon('browser')}</i><div>`
+      + (l.label ? `<small${ea(l, 'label')}>${t(l.label)}</small>` : '') + `<b${ea(l, 'text')}>${t(linkText(l))}</b></div></a>`
+    : '';
+  const bts = asArray(s.buttons).map((b) => button(b, 'bt neutral')).join('');
+  return `<div class="plate${qr ? '' : ' noqr'}">${qr}<div class="pl">${primary}${bts ? `<div class="bts">${bts}</div>` : ''}</div></div>`;
+}
+
 /** Финальный слайд: кольца, световой луч, анимированный заголовок и плашка с QR и контактами. */
 defineTemplate<FinaleSlide>('finale', {
   className: 'fin',
   render(s, ctx) {
     const rings = [0, 1.5, 3, 4.5].map((d) => `<circle cx="640" cy="200" r="54" style="--d:${d}s"/>`).join('');
     const logo = ctx.logo ? `<div class="logo fin-logo">${logoImg(ctx.logo)}</div>` : '';
-    let plate = '';
-    if (s.link || s.buttons?.length) {
-      const l = s.link;
-      const qr = l && l.qr !== false ? `<div class="qr">${qrSvg(l.url, ctx.logo, `QR-код: ${l.url}`)}</div>` : '';
-      const primary = l
-        ? `<a class="it primary" href="${esc(l.url)}" target="_blank" rel="noopener"${eurl(l, 'url')}><i>${icon('browser')}</i><div>`
-          + (l.label ? `<small${ea(l, 'label')}>${t(l.label)}</small>` : '') + `<b${ea(l, 'text')}>${t(linkText(l))}</b></div></a>`
-        : '';
-      const bts = asArray(s.buttons).map((b) => button(b, 'bt neutral')).join('');
-      plate = `<div class="plate${qr ? '' : ' noqr'}">${qr}<div class="pl">${primary}${bts ? `<div class="bts">${bts}</div>` : ''}</div></div>`;
-    }
+    const plate = plateHtml(s, ctx.logo);
     return `<svg class="rg" viewBox="0 0 1280 720" aria-hidden="true">${rings}</svg><div class="beam"></div>`
       + (s.caption ? `<div class="cap"${ea(s, 'caption')}>${t(s.caption)}</div>` : '')
       + logo

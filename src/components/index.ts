@@ -6,6 +6,7 @@ import './templates/content';
 import './templates/cover';
 import './templates/finale';
 import './templates/space';
+import './templates/contacts';
 import './templates/canvas';
 
 import './layout/layout';
