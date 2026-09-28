@@ -8,6 +8,7 @@ import { esc } from './html';
 import { slideLabel } from './render';
 import { Ink } from './ink';
 import { RemoteHover } from './remote-hover';
+import { CAMERA_SET } from '../components/media/model';
 import { printDeck, setupPrint } from './print';
 import { fullscreenOn, planScreens, popupOn, screensGranted } from './screens';
 import { Sync } from './sync';
@@ -462,7 +463,10 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   // Команды принимаются только адресованные этому окну (Sync отсеивает чужие по полю to)
   sync.on((m, from) => {
     if (m.type === 'goto') go(m.index);
-    else if (m.type === 'ink') {
+    else if (m.type === 'camera') {
+      const { type: _t, ...detail } = m;
+      window.dispatchEvent(new CustomEvent(CAMERA_SET, { detail }));
+    } else if (m.type === 'ink') {
       ink.apply(m.ink);
       if (m.ink.op === 'cursor') hover.move(m.ink.x, m.ink.y);
       else if (m.ink.op === 'cursor-off') hover.off();

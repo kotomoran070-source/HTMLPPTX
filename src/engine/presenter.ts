@@ -1,4 +1,5 @@
 import { icon } from '../components/icons';
+import { CAMERA, type CameraState } from '../components/media/model';
 import type { Deck } from '../types';
 import { applyAccent } from './accent';
 import { replaceContents } from './data';
@@ -25,6 +26,12 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   const count = () => deck.slides.length;
   document.title = `Докладчик — ${deck.title}`;
   document.body.classList.add('presenter');
+  // Повтор мыши и живые 3D-модели для зрителей (кнопка в панели, M): до отрисовки слайдов —
+  // модели решают при появлении, живые они здесь или снимок
+  const MIRROR_KEY = 'htmlpptx-presenter-mirror';
+  let mirror = true;
+  try { mirror = localStorage.getItem(MIRROR_KEY) !== '0'; } catch { /* нет хранилища */ }
+  document.body.classList.toggle('pres-live', mirror);
   document.body.innerHTML = `
 <div class="pres">
   <header class="pres-top">
@@ -54,6 +61,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
         <i class="pd-sep" aria-hidden="true"></i>
         <button type="button" class="pd-btn" id="tgrid" title="Все слайды (G)" aria-label="Все слайды">${icon('grid')}</button>
         <button type="button" class="pd-btn" id="bk" aria-pressed="false" title="Чёрный экран у зрителей (B)" aria-label="Чёрный экран">${icon('screen-off')}</button>
+        <button type="button" class="pd-btn" id="tmir" aria-pressed="true" title="Мышь и 3D у зрителей (M): курсор, наведение и поворот моделей повторяются в окне показа" aria-label="Мышь и 3D у зрителей">${icon('cursor')}</button>
       </div>
     </section>
     <div class="pres-split v" id="sv" role="separator" aria-orientation="vertical" aria-label="Размер текущего слайда" tabindex="0" title="Потяните, чтобы изменить размер. Двойной щелчок — сбросить"></div>
@@ -100,7 +108,24 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   let tool: InkTool = 'none';
   let penColor = PEN_COLORS[0];
   const sendInk = (m: InkMsg) => sync.send({ type: 'ink', ink: m }, toMain());
-  inkInput(cur, ink, () => tool, (): StrokeStyle => ({ color: penColor, width: 5 }), sendInk);
+  // Повтор мыши и живые 3D-модели для зрителей: можно выключить, если на слайдах нет
+  // наведений и моделей — тогда окна ничего лишнего не пересылают и не рисуют
+  inkInput(cur, ink, () => tool, (): StrokeStyle => ({ color: penColor, width: 5 }), sendInk, () => mirror);
+  window.addEventListener(CAMERA, (e) => {
+    if (mirror) sync.send({ type: 'camera', ...(e as CustomEvent<CameraState>).detail }, toMain());
+  });
+  function setMirror(on: boolean): void {
+    mirror = on;
+    try { localStorage.setItem(MIRROR_KEY, on ? '1' : '0'); } catch { /* нет хранилища */ }
+    $('tmir').setAttribute('aria-pressed', String(on));
+    if (!on) sendInk({ op: 'cursor-off' });
+    // Модели текущего слайда: живые или снимок — слайды перерисовываются
+    document.body.classList.toggle('pres-live', on);
+    view.build(deck);
+    const i = index;
+    index = -1;
+    render(i);
+  }
   const clearInk = () => { ink.apply({ op: 'clear' }); sendInk({ op: 'clear' }); };
   function setTool(t: InkTool): void {
     tool = tool === t ? 'none' : t;
@@ -294,6 +319,8 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   $('nx').addEventListener('click', () => go(index + 1));
   $('pv').addEventListener('click', () => go(index - 1));
   $('bk').addEventListener('click', () => setBlack(!black));
+  $('tmir').addEventListener('click', () => setMirror(!mirror));
+  $('tmir').setAttribute('aria-pressed', String(mirror));
   $('tcl').addEventListener('click', clearInk);
   $('thm').addEventListener('click', () => toggleTheme());
   let remoteTheme = false;
@@ -320,6 +347,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       d: () => setTool('pen'), 'в': () => setTool('pen'),
       c: () => clearInk(), 'с': () => clearInk(),
       g: openGrid, 'п': openGrid,
+      m: () => setMirror(!mirror), 'ь': () => setMirror(!mirror),
       escape: () => { if (tool !== 'none') setTool(tool); },
     };
     const fn = map[k] ?? letters[lower];

@@ -156,7 +156,7 @@ export type InkTool = 'none' | 'laser' | 'pen' | 'marker';
  * Рисование мышью или пальцем по области слайда (окно докладчика).
  * send — передать действие окну показа; действие сразу применяется и локально.
  */
-export function inkInput(area: HTMLElement, ink: Ink, tool: () => InkTool, style: () => StrokeStyle, send: (m: InkMsg) => void): void {
+export function inkInput(area: HTMLElement, ink: Ink, tool: () => InkTool, style: () => StrokeStyle, send: (m: InkMsg) => void, mirror: () => boolean = () => true): void {
   const emit = (m: InkMsg) => { ink.apply(m); send(m); };
   let stroke: string | null = null;
   let raf = 0;
@@ -177,7 +177,7 @@ export function inkInput(area: HTMLElement, ink: Ink, tool: () => InkTool, style
   let curRaf = 0;
   let curAt: { x: number; y: number } | null = null;
   area.addEventListener('pointermove', (e) => {
-    if (tool() !== 'none' || e.pointerType === 'touch') return;
+    if (tool() !== 'none' || e.pointerType === 'touch' || !mirror()) return;
     curAt = ink.toSlide(e);
     if (curRaf) return;
     curRaf = requestAnimationFrame(() => {
@@ -186,11 +186,11 @@ export function inkInput(area: HTMLElement, ink: Ink, tool: () => InkTool, style
     });
   });
   area.addEventListener('click', (e) => {
-    if (tool() !== 'none' || e.button !== 0) return;
+    if (tool() !== 'none' || e.button !== 0 || !mirror()) return;
     const p = ink.toSlide(e as PointerEvent);
     if (inside(p)) send({ op: 'click', ...p });
   });
-  area.addEventListener('pointerleave', () => { if (tool() === 'none') send({ op: 'cursor-off' }); });
+  area.addEventListener('pointerleave', () => { if (tool() === 'none' && mirror()) send({ op: 'cursor-off' }); });
   area.addEventListener('pointermove', (e) => {
     const t = tool();
     if (t === 'none') return;

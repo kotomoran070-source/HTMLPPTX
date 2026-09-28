@@ -9,7 +9,9 @@ export type SyncMsg =
   | { type: 'black'; value: boolean }
   | { type: 'deck'; deck: Deck }
   | { type: 'ink'; ink: InkMsg }
-  | { type: 'hello' };
+  | { type: 'hello' }
+  /** Поворот 3D-модели в окне докладчика */
+  | { type: 'camera'; key: string; orbit: string; target: string; fov: number };
 
 interface Envelope {
   ns: 'htmlpptx';

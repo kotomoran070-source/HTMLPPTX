@@ -37,6 +37,23 @@ function loadViewer(): Promise<unknown> {
 const editing = () => document.body.classList.contains('editing');
 const presenter = () => document.body.classList.contains('presenter');
 
+/**
+ * Поворот модели докладчиком — у зрителей. Окно докладчика сообщает о повороте событием
+ * CAMERA (его пересылает presenter.ts), окно показа получает CAMERA_SET (от show.ts).
+ */
+export const CAMERA = 'htmlpptx:camera';
+export const CAMERA_SET = 'htmlpptx:camera-set';
+export interface CameraState { key: string; orbit: string; target: string; fov: number }
+
+interface Viewer extends HTMLElement {
+  getCameraOrbit(): { toString(): string };
+  getCameraTarget(): { toString(): string };
+  getFieldOfView(): number;
+  cameraOrbit: string;
+  cameraTarget: string;
+  fieldOfView: string;
+}
+
 /** 3D-модель (glTF/GLB): вращается сама и мышью. Без WebGL и при печати — снимок. */
 defineBlock<ModelProps>('model', {
   render(p) {
@@ -51,8 +68,12 @@ defineBlock<ModelProps>('model', {
 
   mount(el, p, ctx) {
     const box = el.querySelector<HTMLElement>('[data-model]');
-    // В окне докладчика — только снимок: модель уже крутится у зрителей
-    if (!box || presenter()) return;
+    // В окне докладчика — живая модель только на текущем слайде и если повтор для зрителей включён
+    // (body.pres-live); иначе снимок: вторая отрисовка 3D не нужна
+    const live = presenter() && document.body.classList.contains('pres-live') && !!el.closest('#cur');
+    if (!box || (presenter() && !live)) return;
+    // Какая это модель: одинаково в обоих окнах (номер слайда и путь блока)
+    const key = `${ctx.slide.dataset.index ?? ''}:${el.closest('[data-block]')?.getAttribute('data-block') ?? ''}`;
     let mv: HTMLElement | null = null;
     let timer = 0;
     const on = () => {
@@ -75,8 +96,9 @@ defineBlock<ModelProps>('model', {
         if (ex >= 0.2 && ex <= 3) m.setAttribute('exposure', String(ex));
         m.setAttribute('touch-action', 'pan-y');
         m.className = 'model3d-viewer';
-        // Без встроенной полосы загрузки: до загрузки виден снимок
-        m.innerHTML = '<div slot="progress-bar"></div>';
+        // Без встроенной полосы загрузки: до загрузки виден снимок. Своя метка панорамирования —
+        // пропускает мышь: встроенная лежит в центре модели, и нажатие там не начинало поворот
+        m.innerHTML = '<div slot="progress-bar"></div><div slot="pan-target" style="pointer-events:none"></div>';
         m.addEventListener('load', () => box.classList.add('ready'), { once: true });
         // Не открылась — в редакторе сказать почему, а не оставлять пустой блок (в показе — снимок)
         m.addEventListener('error', (e) => {
@@ -87,6 +109,30 @@ defineBlock<ModelProps>('model', {
               : 'Модель не открылась: файл повреждён или в неподдерживаемом формате';
           box.insertAdjacentHTML('beforeend', `<p class="model3d-err">${esc(msg)}</p>`);
         });
+        if (live) {
+          // Докладчик повернул модель — поворот уходит зрителям (не чаще кадра);
+          // сама она больше не крутится, иначе окна разойдутся
+          let raf = 0;
+          const send = () => {
+            const v = m as Viewer;
+            const detail: CameraState = { key, orbit: v.getCameraOrbit().toString(), target: v.getCameraTarget().toString(), fov: v.getFieldOfView() };
+            window.dispatchEvent(new CustomEvent(CAMERA, { detail }));
+          };
+          m.addEventListener('camera-change', (e) => {
+            if ((e as CustomEvent<{ source?: string }>).detail?.source !== 'user-interaction') return;
+            m.removeAttribute('auto-rotate');
+            if (raf) return;
+            raf = requestAnimationFrame(() => { raf = 0; send(); });
+          });
+          // Отпустили — модель ещё доезжает по инерции: итоговое положение досылается, пока не встанет
+          let settle: number[] = [];
+          const done = () => {
+            settle.forEach(clearTimeout);
+            settle = [150, 400, 800, 1400].map((ms) => window.setTimeout(send, ms));
+          };
+          m.addEventListener('pointerup', done);
+          m.addEventListener('keyup', done);
+        }
         box.appendChild(m);
         mv = m;
       }).catch(() => { /* остаётся снимок */ });
@@ -104,7 +150,19 @@ defineBlock<ModelProps>('model', {
     const mo = new MutationObserver(sync);
     mo.observe(ctx.slide, { attributes: true, attributeFilter: ['class'] });
     sync();
+    // Окно показа: поворот от докладчика (модель плавно доворачивается к нему сама)
+    const follow = (e: Event) => {
+      const c = (e as CustomEvent<CameraState>).detail;
+      if (!mv || c?.key !== key) return;
+      const v = mv as Viewer;
+      mv.removeAttribute('auto-rotate');
+      v.cameraOrbit = c.orbit;
+      v.cameraTarget = c.target;
+      v.fieldOfView = `${c.fov}deg`;
+    };
+    if (!presenter()) window.addEventListener(CAMERA_SET, follow);
     return () => {
+      window.removeEventListener(CAMERA_SET, follow);
       mo.disconnect();
       clearTimeout(timer);
       mv?.remove();
