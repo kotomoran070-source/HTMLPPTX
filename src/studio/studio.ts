@@ -564,7 +564,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
   function slideMenu(i: number): MenuEntry[] {
     const n = count();
     const clip = takeClip();
+    const part = i === index ? targetEntrance() : null;
     return [
+      // Правый щелчок по части слайда с красивым появлением: его можно забрать себе
+      ...(part ? [{ label: 'Сохранить появление как эффект…', icon: 'sparkle', run: () => askEffectName(part) }, null] : []),
       { label: 'Копировать слайд', icon: 'copy', hint: 'Ctrl+C', run: () => copy(false) },
       { label: 'Вставить', icon: 'plus', hint: 'Ctrl+V', disabled: !clip, run: () => clip && pasteClip(clip) },
       null,
@@ -915,10 +918,23 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const el = sel.free ? view.stage.querySelector<HTMLElement>(`.slide.on > [data-free='${JSON.stringify(sel.free)}']`) : selectedEl();
     return el ? findEntrance(el) : null;
   }
-  function askEffectName(): void {
-    const found = selectedEntrance();
+  /**
+   * Появление части слайда под курсором (правый щелчок мимо объектов): заголовок, подпись,
+   * карточка встроенного шаблона. Ищется от элемента под курсором вверх до слайда.
+   */
+  let ctxTarget: Element | null = null;
+  function targetEntrance(): { found: NonNullable<ReturnType<typeof findEntrance>>; el: HTMLElement } | null {
+    const slide = view.stage.querySelector<HTMLElement>(':scope > .slide.on');
+    for (let el = ctxTarget as HTMLElement | null; el && slide && el !== slide && slide.contains(el); el = el.parentElement) {
+      const found = findEntrance(el);
+      if (found) return { found, el };
+    }
+    return null;
+  }
+  function askEffectName(from?: { found: NonNullable<ReturnType<typeof findEntrance>>; el: HTMLElement }): void {
+    const found = from?.found ?? selectedEntrance();
     if (!found) return ed.toast('У этого объекта нет появления, которое можно перенести на другие', 2500);
-    const anchor = selectedEl() ?? $('st-canvas');
+    const anchor = from?.el ?? selectedEl() ?? $('st-canvas');
     askName(anchor, 'Сохранить появление как эффект', 'Движение объекта появится на вкладке «Анимация» → «Мои эффекты», его можно дать любому объекту.', 'Эффект из импорта', (name) => {
       const id = `ufx-${Math.random().toString(36).slice(2, 9)}`;
       const css = found.keyframes.cssText.replace(/^@(-webkit-)?keyframes\s+[^\s{]+/, `@keyframes ${id}`);
@@ -1361,12 +1377,14 @@ export function startStudio(deck: Deck, deckKey: string): void {
   canvas.addEventListener('contextmenu', (e) => {
     if ((e.target as Element).closest('[contenteditable="true"]')) return;
     e.preventDefault();
+    ctxTarget = e.target as Element;
     const freeHost = (e.target as Element).closest('[data-free]');
     const path = freeHost ? readPath(freeHost, 'data-free') : null;
     // Правый клик по объекту из выделенной группы не сбрасывает группу
     const inSel = path && (ed.selection?.group ?? []).some((p) => JSON.stringify(p) === JSON.stringify(path));
     if (path && !inSel) ed.selectFree(Number(path[1]), Number(path[3]));
     showMenu({ x: e.clientX, y: e.clientY }, freeHost || ed.selection ? objectMenu() : slideMenu(index));
+    ctxTarget = null;
   });
   new ResizeObserver(() => { if (zoom === 'fit') layout(); else ed.reposition(); }).observe(canvas);
 

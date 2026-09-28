@@ -248,8 +248,11 @@ export function findEntrance(root: HTMLElement): { keyframes: CSSKeyframesRule; 
     const rule = keyframesRule(f.name);
     if (!rule || !rule.cssRules.length) continue;
     // Только движение самого объекта: цвет, размеры, обводки линий — часть устройства блока
-    const movable = ([...rule.cssRules] as CSSKeyframeRule[]).every((kf) => [...Array(kf.style.length).keys()].every((i) => MOVABLE.test(kf.style[i])));
-    if (movable) return { keyframes: rule, ms: Math.max(100, Math.min(4000, f.ms)), ease: f.ease };
+    const frames = [...rule.cssRules] as CSSKeyframeRule[];
+    const movable = frames.every((kf) => [...Array(kf.style.length).keys()].every((i) => MOVABLE.test(kf.style[i])));
+    // Нужен начальный кадр: анимация «только к концу» держится на исходном виде элемента и на другом не видна
+    const hasStart = frames.some((kf) => /(^|,)\s*(0%|from)\s*(,|$)/.test(kf.keyText));
+    if (movable && hasStart) return { keyframes: rule, ms: Math.max(100, Math.min(4000, f.ms)), ease: f.ease };
   }
   return null;
 }
