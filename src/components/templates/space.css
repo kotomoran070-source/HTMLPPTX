@@ -50,26 +50,26 @@
 
 .sp-wrap h1 { font-size: 60px; line-height: 1.08; margin: 0; font-weight: 800; letter-spacing: .01em; display: flex; gap: .32em; flex-wrap: wrap; justify-content: center; color: #F3F6FC; }
 .sp-w { display: inline-block; }
-.slide.on .sp-w { animation: spWd 1.1s var(--ease) var(--w) both; }
+:is(.slide.on, .tpl-part) .sp-w { animation: spWd 1.1s var(--ease) var(--w) both; }
 @keyframes spWd { from { opacity: 0; filter: blur(14px); transform: translateY(14px); } }
 
 .sp-rule { width: 220px; height: 1px; background: linear-gradient(90deg, transparent, rgba(120, 170, 255, .7), transparent); margin: 22px 0 16px; }
-.slide.on .sp-rule { animation: spEx 1s var(--ease) 1.55s both; }
+:is(.slide.on, .tpl-part) .sp-rule { animation: spEx 1s var(--ease) 1.55s both; }
 @keyframes spEx { from { transform: scaleX(0); } }
 
 .sp-lead { font-size: 19px; color: #9FB0D0; letter-spacing: .03em; margin: 0 0 40px; max-width: none; }
-.slide.on .sp-lead { animation: fi 1s ease-out 1.9s both; }
+:is(.slide.on, .tpl-part) .sp-lead { animation: fi 1s ease-out 1.9s both; }
 
 .sp-card { display: flex; align-items: center; gap: 18px; padding: 14px 26px 14px 14px; border-radius: 18px; background: rgba(255, 255, 255, .045); border: 1px solid rgba(255, 255, 255, .12); text-decoration: none; color: inherit; box-shadow: 0 10px 30px rgba(0, 0, 0, .35); text-align: left; transition: border-color .2s, background .2s; }
 .sp-card:hover { border-color: rgba(125, 211, 252, .45); background: rgba(255, 255, 255, .07); }
-.slide.on .sp-card { animation: up 1s var(--ease) 2.3s both; }
+:is(.slide.on, .tpl-part) .sp-card { animation: up 1s var(--ease) 2.3s both; }
 .sp-qrbox { width: 92px; height: 92px; border-radius: 14px; background: #fff; padding: 5px; flex: none; }
 .sp-qrbox svg { width: 100%; height: 100%; display: block; }
 .sp-card small { display: block; font-size: 11px; color: #8A9BC0; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 2px; }
 .sp-card b { font-size: 19px; color: #7DD3FC; font-weight: 700; letter-spacing: .01em; }
 
 .sp-row { display: flex; gap: 10px; margin-top: 16px; }
-.slide.on .sp-row { animation: fi 1s ease-out 2.7s both; }
+:is(.slide.on, .tpl-part) .sp-row { animation: fi 1s ease-out 2.7s both; }
 .sp-gbt { display: flex; align-items: center; height: 38px; min-width: 38px; border-radius: 11px; background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .1); overflow: hidden; cursor: pointer; transition: background .2s, border-color .2s; outline: none; color: inherit; text-decoration: none; }
 .sp-gbt:hover, .sp-gbt:focus-visible { background: rgba(255, 255, 255, .09); border-color: rgba(255, 255, 255, .22); }
 .sp-gbt i { flex: 0 0 38px; height: 38px; display: grid; place-items: center; }
@@ -106,7 +106,7 @@
 .sp-wrap.orbit .sp-lead { margin: 18px 0 64px; font-size: 20px; color: #C7D2EA; }
 .sp-panel { display: flex; align-items: center; gap: 22px; padding: 8px 20px 8px 8px; border-radius: 22px; background: rgba(10, 16, 34, .72);
   border: 1px solid rgba(255, 255, 255, .14); box-shadow: 0 16px 40px rgba(0, 0, 0, .45); text-align: left; }
-.slide.on .sp-panel { animation: up 1s var(--ease) 2.3s both; }
+:is(.slide.on, .tpl-part) .sp-panel { animation: up 1s var(--ease) 2.3s both; }
 .sp-panel .sp-card { padding: 0 36px 0 0; background: none; border: 0; box-shadow: none; animation: none !important; }
 .sp-panel .sp-card:hover b { text-decoration: underline; }
 .sp-panel .sp-qrbox { width: 78px; height: 78px; }
@@ -115,3 +115,6 @@
 .sp-panel .sp-row { margin: 0; animation: none !important; }
 .sp-panel .sp-gbt { height: 40px; min-width: 40px; border-radius: 11px; }
 .sp-panel .sp-gbt i { flex-basis: 40px; height: 40px; }
+
+/* Небо отдельным блоком (фон слайда после «Разобрать на объекты») */
+.space-sky { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }

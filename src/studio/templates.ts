@@ -219,14 +219,14 @@ const MOVABLE = /^(opacity|transform|translate|scale|rotate|filter|clip-path|-we
  * Ищется анимация у корня вёрстки и у элементов почти во весь объект; в редакторе
  * анимации выключены, поэтому на мгновение снимается класс правки (без перерисовки).
  */
-export function findEntrance(root: HTMLElement): { keyframes: CSSKeyframesRule; ms: number; ease: string } | null {
-  if (!root.offsetWidth) return null;
+export function findEntrance(root: HTMLElement, selfOnly = false): { keyframes: CSSKeyframesRule; ms: number; ease: string; delay: number } | null {
+  if (!root.getBoundingClientRect().width) return null;
   // Сам объект и его части: берётся появление самой крупной части с переносимой анимацией
-  const els = [root, ...[...root.querySelectorAll<HTMLElement>('*')].slice(0, 600)];
+  const els = selfOnly ? [root] : [root, ...[...root.querySelectorAll<HTMLElement>('*')].slice(0, 600)];
   const body = document.body;
   const editing = body.classList.contains('editing');
   if (editing) body.classList.remove('editing');
-  const found: { name: string; ms: number; ease: string; area: number }[] = [];
+  const found: { name: string; ms: number; ease: string; area: number; delay: number }[] = [];
   try {
     for (const el of els) {
       const cs = getComputedStyle(el);
@@ -235,7 +235,9 @@ export function findEntrance(root: HTMLElement): { keyframes: CSSKeyframesRule; 
       if (cs.animationIterationCount.split(',')[0].trim() === 'infinite') continue;
       const r = el.getBoundingClientRect();
       const ms = parseFloat(cs.animationDuration) * (cs.animationDuration.includes('ms') ? 1 : 1000);
-      found.push({ name, ms: Math.round(ms) || 600, ease: cs.animationTimingFunction.split(/,(?![^(]*\))/)[0].trim() || 'ease', area: r.width * r.height });
+      const d = cs.animationDelay.split(',')[0].trim();
+      const delay = Math.max(0, Math.round(parseFloat(d) * (d.endsWith('ms') ? 1 : 1000)) || 0);
+      found.push({ name, ms: Math.round(ms) || 600, ease: cs.animationTimingFunction.split(/,(?![^(]*\))/)[0].trim() || 'ease', area: r.width * r.height, delay });
     }
   } finally {
     if (editing) body.classList.add('editing');
@@ -252,7 +254,7 @@ export function findEntrance(root: HTMLElement): { keyframes: CSSKeyframesRule; 
     const movable = frames.every((kf) => [...Array(kf.style.length).keys()].every((i) => MOVABLE.test(kf.style[i])));
     // Нужен начальный кадр: анимация «только к концу» держится на исходном виде элемента и на другом не видна
     const hasStart = frames.some((kf) => /(^|,)\s*(0%|from)\s*(,|$)/.test(kf.keyText));
-    if (movable && hasStart) return { keyframes: rule, ms: Math.max(100, Math.min(4000, f.ms)), ease: f.ease };
+    if (movable && hasStart) return { keyframes: rule, ms: Math.max(100, Math.min(4000, f.ms)), ease: f.ease, delay: f.delay };
   }
   return null;
 }

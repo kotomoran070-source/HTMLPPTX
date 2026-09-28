@@ -14,6 +14,7 @@ import { applyFormat, hasFormat, takeFormat, type Format } from './format-painte
 import { tableGrips } from './table-grips';
 import { GRID_STEPS, ViewAids } from './view-aids';
 import { setupMarquee } from './marquee';
+import { canExplode, explodeSlide } from './explode';
 import { blockName, setSnapLines } from '../engine/editor/block-edit';
 import { blobToDataUrl } from '../engine/editor/persist';
 import { addEffect, addTemplate, assetUrls, findEntrance, deckWithTemplate, listTemplates, pickCss, pickDefs, removeTemplate, replaceUrls, type Template } from './templates';
@@ -571,6 +572,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       { label: 'Копировать слайд', icon: 'copy', hint: 'Ctrl+C', run: () => copy(false) },
       { label: 'Вставить', icon: 'plus', hint: 'Ctrl+V', disabled: !clip, run: () => clip && pasteClip(clip) },
       null,
+      ...(i === index && canExplode(deck.slides[i]) ? [{ label: 'Разобрать на объекты', icon: 'ungroup', run: () => run('slide.explode') }, null] : []),
       { label: 'Новый слайд после этого', icon: 'slide-add', hint: 'Ctrl+M', run: () => ed.addSlide(i, 0) },
       { label: 'Дублировать слайд', icon: 'copy', hint: 'Ctrl+D', run: () => ed.duplicateSlide(i) },
       null,
@@ -1030,11 +1032,18 @@ export function startStudio(deck: Deck, deckKey: string): void {
       run: () => { const sel = ed.selection; if (sel && sel.group.length > 1) groupObjects({ deck, stage: view.stage, editor: ed }, index, sel.group); },
       enabled: multi,
     },
+    'slide.explode': { run: () => { ed.clearSelection(); explodeSlide({ deck, stage: view.stage, editor: ed }, index); }, enabled: () => canExplode(deck.slides[index]) },
     'obj.ungroup': {
-      run: () => { const sel = ed.selection; if (sel) ungroup({ deck, stage: view.stage, editor: ed }, index, sel); },
+      run: () => {
+        const sel = ed.selection;
+        if (sel) ungroup({ deck, stage: view.stage, editor: ed }, index, sel);
+        // Ничего не выделено — разбирается сам слайд шаблона
+        else if (canExplode(deck.slides[index])) run('slide.explode');
+      },
       enabled: () => {
         const sel = ed.selection;
-        if (!sel || sel.group.length > 1) return false;
+        if (!sel) return canExplode(deck.slides[index]);
+        if (sel.group.length > 1) return false;
         const el = [...view.stage.querySelectorAll<HTMLElement>('.slide.on [data-block]')].find((x) => x.getAttribute('data-block') === JSON.stringify(sel.block)) ?? null;
         return canUngroup(sel.type, el);
       },

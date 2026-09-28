@@ -1,4 +1,4 @@
-.slide.on.fin { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding-bottom: 190px; }
+:is(.slide.on, .tpl-part).fin { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding-bottom: 190px; }
 .fin > * { position: relative; }
 
 .fin .rg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
@@ -6,23 +6,23 @@
 .static .fin .rg circle, .fin.static .rg circle { opacity: .4; }
 
 .fin .beam { position: absolute; top: 0; bottom: 0; left: 0; width: 200px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ac) 12%, transparent), transparent); transform: translateX(-300px) skewX(-18deg); pointer-events: none; z-index: 1; }
-.slide.on.fin .beam { animation: beam 2.6s ease-in-out 1.5s both; }
+:is(.slide.on, .tpl-part).fin .beam { animation: beam 2.6s ease-in-out 1.5s both; }
 
 .fin > .cap { position: absolute; top: 44px; left: 0; right: 0; color: var(--mu); font-size: 14px; letter-spacing: .12em; }
-.slide.on.fin > .cap { animation: fi 1.2s ease-out 2.6s both; }
+:is(.slide.on, .tpl-part).fin > .cap { animation: fi 1.2s ease-out 2.6s both; }
 
 .fin .fin-logo { width: 104px; height: 104px; border-radius: 26px; margin-bottom: 22px; }
-.slide.on.fin .fin-logo { animation: up .6s var(--ease) .12s both, glow 3s ease-in-out 1s infinite; }
+:is(.slide.on, .tpl-part).fin .fin-logo { animation: up .6s var(--ease) .12s both, glow 3s ease-in-out 1s infinite; }
 
 .fin h1 { font-size: 76px; line-height: 1.1; margin: 0; display: flex; gap: .3em; justify-content: center; flex-wrap: wrap; }
 .fin .w { display: inline-block; }
-.slide.on.fin .w { animation: wd 1.2s var(--ease) var(--w) both; }
+:is(.slide.on, .tpl-part).fin .w { animation: wd 1.2s var(--ease) var(--w) both; }
 
 .fin .ln2 { height: 2px; width: 240px; background: var(--ac); border-radius: 2px; margin: 20px auto 18px; }
-.slide.on.fin .ln2 { animation: ex 1.2s var(--ease) 1.7s both; }
+:is(.slide.on, .tpl-part).fin .ln2 { animation: ex 1.2s var(--ease) 1.7s both; }
 
 .fin .lead { font-size: 22px; letter-spacing: .06em; margin: 0; color: var(--tx2); max-width: none; }
-.slide.on.fin .lead { animation: tr 1.4s ease-out 2.1s both; }
+:is(.slide.on, .tpl-part).fin .lead { animation: tr 1.4s ease-out 2.1s both; }
 
 .fin > .plate {
   position: absolute; left: 0; right: 0; bottom: 36px; margin: 0 auto; width: 540px;
@@ -31,8 +31,8 @@
   text-align: left; z-index: 2;
 }
 .fin > .plate.noqr { width: auto; max-width: 720px; display: inline-flex; left: 50%; right: auto; transform: translateX(-50%); }
-.slide.on.fin .plate { animation: up .9s var(--ease) 2.7s both; }
-.slide.on.fin .plate.noqr { animation: fi .9s var(--ease) 2.7s both; }
+:is(.slide.on, .tpl-part).fin .plate { animation: up .9s var(--ease) 2.7s both; }
+:is(.slide.on, .tpl-part).fin .plate.noqr { animation: fi .9s var(--ease) 2.7s both; }
 
 .qr { flex: 0 0 116px; height: 116px; background: #FDFEFF; border: 1px solid var(--bd); border-radius: 12px; padding: 3px; }
 .qr svg { width: 100%; height: 100%; display: block; border-radius: 8px; }

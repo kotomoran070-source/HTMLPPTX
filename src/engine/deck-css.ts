@@ -54,7 +54,8 @@ const STATE = new Set(['on', 'active', 'current', 'present', 'visible', 'show', 
 const NATIVE = '[data-type]:not([data-type="html"]):not([data-type="embed"]):not([data-type="live"])';
 // Обёртка свободного объекта со встроенным блоком (.free, .fx — классы движка) тоже не отдаётся
 // стилям импорта; обёртки импортированной вёрстки остаются как были — по ним выверен её вид
-const GUARD = `:not(:where(${NATIVE}, ${NATIVE} *, .slide > .free:has(> ${NATIVE})))`;
+// Части разобранного встроенного шаблона (.tpl-part) — со стилями самого шаблона, не импорта
+const GUARD = `:not(:where(${NATIVE}, ${NATIVE} *, .slide > .free:has(> ${NATIVE}), .tpl-part, .tpl-part *))`;
 
 function guard(sel: string): string {
   // Сам слайд (&, &.on) — не блок
