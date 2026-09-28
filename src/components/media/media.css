@@ -30,3 +30,4 @@ body.editing .stage :is(.video-box, .model3d-box) > * { pointer-events: none; }
 .video-out { position: absolute; left: 50%; top: 50%; z-index: 2; display: inline-flex; align-items: center; gap: 10px; padding: 12px 20px; border-radius: 999px; background: rgba(15, 18, 28, .82); color: #fff; font: 600 16px var(--font, system-ui); text-decoration: none; transform: translate(-50%, -50%); box-shadow: 0 8px 24px rgba(0, 0, 0, .3); }
 .video-out:hover { background: rgba(15, 18, 28, .95); }
 .video-out .ic { width: 18px; height: 18px; fill: currentColor; stroke: none; }
+.model3d-err { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 2; margin: 0; padding: 8px 12px; border-radius: 8px; background: rgba(220, 38, 38, .92); color: #fff; font: 500 13px/1.4 var(--font, system-ui); }

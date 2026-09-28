@@ -23,7 +23,14 @@ let lib: Promise<unknown> | null = null;
 /** Библиотека грузится один раз и только там, где модель на экране */
 function loadViewer(): Promise<unknown> {
   if (!__HAS_MODEL__) return Promise.reject(new Error('3D-модели не включены в сборку'));
-  lib ??= import('@google/model-viewer/dist/model-viewer.min.js');
+  lib ??= import('@google/model-viewer/dist/model-viewer.min.js').then((m) => {
+    // Сжатые модели (EXT_meshopt_compression — так жмёт glTF-Transform): расшифровщик уже внутри
+    // библиотеки, но включается, только когда задан адрес «загрузчика». Пустой скрипт вместо адреса
+    // в интернете — модель открывается и без сети
+    const V = (m as { ModelViewerElement?: { meshoptDecoderLocation?: string } }).ModelViewerElement;
+    if (V && !V.meshoptDecoderLocation) V.meshoptDecoderLocation = 'data:text/javascript,';
+    return m;
+  });
   return lib;
 }
 
@@ -70,6 +77,15 @@ defineBlock<ModelProps>('model', {
         // Без встроенной полосы загрузки: до загрузки виден снимок
         m.innerHTML = '<div slot="progress-bar"></div>';
         m.addEventListener('load', () => box.classList.add('ready'), { once: true });
+        // Не открылась — в редакторе сказать почему, а не оставлять пустой блок (в показе — снимок)
+        m.addEventListener('error', (e) => {
+          if (!editing() || box.querySelector('.model3d-err')) return;
+          const why = String((e as unknown as CustomEvent<{ sourceError?: unknown }>).detail?.sourceError ?? '');
+          const msg = /draco/i.test(why) ? 'Модель сжата Draco: для неё нужен интернет. Сожмите без Draco — например, glTF-Transform с --compress meshopt'
+            : /ktx2|basis/i.test(why) ? 'Текстуры в формате KTX2: для них нужен интернет. Сожмите текстуры в WebP'
+              : 'Модель не открылась: файл повреждён или в неподдерживаемом формате';
+          box.insertAdjacentHTML('beforeend', `<p class="model3d-err">${esc(msg)}</p>`);
+        });
         box.appendChild(m);
         mv = m;
       }).catch(() => { /* остаётся снимок */ });
