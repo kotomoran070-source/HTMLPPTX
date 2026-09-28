@@ -24,6 +24,7 @@ import { Inspector } from './inspector';
 import { closeLibrary, showLibrary, type Preset } from './library';
 import { closeMenu, showMenu, showPopover, type MenuEntry } from './menu';
 import { projectStorage } from '../engine/storage';
+import { LayersPane } from './layers';
 import { SlidesPanel } from './slides-panel';
 import { crumbs, type Crumb } from './structure';
 import { canUngroup, groupObjects, ungroup } from './ungroup';
@@ -101,7 +102,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Правка', `<div class="st-rstack">${rb('undo', 'undo', 'Отменить', { key: 'Ctrl+Z' })}${rb('redo', 'redo', 'Повторить', { key: 'Ctrl+Y' })}${rb('format.painter', 'brush', 'Формат по образцу', { title: 'Перенести оформление на другой объект. Двойной щелчок — на несколько объектов' })}</div>`)}
       ${group('Текст', '<div id="st-textdock" class="st-textdock"></div>')}
       ${group('Вставка', rb('insert.blocks', 'grid', 'Блоки', { big: true, menu: true, title: 'Готовые блоки: карточки, графики, схемы' }) + `<div class="st-rstack">${rb('insert.text', 'text', 'Надпись')}${rb('insert.image', 'image', 'Картинка')}</div>`)}
-      ${group('Упорядочить', `<div class="st-rstack">${rb('obj.front', 'front', 'Вперёд', { title: 'На передний план — поверх других объектов' })}${rb('obj.back', 'back', 'Назад', { title: 'На задний план — под другие объекты' })}</div><div class="st-rstack">${rb('obj.group', 'group', 'Сгруппировать', { key: 'Ctrl+G', title: 'Объединить выделенные объекты в группу' })}${rb('obj.ungroup', 'ungroup', 'Разгруппировать', { key: 'Ctrl+Shift+G', title: 'Разделить на отдельные объекты' })}${rb('obj.free', 'move', 'Сделать свободным', { title: 'Свободно перемещать и менять размер' })}</div>`)}
+      ${group('Упорядочить', `<div class="st-rstack">${rb('obj.front', 'front', 'Вперёд', { title: 'На передний план — поверх других объектов' })}${rb('obj.back', 'back', 'Назад', { title: 'На задний план — под другие объекты' })}${rb('obj.lock', 'lock', 'Закрепить', { title: 'Объект не выделяется и не двигается мышью. Открепить — в области выделения (Alt+F10)' })}</div><div class="st-rstack">${rb('obj.group', 'group', 'Сгруппировать', { key: 'Ctrl+G', title: 'Объединить выделенные объекты в группу' })}${rb('obj.ungroup', 'ungroup', 'Разгруппировать', { key: 'Ctrl+Shift+G', title: 'Разделить на отдельные объекты' })}${rb('obj.free', 'move', 'Сделать свободным', { title: 'Свободно перемещать и менять размер' })}</div>`)}
       ${group('Выровнять', `<div class="st-rgrid">${rb('align.left', 'obj-left', 'Слева')}${rb('align.center', 'obj-center', 'По центру')}${rb('align.right', 'obj-right', 'Справа')}${rb('align.top', 'obj-top', 'Сверху')}${rb('align.middle', 'obj-middle', 'Посередине')}${rb('align.bottom', 'obj-bottom', 'Снизу')}</div><div class="st-rstack">${rb('dist.h', 'dist-h', 'По ширине', { title: 'Равные промежутки по горизонтали' })}${rb('dist.v', 'dist-v', 'По высоте', { title: 'Равные промежутки по вертикали' })}</div>`)}
     </div>
     <div class="st-rpanel" data-panel="insert" hidden>
@@ -113,7 +114,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'next', 'С текущего слайда', { big: true, key: 'Shift+F5' }) + rb('show.presenter', 'presenter', 'Режим докладчика', { big: true, key: 'Alt+F5', title: 'Показ на втором экране, заметки — на вашем' }))}
     </div>
     <div class="st-rpanel" data-panel="view" hidden>
-      ${group('Панели', rb('view.slides', 'grid', 'Слайды', { big: true, key: 'Ctrl+Shift+1', title: 'Список слайдов слева' }) + rb('view.props', 'sliders', 'Свойства', { big: true, key: 'Ctrl+Shift+2', title: 'Панель свойств справа' }) + rb('view.notes', 'notes', 'Заметки', { big: true, key: 'Ctrl+Shift+3' }) + rb('view.code', 'terminal', 'Код слайда', { big: true, key: 'Ctrl+`', title: 'Код слайда (YAML) и стили (CSS)' }))}
+      ${group('Панели', rb('view.slides', 'grid', 'Слайды', { big: true, key: 'Ctrl+Shift+1', title: 'Список слайдов слева' }) + rb('view.props', 'sliders', 'Свойства', { big: true, key: 'Ctrl+Shift+2', title: 'Панель свойств справа' }) + rb('view.notes', 'notes', 'Заметки', { big: true, key: 'Ctrl+Shift+3' }) + rb('view.code', 'terminal', 'Код слайда', { big: true, key: 'Ctrl+`', title: 'Код слайда (YAML) и стили (CSS)' }) + rb('view.layers', 'layers', 'Область выделения', { big: true, key: 'Alt+F10', title: 'Объекты слайда списком: скрыть, закрепить, поменять порядок' }))}
       ${group('Показать', `<div class="st-rstack">${chk('view.ruler', 'Линейка', 'Линейка сверху и слева; из неё вытягиваются направляющие')}${chk('view.grid', 'Сетка', 'Сетка на слайде, объекты прилипают к ней (Shift+F9)')}${chk('view.guides', 'Направляющие', 'Свои направляющие; объекты прилипают к ним (Alt+F9)')}</div><div class="st-rstack">${rb('view.grid-step', 'grid', 'Шаг сетки', { menu: true })}${rb('view.guides-reset', 'reset', 'Сбросить направляющие', { title: 'Оставить одну вертикальную и одну горизонтальную по центру' })}</div>`)}
       ${group('Масштаб', rb('view.fit', 'fullscreen', 'Вписать', { big: true }) + `<div class="st-rstack">${rb('view.zoom-in', 'plus', 'Крупнее')}${rb('view.zoom-out', 'minus', 'Мельче')}</div>`)}
       ${group('Оформление', `<label class="st-accent" title="Акцентный цвет презентации"><input type="color" id="st-accent" aria-label="Акцентный цвет"><span>Акцент</span></label>${rb('design.accent-reset', 'reset', 'Стандартный')}`)}
@@ -132,6 +133,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
           <nav class="st-crumbs" id="st-crumbs" aria-label="Где находится выделенное" data-ed-keep></nav>
           <div class="st-canvas" id="st-canvas"><div class="st-paper" id="st-paper"></div></div>
         </div>
+        <section class="st-layers" id="st-layers" data-ed-keep hidden aria-label="Область выделения"></section>
       </div>
       <section class="st-notes" id="st-notes" data-ed-keep>
         <div class="st-split h" id="st-sn" role="separator" aria-orientation="horizontal" aria-label="Высота заметок" tabindex="0" title="Потяните, чтобы изменить высоту. Двойной щелчок — сбросить"></div>
@@ -206,6 +208,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
 
   // ---------------- редактор ----------------
   let editor: Editor | null = null;
+  /** Область выделения: создаётся ниже, но перерисовки слайдов уже её учитывают */
+  let layers: LayersPane | null = null;
   let stateQueued = false;
   const queueState = () => {
     if (stateQueued) return;
@@ -226,6 +230,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     slides.mark();
     syncNotes();
     code?.update();
+    layers?.apply();
     queueState();
   }
 
@@ -245,6 +250,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
       updateFavicon(deck.brand?.logo);
       slides.update();
       code?.update();
+      // Скрытые на время правки остаются скрытыми после перерисовки — без мигания
+      layers?.apply();
       queueState();
     },
     relayout: layout,
@@ -291,7 +298,15 @@ export function startStudio(deck: Deck, deckKey: string): void {
   }
 
   /** Один объект — по слайду; несколько — относительно друг друга. */
+  /** Закреплённые объекты не выравниваются и не раздвигаются */
+  const lockedSel = () => {
+    if (!ed.blockEditor.isLocked) return false;
+    ed.toast('Среди выделенных есть закреплённый объект — сначала открепите его', 2600);
+    return true;
+  };
+
   function align(...kinds: string[]): void {
+    if (lockedSel()) return;
     const items = boxes(selPaths());
     if (!items.length) return;
     const multi = items.length > 1;
@@ -314,6 +329,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
 
   /** Равные промежутки между объектами по горизонтали или вертикали (от трёх объектов). */
   function distribute(axis: 'h' | 'v'): void {
+    if (lockedSel()) return;
     const items = boxes(selPaths());
     if (items.length < 3) return;
     const pos = (b: typeof items[number]) => (axis === 'h' ? b.pl.x : b.pl.y);
@@ -344,9 +360,12 @@ export function startStudio(deck: Deck, deckKey: string): void {
   }
 
   function selectAll(): void {
-    const n = (deck.slides[index].free ?? []).length;
-    if (!n) return ed.toast('На слайде нет свободных объектов', 1800);
-    ed.selectMany(index, Array.from({ length: n }, (_x, k) => k));
+    const list = (deck.slides[index].free ?? []) as Block[];
+    if (!list.length) return ed.toast('На слайде нет свободных объектов', 1800);
+    // Закреплённые и скрытые не выделяются, как в PowerPoint
+    const open = list.map((_b, k) => k).filter((k) => list[k].locked !== true && !layers?.isHidden(index, k));
+    if (!open.length) return ed.toast('Все объекты слайда закреплены или скрыты', 2200);
+    ed.selectMany(index, open);
   }
 
   // ---------------- просмотр анимации ----------------
@@ -573,6 +592,12 @@ export function startStudio(deck: Deck, deckKey: string): void {
       { label: 'Вставить', icon: 'plus', hint: 'Ctrl+V', disabled: !clip, run: () => clip && pasteClip(clip) },
       null,
       ...(i === index && canExplode(deck.slides[i]) ? [{ label: 'Разобрать на объекты', icon: 'ungroup', run: () => run('slide.explode') }, null] : []),
+      // Закреплённые объекты правым щелчком не достать: открепить их можно отсюда
+      ...(i === index && lockedOn(i).length ? [
+        { label: 'Открепить все объекты', icon: 'unlock', run: () => setLocked(lockedOn(i), false) },
+        { label: 'Область выделения', icon: 'layers', hint: 'Alt+F10', run: () => toggleLayers(true) },
+        null,
+      ] : []),
       { label: 'Новый слайд после этого', icon: 'slide-add', hint: 'Ctrl+M', run: () => ed.addSlide(i, 0) },
       { label: 'Дублировать слайд', icon: 'copy', hint: 'Ctrl+D', run: () => ed.duplicateSlide(i) },
       null,
@@ -612,10 +637,12 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ...(multi() ? [
         { label: 'Сгруппировать', icon: 'group', hint: 'Ctrl+G', run: () => run('obj.group') },
         { label: 'Появляться по очереди', icon: 'sparkle', run: () => sequence() },
+        { label: ed.blockEditor.isLocked ? 'Открепить' : 'Закрепить', icon: ed.blockEditor.isLocked ? 'unlock' : 'lock', run: () => run('obj.lock') },
       ] : [
         { label: 'Разгруппировать', icon: 'ungroup', hint: 'Ctrl+Shift+G', disabled: !cmds['obj.ungroup'].enabled!(), run: () => run('obj.ungroup') },
         { label: 'На передний план', icon: 'front', run: () => run('obj.front') },
         { label: 'На задний план', icon: 'back', run: () => run('obj.back') },
+        ...(hasFree() ? [{ label: ed.blockEditor.isLocked ? 'Открепить' : 'Закрепить', icon: ed.blockEditor.isLocked ? 'unlock' : 'lock', run: () => run('obj.lock') }] : []),
         null,
         { label: 'По центру слайда', icon: 'obj-center', run: () => align('center', 'middle') },
       ]),
@@ -703,6 +730,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const i = index;
     const blocks = clip.items.map((raw) => {
       const b = JSON.parse(JSON.stringify(raw)) as Block;
+      // Копия закреплённого объекта вставляется откреплённой: её сразу можно двигать
+      delete b.locked;
       const pl = placeOf(b);
       const { h, ...rest } = { ...pl, x: pl.x + times * 24, y: pl.y + times * 24 };
       b.place = h ? { ...rest, h } : rest;
@@ -1049,6 +1078,12 @@ export function startStudio(deck: Deck, deckKey: string): void {
       },
     },
     'obj.free': { run: () => ed.blockEditor.detach(), enabled: () => !!ed.selection && !hasFree() },
+    'obj.lock': {
+      run: () => { const on = !ed.blockEditor.isLocked; setLocked(selPaths().map((p) => Number(p[3])), on); },
+      enabled: hasFree,
+      active: () => hasFree() && ed.blockEditor.isLocked,
+    },
+    'view.layers': { run: () => toggleLayers(), active: () => lay.layers },
     'obj.attach': { run: () => ed.blockEditor.attach(), enabled: () => single() && content() },
     'obj.parent': { run: () => ed.blockEditor.selectParent(), enabled: () => !!ed.selection?.hasParent },
     'design.accent-reset': { run: () => ed.setAccent(null), enabled: () => !!deck.theme?.accent },
@@ -1162,7 +1197,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
 
   // ---------------- раскладка окна: панели тянутся, лента сворачивается ----------------
   const LAYOUT_KEY = 'htmlpptx-studio-layout';
-  const DEFAULTS = { lw: 212, rw: 292, nh: 128, cw: 44, ribbon: true, left: true, right: true, ruler: false, grid: false, guides: false, step: 40 };
+  const DEFAULTS = { lw: 212, rw: 292, nh: 128, cw: 44, ribbon: true, left: true, right: true, ruler: false, grid: false, guides: false, step: 40, layers: false };
   const LIMITS = { lw: [120, 380], rw: [220, 520], nh: [64, 420], cw: [22, 70] } as const;
   let lay = { ...DEFAULTS };
   try { lay = { ...lay, ...JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}') }; } catch { /* раскладки ещё нет */ }
@@ -1229,6 +1264,39 @@ export function startStudio(deck: Deck, deckKey: string): void {
     queueState();
   }
   $('st-rt').addEventListener('click', () => toggleRibbon());
+
+  // ---------------- закрепление и область выделения ----------------
+  /** Номера закреплённых объектов слайда */
+  function lockedOn(i: number): number[] {
+    return ((deck.slides[i]?.free ?? []) as Block[]).map((b, k) => (b.locked === true ? k : -1)).filter((k) => k >= 0);
+  }
+  function setLocked(indexes: number[], on: boolean): void {
+    const i = index;
+    if (!indexes.length) return;
+    if (ed.commit((d) => indexes.forEach((k) => {
+      const b = d.slides[i].free?.[k] as Block | undefined;
+      if (!b) return;
+      if (on) b.locked = true;
+      else delete b.locked;
+    }), { rebuild: true })) {
+      ed.toast(on
+        ? (indexes.length > 1 ? `Закреплено объектов: ${indexes.length}` : 'Закреплено: объект не выделяется мышью. Открепить — Alt+F10')
+        : (indexes.length > 1 ? `Откреплено объектов: ${indexes.length}` : 'Откреплено'), 2600);
+    }
+  }
+  layers = new LayersPane($('st-layers'), {
+    deck: () => deck, index: () => index, editor: () => ed, stage: () => view.stage,
+    lock: (k, on) => setLocked(k, on),
+    close: () => toggleLayers(false),
+  });
+  function toggleLayers(on = !lay.layers): void {
+    lay.layers = on;
+    $('st-layers').hidden = !on;
+    applyLayout();
+    layers?.update();
+    queueState();
+  }
+  $('st-layers').hidden = !lay.layers;
   applyLayout(false);
 
   // ---------------- линейка, сетка, направляющие ----------------
@@ -1352,6 +1420,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     aids?.redraw();
     grips.sync();
     code?.syncSelection();
+    layers?.update();
     document.querySelectorAll<HTMLButtonElement>('[data-cmd]').forEach((b) => {
       const c = cmds[b.dataset.cmd!];
       if (!c) return;
@@ -1435,6 +1504,11 @@ export function startStudio(deck: Deck, deckKey: string): void {
     if (e.key === 'F9' && (e.shiftKey || e.altKey) && !mod) {
       e.preventDefault();
       return toggleAid(e.shiftKey ? 'grid' : 'guides');
+    }
+    // Как в PowerPoint: Alt+F10 — область выделения
+    if (e.key === 'F10' && e.altKey && !mod) {
+      e.preventDefault();
+      return toggleLayers();
     }
     if (mod && e.key === 'F1') {
       e.preventDefault();

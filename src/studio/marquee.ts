@@ -62,7 +62,8 @@ export function setupMarquee(h: MarqueeHost): void {
       Object.assign(box.style, { left: `${m.l}px`, top: `${m.t}px`, width: `${m.r - m.l}px`, height: `${m.b - m.t}px` });
       // Подсветка того, что попадёт в выделение, — прямо во время протягивания
       picked = [];
-      h.stage().querySelectorAll<HTMLElement>(':scope > .slide.on > [data-free]').forEach((el) => {
+      // Закреплённые и скрытые на время правки рамкой не выделяются
+      h.stage().querySelectorAll<HTMLElement>(':scope > .slide.on > [data-free]:not(.locked, .st-hidden)').forEach((el) => {
         const r = el.getBoundingClientRect();
         const inside = r.width > 0 && r.left >= m.l && r.right <= m.r && r.top >= m.t && r.bottom <= m.b;
         el.classList.toggle('st-marquee-hit', inside);

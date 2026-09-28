@@ -87,7 +87,9 @@ export class Renderer {
         ? `--fx:${b.enter};--fx-ms:${Math.max(100, Math.min(4000, Math.round(Number(own.ms) || 600)))}ms;${typeof own.ease === 'string' && /^[\w\s().,-]+$/.test(own.ease) ? `--fx-ease:${own.ease};` : ''}`
         : '';
       const css = `left:${pl.x}px;top:${pl.y}px;width:${pl.w}px;${pl.h ? `height:${pl.h}px;` : ''}z-index:${10 + i};${delay}${ownCss}`;
-      return `<div class="free${pl.h ? '' : ' auto-h'}${fx}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
+      // Закреплённый объект в редакторе не выделяется мышью (см. editor.css)
+      const lock = b.locked === true ? ' locked' : '';
+      return `<div class="free${pl.h ? '' : ' auto-h'}${fx}${lock}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
     }).join('');
   }
 

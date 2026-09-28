@@ -705,3 +705,38 @@ body.st-marqueeing, body.st-marqueeing * { user-select: none !important; cursor:
 /* Образец своего эффекта оживает при наведении — его же анимацией */
 .st-fxv.own b { opacity: .85; }
 .st-mfx-pick:hover .st-fxv.own b { animation: var(--ufx) var(--ums, .8s) ease both infinite; }
+
+/* Область выделения: объекты слайда списком, сверху — передний план */
+.st-layers { flex: 0 0 248px; display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--bd); background: var(--surf); }
+.st-layers[hidden] { display: none; }
+.st-lyr-head { display: flex; align-items: center; gap: 6px; padding: 8px 8px 4px 12px; }
+.st-lyr-head b { flex: 1; min-width: 0; font: 600 12.5px var(--font); color: var(--tx); white-space: nowrap; }
+.st-lyr-all { align-self: flex-start; margin: 0 12px 8px; padding: 3px 9px; border: 1px solid var(--bd); border-radius: 999px; background: none; color: var(--tx2); font: 500 11.5px var(--font); cursor: pointer; }
+.st-lyr-all:hover { border-color: var(--acb); color: var(--ach); }
+.st-lyr-all[hidden] { display: none; }
+.st-lyr-x { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 6px; background: none; color: var(--mu); cursor: pointer; }
+.st-lyr-x:hover { background: var(--alt); color: var(--tx); }
+.st-layers .ic { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.st-lyr-hint { margin: 0 12px 6px; font-size: 11.5px; line-height: 1.4; color: var(--mu); }
+.st-lyr-list { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 6px 10px; }
+.st-lyr-empty { margin: 6px 6px; font-size: 12px; line-height: 1.45; color: var(--mu); }
+.st-lyr { position: relative; display: flex; align-items: center; gap: 2px; border-radius: 6px; }
+.st-lyr:hover { background: var(--alt); }
+.st-lyr.on { background: var(--acs); }
+.st-lyr.dragging { opacity: .45; }
+.st-lyr.drop-before::before, .st-lyr.drop-after::after { content: ""; position: absolute; left: 4px; right: 4px; height: 2px; border-radius: 2px; background: var(--ac); }
+.st-lyr.drop-before::before { top: -1px; }
+.st-lyr.drop-after::after { bottom: -1px; }
+.st-lyr-name { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; padding: 6px 4px 6px 8px; border: 0; background: none; color: var(--tx); font: 12.5px var(--font); text-align: left; cursor: pointer; }
+.st-lyr-name:focus-visible { outline: 2px solid var(--acb); outline-offset: -2px; border-radius: 6px; }
+.st-lyr-name b { flex: none; font-weight: 600; }
+.st-lyr-name span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx2); }
+.st-lyr.on .st-lyr-name { color: var(--ach); }
+.st-lyr.on .st-lyr-name span { color: inherit; }
+.st-lyr.hid .st-lyr-name { opacity: .5; }
+.st-lyr-eye, .st-lyr-lock { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 6px; background: none; color: var(--mu); cursor: pointer; opacity: 0; }
+.st-lyr:hover :is(.st-lyr-eye, .st-lyr-lock), .st-lyr :is(.st-lyr-eye, .st-lyr-lock):focus-visible,
+.st-lyr.hid .st-lyr-eye, .st-lyr.locked .st-lyr-lock { opacity: 1; }
+.st-lyr :is(.st-lyr-eye, .st-lyr-lock):hover { background: var(--surf); color: var(--tx); }
+.st-lyr.hid .st-lyr-eye, .st-lyr.locked .st-lyr-lock { color: var(--ach); }
+@media (hover: none) { .st-lyr-eye, .st-lyr-lock { opacity: 1; } }

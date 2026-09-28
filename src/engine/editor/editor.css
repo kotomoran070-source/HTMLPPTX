@@ -10,6 +10,10 @@ body.editing .stage .html-inner *, body.editing .stage .html-inner *::before, bo
   animation-fill-mode: both !important; animation-play-state: running !important; transition: none !important;
 }
 body.editing .stage > .slide.out { display: none !important; }
+/* Закреплённый объект: мышь проходит сквозь него к тому, что ниже (выделить — в области выделения) */
+body.editing .stage .free.locked, body.editing .stage .free.locked * { pointer-events: none !important; }
+/* Скрытый на время правки из области выделения: место занимает, но не виден и не мешает */
+body.editing .stage .free.st-hidden, body.editing .stage .free.st-hidden * { visibility: hidden !important; pointer-events: none !important; }
 body.editing .stage .slide.on > .free.fx { animation: none !important; }
 body.editing .stage .fin .rg circle { opacity: .35; }
 
@@ -232,7 +236,8 @@ body.editing .stage .free.auto-h:empty, body.editing .stage .free > p:empty { mi
 .edframe { position: fixed; z-index: 12; display: none; pointer-events: none; }
 .edframe.on.free { display: block; outline: 2px solid var(--ac); outline-offset: 0; }
 .edframe.on.multi { outline: 1px dashed var(--ac); outline-offset: 6px; }
-.edframe.multi i { display: none; }
+.edframe.multi i, .edframe.locked i { display: none; }
+.edframe.on.free.locked { outline-style: dashed; }
 .edframe i {
   position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; pointer-events: auto;
   background: #fff; border: 2px solid var(--ac); border-radius: 3px; box-shadow: 0 1px 3px rgba(15, 23, 42, .3);

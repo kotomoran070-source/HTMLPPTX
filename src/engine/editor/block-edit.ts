@@ -125,6 +125,18 @@ export class BlockEditor {
     return this.group.length > 0;
   }
 
+  /** Среди выделенных есть закреплённый объект: его не двигают, не тянут за ручки и не удаляют */
+  get isLocked(): boolean {
+    return this.members.some((m) => m.free && (getAt(this.host.deck(), m.free) as { locked?: unknown } | undefined)?.locked === true);
+  }
+
+  /** Закреплён: подсказка вместо действия */
+  private guardLocked(): boolean {
+    if (!this.isLocked) return false;
+    this.host.toast('Объект закреплён. Открепить: правый щелчок или область выделения', 2600);
+    return true;
+  }
+
   /** Свободный объект по элементу-обёртке. */
   private freeSel(el: HTMLElement): Sel | null {
     const blockEl = el.querySelector<HTMLElement>('[data-block]');
@@ -278,6 +290,8 @@ export class BlockEditor {
     this.frame.classList.toggle('free', !!s.free);
     // Несколько объектов: общая рамка без ручек размера
     this.frame.classList.toggle('multi', this.isMulti);
+    // Закреплённый (выделен из области выделения): рамка без ручек
+    this.frame.classList.toggle('locked', this.isLocked);
     this.position();
   }
 
@@ -317,13 +331,13 @@ export class BlockEditor {
     });
     this.frame.addEventListener('pointerdown', (e) => {
       const dir = (e.target as HTMLElement).dataset.dir as Dir | undefined;
-      if (dir && this.sel?.free) this.resize(e, dir);
+      if (dir && this.sel?.free && !this.guardLocked()) this.resize(e, dir);
     });
   }
 
   remove(): void {
     const s = this.sel;
-    if (!s) return;
+    if (!s || this.guardLocked()) return;
     if (this.isMulti) {
       const paths = this.members.map((m) => m.free!).sort((a, b) => Number(b[3]) - Number(a[3]));
       const i = Number(paths[0][1]);
@@ -404,7 +418,8 @@ export class BlockEditor {
       const paths = this.members.map((m) => m.free!);
       const i = Number(s.free[1]);
       const copies = paths.map((p) => {
-        const c = clone(getAt(this.host.deck(), p)) as { place?: Place };
+        const c = clone(getAt(this.host.deck(), p)) as { place?: Place; locked?: boolean };
+        delete c.locked;
         const pl = placeOf(c);
         c.place = { ...pl, x: pl.x + 24, y: pl.y + 24 };
         return c;
@@ -418,7 +433,8 @@ export class BlockEditor {
       return;
     }
     const i = Number(s.free[1]);
-    const copy = clone(getAt(this.host.deck(), s.free)) as { place?: Place };
+    const copy = clone(getAt(this.host.deck(), s.free)) as { place?: Place; locked?: boolean };
+    delete copy.locked;
     const pl = placeOf(copy);
     copy.place = { ...pl, x: pl.x + 24, y: pl.y + 24 };
     let at = 0;
@@ -455,7 +471,7 @@ export class BlockEditor {
   /** Стрелки: сдвиг на 1 px, с Shift — на 10 px. */
   nudge(dx: number, dy: number): void {
     const s = this.sel;
-    if (!s?.free) return;
+    if (!s?.free || this.guardLocked()) return;
     if (this.isMulti) {
       const paths = this.members.map((m) => m.free!);
       this.host.commit((d) => paths.forEach((p) => {
@@ -496,10 +512,10 @@ export class BlockEditor {
     if (e.shiftKey && e.button === 0 && target.closest('[data-free]')) e.preventDefault();
     if (e.shiftKey || e.button !== 0) return false;
     if (target.closest('[contenteditable="true"]')) return false;
-    if (this.isMulti && this.members.some((m) => m.el.contains(target))) return this.groupDrag(e);
+    if (this.isMulti && this.members.some((m) => m.el.contains(target))) return this.isLocked ? false : this.groupDrag(e);
     if (allowImagePan && e.altKey) return false;
     const s = this.sel;
-    if (s?.free && s.el.contains(target)) return this.dragFree(s, e);
+    if (s?.free && s.el.contains(target)) return this.isLocked ? false : this.dragFree(s, e);
     // Свободный объект, ещё не выделенный: нажал и тянешь — сразу перемещение, без лишнего клика
     // Выделенный объект группы: двигается внутри неё
     if (this.groupChild?.contains(target)) return this.dragChild(this.sel!, e);

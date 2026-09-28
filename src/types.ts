@@ -48,6 +48,8 @@ export interface Block {
   type: string;
   /** Необязательный CSS для корневого элемента блока */
   style?: string;
+  /** Свободный объект закреплён: в редакторе не выделяется мышью, не двигается и не удаляется */
+  locked?: boolean;
   [key: string]: unknown;
 }
 
