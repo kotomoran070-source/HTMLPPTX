@@ -79,9 +79,14 @@ export class Renderer {
     return list.map((b, i) => {
       const pl = placeOf(b);
       const p = pathOf(b);
-      const fx = FX.has(String(b.enter)) ? ` fx fx-${b.enter}` : '';
+      // Свой эффект: имя анимации и её время — из deck.effects
+      const own = !FX.has(String(b.enter)) && typeof b.enter === 'string' && /^ufx-[\w-]+$/.test(b.enter) ? this.deck.effects?.[b.enter] : undefined;
+      const fx = FX.has(String(b.enter)) ? ` fx fx-${b.enter}` : own ? ' fx fx-own' : '';
       const delay = fx && Number(b.delay) > 0 ? `--fx-d:${Math.min(20000, Math.round(Number(b.delay)))}ms;` : '';
-      const css = `left:${pl.x}px;top:${pl.y}px;width:${pl.w}px;${pl.h ? `height:${pl.h}px;` : ''}z-index:${10 + i};${delay}`;
+      const ownCss = own
+        ? `--fx:${b.enter};--fx-ms:${Math.max(100, Math.min(4000, Math.round(Number(own.ms) || 600)))}ms;${typeof own.ease === 'string' && /^[\w\s().,-]+$/.test(own.ease) ? `--fx-ease:${own.ease};` : ''}`
+        : '';
+      const css = `left:${pl.x}px;top:${pl.y}px;width:${pl.w}px;${pl.h ? `height:${pl.h}px;` : ''}z-index:${10 + i};${delay}${ownCss}`;
       return `<div class="free${pl.h ? '' : ' auto-h'}${fx}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
     }).join('');
   }

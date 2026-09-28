@@ -12,6 +12,11 @@ export interface Deck {
     accent?: string;
   };
   slides: SlideData[];
+  /**
+   * Свои эффекты появления (сохранены пользователем из импорта): enter: <id> у объекта.
+   * Анимация — @keyframes <id> в стилях презентации (css).
+   */
+  effects?: Record<string, { name: string; ms?: number; ease?: string }>;
 }
 
 export interface SlideData {

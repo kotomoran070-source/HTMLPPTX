@@ -170,6 +170,107 @@ export function mergeDefs(deckDefs: unknown, add: string | undefined): string | 
   return base + extra || undefined;
 }
 
+// ---------------- мои эффекты появления ----------------
+
+/**
+ * Эффект появления, сохранённый вручную из импортированного объекта: только движение
+ * (прозрачность, сдвиг, масштаб, поворот, размытие) — его можно дать любому объекту.
+ */
+export interface UserEffect {
+  /** Он же имя @keyframes: ufx-… */
+  id: string;
+  name: string;
+  /** @keyframes <id> { … } */
+  css: string;
+  ms: number;
+  ease: string;
+  created: number;
+}
+
+const FX_KEY = 'htmlpptx-effects';
+
+export function listEffects(): UserEffect[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(FX_KEY) ?? '[]');
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+
+export function addEffect(e: UserEffect): boolean {
+  try {
+    localStorage.setItem(FX_KEY, JSON.stringify([e, ...listEffects()]));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function removeEffect(id: string): void {
+  try { localStorage.setItem(FX_KEY, JSON.stringify(listEffects().filter((e) => e.id !== id))); } catch { /* нет доступа */ }
+}
+
+/** Свойства, которые двигают сам объект: такая анимация переносится на любой */
+const MOVABLE = /^(opacity|transform|translate|scale|rotate|filter|clip-path|-webkit-clip-path|offset|transform-origin|animation-timing-function)$/;
+
+/**
+ * Появление объекта на слайде, если его можно сохранить как эффект.
+ * Ищется анимация у корня вёрстки и у элементов почти во весь объект; в редакторе
+ * анимации выключены, поэтому на мгновение снимается класс правки (без перерисовки).
+ */
+export function findEntrance(root: HTMLElement): { keyframes: CSSKeyframesRule; ms: number; ease: string } | null {
+  if (!root.offsetWidth) return null;
+  // Сам объект и его части: берётся появление самой крупной части с переносимой анимацией
+  const els = [root, ...[...root.querySelectorAll<HTMLElement>('*')].slice(0, 600)];
+  const body = document.body;
+  const editing = body.classList.contains('editing');
+  if (editing) body.classList.remove('editing');
+  const found: { name: string; ms: number; ease: string; area: number }[] = [];
+  try {
+    for (const el of els) {
+      const cs = getComputedStyle(el);
+      const name = cs.animationName.split(',')[0].trim();
+      if (!name || name === 'none' || /^(fx-|tr-|enter$)/.test(name)) continue;
+      if (cs.animationIterationCount.split(',')[0].trim() === 'infinite') continue;
+      const r = el.getBoundingClientRect();
+      const ms = parseFloat(cs.animationDuration) * (cs.animationDuration.includes('ms') ? 1 : 1000);
+      found.push({ name, ms: Math.round(ms) || 600, ease: cs.animationTimingFunction.split(/,(?![^(]*\))/)[0].trim() || 'ease', area: r.width * r.height });
+    }
+  } finally {
+    if (editing) body.classList.add('editing');
+  }
+  found.sort((a, b) => b.area - a.area);
+  const seen = new Set<string>();
+  for (const f of found) {
+    if (seen.has(f.name)) continue;
+    seen.add(f.name);
+    const rule = keyframesRule(f.name);
+    if (!rule || !rule.cssRules.length) continue;
+    // Только движение самого объекта: цвет, размеры, обводки линий — часть устройства блока
+    const movable = ([...rule.cssRules] as CSSKeyframeRule[]).every((kf) => [...Array(kf.style.length).keys()].every((i) => MOVABLE.test(kf.style[i])));
+    if (movable) return { keyframes: rule, ms: Math.max(100, Math.min(4000, f.ms)), ease: f.ease };
+  }
+  return null;
+}
+
+function keyframesRule(name: string): CSSKeyframesRule | null {
+  for (const sheet of [...document.styleSheets]) {
+    let rules: CSSRuleList;
+    try { rules = sheet.cssRules; } catch { continue; }
+    for (const r of [...rules]) if (r instanceof CSSKeyframesRule && r.name === name) return r;
+  }
+  return null;
+}
+
+/** Эффект → в данные презентации: @keyframes в её стили и описание в deck.effects */
+export function deckWithEffect(d: Deck, e: UserEffect): void {
+  const x = d as Deck & { css?: string };
+  const css = mergeCss(x.css, e.css);
+  if (css) x.css = css;
+  d.effects = { ...(d.effects ?? {}), [e.id]: { name: e.name, ms: e.ms, ease: e.ease } };
+}
+
 export function deckWithTemplate(d: Deck, t: Template): void {
   const x = d as Deck & { css?: string; defs?: string };
   const css = mergeCss(x.css, t.css);

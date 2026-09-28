@@ -16,7 +16,7 @@ import { GRID_STEPS, ViewAids } from './view-aids';
 import { setupMarquee } from './marquee';
 import { blockName, setSnapLines } from '../engine/editor/block-edit';
 import { blobToDataUrl } from '../engine/editor/persist';
-import { addTemplate, assetUrls, deckWithTemplate, listTemplates, pickCss, pickDefs, removeTemplate, replaceUrls, type Template } from './templates';
+import { addEffect, addTemplate, assetUrls, findEntrance, deckWithTemplate, listTemplates, pickCss, pickDefs, removeTemplate, replaceUrls, type Template } from './templates';
 import { animCommands, animPanelHtml, animTabHtml, bindDelayField, syncAnimTab, type AnimHost } from './anim-tab';
 import { contextCommands, contextPanelsHtml, contextTab, contextTabsHtml, syncSwatches, type ContextTab } from './context-tabs';
 import { Inspector } from './inspector';
@@ -587,6 +587,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
         { label: 'Сделать свободным', icon: 'move', run: () => run('obj.free') },
         { label: 'Разгруппировать', icon: 'ungroup', hint: 'Ctrl+Shift+G', disabled: !cmds['obj.ungroup'].enabled!(), run: () => run('obj.ungroup') },
         ...(sel.hasParent ? [{ label: 'Выделить внешний блок', icon: 'up', run: () => run('obj.parent') }] : []),
+        ...(selectedEntrance() ? [{ label: 'Сохранить появление как эффект…', icon: 'sparkle', run: () => askEffectName() }] : []),
         null,
         { label: 'Удалить блок', icon: 'trash', danger: true, hint: 'Delete', run: () => run('obj.del') },
       ];
@@ -601,6 +602,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
       null,
       { label: 'Дублировать', icon: 'copy', hint: 'Ctrl+D', run: () => run('obj.dup') },
       { label: 'Сохранить как шаблон…', icon: 'sparkle', run: () => run('obj.template') },
+      // Только если у объекта есть появление, которое переносится на другие
+      ...(!multi() && selectedEntrance() ? [{ label: 'Сохранить появление как эффект…', icon: 'sparkle', run: () => askEffectName() }] : []),
       ...(multi() ? [
         { label: 'Сгруппировать', icon: 'group', hint: 'Ctrl+G', run: () => run('obj.group') },
         { label: 'Появляться по очереди', icon: 'sparkle', run: () => sequence() },
@@ -883,22 +886,47 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const guess = [first.title, first.text, ...(Array.isArray(first.texts) ? first.texts : [])]
       .find((v) => typeof v === 'string' && v.trim()) as string | undefined;
     const suggestion = (guess ?? blockName(first.type)).replace(/\{[\w#-]+\|([^}]*)\}|[*_`]/g, '$1').slice(0, 40);
-    const pop = showPopover(anchor, `<form class="st-tpl-form"><div class="st-plabel">Сохранить как шаблон</div>
-<input type="text" name="n" maxlength="60" value="${esc(suggestion)}" aria-label="Название шаблона">
-<p class="st-tpl-note">Объекты сохранятся вместе с анимацией, стилями и картинками и появятся в «Блоках» → «Мои шаблоны».</p>
+    askName(anchor, 'Сохранить как шаблон', 'Объекты сохранятся вместе с анимацией, стилями и картинками и появятся в «Блоках» → «Мои шаблоны».', suggestion, (name) => void makeTemplate(name));
+  }
+
+  /** Небольшое окно с названием: Enter или «Сохранить» — сохранить, Esc — отмена */
+  function askName(anchor: HTMLElement, title: string, note: string, suggestion: string, save: (name: string) => void): void {
+    const pop = showPopover(anchor, `<form class="st-tpl-form"><div class="st-plabel">${esc(title)}</div>
+<input type="text" name="n" maxlength="60" value="${esc(suggestion)}" aria-label="Название">
+<p class="st-tpl-note">${esc(note)}</p>
 <div class="st-tpl-acts"><button type="button" class="btn ghost small" data-a="cancel">Отмена</button><button type="button" class="btn primary small" data-a="save">Сохранить</button></div></form>`, (b) => {
       if (b.dataset.a === 'cancel') return { run: () => {} };
-      if (b.dataset.a === 'save') return { run: () => save() };
+      if (b.dataset.a === 'save') return { run: () => done() };
       return null;
     }, 'st-tpl-pop');
     const input = pop.querySelector<HTMLInputElement>('input')!;
-    const save = () => {
-      const name = input.value.trim() || suggestion;
-      void makeTemplate(name);
-    };
-    pop.querySelector('form')!.addEventListener('submit', (e) => { e.preventDefault(); closeMenu(); save(); });
+    const done = () => save(input.value.trim() || suggestion);
+    pop.querySelector('form')!.addEventListener('submit', (e) => { e.preventDefault(); closeMenu(); done(); });
     input.addEventListener('keydown', (e) => e.stopPropagation());
     requestAnimationFrame(() => { input.focus(); input.select(); });
+  }
+
+  // ---------------- мои эффекты появления ----------------
+  /** Появление выделенного объекта, если его можно сохранить как эффект */
+  function selectedEntrance(): ReturnType<typeof findEntrance> {
+    const sel = ed.selection;
+    if (!sel || sel.group.length > 1) return null;
+    // Свободный объект — целиком (с его обёрткой), блок раскладки — сам блок
+    const el = sel.free ? view.stage.querySelector<HTMLElement>(`.slide.on > [data-free='${JSON.stringify(sel.free)}']`) : selectedEl();
+    return el ? findEntrance(el) : null;
+  }
+  function askEffectName(): void {
+    const found = selectedEntrance();
+    if (!found) return ed.toast('У этого объекта нет появления, которое можно перенести на другие', 2500);
+    const anchor = selectedEl() ?? $('st-canvas');
+    askName(anchor, 'Сохранить появление как эффект', 'Движение объекта появится на вкладке «Анимация» → «Мои эффекты», его можно дать любому объекту.', 'Эффект из импорта', (name) => {
+      const id = `ufx-${Math.random().toString(36).slice(2, 9)}`;
+      const css = found.keyframes.cssText.replace(/^@(-webkit-)?keyframes\s+[^\s{]+/, `@keyframes ${id}`);
+      if (!addEffect({ id, name, css, ms: found.ms, ease: found.ease, created: Date.now() })) {
+        return ed.toast('Не хватает места в хранилище браузера', 4000, true);
+      }
+      ed.toast(`Эффект «${name}» сохранён — вкладка «Анимация» → «Мои эффекты»`, 3000);
+    });
   }
   function insertPreset(p: Preset): void {
     const i = index;

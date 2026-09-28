@@ -10,7 +10,7 @@ import type { Block, Deck } from '../types';
 import { fillForm, formHtml, formSig, onFieldAction, onFieldChange, onGridPaste, type FormEdit } from './form';
 import { BLOCKS, STYLE_FIELD, TEMPLATES, type Field } from './schema';
 import { partsOf, type Part } from './structure';
-import { EFFECTS } from './anim-tab';
+import { effectName } from './anim-tab';
 
 export interface InspectorHost {
   deck(): Deck;
@@ -338,7 +338,7 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
       const pl = placeOf(b);
       return {
         x: String(Math.round(pl.x)), y: String(Math.round(pl.y)), w: String(Math.round(pl.w)), h: pl.h ? String(Math.round(pl.h)) : '',
-        enter: EFFECTS.some(([v]) => v === b.enter) ? String(b.enter) : '',
+        enter: effectName(deck, b.enter) ? String(b.enter) : '',
       };
     }
     if (sel) return {};
@@ -370,7 +370,7 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
     const reset = this.root.querySelector<HTMLElement>('[data-a="accent-reset"]');
     if (reset) reset.hidden = !this.host.deck().theme?.accent;
     const sum = this.root.querySelector<HTMLElement>('[data-sum="enter"]');
-    if (sum) sum.textContent = (v.enter ? EFFECTS.find(([k]) => k === v.enter)?.[1] : '') || 'нет';
+    if (sum) sum.textContent = (v.enter ? effectName(this.host.deck(), v.enter) : '') || 'нет';
   }
 
   // ---------------- правки ----------------

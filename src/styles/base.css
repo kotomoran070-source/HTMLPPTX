@@ -159,7 +159,7 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
 .slide > .free > figure.image { height: auto !important; min-height: 0; }
 
 /* Появление свободного объекта: enter (эффект) и delay (мс) — как в импортированных слайдах */
-.stage .slide.on:not(.static) > .free.fx { animation: var(--fx) .38s cubic-bezier(.2, .7, .2, 1) var(--fx-d, 0ms) both; }
+.stage .slide.on:not(.static) > .free.fx { animation: var(--fx) var(--fx-ms, .38s) var(--fx-ease, cubic-bezier(.2, .7, .2, 1)) var(--fx-d, 0ms) both; }
 .free.fx-fade { --fx: fx-fade; }
 .free.fx-rise { --fx: fx-rise; }
 .free.fx-drop { --fx: fx-drop; }
