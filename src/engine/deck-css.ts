@@ -52,10 +52,11 @@ const STATE = new Set(['on', 'active', 'current', 'present', 'visible', 'show', 
  * добавляется «не внутри встроенного блока». Вёрстка импорта — блоки html/embed/live — как была.
  */
 const NATIVE = '[data-type]:not([data-type="html"]):not([data-type="embed"]):not([data-type="live"])';
-// Обёртка свободного объекта со встроенным блоком (.free, .fx — классы движка) тоже не отдаётся
-// стилям импорта; обёртки импортированной вёрстки остаются как были — по ним выверен её вид
+// Обёртка свободного объекта (.free, .fx, .auto-h — классы движка) стилям импорта не отдаётся:
+// иначе правило импорта «.fx { padding }» сдвигает объект, как только у него появляется анимация,
+// и он прыгает при группировке. Вёрстка внутри обёртки получает стили импорта как раньше.
 // Части разобранного встроенного шаблона (.tpl-part) — со стилями самого шаблона, не импорта
-const GUARD = `:not(:where(${NATIVE}, ${NATIVE} *, .slide > .free:has(> ${NATIVE}), .tpl-part, .tpl-part *))`;
+const GUARD = `:not(:where(${NATIVE}, ${NATIVE} *, .slide > .free, .tpl-part, .tpl-part *))`;
 
 function guard(sel: string): string {
   // Сам слайд (&, &.on) — не блок

@@ -58,9 +58,28 @@ function palette(stage: HTMLElement, names: Record<string, { css: string }>): (c
   };
 }
 
+const SIDES = ['top', 'right', 'bottom', 'left'] as const;
+
+/** Видимые границы элемента по сторонам (толщина в CSS-пикселях элемента) */
+function borders(cs: CSSStyleDeclaration): { side: typeof SIDES[number]; w: number; color: string }[] {
+  return SIDES.map((side) => ({
+    side,
+    w: parseFloat(cs.getPropertyValue(`border-${side}-width`)) || 0,
+    color: cs.getPropertyValue(`border-${side}-color`),
+    style: cs.getPropertyValue(`border-${side}-style`),
+  })).filter((b) => b.w > 0.2 && b.style !== 'none' && b.style !== 'hidden' && (parseRgb(b.color)?.[3] ?? 0) > 0.05);
+}
+
+/** Рамка со всех сторон одинаковая — обводка фигуры; иначе стороны становятся линиями */
+function uniformBorder(cs: CSSStyleDeclaration): boolean {
+  const b = borders(cs);
+  return b.length === 4 && b.every((x) => Math.abs(x.w - b[0].w) < 0.5 && x.color === b[0].color);
+}
+
+/** Подложка: фон, тень или рамка со всех сторон */
 const visible = (cs: CSSStyleDeclaration) => {
   const bg = parseRgb(cs.backgroundColor);
-  return (bg && bg[3] > 0.05) || parseFloat(cs.borderTopWidth) > 0 || cs.boxShadow !== 'none';
+  return (bg && bg[3] > 0.05) || cs.boxShadow !== 'none' || uniformBorder(cs);
 };
 
 export function ungroup(host: Host, slide: number, sel: { block: Path; free: Path | null }): boolean {
@@ -76,6 +95,12 @@ export function ungroup(host: Host, slide: number, sel: { block: Path; free: Pat
   }
   const textColor = palette(stage, THEME_COLORS);
   const fillColor = palette(stage, SHAPE_COLORS);
+  const box = (r: DOMRect) => {
+    const a = editor.toSlide(r.left, r.top);
+    const z = editor.toSlide(r.right, r.bottom);
+    const f = (n: number) => Math.round(n * 10) / 10;
+    return { x: f(a.x), y: f(a.y), w: f(z.x - a.x), h: f(z.y - a.y) };
+  };
   const rect = (el: Element) => {
     const r = el.getBoundingClientRect();
     const a = editor.toSlide(r.left, r.top);
@@ -122,13 +147,13 @@ export function ungroup(host: Host, slide: number, sel: { block: Path; free: Pat
     const k = unit(el);
     const radius = (parseFloat(cs.borderTopLeftRadius) || 0) * k;
     const b: Block = { type: 'shape', kind: cs.borderTopLeftRadius.endsWith('%') ? 'ellipse' : radius >= r.h / 2 - 1 ? 'pill' : 'rect', place: r };
-    const fill = fillColor(cs.backgroundColor);
+    const fill = fillColor(seen(cs.backgroundColor, el));
     b.fill = fill ?? 'none';
     if (b.kind === 'rect' && radius) b.radius = Math.round(radius);
-    const bw = parseFloat(cs.borderTopWidth) * k;
+    const bw = uniformBorder(cs) ? parseFloat(cs.borderTopWidth) * k : 0;
     if (bw > 0) {
       b.width = Math.round(bw * 10) / 10;
-      b.stroke = fillColor(cs.borderTopColor) ?? 'border';
+      b.stroke = fillColor(seen(cs.borderTopColor, el)) ?? 'border';
     }
     // Тень: лёгкая или заметная — по размытию
     if (cs.boxShadow !== 'none') {
@@ -137,9 +162,92 @@ export function ungroup(host: Host, slide: number, sel: { block: Path; free: Pat
     }
     if (text) {
       b.text = text.value;
-      b.styles = { text: text.st };
+      // У фигуры текст по умолчанию жирный: насыщенность — всегда как на слайде
+      b.styles = { text: { ...text.st, weight: text.st.weight ?? 400 } };
     }
     return b;
+  };
+
+  /**
+   * Полупрозрачный цвет (светлые разделители, тонированные подложки) — как его видно на слайде:
+   * смешанный с фоном под элементом. Иначе rgba(…, .08) превращается в сплошной тёмный.
+   */
+  const seen = (c: string, el: HTMLElement): string => {
+    const rgb = parseRgb(c);
+    if (!rgb || rgb[3] >= 0.99 || rgb[3] < 0.05) return c;
+    let under: Rgb = [255, 255, 255, 1];
+    for (let p = el.parentElement; p; p = p.parentElement) {
+      const b = parseRgb(getComputedStyle(p).backgroundColor);
+      if (b && b[3] > 0.9) { under = b; break; }
+    }
+    const a = rgb[3];
+    return `rgb(${[0, 1, 2].map((i) => Math.round(rgb[i] * a + under[i] * (1 - a))).join(', ')})`;
+  };
+
+  /** Стороны рамки, которые не стали обводкой фигуры (разделители строк и столбцов), — линиями */
+  const sideLines = (el: HTMLElement, cs: CSSStyleDeclaration): Block[] => {
+    if (uniformBorder(cs)) return [];
+    const r = rect(el);
+    const k = unit(el);
+    return borders(cs).map((s) => {
+      const w = Math.max(0.5, Math.round(s.w * k * 10) / 10);
+      const across = s.side === 'top' || s.side === 'bottom';
+      const len = across ? r.w : r.h;
+      // Линия рисуется посередине рамки высотой 12 px; вертикальная — повёрнута на 90°
+      const cx = s.side === 'left' ? r.x + w / 2 : s.side === 'right' ? r.x + r.w - w / 2 : r.x + r.w / 2;
+      const cy = s.side === 'top' ? r.y + w / 2 : s.side === 'bottom' ? r.y + r.h - w / 2 : r.y + r.h / 2;
+      const b: Block = { type: 'shape', kind: 'line', stroke: fillColor(seen(s.color, el)) ?? 'border', width: w, place: { x: r1(cx - len / 2), y: r1(cy - 6), w: r1(len), h: 12 } };
+      if (!across) b.rotate = 90;
+      return b;
+    });
+  };
+
+  /**
+   * Место надписи — там, где текст нарисован, а не рамка элемента: без внутренних отступов ячейки.
+   * Сверху — с поправкой на межстрочный интервал: надпись сама добавит его над первой строкой.
+   */
+  const textPlace = (el: HTMLElement, st: TextStyle): Place => {
+    const rg = document.createRange();
+    rg.selectNodeContents(el);
+    const all = rg.getBoundingClientRect();
+    const first = rg.getClientRects()[0];
+    if (!all.width || !first) {
+      const r = rect(el);
+      return { x: r.x, y: r.y, w: Math.ceil(r.w * 1.03 + 3) };
+    }
+    const r = box(all);
+    const line = box(first).h;
+    const lh = parseFloat(getComputedStyle(el).lineHeight);
+    const half = Number.isFinite(lh) ? Math.max(0, (lh * unit(el) - line) / 2) : 0;
+    // Выравнивание по центру или вправо: рамка надписи шире текста, текст остаётся на своём месте
+    const w = Math.ceil(r.w * 1.03 + 3);
+    const x = st.align === 'center' ? r.x - (w - r.w) / 2 : st.align === 'right' ? r.x - (w - r.w) : r.x;
+    return { x: r1(x), y: r1(r.y - half), w };
+  };
+
+  /** Текст стоит посередине подложки (чип, кнопка) — тогда это фигура с текстом */
+  const centered = (el: HTMLElement): boolean => {
+    const rg = document.createRange();
+    rg.selectNodeContents(el);
+    const t = rg.getBoundingClientRect();
+    const e = el.getBoundingClientRect();
+    if (!t.width) return true;
+    const l = t.left - e.left;
+    const rt = e.right - t.right;
+    return Math.abs(l - rt) <= Math.max(3, e.width * 0.04);
+  };
+
+  /** Текст элемента: на подложке по центру — фигура с текстом; иначе подложка отдельно, надпись отдельно */
+  const textParts = (el: HTMLElement, cs: CSSStyleDeclaration, value: string, st: TextStyle, markdown: string): Block[] => {
+    const out: Block[] = [];
+    const bg = el !== root && visible(cs);
+    if (bg && centered(el)) out.push(shapeOf(el, { value: markdown, st }));
+    else {
+      if (bg) out.push(shapeOf(el));
+      out.push({ type: 'text', text: markdown, place: textPlace(el, st), styles: { text: st } });
+    }
+    if (el !== root) out.push(...sideLines(el, cs));
+    return value ? out : [];
   };
 
   const valueOf = (el: HTMLElement): string | null => {
@@ -169,13 +277,7 @@ export function ungroup(host: Host, slide: number, sel: { block: Path; free: Pat
     if (el.hasAttribute('data-edit') && !(el instanceof SVGElement)) {
       const value = valueOf(el);
       if (value === null) return;
-      const st = textStyle(el);
-      // Текст на своей подложке (чип, метка) — фигура с текстом
-      if (el !== root && visible(cs)) parts.push(shapeOf(el, { value, st }));
-      else {
-        const r = rect(el);
-        parts.push({ type: 'text', text: value, place: { x: r.x, y: r.y, w: Math.ceil(r.w * 1.03 + 3) }, styles: { text: st } });
-      }
+      parts.push(...textParts(el, cs, value, textStyle(el), value));
       return;
     }
     if (el.hasAttribute('data-edit-img')) {
@@ -191,15 +293,11 @@ export function ungroup(host: Host, slide: number, sel: { block: Path; free: Pat
     // Оформительский текст без поля в данных (стрелка ↑, кавычка «“»): переносится как есть
     const literal = !el.children.length && !(el instanceof SVGElement) ? (el.textContent ?? '').trim() : '';
     if (literal) {
-      const st = textStyle(el);
-      if (el !== root && visible(cs)) parts.push(shapeOf(el, { value: literal, st }));
-      else {
-        const r = rect(el);
-        parts.push({ type: 'text', text: literal.replace(/([\\*_[\]{])/g, '\\$1'), place: { x: r.x, y: r.y, w: Math.ceil(r.w * 1.03 + 3) }, styles: { text: st } });
-      }
+      parts.push(...textParts(el, cs, literal, textStyle(el), literal.replace(/([\\*_[\]{])/g, '\\$1')));
       return;
     }
     if (visible(cs) && el.getBoundingClientRect().width > 1) parts.push(shapeOf(el));
+    if (el !== root && el.getBoundingClientRect().width > 1) parts.push(...sideLines(el, cs));
     for (const c of el.children) walk(c as HTMLElement);
   };
   walk(root);
