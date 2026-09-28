@@ -1,8 +1,14 @@
 /* Режим правки */
 
 /* Анимации на сцене выключены: элементы стоят на местах и по ним удобно кликать */
-body.editing .stage *, body.editing .stage *::before, body.editing .stage *::after,
+body.editing .stage *:not(.html-inner *), body.editing .stage *:not(.html-inner *)::before, body.editing .stage *:not(.html-inner *)::after,
 body.editing .stage .slide.on { animation: none !important; transition: none !important; }
+/* Импортированная вёрстка часто прячет текст до своей анимации (opacity: 0 … forwards):
+   там анимации проигрываются мгновенно — видно конечное состояние, как в показе после появления */
+body.editing .stage .html-inner *, body.editing .stage .html-inner *::before, body.editing .stage .html-inner *::after {
+  animation-duration: 0s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important;
+  animation-fill-mode: both !important; animation-play-state: running !important; transition: none !important;
+}
 body.editing .stage > .slide.out { display: none !important; }
 body.editing .stage .slide.on > .free.fx { animation: none !important; }
 body.editing .stage .fin .rg circle { opacity: .35; }

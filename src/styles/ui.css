@@ -166,7 +166,8 @@ select[data-open] { border-color: var(--ac) !important; }
   html, body { width: 1280px; height: auto; margin: 0; overflow: visible; background: none; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   *, *::before, *::after { transition: none !important; }
-  body > :not(.print-deck) { display: none !important; }
+  /* Определения SVG презентации (логотип #lg, градиенты) остаются: без них не рисуются ссылки на них */
+  body > :not(.print-deck):not([id^="htmlpptx-defs-"]) { display: none !important; }
   .print-deck { position: static; left: auto; }
   /* contain: иначе свечения и кольца одного слайда заставляют Chrome уменьшить все страницы */
   .print-page { position: relative; width: 1280px; height: 720px; overflow: hidden; contain: strict; break-after: page; page-break-after: always; break-inside: avoid; }
