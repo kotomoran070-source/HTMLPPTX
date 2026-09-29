@@ -30,6 +30,12 @@ const INLINE = new Set(['inline', 'contents']);
 interface Rgba { hex: string; a: number }
 
 function rgba(c: string): Rgba | null {
+  // color-mix() браузер отдаёт как color(srgb r g b / a) с долями от 0 до 1
+  const s = /color\(srgb\s+([^)]+)\)/.exec(c);
+  if (s) {
+    const [r, g, b, a = '1'] = s[1].split(/[\s/]+/).filter(Boolean);
+    return rgba(`rgba(${[r, g, b].map((v) => Number(v) * 255).join(',')},${a})`);
+  }
   const m = /rgba?\(([^)]+)\)/.exec(c);
   if (!m) return null;
   const [r, g, b, a = '1'] = m[1].split(/[,\s/]+/).filter(Boolean);
@@ -42,7 +48,7 @@ const transparency = (a: number) => Math.round((1 - Math.min(1, a)) * 100);
 
 /** Первый цвет градиента — для заливки сплошным цветом и текста с градиентом */
 function gradientColor(img: string): Rgba | null {
-  const m = /rgba?\([^)]+\)/.exec(img);
+  const m = /rgba?\([^)]+\)|color\(srgb[^)]+\)/.exec(img);
   return m ? rgba(m[0]) : null;
 }
 

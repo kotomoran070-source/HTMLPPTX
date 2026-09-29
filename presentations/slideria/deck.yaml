@@ -1,0 +1,410 @@
+# Витрина Slideria: всё, что умеет движок, на девяти слайдах.
+# Каждый слайд собран из настоящих блоков — его можно открыть в студии и поправить.
+
+title: Slideria — презентации, которые живут
+lang: ru
+brand:
+  name: Slideria
+  logo: ./assets/logo.svg
+theme:
+  accent: "#6366F1"
+  accent2: "#EC4899"
+  accentFlow: true
+
+# Стили вёрстки для композиций на холстах (орбиты на первом слайде)
+css: |
+  @keyframes sr-spin { to { transform: rotate(360deg); } }
+  @keyframes sr-float { 50% { transform: translateY(-12px); } }
+  @keyframes sr-pulse { 50% { opacity: .55; transform: scale(1.1); } }
+  .sr-orb { position: relative; width: 600px; height: 600px; }
+  .sr-glow { position: absolute; inset: 110px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--ac) 42%, transparent), color-mix(in srgb, var(--ac2) 18%, transparent) 45%, transparent 70%); filter: blur(18px); animation: sr-pulse 5s ease-in-out infinite; }
+  .sr-ring { position: absolute; border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--ac) 38%, transparent); animation: sr-spin linear infinite; }
+  .sr-ring.r1 { inset: 175px; animation-duration: 12s; }
+  .sr-ring.r2 { inset: 100px; animation-duration: 22s; animation-direction: reverse; border-style: dashed; }
+  .sr-ring.r3 { inset: 22px; animation-duration: 36s; border-color: color-mix(in srgb, var(--ac2) 32%, transparent); }
+  .sr-ring i { position: absolute; top: -7px; left: 50%; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--ac); box-shadow: 0 0 18px var(--ac); }
+  .sr-ring i.b { top: auto; bottom: -6px; width: 12px; height: 12px; margin-left: -6px; background: var(--ac2); box-shadow: 0 0 18px var(--ac2); }
+  .sr-core { position: absolute; left: 234px; top: 234px; width: 132px; height: 132px; border-radius: 36px; background: var(--ac-g); display: grid; place-items: center; color: #fff; box-shadow: 0 26px 60px -14px color-mix(in srgb, var(--ac) 70%, transparent); animation: sr-float 6s ease-in-out infinite; }
+  .sr-core svg { width: 84px; height: 84px; }
+  .sr-chip { position: absolute; display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 14px; background: color-mix(in srgb, var(--surf) 86%, transparent); border: 1px solid var(--bd); box-shadow: 0 14px 34px -12px rgba(15, 23, 42, .28); font: 700 15px/1 var(--font); color: var(--tx); backdrop-filter: blur(8px); animation: sr-float 7s ease-in-out infinite; }
+  .sr-chip b { width: 8px; height: 8px; border-radius: 50%; background: var(--ac-g); }
+  .sr-chip.c1 { left: 36px; top: 118px; }
+  .sr-chip.c2 { right: 14px; top: 196px; animation-delay: -2.2s; }
+  .sr-chip.c3 { left: 64px; bottom: 116px; animation-delay: -4.1s; }
+  .sr-chip.c4 { right: 58px; bottom: 64px; animation-delay: -1.3s; }
+
+slides:
+
+  - id: hero
+    template: canvas
+    label: Slideria
+    bg: var(--bg)
+    backdrop: aurora
+    transition: zoom
+    free:
+      - type: html
+        html: '<div class="sr-orb"><div class="sr-glow"></div><div class="sr-ring r3"><i></i></div><div class="sr-ring r2"><i></i><i class="b"></i></div><div class="sr-ring r1"><i></i></div><div class="sr-core"><svg viewBox="0 0 24 24"><path d="M20.5 3.5H8.25a4.25 4.25 0 0 0 0 8.5" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="20.5" cy="3.5" r="1.4" fill="currentColor"/><g opacity=".55"><path d="M8.25 12h7.5a4.25 4.25 0 0 1 0 8.5H3.5" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="3.5" cy="20.5" r="1.4" fill="currentColor"/></g></svg></div><div class="sr-chip c1"><b></b><span data-t="0"></span></div><div class="sr-chip c2"><b></b><span data-t="1"></span></div><div class="sr-chip c3"><b></b><span data-t="2"></span></div><div class="sr-chip c4"><b></b><span data-t="3"></span></div></div>'
+        texts: [Один HTML-файл, Экспорт в PPTX, Режим докладчика, Тёмная тема]
+        place: {x: 650, y: 60, w: 600, h: 600}
+        enter: scale
+        delay: 150
+      - type: text
+        text: SLIDERIA · ДВИЖОК ПРЕЗЕНТАЦИЙ
+        styles: {text: {size: 15, weight: 700, spacing: 0.18, color: accent2}}
+        place: {x: 72, y: 150, w: 560}
+        enter: fade
+      - type: text
+        text: "Презентации,\nкоторые {g:duo|живут}"
+        styles: {text: {size: 66, weight: 800, leading: 1.04, spacing: -0.02, color: text}}
+        place: {x: 68, y: 196, w: 640}
+        enter: rise
+        delay: 220
+      - type: text
+        text: Слайды как данные, правка как в PowerPoint, показ как кино. И всё это — один HTML-файл, который открывается где угодно.
+        styles: {text: {size: 21, color: text2, leading: 1.45}}
+        place: {x: 72, y: 386, w: 540}
+        enter: rise
+        delay: 440
+      - type: shape
+        kind: pill
+        fill: gradient
+        gradient: {from: accent, to: accent2, angle: 135}
+        shadow: md
+        text: Открыть студию  →
+        styles: {text: {size: 19}}
+        place: {x: 72, y: 520, w: 260, h: 62}
+        enter: pop
+        delay: 700
+      - type: shape
+        kind: pill
+        fill: none
+        stroke: gradient
+        strokeGradient: {from: accent, to: accent2, angle: 90}
+        width: 2
+        text: 9 слайдов витрины
+        styles: {text: {size: 17, color: text}}
+        place: {x: 350, y: 520, w: 230, h: 62}
+        enter: pop
+        delay: 820
+    notes: |
+      Это Slideria. Фон — живое сияние на WebGL, орбиты справа — обычная вёрстка с CSS-анимацией.
+      Кнопка слева переливается: это градиент акцента с включённым «Переливанием» (Вид → Оформление).
+
+  - id: inside
+    title: Всё нужное — уже {g:duo|внутри}
+    badge: без плагинов
+    backdrop: particles
+    transition: push
+    body:
+      - type: grid
+        columns: 4
+        items:
+          - {type: stat, value: "31", label: вид блока, note: от текста до 3D-модели}
+          - {type: stat, value: "7", label: эффектов появления, note: плюс свои из импорта}
+          - {type: stat, value: "6", label: переходов между слайдами, note: от сдвига до размытия}
+          - {type: stat, value: "1", label: файл для показа, note: работает без интернета}
+      - type: card
+        title: Путь презентации
+        body:
+          type: pipeline
+          stepSeconds: 1.1
+          steps:
+            - {title: Идея, sub: YAML или импорт}
+            - {title: Студия, sub: правка как в PowerPoint}
+            - {title: Анимация, sub: появление и переходы}
+            - {title: Показ, sub: окно докладчика}
+            - {title: Экспорт, sub: HTML · PPTX · PDF}
+      - type: card
+        title: А ещё
+        body:
+          type: chips
+          items: [Живые фоны*, Окно докладчика*, Импорт из Claude Design*, Экспорт в PPTX*, 3D-модели, Видео, Таблицы из Excel, Формат по образцу, Вставка слайдов из других презентаций, История отмены, Разгруппировка вёрстки, Тёмная тема]
+    notes: |
+      Цифры настоящие: столько блоков, эффектов и переходов есть в движке сейчас.
+      Конвейер внизу подсвечивает шаги по очереди — это блок pipeline.
+
+  - id: shapes
+    template: canvas
+    label: Фигуры и градиенты
+    bg: var(--bg)
+    transition: cover
+    free:
+      - type: text
+        text: Фигуры и {g:ocean|градиенты}
+        styles: {text: {size: 52, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 64, y: 44, w: 900}
+        enter: rise
+      - type: text
+        text: 14 готовых градиентов, свой — в два цвета, градиентные контуры и линии. Всё на вкладке «Фигура».
+        styles: {text: {size: 19, color: text2}}
+        place: {x: 66, y: 120, w: 760}
+        enter: fade
+        delay: 150
+      - type: shape
+        kind: ellipse
+        fill: gradient
+        gradient: {from: accent, to: accent2, angle: 135}
+        shadow: md
+        text: Градиент акцента
+        styles: {text: {size: 22}}
+        place: {x: 80, y: 220, w: 300, h: 300}
+        enter: scale
+        delay: 250
+      - type: shape
+        fill: gradient
+        gradient: {from: "#F97316", to: "#DB2777", angle: 135}
+        shadow: md
+        rotate: -6
+        text: Закат
+        styles: {text: {size: 26}}
+        place: {x: 440, y: 226, w: 270, h: 160}
+        enter: pop
+        delay: 380
+      - type: shape
+        fill: surface
+        stroke: gradient
+        strokeGradient: {from: "#06B6D4", to: "#2563EB", angle: 135}
+        width: 4
+        text: Градиентный контур
+        styles: {text: {size: 20, color: text}}
+        place: {x: 440, y: 430, w: 270, h: 150}
+        enter: pop
+        delay: 520
+      - type: shape
+        kind: ellipse
+        fill: none
+        stroke: gradient
+        strokeGradient: {from: "#8B5CF6", to: "#EC4899", angle: 135}
+        width: 9
+        place: {x: 770, y: 214, w: 180, h: 180}
+        enter: scale
+        delay: 620
+      - type: shape
+        kind: rect
+        fill: gradient
+        gradient: {from: "#475569", to: "#0F172A", angle: 160}
+        rotate: 12
+        radius: 22
+        text: Графит
+        styles: {text: {size: 18}}
+        place: {x: 1000, y: 226, w: 150, h: 150}
+        enter: pop
+        delay: 700
+      - type: shape
+        kind: pill
+        fill: gradient
+        gradient: {from: "#22C55E", to: "#0D9488", angle: 135}
+        shadow: sm
+        text: Лес
+        styles: {text: {size: 24}}
+        place: {x: 770, y: 440, w: 300, h: 92}
+        enter: right
+        delay: 780
+      - type: shape
+        kind: ellipse
+        fill: gradient
+        gradient: {from: "#A7F3D0", to: "#BFDBFE", angle: 135}
+        place: {x: 1100, y: 420, w: 110, h: 110}
+        enter: pop
+        delay: 860
+      - type: shape
+        kind: arrow
+        stroke: gradient
+        strokeGradient: {from: "#FBBF24", to: "#DC2626", angle: 90}
+        width: 7
+        place: {x: 770, y: 590, w: 440, h: 30}
+        enter: left
+        delay: 940
+      - type: shape
+        kind: line
+        stroke: gradient
+        dash: dash
+        width: 5
+        place: {x: 80, y: 600, w: 300, h: 20}
+        enter: left
+        delay: 1000
+    notes: |
+      Все фигуры — обычные блоки shape. Круг слева переливается вместе с темой.
+      Контуры, стрелка и пунктир — тоже градиентом.
+
+  - id: type
+    template: canvas
+    label: Текст как графика
+    bg: var(--bg)
+    backdrop: grid
+    transition: blur
+    free:
+      - type: text
+        text: "{g:sunset|Смело.}"
+        styles: {text: {size: 128, weight: 900, leading: 1, spacing: -0.03}}
+        place: {x: 60, y: 60, w: 640}
+        enter: left
+        delay: 100
+      - type: text
+        text: "{g:ocean|Ясно.}"
+        styles: {text: {size: 128, weight: 900, leading: 1, spacing: -0.03}}
+        place: {x: 60, y: 230, w: 640}
+        enter: left
+        delay: 330
+      - type: text
+        text: "{g:duo|Живо.}"
+        styles: {text: {size: 128, weight: 900, leading: 1, spacing: -0.03}}
+        place: {x: 60, y: 400, w: 640}
+        enter: left
+        delay: 560
+      - type: quote
+        text: Текст — тоже графика. Градиент ложится на слово, фразу или весь заголовок и остаётся обычным редактируемым текстом.
+        author: Slideria
+        role: Главная → Цвет текста → Градиент
+        place: {x: 720, y: 200, w: 500}
+        enter: right
+        delay: 820
+      - type: text
+        text: Выделите слова — градиент ляжет только на них.
+        styles: {text: {size: 17, color: muted}}
+        place: {x: 66, y: 620, w: 600}
+        enter: fade
+        delay: 1100
+    notes: Три слова — три градиента. «Живо» переливается вместе с акцентом. Фон — перспективная сетка.
+
+  - id: data
+    title: Данные, которые {g:duo|двигаются}
+    badge: демо-данные
+    transition: push
+    body:
+      - type: grid
+        columns: 1.45fr 1fr
+        items:
+          - type: card
+            title: Зрители показов
+            body:
+              type: line-chart
+              values: [120, 180, 170, 260, 310, 290, 420, 480, 470, 610, 680, 760]
+              start: январь
+              end: декабрь
+              scale: 1
+          - type: card
+            title: Слайдов за квартал
+            body:
+              type: bars
+              values: [42, 58, 51, 86]
+              labels: [Q1, Q2, Q3, Q4]
+              height: 150
+      - type: grid
+        columns: 3
+        items:
+          - {type: stat, value: "99,9 %", label: показов без сбоев, delta: "+0,4 %"}
+          - {type: stat, value: "2,4 с", label: сборка в один файл, delta: "−0,8 с"}
+          - {type: card, title: Доступность, body: {type: uptime, threshold: 99.5, values: [99.9, 99.8, 100, 99.7, 99.95, 98.9, 99.9, 100, 99.85, 99.9, 99.6, 100, 99.9, 99.95]}}
+    notes: |
+      Демо-данные, чтобы показать живую графику: линия прорисовывается, столбцы вырастают по очереди,
+      выделенный столбец — градиентом акцента.
+
+  - id: compare
+    title: Презентация как {g:duo|данные}
+    transition: fade
+    body:
+      - type: table
+        variant: accent
+        header: [Возможность, Slideria, Обычный PPTX]
+        widths: [2.2, 1, 1.2]
+        align: [left, center, center]
+        rows:
+          - [Показ в любом браузере, "{#16A34A|✓} один HTML-файл", нужен PowerPoint]
+          - [Тёмная тема, "{#16A34A|✓} одной кнопкой", перекраска вручную]
+          - ["Живые схемы и WebGL-фоны", "{#16A34A|✓} встроены", видео-вставки]
+          - [Текст слайдов в git, "{#16A34A|✓} YAML", двоичный файл]
+          - [Правка в PowerPoint, "{#16A34A|✓} экспорт в PPTX", "{#16A34A|✓} родной формат"]
+      - type: timeline
+        items:
+          - {date: Движок, title: Компоненты, text: слайды из данных, done: true}
+          - {date: Студия, title: Правка, text: как в PowerPoint, done: true}
+          - {date: Импорт, title: HTML и Claude Design, done: true}
+          - {date: Экспорт, title: PPTX и PDF, done: true}
+          - {date: Дизайн, title: Градиенты, text: и переливание, done: true}
+          - {date: Дальше, title: Облако, text: Vercel + Supabase}
+    notes: |
+      Честное сравнение: PowerPoint по-прежнему нужен тем, кто правит в нём, — для этого есть экспорт в PPTX.
+      Хронология — путь самой Slideria; облако — следующий шаг.
+
+  - id: hub
+    title: Всё {g:duo|связано}
+    transition: zoom
+    body:
+      - type: hub
+        items:
+          - {title: Студия, text: "лента, миниатюры, свойства и код слайда", node: Студия, sub: правка}
+          - {title: Показ, text: "переходы, анимации и живые фоны", node: Показ, sub: зрители}
+          - {title: Докладчик, text: "заметки, таймер и курсор для зала", node: Докладчик, sub: второе окно}
+          - {title: Экспорт, text: "один HTML, PPTX и PDF", node: Экспорт, sub: файлы}
+    notes: Наведите на пункт — подсветится узел схемы, и наоборот. В центре — знак Slideria из brand.logo.
+
+  - id: images
+    template: canvas
+    label: Картинки с характером
+    bg: var(--bg)
+    transition: cover
+    free:
+      - type: text
+        text: Картинки с {g:sunset|характером}
+        styles: {text: {size: 52, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 64, y: 44, w: 900}
+        enter: rise
+      - type: image
+        src: ./assets/art-dusk.svg
+        mat: 12
+        radius: 6
+        shadow: md
+        place: {x: 64, y: 150, w: 400, h: 300}
+        enter: rise
+        delay: 200
+      - type: image
+        src: ./assets/art-bloom.svg
+        radius: circle
+        shadow: lg
+        place: {x: 520, y: 150, w: 280, h: 280}
+        enter: scale
+        delay: 380
+      - type: image
+        src: ./assets/art-waves.svg
+        radius: 28
+        stroke: accent
+        width: 3
+        shadow: sm
+        place: {x: 856, y: 150, w: 360, h: 270}
+        enter: rise
+        delay: 560
+      - type: image
+        src: ./assets/art-grid.svg
+        radius: 18
+        filter: gray
+        place: {x: 856, y: 460, w: 360, h: 200}
+        enter: pop
+        delay: 740
+      - type: text
+        text: "**Фотография** — паспарту и тень"
+        styles: {text: {size: 17, color: text2}}
+        place: {x: 64, y: 474, w: 400}
+        enter: fade
+        delay: 900
+      - type: text
+        text: "**Круг** — и глубокая тень"
+        styles: {text: {size: 17, color: text2, align: center}}
+        place: {x: 520, y: 450, w: 280}
+        enter: fade
+        delay: 950
+      - type: text
+        text: "Выделите картинку — появится вкладка «Рисунок»: стили, контур, паспарту, тень, скругление, цвет и прозрачность.\n\nСправа внизу — тот же рисунок, но **чёрно-белый**."
+        styles: {text: {size: 18, color: muted, leading: 1.5}}
+        place: {x: 64, y: 540, w: 740}
+        enter: fade
+        delay: 1000
+    notes: Иллюстрации нарисованы в SVG. Оформление — обычные поля картинки, в PowerPoint оно тоже переносится.
+
+  - id: thanks
+    template: space
+    badge: Slideria
+    title: Спасибо
+    lead: Слайды как данные. Показ как кино.
+    transition: blur
+    notes: Звёзды слегка сдвигаются за мышью. Это финальный «космический» шаблон.
