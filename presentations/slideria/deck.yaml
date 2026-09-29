@@ -33,6 +33,37 @@ css: |
   .sr-chip.c3 { left: 64px; bottom: 116px; animation-delay: -4.1s; }
   .sr-chip.c4 { right: 58px; bottom: 64px; animation-delay: -1.3s; }
 
+  /* Слайд «Всё связано»: три стеклянных слоя в изометрии, по лучам вверх бегут импульсы */
+  @keyframes sr-sway { 0%, 100% { transform: rotateX(60deg) rotateZ(-38deg); } 50% { transform: rotateX(57deg) rotateZ(-50deg); } }
+  @keyframes sr-rise { 0% { transform: translateZ(0); opacity: 0; } 12%, 80% { opacity: 1; } 100% { transform: translateZ(var(--h)); opacity: 0; } }
+  @keyframes sr-hop { 0%, 60%, 100% { transform: translateZ(0); } 30% { transform: translateZ(16px); } }
+  @keyframes sr-beat { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ac) 50%, transparent), 0 0 40px color-mix(in srgb, var(--ac) 50%, transparent); } 50% { box-shadow: 0 0 0 18px color-mix(in srgb, var(--ac) 0%, transparent), 0 0 70px color-mix(in srgb, var(--ac2) 60%, transparent); } }
+  .sr-iso { width: 640px; height: 660px; perspective: 1700px; display: grid; place-items: center; }
+  .sr-stage { position: relative; width: 230px; height: 230px; margin-top: 390px; transform-style: preserve-3d; animation: sr-sway 16s ease-in-out infinite; }
+  .sr-plate { position: absolute; inset: 0; transform: translateZ(var(--z)); transform-style: preserve-3d; border-radius: 26px;
+    border: 1.5px solid color-mix(in srgb, var(--ac) 50%, transparent);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--surf) 90%, transparent), color-mix(in srgb, var(--acs) 80%, transparent)),
+      repeating-linear-gradient(0deg, transparent 0 32px, color-mix(in srgb, var(--ac) 11%, transparent) 32px 33px),
+      repeating-linear-gradient(90deg, transparent 0 32px, color-mix(in srgb, var(--ac) 11%, transparent) 32px 33px);
+    box-shadow: 0 50px 90px -40px color-mix(in srgb, var(--ac) 60%, transparent), inset 0 0 0 1px color-mix(in srgb, #fff 30%, transparent); }
+  .sr-plate > span { position: absolute; left: 18px; bottom: 12px; font: 800 20px/1 var(--font); letter-spacing: -.01em; color: var(--tx); }
+  .sr-plate > small { position: absolute; left: 19px; bottom: 36px; font: 700 12px/1 var(--font); letter-spacing: .14em; text-transform: uppercase; color: var(--ach); }
+  .sr-code { position: absolute; left: 20px; top: 20px; right: 20px; display: grid; gap: 10px; }
+  .sr-code i { display: block; height: 9px; border-radius: 5px; background: color-mix(in srgb, var(--mu) 40%, transparent); }
+  .sr-code i:nth-child(3n+1) { background: color-mix(in srgb, var(--ac) 55%, transparent); }
+  .sr-code i:nth-child(1) { width: 62%; } .sr-code i:nth-child(2) { width: 84%; margin-left: 12%; } .sr-code i:nth-child(3) { width: 48%; margin-left: 12%; }
+  .sr-code i:nth-child(4) { width: 70%; margin-left: 24%; } .sr-code i:nth-child(5) { width: 38%; margin-left: 12%; } .sr-code i:nth-child(6) { width: 56%; }
+  .sr-chipset { position: absolute; left: 126px; top: 24px; width: 82px; height: 82px; border-radius: 26px; background: var(--ac-g); animation: sr-beat 2.6s ease-in-out infinite;
+    background-image: repeating-linear-gradient(0deg, transparent 0 19px, rgba(255,255,255,.22) 19px 20px), repeating-linear-gradient(90deg, transparent 0 19px, rgba(255,255,255,.22) 19px 20px), linear-gradient(135deg, var(--ac), var(--ac2)); }
+  .sr-tiles { position: absolute; left: 18px; top: 18px; right: 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; transform-style: preserve-3d; }
+  .sr-tiles i { height: 44px; border-radius: 12px; background: color-mix(in srgb, var(--surf) 90%, transparent); border: 1px solid color-mix(in srgb, var(--ac) 35%, transparent);
+    box-shadow: 0 10px 20px -10px color-mix(in srgb, var(--ac) 60%, transparent); animation: sr-hop 3.6s ease-in-out infinite; position: relative; overflow: hidden; }
+  .sr-tiles i::before { content: ""; position: absolute; left: 10px; top: 12px; width: 44%; height: 7px; border-radius: 4px; background: var(--ac-g); }
+  .sr-tiles i::after { content: ""; position: absolute; left: 10px; top: 27px; right: 10px; bottom: 10px; border-radius: 6px; background: color-mix(in srgb, var(--ac) 14%, transparent); }
+  .sr-tiles i:nth-child(2) { animation-delay: .3s; } .sr-tiles i:nth-child(3) { animation-delay: .6s; } .sr-tiles i:nth-child(4) { animation-delay: .9s; } .sr-tiles i:nth-child(5) { animation-delay: 1.2s; } .sr-tiles i:nth-child(6) { animation-delay: 1.5s; }
+  .sr-dot { position: absolute; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; transform: translateZ(var(--z)); background: color-mix(in srgb, var(--ac) 60%, var(--ac2)); opacity: .55; }
+  .sr-pulse { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; --h: 380px; background: #fff; box-shadow: 0 0 12px 4px var(--ac), 0 0 26px 8px color-mix(in srgb, var(--ac2) 60%, transparent); animation: sr-rise 2.4s linear infinite; }
+
 slides:
 
   - id: hero
@@ -328,16 +359,50 @@ slides:
       Хронология — путь самой Slideria; облако — следующий шаг.
 
   - id: hub
-    title: Всё {g:duo|связано}
+    template: canvas
+    label: Всё связано
+    bg: "radial-gradient(ellipse 70% 80% at 72% 55%, color-mix(in srgb, var(--acs) 80%, var(--bg)), var(--bg) 70%)"
     transition: zoom
-    body:
-      - type: hub
-        items:
-          - {title: Студия, text: "лента, миниатюры, свойства и код слайда", node: Студия, sub: правка}
-          - {title: Показ, text: "переходы, анимации и живые фоны", node: Показ, sub: зрители}
-          - {title: Докладчик, text: "заметки, таймер и курсор для зала", node: Докладчик, sub: второе окно}
-          - {title: Экспорт, text: "один HTML, PPTX и PDF", node: Экспорт, sub: файлы}
-    notes: Наведите на пункт — подсветится узел схемы, и наоборот. В центре — знак Slideria из brand.logo.
+    free:
+      - type: html
+        html: '<div class="sr-iso"><div class="sr-stage"><div class="sr-plate" style="--z:0px"><div class="sr-code"><i></i><i></i><i></i><i></i><i></i><i></i></div><small data-t="0"></small><span data-t="1"></span></div><div class="sr-dot" style="left:25px;top:25px;--z:19px"></div><div class="sr-dot" style="left:25px;top:25px;--z:38px"></div><div class="sr-dot" style="left:25px;top:25px;--z:57px"></div><div class="sr-dot" style="left:25px;top:25px;--z:76px"></div><div class="sr-dot" style="left:25px;top:25px;--z:95px"></div><div class="sr-dot" style="left:25px;top:25px;--z:114px"></div><div class="sr-dot" style="left:25px;top:25px;--z:133px"></div><div class="sr-dot" style="left:25px;top:25px;--z:152px"></div><div class="sr-dot" style="left:25px;top:25px;--z:171px"></div><div class="sr-dot" style="left:25px;top:25px;--z:209px"></div><div class="sr-dot" style="left:25px;top:25px;--z:228px"></div><div class="sr-dot" style="left:25px;top:25px;--z:247px"></div><div class="sr-dot" style="left:25px;top:25px;--z:266px"></div><div class="sr-dot" style="left:25px;top:25px;--z:285px"></div><div class="sr-dot" style="left:25px;top:25px;--z:304px"></div><div class="sr-dot" style="left:25px;top:25px;--z:323px"></div><div class="sr-dot" style="left:25px;top:25px;--z:342px"></div><div class="sr-dot" style="left:25px;top:25px;--z:361px"></div><div class="sr-pulse" style="left:25px;top:25px;animation-delay:0s"></div><div class="sr-pulse" style="left:25px;top:25px;animation-delay:1.2s"></div><div class="sr-dot" style="left:205px;top:25px;--z:19px"></div><div class="sr-dot" style="left:205px;top:25px;--z:38px"></div><div class="sr-dot" style="left:205px;top:25px;--z:57px"></div><div class="sr-dot" style="left:205px;top:25px;--z:76px"></div><div class="sr-dot" style="left:205px;top:25px;--z:95px"></div><div class="sr-dot" style="left:205px;top:25px;--z:114px"></div><div class="sr-dot" style="left:205px;top:25px;--z:133px"></div><div class="sr-dot" style="left:205px;top:25px;--z:152px"></div><div class="sr-dot" style="left:205px;top:25px;--z:171px"></div><div class="sr-dot" style="left:205px;top:25px;--z:209px"></div><div class="sr-dot" style="left:205px;top:25px;--z:228px"></div><div class="sr-dot" style="left:205px;top:25px;--z:247px"></div><div class="sr-dot" style="left:205px;top:25px;--z:266px"></div><div class="sr-dot" style="left:205px;top:25px;--z:285px"></div><div class="sr-dot" style="left:205px;top:25px;--z:304px"></div><div class="sr-dot" style="left:205px;top:25px;--z:323px"></div><div class="sr-dot" style="left:205px;top:25px;--z:342px"></div><div class="sr-dot" style="left:205px;top:25px;--z:361px"></div><div class="sr-pulse" style="left:205px;top:25px;animation-delay:0.6s"></div><div class="sr-pulse" style="left:205px;top:25px;animation-delay:1.7999999999999998s"></div><div class="sr-dot" style="left:25px;top:205px;--z:19px"></div><div class="sr-dot" style="left:25px;top:205px;--z:38px"></div><div class="sr-dot" style="left:25px;top:205px;--z:57px"></div><div class="sr-dot" style="left:25px;top:205px;--z:76px"></div><div class="sr-dot" style="left:25px;top:205px;--z:95px"></div><div class="sr-dot" style="left:25px;top:205px;--z:114px"></div><div class="sr-dot" style="left:25px;top:205px;--z:133px"></div><div class="sr-dot" style="left:25px;top:205px;--z:152px"></div><div class="sr-dot" style="left:25px;top:205px;--z:171px"></div><div class="sr-dot" style="left:25px;top:205px;--z:209px"></div><div class="sr-dot" style="left:25px;top:205px;--z:228px"></div><div class="sr-dot" style="left:25px;top:205px;--z:247px"></div><div class="sr-dot" style="left:25px;top:205px;--z:266px"></div><div class="sr-dot" style="left:25px;top:205px;--z:285px"></div><div class="sr-dot" style="left:25px;top:205px;--z:304px"></div><div class="sr-dot" style="left:25px;top:205px;--z:323px"></div><div class="sr-dot" style="left:25px;top:205px;--z:342px"></div><div class="sr-dot" style="left:25px;top:205px;--z:361px"></div><div class="sr-pulse" style="left:25px;top:205px;animation-delay:1.2s"></div><div class="sr-pulse" style="left:25px;top:205px;animation-delay:2.4s"></div><div class="sr-dot" style="left:205px;top:205px;--z:19px"></div><div class="sr-dot" style="left:205px;top:205px;--z:38px"></div><div class="sr-dot" style="left:205px;top:205px;--z:57px"></div><div class="sr-dot" style="left:205px;top:205px;--z:76px"></div><div class="sr-dot" style="left:205px;top:205px;--z:95px"></div><div class="sr-dot" style="left:205px;top:205px;--z:114px"></div><div class="sr-dot" style="left:205px;top:205px;--z:133px"></div><div class="sr-dot" style="left:205px;top:205px;--z:152px"></div><div class="sr-dot" style="left:205px;top:205px;--z:171px"></div><div class="sr-dot" style="left:205px;top:205px;--z:209px"></div><div class="sr-dot" style="left:205px;top:205px;--z:228px"></div><div class="sr-dot" style="left:205px;top:205px;--z:247px"></div><div class="sr-dot" style="left:205px;top:205px;--z:266px"></div><div class="sr-dot" style="left:205px;top:205px;--z:285px"></div><div class="sr-dot" style="left:205px;top:205px;--z:304px"></div><div class="sr-dot" style="left:205px;top:205px;--z:323px"></div><div class="sr-dot" style="left:205px;top:205px;--z:342px"></div><div class="sr-dot" style="left:205px;top:205px;--z:361px"></div><div class="sr-pulse" style="left:205px;top:205px;animation-delay:1.8s"></div><div class="sr-pulse" style="left:205px;top:205px;animation-delay:3.0s"></div><div class="sr-plate" style="--z:190px"><div class="sr-chipset"></div><small data-t="2"></small><span data-t="3"></span></div><div class="sr-plate" style="--z:380px"><div class="sr-tiles"><i></i><i></i><i></i><i></i><i></i><i></i></div><small data-t="4"></small><span data-t="5"></span></div></div></div>'
+        texts: [Слой 1, Данные, Слой 2, Движок, Слой 3, Сцена]
+        place: {x: 610, y: 30, w: 640, h: 660}
+        enter: rise
+        delay: 200
+      - type: text
+        text: Всё {g:duo|связано}
+        styles: {text: {size: 56, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 64, y: 110, w: 560}
+        enter: rise
+      - type: text
+        text: Три слоя — и каждый живёт своей жизнью. Правка в студии сразу видна в показе, в окне докладчика и в файлах экспорта.
+        styles: {text: {size: 19, color: text2, leading: 1.5}}
+        place: {x: 66, y: 196, w: 500}
+        enter: fade
+        delay: 200
+      - type: text
+        text: "**3 · Сцена**\nстудия, показ, окно докладчика и экспорт"
+        styles: {text: {size: 19, color: text2, leading: 1.45}}
+        place: {x: 66, y: 330, w: 480}
+        enter: left
+        delay: 500
+      - type: text
+        text: "**2 · Движок**\n31 блок, темы, анимации, живые схемы"
+        styles: {text: {size: 19, color: text2, leading: 1.45}}
+        place: {x: 66, y: 420, w: 480}
+        enter: left
+        delay: 650
+      - type: text
+        text: "**1 · Данные**\nслайды — это текст в YAML: удобно хранить в git"
+        styles: {text: {size: 19, color: text2, leading: 1.45}}
+        place: {x: 66, y: 510, w: 480}
+        enter: left
+        delay: 800
+    notes: |
+      Сцена справа — обычная вёрстка с CSS 3D: три слоя висят в пространстве и покачиваются,
+      по световым лучам снизу вверх бегут импульсы, мини-слайды наверху подпрыгивают по очереди.
+      Подписи на слоях правятся прямо на слайде.
 
   - id: images
     template: canvas
@@ -402,9 +467,29 @@ slides:
     notes: Иллюстрации нарисованы в SVG. Оформление — обычные поля картинки, в PowerPoint оно тоже переносится.
 
   - id: thanks
-    template: space
-    badge: Slideria
-    title: Спасибо
-    lead: Слайды как данные. Показ как кино.
+    template: canvas
+    label: Спасибо
+    bg: "radial-gradient(ellipse 65% 60% at 50% 42%, color-mix(in srgb, var(--acs) 75%, var(--bg)), var(--bg) 72%)"
     transition: blur
-    notes: Звёзды слегка сдвигаются за мышью. Это финальный «космический» шаблон.
+    free:
+      - type: embed
+        src: ./assets/embed-particles.htm
+        poster: ./assets/embed-particles.png
+        theme: true
+        interactive: true
+        place: {x: 0, y: 0, w: 1280, h: 720}
+      - type: text
+        text: Слайды как данные. Показ как {g:duo|кино}.
+        styles: {text: {size: 26, weight: 600, color: text2, align: center}}
+        place: {x: 240, y: 480, w: 800}
+        enter: rise
+        delay: 1400
+      - type: text
+        text: Проведите мышью по буквам · щелчок — взрыв и новая сборка
+        styles: {text: {size: 15, color: muted, align: center, spacing: 0.04}}
+        place: {x: 240, y: 560, w: 800}
+        enter: fade
+        delay: 2200
+    notes: |
+      Слово собрано из нескольких тысяч частиц в цветах акцента. Частицы разбегаются от курсора и возвращаются,
+      щелчок взрывает слово — и оно собирается снова. По буквам пробегает волна света.

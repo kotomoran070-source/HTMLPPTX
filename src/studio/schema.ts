@@ -255,6 +255,7 @@ export const BLOCKS: Record<string, Schema> = {
     fields: [
       { k: 'poster', label: 'Заставка', type: 'image' },
       { k: 'theme', label: 'Цвета темы внутри вставки', type: 'bool' },
+      { k: 'interactive', label: 'Отвечает на мышь при показе', type: 'bool' },
     ],
   },
   model: {

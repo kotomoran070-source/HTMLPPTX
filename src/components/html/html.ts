@@ -219,10 +219,12 @@ interface EmbedProps extends Block {
   poster?: string;
   /** Вставка берёт цвета темы: получает их при показе и перезапускается при смене темы */
   theme?: boolean;
+  /** Вставка отвечает на мышь при показе (курсор, щелчки); в редакторе — нет, чтобы её можно было выделить */
+  interactive?: boolean;
 }
 
 /** Цвета темы, которые передаются во вставку */
-const TOKENS = ['--bg', '--surf', '--alt', '--tx', '--tx2', '--mu', '--bd', '--bd2', '--ac', '--ach', '--acs', '--acb', '--on-ac', '--font'];
+const TOKENS = ['--bg', '--surf', '--alt', '--tx', '--tx2', '--mu', '--bd', '--bd2', '--ac', '--ac2', '--ach', '--acs', '--acb', '--on-ac', '--font'];
 
 /** Документ вставки с текущими цветами темы: :root:root сильнее :root самой вставки. */
 function withTheme(html: string): string {
@@ -252,7 +254,7 @@ const load = (url: string) => {
 defineBlock<EmbedProps>('embed', {
   render(p) {
     const poster = p.poster ? `<img class="embed-poster" src="${esc(p.poster)}" alt="">` : '';
-    return `<div class="embed${p.theme ? ' themed' : ''}">${poster}</div>`;
+    return `<div class="embed${p.theme ? ' themed' : ''}${p.interactive ? ' interactive' : ''}">${poster}</div>`;
   },
   mount(el, p, ctx) {
     if (!p.src) return;

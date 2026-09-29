@@ -8,6 +8,9 @@ body.editing .stage .html-inner img.html-empty { visibility: visible; outline: 2
 .embed-poster { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .embed-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; background: transparent; pointer-events: none; opacity: 0; transition: opacity .2s; }
 .embed-frame.on { opacity: 1; }
+/* interactive: мышь внутри вставки при показе; в режиме правки вставку по-прежнему выделяют */
+.embed.interactive .embed-frame { pointer-events: auto; }
+body.editing .embed.interactive .embed-frame { pointer-events: none; }
 .embed:has(.embed-frame.on) .embed-poster { visibility: hidden; }
 /* Заставка вставки снята в светлой теме. В тёмной — перевёрнутые яркости с тем же оттенком:
    светлые подложки темнеют, акцент остаётся синим (для миниатюр и до загрузки вставки) */

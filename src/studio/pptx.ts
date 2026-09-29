@@ -52,6 +52,12 @@ function gradientColor(img: string): Rgba | null {
   return m ? rgba(m[0]) : null;
 }
 
+/** Внутри есть объёмная сцена: элемент с transform-style: preserve-3d */
+function has3d(el: HTMLElement): boolean {
+  for (const x of el.querySelectorAll<HTMLElement>('*')) if (getComputedStyle(x).transformStyle === 'preserve-3d') return true;
+  return false;
+}
+
 /** Градиент, у которого все цвета одинаковые, — этот цвет; иначе null */
 function flatGradient(img: string): Rgba | null {
   if (!/^linear-gradient\(/.test(img) || img.includes('url(')) return null;
@@ -296,6 +302,8 @@ class Converter {
     if (type && RASTER.has(type)) return this.raster(el, b);
     if (type === 'table') return this.table(el, k);
     if (type === 'embed' && await this.embed(el, b)) return;
+    // Вёрстка с объёмной сценой (CSS 3D): фигурами её не передать — картинкой, как на экране
+    if (type === 'html' && has3d(el)) return this.raster(el, b);
     if (type === 'bars' || type === 'line-chart') {
       if (this.chart(el, type, b)) return;
       return this.raster(el, b);
@@ -709,8 +717,16 @@ class Converter {
    * снимается разметкой (холсты — картинками) и рисуется картинкой. Не вышло — остаётся заставка.
    */
   private async embed(el: HTMLElement, b: Box): Promise<boolean> {
-    const p = this.props(el) as { src?: string; theme?: boolean } | undefined;
+    const p = this.props(el) as { src?: string; theme?: boolean; interactive?: boolean; poster?: string } | undefined;
     if (!p?.src) return false;
+    // Интерактивная сцена в движении не имеет «правильного» кадра: её кадр — заставка
+    if (p.interactive && p.poster) {
+      const src = el.querySelector<HTMLImageElement>('.embed-poster')?.src;
+      const data = src ? await imageData(src) : null;
+      if (!data) return false;
+      this.slide.addImage({ data, ...this.pos(b) });
+      return true;
+    }
     const w = el.offsetWidth || Math.round(b.w);
     const h = el.offsetHeight || Math.round(b.h);
     try {
