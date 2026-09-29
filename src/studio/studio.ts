@@ -119,7 +119,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Панели', rb('view.slides', 'grid', 'Слайды', { big: true, key: 'Ctrl+Shift+1', title: 'Список слайдов слева' }) + rb('view.props', 'sliders', 'Свойства', { big: true, key: 'Ctrl+Shift+2', title: 'Панель свойств справа' }) + rb('view.notes', 'notes', 'Заметки', { big: true, key: 'Ctrl+Shift+3' }) + rb('view.code', 'terminal', 'Код слайда', { big: true, key: 'Ctrl+`', title: 'Код слайда (YAML) и стили (CSS)' }) + rb('view.layers', 'layers', 'Область выделения', { big: true, key: 'Alt+F10', title: 'Объекты слайда списком: скрыть, закрепить, поменять порядок' }))}
       ${group('Показать', `<div class="st-rstack">${chk('view.ruler', 'Линейка', 'Линейка сверху и слева; из неё вытягиваются направляющие')}${chk('view.grid', 'Сетка', 'Сетка на слайде, объекты прилипают к ней (Shift+F9)')}${chk('view.guides', 'Направляющие', 'Свои направляющие; объекты прилипают к ним (Alt+F9)')}</div><div class="st-rstack">${rb('view.grid-step', 'grid', 'Шаг сетки', { menu: true })}${rb('view.guides-reset', 'reset', 'Сбросить направляющие', { title: 'Оставить одну вертикальную и одну горизонтальную по центру' })}</div>`)}
       ${group('Масштаб', rb('view.fit', 'fullscreen', 'Вписать', { big: true }) + `<div class="st-rstack">${rb('view.zoom-in', 'plus', 'Крупнее')}${rb('view.zoom-out', 'minus', 'Мельче')}</div>`)}
-      ${group('Оформление', `<label class="st-accent" title="Акцентный цвет презентации"><input type="color" id="st-accent" aria-label="Акцентный цвет"><span>Акцент</span></label>${rb('design.accent-reset', 'reset', 'Стандартный')}`)}
+      ${group('Оформление', `<label class="st-accent" title="Акцентный цвет презентации"><input type="color" id="st-accent" aria-label="Акцентный цвет"><span>Акцент</span></label><label class="st-accent" title="Второй цвет: акцентные заливки становятся градиентом от акцента к нему"><input type="color" id="st-accent2" aria-label="Второй цвет градиента"><span>Градиент</span></label><div class="st-rstack">${rb('design.accent-reset', 'reset', 'Стандартный', { title: 'Стандартный акцент, без градиента' })}${rb('design.accent2-off', 'close', 'Без градиента', { title: 'Ровный акцент без второго цвета' })}</div>`)}
     </div>
     ${contextPanelsHtml()}
   </div>
@@ -169,7 +169,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   const notesText = $<HTMLTextAreaElement>('st-notes-text');
   const count = () => deck.slides.length;
 
-  applyAccent(deck.theme?.accent);
+  applyAccent(deck.theme?.accent, deck.theme?.accent2);
   updateFavicon(deck.brand?.logo);
   const view = new DeckView(deck, paper);
   // Слайды в редакторе листаются мгновенно; переход виден в «Просмотре» и в показе
@@ -248,7 +248,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
         if (index > count() - 1) index = count() - 1;
         view.show(index);
       }
-      applyAccent(deck.theme?.accent);
+      applyAccent(deck.theme?.accent, deck.theme?.accent2);
       updateFavicon(deck.brand?.logo);
       slides.update();
       code?.update();
@@ -1139,7 +1139,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'view.layers': { run: () => toggleLayers(), active: () => lay.layers },
     'obj.attach': { run: () => ed.blockEditor.attach(), enabled: () => single() && content() },
     'obj.parent': { run: () => ed.blockEditor.selectParent(), enabled: () => !!ed.selection?.hasParent },
-    'design.accent-reset': { run: () => ed.setAccent(null), enabled: () => !!deck.theme?.accent },
+    'design.accent-reset': { run: () => ed.setAccent(null), enabled: () => !!deck.theme?.accent || !!deck.theme?.accent2 },
+    'design.accent2-off': { run: () => ed.setAccent(null, 'accent2'), enabled: () => !!deck.theme?.accent2 },
     'design.theme': { run: () => toggleTheme() },
     'show.start': { run: () => void openShow(0) },
     'show.current': { run: () => void openShow(index) },
@@ -1250,6 +1251,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
   accent.addEventListener('input', () => ed.previewAccent(accent.value));
   accent.addEventListener('change', () => ed.setAccent(accent.value));
   accent.addEventListener('blur', () => ed.endAccentPreview());
+  const accent2 = $<HTMLInputElement>('st-accent2');
+  accent2.addEventListener('input', () => ed.previewAccent(accent2.value, 'accent2'));
+  accent2.addEventListener('change', () => ed.setAccent(accent2.value, 'accent2'));
+  accent2.addEventListener('blur', () => ed.endAccentPreview());
   onThemeChange(() => { slides.update(); queueState(); });
 
   // ---------------- раскладка окна: панели тянутся, лента сворачивается ----------------
@@ -1502,6 +1507,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const a = deck.theme?.accent;
     const av = typeof a === 'string' && HEX_RE.test(a) ? a : getComputedStyle(document.documentElement).getPropertyValue('--ac').trim();
     if (document.activeElement !== accent && HEX_RE.test(av)) accent.value = av.toLowerCase();
+    const a2 = deck.theme?.accent2;
+    const a2v = typeof a2 === 'string' && HEX_RE.test(a2) ? a2 : av;
+    if (document.activeElement !== accent2 && HEX_RE.test(a2v)) accent2.value = a2v.toLowerCase();
+    accent2.closest('label')!.classList.toggle('on', !!a2);
     $('st-pos').textContent = `Слайд ${index + 1} из ${count()} · ${slideLabel(deck.slides[index], index)}`;
     syncNotes();
     inspector.sync();

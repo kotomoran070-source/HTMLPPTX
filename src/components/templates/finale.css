@@ -18,7 +18,7 @@
 .fin .w { display: inline-block; }
 :is(.slide.on, .tpl-part).fin .w { animation: wd 1.2s var(--ease) var(--w) both; }
 
-.fin .ln2 { height: 2px; width: 240px; background: var(--ac); border-radius: 2px; margin: 20px auto 18px; }
+.fin .ln2 { height: 2px; width: 240px; background: var(--ac-g); border-radius: 2px; margin: 20px auto 18px; }
 :is(.slide.on, .tpl-part).fin .ln2 { animation: ex 1.2s var(--ease) 1.7s both; }
 
 .fin .lead { font-size: 22px; letter-spacing: .06em; margin: 0; color: var(--tx2); max-width: none; }
@@ -46,7 +46,7 @@
 .it small { display: block; font-size: 12px; color: var(--mu); line-height: 1.3; margin-bottom: 1px; }
 .it b { display: block; font-size: 15px; line-height: 1.3; font-weight: 600; }
 .pl > .primary { gap: 14px; }
-.pl > .primary i { flex: 0 0 46px; height: 46px; background: var(--ac); }
+.pl > .primary i { flex: 0 0 46px; height: 46px; background: var(--ac-g); }
 .pl > .primary .ic { width: 24px; height: 24px; stroke: #fff; }
 .pl > .primary b { font-size: 21px; letter-spacing: .01em; color: var(--tx); }
 .pl > .primary:hover b { color: var(--ach); }

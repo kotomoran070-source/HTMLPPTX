@@ -10,6 +10,8 @@ export interface Deck {
   theme?: {
     /** Акцентный цвет, например "#2563EB". Оттенки для обеих тем строятся из него */
     accent?: string;
+    /** Второй цвет акцента: акцентные заливки становятся градиентом от accent к accent2 */
+    accent2?: string;
   };
   slides: SlideData[];
   /**

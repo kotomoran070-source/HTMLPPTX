@@ -1,6 +1,6 @@
 import { icon } from '../../components/icons';
 import type { Deck, SlideData } from '../../types';
-import { applyAccent, HEX_RE, previewAccent } from '../accent';
+import { applyAccent, DEFAULT_ACCENT, HEX_RE, previewAccent } from '../accent';
 import { clone, getAt, replaceContents, setAt, type Path } from '../data';
 import { esc } from '../html';
 import { BlockEditor } from './block-edit';
@@ -21,6 +21,8 @@ const MEDIA: Record<MediaKind, { accept: string; formats: string; test(f: File):
   model: { accept: '.glb,model/gltf-binary', formats: 'GLB', test: (f) => /\.glb$/i.test(f.name) },
 };
 const MAX_MEDIA = 60 * 1024 * 1024;
+/** Пока тянут палитру акцента, весь интерфейс перекрашивается не чаще, чем раз в столько мс */
+const ACCENT_UI_MS = 160;
 
 function mediaKind(f: File | undefined): MediaKind | null {
   if (!f) return null;
@@ -476,7 +478,7 @@ export class Editor {
     if (rebuild) this.hideHint();
     this.touched = true;
     this.dirty = true;
-    applyAccent(this.host.deck.theme?.accent);
+    applyAccent(this.host.deck.theme?.accent, this.host.deck.theme?.accent2);
     this.host.refresh(rebuild);
     if (rebuild) {
       this.image.refresh();
@@ -607,31 +609,50 @@ export class Editor {
   }
 
   private accentFrame = 0;
-  private accentPreview = '';
+  private accentTimer = 0;
+  private accentAt = 0;
+  private accentPreview: { accent?: string; accent2?: string } = {};
 
   /**
-   * Пока тянут палитру: только цвет на экране, не чаще кадра. Без истории, сохранения и перезапуска
-   * вставок — всё это один раз в setAccent, когда палитру отпустили.
+   * Пока тянут палитру: открытый слайд — каждый кадр, весь интерфейс — живьём, но не чаще раза
+   * в ACCENT_UI_MS (иначе перекраска всего подряд тормозит). История, сохранение и перезапуск
+   * вставок — один раз в setAccent, когда палитру отпустили.
    */
-  previewAccent(value: string): void {
+  previewAccent(value: string, key: 'accent' | 'accent2' = 'accent'): void {
     if (!HEX_RE.test(value)) return;
-    this.accentPreview = value;
-    if (this.accentFrame) return;
-    this.accentFrame = requestAnimationFrame(() => {
-      this.accentFrame = 0;
-      previewAccent(this.accentPreview, this.host.stage());
-    });
+    const t = this.host.deck.theme;
+    this.accentPreview = { accent: t?.accent, accent2: t?.accent2, ...this.accentPreview, [key]: value };
+    const cur = () => this.accentPreview;
+    if (!this.accentFrame) {
+      this.accentFrame = requestAnimationFrame(() => {
+        this.accentFrame = 0;
+        const c = cur();
+        previewAccent(c.accent && HEX_RE.test(c.accent) ? c.accent : DEFAULT_ACCENT, this.host.stage(), c.accent2);
+      });
+    }
+    if (!this.accentTimer) {
+      const wait = Math.max(0, ACCENT_UI_MS - (performance.now() - this.accentAt));
+      this.accentTimer = window.setTimeout(() => {
+        this.accentTimer = 0;
+        this.accentAt = performance.now();
+        applyAccent(cur().accent, cur().accent2, true);
+      }, wait);
+    }
   }
 
-  /** Палитру закрыли без выбора — вернуть цвет из данных */
+  /** Палитру закрыли без выбора — вернуть цвета из данных */
   endAccentPreview(): void {
     cancelAnimationFrame(this.accentFrame);
+    clearTimeout(this.accentTimer);
     this.accentFrame = 0;
+    this.accentTimer = 0;
+    this.accentPreview = {};
     previewAccent(null);
+    applyAccent(this.host.deck.theme?.accent, this.host.deck.theme?.accent2);
   }
 
-  setAccent(value: string | null): void {
-    this.endAccentPreview();
+  /** Акцент (key accent) или второй цвет градиента (accent2); null у акцента — стандартные цвета, без градиента */
+  setAccent(value: string | null, key: 'accent' | 'accent2' = 'accent'): void {
     this.commit((d) => {
       if (value && HEX_RE.test(value)) {
         if (!d.theme) {
@@ -641,12 +662,14 @@ export class Editor {
           entries.splice(at >= 0 ? at + 1 : entries.length - 1, 0, ['theme', {}]);
           replaceContents(d as unknown as Record<string, unknown>, Object.fromEntries(entries));
         }
-        d.theme!.accent = value.toUpperCase();
+        d.theme![key] = value.toUpperCase();
       } else if (d.theme) {
-        delete d.theme.accent;
+        delete d.theme[key];
+        if (key === 'accent') delete d.theme.accent2;
         if (!Object.keys(d.theme).length) delete d.theme;
       }
-    }, { merge: 'accent', rebuild: false });
+    }, { merge: key, rebuild: false });
+    this.endAccentPreview();
   }
 
   private toggleNotes(force?: boolean): void {

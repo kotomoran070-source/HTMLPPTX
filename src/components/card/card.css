@@ -13,7 +13,7 @@
 .progress { margin-top: 14px; }
 .progress .row { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; }
 .bar1 { height: 8px; border-radius: 9999px; background: var(--alt); overflow: hidden; margin-top: 6px; }
-.fill { height: 100%; width: var(--w); background: var(--ac); border-radius: 9999px; }
+.fill { height: 100%; width: var(--w); background: var(--ac-g); border-radius: 9999px; }
 .slide.on .fill { animation: fw 1.4s .5s var(--ease) both; }
 @keyframes fw { from { width: 0; } }
 

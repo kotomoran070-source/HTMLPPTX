@@ -98,7 +98,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
 
   const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
   const cur = $('cur');
-  applyAccent(deck.theme?.accent);
+  applyAccent(deck.theme?.accent, deck.theme?.accent2);
   const view = new DeckView(deck, cur);
   // У окна докладчика свой id (sessionStorage всплывающего окна копируется из основного)
   const sync = new Sync(deckKey, 'p-' + Math.random().toString(36).slice(2, 10));
@@ -443,7 +443,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
         if (pm.notes) ps.notes = pm.notes;
         else delete ps.notes;
       });
-      applyAccent(deck.theme?.accent);
+      applyAccent(deck.theme?.accent, deck.theme?.accent2);
       view.update(deck);
       const i = Math.min(index, deck.slides.length - 1);
       index = -1;

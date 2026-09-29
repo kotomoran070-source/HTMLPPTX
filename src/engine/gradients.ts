@@ -14,7 +14,7 @@ export interface ShapeGradient {
 
 /** Роли темы в градиентах: те же, что у цветов фигур (shape.ts), и светлый/тёмный акцент */
 export const GRADIENT_ROLES: Record<string, string> = {
-  surface: 'var(--surf)', bg: 'var(--bg)', alt: 'var(--alt)', soft: 'var(--acs)', accent: 'var(--ac)', text: 'var(--tx)',
+  surface: 'var(--surf)', bg: 'var(--bg)', alt: 'var(--alt)', soft: 'var(--acs)', accent: 'var(--ac)', accent2: 'var(--ac2)', text: 'var(--tx)',
   line: 'var(--bd)', border: 'var(--bd2)', muted: 'var(--mu)',
   'accent-light': 'color-mix(in srgb, var(--ac) 72%, #fff)',
   'accent-dark': 'color-mix(in srgb, var(--ac) 78%, #000)',
@@ -27,6 +27,7 @@ const ROLE_ON: Record<string, string> = { accent: 'var(--on-ac)', text: 'var(--b
 /** Готовые градиенты: первые — от цветов темы (меняются с темой и акцентом), дальше — постоянные */
 export const GRADIENTS: { id: string; name: string; g: ShapeGradient; on?: string }[] = [
   { id: 'accent', name: 'Акцент', g: { from: 'accent-light', to: 'accent-dark', angle: 135 }, on: 'var(--on-ac)' },
+  { id: 'duo', name: 'Градиент акцента (Вид → Оформление)', g: { from: 'accent', to: 'accent2', angle: 135 }, on: 'var(--on-ac)' },
   { id: 'glow', name: 'Сияние акцента', g: { from: 'accent-light', to: 'accent-dark', type: 'radial' }, on: 'var(--on-ac)' },
   { id: 'soft', name: 'Мягкий', g: { from: 'soft', to: 'surface', angle: 135 }, on: 'var(--ach)' },
   { id: 'mist', name: 'Туман', g: { from: 'surface', to: 'alt', angle: 180 }, on: 'var(--tx)' },
@@ -39,7 +40,6 @@ export const GRADIENTS: { id: string; name: string; g: ShapeGradient; on?: strin
   { id: 'fire', name: 'Огонь', g: { from: '#FBBF24', to: '#DC2626', angle: 135 } },
   { id: 'peach', name: 'Персик', g: { from: '#FED7AA', to: '#FBCFE8', angle: 135 } },
   { id: 'mint', name: 'Мята', g: { from: '#A7F3D0', to: '#BFDBFE', angle: 135 } },
-  { id: 'sky', name: 'Небо', g: { from: '#E0F2FE', to: '#93C5FD', angle: 180 } },
 ];
 
 export const gradColor = (c: unknown): string => (typeof c === 'string' ? GRADIENT_ROLES[c] ?? (HEX.test(c) ? c : 'var(--ac)') : 'var(--ac)');
@@ -82,7 +82,7 @@ export function sameGradient(a: unknown, b: unknown): boolean {
 
 
 /** Градиенты, которые годятся для текста: контрастные и на светлом, и на тёмном фоне */
-export const TEXT_GRADIENTS = ['accent', 'night', 'sunset', 'ocean', 'forest', 'violet', 'fire', 'graphite'];
+export const TEXT_GRADIENTS = ['duo', 'accent', 'night', 'sunset', 'ocean', 'forest', 'violet', 'fire'];
 
 /** Градиент текста по имени готового: {g:ocean|слова} в разметке */
 export function textGradientCss(code: string): string | null {

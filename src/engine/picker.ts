@@ -1,6 +1,6 @@
 import { icon } from '../components/icons';
 import type { Deck } from '../types';
-import { accentTokens, HEX_RE } from './accent';
+import { accentTokens, DEFAULT_ACCENT, HEX_RE } from './accent';
 import { brandMark, updateFavicon } from './brand';
 import { staticSlide } from './deck-view';
 import { esc } from './html';
@@ -138,8 +138,10 @@ async function create(): Promise<void> {
 /** Цвета акцента презентации для её миниатюры (у каждой карточки свои). */
 function accentVars(deck: Deck): string {
   const a = deck.theme?.accent;
-  if (typeof a !== 'string' || !HEX_RE.test(a)) return '';
-  const t = accentTokens(a)[currentTheme() === 'dark' ? 'dark' : 'light'];
+  const a2 = deck.theme?.accent2;
+  const ok = (v: unknown): v is string => typeof v === 'string' && HEX_RE.test(v);
+  if (!ok(a) && !ok(a2)) return '';
+  const t = accentTokens(ok(a) ? a : DEFAULT_ACCENT, ok(a2) ? a2 : null)[currentTheme() === 'dark' ? 'dark' : 'light'];
   return Object.entries(t).map(([k, v]) => `${k}:${v}`).join(';');
 }
 

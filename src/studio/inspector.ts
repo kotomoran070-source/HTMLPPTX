@@ -115,11 +115,12 @@ export class Inspector {
       // Цвет меняется сразу, пока тянут ползунок палитры
       if (el.type !== 'color') return;
       // Акцент перекрашивает всю презентацию: пока тянут — только показ, правка — по change
-      if (el.dataset.f === 'accent') this.host.editor().previewAccent(el.value);
+      if (el.dataset.f === 'accent' || el.dataset.f === 'accent2') this.host.editor().previewAccent(el.value, el.dataset.f);
       else this.onChange(el);
     });
     root.addEventListener('focusout', (e) => {
-      if ((e.target as HTMLElement).dataset?.f === 'accent') this.host.editor().endAccentPreview();
+      const f = (e.target as HTMLElement).dataset?.f;
+      if (f === 'accent' || f === 'accent2') this.host.editor().endAccentPreview();
     });
     root.addEventListener('keydown', (e) => {
       const el = e.target as HTMLInputElement;
@@ -164,6 +165,7 @@ export class Inspector {
         }, { rebuild: true });
       }
       if (t.closest('[data-a="accent-reset"]')) this.host.editor().setAccent(null);
+      if (t.closest('[data-a="accent2-off"]')) this.host.editor().setAccent(null, 'accent2');
     });
   }
 
@@ -304,7 +306,8 @@ ${formHtml(this.fields, deck, ['slides', i])}
 </section>
 ${tpl !== 'canvas' && !s.live ? `<section class="st-p-sec"><h3>Раскладка шаблона</h3><p class="st-p-note">Части слайда стоят на своих местах. Разберите слайд, чтобы двигать и масштабировать их по отдельности: вид и анимации сохранятся. Вернуть — Ctrl+Z.</p>${cmdBtn('slide.explode', 'ungroup', 'Разобрать на объекты')}</section>` : ''}
 ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Название</span><input type="text" data-f="title"></label>
-<label class="st-p-field"><span>Акцентный цвет</span><span class="st-p-color"><input type="color" data-f="accent" aria-label="Акцентный цвет"><button type="button" class="st-link" data-a="accent-reset">Стандартный</button></span></label>`)}`;
+<label class="st-p-field"><span>Акцентный цвет</span><span class="st-p-color"><input type="color" data-f="accent" aria-label="Акцентный цвет"><button type="button" class="st-link" data-a="accent-reset">Стандартный</button></span></label>
+<label class="st-p-field"><span>Градиент акцента — второй цвет</span><span class="st-p-color"><input type="color" data-f="accent2" aria-label="Второй цвет градиента"><button type="button" class="st-link" data-a="accent2-off">Без градиента</button></span></label>`)}`;
   }
 
   /** Раздел «Состав»: вложенные блоки и поля выделенного блока. Клик — выделить или править. */
@@ -356,12 +359,15 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
     const s = deck.slides[this.host.index()];
     const bg = typeof s?.bg === 'string' ? s.bg : '';
     const accent = deck.theme?.accent;
+    const acNow = (typeof accent === 'string' && HEX_RE.test(accent) ? accent : getComputedStyle(document.documentElement).getPropertyValue('--ac').trim()).toLowerCase();
+    const accent2 = deck.theme?.accent2;
     return {
       label: typeof s?.label === 'string' ? s.label : '',
       bg,
       bgcolor: HEX_RE.test(bg.trim()) ? bg.trim().toLowerCase() : '#ffffff',
       title: deck.title ?? '',
-      accent: (typeof accent === 'string' && HEX_RE.test(accent) ? accent : getComputedStyle(document.documentElement).getPropertyValue('--ac').trim()).toLowerCase(),
+      accent: acNow,
+      accent2: typeof accent2 === 'string' && HEX_RE.test(accent2) ? accent2.toLowerCase() : acNow,
     };
   }
 
@@ -379,7 +385,9 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
     const h = this.root.querySelector<HTMLInputElement>('[data-f="h"]');
     if (h && sel?.free) h.placeholder = `авто · ${this.host.measure(sel.free)?.h ?? ''}`;
     const reset = this.root.querySelector<HTMLElement>('[data-a="accent-reset"]');
-    if (reset) reset.hidden = !this.host.deck().theme?.accent;
+    if (reset) reset.hidden = !this.host.deck().theme?.accent && !this.host.deck().theme?.accent2;
+    const off2 = this.root.querySelector<HTMLElement>('[data-a="accent2-off"]');
+    if (off2) off2.hidden = !this.host.deck().theme?.accent2;
     const sum = this.root.querySelector<HTMLElement>('[data-sum="enter"]');
     if (sum) sum.textContent = (v.enter ? effectName(this.host.deck(), v.enter) : '') || 'нет';
   }
@@ -419,8 +427,8 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
       if (!raw) return this.fill();
       ed.commit((d) => { d.title = raw; }, { rebuild: false, merge: 'title' });
       document.title = `${raw} — Slideria`;
-    } else if (f === 'accent') {
-      ed.setAccent(raw);
+    } else if (f === 'accent' || f === 'accent2') {
+      ed.setAccent(raw, f);
     }
   }
 }

@@ -29,7 +29,7 @@
 
 /* accent — шапка акцентного цвета */
 .tbl-accent table { box-shadow: var(--shadow-sm); }
-.tbl-accent thead tr { background: var(--ac); }
+.tbl-accent thead tr { background: var(--ac-g); }
 .tbl-accent th { color: var(--on-ac); }
 .tbl-accent td { border-bottom: 1px solid var(--bd); }
 

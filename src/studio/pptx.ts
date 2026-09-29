@@ -46,6 +46,14 @@ function gradientColor(img: string): Rgba | null {
   return m ? rgba(m[0]) : null;
 }
 
+/** Градиент, у которого все цвета одинаковые, — этот цвет; иначе null */
+function flatGradient(img: string): Rgba | null {
+  if (!/^linear-gradient\(/.test(img) || img.includes('url(')) return null;
+  const colors = img.match(/rgba?\([^)]+\)/g);
+  if (!colors || colors.length < 2 || colors.some((c) => c !== colors[0])) return null;
+  return rgba(colors[0]);
+}
+
 function fontFace(family: string): string {
   const generic = /^(system-ui|-apple-system|blinkmacsystemfont|sans-serif|serif|monospace|ui-[a-z-]+|cursive|fantasy|inherit)$/i;
   const list = family.split(',').map((f) => f.trim().replace(/^["']|["']$/g, ''));
@@ -309,7 +317,10 @@ class Converter {
 
   private async decoration(el: HTMLElement, cs: CSSStyleDeclaration, b: Box, op: number, k: number): Promise<void> {
     let fill = rgba(cs.backgroundColor);
-    const grad = cs.backgroundImage !== 'none' && /gradient|url\(/.test(cs.backgroundImage);
+    // Градиент из одного цвета (акцент без второго цвета) — обычная заливка: фигура остаётся редактируемой
+    const flat = flatGradient(cs.backgroundImage);
+    if (flat) fill = flat;
+    const grad = !flat && cs.backgroundImage !== 'none' && /gradient|url\(/.test(cs.backgroundImage);
     // Текст с градиентом (background-clip: text) — не подложка
     const clipText = /text/.test(cs.getPropertyValue('background-clip') || cs.getPropertyValue('-webkit-background-clip'));
     if (grad && !clipText) {
@@ -753,7 +764,9 @@ class Converter {
     let widths: number[] = [];
     [...table.rows].forEach((tr, row) => {
       heights.push(tr.getBoundingClientRect().height);
-      const trBg = rgba(getComputedStyle(tr).backgroundColor);
+      const tcs = getComputedStyle(tr);
+      // Шапка градиентом (акцент с градиентом) — в таблице PowerPoint её первым цветом
+      const trBg = rgba(tcs.backgroundColor) ?? (/gradient/.test(tcs.backgroundImage) ? flatGradient(tcs.backgroundImage) ?? gradientColor(tcs.backgroundImage) : null);
       if (row === 0) widths = [...tr.cells].map((c) => c.getBoundingClientRect().width);
       rows.push([...tr.cells].map((cell) => {
         const cs = getComputedStyle(cell);

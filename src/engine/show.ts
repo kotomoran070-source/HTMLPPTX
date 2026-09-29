@@ -481,7 +481,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     else if (m.type === 'black' && m.value !== black) setBlack(m.value);
   });
 
-  applyAccent(deck.theme?.accent);
+  applyAccent(deck.theme?.accent, deck.theme?.accent2);
   index = -1;
   go(fromHash(), false);
 }

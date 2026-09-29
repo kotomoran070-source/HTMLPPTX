@@ -21,7 +21,7 @@
 /* Хронология */
 .timeline { position: relative; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); padding-top: 6px; }
 .tl-line { position: absolute; left: calc(50% / var(--n)); right: calc(50% / var(--n)); top: 13px; height: 3px; border-radius: 3px; background: var(--bd); }
-.tl-line i { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--done) * 100%); border-radius: inherit; background: var(--ac); transform-origin: left; }
+.tl-line i { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--done) * 100%); border-radius: inherit; background: linear-gradient(90deg, var(--ac), var(--ac2)); transform-origin: left; }
 .tl-item { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 0 8px; }
 .tl-dot { width: 17px; height: 17px; margin-bottom: 8px; border-radius: 50%; background: var(--surf); border: 3px solid var(--bd2); box-sizing: border-box; }
 .tl-item.done .tl-dot { background: var(--ac); border-color: var(--ac); box-shadow: 0 0 0 5px color-mix(in srgb, var(--ac) 18%, transparent); }
