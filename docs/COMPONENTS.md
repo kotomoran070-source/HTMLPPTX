@@ -571,7 +571,7 @@ place: {x: 0, y: 0, w: 1280, h: 720}
 Чтобы Claude сделал презентацию сразу в `deck.yaml`, приложите этот файл (docs/COMPONENTS.md) и `presentations/microclimate/deck.yaml` как образец, а затем напишите:
 
 ````text
-Сделай презентацию для HTMLPPTX в формате deck.yaml.
+Сделай презентацию для Slideria в формате deck.yaml.
 Используй только компоненты и поля из docs/COMPONENTS.md, образец — presentations/microclimate/deck.yaml.
 Шаблоны слайдов: cover — титул, content — обычный слайд, finale или space — финал.
 Для чисел и схем бери живые компоненты (line-chart, bars, uptime, pipeline, network, hub, system), для текста — card, kv, chips, list, grid.

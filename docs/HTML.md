@@ -155,7 +155,7 @@
 Вставьте в чат перед описанием презентации:
 
 ````text
-Сделай презентацию одним HTML-файлом по правилам HTMLPPTX.
+Сделай презентацию одним HTML-файлом по правилам Slideria.
 
 Формат:
 - <html lang="ru" data-accent="#2563EB">, в <head> — <title>, <style data-preview> и <style>.

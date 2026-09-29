@@ -1,8 +1,8 @@
 {
-  "name": "htmlpptx",
+  "name": "slideria",
   "version": "0.1.0",
   "private": true,
-  "description": "Движок HTML-презентаций: презентация как данные, библиотека компонентов, сборка в один HTML-файл",
+  "description": "Slideria — движок HTML-презентаций: презентация как данные, библиотека компонентов, сборка в один HTML-файл",
   "type": "module",
   "license": "MIT",
   "engines": {

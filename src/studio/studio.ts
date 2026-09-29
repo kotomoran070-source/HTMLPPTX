@@ -74,7 +74,7 @@ function group(label: string, body: string): string {
  * в режиме правки (Editor), данные и сохранение — через него же (storage).
  */
 export function startStudio(deck: Deck, deckKey: string): void {
-  document.title = `${deck.title} — редактор`;
+  document.title = `${deck.title} — Slideria`;
   document.body.classList.add('studio');
   document.body.innerHTML = `
 <div class="studio-app">
@@ -1234,7 +1234,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const v = title.value.trim();
     if (!v) { title.value = deck.title; return; }
     ed.commit((d) => { d.title = v; }, { rebuild: false, merge: 'title' });
-    document.title = `${v} — редактор`;
+    document.title = `${v} — Slideria`;
   });
   title.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === 'Escape') {

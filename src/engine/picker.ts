@@ -149,11 +149,11 @@ function accentVars(deck: Deck): string {
 export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
   const names = Object.keys(decks);
   document.body.classList.add('picker-page');
-  document.title = 'Презентации';
+  document.title = 'Презентации · Slideria';
   document.body.innerHTML = `
 <div class="pk">
   <header class="pk-top">
-    <div class="pk-brand"><span class="pk-mark">${icon('layers')}</span><span>HTMLPPTX</span></div>
+    <div class="pk-brand"><span class="pk-mark">${icon('layers')}</span><span>Slideria</span></div>
     <button class="ibtn theme-btn" id="pk-theme" type="button" aria-label="Переключить тему (T)" title="Тема (T)">${icon('sun', 'ic sun')}${icon('moon', 'ic moon')}</button>
   </header>
   <section class="pk-hero">

@@ -418,7 +418,7 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
     } else if (f === 'title') {
       if (!raw) return this.fill();
       ed.commit((d) => { d.title = raw; }, { rebuild: false, merge: 'title' });
-      document.title = `${raw} — редактор`;
+      document.title = `${raw} — Slideria`;
     } else if (f === 'accent') {
       ed.setAccent(raw);
     }
