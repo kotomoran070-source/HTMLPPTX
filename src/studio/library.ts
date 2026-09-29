@@ -288,11 +288,44 @@ function preview(deck: Deck, p: Preset): HTMLElement {
   return box;
 }
 
+const PEEK_W = 440;
+const PEEK_H = 248;
+const PEEK_PAD = 22;
+
+/**
+ * Крупное превью при наведении: тот же блок на фоне слайда, с анимацией появления.
+ * Стоит сбоку от галереи и не ловит мышь — выбирать не мешает.
+ */
+function bigPreview(deck: Deck, p: Preset): HTMLElement {
+  const box = document.createElement('div');
+  box.className = 'st-peek-frame';
+  const w0 = p.w;
+  const block = { ...p.make(), place: { x: 0, y: 0, w: w0, ...(p.h ? { h: p.h } : {}) } } as Block;
+  const tmp: Deck = { ...deck, slides: [{ template: 'canvas', free: [block] }] };
+  const inner = document.createElement('div');
+  inner.className = 'thumb-stage canvas';
+  inner.style.width = `${W}px`;
+  inner.style.height = `${H}px`;
+  inner.innerHTML = new Renderer(tmp, deck.brand?.logo).slide(tmp.slides[0], 0, 'on');
+  box.appendChild(inner);
+  requestAnimationFrame(() => {
+    const el = inner.querySelector<HTMLElement>('.free');
+    const w = el?.offsetWidth || w0;
+    const h = el?.offsetHeight || p.h || 200;
+    const k = Math.min((PEEK_W - PEEK_PAD * 2) / w, (PEEK_H - PEEK_PAD * 2) / h, 1);
+    inner.style.transform = `translate(${(PEEK_W - w * k) / 2}px, ${(PEEK_H - h * k) / 2}px) scale(${k})`;
+  });
+  return box;
+}
+
 let openEl: HTMLElement | null = null;
+let peekEl: HTMLElement | null = null;
 
 export function closeLibrary(): void {
   openEl?.remove();
   openEl = null;
+  peekEl?.remove();
+  peekEl = null;
 }
 
 /**
@@ -330,7 +363,69 @@ export function showLibrary(anchor: HTMLElement, deck: Deck, pick: (p: Preset) =
   el.style.top = `${r.bottom + 6}px`;
   openEl = el;
 
+  // ---------- крупное превью при наведении ----------
+  const peek = document.createElement('div');
+  peek.className = 'st-peek';
+  peek.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(peek);
+  peekEl = peek;
+  let peekTimer = 0;
+  let shownFor: HTMLElement | null = null;
+  const place = (item: HTMLElement) => {
+    const g = el.getBoundingClientRect();
+    const pw = peek.offsetWidth;
+    const ph = peek.offsetHeight;
+    const ir = item.getBoundingClientRect();
+    // Сбоку от галереи, где есть место; иначе — над противоположной половиной галереи, не над плиткой под мышью
+    let x: number;
+    if (innerWidth - g.right >= pw + 20) x = g.right + 12;
+    else if (g.left >= pw + 20) x = g.left - pw - 12;
+    else x = ir.left + ir.width / 2 < g.left + g.width / 2 ? g.right - pw - 10 : g.left + 10;
+    const y = Math.max(8, Math.min(innerHeight - ph - 8, ir.top + ir.height / 2 - ph / 2));
+    peek.style.left = `${Math.round(x)}px`;
+    peek.style.top = `${Math.round(y)}px`;
+  };
+  const showPeek = (item: HTMLElement) => {
+    if (shownFor === item) return;
+    shownFor = item;
+    const name = item.querySelector('.st-lib-name')?.textContent ?? '';
+    peek.innerHTML = '';
+    if (item.dataset.t !== undefined && mine) {
+      const t = mine.list[Number(item.dataset.t)];
+      const f = document.createElement('div');
+      f.className = 'st-peek-frame';
+      if (t.preview) f.innerHTML = `<img src="${esc(t.preview)}" alt="">`;
+      peek.appendChild(f);
+    } else {
+      const p = LIBRARY[Number(item.dataset.c)].items[Number(item.dataset.p)];
+      peek.appendChild(bigPreview(deck, p));
+    }
+    peek.insertAdjacentHTML('beforeend', `<div class="st-peek-cap"><b>${esc(name)}</b><span>Щелчок — вставить на слайд</span></div>`);
+    place(item);
+    peek.classList.add('on');
+  };
+  const hidePeek = () => {
+    clearTimeout(peekTimer);
+    shownFor = null;
+    peek.classList.remove('on');
+  };
+  const want = (item: HTMLElement | null) => {
+    clearTimeout(peekTimer);
+    if (!item) return hidePeek();
+    // Уже видно — сразу следующий блок; первый показ — после короткой паузы, чтобы не мигало при проходе мышью
+    if (peek.classList.contains('on')) showPeek(item);
+    else peekTimer = window.setTimeout(() => showPeek(item), 320);
+  };
+  el.addEventListener('pointerover', (e) => want((e.target as Element).closest<HTMLElement>('.st-lib-item')));
+  el.addEventListener('pointerleave', hidePeek);
+  el.addEventListener('focusin', (e) => {
+    const item = (e.target as Element).closest<HTMLElement>('.st-lib-item');
+    if (item && item.matches(':focus-visible')) want(item);
+  });
+  el.addEventListener('scroll', hidePeek, { passive: true });
+
   const close = () => {
+    clearTimeout(peekTimer);
     closeLibrary();
     removeEventListener('pointerdown', outside, true);
     removeEventListener('keydown', onKey, true);
