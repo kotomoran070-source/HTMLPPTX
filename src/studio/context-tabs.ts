@@ -1,5 +1,6 @@
 import { icon } from '../components/icons';
 import { SHAPE_COLORS, SHAPE_GRADIENT, SHAPE_STYLES, SHAPE_SWATCHES, shapeFill } from '../components/shape/shape';
+import { IMAGE_FILTERS, IMAGE_LOOK_KEYS, IMAGE_SHADOWS, IMAGE_STYLES, imageLookCss } from '../components/layout/image-look';
 import { getAt, setAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
@@ -27,7 +28,7 @@ export interface ContextHost {
   run(cmd: string): void;
 }
 
-export type ContextTab = 'shape' | 'table';
+export type ContextTab = 'shape' | 'table' | 'image';
 
 /** Какая контекстная вкладка нужна для выделения (у группы — если все одного типа). */
 export function contextTab(deck: Deck, ed: Editor): ContextTab | null {
@@ -37,7 +38,7 @@ export function contextTab(deck: Deck, ed: Editor): ContextTab | null {
   const types = new Set(paths.map((p) => (getAt(deck, p) as Block | undefined)?.type ?? ''));
   if (types.size !== 1) return null;
   const t = [...types][0];
-  return t === 'shape' || t === 'table' ? t : null;
+  return t === 'shape' || t === 'table' || t === 'image' ? t : null;
 }
 
 interface BtnOpts { big?: boolean; menu?: boolean; title?: string; swatch?: string; ico?: boolean; chk?: boolean }
@@ -80,10 +81,18 @@ const tableTile = ([v, label]: [string, string]) => {
     + `<span class="tbl tbl-${v} st-tmini"><table><thead>${tr('th')}</thead><tbody>${tr('td')}${tr('td')}${tr('td')}</tbody></table></span></button>`;
 };
 
+/** Живой образец стиля картинки: «снимок» с тем же оформлением, что получит картинка */
+const imageTile = (s: (typeof IMAGE_STYLES)[number]) => {
+  const look = imageLookCss({ ...s.props, ...(s.props.width ? { width: Math.min(2, s.props.width) } : {}), ...(s.props.mat ? { mat: 3 } : {}), ...(typeof s.props.radius === 'number' ? { radius: Math.round(s.props.radius / 3) } : {}) });
+  return `<button type="button" class="st-stile st-itile" data-cmd="image.style.${s.id}" title="${esc(s.name)}" aria-label="${esc(s.name)}">`
+    + `<i style="${look.box || 'border-radius:4px'}${s.props.shadow ? ';box-shadow:0 2px 5px rgba(15,23,42,.3)' : ''}"><b${look.img ? ` style="${look.img}"` : ''}></b></i></button>`;
+};
+
 /** Вкладки и панели ленты (скрыты, пока нет подходящего выделения). */
 export function contextTabsHtml(): string {
   return `<button type="button" role="tab" data-tab="shape" class="ctx" aria-selected="false" hidden>Фигура</button>`
-    + `<button type="button" role="tab" data-tab="table" class="ctx" aria-selected="false" hidden>Таблица</button>`;
+    + `<button type="button" role="tab" data-tab="table" class="ctx" aria-selected="false" hidden>Таблица</button>`
+    + `<button type="button" role="tab" data-tab="image" class="ctx" aria-selected="false" hidden>Рисунок</button>`;
 }
 
 export function contextPanelsHtml(): string {
@@ -111,6 +120,13 @@ export function contextPanelsHtml(): string {
     row(btn('table.align.left', 'align-left', 'Столбец — по левому краю', { ico: true }), btn('table.align.center', 'align-center', 'Столбец — по центру', { ico: true }), btn('table.align.right', 'align-right', 'Столбец — по правому краю', { ico: true })),
     btn('table.cols.equal', 'eq-cols', 'Выровнять ширину', { title: 'Одинаковая ширина столбцов' }),
   ) + stack(btn('table.density', 'density', 'Плотность', { menu: true, title: 'Отступы в ячейках' }), row(btn('table.size.up', 'text-up', 'Крупнее', { ico: true }), btn('table.size.down', 'text-down', 'Мельче', { ico: true }))))}
+</div>
+<div class="st-rpanel" data-panel="image" hidden>
+  ${group('Стили рисунка', `<div class="st-gallery">${IMAGE_STYLES.map(imageTile).join('')}</div>`)}
+  ${group('Рамка', btn('image.stroke', 'outline', 'Контур', { big: true, menu: true, swatch: 'istroke', title: 'Цвет, толщина и штрих контура' }) + btn('image.mat', 'mat', 'Паспарту', { big: true, menu: true, title: 'Поле вокруг снимка, как у фотографии в рамке' }))}
+  ${group('Эффекты', stack(btn('image.shadow', 'shadow', 'Тень', { menu: true }), btn('image.radius', 'corner', 'Скругление', { menu: true }))
+    + stack(btn('image.filter', 'recolor', 'Цвет', { menu: true, title: 'Чёрно-белый, сепия, приглушённый…' }), btn('image.opacity', 'opacity', 'Прозрачность', { menu: true })))}
+  ${group('Сброс', btn('image.reset', 'reset', 'Сбросить', { big: true, title: 'Убрать всё оформление рисунка' }))}
 </div>`;
 }
 
@@ -155,8 +171,8 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   // ---------- фигура: цвета ----------
 
   /** Палитра, как в PowerPoint: цвета темы, постоянные цвета, «нет», другой цвет. У контура — ещё толщина и штрих. */
-  const palette = (cmd: string, key: 'fill' | 'stroke') => {
-    const b = first('shape');
+  const palette = (cmd: string, key: 'fill' | 'stroke', type: 'shape' | 'image' = 'shape') => {
+    const b = first(type);
     const line = isLine(b);
     // У линии цвет хранится в stroke (или по старинке в fill)
     const k = line ? 'stroke' : key;
@@ -178,7 +194,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       if (k === 'stroke' && !line && !Number((getAt(d, p) as Block).width)) setAt(d, [...p, 'width'], 2);
     };
     const apply = (fn: (d: Deck, p: Path) => void) => {
-      const paths = targets('shape');
+      const paths = targets(type);
       ed.commit((d) => paths.forEach((p) => fn(d, p)), { rebuild: true });
     };
     showPopover(anchor(cmd), html, (el) => {
@@ -209,10 +225,11 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   };
   const mark = (el: HTMLElement) => el.parentElement?.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === el));
 
-  const choice = (cmd: string, key: string, options: [unknown, string][], def: unknown) => {
-    const cur = first('shape')?.[key] ?? def;
-    showMenu(anchor(cmd), options.map(([v, l]) => ({ label: l, checked: cur === v, run: () => setAll('shape', key, v === def ? undefined : v) })));
+  const choice = (cmd: string, key: string, options: [unknown, string][], def: unknown, type = 'shape') => {
+    const cur = first(type)?.[key] ?? def;
+    showMenu(anchor(cmd), options.map(([v, l]) => ({ label: l, checked: cur === v, run: () => setAll(type, key, v === def ? undefined : v) })));
   };
+  const isImage = () => targets('image').length > 0 && targets('image').every((p) => !!(getAt(deck, p) as Block).src);
 
   // ---------- фигура: текст ----------
   const textStyle = (b: Block | null) => ((b?.styles as Record<string, Record<string, unknown>> | undefined)?.text ?? {});
@@ -372,6 +389,16 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       run: () => setText('weight', (Number(textStyle(first('shape')).weight) || 600) >= 600 ? 400 : undefined),
       enabled: hasText, active: () => hasText() && (Number(textStyle(first('shape')).weight) || 600) >= 600,
     },
+    'image.stroke': { run: () => palette('image.stroke', 'stroke', 'image'), enabled: isImage },
+    'image.mat': { run: () => choice('image.mat', 'mat', [[undefined, 'Без паспарту'], [6, 'Узкое — 6 px'], [12, 'Среднее — 12 px'], [20, 'Широкое — 20 px'], [32, 'Очень широкое — 32 px']], undefined, 'image'), enabled: isImage },
+    'image.shadow': { run: () => choice('image.shadow', 'shadow', [[undefined, 'Без тени'], ...Object.entries(IMAGE_SHADOWS).map(([v, s]) => [v, s.name] as [string, string])], undefined, 'image'), enabled: isImage },
+    'image.radius': { run: () => choice('image.radius', 'radius', [[0, 'Острые углы'], [6, 'Малое — 6 px'], [undefined, 'Обычное — 12 px'], [24, 'Большое — 24 px'], [48, 'Очень большое — 48 px'], ['circle', 'Круг или овал']], undefined, 'image'), enabled: isImage },
+    'image.filter': { run: () => choice('image.filter', 'filter', [[undefined, 'Исходный'], ...Object.entries(IMAGE_FILTERS).map(([v, f]) => [v, f.name] as [string, string])], undefined, 'image'), enabled: isImage },
+    'image.opacity': { run: () => choice('image.opacity', 'opacity', [[undefined, 'Непрозрачная'], [0.8, '80 %'], [0.6, '60 %'], [0.4, '40 %'], [0.2, '20 %']], undefined, 'image'), enabled: isImage },
+    'image.reset': {
+      run: () => { const paths = targets('image'); ed.commit((d) => paths.forEach((p) => { const b = getAt(d, p) as Block; IMAGE_LOOK_KEYS.forEach((k) => delete b[k]); }), { rebuild: true }); },
+      enabled: () => isImage() && targets('image').some((p) => IMAGE_LOOK_KEYS.some((k) => (getAt(deck, p) as Block)[k] !== undefined)),
+    },
     'table.head': { run: () => setAll('table', 'head', first('table')?.head === false ? undefined : false), enabled: () => isTable() && Array.isArray(first('table')?.header), active: () => isTable() && first('table')?.head !== false && Array.isArray(first('table')?.header) },
     'table.labels': { run: () => setAll('table', 'labels', first('table')?.labels ? undefined : true), enabled: isTable, active: () => !!first('table')?.labels },
     'table.total': { run: () => setAll('table', 'total', first('table')?.total ? undefined : true), enabled: () => isTable() && ((first('table')?.rows as unknown[]) ?? []).length > 1, active: () => !!first('table')?.total },
@@ -421,6 +448,24 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
         }), { rebuild: true });
       },
       enabled: isShape, active: () => isShape() && (first('shape')?.kind ?? 'round') === k,
+    };
+  }
+  for (const st of IMAGE_STYLES) {
+    cmds[`image.style.${st.id}`] = {
+      run: () => {
+        const paths = targets('image');
+        ed.commit((d) => paths.forEach((p) => {
+          const b = getAt(d, p) as Block;
+          // Стиль — про рамку, тень и форму; цвет и прозрачность картинки остаются
+          for (const k of IMAGE_LOOK_KEYS) if (k !== 'filter' && k !== 'opacity') delete b[k];
+          Object.assign(b, st.props);
+        }), { rebuild: true });
+      },
+      enabled: isImage,
+      active: () => {
+        const b = first('image');
+        return !!b && IMAGE_LOOK_KEYS.every((k) => k === 'filter' || k === 'opacity' || b[k] === (st.props as Record<string, unknown>)[k]);
+      },
     };
   }
   const STYLE_KEYS = ['fill', 'stroke', 'width', 'shadow', 'dash'] as const;
@@ -476,8 +521,12 @@ export function syncSwatches(deck: Deck, ed: Editor): void {
   const b = sel ? (getAt(deck, sel.block) as Block | undefined) : undefined;
   const line = b?.kind === 'line' || b?.kind === 'arrow';
   document.querySelectorAll<HTMLElement>('.st-rb-sw').forEach((el) => {
-    const key = el.dataset.sw as 'fill' | 'stroke';
+    const key = el.dataset.sw as 'fill' | 'stroke' | 'istroke';
     let css = 'transparent';
+    if (key === 'istroke') {
+      el.style.background = b?.type === 'image' && Number(b.width) ? swatchCss(b.stroke, 'var(--bd2)') : 'transparent';
+      return;
+    }
     if (b?.type === 'shape') {
       if (line) css = key === 'stroke' ? swatchCss(b.stroke ?? b.fill, 'var(--ac)') : 'transparent';
       else if (key === 'fill') css = swatchCss(b.fill, 'var(--acs)');

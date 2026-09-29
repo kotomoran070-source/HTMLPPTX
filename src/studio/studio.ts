@@ -1170,6 +1170,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   cmds['tab.shape'] = { run: () => setTab('shape') };
   cmds['tab.anim'] = { run: () => { setTab('anim'); if (!lay.ribbon) toggleRibbon(true); } };
   cmds['tab.table'] = { run: () => setTab('table') };
+  cmds['tab.image'] = { run: () => setTab('image') };
   for (const k of ['left', 'center', 'right', 'top', 'middle', 'bottom']) cmds[`align.${k}`] = { run: () => align(k), enabled: hasFree };
   SLIDE_PRESETS.forEach((_p, k) => { cmds[`slide.preset.${k}`] = { run: () => ed.addSlide(index, k) }; });
 
@@ -1469,7 +1470,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const key = next && sel ? JSON.stringify(sel.group.length > 1 ? sel.group : sel.block) : '';
     if (next !== ctxTab || key !== ctxKey) {
       if (next) setTab(next);
-      else if (tab === 'shape' || tab === 'table') setTab('home');
+      else if (tab === 'shape' || tab === 'table' || tab === 'image') setTab('home');
       ctxTab = next;
       ctxKey = key;
     }

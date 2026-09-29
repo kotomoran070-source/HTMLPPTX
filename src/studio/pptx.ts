@@ -326,12 +326,19 @@ class Converter {
     const shadow = this.shadow(cs.boxShadow, k);
     if (clipText) fill = null;
     if (!fill && !uniform && !shadow && !visible.some(Boolean)) return;
+    // Тень рамки картинки без заливки и контура уходит на саму картинку (у пустой фигуры тени не видно)
+    if (!fill && !visible.some(Boolean) && el.classList.contains('imgbox')) return;
 
     const radius = (parseFloat(cs.borderTopLeftRadius) || 0) * k;
     const ellipse = cs.borderTopLeftRadius.endsWith('%') && parseFloat(cs.borderTopLeftRadius) >= 50;
     const rot = this.rotation(cs);
     const size = rot ? { w: el.offsetWidth * k, h: el.offsetHeight * k } : { w: b.w, h: b.h };
-    const at = rot ? { x: b.x + b.w / 2 - size.w / 2, y: b.y + b.h / 2 - size.h / 2, ...size } : b;
+    let at = rot ? { x: b.x + b.w / 2 - size.w / 2, y: b.y + b.h / 2 - size.h / 2, ...size } : b;
+    // Контур картинки: линия PowerPoint идёт по середине края, а рамка CSS — внутрь; сдвигаем, чтобы между контуром и снимком не было щели
+    if (uniform && el.classList.contains('imgbox')) {
+      const h = sides[0].w / 2;
+      at = { x: at.x + h, y: at.y + h, w: at.w - 2 * h, h: at.h - 2 * h };
+    }
     if (fill || uniform || shadow) {
       const dash = sides[0].style === 'dashed' ? 'dash' : sides[0].style === 'dotted' ? 'sysDot' : 'solid';
       this.slide.addShape(ellipse ? this.pptx.ShapeType.ellipse : radius > 0.5 ? this.pptx.ShapeType.roundRect : this.pptx.ShapeType.rect, {
@@ -560,6 +567,8 @@ class Converter {
   private async image(img: HTMLImageElement, b: Box, cs: CSSStyleDeclaration): Promise<void> {
     const src = img.currentSrc || img.src;
     if (!src) return;
+    const fx = img.parentElement?.classList.contains('img-fx') ? img.parentElement : null;
+    if (fx && await this.imageFx(img, fx, cs)) return;
     const svg = /\.svg(\?|$)/i.test(src) || src.startsWith('data:image/svg');
     const data = svg ? await imageToPng(src, b.w, b.h) : await imageData(src);
     if (!data) return;
@@ -573,6 +582,56 @@ class Converter {
     } else {
       this.slide.addImage({ data, ...this.pos(b) });
     }
+  }
+
+  /**
+   * Картинка с оформлением (скругление, круг, паспарту, цветовой фильтр): кадр, фильтр и форма
+   * запекаются в PNG с прозрачными углами, тень рамки — тенью картинки. Контур и паспарту рисует рамка.
+   */
+  private async imageFx(img: HTMLImageElement, box: HTMLElement, cs: CSSStyleDeclaration): Promise<boolean> {
+    const bcs = getComputedStyle(box);
+    const br = box.getBoundingClientRect();
+    const scale = box.offsetWidth ? br.width / box.offsetWidth : 1;
+    const W = img.offsetWidth;
+    const H = img.offsetHeight;
+    const nw = img.naturalWidth;
+    const nh = img.naturalHeight;
+    if (!W || !H || !nw || !nh) return false;
+    const src = new Image();
+    src.crossOrigin = 'anonymous';
+    if (!await new Promise<boolean>((res) => { src.onload = () => res(true); src.onerror = () => res(false); src.src = img.currentSrc || img.src; })) return false;
+    const q = 2;
+    const c = document.createElement('canvas');
+    c.width = Math.round(W * scale * q);
+    c.height = Math.round(H * scale * q);
+    const g = c.getContext('2d')!;
+    g.scale(c.width / W, c.height / H);
+    // Форма: у паспарту — скругление самого снимка, иначе — внутренний край рамки
+    const bw = parseFloat(bcs.borderTopWidth) || 0;
+    const rCss = img.style.borderRadius ? cs.borderTopLeftRadius : bcs.borderTopLeftRadius;
+    g.beginPath();
+    if (rCss.endsWith('%') && parseFloat(rCss) >= 50) g.ellipse(W / 2, H / 2, W / 2, H / 2, 0, 0, Math.PI * 2);
+    else g.roundRect(0, 0, W, H, Math.max(0, Math.min(W / 2, H / 2, (parseFloat(rCss) || 0) - (img.style.borderRadius ? 0 : bw))));
+    g.clip();
+    // Кадр: object-fit, object-position и увеличение, как на слайде
+    const fit = cs.objectFit === 'contain' ? Math.min(W / nw, H / nh) : Math.max(W / nw, H / nh);
+    const [px, py] = cs.objectPosition.split(' ').map((v, i) => (v.endsWith('%') ? parseFloat(v) / 100 : (parseFloat(v) || 0) / ((i ? H - nh * fit : W - nw * fit) || 1)));
+    const zoom = /matrix\(([^,]+)/.exec(cs.transform)?.[1];
+    const z = zoom ? parseFloat(zoom) || 1 : 1;
+    const ox = W * (px ?? 0.5);
+    const oy = H * (py ?? 0.5);
+    const x0 = (W - nw * fit) * (px ?? 0.5);
+    const y0 = (H - nh * fit) * (py ?? 0.5);
+    g.filter = cs.filter && cs.filter !== 'none' ? cs.filter : 'none';
+    g.drawImage(src, ox + (x0 - ox) * z, oy + (y0 - oy) * z, nw * fit * z, nh * fit * z);
+    let data: string;
+    try { data = c.toDataURL('image/png'); } catch { return false; }
+    const at = { x: br.left - this.origin.left + (bw + img.offsetLeft) * scale, y: br.top - this.origin.top + (bw + img.offsetTop) * scale, w: W * scale, h: H * scale };
+    const plain = !rgba(bcs.backgroundColor) && !bw;
+    const shadow = plain ? this.shadow(bcs.boxShadow, scale) : null;
+    const op = Number(bcs.opacity || 1);
+    this.slide.addImage({ data, ...this.pos(at), shadow: shadow ?? undefined, transparency: op < 1 ? transparency(op) : undefined });
+    return true;
   }
 
   private async svg(svg: SVGSVGElement, b: Box): Promise<void> {

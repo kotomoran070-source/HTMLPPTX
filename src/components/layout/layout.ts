@@ -2,6 +2,7 @@ import { defineBlock } from '../../engine/component';
 import { asArray, esc, styleAttr, t } from '../../engine/html';
 import { ea, eimg, frameCss, type ImageFrame } from '../../engine/marks';
 import type { Block } from '../../types';
+import { imageLookCss, type ImageLook } from './image-look';
 import './layout.css';
 
 interface GridItem extends Block {
@@ -88,7 +89,7 @@ defineBlock<ListProps>('list', {
   },
 });
 
-interface ImageProps extends Block, ImageFrame {
+interface ImageProps extends Block, ImageFrame, ImageLook {
   src: string;
   alt?: string;
   caption?: string;
@@ -99,8 +100,9 @@ interface ImageProps extends Block, ImageFrame {
 /** Картинка из папки презентации: src: ./assets/photo.jpg */
 defineBlock<ImageProps>('image', {
   render(p) {
+    const look = imageLookCss(p);
     const img = p.src
-      ? `<div class="imgbox"${eimg(p, 'src')}><img src="${esc(p.src)}" alt="${esc(p.alt ?? p.caption ?? '')}" style="${frameCss(p)}"></div>`
+      ? `<div class="imgbox${look.fx ? ' img-fx' : ''}"${look.box ? ` style="${look.box}"` : ''}${eimg(p, 'src')}><img src="${esc(p.src)}" alt="${esc(p.alt ?? p.caption ?? '')}" style="${frameCss(p)}${look.img ? `;${look.img}` : ''}"></div>`
       : `<div class="image-empty"${eimg(p, 'src')}>Перетащите изображение сюда</div>`;
     const cap = p.caption ? `<figcaption class="mu"${ea(p, 'caption')}>${t(p.caption)}</figcaption>` : '';
     const h = Number(p.height);

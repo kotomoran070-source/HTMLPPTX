@@ -14,7 +14,7 @@ const LOOK: Record<string, string[]> = {
   shape: ['fill', 'stroke', 'width', 'dash', 'radius', 'shadow', 'opacity', 'valign'],
   table: ['variant', 'labels', 'total', 'density', 'size', 'head'],
   text: ['size'],
-  image: ['fit'],
+  image: ['fit', 'stroke', 'width', 'dash', 'radius', 'shadow', 'mat', 'opacity', 'filter'],
 };
 /** У остальных блоков — общие поля вида, если они есть */
 const COMMON = ['variant', 'tone', 'style'];
