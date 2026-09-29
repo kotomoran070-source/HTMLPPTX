@@ -131,6 +131,10 @@ export class CodeView {
       if (!(e.target as Element).closest?.('[data-edit]') || !this.focusPath) return;
       this.focusPath = '';
     });
+    // Правка кода — один шаг отмены на заход в редактор
+    root.addEventListener('focusout', (e) => {
+      if (!root.contains(e.relatedTarget as Node | null)) host.editor().endMerge();
+    });
     // Клавиши редактора кода не должны листать слайды и отменять правки слайда
     root.addEventListener('keydown', (e) => e.stopPropagation());
     onThemeChange((t) => this.view.dispatch({ effects: this.theme.reconfigure(t === 'dark' ? oneDark : []) }));
@@ -426,7 +430,7 @@ export class CodeView {
         const rec = d as unknown as Record<string, unknown>;
         if (text.trim()) rec.css = text;
         else delete rec.css;
-      }, { rebuild: true, merge: 'code:css' });
+      }, { rebuild: true, merge: 'code:css', hold: true });
       this.synced = text;
       this.setStatus('Применено', 'ok');
       return;
@@ -442,7 +446,7 @@ export class CodeView {
     if (!data || typeof data !== 'object' || Array.isArray(data)) return this.setStatus('Слайд — это набор полей «имя: значение»', 'err');
     const slide = data as SlideData;
     if (slide.template !== undefined && typeof slide.template !== 'string') return this.setStatus('template — строка: content, cover, finale, space, canvas', 'err');
-    const ok = ed.commit((d) => { d.slides[i] = slide; }, { rebuild: true, merge: `code:${i}` });
+    const ok = ed.commit((d) => { d.slides[i] = slide; }, { rebuild: true, merge: `code:${i}`, hold: true });
     this.synced = text;
     this.setStatus(ok ? 'Применено' : 'Без изменений', 'ok');
   }

@@ -10,6 +10,7 @@ import {
   blobToDataUrl, buildHtml, canSaveFile, MAX_FILE, prepareImage, saveHtmlFile, suggestedFileName,
 } from './persist';
 import { TextEditor } from './text-edit';
+import { History } from './history';
 import './editor.css';
 
 export type MediaKind = 'video' | 'model';
@@ -72,10 +73,11 @@ type Mode = 'project' | 'file';
 interface Commit {
   /** Правки с одинаковым ключом подряд склеиваются в один шаг отмены (набор текста, выбор цвета) */
   merge?: string;
+  /** Склеивать без ограничения по времени — пока не сменился ключ или не вызван endMerge (набор в поле) */
+  hold?: boolean;
   rebuild?: boolean;
 }
 
-const HISTORY = 200;
 const MERGE_MS = 1200;
 const AUTOSAVE_MS = 600;
 
@@ -120,8 +122,7 @@ export class Editor {
   /** Текст и вид строки состояния сохранения */
   statusInfo = { text: '', cls: '' };
 
-  private past: string[] = [];
-  private future: string[] = [];
+  private hist!: History;
   private lastMerge = '';
   private lastTime = 0;
 
@@ -148,6 +149,9 @@ export class Editor {
 
   constructor(private host: EditorHost, devServer: boolean, opts: EditorOptions = {}) {
     this.mode = devServer ? 'project' : 'file';
+    // История правок вкладки: после перезагрузки страницы (обновился код) отмена продолжает работать
+    this.hist = new History(host.deckKey);
+    this.hist.load(this.hist.snap(host.deck));
     this.studio = !!opts.studio;
     this.storage = opts.storage ?? projectStorage;
     this.buildUi();
@@ -296,8 +300,10 @@ export class Editor {
       this.commit((d) => {
         if (v.trim()) d.slides[i].notes = v;
         else delete d.slides[i].notes;
-      }, { merge: `notes:${i}`, rebuild: false });
+      }, { merge: `notes:${i}`, hold: true, rebuild: false });
     });
+    // Набор заметок — один шаг отмены на заход в поле
+    text.addEventListener('blur', () => this.endMerge());
     text.addEventListener('keydown', (e) => {
       e.stopPropagation();
       if (e.key === 'Escape') text.blur();
@@ -402,7 +408,7 @@ export class Editor {
   // ---------------- данные и история ----------------
 
   commit(fn: (d: Deck) => void, opts: Commit = {}): boolean {
-    const before = JSON.stringify(this.host.deck);
+    const before = this.hist.snap(this.host.deck);
     const draft = clone(this.host.deck);
     try {
       fn(draft);
@@ -410,40 +416,52 @@ export class Editor {
       this.toast((e as Error).message, 4000, true);
       return false;
     }
-    const after = JSON.stringify(draft);
-    if (after === before) return false;
+    const after = this.hist.snap(draft);
+    if (History.same(after, before)) return false;
     const now = Date.now();
-    const merge = !!opts.merge && opts.merge === this.lastMerge && now - this.lastTime < MERGE_MS;
-    if (!merge) {
-      this.past.push(before);
-      if (this.past.length > HISTORY) this.past.shift();
-    }
-    this.future = [];
+    const merge = !!opts.merge && opts.merge === this.lastMerge && (!!opts.hold || now - this.lastTime < MERGE_MS);
+    if (!merge) this.hist.push(before);
+    this.hist.future = [];
     this.lastMerge = opts.merge ?? '';
     this.lastTime = now;
     replaceContents(this.host.deck as unknown as Record<string, unknown>, draft as unknown as Record<string, unknown>);
     this.changed(opts.rebuild !== false);
+    this.hist.save(after);
     return true;
   }
 
-  undo(): void {
+  /** Набор в поле закончен: следующая правка — новый шаг отмены */
+  endMerge(): void {
+    this.lastMerge = '';
+  }
+
+  /** Отмена и повтор: данные шага, переход к слайду, где была правка, короткая подсказка */
+  private step(from: 'past' | 'future'): void {
     this.text.finish(true);
-    const prev = this.past.pop();
-    if (prev === undefined) return this.toast('Отменять нечего', 1500);
-    this.future.push(JSON.stringify(this.host.deck));
-    replaceContents(this.host.deck as unknown as Record<string, unknown>, JSON.parse(prev));
+    const list = from === 'past' ? this.hist.past : this.hist.future;
+    const target = list.pop();
+    if (!target) return this.toast(from === 'past' ? 'Отменять нечего' : 'Повторять нечего', 1500);
+    const cur = this.hist.snap(this.host.deck);
+    (from === 'past' ? this.hist.future : this.hist.past).push(cur);
+    replaceContents(this.host.deck as unknown as Record<string, unknown>, History.restore(target) as unknown as Record<string, unknown>);
     this.lastMerge = '';
     this.changed(true);
+    this.hist.save(target);
+    // Правка была на другом слайде — показать его, иначе отмена идёт «вслепую»
+    const i = Math.min(History.changedSlide(cur, target), this.host.deck.slides.length - 1);
+    const word = from === 'past' ? 'Отменено' : 'Повторено';
+    if (i >= 0 && i !== this.host.index()) {
+      this.host.go(i);
+      this.toast(`${word} · слайд ${i + 1}`, 1600);
+    }
+  }
+
+  undo(): void {
+    this.step('past');
   }
 
   redo(): void {
-    this.text.finish(true);
-    const next = this.future.pop();
-    if (next === undefined) return this.toast('Повторять нечего', 1500);
-    this.past.push(JSON.stringify(this.host.deck));
-    replaceContents(this.host.deck as unknown as Record<string, unknown>, JSON.parse(next));
-    this.lastMerge = '';
-    this.changed(true);
+    this.step('future');
   }
 
   private changed(rebuild: boolean): void {
@@ -552,18 +570,18 @@ export class Editor {
     const value = typeof accent === 'string' && HEX_RE.test(accent) ? accent : getComputedStyle(document.documentElement).getPropertyValue('--ac').trim();
     if (input && document.activeElement !== input && HEX_RE.test(value)) input.value = value.toLowerCase();
     document.getElementById('ed-accent-reset')?.toggleAttribute('hidden', !accent);
-    document.getElementById('ed-undo')?.toggleAttribute('disabled', !this.past.length);
-    document.getElementById('ed-redo')?.toggleAttribute('disabled', !this.future.length);
+    document.getElementById('ed-undo')?.toggleAttribute('disabled', !this.hist.past.length);
+    document.getElementById('ed-redo')?.toggleAttribute('disabled', !this.hist.future.length);
     this.onSlideChange();
     this.host.state?.();
   }
 
   get canUndo(): boolean {
-    return this.past.length > 0;
+    return this.hist.past.length > 0;
   }
 
   get canRedo(): boolean {
-    return this.future.length > 0;
+    return this.hist.future.length > 0;
   }
 
   /** Повторить сохранение после ошибки (клик по строке состояния). */

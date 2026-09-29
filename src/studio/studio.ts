@@ -1401,8 +1401,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
     ed.commit((d) => {
       if (v.trim()) d.slides[i].notes = v;
       else delete d.slides[i].notes;
-    }, { merge: `notes:${i}`, rebuild: false });
+    }, { merge: `notes:${i}`, hold: true, rebuild: false });
   });
+  // Набор заметок — один шаг отмены на заход в поле
+  notesText.addEventListener('blur', () => ed.endMerge());
   notesText.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') notesText.blur();
   });
