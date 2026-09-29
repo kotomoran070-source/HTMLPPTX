@@ -12,6 +12,8 @@ export interface MenuItem {
   swatch?: string;
   /** Отмечено галочкой: текущее значение */
   checked?: boolean;
+  /** Предпросмотр, пока пункт под мышью или в фокусе: например, подсветить то, что удалится */
+  preview?(on: boolean): void;
   run(): void;
 }
 
@@ -42,6 +44,33 @@ export function showMenu(at: { x: number; y: number } | HTMLElement, items: Menu
     const it = items[Number(b.dataset.k)];
     return it ? () => it.run() : null;
   }, true);
+  if (items.some((it) => it?.preview)) watchPreview(el, items);
+}
+
+/** Предпросмотр пунктов: включается наведением и фокусом, гаснет при уходе и закрытии меню */
+function watchPreview(el: HTMLElement, items: MenuEntry[]): void {
+  let cur: MenuItem | null = null;
+  const set = (it: MenuItem | null) => {
+    if (cur === it) return;
+    cur?.preview?.(false);
+    cur = it;
+    cur?.preview?.(true);
+  };
+  const at = (t: EventTarget | null) => {
+    const b = (t as Element | null)?.closest?.<HTMLElement>('button[data-k]:not([disabled])');
+    const it = b ? items[Number(b.dataset.k)] : null;
+    return it?.preview ? it : null;
+  };
+  el.addEventListener('pointerover', (e) => set(at(e.target)));
+  el.addEventListener('pointerleave', () => { if (!el.contains(document.activeElement)) set(null); });
+  el.addEventListener('focusin', (e) => set(at(e.target)));
+  // Меню закрыли (выбор, Esc, щелчок мимо) — подсветка гаснет
+  const mo = new MutationObserver(() => {
+    if (el.isConnected) return;
+    set(null);
+    mo.disconnect();
+  });
+  mo.observe(document.body, { childList: true });
 }
 
 /**

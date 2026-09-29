@@ -4,7 +4,7 @@ import { getAt, setAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
 import type { Block, Deck } from '../types';
-import { showMenu, showPopover } from './menu';
+import { showMenu, showPopover, type MenuEntry } from './menu';
 
 /**
  * Контекстные вкладки ленты, как «Формат фигуры» и «Макет таблицы» в PowerPoint:
@@ -118,6 +118,13 @@ export function contextPanelsHtml(): string {
 const swatchCss = (v: unknown, fallback: string): string => shapeFill(v) ?? fallback;
 
 const FONT_STEPS = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72, 96];
+
+let tableMenuFn: (() => MenuEntry[]) | null = null;
+
+/** Пункты таблицы для меню правого щелчка (строка/столбец ячейки под курсором) */
+export function tableMenu(): MenuEntry[] {
+  return tableMenuFn?.() ?? [];
+}
 
 export function contextCommands(h: ContextHost): Record<string, Command> {
   const { deck, editor: ed } = h;
@@ -303,6 +310,44 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     for (const k of ['widths', 'align'] as const) { const a = t[k]; if (Array.isArray(a)) a.splice(at.c, 1); }
     lastCell = null;
   });
+  /**
+   * Подсветка того, что удалится: строка (r), столбец (c) или вся таблица — пока пункт меню под мышью.
+   * Строка шапки — r = -1.
+   */
+  const killMark = (what: 'row' | 'col' | 'all', on: boolean) => {
+    const box = h.stage().querySelector<HTMLElement>(`.slide.on [data-block="${CSS.escape(JSON.stringify(targets('table')[0] ?? ''))}"]`);
+    const tbl = box?.querySelector('table');
+    if (!box || !tbl) return;
+    box.querySelectorAll('.tbl-kill').forEach((x) => x.classList.remove('tbl-kill'));
+    box.classList.remove('tbl-kill-all');
+    if (!on) return;
+    const at = cell();
+    if (what === 'all') box.classList.add('tbl-kill-all');
+    else if (what === 'row') tbl.tBodies[0]?.rows[at.r]?.querySelectorAll('td').forEach((x) => x.classList.add('tbl-kill'));
+    else [...tbl.rows].forEach((tr) => tr.cells[at.c]?.classList.add('tbl-kill'));
+  };
+  /** Меню таблицы: правый щелчок по ячейке и кнопка «Удалить» на ленте */
+  const tableItems = (withInsert: boolean): MenuEntry[] => {
+    const t = first('table');
+    const rows = ((t?.rows as unknown[]) ?? []).length;
+    const at = cell();
+    const nCols = cols({ header: t?.header as unknown[], rows: (t?.rows as unknown[][]) ?? [] });
+    return [
+      ...(withInsert ? [
+        { label: 'Вставить строку сверху', icon: 'row-above', run: () => addRow(false) },
+        { label: 'Вставить строку снизу', icon: 'row-below', run: () => addRow(true) },
+        { label: 'Вставить столбец слева', icon: 'col-left', run: () => addCol(false) },
+        { label: 'Вставить столбец справа', icon: 'col-right', run: () => addCol(true) },
+        null,
+      ] : []),
+      { label: at.r < 0 ? 'Удалить строку (шапку скрывает «Строка заголовка»)' : 'Удалить строку', icon: 'row-del', disabled: rows < 2 || at.r < 0, run: delRow, preview: (on) => killMark('row', on) },
+      { label: 'Удалить столбец', icon: 'col-del', disabled: nCols < 2, run: delCol, preview: (on) => killMark('col', on) },
+      null,
+      { label: 'Удалить таблицу', icon: 'trash', danger: true, run: () => h.run('obj.del'), preview: (on) => killMark('all', on) },
+    ];
+  };
+  tableMenuFn = () => (isTable() ? tableItems(true) : []);
+
   /** Выравнивание столбца с курсором: заданное или то, что таблица выбрала сама (числа — вправо) */
   const colAlign = (): string => {
     const t = first('table');
@@ -341,17 +386,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     'table.row.del': { run: delRow, enabled: () => isTable() && (((first('table')?.rows as unknown[]) ?? []).length > 1) },
     'table.col.del': { run: delCol, enabled: isTable },
     'table.del': {
-      run: () => {
-        const t = first('table');
-        const rows = ((t?.rows as unknown[]) ?? []).length;
-        const at = cell();
-        showMenu(anchor('table.del'), [
-          { label: 'Удалить строку', icon: 'row-del', disabled: rows < 2 || at.r < 0, run: delRow },
-          { label: 'Удалить столбец', icon: 'col-del', disabled: cols({ header: t?.header as unknown[], rows: (t?.rows as unknown[][]) ?? [] }) < 2, run: delCol },
-          null,
-          { label: 'Удалить таблицу', icon: 'trash', danger: true, run: () => h.run('obj.del') },
-        ]);
-      },
+      run: () => showMenu(anchor('table.del'), tableItems(false)),
       enabled: isTable,
     },
     'table.cols.equal': { run: () => setAll('table', 'widths', undefined), enabled: () => isTable() && Array.isArray(first('table')?.widths) },

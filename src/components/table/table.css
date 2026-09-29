@@ -81,3 +81,8 @@
 .tbl tr.hl td:first-child { box-shadow: inset 3px 0 0 var(--ac); }
 
 .slide.on .tbl tbody tr { animation: up .5s var(--ease) both; animation-delay: calc(.25s + var(--k) * .07s); }
+
+/* Редактор: что удалится — строка, столбец или вся таблица (пока пункт меню под мышью) */
+body.editing .tbl .tbl-kill { background: color-mix(in srgb, #DC2626 14%, var(--surf)) !important; color: #B91C1C !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, #DC2626 40%, transparent); }
+body.editing .tbl.tbl-kill-all table { outline: 2px solid #DC2626; outline-offset: 2px; }
+body.editing .tbl.tbl-kill-all td, body.editing .tbl.tbl-kill-all th { background: color-mix(in srgb, #DC2626 8%, var(--surf)) !important; }

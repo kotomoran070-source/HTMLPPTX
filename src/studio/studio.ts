@@ -20,7 +20,7 @@ import { blockName, setSnapLines } from '../engine/editor/block-edit';
 import { blobToDataUrl } from '../engine/editor/persist';
 import { addEffect, addTemplate, assetUrls, findEntrance, deckWithTemplate, listTemplates, pickCss, pickDefs, removeTemplate, replaceUrls, type Template } from './templates';
 import { animCommands, animPanelHtml, animTabHtml, bindDelayField, syncAnimTab, type AnimHost } from './anim-tab';
-import { contextCommands, contextPanelsHtml, contextTab, contextTabsHtml, syncSwatches, type ContextTab } from './context-tabs';
+import { contextCommands, tableMenu, contextPanelsHtml, contextTab, contextTabsHtml, syncSwatches, type ContextTab } from './context-tabs';
 import { Inspector } from './inspector';
 import { closeLibrary, showLibrary, type Preset } from './library';
 import { closeMenu, showMenu, showPopover, type MenuEntry } from './menu';
@@ -1513,7 +1513,11 @@ export function startStudio(deck: Deck, deckKey: string): void {
     // Правый клик по объекту из выделенной группы не сбрасывает группу
     const inSel = path && (ed.selection?.group ?? []).some((p) => JSON.stringify(p) === JSON.stringify(path));
     if (path && !inSel) ed.selectFree(Number(path[1]), Number(path[3]));
-    showMenu({ x: e.clientX, y: e.clientY }, freeHost || ed.selection ? objectMenu() : slideMenu(index));
+    // Правый щелчок по ячейке таблицы: сначала строки и столбцы этой ячейки, как в PowerPoint
+    const tbl = (e.target as Element).closest<HTMLElement>('td[data-edit], th[data-edit]')?.closest<HTMLElement>('[data-type="table"][data-block]');
+    if (tbl && !freeHost) ed.selectBlock(tbl);
+    const table = tbl ? tableMenu() : [];
+    showMenu({ x: e.clientX, y: e.clientY }, freeHost || ed.selection ? [...table, ...(table.length ? [null] : []), ...objectMenu()] : slideMenu(index));
     ctxTarget = null;
   });
   new ResizeObserver(() => { if (zoom === 'fit') layout(); else ed.reposition(); }).observe(canvas);
