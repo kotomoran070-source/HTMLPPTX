@@ -603,7 +603,9 @@ class Converter {
   private async image(img: HTMLImageElement, b: Box, cs: CSSStyleDeclaration): Promise<void> {
     const src = img.currentSrc || img.src;
     if (!src) return;
-    const fx = img.parentElement?.classList.contains('img-fx') ? img.parentElement : null;
+    // GIF не запекаем в PNG: PowerPoint проигрывает его сам, анимация важнее скруглений и фильтров
+    const gif = /^data:image\/gif[;,]|\.gif(?:[?#]|$)/i.test(src);
+    const fx = !gif && img.parentElement?.classList.contains('img-fx') ? img.parentElement : null;
     if (fx && await this.imageFx(img, fx, cs)) return;
     const svg = /\.svg(\?|$)/i.test(src) || src.startsWith('data:image/svg');
     const data = svg ? await imageToPng(src, b.w, b.h) : await imageData(src);

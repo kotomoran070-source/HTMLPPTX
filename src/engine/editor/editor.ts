@@ -24,6 +24,12 @@ const MAX_MEDIA = 60 * 1024 * 1024;
 /** Пока тянут палитру акцента, весь интерфейс перекрашивается не чаще, чем раз в столько мс */
 const ACCENT_UI_MS = 160;
 
+/** Тяжёлый GIF попадает в собранный файл целиком: подсказка про видео, которое в разы легче */
+function gifNote(f: File): string | null {
+  if (f.type !== 'image/gif' || f.size < 8 * 1024 * 1024) return null;
+  return `GIF добавлен, но весит ${Math.round(f.size / 1024 / 1024)} МБ. Тот же ролик в MP4 обычно в 5–10 раз легче — его можно вставить как видео.`;
+}
+
 function mediaKind(f: File | undefined): MediaKind | null {
   if (!f) return null;
   if (MEDIA.video.test(f)) return 'video';
@@ -1218,7 +1224,7 @@ export class Editor {
       const el = [...this.host.stage().querySelectorAll<HTMLElement>('.slide.on [data-edit-img]')]
         .find((x) => x.getAttribute('data-edit-img') === JSON.stringify(path));
       if (el) this.image.select(el);
-      this.toast((isLogo ? 'Логотип заменён на всех слайдах' : 'Картинка заменена') + (resized ? ' (уменьшена до 2400 px)' : ''), 2500);
+      this.toast(gifNote(file) ?? (isLogo ? 'Логотип заменён на всех слайдах' : 'Картинка заменена') + (resized ? ' (уменьшена до 2400 px)' : ''), gifNote(file) ? 7000 : 2500);
     } catch (e) {
       this.toast(`Не удалось заменить картинку: ${(e as Error).message}`, 5000, true);
     }
@@ -1259,7 +1265,7 @@ export class Editor {
         idx = sl.free.length - 1;
       }, { rebuild: true });
       if (idx >= 0) this.selectFree(i, idx);
-      this.toast('Картинка добавлена', 1800);
+      this.toast(gifNote(file) ?? 'Картинка добавлена', gifNote(file) ? 7000 : 1800);
     } catch (e) {
       this.toast(`Не удалось добавить картинку: ${(e as Error).message}`, 5000, true);
     }

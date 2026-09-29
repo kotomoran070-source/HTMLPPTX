@@ -91,6 +91,7 @@ export class DeckView {
     this.current = i;
     this.endOut();
     this.slides.forEach((s, k) => s.classList.toggle('on', k === i));
+    restartGifs(this.slides[i]);
     if (this.transitions && prev) this.runOut(prev, this.slides[i], back);
   }
 
@@ -102,6 +103,7 @@ export class DeckView {
     el.classList.remove('on');
     void el.offsetWidth;
     el.classList.add('on');
+    restartGifs(el);
     const prev = this.slides[i - 1];
     if (prev) this.runOut(prev, el, false);
   }
@@ -173,4 +175,19 @@ export function staticSlide(deck: Deck, index: number, width?: number): HTMLElem
   box.appendChild(inner);
   thumbObserver?.observe(box);
   return box;
+}
+
+const GIF = /^data:image\/gif[;,]|\.gif(?:[?#]|$)/i;
+
+/**
+ * GIF на слайде — с первого кадра при каждом заходе, как видео: иначе одноразовая анимация
+ * при повторном показе стоит на последнем кадре, а зацикленная продолжает с середины.
+ */
+function restartGifs(slide: HTMLElement | undefined): void {
+  slide?.querySelectorAll<HTMLImageElement>('img').forEach((img) => {
+    const src = img.getAttribute('src');
+    if (!src || !GIF.test(src)) return;
+    img.src = '';
+    img.src = src;
+  });
 }
