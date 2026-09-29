@@ -1,6 +1,7 @@
 import { icon } from '../components/icons';
 import type { Deck } from '../types';
 import { applyAccent } from './accent';
+import { updateFavicon } from './brand';
 import { DeckView, staticSlide } from './deck-view';
 import { Editor, SLIDE_PRESETS } from './editor/editor';
 import { canSaveFile } from './editor/persist';
@@ -24,19 +25,7 @@ export function presenterUrl(mainId: string): string {
   return u.toString();
 }
 
-export function updateFavicon(url: string | undefined): void {
-  let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-  if (!url) {
-    link?.remove();
-    return;
-  }
-  if (!link) {
-    link = document.createElement('link');
-    link.rel = 'icon';
-    document.head.appendChild(link);
-  }
-  if (link.href !== url) link.href = url;
-}
+export { updateFavicon };
 
 /** Основное окно показа: сцена, навигация, обзор, режим правки, связь с окном докладчика. */
 export function startShow(deck: Deck, deckKey: string, devServer: boolean): void {

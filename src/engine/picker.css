@@ -10,6 +10,7 @@ body.picker-page {
 .pk-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 15px; letter-spacing: .06em; color: var(--tx2); }
 .pk-mark { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: #fff;
   background: linear-gradient(135deg, var(--ac), var(--ach)); box-shadow: 0 4px 14px color-mix(in srgb, var(--ac) 35%, transparent); }
+.pk-mark .brand-mark { width: 21px; height: 21px; }
 .pk-mark .ic { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
 
 .pk-hero { margin: 44px 0 30px; }

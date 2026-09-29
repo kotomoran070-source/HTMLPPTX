@@ -5,6 +5,7 @@ import { DeckView, H, W } from '../engine/deck-view';
 import { Editor, SLIDE_PRESETS } from '../engine/editor/editor';
 import { esc } from '../engine/html';
 import { placeOf, slideLabel } from '../engine/render';
+import { brandMark } from '../engine/brand';
 import { updateFavicon } from '../engine/show';
 import { onThemeChange, toggleTheme } from '../engine/theme';
 import type { Block, Deck } from '../types';
@@ -79,7 +80,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   document.body.innerHTML = `
 <div class="studio-app">
   <header class="st-top" data-ed-keep>
-    <a class="st-home" href="./?all" title="Все презентации" aria-label="Все презентации">${icon('layers')}</a>
+    <a class="st-home" href="./?all" title="Slideria — все презентации" aria-label="Все презентации">${brandMark()}</a>
     <input class="st-title" id="st-title" aria-label="Название презентации" spellcheck="false">
     <nav class="st-tabs" role="tablist" aria-label="Вкладки ленты">
       <button type="button" role="tab" data-tab="home" aria-selected="true">Главная</button>

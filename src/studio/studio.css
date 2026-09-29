@@ -7,7 +7,7 @@ body.studio { background: var(--alt); }
 /* Шапка */
 .st-top { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 12px; background: var(--surf); border-bottom: 1px solid var(--bd); }
 .st-home { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: var(--ac); background: var(--acs); }
-.st-home .ic { width: 18px; height: 18px; }
+.st-home .ic, .st-home .brand-mark { width: 18px; height: 18px; }
 .st-home:hover { background: color-mix(in srgb, var(--ac) 18%, var(--acs)); }
 .st-title { width: 240px; min-width: 80px; font-weight: 600 !important; font-size: 14px !important; padding: 5px 8px; border: 1px solid transparent; border-radius: 6px; background: none; text-overflow: ellipsis; }
 .st-title:hover { border-color: var(--bd); }
