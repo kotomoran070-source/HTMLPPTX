@@ -268,6 +268,13 @@ export class Editor {
     this.file = $('ed-file');
 
     $('ed-undo').addEventListener('click', () => this.undo());
+    // Подсказка у кнопок: какое именно действие отменится или повторится
+    const tip = (id: string, from: 'past' | 'future', base: string) => $(id).addEventListener('mouseenter', () => {
+      const what = this.stepLabel(from);
+      $(id).title = what ? `${base}: ${what}` : base;
+    });
+    tip('ed-undo', 'past', 'Отменить (Ctrl+Z)');
+    tip('ed-redo', 'future', 'Повторить (Ctrl+Shift+Z)');
     $('ed-redo').addEventListener('click', () => this.redo());
     $('ed-done').addEventListener('click', () => this.toggle(false));
     $('ed-notes').addEventListener('click', () => this.toggleNotes());
@@ -442,6 +449,7 @@ export class Editor {
     const target = list.pop();
     if (!target) return this.toast(from === 'past' ? 'Отменять нечего' : 'Повторять нечего', 1500);
     const cur = this.hist.snap(this.host.deck);
+    const what = from === 'past' ? History.describe(target, cur) : History.describe(cur, target);
     (from === 'past' ? this.hist.future : this.hist.past).push(cur);
     replaceContents(this.host.deck as unknown as Record<string, unknown>, History.restore(target) as unknown as Record<string, unknown>);
     this.lastMerge = '';
@@ -450,10 +458,8 @@ export class Editor {
     // Правка была на другом слайде — показать его, иначе отмена идёт «вслепую»
     const i = Math.min(History.changedSlide(cur, target), this.host.deck.slides.length - 1);
     const word = from === 'past' ? 'Отменено' : 'Повторено';
-    if (i >= 0 && i !== this.host.index()) {
-      this.host.go(i);
-      this.toast(`${word} · слайд ${i + 1}`, 1600);
-    }
+    if (i >= 0 && i !== this.host.index()) this.host.go(i);
+    this.toast(`${word}: ${what[0].toLowerCase()}${what.slice(1)}`, 1600);
   }
 
   undo(): void {
@@ -578,6 +584,15 @@ export class Editor {
 
   get canUndo(): boolean {
     return this.hist.past.length > 0;
+  }
+
+  /** Что отменит Ctrl+Z и что вернёт Ctrl+Y — для подсказок у кнопок; '' — нечего */
+  stepLabel(from: 'past' | 'future'): string {
+    const list = from === 'past' ? this.hist.past : this.hist.future;
+    const target = list[list.length - 1];
+    if (!target) return '';
+    const cur = this.hist.snap(this.host.deck);
+    return from === 'past' ? History.describe(target, cur) : History.describe(cur, target);
   }
 
   get canRedo(): boolean {

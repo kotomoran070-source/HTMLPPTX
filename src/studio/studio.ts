@@ -1447,6 +1447,14 @@ export function startStudio(deck: Deck, deckKey: string): void {
     else if (c.field) ed.editField(c.field);
     else ed.clearSelection();
   });
+  // «Отменить» и «Повторить»: в подсказке — какое действие отменится или вернётся
+  document.addEventListener('mouseover', (e) => {
+    const b = (e.target as Element).closest<HTMLElement>('.st-rb[data-cmd="undo"], .st-rb[data-cmd="redo"]');
+    if (!b || b.contains(e.relatedTarget as Node)) return;
+    const undo = b.dataset.cmd === 'undo';
+    const what = ed.stepLabel(undo ? 'past' : 'future');
+    b.title = `${undo ? 'Отменить' : 'Повторить'}${what ? `: ${what}` : ''} (${undo ? 'Ctrl+Z' : 'Ctrl+Y'})`;
+  });
   view.stage.addEventListener('mouseover', (e) => drawCrumbs((e.target as Element).closest('.slide') ? e.target as Element : null));
   view.stage.addEventListener('mouseleave', () => drawCrumbs());
 

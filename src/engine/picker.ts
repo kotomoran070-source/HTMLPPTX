@@ -89,6 +89,51 @@ async function remove(name: string, item: HTMLElement): Promise<void> {
   };
 }
 
+/** Новая презентация: название и старт — пустая или с примерами; после создания открывается редактор. */
+async function create(): Promise<void> {
+  const box = document.createElement('div');
+  box.className = 'imp-bd';
+  box.innerHTML = `<div class="imp pk-create" role="dialog" aria-modal="true" aria-labelledby="new-h">
+    <h2 id="new-h">Новая презентация</h2>
+    <label class="imp-name">Название <input spellcheck="false" autocomplete="off" maxlength="120" placeholder="Новая презентация"></label>
+    <fieldset class="imp-mode"><legend>Начать</legend>
+      <label><input type="radio" name="new-kind" value="empty" checked><span><b>Пустая</b><small>Один титульный слайд с названием.</small></span></label>
+      <label><input type="radio" name="new-kind" value="sample"><span><b>С примерами</b><small>Титульный, карточки, диаграмма и финальный слайд — чтобы заменить своим.</small></span></label>
+    </fieldset>
+    <div class="imp-body"></div>
+    <div class="imp-actions"><button type="button" class="btn ghost" data-a="cancel">Отмена</button><button type="button" class="btn primary" data-a="ok">Создать</button></div>
+  </div>`;
+  document.body.append(box);
+  await import('./import-ui.css');
+  const input = box.querySelector('input')!;
+  const ok = box.querySelector<HTMLButtonElement>('[data-a="ok"]')!;
+  const cancel = box.querySelector<HTMLButtonElement>('[data-a="cancel"]')!;
+  const close = () => { box.remove(); removeEventListener('keydown', onKey, true); };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') { e.preventDefault(); close(); }
+    else if (e.key === 'Enter' && !ok.disabled) { e.preventDefault(); ok.click(); }
+    e.stopPropagation();
+  };
+  addEventListener('keydown', onKey, true);
+  cancel.onclick = close;
+  box.addEventListener('mousedown', (e) => { if (e.target === box) close(); });
+  input.focus();
+  ok.onclick = async () => {
+    ok.disabled = cancel.disabled = true;
+    const sample = box.querySelector<HTMLInputElement>('input[value="sample"]')!.checked;
+    try {
+      const res = await fetch(`/__htmlpptx/create?title=${encodeURIComponent(input.value.trim())}&sample=${sample ? 1 : 0}`, { method: 'POST' });
+      const data = await res.json().catch(() => ({})) as { name?: string; error?: string };
+      if (!res.ok || !data.name) throw new Error(data.error ?? `ошибка ${res.status}`);
+      close();
+      location.href = `?deck=${encodeURIComponent(data.name)}&studio`;
+    } catch (e) {
+      box.querySelector('.imp-body')!.innerHTML = `<p class="imp-err">Не удалось: ${esc((e as Error).message)}</p>`;
+      ok.disabled = cancel.disabled = false;
+    }
+  };
+}
+
 /** Цвета акцента презентации для её миниатюры (у каждой карточки свои). */
 function accentVars(deck: Deck): string {
   const a = deck.theme?.accent;
@@ -130,12 +175,11 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
       <b>Импорт HTML</b>
       <span>Перетащите файл на страницу или нажмите.<br>Claude Design, свой HTML по правилам или собранный файл с правками.</span>
     </button>
-    <div class="pk-card pk-action pk-new">
+    <button class="pk-card pk-action pk-new" id="pk-new" type="button">
       <span class="pk-icon">${icon('plus')}</span>
       <b>Новая презентация</b>
-      <span>В терминале, в папке проекта:</span>
-      <span class="pk-cmd"><code>yarn new имя "Название"</code><button type="button" class="pk-copy" title="Скопировать" aria-label="Скопировать команду">${icon('copy')}</button></span>
-    </div>` : ''}
+      <span>Пустая — с титульного слайда, или с примерами слайдов для старта.</span>
+    </button>` : ''}
   </div>
   <footer class="pk-foot">
     <span>${icon('terminal')} <code>yarn build имя</code> — один HTML-файл для показа и отправки: <code>dist/имя.html</code></span>
@@ -159,16 +203,8 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
     }
   });
 
-  const copy = document.querySelector<HTMLButtonElement>('.pk-copy');
-  if (copy) {
-    copy.onclick = async () => {
-      try {
-        await navigator.clipboard.writeText('yarn new имя "Название"');
-        copy.classList.add('ok');
-        setTimeout(() => copy.classList.remove('ok'), 1200);
-      } catch { /* буфер обмена недоступен */ }
-    };
-  }
+  const newBtn = document.getElementById('pk-new');
+  if (newBtn) newBtn.onclick = () => void create();
 
   document.querySelectorAll<HTMLButtonElement>('.pk-del').forEach((b) => {
     b.onclick = () => void remove(b.dataset.del!, b.closest<HTMLElement>('.pk-item')!);

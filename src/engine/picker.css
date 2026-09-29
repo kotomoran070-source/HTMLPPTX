@@ -81,17 +81,10 @@ body.picker-page {
   border: 1.5px dashed var(--bd2); background: color-mix(in srgb, var(--surf) 60%, transparent); box-shadow: none; }
 .pk-action:hover { border-color: var(--ac); background: var(--acs); }
 .pk-action b { font-size: 16px; }
-.pk-action > span:not(.pk-icon):not(.pk-cmd) { font-size: 13.5px; color: var(--mu); line-height: 1.5; max-width: 260px; }
+.pk-action > span:not(.pk-icon) { font-size: 13.5px; color: var(--mu); line-height: 1.5; max-width: 260px; }
 .pk-icon { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; background: var(--acs); color: var(--ac); margin-bottom: 6px; border: 1px solid var(--acb); }
 .pk-action:hover .pk-icon { background: var(--ac); color: var(--on-ac); border-color: var(--ac); }
 .pk-icon .ic { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.pk-new { cursor: default; }
-.pk-new:hover { transform: none; }
-.pk-cmd { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; }
-.pk-copy { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--bd); background: var(--surf); color: var(--mu); display: grid; place-items: center; cursor: pointer; padding: 0; transition: color .2s, border-color .2s; }
-.pk-copy:hover { color: var(--ac); border-color: var(--acb); }
-.pk-copy.ok { color: #16A34A; border-color: #16A34A; }
-.pk-copy .ic { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 .pk-foot { margin-top: auto; padding-top: 40px; font-size: 13px; line-height: 2; color: var(--mu); }
 .pk-foot > span { display: block; }

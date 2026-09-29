@@ -6,7 +6,7 @@ import path from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 import { parseDocument } from 'yaml';
 import { AssetStore } from './assets';
-import { BASE_ID, bindProject, importHtml } from './import';
+import { BASE_ID, bindProject, importHtml, slug } from './import';
 import { packDeck } from '../src/engine/pack';
 import { mergeYaml } from './yaml-merge';
 
@@ -148,6 +148,31 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     return { trashed: path.relative(root, target).split(path.sep).join('/') };
   }
 
+  /**
+   * Новая презентация со страницы выбора — то же, что yarn new: копия templates/basic.
+   * Пустая — только титульный слайд; с примерами — весь шаблон. Папка — из названия латиницей.
+   */
+  function createDeck(rawTitle: string, sample: boolean): { name: string } {
+    const title = rawTitle.replace(/\s+/g, ' ').trim().slice(0, 120) || 'Новая презентация';
+    const base = slug(title) || 'deck';
+    const taken = new Set([...listDecks(dir), ...fs.readdirSync(dir)]);
+    let name = base;
+    for (let k = 2; taken.has(name); k++) name = `${base}-${k}`;
+    const dst = path.join(dir, name);
+    fs.cpSync(path.join(root, 'templates', 'basic'), dst, { recursive: true });
+    const file = deckFile(name);
+    let text = fs.readFileSync(file, 'utf8');
+    if (!sample) {
+      // Только титульный: без остальных слайдов и без текстов-заглушек
+      const cut = text.indexOf('\n  - id: points');
+      if (cut > 0) text = text.slice(0, cut + 1);
+      text = text.replace(/^ {4}(lead|meta|notes): .*\n/gm, '');
+    }
+    // Кавычки и обратная косая черта в названии не ломают YAML
+    fs.writeFileSync(file, text.replaceAll('{{title}}', title.replace(/\\/g, '\\\\').replace(/"/g, '\\"')));
+    return { name };
+  }
+
   async function handleSave(name: string, req: IncomingMessage, res: ServerResponse): Promise<void> {
     const body = JSON.parse((await readBody(req)).toString('utf8')) as { deck?: unknown };
     if (!body.deck || typeof body.deck !== 'object') throw new Error('Нет данных презентации');
@@ -250,6 +275,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           if (url.pathname === API + 'list') {
             return send(res, 200, listDecks(dir).map((n) => ({ name: n, mtime: Math.round(fs.statSync(deckFile(n)).mtimeMs) })));
           }
+          if (url.pathname === API + 'create') return send(res, 200, createDeck(url.searchParams.get('title') ?? '', url.searchParams.get('sample') === '1'));
           const name = assertDeck(url.searchParams.get('deck'));
           if (url.pathname === API + 'delete') return send(res, 200, trashDeck(name));
           if (url.pathname === API + 'bind-theme') return send(res, 200, bindProject(dir, name, url.searchParams.get('dry') === '1'));
