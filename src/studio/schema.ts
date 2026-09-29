@@ -335,6 +335,7 @@ export const TEMPLATES: Record<string, Schema> = {
   space: {
     fields: [
       { k: 'layout', label: 'Вариант', type: 'select', options: [['', 'Обычный'], ['orbit', 'Орбита']] },
+      { k: 'tone', label: 'Светлая тема', type: 'select', options: [['', 'Слайд всегда тёмный'], ['theme', 'Светлый в светлой теме']] },
       { k: 'badge', label: 'Надпись в пилюле', type: 'text' },
       { k: 'title', label: 'Заголовок', type: 'text' },
       { k: 'lead', label: 'Подзаголовок', type: 'text' },

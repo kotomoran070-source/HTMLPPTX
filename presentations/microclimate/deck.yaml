@@ -343,6 +343,40 @@ slides:
     notes: |
       Представиться. Тема: результаты применения комплекса контроля микроклимата.
       План: оборудование, программное обеспечение, инфраструктура, результаты эксплуатации.
+  - id: hero
+    template: canvas
+    label: 'Palorax · Новый взгляд на Интернет вещей'
+    bg: var(--bg)
+    free:
+      - type: embed
+        src: ./assets/embed-hero-orbit.htm
+        theme: true
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+      - type: html
+        html: '<div style="display:flex;flex-direction:column;align-items:flex-start"><div data-t="0" style="font:600 14px/1.4 ui-monospace,Menlo,Consolas,monospace;letter-spacing:2.7px;text-transform:uppercase;color:var(--ach);animation:fx-fade .5s ease both"></div><div role="heading" aria-level="1" data-t="1" style="margin-top:34px;font:800 61px/1.04 var(--font);letter-spacing:-1.3px;color:var(--tx);text-wrap:balance;animation:fx-rise .6s cubic-bezier(.2,.7,.2,1) .38s both"></div><div data-t="2" style="margin-top:30px;max-width:546px;font:400 20px/1.45 var(--font);color:var(--mu);animation:fx-rise .6s cubic-bezier(.2,.7,.2,1) .76s both"></div></div>'
+        texts:
+          - Palorax · Новый взгляд на Интернет вещей
+          - Результаты применения комплекса контроля микроклимата
+          - Оборудование, программное обеспечение, инфраструктура и результаты эксплуатации.
+        place:
+          x: 64
+          y: 100
+          w: 700
+      - type: html
+        html: '<div style="display:flex;align-items:center;justify-content:space-between;gap:24px;width:100%;padding-top:18px;border-top:1px solid color-mix(in srgb,var(--mu) 30%,transparent)"><div data-t="0" style="font:600 16px/1.4 var(--font);color:var(--tx2)"></div><div data-t="1" style="font:400 13px/1.4 ui-monospace,Menlo,Consolas,monospace;letter-spacing:1.3px;color:var(--mu)"></div></div>'
+        texts:
+          - Команда Palorax {muted|· Сентябрь 2026}
+          - PARALLAX + LORA
+        place:
+          x: 64
+          y: 600
+          w: 1152
+        enter: fade
+        delay: 1140
   - id: brand
     template: canvas
     label: Идеология бренда
@@ -1006,6 +1040,27 @@ slides:
     template: space
     layout: orbit # орбиты вокруг логотипа, кнопки внутри карточки
     label: Спасибо за внимание — орбита
+    badge: КОМПЛЕКС КОНТРОЛЯ МИКРОКЛИМАТА
+    title: Спасибо за внимание
+    lead: Готовы ответить на вопросы
+    link:
+      label: Сайт проекта
+      url: https://lora-alliance.org/
+    buttons:
+      - icon: mail
+        label: Почта
+        url: mailto:info.lorax@gmail.com
+      - icon: sliders
+        label: Admin panel
+      - icon: chart
+        label: User panel
+      - icon: tool
+        label: Прикладное ПО
+  - id: space-orbit-light
+    template: space
+    layout: orbit # орбиты вокруг логотипа, кнопки внутри карточки
+    tone: theme # в светлой теме — светлый, в тёмной — как «орбита»
+    label: Спасибо за внимание — орбита, светлая
     badge: КОМПЛЕКС КОНТРОЛЯ МИКРОКЛИМАТА
     title: Спасибо за внимание
     lead: Готовы ответить на вопросы

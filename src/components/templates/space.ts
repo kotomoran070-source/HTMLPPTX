@@ -1,6 +1,7 @@
 import { defineBlock, defineTemplate } from '../../engine/component';
 import { asArray, esc, t } from '../../engine/html';
 import { ea, eurl, tx } from '../../engine/marks';
+import { currentTheme } from '../../engine/theme';
 import { qrSvg } from '../qr';
 import { logoImg } from './content';
 import { button, linkText, words, type FinaleLink, type FinaleSlide } from './finale';
@@ -11,6 +12,8 @@ interface SpaceSlide extends FinaleSlide {
   badge?: string;
   /** orbit — орбиты вокруг стеклянного логотипа, надпись в углу, кнопки внутри карточки */
   layout?: 'orbit';
+  /** theme — в светлой теме презентации слайд светлый (в тёмной — как обычно); без него всегда тёмный */
+  tone?: 'theme';
 }
 
 function rng(seed: number) {
@@ -38,7 +41,7 @@ defineTemplate<SpaceSlide>('space', {
     // В варианте «орбита» ссылка и кнопки — одна широкая карточка
     const card = orbit && (link || bts) ? spacePanelHtml(link, bts) : link;
     return skyHtml(orbit)
-      + `<div class="sp-wrap${orbit ? ' orbit' : ''}">`
+      + `<div class="sp-wrap${orbit ? ' orbit' : ''}${s.tone === 'theme' ? ' tone-theme' : ''}">`
       + (s.badge ? `<div class="sp-badge r">${orbit ? '' : '<i class="sp-dot"></i>'}${tx(s, 'badge')}</div>` : '')
       + logo
       + `<h1 aria-label="${esc(s.title)}"${ea(s, 'title')}>${words(s.title, 'sp-w', 0.4, 0.3)}</h1>`
@@ -48,8 +51,8 @@ defineTemplate<SpaceSlide>('space', {
       + (!orbit && bts ? `<div class="sp-row">${bts}</div>` : '')
       + `</div>`;
   },
-  mount(el, _p, ctx) {
-    return mountSky(el, el, ctx.stage, ctx.reducedMotion);
+  mount(el, p, ctx) {
+    return mountSky(el, el, ctx.stage, ctx.reducedMotion, p.tone === 'theme');
   },
 });
 
@@ -98,9 +101,9 @@ function skyHtml(orbit: boolean): string {
 }
 
 /** Движение неба: canvas «орбиты» и параллакс за мышью, пока слайд показан */
-function mountSky(root: HTMLElement, slide: HTMLElement, stage: HTMLElement, still: boolean): (() => void) | undefined {
+function mountSky(root: HTMLElement, slide: HTMLElement, stage: HTMLElement, still: boolean, themed = false): (() => void) | undefined {
   const cv = root.querySelector<HTMLCanvasElement>('.sp-cv');
-  const stopSky = cv ? cosmos(slide, cv, stage, still) : undefined;
+  const stopSky = cv ? cosmos(slide, cv, stage, still, themed) : undefined;
   if (still) return stopSky;
   const hubs = root.querySelector<HTMLElement>('.sp-hubs');
   const stars = root.querySelector<HTMLElement>('.sp-stars');
@@ -138,12 +141,18 @@ const H = 720;
 const PULSE: [number, number] = [640, 232];
 const NODE_COLORS = ['56, 189, 248', '129, 140, 248', '52, 211, 153', '96, 165, 250', '167, 139, 250'];
 
+/** Цвета неба на canvas: тёмное (всегда) и светлое (tone: theme в светлой теме) */
+const SKY = {
+  dark: { star: '255,255,255', w1: '56,189,248', w2: '129,140,248', link: '96,165,250', nodes: NODE_COLORS },
+  light: { star: '71,85,105', w1: '37,99,235', w2: '99,102,241', link: '37,99,235', nodes: ['14, 165, 233', '99, 102, 241', '16, 185, 129', '59, 130, 246', '139, 92, 246'] },
+};
+
 /**
  * Небо «орбиты»: мерцающие звёзды, немного медленно дрейфующих узлов со связями,
  * узлы расступаются от курсора, от логотипа раз в ~4 с расходится волна, клик — своя волна.
  * Анимация идёт только пока слайд показан.
  */
-function cosmos(el: HTMLElement, cv: HTMLCanvasElement, stage: HTMLElement, still: boolean): () => void {
+function cosmos(el: HTMLElement, cv: HTMLCanvasElement, stage: HTMLElement, still: boolean, themed = false): () => void {
   const g = cv.getContext('2d');
   if (!g) return () => {};
   g.scale(cv.width / W, cv.height / H);
@@ -159,12 +168,14 @@ function cosmos(el: HTMLElement, cv: HTMLCanvasElement, stage: HTMLElement, stil
   let raf = 0;
 
   const frame = (now: number) => {
+    // Тему проверяем каждый кадр: переключили — небо сразу в новых цветах
+    const P = themed && currentTheme() === 'light' ? SKY.light : SKY.dark;
     g.clearRect(0, 0, W, H);
     for (const s of stars) {
       if (!still) s.ph += s.sp;
       g.beginPath();
       g.arc(s.x, s.y, s.rad, 0, 6.2832);
-      g.fillStyle = `rgba(255,255,255,${s.a * (0.6 + 0.4 * Math.sin(s.ph))})`;
+      g.fillStyle = `rgba(${P.star},${s.a * (0.6 + 0.4 * Math.sin(s.ph))})`;
       g.fill();
     }
     if (!still && now - lastPulse > 3800) {
@@ -176,11 +187,11 @@ function cosmos(el: HTMLElement, cv: HTMLCanvasElement, stage: HTMLElement, stil
       w.rad += 2.8;
       w.a *= 0.972;
       g.lineWidth = 1.6;
-      g.strokeStyle = `rgba(56,189,248,${w.a * 0.75})`;
+      g.strokeStyle = `rgba(${P.w1},${w.a * 0.75})`;
       g.beginPath(); g.arc(w.x, w.y, w.rad, 0, 6.2832); g.stroke();
       if (w.rad > 40) {
         g.lineWidth = 0.9;
-        g.strokeStyle = `rgba(129,140,248,${w.a * 0.35})`;
+        g.strokeStyle = `rgba(${P.w2},${w.a * 0.35})`;
         g.beginPath(); g.arc(w.x, w.y, w.rad * 0.82, 0, 6.2832); g.stroke();
       }
       if (w.a < 0.015 || w.rad > w.max) waves.splice(i, 1);
@@ -199,8 +210,9 @@ function cosmos(el: HTMLElement, cv: HTMLCanvasElement, stage: HTMLElement, stil
       }
       g.beginPath();
       g.arc(p.x, p.y, p.rad, 0, 6.2832);
-      g.fillStyle = `rgba(${p.c},.95)`;
-      g.shadowColor = `rgba(${p.c},.8)`;
+      const c = P.nodes[NODE_COLORS.indexOf(p.c)] ?? p.c;
+      g.fillStyle = `rgba(${c},.95)`;
+      g.shadowColor = `rgba(${c},.8)`;
       g.shadowBlur = p.glow;
       g.fill();
       g.shadowBlur = 0;
@@ -209,7 +221,7 @@ function cosmos(el: HTMLElement, cv: HTMLCanvasElement, stage: HTMLElement, stil
         const d = Math.hypot(p.x - q.x, p.y - q.y);
         if (d < 170) {
           g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(q.x, q.y);
-          g.strokeStyle = `rgba(96,165,250,${(1 - d / 170) * 0.24})`;
+          g.strokeStyle = `rgba(${P.link},${(1 - d / 170) * 0.24})`;
           g.lineWidth = 0.85;
           g.stroke();
         }

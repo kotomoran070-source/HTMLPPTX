@@ -118,3 +118,69 @@
 
 /* Небо отдельным блоком (фон слайда после «Разобрать на объекты») */
 .space-sky { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+
+/* Светлая тема для слайда с tone: theme — в тёмной теме слайд прежний, без этой опции всегда тёмный */
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) { background: #F4F7FC; color: #0F172A; }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-sky { background: radial-gradient(60% 50% at 78% 12%, rgba(59, 130, 246, .14), transparent 60%), radial-gradient(50% 45% at 12% 85%, rgba(139, 92, 246, .10), transparent 60%), linear-gradient(180deg, #F8FAFD 0%, #F1F5FB 55%, #EDF2FA 100%); }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-sky::before, :root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-sky::after { opacity: .35; }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-sky.neb { background: radial-gradient(ellipse 90% 70% at 50% 45%, #E6EEFF 0%, #F2F6FC 70%, #F8FAFD 100%); }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-sky.neb::before { opacity: 1; background: radial-gradient(circle, rgba(14, 165, 233, .16) 0%, rgba(99, 102, 241, .07) 45%, transparent 75%); }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-sky.neb::after { opacity: 1; background: radial-gradient(circle, rgba(168, 85, 247, .10) 0%, rgba(59, 130, 246, .04) 50%, transparent 80%); }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-stars i { background: #64748B; }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-shoot { background: #60A5FA; box-shadow: 0 0 6px 1px #93C5FD; }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-shoot::before { background: linear-gradient(90deg, rgba(59, 130, 246, .7), transparent); }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-lines path { stroke: rgba(37, 99, 235, .25); }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-r.r1 { border-color: rgba(37, 99, 235, .22); }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-r.r2 { border-color: rgba(99, 102, 241, .22); }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-badge { background: rgba(255, 255, 255, .72); border-color: rgba(15, 23, 42, .12); color: #475569; }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-wrap h1 { color: #0F172A; }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-wrap.orbit h1 { text-shadow: 0 0 24px rgba(59, 130, 246, .18); }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-rule { background: linear-gradient(90deg, transparent, rgba(37, 99, 235, .55), transparent); }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-lead, :root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-wrap.orbit .sp-lead { color: #475569; }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-halo, :root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-wrap.orbit .sp-halo { background: radial-gradient(circle, rgba(59, 130, 246, .28), transparent 66%); }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-wrap.orbit .sp-tile { background: linear-gradient(150deg, rgba(255, 255, 255, .92), rgba(219, 232, 255, .86)); border-color: rgba(147, 197, 253, .85); box-shadow: 0 0 50px 8px rgba(59, 130, 246, .20), inset 0 1px 0 #fff; }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-card { background: rgba(255, 255, 255, .78); border-color: rgba(15, 23, 42, .10); box-shadow: 0 10px 30px rgba(15, 23, 42, .08); }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-card:hover { border-color: rgba(37, 99, 235, .40); background: #fff; }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-card small { color: #64748B; }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-card b { color: #1D4ED8; }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-qrbox { box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .08); }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-panel { background: rgba(255, 255, 255, .80); border-color: rgba(15, 23, 42, .10); box-shadow: 0 16px 40px rgba(15, 23, 42, .10); backdrop-filter: blur(8px); }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-panel .sp-card { background: none; box-shadow: none; }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-sep { background: rgba(15, 23, 42, .12); }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-gbt { background: rgba(255, 255, 255, .85); border-color: rgba(15, 23, 42, .12); }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-gbt:hover, :root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-gbt:focus-visible { background: #fff; border-color: rgba(37, 99, 235, .35); }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-gbt span { color: #1E293B; }
+:root[data-theme="light"] .slide.space:has(> .sp-wrap.tone-theme) .sp-gbt .ic { stroke: #475569; }
+@media (prefers-color-scheme: light) {
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) { background: #F4F7FC; color: #0F172A; }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-sky { background: radial-gradient(60% 50% at 78% 12%, rgba(59, 130, 246, .14), transparent 60%), radial-gradient(50% 45% at 12% 85%, rgba(139, 92, 246, .10), transparent 60%), linear-gradient(180deg, #F8FAFD 0%, #F1F5FB 55%, #EDF2FA 100%); }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-sky::before, :root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-sky::after { opacity: .35; }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-sky.neb { background: radial-gradient(ellipse 90% 70% at 50% 45%, #E6EEFF 0%, #F2F6FC 70%, #F8FAFD 100%); }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-sky.neb::before { opacity: 1; background: radial-gradient(circle, rgba(14, 165, 233, .16) 0%, rgba(99, 102, 241, .07) 45%, transparent 75%); }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-sky.neb::after { opacity: 1; background: radial-gradient(circle, rgba(168, 85, 247, .10) 0%, rgba(59, 130, 246, .04) 50%, transparent 80%); }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-stars i { background: #64748B; }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-shoot { background: #60A5FA; box-shadow: 0 0 6px 1px #93C5FD; }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-shoot::before { background: linear-gradient(90deg, rgba(59, 130, 246, .7), transparent); }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-lines path { stroke: rgba(37, 99, 235, .25); }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-r.r1 { border-color: rgba(37, 99, 235, .22); }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-r.r2 { border-color: rgba(99, 102, 241, .22); }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-badge { background: rgba(255, 255, 255, .72); border-color: rgba(15, 23, 42, .12); color: #475569; }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-wrap h1 { color: #0F172A; }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-wrap.orbit h1 { text-shadow: 0 0 24px rgba(59, 130, 246, .18); }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-rule { background: linear-gradient(90deg, transparent, rgba(37, 99, 235, .55), transparent); }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-lead, :root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-wrap.orbit .sp-lead { color: #475569; }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-halo, :root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-wrap.orbit .sp-halo { background: radial-gradient(circle, rgba(59, 130, 246, .28), transparent 66%); }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-wrap.orbit .sp-tile { background: linear-gradient(150deg, rgba(255, 255, 255, .92), rgba(219, 232, 255, .86)); border-color: rgba(147, 197, 253, .85); box-shadow: 0 0 50px 8px rgba(59, 130, 246, .20), inset 0 1px 0 #fff; }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-card { background: rgba(255, 255, 255, .78); border-color: rgba(15, 23, 42, .10); box-shadow: 0 10px 30px rgba(15, 23, 42, .08); }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-card:hover { border-color: rgba(37, 99, 235, .40); background: #fff; }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-card small { color: #64748B; }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-card b { color: #1D4ED8; }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-qrbox { box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .08); }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-panel { background: rgba(255, 255, 255, .80); border-color: rgba(15, 23, 42, .10); box-shadow: 0 16px 40px rgba(15, 23, 42, .10); backdrop-filter: blur(8px); }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-panel .sp-card { background: none; box-shadow: none; }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-sep { background: rgba(15, 23, 42, .12); }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-gbt { background: rgba(255, 255, 255, .85); border-color: rgba(15, 23, 42, .12); }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-gbt:hover, :root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-gbt:focus-visible { background: #fff; border-color: rgba(37, 99, 235, .35); }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-gbt span { color: #1E293B; }
+:root:not([data-theme]) .slide.space:has(> .sp-wrap.tone-theme) .sp-gbt .ic { stroke: #475569; }
+}
