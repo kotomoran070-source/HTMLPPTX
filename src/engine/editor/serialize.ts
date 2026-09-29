@@ -27,7 +27,7 @@ function wrap(mark: string, inner: string): string {
   return `${lead}${mark}${inner.trim()}${mark}${tail}`;
 }
 
-const COLORED = /(\{(?:#[0-9a-f]{3,8}|accent2?|text2?|muted)\|[^{}]*\})/i;
+const COLORED = /(\{(?:#[0-9a-f]{3,8}|accent2?|text2?|muted|g:[a-z-]+)\|[^{}]*\})/i;
 
 /** {цвет|…} вокруг текста; уже окрашенные внутри куски не вкладываются, а остаются своими. */
 export function wrapColor(color: string, s: string): string {

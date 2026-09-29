@@ -1,6 +1,7 @@
 import { icon } from '../../components/icons';
 import { getAt, KEY, setAt, type Path } from '../data';
 import { esc, t } from '../html';
+import { GRADIENTS, TEXT_GRADIENTS, textGradientCss } from '../gradients';
 import { colorCss, FONTS, SWATCHES, THEME_COLORS, type TextStyle } from '../text-style';
 import { plainMarkup, toggleList, toMarkup } from './serialize';
 
@@ -100,6 +101,8 @@ export class TextEditor {
 <div class="edcolors" id="ed-colors" role="dialog" aria-label="Цвет текста">
   <div class="edcolors-row">${Object.entries(THEME_COLORS).map(([k, c]) => `<button type="button" data-c="${k}" title="${esc(c.name)}" style="background:${c.css}"></button>`).join('')}</div>
   <div class="edcolors-row">${SWATCHES.map((c) => `<button type="button" data-c="${c}" title="${c}" style="background:${c}"></button>`).join('')}</div>
+  <div class="edcolors-label">Градиент</div>
+  <div class="edcolors-row">${TEXT_GRADIENTS.map((id) => GRADIENTS.find((g) => g.id === id)!).map((g) => `<button type="button" data-c="g:${g.id}" title="${esc(g.name)}" style="background:var(--g);${textGradientCss(`g:${g.id}`)}"></button>`).join('')}</div>
   <div class="edcolors-foot"><label><input type="color" data-c="custom"> Свой цвет</label><button type="button" data-c="" class="btn ghost small">Как в теме</button></div>
 </div>`);
     this.bar = document.getElementById('ed-text')!;
@@ -469,7 +472,16 @@ export class TextEditor {
     this.colors.addEventListener('click', (e) => {
       const b = (e.target as Element).closest<HTMLElement>('button[data-c]');
       if (!b) return;
-      if (!this.colorSelection(b.dataset.c ?? '')) this.setStyle({ color: b.dataset.c || undefined });
+      const c = b.dataset.c ?? '';
+      // Градиент — только разметкой по тексту: без выделения — на весь текст поля
+      // Без выделения градиент ложится на весь текст, а «Как в теме» снимает и цвета частей текста
+      if ((c.startsWith('g:') || !c) && !this.partial && this.s) {
+        this.s.el.querySelectorAll('span.md-c, font[color]').forEach((x) => x.replaceWith(...x.childNodes));
+        this.s.el.normalize();
+        if (c) this.partial = this.wholeRange();
+        else this.syncButtons();
+      }
+      if (!this.colorSelection(c)) this.setStyle({ color: c || undefined });
       this.colors.classList.remove('on');
       this.s?.el.focus({ preventScroll: true });
     });
@@ -511,13 +523,26 @@ export class TextEditor {
       const span = document.createElement('span');
       span.className = 'md-c';
       span.setAttribute('data-c', c);
-      span.style.color = colorCss(c) ?? c;
+      const grad = textGradientCss(c);
+      if (grad) {
+        span.classList.add('md-g');
+        span.setAttribute('style', grad);
+      } else span.style.color = colorCss(c) ?? c;
       span.append(...f.childNodes);
       f.replaceWith(span);
     });
     s.el.normalize();
     this.syncButtons();
     return true;
+  }
+
+  /** Весь текст поля как выделение (градиент без выделения — на всё поле) */
+  private wholeRange(): Range | null {
+    const el = this.s?.el;
+    if (!el || !el.textContent?.trim()) return null;
+    const r = document.createRange();
+    r.selectNodeContents(el);
+    return r;
   }
 
   /** Интервалы как в PowerPoint: готовые значения и точное — числом */

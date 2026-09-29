@@ -1,3 +1,5 @@
+import { textGradientCss } from './gradients';
+
 /** Цвета темы для {accent|…}: как в text-style.ts (здесь без импорта, чтобы html.ts не тянул зависимостей) */
 const THEME_CSS: Record<string, string> = {
   accent: 'var(--ac)', accent2: 'var(--ach)', text: 'var(--tx)', text2: 'var(--tx2)', muted: 'var(--mu)',
@@ -37,7 +39,12 @@ function inline(line: string): string {
     .replace(/\*(.+?)\*/g, '<i>$1</i>')
     // Цвет части текста: {#2563EB|текст} или {accent|текст}
     .replace(/\{(#[0-9a-f]{3,8}|accent2?|text2?|muted)\|([^{}]*?)\}/gi, (_, c: string, inner: string) =>
-      `<span class="md-c" data-c="${c}" style="color:${THEME_CSS[c.toLowerCase()] ?? c}">${inner}</span>`);
+      `<span class="md-c" data-c="${c}" style="color:${THEME_CSS[c.toLowerCase()] ?? c}">${inner}</span>`)
+    // Градиент части текста: {g:ocean|текст}
+    .replace(/\{(g:[a-z-]+)\|([^{}]*?)\}/gi, (m, c: string, inner: string) => {
+      const css = textGradientCss(c);
+      return css ? `<span class="md-c md-g" data-c="${c}" style="${css}">${inner}</span>` : m;
+    });
   return s.replace(/\u0000(\d+)\u0000/g, (_, i) => keep[Number(i)]);
 }
 

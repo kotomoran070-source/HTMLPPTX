@@ -187,6 +187,7 @@ body.editing .ovedit-hint { display: block; }
 .edcolors-row { display: flex; gap: 6px; }
 .edcolors-row button { width: 24px; height: 24px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, .15); cursor: pointer; padding: 0; }
 .edcolors-row button:hover { transform: scale(1.12); }
+.edcolors-label { font: 600 11px var(--font); color: var(--mu); margin-bottom: -2px; }
 .edcolors-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; font: 600 12px var(--font); color: var(--tx2); }
 .edcolors-foot label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .edcolors-foot input { width: 24px; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; }

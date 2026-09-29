@@ -325,7 +325,11 @@ class Converter {
     const uniform = visible.every(Boolean) && sides.every((s) => Math.abs(s.w - sides[0].w) < 0.5 && s.c!.hex === sides[0].c!.hex);
     const shadow = this.shadow(cs.boxShadow, k);
     if (clipText) fill = null;
-    if (!fill && !uniform && !shadow && !visible.some(Boolean)) return;
+    if (!fill && !uniform && !shadow && !visible.some(Boolean)) {
+      // Градиентный контур без заливки: кольцо рисует ::before
+      if (el.classList.contains('shape-gs')) await this.pseudo(el, b, op, k);
+      return;
+    }
     // Тень рамки картинки без заливки и контура уходит на саму картинку (у пустой фигуры тени не видно)
     if (!fill && !visible.some(Boolean) && el.classList.contains('imgbox')) return;
 
@@ -380,11 +384,18 @@ class Converter {
       // Градиент или узор (свечение, луч) — картинкой того же размера
       if (p.backgroundImage !== 'none' && /gradient/.test(p.backgroundImage)) {
         const d = document.createElement('div');
-        d.style.cssText = `position:absolute;left:0;top:0;width:${parseFloat(p.width)}px;height:${parseFloat(p.height)}px;background:${p.background};border-radius:${p.borderRadius};border:${p.border};opacity:${p.opacity};filter:${p.filter}`;
+        // Кольцо с маской (градиентный контур фигуры): размер с полями, маска вырезает середину
+        const masked = (p.getPropertyValue('-webkit-mask-image') || p.getPropertyValue('mask-image') || 'none') !== 'none';
+        const padX = masked ? (parseFloat(p.paddingLeft) || 0) + (parseFloat(p.paddingRight) || 0) : 0;
+        const padY = masked ? (parseFloat(p.paddingTop) || 0) + (parseFloat(p.paddingBottom) || 0) : 0;
+        const fw = parseFloat(p.width) + padX;
+        const fh = parseFloat(p.height) + padY;
+        const mask = masked ? `;box-sizing:border-box;padding:${p.padding};-webkit-mask-image:${p.getPropertyValue('-webkit-mask-image')};-webkit-mask-clip:${p.getPropertyValue('-webkit-mask-clip')};-webkit-mask-composite:${p.getPropertyValue('-webkit-mask-composite')};mask-composite:${p.getPropertyValue('mask-composite')}` : '';
+        d.style.cssText = `position:absolute;left:0;top:0;width:${fw}px;height:${fh}px;background:${p.background};border-radius:${p.borderRadius};border:${p.border};opacity:${p.opacity};filter:${p.filter}${mask}`;
         this.section.appendChild(d);
         try {
-          const data = await this.toPng(d, { pixelRatio: 1, skipFonts: true });
-          this.slide.addImage({ data, x: inch(b.x + left), y: inch(b.y + top), w: inch(w), h: inch(h), transparency: transparency(op) });
+          const data = await this.toPng(d, { pixelRatio: masked ? 2 : 1, skipFonts: true });
+          this.slide.addImage({ data, x: inch(b.x + left), y: inch(b.y + top), w: inch(fw * k), h: inch(fh * k), transparency: transparency(op) });
         } catch { /* пропускаем */ }
         d.remove();
         continue;

@@ -11,3 +11,10 @@
 .shape-dot .shape-bar { background: radial-gradient(circle closest-side, var(--c) 96%, transparent) 0 0 / calc(var(--w) * 2) var(--w) repeat-x; }
 .shape-head { flex: none; width: 0; height: 0; margin-left: calc(var(--w) * -1); border-left: var(--h) solid var(--c); border-top: calc(var(--h) * .6) solid transparent; border-bottom: calc(var(--h) * .6) solid transparent; }
 .shape-dash .shape-head, .shape-dot .shape-head { margin-left: 0; }
+
+/* Градиентный контур: кольцо по краю фигуры (маска вырезает середину), скругление — как у фигуры */
+.shape-gs::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: var(--sw); background: var(--sg); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+/* Градиентная линия: цвет вдоль линии, пунктир и точки — маской */
+.shape-lg .shape-bar { background: var(--sg); }
+.shape-lg.shape-dash .shape-bar { -webkit-mask: repeating-linear-gradient(90deg, #000 0 calc(var(--w) * 3), transparent 0 calc(var(--w) * 5)); mask: repeating-linear-gradient(90deg, #000 0 calc(var(--w) * 3), transparent 0 calc(var(--w) * 5)); }
+.shape-lg.shape-dot .shape-bar { background: var(--sg); -webkit-mask: radial-gradient(circle closest-side, #000 96%, transparent) 0 0 / calc(var(--w) * 2) var(--w) repeat-x; mask: radial-gradient(circle closest-side, #000 96%, transparent) 0 0 / calc(var(--w) * 2) var(--w) repeat-x; }

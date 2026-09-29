@@ -11,7 +11,7 @@ import type { Block, Deck } from '../types';
 
 /** Свойства оформления по типам блоков */
 const LOOK: Record<string, string[]> = {
-  shape: ['fill', 'gradient', 'stroke', 'width', 'dash', 'radius', 'shadow', 'opacity', 'valign'],
+  shape: ['fill', 'gradient', 'stroke', 'strokeGradient', 'width', 'dash', 'radius', 'shadow', 'opacity', 'valign'],
   table: ['variant', 'labels', 'total', 'density', 'size', 'head'],
   text: ['size'],
   image: ['fit', 'stroke', 'width', 'dash', 'radius', 'shadow', 'mat', 'opacity', 'filter'],

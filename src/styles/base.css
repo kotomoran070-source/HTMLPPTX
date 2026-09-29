@@ -188,3 +188,7 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
 .slide.canvas-slide > .slide-body > * { flex: 1 1 auto; min-height: 0; }
 /* Корень вёрстки слайда из своего HTML: 1280×720 с обычными полями слайда */
 .slide-root { box-sizing: border-box; width: 100%; height: 100%; padding: 48px 64px; overflow: hidden; }
+
+/* Градиент части текста {g:ocean|…}: фон по буквам; на каждой строке — целиком */
+.md-g { background: var(--g); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.md-g * { -webkit-text-fill-color: transparent; }
