@@ -44,6 +44,33 @@ export function accentTokens(accent: string): { light: Record<string, string>; d
 
 const block = (vars: Record<string, string>) => Object.entries(vars).map(([k, v]) => `${k}:${v}`).join(';');
 
+const PREVIEW_ID = 'htmlpptx-accent-preview';
+const PREVIEW_ATTR = 'data-accent-preview';
+
+/**
+ * Показ цвета, пока тянут палитру: новые токены только у открытого слайда в stage — остальная
+ * страница (миниатюры, лента) не пересчитывает стили на каждое движение. null — показ закончен.
+ */
+export function previewAccent(accent: string | null, stage?: HTMLElement): void {
+  let el = document.getElementById(PREVIEW_ID);
+  if (!accent || !HEX_RE.test(accent)) {
+    el?.remove();
+    document.querySelectorAll(`[${PREVIEW_ATTR}]`).forEach((x) => x.removeAttribute(PREVIEW_ATTR));
+    return;
+  }
+  stage?.setAttribute(PREVIEW_ATTR, '');
+  if (!el) {
+    el = document.createElement('style');
+    el.id = PREVIEW_ID;
+  }
+  document.head.appendChild(el);
+  const { light, dark } = accentTokens(accent);
+  const sel = `[${PREVIEW_ATTR}] .slide.on`;
+  el.textContent = `${sel}{${block(light)}}`
+    + `@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) ${sel}{${block(dark)}}}`
+    + `:root[data-theme="dark"] ${sel}{${block(dark)}}`;
+}
+
 /** Применяет акцентный цвет; без цвета возвращает стандартную палитру. */
 export function applyAccent(accent: unknown): void {
   let el = document.getElementById(ID);

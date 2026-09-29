@@ -1245,7 +1245,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
   $('st-status').addEventListener('click', () => ed.retrySave());
   $('st-theme').addEventListener('click', () => toggleTheme());
   const accent = $<HTMLInputElement>('st-accent');
-  accent.addEventListener('input', () => ed.setAccent(accent.value));
+  // Пока тянут палитру — только показ; правка и сохранение — когда отпустили
+  accent.addEventListener('input', () => ed.previewAccent(accent.value));
+  accent.addEventListener('change', () => ed.setAccent(accent.value));
+  accent.addEventListener('blur', () => ed.endAccentPreview());
   onThemeChange(() => { slides.update(); queueState(); });
 
   // ---------------- раскладка окна: панели тянутся, лента сворачивается ----------------

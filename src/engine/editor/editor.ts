@@ -1,6 +1,6 @@
 import { icon } from '../../components/icons';
 import type { Deck, SlideData } from '../../types';
-import { applyAccent, HEX_RE } from '../accent';
+import { applyAccent, HEX_RE, previewAccent } from '../accent';
 import { clone, getAt, replaceContents, setAt, type Path } from '../data';
 import { esc } from '../html';
 import { BlockEditor } from './block-edit';
@@ -297,7 +297,9 @@ export class Editor {
     $('ed-status').addEventListener('click', () => { if (this.saveError) void this.save(); });
 
     const accent = $<HTMLInputElement>('ed-accent');
-    accent.addEventListener('input', () => this.setAccent(accent.value));
+    accent.addEventListener('input', () => this.previewAccent(accent.value));
+    accent.addEventListener('change', () => this.setAccent(accent.value));
+    accent.addEventListener('blur', () => this.endAccentPreview());
     $('ed-accent-reset').addEventListener('click', () => this.setAccent(null));
 
     const text = $<HTMLTextAreaElement>('ed-notes-text');
@@ -604,7 +606,32 @@ export class Editor {
     if (this.saveError) void this.save();
   }
 
+  private accentFrame = 0;
+  private accentPreview = '';
+
+  /**
+   * Пока тянут палитру: только цвет на экране, не чаще кадра. Без истории, сохранения и перезапуска
+   * вставок — всё это один раз в setAccent, когда палитру отпустили.
+   */
+  previewAccent(value: string): void {
+    if (!HEX_RE.test(value)) return;
+    this.accentPreview = value;
+    if (this.accentFrame) return;
+    this.accentFrame = requestAnimationFrame(() => {
+      this.accentFrame = 0;
+      previewAccent(this.accentPreview, this.host.stage());
+    });
+  }
+
+  /** Палитру закрыли без выбора — вернуть цвет из данных */
+  endAccentPreview(): void {
+    cancelAnimationFrame(this.accentFrame);
+    this.accentFrame = 0;
+    previewAccent(null);
+  }
+
   setAccent(value: string | null): void {
+    this.endAccentPreview();
     this.commit((d) => {
       if (value && HEX_RE.test(value)) {
         if (!d.theme) {

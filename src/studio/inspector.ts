@@ -113,7 +113,13 @@ export class Inspector {
     root.addEventListener('input', (e) => {
       const el = e.target as HTMLInputElement;
       // Цвет меняется сразу, пока тянут ползунок палитры
-      if (el.type === 'color') this.onChange(el);
+      if (el.type !== 'color') return;
+      // Акцент перекрашивает всю презентацию: пока тянут — только показ, правка — по change
+      if (el.dataset.f === 'accent') this.host.editor().previewAccent(el.value);
+      else this.onChange(el);
+    });
+    root.addEventListener('focusout', (e) => {
+      if ((e.target as HTMLElement).dataset?.f === 'accent') this.host.editor().endAccentPreview();
     });
     root.addEventListener('keydown', (e) => {
       const el = e.target as HTMLInputElement;
