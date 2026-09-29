@@ -9,6 +9,11 @@ body.editing .stage .html-inner *, body.editing .stage .html-inner *::before, bo
   animation-duration: 0s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important;
   animation-fill-mode: both !important; animation-play-state: running !important; transition: none !important;
 }
+/* Переливание акцента (theme.accentFlow) видно и при правке: оно ничего не двигает, только цвет */
+.ac-flow body.editing .stage .slide.on :is(.fill, .strip i, .tbl-accent thead tr, .fin .ln2, .pl > .primary i, .tl-line i, .md-g[data-c="g:duo"], .shape-duo) {
+  animation: ac-flow 6s linear infinite !important;
+}
+@media (prefers-reduced-motion: reduce) { .ac-flow body.editing .stage .slide.on * { animation: none !important; } }
 body.editing .stage > .slide.out { display: none !important; }
 /* Закреплённый объект: мышь проходит сквозь него к тому, что ниже (выделить — в области выделения) */
 body.editing .stage .free.locked, body.editing .stage .free.locked * { pointer-events: none !important; }

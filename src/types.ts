@@ -12,6 +12,8 @@ export interface Deck {
     accent?: string;
     /** Второй цвет акцента: акцентные заливки становятся градиентом от accent к accent2 */
     accent2?: string;
+    /** Переливание: цвета градиента акцента плавно текут по акцентным элементам */
+    accentFlow?: boolean;
   };
   slides: SlideData[];
   /**

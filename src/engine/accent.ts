@@ -114,3 +114,8 @@ export function applyAccent(accent: unknown, accent2?: unknown, quiet = false): 
     + `:root[data-theme="dark"]{${block(dark)}}`;
   notify(el.textContent !== before);
 }
+
+/** Переливание градиента акцента: класс на <html>, анимация — в base.css */
+export function applyAccentFlow(on: unknown): void {
+  document.documentElement.classList.toggle('ac-flow', on === true);
+}

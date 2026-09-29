@@ -128,7 +128,9 @@ defineBlock<ShapeProps>('shape', {
       ring, rot, opacity,
     ].filter(Boolean).join(';');
     const v = p.valign === 'top' || p.valign === 'bottom' ? ` v-${p.valign}` : '';
-    return `<div class="shape shape-${kind}${v}${ring ? ' shape-gs' : ''}"${styleAttr(css, p.style)}>`
+    // Градиент акцента (от акцента ко второму цвету) переливается вместе с темой (theme.accentFlow)
+    const duo = p.fill === 'gradient' && isGradient(p.gradient) && p.gradient.from === 'accent' && p.gradient.to === 'accent2';
+    return `<div class="shape shape-${kind}${v}${ring ? ' shape-gs' : ''}${duo ? ' shape-duo' : ''}"${styleAttr(css, p.style)}>`
       + (p.text ? `<div class="shape-t"${ea(p, 'text')}>${t(p.text)}</div>` : '')
       + `</div>`;
   },

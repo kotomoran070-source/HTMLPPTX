@@ -192,3 +192,32 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
 /* Градиент части текста {g:ocean|…}: фон по буквам; на каждой строке — целиком */
 .md-g { background: var(--g); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 .md-g * { -webkit-text-fill-color: transparent; }
+
+/*
+ * Переливание градиента акцента (theme.accentFlow, класс ac-flow на <html>): цвета акцента и второго
+ * цвета текут вдоль элемента. Только на открытом слайде; у элементов со своей анимацией появления
+ * она перечислена вместе с переливанием (иначе одна заменила бы другую).
+ */
+@keyframes ac-flow { from { background-position: 0% 0; } to { background-position: -200% 0; } }
+.ac-flow .slide.on :is(.fill, .strip i, .tbl-accent thead tr, .fin .ln2, .pl > .primary i, .tl-line i, .md-g[data-c="g:duo"]),
+.ac-flow .progress-top {
+  background-image: linear-gradient(90deg, var(--ac), var(--ac2), var(--ac));
+  background-size: 200% 100%;
+  animation: ac-flow 6s linear infinite;
+}
+/* У фигуры заливка задана в style — перекрываем явно */
+.ac-flow .slide.on .shape-duo {
+  background-image: linear-gradient(90deg, var(--ac), var(--ac2), var(--ac)) !important;
+  background-size: 200% 100% !important;
+  animation: ac-flow 6s linear infinite;
+}
+.ac-flow .slide.on .fill { animation: fw 1.4s .5s var(--ease) both, ac-flow 6s linear infinite; }
+.ac-flow .slide.on .strip i { animation: fd .4s both, ac-flow 6s linear infinite; }
+.ac-flow .slide.on .tl-line i { animation: gr-x 1.2s .3s var(--ease) both, ac-flow 6s linear infinite; }
+.ac-flow :is(.slide.on, .tpl-part).fin .ln2 { animation: ex 1.2s var(--ease) 1.7s both, ac-flow 6s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ac-flow .slide.on :is(.fill, .strip i, .tbl-accent thead tr, .fin .ln2, .pl > .primary i, .tl-line i, .md-g, .shape-duo), .ac-flow .progress-top { animation: none; }
+}
+@media print {
+  .ac-flow .slide :is(.fill, .strip i, .tbl-accent thead tr, .fin .ln2, .pl > .primary i, .tl-line i, .md-g, .shape-duo) { animation: none !important; }
+}

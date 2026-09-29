@@ -1,6 +1,6 @@
 import { icon } from '../../components/icons';
 import type { Deck, SlideData } from '../../types';
-import { applyAccent, DEFAULT_ACCENT, HEX_RE, previewAccent } from '../accent';
+import { applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, previewAccent } from '../accent';
 import { clone, getAt, replaceContents, setAt, type Path } from '../data';
 import { esc } from '../html';
 import { BlockEditor } from './block-edit';
@@ -479,6 +479,7 @@ export class Editor {
     this.touched = true;
     this.dirty = true;
     applyAccent(this.host.deck.theme?.accent, this.host.deck.theme?.accent2);
+    applyAccentFlow(this.host.deck.theme?.accentFlow);
     this.host.refresh(rebuild);
     if (rebuild) {
       this.image.refresh();
@@ -649,6 +650,7 @@ export class Editor {
     this.accentPreview = {};
     previewAccent(null);
     applyAccent(this.host.deck.theme?.accent, this.host.deck.theme?.accent2);
+    applyAccentFlow(this.host.deck.theme?.accentFlow);
   }
 
   /** Акцент (key accent) или второй цвет градиента (accent2); null у акцента — стандартные цвета, без градиента */
@@ -666,10 +668,23 @@ export class Editor {
       } else if (d.theme) {
         delete d.theme[key];
         if (key === 'accent') delete d.theme.accent2;
+        // Без второго цвета переливаться нечему
+        delete d.theme.accentFlow;
         if (!Object.keys(d.theme).length) delete d.theme;
       }
     }, { merge: key, rebuild: false });
     this.endAccentPreview();
+  }
+
+  /** Переливание градиента акцента */
+  setAccentFlow(on: boolean): void {
+    this.commit((d) => {
+      if (on) d.theme = { ...(d.theme ?? {}), accentFlow: true };
+      else if (d.theme) {
+        delete d.theme.accentFlow;
+        if (!Object.keys(d.theme).length) delete d.theme;
+      }
+    }, { rebuild: false });
   }
 
   private toggleNotes(force?: boolean): void {

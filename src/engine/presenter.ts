@@ -1,7 +1,7 @@
 import { icon } from '../components/icons';
 import { CAMERA, type CameraState } from '../components/media/model';
 import type { Deck } from '../types';
-import { applyAccent } from './accent';
+import { applyAccent, applyAccentFlow } from './accent';
 import { replaceContents } from './data';
 import { DeckView, staticSlide } from './deck-view';
 import { esc, t } from './html';
@@ -99,6 +99,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
   const cur = $('cur');
   applyAccent(deck.theme?.accent, deck.theme?.accent2);
+  applyAccentFlow(deck.theme?.accentFlow);
   const view = new DeckView(deck, cur);
   // У окна докладчика свой id (sessionStorage всплывающего окна копируется из основного)
   const sync = new Sync(deckKey, 'p-' + Math.random().toString(36).slice(2, 10));
@@ -444,6 +445,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
         else delete ps.notes;
       });
       applyAccent(deck.theme?.accent, deck.theme?.accent2);
+      applyAccentFlow(deck.theme?.accentFlow);
       view.update(deck);
       const i = Math.min(index, deck.slides.length - 1);
       index = -1;
