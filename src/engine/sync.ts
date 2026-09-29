@@ -11,7 +11,10 @@ export type SyncMsg =
   | { type: 'ink'; ink: InkMsg }
   | { type: 'hello' }
   /** Поворот 3D-модели в окне докладчика */
-  | { type: 'camera'; key: string; orbit: string; target: string; fov: number };
+  | { type: 'camera'; key: string; orbit: string; target: string; fov: number }
+  /** Заметки слайда, дописанные в окне докладчика; окно показа отвечает notes-ok с тем же id */
+  | { type: 'notes'; id: string; index: number; slide?: string; notes: string }
+  | { type: 'notes-ok'; id: string; saved: 'auto' | 'file' | 'memory' };
 
 interface Envelope {
   ns: 'htmlpptx';

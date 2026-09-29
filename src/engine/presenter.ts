@@ -75,7 +75,12 @@ export function startPresenter(deck: Deck, deckKey: string): void {
         <div class="pres-label pres-notes-head">Заметки
           <span><button class="ibtn small" id="fm" type="button" aria-label="Мельче">A−</button><button class="ibtn small" id="fp" type="button" aria-label="Крупнее">A+</button></span>
         </div>
-        <div class="pres-notes" id="notes"></div>
+        <div class="pres-notes" id="notes" title="Щёлкните, чтобы править заметки"></div>
+        <textarea class="pres-notes pres-notes-ed" id="notesed" spellcheck="true" hidden aria-label="Заметки слайда"></textarea>
+        <form class="pres-jot" id="jot" autocomplete="off">
+          <input id="jotin" type="text" spellcheck="true" placeholder="Записать мысль или вопрос из зала — Enter  (N)" aria-label="Записать в заметки слайда">
+          <span class="pres-jot-st" id="jotst" role="status" aria-live="polite"></span>
+        </form>
       </section>
     </aside>
   </main>
@@ -326,7 +331,66 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   let remoteTheme = false;
   onThemeChange((th) => { if (!remoteTheme) sync.send({ type: 'theme', theme: th }, toMain()); });
 
+  // --- записи по ходу выступления: в заметки слайда, у зрителей ничего не меняется ---
+  /** Отправленные, но ещё не подтверждённые окном показа: досылаются, пока связь не появится */
+  const pending = new Map<number, { id: string; index: number; slide?: string; notes: string }>();
+  const jotSt = $('jotst');
+  const jotStatus = (text: string, cls = '') => { jotSt.textContent = text; jotSt.className = `pres-jot-st ${cls}`; };
+  const flushNotes = () => pending.forEach((m) => sync.send({ type: 'notes', ...m }, toMain()));
+  function setNotes(i: number, notes: string): void {
+    const s = deck.slides[i];
+    if (!s) return;
+    if (notes.trim()) s.notes = notes;
+    else delete s.notes;
+    if (i === index) $('notes').innerHTML = s.notes ? t(s.notes) : '<span class="mu">Заметок нет</span>';
+    const m = { id: Math.random().toString(36).slice(2, 10), index: i, slide: typeof s.id === 'string' ? s.id : undefined, notes: notes.trim() ? notes : '' };
+    pending.set(i, m);
+    jotStatus('Отправляю…');
+    flushNotes();
+    setTimeout(() => { if (pending.has(i)) jotStatus('Ждёт связи с окном показа — запись не потеряется', 'warn'); }, 1500);
+  }
+  $('jot').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const inp = $<HTMLInputElement>('jotin');
+    const text = inp.value.trim();
+    if (!text) return;
+    const d = new Date();
+    const line = `✎ ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} — ${text}`;
+    const cur = String(deck.slides[index]?.notes ?? '').trimEnd();
+    setNotes(index, cur ? `${cur}\n${line}` : line);
+    inp.value = '';
+  });
+  // Щелчок по заметкам — правка всего текста; Ctrl+Enter или уход фокуса — сохранить, Esc — отменить
+  const notesEl = $('notes');
+  const notesEd = $<HTMLTextAreaElement>('notesed');
+  let editing = -1;
+  function editNotes(): void {
+    editing = index;
+    notesEd.value = String(deck.slides[index]?.notes ?? '');
+    notesEd.style.fontSize = notesEl.style.fontSize;
+    notesEl.hidden = true;
+    notesEd.hidden = false;
+    notesEd.focus();
+  }
+  function endEdit(save: boolean): void {
+    if (editing < 0) return;
+    const i = editing;
+    editing = -1;
+    notesEd.hidden = true;
+    notesEl.hidden = false;
+    if (save && notesEd.value !== String(deck.slides[i]?.notes ?? '')) setNotes(i, notesEd.value);
+  }
+  notesEl.addEventListener('click', (e) => { if (!(e.target as Element).closest('a')) editNotes(); });
+  notesEd.addEventListener('blur', () => endEdit(true));
+  notesEd.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); endEdit(false); }
+    else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); endEdit(true); }
+  });
+  $('jotin').addEventListener('keydown', (e) => { if (e.key === 'Escape') (e.target as HTMLElement).blur(); });
+
   document.addEventListener('keydown', (e) => {
+    // Пока набирают текст, клавиши не листают слайды и не включают инструменты
+    if ((e.target as Element)?.closest?.('input, textarea, [contenteditable="true"]')) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key;
     const lower = k.toLowerCase();
@@ -348,6 +412,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       c: () => clearInk(), 'с': () => clearInk(),
       g: openGrid, 'п': openGrid,
       m: () => setMirror(!mirror), 'ь': () => setMirror(!mirror),
+      n: () => $('jotin').focus(), 'т': () => $('jotin').focus(),
       escape: () => { if (tool !== 'none') setTool(tool); },
     };
     const fn = map[k] ?? letters[lower];
@@ -355,6 +420,13 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   });
 
   sync.on((m, from) => {
+    if (m.type === 'notes-ok') {
+      for (const [i, p] of pending) if (p.id === m.id) pending.delete(i);
+      if (!pending.size) {
+        jotStatus(m.saved === 'auto' ? 'Сохранено' : m.saved === 'file' ? 'Записано — сохраните файл после показа' : 'Записано до закрытия окна показа', m.saved === 'auto' ? 'ok' : 'warn');
+      }
+      return;
+    }
     // Только своё окно показа: другие вкладки этой же презентации не мешают
     if (m.type !== 'deck' && m.type !== 'state') return;
     if (!mainId) mainId = from;
@@ -364,12 +436,21 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       const next = JSON.stringify(m.deck);
       if (next === JSON.stringify(deck)) return;
       replaceContents(deck as unknown as Record<string, unknown>, JSON.parse(next));
+      // Записи, которые окно показа ещё не приняло, свежее пришедшей копии
+      pending.forEach((pm) => {
+        const ps = deck.slides[pm.index];
+        if (!ps) return;
+        if (pm.notes) ps.notes = pm.notes;
+        else delete ps.notes;
+      });
       applyAccent(deck.theme?.accent);
       view.update(deck);
       const i = Math.min(index, deck.slides.length - 1);
       index = -1;
       render(i);
     } else if (m.type === 'state') {
+      // Записи, которые окно показа ещё не подтвердило, — ещё раз
+      if (pending.size) flushNotes();
       $('link').textContent = 'Связь с окном показа есть';
       $('link').classList.add('ok');
       if (m.index !== index) render(m.index);

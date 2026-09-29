@@ -463,7 +463,19 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   // Команды принимаются только адресованные этому окну (Sync отсеивает чужие по полю to)
   sync.on((m, from) => {
     if (m.type === 'goto') go(m.index);
-    else if (m.type === 'camera') {
+    else if (m.type === 'notes') {
+      // Запись из окна докладчика: в заметки слайда, без перерисовки — у зрителей ничего не меняется
+      let k = m.index;
+      if (m.slide && deck.slides[k]?.id !== m.slide) k = deck.slides.findIndex((s) => s.id === m.slide);
+      if (k < 0 || !deck.slides[k]) return;
+      const apply = (d: Deck) => {
+        if (m.notes.trim()) d.slides[k].notes = m.notes;
+        else delete d.slides[k].notes;
+      };
+      if (editor) editor.commit(apply, { rebuild: false, merge: `jot:${k}` });
+      else apply(deck);
+      sync.send({ type: 'notes-ok', id: m.id, saved: editor ? (editor.mode === 'project' ? 'auto' : 'file') : 'memory' }, from);
+    } else if (m.type === 'camera') {
       const { type: _t, ...detail } = m;
       window.dispatchEvent(new CustomEvent(CAMERA_SET, { detail }));
     } else if (m.type === 'ink') {
