@@ -4,7 +4,7 @@ import {
   type Component, type MountCtx, type RenderCtx,
 } from './component';
 import { asArray, esc } from './html';
-import { applyDeckCss, applyDeckDefs } from './deck-css';
+import { applyDeckCss, applyDeckDefs, applyScopedCss } from './deck-css';
 import { indexPaths, pathOf } from './marks';
 
 /** Переходы между слайдами (slide.transition); без поля — стандартное появление */
@@ -34,6 +34,8 @@ export class Renderer {
     // Стили презентации (из импортированного HTML) — только внутри её слайдов-холстов
     this.cssKey = applyDeckCss((deck as { css?: unknown }).css);
     applyDeckDefs((deck as { defs?: unknown }).defs);
+    // Вёрстка из других презентаций — со своими стилями, в своём пространстве
+    applyScopedCss(deck.scoped);
   }
 
   slide(slide: SlideData, index: number, extraClass = ''): string {
@@ -51,7 +53,11 @@ export class Renderer {
       if (tpl.mount) attrs = ctx.mount(tpl, slide);
     }
     if (extraClass) cls += ' ' + extraClass;
-    if (this.cssKey) attrs += ` data-css="${this.cssKey}"`;
+    // Слайд целиком из другой презентации (его вёрстка в своём пространстве стилей) — без стилей
+    // этой: иначе её переменные и правила (:root, .slide) перекрасили бы чужую вёрстку
+    const body = slide.body as { type?: unknown; ns?: unknown } | undefined;
+    const foreign = !!body && !Array.isArray(body) && body.type === 'html' && typeof body.ns === 'string';
+    if (this.cssKey && !foreign) attrs += ` data-css="${this.cssKey}"`;
     // Переход к слайду и его длительность
     if (typeof slide.transition === 'string' && TRANSITION_IDS.has(slide.transition)) attrs += ` data-tr="${slide.transition}"`;
     const trMs = Number(slide.transitionMs);

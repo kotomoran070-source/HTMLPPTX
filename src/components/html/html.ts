@@ -1,5 +1,6 @@
 import { ACCENT_EVENT } from '../../engine/accent';
 import { defineBlock } from '../../engine/component';
+import { NS_RE } from '../../engine/deck-css';
 import { onThemeChange } from '../../engine/theme';
 import { esc, t } from '../../engine/html';
 import { fieldStyle, frameCss, pathOf, type ImageFrame } from '../../engine/marks';
@@ -18,6 +19,8 @@ import './html.css';
 interface HtmlProps extends Block {
   html?: string;
   texts?: unknown[];
+  /** Вставлено из другой презентации: пространство её стилей в deck.scoped */
+  ns?: string;
   images?: (ImageFrame & { src?: string; brand?: boolean })[];
   scale?: number;
 }
@@ -200,7 +203,9 @@ defineBlock<HtmlProps>('html', {
     });
     const box = document.createElement('div');
     box.append(f);
-    return `<div class="html-block"><div class="html-inner" style="zoom:${scale}">${box.innerHTML}</div></div>`;
+    // Вёрстка из другой презентации: свои стили (deck.scoped[ns]), чужие её не задевают
+    const ns = typeof p.ns === 'string' && NS_RE.test(p.ns) ? ` xp-scoped ${p.ns}` : '';
+    return `<div class="html-block${ns}"><div class="html-inner" style="zoom:${scale}">${box.innerHTML}</div></div>`;
   },
 });
 

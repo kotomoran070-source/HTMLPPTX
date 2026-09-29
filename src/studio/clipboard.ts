@@ -16,6 +16,12 @@ export interface Clip {
   items: unknown[];
   /** Слайд, с которого скопированы объекты: вставка на него же — со сдвигом */
   slide: number;
+  /** Для вставки в другую презентацию: стили, SVG-определения и эффекты появления исходной */
+  css?: string;
+  defs?: string;
+  effects?: Record<string, { name: string; ms?: number; ease?: string }>;
+  /** Изолированные стили вёрстки, которая сама была вставлена из третьей презентации */
+  scoped?: Record<string, string>;
 }
 
 let mem: Clip | null = null;

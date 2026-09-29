@@ -9,6 +9,7 @@ import { updateFavicon } from '../engine/show';
 import { onThemeChange, toggleTheme } from '../engine/theme';
 import type { Block, Deck } from '../types';
 import { CLIP_TYPE, putClip, takeClip, type Clip } from './clipboard';
+import { crossPaste } from './cross-paste';
 import type { CodeView } from './code';
 import { applyFormat, hasFormat, takeFormat, type Format } from './format-painter';
 import { tableGrips } from './table-grips';
@@ -658,6 +659,19 @@ export function startStudio(deck: Deck, deckKey: string): void {
   };
   const pasted = new Map<string, number>();
 
+  /** Что нужно для вставки в другую презентацию: её стили, определения, эффекты, изолированные стили */
+  function carry(items: unknown[]): Pick<Clip, 'css' | 'defs' | 'effects' | 'scoped'> {
+    const d = deck as Deck & { css?: string; defs?: string };
+    const text = JSON.stringify(items);
+    const scoped = Object.fromEntries(Object.entries(deck.scoped ?? {}).filter(([ns]) => text.includes(`"${ns}"`)));
+    return {
+      css: typeof d.css === 'string' && d.css.trim() ? d.css : undefined,
+      defs: typeof d.defs === 'string' && d.defs.trim() ? d.defs : undefined,
+      effects: deck.effects && /"ufx-/.test(text) ? deck.effects : undefined,
+      scoped: Object.keys(scoped).length ? scoped : undefined,
+    };
+  }
+
   /** Что скопировать: выделенные объекты или текущий слайд. */
   function makeClip(): { clip: Clip; text: string } | null {
     const sel = ed.selection;
@@ -680,10 +694,11 @@ export function startStudio(deck: Deck, deckKey: string): void {
         return b;
       });
       const text = items.map((b) => [b.text, b.title, ...(Array.isArray(b.texts) ? b.texts : [])].filter((x) => typeof x === 'string').join('\n')).filter(Boolean).join('\n\n');
-      return { clip: putClip({ deck: deckKey, kind: 'objects', items, slide: index }), text };
+      return { clip: putClip({ deck: deckKey, kind: 'objects', items, slide: index, ...carry(items) }), text };
     }
     const s = deck.slides[index];
-    return { clip: putClip({ deck: deckKey, kind: 'slides', items: [JSON.parse(JSON.stringify(s))], slide: index }), text: slideLabel(s, index) };
+    const items = [JSON.parse(JSON.stringify(s))];
+    return { clip: putClip({ deck: deckKey, kind: 'slides', items, slide: index, ...carry(items) }), text: slideLabel(s, index) };
   }
 
   function copy(cut: boolean, data?: DataTransfer | null): boolean {
@@ -708,9 +723,46 @@ export function startStudio(deck: Deck, deckKey: string): void {
     for (let n = 2; ; n++) if (!ids.has(`${stem}-${n}`)) return `${stem}-${n}`;
   }
 
+  /** Из другой презентации: файлы копируются, стили и определения — изолированно (cross-paste.ts) */
+  async function pasteForeign(clip: Clip): Promise<void> {
+    ed.toast('Переношу из другой презентации…', 0);
+    const upload = async (blob: Blob, name: string) => (ed.mode === 'project'
+      ? (await projectStorage.uploadAsset(deckKey, blob, name)).url
+      : await blobToDataUrl(blob));
+    let res;
+    try {
+      res = await crossPaste(clip, clip.items, deck, upload);
+    } catch (e) {
+      ed.toast(`Не удалось вставить: ${(e as Error).message}`, 5000, true);
+      return;
+    }
+    const files = res.files ? ` Файлов скопировано: ${res.files}.` : '';
+    if (clip.kind === 'slides') {
+      const copies = (res.items as Deck['slides']).map((s) => ({ ...s, id: uniqueSlideId(typeof s.id === 'string' ? s.id : 'slide') }));
+      const at = index + 1;
+      if (ed.commit((d) => { res.apply(d); d.slides.splice(at, 0, ...copies); })) {
+        go(at);
+        ed.toast(`Вставлено из другой презентации: ${copies.length > 1 ? `${copies.length} слайда` : 'слайд'}.${files} Вернуть: Ctrl+Z`, 3500);
+      }
+      return;
+    }
+    const i = index;
+    const blocks = (res.items as Block[]).map((b) => { delete b.locked; return b; });
+    let from = 0;
+    if (!ed.commit((d) => {
+      res.apply(d);
+      const s = d.slides[i];
+      s.free = Array.isArray(s.free) ? s.free : [];
+      from = s.free.length;
+      s.free.push(...blocks);
+    }, { rebuild: true })) return;
+    ed.selectMany(i, blocks.map((_b, k) => from + k));
+    ed.toast(`Вставлено из другой презентации.${files} Вернуть: Ctrl+Z`, 3000);
+  }
+
   function pasteClip(clip: Clip): void {
     if (clip.deck !== deckKey) {
-      ed.toast('Вставка объектов из другой презентации не поддерживается', 4000, true);
+      void pasteForeign(clip);
       return;
     }
     if (clip.kind === 'slides') {

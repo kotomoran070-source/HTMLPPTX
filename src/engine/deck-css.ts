@@ -56,7 +56,8 @@ const NATIVE = '[data-type]:not([data-type="html"]):not([data-type="embed"]):not
 // иначе правило импорта «.fx { padding }» сдвигает объект, как только у него появляется анимация,
 // и он прыгает при группировке. Вёрстка внутри обёртки получает стили импорта как раньше.
 // Части разобранного встроенного шаблона (.tpl-part) — со стилями самого шаблона, не импорта
-const GUARD = `:not(:where(${NATIVE}, ${NATIVE} *, .slide > .free, .tpl-part, .tpl-part *))`;
+// Вёрстка, вставленная из другой презентации (.xp-scoped), живёт со своими стилями (deck.scoped)
+const GUARD = `:not(:where(${NATIVE}, ${NATIVE} *, .slide > .free, .tpl-part, .tpl-part *, .xp-scoped, .xp-scoped *))`;
 
 function guard(sel: string): string {
   // Сам слайд (&, &.on) — не блок
@@ -64,6 +65,28 @@ function guard(sel: string): string {
   // Псевдоэлемент в конце: условие ставится перед ним
   const m = /(::?(?:before|after|first-line|first-letter|placeholder|marker|selection|backdrop|file-selector-button)(?:\([^)]*\))?)$/i.exec(sel);
   return m ? `${sel.slice(0, m.index)}${GUARD}${m[1]}` : `${sel}${GUARD}`;
+}
+
+/**
+ * Стили вёрстки из другой презентации: только внутри её блоков (класс ns на блоке).
+ * :root, html, body → сам блок (переменные и шрифт наследуются внутрь); .slide → .slide-root внутри блока.
+ */
+function nsSelectors(list: string, ns: string): string {
+  return list.split(',').map((raw) => {
+    const s = raw.trim();
+    if (!s) return s;
+    const root = /^(:root|html|body)(?![\w-])/i.exec(s);
+    if (root) return `.${ns}${s.slice(root[0].length)}`;
+    if (/(?:section)?\.slide(?![\w-])/.test(s)) {
+      return s.replace(/(?:section)?\.slide((?:\.[\w-]+)*)(?![\w-])/g, (_, rest: string) => {
+        const cls = rest.split('.').filter(Boolean);
+        const state = cls.some((c) => STATE.has(c));
+        const own = cls.filter((c) => !STATE.has(c)).map((c) => `.${c}`).join('');
+        return state ? `&:is(.on, .out) .${ns} .slide-root${own}` : `.${ns} .slide-root${own}`;
+      });
+    }
+    return `.${ns} ${s}`;
+  }).join(', ');
 }
 
 function selectors(list: string): string {
@@ -77,8 +100,11 @@ function selectors(list: string): string {
     }))).join(', ');
 }
 
-/** CSS презентации → CSS, действующий только внутри слайдов этой презентации (scope — селектор). */
-export function scopeCss(css: string, scope = '.canvas-slide'): string {
+/**
+ * CSS презентации → CSS, действующий только внутри слайдов этой презентации (scope — селектор).
+ * ns — стили вставленной из другой презентации вёрстки: только внутри блоков с этим классом.
+ */
+export function scopeCss(css: string, scope = '.canvas-slide', ns?: string): string {
   const top: string[] = [];
   const inner: string[] = [];
   for (const st of statements(css.replace(/\/\*[\s\S]*?\*\//g, ''))) {
@@ -91,16 +117,38 @@ export function scopeCss(css: string, scope = '.canvas-slide'): string {
     if (brace < 0) continue;
     const head = st.slice(0, brace).trim();
     // @media / @supports / @container: селекторы внутри тоже переписываем
-    if (head.startsWith('@')) inner.push(`${head}{${statements(st.slice(brace + 1, -1)).map(rule).join('')}}`);
-    else inner.push(rule(st));
+    const one = (r: string) => rule(r, ns);
+    if (head.startsWith('@')) inner.push(`${head}{${statements(st.slice(brace + 1, -1)).map(one).join('')}}`);
+    else inner.push(one(st));
   }
   return `${top.join('\n')}\n${scope}{${inner.join('\n')}}`;
 }
 
-function rule(st: string): string {
+function rule(st: string, ns?: string): string {
   const brace = st.indexOf('{');
   if (brace < 0) return '';
-  return `${selectors(st.slice(0, brace))}${st.slice(brace)}`;
+  const head = st.slice(0, brace);
+  return `${ns ? nsSelectors(head, ns) : selectors(head)}${st.slice(brace)}`;
+}
+
+/** Имя пространства стилей вставленной вёрстки: xp-… */
+export const NS_RE = /^xp-[a-z0-9]{3,12}$/;
+
+/**
+ * Стили вёрстки, вставленной из других презентаций (deck.scoped: пространство → CSS).
+ * Действуют на любых слайдах, но только внутри блоков своего пространства.
+ */
+export function applyScopedCss(scoped: unknown): void {
+  if (!scoped || typeof scoped !== 'object') return;
+  for (const [ns, css] of Object.entries(scoped as Record<string, unknown>)) {
+    if (!NS_RE.test(ns) || typeof css !== 'string' || !css.trim()) continue;
+    const id = `htmlpptx-scoped-${ns}-${cssKey(css)}`;
+    if (document.getElementById(id)) continue;
+    const el = document.createElement('style');
+    el.id = id;
+    el.textContent = scopeCss(css, '.slide', ns);
+    document.head.appendChild(el);
+  }
 }
 
 /** Короткий отпечаток текста: метка слайдов и их стилей */

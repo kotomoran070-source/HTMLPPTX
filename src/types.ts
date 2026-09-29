@@ -17,6 +17,11 @@ export interface Deck {
    * Анимация — @keyframes <id> в стилях презентации (css).
    */
   effects?: Record<string, { name: string; ms?: number; ease?: string }>;
+  /**
+   * Стили вёрстки, вставленной из других презентаций: пространство (xp-…) → CSS исходной презентации.
+   * Действуют только внутри html-блоков с ns: это пространство — и не задевают остальное.
+   */
+  scoped?: Record<string, string>;
 }
 
 export interface SlideData {
