@@ -1,5 +1,5 @@
 import { icon } from '../components/icons';
-import { SHAPE_COLORS, SHAPE_GRADIENT, SHAPE_STYLES, SHAPE_SWATCHES, shapeFill } from '../components/shape/shape';
+import { GRADIENTS, SHAPE_COLORS, SHAPE_STYLES, SHAPE_SWATCHES, gradientCss, gradientOn, isGradient, sameGradient, shapeFill, type ShapeGradient } from '../components/shape/shape';
 import { IMAGE_FILTERS, IMAGE_LOOK_KEYS, IMAGE_SHADOWS, IMAGE_STYLES, imageLookCss } from '../components/layout/image-look';
 import { getAt, setAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
@@ -67,8 +67,8 @@ const VARIANTS: [string, string][] = [
 /** Живой образец стиля фигуры: те же цвета темы, что на слайде */
 const styleTile = (s: (typeof SHAPE_STYLES)[number]) => {
   const p = s.props;
-  const fill = shapeFill(p.fill) ?? 'var(--acs)';
-  const on = p.fill === 'gradient' ? SHAPE_GRADIENT.on : SHAPE_COLORS[p.fill ?? '']?.on ?? 'var(--tx)';
+  const fill = p.fill === 'gradient' ? gradientCss(p.gradient) : shapeFill(p.fill) ?? 'var(--acs)';
+  const on = p.fill === 'gradient' ? gradientOn(p.gradient) : SHAPE_COLORS[p.fill ?? '']?.on ?? 'var(--tx)';
   const border = p.width ? `${p.width > 1 ? 1.5 : 1}px ${p.dash ? 'dashed' : 'solid'} ${SHAPE_COLORS[p.stroke ?? '']?.css ?? 'var(--bd2)'}` : '1px solid transparent';
   return `<button type="button" class="st-stile" data-cmd="shape.style.${s.id}" title="${esc(s.name)}" aria-label="${esc(s.name)}">`
     + `<i style="background:${fill};color:${on};border:${border}${p.shadow ? ';box-shadow:0 1px 3px rgba(15,23,42,.25)' : ''}">Аа</i></button>`;
@@ -179,14 +179,20 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const cur = line ? b?.stroke ?? b?.fill : b?.[key];
     const sw = (v: string, css: string, name: string) =>
       `<button type="button" class="st-psw${cur === v ? ' on' : ''}" data-v="${esc(v)}" style="--c:${css}" title="${esc(name)}" aria-label="${esc(name)}"></button>`;
-    const theme = Object.entries(SHAPE_COLORS).filter(([v]) => v !== 'bg').map(([v, c]) => sw(v, c.css, c.name)).join('')
-      + (key === 'fill' && !line ? sw('gradient', SHAPE_GRADIENT.css, SHAPE_GRADIENT.name) : '');
+    const theme = Object.entries(SHAPE_COLORS).filter(([v]) => v !== 'bg').map(([v, c]) => sw(v, c.css, c.name)).join('');
+    // Градиенты — только у заливки фигуры
+    const curGrad = cur === 'gradient' ? (isGradient(b?.gradient) ? b!.gradient : GRADIENTS[0].g) : null;
+    const grads = key === 'fill' && !line
+      ? `<div class="st-plabel">Градиенты</div><div class="st-pgrid st-grads">${GRADIENTS.map((g) => `<button type="button" class="st-psw${curGrad && sameGradient(curGrad, g.g) ? ' on' : ''}" data-g="${g.id}" style="--c:${gradientCss(g.g)}" title="${esc(g.name)}" aria-label="${esc(g.name)}"></button>`).join('')}</div>
+      <button type="button" class="st-pmore" data-v="grad-edit"><i style="background:${curGrad ? gradientCss(curGrad) : 'linear-gradient(135deg, #F97316, #2563EB)'}"></i><span>Настроить градиент…</span></button>`
+      : '';
     const width = Number(b?.width ?? (line ? 3 : 0));
     const outline = key === 'stroke' || line;
     const html = `${line ? '' : `<button type="button" class="st-pnone${cur === 'none' || (key === 'stroke' && !width) ? ' on' : ''}" data-v="none">${icon('close')}<span>${key === 'fill' ? 'Без заливки' : 'Без контура'}</span></button>`}
       <div class="st-plabel">Цвета темы</div><div class="st-pgrid">${theme}</div>
       <div class="st-plabel">Постоянные</div><div class="st-pgrid">${SHAPE_SWATCHES.map((c) => sw(c, c, c)).join('')}</div>
       <button type="button" class="st-pmore" data-v="custom"><i style="background:conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)"></i><span>Другой цвет…</span></button>
+      ${grads}
       ${outline ? `<div class="st-plabel">Толщина</div><div class="st-pseg">${[1, 2, 3, 4, 6, 8].map((w) => `<button type="button" data-w="${w}" class="${width === w ? 'on' : ''}" title="${w} px"><i style="height:${Math.min(w, 6)}px"></i></button>`).join('')}</div>
       <div class="st-plabel">Штрих</div><div class="st-pseg">${([['', 'Сплошной'], ['dash', 'Пунктир'], ['dot', 'Точки']] as const).map(([v, l]) => `<button type="button" data-dash="${v}" class="${(b?.dash ?? '') === v ? 'on' : ''}" title="${l}"><i class="d-${v || 'solid'}"></i></button>`).join('')}</div>` : ''}`;
     // Рамка появляется вместе с цветом: без толщины её не видно
@@ -199,19 +205,24 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     };
     showPopover(anchor(cmd), html, (el) => {
       const v = el.dataset.v;
+      if (el.dataset.g) {
+        const g = GRADIENTS.find((x) => x.id === el.dataset.g)!.g;
+        return { run: () => apply((d, p) => { setAt(d, [...p, 'fill'], 'gradient'); setAt(d, [...p, 'gradient'], { ...g }); }) };
+      }
+      if (v === 'grad-edit') return { run: () => gradientEditor(cmd, curGrad ?? GRADIENTS[0].g) };
       if (v === 'custom') {
         return {
           run: () => {
             const input = document.createElement('input');
             input.type = 'color';
             if (typeof cur === 'string' && /^#[0-9a-f]{6}$/i.test(cur)) input.value = cur;
-            input.addEventListener('change', () => apply((d, p) => { setAt(d, [...p, k], input.value.toUpperCase()); withWidth(d, p); }));
+            input.addEventListener('change', () => apply((d, p) => { setAt(d, [...p, k], input.value.toUpperCase()); if (k === 'fill') setAt(d, [...p, 'gradient'], undefined); withWidth(d, p); }));
             input.click();
           },
         };
       }
-      if (v === 'none') return { run: () => apply((d, p) => setAt(d, [...p, k === 'stroke' ? 'width' : 'fill'], k === 'stroke' ? undefined : 'none')) };
-      if (v) return { run: () => apply((d, p) => { setAt(d, [...p, k], v); withWidth(d, p); }) };
+      if (v === 'none') return { run: () => apply((d, p) => { setAt(d, [...p, k === 'stroke' ? 'width' : 'fill'], k === 'stroke' ? undefined : 'none'); if (k === 'fill') setAt(d, [...p, 'gradient'], undefined); }) };
+      if (v) return { run: () => apply((d, p) => { setAt(d, [...p, k], v); if (k === 'fill') setAt(d, [...p, 'gradient'], undefined); withWidth(d, p); }) };
       if (el.dataset.w) {
         const w = Number(el.dataset.w);
         return { keep: true, run: () => { apply((d, p) => setAt(d, [...p, 'width'], w)); mark(el); } };
@@ -222,6 +233,58 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       }
       return null;
     }, 'st-palette');
+  };
+  /** Свой градиент: два цвета, направление или от центра; правки видны сразу и в истории — одним шагом */
+  const gradientEditor = (cmd: string, start: ShapeGradient) => {
+    const g: ShapeGradient = { ...start };
+    const DIRS: [number, string][] = [[0, '↑'], [45, '↗'], [90, '→'], [135, '↘'], [180, '↓'], [225, '↙'], [270, '←'], [315, '↖']];
+    const html = `<div class="st-plabel">Свой градиент</div>
+      <div class="st-gprev"></div>
+      <div class="st-grow"><label class="st-gcol"><input type="color" data-gc="from" aria-label="Цвет начала"><span>Начало</span></label>
+        <button type="button" class="st-gswap" data-swap="1" title="Поменять цвета местами" aria-label="Поменять цвета местами">⇄</button>
+        <label class="st-gcol"><input type="color" data-gc="to" aria-label="Цвет конца"><span>Конец</span></label></div>
+      <div class="st-plabel">Направление</div>
+      <div class="st-pseg st-gdir">${DIRS.map(([a, l]) => `<button type="button" data-ang="${a}" title="${a}°">${l}</button>`).join('')}<button type="button" data-ang="radial" title="От центра">◎</button></div>`;
+    const key = `grad:${Date.now()}`;
+    const save = () => {
+      const paths = targets('shape');
+      const val: ShapeGradient = g.type === 'radial' ? { from: g.from, to: g.to, type: 'radial' } : { from: g.from, to: g.to, angle: g.angle ?? 135 };
+      ed.commit((d) => paths.forEach((p) => { setAt(d, [...p, 'fill'], 'gradient'); setAt(d, [...p, 'gradient'], val); }), { rebuild: true, merge: key, hold: true });
+      paint();
+    };
+    let pop: HTMLElement;
+    const paint = () => {
+      pop.querySelector<HTMLElement>('.st-gprev')!.style.background = gradientCss(g);
+      pop.querySelectorAll<HTMLButtonElement>('[data-ang]').forEach((b) => b.classList.toggle('on', b.dataset.ang === (g.type === 'radial' ? 'radial' : String(g.angle ?? 135))));
+      for (const k of ['from', 'to'] as const) {
+        const input = pop.querySelector<HTMLInputElement>(`[data-gc="${k}"]`)!;
+        if (document.activeElement !== input) input.value = toHex(g[k]);
+      }
+    };
+    pop = showPopover(anchor(cmd), html, (el) => {
+      if (el.dataset.swap) return { keep: true, run: () => { [g.from, g.to] = [g.to, g.from]; save(); } };
+      const a = el.dataset.ang;
+      if (a) return { keep: true, run: () => { if (a === 'radial') g.type = 'radial'; else { delete g.type; g.angle = Number(a); } save(); } };
+      return null;
+    }, 'st-palette st-grad');
+    pop.querySelectorAll<HTMLInputElement>('[data-gc]').forEach((input) => input.addEventListener('input', () => {
+      g[input.dataset.gc as 'from' | 'to'] = input.value.toUpperCase();
+      save();
+    }));
+    paint();
+  };
+  /** Цвет темы или CSS-цвет → #RRGGBB для поля выбора цвета */
+  const toHex = (c: string): string => {
+    if (/^#[0-9a-f]{6}$/i.test(c)) return c.toLowerCase();
+    const probe = document.createElement('i');
+    probe.style.color = c === 'accent-light' ? 'color-mix(in srgb, var(--ac) 72%, #fff)' : c === 'accent-dark' ? 'color-mix(in srgb, var(--ac) 78%, #000)' : shapeFill(c) ?? c;
+    h.stage().appendChild(probe);
+    const v = getComputedStyle(probe).color;
+    probe.remove();
+    const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(v) ?? /srgb ([\d.]+) ([\d.]+) ([\d.]+)/.exec(v);
+    if (!m) return '#2563eb';
+    const k = v.startsWith('color(') ? 255 : 1;
+    return `#${[m[1], m[2], m[3]].map((x) => Math.round(Number(x) * k).toString(16).padStart(2, '0')).join('')}`;
   };
   const mark = (el: HTMLElement) => el.parentElement?.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === el));
 
@@ -468,7 +531,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       },
     };
   }
-  const STYLE_KEYS = ['fill', 'stroke', 'width', 'shadow', 'dash'] as const;
+  const STYLE_KEYS = ['fill', 'stroke', 'width', 'shadow', 'dash', 'gradient'] as const;
   for (const s of SHAPE_STYLES) {
     cmds[`shape.style.${s.id}`] = {
       run: () => {
@@ -529,7 +592,7 @@ export function syncSwatches(deck: Deck, ed: Editor): void {
     }
     if (b?.type === 'shape') {
       if (line) css = key === 'stroke' ? swatchCss(b.stroke ?? b.fill, 'var(--ac)') : 'transparent';
-      else if (key === 'fill') css = swatchCss(b.fill, 'var(--acs)');
+      else if (key === 'fill') css = b.fill === 'gradient' ? gradientCss(b.gradient) : swatchCss(b.fill, 'var(--acs)');
       else css = Number(b.width) ? swatchCss(b.stroke, 'var(--acb)') : 'transparent';
     }
     el.style.background = css;

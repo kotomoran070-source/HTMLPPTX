@@ -46,6 +46,10 @@ const BACKGROUNDS: [string, string, string][] = [
   ['var(--surf)', 'Светлый', 'var(--surf)'],
   ['var(--acs)', 'Акцентный', 'var(--acs)'],
   ['linear-gradient(135deg, var(--acs), var(--bg) 70%)', 'Градиент', 'linear-gradient(135deg, var(--acs), var(--bg) 70%)'],
+  // Градиенты от цветов темы: текст остаётся читаемым и в тёмной теме
+  ['radial-gradient(ellipse 90% 70% at 50% 0%, var(--acs), var(--bg) 70%)', 'Сияние', 'radial-gradient(ellipse 90% 70% at 50% 0%, var(--acs), var(--bg) 70%)'],
+  ['linear-gradient(180deg, var(--bg) 35%, var(--alt))', 'Туман', 'linear-gradient(180deg, var(--bg) 35%, var(--alt))'],
+  ['radial-gradient(ellipse 60% 60% at 0% 0%, var(--acs), transparent 70%), radial-gradient(ellipse 60% 60% at 100% 100%, color-mix(in srgb, var(--acs) 70%, var(--alt)), transparent 70%), var(--bg)', 'Углы', 'radial-gradient(ellipse 60% 60% at 0% 0%, var(--acs), transparent 70%), radial-gradient(ellipse 60% 60% at 100% 100%, color-mix(in srgb, var(--acs) 70%, var(--alt)), transparent 70%), var(--bg)'],
 ];
 
 const TEMPLATE_NAMES: Record<string, string> = {
