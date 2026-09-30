@@ -50,6 +50,43 @@ export class DeckView {
     this.recalc(i);
   }
 
+  /**
+   * Кнопка «показать / скрыть»: show:a, hide:a, toggle:a,b — объекты слайда с этими id.
+   * Появление — эффектом объекта (или подъёмом), исчезновение — плавным растворением.
+   */
+  trigger(i: number, action: string): boolean {
+    const m = /^(show|hide|toggle):(.+)$/.exec(action);
+    const el = this.slides[i];
+    if (!m || !el) return false;
+    const ids = m[2].split(',');
+    el.querySelectorAll<HTMLElement>(':scope > .free[data-obj]').forEach((o) => {
+      if (!ids.includes(o.dataset.obj!)) return;
+      const hidden = o.classList.contains('trig-hid') || o.classList.contains('trig-out');
+      const show = m[1] === 'show' || (m[1] === 'toggle' && hidden);
+      if (show === !hidden) return;
+      clearTimeout(Number(o.dataset.trigT));
+      o.classList.remove('trig-in', 'trig-out', 'trig-hid');
+      void o.offsetWidth;
+      if (show) {
+        o.classList.add('trig-in');
+        restartGifs(o);
+      } else {
+        o.classList.add('trig-out');
+        o.dataset.trigT = String(window.setTimeout(() => { o.classList.replace('trig-out', 'trig-hid'); }, reducedMotion() ? 0 : 260));
+      }
+    });
+    return true;
+  }
+
+  /** При заходе на слайд объекты снова в начальном виде: скрытые до щелчка — скрыты */
+  private static resetTriggers(el: HTMLElement | undefined): void {
+    el?.querySelectorAll<HTMLElement>(':scope > .free.trig-in, :scope > .free.trig-out, :scope > .free.trig-hid, :scope > .free[data-hid]').forEach((o) => {
+      clearTimeout(Number(o.dataset.trigT));
+      o.classList.remove('trig-in', 'trig-out');
+      o.classList.toggle('trig-hid', o.hasAttribute('data-hid'));
+    });
+  }
+
   /** Блоки слайда с формулами — заново по текущим значениям; в разметке меняется только отличающееся */
   private recalc(i: number): void {
     const el = this.slides[i];
@@ -139,6 +176,7 @@ export class DeckView {
     this.current = i;
     this.endOut();
     this.slides.forEach((s, k) => s.classList.toggle('on', k === i));
+    DeckView.resetTriggers(this.slides[i]);
     restartGifs(this.slides[i]);
     if (this.transitions && prev) this.runOut(prev, this.slides[i], back);
   }
@@ -151,6 +189,7 @@ export class DeckView {
     el.classList.remove('on');
     void el.offsetWidth;
     el.classList.add('on');
+    DeckView.resetTriggers(el);
     restartGifs(el);
     const prev = this.slides[i - 1];
     if (prev) this.runOut(prev, el, false);

@@ -758,6 +758,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
       const s = d.slides[i];
       s.free = Array.isArray(s.free) ? s.free : [];
       from = s.free.length;
+      // Имя объекта на слайде одно: копия рядом с оригиналом его не получает
+      const used = new Set(s.free.map((x) => x.id));
+      blocks.forEach((b) => { if (used.has(b.id)) delete b.id; });
       s.free.push(...blocks);
     }, { rebuild: true })) return;
     ed.selectMany(i, blocks.map((_b, k) => from + k));
@@ -798,6 +801,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
       const s = d.slides[i];
       s.free = Array.isArray(s.free) ? s.free : [];
       from = s.free.length;
+      // Имя объекта на слайде одно: копия рядом с оригиналом его не получает
+      const used = new Set(s.free.map((x) => x.id));
+      blocks.forEach((b) => { if (used.has(b.id)) delete b.id; });
       s.free.push(...blocks);
     }, { rebuild: true })) return;
     ed.selectMany(i, blocks.map((_b, k) => from + k));

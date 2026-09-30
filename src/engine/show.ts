@@ -456,6 +456,12 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     const t = e.target as Element;
     const el = t.closest<HTMLElement>('.slide.on > .free[data-action]');
     if (!el || t.closest('input, textarea, button, a, video, model-viewer')) return;
+    // Показать / скрыть объекты слайда — здесь и во втором окне
+    if (view.trigger(index, el.dataset.action!)) {
+      e.stopPropagation();
+      sync.send({ type: 'trigger', index, action: el.dataset.action! });
+      return;
+    }
     const to = actionTarget(el.dataset.action!, deck, index);
     if (!to) return;
     e.preventDefault();
@@ -471,6 +477,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   sync.on((m, from) => {
     if (m.type === 'goto') go(m.index);
     else if (m.type === 'vars') view.setVars(m.index, m.vars);
+    else if (m.type === 'trigger') view.trigger(m.index, m.action);
     else if (m.type === 'notes') {
       // Запись из окна докладчика: в заметки слайда, без перерисовки — у зрителей ничего не меняется
       let k = m.index;

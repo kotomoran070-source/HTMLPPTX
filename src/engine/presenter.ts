@@ -442,6 +442,12 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     const t = e.target as Element;
     const el = t.closest<HTMLElement>('.slide.on > .free[data-action]');
     if (!el || t.closest('input, textarea, button, a, video, model-viewer')) return;
+    // Показать / скрыть объекты слайда — здесь и во втором окне
+    if (view.trigger(index, el.dataset.action!)) {
+      e.stopPropagation();
+      sync.send({ type: 'trigger', index, action: el.dataset.action! }, toMain());
+      return;
+    }
     const to = actionTarget(el.dataset.action!, deck, index);
     if (!to) return;
     e.preventDefault();
@@ -456,6 +462,10 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   sync.on((m, from) => {
     if (m.type === 'vars') {
       if (!mainId || from === mainId) view.setVars(m.index, m.vars);
+      return;
+    }
+    if (m.type === 'trigger') {
+      if (!mainId || from === mainId) view.trigger(m.index, m.action);
       return;
     }
     if (m.type === 'notes-ok') {

@@ -16,7 +16,9 @@ export type SyncMsg =
   | { type: 'notes'; id: string; index: number; slide?: string; notes: string }
   | { type: 'notes-ok'; id: string; saved: 'auto' | 'file' | 'memory' }
   /** Ползунки слайда сдвинули в одном окне — другое повторяет */
-  | { type: 'vars'; index: number; vars: Record<string, number> };
+  | { type: 'vars'; index: number; vars: Record<string, number> }
+  /** Кнопка «показать / скрыть» нажата в одном окне — другое повторяет */
+  | { type: 'trigger'; index: number; action: string };
 
 interface Envelope {
   ns: 'htmlpptx';

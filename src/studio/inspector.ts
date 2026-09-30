@@ -5,7 +5,7 @@ import { BACKDROPS } from '../components/backdrop/backdrop';
 import { blockName } from '../engine/editor/block-edit';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
-import { actionOf, placeOf, slideLabel } from '../engine/render';
+import { OBJ_ID, actionOf, placeOf, slideLabel } from '../engine/render';
 import type { Block, Deck } from '../types';
 import { fillForm, formHtml, formSig, onFieldAction, onFieldChange, onGridPaste, type FormEdit } from './form';
 import { BLOCKS, STYLE_FIELD, TEMPLATES, type Field } from './schema';
@@ -278,14 +278,21 @@ export class Inspector {
   /** Действие по щелчку при показе: переход к слайду или ссылка (объект становится кнопкой) */
   private actionHtml(deck: Deck): string {
     const slides = deck.slides.map((sl, k) => `<option value="${sl.id ? `slide:${esc(sl.id)}` : `idx:${k}`}">${k + 1} · ${esc(slideLabel(sl, k).slice(0, 40))}</option>`).join('');
+    const sel = this.host.editor().selection;
+    const own = sel?.free ? Number(sel.free[3]) : -1;
+    const free = (deck.slides[this.host.index()]?.free ?? []) as Block[];
+    const objs = free.map((b, k) => `<option value="${k}">${k + 1} · ${objLabel(b)}${k === own ? ' (этот объект)' : ''}</option>`).join('');
     return `<section class="st-p-sec"><h3>По щелчку при показе</h3>
 <label class="st-p-field"><select data-f="action" aria-label="Действие по щелчку">
   <option value="">Ничего</option>
   <optgroup label="Переход"><option value="next">Следующий слайд</option><option value="prev">Предыдущий слайд</option><option value="first">Первый слайд</option><option value="last">Последний слайд</option></optgroup>
   <optgroup label="Слайд">${slides}</optgroup>
+  <optgroup label="Объект на слайде"><option value="show:">Показать объект…</option><option value="hide:">Скрыть объект…</option><option value="toggle:">Показать / скрыть объект…</option></optgroup>
   <option value="url">Ссылка…</option>
 </select></label>
 <label class="st-p-field" data-act-url hidden><span>Адрес</span><input type="url" data-f="actionUrl" placeholder="https://… или mailto:…" spellcheck="false"></label>
+<label class="st-p-field" data-act-obj hidden><span>Какой объект</span><select data-f="actionObj"><option value="">— выберите —</option>${objs}</select></label>
+<label class="st-p-check"><input type="checkbox" data-f="hidden"><span>Скрыт, пока не нажмут кнопку</span></label>
 </section>`;
   }
 
@@ -368,8 +375,10 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
       return {
         x: String(Math.round(pl.x)), y: String(Math.round(pl.y)), w: String(Math.round(pl.w)), h: pl.h ? String(Math.round(pl.h)) : '',
         enter: effectName(deck, b.enter) ? String(b.enter) : '',
-        action: typeof b.action === 'string' ? (/^(https?:|mailto:|tel:)/i.test(b.action) ? 'url' : b.action) : '',
+        action: typeof b.action === 'string' ? (/^(https?:|mailto:|tel:)/i.test(b.action) ? 'url' : b.action.replace(/^(show|hide|toggle):.*/, '$1:')) : '',
         actionUrl: typeof b.action === 'string' && /^(https?:|mailto:|tel:)/i.test(b.action) ? b.action : '',
+        ...triggerValues(deck.slides[this.host.index()]?.free as Block[] | undefined, b.action),
+        hidden: b.hidden === true,
       };
     }
     if (sel) return {};
@@ -404,6 +413,8 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
     const actSel = this.root.querySelector<HTMLSelectElement>('[data-f="action"]');
     const actUrl = this.root.querySelector<HTMLElement>('[data-act-url]');
     if (actSel && actUrl) actUrl.hidden = actSel.value !== 'url';
+    const actObj = this.root.querySelector<HTMLElement>('[data-act-obj]');
+    if (actSel && actObj) actObj.hidden = !/^(show|hide|toggle):$/.test(actSel.value);
     const reset = this.root.querySelector<HTMLElement>('[data-a="accent-reset"]');
     if (reset) reset.hidden = !this.host.deck().theme?.accent && !this.host.deck().theme?.accent2;
     const off2 = this.root.querySelector<HTMLElement>('[data-a="accent2-off"]');
@@ -413,6 +424,28 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
   }
 
   // ---------------- правки ----------------
+
+  /** Кнопка «показать / скрыть объект k»: у объекта появляется имя (id), для «показать» он скрывается до щелчка */
+  private setTrigger(path: Path, verb: string, k: number): void {
+    const ed = this.host.editor();
+    const i = this.host.index();
+    let hid = false;
+    ed.commit((d) => {
+      const free = d.slides[i]?.free as Block[] | undefined;
+      const target = free?.[k];
+      if (!free || !target) return;
+      if (typeof target.id !== 'string' || !OBJ_ID.test(target.id)) {
+        const used = new Set(free.map((x) => x.id));
+        let id = `obj-${k + 1}`;
+        for (let n = 2; used.has(id); n++) id = `obj-${k + 1}-${n}`;
+        target.id = id;
+      }
+      // «Показать» имеет смысл для скрытого объекта: скрываем его сразу (кроме самой кнопки)
+      if (verb === 'show:' && target.hidden !== true && Number(path[3]) !== k) { target.hidden = true; hid = true; }
+      setAt(d, [...path, 'action'], `${verb}${target.id}`);
+    }, { rebuild: true });
+    if (hid) ed.toast('Объект скрыт до щелчка — в редакторе он полупрозрачный', 3000);
+  }
 
   private onChange(el: HTMLInputElement): void {
     const f = el.dataset.f;
@@ -443,6 +476,16 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
         return;
       }
       if (url) url.hidden = true;
+      // Показать / скрыть: сначала выбирают объект
+      const obj = this.root.querySelector<HTMLElement>('[data-act-obj]');
+      if (/^(show|hide|toggle):$/.test(raw)) {
+        const pick = this.root.querySelector<HTMLSelectElement>('[data-f="actionObj"]');
+        if (obj) obj.hidden = false;
+        if (pick?.value) return this.setTrigger(path, raw, Number(pick.value));
+        pick?.focus();
+        return;
+      }
+      if (obj) obj.hidden = true;
       ed.commit((d) => {
         let v = raw;
         // Слайд без id: даём ему id, чтобы переход не сбился, если слайды переставят
@@ -460,6 +503,13 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
         }
         setAt(d, [...path, 'action'], v || undefined);
       }, { rebuild: true });
+    } else if (sel?.free && f === 'actionObj') {
+      const verb = this.root.querySelector<HTMLSelectElement>('[data-f="action"]')?.value ?? '';
+      if (raw && /^(show|hide|toggle):$/.test(verb)) this.setTrigger(sel.free, verb, Number(raw));
+    } else if (sel?.free && f === 'hidden') {
+      const path = sel.free;
+      const on = (el as HTMLInputElement).checked;
+      ed.commit((d) => setAt(d, [...path, 'hidden'], on || undefined), { rebuild: true });
     } else if (sel?.free && f === 'actionUrl') {
       const path = sel.free;
       if (raw && !actionOf(raw)) return ed.toast('Адрес должен начинаться с https://, mailto: или tel:', 3000, true);
@@ -482,4 +532,18 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
       ed.setAccent(raw, f);
     }
   }
+}
+
+/** Объект слайда в списке: вид блока и начало его текста */
+function objLabel(b: Block): string {
+  const raw = typeof b.text === 'string' ? b.text : typeof b.title === 'string' ? b.title : typeof b.label === 'string' ? b.label : '';
+  const text = raw.replace(/[*_{}#|\\]|\[|\]\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+  return `${blockName(String(b.type))}${text ? ` «${esc(text.length > 24 ? `${text.slice(0, 24)}…` : text)}»` : ''}`;
+}
+
+/** Поле «Какой объект» для кнопки show/hide/toggle: номер первого объекта из действия */
+function triggerValues(free: Block[] | undefined, action: unknown): { actionObj: string } {
+  const m = typeof action === 'string' ? /^(?:show|hide|toggle):([\w-]+)/.exec(action) : null;
+  const k = m && free ? free.findIndex((b) => b.id === m[1]) : -1;
+  return { actionObj: k >= 0 ? String(k) : '' };
 }

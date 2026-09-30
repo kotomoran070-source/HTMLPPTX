@@ -227,3 +227,12 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
 .slide.on > .free.act:hover { translate: 0 -2px; filter: brightness(1.05) saturate(1.05); }
 .slide.on > .free.act:active { translate: 0 0; filter: brightness(.97); }
 body.editing .slide.on > .free.act { cursor: inherit; translate: none; filter: none; }
+/* Показать / скрыть по щелчку: скрытый объект не виден и не ловит мышь (миниатюры и экспорт — со всеми объектами) */
+.stage > .slide:not(.static) > .free.trig-hid { visibility: hidden; pointer-events: none; }
+.stage .slide.on:not(.static) > .free.trig-in.trig-in { animation: var(--fx, fx-rise) var(--fx-ms, .38s) var(--fx-ease, cubic-bezier(.2, .7, .2, 1)) 0ms both; }
+.stage .slide.on:not(.static) > .free.fx-pop.trig-in.trig-in { animation-timing-function: cubic-bezier(.34, 1.56, .64, 1); }
+.stage .slide.on:not(.static) > .free.trig-out.trig-out { animation: trig-out .26s var(--ease) both; pointer-events: none; }
+@keyframes trig-out { to { opacity: 0; transform: translateY(6px) scale(.98); } }
+/* В редакторе скрытый объект виден полупрозрачным: его можно выделить и править */
+body.editing .stage > .slide > .free.trig-hid { visibility: visible; pointer-events: auto; opacity: .45; outline: 1.5px dashed color-mix(in srgb, var(--mu) 70%, transparent); outline-offset: 4px; }
+@media (prefers-reduced-motion: reduce) { .stage .slide.on > .free.trig-in.trig-in, .stage .slide.on > .free.trig-out.trig-out { animation: none; } }

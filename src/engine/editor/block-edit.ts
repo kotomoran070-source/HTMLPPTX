@@ -418,8 +418,9 @@ export class BlockEditor {
       const paths = this.members.map((m) => m.free!);
       const i = Number(s.free[1]);
       const copies = paths.map((p) => {
-        const c = clone(getAt(this.host.deck(), p)) as { place?: Place; locked?: boolean };
+        const c = clone(getAt(this.host.deck(), p)) as { place?: Place; locked?: boolean; id?: unknown };
         delete c.locked;
+        delete c.id;
         const pl = placeOf(c);
         c.place = { ...pl, x: pl.x + 24, y: pl.y + 24 };
         return c;
@@ -433,8 +434,9 @@ export class BlockEditor {
       return;
     }
     const i = Number(s.free[1]);
-    const copy = clone(getAt(this.host.deck(), s.free)) as { place?: Place; locked?: boolean };
+    const copy = clone(getAt(this.host.deck(), s.free)) as { place?: Place; locked?: boolean; id?: unknown };
     delete copy.locked;
+    delete copy.id;
     const pl = placeOf(copy);
     copy.place = { ...pl, x: pl.x + 24, y: pl.y + 24 };
     let at = 0;
@@ -617,8 +619,9 @@ export class BlockEditor {
       // С Ctrl — копия на новом месте, оригинал остаётся, выделяется копия (как в PowerPoint)
       if (copying) {
         const i = Number(path[1]);
-        const c = clone(getAt(this.host.deck(), path)) as { place?: Place; locked?: boolean };
+        const c = clone(getAt(this.host.deck(), path)) as { place?: Place; locked?: boolean; id?: unknown };
         delete c.locked;
+        delete c.id;
         c.place = place;
         let at = 0;
         if (this.host.commit((d) => { d.slides[i].free!.push(c as never); at = d.slides[i].free!.length - 1; }, { rebuild: true })) this.selectFree(i, at);
@@ -742,8 +745,9 @@ export class BlockEditor {
       if (copying) {
         const i = Number(items[0].m.free![1]);
         const copies = items.map((it) => {
-          const c = clone(getAt(this.host.deck(), it.m.free!)) as { place?: Place; locked?: boolean };
+          const c = clone(getAt(this.host.deck(), it.m.free!)) as { place?: Place; locked?: boolean; id?: unknown };
           delete c.locked;
+          delete c.id;
           const { h, ...rest } = { ...it.pl, x: it.pl.x + ddx, y: it.pl.y + ddy };
           c.place = h ? { ...rest, h } : rest;
           return c;

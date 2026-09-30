@@ -98,7 +98,10 @@ export class Renderer {
       const lock = b.locked === true ? ' locked' : '';
       // Действие по щелчку при показе: переход к слайду или ссылка
       const act = actionOf(b.action);
-      return `<div class="free${pl.h ? '' : ' auto-h'}${fx}${lock}${act ? ' act' : ''}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''}${act ? ` data-action="${esc(act)}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
+      // Имя объекта — для кнопок «показать / скрыть»; hidden — скрыт при показе до щелчка
+      const obj = typeof b.id === 'string' && OBJ_ID.test(b.id) ? ` data-obj="${esc(b.id)}"` : '';
+      const hid = b.hidden === true ? ' trig-hid' : '';
+      return `<div class="free${pl.h ? '' : ' auto-h'}${fx}${lock}${act ? ' act' : ''}${hid}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''}${obj}${hid ? ' data-hid' : ''}${act ? ` data-action="${esc(act)}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
     }).join('');
   }
 
@@ -197,6 +200,7 @@ export function errorBox(msg: string): string {
 /** Название слайда для обзора и режима докладчика. */
 /** Куда ведёт действие: номер слайда или адрес ссылки */
 export function actionTarget(action: string, deck: Deck, index: number): { slide: number } | { url: string } | null {
+  if (TRIGGER.test(action)) return null;
   const n = deck.slides.length;
   if (action === 'next') return index + 1 < n ? { slide: index + 1 } : null;
   if (action === 'prev') return index > 0 ? { slide: index - 1 } : null;
@@ -210,14 +214,20 @@ export function actionTarget(action: string, deck: Deck, index: number): { slide
   return { url: action };
 }
 
+/** Имя свободного объекта (id): латиница, цифры, «-» и «_» */
+export const OBJ_ID = /^[\w-]+$/;
+
+/** Действие над объектами слайда: show:<id>, hide:<id>, toggle:<id> (можно несколько через запятую) */
+export const TRIGGER = /^(show|hide|toggle):[\w-]+(,[\w-]+)*$/;
+
 /**
  * Действие объекта по щелчку при показе: next, prev, first, last, slide:<id слайда>
- * или ссылка (https://…, mailto:, tel:). Остальное — без действия.
+ * ссылка (https://…, mailto:, tel:) или show/hide/toggle:<id объекта>. Остальное — без действия.
  */
 export function actionOf(v: unknown): string | null {
   if (typeof v !== 'string') return null;
   const a = v.trim();
-  if (/^(next|prev|first|last)$/.test(a) || /^slide:[\w-]+$/.test(a)) return a;
+  if (/^(next|prev|first|last)$/.test(a) || /^slide:[\w-]+$/.test(a) || TRIGGER.test(a)) return a;
   if (/^(https?:\/\/|mailto:|tel:)\S+$/i.test(a)) return a;
   return null;
 }
