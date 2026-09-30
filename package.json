@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "vite",
     "build": "node scripts/build.mjs",
+    "present": "node scripts/present.mjs",
     "preview": "vite preview",
     "new": "node scripts/new-deck.mjs",
     "merge-html": "node scripts/import.mjs",

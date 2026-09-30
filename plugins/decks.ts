@@ -5,6 +5,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 import { parseDocument } from 'yaml';
+import { isLocal, remoteRelay } from './remote-relay.mjs';
 import { AssetStore } from './assets';
 import { BASE_ID, bindProject, importHtml, slug } from './import';
 import { packDeck } from '../src/engine/pack';
@@ -265,8 +266,20 @@ export function decksPlugin(opts: DecksOptions): Plugin {
       s.watcher.on('add', refresh);
       s.watcher.on('unlink', refresh);
 
+      // Пульт с телефона: пересылка сообщений показа (телефон в той же сети, yarn dev --host)
+      s.middlewares.use((req, res, next) => {
+        const net = () => {
+          const a = s.httpServer?.address();
+          const info = a && typeof a === 'object' ? a : null;
+          return { port: info?.port ?? 5173, localOnly: !info || info.address === '127.0.0.1' || info.address === '::1' };
+        };
+        if (!remoteRelay(req, res, net)) next();
+      });
+
       s.middlewares.use(async (req, res, next) => {
         if (!req.url?.startsWith(API)) return next();
+        // С других устройств сети (yarn dev --host для пульта) проект только смотрят — не правят
+        if (!isLocal(req)) return send(res, 403, { error: 'Правка проекта — только с этого компьютера' });
         try {
           if (req.method !== 'POST') return send(res, 405, { error: 'Только POST' });
           // Запросы только со страниц этого же сервера

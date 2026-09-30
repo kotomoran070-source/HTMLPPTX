@@ -22,6 +22,9 @@ export type SyncMsg =
   /** Кнопка «показать / скрыть» нажата в одном окне — другое повторяет */
   | { type: 'trigger'; index: number; action: string };
 
+/** Сервер показа: пересылка сообщений пульта (plugins/remote-relay.mjs) */
+export const RELAY = '/__slideria/remote/';
+
 interface Envelope {
   ns: 'htmlpptx';
   deck: string;
@@ -80,6 +83,30 @@ export class Sync {
     if (w) this.peers.add(w);
   }
 
+  /**
+   * Пульт с телефона: сообщения идут ещё и через сервер показа (yarn dev, yarn present) —
+   * всем в комнате room. status — есть ли связь с сервером.
+   */
+  private room: string | null = null;
+  private es: EventSource | null = null;
+  relay(room: string, status?: (ok: boolean) => void): void {
+    if (this.room === room && this.es) return;
+    this.es?.close();
+    this.room = room;
+    const es = new EventSource(`${RELAY}events?room=${encodeURIComponent(room)}`);
+    es.onmessage = (e) => {
+      try { this.receive(JSON.parse(e.data)); } catch { /* не сообщение показа */ }
+    };
+    es.onopen = () => status?.(true);
+    // EventSource переподключается сам; пока нет связи — сообщаем
+    es.onerror = () => status?.(false);
+    this.es = es;
+  }
+
+  get relayed(): boolean {
+    return !!this.room;
+  }
+
   on(h: (m: SyncMsg, from: string) => void): void {
     this.handlers.push(h);
   }
@@ -95,6 +122,9 @@ export class Sync {
       }
     }
     try { this.bc?.postMessage(env); } catch { /* канал закрыт */ }
+    if (this.room) {
+      fetch(`${RELAY}send?room=${encodeURIComponent(this.room)}`, { method: 'POST', body: JSON.stringify(env), keepalive: true }).catch(() => {});
+    }
   }
 
   private receive(data: unknown): boolean {

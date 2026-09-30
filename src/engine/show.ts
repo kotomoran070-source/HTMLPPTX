@@ -49,6 +49,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     ${import.meta.env.DEV && devServer ? `<a class="ibtn" id="studio-btn" href="?deck=${encodeURIComponent(deckKey)}&amp;studio" aria-label="Открыть в редакторе" title="Открыть в редакторе">${icon('layers')}</a>` : ''}
     <button class="ibtn" id="ov" type="button" aria-label="Все слайды (O)" title="Все слайды (O)">${icon('grid')}</button>
     <button class="ibtn" id="pr" type="button" aria-label="Режим докладчика (P)" title="Режим докладчика (P)">${icon('presenter')}</button>
+    <button class="ibtn" id="rmt" type="button" aria-label="Пульт с телефона (R)" title="Пульт с телефона (R)">${icon('phone')}</button>
     <button class="ibtn" id="fs" type="button" aria-label="Во весь экран (F)" title="Во весь экран (F)">${icon('fullscreen')}</button>
   </div>
 </nav>
@@ -57,7 +58,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     <div class="ovhead"><b>Все слайды</b>${import.meta.env.DEV && devServer ? `<span class="ovtools-dev"><a class="btn ghost small" href="./?all" title="Все презентации">Все презентации</a>${deck.slides.some((x) => x.template === 'canvas') ? `<button class="btn ghost small" id="ovtheme" type="button" title="Привязать цвета к теме">Цвета → тема…</button>` : ''}<button class="btn ghost small" id="ovimp" type="button" title="Импорт HTML-файла">Импорт HTML…</button></span>` : ''}<button class="ibtn small" id="ovx" type="button" aria-label="Закрыть">${icon('close')}</button></div>
     <p class="mu ovedit-hint">Перетащите слайд, чтобы поменять порядок. Кнопки на миниатюре: дублировать и удалить. С клавиатуры: Alt + ← → переставить, Delete — удалить.</p>
     <div class="ovgrid" id="ovgrid"></div>
-    <p class="mu ovkeys">← → пробел — листать · Home/End — в начало/конец · номер + Enter — перейти · O — обзор · P — докладчик · F — весь экран · T — тема · B — чёрный экран${editable ? ' · E — правка' : ''}</p>
+    <p class="mu ovkeys">← → пробел — листать · Home/End — в начало/конец · номер + Enter — перейти · O — обзор · P — докладчик · R — пульт с телефона · F — весь экран · T — тема · B — чёрный экран${editable ? ' · E — правка' : ''}</p>
   </div>
 </div>
 <div class="blackout" id="blk"></div>
@@ -67,6 +68,15 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   const vp = $('vp');
   const view = new DeckView(deck, vp);
   const sync = new Sync(deckKey);
+  // Пульт с телефона: окно показа слушает свою комнату и после перезагрузки
+  const phones: (() => void)[] = [];
+  const openRemote = () => void import('./remote').then((m) => m.openRemoteDialog({ deckKey, sync, onPhone: (cb) => phones.push(cb) }));
+  if (location.protocol !== 'file:') {
+    void import('./remote').then((m) => {
+      const room = m.remoteRoom(deckKey);
+      if (room) sync.relay(room);
+    });
+  }
   const ink = new Ink(view.stage);
   // Мышь докладчика над слайдом: курсор и наведение у зрителей
   const hover = new RemoteHover(view.stage);
@@ -375,6 +385,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   $('ovx').addEventListener('click', ovHide);
   ovbd.addEventListener('click', (e) => { if (e.target === ovbd) ovHide(); });
   $('pr').addEventListener('click', () => void openPresenter());
+  $('rmt').addEventListener('click', openRemote);
   $('fs').addEventListener('click', toggleFullscreen);
   $('blk').addEventListener('click', () => setBlack(false));
   onThemeChange(() => broadcast());
@@ -417,6 +428,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       t: () => toggleTheme(), 'е': () => toggleTheme(),
       o: ovShow, 'щ': ovShow,
       p: () => void openPresenter(), 'з': () => void openPresenter(),
+      r: openRemote, 'к': openRemote,
       b: () => setBlack(!black), 'и': () => setBlack(!black), '.': () => setBlack(!black),
     };
     if (editor) {
@@ -509,6 +521,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       else if (m.ink.op === 'click') hover.click(m.ink.x, m.ink.y);
     }
     else if (m.type === 'hello') {
+      // Подключился телефон-пульт: окно с QR сообщает и закрывается
+      if (from.startsWith('r-')) phones.splice(0).forEach((cb) => cb());
       // Новому окну докладчика — актуальные данные (с несохранёнными правками) и положение
       if (editor?.touched) sync.send({ type: 'deck', deck: JSON.parse(JSON.stringify(deck)) }, from);
       sync.send({ type: 'state', index, theme: currentTheme(), black }, from);

@@ -53,6 +53,11 @@ async function boot(): Promise<void> {
     const { startStudio } = await import('./studio/studio');
     return startStudio(deck, name);
   }
+  // Телефон-пульт: страница по QR из окна показа
+  if (params.has('remote')) {
+    const { startRemote } = await import('./engine/remote');
+    return startRemote(deck, name, params.get('remote') ?? '');
+  }
   if (params.get('view') === 'presenter') startPresenter(deck, name);
   // В yarn dev правки пишутся в deck.yaml; в собранном файле — в копию HTML
   else startShow(deck, name, import.meta.env.DEV && !fixed);
