@@ -242,6 +242,8 @@ export class Editor {
   </div>
   <div class="edbar-c">
     <label class="edcolor" title="Акцентный цвет презентации"><input type="color" id="ed-accent" aria-label="Акцентный цвет"><span>Цвет</span></label>
+    <span class="edgrad"><label class="edcolor" id="ed-accent2-l" title="Второй цвет: акцентные заливки становятся градиентом"><input type="color" id="ed-accent2" aria-label="Второй цвет градиента"><span>Градиент</span></label><button class="edgrad-x" id="ed-accent2-off" type="button" title="Без градиента" aria-label="Убрать градиент" hidden>${icon('close')}</button></span>
+    <button class="btn ghost small" id="ed-accent-flow" type="button" aria-pressed="false" title="Переливание: цвета градиента текут по акцентным элементам" hidden>Переливание</button>
     <button class="btn ghost small" id="ed-accent-reset" type="button" title="Вернуть стандартный цвет">Сбросить</button>
     <button class="btn ghost small" id="ed-notes" type="button" aria-pressed="false">${icon('notes')}<span>Заметки</span></button>
     <span class="edmenu">
@@ -309,6 +311,12 @@ export class Editor {
     accent.addEventListener('change', () => this.setAccent(accent.value));
     accent.addEventListener('blur', () => this.endAccentPreview());
     $('ed-accent-reset').addEventListener('click', () => this.setAccent(null));
+    const accent2 = $<HTMLInputElement>('ed-accent2');
+    accent2.addEventListener('input', () => this.previewAccent(accent2.value, 'accent2'));
+    accent2.addEventListener('change', () => this.setAccent(accent2.value, 'accent2'));
+    accent2.addEventListener('blur', () => this.endAccentPreview());
+    $('ed-accent2-off').addEventListener('click', () => this.setAccent(null, 'accent2'));
+    $('ed-accent-flow').addEventListener('click', () => this.setAccentFlow(!this.host.deck.theme?.accentFlow));
 
     const text = $<HTMLTextAreaElement>('ed-notes-text');
     text.addEventListener('input', () => {
@@ -588,7 +596,16 @@ export class Editor {
     const input = document.getElementById('ed-accent') as HTMLInputElement | null;
     const value = typeof accent === 'string' && HEX_RE.test(accent) ? accent : getComputedStyle(document.documentElement).getPropertyValue('--ac').trim();
     if (input && document.activeElement !== input && HEX_RE.test(value)) input.value = value.toLowerCase();
-    document.getElementById('ed-accent-reset')?.toggleAttribute('hidden', !accent);
+    const a2 = this.host.deck.theme?.accent2;
+    const input2 = document.getElementById('ed-accent2') as HTMLInputElement | null;
+    const value2 = typeof a2 === 'string' && HEX_RE.test(a2) ? a2 : value;
+    if (input2 && document.activeElement !== input2 && HEX_RE.test(value2)) input2.value = value2.toLowerCase();
+    document.getElementById('ed-accent2-l')?.classList.toggle('on', !!a2);
+    document.getElementById('ed-accent2-off')?.toggleAttribute('hidden', !a2);
+    const flow = document.getElementById('ed-accent-flow');
+    flow?.toggleAttribute('hidden', !a2);
+    flow?.setAttribute('aria-pressed', String(!!this.host.deck.theme?.accentFlow));
+    document.getElementById('ed-accent-reset')?.toggleAttribute('hidden', !accent && !a2);
     document.getElementById('ed-undo')?.toggleAttribute('disabled', !this.hist.past.length);
     document.getElementById('ed-redo')?.toggleAttribute('disabled', !this.hist.future.length);
     this.onSlideChange();

@@ -68,6 +68,14 @@ body.editing .progress-top { top: 52px; }
 .ibtn[disabled] { opacity: .4; cursor: default; box-shadow: none; }
 .edcolor { display: inline-flex; align-items: center; gap: 6px; font: 600 13px var(--font); color: var(--tx2); cursor: pointer; padding: 3px 10px 3px 4px; border: 1px solid var(--bd); border-radius: 9999px; }
 .edcolor:hover { border-color: var(--acb); }
+/* Второй цвет: пока не задан — приглушён; задан — рамка градиентом акцента */
+.edgrad { position: relative; display: inline-flex; }
+#ed-accent2-l:not(.on) { opacity: .7; }
+#ed-accent2-l.on { border-color: transparent; background: linear-gradient(var(--surf), var(--surf)) padding-box, var(--ac-g) border-box; }
+.edgrad-x { position: absolute; top: -6px; right: -6px; display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 1px solid var(--bd); border-radius: 50%; background: var(--surf); color: var(--mu); cursor: pointer; }
+.edgrad-x .ic { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+.edgrad-x:hover { color: #DC2626; border-color: #FCA5A5; }
+#ed-accent-flow[aria-pressed="true"] { color: var(--on-ac); border-color: transparent; background: var(--ac-g); }
 .edcolor input { width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
 .edcolor input::-webkit-color-swatch-wrapper { padding: 0; }
 .edcolor input::-webkit-color-swatch { border: 1px solid rgba(0, 0, 0, .15); border-radius: 50%; }
