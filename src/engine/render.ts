@@ -6,7 +6,7 @@ import {
 import { asArray, esc } from './html';
 import { applyDeckCss, applyDeckDefs, applyScopedCss } from './deck-css';
 import { indexPaths, pathOf } from './marks';
-import { controlRange, hasFormula, resolve } from './formula';
+import { controlRange, deriveVars, hasFormula, resolve, type ControlProps } from './formula';
 
 /** Переходы между слайдами (slide.transition); без поля — стандартное появление */
 export const TRANSITION_IDS = new Set(['none', 'fade', 'push', 'cover', 'zoom', 'blur']);
@@ -131,12 +131,12 @@ export class Renderer {
       if (Array.isArray(v)) return v.forEach(walk);
       if (!v || typeof v !== 'object') return;
       const b = v as Block;
-      if (b.type === 'control' && typeof b.name === 'string' && b.name) vars[b.name] = controlRange(b as { min?: unknown; max?: unknown; step?: unknown; value?: unknown }).value;
+      if (b.type === 'control' && typeof b.name === 'string' && b.name) vars[b.name] = controlRange(b as ControlProps).value;
       for (const k of ['body', 'free', 'items', 'visual']) if (k in b) walk((b as Record<string, unknown>)[k]);
     };
     walk(slide.body);
     walk(slide.free);
-    return { ...vars, ...(this.varsOverride?.get(index) ?? {}) };
+    return deriveVars(slide.vars, { ...vars, ...(this.varsOverride?.get(index) ?? {}) });
   }
 
   /** Разметка одного блока слайда — для пересчёта при движении ползунка */
@@ -178,7 +178,8 @@ export class Renderer {
     let html = safe(() => c.render(b, ctx), `компоненте «${b.type}»`);
     // Корень блока знает свой путь: режим правки выделяет, открепляет и удаляет блоки
     const attrs = (c.mount ? ctx.mount(c, b) : '') + (p ? ` data-block="${esc(JSON.stringify(p))}" data-type="${esc(b.type)}"` : '')
-      + (calc && !c.mount ? ' data-calc' : '');
+      // Пересчёт подменяет разметку на месте; вёрстку (html) так обновлять можно, остальное с mount — нет
+      + (calc && (!c.mount || b.type === 'html') ? ' data-calc' : '');
     if (attrs) html = html.replace(/^(\s*)<([a-z0-9-]+)/i, `$1<$2${attrs}`);
     return html;
   }

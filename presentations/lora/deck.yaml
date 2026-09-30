@@ -1,0 +1,137 @@
+# Одна страница, чтобы оценить интерактив Slideria: ползунки → формулы → графики, кнопки-триггеры.
+# Расчёты LoRa — упрощённые (868 МГц, пригород): для наглядности, не для проектирования сети.
+
+title: LoRa — интерактивный слайд
+lang: ru
+theme:
+  accent: "#10B981"
+  accent2: "#6366F1"
+
+css: |
+  .lr-chirp { height: 100%; display: flex; flex-direction: column; gap: 8px; padding: 14px 18px; box-sizing: border-box; border-radius: 16px; background: var(--surf); border: 1px solid var(--bd); box-shadow: var(--shadow-sm); }
+  .lr-cap { display: flex; justify-content: space-between; gap: 16px; font-size: 15px; color: var(--tx2); }
+  .lr-svg { flex: 1; width: 100%; min-height: 0; }
+  .lr-card { font-size: 16px; }
+
+slides:
+  - id: lora
+    template: canvas
+    label: LoRa — параметры модуляции
+    bg: var(--bg)
+    vars:
+      de: "=floor(sf/11)*floor(125/bw)"
+      ts: "=2^sf/bw"
+      nsym: "=8 + max(ceil((8*pl - 4*sf + 44)/(4*(sf - 2*de)))*(cr+4), 0)"
+      toa: "=(12.25 + nsym)*ts"
+      rb: "=sf*bw*1000/2^sf*4/(4+cr)"
+      sens: "=-174 + 10*log10(bw*1000) + 6 + 10 - 2.5*sf"
+      km: "=10^((p - sens - 120)/30)"
+      hour: "=floor(36000/toa)"
+      toa7: "=(12.25 + (8 + max(ceil((8*pl - 28 + 44)/(4*(7 - 2*floor(7/11)*floor(125/bw))))*(cr+4), 0)))*2^7/bw"
+      toa8: "=(12.25 + (8 + max(ceil((8*pl - 32 + 44)/(4*(8 - 2*floor(8/11)*floor(125/bw))))*(cr+4), 0)))*2^8/bw"
+      toa9: "=(12.25 + (8 + max(ceil((8*pl - 36 + 44)/(4*(9 - 2*floor(9/11)*floor(125/bw))))*(cr+4), 0)))*2^9/bw"
+      toa10: "=(12.25 + (8 + max(ceil((8*pl - 40 + 44)/(4*(10 - 2*floor(10/11)*floor(125/bw))))*(cr+4), 0)))*2^10/bw"
+      toa11: "=(12.25 + (8 + max(ceil((8*pl - 44 + 44)/(4*(11 - 2*floor(11/11)*floor(125/bw))))*(cr+4), 0)))*2^11/bw"
+      toa12: "=(12.25 + (8 + max(ceil((8*pl - 48 + 44)/(4*(12 - 2*floor(12/11)*floor(125/bw))))*(cr+4), 0)))*2^12/bw"
+      km7: "=10^((p + 174 - 10*log10(bw*1000) - 6 - 10 + 17.5 - 120)/30)"
+      km8: "=10^((p + 174 - 10*log10(bw*1000) - 6 - 10 + 20 - 120)/30)"
+      km9: "=10^((p + 174 - 10*log10(bw*1000) - 6 - 10 + 22.5 - 120)/30)"
+      km10: "=10^((p + 174 - 10*log10(bw*1000) - 6 - 10 + 25 - 120)/30)"
+      km11: "=10^((p + 174 - 10*log10(bw*1000) - 6 - 10 + 27.5 - 120)/30)"
+      km12: "=10^((p + 174 - 10*log10(bw*1000) - 6 - 10 + 30 - 120)/30)"
+    free:
+      - type: text
+        text: "LoRa: как параметры {g:duo|меняют связь}"
+        styles: {text: {size: 38, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 26, w: 900}
+        enter: rise
+      - type: text
+        text: Двигайте ползунки — пересчитывается всё на слайде. Оценка для 868 МГц в пригороде.
+        styles: {text: {size: 16, color: text2}}
+        place: {x: 50, y: 80, w: 900}
+        enter: fade
+        delay: 100
+
+      - {type: control, name: sf, label: "Spreading factor", min: 7, max: 12, step: 1, value: 9, place: {x: 48, y: 122, w: 360}, enter: rise, delay: 150}
+      - {type: control, name: bw, label: "Полоса (BW)", steps: [125, 250, 500], value: 125, unit: " кГц", place: {x: 48, y: 216, w: 360}, enter: rise, delay: 200}
+      - {type: control, name: cr, label: "Кодовая скорость (CR)", steps: [1, 2, 3, 4], labels: ["4/5", "4/6", "4/7", "4/8"], value: 1, place: {x: 48, y: 310, w: 360}, enter: rise, delay: 250}
+      - {type: control, name: pl, label: "Размер пакета", min: 5, max: 200, step: 5, value: 20, unit: " байт", place: {x: 48, y: 404, w: 360}, enter: rise, delay: 300}
+      - {type: control, name: p, label: "Мощность (TX)", min: 2, max: 20, step: 1, value: 14, unit: " дБм", place: {x: 48, y: 498, w: 360}, enter: rise, delay: 350}
+
+      - type: grid
+        columns: 4
+        gap: 16
+        items:
+          - {type: stat, value: "{{round(rb)}}", label: "бит/с · скорость", styles: {value: {size: 40}, label: {size: 14}}}
+          - {type: stat, value: "{{round(toa)}} мс", label: время в эфире, styles: {value: {size: 40}, label: {size: 14}}}
+          - {type: stat, value: "{{round(km, 1)}} км", label: "дальность, оценка", styles: {value: {size: 40}, label: {size: 14}}}
+          - {type: stat, value: "{{hour}}", label: "пакетов в час (1 %)", styles: {value: {size: 40}, label: {size: 14}}}
+        place: {x: 440, y: 118, w: 792}
+        enter: fade
+        delay: 250
+
+      - type: html
+        html: '<div class="lr-chirp"><div class="lr-cap"><span data-t="0"></span><span data-t="1"></span></div><svg class="lr-svg" viewBox="0 0 800 96" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="lr-g" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="var(--ac)"/><stop offset="1" stop-color="var(--ac2)"/></linearGradient><pattern id="lr-p" x="0" y="0" width="{{min(800, ts*24)}}" height="96" patternUnits="userSpaceOnUse"><path d="M0 {{48+14+28*bw/500}} L{{min(800, ts*24)}} {{48-14-28*bw/500}}" fill="none" stroke="url(#lr-g)" stroke-width="3" stroke-linecap="round" vector-effect="non-scaling-stroke"/><path d="M{{min(800, ts*24)}} {{48-14-28*bw/500}} L{{min(800, ts*24)}} {{48+14+28*bw/500}}" fill="none" stroke="var(--ac)" stroke-opacity=".25" stroke-width="1.5" vector-effect="non-scaling-stroke"/><animateTransform attributeName="patternTransform" type="translate" from="0 0" to="{{min(800, ts*24)}} 0" dur="{{min(800, ts*24)/90}}s" repeatCount="indefinite"/></pattern></defs><line x1="0" y1="48" x2="800" y2="48" stroke="var(--bd)" stroke-dasharray="3 5" vector-effect="non-scaling-stroke"/><rect width="800" height="96" fill="url(#lr-p)"/></svg></div>'
+        texts: ["Чирпы в эфире · символ длится **{{round(ts, 2)}} мс**", "чувствительность **{{round(sens, 1)}} дБм**"]
+        place: {x: 440, y: 232, w: 792, h: 132}
+        enter: fade
+        delay: 350
+
+      - {type: text, text: "**Время в эфире** по SF, мс", styles: {text: {size: 15, color: text2}}, place: {x: 442, y: 384, w: 380}, enter: fade, delay: 400}
+      - type: line-chart
+        values: ["=toa7", "=toa8", "=toa9", "=toa10", "=toa11", "=toa12"]
+        min: 0
+        start: SF7
+        end: SF12
+        place: {x: 440, y: 410, w: 380, h: 200}
+        enter: fade
+        delay: 450
+      - {type: text, text: "**Дальность** по SF, км · выделен текущий", styles: {text: {size: 15, color: text2}}, place: {x: 852, y: 384, w: 380}, enter: fade, delay: 400}
+      - type: bars
+        values: ["=km7", "=km8", "=km9", "=km10", "=km11", "=km12"]
+        labels: [SF7, SF8, SF9, SF10, SF11, SF12]
+        highlight: "=sf-7"
+        max: 18
+        height: 170
+        place: {x: 852, y: 414, w: 380}
+        enter: rise
+        delay: 450
+
+      - {type: shape, kind: pill, fill: gradient, text: "Что такое SF?", action: "toggle:about", styles: {text: {size: 16}}, place: {x: 48, y: 620, w: 176, h: 52}, enter: pop, delay: 500}
+      - {type: shape, kind: pill, fill: soft, stroke: accent, width: 1, text: "Формулы", action: "toggle:formulas", styles: {text: {size: 16}}, place: {x: 232, y: 620, w: 176, h: 52}, enter: pop, delay: 560}
+      - {type: text, text: "Больше SF — дальше, но медленнее. Шире полоса — быстрее, но хуже чувствительность.", styles: {text: {size: 15, color: muted}}, place: {x: 442, y: 628, w: 790}, enter: fade, delay: 600}
+
+      - id: about
+        hidden: true
+        type: shape
+        fill: surface
+        stroke: accent
+        width: 1
+        radius: 18
+        shadow: md
+        valign: top
+        action: "hide:about"
+        text: "**Spreading factor — «растяжение» символа**\nКаждый шаг SF удваивает длительность чирпа: сигнал слышно на 2,5 дБ тише шума, дальность растёт, а скорость падает почти вдвое.\nСейчас SF{{sf}}: символ {{round(ts, 2)}} мс, приёмник ловит сигнал до {{round(sens, 1)}} дБм.\n\n{muted|Щёлкните, чтобы закрыть}"
+        styles: {text: {align: left, size: 18, weight: 400}}
+        place: {x: 432, y: 376, w: 808, h: 240}
+        enter: pop
+
+      - id: formulas
+        hidden: true
+        type: shape
+        fill: surface
+        stroke: accent
+        width: 1
+        radius: 18
+        shadow: md
+        valign: top
+        action: "hide:formulas"
+        text: "**Как считает слайд** (поле vars слайда)\nСимвол: 2^SF / BW = {{round(ts, 2)}} мс · символов в пакете: {{nsym}}\nВремя в эфире: (12,25 + символы) × символ = {{round(toa)}} мс\nСкорость: SF × BW / 2^SF × 4/(4+CR) = {{round(rb)}} бит/с\nЗапас линии: {{p}} − ({{round(sens, 1)}}) = {{round(p - sens, 1)}} дБ\n\n{muted|Щёлкните, чтобы закрыть}"
+        styles: {text: {align: left, size: 17, weight: 400}}
+        place: {x: 432, y: 376, w: 808, h: 240}
+        enter: pop
+    notes: |
+      Слайд для оценки интерактива. Ползунки задают SF, полосу, кодовую скорость, размер пакета и мощность;
+      промежуточные величины посчитаны в поле vars слайда, блоки ссылаются на них по имени.
+      Чирпы внизу — живая SVG: чем больше SF, тем длиннее символ; чем шире полоса, тем выше «зуб».
+      Кнопки «Что такое SF?» и «Формулы» показывают карточки, щелчок по карточке их закрывает.

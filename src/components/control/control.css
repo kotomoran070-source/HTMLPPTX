@@ -1,13 +1,14 @@
 /* Ползунок, управляющий слайдом */
-.ctl { display: flex; flex-direction: column; gap: 10px; padding: 14px 18px 16px; border-radius: 16px; background: var(--surf); border: 1px solid var(--bd); box-shadow: var(--shadow-sm); }
-.ctl-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.ctl { display: flex; flex-direction: column; gap: 6px; padding: 12px 18px 12px; border-radius: 16px; background: var(--surf); border: 1px solid var(--bd); box-shadow: var(--shadow-sm); }
+.ctl-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; white-space: nowrap; }
 .ctl-l { font-size: 16px; font-weight: 600; color: var(--tx2); }
-.ctl-v { font-size: 26px; font-weight: 800; letter-spacing: -.01em; color: var(--tx); font-variant-numeric: tabular-nums; }
+.ctl-v { font-size: 24px; font-weight: 800; letter-spacing: -.01em; color: var(--tx); font-variant-numeric: tabular-nums; }
 .ctl-rail { position: relative; height: 24px; }
 .ctl-track, .ctl-fill { position: absolute; top: 8px; left: 0; height: 8px; border-radius: 9999px; }
 .ctl-track { right: 0; background: var(--alt); }
 /* --k — положение 0…1; бегунок ходит в пределах дорожки, как у обычного ползунка */
 .ctl-fill { width: calc(12px + (100% - 24px) * var(--k, .5)); background: var(--ac-g, linear-gradient(90deg, var(--ac), var(--ac2))); }
+.ctl-tick { position: absolute; top: 9px; left: calc(12px + (100% - 24px) * var(--t) - 3px); width: 6px; height: 6px; border-radius: 50%; background: color-mix(in srgb, var(--surf) 85%, transparent); }
 .ctl-knob { position: absolute; top: 0; left: calc((100% - 24px) * var(--k, .5)); width: 24px; height: 24px; box-sizing: border-box; border-radius: 50%; background: var(--surf); border: 3px solid var(--ac); box-shadow: 0 3px 10px color-mix(in srgb, var(--ac) 40%, transparent); transition: transform .15s, box-shadow .15s; }
 .ctl-in { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 .ctl-rail:has(.ctl-in:active) .ctl-knob { transform: scale(1.12); }

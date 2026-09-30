@@ -127,6 +127,8 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'step', label: 'Шаг', type: 'number', min: 0, placeholder: '1' },
       { k: 'value', label: 'Начальное значение', type: 'number' },
       { k: 'unit', label: 'Единица', type: 'text', placeholder: ' ₽, %, шт' },
+      { k: 'steps', label: 'Варианты вместо min…max', type: 'numbers', hint: 'Например: 125 250 500 — ползунок щёлкает по ним' },
+      { k: 'labels', label: 'Подписи вариантов', type: 'strings', item: 'Подпись' },
     ],
   },
   grid: {

@@ -39,6 +39,8 @@ export interface SlideData {
   notes?: string;
   /** Заметки правили в окне докладчика во время показа: в студии у слайда отметка ✎, пока их не поправят здесь */
   notesEdited?: boolean;
+  /** Промежуточные величины для формул: «имя: =формула» (см. блок control) */
+  vars?: Record<string, string | number>;
   /** Название в обзоре слайдов, если отличается от заголовка */
   label?: string;
   /** Переход к слайду: none, fade, push, cover, zoom, blur (без поля — стандартный) */
