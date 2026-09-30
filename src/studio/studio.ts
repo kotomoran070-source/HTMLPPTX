@@ -1415,6 +1415,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
     ed.commit((d) => {
       if (v.trim()) d.slides[i].notes = v;
       else delete d.slides[i].notes;
+      // Заметки просмотрели и поправили здесь — отметка «дописано на показе» снимается
+      delete d.slides[i].notesEdited;
     }, { merge: `notes:${i}`, hold: true, rebuild: false });
   });
   // Набор заметок — один шаг отмены на заход в поле

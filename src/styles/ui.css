@@ -102,8 +102,6 @@ body.presenter { overflow: hidden; background: var(--alt); }
 .pres-end { aspect-ratio: 16 / 9; display: grid; place-items: center; border: 1px dashed var(--bd2); border-radius: 8px; color: var(--mu); }
 .pres-notes { flex: 1; min-height: 0; overflow: auto; background: var(--surf); border: 1px solid var(--bd); border-radius: 12px; padding: 14px 16px; line-height: 1.5; white-space: normal; }
 .pres-notes[hidden] { display: none; }
-.pres-notes:not(.pres-notes-ed) { cursor: text; }
-.pres-notes:not(.pres-notes-ed):hover { border-color: var(--bd2); }
 /* Правка заметок: тот же вид, что у текста заметок */
 .pres-notes-ed { width: 100%; box-sizing: border-box; resize: none; margin: 0; color: var(--tx); font: inherit; line-height: 1.5; border-color: var(--acb); outline: none; box-shadow: 0 0 0 3px var(--acs); }
 /* Запись по ходу выступления */
@@ -120,6 +118,16 @@ body.presenter { overflow: hidden; background: var(--alt); }
 .pres-link { margin-left: auto; font-size: 12px; color: var(--mu); }
 .pres-link.ok { color: #16A34A; }
 @media (max-width: 900px) { .pres-main { grid-template-columns: 1fr; } }
+/* Узкое окно: верхняя строка переносится, ничего не распирает страницу вбок */
+@media (max-width: 640px) {
+  .pres-top { flex-wrap: wrap; gap: 6px 12px; }
+  .pres-title { flex: 1 1 100%; max-width: none; min-width: 0; }
+  .pres-time { font-size: 26px; }
+  .pres-clock { font-size: 16px; }
+  .pres-bottom { flex-wrap: wrap; gap: 8px 12px; }
+  .pres-link { flex: 1 1 100%; margin-left: 0; }
+}
+#ned[aria-pressed="true"] { background: var(--acs); color: var(--ach); border-color: var(--acb); }
 
 /* Выбор презентации (yarn dev) */
 .picker { max-width: 760px; margin: 0 auto; padding: 48px 24px; height: 100%; overflow: auto; }

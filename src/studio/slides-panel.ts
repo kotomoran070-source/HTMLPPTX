@@ -69,8 +69,9 @@ export class SlidesPanel {
       item.setAttribute('aria-label', `Слайд ${i + 1}: ${slideLabel(deck.slides[i], i)}`);
       const notes = typeof deck.slides[i].notes === 'string' ? deck.slides[i].notes as string : '';
       // Записи, сделанные в окне докладчика во время показа («✎ 14:32 — …»): отдельная отметка
-      const jots = notes.includes('✎');
-      item.title = slideLabel(deck.slides[i], i) + (jots ? ' · есть записи с показа' : '');
+      // …или заметки правили там же: отметка до тех пор, пока их не поправят в студии
+      const jots = notes.includes('✎') || deck.slides[i].notesEdited === true;
+      item.title = slideLabel(deck.slides[i], i) + (jots ? ' · заметки дописаны на показе' : '');
       item.classList.toggle('has-notes', !!notes);
       item.classList.toggle('has-jots', jots);
     }

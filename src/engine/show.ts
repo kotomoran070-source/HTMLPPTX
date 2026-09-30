@@ -460,6 +460,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       const apply = (d: Deck) => {
         if (m.notes.trim()) d.slides[k].notes = m.notes;
         else delete d.slides[k].notes;
+        d.slides[k].notesEdited = true;
       };
       if (editor) editor.commit(apply, { rebuild: false, merge: `jot:${k}` });
       else apply(deck);

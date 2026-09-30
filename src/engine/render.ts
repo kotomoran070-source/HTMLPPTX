@@ -163,7 +163,14 @@ export function errorBox(msg: string): string {
 
 /** Название слайда для обзора и режима докладчика. */
 export function slideLabel(slide: SlideData, index: number): string {
-  return slide.label ?? slide.title ?? `Слайд ${index + 1}`;
+  const raw = slide.label ?? slide.title;
+  return typeof raw === 'string' && raw.trim() ? plainText(raw) : `Слайд ${index + 1}`;
+}
+
+/** Текст без разметки для подписей: {цвет|слова} → слова, без ** __ * и ссылок */
+function plainText(s: string): string {
+  return s.replace(/\{[^{}|]+\|([^{}]*)\}/g, '$1').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\*\*(.+?)\*\*|__(.+?)__|\*(.+?)\*/g, (_m, a, b, c) => a ?? b ?? c).replace(/\s+/g, ' ').trim();
 }
 
 export interface Place { x: number; y: number; w: number; h?: number }

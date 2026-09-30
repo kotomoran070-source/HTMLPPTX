@@ -73,9 +73,9 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       <div class="pres-split h" id="sh" role="separator" aria-orientation="horizontal" aria-label="Размер следующего слайда и заметок" tabindex="0" title="Потяните, чтобы изменить размер. Двойной щелчок — сбросить"></div>
       <section class="pres-notesbox">
         <div class="pres-label pres-notes-head">Заметки
-          <span><button class="ibtn small" id="fm" type="button" aria-label="Мельче">A−</button><button class="ibtn small" id="fp" type="button" aria-label="Крупнее">A+</button></span>
+          <span><button class="ibtn small" id="ned" type="button" aria-pressed="false" aria-label="Править заметки" title="Править заметки (E)">${icon('pencil')}</button><button class="ibtn small" id="fm" type="button" aria-label="Мельче">A−</button><button class="ibtn small" id="fp" type="button" aria-label="Крупнее">A+</button></span>
         </div>
-        <div class="pres-notes" id="notes" title="Щёлкните, чтобы править заметки"></div>
+        <div class="pres-notes" id="notes"></div>
         <textarea class="pres-notes pres-notes-ed" id="notesed" spellcheck="true" hidden aria-label="Заметки слайда"></textarea>
         <form class="pres-jot" id="jot" autocomplete="off">
           <input id="jotin" type="text" spellcheck="true" placeholder="Записать мысль или вопрос из зала — Enter  (N)" aria-label="Записать в заметки слайда">
@@ -212,9 +212,13 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     const th = box.querySelector<HTMLElement>('.thumb');
     if (!th) return;
     const cap = box.querySelector<HTMLElement>('.mu')?.offsetHeight ?? 0;
+    // В одну колонку (узкое окно) высота области — по содержимому: слайд на всю ширину
+    if (narrow.matches) { th.style.width = `${box.clientWidth}px`; return; }
     th.style.width = `${Math.max(80, Math.min(box.clientWidth, ((box.clientHeight - cap - 6) * 16) / 9))}px`;
   };
+  const narrow = matchMedia('(max-width: 900px)');
   new ResizeObserver(fitNext).observe($('next'));
+  narrow.addEventListener('change', fitNext);
 
   // --- все слайды ---
   const grid = $('pgrid');
@@ -361,17 +365,23 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     setNotes(index, cur ? `${cur}\n${line}` : line);
     inp.value = '';
   });
-  // Щелчок по заметкам — правка всего текста; Ctrl+Enter или уход фокуса — сохранить, Esc — отменить
+  // Заметки только для чтения; править — кнопкой ✎ или клавишей E. Ctrl+Enter, повторное нажатие
+  // кнопки или уход фокуса — сохранить, Esc — отменить
   const notesEl = $('notes');
   const notesEd = $<HTMLTextAreaElement>('notesed');
+  const edBtn = $('ned');
   let editing = -1;
   function editNotes(): void {
+    if (editing >= 0) return;
     editing = index;
     notesEd.value = String(deck.slides[index]?.notes ?? '');
     notesEd.style.fontSize = notesEl.style.fontSize;
     notesEl.hidden = true;
     notesEd.hidden = false;
+    edBtn.setAttribute('aria-pressed', 'true');
+    edBtn.title = 'Сохранить заметки (Ctrl+Enter), отмена — Esc';
     notesEd.focus();
+    notesEd.setSelectionRange(notesEd.value.length, notesEd.value.length);
   }
   function endEdit(save: boolean): void {
     if (editing < 0) return;
@@ -379,9 +389,13 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     editing = -1;
     notesEd.hidden = true;
     notesEl.hidden = false;
+    edBtn.setAttribute('aria-pressed', 'false');
+    edBtn.title = 'Править заметки (E)';
     if (save && notesEd.value !== String(deck.slides[i]?.notes ?? '')) setNotes(i, notesEd.value);
   }
-  notesEl.addEventListener('click', (e) => { if (!(e.target as Element).closest('a')) editNotes(); });
+  // Кнопка не забирает фокус у поля: иначе уход фокуса сохранил бы и сразу открыл правку снова
+  edBtn.addEventListener('mousedown', (e) => e.preventDefault());
+  edBtn.addEventListener('click', () => (editing >= 0 ? endEdit(true) : editNotes()));
   notesEd.addEventListener('blur', () => endEdit(true));
   notesEd.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { e.preventDefault(); endEdit(false); }
@@ -414,6 +428,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       g: openGrid, 'п': openGrid,
       m: () => setMirror(!mirror), 'ь': () => setMirror(!mirror),
       n: () => $('jotin').focus(), 'т': () => $('jotin').focus(),
+      e: editNotes, 'у': editNotes,
       escape: () => { if (tool !== 'none') setTool(tool); },
     };
     const fn = map[k] ?? letters[lower];
