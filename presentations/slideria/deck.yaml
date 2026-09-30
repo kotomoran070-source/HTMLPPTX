@@ -499,9 +499,9 @@ slides:
         enter: pop
         delay: 380
       - type: model
-        src: ./assets/crystal.glb
-        poster: ./assets/crystal.png
-        rotate: true
+        src: ./assets/slideria-3d.glb
+        poster: ./assets/slideria-3d.png
+        orbit: -28deg 68deg
         place: {x: 856, y: 156, w: 360, h: 196}
         enter: pop
         delay: 510
@@ -523,16 +523,19 @@ slides:
         enter: pop
         delay: 770
       - type: table
-        variant: soft
+        variant: plan
         density: compact
-        size: 14
-        header: [Файл, Что с ним]
-        widths: [1, 1.5]
+        size: 13
+        badge: 2
+        widths: [0.45, 2.1, 1.15]
+        header: [№, Файл, Роль]
         rows:
-          - [deck.yaml, слайды текстом]
-          - [Excel, вставка в ячейку]
-          - [HTML, импорт и вставки]
-          - [PPTX · PDF, экспорт]
+          - ["01", "**YAML**\nслайды текстом", "{#CA8A04|git}"]
+          - ["02", "**Excel**\nтаблица в ячейку", "{#EC4899|вставка}"]
+          - ["03", "**HTML**\nClaude Design и др.", "{#6366F1|импорт}"]
+          - ["04", "**PPTX · PDF**\nодной кнопкой", "{#16A34A|экспорт}"]
+        footer: "**Таблицы** — вставкой из Excel"
+        footnote: "{rows} формата"
         place: {x: 856, y: 412, w: 360}
         enter: pop
         delay: 900
@@ -541,7 +544,6 @@ slides:
       - {type: text, text: "**GLB** · 3D: покрутите мышью при показе", styles: {text: {size: 15, color: text2}}, place: {x: 858, y: 362, w: 360}, enter: fade, delay: 1100}
       - {type: text, text: "**SVG** · чёткий в любом размере", styles: {text: {size: 15, color: text2}}, place: {x: 66, y: 618, w: 360}, enter: fade, delay: 1150}
       - {type: text, text: "**PNG · JPG · WebP · AVIF** · фото ужмутся сами", styles: {text: {size: 15, color: text2}}, place: {x: 462, y: 618, w: 380}, enter: fade, delay: 1200}
-      - {type: text, text: "**Таблицы** · вставкой из Excel", styles: {text: {size: 15, color: text2}}, place: {x: 858, y: 618, w: 380}, enter: fade, delay: 1250}
     notes: |
       Всё на слайде — настоящие файлы: пиксельная ракета в GIF, ролик WebM, записанный прямо в браузере,
       гранёный кристалл в GLB, наклейка в SVG и скриншот студии в WebP. Кристалл можно крутить мышью.

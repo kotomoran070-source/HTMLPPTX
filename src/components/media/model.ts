@@ -16,6 +16,8 @@ interface ModelProps extends Block {
   controls?: boolean;
   /** Яркость, 0.5–2 (по умолчанию 1) */
   exposure?: number;
+  /** Начальный ракурс: поворот и наклон камеры, например "-30deg 70deg" (как camera-orbit у model-viewer) */
+  orbit?: string;
   caption?: string;
 }
 
@@ -92,6 +94,8 @@ defineBlock<ModelProps>('model', {
         m.setAttribute('interaction-prompt', 'none');
         m.setAttribute('shadow-intensity', '0.8');
         m.setAttribute('environment-image', 'neutral');
+        // Ракурс: только углы в градусах (и необязательное расстояние) — без произвольных строк
+        if (typeof p.orbit === 'string' && /^-?\d+(\.\d+)?deg\s+-?\d+(\.\d+)?deg(\s+(auto|\d+(\.\d+)?%))?$/.test(p.orbit.trim())) m.setAttribute('camera-orbit', p.orbit.trim());
         const ex = Number(p.exposure);
         if (ex >= 0.2 && ex <= 3) m.setAttribute('exposure', String(ex));
         m.setAttribute('touch-action', 'pan-y');
