@@ -2,8 +2,8 @@ import type PptxGenJS from 'pptxgenjs';
 import { getAt, type Path } from '../engine/data';
 import { staticSlide } from '../engine/deck-view';
 import type { Block, Deck } from '../types';
-import { embedHtml, fitHtml } from '../components/html/html';
-import { snapshot } from '../engine/import-ui';
+import { fitHtml, hasEmbed } from '../components/html/html';
+import { embedShot } from '../engine/embed-shot';
 import { resolve } from '../engine/formula';
 import { Renderer, actionTarget } from '../engine/render';
 
@@ -738,8 +738,8 @@ class Converter {
    * снимается разметкой (холсты — картинками) и рисуется картинкой. Не вышло — остаётся заставка.
    */
   private async embed(el: HTMLElement, b: Box): Promise<boolean> {
-    const p = this.props(el) as { src?: string; theme?: boolean; interactive?: boolean; poster?: string } | undefined;
-    if (!p?.src) return false;
+    const p = this.props(el) as { src?: string; code?: string; theme?: boolean; interactive?: boolean; poster?: string } | undefined;
+    if (!p || !hasEmbed(p)) return false;
     // Интерактивная сцена в движении не имеет «правильного» кадра: её кадр — заставка
     if (p.interactive && p.poster) {
       const src = el.querySelector<HTMLImageElement>('.embed-poster')?.src;
@@ -748,31 +748,10 @@ class Converter {
       this.slide.addImage({ data, ...this.pos(b) });
       return true;
     }
-    const w = el.offsetWidth || Math.round(b.w);
-    const h = el.offsetHeight || Math.round(b.h);
-    try {
-      const snap = await snapshot(await embedHtml(p), { w, h });
-      if (!snap) return false;
-      const f = document.createElement('iframe');
-      // Без скриптов: снимок только показывается, поэтому рамке можно дать доступ к её документу
-      f.setAttribute('sandbox', 'allow-same-origin');
-      f.style.cssText = `position:fixed;left:-20000px;top:0;width:${w}px;height:${h}px;border:0`;
-      document.body.appendChild(f);
-      try {
-        await new Promise((r) => { f.onload = r; f.srcdoc = snap; setTimeout(r, 4000); });
-        const doc = f.contentDocument;
-        if (!doc) return false;
-        await doc.fonts?.ready;
-        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-        const data = await this.toPng(doc.documentElement, { pixelRatio: 2, skipFonts: true, width: w, height: h });
-        this.slide.addImage({ data, ...this.pos(b) });
-        return true;
-      } finally {
-        f.remove();
-      }
-    } catch {
-      return false;
-    }
+    const data = await embedShot(p, el.offsetWidth || Math.round(b.w), el.offsetHeight || Math.round(b.h));
+    if (!data) return false;
+    this.slide.addImage({ data, ...this.pos(b) });
+    return true;
   }
 
   // ---------------- линии и стрелки ----------------

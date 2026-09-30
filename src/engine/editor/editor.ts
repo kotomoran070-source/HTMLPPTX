@@ -38,6 +38,7 @@ function mediaKind(f: File | undefined): MediaKind | null {
 }
 
 /** Перетаскивают HTML-файл: это импорт презентации в yarn dev, а не картинка. */
+const isHtmlFile = (f: File) => /\.html?$/i.test(f.name) || f.type === 'text/html';
 const draggingHtml = (e: DragEvent) => [...(e.dataTransfer?.items ?? [])].some((i) => i.kind === 'file' && i.type === 'text/html');
 
 export interface EditorHost {
@@ -1290,6 +1291,67 @@ export class Editor {
     }
   }
 
+  /**
+   * HTML-файл с анимацией — живой вставкой (embed) на слайд: скрипты файла работают в изолированной
+   * рамке. Файл кладётся в assets/ презентации, заставка для миниатюр и PPTX снимается сама.
+   */
+  async insertEmbedFile(file: File, at?: { x: number; y: number }): Promise<void> {
+    if (file.size > MAX_FILE) return this.toast('Файл больше 25 МБ', 4000, true);
+    const i = this.host.index();
+    this.toast('Добавляю живую вставку…', 0);
+    try {
+      const html = await file.text();
+      const blob = new Blob([html], { type: 'text/html' });
+      const stem = file.name.replace(/\.html?$/i, '') || 'embed';
+      const src = this.mode === 'project'
+        ? (await this.storage.uploadAsset(this.host.deckKey, blob, `${stem}.htm`)).url
+        : await blobToDataUrl(blob);
+      const w = 640;
+      const h = 360;
+      const cx = at?.x ?? 640;
+      const cy = at?.y ?? 360;
+      const place = { x: Math.round(Math.max(0, Math.min(1280 - w, cx - w / 2))), y: Math.round(Math.max(0, Math.min(720 - h, cy - h / 2))), w, h };
+      let idx = -1;
+      this.commit((d) => {
+        const sl = d.slides[i];
+        sl.free = Array.isArray(sl.free) ? sl.free : [];
+        sl.free.push({ type: 'embed', src, interactive: true, place });
+        idx = sl.free.length - 1;
+      }, { rebuild: true });
+      if (idx < 0) return;
+      this.selectFree(i, idx);
+      this.toast('Живая вставка добавлена — снимаю заставку…', 0);
+      const ok = await this.embedPoster(['slides', i, 'free', idx]);
+      this.toast(ok ? 'Живая вставка добавлена. Код — «Код вставки» в свойствах' : 'Живая вставка добавлена (заставку снять не удалось)', 3500);
+    } catch (e) {
+      this.toast(`Не удалось добавить вставку: ${(e as Error).message}`, 5000, true);
+    }
+  }
+
+  /**
+   * Заставка живой вставки: снимок её документа в светлой теме, по размеру объекта.
+   * Нужна миниатюрам, PPTX, PDF и показу до загрузки рамки. false — снять не вышло.
+   */
+  async embedPoster(path: Path): Promise<boolean> {
+    const b = getAt(this.host.deck, path) as { type?: string; src?: string; code?: string; theme?: boolean; place?: { w?: number; h?: number } } | undefined;
+    if (b?.type !== 'embed') return false;
+    const el = [...this.host.stage().querySelectorAll<HTMLElement>('.slide.on [data-block]')].find((x) => x.getAttribute('data-block') === JSON.stringify(path));
+    const w = Math.round(el?.offsetWidth || b.place?.w || 640);
+    const h = Math.round(el?.offsetHeight || b.place?.h || 360);
+    const { embedShot } = await import('../embed-shot');
+    const data = await embedShot(b, w, h, { light: true });
+    if (!data) return false;
+    const blob = await (await fetch(data)).blob();
+    const url = this.mode === 'project'
+      ? (await this.storage.uploadAsset(this.host.deckKey, blob, 'embed-poster.png')).url
+      : data;
+    // Объект могли удалить или заменить, пока снимался кадр
+    const now = getAt(this.host.deck, path) as { type?: string; src?: string; code?: string } | undefined;
+    if (now?.type !== 'embed' || now.src !== b.src || now.code !== b.code) return false;
+    this.commit((d) => setAt(d, [...path, 'poster'], url), { rebuild: true });
+    return true;
+  }
+
   /** Точка экрана → координаты слайда 1280×720. */
   toSlide(clientX: number, clientY: number): { x: number; y: number } {
     const r = this.host.stage().getBoundingClientRect();
@@ -1301,8 +1363,8 @@ export class Editor {
   }
 
   private onDragOver(e: DragEvent): void {
-    // HTML-файл — это импорт презентации (import-ui), не картинка
-    if (!e.dataTransfer?.types.includes('Files') || draggingHtml(e)) return;
+    // HTML-файл при показе — импорт презентации (import-ui); в студии — живая вставка на слайд
+    if (!e.dataTransfer?.types.includes('Files') || (draggingHtml(e) && !this.studio)) return;
     e.preventDefault();
     const t = this.dropTarget(e);
     // В студии файл на пустом месте — новая картинка
@@ -1317,7 +1379,14 @@ export class Editor {
   }
 
   private onDrop(e: DragEvent): void {
-    if (!e.dataTransfer?.files.length || /\.html?$/i.test(e.dataTransfer.files[0].name)) return;
+    if (!e.dataTransfer?.files.length) return;
+    if (isHtmlFile(e.dataTransfer.files[0])) {
+      if (!this.studio) return;
+      e.preventDefault();
+      e.stopPropagation();
+      void this.insertEmbedFile(e.dataTransfer.files[0], this.toSlide(e.clientX, e.clientY));
+      return;
+    }
     e.preventDefault();
     this.host.stage().querySelectorAll('.ed-drop').forEach((x) => x.classList.remove('ed-drop'));
     const file = e.dataTransfer.files[0];

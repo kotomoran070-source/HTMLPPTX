@@ -1,4 +1,5 @@
 import { ACCENT_EVENT } from '../../engine/accent';
+import { icon } from '../icons';
 import { defineBlock } from '../../engine/component';
 import { NS_RE } from '../../engine/deck-css';
 import { onThemeChange } from '../../engine/theme';
@@ -244,6 +245,8 @@ defineBlock<HtmlProps>('html', {
  */
 interface EmbedProps extends Block {
   src?: string;
+  /** Код вставки прямо в данных: HTML, CSS и JavaScript (вместо файла src) */
+  code?: string;
   poster?: string;
   /** Вставка берёт цвета темы: получает их при показе и перезапускается при смене темы */
   theme?: boolean;
@@ -254,18 +257,39 @@ interface EmbedProps extends Block {
 /** Цвета темы, которые передаются во вставку */
 const TOKENS = ['--bg', '--surf', '--alt', '--tx', '--tx2', '--mu', '--bd', '--bd2', '--ac', '--ac2', '--ach', '--acs', '--acb', '--on-ac', '--font'];
 
-/** Документ вставки с текущими цветами темы: :root:root сильнее :root самой вставки. */
-function withTheme(html: string): string {
-  const cs = getComputedStyle(document.documentElement);
+/**
+ * Документ вставки с цветами темы: :root:root сильнее :root самой вставки.
+ * light — цвета светлой темы, какая бы ни была включена (заставка снимается в светлой:
+ * в тёмной теме её яркости переворачиваются, см. html.css).
+ */
+export function withTheme(html: string, light = false): string {
+  const root = document.documentElement;
+  const was = root.getAttribute('data-theme');
+  if (light && was !== 'light') root.setAttribute('data-theme', 'light');
+  const cs = getComputedStyle(root);
   const vars = TOKENS.map((t) => `${t}:${cs.getPropertyValue(t).trim()}`).join(';');
-  const style = `<style id="htmlpptx-theme">:root:root{${vars};color-scheme:${cs.colorScheme || 'light'}}</style>`;
+  const scheme = cs.colorScheme || 'light';
+  if (light && was !== 'light') {
+    if (was === null) root.removeAttribute('data-theme');
+    else root.setAttribute('data-theme', was);
+  }
+  const style = `<style id="htmlpptx-theme">:root:root{${vars};color-scheme:${scheme}}</style>`;
   return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => m + style) : style + html;
 }
 
-/** Документ живой вставки таким, каким его видит рамка на слайде (для экспорта) */
-export function embedHtml(p: { src?: string; theme?: boolean }): Promise<string> {
+/** Код вставки: из поля code (вставлен в студии) или из файла src */
+export function embedSource(p: { src?: string; code?: string }): Promise<string> {
+  if (typeof p.code === 'string' && p.code.trim()) return Promise.resolve(p.code);
   if (!p.src) return Promise.reject(new Error('нет src'));
-  return load(p.src).then((html) => (p.theme ? withTheme(html) : html));
+  return load(p.src);
+}
+
+/** Есть ли у вставки что показывать */
+export const hasEmbed = (p: { src?: string; code?: string }): boolean => !!p.src || (typeof p.code === 'string' && !!p.code.trim());
+
+/** Документ живой вставки таким, каким его видит рамка на слайде (для экспорта) */
+export function embedHtml(p: { src?: string; code?: string; theme?: boolean }, light = false): Promise<string> {
+  return embedSource(p).then((html) => (p.theme ? withTheme(html, light) : html));
 }
 
 const docs = new Map<string, Promise<string>>();
@@ -282,10 +306,12 @@ const load = (url: string) => {
 defineBlock<EmbedProps>('embed', {
   render(p) {
     const poster = p.poster ? `<img class="embed-poster" src="${esc(p.poster)}" alt="">` : '';
-    return `<div class="embed${p.theme ? ' themed' : ''}${p.interactive ? ' interactive' : ''}">${poster}</div>`;
+    // Пустая вставка видна в редакторе: её можно выделить и открыть «Код вставки»
+    const empty = !poster && !hasEmbed(p) ? `<div class="embed-ph">${icon('terminal')}<span>Живая вставка</span></div>` : '';
+    return `<div class="embed${p.theme ? ' themed' : ''}${p.interactive ? ' interactive' : ''}">${poster}${empty}</div>`;
   },
   mount(el, p, ctx) {
-    if (!p.src) return;
+    if (!hasEmbed(p)) return;
     let frame: HTMLIFrameElement | null = null;
     let timer = 0;
     const on = () => {
@@ -299,7 +325,7 @@ defineBlock<EmbedProps>('embed', {
       f.setAttribute('aria-hidden', 'true');
       f.loading = 'eager';
       frame = f;
-      load(p.src!).then((html) => {
+      embedSource(p).then((html) => {
         if (frame !== f) return;
         f.srcdoc = p.theme ? withTheme(html) : html;
         f.addEventListener('load', () => f.classList.add('on'), { once: true });
@@ -310,7 +336,7 @@ defineBlock<EmbedProps>('embed', {
     const recolor = () => {
       if (!p.theme || !frame) return;
       const f = frame;
-      load(p.src!).then((html) => {
+      embedSource(p).then((html) => {
         if (frame === f) f.srcdoc = withTheme(html);
       }).catch(() => {});
     };

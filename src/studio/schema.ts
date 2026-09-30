@@ -264,7 +264,7 @@ export const BLOCKS: Record<string, Schema> = {
     ],
   },
   embed: {
-    about: 'Интерактивная HTML-вставка.',
+    about: 'Живая вставка: HTML, CSS и JavaScript в изолированной рамке. Код — кнопкой ниже или двойным щелчком по вставке; HTML-файл можно просто перетащить на слайд.',
     fields: [
       { k: 'poster', label: 'Заставка', type: 'image' },
       { k: 'theme', label: 'Цвета темы внутри вставки', type: 'bool' },

@@ -1,4 +1,4 @@
-import { embedHtml, fitHtml } from '../components/html/html';
+import { embedHtml, fitHtml, hasEmbed } from '../components/html/html';
 import type { Block, Deck } from '../types';
 import type { Path } from './data';
 import { getAt } from './data';
@@ -43,8 +43,8 @@ async function embeds(root: HTMLElement, deck: Deck): Promise<void> {
   const { snapshot } = await import('./import-ui');
   await Promise.all(els.map(async (el) => {
     try {
-      const p = getAt(deck, JSON.parse(el.dataset.block!) as Path) as (Block & { src?: string; theme?: boolean }) | undefined;
-      if (!p?.src) return;
+      const p = getAt(deck, JSON.parse(el.dataset.block!) as Path) as (Block & { src?: string; code?: string; theme?: boolean }) | undefined;
+      if (!p || !hasEmbed(p)) return;
       const w = el.offsetWidth;
       const h = el.offsetHeight;
       const snap = await snapshot(await embedHtml(p), { w, h });

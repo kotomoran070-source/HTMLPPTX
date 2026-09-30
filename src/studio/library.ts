@@ -28,6 +28,50 @@ export interface Category {
 const card = (title: string, text: string) => ({ type: 'card', title, text });
 const stat = (value: string, label: string, delta?: string) => ({ type: 'stat', value, label, ...(delta ? { delta } : {}) });
 
+/** Стартовый код живой вставки: частицы в цветах темы, разбегаются от курсора */
+export const EMBED_SAMPLE = `<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+  canvas { display: block; width: 100%; height: 100%; }
+</style></head>
+<body><canvas id="c"></canvas>
+<script>
+// Живой код: HTML, CSS и JavaScript работают в изолированной рамке.
+// Цвета темы презентации — CSS-переменные --ac, --ac2, --tx (включено «Цвета темы»).
+const c = document.getElementById('c'), x = c.getContext('2d');
+const css = getComputedStyle(document.documentElement);
+const A = css.getPropertyValue('--ac').trim() || '#6366F1';
+const B = css.getPropertyValue('--ac2').trim() || '#EC4899';
+let w = 0, h = 0, mx = -1e3, my = -1e3;
+function fit() {
+  const r = devicePixelRatio || 1;
+  w = c.clientWidth; h = c.clientHeight;
+  c.width = w * r; c.height = h * r;
+  x.setTransform(r, 0, 0, r, 0, 0);
+}
+addEventListener('resize', fit); fit();
+addEventListener('pointermove', (e) => { mx = e.clientX; my = e.clientY; });
+addEventListener('pointerleave', () => { mx = my = -1e3; });
+const P = Array.from({ length: 160 }, (_, i) => ({
+  a: Math.random() * 6.283, r: 0.1 + Math.random() * 0.36,
+  s: (i % 2 ? 1 : -1) * (0.002 + Math.random() * 0.006), k: i % 2,
+}));
+(function frame() {
+  x.clearRect(0, 0, w, h);
+  for (const p of P) {
+    p.a += p.s;
+    let px = w / 2 + Math.cos(p.a) * p.r * w, py = h / 2 + Math.sin(p.a) * p.r * h;
+    const d = Math.hypot(px - mx, py - my);
+    if (d < 90) { px += (px - mx) / d * (90 - d) * 0.6; py += (py - my) / d * (90 - d) * 0.6; }
+    x.fillStyle = p.k ? A : B;
+    x.beginPath(); x.arc(px, py, 2.6, 0, 6.283); x.fill();
+  }
+  requestAnimationFrame(frame);
+})();
+</script></body></html>
+`;
+
 /** Готовые блоки: вставляются свободным объектом в центр слайда. Данные — как в deck.yaml. */
 export const LIBRARY: Category[] = [
   {
@@ -113,6 +157,7 @@ export const LIBRARY: Category[] = [
           ],
         }),
       },
+      { name: 'Живой код', w: 640, h: 360, make: () => ({ type: 'embed', theme: true, interactive: true, code: EMBED_SAMPLE }) },
       { name: 'Кнопка «Дальше»', w: 260, h: 64, make: () => ({ type: 'shape', kind: 'pill', fill: 'gradient', text: 'Дальше →', action: 'next', styles: { text: { size: 20 } } }) },
     ],
   },

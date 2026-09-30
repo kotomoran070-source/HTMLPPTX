@@ -767,3 +767,20 @@ body.st-marqueeing, body.st-marqueeing * { user-select: none !important; cursor:
 .st-lyr :is(.st-lyr-eye, .st-lyr-lock):hover { background: var(--surf); color: var(--tx); }
 .st-lyr.hid .st-lyr-eye, .st-lyr.locked .st-lyr-lock { color: var(--ach); }
 @media (hover: none) { .st-lyr-eye, .st-lyr-lock { opacity: 1; } }
+
+/* Редактор кода живой вставки: код слева, он же в работе справа */
+.st-cd-bd { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 20px; background: rgba(15, 23, 42, .5); }
+.st-cd { display: flex; flex-direction: column; width: min(1240px, 100%); height: min(780px, 100%); background: var(--surf); color: var(--tx); border: 1px solid var(--bd); border-radius: 16px; box-shadow: 0 24px 70px rgba(15, 23, 42, .35); overflow: hidden; }
+.st-cd-top { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--bd); font-size: 13px; color: var(--mu); }
+.st-cd-top b { font-size: 16px; color: var(--tx); }
+.st-cd-top .ic { width: 18px; height: 18px; color: var(--ach); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.st-cd-top span { margin-left: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-cd-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+.st-cd-src { resize: none; border: 0; border-right: 1px solid var(--bd); padding: 14px 16px; margin: 0; background: color-mix(in srgb, var(--alt) 70%, var(--surf)); color: var(--tx);
+  font: 13px/1.6 ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace; tab-size: 2; white-space: pre; outline: none; }
+.st-cd-prev { position: relative; background: repeating-conic-gradient(color-mix(in srgb, var(--mu) 10%, transparent) 0 25%, transparent 0 50%) 0 0 / 20px 20px; }
+.st-cd-prev iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.st-cd-prev small { position: absolute; right: 10px; bottom: 8px; padding: 2px 8px; border-radius: 99px; background: var(--surf); border: 1px solid var(--bd); font-size: 11px; color: var(--mu); pointer-events: none; }
+.st-cd-bot { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-top: 1px solid var(--bd); }
+.st-cd-hint { margin-left: auto; font-size: 12px; color: var(--mu); }
+@media (max-width: 800px) { .st-cd-body { grid-template-columns: 1fr; grid-template-rows: 1fr 40%; } .st-cd-src { border-right: 0; border-bottom: 1px solid var(--bd); } .st-cd-top span { display: none; } }
