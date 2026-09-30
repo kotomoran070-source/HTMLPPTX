@@ -28,6 +28,8 @@ function inline(line: string): string {
   const hold = (html: string) => `\u0000${keep.push(html) - 1}\u0000`;
   // 1. Экранированные символы — как есть
   let s = line.replace(/\\([\\*_[\]()\-{])/g, (_, c: string) => hold(esc(c)));
+  // Формулы {{price*2}} (видны при правке) — как есть: * там умножение, а не курсив
+  s = s.replace(/\{\{[^{}]*\}\}/g, (m) => hold(esc(m)));
   // 2. Ссылки: адрес прячем, чтобы * и _ в нём не превратились в оформление
   s = s.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (m, label: string, url: string) => {
     const href = safeUrl(url);

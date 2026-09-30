@@ -12,6 +12,8 @@ export interface RenderCtx {
   mount(component: Component<any>, props: unknown): string;
   /** Уникальный id в пределах документа (для SVG-градиентов и т.п.) */
   uid(prefix?: string): string;
+  /** Переменные слайда (ползунки): формулы в данных блоков считаются по ним */
+  vars?: Record<string, number>;
 }
 
 export interface MountCtx {

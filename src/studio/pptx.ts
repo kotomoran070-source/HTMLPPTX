@@ -4,6 +4,8 @@ import { staticSlide } from '../engine/deck-view';
 import type { Block, Deck } from '../types';
 import { embedHtml, fitHtml } from '../components/html/html';
 import { snapshot } from '../engine/import-ui';
+import { resolve } from '../engine/formula';
+import { Renderer, actionTarget } from '../engine/render';
 
 /**
  * Экспорт в PowerPoint. Каждый слайд рисуется вне экрана в натуральную величину (1280×720 —
@@ -279,7 +281,24 @@ class Converter {
     return getComputedStyle(el).transform.startsWith('matrix(') && this.rotation(getComputedStyle(el)) ? parent : Math.round(k * 1000) / 1000 || parent;
   }
 
+  private inAction = false;
+
   private async walk(el: HTMLElement, opacity: number, parentK: number): Promise<void> {
+    // Кнопка с переходом или ссылкой: поверх объекта — прозрачная фигура с гиперссылкой,
+    // щелчок по ней при показе в PowerPoint работает так же, как в браузере
+    if (el.dataset.action && el.classList.contains('free') && !this.inAction) {
+      this.inAction = true;
+      try { await this.walk(el, opacity, parentK); } finally { this.inAction = false; }
+      const to = actionTarget(el.dataset.action, this.deck, Number(this.section.dataset.index));
+      const b = this.box(el);
+      if (to) {
+        this.slide.addShape(this.pptx.ShapeType.rect, {
+          ...this.pos(b), fill: { color: 'FFFFFF', transparency: 100 }, line: { type: 'none' } as never,
+          hyperlink: 'slide' in to ? { slide: to.slide + 1 } : { url: to.url },
+        });
+      }
+      return;
+    }
     const cs = getComputedStyle(el);
     if (cs.display === 'none' || cs.visibility === 'hidden') return;
     // Обёртка без своей рамки (display: contents — части разобранного шаблона): только её дети
@@ -834,7 +853,11 @@ class Converter {
   private chart(el: HTMLElement, type: string, b: Box): boolean {
     let path: Path;
     try { path = JSON.parse(el.dataset.block ?? ''); } catch { return false; }
-    const p = getAt(this.deck, path) as Block | undefined;
+    let p = getAt(this.deck, path) as Block | undefined;
+    // Значения с формулами («=v*2») — по начальным положениям ползунков слайда
+    const si = Number(path[1]);
+    const sl = path[0] === 'slides' ? this.deck.slides[si] : undefined;
+    if (p && sl) p = resolve(p, new Renderer(this.deck).slideVars(sl, si));
     const values = Array.isArray(p?.values) ? (p.values as unknown[]).map(Number).filter(Number.isFinite) : [];
     if (!p || values.length < 2) return false;
     const accent = rgba(getComputedColor(this.section, 'var(--ac)'))?.hex ?? '2563EB';

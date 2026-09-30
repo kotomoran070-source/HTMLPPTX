@@ -1,4 +1,5 @@
-import type { Deck } from '../types';
+import type { Block, Deck } from '../types';
+import { getAt, type Path } from './data';
 import { Renderer } from './render';
 
 export const W = 1280;
@@ -16,12 +17,55 @@ export class DeckView {
   /** Данные, по которым нарисован каждый слайд, и общие поля презентации */
   private sigs: string[] = [];
   private deckSig = '';
+  private deck!: Deck;
+  private r!: Renderer;
+  /** Значения ползунков, выставленные при показе (по слайдам): переживают перерисовку */
+  private vars = new Map<number, Record<string, number>>();
 
   constructor(deck: Deck, container: HTMLElement) {
     this.stage = document.createElement('div');
     this.stage.className = 'stage canvas';
     container.appendChild(this.stage);
     this.build(deck);
+    // Ползунок на слайде сдвинули: пересчитать связанные с ним блоки
+    this.stage.addEventListener('slideria:var', (e) => {
+      const d = (e as CustomEvent<{ name: string; value: number }>).detail;
+      const i = Number((e.target as Element).closest<HTMLElement>('.slide')?.dataset.index);
+      if (!Number.isInteger(i) || !d) return;
+      this.vars.set(i, { ...(this.vars.get(i) ?? {}), [d.name]: d.value });
+      this.recalc(i);
+      // Для второго окна (докладчик ↔ показ)
+      dispatchEvent(new CustomEvent('slideria:vars', { detail: { index: i, vars: this.vars.get(i) } }));
+    });
+  }
+
+  /** Значения ползунков пришли из другого окна: ползунки встают туда же, связанные блоки пересчитываются */
+  setVars(i: number, vars: Record<string, number>): void {
+    const el = this.slides[i];
+    if (!el) return;
+    this.vars.set(i, { ...(this.vars.get(i) ?? {}), ...vars });
+    el.querySelectorAll<HTMLElement>('[data-type="control"]').forEach((c) => {
+      for (const [name, value] of Object.entries(vars)) c.dispatchEvent(new CustomEvent('slideria:set-var', { detail: { name, value } }));
+    });
+    this.recalc(i);
+  }
+
+  /** Блоки слайда с формулами — заново по текущим значениям; в разметке меняется только отличающееся */
+  private recalc(i: number): void {
+    const el = this.slides[i];
+    const slide = this.deck.slides[i];
+    if (!el || !slide) return;
+    el.querySelectorAll<HTMLElement>('[data-calc]').forEach((node) => {
+      if (node.parentElement?.closest('[data-calc]')) return;
+      let path: Path;
+      try { path = JSON.parse(node.dataset.block ?? ''); } catch { return; }
+      const b = getAt(this.deck, path) as Block | undefined;
+      if (!b) return;
+      const tmp = document.createElement('div');
+      tmp.innerHTML = this.r.blockHtml(b, slide, i);
+      const fresh = tmp.firstElementChild;
+      if (fresh) morph(node, fresh);
+    });
   }
 
   private base() {
@@ -36,7 +80,9 @@ export class DeckView {
   /** Перерисовывает все слайды из данных, оставаясь на текущем слайде. */
   build(deck: Deck): void {
     this.cleanups.forEach((c) => c?.());
-    const r = new Renderer(deck, deck.brand?.logo);
+    const r = new Renderer(deck, deck.brand?.logo, this.vars);
+    this.r = r;
+    this.deck = deck;
     // Слой указки и другие вложения сцены не относятся к слайдам: сохраняем их
     const extras = [...this.stage.children].filter((el) => !el.classList.contains('slide'));
     this.stage.innerHTML = deck.slides.map((s, i) => r.slide(s, i)).join('');
@@ -58,11 +104,13 @@ export class DeckView {
    */
   update(deck: Deck): void {
     if (deckSignature(deck) !== this.deckSig || deck.slides.length !== this.slides.length) return this.build(deck);
+    this.deck = deck;
     let r: Renderer | null = null;
     deck.slides.forEach((s, i) => {
       const sig = JSON.stringify(s);
       if (sig === this.sigs[i]) return;
-      r ??= new Renderer(deck, deck.brand?.logo);
+      r ??= new Renderer(deck, deck.brand?.logo, this.vars);
+      this.r = r;
       this.cleanups[i]?.();
       const tmp = document.createElement('div');
       tmp.innerHTML = r.slide(s, i);
@@ -189,5 +237,24 @@ function restartGifs(slide: HTMLElement | undefined): void {
     if (!src || !GIF.test(src)) return;
     img.src = '';
     img.src = src;
+  });
+}
+
+/**
+ * Подмена разметки «на месте»: те же элементы получают новые атрибуты и текст. Анимации появления
+ * не перезапускаются, а высота столбцов и линии графика меняются плавно (через transition).
+ */
+function morph(a: Element, b: Element): void {
+  if (a.tagName !== b.tagName) { a.replaceWith(b); return; }
+  for (const at of [...a.attributes]) if (!b.hasAttribute(at.name)) a.removeAttribute(at.name);
+  for (const at of [...b.attributes]) if (a.getAttribute(at.name) !== at.value) a.setAttribute(at.name, at.value);
+  const ac = [...a.childNodes];
+  const bc = [...b.childNodes];
+  if (ac.length !== bc.length) { a.replaceChildren(...bc); return; }
+  ac.forEach((n, k) => {
+    const m = bc[k];
+    if (n.nodeType !== m.nodeType || (n.nodeType === 1 && (n as Element).tagName !== (m as Element).tagName)) n.replaceWith(m);
+    else if (n.nodeType === 3) { if (n.textContent !== m.textContent) n.textContent = m.textContent; }
+    else if (n.nodeType === 1) morph(n as Element, m as Element);
   });
 }

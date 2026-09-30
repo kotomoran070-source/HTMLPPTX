@@ -548,6 +548,43 @@ slides:
       Всё на слайде — настоящие файлы: пиксельная ракета в GIF, ролик WebM, записанный прямо в браузере,
       гранёный кристалл в GLB, наклейка в SVG и скриншот студии в WebP. Кристалл можно крутить мышью.
 
+  - id: live
+    template: canvas
+    label: Живой расчёт
+    bg: var(--bg)
+    transition: fade
+    free:
+      - type: text
+        text: Слайд, который {g:duo|считает}
+        styles: {text: {size: 48, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 64, y: 36, w: 900}
+        enter: rise
+      - type: text
+        text: Двигайте ползунки при показе — столбцы, числа и подписи пересчитываются сразу.
+        styles: {text: {size: 18, color: text2}}
+        place: {x: 66, y: 104, w: 1000}
+        enter: fade
+        delay: 120
+      - {type: control, name: v, label: Зрителей в день, min: 200, max: 3000, step: 100, value: 1500, place: {x: 64, y: 176, w: 420}, enter: rise, delay: 250}
+      - {type: control, name: c, label: Оставляют заявку, min: 1, max: 12, step: 0.5, value: 6, unit: " %", place: {x: 64, y: 290, w: 420}, enter: rise, delay: 350}
+      - {type: text, text: "{{round(v*c/100)}}", styles: {text: {size: 88, weight: 800, spacing: -0.03, color: accent}}, place: {x: 64, y: 396, w: 420}, enter: pop, delay: 500}
+      - {type: text, text: "заявок в день · за полгода — **{{v*c*2.475}}**", styles: {text: {size: 18, color: text2}}, place: {x: 66, y: 530, w: 420}, enter: fade, delay: 600}
+      - type: bars
+        values: ["=v*c*0.3", "=v*c*0.345", "=v*c*0.39", "=v*c*0.435", "=v*c*0.48", "=v*c*0.525"]
+        labels: [январь, февраль, март, апрель, май, июнь]
+        max: 12000
+        height: 330
+        place: {x: 560, y: 196, w: 656}
+        enter: rise
+        delay: 400
+      - {type: text, text: "Заявок в месяц при росте 15 % — формула **=v\\*c\\*0.3** и дальше", styles: {text: {size: 15, color: muted}}, place: {x: 562, y: 560, w: 656}, enter: fade, delay: 700}
+      - {type: shape, kind: pill, fill: soft, stroke: accent, width: 1, text: "← Форматы", action: "slide:formats", styles: {text: {size: 18}}, place: {x: 64, y: 612, w: 200, h: 56}, enter: pop, delay: 800}
+      - {type: shape, kind: pill, fill: gradient, shadow: sm, text: "Финал →", action: next, styles: {text: {size: 18}}, place: {x: 284, y: 612, w: 200, h: 56}, enter: pop, delay: 880}
+      - {type: text, text: "Кнопка — любая фигура: «По щелчку при показе» в студии", styles: {text: {size: 15, color: muted}}, place: {x: 562, y: 626, w: 656}, enter: fade, delay: 950}
+    notes: |
+      Ползунки задают переменные v и c. Число, подпись и столбцы — обычные блоки с формулами:
+      «{{round(v*c/100)}}» в тексте, «=v*c*0.3» в значениях графика. Кнопки внизу — фигуры с переходом по щелчку.
+
   - id: thanks
     template: canvas
     label: Спасибо

@@ -118,6 +118,17 @@ export const BLOCKS: Record<string, Schema> = {
       ],
     }],
   },
+  control: {
+    fields: [
+      { k: 'name', label: 'Имя переменной', type: 'text', placeholder: 'x', hint: 'Используйте в других блоках: «=x*2» в значениях графика, {{x}} в тексте' },
+      { k: 'label', label: 'Подпись', type: 'text' },
+      { k: 'min', label: 'Минимум', type: 'number', placeholder: '0' },
+      { k: 'max', label: 'Максимум', type: 'number', placeholder: '100' },
+      { k: 'step', label: 'Шаг', type: 'number', min: 0, placeholder: '1' },
+      { k: 'value', label: 'Начальное значение', type: 'number' },
+      { k: 'unit', label: 'Единица', type: 'text', placeholder: ' ₽, %, шт' },
+    ],
+  },
   grid: {
     about: 'Блоки в несколько колонок.',
     fields: [

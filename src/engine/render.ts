@@ -6,6 +6,7 @@ import {
 import { asArray, esc } from './html';
 import { applyDeckCss, applyDeckDefs, applyScopedCss } from './deck-css';
 import { indexPaths, pathOf } from './marks';
+import { controlRange, hasFormula, resolve } from './formula';
 
 /** Переходы между слайдами (slide.transition); без поля — стандартное появление */
 export const TRANSITION_IDS = new Set(['none', 'fade', 'push', 'cover', 'zoom', 'blur']);
@@ -28,7 +29,7 @@ export class Renderer {
   private mounts = new Map<string, PendingMount>();
   private cssKey: string | null;
 
-  constructor(private deck: Deck, private logo?: string) {
+  constructor(private deck: Deck, private logo?: string, private varsOverride?: Map<number, Record<string, number>>) {
     // Пути нужны для режима правки: каждый элемент знает, какое значение он показывает
     indexPaths(deck);
     // Стили презентации (из импортированного HTML) — только внутри её слайдов-холстов
@@ -95,7 +96,9 @@ export class Renderer {
       const css = `left:${pl.x}px;top:${pl.y}px;width:${pl.w}px;${pl.h ? `height:${pl.h}px;` : ''}z-index:${10 + i};${delay}${ownCss}`;
       // Закреплённый объект в редакторе не выделяется мышью (см. editor.css)
       const lock = b.locked === true ? ' locked' : '';
-      return `<div class="free${pl.h ? '' : ' auto-h'}${fx}${lock}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
+      // Действие по щелчку при показе: переход к слайду или ссылка
+      const act = actionOf(b.action);
+      return `<div class="free${pl.h ? '' : ' auto-h'}${fx}${lock}${act ? ' act' : ''}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''}${act ? ` data-action="${esc(act)}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
     }).join('');
   }
 
@@ -118,8 +121,29 @@ export class Renderer {
     return () => cleanups.forEach((c) => c());
   }
 
+  /** Переменные слайда: начальные значения его ползунков, поверх — то, что выставили при показе */
+  slideVars(slide: SlideData, index: number): Record<string, number> {
+    const vars: Record<string, number> = {};
+    const walk = (v: unknown): void => {
+      if (Array.isArray(v)) return v.forEach(walk);
+      if (!v || typeof v !== 'object') return;
+      const b = v as Block;
+      if (b.type === 'control' && typeof b.name === 'string' && b.name) vars[b.name] = controlRange(b as { min?: unknown; max?: unknown; step?: unknown; value?: unknown }).value;
+      for (const k of ['body', 'free', 'items', 'visual']) if (k in b) walk((b as Record<string, unknown>)[k]);
+    };
+    walk(slide.body);
+    walk(slide.free);
+    return { ...vars, ...(this.varsOverride?.get(index) ?? {}) };
+  }
+
+  /** Разметка одного блока слайда — для пересчёта при движении ползунка */
+  blockHtml(b: Block, slide: SlideData, index: number): string {
+    return this.block(b, this.ctx(slide, index));
+  }
+
   private ctx(slide: SlideData, index: number): RenderCtx {
     const ctx: RenderCtx = {
+      vars: this.slideVars(slide, index),
       deck: this.deck,
       slide,
       index,
@@ -139,10 +163,19 @@ export class Renderer {
     if (b == null || typeof b !== 'object') return errorBox(`Ожидался блок с полем type, получено: ${esc(JSON.stringify(b))}`);
     const c = getBlock(b.type);
     if (!c) return errorBox(`Неизвестный компонент «${esc(b.type)}». Доступны: ${blockNames().join(', ')}`);
+    // Формулы («=x*2», «{{x}}») — по переменным слайда; копия знает те же пути для правки
+    const p = pathOf(b);
+    let calc = false;
+    if (b.type !== 'control' && ctx.vars && Object.keys(ctx.vars).length && hasFormula(b)) {
+      const rb = resolve(b, ctx.vars);
+      if (p) indexPaths(rb, p);
+      b = rb;
+      calc = true;
+    }
     let html = safe(() => c.render(b, ctx), `компоненте «${b.type}»`);
     // Корень блока знает свой путь: режим правки выделяет, открепляет и удаляет блоки
-    const p = pathOf(b);
-    const attrs = (c.mount ? ctx.mount(c, b) : '') + (p ? ` data-block="${esc(JSON.stringify(p))}" data-type="${esc(b.type)}"` : '');
+    const attrs = (c.mount ? ctx.mount(c, b) : '') + (p ? ` data-block="${esc(JSON.stringify(p))}" data-type="${esc(b.type)}"` : '')
+      + (calc && !c.mount ? ' data-calc' : '');
     if (attrs) html = html.replace(/^(\s*)<([a-z0-9-]+)/i, `$1<$2${attrs}`);
     return html;
   }
@@ -162,6 +195,33 @@ export function errorBox(msg: string): string {
 }
 
 /** Название слайда для обзора и режима докладчика. */
+/** Куда ведёт действие: номер слайда или адрес ссылки */
+export function actionTarget(action: string, deck: Deck, index: number): { slide: number } | { url: string } | null {
+  const n = deck.slides.length;
+  if (action === 'next') return index + 1 < n ? { slide: index + 1 } : null;
+  if (action === 'prev') return index > 0 ? { slide: index - 1 } : null;
+  if (action === 'first') return { slide: 0 };
+  if (action === 'last') return { slide: n - 1 };
+  if (action.startsWith('slide:')) {
+    const id = action.slice(6);
+    const k = deck.slides.findIndex((s) => s.id === id);
+    return k >= 0 ? { slide: k } : null;
+  }
+  return { url: action };
+}
+
+/**
+ * Действие объекта по щелчку при показе: next, prev, first, last, slide:<id слайда>
+ * или ссылка (https://…, mailto:, tel:). Остальное — без действия.
+ */
+export function actionOf(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const a = v.trim();
+  if (/^(next|prev|first|last)$/.test(a) || /^slide:[\w-]+$/.test(a)) return a;
+  if (/^(https?:\/\/|mailto:|tel:)\S+$/i.test(a)) return a;
+  return null;
+}
+
 export function slideLabel(slide: SlideData, index: number): string {
   const raw = slide.label ?? slide.title;
   return typeof raw === 'string' && raw.trim() ? plainText(raw) : `Слайд ${index + 1}`;

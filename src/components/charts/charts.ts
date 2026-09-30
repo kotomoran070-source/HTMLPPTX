@@ -127,7 +127,7 @@ defineBlock<BarsProps>('bars', {
     // Выделен один столбец (по умолчанию последний), остальные спокойнее
     const hl = p.highlight === false ? -1 : Number.isInteger(p.highlight) ? Number(p.highlight) : vals.length - 1;
     const bars = vals.map((v, k) =>
-      `<div class="${k === hl ? 'hl' : ''}" style="--k:${k};height:${((v / max) * 100).toFixed(1)}%"><small>${num(v)}</small>`
+      `<div class="${k === hl ? 'hl' : ''}" style="--k:${k};height:${Math.min(100, (v / max) * 100).toFixed(1)}%"><small>${num(v)}</small>`
       + (labels[k] ? `<em${ea(labels, k)}>${t(labels[k])}</em>` : '') + `</div>`).join('');
     return `<div class="bars${labels.length ? ' labeled' : ''}"${styleAttr(p.height && `height:${p.height}px`, p.style)}>${bars}</div>`;
   },

@@ -5,7 +5,7 @@ import { applyAccent, applyAccentFlow } from './accent';
 import { replaceContents } from './data';
 import { DeckView, staticSlide } from './deck-view';
 import { esc, t } from './html';
-import { slideLabel } from './render';
+import { actionTarget, slideLabel } from './render';
 import { Ink, inkInput, type InkMsg, type InkTool, type StrokeStyle } from './ink';
 import './presenter.css';
 import { Sync } from './sync';
@@ -435,7 +435,29 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     if (fn) { e.preventDefault(); fn(); }
   });
 
+  // Объекты-кнопки: щелчок при показе — переход к слайду или ссылка (в режиме правки — обычный объект)
+  view.stage.addEventListener('click', (e) => {
+    // Указка или перо: щелчок рисует, а не нажимает
+    if (tool !== 'none') return;
+    const t = e.target as Element;
+    const el = t.closest<HTMLElement>('.slide.on > .free[data-action]');
+    if (!el || t.closest('input, textarea, button, a, video, model-viewer')) return;
+    const to = actionTarget(el.dataset.action!, deck, index);
+    if (!to) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if ('slide' in to) go(to.slide);
+    else window.open(to.url, '_blank', 'noopener');
+  });
+  addEventListener('slideria:vars', (e) => {
+    const d = (e as CustomEvent<{ index: number; vars: Record<string, number> }>).detail;
+    sync.send({ type: 'vars', index: d.index, vars: d.vars }, toMain());
+  });
   sync.on((m, from) => {
+    if (m.type === 'vars') {
+      if (!mainId || from === mainId) view.setVars(m.index, m.vars);
+      return;
+    }
     if (m.type === 'notes-ok') {
       for (const [i, p] of pending) if (p.id === m.id) pending.delete(i);
       if (!pending.size) {

@@ -6,7 +6,7 @@ import { DeckView, staticSlide } from './deck-view';
 import { Editor, SLIDE_PRESETS } from './editor/editor';
 import { canSaveFile } from './editor/persist';
 import { esc } from './html';
-import { slideLabel } from './render';
+import { actionTarget, slideLabel } from './render';
 import { Ink } from './ink';
 import { RemoteHover } from './remote-hover';
 import { CAMERA_SET } from '../components/media/model';
@@ -450,8 +450,27 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
 
   // --- сообщения от окна докладчика ---
   // Команды принимаются только адресованные этому окну (Sync отсеивает чужие по полю to)
+  // Объекты-кнопки: щелчок при показе — переход к слайду или ссылка (в режиме правки — обычный объект)
+  view.stage.addEventListener('click', (e) => {
+    if (document.body.classList.contains('editing')) return;
+    const t = e.target as Element;
+    const el = t.closest<HTMLElement>('.slide.on > .free[data-action]');
+    if (!el || t.closest('input, textarea, button, a, video, model-viewer')) return;
+    const to = actionTarget(el.dataset.action!, deck, index);
+    if (!to) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if ('slide' in to) go(to.slide);
+    else window.open(to.url, '_blank', 'noopener');
+  });
+  // Ползунки: здесь сдвинули — докладчику; от докладчика — сюда
+  addEventListener('slideria:vars', (e) => {
+    const d = (e as CustomEvent<{ index: number; vars: Record<string, number> }>).detail;
+    sync.send({ type: 'vars', index: d.index, vars: d.vars });
+  });
   sync.on((m, from) => {
     if (m.type === 'goto') go(m.index);
+    else if (m.type === 'vars') view.setVars(m.index, m.vars);
     else if (m.type === 'notes') {
       // Запись из окна докладчика: в заметки слайда, без перерисовки — у зрителей ничего не меняется
       let k = m.index;

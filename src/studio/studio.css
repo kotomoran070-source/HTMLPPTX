@@ -312,11 +312,12 @@ body.studio .edblock { display: none !important; }
 .st-p-note { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--mu); }
 .st-p-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .st-p-grid label, .st-p-field { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--mu); }
-.st-p-grid input, .st-p-field input[type="text"], .st-p-field input[type="number"], .st-p-field select {
+.st-p-grid input, .st-p-field input[type="text"], .st-p-field input[type="url"], .st-p-field input[type="number"], .st-p-field select {
   width: 100%; height: 30px; padding: 0 8px; border: 1px solid var(--bd); border-radius: 6px; background: var(--bg);
 }
 .st-p-grid input:focus, .st-p-field input:focus, .st-p-field select:focus { outline: none; border-color: var(--ac); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 18%, transparent); }
 .st-p-field input:disabled { opacity: .5; }
+.st-p-field[hidden] { display: none; }
 .st-p-color { display: flex; align-items: center; gap: 8px; }
 .st-p-color input[type="color"] { flex: none; width: 34px; height: 30px; padding: 2px; border: 1px solid var(--bd); border-radius: 6px; background: var(--bg); cursor: pointer; }
 .st-p-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--tx2); cursor: pointer; }

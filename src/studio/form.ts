@@ -61,7 +61,7 @@ function fieldHtml(f: Field, data: unknown, p: Path): string {
         + `</span>`, f.hint, true);
     case 'numbers':
       return row(f.label, `<textarea rows="2" data-t="numbers" data-p="${P(p)}" spellcheck="false"></textarea>`,
-        f.hint ?? 'Через пробел или запятую, дробные — через точку', true);
+        f.hint ?? 'Через пробел или запятую, дробные — через точку. Формулы (=price*2) — через «;»', true);
     case 'strings': {
       const list = Array.isArray(v) ? v : [];
       return `<div class="st-f-list"><span class="st-f-l">${esc(f.label)}</span>`
@@ -159,7 +159,8 @@ export function fillForm(root: HTMLElement, data: unknown, resolveUrl: (src: str
     if (t === 'bool') {
       el.checked = v === undefined ? el.dataset.def === '1' : !!v;
     } else if (t === 'numbers') {
-      el.value = Array.isArray(v) ? v.join(', ') : '';
+      // С формулами («=price*2») — через «;»: внутри формулы бывают запятые и пробелы
+      el.value = Array.isArray(v) ? v.join(v.some((x) => typeof x === 'string') ? '; ' : ', ') : '';
     } else if (t === 'chip') {
       const s = typeof v === 'string' ? v : v && typeof v === 'object' ? String((v as { text?: string }).text ?? '') : '';
       el.value = s.replace(/(?<!\\)\*$/, '');
@@ -232,8 +233,9 @@ export function onFieldChange(el: HTMLInputElement, e: FormEdit): boolean {
     const def = el.dataset.def === '1';
     e.commit((d) => write(d, p, el.checked === def ? undefined : el.checked, as));
   } else if (t === 'numbers') {
-    const nums = raw.split(/[\s;,]+/).map((x) => x.trim()).filter(Boolean).map(Number);
-    if (nums.some((n) => !Number.isFinite(n))) return false;
+    const parts = raw.includes('=') ? raw.split(/[;\n]+/) : raw.split(/[\s;,]+/);
+    const nums = parts.map((x) => x.trim()).filter(Boolean).map((x) => (x.startsWith('=') ? x : Number(x.replace(',', '.'))));
+    if (nums.some((n) => typeof n === 'number' ? !Number.isFinite(n) : n.length < 2)) return false;
     e.commit((d) => write(d, p, nums.length ? nums : undefined, as));
   } else if (t === 'chip') {
     e.commit((d) => {

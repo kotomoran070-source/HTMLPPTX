@@ -6,6 +6,9 @@
 
 /** Символы разметки в обычном тексте экранируются, чтобы не стать оформлением. */
 export function escapeText(s: string): string {
+  // Формулы {{price*2}} — как есть: звёздочка там умножение
+  const parts = s.split(/(\{\{[^{}]*\}\})/);
+  if (parts.length > 1) return parts.map((x, k) => (k % 2 ? x : escapeText(x))).join('');
   return s
     .replace(/\\/g, '\\\\')
     .replace(/\{(?=(#[0-9a-f]{3,8}|accent2?|text2?|muted)\|)/gi, '\\{')

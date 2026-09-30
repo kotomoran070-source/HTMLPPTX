@@ -99,6 +99,24 @@ export const LIBRARY: Category[] = [
     ],
   },
   {
+    name: 'Интерактив',
+    icon: 'cursor',
+    items: [
+      { name: 'Регулятор', w: 420, pw: 320, make: () => ({ type: 'control', name: 'x', label: 'Параметр', min: 0, max: 100, step: 1, value: 40, unit: ' %' }) },
+      {
+        name: 'Регулятор и столбцы', w: 520, pw: 360, make: () => ({
+          type: 'stack', gap: 20,
+          items: [
+            { type: 'control', name: 'x', label: 'Рост в месяц', min: 0, max: 50, step: 1, value: 20, unit: ' %' },
+            { type: 'bars', values: [100, '=100*(1+x/100)', '=100*(1+x/100)^2', '=100*(1+x/100)^3'], labels: ['Сейчас', '+1 мес', '+2 мес', '+3 мес'], max: 350, height: 160 },
+            { type: 'text', text: 'Через три месяца: **{{round(100*(1+x/100)^3)}}** вместо 100' },
+          ],
+        }),
+      },
+      { name: 'Кнопка «Дальше»', w: 260, h: 64, make: () => ({ type: 'shape', kind: 'pill', fill: 'gradient', text: 'Дальше →', action: 'next', styles: { text: { size: 20 } } }) },
+    ],
+  },
+  {
     name: 'Таблицы',
     icon: 'list',
     items: [

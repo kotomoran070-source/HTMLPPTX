@@ -221,3 +221,9 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
 @media print {
   .ac-flow .slide :is(.fill, .strip i, .tbl-accent thead tr, .fin .ln2, .pl > .primary i, .tl-line i, .md-g, .shape-duo) { animation: none !important; }
 }
+
+/* Объект с действием (переход к слайду, ссылка): при показе — кнопка */
+.slide.on > .free.act { cursor: pointer; transition: translate .15s var(--ease), filter .15s; }
+.slide.on > .free.act:hover { translate: 0 -2px; filter: brightness(1.05) saturate(1.05); }
+.slide.on > .free.act:active { translate: 0 0; filter: brightness(.97); }
+body.editing .slide.on > .free.act { cursor: inherit; translate: none; filter: none; }
