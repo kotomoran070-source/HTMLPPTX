@@ -293,3 +293,7 @@ body.editing .stage .free.auto-h:empty, body.editing .stage .free > p:empty { mi
 .edmenu-exact input { width: 70px; height: 26px; padding: 0 6px; border: 1px solid var(--bd); border-radius: 6px; background: var(--bg); color: var(--tx); font: 500 12.5px var(--font); text-align: right; }
 .edmenu-exact input:focus { outline: none; border-color: var(--ac); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 18%, transparent); }
 .edmenu button.edmenu-reset { justify-content: center; margin-top: 4px; font-size: 12px; color: var(--tx2); }
+
+/* Копирование перетаскиванием с Ctrl: оригинал на старом месте, курсор «копирование» */
+body.ed-copying, body.ed-copying * { cursor: copy !important; }
+.ed-copy-ghost { pointer-events: none !important; }

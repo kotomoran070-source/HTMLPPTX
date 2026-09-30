@@ -533,6 +533,48 @@ export class BlockEditor {
     return false;
   }
 
+  /**
+   * Копирование перетаскиванием с Ctrl (как в PowerPoint): пока Ctrl зажат, на старом месте виден
+   * оригинал, курсор — «копирование». Ctrl можно нажать и отпустить на ходу; решает момент отпускания мыши.
+   */
+  private copyMarks(els: HTMLElement[], e: PointerEvent): { key(ev: KeyboardEvent | PointerEvent): void; end(): boolean } {
+    const starts = els.map((el) => ({ left: el.style.left, top: el.style.top }));
+    let ghosts: HTMLElement[] = [];
+    let on = false;
+    const set = (v: boolean) => {
+      if (v === on) return;
+      on = v;
+      document.body.classList.toggle('ed-copying', v);
+      if (!v) { ghosts.forEach((g) => g.remove()); ghosts = []; return; }
+      ghosts = els.map((el, n) => {
+        const g = el.cloneNode(true) as HTMLElement;
+        // Снимок оригинала: без адресов правки, чтобы поиск по слайду его не находил
+        for (const x of [g, ...g.querySelectorAll<HTMLElement>('*')]) {
+          for (const a of ['data-free', 'data-block', 'data-edit', 'data-edit-img', 'data-ed-style', 'data-mount', 'data-img-owner', 'id']) x.removeAttribute(a);
+        }
+        g.classList.add('ed-copy-ghost');
+        g.style.left = starts[n].left;
+        g.style.top = starts[n].top;
+        el.before(g);
+        return g;
+      });
+    };
+    const key = (ev: KeyboardEvent | PointerEvent) => set(ev.ctrlKey || ev.metaKey);
+    set(e.ctrlKey || e.metaKey);
+    addEventListener('keydown', key, true);
+    addEventListener('keyup', key, true);
+    return {
+      key,
+      end: () => {
+        removeEventListener('keydown', key, true);
+        removeEventListener('keyup', key, true);
+        const was = on;
+        set(false);
+        return was;
+      },
+    };
+  }
+
   /** Объект выделен нажатием (без клика): следующий click — это выделение, а не правка текста. */
   takePressSelected(): boolean {
     const v = this.pressSelected;
@@ -547,7 +589,9 @@ export class BlockEditor {
     const k = this.scale();
     let moved = false;
     let cur = start;
+    const copy = this.copyMarks([s.el], e);
     const move = (ev: PointerEvent) => {
+      copy.key(ev);
       const dx = (ev.clientX - e.clientX) / k;
       const dy = (ev.clientY - e.clientY) / k;
       if (!moved && Math.abs(dx) + Math.abs(dy) < 3 / k) return;
@@ -563,12 +607,24 @@ export class BlockEditor {
       removeEventListener('pointermove', move);
       removeEventListener('pointerup', up);
       this.guides.innerHTML = '';
+      const copying = copy.end();
       if (!moved) return;
       this.pressSelected = false;
       // Клик после перетаскивания не должен начинать правку текста
       setTimeout(() => { this.dragging = false; }, 0);
       const path = s.free!;
-      this.host.commit((d) => setAt(d, [...path, 'place'], cur.h ? cur : { x: cur.x, y: cur.y, w: cur.w }), { rebuild: true });
+      const place = cur.h ? cur : { x: cur.x, y: cur.y, w: cur.w };
+      // С Ctrl — копия на новом месте, оригинал остаётся, выделяется копия (как в PowerPoint)
+      if (copying) {
+        const i = Number(path[1]);
+        const c = clone(getAt(this.host.deck(), path)) as { place?: Place; locked?: boolean };
+        delete c.locked;
+        c.place = place;
+        let at = 0;
+        if (this.host.commit((d) => { d.slides[i].free!.push(c as never); at = d.slides[i].free!.length - 1; }, { rebuild: true })) this.selectFree(i, at);
+        return;
+      }
+      this.host.commit((d) => setAt(d, [...path, 'place'], place), { rebuild: true });
     };
     addEventListener('pointermove', move);
     addEventListener('pointerup', up);
@@ -659,7 +715,9 @@ export class BlockEditor {
     let moved = false;
     let ddx = 0;
     let ddy = 0;
+    const copy = this.copyMarks(items.map((it) => it.m.el), e);
     const move = (ev: PointerEvent) => {
+      copy.key(ev);
       const dx = (ev.clientX - e.clientX) / k;
       const dy = (ev.clientY - e.clientY) / k;
       if (!moved && Math.abs(dx) + Math.abs(dy) < 3 / k) return;
@@ -678,8 +736,24 @@ export class BlockEditor {
       removeEventListener('pointermove', move);
       removeEventListener('pointerup', up);
       this.guides.innerHTML = '';
+      const copying = copy.end();
       if (!moved) return;
       setTimeout(() => { this.dragging = false; }, 0);
+      if (copying) {
+        const i = Number(items[0].m.free![1]);
+        const copies = items.map((it) => {
+          const c = clone(getAt(this.host.deck(), it.m.free!)) as { place?: Place; locked?: boolean };
+          delete c.locked;
+          const { h, ...rest } = { ...it.pl, x: it.pl.x + ddx, y: it.pl.y + ddy };
+          c.place = h ? { ...rest, h } : rest;
+          return c;
+        });
+        let from = 0;
+        if (this.host.commit((d) => { const list = d.slides[i].free!; from = list.length; list.push(...(copies as never[])); }, { rebuild: true })) {
+          this.selectMany(i, copies.map((_c, n) => from + n));
+        }
+        return;
+      }
       this.host.commit((d) => items.forEach((it) => {
         const { h, ...rest } = { ...it.pl, x: it.pl.x + ddx, y: it.pl.y + ddy };
         setAt(d, [...it.m.free!, 'place'], h ? { ...rest, h } : rest);

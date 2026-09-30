@@ -112,7 +112,7 @@ slides:
         stroke: gradient
         strokeGradient: {from: accent, to: accent2, angle: 90}
         width: 2
-        text: 9 слайдов витрины
+        text: 10 слайдов витрины
         styles: {text: {size: 17, color: text}}
         place: {x: 350, y: 520, w: 230, h: 62}
         enter: pop
@@ -465,6 +465,86 @@ slides:
         enter: fade
         delay: 1000
     notes: Иллюстрации нарисованы в SVG. Оформление — обычные поля картинки, в PowerPoint оно тоже переносится.
+
+  - id: formats
+    template: canvas
+    label: Форматы файлов
+    bg: var(--bg)
+    transition: push
+    free:
+      - type: text
+        text: Принесите {g:sunset|что угодно}
+        styles: {text: {size: 48, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 64, y: 36, w: 900}
+        enter: rise
+      - type: text
+        text: Здесь настоящие файлы каждого формата. Перетащите свой на слайд в студии — он встанет так же.
+        styles: {text: {size: 18, color: text2}}
+        place: {x: 66, y: 104, w: 1000}
+        enter: fade
+        delay: 120
+      - type: image
+        src: ./assets/rocket.gif
+        radius: 16
+        shadow: md
+        place: {x: 64, y: 156, w: 360, h: 196}
+        enter: pop
+        delay: 250
+      - type: video
+        src: ./assets/film.webm
+        poster: ./assets/film-poster.png
+        loop: true
+        fit: cover
+        place: {x: 460, y: 156, w: 360, h: 196}
+        enter: pop
+        delay: 380
+      - type: model
+        src: ./assets/crystal.glb
+        poster: ./assets/crystal.png
+        rotate: true
+        place: {x: 856, y: 156, w: 360, h: 196}
+        enter: pop
+        delay: 510
+      - type: image
+        src: ./assets/sticker.svg
+        fit: contain
+        radius: 16
+        stroke: line
+        width: 1
+        place: {x: 64, y: 412, w: 360, h: 196}
+        enter: pop
+        delay: 640
+      - type: image
+        src: ./assets/studio.webp
+        mat: 8
+        radius: 10
+        shadow: md
+        place: {x: 460, y: 412, w: 360, h: 196}
+        enter: pop
+        delay: 770
+      - type: table
+        variant: soft
+        density: compact
+        size: 14
+        header: [Файл, Что с ним]
+        widths: [1, 1.5]
+        rows:
+          - [deck.yaml, слайды текстом]
+          - [Excel, вставка в ячейку]
+          - [HTML, импорт и вставки]
+          - [PPTX · PDF, экспорт]
+        place: {x: 856, y: 412, w: 360}
+        enter: pop
+        delay: 900
+      - {type: text, text: "**GIF** · при каждом заходе — с начала", styles: {text: {size: 15, color: text2}}, place: {x: 66, y: 362, w: 360}, enter: fade, delay: 1000}
+      - {type: text, text: "**MP4 · WebM** · и ссылки YouTube, Vimeo", styles: {text: {size: 15, color: text2}}, place: {x: 462, y: 362, w: 360}, enter: fade, delay: 1050}
+      - {type: text, text: "**GLB** · 3D: покрутите мышью при показе", styles: {text: {size: 15, color: text2}}, place: {x: 858, y: 362, w: 360}, enter: fade, delay: 1100}
+      - {type: text, text: "**SVG** · чёткий в любом размере", styles: {text: {size: 15, color: text2}}, place: {x: 66, y: 618, w: 360}, enter: fade, delay: 1150}
+      - {type: text, text: "**PNG · JPG · WebP · AVIF** · фото ужмутся сами", styles: {text: {size: 15, color: text2}}, place: {x: 462, y: 618, w: 380}, enter: fade, delay: 1200}
+      - {type: text, text: "**Таблицы** · вставкой из Excel", styles: {text: {size: 15, color: text2}}, place: {x: 858, y: 618, w: 380}, enter: fade, delay: 1250}
+    notes: |
+      Всё на слайде — настоящие файлы: пиксельная ракета в GIF, ролик WebM, записанный прямо в браузере,
+      гранёный кристалл в GLB, наклейка в SVG и скриншот студии в WebP. Кристалл можно крутить мышью.
 
   - id: thanks
     template: canvas
