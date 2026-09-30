@@ -22,8 +22,11 @@ const MIME: Record<string, string> = {
   htm: 'text/html',
 };
 const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg']);
-/** Кроме картинок в assets/ можно положить видео и 3D-модели */
-const MEDIA_EXT = new Set([...IMAGE_EXT, 'mp4', 'webm', 'glb']);
+/**
+ * Кроме картинок в assets/ можно положить видео, 3D-модели и документы живых вставок (.htm):
+ * их переносит копирование слайда или объекта в другую презентацию
+ */
+const MEDIA_EXT = new Set([...IMAGE_EXT, 'mp4', 'webm', 'glb', 'htm']);
 /** id тега с данными презентации внутри собранного HTML */
 export const DATA_ID = 'htmlpptx-deck';
 const API = '/__htmlpptx/';
@@ -226,7 +229,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
   async function handleAsset(name: string, fileName: string, req: IncomingMessage, res: ServerResponse): Promise<void> {
     const safe = safeFileName(fileName);
     const ext = path.extname(safe).slice(1);
-    if (!MEDIA_EXT.has(ext.toLowerCase())) throw new Error('Поддерживаются изображения (PNG, JPG, GIF, WebP, AVIF, SVG), видео (MP4, WebM) и 3D-модели (GLB)');
+    if (!MEDIA_EXT.has(ext.toLowerCase())) throw new Error('Поддерживаются изображения (PNG, JPG, GIF, WebP, AVIF, SVG), видео (MP4, WebM), 3D-модели (GLB) и живые вставки (HTM)');
     const data = await readBody(req);
     if (!data.length) throw new Error('Пустой файл');
     const assets = path.join(dir, name, 'assets');
