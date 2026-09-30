@@ -39,6 +39,12 @@ export class DeckView {
     });
   }
 
+  /** Код песочницы пришёл из другого окна показа: редактор и результат — те же */
+  setCode(i: number, block: string, code: string): void {
+    const el = [...(this.slides[i]?.querySelectorAll<HTMLElement>('[data-type="sandbox"][data-block]') ?? [])].find((x) => x.dataset.block === block);
+    el?.dispatchEvent(new CustomEvent('slideria:set-code', { detail: { code } }));
+  }
+
   /** Значения ползунков пришли из другого окна: ползунки встают туда же, связанные блоки пересчитываются */
   setVars(i: number, vars: Record<string, number>): void {
     const el = this.slides[i];

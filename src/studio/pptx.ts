@@ -25,7 +25,8 @@ const inch = (px: number) => Math.round((px / PX) * 1000) / 1000;
 const pt = (px: number) => Math.round(px * 0.75 * 10) / 10;
 
 /** Блоки, которые передаются картинкой: схемы и вставки со своей графикой */
-const RASTER = new Set<string>();
+/** Блоки, которые уходят в PPTX картинкой целиком (редактор кода с подсветкой) */
+const RASTER = new Set<string>(['sandbox']);
 /** Строчные элементы: внутри них текст — одна надпись с разным оформлением кусков */
 const INLINE = new Set(['inline', 'contents']);
 

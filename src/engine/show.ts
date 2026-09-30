@@ -469,6 +469,13 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     if ('slide' in to) go(to.slide);
     else window.open(to.url, '_blank', 'noopener');
   });
+  // Песочница: код правят здесь — докладчику
+  view.stage.addEventListener('slideria:code', (e) => {
+    const el = e.target as HTMLElement;
+    const i = Number(el.closest<HTMLElement>('.slide')?.dataset.index);
+    const code = (e as CustomEvent<{ code: string }>).detail?.code;
+    if (Number.isInteger(i) && el.dataset.block && typeof code === 'string') sync.send({ type: 'code', index: i, block: el.dataset.block, code });
+  });
   // Ползунки: здесь сдвинули — докладчику; от докладчика — сюда
   addEventListener('slideria:vars', (e) => {
     const d = (e as CustomEvent<{ index: number; vars: Record<string, number> }>).detail;
@@ -478,6 +485,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     if (m.type === 'goto') go(m.index);
     else if (m.type === 'vars') view.setVars(m.index, m.vars);
     else if (m.type === 'trigger') view.trigger(m.index, m.action);
+    else if (m.type === 'code') view.setCode(m.index, m.block, m.code);
     else if (m.type === 'notes') {
       // Запись из окна докладчика: в заметки слайда, без перерисовки — у зрителей ничего не меняется
       let k = m.index;

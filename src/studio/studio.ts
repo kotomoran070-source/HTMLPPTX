@@ -23,7 +23,7 @@ import { addEffect, addTemplate, assetUrls, findEntrance, deckWithTemplate, list
 import { animCommands, animPanelHtml, animTabHtml, bindDelayField, syncAnimTab, type AnimHost } from './anim-tab';
 import { contextCommands, tableMenu, contextPanelsHtml, contextTab, contextTabsHtml, syncSwatches, type ContextTab } from './context-tabs';
 import { Inspector } from './inspector';
-import { closeLibrary, EMBED_SAMPLE, showLibrary, type Preset } from './library';
+import { closeLibrary, EMBED_SAMPLE, SANDBOX_SAMPLE, showLibrary, type Preset } from './library';
 import { openCodeDialog } from './code-dialog';
 import { closeMenu, showMenu, showPopover, type MenuEntry } from './menu';
 import { projectStorage } from '../engine/storage';
@@ -508,17 +508,17 @@ export function startStudio(deck: Deck, deckKey: string): void {
   }
 
   // ---------------- код живой вставки ----------------
-  /** Окно «Код вставки»: код из поля code или из файла вставки; без кода — стартовый пример */
+  /** Окно кода живой вставки или песочницы: код из поля code или из файла вставки; без кода — пример */
   async function editEmbedCode(path?: Path): Promise<void> {
     const p = path ?? ed.selection?.block;
     const b = p ? getAt(deck, p) as (Block & { src?: string; code?: string; theme?: boolean }) | undefined : undefined;
-    if (!p || b?.type !== 'embed') return;
+    if (!p || (b?.type !== 'embed' && b?.type !== 'sandbox')) return;
     let text = typeof b.code === 'string' ? b.code : '';
     if (!text && b.src) {
       try { text = await (await fetch(b.src)).text(); } catch { return ed.toast('Не удалось прочитать файл вставки', 3000, true); }
     }
-    const was = text || EMBED_SAMPLE;
-    openCodeDialog({ title: 'Код вставки', code: was, theme: !!b.theme, apply: (next) => { if (next !== was || !text) void applyEmbedCode(p, b, next); } });
+    const was = text || (b.type === 'sandbox' ? SANDBOX_SAMPLE : EMBED_SAMPLE);
+    openCodeDialog({ title: b.type === 'sandbox' ? 'Код песочницы' : 'Код вставки', code: was, theme: !!b.theme, apply: (next) => { if (next !== was || !text) void applyEmbedCode(p, b, next); } });
   }
 
   /** Код применён: где он был, там и остаётся — файл новым файлом в assets/, код — в данных */
@@ -547,7 +547,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
 
   // Двойной щелчок по живой вставке — её код
   view.stage.addEventListener('dblclick', (e) => {
-    const el = (e.target as Element).closest<HTMLElement>('.slide.on [data-type="embed"][data-block]');
+    const el = (e.target as Element).closest<HTMLElement>('.slide.on :is([data-type="embed"], [data-type="sandbox"])[data-block]');
     if (!el) return;
     e.preventDefault();
     e.stopPropagation();
@@ -1114,7 +1114,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     }
     ed.selectFree(i, at);
     // Живая вставка из галереи сразу получает заставку (миниатюры, PPTX)
-    if (block.type === 'embed') void ed.embedPoster(path);
+    if (block.type === 'embed' || block.type === 'sandbox') void ed.embedPoster(path);
   }
 
   // ---------------- код ----------------
@@ -1215,8 +1215,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'show.presenter': { run: () => void openShow(index, true) },
     'file.export': { run: () => exportMenu() },
     'model.snapshot': { run: () => void modelSnapshot(), enabled: () => ed.selection?.type === 'model' },
-    'embed.code': { run: () => void editEmbedCode(), enabled: () => ed.selection?.type === 'embed' },
-    'embed.poster': { run: () => void embedPoster(ed.selection?.block), enabled: () => ed.selection?.type === 'embed' },
+    'embed.code': { run: () => void editEmbedCode(), enabled: () => ed.selection?.type === 'embed' || ed.selection?.type === 'sandbox' },
+    'embed.poster': { run: () => void embedPoster(ed.selection?.block), enabled: () => ed.selection?.type === 'embed' || ed.selection?.type === 'sandbox' },
     'format.painter': { run: () => (painter ? stopPainter() : startPainter(false)), enabled: () => !!painter || singleSel(), active: () => !!painter },
     'format.copy': { run: copyFormat, enabled: singleSel },
     'obj.template': { run: askTemplateName, enabled: () => selPaths().length > 0 },

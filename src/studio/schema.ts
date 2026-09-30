@@ -263,6 +263,17 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'scale', label: 'Масштаб вёрстки', type: 'number', min: 0.1, max: 4, step: 0.05, placeholder: '1' },
     ],
   },
+  sandbox: {
+    about: 'Песочница: код слева, результат справа. При показе код правится прямо на слайде, результат обновляется на лету; правки показа не сохраняются. Код в студии — кнопкой ниже или двойным щелчком.',
+    fields: [
+      { k: 'title', label: 'Имя файла в заголовке', type: 'text', placeholder: 'index.html' },
+      { k: 'size', label: 'Кегль кода, px', type: 'number', min: 9, max: 40, placeholder: '15' },
+      { k: 'split', label: 'Ширина редактора, %', type: 'number', min: 20, max: 80, placeholder: '56' },
+      { k: 'theme', label: 'Цвета темы внутри результата', type: 'bool' },
+      { k: 'console', label: 'Консоль под результатом', type: 'bool', default: true },
+      { k: 'poster', label: 'Заставка результата', type: 'image' },
+    ],
+  },
   embed: {
     about: 'Живая вставка: HTML, CSS и JavaScript в изолированной рамке. Код — кнопкой ниже или двойным щелчком по вставке; HTML-файл можно просто перетащить на слайд.',
     fields: [

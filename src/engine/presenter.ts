@@ -455,6 +455,12 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     if ('slide' in to) go(to.slide);
     else window.open(to.url, '_blank', 'noopener');
   });
+  view.stage.addEventListener('slideria:code', (e) => {
+    const el = e.target as HTMLElement;
+    const i = Number(el.closest<HTMLElement>('.slide')?.dataset.index);
+    const code = (e as CustomEvent<{ code: string }>).detail?.code;
+    if (Number.isInteger(i) && el.dataset.block && typeof code === 'string') sync.send({ type: 'code', index: i, block: el.dataset.block, code }, toMain());
+  });
   addEventListener('slideria:vars', (e) => {
     const d = (e as CustomEvent<{ index: number; vars: Record<string, number> }>).detail;
     sync.send({ type: 'vars', index: d.index, vars: d.vars }, toMain());
@@ -466,6 +472,10 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     }
     if (m.type === 'trigger') {
       if (!mainId || from === mainId) view.trigger(m.index, m.action);
+      return;
+    }
+    if (m.type === 'code') {
+      if (!mainId || from === mainId) view.setCode(m.index, m.block, m.code);
       return;
     }
     if (m.type === 'notes-ok') {

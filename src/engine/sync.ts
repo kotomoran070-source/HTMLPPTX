@@ -17,6 +17,8 @@ export type SyncMsg =
   | { type: 'notes-ok'; id: string; saved: 'auto' | 'file' | 'memory' }
   /** Ползунки слайда сдвинули в одном окне — другое повторяет */
   | { type: 'vars'; index: number; vars: Record<string, number> }
+  /** Код песочницы правят в одном окне — другое повторяет */
+  | { type: 'code'; index: number; block: string; code: string }
   /** Кнопка «показать / скрыть» нажата в одном окне — другое повторяет */
   | { type: 'trigger'; index: number; action: string };
 

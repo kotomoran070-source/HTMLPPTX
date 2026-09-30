@@ -1,4 +1,4 @@
-# Витрина Slideria: всё, что умеет движок, на двенадцати слайдах.
+# Витрина Slideria: всё, что умеет движок, на тринадцати слайдах.
 # Каждый слайд собран из настоящих блоков — его можно открыть в студии и поправить.
 
 title: Slideria — презентации, которые живут
@@ -740,6 +740,69 @@ slides:
       Пик интерактива: четыре регулятора задают частоту, амплитуду, скорость и оттенок.
       «Волна» — три слоя SVG-узоров, которые бегут с разной скоростью; «Спектр» — 32 полосы с гармониками f, 2f, 3f;
       «Как устроено» — фрагмент данных этого слайда с живыми значениями. Вкладки — кнопки «показать / скрыть».
+
+  - id: code
+    template: canvas
+    label: Код на слайде
+    bg: var(--bg)
+    transition: fade
+    free:
+      - type: text
+        text: Код прямо {g:duo|на слайде}
+        styles: {text: {size: 44, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 32, w: 900}
+        enter: rise
+      - type: text
+        text: "Правьте при показе — результат обновляется на лету. Попробуйте поменять **petals** на 12."
+        styles: {text: {size: 17, color: text2}}
+        place: {x: 50, y: 92, w: 1100}
+        enter: fade
+        delay: 120
+      - type: sandbox
+        title: rose.html
+        theme: true
+        code: |
+          <canvas id="c"></canvas>
+          <style>body { margin: 0 } canvas { width: 100vw; height: 100vh; display: block }</style>
+          <script>
+            const petals = 7;   // лепестки — поменяйте на 4, 12 или 30
+            const speed = 1;    // скорость
+            const css = getComputedStyle(document.documentElement);
+            const g = c.getContext('2d');
+            c.width = innerWidth * 2; c.height = innerHeight * 2;
+            g.scale(2, 2);
+
+            function draw(t) {
+              const W = innerWidth, H = innerHeight, r = Math.min(W, H) * 0.44;
+              g.clearRect(0, 0, W, H);
+              g.beginPath();
+              for (let a = 0; a <= Math.PI * 2 + 0.01; a += 0.005) {
+                const k = r * Math.cos(petals * a + t / 900 * speed);
+                g.lineTo(W / 2 + k * Math.cos(a), H / 2 + k * Math.sin(a));
+              }
+              const grad = g.createLinearGradient(0, 0, W, H);
+              grad.addColorStop(0, css.getPropertyValue('--ac'));
+              grad.addColorStop(1, css.getPropertyValue('--ac2'));
+              g.fillStyle = g.strokeStyle = grad;
+              g.globalAlpha = 0.14; g.fill();
+              g.globalAlpha = 1; g.lineWidth = 2.5; g.stroke();
+              requestAnimationFrame(draw);
+            }
+            requestAnimationFrame(draw);
+            console.log('Лепестков:', petals);
+          </script>
+        place: {x: 48, y: 140, w: 1184, h: 500}
+        enter: rise
+        delay: 220
+      - type: text
+        text: "Esc — обратно к слайдам · Ctrl+Enter — запустить · ↺ — исходный код · правку видят и зал, и докладчик"
+        styles: {text: {size: 14, color: muted}}
+        place: {x: 50, y: 660, w: 1180}
+        enter: fade
+        delay: 500
+    notes: |
+      Песочница: щёлкните в код и меняйте числа — результат обновится через долю секунды, console.log — в консоли справа.
+      Правки показа не сохраняются в презентацию; «↺» возвращает исходный код. Esc — снова листать слайды стрелками.
 
   - id: thanks
     template: canvas

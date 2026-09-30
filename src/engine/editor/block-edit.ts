@@ -19,7 +19,7 @@ export interface BlockHost {
 
 const NAMES: Record<string, string> = {
   text: 'Текст', note: 'Подпись', list: 'Список', image: 'Картинка', tile: 'Плитка', card: 'Карточка',
-  grid: 'Сетка', stack: 'Столбик', panel: 'Панель', kv: 'Таблица', progress: 'Прогресс', sliders: 'Ползунки', control: 'Регулятор',
+  grid: 'Сетка', stack: 'Столбик', panel: 'Панель', kv: 'Таблица', progress: 'Прогресс', sliders: 'Ползунки', control: 'Регулятор', sandbox: 'Песочница',
   chips: 'Чипы', network: 'Схема сети', hub: 'Схема итогов', system: 'Схема системы', pipeline: 'Пайплайн',
   'line-chart': 'График', uptime: 'Доступность', bars: 'Столбцы', spacer: 'Отступ',
   html: 'Элемент', embed: 'Живая вставка', stat: 'Число', quote: 'Цитата', timeline: 'Хронология', shape: 'Фигура', table: 'Таблица', group: 'Группа', video: 'Видео', model: '3D-модель',

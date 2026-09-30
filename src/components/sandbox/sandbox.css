@@ -1,0 +1,70 @@
+/* Песочница: тёмный редактор кода слева, результат и консоль справа.
+   overflow: clip, а не hidden: при фокусе в редакторе браузер не прокручивает рамки */
+@keyframes sbx-pulse { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, .55); } 70%, 100% { box-shadow: 0 0 0 7px rgba(34, 197, 94, 0); } }
+
+.sbx { --sbx-mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  display: grid; grid-template-columns: var(--sbx-split, 56%) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100%; min-height: 240px; overflow: clip;
+  border-radius: 18px; border: 1px solid var(--bd); background: var(--surf);
+  box-shadow: 0 30px 70px -34px color-mix(in srgb, var(--ac) 55%, rgba(15, 23, 42, .5)); }
+.sbx-bar { display: flex; align-items: center; gap: 10px; flex: none; height: 42px; padding: 0 12px 0 14px; box-sizing: border-box; font: 700 13px/1 var(--font); }
+.sbx-bar b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sbx .ic { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* Редактор */
+.sbx-code { display: flex; flex-direction: column; min-width: 0; min-height: 0; color: #E6E9F2;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--ac) 14%, #0C1120), #0A0E1A 70%); }
+.sbx-code .sbx-bar { border-bottom: 1px solid rgba(255, 255, 255, .08); color: rgba(230, 233, 242, .85); }
+.sbx-dots { display: flex; gap: 6px; }
+.sbx-dots i { width: 10px; height: 10px; border-radius: 50%; background: #FF5F57; }
+.sbx-dots i:nth-child(2) { background: #FEBC2E; }
+.sbx-dots i:nth-child(3) { background: #28C840; }
+.sbx.edited .sbx-code .sbx-bar b::after { content: " ●"; color: color-mix(in srgb, var(--ac) 60%, #fff); font-size: 10px; vertical-align: 2px; }
+.sbx-tools { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.sbx-tools button { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border: 0; border-radius: 7px; cursor: pointer;
+  background: rgba(255, 255, 255, .07); color: inherit; font: 700 12px/1 var(--font); transition: background .15s; }
+.sbx-tools button:hover { background: rgba(255, 255, 255, .14); }
+.sbx-tools .sbx-run { background: var(--ac-g, var(--ac)); color: #fff; padding: 0 12px; }
+.sbx-tools .sbx-run:hover { filter: brightness(1.1); background: var(--ac-g, var(--ac)); }
+
+.sbx-ed { position: relative; flex: 1; min-height: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); overflow: clip;
+  font: 500 var(--sbx-fs, 15px)/1.6 var(--sbx-mono); tab-size: 2; }
+.sbx-gut { margin: 0; padding: 14px 10px 14px 14px; min-width: 2ch; text-align: right; font: inherit; color: rgba(230, 233, 242, .26); user-select: none; }
+.sbx-scroll { position: relative; overflow: clip; min-width: 0; }
+.sbx-hl { margin: 0; padding: 14px 18px; font: inherit; white-space: pre; color: #E6E9F2; pointer-events: none; }
+.sbx-hl code { font: inherit; }
+.sbx-in { position: absolute; inset: 0; width: 100%; height: 100%; box-sizing: border-box; margin: 0; padding: 14px 18px; border: 0; resize: none; outline: none;
+  background: transparent; color: transparent; caret-color: #fff; font: inherit; white-space: pre; overflow: auto; tab-size: 2; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .2) transparent; }
+.sbx-in::selection { background: color-mix(in srgb, var(--ac) 45%, transparent); color: transparent; }
+.sx-c { color: #6F7C9A; font-style: italic; }
+.sx-s { color: #A6E3A1; }
+.sx-t { color: color-mix(in srgb, var(--ac) 45%, #fff); }
+.sx-a { color: #F9C97C; }
+.sx-k { color: color-mix(in srgb, var(--ac2, var(--ac)) 50%, #fff); font-weight: 700; }
+.sx-n { color: #FFA07A; }
+
+/* Результат */
+.sbx-res { display: flex; flex-direction: column; min-width: 0; min-height: 0; border-left: 1px solid var(--bd); }
+.sbx-res .sbx-bar { color: var(--tx2); border-bottom: 1px solid var(--bd); }
+.sbx-live { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font: 800 10.5px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--mu); }
+.sbx-live i { width: 8px; height: 8px; border-radius: 50%; background: var(--mu); }
+.sbx.running .sbx-live { color: #16A34A; }
+.sbx.running .sbx-live i { background: #22C55E; animation: sbx-pulse 1.8s infinite; }
+.sbx-out { position: relative; flex: 1; min-height: 0; overflow: clip; }
+.sbx-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; opacity: 0; transition: opacity .2s; }
+.sbx-frame.on { opacity: 1; }
+.sbx-poster { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; }
+.sbx-ph { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 8px; color: var(--mu); font: 600 14px/1.2 var(--font); }
+.sbx-ph .ic { width: 26px; height: 26px; }
+.sbx-out:has(.sbx-frame.on) > :is(.sbx-poster, .sbx-ph) { visibility: hidden; }
+.sbx-con { flex: none; height: 20%; min-height: 50px; max-height: 120px; overflow: auto; box-sizing: border-box; padding: 8px 14px;
+  border-top: 1px solid var(--bd); background: color-mix(in srgb, var(--alt) 70%, var(--surf)); font: 500 12.5px/1.55 var(--sbx-mono); color: var(--tx2); }
+.sbx-ln { white-space: pre-wrap; overflow-wrap: anywhere; }
+.sbx-ln::before { content: "› "; color: var(--mu); }
+.sbx-ln.warn { color: #B45309; }
+.sbx-ln.error { color: #DC2626; }
+:root[data-theme="dark"] .sbx-ln.warn { color: #FBBF24; }
+:root[data-theme="dark"] .sbx-ln.error { color: #F87171; }
+.sbx-con-ph { color: var(--mu); }
+
+/* В редакторе песочница — объект слайда: мышь выделяет и двигает её, код правится двойным щелчком */
+body.editing .sbx-in, body.editing .sbx-tools, body.editing .sbx-frame { pointer-events: none; }

@@ -27,3 +27,4 @@ import './backdrop/backdrop';
 import './html/html';
 import './live/live';
 import './control/control';
+import './sandbox/sandbox';

@@ -1329,13 +1329,15 @@ export class Editor {
   }
 
   /**
-   * Заставка живой вставки: снимок её документа в светлой теме, по размеру объекта.
+   * Заставка живой вставки (или результата песочницы): снимок документа в светлой теме, по размеру объекта.
    * Нужна миниатюрам, PPTX, PDF и показу до загрузки рамки. false — снять не вышло.
    */
   async embedPoster(path: Path): Promise<boolean> {
     const b = getAt(this.host.deck, path) as { type?: string; src?: string; code?: string; theme?: boolean; place?: { w?: number; h?: number } } | undefined;
-    if (b?.type !== 'embed') return false;
-    const el = [...this.host.stage().querySelectorAll<HTMLElement>('.slide.on [data-block]')].find((x) => x.getAttribute('data-block') === JSON.stringify(path));
+    if (b?.type !== 'embed' && b?.type !== 'sandbox') return false;
+    const root = [...this.host.stage().querySelectorAll<HTMLElement>('.slide.on [data-block]')].find((x) => x.getAttribute('data-block') === JSON.stringify(path));
+    // У песочницы снимается окно результата
+    const el = b.type === 'sandbox' ? root?.querySelector<HTMLElement>('.sbx-out') : root;
     const w = Math.round(el?.offsetWidth || b.place?.w || 640);
     const h = Math.round(el?.offsetHeight || b.place?.h || 360);
     const { embedShot } = await import('../embed-shot');
@@ -1347,7 +1349,7 @@ export class Editor {
       : data;
     // Объект могли удалить или заменить, пока снимался кадр
     const now = getAt(this.host.deck, path) as { type?: string; src?: string; code?: string } | undefined;
-    if (now?.type !== 'embed' || now.src !== b.src || now.code !== b.code) return false;
+    if (now?.type !== b.type || now.src !== b.src || now.code !== b.code) return false;
     this.commit((d) => setAt(d, [...path, 'poster'], url), { rebuild: true });
     return true;
   }

@@ -72,6 +72,31 @@ const P = Array.from({ length: 160 }, (_, i) => ({
 </script></body></html>
 `;
 
+/** Стартовый код песочницы: короткий, чтобы его было удобно править при показе */
+export const SANDBOX_SAMPLE = `<style>
+  body { margin: 0; height: 100vh;
+         display: grid; place-content: center; }
+  .dot { display: inline-block; margin: 6px;
+         width: 22px; height: 22px; border-radius: 50%;
+         background: var(--ac);
+         animation: jump .8s ease-in-out infinite alternate; }
+  @keyframes jump {
+    to { transform: translateY(-40px); background: var(--ac2); }
+  }
+</style>
+<div id="row"></div>
+<script>
+  const count = 7;   // поменяйте число — результат обновится сам
+  for (let i = 0; i < count; i++) {
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.style.animationDelay = i * 0.1 + 's';
+    row.append(dot);
+  }
+  console.log('Точек:', count);
+</script>
+`;
+
 /** Готовые блоки: вставляются свободным объектом в центр слайда. Данные — как в deck.yaml. */
 export const LIBRARY: Category[] = [
   {
@@ -157,6 +182,7 @@ export const LIBRARY: Category[] = [
           ],
         }),
       },
+      { name: 'Песочница', w: 1040, h: 440, pw: 360, make: () => ({ type: 'sandbox', theme: true, code: SANDBOX_SAMPLE }) },
       { name: 'Живой код', w: 640, h: 360, make: () => ({ type: 'embed', theme: true, interactive: true, code: EMBED_SAMPLE }) },
       { name: 'Кнопка «Дальше»', w: 260, h: 64, make: () => ({ type: 'shape', kind: 'pill', fill: 'gradient', text: 'Дальше →', action: 'next', styles: { text: { size: 20 } } }) },
     ],
