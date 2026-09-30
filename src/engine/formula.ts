@@ -5,7 +5,8 @@
  *   - «{{x}}» или «{{=x*2}}» внутри текста — подставленное значение.
  *
  * Формулы считаются без eval: числа, переменные, + − * / ^ %, скобки и функции
- * round, min, max, abs, sqrt, floor, ceil, log10, ln, exp. Не получилось посчитать — поле остаётся как было.
+ * round, min, max, abs, sqrt, floor, ceil, log10, ln, exp, sin, cos, tan и число pi.
+ * Не получилось посчитать — поле остаётся как было.
  */
 
 export type Vars = Record<string, number>;
@@ -15,7 +16,7 @@ type Tok = { t: 'num'; v: number } | { t: 'id'; v: string } | { t: 'op'; v: stri
 const FUNCS: Record<string, (...a: number[]) => number> = {
   round: (x, d = 0) => { const k = 10 ** Math.max(0, Math.min(6, Math.round(d))); return Math.round(x * k) / k; },
   min: Math.min, max: Math.max, abs: Math.abs, sqrt: Math.sqrt, floor: Math.floor, ceil: Math.ceil,
-  log10: Math.log10, ln: Math.log, exp: Math.exp,
+  log10: Math.log10, ln: Math.log, exp: Math.exp, sin: Math.sin, cos: Math.cos, tan: Math.tan,
 };
 
 function lex(src: string): Tok[] | null {
@@ -60,8 +61,9 @@ export function evalFormula(src: string, vars: Vars): number | null {
         i++;
         return f(...args);
       }
-      if (!(k.v in vars)) return fail();
-      return vars[k.v];
+      if (k.v in vars) return vars[k.v];
+      if (k.v.toLowerCase() === 'pi') return Math.PI;
+      return fail();
     }
     return fail();
   };

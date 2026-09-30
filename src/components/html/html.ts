@@ -41,6 +41,33 @@ function fragment(html: string): DocumentFragment {
   return f;
 }
 
+/**
+ * SVG-определения (градиенты, узоры, фильтры) получают свои id в каждой копии слайда:
+ * миниатюры и превью с теми же id иначе перехватывают ссылки url(#…) живого слайда.
+ */
+function uniqueDefs(f: DocumentFragment, suffix: string): void {
+  const ids = new Set([...f.querySelectorAll('[id]')].map((el) => el.id).filter(Boolean));
+  if (!ids.size) return;
+  const all = [...f.querySelectorAll('*')];
+  const used = new Set<string>();
+  for (const el of all) {
+    for (const a of el.attributes) {
+      for (const m of a.value.matchAll(/url\(\s*['"]?#([^)'"\s]+)/g)) if (ids.has(m[1])) used.add(m[1]);
+      if (/^(href|xlink:href)$/i.test(a.name) && a.value.startsWith('#') && ids.has(a.value.slice(1))) used.add(a.value.slice(1));
+    }
+  }
+  if (!used.size) return;
+  const to = (id: string) => (used.has(id) ? `${id}-${suffix}` : id);
+  for (const el of all) {
+    if (el.id && used.has(el.id)) el.id = to(el.id);
+    for (const a of [...el.attributes]) {
+      let v = a.value.replace(/url\(\s*(['"]?)#([^)'"\s]+)\1\s*\)/g, (m, q: string, id: string) => (used.has(id) ? `url(${q}#${to(id)}${q})` : m));
+      if (/^(href|xlink:href)$/i.test(a.name) && v.startsWith('#')) v = `#${to(v.slice(1))}`;
+      if (v !== a.value) el.setAttribute(a.name, v);
+    }
+  }
+}
+
 function addStyle(el: Element, css: string): void {
   if (!css) return;
   const cur = el.getAttribute('style') ?? '';
@@ -201,6 +228,7 @@ defineBlock<HtmlProps>('html', {
         img.setAttribute('data-img-kind', 'photo');
       }
     });
+    uniqueDefs(f, ctx.uid('d'));
     const box = document.createElement('div');
     box.append(f);
     // Вёрстка из другой презентации: свои стили (deck.scoped[ns]), чужие её не задевают

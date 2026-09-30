@@ -218,8 +218,11 @@ export function actionTarget(action: string, deck: Deck, index: number): { slide
 /** Имя свободного объекта (id): латиница, цифры, «-» и «_» */
 export const OBJ_ID = /^[\w-]+$/;
 
-/** Действие над объектами слайда: show:<id>, hide:<id>, toggle:<id> (можно несколько через запятую) */
-export const TRIGGER = /^(show|hide|toggle):[\w-]+(,[\w-]+)*$/;
+/**
+ * Действие над объектами слайда: show:<id>, hide:<id>, toggle:<id>; объектов — несколько через запятую,
+ * команд — несколько через «;» (вкладки: «show:a;hide:b,c»)
+ */
+export const TRIGGER = /^(show|hide|toggle):[\w-]+(,[\w-]+)*(;(show|hide|toggle):[\w-]+(,[\w-]+)*)*$/;
 
 /**
  * Действие объекта по щелчку при показе: next, prev, first, last, slide:<id слайда>

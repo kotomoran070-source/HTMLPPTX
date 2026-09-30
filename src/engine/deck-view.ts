@@ -55,14 +55,19 @@ export class DeckView {
    * Появление — эффектом объекта (или подъёмом), исчезновение — плавным растворением.
    */
   trigger(i: number, action: string): boolean {
-    const m = /^(show|hide|toggle):(.+)$/.exec(action);
     const el = this.slides[i];
-    if (!m || !el) return false;
-    const ids = m[2].split(',');
+    const cmds = action.split(';').map((c) => /^(show|hide|toggle):(.+)$/.exec(c.trim()));
+    if (!el || !cmds.length || cmds.some((m) => !m)) return false;
+    // Несколько команд за щелчок: «show:a;hide:b,c» — так из кнопок собираются вкладки
+    for (const m of cmds as RegExpExecArray[]) this.apply(el, m[1], m[2].split(','));
+    return true;
+  }
+
+  private apply(el: HTMLElement, verb: string, ids: string[]): void {
     el.querySelectorAll<HTMLElement>(':scope > .free[data-obj]').forEach((o) => {
       if (!ids.includes(o.dataset.obj!)) return;
       const hidden = o.classList.contains('trig-hid') || o.classList.contains('trig-out');
-      const show = m[1] === 'show' || (m[1] === 'toggle' && hidden);
+      const show = verb === 'show' || (verb === 'toggle' && hidden);
       if (show === !hidden) return;
       clearTimeout(Number(o.dataset.trigT));
       o.classList.remove('trig-in', 'trig-out', 'trig-hid');
@@ -75,7 +80,6 @@ export class DeckView {
         o.dataset.trigT = String(window.setTimeout(() => { o.classList.replace('trig-out', 'trig-hid'); }, reducedMotion() ? 0 : 260));
       }
     });
-    return true;
   }
 
   /** При заходе на слайд объекты снова в начальном виде: скрытые до щелчка — скрыты */
@@ -250,7 +254,7 @@ export function staticSlide(deck: Deck, index: number, width?: number): HTMLElem
   if (slide) inner.innerHTML = new Renderer(deck, deck.brand?.logo).slide(slide, index, 'on static');
   // SMIL-анимации CSS не останавливает: убираем их из статичной копии
   inner.querySelectorAll('animateMotion').forEach((a) => a.parentElement?.remove());
-  inner.querySelectorAll('animate').forEach((a) => a.remove());
+  inner.querySelectorAll('animate, animateTransform').forEach((a) => a.remove());
   // Миниатюра — картинка, а не место для правки
   inner.querySelectorAll('[data-edit],[data-edit-img],[data-edit-url]').forEach((e) => {
     // Пометка «здесь текст»: по ней экспорт подгоняет текст импортированной вёрстки

@@ -1,4 +1,4 @@
-# Витрина Slideria: всё, что умеет движок, на девяти слайдах.
+# Витрина Slideria: всё, что умеет движок, на двенадцати слайдах.
 # Каждый слайд собран из настоящих блоков — его можно открыть в студии и поправить.
 
 title: Slideria — презентации, которые живут
@@ -63,6 +63,36 @@ css: |
   .sr-tiles i:nth-child(2) { animation-delay: .3s; } .sr-tiles i:nth-child(3) { animation-delay: .6s; } .sr-tiles i:nth-child(4) { animation-delay: .9s; } .sr-tiles i:nth-child(5) { animation-delay: 1.2s; } .sr-tiles i:nth-child(6) { animation-delay: 1.5s; }
   .sr-dot { position: absolute; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; transform: translateZ(var(--z)); background: color-mix(in srgb, var(--ac) 60%, var(--ac2)); opacity: .55; }
   .sr-pulse { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; --h: 380px; background: #fff; box-shadow: 0 0 12px 4px var(--ac), 0 0 26px 8px color-mix(in srgb, var(--ac2) 60%, transparent); animation: sr-rise 2.4s linear infinite; }
+
+  /* Слайд «Живой пульт»: экран, волны и спектр перекрашиваются плавно — оттенок --hue интерполируется */
+  @property --hue { syntax: "<number>"; inherits: true; initial-value: 255; }
+  @keyframes pk-scan { to { transform: translateX(952px); } }
+  .slide.static .pk-scan { display: none; }
+  @keyframes pk-eq { to { transform: scaleY(.8); } }
+  .pk-scr, .pk-wave, .pk-spec, .pk-code { transition: --hue .4s ease; }
+  .pk-scr { position: relative; height: 100%; overflow: hidden; border-radius: 22px; background: radial-gradient(120% 95% at 50% 0%, hsl(var(--hue) 65% 22%), hsl(var(--hue) 45% 8%) 72%);
+    box-shadow: 0 34px 70px -30px hsl(var(--hue) 80% 40% / .6), inset 0 0 0 1px hsl(var(--hue) 80% 72% / .18); }
+  .pk-grid { position: absolute; inset: 0; background-image: linear-gradient(hsl(var(--hue) 80% 85% / .07) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--hue) 80% 85% / .07) 1px, transparent 1px); background-size: 39px 37.25px; background-position: 16px 16px; }
+  .pk-scan { position: absolute; top: 0; bottom: 0; left: -140px; width: 140px; background: linear-gradient(90deg, transparent, hsl(var(--hue) 95% 70% / .14)); animation: pk-scan 4s linear infinite; }
+  .pk-wave { display: block; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 0 10px hsl(var(--hue) 95% 62% / .55)); }
+  .pk-s1 { stop-color: hsl(var(--hue) 95% 62%); stop-opacity: .4; }
+  .pk-s2 { stop-color: hsl(var(--hue) 95% 62%); stop-opacity: 0; }
+  .pk-line { fill: none; stroke: hsl(var(--hue) 95% 68%); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+  .pk-line2 { fill: none; stroke: hsl(calc(var(--hue) + 55) 95% 74%); stroke-width: 2; stroke-linecap: round; opacity: .75; }
+  .pk-axis { stroke: hsl(var(--hue) 80% 85% / .2); stroke-dasharray: 4 6; }
+  .pk-spec { position: relative; height: 100%; box-sizing: border-box; padding: 30px 8px 30px; }
+  .pk-bars { height: 100%; display: flex; align-items: flex-end; gap: 6px; }
+  .pk-bars i { flex: 1; border-radius: 6px 6px 3px 3px; transform-origin: bottom; transition: height .35s var(--ease);
+    background: linear-gradient(hsl(calc(var(--hue) + var(--i) * 4) 95% 70%), hsl(calc(var(--hue) + var(--i) * 4 + 40) 85% 42%));
+    box-shadow: 0 0 16px hsl(calc(var(--hue) + var(--i) * 4) 95% 60% / .4); animation: pk-eq var(--sp, 1.4s) ease-in-out infinite alternate; animation-delay: calc(var(--i) * -110ms); }
+  .pk-mk { position: absolute; top: 2px; transform: translateX(-50%); padding: 4px 9px; border-radius: 99px; font: 700 12px/1 var(--font); color: hsl(var(--hue) 90% 88%); background: hsl(var(--hue) 70% 32% / .7); transition: left .35s var(--ease); }
+  .pk-ax { position: absolute; left: 8px; right: 8px; bottom: 6px; display: flex; justify-content: space-between; font: 600 12px/1 var(--font); color: hsl(var(--hue) 40% 78% / .8); }
+  .pk-code { height: 100%; box-sizing: border-box; padding: 24px 30px; font: 500 17px/1.65 ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace; color: hsl(var(--hue) 30% 88%); }
+  .pk-code pre { margin: 0; font: inherit; white-space: pre; }
+  .pk-code em { font-style: normal; color: hsl(var(--hue) 25% 64%); }
+  .pk-code b { font-weight: 600; color: hsl(calc(var(--hue) + 40) 90% 74%); }
+  .pk-code u { text-decoration: none; color: hsl(calc(var(--hue) - 30) 90% 76%); }
+  .pk-code i { font-style: normal; padding: 1px 8px; border-radius: 6px; background: hsl(var(--hue) 80% 55% / .28); color: #fff; }
 
 slides:
 
@@ -579,11 +609,137 @@ slides:
         delay: 400
       - {type: text, text: "Заявок в месяц при росте 15 % — формула **=v\\*c\\*0.3** и дальше", styles: {text: {size: 15, color: muted}}, place: {x: 562, y: 560, w: 656}, enter: fade, delay: 700}
       - {type: shape, kind: pill, fill: soft, stroke: accent, width: 1, text: "← Форматы", action: "slide:formats", styles: {text: {size: 18}}, place: {x: 64, y: 612, w: 200, h: 56}, enter: pop, delay: 800}
-      - {type: shape, kind: pill, fill: gradient, shadow: sm, text: "Финал →", action: next, styles: {text: {size: 18}}, place: {x: 284, y: 612, w: 200, h: 56}, enter: pop, delay: 880}
+      - {type: shape, kind: pill, fill: gradient, shadow: sm, text: "Дальше →", action: next, styles: {text: {size: 18}}, place: {x: 284, y: 612, w: 200, h: 56}, enter: pop, delay: 880}
       - {type: text, text: "Кнопка — любая фигура: «По щелчку при показе» в студии", styles: {text: {size: 15, color: muted}}, place: {x: 562, y: 626, w: 656}, enter: fade, delay: 950}
     notes: |
       Ползунки задают переменные v и c. Число, подпись и столбцы — обычные блоки с формулами:
       «{{round(v*c/100)}}» в тексте, «=v*c*0.3» в значениях графика. Кнопки внизу — фигуры с переходом по щелчку.
+
+  - id: peak
+    template: canvas
+    label: Живой пульт
+    bg: "radial-gradient(ellipse 60% 70% at 70% 58%, color-mix(in srgb, var(--acs) 70%, var(--bg)), var(--bg) 72%)"
+    transition: zoom
+    vars:
+      lam: "=780/f"
+      amp: "=a*1.25"
+      dur: "=lam/(70*s)"
+    free:
+      - type: text
+        text: Всё вместе — {g:duo|живой пульт}
+        styles: {text: {size: 44, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 32, w: 900}
+        enter: rise
+      - type: text
+        text: Крутите регуляторы, переключайте вкладки — экран пересчитывается формулами на лету.
+        styles: {text: {size: 17, color: text2}}
+        place: {x: 50, y: 92, w: 1000}
+        enter: fade
+        delay: 120
+
+      - {type: control, name: f, label: Частота, min: 1, max: 6, step: 0.5, value: 2.5, unit: " Гц", place: {x: 48, y: 146, w: 340}, enter: left, delay: 200}
+      - {type: control, name: a, label: Амплитуда, min: 10, max: 100, step: 1, value: 70, unit: " %", place: {x: 48, y: 244, w: 340}, enter: left, delay: 280}
+      - {type: control, name: s, label: Скорость, steps: [0.5, 1, 2, 3], labels: ["×0,5", "×1", "×2", "×3"], value: 1, place: {x: 48, y: 342, w: 340}, enter: left, delay: 360}
+      - {type: control, name: h, label: Оттенок, min: 0, max: 360, step: 1, value: 255, unit: "°", place: {x: 48, y: 440, w: 340}, enter: left, delay: 440}
+      - {type: text, text: "Четыре регулятора — четыре переменные. Всё справа посчитано от них.", styles: {text: {size: 14, color: muted}}, place: {x: 50, y: 548, w: 336}, enter: fade, delay: 600}
+
+      - type: html
+        html: |
+          <div class="pk-scr" style="--hue:{{h}}"><i class="pk-grid"></i><i class="pk-scan" style="animation-duration:{{4/s}}s"></i></div>
+        place: {x: 420, y: 206, w: 812, h: 330}
+        enter: scale
+        delay: 250
+      - id: wave
+        type: html
+        html: |
+          <svg class="pk-wave" viewBox="0 0 780 298" style="--hue:{{h}}" aria-hidden="true">
+            <defs>
+              <linearGradient id="pk-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="pk-s1"/><stop offset="1" class="pk-s2"/></linearGradient>
+              <pattern id="pk-p1" width="{{lam}}" height="298" patternUnits="userSpaceOnUse"><path class="pk-area" d="M0 149 L{{lam*0.04167}} {{149-amp*0.2588}} L{{lam*0.08333}} {{149-amp*0.5}} L{{lam*0.12500}} {{149-amp*0.7071}} L{{lam*0.16667}} {{149-amp*0.866}} L{{lam*0.20833}} {{149-amp*0.9659}} L{{lam*0.25000}} {{149-amp*1.0}} L{{lam*0.29167}} {{149-amp*0.9659}} L{{lam*0.33333}} {{149-amp*0.866}} L{{lam*0.37500}} {{149-amp*0.7071}} L{{lam*0.41667}} {{149-amp*0.5}} L{{lam*0.45833}} {{149-amp*0.2588}} L{{lam*0.50000}} 149 L{{lam*0.54167}} {{149+amp*0.2588}} L{{lam*0.58333}} {{149+amp*0.5}} L{{lam*0.62500}} {{149+amp*0.7071}} L{{lam*0.66667}} {{149+amp*0.866}} L{{lam*0.70833}} {{149+amp*0.9659}} L{{lam*0.75000}} {{149+amp*1.0}} L{{lam*0.79167}} {{149+amp*0.9659}} L{{lam*0.83333}} {{149+amp*0.866}} L{{lam*0.87500}} {{149+amp*0.7071}} L{{lam*0.91667}} {{149+amp*0.5}} L{{lam*0.95833}} {{149+amp*0.2588}} L{{lam}} 149 L{{lam}} 298 L0 298Z" fill="url(#pk-fill)"/><animateTransform attributeName="patternTransform" type="translate" from="0 0" to="{{lam}} 0" dur="{{dur*1.7}}s" repeatCount="indefinite"/></pattern>
+              <pattern id="pk-p3" width="{{lam}}" height="298" patternUnits="userSpaceOnUse"><path class="pk-line2" d="M0 {{149-amp*0.55}} L{{lam*0.04167}} {{149-amp*0.5313}} L{{lam*0.08333}} {{149-amp*0.4763}} L{{lam*0.12500}} {{149-amp*0.3889}} L{{lam*0.16667}} {{149-amp*0.275}} L{{lam*0.20833}} {{149-amp*0.1424}} L{{lam*0.25000}} 149 L{{lam*0.29167}} {{149+amp*0.1424}} L{{lam*0.33333}} {{149+amp*0.275}} L{{lam*0.37500}} {{149+amp*0.3889}} L{{lam*0.41667}} {{149+amp*0.4763}} L{{lam*0.45833}} {{149+amp*0.5313}} L{{lam*0.50000}} {{149+amp*0.55}} L{{lam*0.54167}} {{149+amp*0.5313}} L{{lam*0.58333}} {{149+amp*0.4763}} L{{lam*0.62500}} {{149+amp*0.3889}} L{{lam*0.66667}} {{149+amp*0.275}} L{{lam*0.70833}} {{149+amp*0.1424}} L{{lam*0.75000}} 149 L{{lam*0.79167}} {{149-amp*0.1424}} L{{lam*0.83333}} {{149-amp*0.275}} L{{lam*0.87500}} {{149-amp*0.3889}} L{{lam*0.91667}} {{149-amp*0.4763}} L{{lam*0.95833}} {{149-amp*0.5313}} L{{lam}} {{149-amp*0.55}}"/><animateTransform attributeName="patternTransform" type="translate" from="{{lam}} 0" to="0 0" dur="{{dur*1.3}}s" repeatCount="indefinite"/></pattern>
+              <pattern id="pk-p2" width="{{lam}}" height="298" patternUnits="userSpaceOnUse"><path class="pk-line" d="M0 149 L{{lam*0.04167}} {{149-amp*0.2588}} L{{lam*0.08333}} {{149-amp*0.5}} L{{lam*0.12500}} {{149-amp*0.7071}} L{{lam*0.16667}} {{149-amp*0.866}} L{{lam*0.20833}} {{149-amp*0.9659}} L{{lam*0.25000}} {{149-amp*1.0}} L{{lam*0.29167}} {{149-amp*0.9659}} L{{lam*0.33333}} {{149-amp*0.866}} L{{lam*0.37500}} {{149-amp*0.7071}} L{{lam*0.41667}} {{149-amp*0.5}} L{{lam*0.45833}} {{149-amp*0.2588}} L{{lam*0.50000}} 149 L{{lam*0.54167}} {{149+amp*0.2588}} L{{lam*0.58333}} {{149+amp*0.5}} L{{lam*0.62500}} {{149+amp*0.7071}} L{{lam*0.66667}} {{149+amp*0.866}} L{{lam*0.70833}} {{149+amp*0.9659}} L{{lam*0.75000}} {{149+amp*1.0}} L{{lam*0.79167}} {{149+amp*0.9659}} L{{lam*0.83333}} {{149+amp*0.866}} L{{lam*0.87500}} {{149+amp*0.7071}} L{{lam*0.91667}} {{149+amp*0.5}} L{{lam*0.95833}} {{149+amp*0.2588}} L{{lam}} 149"/><animateTransform attributeName="patternTransform" type="translate" from="0 0" to="{{lam}} 0" dur="{{dur}}s" repeatCount="indefinite"/></pattern>
+            </defs>
+            <line class="pk-axis" x1="0" y1="149" x2="780" y2="149"/>
+            <rect width="780" height="298" fill="url(#pk-p1)"/>
+            <rect width="780" height="298" fill="url(#pk-p3)"/>
+            <rect width="780" height="298" fill="url(#pk-p2)"/>
+          </svg>
+        place: {x: 436, y: 222, w: 780, h: 298}
+        enter: fade
+        delay: 450
+      - id: spec
+        hidden: true
+        type: html
+        html: |
+          <div class="pk-spec" style="--hue:{{h}};--sp:{{1.4/s}}s">
+            <div class="pk-bars">
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(0.1094-f)^2*7) + 0.45*exp(-(0.1094-2*f)^2*7) + 0.2*exp(-(0.1094-3*f)^2*7)))}}%;--i:0"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(0.3281-f)^2*7) + 0.45*exp(-(0.3281-2*f)^2*7) + 0.2*exp(-(0.3281-3*f)^2*7)))}}%;--i:1"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(0.5469-f)^2*7) + 0.45*exp(-(0.5469-2*f)^2*7) + 0.2*exp(-(0.5469-3*f)^2*7)))}}%;--i:2"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(0.7656-f)^2*7) + 0.45*exp(-(0.7656-2*f)^2*7) + 0.2*exp(-(0.7656-3*f)^2*7)))}}%;--i:3"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(0.9844-f)^2*7) + 0.45*exp(-(0.9844-2*f)^2*7) + 0.2*exp(-(0.9844-3*f)^2*7)))}}%;--i:4"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(1.2031-f)^2*7) + 0.45*exp(-(1.2031-2*f)^2*7) + 0.2*exp(-(1.2031-3*f)^2*7)))}}%;--i:5"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(1.4219-f)^2*7) + 0.45*exp(-(1.4219-2*f)^2*7) + 0.2*exp(-(1.4219-3*f)^2*7)))}}%;--i:6"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(1.6406-f)^2*7) + 0.45*exp(-(1.6406-2*f)^2*7) + 0.2*exp(-(1.6406-3*f)^2*7)))}}%;--i:7"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(1.8594-f)^2*7) + 0.45*exp(-(1.8594-2*f)^2*7) + 0.2*exp(-(1.8594-3*f)^2*7)))}}%;--i:8"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(2.0781-f)^2*7) + 0.45*exp(-(2.0781-2*f)^2*7) + 0.2*exp(-(2.0781-3*f)^2*7)))}}%;--i:9"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(2.2969-f)^2*7) + 0.45*exp(-(2.2969-2*f)^2*7) + 0.2*exp(-(2.2969-3*f)^2*7)))}}%;--i:10"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(2.5156-f)^2*7) + 0.45*exp(-(2.5156-2*f)^2*7) + 0.2*exp(-(2.5156-3*f)^2*7)))}}%;--i:11"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(2.7344-f)^2*7) + 0.45*exp(-(2.7344-2*f)^2*7) + 0.2*exp(-(2.7344-3*f)^2*7)))}}%;--i:12"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(2.9531-f)^2*7) + 0.45*exp(-(2.9531-2*f)^2*7) + 0.2*exp(-(2.9531-3*f)^2*7)))}}%;--i:13"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(3.1719-f)^2*7) + 0.45*exp(-(3.1719-2*f)^2*7) + 0.2*exp(-(3.1719-3*f)^2*7)))}}%;--i:14"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(3.3906-f)^2*7) + 0.45*exp(-(3.3906-2*f)^2*7) + 0.2*exp(-(3.3906-3*f)^2*7)))}}%;--i:15"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(3.6094-f)^2*7) + 0.45*exp(-(3.6094-2*f)^2*7) + 0.2*exp(-(3.6094-3*f)^2*7)))}}%;--i:16"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(3.8281-f)^2*7) + 0.45*exp(-(3.8281-2*f)^2*7) + 0.2*exp(-(3.8281-3*f)^2*7)))}}%;--i:17"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(4.0469-f)^2*7) + 0.45*exp(-(4.0469-2*f)^2*7) + 0.2*exp(-(4.0469-3*f)^2*7)))}}%;--i:18"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(4.2656-f)^2*7) + 0.45*exp(-(4.2656-2*f)^2*7) + 0.2*exp(-(4.2656-3*f)^2*7)))}}%;--i:19"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(4.4844-f)^2*7) + 0.45*exp(-(4.4844-2*f)^2*7) + 0.2*exp(-(4.4844-3*f)^2*7)))}}%;--i:20"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(4.7031-f)^2*7) + 0.45*exp(-(4.7031-2*f)^2*7) + 0.2*exp(-(4.7031-3*f)^2*7)))}}%;--i:21"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(4.9219-f)^2*7) + 0.45*exp(-(4.9219-2*f)^2*7) + 0.2*exp(-(4.9219-3*f)^2*7)))}}%;--i:22"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(5.1406-f)^2*7) + 0.45*exp(-(5.1406-2*f)^2*7) + 0.2*exp(-(5.1406-3*f)^2*7)))}}%;--i:23"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(5.3594-f)^2*7) + 0.45*exp(-(5.3594-2*f)^2*7) + 0.2*exp(-(5.3594-3*f)^2*7)))}}%;--i:24"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(5.5781-f)^2*7) + 0.45*exp(-(5.5781-2*f)^2*7) + 0.2*exp(-(5.5781-3*f)^2*7)))}}%;--i:25"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(5.7969-f)^2*7) + 0.45*exp(-(5.7969-2*f)^2*7) + 0.2*exp(-(5.7969-3*f)^2*7)))}}%;--i:26"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(6.0156-f)^2*7) + 0.45*exp(-(6.0156-2*f)^2*7) + 0.2*exp(-(6.0156-3*f)^2*7)))}}%;--i:27"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(6.2344-f)^2*7) + 0.45*exp(-(6.2344-2*f)^2*7) + 0.2*exp(-(6.2344-3*f)^2*7)))}}%;--i:28"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(6.4531-f)^2*7) + 0.45*exp(-(6.4531-2*f)^2*7) + 0.2*exp(-(6.4531-3*f)^2*7)))}}%;--i:29"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(6.6719-f)^2*7) + 0.45*exp(-(6.6719-2*f)^2*7) + 0.2*exp(-(6.6719-3*f)^2*7)))}}%;--i:30"></i>
+              <i style="height:{{min(100, 3 + a*(0.9*exp(-(6.8906-f)^2*7) + 0.45*exp(-(6.8906-2*f)^2*7) + 0.2*exp(-(6.8906-3*f)^2*7)))}}%;--i:31"></i>
+            </div>
+            <b class="pk-mk" style="left:{{f/7*100}}%">f</b><b class="pk-mk" style="left:{{2*f/7*100}}%">2f</b><b class="pk-mk" style="left:{{3*f/7*100}}%">3f</b>
+            <div class="pk-ax"><span>0 Гц</span><span>3,5</span><span>7 Гц</span></div>
+          </div>
+        place: {x: 436, y: 222, w: 780, h: 298}
+        enter: fade
+      - id: code
+        hidden: true
+        type: html
+        html: |
+          <div class="pk-code" style="--hue:{{h}}"><pre><em># Экран — три обычных блока. Значения живые:</em>
+          <b>- type:</b> control
+          <b>  name:</b> f                <em># сейчас</em> <i>{{f}} Гц</i>
+          <b>- type:</b> html
+          <b>  html:</b> <u>&lt;pattern width="&#123;&#123;780/f&#125;&#125;"&gt;</u>  <em>#</em> <i>{{round(lam)}} px</i>
+          <b>- type:</b> shape
+          <b>  text:</b> Спектр
+          <b>  action:</b> <u>show:spec;hide:wave,code</u></pre></div>
+        place: {x: 436, y: 222, w: 780, h: 298}
+        enter: fade
+
+      - {type: shape, kind: pill, fill: surface, stroke: line, width: 1, shadow: sm, place: {x: 420, y: 142, w: 480, h: 50}, enter: fade, delay: 200}
+      - {id: t1, type: shape, kind: pill, fill: soft, stroke: accent, width: 1.5, place: {x: 425, y: 147, w: 156, h: 40}, enter: scale, delay: 320}
+      - {id: t2, hidden: true, type: shape, kind: pill, fill: soft, stroke: accent, width: 1.5, place: {x: 581, y: 147, w: 156, h: 40}, enter: scale}
+      - {id: t3, hidden: true, type: shape, kind: pill, fill: soft, stroke: accent, width: 1.5, place: {x: 737, y: 147, w: 156, h: 40}, enter: scale}
+      - {type: shape, fill: none, text: Волна, action: "show:wave,t1;hide:spec,code,t2,t3", styles: {text: {size: 15, color: accent}}, place: {x: 425, y: 147, w: 156, h: 40}, enter: fade, delay: 320}
+      - {type: shape, fill: none, text: Спектр, action: "show:spec,t2;hide:wave,code,t1,t3", styles: {text: {size: 15, color: accent}}, place: {x: 581, y: 147, w: 156, h: 40}, enter: fade, delay: 360}
+      - {type: shape, fill: none, text: Как устроено, action: "show:code,t3;hide:wave,spec,t1,t2", styles: {text: {size: 15, color: accent}}, place: {x: 737, y: 147, w: 156, h: 40}, enter: fade, delay: 400}
+      - {type: text, text: "Период **{{round(1000/f)}} мс** · длина волны **{{round(lam)}} px** · оттенок **{{h}}°** · скорость **×{{s}}**", styles: {text: {size: 16, color: text2}}, place: {x: 422, y: 554, w: 810}, enter: fade, delay: 650}
+
+      - {type: text, text: "Регуляторы, вкладки (кнопки «показать / скрыть») и экран (вёрстка с формулами) — обычные блоки: откройте слайд в студии и поменяйте что угодно.", styles: {text: {size: 14, color: muted}}, place: {x: 50, y: 640, w: 1180}, enter: fade, delay: 750}
+    notes: |
+      Пик интерактива: четыре регулятора задают частоту, амплитуду, скорость и оттенок.
+      «Волна» — три слоя SVG-узоров, которые бегут с разной скоростью; «Спектр» — 32 полосы с гармониками f, 2f, 3f;
+      «Как устроено» — фрагмент данных этого слайда с живыми значениями. Вкладки — кнопки «показать / скрыть».
 
   - id: thanks
     template: canvas
