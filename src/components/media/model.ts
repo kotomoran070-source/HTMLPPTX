@@ -78,6 +78,27 @@ defineBlock<ModelProps>('model', {
     const key = `${ctx.slide.dataset.index ?? ''}:${el.closest('[data-block]')?.getAttribute('data-block') ?? ''}`;
     let mv: HTMLElement | null = null;
     let timer = 0;
+    const orbit0 = typeof p.orbit === 'string' && /^-?\d+(\.\d+)?deg\s+-?\d+(\.\d+)?deg(\s+(auto|\d+(\.\d+)?%))?$/.test(p.orbit.trim()) ? p.orbit.trim() : 'auto auto auto';
+    // Кнопка «Исходный вид»: появляется, когда модель повернули или приблизили
+    let home: HTMLButtonElement | null = null;
+    let flip = false;
+    let sendNow: (() => void) | null = null;
+    const reset = () => {
+      if (!mv) return;
+      const v = mv as Viewer;
+      // Пробел в конце: то же значение, что уже стоит, model-viewer иначе не применит заново
+      flip = !flip;
+      v.cameraOrbit = orbit0 + (flip ? ' ' : '');
+      v.cameraTarget = 'auto auto auto' + (flip ? ' ' : '');
+      v.fieldOfView = flip ? 'auto ' : 'auto';
+      home?.classList.remove('on');
+      settleSend();
+    };
+    let settle: number[] = [];
+    const settleSend = () => {
+      settle.forEach(clearTimeout);
+      if (sendNow) settle = [150, 400, 800, 1400].map((ms) => window.setTimeout(sendNow!, ms));
+    };
     const on = () => {
       clearTimeout(timer);
       if (mv) return;
@@ -89,13 +110,16 @@ defineBlock<ModelProps>('model', {
         if (p.rotate === true && !ctx.reducedMotion) m.setAttribute('auto-rotate', '');
         m.setAttribute('rotation-per-second', '14deg');
         m.setAttribute('auto-rotate-delay', '0');
-        if (p.controls !== false && !editing()) m.setAttribute('camera-controls', '');
-        m.setAttribute('disable-zoom', '');
+        const controls = p.controls !== false && !editing();
+        if (controls) m.setAttribute('camera-controls', '');
+        // Приблизить — колесом или щипком; отдалить можно только до исходного вида
+        // (у model-viewer дальше исходного расстояния камера не уходит)
+        if (!controls) m.setAttribute('disable-zoom', '');
         m.setAttribute('interaction-prompt', 'none');
         m.setAttribute('shadow-intensity', '0.8');
         m.setAttribute('environment-image', 'neutral');
         // Ракурс: только углы в градусах (и необязательное расстояние) — без произвольных строк
-        if (typeof p.orbit === 'string' && /^-?\d+(\.\d+)?deg\s+-?\d+(\.\d+)?deg(\s+(auto|\d+(\.\d+)?%))?$/.test(p.orbit.trim())) m.setAttribute('camera-orbit', p.orbit.trim());
+        if (orbit0 !== 'auto auto auto') m.setAttribute('camera-orbit', orbit0);
         const ex = Number(p.exposure);
         if (ex >= 0.2 && ex <= 3) m.setAttribute('exposure', String(ex));
         m.setAttribute('touch-action', 'pan-y');
@@ -104,6 +128,41 @@ defineBlock<ModelProps>('model', {
         // пропускает мышь: встроенная лежит в центре модели, и нажатие там не начинало поворот
         m.innerHTML = '<div slot="progress-bar"></div><div slot="pan-target" style="pointer-events:none"></div>';
         m.addEventListener('load', () => box.classList.add('ready'), { once: true });
+        if (controls) {
+          m.addEventListener('camera-change', (e) => {
+            if ((e as CustomEvent<{ source?: string }>).detail?.source === 'user-interaction') home?.classList.add('on');
+          });
+          // Двойной щелчок или двойное касание — исходный вид
+          let down: { x: number; y: number; t: number } | null = null;
+          let tap: { x: number; y: number; t: number } | null = null;
+          let fingers = 0;
+          m.addEventListener('pointerdown', (e) => {
+            fingers++;
+            down = fingers === 1 ? { x: e.clientX, y: e.clientY, t: e.timeStamp } : null;
+          });
+          const up = (e: PointerEvent) => {
+            fingers = Math.max(0, fingers - 1);
+            const d = down;
+            down = null;
+            if (!d || e.type !== 'pointerup' || e.timeStamp - d.t > 300 || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) { tap = null; return; }
+            if (tap && e.timeStamp - tap.t < 400 && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) < 40) {
+              tap = null;
+              reset();
+            } else tap = { x: e.clientX, y: e.clientY, t: e.timeStamp };
+          };
+          m.addEventListener('pointerup', up);
+          m.addEventListener('pointercancel', up);
+          if (!home) {
+            home = document.createElement('button');
+            home.type = 'button';
+            home.className = 'model3d-home';
+            home.title = 'Исходный вид (двойной щелчок по модели)';
+            home.setAttribute('aria-label', 'Исходный вид');
+            home.innerHTML = icon('reset');
+            home.addEventListener('click', (e) => { e.stopPropagation(); reset(); });
+            box.appendChild(home);
+          }
+        }
         // Не открылась — в редакторе сказать почему, а не оставлять пустой блок (в показе — снимок)
         m.addEventListener('error', (e) => {
           if (!editing() || box.querySelector('.model3d-err')) return;
@@ -118,10 +177,12 @@ defineBlock<ModelProps>('model', {
           // сама она больше не крутится, иначе окна разойдутся
           let raf = 0;
           const send = () => {
+            if (mv !== m) return;
             const v = m as Viewer;
             const detail: CameraState = { key, orbit: v.getCameraOrbit().toString(), target: v.getCameraTarget().toString(), fov: v.getFieldOfView() };
             window.dispatchEvent(new CustomEvent(CAMERA, { detail }));
           };
+          sendNow = send;
           m.addEventListener('camera-change', (e) => {
             if ((e as CustomEvent<{ source?: string }>).detail?.source !== 'user-interaction') return;
             m.removeAttribute('auto-rotate');
@@ -129,13 +190,9 @@ defineBlock<ModelProps>('model', {
             raf = requestAnimationFrame(() => { raf = 0; send(); });
           });
           // Отпустили — модель ещё доезжает по инерции: итоговое положение досылается, пока не встанет
-          let settle: number[] = [];
-          const done = () => {
-            settle.forEach(clearTimeout);
-            settle = [150, 400, 800, 1400].map((ms) => window.setTimeout(send, ms));
-          };
-          m.addEventListener('pointerup', done);
-          m.addEventListener('keyup', done);
+          m.addEventListener('pointerup', settleSend);
+          m.addEventListener('keyup', settleSend);
+          m.addEventListener('wheel', settleSend, { passive: true });
         }
         box.appendChild(m);
         mv = m;
@@ -147,6 +204,8 @@ defineBlock<ModelProps>('model', {
       timer = window.setTimeout(() => {
         mv?.remove();
         mv = null;
+        sendNow = null;
+        home?.classList.remove('on');
         box.classList.remove('ready');
       }, 1200);
     };
@@ -166,6 +225,8 @@ defineBlock<ModelProps>('model', {
     };
     if (!presenter()) window.addEventListener(CAMERA_SET, follow);
     return () => {
+      settle.forEach(clearTimeout);
+      home?.remove();
       window.removeEventListener(CAMERA_SET, follow);
       mo.disconnect();
       clearTimeout(timer);

@@ -75,14 +75,20 @@ export class Ink {
 
   apply(m: InkMsg): void {
     if (m.op === 'cursor') {
-      // Курсор прячется, если мышь стоит: как в PowerPoint
-      this.cur.style.transform = `translate(${m.x}px, ${m.y}px)`;
+      // Курсор прячется, если мышь стоит: как в PowerPoint. Движется плавно, как указка
+      this.curTo = { x: m.x, y: m.y };
+      if (!this.cur.classList.contains('on') || !this.curAt) {
+        this.curAt = { x: m.x, y: m.y };
+        this.cur.style.transform = `translate(${m.x}px, ${m.y}px)`;
+      }
       this.cur.classList.add('on');
+      this.glideCur();
       clearTimeout(this.curTimer);
       this.curTimer = window.setTimeout(() => this.cur.classList.remove('on'), 2500);
     } else if (m.op === 'cursor-off') {
       clearTimeout(this.curTimer);
       this.cur.classList.remove('on');
+      this.curAt = null;
     } else if (m.op === 'click') {
       // Сам щелчок повторяет окно показа (RemoteHover); здесь — только курсор на месте
       this.apply({ op: 'cursor', x: m.x, y: m.y });
@@ -150,6 +156,29 @@ export class Ink {
       this.glideRaf = requestAnimationFrame(frame);
     };
     this.glideRaf = requestAnimationFrame(frame);
+  }
+
+  /** Курсор докладчика: так же догоняет последнее положение, без следа */
+  private curAt: { x: number; y: number } | null = null;
+  private curTo: { x: number; y: number } = { x: 0, y: 0 };
+  private curRaf = 0;
+  private curT = 0;
+  private glideCur(): void {
+    if (this.curRaf) return;
+    this.curT = performance.now();
+    const frame = () => {
+      const at = this.curAt;
+      if (!at || !this.cur.classList.contains('on')) { this.curRaf = 0; this.curAt = null; return; }
+      const now = performance.now();
+      const k = 1 - Math.exp(-(now - this.curT) / 45);
+      this.curT = now;
+      at.x += (this.curTo.x - at.x) * k;
+      at.y += (this.curTo.y - at.y) * k;
+      this.cur.style.transform = `translate(${at.x.toFixed(1)}px, ${at.y.toFixed(1)}px)`;
+      if (Math.abs(this.curTo.x - at.x) + Math.abs(this.curTo.y - at.y) < 0.3) { this.curRaf = 0; return; }
+      this.curRaf = requestAnimationFrame(frame);
+    };
+    this.curRaf = requestAnimationFrame(frame);
   }
 
   /** След указки: хвост из точек, тающий за доли секунды. */
