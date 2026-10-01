@@ -165,6 +165,15 @@ export function inkInput(area: HTMLElement, ink: Ink, tool: () => InkTool, style
 
   area.addEventListener('pointerdown', (e) => {
     const t = tool();
+    // Указка пальцем: точка сразу под пальцем, а не после первого движения
+    if (t === 'laser' && e.pointerType !== 'mouse') {
+      const p = ink.toSlide(e);
+      if (!inside(p)) return;
+      e.preventDefault();
+      area.setPointerCapture(e.pointerId);
+      emit({ op: 'laser', ...p });
+      return;
+    }
     if ((t !== 'pen' && t !== 'marker') || e.button !== 0) return;
     const p = ink.toSlide(e);
     if (!inside(p)) return;
@@ -209,7 +218,11 @@ export function inkInput(area: HTMLElement, ink: Ink, tool: () => InkTool, style
       if (tool() === 'laser') emit(inside(p) ? { op: 'laser', ...p } : { op: 'laser-off' });
     });
   });
-  const end = () => { stroke = null; };
+  const end = (e: PointerEvent) => {
+    stroke = null;
+    // Палец подняли — указка гаснет (у мыши она гаснет, когда курсор уходит со слайда)
+    if (tool() === 'laser' && e.pointerType !== 'mouse') emit({ op: 'laser-off' });
+  };
   area.addEventListener('pointerup', end);
   area.addEventListener('pointercancel', end);
   area.addEventListener('pointerleave', () => { if (tool() === 'laser') emit({ op: 'laser-off' }); });

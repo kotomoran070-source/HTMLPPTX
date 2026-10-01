@@ -44,7 +44,9 @@
 .pd-colors button[aria-checked="true"] { box-shadow: 0 0 0 2px var(--surf), 0 0 0 4px var(--c), inset 0 0 0 1px rgba(15, 23, 42, .18); }
 
 /* Курсор над слайдом по инструменту */
-.pres-vp[data-tool="laser"] { cursor: none; }
+/* Указка и перо пальцем: браузер не забирает жест под прокрутку и масштаб — линия не обрывается */
+.pres-vp[data-tool="laser"] { cursor: none; touch-action: none; }
+.pres-vp[data-tool="marker"] { touch-action: none; }
 .pres-vp[data-tool="pen"] { cursor: crosshair; touch-action: none; }
 
 /* Все слайды */

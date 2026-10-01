@@ -273,11 +273,14 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   grid.addEventListener('click', (e) => { if (e.target === grid) closeGrid(); });
 
   // --- заметки ---
-  let fontSize = 20;
-  try { fontSize = Number(localStorage.getItem(FONT_KEY)) || 20; } catch { /* нет доступа */ }
+  // На телефоне-пульте заметки на ступень мельче, и размер запоминается отдельно от компьютера
+  const fontKey = room ? `${FONT_KEY}-phone` : FONT_KEY;
+  const fontDef = room ? 18 : 20;
+  let fontSize = fontDef;
+  try { fontSize = Number(localStorage.getItem(fontKey)) || fontDef; } catch { /* нет доступа */ }
   const applyFont = () => {
     $('notes').style.fontSize = `${fontSize}px`;
-    try { localStorage.setItem(FONT_KEY, String(fontSize)); } catch { /* нет доступа */ }
+    try { localStorage.setItem(fontKey, String(fontSize)); } catch { /* нет доступа */ }
   };
   applyFont();
   $('fm').addEventListener('click', () => { fontSize = Math.max(12, fontSize - 2); applyFont(); });
