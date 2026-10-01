@@ -5,6 +5,15 @@ import { H, W } from '../deck-view';
 import { esc } from '../html';
 import { placeOf, type Place } from '../render';
 
+/**
+ * Сохраняет ли объект пропорции при изменении размера (углы рамки, поля «Ширина / Высота»).
+ * keepRatio в данных — только если не как по умолчанию: картинки — да, остальное — нет.
+ */
+export function keepsRatio(b: unknown): boolean {
+  const o = (b && typeof b === 'object' ? b : {}) as { keepRatio?: unknown; type?: unknown };
+  return typeof o.keepRatio === 'boolean' ? o.keepRatio : o.type === 'image';
+}
+
 export interface BlockHost {
   deck(): Deck;
   stage(): HTMLElement;
@@ -781,9 +790,8 @@ export class BlockEditor {
     const measured = this.measure(s.el);
     const r0 = { x: start.x, y: start.y, w: start.w, h: start.h ?? measured.h! };
     const k = this.scale();
-    const type = (getAt(this.host.deck(), s.block) as { type?: string })?.type;
-    // Картинки за угол масштабируются с сохранением пропорций; Shift — наоборот
-    const keepRatioDefault = type === 'image' && dir.length === 2;
+    // За угол — с сохранением пропорций, если они закреплены (у картинок — по умолчанию); Shift — наоборот
+    const keepRatioDefault = keepsRatio(getAt(this.host.deck(), s.free!)) && dir.length === 2;
     const ratio = r0.w / r0.h;
     let cur = r0;
     let changedH = false;

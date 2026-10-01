@@ -2,7 +2,7 @@ import { icon } from '../components/icons';
 import { HEX_RE } from '../engine/accent';
 import { getAt, setAt, type Path } from '../engine/data';
 import { BACKDROPS } from '../components/backdrop/backdrop';
-import { blockName } from '../engine/editor/block-edit';
+import { blockName, keepsRatio } from '../engine/editor/block-edit';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
 import { OBJ_ID, actionOf, placeOf, slideLabel } from '../engine/render';
@@ -268,6 +268,7 @@ export class Inspector {
   <label><span>Ширина</span><input type="number" data-f="w" min="20" step="1"></label>
   <label><span>Высота</span><input type="number" data-f="h" min="20" step="1"></label>
 </div>
+<label class="st-p-check" title="Углы рамки и поля «Ширина / Высота» меняют размер без искажения. Shift при перетаскивании — наоборот"><input type="checkbox" data-f="keepRatio"><span>Сохранять пропорции</span></label>
 <div class="st-p-icons" role="group" aria-label="Выровнять на слайде">${ALIGN.map(([c, ic, l]) => `<button type="button" data-cmd="${c}" title="${l}" aria-label="${l}">${icon(ic)}</button>`).join('')}</div>`)
       + this.actionHtml(deck)
       + `<section class="st-p-sec"><button type="button" class="st-p-hint" data-cmd="tab.anim">${icon('sparkle')}<span>Появление: <b data-sum="enter"></b> — на вкладке «Анимация»</span></button></section>`
@@ -380,6 +381,7 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
         actionUrl: typeof b.action === 'string' && /^(https?:|mailto:|tel:)/i.test(b.action) ? b.action : '',
         ...triggerValues(deck.slides[this.host.index()]?.free as Block[] | undefined, b.action),
         hidden: b.hidden === true,
+        keepRatio: keepsRatio(b),
         emphasis: typeof b.emphasis === 'string' ? b.emphasis : '',
       };
     }
@@ -461,10 +463,16 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
       const n = Math.round(Number(raw));
       if (raw && !Number.isFinite(n)) return this.fill();
       ed.commit((d) => {
-        const pl = placeOf(getAt(d, path));
+        const b = getAt(d, path);
+        const pl = placeOf(b);
         const next: Record<string, number | undefined> = { ...pl };
         if (f === 'h') next.h = raw ? Math.max(20, n) : undefined;
         else if (raw) next[f] = f === 'w' ? Math.max(20, n) : n;
+        // Пропорции закреплены: вторая сторона меняется вместе с первой
+        if (keepsRatio(b) && raw && pl.h && pl.w && (f === 'w' || f === 'h')) {
+          if (f === 'w') next.h = Math.max(20, Math.round((next.w! * pl.h) / pl.w));
+          else next.w = Math.max(20, Math.round((next.h! * pl.w) / pl.h));
+        }
         if (next.h === undefined) delete next.h;
         setAt(d, [...path, 'place'], next);
       }, { rebuild: true });
@@ -511,6 +519,14 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
     } else if (sel?.free && f === 'emphasis') {
       const path = sel.free;
       ed.commit((d) => setAt(d, [...path, 'emphasis'], raw || undefined), { rebuild: true });
+    } else if (sel?.free && f === 'keepRatio') {
+      const path = sel.free;
+      const on = (el as HTMLInputElement).checked;
+      // В данных — только отличие от обычного (картинки — с пропорциями, остальное — без)
+      ed.commit((d) => {
+        const b = getAt(d, path) as Block;
+        setAt(d, [...path, 'keepRatio'], on === (b.type === 'image') ? undefined : on);
+      });
     } else if (sel?.free && f === 'hidden') {
       const path = sel.free;
       const on = (el as HTMLInputElement).checked;
