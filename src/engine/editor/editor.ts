@@ -18,7 +18,8 @@ export type MediaKind = 'video' | 'model';
 /** Видео и 3D-модели: что принимаем и как проверяем файл */
 const MEDIA: Record<MediaKind, { accept: string; formats: string; test(f: File): boolean }> = {
   video: { accept: 'video/mp4,video/webm,.mp4,.webm', formats: 'MP4 и WebM', test: (f) => /^video\/(mp4|webm)$/.test(f.type) || /\.(mp4|webm)$/i.test(f.name) },
-  model: { accept: '.glb,model/gltf-binary', formats: 'GLB', test: (f) => /\.glb$/i.test(f.name) },
+  // STL и STEP сервер yarn dev превращает в GLB при вставке
+  model: { accept: '.glb,.stl,.step,.stp,model/gltf-binary', formats: 'GLB, STL и STEP', test: (f) => /\.(glb|stl|step|stp)$/i.test(f.name) },
 };
 const MAX_MEDIA = 60 * 1024 * 1024;
 /** Пока тянут палитру акцента, весь интерфейс перекрашивается не чаще, чем раз в столько мс */
@@ -1172,7 +1173,12 @@ export class Editor {
       this.toast(`Файл больше ${MAX_MEDIA / 1024 / 1024} МБ`, 4000, true);
       return null;
     }
-    this.toast(kind === 'video' ? 'Загрузка видео…' : 'Загрузка модели…', 0);
+    const cad = /\.(stl|step|stp)$/i.test(file.name);
+    if (cad && this.mode !== 'project') {
+      this.toast('STL и STEP превращаются в 3D-модель в редакторе (yarn dev)', 4000, true);
+      return null;
+    }
+    this.toast(kind === 'video' ? 'Загрузка видео…' : cad ? `Превращаю ${/\.stl$/i.test(file.name) ? 'STL' : 'STEP'} в 3D-модель…` : 'Загрузка модели…', 0);
     try {
       const url = this.mode === 'project'
         ? (await this.storage.uploadAsset(this.host.deckKey, file, file.name)).url

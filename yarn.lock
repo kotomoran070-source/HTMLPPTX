@@ -881,6 +881,11 @@ nth-check@^2.0.1:
   dependencies:
     boolbase "^1.0.0"
 
+occt-import-js@^0.0.23:
+  version "0.0.23"
+  resolved "https://registry.yarnpkg.com/occt-import-js/-/occt-import-js-0.0.23.tgz#1916aacd5b228e92da5de631ae048ca152281778"
+  integrity sha512-RFfYQXYFX5C1mB1Aywm0ShcUKzXOr/VzTnlzhBSDJOR6YCAPt1HYCzeXWg1vwwjn/cUxwqRNhhtf1dlewoZYCQ==
+
 pako@~1.0.2:
   version "1.0.11"
   resolved "https://registry.yarnpkg.com/pako/-/pako-1.0.11.tgz#6c9599d340d54dfd3946380252a35705a6b992bf"

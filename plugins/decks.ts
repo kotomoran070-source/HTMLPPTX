@@ -6,6 +6,7 @@ import path from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 import { parseDocument } from 'yaml';
 import { isLocal, remoteRelay } from './remote-relay.mjs';
+import { stepToGlb, stlToGlb } from './model-convert';
 import { AssetStore } from './assets';
 import { BASE_ID, bindProject, importHtml, slug } from './import';
 import { packDeck } from '../src/engine/pack';
@@ -28,6 +29,8 @@ const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg']);
  * их переносит копирование слайда или объекта в другую презентацию
  */
 const MEDIA_EXT = new Set([...IMAGE_EXT, 'mp4', 'webm', 'glb', 'htm']);
+/** CAD и 3D-печать: при вставке превращаются в GLB (plugins/model-convert.ts) */
+const CAD_EXT = new Set(['stl', 'step', 'stp']);
 /** id тега с данными презентации внутри собранного HTML */
 export const DATA_ID = 'htmlpptx-deck';
 const API = '/__htmlpptx/';
@@ -230,9 +233,20 @@ export function decksPlugin(opts: DecksOptions): Plugin {
   async function handleAsset(name: string, fileName: string, req: IncomingMessage, res: ServerResponse): Promise<void> {
     const safe = safeFileName(fileName);
     const ext = path.extname(safe).slice(1);
-    if (!MEDIA_EXT.has(ext.toLowerCase())) throw new Error('Поддерживаются изображения (PNG, JPG, GIF, WebP, AVIF, SVG), видео (MP4, WebM), 3D-модели (GLB) и живые вставки (HTM)');
-    const data = await readBody(req);
+    const cad = CAD_EXT.has(ext.toLowerCase());
+    if (!MEDIA_EXT.has(ext.toLowerCase()) && !cad) throw new Error('Поддерживаются изображения (PNG, JPG, GIF, WebP, AVIF, SVG), видео (MP4, WebM), 3D-модели (GLB, STL, STEP) и живые вставки (HTM)');
+    let data = await readBody(req);
     if (!data.length) throw new Error('Пустой файл');
+    if (cad) {
+      // STL / STEP → GLB: на слайде это обычная 3D-модель
+      data = ext.toLowerCase() === 'stl' ? stlToGlb(data) : await stepToGlb(data);
+      return saveAsset(name, `${safe.slice(0, safe.length - ext.length - 1)}.glb`, data, res);
+    }
+    return saveAsset(name, safe, data, res);
+  }
+
+  function saveAsset(name: string, safe: string, data: Buffer, res: ServerResponse): void {
+    const ext = path.extname(safe).slice(1);
     const assets = path.join(dir, name, 'assets');
     fs.mkdirSync(assets, { recursive: true });
     let target = path.join(assets, safe);
