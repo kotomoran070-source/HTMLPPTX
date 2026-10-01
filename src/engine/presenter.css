@@ -95,3 +95,7 @@
 /* Экономный режим пульта: слайд на паузе — подсказка, что касание его оживит */
 .pres-vp:has(.stage.paused)::after { content: "Пауза · касание — оживить"; position: absolute; right: 8px; bottom: 8px; z-index: 5; padding: 4px 10px; border-radius: 99px;
   background: color-mix(in srgb, var(--surf) 88%, transparent); border: 1px solid var(--bd); color: var(--mu); font: 600 11px/1.2 var(--font); pointer-events: none; }
+
+/* Свайп по заметкам: горизонтальный жест — листать, вертикальный — прокрутка заметок */
+.pres-swipe { will-change: transform; }
+.pres-swipe, .pres-swipe * { touch-action: pan-y; }

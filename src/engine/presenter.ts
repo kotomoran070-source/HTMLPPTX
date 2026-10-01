@@ -360,6 +360,75 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   // --- управление ---
   $('nx').addEventListener('click', () => go(index + 1));
   $('pv').addEventListener('click', () => go(index - 1));
+
+  // --- свайп по заметкам (телефон): содержимое едет за пальцем, дальше трети или резкий взмах —
+  // соседний слайд, иначе пружинит назад; на первом и последнем — «резиновый» упор.
+  // Слайд и инструменты свайпом не листаются: там указка, перо и живые объекты
+  const side = $('pside');
+  if (room || matchMedia('(pointer: coarse)').matches) {
+    side.classList.add('pres-swipe');
+    let sx = 0, sy = 0, dx = 0, id = -1;
+    // Последние точки жеста: скорость взмаха — по ним, а не по всему жесту
+    let trail: { x: number; t: number }[] = [];
+    let mode: 'wait' | 'drag' | 'off' = 'off';
+    const move = (x: number, ms = 0, ease = 'cubic-bezier(.2, .8, .2, 1)') => {
+      side.style.transition = ms ? `transform ${ms}ms ${ease}, opacity ${ms}ms ${ease}` : 'none';
+      side.style.transform = x ? `translateX(${x}px)` : '';
+    };
+    side.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' || editing >= 0 || (e.target as Element).closest('button, textarea, input')) return;
+      sx = e.clientX; sy = e.clientY; dx = 0; id = e.pointerId; mode = 'wait';
+      trail = [{ x: e.clientX, t: performance.now() }];
+    });
+    side.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== id || mode === 'off') return;
+      const mx = e.clientX - sx;
+      const my = e.clientY - sy;
+      if (mode === 'wait') {
+        // Только явно горизонтальный жест: вертикальная прокрутка заметок остаётся прокруткой
+        if (Math.abs(my) > 10 && Math.abs(my) > Math.abs(mx)) { mode = 'off'; return; }
+        if (Math.abs(mx) < 10) return;
+        mode = 'drag';
+        side.setPointerCapture(e.pointerId);
+      }
+      const now = performance.now();
+      trail.push({ x: e.clientX, t: now });
+      while (trail.length > 2 && now - trail[0].t > 80) trail.shift();
+      const edge = (mx > 0 && index === 0) || (mx < 0 && index === count() - 1);
+      dx = edge ? mx * 0.25 : mx;
+      move(dx);
+    });
+    const release = (e: PointerEvent) => {
+      if (e.pointerId !== id) return;
+      id = -1;
+      if (mode !== 'drag') { mode = 'off'; return; }
+      mode = 'off';
+      const w = side.clientWidth || 1;
+      const a = trail[0];
+      const z = trail[trail.length - 1];
+      // Взмах: последние ~80 мс палец шёл быстрее 0,4 px/мс в ту же сторону
+      const v = (z.x - a.x) / Math.max(1, z.t - a.t);
+      const dir = dx < 0 ? 1 : -1;
+      const flick = Math.sign(v) === -dir && Math.abs(v) > 0.4 && Math.abs(dx) > 30;
+      const can = dir > 0 ? index < count() - 1 : index > 0;
+      if (can && (Math.abs(dx) > w / 3 || flick)) {
+        // Уезжает в сторону свайпа, новый слайд въезжает с противоположной
+        move(-dir * w, 170, 'ease-in');
+        side.style.opacity = '0';
+        setTimeout(() => {
+          go(index + dir);
+          move(dir * w * 0.35);
+          void side.offsetWidth;
+          side.style.opacity = '1';
+          move(0, 220);
+        }, 170);
+      } else {
+        move(0, 260);
+      }
+    };
+    side.addEventListener('pointerup', release);
+    side.addEventListener('pointercancel', release);
+  }
   $('bk').addEventListener('click', () => setBlack(!black));
   $('tmir').addEventListener('click', () => setMirror(!mirror));
   $('tmir').setAttribute('aria-pressed', String(mirror));
