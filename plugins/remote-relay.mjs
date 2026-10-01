@@ -5,7 +5,8 @@ import os from 'node:os';
 
 const PREFIX = '/__slideria/remote/';
 const ROOM = /^[a-z0-9]{8,40}$/;
-const MAX_BODY = 64 * 1024;
+// Сообщения идут пачками (см. Sync.pump в src/engine/sync.ts)
+const MAX_BODY = 256 * 1024;
 
 /** @type {Map<string, Set<import('node:http').ServerResponse>>} */
 const rooms = new Map();

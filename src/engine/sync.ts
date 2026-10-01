@@ -25,6 +25,22 @@ export type SyncMsg =
 /** Сервер показа: пересылка сообщений пульта (plugins/remote-relay.mjs) */
 export const RELAY = '/__slideria/remote/';
 
+/** Ключ «важно только последнее»: такие сообщения в очереди заменяют друг друга */
+function latestKey(env: Envelope): string | null {
+  const m = env.msg;
+  const to = env.to ?? '';
+  switch (m.type) {
+    case 'camera': return `camera:${m.key}:${to}`;
+    case 'vars': return `vars:${m.index}:${to}`;
+    case 'code': return `code:${m.index}:${m.block}:${to}`;
+    case 'state': case 'hello': case 'theme': case 'black': case 'deck': return `${m.type}:${to}`;
+    case 'ink':
+      // Положение указки и курсора — последнее; линии пера — все точки
+      return m.ink.op === 'laser' || m.ink.op === 'cursor' ? `ink:${m.ink.op}:${to}` : null;
+    default: return null;
+  }
+}
+
 interface Envelope {
   ns: 'htmlpptx';
   deck: string;
@@ -95,7 +111,11 @@ export class Sync {
     this.room = room;
     const es = new EventSource(`${RELAY}events?room=${encodeURIComponent(room)}`);
     es.onmessage = (e) => {
-      try { this.receive(JSON.parse(e.data)); } catch { /* не сообщение показа */ }
+      try {
+        // Сообщения приходят пачкой (см. pump)
+        const data = JSON.parse(e.data) as unknown;
+        (Array.isArray(data) ? data : [data]).forEach((d) => this.receive(d));
+      } catch { /* не сообщение показа */ }
     };
     es.onopen = () => status?.(true);
     // EventSource переподключается сам; пока нет связи — сообщаем
@@ -122,9 +142,35 @@ export class Sync {
       }
     }
     try { this.bc?.postMessage(env); } catch { /* канал закрыт */ }
-    if (this.room) {
-      fetch(`${RELAY}send?room=${encodeURIComponent(this.room)}`, { method: 'POST', body: JSON.stringify(env), keepalive: true }).catch(() => {});
-    }
+    if (this.room) this.queue(env);
+  }
+
+  /**
+   * Отправка через сервер: один запрос за раз, пока он летит — сообщения копятся.
+   * Где важно только последнее значение (поворот модели, указка, курсор, ползунки, код),
+   * новое заменяет старое; остальное (листание, точки пера) уходит всё и по порядку.
+   * Иначе 60 событий в секунду при вращении модели забивали соединения, и команды застревали.
+   */
+  private outbox: { env: Envelope; key: string | null }[] = [];
+  private flying = false;
+  private queue(env: Envelope): void {
+    // Данные презентации целиком телефону не нужны (их получает окно докладчика на этом компьютере)
+    if (env.msg.type === 'deck') return;
+    const key = latestKey(env);
+    // Старое значение уходит из очереди, новое — в конец: порядок событий сохраняется
+    if (key) this.outbox = this.outbox.filter((o) => o.key !== key);
+    this.outbox.push({ env, key });
+    void this.pump();
+  }
+  private async pump(): Promise<void> {
+    if (this.flying || !this.outbox.length || !this.room) return;
+    this.flying = true;
+    const batch = this.outbox.splice(0, 200).map((o) => o.env);
+    try {
+      await fetch(`${RELAY}send?room=${encodeURIComponent(this.room)}`, { method: 'POST', body: JSON.stringify(batch) });
+    } catch { /* сервер недоступен: связь покажет «нет связи» */ }
+    this.flying = false;
+    if (this.outbox.length) void this.pump();
   }
 
   private receive(data: unknown): boolean {
