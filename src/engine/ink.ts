@@ -135,7 +135,7 @@ export class Ink {
         const a = this.track[i - 1];
         const b = this.track[i];
         const life = 1 - (now - b.t) / TRAIL_MS;
-        html += `<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke-width="${(2 + 7 * life).toFixed(1)}" stroke-opacity="${(0.55 * life).toFixed(2)}"/>`;
+        html += `<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke-width="${(1 + 4 * life).toFixed(1)}" stroke-opacity="${(0.4 * life * life).toFixed(2)}"/>`;
       }
       this.trail.innerHTML = html;
       this.raf = requestAnimationFrame(frame);

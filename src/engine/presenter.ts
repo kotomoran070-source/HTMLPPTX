@@ -74,14 +74,11 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       <div class="pres-split h" id="sh" role="separator" aria-orientation="horizontal" aria-label="Размер следующего слайда и заметок" tabindex="0" title="Потяните, чтобы изменить размер. Двойной щелчок — сбросить"></div>
       <section class="pres-notesbox">
         <div class="pres-label pres-notes-head">Заметки
+          <span class="pres-jot-st" id="jotst" role="status" aria-live="polite"></span>
           <span><button class="ibtn small" id="ned" type="button" aria-pressed="false" aria-label="Править заметки" title="Править заметки (E)">${icon('pencil')}</button><button class="ibtn small" id="fm" type="button" aria-label="Мельче">A−</button><button class="ibtn small" id="fp" type="button" aria-label="Крупнее">A+</button></span>
         </div>
         <div class="pres-notes" id="notes"></div>
         <textarea class="pres-notes pres-notes-ed" id="notesed" spellcheck="true" hidden aria-label="Заметки слайда"></textarea>
-        <form class="pres-jot" id="jot" autocomplete="off">
-          <input id="jotin" type="text" spellcheck="true" placeholder="Записать мысль или вопрос из зала — Enter  (N)" aria-label="Записать в заметки слайда">
-          <span class="pres-jot-st" id="jotst" role="status" aria-live="polite"></span>
-        </form>
       </section>
     </aside>
   </main>
@@ -386,17 +383,6 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     flushNotes();
     setTimeout(() => { if (pending.has(i)) jotStatus('Ждёт связи с окном показа — запись не потеряется', 'warn'); }, 1500);
   }
-  $('jot').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const inp = $<HTMLInputElement>('jotin');
-    const text = inp.value.trim();
-    if (!text) return;
-    const d = new Date();
-    const line = `✎ ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} — ${text}`;
-    const cur = String(deck.slides[index]?.notes ?? '').trimEnd();
-    setNotes(index, cur ? `${cur}\n${line}` : line);
-    inp.value = '';
-  });
   // Заметки только для чтения; править — кнопкой ✎ или клавишей E. Ctrl+Enter, повторное нажатие
   // кнопки или уход фокуса — сохранить, Esc — отменить
   const notesEl = $('notes');
@@ -433,7 +419,6 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     if (e.key === 'Escape') { e.preventDefault(); endEdit(false); }
     else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); endEdit(true); }
   });
-  $('jotin').addEventListener('keydown', (e) => { if (e.key === 'Escape') (e.target as HTMLElement).blur(); });
 
   document.addEventListener('keydown', (e) => {
     // Пока набирают текст, клавиши не листают слайды и не включают инструменты
@@ -459,7 +444,6 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       c: () => clearInk(), 'с': () => clearInk(),
       g: openGrid, 'п': openGrid,
       m: () => setMirror(!mirror), 'ь': () => setMirror(!mirror),
-      n: () => $('jotin').focus(), 'т': () => $('jotin').focus(),
       e: editNotes, 'у': editNotes,
       escape: () => { if (tool !== 'none') setTool(tool); },
     };

@@ -105,11 +105,8 @@ body.presenter { overflow: hidden; background: var(--alt); }
 /* Правка заметок: тот же вид, что у текста заметок */
 .pres-notes-ed { width: 100%; box-sizing: border-box; resize: none; margin: 0; color: var(--tx); font: inherit; line-height: 1.5; border-color: var(--acb); outline: none; box-shadow: 0 0 0 3px var(--acs); }
 /* Запись по ходу выступления */
-.pres-jot { flex: none; display: flex; flex-direction: column; gap: 4px; }
-.pres-jot input { width: 100%; box-sizing: border-box; height: 40px; padding: 0 14px; border: 1px solid var(--bd); border-radius: 10px; background: var(--surf); color: var(--tx); font: 14px var(--font); outline: none; transition: border-color .15s, box-shadow .15s; }
-.pres-jot input::placeholder { color: var(--mu); }
-.pres-jot input:focus { border-color: var(--acb); box-shadow: 0 0 0 3px var(--acs); }
-.pres-jot-st { min-height: 16px; font-size: 12px; color: var(--mu); }
+/* Статус сохранения заметок — подпись у заголовка «Заметки» */
+.pres-label .pres-jot-st { flex: 1; justify-content: flex-end; margin-right: 8px; font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--mu); }
 .pres-jot-st.ok { color: #16A34A; }
 .pres-jot-st.warn { color: #B45309; }
 :root[data-theme="dark"] .pres-jot-st.ok { color: #4ADE80; }

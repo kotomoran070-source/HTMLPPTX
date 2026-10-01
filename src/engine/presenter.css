@@ -84,7 +84,6 @@
   .pres-next .thumb, .pres-next .pres-end { display: none; }
   .pres-next .mu { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pres-notesbox { flex: 1; }
-  .pres-jot { display: none; }
   .pres .pres-bottom { display: grid; grid-template-columns: 1fr auto 2fr; gap: 10px; }
   .pres-bottom .btn { height: 64px; justify-content: center; font-size: 18px; border-radius: 16px; touch-action: manipulation; }
   .pres-bottom .counter { min-width: 0; text-align: center; font-size: 16px; }
