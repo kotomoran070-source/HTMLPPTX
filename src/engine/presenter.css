@@ -46,7 +46,7 @@
 /* Курсор над слайдом по инструменту */
 /* Указка и перо пальцем: браузер не забирает жест под прокрутку и масштаб — линия не обрывается */
 .pres-vp[data-tool="laser"] { cursor: none; touch-action: none; }
-.pres-vp[data-tool="marker"] { touch-action: none; }
+.pres-vp[data-tool="marker"], .pres-vp[data-tool="cursor"] { touch-action: none; }
 .pres-vp[data-tool="pen"] { cursor: crosshair; touch-action: none; }
 
 /* Все слайды */
@@ -78,7 +78,10 @@
   .pres .pres-main { display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
   .pres-cur { flex: none; }
   .pres-cur > .pres-label { display: none; }
-  .pres .pres-vp { flex: none; aspect-ratio: 16 / 9; max-height: none; }
+  .pres .pres-vp { flex: none; aspect-ratio: 16 / 9; max-height: none; width: var(--ph, 100%); margin-inline: auto; }
+  /* Граница под слайдом: тянут вверх — слайд меньше, заметок больше */
+  .pres .pres-split.v { display: block; flex: none; height: 22px; margin: -10px 0; cursor: row-resize; }
+  .pres .pres-split.v::after { left: 50%; top: 9px; width: 44px; height: 4px; transform: translateX(-50%); opacity: .7; }
   .pres-dock { align-self: stretch; justify-content: space-around; }
   .pres .pres-side { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .pres-nextbox { flex: none; flex-direction: row; align-items: baseline; gap: 10px; min-width: 0; }
@@ -94,7 +97,7 @@
 
 /* Экономный режим пульта: слайд на паузе — подсказка, что касание его оживит */
 .pres-vp:has(.stage.paused)::after { content: "Пауза · касание — оживить"; position: absolute; right: 8px; bottom: 8px; z-index: 5; padding: 4px 10px; border-radius: 99px;
-  background: color-mix(in srgb, var(--surf) 88%, transparent); border: 1px solid var(--bd); color: var(--mu); font: 600 11px/1.2 var(--font); pointer-events: none; }
+  background: color-mix(in srgb, var(--surf) 88%, transparent); border: 1px solid var(--bd); color: var(--mu); font: 600 11px/1.2 var(--font); white-space: nowrap; pointer-events: none; }
 
 /* Свайп по заметкам: горизонтальный жест — листать, вертикальный — прокрутка заметок */
 .pres-swipe { will-change: transform; }

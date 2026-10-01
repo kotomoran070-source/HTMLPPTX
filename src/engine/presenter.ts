@@ -14,7 +14,8 @@ import { currentTheme, onThemeChange, setTheme, toggleTheme } from './theme';
 const FONT_KEY = 'htmlpptx-notes-size';
 const LAYOUT_KEY = 'htmlpptx-pres-layout';
 /** Ширина текущего слайда и высота «Далее» по умолчанию, % */
-const DEFAULT_LAYOUT = { pw: 64, nh: 40 };
+/** pw, nh — доли окна на компьютере; ph — ширина слайда на телефоне, % */
+const DEFAULT_LAYOUT = { pw: 64, nh: 40, ph: 100 };
 const PEN_COLORS = ['#EF4444', '#F59E0B', '#2563EB', '#10B981', '#FFFFFF'];
 
 
@@ -51,6 +52,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       <div class="pres-label" id="curl"></div>
       <div class="pres-vp" id="cur"></div>
       <div class="pres-dock" role="toolbar" aria-label="Инструменты показа">
+        <button type="button" class="pd-btn" data-tool="cursor" aria-pressed="false" title="Курсор у зрителей (K): без него наведение и щелчки повторяются, но стрелку не видно">${icon('cursor')}</button>
         <button type="button" class="pd-btn" data-tool="laser" aria-pressed="false" title="Указка (L)">${icon('laser')}</button>
         <span class="pd-pen">
           <button type="button" class="pd-btn" data-tool="pen" aria-pressed="false" title="Перо (D)">${icon('pen')}<i class="pd-dot" id="pdot"></i></button>
@@ -62,7 +64,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
         <button type="button" class="pd-btn" id="tgrid" title="Все слайды (G)" aria-label="Все слайды">${icon('grid')}</button>
         <button type="button" class="pd-btn" id="bk" aria-pressed="false" title="Чёрный экран у зрителей (B)" aria-label="Чёрный экран">${icon('screen-off')}</button>
         ${new URLSearchParams(location.search).get('remote') ? `<button type="button" class="pd-btn" id="eco" aria-pressed="true" title="Экономный режим: слайд на паузе, касание — оживить" aria-label="Экономный режим">${icon('pause')}</button>` : ''}
-        <button type="button" class="pd-btn" id="tmir" aria-pressed="true" title="Мышь и 3D у зрителей (M): курсор, наведение и поворот моделей повторяются в окне показа" aria-label="Мышь и 3D у зрителей">${icon('cursor')}</button>
+        <button type="button" class="pd-btn" id="tmir" aria-pressed="true" title="Наведение и 3D у зрителей (M): наведение, щелчки и поворот моделей повторяются в окне показа" aria-label="Наведение и 3D у зрителей">${icon('layers')}</button>
       </div>
     </section>
     <div class="pres-split v" id="sv" role="separator" aria-orientation="vertical" aria-label="Размер текущего слайда" tabindex="0" title="Потяните, чтобы изменить размер. Двойной щелчок — сбросить"></div>
@@ -139,6 +141,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   function setTool(t: InkTool): void {
     tool = tool === t ? 'none' : t;
     if (tool !== 'laser') { ink.apply({ op: 'laser-off' }); sendInk({ op: 'laser-off' }); }
+    if (tool !== 'cursor') sendInk({ op: 'cursor-off' });
     cur.dataset.tool = tool;
     document.querySelectorAll<HTMLElement>('.pres-dock [data-tool]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tool === tool)));
     $('pcolors').classList.toggle('on', tool === 'pen');
@@ -194,21 +197,30 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   const applyLayout = (save = true) => {
     lay.pw = Math.max(30, Math.min(82, lay.pw));
     lay.nh = Math.max(12, Math.min(80, lay.nh));
+    lay.ph = Math.max(40, Math.min(100, lay.ph));
     pres.style.setProperty('--pw', `${lay.pw}%`);
+    pres.style.setProperty('--ph', `${lay.ph}%`);
     pres.style.setProperty('--nh', `${lay.nh}%`);
     $('sv').setAttribute('aria-valuenow', String(Math.round(lay.pw)));
     $('sh').setAttribute('aria-valuenow', String(Math.round(lay.nh)));
     if (save) try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(lay)); } catch { /* нет доступа */ }
   };
   applyLayout(false);
+  // На телефоне граница под слайдом горизонтальная: тянут вверх — слайд меньше, заметкам больше места
+  const phone = matchMedia('(max-width: 640px)');
   function splitter(el: HTMLElement, axis: 'pw' | 'nh', box: () => DOMRect): void {
+    const ax = () => (axis === 'pw' && phone.matches ? 'ph' : axis);
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       el.setPointerCapture(e.pointerId);
       pres.classList.add('resizing');
+      const from = { y: e.clientY, ph: lay.ph };
       const move = (ev: PointerEvent) => {
         const r = box();
-        lay[axis] = axis === 'pw' ? ((ev.clientX - r.left) / r.width) * 100 : ((ev.clientY - r.top) / r.height) * 100;
+        if (ax() === 'ph') {
+          // Слайд меняет высоту вслед за пальцем, ширина — по 16:9
+          lay.ph = from.ph + (((ev.clientY - from.y) * 16) / 9 / r.width) * 100;
+        } else lay[axis] = axis === 'pw' ? ((ev.clientX - r.left) / r.width) * 100 : ((ev.clientY - r.top) / r.height) * 100;
         applyLayout(false);
       };
       const up = () => {
@@ -220,13 +232,13 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       el.addEventListener('pointermove', move);
       el.addEventListener('pointerup', up);
     });
-    el.addEventListener('dblclick', () => { lay[axis] = DEFAULT_LAYOUT[axis]; applyLayout(); });
+    el.addEventListener('dblclick', () => { lay[ax()] = DEFAULT_LAYOUT[ax()]; applyLayout(); });
     el.addEventListener('keydown', (e) => {
       const d = { ArrowLeft: -2, ArrowUp: -2, ArrowRight: 2, ArrowDown: 2 }[e.key];
       if (d === undefined) return;
       e.preventDefault();
       e.stopPropagation();
-      lay[axis] += d;
+      lay[ax()] += d;
       applyLayout();
     });
   }
@@ -512,6 +524,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       b: () => setBlack(!black), 'и': () => setBlack(!black), '.': () => setBlack(!black),
       t: () => toggleTheme(), 'е': () => toggleTheme(),
       l: () => setTool('laser'), 'д': () => setTool('laser'),
+      k: () => setTool('cursor'), 'л': () => setTool('cursor'),
       d: () => setTool('pen'), 'в': () => setTool('pen'),
       c: () => clearInk(), 'с': () => clearInk(),
       g: openGrid, 'п': openGrid,
@@ -526,7 +539,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   // Объекты-кнопки: щелчок при показе — переход к слайду или ссылка (в режиме правки — обычный объект)
   view.stage.addEventListener('click', (e) => {
     // Указка или перо: щелчок рисует, а не нажимает
-    if (tool !== 'none') return;
+    if (tool !== 'none' && tool !== 'cursor') return;
     const t = e.target as Element;
     const el = t.closest<HTMLElement>('.slide.on > .free[data-action]');
     if (!el || t.closest('input, textarea, button, a, video, model-viewer')) return;
