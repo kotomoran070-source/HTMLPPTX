@@ -12,6 +12,7 @@
     "dev": "vite",
     "build": "node scripts/build.mjs",
     "present": "node scripts/present.mjs",
+    "firewall": "node scripts/firewall.mjs",
     "preview": "vite preview",
     "new": "node scripts/new-deck.mjs",
     "merge-html": "node scripts/import.mjs",

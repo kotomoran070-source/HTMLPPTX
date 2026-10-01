@@ -6,6 +6,7 @@ import path from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 import { parseDocument } from 'yaml';
 import { isLocal, remoteRelay } from './remote-relay.mjs';
+import { ensureFirewall, firewallMessage } from './firewall.mjs';
 import { stepToGlb, stlToGlb } from './model-convert';
 import { AssetStore } from './assets';
 import { BASE_ID, bindProject, importHtml, slug } from './import';
@@ -288,6 +289,16 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           return { port: info?.port ?? 5173, localOnly: !info || info.address === '127.0.0.1' || info.address === '::1' };
         };
         if (!remoteRelay(req, res, net)) next();
+      });
+      // yarn dev --host: пульт с телефона — брандмауэр Windows настраивается сам (один раз, с запросом администратора)
+      s.httpServer?.once('listening', () => {
+        const a = s.httpServer?.address();
+        const host = a && typeof a === 'object' ? a.address : '127.0.0.1';
+        if (host === '127.0.0.1' || host === '::1' || process.platform !== 'win32') return;
+        void ensureFirewall({ log: (m) => s.config.logger.info(m) }).then((st) => {
+          const msg = firewallMessage(st);
+          if (msg) s.config.logger.info(msg);
+        });
       });
 
       s.middlewares.use(async (req, res, next) => {
