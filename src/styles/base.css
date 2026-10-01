@@ -234,6 +234,20 @@ body.editing .slide.on > .free.act { cursor: inherit; translate: none; filter: n
 .stage .slide.on:not(.static) > .free.fx-pop.trig-in.trig-in { animation-timing-function: cubic-bezier(.34, 1.56, .64, 1); }
 .stage .slide.on:not(.static) > .free.trig-out.trig-out { animation: trig-out .26s var(--ease) both; pointer-events: none; }
 @keyframes trig-out { to { opacity: 0; transform: translateY(6px) scale(.98); } }
+/* Сцена на паузе (экономный режим пульта): анимации замирают там, где были */
+.stage.paused *, .stage.paused *::before, .stage.paused *::after { animation-play-state: paused !important; }
+/* Проиграть анимацию по кнопке (play:<id>): выделение (emphasis) или заново появление объекта */
+.stage .slide.on:not(.static) > .free.trig-play.trig-play { animation: var(--emph, var(--fx, fx-pop)) var(--emph-ms, var(--fx-ms, .5s)) var(--emph-ease, cubic-bezier(.2, .7, .2, 1)) 0ms both; }
+.free[data-emph="pulse"] { --emph: emph-pulse; --emph-ms: .6s; --emph-ease: ease-in-out; }
+.free[data-emph="shake"] { --emph: emph-shake; --emph-ms: .55s; --emph-ease: ease-in-out; }
+.free[data-emph="spin"] { --emph: emph-spin; --emph-ms: .8s; --emph-ease: cubic-bezier(.45, 0, .2, 1); }
+.free[data-emph="bounce"] { --emph: emph-bounce; --emph-ms: .7s; --emph-ease: ease-out; }
+.free[data-emph="flash"] { --emph: emph-flash; --emph-ms: .8s; --emph-ease: linear; }
+@keyframes emph-pulse { 40% { transform: scale(1.12); } }
+@keyframes emph-shake { 15%, 45%, 75% { transform: translateX(-10px) rotate(-1.5deg); } 30%, 60%, 90% { transform: translateX(10px) rotate(1.5deg); } }
+@keyframes emph-spin { to { transform: rotate(360deg); } }
+@keyframes emph-bounce { 30% { transform: translateY(-36px); } 55% { transform: translateY(0); } 72% { transform: translateY(-12px); } 88% { transform: translateY(0); } }
+@keyframes emph-flash { 20%, 60% { opacity: .15; } 40%, 80% { opacity: 1; } }
 /* В редакторе скрытый объект виден полупрозрачным: его можно выделить и править */
 body.editing .stage > .slide > .free.trig-hid { visibility: visible; pointer-events: auto; opacity: .14; outline: 1.5px dashed color-mix(in srgb, var(--mu) 70%, transparent); outline-offset: 4px; transition: opacity .15s; }
 /* Наведён или выделен — виден почти целиком: его удобно править, а остальное время он не заслоняет слайд */

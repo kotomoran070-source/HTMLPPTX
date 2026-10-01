@@ -350,9 +350,11 @@ defineBlock<EmbedProps>('embed', {
         frame = null;
       }, 800);
     };
-    const sync = () => (ctx.slide.classList.contains('on') ? on() : off());
+    // Пока слайд открыт и сцена не на паузе (экономный режим пульта): иначе — заставка
+    const sync = () => (ctx.slide.classList.contains('on') && !ctx.stage.classList.contains('paused') ? on() : off());
     const mo = new MutationObserver(sync);
     mo.observe(ctx.slide, { attributes: true, attributeFilter: ['class'] });
+    mo.observe(ctx.stage, { attributes: true, attributeFilter: ['class'] });
     sync();
     return () => {
       offTheme();

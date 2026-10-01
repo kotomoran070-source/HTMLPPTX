@@ -61,6 +61,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
         <i class="pd-sep" aria-hidden="true"></i>
         <button type="button" class="pd-btn" id="tgrid" title="Все слайды (G)" aria-label="Все слайды">${icon('grid')}</button>
         <button type="button" class="pd-btn" id="bk" aria-pressed="false" title="Чёрный экран у зрителей (B)" aria-label="Чёрный экран">${icon('screen-off')}</button>
+        ${new URLSearchParams(location.search).get('remote') ? `<button type="button" class="pd-btn" id="eco" aria-pressed="true" title="Экономный режим: слайд на паузе, касание — оживить" aria-label="Экономный режим">${icon('pause')}</button>` : ''}
         <button type="button" class="pd-btn" id="tmir" aria-pressed="true" title="Мышь и 3D у зрителей (M): курсор, наведение и поворот моделей повторяются в окне показа" aria-label="Мышь и 3D у зрителей">${icon('cursor')}</button>
       </div>
     </section>
@@ -160,6 +161,30 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     const which = t.closest<HTMLElement>('[data-tool]')?.dataset.tool as InkTool | undefined;
     if (which) setTool(which);
   });
+
+  // --- экономный режим (телефон-пульт): слайд на паузе, касание оживляет на несколько секунд ---
+  const ECO_KEY = 'slideria-remote-eco';
+  let eco = false;
+  if (room) {
+    eco = true;
+    try { eco = localStorage.getItem(ECO_KEY) !== '0'; } catch { /* нет хранилища */ }
+  }
+  let ecoTimer = 0;
+  function settle(ms: number): void {
+    clearTimeout(ecoTimer);
+    view.setPaused(false);
+    if (eco) ecoTimer = window.setTimeout(() => view.setPaused(true), ms);
+  }
+  const ecoBtn = document.getElementById('eco');
+  const setEco = (on: boolean) => {
+    eco = on;
+    ecoBtn?.setAttribute('aria-pressed', String(on));
+    try { localStorage.setItem(ECO_KEY, on ? '1' : '0'); } catch { /* нет хранилища */ }
+    settle(on ? 1500 : 0);
+  };
+  ecoBtn?.addEventListener('click', () => setEco(!eco));
+  // Коснулись слайда (кнопка, вкладка, ползунок, код) — он живой ещё 8 секунд после последнего касания
+  ['pointerdown', 'input', 'keydown'].forEach((t) => cur.addEventListener(t, () => { if (eco) settle(8000); }, true));
 
   const fit = () => view.fit(cur.clientWidth, cur.clientHeight);
   new ResizeObserver(fit).observe(cur);
@@ -266,6 +291,8 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     index = Math.max(0, Math.min(count() - 1, i));
     if (index !== was) ink.apply({ op: 'clear' });
     view.show(index);
+    // Экономный режим: появление слайда доигрывает, потом сцена замирает
+    settle(1800);
     const s = deck.slides[index];
     $('curl').textContent = `Слайд ${index + 1} из ${count()} · ${slideLabel(s, index)}`;
     $('ct').textContent = `${index + 1} / ${count()}`;
@@ -534,11 +561,14 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   sync.send({ type: 'hello' }, toMain());
   // Если основное окно перезагрузили, оно снова найдёт это окно по регулярному «привет»;
   // ответа нет дольше трёх «привет» — связь потеряна, и это видно
-  setInterval(() => {
+  // В экономном режиме «привет» реже: телефон меньше просыпается ради сети
+  const beat = () => {
     sync.send({ type: 'hello' }, toMain());
-    if (lastState && Date.now() - lastState > 10000) {
+    if (lastState && Date.now() - lastState > (eco ? 25000 : 10000)) {
       $('link').textContent = lost;
       $('link').classList.remove('ok');
     }
-  }, 3000);
+    setTimeout(beat, eco ? 10000 : 3000);
+  };
+  setTimeout(beat, 3000);
 }

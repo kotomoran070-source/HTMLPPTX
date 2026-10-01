@@ -39,6 +39,22 @@ export class DeckView {
     });
   }
 
+  /**
+   * Пауза сцены (экономный режим пульта на телефоне): CSS- и SVG-анимации замирают,
+   * живые вставки и песочница уступают место заставке. Слайд при этом виден и листается.
+   */
+  private paused = false;
+  setPaused(on: boolean): void {
+    if (this.paused === on) return;
+    this.paused = on;
+    this.stage.classList.toggle('paused', on);
+    this.stage.querySelectorAll<SVGSVGElement>('svg').forEach((s) => {
+      if (s.parentElement?.closest('svg')) return;
+      if (on) s.pauseAnimations?.();
+      else s.unpauseAnimations?.();
+    });
+  }
+
   /** Код песочницы пришёл из другого окна показа: редактор и результат — те же */
   setCode(i: number, block: string, code: string): void {
     const el = [...(this.slides[i]?.querySelectorAll<HTMLElement>('[data-type="sandbox"][data-block]') ?? [])].find((x) => x.dataset.block === block);
@@ -62,7 +78,7 @@ export class DeckView {
    */
   trigger(i: number, action: string): boolean {
     const el = this.slides[i];
-    const cmds = action.split(';').map((c) => /^(show|hide|toggle):(.+)$/.exec(c.trim()));
+    const cmds = action.split(';').map((c) => /^(show|hide|toggle|play):(.+)$/.exec(c.trim()));
     if (!el || !cmds.length || cmds.some((m) => !m)) return false;
     // Несколько команд за щелчок: «show:a;hide:b,c» — так из кнопок собираются вкладки
     for (const m of cmds as RegExpExecArray[]) this.apply(el, m[1], m[2].split(','));
@@ -72,11 +88,20 @@ export class DeckView {
   private apply(el: HTMLElement, verb: string, ids: string[]): void {
     el.querySelectorAll<HTMLElement>(':scope > .free[data-obj]').forEach((o) => {
       if (!ids.includes(o.dataset.obj!)) return;
+      if (verb === 'play') {
+        // Заново: выделение (pulse, shake…) или появление объекта; скрытый объект при этом появляется
+        clearTimeout(Number(o.dataset.trigT));
+        o.classList.remove('trig-in', 'trig-out', 'trig-hid', 'trig-play');
+        void o.offsetWidth;
+        o.classList.add('trig-play');
+        restartGifs(o);
+        return;
+      }
       const hidden = o.classList.contains('trig-hid') || o.classList.contains('trig-out');
       const show = verb === 'show' || (verb === 'toggle' && hidden);
       if (show === !hidden) return;
       clearTimeout(Number(o.dataset.trigT));
-      o.classList.remove('trig-in', 'trig-out', 'trig-hid');
+      o.classList.remove('trig-in', 'trig-out', 'trig-hid', 'trig-play');
       void o.offsetWidth;
       if (show) {
         o.classList.add('trig-in');
@@ -90,9 +115,9 @@ export class DeckView {
 
   /** При заходе на слайд объекты снова в начальном виде: скрытые до щелчка — скрыты */
   private static resetTriggers(el: HTMLElement | undefined): void {
-    el?.querySelectorAll<HTMLElement>(':scope > .free.trig-in, :scope > .free.trig-out, :scope > .free.trig-hid, :scope > .free[data-hid]').forEach((o) => {
+    el?.querySelectorAll<HTMLElement>(':scope > .free.trig-in, :scope > .free.trig-out, :scope > .free.trig-hid, :scope > .free.trig-play, :scope > .free[data-hid]').forEach((o) => {
       clearTimeout(Number(o.dataset.trigT));
-      o.classList.remove('trig-in', 'trig-out');
+      o.classList.remove('trig-in', 'trig-out', 'trig-play');
       o.classList.toggle('trig-hid', o.hasAttribute('data-hid'));
     });
   }

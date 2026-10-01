@@ -192,10 +192,10 @@ defineBlock<SandboxProps>('sandbox', {
     };
     el.addEventListener(SET_CODE_EVENT, onSet);
 
-    // Результат работает, только пока слайд открыт
+    // Результат работает, только пока слайд открыт и сцена не на паузе (экономный режим пульта)
     let offTimer = 0;
     const sync = () => {
-      if (ctx.slide.classList.contains('on')) {
+      if (ctx.slide.classList.contains('on') && !ctx.stage.classList.contains('paused')) {
         clearTimeout(offTimer);
         if (!frame) run();
       } else {
@@ -205,6 +205,7 @@ defineBlock<SandboxProps>('sandbox', {
     };
     const mo = new MutationObserver(sync);
     mo.observe(ctx.slide, { attributes: true, attributeFilter: ['class'] });
+    mo.observe(ctx.stage, { attributes: true, attributeFilter: ['class'] });
     sync();
 
     return () => {

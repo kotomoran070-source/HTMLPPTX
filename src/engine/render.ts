@@ -101,7 +101,8 @@ export class Renderer {
       // Имя объекта — для кнопок «показать / скрыть»; hidden — скрыт при показе до щелчка
       const obj = typeof b.id === 'string' && OBJ_ID.test(b.id) ? ` data-obj="${esc(b.id)}"` : '';
       const hid = b.hidden === true ? ' trig-hid' : '';
-      return `<div class="free${pl.h ? '' : ' auto-h'}${fx}${lock}${act ? ' act' : ''}${hid}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''}${obj}${hid ? ' data-hid' : ''}${act ? ` data-action="${esc(act)}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
+      const emph = typeof b.emphasis === 'string' && (EMPHASIS as readonly string[]).includes(b.emphasis) ? ` data-emph="${b.emphasis}"` : '';
+      return `<div class="free${pl.h ? '' : ' auto-h'}${fx}${lock}${act ? ' act' : ''}${hid}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''}${obj}${emph}${hid ? ' data-hid' : ''}${act ? ` data-action="${esc(act)}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
     }).join('');
   }
 
@@ -219,10 +220,13 @@ export function actionTarget(action: string, deck: Deck, index: number): { slide
 export const OBJ_ID = /^[\w-]+$/;
 
 /**
- * Действие над объектами слайда: show:<id>, hide:<id>, toggle:<id>; объектов — несколько через запятую,
+ * Действие над объектами слайда: show:<id>, hide:<id>, toggle:<id>, play:<id> (проиграть анимацию); объектов — несколько через запятую,
  * команд — несколько через «;» (вкладки: «show:a;hide:b,c»)
  */
-export const TRIGGER = /^(show|hide|toggle):[\w-]+(,[\w-]+)*(;(show|hide|toggle):[\w-]+(,[\w-]+)*)*$/;
+export const TRIGGER = /^(show|hide|toggle|play):[\w-]+(,[\w-]+)*(;(show|hide|toggle|play):[\w-]+(,[\w-]+)*)*$/;
+
+/** Анимации выделения по кнопке (play:<id>): иначе объект заново играет своё появление */
+export const EMPHASIS = ['pulse', 'shake', 'spin', 'bounce', 'flash'] as const;
 
 /**
  * Действие объекта по щелчку при показе: next, prev, first, last, slide:<id слайда>

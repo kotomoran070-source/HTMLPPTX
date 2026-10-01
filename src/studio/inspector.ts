@@ -287,12 +287,13 @@ export class Inspector {
   <option value="">Ничего</option>
   <optgroup label="Переход"><option value="next">Следующий слайд</option><option value="prev">Предыдущий слайд</option><option value="first">Первый слайд</option><option value="last">Последний слайд</option></optgroup>
   <optgroup label="Слайд">${slides}</optgroup>
-  <optgroup label="Объект на слайде"><option value="show:">Показать объект…</option><option value="hide:">Скрыть объект…</option><option value="toggle:">Показать / скрыть объект…</option></optgroup>
+  <optgroup label="Объект на слайде"><option value="show:">Показать объект…</option><option value="hide:">Скрыть объект…</option><option value="toggle:">Показать / скрыть объект…</option><option value="play:">Проиграть анимацию объекта…</option></optgroup>
   <option value="url">Ссылка…</option>
 </select></label>
 <label class="st-p-field" data-act-url hidden><span>Адрес</span><input type="url" data-f="actionUrl" placeholder="https://… или mailto:…" spellcheck="false"></label>
 <label class="st-p-field" data-act-obj hidden><span>Какой объект</span><select data-f="actionObj"><option value="">— выберите —</option>${objs}</select></label>
 <label class="st-p-check"><input type="checkbox" data-f="hidden"><span>Скрыт, пока не нажмут кнопку</span></label>
+<label class="st-p-field"><span>Анимация по кнопке «Проиграть»</span><select data-f="emphasis"><option value="">Как появление</option><option value="pulse">Пульс</option><option value="shake">Покачивание</option><option value="spin">Вращение</option><option value="bounce">Прыжок</option><option value="flash">Вспышка</option></select></label>
 </section>`;
   }
 
@@ -375,10 +376,11 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
       return {
         x: String(Math.round(pl.x)), y: String(Math.round(pl.y)), w: String(Math.round(pl.w)), h: pl.h ? String(Math.round(pl.h)) : '',
         enter: effectName(deck, b.enter) ? String(b.enter) : '',
-        action: typeof b.action === 'string' ? (/^(https?:|mailto:|tel:)/i.test(b.action) ? 'url' : b.action.replace(/^(show|hide|toggle):.*/, '$1:')) : '',
+        action: typeof b.action === 'string' ? (/^(https?:|mailto:|tel:)/i.test(b.action) ? 'url' : b.action.replace(/^(show|hide|toggle|play):.*/, '$1:')) : '',
         actionUrl: typeof b.action === 'string' && /^(https?:|mailto:|tel:)/i.test(b.action) ? b.action : '',
         ...triggerValues(deck.slides[this.host.index()]?.free as Block[] | undefined, b.action),
         hidden: b.hidden === true,
+        emphasis: typeof b.emphasis === 'string' ? b.emphasis : '',
       };
     }
     if (sel) return {};
@@ -414,7 +416,7 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
     const actUrl = this.root.querySelector<HTMLElement>('[data-act-url]');
     if (actSel && actUrl) actUrl.hidden = actSel.value !== 'url';
     const actObj = this.root.querySelector<HTMLElement>('[data-act-obj]');
-    if (actSel && actObj) actObj.hidden = !/^(show|hide|toggle):$/.test(actSel.value);
+    if (actSel && actObj) actObj.hidden = !/^(show|hide|toggle|play):$/.test(actSel.value);
     const reset = this.root.querySelector<HTMLElement>('[data-a="accent-reset"]');
     if (reset) reset.hidden = !this.host.deck().theme?.accent && !this.host.deck().theme?.accent2;
     const off2 = this.root.querySelector<HTMLElement>('[data-a="accent2-off"]');
@@ -478,7 +480,7 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
       if (url) url.hidden = true;
       // Показать / скрыть: сначала выбирают объект
       const obj = this.root.querySelector<HTMLElement>('[data-act-obj]');
-      if (/^(show|hide|toggle):$/.test(raw)) {
+      if (/^(show|hide|toggle|play):$/.test(raw)) {
         const pick = this.root.querySelector<HTMLSelectElement>('[data-f="actionObj"]');
         if (obj) obj.hidden = false;
         if (pick?.value) return this.setTrigger(path, raw, Number(pick.value));
@@ -505,7 +507,10 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
       }, { rebuild: true });
     } else if (sel?.free && f === 'actionObj') {
       const verb = this.root.querySelector<HTMLSelectElement>('[data-f="action"]')?.value ?? '';
-      if (raw && /^(show|hide|toggle):$/.test(verb)) this.setTrigger(sel.free, verb, Number(raw));
+      if (raw && /^(show|hide|toggle|play):$/.test(verb)) this.setTrigger(sel.free, verb, Number(raw));
+    } else if (sel?.free && f === 'emphasis') {
+      const path = sel.free;
+      ed.commit((d) => setAt(d, [...path, 'emphasis'], raw || undefined), { rebuild: true });
     } else if (sel?.free && f === 'hidden') {
       const path = sel.free;
       const on = (el as HTMLInputElement).checked;
@@ -543,7 +548,7 @@ function objLabel(b: Block): string {
 
 /** Поле «Какой объект» для кнопки show/hide/toggle: номер первого объекта из действия */
 function triggerValues(free: Block[] | undefined, action: unknown): { actionObj: string } {
-  const m = typeof action === 'string' ? /^(?:show|hide|toggle):([\w-]+)/.exec(action) : null;
+  const m = typeof action === 'string' ? /^(?:show|hide|toggle|play):([\w-]+)/.exec(action) : null;
   const k = m && free ? free.findIndex((b) => b.id === m[1]) : -1;
   return { actionObj: k >= 0 ? String(k) : '' };
 }
