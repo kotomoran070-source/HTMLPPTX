@@ -15,8 +15,8 @@ import { currentTheme, onThemeChange, setTheme, toggleTheme } from './theme';
 const FONT_KEY = 'htmlpptx-notes-size';
 const LAYOUT_KEY = 'htmlpptx-pres-layout';
 /** Ширина текущего слайда и высота «Далее» по умолчанию, % */
-/** pw, nh — доли окна на компьютере; ph — ширина слайда на телефоне, %; pl — ширина слайда на телефоне лёжа, % */
-const DEFAULT_LAYOUT = { pw: 64, nh: 40, ph: 100, pl: 100 };
+/** pw, nh — доли окна на компьютере; ph — ширина слайда на телефоне, % */
+const DEFAULT_LAYOUT = { pw: 64, nh: 40, ph: 100 };
 const PEN_COLORS = ['#EF4444', '#F59E0B', '#2563EB', '#10B981', '#FFFFFF'];
 
 
@@ -246,8 +246,6 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     lay.ph = Math.max(40, Math.min(100, lay.ph));
     pres.style.setProperty('--pw', `${lay.pw}%`);
     pres.style.setProperty('--ph', `${lay.ph}%`);
-    lay.pl = Math.max(35, Math.min(100, lay.pl));
-    pres.style.setProperty('--pl', `${lay.pl}%`);
     pres.style.setProperty('--nh', `${lay.nh}%`);
     $('sv').setAttribute('aria-valuenow', String(Math.round(lay.pw)));
     $('sh').setAttribute('aria-valuenow', String(Math.round(lay.nh)));
@@ -255,11 +253,9 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   };
   applyLayout(false);
   // На телефоне граница под слайдом горизонтальная: тянут вверх — слайд меньше, заметкам больше места
-  // Телефон лёжа: слайд слева во всю высоту, справа — колонка с таймером, инструментами и кнопками
   const phone = matchMedia('(max-width: 640px)');
-  const lying = matchMedia('(orientation: landscape) and (max-height: 500px)');
   function splitter(el: HTMLElement, axis: 'pw' | 'nh', box: () => DOMRect): void {
-    const ax = () => (axis !== 'pw' ? axis : lying.matches ? 'pl' : phone.matches ? 'ph' : 'pw');
+    const ax = () => (axis === 'pw' && phone.matches ? 'ph' : axis);
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       el.setPointerCapture(e.pointerId);
@@ -271,9 +267,6 @@ export function startPresenter(deck: Deck, deckKey: string): void {
           // Слайд меняет высоту вслед за пальцем, ширина — по 16:9
           lay.ph += (((ev.clientY - last) * 16) / 9 / r.width) * 100;
           last = ev.clientY;
-        } else if (ax() === 'pl') {
-          // Лёжа: граница идёт за пальцем; правее, чем позволяет высота, слайд не растёт
-          lay.pl = ((ev.clientX - r.left) / r.width) * 100;
         } else lay[axis] = axis === 'pw' ? ((ev.clientX - r.left) / r.width) * 100 : ((ev.clientY - r.top) / r.height) * 100;
         applyLayout(false);
       };
@@ -299,7 +292,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       applyLayout();
     });
   }
-  splitter($('sv'), 'pw', () => (lying.matches ? pres : $('pmain')).getBoundingClientRect());
+  splitter($('sv'), 'pw', () => $('pmain').getBoundingClientRect());
   splitter($('sh'), 'nh', () => $('pside').getBoundingClientRect());
 
   // Следующий слайд вписывается в свою область по ширине и высоте

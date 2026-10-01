@@ -124,38 +124,34 @@
 .pres-swipe, .pres-swipe * { touch-action: pan-y; }
 
 
-/* Телефон лёжа: слайд слева во всю высоту; справа узкая колонка — таймер, инструменты, «Далее»,
-   заметки и кнопки. Граница тянется: колонка уже — заметки прячутся, шире — заметок больше */
+/* Телефон лёжа: слайд во всю высоту, справа — столбик кнопок (инструменты, назад/далее, таймер).
+   Заметок и «Далее» здесь нет: за ними — повернуть телефон */
 @media (orientation: landscape) and (max-height: 500px) {
-  .pres { height: 100dvh; box-sizing: border-box; gap: 8px 0;
+  .pres { height: 100dvh; box-sizing: border-box; gap: 8px 10px; align-content: center;
     padding: 8px max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
-    grid-template-columns: minmax(0, min(var(--pl, 100%), calc((100dvh - 16px) * 16 / 9))) 14px minmax(160px, 1fr);
-    grid-template-rows: auto auto minmax(0, 1fr) auto; }
+    grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr) auto auto auto minmax(0, 1fr); }
   .pres .pres-main, .pres .pres-cur { display: contents; }
-  .pres-cur > .pres-label { display: none; }
-  .pres .pres-vp { grid-column: 1; grid-row: 1 / -1; align-self: center; width: 100%; max-height: 100%; aspect-ratio: 16 / 9; margin: 0; flex: none; }
-  .pres .pres-split.v { display: block; grid-column: 2; grid-row: 1 / -1; height: auto; margin: 0; cursor: col-resize; }
-  .pres .pres-split.v::after { left: 5px; top: 50%; width: 4px; height: 56px; transform: translateY(-50%); opacity: .7; }
-  .pres .pres-top { grid-column: 3; grid-row: 1; flex-wrap: wrap; justify-content: center; gap: 4px 6px; }
-  .pres .pres-title, .pres .pres-clock { display: none; }
-  .pres .pres-time { font-size: 22px; }
-  .pres .pres-dock { grid-column: 3; grid-row: 2; align-self: stretch; flex-wrap: wrap; justify-content: center; padding: 3px; }
+  .pres-cur > .pres-label, .pres .pres-split, .pres .pres-side { display: none; }
+  .pres .pres-vp { grid-column: 1; grid-row: 1 / -1; align-self: center; justify-self: center; margin: 0; flex: none; max-height: none;
+    width: min(100%, calc((100dvh - 16px - env(safe-area-inset-bottom)) * 16 / 9)); aspect-ratio: 16 / 9; }
+  /* Таймер — только время */
+  .pres .pres-top { grid-column: 2; grid-row: 2; justify-content: center; }
+  .pres .pres-title, .pres .pres-right, .pres .pres-timer .ibtn { display: none; }
+  .pres .pres-time { font-size: 17px; }
+  /* Инструменты — в два столбца; цвета пера и меню повтора открываются влево, над слайдом */
+  .pres .pres-dock { grid-column: 2; grid-row: 3; display: grid; grid-template-columns: repeat(2, 40px); gap: 2px; padding: 4px; align-self: center; }
   .pres .pres-dock .pd-sep { display: none; }
-  .pres .pd-btn { width: 38px; height: 34px; }
-  /* Кнопка повтора у верха колонки: меню открывается вниз */
-  .pres .pd-menu { top: calc(100% + 8px); bottom: auto; }
-  .pres .pres-side { grid-column: 3; grid-row: 3; display: flex; flex-direction: column; gap: 4px; min-height: 0; container-type: inline-size; }
-  .pres-side .pres-split.h { display: none; }
-  .pres .pres-nextbox { flex: none; flex-direction: row; align-items: baseline; gap: 8px; min-width: 0; }
-  .pres .pres-next { min-width: 0; }
-  .pres .pres-next .thumb, .pres .pres-next .pres-end { display: none; }
-  .pres .pres-next .mu { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .pres .pres-notesbox { flex: 1; gap: 4px; }
-  @container (max-width: 210px) { .pres-notesbox { display: none !important; } }
-  .pres .pres-bottom { grid-column: 3; grid-row: 4; display: grid; grid-template-columns: auto 1fr; gap: 6px; }
-  .pres .pres-bottom { min-width: 0; }
-  .pres .pres-bottom #nx { grid-column: 1 / -1; order: -1; }
-  .pres .pres-bottom .btn { height: 44px; justify-content: center; font-size: 15px; border-radius: 12px; touch-action: manipulation; padding: 0 10px; min-width: 0; width: 100%; box-sizing: border-box; }
-  .pres .pres-bottom .counter { font-size: 14px; text-align: center; align-self: center; }
-  .pres .pres-link { grid-column: 1 / -1; margin: 0; text-align: center; font-size: 11px; }
+  .pres .pres-dock { position: relative; }
+  .pres .pd-colors { position: absolute; right: calc(100% + 8px); top: 4px; padding: 6px 8px; border-radius: 99px;
+    background: var(--surf); border: 1px solid var(--bd); box-shadow: 0 6px 20px rgba(15, 23, 42, .12); }
+  .pres .pd-colors:not(.on) { visibility: hidden; }
+  .pres .pd-menu { right: calc(100% + 8px); bottom: auto; top: 50%; transform: translateY(-50%); }
+  /* Назад / далее — значками, номер слайда под ними, связь — точкой (текст — только если её нет) */
+  .pres .pres-bottom { grid-column: 2; grid-row: 4; display: grid; grid-template-columns: repeat(2, 41px); gap: 4px; justify-content: center; }
+  .pres .pres-bottom .btn { width: 41px; height: 44px; padding: 0; justify-content: center; border-radius: 12px; font-size: 0; gap: 0; touch-action: manipulation; }
+  .pres .pres-bottom .btn .ic { width: 20px; height: 20px; }
+  .pres .pres-bottom .counter { grid-column: 1 / -1; order: 1; font-size: 13px; text-align: center; }
+  .pres .pres-link { grid-column: 1 / -1; order: 2; justify-self: center; margin: 0; max-width: 86px; text-align: center; font-size: 10px; line-height: 1.2; }
+  .pres .pres-link.ok { font-size: 0; }
+  .pres .pres-link.ok::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #16A34A; }
 }
