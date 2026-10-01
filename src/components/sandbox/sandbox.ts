@@ -2,6 +2,7 @@ import { defineBlock } from '../../engine/component';
 import { esc, styleAttr } from '../../engine/html';
 import { icon } from '../icons';
 import { withTheme } from '../html/html';
+import { withPointerBridge } from '../../engine/frame-bridge';
 import type { Block } from '../../types';
 import { highlight } from './highlight';
 import './sandbox.css';
@@ -120,7 +121,7 @@ defineBlock<SandboxProps>('sandbox', {
       // Только скрипты: без доступа к странице показа, формам и переходам
       f.setAttribute('sandbox', 'allow-scripts');
       f.setAttribute('title', 'Результат');
-      f.srcdoc = bridge(token) + (p.theme ? withTheme(ta.value) : ta.value);
+      f.srcdoc = withPointerBridge(bridge(token) + (p.theme ? withTheme(ta.value) : ta.value));
       f.addEventListener('load', () => f.classList.add('on'), { once: true });
       out.append(f);
       frame = f;
@@ -145,13 +146,19 @@ defineBlock<SandboxProps>('sandbox', {
       sendTimer = window.setTimeout(() => el.dispatchEvent(new CustomEvent(CODE_EVENT, { bubbles: true, detail: { code: ta.value } })), 150);
     };
     ta.addEventListener('input', () => changed(true));
+    // «Запустить» — заново в обоих окнах: иначе анимация у докладчика и у зрителей расходится
+    const runShared = () => {
+      run();
+      clearTimeout(sendTimer);
+      el.dispatchEvent(new CustomEvent(CODE_EVENT, { bubbles: true, detail: { code: ta.value, run: true } }));
+    };
 
     // Клавиши кода не листают слайды и не включают инструменты показа
     const insert = (s: string) => document.execCommand('insertText', false, s);
     ta.addEventListener('keydown', (e) => {
       e.stopPropagation();
       if (e.key === 'Escape') { e.preventDefault(); ta.blur(); }
-      else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); run(); }
+      else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); runShared(); }
       else if (e.key === 'Tab' && !e.ctrlKey && !e.altKey && !e.metaKey) { e.preventDefault(); insert('  '); }
       else if (e.key === 'Enter' && !e.shiftKey) {
         // Новая строка с тем же отступом
@@ -169,7 +176,7 @@ defineBlock<SandboxProps>('sandbox', {
       if (!a) return;
       e.preventDefault();
       e.stopPropagation();
-      if (a === 'run') run();
+      if (a === 'run') runShared();
       else if (a === 'reset') {
         ta.value = original;
         changed(true);
@@ -183,12 +190,15 @@ defineBlock<SandboxProps>('sandbox', {
 
     // Код из второго окна показа (докладчик ↔ зал)
     const onSet = (e: Event) => {
-      const code = (e as CustomEvent<{ code: string }>).detail?.code;
-      if (typeof code !== 'string' || code === ta.value) return;
-      const at = ta.selectionStart;
-      ta.value = code;
-      ta.setSelectionRange(Math.min(at, code.length), Math.min(at, code.length));
-      changed(false);
+      const { code, run: again } = (e as CustomEvent<{ code: string; run?: boolean }>).detail ?? {};
+      if (typeof code !== 'string') return;
+      if (code !== ta.value) {
+        const at = ta.selectionStart;
+        ta.value = code;
+        ta.setSelectionRange(Math.min(at, code.length), Math.min(at, code.length));
+        changed(false);
+      }
+      if (again && ctx.slide.classList.contains('on') && !ctx.stage.classList.contains('paused')) run();
     };
     el.addEventListener(SET_CODE_EVENT, onSet);
 

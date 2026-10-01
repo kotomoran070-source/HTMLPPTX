@@ -1,4 +1,5 @@
 import { icon } from '../components/icons';
+import { frameAt, postPointer } from './frame-bridge';
 import { CAMERA, type CameraState } from '../components/media/model';
 import type { Deck } from '../types';
 import { applyAccent, applyAccentFlow } from './accent';
@@ -13,11 +14,9 @@ import { currentTheme, onThemeChange, setTheme, toggleTheme } from './theme';
 
 const FONT_KEY = 'htmlpptx-notes-size';
 const LAYOUT_KEY = 'htmlpptx-pres-layout';
-/** Ниже заметки на телефоне не сжимаются: две строки и место для свайпа */
-const NOTES_MIN = 80;
 /** Ширина текущего слайда и высота «Далее» по умолчанию, % */
-/** pw, nh — доли окна на компьютере; ph — ширина слайда на телефоне, %; pn — высота заметок на телефоне, px (0 — всё, что осталось) */
-const DEFAULT_LAYOUT = { pw: 64, nh: 40, ph: 100, pn: 0 };
+/** pw, nh — доли окна на компьютере; ph — ширина слайда на телефоне, %; pl — ширина слайда на телефоне лёжа, % */
+const DEFAULT_LAYOUT = { pw: 64, nh: 40, ph: 100, pl: 100 };
 const PEN_COLORS = ['#EF4444', '#F59E0B', '#2563EB', '#10B981', '#FFFFFF'];
 
 
@@ -133,6 +132,27 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   // Повтор мыши и живые 3D-модели для зрителей: можно выключить, если на слайдах нет
   // наведений и моделей — тогда окна ничего лишнего не пересылают и не рисуют
   inkInput(cur, ink, () => tool, (): StrokeStyle => ({ color: penColor, width: 5 }), sendInk, () => mirror, () => arrow);
+  // Вставки и песочница при повторе не забирают мышь и палец себе (иначе зрители их не видят):
+  // окно докладчика получает их само и передаёт документу в рамке — здесь и у зрителей
+  let ptrFrame: HTMLIFrameElement | null = null;
+  // Как у зрителей: движение — всегда, нажатие — только щелчком (ведение пальцем ничего не жмёт)
+  const toFrame = (e: MouseEvent, click = false) => {
+    if (!mirror || tool !== 'none') return;
+    const f = frameAt(cur, e.clientX, e.clientY);
+    if (ptrFrame && ptrFrame !== f && ptrFrame.isConnected) postPointer(ptrFrame, 'leave');
+    ptrFrame = f;
+    if (!f) return;
+    if (click) {
+      postPointer(f, 'down', e.clientX, e.clientY, 1);
+      postPointer(f, 'up', e.clientX, e.clientY);
+    } else postPointer(f, 'move', e.clientX, e.clientY, e.buttons);
+  };
+  cur.addEventListener('pointermove', (e) => toFrame(e));
+  cur.addEventListener('click', (e) => toFrame(e, true));
+  cur.addEventListener('pointerleave', () => {
+    if (ptrFrame?.isConnected) postPointer(ptrFrame, 'leave');
+    ptrFrame = null;
+  });
   window.addEventListener(CAMERA, (e) => {
     if (mirror) sync.send({ type: 'camera', ...(e as CustomEvent<CameraState>).detail }, toMain());
   });
@@ -226,9 +246,8 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     lay.ph = Math.max(40, Math.min(100, lay.ph));
     pres.style.setProperty('--pw', `${lay.pw}%`);
     pres.style.setProperty('--ph', `${lay.ph}%`);
-    lay.pn = lay.pn > 0 ? Math.max(NOTES_MIN, Math.round(lay.pn)) : 0;
-    pres.style.setProperty('--pn', `${lay.pn}px`);
-    pres.classList.toggle('pres-pn', lay.pn > 0);
+    lay.pl = Math.max(35, Math.min(100, lay.pl));
+    pres.style.setProperty('--pl', `${lay.pl}%`);
     pres.style.setProperty('--nh', `${lay.nh}%`);
     $('sv').setAttribute('aria-valuenow', String(Math.round(lay.pw)));
     $('sh').setAttribute('aria-valuenow', String(Math.round(lay.nh)));
@@ -236,9 +255,11 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   };
   applyLayout(false);
   // На телефоне граница под слайдом горизонтальная: тянут вверх — слайд меньше, заметкам больше места
+  // Телефон лёжа: слайд слева во всю высоту, справа — колонка с таймером, инструментами и кнопками
   const phone = matchMedia('(max-width: 640px)');
+  const lying = matchMedia('(orientation: landscape) and (max-height: 500px)');
   function splitter(el: HTMLElement, axis: 'pw' | 'nh', box: () => DOMRect): void {
-    const ax = () => (axis === 'pw' && phone.matches ? 'ph' : axis);
+    const ax = () => (axis !== 'pw' ? axis : lying.matches ? 'pl' : phone.matches ? 'ph' : 'pw');
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       el.setPointerCapture(e.pointerId);
@@ -247,9 +268,12 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       const move = (ev: PointerEvent) => {
         const r = box();
         if (ax() === 'ph') {
-          const d = ev.clientY - last;
+          // Слайд меняет высоту вслед за пальцем, ширина — по 16:9
+          lay.ph += (((ev.clientY - last) * 16) / 9 / r.width) * 100;
           last = ev.clientY;
-          phoneResize(d, r.width);
+        } else if (ax() === 'pl') {
+          // Лёжа: граница идёт за пальцем; правее, чем позволяет высота, слайд не растёт
+          lay.pl = ((ev.clientX - r.left) / r.width) * 100;
         } else lay[axis] = axis === 'pw' ? ((ev.clientX - r.left) / r.width) * 100 : ((ev.clientY - r.top) / r.height) * 100;
         applyLayout(false);
       };
@@ -264,7 +288,6 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     });
     el.addEventListener('dblclick', () => {
       lay[ax()] = DEFAULT_LAYOUT[ax()];
-      if (ax() === 'ph') lay.pn = 0;
       applyLayout();
     });
     el.addEventListener('keydown', (e) => {
@@ -276,27 +299,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       applyLayout();
     });
   }
-  /**
-   * Телефон: ручка под слайдом. Вниз — слайд крупнее до полной ширины, дальше — заметки ниже
-   * (свободное место — вокруг слайда). Вверх — сначала заметки обратно, потом слайд меньше
-   */
-  function phoneResize(d: number, width: number): void {
-    const toPh = (px: number) => ((px * 16) / 9 / width) * 100;
-    if (d > 0) {
-      if (lay.ph < 100) lay.ph += toPh(d);
-      else lay.pn = (lay.pn || $('notes').closest<HTMLElement>('.pres-notesbox')!.getBoundingClientRect().height) - d;
-    } else if (d < 0) {
-      if (lay.pn > 0) {
-        // Сколько свободного места вокруг слайда: кончилось — заметки снова занимают остаток
-        const box = cur.closest<HTMLElement>('.pres-cur')!;
-        const used = [...box.children].reduce((h, c) => h + (c as HTMLElement).offsetHeight, 0) + 10;
-        if (box.clientHeight - used + d <= 0) lay.pn = 0;
-        else lay.pn -= d;
-      } else lay.ph += toPh(d);
-    }
-    applyLayout(false);
-  }
-  splitter($('sv'), 'pw', () => $('pmain').getBoundingClientRect());
+  splitter($('sv'), 'pw', () => (lying.matches ? pres : $('pmain')).getBoundingClientRect());
   splitter($('sh'), 'nh', () => $('pside').getBoundingClientRect());
 
   // Следующий слайд вписывается в свою область по ширине и высоте
@@ -638,8 +641,8 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   view.stage.addEventListener('slideria:code', (e) => {
     const el = e.target as HTMLElement;
     const i = Number(el.closest<HTMLElement>('.slide')?.dataset.index);
-    const code = (e as CustomEvent<{ code: string }>).detail?.code;
-    if (Number.isInteger(i) && el.dataset.block && typeof code === 'string') sync.send({ type: 'code', index: i, block: el.dataset.block, code }, toMain());
+    const { code, run } = (e as CustomEvent<{ code: string; run?: boolean }>).detail ?? {};
+    if (Number.isInteger(i) && el.dataset.block && typeof code === 'string') sync.send({ type: 'code', index: i, block: el.dataset.block, code, ...(run ? { run } : {}) }, toMain());
   });
   addEventListener('slideria:vars', (e) => {
     const d = (e as CustomEvent<{ index: number; vars: Record<string, number> }>).detail;
@@ -655,7 +658,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       return;
     }
     if (m.type === 'code') {
-      if (!mainId || from === mainId) view.setCode(m.index, m.block, m.code);
+      if (!mainId || from === mainId) view.setCode(m.index, m.block, m.code, m.run);
       return;
     }
     if (m.type === 'notes-ok') {

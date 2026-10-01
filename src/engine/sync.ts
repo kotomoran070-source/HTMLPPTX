@@ -18,7 +18,8 @@ export type SyncMsg =
   /** Ползунки слайда сдвинули в одном окне — другое повторяет */
   | { type: 'vars'; index: number; vars: Record<string, number> }
   /** Код песочницы правят в одном окне — другое повторяет */
-  | { type: 'code'; index: number; block: string; code: string }
+  /** run — ещё и перезапустить результат (кнопка «Запустить»: анимация с начала в обоих окнах) */
+  | { type: 'code'; index: number; block: string; code: string; run?: boolean }
   /** Кнопка «показать / скрыть» нажата в одном окне — другое повторяет */
   | { type: 'trigger'; index: number; action: string };
 

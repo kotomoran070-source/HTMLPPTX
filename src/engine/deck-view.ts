@@ -56,9 +56,9 @@ export class DeckView {
   }
 
   /** Код песочницы пришёл из другого окна показа: редактор и результат — те же */
-  setCode(i: number, block: string, code: string): void {
+  setCode(i: number, block: string, code: string, run = false): void {
     const el = [...(this.slides[i]?.querySelectorAll<HTMLElement>('[data-type="sandbox"][data-block]') ?? [])].find((x) => x.dataset.block === block);
-    el?.dispatchEvent(new CustomEvent('slideria:set-code', { detail: { code } }));
+    el?.dispatchEvent(new CustomEvent('slideria:set-code', { detail: { code, run } }));
   }
 
   /** Значения ползунков пришли из другого окна: ползунки встают туда же, связанные блоки пересчитываются */

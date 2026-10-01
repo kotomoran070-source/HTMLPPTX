@@ -293,6 +293,8 @@ export function inkInput(area: HTMLElement, ink: Ink, tool: () => InkTool, style
   });
   const end = (e: PointerEvent) => {
     stroke = null;
+    // Палец подняли — у зрителей курсор уходит со слайда (после щелчка, если это было касание)
+    if (tool() === 'none' && e.pointerType === 'touch' && mirror()) setTimeout(() => send({ op: 'cursor-off' }), 80);
     // Палец подняли — указка гаснет (у мыши она гаснет, когда курсор уходит со слайда)
     if (tool() === 'laser' && e.pointerType !== 'mouse') emit({ op: 'laser-off' });
   };

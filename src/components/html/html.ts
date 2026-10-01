@@ -1,6 +1,7 @@
 import { ACCENT_EVENT } from '../../engine/accent';
 import { icon } from '../icons';
 import { defineBlock } from '../../engine/component';
+import { isAlive, withPointerBridge } from '../../engine/frame-bridge';
 import { NS_RE } from '../../engine/deck-css';
 import { onThemeChange } from '../../engine/theme';
 import { esc, t } from '../../engine/html';
@@ -327,8 +328,8 @@ defineBlock<EmbedProps>('embed', {
       frame = f;
       embedSource(p).then((html) => {
         if (frame !== f) return;
-        f.srcdoc = p.theme ? withTheme(html) : html;
-        f.addEventListener('load', () => f.classList.add('on'), { once: true });
+        f.srcdoc = withPointerBridge(p.theme ? withTheme(html) : html);
+        f.addEventListener('load', () => { alive = performance.now(); f.classList.add('on'); }, { once: true });
         el.append(f);
       }).catch(() => { /* остаётся заставка */ });
     };
@@ -337,11 +338,31 @@ defineBlock<EmbedProps>('embed', {
       if (!p.theme || !frame) return;
       const f = frame;
       embedSource(p).then((html) => {
-        if (frame === f) f.srcdoc = withTheme(html);
+        if (frame === f) f.srcdoc = withPointerBridge(withTheme(html));
       }).catch(() => {});
     };
     const offTheme = onThemeChange(recolor);
     addEventListener(ACCENT_EVENT, recolor);
+    // Сторож: вставка на экране, а кадров нет (браузер иногда «замораживает» рамку при переходе
+    // слайдов) — перезапуск, как при смене темы. Не чаще трёх раз подряд
+    let alive = 0;
+    let kicks = 0;
+    const onAlive = (e: MessageEvent) => {
+      if (!isAlive(e, frame)) return;
+      alive = performance.now();
+      kicks = 0;
+    };
+    addEventListener('message', onAlive);
+    const watch = window.setInterval(() => {
+      const f = frame;
+      if (!f?.classList.contains('on') || document.visibilityState !== 'visible' || !ctx.slide.classList.contains('on') || ctx.stage.classList.contains('paused')) return;
+      if (performance.now() - alive < 3000 || kicks >= 3) return;
+      kicks++;
+      alive = performance.now();
+      embedSource(p).then((html) => {
+        if (frame === f) f.srcdoc = withPointerBridge(p.theme ? withTheme(html) : html);
+      }).catch(() => {});
+    }, 1500);
     const off = () => {
       clearTimeout(timer);
       // Небольшая задержка: при перелистывании туда-обратно анимация не начинается заново
@@ -359,6 +380,8 @@ defineBlock<EmbedProps>('embed', {
     return () => {
       offTheme();
       removeEventListener(ACCENT_EVENT, recolor);
+      removeEventListener('message', onAlive);
+      clearInterval(watch);
       mo.disconnect();
       clearTimeout(timer);
       frame?.remove();

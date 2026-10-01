@@ -485,8 +485,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   view.stage.addEventListener('slideria:code', (e) => {
     const el = e.target as HTMLElement;
     const i = Number(el.closest<HTMLElement>('.slide')?.dataset.index);
-    const code = (e as CustomEvent<{ code: string }>).detail?.code;
-    if (Number.isInteger(i) && el.dataset.block && typeof code === 'string') sync.send({ type: 'code', index: i, block: el.dataset.block, code });
+    const { code, run } = (e as CustomEvent<{ code: string; run?: boolean }>).detail ?? {};
+    if (Number.isInteger(i) && el.dataset.block && typeof code === 'string') sync.send({ type: 'code', index: i, block: el.dataset.block, code, ...(run ? { run } : {}) });
   });
   // Ползунки: здесь сдвинули — докладчику; от докладчика — сюда
   addEventListener('slideria:vars', (e) => {
@@ -497,7 +497,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     if (m.type === 'goto') go(m.index);
     else if (m.type === 'vars') view.setVars(m.index, m.vars);
     else if (m.type === 'trigger') view.trigger(m.index, m.action);
-    else if (m.type === 'code') view.setCode(m.index, m.block, m.code);
+    else if (m.type === 'code') view.setCode(m.index, m.block, m.code, m.run);
     else if (m.type === 'notes') {
       // Запись из окна докладчика: в заметки слайда, без перерисовки — у зрителей ничего не меняется
       let k = m.index;

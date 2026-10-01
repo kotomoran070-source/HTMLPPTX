@@ -4,6 +4,8 @@
  * и события мыши, на которые отвечают подсветка связей и эффекты слайдов. Щелчок по ссылке
  * или кнопке не повторяется: страница не должна открыться на проекторе.
  */
+import { frameAt, postPointer } from './frame-bridge';
+
 const W = 1280;
 const H = 720;
 const SHEET = 'htmlpptx-rhov';
@@ -64,9 +66,19 @@ export class RemoteHover {
     return { el: hit && this.stage.contains(hit) && hit.closest('.slide.on') ? hit : null, cx, cy };
   }
 
+  /** Рамка вставки, над которой курсор: ей уходят движения и щелчки */
+  private frame: HTMLIFrameElement | null = null;
+
+  private toFrame(f: HTMLIFrameElement | null, cx: number, cy: number): void {
+    if (this.frame && this.frame !== f && this.frame.isConnected) postPointer(this.frame, 'leave');
+    this.frame = f;
+    if (f) postPointer(f, 'move', cx, cy);
+  }
+
   move(x: number, y: number): void {
     ensureCss();
     const { el, cx, cy } = this.at(x, y);
+    this.toFrame(frameAt(this.stage, cx, cy), cx, cy);
     const chain: Element[] = [];
     for (let e = el; e && e !== this.stage; e = e.parentElement) chain.push(e);
     const was = this.chain[0] ?? null;
@@ -90,6 +102,7 @@ export class RemoteHover {
   }
 
   off(): void {
+    this.toFrame(null, 0, 0);
     const was = this.chain[0];
     if (was) fire(was, 'mouseout', { bubbles: true });
     for (const e of this.chain) {
@@ -102,6 +115,13 @@ export class RemoteHover {
   /** Щелчок докладчика по слайду (волна на космическом слайде и т. п.) — не по ссылкам и кнопкам */
   click(x: number, y: number): void {
     const { el, cx, cy } = this.at(x, y);
+    const f = frameAt(this.stage, cx, cy);
+    if (f) {
+      this.toFrame(f, cx, cy);
+      postPointer(f, 'down', cx, cy, 1);
+      postPointer(f, 'up', cx, cy);
+      return;
+    }
     if (!el || el.closest('a, button, input, select, textarea, label, summary, [contenteditable], iframe')) return;
     fire(el, 'click', { bubbles: true, clientX: cx, clientY: cy });
   }
