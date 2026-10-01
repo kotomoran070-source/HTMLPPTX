@@ -10,15 +10,36 @@ const MAX_BODY = 64 * 1024;
 /** @type {Map<string, Set<import('node:http').ServerResponse>>} */
 const rooms = new Map();
 
-/** Адреса этого компьютера в локальной сети (для QR на экране) */
-export function lanUrls(port) {
+// Виртуальные адаптеры (WSL, Hyper-V, VirtualBox, Docker, VPN): телефон до них не достучится
+const VIRTUAL = /vEthernet|WSL|Hyper-V|VirtualBox|VMware|vboxnet|docker|veth|br-|virbr|utun|tun|tap|tailscale|zerotier|wireguard|wg\d|vpn|hamachi|radmin|loopback|npcap/i;
+const WIRELESS = /wi-?fi|wlan|wireless|беспровод|en0|wlp/i;
+
+/** Насколько адрес похож на домашнюю или офисную Wi-Fi: больше — лучше */
+function score(name, ip) {
+  let s = 0;
+  if (WIRELESS.test(name)) s += 40;
+  if (/^(eth|en|ethernet|Ethernet)/i.test(name)) s += 15;
+  if (VIRTUAL.test(name)) s -= 100;
+  if (ip.startsWith('192.168.')) s += 30;
+  else if (ip.startsWith('10.')) s += 20;
+  else if (/^172\.(1[6-9]|2\d|3[01])\./.test(ip)) s += 10;
+  if (ip.startsWith('169.254.')) s -= 200;
+  return s;
+}
+
+/** Адреса этого компьютера в локальной сети: самый вероятный для телефона — первым */
+export function lanAddresses() {
   const out = [];
-  for (const list of Object.values(os.networkInterfaces())) {
+  for (const [name, list] of Object.entries(os.networkInterfaces())) {
     for (const a of list ?? []) {
-      if (a.family === 'IPv4' && !a.internal) out.push(`http://${a.address}:${port}`);
+      if (a.family === 'IPv4' && !a.internal) out.push({ name, ip: a.address, score: score(name, a.address) });
     }
   }
-  return out;
+  return out.sort((a, b) => b.score - a.score);
+}
+
+export function lanUrls(port) {
+  return lanAddresses().filter((a) => a.score > -100).map((a) => `http://${a.ip}:${port}`);
 }
 
 /** Запрос с этого же компьютера (правка проекта разрешена только так) */

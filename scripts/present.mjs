@@ -7,7 +7,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
-import { lanUrls, remoteRelay } from '../plugins/remote-relay.mjs';
+import { lanAddresses, lanUrls, remoteRelay } from '../plugins/remote-relay.mjs';
 
 const root = process.cwd();
 const args = process.argv.slice(2);
@@ -61,7 +61,12 @@ server.listen(port, '0.0.0.0', () => {
   const local = `http://localhost:${port}/`;
   const lan = lanUrls(port);
   console.log(`\n  Показ:      ${local}`);
-  for (const u of lan) console.log(`  В сети:     ${u}/`);
+  // Имена адаптеров: видно, какой адрес — Wi-Fi, а какой виртуальный
+  for (const a of lanAddresses()) console.log(`  ${a.score > -100 ? 'В сети:' : 'Пропущен:'}${' '.repeat(a.score > -100 ? 5 : 3)}http://${a.ip}:${port}/   (${a.name})`);
+  if (process.platform === 'win32') {
+    console.log('\n  Телефон не открывает адрес? Windows могла закрыть порт брандмауэром: при первом запуске');
+    console.log('  разрешите Node.js доступ в «Частных сетях», а сеть Wi-Fi отметьте как «Частная».');
+  }
   if (!lan.length) console.log('  В сети:     нет подключения — телефон не сможет подключиться');
   console.log('\n  Нажмите R в показе — на экране появится QR для телефона (он должен быть в той же Wi-Fi).');
   console.log('  Остановить: Ctrl+C\n');
