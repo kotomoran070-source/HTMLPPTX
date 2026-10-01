@@ -53,13 +53,16 @@ function merge(doc: Document, node: unknown, value: Json): Node {
     // Элементы с id (слайды) сопоставляются по id: перестановка не путает комментарии
     const useIds = ids.some((id) => id !== undefined && byId.has(id));
     const used = new Set<unknown>();
+    // Элементы без id (подписи, фигуры между слайдами-«вкладками») — по порядку среди таких же:
+    // иначе их узлы пересоздавались бы и терялся стиль записи ({…} в строку, комментарии)
+    const plain = old.filter((n) => idOf(n) === undefined);
     // Если элементы списка разделены пустыми строками (слайды), новые получают такую же
     const spaced = old.some((n, i) => i > 0 && (n as { spaceBefore?: boolean })?.spaceBefore);
     seq.items = value.map((v, i) => {
       let prev: unknown;
       if (useIds) {
         const id = ids[i];
-        prev = id !== undefined ? byId.get(id) : undefined;
+        prev = id !== undefined ? byId.get(id) : plain.shift();
         if (prev && used.has(prev)) prev = undefined;
       } else {
         prev = old[i];
@@ -94,5 +97,6 @@ export function mergeYaml(source: string, value: unknown): string {
   const doc = parseDocument(source);
   if (doc.errors.length) throw new Error(`deck.yaml содержит ошибку, сохранение отменено: ${doc.errors[0].message}`);
   doc.contents = merge(doc, doc.contents, value as Json) as typeof doc.contents;
-  return doc.toString({ lineWidth: 0, flowCollectionPadding: false });
+  // doubleQuotedAsJSON: "строка\nстрока" остаётся в одну строку с \n, как была
+  return doc.toString({ lineWidth: 0, flowCollectionPadding: false, doubleQuotedAsJSON: true });
 }

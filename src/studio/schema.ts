@@ -41,7 +41,8 @@ const ALIGN: [string, string][] = [['', 'Растянуть'], ['start', 'По �
 
 const frame: Field[] = [
   { k: 'fit', label: 'Кадр', type: 'select', options: FIT },
-  { k: 'zoom', label: 'Увеличение', type: 'number', min: 1, max: 4, step: 0.1, placeholder: '1' },
+  // Как ползунок «Масштаб» на панели картинки: 0,3–3 (30–300 %)
+  { k: 'zoom', label: 'Масштаб', type: 'number', min: 0.3, max: 3, step: 0.05, placeholder: '1', hint: '1 — как есть; 0,9 — 90 %, 1,5 — 150 %' },
   { k: 'position', label: 'Видимая часть', type: 'text', placeholder: '50% 50%', hint: 'Положение изображения в рамке' },
 ];
 

@@ -839,8 +839,8 @@ export class Editor {
       this.text.finish(true);
       this.image.clear();
       this.blocks.select(free);
-      // В студии настройки картинки — в панели свойств; панель у картинки — по клику на неё
-      const img = this.studio ? null : free.querySelector<HTMLElement>('[data-edit-img]');
+      // Картинка объекта сразу получает свою панель (масштаб, кадр) — и в студии, как после вставки
+      const img = free.querySelector<HTMLElement>('[data-edit-img]');
       const path = img ? readPath(img, 'data-edit-img') : null;
       if (img && path && getAt(this.host.deck, path)) this.image.select(img);
       return;
@@ -865,11 +865,7 @@ export class Editor {
         if (owner) this.blocks.select(owner);
         else this.blocks.clear();
       }
-      // В студии картинка настраивается в панели свойств: щелчок выделяет её блок, двойной — замена файла
-      if (this.studio) {
-        if (free) this.blocks.select(free);
-        return;
-      }
+      if (free) this.blocks.select(free);
       const path = readPath(img, 'data-edit-img');
       const value = path ? getAt(this.host.deck, path) : null;
       // Пустое место — сразу выбор файла; картинка — выделение и её панель
