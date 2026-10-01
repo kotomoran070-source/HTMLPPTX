@@ -87,12 +87,14 @@ export class Ink {
       // Сам щелчок повторяет окно показа (RemoteHover); здесь — только курсор на месте
       this.apply({ op: 'cursor', x: m.x, y: m.y });
     } else if (m.op === 'laser') {
-      this.dot.style.transform = `translate(${m.x}px, ${m.y}px)`;
+      this.laserTo = { x: m.x, y: m.y };
+      // Только что включили — точка сразу на месте, дальше плавно догоняет новые положения
+      if (!this.dot.classList.contains('on') || !this.laserAt) this.laserAt = { x: m.x, y: m.y };
       this.dot.classList.add('on');
-      this.track.push({ x: m.x, y: m.y, t: performance.now() });
-      this.animate();
+      this.glide();
     } else if (m.op === 'laser-off') {
       this.dot.classList.remove('on');
+      this.laserAt = null;
     } else if (m.op === 'start') {
       const st = m.style ?? DEFAULT_STYLE;
       const el = document.createElementNS(NS, 'path');
@@ -117,6 +119,37 @@ export class Ink {
       this.strokes.clear();
       this.dot.classList.remove('on');
     }
+  }
+
+  /**
+   * Плавная указка: положения приходят с телефона пачками, 10–20 раз в секунду (так связь
+   * не забивается). Точка каждый кадр догоняет последнее положение — движение гладкое,
+   * задержка — доли кадра сети, а не рывки.
+   */
+  private laserAt: { x: number; y: number } | null = null;
+  private laserTo: { x: number; y: number } = { x: 0, y: 0 };
+  private glideRaf = 0;
+  private glideT = 0;
+  private glide(): void {
+    if (this.glideRaf) return;
+    this.glideT = performance.now();
+    const frame = () => {
+      const at = this.laserAt;
+      if (!at || !this.dot.classList.contains('on')) { this.glideRaf = 0; return; }
+      const now = performance.now();
+      // Доля пути за кадр — от времени кадра: одинаково на 60 и 120 Гц
+      const k = 1 - Math.exp(-(now - this.glideT) / 45);
+      this.glideT = now;
+      at.x += (this.laserTo.x - at.x) * k;
+      at.y += (this.laserTo.y - at.y) * k;
+      this.dot.style.transform = `translate(${at.x.toFixed(1)}px, ${at.y.toFixed(1)}px)`;
+      this.track.push({ x: at.x, y: at.y, t: now });
+      this.animate();
+      // Догнала и стоит — цикл засыпает до следующего положения
+      if (Math.abs(this.laserTo.x - at.x) + Math.abs(this.laserTo.y - at.y) < 0.3) { this.glideRaf = 0; return; }
+      this.glideRaf = requestAnimationFrame(frame);
+    };
+    this.glideRaf = requestAnimationFrame(frame);
   }
 
   /** След указки: хвост из точек, тающий за доли секунды. */
