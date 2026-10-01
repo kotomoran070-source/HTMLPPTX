@@ -102,12 +102,17 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   applyAccentFlow(deck.theme?.accentFlow);
   const view = new DeckView(deck, cur);
   // У окна докладчика свой id (sessionStorage всплывающего окна копируется из основного)
-  const sync = new Sync(deckKey, 'p-' + Math.random().toString(36).slice(2, 10));
+  // Телефон-пульт (по QR из окна показа): то же окно докладчика, связь — через сервер показа
+  const room = new URLSearchParams(location.search).get('remote');
+  if (room) document.body.classList.add('pres-phone');
+  const sync = new Sync(deckKey, (room ? 'r-' : 'p-') + Math.random().toString(36).slice(2, 10));
   // Окно показа, за которым следует это окно; без параметра — первое ответившее
   let mainId = new URLSearchParams(location.search).get('main');
   const toMain = () => mainId ?? undefined;
   let index = -1;
   let black = false;
+  /** Когда окно показа последний раз ответило */
+  let lastState = 0;
 
   // --- указка, перо и маркер: рисунок виден и здесь, и у зрителей ---
   const ink = new Ink(view.stage);
@@ -510,6 +515,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     } else if (m.type === 'state') {
       // Записи, которые окно показа ещё не подтвердило, — ещё раз
       if (pending.size) flushNotes();
+      lastState = Date.now();
       $('link').textContent = 'Связь с окном показа есть';
       $('link').classList.add('ok');
       if (m.index !== index) render(m.index);
@@ -518,10 +524,21 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     }
   });
 
-  $('link').textContent = 'Окно показа не отвечает: листайте здесь';
+  const lost = room
+    ? 'Нет связи с показом: отсканируйте QR заново (клавиша R в окне показа)'
+    : 'Окно показа не отвечает: листайте здесь';
+  $('link').textContent = lost;
   const m = /^#(\d+)$/.exec(location.hash);
   render(m ? parseInt(m[1], 10) - 1 : 0);
+  if (room) sync.relay(room, (ok) => { if (ok) sync.send({ type: 'hello' }, toMain()); });
   sync.send({ type: 'hello' }, toMain());
-  // Если основное окно перезагрузили, оно снова найдёт это окно по регулярному «привет»
-  setInterval(() => sync.send({ type: 'hello' }, toMain()), 3000);
+  // Если основное окно перезагрузили, оно снова найдёт это окно по регулярному «привет»;
+  // ответа нет дольше трёх «привет» — связь потеряна, и это видно
+  setInterval(() => {
+    sync.send({ type: 'hello' }, toMain());
+    if (lastState && Date.now() - lastState > 10000) {
+      $('link').textContent = lost;
+      $('link').classList.remove('ok');
+    }
+  }, 3000);
 }

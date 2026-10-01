@@ -1,15 +1,11 @@
 /**
  * Пульт с телефона. Телефон и компьютер с показом — в одной сети; показ открыт через сервер
  * (yarn present или yarn dev --host). Окно показа выводит QR, телефон открывает по нему
- * страницу-пульт. Сообщения — те же, что у окна докладчика (sync.ts), но идут через сервер.
+ * режим докладчика этого окна; сообщения те же (sync.ts), но идут через сервер.
  */
 import { icon } from '../components/icons';
 import { qrSvg } from '../components/qr';
-import type { Deck } from '../types';
-import { applyAccent } from './accent';
-import { staticSlide } from './deck-view';
 import { esc } from './html';
-import { slideLabel } from './render';
 import { RELAY, Sync } from './sync';
 import './remote.css';
 
@@ -86,7 +82,8 @@ export async function openRemoteDialog(o: RemoteDialog): Promise<void> {
 
   const room = remoteRoom(o.deckKey, true)!;
   o.sync.relay(room);
-  const link = (base: string) => `${base}${location.pathname}?deck=${encodeURIComponent(o.deckKey)}&remote=${room}`;
+  // Телефон открывает режим докладчика этого окна показа: живой слайд, заметки, указка, перо
+  const link = (base: string) => `${base}${location.pathname}?deck=${encodeURIComponent(o.deckKey)}&view=presenter&main=${encodeURIComponent(o.sync.self)}&remote=${room}`;
   const main = link(urls[0]);
   body.innerHTML = `<h2>${icon('phone')} Пульт с телефона</h2>
     <p class="mu">Наведите камеру телефона на код. Телефон должен быть в той же сети, что и этот компьютер.</p>
@@ -101,154 +98,4 @@ export async function openRemoteDialog(o: RemoteDialog): Promise<void> {
     st.querySelector('span')!.textContent = 'Телефон подключён';
     setTimeout(close, 1400);
   });
-}
-
-// ------------------------------------------------------------------ страница-пульт на телефоне
-
-export function startRemote(deck: Deck, deckKey: string, room: string): void {
-  document.body.className = 'remote-page';
-  // Миниатюра — в теме экрана зала (приходит с положением показа), цвета — как у презентации
-  document.documentElement.setAttribute('data-theme', 'dark');
-  applyAccent(deck.theme?.accent, deck.theme?.accent2, true);
-  document.title = `Пульт · ${deck.title}`;
-  const n = deck.slides.length;
-  document.body.innerHTML = `<div class="rm">
-  <header class="rm-top"><span class="rm-dot" title="Связь с показом"></span><b class="rm-n"></b><button type="button" class="rm-time" title="Сбросить таймер">00:00</button>
-    <button type="button" class="rm-btn rm-black" aria-pressed="false" title="Чёрный экран">Экран</button></header>
-  <div class="rm-cur" aria-label="Текущий слайд. Ведите пальцем — указка на экране"></div>
-  <p class="rm-hint">Ведите пальцем по слайду — на экране указка</p>
-  <div class="rm-next"></div>
-  <div class="rm-notes"></div>
-  <footer class="rm-nav"><button type="button" class="rm-prev" aria-label="Назад">${icon('prev')}</button><button type="button" class="rm-go">Далее ${icon('next')}</button></footer>
-</div>`;
-  const $ = <T extends HTMLElement>(s: string) => document.querySelector(s) as T;
-  const dot = $('.rm-dot');
-  const cur = $('.rm-cur');
-  let index = 0;
-  let black = false;
-  let got = false;
-
-  const sync = new Sync(deckKey, 'r-' + Math.random().toString(36).slice(2, 10));
-  const buzz = () => { try { navigator.vibrate?.(8); } catch { /* нет вибрации */ } };
-
-  const render = () => {
-    $('.rm-n').textContent = `${index + 1} / ${n}`;
-    cur.replaceChildren(staticSlide(deck, index));
-    const next = deck.slides[index + 1];
-    $('.rm-next').innerHTML = next ? `<small>Далее</small><span>${esc(slideLabel(next, index + 1))}</span>` : '<small>Это последний слайд</small>';
-    const notes = deck.slides[index]?.notes;
-    $('.rm-notes').innerHTML = typeof notes === 'string' && notes.trim()
-      ? esc(notes.trim()).replace(/\n/g, '<br>')
-      : '<span class="rm-empty">Заметок к слайду нет</span>';
-    $('.rm-prev').toggleAttribute('disabled', index <= 0);
-    $('.rm-go').toggleAttribute('disabled', index >= n - 1);
-    $('.rm-black').setAttribute('aria-pressed', String(black));
-  };
-  const go = (i: number) => {
-    const k = Math.max(0, Math.min(n - 1, i));
-    if (k === index) return;
-    index = k;
-    buzz();
-    render();
-    sync.send({ type: 'goto', index: k });
-  };
-
-  sync.on((m) => {
-    if (m.type === 'state') {
-      got = true;
-      dot.classList.add('on');
-      black = m.black;
-      if (document.documentElement.getAttribute('data-theme') !== m.theme) {
-        document.documentElement.setAttribute('data-theme', m.theme);
-        render();
-      }
-      if (m.index !== index) { index = m.index; render(); } else $('.rm-black').setAttribute('aria-pressed', String(black));
-    } else if (m.type === 'goto' && m.index !== index) {
-      index = m.index;
-      render();
-    } else if (m.type === 'black') {
-      black = m.value;
-      render();
-    }
-  });
-  // Показ отвечает на hello своим положением; пока ответа нет — спрашиваем снова
-  const hello = () => sync.send({ type: 'hello' });
-  sync.relay(room, (ok) => {
-    dot.classList.toggle('off', !ok);
-    if (ok) hello();
-  });
-  const again = setInterval(() => { if (got) clearInterval(again); else hello(); }, 3000);
-
-  $('.rm-prev').addEventListener('click', () => go(index - 1));
-  $('.rm-go').addEventListener('click', () => go(index + 1));
-  $('.rm-black').addEventListener('click', () => {
-    black = !black;
-    buzz();
-    render();
-    sync.send({ type: 'black', value: black });
-  });
-
-  // Таймер доклада
-  let t0 = Date.now();
-  const clock = $('.rm-time');
-  const tick = () => {
-    const s = Math.floor((Date.now() - t0) / 1000);
-    clock.textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-  };
-  setInterval(tick, 1000);
-  clock.addEventListener('click', () => { t0 = Date.now(); tick(); });
-
-  // Указка: палец на миниатюре — точка на экране зала
-  let raf = 0;
-  let pt: { x: number; y: number } | null = null;
-  const at = (e: PointerEvent) => {
-    const r = (cur.firstElementChild as HTMLElement ?? cur).getBoundingClientRect();
-    return { x: Math.max(0, Math.min(1280, ((e.clientX - r.left) / r.width) * 1280)), y: Math.max(0, Math.min(720, ((e.clientY - r.top) / r.height) * 720)) };
-  };
-  const flush = () => {
-    raf = 0;
-    if (pt) sync.send({ type: 'ink', ink: { op: 'laser', x: Math.round(pt.x), y: Math.round(pt.y) } });
-  };
-  cur.addEventListener('pointerdown', (e) => {
-    cur.setPointerCapture(e.pointerId);
-    cur.classList.add('pointing');
-    pt = at(e);
-    flush();
-  });
-  cur.addEventListener('pointermove', (e) => {
-    if (!cur.classList.contains('pointing')) return;
-    pt = at(e);
-    // Не чаще кадра: сеть не забивается сообщениями
-    if (!raf) raf = requestAnimationFrame(flush);
-  });
-  const up = () => {
-    if (!cur.classList.contains('pointing')) return;
-    cur.classList.remove('pointing');
-    pt = null;
-    sync.send({ type: 'ink', ink: { op: 'laser-off' } });
-  };
-  cur.addEventListener('pointerup', up);
-  cur.addEventListener('pointercancel', up);
-
-  // Свайп по заметкам и подписи — листать
-  let sx = 0;
-  let sy = 0;
-  const zone = $('.rm');
-  zone.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
-  zone.addEventListener('touchend', (e) => {
-    if ((e.target as Element).closest('.rm-cur, button')) return;
-    const dx = e.changedTouches[0].clientX - sx;
-    const dy = e.changedTouches[0].clientY - sy;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) go(index + (dx < 0 ? 1 : -1));
-  });
-
-  // Телефон не гаснет посреди доклада (браузер разрешает это только на https и localhost)
-  const wake = () => {
-    (navigator as Navigator & { wakeLock?: { request(t: 'screen'): Promise<unknown> } }).wakeLock?.request('screen').catch(() => {});
-  };
-  wake();
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') { wake(); hello(); }
-  });
-  render();
 }
