@@ -13,9 +13,11 @@ import { currentTheme, onThemeChange, setTheme, toggleTheme } from './theme';
 
 const FONT_KEY = 'htmlpptx-notes-size';
 const LAYOUT_KEY = 'htmlpptx-pres-layout';
+/** Ниже заметки на телефоне не сжимаются: две строки и место для свайпа */
+const NOTES_MIN = 80;
 /** Ширина текущего слайда и высота «Далее» по умолчанию, % */
-/** pw, nh — доли окна на компьютере; ph — ширина слайда на телефоне, % */
-const DEFAULT_LAYOUT = { pw: 64, nh: 40, ph: 100 };
+/** pw, nh — доли окна на компьютере; ph — ширина слайда на телефоне, %; pn — высота заметок на телефоне, px (0 — всё, что осталось) */
+const DEFAULT_LAYOUT = { pw: 64, nh: 40, ph: 100, pn: 0 };
 const PEN_COLORS = ['#EF4444', '#F59E0B', '#2563EB', '#10B981', '#FFFFFF'];
 
 
@@ -32,6 +34,10 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   const MIRROR_KEY = 'htmlpptx-presenter-mirror';
   let mirror = true;
   try { mirror = localStorage.getItem(MIRROR_KEY) !== '0'; } catch { /* нет хранилища */ }
+  // Стрелка курсора у зрителей (наведение и щелчки повторяются и без неё)
+  const ARROW_KEY = 'htmlpptx-presenter-arrow';
+  let arrow = true;
+  try { arrow = localStorage.getItem(ARROW_KEY) !== '0'; } catch { /* нет хранилища */ }
   document.body.classList.toggle('pres-live', mirror);
   document.body.innerHTML = `
 <div class="pres">
@@ -52,7 +58,6 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       <div class="pres-label" id="curl"></div>
       <div class="pres-vp" id="cur"></div>
       <div class="pres-dock" role="toolbar" aria-label="Инструменты показа">
-        <button type="button" class="pd-btn" data-tool="cursor" aria-pressed="false" title="Курсор у зрителей (K): без него наведение и щелчки повторяются, но стрелку не видно">${icon('cursor')}</button>
         <button type="button" class="pd-btn" data-tool="laser" aria-pressed="false" title="Указка (L)">${icon('laser')}</button>
         <span class="pd-pen">
           <button type="button" class="pd-btn" data-tool="pen" aria-pressed="false" title="Перо (D)">${icon('pen')}<i class="pd-dot" id="pdot"></i></button>
@@ -64,7 +69,13 @@ export function startPresenter(deck: Deck, deckKey: string): void {
         <button type="button" class="pd-btn" id="tgrid" title="Все слайды (G)" aria-label="Все слайды">${icon('grid')}</button>
         <button type="button" class="pd-btn" id="bk" aria-pressed="false" title="Чёрный экран у зрителей (B)" aria-label="Чёрный экран">${icon('screen-off')}</button>
         ${new URLSearchParams(location.search).get('remote') ? `<button type="button" class="pd-btn" id="eco" aria-pressed="true" title="Экономный режим: слайд на паузе, касание — оживить" aria-label="Экономный режим">${icon('pause')}</button>` : ''}
-        <button type="button" class="pd-btn" id="tmir" aria-pressed="true" title="Наведение и 3D у зрителей (M): наведение, щелчки и поворот моделей повторяются в окне показа" aria-label="Наведение и 3D у зрителей">${icon('layers')}</button>
+        <span class="pd-mir">
+          <button type="button" class="pd-btn pd-more" id="tmir" aria-pressed="true" aria-haspopup="menu" title="Мышь и 3D у зрителей (M): курсор, наведение и поворот моделей повторяются в окне показа. Удерживайте — настройки" aria-label="Мышь и 3D у зрителей">${icon('cursor')}</button>
+          <span class="pd-menu" id="mirmenu" role="menu" hidden>
+            <button type="button" role="menuitemcheckbox" data-mir="all">Мышь и 3D у зрителей<small>наведение, щелчки, поворот моделей</small></button>
+            <button type="button" role="menuitemcheckbox" data-mir="arrow">Показывать курсор<small>без него наведение работает, стрелки не видно (K)</small></button>
+          </span>
+        </span>
       </div>
     </section>
     <div class="pres-split v" id="sv" role="separator" aria-orientation="vertical" aria-label="Размер текущего слайда" tabindex="0" title="Потяните, чтобы изменить размер. Двойной щелчок — сбросить"></div>
@@ -121,14 +132,29 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   const sendInk = (m: InkMsg) => sync.send({ type: 'ink', ink: m }, toMain());
   // Повтор мыши и живые 3D-модели для зрителей: можно выключить, если на слайдах нет
   // наведений и моделей — тогда окна ничего лишнего не пересылают и не рисуют
-  inkInput(cur, ink, () => tool, (): StrokeStyle => ({ color: penColor, width: 5 }), sendInk, () => mirror);
+  inkInput(cur, ink, () => tool, (): StrokeStyle => ({ color: penColor, width: 5 }), sendInk, () => mirror, () => arrow);
   window.addEventListener(CAMERA, (e) => {
     if (mirror) sync.send({ type: 'camera', ...(e as CustomEvent<CameraState>).detail }, toMain());
   });
+  function syncMirUi(): void {
+    $('tmir').classList.toggle('pd-noarrow', mirror && !arrow);
+    cur.toggleAttribute('data-mirror', mirror);
+    document.querySelectorAll<HTMLElement>('#mirmenu [data-mir]').forEach((b) =>
+      b.setAttribute('aria-checked', String(b.dataset.mir === 'all' ? mirror : arrow)));
+  }
+  function setArrow(on: boolean): void {
+    arrow = on;
+    try { localStorage.setItem(ARROW_KEY, on ? '1' : '0'); } catch { /* нет хранилища */ }
+    if (!on) sendInk({ op: 'cursor-off' });
+    // Включили стрелку при выключенном повторе — включается и повтор: иначе её некому показывать
+    if (on && !mirror) setMirror(true);
+    else syncMirUi();
+  }
   function setMirror(on: boolean): void {
     mirror = on;
     try { localStorage.setItem(MIRROR_KEY, on ? '1' : '0'); } catch { /* нет хранилища */ }
     $('tmir').setAttribute('aria-pressed', String(on));
+    syncMirUi();
     if (!on) sendInk({ op: 'cursor-off' });
     // Модели текущего слайда: живые или снимок — слайды перерисовываются
     document.body.classList.toggle('pres-live', on);
@@ -141,7 +167,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   function setTool(t: InkTool): void {
     tool = tool === t ? 'none' : t;
     if (tool !== 'laser') { ink.apply({ op: 'laser-off' }); sendInk({ op: 'laser-off' }); }
-    if (tool !== 'cursor') sendInk({ op: 'cursor-off' });
+    if (tool !== 'none') sendInk({ op: 'cursor-off' });
     cur.dataset.tool = tool;
     document.querySelectorAll<HTMLElement>('.pres-dock [data-tool]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tool === tool)));
     $('pcolors').classList.toggle('on', tool === 'pen');
@@ -200,6 +226,9 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     lay.ph = Math.max(40, Math.min(100, lay.ph));
     pres.style.setProperty('--pw', `${lay.pw}%`);
     pres.style.setProperty('--ph', `${lay.ph}%`);
+    lay.pn = lay.pn > 0 ? Math.max(NOTES_MIN, Math.round(lay.pn)) : 0;
+    pres.style.setProperty('--pn', `${lay.pn}px`);
+    pres.classList.toggle('pres-pn', lay.pn > 0);
     pres.style.setProperty('--nh', `${lay.nh}%`);
     $('sv').setAttribute('aria-valuenow', String(Math.round(lay.pw)));
     $('sh').setAttribute('aria-valuenow', String(Math.round(lay.nh)));
@@ -214,12 +243,13 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       e.preventDefault();
       el.setPointerCapture(e.pointerId);
       pres.classList.add('resizing');
-      const from = { y: e.clientY, ph: lay.ph };
+      let last = e.clientY;
       const move = (ev: PointerEvent) => {
         const r = box();
         if (ax() === 'ph') {
-          // Слайд меняет высоту вслед за пальцем, ширина — по 16:9
-          lay.ph = from.ph + (((ev.clientY - from.y) * 16) / 9 / r.width) * 100;
+          const d = ev.clientY - last;
+          last = ev.clientY;
+          phoneResize(d, r.width);
         } else lay[axis] = axis === 'pw' ? ((ev.clientX - r.left) / r.width) * 100 : ((ev.clientY - r.top) / r.height) * 100;
         applyLayout(false);
       };
@@ -232,7 +262,11 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       el.addEventListener('pointermove', move);
       el.addEventListener('pointerup', up);
     });
-    el.addEventListener('dblclick', () => { lay[ax()] = DEFAULT_LAYOUT[ax()]; applyLayout(); });
+    el.addEventListener('dblclick', () => {
+      lay[ax()] = DEFAULT_LAYOUT[ax()];
+      if (ax() === 'ph') lay.pn = 0;
+      applyLayout();
+    });
     el.addEventListener('keydown', (e) => {
       const d = { ArrowLeft: -2, ArrowUp: -2, ArrowRight: 2, ArrowDown: 2 }[e.key];
       if (d === undefined) return;
@@ -241,6 +275,26 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       lay[ax()] += d;
       applyLayout();
     });
+  }
+  /**
+   * Телефон: ручка под слайдом. Вниз — слайд крупнее до полной ширины, дальше — заметки ниже
+   * (свободное место — вокруг слайда). Вверх — сначала заметки обратно, потом слайд меньше
+   */
+  function phoneResize(d: number, width: number): void {
+    const toPh = (px: number) => ((px * 16) / 9 / width) * 100;
+    if (d > 0) {
+      if (lay.ph < 100) lay.ph += toPh(d);
+      else lay.pn = (lay.pn || $('notes').closest<HTMLElement>('.pres-notesbox')!.getBoundingClientRect().height) - d;
+    } else if (d < 0) {
+      if (lay.pn > 0) {
+        // Сколько свободного места вокруг слайда: кончилось — заметки снова занимают остаток
+        const box = cur.closest<HTMLElement>('.pres-cur')!;
+        const used = [...box.children].reduce((h, c) => h + (c as HTMLElement).offsetHeight, 0) + 10;
+        if (box.clientHeight - used + d <= 0) lay.pn = 0;
+        else lay.pn -= d;
+      } else lay.ph += toPh(d);
+    }
+    applyLayout(false);
   }
   splitter($('sv'), 'pw', () => $('pmain').getBoundingClientRect());
   splitter($('sh'), 'nh', () => $('pside').getBoundingClientRect());
@@ -442,8 +496,33 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     side.addEventListener('pointercancel', release);
   }
   $('bk').addEventListener('click', () => setBlack(!black));
-  $('tmir').addEventListener('click', () => setMirror(!mirror));
   $('tmir').setAttribute('aria-pressed', String(mirror));
+  syncMirUi();
+  // Нажатие — повтор целиком вкл/выкл; удержание (или правая кнопка) — меню: показывать ли стрелку
+  const mirMenu = $('mirmenu');
+  const openMir = (open: boolean) => { mirMenu.hidden = !open; $('tmir').setAttribute('aria-expanded', String(open)); };
+  let holdTimer = 0;
+  let held = false;
+  $('tmir').addEventListener('pointerdown', () => {
+    held = false;
+    clearTimeout(holdTimer);
+    holdTimer = window.setTimeout(() => { held = true; openMir(true); }, 450);
+  });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $('tmir').addEventListener(ev, () => clearTimeout(holdTimer));
+  $('tmir').addEventListener('contextmenu', (e) => { e.preventDefault(); clearTimeout(holdTimer); held = true; openMir(true); });
+  $('tmir').addEventListener('click', () => {
+    if (held) { held = false; return; }
+    setMirror(!mirror);
+  });
+  mirMenu.addEventListener('click', (e) => {
+    const which = (e.target as Element).closest<HTMLElement>('[data-mir]')?.dataset.mir;
+    if (which === 'all') setMirror(!mirror);
+    else if (which === 'arrow') setArrow(!arrow);
+    openMir(false);
+  });
+  document.addEventListener('pointerdown', (e) => {
+    if (!mirMenu.hidden && !(e.target as Element).closest('.pd-mir')) openMir(false);
+  }, true);
   $('tcl').addEventListener('click', clearInk);
   $('thm').addEventListener('click', () => toggleTheme());
   let remoteTheme = false;
@@ -524,13 +603,13 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       b: () => setBlack(!black), 'и': () => setBlack(!black), '.': () => setBlack(!black),
       t: () => toggleTheme(), 'е': () => toggleTheme(),
       l: () => setTool('laser'), 'д': () => setTool('laser'),
-      k: () => setTool('cursor'), 'л': () => setTool('cursor'),
+      k: () => setArrow(!arrow), 'л': () => setArrow(!arrow),
       d: () => setTool('pen'), 'в': () => setTool('pen'),
       c: () => clearInk(), 'с': () => clearInk(),
       g: openGrid, 'п': openGrid,
       m: () => setMirror(!mirror), 'ь': () => setMirror(!mirror),
       e: editNotes, 'у': editNotes,
-      escape: () => { if (tool !== 'none') setTool(tool); },
+      escape: () => { if (!mirMenu.hidden) openMir(false); else if (tool !== 'none') setTool(tool); },
     };
     const fn = map[k] ?? letters[lower];
     if (fn) { e.preventDefault(); fn(); }
@@ -539,7 +618,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   // Объекты-кнопки: щелчок при показе — переход к слайду или ссылка (в режиме правки — обычный объект)
   view.stage.addEventListener('click', (e) => {
     // Указка или перо: щелчок рисует, а не нажимает
-    if (tool !== 'none' && tool !== 'cursor') return;
+    if (tool !== 'none') return;
     const t = e.target as Element;
     const el = t.closest<HTMLElement>('.slide.on > .free[data-action]');
     if (!el || t.closest('input, textarea, button, a, video, model-viewer')) return;

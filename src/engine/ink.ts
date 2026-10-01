@@ -214,14 +214,13 @@ export class Ink {
   }
 }
 
-/** none — без стрелки у зрителей (наведение и щелчки повторяются), cursor — стрелка видна */
-export type InkTool = 'none' | 'cursor' | 'laser' | 'pen' | 'marker';
+export type InkTool = 'none' | 'laser' | 'pen' | 'marker';
 
 /**
  * Рисование мышью или пальцем по области слайда (окно докладчика).
  * send — передать действие окну показа; действие сразу применяется и локально.
  */
-export function inkInput(area: HTMLElement, ink: Ink, tool: () => InkTool, style: () => StrokeStyle, send: (m: InkMsg) => void, mirror: () => boolean = () => true): void {
+export function inkInput(area: HTMLElement, ink: Ink, tool: () => InkTool, style: () => StrokeStyle, send: (m: InkMsg) => void, mirror: () => boolean = () => true, arrow: () => boolean = () => true): void {
   const emit = (m: InkMsg) => { ink.apply(m); send(m); };
   let stroke: string | null = null;
   let raf = 0;
@@ -230,10 +229,10 @@ export function inkInput(area: HTMLElement, ink: Ink, tool: () => InkTool, style
 
   area.addEventListener('pointerdown', (e) => {
     const t = tool();
-    // Курсор пальцем: стрелка у зрителей сразу там, где коснулись
-    if (t === 'cursor' && e.pointerType !== 'mouse' && mirror()) {
+    // Пальцем без инструмента: стрелка у зрителей сразу там, где коснулись
+    if (t === 'none' && e.pointerType !== 'mouse' && mirror()) {
       const p = ink.toSlide(e);
-      if (inside(p)) send({ op: 'cursor', ...p });
+      if (inside(p)) send({ op: 'cursor', ...p, hide: !arrow() });
       return;
     }
     // Указка пальцем: точка сразу под пальцем, а не после первого движения
@@ -253,15 +252,15 @@ export function inkInput(area: HTMLElement, ink: Ink, tool: () => InkTool, style
     stroke = Math.random().toString(36).slice(2, 9);
     emit({ op: 'start', id: stroke, ...p, style: style() });
   });
-  // Без инструмента — обычная мышь: зрители видят наведение; с «Курсором» — ещё и стрелку
-  // (у себя не рисуем — есть свой). Пальцем стрелку водят только с «Курсором»
+  // Без инструмента — обычная мышь: зрители видят наведение и, если не скрыта, стрелку
+  // (у себя не рисуем — есть свой). Пальцем — пока он на слайде
   let curRaf = 0;
   let curAt: { x: number; y: number; hide?: boolean } | null = null;
-  const pointing = () => tool() === 'none' || tool() === 'cursor';
+  const pointing = () => tool() === 'none';
   area.addEventListener('pointermove', (e) => {
     if (!pointing() || !mirror()) return;
-    if (e.pointerType === 'touch' && (tool() !== 'cursor' || !e.buttons)) return;
-    curAt = { ...ink.toSlide(e), hide: tool() !== 'cursor' };
+    if (e.pointerType === 'touch' && !e.buttons) return;
+    curAt = { ...ink.toSlide(e), hide: !arrow() };
     if (curRaf) return;
     curRaf = requestAnimationFrame(() => {
       curRaf = 0;
@@ -271,12 +270,12 @@ export function inkInput(area: HTMLElement, ink: Ink, tool: () => InkTool, style
   area.addEventListener('click', (e) => {
     if (!pointing() || e.button !== 0 || !mirror()) return;
     const p = ink.toSlide(e as PointerEvent);
-    if (inside(p)) send({ op: 'click', ...p, hide: tool() !== 'cursor' });
+    if (inside(p)) send({ op: 'click', ...p, hide: !arrow() });
   });
   area.addEventListener('pointerleave', (e) => { if (pointing() && mirror() && e.pointerType !== 'touch') send({ op: 'cursor-off' }); });
   area.addEventListener('pointermove', (e) => {
     const t = tool();
-    if (t === 'none' || t === 'cursor') return;
+    if (t === 'none') return;
     // Все промежуточные точки (при быстром движении мышь даёт их пачкой)
     const evs = (e.getCoalescedEvents?.() ?? []).length ? e.getCoalescedEvents() : [e];
     if (stroke && (t === 'pen' || t === 'marker')) {
