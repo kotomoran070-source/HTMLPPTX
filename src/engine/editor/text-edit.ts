@@ -187,15 +187,18 @@ export class TextEditor {
         // Жирный, курсив, подчёркнутый — и в русской раскладке
         ev.preventDefault();
         this.format(k === 'b' || k === 'и' ? 'bold' : k === 'i' || k === 'ш' ? 'italic' : 'underline');
-      } else if (ev.key === 'Enter' && ev.shiftKey) {
-        ev.preventDefault();
-        document.execCommand('insertLineBreak');
-      } else if (ev.key === 'Enter') {
+      } else if (ev.key === 'Enter' && (mod || this.s?.isKey)) {
+        // Ctrl+Enter — готово; однострочное поле (имя, ключ) — готово и по Enter
         ev.preventDefault();
         this.finish(true);
-      } else if (ev.key === 'Escape') {
+      } else if (ev.key === 'Enter') {
+        // Как в PowerPoint: Enter — новая строка, а не конец правки (набранное после не теряется)
         ev.preventDefault();
-        this.finish(false);
+        document.execCommand('insertLineBreak');
+      } else if (ev.key === 'Escape') {
+        // Esc — закончить правку и сохранить, как в PowerPoint; передумали — Ctrl+Z
+        ev.preventDefault();
+        this.finish(true);
       } else if (ev.key === 'Tab') {
         ev.preventDefault();
         this.host.neighbour(el, ev.shiftKey ? -1 : 1);
