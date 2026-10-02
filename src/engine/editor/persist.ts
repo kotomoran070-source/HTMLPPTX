@@ -101,6 +101,11 @@ export function saveToProject(deckKey: string, deck: Deck, keepalive = false): P
   return api(`/__htmlpptx/save?deck=${encodeURIComponent(deckKey)}`, JSON.stringify({ deck }), 'application/json', keepalive);
 }
 
+/** Перезаписать файл живой вставки (assets/*.htm) по его адресу — правка кода в студии */
+export function writeAssetText(deckKey: string, url: string, text: string): Promise<{ ok: boolean }> {
+  return api(`/__htmlpptx/asset-text?deck=${encodeURIComponent(deckKey)}&url=${encodeURIComponent(url)}`, text, 'text/plain; charset=utf-8');
+}
+
 export function uploadAsset(deckKey: string, file: Blob, name: string): Promise<{ url: string; path: string }> {
   return api(`/__htmlpptx/asset?deck=${encodeURIComponent(deckKey)}&name=${encodeURIComponent(name)}`, file, 'application/octet-stream');
 }

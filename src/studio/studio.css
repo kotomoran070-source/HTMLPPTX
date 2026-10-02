@@ -197,7 +197,7 @@ body.studio { background: var(--alt); }
 .st-work > .st-canvas { flex: 1; min-width: 0; }
 .st-code { flex: 0 0 var(--cw, 44%); min-width: 320px; max-width: 760px; display: flex; flex-direction: column; border-right: 1px solid var(--bd); background: var(--surf); }
 .st-code[hidden] { display: none; }
-.st-code-bar { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-bottom: 1px solid var(--bd); }
+.st-code-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 6px 10px; border-bottom: 1px solid var(--bd); }
 .st-seg { flex: none; display: inline-flex; padding: 2px; border-radius: 8px; background: var(--alt); }
 .st-seg button { white-space: nowrap; border: 0; background: none; padding: 4px 10px; border-radius: 6px; font: 600 12px var(--font); color: var(--mu); cursor: pointer; }
 .st-seg button[aria-selected="true"] { background: var(--surf); color: var(--tx); box-shadow: var(--shadow-sm); }
@@ -549,6 +549,10 @@ body.st-previewing :is(.st-top, .st-ribbon) { position: relative; z-index: 31; }
 .st-code-rules:disabled { cursor: default; background: none; color: var(--mu); font-weight: 500; }
 .st-code-rules[hidden] { display: none; }
 .st-code-rules:not([hidden]) + .st-code-status { margin-left: 8px; }
+/* Какая живая вставка слайда открыта во вкладке «Анимации» */
+.st-code-pick { flex: 0 1 260px; min-width: 0; height: 26px; padding: 0 8px; border: 1px solid var(--bd); border-radius: 8px; background: var(--surf); color: var(--tx); font: 600 12px var(--font); }
+.st-code-pick[hidden] { display: none; }
+.st-code-pick:disabled { opacity: 1; color: var(--tx2); }
 .st-paper .st-code-mark { outline: 2px solid var(--ac) !important; outline-offset: 3px; border-radius: 2px; }
 .st-paper .st-code-peek { outline: 2px dashed color-mix(in srgb, var(--ac) 75%, transparent) !important; outline-offset: 3px; }
 

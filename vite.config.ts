@@ -31,7 +31,7 @@ export default defineConfig(({ command }) => ({
   // Библиотеки, которые подключаются по требованию (экспорт PPTX, 3D): собираются сразу при запуске,
   // иначе первое обращение к ним перезагружает страницу посреди работы
   optimizeDeps: {
-    include: ['pptxgenjs', 'html-to-image', 'jszip', 'yaml', 'codemirror', '@codemirror/lang-yaml', '@codemirror/lang-css', '@codemirror/theme-one-dark'],
+    include: ['pptxgenjs', 'html-to-image', 'jszip', 'yaml', 'codemirror', '@codemirror/lang-yaml', '@codemirror/lang-css', '@codemirror/lang-html', '@codemirror/theme-one-dark'],
   },
   server: {
     open: true,

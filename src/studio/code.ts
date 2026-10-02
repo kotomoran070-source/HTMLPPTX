@@ -1,31 +1,42 @@
 import { css } from '@codemirror/lang-css';
+import { html } from '@codemirror/lang-html';
 import { yaml } from '@codemirror/lang-yaml';
 import { Compartment, EditorState } from '@codemirror/state';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView, keymap } from '@codemirror/view';
 import { basicSetup } from 'codemirror';
 import { parse, stringify, YAMLParseError } from 'yaml';
+import { setEmbedSource, withTheme } from '../components/html/html';
+import { getAt, setAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
+import { writeAssetText } from '../engine/editor/persist';
+import { withPointerBridge } from '../engine/frame-bridge';
 import { currentTheme, onThemeChange } from '../engine/theme';
 import type { Deck, SlideData } from '../types';
 import { collectNodes, cssRules, highlightField, rulesFor, setHighlight, treeHtml, treeToggleIcon, YamlRanges, type CssRule, type TreeNode } from './code-tree';
 
-type Mode = 'slide' | 'css';
+type Mode = 'slide' | 'css' | 'anim';
 
 export interface CodeHost {
   deck(): Deck;
   index(): number;
   editor(): Editor;
   stage(): HTMLElement;
+  deckKey: string;
 }
+
+/** Живая вставка слайда (анимация на HTML/JS): где в данных и как назвать в списке */
+interface EmbedRef { path: Path; label: string }
+interface EmbedData { type?: string; src?: string; code?: string; theme?: boolean }
 
 const TREE_KEY = 'htmlpptx-code-tree';
 
 const APPLY_MS = 700;
 
 /**
- * Код текущего слайда (YAML, как в deck.yaml) и стили презентации (CSS) рядом со слайдом.
- * Правки применяются сами, когда текст снова корректен; ошибка — строкой состояния с номером строки.
+ * Код текущего слайда (YAML, как в deck.yaml), стили презентации (CSS) и код живых вставок
+ * слайда (анимации на HTML/JS) рядом со слайдом. Правки применяются сами, когда текст снова
+ * корректен; ошибка — строкой состояния с номером строки.
  */
 export class CodeView {
   private view: EditorView;
@@ -54,13 +65,24 @@ export class CodeView {
   private rules: CssRule[] = [];
   private ruleAt = 0;
   private rulesBtn: HTMLButtonElement;
+  private ro = new Compartment();
+  /** Живые вставки текущего слайда и какая открыта */
+  private embeds: EmbedRef[] = [];
+  private embedAt = 0;
+  private embedsFor = -1;
+  private picker: HTMLSelectElement;
+  /** Код вставок из файлов (assets/*.htm): адрес → текст */
+  private texts = new Map<string, string>();
+  private loading = new Set<string>();
 
   constructor(private root: HTMLElement, private host: CodeHost) {
     root.innerHTML = `<div class="st-code-bar">
   <div class="st-seg" role="tablist" aria-label="Что править">
     <button type="button" role="tab" data-mode="slide" aria-selected="true">Слайд · YAML</button>
     <button type="button" role="tab" data-mode="css" aria-selected="false">Стили · CSS</button>
+    <button type="button" role="tab" data-mode="anim" aria-selected="false" title="Код живых вставок слайда: анимации на HTML и JavaScript, в том числе спрятанные под другими объектами">Анимации · HTML/JS</button>
   </div>
+  <select class="st-code-pick" hidden aria-label="Какая вставка"></select>
   <button type="button" class="st-code-rules" hidden title="Следующее правило"></button>
   <span class="st-code-status" role="status" aria-live="polite"></span>
 </div>
@@ -73,6 +95,8 @@ export class CodeView {
     this.tree = root.querySelector('.st-code-tree')!;
     this.list = root.querySelector('.st-tree-list')!;
     this.rulesBtn = root.querySelector('.st-code-rules')!;
+    this.picker = root.querySelector('.st-code-pick')!;
+    this.picker.addEventListener('change', () => this.setEmbed(Number(this.picker.value)));
     this.rulesBtn.addEventListener('click', () => this.showRule(this.ruleAt + 1));
     let folded = false;
     try { folded = localStorage.getItem(TREE_KEY) === '0'; } catch { /* нет хранилища */ }
@@ -84,6 +108,7 @@ export class CodeView {
         extensions: [
           basicSetup,
           this.lang.of(yaml()),
+          this.ro.of(EditorState.readOnly.of(false)),
           this.theme.of(currentTheme() === 'dark' ? oneDark : []),
           EditorView.lineWrapping,
           highlightField,
@@ -144,8 +169,9 @@ export class CodeView {
     this.apply();
     this.mode = m;
     this.root.querySelectorAll<HTMLElement>('[data-mode]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.mode === m)));
-    this.view.dispatch({ effects: this.lang.reconfigure(m === 'css' ? css() : yaml()) });
+    this.view.dispatch({ effects: this.lang.reconfigure(m === 'css' ? css() : m === 'anim' ? html() : yaml()) });
     this.rulesBtn.hidden = true;
+    this.picker.hidden = m !== 'anim';
     this.rules = [];
     if (m === 'css') this.mark(-1);
     this.shownFor = '';
@@ -158,6 +184,18 @@ export class CodeView {
       const c = (deck as { css?: unknown }).css;
       return typeof c === 'string' ? c : '';
     }
+    if (this.mode === 'anim') {
+      const e = this.embeds[this.embedAt];
+      const b = e ? getAt(deck, e.path) as EmbedData | undefined : undefined;
+      if (!b) return '';
+      if (typeof b.code === 'string') return b.code;
+      if (b.src) {
+        const t = this.texts.get(b.src);
+        if (t !== undefined) return t;
+        this.load(b.src);
+      }
+      return '';
+    }
     const s = deck.slides[this.host.index()];
     return s ? stringify(s, { lineWidth: 0 }) : '';
   }
@@ -166,8 +204,9 @@ export class CodeView {
   update(force = false): void {
     if (this.root.hidden) return;
     this.drawTree();
+    if (this.mode === 'anim') this.collectEmbeds();
     const text = this.source();
-    const subject = `${this.mode}:${this.host.index()}`;
+    const subject = `${this.mode}:${this.host.index()}:${this.mode === 'anim' ? this.embedAt : ''}`;
     const typing = this.view.hasFocus && this.view.state.doc.toString() !== this.synced;
     if (!force && subject === this.shownFor && (text === this.synced || typing)) return;
     this.shownFor = subject;
@@ -177,7 +216,8 @@ export class CodeView {
       this.view.dispatch({ changes: { from: 0, to: this.view.state.doc.length, insert: text } });
       clearTimeout(this.timer);
     }
-    this.setStatus(this.mode === 'css' ? 'Стили всех слайдов-холстов' : `Слайд ${this.host.index() + 1}`, '');
+    if (this.mode === 'anim') this.animStatus();
+    else this.setStatus(this.mode === 'css' ? 'Стили всех слайдов-холстов' : `Слайд ${this.host.index() + 1}`, '');
     this.revealed = '';
     this.syncSelection();
   }
@@ -317,6 +357,13 @@ export class CodeView {
   syncSelection(): void {
     if (this.root.hidden) return;
     if (this.mode === 'css') return this.syncRules();
+    if (this.mode === 'anim') {
+      // Выделили вставку на слайде — открывается её код
+      const sel = this.host.editor().selection;
+      const k = sel ? this.embeds.findIndex((e) => JSON.stringify(e.path) === JSON.stringify(sel.block)) : -1;
+      if (k >= 0 && k !== this.embedAt) this.setEmbed(k);
+      return;
+    }
     this.drawTree();
     const sel = this.host.editor().selection;
     const i = this.host.index();
@@ -425,6 +472,7 @@ export class CodeView {
     if (text === this.synced) return;
     const ed = this.host.editor();
     const i = this.host.index();
+    if (this.mode === 'anim') return this.applyEmbed(text);
     if (this.mode === 'css') {
       ed.commit((d) => {
         const rec = d as unknown as Record<string, unknown>;
@@ -449,6 +497,103 @@ export class CodeView {
     const ok = ed.commit((d) => { d.slides[i] = slide; }, { rebuild: true, merge: `code:${i}`, hold: true });
     this.synced = text;
     this.setStatus(ok ? 'Применено' : 'Без изменений', 'ok');
+  }
+
+  // ---------------- живые вставки (анимации на HTML/JS) ----------------
+
+  /** Вставки текущего слайда — где бы они ни лежали (и под другими объектами) */
+  private collectEmbeds(): void {
+    const i = this.host.index();
+    const slide = this.host.deck().slides[i];
+    const found: EmbedRef[] = [];
+    const walk = (v: unknown, p: Path) => {
+      if (Array.isArray(v)) v.forEach((x, k) => walk(x, [...p, k]));
+      else if (v && typeof v === 'object') {
+        const b = v as EmbedData;
+        if (b.type === 'embed') {
+          const name = typeof b.code === 'string' ? 'код в данных' : b.src ? decodeURIComponent(b.src.split('?')[0].split('/').pop() ?? '') : 'пустая';
+          found.push({ path: p, label: `${found.length + 1} · ${name}` });
+          return;
+        }
+        for (const [k, x] of Object.entries(v)) walk(x, [...p, k]);
+      }
+    };
+    walk(slide, ['slides', i]);
+    if (this.embedsFor !== i) this.embedAt = 0;
+    this.embedsFor = i;
+    const sig = found.map((e) => e.label).join('|');
+    if (sig !== this.embeds.map((e) => e.label).join('|')) {
+      this.picker.innerHTML = found.map((e, k) => `<option value="${k}">${e.label.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`)}</option>`).join('');
+    }
+    this.embeds = found;
+    if (this.embedAt >= found.length) this.embedAt = 0;
+    this.picker.value = String(this.embedAt);
+    this.picker.disabled = found.length < 2;
+    this.picker.hidden = !found.length;
+  }
+
+  private setEmbed(k: number): void {
+    this.apply();
+    this.embedAt = k;
+    this.picker.value = String(k);
+    this.update(true);
+  }
+
+  private load(src: string): void {
+    if (this.loading.has(src)) return;
+    this.loading.add(src);
+    fetch(src, { cache: 'no-cache' })
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
+      .then((t) => { this.texts.set(src, t); })
+      .catch(() => this.setStatus('Не удалось прочитать файл вставки', 'err'))
+      .finally(() => {
+        this.loading.delete(src);
+        if (this.mode === 'anim') this.update(true);
+      });
+  }
+
+  private animStatus(): void {
+    const e = this.embeds[this.embedAt];
+    const b = e ? getAt(this.host.deck(), e.path) as EmbedData | undefined : undefined;
+    const waiting = !!b?.src && typeof b.code !== 'string' && !this.texts.has(b.src);
+    this.view.dispatch({ effects: this.ro.reconfigure(EditorState.readOnly.of(!e || waiting)) });
+    if (!e) this.setStatus('На этом слайде нет анимаций на HTML/JS. Анимации на CSS (@keyframes) — во вкладке «Стили · CSS»', '');
+    else if (waiting) this.setStatus('Загружаю код…', '');
+    else this.setStatus(`Вставка ${e.label} · правки сразу на слайде`, '');
+  }
+
+  /** Код вставки на слайде сразу, без перестройки слайда */
+  private refreshFrame(path: Path, code: string, theme: boolean): void {
+    const el = this.host.stage().querySelector(`.slide.on [data-block="${CSS.escape(JSON.stringify(path))}"]`);
+    const f = el?.querySelector<HTMLIFrameElement>('iframe.embed-frame');
+    if (f) f.srcdoc = withPointerBridge(theme ? withTheme(code) : code);
+  }
+
+  private applyEmbed(text: string): void {
+    const e = this.embeds[this.embedAt];
+    const ed = this.host.editor();
+    const b = e ? getAt(this.host.deck(), e.path) as EmbedData | undefined : undefined;
+    if (!e || !b) return;
+    const src = b.src;
+    // Код в отдельном файле проекта — файл и правится (на месте); иначе код живёт в данных слайда
+    if (typeof b.code !== 'string' && src && ed.mode === 'project' && !src.startsWith('data:')) {
+      this.synced = text;
+      this.texts.set(src, text);
+      setEmbedSource(src, text);
+      this.refreshFrame(e.path, text, !!b.theme);
+      const name = e.label.replace(/^\d+ · /, '');
+      writeAssetText(this.host.deckKey, src, text)
+        .then(() => this.setStatus(`Сохранено в ${name}`, 'ok'))
+        .catch((err: Error) => this.setStatus(`Не сохранилось: ${err.message}`, 'err'));
+      return;
+    }
+    const key = JSON.stringify(e.path);
+    ed.commit((d) => {
+      setAt(d, [...e.path, 'code'], text);
+      if (src && typeof b.code !== 'string') setAt(d, [...e.path, 'src'], undefined);
+    }, { rebuild: true, merge: `code:anim:${key}`, hold: true });
+    this.synced = text;
+    this.setStatus('Применено', 'ok');
   }
 
   private setStatus(text: string, cls: '' | 'ok' | 'err'): void {

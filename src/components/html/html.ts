@@ -294,10 +294,14 @@ export function embedHtml(p: { src?: string; code?: string; theme?: boolean }, l
 }
 
 const docs = new Map<string, Promise<string>>();
+/** Код вставки по адресу изменился (правка в студии): при следующем показе — новый */
+export function setEmbedSource(url: string, html: string): void {
+  docs.set(url, Promise.resolve(html));
+}
 const load = (url: string) => {
   let p = docs.get(url);
   if (!p) {
-    p = fetch(url).then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))));
+    p = fetch(url, { cache: 'no-cache' }).then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))));
     p.catch(() => docs.delete(url));
     docs.set(url, p);
   }

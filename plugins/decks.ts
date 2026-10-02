@@ -231,6 +231,24 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     send(res, 200, result);
   }
 
+  /**
+   * Код живой вставки правят в студии (панель «Код» → «Анимации»): файл assets/*.htm
+   * перезаписывается на месте, а не копией — иначе каждая правка давала бы новый файл
+   */
+  async function handleAssetText(name: string, assetUrl: string, req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const prefix = urlOf(path.join(dir, name, 'assets')) + '/';
+    const clean = assetUrl.split('?')[0];
+    const file = clean.startsWith(prefix) ? decodeURIComponent(clean.slice(prefix.length)) : '';
+    if (!file || /[\\/]|\.\./.test(file) || !/\.html?$/i.test(file)) throw new Error('Перезаписать можно только файл живой вставки (.htm) этой презентации');
+    const target = path.join(dir, name, 'assets', file);
+    if (!fs.existsSync(target)) throw new Error('Файла вставки нет — его переместили или удалили');
+    const text = (await readBody(req)).toString('utf8');
+    // Страница уже показывает новый код: Vite не должен перезагружать её из-за этого файла
+    written.set(fileKey(target), { text, at: Date.now() });
+    fs.writeFileSync(target, text);
+    send(res, 200, { ok: true });
+  }
+
   async function handleAsset(name: string, fileName: string, req: IncomingMessage, res: ServerResponse): Promise<void> {
     const safe = safeFileName(fileName);
     const ext = path.extname(safe).slice(1);
@@ -323,6 +341,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           if (url.pathname === API + 'save') return await handleSave(name, req, res);
           if (url.pathname === API + 'export') return await handleExport(root, name, url.searchParams.get('mode') === 'clean', res);
           if (url.pathname === API + 'asset') return await handleAsset(name, url.searchParams.get('name') ?? 'image.png', req, res);
+          if (url.pathname === API + 'asset-text') return await handleAssetText(name, url.searchParams.get('url') ?? '', req, res);
           send(res, 404, { error: 'Неизвестная команда' });
         } catch (e) {
           s.config.logger.error(`[htmlpptx] ${(e as Error).message}`, { timestamp: true });
