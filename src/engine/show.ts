@@ -49,7 +49,6 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     ${import.meta.env.DEV && devServer ? `<a class="ibtn" id="studio-btn" href="?deck=${encodeURIComponent(deckKey)}&amp;studio" aria-label="Открыть в редакторе" title="Открыть в редакторе">${icon('layers')}</a>` : ''}
     <button class="ibtn" id="ov" type="button" aria-label="Все слайды (O)" title="Все слайды (O)">${icon('grid')}</button>
     <button class="ibtn" id="pr" type="button" aria-label="Режим докладчика (P)" title="Режим докладчика (P)">${icon('presenter')}</button>
-    <button class="ibtn" id="rmt" type="button" aria-label="Пульт с телефона (R)" title="Пульт с телефона (R)">${icon('phone')}</button>
     <button class="ibtn" id="fs" type="button" aria-label="Во весь экран (F)" title="Во весь экран (F)">${icon('fullscreen')}</button>
   </div>
 </nav>
@@ -392,7 +391,6 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   $('ovx').addEventListener('click', ovHide);
   ovbd.addEventListener('click', (e) => { if (e.target === ovbd) ovHide(); });
   $('pr').addEventListener('click', () => void openPresenter());
-  $('rmt').addEventListener('click', openRemote);
   $('fs').addEventListener('click', toggleFullscreen);
   $('blk').addEventListener('click', () => setBlack(false));
   onThemeChange(() => broadcast());
