@@ -45,6 +45,11 @@ export function statements(css: string): string[] {
  * (.out — слайд, который уходит во время перехода: он остаётся видимым).
  */
 const STATE = new Set(['on', 'active', 'current', 'present', 'visible', 'show', 'shown', 'is-active']);
+/**
+ * Короткая запись того же: «.active .fade» — элементы внутри показанного слайда
+ * (класс состояния в начале селектора, без .slide). Ставится показанному слайду движка
+ */
+const LEAD_STATE = new RegExp(`^(?:\\.(?:${[...STATE].join('|')}))+\\s+(?=[^\\s>+~])`);
 
 /**
  * Встроенные блоки движка (график, карточка, чипы…) на холсте не должны получать стили
@@ -77,6 +82,7 @@ function nsSelectors(list: string, ns: string): string {
     if (!s) return s;
     const root = /^(:root|html|body)(?![\w-])/i.exec(s);
     if (root) return `.${ns}${s.slice(root[0].length)}`;
+    if (LEAD_STATE.test(s)) return `&:is(.on, .out) .${ns} ${s.replace(LEAD_STATE, '')}`;
     if (/(?:section)?\.slide(?![\w-])/.test(s)) {
       return s.replace(/(?:section)?\.slide((?:\.[\w-]+)*)(?![\w-])/g, (_, rest: string) => {
         const cls = rest.split('.').filter(Boolean);
@@ -92,6 +98,7 @@ function nsSelectors(list: string, ns: string): string {
 function selectors(list: string): string {
   return list.split(',').map((s) => guard(s.trim()
     .replace(/^(:root|html|body)(?![\w-])/i, '&')
+    .replace(LEAD_STATE, '&:is(.on, .out) ')
     .replace(/(?:section)?\.slide((?:\.[\w-]+)*)(?![\w-])/g, (_, rest: string) => {
       const cls = rest.split('.').filter(Boolean);
       const state = cls.filter((c) => STATE.has(c));
