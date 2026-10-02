@@ -5,7 +5,7 @@ import { BACKDROPS } from '../components/backdrop/backdrop';
 import { blockName, keepsRatio } from '../engine/editor/block-edit';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
-import { OBJ_ID, actionOf, placeOf, slideLabel } from '../engine/render';
+import { OBJ_ID, actionOf, angleOf, placeOf, slideLabel } from '../engine/render';
 import type { Block, Deck } from '../types';
 import { fillForm, formHtml, formSig, onFieldAction, onFieldChange, onGridPaste, type FormEdit } from './form';
 import { BLOCKS, STYLE_FIELD, TEMPLATES, type Field } from './schema';
@@ -267,6 +267,7 @@ export class Inspector {
   <label><span>Y</span><input type="number" data-f="y" step="1"></label>
   <label><span>Ширина</span><input type="number" data-f="w" min="20" step="1"></label>
   <label><span>Высота</span><input type="number" data-f="h" min="20" step="1"></label>
+  <label title="Поворот по часовой стрелке. На слайде — кружок над рамкой (Shift — шагами по 15°)"><span>Поворот, °</span><input type="number" data-f="angle" min="-180" max="180" step="1"></label>
 </div>
 <label class="st-p-check" title="Углы рамки и поля «Ширина / Высота» меняют размер без искажения. Shift при перетаскивании — наоборот"><input type="checkbox" data-f="keepRatio"><span>Сохранять пропорции</span></label>
 <div class="st-p-icons" role="group" aria-label="Выровнять на слайде">${ALIGN.map(([c, ic, l]) => `<button type="button" data-cmd="${c}" title="${l}" aria-label="${l}">${icon(ic)}</button>`).join('')}</div>`)
@@ -382,6 +383,7 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
         ...triggerValues(deck.slides[this.host.index()]?.free as Block[] | undefined, b.action),
         hidden: b.hidden === true,
         keepRatio: keepsRatio(b),
+        angle: String(angleOf(b)),
         emphasis: typeof b.emphasis === 'string' ? b.emphasis : '',
       };
     }
@@ -516,6 +518,11 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
     } else if (sel?.free && f === 'actionObj') {
       const verb = this.root.querySelector<HTMLSelectElement>('[data-f="action"]')?.value ?? '';
       if (raw && /^(show|hide|toggle|play):$/.test(verb)) this.setTrigger(sel.free, verb, Number(raw));
+    } else if (sel?.free && f === 'angle') {
+      const path = sel.free;
+      const n = Number(raw || 0);
+      if (!Number.isFinite(n)) return this.fill();
+      ed.commit((d) => setAt(d, [...path, 'angle'], angleOf({ angle: n }) || undefined), { rebuild: true });
     } else if (sel?.free && f === 'emphasis') {
       const path = sel.free;
       ed.commit((d) => setAt(d, [...path, 'emphasis'], raw || undefined), { rebuild: true });

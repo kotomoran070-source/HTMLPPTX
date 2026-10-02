@@ -1,6 +1,6 @@
 import { defineBlock } from '../../engine/component';
 import { asArray, styleAttr } from '../../engine/html';
-import { placeOf } from '../../engine/render';
+import { angleOf, placeOf } from '../../engine/render';
 import type { Block } from '../../types';
 import './group.css';
 
@@ -24,7 +24,8 @@ defineBlock<GroupProps>('group', {
     const bh = Math.max(1, Number(p.base?.h) || Math.max(1, ...items.map((b) => placeOf(b).y + (placeOf(b).h ?? 0))));
     return `<div class="grp"${styleAttr(p.style)}>${items.map((b) => {
       const pl = placeOf(b);
-      const css = `left:${pct(pl.x, bw)};top:${pct(pl.y, bh)};width:${pct(pl.w, bw)};${pl.h ? `height:${pct(pl.h, bh)};` : ''}`;
+      const ang = angleOf(b);
+      const css = `left:${pct(pl.x, bw)};top:${pct(pl.y, bh)};width:${pct(pl.w, bw)};${pl.h ? `height:${pct(pl.h, bh)};` : ''}${ang ? `rotate:${ang}deg;` : ''}`;
       return `<div class="grp-item${pl.h ? '' : ' auto-h'}" style="${css}">${ctx.block(b)}</div>`;
     }).join('')}</div>`;
   },

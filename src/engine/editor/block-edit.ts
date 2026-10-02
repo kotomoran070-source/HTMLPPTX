@@ -3,7 +3,7 @@ import type { Deck, SlideData } from '../../types';
 import { clone, getAt, setAt, type Path } from '../data';
 import { H, W } from '../deck-view';
 import { esc } from '../html';
-import { placeOf, type Place } from '../render';
+import { angleOf, placeOf, type Place } from '../render';
 
 /**
  * Сохраняет ли объект пропорции при изменении размера (углы рамки, поля «Ширина / Высота»).
@@ -83,7 +83,7 @@ export class BlockEditor {
 
   constructor(private host: BlockHost) {
     document.body.insertAdjacentHTML('beforeend', `
-<div class="edframe" id="ed-frame">${DIRS.map((d) => `<i class="h-${d}" data-dir="${d}"></i>`).join('')}</div>
+<div class="edframe" id="ed-frame">${DIRS.map((d) => `<i class="h-${d}" data-dir="${d}"></i>`).join('')}<i class="h-rot" data-rot="1" title="Повернуть (Shift — шагами по 15°)"></i><b class="ed-angle" hidden></b></div>
 <div class="edguides" id="ed-guides"></div>
 <div class="edblock" id="ed-block" role="toolbar" aria-label="Блок">
   <span class="edblock-name"></span>
@@ -312,7 +312,20 @@ export class BlockEditor {
     const y0 = Math.min(...rects.map((x) => x.top));
     const y1 = Math.max(...rects.map((x) => x.bottom));
     const r = { left: x0, top: y0, width: Math.max(...rects.map((x) => x.right)) - x0, height: y1 - y0, bottom: y1 };
-    Object.assign(this.frame.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });
+    // Повёрнутый объект: рамка — его собственный прямоугольник, повёрнутый вокруг центра
+    const ang = !this.isMulti && s.free ? angleOf(getAt(this.host.deck(), s.free)) : 0;
+    const live = s.free && !this.isMulti ? parseFloat(s.el.style.rotate) : NaN;
+    const a = Number.isFinite(live) ? live : ang;
+    if (a && !this.isMulti) {
+      const k = this.scale();
+      const fw = s.el.offsetWidth * k;
+      const fh = s.el.offsetHeight * k;
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      Object.assign(this.frame.style, { left: `${cx - fw / 2}px`, top: `${cy - fh / 2}px`, width: `${fw}px`, height: `${fh}px`, rotate: `${a}deg` });
+    } else {
+      Object.assign(this.frame.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, rotate: '' });
+    }
     const w = this.bar.offsetWidth;
     const h = this.bar.offsetHeight;
     const below = r.bottom + 12;
@@ -339,8 +352,10 @@ export class BlockEditor {
       }
     });
     this.frame.addEventListener('pointerdown', (e) => {
-      const dir = (e.target as HTMLElement).dataset.dir as Dir | undefined;
-      if (dir && this.sel?.free && !this.guardLocked()) this.resize(e, dir);
+      const t = e.target as HTMLElement;
+      const dir = t.dataset.dir as Dir | undefined;
+      if (t.dataset.rot && this.sel?.free && !this.guardLocked()) this.rotate(e);
+      else if (dir && this.sel?.free && !this.guardLocked()) this.resize(e, dir);
     });
   }
 
@@ -790,20 +805,27 @@ export class BlockEditor {
     const measured = this.measure(s.el);
     const r0 = { x: start.x, y: start.y, w: start.w, h: start.h ?? measured.h! };
     const k = this.scale();
+    // Повёрнутый объект: сдвиг мыши — в его собственных осях, без прилипания к направляющим слайда
+    const ang = angleOf(getAt(this.host.deck(), s.free!));
+    const rad = (ang * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
     // За угол — с сохранением пропорций, если они закреплены (у картинок — по умолчанию); Shift — наоборот
     const keepRatioDefault = keepsRatio(getAt(this.host.deck(), s.free!)) && dir.length === 2;
     const ratio = r0.w / r0.h;
     let cur = r0;
     let changedH = false;
     const move = (ev: PointerEvent) => {
-      const dx = (ev.clientX - e.clientX) / k;
-      const dy = (ev.clientY - e.clientY) / k;
+      const sx = (ev.clientX - e.clientX) / k;
+      const sy = (ev.clientY - e.clientY) / k;
+      const dx = ang ? sx * cos + sy * sin : sx;
+      const dy = ang ? -sx * sin + sy * cos : sy;
       let { x, y, w, h } = r0;
       if (dir.includes('e')) w = r0.w + dx;
       if (dir.includes('w')) { w = r0.w - dx; x = r0.x + dx; }
       if (dir.includes('s')) { h = r0.h + dy; changedH = true; }
       if (dir.includes('n')) { h = r0.h - dy; y = r0.y + dy; changedH = true; }
-      const snapped = this.snapResize({ x, y, w, h }, dir, ev.altKey);
+      const snapped = this.snapResize({ x, y, w, h }, dir, ev.altKey || !!ang);
       ({ x, y, w, h } = snapped);
       if (keepRatioDefault !== ev.shiftKey && dir.length === 2) {
         // Пропорционально: берём большее изменение
@@ -815,6 +837,15 @@ export class BlockEditor {
       }
       w = Math.max(20, w);
       h = Math.max(20, h);
+      if (dir.includes('w')) x = r0.x + r0.w - w;
+      if (dir.includes('n')) y = r0.y + r0.h - h;
+      if (ang) {
+        // Поворот — вокруг центра: противоположная сторона остаётся на месте, как в PowerPoint
+        const ex = r0.x + r0.w / 2 - (x + w / 2);
+        const ey = r0.y + r0.h / 2 - (y + h / 2);
+        x += ex - (ex * cos - ey * sin);
+        y += ey - (ex * sin + ey * cos);
+      }
       cur = { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) };
       Object.assign(s.el.style, { left: `${cur.x}px`, top: `${cur.y}px`, width: `${cur.w}px`, ...(changedH || start.h ? { height: `${cur.h}px` } : {}) });
       this.position();
@@ -826,6 +857,47 @@ export class BlockEditor {
       const path = s.free!;
       const keepH = changedH || !!start.h;
       this.host.commit((d) => setAt(d, [...path, 'place'], keepH ? cur : { x: cur.x, y: cur.y, w: cur.w }), { rebuild: true });
+    };
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+  }
+
+  /** Поворот за ручку над рамкой: вокруг центра; Shift — шагами по 15°, у 0/90/180/270 прилипает */
+  private rotate(e: PointerEvent): void {
+    const s = this.sel!;
+    e.preventDefault();
+    e.stopPropagation();
+    const path = s.free!;
+    const start = angleOf(getAt(this.host.deck(), path));
+    const r = s.el.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const at = (ev: PointerEvent) => (Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180) / Math.PI;
+    const a0 = at(e);
+    const label = this.frame.querySelector<HTMLElement>('.ed-angle')!;
+    let cur = start;
+    const move = (ev: PointerEvent) => {
+      let a = start + at(ev) - a0;
+      if (ev.shiftKey) a = Math.round(a / 15) * 15;
+      else {
+        const near = Math.round(a / 90) * 90;
+        a = Math.abs(a - near) < 3 ? near : Math.round(a);
+      }
+      cur = angleOf({ angle: a });
+      s.el.style.rotate = cur ? `${cur}deg` : '';
+      label.hidden = false;
+      label.textContent = `${cur}°`;
+      label.style.rotate = `${-cur}deg`;
+      this.frame.classList.add('rotating');
+      this.position();
+    };
+    const up = () => {
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', up);
+      label.hidden = true;
+      this.frame.classList.remove('rotating');
+      if (cur === start) return;
+      this.host.commit((d) => setAt(d, [...path, 'angle'], cur || undefined), { rebuild: true });
     };
     addEventListener('pointermove', move);
     addEventListener('pointerup', up);

@@ -93,7 +93,8 @@ export class Renderer {
       const ownCss = own
         ? `--fx:${b.enter};--fx-ms:${Math.max(100, Math.min(4000, Math.round(Number(own.ms) || 600)))}ms;${typeof own.ease === 'string' && /^[\w\s().,-]+$/.test(own.ease) ? `--fx-ease:${own.ease};` : ''}`
         : '';
-      const css = `left:${pl.x}px;top:${pl.y}px;width:${pl.w}px;${pl.h ? `height:${pl.h}px;` : ''}z-index:${10 + i};${delay}${ownCss}`;
+      const ang = angleOf(b);
+      const css = `left:${pl.x}px;top:${pl.y}px;width:${pl.w}px;${pl.h ? `height:${pl.h}px;` : ''}${ang ? `rotate:${ang}deg;` : ''}z-index:${10 + i};${delay}${ownCss}`;
       // Закреплённый объект в редакторе не выделяется мышью (см. editor.css)
       const lock = b.locked === true ? ' locked' : '';
       // Действие по щелчку при показе: переход к слайду или ссылка
@@ -252,6 +253,17 @@ function plainText(s: string): string {
 }
 
 export interface Place { x: number; y: number; w: number; h?: number }
+
+/**
+ * Поворот свободного объекта, градусы по часовой (поле angle рядом с place): вокруг центра,
+ * как в PowerPoint. 0 и мусор — без поворота
+ */
+export function angleOf(b: unknown): number {
+  const a = Number((b as { angle?: unknown })?.angle);
+  if (!Number.isFinite(a)) return 0;
+  const n = Math.round((((a % 360) + 540) % 360 - 180) * 10) / 10;
+  return n === -180 ? 180 : n;
+}
 
 /** Координаты свободного объекта с проверкой и значениями по умолчанию. */
 export function placeOf(b: unknown): Place {

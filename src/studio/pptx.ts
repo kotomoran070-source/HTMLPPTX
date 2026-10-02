@@ -245,7 +245,34 @@ class Converter {
   }
 
   private pos(b: Box) {
-    return { x: inch(b.x), y: inch(b.y), w: inch(Math.max(1, b.w)), h: inch(Math.max(1, b.h)) };
+    const c = this.turned(b.x + b.w / 2, b.y + b.h / 2);
+    const r = this.spin(0);
+    return { x: inch(c.x - b.w / 2), y: inch(c.y - b.h / 2), w: inch(Math.max(1, b.w)), h: inch(Math.max(1, b.h)), ...(r ? { rotate: r } : {}) };
+  }
+
+  /**
+   * Повёрнутые свободные объекты (angle): их содержимое снимается без поворота,
+   * а потом каждая фигура поворачивается вокруг центра объекта — как группа в PowerPoint.
+   */
+  private turns: { cx: number; cy: number; r: number }[] = [];
+
+  /** Точка снятого без поворота содержимого → точка на слайде */
+  private turned(x: number, y: number): { x: number; y: number } {
+    for (let i = this.turns.length - 1; i >= 0; i--) {
+      const t = this.turns[i];
+      const a = (t.r * Math.PI) / 180;
+      const dx = x - t.cx;
+      const dy = y - t.cy;
+      x = t.cx + dx * Math.cos(a) - dy * Math.sin(a);
+      y = t.cy + dx * Math.sin(a) + dy * Math.cos(a);
+    }
+    return { x, y };
+  }
+
+  /** Собственный поворот фигуры плюс поворот объектов вокруг неё; 0 — без поворота */
+  private spin(own: number): number {
+    const r = ((Math.round(own + this.turns.reduce((s, t) => s + t.r, 0)) % 360) + 360) % 360;
+    return r;
   }
 
   async run(): Promise<void> {
@@ -285,6 +312,17 @@ class Converter {
   private inAction = false;
 
   private async walk(el: HTMLElement, opacity: number, parentK: number): Promise<void> {
+    const ang = el.classList.contains('free') || el.classList.contains('grp-item') ? parseFloat(el.style.rotate) || 0 : 0;
+    if (ang) {
+      el.style.rotate = '';
+      const b = this.box(el);
+      this.turns.push({ cx: b.x + b.w / 2, cy: b.y + b.h / 2, r: ang });
+      try { await this.walk(el, opacity, parentK); } finally {
+        this.turns.pop();
+        el.style.rotate = `${ang}deg`;
+      }
+      return;
+    }
     // Кнопка с переходом или ссылкой: поверх объекта — прозрачная фигура с гиперссылкой,
     // щелчок по ней при показе в PowerPoint работает так же, как в браузере
     if (el.dataset.action && el.classList.contains('free') && !this.inAction) {
@@ -395,7 +433,7 @@ class Converter {
         fill: fill ? { color: fill.hex, transparency: transparency(fill.a * op) } : { type: 'none' } as never,
         line: uniform ? { color: sides[0].c!.hex, width: pt(sides[0].w), transparency: transparency(sides[0].c!.a * op), dashType: dash } : { type: 'none' } as never,
         rectRadius: radius > 0.5 && !ellipse ? cornerRadius(radius, at.w, at.h) : undefined,
-        rotate: rot || undefined,
+        rotate: this.spin(rot) || undefined,
         shadow: shadow ?? undefined,
       });
     }
@@ -573,11 +611,11 @@ class Converter {
     const x = b.x + pl - (align === 'center' ? slack / 2 : align === 'right' ? slack : 0);
     const flexCenter = /flex|grid/.test(getComputedStyle(el.parentElement ?? el).display);
     this.slide.addText(runs, {
-      x: inch(x), y: inch(b.y + ptop), w: inch(w), h: inch(Math.max(size * 1.2, contentH)),
+      ...this.pos({ x, y: b.y + ptop, w, h: Math.max(size * 1.2, contentH) }),
       margin: 0, valign: flexCenter && cs.alignItems === 'center' ? 'middle' : 'top', align, fit: 'none', wrap: !single,
       // Точный интервал в пунктах: не зависит от того, каким шрифтом PowerPoint заменит системный
       lineSpacing: Number.isFinite(lh) && lh > 0 ? pt(lh) : undefined,
-      rotate: this.rotation(cs) || undefined,
+      rotate: this.spin(this.rotation(cs)) || undefined,
     });
   }
 
@@ -764,11 +802,10 @@ class Converter {
     const b = this.box(el);
     const len = el.offsetWidth * k;
     const rot = this.rotation(cs);
-    const cx = b.x + b.w / 2;
-    const cy = b.y + b.h / 2;
+    const { x: cx, y: cy } = this.turned(b.x + b.w / 2, b.y + b.h / 2);
     const dash = el.classList.contains('shape-dash') ? 'dash' : el.classList.contains('shape-dot') ? 'sysDot' : 'solid';
     this.slide.addShape(this.pptx.ShapeType.line, {
-      x: inch(cx - len / 2), y: inch(cy), w: inch(len), h: 0, rotate: rot || undefined,
+      x: inch(cx - len / 2), y: inch(cy), w: inch(len), h: 0, rotate: this.spin(rot) || undefined,
       line: { color: color.hex, width: pt((bar.offsetHeight || 3) * k), dashType: dash, endArrowType: el.querySelector('.shape-head') ? 'triangle' : undefined },
     });
   }
