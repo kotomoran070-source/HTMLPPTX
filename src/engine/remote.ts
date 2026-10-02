@@ -6,7 +6,7 @@
 import { icon } from '../components/icons';
 import { qrSvg } from '../components/qr';
 import { esc } from './html';
-import { RELAY, Sync } from './sync';
+import { RELAY } from './sync';
 import './remote.css';
 
 /** Код комнаты этого окна показа: переживает перезагрузку, телефон остаётся подключённым */
@@ -28,7 +28,10 @@ export function remoteRoom(deckKey: string, create = false): string | null {
 
 export interface RemoteDialog {
   deckKey: string;
-  sync: Sync;
+  /** Комната окна показа (окно показа при этом начинает её слушать); null — показ не ответил */
+  room(): string | null | Promise<string | null>;
+  /** id окна показа, которым будет управлять телефон */
+  main: string;
   /** Телефон подключился — окно закрывается само */
   onPhone(cb: () => void): void;
 }
@@ -80,10 +83,10 @@ export async function openRemoteDialog(o: RemoteDialog): Promise<void> {
   const urls = info.urls ?? [];
   if (!urls.length) return help('Компьютер не в сети', 'Подключитесь к Wi-Fi, в котором будет телефон, и нажмите R ещё раз.');
 
-  const room = remoteRoom(o.deckKey, true)!;
-  o.sync.relay(room);
+  const room = await o.room();
+  if (!room) return help('Окно показа не отвечает', 'Пульт подключается к окну показа: откройте его (или верните на экран) и нажмите кнопку ещё раз.');
   // Телефон открывает режим докладчика этого окна показа: живой слайд, заметки, указка, перо
-  const link = (base: string) => `${base}${location.pathname}?deck=${encodeURIComponent(o.deckKey)}&view=presenter&main=${encodeURIComponent(o.sync.self)}&remote=${room}`;
+  const link = (base: string) => `${base}${location.pathname}?deck=${encodeURIComponent(o.deckKey)}&view=presenter&main=${encodeURIComponent(o.main)}&remote=${room}`;
   const main = link(urls[0]);
   body.innerHTML = `<h2>${icon('phone')} Пульт с телефона</h2>
     <p class="mu">Наведите камеру телефона на код. Телефон должен быть в той же сети, что и этот компьютер.</p>

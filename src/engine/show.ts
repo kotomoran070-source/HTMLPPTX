@@ -70,7 +70,14 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   const sync = new Sync(deckKey);
   // Пульт с телефона: окно показа слушает свою комнату и после перезагрузки
   const phones: (() => void)[] = [];
-  const openRemote = () => void import('./remote').then((m) => m.openRemoteDialog({ deckKey, sync, onPhone: (cb) => phones.push(cb) }));
+  // Комната пульта: создаётся по первой просьбе (кнопка здесь или в окне докладчика), окно начинает её слушать
+  const startRemote = (m: typeof import('./remote')) => {
+    const room = m.remoteRoom(deckKey, true)!;
+    sync.relay(room);
+    return room;
+  };
+  const openRemote = () => void import('./remote').then((m) => m.openRemoteDialog({ deckKey, main: sync.self, room: () => startRemote(m), onPhone: (cb) => phones.push(cb) }));
+  const seenPhones = new Set<string>();
   if (location.protocol !== 'file:') {
     void import('./remote').then((m) => {
       const room = m.remoteRoom(deckKey);
@@ -522,10 +529,19 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     }
     else if (m.type === 'hello') {
       // Подключился телефон-пульт: окно с QR сообщает и закрывается
-      if (from.startsWith('r-')) phones.splice(0).forEach((cb) => cb());
+      if (from.startsWith('r-')) {
+        phones.splice(0).forEach((cb) => cb());
+        // Окну докладчика, которое показывает QR, — тоже (один раз на телефон)
+        if (!seenPhones.has(from)) {
+          seenPhones.add(from);
+          sync.send({ type: 'remote-phone' });
+        }
+      }
       // Новому окну докладчика — актуальные данные (с несохранёнными правками) и положение
       if (editor?.touched) sync.send({ type: 'deck', deck: JSON.parse(JSON.stringify(deck)) }, from);
       sync.send({ type: 'state', index, theme: currentTheme(), black }, from);
+    } else if (m.type === 'remote-start') {
+      if (location.protocol !== 'file:') void import('./remote').then((r) => sync.send({ type: 'remote-room', room: startRemote(r) }, from));
     } else if (m.type === 'theme' && m.theme !== currentTheme()) setTheme(m.theme);
     else if (m.type === 'black' && m.value !== black) setBlack(m.value);
   });

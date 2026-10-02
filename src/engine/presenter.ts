@@ -75,6 +75,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
             <button type="button" role="menuitemcheckbox" data-mir="arrow">Показывать курсор<small>без него наведение работает, стрелки не видно (K)</small></button>
           </span>
         </span>
+        ${new URLSearchParams(location.search).get('remote') ? '' : `<button type="button" class="pd-btn" id="trmt" title="Пульт с телефона (R): QR здесь, у докладчика — зал его не видит" aria-label="Пульт с телефона">${icon('phone')}</button>`}
       </div>
     </section>
     <div class="pres-split v" id="sv" role="separator" aria-orientation="vertical" aria-label="Размер текущего слайда" tabindex="0" title="Потяните, чтобы изменить размер. Двойной щелчок — сбросить"></div>
@@ -331,6 +332,22 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     grid.hidden = true;
   }
   $('tgrid').addEventListener('click', openGrid);
+
+  // Пульт с телефона: QR — здесь, у докладчика. Телефон управляет окном показа, поэтому
+  // комнату пульта открывает оно (remote-start → remote-room), а сюда приходит её код
+  const phoneCbs: (() => void)[] = [];
+  let roomWait: ((room: string | null) => void) | null = null;
+  const askRoom = () => new Promise<string | null>((resolve) => {
+    if (!mainId) return resolve(null);
+    const t = window.setTimeout(() => { roomWait = null; resolve(null); }, 3000);
+    roomWait = (r) => { clearTimeout(t); roomWait = null; resolve(r); };
+    sync.send({ type: 'remote-start' }, toMain());
+  });
+  const openRemote = () => {
+    if (room) return;
+    void import('./remote').then((m) => m.openRemoteDialog({ deckKey, main: mainId ?? '', room: askRoom, onPhone: (cb) => phoneCbs.push(cb) }));
+  };
+  document.getElementById('trmt')?.addEventListener('click', openRemote);
   $('pgx').addEventListener('click', closeGrid);
   grid.addEventListener('click', (e) => { if (e.target === grid) closeGrid(); });
 
@@ -603,6 +620,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       d: () => setTool('pen'), 'в': () => setTool('pen'),
       c: () => clearInk(), 'с': () => clearInk(),
       g: openGrid, 'п': openGrid,
+      r: openRemote, 'к': openRemote,
       m: () => setMirror(!mirror), 'ь': () => setMirror(!mirror),
       e: editNotes, 'у': editNotes,
       escape: () => { if (!mirMenu.hidden) openMir(false); else if (tool !== 'none') setTool(tool); },
@@ -644,6 +662,14 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   sync.on((m, from) => {
     if (m.type === 'vars') {
       if (!mainId || from === mainId) view.setVars(m.index, m.vars);
+      return;
+    }
+    if (m.type === 'remote-room') {
+      if (from === mainId) roomWait?.(m.room);
+      return;
+    }
+    if (m.type === 'remote-phone') {
+      phoneCbs.splice(0).forEach((cb) => cb());
       return;
     }
     if (m.type === 'trigger') {

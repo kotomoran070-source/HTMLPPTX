@@ -21,7 +21,12 @@ export type SyncMsg =
   /** run — ещё и перезапустить результат (кнопка «Запустить»: анимация с начала в обоих окнах) */
   | { type: 'code'; index: number; block: string; code: string; run?: boolean }
   /** Кнопка «показать / скрыть» нажата в одном окне — другое повторяет */
-  | { type: 'trigger'; index: number; action: string };
+  | { type: 'trigger'; index: number; action: string }
+  /** Окно докладчика просит окно показа включить пульт; ответ — remote-room с кодом комнаты */
+  | { type: 'remote-start' }
+  | { type: 'remote-room'; room: string }
+  /** К окну показа подключился новый телефон-пульт */
+  | { type: 'remote-phone' };
 
 /** Сервер показа: пересылка сообщений пульта (plugins/remote-relay.mjs) */
 export const RELAY = '/__slideria/remote/';
