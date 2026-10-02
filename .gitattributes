@@ -1,0 +1,2 @@
+# Пакетные файлы Windows — с окончаниями строк Windows, иначе cmd путается в метках
+*.cmd text eol=crlf
