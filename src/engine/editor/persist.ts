@@ -106,6 +106,18 @@ export function writeAssetText(deckKey: string, url: string, text: string): Prom
   return api(`/__htmlpptx/asset-text?deck=${encodeURIComponent(deckKey)}&url=${encodeURIComponent(url)}`, text, 'text/plain; charset=utf-8');
 }
 
+/** Общая библиотека шрифтов (папка fonts/ проекта) */
+export function listLibraryFonts(): Promise<{ file: string; url: string }[]> {
+  return api('/__htmlpptx/font-list', '', 'text/plain');
+}
+export function saveLibraryFont(file: Blob, name: string): Promise<{ file: string }> {
+  return api(`/__htmlpptx/font-save?file=${encodeURIComponent(name)}`, file, 'application/octet-stream');
+}
+/** Шрифт из библиотеки — копией в assets/ презентации */
+export function useLibraryFont(deckKey: string, file: string): Promise<{ url: string; path: string }> {
+  return api(`/__htmlpptx/font-use?deck=${encodeURIComponent(deckKey)}&file=${encodeURIComponent(file)}`, '', 'text/plain');
+}
+
 export function uploadAsset(deckKey: string, file: Blob, name: string): Promise<{ url: string; path: string }> {
   return api(`/__htmlpptx/asset?deck=${encodeURIComponent(deckKey)}&name=${encodeURIComponent(name)}`, file, 'application/octet-stream');
 }

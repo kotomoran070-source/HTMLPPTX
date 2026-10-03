@@ -10,6 +10,7 @@ import {
   blobToDataUrl, buildHtml, canSaveFile, MAX_FILE, prepareImage, saveHtmlFile, suggestedFileName,
 } from './persist';
 import { TextEditor } from './text-edit';
+import { applyDeckFonts, applyLibraryFonts, deckFonts } from '../fonts';
 import { History } from './history';
 import './editor.css';
 
@@ -174,6 +175,7 @@ export class Editor {
     this.hist.load(this.hist.snap(host.deck));
     this.studio = !!opts.studio;
     this.storage = opts.storage ?? projectStorage;
+    if (this.mode === 'project') void this.loadFontLibrary();
     this.buildUi();
     const deck = () => this.host.deck as unknown as Record<string, unknown>;
     const commit = (fn: (d: Record<string, unknown>) => void, opts?: Commit) => this.commit((d) => fn(d as unknown as Record<string, unknown>), opts);
@@ -187,6 +189,8 @@ export class Editor {
       blockOf: (p) => this.blockOf(p),
       removeBlock: (p) => this.removeBlock(p),
       normalizeUrl,
+      fonts: () => this.fontChoices(),
+      ensureFont: (n) => this.ensureFont(n),
     }, opts.textDock);
     this.image = new ImageEditor({
       deck, commit,
@@ -1180,6 +1184,45 @@ export class Editor {
   }
 
   /** Загрузить видео или модель; null — не подошёл формат или не удалось. */
+  /** Общая библиотека шрифтов (папка fonts/ проекта): имя — из файла */
+  private library: { name: string; file: string; url: string }[] = [];
+
+  async loadFontLibrary(): Promise<void> {
+    if (!this.storage.listFonts) return;
+    try {
+      const seen = new Set<string>();
+      this.library = (await this.storage.listFonts()).map((f) => ({ ...f, name: fontNameOf(f.file) }))
+        .filter((f) => !seen.has(f.name) && !!seen.add(f.name));
+      applyLibraryFonts(this.library);
+    } catch { /* без библиотеки — только шрифты презентации */ }
+  }
+
+  /** Шрифты для выбора: свои у презентации и из общей библиотеки (lib — ещё не скопирован в презентацию) */
+  fontChoices(): { name: string; lib: boolean }[] {
+    const own = deckFonts(this.host.deck.fonts).map((f) => f.name.trim());
+    return [...own.map((name) => ({ name, lib: false })), ...this.library.filter((f) => !own.includes(f.name)).map((f) => ({ name: f.name, lib: true }))];
+  }
+
+  /**
+   * Шрифт из библиотеки, выбранный в этой презентации, — копией в её assets/ и в fonts:
+   * собранный файл и папка презентации несут шрифт с собой. false — шрифта нет.
+   */
+  async ensureFont(name: string): Promise<boolean> {
+    if (deckFonts(this.host.deck.fonts).some((f) => f.name.trim() === name)) return true;
+    const lib = this.library.find((f) => f.name === name);
+    if (!lib || !this.storage.useFont) return false;
+    try {
+      const { url } = await this.storage.useFont(this.host.deckKey, lib.file);
+      // Без перерисовки: правка текста, если она идёт, не прерывается; @font-face — сразу
+      this.commit((d) => { d.fonts = [...(Array.isArray(d.fonts) ? d.fonts : []), { name, src: url }]; }, { rebuild: false });
+      applyDeckFonts(this.host.deck.fonts, null);
+      return true;
+    } catch (e) {
+      this.toast(`Не удалось взять шрифт из библиотеки: ${(e as Error).message}`, 5000, true);
+      return false;
+    }
+  }
+
   /**
    * Свой шрифт: файл — в assets/ (в собранном файле — внутрь), в презентацию — fonts.
    * Без кириллицы — предупреждение: русский текст этим шрифтом не напишется.
@@ -1212,8 +1255,12 @@ export class Editor {
       return this.toast('Файл не похож на шрифт — браузер не смог его прочитать', 5000, true);
     }
     if (!this.commit((d) => { d.fonts = [...(Array.isArray(d.fonts) ? d.fonts : []), { name, src: url }]; }, { rebuild: true })) return;
+    // И в общую библиотеку: шрифт появится в списках всех презентаций
+    if (this.mode === 'project' && this.storage.saveFont) {
+      try { await this.storage.saveFont(file, file.name); await this.loadFontLibrary(); } catch { /* останется в этой презентации */ }
+    }
     this.toast(cyr
-      ? `Шрифт «${name}» добавлен: выберите его в панели текста или как шрифт презентации в «Свойствах»`
+      ? `Шрифт «${name}» добавлен — и в общую библиотеку: он есть в списке шрифтов всех презентаций`
       : `Шрифт «${name}» добавлен, но в нём нет русских букв — они будут запасным шрифтом`, cyr ? 4500 : 6000, !cyr);
   }
 

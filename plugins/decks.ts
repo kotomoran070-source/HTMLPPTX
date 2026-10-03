@@ -267,6 +267,36 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     return saveAsset(name, safe, data, res);
   }
 
+  // ---------- общая библиотека шрифтов ----------
+  const FONT_EXT = /\.(woff2?|ttf|otf)$/i;
+  const fontsDir = () => path.join(root, 'fonts');
+  function listFonts(): { file: string; url: string }[] {
+    if (!fs.existsSync(fontsDir())) return [];
+    return fs.readdirSync(fontsDir()).filter((f) => FONT_EXT.test(f)).sort().map((f) => ({ file: f, url: urlOf(path.join(fontsDir(), f)) }));
+  }
+  /** Шрифт в библиотеку; такой же файл уже есть — второй не появляется */
+  function saveLibraryFont(fileName: string, data: Buffer): { file: string } {
+    const safe = safeFileName(fileName);
+    if (!FONT_EXT.test(safe)) throw new Error('Подойдут шрифты WOFF2, WOFF, TTF или OTF');
+    if (!data.length) throw new Error('Пустой файл');
+    fs.mkdirSync(fontsDir(), { recursive: true });
+    const target = path.join(fontsDir(), safe);
+    if (fs.existsSync(target) && fs.readFileSync(target).equals(data)) return { file: safe };
+    let file = safe;
+    for (let i = 2; fs.existsSync(path.join(fontsDir(), file)); i++) file = safe.replace(FONT_EXT, (m) => `-${i}${m}`);
+    fs.writeFileSync(path.join(fontsDir(), file), data);
+    return { file };
+  }
+  /** Шрифт из библиотеки — копией в assets/ презентации: собранный файл несёт его с собой */
+  function useLibraryFont(name: string, fileName: string, res: ServerResponse): void {
+    const safe = path.basename(fileName);
+    const src = path.join(fontsDir(), safe);
+    if (!FONT_EXT.test(safe) || !fs.existsSync(src)) throw new Error('Шрифта нет в библиотеке');
+    const own = path.join(dir, name, 'assets', safe);
+    if (fs.existsSync(own) && fs.readFileSync(own).equals(fs.readFileSync(src))) return send(res, 200, { url: urlOf(own), path: './assets/' + safe });
+    return saveAsset(name, safe, fs.readFileSync(src), res);
+  }
+
   function saveAsset(name: string, safe: string, data: Buffer, res: ServerResponse): void {
     const ext = path.extname(safe).slice(1);
     const assets = path.join(dir, name, 'assets');
@@ -338,8 +368,12 @@ export function decksPlugin(opts: DecksOptions): Plugin {
             return send(res, 200, listDecks(dir).map((n) => ({ name: n, mtime: Math.round(fs.statSync(deckFile(n)).mtimeMs) })));
           }
           if (url.pathname === API + 'create') return send(res, 200, createDeck(url.searchParams.get('title') ?? '', url.searchParams.get('sample') === '1'));
+          // Общая библиотека шрифтов: папка fonts/ в корне проекта — видна во всех презентациях
+          if (url.pathname === API + 'font-list') return send(res, 200, listFonts());
+          if (url.pathname === API + 'font-save') return send(res, 200, saveLibraryFont(url.searchParams.get('file') ?? '', await readBody(req)));
           const name = assertDeck(url.searchParams.get('deck'));
           if (url.pathname === API + 'delete') return send(res, 200, trashDeck(name));
+          if (url.pathname === API + 'font-use') return useLibraryFont(name, url.searchParams.get('file') ?? '', res);
           if (url.pathname === API + 'bind-theme') return send(res, 200, bindProject(dir, name, url.searchParams.get('dry') === '1'));
           if (url.pathname === API + 'save') return await handleSave(name, req, res);
           if (url.pathname === API + 'export') return await handleExport(root, name, url.searchParams.get('mode') === 'clean', res);

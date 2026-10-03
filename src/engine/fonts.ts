@@ -22,6 +22,18 @@ export function deckFonts(fonts: unknown): DeckFont[] {
   return fonts.filter((f): f is DeckFont => !!f && fontNameOk((f as DeckFont).name) && typeof (f as DeckFont).src === 'string' && !!(f as DeckFont).src);
 }
 
+/** Шрифты общей библиотеки — для предпросмотра в списках (сами презентации берут свои копии) */
+export function applyLibraryFonts(list: { name: string; url: string }[]): void {
+  const id = 'htmlpptx-font-library';
+  let el = document.getElementById(id);
+  if (!el) {
+    el = document.createElement('style');
+    el.id = id;
+    document.head.appendChild(el);
+  }
+  el.textContent = list.filter((f) => fontNameOk(f.name)).map((f) => `@font-face{font-family:"${f.name.trim()}";src:url("${f.url.replace(/["\\\n]/g, '')}");font-weight:100 900;font-display:swap}`).join('\n');
+}
+
 const FORMAT: Record<string, string> = { woff2: 'woff2', woff: 'woff', ttf: 'truetype', otf: 'opentype' };
 
 /**

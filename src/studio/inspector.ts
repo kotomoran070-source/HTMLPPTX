@@ -106,6 +106,10 @@ export class Inspector {
       this.peek(part ? this.parts[Number(part.dataset.part)]?.el ?? null : null);
     });
     root.addEventListener('pointerleave', () => this.peek(null));
+    root.addEventListener('pointerdown', (e) => {
+      const sel = (e.target as Element).closest<HTMLSelectElement>('select[data-f="font"]');
+      if (sel) sel.innerHTML = this.fontOptions(sel.value);
+    });
     root.addEventListener('paste', (e) => {
       const el = e.target as HTMLInputElement;
       const text = e.clipboardData?.getData('text/plain') ?? '';
@@ -365,11 +369,17 @@ ${this.fontsHtml(deck)}`)}`;
   private fontsHtml(deck: Deck): string {
     const own = deckFonts(deck.fonts);
     const cur = typeof deck.theme?.font === 'string' ? deck.theme.font : '';
-    const opts = [['', 'Системный'], ...own.map((f) => [f.name, f.name])]
-      .map(([v, l]) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}${v ? ` style="font-family:${esc(fontStack(v))}"` : ''}>${esc(l)}</option>`).join('');
+    const opts = this.fontOptions(cur);
     const list = own.map((f, i) => `<span class="st-font" style="font-family:${esc(fontStack(f.name))}">${esc(f.name)}<button type="button" data-a="font-del" data-i="${i}" title="Убрать шрифт" aria-label="Убрать шрифт ${esc(f.name)}">×</button></span>`).join('');
     return `<label class="st-p-field"><span>Шрифт презентации</span><select data-f="font" data-sig="${esc(own.map((f) => f.name).join('|'))}">${opts}</select></label>
 <div class="st-fonts">${list}<button type="button" class="st-link" data-a="font-add" title="Файл WOFF2, WOFF, TTF или OTF — можно просто перетащить на страницу">Добавить шрифт…</button></div>`;
+  }
+
+  /** Варианты «Шрифта презентации»: системный, свои шрифты презентации и общей библиотеки */
+  private fontOptions(cur: string): string {
+    const list = this.host.editor().fontChoices();
+    return [['', 'Системный'], ...list.map((f) => [f.name, f.name])]
+      .map(([v, l]) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}${v ? ` style="font-family:${esc(fontStack(v))}"` : ''}>${esc(l)}</option>`).join('');
   }
 
   /** Раздел «Состав»: вложенные блоки и поля выделенного блока. Клик — выделить или править. */
@@ -596,10 +606,13 @@ ${this.fontsHtml(deck)}`)}`;
     } else if (f === 'accent' || f === 'accent2') {
       ed.setAccent(raw, f);
     } else if (f === 'font') {
-      ed.commit((d) => {
+      // Шрифт из общей библиотеки — сначала копией в презентацию
+      const apply = () => ed.commit((d) => {
         if (raw) d.theme = { ...(d.theme ?? {}), font: raw };
         else if (d.theme) delete d.theme.font;
       }, { rebuild: true });
+      if (!raw) apply();
+      else void ed.ensureFont(raw).then((ok) => (ok ? apply() : this.fill()));
     }
   }
 }

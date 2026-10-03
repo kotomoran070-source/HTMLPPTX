@@ -20,6 +20,9 @@ export interface TextHost {
   blockOf(path: Path): Path | null;
   removeBlock(path: Path): void;
   normalizeUrl(s: string): string;
+  /** Свои шрифты: презентации и общей библиотеки (lib — возьмётся копией при выборе) */
+  fonts?(): { name: string; lib: boolean }[];
+  ensureFont?(name: string): Promise<boolean>;
 }
 
 const readPath = (el: Element, attr: string): Path | null => {
@@ -286,7 +289,14 @@ export class TextEditor {
       if (s.styleAttr === null) el.removeAttribute('style');
       else el.setAttribute('style', s.styleAttr);
     }
+    // Шрифт из общей библиотеки — копией в презентацию, когда правка закончена (запись посреди правки её прервала бы)
+    const font = this.pendingFont;
+    this.pendingFont = null;
+    if (ok && font && s.styles.font === font) void this.host.ensureFont?.(font);
   }
+
+  /** Выбранный шрифт общей библиотеки: в презентацию — после правки */
+  private pendingFont: string | null = null;
 
   // ---------------- команды ----------------
 
@@ -400,14 +410,14 @@ export class TextEditor {
 
   /** Свои шрифты презентации — в конце списка, каждый написан самим собой */
   private syncFonts(sel: HTMLSelectElement): void {
-    const own = deckFonts(this.host.deck().fonts).map((f) => f.name.trim());
+    const own = this.host.fonts ? this.host.fonts().map((f) => f.name) : deckFonts(this.host.deck().fonts).map((f) => f.name.trim());
     const sig = own.join('|');
     if (sel.dataset.own === sig) return;
     sel.dataset.own = sig;
     sel.querySelectorAll('[data-own]').forEach((o) => o.remove());
     if (!own.length) return;
     const g = document.createElement('optgroup');
-    g.label = 'Шрифты презентации';
+    g.label = 'Свои шрифты';
     g.dataset.own = '1';
     for (const n of own) {
       const o = document.createElement('option');
@@ -491,7 +501,10 @@ export class TextEditor {
     });
     const font = this.bar.querySelector<HTMLSelectElement>('[data-t="font"]')!;
     font.addEventListener('change', () => {
-      this.setStyle({ font: font.value || undefined });
+      const v = font.value;
+      // Шрифт общей библиотеки виден сразу (он уже подключён для списка), в презентацию он ляжет после правки
+      if (v && this.host.fonts?.().some((f) => f.name === v && f.lib)) this.pendingFont = v;
+      this.setStyle({ font: v || undefined });
       this.s?.el.focus({ preventScroll: true });
     });
     font.addEventListener('keydown', (e) => e.stopPropagation());
