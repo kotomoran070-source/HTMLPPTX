@@ -283,6 +283,7 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'poster', label: 'Заставка', type: 'image' },
       { k: 'theme', label: 'Цвета темы внутри вставки', type: 'bool' },
       { k: 'interactive', label: 'Отвечает на мышь при показе', type: 'bool' },
+      { k: 'dark', label: 'Тёмная заставка (не переворачивать в тёмной теме)', type: 'bool' },
     ],
   },
   model: {

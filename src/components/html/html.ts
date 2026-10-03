@@ -253,6 +253,8 @@ interface EmbedProps extends Block {
   theme?: boolean;
   /** Вставка отвечает на мышь при показе (курсор, щелчки); в редакторе — нет, чтобы её можно было выделить */
   interactive?: boolean;
+  /** Заставка тёмная (своя тёмная сцена): в тёмной теме её не переворачивать */
+  dark?: boolean;
 }
 
 /** Цвета темы, которые передаются во вставку */
@@ -313,7 +315,7 @@ defineBlock<EmbedProps>('embed', {
     const poster = p.poster ? `<img class="embed-poster" src="${esc(p.poster)}" alt="">` : '';
     // Пустая вставка видна в редакторе: её можно выделить и открыть «Код вставки»
     const empty = !poster && !hasEmbed(p) ? `<div class="embed-ph">${icon('terminal')}<span>Живая вставка</span></div>` : '';
-    return `<div class="embed${p.theme ? ' themed' : ''}${p.interactive ? ' interactive' : ''}">${poster}${empty}</div>`;
+    return `<div class="embed${p.theme ? ' themed' : ''}${p.interactive ? ' interactive' : ''}${p.dark ? ' dark' : ''}">${poster}${empty}</div>`;
   },
   mount(el, p, ctx) {
     if (!hasEmbed(p)) return;

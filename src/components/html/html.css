@@ -17,6 +17,7 @@ body:not(.editing) .stage .embed-ph { visibility: hidden; }
 body.editing .embed.interactive .embed-frame { pointer-events: none; }
 .embed:has(.embed-frame.on) .embed-poster { visibility: hidden; }
 /* Заставка вставки снята в светлой теме. В тёмной — перевёрнутые яркости с тем же оттенком:
-   светлые подложки темнеют, акцент остаётся синим (для миниатюр и до загрузки вставки) */
-:root[data-theme="dark"] .embed.themed .embed-poster { filter: invert(1) hue-rotate(180deg) brightness(1.1); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .embed.themed .embed-poster { filter: invert(1) hue-rotate(180deg) brightness(1.1); } }
+   светлые подложки темнеют, акцент остаётся синим (для миниатюр и до загрузки вставки).
+   Тёмная заставка (dark: своя тёмная сцена) остаётся как есть */
+:root[data-theme="dark"] .embed.themed:not(.dark) .embed-poster { filter: invert(1) hue-rotate(180deg) brightness(1.1); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .embed.themed:not(.dark) .embed-poster { filter: invert(1) hue-rotate(180deg) brightness(1.1); } }

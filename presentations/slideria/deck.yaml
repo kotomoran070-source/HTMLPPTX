@@ -142,7 +142,7 @@ slides:
         stroke: gradient
         strokeGradient: {from: accent, to: accent2, angle: 90}
         width: 2
-        text: 10 слайдов витрины
+        text: 12 слайдов витрины
         styles: {text: {size: 17, color: text}}
         place: {x: 350, y: 520, w: 230, h: 62}
         enter: pop
@@ -803,6 +803,44 @@ slides:
     notes: |
       Песочница: щёлкните в код и меняйте числа — результат обновится через долю секунды, console.log — в консоли справа.
       Правки показа не сохраняются в презентацию; «↺» возвращает исходный код. Esc — снова листать слайды стрелками.
+
+  - id: motion
+    template: canvas
+    label: Движение без границ
+    bg: "radial-gradient(ellipse 70% 70% at 50% 58%, color-mix(in srgb, var(--acs) 70%, var(--bg)), var(--bg) 72%)"
+    transition: zoom
+    free:
+      - type: text
+        text: Движение {g:duo|без границ}
+        styles: {text: {size: 44, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 32, w: 900}
+        enter: rise
+      - type: text
+        text: "Кинетическая типографика, маски, свет и 3D-камера — как в After Effects, а это один HTML-файл."
+        styles: {text: {size: 17, color: text2}}
+        place: {x: 50, y: 92, w: 1100}
+        enter: fade
+        delay: 120
+      - type: embed
+        src: ./assets/embed-motion.htm
+        poster: ./assets/embed-motion.webp
+        theme: true
+        interactive: true
+        dark: true
+        place: {x: 36, y: 128, w: 1208, h: 548}
+        enter: rise
+        delay: 220
+      - type: text
+        text: "Потяните плейхед — кадр за кадром · код — «Код» → «Анимации · HTML/JS» · правый щелчок → «Сохранить как шаблон» — и эффект ваш"
+        styles: {text: {size: 14, color: muted}}
+        place: {x: 50, y: 672, w: 1180}
+        enter: fade
+        delay: 500
+    notes: |
+      Моушн-дизайн, как в After Effects, — но это обычный HTML-файл в презентации: пружина и размытие в движении, рисование линией (Trim Paths),
+      трек-маска с пролётом камеры сквозь «О», 3D-кольцо с глубиной резкости, глитч и маска строки.
+      Плейхед тянется в обе стороны — каждый кадр считается от времени; «Размытие в движении» включается и выключается. Мышь над 3D-сценой поворачивает камеру.
+      Код — «Код» → «Анимации · HTML/JS»; правый щелчок по объекту → «Сохранить как шаблон» — эффект появится в «Моих шаблонах».
 
   - id: thanks
     template: canvas
