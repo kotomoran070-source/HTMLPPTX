@@ -26,7 +26,8 @@
 .sbx-tools .sbx-run { background: var(--ac-g, var(--ac)); color: #fff; padding: 0 12px; }
 .sbx-tools .sbx-run:hover { filter: brightness(1.1); background: var(--ac-g, var(--ac)); }
 
-.sbx-ed { position: relative; flex: 1; min-height: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); overflow: clip;
+/* Высота строки сетки — по окну, а не по коду: длинный код прокручивается в поле ввода, а не обрезается */
+.sbx-ed { position: relative; flex: 1; min-height: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); overflow: clip;
   font: 500 var(--sbx-fs, 15px)/1.6 var(--sbx-mono); tab-size: 2; }
 .sbx-gut { margin: 0; padding: 14px 10px 14px 14px; min-width: 2ch; text-align: right; font: inherit; color: rgba(230, 233, 242, .26); user-select: none; }
 .sbx-scroll { position: relative; overflow: clip; min-width: 0; }
