@@ -50,7 +50,7 @@ function diffKeys(a: unknown, b: unknown, out = new Set<string>(), key = ''): Se
 }
 
 const TEXT = new Set(['title', 'lead', 'text', 'texts', 'label', 'meta', 'caption', 'badge', 'value', 'items', 'subtitle', 'footer', 'footnote', 'name', 'quote', 'author']);
-const LOOK = new Set(['style', 'fill', 'color', 'stroke', 'width', 'dash', 'mat', 'filter', 'variant', 'size', 'align', 'density', 'radius', 'opacity', 'shadow', 'font', 'bg', 'background', 'widths', 'accent']);
+const LOOK = new Set(['style', 'fill', 'color', 'stroke', 'width', 'dash', 'mat', 'filter', 'variant', 'size', 'align', 'density', 'radius', 'opacity', 'bright', 'contrast', 'saturate', 'shadow', 'font', 'bg', 'background', 'widths', 'accent']);
 
 /** Вид правки на слайде по изменившимся полям */
 function slideAction(a: Record<string, unknown>, b: Record<string, unknown>): string {

@@ -21,6 +21,10 @@ export interface ImageLook {
   opacity?: number;
   /** Цвет (фильтр, как LUT): ключ из IMAGE_FILTERS — gray, sepia, film, duo… */
   filter?: string;
+  /** Тонкая настройка поверх фильтра, % (100 — как есть): яркость, контраст, насыщенность */
+  bright?: number;
+  contrast?: number;
+  saturate?: number;
 }
 
 export const IMAGE_SHADOWS: Record<string, { name: string; css: string }> = {
@@ -73,7 +77,23 @@ export function filterCss(key: unknown): { img: string; box: string; tint: boole
 }
 
 /** Поля оформления: их стирает «Сбросить оформление» и переносит формат по образцу */
-export const IMAGE_LOOK_KEYS = ['stroke', 'width', 'dash', 'radius', 'shadow', 'mat', 'opacity', 'filter'] as const;
+export const IMAGE_LOOK_KEYS = ['stroke', 'width', 'dash', 'radius', 'shadow', 'mat', 'opacity', 'filter', 'bright', 'contrast', 'saturate'] as const;
+
+/** Ползунки цвета: поле, подпись, пределы в % */
+export const IMAGE_ADJUST: [key: 'bright' | 'contrast' | 'saturate', label: string, min: number, max: number][] = [
+  ['bright', 'Яркость', 50, 150],
+  ['contrast', 'Контраст', 50, 150],
+  ['saturate', 'Насыщенность', 0, 200],
+];
+
+/** CSS ползунков: brightness() contrast() saturate() — после фильтра; пусто, если всё по 100 */
+export function adjustCss(p: Pick<ImageLook, 'bright' | 'contrast' | 'saturate'>): string {
+  const fn: Record<string, string> = { bright: 'brightness', contrast: 'contrast', saturate: 'saturate' };
+  return IMAGE_ADJUST.map(([k, , min, max]) => {
+    const v = Number(p[k]);
+    return Number.isFinite(v) && p[k] !== undefined && v !== 100 ? `${fn[k]}(${Math.max(min, Math.min(max, v)) / 100})` : '';
+  }).filter(Boolean).join(' ');
+}
 
 /** Готовые стили галереи; «Обычный» — без полей оформления */
 export const IMAGE_STYLES: { id: string; name: string; props: ImageLook }[] = [
@@ -102,7 +122,8 @@ export function imageLookCss(p: ImageLook): { box: string; img: string; fx: bool
   if (Number.isFinite(op) && op >= 0.1 && op < 1) box.push(`opacity:${op}`);
   const img: string[] = [];
   const fl = filterCss(p.filter);
-  if (fl.img) img.push(fl.img);
+  const adj = adjustCss(p);
+  if (fl.img || adj) img.push(`filter:${[fl.img.replace(/^filter:/, ''), adj].filter(Boolean).join(' ')}`);
   if (fl.box) box.push(fl.box);
   // Снимок в паспарту скруглён в тон рамке
   if (mat) img.push(`border-radius:${p.radius === 'circle' ? '50%' : `${Math.max(0, (r ? parseFloat(r) : 12) - mat)}px`}`);

@@ -1,7 +1,10 @@
 import { icon } from '../components/icons';
 import { TEXT_GRADIENTS } from '../engine/gradients';
 import { GRADIENTS, SHAPE_COLORS, SHAPE_STYLES, SHAPE_SWATCHES, gradientCss, gradientOn, isGradient, sameGradient, shapeFill, type ShapeGradient } from '../components/shape/shape';
-import { IMAGE_FILTER_GROUPS, IMAGE_FILTERS, IMAGE_LOOK_KEYS, IMAGE_SHADOWS, IMAGE_STYLES, filterCss, imageLookCss } from '../components/layout/image-look';
+import { IMAGE_ADJUST, IMAGE_FILTER_GROUPS, IMAGE_FILTERS, IMAGE_LOOK_KEYS, IMAGE_SHADOWS, IMAGE_STYLES, adjustCss, filterCss, imageLookCss } from '../components/layout/image-look';
+
+/** Цвет снимка: стиль рисунка (рамка, тень, форма) его не трогает */
+const COLOR_KEYS = new Set<string>(['filter', 'opacity', 'bright', 'contrast', 'saturate']);
 import { getAt, setAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
@@ -309,24 +312,32 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const cur = first(type)?.[key] ?? def;
     showMenu(anchor(cmd), options.map(([v, l]) => ({ label: l, checked: cur === v, run: () => setAll(type, key, v === def ? undefined : v) })));
   };
-  // ---------- рисунок: цвет — галерея превью; наведение примеряет фильтр на выделенные снимки ----------
+  // ---------- рисунок: цвет — галерея превью и ползунки; наведение и ползунки примеряются на слайде ----------
   const filterGallery = () => {
     const paths = targets('image');
-    const boxes = paths.flatMap((p) => [...h.stage().querySelectorAll<HTMLElement>(`.slide.on [data-block='${JSON.stringify(p)}'] .imgbox`)]);
-    const src = boxes[0]?.querySelector('img')?.currentSrc ?? '';
-    const curKey = first('image')?.filter;
-    const cur = typeof curKey === 'string' && IMAGE_FILTERS[curKey] ? curKey : '';
-    const saved = boxes.map((bx) => ({ bx, img: bx.querySelector('img'), cls: bx.className, style: bx.getAttribute('style'), imgStyle: bx.querySelector('img')?.getAttribute('style') ?? null }));
-    const put = (el: Element | null, v: string | null) => { if (el) { if (v === null) el.removeAttribute('style'); else el.setAttribute('style', v); } };
+    // Снимки на слайде: после записи слайд перерисовывается — берём заново
+    const snap = () => paths.flatMap((p) => [...h.stage().querySelectorAll<HTMLElement>(`.slide.on [data-block='${JSON.stringify(p)}'] .imgbox`)])
+      .map((bx) => ({ bx, img: bx.querySelector('img'), cls: bx.className, style: bx.getAttribute('style'), imgStyle: bx.querySelector('img')?.getAttribute('style') ?? null }));
+    let saved = snap();
+    const fresh = () => { if (saved[0] && !saved[0].bx.isConnected) saved = snap(); };
+    const src = saved[0]?.img?.currentSrc ?? '';
+    const b0 = first('image');
+    const cur = typeof b0?.filter === 'string' && IMAGE_FILTERS[b0.filter] ? b0.filter : '';
+    const adj: Record<string, number> = Object.fromEntries(IMAGE_ADJUST.map(([k]) => [k, Number(b0?.[k]) || 100]));
     let picked = false;
-    const restore = () => !picked && saved.forEach((x) => { x.bx.className = x.cls; put(x.bx, x.style); put(x.img, x.imgStyle); });
-    const tryOn = (key: string) => {
+    const put = (el: Element | null, v: string | null) => { if (el) { if (v === null) el.removeAttribute('style'); else el.setAttribute('style', v); } };
+    const restore = () => { if (picked) return; fresh(); saved.forEach((x) => { x.bx.className = x.cls; put(x.bx, x.style); put(x.img, x.imgStyle); }); };
+    /** Показать на слайде фильтр key (null — выбранный) с текущими ползунками */
+    const tryOn = (key: string | null) => {
       restore();
-      const f = filterCss(key);
+      const k = key ?? cur;
+      const f = filterCss(k);
+      const css = [k ? IMAGE_FILTERS[k].css : '', adjustCss(adj)].filter(Boolean).join(' ');
       for (const { bx, img } of saved) {
-        if (img) img.style.filter = key ? IMAGE_FILTERS[key].css : 'none';
+        if (img) img.style.filter = css || 'none';
         bx.classList.toggle('img-tint', f.tint);
-        if (f.tint) for (const d of f.box.split(';')) { const [k, ...v] = d.split(':'); bx.style.setProperty(k, v.join(':')); }
+        for (const v of ['--tint', '--tint-blend', '--tint-op']) bx.style.removeProperty(v);
+        if (f.tint) for (const d of f.box.split(';')) { const [n, ...v] = d.split(':'); bx.style.setProperty(n, v.join(':')); }
       }
     };
     const tile = (key: string, name: string) => {
@@ -338,7 +349,17 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       const list = Object.entries(IMAGE_FILTERS).filter(([, f]) => f.group === g);
       return `<h4>${esc(label)}</h4><div class="st-flt-grid">${g === 'base' ? tile('', 'Исходный') : ''}${list.map(([k, f]) => tile(k, f.name)).join('')}</div>`;
     }).join('');
-    const pop = showPopover(anchor('image.filter'), `<div class="st-flt-pop">${groups}<p class="st-flt-note">Наведите — примерка на слайде, щелчок — применить</p></div>`, (b) => {
+    const sliders = `<h4>Настройка</h4><div class="st-adj">${IMAGE_ADJUST.map(([k, l, min, max]) =>
+      `<label><span>${esc(l)}</span><input type="range" min="${min}" max="${max}" step="1" value="${adj[k]}" data-adj="${k}" aria-label="${esc(l)}"><output>${adj[k]}%</output></label>`).join('')}`
+      + `<button type="button" class="st-adj-reset" data-adj-reset="1">Сбросить настройку</button></div>`;
+    const pop = showPopover(anchor('image.filter'), `<div class="st-flt-pop">${groups}${sliders}<p class="st-flt-note">Наведите — примерка на слайде, щелчок — применить. Ползунки — поверх фильтра</p></div>`, (b) => {
+      if (b.dataset.adjReset) {
+        return { keep: true, run: () => {
+          IMAGE_ADJUST.forEach(([k]) => { adj[k] = 100; });
+          pop.querySelectorAll<HTMLInputElement>('[data-adj]').forEach((r) => { r.value = '100'; r.nextElementSibling!.textContent = '100%'; });
+          ed.commit((d) => paths.forEach((p) => IMAGE_ADJUST.forEach(([k]) => setAt(d, [...p, k], undefined))), { rebuild: true });
+        } };
+      }
       const key = b.dataset.flt;
       if (key === undefined) return null;
       return { run: () => { restore(); picked = true; setAll('image', 'filter', key || undefined); } };
@@ -347,10 +368,31 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       const b = (e.target as Element).closest<HTMLElement>('[data-flt]');
       if (b) tryOn(b.dataset.flt!);
     });
+    pop.addEventListener('pointerout', (e) => {
+      // Ушли с превью (на ползунки, заголовки) — на слайде снова выбранный фильтр
+      if ((e.target as Element).closest('[data-flt]') && !(e.relatedTarget as Element | null)?.closest?.('[data-flt]')) restore();
+    });
     pop.addEventListener('pointerleave', restore);
     pop.addEventListener('focusin', (e) => {
       const b = (e.target as Element).closest<HTMLElement>('[data-flt]');
       if (b) tryOn(b.dataset.flt!);
+    });
+    // Ползунок: на слайде — сразу, в данные — когда отпустили (один шаг отмены на ползунок)
+    pop.addEventListener('input', (e) => {
+      const r = e.target as HTMLInputElement;
+      const k = r.dataset.adj;
+      if (!k) return;
+      adj[k] = Number(r.value);
+      r.nextElementSibling!.textContent = `${r.value}%`;
+      tryOn(null);
+    });
+    pop.addEventListener('change', (e) => {
+      const r = e.target as HTMLInputElement;
+      const k = r.dataset.adj;
+      if (!k) return;
+      const v = Number(r.value);
+      ed.commit((d) => paths.forEach((p) => setAt(d, [...p, k], v === 100 ? undefined : v)), { rebuild: true, merge: `img-adj-${k}` });
+      saved = snap();
     });
     // Закрыли без выбора (Esc, щелчок мимо) — снимки как были
     const mo = new MutationObserver(() => { if (!pop.isConnected) { mo.disconnect(); restore(); } });
@@ -584,14 +626,14 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
         ed.commit((d) => paths.forEach((p) => {
           const b = getAt(d, p) as Block;
           // Стиль — про рамку, тень и форму; цвет и прозрачность картинки остаются
-          for (const k of IMAGE_LOOK_KEYS) if (k !== 'filter' && k !== 'opacity') delete b[k];
+          for (const k of IMAGE_LOOK_KEYS) if (!COLOR_KEYS.has(k)) delete b[k];
           Object.assign(b, st.props);
         }), { rebuild: true });
       },
       enabled: isImage,
       active: () => {
         const b = first('image');
-        return !!b && IMAGE_LOOK_KEYS.every((k) => k === 'filter' || k === 'opacity' || b[k] === (st.props as Record<string, unknown>)[k]);
+        return !!b && IMAGE_LOOK_KEYS.every((k) => COLOR_KEYS.has(k) || b[k] === (st.props as Record<string, unknown>)[k]);
       },
     };
   }

@@ -121,9 +121,11 @@ function mount(at: { x: number; y: number } | HTMLElement, el: HTMLElement, acti
     removeEventListener('pointerdown', outside, true);
     removeEventListener('keydown', onKey, true);
     removeEventListener('resize', close);
-    removeEventListener('scroll', close, true);
+    removeEventListener('scroll', onScroll, true);
     open = null;
   };
+  // Прокрутка страницы уводит якорь — меню закрывается; своя прокрутка (длинная галерея) — нет
+  const onScroll = (e: Event) => { if (!el.contains(e.target as Node)) close(); };
   const outside = (e: PointerEvent) => {
     if (!el.contains(e.target as Node) && e.target !== anchor && !anchor?.contains(e.target as Node)) close();
   };
@@ -155,7 +157,7 @@ function mount(at: { x: number; y: number } | HTMLElement, el: HTMLElement, acti
   addEventListener('pointerdown', outside, true);
   addEventListener('keydown', onKey, true);
   addEventListener('resize', close);
-  addEventListener('scroll', close, true);
+  addEventListener('scroll', onScroll, true);
   open = { el, close };
   (el.querySelector<HTMLButtonElement>("button[aria-checked=\"true\"]:not([disabled]), button.on") ?? buttons()[0])?.focus({ preventScroll: true });
 }
