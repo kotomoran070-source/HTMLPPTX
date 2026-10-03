@@ -197,7 +197,7 @@ slides:
         src: ./assets/robot.glb
         poster: ./assets/robot-wave.webp
         animation: Wave
-        orbit: 25deg 80deg 160%
+        orbit: 25deg 80deg
         caption: Привет, зал
         place: {x: 40, y: 170, w: 380, h: 500}
         enter: rise
@@ -206,7 +206,7 @@ slides:
         src: ./assets/robot.glb
         poster: ./assets/robot-dance.webp
         animation: Dance
-        orbit: 0deg 78deg 160%
+        orbit: 0deg 78deg
         caption: Когда дедлайн перенесли
         place: {x: 450, y: 160, w: 380, h: 510}
         enter: rise
@@ -215,7 +215,7 @@ slides:
         src: ./assets/robot.glb
         poster: ./assets/robot-thumbs.webp
         animation: ThumbsUp
-        orbit: -25deg 80deg 160%
+        orbit: -25deg 80deg
         caption: Одобряю этот слайд
         place: {x: 860, y: 170, w: 380, h: 500}
         enter: rise

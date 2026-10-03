@@ -114,9 +114,13 @@ defineBlock<ModelProps>('model', {
         m.setAttribute('auto-rotate-delay', '0');
         const controls = p.controls !== false && !editing();
         if (controls) m.setAttribute('camera-controls', '');
-        // Приблизить — колесом или щипком; отдалить можно только до исходного вида
-        // (у model-viewer дальше исходного расстояния камера не уходит)
+        // Приблизить и отдалить — колесом или щипком. Без предела model-viewer не отпускает камеру
+        // дальше исходного вида: разрешаем примерно в 2,5 раза дальше (и дальше заданного в orbit)
         if (!controls) m.setAttribute('disable-zoom', '');
+        else {
+          const r = Number(/(\d+(?:\.\d+)?)%$/.exec(orbit0)?.[1]) || 100;
+          m.setAttribute('max-camera-orbit', `auto auto ${Math.round(Math.max(250, r * 1.5))}%`);
+        }
         m.setAttribute('interaction-prompt', 'none');
         m.setAttribute('shadow-intensity', '0.8');
         m.setAttribute('environment-image', 'neutral');
