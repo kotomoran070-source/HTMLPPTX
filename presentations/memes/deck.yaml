@@ -4,7 +4,8 @@
 # Гифки 2-го слайда и попугай нарисованы для этой презентации (эмодзи Noto Color Emoji, OFL);
 # остальные — мемы из интернета.
 # Робот — RobotExpressive из примеров three.js (Tomás Laulhé, CC0).
-# Слайд Getsuga Tenshou: герой — страница манги Bleach (© Tite Kubo / Shueisha), для мемной презентации.
+# Слайды Getsuga Tenshou: герой — страница манги Bleach (© Tite Kubo / Shueisha) и 3D-модель Ичиго из игры по Bleach,
+# присланные для мемной презентации. three.js — MIT.
 # DOOM — Chocolate Doom в WebAssembly (cloudflare/doom-wasm, GPL-2.0) и shareware-эпизод
 # DOOM1.WAD (id Software, распространяется бесплатно и без изменений).
 
@@ -341,6 +342,31 @@ slides:
       Живая вставка embed-getsuga.htm: манга-панель в ч/б, чёрная реяцу, крупный план, взмах — и цвет разливается от клинка:
       волна-полумесяц, разрез кадра. Герой — страница манги (getsuga-page.webp) и он же, вырезанный с неё (getsuga-hero.webp);
       остальное нарисовано кодом, звук синтезируется. Запускается при открытии слайда; щелчок по сцене — ещё раз, уже со звуком.
+
+  - id: getsuga3d
+    template: canvas
+    label: Getsuga Tenshou 3D
+    bg: "#050306"
+    transition: zoom
+    free:
+      - type: embed
+        src: ./assets/embed-getsuga3d.htm
+        poster: ./assets/embed-getsuga3d.webp
+        interactive: true
+        dark: true
+        files:
+          hero.glb: ./assets/ichigo.glb
+        place: {x: 0, y: 0, w: 1280, h: 720}
+      - type: text
+        text: "…и когда спросили второй раз"
+        styles: {text: {size: 22, weight: 700, color: "#F8FAFC", align: center}}
+        place: {x: 140, y: 662, w: 1000}
+        enter: fade
+        delay: 5200
+    notes: |
+      3D-версия: модель Ичиго со скелетом, поза и взмах собраны кодом (IK рук и ног, клинок, хват пальцами), анимаций в файле нет.
+      Сначала манга в ч/б — контуры тушью и растр считает шейдер прямо по 3D-сцене; на ударе цвет разливается от клинка.
+      Щелчок по сцене — ещё раз, со звуком.
 
   - id: doom
     template: canvas

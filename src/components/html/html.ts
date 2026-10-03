@@ -397,21 +397,28 @@ defineBlock<EmbedProps>('embed', {
     const offTheme = onThemeChange(recolor);
     addEventListener(ACCENT_EVENT, recolor);
     // Сторож: вставка на экране, а кадров нет (браузер иногда «замораживает» рамку при переходе
-    // слайдов) — перезапуск, как при смене темы. Не чаще трёх раз подряд
+    // слайдов) — перезапуск, как при смене темы. Не чаще трёх раз подряд. Следит только за вставкой,
+    // которая уже прислала кадр: тяжёлая загрузка (3D, компиляция шейдеров) — не зависание
     let alive = 0;
+    let armed = false;
     let kicks = 0;
     const onAlive = (e: MessageEvent) => {
+      // Вставка просит подождать: грузит модель, компилирует шейдеры — { slideriaHold: мс }
+      const hold = frame && e.source === frame.contentWindow ? (e.data as { slideriaHold?: unknown } | null)?.slideriaHold : undefined;
+      if (typeof hold === 'number') { alive = performance.now() + Math.min(15000, Math.max(0, hold)); armed = true; return; }
       if (!isAlive(e, frame)) return;
-      alive = performance.now();
+      alive = Math.max(alive, performance.now());
+      armed = true;
       kicks = 0;
     };
     addEventListener('message', onAlive);
     const watch = window.setInterval(() => {
       const f = frame;
       if (!f?.classList.contains('on') || document.visibilityState !== 'visible' || !ctx.slide.classList.contains('on') || ctx.stage.classList.contains('paused')) return;
-      if (performance.now() - alive < 3000 || kicks >= 3) return;
+      if (!armed || performance.now() - alive < 3000 || kicks >= 3) return;
       kicks++;
       alive = performance.now();
+      armed = false;
       embedSource(p).then((html) => {
         if (frame === f) f.srcdoc = doc(html);
       }).catch(() => {});
