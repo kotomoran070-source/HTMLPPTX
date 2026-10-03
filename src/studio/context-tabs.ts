@@ -1,7 +1,7 @@
 import { icon } from '../components/icons';
 import { TEXT_GRADIENTS } from '../engine/gradients';
 import { GRADIENTS, SHAPE_COLORS, SHAPE_STYLES, SHAPE_SWATCHES, gradientCss, gradientOn, isGradient, sameGradient, shapeFill, type ShapeGradient } from '../components/shape/shape';
-import { IMAGE_FILTERS, IMAGE_LOOK_KEYS, IMAGE_SHADOWS, IMAGE_STYLES, imageLookCss } from '../components/layout/image-look';
+import { IMAGE_FILTER_GROUPS, IMAGE_FILTERS, IMAGE_LOOK_KEYS, IMAGE_SHADOWS, IMAGE_STYLES, filterCss, imageLookCss } from '../components/layout/image-look';
 import { getAt, setAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
@@ -309,6 +309,53 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const cur = first(type)?.[key] ?? def;
     showMenu(anchor(cmd), options.map(([v, l]) => ({ label: l, checked: cur === v, run: () => setAll(type, key, v === def ? undefined : v) })));
   };
+  // ---------- рисунок: цвет — галерея превью; наведение примеряет фильтр на выделенные снимки ----------
+  const filterGallery = () => {
+    const paths = targets('image');
+    const boxes = paths.flatMap((p) => [...h.stage().querySelectorAll<HTMLElement>(`.slide.on [data-block='${JSON.stringify(p)}'] .imgbox`)]);
+    const src = boxes[0]?.querySelector('img')?.currentSrc ?? '';
+    const curKey = first('image')?.filter;
+    const cur = typeof curKey === 'string' && IMAGE_FILTERS[curKey] ? curKey : '';
+    const saved = boxes.map((bx) => ({ bx, img: bx.querySelector('img'), cls: bx.className, style: bx.getAttribute('style'), imgStyle: bx.querySelector('img')?.getAttribute('style') ?? null }));
+    const put = (el: Element | null, v: string | null) => { if (el) { if (v === null) el.removeAttribute('style'); else el.setAttribute('style', v); } };
+    let picked = false;
+    const restore = () => !picked && saved.forEach((x) => { x.bx.className = x.cls; put(x.bx, x.style); put(x.img, x.imgStyle); });
+    const tryOn = (key: string) => {
+      restore();
+      const f = filterCss(key);
+      for (const { bx, img } of saved) {
+        if (img) img.style.filter = key ? IMAGE_FILTERS[key].css : 'none';
+        bx.classList.toggle('img-tint', f.tint);
+        if (f.tint) for (const d of f.box.split(';')) { const [k, ...v] = d.split(':'); bx.style.setProperty(k, v.join(':')); }
+      }
+    };
+    const tile = (key: string, name: string) => {
+      const f = filterCss(key);
+      return `<button type="button" class="st-flt${key === cur ? ' on' : ''}" data-flt="${key}" title="${esc(name)}">`
+        + `<i class="st-flt-img${f.tint ? ' img-tint' : ''}"${f.box ? ` style="${esc(f.box)}"` : ''}>${src ? `<img alt="" src="${esc(src)}"${f.img ? ` style="${esc(f.img)}"` : ''}>` : ''}</i><span>${esc(name)}</span></button>`;
+    };
+    const groups = Object.entries(IMAGE_FILTER_GROUPS).map(([g, label]) => {
+      const list = Object.entries(IMAGE_FILTERS).filter(([, f]) => f.group === g);
+      return `<h4>${esc(label)}</h4><div class="st-flt-grid">${g === 'base' ? tile('', 'Исходный') : ''}${list.map(([k, f]) => tile(k, f.name)).join('')}</div>`;
+    }).join('');
+    const pop = showPopover(anchor('image.filter'), `<div class="st-flt-pop">${groups}<p class="st-flt-note">Наведите — примерка на слайде, щелчок — применить</p></div>`, (b) => {
+      const key = b.dataset.flt;
+      if (key === undefined) return null;
+      return { run: () => { restore(); picked = true; setAll('image', 'filter', key || undefined); } };
+    }, 'st-fltpop');
+    pop.addEventListener('pointerover', (e) => {
+      const b = (e.target as Element).closest<HTMLElement>('[data-flt]');
+      if (b) tryOn(b.dataset.flt!);
+    });
+    pop.addEventListener('pointerleave', restore);
+    pop.addEventListener('focusin', (e) => {
+      const b = (e.target as Element).closest<HTMLElement>('[data-flt]');
+      if (b) tryOn(b.dataset.flt!);
+    });
+    // Закрыли без выбора (Esc, щелчок мимо) — снимки как были
+    const mo = new MutationObserver(() => { if (!pop.isConnected) { mo.disconnect(); restore(); } });
+    mo.observe(document.body, { childList: true });
+  };
   const isImage = () => targets('image').length > 0 && targets('image').every((p) => { const b = getAt(deck, p) as Block; return !!(b.src ?? b.image); });
 
   // ---------- фигура: текст ----------
@@ -473,7 +520,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     'image.mat': { run: () => choice('image.mat', 'mat', [[undefined, 'Без паспарту'], [6, 'Узкое — 6 px'], [12, 'Среднее — 12 px'], [20, 'Широкое — 20 px'], [32, 'Очень широкое — 32 px']], undefined, 'image'), enabled: isImage },
     'image.shadow': { run: () => choice('image.shadow', 'shadow', [[undefined, 'Без тени'], ...Object.entries(IMAGE_SHADOWS).map(([v, s]) => [v, s.name] as [string, string])], undefined, 'image'), enabled: isImage },
     'image.radius': { run: () => choice('image.radius', 'radius', [[0, 'Острые углы'], [6, 'Малое — 6 px'], [undefined, 'Обычное — 12 px'], [24, 'Большое — 24 px'], [48, 'Очень большое — 48 px'], ['circle', 'Круг или овал']], undefined, 'image'), enabled: isImage },
-    'image.filter': { run: () => choice('image.filter', 'filter', [[undefined, 'Исходный'], ...Object.entries(IMAGE_FILTERS).map(([v, f]) => [v, f.name] as [string, string])], undefined, 'image'), enabled: isImage },
+    'image.filter': { run: () => filterGallery(), enabled: isImage },
     'image.opacity': { run: () => choice('image.opacity', 'opacity', [[undefined, 'Непрозрачная'], [0.8, '80 %'], [0.6, '60 %'], [0.4, '40 %'], [0.2, '20 %']], undefined, 'image'), enabled: isImage },
     'image.reset': {
       run: () => { const paths = targets('image'); ed.commit((d) => paths.forEach((p) => { const b = getAt(d, p) as Block; IMAGE_LOOK_KEYS.forEach((k) => delete b[k]); }), { rebuild: true }); },

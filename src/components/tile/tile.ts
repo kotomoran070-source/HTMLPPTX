@@ -51,7 +51,7 @@ defineBlock<TileProps>('tile', {
     if (p.image) {
       // Оформление фото — как у картинки (вкладка «Рисунок»): рамка, тень, скругление, цвет
       const look = imageLookCss(p);
-      media = `<div class="imgbox${look.fx ? ' img-fx' : ''}"${look.box ? ` style="${look.box}"` : ''}><img src="${esc(p.image)}" alt="${esc(p.caption ?? '')}" style="${frameCss(p)}${look.img ? `;${look.img}` : ''}"></div>`;
+      media = `<div class="imgbox${look.cls}"${look.box ? ` style="${look.box}"` : ''}><img src="${esc(p.image)}" alt="${esc(p.caption ?? '')}" style="${frameCss(p)}${look.img ? `;${look.img}` : ''}"></div>`;
     } else if (il) {
       media = `<svg viewBox="${il.viewBox}"${styleAttr(il.maxWidth && `max-width:${il.maxWidth}px`)} aria-hidden="true">${il.svg}</svg>`;
     } else {

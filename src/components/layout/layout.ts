@@ -102,7 +102,7 @@ defineBlock<ImageProps>('image', {
   render(p) {
     const look = imageLookCss(p);
     const img = p.src
-      ? `<div class="imgbox${look.fx ? ' img-fx' : ''}"${look.box ? ` style="${look.box}"` : ''}${eimg(p, 'src')}><img src="${esc(p.src)}" alt="${esc(p.alt ?? p.caption ?? '')}" style="${frameCss(p)}${look.img ? `;${look.img}` : ''}"></div>`
+      ? `<div class="imgbox${look.cls}"${look.box ? ` style="${look.box}"` : ''}${eimg(p, 'src')}><img src="${esc(p.src)}" alt="${esc(p.alt ?? p.caption ?? '')}" style="${frameCss(p)}${look.img ? `;${look.img}` : ''}"></div>`
       : `<div class="image-empty"${eimg(p, 'src')}>Перетащите изображение сюда</div>`;
     const cap = p.caption ? `<figcaption class="mu"${ea(p, 'caption')}>${t(p.caption)}</figcaption>` : '';
     const h = Number(p.height);

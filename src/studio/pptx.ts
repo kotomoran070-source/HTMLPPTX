@@ -720,6 +720,19 @@ class Converter {
     const y0 = (H - nh * fit) * (py ?? 0.5);
     g.filter = cs.filter && cs.filter !== 'none' ? cs.filter : 'none';
     g.drawImage(src, ox + (x0 - ox) * z, oy + (y0 - oy) * z, nw * fit * z, nh * fit * z);
+    // Тонировка фильтра (слой ::after с режимом наложения) — тем же наложением на снимок
+    if (box.classList.contains('img-tint')) {
+      const t = getComputedStyle(box, '::after');
+      const cols = [...(t.backgroundImage.match(/rgba?\([^)]+\)/g) ?? [])];
+      const fill = cols.length > 1 ? (() => { const gr = g.createLinearGradient(0, 0, W, H); cols.forEach((c, i) => gr.addColorStop(i / (cols.length - 1), c)); return gr; })() : cols[0] ?? t.backgroundColor;
+      g.filter = 'none';
+      g.globalAlpha = Number(t.opacity) || 1;
+      g.globalCompositeOperation = (t.mixBlendMode || 'source-over') as GlobalCompositeOperation;
+      g.fillStyle = fill;
+      g.fillRect(0, 0, W, H);
+      g.globalAlpha = 1;
+      g.globalCompositeOperation = 'source-over';
+    }
     let data: string;
     try { data = c.toDataURL('image/png'); } catch { return false; }
     const at = { x: br.left - this.origin.left + (bw + img.offsetLeft) * scale, y: br.top - this.origin.top + (bw + img.offsetTop) * scale, w: W * scale, h: H * scale };

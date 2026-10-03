@@ -64,6 +64,20 @@ body.studio { background: var(--alt); }
 /* Палитра цветов (заливка, контур) */
 .st-palette { width: 236px; padding: 8px 10px 10px; }
 .st-pop button { font: 500 12.5px var(--font); color: var(--tx); }
+/* Галерея цветовых фильтров рисунка: превью на самом снимке */
+.st-fltpop { width: 452px; max-height: min(560px, calc(100vh - 140px)); overflow: auto; }
+.st-flt-pop { padding: 6px 8px 8px; }
+.st-flt-pop h4 { margin: 8px 2px 6px; font: 700 11px/1 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--mu); }
+.st-flt-pop h4:first-child { margin-top: 2px; }
+.st-flt-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.st-pop .st-flt { display: flex; flex-direction: column; gap: 4px; padding: 4px; border: 1px solid transparent; border-radius: 9px; background: none; cursor: pointer; font: 500 11.5px/1.2 var(--font); color: var(--tx2); text-align: center; }
+.st-pop .st-flt:hover, .st-pop .st-flt:focus-visible { background: var(--acs); color: var(--ach); outline: none; }
+.st-pop .st-flt.on { border-color: var(--ac); color: var(--ach); }
+.st-flt-img { position: relative; display: block; height: 58px; border-radius: 6px; overflow: hidden; background: var(--alt); }
+.st-flt-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.st-flt-img.img-tint { isolation: isolate; }
+.st-flt-img.img-tint::after { content: ""; position: absolute; inset: 0; background: var(--tint); mix-blend-mode: var(--tint-blend, normal); opacity: var(--tint-op, 1); }
+.st-flt-note { margin: 10px 2px 0; font-size: 11.5px; color: var(--mu); }
 .st-plabel { font: 600 11px var(--font); color: var(--mu); margin: 10px 0 6px; }
 .st-pgrid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
 .st-psw { aspect-ratio: 1; padding: 0; border: 0; border-radius: 5px; background: var(--c); box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .16); cursor: pointer; transition: transform .1s; }
