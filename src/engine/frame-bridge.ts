@@ -49,3 +49,42 @@ export function frameAt(root: ParentNode, cx: number, cy: number): HTMLIFrameEle
   }
   return null;
 }
+
+/**
+ * Мышь своего зрителя — во вставку, закрытую другими объектами: фон-анимация под заголовком
+ * и плашкой («космос» вставкой) реагирует на курсор и над ними. Над открытой частью вставки
+ * события и так идут в неё напрямую. Щелчок по ссылке, кнопке, полю или объекту-кнопке
+ * во вставку не уходит. skip() — не пробрасывать (режим правки).
+ */
+export function forwardCovered(stage: HTMLElement, skip: () => boolean): () => void {
+  let cur: HTMLIFrameElement | null = null;
+  const leave = () => {
+    if (cur?.isConnected) postPointer(cur, 'leave');
+    cur = null;
+  };
+  const move = (e: PointerEvent) => {
+    if (skip() || !e.isTrusted) return leave();
+    const f = frameAt(stage, e.clientX, e.clientY);
+    if (f !== cur) leave();
+    cur = f;
+    if (f) postPointer(f, 'move', e.clientX, e.clientY, e.buttons);
+  };
+  const click = (e: MouseEvent) => {
+    if (skip() || !e.isTrusted) return;
+    const t = e.target as Element;
+    if (t.closest('a, button, input, select, textarea, label, summary, video, model-viewer, [contenteditable="true"], .free[data-action], .sbx')) return;
+    const f = frameAt(stage, e.clientX, e.clientY);
+    if (!f) return;
+    postPointer(f, 'down', e.clientX, e.clientY, 1);
+    postPointer(f, 'up', e.clientX, e.clientY);
+  };
+  stage.addEventListener('pointermove', move);
+  stage.addEventListener('pointerleave', leave);
+  stage.addEventListener('click', click);
+  return () => {
+    leave();
+    stage.removeEventListener('pointermove', move);
+    stage.removeEventListener('pointerleave', leave);
+    stage.removeEventListener('click', click);
+  };
+}

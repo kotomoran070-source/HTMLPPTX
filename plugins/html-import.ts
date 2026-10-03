@@ -121,7 +121,9 @@ function placeOf(el: El): Record<string, number> | null {
     return place;
   }
   const st = styleOf(el);
-  if (st.position !== 'absolute' || !/px$/.test(st.left ?? '') || !/px$/.test(st.top ?? '')) return null;
+  // Пиксели; ноль можно без единиц (left: 0 — фон во весь слайд)
+  const isPx = (v: string | undefined) => /px$/.test(v ?? '') || /^-?0*\.?0+$/.test((v ?? '').trim());
+  if (st.position !== 'absolute' || !isPx(st.left) || !isPx(st.top)) return null;
   const place: Record<string, number> = { x: num(st.left) ?? 0, y: num(st.top) ?? 0, w: /px$/.test(st.width ?? '') ? num(st.width)! : 400 };
   if (/px$/.test(st.height ?? '')) place.h = num(st.height)!;
   for (const k of ['position', 'left', 'top', 'width', 'height', 'right', 'bottom']) delete st[k];
@@ -264,6 +266,8 @@ export function fromSlidesHtml(source: string): SlidesHtmlResult {
         block = { type: 'embed', src: `data:text/html;base64,${Buffer.from(srcdoc, 'utf8').toString('base64')}`, theme: true };
         const poster = child.getAttribute('data-poster');
         if (poster) block.poster = poster;
+        // data-interactive: при показе вставка отвечает на мышь (и под другими объектами)
+        if (child.hasAttribute('data-interactive')) block.interactive = true;
       } else {
         block = htmlBlock(child, warn);
       }

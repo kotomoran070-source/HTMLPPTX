@@ -9,6 +9,7 @@ import { esc } from './html';
 import { actionTarget, slideLabel } from './render';
 import { Ink } from './ink';
 import { RemoteHover } from './remote-hover';
+import { forwardCovered } from './frame-bridge';
 import { CAMERA_SET } from '../components/media/model';
 import { printDeck, setupPrint } from './print';
 import { fullscreenOn, planScreens, popupOn, screensGranted } from './screens';
@@ -86,6 +87,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   const ink = new Ink(view.stage);
   // Мышь докладчика над слайдом: курсор и наведение у зрителей
   const hover = new RemoteHover(view.stage);
+  // Своя мышь — и во вставку под другими объектами (фон-анимация под текстом)
+  forwardCovered(view.stage, () => document.body.classList.contains('editing'));
   let index = 0;
   let black = false;
   let editor: Editor | null = null;
