@@ -4,6 +4,7 @@
 # Гифки 2-го слайда и попугай нарисованы для этой презентации (эмодзи Noto Color Emoji, OFL);
 # остальные — мемы из интернета.
 # Робот — RobotExpressive из примеров three.js (Tomás Laulhé, CC0).
+# Слайд Getsuga Tenshou: герой — страница манги Bleach (© Tite Kubo / Shueisha), для мемной презентации.
 # DOOM — Chocolate Doom в WebAssembly (cloudflare/doom-wasm, GPL-2.0) и shareware-эпизод
 # DOOM1.WAD (id Software, распространяется бесплатно и без изменений).
 
@@ -326,6 +327,9 @@ slides:
         poster: ./assets/embed-getsuga.webp
         interactive: true
         dark: true
+        files:
+          page.webp: ./assets/getsuga-page.webp
+          hero.webp: ./assets/getsuga-hero.webp
         place: {x: 0, y: 0, w: 1280, h: 720}
       - type: text
         text: "Ответ на «а можно ещё одну маленькую правку?» в пятницу в 18:59"
@@ -334,8 +338,9 @@ slides:
         enter: fade
         delay: 4300
     notes: |
-      Живая вставка embed-getsuga.htm: накопление, вспышка, волна-полумесяц, разрез кадра. Всё нарисовано кодом,
-      звук синтезируется. Запускается при открытии слайда; щелчок по сцене — ещё раз, уже со звуком.
+      Живая вставка embed-getsuga.htm: манга-панель в ч/б, чёрная реяцу, крупный план, взмах — и цвет разливается от клинка:
+      волна-полумесяц, разрез кадра. Герой — страница манги (getsuga-page.webp) и он же, вырезанный с неё (getsuga-hero.webp);
+      остальное нарисовано кодом, звук синтезируется. Запускается при открытии слайда; щелчок по сцене — ещё раз, уже со звуком.
 
   - id: doom
     template: canvas
