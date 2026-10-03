@@ -1,0 +1,348 @@
+# Мемная витрина Slideria: гифки, танцующие 3D-роботы и DOOM прямо на слайде.
+# Всё собрано из обычных блоков — откройте в студии и правьте.
+#
+# Гифки нарисованы для этой презентации (эмодзи Noto Color Emoji, лицензия OFL).
+# Робот — RobotExpressive из примеров three.js (Tomás Laulhé, CC0).
+# DOOM — Chocolate Doom в WebAssembly (cloudflare/doom-wasm, GPL-2.0) и shareware-эпизод
+# DOOM1.WAD (id Software, распространяется бесплатно и без изменений).
+
+title: Slideria, но мемно
+lang: ru
+brand:
+  name: Slideria
+  logo: ./assets/logo.svg
+theme:
+  accent: "#F43F5E"
+  accent2: "#F59E0B"
+  accentFlow: true
+
+slides:
+
+  - id: hero
+    template: canvas
+    label: Slideria, но мемно
+    bg: var(--bg)
+    backdrop: aurora
+    transition: zoom
+    free:
+      - type: text
+        text: SLIDERIA · МЕМНАЯ ВИТРИНА
+        styles: {text: {size: 15, weight: 700, spacing: 0.18, color: accent}}
+        place: {x: 72, y: 170, w: 560}
+        enter: fade
+      - type: text
+        text: "Slideria,\nно {g:duo|мемно}"
+        styles: {text: {size: 76, weight: 800, leading: 1.02, spacing: -0.02, color: text}}
+        place: {x: 68, y: 214, w: 620}
+        enter: rise
+        delay: 200
+      - type: text
+        text: Демонстрация возможностей, которую никто не просил. Гифки, танцующие роботы и DOOM — всё на слайдах.
+        styles: {text: {size: 21, color: text2, leading: 1.45}}
+        place: {x: 72, y: 404, w: 540}
+        enter: rise
+        delay: 420
+      - type: shape
+        kind: pill
+        fill: gradient
+        gradient: {from: accent, to: accent2, angle: 135}
+        shadow: md
+        text: Поехали  →
+        styles: {text: {size: 19}}
+        action: slide:gifs
+        place: {x: 72, y: 540, w: 220, h: 62}
+        enter: pop
+        delay: 700
+      - type: image
+        src: ./assets/meme-party.gif
+        radius: 28
+        shadow: lg
+        angle: 3
+        place: {x: 690, y: 170, w: 500, h: 375}
+        enter: scale
+        delay: 300
+    notes: |
+      Попугай — обычная GIF-картинка со скруглением, тенью и поворотом. Кнопка «Поехали» — фигура со ссылкой на следующий слайд.
+
+  - id: gifs
+    template: canvas
+    label: Гифки работают
+    bg: var(--bg)
+    transition: cover
+    free:
+      - type: text
+        text: Гифки {g:duo|работают}. Мы проверили
+        styles: {text: {size: 48, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 64, y: 40, w: 1100}
+        enter: rise
+      - type: image
+        src: ./assets/meme-deal.gif
+        radius: 18
+        shadow: md
+        angle: -3
+        place: {x: 64, y: 140, w: 360, h: 270}
+        enter: rise
+        delay: 200
+      - type: image
+        src: ./assets/meme-fine.gif
+        mat: 10
+        shadow: md
+        angle: 2
+        place: {x: 460, y: 132, w: 360, h: 270}
+        enter: rise
+        delay: 340
+      - type: image
+        src: ./assets/meme-loading.gif
+        radius: 18
+        stroke: accent
+        width: 3
+        angle: -2
+        place: {x: 856, y: 140, w: 360, h: 270}
+        enter: rise
+        delay: 480
+      - type: text
+        text: "Перетащите свою GIF на слайд — она встанет картинкой и будет играть при показе. Рамки, тени, поворот и фильтры — как у фотографий."
+        styles: {text: {size: 19, color: text2, leading: 1.45}}
+        place: {x: 64, y: 470, w: 640}
+        enter: fade
+        delay: 700
+      - type: image
+        src: ./assets/meme-cat.gif
+        radius: 24
+        shadow: lg
+        angle: 3
+        place: {x: 856, y: 440, w: 320, h: 240}
+        enter: pop
+        delay: 860
+      - type: text
+        text: "Кот не настоящий. Гифки тоже нарисованы — из эмодзи"
+        styles: {text: {size: 14, color: muted}}
+        place: {x: 64, y: 640, w: 640}
+        enter: fade
+        delay: 1000
+    notes: Каждая гифка — блок image с обычным оформлением. В PowerPoint уходит первый кадр.
+
+  - id: choice
+    template: canvas
+    label: Выбор профессионала
+    bg: var(--bg)
+    transition: push
+    free:
+      - type: text
+        text: Выбор {g:duo|профессионала}
+        styles: {text: {size: 48, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 64, y: 40, w: 1100}
+        enter: rise
+      - type: shape
+        kind: round
+        fill: surface
+        stroke: border
+        width: 1
+        radius: 24
+        place: {x: 64, y: 140, w: 1152, h: 240}
+        enter: rise
+        delay: 150
+      - type: text
+        text: "🙅️"
+        styles: {text: {size: 150, align: center}}
+        place: {x: 90, y: 160, w: 260}
+        enter: pop
+        delay: 300
+      - type: text
+        text: "Сорок слайдов в PowerPoint, шрифты «поехали», а финальная версия называется **итог_v7_точно_последний.pptx**"
+        styles: {text: {size: 28, weight: 600, color: text2, leading: 1.35}}
+        place: {x: 390, y: 196, w: 780}
+        enter: fade
+        delay: 420
+      - type: shape
+        kind: round
+        fill: soft
+        stroke: accent
+        width: 2
+        radius: 24
+        place: {x: 64, y: 410, w: 1152, h: 240}
+        enter: rise
+        delay: 650
+      - type: text
+        text: "😎️"
+        styles: {text: {size: 150, align: center}}
+        place: {x: 90, y: 430, w: 260}
+        enter: pop
+        delay: 800
+      - type: text
+        text: "Один **deck.yaml**, живые графики, тёмная тема и один HTML-файл, который открывается где угодно. А для начальства — PPTX"
+        styles: {text: {size: 28, weight: 600, color: text, leading: 1.35}}
+        place: {x: 390, y: 466, w: 780}
+        enter: fade
+        delay: 950
+    notes: Мем в два ряда собран из фигур и текста. Эмодзи — обычный текст, кегль 150.
+
+  - id: robots
+    template: canvas
+    label: Танцуют все
+    bg: "radial-gradient(ellipse 80% 70% at 50% 70%, color-mix(in srgb, var(--acs) 80%, var(--bg)), var(--bg) 75%)"
+    transition: zoom
+    free:
+      - type: text
+        text: Танцуют {g:duo|все}
+        styles: {text: {size: 48, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 64, y: 40, w: 900}
+        enter: rise
+      - type: text
+        text: Настоящие 3D-модели с анимацией. Покрутите мышью при показе — двойной щелчок вернёт ракурс.
+        styles: {text: {size: 18, color: text2}}
+        place: {x: 66, y: 104, w: 1100}
+        enter: fade
+        delay: 120
+      - type: model
+        src: ./assets/robot.glb
+        poster: ./assets/robot-wave.webp
+        animation: Wave
+        orbit: 25deg 80deg 160%
+        caption: Привет, зал
+        place: {x: 40, y: 170, w: 380, h: 500}
+        enter: rise
+        delay: 250
+      - type: model
+        src: ./assets/robot.glb
+        poster: ./assets/robot-dance.webp
+        animation: Dance
+        orbit: 0deg 78deg 160%
+        caption: Когда дедлайн перенесли
+        place: {x: 450, y: 160, w: 380, h: 510}
+        enter: rise
+        delay: 400
+      - type: model
+        src: ./assets/robot.glb
+        poster: ./assets/robot-thumbs.webp
+        animation: ThumbsUp
+        orbit: -25deg 80deg 160%
+        caption: Одобряю этот слайд
+        place: {x: 860, y: 170, w: 380, h: 500}
+        enter: rise
+        delay: 550
+    notes: |
+      Блок model с полем animation: Wave, Dance, ThumbsUp. В файле робота есть ещё Jump, Yes, No, Punch, Running и другие —
+      поменяйте имя в «Свойствах», и робот займётся другим делом.
+
+  - id: stats
+    title: Цифры, которым можно {g:duo|верить}
+    badge: честно
+    transition: push
+    body:
+      - type: grid
+        columns: 3
+        items:
+          - type: card
+            body: {type: stat, value: "9000 %", label: кофе на один слайд, delta: "+8999 %", note: по сравнению с водой}
+          - type: card
+            body: {type: stat, value: "0", label: "сломанных шрифтов", delta: "−100 %", note: с тех пор как ушли из .pptx}
+          - type: card
+            body: {type: stat, value: "∞", label: "«последних» правок", note: и ещё одна}
+      - type: grid
+        columns: 1.45fr 1fr
+        items:
+          - type: card
+            title: Энтузиазм докладчика
+            body:
+              type: line-chart
+              values: [96, 91, 84, 70, 52, 40, 31, 22, 15, 9, 6, 99]
+              start: первый слайд
+              end: «Вопросы?»
+              min: 0
+              max: 100
+          - type: card
+            title: Продуктивность по дням
+            body:
+              type: bars
+              values: [6, 7, 5, 4, 1]
+              labels: [Пн, Вт, Ср, Чт, Пт]
+              highlight: 4
+              height: 150
+    notes: |
+      Обычный слайд с данными: числа и графики правятся в «Свойствах», в PowerPoint уходят настоящими диаграммами.
+      Последняя точка графика — тот самый момент, когда доклад закончился.
+
+  - id: doom
+    template: canvas
+    label: DOOM на слайде
+    bg: "radial-gradient(ellipse 70% 80% at 70% 55%, #3B0A0A, #0B0B0F 70%)"
+    transition: zoom
+    free:
+      - type: text
+        text: "А здесь\n{g:fire|DOOM}"
+        styles: {text: {size: 64, weight: 800, leading: 1.02, spacing: -0.02, color: "#FFFFFF"}}
+        place: {x: 56, y: 120, w: 420}
+        enter: rise
+      - type: text
+        text: "Да, тот самый. Настоящий движок 1993 года в WebAssembly — прямо на слайде, без плагинов и интернета."
+        styles: {text: {size: 20, color: "#E5E7EB", leading: 1.45}}
+        place: {x: 58, y: 290, w: 400}
+        enter: fade
+        delay: 200
+      - type: text
+        text: "- Щёлкните по игре — клавиатура уходит в неё\n- **WASD** — ходить, **← →** — поворот\n- **Пробел** — огонь, **E** — открыть дверь\n- Щелчок мимо — снова листать слайды"
+        styles: {text: {size: 17, color: "#CBD5E1", leading: 1.55}}
+        place: {x: 58, y: 410, w: 400}
+        enter: fade
+        delay: 350
+      - type: embed
+        src: ./assets/embed-doom.htm
+        poster: ./assets/embed-doom.webp
+        interactive: true
+        dark: true
+        files:
+          doom.wasm: ./assets/doom.wasm
+          doom1.wad: ./assets/doom1.wad
+        place: {x: 500, y: 120, w: 720, h: 540}
+        enter: scale
+        delay: 150
+      - type: text
+        text: "Движок: Chocolate Doom (cloudflare/doom-wasm, GPL-2.0) · уровни: shareware DOOM1.WAD © id Software"
+        styles: {text: {size: 12, color: "#94A3B8"}}
+        place: {x: 500, y: 672, w: 720}
+        enter: fade
+        delay: 600
+    notes: |
+      Живая вставка: документ embed-doom.htm, движок и уровни — файлы презентации (поле files), поэтому работает
+      и в собранном HTML без интернета. Пока игра в фокусе, стрелки и пробел — у неё; щелчок мимо возвращает их слайдам.
+
+  - id: thanks
+    template: canvas
+    label: Спасибо
+    bg: var(--bg)
+    backdrop: aurora
+    transition: blur
+    free:
+      - type: image
+        src: ./assets/meme-deal.gif
+        radius: 24
+        shadow: lg
+        angle: -2
+        place: {x: 460, y: 80, w: 360, h: 270}
+        enter: scale
+      - type: text
+        text: Спасибо, что {g:duo|досмотрели}
+        styles: {text: {size: 56, weight: 800, spacing: -0.02, color: text, align: center}}
+        place: {x: 140, y: 410, w: 1000}
+        enter: rise
+        delay: 300
+      - type: text
+        text: Вопросы? Только не про дедлайн.
+        styles: {text: {size: 22, color: text2, align: center}}
+        place: {x: 240, y: 500, w: 800}
+        enter: fade
+        delay: 600
+      - type: shape
+        kind: pill
+        fill: none
+        stroke: gradient
+        strokeGradient: {from: accent, to: accent2, angle: 90}
+        width: 2
+        text: Ещё раз с начала  ↺
+        styles: {text: {size: 17, color: text}}
+        action: slide:hero
+        place: {x: 520, y: 570, w: 240, h: 56}
+        enter: pop
+        delay: 900
+    notes: Кнопка — фигура со ссылкой на первый слайд.

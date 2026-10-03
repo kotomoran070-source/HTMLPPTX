@@ -16,20 +16,22 @@ import { mergeYaml } from './yaml-merge';
 const VIRTUAL = 'virtual:decks';
 const RESOLVED = '\0' + VIRTUAL;
 /** Строки в deck.yaml, похожие на путь к файлу рядом с презентацией, превращаются в картинки */
-const ASSET_RE = /^\.{1,2}\/[^\s]+\.(png|jpe?g|gif|webp|avif|svg|mp4|webm|mp3|glb|woff2?|ttf|otf|pdf|htm)$/i;
+const ASSET_RE = /^\.{1,2}\/[^\s]+\.(png|jpe?g|gif|webp|avif|svg|mp4|webm|mp3|glb|woff2?|ttf|otf|pdf|htm|wasm|wad)$/i;
 const MIME: Record<string, string> = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
   avif: 'image/avif', svg: 'image/svg+xml', mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg', glb: 'model/gltf-binary',
   woff: 'font/woff', woff2: 'font/woff2', ttf: 'font/ttf', otf: 'font/otf', pdf: 'application/pdf',
   // Документы «живых» вставок (embed): .htm, чтобы Vite не принимал их за страницы приложения
   htm: 'text/html',
+  // Файлы для живых вставок (embed.files): движок WebAssembly и данные к нему (DOOM — .wad)
+  wasm: 'application/wasm', wad: 'application/octet-stream',
 };
 const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg']);
 /**
  * Кроме картинок в assets/ можно положить видео, 3D-модели и документы живых вставок (.htm):
  * их переносит копирование слайда или объекта в другую презентацию
  */
-const MEDIA_EXT = new Set([...IMAGE_EXT, 'mp4', 'webm', 'glb', 'htm', 'woff2', 'woff', 'ttf', 'otf']);
+const MEDIA_EXT = new Set([...IMAGE_EXT, 'mp4', 'webm', 'glb', 'htm', 'woff2', 'woff', 'ttf', 'otf', 'wasm', 'wad']);
 /** CAD и 3D-печать: при вставке превращаются в GLB (plugins/model-convert.ts) */
 const CAD_EXT = new Set(['stl', 'step', 'stp']);
 /** id тега с данными презентации внутри собранного HTML */
@@ -274,7 +276,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     const safe = safeFileName(fileName);
     const ext = path.extname(safe).slice(1);
     const cad = CAD_EXT.has(ext.toLowerCase());
-    if (!MEDIA_EXT.has(ext.toLowerCase()) && !cad) throw new Error('Поддерживаются изображения (PNG, JPG, GIF, WebP, AVIF, SVG), видео (MP4, WebM), 3D-модели (GLB, STL, STEP) и живые вставки (HTM) и шрифты (WOFF2, WOFF, TTF, OTF)');
+    if (!MEDIA_EXT.has(ext.toLowerCase()) && !cad) throw new Error('Поддерживаются изображения (PNG, JPG, GIF, WebP, AVIF, SVG), видео (MP4, WebM), 3D-модели (GLB, STL, STEP) живые вставки (HTM, WASM, WAD) и шрифты (WOFF2, WOFF, TTF, OTF)');
     let data = await readBody(req);
     if (!data.length) throw new Error('Пустой файл');
     if (cad) {
@@ -461,7 +463,8 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           this.warn(`Файл не найден: ${v} (из ${path.relative(process.cwd(), file)})`);
           return v;
         }
-        imports.push(v);
+        // .wasm и .wad — просто файлы: адрес, а не модуль (у Vite свой разбор .wasm)
+        imports.push(/\.(wasm|wad)$/i.test(v) ? `${v}?url` : v);
         return `__ASSET_${imports.length - 1}__`;
       });
       const json = JSON.stringify(walked, null, 1).replace(/"__ASSET_(\d+)__"/g, (_, i) => `__asset${i}`);

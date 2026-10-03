@@ -18,6 +18,8 @@ interface ModelProps extends Block {
   exposure?: number;
   /** Начальный ракурс: поворот и наклон камеры, например "-30deg 70deg" (как camera-orbit у model-viewer) */
   orbit?: string;
+  /** Анимация из файла модели, например Dance (true — первая по списку); играет по кругу */
+  animation?: string | boolean;
   caption?: string;
 }
 
@@ -122,6 +124,10 @@ defineBlock<ModelProps>('model', {
         if (orbit0 !== 'auto auto auto') m.setAttribute('camera-orbit', orbit0);
         const ex = Number(p.exposure);
         if (ex >= 0.2 && ex <= 3) m.setAttribute('exposure', String(ex));
+        if (p.animation && !ctx.reducedMotion) {
+          m.setAttribute('autoplay', '');
+          if (typeof p.animation === 'string' && p.animation.trim()) m.setAttribute('animation-name', p.animation.trim());
+        }
         m.setAttribute('touch-action', 'pan-y');
         m.className = 'model3d-viewer';
         // Без встроенной полосы загрузки: до загрузки виден снимок. Своя метка панорамирования —

@@ -27,7 +27,7 @@ export default defineConfig(({ command }) => ({
     __HAS_MODEL__: JSON.stringify(!only || usesModel(only)),
   },
   // Документы «живых» вставок (компонент embed) — обычные файлы-ассеты
-  assetsInclude: ['**/*.htm', '**/*.glb'],
+  assetsInclude: ['**/*.htm', '**/*.glb', '**/*.wad'],
   // Библиотеки, которые подключаются по требованию (экспорт PPTX, 3D): собираются сразу при запуске,
   // иначе первое обращение к ним перезагружает страницу посреди работы
   optimizeDeps: {

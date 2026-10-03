@@ -297,6 +297,7 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'controls', label: 'Вращать мышью при показе', type: 'bool', default: true },
       { k: 'exposure', label: 'Яркость', type: 'number', min: 0.2, max: 3, step: 0.1, placeholder: '1' },
       { k: 'orbit', label: 'Ракурс', type: 'text', placeholder: '0deg 75deg', hint: 'Поворот и наклон камеры в градусах' },
+      { k: 'animation', label: 'Анимация', type: 'text', placeholder: 'нет', hint: 'Имя анимации из файла модели, например Dance' },
       { k: 'caption', label: 'Подпись', type: 'text' },
     ],
   },

@@ -262,6 +262,34 @@ interface EmbedProps extends Block {
   interactive?: boolean;
   /** Заставка тёмная (своя тёмная сцена): в тёмной теме её не переворачивать */
   dark?: boolean;
+  /**
+   * Файлы для вставки: имя → путь в assets (движок .wasm, данные игры .wad, картинки).
+   * Внутри вставки: await slideriaFiles → { имя: ArrayBuffer }. Попадают и в собранный файл
+   */
+  files?: Record<string, string>;
+}
+
+/** Приёмник файлов внутри вставки: просит их у страницы и отдаёт обещанием slideriaFiles */
+const FILES_SCRIPT = `<script>window.slideriaFiles=new Promise(function(r){addEventListener('message',function(e){var d=e.data;if(e.source===parent&&d&&d.slideriaFiles)r(d.slideriaFiles)});parent.postMessage({slideriaWant:1},'*')});</script>`;
+
+function withFiles(html: string): string {
+  return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => m + FILES_SCRIPT) : FILES_SCRIPT + html;
+}
+
+const FILE_NAME = /^[\w.-]{1,80}$/;
+const fileData = new Map<string, Promise<ArrayBuffer>>();
+/** Содержимое файлов вставки (один раз на адрес: повторный показ слайда не качает заново) */
+function embedFiles(files: Record<string, string>): Promise<Record<string, ArrayBuffer>> {
+  const list = Object.entries(files).filter(([k, v]) => FILE_NAME.test(k) && typeof v === 'string' && v);
+  return Promise.all(list.map(([k, url]) => {
+    let d = fileData.get(url);
+    if (!d) {
+      d = fetch(url).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`${k}: ${r.status}`))));
+      d.catch(() => fileData.delete(url));
+      fileData.set(url, d);
+    }
+    return d.then((b) => [k, b] as const);
+  })).then((pairs) => Object.fromEntries(pairs));
 }
 
 /** Цвета темы, которые передаются во вставку */
@@ -327,6 +355,18 @@ defineBlock<EmbedProps>('embed', {
   mount(el, p, ctx) {
     if (!hasEmbed(p)) return;
     let frame: HTMLIFrameElement | null = null;
+    const files = p.files && typeof p.files === 'object' && Object.keys(p.files).length ? p.files : null;
+    const doc = (html: string) => {
+      const d = p.theme ? withTheme(html) : html;
+      return withPointerBridge(files ? withFiles(d) : d);
+    };
+    // Вставка просит свои файлы — отвечаем содержимым (рамка изолирована и сама их не скачает)
+    const onWant = (e: MessageEvent) => {
+      if (!files || !frame || e.source !== frame.contentWindow || e.data?.slideriaWant !== 1) return;
+      const win = frame.contentWindow;
+      embedFiles(files).then((data) => win?.postMessage({ slideriaFiles: data }, '*')).catch((err) => console.warn('Файлы вставки:', err));
+    };
+    addEventListener('message', onWant);
     let timer = 0;
     const on = () => {
       clearTimeout(timer);
@@ -341,7 +381,7 @@ defineBlock<EmbedProps>('embed', {
       frame = f;
       embedSource(p).then((html) => {
         if (frame !== f) return;
-        f.srcdoc = withPointerBridge(p.theme ? withTheme(html) : html);
+        f.srcdoc = doc(html);
         f.addEventListener('load', () => { alive = performance.now(); f.classList.add('on'); }, { once: true });
         el.append(f);
       }).catch(() => { /* остаётся заставка */ });
@@ -351,7 +391,7 @@ defineBlock<EmbedProps>('embed', {
       if (!p.theme || !frame) return;
       const f = frame;
       embedSource(p).then((html) => {
-        if (frame === f) f.srcdoc = withPointerBridge(withTheme(html));
+        if (frame === f) f.srcdoc = doc(html);
       }).catch(() => {});
     };
     const offTheme = onThemeChange(recolor);
@@ -373,7 +413,7 @@ defineBlock<EmbedProps>('embed', {
       kicks++;
       alive = performance.now();
       embedSource(p).then((html) => {
-        if (frame === f) f.srcdoc = withPointerBridge(p.theme ? withTheme(html) : html);
+        if (frame === f) f.srcdoc = doc(html);
       }).catch(() => {});
     }, 1500);
     const off = () => {
@@ -394,6 +434,7 @@ defineBlock<EmbedProps>('embed', {
       offTheme();
       removeEventListener(ACCENT_EVENT, recolor);
       removeEventListener('message', onAlive);
+      removeEventListener('message', onWant);
       clearInterval(watch);
       mo.disconnect();
       clearTimeout(timer);
