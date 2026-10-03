@@ -152,7 +152,25 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     const trash = path.join(dir, '.trash');
     fs.mkdirSync(trash, { recursive: true });
     const target = path.join(trash, `${name}-${stamp}`);
-    fs.renameSync(path.join(dir, name), target);
+    const src = path.join(dir, name);
+    // Windows не даёт переименовать папку, за которой следит сервер (EPERM / EBUSY):
+    // снимаем наблюдение, пробуем ещё раз, в крайнем случае — копия в корзину и удаление
+    server?.watcher.unwatch(src);
+    let moved = false;
+    for (let i = 0; i < 6 && !moved; i++) {
+      try {
+        fs.renameSync(src, target);
+        moved = true;
+      } catch (e) {
+        const code = (e as NodeJS.ErrnoException).code;
+        if (code !== 'EPERM' && code !== 'EBUSY' && code !== 'EACCES') throw e;
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 150);
+      }
+    }
+    if (!moved) {
+      fs.cpSync(src, target, { recursive: true });
+      fs.rmSync(src, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
+    }
     return { trashed: path.relative(root, target).split(path.sep).join('/') };
   }
 
