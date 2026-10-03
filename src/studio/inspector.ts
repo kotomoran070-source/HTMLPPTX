@@ -112,6 +112,12 @@ export class Inspector {
     });
     root.addEventListener('input', (e) => {
       const el = e.target as HTMLInputElement;
+      // Ползунок видимой части: число рядом обновляется, пока тянут; запись — по change
+      if (el.dataset.t === 'framepos') {
+        const out = el.parentElement?.querySelector('output');
+        if (out) out.textContent = `${el.value}%`;
+        return;
+      }
       // Цвет меняется сразу, пока тянут ползунок палитры
       if (el.type !== 'color') return;
       // Акцент перекрашивает всю презентацию: пока тянут — только показ, правка — по change

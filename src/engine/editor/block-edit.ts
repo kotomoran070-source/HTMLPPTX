@@ -539,7 +539,8 @@ export class BlockEditor {
     if (e.shiftKey || e.button !== 0) return false;
     if (target.closest('[contenteditable="true"]')) return false;
     if (this.isMulti && this.members.some((m) => m.el.contains(target))) return this.isLocked ? false : this.groupDrag(e);
-    if (allowImagePan && e.altKey) return false;
+    // Сдвиг кадра картинки (режим «Кадр» или Alt) — не перемещение объекта
+    if (allowImagePan) return false;
     const s = this.sel;
     if (s?.free && s.el.contains(target)) return this.isLocked ? false : this.dragFree(s, e);
     // Свободный объект, ещё не выделенный: нажал и тянешь — сразу перемещение, без лишнего клика

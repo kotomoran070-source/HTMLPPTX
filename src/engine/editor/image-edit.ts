@@ -39,6 +39,10 @@ const POS = /^(\d+(?:\.\d+)?)% (\d+(?:\.\d+)?)%$/;
  */
 export class ImageEditor {
   private sel: Selected | null = null;
+  /** Режим «Кадр» у свободной картинки: перетаскивание двигает снимок в рамке, а не объект */
+  private cropping = false;
+  /** Снимок обрезан или масштабирован: кадр есть куда сдвигать */
+  private pannable = false;
   readonly bar: HTMLElement;
   private handle: HTMLElement;
 
@@ -52,7 +56,8 @@ export class ImageEditor {
     <button type="button" data-i="cover" title="Заполнить рамку">${icon('cover')}<span>Заполнить</span></button>
   </span>
   <label class="edzoom" data-g="photo" title="Масштаб">${icon('search')}<input type="range" data-i="zoom" min="30" max="300" step="5" aria-label="Масштаб"><output></output></label>
-  <span class="edtip" data-g="pan">${icon('move')} тяните картинку, чтобы сдвинуть</span>
+  <button type="button" data-i="crop" data-g="crop" title="Кадр: тяните картинку внутри рамки, как «Обрезка» в PowerPoint. Готово — Esc или щелчок мимо">${icon('crop')}<span>Кадр</span></button>
+  <span class="edtip" data-g="tip">${icon('move')} тяните картинку, чтобы сдвинуть</span>
   <button type="button" data-i="reset" data-g="framed" title="Сбросить кадр">Сбросить кадр</button>
   <i class="edsep"></i>
   <button type="button" data-i="remove" class="danger" title="Убрать картинку (Delete)" aria-label="Убрать картинку">${icon('close')}</button>
@@ -72,9 +77,12 @@ export class ImageEditor {
   }
 
   select(el: HTMLElement): void {
+    // Щелчок после сдвига кадра выделяет ту же картинку снова: режим «Кадр» остаётся
+    const keepCrop = this.cropping && this.sel?.key === el.getAttribute('data-edit-img');
     this.clear();
     const path = readPath(el, 'data-edit-img');
     if (!path) return;
+    this.cropping = keepCrop;
     this.sel = {
       el,
       key: el.getAttribute('data-edit-img')!,
@@ -87,8 +95,10 @@ export class ImageEditor {
   }
 
   clear(): void {
-    this.sel?.el.classList.remove('ed-selected', 'ed-pan');
+    this.sel?.el.classList.remove('ed-selected', 'ed-pan', 'ed-crop');
     this.sel = null;
+    this.cropping = false;
+    this.pannable = false;
     this.bar.classList.remove('on');
     this.handle.classList.remove('on');
   }
@@ -99,8 +109,11 @@ export class ImageEditor {
     const key = this.sel.key;
     const slide = this.host.stage().querySelector('.slide.on');
     const el = slide ? [...slide.querySelectorAll<HTMLElement>('[data-edit-img]')].find((x) => x.getAttribute('data-edit-img') === key) : null;
+    // Режим «Кадр» переживает перерисовку после каждого сдвига
+    const crop = this.cropping;
     if (el) this.select(el);
     else this.clear();
+    if (el && crop) this.setCrop(true);
   }
 
   private frame(): ImageFrame {
@@ -127,8 +140,14 @@ export class ImageEditor {
     const block = s.owner ? this.host.blockOf(s.owner) : null;
     const isImageBlock = !!block && (getAt(this.host.deck(), block) as { type?: string })?.type === 'image';
     const show = (g: string, v: boolean) => this.bar.querySelectorAll<HTMLElement>(`[data-g="${g}"]`).forEach((e) => (e.hidden = !v));
+    // Свободную картинку тянут как объект: кадр — в режиме «Кадр» (или с Alt);
+    // картинку в раскладке тянут за кадр сразу
+    const inFree = !!s.el.closest('[data-free]');
+    this.pannable = pannable;
+    if (!pannable) this.cropping = false;
     show('photo', photo);
-    show('pan', pannable);
+    show('crop', pannable && inFree);
+    show('tip', pannable && (!inFree || this.cropping));
     show('framed', framed);
     const q = (k: string) => this.bar.querySelector<HTMLElement>(`[data-i="${k}"]`)!;
     q('replace').querySelector('span')!.textContent = hasImage ? 'Заменить' : 'Вставить';
@@ -139,14 +158,37 @@ export class ImageEditor {
     const zoom = this.bar.querySelector<HTMLInputElement>('[data-i="zoom"]')!;
     zoom.value = String(Math.round((Number(f.zoom) || 1) * 100));
     this.bar.querySelector('output')!.textContent = `${zoom.value}%`;
-    s.el.classList.toggle('ed-pan', pannable);
+    s.el.classList.toggle('ed-pan', pannable && (!inFree || this.cropping));
+    s.el.classList.toggle('ed-crop', pannable && inFree && this.cropping);
+    q('crop').classList.toggle('on', this.cropping);
     this.bar.classList.add('on');
     // Свободной картинке высоту задают ручки рамки объекта
-    const inFree = !!s.el.closest('[data-free]');
     this.handle.classList.toggle('on', isImageBlock && !inFree);
     const tip = this.bar.querySelector<HTMLElement>('.edtip');
-    if (tip) tip.lastChild!.textContent = inFree ? ' Alt + тяните картинку — сдвинуть кадр' : ' тяните картинку, чтобы сдвинуть';
+    if (tip) tip.lastChild!.textContent = inFree ? ' тяните снимок · Esc — готово' : ' тяните картинку, чтобы сдвинуть';
     this.position();
+  }
+
+  /** Можно ли сейчас сдвигать кадр выделенной картинки (иначе свободный объект двигается целиком) */
+  get canCrop(): boolean {
+    return !!this.sel && this.bar.querySelector<HTMLElement>('[data-i="crop"]')?.hidden === false;
+  }
+
+  /** Режим «Кадр» (лента «Рисунок», кнопка на панели картинки) */
+  setCrop(on: boolean): void {
+    if (!this.sel || (on && !this.canCrop)) return;
+    this.cropping = on;
+    this.render();
+  }
+
+  get isCropping(): boolean {
+    return this.cropping;
+  }
+
+  /** Нажатие должно сдвигать кадр, а не объект: Alt или режим «Кадр», по самой картинке */
+  wantsPan(e: PointerEvent): boolean {
+    const s = this.sel;
+    return !!s && this.pannable && s.el.contains(e.target as Node) && (e.altKey || this.cropping);
   }
 
   position(): void {
@@ -185,6 +227,7 @@ export class ImageEditor {
       if (!b || !s) return;
       switch (b.dataset.i) {
         case 'replace': this.host.pick(s.path); break;
+        case 'crop': this.setCrop(!this.cropping); break;
         case 'contain': this.setFrame({ fit: 'contain' }); break;
         case 'cover': this.setFrame({ fit: 'cover' }); break;
         case 'reset': this.setFrame({ position: undefined, zoom: undefined }); break;
@@ -252,9 +295,9 @@ export class ImageEditor {
    */
   pointerDown(e: PointerEvent): boolean {
     const s = this.sel;
-    if (!s || !s.el.contains(e.target as Node) || !s.el.classList.contains('ed-pan')) return false;
-    // У свободной картинки обычное перетаскивание двигает объект, кадр — с Alt
-    if (s.el.closest('[data-free]') && !e.altKey) return false;
+    if (!s || !s.el.contains(e.target as Node) || !this.pannable) return false;
+    // У свободной картинки обычное перетаскивание двигает объект, кадр — в режиме «Кадр» или с Alt
+    if (s.el.closest('[data-free]') && !e.altKey && !this.cropping) return false;
     const img = this.img();
     if (!img || !img.naturalWidth) return false;
     e.preventDefault();
@@ -281,7 +324,8 @@ export class ImageEditor {
     const up = () => {
       removeEventListener('pointermove', move);
       removeEventListener('pointerup', up);
-      if (moved) this.setFrame({ position: `${pos.x}% ${pos.y}%` });
+      // Сдвигать было некуда (снимок по этой оси целиком в рамке) — данные не трогаем
+      if (moved && (pos.x !== start.x || pos.y !== start.y)) this.setFrame({ position: `${pos.x}% ${pos.y}%` });
     };
     addEventListener('pointermove', move);
     addEventListener('pointerup', up);

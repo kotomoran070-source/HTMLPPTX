@@ -43,6 +43,10 @@ function fieldHtml(f: Field, data: unknown, p: Path): string {
       return row(f.label, `<textarea rows="3" data-t="text" data-p="${P(p)}" placeholder="${esc(f.placeholder ?? '')}"></textarea>`, f.hint, true);
     case 'number':
       return row(f.label, `<input type="number" data-t="number" data-p="${P(p)}"${f.min !== undefined ? ` min="${f.min}"` : ''}${f.max !== undefined ? ` max="${f.max}"` : ''} step="${f.step ?? 1}" placeholder="${esc(f.placeholder ?? '')}">`, f.hint);
+    case 'framepos': {
+      const axis = (a: 'x' | 'y', l: string, ends: string) => `<span class="st-f-pos"><span>${l}</span><input type="range" min="0" max="100" step="1" data-t="framepos" data-axis="${a}" data-p="${P(p)}" title="${ends}" aria-label="${esc(f.label)}: ${l}"><output data-pos-out="${a}"></output></span>`;
+      return row(f.label, `<span class="st-f-posbox">${axis('x', 'По горизонтали', '0 — левый край, 100 — правый')}${axis('y', 'По вертикали', '0 — верх, 100 — низ')}</span>`, f.hint, true);
+    }
     case 'select':
       return row(f.label, `<select data-t="select" data-p="${P(p)}">${f.options.map(([val, l]) => `<option value="${esc(val)}">${esc(l)}</option>`).join('')}</select>`, f.hint);
     case 'bool':
@@ -175,6 +179,12 @@ export function fillForm(root: HTMLElement, data: unknown, resolveUrl: (src: str
       el.value = local ? decodeURIComponent(s.split(/[/\\]/).pop() ?? s) : s;
       el.readOnly = local;
       el.title = local ? 'Файл презентации' : '';
+    } else if (t === 'framepos') {
+      const m = typeof v === 'string' ? /^(\d+(?:\.\d+)?)% (\d+(?:\.\d+)?)%$/.exec(v) : null;
+      const n = m ? Number(m[el.dataset.axis === 'y' ? 2 : 1]) : 50;
+      el.value = String(n);
+      const out = el.parentElement?.querySelector('output');
+      if (out) out.textContent = `${Math.round(n)}%`;
     } else if (t === 'colorhex') {
       if (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)) el.value = v.toLowerCase();
     } else {
@@ -225,6 +235,13 @@ export function onFieldChange(el: HTMLInputElement, e: FormEdit): boolean {
     const keep = el.hasAttribute('data-keep-empty');
     const v = t === 'text' ? raw.replace(/\s+$/, '') : raw;
     e.commit((d) => write(d, p, v.trim() || keep ? v : undefined, as));
+  } else if (t === 'framepos') {
+    // Обе оси одним значением: «X% Y%»; середина — поле не нужно
+    const box = el.closest('.st-f-posbox');
+    const val = (a: string) => Number(box?.querySelector<HTMLInputElement>(`[data-axis="${a}"]`)?.value ?? 50);
+    const x = val('x');
+    const y = val('y');
+    e.commit((d) => write(d, p, x === 50 && y === 50 ? undefined : `${x}% ${y}%`, as));
   } else if (t === 'number') {
     const s = raw.trim().replace(',', '.');
     if (s && !Number.isFinite(Number(s))) return false;

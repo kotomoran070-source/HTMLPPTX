@@ -1217,6 +1217,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'model.snapshot': { run: () => void modelSnapshot(), enabled: () => ed.selection?.type === 'model' },
     'embed.code': { run: () => void editEmbedCode(), enabled: () => ed.selection?.type === 'embed' || ed.selection?.type === 'sandbox' },
     'embed.poster': { run: () => void embedPoster(ed.selection?.block), enabled: () => ed.selection?.type === 'embed' || ed.selection?.type === 'sandbox' },
+    'image.crop': { run: () => { ed.toggleImageCrop(); syncUi(); }, enabled: () => ed.imageCrop.can, active: () => ed.imageCrop.on },
     'format.painter': { run: () => (painter ? stopPainter() : startPainter(false)), enabled: () => !!painter || singleSel(), active: () => !!painter },
     'format.copy': { run: copyFormat, enabled: singleSel },
     'obj.template': { run: askTemplateName, enabled: () => selPaths().length > 0 },

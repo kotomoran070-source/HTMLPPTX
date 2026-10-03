@@ -38,6 +38,8 @@ body.editing .stage .ed-selected { outline: 3px solid var(--ac) !important; outl
 body.editing .stage image.ed-selected { opacity: .8; }
 body.editing .stage .ed-pan, body.editing .stage .ed-pan * { cursor: grab; }
 body.editing .stage .ed-pan:active, body.editing .stage .ed-pan:active * { cursor: grabbing; }
+/* Режим «Кадр» у свободной картинки: рамка пунктиром, снимок тянется внутри неё */
+body.editing .stage .ed-crop { outline: 2px dashed var(--ac); outline-offset: -2px; }
 body.editing .stage image[data-edit-img]:hover { opacity: .75; }
 body.editing .stage .ed-drop { outline: 3px solid var(--ac) !important; outline-offset: 2px; filter: brightness(1.05); }
 body.editing .stage .ed-active {

@@ -393,7 +393,7 @@ export class Editor {
     on(stage, 'pointerdown', (e) => {
       if (this.text.active && this.text.owns(e.target as Node)) return;
       // Перемещение свободного объекта; иначе — сдвиг кадра выделенной картинки
-      if (this.blocks.pointerDown(e, this.image.selected)) {
+      if (this.blocks.pointerDown(e, this.image.wantsPan(e))) {
         if (this.text.active) this.text.finish(true);
         return;
       }
@@ -766,6 +766,8 @@ export class Editor {
     }
     if (e.key === 'Escape' && !mod) {
       if (this.pop.classList.contains('on')) this.closePop();
+      // Esc в режиме «Кадр» — только выход из него, выделение остаётся
+      else if (this.image.isCropping) this.image.setCrop(false);
       // В студии Esc поднимается к внешнему блоку, а с самого внешнего — снимает выделение
       else if (this.studio && this.blocks.info?.hasParent && !this.blocks.isMulti) {
         this.image.clear();
@@ -1001,6 +1003,15 @@ export class Editor {
   }
 
   // ---------------- для панелей студии ----------------
+
+  /** Режим «Кадр» у выделенной картинки: можно ли включить и включён ли (лента «Рисунок») */
+  get imageCrop(): { can: boolean; on: boolean } {
+    return { can: this.image.canCrop, on: this.image.isCropping };
+  }
+
+  toggleImageCrop(): void {
+    this.image.setCrop(!this.image.isCropping);
+  }
 
   get selection(): BlockSelection | null {
     return this.blocks.info;

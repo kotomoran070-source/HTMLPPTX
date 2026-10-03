@@ -39,8 +39,13 @@ export function contextTab(deck: Deck, ed: Editor): ContextTab | null {
   const types = new Set(paths.map((p) => (getAt(deck, p) as Block | undefined)?.type ?? ''));
   if (types.size !== 1) return null;
   const t = [...types][0];
+  // Плитка с фото оформляется как рисунок
+  if (t === 'tile') return paths.every((p) => !!(getAt(deck, p) as Block).image) ? 'image' : null;
   return t === 'shape' || t === 'table' || t === 'image' ? t : null;
 }
+
+/** Блок подходит вкладке: «рисунок» — картинка или плитка с фото */
+const ofType = (b: Block | undefined, type: string) => (type === 'image' ? b?.type === 'image' || (b?.type === 'tile' && !!b.image) : b?.type === type);
 
 interface BtnOpts { big?: boolean; menu?: boolean; title?: string; swatch?: string; ico?: boolean; chk?: boolean }
 
@@ -127,6 +132,7 @@ export function contextPanelsHtml(): string {
   ${group('Рамка', btn('image.stroke', 'outline', 'Контур', { big: true, menu: true, swatch: 'istroke', title: 'Цвет, толщина и штрих контура' }) + btn('image.mat', 'mat', 'Паспарту', { big: true, menu: true, title: 'Поле вокруг снимка, как у фотографии в рамке' }))}
   ${group('Эффекты', stack(btn('image.shadow', 'shadow', 'Тень', { menu: true }), btn('image.radius', 'corner', 'Скругление', { menu: true }))
     + stack(btn('image.filter', 'recolor', 'Цвет', { menu: true, title: 'Чёрно-белый, сепия, приглушённый…' }), btn('image.opacity', 'opacity', 'Прозрачность', { menu: true })))}
+  ${group('Кадр', btn('image.crop', 'crop', 'Кадр', { big: true, title: 'Сдвинуть снимок внутри рамки, как «Обрезка» в PowerPoint: тяните картинку. Масштаб — на панели над картинкой. Готово — Esc' }))}
   ${group('Сброс', btn('image.reset', 'reset', 'Сбросить', { big: true, title: 'Убрать всё оформление рисунка' }))}
 </div>`;
 }
@@ -150,7 +156,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const sel = ed.selection;
     if (!sel) return [];
     const paths = sel.group.length > 1 ? sel.group : [sel.block];
-    return paths.every((p) => (getAt(deck, p) as Block | undefined)?.type === type) ? paths : [];
+    return paths.every((p) => ofType(getAt(deck, p) as Block | undefined, type)) ? paths : [];
   };
   const first = (type: string) => {
     const p = targets(type)[0];
@@ -303,7 +309,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const cur = first(type)?.[key] ?? def;
     showMenu(anchor(cmd), options.map(([v, l]) => ({ label: l, checked: cur === v, run: () => setAll(type, key, v === def ? undefined : v) })));
   };
-  const isImage = () => targets('image').length > 0 && targets('image').every((p) => !!(getAt(deck, p) as Block).src);
+  const isImage = () => targets('image').length > 0 && targets('image').every((p) => { const b = getAt(deck, p) as Block; return !!(b.src ?? b.image); });
 
   // ---------- фигура: текст ----------
   const textStyle = (b: Block | null) => ((b?.styles as Record<string, Record<string, unknown>> | undefined)?.text ?? {});
@@ -598,7 +604,7 @@ export function syncSwatches(deck: Deck, ed: Editor): void {
     const key = el.dataset.sw as 'fill' | 'stroke' | 'istroke';
     let css = 'transparent';
     if (key === 'istroke') {
-      el.style.background = b?.type === 'image' && Number(b.width) ? swatchCss(b.stroke, 'var(--bd2)') : 'transparent';
+      el.style.background = ofType(b, 'image') && Number(b?.width) ? swatchCss(b!.stroke, 'var(--bd2)') : 'transparent';
       return;
     }
     if (b?.type === 'shape') {

@@ -7,6 +7,8 @@
 export type Field =
   | { k: string; label: string; type: 'text' | 'textarea' | 'url'; placeholder?: string; hint?: string }
   | { k: string; label: string; type: 'number'; min?: number; max?: number; step?: number; placeholder?: string; hint?: string }
+  /** Видимая часть картинки (position: "X% Y%") — два ползунка */
+  | { k: string; label: string; type: 'framepos'; hint?: string }
   | { k: string; label: string; type: 'select'; options: [string, string][]; hint?: string }
   | { k: string; label: string; type: 'bool'; default?: boolean; hint?: string }
   | { k: string; label: string; type: 'icon' }
@@ -43,7 +45,7 @@ const frame: Field[] = [
   { k: 'fit', label: 'Кадр', type: 'select', options: FIT },
   // Как ползунок «Масштаб» на панели картинки: 0,3–3 (30–300 %)
   { k: 'zoom', label: 'Масштаб', type: 'number', min: 0.3, max: 3, step: 0.05, placeholder: '1', hint: '1 — как есть; 0,9 — 90 %, 1,5 — 150 %' },
-  { k: 'position', label: 'Видимая часть', type: 'text', placeholder: '50% 50%', hint: 'Положение изображения в рамке' },
+  { k: 'position', label: 'Видимая часть', type: 'framepos', hint: 'Какая часть снимка видна в рамке. На слайде — «Кадр» и тянуть картинку' },
 ];
 
 export const BLOCKS: Record<string, Schema> = {

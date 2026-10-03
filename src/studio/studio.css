@@ -364,6 +364,10 @@ body.studio .edblock { display: none !important; }
 .st-f { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--mu); }
 .st-f small { font-size: 11px; line-height: 1.35; color: var(--mu); opacity: .85; }
 .st-f-l { font-size: 11.5px; color: var(--mu); }
+.st-f-posbox { display: flex; flex-direction: column; gap: 6px; }
+.st-f-pos { display: grid; grid-template-columns: max-content minmax(0, 1fr) 38px; white-space: nowrap; align-items: center; gap: 8px; color: var(--tx2); }
+.st-f-pos input { width: 100%; accent-color: var(--ac); }
+.st-f-pos output { text-align: right; font-variant-numeric: tabular-nums; color: var(--tx2); }
 .st-props :is(.st-f, .st-f-item, .st-f-kv) :is(input[type="text"], input[type="url"], input[type="number"], select, textarea) {
   width: 100%; min-width: 0; height: 30px; padding: 0 8px; border: 1px solid var(--bd); border-radius: 6px; background: var(--bg);
 }

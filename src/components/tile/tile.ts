@@ -2,6 +2,7 @@ import { defineBlock } from '../../engine/component';
 import { esc, styleAttr, t } from '../../engine/html';
 import { ea, eimg, frameCss, type ImageFrame } from '../../engine/marks';
 import type { Block } from '../../types';
+import { imageLookCss, type ImageLook } from '../layout/image-look';
 import './tile.css';
 
 /** Встроенные иллюстрации оборудования. Мигающие индикаторы — SMIL-анимация. */
@@ -33,7 +34,7 @@ const ILLUSTRATIONS: Record<string, { viewBox: string; maxWidth?: number; svg: s
   },
 };
 
-interface TileProps extends Block, ImageFrame {
+interface TileProps extends Block, ImageFrame, ImageLook {
   /** Встроенная иллюстрация: assembly, endpoints, station */
   illustration?: string;
   /** Или своя картинка: ./assets/photo.jpg */
@@ -48,7 +49,9 @@ defineBlock<TileProps>('tile', {
     let media = '';
     const il = p.illustration ? ILLUSTRATIONS[p.illustration] : undefined;
     if (p.image) {
-      media = `<div class="imgbox"><img src="${esc(p.image)}" alt="${esc(p.caption ?? '')}" style="${frameCss(p)}"></div>`;
+      // Оформление фото — как у картинки (вкладка «Рисунок»): рамка, тень, скругление, цвет
+      const look = imageLookCss(p);
+      media = `<div class="imgbox${look.fx ? ' img-fx' : ''}"${look.box ? ` style="${look.box}"` : ''}><img src="${esc(p.image)}" alt="${esc(p.caption ?? '')}" style="${frameCss(p)}${look.img ? `;${look.img}` : ''}"></div>`;
     } else if (il) {
       media = `<svg viewBox="${il.viewBox}"${styleAttr(il.maxWidth && `max-width:${il.maxWidth}px`)} aria-hidden="true">${il.svg}</svg>`;
     } else {
