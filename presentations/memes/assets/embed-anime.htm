@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Аниме-режим</title>
+<!-- Манга-панель: линии концентрации, лепестки сакуры и реплика. Щелчок — следующая реплика с ударом -->
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #FFF8FB; cursor: pointer; user-select: none; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .say { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
+  .sfx { font: 900 min(26vw, 230px)/1 "Noto Sans JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif; color: rgba(236, 72, 153, .16);
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-8deg); white-space: nowrap; }
+  .line { position: relative; font: 900 min(9vw, 64px)/1.05 system-ui, "Segoe UI", sans-serif; letter-spacing: -.01em; color: #111;
+    max-width: 82vw; padding: 0 4vw; -webkit-text-stroke: 1px #111; text-shadow: 4px 4px 0 #F9A8D4, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 2px 2px 0 #fff; }
+  .hit .line { animation: hit .5s cubic-bezier(.2, 1.6, .4, 1); }
+  .hit .sfx { animation: sfx .6s ease-out; }
+  @keyframes hit { 0% { transform: scale(2.2) rotate(-6deg); opacity: 0; } 40% { opacity: 1; } 55% { transform: scale(.94) rotate(1deg); } 70% { transform: translate(-6px, 3px); } 80% { transform: translate(5px, -2px); } 100% { transform: none; } }
+  @keyframes sfx { from { transform: translate(-50%, -50%) rotate(-8deg) scale(1.6); opacity: 0; } }
+  .flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+  .hit .flash { animation: flash .35s ease-out; }
+  @keyframes flash { 0% { opacity: .95; } 100% { opacity: 0; } }
+  .tip { position: absolute; right: 14px; bottom: 10px; font: 600 13px system-ui, sans-serif; color: rgba(17, 17, 17, .45); }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="say" id="say"><div class="sfx" id="sfx">ドン</div><div class="line" id="line">ЧТО?!</div></div>
+<div class="flash"></div>
+<div class="tip">щелчок — следующая реплика</div>
+<script>
+(function () {
+  var LINES = [
+    ['ЧТО?!', 'ナニ'],
+    ['ЭТО ЖЕ ОДИН HTML-ФАЙЛ?!', 'ドン'],
+    ['СЭМПАЙ, ЗАМЕТЬ МОЙ СЛАЙД!', 'ドキドキ'],
+    ['СИЛА ДЕДЛАЙНА — БОЛЬШЕ 9000!', 'ゴゴゴ'],
+    ['ОМАЭ ВА МОУ… ЭКСПОРТИРОВАН', 'ズキュン'],
+  ];
+  var c = document.getElementById('c'), x = c.getContext('2d');
+  var say = document.getElementById('say'), line = document.getElementById('line'), sfx = document.getElementById('sfx');
+  var w = 0, h = 0, dpr = 1, i = 0, boost = 0;
+  function size() {
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    w = innerWidth; h = innerHeight;
+    c.width = w * dpr; c.height = h * dpr;
+  }
+  addEventListener('resize', size);
+  size();
+
+  // Линии концентрации: тонкие клинья от краёв к центру, слегка дрожат
+  var RAYS = 150, rays = [];
+  for (var k = 0; k < RAYS; k++) rays.push({ a: (k / RAYS) * Math.PI * 2 + Math.random() * 0.03, wd: 0.004 + Math.random() * 0.012, r: 0.28 + Math.random() * 0.2, ph: Math.random() * 6 });
+  // Лепестки сакуры
+  var petals = [];
+  for (var p = 0; p < 26; p++) petals.push(newPetal(true));
+  function newPetal(any) {
+    return { x: Math.random(), y: any ? Math.random() : -0.08, s: 7 + Math.random() * 9, vx: 0.0006 + Math.random() * 0.0012, vy: 0.0012 + Math.random() * 0.0016, r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.06, sw: Math.random() * 6 };
+  }
+  function petal(q, t) {
+    x.save();
+    x.translate(q.x * w, q.y * h);
+    x.rotate(q.r);
+    x.scale(1, 0.6 + 0.4 * Math.sin(t / 400 + q.sw));
+    x.fillStyle = '#F9A8D4';
+    x.beginPath();
+    x.moveTo(0, -q.s);
+    x.bezierCurveTo(q.s, -q.s, q.s * 0.9, q.s * 0.6, 0, q.s);
+    x.bezierCurveTo(-q.s * 0.9, q.s * 0.6, -q.s, -q.s, -q.s * 0.25, -q.s * 0.7);
+    x.closePath();
+    x.fill();
+    x.restore();
+  }
+  function frame(t) {
+    x.setTransform(dpr, 0, 0, dpr, 0, 0);
+    x.clearRect(0, 0, w, h);
+    var cx = w / 2, cy = h / 2, R = Math.hypot(w, h);
+    boost *= 0.92;
+    x.fillStyle = '#111';
+    for (var k = 0; k < RAYS; k++) {
+      var q = rays[k];
+      var inner = R * (q.r - boost * 0.12 + 0.015 * Math.sin(t / 90 + q.ph));
+      var a1 = q.a - q.wd, a2 = q.a + q.wd;
+      x.beginPath();
+      x.moveTo(cx + Math.cos(q.a) * inner, cy + Math.sin(q.a) * inner);
+      x.lineTo(cx + Math.cos(a1) * R, cy + Math.sin(a1) * R);
+      x.lineTo(cx + Math.cos(a2) * R, cy + Math.sin(a2) * R);
+      x.closePath();
+      x.fill();
+    }
+    for (var j = 0; j < petals.length; j++) {
+      var pp = petals[j];
+      pp.x += pp.vx + Math.sin(t / 700 + pp.sw) * 0.0006;
+      pp.y += pp.vy;
+      pp.r += pp.vr;
+      if (pp.y > 1.08 || pp.x > 1.08) petals[j] = newPetal(false);
+      petal(pp, t);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  addEventListener('pointerdown', function () {
+    i = (i + 1) % LINES.length;
+    line.textContent = LINES[i][0];
+    sfx.textContent = LINES[i][1];
+    boost = 1;
+    document.body.classList.remove('hit');
+    void document.body.offsetWidth;
+    document.body.classList.add('hit');
+  });
+})();
+</script>
+</body>
+</html>
