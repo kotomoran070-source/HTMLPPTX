@@ -14,7 +14,11 @@ export interface Deck {
     accent2?: string;
     /** Переливание: цвета градиента акцента плавно текут по акцентным элементам */
     accentFlow?: boolean;
+    /** Шрифт всей презентации: имя одного из fonts */
+    font?: string;
   };
+  /** Свои шрифты: файлы в assets/ — { name: Manrope, src: ./assets/Manrope.woff2 } */
+  fonts?: { name: string; src: string }[];
   slides: SlideData[];
   /**
    * Свои эффекты появления (сохранены пользователем из импорта): enter: <id> у объекта.

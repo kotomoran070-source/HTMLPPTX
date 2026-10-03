@@ -38,6 +38,16 @@ function mediaKind(f: File | undefined): MediaKind | null {
   return null;
 }
 
+/** Файл шрифта: свой шрифт презентации */
+export const isFontFile = (f: File) => /\.(woff2?|ttf|otf)$/i.test(f.name);
+
+/** Имя шрифта из имени файла: «Manrope-VariableFont_wght.ttf» → «Manrope» */
+export function fontNameOf(file: string): string {
+  const base = file.replace(/\.[^.]+$/, '');
+  const cut = base.replace(/[-_ ](variable|vf|var|regular|bold|medium|semibold|semi-bold|light|black|thin|heavy|extrabold|extralight|book|italic|wght|opsz|latin|cyrillic|\[).*$/i, '');
+  return (cut || base).replace(/[-_]+/g, ' ').replace(/[^\p{L}\p{N} ]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 60) || 'Мой шрифт';
+}
+
 /** Перетаскивают HTML-файл: это импорт презентации в yarn dev, а не картинка. */
 const isHtmlFile = (f: File) => /\.html?$/i.test(f.name) || f.type === 'text/html';
 const draggingHtml = (e: DragEvent) => [...(e.dataTransfer?.items ?? [])].some((i) => i.kind === 'file' && i.type === 'text/html');
@@ -1170,6 +1180,43 @@ export class Editor {
   }
 
   /** Загрузить видео или модель; null — не подошёл формат или не удалось. */
+  /**
+   * Свой шрифт: файл — в assets/ (в собранном файле — внутрь), в презентацию — fonts.
+   * Без кириллицы — предупреждение: русский текст этим шрифтом не напишется.
+   */
+  async addFontFile(file: File): Promise<void> {
+    if (!isFontFile(file)) return this.toast('Подойдут шрифты WOFF2, WOFF, TTF или OTF', 3500, true);
+    if (file.size > 8 * 1024 * 1024) return this.toast('Файл шрифта больше 8 МБ', 4000, true);
+    const fonts = Array.isArray(this.host.deck.fonts) ? this.host.deck.fonts : [];
+    const base = fontNameOf(file.name);
+    let name = base;
+    for (let n = 2; fonts.some((f) => f.name === name); n++) name = `${base} ${n}`;
+    this.toast('Загрузка шрифта…', 0);
+    let url: string;
+    try {
+      url = this.mode === 'project' ? (await this.storage.uploadAsset(this.host.deckKey, file, file.name)).url : await blobToDataUrl(file);
+    } catch (e) {
+      return this.toast(`Не удалось загрузить шрифт: ${(e as Error).message}`, 5000, true);
+    }
+    // Проверка шрифта и кириллицы: те же буквы этим шрифтом и запасным — разной ширины
+    let cyr = true;
+    try {
+      const face = new FontFace('slideria-font-check', `url("${url}")`);
+      await face.load();
+      document.fonts.add(face);
+      const g = document.createElement('canvas').getContext('2d')!;
+      const w = (f: string) => { g.font = f; return g.measureText('ЖжЩщЫыЮюФф').width; };
+      cyr = w('64px "slideria-font-check", monospace') !== w('64px monospace');
+      document.fonts.delete(face);
+    } catch {
+      return this.toast('Файл не похож на шрифт — браузер не смог его прочитать', 5000, true);
+    }
+    if (!this.commit((d) => { d.fonts = [...(Array.isArray(d.fonts) ? d.fonts : []), { name, src: url }]; }, { rebuild: true })) return;
+    this.toast(cyr
+      ? `Шрифт «${name}» добавлен: выберите его в панели текста или как шрифт презентации в «Свойствах»`
+      : `Шрифт «${name}» добавлен, но в нём нет русских букв — они будут запасным шрифтом`, cyr ? 4500 : 6000, !cyr);
+  }
+
   private async uploadMedia(file: File, kind: MediaKind): Promise<string | null> {
     const m = MEDIA[kind];
     if (!m.test(file)) {
@@ -1395,6 +1442,12 @@ export class Editor {
 
   private onDrop(e: DragEvent): void {
     if (!e.dataTransfer?.files.length) return;
+    if (isFontFile(e.dataTransfer.files[0])) {
+      e.preventDefault();
+      e.stopPropagation();
+      void this.addFontFile(e.dataTransfer.files[0]);
+      return;
+    }
     if (isHtmlFile(e.dataTransfer.files[0])) {
       if (!this.studio) return;
       e.preventDefault();

@@ -389,6 +389,10 @@ body.studio .edblock { display: none !important; }
 .st-f { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--mu); }
 .st-f small { font-size: 11px; line-height: 1.35; color: var(--mu); opacity: .85; }
 .st-f-l { font-size: 11.5px; color: var(--mu); }
+.st-fonts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -2px 0 6px; }
+.st-font { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 4px 0 10px; border: 1px solid var(--bd); border-radius: 99px; font-size: 13px; color: var(--tx); }
+.st-font button { width: 20px; height: 20px; border: 0; border-radius: 50%; background: none; color: var(--mu); cursor: pointer; font: 600 14px/1 var(--font-base); }
+.st-font button:hover { background: var(--alt); color: var(--tx); }
 .st-f-posbox { display: flex; flex-direction: column; gap: 6px; }
 .st-f-pos { display: grid; grid-template-columns: max-content minmax(0, 1fr) 38px; white-space: nowrap; align-items: center; gap: 8px; color: var(--tx2); }
 .st-f-pos input { width: 100%; accent-color: var(--ac); }

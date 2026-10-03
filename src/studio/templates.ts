@@ -59,7 +59,7 @@ export function removeTemplate(id: string): void {
 
 // ---------------- что нужно объектам из презентации ----------------
 
-const ASSET = /(?:^|\/)assets\/[^"'\s)]+\.(?:png|jpe?g|gif|webp|avif|svg|mp4|webm|mov|glb|gltf|html?)(?:\?[^"'\s)]*)?$/i;
+const ASSET = /(?:^|\/)assets\/[^"'\s)]+\.(?:png|jpe?g|gif|webp|avif|svg|mp4|webm|mov|glb|gltf|html?|woff2?|ttf|otf)(?:\?[^"'\s)]*)?$/i;
 
 /** Все строки-адреса файлов презентации внутри объектов */
 export function assetUrls(items: unknown): string[] {

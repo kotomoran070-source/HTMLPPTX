@@ -1,3 +1,4 @@
+import { deckFonts, fontNameOk, fontStack } from '../fonts';
 import { icon } from '../../components/icons';
 import { getAt, KEY, setAt, type Path } from '../data';
 import { esc, t } from '../html';
@@ -392,8 +393,30 @@ export class TextEditor {
     }
     if (s.styles.align) st.textAlign = s.styles.align;
     if (s.styles.font && FONTS[s.styles.font]) st.fontFamily = FONTS[s.styles.font].css;
+    else if (fontNameOk(s.styles.font)) st.fontFamily = fontStack(s.styles.font);
     if (Number(s.styles.leading)) st.lineHeight = String(s.styles.leading);
     if (s.styles.spacing !== undefined) st.letterSpacing = `${Number(s.styles.spacing) || 0}em`;
+  }
+
+  /** Свои шрифты презентации — в конце списка, каждый написан самим собой */
+  private syncFonts(sel: HTMLSelectElement): void {
+    const own = deckFonts(this.host.deck().fonts).map((f) => f.name.trim());
+    const sig = own.join('|');
+    if (sel.dataset.own === sig) return;
+    sel.dataset.own = sig;
+    sel.querySelectorAll('[data-own]').forEach((o) => o.remove());
+    if (!own.length) return;
+    const g = document.createElement('optgroup');
+    g.label = 'Шрифты презентации';
+    g.dataset.own = '1';
+    for (const n of own) {
+      const o = document.createElement('option');
+      o.value = n;
+      o.textContent = n;
+      o.style.fontFamily = fontStack(n);
+      g.appendChild(o);
+    }
+    sel.appendChild(g);
   }
 
   private reset(): void {
@@ -472,6 +495,8 @@ export class TextEditor {
       this.s?.el.focus({ preventScroll: true });
     });
     font.addEventListener('keydown', (e) => e.stopPropagation());
+    // Шрифты, добавленные в презентацию после открытия панели, — сразу в списке
+    for (const ev of ['pointerdown', 'focus']) font.addEventListener(ev, () => this.syncFonts(font));
     this.colors.addEventListener('click', (e) => {
       const b = (e.target as Element).closest<HTMLElement>('button[data-c]');
       if (!b) return;
@@ -706,7 +731,8 @@ export class TextEditor {
       size.placeholder = String(Math.round(parseFloat(getComputedStyle(s.el).fontSize)));
     }
     const font = this.bar.querySelector<HTMLSelectElement>('[data-t="font"]')!;
-    font.value = s.styles.font && FONTS[s.styles.font] ? s.styles.font : '';
+    this.syncFonts(font);
+    font.value = s.styles.font && (FONTS[s.styles.font] || [...font.options].some((o) => o.value === s.styles.font)) ? s.styles.font : '';
     const sw = this.bar.querySelector<HTMLElement>('.edswatch span')!;
     sw.style.background = colorCss(s.styles.color) ?? getComputedStyle(s.el).color;
     q('reset')?.classList.toggle('on', false);

@@ -16,11 +16,11 @@ import { mergeYaml } from './yaml-merge';
 const VIRTUAL = 'virtual:decks';
 const RESOLVED = '\0' + VIRTUAL;
 /** Строки в deck.yaml, похожие на путь к файлу рядом с презентацией, превращаются в картинки */
-const ASSET_RE = /^\.{1,2}\/[^\s]+\.(png|jpe?g|gif|webp|avif|svg|mp4|webm|mp3|glb|woff2?|pdf|htm)$/i;
+const ASSET_RE = /^\.{1,2}\/[^\s]+\.(png|jpe?g|gif|webp|avif|svg|mp4|webm|mp3|glb|woff2?|ttf|otf|pdf|htm)$/i;
 const MIME: Record<string, string> = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
   avif: 'image/avif', svg: 'image/svg+xml', mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg', glb: 'model/gltf-binary',
-  woff: 'font/woff', woff2: 'font/woff2', pdf: 'application/pdf',
+  woff: 'font/woff', woff2: 'font/woff2', ttf: 'font/ttf', otf: 'font/otf', pdf: 'application/pdf',
   // Документы «живых» вставок (embed): .htm, чтобы Vite не принимал их за страницы приложения
   htm: 'text/html',
 };
@@ -29,7 +29,7 @@ const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg']);
  * Кроме картинок в assets/ можно положить видео, 3D-модели и документы живых вставок (.htm):
  * их переносит копирование слайда или объекта в другую презентацию
  */
-const MEDIA_EXT = new Set([...IMAGE_EXT, 'mp4', 'webm', 'glb', 'htm']);
+const MEDIA_EXT = new Set([...IMAGE_EXT, 'mp4', 'webm', 'glb', 'htm', 'woff2', 'woff', 'ttf', 'otf']);
 /** CAD и 3D-печать: при вставке превращаются в GLB (plugins/model-convert.ts) */
 const CAD_EXT = new Set(['stl', 'step', 'stp']);
 /** id тега с данными презентации внутри собранного HTML */
@@ -256,7 +256,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     const safe = safeFileName(fileName);
     const ext = path.extname(safe).slice(1);
     const cad = CAD_EXT.has(ext.toLowerCase());
-    if (!MEDIA_EXT.has(ext.toLowerCase()) && !cad) throw new Error('Поддерживаются изображения (PNG, JPG, GIF, WebP, AVIF, SVG), видео (MP4, WebM), 3D-модели (GLB, STL, STEP) и живые вставки (HTM)');
+    if (!MEDIA_EXT.has(ext.toLowerCase()) && !cad) throw new Error('Поддерживаются изображения (PNG, JPG, GIF, WebP, AVIF, SVG), видео (MP4, WebM), 3D-модели (GLB, STL, STEP) и живые вставки (HTM) и шрифты (WOFF2, WOFF, TTF, OTF)');
     let data = await readBody(req);
     if (!data.length) throw new Error('Пустой файл');
     if (cad) {

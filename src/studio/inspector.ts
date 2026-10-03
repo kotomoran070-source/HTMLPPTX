@@ -1,5 +1,6 @@
 import { icon } from '../components/icons';
 import { HEX_RE } from '../engine/accent';
+import { deckFonts, fontStack } from '../engine/fonts';
 import { getAt, setAt, type Path } from '../engine/data';
 import { BACKDROPS } from '../components/backdrop/backdrop';
 import { blockName, keepsRatio } from '../engine/editor/block-edit';
@@ -172,6 +173,24 @@ export class Inspector {
       }
       if (t.closest('[data-a="accent-reset"]')) this.host.editor().setAccent(null);
       if (t.closest('[data-a="accent2-off"]')) this.host.editor().setAccent(null, 'accent2');
+      if (t.closest('[data-a="font-add"]')) {
+        const inp = document.createElement('input');
+        inp.type = 'file';
+        inp.accept = '.woff2,.woff,.ttf,.otf';
+        inp.onchange = () => { const f = inp.files?.[0]; if (f) void this.host.editor().addFontFile(f); };
+        inp.click();
+      }
+      const del = t.closest<HTMLElement>('[data-a="font-del"]');
+      if (del) {
+        const i = Number(del.dataset.i);
+        this.host.editor().commit((d) => {
+          const list = Array.isArray(d.fonts) ? d.fonts : [];
+          const gone = list[i]?.name;
+          list.splice(i, 1);
+          if (!list.length) delete d.fonts;
+          if (gone && d.theme?.font === gone) delete d.theme.font;
+        }, { rebuild: true });
+      }
     });
   }
 
@@ -218,7 +237,7 @@ export class Inspector {
     this.parts = el ? partsOf(el) : [];
     const key = sel
       ? `b:${JSON.stringify(sel.free ?? sel.block)}:${sel.type}:${sig}:${this.parts.map((x) => x.label + x.snippet).join('|')}`
-      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}`;
+      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}:${deckFonts(deck.fonts).map((f) => f.name).join('|')}:${deck.theme?.font ?? ''}`;
     if (key !== this.key) {
       this.key = key;
       // Прокрутка панели сохраняется, когда форма перестраивается (добавили пункт)
@@ -338,7 +357,19 @@ ${formHtml(this.fields, deck, ['slides', i])}
 ${tpl !== 'canvas' && !s.live ? `<section class="st-p-sec"><h3>Раскладка шаблона</h3><p class="st-p-note">Части слайда стоят на своих местах. Разберите слайд, чтобы двигать и масштабировать их по отдельности: вид и анимации сохранятся. Вернуть — Ctrl+Z.</p>${cmdBtn('slide.explode', 'ungroup', 'Разобрать на объекты')}</section>` : ''}
 ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Название</span><input type="text" data-f="title"></label>
 <label class="st-p-field"><span>Акцентный цвет</span><span class="st-p-color"><input type="color" data-f="accent" aria-label="Акцентный цвет"><button type="button" class="st-link" data-a="accent-reset">Стандартный</button></span></label>
-<label class="st-p-field"><span>Градиент акцента — второй цвет</span><span class="st-p-color"><input type="color" data-f="accent2" aria-label="Второй цвет градиента"><button type="button" class="st-link" data-a="accent2-off">Без градиента</button></span></label>`)}`;
+<label class="st-p-field"><span>Градиент акцента — второй цвет</span><span class="st-p-color"><input type="color" data-f="accent2" aria-label="Второй цвет градиента"><button type="button" class="st-link" data-a="accent2-off">Без градиента</button></span></label>
+${this.fontsHtml(deck)}`)}`;
+  }
+
+  /** Шрифт презентации и свои шрифты: выбор, список с «×», «Добавить шрифт…» (или перетащить файл) */
+  private fontsHtml(deck: Deck): string {
+    const own = deckFonts(deck.fonts);
+    const cur = typeof deck.theme?.font === 'string' ? deck.theme.font : '';
+    const opts = [['', 'Системный'], ...own.map((f) => [f.name, f.name])]
+      .map(([v, l]) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}${v ? ` style="font-family:${esc(fontStack(v))}"` : ''}>${esc(l)}</option>`).join('');
+    const list = own.map((f, i) => `<span class="st-font" style="font-family:${esc(fontStack(f.name))}">${esc(f.name)}<button type="button" data-a="font-del" data-i="${i}" title="Убрать шрифт" aria-label="Убрать шрифт ${esc(f.name)}">×</button></span>`).join('');
+    return `<label class="st-p-field"><span>Шрифт презентации</span><select data-f="font" data-sig="${esc(own.map((f) => f.name).join('|'))}">${opts}</select></label>
+<div class="st-fonts">${list}<button type="button" class="st-link" data-a="font-add" title="Файл WOFF2, WOFF, TTF или OTF — можно просто перетащить на страницу">Добавить шрифт…</button></div>`;
   }
 
   /** Раздел «Состав»: вложенные блоки и поля выделенного блока. Клик — выделить или править. */
@@ -564,6 +595,11 @@ ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Наз�
       document.title = `${raw} — Slideria`;
     } else if (f === 'accent' || f === 'accent2') {
       ed.setAccent(raw, f);
+    } else if (f === 'font') {
+      ed.commit((d) => {
+        if (raw) d.theme = { ...(d.theme ?? {}), font: raw };
+        else if (d.theme) delete d.theme.font;
+      }, { rebuild: true });
     }
   }
 }

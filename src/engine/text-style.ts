@@ -1,3 +1,4 @@
+import { fontNameOk, fontStack } from './fonts';
 /**
  * Оформление отдельного текстового поля. Хранится рядом с полем:
  *   title: Итоги
@@ -61,6 +62,8 @@ export function textStyleCss(st: unknown): string {
   if (color) out.push(`color:${color}`, `fill:${color}`);
   if (s.align && ALIGN.has(s.align)) out.push(`text-align:${s.align}`);
   if (s.font && FONTS[s.font]) out.push(`font-family:${FONTS[s.font].css}`);
+  // Свой шрифт презентации (fonts в deck.yaml) — по имени
+  else if (fontNameOk(s.font)) out.push(`font-family:${fontStack(s.font)}`);
   const w = Number(s.width);
   if (Number.isFinite(w) && w >= 40 && w <= 1280) out.push(`max-width:${Math.round(w)}px`);
   const wt = Number(s.weight);

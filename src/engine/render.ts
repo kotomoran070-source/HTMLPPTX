@@ -5,6 +5,7 @@ import {
 } from './component';
 import { asArray, esc } from './html';
 import { applyDeckCss, applyDeckDefs, applyScopedCss } from './deck-css';
+import { applyDeckFonts } from './fonts';
 import { indexPaths, pathOf } from './marks';
 import { controlRange, deriveVars, hasFormula, resolve, type ControlProps } from './formula';
 
@@ -28,6 +29,7 @@ interface PendingMount {
 export class Renderer {
   private mounts = new Map<string, PendingMount>();
   private cssKey: string | null;
+  private fontKey: string | null;
 
   constructor(private deck: Deck, private logo?: string, private varsOverride?: Map<number, Record<string, number>>) {
     // Пути нужны для режима правки: каждый элемент знает, какое значение он показывает
@@ -35,6 +37,8 @@ export class Renderer {
     // Стили презентации (из импортированного HTML) — только внутри её слайдов-холстов
     this.cssKey = applyDeckCss((deck as { css?: unknown }).css);
     applyDeckDefs((deck as { defs?: unknown }).defs);
+    // Свои шрифты презентации и её шрифт по умолчанию
+    this.fontKey = applyDeckFonts(deck.fonts, deck.theme?.font);
     // Вёрстка из других презентаций — со своими стилями, в своём пространстве
     applyScopedCss(deck.scoped);
   }
@@ -59,6 +63,7 @@ export class Renderer {
     const body = slide.body as { type?: unknown; ns?: unknown } | undefined;
     const foreign = !!body && !Array.isArray(body) && body.type === 'html' && typeof body.ns === 'string';
     if (this.cssKey && !foreign) attrs += ` data-css="${this.cssKey}"`;
+    if (this.fontKey) attrs += ` data-fonts="${this.fontKey}"`;
     // Переход к слайду и его длительность
     if (typeof slide.transition === 'string' && TRANSITION_IDS.has(slide.transition)) attrs += ` data-tr="${slide.transition}"`;
     const trMs = Number(slide.transitionMs);

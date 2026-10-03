@@ -908,6 +908,13 @@ export function startStudio(deck: Deck, deckKey: string): void {
   canvas.addEventListener('drop', (e) => {
     if (view.stage.contains(e.target as Node)) return;
     const files = [...(e.dataTransfer?.files ?? [])];
+    // Файл шрифта — свой шрифт презентации
+    const font = files.find((x) => /\.(woff2?|ttf|otf)$/i.test(x.name));
+    if (font) {
+      e.preventDefault();
+      void ed.addFontFile(font);
+      return;
+    }
     // HTML-файл (анимация, интерактив) — живой вставкой на слайд
     const html = files.find((x) => /\.html?$/i.test(x.name) || x.type === 'text/html');
     if (html) {
