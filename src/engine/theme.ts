@@ -41,10 +41,28 @@ export function onThemeChange(cb: (t: Theme) => void): () => void {
   return () => listeners.delete(cb);
 }
 
+/**
+ * Картинки со своим вариантом для тёмной темы (data-src-dark, см. themedSrc в marks.ts):
+ * адрес выбирается при рендере, а при смене темы меняется на месте.
+ */
+export function applyThemeImages(scope: ParentNode = document): void {
+  const dark = currentTheme() === 'dark';
+  scope.querySelectorAll('[data-src-dark]').forEach((el) => {
+    const attr = el instanceof HTMLImageElement ? 'src' : 'href';
+    const v = el.getAttribute(dark ? 'data-src-dark' : 'data-src-light');
+    if (v && el.getAttribute(attr) !== v) el.setAttribute(attr, v);
+  });
+}
+
 export function initTheme(): void {
   const s = stored();
   if (s) root.setAttribute('data-theme', s);
   media.addEventListener('change', () => {
-    if (!root.hasAttribute('data-theme')) listeners.forEach((l) => l(currentTheme()));
+    if (!root.hasAttribute('data-theme')) {
+      applyThemeImages();
+      listeners.forEach((l) => l(currentTheme()));
+    }
   });
+  // Тему меняют и в обход setTheme (экспорт в PowerPoint рисует слайды в светлой)
+  new MutationObserver(() => applyThemeImages()).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
 }

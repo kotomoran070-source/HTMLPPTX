@@ -6,6 +6,8 @@ export interface Deck {
     name?: string;
     /** Путь к логотипу относительно deck.yaml, например ./assets/logo.svg */
     logo?: string;
+    /** Свой логотип для тёмной темы; без него в обеих темах — logo */
+    logoDark?: string;
   };
   theme?: {
     /** Акцентный цвет, например "#2563EB". Оттенки для обеих тем строятся из него */

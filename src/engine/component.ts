@@ -6,6 +6,8 @@ export interface RenderCtx {
   index: number;
   /** URL логотипа из brand.logo (уже с учётом сборки) */
   logo?: string;
+  /** Вариант логотипа для тёмной темы (brand.logoDark) */
+  logoDark?: string;
   /** Рендер вложенного блока или списка блоков */
   block(b: Block | Block[] | undefined): string;
   /** Атрибут data-mount: после вставки в DOM у компонента вызовется mount() */

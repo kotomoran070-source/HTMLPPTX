@@ -126,7 +126,7 @@ export function explodeSlide(host: Host, index: number): boolean {
     }
     const clone = el.cloneNode(true) as HTMLElement;
     const texts: unknown[] = [];
-    const images: ({ src: string } | { brand: true })[] = [];
+    const images: ({ src: string; srcDark?: string } | { brand: true })[] = [];
     // Поля текста → тексты вёрстки; их внутренняя разметка (слова заголовка) уходит
     const origEdits = [el, ...el.querySelectorAll('[data-edit]')].filter((x) => x.hasAttribute('data-edit'));
     const cloneEdits = [clone, ...clone.querySelectorAll('[data-edit]')].filter((x) => x.hasAttribute('data-edit'));
@@ -149,12 +149,14 @@ export function explodeSlide(host: Host, index: number): boolean {
     });
     // Картинки → картинки вёрстки: адрес — полем, а не внутри разметки
     clone.querySelectorAll('img').forEach((img) => {
-      const src = img.getAttribute('src');
+      // Картинка с вариантом для тёмной темы: основной адрес — светлый, тёмный — отдельным полем
+      const src = img.getAttribute('data-src-light') ?? img.getAttribute('src');
+      const srcDark = img.getAttribute('data-src-dark');
       if (!src) return;
-      img.removeAttribute('src');
+      for (const a of ['src', 'data-src-light', 'data-src-dark']) img.removeAttribute(a);
       img.setAttribute('data-i', String(images.length));
       // Логотип презентации остаётся её логотипом: сменят — сменится и здесь
-      images.push(img.getAttribute('data-edit-img') === JSON.stringify(['brand', 'logo']) ? { brand: true } : { src });
+      images.push(img.getAttribute('data-edit-img') === JSON.stringify(['brand', 'logo']) ? { brand: true } : srcDark ? { src, srcDark } : { src });
     });
     // Служебные пометки редактора — не часть вёрстки
     [clone, ...clone.querySelectorAll('*')].forEach((x) => {

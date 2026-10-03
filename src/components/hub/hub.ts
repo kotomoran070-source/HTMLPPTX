@@ -1,6 +1,6 @@
 import { defineBlock } from '../../engine/component';
 import { asArray, esc, styleAttr, t } from '../../engine/html';
-import { ea, eimgPath, tx } from '../../engine/marks';
+import { ea, eimgPath, themedSrc, tx } from '../../engine/marks';
 import type { Block } from '../../types';
 import { linkHighlight } from '../highlight';
 import './hub.css';
@@ -63,7 +63,7 @@ defineBlock<HubProps>('hub', {
         + `</g>`;
     });
     const center = `<rect class="hub-center" x="${CX - 40}" y="${CY - 40}" width="80" height="80" rx="18"/>`
-      + (ctx.logo ? `<image href="${esc(ctx.logo)}" x="${CX - 28}" y="${CY - 28}" width="56" height="56"${eimgPath(['brand', 'logo'])}/>` : '');
+      + (ctx.logo ? `<image${themedSrc(ctx.logo, ctx.logoDark, 'href')} x="${CX - 28}" y="${CY - 28}" width="56" height="56"${eimgPath(['brand', 'logo'])}/>` : '');
     const svg = `<svg class="hb r" viewBox="0 0 ${W} ${H}" role="img" aria-label="Схема">${lines}${center}${nodes}</svg>`;
 
     return `<div class="hub"${styleAttr(p.height && `height:${p.height}px`, p.style)}><div class="hub-list">${list}</div><div>${svg}</div></div>`;

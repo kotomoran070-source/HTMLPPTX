@@ -12,6 +12,7 @@ import type { ChipData } from '../types';
 import { KEY, type Path } from './data';
 import { esc, t } from './html';
 import { textStyleCss } from './text-style';
+import { currentTheme } from './theme';
 
 const paths = new WeakMap<object, Path>();
 
@@ -84,6 +85,22 @@ export function eimg(obj: unknown, key: string, kind: ImgKind = 'photo'): string
 
 export function eimgPath(p: Path, kind: ImgKind = 'logo'): string {
   return attr('data-edit-img', p) + ` data-img-kind="${kind}"`;
+}
+
+/**
+ * Адрес картинки со своим вариантом для тёмной темы (поле с суффиксом Dark: srcDark, imageDark,
+ * brand.logoDark). Без варианта — та же картинка в обеих темах. При смене темы адрес
+ * меняется на месте (applyThemeImages в theme.ts).
+ */
+export function themedSrc(light: string, dark: unknown, a: 'src' | 'href' = 'src'): string {
+  if (typeof dark !== 'string' || !dark) return ` ${a}="${esc(light)}"`;
+  const cur = currentTheme() === 'dark' ? dark : light;
+  return ` ${a}="${esc(cur)}" data-src-light="${esc(light)}" data-src-dark="${esc(dark)}"`;
+}
+
+/** Путь к варианту картинки для тёмной темы: [..., 'src'] → [..., 'srcDark'] */
+export function darkPath(p: Path): Path {
+  return [...p.slice(0, -1), `${String(p[p.length - 1])}Dark`];
 }
 
 /** Ссылка, адрес которой можно поменять. */

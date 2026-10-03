@@ -67,6 +67,7 @@ theme:
 title: Название презентации
 brand:
   logo: ./assets/logo.svg   # на титуле, в углу слайдов, на финальных слайдах и в QR-коде
+  logoDark: ./assets/logo-light.svg  # необязательно: свой логотип для тёмной темы (в QR — всегда logo)
 theme:
   accent: "#2563EB"         # акцентный цвет; без него — стандартный синий
 ```
@@ -301,6 +302,7 @@ items: [...]
 ```yaml
 type: image
 src: ./assets/photo.jpg   # файл рядом с deck.yaml; без src — пустое место под картинку
+srcDark: ./assets/photo-dark.jpg  # необязательно: своя картинка для тёмной темы (у tile — imageDark)
 height: 360               # высота блока, px
 caption: Подпись
 ```

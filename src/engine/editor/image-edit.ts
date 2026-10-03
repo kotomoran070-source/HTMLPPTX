@@ -1,7 +1,7 @@
 import { icon } from '../../components/icons';
 import { getAt, setAt, type Path } from '../data';
 import { W } from '../deck-view';
-import { frameCss, type ImageFrame } from '../marks';
+import { darkPath, frameCss, type ImageFrame } from '../marks';
 
 export interface ImageHost {
   deck(): Record<string, unknown>;
@@ -59,6 +59,11 @@ export class ImageEditor {
   <button type="button" data-i="crop" data-g="crop" title="Кадр: тяните картинку внутри рамки, как «Обрезка» в PowerPoint. Готово — Esc или щелчок мимо">${icon('crop')}<span>Кадр</span></button>
   <span class="edtip" data-g="tip">${icon('move')} тяните картинку, чтобы сдвинуть</span>
   <button type="button" data-i="reset" data-g="framed" title="Сбросить кадр">Сбросить кадр</button>
+  <i class="edsep" data-g="img"></i>
+  <span class="edseg" data-g="img" role="group" aria-label="Тёмная тема">
+    <button type="button" data-i="dark">${icon('moon')}<span>Тёмная тема</span></button>
+    <button type="button" data-i="undark" title="Убрать вариант для тёмной темы: в обеих темах будет основная картинка" aria-label="Убрать вариант для тёмной темы">${icon('close')}</button>
+  </span>
   <i class="edsep"></i>
   <button type="button" data-i="remove" class="danger" title="Убрать картинку (Delete)" aria-label="Убрать картинку">${icon('close')}</button>
 </div>
@@ -149,11 +154,19 @@ export class ImageEditor {
     show('crop', pannable && inFree);
     show('tip', pannable && (!inFree || this.cropping));
     show('framed', framed);
+    show('img', hasImage);
+    const dark = getAt(this.host.deck(), darkPath(s.path));
+    const hasDark = typeof dark === 'string' && dark !== '';
     const q = (k: string) => this.bar.querySelector<HTMLElement>(`[data-i="${k}"]`)!;
     q('replace').querySelector('span')!.textContent = hasImage ? 'Заменить' : 'Вставить';
     q('contain').classList.toggle('on', photo && !cover);
     q('cover').classList.toggle('on', cover);
     q('remove').hidden = !hasImage;
+    q('dark').classList.toggle('on', hasDark);
+    q('dark').title = hasDark
+      ? 'Заменить вариант для тёмной темы'
+      : `Своя ${s.kind === 'logo' ? 'версия логотипа' : 'картинка'} для тёмной темы. Без неё в обеих темах — эта же`;
+    q('undark').hidden = !hasDark;
     q('remove').title = s.kind === 'logo' ? 'Убрать логотип со всех слайдов (Delete)' : 'Убрать картинку (Delete)';
     const zoom = this.bar.querySelector<HTMLInputElement>('[data-i="zoom"]')!;
     zoom.value = String(Math.round((Number(f.zoom) || 1) * 100));
@@ -227,6 +240,12 @@ export class ImageEditor {
       if (!b || !s) return;
       switch (b.dataset.i) {
         case 'replace': this.host.pick(s.path); break;
+        case 'dark': this.host.pick(darkPath(s.path)); break;
+        case 'undark': {
+          const p = darkPath(s.path);
+          if (this.host.commit((d) => setAt(d, p, undefined), { rebuild: true })) this.host.toast('Вариант для тёмной темы убран. Вернуть: Ctrl+Z', 3000);
+          break;
+        }
         case 'crop': this.setCrop(!this.cropping); break;
         case 'contain': this.setFrame({ fit: 'contain' }); break;
         case 'cover': this.setFrame({ fit: 'cover' }); break;
@@ -237,6 +256,7 @@ export class ImageEditor {
           this.clear();
           if (this.host.commit((d) => {
             setAt(d, path, undefined);
+            setAt(d, darkPath(path), undefined);
             // Настройки кадра без картинки не нужны
             if (owner && !logo) for (const k of ['fit', 'position', 'zoom']) setAt(d, [...owner, k], undefined);
           }, { rebuild: true })) {

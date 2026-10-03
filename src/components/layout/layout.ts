@@ -1,6 +1,6 @@
 import { defineBlock } from '../../engine/component';
 import { asArray, esc, styleAttr, t } from '../../engine/html';
-import { ea, eimg, frameCss, type ImageFrame } from '../../engine/marks';
+import { ea, eimg, frameCss, themedSrc, type ImageFrame } from '../../engine/marks';
 import type { Block } from '../../types';
 import { imageLookCss, type ImageLook } from './image-look';
 import './layout.css';
@@ -91,6 +91,8 @@ defineBlock<ListProps>('list', {
 
 interface ImageProps extends Block, ImageFrame, ImageLook {
   src: string;
+  /** Свой вариант для тёмной темы; без него в обеих темах — src */
+  srcDark?: string;
   alt?: string;
   caption?: string;
   /** Высота блока в пикселях слайда */
@@ -102,7 +104,7 @@ defineBlock<ImageProps>('image', {
   render(p) {
     const look = imageLookCss(p);
     const img = p.src
-      ? `<div class="imgbox${look.cls}"${look.box ? ` style="${look.box}"` : ''}${eimg(p, 'src')}><img src="${esc(p.src)}" alt="${esc(p.alt ?? p.caption ?? '')}" style="${frameCss(p)}${look.img ? `;${look.img}` : ''}"></div>`
+      ? `<div class="imgbox${look.cls}"${look.box ? ` style="${look.box}"` : ''}${eimg(p, 'src')}><img${themedSrc(p.src, p.srcDark)} alt="${esc(p.alt ?? p.caption ?? '')}" style="${frameCss(p)}${look.img ? `;${look.img}` : ''}"></div>`
       : `<div class="image-empty"${eimg(p, 'src')}>Перетащите изображение сюда</div>`;
     const cap = p.caption ? `<figcaption class="mu"${ea(p, 'caption')}>${t(p.caption)}</figcaption>` : '';
     const h = Number(p.height);

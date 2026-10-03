@@ -1,6 +1,6 @@
 import { defineBlock } from '../../engine/component';
 import { esc, styleAttr, t } from '../../engine/html';
-import { ea, eimg, frameCss, type ImageFrame } from '../../engine/marks';
+import { ea, eimg, frameCss, themedSrc, type ImageFrame } from '../../engine/marks';
 import type { Block } from '../../types';
 import { imageLookCss, type ImageLook } from '../layout/image-look';
 import './tile.css';
@@ -39,6 +39,8 @@ interface TileProps extends Block, ImageFrame, ImageLook {
   illustration?: string;
   /** Или своя картинка: ./assets/photo.jpg */
   image?: string;
+  /** Свой вариант фото для тёмной темы */
+  imageDark?: string;
   fit?: 'cover' | 'contain';
   caption?: string;
 }
@@ -51,7 +53,7 @@ defineBlock<TileProps>('tile', {
     if (p.image) {
       // Оформление фото — как у картинки (вкладка «Рисунок»): рамка, тень, скругление, цвет
       const look = imageLookCss(p);
-      media = `<div class="imgbox${look.cls}"${look.box ? ` style="${look.box}"` : ''}><img src="${esc(p.image)}" alt="${esc(p.caption ?? '')}" style="${frameCss(p)}${look.img ? `;${look.img}` : ''}"></div>`;
+      media = `<div class="imgbox${look.cls}"${look.box ? ` style="${look.box}"` : ''}><img${themedSrc(p.image, p.imageDark)} alt="${esc(p.caption ?? '')}" style="${frameCss(p)}${look.img ? `;${look.img}` : ''}"></div>`;
     } else if (il) {
       media = `<svg viewBox="${il.viewBox}"${styleAttr(il.maxWidth && `max-width:${il.maxWidth}px`)} aria-hidden="true">${il.svg}</svg>`;
     } else {

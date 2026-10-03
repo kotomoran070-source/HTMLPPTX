@@ -158,6 +158,7 @@ export class Renderer {
       slide,
       index,
       logo: this.logo,
+      logoDark: this.deck.brand?.logoDark,
       block: (b) => asArray(b).map((item) => this.block(item, ctx)).join(''),
       mount: (component, props) => {
         const id = 'm' + ++uidCounter;

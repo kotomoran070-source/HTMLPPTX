@@ -17,7 +17,7 @@ interface CoverSlide extends SlideData {
 defineTemplate<CoverSlide>('cover', {
   className: 'cover',
   render(s, ctx) {
-    const logo = ctx.logo ? `<div class="logo r">${logoImg(ctx.logo)}</div>` : '';
+    const logo = ctx.logo ? `<div class="logo r">${logoImg(ctx.logo, ctx.logoDark)}</div>` : '';
     return `<div class="cover-grid${s.visual ? '' : ' solo'}">`
       + `<div class="cover-text">${logo}`
       + `<h1 class="r"${ea(s, 'title')}>${t(s.title)}</h1>`

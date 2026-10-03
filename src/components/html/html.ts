@@ -3,7 +3,7 @@ import { icon } from '../icons';
 import { defineBlock } from '../../engine/component';
 import { isAlive, withPointerBridge } from '../../engine/frame-bridge';
 import { NS_RE } from '../../engine/deck-css';
-import { onThemeChange } from '../../engine/theme';
+import { currentTheme, onThemeChange } from '../../engine/theme';
 import { esc, t } from '../../engine/html';
 import { fieldStyle, frameCss, pathOf, type ImageFrame } from '../../engine/marks';
 import type { Block } from '../../types';
@@ -23,7 +23,7 @@ interface HtmlProps extends Block {
   texts?: unknown[];
   /** Вставлено из другой презентации: пространство её стилей в deck.scoped */
   ns?: string;
-  images?: (ImageFrame & { src?: string; brand?: boolean })[];
+  images?: (ImageFrame & { src?: string; srcDark?: string; brand?: boolean })[];
   scale?: number;
 }
 
@@ -215,6 +215,13 @@ defineBlock<HtmlProps>('html', {
       const src = item && typeof item === 'object' ? (item.brand ? ctx.logo : item.src) : undefined;
       if (src) img.setAttribute('src', src);
       else img.classList.add('html-empty');
+      // Свой вариант для тёмной темы: логотип — brand.logoDark, картинка — srcDark
+      const dark = item && typeof item === 'object' ? (item.brand ? ctx.logoDark : item.srcDark) : undefined;
+      if (src && dark) {
+        img.setAttribute('data-src-light', src);
+        img.setAttribute('data-src-dark', dark);
+        if (currentTheme() === 'dark') img.setAttribute('src', dark);
+      }
       if (item && typeof item === 'object' && item.brand && !item.src) {
         // Замена такой картинки — замена логотипа презентации, как на исходном слайде
         img.setAttribute('data-edit-img', JSON.stringify(['brand', 'logo']));

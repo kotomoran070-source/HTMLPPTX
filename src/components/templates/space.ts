@@ -34,7 +34,7 @@ defineTemplate<SpaceSlide>('space', {
   render(s, ctx) {
     const orbit = s.layout === 'orbit';
     const logo = ctx.logo
-      ? `<div class="sp-logow r"><div class="sp-halo"></div>${orbit ? '' : '<div class="sp-orbit"><i></i></div>'}<div class="sp-tile">${logoImg(ctx.logo)}</div></div>`
+      ? `<div class="sp-logow r"><div class="sp-halo"></div>${orbit ? '' : '<div class="sp-orbit"><i></i></div>'}<div class="sp-tile">${logoImg(ctx.logo, ctx.logoDark)}</div></div>`
       : '';
     const link = spaceCardHtml(s.link, ctx.logo);
     const bts = asArray(s.buttons).map((b) => button(b, 'sp-gbt')).join('');
