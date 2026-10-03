@@ -99,7 +99,7 @@ async function create(): Promise<void> {
     <label class="imp-name">Название <input spellcheck="false" autocomplete="off" maxlength="120" placeholder="Новая презентация"></label>
     <fieldset class="imp-mode"><legend>Начать</legend>
       <label><input type="radio" name="new-kind" value="empty" checked><span><b>Пустая</b><small>Один титульный слайд с названием.</small></span></label>
-      <label><input type="radio" name="new-kind" value="sample"><span><b>С примерами</b><small>Титульный, карточки, диаграмма и финальный слайд — чтобы заменить своим.</small></span></label>
+      <label><input type="radio" name="new-kind" value="sample"><span><b>С примерами</b><small>Титул, ключевые числа, карточки, процесс, графики, таблица, свободный слайд и финал — чтобы заменить своим.</small></span></label>
     </fieldset>
     <div class="imp-body"></div>
     <div class="imp-actions"><button type="button" class="btn ghost" data-a="cancel">Отмена</button><button type="button" class="btn primary" data-a="ok">Создать</button></div>

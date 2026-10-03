@@ -1,73 +1,229 @@
 # Новая презентация. Справочник компонентов: docs/COMPONENTS.md
-# Логотип: замените assets/logo.svg своим файлом (svg, png или jpg) и поправьте путь ниже.
+# Всё правится в студии: «Редактор» на карточке презентации — тексты на слайде, остальное в «Свойствах».
+# Логотип: замените assets/logo.svg своим файлом (svg, png или jpg) — он на титуле, в углу слайдов,
+# на финальном слайде и в центре QR-кода.
 
 title: "{{title}}"
 lang: ru
 brand:
   name: "{{title}}"
   logo: ./assets/logo.svg
-# Акцентный цвет презентации (без этой строки — стандартный синий):
-# theme:
-#   accent: "#16A34A"
+# Цвета презентации: акцент и второй цвет — градиенты и выделенные {g:duo|слова}.
+# Поменять — «Вид → Оформление» в студии или здесь.
+theme:
+  accent: "#4F46E5"
+  accent2: "#0EA5E9"
 
 slides:
 
   - id: cover
     template: cover
     label: Титульный слайд
+    backdrop: aurora
     title: "{{title}}"
-    lead: "Подзаголовок: о чём эта презентация, одним предложением."
-    meta: "[Месяц год], [команда]"
+    lead: "Подзаголовок: о чём эта презентация — одним предложением."
+    meta: "[Месяц год] · [команда или автор]"
     visual:
       type: network
       nodes: 6
-    notes: Представиться и назвать тему.
+    notes: Представиться и назвать тему. Живой фон в цветах акцента меняется в панели слайда — «Анимация фона».
+
+  - id: summary
+    title: Коротко о {g:duo|главном}
+    badge: пример
+    transition: push
+    body:
+      - type: grid
+        columns: 3
+        items:
+          - type: card
+            body: {type: stat, value: "42 %", label: рост главного показателя, delta: "+8 п. п.", note: за квартал}
+          - type: card
+            body: {type: stat, value: "1,2 млн", label: человек охватили, delta: "+15 %", note: с начала года}
+          - type: card
+            body: {type: stat, value: "3", label: "решения, о которых расскажем", note: дальше — по слайду на каждое}
+      - type: quote
+        text: Одна фраза, ради которой стоит досмотреть эту презентацию до конца.
+        author: Имя Фамилия
+        role: должность
+      - type: chips
+        items: [Главный вывод*, Второй факт, Третий факт]
+    notes: |
+      Три числа, которые зал должен запомнить. Числа и подписи правятся прямо на слайде.
+      Минус в «delta» — красная стрелка вниз; звёздочка в конце чипа — выделение.
 
   - id: points
-    title: Главное
+    title: Три {g:duo|ключевых} мысли
+    transition: push
     body:
-      type: grid
-      columns: 3
-      items:
-        - type: card
-          title: Первый итог
-          text: Короткое пояснение в одну-две строки.
-        - type: card
-          title: Второй итог
-          text: Короткое пояснение в одну-две строки.
-        - type: card
-          title: Третий итог
-          text: Короткое пояснение в одну-две строки.
-    notes: Три итога, по одной фразе на каждый.
+      - type: grid
+        columns: 3
+        items:
+          - type: card
+            title: Проблема
+            text: Что мешает сейчас и кого это касается — в двух строках.
+            body: {type: list, items: [Факт или цифра, Кто от этого страдает, Сколько это стоит]}
+          - type: card
+            title: Решение
+            text: Что предлагаем и чем это лучше привычного способа.
+            body: {type: list, items: [Суть решения, Чем отличается, Что уже проверено]}
+          - type: card
+            title: Результат
+            text: Что изменится, как и когда это измерить.
+            body: {type: list, items: [Главная метрика, Срок, Что нужно для старта]}
+      - type: card
+        title: Итог
+        text: Одной фразой — почему это важно именно сейчас и что вы просите у зала.
+    notes: Одна мысль — одна карточка. Лишнюю карточку удалите (Delete), новую — Ctrl+D.
 
   - id: process
-    title: Как это работает
+    title: Как это {g:duo|работает}
+    transition: push
     body:
       - type: pipeline
         steps:
-          - title: Шаг 1
-            sub: пояснение
-          - title: Шаг 2
-            sub: пояснение
-          - title: Шаг 3
-            sub: пояснение
+          - { title: Идея, sub: формулируем задачу }
+          - { title: Прототип, sub: проверяем быстро }
+          - { title: Пилот, sub: на реальных данных }
+          - { title: Запуск, sub: для всех }
+      - type: timeline
+        items:
+          - { date: Январь, title: Исследование, done: true }
+          - { date: Март, title: Прототип, done: true }
+          - { date: Июнь, title: Пилот }
+          - { date: Сентябрь, title: Запуск }
       - type: grid
-        columns: 1fr 1fr
+        columns: 2
         items:
           - type: card
-            title: Цифры
-            body:
-              type: kv
-              keyWidth: 160
-              rows:
-                Показатель А: "[значение]"
-                Показатель Б: "[значение]"
+            title: Уже сделано
+            body: {type: list, items: [Исследование и интервью, Прототип и первые отзывы, Метрики успеха договорены]}
           - type: card
-            title: Динамика
+            title: Что дальше
+            body: {type: list, items: [Пилот с первыми клиентами, Запуск и обучение команды, Масштабирование]}
+    notes: |
+      Шаги подсвечиваются по очереди; линия хронологии дорисовывается до последнего пройденного этапа (done: true).
+
+  - id: data
+    title: Цифры и {g:duo|динамика}
+    badge: пример данных
+    transition: push
+    body:
+      - type: grid
+        columns: 1.45fr 1fr
+        items:
+          - type: card
+            title: Рост за год
+            body:
+              type: line-chart
+              values: [12, 14, 13, 17, 19, 18, 23, 26, 25, 29, 33, 36]
+              start: январь
+              end: декабрь
+              scale: 1
+              min: 10
+              max: 40
+          - type: card
+            title: По кварталам
             body:
               type: bars
               values: [3, 5, 4, 7]
               labels: [Q1, Q2, Q3, Q4]
+              height: 150
+      - type: grid
+        columns: 3
+        items:
+          - {type: stat, value: "36 тыс", label: пользователей в декабре, delta: "+24 %"}
+          - {type: stat, value: "4,8", label: средняя оценка, note: из 5}
+          - {type: card, title: План года, body: {type: progress, label: Задачи, value: 7 из 10, percent: 70}}
+    notes: |
+      Графики — это данные, а не картинки: числа правятся в «Свойствах»,
+      в PowerPoint уходят настоящими диаграммами, в тёмной теме перекрашиваются сами.
+
+  - id: plan
+    title: План и {g:duo|статус}
+    transition: push
+    body:
+      - type: table
+        variant: stripes
+        header: [Этап, Срок, Ответственный, Статус]
+        rows:
+          - [Исследование, январь, "[имя]", "{#16A34A|● готово}"]
+          - [Прототип, март, "[имя]", "{#16A34A|● готово}"]
+          - [Пилот, июнь, "[имя]", "{#CA8A04|● идёт}"]
+          - [Запуск, сентябрь, "[имя]", "{#64748B|● впереди}"]
+        widths: [2, 1, 1.3, 1]
+        labels: true
+        density: roomy
+      - type: grid
+        columns: 2
+        items:
+          - type: card
+            title: Риски
+            body: {type: list, items: [Главный риск и как его снижаем, Что может сдвинуть сроки]}
+          - type: card
+            title: Что нужно от вас
+            body: {type: list, items: [Решение или согласование, Ресурсы и сроки]}
+    notes: Таблицу из Excel или Google Таблиц можно вставить прямо в ячейку; ширину столбцов — потянуть мышью за границу.
+
+  - id: canvas
+    template: canvas
+    label: Свободный слайд
+    bg: "radial-gradient(ellipse 70% 80% at 30% 55%, color-mix(in srgb, var(--acs) 70%, var(--bg)), var(--bg) 72%)"
+    transition: zoom
+    free:
+      - type: text
+        text: Свободный {g:duo|слайд}
+        styles: {text: {size: 44, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 32, w: 900}
+        enter: rise
+      - type: text
+        text: Здесь всё двигается мышью — картинка, текст и фигуры. Перетащите свою фотографию на картинку, и она заменится.
+        styles: {text: {size: 17, color: text2}}
+        place: {x: 50, y: 92, w: 1100}
+        enter: fade
+        delay: 120
+      - type: image
+        src: ./assets/photo.svg
+        radius: 24
+        shadow: md
+        place: {x: 64, y: 162, w: 560, h: 392}
+        enter: scale
+        delay: 200
+      - type: text
+        text: Один слайд — одна мысль
+        styles: {text: {size: 30, weight: 800, color: text}}
+        place: {x: 680, y: 178, w: 520}
+        enter: rise
+        delay: 320
+      - type: text
+        text: |-
+          - Картинку можно обрезать, повернуть и перекрасить — вкладка «Рисунок»
+          - Текст правится на месте, оформление — на панели над ним
+          - Порядок появления — на вкладке «Анимация»
+        styles: {text: {size: 18, color: text2}}
+        place: {x: 680, y: 236, w: 520}
+        enter: fade
+        delay: 420
+      - type: shape
+        kind: pill
+        fill: gradient
+        gradient: {from: accent, to: accent2, angle: 135}
+        shadow: md
+        text: К контактам  →
+        styles: {text: {size: 18}}
+        action: slide:thanks
+        place: {x: 680, y: 450, w: 240, h: 58}
+        enter: pop
+        delay: 560
+      - type: text
+        text: Кнопка — тоже фигура. Щелчок при показе ведёт на любой слайд или ссылку
+        styles: {text: {size: 14, color: muted}}
+        place: {x: 680, y: 524, w: 520}
+        enter: fade
+        delay: 640
+    notes: |
+      Холст: объекты стоят там, где их поставили. Тяните мышью, за ручки — размер, кружок над рамкой — поворот.
+      Ctrl+D — копия объекта, правый щелчок → «Сохранить как шаблон» — объект в ваших блоках.
 
   - id: thanks
     template: finale
@@ -81,3 +237,7 @@ slides:
       - icon: mail
         label: Почта
         url: mailto:hello@example.com
+      - icon: phone
+        label: Телефон
+        url: tel:+70000000000
+    notes: QR-код строится из ссылки сам — поменяйте адрес, и он обновится.

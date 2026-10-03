@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 560" width="800" height="560">
+  <!-- Иллюстрация-заглушка: перетащите на неё свою фотографию в студии -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1E1B4B"/>
+      <stop offset=".55" stop-color="#4338CA"/>
+      <stop offset="1" stop-color="#38BDF8"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FEF3C7"/>
+      <stop offset=".35" stop-color="#FDE68A" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#FDE68A" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="lake" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0EA5E9" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#1E1B4B"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="560" fill="url(#sky)"/>
+  <g fill="#FFFFFF">
+    <circle cx="92" cy="70" r="1.6" opacity=".8"/><circle cx="210" cy="40" r="1.2" opacity=".6"/><circle cx="330" cy="96" r="1.4" opacity=".7"/>
+    <circle cx="520" cy="54" r="1.2" opacity=".6"/><circle cx="640" cy="88" r="1.6" opacity=".8"/><circle cx="730" cy="36" r="1.1" opacity=".5"/>
+  </g>
+  <circle cx="520" cy="330" r="170" fill="url(#sun)"/>
+  <circle cx="520" cy="330" r="46" fill="#FEF3C7"/>
+  <path d="M0 330 L120 250 L210 300 L330 200 L450 290 L560 230 L680 300 L800 250 L800 380 L0 380 Z" fill="#4338CA" opacity=".75"/>
+  <path d="M0 360 L90 320 L190 350 L290 290 L400 352 L520 310 L640 356 L760 316 L800 330 L800 400 L0 400 Z" fill="#312E81"/>
+  <rect y="392" width="800" height="168" fill="url(#lake)"/>
+  <g fill="#FEF3C7" opacity=".5">
+    <rect x="470" y="410" width="100" height="3" rx="1.5"/><rect x="490" y="428" width="60" height="3" rx="1.5"/><rect x="505" y="446" width="30" height="3" rx="1.5"/>
+  </g>
+  <path d="M0 392 L800 392" stroke="#FFFFFF" stroke-opacity=".25"/>
+</svg>

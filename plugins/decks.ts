@@ -171,10 +171,13 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     const file = deckFile(name);
     let text = fs.readFileSync(file, 'utf8');
     if (!sample) {
-      // Только титульный: без остальных слайдов и без текстов-заглушек
-      const cut = text.indexOf('\n  - id: points');
-      if (cut > 0) text = text.slice(0, cut + 1);
-      text = text.replace(/^ {4}(lead|meta|notes): .*\n/gm, '');
+      // Только титульный: всё со второго слайда отрезается, у титула — без текстов-заглушек
+      // (поле с многострочным значением «notes: |» — вместе с его строками)
+      const starts = [...text.matchAll(/\n {2}- id: /g)].map((m) => m.index!);
+      if (starts.length > 1) text = text.slice(0, starts[1] + 1);
+      text = text.replace(/^ {4}(lead|meta|notes):(?: \|-?\n(?: {6}.*\n|\s*\n)*| .*\n)/gm, '');
+      // Иллюстрация нужна только слайду с примерами
+      fs.rmSync(path.join(dst, 'assets', 'photo.svg'), { force: true });
     }
     // Кавычки и обратная косая черта в названии не ломают YAML
     fs.writeFileSync(file, text.replaceAll('{{title}}', title.replace(/\\/g, '\\\\').replace(/"/g, '\\"')));
