@@ -8,6 +8,7 @@ const COLOR_KEYS = new Set<string>(['filter', 'opacity', 'bright', 'contrast', '
 import { getAt, setAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
+import { frameCss } from '../engine/marks';
 import type { Block, Deck } from '../types';
 import { showMenu, showPopover, type MenuEntry } from './menu';
 
@@ -398,6 +399,71 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const mo = new MutationObserver(() => { if (!pop.isConnected) { mo.disconnect(); restore(); } });
     mo.observe(document.body, { childList: true });
   };
+  /**
+   * Тень, скругление, прозрачность — как «Цвет»: превью на самом снимке, наведение примеряет
+   * на слайде, щелчок — применить; ползунок — своё значение (на слайде сразу, в данные — когда отпустили).
+   */
+  const lookGallery = (cmd: string, key: string, options: [unknown, string][], def: unknown,
+    slider?: { label: string; min: number; max: number; unit: string; get: (v: unknown) => number; set: (n: number) => unknown }) => {
+    const paths = targets('image');
+    const snap = () => paths.flatMap((p) => [...h.stage().querySelectorAll<HTMLElement>(`.slide.on [data-block='${JSON.stringify(p)}'] .imgbox`)].map((bx) => ({ bx, p })))
+      .map(({ bx, p }) => ({ bx, p, img: bx.querySelector('img'), cls: bx.className, style: bx.getAttribute('style'), imgStyle: bx.querySelector('img')?.getAttribute('style') ?? null }));
+    let saved = snap();
+    const fresh = () => { if (saved[0] && !saved[0].bx.isConnected) saved = snap(); };
+    const src = saved[0]?.img?.currentSrc ?? '';
+    const b0 = first('image');
+    const cur = b0?.[key];
+    let picked = false;
+    const put = (el: Element | null, v: string | null) => { if (el) { if (v === null) el.removeAttribute('style'); else el.setAttribute('style', v); } };
+    const restore = () => { if (picked) return; fresh(); saved.forEach((x) => { x.bx.className = x.cls; put(x.bx, x.style); put(x.img, x.imgStyle); }); };
+    const tryOn = (v: unknown) => {
+      restore();
+      for (const { bx, p, img } of saved) {
+        const b = { ...(getAt(deck, p) as Block), [key]: v } as Parameters<typeof imageLookCss>[0] & Parameters<typeof frameCss>[0];
+        const look = imageLookCss(b);
+        bx.className = `${bx.className.replace(/\s*\bimg-(fx|tint)\b/g, '')}${look.cls}`;
+        put(bx, look.box || null);
+        if (img) put(img, `${frameCss(b)}${look.img ? `;${look.img}` : ''}`);
+      }
+    };
+    // Превью: та же рамка в масштабе плитки (скругление пропорционально размеру снимка)
+    const k = saved[0] ? 88 / Math.max(1, saved[0].bx.offsetWidth) : 0.25;
+    const tile = (v: unknown, label: string, i: number) => {
+      const b = { ...(b0 ?? {}), [key]: v } as Block;
+      const r = typeof b.radius === 'number' ? Math.round(b.radius * k) : b.radius;
+      const look = imageLookCss({ ...b, radius: r as number | 'circle' | undefined, mat: b.mat ? Math.max(2, Math.round(Number(b.mat) * k)) : undefined });
+      const on = (cur ?? def) === (v ?? def);
+      return `<button type="button" class="st-flt${on ? ' on' : ''}" data-lk="${i}" title="${esc(label)}"><i class="st-lk-box${look.cls}" style="${esc(look.box)}">`
+        + (src ? `<img alt="" src="${esc(src)}"${look.img ? ` style="${esc(look.img)}"` : ''}>` : '') + `</i><span>${esc(label)}</span></button>`;
+    };
+    const num = slider ? slider.get(cur) : 0;
+    const range = slider ? `<div class="st-adj"><label><span>${esc(slider.label)}</span><input type="range" min="${slider.min}" max="${slider.max}" step="1" value="${num}" data-lkr="1" aria-label="${esc(slider.label)}"><output>${num}${slider.unit}</output></label></div>` : '';
+    const pop = showPopover(anchor(cmd), `<div class="st-flt-pop"><div class="st-flt-grid">${options.map(([v, l], i) => tile(v, l, i)).join('')}</div>${range}<p class="st-flt-note">Наведите — примерка на слайде, щелчок — применить</p></div>`, (b) => {
+      const i = b.dataset.lk;
+      if (i === undefined) return null;
+      const v = options[Number(i)][0];
+      return { run: () => { restore(); picked = true; setAll('image', key, v === def ? undefined : v); } };
+    }, 'st-fltpop st-lkpop');
+    pop.addEventListener('pointerover', (e) => { const b = (e.target as Element).closest<HTMLElement>('[data-lk]'); if (b) tryOn(options[Number(b.dataset.lk)][0]); });
+    pop.addEventListener('pointerout', (e) => { if ((e.target as Element).closest('[data-lk]') && !(e.relatedTarget as Element | null)?.closest?.('[data-lk]')) restore(); });
+    pop.addEventListener('pointerleave', restore);
+    pop.addEventListener('focusin', (e) => { const b = (e.target as Element).closest<HTMLElement>('[data-lk]'); if (b) tryOn(options[Number(b.dataset.lk)][0]); });
+    pop.addEventListener('input', (e) => {
+      const r = e.target as HTMLInputElement;
+      if (!slider || !r.dataset.lkr) return;
+      r.nextElementSibling!.textContent = `${r.value}${slider.unit}`;
+      tryOn(slider.set(Number(r.value)));
+    });
+    pop.addEventListener('change', (e) => {
+      const r = e.target as HTMLInputElement;
+      if (!slider || !r.dataset.lkr) return;
+      const v = slider.set(Number(r.value));
+      ed.commit((d) => paths.forEach((p) => setAt(d, [...p, key], v === def ? undefined : v)), { rebuild: true, merge: `img-${key}` });
+      saved = snap();
+    });
+    const mo = new MutationObserver(() => { if (!pop.isConnected) { mo.disconnect(); restore(); } });
+    mo.observe(document.body, { childList: true });
+  };
   const isImage = () => targets('image').length > 0 && targets('image').every((p) => { const b = getAt(deck, p) as Block; return !!(b.src ?? b.image); });
 
   // ---------- фигура: текст ----------
@@ -560,10 +626,18 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     },
     'image.stroke': { run: () => palette('image.stroke', 'stroke', 'image'), enabled: isImage },
     'image.mat': { run: () => choice('image.mat', 'mat', [[undefined, 'Без паспарту'], [6, 'Узкое — 6 px'], [12, 'Среднее — 12 px'], [20, 'Широкое — 20 px'], [32, 'Очень широкое — 32 px']], undefined, 'image'), enabled: isImage },
-    'image.shadow': { run: () => choice('image.shadow', 'shadow', [[undefined, 'Без тени'], ...Object.entries(IMAGE_SHADOWS).map(([v, s]) => [v, s.name] as [string, string])], undefined, 'image'), enabled: isImage },
-    'image.radius': { run: () => choice('image.radius', 'radius', [[0, 'Острые углы'], [6, 'Малое — 6 px'], [undefined, 'Обычное — 12 px'], [24, 'Большое — 24 px'], [48, 'Очень большое — 48 px'], ['circle', 'Круг или овал']], undefined, 'image'), enabled: isImage },
+    'image.shadow': { run: () => lookGallery('image.shadow', 'shadow', [[undefined, 'Без тени'], ...Object.entries(IMAGE_SHADOWS).map(([v, s]) => [v, s.name] as [string, string])], undefined), enabled: isImage },
+    'image.radius': {
+      run: () => lookGallery('image.radius', 'radius', [[0, 'Острые'], [6, 'Малое'], [undefined, 'Обычное'], [24, 'Большое'], [48, 'Очень большое'], ['circle', 'Круг или овал']], undefined,
+        { label: 'Своё, px', min: 0, max: 120, unit: ' px', get: (v) => (typeof v === 'number' ? v : v === 'circle' ? 120 : 12), set: (n) => n }),
+      enabled: isImage,
+    },
     'image.filter': { run: () => filterGallery(), enabled: isImage },
-    'image.opacity': { run: () => choice('image.opacity', 'opacity', [[undefined, 'Непрозрачная'], [0.8, '80 %'], [0.6, '60 %'], [0.4, '40 %'], [0.2, '20 %']], undefined, 'image'), enabled: isImage },
+    'image.opacity': {
+      run: () => lookGallery('image.opacity', 'opacity', [[undefined, '100 %'], [0.8, '80 %'], [0.6, '60 %'], [0.4, '40 %'], [0.2, '20 %']], undefined,
+        { label: 'Своя', min: 10, max: 100, unit: ' %', get: (v) => Math.round((Number(v) || 1) * 100), set: (n) => (n >= 100 ? undefined : n / 100) }),
+      enabled: isImage,
+    },
     'image.reset': {
       run: () => { const paths = targets('image'); ed.commit((d) => paths.forEach((p) => { const b = getAt(d, p) as Block; IMAGE_LOOK_KEYS.forEach((k) => delete b[k]); }), { rebuild: true }); },
       enabled: () => isImage() && targets('image').some((p) => IMAGE_LOOK_KEYS.some((k) => (getAt(deck, p) as Block)[k] !== undefined)),
