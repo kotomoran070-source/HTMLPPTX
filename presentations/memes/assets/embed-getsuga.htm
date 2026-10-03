@@ -1,0 +1,681 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Getsuga Tenshou</title>
+<!--
+  Удар в стиле аниме: накопление, вспышка, волна-полумесяц, разрез кадра и тишина после.
+  Всё рисуется здесь же (canvas 2D), звук синтезируется (Web Audio) — без файлов и интернета.
+  Запускается при открытии слайда, щелчок — ещё раз (со звуком: без щелчка браузер звук не даёт).
+-->
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #040306; cursor: pointer; user-select: none; }
+  #cam { position: absolute; inset: 0; transform-origin: 32% 58%; will-change: transform; }
+  #cv, .fx { position: absolute; left: -44px; top: -44px; width: calc(100% + 88px); height: calc(100% + 88px); pointer-events: none; }
+  #vig { background: radial-gradient(ellipse 75% 78% at 50% 52%, transparent 52%, rgba(0, 0, 0, .82) 100%); }
+  #grain { opacity: .06; }
+  .call { position: absolute; pointer-events: none; white-space: nowrap; font-style: italic; font-weight: 900; color: #fff;
+    font-family: "Arial Black", "Segoe UI Black", Impact, "Helvetica Neue", system-ui, sans-serif; }
+  #c1 { left: 5.5%; top: 15%; font-size: min(7vw, 88px); letter-spacing: .05em; -webkit-text-stroke: 2px #000; paint-order: stroke fill;
+    text-shadow: 0 0 14px rgba(255, 30, 60, .9), 0 0 44px rgba(255, 0, 40, .55); }
+  #c1 span { display: inline-block; opacity: 0; transform: translateY(35%) skewX(-12deg) scale(1.5); filter: blur(8px);
+    transition: opacity .16s, transform .3s cubic-bezier(.2, 1.6, .4, 1), filter .22s; }
+  #c1 span.on { opacity: 1; transform: skewX(-12deg); filter: none; }
+  #c2 { left: 50%; top: 52%; font-size: min(14.5vw, 186px); letter-spacing: .01em; opacity: 0; transform: translate(-50%, -50%);
+    -webkit-text-stroke: 7px #000; paint-order: stroke fill;
+    text-shadow: 7px 7px 0 #b0001c, 13px 13px 0 #000, 0 0 70px rgba(255, 20, 50, .85); }
+  #kj { position: absolute; right: 3.2%; top: 13%; writing-mode: vertical-rl; pointer-events: none; opacity: 0;
+    font: 900 min(8.5vw, 104px)/1 "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif JP", "MS Mincho", serif; letter-spacing: .08em;
+    color: #ff2a4a; text-shadow: 0 0 22px rgba(255, 20, 50, .8), 0 0 60px rgba(255, 0, 40, .45); }
+  .bar { position: absolute; left: 0; right: 0; height: 10.5%; background: #000; transform: scaleY(0); pointer-events: none; }
+  #bt { top: 0; transform-origin: top; }
+  #bb { bottom: 0; transform-origin: bottom; }
+  #hint { position: absolute; right: 16px; bottom: 12px; font: 600 13px system-ui, sans-serif; color: #fff; opacity: 0; transition: opacity .6s; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="cam">
+  <canvas id="cv"></canvas>
+  <div class="fx" id="vig"></div>
+  <div class="fx" id="grain"></div>
+  <div class="call" id="c1"></div>
+  <div class="call" id="c2">TENSHOU!!</div>
+  <div id="kj">月牙天衝</div>
+</div>
+<div class="bar" id="bt"></div>
+<div class="bar" id="bb"></div>
+<div id="hint">щелчок — ещё раз</div>
+<script>
+(function () {
+  'use strict';
+  /* ---- Настройки ---- */
+  var SOUND = true;            // звук удара по щелчку
+  var AUTOPLAY_DELAY = 600;    // мс от открытия слайда до начала
+
+  /* ---- Хронометраж, мс ---- */
+  var T_REL = 1350;            // удар (конец накопления)
+  var W0 = 1480, W1 = 2750;    // полёт волны
+  var T_CUT = 2600;            // разрез кадра
+  var T_SET = 3600;            // тишина после
+
+  var cam = document.getElementById('cam');
+  var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  var buf = document.createElement('canvas'), bctx = buf.getContext('2d');
+  var c1 = document.getElementById('c1'), c2 = document.getElementById('c2'), kj = document.getElementById('kj');
+  var barT = document.getElementById('bt'), barB = document.getElementById('bb'), hint = document.getElementById('hint');
+  var vig = document.getElementById('vig'), grainEl = document.getElementById('grain');
+  var bg = document.createElement('canvas'), bgx = bg.getContext('2d');
+  var HAS_FILTER = typeof ctx.filter === 'string';
+  var PAD = 44, DPR = 1, VW = 0, VH = 0, W = 0, H = 0;
+
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+  function gauss() { return (Math.random() + Math.random() + Math.random() - 1.5) / 1.5; }
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+  function lerp(a, b, k) { return a + (b - a) * k; }
+  function eIn(k) { return k * k * k; }
+  function eOut(k) { return 1 - Math.pow(1 - k, 3); }
+  function eBack(k) { var c = 2.4; k -= 1; return 1 + (c + 1) * k * k * k + c * k * k; }
+  function rot(v, a) { var c = Math.cos(a), s = Math.sin(a); return { x: v.x * c - v.y * s, y: v.x * s + v.y * c }; }
+
+  c1.innerHTML = 'GETSUGA…'.split('').map(function (ch) { return '<span>' + ch + '</span>'; }).join('');
+  var spans = c1.querySelectorAll('span');
+
+  /* ---- Сцена ---- */
+  var O, E, ANG, U, N, GY, trench = [], cracks = [], stars = [], clouds = [], lines = [], ridge = [], grain = null;
+  function layout() {
+    O = { x: VW * 0.2, y: VH * 0.6 };
+    E = { x: VW * 1.42, y: VH * 0.22 };
+    ANG = Math.atan2(E.y - O.y, E.x - O.x);
+    U = { x: Math.cos(ANG), y: Math.sin(ANG) };
+    N = { x: U.y, y: -U.x };
+    GY = VH * 0.74;
+    trench = [];
+    var x0 = VW * 0.14, y0 = VH * 0.9, x1 = VW + PAD, y1 = VH * 0.8;
+    for (var x = x0; x <= x1; x += 11) {
+      var k = (x - x0) / (x1 - x0);
+      trench.push({ x: x, y: lerp(y0, y1, k) + rnd(-3.5, 3.5), w: lerp(1.25, 0.55, k), rev: -1 });
+    }
+    cracks = [];
+    for (var i = 0; i < 20; i++) {
+      var at = Math.floor(rnd(2, trench.length - 2)), p = trench[at], pts = [{ x: p.x, y: p.y }];
+      var a = (Math.random() < 0.5 ? -1 : 1) * Math.PI / 2 + rnd(-0.9, 0.9), len = rnd(16, 52) * p.w;
+      for (var s = 0; s < 3; s++) {
+        a += rnd(-0.6, 0.6);
+        var q = pts[pts.length - 1];
+        pts.push({ x: q.x + Math.cos(a) * len / 3, y: q.y + Math.sin(a) * len / 3 * 0.45 });
+      }
+      cracks.push({ at: at, pts: pts });
+    }
+    stars = [];
+    for (var j = 0; j < 150; j++) stars.push({ x: rnd(-PAD, VW + PAD), y: rnd(-PAD, VH * 0.62), r: rnd(0.6, 1.7), a: rnd(0.25, 0.85), ph: rnd(0, 6) });
+    clouds = [];
+    for (var c = 0; c < 8; c++) clouds.push({ x: rnd(0, VW), y: rnd(VH * 0.06, VH * 0.5), rx: rnd(VW * 0.12, VW * 0.3), ry: rnd(VH * 0.014, VH * 0.04), v: rnd(5, 16), a: rnd(0.05, 0.13) });
+    lines = [];
+    for (var l = 0; l < 120; l++) lines.push({ a: (l / 120) * Math.PI * 2 + rnd(-0.02, 0.02), w: rnd(0.003, 0.011), r: rnd(0, 0.35) });
+    ridge = [];
+    for (var rx = -PAD; rx <= VW + PAD + 30; rx += rnd(18, 46)) ridge.push({ x: rx, y: GY - rnd(4, 30) - (Math.random() < 0.12 ? rnd(20, 50) : 0) });
+    // Плёночное зерно: одна плитка шума
+    grain = document.createElement('canvas'); grain.width = grain.height = 160;
+    var gx = grain.getContext('2d'), img = gx.createImageData(160, 160);
+    for (var g = 0; g < img.data.length; g += 4) { var v = Math.random() * 255; img.data[g] = img.data[g + 1] = img.data[g + 2] = v; img.data[g + 3] = 255; }
+    gx.putImageData(img, 0, 0);
+    grainEl.style.backgroundImage = 'url(' + grain.toDataURL() + ')';
+  }
+  function resize() {
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    VW = innerWidth; VH = innerHeight; W = VW + PAD * 2; H = VH + PAD * 2;
+    cv.width = buf.width = bg.width = Math.round(W * DPR);
+    cv.height = buf.height = bg.height = Math.round(H * DPR);
+    layout();
+    paintBg();
+  }
+  addEventListener('resize', resize);
+
+  /* Мягкие пятна для чёрного пламени: кайма (красная) и сердцевина (чёрная) */
+  function sprite(rgb, core) {
+    var c = document.createElement('canvas'); c.width = c.height = 64;
+    var x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+    g.addColorStop(0, 'rgba(' + rgb + ',1)'); g.addColorStop(core, 'rgba(' + rgb + ',0.85)'); g.addColorStop(1, 'rgba(' + rgb + ',0)');
+    x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+    return c;
+  }
+  var SPR_RED = sprite('255,29,68', 0.25), SPR_BLACK = sprite('5,0,6', 0.5);
+
+  /* Полумесяц: выпуклой стороной вперёд (+x), острия на углах ±A */
+  function crescent(R, A, d, c) {
+    c = c || ctx;
+    var tx = R * Math.cos(A), ty = R * Math.sin(A), r2 = Math.hypot(tx + d, ty), a2 = Math.atan2(ty, tx + d);
+    c.beginPath();
+    c.arc(0, 0, R, -A, A, false);
+    c.arc(-d, 0, r2, a2, -a2, true);
+    c.closePath();
+  }
+  function crescentBack(R, A, d) { return -d + Math.hypot(R * Math.cos(A) + d, R * Math.sin(A)); }
+
+  /* ---- Частицы ---- */
+  var flames, motes, sparks, flakes, debris, embers, smoke;
+  function reset() {
+    flames = []; motes = []; sparks = []; flakes = []; debris = []; embers = []; smoke = [];
+    trench.forEach(function (p) { p.rev = -1; });
+    for (var i = 0; i < spans.length; i++) spans[i].classList.remove('on');
+    // Камни, которые поднимаются от земли при накоплении
+    for (var k = 0; k < 14; k++) {
+      var x = O.x + gauss() * VW * 0.16, y = lerp(GY + 6, VH * 0.97, Math.random());
+      debris.push(rock(x, y, { float: true, y0: y, h: rnd(40, 170), ph: rnd(0, 6), s: rnd(7, 19) }));
+    }
+  }
+  function rock(x, y, o) {
+    var pts = [], n = 5 + Math.floor(Math.random() * 3);
+    for (var i = 0; i < n; i++) pts.push(rnd(0.6, 1.15));
+    var r = { x: x, y: y, vx: rnd(-80, 260), vy: -rnd(220, 560), r: rnd(0, 6), vr: rnd(-8, 8), s: rnd(4, 13), pts: pts, life: 0, max: rnd(1.6, 2.6) };
+    if (o) for (var k in o) r[k] = o[k];
+    return r;
+  }
+  function puff(x, y, big) {
+    return { x: x + gauss() * 10, y: y, vx: rnd(-8, 26), vy: -rnd(14, 40), r: rnd(26, 60) * big, gr: rnd(22, 50), life: 0, max: rnd(2.6, 4.6), a: rnd(0.12, 0.22) };
+  }
+  function emit(rate, dt, fn) {
+    var n = rate * dt, c = Math.floor(n) + (Math.random() < n % 1 ? 1 : 0);
+    for (var i = 0; i < c; i++) fn();
+  }
+  function heat(age) { return age < 0 ? 0 : 0.2 + 0.8 * Math.exp(-age / 1500); }
+
+  /* Волна в момент t */
+  function ws(t) {
+    // Сначала набирает размер у героя, потом разгоняется и уходит за край
+    var p = clamp((t - W0) / (W1 - W0), 0, 1), q = Math.pow(p, 1.3), b = eOut(clamp(p / 0.12, 0, 1));
+    var R = lerp(VH * 0.3, VH * 0.62, eOut(p)) * lerp(0.45, 1, b);
+    return { p: p, x: lerp(O.x + 20, E.x, q), y: lerp(O.y, E.y, q), R: R, A: 1.2, d: R * 0.62, ang: ANG + Math.sin(t * 0.018) * 0.025 };
+  }
+  function toWorld(w, v) { var r = rot(v, w.ang); return { x: w.x + r.x, y: w.y + r.y }; }
+
+  function update(t, dt) {
+    var cp = clamp(t / T_REL, 0, 1);
+    if (t >= 0 && t < T_REL + 120) {
+      if (t < T_REL) {
+        emit(70 + 340 * cp, dt, function () {
+          var sp = 18 + 50 * cp;
+          flames.push({ x: O.x + gauss() * sp, y: O.y + gauss() * 16 + 14, vx: gauss() * 30, vy: -rnd(420, 1150) * (0.45 + cp), life: 0, max: rnd(0.5, 1.25), s: rnd(11, 27) * (0.6 + cp * 0.9), ph: rnd(0, 6) });
+        });
+        // Искры, бегущие вверх по столбу
+        emit(30 + 160 * cp, dt, function () {
+          sparks.push({ x: O.x + gauss() * (20 + 40 * cp), y: O.y + rnd(-40, 20), vx: gauss() * 30, vy: -rnd(700, 1400), life: 0, max: rnd(0.3, 0.6), hot: Math.random() < 0.4 });
+        });
+        emit(60 + 280 * cp, dt, function () {
+          motes.push({ a: rnd(0, Math.PI * 2), r: rnd(VH * 0.35, VH * 1.0), v: rnd(220, 540), spin: rnd(-1.6, 1.6), hot: Math.random() < 0.3, life: 0, max: 3 });
+        });
+      }
+    }
+    if (t >= W0 && t < W1 + 60) {
+      var w = ws(t);
+      emit(540, dt, function () {
+        var th = rnd(-w.A * 0.92, w.A * 0.92), p = toWorld(w, { x: w.R * Math.cos(th), y: w.R * Math.sin(th) });
+        var nr = rot({ x: Math.cos(th), y: Math.sin(th) }, w.ang), sp = rnd(120, 540), fw = rnd(250, 820);
+        sparks.push({ x: p.x, y: p.y, vx: U.x * fw + nr.x * sp, vy: U.y * fw + nr.y * sp, life: 0, max: rnd(0.18, 0.5), hot: Math.random() < 0.35 });
+      });
+      emit(170, dt, function () {
+        var sg = Math.random() < 0.5 ? -1 : 1;
+        var p = toWorld(w, { x: w.R * Math.cos(w.A) - rnd(0, 30), y: sg * w.R * Math.sin(w.A) * rnd(0.8, 1) });
+        flakes.push({ x: p.x, y: p.y, vx: -U.x * rnd(40, 220) + gauss() * 130, vy: -U.y * rnd(40, 220) + gauss() * 130, r: rnd(0, 6), vr: rnd(-9, 9), s: rnd(3, 9), life: 0, max: rnd(0.6, 1.3) });
+      });
+      // Разлом земли под волной
+      var front = w.x + w.R * 0.35;
+      for (var i = 0; i < trench.length; i++) {
+        var tp = trench[i];
+        if (tp.rev < 0 && tp.x <= front) {
+          tp.rev = t;
+          if (Math.random() < 0.3) debris.push(rock(tp.x, tp.y));
+          if (Math.random() < 0.14) smoke.push(puff(tp.x, tp.y - 6, 1));
+          for (var k = 0; k < 2; k++) sparks.push({ x: tp.x, y: tp.y, vx: rnd(-60, 200), vy: -rnd(150, 520), life: 0, max: rnd(0.3, 0.7), hot: true });
+        }
+      }
+    }
+    // Тлеющий разлом
+    for (var e = 0; e < trench.length; e++) {
+      var p2 = trench[e];
+      if (p2.rev < 0) continue;
+      emit(0.12 + 2.4 * (heat(t - p2.rev) - 0.2), dt, function () {
+        embers.push({ x: p2.x + gauss() * 4, y: p2.y, vx: gauss() * 18, vy: -rnd(25, 70), life: 0, max: rnd(1.2, 2.8), s: rnd(0.9, 2.3), ph: rnd(0, 6) });
+      });
+    }
+    // Физика
+    var f;
+    for (f of flames) { f.life += dt; f.x += f.vx * dt + Math.sin(f.life * 14 + f.ph) * (22 + 90 * f.life) * dt; f.vx += gauss() * 260 * f.life * dt; f.y += f.vy * dt; f.vy *= 1 - 0.6 * dt; }
+    for (f of motes) { f.life += dt; f.r -= f.v * dt * (1 + cp * 1.6); f.a += f.spin * dt; if (f.r < 10) f.life = f.max; }
+    for (f of sparks) { f.life += dt; f.x += f.vx * dt; f.y += f.vy * dt; f.vx *= 1 - 2.2 * dt; f.vy = f.vy * (1 - 2.2 * dt) + 380 * dt; }
+    for (f of flakes) { f.life += dt; f.x += f.vx * dt; f.y += f.vy * dt; f.vx *= 1 - 1.5 * dt; f.vy = f.vy * (1 - 1.5 * dt) + 60 * dt; f.r += f.vr * dt; }
+    for (f of debris) {
+      if (f.float) {
+        if (t < T_REL) {
+          f.x += Math.sin(t * 0.05 + f.ph) * 0.25 * cp;
+          f.y = f.y0 - eIn(cp) * f.h + Math.sin(t * 0.004 + f.ph) * 3;
+          f.r += dt * 0.6;
+          continue;
+        }
+        // Удар разбрасывает камни от центра
+        var dx = f.x - O.x, dy = f.y - O.y, dl = Math.hypot(dx, dy) || 1;
+        f.float = false; f.vx = dx / dl * rnd(300, 800); f.vy = -rnd(150, 450); f.vr = rnd(-10, 10); f.life = 0; f.max = 2.5;
+      }
+      f.life += dt; f.vy += 1300 * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.r += f.vr * dt;
+      if (f.y > VH + 80) f.life = f.max;
+    }
+    for (f of embers) { f.life += dt; f.x += f.vx * dt + Math.sin(f.life * 3 + f.ph) * 12 * dt; f.y += f.vy * dt; }
+    for (f of smoke) { f.life += dt; f.x += f.vx * dt; f.y += f.vy * dt; f.r += f.gr * dt; }
+    var alive = function (p) { return p.life < p.max; };
+    flames = flames.filter(alive); motes = motes.filter(alive); sparks = sparks.filter(alive); flakes = flakes.filter(alive);
+    debris = debris.filter(function (p) { return p.float || p.life < p.max; }); embers = embers.filter(alive); smoke = smoke.filter(alive);
+  }
+
+  /* ---- Отрисовка ---- */
+  /* Неподвижный фон (небо, луна, скалы, земля) рисуется один раз — в кэш */
+  function paintBg() {
+    var c = bgx;
+    c.setTransform(DPR, 0, 0, DPR, 0, 0); c.translate(PAD, PAD);
+    var g = c.createLinearGradient(0, -PAD, 0, GY);
+    g.addColorStop(0, '#050409'); g.addColorStop(0.6, '#0c0710'); g.addColorStop(1, '#17080b');
+    c.fillStyle = g; c.fillRect(-PAD, -PAD, W, GY + PAD + 1);
+    var mx = VW * 0.82, my = VH * 0.2, mr = VH * 0.072;
+    var mg = c.createRadialGradient(mx, my, mr * 0.4, mx, my, mr * 4.5);
+    mg.addColorStop(0, 'rgba(255,232,222,0.17)'); mg.addColorStop(1, 'rgba(255,232,222,0)');
+    c.fillStyle = mg; c.fillRect(mx - mr * 5, my - mr * 5, mr * 10, mr * 10);
+    c.save(); c.translate(mx, my); c.rotate(-2.5); crescent(mr, 2.5, mr * 0.6, c); c.fillStyle = '#f2ece2'; c.fill(); c.restore();
+    c.beginPath(); c.moveTo(-PAD, GY + 1);
+    for (var r of ridge) c.lineTo(r.x, r.y);
+    c.lineTo(VW + PAD, GY + 1); c.closePath(); c.fillStyle = '#070509'; c.fill();
+    var gg = c.createLinearGradient(0, GY, 0, VH + PAD);
+    gg.addColorStop(0, '#0e0a0d'); gg.addColorStop(1, '#030203');
+    c.fillStyle = gg; c.fillRect(-PAD, GY, W, VH + PAD - GY);
+    c.strokeStyle = 'rgba(255,255,255,0.035)'; c.lineWidth = 1; c.beginPath();
+    for (var i = -12; i <= 12; i++) { c.moveTo(VW * 0.5 + i * 10, GY); c.lineTo(VW * 0.5 + i * VW * 0.2, VH + PAD); }
+    c.stroke();
+    // Облако — одно мягкое пятно, дальше только растягивается
+    cloudSpr = document.createElement('canvas'); cloudSpr.width = 256; cloudSpr.height = 256;
+    var cx = cloudSpr.getContext('2d'), cg = cx.createRadialGradient(128, 128, 0, 128, 128, 128);
+    cg.addColorStop(0, 'rgba(78,56,80,1)'); cg.addColorStop(1, 'rgba(78,56,80,0)');
+    cx.fillStyle = cg; cx.fillRect(0, 0, 256, 256);
+  }
+  var cloudSpr = null;
+  function sky(now, e) {
+    ctx.drawImage(bg, -PAD, -PAD, W, H);
+    ctx.fillStyle = '#fff';
+    for (var s of stars) { ctx.globalAlpha = s.a * (0.6 + 0.4 * Math.sin(now * 0.002 + s.ph)) * (1 - e * 0.5); ctx.fillRect(s.x, s.y, s.r, s.r); }
+    for (var c of clouds) {
+      var span = VW + c.rx * 2 + PAD * 2, x = ((c.x + now * 0.001 * c.v) % span) - c.rx - PAD;
+      ctx.globalAlpha = c.a; ctx.drawImage(cloudSpr, x - c.rx, c.y - c.ry, c.rx * 2, c.ry * 2);
+    }
+    ctx.globalAlpha = 1;
+    if (e > 0.01) {
+      ctx.globalCompositeOperation = 'lighter';
+      var hg = ctx.createRadialGradient(O.x, GY, 0, O.x, GY, VH * 1.15);
+      hg.addColorStop(0, 'rgba(255,24,54,' + 0.3 * e + ')'); hg.addColorStop(1, 'rgba(255,24,54,0)');
+      ctx.fillStyle = hg; ctx.fillRect(O.x - VH * 1.15, GY - VH * 1.15, VH * 2.3, VH * 2.3);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+  }
+  function ground(e) {
+    ctx.fillStyle = 'rgba(255,90,110,' + (0.07 + 0.25 * e) + ')'; ctx.fillRect(-PAD, GY, W, 1.2);
+    if (e > 0.01) {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(O.x, lerp(GY, VH, 0.45)); ctx.scale(1, 0.28);
+      var pg = ctx.createRadialGradient(0, 0, 0, 0, 0, VW * 0.4);
+      pg.addColorStop(0, 'rgba(255,30,60,' + 0.35 * e + ')'); pg.addColorStop(1, 'rgba(255,30,60,0)');
+      ctx.fillStyle = pg; ctx.beginPath(); ctx.arc(0, 0, VW * 0.4, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    }
+  }
+  function trenchDraw(t) {
+    if (!trench.length || trench[0].rev < 0) return;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (var pass = 0; pass < 3; pass++) {
+      ctx.globalCompositeOperation = pass === 0 ? 'source-over' : 'lighter';
+      for (var i = 0; i < trench.length - 1; i++) {
+        var a = trench[i], b = trench[i + 1];
+        if (b.rev < 0) break;
+        var h = heat(t - a.rev), wh = Math.exp(-(t - a.rev) / 170), pulse = 0.85 + 0.15 * Math.sin(t * 0.004 + i);
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+        if (pass === 0) { ctx.strokeStyle = '#020102'; ctx.lineWidth = 9 * a.w; }
+        else if (pass === 1) { ctx.strokeStyle = 'rgba(255,30,60,' + 0.4 * h * pulse + ')'; ctx.lineWidth = 14 * a.w; }
+        else { ctx.strokeStyle = 'rgba(255,' + Math.round(lerp(70, 245, wh)) + ',' + Math.round(lerp(80, 235, wh)) + ',' + Math.min(1, 0.25 + h) + ')'; ctx.lineWidth = 2.6 * a.w; }
+        ctx.stroke();
+      }
+    }
+    // Трещины
+    for (var c of cracks) {
+      var p = trench[c.at];
+      if (p.rev < 0) continue;
+      var hh = heat(t - p.rev);
+      ctx.beginPath(); ctx.moveTo(c.pts[0].x, c.pts[0].y);
+      for (var k = 1; k < c.pts.length; k++) ctx.lineTo(c.pts[k].x, c.pts[k].y);
+      ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = '#030203'; ctx.lineWidth = 3; ctx.stroke();
+      ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = 'rgba(255,50,70,' + 0.55 * hh + ')'; ctx.lineWidth = 1.3; ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  function aura(t, cp) {
+    var k = t < 0 ? 0 : t < T_REL ? eIn(cp) : Math.max(0, 1 - (t - T_REL) / 500);
+    if (k > 0.005) {
+      ctx.globalCompositeOperation = 'lighter';
+      var bw = 26 + 100 * k, bg = ctx.createLinearGradient(O.x - bw, 0, O.x + bw, 0);
+      bg.addColorStop(0, 'rgba(255,20,50,0)'); bg.addColorStop(0.5, 'rgba(255,34,64,' + 0.24 * k + ')'); bg.addColorStop(1, 'rgba(255,20,50,0)');
+      ctx.fillStyle = bg; ctx.fillRect(O.x - bw, -PAD, bw * 2, O.y + PAD + 30);
+      var gr = ctx.createRadialGradient(O.x, O.y, 0, O.x, O.y, VH * (0.16 + 0.36 * k));
+      gr.addColorStop(0, 'rgba(255,64,84,' + 0.6 * k + ')'); gr.addColorStop(1, 'rgba(255,0,40,0)');
+      ctx.fillStyle = gr; ctx.fillRect(O.x - VH, O.y - VH, VH * 2, VH * 2);
+    }
+    // Чёрное пламя с красной каймой: мягкие пятна сливаются в дымный огонь.
+    // Сначала каймы (свет), потом сердцевины; пятно растёт, пока поднимается
+    ctx.globalCompositeOperation = 'lighter';
+    for (var f of flames) {
+      var q = f.life / f.max, s = f.s * (q < 0.15 ? q / 0.15 : 1) * (0.7 + q * 1.1) * 2.6;
+      ctx.globalAlpha = 0.42 * (1 - q); ctx.drawImage(SPR_RED, f.x - s, f.y - s * 1.15, s * 2, s * 2.3);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    for (var g of flames) {
+      var q2 = g.life / g.max, s2 = g.s * (q2 < 0.15 ? q2 / 0.15 : 1) * (0.7 + q2 * 1.1) * 1.7;
+      ctx.globalAlpha = 0.85 * (1 - q2 * q2); ctx.drawImage(SPR_BLACK, g.x - s2, g.y - s2 * 1.15, s2 * 2, s2 * 2.3);
+    }
+    ctx.globalAlpha = 1;
+  }
+  function motesDraw() {
+    ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+    for (var m of motes) {
+      var x = O.x + Math.cos(m.a) * m.r, y = O.y + Math.sin(m.a) * m.r * 0.8;
+      var x2 = O.x + Math.cos(m.a - m.spin * 0.05) * (m.r + m.v * 0.06), y2 = O.y + Math.sin(m.a - m.spin * 0.05) * (m.r + m.v * 0.06) * 0.8;
+      ctx.strokeStyle = m.hot ? 'rgba(255,235,240,0.8)' : 'rgba(255,50,80,0.75)'; ctx.lineWidth = m.hot ? 1.4 : 2;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  function speedLines(t) {
+    var a = 0, rin = 0;
+    if (t >= 900 && t < T_REL) { var k = (t - 900) / (T_REL - 900); a = 0.24 * k; rin = lerp(VH * 1.1, VH * 0.26, eOut(k)); }
+    else if (t >= T_REL && t < T_REL + 420) { var k2 = (t - T_REL) / 420; a = 0.5 * (1 - k2); rin = lerp(VH * 0.1, VH * 0.6, k2); }
+    if (a <= 0) return;
+    var far = (W + H) * 1.2;
+    ctx.fillStyle = 'rgba(255,245,245,' + a + ')';
+    ctx.beginPath();
+    for (var l of lines) {
+      var ri = rin * (1 + l.r);
+      ctx.moveTo(O.x + Math.cos(l.a) * ri, O.y + Math.sin(l.a) * ri);
+      ctx.lineTo(O.x + Math.cos(l.a - l.w) * far, O.y + Math.sin(l.a - l.w) * far);
+      ctx.lineTo(O.x + Math.cos(l.a + l.w) * far, O.y + Math.sin(l.a + l.w) * far);
+      ctx.closePath();
+    }
+    ctx.fill();
+  }
+  function swing(t) {
+    var t0 = T_REL - 90;
+    if (t < t0 || t > T_REL + 320) return;
+    var head = clamp((t - t0) / 170, 0, 1), fade = t > T_REL + 90 ? clamp(1 - (t - T_REL - 90) / 230, 0, 1) : 1;
+    var R = VH * 0.36, cx = O.x - U.x * R * 0.55, cy = O.y - U.y * R * 0.55;
+    var a0 = ANG - 1.9, a1 = ANG + 1.5, ah = lerp(a0, a1, eOut(head)), tail = 1.7, steps = 28;
+    ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+    for (var i = 0; i < steps; i++) {
+      var s0 = ah - tail * (i + 1) / steps, s1 = ah - tail * i / steps;
+      if (s1 <= a0) break;
+      var wv = 1 - i / steps;
+      ctx.beginPath(); ctx.arc(cx, cy, R, Math.max(a0, s0), s1);
+      ctx.strokeStyle = 'rgba(255,40,70,' + 0.5 * wv * fade + ')'; ctx.lineWidth = 36 * wv; ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,246,246,' + 0.95 * wv * fade + ')'; ctx.lineWidth = 9 * wv; ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  function shock(t) {
+    var k = (t - T_REL) / 560;
+    if (k < 0 || k > 1) return;
+    var r = 40 + (t - T_REL) * 1.5, a = Math.pow(1 - k, 2);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.beginPath(); ctx.arc(O.x, O.y, r, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,235,240,' + 0.7 * a + ')'; ctx.lineWidth = 26 * (1 - k) + 2; ctx.stroke();
+    ctx.save(); ctx.translate(O.x, lerp(GY, VH, 0.4)); ctx.scale(1, 0.16);
+    ctx.beginPath(); ctx.arc(0, 0, r * 1.5, 0, Math.PI * 2); ctx.restore();
+    ctx.strokeStyle = 'rgba(255,120,140,' + 0.45 * a + ')'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  function wave(t) {
+    var w = ws(t), R = w.R, A = w.A, d = w.d;
+    ctx.save(); ctx.translate(w.x, w.y); ctx.rotate(w.ang);
+    // Шлейф
+    ctx.globalCompositeOperation = 'lighter';
+    for (var k = 6; k >= 1; k--) {
+      ctx.save(); ctx.translate(-k * R * 0.11, 0); ctx.scale(1 - k * 0.025, 1 - k * 0.02);
+      crescent(R, A, d); ctx.restore();
+      ctx.fillStyle = 'rgba(255,25,55,' + 0.14 * (1 - k / 7) + ')'; ctx.fill();
+    }
+    // Свечение
+    if (HAS_FILTER) {
+      ctx.filter = 'blur(' + Math.max(4, Math.round(R * 0.09)) + 'px)';
+      ctx.save(); ctx.scale(1.1, 1.1); crescent(R, A, d); ctx.restore();
+      ctx.fillStyle = 'rgba(255,31,74,1)'; ctx.fill(); ctx.fill(); ctx.filter = 'none';
+    } else {
+      for (var b = 1; b <= 3; b++) { ctx.save(); ctx.scale(1 + b * 0.06, 1 + b * 0.06); crescent(R, A, d); ctx.restore(); ctx.fillStyle = 'rgba(255,30,60,0.16)'; ctx.fill(); }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    // Красная кайма
+    crescent(R, A, d);
+    var rg = ctx.createLinearGradient(-d, 0, R, 0); rg.addColorStop(0, '#8a0018'); rg.addColorStop(1, '#ff3a58');
+    ctx.fillStyle = rg; ctx.fill();
+    // Чёрная сердцевина: тот же полумесяц, сжатый к середине толщины
+    var mid = (R + crescentBack(R, A, d)) / 2;
+    ctx.save(); ctx.translate(mid, 0); ctx.scale(0.7, 0.9); ctx.translate(-mid, 0); crescent(R, A, d); ctx.restore();
+    ctx.fillStyle = '#070008'; ctx.fill();
+    // Течение энергии внутри
+    ctx.save(); ctx.clip();
+    ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.setLineDash([R * 0.18, R * 0.12]);
+    for (var i = 0; i < 6; i++) {
+      ctx.lineDashOffset = -t * (0.5 + i * 0.12);
+      ctx.beginPath(); ctx.arc(-d * 0.35, 0, lerp(R * 0.74, R * 0.96, i / 5), -A, A);
+      ctx.strokeStyle = 'rgba(255,35,70,' + (0.2 + i * 0.03) + ')'; ctx.lineWidth = 2 + i * 0.5; ctx.stroke();
+    }
+    ctx.setLineDash([]); ctx.restore();
+    // Раскалённая кромка
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.beginPath(); ctx.arc(0, 0, R, -A * 0.9, A * 0.9);
+    ctx.strokeStyle = 'rgba(255,60,90,0.55)'; ctx.lineWidth = R * 0.05; ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,242,242,0.95)'; ctx.lineWidth = Math.max(2, R * 0.012); ctx.stroke();
+    ctx.restore();
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  function partsDraw(t) {
+    ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+    for (var s of sparks) {
+      var a = 1 - s.life / s.max;
+      ctx.strokeStyle = s.hot ? 'rgba(255,236,236,' + a + ')' : 'rgba(255,60,90,' + a + ')'; ctx.lineWidth = s.hot ? 1.4 : 2;
+      ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - s.vx * 0.028, s.y - s.vy * 0.028); ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    for (var f of flakes) {
+      var fa = 1 - f.life / f.max;
+      ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.r); ctx.globalAlpha = fa;
+      ctx.fillStyle = '#0a000a'; ctx.fillRect(-f.s, -f.s * 0.4, f.s * 2, f.s * 0.8);
+      ctx.strokeStyle = 'rgba(255,40,70,0.7)'; ctx.lineWidth = 0.8; ctx.strokeRect(-f.s, -f.s * 0.4, f.s * 2, f.s * 0.8);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+    var glow = t < 0 ? 0 : t < T_REL ? eIn(clamp(t / T_REL, 0, 1)) : Math.exp(-(t - T_REL) / 1200);
+    for (var r of debris) {
+      ctx.save(); ctx.translate(r.x, r.y); ctx.rotate(r.r); ctx.beginPath();
+      for (var i = 0; i < r.pts.length; i++) {
+        var an = i / r.pts.length * Math.PI * 2, rr = r.s * r.pts[i];
+        if (i) ctx.lineTo(Math.cos(an) * rr, Math.sin(an) * rr); else ctx.moveTo(Math.cos(an) * rr, Math.sin(an) * rr);
+      }
+      ctx.closePath(); ctx.fillStyle = '#1a1316'; ctx.fill();
+      ctx.strokeStyle = 'rgba(255,70,95,' + (0.3 + 0.65 * glow) + ')'; ctx.lineWidth = 1.6; ctx.stroke();
+      ctx.restore();
+    }
+    for (var m of smoke) {
+      var ma = m.a * Math.sin(Math.PI * Math.min(1, m.life / m.max));
+      var sg = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.r);
+      sg.addColorStop(0, 'rgba(84,70,84,' + ma + ')'); sg.addColorStop(1, 'rgba(84,70,84,0)');
+      ctx.fillStyle = sg; ctx.fillRect(m.x - m.r, m.y - m.r, m.r * 2, m.r * 2);
+    }
+    ctx.globalCompositeOperation = 'lighter';
+    for (var e of embers) {
+      var ea = Math.sin(Math.PI * Math.min(1, e.life / e.max)) * (0.6 + 0.4 * Math.sin(e.life * 9 + e.ph));
+      ctx.fillStyle = 'rgba(255,' + Math.round(110 + 60 * Math.sin(e.ph)) + ',90,' + ea + ')';
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.s, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  function half(side, off) {
+    var L = 5000, ax = O.x - U.x * L, ay = O.y - U.y * L, bx = O.x + U.x * L, by = O.y + U.y * L;
+    ctx.save(); ctx.beginPath();
+    ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.lineTo(bx + N.x * L * side, by + N.y * L * side); ctx.lineTo(ax + N.x * L * side, ay + N.y * L * side);
+    ctx.closePath(); ctx.clip();
+    ctx.drawImage(buf, -PAD + N.x * off * side, -PAD + N.y * off * side, W, H);
+    ctx.restore();
+  }
+  function cut(t) {
+    var k = (t - T_CUT) / 1100;
+    if (k < 0 || k > 1) return;
+    var off = 17 * Math.exp(-(t - T_CUT) / 210) * Math.min(1, (t - T_CUT) / 40);
+    if (off > 0.4) {
+      // Кадр раскалывается по линии удара: верх уходит в одну сторону, низ — в другую
+      bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, buf.width, buf.height); bctx.drawImage(cv, 0, 0);
+      ctx.fillStyle = '#fff3f5'; ctx.fillRect(-PAD, -PAD, W, H);
+      half(1, off); half(-1, off * 0.45);
+    }
+    var a = Math.pow(1 - k, 2);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.beginPath(); ctx.moveTo(O.x - U.x * 5000, O.y - U.y * 5000); ctx.lineTo(O.x + U.x * 5000, O.y + U.y * 5000);
+    ctx.strokeStyle = 'rgba(255,40,70,' + 0.5 * a + ')'; ctx.lineWidth = 22 * a + 2; ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,250,250,' + a + ')'; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  function flashes(t) {
+    var a = 0;
+    if (t >= T_REL && t < T_REL + 70) a = 1 - (t - T_REL) / 120;
+    if (t >= T_CUT && t < T_CUT + 90) a = Math.max(a, 0.55 * (1 - (t - T_CUT) / 90));
+    if (a > 0) { ctx.fillStyle = 'rgba(255,255,255,' + a + ')'; ctx.fillRect(-PAD, -PAD, W, H); }
+    if (t >= T_REL + 150 && t < T_REL + 230) {
+      ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = '#ff2a44'; ctx.fillRect(-PAD, -PAD, W, H);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+  }
+  function draw(t, now) {
+    var cp = clamp(t / T_REL, 0, 1);
+    var e = !ran ? 0 : t < 0 ? 0 : t < T_REL ? eIn(cp) * 0.85 : Math.max(0.1, Math.exp(-(t - T_REL) / 900) * 1.2);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.translate(PAD, PAD);
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.filter = 'none';
+    sky(now, e);
+    ground(e);
+    trenchDraw(t);
+    aura(t, cp);
+    motesDraw();
+    speedLines(t);
+    swing(t);
+    shock(t);
+    if (t >= W0 && t < W1 + 40) wave(t);
+    partsDraw(t);
+    // Виньетка и зерно плёнки — слои поверх холста (их сводит видеокарта)
+    vig.style.opacity = String(0.85 + 0.15 * (t >= 0 && t < T_REL ? eIn(cp) : 0));
+    grainEl.style.backgroundPosition = Math.round(Math.random() * 160) + 'px ' + Math.round(Math.random() * 160) + 'px';
+    cut(t);
+    flashes(t);
+  }
+
+  /* ---- Надписи, камера, кадр ---- */
+  function dom(t) {
+    var cp = clamp(t / T_REL, 0, 1);
+    for (var i = 0; i < spans.length; i++) spans[i].classList.toggle('on', ran && t >= 180 + i * 95);
+    if (!ran || t < T_REL) c2.style.opacity = '0';
+    else {
+      // Врезается в центр, потом уходит под «GETSUGA…» и открывает экран для волны
+      var k = clamp((t - T_REL) / 380, 0, 1), s = lerp(3.4, 1, eBack(k)), wob = Math.exp(-(t - T_REL) / 500) * Math.sin(t * 0.06) * 3;
+      var m = eOut(clamp((t - T_REL - 300) / 380, 0, 1));
+      c2.style.opacity = String(clamp((t - T_REL) / 60, 0, 1));
+      c2.style.left = lerp(50, 36, m).toFixed(2) + '%';
+      c2.style.top = lerp(52, 39, m).toFixed(2) + '%';
+      c2.style.transform = 'translate(-50%,-50%) rotate(' + (-7 + wob).toFixed(2) + 'deg) skewX(-10deg) scale(' + (s * lerp(1, 0.58, m)).toFixed(3) + ')';
+    }
+    kj.style.opacity = ran ? String(clamp((t - T_SET) / 900, 0, 1) * 0.62) : '0';
+    hint.style.opacity = ran && t > T_SET + 1200 ? '0.55' : '0';
+    var bk = !ran || t < 0 ? 0 : t < T_SET ? eOut(clamp(t / 450, 0, 1)) : 1 - eOut(clamp((t - T_SET) / 700, 0, 1));
+    barT.style.transform = barB.style.transform = 'scaleY(' + bk.toFixed(3) + ')';
+    var amp = 0, z = 1;
+    if (ran && t >= 0) {
+      if (t < T_REL) { amp = 0.3 + 3.4 * eIn(cp); z = 1 + 0.045 * eIn(cp); }
+      else { amp = 26 * Math.exp(-(t - T_REL) / 230); z = 1 + 0.09 * Math.exp(-(t - T_REL) / 420); }
+      if (t >= W0 && t < W1) amp += 2.5;
+      if (t >= T_CUT) amp += 14 * Math.exp(-(t - T_CUT) / 170);
+    }
+    if (amp > 0.05 || z > 1.0005) {
+      var dx = amp * (Math.sin(t * 0.093) * 0.55 + (Math.random() - 0.5) * 0.9), dy = amp * (Math.cos(t * 0.071) * 0.55 + (Math.random() - 0.5) * 0.9);
+      cam.style.transform = 'translate(' + dx.toFixed(2) + 'px,' + dy.toFixed(2) + 'px) rotate(' + ((Math.random() - 0.5) * amp * 0.04).toFixed(3) + 'deg) scale(' + z.toFixed(4) + ')';
+    } else cam.style.transform = '';
+    // Кадр-негатив сразу после вспышки
+    cam.style.filter = ran && t >= T_REL + 70 && t < T_REL + 150 ? 'invert(1) grayscale(1) contrast(2.2)' : '';
+  }
+
+  /* ---- Звук: гул накопления, взмах, удар, звон разреза ---- */
+  var AC = null, NOISE = null;
+  function noise(ac, dst, at, dur, type, f0, f1, q, peak, attack) {
+    var s = ac.createBufferSource(); s.buffer = NOISE; s.loop = true;
+    var f = ac.createBiquadFilter(); f.type = type; f.Q.value = q;
+    f.frequency.setValueAtTime(f0, at); f.frequency.exponentialRampToValueAtTime(f1, at + dur);
+    var g = ac.createGain(); g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(peak, at + attack); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    s.connect(f); f.connect(g); g.connect(dst); s.start(at); s.stop(at + dur + 0.05);
+  }
+  function tone(ac, dst, at, dur, type, f0, f1, peak, attack) {
+    var o = ac.createOscillator(); o.type = type;
+    o.frequency.setValueAtTime(f0, at); o.frequency.exponentialRampToValueAtTime(f1, at + dur);
+    var g = ac.createGain(); g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(peak, at + attack); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    o.connect(g); g.connect(dst); o.start(at); o.stop(at + dur + 0.05);
+  }
+  function sfx() {
+    if (!SOUND) return;
+    try {
+      AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+      if (AC.state === 'suspended') AC.resume();
+      var ac = AC, t0 = ac.currentTime + 0.03, R = T_REL / 1000, C = T_CUT / 1000;
+      if (!NOISE) {
+        NOISE = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+        var d = NOISE.getChannelData(0);
+        for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      var comp = ac.createDynamicsCompressor(); comp.connect(ac.destination);
+      var out = ac.createGain(); out.gain.value = 0.55; out.connect(comp);
+      noise(ac, out, t0, R, 'lowpass', 90, 280, 0.7, 0.5, R * 0.95);          // гул
+      tone(ac, out, t0, R + 0.04, 'sine', 36, 74, 0.35, R * 0.9);            // низ
+      noise(ac, out, t0 + R - 0.08, 0.55, 'bandpass', 500, 3200, 1.1, 0.5, 0.06); // взмах
+      tone(ac, out, t0 + R, 1.3, 'sine', 95, 28, 1.0, 0.005);                // удар
+      noise(ac, out, t0 + R, 0.9, 'lowpass', 1400, 120, 0.6, 0.8, 0.004);
+      tone(ac, out, t0 + C, 0.7, 'triangle', 2400, 2280, 0.08, 0.003);       // звон разреза
+      tone(ac, out, t0 + C, 0.5, 'sine', 3700, 3600, 0.05, 0.003);
+      noise(ac, out, t0 + C, 0.3, 'highpass', 4000, 6500, 0.7, 0.18, 0.002);
+      tone(ac, out, t0 + C, 0.9, 'sine', 70, 35, 0.6, 0.004);
+    } catch (e) { /* без звука */ }
+  }
+
+  /* ---- Ход ---- */
+  resize();
+  var start = performance.now() + AUTOPLAY_DELAY, last = performance.now(), ran = false;
+  reset();
+  function play(withSound) {
+    start = performance.now(); ran = true; reset();
+    if (withSound) sfx();
+  }
+  // Стоп-кадр на моменте ms (для заставки): slideriaSeek(1900)
+  var frozen = null;
+  window.slideriaSeek = function (ms) {
+    ran = true; reset();
+    for (var x = 0; x <= ms; x += 16) update(x, 0.016);
+    frozen = ms;
+  };
+  addEventListener('pointerdown', function (e) { frozen = null; play(e.isTrusted); });
+  function frame(now) {
+    var dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (frozen !== null) { draw(frozen, now); dom(frozen); requestAnimationFrame(frame); return; }
+    if (!ran && now >= start) { ran = true; reset(); }
+    var t = ran ? now - start : -1;
+    update(t, dt);
+    draw(t, now);
+    dom(t);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -315,6 +315,28 @@ slides:
     notes: |
       Манга-панель — живая вставка embed-anime.htm (canvas и CSS). Реплики — в начале её кода, их легко поменять.
 
+  - id: getsuga
+    template: canvas
+    label: Getsuga Tenshou
+    bg: "#040306"
+    transition: zoom
+    free:
+      - type: embed
+        src: ./assets/embed-getsuga.htm
+        poster: ./assets/embed-getsuga.webp
+        interactive: true
+        dark: true
+        place: {x: 0, y: 0, w: 1280, h: 720}
+      - type: text
+        text: "Ответ на «а можно ещё одну маленькую правку?» в пятницу в 18:59"
+        styles: {text: {size: 22, weight: 700, color: "#F8FAFC", align: center}}
+        place: {x: 140, y: 662, w: 1000}
+        enter: fade
+        delay: 4300
+    notes: |
+      Живая вставка embed-getsuga.htm: накопление, вспышка, волна-полумесяц, разрез кадра. Всё нарисовано кодом,
+      звук синтезируется. Запускается при открытии слайда; щелчок по сцене — ещё раз, уже со звуком.
+
   - id: doom
     template: canvas
     label: DOOM на слайде
