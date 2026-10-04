@@ -18,6 +18,8 @@
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, .06);
   --shadow-md: 0 8px 24px rgba(15, 23, 42, .10);
   --logo-bg: #FDFEFF;
+  /* плашка под логотипом для тёмной темы (brand.logoDark): в светлой теме — та же белая */
+  --logo-bg-dk: var(--logo-bg);
   --font: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   /* Запасной шрифт для своих шрифтов презентации (--font внутри слайдов может быть своим) */
   --font-base: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
@@ -43,6 +45,7 @@
     --acs: #172554;
     --acb: #2563EB;
     --hl-sub: #DBEAFE;
+    --logo-bg-dk: var(--alt);
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
     --shadow-md: 0 8px 24px rgba(0, 0, 0, .35);
     color-scheme: dark;
@@ -63,6 +66,7 @@
   --acs: #172554;
   --acb: #2563EB;
   --hl-sub: #DBEAFE;
+  --logo-bg-dk: var(--alt);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
   --shadow-md: 0 8px 24px rgba(0, 0, 0, .35);
   color-scheme: dark;

@@ -4,7 +4,7 @@ import { ea, eurl } from '../../engine/marks';
 import type { SlideData } from '../../types';
 import { icon } from '../icons';
 import { qrSvg } from '../qr';
-import { logoImg } from './content';
+import { logoCls, logoImg } from './content';
 import './finale.css';
 
 export interface FinaleLink {
@@ -67,7 +67,7 @@ defineTemplate<FinaleSlide>('finale', {
   className: 'fin',
   render(s, ctx) {
     const rings = [0, 1.5, 3, 4.5].map((d) => `<circle cx="640" cy="200" r="54" style="--d:${d}s"/>`).join('');
-    const logo = ctx.logo ? `<div class="logo fin-logo">${logoImg(ctx.logo, ctx.logoDark)}</div>` : '';
+    const logo = ctx.logo ? `<div class="logo fin-logo${logoCls(ctx.logoDark)}">${logoImg(ctx.logo, ctx.logoDark)}</div>` : '';
     const plate = plateHtml(s, ctx.logo);
     return `<svg class="rg" viewBox="0 0 1280 720" aria-hidden="true">${rings}</svg><div class="beam"></div>`
       + (s.caption ? `<div class="cap"${ea(s, 'caption')}>${t(s.caption)}</div>` : '')

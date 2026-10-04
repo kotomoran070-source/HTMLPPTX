@@ -13,8 +13,16 @@ export function logoImg(url: string, dark?: string): string {
   return `<img${themedSrc(url, dark)} alt=""${eimgPath(['brand', 'logo'])}>`;
 }
 
+/**
+ * Класс плашки логотипа: есть свой вариант для тёмной темы — в тёмной теме плашка тёмная
+ * (белая нужна, чтобы любой логотип читался; вариант для тёмной темы рисуют под тёмный фон)
+ */
+export function logoCls(dark?: string): string {
+  return dark ? ' has-dark' : '';
+}
+
 export function cornerLogo(url: string | undefined, dark?: string): string {
-  return url ? `<div class="logo corner-logo">${logoImg(url, dark)}</div>` : '';
+  return url ? `<div class="logo corner-logo${logoCls(dark)}">${logoImg(url, dark)}</div>` : '';
 }
 
 /** Обычный слайд: заголовок, необязательный чип и тело из блоков. */

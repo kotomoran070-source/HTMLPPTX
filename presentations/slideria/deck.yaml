@@ -6,6 +6,7 @@ lang: ru
 brand:
   name: Slideria
   logo: ./assets/logo.svg
+  logoDark: ./assets/logo-dark.svg
 theme:
   accent: "#6366F1"
   accent2: "#EC4899"
@@ -332,9 +333,11 @@ slides:
     title: Данные, которые {g:duo|двигаются}
     badge: демо-данные
     transition: push
+    gap: 40
     body:
       - type: grid
-        columns: 1.45fr 1fr
+        columns: 1.75fr 1fr
+        align: stretch
         items:
           - type: card
             title: Зрители показов
@@ -350,13 +353,14 @@ slides:
               type: bars
               values: [42, 58, 51, 86]
               labels: [Q1, Q2, Q3, Q4]
-              height: 150
+              height: 230
       - type: grid
-        columns: 3
+        columns: 1fr 1fr 1.3fr
+        align: stretch
         items:
-          - {type: stat, value: "99,9 %", label: показов без сбоев, delta: "+0,4 %"}
-          - {type: stat, value: "2,4 с", label: сборка в один файл, delta: "−0,8 с"}
-          - {type: card, title: Доступность, body: {type: uptime, threshold: 99.5, values: [99.9, 99.8, 100, 99.7, 99.95, 98.9, 99.9, 100, 99.85, 99.9, 99.6, 100, 99.9, 99.95]}}
+          - {type: card, body: {type: stat, value: "99,9 %", label: показов без сбоев, delta: "+0,4 %"}}
+          - {type: card, body: {type: stat, value: "2,4 с", label: сборка в один файл, delta: "−0,8 с"}}
+          - {type: card, title: Доступность, text: "14 дней · порог 99,5 %", body: {type: uptime, threshold: 99.5, values: [99.9, 99.8, 100, 99.7, 99.95, 98.9, 99.9, 100, 99.85, 99.9, 99.6, 100, 99.9, 99.95]}}
     notes: |
       Демо-данные, чтобы показать живую графику: линия прорисовывается, столбцы вырастают по очереди,
       выделенный столбец — градиентом акцента.
@@ -364,9 +368,11 @@ slides:
   - id: compare
     title: Презентация как {g:duo|данные}
     transition: fade
+    gap: 56
     body:
       - type: table
         variant: accent
+        density: roomy
         header: [Возможность, Slideria, Обычный PPTX]
         widths: [2.2, 1, 1.2]
         align: [left, center, center]

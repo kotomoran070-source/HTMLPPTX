@@ -2,7 +2,7 @@ import { defineTemplate } from '../../engine/component';
 import { t } from '../../engine/html';
 import { ea } from '../../engine/marks';
 import type { Block, SlideData } from '../../types';
-import { logoImg } from './content';
+import { logoCls, logoImg } from './content';
 import './cover.css';
 
 interface CoverSlide extends SlideData {
@@ -17,7 +17,7 @@ interface CoverSlide extends SlideData {
 defineTemplate<CoverSlide>('cover', {
   className: 'cover',
   render(s, ctx) {
-    const logo = ctx.logo ? `<div class="logo r">${logoImg(ctx.logo, ctx.logoDark)}</div>` : '';
+    const logo = ctx.logo ? `<div class="logo r${logoCls(ctx.logoDark)}">${logoImg(ctx.logo, ctx.logoDark)}</div>` : '';
     return `<div class="cover-grid${s.visual ? '' : ' solo'}">`
       + `<div class="cover-text">${logo}`
       + `<h1 class="r"${ea(s, 'title')}>${t(s.title)}</h1>`

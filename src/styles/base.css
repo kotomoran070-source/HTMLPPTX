@@ -117,6 +117,8 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
   box-shadow: 0 2px 8px color-mix(in srgb, var(--ac) 14%, transparent);
 }
 .logo img { width: 70%; height: 70%; display: block; }
+/* Свой логотип для тёмной темы (brand.logoDark): плашка под ним в тёмной теме — тёмная */
+.logo.has-dark { background: var(--logo-bg-dk); }
 
 .card {
   background: var(--surf);
