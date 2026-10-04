@@ -1,0 +1,77 @@
+// Показ: все слайды открываются без ошибок, тема, интерактив, ссылки между слайдами
+import { expect, test } from '@playwright/test';
+import { counter, watchErrors } from './helpers';
+
+test.use({ colorScheme: 'light' });
+
+for (const deck of ['tpl', 'slideria']) {
+  test(`«${deck}»: все слайды листаются без ошибок`, async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto(`/?deck=${deck}#1`);
+    await expect(page.locator('#ct')).toHaveText(/^1 из \d+$/);
+    const [, n] = await counter(page);
+    expect(n).toBeGreaterThan(5);
+    for (let i = 2; i <= n; i++) {
+      await page.keyboard.press('PageDown');
+      await expect(page.locator('#ct')).toHaveText(`${i} из ${n}`);
+      // На каждом слайде что-то видно: пустой слайд — признак сломанного компонента
+      await expect(page.locator('.slide.on')).toBeVisible();
+      expect(await page.locator('.slide.on').evaluate((el) => el.textContent!.trim().length + el.querySelectorAll('img, svg, canvas, iframe').length)).toBeGreaterThan(0);
+    }
+    await page.keyboard.press('Home');
+    await expect(page.locator('#ct')).toHaveText(`1 из ${n}`);
+    expect(errors).toEqual([]);
+  });
+}
+
+test('номер слайда в адресе: после перезагрузки показ на том же месте', async ({ page }) => {
+  await page.goto('/?deck=tpl#5');
+  await expect(page.locator('#ct')).toHaveText(/^5 из/);
+  await page.keyboard.press('ArrowRight');
+  await expect(page).toHaveURL(/#6$/);
+  await page.reload();
+  await expect(page.locator('#ct')).toHaveText(/^6 из/);
+});
+
+test('тёмная тема: клавиша T, картинки для тёмной темы подменяются', async ({ page }) => {
+  await page.goto('/?deck=tpl#3');
+  const shot = page.locator('.slide.on img[src*="ui-studio"]');
+  await expect(shot).toHaveAttribute('src', /ui-studio\.webp/);
+  await page.keyboard.press('t');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(shot).toHaveAttribute('src', /ui-studio-dark\.webp/);
+  await page.keyboard.press('t');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(shot).toHaveAttribute('src', /ui-studio\.webp/);
+});
+
+test('оглавление: щелчок по плитке ведёт в раздел', async ({ page }) => {
+  await page.goto('/?deck=tpl#4');
+  await page.locator('.slide.on').getByText('Интерактив', { exact: true }).click();
+  await expect(page.locator('.slide.on')).toContainText('Слайд, который считает');
+});
+
+test('ползунок пересчитывает числа, кнопка открывает скрытый объект', async ({ page }) => {
+  await page.goto('/?deck=tpl#4');
+  await page.locator('.slide.on').getByText('Интерактив', { exact: true }).click();
+  const slide = page.locator('.slide.on');
+  await expect(slide).toContainText('1 440');
+  await slide.locator('input[type=range]').evaluate((el: HTMLInputElement) => {
+    el.value = '200';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await expect(slide).toContainText('2 400');
+  await expect(slide).toContainText('11,8 млн');
+  await expect(slide.getByText('Ползунок задаёт переменную')).toBeHidden();
+  await slide.getByText('Как это сделано?').click();
+  await expect(slide.getByText('Ползунок задаёт переменную')).toBeVisible();
+});
+
+test('обзор всех слайдов (O) открывает слайд по щелчку', async ({ page }) => {
+  await page.goto('/?deck=tpl#1');
+  await expect(page.locator('#ct')).toHaveText(/^1 из/);
+  await page.keyboard.press('o');
+  await expect(page.locator('#ovbd')).toHaveClass(/\bon\b/);
+  await page.locator('#ovgrid .ovcard').nth(6).click();
+  await expect(page.locator('#ct')).toHaveText(/^7 из/);
+});

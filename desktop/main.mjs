@@ -15,9 +15,11 @@ if (process.argv.includes(FIX_FLAG)) runFirewallFix();
 
 // Имя задаёт папку данных (%APPDATA%/Slideria) и в yarn app, и в установленной программе
 app.setName('Slideria');
+// Автотесты (tests/app) запускают приложение во временных папках, не трогая настоящие
+if (process.env.SLIDERIA_USER_DATA) app.setPath('userData', process.env.SLIDERIA_USER_DATA);
 const APP_DIR = app.getAppPath();
 const DATA = app.getPath('userData');
-const DECKS = path.join(app.getPath('documents'), 'Slideria');
+const DECKS = process.env.SLIDERIA_DOCS_DIR || path.join(app.getPath('documents'), 'Slideria');
 const LOG = path.join(DATA, 'slideria.log');
 
 /** @type {import('vite').ViteDevServer | undefined} */

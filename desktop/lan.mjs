@@ -18,7 +18,7 @@ const fold = process.platform === 'win32' || process.platform === 'darwin' ? (s)
  * Что можно с телефона: читать (GET/HEAD) и отправлять сообщения пульта.
  * decks — папка с презентациями (адреса /@fs/…), deck — презентация в показе.
  */
-function allowed(req, decks, deck) {
+export function allowed(req, decks, deck) {
   let p = (req.url ?? '/').split('?')[0];
   try { p = decodeURIComponent(p); } catch { return false; }
   if (p.includes('\\') || /\/\.\.?(\/|$)/.test(p)) return false;
