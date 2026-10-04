@@ -46,7 +46,7 @@ test('загрузка картинки: файл в assets/, адрес отд�
   expect(r.status).toBe(200);
   expect(r.json.path).toMatch(/^\.\/assets\/.+\.png$/);
   expect(fs.existsSync(path.join(DECKS, 'tpl', r.json.path))).toBe(true);
-  expect(await page.evaluate((u) => fetch(u).then((x) => x.status), r.json.url)).toBe(200);
+  expect((await fetch(`http://localhost:5190${r.json.url}`)).status).toBe(200);
   // Тот же файл второй раз — без дубля
   const again = await api(page, 'asset?deck=tpl&name=' + encodeURIComponent('фото теста.png'), PNG);
   expect(again.json.path).toBe(r.json.path);
@@ -80,10 +80,8 @@ test('импорт HTML по правилам: пробный прогон на�
   await page.goto('/?all');
   const html = fs.readFileSync('docs/examples/example.html', 'utf8');
   const before = fs.readdirSync(DECKS).sort();
-  const r = await page.evaluate(async (h) => {
-    const res = await fetch('/__htmlpptx/import?dry=1&file=example.html', { method: 'POST', body: h });
-    return { status: res.status, json: await res.json() };
-  }, html);
+  const res = await fetch('http://localhost:5190/__htmlpptx/import?dry=1&file=example.html', { method: 'POST', body: html });
+  const r = { status: res.status, json: await res.json() };
   expect(r.status).toBe(200);
   expect(r.json.dryRun).toBe(true);
   expect(r.json.slides).toBeGreaterThan(2);

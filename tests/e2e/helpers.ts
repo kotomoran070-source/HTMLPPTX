@@ -15,19 +15,21 @@ export function watchErrors(page: Page): string[] {
     // Предупреждения WebGL в браузере без видеокарты — не ошибки движка
     if (m.type() === 'error' && !/WebGL|GPU|GroupMarkerNotSet/i.test(m.text())) errors.push(`console: ${m.text()}`);
   });
+  // Какой именно адрес не загрузился: в консоли браузера адреса нет
+  page.on('response', (r) => { if (r.status() >= 400) errors.push(`http ${r.status()}: ${r.url()}`); });
   return errors;
 }
 
-/** Команда сервера разработки (/__htmlpptx/…) из страницы — как её вызывает сам редактор */
-export async function api(page: Page, cmd: string, body?: string | number[]): Promise<{ status: number; json: any; text: string }> {
-  return page.evaluate(async ([c, b]) => {
-    const data = Array.isArray(b) ? new Uint8Array(b) : b;
-    const r = await fetch(`/__htmlpptx/${c}`, { method: 'POST', body: data as BodyInit | undefined });
-    const text = await r.text();
-    let json: unknown = null;
-    try { json = JSON.parse(text); } catch { /* не JSON */ }
-    return { status: r.status, json, text };
-  }, [cmd, body] as const);
+/**
+ * Команда сервера разработки (/__htmlpptx/…) — прямо из теста, а не со страницы:
+ * страницу в любой момент может перезагрузить Vite (новый файл в папке), а запрос не должен прерываться
+ */
+export async function api(_page: Page, cmd: string, body?: string | number[]): Promise<{ status: number; json: any; text: string }> {
+  const r = await fetch(`http://localhost:5190/__htmlpptx/${cmd}`, { method: 'POST', body: Array.isArray(body) ? new Uint8Array(body) : body });
+  const text = await r.text();
+  let json: any = null;
+  try { json = JSON.parse(text); } catch { /* не JSON */ }
+  return { status: r.status, json, text };
 }
 
 /** Номер слайда и всего слайдов из счётчика внизу показа */

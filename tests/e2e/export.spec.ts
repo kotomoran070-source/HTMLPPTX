@@ -8,12 +8,10 @@ import { counter, readDeck, watchErrors } from './helpers';
 
 const OUT = path.resolve('.tmp', 'test-export');
 
-async function exportHtml(page: import('@playwright/test').Page, mode: 'clean' | 'edit'): Promise<string> {
-  const html = await page.evaluate(async (m) => {
-    const r = await fetch(`/__htmlpptx/export?deck=tpl&mode=${m}`, { method: 'POST' });
-    if (!r.ok) throw new Error(await r.text());
-    return r.text();
-  }, mode);
+async function exportHtml(mode: 'clean' | 'edit'): Promise<string> {
+  const r = await fetch(`http://localhost:5190/__htmlpptx/export?deck=tpl&mode=${mode}`, { method: 'POST' });
+  const html = await r.text();
+  if (!r.ok) throw new Error(html);
   fs.mkdirSync(OUT, { recursive: true });
   const file = path.join(OUT, `tpl-${mode}.html`);
   fs.writeFileSync(file, html);
@@ -22,8 +20,7 @@ async function exportHtml(page: import('@playwright/test').Page, mode: 'clean' |
 
 test('HTML для показа: один файл, без сервера, все слайды, без режима правки', async ({ page }) => {
   test.setTimeout(180_000);
-  await page.goto('/?all');
-  const file = await exportHtml(page, 'clean');
+  const file = await exportHtml('clean');
   const html = fs.readFileSync(file, 'utf8');
   // Внутри всё: никаких ссылок на файлы рядом
   expect(html).not.toMatch(/src="\.?\/?assets\//);
@@ -44,8 +41,7 @@ test('HTML для показа: один файл, без сервера, все
 
 test('HTML с правкой: есть режим правки', async ({ page }) => {
   test.setTimeout(180_000);
-  await page.goto('/?all');
-  const file = await exportHtml(page, 'edit');
+  const file = await exportHtml('edit');
   await page.goto(pathToFileURL(file).href + '#1');
   await expect(page.locator('#ct')).toHaveText(/^1 из/);
   await expect(page.locator('#ed-btn')).toHaveCount(1);
