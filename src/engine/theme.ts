@@ -5,6 +5,15 @@ const root = document.documentElement;
 const media = matchMedia('(prefers-color-scheme: dark)');
 const listeners = new Set<(t: Theme) => void>();
 
+/**
+ * Приложение Slideria (desktop/preload.cjs): заголовок окна Windows — в тон теме.
+ * Сообщаем только выбор человека: временные переключения (экспорт в светлой теме) окно не трогают
+ */
+function tellApp(): void {
+  const a = root.getAttribute('data-theme');
+  (window as { slideriaApp?: { theme(m: string): void } }).slideriaApp?.theme(a === 'light' || a === 'dark' ? a : 'system');
+}
+
 function stored(): Theme | null {
   try {
     const v = localStorage.getItem(KEY);
@@ -27,6 +36,7 @@ export function setTheme(theme: Theme, persist = true): void {
     try { localStorage.setItem(KEY, theme); } catch { /* приватный режим */ }
   }
   listeners.forEach((l) => l(theme));
+  tellApp();
 }
 
 export function toggleTheme(): Theme {
@@ -57,6 +67,7 @@ export function applyThemeImages(scope: ParentNode = document): void {
 export function initTheme(): void {
   const s = stored();
   if (s) root.setAttribute('data-theme', s);
+  tellApp();
   media.addEventListener('change', () => {
     if (!root.hasAttribute('data-theme')) {
       applyThemeImages();

@@ -5,7 +5,7 @@
 //   библиотека шрифтов и кэш Vite — папка данных приложения (%APPDATA%/Slideria).
 import fs from 'node:fs';
 import path from 'node:path';
-import { app, BrowserWindow, Menu, dialog, shell } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, shell } from 'electron';
 import { FIX_FLAG, allowFirewall, runFirewallFix } from './firewall.mjs';
 import { lanGateway } from './lan.mjs';
 
@@ -105,13 +105,22 @@ function saveState(win) {
 }
 
 const ICON = path.join(APP_DIR, 'desktop', 'icon.png');
+const PRELOAD = path.join(APP_DIR, 'desktop', 'preload.cjs');
+const WEB = { contextIsolation: true, sandbox: true, nodeIntegration: false, preload: PRELOAD };
+
+// Тема Slideria → заголовок окна Windows (тёмный или светлый). Цвет заголовка рисует система,
+// поэтому точного цвета темы здесь нет — только светлый или тёмный вариант
+ipcMain.on('slideria:theme', (e, mode) => {
+  if (!ours(e.senderFrame?.url ?? '')) return;
+  if (mode === 'light' || mode === 'dark' || mode === 'system') nativeTheme.themeSource = mode;
+});
 const ours = (url) => !!origin && (url === origin || url.startsWith(origin + '/'));
 
 /** Общие правила для всех окон: свои страницы открываются окнами (показ, заметки), чужие — в браузере */
 function guard(win) {
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (ours(url)) {
-      return { action: 'allow', overrideBrowserWindowOptions: { icon: ICON, autoHideMenuBar: true, backgroundColor: '#0b0d12' } };
+      return { action: 'allow', overrideBrowserWindowOptions: { icon: ICON, autoHideMenuBar: true, backgroundColor: '#0b0d12', webPreferences: WEB } };
     }
     if (/^https?:|^mailto:/i.test(url)) void shell.openExternal(url);
     return { action: 'deny' };
@@ -144,7 +153,7 @@ function createWindow() {
     backgroundColor: '#0b0d12',
     autoHideMenuBar: true,
     show: false,
-    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
+    webPreferences: WEB,
   });
   if (st.maximized) win.maximize();
   guard(win);
