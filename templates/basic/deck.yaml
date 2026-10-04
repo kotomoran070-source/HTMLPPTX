@@ -1,4 +1,5 @@
-# Новая презентация. Справочник компонентов: docs/COMPONENTS.md
+# Новая презентация. После титула — слайды-примеры по разделам: оставьте нужные, остальные удалите.
+# Справочник компонентов: docs/COMPONENTS.md
 # Всё правится в студии: «Редактор» на карточке презентации — тексты на слайде, остальное в «Свойствах».
 # Логотип: замените assets/logo.svg своим файлом (svg, png или jpg) — он на титуле, в углу слайдов,
 # на финальном слайде и в центре QR-кода.
@@ -26,15 +27,82 @@ slides:
     visual:
       type: network
       nodes: 6
-    notes: Представиться и назвать тему. Живой фон в цветах акцента меняется в панели слайда — «Анимация фона».
+    notes: |
+      Представиться и назвать тему. Живой фон в цветах акцента меняется в панели слайда — «Анимация фона».
+      Дальше идут слайды-примеры по разделам: оставьте нужные, остальные удалите (Delete в ленте миниатюр).
+
+  - id: start
+    title: С чего {g:duo|начать}
+    label: С чего начать
+    badge: 4 шага
+    transition: push
+    gap: 26
+    body:
+      - type: grid
+        columns: 2
+        rows: 1fr 1fr
+        height: 440
+        gap: 20
+        align: stretch
+        items:
+          - type: card
+            title: 1 · Правьте на месте
+            text: Щёлкните по любому тексту и пишите. Картинку замените, перетащив на неё свой файл.
+            body: {type: chips, items: [Клик по тексту*, Перетащить фото]}
+          - type: card
+            title: 2 · Добавляйте
+            text: «Вставка → Блоки» — числа, графики, таблицы, схемы. Новый слайд — Ctrl+M.
+            body: {type: chips, items: [Блоки*, Ctrl+M]}
+          - type: card
+            title: 3 · Оформляйте
+            text: «Дизайн» — акцентный цвет и тема. Тёмная тема и оттенки строятся сами.
+            body: {type: chips, items: [Цвет*, Тема]}
+          - type: card
+            title: 4 · Показывайте
+            text: F5 — показ, P — окно докладчика, R — пульт. «Экспорт» — HTML, PowerPoint, PDF.
+            body: {type: chips, items: [F5*, Экспорт]}
+      - type: note
+        text: Дальше — примеры по разделам. Оставьте нужные слайды, остальные удалите — Delete в ленте миниатюр.
+    notes: |
+      Этот и следующий слайд — подсказки для вас; перед показом их можно удалить.
+      Всё сохраняется само, без кнопки. Отменить — Ctrl+Z.
+
+  - id: contents
+    template: canvas
+    label: Что внутри
+    transition: fade
+    free:
+      - type: text
+        text: Что {g:duo|внутри}
+        styles: {text: {size: 44, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 32, w: 900}
+        enter: rise
+      - type: text
+        text: Щелчок по плитке при показе — переход к разделу. Такие ссылки есть у любой фигуры.
+        styles: {text: {size: 17, color: text2}}
+        place: {x: 50, y: 92, w: 1100}
+        enter: fade
+        delay: 100
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Текст и акценты**\nключевые числа, цитата, карточки", styles: {text: {size: 21, weight: 500, align: left, leading: 1.45}}, action: "slide:summary", place: {x: 48, y: 162, w: 380, h: 200}, enter: pop, delay: 200}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Цифры и таблицы**\nграфики, столбцы, прогресс, план", styles: {text: {size: 21, weight: 500, align: left, leading: 1.45}}, action: "slide:data", place: {x: 450, y: 162, w: 380, h: 200}, enter: pop, delay: 280}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Процессы**\nшаги по очереди и хронология", styles: {text: {size: 21, weight: 500, align: left, leading: 1.45}}, action: "slide:process", place: {x: 852, y: 162, w: 380, h: 200}, enter: pop, delay: 360}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Картинки, видео и 3D**\nчто можно принести в презентацию", styles: {text: {size: 21, weight: 500, align: left, leading: 1.45}}, action: "slide:media", place: {x: 48, y: 384, w: 380, h: 200}, enter: pop, delay: 440}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Свободный холст**\nвсё двигается мышью, кнопки-ссылки", styles: {text: {size: 21, weight: 500, align: left, leading: 1.45}}, action: "slide:canvas", place: {x: 450, y: 384, w: 380, h: 200}, enter: pop, delay: 520}
+      - {type: shape, kind: round, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, radius: 18, text: "**Показ и экспорт**\nклавиши, пульт, PowerPoint и PDF", styles: {text: {size: 21, weight: 500, align: left, leading: 1.45}}, action: "slide:show", place: {x: 852, y: 384, w: 380, h: 200}, enter: pop, delay: 600}
+    notes: |
+      Плитки — обычные фигуры со ссылкой на слайд (в свойствах фигуры — «Ссылка»).
+      Удалили раздел — удалите и его плитку.
 
   - id: summary
     title: Коротко о {g:duo|главном}
-    badge: пример
+    badge: Текст
     transition: push
+    gap: 40
     body:
       - type: grid
         columns: 3
+        height: 220
+        align: stretch
         items:
           - type: card
             body: {type: stat, value: "42 %", label: рост главного показателя, delta: "+8 п. п.", note: за квартал}
@@ -54,10 +122,14 @@ slides:
 
   - id: points
     title: Три {g:duo|ключевых} мысли
+    badge: Текст
     transition: push
+    gap: 30
     body:
       - type: grid
         columns: 3
+        height: 340
+        align: stretch
         items:
           - type: card
             title: Проблема
@@ -76,9 +148,77 @@ slides:
         text: Одной фразой — почему это важно именно сейчас и что вы просите у зала.
     notes: Одна мысль — одна карточка. Лишнюю карточку удалите (Delete), новую — Ctrl+D.
 
+  - id: data
+    title: Цифры и {g:duo|динамика}
+    badge: Цифры
+    transition: push
+    gap: 32
+    body:
+      - type: grid
+        columns: 1.75fr 1fr
+        align: stretch
+        items:
+          - type: card
+            title: Рост за год
+            body:
+              type: line-chart
+              values: [12, 14, 13, 17, 19, 18, 23, 26, 25, 29, 33, 36]
+              start: январь
+              end: декабрь
+              scale: 1
+              min: 10
+              max: 40
+          - type: card
+            title: По кварталам
+            body:
+              type: bars
+              values: [3, 5, 4, 7]
+              labels: [Q1, Q2, Q3, Q4]
+              height: 200
+      - type: grid
+        columns: 3
+        align: stretch
+        items:
+          - {type: card, body: {type: stat, value: "36 тыс", label: пользователей в декабре, delta: "+24 %"}}
+          - {type: card, body: {type: stat, value: "4,8", label: средняя оценка, note: из 5}}
+          - {type: card, title: План года, body: {type: progress, label: Задачи, value: 7 из 10, percent: 70}}
+    notes: |
+      Графики — это данные, а не картинки: числа правятся в «Свойствах»,
+      в PowerPoint уходят настоящими диаграммами, в тёмной теме перекрашиваются сами.
+
+  - id: plan
+    title: План и {g:duo|статус}
+    badge: Таблицы
+    transition: push
+    gap: 30
+    body:
+      - type: table
+        variant: stripes
+        header: [Этап, Срок, Ответственный, Статус]
+        rows:
+          - [Исследование, январь, "[имя]", "{#16A34A|● готово}"]
+          - [Прототип, март, "[имя]", "{#16A34A|● готово}"]
+          - [Пилот, июнь, "[имя]", "{#CA8A04|● идёт}"]
+          - [Запуск, сентябрь, "[имя]", "{#64748B|● впереди}"]
+        widths: [2, 1, 1.3, 1]
+        labels: true
+        density: roomy
+      - type: grid
+        columns: 2
+        items:
+          - type: card
+            title: Риски
+            body: {type: list, items: [Главный риск и как его снижаем, Что может сдвинуть сроки]}
+          - type: card
+            title: Что нужно от вас
+            body: {type: list, items: [Решение или согласование, Ресурсы и сроки]}
+    notes: Таблицу из Excel или Google Таблиц можно вставить прямо в ячейку; ширину столбцов — потянуть мышью за границу.
+
   - id: process
     title: Как это {g:duo|работает}
+    badge: Процессы
     transition: push
+    gap: 44
     body:
       - type: pipeline
         steps:
@@ -104,66 +244,37 @@ slides:
     notes: |
       Шаги подсвечиваются по очереди; линия хронологии дорисовывается до последнего пройденного этапа (done: true).
 
-  - id: data
-    title: Цифры и {g:duo|динамика}
-    badge: пример данных
+  - id: media
+    title: Картинки, видео и {g:duo|3D}
+    badge: Медиа
     transition: push
     body:
       - type: grid
-        columns: 1.45fr 1fr
+        columns: 1.25fr 1fr
+        align: stretch
         items:
+          - type: image
+            src: ./assets/photo.svg
+            height: 500
+            radius: 18
+            shadow: md
+            caption: Перетащите своё фото на картинку — оно встанет в рамку
           - type: card
-            title: Рост за год
+            title: Что можно принести
+            text: Перетащите файл на слайд — он встанет сам.
             body:
-              type: line-chart
-              values: [12, 14, 13, 17, 19, 18, 23, 26, 25, 29, 33, 36]
-              start: январь
-              end: декабрь
-              scale: 1
-              min: 10
-              max: 40
-          - type: card
-            title: По кварталам
-            body:
-              type: bars
-              values: [3, 5, 4, 7]
-              labels: [Q1, Q2, Q3, Q4]
-              height: 150
-      - type: grid
-        columns: 3
-        items:
-          - {type: stat, value: "36 тыс", label: пользователей в декабре, delta: "+24 %"}
-          - {type: stat, value: "4,8", label: средняя оценка, note: из 5}
-          - {type: card, title: План года, body: {type: progress, label: Задачи, value: 7 из 10, percent: 70}}
+              type: kv
+              keyWidth: 96
+              rows:
+                Фото: PNG, JPG, WebP, SVG — большие ужмутся сами
+                GIF: при каждом заходе на слайд — с начала
+                Видео: MP4, WebM или ссылка YouTube и Vimeo
+                3D: GLB или STEP — модель крутится мышью
+                Таблицы: из Excel — вставкой в ячейку
+                Шрифты: WOFF2, TTF, OTF — свои
     notes: |
-      Графики — это данные, а не картинки: числа правятся в «Свойствах»,
-      в PowerPoint уходят настоящими диаграммами, в тёмной теме перекрашиваются сами.
-
-  - id: plan
-    title: План и {g:duo|статус}
-    transition: push
-    body:
-      - type: table
-        variant: stripes
-        header: [Этап, Срок, Ответственный, Статус]
-        rows:
-          - [Исследование, январь, "[имя]", "{#16A34A|● готово}"]
-          - [Прототип, март, "[имя]", "{#16A34A|● готово}"]
-          - [Пилот, июнь, "[имя]", "{#CA8A04|● идёт}"]
-          - [Запуск, сентябрь, "[имя]", "{#64748B|● впереди}"]
-        widths: [2, 1, 1.3, 1]
-        labels: true
-        density: roomy
-      - type: grid
-        columns: 2
-        items:
-          - type: card
-            title: Риски
-            body: {type: list, items: [Главный риск и как его снижаем, Что может сдвинуть сроки]}
-          - type: card
-            title: Что нужно от вас
-            body: {type: list, items: [Решение или согласование, Ресурсы и сроки]}
-    notes: Таблицу из Excel или Google Таблиц можно вставить прямо в ячейку; ширину столбцов — потянуть мышью за границу.
+      Обрезка, рамка, фильтры и цвет снимка — вкладка «Рисунок» (выделите картинку).
+      Для тёмной темы можно задать отдельную картинку — кнопка «Тёмная тема» на панели картинки.
 
   - id: canvas
     template: canvas
@@ -224,6 +335,44 @@ slides:
     notes: |
       Холст: объекты стоят там, где их поставили. Тяните мышью, за ручки — размер, кружок над рамкой — поворот.
       Ctrl+D — копия объекта, правый щелчок → «Сохранить как шаблон» — объект в ваших блоках.
+
+  - id: show
+    title: Показ и {g:duo|экспорт}
+    badge: Показ
+    transition: push
+    gap: 30
+    body:
+      - type: grid
+        columns: 2
+        height: 450
+        align: stretch
+        items:
+          - type: card
+            title: Клавиши во время показа
+            body:
+              type: kv
+              keyWidth: 90
+              rows:
+                → ←: следующий и предыдущий слайд
+                F: во весь экран
+                P: окно докладчика — заметки, таймер, следующий слайд
+                R: пульт — QR-код для телефона
+                T: светлая или тёмная тема
+                B: чёрный экран
+                O: все слайды
+          - type: card
+            title: Как поделиться
+            text: Кнопка «Экспорт» в редакторе.
+            body:
+              type: kv
+              keyWidth: 150
+              rows:
+                HTML для показа: один файл — откроется где угодно, даже без интернета
+                PowerPoint: тексты, таблицы и графики остаются редактируемыми
+                PDF: Ctrl+P в показе → «Сохранить как PDF»
+                HTML с правкой: получатель поправит и вернёт вам
+    notes: |
+      Кликер с USB-приёмником работает без настройки. Буквенные клавиши работают и в русской раскладке.
 
   - id: thanks
     template: finale
