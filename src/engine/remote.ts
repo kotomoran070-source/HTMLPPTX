@@ -68,7 +68,7 @@ export async function openRemoteDialog(o: RemoteDialog): Promise<void> {
     return help('Пульт работает через сервер показа',
       `Запустите показ командой <code>yarn present ${esc(o.deckKey)}</code> — она соберёт презентацию и раздаст её в сети. Откроется показ; нажмите <b>R</b>, и здесь появится QR для телефона.`);
   }
-  let info: { urls?: string[]; localOnly?: boolean; app?: boolean };
+  let info: { urls?: string[]; localOnly?: boolean; app?: boolean; firewall?: boolean };
   try {
     const r = await fetch(`${RELAY}info?deck=${encodeURIComponent(o.deckKey)}`);
     if (!r.ok) throw new Error(String(r.status));
@@ -78,7 +78,7 @@ export async function openRemoteDialog(o: RemoteDialog): Promise<void> {
   }
   if (info.localOnly && info.app) {
     return help('Не удалось открыть доступ для телефона',
-      'Порты пульта 5180–5199 заняты другими программами или брандмауэр не дал разрешения. Закройте лишнее и нажмите R ещё раз; подробности — в меню «Справка» → «Журнал работы».');
+      'Порты пульта 5180–5199 заняты другими программами. Закройте лишнее и нажмите R ещё раз; подробности — в меню «Справка» → «Журнал работы».');
   }
   if (info.localOnly) {
     return help('Сервер виден только этому компьютеру',
@@ -97,7 +97,24 @@ export async function openRemoteDialog(o: RemoteDialog): Promise<void> {
     <div class="rmd-qr">${qrSvg(main, undefined, 'QR-код пульта')}</div>
     <p class="rmd-url"><code>${esc(main)}</code></p>
     ${urls.length > 1 ? `<details class="rmd-more"><summary>Не открывается? Другие адреса этого компьютера</summary>${urls.slice(1).map((u) => `<code>${esc(link(u))}</code>`).join('')}</details>` : ''}
-    <p class="rmd-state" role="status"><i></i><span>Жду телефон…</span></p>`;
+    <p class="rmd-state" role="status"><i></i><span>Жду телефон…</span></p>
+    ${info.firewall ? `<p class="rmd-fw"><button type="button" class="rmd-fw-btn">Телефон не открывает страницу? Разрешить в брандмауэре</button></p>` : ''}`;
+  // Приложение под Windows: Windows спрашивает про сеть сама, а если там нажали «Отмена»
+  // или сеть «общественная» — эта кнопка добавляет правило (запрос администратора от Slideria)
+  body.querySelector<HTMLButtonElement>('.rmd-fw-btn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget as HTMLButtonElement;
+    const line = btn.parentElement!;
+    btn.disabled = true;
+    btn.textContent = 'Подтвердите запрос Windows…';
+    let state = 'error';
+    try {
+      const r = await fetch('/__htmlpptx/firewall', { method: 'POST' });
+      state = ((await r.json()) as { state?: string }).state ?? 'error';
+    } catch { /* сервер не ответил */ }
+    line.textContent = state === 'fixed' ? 'Готово: пульт разрешён в локальной сети. Откройте ссылку на телефоне ещё раз.'
+      : state === 'declined' ? 'Разрешение не дано. Без него телефон может не подключиться — нажмите R ещё раз, чтобы повторить.'
+      : 'Не получилось изменить правила брандмауэра — подробности в меню «Справка» → «Журнал работы».';
+  });
   o.onPhone(() => {
     const st = body.querySelector<HTMLElement>('.rmd-state');
     if (!st || !box.isConnected) return;

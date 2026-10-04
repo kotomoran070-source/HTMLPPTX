@@ -6,9 +6,8 @@
 // презентациями видна только та, что сейчас в показе: остальные с телефона не открыть.
 import http from 'node:http';
 import net from 'node:net';
-import { ensureFirewall, firewallMessage } from '../plugins/firewall.mjs';
 
-// Порты, которые брандмауэр разрешает пульту (plugins/firewall.mjs): 5173–5199
+// Порты пульта: их открывает кнопка «Разрешить в брандмауэре» (desktop/firewall.mjs)
 const FIRST = 5180;
 const LAST = 5199;
 const RELAY = '/__slideria/remote/';
@@ -48,8 +47,8 @@ function listen(srv, port) {
 }
 
 /**
- * Вход для телефона: open(имя) при первом вызове настраивает брандмауэр (Windows, один раз
- * с подтверждением администратора) и начинает слушать сеть; дальше — тот же порт, а видна
+ * Вход для телефона: open(имя) при первом вызове начинает слушать сеть (в первый раз Windows
+ * сама спросит, пускать ли Slideria в сеть); дальше — тот же порт, а видна
  * только последняя открытая презентация. target() — порт сервера приложения;
  * decksDir — папка с презентациями; log — журнал.
  */
@@ -62,9 +61,6 @@ export function lanGateway(target, decksDir, log) {
   let srv = null;
 
   async function open() {
-    const fw = await ensureFirewall({ log });
-    const msg = firewallMessage(fw);
-    if (msg) log(msg.trim());
     srv = http.createServer((req, res) => {
       if (!allowed(req, decks, deck)) {
         res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });

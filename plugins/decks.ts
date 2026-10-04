@@ -378,7 +378,8 @@ export function decksPlugin(opts: DecksOptions): Plugin {
             // Телефону видна только презентация, которую показывают
             const deck = new URL(req.url ?? '/', 'http://local').searchParams.get('deck') ?? '';
             const port = isLocal(req) && listDecks(dir).includes(deck) ? await lan(deck) : null;
-            return { port: port ?? 0, localOnly: !port, app: true };
+            const firewall = !!(globalThis as { __slideriaFirewall?: unknown }).__slideriaFirewall;
+            return { port: port ?? 0, localOnly: !port, app: true, firewall };
           }
           const a = s.httpServer?.address();
           const info = a && typeof a === 'object' ? a : null;
@@ -415,6 +416,11 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           if (url.pathname === API + 'create') return send(res, 200, createDeck(url.searchParams.get('title') ?? '', url.searchParams.get('sample') === '1'));
           // Общая библиотека шрифтов: папка fonts/ в корне проекта — видна во всех презентациях
           if (url.pathname === API + 'font-list') return send(res, 200, listFonts());
+          // Приложение под Windows: разрешить пульт в брандмауэре (desktop/firewall.mjs)
+          if (url.pathname === API + 'firewall') {
+            const fix = (globalThis as { __slideriaFirewall?: () => Promise<string> }).__slideriaFirewall;
+            return send(res, 200, { state: fix ? await fix() : 'skip' });
+          }
           if (url.pathname === API + 'font-save') return send(res, 200, saveLibraryFont(url.searchParams.get('file') ?? '', await readBody(req)));
           const name = assertDeck(url.searchParams.get('deck'));
           if (url.pathname === API + 'delete') return send(res, 200, trashDeck(name));

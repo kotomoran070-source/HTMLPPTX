@@ -65,7 +65,7 @@ export function remoteRelay(req, res, net) {
   const what = url.pathname.slice(PREFIX.length);
   if (what === 'info') {
     Promise.resolve(net()).then(
-      ({ port, localOnly, app }) => json(res, 200, { urls: localOnly ? [] : lanUrls(port), localOnly, app: !!app }),
+      ({ port, localOnly, app, firewall }) => json(res, 200, { urls: localOnly ? [] : lanUrls(port), localOnly, app: !!app, firewall: !!firewall }),
       () => json(res, 200, { urls: [], localOnly: true }),
     );
     return true;

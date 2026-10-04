@@ -16,5 +16,9 @@
 .rmd-state { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-weight: 700; color: var(--mu); }
 .rmd-state i { width: 10px; height: 10px; border-radius: 50%; background: var(--mu); animation: rm-wait 1.2s ease-in-out infinite alternate; }
 .rmd-state.on { color: #16A34A; }
+.rmd .rmd-fw { margin: 12px 0 0; font-size: 13px; color: var(--mu); }
+.rmd-fw-btn { font: inherit; color: var(--mu); background: none; border: 0; padding: 0; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.rmd-fw-btn:hover { color: inherit; }
+.rmd-fw-btn:disabled { cursor: default; text-decoration: none; }
 .rmd-state.on i { background: #22C55E; animation: none; }
 @keyframes rm-wait { to { opacity: .3; } }

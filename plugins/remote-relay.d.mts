@@ -8,5 +8,7 @@ export interface RelayNet {
   localOnly: boolean;
   /** Сервер приложения Slideria: вход для телефона открывается по запросу */
   app?: boolean;
+  /** Приложение под Windows: в окне с QR есть кнопка «Разрешить в брандмауэре» */
+  firewall?: boolean;
 }
 export function remoteRelay(req: IncomingMessage, res: ServerResponse, net: () => RelayNet | Promise<RelayNet>): boolean;
