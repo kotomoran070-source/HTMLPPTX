@@ -50,6 +50,25 @@ async function check() {
 }
 
 /**
+ * Только проверка, без запроса администратора (yarn dev --host):
+ * 'skip' — не Windows; 'ok' — настроено; 'missing' — нет правила; 'blocked' — Node запрещён; 'error' — не удалось проверить
+ */
+export async function checkFirewall() {
+  if (process.platform !== 'win32') return 'skip';
+  const st = await check();
+  if (!st) return 'error';
+  if (st.blocks) return 'blocked';
+  return st.rule ? 'ok' : 'missing';
+}
+
+/** Подсказка после checkFirewall (пустая строка — всё в порядке) */
+export function checkMessage(state) {
+  if (state === 'blocked') return '  Брандмауэр: входящие подключения к Node запрещены — телефон не подключится. Разрешить пульт: yarn firewall (один запрос администратора)';
+  if (state === 'missing') return '  Брандмауэр: если телефон не открывает страницу — выполните один раз yarn firewall (порты пульта только для локальной сети)';
+  return '';
+}
+
+/**
  * 'skip' — не Windows; 'ok' — уже настроено; 'fixed' — настроено сейчас;
  * 'declined' — запрос администратора отклонён; 'error' — не удалось проверить или настроить
  */

@@ -6,7 +6,7 @@ import path from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 import { parseDocument } from 'yaml';
 import { isLocal, remoteRelay } from './remote-relay.mjs';
-import { ensureFirewall, firewallMessage } from './firewall.mjs';
+import { checkFirewall, checkMessage } from './firewall.mjs';
 import { stepToGlb, stlToGlb } from './model-convert';
 import { AssetStore } from './assets';
 import { BASE_ID, bindProject, importHtml, slug } from './import';
@@ -387,13 +387,14 @@ export function decksPlugin(opts: DecksOptions): Plugin {
         };
         if (!remoteRelay(req, res, net)) next();
       });
-      // yarn dev --host: пульт с телефона — брандмауэр Windows настраивается сам (один раз, с запросом администратора)
+      // yarn dev --host: пульт с телефона — брандмауэр Windows только проверяется (без запроса администратора);
+      // если что-то мешает, в терминале подсказка: yarn firewall
       s.httpServer?.once('listening', () => {
         const a = s.httpServer?.address();
         const host = a && typeof a === 'object' ? a.address : '127.0.0.1';
         if (host === '127.0.0.1' || host === '::1' || process.platform !== 'win32') return;
-        void ensureFirewall({ log: (m) => s.config.logger.info(m) }).then((st) => {
-          const msg = firewallMessage(st);
+        void checkFirewall().then((st) => {
+          const msg = checkMessage(st);
           if (msg) s.config.logger.info(msg);
         });
       });
