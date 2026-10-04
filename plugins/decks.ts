@@ -212,8 +212,9 @@ export function decksPlugin(opts: DecksOptions): Plugin {
       const starts = [...text.matchAll(/\n {2}- id: /g)].map((m) => m.index!);
       if (starts.length > 1) text = text.slice(0, starts[1] + 1);
       text = text.replace(/^ {4}(lead|meta|notes):(?: \|-?\n(?: {6}.*\n|\s*\n)*| .*\n)/gm, '');
-      // Иллюстрация нужна только слайду с примерами
-      fs.rmSync(path.join(dst, 'assets', 'photo.svg'), { force: true });
+      // Картинки нужны только слайдам с примерами: в пустой презентации остаётся логотип
+      const assets = path.join(dst, 'assets');
+      for (const f of fs.readdirSync(assets)) if (f !== 'logo.svg') fs.rmSync(path.join(assets, f), { force: true });
     }
     // Кавычки и обратная косая черта в названии не ломают YAML
     fs.writeFileSync(file, text.replaceAll('{{title}}', title.replace(/\\/g, '\\\\').replace(/"/g, '\\"')));

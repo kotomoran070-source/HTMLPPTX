@@ -67,30 +67,75 @@ slides:
       Этот и следующий слайд — подсказки для вас; перед показом их можно удалить.
       Всё сохраняется само, без кнопки. Отменить — Ctrl+Z.
 
+  - id: studio
+    template: canvas
+    label: Это студия
+    transition: fade
+    free:
+      - {type: text, text: Знакомство, styles: {text: {size: 13, weight: 800, upper: true, spacing: 0.14, color: accent}}, place: {x: 50, y: 30, w: 600}, enter: fade}
+      - type: text
+        text: Это {g:duo|студия}
+        styles: {text: {size: 42, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 48, w: 900}
+        enter: rise
+      - type: text
+        text: Всё под рукой, как в PowerPoint. Правки сохраняются сами — кнопки «Сохранить» нет.
+        styles: {text: {size: 17, color: text2}}
+        place: {x: 50, y: 106, w: 1100}
+        enter: fade
+        delay: 100
+      - type: image
+        src: ./assets/ui-studio.webp
+        srcDark: ./assets/ui-studio-dark.webp
+        radius: 14
+        shadow: lg
+        stroke: border
+        width: 1
+        place: {x: 48, y: 156, w: 768, h: 432}
+        enter: scale
+        delay: 150
+      - {type: shape, kind: ellipse, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, text: "1", styles: {text: {size: 15, weight: 800}}, place: {x: 380, y: 186, w: 34, h: 34}, enter: pop, delay: 500}
+      - {type: shape, kind: ellipse, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, text: "2", styles: {text: {size: 15, weight: 800}}, place: {x: 74, y: 352, w: 34, h: 34}, enter: pop, delay: 600}
+      - {type: shape, kind: ellipse, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, text: "3", styles: {text: {size: 15, weight: 800}}, place: {x: 300, y: 300, w: 34, h: 34}, enter: pop, delay: 700}
+      - {type: shape, kind: ellipse, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, text: "4", styles: {text: {size: 15, weight: 800}}, place: {x: 738, y: 330, w: 34, h: 34}, enter: pop, delay: 800}
+      - {type: shape, kind: ellipse, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, text: "5", styles: {text: {size: 15, weight: 800}}, place: {x: 300, y: 532, w: 34, h: 34}, enter: pop, delay: 900}
+      - {type: text, text: "**1 · Лента**\nвкладки как в PowerPoint: текст, вставка, анимация, показ", styles: {text: {size: 16, color: text2, leading: 1.45}}, place: {x: 852, y: 160, w: 380}, enter: left, delay: 500}
+      - {type: text, text: "**2 · Миниатюры**\nперетащите, чтобы поменять порядок; правый щелчок — меню слайда", styles: {text: {size: 16, color: text2, leading: 1.45}}, place: {x: 852, y: 246, w: 380}, enter: left, delay: 600}
+      - {type: text, text: "**3 · Слайд**\nщёлкните по тексту и пишите, объекты тяните мышью", styles: {text: {size: 16, color: text2, leading: 1.45}}, place: {x: 852, y: 332, w: 380}, enter: left, delay: 700}
+      - {type: text, text: "**4 · Свойства**\nвсё о выделенном: размер, цвета, анимация, ссылка по щелчку", styles: {text: {size: 16, color: text2, leading: 1.45}}, place: {x: 852, y: 418, w: 380}, enter: left, delay: 800}
+      - {type: text, text: "**5 · Заметки**\nвидите только вы — в окне докладчика и на пульте", styles: {text: {size: 16, color: text2, leading: 1.45}}, place: {x: 852, y: 504, w: 380}, enter: left, delay: 900}
+      - {type: text, text: "Ctrl+Z — отменить (до 200 шагов) · Ctrl+` — код слайда · F5 — показ", styles: {text: {size: 14, color: muted}}, place: {x: 50, y: 612, w: 900}, enter: fade, delay: 1000}
+    notes: |
+      Снимок — настоящая студия. В тёмной теме он сменится на тёмный: у картинки есть вариант для тёмной темы
+      (кнопка «Тёмная тема» на панели картинки).
+
   - id: contents
     template: canvas
     label: Что внутри
     transition: fade
     free:
+      - {type: text, text: Оглавление, styles: {text: {size: 13, weight: 800, upper: true, spacing: 0.14, color: accent}}, place: {x: 50, y: 30, w: 600}, enter: fade}
       - type: text
         text: Что {g:duo|внутри}
-        styles: {text: {size: 44, weight: 800, spacing: -0.02, color: text}}
-        place: {x: 48, y: 32, w: 900}
+        styles: {text: {size: 42, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 48, w: 900}
         enter: rise
       - type: text
-        text: Щелчок по плитке при показе — переход к разделу. Такие ссылки есть у любой фигуры.
+        text: Щелчок по плитке при показе — переход к разделу. Такую ссылку можно дать любой фигуре.
         styles: {text: {size: 17, color: text2}}
-        place: {x: 50, y: 92, w: 1100}
+        place: {x: 50, y: 106, w: 1100}
         enter: fade
         delay: 100
-      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Текст и акценты**\nключевые числа, цитата, карточки", styles: {text: {size: 21, weight: 500, align: left, leading: 1.45}}, action: "slide:summary", place: {x: 48, y: 162, w: 380, h: 200}, enter: pop, delay: 200}
-      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Цифры и таблицы**\nграфики, столбцы, прогресс, план", styles: {text: {size: 21, weight: 500, align: left, leading: 1.45}}, action: "slide:data", place: {x: 450, y: 162, w: 380, h: 200}, enter: pop, delay: 280}
-      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Процессы**\nшаги по очереди и хронология", styles: {text: {size: 21, weight: 500, align: left, leading: 1.45}}, action: "slide:process", place: {x: 852, y: 162, w: 380, h: 200}, enter: pop, delay: 360}
-      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Картинки, видео и 3D**\nчто можно принести в презентацию", styles: {text: {size: 21, weight: 500, align: left, leading: 1.45}}, action: "slide:media", place: {x: 48, y: 384, w: 380, h: 200}, enter: pop, delay: 440}
-      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Свободный холст**\nвсё двигается мышью, кнопки-ссылки", styles: {text: {size: 21, weight: 500, align: left, leading: 1.45}}, action: "slide:canvas", place: {x: 450, y: 384, w: 380, h: 200}, enter: pop, delay: 520}
-      - {type: shape, kind: round, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, radius: 18, text: "**Показ и экспорт**\nклавиши, пульт, PowerPoint и PDF", styles: {text: {size: 21, weight: 500, align: left, leading: 1.45}}, action: "slide:show", place: {x: 852, y: 384, w: 380, h: 200}, enter: pop, delay: 600}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Текст и цифры**\nчисла, цитата, графики, таблицы", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:summary", place: {x: 48, y: 166, w: 284, h: 190}, enter: pop, delay: 180}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Схемы и процессы**\nшаги, хронология, живая схема", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:process", place: {x: 348, y: 166, w: 284, h: 190}, enter: pop, delay: 240}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Интерактив**\nползунки, кнопки, код на слайде", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:interactive", place: {x: 648, y: 166, w: 284, h: 190}, enter: pop, delay: 300}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Медиа**\nфото, видео, 3D и фильтры", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:media", place: {x: 948, y: 166, w: 284, h: 190}, enter: pop, delay: 360}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Свободный холст**\nвсё двигается мышью", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:canvas", place: {x: 48, y: 372, w: 284, h: 190}, enter: pop, delay: 420}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Свои блоки**\nсохранить как шаблон, формат по образцу", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:custom", place: {x: 348, y: 372, w: 284, h: 190}, enter: pop, delay: 480}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Оформление и импорт**\nцвет, тёмная тема, фоны, Claude", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:design", place: {x: 648, y: 372, w: 284, h: 190}, enter: pop, delay: 540}
+      - {type: shape, kind: round, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, radius: 18, text: "**Показ и пульт**\nдокладчик, телефон, экспорт", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:remote", place: {x: 948, y: 372, w: 284, h: 190}, enter: pop, delay: 600}
     notes: |
-      Плитки — обычные фигуры со ссылкой на слайд (в свойствах фигуры — «Ссылка»).
+      Плитки — обычные фигуры со ссылкой на слайд (в свойствах фигуры — «По щелчку при показе»).
       Удалили раздел — удалите и его плитку.
 
   - id: summary
@@ -244,6 +289,116 @@ slides:
     notes: |
       Шаги подсвечиваются по очереди; линия хронологии дорисовывается до последнего пройденного этапа (done: true).
 
+  - id: schemes
+    title: Живые {g:duo|схемы}
+    label: Живые схемы
+    badge: Схемы
+    transition: push
+    body:
+      - type: hub
+        height: 470
+        items:
+          - {title: Команда, text: Кто делает и за что отвечает, node: Команда, sub: 12 человек}
+          - {title: Продукт, text: Что получает клиент, node: Продукт, sub: версия 2.0}
+          - {title: Клиенты, text: Для кого и сколько их, node: Клиенты, sub: "1,2 млн"}
+          - {title: Партнёры, text: С кем растём вместе, node: Партнёры, sub: 8 компаний}
+    notes: |
+      Наведите на пункт слева — подсветится узел схемы, и наоборот. В центре — ваш логотип.
+      Ещё живые схемы — в «Блоках»: сеть с импульсами, система «оборудование → сервер → интерфейсы».
+
+  - id: interactive
+    template: canvas
+    label: Слайд, который считает
+    transition: fade
+    free:
+      - {type: text, text: Интерактив, styles: {text: {size: 13, weight: 800, upper: true, spacing: 0.14, color: accent}}, place: {x: 50, y: 30, w: 600}, enter: fade}
+      - type: text
+        text: Слайд, который {g:duo|считает}
+        styles: {text: {size: 42, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 48, w: 900}
+        enter: rise
+      - type: text
+        text: Двигайте ползунок при показе — числа и столбцы пересчитываются на глазах у зала.
+        styles: {text: {size: 17, color: text2}}
+        place: {x: 50, y: 106, w: 1100}
+        enter: fade
+        delay: 100
+      - {type: control, name: n, label: Клиентов в месяц, min: 20, max: 200, step: 10, value: 120, place: {x: 48, y: 166, w: 560}, enter: rise, delay: 200}
+      - type: grid
+        columns: 2
+        items:
+          - {type: card, body: {type: stat, value: "{{n*12}}", label: клиентов за год, note: "ползунок × 12 месяцев", styles: {value: {size: 44}}}}
+          - {type: card, body: {type: stat, value: "{{round(n*12*4.9/1000, 1)}} млн", label: "выручка за год, ₽", note: при чеке 4 900 ₽, styles: {value: {size: 44}}}}
+        place: {x: 48, y: 268, w: 560}
+        enter: rise
+        delay: 300
+      - type: card
+        title: Рост по кварталам
+        body:
+          type: bars
+          values: ["=n*2", "=n*2.6", "=n*3.1", "=n*4.3"]
+          labels: [Q1, Q2, Q3, Q4]
+          max: 900
+          height: 230
+        place: {x: 648, y: 166, w: 584, h: 340}
+        enter: rise
+        delay: 300
+      - {type: shape, kind: pill, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, text: "Как это сделано?  →", styles: {text: {size: 17}}, action: "show:how", place: {x: 48, y: 470, w: 280, h: 54}, enter: pop, delay: 500}
+      - id: how
+        hidden: true
+        type: shape
+        kind: round
+        fill: soft
+        radius: 16
+        text: "Ползунок задаёт переменную **n**, а блоки считают по формулам: клиентов за год — n × 12, столбцы — n × 2, n × 2,6… Кнопка — фигура с действием «Показать объект»."
+        styles: {text: {size: 16, weight: 500, align: left, leading: 1.45}}
+        enter: pop
+        place: {x: 48, y: 546, w: 1184, h: 90}
+    notes: |
+      Ползунок — блок «control»: при показе двигается мышью или пальцем на пульте, окна показа и докладчика синхронны.
+      Скрытый объект появляется по кнопке — так делают вопросы с ответом, подсказки, вкладки.
+
+  - id: code
+    template: canvas
+    label: Код прямо на слайде
+    transition: fade
+    free:
+      - {type: text, text: Интерактив, styles: {text: {size: 13, weight: 800, upper: true, spacing: 0.14, color: accent}}, place: {x: 50, y: 30, w: 600}, enter: fade}
+      - type: text
+        text: Код прямо на {g:duo|слайде}
+        styles: {text: {size: 42, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 48, w: 900}
+        enter: rise
+      - type: text
+        text: Песочница для лекций и демо — правьте код при показе, результат обновится сам. Esc — снова листать слайды.
+        styles: {text: {size: 17, color: text2}}
+        place: {x: 50, y: 106, w: 1100}
+        enter: fade
+        delay: 100
+      - type: sandbox
+        title: hello.html
+        theme: true
+        size: 15
+        split: 54
+        console: true
+        code: |
+          <h1>Привет, зал!</h1>
+          <style>
+            body { display: grid; place-items: center; height: 100vh; margin: 0; font: 800 54px system-ui; }
+            h1 { background: linear-gradient(90deg, var(--ac), var(--ac2));
+                 -webkit-background-clip: text; color: transparent; }
+          </style>
+          <script>
+            // Поменяйте текст выше — результат обновится сам
+            console.log('Слайдов в презентации:', 21);
+          </script>
+        place: {x: 48, y: 156, w: 1184, h: 480}
+        enter: rise
+        delay: 200
+    notes: |
+      Готовая песочница — «Вставка → Блоки → Интерактив». Правки во время показа в презентацию не сохраняются:
+      каждый показ начинается с исходного кода.
+
   - id: media
     title: Картинки, видео и {g:duo|3D}
     badge: Медиа
@@ -276,21 +431,41 @@ slides:
       Обрезка, рамка, фильтры и цвет снимка — вкладка «Рисунок» (выделите картинку).
       Для тёмной темы можно задать отдельную картинку — кнопка «Тёмная тема» на панели картинки.
 
+  - id: filters
+    title: Фото в стиле {g:duo|презентации}
+    label: Фильтры для фото
+    badge: Медиа
+    transition: push
+    gap: 30
+    body:
+      - type: grid
+        columns: 4
+        items:
+          - {type: image, src: ./assets/photo.svg, height: 300, radius: 16, shadow: sm, caption: Как есть}
+          - {type: image, src: ./assets/photo.svg, height: 300, radius: 16, shadow: sm, filter: duo, caption: Дуотон в цветах темы}
+          - {type: image, src: ./assets/photo.svg, height: 300, radius: 16, shadow: sm, filter: noir, caption: Нуар}
+          - {type: image, src: ./assets/photo.svg, height: 300, radius: 16, shadow: sm, filter: warm, caption: Тёплый}
+      - type: card
+        title: Один снимок — четыре настроения
+        text: "Выделите картинку → вкладка «Рисунок» → «Цвет»: 17 фильтров с примеркой на самом снимке, яркость, контраст, насыщенность. Фильтры в цветах темы перекрашиваются вместе с акцентом — и в PowerPoint уходят такими же."
+    notes: Здесь одна и та же картинка с разными фильтрами. Ещё на вкладке «Рисунок» — кадр, скругление, тень, рамка и паспарту.
+
   - id: canvas
     template: canvas
     label: Свободный слайд
     bg: "radial-gradient(ellipse 70% 80% at 30% 55%, color-mix(in srgb, var(--acs) 70%, var(--bg)), var(--bg) 72%)"
     transition: zoom
     free:
+      - {type: text, text: Свободный холст, styles: {text: {size: 13, weight: 800, upper: true, spacing: 0.14, color: accent}}, place: {x: 50, y: 30, w: 600}, enter: fade}
       - type: text
         text: Свободный {g:duo|слайд}
-        styles: {text: {size: 44, weight: 800, spacing: -0.02, color: text}}
-        place: {x: 48, y: 32, w: 900}
+        styles: {text: {size: 42, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 48, w: 900}
         enter: rise
       - type: text
         text: Здесь всё двигается мышью — картинка, текст и фигуры. Перетащите свою фотографию на картинку, и она заменится.
         styles: {text: {size: 17, color: text2}}
-        place: {x: 50, y: 92, w: 1100}
+        place: {x: 50, y: 106, w: 1100}
         enter: fade
         delay: 120
       - type: image
@@ -335,6 +510,155 @@ slides:
     notes: |
       Холст: объекты стоят там, где их поставили. Тяните мышью, за ручки — размер, кружок над рамкой — поворот.
       Ctrl+D — копия объекта, правый щелчок → «Сохранить как шаблон» — объект в ваших блоках.
+
+  - id: custom
+    template: canvas
+    label: Свои блоки
+    transition: fade
+    free:
+      - {type: text, text: Свои блоки, styles: {text: {size: 13, weight: 800, upper: true, spacing: 0.14, color: accent}}, place: {x: 50, y: 30, w: 600}, enter: fade}
+      - type: text
+        text: Сделали красиво — {g:duo|сохраните}
+        styles: {text: {size: 42, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 48, w: 1000}
+        enter: rise
+      - type: text
+        text: Любой объект или группа становится вашим блоком — вместе с анимацией, стилями и картинками.
+        styles: {text: {size: 17, color: text2}}
+        place: {x: 50, y: 106, w: 1100}
+        enter: fade
+        delay: 100
+      - type: image
+        src: ./assets/ui-menu.webp
+        srcDark: ./assets/ui-menu-dark.webp
+        radius: 14
+        shadow: lg
+        stroke: border
+        width: 1
+        place: {x: 48, y: 160, w: 320, h: 400}
+        enter: rise
+        delay: 200
+      - {type: shape, kind: arrow, stroke: accent, width: 3, place: {x: 384, y: 344, w: 72, h: 30}, enter: left, delay: 450}
+      - type: image
+        src: ./assets/ui-blocks.webp
+        srcDark: ./assets/ui-blocks-dark.webp
+        radius: 14
+        shadow: lg
+        stroke: border
+        width: 1
+        place: {x: 472, y: 160, w: 447, h: 400}
+        enter: rise
+        delay: 500
+      - {type: text, text: "**1.** Правый щелчок по объекту → «Сохранить как шаблон…»", styles: {text: {size: 15, color: text2}}, place: {x: 48, y: 576, w: 330}, enter: fade, delay: 600}
+      - {type: text, text: "**2.** Он в «Вставка → Блоки» → «Мои шаблоны» — в любой презентации", styles: {text: {size: 15, color: text2}}, place: {x: 472, y: 576, w: 447}, enter: fade, delay: 700}
+      - {type: text, text: Ещё приёмы, styles: {text: {size: 20, weight: 800, color: text}}, place: {x: 952, y: 166, w: 280}, enter: left, delay: 600}
+      - {type: text, text: "**Формат по образцу**\nCtrl+Shift+C и Ctrl+Shift+V — оформление с одного объекта на другие", styles: {text: {size: 15, color: text2, leading: 1.45}}, place: {x: 952, y: 210, w: 280}, enter: left, delay: 650}
+      - {type: text, text: "**Свой эффект**\nправый щелчок → «Сохранить появление как эффект…»", styles: {text: {size: 15, color: text2, leading: 1.45}}, place: {x: 952, y: 312, w: 280}, enter: left, delay: 700}
+      - {type: text, text: "**Группы**\nShift+клик и Ctrl+G; «Появляться по очереди» — одной командой", styles: {text: {size: 15, color: text2, leading: 1.45}}, place: {x: 952, y: 392, w: 280}, enter: left, delay: 750}
+      - {type: text, text: "**Слайды из других презентаций**\nCtrl+C там, Ctrl+V здесь — оформление не поплывёт", styles: {text: {size: 15, color: text2, leading: 1.45}}, place: {x: 952, y: 494, w: 280}, enter: left, delay: 800}
+    notes: |
+      Свои шаблоны хранятся на этом компьютере и видны во всех презентациях.
+      Снимки на слайде — настоящая студия; в тёмной теме они тоже тёмные.
+
+  - id: design
+    title: Оформление за {g:duo|минуту}
+    label: Оформление
+    badge: Дизайн
+    backdrop: particles
+    transition: push
+    body:
+      - type: grid
+        columns: 2
+        rows: 1fr 1fr
+        height: 420
+        gap: 20
+        align: stretch
+        items:
+          - type: card
+            title: Цвет одной кнопкой
+            text: «Дизайн» → акцент и второй цвет. Перекрасится всё — фигуры, графики, градиенты; «Переливание» пускает цвета течь.
+            body: {type: chips, items: [Акцент*, Градиент, Переливание]}
+          - type: card
+            title: Тёмная тема
+            text: Клавиша T при показе. Оттенки строятся сами, а для фото и логотипа можно дать отдельный вариант — как у снимков в этом шаблоне.
+            body: {type: chips, items: [T*, Картинка для тёмной темы]}
+          - type: card
+            title: Живые фоны
+            text: Частицы, сияние, сетка — «Анимация фона» в свойствах слайда. Этот слайд — на частицах; на титуле — сияние.
+            body: {type: chips, items: [Частицы*, Сияние, Сетка]}
+          - type: card
+            title: Анимации
+            text: 7 эффектов появления и 6 переходов — вкладка «Анимация». Несколько объектов — «Появляться по очереди».
+            body: {type: chips, items: [Появление*, Переходы, По очереди]}
+    notes: Поменяйте акцент на вкладке «Дизайн» и пролистайте презентацию — перекрасится каждый слайд.
+
+  - id: import
+    title: Принесите {g:duo|готовое}
+    label: Импорт
+    badge: Импорт
+    transition: push
+    body:
+      - type: grid
+        columns: 2
+        rows: 1fr 1fr
+        height: 420
+        gap: 20
+        align: stretch
+        items:
+          - type: card
+            title: Из Claude Design
+            text: Перетащите экспорт на страницу «Презентации» — каждый слайд станет редактируемым, со своими анимациями.
+            body: {type: chips, items: [Импорт HTML*]}
+          - type: card
+            title: Из чата с Claude
+            text: "Попросите презентацию, где каждый слайд — <section class=\"slide\">, и перетащите файл так же."
+            body: {type: chips, items: [Свой HTML*]}
+          - type: card
+            title: Из другой презентации
+            text: Скопируйте слайды или объекты там (Ctrl+C) и вставьте здесь (Ctrl+V) — с картинками и оформлением.
+            body: {type: chips, items: [Ctrl+C*, Ctrl+V]}
+          - type: card
+            title: Правки от коллег
+            text: Отправьте «HTML с правкой», получатель поправит файл в браузере — его правки вернутся импортом.
+            body: {type: chips, items: [HTML с правкой*, Импорт]}
+    notes: |
+      Ещё: таблицы из Excel и Google Таблиц вставляются прямо в ячейку, свои шрифты — «Добавить шрифт…» в свойствах
+      текста или перетаскиванием файла на страницу.
+
+  - id: remote
+    template: canvas
+    label: Пульт и окно докладчика
+    transition: fade
+    free:
+      - {type: text, text: Показ, styles: {text: {size: 13, weight: 800, upper: true, spacing: 0.14, color: accent}}, place: {x: 50, y: 30, w: 600}, enter: fade}
+      - type: text
+        text: Пульт в {g:duo|кармане}
+        styles: {text: {size: 42, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 48, w: 760}
+        enter: rise
+      - type: text
+        text: Нажмите R во время показа и наведите камеру телефона на QR-код — телефон станет пультом с вашими заметками.
+        styles: {text: {size: 17, color: text2, leading: 1.5}}
+        place: {x: 50, y: 106, w: 700}
+        enter: fade
+        delay: 100
+      - {type: text, text: "**Окно докладчика — P**\nтекущий и следующий слайд, заметки, таймер; на втором мониторе — само", styles: {text: {size: 17, color: text2, leading: 1.45}}, place: {x: 50, y: 200, w: 700}, enter: left, delay: 300}
+      - {type: text, text: "**На телефоне**\nкрупные «Назад» и «Далее», заметки, указка, перо и чёрный экран", styles: {text: {size: 17, color: text2, leading: 1.45}}, place: {x: 50, y: 292, w: 700}, enter: left, delay: 400}
+      - {type: text, text: "**Экономный режим**\nслайд на телефоне замирает и бережёт батарею", styles: {text: {size: 17, color: text2, leading: 1.45}}, place: {x: 50, y: 384, w: 700}, enter: left, delay: 500}
+      - {type: text, text: "**Кликер**\nобычная указка с USB-приёмником работает без настройки", styles: {text: {size: 17, color: text2, leading: 1.45}}, place: {x: 50, y: 476, w: 700}, enter: left, delay: 600}
+      - type: image
+        src: ./assets/ui-phone.webp
+        srcDark: ./assets/ui-phone-dark.webp
+        radius: 30
+        shadow: lg
+        stroke: border
+        width: 2
+        place: {x: 870, y: 36, w: 304, h: 629}
+        enter: rise
+        delay: 300
+    notes: |
+      Телефон и компьютер — в одной Wi-Fi. В первый раз Windows спросит, разрешить ли Slideria доступ к сети, — «Разрешить».
+      Если телефон не открывает страницу, в окне с QR есть кнопка «Разрешить в брандмауэре».
 
   - id: show
     title: Показ и {g:duo|экспорт}
