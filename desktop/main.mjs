@@ -1,7 +1,7 @@
 // Приложение Slideria: окно Electron поверх того же сервера, что и yarn dev.
 // Сервер Vite с плагинами проекта запускается прямо здесь, в главном процессе, — сохранение,
 // ассеты, шрифты, экспорт работают тем же кодом, что в браузере. Отличаются только папки:
-//   презентации — «Документы/Slideria» (при первом запуске туда копируются примеры),
+//   презентации — «Документы/Slideria» (при первом запуске там появляется презентация из шаблона),
 //   библиотека шрифтов и кэш Vite — папка данных приложения (%APPDATA%/Slideria).
 import fs from 'node:fs';
 import path from 'node:path';
@@ -45,18 +45,23 @@ app.on('second-instance', () => {
   main.focus();
 });
 
-/** Первый запуск: папка «Документы/Slideria» с примерами из программы */
+/**
+ * Первый запуск: папка «Документы/Slideria» и в ней одна презентация из шаблона —
+ * те же 8 слайдов с примерами, что «Новая презентация → с примерами» на странице выбора
+ */
+const FIRST_TITLE = 'Моя первая презентация';
+const FIRST_DIR = 'moya-pervaya-prezentaciya';
+
 function ensureDecks() {
   if (fs.existsSync(DECKS)) return;
   fs.mkdirSync(DECKS, { recursive: true });
-  const src = path.join(APP_DIR, 'presentations');
-  if (!fs.existsSync(src)) return;
-  for (const d of fs.readdirSync(src, { withFileTypes: true })) {
-    if (!d.isDirectory() || d.name.startsWith('.') || d.name.startsWith('_')) continue;
-    if (!fs.existsSync(path.join(src, d.name, 'deck.yaml'))) continue;
-    fs.cpSync(path.join(src, d.name), path.join(DECKS, d.name), { recursive: true });
-  }
-  log('Созданы примеры в', DECKS);
+  const tpl = path.join(APP_DIR, 'templates', 'basic');
+  if (!fs.existsSync(tpl)) return;
+  const dst = path.join(DECKS, FIRST_DIR);
+  fs.cpSync(tpl, dst, { recursive: true });
+  const file = path.join(dst, 'deck.yaml');
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replaceAll('{{title}}', FIRST_TITLE));
+  log('Создана первая презентация в', dst);
 }
 
 async function startServer() {

@@ -72,10 +72,7 @@
       "src/**",
       "plugins/**",
       "scripts/**",
-      "templates/**",
-      "presentations/slideria/**",
-      "presentations/memes/**",
-      "!presentations/*/.backup{,/**}"
+      "templates/**"
     ],
     "win": {
       "target": "nsis",
