@@ -365,6 +365,13 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       if (key === undefined) return null;
       return { run: () => { restore(); picked = true; setAll('image', 'filter', key || undefined); } };
     }, 'st-fltpop');
+    // Меню меньше закрывает слайд: видны все фильтры, «Настройка» с ползунками — ниже, прокруткой.
+    // Граница считается по месту — шрифты и масштаб у всех разные
+    const adjHead = pop.querySelector<HTMLElement>('.st-adj')?.previousElementSibling;
+    if (adjHead) {
+      const cut = adjHead.getBoundingClientRect().top - pop.getBoundingClientRect().top + pop.scrollTop - 2;
+      if (cut > 200) pop.style.maxHeight = `min(${Math.round(cut)}px, calc(100vh - 140px))`;
+    }
     pop.addEventListener('pointerover', (e) => {
       const b = (e.target as Element).closest<HTMLElement>('[data-flt]');
       if (b) tryOn(b.dataset.flt!);
