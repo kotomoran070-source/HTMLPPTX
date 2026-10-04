@@ -17,8 +17,9 @@ exit /b
 #  • Телефон и компьютер — в одной Wi-Fi. Остановить — закрыть это окно.
 #
 # Что делает: раздаёт презентацию в локальной сети и пересылает сообщения пульта
-# (как yarn present, см. plugins/remote-relay.mjs). Брандмауэр: один раз разрешает порты
-# 5173–5199 только для локальной сети (запрос администратора), отключать его не нужно.
+# (как yarn present, см. plugins/remote-relay.mjs). Брандмауэр сам не трогает: если телефон
+# не подключается, в окне с QR есть кнопка «Разрешить в брандмауэре» — она один раз разрешает
+# порты 5173–5199 только для локальной сети (запрос администратора), отключать его не нужно.
 # ---------------------------------------------------------------------------------------------
 
 $ErrorActionPreference = 'Stop'
@@ -42,7 +43,7 @@ $files = @(Get-ChildItem -LiteralPath $dir -File | Where-Object { $_.Extension -
 if (-not $files.Count) { Fail "Рядом нет презентации (.html). Положите этот файл в папку с презентацией или перетащите презентацию на него." }
 if (-not $main -and $files.Count -eq 1) { $main = $files[0] }
 
-# ---------------- брандмауэр Windows: один раз, только локальная сеть
+# ---------------- брандмауэр Windows: проверка без запросов; исправление — по кнопке в окне с QR
 $RULE = 'Slideria remote'
 $PORTS = '5173-5199'
 $psExe = (Get-Process -Id $PID).Path
@@ -55,18 +56,20 @@ function Test-Firewall {
     return ($ok -and $b -eq 0)
   } catch { return $true } # проверить нельзя (старая Windows) — не мешаем
 }
-if ($env:OS -eq 'Windows_NT' -and -not (Test-Firewall)) {
-  Say '  Брандмауэр: разрешаю пульт для локальной сети — подтвердите запрос администратора (один раз)…' 'Yellow'
+function Fix-Firewall {
   $fix = @"
 Remove-NetFirewallRule -DisplayName '$RULE' -ErrorAction SilentlyContinue
 New-NetFirewallRule -DisplayName '$RULE' -Direction Inbound -Action Allow -Protocol TCP -LocalPort $PORTS -RemoteAddress LocalSubnet -Profile Any | Out-Null
 Get-NetFirewallApplicationFilter -Program '$($psExe -replace "'", "''")' -ErrorAction SilentlyContinue | Get-NetFirewallRule | Where-Object { `$_.Action -eq 'Block' -and `$_.Direction -eq 'Inbound' } | Disable-NetFirewallRule
 "@
   $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($fix))
-  try { Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile', '-EncodedCommand', $enc } catch {}
-  if (Test-Firewall) { Say '  Брандмауэр: готово — больше спрашивать не будет.' 'Green' }
-  else { Say '  Брандмауэр: разрешение не получено — телефон может не подключиться.' 'Red' }
+  try { Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile', '-EncodedCommand', $enc } catch { return 'declined' }
+  if (Test-Firewall) { Say '  Брандмауэр: пульт разрешён в локальной сети — больше спрашивать не будет.' 'Green'; return 'fixed' }
+  Say '  Брандмауэр: разрешение не получено — телефон может не подключиться.' 'Red'
+  return 'error'
 }
+$isWin = $env:OS -eq 'Windows_NT'
+$fwOk = (-not $isWin) -or (Test-Firewall)
 
 # ---------------- адреса этого компьютера в сети: самый вероятный для телефона — первым
 function Get-LanIps {
@@ -138,7 +141,7 @@ function Handle($c, [string]$head, [byte[]]$body) {
 
   if ($path.StartsWith('/__slideria/remote/')) {
     $what = $path.Substring(19)
-    if ($what -eq 'info') { Send-Json $s 200 @{ urls = @(Get-LanIps | ForEach-Object { "http://${_}:$port" }); localOnly = $false }; return $false }
+    if ($what -eq 'info') { Send-Json $s 200 @{ urls = @(Get-LanIps | ForEach-Object { "http://${_}:$port" }); localOnly = $false; firewall = $isWin }; return $false }
     $room = Get-Query $q 'room'
     if ($room -notmatch $ROOM) { Send-Json $s 400 @{ error = 'Неверный код комнаты' }; return $false }
     if ($what -eq 'events' -and $method -eq 'GET') {
@@ -165,6 +168,16 @@ function Handle($c, [string]$head, [byte[]]$body) {
     return $false
   }
 
+  # Кнопка «Разрешить в брандмауэре» в окне с QR — только с этого компьютера и со своей страницы
+  if ($path -eq '/__htmlpptx/firewall' -and $method -eq 'POST') {
+    $local = $false
+    try { $local = [Net.IPAddress]::IsLoopback($c.Client.RemoteEndPoint.Address) } catch {}
+    $origin = if ($head -match '(?im)^Origin:\s*(\S+)') { $Matches[1] } else { '' }
+    if (-not $local -or ($origin -and $origin -notmatch "^http://(localhost|127\.0\.0\.1):$port$")) { Send-Json $s 403 @{ error = 'Только с этого компьютера' }; return $false }
+    $state = if ($isWin) { Fix-Firewall } else { 'fixed' }
+    Send-Json $s 200 @{ state = $state }
+    return $false
+  }
   if ($method -ne 'GET' -and $method -ne 'HEAD') { Send-Text $s 405 'Только GET'; return $false }
   $name = $path.TrimStart('/')
   if ($name -eq '' -or $name -eq 'index.html') {
@@ -189,6 +202,7 @@ Say "  Папка:   $dir"
 Say ''
 Say '  В показе нажмите R (или кнопку с телефоном в окне докладчика) — появится QR для телефона.'
 Say '  Телефон — в той же Wi-Fi. Остановить: закройте это окно.' 'DarkGray'
+if (-not $fwOk) { Say '  Если телефон не открывает страницу — в окне с QR нажмите «Разрешить в брандмауэре».' 'DarkYellow' }
 Say ''
 if (-not $env:SLIDERIA_NO_OPEN) { try { Start-Process $start } catch {} }
 
