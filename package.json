@@ -59,6 +59,10 @@
     },
     "asar": false,
     "npmRebuild": false,
+    "electronLanguages": [
+      "ru",
+      "en-US"
+    ],
     "files": [
       "index.html",
       "vite.config.ts",
