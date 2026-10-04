@@ -69,8 +69,8 @@
       "plugins/**",
       "scripts/**",
       "templates/**",
-      "presentations/**",
-      "!presentations/.trash{,/**}",
+      "presentations/slideria/**",
+      "presentations/memes/**",
       "!presentations/*/.backup{,/**}"
     ],
     "win": {
