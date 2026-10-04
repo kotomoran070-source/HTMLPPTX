@@ -171,7 +171,7 @@ slides:
           type: pipeline
           stepSeconds: 1.1
           steps:
-            - {title: Идея, sub: YAML или импорт}
+            - {title: Идея, sub: с нуля или импорт}
             - {title: Студия, sub: правка как в PowerPoint}
             - {title: Анимация, sub: появление и переходы}
             - {title: Показ, sub: окно докладчика}
@@ -380,7 +380,7 @@ slides:
           - [Показ в любом браузере, "{#16A34A|✓} один HTML-файл", нужен PowerPoint]
           - [Тёмная тема, "{#16A34A|✓} одной кнопкой", перекраска вручную]
           - ["Живые схемы и WebGL-фоны", "{#16A34A|✓} встроены", видео-вставки]
-          - [Текст слайдов в git, "{#16A34A|✓} YAML", двоичный файл]
+          - [Пульт с телефона, "{#16A34A|✓} по QR-коду", нужен кликер]
           - [Правка в PowerPoint, "{#16A34A|✓} экспорт в PPTX", "{#16A34A|✓} родной формат"]
       - type: timeline
         items:
@@ -402,7 +402,7 @@ slides:
     free:
       - type: html
         html: '<div class="sr-iso"><div class="sr-stage"><div class="sr-plate" style="--z:0px"><div class="sr-code"><i></i><i></i><i></i><i></i><i></i><i></i></div><small data-t="0"></small><span data-t="1"></span></div><div class="sr-dot" style="left:25px;top:25px;--z:19px"></div><div class="sr-dot" style="left:25px;top:25px;--z:38px"></div><div class="sr-dot" style="left:25px;top:25px;--z:57px"></div><div class="sr-dot" style="left:25px;top:25px;--z:76px"></div><div class="sr-dot" style="left:25px;top:25px;--z:95px"></div><div class="sr-dot" style="left:25px;top:25px;--z:114px"></div><div class="sr-dot" style="left:25px;top:25px;--z:133px"></div><div class="sr-dot" style="left:25px;top:25px;--z:152px"></div><div class="sr-dot" style="left:25px;top:25px;--z:171px"></div><div class="sr-dot" style="left:25px;top:25px;--z:209px"></div><div class="sr-dot" style="left:25px;top:25px;--z:228px"></div><div class="sr-dot" style="left:25px;top:25px;--z:247px"></div><div class="sr-dot" style="left:25px;top:25px;--z:266px"></div><div class="sr-dot" style="left:25px;top:25px;--z:285px"></div><div class="sr-dot" style="left:25px;top:25px;--z:304px"></div><div class="sr-dot" style="left:25px;top:25px;--z:323px"></div><div class="sr-dot" style="left:25px;top:25px;--z:342px"></div><div class="sr-dot" style="left:25px;top:25px;--z:361px"></div><div class="sr-pulse" style="left:25px;top:25px;animation-delay:0s"></div><div class="sr-pulse" style="left:25px;top:25px;animation-delay:1.2s"></div><div class="sr-dot" style="left:205px;top:25px;--z:19px"></div><div class="sr-dot" style="left:205px;top:25px;--z:38px"></div><div class="sr-dot" style="left:205px;top:25px;--z:57px"></div><div class="sr-dot" style="left:205px;top:25px;--z:76px"></div><div class="sr-dot" style="left:205px;top:25px;--z:95px"></div><div class="sr-dot" style="left:205px;top:25px;--z:114px"></div><div class="sr-dot" style="left:205px;top:25px;--z:133px"></div><div class="sr-dot" style="left:205px;top:25px;--z:152px"></div><div class="sr-dot" style="left:205px;top:25px;--z:171px"></div><div class="sr-dot" style="left:205px;top:25px;--z:209px"></div><div class="sr-dot" style="left:205px;top:25px;--z:228px"></div><div class="sr-dot" style="left:205px;top:25px;--z:247px"></div><div class="sr-dot" style="left:205px;top:25px;--z:266px"></div><div class="sr-dot" style="left:205px;top:25px;--z:285px"></div><div class="sr-dot" style="left:205px;top:25px;--z:304px"></div><div class="sr-dot" style="left:205px;top:25px;--z:323px"></div><div class="sr-dot" style="left:205px;top:25px;--z:342px"></div><div class="sr-dot" style="left:205px;top:25px;--z:361px"></div><div class="sr-pulse" style="left:205px;top:25px;animation-delay:0.6s"></div><div class="sr-pulse" style="left:205px;top:25px;animation-delay:1.7999999999999998s"></div><div class="sr-dot" style="left:25px;top:205px;--z:19px"></div><div class="sr-dot" style="left:25px;top:205px;--z:38px"></div><div class="sr-dot" style="left:25px;top:205px;--z:57px"></div><div class="sr-dot" style="left:25px;top:205px;--z:76px"></div><div class="sr-dot" style="left:25px;top:205px;--z:95px"></div><div class="sr-dot" style="left:25px;top:205px;--z:114px"></div><div class="sr-dot" style="left:25px;top:205px;--z:133px"></div><div class="sr-dot" style="left:25px;top:205px;--z:152px"></div><div class="sr-dot" style="left:25px;top:205px;--z:171px"></div><div class="sr-dot" style="left:25px;top:205px;--z:209px"></div><div class="sr-dot" style="left:25px;top:205px;--z:228px"></div><div class="sr-dot" style="left:25px;top:205px;--z:247px"></div><div class="sr-dot" style="left:25px;top:205px;--z:266px"></div><div class="sr-dot" style="left:25px;top:205px;--z:285px"></div><div class="sr-dot" style="left:25px;top:205px;--z:304px"></div><div class="sr-dot" style="left:25px;top:205px;--z:323px"></div><div class="sr-dot" style="left:25px;top:205px;--z:342px"></div><div class="sr-dot" style="left:25px;top:205px;--z:361px"></div><div class="sr-pulse" style="left:25px;top:205px;animation-delay:1.2s"></div><div class="sr-pulse" style="left:25px;top:205px;animation-delay:2.4s"></div><div class="sr-dot" style="left:205px;top:205px;--z:19px"></div><div class="sr-dot" style="left:205px;top:205px;--z:38px"></div><div class="sr-dot" style="left:205px;top:205px;--z:57px"></div><div class="sr-dot" style="left:205px;top:205px;--z:76px"></div><div class="sr-dot" style="left:205px;top:205px;--z:95px"></div><div class="sr-dot" style="left:205px;top:205px;--z:114px"></div><div class="sr-dot" style="left:205px;top:205px;--z:133px"></div><div class="sr-dot" style="left:205px;top:205px;--z:152px"></div><div class="sr-dot" style="left:205px;top:205px;--z:171px"></div><div class="sr-dot" style="left:205px;top:205px;--z:209px"></div><div class="sr-dot" style="left:205px;top:205px;--z:228px"></div><div class="sr-dot" style="left:205px;top:205px;--z:247px"></div><div class="sr-dot" style="left:205px;top:205px;--z:266px"></div><div class="sr-dot" style="left:205px;top:205px;--z:285px"></div><div class="sr-dot" style="left:205px;top:205px;--z:304px"></div><div class="sr-dot" style="left:205px;top:205px;--z:323px"></div><div class="sr-dot" style="left:205px;top:205px;--z:342px"></div><div class="sr-dot" style="left:205px;top:205px;--z:361px"></div><div class="sr-pulse" style="left:205px;top:205px;animation-delay:1.8s"></div><div class="sr-pulse" style="left:205px;top:205px;animation-delay:3.0s"></div><div class="sr-plate" style="--z:190px"><div class="sr-chipset"></div><small data-t="2"></small><span data-t="3"></span></div><div class="sr-plate" style="--z:380px"><div class="sr-tiles"><i></i><i></i><i></i><i></i><i></i><i></i></div><small data-t="4"></small><span data-t="5"></span></div></div></div>'
-        texts: [Слой 1, Данные, Слой 2, Движок, Слой 3, Сцена]
+        texts: [Слой 1, Смысл, Слой 2, Стиль, Слой 3, Показ]
         place: {x: 610, y: 30, w: 640, h: 660}
         enter: rise
         delay: 200
@@ -412,25 +412,25 @@ slides:
         place: {x: 64, y: 110, w: 560}
         enter: rise
       - type: text
-        text: Три слоя — и каждый живёт своей жизнью. Правка в студии сразу видна в показе, в окне докладчика и в файлах экспорта.
+        text: Одна правка — везде сразу. Поменяли цифру в студии, и она уже на экране, у докладчика, на телефоне-пульте и в экспортированном файле.
         styles: {text: {size: 19, color: text2, leading: 1.5}}
         place: {x: 66, y: 196, w: 500}
         enter: fade
         delay: 200
       - type: text
-        text: "**3 · Сцена**\nстудия, показ, окно докладчика и экспорт"
+        text: "**3 · Показ**\nсцена, окно докладчика, пульт и экспорт"
         styles: {text: {size: 19, color: text2, leading: 1.45}}
         place: {x: 66, y: 330, w: 480}
         enter: left
         delay: 500
       - type: text
-        text: "**2 · Движок**\n31 блок, темы, анимации, живые схемы"
+        text: "**2 · Стиль**\n31 блок, темы и анимации — дизайн уже готов"
         styles: {text: {size: 19, color: text2, leading: 1.45}}
         place: {x: 66, y: 420, w: 480}
         enter: left
         delay: 650
       - type: text
-        text: "**1 · Данные**\nслайды — это текст в YAML: удобно хранить в git"
+        text: "**1 · Смысл**\nтексты и цифры отдельно от дизайна: сменили тему — слайды не переделываете"
         styles: {text: {size: 19, color: text2, leading: 1.45}}
         place: {x: 66, y: 510, w: 480}
         enter: left
@@ -566,7 +566,7 @@ slides:
         widths: [0.45, 2.1, 1.15]
         header: [№, Файл, Роль]
         rows:
-          - ["01", "**YAML**\nслайды текстом", "{#CA8A04|git}"]
+          - ["01", "**Шрифты**\nWOFF2 · TTF · OTF", "{#CA8A04|свои}"]
           - ["02", "**Excel**\nтаблица в ячейку", "{#EC4899|вставка}"]
           - ["03", "**HTML**\nClaude Design и др.", "{#6366F1|импорт}"]
           - ["04", "**PPTX · PDF**\nодной кнопкой", "{#16A34A|экспорт}"]
