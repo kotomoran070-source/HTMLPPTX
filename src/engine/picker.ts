@@ -50,7 +50,7 @@ async function remove(name: string, item: HTMLElement): Promise<void> {
   box.innerHTML = `<div class="imp pk-confirm" role="alertdialog" aria-modal="true" aria-labelledby="del-h" aria-describedby="del-d">
     <div class="pk-confirm-head"><span class="pk-confirm-icon">${icon('trash')}</span><h2 id="del-h">Удалить презентацию?</h2></div>
     <div class="pk-confirm-deck"><div class="pk-confirm-thumb"></div><div><b>${esc(title)}</b><span><code>${esc(name)}</code>${meta ? ` · ${esc(meta)}` : ''}</span></div></div>
-    <p class="pk-confirm-note" id="del-d">Папка переместится в <code>presentations/.trash/</code>. Передумаете — перенесите её обратно в <code>presentations/</code>.</p>
+    <p class="pk-confirm-note" id="del-d">Папка переместится в <code>${esc(__DECKS_DIR__)}.trash/</code>. Передумаете — перенесите её обратно в <code>${esc(__DECKS_DIR__)}</code>.</p>
     <div class="imp-actions"><button type="button" class="btn pk-neutral" data-a="cancel">Отмена</button><button type="button" class="btn pk-danger" data-a="ok">${icon('trash')}Удалить</button></div>
   </div>`;
   // Миниатюра первого слайда — та же, что на карточке
@@ -163,7 +163,7 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
   <section class="pk-hero">
     <h1>Презентации</h1>
     <p>${names.length
-      ? `${names.length} ${plural(names.length, 'презентация', 'презентации', 'презентаций')} в папке <code>presentations/</code>. Откройте, чтобы показать или править.`
+      ? `${names.length} ${plural(names.length, 'презентация', 'презентации', 'презентаций')} в папке <code>${esc(__DECKS_DIR__)}</code>. Откройте, чтобы показать или править.`
       : 'Пока ни одной. Создайте новую или импортируйте HTML.'}</p>
   </section>
   <div class="pk-grid" id="pk-grid">

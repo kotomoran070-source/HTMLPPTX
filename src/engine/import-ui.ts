@@ -144,7 +144,7 @@ function warningsHtml(w: string[]): string {
 }
 
 function summary(r: ImportResult): string {
-  const where = `presentations/${esc(r.name)}/deck.yaml`;
+  const where = `${esc(__DECKS_DIR__)}${esc(r.name)}/deck.yaml`;
   const files = files_(r.newAssets);
   if (r.mode === 'create') {
     const from = r.source === 'design' ? ' из экспорта Claude Design' : r.source === 'html' ? ' из HTML' : r.source === 'live' ? ', живыми слайдами' : '';

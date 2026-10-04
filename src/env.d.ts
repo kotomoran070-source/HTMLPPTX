@@ -4,6 +4,8 @@
 declare const __EDITABLE__: boolean;
 /** false — в собранной презентации нет 3D-моделей: библиотека не нужна */
 declare const __HAS_MODEL__: boolean;
+/** Папка с презентациями для подсказок: presentations/ или «Документы/Slideria» в приложении */
+declare const __DECKS_DIR__: string;
 
 declare module 'virtual:decks' {
   import type { Deck } from './types';

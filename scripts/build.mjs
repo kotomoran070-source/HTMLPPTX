@@ -8,7 +8,8 @@ import path from 'node:path';
 import { build } from 'vite';
 
 const root = process.cwd();
-const presDir = path.join(root, 'presentations');
+// Приложение Slideria держит презентации вне папки программы (SLIDERIA_DECKS)
+const presDir = process.env.SLIDERIA_DECKS ? path.resolve(process.env.SLIDERIA_DECKS) : path.join(root, 'presentations');
 const all = fs.existsSync(presDir)
   ? fs.readdirSync(presDir, { withFileTypes: true })
     .filter((d) => d.isDirectory() && !d.name.startsWith('_') && !d.name.startsWith('.'))
@@ -35,7 +36,8 @@ if (!names.length) {
 }
 
 const dist = path.join(root, 'dist');
-fs.mkdirSync(dist, { recursive: true });
+// С --out папка dist не нужна: приложение может стоять там, куда писать нельзя
+if (!outArg) fs.mkdirSync(dist, { recursive: true });
 
 if (outArg && names.length !== 1) {
   console.error('--out работает для одной презентации: yarn build имя --out=файл.html');
@@ -48,7 +50,12 @@ for (const name of names) {
   process.env.DECK = name;
   process.env.OUT_DIR = tmp;
   try {
-    await build({ configFile: path.join(root, 'vite.config.ts'), logLevel: 'warn' });
+    await build({
+      configFile: path.join(root, 'vite.config.ts'),
+      logLevel: 'warn',
+      // Приложение: конфиг читается без временного файла рядом с ним (папка программы может быть только для чтения)
+      ...(process.env.SLIDERIA_APP === '1' ? { configLoader: 'runner' } : {}),
+    });
   } catch (e) {
     fs.rmSync(tmp, { recursive: true, force: true });
     console.error(`✗ ${name}: ${String(e?.message ?? e).replace(/^\[[\w-]+\]\s*/, '')}`);

@@ -44,6 +44,8 @@ export interface DecksOptions {
   dir: string;
   /** Собрать только эту презентацию (yarn build имя) */
   only?: string;
+  /** Общая библиотека шрифтов; по умолчанию — fonts/ в корне проекта */
+  fonts?: string;
 }
 
 export function listDecks(dir: string): string[] {
@@ -134,8 +136,22 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     return process.platform === 'win32' || process.platform === 'darwin' ? r.toLowerCase() : r;
   };
 
-  /** Путь от корня проекта: /presentations/имя/… (одинаково работает на Windows) */
-  const urlOf = (abs: string) => '/' + path.relative(root, abs).split(path.sep).join('/');
+  /**
+   * Адрес файла для страницы: от корня проекта — /presentations/имя/… (одинаково на Windows);
+   * вне проекта (приложение: «Документы/Slideria») — /@fs/C:/…, так их отдаёт Vite
+   */
+  const urlOf = (abs: string) => {
+    const rel = path.relative(root, abs);
+    if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) return '/' + rel.split(path.sep).join('/');
+    return '/@fs/' + path.resolve(abs).split(path.sep).join('/').replace(/^\/+/, '');
+  };
+  /** Хвост адреса после prefix (адрес раскодирован: в путях бывает кириллица) или null */
+  const fold = process.platform === 'win32' || process.platform === 'darwin' ? (x: string) => x.toLowerCase() : (x: string) => x;
+  const under = (url: string, prefix: string): string | null => {
+    let clean = url.split('?')[0];
+    try { clean = decodeURI(clean); } catch { /* не адрес */ }
+    return fold(clean).startsWith(fold(prefix)) ? clean.slice(prefix.length) : null;
+  };
   const deckFile = (n: string) => path.join(dir, n, 'deck.yaml');
 
   const assertDeck = (name: string | null): string => {
@@ -173,7 +189,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
       fs.cpSync(src, target, { recursive: true });
       fs.rmSync(src, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
     }
-    return { trashed: path.relative(root, target).split(path.sep).join('/') };
+    return { trashed: path.relative(path.dirname(dir), target).split(path.sep).join('/') };
   }
 
   /**
@@ -214,8 +230,8 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     const toPaths = (v: unknown): unknown => {
       if (typeof v === 'string') {
         if (v.startsWith('data:')) return store.pathFor(v) ?? v;
-        const clean = v.split('?')[0];
-        return clean.startsWith(prefix) ? './' + decodeURI(clean.slice(prefix.length)) : v;
+        const rest = under(v, prefix);
+        return rest !== null ? './' + rest : v;
       }
       if (Array.isArray(v)) return v.map(toPaths);
       if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, toPaths(x)]));
@@ -260,8 +276,8 @@ export function decksPlugin(opts: DecksOptions): Plugin {
    */
   async function handleAssetText(name: string, assetUrl: string, req: IncomingMessage, res: ServerResponse): Promise<void> {
     const prefix = urlOf(path.join(dir, name, 'assets')) + '/';
-    const clean = assetUrl.split('?')[0];
-    const file = clean.startsWith(prefix) ? decodeURIComponent(clean.slice(prefix.length)) : '';
+    let file = under(assetUrl, prefix) ?? '';
+    try { file = decodeURIComponent(file); } catch { /* уже раскодирован */ }
     if (!file || /[\\/]|\.\./.test(file) || !/\.html?$/i.test(file)) throw new Error('Перезаписать можно только файл живой вставки (.htm) этой презентации');
     const target = path.join(dir, name, 'assets', file);
     if (!fs.existsSync(target)) throw new Error('Файла вставки нет — его переместили или удалили');
@@ -289,7 +305,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
 
   // ---------- общая библиотека шрифтов ----------
   const FONT_EXT = /\.(woff2?|ttf|otf)$/i;
-  const fontsDir = () => path.join(root, 'fonts');
+  const fontsDir = () => opts.fonts ? path.resolve(opts.fonts) : path.join(root, 'fonts');
   function listFonts(): { file: string; url: string }[] {
     if (!fs.existsSync(fontsDir())) return [];
     return fs.readdirSync(fontsDir()).filter((f) => FONT_EXT.test(f)).sort().map((f) => ({ file: f, url: urlOf(path.join(fontsDir(), f)) }));
@@ -509,7 +525,9 @@ function handleExport(root: string, name: string, clean: boolean, res: ServerRes
   const out = path.join(tmp, `${name}.html`);
   const args = [path.join(root, 'scripts/build.mjs'), name, `--out=${out}`, ...(clean ? ['--clean'] : [])];
   return new Promise((resolve) => {
-    execFile(process.execPath, args, { cwd: root, env: { ...process.env, BUILD_TMP: tmp }, maxBuffer: 8 << 20 }, (err, _stdout, stderr) => {
+    // В приложении process.execPath — сам Electron: ELECTRON_RUN_AS_NODE запускает его как обычный Node
+    const env = { ...process.env, BUILD_TMP: tmp, ...(process.versions.electron ? { ELECTRON_RUN_AS_NODE: '1' } : {}) };
+    execFile(process.execPath, args, { cwd: root, env, maxBuffer: 8 << 20 }, (err, _stdout, stderr) => {
       try {
         if (err || !fs.existsSync(out)) {
           const msg = (stderr || (err as Error | null)?.message || 'Сборка не удалась').trim().split('\n').slice(-3).join(' ');
