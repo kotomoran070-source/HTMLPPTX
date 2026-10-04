@@ -10,6 +10,7 @@ import { checkFirewall, checkMessage } from './firewall.mjs';
 import { stepToGlb, stlToGlb } from './model-convert';
 import { AssetStore } from './assets';
 import { BASE_ID, bindProject, importHtml, slug } from './import';
+import { importPptx } from './pptx/index';
 import { packDeck } from '../src/engine/pack';
 import { mergeYaml } from './yaml-merge';
 
@@ -38,6 +39,8 @@ const CAD_EXT = new Set(['stl', 'step', 'stp']);
 export const DATA_ID = 'htmlpptx-deck';
 const API = '/__htmlpptx/';
 const MAX_BODY = 60 * 1024 * 1024;
+/** Презентации PowerPoint с видео бывают большими */
+const MAX_PPTX = 400 * 1024 * 1024;
 
 export interface DecksOptions {
   /** Папка с презентациями */
@@ -81,13 +84,13 @@ function scriptJson(v: unknown): string {
   return JSON.stringify(v).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 }
 
-function readBody(req: IncomingMessage): Promise<Buffer> {
+function readBody(req: IncomingMessage, max = MAX_BODY): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let size = 0;
     req.on('data', (c: Buffer) => {
       size += c.length;
-      if (size > MAX_BODY) {
+      if (size > max) {
         reject(new Error('Слишком большой запрос'));
         req.destroy();
         return;
@@ -271,6 +274,17 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     send(res, 200, result);
   }
 
+  /** PowerPoint (.pptx) → новая презентация; dry=1 — только отчёт, без записи */
+  async function handleImportPptx(url: URL, req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const data = await readBody(req, MAX_PPTX);
+    if (!data.length) throw new Error('Пустой файл');
+    if (data.subarray(0, 2).toString('latin1') !== 'PK') throw new Error('Это не файл PowerPoint (.pptx). Старый формат .ppt сначала пересохраните в PowerPoint как .pptx');
+    const name = url.searchParams.get('deck') || undefined;
+    if (name && !/^[a-z0-9][a-z0-9-_]*$/i.test(name)) throw new Error('Имя презентации: латиница, цифры, дефис');
+    const result = await importPptx(data, { dir, name, fileName: url.searchParams.get('file') || undefined, dryRun: url.searchParams.get('dry') === '1' });
+    send(res, 200, result);
+  }
+
   /**
    * Код живой вставки правят в студии (панель «Код» → «Анимации»): файл assets/*.htm
    * перезаписывается на месте, а не копией — иначе каждая правка давала бы новый файл
@@ -411,6 +425,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           if (origin && new URL(origin).host !== req.headers.host) return send(res, 403, { error: 'Чужой источник запроса' });
           const url = new URL(req.url, 'http://localhost');
           if (url.pathname === API + 'import') return await handleImport(url, req, res);
+          if (url.pathname === API + 'import-pptx') return await handleImportPptx(url, req, res);
           // Для страницы выбора: когда каждую презентацию меняли в последний раз
           if (url.pathname === API + 'list') {
             return send(res, 200, listDecks(dir).map((n) => ({ name: n, mtime: Math.round(fs.statSync(deckFile(n)).mtimeMs) })));

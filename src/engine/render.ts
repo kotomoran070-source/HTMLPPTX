@@ -283,7 +283,8 @@ export function placeOf(b: unknown): Place {
   return {
     x: n(pl.x, 440, -1280, 2560),
     y: n(pl.y, 300, -720, 1440),
-    w: n(pl.w, 400, 20, 2560),
-    h: Number.isFinite(h) && h > 0 ? n(h, 0, 20, 1440) : undefined,
+    // Тонкие полоски и линии из PPTX бывают уже 20 px — рисуем как есть (рамки в редакторе — от 20)
+    w: n(pl.w, 400, 1, 2560),
+    h: Number.isFinite(h) && h > 0 ? n(h, 0, 1, 1440) : undefined,
   };
 }

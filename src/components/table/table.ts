@@ -35,6 +35,11 @@ interface TableProps extends Block {
   /** Плотность строк: compact — плотнее, roomy — свободнее */
   density?: 'compact' | 'roomy';
   /**
+   * Свои цвета (#RRGGBB) вместо цветов темы — так приходят таблицы из PowerPoint:
+   * head — шапка, headText — текст шапки, fill — строки, band — каждая вторая строка, text — текст, line — сетка
+   */
+  colors?: { head?: string; headText?: string; fill?: string; band?: string; text?: string; line?: string };
+  /**
    * Столбец меток (с нуля): ячейка — бейдж с цветной точкой. Цвет по слову
    * (критический, высокий, средний, низкий; готово, идёт, план) или явно: {#16A34A|Готово}
    */
@@ -96,8 +101,13 @@ defineBlock<TableProps>('table', {
     const variant = VARIANTS.includes(String(p.variant)) ? p.variant : 'lines';
     const density = p.density === 'compact' || p.density === 'roomy' ? ` tbl-${p.density}` : '';
     const size = Number(p.size) >= 10 && Number(p.size) <= 40 ? Number(p.size) : 0;
+    const HEXC = /^#[0-9a-f]{6}$/i;
+    const own = p.colors && typeof p.colors === 'object'
+      ? Object.entries({ head: '--th-bg', headText: '--th-tx', fill: '--td-bg', band: '--td-band', text: '--td-tx', line: '--td-line' })
+        .map(([k, v]) => { const c = (p.colors as Record<string, unknown>)[k]; return typeof c === 'string' && HEXC.test(c) ? `${v}:${c};` : ''; }).join('')
+      : '';
     const colgroup = widths ? `<colgroup>${widths.map((w) => `<col style="width:${((w / widths.reduce((a, b) => a + b, 0)) * 100).toFixed(2)}%">`).join('')}</colgroup>` : '';
-    return `<div class="tbl r tbl-${variant}${density}${p.labels ? ' tbl-labels' : ''}${p.total && rows.length > 1 ? ' tbl-total' : ''}${foot ? ' tbl-footed' : ''}"${size || p.style ? ` style="${size ? `--ts:${size}px;` : ''}${esc(p.style ?? '')}"` : ''}>`
+    return `<div class="tbl r tbl-${variant}${density}${own ? ' tbl-own' : ''}${p.labels ? ' tbl-labels' : ''}${p.total && rows.length > 1 ? ' tbl-total' : ''}${foot ? ' tbl-footed' : ''}"${size || own || p.style ? ` style="${size ? `--ts:${size}px;` : ''}${own}${esc(p.style ?? '')}"` : ''}>`
       + `<table>${colgroup}`
       + (header.length && p.head !== false ? `<thead><tr>${Array.from({ length: cols }, (_x, c) => cell('th', header, c)).join('')}</tr></thead>` : '')
       + `<tbody>${rows.map((r, k) => `<tr${k === p.highlight ? ' class="hl"' : ''} style="--k:${k}">${Array.from({ length: cols }, (_x, c) => cell('td', r, c)).join('')}</tr>`).join('')}</tbody>`

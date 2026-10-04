@@ -176,8 +176,8 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
     </a>${dev ? `<a class="pk-edit" href="?deck=${encodeURIComponent(n)}&amp;studio" title="Открыть в редакторе" aria-label="Открыть в редакторе ${esc(n)}">${icon('pencil')}<span>Редактор</span></a>` : ''}${dev ? `<button type="button" class="pk-del" data-del="${esc(n)}" title="Удалить презентацию" aria-label="Удалить презентацию ${esc(n)}">${icon('trash')}</button>` : ''}</div>`).join('')}
     ${dev ? `<button class="pk-card pk-action" id="pk-import" type="button">
       <span class="pk-icon">${icon('upload')}</span>
-      <b>Импорт HTML</b>
-      <span>Перетащите файл на страницу или нажмите.<br>Claude Design, свой HTML по правилам или собранный файл с правками.</span>
+      <b>Импорт</b>
+      <span>Перетащите файл на страницу или нажмите.<br>PowerPoint (.pptx), Claude Design, свой HTML или собранный файл с правками.</span>
     </button>
     <button class="pk-card pk-action pk-new" id="pk-new" type="button">
       <span class="pk-icon">${icon('plus')}</span>
@@ -187,7 +187,7 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
   </div>
   <footer class="pk-foot">${__APP__
     // Приложение: без команд терминала и путей проекта — что можно сделать прямо здесь
-    ? `<span>${icon('sparkle')} Импорт понимает презентации из Claude Design и из чата с Claude, а также свой HTML, где каждый слайд — <code>&lt;section class="slide"&gt;</code></span>
+    ? `<span>${icon('sparkle')} Импорт понимает PowerPoint (.pptx), презентации из Claude Design и из чата с Claude, а также свой HTML, где каждый слайд — <code>&lt;section class="slide"&gt;</code></span>
     <span>${icon('upload')} Готовую презентацию отправляйте одним HTML-файлом: «Экспорт» в редакторе. Откроется на любом компьютере без программы и интернета</span>`
     : `<span>${icon('terminal')} <code>yarn build имя</code> — один HTML-файл для показа и отправки: <code>dist/имя.html</code></span>
     <span>Правила своего HTML — <code>docs/HTML.md</code>, импорт из Claude Design — <code>docs/CLAUDE-DESIGN.md</code></span>`}

@@ -99,13 +99,34 @@ export function snapshot(html: string, size = { w: 1440, h: 900 }): Promise<stri
   });
 }
 
+const PPTX_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 const isHtml = (f: File) => /\.html?$/i.test(f.name) || f.type === 'text/html';
+const isPptx = (f: File) => /\.pptx$/i.test(f.name) || f.type === PPTX_TYPE;
 
-/** Перетаскивают файл, похожий на HTML (имя при dragover недоступно, только тип). */
-function draggingHtml(e: DragEvent): boolean {
-  const items = e.dataTransfer?.items;
-  if (!items) return false;
-  return [...items].some((i) => i.kind === 'file' && i.type === 'text/html');
+/** Перетаскивают HTML или PowerPoint (имя при dragover недоступно, только тип). */
+function dragKind(e: DragEvent): 'html' | 'pptx' | null {
+  const items = [...(e.dataTransfer?.items ?? [])].filter((i) => i.kind === 'file');
+  if (items.some((i) => i.type === PPTX_TYPE)) return 'pptx';
+  return items.some((i) => i.type === 'text/html') ? 'html' : null;
+}
+const draggingFile = (e: DragEvent) => dragKind(e) !== null;
+
+/** Ответ /__htmlpptx/import-pptx (см. plugins/pptx/index.ts) */
+interface PptxResult { name: string; title: string; slides: number; assets: number; warnings: string[] }
+
+async function requestPptx(data: ArrayBuffer, file: string, deck: string | undefined, dry: boolean): Promise<PptxResult> {
+  const q = new URLSearchParams({ file });
+  if (deck) q.set('deck', deck);
+  if (dry) q.set('dry', '1');
+  let res: Response;
+  try {
+    res = await fetch(`/__htmlpptx/import-pptx?${q}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: data });
+  } catch {
+    throw new Error('нет связи с yarn dev — сервер остановлен?');
+  }
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((out as { error?: string }).error ?? `ошибка ${res.status}`);
+  return out as PptxResult;
 }
 
 function list(title: string, items: string[]): string {
@@ -183,12 +204,13 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
   let busy = false;
   const zone = document.createElement('div');
   zone.className = 'imp-zone';
-  zone.innerHTML = '<div>Отпустите HTML-файл, чтобы импортировать правки в проект</div>';
+  zone.innerHTML = '<div></div>';
+  const zoneText = zone.firstElementChild!;
   document.body.append(zone);
 
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.html,.htm,text/html';
+  input.accept = `.html,.htm,text/html,.pptx,${PPTX_TYPE}`;
   input.hidden = true;
   document.body.append(input);
   input.addEventListener('change', () => {
@@ -199,30 +221,32 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
 
   let depth = 0;
   addEventListener('dragenter', (e) => {
-    if (!draggingHtml(e) || busy) return;
+    if (!draggingFile(e) || busy) return;
     depth++;
+    zoneText.textContent = dragKind(e) === 'pptx' ? 'Отпустите файл PowerPoint, чтобы сделать из него презентацию' : 'Отпустите HTML-файл, чтобы импортировать правки в проект';
     zone.classList.add('on');
   });
   addEventListener('dragleave', (e) => {
-    if (!draggingHtml(e)) return;
+    if (!draggingFile(e)) return;
     depth = Math.max(0, depth - 1);
     if (!depth) zone.classList.remove('on');
   });
   addEventListener('dragover', (e) => {
-    if (!draggingHtml(e)) return;
+    if (!draggingFile(e)) return;
     e.preventDefault();
     e.dataTransfer!.dropEffect = busy ? 'none' : 'copy';
   });
   addEventListener('drop', (e) => {
     depth = 0;
     zone.classList.remove('on');
-    const f = [...(e.dataTransfer?.files ?? [])].find(isHtml);
+    const f = [...(e.dataTransfer?.files ?? [])].find((x) => isHtml(x) || isPptx(x));
     if (!f) return;
     e.preventDefault();
     if (!busy) void open(f);
   });
 
   async function open(file: File): Promise<void> {
+    if (isPptx(file)) return openPptx(file);
     busy = true;
     const raw = await file.text();
     const box = document.createElement('div');
@@ -353,6 +377,102 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
         body.innerHTML = `<p class="imp-err">Не удалось импортировать: ${esc((e as Error).message)}</p>`;
         cancel.disabled = nameIn.disabled = themeIn.disabled = false;
         modeRow.querySelectorAll('input').forEach((x) => { x.disabled = x.value === 'edit' && liveOnly; });
+        ok.textContent = 'Повторить';
+        ok.disabled = false;
+      }
+    };
+    ok.onclick = () => void run();
+
+    await preview();
+    ok.focus();
+  }
+
+  /** PowerPoint → новая презентация: отчёт, имя, подтверждение */
+  async function openPptx(file: File): Promise<void> {
+    busy = true;
+    const box = document.createElement('div');
+    box.className = 'imp-bd';
+    box.innerHTML = `<div class="imp" role="dialog" aria-modal="true" aria-labelledby="imp-h">
+      <h2 id="imp-h">Импорт «${esc(file.name)}»</h2>
+      <div class="imp-body"><p class="mu">Читаю презентацию PowerPoint…</p></div>
+      <label class="imp-name" hidden>Презентация <input spellcheck="false" autocomplete="off"><small class="mu">имя папки: латиница, цифры, дефис</small></label>
+      <div class="imp-actions"><button type="button" class="btn ghost" data-a="cancel">Отмена</button><button type="button" class="btn primary" data-a="ok" disabled>Создать</button></div>
+    </div>`;
+    document.body.append(box);
+    const body = box.querySelector<HTMLElement>('.imp-body')!;
+    const nameRow = box.querySelector<HTMLElement>('.imp-name')!;
+    const nameIn = nameRow.querySelector('input')!;
+    const ok = box.querySelector<HTMLButtonElement>('[data-a="ok"]')!;
+    const cancel = box.querySelector<HTMLButtonElement>('[data-a="cancel"]')!;
+    const data = await file.arrayBuffer();
+    let last: PptxResult | null = null;
+    let seq = 0;
+
+    const close = () => {
+      box.remove();
+      removeEventListener('keydown', onKey, true);
+      busy = false;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); close(); }
+      else if (e.key === 'Enter' && !ok.disabled && e.target !== cancel) { e.preventDefault(); void run(); }
+      e.stopPropagation();
+    };
+    addEventListener('keydown', onKey, true);
+    cancel.onclick = close;
+    box.addEventListener('mousedown', (e) => { if (e.target === box) close(); });
+
+    const preview = async (deck?: string) => {
+      const my = ++seq;
+      ok.disabled = true;
+      try {
+        const r = await requestPptx(data, file.name, deck, true);
+        if (my !== seq) return;
+        last = r;
+        body.innerHTML = `<p>Будет создана новая презентация <code>${esc(__DECKS_DIR__)}${esc(r.name)}/deck.yaml</code> из PowerPoint: ${r.slides} слайдов.</p>`
+          + '<p class="mu">Каждый слайд — свободный холст: тексты, фигуры, картинки и таблицы стоят на своих местах и правятся в редакторе.</p>'
+          + (r.assets ? list('Файлы в assets/', [`картинок: ${r.assets}`]) : '')
+          + warningsHtml(r.warnings);
+        if (nameRow.hidden) {
+          nameRow.hidden = false;
+          nameIn.value = r.name;
+        }
+        ok.disabled = false;
+      } catch (e) {
+        if (my !== seq) return;
+        last = null;
+        body.innerHTML = `<p class="imp-err">${esc((e as Error).message)}</p>`;
+      }
+    };
+
+    let timer = 0;
+    nameIn.addEventListener('input', () => {
+      clearTimeout(timer);
+      const v = nameIn.value.trim();
+      ok.disabled = true;
+      if (!NAME_RE.test(v)) {
+        seq++;
+        body.innerHTML = '<p class="imp-err">Имя презентации: латиница, цифры, дефис</p>';
+        return;
+      }
+      timer = window.setTimeout(() => void preview(v), 250);
+    });
+
+    const run = async () => {
+      if (!last) return;
+      ok.disabled = cancel.disabled = nameIn.disabled = true;
+      ok.textContent = 'Импорт…';
+      try {
+        await o.beforeImport?.();
+        const r = await requestPptx(data, file.name, nameIn.value.trim() || last.name, false);
+        body.innerHTML = '<p class="imp-ok">Презентация создана. Открываю…</p>';
+        const url = new URL(location.href);
+        url.search = `?deck=${encodeURIComponent(r.name)}`;
+        url.hash = '';
+        location.href = url.href;
+      } catch (e) {
+        body.innerHTML = `<p class="imp-err">Не удалось импортировать: ${esc((e as Error).message)}</p>`;
+        cancel.disabled = nameIn.disabled = false;
         ok.textContent = 'Повторить';
         ok.disabled = false;
       }

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import JSZip from 'jszip';
 import { expect, test } from '@playwright/test';
-import { counter, readDeck, watchErrors } from './helpers';
+import { DECKS, counter, readDeck, watchErrors } from './helpers';
 
 const OUT = path.resolve('.tmp', 'test-export');
 
@@ -72,4 +72,39 @@ test('PowerPoint: файл PPTX со всеми слайдами и заметк
   const xml = (await Promise.all(pptSlides.map((f) => zip.file(f)!.async('string')))).join('');
   expect(xml).toContain('Коротко о');
   expect(xml).toContain('1,2 млн');
+});
+
+test('PowerPoint обратно: экспорт шаблона импортируется с теми же слайдами и текстами', async ({ page }) => {
+  test.setTimeout(120_000);
+  // Файл из предыдущего теста; если его запускали отдельно — его нет
+  const file = path.join(OUT, 'tpl.pptx');
+  test.skip(!fs.existsSync(file), 'нужен tpl.pptx из теста экспорта');
+  const slides = (readDeck('tpl').match(/^ {2}- id: /gm) ?? []).length;
+  const post = async (q: string, body: Uint8Array | string) => {
+    const r = await fetch(`http://localhost:5190/__htmlpptx/import-pptx?${q}`, { method: 'POST', body });
+    return { status: r.status, json: await r.json() };
+  };
+  // Не PPTX — понятная ошибка, ничего не создаётся
+  const bad = await post('file=x.pptx&dry=1', 'hello');
+  expect(bad.status).toBe(400);
+  expect(bad.json.error).toMatch(/PowerPoint/);
+
+  const data = new Uint8Array(fs.readFileSync(file));
+  const dry = await post('file=tpl.pptx&deck=tpl-back&dry=1', data);
+  expect(dry.json).toMatchObject({ name: 'tpl-back', slides, dryRun: true });
+  expect(fs.existsSync(path.join(DECKS, 'tpl-back'))).toBe(false);
+
+  const r = await post('file=tpl.pptx&deck=tpl-back', data);
+  expect(r.json.name).toBe('tpl-back');
+  const yaml = readDeck('tpl-back');
+  expect((yaml.match(/^ {2}- id: /gm) ?? []).length).toBe(slides);
+  expect(yaml).toContain('Коротко о');
+  expect(yaml).toContain('1,2 млн');
+
+  // Открывается без ошибок
+  const errors = watchErrors(page);
+  await page.goto('/?deck=tpl-back#1');
+  await expect(page.locator('#ct')).toHaveText(`1 из ${slides}`);
+  await expect(page.locator('.slide.on .free').first()).toBeVisible();
+  expect(errors).toEqual([]);
 });
