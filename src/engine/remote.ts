@@ -68,13 +68,17 @@ export async function openRemoteDialog(o: RemoteDialog): Promise<void> {
     return help('Пульт работает через сервер показа',
       `Запустите показ командой <code>yarn present ${esc(o.deckKey)}</code> — она соберёт презентацию и раздаст её в сети. Откроется показ; нажмите <b>R</b>, и здесь появится QR для телефона.`);
   }
-  let info: { urls?: string[]; localOnly?: boolean };
+  let info: { urls?: string[]; localOnly?: boolean; app?: boolean };
   try {
-    const r = await fetch(`${RELAY}info`);
+    const r = await fetch(`${RELAY}info?deck=${encodeURIComponent(o.deckKey)}`);
     if (!r.ok) throw new Error(String(r.status));
     info = await r.json();
   } catch {
     return help('Сервер показа не отвечает', `Запустите показ командой <code>yarn present ${esc(o.deckKey)}</code> и откройте его заново.`);
+  }
+  if (info.localOnly && info.app) {
+    return help('Не удалось открыть доступ для телефона',
+      'Порты пульта 5180–5199 заняты другими программами или брандмауэр не дал разрешения. Закройте лишнее и нажмите R ещё раз; подробности — в меню «Справка» → «Журнал работы».');
   }
   if (info.localOnly) {
     return help('Сервер виден только этому компьютеру',

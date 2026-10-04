@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { app, BrowserWindow, Menu, dialog, shell } from 'electron';
+import { lanGateway } from './lan.mjs';
 
 // Имя задаёт папку данных (%APPDATA%/Slideria) и в yarn app, и в установленной программе
 app.setName('Slideria');
@@ -19,6 +20,10 @@ let server;
 /** @type {BrowserWindow | undefined} */
 let main;
 let origin = '';
+let port = 0;
+// Пульт с телефона: вход в локальной сети открывается, когда в показе нажимают R (desktop/lan.mjs)
+const lan = lanGateway(() => port, DECKS, (...a) => log(...a));
+globalThis.__slideriaLan = (deck) => lan.open(deck);
 
 function log(...a) {
   const line = `[${new Date().toISOString()}] ${a.map(String).join(' ')}\n`;
@@ -69,7 +74,7 @@ async function startServer() {
   });
   await server.listen();
   const a = server.httpServer?.address();
-  const port = a && typeof a === 'object' ? a.port : 47320;
+  port = a && typeof a === 'object' ? a.port : 47320;
   origin = `http://127.0.0.1:${port}`;
   log('Сервер:', origin);
 }
@@ -212,5 +217,6 @@ app.on('before-quit', (e) => {
   if (closing || !server) return;
   e.preventDefault();
   closing = true;
+  lan.close();
   void server.close().finally(() => app.quit());
 });

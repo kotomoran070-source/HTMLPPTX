@@ -57,14 +57,17 @@ function json(res, code, body) {
 /**
  * Обрабатывает запросы /__slideria/remote/…; true — запрос обработан.
  * net() — адрес сервера: порт и слушает ли он только этот компьютер (тогда телефон не подключится).
+ * Может вернуть обещание: приложение открывает вход для телефона по первому запросу (desktop/lan.mjs).
  */
 export function remoteRelay(req, res, net) {
   if (!req.url?.startsWith(PREFIX)) return false;
   const url = new URL(req.url, 'http://local');
   const what = url.pathname.slice(PREFIX.length);
   if (what === 'info') {
-    const { port, localOnly } = net();
-    json(res, 200, { urls: localOnly ? [] : lanUrls(port), localOnly });
+    Promise.resolve(net()).then(
+      ({ port, localOnly, app }) => json(res, 200, { urls: localOnly ? [] : lanUrls(port), localOnly, app: !!app }),
+      () => json(res, 200, { urls: [], localOnly: true }),
+    );
     return true;
   }
   const room = url.searchParams.get('room') ?? '';

@@ -370,7 +370,16 @@ export function decksPlugin(opts: DecksOptions): Plugin {
 
       // Пульт с телефона: пересылка сообщений показа (телефон в той же сети, yarn dev --host)
       s.middlewares.use((req, res, next) => {
-        const net = () => {
+        const net = async () => {
+          // Приложение (desktop/main.mjs): сервер виден только этому компьютеру, а для телефона
+          // по запросу открывается отдельный вход в сети — только для показа
+          const lan = (globalThis as { __slideriaLan?: (deck: string) => Promise<number | null> }).__slideriaLan;
+          if (lan) {
+            // Телефону видна только презентация, которую показывают
+            const deck = new URL(req.url ?? '/', 'http://local').searchParams.get('deck') ?? '';
+            const port = isLocal(req) && listDecks(dir).includes(deck) ? await lan(deck) : null;
+            return { port: port ?? 0, localOnly: !port, app: true };
+          }
           const a = s.httpServer?.address();
           const info = a && typeof a === 'object' ? a : null;
           return { port: info?.port ?? 5173, localOnly: !info || info.address === '127.0.0.1' || info.address === '::1' };
