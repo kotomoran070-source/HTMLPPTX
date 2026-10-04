@@ -185,9 +185,12 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
       <span>Пустая — с титульного слайда, или с примерами слайдов для старта.</span>
     </button>` : ''}
   </div>
-  <footer class="pk-foot">
-    <span>${icon('terminal')} <code>yarn build имя</code> — один HTML-файл для показа и отправки: <code>dist/имя.html</code></span>
-    <span>Правила своего HTML — <code>docs/HTML.md</code>, импорт из Claude Design — <code>docs/CLAUDE-DESIGN.md</code></span>
+  <footer class="pk-foot">${__APP__
+    // Приложение: без команд терминала и путей проекта — что можно сделать прямо здесь
+    ? `<span>${icon('sparkle')} Импорт понимает презентации из Claude Design и из чата с Claude, а также свой HTML, где каждый слайд — <code>&lt;section class="slide"&gt;</code></span>
+    <span>${icon('upload')} Готовую презентацию отправляйте одним HTML-файлом: «Экспорт» в редакторе. Откроется на любом компьютере без программы и интернета</span>`
+    : `<span>${icon('terminal')} <code>yarn build имя</code> — один HTML-файл для показа и отправки: <code>dist/имя.html</code></span>
+    <span>Правила своего HTML — <code>docs/HTML.md</code>, импорт из Claude Design — <code>docs/CLAUDE-DESIGN.md</code></span>`}
   </footer>
 </div>`;
 

@@ -6,6 +6,8 @@ declare const __EDITABLE__: boolean;
 declare const __HAS_MODEL__: boolean;
 /** Папка с презентациями для подсказок: presentations/ или «Документы/Slideria» в приложении */
 declare const __DECKS_DIR__: string;
+/** Страница открыта в приложении Slideria (desktop/), а не через yarn dev */
+declare const __APP__: boolean;
 
 declare module 'virtual:decks' {
   import type { Deck } from './types';

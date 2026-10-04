@@ -30,6 +30,7 @@ export default defineConfig(({ command }) => ({
     __HAS_MODEL__: JSON.stringify(!only || usesModel(only)),
     // Как называть папку с презентациями в подсказках
     __DECKS_DIR__: JSON.stringify(process.env.SLIDERIA_DECKS_LABEL || 'presentations/'),
+    __APP__: JSON.stringify(app),
   },
   // Документы «живых» вставок (компонент embed) — обычные файлы-ассеты
   assetsInclude: ['**/*.htm', '**/*.glb', '**/*.wad'],
