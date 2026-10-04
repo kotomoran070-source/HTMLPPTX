@@ -3,7 +3,7 @@
 .rmd { position: relative; width: min(440px, 100%); max-height: calc(100vh - 32px); overflow: auto; box-sizing: border-box; padding: 26px 28px 22px; text-align: center;
   background: var(--surf); color: var(--tx); border: 1px solid var(--bd); border-radius: 20px; box-shadow: 0 30px 80px rgba(2, 6, 23, .45); font: 15px/1.5 var(--font); }
 .rmd h2 { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0 0 8px; font-size: 21px; }
-.rmd h2 .ic { width: 22px; height: 22px; color: var(--ach); }
+.rmd h2 .ic { width: 22px; height: 22px; color: var(--ach); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .rmd p { margin: 0 0 12px; }
 .rmd code { display: inline-block; max-width: 100%; overflow-wrap: anywhere; padding: 2px 8px; border-radius: 6px; background: var(--alt); border: 1px solid var(--bd); font-size: 13px; }
 .rmd-x { position: absolute; top: 10px; right: 10px; }

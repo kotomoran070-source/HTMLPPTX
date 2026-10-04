@@ -124,6 +124,7 @@ function guard(win) {
 }
 
 app.on('web-contents-created', (_e, wc) => {
+  zoomKeys(wc);
   wc.on('did-create-window', (w) => guard(w));
 });
 
@@ -154,6 +155,35 @@ function createWindow() {
   return win;
 }
 
+// ---------- масштаб ----------
+// Стандартное «Крупнее» в Electron — Ctrl + «+», то есть с Shift: Ctrl + «=» не срабатывал.
+// Шаги — как в Chrome
+const ZOOMS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
+const focused = () => BrowserWindow.getFocusedWindow()?.webContents;
+
+/** dir: 1 — крупнее, -1 — мельче, 0 — обычный масштаб */
+function zoom(wc, dir) {
+  if (!wc) return;
+  if (!dir) return wc.setZoomFactor(1);
+  const f = wc.getZoomFactor();
+  const next = dir > 0 ? ZOOMS.find((z) => z > f + 0.001) : [...ZOOMS].reverse().find((z) => z < f - 0.001);
+  if (next) wc.setZoomFactor(next);
+}
+
+function zoomKeys(wc) {
+  wc.on('before-input-event', (e, input) => {
+    if (input.type !== 'keyDown' || !(input.control || input.meta) || input.alt) return;
+    const k = input.key;
+    const c = input.code;
+    const dir = k === '+' || k === '=' || c === 'NumpadAdd' || c === 'Equal' ? 1
+      : k === '-' || k === '_' || c === 'NumpadSubtract' || c === 'Minus' ? -1
+      : k === '0' || c === 'Numpad0' || c === 'Digit0' ? 0 : null;
+    if (dir === null) return;
+    e.preventDefault();
+    zoom(wc, dir);
+  });
+}
+
 /** Меню скрыто (Alt показывает): нужно ради привычных клавиш — обновить, масштаб, полный экран */
 function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
@@ -174,9 +204,10 @@ function buildMenu() {
         { role: 'forceReload', label: 'Обновить без кэша' },
         { role: 'toggleDevTools', label: 'Инструменты разработчика' },
         { type: 'separator' },
-        { role: 'resetZoom', label: 'Обычный масштаб' },
-        { role: 'zoomIn', label: 'Крупнее' },
-        { role: 'zoomOut', label: 'Мельче' },
+        // Клавиши масштаба ловит zoomKeys: так Ctrl + «=/+» работает без Shift и на цифровом блоке
+        { label: 'Обычный масштаб', accelerator: 'CmdOrCtrl+0', registerAccelerator: false, click: () => zoom(focused(), 0) },
+        { label: 'Крупнее', accelerator: 'CmdOrCtrl+=', registerAccelerator: false, click: () => zoom(focused(), 1) },
+        { label: 'Мельче', accelerator: 'CmdOrCtrl+-', registerAccelerator: false, click: () => zoom(focused(), -1) },
         { type: 'separator' },
         { role: 'togglefullscreen', label: 'Полный экран' },
       ],
