@@ -94,11 +94,11 @@ slides:
         place: {x: 48, y: 156, w: 768, h: 432}
         enter: scale
         delay: 150
-      - {type: shape, kind: ellipse, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, text: "1", styles: {text: {size: 15, weight: 800}}, place: {x: 380, y: 186, w: 34, h: 34}, enter: pop, delay: 500}
-      - {type: shape, kind: ellipse, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, text: "2", styles: {text: {size: 15, weight: 800}}, place: {x: 74, y: 352, w: 34, h: 34}, enter: pop, delay: 600}
-      - {type: shape, kind: ellipse, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, text: "3", styles: {text: {size: 15, weight: 800}}, place: {x: 300, y: 300, w: 34, h: 34}, enter: pop, delay: 700}
-      - {type: shape, kind: ellipse, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, text: "4", styles: {text: {size: 15, weight: 800}}, place: {x: 738, y: 330, w: 34, h: 34}, enter: pop, delay: 800}
-      - {type: shape, kind: ellipse, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, text: "5", styles: {text: {size: 15, weight: 800}}, place: {x: 300, y: 532, w: 34, h: 34}, enter: pop, delay: 900}
+      - {type: shape, kind: ellipse, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, text: "1", styles: {text: {size: 15, weight: 800}}, place: {x: 377, y: 183, w: 40, h: 40}, style: "padding: 0", enter: pop, delay: 500}
+      - {type: shape, kind: ellipse, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, text: "2", styles: {text: {size: 15, weight: 800}}, place: {x: 71, y: 349, w: 40, h: 40}, style: "padding: 0", enter: pop, delay: 600}
+      - {type: shape, kind: ellipse, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, text: "3", styles: {text: {size: 15, weight: 800}}, place: {x: 297, y: 297, w: 40, h: 40}, style: "padding: 0", enter: pop, delay: 700}
+      - {type: shape, kind: ellipse, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, text: "4", styles: {text: {size: 15, weight: 800}}, place: {x: 735, y: 327, w: 40, h: 40}, style: "padding: 0", enter: pop, delay: 800}
+      - {type: shape, kind: ellipse, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, text: "5", styles: {text: {size: 15, weight: 800}}, place: {x: 297, y: 529, w: 40, h: 40}, style: "padding: 0", enter: pop, delay: 900}
       - {type: text, text: "**1 · Лента**\nвкладки как в PowerPoint: текст, вставка, анимация, показ", styles: {text: {size: 16, color: text2, leading: 1.45}}, place: {x: 852, y: 160, w: 380}, enter: left, delay: 500}
       - {type: text, text: "**2 · Миниатюры**\nперетащите, чтобы поменять порядок; правый щелчок — меню слайда", styles: {text: {size: 16, color: text2, leading: 1.45}}, place: {x: 852, y: 246, w: 380}, enter: left, delay: 600}
       - {type: text, text: "**3 · Слайд**\nщёлкните по тексту и пишите, объекты тяните мышью", styles: {text: {size: 16, color: text2, leading: 1.45}}, place: {x: 852, y: 332, w: 380}, enter: left, delay: 700}
