@@ -125,7 +125,13 @@ function mount(at: { x: number; y: number } | HTMLElement, el: HTMLElement, acti
     open = null;
   };
   // Прокрутка страницы уводит якорь — меню закрывается; своя прокрутка (длинная галерея) — нет
-  const onScroll = (e: Event) => { if (!el.contains(e.target as Node)) close(); };
+  // Закрывается, если прокрутилось то, к чему меню прикреплено (иначе оно уехало бы от кнопки);
+  // прокрутка соседней панели (список слайдов при переходе) меню не трогает
+  const onScroll = (e: Event) => {
+    const t = e.target as Node;
+    if (el.contains(t)) return;
+    if (!anchor || t === document || (t as Element).contains?.(anchor)) close();
+  };
   const outside = (e: PointerEvent) => {
     // Список выбора шрифта открывается поверх панели (замена шрифта) — щелчок по нему её не закрывает
     if ((e.target as Element).closest?.('.fontpick')) return;

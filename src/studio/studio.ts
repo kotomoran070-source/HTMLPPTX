@@ -125,6 +125,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     </div>
     <div class="st-rpanel" data-panel="tools" hidden>
       ${group('Презентация', rb('tools.summary', 'chart', 'Сводка', { big: true, title: 'Слайды, слова, время доклада, тяжёлые и лишние файлы, шрифты' }))}
+      ${group('Оформление', rb('tools.tidy', 'sparkle', 'Привести в порядок', { big: true, title: 'Найти почти одинаковые размеры, отступы и цвета на разных слайдах и выровнять их' }))}
       ${group('Шрифты', rb('tools.font', 'text', 'Заменить шрифт', { big: true, title: 'Один шрифт на другой во всей презентации' }))}
       ${group('Заметки', rb('tools.notes-clear', 'notes', 'Удалить заметки', { big: true, title: 'Заметки докладчика со всех слайдов' }))}
     </div>

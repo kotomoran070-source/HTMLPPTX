@@ -11,6 +11,7 @@ import { FONTS } from '../engine/text-style';
 import type { Deck } from '../types';
 import { texts } from './find';
 import { showPopover } from './menu';
+import { findFixes } from './tidy';
 
 export interface ToolsHost {
   deck: Deck;
@@ -57,6 +58,7 @@ export function toolsCommands(h: ToolsHost): Record<string, Command> {
   return {
     'tools.summary': { run: () => void summary(h, anchor('tools.summary')) },
     'tools.font': { run: () => replaceFont(h, anchor('tools.font')) },
+    'tools.tidy': { run: () => tidy(h, anchor('tools.tidy')) },
     'tools.notes-clear': { run: () => clearNotes(h), enabled: () => h.deck.slides.some((s) => typeof s.notes === 'string' && s.notes.trim()) },
   };
 }
@@ -140,6 +142,34 @@ ${unused.length ? `<div class="st-sum-unused"><span>Не используютс�
     }
     return null;
   }, 'st-sumpop');
+}
+
+// ---------------- привести в порядок ----------------
+
+const slidesText = (s: number[]) => (s.length === 1 ? `слайд ${s[0] + 1}` : `слайды ${s.slice(0, 6).map((i) => i + 1).join(', ')}${s.length > 6 ? '…' : ''}`);
+
+function tidy(h: ToolsHost, at: HTMLElement): void {
+  const fixes = findFixes(h.deck);
+  const swatch = (c: string) => (c.startsWith('#') ? `<i class="st-tidy-sw" style="background:${esc(c)}"></i>` : '');
+  const html = fixes.length
+    ? `<h3 class="st-sum-h">Привести в порядок</h3>
+<ul class="st-tidy">${fixes.map((f, i) => `<li><label><input type="checkbox" data-i="${i}" checked><span><b>${esc(f.what)}</b> ${swatch(f.from)}${esc(f.from)} → ${swatch(f.to)}${esc(f.to)}<small>${slidesText(f.slides)} · <button type="button" class="st-link" data-go="${f.slides[0]}">показать</button></small></span></label></li>`).join('')}</ul>
+<div class="st-fr-btns"><button type="button" class="btn primary small" data-tidy>Исправить</button></div>`
+    : `<h3 class="st-sum-h">Привести в порядок</h3><p class="st-sum-note">Всё ровно — исправлять нечего.</p>`;
+  const pop = showPopover(at, html, (b) => {
+    if (b.dataset.go) return { keep: true, run: () => h.go(Number(b.dataset.go)) };
+    if (!b.hasAttribute('data-tidy')) return null;
+    return {
+      run: () => {
+        const on = [...pop.querySelectorAll<HTMLInputElement>('input[data-i]')].filter((x) => x.checked).map((x) => fixes[Number(x.dataset.i)]);
+        if (!on.length) return;
+        h.editor.commit((d) => on.forEach((f) => f.apply(d)), { rebuild: true });
+        h.editor.toast(`Исправлено: ${on.length}. Отменить — Ctrl+Z`, 4000);
+      },
+    };
+  }, 'st-sumpop');
+  const go = pop.querySelector<HTMLButtonElement>('[data-tidy]');
+  pop.addEventListener('change', () => { if (go) go.disabled = !pop.querySelector('input[data-i]:checked'); });
 }
 
 // ---------------- заметки ----------------
