@@ -799,12 +799,12 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
       if (!rowsEl.length) return null;
       const tblPr = kid(tbl, 'tblPr');
       const styled = !!kid(tblPr, 'tableStyleId');
-      type Cell = { md: string; p: TP; fill: Paint | null; line: Rgba | null };
+      type Cell = { paras: Para[]; p: TP; fill: Paint | null; line: Rgba | null };
       const cellOf = (tc: El): Cell => {
         const paras = paragraphs(kid(tc, 'txBody'), [], defLv, null, undefined);
         const tcPr = kid(tc, 'tcPr');
         const ln = ['lnB', 'lnR', 'lnT', 'lnL'].map((n) => kid(tcPr, n)).find((l) => l && kid(l, 'solidFill'));
-        return { md: markup(paras, dominant(paras)), p: dominant(paras), fill: paintOf(fillChild(tcPr), cc), line: ln ? colorIn(kid(ln, 'solidFill'), cc) : null };
+        return { paras, p: dominant(paras), fill: paintOf(fillChild(tcPr), cc), line: ln ? colorIn(kid(ln, 'solidFill'), cc) : null };
       };
       const grid = rowsEl.map((tr) => kids(tr, 'tc').filter((tc) => bool(tc, 'hMerge') !== true && bool(tc, 'vMerge') !== true).map(cellOf));
       if (kids(tbl, 'tr').some((tr) => kids(tr, 'tc').some((tc) => num(tc, 'gridSpan') || num(tc, 'rowSpan')))) warn('Объединённые ячейки таблиц разделены');
@@ -822,22 +822,36 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
       if (h0 && head) colors.head = hex(h0);
       if (head?.[0]?.p.color) colors.headText = hex(head[0].p.color);
       if (fill1) colors.fill = hex(fill1);
-      if (fill2 && fill1 && hex(fill2) !== hex(fill1)) colors.band = hex(fill2);
+      // Полосы: вторая строка другого цвета (первая может быть и без заливки)
+      if (fill2 && (!fill1 || hex(fill2) !== hex(fill1))) colors.band = hex(fill2);
       if (sample.color) colors.text = hex(sample.color);
       // Без стиля таблицы PowerPoint рисует тонкую сетку
       colors.line = line ? hex(line) : styled ? '#D9D9D9' : '#595959';
+      // Цвет текста — общий для таблицы (colors.text / headText): фрагменты другого цвета («● готово»
+      // зелёным) остаются разметкой {#цвет|…}, даже если в ячейке это единственный фрагмент
+      // Жирность — тоже от общей строки таблицы: жирный столбец подписей остаётся **жирным**
+      const md = (c: Cell, base: TP) => markup(c.paras, { ...c.p, color: base.color ?? c.p.color, b: base.b });
+      // Ячейки таблицы рисуются обычным начертанием, шапка — жирным: остальное — разметкой **…**
+      const bodyBase: TP = { ...sample, b: false };
+      const headPx = head?.[0]?.p.sz ? head[0].p.sz * ptPx : 0;
       const rowH = (num(rowsEl[Math.min(1, rowsEl.length - 1)], 'h') ?? 0) * k;
       const fs = (sample.sz ?? 18) * ptPx;
-      const py = rowH ? Math.max(2, (rowH - fs * 1.4) / 2) : 0;
+      // Высота строки = текст + поля + линия под строкой (1 px)
+      const py = rowH ? Math.max(2, (rowH - fs * 1.4 - 1) / 2) : 0;
+      const headH = head ? (num(rowsEl[0], 'h') ?? 0) * k : 0;
+      const thPy = headH && headPx ? Math.max(2, (headH - headPx * 1.4 - 1) / 2) : 0;
+      // Вертикальные линии — только если они есть у ячеек (часто таблица разлинована лишь по строкам)
+      const explicit = rowsEl.some((tr) => kids(tr, 'tc').some((tc) => ['lnL', 'lnR', 'lnT', 'lnB'].some((n) => !!kid(kid(tc, 'tcPr'), n))));
+      const vertical = !explicit || rowsEl.some((tr) => kids(tr, 'tc').some((tc) => ['lnL', 'lnR'].some((n) => { const l = kid(kid(tc, 'tcPr'), n); return !!l && !!kid(l, 'solidFill') && (num(l, 'w') ?? 1) > 0; })));
       return {
         type: 'table',
         variant: 'boxed',
-        ...(head ? { header: head.map((c) => c.md) } : { head: false, header: grid[0].map(() => '') }),
-        rows: body.map((r) => r.map((c) => c.md)),
+        ...(head ? { header: head.map((c) => md(c, { ...head[0].p, b: true })) } : { head: false, header: grid[0].map(() => '') }),
+        rows: body.map((r) => r.map((c) => md(c, bodyBase))),
         widths: cols.map((w) => Math.round((w / cols.reduce((a, b) => a + b, 0)) * 1000) / 100),
         ...(sample.sz ? { size: r1(fs) } : {}),
         colors,
-        style: `--py:${r1(py)}px;--px:${r1(9.6 * k * EMU_PX)}px${sample.font ? `;font-family:"${sample.font}",system-ui,sans-serif` : ''}`,
+        style: `--py:${r1(py)}px;--px:${r1(9.6 * k * EMU_PX)}px${headPx && Math.abs(headPx - fs) > 0.5 ? `;--th-size:${r1(headPx)}px` : ''}${thPy && Math.abs(thPy - py) > 0.5 ? `;--th-py:${r1(thPy)}px` : ''}${styled || vertical ? '' : ';--td-vline:transparent'}${sample.font ? `;font-family:"${sample.font}",system-ui,sans-serif` : ''}`,
         place: { x: r1(box.x), y: r1(box.y), w: r1(box.w) },
       };
     }

@@ -90,9 +90,10 @@ body.editing .tbl.tbl-kill-all td, body.editing .tbl.tbl-kill-all th { backgroun
 /* Свои цвета (colors) — таблицы из PowerPoint: шапка, строки, чередование, сетка */
 .tbl.tbl-own table { border-radius: 0; box-shadow: none; background: var(--td-bg, transparent); border: 1px solid var(--td-line, transparent); }
 .tbl.tbl-own thead tr { background: var(--th-bg, transparent); }
-.tbl.tbl-own th { background: var(--th-bg, transparent); color: var(--th-tx, inherit); font-size: 1em; letter-spacing: 0; text-transform: none; line-height: 1.4; }
+.tbl.tbl-own th { background: var(--th-bg, transparent); color: var(--th-tx, inherit); font-size: var(--th-size, 1em); letter-spacing: 0; text-transform: none; line-height: 1.4; }
 .tbl.tbl-own td { color: var(--td-tx, inherit); background: var(--td-bg, transparent); }
 .tbl.tbl-own tbody tr:nth-child(even) td { background: var(--td-band, var(--td-bg, transparent)); }
-.tbl.tbl-own :is(th, td) { border: 0; border-right: 1px solid var(--td-line, transparent); border-bottom: 1px solid var(--td-line, transparent); }
+.tbl.tbl-own :is(th, td) { border: 0; border-right: 1px solid var(--td-vline, var(--td-line, transparent)); border-bottom: 1px solid var(--td-line, transparent); }
+.tbl.tbl-own th { padding-block: var(--th-py, var(--py)); }
 .tbl.tbl-own :is(th, td):last-child { border-right: 0; }
 .tbl.tbl-own tbody tr:last-child td { border-bottom: 0; }

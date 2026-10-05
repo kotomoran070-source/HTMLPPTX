@@ -72,6 +72,11 @@ test('PowerPoint: файл PPTX со всеми слайдами и заметк
   const xml = (await Promise.all(pptSlides.map((f) => zip.file(f)!.async('string')))).join('');
   expect(xml).toContain('Коротко о');
   expect(xml).toContain('1,2 млн');
+  // Пункты списков — маркерами абзацев, цветные метки таблиц — своим цветом
+  expect(xml).toContain('<a:buChar char="&#x2022;"/>');
+  expect(xml).toMatch(/<a:srgbClr val="16A34A"\/><\/a:solidFill>[^]*?<a:t>● готово<\/a:t>/);
+  // Размеры — без потерь: заголовок 32 px = 24 pt ровно
+  expect(xml).toContain('sz="2400"');
 });
 
 test('PowerPoint обратно: экспорт шаблона импортируется с теми же слайдами и текстами', async ({ page }) => {

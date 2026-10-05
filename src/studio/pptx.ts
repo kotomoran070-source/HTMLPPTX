@@ -21,8 +21,10 @@ type Pptx = PptxGenJS;
 const PX = 96;
 /** Язык текста: иначе PowerPoint проверяет русский текст как английский и подчёркивает каждое слово */
 let LANG = 'ru-RU';
-const inch = (px: number) => Math.round((px / PX) * 1000) / 1000;
-const pt = (px: number) => Math.round(px * 0.75 * 10) / 10;
+// Без своего округления: pptxgenjs сам переводит дюймы в EMU (1 px = 9525 EMU) и пункты в сотые
+// доли (sz="1270"), так положение точнее 0,001 px, а размер шрифта — 0,01 pt
+const inch = (px: number) => px / PX;
+const pt = (px: number) => Math.round(px * 0.75 * 100) / 100;
 
 /** Блоки, которые передаются картинкой: схемы и вставки со своей графикой */
 /** Блоки, которые уходят в PPTX картинкой целиком (редактор кода с подсветкой) */
@@ -192,6 +194,9 @@ export async function exportPptx(deck: Deck, progress?: PptxProgress): Promise<B
     for (let i = 0; i < deck.slides.length; i++) {
       progress?.(i, deck.slides.length);
       const box = staticSlide(deck, i, 1280);
+      // Без рамки миниатюры: иначе слайд ужимается до 1278 px и всё в файле на 0,16 % меньше
+      box.style.border = '0';
+      box.style.borderRadius = '0';
       host.replaceChildren(box);
       await settle(box);
       const section = box.querySelector<HTMLElement>('.slide');
@@ -304,9 +309,18 @@ class Converter {
   private unit(el: Element, parent: number): number {
     const w = (el as HTMLElement).offsetWidth;
     if (!(el instanceof HTMLElement) || !w) return parent;
-    const k = el.getBoundingClientRect().width / w;
-    // Поворот меняет ширину рамки, а не масштаб
-    return getComputedStyle(el).transform.startsWith('matrix(') && this.rotation(getComputedStyle(el)) ? parent : Math.round(k * 1000) / 1000 || parent;
+    // Масштаб из transform — точно (поворот масштаба не меняет: длина первого столбца матрицы)
+    const m = /^matrix\(([^)]+)\)/.exec(getComputedStyle(el).transform);
+    if (m) {
+      const [a, b] = m[1].split(',').map(Number);
+      const sc = Math.hypot(a, b);
+      return Number.isFinite(sc) && sc > 0 && Math.abs(sc - 1) > 1e-4 ? parent * sc : parent;
+    }
+    const rw = el.getBoundingClientRect().width;
+    // offsetWidth — целые пиксели: расхождение меньше пикселя (290,6 и 291) — не масштаб, а округление
+    if (Math.abs(rw - w * parent) <= 1) return parent;
+    // Остальное (zoom, scale:) — по ширине рамки
+    return rw / w || parent;
   }
 
   private inAction = false;
@@ -594,8 +608,22 @@ class Converter {
       const c = rgba(before.color);
       runs.unshift({ text: `${mark} `, options: { ...runs[0].options, color: c?.hex ?? runs[0].options?.color, breakLine: false } });
     }
+    // Пункт списка (<li>): маркер браузера (::marker) — маркером абзаца PowerPoint, с висячим
+    // отступом; место под маркер — поле списка слева от пункта, как на слайде
+    let bullet: PptxGenJS.TextPropsOptions['bullet'] | undefined;
+    let hang = 0;
+    if (cs.display === 'list-item' && cs.listStyleType !== 'none' && cs.listStylePosition !== 'inside' && !mark) {
+      const list = el.parentElement;
+      hang = Math.max(8, (parseFloat(getComputedStyle(list ?? el).paddingLeft) || 0) * k);
+      if (list?.tagName === 'OL' || /decimal/.test(cs.listStyleType)) {
+        const start = (list as HTMLOListElement | null)?.start ?? 1;
+        bullet = { type: 'number', indent: pt(hang), numberStartAt: start + [...(list?.children ?? [])].indexOf(el) };
+      } else {
+        bullet = { indent: pt(hang), characterCode: cs.listStyleType === 'circle' ? '25E6' : cs.listStyleType === 'square' ? '25AA' : '2022' };
+      }
+    }
     const b = this.box(el);
-    const pl = (parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth)) * k;
+    const pl = (parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth)) * k - hang;
     const pr = (parseFloat(cs.paddingRight) + parseFloat(cs.borderRightWidth)) * k;
     const ptop = (parseFloat(cs.paddingTop) + parseFloat(cs.borderTopWidth)) * k;
     const pb = (parseFloat(cs.paddingBottom) + parseFloat(cs.borderBottomWidth)) * k;
@@ -613,6 +641,7 @@ class Converter {
     this.slide.addText(runs, {
       ...this.pos({ x, y: b.y + ptop, w, h: Math.max(size * 1.2, contentH) }),
       margin: 0, valign: flexCenter && cs.alignItems === 'center' ? 'middle' : 'top', align, fit: 'none', wrap: !single,
+      ...(bullet ? { bullet } : {}),
       // Точный интервал в пунктах: не зависит от того, каким шрифтом PowerPoint заменит системный
       lineSpacing: Number.isFinite(lh) && lh > 0 ? pt(lh) : undefined,
       rotate: this.spin(this.rotation(cs)) || undefined,

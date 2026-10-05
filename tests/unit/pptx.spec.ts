@@ -19,7 +19,7 @@ async function sample(): Promise<Buffer> {
   const s2 = p.addSlide();
   s2.addTable([
     [{ text: 'Этап', options: { bold: true, fill: { color: '1F3B4D' }, color: 'FFFFFF' } }, { text: 'Срок', options: { bold: true, fill: { color: '1F3B4D' }, color: 'FFFFFF' } }],
-    ['Запуск', 'Май'],
+    [{ text: 'Запуск', options: { bold: true } }, { text: [{ text: '● готово', options: { color: '16A34A' } }] }],
     ['Рост', 'Июнь'],
   ], { x: 1, y: 1, w: 8, colW: [4, 4], fontSize: 14 });
   s2.addShape(p.ShapeType.rect, { x: 0, y: 8, w: 1, h: 1, fill: { color: 'FF0000' } }); // за краем слайда — не переносится
@@ -50,6 +50,8 @@ test('PPTX → холсты со свободными объектами', async
   const table = b.find((o) => o.type === 'table');
   expect(table.header).toEqual(['Этап', 'Срок']);
   expect(JSON.stringify(table)).toContain('Июнь');
+  // Жирная подпись строки и цветная метка в ячейке не теряются
+  expect(table.rows[0]).toEqual(['**Запуск**', '{#16A34A|● готово}']);
   expect(table.colors?.head).toBe('#1F3B4D');
   expect(b.some((o) => o.fill === '#FF0000')).toBe(false);
 });
