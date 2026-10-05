@@ -40,7 +40,8 @@ function guarded(s: string): [number, number][] {
 }
 
 function pattern(q: string, matchCase: boolean, word: boolean): RegExp {
-  const body = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Пробел запроса совпадает и с неразрывным (на слайде он ставится после коротких слов: «в доме»)
+  const body = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '[ \\u00a0]');
   return new RegExp(word ? `(?<![\\p{L}\\p{N}_])${body}(?![\\p{L}\\p{N}_])` : body, `g${matchCase ? '' : 'i'}u`);
 }
 

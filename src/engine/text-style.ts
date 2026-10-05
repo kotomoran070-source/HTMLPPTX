@@ -57,7 +57,8 @@ export function textStyleCss(st: unknown): string {
   const s = st as TextStyle;
   const out: string[] = [];
   const size = Number(s.size);
-  if (Number.isFinite(size) && size >= 6 && size <= 300) out.push(`font-size:${size}px`);
+  // Крупный текст (заголовок) переносится ровными строками
+  if (Number.isFinite(size) && size >= 6 && size <= 300) out.push(`font-size:${size}px`, ...(size >= 28 ? ['text-wrap:balance'] : []));
   const color = colorCss(s.color);
   if (color) out.push(`color:${color}`, `fill:${color}`);
   if (s.align && ALIGN.has(s.align)) out.push(`text-align:${s.align}`);

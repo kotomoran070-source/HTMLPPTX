@@ -36,6 +36,9 @@ body {
 }
 
 .slide.on { display: block; }
+/* Перенос как в хорошей вёрстке: заголовки — ровными строками, у абзацев последнее слово не висит одно */
+.slide { text-wrap: pretty; }
+.slide :is(h1, h2, h3) { text-wrap: balance; }
 .stage .slide.on { animation: enter .55s var(--ease) both; }
 
 /* Переходы между слайдами: data-tr у входящего слайда, уходящий — .out (deck-view.ts) */
