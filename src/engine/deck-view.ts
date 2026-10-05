@@ -1,4 +1,5 @@
 import type { Block, Deck } from '../types';
+import { countUp } from './count-up';
 import { getAt, type Path } from './data';
 import { Renderer } from './render';
 
@@ -213,7 +214,15 @@ export class DeckView {
     this.slides.forEach((s, k) => s.classList.toggle('on', k === i));
     DeckView.resetTriggers(this.slides[i]);
     restartGifs(this.slides[i]);
+    this.count(this.slides[i]);
     if (this.transitions && prev) this.runOut(prev, this.slides[i], back);
+  }
+
+  /** «Число набегает» у объектов слайда (остановка прежнего отсчёта возвращает текст как был) */
+  private stopCount: () => void = () => {};
+  private count(el: HTMLElement | undefined): void {
+    this.stopCount();
+    this.stopCount = countUp(el);
   }
 
   /** Заново проиграть появление слайда — вместе с переходом от предыдущего */
@@ -226,6 +235,7 @@ export class DeckView {
     el.classList.add('on');
     DeckView.resetTriggers(el);
     restartGifs(el);
+    this.count(el);
     const prev = this.slides[i - 1];
     if (prev) this.runOut(prev, el, false);
   }

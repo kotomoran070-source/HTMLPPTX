@@ -111,7 +111,9 @@ export class Renderer {
       // Имя объекта — для кнопок «показать / скрыть»; hidden — скрыт при показе до щелчка
       const obj = typeof b.id === 'string' && OBJ_ID.test(b.id) ? ` data-obj="${esc(b.id)}"` : '';
       const hid = b.hidden === true ? ' trig-hid' : '';
-      const emph = typeof b.emphasis === 'string' && (EMPHASIS as readonly string[]).includes(b.emphasis) ? ` data-emph="${b.emphasis}"` : '';
+      const emph = (typeof b.emphasis === 'string' && (EMPHASIS as readonly string[]).includes(b.emphasis) ? ` data-emph="${b.emphasis}"` : '')
+        // Числа в тексте отсчитываются от нуля при появлении (engine/count-up)
+        + (b.count === true ? ' data-count' : '');
       return `<div class="free${pl.h ? '' : ' auto-h'}${fx}${lock}${act ? ' act' : ''}${hid}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''}${obj}${emph}${hid ? ' data-hid' : ''}${act ? ` data-action="${esc(act)}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
     }).join('');
   }

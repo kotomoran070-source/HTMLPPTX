@@ -81,6 +81,7 @@ export function animPanelHtml(): string {
     <label class="st-rfield" title="Через сколько секунд после открытия слайда объект появляется"><span>Задержка</span><input type="number" id="st-fx-delay" min="0" max="20" step="0.1" aria-label="Задержка появления, секунды"><span>с</span></label>
     <div class="st-rrow">${btn('anim.earlier', 'up', 'Раньше', { title: 'Появляться раньше' })}${btn('anim.later', 'up', 'Позже', { title: 'Появляться позже' })}</div>
   </div><div class="st-rstack">${btn('anim.seq', 'sparkle', 'По очереди', { title: 'Выделенные объекты (или все на слайде) появляются по очереди: сверху вниз, слева направо' })}${btn('anim.order', 'list', 'Порядок', { menu: true, title: 'Все анимированные объекты слайда по порядку' })}</div>`)}
+  ${group('Число', `<div class="st-rstack"><button type="button" class="st-rb st-chk" data-cmd="anim.count" title="Числа в тексте объекта при появлении отсчитываются от нуля до своего значения"><i class="st-box">${icon('check')}</i><span>Число набегает</span></button></div>`)}
 </div>`;
 }
 
@@ -212,6 +213,22 @@ export function animCommands(h: AnimHost): Record<string, Command> {
     return at >= 0 && at + dir >= 0 && at + dir < list.length;
   };
   cmds['anim.earlier'] = { run: () => move(-1), enabled: canMove(-1) };
+  // «Число набегает»: у выделенных объектов, в тексте которых есть число
+  const counted = () => h.selPaths().filter((p) => /\d/.test(JSON.stringify(getAt(deck, p) ?? '')));
+  cmds['anim.count'] = {
+    run: () => {
+      const paths = counted();
+      const on = !paths.every((p) => (getAt(deck, p) as Block).count === true);
+      h.editor.commit((d) => paths.forEach((p) => {
+        const b = getAt(d, p) as Block;
+        if (on) b.count = true;
+        else delete b.count;
+      }), { rebuild: true });
+      if (on) requestAnimationFrame(() => h.preview());
+    },
+    enabled: () => counted().length > 0,
+    active: () => { const p = counted(); return p.length > 0 && p.every((x) => (getAt(deck, x) as Block).count === true); },
+  };
   cmds['anim.later'] = { run: () => move(1), enabled: canMove(1) };
   cmds['anim.seq'] = {
     run: () => {
