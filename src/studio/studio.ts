@@ -13,6 +13,7 @@ import { CLIP_TYPE, putClip, takeClip, type Clip } from './clipboard';
 import { crossPaste } from './cross-paste';
 import type { CodeView } from './code';
 import type { ExportQuality } from './pptx';
+import { FindBar } from './find';
 import { applyFormat, hasFormat, takeFormat, type Format } from './format-painter';
 import { tableGrips } from './table-grips';
 import { GRID_STEPS, ViewAids } from './view-aids';
@@ -103,7 +104,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   <div class="st-ribbon" id="st-ribbon" data-ed-keep>
     <div class="st-rpanel" data-panel="home">
       ${group('Слайды', rb('slide.new', 'slide-add', 'Новый слайд', { big: true, key: 'Ctrl+M', menu: true }) + `<div class="st-rstack">${rb('slide.dup', 'copy', 'Дублировать')}${rb('slide.del', 'trash', 'Удалить')}</div>`)}
-      ${group('Правка', `<div class="st-rstack">${rb('undo', 'undo', 'Отменить', { key: 'Ctrl+Z' })}${rb('redo', 'redo', 'Повторить', { key: 'Ctrl+Y' })}${rb('format.painter', 'brush', 'Формат по образцу', { title: 'Перенести оформление на другой объект. Двойной щелчок — на несколько объектов' })}</div>`)}
+      ${group('Правка', `<div class="st-rstack">${rb('undo', 'undo', 'Отменить', { key: 'Ctrl+Z' })}${rb('redo', 'redo', 'Повторить', { key: 'Ctrl+Y' })}${rb('format.painter', 'brush', 'Формат по образцу', { title: 'Перенести оформление на другой объект. Двойной щелчок — на несколько объектов' })}</div><div class="st-rstack">${rb('edit.find', 'search', 'Найти', { key: 'Ctrl+F', title: 'Найти и заменить текст во всей презентации (Ctrl+F, замена — Ctrl+H)' })}</div>`)}
       ${group('Текст', '<div id="st-textdock" class="st-textdock"></div>')}
       ${group('Вставка', rb('insert.blocks', 'grid', 'Блоки', { big: true, menu: true, title: 'Готовые блоки: карточки, графики, схемы' }) + `<div class="st-rstack">${rb('insert.text', 'text', 'Надпись')}${rb('insert.image', 'image', 'Картинка')}</div>`)}
       ${group('Упорядочить', `<div class="st-rstack">${rb('obj.front', 'front', 'Вперёд', { title: 'На передний план — поверх других объектов' })}${rb('obj.back', 'back', 'Назад', { title: 'На задний план — под другие объекты' })}${rb('obj.lock', 'lock', 'Закрепить', { title: 'Объект не выделяется и не двигается мышью. Открепить — в области выделения (Alt+F10)' })}</div><div class="st-rstack">${rb('obj.group', 'group', 'Сгруппировать', { key: 'Ctrl+G', title: 'Объединить выделенные объекты в группу' })}${rb('obj.ungroup', 'ungroup', 'Разгруппировать', { key: 'Ctrl+Shift+G', title: 'Разделить на отдельные объекты' })}${rb('obj.free', 'move', 'Сделать свободным', { title: 'Свободно перемещать и менять размер' })}</div>`)}
@@ -178,6 +179,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
   applyAccentFlow(deck.theme?.accentFlow);
   updateFavicon(deck.brand?.logo);
   const view = new DeckView(deck, paper);
+  /** Найти и заменить (создаётся вместе с клавиатурой, ниже) */
+  let find: FindBar | null = null;
   // Слайды в редакторе листаются мгновенно; переход виден в «Просмотре» и в показе
   view.transitions = false;
   const hashIndex = () => {
@@ -1256,6 +1259,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'design.accent-reset': { run: () => ed.setAccent(null), enabled: () => !!deck.theme?.accent || !!deck.theme?.accent2 },
     'design.accent-flow': { run: () => ed.setAccentFlow(!deck.theme?.accentFlow), enabled: () => !!deck.theme?.accent2, active: () => !!deck.theme?.accentFlow },
     'design.accent2-off': { run: () => ed.setAccent(null, 'accent2'), enabled: () => !!deck.theme?.accent2 },
+    'edit.find': { run: () => find?.show() },
     'ui.own': { run: () => { setUiAccent(uiAccent() ? null : uiColor.value); queueState(); }, active: () => !!uiAccent() },
     'design.theme': { run: () => toggleTheme() },
     'show.start': { run: () => void openShow(0) },
@@ -1616,6 +1620,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   }
 
   function syncUi(): void {
+    find?.refresh();
     // Образцы цветов в панелях — в цветах открытого слайда (у него могут быть свои)
     const own = slideAccent(deck.slides[index]?.theme);
     const root = document.querySelector('.studio-app');
@@ -1681,12 +1686,23 @@ export function startStudio(deck: Deck, deckKey: string): void {
   });
   new ResizeObserver(() => { if (zoom === 'fit') layout(); else ed.reposition(); }).observe(canvas);
 
+  // ---------------- найти и заменить ----------------
+  find = new FindBar({
+    deck: () => deck, editor: () => ed, index: () => index, go, stage: () => view.stage,
+    showNotes: () => { if (!notesOpen) setNotes(true); },
+  }, document.querySelector<HTMLElement>('.st-view')!);
+
   // ---------------- клавиатура ----------------
   document.addEventListener('keydown', (e) => {
     const el = e.target as HTMLElement;
     const typing = el?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el?.tagName ?? '');
     const mod = e.ctrlKey || e.metaKey;
     const k = e.key.toLowerCase();
+    // Ctrl+F — найти, Ctrl+H — найти и заменить по всей презентации (вместо поиска браузера)
+    if (mod && !e.altKey && !e.shiftKey && (e.code === 'KeyF' || e.code === 'KeyH')) {
+      e.preventDefault();
+      return find?.show(e.code === 'KeyH');
+    }
     if (painter && e.key === 'Escape') {
       e.preventDefault();
       return stopPainter();
