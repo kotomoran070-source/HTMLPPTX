@@ -321,7 +321,7 @@ body.ed-copying, body.ed-copying * { cursor: copy !important; }
 
 /* Выбор шрифта со строкой поиска */
 .fontpick.on { display: flex; }
-.fontpick { flex-direction: column; gap: 8px; width: 280px; padding: 8px; }
+.fontpick { z-index: 50; flex-direction: column; gap: 8px; width: 280px; padding: 8px; }
 .fontpick input[type="search"] { font-size: 14px; padding: 7px 10px; }
 .fontpick-list { overflow-y: auto; min-height: 0; flex: 1; margin: 0 -4px; padding: 0 4px; }
 .fontpick-sep { height: 1px; margin: 5px 8px; background: var(--bd); }

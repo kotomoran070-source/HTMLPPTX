@@ -45,7 +45,7 @@ function pattern(q: string, matchCase: boolean, word: boolean): RegExp {
 }
 
 /** Все текстовые строки презентации с путями: название, слайды по порядку, заметки — если нужно */
-function texts(deck: Deck, notes: boolean): { path: Path; slide: number; notes: boolean }[] {
+export function texts(deck: Deck, notes: boolean): { path: Path; slide: number; notes: boolean }[] {
   const out: { path: Path; slide: number; notes: boolean }[] = [];
   const walk = (v: unknown, path: Path, slide: number) => {
     if (typeof v === 'string') {

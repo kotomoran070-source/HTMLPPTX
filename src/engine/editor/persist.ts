@@ -106,6 +106,14 @@ export function writeAssetText(deckKey: string, url: string, text: string): Prom
   return api(`/__htmlpptx/asset-text?deck=${encodeURIComponent(deckKey)}&url=${encodeURIComponent(url)}`, text, 'text/plain; charset=utf-8');
 }
 
+/** Файлы презентации с размерами; неиспользуемые — в корзину проекта */
+export function listDeckAssets(deckKey: string): Promise<{ path: string; size: number }[]> {
+  return api(`/__htmlpptx/assets-list?deck=${encodeURIComponent(deckKey)}`, '', 'text/plain');
+}
+export function trashDeckAssets(deckKey: string, paths: string[]): Promise<{ moved: number }> {
+  return api(`/__htmlpptx/assets-trash?deck=${encodeURIComponent(deckKey)}`, JSON.stringify(paths), 'application/json');
+}
+
 /** Общая библиотека шрифтов (папка fonts/ проекта) */
 export function listLibraryFonts(): Promise<{ file: string; url: string }[]> {
   return api('/__htmlpptx/font-list', '', 'text/plain');

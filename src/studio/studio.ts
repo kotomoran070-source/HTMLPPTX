@@ -1,5 +1,6 @@
 import { icon } from '../components/icons';
 import { CommandPalette } from './palette';
+import { toolsCommands } from './tools';
 import { applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, setUiAccent, slideAccent, uiAccent } from '../engine/accent';
 import { getAt, setAt, type Path } from '../engine/data';
 import { DeckView, H, W } from '../engine/deck-view';
@@ -91,6 +92,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       <button type="button" role="tab" data-tab="insert" aria-selected="false">Вставка</button>
       ${animTabHtml()}
       <button type="button" role="tab" data-tab="show" aria-selected="false">Показ</button>
+      <button type="button" role="tab" data-tab="tools" aria-selected="false">Инструменты</button>
       <button type="button" role="tab" data-tab="view" aria-selected="false">Вид</button>
       ${contextTabsHtml()}
       <button type="button" class="st-ribbon-toggle" id="st-rt" title="Свернуть ленту (Ctrl+F1)" aria-label="Свернуть ленту" aria-expanded="true">${icon('chev-up')}</button>
@@ -119,6 +121,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
     ${animPanelHtml()}
     <div class="st-rpanel" data-panel="show" hidden>
       ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'next', 'С текущего слайда', { big: true, key: 'Shift+F5' }) + rb('show.presenter', 'presenter', 'Режим докладчика', { big: true, key: 'Alt+F5', title: 'Показ на втором экране, заметки — на вашем' }))}
+    </div>
+    <div class="st-rpanel" data-panel="tools" hidden>
+      ${group('Презентация', rb('tools.summary', 'chart', 'Сводка', { big: true, title: 'Слайды, слова, время доклада, тяжёлые и лишние файлы, шрифты' }))}
+      ${group('Шрифты', rb('tools.font', 'text', 'Заменить шрифт', { big: true, title: 'Один шрифт на другой во всей презентации' }))}
     </div>
     <div class="st-rpanel" data-panel="view" hidden>
       ${group('Панели', rb('view.slides', 'grid', 'Слайды', { big: true, key: 'Ctrl+Shift+1', title: 'Список слайдов слева' }) + rb('view.props', 'sliders', 'Свойства', { big: true, key: 'Ctrl+Shift+2', title: 'Панель свойств справа' }) + rb('view.notes', 'notes', 'Заметки', { big: true, key: 'Ctrl+Shift+3' }) + rb('view.code', 'terminal', 'Код слайда', { big: true, key: 'Ctrl+`', title: 'Код слайда (YAML), стили (CSS) и анимации (HTML/JS)' }) + rb('view.layers', 'layers', 'Область выделения', { big: true, key: 'Alt+F10', title: 'Объекты слайда списком: скрыть, закрепить, поменять порядок' }))}
@@ -1292,6 +1298,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   const animHost: AnimHost = { deck, editor: ed, index: () => index, selPaths, sequence, preview };
   Object.assign(cmds, animCommands(animHost));
   bindDelayField(animHost);
+  Object.assign(cmds, toolsCommands({ deck, deckKey, editor: ed, go }));
   Object.assign(cmds, contextCommands({ deck, editor: ed, stage: () => view.stage, run: (c) => run(c) }));
   const grips = tableGrips({ deck, editor: ed, stage: () => view.stage });
   cmds['tab.shape'] = { run: () => setTab('shape') };

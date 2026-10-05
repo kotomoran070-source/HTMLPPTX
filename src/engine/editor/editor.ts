@@ -1194,6 +1194,9 @@ export class Editor {
   /** Общая библиотека шрифтов (папка fonts/ проекта): имя — из файла */
   private library: { name: string; file: string; url: string }[] = [];
 
+  /** Хранилище презентации: файлы, шрифты (для инструментов студии) */
+  get files(): DeckStorage { return this.storage; }
+
   async loadFontLibrary(): Promise<void> {
     if (!this.storage.listFonts) return;
     try {

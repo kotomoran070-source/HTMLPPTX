@@ -167,6 +167,44 @@ export function decksPlugin(opts: DecksOptions): Plugin {
    * Удаление с карточки на странице выбора: папка не стирается, а переносится в
    * presentations/.trash/<имя>-<время> — вернуть можно, перенеся её обратно.
    */
+  /** Файлы презентации (assets/, вложенные папки тоже) с размерами — для сводки */
+  function listAssets(name: string): { path: string; size: number }[] {
+    const base = path.join(dir, name, 'assets');
+    const out: { path: string; size: number }[] = [];
+    const walk = (d: string) => {
+      if (!fs.existsSync(d)) return;
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        if (e.name.startsWith('.')) continue;
+        const abs = path.join(d, e.name);
+        if (e.isDirectory()) walk(abs);
+        else out.push({ path: 'assets/' + path.relative(base, abs).split(path.sep).join('/'), size: fs.statSync(abs).size });
+      }
+    };
+    walk(base);
+    return out;
+  }
+
+  /** Неиспользуемые файлы — в корзину проекта (.trash/<презентация>-files-<время>), не насовсем */
+  function trashAssets(name: string, list: unknown): { moved: number } {
+    if (!Array.isArray(list)) throw new Error('Нужен список файлов');
+    const base = path.join(dir, name, 'assets');
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, '0');
+    const target = path.join(dir, '.trash', `${name}-files-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`);
+    let moved = 0;
+    for (const rel of list) {
+      if (typeof rel !== 'string' || !rel.startsWith('assets/')) continue;
+      const abs = path.resolve(base, rel.slice('assets/'.length));
+      // Только файлы внутри assets/ этой презентации
+      if (!abs.startsWith(base + path.sep) || !fs.existsSync(abs) || !fs.statSync(abs).isFile()) continue;
+      const to = path.join(target, path.relative(base, abs));
+      fs.mkdirSync(path.dirname(to), { recursive: true });
+      try { fs.renameSync(abs, to); } catch { fs.copyFileSync(abs, to); fs.unlinkSync(abs); }
+      moved++;
+    }
+    return { moved };
+  }
+
   function trashDeck(name: string): { trashed: string } {
     const d = new Date();
     const p = (n: number) => String(n).padStart(2, '0');
@@ -450,6 +488,8 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           if (url.pathname === API + 'font-save') return send(res, 200, saveLibraryFont(url.searchParams.get('file') ?? '', await readBody(req)));
           const name = assertDeck(url.searchParams.get('deck'));
           if (url.pathname === API + 'delete') return send(res, 200, trashDeck(name));
+          if (url.pathname === API + 'assets-list') return send(res, 200, listAssets(name));
+          if (url.pathname === API + 'assets-trash') return send(res, 200, trashAssets(name, JSON.parse((await readBody(req)).toString('utf8') || '[]')));
           if (url.pathname === API + 'font-use') return useLibraryFont(name, url.searchParams.get('file') ?? '', res);
           if (url.pathname === API + 'bind-theme') return send(res, 200, bindProject(dir, name, url.searchParams.get('dry') === '1'));
           if (url.pathname === API + 'save') return await handleSave(name, req, res);
