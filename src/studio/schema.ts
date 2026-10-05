@@ -51,8 +51,8 @@ const frame: Field[] = [
 export const BLOCKS: Record<string, Schema> = {
   text: {
     fields: [
-      { k: 'text', label: 'Текст', type: 'textarea', hint: '**жирный**, *курсив*, «- » в начале строки — список' },
-      { k: 'size', label: 'Размер', type: 'select', options: [['', 'Обычный'], ['lead', 'Крупный'], ['small', 'Мелкий, серый']] },
+      // Размер, шрифт и начертание — на панели текста; старые size: lead | small по-прежнему работают
+      { k: 'text', label: 'Текст', type: 'textarea' },
     ],
   },
   note: { fields: [{ k: 'text', label: 'Текст', type: 'textarea' }] },

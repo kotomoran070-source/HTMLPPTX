@@ -324,7 +324,7 @@ body.ed-copying, body.ed-copying * { cursor: copy !important; }
 .fontpick { flex-direction: column; gap: 8px; width: 280px; padding: 8px; }
 .fontpick input[type="search"] { font-size: 14px; padding: 7px 10px; }
 .fontpick-list { overflow-y: auto; min-height: 0; flex: 1; margin: 0 -4px; padding: 0 4px; }
-.fontpick-g { position: sticky; top: 0; z-index: 1; padding: 8px 8px 4px; background: var(--surf); font: 700 11px var(--font); color: var(--mu); text-transform: uppercase; letter-spacing: .04em; }
+.fontpick-sep { height: 1px; margin: 5px 8px; background: var(--bd); }
 .fontpick-o { padding: 6px 8px; border-radius: 6px; font-size: 15px; line-height: 1.3; color: var(--tx); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fontpick-o.on { background: var(--alt); }
 .fontpick-o.cur { color: var(--ach); font-weight: 600; }

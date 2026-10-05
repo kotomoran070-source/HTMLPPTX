@@ -120,7 +120,8 @@ export class FontPicker {
     let group = '';
     this.shown.forEach((f, i) => {
       // С запросом группы не делят список: лучшие совпадения сверху
-      if (!q && f.group !== group) { group = f.group; html += `<div class="fontpick-g">${esc(group)}</div>`; }
+      // Группы (тема, презентация, компьютер) разделены линией — без подписей
+      if (!q && f.group !== group) { if (group) html += '<div class="fontpick-sep" role="separator"></div>'; group = f.group; }
       html += `<div class="fontpick-o${f.value === this.cur ? ' cur' : ''}" role="option" data-i="${i}" data-css="${esc(f.css)}" aria-selected="${f.value === this.cur}">${esc(f.label)}</div>`;
     });
     if (!this.shown.length) html = `<div class="fontpick-none">Нет шрифта «${esc(this.q.value.trim())}»</div>`;
