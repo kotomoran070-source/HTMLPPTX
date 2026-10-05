@@ -71,7 +71,9 @@ export class SlidesPanel {
       // Записи, сделанные в окне докладчика во время показа («✎ 14:32 — …»): отдельная отметка
       // …или заметки правили там же: отметка до тех пор, пока их не поправят в студии
       const jots = notes.includes('✎') || deck.slides[i].notesEdited === true;
-      item.title = slideLabel(deck.slides[i], i) + (jots ? ' · заметки дописаны на показе' : '');
+      const hidden = deck.slides[i].hidden === true;
+      item.title = slideLabel(deck.slides[i], i) + (hidden ? ' · скрыт при показе' : '') + (jots ? ' · заметки дописаны на показе' : '');
+      item.classList.toggle('is-hidden', hidden);
       item.classList.toggle('has-notes', !!notes);
       item.classList.toggle('has-jots', jots);
     }

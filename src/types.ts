@@ -47,6 +47,8 @@ export interface SlideData {
   notesEdited?: boolean;
   /** Промежуточные величины для формул: «имя: =формула» (см. блок control) */
   vars?: Record<string, string | number>;
+  /** Скрыт: при показе, в окне докладчика и в PDF пропускается (см. engine/hidden) */
+  hidden?: boolean;
   /** Название в обзоре слайдов, если отличается от заголовка */
   label?: string;
   /** Переход к слайду: none, fade, push, cover, zoom, blur (без поля — стандартный) */

@@ -14,7 +14,9 @@ function build(deck: Deck): HTMLElement {
   deckEl?.remove();
   const root = document.createElement('div');
   root.className = 'print-deck';
-  deck.slides.forEach((_, i) => {
+  deck.slides.forEach((s, i) => {
+    // Скрытый слайд в PDF не попадает
+    if (s.hidden === true) return;
     const page = document.createElement('div');
     page.className = 'print-page';
     page.appendChild(staticSlide(deck, i, 1280));

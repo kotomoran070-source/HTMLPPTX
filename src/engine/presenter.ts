@@ -1,4 +1,5 @@
 import { icon } from '../components/icons';
+import { landOn, stepVisible, visiblePos } from './hidden';
 import { frameAt, postPointer } from './frame-bridge';
 import { CAMERA, type CameraState } from '../components/media/model';
 import type { Deck } from '../types';
@@ -375,25 +376,28 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     // Экономный режим: появление слайда доигрывает, потом сцена замирает
     settle(1800);
     const s = deck.slides[index];
-    $('curl').textContent = `Слайд ${index + 1} из ${count()} · ${slideLabel(s, index)}`;
-    $('ct').textContent = `${index + 1} / ${count()}`;
+    // Скрытые слайды пропускаются: счёт, «следующий» и стрелки — по видимым
+    const { pos, total } = visiblePos(deck, index);
+    $('curl').textContent = `Слайд ${pos} из ${total} · ${slideLabel(s, index)}`;
+    $('ct').textContent = `${pos} / ${total}`;
     const next = $('next');
     next.innerHTML = '';
-    if (index + 1 < count()) {
-      const box = staticSlide(deck, index + 1);
+    const after = stepVisible(deck, index, 1);
+    if (after >= 0) {
+      const box = staticSlide(deck, after);
       next.appendChild(box);
-      next.insertAdjacentHTML('beforeend', `<div class="mu">${esc(slideLabel(deck.slides[index + 1], index + 1))}</div>`);
+      next.insertAdjacentHTML('beforeend', `<div class="mu">${esc(slideLabel(deck.slides[after], after))}</div>`);
       fitNext();
     } else {
       next.innerHTML = '<div class="pres-end">Конец презентации</div>';
     }
     $('notes').innerHTML = s.notes ? t(s.notes) : '<span class="mu">Заметок нет</span>';
-    $('pv').toggleAttribute('disabled', index === 0);
-    $('nx').toggleAttribute('disabled', index === count() - 1);
+    $('pv').toggleAttribute('disabled', stepVisible(deck, index, -1) < 0);
+    $('nx').toggleAttribute('disabled', after < 0);
   }
 
   function go(i: number): void {
-    const target = Math.max(0, Math.min(count() - 1, i));
+    const target = landOn(deck, i, index);
     if (target === index) return;
     render(target);
     sync.send({ type: 'goto', index: target }, toMain());

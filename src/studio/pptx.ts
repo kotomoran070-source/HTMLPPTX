@@ -251,6 +251,8 @@ export async function exportPptx(deck: Deck, progress?: PptxProgress, quality: E
       if (section) await new Converter(pptx, slide, section, deck, toPng).run();
       const notes = deck.slides[i].notes;
       if (typeof notes === 'string' && notes.trim()) slide.addNotes(notes);
+      // Скрытый слайд — скрытый и в PowerPoint
+      if (deck.slides[i].hidden === true) slide.hidden = true;
     }
     progress?.(deck.slides.length, deck.slides.length);
     return await repair(await pptx.write({ outputType: 'blob' }) as Blob);

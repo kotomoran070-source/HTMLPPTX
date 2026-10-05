@@ -203,3 +203,7 @@ select[data-open] { border-color: var(--ac) !important; }
 .show-note .btn { flex: none; white-space: nowrap; }
 .show-note .btn[hidden] { display: none; }
 .fs .show-note { bottom: 24px; }
+
+/* Скрытый слайд в обзоре показа */
+.ovcard.is-hidden { opacity: .45; }
+.ovcard.is-hidden .ovnum { text-decoration: line-through; }

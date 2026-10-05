@@ -1,4 +1,5 @@
 import { icon } from '../components/icons';
+import { isHidden, landOn, stepVisible, visiblePos } from './hidden';
 import type { Deck } from '../types';
 import { applyAccent, applyAccentFlow } from './accent';
 import { updateFavicon } from './brand';
@@ -110,21 +111,26 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     deckTimer = window.setTimeout(() => sync.send({ type: 'deck', deck: JSON.parse(JSON.stringify(deck)) }), 250);
   };
 
+  /** Скрытые слайды пропускаются при показе; в правке видны все */
+  const skip = () => !editor?.active;
   function updateChrome(): void {
-    const n = count();
-    $('ct').textContent = `${index + 1} из ${n}`;
-    $('nx').style.visibility = index >= n - 1 ? 'hidden' : 'visible';
-    $('pv').style.visibility = index ? 'visible' : 'hidden';
-    $('pg').style.width = `${((index + 1) / n) * 100}%`;
+    const { pos, total } = skip() ? visiblePos(deck, index) : { pos: index + 1, total: count() };
+    $('ct').textContent = `${pos} из ${total}`;
+    const more = (dir: 1 | -1) => (skip() ? stepVisible(deck, index, dir) >= 0 : dir > 0 ? index < count() - 1 : index > 0);
+    $('nx').style.visibility = more(1) ? 'visible' : 'hidden';
+    $('pv').style.visibility = more(-1) ? 'visible' : 'hidden';
+    $('pg').style.width = `${(pos / total) * 100}%`;
   }
 
   function go(i: number, push = true): void {
-    const next = Math.max(0, Math.min(count() - 1, i));
+    const at = Math.max(0, Math.min(count() - 1, i));
+    const next = skip() ? landOn(deck, at, view.index) : at;
     const changed = next !== index || view.index !== next;
     index = next;
     view.show(index);
     updateChrome();
-    if (push && changed) history.replaceState(null, '', `#${index + 1}`);
+    // Просили скрытый слайд — в адресе тот, что на самом деле показан
+    if ((push || next !== at) && changed) history.replaceState(null, '', `#${index + 1}`);
     if (changed) {
       ink.apply({ op: 'clear' });
       hover.off();
@@ -146,7 +152,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     ovCards = deck.slides.map((s, i) => {
       const card = document.createElement('button');
       card.type = 'button';
-      card.className = 'ovcard';
+      card.className = `ovcard${isHidden(deck, i) ? ' is-hidden' : ''}`;
       card.appendChild(staticSlide(deck, i));
       card.insertAdjacentHTML('beforeend', `<span class="ovmeta"><span class="ovnum">${i + 1}</span><span class="ovttl">${esc(slideLabel(s, i))}</span></span>`
         + `<span class="ovtools"><span data-a="dup" title="Дублировать слайд" role="button" aria-label="Дублировать слайд">${icon('copy')}</span>`

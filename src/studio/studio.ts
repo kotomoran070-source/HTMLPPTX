@@ -120,6 +120,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     </div>
     ${animPanelHtml()}
     <div class="st-rpanel" data-panel="show" hidden>
+      ${group('Слайд', `<div class="st-rstack">${chk('show.hide', 'Скрыть слайд', 'Слайд остаётся в презентации, но при показе и в PDF пропускается')}</div>`)}
       ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'next', 'С текущего слайда', { big: true, key: 'Shift+F5' }) + rb('show.presenter', 'presenter', 'Режим докладчика', { big: true, key: 'Alt+F5', title: 'Показ на втором экране, заметки — на вашем' }))}
     </div>
     <div class="st-rpanel" data-panel="tools" hidden>
@@ -680,6 +681,15 @@ export function startStudio(deck: Deck, deckKey: string): void {
   }
 
   // ---------------- меню ----------------
+  /** Скрыть слайд или вернуть его в показ */
+  function toggleHidden(i: number): void {
+    ed.commit((d) => {
+      const s = d.slides[i];
+      if (!s) return;
+      if (s.hidden) delete s.hidden;
+      else s.hidden = true;
+    }, { rebuild: false });
+  }
   function newSlideMenu(anchor: HTMLElement): void {
     showMenu(anchor, SLIDE_PRESETS.map((p, k) => ({
       label: p.name, icon: ['text', 'grid', 'image', 'frame'][k] ?? 'slide-add', run: () => ed.addSlide(index, k),
@@ -710,6 +720,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       null,
       { label: 'Показ с этого слайда', icon: 'play', run: () => void openShow(i) },
       null,
+      { label: deck.slides[i]?.hidden ? 'Показать слайд' : 'Скрыть слайд', icon: deck.slides[i]?.hidden ? 'eye' : 'eye-off', run: () => toggleHidden(i) },
       { label: 'Удалить слайд', icon: 'trash', danger: true, disabled: n <= 1, hint: 'Delete', run: () => ed.deleteSlide(i) },
     ];
   }
@@ -1272,6 +1283,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'ui.own': { run: () => { setUiAccent(uiAccent() ? null : uiColor.value); queueState(); }, active: () => !!uiAccent() },
     'design.theme': { run: () => toggleTheme() },
     'show.start': { run: () => void openShow(0) },
+    'show.hide': { run: () => toggleHidden(index), active: () => deck.slides[index]?.hidden === true },
     'show.current': { run: () => void openShow(index) },
     'show.presenter': { run: () => void openShow(index, true) },
     'file.export': { run: () => exportMenu() },
