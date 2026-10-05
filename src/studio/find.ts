@@ -52,7 +52,9 @@ function texts(deck: Deck, notes: boolean): { path: Path; slide: number; notes: 
       if (v.trim() && !NOT_TEXT.test(v.trim())) out.push({ path, slide, notes: false });
     } else if (Array.isArray(v)) v.forEach((x, i) => walk(x, [...path, i], slide));
     else if (v && typeof v === 'object') {
-      for (const [k, x] of Object.entries(v)) if (!SKIP.has(k) && k !== 'notes') walk(x, [...path, k], slide);
+      // label слайда — служебное название в списке слайдов («Слайд 10»), его зритель не видит; label блока — видимая подпись
+      const top = path.length === 2;
+      for (const [k, x] of Object.entries(v)) if (!SKIP.has(k) && k !== 'notes' && !(top && k === 'label')) walk(x, [...path, k], slide);
     }
   };
   deck.slides.forEach((s, i) => {
