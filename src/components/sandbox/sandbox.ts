@@ -121,7 +121,7 @@ defineBlock<SandboxProps>('sandbox', {
       // Только скрипты: без доступа к странице показа, формам и переходам
       f.setAttribute('sandbox', 'allow-scripts');
       f.setAttribute('title', 'Результат');
-      f.srcdoc = withPointerBridge(bridge(token) + (p.theme ? withTheme(ta.value) : ta.value));
+      f.srcdoc = withPointerBridge(bridge(token) + (p.theme ? withTheme(ta.value, false, ctx.slide) : ta.value));
       f.addEventListener('load', () => f.classList.add('on'), { once: true });
       out.append(f);
       frame = f;

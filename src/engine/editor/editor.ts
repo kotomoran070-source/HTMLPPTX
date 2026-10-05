@@ -612,7 +612,7 @@ export class Editor {
   private syncBar(): void {
     const accent = this.host.deck.theme?.accent;
     const input = document.getElementById('ed-accent') as HTMLInputElement | null;
-    const value = typeof accent === 'string' && HEX_RE.test(accent) ? accent : getComputedStyle(document.documentElement).getPropertyValue('--ac').trim();
+    const value = typeof accent === 'string' && HEX_RE.test(accent) ? accent : DEFAULT_ACCENT;
     if (input && document.activeElement !== input && HEX_RE.test(value)) input.value = value.toLowerCase();
     const a2 = this.host.deck.theme?.accent2;
     const input2 = document.getElementById('ed-accent2') as HTMLInputElement | null;

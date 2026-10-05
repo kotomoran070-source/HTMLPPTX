@@ -4,6 +4,7 @@ import {
   type Component, type MountCtx, type RenderCtx,
 } from './component';
 import { asArray, esc } from './html';
+import { slideAccent } from './accent';
 import { applyDeckCss, applyDeckDefs, applyScopedCss } from './deck-css';
 import { applyDeckFonts } from './fonts';
 import { indexPaths, pathOf } from './marks';
@@ -64,6 +65,9 @@ export class Renderer {
     const foreign = !!body && !Array.isArray(body) && body.type === 'html' && typeof body.ns === 'string';
     if (this.cssKey && !foreign) attrs += ` data-css="${this.cssKey}"`;
     if (this.fontKey) attrs += ` data-fonts="${this.fontKey}"`;
+    // Свои цвета слайда (theme.accent / accent2): правило по атрибуту, см. engine/accent.ts
+    const own = slideAccent(slide.theme);
+    if (own) attrs += ` data-accent="${own}"`;
     // Переход к слайду и его длительность
     if (typeof slide.transition === 'string' && TRANSITION_IDS.has(slide.transition)) attrs += ` data-tr="${slide.transition}"`;
     const trMs = Number(slide.transitionMs);

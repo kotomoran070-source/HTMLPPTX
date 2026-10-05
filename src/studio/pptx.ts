@@ -883,7 +883,7 @@ class Converter {
       this.slide.addImage({ data, ...this.pos(b) });
       return true;
     }
-    const shot = await embedShot(p, el.offsetWidth || Math.round(b.w), el.offsetHeight || Math.round(b.h), { pixelRatio: sharp(2) });
+    const shot = await embedShot(p, el.offsetWidth || Math.round(b.w), el.offsetHeight || Math.round(b.h), { pixelRatio: sharp(2), from: el });
     if (!shot) return false;
     const data = await packed(shot);
     this.slide.addImage({ data, ...this.pos(b) });

@@ -300,13 +300,16 @@ const TOKENS = ['--bg', '--surf', '--alt', '--tx', '--tx2', '--mu', '--bd', '--b
  * light — цвета светлой темы, какая бы ни была включена (заставка снимается в светлой:
  * в тёмной теме её яркости переворачиваются, см. html.css).
  */
-export function withTheme(html: string, light = false): string {
+export function withTheme(html: string, light = false, from?: Element | null): string {
   const root = document.documentElement;
   const was = root.getAttribute('data-theme');
   if (light && was !== 'light') root.setAttribute('data-theme', 'light');
-  const cs = getComputedStyle(root);
+  // Цвета слайда, на котором вставка (у слайда могут быть свои); без слайда — цвета презентации
+  const probe = from ? null : document.body.appendChild(Object.assign(document.createElement('i'), { className: 'deck-colors', hidden: true }));
+  const cs = getComputedStyle(from ?? probe!);
   const vars = TOKENS.map((t) => `${t}:${cs.getPropertyValue(t).trim()}`).join(';');
-  const scheme = cs.colorScheme || 'light';
+  const scheme = getComputedStyle(root).colorScheme || 'light';
+  probe?.remove();
   if (light && was !== 'light') {
     if (was === null) root.removeAttribute('data-theme');
     else root.setAttribute('data-theme', was);
@@ -326,8 +329,8 @@ export function embedSource(p: { src?: string; code?: string }): Promise<string>
 export const hasEmbed = (p: { src?: string; code?: string }): boolean => !!p.src || (typeof p.code === 'string' && !!p.code.trim());
 
 /** Документ живой вставки таким, каким его видит рамка на слайде (для экспорта) */
-export function embedHtml(p: { src?: string; code?: string; theme?: boolean }, light = false): Promise<string> {
-  return embedSource(p).then((html) => (p.theme ? withTheme(html, light) : html));
+export function embedHtml(p: { src?: string; code?: string; theme?: boolean }, light = false, from?: Element | null): Promise<string> {
+  return embedSource(p).then((html) => (p.theme ? withTheme(html, light, from) : html));
 }
 
 const docs = new Map<string, Promise<string>>();
@@ -357,7 +360,7 @@ defineBlock<EmbedProps>('embed', {
     let frame: HTMLIFrameElement | null = null;
     const files = p.files && typeof p.files === 'object' && Object.keys(p.files).length ? p.files : null;
     const doc = (html: string) => {
-      const d = p.theme ? withTheme(html) : html;
+      const d = p.theme ? withTheme(html, false, ctx.slide) : html;
       return withPointerBridge(files ? withFiles(d) : d);
     };
     // Вставка просит свои файлы — отвечаем содержимым (рамка изолирована и сама их не скачает)

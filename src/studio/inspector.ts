@@ -1,5 +1,5 @@
 import { icon } from '../components/icons';
-import { HEX_RE } from '../engine/accent';
+import { DEFAULT_ACCENT, HEX_RE, previewAccent, slideAccent } from '../engine/accent';
 import { deckFonts, fontStack } from '../engine/fonts';
 import { getAt, setAt, type Path } from '../engine/data';
 import { BACKDROPS } from '../components/backdrop/backdrop';
@@ -7,7 +7,7 @@ import { blockName, keepsRatio } from '../engine/editor/block-edit';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
 import { OBJ_ID, actionOf, angleOf, placeOf, slideLabel } from '../engine/render';
-import type { Block, Deck } from '../types';
+import type { Block, Deck, SlideData } from '../types';
 import { fillForm, formHtml, formSig, onFieldAction, onFieldChange, onGridPaste, type FormEdit } from './form';
 import { BLOCKS, STYLE_FIELD, TEMPLATES, type Field } from './schema';
 import { partsOf, type Part } from './structure';
@@ -127,11 +127,13 @@ export class Inspector {
       if (el.type !== 'color') return;
       // Акцент перекрашивает всю презентацию: пока тянут — только показ, правка — по change
       if (el.dataset.f === 'accent' || el.dataset.f === 'accent2') this.host.editor().previewAccent(el.value, el.dataset.f);
+      else if (el.dataset.f === 'saccent' || el.dataset.f === 'saccent2') this.previewSlideColors(el);
       else this.onChange(el);
     });
     root.addEventListener('focusout', (e) => {
       const f = (e.target as HTMLElement).dataset?.f;
       if (f === 'accent' || f === 'accent2') this.host.editor().endAccentPreview();
+      if (f === 'saccent' || f === 'saccent2') previewAccent(null);
     });
     root.addEventListener('keydown', (e) => {
       const el = e.target as HTMLInputElement;
@@ -174,6 +176,12 @@ export class Inspector {
           if (v) d.slides[i].backdrop = v;
           else delete d.slides[i].backdrop;
         }, { rebuild: true });
+      }
+      const sac = t.closest<HTMLElement>('[data-sac]')?.dataset.sac;
+      if (sac) return this.setSlideColors(sac === 'own');
+      if (t.closest('[data-a="saccent2-off"]')) {
+        const i = this.host.index();
+        return void this.host.editor().commit((d) => { if (d.slides[i].theme) delete d.slides[i].theme!.accent2; }, { rebuild: true });
       }
       if (t.closest('[data-a="accent-reset"]')) this.host.editor().setAccent(null);
       if (t.closest('[data-a="accent2-off"]')) this.host.editor().setAccent(null, 'accent2');
@@ -241,7 +249,7 @@ export class Inspector {
     this.parts = el ? partsOf(el) : [];
     const key = sel
       ? `b:${JSON.stringify(sel.free ?? sel.block)}:${sel.type}:${sig}:${this.parts.map((x) => x.label + x.snippet).join('|')}`
-      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}:${deckFonts(deck.fonts).map((f) => f.name).join('|')}:${deck.theme?.font ?? ''}`;
+      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}:${deckFonts(deck.fonts).map((f) => f.name).join('|')}:${deck.theme?.font ?? ''}:${slideAccent(deck.slides[i]?.theme) ? 'own' : ''}${deck.slides[i]?.theme?.accent2 ? '2' : ''}`;
     if (key !== this.key) {
       this.key = key;
       // Прокрутка панели сохраняется, когда форма перестраивается (добавили пункт)
@@ -337,6 +345,36 @@ ${!known ? `<p class="st-p-note">Сейчас: <code>${esc(cur.length > 60 ? cur
 <details class="st-p-more"><summary>CSS фона</summary><label class="st-p-field"><input type="text" data-f="bg" placeholder="как у темы" spellcheck="false"></label></details>`;
   }
 
+  /** «Как у презентации» / «Свои»: свои начинаются с цветов презентации — слайд не меняется, пока их не тронут */
+  private setSlideColors(own: boolean): void {
+    const i = this.host.index();
+    const t = this.host.deck().theme;
+    this.host.editor().commit((d) => {
+      const s = d.slides[i];
+      if (!own) delete s.theme;
+      else if (!slideAccent(s.theme)) {
+        s.theme = { accent: typeof t?.accent === 'string' && HEX_RE.test(t.accent) ? t.accent : DEFAULT_ACCENT };
+        if (typeof t?.accent2 === 'string' && HEX_RE.test(t.accent2)) s.theme.accent2 = t.accent2;
+      }
+    }, { rebuild: true });
+  }
+
+  /** Пока тянут палитру цвета слайда — показ только на открытом слайде, запись — по change */
+  private previewSlideColors(el: HTMLInputElement): void {
+    const s = this.host.deck().slides[this.host.index()];
+    const a = el.dataset.f === 'saccent' ? el.value : s?.theme?.accent ?? DEFAULT_ACCENT;
+    const a2 = el.dataset.f === 'saccent2' ? el.value : s?.theme?.accent2 ?? null;
+    previewAccent(a, this.host.stage(), a2, true);
+  }
+
+  /** Цвета слайда: как у презентации или свои (акцент и второй цвет градиента) */
+  private slideColorsHtml(s: SlideData): string {
+    const own = !!slideAccent(s.theme);
+    const seg = (v: string, l: string, on: boolean) => `<button type="button" role="radio" aria-checked="${on}" data-sac="${v}">${l}</button>`;
+    return `<div class="st-p-field"><span>Цвета слайда</span><div class="st-p-seg" role="radiogroup" aria-label="Цвета слайда">${seg('deck', 'Как у презентации', !own)}${seg('own', 'Свои', own)}</div>
+${own ? `<span class="st-p-color st-p-sac"><input type="color" data-f="saccent" aria-label="Акцент слайда" title="Акцент слайда"><input type="color" data-f="saccent2" aria-label="Второй цвет градиента слайда" title="Второй цвет градиента"><button type="button" class="st-link" data-a="saccent2-off"${s.theme?.accent2 ? '' : ' hidden'}>Без градиента</button></span>` : ''}</div>`;
+  }
+
   /** Анимированный фон: образцы — тот же статичный вид, что в миниатюрах */
   private backdropHtml(cur: string): string {
     const opts: [string, string][] = [['', 'Нет'], ...BACKDROPS];
@@ -355,6 +393,7 @@ ${!known ? `<p class="st-p-note">Сейчас: <code>${esc(cur.length > 60 ? cur
 <label class="st-p-field"><span>Название в списке</span><input type="text" data-f="label" placeholder="${esc(s.title ?? `Слайд ${i + 1}`)}"></label>
 ${tpl === 'canvas' ? this.bgHtml(typeof s.bg === 'string' ? s.bg.trim() : '') : ''}
 ${this.backdropHtml(typeof s.backdrop === 'string' ? s.backdrop : '')}
+${this.slideColorsHtml(s)}
 ${formHtml(this.fields, deck, ['slides', i])}
 <button type="button" class="st-p-hint" data-cmd="tab.anim">${icon('sparkle')}<span>Переход и появление объектов — на вкладке «Анимация»</span></button>
 </section>
@@ -438,7 +477,7 @@ ${this.fontsHtml(deck)}`)}`;
     const s = deck.slides[this.host.index()];
     const bg = typeof s?.bg === 'string' ? s.bg : '';
     const accent = deck.theme?.accent;
-    const acNow = (typeof accent === 'string' && HEX_RE.test(accent) ? accent : getComputedStyle(document.documentElement).getPropertyValue('--ac').trim()).toLowerCase();
+    const acNow = (typeof accent === 'string' && HEX_RE.test(accent) ? accent : DEFAULT_ACCENT).toLowerCase();
     const accent2 = deck.theme?.accent2;
     return {
       label: typeof s?.label === 'string' ? s.label : '',
@@ -446,6 +485,9 @@ ${this.fontsHtml(deck)}`)}`;
       bgcolor: HEX_RE.test(bg.trim()) ? bg.trim().toLowerCase() : '#ffffff',
       title: deck.title ?? '',
       accent: acNow,
+      saccent: (typeof s?.theme?.accent === 'string' && HEX_RE.test(s.theme.accent) ? s.theme.accent : acNow).toLowerCase(),
+      saccent2: (typeof s?.theme?.accent2 === 'string' && HEX_RE.test(s.theme.accent2) ? s.theme.accent2
+        : typeof s?.theme?.accent === 'string' && HEX_RE.test(s.theme.accent) ? s.theme.accent : acNow).toLowerCase(),
       accent2: typeof accent2 === 'string' && HEX_RE.test(accent2) ? accent2.toLowerCase() : acNow,
     };
   }
@@ -605,6 +647,10 @@ ${this.fontsHtml(deck)}`)}`;
       document.title = `${raw} — Slideria`;
     } else if (f === 'accent' || f === 'accent2') {
       ed.setAccent(raw, f);
+    } else if ((f === 'saccent' || f === 'saccent2') && HEX_RE.test(raw)) {
+      previewAccent(null);
+      const key = f === 'saccent' ? 'accent' : 'accent2';
+      ed.commit((d) => { d.slides[i].theme = { ...(d.slides[i].theme ?? {}), [key]: raw.toUpperCase() }; }, { rebuild: true, merge: `sac:${i}` });
     } else if (f === 'font') {
       // Шрифт из общей библиотеки — сначала копией в презентацию
       const apply = () => ed.commit((d) => {

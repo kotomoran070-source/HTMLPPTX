@@ -1,5 +1,5 @@
 import { icon } from '../components/icons';
-import { applyAccent, applyAccentFlow, HEX_RE } from '../engine/accent';
+import { applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, setUiAccent, slideAccent, uiAccent } from '../engine/accent';
 import { getAt, setAt, type Path } from '../engine/data';
 import { DeckView, H, W } from '../engine/deck-view';
 import { Editor, SLIDE_PRESETS } from '../engine/editor/editor';
@@ -123,6 +123,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Скорость', `<div class="st-rstack">${chk('view.lite', 'Облегчённый режим', 'Если редактор подтормаживает: живые фоны, вставки, 3D-модели и анимации на слайде замирают в конечном виде. «Просмотр» и показ — как обычно')}</div>`)}
       ${group('Масштаб', rb('view.fit', 'fullscreen', 'Вписать', { big: true }) + `<div class="st-rstack">${rb('view.zoom-in', 'plus', 'Крупнее')}${rb('view.zoom-out', 'minus', 'Мельче')}</div>`)}
       ${group('Оформление', `<label class="st-accent" title="Акцентный цвет презентации"><input type="color" id="st-accent" aria-label="Акцентный цвет"><span>Акцент</span></label><label class="st-accent" title="Второй цвет: акцентные заливки становятся градиентом от акцента к нему"><input type="color" id="st-accent2" aria-label="Второй цвет градиента"><span>Градиент</span></label><div class="st-rstack">${rb('design.accent-reset', 'reset', 'Стандартный', { title: 'Стандартный акцент, без градиента' })}${rb('design.accent2-off', 'close', 'Без градиента', { title: 'Ровный акцент без второго цвета' })}</div><div class="st-rstack">${chk('design.accent-flow', 'Переливание', 'Цвета градиента акцента плавно текут по акцентным элементам слайда')}</div>`)}
+      ${group('Интерфейс', `<div class="st-rstack">${chk('ui.own', 'Свой цвет', 'Кнопки и панели программы — в своём цвете, а не в цветах презентации. Слайды это не меняет. Запоминается на этом компьютере')}</div><label class="st-accent" title="Цвет интерфейса программы"><input type="color" id="st-uiac" aria-label="Цвет интерфейса"><span>Цвет</span></label>`)}
     </div>
     ${contextPanelsHtml()}
   </div>
@@ -1255,6 +1256,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'design.accent-reset': { run: () => ed.setAccent(null), enabled: () => !!deck.theme?.accent || !!deck.theme?.accent2 },
     'design.accent-flow': { run: () => ed.setAccentFlow(!deck.theme?.accentFlow), enabled: () => !!deck.theme?.accent2, active: () => !!deck.theme?.accentFlow },
     'design.accent2-off': { run: () => ed.setAccent(null, 'accent2'), enabled: () => !!deck.theme?.accent2 },
+    'ui.own': { run: () => { setUiAccent(uiAccent() ? null : uiColor.value); queueState(); }, active: () => !!uiAccent() },
     'design.theme': { run: () => toggleTheme() },
     'show.start': { run: () => void openShow(0) },
     'show.current': { run: () => void openShow(index) },
@@ -1372,6 +1374,14 @@ export function startStudio(deck: Deck, deckKey: string): void {
   accent2.addEventListener('input', () => ed.previewAccent(accent2.value, 'accent2'));
   accent2.addEventListener('change', () => ed.setAccent(accent2.value, 'accent2'));
   accent2.addEventListener('blur', () => ed.endAccentPreview());
+  // Цвет интерфейса: свой (запоминается на компьютере) или как у презентации. Выбор цвета сразу включает «Свой цвет»
+  const uiColor = $<HTMLInputElement>('st-uiac');
+  uiColor.value = (uiAccent() ?? '#475569').toLowerCase();
+  let uiFrame = 0;
+  uiColor.addEventListener('input', () => {
+    if (uiFrame) return;
+    uiFrame = requestAnimationFrame(() => { uiFrame = 0; setUiAccent(uiColor.value); queueState(); });
+  });
   onThemeChange(() => { slides.update(); queueState(); });
 
   // ---------------- раскладка окна: панели тянутся, лента сворачивается ----------------
@@ -1606,6 +1616,11 @@ export function startStudio(deck: Deck, deckKey: string): void {
   }
 
   function syncUi(): void {
+    // Образцы цветов в панелях — в цветах открытого слайда (у него могут быть свои)
+    const own = slideAccent(deck.slides[index]?.theme);
+    const root = document.querySelector('.studio-app');
+    if (own) root?.setAttribute('data-accent', own);
+    else root?.removeAttribute('data-accent');
     syncContextTab();
     syncSwatches(deck, ed);
     syncAnimTab(animHost);
@@ -1625,7 +1640,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     status.className = `st-status ${st.cls}`;
     if (document.activeElement !== title) title.value = deck.title ?? '';
     const a = deck.theme?.accent;
-    const av = typeof a === 'string' && HEX_RE.test(a) ? a : getComputedStyle(document.documentElement).getPropertyValue('--ac').trim();
+    const av = typeof a === 'string' && HEX_RE.test(a) ? a : DEFAULT_ACCENT;
     if (document.activeElement !== accent && HEX_RE.test(av)) accent.value = av.toLowerCase();
     const a2 = deck.theme?.accent2;
     const a2v = typeof a2 === 'string' && HEX_RE.test(a2) ? a2 : av;

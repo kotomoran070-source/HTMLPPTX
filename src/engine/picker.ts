@@ -1,6 +1,6 @@
 import { icon } from '../components/icons';
 import type { Deck } from '../types';
-import { accentTokens, DEFAULT_ACCENT, HEX_RE } from './accent';
+import { accentTokens, applyAccent, DEFAULT_ACCENT, HEX_RE, slideAccent } from './accent';
 import { brandMark, updateFavicon } from './brand';
 import { staticSlide } from './deck-view';
 import { esc } from './html';
@@ -150,6 +150,8 @@ function accentVars(deck: Deck): string {
  * подсказка про новую презентацию, переключатель темы.
  */
 export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
+  // Свой цвет интерфейса (если включён в студии); цвета презентаций — у их миниатюр
+  applyAccent(null, null);
   const names = Object.keys(decks);
   document.body.classList.add('picker-page');
   document.title = 'Презентации · Slideria';
@@ -250,6 +252,11 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
       if (n) {
         thumb.innerHTML = '';
         thumb.appendChild(staticSlide(deck, 0));
+        // Слайд карточки — в цветах своей презентации (как слайд со своими цветами, см. accent.ts):
+        // так он верен и при своём цвете интерфейса, и в обеих темах
+        const own = slideAccent(deck.theme);
+        const sl = thumb.querySelector('.slide');
+        if (own && sl && !sl.hasAttribute('data-accent')) sl.setAttribute('data-accent', own);
       }
     } catch (e) {
       console.error(e);

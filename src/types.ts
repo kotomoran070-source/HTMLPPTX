@@ -53,6 +53,8 @@ export interface SlideData {
   transition?: string;
   /** Длительность перехода, мс (по умолчанию 600) */
   transitionMs?: number;
+  /** Свои цвета слайда вместо цветов презентации: акцент и второй цвет градиента */
+  theme?: { accent?: string; accent2?: string };
   /** Показывать логотип в углу (content-слайды, по умолчанию да) */
   logo?: boolean;
   body?: Block | Block[];

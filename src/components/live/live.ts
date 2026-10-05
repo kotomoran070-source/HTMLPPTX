@@ -24,8 +24,9 @@ interface LiveProps extends Block {
 
 const TOKENS = ['--bg', '--surf', '--alt', '--tx', '--tx2', '--mu', '--bd', '--bd2', '--ac', '--ach', '--acs', '--acb', '--on-ac'];
 
-function themeTokens(): Record<string, string> {
-  const cs = getComputedStyle(document.documentElement);
+/** Цвета темы на слайде (у слайда могут быть свои) — для живого файла в рамке */
+function themeTokens(from: Element): Record<string, string> {
+  const cs = getComputedStyle(from);
   return Object.fromEntries(TOKENS.map((t) => [t, cs.getPropertyValue(t).trim()]));
 }
 
@@ -65,7 +66,7 @@ defineBlock<LiveProps>('live', {
         if (frame !== f) return;
         f.srcdoc = liveDocument(html, {
           index: Number(p.index) || 0, selector: p.selector ?? null, token,
-          theme: currentTheme(), tokens: themeTokens(),
+          theme: currentTheme(), tokens: themeTokens(ctx.slide),
         });
         f.addEventListener('load', () => setTimeout(() => f.classList.add('on'), 250), { once: true });
         el.append(f);
@@ -90,7 +91,7 @@ defineBlock<LiveProps>('live', {
     };
     // Тема и акцент — в рамку, без перезагрузки
     const recolor = () => {
-      frame?.contentWindow?.postMessage({ htmlpptxLive: token, theme: currentTheme(), tokens: themeTokens() }, '*');
+      frame?.contentWindow?.postMessage({ htmlpptxLive: token, theme: currentTheme(), tokens: themeTokens(ctx.slide) }, '*');
     };
     const unlive = (e: Event) => {
       if (!(e.target as Element).closest('[data-unlive]')) return;
