@@ -50,6 +50,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     <div class="pres-right">
       <span class="pres-clock" id="clk"></span>
       ${new URLSearchParams(location.search).get('remote') ? `<button class="ibtn" id="wake" type="button" aria-pressed="false" aria-label="Не гасить экран" title="Не гасить экран телефона, пока открыт пульт">${icon('eye')}</button>` : ''}
+      ${new URLSearchParams(location.search).get('remote') && document.fullscreenEnabled ? `<button class="ibtn" id="pfs" type="button" aria-pressed="false" aria-label="Во весь экран" title="Во весь экран: без адресной строки браузера">${icon('fullscreen')}</button>` : ''}
       <button class="ibtn theme-btn" id="thm" type="button" aria-label="Переключить тему" title="Тема (T)">${icon('sun', 'ic sun')}${icon('moon', 'ic moon')}</button>
     </div>
   </header>
@@ -737,6 +738,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     sync.relay(room, onLink);
     retryLink = () => { phoneLink(false, true); sync.reconnect(room, onLink); sync.send({ type: 'hello' }, toMain()); };
     setupWake();
+    setupFullscreen();
   }
   sync.send({ type: 'hello' }, toMain());
   // Если основное окно перезагрузили, оно снова найдёт это окно по регулярному «привет»;
@@ -816,5 +818,20 @@ function setupWake(): void {
     } catch {
       btn.title = 'Этот браузер не дал удержать экран — увеличьте время отключения экрана в настройках телефона';
     }
+  });
+}
+
+/**
+ * «Во весь экран» на телефоне: без адресной строки, как F11. Значок есть только там, где браузер
+ * это умеет (Android, iPad); на iPhone страницу так развернуть нельзя — значка нет
+ */
+function setupFullscreen(): void {
+  const btn = document.getElementById('pfs');
+  if (!btn) return;
+  const sync = () => btn.setAttribute('aria-pressed', String(!!document.fullscreenElement));
+  document.addEventListener('fullscreenchange', sync);
+  btn.addEventListener('click', () => {
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    else void document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
   });
 }

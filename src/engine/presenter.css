@@ -157,10 +157,18 @@
 }
 
 /* Телефон-пульт: «не гасить экран» (значок в шапке), потеря связи, отключение на компьютере */
-#wake[aria-pressed="true"] { background: var(--ac); border-color: var(--ac); color: var(--on-ac); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 25%, transparent); }
+#wake[aria-pressed="true"], #pfs[aria-pressed="true"] { background: var(--ac); border-color: var(--ac); color: var(--on-ac); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 25%, transparent); }
 .pres-lost { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 50; display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 18px;
   background: var(--surf); border: 1px solid var(--bd); box-shadow: 0 12px 40px rgba(15, 23, 42, .22); font-size: 15px; line-height: 1.45; }
 .pres-lost b { font-size: 17px; }
 .pres-lost .pl-try { color: var(--mu); }
 .pres-lost ul { margin: 0; padding-left: 1.1em; color: var(--tx2); }
 .pres-lost .btn { height: 48px; justify-content: center; font-size: 16px; }
+/* Шапка телефона-пульта: таймер, часы и значки (не гасить экран, во весь экран, тема) — в одну строку */
+@media (max-width: 640px) {
+  .pres-phone .pres-top { flex-wrap: nowrap; gap: 8px; }
+  .pres-phone .pres-timer { gap: 6px; }
+  .pres-phone .pres-right { gap: 6px; }
+  .pres-phone .pres-right .ibtn { width: 36px; height: 36px; }
+  .pres-phone .pres-clock { font-size: 15px; margin-right: 2px; }
+}
