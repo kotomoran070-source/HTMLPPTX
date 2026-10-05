@@ -1,4 +1,5 @@
 import { icon } from '../components/icons';
+import { CommandPalette } from './palette';
 import { applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, setUiAccent, slideAccent, uiAccent } from '../engine/accent';
 import { getAt, setAt, type Path } from '../engine/data';
 import { DeckView, H, W } from '../engine/deck-view';
@@ -7,7 +8,7 @@ import { esc } from '../engine/html';
 import { placeOf, slideLabel } from '../engine/render';
 import { brandMark } from '../engine/brand';
 import { updateFavicon } from '../engine/show';
-import { onThemeChange, toggleTheme } from '../engine/theme';
+import { currentTheme, onThemeChange, toggleTheme } from '../engine/theme';
 import type { Block, Deck } from '../types';
 import { CLIP_TYPE, putClip, takeClip, type Clip } from './clipboard';
 import { crossPaste } from './cross-paste';
@@ -94,6 +95,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${contextTabsHtml()}
       <button type="button" class="st-ribbon-toggle" id="st-rt" title="Свернуть ленту (Ctrl+F1)" aria-label="Свернуть ленту" aria-expanded="true">${icon('chev-up')}</button>
     </nav>
+    <div class="st-pal" id="st-pal" role="search"></div>
     <div class="st-top-r">
       <button type="button" class="st-status" id="st-status" role="status" aria-live="polite"></button>
       <button class="btn ghost small st-export" type="button" data-cmd="file.export" title="Скачать один HTML-файл или PDF" aria-haspopup="true">${icon('save')}<span>Экспорт</span></button>
@@ -1299,6 +1301,30 @@ export function startStudio(deck: Deck, deckKey: string): void {
   for (const k of ['left', 'center', 'right', 'top', 'middle', 'bottom']) cmds[`align.${k}`] = { run: () => align(k), enabled: hasFree };
   SLIDE_PRESETS.forEach((_p, k) => { cmds[`slide.preset.${k}`] = { run: () => ed.addSlide(index, k) }; });
 
+  // ---------------- палитра команд (Ctrl+K) ----------------
+  const pickColor = (id: string) => () => { const inp = $<HTMLInputElement>(id); reveal('view'); inp.click(); };
+  function reveal(t: string): void {
+    setTab(t);
+    if (!lay.ribbon) toggleRibbon(true);
+  }
+  const palette = new CommandPalette({
+    run,
+    enabled: (c) => { const x = cmds[c]; return !!x && (!x.enabled || x.enabled()); },
+    active: (c) => !!cmds[c]?.active?.(),
+    reveal,
+    count,
+    slideLabel: (i) => slideLabel(deck.slides[i], i),
+    go,
+    extra: () => [
+      { id: 'design.theme', label: currentTheme() === 'dark' ? 'Светлая тема' : 'Тёмная тема', path: 'Верхняя строка', words: 'тема оформления ночная интерфейс', key: '', ico: icon('moon'), run: () => run('design.theme'), enabled: () => true },
+      { id: 'app.home', label: 'Все презентации', path: 'Верхняя строка', words: 'открыть список главная другая', key: '', ico: icon('grid'), run: () => { location.href = './?all'; }, enabled: () => true },
+      { id: 'design.accent', label: 'Акцентный цвет', path: 'Вид · Оформление', words: 'цвет презентации', key: '', ico: icon('fill'), run: pickColor('st-accent'), enabled: () => true },
+      { id: 'design.accent2', label: 'Второй цвет градиента', path: 'Вид · Оформление', words: 'градиент акцент', key: '', ico: icon('fill'), run: pickColor('st-accent2'), enabled: () => true },
+      { id: 'ui.color', label: 'Цвет интерфейса', path: 'Вид · Интерфейс', words: 'свой цвет программы', key: '', ico: icon('fill'), run: pickColor('st-uiac'), enabled: () => true },
+      { id: 'edit.replace', label: 'Заменить', path: 'Главная · Правка', words: 'найти и заменить текст', key: 'Ctrl+H', ico: icon('search'), run: () => find?.show(true), enabled: () => true },
+    ],
+  }, $('st-pal'));
+
   function run(cmd: string): void {
     // Команда во время просмотра: просмотр заканчивается, выделение возвращается
     if (cmd !== 'show.preview') endPreview();
@@ -1698,6 +1724,11 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const typing = el?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el?.tagName ?? '');
     const mod = e.ctrlKey || e.metaKey;
     const k = e.key.toLowerCase();
+    // Ctrl+K — палитра команд (при правке текста Ctrl+K — ссылка: его перехватывает сам текст)
+    if (mod && !e.altKey && !e.shiftKey && e.code === 'KeyK') {
+      e.preventDefault();
+      return palette.focus();
+    }
     // Ctrl+F — найти, Ctrl+H — найти и заменить по всей презентации (вместо поиска браузера)
     if (mod && !e.altKey && !e.shiftKey && (e.code === 'KeyF' || e.code === 'KeyH')) {
       e.preventDefault();

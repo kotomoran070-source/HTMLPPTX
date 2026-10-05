@@ -1,4 +1,4 @@
-// Студия: открывается без ошибок, «Сохранить как шаблон…» → «Мои шаблоны», меню «Цвет» картинки
+// Студия: открывается без ошибок, «Сохранить как шаблон…» → «Мои шаблоны», меню «Цвет» картинки, палитра команд
 import { expect, test } from '@playwright/test';
 import { watchErrors } from './helpers';
 
@@ -86,5 +86,24 @@ test('облегчённый режим: слайд замирает в коне
   await page.locator('[data-tab="view"]').click();
   await page.locator('.st-ribbon [data-cmd="view.lite"]').click();
   await expect(page.locator('#st-canvas .stage').first()).not.toHaveClass(/\bpaused\b/);
+  expect(errors).toEqual([]);
+});
+
+test('палитра команд: Ctrl+K находит команду ленты (и в другой раскладке) и выполняет её', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=tpl&studio#1');
+  await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
+  await page.keyboard.press('Control+k');
+  const q = page.locator('.st-pal-q');
+  await expect(q).toBeFocused();
+  // «Ctnrf» — «Сетка», набранная в английской раскладке
+  await q.fill('Ctnrf');
+  await expect(page.locator('.st-pal-o').first()).toContainText('Сетка');
+  await expect(page.locator('.st-pal-o').first()).toContainText('Вид · Показать');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.st-pal-list')).toBeHidden();
+  await page.keyboard.press('Control+k');
+  await q.fill('сетка');
+  await expect(page.locator('.st-pal-o').first()).toContainText('вкл.');
   expect(errors).toEqual([]);
 });
