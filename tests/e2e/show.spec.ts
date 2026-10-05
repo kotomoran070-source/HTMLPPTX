@@ -1,4 +1,4 @@
-// Показ: все слайды открываются без ошибок, тема, интерактив, ссылки между слайдами
+// Показ: все слайды открываются без ошибок, тема, интерактив, ссылки между слайдами, морф
 import { expect, test } from '@playwright/test';
 import { counter, watchErrors } from './helpers';
 
@@ -74,4 +74,24 @@ test('обзор всех слайдов (O) открывает слайд по 
   await expect(page.locator('#ovbd')).toHaveClass(/\bon\b/);
   await page.locator('#ovgrid .ovcard').nth(6).click();
   await expect(page.locator('#ct')).toHaveText(/^7 из/);
+});
+
+test('морф: пары перелетают, после перехода — ровно новый слайд', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=morph#1');
+  await expect(page.locator('#ct')).toHaveText('1 из 2');
+  await page.keyboard.press('ArrowRight');
+  // Во время перехода: снимок старого слайда и летящие копии двух пар; настоящие объекты ждут под ними
+  await expect(page.locator('.morph-layer .morph-fly')).toHaveCount(4);
+  await expect(page.locator('.morph-ghost')).toHaveCount(1);
+  // Переход закончился: слоёв нет, объекты на местах и видны
+  await expect(page.locator('.morph-layer, .morph-ghost')).toHaveCount(0);
+  const box = page.locator('.slide.on [data-obj="box"]');
+  await expect(box).toBeVisible();
+  expect(await box.evaluate((el) => el.style.visibility)).toBe('');
+  // Назад — тоже морф
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.locator('.morph-layer .morph-fly')).toHaveCount(4);
+  await expect(page.locator('.morph-layer, .morph-ghost')).toHaveCount(0);
+  expect(errors).toEqual([]);
 });

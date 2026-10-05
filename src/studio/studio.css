@@ -650,6 +650,11 @@ body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
 .st-trv[data-v="cover"] b:last-child { transform: translateX(46%); box-shadow: -3px 0 6px rgba(15, 23, 42, .25); }
 .st-trv[data-v="zoom"] b:last-child { transform: scale(.55); opacity: .8; }
 .st-trv[data-v="blur"] b:last-child { filter: blur(2px); opacity: .6; }
+/* Морф: плашка перелетает и растёт */
+.st-trv[data-v="morph"] b:last-child { background: none; }
+.st-trv[data-v="morph"]::after { content: ""; position: absolute; left: 4px; top: 4px; width: 10px; height: 8px; border-radius: 2px; background: var(--ac); transform: translate(12px, 3px) scale(1.4); transform-origin: 0 0; }
+.st-atile:hover .st-trv[data-v="morph"]::after { animation: at-morph 1.8s cubic-bezier(.65, 0, .35, 1) infinite both; }
+@keyframes at-morph { 0%, 20% { transform: none; } 65%, 100% { transform: translate(12px, 3px) scale(1.4); } }
 .st-atile:hover .st-trv b { animation: 1.8s cubic-bezier(.65, 0, .35, 1) infinite both; }
 .st-atile:hover .st-trv[data-v="default"] b:last-child { animation-name: at-default; }
 .st-atile:hover .st-trv[data-v="fade"] b:last-child { animation-name: at-fade; }

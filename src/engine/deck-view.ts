@@ -1,5 +1,6 @@
 import type { Block, Deck } from '../types';
 import { countUp } from './count-up';
+import { morph as morphTo, unmorph } from './morph';
 import { getAt, type Path } from './data';
 import { Renderer } from './render';
 
@@ -211,11 +212,13 @@ export class DeckView {
     const back = i < this.current;
     this.current = i;
     this.endOut();
+    unmorph(this.slides[i]);
     this.slides.forEach((s, k) => s.classList.toggle('on', k === i));
     DeckView.resetTriggers(this.slides[i]);
     restartGifs(this.slides[i]);
-    this.count(this.slides[i]);
     if (this.transitions && prev) this.runOut(prev, this.slides[i], back);
+    // После перехода: морф снимает копии с настоящего текста, а не с «0» начала отсчёта
+    this.count(this.slides[i]);
   }
 
   /** «Число набегает» у объектов слайда (остановка прежнего отсчёта возвращает текст как был) */
@@ -230,29 +233,35 @@ export class DeckView {
     const el = this.slides[i];
     if (!el) return;
     this.endOut();
+    unmorph(el);
     el.classList.remove('on');
     void el.offsetWidth;
     el.classList.add('on');
     DeckView.resetTriggers(el);
     restartGifs(el);
-    this.count(el);
     const prev = this.slides[i - 1];
     if (prev) this.runOut(prev, el, false);
+    this.count(el);
   }
 
   /** Уходящий слайд остаётся видимым, пока идёт переход (растворение, сдвиг, наплыв…) */
   private runOut(prev: HTMLElement, next: HTMLElement | undefined, back: boolean): void {
-    const tr = next?.dataset.tr;
+    // Назад по слайду с морфом — тоже морф (как и вперёд)
+    const tr = back && prev.dataset.tr === 'morph' ? 'morph' : next?.dataset.tr;
     if (!next || !tr || tr === 'none' || reducedMotion()) return;
-    const ms = parseFloat(getComputedStyle(next).getPropertyValue('--tr-ms')) || 600;
+    const ms = parseFloat(getComputedStyle(tr === 'morph' && back ? prev : next).getPropertyValue('--tr-ms')) || (tr === 'morph' ? 800 : 600);
     this.stage.dataset.tr = tr;
     this.stage.dataset.dir = back ? 'back' : 'fwd';
     prev.classList.add('out');
+    if (tr === 'morph') this.endMorph = morphTo(this.stage, prev, next, ms);
     this.outTimer = window.setTimeout(() => this.endOut(), ms + 60);
   }
 
+  private endMorph: (() => void) | null = null;
   private endOut(): void {
     clearTimeout(this.outTimer);
+    this.endMorph?.();
+    this.endMorph = null;
     this.stage.querySelectorAll(':scope > .slide.out').forEach((s) => s.classList.remove('out'));
     delete this.stage.dataset.tr;
   }

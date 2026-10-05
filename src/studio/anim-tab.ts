@@ -31,7 +31,7 @@ export interface AnimHost {
 
 export const TRANSITIONS: [string, string][] = [
   ['', 'Стандартный'], ['none', 'Без перехода'], ['fade', 'Растворение'], ['push', 'Сдвиг'],
-  ['cover', 'Наплыв'], ['zoom', 'Приближение'], ['blur', 'Размытие'],
+  ['cover', 'Наплыв'], ['zoom', 'Приближение'], ['blur', 'Размытие'], ['morph', 'Морф'],
 ];
 
 export const EFFECTS: [string, string][] = [
@@ -59,8 +59,10 @@ const btn = (cmd: string, ic: string, label: string, o: { big?: boolean; menu?: 
   + icon(ic) + (o.ico ? '' : `<span>${esc(label)}${o.menu ? '<b class="st-caret"></b>' : ''}</span>`) + '</button>';
 
 /** Образец перехода: два маленьких слайда, «старый» и «новый» */
+/** Подсказки к переходам, которые не понять по названию */
+const TR_HINT: Record<string, string> = { morph: 'Морф: одинаковые объекты (с тем же именем или текстом) перелетают на новое место' };
 const trTile = ([v, l]: [string, string]) =>
-  `<button type="button" class="st-atile" data-cmd="tr.set.${v || 'default'}" title="${esc(l)}" aria-label="${esc(l)}"><i class="st-trv" data-v="${v || 'default'}"><b></b><b></b></i></button>`;
+  `<button type="button" class="st-atile" data-cmd="tr.set.${v || 'default'}" title="${esc(TR_HINT[v] ?? l)}" aria-label="${esc(l)}"><i class="st-trv" data-v="${v || 'default'}"><b></b><b></b></i></button>`;
 
 /** Образец появления: плашка въезжает на «слайд» */
 const fxTile = ([v, l]: [string, string]) =>
@@ -338,7 +340,7 @@ export function syncAnimTab(h: AnimHost): void {
   const trLabel = document.getElementById('st-tr-label');
   if (trLabel) {
     const name = TRANSITIONS.find(([v]) => v === (s?.transition ?? ''))?.[1] ?? 'Стандартный';
-    const ms = Number(s?.transitionMs) || 600;
+    const ms = Number(s?.transitionMs) || (s?.transition === 'morph' ? 800 : 600);
     trLabel.textContent = `Переход: ${name}${s?.transition && s.transition !== 'none' ? ` · ${sec(ms)}` : ''}`;
   }
   const list = h.selPaths().map((p) => getAt(h.deck, p) as Block);

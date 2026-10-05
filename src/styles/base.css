@@ -48,6 +48,15 @@ body {
 :where(.stage[data-tr] > .slide) { background: radial-gradient(var(--bd) 1px, transparent 1px) 0 0 / 26px 26px, var(--bg); }
 .stage > .slide.on[data-tr] { z-index: 1; }
 .stage .slide.on[data-tr="none"] { animation: none; }
+/* Морф (engine/morph.ts): новый слайд на месте сразу, поверх — растворяющийся снимок старого
+   и летящие копии одинаковых объектов */
+.stage[data-tr="morph"] > .slide.on { animation: none; }
+.stage[data-tr="morph"] > .slide.out { visibility: hidden; }
+.stage > .slide.morph-ghost { display: block; z-index: 2; pointer-events: none; }
+.stage > .morph-layer { display: block; z-index: 3; pointer-events: none; background: none !important; box-shadow: none !important; animation: none !important; }
+.stage > .morph-layer::before, .stage > .morph-layer::after { display: none !important; }
+.morph-ghost *, .morph-fly, .morph-fly * { animation: none !important; transition: none !important; }
+.morph-fly { transform-origin: 0 0; will-change: transform, opacity; }
 .stage .slide.on[data-tr="fade"] { animation: tr-fade var(--tr-ms, 600ms) ease both; }
 .stage[data-tr="fade"] > .slide.out { animation: tr-fade-out var(--tr-ms, 600ms) ease both; }
 .stage .slide.on[data-tr="push"] { animation: tr-push-in var(--tr-ms, 600ms) cubic-bezier(.65, 0, .35, 1) both; }

@@ -11,7 +11,7 @@ import { indexPaths, pathOf } from './marks';
 import { controlRange, deriveVars, hasFormula, resolve, type ControlProps } from './formula';
 
 /** Переходы между слайдами (slide.transition); без поля — стандартное появление */
-export const TRANSITION_IDS = new Set(['none', 'fade', 'push', 'cover', 'zoom', 'blur']);
+export const TRANSITION_IDS = new Set(['none', 'fade', 'push', 'cover', 'zoom', 'blur', 'morph']);
 
 let uidCounter = 0;
 
