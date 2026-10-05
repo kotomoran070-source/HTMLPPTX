@@ -59,8 +59,11 @@ test('облегчённый режим: слайд замирает в коне
   await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
   const stage = page.locator('#st-canvas .stage').first();
   await page.locator('[data-tab="view"]').click();
-  await page.locator('.st-ribbon [data-cmd="view.lite"]').click();
+  const lite = page.locator('.st-ribbon [data-cmd="view.lite"]');
+  await lite.click();
   await expect(stage).toHaveClass(/\bstill\b/);
+  // Галочка на ленте — сразу после щелчка
+  await expect(lite).toHaveClass(/\bactive\b/);
   await expect(stage).toHaveClass(/\bpaused\b/);
   // Ни одной идущей анимации на слайде, а объекты видны (появление не застыло на старте)
   const state = await page.evaluate(() => {

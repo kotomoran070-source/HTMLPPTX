@@ -1203,7 +1203,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'view.ruler': { run: () => toggleAid('ruler'), active: () => lay.ruler },
     'view.grid': { run: () => toggleAid('grid'), active: () => lay.grid },
     'view.guides': { run: () => toggleAid('guides'), active: () => lay.guides },
-    'view.lite': { run: () => { lay.lite = !lay.lite; applyLayout(); ed.toast(lay.lite ? 'Облегчённый режим: слайд без движения, редактор легче' : 'Облегчённый режим выключен', 2500); }, active: () => lay.lite },
+    'view.lite': { run: () => { lay.lite = !lay.lite; applyLayout(); queueState(); ed.toast(lay.lite ? 'Облегчённый режим: слайд без движения, редактор легче' : 'Облегчённый режим выключен', 2500); }, active: () => lay.lite },
     'view.guides-reset': { run: () => { aids!.resetGuides(); if (!lay.guides) toggleAid('guides', true); } },
     'view.grid-step': {
       run: () => showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="view.grid-step"]')!, GRID_STEPS.map((st) => ({
