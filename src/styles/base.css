@@ -83,6 +83,14 @@ body {
   animation-duration: 0s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important;
   animation-fill-mode: both !important; animation-play-state: running !important; transition: none !important;
 }
+/* Облегчённый режим редактора (Вид → Облегчённый режим): слайд сразу в конечном виде, как миниатюра.
+   Просмотр анимации (body.st-previewing) проигрывает всё как обычно */
+body:not(.st-previewing) .stage.still .slide *:not(.html-inner *), body:not(.st-previewing) .stage.still .slide *:not(.html-inner *)::before,
+body:not(.st-previewing) .stage.still .slide *:not(.html-inner *)::after, body:not(.st-previewing) .stage.still .slide.on { animation: none !important; transition: none !important; }
+body:not(.st-previewing) .stage.still .html-inner *, body:not(.st-previewing) .stage.still .html-inner *::before, body:not(.st-previewing) .stage.still .html-inner *::after {
+  animation-duration: 0s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important;
+  animation-fill-mode: both !important; animation-play-state: running !important; transition: none !important;
+}
 
 h1 { font-size: 46px; line-height: 1.1; margin: 22px 0 16px; font-weight: 800; letter-spacing: -.02em; }
 h2 { font-size: 32px; line-height: 1.2; margin: 0 0 24px; font-weight: 700; letter-spacing: -.01em; }

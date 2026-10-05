@@ -12,6 +12,7 @@ import type { Block, Deck } from '../types';
 import { CLIP_TYPE, putClip, takeClip, type Clip } from './clipboard';
 import { crossPaste } from './cross-paste';
 import type { CodeView } from './code';
+import type { ExportQuality } from './pptx';
 import { applyFormat, hasFormat, takeFormat, type Format } from './format-painter';
 import { tableGrips } from './table-grips';
 import { GRID_STEPS, ViewAids } from './view-aids';
@@ -119,6 +120,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     <div class="st-rpanel" data-panel="view" hidden>
       ${group('Панели', rb('view.slides', 'grid', 'Слайды', { big: true, key: 'Ctrl+Shift+1', title: 'Список слайдов слева' }) + rb('view.props', 'sliders', 'Свойства', { big: true, key: 'Ctrl+Shift+2', title: 'Панель свойств справа' }) + rb('view.notes', 'notes', 'Заметки', { big: true, key: 'Ctrl+Shift+3' }) + rb('view.code', 'terminal', 'Код слайда', { big: true, key: 'Ctrl+`', title: 'Код слайда (YAML), стили (CSS) и анимации (HTML/JS)' }) + rb('view.layers', 'layers', 'Область выделения', { big: true, key: 'Alt+F10', title: 'Объекты слайда списком: скрыть, закрепить, поменять порядок' }))}
       ${group('Показать', `<div class="st-rstack">${chk('view.ruler', 'Линейка', 'Линейка сверху и слева; из неё вытягиваются направляющие')}${chk('view.grid', 'Сетка', 'Сетка на слайде, объекты прилипают к ней (Shift+F9)')}${chk('view.guides', 'Направляющие', 'Свои направляющие; объекты прилипают к ним (Alt+F9)')}</div><div class="st-rstack">${rb('view.grid-step', 'grid', 'Шаг сетки', { menu: true })}${rb('view.guides-reset', 'reset', 'Сбросить направляющие', { title: 'Оставить одну вертикальную и одну горизонтальную по центру' })}</div>`)}
+      ${group('Скорость', `<div class="st-rstack">${chk('view.lite', 'Облегчённый режим', 'Если редактор подтормаживает: живые фоны, вставки, 3D-модели и анимации на слайде замирают в конечном виде. «Просмотр» и показ — как обычно')}</div>`)}
       ${group('Масштаб', rb('view.fit', 'fullscreen', 'Вписать', { big: true }) + `<div class="st-rstack">${rb('view.zoom-in', 'plus', 'Крупнее')}${rb('view.zoom-out', 'minus', 'Мельче')}</div>`)}
       ${group('Оформление', `<label class="st-accent" title="Акцентный цвет презентации"><input type="color" id="st-accent" aria-label="Акцентный цвет"><span>Акцент</span></label><label class="st-accent" title="Второй цвет: акцентные заливки становятся градиентом от акцента к нему"><input type="color" id="st-accent2" aria-label="Второй цвет градиента"><span>Градиент</span></label><div class="st-rstack">${rb('design.accent-reset', 'reset', 'Стандартный', { title: 'Стандартный акцент, без градиента' })}${rb('design.accent2-off', 'close', 'Без градиента', { title: 'Ровный акцент без второго цвета' })}</div><div class="st-rstack">${chk('design.accent-flow', 'Переливание', 'Цвета градиента акцента плавно текут по акцентным элементам слайда')}</div>`)}
     </div>
@@ -378,10 +380,19 @@ export function startStudio(deck: Deck, deckKey: string): void {
   let previewTimer = 0;
   /** Что было выделено до просмотра: после него выделение возвращается */
   let previewSel: { slide: number; free: number[] } | null = null;
+  /**
+   * Облегчённый режим: сцена на паузе (фоны, вставки, модели замирают — DeckView.setPaused)
+   * и без анимаций (.still — как миниатюра). На время «Просмотра» всё оживает
+   */
+  function applyLite(): void {
+    view.stage.classList.toggle('still', lay.lite);
+    view.setPaused(lay.lite && !document.body.classList.contains('st-previewing'));
+  }
   function endPreview(): void {
     clearTimeout(previewTimer);
     if (!document.body.classList.contains('st-previewing')) return;
     document.body.classList.remove('st-previewing');
+    applyLite();
     document.body.classList.add('editing');
     const back = previewSel;
     previewSel = null;
@@ -402,6 +413,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const tr = s.transition && s.transition !== 'none' ? Number(s.transitionMs) || 600 : 0;
     document.body.classList.remove('editing');
     document.body.classList.add('st-previewing');
+    applyLite();
     // Перезапуск: переход от предыдущего слайда и появление объектов
     view.replay(index);
     previewTimer = window.setTimeout(endPreview, Math.min(9000, longest + tr + 1600));
@@ -561,14 +573,39 @@ export function startStudio(deck: Deck, deckKey: string): void {
     ['pptx', 'layers', 'PowerPoint', 'Файл PPTX: тексты, фигуры, таблицы и диаграммы правятся в PowerPoint'],
     ['pdf', 'notes', 'PDF', 'Один слайд на странице'],
   ];
+  /** Качество файла: запоминается для следующих экспортов */
+  const QUALITIES: [ExportQuality, string, string][] = [
+    ['compact', 'Компактное', 'Файл в разы меньше: картинки сжаты, GIF в HTML — в WebP. Для почты и мессенджеров'],
+    ['normal', 'Обычное', 'Картинки как есть, сложная графика в PowerPoint — в двойной чёткости'],
+    ['high', 'Высокое', 'Сложная графика в PowerPoint — в тройной чёткости: для экранов 4K и печати. HTML — как «Обычное»'],
+  ];
+  const QUALITY_KEY = 'htmlpptx-export-quality';
+  let quality: ExportQuality = 'normal';
+  try { const q = localStorage.getItem(QUALITY_KEY); if (QUALITIES.some(([k]) => k === q)) quality = q as ExportQuality; } catch { /* нет доступа */ }
   function exportMenu(): void {
-    const html = EXPORTS.map(([k, ic, t, d]) => `<button type="button" class="st-xopt" data-x="${k}">${icon(ic)}<span><b>${esc(t)}</b><small>${esc(d)}</small></span></button>`).join('');
-    showPopover(document.querySelector<HTMLElement>('.st-top [data-cmd="file.export"]')!, html, (b) => {
+    const seg = QUALITIES.map(([k, t]) => `<button type="button" role="radio" data-q="${k}" aria-checked="${k === quality}">${esc(t)}</button>`).join('');
+    const hint = () => QUALITIES.find(([k]) => k === quality)![2];
+    const html = `<div class="st-xq"><span class="st-xq-l">Качество</span><div class="st-xq-seg" role="radiogroup" aria-label="Качество файла">${seg}</div><small class="st-xq-hint">${esc(hint())}</small></div>`
+      + EXPORTS.map(([k, ic, t, d]) => `<button type="button" class="st-xopt" data-x="${k}">${icon(ic)}<span><b>${esc(t)}</b><small>${esc(d)}</small></span></button>`).join('');
+    const pop = showPopover(document.querySelector<HTMLElement>('.st-top [data-cmd="file.export"]')!, html, (b) => {
+      const q = b.dataset.q as ExportQuality | undefined;
+      if (q) {
+        return {
+          keep: true,
+          run: () => {
+            quality = q;
+            try { localStorage.setItem(QUALITY_KEY, q); } catch { /* нет доступа */ }
+            pop.querySelectorAll<HTMLElement>('[data-q]').forEach((x) => x.setAttribute('aria-checked', String(x.dataset.q === q)));
+            pop.querySelector('.st-xq-hint')!.textContent = hint();
+          },
+        };
+      }
       const m = b.dataset.x;
       return m ? { run: () => void runExport(m) } : null;
     }, 'st-exportpop');
   }
   let exporting = false;
+  const sizeText = (n: number) => (n >= 1048576 ? `${(n / 1048576).toFixed(1).replace('.', ',')} МБ` : `${Math.max(1, Math.round(n / 1024))} КБ`);
   function download(blob: Blob, name: string): void {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -595,9 +632,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
     if (mode === 'pptx') {
       try {
         const { exportPptx } = await import('./pptx');
-        const blob = await exportPptx(deck, (i, n) => ed.toast(i < n ? `PowerPoint: слайд ${i + 1} из ${n}…` : 'PowerPoint: сохранение…', 60000));
+        const blob = await exportPptx(deck, (i, n) => ed.toast(i < n ? `PowerPoint: слайд ${i + 1} из ${n}…` : 'PowerPoint: сохранение…', 60000), quality);
         download(blob, `${deckKey}.pptx`);
-        ed.toast(`Файл готов: ${deckKey}.pptx`, 3000);
+        ed.toast(`Файл готов: ${deckKey}.pptx, ${sizeText(blob.size)}`, 3000);
       } catch (e) {
         ed.toast(`Экспорт не удался: ${(e as Error).message}`, 6000, true);
       } finally {
@@ -606,7 +643,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
       return;
     }
     try {
-      const blob = await projectStorage.exportHtml(deckKey, mode === 'clean');
+      if (quality === 'compact') ed.toast('Сжимаю картинки…', 60000);
+      const blob = await projectStorage.exportHtml(deckKey, mode === 'clean', quality === 'compact');
       // Имя — как у папки презентации (и у yarn build): латиница открывается везде
       const name = `${deckKey}${mode === 'clean' ? '' : '-edit'}.html`;
       const a = document.createElement('a');
@@ -620,7 +658,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       const mb = blob.size / 1024 / 1024;
       // Видео и модели внутри одного файла: большой файл неудобно отправлять
       if (mb > 20) ed.toast(`Файл готов: ${name}, ${Math.round(mb)} МБ. Большую часть занимают видео и 3D-модели — для отправки удобнее ссылка на YouTube или облако.`, 8000);
-      else ed.toast(`Файл готов: ${name}`, 3000);
+      else ed.toast(`Файл готов: ${name}, ${sizeText(blob.size)}`, 3000);
     } catch (e) {
       ed.toast(`Экспорт не удался: ${(e as Error).message}`, 6000, true);
     } finally {
@@ -1165,6 +1203,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'view.ruler': { run: () => toggleAid('ruler'), active: () => lay.ruler },
     'view.grid': { run: () => toggleAid('grid'), active: () => lay.grid },
     'view.guides': { run: () => toggleAid('guides'), active: () => lay.guides },
+    'view.lite': { run: () => { lay.lite = !lay.lite; applyLayout(); ed.toast(lay.lite ? 'Облегчённый режим: слайд без движения, редактор легче' : 'Облегчённый режим выключен', 2500); }, active: () => lay.lite },
     'view.guides-reset': { run: () => { aids!.resetGuides(); if (!lay.guides) toggleAid('guides', true); } },
     'view.grid-step': {
       run: () => showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="view.grid-step"]')!, GRID_STEPS.map((st) => ({
@@ -1337,7 +1376,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
 
   // ---------------- раскладка окна: панели тянутся, лента сворачивается ----------------
   const LAYOUT_KEY = 'htmlpptx-studio-layout';
-  const DEFAULTS = { lw: 212, rw: 292, nh: 128, cw: 44, ribbon: true, left: true, right: true, ruler: false, grid: false, guides: false, step: 40, layers: false };
+  const DEFAULTS = { lw: 212, rw: 292, nh: 128, cw: 44, ribbon: true, left: true, right: true, ruler: false, grid: false, guides: false, step: 40, layers: false, lite: false };
   const LIMITS = { lw: [120, 380], rw: [220, 520], nh: [64, 420], cw: [22, 70] } as const;
   let lay = { ...DEFAULTS };
   try { lay = { ...lay, ...JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}') }; } catch { /* раскладки ещё нет */ }
@@ -1357,6 +1396,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     $('st-sr').hidden = !lay.right;
     $('st-rt').setAttribute('aria-expanded', String(lay.ribbon));
     $('st-rt').title = lay.ribbon ? 'Свернуть ленту (Ctrl+F1)' : 'Развернуть ленту (Ctrl+F1)';
+    applyLite();
     if (save) try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(lay)); } catch { /* нет доступа */ }
     layout();
   }

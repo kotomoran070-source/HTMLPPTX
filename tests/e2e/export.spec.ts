@@ -39,6 +39,18 @@ test('HTML для показа: один файл, без сервера, все
   expect(errors).toEqual([]);
 });
 
+test('компактный HTML: картинки в WebP, файл не больше обычного', async () => {
+  test.setTimeout(180_000);
+  const get = async (q: string) => {
+    const r = await fetch(`http://localhost:5190/__htmlpptx/export?deck=tpl&mode=clean${q}`, { method: 'POST' });
+    expect(r.ok).toBe(true);
+    return r.text();
+  };
+  const [plain, compact] = [await get(''), await get('&quality=compact')];
+  expect(compact.length).toBeLessThanOrEqual(plain.length);
+  expect(compact).not.toMatch(/data:image\/(png|jpeg|gif);base64,.{200000}/);
+});
+
 test('HTML с правкой: есть режим правки', async ({ page }) => {
   test.setTimeout(180_000);
   const file = await exportHtml('edit');

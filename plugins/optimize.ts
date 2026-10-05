@@ -75,3 +75,32 @@ export async function optimizeImages(deck: { slides?: Record<string, unknown>[] 
   await Promise.all(jobs);
   return report;
 }
+
+/**
+ * Компактный экспорт (yarn build --compact, «Экспорт → Компактное»): картинка файла презентации
+ * сжимается в WebP не шире 1920 точек (слайд 1280 × 1,5). GIF — в анимированный WebP: он в разы
+ * меньше и браузеры его проигрывают. null — сжатие не дало выигрыша, файл остаётся как есть.
+ */
+export async function compactImage(input: Buffer, ext: string): Promise<{ mime: string; data: Buffer } | null> {
+  if (!/^(png|jpe?g|webp|gif)$/i.test(ext)) return null;
+  const { default: sharp } = await import('sharp');
+  const animated = /^gif$/i.test(ext);
+  try {
+    const meta = await sharp(input, { animated }).metadata();
+    if (!meta.width) return null;
+    const base = () => sharp(input, { animated }).resize({ width: Math.min(meta.width!, 1920), withoutEnlargement: true });
+    let out: Buffer;
+    if (animated) out = await base().webp({ quality: 70, effort: 4 }).toBuffer();
+    else {
+      // Без потерь, если это не намного больше: схемы, текст и линии остаются чёткими
+      const [lossless, lossy] = await Promise.all([
+        base().webp({ lossless: true, effort: 4 }).toBuffer(),
+        base().webp({ quality: 80, effort: 4 }).toBuffer(),
+      ]);
+      out = lossless.length <= lossy.length * 1.5 ? lossless : lossy;
+    }
+    return out.length < input.length * 0.9 ? { mime: 'image/webp', data: out } : null;
+  } catch {
+    return null;
+  }
+}

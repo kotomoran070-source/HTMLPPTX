@@ -52,3 +52,36 @@ test('меню «Цвет» картинки заканчивается над �
   expect(m.h).toBeLessThanOrEqual(m.set);       // «Настройка» не видна без прокрутки
   expect(m.h).toBeGreaterThan(m.theme + 80);    // фильтры «В цветах темы» видны
 });
+
+test('облегчённый режим: слайд замирает в конечном виде, «Просмотр» оживляет', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=tpl&studio#1');
+  await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
+  const stage = page.locator('#st-canvas .stage').first();
+  await page.locator('[data-tab="view"]').click();
+  await page.locator('.st-ribbon [data-cmd="view.lite"]').click();
+  await expect(stage).toHaveClass(/\bstill\b/);
+  await expect(stage).toHaveClass(/\bpaused\b/);
+  // Ни одной идущей анимации на слайде, а объекты видны (появление не застыло на старте)
+  const state = await page.evaluate(() => {
+    const s = document.querySelector('#st-canvas .slide.on')!;
+    const running = s.getAnimations({ subtree: true }).filter((a) => a.playState === 'running').length;
+    const hidden = [...s.querySelectorAll<HTMLElement>(':scope > .free')].filter((e) => Number(getComputedStyle(e).opacity) < 0.99).length;
+    return { running, hidden };
+  });
+  expect(state).toEqual({ running: 0, hidden: 0 });
+  // «Просмотр» проигрывает анимации как обычно, после него слайд снова замирает
+  await page.locator('[data-tab="anim"]').click();
+  await page.locator('.st-ribbon [data-cmd="show.preview"]').first().click();
+  await expect(page.locator('body')).toHaveClass(/st-previewing/);
+  await expect(stage).not.toHaveClass(/\bpaused\b/);
+  await page.keyboard.press('Escape');
+  await expect(stage).toHaveClass(/\bpaused\b/, { timeout: 12_000 });
+  // Режим запоминается
+  await page.reload();
+  await expect(page.locator('#st-canvas .stage').first()).toHaveClass(/\bstill\b/);
+  await page.locator('[data-tab="view"]').click();
+  await page.locator('.st-ribbon [data-cmd="view.lite"]').click();
+  await expect(page.locator('#st-canvas .stage').first()).not.toHaveClass(/\bpaused\b/);
+  expect(errors).toEqual([]);
+});

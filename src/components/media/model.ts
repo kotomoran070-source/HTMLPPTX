@@ -101,6 +101,7 @@ defineBlock<ModelProps>('model', {
       settle.forEach(clearTimeout);
       if (sendNow) settle = [150, 400, 800, 1400].map((ms) => window.setTimeout(sendNow!, ms));
     };
+    const frozen = () => ctx.stage.classList.contains('paused');
     const on = () => {
       clearTimeout(timer);
       if (mv) return;
@@ -109,7 +110,7 @@ defineBlock<ModelProps>('model', {
         const m = document.createElement('model-viewer');
         m.setAttribute('src', box.dataset.model!);
         // Сама не крутится, пока не попросят (rotate: true): модель поворачивают мышью
-        if (p.rotate === true && !ctx.reducedMotion) m.setAttribute('auto-rotate', '');
+        if (p.rotate === true && !ctx.reducedMotion && !frozen()) m.setAttribute('auto-rotate', '');
         m.setAttribute('rotation-per-second', '14deg');
         m.setAttribute('auto-rotate-delay', '0');
         const controls = p.controls !== false && !editing();
@@ -129,7 +130,7 @@ defineBlock<ModelProps>('model', {
         const ex = Number(p.exposure);
         if (ex >= 0.2 && ex <= 3) m.setAttribute('exposure', String(ex));
         if (p.animation && !ctx.reducedMotion) {
-          m.setAttribute('autoplay', '');
+          if (!frozen()) m.setAttribute('autoplay', '');
           if (typeof p.animation === 'string' && p.animation.trim()) m.setAttribute('animation-name', p.animation.trim());
         }
         m.setAttribute('touch-action', 'pan-y');
@@ -223,6 +224,23 @@ defineBlock<ModelProps>('model', {
     const mo = new MutationObserver(sync);
     mo.observe(ctx.slide, { attributes: true, attributeFilter: ['class'] });
     sync();
+    // Пауза сцены: модель не крутится и не играет анимацию — видеокарта отдыхает; сняли паузу — как было
+    let wasFrozen = frozen();
+    const pauseMo = new MutationObserver(() => {
+      const f = frozen();
+      if (f === wasFrozen) return;
+      wasFrozen = f;
+      const v = mv as (HTMLElement & { play?: () => void; pause?: () => void }) | null;
+      if (!v) return;
+      if (f) {
+        v.removeAttribute('auto-rotate');
+        v.pause?.();
+      } else {
+        if (p.rotate === true && !ctx.reducedMotion) v.setAttribute('auto-rotate', '');
+        if (p.animation && !ctx.reducedMotion) v.play?.();
+      }
+    });
+    pauseMo.observe(ctx.stage, { attributes: true, attributeFilter: ['class'] });
     // Окно показа: поворот от докладчика (модель плавно доворачивается к нему сама)
     const follow = (e: Event) => {
       const c = (e as CustomEvent<CameraState>).detail;
@@ -239,6 +257,7 @@ defineBlock<ModelProps>('model', {
       home?.remove();
       window.removeEventListener(CAMERA_SET, follow);
       mo.disconnect();
+      pauseMo.disconnect();
       clearTimeout(timer);
       mv?.remove();
     };

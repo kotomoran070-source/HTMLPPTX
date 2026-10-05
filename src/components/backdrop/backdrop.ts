@@ -161,6 +161,8 @@ defineBlock<BackdropProps>('backdrop', {
   mount(el, p, ctx) {
     const lite = document.body.classList.contains('presenter');
     const still = ctx.reducedMotion;
+    // Пауза сцены (экономный режим пульта, облегчённый режим редактора): один кадр — и стоп
+    const frozen = () => still || ctx.stage.classList.contains('paused');
     let canvas: HTMLCanvasElement | null = null;
     let gl: WebGLRenderingContext | null = null;
     let scene: Scene | null = null;
@@ -208,7 +210,7 @@ defineBlock<BackdropProps>('backdrop', {
       clock += dt;
       size();
       scene.draw(clock);
-      if (!still) raf = requestAnimationFrame(frame);
+      if (!frozen()) raf = requestAnimationFrame(frame);
     };
 
     const start = () => {
@@ -259,13 +261,15 @@ defineBlock<BackdropProps>('backdrop', {
     const recolor = () => {
       if (!scene) return;
       readColors();
-      if (still && scene) {
+      if (frozen() && scene) {
         size();
         scene.draw(clock);
       }
     };
     const mo = new MutationObserver(sync);
     mo.observe(ctx.slide, { attributes: true, attributeFilter: ['class'] });
+    // Сняли паузу — кадры идут снова (start() сам ничего не делает, если они уже идут)
+    mo.observe(ctx.stage, { attributes: true, attributeFilter: ['class'] });
     const offTheme = onThemeChange(() => requestAnimationFrame(recolor));
     addEventListener(ACCENT_EVENT, recolor);
     sync();

@@ -12,6 +12,7 @@ import { AssetStore } from './assets';
 import { BASE_ID, bindProject, importHtml, slug } from './import';
 import { importPptx } from './pptx/index';
 import { packDeck } from '../src/engine/pack';
+import { compactImage } from './optimize';
 import { mergeYaml } from './yaml-merge';
 
 const VIRTUAL = 'virtual:decks';
@@ -444,7 +445,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           if (url.pathname === API + 'font-use') return useLibraryFont(name, url.searchParams.get('file') ?? '', res);
           if (url.pathname === API + 'bind-theme') return send(res, 200, bindProject(dir, name, url.searchParams.get('dry') === '1'));
           if (url.pathname === API + 'save') return await handleSave(name, req, res);
-          if (url.pathname === API + 'export') return await handleExport(root, name, url.searchParams.get('mode') === 'clean', res);
+          if (url.pathname === API + 'export') return await handleExport(root, name, url.searchParams.get('mode') === 'clean', url.searchParams.get('quality') === 'compact', res);
           if (url.pathname === API + 'asset') return await handleAsset(name, url.searchParams.get('name') ?? 'image.png', req, res);
           if (url.pathname === API + 'asset-text') return await handleAssetText(name, url.searchParams.get('url') ?? '', req, res);
           send(res, 404, { error: 'Неизвестная команда' });
@@ -520,16 +521,28 @@ export function decksPlugin(opts: DecksOptions): Plugin {
       return { code: `${head}\nexport default ${json};\n`, map: null };
     },
 
-    transformIndexHtml(html) {
+    async transformIndexHtml(html) {
       if (!opts.only) return html;
       const file = deckFile(opts.only);
       const deck = readYaml(file) as { title?: string; lang?: string };
+      // Компактный файл (--compact): картинки заранее сжимаются в WebP, видео и модели — как есть
+      const packed = new Map<string, { mime: string; data: Buffer }>();
+      if (process.env.COMPACT === '1') {
+        const files = new Set<string>();
+        mapAssets(deck, (v) => { files.add(path.resolve(path.dirname(file), v)); return v; });
+        await Promise.all([...files].filter((abs) => fs.existsSync(abs)).map(async (abs) => {
+          const r = await compactImage(fs.readFileSync(abs), path.extname(abs).slice(1));
+          if (r) packed.set(abs, r);
+        }));
+      }
       const embedded = mapAssets(deck, (v) => {
         const abs = path.resolve(path.dirname(file), v);
         if (!fs.existsSync(abs)) {
           console.warn(`Файл не найден: ${v} (из ${path.relative(process.cwd(), file)})`);
           return v;
         }
+        const small = packed.get(abs);
+        if (small) return `data:${small.mime};base64,${small.data.toString('base64')}`;
         const ext = path.extname(abs).slice(1).toLowerCase();
         return `data:${MIME[ext] ?? 'application/octet-stream'};base64,${fs.readFileSync(abs).toString('base64')}`;
       });
@@ -552,10 +565,10 @@ function escapeHtml(s: string): string {
  * «Экспорт» из редактора: та же сборка, что yarn build, в отдельном процессе и во временную папку
  * (сервер разработки не видит промежуточных файлов). Ответ — готовый HTML.
  */
-function handleExport(root: string, name: string, clean: boolean, res: ServerResponse): Promise<void> {
+function handleExport(root: string, name: string, clean: boolean, compact: boolean, res: ServerResponse): Promise<void> {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'htmlpptx-export-'));
   const out = path.join(tmp, `${name}.html`);
-  const args = [path.join(root, 'scripts/build.mjs'), name, `--out=${out}`, ...(clean ? ['--clean'] : [])];
+  const args = [path.join(root, 'scripts/build.mjs'), name, `--out=${out}`, ...(clean ? ['--clean'] : []), ...(compact ? ['--compact'] : [])];
   return new Promise((resolve) => {
     // В приложении process.execPath — сам Electron: ELECTRON_RUN_AS_NODE запускает его как обычный Node
     const env = { ...process.env, BUILD_TMP: tmp, ...(process.versions.electron ? { ELECTRON_RUN_AS_NODE: '1' } : {}) };

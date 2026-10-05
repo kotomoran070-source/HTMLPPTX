@@ -26,6 +26,16 @@ let LANG = 'ru-RU';
 const inch = (px: number) => px / PX;
 const pt = (px: number) => Math.round(px * 0.75 * 100) / 100;
 
+/**
+ * Качество файла: compact — меньше файл (снимки графики ×1–1,5, фотографии ужаты до размера
+ * на слайде), normal — как раньше, high — снимки графики ×3 для экранов 4K и печати.
+ * Тексты, фигуры, таблицы и диаграммы векторные при любом качестве.
+ */
+export type ExportQuality = 'compact' | 'normal' | 'high';
+let QUALITY: ExportQuality = 'normal';
+/** Во сколько раз чётче места на слайде снимается графика, которую не передать фигурами */
+const sharp = (base: number) => (QUALITY === 'compact' ? Math.max(1, base * 0.75) : QUALITY === 'high' ? Math.max(base, 3) : base);
+
 /** Блоки, которые передаются картинкой: схемы и вставки со своей графикой */
 /** Блоки, которые уходят в PPTX картинкой целиком (редактор кода с подсветкой) */
 const RASTER = new Set<string>(['sandbox']);
@@ -100,7 +110,7 @@ async function imageToPng(src: string, w: number, h: number): Promise<string | n
     img.src = src;
   });
   if (!ok) return null;
-  const k = 2;
+  const k = sharp(2);
   const c = document.createElement('canvas');
   c.width = Math.max(1, Math.round(w * k));
   c.height = Math.max(1, Math.round(h * k));
@@ -111,6 +121,42 @@ async function imageToPng(src: string, w: number, h: number): Promise<string | n
   } catch {
     return null;
   }
+}
+
+/**
+ * Фотография для компактного файла: уменьшается до нужного размера и сохраняется в JPEG,
+ * если в ней нет прозрачности (иначе PNG). null — меньше не стало, остаётся исходник.
+ */
+async function shrinkPhoto(data: string, w: number, h: number, matte?: string): Promise<string | null> {
+  const img = new Image();
+  if (!await new Promise<boolean>((r) => { img.onload = () => r(true); img.onerror = () => r(false); img.src = data; })) return null;
+  const nw = img.naturalWidth, nh = img.naturalHeight;
+  if (!nw || !nh) return null;
+  // Картинка обрезана рамкой (cover) — нужна по большей стороне рамки
+  const k = Math.min(1, Math.max(w / nw, h / nh));
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(nw * k));
+  c.height = Math.max(1, Math.round(nh * k));
+  const g = c.getContext('2d', { willReadFrequently: true })!;
+  // Подложка: картинка всё равно лежит на этом цвете — прозрачность не нужна
+  if (matte) {
+    g.fillStyle = `#${matte}`;
+    g.fillRect(0, 0, c.width, c.height);
+  }
+  g.drawImage(img, 0, 0, c.width, c.height);
+  let opaque = true;
+  try {
+    const px = g.getImageData(0, 0, c.width, c.height).data;
+    for (let i = 3; i < px.length; i += 4 * 7) if (px[i] < 250) { opaque = false; break; }
+  } catch { return null; }
+  const out = opaque ? c.toDataURL('image/jpeg', 0.85) : c.toDataURL('image/png');
+  return out.length < data.length * 0.9 ? out : null;
+}
+
+/** Компактный файл: крупный непрозрачный снимок (фон слайда, вставка) — в JPEG вместо PNG */
+async function packed(data: string, matte?: string): Promise<string> {
+  if (QUALITY !== 'compact' || !data.startsWith('data:image/png') || data.length < 150_000) return data;
+  return (await shrinkPhoto(data, Infinity, Infinity, matte)) ?? data;
 }
 
 async function imageData(src: string): Promise<string | null> {
@@ -174,7 +220,8 @@ export interface PptxProgress {
   (done: number, total: number): void;
 }
 
-export async function exportPptx(deck: Deck, progress?: PptxProgress): Promise<Blob> {
+export async function exportPptx(deck: Deck, progress?: PptxProgress, quality: ExportQuality = 'normal'): Promise<Blob> {
+  QUALITY = quality;
   const [{ default: Pptx }, { toPng }] = await Promise.all([import('pptxgenjs'), import('html-to-image')]);
   const pptx: Pptx = new Pptx();
   pptx.layout = 'LAYOUT_WIDE';
@@ -239,6 +286,8 @@ type ToPng = (el: HTMLElement, o?: { pixelRatio?: number; skipFonts?: boolean; c
 
 class Converter {
   private origin: DOMRect;
+  /** Цвет фона слайда (RRGGBB) */
+  private bgHex = 'FFFFFF';
 
   constructor(private pptx: Pptx, private slide: Slide, private section: HTMLElement, private deck: Deck, private toPng: ToPng) {
     this.origin = section.getBoundingClientRect();
@@ -284,6 +333,7 @@ class Converter {
     const cs = getComputedStyle(this.section);
     const bg = rgba(cs.backgroundColor) ?? rgba(getComputedStyle(document.body).backgroundColor);
     this.slide.background = { color: bg?.hex ?? 'FFFFFF' };
+    this.bgHex = bg?.hex ?? 'FFFFFF';
     // Узорный фон (точки, градиенты) — картинкой под всем остальным
     if (cs.backgroundImage !== 'none') await this.backgroundPicture(this.section, { x: 0, y: 0, w: 1280, h: 720 });
     for (const c of this.section.children) await this.walk(c as HTMLElement, 1, 1);
@@ -296,7 +346,9 @@ class Converter {
     d.style.cssText = `position:absolute;left:0;top:0;width:${b.w}px;height:${b.h}px;background:${cs.background};border-radius:${cs.borderRadius}`;
     this.section.appendChild(d);
     try {
-      const data = await this.toPng(d, { pixelRatio: 1.5, skipFonts: true });
+      // Фон во весь слайд лежит на однотонном фоне слайда: им можно подложить прозрачные места
+      const full = b.w >= 1279 && b.h >= 719 && !(parseFloat(cs.borderTopLeftRadius) > 0);
+      const data = await packed(await this.toPng(d, { pixelRatio: sharp(1.5), skipFonts: true }), full ? this.bgHex : undefined);
       this.slide.addImage({ data, ...this.pos(b) });
     } catch { /* пропускаем узор */ }
     d.remove();
@@ -491,7 +543,7 @@ class Converter {
         d.style.cssText = `position:absolute;left:0;top:0;width:${fw}px;height:${fh}px;background:${p.background};border-radius:${p.borderRadius};border:${p.border};opacity:${p.opacity};filter:${p.filter}${mask}`;
         this.section.appendChild(d);
         try {
-          const data = await this.toPng(d, { pixelRatio: masked ? 2 : 1, skipFonts: true });
+          const data = await this.toPng(d, { pixelRatio: sharp(masked ? 2 : 1), skipFonts: true });
           this.slide.addImage({ data, x: inch(b.x + left), y: inch(b.y + top), w: inch(fw * k), h: inch(fh * k), transparency: transparency(op) });
         } catch { /* пропускаем */ }
         d.remove();
@@ -695,8 +747,10 @@ class Converter {
     const fx = !gif && img.parentElement?.classList.contains('img-fx') ? img.parentElement : null;
     if (fx && await this.imageFx(img, fx, cs)) return;
     const svg = /\.svg(\?|$)/i.test(src) || src.startsWith('data:image/svg');
-    const data = svg ? await imageToPng(src, b.w, b.h) : await imageData(src);
+    let data = svg ? await imageToPng(src, b.w, b.h) : await imageData(src);
     if (!data) return;
+    // Компактный файл: фотография не больше полутора размеров на слайде (GIF — как есть, ради анимации)
+    if (QUALITY === 'compact' && !svg && !gif) data = await shrinkPhoto(data, b.w * 1.5, b.h * 1.5) ?? data;
     const fit = cs.objectFit;
     const nw = img.naturalWidth || b.w;
     const nh = img.naturalHeight || b.h;
@@ -725,7 +779,7 @@ class Converter {
     const src = new Image();
     src.crossOrigin = 'anonymous';
     if (!await new Promise<boolean>((res) => { src.onload = () => res(true); src.onerror = () => res(false); src.src = img.currentSrc || img.src; })) return false;
-    const q = 2;
+    const q = sharp(2);
     const c = document.createElement('canvas');
     c.width = Math.round(W * scale * q);
     c.height = Math.round(H * scale * q);
@@ -801,7 +855,7 @@ class Converter {
 
   private async raster(el: HTMLElement, b: Box): Promise<void> {
     try {
-      const data = await this.toPng(el, { pixelRatio: 2, skipFonts: true });
+      const data = await packed(await this.toPng(el, { pixelRatio: sharp(2), skipFonts: true }));
       this.slide.addImage({ data, ...this.pos(b) });
     } catch { /* не удалось — пропускаем */ }
   }
@@ -829,8 +883,9 @@ class Converter {
       this.slide.addImage({ data, ...this.pos(b) });
       return true;
     }
-    const data = await embedShot(p, el.offsetWidth || Math.round(b.w), el.offsetHeight || Math.round(b.h));
-    if (!data) return false;
+    const shot = await embedShot(p, el.offsetWidth || Math.round(b.w), el.offsetHeight || Math.round(b.h), { pixelRatio: sharp(2) });
+    if (!shot) return false;
+    const data = await packed(shot);
     this.slide.addImage({ data, ...this.pos(b) });
     return true;
   }

@@ -11,8 +11,8 @@ export interface DeckStorage {
   save(deckKey: string, deck: Deck, keepalive?: boolean): Promise<unknown>;
   /** Сохранить картинку рядом с презентацией; url — адрес для данных слайда */
   uploadAsset(deckKey: string, file: Blob, name: string): Promise<{ url: string }>;
-  /** Собрать один HTML-файл: clean — «для показа», без режима правки */
-  exportHtml(deckKey: string, clean: boolean): Promise<Blob>;
+  /** Собрать один HTML-файл: clean — «для показа», без режима правки; compact — картинки сжаты */
+  exportHtml(deckKey: string, clean: boolean, compact?: boolean): Promise<Blob>;
   /** Общая библиотека шрифтов (на все презентации): список, добавить, взять копией в презентацию */
   listFonts?(): Promise<{ file: string; url: string }[]>;
   saveFont?(file: Blob, name: string): Promise<{ file: string }>;
@@ -26,8 +26,8 @@ export const projectStorage: DeckStorage = {
   listFonts: listLibraryFonts,
   saveFont: saveLibraryFont,
   useFont: useLibraryFont,
-  async exportHtml(deckKey, clean) {
-    const r = await fetch(`/__htmlpptx/export?deck=${encodeURIComponent(deckKey)}&mode=${clean ? 'clean' : 'edit'}`, { method: 'POST' });
+  async exportHtml(deckKey, clean, compact = false) {
+    const r = await fetch(`/__htmlpptx/export?deck=${encodeURIComponent(deckKey)}&mode=${clean ? 'clean' : 'edit'}${compact ? '&quality=compact' : ''}`, { method: 'POST' });
     if (!r.ok) {
       const e = await r.json().catch(() => ({})) as { error?: string };
       throw new Error(e.error || `Сборка не удалась (${r.status})`);

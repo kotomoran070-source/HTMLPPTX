@@ -2,6 +2,7 @@
 //   yarn build            — все презентации
 //   yarn build microclimate — одну
 //   --clean                — «для показа»: без режима правки, файл dist/<имя>.show.html
+//   --compact              — картинки сжаты в WebP (GIF — в анимированный WebP): файл в разы меньше
 //   --out=путь             — куда положить файл (одна презентация; так собирает кнопка «Экспорт» редактора)
 import fs from 'node:fs';
 import path from 'node:path';
@@ -44,6 +45,8 @@ if (outArg && names.length !== 1) {
   process.exit(1);
 }
 if (clean) process.env.CLEAN = '1';
+const compact = args.includes('--compact');
+if (compact) process.env.COMPACT = '1';
 
 for (const name of names) {
   const tmp = path.join(tmpRoot ?? dist, `.build-${name}-${process.pid}`);
@@ -68,5 +71,5 @@ for (const name of names) {
   fs.copyFileSync(path.join(tmp, 'index.html'), out);
   fs.rmSync(tmp, { recursive: true, force: true });
   const kb = (fs.statSync(out).size / 1024).toFixed(0);
-  console.log(`✓ ${path.relative(root, out)}  ${kb} КБ${clean ? ' · для показа' : ''}`);
+  console.log(`✓ ${path.relative(root, out)}  ${kb} КБ${clean ? ' · для показа' : ''}${compact ? ' · компактный' : ''}`);
 }
