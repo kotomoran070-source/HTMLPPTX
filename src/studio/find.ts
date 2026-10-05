@@ -152,6 +152,7 @@ export class FindBar {
     if (this.el.contains(document.activeElement)) (document.activeElement as HTMLElement).blur();
     this.el.hidden = true;
     this.paint();
+    this.counts();
   }
 
   private showReplace(on: boolean): void {
@@ -188,6 +189,18 @@ export class FindBar {
     }
     this.cur = this.hits.length ? 0 : -1;
     this.status();
+    this.counts();
+  }
+
+  /** Счётчик совпадений на миниатюрах в списке слайдов: сразу видно, где искомое встречается */
+  private counts(): void {
+    const per = new Map<number, number>();
+    if (this.open) for (const h of this.hits) if (h.path[0] !== 'title') per.set(h.slide, (per.get(h.slide) ?? 0) + 1);
+    document.querySelectorAll<HTMLElement>('.st-thumb[data-i]').forEach((el) => {
+      const n = per.get(Number(el.dataset.i));
+      if (n) el.dataset.hits = n > 99 ? '99+' : String(n);
+      else delete el.dataset.hits;
+    });
   }
 
   /** Первое совпадение с открытого слайда и дальше: поиск начинается там, где вы сейчас */
