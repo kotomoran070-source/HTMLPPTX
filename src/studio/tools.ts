@@ -57,6 +57,7 @@ export function toolsCommands(h: ToolsHost): Record<string, Command> {
   return {
     'tools.summary': { run: () => void summary(h, anchor('tools.summary')) },
     'tools.font': { run: () => replaceFont(h, anchor('tools.font')) },
+    'tools.notes-clear': { run: () => clearNotes(h), enabled: () => h.deck.slides.some((s) => typeof s.notes === 'string' && s.notes.trim()) },
   };
 }
 
@@ -139,6 +140,21 @@ ${unused.length ? `<div class="st-sum-unused"><span>Не используютс�
     }
     return null;
   }, 'st-sumpop');
+}
+
+// ---------------- заметки ----------------
+
+/** Заметки докладчика со всех слайдов — одним действием (перед тем как отдать файл); Ctrl+Z — вернуть */
+function clearNotes(h: ToolsHost): void {
+  const n = h.deck.slides.filter((s) => typeof s.notes === 'string' && s.notes.trim()).length;
+  if (!n) return;
+  h.editor.commit((d) => {
+    for (const s of d.slides) {
+      delete s.notes;
+      delete s.notesEdited;
+    }
+  }, { rebuild: false });
+  h.editor.toast(`Заметки удалены: ${n}. Отменить — Ctrl+Z`, 4000);
 }
 
 // ---------------- замена шрифта ----------------
