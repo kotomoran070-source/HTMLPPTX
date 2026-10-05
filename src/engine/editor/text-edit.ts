@@ -1,4 +1,5 @@
 import { deckFonts, fontNameOk, fontStack } from '../fonts';
+import { ASK_LOCAL, fontGroupsHtml, loadLocalFonts, localFontsState } from '../local-fonts';
 import { icon } from '../../components/icons';
 import { getAt, KEY, setAt, type Path } from '../data';
 import { esc, t } from '../html';
@@ -408,25 +409,22 @@ export class TextEditor {
     if (s.styles.spacing !== undefined) st.letterSpacing = `${Number(s.styles.spacing) || 0}em`;
   }
 
-  /** Свои шрифты презентации — в конце списка, каждый написан самим собой */
-  private syncFonts(sel: HTMLSelectElement): void {
-    const own = this.host.fonts ? this.host.fonts().map((f) => f.name) : deckFonts(this.host.deck().fonts).map((f) => f.name.trim());
-    const sig = own.join('|');
+  /** Шрифты презентации, затем шрифты компьютера — в конце списка, каждый написан самим собой */
+  private syncFonts(sel: HTMLSelectElement, want: string = sel.value): void {
+    const list = this.host.fonts ? this.host.fonts() : deckFonts(this.host.deck().fonts).map((f) => ({ name: f.name.trim(), lib: false }));
+    const cur = want && !FONTS[want] && want !== ASK_LOCAL && fontNameOk(want) ? want : '';
+    const sig = `${list.map((f) => f.name).join('|')}#${localFontsState()}#${cur}`;
     if (sel.dataset.own === sig) return;
     sel.dataset.own = sig;
+    const keep = sel.value;
     sel.querySelectorAll('[data-own]').forEach((o) => o.remove());
-    if (!own.length) return;
-    const g = document.createElement('optgroup');
-    g.label = 'Свои шрифты';
-    g.dataset.own = '1';
-    for (const n of own) {
-      const o = document.createElement('option');
-      o.value = n;
-      o.textContent = n;
-      o.style.fontFamily = fontStack(n);
-      g.appendChild(o);
+    const box = document.createElement('div');
+    box.innerHTML = `<select>${fontGroupsHtml(list, cur, fontStack)}</select>`;
+    for (const g of [...box.firstElementChild!.children]) {
+      (g as HTMLElement).dataset.own = '1';
+      sel.appendChild(g);
     }
-    sel.appendChild(g);
+    sel.value = keep === ASK_LOCAL ? '' : keep;
   }
 
   private reset(): void {
@@ -502,6 +500,12 @@ export class TextEditor {
     const font = this.bar.querySelector<HTMLSelectElement>('[data-t="font"]')!;
     font.addEventListener('change', () => {
       const v = font.value;
+      if (v === ASK_LOCAL) {
+        // Браузер спросит разрешение; выбор прежний, список дополнится шрифтами компьютера
+        font.value = this.s?.styles.font && (FONTS[this.s.styles.font] || fontNameOk(this.s.styles.font)) ? this.s.styles.font : '';
+        void loadLocalFonts(true).then(() => this.syncFonts(font));
+        return;
+      }
       // Шрифт общей библиотеки виден сразу (он уже подключён для списка), в презентацию он ляжет после правки
       if (v && this.host.fonts?.().some((f) => f.name === v && f.lib)) this.pendingFont = v;
       this.setStyle({ font: v || undefined });
@@ -744,7 +748,7 @@ export class TextEditor {
       size.placeholder = String(Math.round(parseFloat(getComputedStyle(s.el).fontSize)));
     }
     const font = this.bar.querySelector<HTMLSelectElement>('[data-t="font"]')!;
-    this.syncFonts(font);
+    this.syncFonts(font, s.styles.font ?? '');
     font.value = s.styles.font && (FONTS[s.styles.font] || [...font.options].some((o) => o.value === s.styles.font)) ? s.styles.font : '';
     const sw = this.bar.querySelector<HTMLElement>('.edswatch span')!;
     sw.style.background = colorCss(s.styles.color) ?? getComputedStyle(s.el).color;

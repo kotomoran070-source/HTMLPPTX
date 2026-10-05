@@ -13,6 +13,7 @@ import {
 } from './persist';
 import { TextEditor } from './text-edit';
 import { applyDeckFonts, applyLibraryFonts, deckFonts } from '../fonts';
+import { embeddable, loadLocalFonts, localFaces, localFamilies, pickFaces } from '../local-fonts';
 import { History } from './history';
 import './editor.css';
 
@@ -178,6 +179,8 @@ export class Editor {
     this.studio = !!opts.studio;
     this.storage = opts.storage ?? projectStorage;
     if (this.mode === 'project') void this.loadFontLibrary();
+    // Шрифты компьютера — сразу, если доступ уже дан (в приложении — всегда); иначе по пункту в списке шрифтов
+    void loadLocalFonts(false);
     this.buildUi();
     const deck = () => this.host.deck as unknown as Record<string, unknown>;
     const commit = (fn: (d: Record<string, unknown>) => void, opts?: Commit) => this.commit((d) => fn(d as unknown as Record<string, unknown>), opts);
@@ -1199,10 +1202,19 @@ export class Editor {
     } catch { /* без библиотеки — только шрифты презентации */ }
   }
 
-  /** Шрифты для выбора: свои у презентации и из общей библиотеки (lib — ещё не скопирован в презентацию) */
-  fontChoices(): { name: string; lib: boolean }[] {
-    const own = deckFonts(this.host.deck.fonts).map((f) => f.name.trim());
-    return [...own.map((name) => ({ name, lib: false })), ...this.library.filter((f) => !own.includes(f.name)).map((f) => ({ name: f.name, lib: true }))];
+  /**
+   * Шрифты для выбора: свои у презентации, из общей библиотеки (lib — ещё не скопирован в презентацию)
+   * и после них — установленные на компьютере (sys: в презентацию копируется при выборе)
+   */
+  fontChoices(): { name: string; lib: boolean; sys?: boolean }[] {
+    const own = [...new Set(deckFonts(this.host.deck.fonts).map((f) => f.name.trim()))];
+    const lib = this.library.filter((f) => !own.includes(f.name)).map((f) => f.name);
+    const taken = new Set([...own, ...lib]);
+    return [
+      ...own.map((name) => ({ name, lib: false })),
+      ...lib.map((name) => ({ name, lib: true })),
+      ...localFamilies().filter((n) => !taken.has(n)).map((name) => ({ name, lib: true, sys: true })),
+    ];
   }
 
   /**
@@ -1212,6 +1224,7 @@ export class Editor {
   async ensureFont(name: string): Promise<boolean> {
     if (deckFonts(this.host.deck.fonts).some((f) => f.name.trim() === name)) return true;
     const lib = this.library.find((f) => f.name === name);
+    if (!lib && localFaces(name).length) return this.embedLocalFont(name);
     if (!lib || !this.storage.useFont) return false;
     try {
       const { url } = await this.storage.useFont(this.host.deckKey, lib.file);
@@ -1223,6 +1236,39 @@ export class Editor {
       this.toast(`Не удалось взять шрифт из библиотеки: ${(e as Error).message}`, 5000, true);
       return false;
     }
+  }
+
+  /**
+   * Шрифт компьютера — копиями файлов в презентацию (обычный, жирный, курсивы): собранный файл
+   * и показ на другом компьютере выглядят так же. Встроить нельзя (запрет автора, коллекция TTC,
+   * слишком большой) — шрифт остаётся по имени и виден там, где он установлен; об этом — подсказка.
+   */
+  private async embedLocalFont(name: string): Promise<boolean> {
+    const faces = pickFaces(name);
+    const add: { name: string; src: string; weight?: number; style?: 'italic' }[] = [];
+    let why = '';
+    this.toast(`Шрифт «${name}» добавляется в презентацию…`, 0);
+    try {
+      for (const f of faces) {
+        const blob = await f.face.blob();
+        const ok = embeddable(await blob.arrayBuffer());
+        if ('reason' in ok) { why = ok.reason; break; }
+        if (blob.size > 8 * 1024 * 1024) { why = 'файл шрифта больше 8 МБ'; break; }
+        const file = new File([blob], `${f.face.postscriptName.replace(/[^\w-]+/g, '') || 'font'}.${ok.ext}`, { type: 'font/' + ok.ext });
+        const src = this.mode === 'project' ? (await this.storage.uploadAsset(this.host.deckKey, file, file.name)).url : await blobToDataUrl(file);
+        add.push({ name, src, ...(faces.length > 1 ? { weight: f.weight } : {}), ...(f.italic ? { style: 'italic' as const } : {}) });
+      }
+    } catch (e) {
+      why = (e as Error).message;
+    }
+    if (why || !add.length) {
+      this.toast(`«${name}» не встроен в презентацию (${why || 'нет файла'}): он будет виден только на компьютерах, где установлен`, 7000, true);
+      return true;
+    }
+    this.commit((d) => { d.fonts = [...(Array.isArray(d.fonts) ? d.fonts : []), ...add]; }, { rebuild: false });
+    applyDeckFonts(this.host.deck.fonts, null);
+    this.toast(`Шрифт «${name}» добавлен в презентацию`, 2500);
+    return true;
   }
 
   /**

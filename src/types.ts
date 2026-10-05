@@ -20,7 +20,7 @@ export interface Deck {
     font?: string;
   };
   /** Свои шрифты: файлы в assets/ — { name: Manrope, src: ./assets/Manrope.woff2 } */
-  fonts?: { name: string; src: string }[];
+  fonts?: { name: string; src: string; weight?: number; style?: 'italic' }[];
   slides: SlideData[];
   /**
    * Свои эффекты появления (сохранены пользователем из импорта): enter: <id> у объекта.

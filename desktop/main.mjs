@@ -5,7 +5,7 @@
 //   библиотека шрифтов и кэш Vite — папка данных приложения (%APPDATA%/Slideria).
 import fs from 'node:fs';
 import path from 'node:path';
-import { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, shell } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, session, shell } from 'electron';
 import { FIX_FLAG, allowFirewall, runFirewallFix } from './firewall.mjs';
 import { lanGateway } from './lan.mjs';
 
@@ -238,8 +238,19 @@ function buildMenu() {
   ]));
 }
 
+/**
+ * Шрифты компьютера в списке шрифтов студии: доступ без вопроса — только страницам своего сервера.
+ * Остальные разрешения — как по умолчанию в Electron (разрешены).
+ */
+function allowLocalFonts() {
+  const ours = (o) => !!origin && typeof o === 'string' && o.replace(/\/$/, '') === origin;
+  session.defaultSession.setPermissionCheckHandler((_wc, permission, requestingOrigin) => permission !== 'local-fonts' || ours(requestingOrigin));
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, done, details) => done(permission !== 'local-fonts' || ours(new URL(details.requestingUrl).origin)));
+}
+
 app.whenReady().then(async () => {
   fs.mkdirSync(DATA, { recursive: true });
+  allowLocalFonts();
   buildMenu();
   main = createWindow();
   try {

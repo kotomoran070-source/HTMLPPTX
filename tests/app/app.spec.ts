@@ -21,6 +21,13 @@ test('первый запуск: «Моя первая презентация»,
     expect(fs.existsSync(path.join(docs, 'moya-pervaya-prezentaciya', 'deck.yaml'))).toBe(true);
     // Подсказки внизу — без команд терминала
     await expect(win.locator('.pk-foot')).not.toContainText('yarn');
+    // Шрифты компьютера: своему серверу доступ дан без вопроса — список шрифтов в студии полный
+    const fonts = await win.evaluate(async () => ({
+      state: (await navigator.permissions.query({ name: 'local-fonts' as PermissionName })).state,
+      n: (await (window as unknown as { queryLocalFonts: () => Promise<unknown[]> }).queryLocalFonts()).length,
+    }));
+    expect(fonts).toMatchObject({ state: 'granted' });
+    expect(fonts.n).toBeGreaterThan(0);
 
     // Экспорт: сборка во втором процессе Electron в роли Node (ELECTRON_RUN_AS_NODE)
     const exp = await win.evaluate(async () => {

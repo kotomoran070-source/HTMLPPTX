@@ -8,6 +8,9 @@ import { cssKey } from './deck-css';
 export interface DeckFont {
   name: string;
   src: string;
+  /** Начертание семейства из нескольких файлов (шрифт компьютера): толщина и курсив */
+  weight?: number;
+  style?: 'italic';
 }
 
 /** Имя шрифта: буквы, цифры, пробел, дефис — без кавычек и скобок, чтобы не сломать CSS */
@@ -46,7 +49,8 @@ export function applyDeckFonts(fonts: unknown, main: unknown): string | null {
     const src = f.src.replace(/["\\\n]/g, '');
     const ext = (/\.(\w+)(?:\?|#|$)/.exec(src)?.[1] ?? /^data:font\/(\w+)/.exec(src)?.[1] ?? '').toLowerCase();
     const fmt = FORMAT[ext] ? ` format("${FORMAT[ext]}")` : '';
-    return `@font-face{font-family:"${f.name.trim()}";src:url("${src}")${fmt};font-weight:100 900;font-style:normal;font-display:swap}`;
+    const weight = Number(f.weight) >= 100 && Number(f.weight) <= 900 ? Math.round(Number(f.weight)) : '100 900';
+    return `@font-face{font-family:"${f.name.trim()}";src:url("${src}")${fmt};font-weight:${weight};font-style:${f.style === 'italic' ? 'italic' : 'normal'};font-display:swap}`;
   }).join('\n');
   const font = fontNameOk(main) ? main.trim() : '';
   const text = faces + (font ? `\n.slide[data-fonts="K"]{--font:${fontStack(font)};font-family:var(--font)}` : '');
