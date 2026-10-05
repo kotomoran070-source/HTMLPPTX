@@ -126,6 +126,9 @@ export class Inspector {
       // Акцент перекрашивает всю презентацию: пока тянут — только показ, правка — по change
       if (el.dataset.f === 'accent' || el.dataset.f === 'accent2') this.host.editor().previewAccent(el.value, el.dataset.f);
       else if (el.dataset.f === 'saccent' || el.dataset.f === 'saccent2') this.previewSlideColors(el);
+      // Свой фон: пока тянут — только показ на слайде; запись — по change (иначе панель перестраивается
+      // вместе с палитрой и цвет меняется только щелчками)
+      else if (el.dataset.f === 'bgcolor') this.previewBg(el.value);
       else this.onChange(el);
     });
     root.addEventListener('focusout', (e) => {
@@ -355,9 +358,27 @@ export class Inspector {
     const known = BACKGROUNDS.some(([v]) => v === cur);
     return `<div class="st-p-field"><span>Фон</span><div class="st-bgs" role="radiogroup" aria-label="Фон слайда">${BACKGROUNDS.map(([v, l, look]) =>
       `<button type="button" role="radio" aria-checked="${v === cur}" data-bg="${esc(v)}" title="${esc(l)}"><i style="background:${look}"></i><span>${esc(l)}</span></button>`).join('')}
-<label class="st-bg-own" title="Свой цвет"><i style="background:${!known && HEX_RE.test(cur) ? cur : 'conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)'}"></i><input type="color" data-f="bgcolor" aria-label="Свой цвет фона"><span>Свой</span></label></div>
+<label class="st-bg-own${!known && HEX_RE.test(cur) ? ' on' : ''}" title="Свой цвет — тяните по палитре, слайд меняется сразу"><i style="background:${!known && HEX_RE.test(cur) ? cur : 'conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)'}"></i><input type="color" data-f="bgcolor" aria-label="Свой цвет фона"><span>Свой</span></label></div>
 ${!known ? `<p class="st-p-note">Сейчас: <code>${esc(cur.length > 60 ? cur.slice(0, 60) + '…' : cur)}</code></p>` : ''}</div>
 <details class="st-p-more"><summary>CSS фона</summary><label class="st-p-field"><input type="text" data-f="bg" placeholder="как у темы" spellcheck="false"></label></details>`;
+  }
+
+  /** Фон открытого слайда, пока тянут палитру «Свой» */
+  private previewBg(v: string): void {
+    const slide = this.host.stage().querySelector<HTMLElement>(':scope > .slide.on');
+    if (slide) {
+      let el = slide.querySelector<HTMLElement>(':scope > .canvas-bg');
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'canvas-bg';
+        slide.prepend(el);
+      }
+      el.style.background = v;
+    }
+    const sw = this.root.querySelector<HTMLElement>('.st-bg-own i');
+    if (sw) sw.style.background = v;
+    this.root.querySelectorAll('.st-bgs [aria-checked="true"]').forEach((b) => b.setAttribute('aria-checked', 'false'));
+    this.root.querySelector('.st-bg-own')?.classList.add('on');
   }
 
   /** «Как у презентации» / «Свои»: свои начинаются с цветов презентации — слайд не меняется, пока их не тронут */
