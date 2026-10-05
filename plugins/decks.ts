@@ -5,7 +5,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 import { parseDocument } from 'yaml';
-import { isLocal, remoteRelay } from './remote-relay.mjs';
+import { denyPage, isLocal, lanPass, remoteRelay } from './remote-relay.mjs';
 import { checkFirewall, checkMessage } from './firewall.mjs';
 import { stepToGlb, stlToGlb } from './model-convert';
 import { AssetStore } from './assets';
@@ -401,7 +401,15 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           const info = a && typeof a === 'object' ? a : null;
           return { port: info?.port ?? 5173, localOnly: !info || info.address === '127.0.0.1' || info.address === '::1' };
         };
-        if (!remoteRelay(req, res, net)) next();
+        if (remoteRelay(req, res, net)) return;
+        // yarn dev --host: из сети — только телефону с пропуском (одноразовая ссылка из QR)
+        if (!lanPass(req)) {
+          if (req.method === 'GET' && /text\/html/.test(req.headers.accept ?? '')) return denyPage(res);
+          res.statusCode = 403;
+          res.end();
+          return;
+        }
+        next();
       });
       // yarn dev --host: пульт с телефона — брандмауэр Windows только проверяется (без запроса администратора);
       // если что-то мешает, в терминале подсказка: yarn firewall

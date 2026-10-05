@@ -37,8 +37,14 @@ test('первый запуск: «Моя первая презентация»,
       expect(info.app).toBe(true);
       if (info.urls.length) {
         const lan = info.urls[0];
-        expect((await fetch(`${lan}/?deck=moya-pervaya-prezentaciya`)).status).toBe(200);
-        expect((await fetch(`${lan}/__htmlpptx/list`, { method: 'POST' })).status).toBe(403);
+        // Без пропуска из сети — ничего; одноразовая ссылка из QR даёт пропуск
+        expect((await fetch(`${lan}/?deck=moya-pervaya-prezentaciya`)).status).toBe(403);
+        const ticket = await win.evaluate(() => fetch('/__slideria/remote/open?room=apptestroom1', { method: 'POST', body: JSON.stringify({ next: '/?deck=moya-pervaya-prezentaciya&view=presenter&remote=apptestroom1' }) }).then((r) => r.json()).then((j) => j.ticket));
+        const pair = await fetch(`${lan}/__slideria/remote/pair?t=${ticket}`, { redirect: 'manual' });
+        expect(pair.status).toBe(302);
+        const cookie = (pair.headers.get('set-cookie') ?? '').split(';')[0];
+        expect((await fetch(`${lan}/?deck=moya-pervaya-prezentaciya`, { headers: { cookie } })).status).toBe(200);
+        expect((await fetch(`${lan}/__htmlpptx/list`, { method: 'POST', headers: { cookie } })).status).toBe(403);
       }
     }
   } finally {

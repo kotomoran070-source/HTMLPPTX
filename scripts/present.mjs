@@ -8,7 +8,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
-import { lanAddresses, lanUrls, remoteRelay } from '../plugins/remote-relay.mjs';
+import { denyPage, lanAddresses, lanPass, lanUrls, remoteRelay } from '../plugins/remote-relay.mjs';
 import { ensureFirewall, firewallMessage } from '../plugins/firewall.mjs';
 
 const root = process.cwd();
@@ -41,6 +41,8 @@ const firewall = args.includes('--no-firewall') ? 'skip' : await ensureFirewall(
 let port = portArg;
 const server = http.createServer((req, res) => {
   if (remoteRelay(req, res, () => ({ port, localOnly: false }))) return;
+  // Из сети — только телефону с пропуском (одноразовая ссылка из QR): в файле показа есть заметки
+  if (!lanPass(req)) return denyPage(res);
   const p = new URL(req.url ?? '/', 'http://local').pathname;
   if (req.method === 'GET' && (p === '/' || p === '/index.html' || p === `/${name}.html`)) {
     // Файл читается при каждом запросе: пересобрали — обновите страницу

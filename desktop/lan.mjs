@@ -4,8 +4,10 @@
 // запросы серверу приложения, но только на просмотр: страницы, файлы, живое обновление и
 // сообщения пульта. Команды правки (/__htmlpptx/…) отсюда не проходят, а из папки с
 // презентациями видна только та, что сейчас в показе: остальные с телефона не открыть.
+// И всё это — только телефону с пропуском: его выдаёт одноразовая ссылка из QR (plugins/remote-relay.mjs).
 import http from 'node:http';
 import net from 'node:net';
+import { LAN_HEADER, denyPage, lanPass } from '../plugins/remote-relay.mjs';
 
 // Порты пульта: их открывает кнопка «Разрешить в брандмауэре» (desktop/firewall.mjs)
 const FIRST = 5180;
@@ -35,6 +37,9 @@ export function allowed(req, decks, deck) {
   return req.method === 'POST' && p === RELAY + 'send';
 }
 
+/** Адрес телефона для пометки «из сети» (в списке устройств на компьютере) */
+const lanIp = (req) => (req.socket?.remoteAddress ?? 'lan').replace(/^::ffff:/, '') || 'lan';
+
 function listen(srv, port) {
   return new Promise((resolve) => {
     const fail = () => resolve(false);
@@ -62,12 +67,22 @@ export function lanGateway(target, decksDir, log) {
 
   async function open() {
     srv = http.createServer((req, res) => {
+      // Без пропуска — страница «отсканируйте QR» (и ни строчки презентации)
+      if (!lanPass(req)) {
+        if (req.method === 'GET' && /text\/html/.test(req.headers.accept ?? '')) denyPage(res);
+        else {
+          res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ error: 'Нет доступа: отсканируйте QR на компьютере', revoked: true }));
+        }
+        return;
+      }
       if (!allowed(req, decks, deck)) {
         res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ error: 'С телефона презентацию только показывают — правка с этого компьютера' }));
         return;
       }
-      const up = http.request({ host: '127.0.0.1', port: target(), method: req.method, path: req.url, headers: req.headers }, (r) => {
+      // Сервер видит запрос с 127.0.0.1: пометка «из сети» (с адресом телефона), чтобы он не счёл его своим
+      const up = http.request({ host: '127.0.0.1', port: target(), method: req.method, path: req.url, headers: { ...req.headers, [LAN_HEADER]: lanIp(req) } }, (r) => {
         res.writeHead(r.statusCode ?? 502, r.headers);
         r.pipe(res);
       });
@@ -82,10 +97,13 @@ export function lanGateway(target, decksDir, log) {
     srv.requestTimeout = 0;
     // Живое обновление Vite (WebSocket): соединение пересылается как есть
     srv.on('upgrade', (req, socket, head) => {
-      if (!allowed(req, decks, deck)) return socket.destroy();
+      if (!lanPass(req) || !allowed(req, decks, deck)) return socket.destroy();
       const up = net.connect(target(), '127.0.0.1', () => {
         const lines = [`${req.method} ${req.url} HTTP/${req.httpVersion}`];
-        for (let i = 0; i < req.rawHeaders.length; i += 2) lines.push(`${req.rawHeaders[i]}: ${req.rawHeaders[i + 1]}`);
+        for (let i = 0; i < req.rawHeaders.length; i += 2) {
+          if (req.rawHeaders[i].toLowerCase() !== LAN_HEADER) lines.push(`${req.rawHeaders[i]}: ${req.rawHeaders[i + 1]}`);
+        }
+        lines.push(`${LAN_HEADER}: ${lanIp(req)}`);
         up.write(lines.join('\r\n') + '\r\n\r\n');
         if (head?.length) up.write(head);
         up.pipe(socket);

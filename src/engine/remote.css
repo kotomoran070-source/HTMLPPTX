@@ -22,3 +22,15 @@
 .rmd-fw-btn:disabled { cursor: default; text-decoration: none; }
 .rmd-state.on i { background: #22C55E; animation: none; }
 @keyframes rm-wait { to { opacity: .3; } }
+.rmd-note { margin: 0; font-size: 13px; color: var(--mu); }
+/* Подключённые телефоны: кто, когда, «Отключить» */
+.rmd-devs { display: flex; flex-direction: column; gap: 6px; width: 100%; padding-top: 10px; border-top: 1px solid var(--bd); text-align: left; }
+.rmd-devs > b { font-size: 13px; color: var(--mu); }
+.rmd-dev { display: flex; align-items: center; gap: 10px; }
+.rmd-dev > i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--bd2, #CBD5E1); }
+.rmd-dev > i.on { background: #22C55E; }
+.rmd-dev > span { flex: 1; min-width: 0; display: flex; flex-direction: column; font-weight: 600; }
+.rmd-dev small { font-weight: 400; color: var(--mu); }
+.rmd-all { align-self: flex-end; }
+.rmd-pair { display: flex; flex-direction: column; align-items: center; }
+.rmd-pair[hidden] { display: none; }

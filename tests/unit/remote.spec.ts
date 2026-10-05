@@ -2,7 +2,7 @@
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { expect, test } from '@playwright/test';
-import { remoteRelay } from '../../plugins/remote-relay.mjs';
+import { lanPass, remoteRelay } from '../../plugins/remote-relay.mjs';
 // @ts-expect-error — модуль приложения на JS, без типов
 import { allowed } from '../../desktop/lan.mjs';
 
@@ -47,6 +47,67 @@ test.describe('пересылка сообщений пульта', () => {
 
   test('info: сервер только для этого компьютера — адресов для телефона нет', async () => {
     expect(await fetch(`${base}info`).then((r) => r.json())).toMatchObject({ urls: [], localOnly: true });
+  });
+
+  // Запрос «из сети»: так его помечает шлюз приложения (desktop/lan.mjs)
+  const lan = (extra: Record<string, string> = {}) => ({ 'x-slideria-lan': '192.168.1.57', 'user-agent': 'Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile', ...extra });
+
+  test('одноразовый QR: один телефон получает пропуск, второй раз код не действует', async () => {
+    const { ticket } = await fetch(`${base}open?room=pairroom1`, { method: 'POST', body: JSON.stringify({ next: '/?deck=demo&remote=pairroom1' }) }).then((r) => r.json());
+    expect(ticket).toBeTruthy();
+    // Без пропуска из сети — ничего
+    expect((await fetch(`${base}send?room=pairroom1`, { method: 'POST', body: '{}', headers: lan() })).status).toBe(403);
+    expect((await fetch(`${base}info`, { headers: lan() })).status).toBe(403);
+    const r = await fetch(`${base}pair?t=${ticket}`, { headers: lan(), redirect: 'manual' });
+    expect(r.status).toBe(302);
+    expect(r.headers.get('location')).toBe('/?deck=demo&remote=pairroom1');
+    const cookie = (r.headers.get('set-cookie') ?? '').split(';')[0];
+    expect(cookie).toMatch(/^slideria_rc=/);
+    expect(r.headers.get('set-cookie')).toMatch(/HttpOnly/);
+    // Тот же код второй раз — нет
+    expect((await fetch(`${base}pair?t=${ticket}`, { headers: lan(), redirect: 'manual' })).status).toBe(403);
+    // С пропуском — своя комната можно, чужая нельзя
+    expect((await fetch(`${base}send?room=pairroom1`, { method: 'POST', body: '{}', headers: lan({ cookie }) })).status).toBe(200);
+    expect((await fetch(`${base}send?room=otherroom1`, { method: 'POST', body: '{}', headers: lan({ cookie }) })).status).toBe(403);
+    expect(await fetch(`${base}whoami?room=pairroom1`, { headers: lan({ cookie }) }).then((x) => x.json())).toEqual({ ok: true });
+    // Компьютер видит телефон в списке
+    const { devices } = await fetch(`${base}devices?room=pairroom1`).then((x) => x.json());
+    expect(devices).toHaveLength(1);
+    expect(devices[0]).toMatchObject({ name: 'Android · Chrome', ip: '192.168.1.57' });
+    // А телефон списка не видит и отключать не может
+    expect((await fetch(`${base}devices?room=pairroom1`, { headers: lan({ cookie }) })).status).toBe(403);
+  });
+
+  test('«Отключить»: поток телефона получает revoked и закрывается, пропуск больше не действует', async () => {
+    const { ticket } = await fetch(`${base}open?room=pairroom2`, { method: 'POST', body: '{}' }).then((r) => r.json());
+    const cookie = ((await fetch(`${base}pair?t=${ticket}`, { headers: lan(), redirect: 'manual' })).headers.get('set-cookie') ?? '').split(';')[0];
+    const res = await fetch(`${base}events?room=pairroom2`, { headers: lan({ cookie }) });
+    const reader = res.body!.getReader();
+    const dec = new TextDecoder();
+    let text = '';
+    const listen = (async () => {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        text += dec.decode(value);
+      }
+    })();
+    await new Promise((r) => setTimeout(r, 100));
+    const { devices } = await fetch(`${base}devices?room=pairroom2`).then((x) => x.json());
+    expect(await fetch(`${base}revoke?room=pairroom2&id=${devices[0].id}`, { method: 'POST' }).then((x) => x.json())).toEqual({ revoked: 1 });
+    await listen;
+    expect(text).toContain('event: revoked');
+    expect((await fetch(`${base}events?room=pairroom2`, { headers: lan({ cookie }) })).status).toBe(403);
+    expect(await fetch(`${base}whoami?room=pairroom2`, { headers: lan({ cookie }) }).then((x) => x.json())).toEqual({ ok: false });
+  });
+
+  test('шлюз пускает из сети только с пропуском (кроме самой ссылки из QR)', () => {
+    const req = (url: string, headers: Record<string, string> = {}) => ({ url, headers: { 'x-slideria-lan': '192.168.1.5', ...headers }, socket: { remoteAddress: '127.0.0.1' } });
+    expect(lanPass(req('/?deck=demo&view=presenter') as never)).toBe(false);
+    expect(lanPass(req('/__slideria/remote/pair?t=x') as never)).toBe(true);
+    expect(lanPass(req('/?deck=demo', { cookie: 'slideria_rc=AAAAAAAAAAAAAAAAAAAAAAAA' }) as never)).toBe(false);
+    // Этот компьютер — всегда
+    expect(lanPass({ url: '/', headers: {}, socket: { remoteAddress: '127.0.0.1' } } as never)).toBe(true);
   });
 });
 

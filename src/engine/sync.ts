@@ -111,9 +111,15 @@ export class Sync {
    */
   private room: string | null = null;
   private es: EventSource | null = null;
-  relay(room: string, status?: (ok: boolean) => void): void {
+  private retry = 0;
+  /**
+   * status: true — связь есть, false — пропала (переподключаемся сами),
+   * 'revoked' — телефон отключили на компьютере или показ закрыт: пропуск больше не действует
+   */
+  relay(room: string, status?: (ok: boolean | 'revoked') => void): void {
     if (this.room === room && this.es) return;
     this.es?.close();
+    clearTimeout(this.retry);
     this.room = room;
     const es = new EventSource(`${RELAY}events?room=${encodeURIComponent(room)}`);
     es.onmessage = (e) => {
@@ -124,9 +130,30 @@ export class Sync {
       } catch { /* не сообщение показа */ }
     };
     es.onopen = () => status?.(true);
-    // EventSource переподключается сам; пока нет связи — сообщаем
-    es.onerror = () => status?.(false);
+    // Отключили на компьютере: сервер так и говорит перед тем, как закрыть поток
+    es.addEventListener('revoked', () => { es.close(); this.room = null; status?.('revoked'); });
+    es.onerror = () => {
+      status?.(false);
+      // Обрыв сети EventSource чинит сам. Закрылся насовсем (ответ 403, сервер перезапущен) —
+      // спрашиваем, действует ли ещё пропуск, и либо пробуем снова, либо честно говорим, что сеанс окончен
+      if (es.readyState !== EventSource.CLOSED) return;
+      void fetch(`${RELAY}whoami?room=${encodeURIComponent(room)}`).then((r) => r.json()).then(
+        (w: { ok?: boolean }) => {
+          if (this.es !== es) return;
+          if (w.ok) this.retry = window.setTimeout(() => { this.es = null; this.relay(room, status); }, 2000);
+          else { this.room = null; status?.('revoked'); }
+        },
+        () => { if (this.es === es) this.retry = window.setTimeout(() => { this.es = null; this.relay(room, status); }, 3000); },
+      );
+    };
     this.es = es;
+  }
+
+  /** Переподключиться сейчас (кнопка на телефоне), не дожидаясь своей попытки */
+  reconnect(room: string, status?: (ok: boolean | 'revoked') => void): void {
+    this.es?.close();
+    this.es = null;
+    this.relay(room, status);
   }
 
   get relayed(): boolean {

@@ -9,7 +9,7 @@ import { esc, t } from './html';
 import { actionTarget, slideLabel } from './render';
 import { Ink, inkInput, type InkMsg, type InkTool, type StrokeStyle } from './ink';
 import './presenter.css';
-import { Sync } from './sync';
+import { RELAY, Sync } from './sync';
 import { currentTheme, onThemeChange, setTheme, toggleTheme } from './theme';
 
 const FONT_KEY = 'htmlpptx-notes-size';
@@ -49,6 +49,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     </div>
     <div class="pres-right">
       <span class="pres-clock" id="clk"></span>
+      ${new URLSearchParams(location.search).get('remote') ? `<button class="ibtn" id="wake" type="button" aria-pressed="false" aria-label="Не гасить экран" title="Не гасить экран телефона, пока открыт пульт">${icon('eye')}</button>` : ''}
       <button class="ibtn theme-btn" id="thm" type="button" aria-label="Переключить тему" title="Тема (T)">${icon('sun', 'ic sun')}${icon('moon', 'ic moon')}</button>
     </div>
   </header>
@@ -727,7 +728,16 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   $('link').textContent = lost;
   const m = /^#(\d+)$/.exec(location.hash);
   render(m ? parseInt(m[1], 10) - 1 : 0);
-  if (room) sync.relay(room, (ok) => { if (ok) sync.send({ type: 'hello' }, toMain()); });
+  if (room) {
+    const onLink = (ok: boolean | 'revoked') => {
+      if (ok === 'revoked') return phoneEnded();
+      if (ok) sync.send({ type: 'hello' }, toMain());
+      phoneLink(ok);
+    };
+    sync.relay(room, onLink);
+    retryLink = () => { phoneLink(false, true); sync.reconnect(room, onLink); sync.send({ type: 'hello' }, toMain()); };
+    setupWake();
+  }
   sync.send({ type: 'hello' }, toMain());
   // Если основное окно перезагрузили, оно снова найдёт это окно по регулярному «привет»;
   // ответа нет дольше трёх «привет» — связь потеряна, и это видно
@@ -737,8 +747,74 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     if (lastState && Date.now() - lastState > (eco ? 25000 : 10000)) {
       $('link').textContent = lost;
       $('link').classList.remove('ok');
-    }
+      if (room) phoneLink(false);
+    } else if (room && lastState) phoneLink(true);
     setTimeout(beat, eco ? 10000 : 3000);
   };
   setTimeout(beat, 3000);
+}
+
+// ------------------------------------------------------------------ телефон-пульт: связь и экран
+
+let lostTimer = 0;
+/** «Подключиться сейчас»: переподключение потока событий (задаёт окно докладчика на телефоне) */
+let retryLink: (() => void) | null = null;
+/**
+ * Связь телефона с показом. Пропала — через несколько секунд (не мигать на каждом сбое Wi-Fi)
+ * плашка поверх кнопок: что происходит и «Подключиться сейчас». Заметки при этом остаются видны.
+ */
+function phoneLink(ok: boolean, retrying = false): void {
+  let el = document.getElementById('plost');
+  if (ok) {
+    clearTimeout(lostTimer);
+    lostTimer = 0;
+    el?.remove();
+    return;
+  }
+  const show = () => {
+    el = document.getElementById('plost');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'plost';
+      el.className = 'pres-lost';
+      el.setAttribute('role', 'alert');
+      el.innerHTML = `<b>Связь с показом пропала</b><span class="pl-try">Пробуем подключиться снова…</span>
+        <ul><li>Телефон в той же Wi-Fi, что и компьютер?</li><li>Показ открыт, компьютер не уснул?</li></ul>
+        <button type="button" class="btn primary" id="plost-go">${icon('reset')} Подключиться сейчас</button>`;
+      document.body.appendChild(el);
+      el.querySelector('#plost-go')!.addEventListener('click', () => retryLink?.());
+    }
+    if (retrying) el.querySelector('.pl-try')!.textContent = 'Подключаюсь…';
+  };
+  if (retrying || document.getElementById('plost')) show();
+  else if (!lostTimer) lostTimer = window.setTimeout(show, 4000);
+}
+
+/**
+ * Телефон отключили на компьютере (или показ закрыт): уходим на страницу-объяснение сервера —
+ * скрипт пульта останавливается, заметки и слайды с этого телефона больше не видны
+ */
+function phoneEnded(): void {
+  clearTimeout(lostTimer);
+  location.replace(`${RELAY}ended`);
+}
+
+/** «Не гасить экран»: телефон не засыпает, пока открыт пульт. Включается кнопкой в шапке */
+function setupWake(): void {
+  const btn = document.getElementById('wake');
+  if (!btn) return;
+  let ns: { enable(): Promise<void>; disable(): void; isEnabled: boolean } | null = null;
+  btn.addEventListener('click', async () => {
+    const on = btn.getAttribute('aria-pressed') !== 'true';
+    try {
+      // Нужен именно щелчок: браузер разрешает это только по действию человека
+      if (!ns) ns = new (await import('nosleep.js')).default();
+      if (on) await ns.enable();
+      else ns.disable();
+      btn.setAttribute('aria-pressed', String(on));
+      btn.title = on ? 'Экран не гаснет — нажмите, чтобы снова гас как обычно' : 'Не гасить экран телефона, пока открыт пульт';
+    } catch {
+      btn.title = 'Этот браузер не дал удержать экран — увеличьте время отключения экрана в настройках телефона';
+    }
+  });
 }

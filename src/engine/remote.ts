@@ -1,7 +1,8 @@
 /**
  * Пульт с телефона. Телефон и компьютер с показом — в одной сети; показ открыт через сервер
- * (yarn present или yarn dev --host). Окно показа выводит QR, телефон открывает по нему
- * режим докладчика этого окна; сообщения те же (sync.ts), но идут через сервер.
+ * (yarn present, yarn dev --host или приложение). Окно выводит одноразовый QR: телефон получает
+ * по нему пропуск и открывает режим докладчика этого окна; сообщения те же (sync.ts), но идут
+ * через сервер. Подключённые телефоны видны в этом же окне, там же их отключают.
  */
 import { icon } from '../components/icons';
 import { qrSvg } from '../components/qr';
@@ -90,15 +91,58 @@ export async function openRemoteDialog(o: RemoteDialog): Promise<void> {
   const room = await o.room();
   if (!room) return help('Окно показа не отвечает', 'Пульт подключается к окну показа: откройте его (или верните на экран) и нажмите кнопку ещё раз.');
   // Телефон открывает режим докладчика этого окна показа: живой слайд, заметки, указка, перо
-  const link = (base: string) => `${base}${location.pathname}?deck=${encodeURIComponent(o.deckKey)}&view=presenter&main=${encodeURIComponent(o.main)}&remote=${room}`;
-  const main = link(urls[0]);
+  const next = `${location.pathname}?deck=${encodeURIComponent(o.deckKey)}&view=presenter&main=${encodeURIComponent(o.main)}&remote=${room}`;
+  // Код одноразовый: по нему подключается один телефон и получает пропуск, дальше код не действует
+  let ticket = '';
+  try {
+    const r = await fetch(`${RELAY}open?room=${room}`, { method: 'POST', body: JSON.stringify({ next }) });
+    ticket = ((await r.json()) as { ticket?: string }).ticket ?? '';
+  } catch { /* ниже — объяснение */ }
+  if (!ticket) return help('Сервер показа не отвечает', 'Не удалось получить код для телефона. Нажмите R ещё раз.');
+  const qrHtml = (t: string) => {
+    const link = (base: string) => `${base}${RELAY}pair?t=${t}`;
+    return `<div class="rmd-qr">${qrSvg(link(urls[0]), undefined, 'QR-код пульта')}</div>
+      <p class="rmd-note">Код одноразовый: подключает один телефон. Каждое открытие этого окна — новый код.</p>
+      ${urls.length > 1 ? `<details class="rmd-more"><summary>Не открывается? Другие адреса этого компьютера</summary>${urls.slice(1).map((u) => `<code>${esc(link(u))}</code>`).join('')}</details>` : ''}`;
+  };
   body.innerHTML = `<h2>${icon('phone')} Пульт с телефона</h2>
-    <p class="mu">Наведите камеру телефона на код. Телефон должен быть в той же сети, что и этот компьютер.</p>
-    <div class="rmd-qr">${qrSvg(main, undefined, 'QR-код пульта')}</div>
-    <p class="rmd-url"><code>${esc(main)}</code></p>
-    ${urls.length > 1 ? `<details class="rmd-more"><summary>Не открывается? Другие адреса этого компьютера</summary>${urls.slice(1).map((u) => `<code>${esc(link(u))}</code>`).join('')}</details>` : ''}
+    <div class="rmd-pair"><p class="mu">Наведите камеру телефона на код. Телефон должен быть в той же сети, что и этот компьютер.</p>${qrHtml(ticket)}</div>
     <p class="rmd-state" role="status"><i></i><span>Жду телефон…</span></p>
+    <div class="rmd-devs" hidden></div>
     ${info.firewall ? `<p class="rmd-fw"><button type="button" class="rmd-fw-btn">Телефон не открывает страницу? Разрешить в брандмауэре</button></p>` : ''}`;
+
+  // Подключённые телефоны: кто и когда; «Отключить» — пропуск гаснет, телефон теряет заметки и слайды
+  const devs = body.querySelector<HTMLElement>('.rmd-devs')!;
+  const pair = body.querySelector<HTMLElement>('.rmd-pair')!;
+  const st = body.querySelector<HTMLElement>('.rmd-state')!;
+  let known = -1;
+  const time = (t: number) => new Date(t).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  const refresh = async () => {
+    let list: { id: string; name: string; ip: string; since: number; online: boolean }[] = [];
+    try { list = ((await (await fetch(`${RELAY}devices?room=${room}`)).json()) as { devices?: typeof list }).devices ?? []; } catch { return; }
+    if (!box.isConnected) return;
+    devs.hidden = !list.length;
+    devs.innerHTML = list.length
+      ? `<b>Подключено</b>${list.map((d) => `<div class="rmd-dev"><i class="${d.online ? 'on' : ''}" title="${d.online ? 'На связи' : 'Сейчас не на связи'}"></i><span>${esc(d.name)}<small>${esc(d.ip.replace(/^.*\./, '…'))} · с ${time(d.since)}</small></span><button type="button" class="btn ghost small" data-off="${esc(d.id)}">Отключить</button></div>`).join('')}`
+        + (list.length > 1 ? '<button type="button" class="btn ghost small rmd-all" data-off="">Отключить все</button>' : '')
+      : '';
+    // Новый телефон подключился: код использован и убирается. Ещё телефон — новый код при новом открытии окна
+    if (known >= 0 && list.length > known) {
+      st.classList.add('on');
+      st.querySelector('span')!.textContent = `Подключён: ${list[list.length - 1].name}`;
+      pair.hidden = true;
+    }
+    known = list.length;
+  };
+  devs.addEventListener('click', async (e) => {
+    const b = (e.target as Element).closest<HTMLButtonElement>('[data-off]');
+    if (!b) return;
+    b.disabled = true;
+    await fetch(`${RELAY}revoke?room=${room}${b.dataset.off ? `&id=${encodeURIComponent(b.dataset.off)}` : ''}`, { method: 'POST' }).catch(() => {});
+    void refresh();
+  });
+  void refresh();
+  const poll = window.setInterval(() => { if (box.isConnected) void refresh(); else clearInterval(poll); }, 1500);
   // Приложение под Windows: Windows спрашивает про сеть сама, а если там нажали «Отмена»
   // или сеть «общественная» — эта кнопка добавляет правило (запрос администратора от Slideria)
   body.querySelector<HTMLButtonElement>('.rmd-fw-btn')?.addEventListener('click', async (e) => {
@@ -115,11 +159,6 @@ export async function openRemoteDialog(o: RemoteDialog): Promise<void> {
       : state === 'declined' ? 'Разрешение не дано. Без него телефон может не подключиться — нажмите R ещё раз, чтобы повторить.'
       : 'Не получилось изменить правила брандмауэра — подробности в меню «Справка» → «Журнал работы».';
   });
-  o.onPhone(() => {
-    const st = body.querySelector<HTMLElement>('.rmd-state');
-    if (!st || !box.isConnected) return;
-    st.classList.add('on');
-    st.querySelector('span')!.textContent = 'Телефон подключён';
-    setTimeout(close, 1400);
-  });
+  // Телефон на связи — окно остаётся: здесь же видно, кто подключён, и здесь его отключают
+  o.onPhone(() => { if (box.isConnected) void refresh(); });
 }

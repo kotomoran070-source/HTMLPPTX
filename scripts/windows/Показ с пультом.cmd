@@ -103,6 +103,13 @@ if (-not $listener) { Fail 'Порты 5180–5199 заняты — закрой
 $utf8 = [Text.UTF8Encoding]::new($false)
 $rooms = @{}            # код комнаты → список потоков SSE
 $pending = [Collections.ArrayList]::new()
+# Подключение телефона — как в plugins/remote-relay.mjs: одноразовый код из QR → пропуск (cookie);
+# без пропуска из сети не отдаётся ничего. Отключить — в окне с QR; закрыли показ — пропуска гаснут
+$tickets = @{}          # одноразовый код → комната, куда вести, срок
+$devices = @{}          # ключ пропуска → телефон
+$hostConns = @{}        # комната → потоки окна показа (с этого компьютера)
+$hostGone = @{}         # комната → когда ушло последнее окно показа
+$rng = [Security.Cryptography.RandomNumberGenerator]::Create()
 $ROOM = '^[a-z0-9]{8,40}$'
 $MAX_BODY = 262144
 
@@ -113,6 +120,42 @@ function Send-Response($s, [int]$code, [string]$type, [byte[]]$body, [string]$st
 }
 function Send-Json($s, [int]$code, $obj) { Send-Response $s $code 'application/json; charset=utf-8' ($utf8.GetBytes(($obj | ConvertTo-Json -Compress))) }
 function Send-Text($s, [int]$code, [string]$t) { Send-Response $s $code 'text/plain; charset=utf-8' ($utf8.GetBytes($t)) }
+
+function Send-Html($s, [int]$code, [string]$why) {
+  $html = "<!doctype html><html lang=ru><meta charset=utf-8><meta name=viewport content=""width=device-width,initial-scale=1""><title>Пульт Slideria</title>" +
+    "<body style=""margin:0;min-height:100vh;display:grid;place-items:center;background:#F3F4F6;font:16px/1.5 system-ui,sans-serif;color:#111827"">" +
+    "<main style=""max-width:340px;margin:24px;padding:24px;border-radius:18px;background:#fff;box-shadow:0 6px 24px rgba(15,23,42,.08)"">" +
+    "<h1 style=""margin:0 0 8px;font-size:21px"">Пульт показа</h1><p style=""margin:0;color:#4B5563"">$why</p>" +
+    "<p style=""margin:14px 0 0;font-size:14px;color:#6B7280"">Подключиться снова: на компьютере окно докладчика → кнопка с телефоном (или клавиша R), затем отсканируйте новый QR.</p></main></body></html>"
+  Send-Response $s $code 'text/html; charset=utf-8' ($utf8.GetBytes($html)) $(if ($code -eq 403) { 'Forbidden' } else { 'OK' })
+}
+function New-Token([int]$n) {
+  $b = New-Object byte[] $n; $rng.GetBytes($b)
+  return [Convert]::ToBase64String($b).Replace('+', '-').Replace('/', '_').TrimEnd('=')
+}
+function Is-Local($c) { try { return [Net.IPAddress]::IsLoopback($c.Client.RemoteEndPoint.Address) } catch { return $false } }
+function Get-Device([string]$head) {
+  if ($head -match '(?im)^Cookie:.*?slideria_rc=([A-Za-z0-9_-]{16,64})') { return $devices[$Matches[1]] }
+  return $null
+}
+function Device-Name([string]$head) {
+  $ua = if ($head -match '(?im)^User-Agent:\s*(.+)$') { $Matches[1] } else { '' }
+  $os = if ($ua -match 'iPhone') { 'iPhone' } elseif ($ua -match 'iPad') { 'iPad' } elseif ($ua -match 'Android') { 'Android' } elseif ($ua -match 'Windows') { 'Windows' } elseif ($ua -match 'Mac OS') { 'Mac' } else { 'Устройство' }
+  $br = if ($ua -match 'YaBrowser') { 'Яндекс Браузер' } elseif ($ua -match 'SamsungBrowser') { 'Samsung Internet' } elseif ($ua -match 'Edg') { 'Edge' } elseif ($ua -match 'Firefox|FxiOS') { 'Firefox' } elseif ($ua -match 'CriOS|Chrome') { 'Chrome' } elseif ($ua -match 'Safari') { 'Safari' } else { 'браузер' }
+  return "$os · $br"
+}
+# Отключить телефон: его поток получает revoked и закрывается, пропуск больше не действует
+function Revoke-Device([string]$key) {
+  $d = $devices[$key]
+  if (-not $d) { return }
+  $devices.Remove($key)
+  $bye = $utf8.GetBytes("event: revoked`ndata: {}`n`n")
+  foreach ($p in @($d.Conns)) {
+    try { $ps = $p.GetStream(); $ps.Write($bye, 0, $bye.Length); $ps.Flush() } catch {}
+    if ($rooms.ContainsKey($d.Room)) { [void]$rooms[$d.Room].Remove($p) }
+    try { $p.Close() } catch {}
+  }
+}
 
 function Get-Query([string]$q, [string]$key) {
   foreach ($part in $q.Split('&')) { $kv = $part.Split('=', 2); if ($kv[0] -eq $key -and $kv.Count -eq 2) { return [Uri]::UnescapeDataString($kv[1]) } }
@@ -139,16 +182,72 @@ function Handle($c, [string]$head, [byte[]]$body) {
   if ($i -ge 0) { $q = $target.Substring($i + 1); $target = $target.Substring(0, $i) }
   $path = [Uri]::UnescapeDataString($target)
 
+  $local = Is-Local $c
+  $dev = if ($local) { $null } else { Get-Device $head }
   if ($path.StartsWith('/__slideria/remote/')) {
     $what = $path.Substring(19)
-    if ($what -eq 'info') { Send-Json $s 200 @{ urls = @(Get-LanIps | ForEach-Object { "http://${_}:$port" }); localOnly = $false; firewall = $isWin }; return $false }
+    # Одноразовая ссылка из QR: код → пропуск (cookie) → пульт
+    if ($what -eq 'pair' -and $method -eq 'GET') {
+      $t = Get-Query $q 't'
+      $tk = $tickets[$t]
+      if (-not $tk -or $tk.Exp -lt [DateTime]::UtcNow) {
+        if ($tk) { $tickets.Remove($t) }
+        Send-Html $s 403 'Этот QR уже использован или устарел: каждый код подключает один телефон. Покажите новый код на компьютере.'
+        return $false
+      }
+      $tickets.Remove($t)
+      $key = New-Token 24
+      $ip = ''
+      try { $ip = $c.Client.RemoteEndPoint.Address.ToString() -replace '^::ffff:', '' } catch {}
+      $devices[$key] = [pscustomobject]@{ Id = (New-Token 6); Room = $tk.Room; Name = (Device-Name $head); Ip = $ip; Since = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); Conns = [Collections.ArrayList]::new() }
+      $h = $utf8.GetBytes("HTTP/1.1 302 Found`r`nSet-Cookie: slideria_rc=$key; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`r`nLocation: $($tk.Next)`r`nCache-Control: no-store`r`nContent-Length: 0`r`nConnection: close`r`n`r`n")
+      try { $s.Write($h, 0, $h.Length); $s.Flush() } catch {}
+      return $false
+    }
+    if ($what -eq 'ended') { Send-Html $s 200 '<b>Пульт отключён.</b> Сеанс завершили на компьютере или закрыли показ — заметки и слайды с этого телефона больше не видны.'; return $false }
+    if ($what -eq 'info') {
+      if (-not $local) { Send-Json $s 403 @{ error = 'Только с этого компьютера' }; return $false }
+      Send-Json $s 200 @{ urls = @(Get-LanIps | ForEach-Object { "http://${_}:$port" }); localOnly = $false; firewall = $isWin }; return $false
+    }
     $room = Get-Query $q 'room'
     if ($room -notmatch $ROOM) { Send-Json $s 400 @{ error = 'Неверный код комнаты' }; return $false }
+    if ($what -eq 'whoami') { Send-Json $s 200 @{ ok = ($local -or ($dev -and $dev.Room -eq $room)) }; return $false }
+    if (-not $local -and -not ($dev -and $dev.Room -eq $room)) { Send-Json $s 403 @{ error = 'Нет доступа: отсканируйте QR на компьютере'; revoked = $true }; return $false }
+    if (@('open', 'devices', 'revoke') -contains $what) {
+      if (-not $local) { Send-Json $s 403 @{ error = 'Только с этого компьютера' }; return $false }
+      if ($what -eq 'open' -and $method -eq 'POST') {
+        $next = '/'
+        try { $j = $utf8.GetString($body) | ConvertFrom-Json; if ($j.next -match '^/(?!/)') { $next = $j.next } } catch {}
+        foreach ($k in @($tickets.Keys)) { if ($tickets[$k].Room -eq $room) { $tickets.Remove($k) } }
+        $t = New-Token 12
+        $tickets[$t] = [pscustomobject]@{ Room = $room; Next = $next; Exp = [DateTime]::UtcNow.AddMinutes(5) }
+        Send-Json $s 200 @{ ticket = $t; expires = 300000 }
+        return $false
+      }
+      if ($what -eq 'devices') {
+        $list = @($devices.Values | Where-Object { $_.Room -eq $room } | Sort-Object Since | ForEach-Object { @{ id = $_.Id; name = $_.Name; ip = $_.Ip; since = $_.Since; online = ($_.Conns.Count -gt 0) } })
+        Send-Response $s 200 'application/json; charset=utf-8' ($utf8.GetBytes('{"devices":' + $(if ($list.Count) { ConvertTo-Json -InputObject $list -Compress -Depth 4 } else { '[]' }) + '}'))
+        return $false
+      }
+      if ($what -eq 'revoke' -and $method -eq 'POST') {
+        $id = Get-Query $q 'id'
+        $n = 0
+        foreach ($k in @($devices.Keys)) { $d = $devices[$k]; if ($d.Room -eq $room -and (-not $id -or $d.Id -eq $id)) { Revoke-Device $k; $n++ } }
+        Send-Json $s 200 @{ revoked = $n }
+        return $false
+      }
+    }
     if ($what -eq 'events' -and $method -eq 'GET') {
       $h = $utf8.GetBytes("HTTP/1.1 200 OK`r`nContent-Type: text/event-stream; charset=utf-8`r`nCache-Control: no-store`r`nConnection: keep-alive`r`nX-Accel-Buffering: no`r`n`r`n: ok`n`n")
       try { $s.Write($h, 0, $h.Length); $s.Flush() } catch { return $false }
       if (-not $rooms.ContainsKey($room)) { $rooms[$room] = [Collections.ArrayList]::new() }
       [void]$rooms[$room].Add($c)
+      if ($dev) { [void]$dev.Conns.Add($c) }
+      if ($local) {
+        if (-not $hostConns.ContainsKey($room)) { $hostConns[$room] = [Collections.ArrayList]::new() }
+        [void]$hostConns[$room].Add($c)
+        $hostGone.Remove($room)
+      }
       return $true
     }
     if ($what -eq 'send' -and $method -eq 'POST') {
@@ -168,10 +267,11 @@ function Handle($c, [string]$head, [byte[]]$body) {
     return $false
   }
 
+  # Из сети — только телефону с пропуском: в файле показа есть заметки
+  if (-not $local -and -not $dev) { Send-Html $s 403 'Отсканируйте QR на компьютере, чтобы подключиться к показу.'; return $false }
+
   # Кнопка «Разрешить в брандмауэре» в окне с QR — только с этого компьютера и со своей страницы
   if ($path -eq '/__htmlpptx/firewall' -and $method -eq 'POST') {
-    $local = $false
-    try { $local = [Net.IPAddress]::IsLoopback($c.Client.RemoteEndPoint.Address) } catch {}
     $origin = if ($head -match '(?im)^Origin:\s*(\S+)') { $Matches[1] } else { '' }
     if (-not $local -or ($origin -and $origin -notmatch "^http://(localhost|127\.0\.0\.1):$port$")) { Send-Json $s 403 @{ error = 'Только с этого компьютера' }; return $false }
     $state = if ($isWin) { Fix-Firewall } else { 'fixed' }
@@ -250,8 +350,23 @@ try {
     if (([DateTime]::UtcNow - $lastPing).TotalSeconds -ge 15) {
       $lastPing = [DateTime]::UtcNow
       foreach ($k in @($rooms.Keys)) {
-        foreach ($p in @($rooms[$k])) { try { $ps = $p.GetStream(); $ps.Write($ping, 0, $ping.Length); $ps.Flush() } catch { [void]$rooms[$k].Remove($p); try { $p.Close() } catch {} } }
+        foreach ($p in @($rooms[$k])) {
+          try { $ps = $p.GetStream(); $ps.Write($ping, 0, $ping.Length); $ps.Flush() } catch {
+            [void]$rooms[$k].Remove($p); try { $p.Close() } catch {}
+            foreach ($d in @($devices.Values)) { [void]$d.Conns.Remove($p) }
+            if ($hostConns.ContainsKey($k)) { [void]$hostConns[$k].Remove($p) }
+          }
+        }
         if (-not $rooms[$k].Count) { $rooms.Remove($k) }
+      }
+      # Окно показа закрыто дольше минуты — сеанс окончен, пропуска телефонов гаснут
+      foreach ($k in @($hostConns.Keys)) {
+        if ($hostConns[$k].Count) { continue }
+        if (-not $hostGone.ContainsKey($k)) { $hostGone[$k] = [DateTime]::UtcNow; continue }
+        if (([DateTime]::UtcNow - $hostGone[$k]).TotalSeconds -ge 60) {
+          foreach ($dk in @($devices.Keys)) { if ($devices[$dk].Room -eq $k) { Revoke-Device $dk } }
+          $hostConns.Remove($k); $hostGone.Remove($k)
+        }
       }
     }
     if (-not $busy) { Start-Sleep -Milliseconds 8 }
