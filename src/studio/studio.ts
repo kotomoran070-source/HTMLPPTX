@@ -1,5 +1,6 @@
 import { icon } from '../components/icons';
 import { CommandPalette } from './palette';
+import { guessGap, rowOf } from '../engine/editor/rows';
 import { toolsCommands } from './tools';
 import { applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, setUiAccent, slideAccent, uiAccent } from '../engine/accent';
 import { getAt, setAt, type Path } from '../engine/data';
@@ -112,7 +113,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Текст', '<div id="st-textdock" class="st-textdock"></div>')}
       ${group('Вставка', rb('insert.blocks', 'grid', 'Блоки', { big: true, menu: true, title: 'Готовые блоки: карточки, графики, схемы' }) + `<div class="st-rstack">${rb('insert.text', 'text', 'Надпись')}${rb('insert.image', 'image', 'Картинка')}</div>`)}
       ${group('Упорядочить', `<div class="st-rstack">${rb('obj.front', 'front', 'Вперёд', { title: 'На передний план — поверх других объектов' })}${rb('obj.back', 'back', 'Назад', { title: 'На задний план — под другие объекты' })}${rb('obj.lock', 'lock', 'Закрепить', { title: 'Объект не выделяется и не двигается мышью. Открепить — в области выделения (Alt+F10)' })}</div><div class="st-rstack">${rb('obj.group', 'group', 'Сгруппировать', { key: 'Ctrl+G', title: 'Объединить выделенные объекты в группу' })}${rb('obj.ungroup', 'ungroup', 'Разгруппировать', { key: 'Ctrl+Shift+G', title: 'Разделить на отдельные объекты' })}${rb('obj.free', 'move', 'Сделать свободным', { title: 'Свободно перемещать и менять размер' })}</div>`)}
-      ${group('Выровнять', `<div class="st-rgrid">${rb('align.left', 'obj-left', 'Слева')}${rb('align.center', 'obj-center', 'По центру')}${rb('align.right', 'obj-right', 'Справа')}${rb('align.top', 'obj-top', 'Сверху')}${rb('align.middle', 'obj-middle', 'Посередине')}${rb('align.bottom', 'obj-bottom', 'Снизу')}</div><div class="st-rstack">${rb('dist.h', 'dist-h', 'По ширине', { title: 'Равные промежутки по горизонтали' })}${rb('dist.v', 'dist-v', 'По высоте', { title: 'Равные промежутки по вертикали' })}</div>`)}
+      ${group('Выровнять', `<div class="st-rgrid">${rb('align.left', 'obj-left', 'Слева')}${rb('align.center', 'obj-center', 'По центру')}${rb('align.right', 'obj-right', 'Справа')}${rb('align.top', 'obj-top', 'Сверху')}${rb('align.middle', 'obj-middle', 'Посередине')}${rb('align.bottom', 'obj-bottom', 'Снизу')}</div><div class="st-rstack">${rb('dist.h', 'dist-h', 'По ширине', { title: 'Равные промежутки по горизонтали' })}${rb('dist.v', 'dist-v', 'По высоте', { title: 'Равные промежутки по вертикали' })}</div><div class="st-rstack">${rb('arrange.row', 'eq-cols', 'В ряд', { title: 'Выстроить в ряд: промежутки держатся сами — объект стал шире, соседи сдвигаются' })}${rb('arrange.col', 'list', 'В столбец', { title: 'Выстроить в столбец: промежутки держатся сами' })}</div>`)}
     </div>
     <div class="st-rpanel" data-panel="insert" hidden>
       ${group('Новый слайд', SLIDE_PRESETS.map((p, k) => rb(`slide.preset.${k}`, ['text', 'grid', 'image', 'frame'][k] ?? 'slide-add', p.name, { big: true })).join(''))}
@@ -368,6 +369,25 @@ export function startStudio(deck: Deck, deckKey: string): void {
       return { p: b.p, pl };
     }));
   }
+
+  /** Живой ряд или столбец из выделенных объектов: промежутки держатся сами (engine/editor/rows) */
+  function makeRow(col: boolean): void {
+    if (lockedSel()) return;
+    const items = boxes(selPaths());
+    if (items.length < 2) return;
+    const id = `r${Date.now().toString(36)}`;
+    const gap = guessGap(items.map((b) => ({ ...b.pl, h: b.h })), col);
+    ed.commit((d) => items.forEach(({ p }) => {
+      (getAt(d, p) as Block).row = { id, gap, ...(col ? { dir: 'col' as const } : {}) };
+    }), { rebuild: true });
+    ed.toast(col ? 'Столбец: промежутки держатся сами' : 'Ряд: промежутки держатся сами', 2500);
+  }
+  /** Разобрать ряды выделенных объектов: объекты остаются на местах */
+  function unRow(): void {
+    const ids = new Set(selPaths().map((p) => rowOf(getAt(deck, p))?.id).filter(Boolean));
+    ed.commit((d) => (d.slides[index].free as Block[] | undefined)?.forEach((b) => { if (ids.has(rowOf(b)?.id)) delete b.row; }), { rebuild: true });
+  }
+  const inRow = () => selPaths().some((p) => !!rowOf(getAt(deck, p)));
 
   /** Появление по очереди в порядке чтения. */
   function sequence(paths = selPaths()): void {
@@ -1242,6 +1262,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'insert.image': { run: () => ed.addBlock('image') },
     'obj.front': { run: () => ed.blockEditor.reorder(1), enabled: single },
     'obj.back': { run: () => ed.blockEditor.reorder(-1), enabled: single },
+    'arrange.row': { run: () => makeRow(false), enabled: () => (ed.selection?.group.length ?? 0) > 1 },
+    'arrange.col': { run: () => makeRow(true), enabled: () => (ed.selection?.group.length ?? 0) > 1 },
+    'arrange.unrow': { run: unRow, enabled: inRow },
     'dist.h': { run: () => distribute('h'), enabled: () => (ed.selection?.group.length ?? 0) > 2 },
     'dist.v': { run: () => distribute('v'), enabled: () => (ed.selection?.group.length ?? 0) > 2 },
     'anim.sequence': { run: () => sequence(), enabled: multi },

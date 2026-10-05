@@ -2,6 +2,7 @@ import { icon } from '../components/icons';
 import { DEFAULT_ACCENT, HEX_RE, previewAccent, slideAccent } from '../engine/accent';
 import { deckFonts, fontStack } from '../engine/fonts';
 import { fontItems, fontPicker, type FontItem } from '../engine/editor/font-picker';
+import { rowOf } from '../engine/editor/rows';
 import { getAt, setAt, type Path } from '../engine/data';
 import { BACKDROPS } from '../components/backdrop/backdrop';
 import { blockName, keepsRatio } from '../engine/editor/block-edit';
@@ -33,7 +34,7 @@ const ON_RIBBON: Record<string, { tab: string; name: string; keys: string[] }> =
 
 /** Какие разделы панели развёрнуты: запоминается между выделениями и сеансами */
 const FOLD_KEY = 'htmlpptx-studio-folds';
-const FOLD_DEFAULT: Record<string, boolean> = { frame: false, pos: true, anim: false, parts: false, more: false, layout: true, objects: true, deck: false };
+const FOLD_DEFAULT: Record<string, boolean> = { frame: false, pos: true, anim: false, parts: false, more: false, layout: true, objects: true, deck: false, row: true };
 let folds: Record<string, boolean> = { ...FOLD_DEFAULT };
 try { folds = { ...folds, ...JSON.parse(localStorage.getItem(FOLD_KEY) ?? '{}') }; } catch { /* нет сохранённого */ }
 
@@ -249,7 +250,7 @@ export class Inspector {
     const el = sel ? this.blockEl(sel.block) : null;
     this.parts = el ? partsOf(el) : [];
     const key = sel
-      ? `b:${JSON.stringify(sel.free ?? sel.block)}:${sel.type}:${sig}:${this.parts.map((x) => x.label + x.snippet).join('|')}`
+      ? `b:${JSON.stringify(sel.free ?? sel.block)}:${sel.type}:${sig}:${sel.free ? rowOf(getAt(deck, sel.free))?.id ?? '' : ''}:${this.parts.map((x) => x.label + x.snippet).join('|')}`
       : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}:${deckFonts(deck.fonts).map((f) => f.name).join('|')}:${deck.theme?.font ?? ''}:${slideAccent(deck.slides[i]?.theme) ? 'own' : ''}${deck.slides[i]?.theme?.accent2 ? '2' : ''}`;
     if (key !== this.key) {
       this.key = key;
@@ -309,10 +310,23 @@ export class Inspector {
 </div>
 <label class="st-p-check" title="Углы рамки и поля «Ширина / Высота» меняют размер без искажения. Shift при перетаскивании — наоборот"><input type="checkbox" data-f="keepRatio"><span>Сохранять пропорции</span></label>
 <div class="st-p-icons" role="group" aria-label="Выровнять на слайде">${ALIGN.map(([c, ic, l]) => `<button type="button" data-cmd="${c}" title="${l}" aria-label="${l}">${icon(ic)}</button>`).join('')}</div>`)
+      + this.rowHtml(deck)
       + this.actionHtml(deck)
       + `<section class="st-p-sec"><button type="button" class="st-p-hint" data-cmd="tab.anim">${icon('sparkle')}<span>Появление: <b data-sum="enter"></b> — на вкладке «Анимация»</span></button></section>`
       + extra
       + actions([['obj.dup', 'copy', 'Дублировать (Ctrl+D)'], ['obj.front', 'front', 'На передний план'], ['obj.back', 'back', 'На задний план'], ['obj.ungroup', 'ungroup', 'Разгруппировать'], ...(content ? [['obj.attach', 'grid', 'В раскладку'] as [string, string, string]] : []), ['obj.del', 'trash', 'Удалить (Delete)', 'danger']]);
+  }
+
+  /** Живой ряд выделенного объекта: промежуток, выравнивание, «Разобрать» */
+  private rowHtml(deck: Deck): string {
+    const sel = this.host.editor().selection;
+    const row = sel?.free ? rowOf(getAt(deck, sel.free)) : null;
+    if (!row) return '';
+    const col = row.dir === 'col';
+    return sec('row', col ? 'Столбец' : 'Ряд', `<div class="st-p-grid">
+  <label><span>Промежуток, px</span><input type="number" data-f="rowGap" min="0" max="400" step="1"></label>
+  <label><span>Выравнивание</span><select data-f="rowAlign"><option value="">${col ? 'По левому краю' : 'По верху'}</option><option value="center">По центру</option></select></label>
+</div>${cmdBtn('arrange.unrow', 'ungroup', col ? 'Разобрать столбец' : 'Разобрать ряд')}`);
   }
 
   /** Действие по щелчку при показе: переход к слайду или ссылка (объект становится кнопкой) */
@@ -483,6 +497,8 @@ ${this.fontsHtml(deck)}`)}`;
         keepRatio: keepsRatio(b),
         angle: String(angleOf(b)),
         emphasis: typeof b.emphasis === 'string' ? b.emphasis : '',
+        rowGap: String(rowOf(b)?.gap ?? ''),
+        rowAlign: rowOf(b)?.align ?? '',
       };
     }
     if (sel) return {};
@@ -635,6 +651,17 @@ ${this.fontsHtml(deck)}`)}`;
         const b = getAt(d, path) as Block;
         setAt(d, [...path, 'keepRatio'], on === (b.type === 'image') ? undefined : on);
       });
+    } else if (sel?.free && (f === 'rowGap' || f === 'rowAlign')) {
+      // Промежуток и выравнивание — у всего ряда сразу
+      const id = rowOf(getAt(this.host.deck(), sel.free))?.id;
+      const gap = Math.max(0, Math.min(400, Math.round(Number(raw) || 0)));
+      ed.commit((d) => (d.slides[i].free as Block[] | undefined)?.forEach((b) => {
+        const r = rowOf(b);
+        if (!r || r.id !== id) return;
+        if (f === 'rowGap') r.gap = gap;
+        else if (raw === 'center') r.align = 'center';
+        else delete r.align;
+      }), { rebuild: true, merge: `rowgap:${id}` });
     } else if (sel?.free && f === 'hidden') {
       const path = sel.free;
       const on = (el as HTMLInputElement).checked;

@@ -13,6 +13,7 @@ import {
 } from './persist';
 import { TextEditor } from './text-edit';
 import { applyDeckFonts, applyLibraryFonts, deckFonts } from '../fonts';
+import { layoutRows, rowAnchors } from './rows';
 import { embeddable, loadLocalFonts, localFaces, localFamilies, localWeights, pickFaces } from '../local-fonts';
 import { History } from './history';
 import './editor.css';
@@ -459,6 +460,7 @@ export class Editor {
 
   commit(fn: (d: Deck) => void, opts: Commit = {}): boolean {
     const before = this.hist.snap(this.host.deck);
+    const anchors = rowAnchors(this.host.deck);
     const draft = clone(this.host.deck);
     try {
       fn(draft);
@@ -476,8 +478,19 @@ export class Editor {
     this.lastTime = now;
     replaceContents(this.host.deck as unknown as Record<string, unknown>, draft as unknown as Record<string, unknown>);
     this.changed(opts.rebuild !== false);
-    this.hist.save(after);
+    // Живые ряды — по настоящим размерам после правки, в том же шаге отмены
+    if (layoutRows(this.host.deck, anchors, (slide, k) => this.freeSize(slide, k))) {
+      this.changed(true);
+      this.hist.save(this.hist.snap(this.host.deck));
+    } else this.hist.save(after);
     return true;
+  }
+
+  /** Размер свободного объекта на слайде, как он нарисован (слайд не на экране — null) */
+  private freeSize(slide: number, k: number): { w: number; h: number } | null {
+    const el = this.host.stage().querySelectorAll<HTMLElement>(':scope > .slide:not(.morph-ghost):not(.morph-layer)')[slide]
+      ?.querySelectorAll<HTMLElement>(':scope > .free')[k];
+    return el && el.offsetWidth ? { w: el.offsetWidth, h: el.offsetHeight } : null;
   }
 
   /** Набор в поле закончен: следующая правка — новый шаг отмены */
