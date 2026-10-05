@@ -1,5 +1,5 @@
 import { deckFonts, fontNameOk, fontStack } from '../fonts';
-import { ASK_LOCAL, fontGroupsHtml, loadLocalFonts, localFontsState } from '../local-fonts';
+import { fontItems, fontPicker, weightName, type FontItem } from './font-picker';
 import { icon } from '../../components/icons';
 import { getAt, KEY, setAt, type Path } from '../data';
 import { esc, t } from '../html';
@@ -22,8 +22,13 @@ export interface TextHost {
   removeBlock(path: Path): void;
   normalizeUrl(s: string): string;
   /** Свои шрифты: презентации и общей библиотеки (lib — возьмётся копией при выборе) */
-  fonts?(): { name: string; lib: boolean }[];
-  ensureFont?(name: string): Promise<boolean>;
+  fonts?(): { name: string; lib: boolean; sys?: boolean }[];
+  /** Шрифт и начертание — копией в презентацию, если их там ещё нет */
+  ensureFont?(name: string, weight?: number): Promise<boolean>;
+  /** Толщины, которые есть у шрифта (пусто — неизвестно) */
+  fontWeights?(name: string): number[];
+  /** Шрифт всей презентации (theme.font) */
+  themeFont?(): string;
 }
 
 const readPath = (el: Element, attr: string): Path | null => {
@@ -76,10 +81,8 @@ export class TextEditor {
   constructor(private host: TextHost, dock?: HTMLElement) {
     document.body.insertAdjacentHTML('beforeend', `
 <div class="edtext" id="ed-text" role="toolbar" aria-label="Оформление текста">
-  <select data-t="font" title="Шрифт" aria-label="Шрифт">
-    <option value="">Шрифт темы</option>
-    ${Object.entries(FONTS).map(([k, f]) => `<option value="${k}" style="font-family:${esc(f.css)}">${esc(f.name)}</option>`).join('')}
-  </select>
+  <button type="button" data-t="font" class="edfont" title="Шрифт" aria-label="Шрифт" aria-haspopup="listbox" aria-expanded="false"><span>Шрифт темы</span></button>
+  <select data-t="weight" title="Начертание" aria-label="Начертание" hidden></select>
   <span class="edsize" title="Размер шрифта, px">
     <button type="button" data-t="size-" aria-label="Меньше">−</button>
     <input type="number" data-t="size" min="6" max="300" step="1" aria-label="Размер шрифта">
@@ -149,7 +152,7 @@ export class TextEditor {
   /** Клик пришёлся в зону, которая относится к текущей правке (текст, панель, палитра). */
   owns(node: Node | null): boolean {
     if (!node || !this.s) return false;
-    return this.s.el.contains(node) || this.bar.contains(node) || this.colors.contains(node) || this.menu.contains(node) || this.widthHandle.contains(node);
+    return this.s.el.contains(node) || this.bar.contains(node) || this.colors.contains(node) || this.menu.contains(node) || this.widthHandle.contains(node) || fontPicker().contains(node);
   }
 
   // ---------------- начало и конец правки ----------------
@@ -290,14 +293,11 @@ export class TextEditor {
       if (s.styleAttr === null) el.removeAttribute('style');
       else el.setAttribute('style', s.styleAttr);
     }
-    // Шрифт из общей библиотеки — копией в презентацию, когда правка закончена (запись посреди правки её прервала бы)
-    const font = this.pendingFont;
-    this.pendingFont = null;
-    if (ok && font && s.styles.font === font) void this.host.ensureFont?.(font);
+    // Шрифт библиотеки или компьютера и выбранное начертание — копией в презентацию, когда правка
+    // закончена (запись посреди правки её прервала бы)
+    const font = s.styles.font || this.host.themeFont?.() || '';
+    if (ok && fontNameOk(font) && !FONTS[font] && stylesNow !== s.stylesBefore) void this.host.ensureFont?.(font, Number(s.styles.weight) || undefined);
   }
-
-  /** Выбранный шрифт общей библиотеки: в презентацию — после правки */
-  private pendingFont: string | null = null;
 
   // ---------------- команды ----------------
 
@@ -394,8 +394,9 @@ export class TextEditor {
     // Сначала исходный style элемента, поверх — новое оформление
     if (s.styleAttr === null) s.el.removeAttribute('style');
     else s.el.setAttribute('style', s.styleAttr);
-    for (const p of ['font-size', 'color', 'fill', 'text-align', 'font-family', 'max-width']) st.removeProperty(p);
+    for (const p of ['font-size', 'color', 'fill', 'text-align', 'font-family', 'font-weight', 'max-width']) st.removeProperty(p);
     if (size) st.fontSize = `${size}px`;
+    if (Number(s.styles.weight)) st.fontWeight = String(s.styles.weight);
     if (s.styles.width) st.maxWidth = `${s.styles.width}px`;
     const c = colorCss(s.styles.color);
     if (c) {
@@ -409,22 +410,34 @@ export class TextEditor {
     if (s.styles.spacing !== undefined) st.letterSpacing = `${Number(s.styles.spacing) || 0}em`;
   }
 
-  /** Шрифты презентации, затем шрифты компьютера — в конце списка, каждый написан самим собой */
-  private syncFonts(sel: HTMLSelectElement, want: string = sel.value): void {
+  /** Пункты выбора шрифта: шрифт темы и общие, шрифты презентации, шрифты компьютера */
+  private fontList(): FontItem[] {
+    const head: FontItem[] = [{ value: '', label: 'Шрифт темы', css: 'inherit', group: 'Шрифты темы' },
+      ...Object.entries(FONTS).map(([k, f]) => ({ value: k, label: f.name, css: f.css, group: 'Шрифты темы' }))];
     const list = this.host.fonts ? this.host.fonts() : deckFonts(this.host.deck().fonts).map((f) => ({ name: f.name.trim(), lib: false }));
-    const cur = want && !FONTS[want] && want !== ASK_LOCAL && fontNameOk(want) ? want : '';
-    const sig = `${list.map((f) => f.name).join('|')}#${localFontsState()}#${cur}`;
-    if (sel.dataset.own === sig) return;
-    sel.dataset.own = sig;
-    const keep = sel.value;
-    sel.querySelectorAll('[data-own]').forEach((o) => o.remove());
-    const box = document.createElement('div');
-    box.innerHTML = `<select>${fontGroupsHtml(list, cur, fontStack)}</select>`;
-    for (const g of [...box.firstElementChild!.children]) {
-      (g as HTMLElement).dataset.own = '1';
-      sel.appendChild(g);
-    }
-    sel.value = keep === ASK_LOCAL ? '' : keep;
+    return fontItems(head, list, fontStack);
+  }
+
+  private setFont(v: string): void {
+    this.setStyle({ font: v || undefined });
+    this.s?.el.focus({ preventScroll: true });
+  }
+
+  /** Начертания шрифта поля: только те, что у шрифта есть (у шрифтов темы — неизвестно, списка нет) */
+  private syncWeights(): void {
+    const s = this.s;
+    const sel = this.bar.querySelector<HTMLSelectElement>('[data-t="weight"]')!;
+    if (!s) return;
+    const font = s.styles.font || this.host.themeFont?.() || '';
+    const ws = fontNameOk(font) && !FONTS[font] ? this.host.fontWeights?.(font) ?? [] : [];
+    const cur = Number(s.styles.weight) || 0;
+    const all = cur && !ws.includes(cur) && ws.length ? [...ws, cur].sort((a, b) => a - b) : ws;
+    sel.hidden = !s.owner || all.length < 2;
+    const sig = `${all.join(',')}#${cur}`;
+    if (sel.dataset.sig === sig) return;
+    sel.dataset.sig = sig;
+    sel.innerHTML = `<option value="">Как в теме</option>${all.map((w) => `<option value="${w}" style="font-weight:${w}">${esc(weightName(w))}</option>`).join('')}`;
+    sel.value = cur ? String(cur) : '';
   }
 
   private reset(): void {
@@ -434,7 +447,7 @@ export class TextEditor {
     // Исходное оформление компонента без сохранённых styles поля
     if (s.styleAttr === null) s.el.removeAttribute('style');
     else s.el.setAttribute('style', s.styleAttr);
-    for (const p of ['font-size', 'color', 'fill', 'text-align', 'font-family', 'max-width']) s.el.style.removeProperty(p);
+    for (const p of ['font-size', 'color', 'fill', 'text-align', 'font-family', 'font-weight', 'max-width']) s.el.style.removeProperty(p);
     s.el.innerHTML = t(plainMarkup(s.el));
     placeCaret(s.el, undefined, true);
     this.syncButtons();
@@ -473,6 +486,7 @@ export class TextEditor {
           break;
         }
         case 'color': this.toggleColors(b); break;
+        case 'font': fontPicker().toggle(b, () => this.fontList(), this.s.styles.font ?? '', (v) => this.setFont(v)); break;
         case 'leading': case 'spacing': this.toggleMenu(cmd, b); break;
         case 'reset': this.reset(); break;
         case 'delete': {
@@ -497,23 +511,12 @@ export class TextEditor {
         this.s?.el.focus({ preventScroll: true });
       }
     });
-    const font = this.bar.querySelector<HTMLSelectElement>('[data-t="font"]')!;
-    font.addEventListener('change', () => {
-      const v = font.value;
-      if (v === ASK_LOCAL) {
-        // Браузер спросит разрешение; выбор прежний, список дополнится шрифтами компьютера
-        font.value = this.s?.styles.font && (FONTS[this.s.styles.font] || fontNameOk(this.s.styles.font)) ? this.s.styles.font : '';
-        void loadLocalFonts(true).then(() => this.syncFonts(font));
-        return;
-      }
-      // Шрифт общей библиотеки виден сразу (он уже подключён для списка), в презентацию он ляжет после правки
-      if (v && this.host.fonts?.().some((f) => f.name === v && f.lib)) this.pendingFont = v;
-      this.setStyle({ font: v || undefined });
+    const weight = this.bar.querySelector<HTMLSelectElement>('[data-t="weight"]')!;
+    weight.addEventListener('change', () => {
+      this.setStyle({ weight: Number(weight.value) || undefined });
       this.s?.el.focus({ preventScroll: true });
     });
-    font.addEventListener('keydown', (e) => e.stopPropagation());
-    // Шрифты, добавленные в презентацию после открытия панели, — сразу в списке
-    for (const ev of ['pointerdown', 'focus']) font.addEventListener(ev, () => this.syncFonts(font));
+    weight.addEventListener('keydown', (e) => e.stopPropagation());
     this.colors.addEventListener('click', (e) => {
       const b = (e.target as Element).closest<HTMLElement>('button[data-c]');
       if (!b) return;
@@ -661,7 +664,7 @@ export class TextEditor {
     this.bar.querySelectorAll<HTMLElement>('[data-t="bold"],[data-t="italic"],[data-t="underline"],[data-t="link"],[data-t="reset"]')
       .forEach((b) => (b.hidden = s.isKey));
     const styleable = !!s.owner;
-    this.bar.querySelectorAll<HTMLElement>('select[data-t="font"],.edsize,[data-t="color"],[data-t="spacing"]').forEach((b) => (b.hidden = !styleable));
+    this.bar.querySelectorAll<HTMLElement>('[data-t="font"],.edsize,[data-t="color"],[data-t="spacing"]').forEach((b) => (b.hidden = !styleable));
     const lead = this.bar.querySelector<HTMLElement>('[data-t="leading"]');
     if (lead && !styleable) lead.hidden = true;
     (this.bar.querySelector('[data-t="delete"]') as HTMLElement).hidden = !s.block;
@@ -680,6 +683,7 @@ export class TextEditor {
     this.colors.classList.remove('on');
     this.menu.classList.remove('on');
     this.widthHandle.classList.remove('on');
+    fontPicker().close();
   }
 
   /** Ширина поля мышью: только у текста, который хранит оформление и стоит блоком. */
@@ -747,9 +751,12 @@ export class TextEditor {
       size.value = s.styles.size ? String(s.styles.size) : '';
       size.placeholder = String(Math.round(parseFloat(getComputedStyle(s.el).fontSize)));
     }
-    const font = this.bar.querySelector<HTMLSelectElement>('[data-t="font"]')!;
-    this.syncFonts(font, s.styles.font ?? '');
-    font.value = s.styles.font && (FONTS[s.styles.font] || [...font.options].some((o) => o.value === s.styles.font)) ? s.styles.font : '';
+    // Кнопка шрифта: название написано самим шрифтом
+    const font = this.bar.querySelector<HTMLElement>('[data-t="font"] span')!;
+    const f = s.styles.font ?? '';
+    font.textContent = !f ? 'Шрифт темы' : FONTS[f]?.name ?? f;
+    font.style.fontFamily = !f ? '' : FONTS[f]?.css ?? (fontNameOk(f) ? fontStack(f) : '');
+    this.syncWeights();
     const sw = this.bar.querySelector<HTMLElement>('.edswatch span')!;
     sw.style.background = colorCss(s.styles.color) ?? getComputedStyle(s.el).color;
     q('reset')?.classList.toggle('on', false);

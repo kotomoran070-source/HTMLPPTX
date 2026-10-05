@@ -13,7 +13,7 @@ import {
 } from './persist';
 import { TextEditor } from './text-edit';
 import { applyDeckFonts, applyLibraryFonts, deckFonts } from '../fonts';
-import { embeddable, loadLocalFonts, localFaces, localFamilies, pickFaces } from '../local-fonts';
+import { embeddable, loadLocalFonts, localFaces, localFamilies, localWeights, pickFaces } from '../local-fonts';
 import { History } from './history';
 import './editor.css';
 
@@ -195,7 +195,9 @@ export class Editor {
       removeBlock: (p) => this.removeBlock(p),
       normalizeUrl,
       fonts: () => this.fontChoices(),
-      ensureFont: (n) => this.ensureFont(n),
+      ensureFont: (n, w) => this.ensureFont(n, w),
+      fontWeights: (n) => this.fontWeights(n),
+      themeFont: () => (typeof this.host.deck.theme?.font === 'string' ? this.host.deck.theme.font : ''),
     }, opts.textDock);
     this.image = new ImageEditor({
       deck, commit,
@@ -1221,10 +1223,17 @@ export class Editor {
    * Шрифт из библиотеки, выбранный в этой презентации, — копией в её assets/ и в fonts:
    * собранный файл и папка презентации несут шрифт с собой. false — шрифта нет.
    */
-  async ensureFont(name: string): Promise<boolean> {
-    if (deckFonts(this.host.deck.fonts).some((f) => f.name.trim() === name)) return true;
+  async ensureFont(name: string, weight?: number): Promise<boolean> {
+    const have = deckFonts(this.host.deck.fonts).filter((f) => f.name.trim() === name);
+    if (have.length) {
+      // Шрифт компьютера уже в презентации, а выбранной толщины в ней нет — докопировать
+      if (weight && localFaces(name).length > 1 && have.every((f) => f.weight) && !have.some((f) => f.weight === nearestWeight(name, weight))) {
+        await this.embedLocalFont(name, [weight]);
+      }
+      return true;
+    }
     const lib = this.library.find((f) => f.name === name);
-    if (!lib && localFaces(name).length) return this.embedLocalFont(name);
+    if (!lib && localFaces(name).length) return this.embedLocalFont(name, weight ? [weight] : []);
     if (!lib || !this.storage.useFont) return false;
     try {
       const { url } = await this.storage.useFont(this.host.deckKey, lib.file);
@@ -1243,8 +1252,12 @@ export class Editor {
    * и показ на другом компьютере выглядят так же. Встроить нельзя (запрет автора, коллекция TTC,
    * слишком большой) — шрифт остаётся по имени и виден там, где он установлен; об этом — подсказка.
    */
-  private async embedLocalFont(name: string): Promise<boolean> {
-    const faces = pickFaces(name);
+  private async embedLocalFont(name: string, extra: number[] = []): Promise<boolean> {
+    const have = deckFonts(this.host.deck.fonts).filter((f) => f.name.trim() === name);
+    // Уже скопированные начертания не повторяются
+    const faces = pickFaces(name, extra).filter((f) => !have.some((h) => h.weight === f.weight && (h.style === 'italic') === f.italic));
+    if (!faces.length) return true;
+    const multi = localFaces(name).length > 1;
     const add: { name: string; src: string; weight?: number; style?: 'italic' }[] = [];
     let why = '';
     this.toast(`Шрифт «${name}» добавляется в презентацию…`, 0);
@@ -1256,7 +1269,7 @@ export class Editor {
         if (blob.size > 8 * 1024 * 1024) { why = 'файл шрифта больше 8 МБ'; break; }
         const file = new File([blob], `${f.face.postscriptName.replace(/[^\w-]+/g, '') || 'font'}.${ok.ext}`, { type: 'font/' + ok.ext });
         const src = this.mode === 'project' ? (await this.storage.uploadAsset(this.host.deckKey, file, file.name)).url : await blobToDataUrl(file);
-        add.push({ name, src, ...(faces.length > 1 ? { weight: f.weight } : {}), ...(f.italic ? { style: 'italic' as const } : {}) });
+        add.push({ name, src, ...(multi ? { weight: f.weight } : {}), ...(f.italic ? { style: 'italic' as const } : {}) });
       }
     } catch (e) {
       why = (e as Error).message;
@@ -1267,8 +1280,16 @@ export class Editor {
     }
     this.commit((d) => { d.fonts = [...(Array.isArray(d.fonts) ? d.fonts : []), ...add]; }, { rebuild: false });
     applyDeckFonts(this.host.deck.fonts, null);
-    this.toast(`Шрифт «${name}» добавлен в презентацию`, 2500);
+    this.toast(have.length ? `Начертание «${name}» добавлено в презентацию` : `Шрифт «${name}» добавлен в презентацию`, 2500);
     return true;
+  }
+
+  /** Толщины шрифта: у шрифта компьютера — все его начертания, у шрифта презентации — скопированные */
+  fontWeights(name: string): number[] {
+    const local = localWeights(name);
+    if (local.length) return local;
+    const own = deckFonts(this.host.deck.fonts).filter((f) => f.name.trim() === name && f.style !== 'italic' && f.weight).map((f) => f.weight!);
+    return [...new Set(own)].sort((a, b) => a - b);
   }
 
   /**
@@ -1700,4 +1721,10 @@ export function normalizeUrl(input: string): string {
   if (/^\+?[\d\s()-]{6,}$/.test(s)) return `tel:${s.replace(/[\s()-]/g, '')}`;
   if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(s)) return `https://${s}`;
   return '';
+}
+
+/** Толщина начертания, которое браузер возьмёт для запрошенной (ближайшая из тех, что есть у шрифта) */
+function nearestWeight(name: string, want: number): number {
+  const ws = localWeights(name);
+  return ws.length ? ws.reduce((a, b) => (Math.abs(b - want) < Math.abs(a - want) ? b : a)) : want;
 }

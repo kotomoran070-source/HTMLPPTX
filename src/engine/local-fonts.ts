@@ -14,10 +14,17 @@ interface FontData {
 }
 type Query = () => Promise<FontData[]>;
 
-/** Пункт списка, который просит разрешение (в браузере) */
-export const ASK_LOCAL = '?local-fonts'; // не может быть именем шрифта (см. fontNameOk)
+/** Начертание шрифта компьютера; style — с учётом отдельного «семейства» вроде «Segoe UI Semibold» */
+export interface LocalFace {
+  style: string;
+  postscriptName: string;
+  blob(): Promise<Blob>;
+}
 
-let families: Map<string, FontData[]> | null = null;
+/** Толщина в конце имени семейства: «Arial Black», «Segoe UI Semibold» — начертания «Arial», «Segoe UI» */
+const WEIGHT_TAIL = / (thin|hairline|extra ?light|ultra ?light|semi ?light|demi ?light|light|book|regular|medium|semi ?bold|demi ?bold|extra ?bold|ultra ?bold|bold|black|heavy)$/i;
+
+let families: Map<string, LocalFace[]> | null = null;
 let denied = false;
 const listeners = new Set<() => void>();
 
@@ -34,7 +41,7 @@ export function localFamilies(): string[] {
   return families ? [...families.keys()] : [];
 }
 
-export function localFaces(family: string): FontData[] {
+export function localFaces(family: string): LocalFace[] {
   return families?.get(family) ?? [];
 }
 
@@ -62,14 +69,25 @@ export async function loadLocalFonts(ask: boolean): Promise<boolean> {
   }
   try {
     const all = await q.call(window);
-    const map = new Map<string, FontData[]>();
+    const map = new Map<string, LocalFace[]>();
+    const add = (name: string, face: LocalFace) => {
+      const list = map.get(name);
+      if (list) list.push(face);
+      else map.set(name, [face]);
+    };
     for (const f of all) {
       const name = f.family.trim();
       // Имя попадёт в CSS и в deck.yaml: только безопасные символы
       if (!fontNameOk(name) || name.startsWith('.')) continue;
-      const list = map.get(name);
-      if (list) list.push(f);
-      else map.set(name, [f]);
+      add(name, { style: f.style, postscriptName: f.postscriptName, blob: () => f.blob() });
+    }
+    // Начертания, которые система показывает отдельными семействами, — к основному шрифту
+    for (const [name, faces] of [...map]) {
+      const tail = WEIGHT_TAIL.exec(name);
+      const base = tail ? name.slice(0, tail.index) : '';
+      if (!base || !map.has(base)) continue;
+      for (const f of faces) add(base, { ...f, style: `${tail![1]} ${/regular/i.test(f.style) ? '' : f.style}`.trim() });
+      map.delete(name);
     }
     families = new Map([...map.entries()].sort(([a], [b]) => a.localeCompare(b, 'ru')));
     listeners.forEach((fn) => fn());
@@ -98,14 +116,24 @@ export function faceStyle(style: string): { weight: number; italic: boolean } {
   return { weight, italic };
 }
 
-/** Начертания для презентации: обычное, жирное и курсивы к ним — их и использует редактор */
-export function pickFaces(family: string): { face: FontData; weight: number; italic: boolean }[] {
+/** Толщины шрифта компьютера по возрастанию (прямые начертания; если их нет — все) */
+export function localWeights(family: string): number[] {
+  const all = localFaces(family).map((f) => faceStyle(f.style));
+  const upright = all.filter((f) => !f.italic);
+  return [...new Set((upright.length ? upright : all).map((f) => f.weight))].sort((a, b) => a - b);
+}
+
+/**
+ * Начертания для презентации: обычное, жирное (им пишется **жирный** текст) и выбранные толщины,
+ * к каждому — курсив, если он есть. Остальные толщины не копируются, пока их не выберут.
+ */
+export function pickFaces(family: string, extra: number[] = []): { face: LocalFace; weight: number; italic: boolean }[] {
   const all = localFaces(family).map((face) => ({ face, ...faceStyle(face.style) }));
   const out: typeof all = [];
   for (const italic of [false, true]) {
-    for (const want of [400, 700]) {
-      const pool = all.filter((f) => f.italic === italic);
-      if (!pool.length) continue;
+    const pool = all.filter((f) => f.italic === italic);
+    if (!pool.length) continue;
+    for (const want of [400, 700, ...extra]) {
       const best = pool.reduce((a, b) => (Math.abs(b.weight - want) < Math.abs(a.weight - want) ? b : a));
       // Жирного нет — браузер сделает его из обычного; повторять тот же файл не нужно
       if (want === 700 && best.weight < 600) continue;
@@ -140,20 +168,3 @@ export function embeddable(buf: ArrayBuffer): { ext: 'ttf' | 'otf' } | { reason:
   return { ext };
 }
 
-const escHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-
-/**
- * Группы выпадающего списка после шрифтов темы: «Шрифты презентации» (свои и библиотека),
- * затем «Шрифты компьютера»; в браузере без доступа — пункт, который спрашивает разрешение.
- */
-export function fontGroupsHtml(choices: { name: string; sys?: boolean }[], cur: string, stack: (n: string) => string): string {
-  const opt = (n: string) => `<option value="${escHtml(n)}"${n === cur ? ' selected' : ''} style="font-family:${escHtml(stack(n))}">${escHtml(n)}</option>`;
-  const own = choices.filter((f) => !f.sys).map((f) => f.name);
-  const sys = choices.filter((f) => f.sys).map((f) => f.name);
-  // Выбранный шрифт компьютера, который не встроен, а список ещё не загружен, — остаётся видимым
-  if (cur && !own.includes(cur) && !sys.includes(cur)) own.push(cur);
-  let out = own.length ? `<optgroup label="Шрифты презентации">${own.map(opt).join('')}</optgroup>` : '';
-  if (sys.length) out += `<optgroup label="Шрифты компьютера">${sys.map(opt).join('')}</optgroup>`;
-  else if (localFontsState() === 'ask') out += `<optgroup label="Шрифты компьютера"><option value="${escHtml(ASK_LOCAL)}">Показать шрифты компьютера…</option></optgroup>`;
-  return out;
-}

@@ -1,7 +1,7 @@
 import { icon } from '../components/icons';
 import { DEFAULT_ACCENT, HEX_RE, previewAccent, slideAccent } from '../engine/accent';
 import { deckFonts, fontStack } from '../engine/fonts';
-import { ASK_LOCAL, fontGroupsHtml, loadLocalFonts } from '../engine/local-fonts';
+import { fontItems, fontPicker, type FontItem } from '../engine/editor/font-picker';
 import { getAt, setAt, type Path } from '../engine/data';
 import { BACKDROPS } from '../components/backdrop/backdrop';
 import { blockName, keepsRatio } from '../engine/editor/block-edit';
@@ -107,10 +107,6 @@ export class Inspector {
       this.peek(part ? this.parts[Number(part.dataset.part)]?.el ?? null : null);
     });
     root.addEventListener('pointerleave', () => this.peek(null));
-    root.addEventListener('pointerdown', (e) => {
-      const sel = (e.target as Element).closest<HTMLSelectElement>('select[data-f="font"]');
-      if (sel) sel.innerHTML = this.fontOptions(sel.value);
-    });
     root.addEventListener('paste', (e) => {
       const el = e.target as HTMLInputElement;
       const text = e.clipboardData?.getData('text/plain') ?? '';
@@ -186,6 +182,11 @@ export class Inspector {
       }
       if (t.closest('[data-a="accent-reset"]')) this.host.editor().setAccent(null);
       if (t.closest('[data-a="accent2-off"]')) this.host.editor().setAccent(null, 'accent2');
+      const pick = t.closest<HTMLElement>('[data-a="font-pick"]');
+      if (pick) {
+        const cur = typeof this.host.deck().theme?.font === 'string' ? this.host.deck().theme!.font as string : '';
+        fontPicker().toggle(pick, () => this.fontItems(), cur, (v) => this.setDeckFont(v));
+      }
       if (t.closest('[data-a="font-add"]')) {
         const inp = document.createElement('input');
         inp.type = 'file';
@@ -408,18 +409,28 @@ ${this.fontsHtml(deck)}`)}`;
   private fontsHtml(deck: Deck): string {
     const own = deckFonts(deck.fonts);
     const cur = typeof deck.theme?.font === 'string' ? deck.theme.font : '';
-    const opts = this.fontOptions(cur);
     // Шрифт компьютера — несколько файлов (жирный, курсив) под одним именем: в списке он один
     const names = [...new Set(own.map((f) => f.name.trim()))];
     const list = names.map((n) => `<span class="st-font" style="font-family:${esc(fontStack(n))}">${esc(n)}<button type="button" data-a="font-del" data-name="${esc(n)}" title="Убрать шрифт" aria-label="Убрать шрифт ${esc(n)}">×</button></span>`).join('');
-    return `<label class="st-p-field"><span>Шрифт презентации</span><select data-f="font" data-sig="${esc(own.map((f) => f.name).join('|'))}">${opts}</select></label>
+    const label = cur || 'Системный';
+    return `<div class="st-p-field"><span>Шрифт презентации</span><button type="button" class="edfont st-p-font" data-a="font-pick" aria-haspopup="listbox" aria-expanded="false" aria-label="Шрифт презентации: ${esc(label)}"><span style="font-family:${esc(cur ? fontStack(cur) : 'var(--font)')}">${esc(label)}</span></button></div>
 <div class="st-fonts">${list}<button type="button" class="st-link" data-a="font-add" title="Файл WOFF2, WOFF, TTF или OTF — можно просто перетащить на страницу">Добавить шрифт…</button></div>`;
   }
 
   /** Варианты «Шрифта презентации»: системный, свои шрифты презентации и библиотеки, шрифты компьютера */
-  private fontOptions(cur: string): string {
-    const list = this.host.editor().fontChoices();
-    return `<option value=""${cur ? '' : ' selected'}>Системный</option>${fontGroupsHtml(list, cur, fontStack)}`;
+  private fontItems(): FontItem[] {
+    return fontItems([{ value: '', label: 'Системный', css: 'var(--font)', group: 'Шрифты темы' }], this.host.editor().fontChoices(), fontStack);
+  }
+
+  /** Шрифт всей презентации; шрифт библиотеки или компьютера — сначала копией в презентацию */
+  private setDeckFont(raw: string): void {
+    const ed = this.host.editor();
+    const apply = () => ed.commit((d) => {
+      if (raw) d.theme = { ...(d.theme ?? {}), font: raw };
+      else if (d.theme) delete d.theme.font;
+    }, { rebuild: true });
+    if (!raw) apply();
+    else void ed.ensureFont(raw).then((ok) => (ok ? apply() : this.fill()));
   }
 
   /** Раздел «Состав»: вложенные блоки и поля выделенного блока. Клик — выделить или править. */
@@ -652,24 +663,6 @@ ${this.fontsHtml(deck)}`)}`;
       previewAccent(null);
       const key = f === 'saccent' ? 'accent' : 'accent2';
       ed.commit((d) => { d.slides[i].theme = { ...(d.slides[i].theme ?? {}), [key]: raw.toUpperCase() }; }, { rebuild: true, merge: `sac:${i}` });
-    } else if (f === 'font' && raw === ASK_LOCAL) {
-      // Браузер спросит разрешение; список перерисуется со шрифтами компьютера, выбор прежний
-      const sel = this.root.querySelector<HTMLSelectElement>('select[data-f="font"]');
-      const cur = typeof this.host.deck().theme?.font === 'string' ? this.host.deck().theme!.font as string : '';
-      const back = () => { if (sel) sel.innerHTML = this.fontOptions(cur); };
-      back();
-      void loadLocalFonts(true).then((ok) => {
-        back();
-        if (!ok) ed.toast('Браузер не дал доступ к шрифтам компьютера — их можно добавить файлом', 5000);
-      });
-    } else if (f === 'font') {
-      // Шрифт из общей библиотеки — сначала копией в презентацию
-      const apply = () => ed.commit((d) => {
-        if (raw) d.theme = { ...(d.theme ?? {}), font: raw };
-        else if (d.theme) delete d.theme.font;
-      }, { rebuild: true });
-      if (!raw) apply();
-      else void ed.ensureFont(raw).then((ok) => (ok ? apply() : this.fill()));
     }
   }
 }

@@ -67,7 +67,7 @@ export function textStyleCss(st: unknown): string {
   const w = Number(s.width);
   if (Number.isFinite(w) && w >= 40 && w <= 1280) out.push(`max-width:${Math.round(w)}px`);
   const wt = Number(s.weight);
-  if (Number.isFinite(wt) && wt >= 100 && wt <= 900) out.push(`font-weight:${Math.round(wt / 100) * 100}`);
+  if (Number.isFinite(wt) && wt >= 100 && wt <= 900) out.push(`font-weight:${Math.round(wt / 50) * 50}`);
   if (s.upper === true) out.push('text-transform:uppercase');
   const sp = Number(s.spacing);
   if (Number.isFinite(sp) && sp !== 0 && Math.abs(sp) <= 1) out.push(`letter-spacing:${sp}em`);

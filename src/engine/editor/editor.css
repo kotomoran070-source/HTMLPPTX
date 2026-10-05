@@ -318,3 +318,21 @@ body.editing .stage .free.auto-h:empty, body.editing .stage .free > p:empty { mi
 /* Копирование перетаскиванием с Ctrl: оригинал на старом месте, курсор «копирование» */
 body.ed-copying, body.ed-copying * { cursor: copy !important; }
 .ed-copy-ghost { pointer-events: none !important; }
+
+/* Выбор шрифта со строкой поиска */
+.fontpick.on { display: flex; }
+.fontpick { flex-direction: column; gap: 8px; width: 280px; padding: 8px; }
+.fontpick input[type="search"] { font-size: 14px; padding: 7px 10px; }
+.fontpick-list { overflow-y: auto; min-height: 0; flex: 1; margin: 0 -4px; padding: 0 4px; }
+.fontpick-g { position: sticky; top: 0; z-index: 1; padding: 8px 8px 4px; background: var(--surf); font: 700 11px var(--font); color: var(--mu); text-transform: uppercase; letter-spacing: .04em; }
+.fontpick-o { padding: 6px 8px; border-radius: 6px; font-size: 15px; line-height: 1.3; color: var(--tx); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fontpick-o.on { background: var(--alt); }
+.fontpick-o.cur { color: var(--ach); font-weight: 600; }
+.fontpick-o.cur::after { content: " ✓"; }
+.fontpick-none { padding: 10px 8px; font-size: 13px; color: var(--mu); }
+.fontpick-ask { display: block; width: 100%; margin-top: 6px; padding: 8px; border: 1px dashed var(--bd2); border-radius: 8px; background: none; color: var(--ach); font: 600 13px var(--font); cursor: pointer; text-align: left; }
+.fontpick-ask:hover { background: var(--acs); }
+/* Кнопка шрифта на панели текста и в свойствах — как поле выбора */
+.edfont { justify-content: space-between !important; width: 150px; flex: none; border: 1px solid var(--bd) !important; font-weight: 500 !important; }
+.edfont span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.edfont::after { content: ""; flex: none; width: 6px; height: 6px; margin: -3px 2px 0 6px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); opacity: .6; }
