@@ -1,0 +1,139 @@
+/*
+ * Оформление дизайнерских блоков из «Блоков» студии (вёрстка html с классами kt-*): цвета
+ * темы, анимация — при открытии слайда. До открытия, в миниатюрах и при печати блок сразу в
+ * конечном виде.
+ */
+.kt-grad { background: linear-gradient(90deg, var(--ac), var(--ac2)); -webkit-background-clip: text; background-clip: text; color: transparent; caret-color: var(--ac); }
+.kt-eyebrow { color: var(--ac); font: 700 14px/1.2 var(--font); letter-spacing: .14em; text-transform: uppercase; }
+.kt-swoosh { display: block; width: 58%; height: 22px; overflow: visible; }
+.kt-swoosh path { fill: none; stroke: var(--ac); stroke-width: 6; stroke-linecap: round; }
+.slide.on .kt-swoosh path { stroke-dasharray: 1; animation: kt-draw 1s .35s cubic-bezier(.6, 0, .2, 1) both; }
+@keyframes kt-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+
+/* Цитата с огромной кавычкой */
+.kt-q { position: relative; padding: 76px 0 0 4px; }
+.kt-q::before { content: "“"; position: absolute; left: -10px; top: -40px; font: 900 220px/1 Georgia, serif; background: linear-gradient(160deg, var(--ac), var(--ac2)); -webkit-background-clip: text; background-clip: text; color: transparent; opacity: .9; }
+.kt-who { display: flex; align-items: center; gap: 14px; margin-top: 26px; }
+.kt-who img { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: var(--acs); box-shadow: 0 0 0 3px var(--surf), 0 0 0 5px var(--acb); }
+
+/* Бейдж с пульсирующей точкой */
+.kt-live { display: inline-flex; align-items: center; gap: 10px; padding: 9px 18px 9px 14px; border-radius: 99px; background: var(--surf); border: 1px solid var(--bd); box-shadow: 0 8px 24px color-mix(in srgb, var(--ac) 14%, transparent); font: 600 17px/1.2 var(--font); color: var(--tx); white-space: nowrap; }
+.kt-dot { position: relative; width: 10px; height: 10px; border-radius: 50%; background: var(--ac); flex: none; }
+.kt-dot::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--ac); animation: kt-ping 1.8s ease-out infinite; }
+@keyframes kt-ping { from { transform: scale(1); opacity: .6; } to { transform: scale(3.2); opacity: 0; } }
+
+/* Стеклянная карточка над цветными пятнами */
+.kt-glass { position: relative; width: 100%; height: 100%; }
+.kt-blob { position: absolute; border-radius: 50%; opacity: .8; }
+.kt-blob.a { width: 40%; aspect-ratio: 1; left: 0; top: -4%; background: radial-gradient(circle at 35% 35%, color-mix(in srgb, var(--ac) 85%, #fff), var(--ac)); }
+.kt-blob.b { width: 34%; aspect-ratio: 1; right: 2%; bottom: -6%; background: radial-gradient(circle at 35% 35%, color-mix(in srgb, var(--ac2) 80%, #fff), var(--ac2)); }
+.slide.on .kt-blob.a { animation: kt-float 9s ease-in-out infinite alternate; }
+.slide.on .kt-blob.b { animation: kt-float 11s ease-in-out -4s infinite alternate-reverse; }
+@keyframes kt-float { to { transform: translate(6%, 8%) scale(1.06); } }
+.kt-pane { position: absolute; inset: 9% 7%; padding: 34px 38px; border-radius: calc(26px * var(--rk, 1)); background: color-mix(in srgb, var(--surf) 62%, transparent); border: 1px solid color-mix(in srgb, #fff 55%, transparent); box-shadow: 0 24px 60px rgba(2, 6, 23, .16); -webkit-backdrop-filter: blur(22px) saturate(1.4); backdrop-filter: blur(22px) saturate(1.4); display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+
+/* Карточка со светящейся бегущей рамкой */
+.kt-glow { position: relative; width: 100%; height: 100%; padding: 3px; border-radius: calc(22px * var(--rk, 1)); overflow: hidden; background: var(--bd); box-shadow: 0 18px 50px color-mix(in srgb, var(--ac) 22%, transparent); }
+.kt-glow::before { content: ""; position: absolute; left: 50%; top: 50%; width: 160%; aspect-ratio: 1; translate: -50% -50%; background: conic-gradient(from 0deg, transparent 0 40%, var(--ac) 65%, var(--ac2) 85%, transparent 100%); }
+.slide.on .kt-glow::before { animation: kt-spin 5s linear infinite; }
+@keyframes kt-spin { to { rotate: 1turn; } }
+.kt-glow > div { position: relative; height: 100%; padding: 30px 34px; border-radius: calc(20px * var(--rk, 1)); background: var(--surf); display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+
+/* Число в ореоле */
+.kt-halo { position: relative; width: 100%; aspect-ratio: 1; display: grid; place-content: center; text-align: center; }
+.kt-halo i { position: absolute; inset: 0; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--ac) 40%, transparent); }
+.kt-halo i:nth-child(2) { inset: 12%; border-color: color-mix(in srgb, var(--ac) 28%, transparent); }
+.kt-halo i:nth-child(3) { inset: 24%; border: 0; background: radial-gradient(circle, color-mix(in srgb, var(--ac) 18%, transparent), color-mix(in srgb, var(--ac) 4%, transparent) 70%); }
+.slide.on .kt-halo i:nth-child(-n+2) { animation: kt-breath 4s ease-in-out infinite; }
+.slide.on .kt-halo i:nth-child(2) { animation-delay: -2s; }
+@keyframes kt-breath { 50% { transform: scale(1.05); opacity: .5; } }
+.kt-halo > div { position: relative; }
+
+/* Число и кривая роста под ним */
+.kt-spark { display: block; width: 100%; height: auto; overflow: visible; }
+.kt-spark .ln { fill: none; stroke: var(--ac); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.kt-spark stop:first-child { stop-color: var(--ac); stop-opacity: .3; }
+.kt-spark stop:last-child { stop-color: var(--ac); stop-opacity: 0; }
+.kt-spark circle { fill: var(--surf); stroke: var(--ac); stroke-width: 4; }
+.slide.on .kt-spark .ln { stroke-dasharray: 1; animation: kt-draw 1.6s .3s ease-out both; }
+.slide.on .kt-spark .ar, .slide.on .kt-spark circle { animation: kt-in .6s 1.5s both; }
+@keyframes kt-in { from { opacity: 0; } }
+
+/* Лестница роста */
+.kt-steps { display: grid; grid-template-columns: repeat(4, 1fr); align-items: end; gap: 18px; height: 100%; }
+.kt-steps > div { display: flex; flex-direction: column; justify-content: flex-end; gap: 10px; height: 100%; }
+.kt-steps b { display: block; border-radius: calc(16px * var(--rk, 1)) calc(16px * var(--rk, 1)) 4px 4px; background: linear-gradient(180deg, var(--ac), color-mix(in srgb, var(--ac2) 70%, var(--ac))); box-shadow: 0 12px 30px color-mix(in srgb, var(--ac) 22%, transparent); transform-origin: bottom; }
+.kt-steps > div:nth-child(1) b { height: 22%; opacity: .45; }
+.kt-steps > div:nth-child(2) b { height: 38%; opacity: .62; }
+.kt-steps > div:nth-child(3) b { height: 56%; opacity: .8; }
+.kt-steps > div:nth-child(4) b { height: 76%; }
+.slide.on .kt-steps b { animation: kt-grow .8s cubic-bezier(.3, 1.3, .5, 1) both; }
+.slide.on .kt-steps > div:nth-child(2) b { animation-delay: .15s; }
+.slide.on .kt-steps > div:nth-child(3) b { animation-delay: .3s; }
+.slide.on .kt-steps > div:nth-child(4) b { animation-delay: .45s; }
+@keyframes kt-grow { from { transform: scaleY(0); } }
+
+/* Дорожная карта: извилистый путь и вехи */
+.kt-road { position: relative; width: 100%; height: 100%; }
+.kt-road svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.kt-road .bg { fill: none; stroke: var(--bd); stroke-width: 14; stroke-linecap: round; }
+.kt-road .fg { fill: none; stroke: var(--ac); stroke-width: 4; stroke-linecap: round; stroke-dasharray: .012 .014; }
+.slide.on .kt-road .fg { animation: kt-march 30s linear infinite; }
+@keyframes kt-march { to { stroke-dashoffset: -1; } }
+.kt-mile { position: absolute; width: 230px; translate: -50% 0; text-align: center; }
+.kt-mile > i { display: block; width: 26px; height: 26px; margin: 0 auto 12px; border-radius: 50%; background: var(--surf); border: 6px solid var(--ac); box-shadow: 0 0 0 6px color-mix(in srgb, var(--ac) 16%, transparent); }
+.slide.on .kt-mile { animation: kt-pop .5s cubic-bezier(.3, 1.4, .5, 1) both; }
+.slide.on .kt-mile:nth-of-type(2) { animation-delay: .15s; }
+.slide.on .kt-mile:nth-of-type(3) { animation-delay: .3s; }
+.slide.on .kt-mile:nth-of-type(4) { animation-delay: .45s; }
+@keyframes kt-pop { from { opacity: 0; transform: translateY(14px); } }
+
+/* Орбиты вокруг главного */
+.kt-orbit { position: relative; width: 100%; height: 100%; }
+.kt-orbit .ring { position: absolute; left: 50%; top: 50%; translate: -50% -50%; border-radius: 50%; border: 1.5px dashed var(--bd2); }
+.kt-orbit .ring.r1 { height: 54%; aspect-ratio: 1; }
+.kt-orbit .ring.r2 { height: 94%; aspect-ratio: 1; }
+.kt-orbit .ring::after { content: ""; position: absolute; left: 50%; top: -6px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--ac); box-shadow: 0 0 12px var(--ac); }
+.kt-orbit .ring.r2::after { background: var(--ac2); top: auto; bottom: -6px; }
+.slide.on .kt-orbit .ring.r1 { animation: kt-spin 14s linear infinite; }
+.slide.on .kt-orbit .ring.r2 { animation: kt-spin 26s linear infinite reverse; }
+.kt-core { position: absolute; left: 50%; top: 50%; translate: -50% -50%; height: 34%; aspect-ratio: 1; border-radius: 50%; display: grid; place-content: center; text-align: center; padding: 12px; background: linear-gradient(145deg, var(--ac), var(--ac2)); color: var(--on-ac); box-shadow: 0 20px 50px color-mix(in srgb, var(--ac) 35%, transparent); }
+.kt-tag { position: absolute; translate: -50% -50%; padding: 10px 18px; border-radius: 99px; background: var(--surf); border: 1px solid var(--bd); box-shadow: 0 10px 26px rgba(2, 6, 23, .08); font: 600 17px/1.2 var(--font); white-space: nowrap; }
+
+/* Окно браузера и телефон */
+.kt-browser { width: 100%; height: 100%; display: flex; flex-direction: column; border-radius: calc(16px * var(--rk, 1)); overflow: hidden; background: var(--surf); border: 1px solid var(--bd); box-shadow: 0 30px 70px rgba(2, 6, 23, .18); }
+.kt-bar { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; background: var(--alt); border-bottom: 1px solid var(--bd); flex: none; }
+.kt-bar i { width: 12px; height: 12px; border-radius: 50%; background: #FF5F57; }
+.kt-bar i:nth-child(2) { background: #FEBC2E; }
+.kt-bar i:nth-child(3) { background: #28C840; }
+.kt-bar span { flex: 1; max-width: 55%; margin: 0 auto; padding: 4px 14px; border-radius: 8px; background: var(--surf); color: var(--mu); font: 500 13px/1.3 var(--font); text-align: center; white-space: nowrap; overflow: hidden; }
+.kt-shot { flex: 1; min-height: 0; width: 100%; object-fit: cover; display: block; background: linear-gradient(135deg, var(--acs), var(--alt)); }
+.kt-phone { width: 100%; height: 100%; padding: 12px; border-radius: 48px; background: #111827; box-shadow: 0 0 0 2px #4B5563 inset, 0 30px 70px rgba(2, 6, 23, .28); position: relative; }
+.kt-phone::before { content: ""; position: absolute; left: 50%; top: 22px; width: 30%; height: 22px; translate: -50% 0; border-radius: 99px; background: #111827; z-index: 1; }
+.kt-phone img { width: 100%; height: 100%; border-radius: 37px; object-fit: cover; display: block; background: linear-gradient(160deg, var(--acs), var(--alt)); }
+
+/* Фото в смещённой градиентной рамке */
+.kt-framed { position: relative; width: 100%; height: 100%; }
+.kt-framed::before { content: ""; position: absolute; inset: 7% -5% -7% 5%; border-radius: calc(26px * var(--rk, 1)); background: linear-gradient(135deg, var(--ac), var(--ac2)); }
+.kt-framed img { position: relative; width: 100%; height: 100%; object-fit: cover; display: block; border-radius: calc(26px * var(--rk, 1)); background: linear-gradient(135deg, var(--acs), var(--alt)); box-shadow: 0 20px 50px rgba(2, 6, 23, .18); }
+.kt-framed .kt-live { position: absolute; left: -22px; bottom: 34px; }
+
+/* Коллаж из трёх фото веером */
+.kt-fan { position: relative; width: 100%; height: 100%; }
+.kt-fan figure { position: absolute; top: 8%; width: 38%; height: 80%; margin: 0; padding: 10px 10px 0; background: var(--surf); border-radius: 14px; box-shadow: 0 18px 44px rgba(2, 6, 23, .2); display: flex; flex-direction: column; }
+.kt-fan figure img { flex: 1; min-height: 0; width: 100%; object-fit: cover; display: block; border-radius: 8px; background: linear-gradient(135deg, var(--acs), var(--alt)); }
+.kt-fan figcaption { padding: 10px 4px 12px; text-align: center; font: 600 16px/1.2 var(--font); color: var(--tx); }
+.kt-fan figure:nth-child(1) { left: 4%; rotate: -7deg; }
+.kt-fan figure:nth-child(2) { left: 31%; top: 3%; z-index: 1; }
+.kt-fan figure:nth-child(3) { left: 58%; rotate: 6deg; }
+.slide.on .kt-fan figure { animation: kt-deal .7s cubic-bezier(.3, 1.2, .5, 1) both; }
+.slide.on .kt-fan figure:nth-child(2) { animation-delay: .12s; }
+.slide.on .kt-fan figure:nth-child(3) { animation-delay: .24s; }
+@keyframes kt-deal { from { opacity: 0; translate: 0 40px; } }
+
+/* Пустые места под фото — видны и при показе: у макетов это часть рисунка */
+.html-inner :is(.kt-shot, .kt-phone img, .kt-framed img, .kt-fan img, .kt-who img).html-empty { visibility: visible; }
+
+@media (prefers-reduced-motion: reduce) {
+  .slide.on [class*="kt-"], .slide.on [class*="kt-"] *, .slide.on [class*="kt-"]::before, .slide.on [class*="kt-"]::after { animation: none !important; }
+}

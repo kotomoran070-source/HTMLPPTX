@@ -8,6 +8,7 @@ import { esc, t } from '../../engine/html';
 import { fieldStyle, frameCss, pathOf, type ImageFrame } from '../../engine/marks';
 import type { Block } from '../../types';
 import './html.css';
+import './kit.css';
 
 /**
  * Готовая вёрстка (обычно из импорта Claude Design). Разметка хранится как есть, а тексты

@@ -40,6 +40,14 @@ const plan = (name: string, price: string, items: string[], top = false) => ({
   type: 'card', ...(top ? { style: 'border:2px solid var(--ac);box-shadow:0 18px 40px color-mix(in srgb, var(--ac) 18%, transparent)' } : {}),
   body: [eyebrow(top ? `${name} · выбор клиентов` : name), line(price, { size: 40, weight: 800 }), bullets(items, 'check', 17)],
 });
+/**
+ * Дизайнерский блок: вёрстка с классами kt-* (components/html/kit.css) в цветах темы. Тексты
+ * (data-t) и фото (data-i) правятся прямо на слайде, как у импорта из Claude Design
+ */
+const kit = (html: string, texts: string[], photos = 0) => ({ type: 'html', html, texts, ...(photos ? { images: Array.from({ length: photos }, () => ({ src: '' })) } : {}) });
+/** Редактируемый текст вёрстки: номер в texts, своё оформление и класс */
+const T = (i: number, style = '', cls = '', tag = 'div') => `<${tag} data-t="${i}"${cls ? ` class="${cls}"` : ''}${style ? ` style="${style}"` : ''}></${tag}>`;
+const HEAD = 'font-family:var(--font-head, var(--font))';
 
 /** Стартовый код живой вставки: частицы в цветах темы, разбегаются от курсора */
 export const EMBED_SAMPLE = `<!doctype html>
@@ -129,14 +137,17 @@ export const LIBRARY: Category[] = [
       { name: 'Чипы', w: 560, pw: 300, make: () => ({ type: 'chips', items: ['Важное*', 'Метка', 'Ещё метка'] }) },
       { name: 'Подпись', w: 360, pw: 200, make: () => ({ type: 'note', text: 'Мелкая серая подпись' }) },
       {
-        name: 'Заголовок с надписью', w: 820, pw: 460, make: () => ({
-          type: 'stack', gap: 8, items: [eyebrow('Раздел 02'), line('Заголовок, который читается сразу', { size: 48, weight: 700 }), line('Подзаголовок: о чём этот слайд в одной строке', {}, { size: 'lead' })],
-        }),
+        name: 'Заголовок с градиентом', w: 900, pw: 520, make: () => kit(
+          `<div>${T(0, `${HEAD};display:inline-block;font-size:68px;font-weight:800;line-height:1.05`, 'kt-grad')}<svg class="kt-swoosh" viewBox="0 0 400 22" preserveAspectRatio="none"><path pathLength="1" d="M4 16C110 3 290 3 396 12"/></svg>${T(1, 'margin-top:16px;font-size:24px;line-height:1.4;color:var(--tx2)')}</div>`,
+          ['Рост, который видно', 'Подзаголовок: одна строка о главном'],
+        ),
       },
-      { name: 'Мысль с чертой', w: 760, pw: 440, make: () => line('Главная мысль — крупно и с акцентной чертой слева, чтобы её нельзя было пропустить.', { size: 30, leading: 1.3 }, { style: 'border-left:5px solid var(--ac);padding-left:24px' }) },
-      { name: 'Список с галочками', w: 520, pw: 300, make: () => bullets(['Готово за один день', 'Без лишних согласований', 'Цифры из таблицы'], 'check', 22) },
-      { name: 'Нумерованный список', w: 520, pw: 300, make: () => bullets(['Собираем данные', 'Проверяем гипотезу', 'Показываем результат'], 'num', 22) },
-      { name: 'Шаги текстом', w: 560, pw: 320, make: () => bullets(['заявка онлайн', 'согласование', 'запуск'], 'Шаг #:', 22) },
+      {
+        name: 'Цитата с кавычкой', w: 820, pw: 520, make: () => kit(
+          `<div class="kt-q">${T(0, `${HEAD};font-size:34px;font-weight:600;line-height:1.35`)}<div class="kt-who"><img data-i="0" alt=""><div>${T(1, 'font-weight:700;font-size:19px')}${T(2, 'color:var(--mu);font-size:16px')}</div></div></div>`,
+          ['Сделали квартальный отчёт за вечер — раньше на него уходила неделя.', 'Елена Васильева', 'финансовый директор'], 1,
+        ),
+      },
     ],
   },
   {
@@ -163,9 +174,19 @@ export const LIBRARY: Category[] = [
       { name: 'Градиентная плашка', w: 360, h: 120, make: () => ({ type: 'shape', fill: 'gradient', shadow: 'sm', text: 'Ключевая мысль', styles: { text: { size: 24 } } }) },
       { name: 'Метка', w: 200, h: 44, make: () => ({ type: 'shape', kind: 'pill', fill: 'soft', stroke: 'accent', width: 1, text: 'метка', styles: { text: { size: 15 } } }) },
       { name: 'Зона пунктиром', w: 420, h: 240, make: () => ({ type: 'shape', fill: 'none', stroke: 'border', width: 2, dash: 'dash', radius: 20 }) },
-      { name: 'Баннер на градиенте', w: 1040, h: 150, make: () => ({ type: 'shape', fill: 'gradient', radius: 28, shadow: 'sm', text: 'Главная мысль слайда — крупно на градиенте', styles: { text: { size: 34, weight: 700 } } }) },
-      { name: 'Выноска', w: 640, h: 120, make: () => ({ type: 'shape', kind: 'rect', fill: 'soft', radius: 14, style: 'border-left:6px solid var(--ac)', text: 'Важно: короткое пояснение, на которое стоит обратить внимание', styles: { text: { align: 'left', size: 20 } } }) },
-      { name: 'Номер в круге', w: 120, h: 120, make: () => ({ type: 'shape', kind: 'ellipse', fill: 'gradient', shadow: 'sm', text: '1', styles: { text: { size: 52, weight: 800 } } }) },
+      {
+        name: 'Стеклянная карточка', w: 560, h: 340, pw: 360, make: () => kit(
+          `<div class="kt-glass"><i class="kt-blob a"></i><i class="kt-blob b"></i><div class="kt-pane">${T(0, '', 'kt-eyebrow')}${T(1, `${HEAD};font-size:32px;font-weight:700;line-height:1.15`)}${T(2, 'font-size:18px;line-height:1.45;color:var(--tx2)')}</div></div>`,
+          ['Новое', 'Карточка из матового стекла', 'Цветные пятна под ней плавают в цветах темы.'],
+        ),
+      },
+      {
+        name: 'Карточка со свечением', w: 440, h: 250, pw: 340, make: () => kit(
+          `<div class="kt-glow"><div>${T(0, '', 'kt-eyebrow')}${T(1, `${HEAD};font-size:28px;font-weight:700;line-height:1.2`)}${T(2, 'font-size:17px;line-height:1.45;color:var(--tx2)')}</div></div>`,
+          ['Главное', 'По рамке бежит свет', 'Выделит одну карточку среди остальных.'],
+        ),
+      },
+      { name: 'Бейдж «в эфире»', w: 280, pw: 220, make: () => kit(`<div class="kt-live"><span class="kt-dot"></span>${T(0, '', '', 'span')}</div>`, ['Сейчас в работе']) },
       {
         name: 'Карточка с полосой', w: 380, h: 220, make: () => ({
           type: 'group', base: { w: 380, h: 220 }, items: [
@@ -184,17 +205,27 @@ export const LIBRARY: Category[] = [
     items: [
       { name: 'Ключевое число', w: 300, make: () => stat('128', 'новых клиентов', '+18 за месяц') },
       {
+        name: 'Число в ореоле', w: 340, h: 340, pw: 240, make: () => kit(
+          `<div class="kt-halo"><i></i><i></i><i></i><div>${T(0, `${HEAD};font-size:76px;font-weight:800;line-height:1`, 'kt-grad')}${T(1, 'margin-top:8px;font-size:18px;color:var(--mu)')}</div></div>`,
+          ['98 %', 'клиентов довольны'],
+        ),
+      },
+      {
+        name: 'Число и кривая роста', w: 560, pw: 380, make: () => kit(
+          `<div>${T(0, '', 'kt-eyebrow')}${T(1, `${HEAD};display:inline-block;margin:8px 0 2px;font-size:84px;font-weight:800;line-height:1`, 'kt-grad')}${T(2, 'font-size:19px;color:var(--tx2)')}`
+          + '<svg class="kt-spark" viewBox="0 0 560 124" style="margin-top:22px"><defs><linearGradient id="kt-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0"/><stop offset="1"/></linearGradient></defs>'
+          + '<path class="ar" fill="url(#kt-fill)" d="M8 104C60 100 90 88 140 90S220 74 270 70S350 62 390 48S470 34 548 14L548 124L8 124Z"/>'
+          + '<path class="ln" pathLength="1" d="M8 104C60 100 90 88 140 90S220 74 270 70S350 62 390 48S470 34 548 14"/><circle cx="548" cy="14" r="7"/></svg></div>',
+          ['Выручка за год', '+38 %', 'рост к прошлому году'],
+        ),
+      },
+      {
         name: 'Число на градиенте', w: 380, h: 240, make: () => ({
           type: 'group', base: { w: 380, h: 240 }, items: [
             { type: 'shape', fill: 'gradient', radius: 28, shadow: 'md', place: { x: 0, y: 0, w: 380, h: 240 } },
             { ...line('+38 %', { size: 84, weight: 800, color: '#FFFFFF' }), place: { x: 32, y: 40, w: 330 } },
             { ...line('рост выручки за год', { size: 20, color: '#FFFFFF' }), place: { x: 34, y: 158, w: 320 } },
           ],
-        }),
-      },
-      {
-        name: 'Четыре числа', w: 1080, pw: 700, make: () => ({
-          type: 'grid', columns: 4, items: [stat('3,4 млн', 'выручка, ₽', '+12 %'), stat('12 400', 'клиентов', '+8 %'), stat('98 %', 'довольны'), stat('24/7', 'поддержка')],
         }),
       },
       {
@@ -361,12 +392,6 @@ export const LIBRARY: Category[] = [
       { name: 'Три карточки', w: 1040, pw: 640, make: () => ({ type: 'grid', columns: 3, items: [1, 2, 3].map((k) => card(`Пункт ${k}`, 'Короткое пояснение')) }) },
       { name: 'Было — стало', w: 820, pw: 460, make: () => ({ type: 'grid', columns: 2, items: [card('Было', 'Отчёт собирали вручную два дня'), card('Стало', 'Отчёт готов за минуту')] }) },
       {
-        name: 'Карточки с номерами', w: 1080, pw: 700, make: () => ({
-          type: 'grid', columns: 3, items: [['01', 'Анализ', 'Собираем данные и находим, где теряем время'], ['02', 'Решение', 'Предлагаем два-три варианта с оценкой'], ['03', 'Запуск', 'Внедряем по шагам и меряем результат']]
-            .map(([n, h, t]) => ({ type: 'card', body: [line(n, { size: 44, weight: 800, color: 'accent' }), line(h, { size: 24, weight: 700 }), line(t, { size: 17, color: 'text2' })] })),
-        }),
-      },
-      {
         name: 'Тарифы', w: 1080, pw: 760, make: () => ({
           type: 'grid', columns: 3, align: 'stretch', items: [
             plan('Старт', '990 ₽', ['5 презентаций', 'Экспорт в PDF']),
@@ -378,14 +403,6 @@ export const LIBRARY: Category[] = [
       {
         name: 'Команда', w: 1040, pw: 720, make: () => ({
           type: 'grid', columns: 4, items: [person('Анна Смирнова', 'руководитель'), person('Игорь Ким', 'дизайн'), person('Мария Лебедева', 'аналитика'), person('Олег Петров', 'разработка')],
-        }),
-      },
-      {
-        name: 'Отзывы', w: 1040, pw: 700, make: () => ({
-          type: 'grid', columns: 2, items: [
-            { type: 'card', body: { type: 'quote', text: 'Сделали квартальный отчёт за вечер — раньше уходила неделя.', author: 'Елена В.', role: 'финансовый директор' } },
-            { type: 'card', body: { type: 'quote', text: 'Клиенты листают презентацию с телефона и сами задают вопросы.', author: 'Дмитрий К.', role: 'руководитель продаж' } },
-          ],
         }),
       },
       {
@@ -422,13 +439,26 @@ export const LIBRARY: Category[] = [
       },
       { name: 'Схема связей', w: 520, h: 360, make: () => ({ type: 'network', nodes: 7 }) },
       {
-        name: 'Проблема → решение', w: 1040, pw: 700, make: () => ({
-          type: 'grid', columns: '1fr 72px 1fr', align: 'center', items: [
-            { type: 'card', body: [eyebrow('Проблема'), line('Отчёт собирают вручную два дня', { size: 24, weight: 700 }), line('Ошибки в цифрах, версии путаются', { size: 17, color: 'text2' })] },
-            { type: 'shape', kind: 'arrow', stroke: 'accent', width: 4, style: 'height:28px' },
-            { type: 'card', style: 'border:2px solid var(--ac)', body: [eyebrow('Решение'), line('Отчёт собирается из таблицы за минуту', { size: 24, weight: 700 }), line('Цифры всегда свежие, один файл', { size: 17, color: 'text2' })] },
-          ],
-        }),
+        name: 'Дорожная карта', w: 1080, h: 380, pw: 700, make: () => kit(
+          '<div class="kt-road"><svg viewBox="0 0 1080 360" preserveAspectRatio="none"><path class="bg" d="M20 260C80 260 100 230 150 230S300 110 400 110S580 230 680 230S850 110 930 110S1030 150 1060 150"/>'
+          + '<path class="fg" pathLength="1" d="M20 260C80 260 100 230 150 230S300 110 400 110S580 230 680 230S850 110 930 110S1030 150 1060 150"/></svg>'
+          + [[13.9, 60.3], [37, 26.9], [63, 60.3], [86.1, 26.9]].map(([x, y], k) => `<div class="kt-mile" style="left:${x}%;top:${y}%"><i></i>${T(k * 2, '', 'kt-eyebrow')}${T(k * 2 + 1, `${HEAD};margin-top:6px;font-size:21px;font-weight:700;line-height:1.2`)}</div>`).join('')
+          + '</div>',
+          ['I квартал', 'Исследование', 'II квартал', 'Прототип', 'III квартал', 'Пилот', 'IV квартал', 'Запуск'],
+        ),
+      },
+      {
+        name: 'Лестница роста', w: 900, h: 400, pw: 560, make: () => kit(
+          `<div class="kt-steps">${[0, 1, 2, 3].map((k) => `<div>${T(k * 2, `${HEAD};font-size:30px;font-weight:800;line-height:1`, 'kt-grad')}${T(k * 2 + 1, 'font-size:16px;line-height:1.3;color:var(--tx2)')}<b></b></div>`).join('')}</div>`,
+          ['2023', 'старт', '2024', '×2 клиентов', '2025', 'новые рынки', '2026', 'лидер ниши'],
+        ),
+      },
+      {
+        name: 'Орбиты', w: 760, h: 520, pw: 480, make: () => kit(
+          `<div class="kt-orbit"><i class="ring r2"></i><i class="ring r1"></i><div class="kt-core">${T(0, `${HEAD};font-size:30px;font-weight:800;line-height:1.1`)}${T(1, 'font-size:15px;opacity:.85')}</div>`
+          + [[17, 18], [83, 22], [13, 78], [86, 80]].map(([x, y], k) => T(k + 2, `left:${x}%;top:${y}%`, 'kt-tag')).join('') + '</div>',
+          ['Продукт', 'в центре всего', 'Клиенты', 'Партнёры', 'Данные', 'Команда'],
+        ),
       },
       {
         name: 'Итоги вокруг логотипа', w: 1040, pw: 760, make: () => ({
@@ -500,14 +530,6 @@ export const LIBRARY: Category[] = [
       { name: 'Картинка с подписью', w: 480, make: () => ({ type: 'image', src: '', height: 280, caption: 'Подпись к картинке' }) },
       { name: 'Плитка с фото', w: 420, h: 300, make: () => ({ type: 'tile', caption: 'Подпись к фото' }) },
       {
-        name: 'Фото и текст', w: 1080, pw: 720, make: () => ({
-          type: 'grid', columns: '1fr 1fr', gap: 48, align: 'center', items: [
-            { type: 'image', src: '', height: 400, radius: 24 },
-            { type: 'stack', gap: 12, items: [eyebrow('О продукте'), line('Заголовок рядом с фотографией', { size: 40, weight: 700 }), line('Пара предложений: что изображено и зачем это зрителю.', {}, { size: 'lead' }), bullets(['Первое преимущество', 'Второе преимущество', 'Третье преимущество'], 'check', 20)] },
-          ],
-        }),
-      },
-      {
         name: 'Фото с числом', w: 840, h: 470, make: () => ({
           type: 'group', base: { w: 840, h: 470 }, items: [
             { type: 'image', src: '', radius: 24, place: { x: 0, y: 0, w: 740, h: 430 } },
@@ -516,10 +538,16 @@ export const LIBRARY: Category[] = [
         }),
       },
       {
-        name: 'Три фото', w: 1080, pw: 720, make: () => ({
-          type: 'grid', columns: 3, items: ['Первое фото', 'Второе фото', 'Третье фото'].map((caption) => ({ type: 'image', src: '', height: 300, radius: 18, caption })),
-        }),
+        name: 'Фото в рамке', w: 560, h: 400, pw: 360, make: () => kit(`<div class="kt-framed"><img data-i="0" alt=""><div class="kt-live"><span class="kt-dot"></span>${T(0, '', '', 'span')}</div></div>`, ['Наш офис в Казани'], 1),
       },
+      {
+        name: 'Коллаж веером', w: 960, h: 480, pw: 600, make: () => kit(
+          `<div class="kt-fan">${[0, 1, 2].map((k) => `<figure><img data-i="${k}" alt="">${T(k, '', '', 'figcaption')}</figure>`).join('')}</div>`,
+          ['Первое фото', 'Второе фото', 'Третье фото'], 3,
+        ),
+      },
+      { name: 'Окно браузера', w: 760, h: 470, pw: 480, make: () => kit(`<div class="kt-browser"><div class="kt-bar"><i></i><i></i><i></i>${T(0, '', '', 'span')}</div><img class="kt-shot" data-i="0" alt=""></div>`, ['slideria.app'], 1) },
+      { name: 'Телефон', w: 300, h: 600, pw: 170, make: () => kit('<div class="kt-phone"><img data-i="0" alt=""></div>', [], 1) },
       { name: 'Видео', w: 640, h: 360, make: () => ({ type: 'video' }) },
       { name: '3D-модель', w: 420, h: 420, make: () => ({ type: 'model' }) },
     ],
