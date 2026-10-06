@@ -177,6 +177,24 @@ export const THEME_PRESETS: ThemePreset[] = [
     },
   },
   {
+    id: 'winter', name: 'Зима',
+    theme: {
+      accent: '#1D6FD6', accent2: '#7DD3FC', font: 'Manrope', head: 'Unbounded', headWeight: 500, headSpacing: -0.02, headScale: 0.8,
+      light: { bg: '#F3F8FF', tx: '#0C1B33', surf: '#FFFFFF', alt: '#E8F1FC', tx2: '#2B3E5C', mu: '#5E7392', bd: '#D9E6F6', bd2: '#C2D5EE' },
+      dark: { bg: '#081426', tx: '#E8F1FF', surf: '#0F2038', alt: '#050D1A', tx2: '#C2D3EC', mu: '#8BA0BF', bd: '#1B2F4D', bd2: '#284268' },
+      bg: 'glow', cards: 'glass', radius: 1.6, backdrop: 'snow',
+    },
+  },
+  {
+    id: 'autumn', name: 'Осень',
+    theme: {
+      accent: '#C2361B', accent2: '#E89B1C', font: 'Golos Text', head: 'Literata', headWeight: 700, headSpacing: -0.02,
+      light: { bg: '#FBF5EC', tx: '#2B1A10', surf: '#FFFBF5', alt: '#F3E8D8', tx2: '#4A3324', mu: '#8A6E58', bd: '#ECDDC8', bd2: '#DDC6A6' },
+      dark: { bg: '#1A110B', tx: '#F6EADB', surf: '#251911', alt: '#120B07', tx2: '#E2CDB6', mu: '#B39678', bd: '#3A281B', bd2: '#523826' },
+      bg: 'paper', cards: 'raised', radius: 1.1, backdrop: 'leaves',
+    },
+  },
+  {
     id: 'luxe', name: 'Люкс',
     theme: {
       mode: 'dark', accent: '#C9A227', accent2: '#F3D98B', accentFlow: true, font: 'Manrope', head: 'Cormorant Garamond', headWeight: 600, headSpacing: 0, headScale: 1.18,

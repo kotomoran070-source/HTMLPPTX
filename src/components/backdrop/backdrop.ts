@@ -149,7 +149,14 @@ void main(){vec2 uv=gl_FragCoord.xy/r;float hz=.38;float a=0.;
 /** Сцены из точек: вершинный шейдер двигает их, фрагментный рисует мягкий круг */
 const POINT_FS = `precision mediump float;uniform float k;varying float va;varying vec3 vc;
 void main(){float d=length(gl_PointCoord-.5);float a=smoothstep(.5,.08,d)*va*k;gl_FragColor=vec4(vc*a,a);}`;
-const POINTS: Partial<Record<BackdropKind, { vs: string; count: [lite: number, full: number]; seed?: (i: number, n: number) => [number, number, number] }>> = {
+/** Лист: вытянутая капля с прожилкой, крутится (vr.x) и переворачивается в полёте (vr.y — видимая ширина) */
+const LEAF_FS = `precision mediump float;uniform float k;varying float va;varying vec3 vc;varying vec2 vr;
+void main(){vec2 p=gl_PointCoord-.5;float c=cos(vr.x);float s=sin(vr.x);p=mat2(c,-s,s,c)*p;p.x/=max(vr.y,.15);
+  float v=p.y/.44;if(abs(v)>1.)discard;float w=.22*(1.-v*v)*(1.+.3*v);
+  float a=smoothstep(.015,-.01,abs(p.x)-w)*va*k;if(a<.004)discard;
+  float rib=1.-.3*smoothstep(.02,0.,abs(p.x))*step(-.85,v);
+  gl_FragColor=vec4(vc*rib*(.88+.35*p.x)*a,a);}`;
+const POINTS: Partial<Record<BackdropKind, { vs: string; fs?: string; count: [lite: number, full: number]; seed?: (i: number, n: number) => [number, number, number] }>> = {
   // Частицы: точки медленно поднимаются, мерцают и покачиваются
   particles: { count: [260, 900], vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;
 void main(){float sp=.008+.022*s.z;
@@ -178,6 +185,21 @@ void main(){float x=(s.x-.5)*7.;float z=1.2+s.y*9.;
   vec2 sc=vec2(x/z,(h-1.35)/z+.08);gl_Position=vec4(sc.x*r.y/r.x*1.9,sc.y*1.9,0.,1.);
   gl_PointSize=(3.4/z+.9)*px*2.;float hh=clamp(h*1.2+.5,0.,1.);
   vc=mix(c1,c2,hh);va=smoothstep(10.2,3.,z)*(.45+.55*hh);}` },
+  // Снегопад: хлопья падают и покачиваются; ближние крупнее и быстрее, самые ближние — большие размытые
+  snow: { count: [200, 560], vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;
+void main(){float z=s.z;float y=fract(s.y-t*(.018+.05*z));
+  float x=fract(s.x+sin(t*(.25+.35*z)+s.y*12.)*.012*(.6+z)+t*.004*(1.+z));
+  gl_Position=vec4(vec2(x,y)*2.2-1.1,0.,1.);
+  float near=step(.93,z);gl_PointSize=mix(2.6+8.*z*z,16.+26.*(z-.93)*14.,near)*px;
+  vc=mix(c2,c1,.15+.35*s.x);va=mix(.45+.55*z,.22,near)*(.85+.15*sin(t*1.3+s.x*50.));}` },
+  // Листопад: листья в цветах темы кружатся, переворачиваются и плывут вниз
+  leaves: { count: [22, 46], fs: LEAF_FS, vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;varying vec2 vr;
+void main(){float z=s.z;float y=fract(s.y-t*(.016+.026*z));
+  float x=fract(s.x+sin(t*(.45+.35*z)+s.x*20.)*.035+t*.008);
+  gl_Position=vec4(vec2(x,y)*2.3-1.15,0.,1.);gl_PointSize=(22.+38.*z)*px;
+  float dir=fract(s.x*7.31)>.5?1.:-1.;
+  vr=vec2(t*(.5+.8*z)*dir+s.y*6.283,.3+.7*abs(sin(t*(.6+.5*z)+s.x*9.)));
+  vc=mix(c1,c2,fract(s.x*3.3+s.y*1.7));va=.5+.5*z;}` },
   // Звёзды: полёт сквозь звёздное поле — звёзды плывут из глубины и мерцают
   stars: { count: [320, 900], vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;
 void main(){float z=fract(s.z-t*.018);vec2 q=(s.xy-.5)/(.25+z*1.6);
@@ -206,6 +228,8 @@ const LOOK: Record<BackdropKind, { scale: number; fps: number; k: [light: number
   terrain: { scale: 1, fps: 30, k: [0.9, 1.1] },
   tunnel: { scale: 0.75, fps: 30, k: [0.4, 0.6] },
   lava: { scale: 0.5, fps: 30, k: [0.32, 0.5] },
+  snow: { scale: 1, fps: 60, k: [1.1, 1.05] },
+  leaves: { scale: 1, fps: 60, k: [0.8, 0.95] },
 };
 
 /** Сеть: узлы плывут, близкие соединены линиями — считается на процессоре, рисуется видеокартой */
@@ -266,7 +290,7 @@ function makeScene(gl: WebGLRenderingContext, kind: BackdropKind, colors: Pal, l
   const pts = POINTS[kind];
   // Ровные линии рельефа — по производным (есть почти везде; без них сцена не соберётся — фон останется статичным)
   if (kind === 'topo') gl.getExtension('OES_standard_derivatives');
-  const prog = pts ? program(gl, pts.vs, POINT_FS) : FS[kind] ? program(gl, QUAD_VS, FS[kind]!) : null;
+  const prog = pts ? program(gl, pts.vs, pts.fs ?? POINT_FS) : FS[kind] ? program(gl, QUAD_VS, FS[kind]!) : null;
   if (!prog) return null;
   gl.useProgram(prog);
   const buf = gl.createBuffer();
