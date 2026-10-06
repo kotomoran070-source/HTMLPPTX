@@ -91,7 +91,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       mode: 'dark', accent: '#22D3EE', accent2: '#A78BFA', accentFlow: true, font: 'Manrope', head: 'Unbounded', headWeight: 600, headSpacing: -0.02, headScale: 0.78,
       light: { bg: '#F4F6FD', tx: '#0B1020', mu: '#5B6478', bd: '#DFE3F0', bd2: '#CBD1E3' },
       dark: { bg: '#070B18', tx: '#E8ECFA', surf: '#0F1529', alt: '#050812', tx2: '#C3CAE0', mu: '#8A93AD', bd: '#1C2440', bd2: '#2A3456' },
-      bg: 'glow', cards: 'glass', radius: 1.3,
+      bg: 'glow', cards: 'glass', radius: 1.3, backdrop: 'stars',
     },
   },
   {
@@ -100,7 +100,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       accent: '#7C3AED', accent2: '#EC4899', font: 'Onest', head: 'Onest', headWeight: 800, headSpacing: -0.03,
       light: { bg: '#FBF9FF', tx: '#1B1530', surf: '#FFFFFF', mu: '#6E6787', bd: '#ECE7F7', bd2: '#DCD4EE' },
       dark: { bg: '#0F0A1F', tx: '#EEE9FB', surf: '#18112E', alt: '#0A0616', mu: '#9C93B8', bd: '#2A2145', bd2: '#3A2F5E' },
-      bg: 'mesh', cards: 'raised', radius: 1.7,
+      bg: 'mesh', cards: 'raised', radius: 1.7, backdrop: 'aurora',
     },
   },
   {
@@ -118,7 +118,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       mode: 'dark', accent: '#22C55E', accent2: '#A3E635', font: 'Golos Text', head: 'JetBrains Mono', headWeight: 700, headSpacing: -0.02, headScale: 0.93,
       light: { bg: '#F6FAF6', tx: '#0B1F10', mu: '#4D6B55', bd: '#D7E6DA', bd2: '#BFD6C4' },
       dark: { bg: '#050A06', tx: '#D6F5DD', surf: '#0B140D', alt: '#030603', tx2: '#A7D9B2', mu: '#5F8F6A', bd: '#163220', bd2: '#1F4A2C' },
-      bg: 'grid', cards: 'outline', radius: 0.2,
+      bg: 'grid', cards: 'outline', radius: 0.2, backdrop: 'network',
     },
   },
   {
@@ -136,7 +136,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       accent: '#2F855A', accent2: '#A3B53B', font: 'Golos Text', head: 'Literata', headWeight: 600, headSpacing: -0.015, headScale: 0.96,
       light: { bg: '#F2F5EE', tx: '#14261B', surf: '#FFFFFF', alt: '#E7EDE1', mu: '#5E7064', bd: '#DCE4D6', bd2: '#C7D3BF' },
       dark: { bg: '#0C1611', tx: '#E2EEE5', surf: '#13211A', alt: '#08100C', mu: '#8FA897', bd: '#1F3428', bd2: '#2B4637' },
-      bg: 'glow', cards: 'flat', radius: 1.4,
+      bg: 'glow', cards: 'flat', radius: 1.4, backdrop: 'topo',
     },
   },
   {
@@ -154,7 +154,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       accent: '#0369A1', accent2: '#14B8A6', font: 'Golos Text', head: 'Montserrat', headWeight: 700, headSpacing: -0.02, headScale: 0.92,
       light: { bg: '#FFFFFF', tx: '#0B1B2B', surf: '#FFFFFF', alt: '#F1F6FA', mu: '#5A6B7D', bd: '#E1E8EF', bd2: '#CBD6E1' },
       dark: { bg: '#06121F', tx: '#E3EEF8', surf: '#0C1B2D', alt: '#030A12', mu: '#8BA0B6', bd: '#18304A', bd2: '#22405F' },
-      bg: 'band', cards: 'soft', radius: 0.75,
+      bg: 'band', cards: 'soft', radius: 0.75, backdrop: 'waves',
     },
   },
   {
@@ -182,7 +182,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       mode: 'dark', accent: '#C9A227', accent2: '#F3D98B', accentFlow: true, font: 'Manrope', head: 'Cormorant Garamond', headWeight: 600, headSpacing: 0, headScale: 1.18,
       light: { bg: '#FBF8F1', tx: '#1A1611', surf: '#FFFFFF', alt: '#F3EEE2', mu: '#7D7366', bd: '#E9E1D0', bd2: '#D9CCB2' },
       dark: { bg: '#0B0A08', tx: '#F2EBDD', surf: '#14120E', alt: '#070605', tx2: '#D9CFBD', mu: '#9C9282', bd: '#2A251C', bd2: '#4A3F2A' },
-      bg: 'spot', cards: 'outline', radius: 0.1,
+      bg: 'spot', cards: 'outline', radius: 0.1, backdrop: 'silk',
     },
   },
   {
@@ -191,7 +191,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       mode: 'dark', accent: '#FF2BD6', accent2: '#00E5FF', accentFlow: true, font: 'Onest', head: 'Tektur', headWeight: 700, headSpacing: 0.01, headScale: 0.92,
       light: { bg: '#FCF7FF', tx: '#1A0B2E', mu: '#6F5E86', bd: '#EFE3FA', bd2: '#E0CCF3' },
       dark: { bg: '#0B0418', tx: '#F4E9FF', surf: '#150A2A', alt: '#070210', mu: '#A08BBE', bd: '#2B1650', bd2: '#3F2070' },
-      bg: 'neon', cards: 'glass', radius: 0.6,
+      bg: 'neon', cards: 'glass', radius: 0.6, backdrop: 'grid',
     },
   },
 ];

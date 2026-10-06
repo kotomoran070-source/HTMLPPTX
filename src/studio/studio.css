@@ -627,6 +627,25 @@ body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
 .st-f-media input[readonly] { background: var(--alt); color: var(--tx2); cursor: default; }
 .st-f-media .st-f-x { align-self: center; }
 .st-bds { grid-template-columns: repeat(4, 1fr); }
+/* Лента анимированных фонов: листается вбок, по краям — стрелки; плитка 16:9 */
+.st-bdpick { position: relative; display: flex; align-items: center; min-width: 0; }
+.st-bdstrip { display: grid; grid-auto-flow: column; grid-auto-columns: 92px; gap: 6px; overflow-x: auto; padding: 3px 2px 4px; scroll-snap-type: x proximity; scrollbar-width: none; overscroll-behavior-x: contain;
+  -webkit-mask: linear-gradient(90deg, transparent, #000 10px, #000 calc(100% - 10px), transparent); mask: linear-gradient(90deg, transparent, #000 10px, #000 calc(100% - 10px), transparent); }
+.st-bdstrip::-webkit-scrollbar { display: none; }
+.st-bdstrip button { display: flex; flex-direction: column; gap: 4px; padding: 3px; border: 1px solid var(--bd); border-radius: 9px; background: var(--surf); color: var(--tx2); font: 500 11px var(--font); text-align: center; cursor: pointer; scroll-snap-align: start; }
+.st-bdstrip button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-bdstrip button:hover { border-color: var(--acb); }
+.st-bdstrip button[aria-checked="true"] { border-color: var(--ac); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 22%, transparent); color: var(--ach); }
+.st-bdstrip i { position: relative; display: block; aspect-ratio: 16 / 9; border-radius: 6px; border: 1px solid var(--bd); background-color: var(--bg); overflow: hidden; }
+.st-bdstrip i.backdrop { inset: auto; z-index: auto; background-color: var(--bg); }
+.st-bdnav { position: absolute; top: calc(50% - 22px); z-index: 1; width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: 1px solid var(--bd); border-radius: 50%; background: var(--surf); color: var(--tx2); box-shadow: 0 2px 6px rgba(2, 6, 23, .15); cursor: pointer; transition: opacity .15s; }
+.st-bdnav[data-nav="-1"] { left: -6px; }
+.st-bdnav[data-nav="1"] { right: -6px; }
+.st-bdnav.off { opacity: 0; pointer-events: none; }
+.st-bdnav .ic { width: 14px; height: 14px; }
+.st-bdpop { width: 560px; padding: 10px 14px 12px; }
+.st-bdpop .st-bdstrip { grid-auto-columns: 112px; }
+.st-bdnote { margin: 6px 2px 0; color: var(--mu); font-size: 12px; max-width: none; }
 .st-bds i { background-color: var(--bg); }
 .st-bds i.backdrop { position: relative; inset: auto; z-index: auto; background-color: var(--bg); }
 

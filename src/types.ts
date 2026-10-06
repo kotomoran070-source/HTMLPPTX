@@ -86,6 +86,8 @@ export interface DeckTheme {
   cards?: string;
   /** Скругление углов: множитель от 0 (прямые) до 2 (круглые), 1 — как обычно */
   radius?: number;
+  /** Анимированный фон всех слайдов (engine/backdrops.ts); у слайда backdrop: none — без него */
+  backdrop?: string;
 }
 
 export interface SlideData {

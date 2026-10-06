@@ -24,4 +24,68 @@
     radial-gradient(circle, color-mix(in srgb, var(--ac) 30%, transparent) 1px, transparent 1.6px) 23px 31px / 53px 59px,
     radial-gradient(circle, color-mix(in srgb, var(--ac) 22%, transparent) 1.6px, transparent 2.4px) 41px 11px / 97px 89px;
 }
+/* Второй цвет темы (градиент акцента), без него — акцент */
+.backdrop { --bd2: var(--ac2, var(--ac)); }
+.bd-mesh {
+  background:
+    radial-gradient(45% 55% at 20% 28%, color-mix(in srgb, var(--ac) 30%, transparent), transparent 70%),
+    radial-gradient(45% 55% at 80% 72%, color-mix(in srgb, var(--bd2) 28%, transparent), transparent 70%),
+    radial-gradient(35% 40% at 58% 10%, color-mix(in srgb, var(--ac) 18%, transparent), transparent 70%);
+}
+.bd-silk {
+  background:
+    linear-gradient(115deg, transparent 15%, color-mix(in srgb, var(--ac) 18%, transparent) 30%, transparent 42%, color-mix(in srgb, var(--bd2) 22%, transparent) 58%, transparent 72%, color-mix(in srgb, var(--ac) 14%, transparent) 88%, transparent);
+}
+.bd-waves {
+  background:
+    repeating-radial-gradient(140% 90% at 30% 160%, transparent 0 14px, color-mix(in srgb, var(--ac) 35%, transparent) 15px, transparent 16.5px),
+    linear-gradient(transparent 30%, color-mix(in srgb, var(--bd2) 6%, transparent));
+}
+.bd-topo {
+  background:
+    repeating-radial-gradient(60% 50% at 30% 40%, transparent 0 18px, color-mix(in srgb, var(--ac) 26%, transparent) 19px, transparent 20.5px),
+    repeating-radial-gradient(50% 45% at 80% 75%, transparent 0 16px, color-mix(in srgb, var(--bd2) 24%, transparent) 17px, transparent 18.5px);
+}
+.bd-rays {
+  background:
+    repeating-conic-gradient(from 100deg at -10% -20%, color-mix(in srgb, var(--ac) 16%, transparent) 0 3deg, transparent 3deg 9deg),
+    radial-gradient(90% 90% at 0% 0%, color-mix(in srgb, var(--ac) 18%, transparent), transparent 70%);
+  -webkit-mask: radial-gradient(120% 120% at 0% 0%, #000, transparent 85%); mask: radial-gradient(120% 120% at 0% 0%, #000, transparent 85%);
+}
+.bd-bokeh {
+  background:
+    radial-gradient(circle at 18% 30%, color-mix(in srgb, var(--ac) 26%, transparent) 0 7%, transparent 7.5%),
+    radial-gradient(circle at 70% 22%, color-mix(in srgb, var(--bd2) 22%, transparent) 0 11%, transparent 11.5%),
+    radial-gradient(circle at 82% 75%, color-mix(in srgb, var(--ac) 18%, transparent) 0 9%, transparent 9.5%),
+    radial-gradient(circle at 38% 78%, color-mix(in srgb, var(--bd2) 20%, transparent) 0 5%, transparent 5.5%);
+}
+.bd-stars {
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--ac) 60%, #fff) 1px, transparent 1.6px) 0 0 / 83px 71px,
+    radial-gradient(circle, color-mix(in srgb, var(--ac) 40%, #fff) .8px, transparent 1.3px) 31px 17px / 47px 53px,
+    radial-gradient(60% 60% at 50% 50%, color-mix(in srgb, var(--ac) 10%, transparent), transparent);
+}
+.bd-dots {
+  background: radial-gradient(circle, color-mix(in srgb, var(--ac) 32%, transparent) 2px, transparent 2.6px) 0 0 / 21px 21px;
+  -webkit-mask: linear-gradient(135deg, #000, transparent 70%); mask: linear-gradient(135deg, #000, transparent 70%);
+}
+.bd-network {
+  background:
+    linear-gradient(32deg, transparent 49.6%, color-mix(in srgb, var(--ac) 22%, transparent) 50%, transparent 50.4%) 0 0 / 160px 110px,
+    linear-gradient(-58deg, transparent 49.6%, color-mix(in srgb, var(--bd2) 20%, transparent) 50%, transparent 50.4%) 40px 20px / 130px 120px,
+    radial-gradient(circle, color-mix(in srgb, var(--ac) 50%, transparent) 2px, transparent 2.6px) 0 0 / 80px 55px;
+}
+.bd-hex {
+  background:
+    radial-gradient(circle at 70% 40%, color-mix(in srgb, var(--ac) 16%, transparent), transparent 55%),
+    conic-gradient(from 30deg at 50% 50%, color-mix(in srgb, var(--ac) 16%, transparent) 0 60deg, transparent 60deg 120deg, color-mix(in srgb, var(--bd2) 12%, transparent) 120deg 180deg, transparent 180deg 240deg, color-mix(in srgb, var(--ac) 10%, transparent) 240deg 300deg, transparent 300deg) 0 0 / 46px 40px;
+}
+.bd-orbits {
+  background:
+    repeating-radial-gradient(circle at 80% 44%, transparent 0 46px, color-mix(in srgb, var(--ac) 30%, transparent) 47px, transparent 48.5px),
+    radial-gradient(circle at 80% 44%, color-mix(in srgb, var(--bd2) 22%, transparent), transparent 30%);
+  -webkit-mask: radial-gradient(circle at 80% 44%, #000 30%, transparent 75%); mask: radial-gradient(circle at 80% 44%, #000 30%, transparent 75%);
+}
+/* Примерка в студии: настоящий фон слайда спрятан, пока на слайде примеряемый */
+.backdrop.bd-off { visibility: hidden; }
 @media print { .backdrop canvas { display: none; } }

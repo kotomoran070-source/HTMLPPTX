@@ -18,6 +18,7 @@ import type { Deck, DeckTheme } from '../types';
 import { logoPlate } from '../engine/render';
 import { logoColors } from './logo-colors';
 import { showPopover } from './menu';
+import { backdropStrip, bindBackdropStrip } from './backdrop-pick';
 import { addMyTheme, captureTheme, downloadTheme, listMyThemes, MY, parseThemeFile, registerMyFonts, removeMyTheme, type MyTheme } from './my-themes';
 import { registerThemeFonts, SPECIMEN, THEME_FONTS, THEME_PRESETS, themeFont, themeFontWeights, type ThemePreset } from './theme-presets';
 
@@ -77,7 +78,7 @@ export function designPanelHtml(): string {
     + `<label class="st-accent" title="Второй цвет: акцентные заливки становятся градиентом от акцента к нему"><input type="color" id="st-accent2" aria-label="Второй цвет градиента"><span>Градиент</span></label>`
     + `<div class="st-rstack">${btn('design.palettes', 'fill', 'Палитры', { menu: true, title: 'Готовые пары цветов' })}${btn('design.accent2-off', 'close', 'Без градиента', { title: 'Ровный акцент без второго цвета' })}${chk('design.accent-flow', 'Переливание', 'Цвета градиента акцента плавно текут по акцентным элементам слайда')}</div>`)}
   ${group('Шрифты', `<div class="st-rstack st-dz-fonts">${fontBtn('design.font.head', 'Заголовки', 'Шрифт заголовков и крупных чисел')}${fontBtn('design.font.body', 'Текст', 'Шрифт текста презентации')}</div>`)}
-  ${group('Оформление', btn('design.bg', 'image', 'Фон', { big: true, menu: true, title: 'Фон слайдов' }) + btn('design.cards', 'frame', 'Карточки', { big: true, menu: true, title: 'Вид карточек, таблиц и плашек' }) + btn('design.radius', 'corner', 'Углы', { big: true, menu: true, title: 'Скругление углов карточек и картинок' }) + btn('design.logo', 'sparkle', 'Логотип', { big: true, menu: true, title: 'Плашка под логотипом: в цветах темы или в цветах самого логотипа' }))}
+  ${group('Оформление', btn('design.bg', 'image', 'Фон', { big: true, menu: true, title: 'Фон слайдов' }) + btn('design.cards', 'frame', 'Карточки', { big: true, menu: true, title: 'Вид карточек, таблиц и плашек' }) + btn('design.radius', 'corner', 'Углы', { big: true, menu: true, title: 'Скругление углов карточек и картинок' }) + btn('design.backdrop', 'play', 'Анимация', { big: true, menu: true, title: 'Анимированный фон всех слайдов: переливы, волны, звёзды, сеть… У отдельного слайда — свой в панели слайда' }) + btn('design.logo', 'sparkle', 'Логотип', { big: true, menu: true, title: 'Плашка под логотипом: в цветах темы или в цветах самого логотипа' }))}
   ${group('Слайды', `<div class="st-rstack">${chk('design.mode.auto', 'Как у зрителя', 'Слайды светлые или тёмные — как тема у того, кто смотрит')}${chk('design.mode.light', 'Всегда светлые', 'Слайды светлые при любой теме у зрителя')}${chk('design.mode.dark', 'Всегда тёмные', 'Слайды тёмные при любой теме у зрителя')}</div>`)}
 </div>`;
 }
@@ -290,6 +291,18 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     hoverTry(el, '.st-dz-tile', (b) => findTheme(b.dataset.themeId)?.theme ?? null);
   };
 
+  // ---------- анимация фона всех слайдов ----------
+  const backdropMenu = () => {
+    const at = anchor('design.backdrop');
+    if (!at) return;
+    const el = showPopover(at, `<div class="st-plabel">Анимация фона всех слайдов</div>${backdropStrip(theme().backdrop ?? '')}<p class="st-bdnote">Наведите — фон примерится на слайде. У отдельного слайда фон меняется в панели слайда</p>`, (b) => {
+      const v = b.dataset.backdrop;
+      if (v === undefined) return null;
+      return { run: () => patch({ backdrop: v || undefined }) };
+    }, 'st-bdpop');
+    bindBackdropStrip(el, h.stage);
+  };
+
   // ---------- свои темы ----------
   const saveTheme = (at: HTMLElement) => {
     if (!hasThemeLook(deck.theme)) {
@@ -491,6 +504,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
         (v) => ({ ...theme(), radius: v }), () => card, (v) => patch({ radius: v === 1 ? undefined : v }), 'radii'),
     },
     'design.logo': { run: () => void logoMenu(), enabled: () => !!deck.brand?.logo },
+    'design.backdrop': { run: () => backdropMenu(), active: () => !!theme().backdrop },
     'design.mode.auto': { run: () => setMode(null), active: () => !themeMode(deck.theme) },
     'design.mode.light': { run: () => setMode('light'), active: () => themeMode(deck.theme) === 'light' },
     'design.mode.dark': { run: () => setMode('dark'), active: () => themeMode(deck.theme) === 'dark' },

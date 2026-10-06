@@ -5,7 +5,7 @@ import { fontItems, fontPicker, type FontItem } from '../engine/editor/font-pick
 import { rowOf } from '../engine/editor/rows';
 import { toView, viewOf, VIEWS } from './block-views';
 import { getAt, setAt, type Path } from '../engine/data';
-import { BACKDROPS } from '../components/backdrop/backdrop';
+import { backdropStrip, bindBackdropStrip } from './backdrop-pick';
 import { blockName, keepsRatio } from '../engine/editor/block-edit';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
@@ -261,7 +261,7 @@ export class Inspector {
     this.parts = el ? partsOf(el) : [];
     const key = sel
       ? `b:${JSON.stringify(sel.free ?? sel.block)}:${sel.type}:${sig}:${sel.free ? rowOf(getAt(deck, sel.free))?.id ?? '' : ''}:${this.parts.map((x) => x.label + x.snippet).join('|')}`
-      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}:${deckFonts(deck.fonts).map((f) => f.name).join('|')}:${deck.theme?.font ?? ''}:${slideAccent(deck.slides[i]?.theme) ? 'own' : ''}${deck.slides[i]?.theme?.accent2 ? '2' : ''}`;
+      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}:${deckFonts(deck.fonts).map((f) => f.name).join('|')}:${deck.theme?.font ?? ''}:${deck.theme?.backdrop ?? ''}:${slideAccent(deck.slides[i]?.theme) ? 'own' : ''}${deck.slides[i]?.theme?.accent2 ? '2' : ''}`;
     if (key !== this.key) {
       this.key = key;
       // Прокрутка панели сохраняется, когда форма перестраивается (добавили пункт)
@@ -271,6 +271,7 @@ export class Inspector {
       this.root.innerHTML = sel ? this.blockHtml() : this.slideHtml();
       this.root.dataset.subject = sel ? JSON.stringify(sel.block) : `s${i}`;
       if (same) this.root.scrollTop = top;
+      bindBackdropStrip(this.root, () => this.host.stage(), this.host.deck().theme?.backdrop);
     }
     this.fill();
   }
@@ -504,11 +505,9 @@ ${!known ? `<p class="st-p-note">Сейчас: <code>${esc(cur.length > 60 ? cur
 ${own ? `<span class="st-p-color st-p-sac"><input type="color" data-f="saccent" aria-label="Акцент слайда" title="Акцент слайда"><input type="color" data-f="saccent2" aria-label="Второй цвет градиента слайда" title="Второй цвет градиента"><button type="button" class="st-link" data-a="saccent2-off"${s.theme?.accent2 ? '' : ' hidden'}>Без градиента</button></span>` : ''}</div>`;
   }
 
-  /** Анимированный фон: образцы — тот же статичный вид, что в миниатюрах */
+  /** Анимированный фон слайда: лента образцов, наведение — примерка на слайде */
   private backdropHtml(cur: string): string {
-    const opts: [string, string][] = [['', 'Нет'], ...BACKDROPS];
-    return `<div class="st-p-field"><span>Анимация фона</span><div class="st-bgs st-bds" role="radiogroup" aria-label="Анимация фона">${opts.map(([v, l]) =>
-      `<button type="button" role="radio" aria-checked="${v === cur}" data-backdrop="${v}" title="${esc(l)}"><i class="${v ? `backdrop bd-${v}` : ''}"></i><span>${esc(l)}</span></button>`).join('')}</div></div>`;
+    return `<div class="st-p-field"><span>Анимация фона</span>${backdropStrip(cur, this.host.deck().theme?.backdrop)}</div>`;
   }
 
   private slideHtml(): string {
