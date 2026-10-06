@@ -3,10 +3,24 @@
 .video-box, .model3d-box { position: relative; flex: 1; min-height: 0; border-radius: calc(14px * var(--rk, 1)); overflow: hidden; background: #000; }
 .video-box video, .video-box iframe, .video-cover { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; object-fit: contain; display: block; }
 .video-cover { object-fit: cover; }
-/* Цветокоррекция на лету: холст с кадром поверх ролика; щелчки — ролику, кнопки плеера видны при наведении */
+/* Цветокоррекция на лету: холст с кадром поверх ролика; кнопки плеера — свои, поверх холста (live.ts) */
 .video-box .video-grade { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; visibility: hidden; }
 .video-box .video-grade.on { visibility: visible; }
-.video-box:hover .video-grade.has-controls { clip-path: inset(0 0 56px 0); }
+.video-box:fullscreen { border-radius: 0; }
+.video-bar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 26px 14px 10px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, .62)); color: #fff; font: 500 14px/1 var(--font, system-ui); font-variant-numeric: tabular-nums;
+  opacity: 0; transition: opacity .2s; }
+.video-box:hover .video-bar, .video-box.video-paused .video-bar, .video-bar:focus-within { opacity: 1; }
+.video-bar button { width: 34px; height: 34px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; cursor: pointer; flex: none; }
+.video-bar button:hover { background: rgba(255, 255, 255, .16); }
+.video-bar svg { width: 22px; height: 22px; display: block; }
+.video-time { flex: none; text-shadow: 0 1px 2px rgba(0, 0, 0, .5); }
+.video-seek { position: relative; flex: 1; height: 18px; cursor: pointer; touch-action: none; outline: none; }
+.video-seek::before, .video-seek i { content: ""; position: absolute; left: 0; top: 7px; height: 4px; border-radius: 2px; }
+.video-seek::before { right: 0; background: rgba(255, 255, 255, .32); }
+.video-seek i { background: #fff; }
+.video-seek i::after { content: ""; position: absolute; right: -6px; top: -4px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transform: scale(0); transition: transform .12s; }
+.video-seek:hover i::after, .video-seek:focus-visible i::after { transform: scale(1); }
 .video-embed iframe { z-index: 1; background: #000; }
 .video-badge { position: absolute; left: 12px; bottom: 12px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px 6px 10px; border-radius: 999px; background: rgba(0, 0, 0, .62); color: #fff; font: 600 14px var(--font); }
 .video-badge .ic { width: 14px; height: 14px; fill: currentColor; stroke: none; }
