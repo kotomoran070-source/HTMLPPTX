@@ -4,7 +4,7 @@ import { icon } from '../../components/icons';
 import { getAt, KEY, setAt, type Path } from '../data';
 import { esc, t } from '../html';
 import { GRADIENTS, TEXT_GRADIENTS, textGradientCss } from '../gradients';
-import { colorCss, FONTS, SWATCHES, THEME_COLORS, type TextStyle } from '../text-style';
+import { colorCss, FONTS, LIST_MARKERS, SWATCHES, THEME_COLORS, type TextStyle } from '../text-style';
 import { plainMarkup, toggleList, toMarkup } from './serialize';
 
 /** Что текстовому редактору нужно от основного редактора. */
@@ -95,7 +95,7 @@ export class TextEditor {
   <button type="button" data-t="underline" title="Подчёркнутый (Ctrl+U)" aria-label="Подчёркнутый"><u>U</u></button>
   <button type="button" data-t="link" title="Ссылка (Ctrl+K)" aria-label="Ссылка">${icon('link')}</button>
   <i class="edsep" data-g="block"></i>
-  <button type="button" data-t="list" data-g="block" title="Список" aria-label="Список">${icon('list')}</button>
+  <span class="edsplit" data-g="block"><button type="button" data-t="list" title="Список" aria-label="Список">${icon('list')}</button><button type="button" data-t="list-kind" class="edcaret" title="Вид списка: маркер или нумерация" aria-label="Вид списка" aria-haspopup="true"><b class="st-caret"></b></button></span>
   <button type="button" data-t="align-left" data-g="block" title="По левому краю" aria-label="По левому краю">${icon('align-left')}</button>
   <button type="button" data-t="align-center" data-g="block" title="По центру" aria-label="По центру">${icon('align-center')}</button>
   <button type="button" data-t="align-right" data-g="block" title="По правому краю" aria-label="По правому краю">${icon('align-right')}</button>
@@ -408,6 +408,10 @@ export class TextEditor {
     else if (fontNameOk(s.styles.font)) st.fontFamily = fontStack(s.styles.font);
     if (Number(s.styles.leading)) st.lineHeight = String(s.styles.leading);
     if (s.styles.spacing !== undefined) st.letterSpacing = `${Number(s.styles.spacing) || 0}em`;
+    // Вид списка — переменные маркера (те же, что в textStyleCss)
+    for (const v of ['--li-mark', '--li-w', '--li-h', '--li-bg', '--li-top', '--li-pad', '--li-left', '--li-r']) st.removeProperty(v);
+    const mk = s.styles.list ? LIST_MARKERS[s.styles.list] : undefined;
+    if (mk?.css) for (const d of mk.css.split(';')) { const i = d.indexOf(':'); st.setProperty(d.slice(0, i), d.slice(i + 1)); }
   }
 
   /** Пункты выбора шрифта: шрифт темы и общие, шрифты презентации, шрифты компьютера */
@@ -470,7 +474,7 @@ export class TextEditor {
       if (!b || !this.s) return;
       const cmd = b.dataset.t!;
       if (cmd !== 'color') this.colors.classList.remove('on');
-      if (cmd !== 'leading' && cmd !== 'spacing') this.menu.classList.remove('on');
+      if (cmd !== 'leading' && cmd !== 'spacing' && cmd !== 'list-kind') this.menu.classList.remove('on');
       switch (cmd) {
         case 'bold': case 'italic': case 'underline': this.format(cmd); break;
         case 'link': void this.link(); break;
@@ -488,6 +492,7 @@ export class TextEditor {
         case 'color': this.toggleColors(b); break;
         case 'font': fontPicker().toggle(b, () => this.fontList(), this.s.styles.font ?? '', (v) => this.setFont(v)); break;
         case 'leading': case 'spacing': this.toggleMenu(cmd, b); break;
+        case 'list-kind': this.listMenu(b); break;
         case 'reset': this.reset(); break;
         case 'delete': {
           const block = this.s.block;
@@ -591,6 +596,43 @@ export class TextEditor {
     const r = document.createRange();
     r.selectNodeContents(el);
     return r;
+  }
+
+  /** Вид списка: маркеры и нумерация плитками; текст без пунктов сначала становится списком */
+  private listMenu(anchor: HTMLElement): void {
+    const s = this.s;
+    if (!s) return;
+    if (this.menu.classList.contains('on') && this.menu.dataset.kind === 'list') {
+      this.menu.classList.remove('on');
+      return;
+    }
+    const cur = typeof s.styles.list === 'string' && LIST_MARKERS[s.styles.list] ? s.styles.list : 'dot';
+    this.menu.dataset.kind = 'list';
+    // Образец: три строки с маркерами этого вида
+    const mark = (k: string, n: number) => {
+      if (k === 'dot' || k === 'square') return `<i class="dotm${k === 'square' ? ' sq' : ''}"></i>`;
+      if (k === 'num') return `<i>${n}.</i>`;
+      if (k === 'paren') return `<i>${n})</i>`;
+      if (k === 'alpha') return `<i>${'абв'[n - 1]})</i>`;
+      return `<i>${esc(LIST_MARKERS[k].sample)}</i>`;
+    };
+    this.menu.innerHTML = `<div class="edmenu-title">Вид списка</div><div class="edlist">${Object.entries(LIST_MARKERS).map(([k, m]) =>
+      `<button type="button" data-v="${k}" class="${k === cur ? 'on' : ''}" title="${esc(m.name)}" aria-label="${esc(m.name)}">${[1, 2, 3].map((n) => `<span>${mark(k, n)}<s></s></span>`).join('')}</button>`).join('')}</div>`;
+    this.menu.onmousedown = (e) => e.preventDefault();
+    this.menu.onclick = (e) => {
+      const b = (e.target as Element).closest<HTMLButtonElement>('button[data-v]');
+      if (!b || !this.s) return;
+      // Ещё не список — сначала пункты
+      if (!this.s.el.querySelector('.md-li')) this.toggleList();
+      this.setStyle({ list: b.dataset.v === 'dot' ? undefined : b.dataset.v });
+      this.menu.classList.remove('on');
+      this.s?.el.focus({ preventScroll: true });
+    };
+    this.menu.classList.add('on');
+    const r = anchor.getBoundingClientRect();
+    const w = this.menu.offsetWidth;
+    this.menu.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left - 8))}px`;
+    this.menu.style.top = `${r.bottom + 6}px`;
   }
 
   /** Интервалы как в PowerPoint: готовые значения и точное — числом */
@@ -776,6 +818,7 @@ function clean(st: TextStyle): TextStyle {
   if (st.upper) out.upper = true;
   if (st.spacing) out.spacing = st.spacing;
   if (st.leading) out.leading = st.leading;
+  if (st.list && LIST_MARKERS[st.list] && st.list !== 'dot') out.list = st.list;
   return out;
 }
 

@@ -220,6 +220,15 @@ export interface PptxProgress {
   (done: number, total: number): void;
 }
 
+/** Маркер пункта списка в тексте: символ из оформления (--li-mark) или номер по порядку */
+function listMark(li: HTMLElement): string {
+  const v = getComputedStyle(li).getPropertyValue('--li-mark').trim();
+  if (!v.includes('counter(')) return /^["'](.+)["']$/.exec(v)?.[1] ?? '•';
+  const n = [...(li.parentElement?.children ?? [])].filter((x) => x.classList.contains('md-li')).indexOf(li) + 1;
+  const tail = /"([^"]*)"\s*$/.exec(v)?.[1] ?? '.';
+  return `${v.includes('cyrillic') ? 'абвгдежзиклмнопрстуфхцчшэюя'[(n - 1) % 27] : n}${tail}`;
+}
+
 export async function exportPptx(deck: Deck, progress?: PptxProgress, quality: ExportQuality = 'normal'): Promise<Blob> {
   QUALITY = quality;
   const [{ default: Pptx }, { toPng }] = await Promise.all([import('pptxgenjs'), import('html-to-image')]);
@@ -640,6 +649,18 @@ class Converter {
           return;
         }
         if (getComputedStyle(e).display === 'none') return;
+        // Пункт списка в тексте (md-li): с новой строки, маркер или номер — как на слайде
+        if (e.classList.contains('md-li')) {
+          if (out.length) out[out.length - 1].options = { ...out[out.length - 1].options, breakLine: true };
+          const from = out.length;
+          e.childNodes.forEach(walk);
+          if (out.length > from) {
+            const ac = rgba(getComputedStyle(e, '::before').color);
+            out.splice(from, 0, { text: `${listMark(e)}  `, options: { ...out[from].options, color: ac?.hex ?? out[from].options?.color, bold: true, breakLine: false, hyperlink: undefined } });
+            out[out.length - 1].options = { ...out[out.length - 1].options, breakLine: true };
+          }
+          return;
+        }
         e.childNodes.forEach(walk);
       }
     };
@@ -661,6 +682,10 @@ class Converter {
     if (mark && before.position !== 'absolute' && before.display !== 'none') {
       const c = rgba(before.color);
       runs.unshift({ text: `${mark} `, options: { ...runs[0].options, color: c?.hex ?? runs[0].options?.color, breakLine: false } });
+    } else if (el.classList.contains('md-li')) {
+      // Пункт списка в тексте: маркер или номер из оформления (--li-mark) — началом строки
+      const c = rgba(before.color);
+      runs.unshift({ text: `${listMark(el)}  `, options: { ...runs[0].options, color: c?.hex ?? runs[0].options?.color, bold: true, breakLine: false, hyperlink: undefined } });
     }
     // Пункт списка (<li>): маркер браузера (::marker) — маркером абзаца PowerPoint, с висячим
     // отступом; место под маркер — поле списка слева от пункта, как на слайде

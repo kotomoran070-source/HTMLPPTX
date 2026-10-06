@@ -22,7 +22,24 @@ export interface TextStyle {
   spacing?: number;
   /** Межстрочный интервал (множитель) */
   leading?: number;
+  /** Маркер пунктов списка: dot (по умолчанию), dash, check, arrow, square, num, paren, alpha */
+  list?: string;
 }
+
+/**
+ * Маркеры списка: подпись для меню и переменные для .md-li::before (layout.css).
+ * Нумерация — счётчиком CSS: пункты нумеруются по порядку внутри текста
+ */
+export const LIST_MARKERS: Record<string, { name: string; sample: string; css: string }> = {
+  dot: { name: 'Точка', sample: '•', css: '' },
+  square: { name: 'Квадрат', sample: '▪', css: '--li-r:1.5px' },
+  dash: { name: 'Тире', sample: '–', css: '--li-mark:"–";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0' },
+  check: { name: 'Галочка', sample: '✓', css: '--li-mark:"✓";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-pad:1.3em' },
+  arrow: { name: 'Стрелка', sample: '→', css: '--li-mark:"→";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-pad:1.35em' },
+  num: { name: 'Нумерация 1.', sample: '1.', css: '--li-mark:counter(md-li) ".";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-pad:1.7em;--li-left:0' },
+  paren: { name: 'Нумерация 1)', sample: '1)', css: '--li-mark:counter(md-li) ")";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-pad:1.7em;--li-left:0' },
+  alpha: { name: 'Буквы а)', sample: 'а)', css: '--li-mark:counter(md-li, cyrillic-lower) ")";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-pad:1.7em;--li-left:0' },
+};
 
 export const FONTS: Record<string, { name: string; css: string }> = {
   sans: { name: 'Без засечек', css: 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif' },
@@ -77,6 +94,8 @@ export function textStyleCss(st: unknown): string {
   if (s.upper === true) out.push('text-transform:uppercase');
   const sp = Number(s.spacing);
   if (Number.isFinite(sp) && sp !== 0 && Math.abs(sp) <= 1) out.push(`letter-spacing:${sp}em`);
+  const mk = typeof s.list === 'string' ? LIST_MARKERS[s.list] : undefined;
+  if (mk?.css) out.push(mk.css);
   const ld = Number(s.leading);
   if (Number.isFinite(ld) && ld >= 0.8 && ld <= 3) out.push(`line-height:${ld}`);
   return out.join(';');

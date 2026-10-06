@@ -336,3 +336,18 @@ body.ed-copying, body.ed-copying * { cursor: copy !important; }
 .edfont { justify-content: space-between !important; width: 150px; flex: none; border: 1px solid var(--bd) !important; font-weight: 500 !important; }
 .edfont span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .edfont::after { content: ""; flex: none; width: 6px; height: 6px; margin: -3px 2px 0 6px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); opacity: .6; }
+
+/* Список с выбором вида: кнопка и стрелка вплотную */
+.edsplit { display: inline-flex; align-items: center; }
+.edtext .edsplit .edcaret { width: 16px; min-width: 16px; padding: 0; justify-content: center; }
+.edtext .edsplit .edcaret .st-caret { display: inline-block; width: 0; height: 0; margin: 0; border: 3.5px solid transparent; border-top: 4px solid currentColor; border-bottom: 0; opacity: .7; }
+/* Вид списка: плитки с тремя строками */
+.edlist { display: grid; grid-template-columns: repeat(4, 64px); gap: 6px; padding: 4px; }
+.edmenu .edlist button { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 5px; width: auto; min-height: 50px; padding: 8px 7px; border: 1px solid var(--bd); border-radius: 8px; background: var(--bg); cursor: pointer; }
+.edmenu .edlist button:hover { border-color: var(--acb); background: var(--acs); }
+.edmenu .edlist button.on { border-color: var(--ac); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 25%, transparent); }
+.edlist span { display: flex; align-items: center; gap: 4px; width: 100%; height: 9px; }
+.edlist i { flex: none; width: 14px; font: 700 9.5px/1 var(--font); font-style: normal; color: var(--ac); text-align: left; }
+.edlist i.dotm { width: 4px; height: 4px; margin: 0 5px 0 3px; border-radius: 50%; background: var(--ac); }
+.edlist i.dotm.sq { border-radius: 1px; }
+.edlist s { display: block; flex: 1; min-width: 16px; height: 3px; border-radius: 2px; background: var(--bd2); text-decoration: none; }
