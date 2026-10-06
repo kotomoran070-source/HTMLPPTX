@@ -9,7 +9,7 @@ import { BACKDROPS } from '../components/backdrop/backdrop';
 import { blockName, keepsRatio } from '../engine/editor/block-edit';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
-import { OBJ_ID, actionOf, angleOf, placeOf, slideLabel } from '../engine/render';
+import { OBJ_ID, Renderer, actionOf, angleOf, placeOf, slideLabel } from '../engine/render';
 import type { Block, Deck, SlideData } from '../types';
 import { fillForm, formHtml, formSig, onFieldAction, onFieldChange, onGridPaste, type FormEdit } from './form';
 import { BLOCKS, STYLE_FIELD, TEMPLATES, type Field } from './schema';
@@ -107,8 +107,12 @@ export class Inspector {
     root.addEventListener('pointerover', (e) => {
       const part = (e.target as Element).closest<HTMLElement>('[data-part]');
       this.peek(part ? this.parts[Number(part.dataset.part)]?.el ?? null : null);
+      // Вид блока: наведение на плитку — на слайде сразу этот вид (без записи)
+      const tile = (e.target as Element).closest<HTMLElement>('[data-view]');
+      if (tile) this.previewView(tile.dataset.view!, tile);
+      else this.endViewPreview();
     });
-    root.addEventListener('pointerleave', () => this.peek(null));
+    root.addEventListener('pointerleave', () => { this.peek(null); this.endViewPreview(); });
     root.addEventListener('paste', (e) => {
       const el = e.target as HTMLInputElement;
       const text = e.clipboardData?.getData('text/plain') ?? '';
@@ -263,6 +267,7 @@ export class Inspector {
       // Прокрутка панели сохраняется, когда форма перестраивается (добавили пункт)
       const top = this.root.scrollTop;
       const same = this.root.dataset.subject === (sel ? JSON.stringify(sel.block) : `s${i}`);
+      this.endViewPreview();
       this.root.innerHTML = sel ? this.blockHtml() : this.slideHtml();
       this.root.dataset.subject = sel ? JSON.stringify(sel.block) : `s${i}`;
       if (same) this.root.scrollTop = top;
@@ -342,7 +347,58 @@ export class Inspector {
       `<button type="button" role="radio" aria-checked="${v.id === cur}" data-view="${v.id}" title="${esc(v.name)}">${icon(v.icon)}<span>${esc(v.name)}</span></button>`).join('')}</div></section>`;
   }
 
+  /**
+   * Предпросмотр вида: карточка рядом с плиткой — блок нового вида с данными этого блока,
+   * собранный тем же движком (слайд не трогается, ничего не записывается)
+   */
+  private viewPreview: { view: string; pop: HTMLElement } | null = null;
+  private previewView(view: string, tile: HTMLElement): void {
+    if (this.viewPreview?.view === view) return;
+    this.endViewPreview();
+    const path = this.viewTarget();
+    const deck = this.host.deck();
+    if (!path || viewOf(getAt(deck, path)) === view) return;
+    const i = this.host.index();
+    const tmp = JSON.parse(JSON.stringify(deck)) as Deck;
+    setAt(tmp, path, toView(getAt(tmp, path) as Record<string, unknown>, view));
+    const box = document.createElement('div');
+    box.innerHTML = new Renderer(tmp, tmp.brand?.logo).slide(tmp.slides[i], i, 'on');
+    const key = JSON.stringify(path);
+    const fresh = [...box.querySelectorAll<HTMLElement>('[data-block]')].find((x) => x.getAttribute('data-block') === key);
+    const live = this.host.stage().querySelector<HTMLElement>(':scope > .slide.on');
+    if (!fresh || !live) return;
+    const outer = fresh.parentElement?.classList.contains('free') ? fresh.parentElement : null;
+    // Ширина — как у блока на слайде, но не шире 760: в уменьшенной карточке текст остаётся читаемым
+    const w = Math.max(320, Math.min(760, Number(((getAt(tmp, path) as Block).place as { w?: number } | undefined)?.w) || live.querySelector<HTMLElement>(`[data-block='${CSS.escape(key)}']`)?.offsetWidth || 900));
+    const pop = document.createElement('div');
+    pop.className = 'st-viewpop';
+    // «Слайд» вокруг блока: цвета, шрифты и стили презентации действуют как на слайде
+    const frame = document.createElement('div');
+    for (const at of live.attributes) if (at.name !== 'style' && at.name !== 'id') frame.setAttribute(at.name, at.value);
+    frame.classList.add('static', 'st-viewpop-slide');
+    frame.style.width = `${w + 48}px`;
+    if (outer) Object.assign(outer.style, { position: 'relative', left: '0', top: '0', width: `${w}px`, height: 'auto' });
+    frame.appendChild(outer ?? fresh);
+    pop.appendChild(frame);
+    document.body.appendChild(pop);
+    const k = Math.min(1, 460 / (w + 48));
+    frame.style.transform = `scale(${k})`;
+    pop.style.width = `${Math.round((w + 48) * k)}px`;
+    pop.style.height = `${Math.round(Math.min(frame.offsetHeight, 900) * k)}px`;
+    // Слева от панели свойств, напротив плитки
+    const r = tile.getBoundingClientRect();
+    const panel = this.root.getBoundingClientRect();
+    pop.style.left = `${Math.max(8, panel.left - pop.offsetWidth - 12)}px`;
+    pop.style.top = `${Math.max(8, Math.min(innerHeight - pop.offsetHeight - 8, r.top - 8))}px`;
+    this.viewPreview = { view, pop };
+  }
+  private endViewPreview(): void {
+    this.viewPreview?.pop.remove();
+    this.viewPreview = null;
+  }
+
   private setView(view: string): void {
+    this.endViewPreview();
     const path = this.viewTarget();
     const ed = this.host.editor();
     if (!path || viewOf(getAt(this.host.deck(), path)) === view) return;
