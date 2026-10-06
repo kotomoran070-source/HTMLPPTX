@@ -637,9 +637,9 @@ body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
 .st-f-media input[readonly] { background: var(--alt); color: var(--tx2); cursor: default; }
 .st-f-media .st-f-x { align-self: center; }
 .st-bds { grid-template-columns: repeat(4, 1fr); }
-/* Лента анимированных фонов: листается вбок, по краям — стрелки; плитка 16:9 */
+/* Лента анимированных фонов: две строки, листается вбок, по краям — стрелки; плитка 16:9 */
 .st-bdpick { position: relative; display: flex; align-items: center; min-width: 0; }
-.st-bdstrip { display: grid; grid-auto-flow: column; grid-auto-columns: 92px; gap: 6px; overflow-x: auto; padding: 3px 2px 4px; scroll-snap-type: x proximity; scrollbar-width: none; overscroll-behavior-x: contain;
+.st-bdstrip { flex: 1; min-width: 0; display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, auto); grid-auto-columns: calc((100% - 12px) / 3); gap: 6px; overflow-x: auto; padding: 3px 2px 4px; scroll-snap-type: x proximity; scrollbar-width: none; overscroll-behavior-x: contain;
   -webkit-mask: linear-gradient(90deg, transparent, #000 10px, #000 calc(100% - 10px), transparent); mask: linear-gradient(90deg, transparent, #000 10px, #000 calc(100% - 10px), transparent); }
 .st-bdstrip::-webkit-scrollbar { display: none; }
 .st-bdstrip button { display: flex; flex-direction: column; gap: 4px; padding: 3px; border: 1px solid var(--bd); border-radius: 9px; background: var(--surf); color: var(--tx2); font: 500 11px var(--font); text-align: center; cursor: pointer; scroll-snap-align: start; }
@@ -654,7 +654,7 @@ body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
 .st-bdnav.off { opacity: 0; pointer-events: none; }
 .st-bdnav .ic { width: 14px; height: 14px; }
 .st-bdpop { width: 560px; padding: 10px 14px 12px; }
-.st-bdpop .st-bdstrip { grid-auto-columns: 112px; }
+.st-bdpop .st-bdstrip { grid-auto-columns: calc((100% - 18px) / 4); }
 .st-bdnote { margin: 6px 2px 0; color: var(--mu); font-size: 12px; max-width: none; }
 .st-bds i { background-color: var(--bg); }
 .st-bds i.backdrop { position: relative; inset: auto; z-index: auto; background-color: var(--bg); }
