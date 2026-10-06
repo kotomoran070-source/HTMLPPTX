@@ -11,7 +11,15 @@ export interface FontItem {
   /** CSS font-family для предпросмотра */
   css: string;
   group: string;
+  /** Сколько у шрифта начертаний (толщин) */
+  weights?: number;
 }
+
+const plural = (n: number, one: string, few: string, many: string) => {
+  const d = n % 10;
+  const h = n % 100;
+  return d === 1 && h !== 11 ? one : d >= 2 && d <= 4 && (h < 12 || h > 14) ? few : many;
+};
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -122,7 +130,9 @@ export class FontPicker {
       // С запросом группы не делят список: лучшие совпадения сверху
       // Группы (тема, презентация, компьютер) разделены линией — без подписей
       if (!q && f.group !== group) { if (group) html += '<div class="fontpick-sep" role="separator"></div>'; group = f.group; }
-      html += `<div class="fontpick-o${f.value === this.cur ? ' cur' : ''}" role="option" data-i="${i}" data-css="${esc(f.css)}" aria-selected="${f.value === this.cur}">${esc(f.label)}</div>`;
+      // Начертания — тремя буквами самого шрифта от тонкой к жирной: сразу видно, что толщины есть
+      const w = (f.weights ?? 0) > 1 ? `<small class="fontpick-w" title="${f.weights} ${plural(f.weights!, 'начертание', 'начертания', 'начертаний')}"><i style="font-weight:200">а</i><i style="font-weight:500">а</i><i style="font-weight:800">а</i></small>` : '';
+      html += `<div class="fontpick-o${f.value === this.cur ? ' cur' : ''}" role="option" data-i="${i}" data-css="${esc(f.css)}" aria-selected="${f.value === this.cur}"><span>${esc(f.label)}</span>${w}</div>`;
     });
     if (!this.shown.length) html = `<div class="fontpick-none">Нет шрифта «${esc(this.q.value.trim())}»</div>`;
     if (localFontsState() === 'ask') html += `<button type="button" class="fontpick-ask" data-ask>Показать шрифты компьютера…</button>`;
@@ -167,12 +177,14 @@ export class FontPicker {
   }
 }
 
-/** Названия толщин — как в PowerPoint и Figma, по-русски */
-export const WEIGHT_NAMES: Record<number, string> = {
-  100: 'Тонкий', 200: 'Сверхсветлый', 300: 'Светлый', 350: 'Полусветлый', 400: 'Обычный',
-  500: 'Средний', 600: 'Полужирный', 700: 'Жирный', 800: 'Сверхжирный', 900: 'Чёрный', 950: 'Сверхчёрный',
+/** Названия толщин: по-русски и привычное английское, как в файлах шрифтов и в Figma */
+export const WEIGHT_NAMES: Record<number, [string, string]> = {
+  100: ['Тонкий', 'Thin'], 200: ['Сверхсветлый', 'ExtraLight'], 300: ['Светлый', 'Light'], 350: ['Полусветлый', 'SemiLight'],
+  400: ['Обычный', 'Regular'], 500: ['Средний', 'Medium'], 600: ['Полужирный', 'SemiBold'], 700: ['Жирный', 'Bold'],
+  800: ['Сверхжирный', 'ExtraBold'], 900: ['Тяжёлый', 'Black'], 950: ['Сверхтяжёлый', 'ExtraBlack'],
 };
-export const weightName = (w: number) => WEIGHT_NAMES[w] ?? String(w);
+export const weightName = (w: number) => WEIGHT_NAMES[w]?.[0] ?? String(w);
+export const weightNameEn = (w: number) => WEIGHT_NAMES[w]?.[1] ?? String(w);
 
 let shared: FontPicker | null = null;
 /** Один список выбора шрифта на страницу */
@@ -181,12 +193,13 @@ export function fontPicker(): FontPicker {
 }
 
 /** Пункты списка: сначала шрифты темы, затем шрифты презентации и библиотеки, затем шрифты компьютера */
-export function fontItems(head: FontItem[], choices: { name: string; sys?: boolean; theme?: boolean }[], stack: (n: string) => string): FontItem[] {
+export function fontItems(head: FontItem[], choices: { name: string; sys?: boolean; theme?: boolean; weights?: number }[], stack: (n: string) => string): FontItem[] {
   const names = new Set(head.map((f) => f.value));
+  const item = (group: string) => (f: (typeof choices)[number]): FontItem => ({ value: f.name, label: f.name, css: stack(f.name), group, weights: f.weights });
   return [
     ...head,
-    ...choices.filter((f) => !f.sys && !f.theme && !names.has(f.name)).map((f) => ({ value: f.name, label: f.name, css: stack(f.name), group: 'Шрифты презентации' })),
-    ...choices.filter((f) => f.theme && !names.has(f.name)).map((f) => ({ value: f.name, label: f.name, css: stack(f.name), group: 'Шрифты тем' })),
-    ...choices.filter((f) => f.sys && !names.has(f.name)).map((f) => ({ value: f.name, label: f.name, css: stack(f.name), group: 'Шрифты компьютера' })),
+    ...choices.filter((f) => !f.sys && !f.theme && !names.has(f.name)).map(item('Шрифты презентации')),
+    ...choices.filter((f) => f.theme && !names.has(f.name)).map(item('Шрифты тем')),
+    ...choices.filter((f) => f.sys && !names.has(f.name)).map(item('Шрифты компьютера')),
   ];
 }

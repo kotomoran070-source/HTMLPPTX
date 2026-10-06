@@ -328,7 +328,13 @@ body.ed-copying, body.ed-copying * { cursor: copy !important; }
 .fontpick-o { padding: 6px 8px; border-radius: 6px; font-size: 15px; line-height: 1.3; color: var(--tx); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fontpick-o.on { background: var(--alt); }
 .fontpick-o.cur { color: var(--ach); font-weight: 600; }
-.fontpick-o.cur::after { content: " ✓"; }
+.fontpick-o.cur > span::after { content: " ✓"; }
+.fontpick-o { display: flex; align-items: center; gap: 8px; }
+.fontpick-o > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Начертания у шрифта: «ааа» самим шрифтом от тонкой к жирной */
+.fontpick-w { flex: none; display: inline-flex; gap: 1px; padding: 1px 6px 2px; border-radius: 6px; background: var(--alt); color: var(--tx2); font-size: 13px; line-height: 1.2; }
+.fontpick-w i { font-style: normal; }
+.fontpick-o.on .fontpick-w { background: var(--surf); }
 .fontpick-none { padding: 10px 8px; font-size: 13px; color: var(--mu); }
 .fontpick-ask { display: block; width: 100%; margin-top: 6px; padding: 8px; border: 1px dashed var(--bd2); border-radius: 8px; background: none; color: var(--ach); font: 600 13px var(--font); cursor: pointer; text-align: left; }
 .fontpick-ask:hover { background: var(--acs); }
@@ -339,6 +345,18 @@ body.ed-copying, body.ed-copying * { cursor: copy !important; }
 
 /* Список с выбором вида: кнопка и стрелка вплотную */
 .edsplit { display: inline-flex; align-items: center; border-radius: 8px; }
+/* Начертание: кнопка с толщиной текста и меню образцов */
+.edtext .edweight { gap: 4px; min-width: 92px; justify-content: space-between; padding: 0 6px 0 8px; border: 1px solid var(--bd); font-weight: 500; }
+.edtext .edweight span { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.edtext .edweight.set { color: var(--ach); }
+.edtext .edweight .st-caret { display: inline-block; width: 0; height: 0; margin: 0; border: 3.5px solid transparent; border-top: 4px solid currentColor; border-bottom: 0; opacity: .7; }
+.edmenu button.edw { display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 10px; width: 100%; min-width: 236px; padding: 4px 10px; }
+.edw b { font-size: 19px; line-height: 1.15; color: var(--tx); }
+.edw span { font-weight: 500; }
+.edw small { color: var(--mu); font-size: 11.5px; font-weight: 500; letter-spacing: .01em; }
+.edmenu button.edw[aria-checked="true"] { background: var(--acs); color: var(--ach); }
+.edmenu button.edw[aria-checked="true"] b { color: var(--ach); }
+.edw-sep { height: 1px; margin: 4px 6px; background: var(--bd); }
 /* Кнопка с меню, как в PowerPoint: при наведении подсвечивается целиком, наведённая часть — темнее */
 .edtext .edsplit > button { border-radius: 0; }
 .edtext .edsplit > button:first-child { border-radius: 8px 0 0 8px; padding-right: 4px; }

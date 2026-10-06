@@ -1228,7 +1228,11 @@ export class Editor {
    * Шрифты для выбора: свои у презентации, из общей библиотеки (lib — ещё не скопирован в презентацию)
    * и после них — установленные на компьютере (sys: в презентацию копируется при выборе)
    */
-  fontChoices(): { name: string; lib: boolean; sys?: boolean; theme?: boolean }[] {
+  fontChoices(): { name: string; lib: boolean; sys?: boolean; theme?: boolean; weights?: number }[] {
+    return this.fontChoiceList().map((f) => ({ ...f, weights: this.fontWeights(f.name).length }));
+  }
+
+  private fontChoiceList(): { name: string; lib: boolean; sys?: boolean; theme?: boolean }[] {
     const own = [...new Set(deckFonts(this.host.deck.fonts).map((f) => f.name.trim()))];
     const lib = this.library.filter((f) => !own.includes(f.name)).map((f) => f.name);
     const themed = (this.themeFonts?.names ?? []).filter((n) => !own.includes(n) && !lib.includes(n));
@@ -1245,7 +1249,7 @@ export class Editor {
    * Шрифты тем студии (src/fonts): в списках шрифтов — после своих; в презентацию копируются,
    * когда их выбирают. Задаёт студия: в собранном файле этих шрифтов нет
    */
-  themeFonts: { names: string[]; get(name: string): { name: string; url: string; file: string } | null } | null = null;
+  themeFonts: { names: string[]; get(name: string): { name: string; url: string; file: string } | null; weights?(name: string): number[] } | null = null;
 
   /**
    * Шрифт из библиотеки, выбранный в этой презентации, — копией в её assets/ и в fonts:
@@ -1354,7 +1358,9 @@ export class Editor {
     const local = localWeights(name);
     if (local.length) return local;
     const own = deckFonts(this.host.deck.fonts).filter((f) => f.name.trim() === name && f.style !== 'italic' && f.weight).map((f) => f.weight!);
-    return [...new Set(own)].sort((a, b) => a - b);
+    if (own.length) return [...new Set(own)].sort((a, b) => a - b);
+    // Шрифт темы — переменный: любая ступень в его диапазоне
+    return this.themeFonts?.weights?.(name) ?? [];
   }
 
   /**

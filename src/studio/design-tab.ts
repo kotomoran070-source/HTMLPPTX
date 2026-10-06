@@ -19,7 +19,7 @@ import { logoPlate } from '../engine/render';
 import { logoColors } from './logo-colors';
 import { showPopover } from './menu';
 import { addMyTheme, captureTheme, downloadTheme, listMyThemes, MY, parseThemeFile, registerMyFonts, removeMyTheme, type MyTheme } from './my-themes';
-import { registerThemeFonts, SPECIMEN, THEME_FONTS, THEME_PRESETS, themeFont, type ThemePreset } from './theme-presets';
+import { registerThemeFonts, SPECIMEN, THEME_FONTS, THEME_PRESETS, themeFont, themeFontWeights, type ThemePreset } from './theme-presets';
 
 interface Command {
   run(): void;
@@ -161,7 +161,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
   const { deck, editor: ed } = h;
   registerThemeFonts();
   // Шрифты тем — в списках шрифтов редактора (копируются в презентацию при выборе)
-  ed.themeFonts = { names: Object.keys(THEME_FONTS), get: themeFont };
+  ed.themeFonts = { names: Object.keys(THEME_FONTS), get: themeFont, weights: themeFontWeights };
   const theme = (): DeckTheme => deck.theme ?? {};
   const anchor = (cmd: string) => [...document.querySelectorAll<HTMLElement>(`.st-ribbon [data-cmd="${cmd}"]`)].find((b) => b.offsetParent) ?? null;
 

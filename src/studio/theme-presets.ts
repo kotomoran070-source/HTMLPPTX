@@ -28,6 +28,19 @@ export const THEME_FONTS: Record<string, string> = {
   'JetBrains Mono': 'JetBrainsMono.woff2',
 };
 
+/** Толщины шрифтов тем: все переменные (любая толщина в диапазоне), Dela Gothic One — одна */
+const THEME_FONT_RANGE: Record<string, [number, number]> = {
+  'Inter Tight': [100, 900], Manrope: [200, 800], Onest: [100, 900], 'Golos Text': [400, 900], Montserrat: [100, 900],
+  Jost: [100, 900], Nunito: [200, 900], Unbounded: [200, 900], Tektur: [400, 900], 'Dela Gothic One': [400, 400],
+  'Noto Serif Display': [100, 900], Literata: [200, 900], 'Cormorant Garamond': [300, 700], Caveat: [400, 700], 'JetBrains Mono': [100, 800],
+};
+
+/** Начертания шрифта темы — обычные ступени (100, 200…) внутри его диапазона */
+export function themeFontWeights(name: string): number[] {
+  const r = THEME_FONT_RANGE[name];
+  return r ? [100, 200, 300, 400, 500, 600, 700, 800, 900].filter((w) => w >= r[0] && w <= r[1]) : [];
+}
+
 // Студия есть только в yarn dev и в приложении: в собранные файлы презентаций шрифты не попадают
 const URLS = import.meta.glob('../fonts/*.woff2', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
 
@@ -45,7 +58,8 @@ export function registerThemeFonts(): void {
   el.id = 'slideria-theme-fonts';
   el.textContent = Object.keys(THEME_FONTS).map((n) => {
     const f = themeFont(n);
-    return f ? `@font-face{font-family:"${n}";src:url("${f.url}") format("woff2");font-weight:100 900;font-display:swap}` : '';
+    const r = THEME_FONT_RANGE[n] ?? [100, 900];
+    return f ? `@font-face{font-family:"${n}";src:url("${f.url}") format("woff2");font-weight:${r[0]} ${r[1]};font-display:swap}` : '';
   }).join('\n');
   document.head.appendChild(el);
 }

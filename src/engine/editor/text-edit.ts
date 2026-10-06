@@ -1,5 +1,5 @@
 import { deckFonts, fontNameOk, fontStack } from '../fonts';
-import { fontItems, fontPicker, weightName, type FontItem } from './font-picker';
+import { fontItems, fontPicker, weightName, weightNameEn, type FontItem } from './font-picker';
 import { icon } from '../../components/icons';
 import { getAt, KEY, setAt, type Path } from '../data';
 import { esc, t } from '../html';
@@ -84,7 +84,7 @@ export class TextEditor {
     document.body.insertAdjacentHTML('beforeend', `
 <div class="edtext" id="ed-text" role="toolbar" aria-label="Оформление текста">
   <button type="button" data-t="font" class="edfont" title="Шрифт" aria-label="Шрифт" aria-haspopup="listbox" aria-expanded="false"><span>Шрифт темы</span></button>
-  <select data-t="weight" title="Начертание" aria-label="Начертание" hidden></select>
+  <button type="button" data-t="weight" class="edweight" title="Начертание: толщина шрифта" aria-label="Начертание" aria-haspopup="true" aria-expanded="false" hidden><span></span><b class="st-caret"></b></button>
   <span class="edsize" title="Размер шрифта, px">
     <button type="button" data-t="size-" aria-label="Меньше">−</button>
     <input type="number" data-t="size" min="6" max="300" step="1" aria-label="Размер шрифта">
@@ -428,21 +428,50 @@ export class TextEditor {
     this.s?.el.focus({ preventScroll: true });
   }
 
-  /** Начертания шрифта поля: только те, что у шрифта есть (у шрифтов темы — неизвестно, списка нет) */
+  /** Начертания шрифта поля: только те, что у шрифта есть */
+  private weights: number[] = [];
   private syncWeights(): void {
     const s = this.s;
-    const sel = this.bar.querySelector<HTMLSelectElement>('[data-t="weight"]')!;
+    const btn = this.bar.querySelector<HTMLElement>('[data-t="weight"]')!;
     if (!s) return;
     const font = s.styles.font || this.host.themeFont?.() || '';
     const ws = fontNameOk(font) && !FONTS[font] ? this.host.fontWeights?.(font) ?? [] : [];
     const cur = Number(s.styles.weight) || 0;
-    const all = cur && !ws.includes(cur) && ws.length ? [...ws, cur].sort((a, b) => a - b) : ws;
-    sel.hidden = !s.owner || all.length < 2;
-    const sig = `${all.join(',')}#${cur}`;
-    if (sel.dataset.sig === sig) return;
-    sel.dataset.sig = sig;
-    sel.innerHTML = `<option value="">Как в теме</option>${all.map((w) => `<option value="${w}" style="font-weight:${w}">${esc(weightName(w))}</option>`).join('')}`;
-    sel.value = cur ? String(cur) : '';
+    this.weights = cur && !ws.includes(cur) && ws.length ? [...ws, cur].sort((a, b) => a - b) : ws;
+    btn.hidden = !s.owner || this.weights.length < 2;
+    // На кнопке — толщина, которой текст написан сейчас (своя или из оформления)
+    const shown = cur || Math.round((Number(getComputedStyle(s.el).fontWeight) || 400) / 100) * 100;
+    btn.querySelector('span')!.textContent = weightName(shown);
+    btn.classList.toggle('set', !!cur);
+  }
+
+  /** Меню начертаний: каждая толщина написана самим шрифтом, подпись по-русски и по-английски */
+  private weightMenu(anchor: HTMLElement): void {
+    const s = this.s;
+    if (!s) return;
+    if (this.menu.classList.contains('on') && this.menu.dataset.kind === 'weight') {
+      this.menu.classList.remove('on');
+      return;
+    }
+    this.menu.dataset.kind = 'weight';
+    const cur = Number(s.styles.weight) || 0;
+    const family = getComputedStyle(s.el).fontFamily.replace(/"/g, "'");
+    const row = (w: number, ru: string, en: string) => `<button type="button" class="edw" data-w="${w || ''}" role="menuitemradio" aria-checked="${w === cur}">`
+      + `<b style="font-family:${esc(family)};font-weight:${w || 'inherit'}">Аа</b><span>${esc(ru)}</span><small>${esc(en)}</small></button>`;
+    this.menu.innerHTML = `<div class="edmenu-title">Начертание</div>${row(0, 'Как в оформлении', 'Default')}<div class="edw-sep"></div>`
+      + this.weights.map((w) => row(w, weightName(w), weightNameEn(w))).join('');
+    this.menu.onmousedown = (e) => e.preventDefault();
+    this.menu.onclick = (e) => {
+      const b = (e.target as Element).closest<HTMLElement>('[data-w]');
+      if (!b || !this.s) return;
+      this.setStyle({ weight: Number(b.dataset.w) || undefined });
+      this.menu.classList.remove('on');
+      this.s?.el.focus({ preventScroll: true });
+    };
+    this.menu.classList.add('on');
+    const r = anchor.getBoundingClientRect();
+    this.menu.style.left = `${Math.max(8, Math.min(innerWidth - this.menu.offsetWidth - 8, r.left))}px`;
+    this.menu.style.top = `${r.bottom + 6}px`;
   }
 
   private reset(): void {
@@ -494,6 +523,7 @@ export class TextEditor {
         case 'font': fontPicker().toggle(b, () => this.fontList(), this.s.styles.font ?? '', (v) => this.setFont(v)); break;
         case 'leading': case 'spacing': this.toggleMenu(cmd, b); break;
         case 'list-kind': this.listMenu(b); break;
+        case 'weight': this.weightMenu(b); break;
         case 'reset': this.reset(); break;
         case 'delete': {
           const block = this.s.block;
@@ -517,12 +547,6 @@ export class TextEditor {
         this.s?.el.focus({ preventScroll: true });
       }
     });
-    const weight = this.bar.querySelector<HTMLSelectElement>('[data-t="weight"]')!;
-    weight.addEventListener('change', () => {
-      this.setStyle({ weight: Number(weight.value) || undefined });
-      this.s?.el.focus({ preventScroll: true });
-    });
-    weight.addEventListener('keydown', (e) => e.stopPropagation());
     this.colors.addEventListener('click', (e) => {
       const b = (e.target as Element).closest<HTMLElement>('button[data-c]');
       if (!b) return;
