@@ -213,12 +213,54 @@ export class DeckView {
     this.current = i;
     this.endOut();
     unmorph(this.slides[i]);
+    this.spot(null);
     this.slides.forEach((s, k) => s.classList.toggle('on', k === i));
     DeckView.resetTriggers(this.slides[i]);
     restartGifs(this.slides[i]);
     if (this.transitions && prev) this.runOut(prev, this.slides[i], back);
     // После перехода: морф снимает копии с настоящего текста, а не с «0» начала отсчёта
     this.count(this.slides[i]);
+  }
+
+  /**
+   * Прожектор при показе: блок слайда (по его пути data-block) в светлом окне, остальное приглушено.
+   * null — снять. Переход к другому слайду снимает сам.
+   */
+  spotted: string | null = null;
+  spot(key: string | null): void {
+    this.stage.querySelectorAll('.spot-frame').forEach((f) => f.remove());
+    this.spotted = null;
+    const slide = this.slides[this.current];
+    if (!key || !slide) return;
+    const el = [...slide.querySelectorAll<HTMLElement>('[data-block]')].find((x) => x.getAttribute('data-block') === key);
+    if (!el) return;
+    // Свободный объект — по его рамке (поворот, свои поля)
+    const box = el.parentElement?.classList.contains('free') ? el.parentElement : el;
+    const sr = slide.getBoundingClientRect();
+    const k = sr.width / (slide.offsetWidth || 1);
+    const r = box.getBoundingClientRect();
+    const pad = 12;
+    const f = document.createElement('div');
+    f.className = 'spot-frame';
+    Object.assign(f.style, {
+      left: `${(r.left - sr.left) / k - pad}px`, top: `${(r.top - sr.top) / k - pad}px`,
+      width: `${r.width / k + pad * 2}px`, height: `${r.height / k + pad * 2}px`,
+    });
+    slide.appendChild(f);
+    requestAnimationFrame(() => f.classList.add('on'));
+    this.spotted = key;
+  }
+
+  /**
+   * Что выделить прожектором по щелчку: путь блока; '' — щелчок мимо блоков (снять);
+   * null — щелчок по управлению (ползунок, кнопка, видео) — прожектор не трогать.
+   */
+  static spotKey(target: Element, slide: HTMLElement): string | null {
+    if (target.closest('input, textarea, select, button, a, video, model-viewer, canvas, iframe, label')) return null;
+    const el = target.closest<HTMLElement>('[data-block]');
+    if (!el || !slide.contains(el)) return '';
+    // Блок почти во весь слайд (тело раскладки) — это «мимо»
+    return el.offsetWidth * el.offsetHeight > slide.offsetWidth * slide.offsetHeight * 0.6 ? '' : el.getAttribute('data-block') ?? '';
   }
 
   /** «Число набегает» у объектов слайда (остановка прежнего отсчёта возвращает текст как был) */

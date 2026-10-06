@@ -613,6 +613,12 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       if (k === 'Escape' || lower === 'g' || lower === 'п') { e.preventDefault(); closeGrid(); }
       return;
     }
+    if (k === 'Escape' && view.spotted) {
+      e.preventDefault();
+      view.spot(null);
+      sync.send({ type: 'spot', index, key: null }, toMain());
+      return;
+    }
     const map: Record<string, () => void> = {
       ArrowRight: () => go(index + 1), ArrowDown: () => go(index + 1), PageDown: () => go(index + 1), ' ': () => go(index + 1),
       ArrowLeft: () => go(index - 1), ArrowUp: () => go(index - 1), PageUp: () => go(index - 1), Backspace: () => go(index - 1),
@@ -641,7 +647,16 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     if (tool !== 'none') return;
     const t = e.target as Element;
     const el = t.closest<HTMLElement>('.slide.on > .free[data-action]');
-    if (!el || t.closest('input, textarea, button, a, video, model-viewer')) return;
+    if (!el || t.closest('input, textarea, button, a, video, model-viewer')) {
+      // Прожектор: щелчок по блоку здесь — и у зрителей
+      const slide = t.closest<HTMLElement>('.slide.on');
+      const key = slide ? DeckView.spotKey(t, slide) : null;
+      if (key === null || (!key && !view.spotted)) return;
+      const next = key && key !== view.spotted ? key : null;
+      view.spot(next);
+      sync.send({ type: 'spot', index, key: next }, toMain());
+      return;
+    }
     // Показать / скрыть объекты слайда — здесь и во втором окне
     if (view.trigger(index, el.dataset.action!)) {
       e.stopPropagation();
@@ -680,6 +695,10 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     }
     if (m.type === 'trigger') {
       if (!mainId || from === mainId) view.trigger(m.index, m.action);
+      return;
+    }
+    if (m.type === 'spot') {
+      if ((!mainId || from === mainId) && m.index === index) view.spot(m.key);
       return;
     }
     if (m.type === 'code') {

@@ -22,6 +22,8 @@ export type SyncMsg =
   | { type: 'code'; index: number; block: string; code: string; run?: boolean }
   /** Кнопка «показать / скрыть» нажата в одном окне — другое повторяет */
   | { type: 'trigger'; index: number; action: string }
+  /** Прожектор на блоке слайда (путь data-block) или снят (null) — в обоих окнах */
+  | { type: 'spot'; index: number; key: string | null }
   /** Окно докладчика просит окно показа включить пульт; ответ — remote-room с кодом комнаты */
   | { type: 'remote-start' }
   | { type: 'remote-room'; room: string }

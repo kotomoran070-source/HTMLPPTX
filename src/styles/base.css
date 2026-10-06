@@ -50,6 +50,11 @@ body {
 .stage .slide.on[data-tr="none"] { animation: none; }
 /* Морф (engine/morph.ts): новый слайд на месте сразу, поверх — растворяющийся снимок старого
    и летящие копии одинаковых объектов */
+/* Прожектор при показе (DeckView.spot): блок в светлом окне, остальное приглушено */
+.slide > .spot-frame { position: absolute; z-index: 60; border-radius: 16px; pointer-events: none; opacity: 0; transition: opacity .3s ease;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 60%, transparent), 0 0 0 4000px rgba(6, 8, 14, .64); }
+.slide > .spot-frame.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .slide > .spot-frame { transition: none; } }
 .stage[data-tr="morph"] > .slide.on { animation: none; }
 .stage[data-tr="morph"] > .slide.out { visibility: hidden; }
 .stage > .slide.morph-ghost { display: block; z-index: 2; pointer-events: none; }

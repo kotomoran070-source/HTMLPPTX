@@ -414,6 +414,13 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     if (!typing && !(ovOpen() && e.key === 'Escape') && editor?.handleKey(e)) return;
     if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key;
+    // Esc сначала гасит прожектор
+    if (k === 'Escape' && view.spotted && !ovOpen()) {
+      e.preventDefault();
+      view.spot(null);
+      sync.send({ type: 'spot', index, key: null });
+      return;
+    }
     if (ovOpen()) {
       if (k === 'Escape' || k === 'o' || k === 'O' || k === 'щ' || k === 'Щ') { e.preventDefault(); ovHide(); }
       return;
@@ -481,7 +488,16 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     if (document.body.classList.contains('editing')) return;
     const t = e.target as Element;
     const el = t.closest<HTMLElement>('.slide.on > .free[data-action]');
-    if (!el || t.closest('input, textarea, button, a, video, model-viewer')) return;
+    if (!el || t.closest('input, textarea, button, a, video, model-viewer')) {
+      // Прожектор: щелчок по блоку — он в светлом окне, остальное приглушено; ещё раз или мимо — снять
+      const slide = t.closest<HTMLElement>('.slide.on');
+      const key = slide ? DeckView.spotKey(t, slide) : null;
+      if (key === null || (!key && !view.spotted)) return;
+      const next = key && key !== view.spotted ? key : null;
+      view.spot(next);
+      sync.send({ type: 'spot', index, key: next });
+      return;
+    }
     // Показать / скрыть объекты слайда — здесь и во втором окне
     if (view.trigger(index, el.dataset.action!)) {
       e.stopPropagation();
@@ -509,6 +525,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   });
   sync.on((m, from) => {
     if (m.type === 'goto') go(m.index);
+    else if (m.type === 'spot') { if (m.index === index) view.spot(m.key); }
     else if (m.type === 'vars') view.setVars(m.index, m.vars);
     else if (m.type === 'trigger') view.trigger(m.index, m.action);
     else if (m.type === 'code') view.setCode(m.index, m.block, m.code, m.run);

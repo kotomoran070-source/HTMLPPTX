@@ -95,3 +95,18 @@ test('морф: пары перелетают, после перехода — �
   await expect(page.locator('.morph-layer, .morph-ghost')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test('прожектор: щелчок по блоку — он в светлом окне; ещё раз или Esc — снять', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=slideria#5');
+  const chart = page.locator('.slide.on [data-type="line-chart"]');
+  await expect(chart).toBeVisible();
+  await chart.click();
+  await expect(page.locator('.slide.on > .spot-frame.on')).toHaveCount(1);
+  await chart.click();
+  await expect(page.locator('.spot-frame')).toHaveCount(0);
+  await chart.click();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.spot-frame')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
