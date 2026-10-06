@@ -157,3 +157,24 @@ test('живой фон не перехватывает мышь: логотип
   await expect.poll(async () => { const r = (await logo.locator('.logo').boundingBox())!; return Math.round(r.width) === Math.round(r.height) && r.width > b.width * 1.5; }).toBe(true);
   expect(errors).toEqual([]);
 });
+
+test('«Настроить ленту»: простая лента прячет вкладки, запоминается, скрытое находит Ctrl+K', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=tpl&studio#1');
+  await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
+  await page.locator('.st-top-r [data-cmd="ui.ribbon"]').click();
+  await page.locator('[data-preset="simple"]').click();
+  await expect(page.locator('.st-tabs [data-tab="tools"]')).toBeHidden();
+  await expect(page.locator('.st-rpanel[data-panel="home"] .st-rgroup[aria-label="Выровнять"]')).toBeHidden();
+  // Своя: вернуть группу — набор становится «своим» (открытая вкладка ленты уже раскрыта в списке)
+  await page.locator('[data-group="home/Выровнять"]').check();
+  await expect(page.locator('.rs-h i')).toHaveText('своя');
+  await page.reload();
+  await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
+  await expect(page.locator('.st-tabs [data-tab="tools"]')).toBeHidden();
+  await expect(page.locator('.st-rpanel[data-panel="home"] .st-rgroup[aria-label="Выровнять"]')).toBeVisible();
+  await page.keyboard.press('Control+k');
+  await page.locator('.st-pal-q').fill('Сводка');
+  await expect(page.locator('.st-pal-o').first()).toContainText('Инструменты');
+  expect(errors).toEqual([]);
+});

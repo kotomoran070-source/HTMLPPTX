@@ -29,6 +29,7 @@ import { addEffect, addTemplate, assetUrls, findEntrance, deckWithTemplate, list
 import { animCommands, animPanelHtml, animTabHtml, bindDelayField, syncAnimTab, type AnimHost } from './anim-tab';
 import { bindDesignStrip, designCommands, designPanelHtml, designTabHtml, syncDesignTab, type DesignHost } from './design-tab';
 import { THEME_PRESETS } from './theme-presets';
+import { initRibbonSetup } from './ribbon-setup';
 import { contextCommands, tableMenu, contextPanelsHtml, contextTab, contextTabsHtml, syncSwatches, type ContextTab } from './context-tabs';
 import { Inspector } from './inspector';
 import { closeLibrary, EMBED_SAMPLE, presetOf, SANDBOX_SAMPLE, showLibrary, type Preset } from './library';
@@ -107,6 +108,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     <div class="st-top-r">
       <button type="button" class="st-status" id="st-status" role="status" aria-live="polite"></button>
       <button class="btn ghost small st-export" type="button" data-cmd="file.export" title="Скачать один HTML-файл или PDF" aria-haspopup="true">${icon('save')}<span>Экспорт</span></button>
+<button class="ibtn small" type="button" data-cmd="ui.ribbon" aria-label="Настроить ленту" title="Настроить ленту: простая, полная, компактная или своя">${icon('sliders')}</button>
       <button class="ibtn small theme-btn" id="st-theme" type="button" aria-label="Тема интерфейса" title="Тема">${icon('sun', 'ic sun')}${icon('moon', 'ic moon')}</button>
       <button class="btn primary small" type="button" data-cmd="show.current" title="Показ с текущего слайда (Shift+F5)">${icon('play')}<span>Показ</span></button>
     </div>
@@ -146,7 +148,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Показать', `<div class="st-rstack">${chk('view.ruler', 'Линейка', 'Линейка сверху и слева; из неё вытягиваются направляющие')}${chk('view.grid', 'Сетка', 'Сетка на слайде, объекты прилипают к ней (Shift+F9)')}${chk('view.guides', 'Направляющие', 'Свои направляющие; объекты прилипают к ним (Alt+F9)')}</div><div class="st-rstack">${rb('view.grid-step', 'grid', 'Шаг сетки', { menu: true })}${rb('view.guides-reset', 'reset', 'Сбросить направляющие', { title: 'Оставить одну вертикальную и одну горизонтальную по центру' })}</div>`)}
       ${group('Скорость', `<div class="st-rstack">${chk('view.lite', 'Облегчённый режим', 'Если редактор подтормаживает: живые фоны, вставки, 3D-модели и анимации на слайде замирают в конечном виде. «Просмотр» и показ — как обычно')}</div>`)}
       ${group('Масштаб', rb('view.fit', 'fullscreen', 'Вписать', { big: true }) + `<div class="st-rstack">${rb('view.zoom-in', 'plus', 'Крупнее')}${rb('view.zoom-out', 'minus', 'Мельче')}</div>`)}
-      ${group('Интерфейс', `<div class="st-rstack">${chk('ui.own', 'Свой цвет', 'Кнопки и панели программы — в своём цвете, а не в цветах презентации. Слайды это не меняет. Запоминается на этом компьютере')}</div><label class="st-accent" title="Цвет интерфейса программы"><input type="color" id="st-uiac" aria-label="Цвет интерфейса"><span>Цвет</span></label>`)}
+      ${group('Интерфейс', `${rb('ui.ribbon', 'sliders', 'Настроить ленту', { big: true, title: 'Какие вкладки и кнопки видны: простая, полная, компактная или своя лента. Также — правый щелчок по ленте' })}<div class="st-rstack">${chk('ui.own', 'Свой цвет', 'Кнопки и панели программы — в своём цвете, а не в цветах презентации. Слайды это не меняет. Запоминается на этом компьютере')}</div><label class="st-accent" title="Цвет интерфейса программы"><input type="color" id="st-uiac" aria-label="Цвет интерфейса"><span>Цвет</span></label>`)}
     </div>
     ${contextPanelsHtml()}
   </div>
@@ -1438,6 +1440,16 @@ export function startStudio(deck: Deck, deckKey: string): void {
     }
   }
   new ResizeObserver(() => fitRibbon()).observe($('st-ribbon'));
+  // Своя лента: скрытые вкладки и группы, только значки (запоминается на компьютере)
+  const ribbonSetup = initRibbonSetup({ tab: () => tab, setTab, fit: fitRibbon });
+  cmds['ui.ribbon'] = { run: () => ribbonSetup.open() };
+  for (const el of [document.querySelector('.st-tabs')!, $('st-ribbon')]) {
+    el.addEventListener('contextmenu', (e) => {
+      if ((e.target as Element).closest('input, textarea, select, [contenteditable]')) return;
+      e.preventDefault();
+      ribbonSetup.open();
+    });
+  }
   document.querySelector('.st-tabs')!.addEventListener('click', (e) => {
     const t = (e.target as Element).closest<HTMLElement>('[data-tab]');
     if (t) {

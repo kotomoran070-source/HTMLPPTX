@@ -1,0 +1,51 @@
+/* «Настроить ленту» (ribbon-setup.ts): панель справа под лентой — лента остаётся на виду */
+.st-cut { display: none !important; }
+/* Только значки: подписи кнопок скрыты, как у узкого окна (fitRibbon) */
+#st-ribbon.icons .st-rb:not(.st-chk) > span { display: none; }
+#st-ribbon.icons :is(.st-rstack, .st-rrow) > .st-rb:not(.st-chk) { padding: 4px 6px; }
+#st-ribbon.icons .st-rb.big { min-width: 40px; padding: 6px; }
+#st-ribbon.icons .st-rfield > span:first-child { display: none; }
+#st-ribbon.nolabels .st-rgroup-label { display: none; }
+
+.rs { position: fixed; right: 16px; z-index: 70; width: 340px; max-height: calc(100vh - 140px); display: flex; flex-direction: column;
+  background: var(--surf); color: var(--tx); border: 1px solid var(--bd); border-radius: 14px; box-shadow: 0 18px 50px rgba(2, 6, 23, .22);
+  font: 13px/1.35 var(--font); overflow: hidden; animation: rs-in .16s ease-out; }
+@keyframes rs-in { from { opacity: 0; transform: translateY(-6px); } }
+.rs .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.rs header { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 8px 16px; }
+.rs header b { font-size: 14px; }
+.rs-x { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--mu); cursor: pointer; }
+.rs-x:hover { background: var(--alt); color: var(--tx); }
+
+.rs-presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 0 12px; }
+.rs-presets button { display: flex; flex-direction: column; gap: 3px; padding: 9px 9px 8px; border: 1px solid var(--bd); border-radius: 10px; background: var(--bg); color: var(--tx); text-align: left; cursor: pointer; }
+.rs-presets button:hover { border-color: var(--acb); background: var(--acs); }
+.rs-presets button.on { border-color: var(--ac); background: var(--acs); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 22%, transparent); }
+.rs-presets b { font: 700 13px var(--font); }
+.rs-presets small { color: var(--mu); font: 500 11.5px/1.3 var(--font); }
+.rs-presets button.on b { color: var(--ach); }
+
+.rs-opts { display: flex; gap: 14px; padding: 12px 16px 4px; }
+.rs label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.rs input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: var(--ac); cursor: pointer; flex: none; }
+.rs input:disabled + span { color: var(--mu); }
+
+.rs-h { display: flex; align-items: center; gap: 8px; padding: 12px 16px 6px; color: var(--mu); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.rs-h i { padding: 1px 7px; border-radius: 99px; background: var(--acs); color: var(--ach); font-style: normal; letter-spacing: 0; text-transform: none; }
+.rs-tabs { list-style: none; margin: 0; padding: 0 8px; overflow: auto; flex: 1; min-height: 0; }
+.rs-tabs > li { border-radius: 9px; }
+.rs-tabs > li.open { background: var(--bg); }
+.rs-tab { display: flex; align-items: center; gap: 8px; padding: 0 8px; }
+.rs-ctx { width: 15px; display: grid; place-items: center; color: var(--mu); }
+.rs-ctx .ic { width: 13px; height: 13px; }
+.rs-name { flex: 1; display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 0; border: 0; background: none; color: var(--tx); font: 600 13px var(--font); text-align: left; cursor: pointer; }
+.rs-name span { flex: 1; }
+.rs-name small { color: var(--mu); font-weight: 500; font-size: 12px; }
+.rs-chev { display: grid; color: var(--mu); transition: transform .15s; }
+.rs-chev .ic { width: 14px; height: 14px; }
+.rs-tabs > li.open .rs-chev { transform: rotate(90deg); }
+.rs-tabs > li.off .rs-name span { color: var(--mu); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--mu) 50%, transparent); }
+.rs-groups { display: none; grid-template-columns: 1fr 1fr; gap: 4px 12px; padding: 2px 10px 10px 31px; }
+.rs-tabs > li.open .rs-groups { display: grid; }
+.rs-groups label { min-height: 26px; font-size: 12.5px; }
+.rs-note { margin: 0; padding: 10px 16px 12px; border-top: 1px solid var(--bd); color: var(--mu); font-size: 12px; max-width: none; }

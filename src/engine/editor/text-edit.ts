@@ -672,12 +672,14 @@ export class TextEditor {
       mark2(v);
     });
     // Поле своего маркера потеряло фокус не в пользу текста или панели — правка текста закончена
-    this.menu.onfocusout = () => setTimeout(() => {
+    const leave = () => setTimeout(() => {
       const a = document.activeElement;
       if (!this.s || (a && (a === this.s.el || this.bar.contains(a) || this.menu.contains(a) || this.colors.contains(a)))) return;
       this.finish(true);
     }, 0);
     const pick = this.menu.querySelector<HTMLInputElement>('.edlc input[type="color"]')!;
+    inp.addEventListener('blur', leave);
+    pick.addEventListener('blur', leave);
     pick.addEventListener('input', () => {
       this.setStyle({ listColor: pick.value.toUpperCase() });
       for (const x of this.menu.querySelectorAll<HTMLElement>('[data-lc]')) x.classList.remove('on');
