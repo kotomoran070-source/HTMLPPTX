@@ -372,6 +372,7 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
     lm.nextElementSibling!.textContent = lm.value;
     $<HTMLElement>('.cg-lutname').textContent = g.lut ? (g.lutName ?? 'LUT') : 'Без LUT';
     lm.closest('label')!.classList.toggle('off', !g.lut);
+    $<HTMLElement>('[data-a="lut-off"]').classList.toggle('off', !g.lut);
     const stops = g.duo ?? brand;
     back.querySelectorAll<HTMLInputElement>('input[data-d]').forEach((inp) => { inp.value = stops[Number(inp.dataset.d)].toLowerCase(); });
     const dm = $<HTMLInputElement>('input[data-duo]');
@@ -757,6 +758,13 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
     // Клавиши редактора (Delete, стрелки) не трогают слайд, пока панель открыта
     if (!(e.target as Element)?.closest?.('input')) e.stopPropagation();
   };
+  // Ряд образов листается колесом мыши вбок
+  const strip = $<HTMLElement>('.cg-looks');
+  strip.addEventListener('wheel', (e) => {
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    e.preventDefault();
+    strip.scrollLeft += e.deltaY;
+  }, { passive: false });
   const onResize = () => { fit(); render(); };
   addEventListener('keydown', onKey, true);
   addEventListener('resize', onResize);
