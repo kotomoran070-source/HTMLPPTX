@@ -338,7 +338,16 @@ body.ed-copying, body.ed-copying * { cursor: copy !important; }
 .edfont::after { content: ""; flex: none; width: 6px; height: 6px; margin: -3px 2px 0 6px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); opacity: .6; }
 
 /* Список с выбором вида: кнопка и стрелка вплотную */
-.edsplit { display: inline-flex; align-items: center; }
+.edsplit { display: inline-flex; align-items: center; border-radius: 8px; }
+/* Кнопка с меню, как в PowerPoint: при наведении подсвечивается целиком, наведённая часть — темнее */
+.edtext .edsplit > button { border-radius: 0; }
+.edtext .edsplit > button:first-child { border-radius: 8px 0 0 8px; padding-right: 4px; }
+.edtext .edsplit > .edcaret { border-radius: 0 8px 8px 0; }
+.edsplit:hover { background: var(--alt); box-shadow: inset 0 0 0 1px var(--bd); }
+.edtext .edsplit:hover > button:hover { background: color-mix(in srgb, var(--tx) 9%, transparent); }
+.edtext .edsplit:hover > .edcaret { box-shadow: inset 1px 0 0 var(--bd); }
+.edsplit:has(> .on) { background: var(--acs); }
+.edtext .edsplit > button.on { background: none; }
 .edtext .edsplit .edcaret { width: 16px; min-width: 16px; padding: 0; justify-content: center; }
 .edtext .edsplit .edcaret .st-caret { display: inline-block; width: 0; height: 0; margin: 0; border: 3.5px solid transparent; border-top: 4px solid currentColor; border-bottom: 0; opacity: .7; }
 /* Вид списка: плитки с тремя строками */
@@ -359,8 +368,12 @@ body.ed-copying, body.ed-copying * { cursor: copy !important; }
 .edown-btn[aria-expanded="true"] .st-caret { transform: rotate(180deg); }
 .edown-prev { display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 3px; border-radius: 5px; background: var(--acs); color: var(--ac); font: 700 12px/1 var(--font); white-space: nowrap; max-width: 64px; overflow: hidden; }
 .edown-prev img { width: 16px; height: 16px; object-fit: contain; }
-.edlc { display: flex; align-items: center; gap: 5px; }
-.edmenu .edlc button, .edlc label { flex: none; width: 16px; height: 16px; padding: 0; border: 0; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(2, 6, 23, .18); cursor: pointer; }
+.edmenu .edlc-btn { width: 30px; height: 30px; min-height: 0; padding: 0; justify-content: center; border: 1px solid var(--bd); border-radius: 8px; background: var(--bg); }
+.edmenu .edlc-btn:hover { border-color: var(--acb); background: var(--acs); }
+.edlc-btn i { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(2, 6, 23, .2); }
+.edlc { display: grid; grid-template-columns: repeat(8, 22px); justify-content: space-between; margin: 8px 4px 2px; }
+.edlc[hidden] { display: none; }
+.edmenu .edlc button, .edlc label { width: 22px; height: 22px; min-height: 0; padding: 0; border: 0; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(2, 6, 23, .18); cursor: pointer; }
 .edmenu .edlc button.on { box-shadow: 0 0 0 2px var(--surf), 0 0 0 3.5px var(--ac); }
 .edlc label { position: relative; overflow: hidden; background: conic-gradient(#EF4444, #EAB308, #22C55E, #06B6D4, #3B82F6, #A855F7, #EF4444); }
 .edlc label input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
@@ -373,6 +386,3 @@ body.ed-copying, body.ed-copying * { cursor: copy !important; }
 .edown-row input.bad { border-color: #DC2626; }
 .edmenu .edown-row button { flex: none; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 1px solid var(--bd); border-radius: 7px; background: var(--bg); color: var(--tx2); cursor: pointer; }
 .edmenu .edown-row button:hover { border-color: var(--acb); background: var(--acs); color: var(--ach); }
-.edown-picks { display: flex; justify-content: space-between; }
-.edmenu .edown-picks button { width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--ac); font: 700 14px/1 var(--font); cursor: pointer; }
-.edmenu .edown-picks button:hover { background: var(--acs); }

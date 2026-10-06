@@ -24,13 +24,14 @@
 .video-seek i { background: #fff; min-width: 4px; }
 .video-seek i::after { content: ""; position: absolute; right: -6px; top: -4px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transform: scale(0); transition: transform .12s; }
 .video-seek:hover i::after, .video-seek:focus-visible i::after { transform: scale(1); }
-.video-menu { position: absolute; right: 12px; bottom: 64px; min-width: 168px; padding: 6px 0; border-radius: 10px; background: #fff; color: #202124; box-shadow: 0 4px 18px rgba(0, 0, 0, .3); font-size: 14px; }
+/* Меню ⋮ — как у Chrome: тёмная панель, значок и подпись в строке */
+.video-menu { position: absolute; right: 12px; bottom: 60px; min-width: 210px; overflow: auto; overscroll-behavior: contain; padding: 4px 0; border-radius: 4px;
+  background: rgba(32, 33, 36, .94); color: #fff; box-shadow: 0 2px 10px rgba(0, 0, 0, .35); font: 400 13px/1 Roboto, "Segoe UI", system-ui, sans-serif; }
 .video-menu[hidden] { display: none; }
-.video-menu b { display: block; padding: 6px 16px 8px; font-weight: 500; color: #5f6368; font-size: 13px; }
-.video-bar .video-menu button { display: block; width: 100%; height: 34px; padding: 0 16px; border-radius: 0; text-align: left; color: inherit; font: inherit; }
-.video-bar .video-menu button:hover { background: #f1f3f4; }
-.video-bar .video-menu button.on { font-weight: 700; }
-.video-bar .video-menu button.on::before { content: "✓"; margin-left: -12px; width: 12px; display: inline-block; }
+.video-bar .video-menu :is(button, a) { display: flex; align-items: center; gap: 16px; width: 100%; height: 40px; padding: 0 16px; border-radius: 0; background: none; color: inherit; font: inherit; text-align: left; text-decoration: none; white-space: nowrap; cursor: pointer; }
+.video-bar .video-menu :is(button, a):hover { background: rgba(255, 255, 255, .12); }
+.video-bar .video-menu svg, .video-menu i { width: 20px; height: 20px; flex: none; filter: none; }
+.video-bar .video-menu .video-menu-h { border-bottom: 1px solid rgba(255, 255, 255, .18); margin-bottom: 4px; }
 .video-embed iframe { z-index: 1; background: #000; }
 .video-badge { position: absolute; left: 12px; bottom: 12px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px 6px 10px; border-radius: 999px; background: rgba(0, 0, 0, .62); color: #fff; font: 600 14px var(--font); }
 .video-badge .ic { width: 14px; height: 14px; fill: currentColor; stroke: none; }

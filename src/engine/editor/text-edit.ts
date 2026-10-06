@@ -627,24 +627,26 @@ export class TextEditor {
       const o = customMarker(st?.list);
       return o ? esc(o.replace(/#/g, '1')) : '★';
     };
-    const colors = [['', 'Акцент темы', 'var(--ac)'], ['text', 'Как текст', 'var(--tx)'], ['#DC2626', 'Красный', '#DC2626'], ['#16A34A', 'Зелёный', '#16A34A'], ['#7C3AED', 'Фиолетовый', '#7C3AED']]
+    const colors = [['', 'Акцент темы', 'var(--ac)'], ['text', 'Как текст', 'var(--tx)'], ['muted', 'Приглушённый', 'var(--mu)'], ['#DC2626', 'Красный', '#DC2626'], ['#EA580C', 'Оранжевый', '#EA580C'], ['#16A34A', 'Зелёный', '#16A34A'], ['#7C3AED', 'Фиолетовый', '#7C3AED']]
       .map(([v, t, css]) => `<button type="button" data-lc="${v}" title="${esc(t)}" class="${v === curColor ? 'on' : ''}" style="background:${css}"></button>`).join('');
     const custom = !!(own || img);
     this.menu.innerHTML = `<div class="edmenu-title">Вид списка</div><div class="edlist">${Object.entries(LIST_MARKERS).map(([k, m]) =>
       `<button type="button" data-v="${k}" class="${k === cur ? 'on' : ''}" title="${esc(m.name)}" aria-label="${esc(m.name)}">${[1, 2, 3].map((n) => `<span>${mark(k, n)}<s></s></span>`).join('')}</button>`).join('')}</div>
       <div class="edlist-foot">
         <button type="button" class="edown-btn${custom ? ' on' : ''}" data-a="own" aria-expanded="${custom}" title="Свой маркер: символ, эмодзи, текст или картинка"><span class="edown-prev">${ownPreview()}</span>Свой<b class="st-caret"></b></button>
-        <span class="edlc" title="Цвет маркера">${colors}<label title="Свой цвет маркера"><input type="color" value="${/^#[0-9a-f]{6}$/i.test(curColor) ? curColor.toLowerCase() : '#2563eb'}"></label></span>
+        <button type="button" class="edlc-btn" data-a="color" title="Цвет маркера" aria-label="Цвет маркера" aria-expanded="false"><i style="background:${colorCss(curColor) ?? 'var(--ac)'}"></i></button>
       </div>
+      <div class="edlc" hidden>${colors}<label title="Свой цвет"><input type="color" value="${/^#[0-9a-f]{6}$/i.test(curColor) ? curColor.toLowerCase() : '#2563eb'}"></label></div>
       <div class="edown"${custom ? '' : ' hidden'}>
-        <div class="edown-row"><input type="text" maxlength="12" value="${esc(own ?? '')}" placeholder="★, 🔥 или Шаг #:" title="Символ, эмодзи или текст. # — номер пункта: «Шаг #:» → Шаг 1:, Шаг 2:" spellcheck="false" aria-label="Свой маркер"><button type="button" data-a="img" title="Картинка-маркер: значок, логотип" aria-label="Картинка">${icon('image')}</button></div>
-        <div class="edown-picks">${OWN_MARKS.map((m) => `<button type="button" data-own="${esc(m)}" title="${esc(m.includes('#') ? `${m.replace('#', '1')} ${m.replace('#', '2')} …` : m)}">${esc(m.replace('#', '1'))}</button>`).join('')}</div>
+        <div class="edown-row"><input type="text" maxlength="12" value="${esc(own ?? '')}" placeholder="Символ, эмодзи или Шаг #:" title="Символ, эмодзи или текст. # — номер пункта: «Шаг #:» → Шаг 1:, Шаг 2:" spellcheck="false" aria-label="Свой маркер"><button type="button" data-a="img" title="Картинка-маркер: значок, логотип" aria-label="Картинка">${icon('image')}</button></div>
       </div>`;
     // Ещё не список — сначала пункты
     const ensureList = () => { if (this.s && !this.s.el.querySelector('.md-li')) this.toggleList(); };
     const inp = this.menu.querySelector<HTMLInputElement>('.edown input')!;
     const pane = this.menu.querySelector<HTMLElement>('.edown')!;
     const ownBtn = this.menu.querySelector<HTMLElement>('.edown-btn')!;
+    const lc = this.menu.querySelector<HTMLElement>('.edlc')!;
+    const swatch = this.menu.querySelector<HTMLElement>('.edlc-btn i')!;
     /** Свой маркер выбран: отметки и образец на кнопке */
     const markOwn = () => {
       for (const b of this.menu.querySelectorAll<HTMLElement>('[data-v]')) b.classList.remove('on');
@@ -664,18 +666,23 @@ export class TextEditor {
       if (c) {
         this.setStyle({ listColor: c.dataset.lc || undefined });
         for (const x of this.menu.querySelectorAll<HTMLElement>('[data-lc]')) x.classList.toggle('on', x === c);
+        swatch.style.background = colorCss(c.dataset.lc) ?? 'var(--ac)';
         return;
       }
       const a = t.closest<HTMLElement>('[data-a]')?.dataset.a;
+      if (a === 'color') {
+        lc.hidden = !lc.hidden;
+        if (!lc.hidden) pane.hidden = true;
+        return;
+      }
       if (a === 'own') {
         pane.hidden = !pane.hidden;
+        if (!pane.hidden) lc.hidden = true;
         ownBtn.setAttribute('aria-expanded', String(!pane.hidden));
         if (!pane.hidden) inp.focus();
         return;
       }
       if (a === 'img') { this.pickMarkerImage(markOwn); return; }
-      const o = t.closest<HTMLElement>('[data-own]')?.dataset.own;
-      if (o) { inp.value = o; setOwn(o); return; }
       const v = t.closest<HTMLElement>('[data-v]')?.dataset.v;
       if (!v) return;
       ensureList();
@@ -708,6 +715,7 @@ export class TextEditor {
     pick.addEventListener('blur', leave);
     pick.addEventListener('input', () => {
       this.setStyle({ listColor: pick.value.toUpperCase() });
+      swatch.style.background = pick.value;
       for (const x of this.menu.querySelectorAll<HTMLElement>('[data-lc]')) x.classList.remove('on');
     });
     this.menu.classList.add('on');
@@ -918,9 +926,6 @@ export class TextEditor {
     q('reset')?.classList.toggle('on', false);
   }
 }
-
-/** Быстрые свои маркеры: символы, эмодзи и нумерация с текстом (# — номер) */
-const OWN_MARKS = ['★', '◆', '✦', '➜', '✔', '💡', '✅', '👉', '🔥', '📌'];
 
 function clean(st: TextStyle): TextStyle {
   const out: TextStyle = {};
