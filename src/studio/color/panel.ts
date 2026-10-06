@@ -6,6 +6,8 @@
  *
  * Исходный файл не меняется: результат запекается в новый файл в assets/, а в данных картинки
  * остаются путь к исходнику и параметры (grade) — по ним правят заново или сбрасывают.
+ * У видео ничего не запекается: в данных только параметры, ролик перекрашивается на лету при
+ * показе (engine/color/live.ts); в панели — кадр, выбранный ползунком времени.
  */
 import { icon } from '../../components/icons';
 import { DEFAULT_ACCENT, HEX_RE } from '../../engine/accent';
@@ -13,10 +15,11 @@ import { cssKey } from '../../engine/deck-css';
 import { getAt, type Path } from '../../engine/data';
 import type { Editor } from '../../engine/editor/editor';
 import { esc } from '../../engine/html';
+import { videoEmbed } from '../../components/media/video';
 import type { Block, Deck } from '../../types';
-import { parseCube, type Lut } from './cube';
-import { GradeGL, wheelColor } from './gl';
-import { BANDS, brandStops, compact, curveTable as tableOf, isNeutral, LOOKS, type Band, type CurvePoint, type Grade, type Wheel } from './grade';
+import { parseCube, type Lut } from '../../engine/color/cube';
+import { GradeGL, wheelColor } from '../../engine/color/gl';
+import { BANDS, brandStops, compact, curveTable as tableOf, isNeutral, LOOKS, type Band, type CurvePoint, type Grade, type Wheel } from '../../engine/color/grade';
 import './color.css';
 
 export interface ColorHost {
@@ -29,8 +32,15 @@ export const imageKey = (b: Block): 'src' | 'image' => (b.type === 'image' ? 'sr
 const GIF = /^data:image\/gif[;,]|\.gif(?:[?#]|$)/i;
 const SVG = /^data:image\/svg|\.svg(?:[?#]|$)/i;
 
-/** Можно ли править цвет картинки: есть файл, не анимированный GIF */
+/** Ролик — свой файл, не YouTube и не Vimeo */
+const localVideo = (b: Block): boolean => {
+  const v = typeof b.src === 'string' ? b.src.trim() : '';
+  return !!v && !videoEmbed(v, { autoplay: false, muted: true, loop: false, controls: false });
+};
+
+/** Можно ли править цвет: картинка (не анимированный GIF) или свой ролик */
 export function gradable(b: Block | undefined): boolean {
+  if (b?.type === 'video') return localVideo(b);
   if (!b || (b.type !== 'image' && b.type !== 'tile')) return false;
   const v = b[imageKey(b)];
   return typeof v === 'string' && !!v && !GIF.test(v);
@@ -38,6 +48,7 @@ export function gradable(b: Block | undefined): boolean {
 
 /** Исходная картинка блока: до цветокоррекции */
 const originalOf = (b: Block): string => {
+  if (b.type === 'video') return String(b.src).trim();
   const g = b.grade as Grade | undefined;
   return typeof g?.src === 'string' && g.src ? g.src : String(b[imageKey(b)]);
 };
@@ -51,6 +62,30 @@ function loadImage(url: string): Promise<HTMLImageElement> {
     img.src = url;
   });
 }
+
+/** Ролик для кадров в панели: без звука, загружен до первого кадра */
+function loadVideo(url: string): Promise<HTMLVideoElement> {
+  return new Promise((resolve, reject) => {
+    const v = document.createElement('video');
+    v.muted = true;
+    v.playsInline = true;
+    v.preload = 'auto';
+    v.loop = true;
+    v.onloadeddata = () => resolve(v);
+    v.onerror = () => reject(new Error('ролик не загрузился'));
+    v.src = url;
+  });
+}
+
+/** Длина ролика, с; у записей без длины в заголовке — 0 */
+const durationOf = (v: HTMLVideoElement) => (Number.isFinite(v.duration) ? v.duration : 0);
+
+/** Перейти к моменту ролика и дождаться кадра */
+const seek = (v: HTMLVideoElement, t: number) => new Promise<void>((resolve) => {
+  if (Math.abs(v.currentTime - t) < 1e-3) { resolve(); return; }
+  v.addEventListener('seeked', () => resolve(), { once: true });
+  v.currentTime = t;
+});
 
 /** Картинка → источник для видеокарты; SVG — растром не меньше 1600 px по ширине */
 async function source(url: string): Promise<{ src: TexImageSource; w: number; h: number; alpha: boolean }> {
@@ -133,7 +168,7 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
   const { deck, editor: ed } = h;
   const block = getAt(deck, path) as Block | undefined;
   if (!block || !gradable(block)) {
-    ed.toast('Цвет меняется у неподвижных картинок: выделите фото или картинку', 3500, true);
+    ed.toast('Цвет меняется у картинок и своих роликов (не YouTube и Vimeo): выделите фото или видео', 3500, true);
     return;
   }
   let gl: GradeGL;
@@ -144,12 +179,19 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
     return;
   }
   const original = originalOf(block);
+  const isVideo = block.type === 'video';
   let pic: Awaited<ReturnType<typeof source>>;
+  let clip: HTMLVideoElement | null = null;
   try {
-    pic = await source(original);
+    if (isVideo) {
+      clip = await loadVideo(original);
+      // Кадр из начала, но не самый первый: первый часто чёрный
+      await seek(clip, Math.min(1, durationOf(clip) * 0.1));
+      pic = { src: clip, w: clip.videoWidth || 1280, h: clip.videoHeight || 720, alpha: false };
+    } else pic = await source(original);
   } catch (e) {
     gl.dispose();
-    ed.toast(`Не удалось открыть картинку: ${(e as Error).message}`, 4000, true);
+    ed.toast(`Не удалось открыть ${isVideo ? 'ролик' : 'картинку'}: ${(e as Error).message}`, 4000, true);
     return;
   }
   open = true;
@@ -183,14 +225,17 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
   <header class="cg-head"><b>Цвет</b><span class="cg-file">${original.startsWith('data:') ? '' : esc(name)}</span>
     <span class="cg-sp"></span>
     <button type="button" class="cg-btn" data-a="split" title="До и после: тяните границу по картинке (\\)">${icon('columns')}<span>До / после</span></button>
+    <button type="button" class="cg-btn" data-a="wide" title="Только картинка: настройки и образы скрыты (F)">${icon('fullscreen')}<span>Крупно</span></button>
     <button type="button" class="cg-x" data-a="cancel" title="Закрыть без изменений (Esc)" aria-label="Закрыть">${icon('close')}</button>
   </header>
   <div class="cg-main">
     <div class="cg-view">
-      <div class="cg-stage"><div class="cg-frame"><i class="cg-line" hidden></i></div></div>
-      <div class="cg-scopes"><canvas class="cg-hist" title="Гистограмма: яркость и каналы"></canvas><canvas class="cg-vec" title="Вектороскоп: оттенки и насыщенность"></canvas></div>
+      <div class="cg-stage" title="Колесо — масштаб, тяните — сдвиг, двойной щелчок — 100 % и обратно"><div class="cg-frame"><i class="cg-line" hidden></i></div>
+        <div class="cg-zoom"><button type="button" data-a="zfit" title="Вписать (0)">Вписать</button><button type="button" data-a="z100" title="Пиксель в пиксель (1)">100%</button><output></output></div></div>
+      ${isVideo ? `<div class="cg-time"><button type="button" class="cg-x" data-a="play" title="Смотреть с коррекцией (пробел)" aria-label="Смотреть">${icon('play')}</button><input type="range" min="0" max="1000" step="1" aria-label="Кадр ролика" title="Кадр, по которому настраивается цвет"><output></output></div>` : ''}
     </div>
     <div class="cg-side">
+      <div class="cg-scopes"><canvas class="cg-hist" title="Гистограмма: яркость и каналы"></canvas><canvas class="cg-vec" title="Вектороскоп: оттенки и насыщенность"></canvas></div>
       <nav class="cg-tabs" role="tablist">${TABS.map(([id, l]) => `<button type="button" role="tab" data-tab="${id}">${l}</button>`).join('')}</nav>
       <div class="cg-pane" data-pane="basic">${SLIDERS.map(([k, l, min, max, step, cls]) => `<label class="cg-sl${cls ? ` ${cls}` : ''}" data-k="${k}" title="Двойной щелчок — сбросить"><span>${l}</span><input type="range" min="${min}" max="${max}" step="${step}" data-k="${k}"><output></output></label>`).join('')}</div>
       <div class="cg-pane" data-pane="wheels" hidden><div class="cg-wheels">${WHEELS.map(([k, l]) => `<div class="cg-wheel" data-w="${k}"><div class="cg-wc"><canvas width="132" height="132"></canvas><i class="cg-puck"></i></div><b>${l}</b><input type="range" min="-1" max="1" step="0.01" data-m="${k}" title="Яркость: ${l.toLowerCase()}" aria-label="Яркость: ${l.toLowerCase()}"></div>`).join('')}</div><p class="cg-note">Тяните точку к цвету — оттенок в тенях, полутонах или светах. Двойной щелчок — сброс</p></div>
@@ -208,7 +253,7 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
   <div class="cg-looks">${LOOKS.map((l) => `<button type="button" class="cg-look" data-look="${l.id}" title="${esc(l.name)}"><canvas></canvas><span>${esc(l.name)}</span></button>`).join('')}</div>
   <footer class="cg-foot">
     <button type="button" class="cg-btn" data-a="reset">${icon('reset')}<span>Сбросить</span></button>
-    <button type="button" class="cg-btn" data-a="all" title="Та же коррекция для всех фото презентации — одна серия">${icon('layers')}<span>Ко всем картинкам</span></button>
+    ${isVideo ? '' : `<button type="button" class="cg-btn" data-a="all" title="Та же коррекция для всех фото презентации — одна серия">${icon('layers')}<span>Ко всем картинкам</span></button>`}
     <span class="cg-sp"></span>
     <button type="button" class="cg-btn" data-a="cancel">Отмена</button>
     <button type="button" class="cg-btn primary" data-a="done">Готово</button>
@@ -223,17 +268,53 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
   // ---------- предпросмотр ----------
   let frameReq = 0;
   let scopeTimer = 0;
+  // Масштаб: 1 — картинка вписана; сдвиг — от центра, в пикселях экрана
+  const stageEl = $<HTMLElement>('.cg-stage');
+  let zoom = 1;
+  let panX = 0;
+  let panY = 0;
+  const base = () => {
+    const st = stageEl.getBoundingClientRect();
+    return Math.min((st.width - 16) / pic.w, (st.height - 16) / pic.h);
+  };
+  /** Наибольший масштаб: пиксель картинки — 4 пикселя экрана */
+  const maxZoom = () => Math.max(1, 4 / base());
   const fit = () => {
-    const stage = $<HTMLElement>('.cg-stage').getBoundingClientRect();
-    const k = Math.min(stage.width / pic.w, stage.height / pic.h);
-    frame.style.width = `${Math.floor(pic.w * k)}px`;
-    frame.style.height = `${Math.floor(pic.h * k)}px`;
+    const st = stageEl.getBoundingClientRect();
+    const k = base() * zoom;
+    const fw = Math.floor(pic.w * k);
+    const fh = Math.floor(pic.h * k);
+    const mx = Math.max(0, (fw - st.width) / 2);
+    const my = Math.max(0, (fh - st.height) / 2);
+    panX = Math.max(-mx, Math.min(mx, panX));
+    panY = Math.max(-my, Math.min(my, panY));
+    frame.style.width = `${fw}px`;
+    frame.style.height = `${fh}px`;
+    frame.style.transform = `translate(calc(-50% + ${Math.round(panX)}px), calc(-50% + ${Math.round(panY)}px))`;
+    stageEl.classList.toggle('zoomed', zoom > 1.001);
+    // Крупнее пикселя картинки — без сглаживания: видно настоящие пиксели
+    frame.classList.toggle('px', k > 1.5);
+    $<HTMLElement>('.cg-zoom output').textContent = `${Math.round(k * 100)}%`;
+  };
+  /** Масштаб с точкой (x, y на экране) на месте */
+  const zoomTo = (z: number, x?: number, y?: number) => {
+    const st = stageEl.getBoundingClientRect();
+    const nz = Math.max(1, Math.min(maxZoom(), z));
+    const cx = (x ?? st.left + st.width / 2) - (st.left + st.width / 2);
+    const cy = (y ?? st.top + st.height / 2) - (st.top + st.height / 2);
+    panX = cx - (cx - panX) * (nz / zoom);
+    panY = cy - (cy - panY) * (nz / zoom);
+    zoom = nz;
+    fit();
+    render();
   };
   const draw = () => {
     frameReq = 0;
     const r = frame.getBoundingClientRect();
     const dpr = Math.min(2, devicePixelRatio || 1);
-    gl.draw(g, Math.max(1, Math.round(r.width * dpr)), Math.max(1, Math.round(r.height * dpr)), split);
+    // Холст — не больше самой картинки: при сильном увеличении пиксели растягивает CSS
+    const k = Math.min(1, pic.w / (r.width * dpr), gl.maxSide / Math.max(r.width * dpr, r.height * dpr));
+    gl.draw(g, Math.max(1, Math.round(r.width * dpr * k)), Math.max(1, Math.round(r.height * dpr * k)), split);
   };
   const render = () => {
     if (!frameReq) frameReq = requestAnimationFrame(draw);
@@ -257,6 +338,8 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
       bins[2][px[i + 2]]++;
       bins[3][Math.round(0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2])]++;
     }
+    // В режиме «Крупно» графики скрыты: данные для кривых есть, рисовать некуда
+    if (!hist.getBoundingClientRect().width) return;
     const dpr = Math.min(2, devicePixelRatio || 1);
     for (const c of [hist, vec]) {
       const r = c.getBoundingClientRect();
@@ -610,6 +693,27 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
   };
 
   // ---------- до / после ----------
+  stageEl.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    zoomTo(zoom * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX, e.clientY);
+  }, { passive: false });
+  stageEl.addEventListener('dblclick', (e) => {
+    if ((e.target as Element).closest('.cg-zoom')) return;
+    const one = 1 / base() / Math.min(2, devicePixelRatio || 1);
+    zoomTo(zoom > 1.001 ? 1 : Math.max(2, one), e.clientX, e.clientY);
+  });
+  // Сдвиг увеличенной картинки; с «до / после» тянется граница
+  stageEl.addEventListener('pointerdown', (e) => {
+    if (split >= 0 || zoom <= 1.001 || e.button !== 0 || (e.target as Element).closest('.cg-zoom')) return;
+    const x0 = e.clientX - panX;
+    const y0 = e.clientY - panY;
+    stageEl.setPointerCapture(e.pointerId);
+    stageEl.classList.add('drag');
+    const move = (ev: PointerEvent) => { panX = ev.clientX - x0; panY = ev.clientY - y0; fit(); };
+    const up = () => { stageEl.classList.remove('drag'); stageEl.removeEventListener('pointermove', move); stageEl.removeEventListener('pointerup', up); };
+    stageEl.addEventListener('pointermove', move);
+    stageEl.addEventListener('pointerup', up);
+  });
   frame.addEventListener('pointerdown', (e) => {
     if (split < 0) return;
     const r = frame.getBoundingClientRect();
@@ -631,10 +735,27 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
     removeEventListener('resize', onResize);
     back.remove();
     gl.dispose();
+    if (clip) {
+      clip.pause();
+      clip.removeAttribute('src');
+      clip.load();
+    }
   };
   /** Файл — в assets/ (в файле без проекта — внутрь данных) */
   const store = async (blob: Blob, fileName: string) => ed.storeAsset(blob, fileName);
   const commitOne = async () => {
+    // Видео: только параметры — ролик перекрашивается при показе
+    if (isVideo) {
+      const grade = isNeutral(g) ? null : compact(g);
+      ed.commit((d) => {
+        const b = getAt(d, path) as Block;
+        if (grade) b.grade = grade;
+        else delete b.grade;
+      }, { rebuild: true });
+      if (grade) ed.toast('Цвет применён: ролик перекрашивается при показе, файл не изменён', 3500);
+      close();
+      return;
+    }
     if (isNeutral(g)) {
       ed.commit((d) => {
         const b = getAt(d, path) as Block;
@@ -717,6 +838,10 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
       case 'all': void applyAll(); break;
       case 'reset': remember(); g = {}; lut = null; gl.setLut(null); changed(); break;
       case 'split': split = split < 0 ? 0.5 : -1; changed(); break;
+      case 'wide': toggleWide(); break;
+      case 'zfit': zoomTo(1); break;
+      case 'z100': zoomTo(1 / base() / Math.min(2, devicePixelRatio || 1)); break;
+      case 'play': togglePlay(); break;
       case 'brand': remember(); g.duo = [...brand]; if (!g.duoMix) g.duoMix = 1; changed(); break;
       case 'lut-off': remember(); delete g.lut; delete g.lutName; delete g.lutMix; lut = null; gl.setLut(null); changed(); break;
       case 'lut': {
@@ -755,6 +880,14 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
       return;
     }
     if (e.key === '\\') { split = split < 0 ? 0.5 : -1; changed(); e.preventDefault(); }
+    if (!(e.target as Element)?.closest?.('input:not([type="range"])') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (e.code === 'KeyF') { toggleWide(); e.preventDefault(); }
+      else if (e.key === '0') { zoomTo(1); e.preventDefault(); }
+      else if (e.key === '1') { zoomTo(1 / base() / Math.min(2, devicePixelRatio || 1)); e.preventDefault(); }
+      else if (e.key === '+' || e.key === '=') { zoomTo(zoom * 1.25); e.preventDefault(); }
+      else if (e.key === '-') { zoomTo(zoom / 1.25); e.preventDefault(); }
+    }
+    if (clip && e.key === ' ' && !(e.target as Element)?.closest?.('input:not([type="range"]), button')) { togglePlay(); e.preventDefault(); }
     // Клавиши редактора (Delete, стрелки) не трогают слайд, пока панель открыта
     if (!(e.target as Element)?.closest?.('input')) e.stopPropagation();
   };
@@ -765,6 +898,64 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
     e.preventDefault();
     strip.scrollLeft += e.deltaY;
   }, { passive: false });
+  // ---------- кадр ролика ----------
+  const time = back.querySelector<HTMLInputElement>('.cg-time input');
+  const clock = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+  let lookTimer = 0;
+  const showTime = () => {
+    if (!clip || !time) return;
+    const d = durationOf(clip);
+    if (document.activeElement !== time) time.value = String(d ? Math.round((clip.currentTime / d) * 1000) : 0);
+    time.nextElementSibling!.textContent = `${clock(clip.currentTime)} / ${clock(d)}`;
+    const pb = $<HTMLElement>('[data-a="play"]');
+    pb.innerHTML = icon(clip.paused ? 'play' : 'pause');
+    pb.classList.toggle('on', !clip.paused);
+  };
+  /** Новый кадр в панели: предпросмотр, графики и (без спешки) плитки образов */
+  const newFrame = (still: boolean) => {
+    if (!clip) return;
+    if (still) gl.setImage(clip, pic.w, pic.h);
+    else gl.setFrame(clip, pic.w, pic.h);
+    render();
+    showTime();
+    clearTimeout(lookTimer);
+    if (still) lookTimer = window.setTimeout(looks, 250);
+  };
+  let playReq = 0;
+  const playLoop = () => {
+    playReq = 0;
+    if (!clip || clip.paused || !back.isConnected) return;
+    newFrame(false);
+    playReq = requestAnimationFrame(playLoop);
+  };
+  const togglePlay = () => {
+    if (!clip) return;
+    if (clip.paused) {
+      void clip.play().then(() => { if (!playReq) playReq = requestAnimationFrame(playLoop); }).catch(() => {});
+    } else {
+      clip.pause();
+      cancelAnimationFrame(playReq);
+      playReq = 0;
+      newFrame(true);
+    }
+    showTime();
+  };
+  time?.addEventListener('input', () => {
+    if (!clip) return;
+    if (!clip.paused) togglePlay();
+    void seek(clip, (Number(time.value) / 1000) * durationOf(clip)).then(() => newFrame(true));
+  });
+  showTime();
+
+  /** «Крупно»: только картинка; масштаб остаётся тем же относительно вписанной */
+  const toggleWide = () => {
+    const cg = $<HTMLElement>('.cg');
+    cg.classList.toggle('wide');
+    $<HTMLElement>('[data-a="wide"]').classList.toggle('on', cg.classList.contains('wide'));
+    fit();
+    render();
+  };
+
   const onResize = () => { fit(); render(); };
   addEventListener('keydown', onKey, true);
   addEventListener('resize', onResize);

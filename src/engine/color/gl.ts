@@ -131,7 +131,7 @@ function wb(temp = 0, tint = 0): [number, number, number] {
 }
 
 export class GradeGL {
-  readonly canvas = document.createElement('canvas');
+  readonly canvas: HTMLCanvasElement;
   readonly gl: WebGL2RenderingContext;
   readonly maxSide: number;
   private prog: WebGLProgram;
@@ -142,11 +142,15 @@ export class GradeGL {
   private lutInfo = { size: 2, min: [0, 0, 0], max: [1, 1, 1], on: false };
   private fbo: { fb: WebGLFramebuffer; tex: WebGLTexture; w: number; h: number } | null = null;
   private curveKey = '';
+  /** Текстура — кадр видео: без уменьшенных копий */
+  private frameTex = false;
   /** Размер картинки */
   w = 0;
   h = 0;
 
-  constructor() {
+  /** canvas — свой холст (видео на слайде); без него — новый */
+  constructor(canvas?: HTMLCanvasElement) {
+    this.canvas = canvas ?? document.createElement('canvas');
     const gl = this.canvas.getContext('webgl2', { premultipliedAlpha: false, preserveDrawingBuffer: true, antialias: false });
     if (!gl) throw new Error('нужен WebGL2');
     this.gl = gl;
@@ -190,6 +194,7 @@ export class GradeGL {
     const { gl } = this;
     this.w = w;
     this.h = h;
+    this.frameTex = false;
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.img);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
@@ -202,6 +207,32 @@ export class GradeGL {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  }
+
+  /**
+   * Кадр видео: каждый кадр заново, без уменьшенных копий (холст — размером с кадр, сжатия нет).
+   * Кадр загружается целиком: если прошлая загрузка не удалась (кадр ещё не готов), следующая
+   * всё равно даст полную текстуру. false — кадр не загрузился
+   */
+  setFrame(src: TexImageSource, w: number, h: number): boolean {
+    const { gl } = this;
+    while (gl.getError() !== gl.NO_ERROR) { /* старые ошибки — не про этот кадр */ }
+    this.w = w;
+    this.h = h;
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.img);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, src);
+    if (!this.frameTex) {
+      this.frameTex = true;
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    return gl.getError() === gl.NO_ERROR;
   }
 
   /** 3D LUT или null — без него */

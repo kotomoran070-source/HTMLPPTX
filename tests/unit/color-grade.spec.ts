@@ -1,7 +1,7 @@
 // Панель «Цвет»: кривая без перехлёстов, разбор LUT .cube, пустая коррекция не трогает картинку
 import { expect, test } from '@playwright/test';
-import { parseCube } from '../../src/studio/color/cube';
-import { compact, curveTable, isNeutral } from '../../src/studio/color/grade';
+import { parseCube } from '../../src/engine/color/cube';
+import { compact, curveTable, isNeutral } from '../../src/engine/color/grade';
 
 test('кривая проходит через точки и не выходит за соседей (монотонный сплайн)', () => {
   const t = curveTable([[0, 0], [0.25, 0.1], [0.5, 0.5], [1, 1]]);

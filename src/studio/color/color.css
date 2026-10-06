@@ -2,7 +2,7 @@
    вектороскоп, кривые — тёмные в любой теме, как в программах цветокоррекции: на тёмном их читать легче */
 .cg-back { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: color-mix(in srgb, #0B1020 46%, transparent); backdrop-filter: blur(4px); }
 .cg { --cg-bg: var(--surf); --cg-pn: var(--bg); --cg-bd: var(--bd); --cg-tx: var(--tx); --cg-mu: var(--mu); --cg-ac: var(--ac); --cg-inst: #101319; --cg-inst-bd: #252A35;
-  width: min(1320px, calc(100vw - 32px)); height: min(820px, calc(100vh - 32px)); display: grid; grid-template-rows: auto 1fr auto auto;
+  width: min(1880px, calc(100vw - 24px)); height: calc(100vh - 24px); display: grid; grid-template-rows: auto 1fr auto auto;
   background: var(--cg-bg); color: var(--cg-tx); border: 1px solid var(--cg-bd); border-radius: 16px; box-shadow: 0 30px 80px rgba(2, 6, 23, .35);
   font: 13px/1.35 var(--font); overflow: hidden; }
 .cg .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
@@ -24,18 +24,35 @@
 .cg-note { margin: 4px 0 0; color: var(--cg-mu); font-size: 12px; max-width: none; }
 
 .cg-main { display: grid; grid-template-columns: 1fr 392px; min-height: 0; overflow: hidden; }
-.cg-view { display: grid; grid-template-rows: 1fr 118px; gap: 10px; padding: 12px; min-width: 0; min-height: 0; }
+.cg-view { display: grid; grid-template-rows: 1fr; gap: 10px; padding: 12px; min-width: 0; min-height: 0; }
 .cg-stage { position: relative; display: grid; place-items: center; min-height: 0; border-radius: 12px; border: 1px solid var(--cg-bd);
   background: repeating-conic-gradient(color-mix(in srgb, var(--tx) 5%, var(--alt)) 0 25%, var(--alt) 0 50%) 0 0 / 20px 20px; overflow: hidden; }
-.cg-frame { box-shadow: 0 6px 24px rgba(2, 6, 23, .18); }
-.cg-frame { position: relative; touch-action: none; }
+.cg-frame { position: absolute; left: 50%; top: 50%; touch-action: none; box-shadow: 0 6px 24px rgba(2, 6, 23, .18); will-change: transform; }
+.cg-frame.px .cg-canvas { image-rendering: pixelated; }
+.cg-stage.zoomed { cursor: grab; }
+.cg-stage.drag { cursor: grabbing; }
+/* Масштаб: в углу картинки, проступает при наведении */
+.cg-zoom { position: absolute; right: 10px; bottom: 10px; display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 9px; background: rgba(11, 16, 32, .72); color: #fff; font: 600 12px var(--font); opacity: .55; transition: opacity .15s; backdrop-filter: blur(6px); }
+.cg-stage:hover .cg-zoom, .cg-stage.zoomed .cg-zoom { opacity: 1; }
+.cg-zoom button { height: 24px; padding: 0 9px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; cursor: pointer; }
+.cg-zoom button:hover { background: rgba(255, 255, 255, .16); }
+.cg-zoom output { min-width: 46px; margin-left: 2px; padding: 0 6px 0 8px; border-left: 1px solid rgba(255, 255, 255, .2); text-align: right; font-variant-numeric: tabular-nums; opacity: .8; }
+.cg.wide .cg-side, .cg.wide .cg-looks { display: none; }
+.cg.wide .cg-main { grid-template-columns: 1fr; }
 .cg-canvas { display: block; width: 100%; height: 100%; }
 .cg-line { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); cursor: ew-resize; pointer-events: none; }
 .cg-line::before, .cg-line::after { position: absolute; top: 10px; padding: 2px 7px; border-radius: 5px; background: rgba(0, 0, 0, .6); color: #fff; font-size: 11px; white-space: nowrap; }
 .cg-line::before { content: "до"; right: 8px; }
 .cg-line::after { content: "после"; left: 8px; }
-.cg-scopes { display: grid; grid-template-columns: 1fr 118px; gap: 10px; min-height: 0; overflow: hidden; }
-.cg-scopes canvas { display: block; width: 100%; height: 118px; border-radius: 10px; background: var(--cg-inst); border: 1px solid var(--cg-inst-bd); }
+.cg-view:has(.cg-time) { grid-template-rows: 1fr auto; }
+/* Кадр ролика: запуск и ползунок времени */
+.cg-time { display: flex; align-items: center; gap: 8px; }
+.cg-time input { flex: 1; accent-color: var(--cg-ac); }
+.cg-time output { min-width: 84px; color: var(--cg-mu); font: 500 12px var(--font); font-variant-numeric: tabular-nums; text-align: right; }
+.cg-time .cg-x.on { color: var(--cg-ac); }
+.cg-time .ic { width: 18px; height: 18px; }
+.cg-scopes { flex: none; display: grid; grid-template-columns: 1fr 96px; gap: 8px; margin: 12px 12px 0; overflow: hidden; }
+.cg-scopes canvas { display: block; width: 100%; height: 96px; border-radius: 10px; background: var(--cg-inst); border: 1px solid var(--cg-inst-bd); }
 
 .cg-side { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--cg-bd); background: var(--cg-pn); }
 .cg-tabs { display: flex; gap: 2px; margin: 12px 12px 0; padding: 3px; border-radius: 10px; background: var(--alt); }

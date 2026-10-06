@@ -3,6 +3,10 @@
 .video-box, .model3d-box { position: relative; flex: 1; min-height: 0; border-radius: calc(14px * var(--rk, 1)); overflow: hidden; background: #000; }
 .video-box video, .video-box iframe, .video-cover { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; object-fit: contain; display: block; }
 .video-cover { object-fit: cover; }
+/* Цветокоррекция на лету: холст с кадром поверх ролика; щелчки — ролику, кнопки плеера видны при наведении */
+.video-box .video-grade { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; visibility: hidden; }
+.video-box .video-grade.on { visibility: visible; }
+.video-box:hover .video-grade.has-controls { clip-path: inset(0 0 56px 0); }
 .video-embed iframe { z-index: 1; background: #000; }
 .video-badge { position: absolute; left: 12px; bottom: 12px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px 6px 10px; border-radius: 999px; background: rgba(0, 0, 0, .62); color: #fff; font: 600 14px var(--font); }
 .video-badge .ic { width: 14px; height: 14px; fill: currentColor; stroke: none; }

@@ -2,6 +2,7 @@ import { defineBlock } from '../../engine/component';
 import { esc, styleAttr, t } from '../../engine/html';
 import { ea } from '../../engine/marks';
 import type { Block } from '../../types';
+import { isNeutral, type Grade } from '../../engine/color/grade';
 import { icon } from '../icons';
 import './media.css';
 
@@ -21,6 +22,8 @@ interface VideoProps extends Block {
   /** cover — заполнить рамку, contain — целиком (по умолчанию) */
   fit?: 'cover' | 'contain';
   caption?: string;
+  /** Цветокоррекция на лету (панель «Цвет» в студии): файл не меняется */
+  grade?: Grade;
 }
 
 const YOUTUBE = /(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/i;
@@ -85,8 +88,25 @@ defineBlock<VideoProps>('video', {
     const embed = el.querySelector<HTMLElement>('.video-embed');
     let frame: HTMLIFrameElement | null = null;
     let timer = 0;
+    // Цветокоррекция — только у открытого слайда: у браузера мало контекстов WebGL
+    const graded = !!video && !!p.grade && typeof p.grade === 'object' && !isNeutral(p.grade);
+    let ungrade: (() => void) | null = null;
+    let grading = false;
+    const grade = () => {
+      if (!graded || grading) return;
+      grading = true;
+      void import('../../engine/color/live').then((m) => {
+        if (grading && !ungrade) ungrade = m.gradeVideo(video!, p.grade!);
+      });
+    };
+    const ungradeNow = () => {
+      grading = false;
+      ungrade?.();
+      ungrade = null;
+    };
     const on = () => {
       clearTimeout(timer);
+      grade();
       if (video) {
         if (presenter()) video.muted = true;
         if (o.autoplay && !editing()) {
@@ -119,6 +139,7 @@ defineBlock<VideoProps>('video', {
       timer = window.setTimeout(() => {
         frame?.remove();
         frame = null;
+        ungradeNow();
       }, 400);
     };
     const sync = () => (ctx.slide.classList.contains('on') ? on() : off());
@@ -130,6 +151,7 @@ defineBlock<VideoProps>('video', {
       clearTimeout(timer);
       video?.pause();
       frame?.remove();
+      ungradeNow();
     };
   },
 });

@@ -33,7 +33,7 @@ export interface ContextHost {
   run(cmd: string): void;
 }
 
-export type ContextTab = 'shape' | 'table' | 'image';
+export type ContextTab = 'shape' | 'table' | 'image' | 'video';
 
 /** Какая контекстная вкладка нужна для выделения (у группы — если все одного типа). */
 export function contextTab(deck: Deck, ed: Editor): ContextTab | null {
@@ -45,6 +45,8 @@ export function contextTab(deck: Deck, ed: Editor): ContextTab | null {
   const t = [...types][0];
   // Плитка с фото оформляется как рисунок
   if (t === 'tile') return paths.every((p) => !!(getAt(deck, p) as Block).image) ? 'image' : null;
+  // Ролик — когда файл уже выбран
+  if (t === 'video') return paths.length === 1 && !!(getAt(deck, paths[0]) as Block).src ? 'video' : null;
   return t === 'shape' || t === 'table' || t === 'image' ? t : null;
 }
 
@@ -102,7 +104,8 @@ const imageTile = (s: (typeof IMAGE_STYLES)[number]) => {
 export function contextTabsHtml(): string {
   return `<button type="button" role="tab" data-tab="shape" class="ctx" aria-selected="false" hidden>Фигура</button>`
     + `<button type="button" role="tab" data-tab="table" class="ctx" aria-selected="false" hidden>Таблица</button>`
-    + `<button type="button" role="tab" data-tab="image" class="ctx" aria-selected="false" hidden>Рисунок</button>`;
+    + `<button type="button" role="tab" data-tab="image" class="ctx" aria-selected="false" hidden>Рисунок</button>`
+    + `<button type="button" role="tab" data-tab="video" class="ctx" aria-selected="false" hidden>Видео</button>`;
 }
 
 export function contextPanelsHtml(): string {
@@ -139,6 +142,12 @@ export function contextPanelsHtml(): string {
   ${group('Цветокоррекция', btn('image.grade', 'sliders', 'Цвет+', { big: true, title: 'Цветокоррекция, как в DaVinci: круги, кривые, HSL, LUT, цвета бренда. Исходный файл не меняется' }))}
   ${group('Кадр', btn('image.crop', 'crop', 'Кадр', { big: true, title: 'Сдвинуть снимок внутри рамки, как «Обрезка» в PowerPoint: тяните картинку. Масштаб — на панели над картинкой. Готово — Esc' }))}
   ${group('Сброс', btn('image.reset', 'reset', 'Сбросить', { big: true, title: 'Убрать всё оформление рисунка' }))}
+</div>
+<div class="st-rpanel" data-panel="video" hidden>
+  ${group('Воспроизведение', stack(btn('video.autoplay', '', 'Запуск со слайдом', { chk: true, title: 'Ролик запускается, когда открывается слайд' }), btn('video.muted', '', 'Без звука', { chk: true }))
+    + stack(btn('video.loop', '', 'По кругу', { chk: true }), btn('video.controls', '', 'Кнопки плеера', { chk: true, title: 'Кнопки плеера при наведении' })))}
+  ${group('Кадр', btn('video.fit', 'crop', 'Заполнить', { big: true, title: 'Заполнить рамку целиком (края ролика обрезаются) или показать ролик полностью' }))}
+  ${group('Цветокоррекция', btn('video.grade', 'sliders', 'Цвет+', { big: true, title: 'Цветокоррекция ролика: круги, кривые, HSL, LUT, цвета бренда. Применяется при показе, файл не меняется' }))}
 </div>`;
 }
 
@@ -156,6 +165,29 @@ export function tableMenu(): MenuEntry[] {
 
 export function contextCommands(h: ContextHost): Record<string, Command> {
   const { deck, editor: ed } = h;
+  /** Вкладка «Видео»: настройки плеера и цветокоррекция своего ролика */
+  const videoCommands = (): Record<string, Command> => {
+    const v = () => first('video');
+    const isVideo = () => !!v()?.src;
+    // Без звука по умолчанию — если ролик запускается сам (как в блоке video)
+    const flag = (key: string, def: () => boolean): Command => ({
+      run: () => { const on = v()?.[key] ?? def(); setAll('video', key, on ? (def() ? false : undefined) : (def() ? undefined : true)); },
+      enabled: isVideo,
+      active: () => isVideo() && !!(v()?.[key] ?? def()),
+    });
+    const auto = () => v()?.autoplay !== false;
+    return {
+      'video.autoplay': flag('autoplay', () => true),
+      'video.muted': flag('muted', auto),
+      'video.loop': flag('loop', () => false),
+      'video.controls': flag('controls', () => true),
+      'video.fit': { run: () => setAll('video', 'fit', v()?.fit === 'cover' ? undefined : 'cover'), enabled: isVideo, active: () => v()?.fit === 'cover' },
+      'video.grade': {
+        run: () => { const p = targets('video')[0]; if (p) void import('./color/panel').then((m) => m.openColor({ deck, editor: ed }, p)); },
+        enabled: () => targets('video').length === 1 && isVideo(),
+      },
+    };
+  };
   /** Выделенные блоки нужного типа: одна фигура или группа фигур */
   const targets = (type: string): Path[] => {
     const sel = ed.selection;
@@ -645,6 +677,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       run: () => { const p = targets('image')[0]; if (p) void import('./color/panel').then((m) => m.openColor({ deck, editor: ed }, p)); },
       enabled: () => targets('image').length === 1 && isImage(),
     },
+    ...videoCommands(),
     'image.opacity': {
       run: () => lookGallery('image.opacity', 'opacity', [[undefined, '100 %'], [0.8, '80 %'], [0.6, '60 %'], [0.4, '40 %'], [0.2, '20 %']], undefined,
         { label: 'Своя', min: 10, max: 100, unit: ' %', get: (v) => Math.round((Number(v) || 1) * 100), set: (n) => (n >= 100 ? undefined : n / 100) }),
