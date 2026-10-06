@@ -8,6 +8,11 @@ export interface Deck {
     logo?: string;
     /** Свой логотип для тёмной темы; без него в обеих темах — logo */
     logoDark?: string;
+    /**
+     * Плашка под логотипом в цветах логотипа (без поля — в цветах темы): фон, рамка и свечение,
+     * подобранные студией по файлу src (если логотип сменили — снова цвета темы)
+     */
+    plate?: { from: 'logo'; src: string; bg: string; border: string; glow: string };
   };
   theme?: DeckTheme;
   /** Свои шрифты: файлы в assets/ — { name: Manrope, src: ./assets/Manrope.woff2 } */

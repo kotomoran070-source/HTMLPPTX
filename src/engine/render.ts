@@ -91,7 +91,8 @@ export class Renderer {
     // Переход к слайду и его длительность
     if (typeof slide.transition === 'string' && TRANSITION_IDS.has(slide.transition)) attrs += ` data-tr="${slide.transition}"`;
     const trMs = Number(slide.transitionMs);
-    if (trMs > 0) attrs += ` style="--tr-ms:${Math.min(3000, Math.round(trMs))}ms"`;
+    const css = [trMs > 0 ? `--tr-ms:${Math.min(3000, Math.round(trMs))}ms` : '', logoPlate(this.deck)].filter(Boolean).join(';');
+    if (css) attrs += ` style="${css}"`;
     // Живой слайд: исходный файл в рамке поверх обычной копии (см. components/live)
     const empty = !slide.body && !(Array.isArray(slide.free) && slide.free.length);
     const live = slide.live && typeof slide.live === 'object'
@@ -287,6 +288,18 @@ export function slideLabel(slide: SlideData, index: number): string {
 function plainText(s: string): string {
   return s.replace(/\{[^{}|]+\|([^{}]*)\}/g, '$1').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/\*\*(.+?)\*\*|__(.+?)__|\*(.+?)\*/g, (_m, a, b, c) => a ?? b ?? c).replace(/\s+/g, ' ').trim();
+}
+
+const HEX = /^#[0-9a-f]{6}$/i;
+/**
+ * Плашка под логотипом в цветах самого логотипа (brand.plate, from: logo): переменные слайда.
+ * Цвета подобраны под конкретный файл — сменили логотип, плашка снова из темы, пока студия
+ * не подберёт цвета заново
+ */
+export function logoPlate(deck: Deck): string {
+  const p = deck.brand?.plate;
+  if (!p || p.from !== 'logo' || p.src !== deck.brand?.logo || ![p.bg, p.border, p.glow].every((c) => typeof c === 'string' && HEX.test(c))) return '';
+  return `--lp-bg:${p.bg};--lp-bd:${p.border};--lp-glow:${p.glow}`;
 }
 
 export interface Place { x: number; y: number; w: number; h?: number }

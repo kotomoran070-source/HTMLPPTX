@@ -5,7 +5,7 @@
 .hub-item.hl { background: var(--acs); }
 
 .hb { width: 100%; display: block; overflow: visible; }
-.hb .hub-center { fill: var(--logo-bg); stroke: var(--acb); stroke-width: 2; }
+.hb .hub-center { fill: var(--lp-bg, var(--logo-bg)); stroke: var(--lp-bd, var(--acb)); stroke-width: 2; }
 .hb .hub-center.has-dark { fill: var(--logo-bg-dk); }
 .hb .nd { outline: none; cursor: default; }
 .hb .nd rect { fill: var(--surf); stroke: var(--bd2); stroke-width: 1.5; transition: fill .2s, stroke .2s; }

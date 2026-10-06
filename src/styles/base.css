@@ -149,10 +149,11 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
   place-items: center;
   width: 88px;
   height: 88px;
-  background: var(--logo-bg);
-  border: 2px solid var(--acb);
+  /* --lp-*: плашка в цветах логотипа (brand.plate), иначе — в цветах темы */
+  background: var(--lp-bg, var(--logo-bg));
+  border: 2px solid var(--lp-bd, var(--acb));
   border-radius: calc(20px * var(--rk, 1));
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--ac) 14%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--lp-glow, var(--ac)) 14%, transparent);
 }
 .logo img { width: 70%; height: 70%; display: block; }
 /* Плашка логотипа отдельным объектом (разобранный шаблон): заполняет объект, скругление — в долях

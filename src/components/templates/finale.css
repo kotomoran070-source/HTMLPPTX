@@ -64,7 +64,7 @@
 .bt.neutral:hover { background: var(--bd); box-shadow: none; }
 
 @keyframes ring2 { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(9.5); opacity: 0; } }
-@keyframes glow { 50% { box-shadow: 0 0 0 12px color-mix(in srgb, var(--ac) 10%, transparent), 0 2px 8px color-mix(in srgb, var(--ac) 14%, transparent); } }
+@keyframes glow { 50% { box-shadow: 0 0 0 12px color-mix(in srgb, var(--lp-glow, var(--ac)) 10%, transparent), 0 2px 8px color-mix(in srgb, var(--lp-glow, var(--ac)) 14%, transparent); } }
 @keyframes wd { from { opacity: 0; filter: blur(16px); letter-spacing: .22em; transform: translateY(16px); } }
 @keyframes ex { from { width: 0; opacity: 0; } }
 @keyframes tr { from { opacity: 0; letter-spacing: .3em; } }
