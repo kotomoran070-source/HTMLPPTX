@@ -195,6 +195,42 @@ export const THEME_PRESETS: ThemePreset[] = [
     },
   },
   {
+    id: 'sakura', name: 'Сакура',
+    theme: {
+      accent: '#E0517A', accent2: '#F6A5BE', font: 'Nunito', head: 'Nunito', headWeight: 800, headSpacing: -0.02,
+      light: { bg: '#FFF6F8', tx: '#3A1624', surf: '#FFFFFF', alt: '#FDEAF0', tx2: '#5C2E3E', mu: '#9A6B7B', bd: '#F8DCE5', bd2: '#F0C4D2' },
+      dark: { bg: '#1E0F15', tx: '#FCE9EF', surf: '#2A1620', alt: '#160A0F', tx2: '#EBC9D4', mu: '#B98C9B', bd: '#41222F', bd2: '#5A3042' },
+      bg: 'glow', cards: 'soft', radius: 1.8, backdrop: 'petals',
+    },
+  },
+  {
+    id: 'marshmallow', name: 'Зефир',
+    theme: {
+      accent: '#8E63E8', accent2: '#FF94C2', font: 'Nunito', head: 'Unbounded', headWeight: 600, headSpacing: -0.02, headScale: 0.8,
+      light: { bg: '#FBF7FF', tx: '#251A3D', surf: '#FFFFFF', alt: '#F3ECFD', tx2: '#463A62', mu: '#857A9E', bd: '#EBE2FA', bd2: '#DACDF3' },
+      dark: { bg: '#140F24', tx: '#F2ECFF', surf: '#1E1733', alt: '#0D0918', tx2: '#D3C9EC', mu: '#9F95BC', bd: '#31274D', bd2: '#433669' },
+      bg: 'mesh', cards: 'glass', radius: 2, backdrop: 'bubbles',
+    },
+  },
+  {
+    id: 'party', name: 'Праздник',
+    theme: {
+      accent: '#EF3E6B', accent2: '#FBBF24', font: 'Onest', head: 'Montserrat', headWeight: 800, headSpacing: -0.03, headScale: 0.95,
+      light: { bg: '#FFFAF3', tx: '#2A1316', surf: '#FFFFFF', alt: '#FFF0E0', tx2: '#4D2C30', mu: '#8C6A6D', bd: '#F9E4D2', bd2: '#F0CFB6' },
+      dark: { bg: '#1A0E12', tx: '#FFF0EC', surf: '#26151B', alt: '#12080B', tx2: '#EBCFCB', mu: '#B4908F', bd: '#3D2229', bd2: '#57313A' },
+      bg: 'dots', cards: 'raised', radius: 1.4, backdrop: 'confetti',
+    },
+  },
+  {
+    id: 'tender', name: 'Нежность',
+    theme: {
+      accent: '#E64C8C', accent2: '#FF9A76', font: 'Manrope', head: 'Caveat', headWeight: 700, headSpacing: 0, headScale: 1.35,
+      light: { bg: '#FFF7F5', tx: '#3A1A24', surf: '#FFFFFF', alt: '#FFEDEA', tx2: '#5E3340', mu: '#9C7280', bd: '#FBE0DC', bd2: '#F4C9C4' },
+      dark: { bg: '#1F1015', tx: '#FFEDEF', surf: '#2B1820', alt: '#160B0F', tx2: '#EECCD3', mu: '#BB919D', bd: '#43242F', bd2: '#5C3241' },
+      bg: 'spot', cards: 'soft', radius: 1.6, backdrop: 'hearts',
+    },
+  },
+  {
     id: 'luxe', name: 'Люкс',
     theme: {
       mode: 'dark', accent: '#C9A227', accent2: '#F3D98B', accentFlow: true, font: 'Manrope', head: 'Cormorant Garamond', headWeight: 600, headSpacing: 0, headScale: 1.18,

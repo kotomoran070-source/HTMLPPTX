@@ -7,7 +7,7 @@ import type { Deck, SlideData } from '../types';
 
 export const BACKDROPS = [
   ['mesh', 'Переливы'], ['aurora', 'Сияние'], ['silk', 'Шёлк'], ['waves', 'Волны'], ['topo', 'Рельеф'],
-  ['rays', 'Лучи'], ['bokeh', 'Боке'], ['particles', 'Частицы'], ['stars', 'Звёзды'], ['snow', 'Снегопад'], ['leaves', 'Листопад'], ['dots', 'Точки'],
+  ['rays', 'Лучи'], ['bokeh', 'Боке'], ['particles', 'Частицы'], ['stars', 'Звёзды'], ['snow', 'Снегопад'], ['leaves', 'Листопад'], ['petals', 'Лепестки'], ['bubbles', 'Пузыри'], ['hearts', 'Сердечки'], ['confetti', 'Конфетти'], ['dots', 'Точки'],
   ['network', 'Сеть'], ['hex', 'Соты'], ['orbits', 'Орбиты'], ['grid', 'Сетка'],
   ['globe', 'Глобус'], ['terrain', 'Ландшафт'], ['tunnel', 'Тоннель'], ['lava', 'Лава'],
 ] as const satisfies readonly (readonly [string, string])[];

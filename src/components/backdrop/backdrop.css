@@ -79,6 +79,31 @@
     radial-gradient(2.2% 4.4% at 40% 78%, color-mix(in srgb, var(--bd2) 50%, transparent) 90%, transparent),
     radial-gradient(3.6% 1.8% at 55% 45%, color-mix(in srgb, var(--ac) 35%, transparent) 90%, transparent);
 }
+.bd-petals {
+  background:
+    radial-gradient(3.2% 2.2% at 20% 26%, color-mix(in srgb, var(--ac) 45%, transparent) 90%, transparent),
+    radial-gradient(2.2% 3.2% at 66% 20%, color-mix(in srgb, var(--bd2) 55%, transparent) 90%, transparent),
+    radial-gradient(3% 2% at 84% 66%, color-mix(in srgb, var(--ac) 38%, transparent) 90%, transparent),
+    radial-gradient(2% 3% at 38% 74%, color-mix(in srgb, var(--bd2) 50%, transparent) 90%, transparent),
+    radial-gradient(2.6% 1.8% at 55% 46%, color-mix(in srgb, var(--ac) 30%, transparent) 90%, transparent);
+}
+.bd-bubbles {
+  background:
+    radial-gradient(circle at 22% 70%, transparent 0 5.5%, color-mix(in srgb, var(--ac) 40%, transparent) 6%, transparent 6.6%),
+    radial-gradient(circle at 70% 30%, transparent 0 8.5%, color-mix(in srgb, var(--bd2) 40%, transparent) 9%, transparent 9.6%),
+    radial-gradient(circle at 84% 78%, transparent 0 3.5%, color-mix(in srgb, var(--ac) 36%, transparent) 4%, transparent 4.6%),
+    radial-gradient(circle at 44% 24%, transparent 0 2.5%, color-mix(in srgb, var(--bd2) 36%, transparent) 3%, transparent 3.6%);
+}
+.bd-hearts {
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--ac) 40%, transparent) 3px, transparent 3.6px) 0 0 / 61px 53px,
+    radial-gradient(circle, color-mix(in srgb, var(--bd2) 45%, transparent) 2px, transparent 2.6px) 27px 19px / 43px 47px;
+}
+.bd-confetti {
+  background:
+    linear-gradient(35deg, transparent 46%, color-mix(in srgb, var(--ac) 55%, transparent) 46% 54%, transparent 54%) 0 0 / 37px 43px,
+    linear-gradient(-50deg, transparent 46%, color-mix(in srgb, var(--bd2) 60%, transparent) 46% 54%, transparent 54%) 19px 11px / 53px 47px;
+}
 .bd-dots {
   background: radial-gradient(circle, color-mix(in srgb, var(--ac) 32%, transparent) 2px, transparent 2.6px) 0 0 / 21px 21px;
   -webkit-mask: linear-gradient(135deg, #000, transparent 70%); mask: linear-gradient(135deg, #000, transparent 70%);

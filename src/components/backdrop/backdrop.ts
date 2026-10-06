@@ -156,6 +156,26 @@ void main(){vec2 p=gl_PointCoord-.5;float c=cos(vr.x);float s=sin(vr.x);p=mat2(c
   float a=smoothstep(.015,-.01,abs(p.x)-w)*va*k;if(a<.004)discard;
   float rib=1.-.3*smoothstep(.02,0.,abs(p.x))*step(-.85,v);
   gl_FragColor=vec4(vc*rib*(.88+.35*p.x)*a,a);}`;
+/** Лепесток: округлый, с выемкой на конце, светлее к середине */
+const PETAL_FS = `precision mediump float;uniform float k;varying float va;varying vec3 vc;varying vec2 vr;
+void main(){vec2 p=gl_PointCoord-.5;float c=cos(vr.x);float s=sin(vr.x);p=mat2(c,-s,s,c)*p;p.x/=max(vr.y,.2);
+  float v=p.y/.4;if(abs(v)>1.)discard;float w=.26*sqrt(1.-v*v)*(1.+.25*v);
+  float a=smoothstep(.015,-.01,abs(p.x)-w)*(1.-smoothstep(-.01,.015,(v-.62)*.45-abs(p.x)))*va*k;if(a<.004)discard;
+  gl_FragColor=vec4(mix(vc,vec3(1.),.35-.3*abs(v))*a,a);}`;
+/** Мыльный пузырь: прозрачный внутри, светлый ободок и блик */
+const BUBBLE_FS = `precision mediump float;uniform float k;varying float va;varying vec3 vc;
+void main(){vec2 p=gl_PointCoord-.5;float d=length(p);if(d>.5)discard;
+  float a=smoothstep(.5,.46,d)*(.12+.88*smoothstep(.34,.47,d));
+  float h=smoothstep(.1,.03,length(p-vec2(-.17,-.17)));
+  a=max(a,h*.9)*va*k;gl_FragColor=vec4(mix(vc,vec3(1.),h*.8)*a,a);}`;
+/** Сердечко */
+const HEART_FS = `precision mediump float;uniform float k;varying float va;varying vec3 vc;
+void main(){vec2 q=(gl_PointCoord-.5)*2.7;q.y=-q.y+.25;float h=q.x*q.x+q.y*q.y-1.;float f=h*h*h-q.x*q.x*q.y*q.y*q.y;
+  float a=smoothstep(.04,-.04,f)*va*k;if(a<.004)discard;gl_FragColor=vec4(mix(vc,vec3(1.),.25*smoothstep(.2,-.6,q.x+q.y))*a,a);}`;
+/** Конфетти: полоска, крутится и переворачивается */
+const CONFETTI_FS = `precision mediump float;uniform float k;varying float va;varying vec3 vc;varying vec2 vr;
+void main(){vec2 p=gl_PointCoord-.5;float c=cos(vr.x);float s=sin(vr.x);p=mat2(c,-s,s,c)*p;
+  float a=step(abs(p.x),.15*vr.y)*step(abs(p.y),.3)*va*k;if(a<.004)discard;gl_FragColor=vec4(vc*a,a);}`;
 const POINTS: Partial<Record<BackdropKind, { vs: string; fs?: string; count: [lite: number, full: number]; seed?: (i: number, n: number) => [number, number, number] }>> = {
   // Частицы: точки медленно поднимаются, мерцают и покачиваются
   particles: { count: [260, 900], vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;
@@ -200,6 +220,34 @@ void main(){float z=s.z;float y=fract(s.y-t*(.016+.026*z));
   float dir=fract(s.x*7.31)>.5?1.:-1.;
   vr=vec2(t*(.5+.8*z)*dir+s.y*6.283,.3+.7*abs(sin(t*(.6+.5*z)+s.x*9.)));
   vc=mix(c1,c2,fract(s.x*3.3+s.y*1.7));va=.5+.5*z;}` },
+  // Лепестки: падают с ветром, кружатся и переворачиваются
+  petals: { count: [34, 70], fs: PETAL_FS, vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;varying vec2 vr;
+void main(){float z=s.z;float y=fract(s.y-t*(.02+.03*z));
+  float x=fract(s.x+t*(.012+.02*z)+sin(t*(.5+.4*z)+s.y*15.)*.03);
+  gl_Position=vec4(vec2(x,y)*2.3-1.15,0.,1.);gl_PointSize=(14.+24.*z)*px;
+  float dir=fract(s.x*5.17)>.5?1.:-1.;
+  vr=vec2(t*(.6+.9*z)*dir+s.y*6.283,.35+.65*abs(sin(t*(.8+.5*z)+s.x*11.)));
+  vc=mix(c1,c2,.3+.7*fract(s.x*4.1+s.y*2.3));va=.55+.45*z;}` },
+  // Пузыри: поднимаются и покачиваются, переливаются цветами темы
+  bubbles: { count: [18, 40], fs: BUBBLE_FS, vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;
+void main(){float z=s.z;float y=fract(s.y+t*(.012+.022*z));
+  float x=fract(s.x+sin(t*(.4+.3*z)+s.y*10.)*.025);
+  gl_Position=vec4(vec2(x,y)*2.4-1.2,0.,1.);gl_PointSize=(16.+58.*z*z)*px;
+  vc=mix(c1,c2,.5+.5*sin(t*.4+s.x*12.));va=.5+.4*z;}` },
+  // Сердечки: всплывают, покачиваются и чуть пульсируют
+  hearts: { count: [20, 44], fs: HEART_FS, vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;
+void main(){float z=s.z;float y=fract(s.y+t*(.014+.022*z));
+  float x=fract(s.x+sin(t*(.6+.4*z)+s.y*12.)*.03);
+  gl_Position=vec4(vec2(x,y)*2.3-1.15,0.,1.);gl_PointSize=(12.+26.*z)*px*(1.+.08*sin(t*3.+s.x*30.));
+  vc=mix(c1,c2,fract(s.x*3.7+s.y*1.9));va=(.45+.5*z)*smoothstep(1.,.75,y);}` },
+  // Конфетти: цветные полоски падают, крутятся и переворачиваются
+  confetti: { count: [60, 130], fs: CONFETTI_FS, vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;varying vec2 vr;
+void main(){float z=s.z;float y=fract(s.y-t*(.03+.04*z));
+  float x=fract(s.x+sin(t*(.7+.5*z)+s.y*13.)*.02);
+  gl_Position=vec4(vec2(x,y)*2.2-1.1,0.,1.);gl_PointSize=(14.+20.*z)*px;
+  float dir=fract(s.x*6.7)>.5?1.:-1.;
+  vr=vec2(t*(1.2+1.6*z)*dir+s.y*6.283,.25+.75*abs(cos(t*(1.4+z)+s.x*9.)));
+  float h=fract(s.x*7.3+s.y*3.1);vc=h<.33?c1:h<.66?c2:mix(mix(c1,c2,.5),vec3(1.),.45);va=.6+.4*z;}` },
   // Звёзды: полёт сквозь звёздное поле — звёзды плывут из глубины и мерцают
   stars: { count: [320, 900], vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;
 void main(){float z=fract(s.z-t*.018);vec2 q=(s.xy-.5)/(.25+z*1.6);
@@ -230,6 +278,10 @@ const LOOK: Record<BackdropKind, { scale: number; fps: number; k: [light: number
   lava: { scale: 0.5, fps: 30, k: [0.32, 0.5] },
   snow: { scale: 1, fps: 60, k: [1.1, 1.05] },
   leaves: { scale: 1, fps: 60, k: [0.8, 0.95] },
+  petals: { scale: 1, fps: 60, k: [0.85, 0.95] },
+  bubbles: { scale: 1, fps: 60, k: [0.8, 0.9] },
+  hearts: { scale: 1, fps: 60, k: [0.7, 0.85] },
+  confetti: { scale: 1, fps: 60, k: [0.8, 0.9] },
 };
 
 /** Сеть: узлы плывут, близкие соединены линиями — считается на процессоре, рисуется видеокартой */
