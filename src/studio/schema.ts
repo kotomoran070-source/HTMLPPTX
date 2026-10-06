@@ -48,6 +48,16 @@ const frame: Field[] = [
   { k: 'position', label: 'Видимая часть', type: 'framepos', hint: 'Какая часть снимка видна в рамке. На слайде — «Кадр» и тянуть картинку' },
 ];
 
+/** Ряды диаграммы: название и значения */
+const series: Field = {
+  k: 'series', label: 'Ряды', type: 'rows', item: 'Ряд',
+  make: () => ({ name: 'Ряд', values: [10, 20, 30] }),
+  fields: [
+    { k: 'name', label: 'Название', type: 'text' },
+    { k: 'values', label: 'Значения', type: 'numbers' },
+  ],
+};
+
 /** Пункты «заголовок + текст» — общие для схем и списков */
 const points = (label: string, item: string, textLabel = 'Пояснение') => ({
   k: 'items', label, type: 'rows' as const, item,
@@ -221,6 +231,60 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'highlight', label: 'Выделенный столбец', type: 'number', min: 0, placeholder: 'последний', hint: 'Номер с нуля' },
       { k: 'max', label: 'Значение для полной высоты', type: 'number', placeholder: 'максимум' },
       { k: 'height', label: 'Высота, px', type: 'number', min: 40, max: 600, placeholder: '100' },
+    ],
+  },
+  donut: {
+    fields: [
+      { k: 'values', label: 'Значения', type: 'numbers' },
+      { k: 'labels', label: 'Подписи', type: 'strings', item: 'Подпись' },
+      { k: 'center', label: 'В центре', type: 'text', placeholder: 'сумма' },
+      { k: 'sub', label: 'Подпись в центре', type: 'text' },
+      { k: 'unit', label: 'Единица у значений', type: 'text', placeholder: ' млн' },
+      { k: 'hole', label: 'Отверстие', type: 'number', min: 0, max: 0.9, step: 0.05, placeholder: '0.62', hint: '0 — круговая диаграмма' },
+      { k: 'legend', label: 'Легенда', type: 'select', options: [['', 'Справа'], ['bottom', 'Снизу'], ['none', 'Без легенды']] },
+    ],
+  },
+  hbars: {
+    fields: [
+      { k: 'values', label: 'Значения', type: 'numbers' },
+      { k: 'labels', label: 'Подписи', type: 'strings', item: 'Подпись' },
+      { k: 'unit', label: 'Единица у значений', type: 'text', placeholder: ' %' },
+      { k: 'highlight', label: 'Выделенная полоса', type: 'number', min: 0, placeholder: 'первая', hint: 'Номер с нуля' },
+      { k: 'max', label: 'Значение для полной длины', type: 'number', placeholder: 'максимум' },
+    ],
+  },
+  gauge: {
+    fields: [
+      { k: 'value', label: 'Значение', type: 'number' },
+      { k: 'unit', label: 'Единица', type: 'text', placeholder: ' %' },
+      { k: 'label', label: 'Подпись', type: 'text' },
+      { k: 'min', label: 'Начало шкалы', type: 'number', placeholder: '0' },
+      { k: 'max', label: 'Конец шкалы', type: 'number', placeholder: '100' },
+      { k: 'target', label: 'Цель', type: 'number', hint: 'Отметка на шкале' },
+    ],
+  },
+  rings: {
+    fields: [
+      { k: 'values', label: 'Выполнение, %', type: 'numbers', hint: 'До четырёх колец' },
+      { k: 'labels', label: 'Подписи', type: 'strings', item: 'Цель' },
+    ],
+  },
+  columns: {
+    fields: [
+      { k: 'labels', label: 'Подписи групп', type: 'strings', item: 'Подпись' },
+      series,
+      { k: 'stacked', label: 'Друг на друге', type: 'bool' },
+      { k: 'unit', label: 'Единица оси', type: 'text' },
+      { k: 'max', label: 'Максимум оси', type: 'number', placeholder: 'авто' },
+    ],
+  },
+  lines: {
+    fields: [
+      { k: 'labels', label: 'Подписи по оси', type: 'strings', item: 'Подпись' },
+      series,
+      { k: 'unit', label: 'Единица', type: 'text' },
+      { k: 'min', label: 'Минимум оси', type: 'number', placeholder: '0' },
+      { k: 'max', label: 'Максимум оси', type: 'number', placeholder: 'авто' },
     ],
   },
   shape: {

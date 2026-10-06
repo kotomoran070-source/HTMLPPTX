@@ -13,7 +13,7 @@ import type { Block, Deck } from '../types';
  */
 
 /** Блоки с живой графикой и сложной геометрией не раскладываются: их вид не из текстов и подложек. */
-const WHOLE = new Set(['line-chart', 'bars', 'uptime', 'network', 'hub', 'system', 'pipeline', 'timeline', 'progress', 'sliders',
+const WHOLE = new Set(['line-chart', 'bars', 'donut', 'hbars', 'gauge', 'rings', 'columns', 'lines', 'uptime', 'network', 'hub', 'system', 'pipeline', 'timeline', 'progress', 'sliders',
   'image', 'tile', 'embed', 'live', 'spacer', 'text', 'note', 'list', 'table', 'link-card', 'link-buttons', 'link-plate', 'space-sky']);
 
 export function canUngroup(type: string, el: HTMLElement | null): boolean {

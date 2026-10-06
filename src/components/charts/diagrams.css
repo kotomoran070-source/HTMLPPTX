@@ -1,0 +1,89 @@
+/* Диаграммы (diagrams.ts): тонкие метки, подписи цветом текста, анимация при открытии слайда */
+.dg { width: 100%; }
+.dg svg { width: 100%; display: block; overflow: visible; }
+.dg .tx { fill: var(--mu); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.dg .tx.u { font-size: 9.5px; letter-spacing: .04em; }
+.dg .gl { stroke: var(--bd); stroke-dasharray: 3 4; }
+.dg .gl.base { stroke: var(--bd2); stroke-dasharray: none; }
+.dg-leg { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-bottom: 10px; font: 500 14px/1.3 var(--font); color: var(--tx2); }
+.dg-leg > span { display: inline-flex; align-items: center; gap: 7px; }
+.dg-leg i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+
+/* Пончик и круговая */
+.donut, .rings { display: flex; align-items: center; gap: 28px; width: 100%; }
+.donut.bottom { flex-direction: column; gap: 16px; }
+.dn-fig, .rings svg { flex: none; width: min(46%, 260px); aspect-ratio: 1; display: block; overflow: visible; }
+.donut.bottom .dn-fig { width: min(70%, 260px); }
+.dn-bg { fill: none; stroke: var(--alt); opacity: .6; }
+.dn-seg { fill: none; transition: opacity .2s; }
+.dn-v { fill: var(--tx); font: 800 30px var(--font-head, var(--font)); font-variant-numeric: tabular-nums; }
+.dn-s { fill: var(--mu); font: 500 12px var(--font); }
+.dn-leg { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 0; display: grid; gap: 10px; font: 15px/1.3 var(--font); }
+.dn-leg li { display: grid; grid-template-columns: 12px 1fr auto auto; align-items: center; gap: 10px; transition: opacity .2s; }
+.rings .dn-leg li, .dn-leg.nopct li { grid-template-columns: 12px 1fr auto; }
+.dn-leg i { width: 12px; height: 12px; border-radius: 4px; }
+.dn-leg span { color: var(--tx2); min-width: 0; }
+.dn-leg b { color: var(--tx); font-weight: 700; font-variant-numeric: tabular-nums; }
+.dn-leg em { min-width: 3.2em; text-align: right; color: var(--mu); font-style: normal; font-size: 13px; font-variant-numeric: tabular-nums; }
+/* Наведение на долю или строку легенды выделяет её, остальные — тише */
+.donut:has(.dn-seg:hover) .dn-seg:not(:hover) { opacity: .3; }
+.donut:has(li:hover) .dn-seg { opacity: .3; }
+.donut:has(li:hover) li:not(:hover) { opacity: .45; }
+.donut:has(li[data-k="0"]:hover) .dn-seg[data-k="0"], .donut:has(li[data-k="1"]:hover) .dn-seg[data-k="1"],
+.donut:has(li[data-k="2"]:hover) .dn-seg[data-k="2"], .donut:has(li[data-k="3"]:hover) .dn-seg[data-k="3"],
+.donut:has(li[data-k="4"]:hover) .dn-seg[data-k="4"], .donut:has(li[data-k="5"]:hover) .dn-seg[data-k="5"],
+.donut:has(li[data-k="6"]:hover) .dn-seg[data-k="6"], .donut:has(li[data-k="7"]:hover) .dn-seg[data-k="7"] { opacity: 1; }
+.slide.on .dn-seg { stroke-dasharray: 1; animation: dr .7s var(--d, .3s) cubic-bezier(.4, 0, .2, 1) both; }
+@keyframes dn-in { from { stroke-dasharray: 0 100; } }
+.slide.on .dn-leg li { animation: dg-fade .4s both; animation-delay: calc(.4s + var(--i, 0) * .08s); }
+
+/* Кольца целей */
+.rg-bg { fill: none; opacity: .14; }
+.rg-v { fill: none; stroke-linecap: round; }
+.slide.on .rg-v { animation: dn-in 1.2s calc(.3s + var(--k) * .15s) cubic-bezier(.3, 0, .2, 1) both; }
+
+/* Рейтинг */
+.hbars { display: grid; gap: 12px; width: 100%; font: 15px/1.3 var(--font); }
+.hb { display: grid; grid-template-columns: minmax(80px, 34%) 1fr auto; align-items: center; gap: 14px; }
+.hb-l { color: var(--tx2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hb-t { position: relative; height: 14px; border-radius: 4px; background: color-mix(in srgb, var(--ac) 8%, var(--alt)); overflow: hidden; }
+.hb-t i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: color-mix(in srgb, var(--ac) 42%, var(--surf)); transform-origin: left; }
+.hb.hl .hb-t i { background: linear-gradient(90deg, var(--ac), var(--ac2)); }
+.hb b { min-width: 3em; text-align: right; color: var(--tx); font-weight: 700; font-variant-numeric: tabular-nums; }
+.hb.hl .hb-l { color: var(--tx); font-weight: 600; }
+.slide.on .hb-t i { animation: hb-gr .9s calc(.3s + var(--k) * .08s) cubic-bezier(.3, 0, .2, 1) both; }
+@keyframes hb-gr { from { transform: scaleX(0); } }
+
+/* Спидометр */
+.gauge { width: 100%; display: block; overflow: visible; }
+.gg-bg, .gg-v { fill: none; stroke-width: 18; stroke-linecap: round; }
+.gg-bg { stroke: var(--alt); }
+.gg-tg { stroke: var(--tx); stroke-width: 3; stroke-linecap: round; }
+.gg-n { fill: var(--tx); font: 800 40px var(--font-head, var(--font)); font-variant-numeric: tabular-nums; }
+.gg-u { font-size: 20px; fill: var(--mu); font-weight: 700; }
+.gg-l { fill: var(--tx2); font: 500 13px var(--font); }
+.gg-m { fill: var(--mu); font: 11px var(--font); font-variant-numeric: tabular-nums; }
+.slide.on .gg-v { animation: dn-in 1.4s .3s cubic-bezier(.3, 0, .2, 1) both; }
+
+/* Столбцы по группам */
+.cl-b { transform-box: fill-box; transform-origin: bottom; transition: opacity .2s; }
+.cl-v { fill: var(--tx2); font-size: 10.5px; font-weight: 700; font-variant-numeric: tabular-nums; opacity: 0; transition: opacity .2s; }
+/* Значения: у последней группы всегда, у остальных — при наведении */
+.cl-g.last .cl-v, .cl-g:hover .cl-v { opacity: 1; }
+.columns:has(.cl-g:hover) .cl-g:not(:hover) .cl-b { opacity: .45; }
+.columns:has(.cl-g:hover) .cl-g.last:not(:hover) .cl-v { opacity: 0; }
+.slide.on .cl-b { animation: gr .8s calc(.3s + var(--k) * .08s) var(--ease) both; }
+
+/* Несколько линий */
+.ln-l { fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.ln-e circle { fill: var(--surf); stroke-width: 2.5; }
+.ln-t { fill: var(--tx); font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ln-n { fill: var(--mu); font-size: 10.5px; }
+.slide.on .ln-l { stroke-dasharray: 1; animation: dr 1.6s calc(.3s + var(--k) * .2s) ease-out both; }
+.slide.on .ln-a { animation: dg-fade 1s 1.1s both; }
+.slide.on .ln-e { animation: dg-fade .4s calc(1.8s + var(--k) * .2s) both; }
+@keyframes dg-fade { from { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .slide.on :is(.dn-seg, .dn-leg li, .rg-v, .hb-t i, .gg-v, .cl-b, .ln-l, .ln-a, .ln-e) { animation: none; }
+}

@@ -17,6 +17,7 @@ import './tile/tile';
 import './system/system';
 import './pipeline/pipeline';
 import './charts/charts';
+import './charts/diagrams';
 import './facts/facts';
 import './shape/shape';
 import './table/table';
