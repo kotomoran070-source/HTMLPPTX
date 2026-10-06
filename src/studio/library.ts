@@ -97,6 +97,11 @@ export const SANDBOX_SAMPLE = `<style>
 </script>
 `;
 
+/** Заготовка по разделу и имени — для кнопок вкладки «Вставка» */
+export function presetOf(category: string, name: string): Preset | null {
+  return LIBRARY.find((c) => c.name === category)?.items.find((p) => p.name === name) ?? null;
+}
+
 /** Готовые блоки: вставляются свободным объектом в центр слайда. Данные — как в deck.yaml. */
 export const LIBRARY: Category[] = [
   {
@@ -479,21 +484,30 @@ export interface MineOpts {
   remove(t: Template): void;
 }
 
-export function showLibrary(anchor: HTMLElement, deck: Deck, pick: (p: Preset) => void, mine?: MineOpts): void {
-  if (openEl) return closeLibrary();
+/** only — показать только эти разделы (галереи вкладки «Вставка»: «Таблица», «Диаграмма», «Схемы»…) */
+export function showLibrary(anchor: HTMLElement, deck: Deck, pick: (p: Preset) => void, mine?: MineOpts, only?: string[]): void {
+  if (openEl) {
+    const same = openEl.dataset.only === (only?.join('|') ?? '');
+    closeLibrary();
+    if (same) return;
+  }
   const el = document.createElement('div');
   el.className = 'st-lib';
   el.dataset.edKeep = '';
   el.setAttribute('role', 'dialog');
   el.setAttribute('aria-label', 'Блоки');
   // Свои шаблоны — первым разделом, если они есть
-  const own = mine?.list.length
+  el.dataset.only = only?.join('|') ?? '';
+  if (only) el.classList.add('part');
+  const own = !only && mine?.list.length
     ? `<section class="st-lib-mine"><h4>${icon('sparkle')}<span>Мои шаблоны</span></h4><div class="st-lib-grid">${mine.list.map((t, ti) =>
       `<div class="st-lib-own"><button type="button" class="st-lib-item" data-t="${ti}" title="Вставить: ${esc(t.name)}"><span class="st-lib-slot"><span class="st-lib-prev">${t.preview ? `<img src="${esc(t.preview)}" alt="">` : ''}</span></span><span class="st-lib-name">${esc(t.name)}</span></button>`
       + `<button type="button" class="st-lib-del" data-del="${ti}" title="Удалить шаблон" aria-label="Удалить шаблон «${esc(t.name)}»">${icon('close')}</button></div>`).join('')}</div></section>`
     : '';
-  el.innerHTML = own + LIBRARY.map((c, ci) => `<section><h4>${icon(c.icon)}<span>${esc(c.name)}</span></h4><div class="st-lib-grid${c.compact ? ' compact' : ''}">${c.items.map((p, pi) =>
-    `<button type="button" class="st-lib-item" data-c="${ci}" data-p="${pi}" title="Вставить: ${esc(p.name)}"><span class="st-lib-slot">${p.glyph ? `<svg class="st-lib-glyph" viewBox="0 0 48 32" aria-hidden="true">${p.glyph}</svg>` : ''}</span><span class="st-lib-name">${esc(p.name)}</span></button>`).join('')}</div></section>`).join('');
+  // Разделы галереи — в порядке, в котором их просили (новые схемы — первыми)
+  const order = only ? only.map((n) => LIBRARY.findIndex((c) => c.name === n)).filter((i) => i >= 0) : LIBRARY.map((_c, i) => i);
+  el.innerHTML = own + order.map((ci) => LIBRARY[ci]).map((c, k) => { const ci = order[k]; return `<section><h4>${icon(c.icon)}<span>${esc(c.name)}</span></h4><div class="st-lib-grid${c.compact ? ' compact' : ''}">${c.items.map((p, pi) =>
+    `<button type="button" class="st-lib-item" data-c="${ci}" data-p="${pi}" title="Вставить: ${esc(p.name)}"><span class="st-lib-slot">${p.glyph ? `<svg class="st-lib-glyph" viewBox="0 0 48 32" aria-hidden="true">${p.glyph}</svg>` : ''}</span><span class="st-lib-name">${esc(p.name)}</span></button>`).join('')}</div></section>`; }).join('');
   document.body.appendChild(el);
   el.querySelectorAll<HTMLElement>('.st-lib-item[data-c]').forEach((b) => {
     const p = LIBRARY[Number(b.dataset.c)].items[Number(b.dataset.p)];

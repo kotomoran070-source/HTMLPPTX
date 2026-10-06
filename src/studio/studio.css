@@ -54,6 +54,7 @@ body.studio { background: var(--alt); }
 .st-rb.ico { padding: 4px 5px; }
 .st-rb .st-caret { display: inline-block; width: 0; height: 0; margin-left: 5px; vertical-align: 2px; border: 3.5px solid transparent; border-top: 4px solid currentColor; border-bottom: 0; opacity: .7; }
 .st-rb.big .st-caret { margin-left: 3px; }
+.st-nw { white-space: nowrap; }
 .st-chk .st-box { display: grid; place-items: center; width: 15px; height: 15px; box-sizing: border-box; border: 1.5px solid var(--bd2); border-radius: 4px; background: var(--bg); flex: none; transition: background .12s, border-color .12s; }
 .st-chk .st-box .ic { width: 11px !important; height: 11px !important; stroke-width: 3 !important; color: var(--on-ac); opacity: 0; }
 .st-rb.st-chk.active { background: none; border-color: transparent; color: var(--tx2); }

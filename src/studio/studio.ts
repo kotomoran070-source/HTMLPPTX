@@ -28,7 +28,7 @@ import { addEffect, addTemplate, assetUrls, findEntrance, deckWithTemplate, list
 import { animCommands, animPanelHtml, animTabHtml, bindDelayField, syncAnimTab, type AnimHost } from './anim-tab';
 import { contextCommands, tableMenu, contextPanelsHtml, contextTab, contextTabsHtml, syncSwatches, type ContextTab } from './context-tabs';
 import { Inspector } from './inspector';
-import { closeLibrary, EMBED_SAMPLE, SANDBOX_SAMPLE, showLibrary, type Preset } from './library';
+import { closeLibrary, EMBED_SAMPLE, presetOf, SANDBOX_SAMPLE, showLibrary, type Preset } from './library';
 import { openCodeDialog } from './code-dialog';
 import { closeMenu, showMenu, showPopover, type MenuEntry } from './menu';
 import { projectStorage } from '../engine/storage';
@@ -63,7 +63,8 @@ const readPath = (el: Element, attr: string): Path | null => {
 function rb(cmd: string, ic: string, label: string, opts: { big?: boolean; key?: string; menu?: boolean; title?: string } = {}): string {
   const tip = (opts.title ?? label) + (opts.key ? ` (${opts.key})` : '');
   return `<button type="button" class="st-rb${opts.big ? ' big' : ''}" data-cmd="${cmd}" title="${esc(tip)}"${opts.menu ? ' aria-haspopup="menu" aria-expanded="false"' : ''}>`
-    + `${icon(ic)}<span>${esc(label)}${opts.menu ? '<b class="st-caret"></b>' : ''}</span></button>`;
+    // Стрелка меню — вместе с последним словом подписи: не уезжает одна на новую строку
+    + `${icon(ic)}<span>${opts.menu ? `${esc(label.replace(/\S+$/, ''))}<span class="st-nw">${esc(/\S+$/.exec(label)?.[0] ?? '')}<b class="st-caret"></b></span>` : esc(label)}</span></button>`;
 }
 
 /** Флажок на ленте: отмечен, когда команда активна */
@@ -116,8 +117,13 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Выровнять', `<div class="st-rgrid">${rb('align.left', 'obj-left', 'Слева')}${rb('align.center', 'obj-center', 'По центру')}${rb('align.right', 'obj-right', 'Справа')}${rb('align.top', 'obj-top', 'Сверху')}${rb('align.middle', 'obj-middle', 'Посередине')}${rb('align.bottom', 'obj-bottom', 'Снизу')}</div><div class="st-rstack">${rb('dist.h', 'dist-h', 'По ширине', { title: 'Равные промежутки по горизонтали' })}${rb('dist.v', 'dist-v', 'По высоте', { title: 'Равные промежутки по вертикали' })}</div><div class="st-rstack">${rb('arrange.row', 'eq-cols', 'В ряд', { title: 'Выстроить в ряд: промежутки держатся сами — объект стал шире, соседи сдвигаются' })}${rb('arrange.col', 'list', 'В столбец', { title: 'Выстроить в столбец: промежутки держатся сами' })}</div>`)}
     </div>
     <div class="st-rpanel" data-panel="insert" hidden>
-      ${group('Новый слайд', SLIDE_PRESETS.map((p, k) => rb(`slide.preset.${k}`, ['text', 'grid', 'image', 'frame'][k] ?? 'slide-add', p.name, { big: true })).join(''))}
-      ${group('Объекты', rb('insert.blocks', 'grid', 'Блоки', { big: true, menu: true, title: 'Готовые блоки: карточки, графики, схемы' }) + rb('insert.text', 'text', 'Текст', { big: true }) + rb('insert.image', 'image', 'Картинка', { big: true }))}
+      ${group('Слайды', rb('slide.new', 'slide-add', 'Новый слайд', { big: true, key: 'Ctrl+M', menu: true }))}
+      ${group('Текст', rb('insert.text', 'text', 'Надпись', { big: true, title: 'Текст в любом месте слайда' }) + rb('ins.gal.text', 'list', 'Текст', { big: true, menu: true, title: 'Заголовок, абзац, список, цитата, метки' }))}
+      ${group('Иллюстрации', rb('insert.image', 'image', 'Картинка', { big: true }) + rb('ins.gal.shapes', 'frame', 'Фигуры', { big: true, menu: true, title: 'Фигуры, линии, стрелки и плашки' }))}
+      ${group('Данные', rb('ins.gal.table', 'eq-cols', 'Таблица', { big: true, menu: true, title: 'Готовые таблицы разных стилей' }) + rb('ins.gal.chart', 'chart', 'Диаграмма', { big: true, menu: true, title: 'Графики и столбцы' }) + rb('ins.gal.numbers', 'hash', 'Числа', { big: true, menu: true, title: 'Ключевые числа, прогресс, «ключ — значение»' }))}
+      ${group('Схемы', rb('ins.gal.schemes', 'cycle', 'Схемы', { big: true, menu: true, title: 'Цикл, воронка, пирамида, хронология, матрица и другие' }) + rb('ins.gal.cards', 'grid', 'Карточки', { big: true, menu: true, title: 'Карточки, «было — стало», панель' }))}
+      ${group('Медиа', rb('ins.video', 'play', 'Видео', { big: true }) + rb('ins.model', 'layers', '3D-модель', { big: true }) + rb('ins.gal.live', 'sliders', 'Интерактив', { big: true, menu: true, title: 'Регуляторы, живой код, песочница, кнопки' }))}
+      ${group('Все блоки', rb('insert.blocks', 'sparkle', 'Блоки', { big: true, menu: true, title: 'Все готовые блоки и ваши шаблоны' }))}
     </div>
     ${animPanelHtml()}
     <div class="st-rpanel" data-panel="show" hidden>
@@ -1244,6 +1250,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'slide.del': { run: () => ed.deleteSlide(index), enabled: () => count() > 1 },
     'insert.text': { run: () => ed.addBlock('text') },
     'insert.blocks': { run: () => openLibrary() },
+    'ins.video': { run: () => { const p = presetOf('Медиа', 'Видео'); if (p) insertPreset(p); } },
+    'ins.model': { run: () => { const p = presetOf('Медиа', '3D-модель'); if (p) insertPreset(p); } },
     'view.code': { run: () => void toggleCode(), active: () => codeOpen },
     'view.ruler': { run: () => toggleAid('ruler'), active: () => lay.ruler },
     'view.grid': { run: () => toggleAid('grid'), active: () => lay.grid },
@@ -1344,6 +1352,20 @@ export function startStudio(deck: Deck, deckKey: string): void {
   cmds['tab.image'] = { run: () => setTab('image') };
   for (const k of ['left', 'center', 'right', 'top', 'middle', 'bottom']) cmds[`align.${k}`] = { run: () => align(k), enabled: hasFree };
   SLIDE_PRESETS.forEach((_p, k) => { cmds[`slide.preset.${k}`] = { run: () => ed.addSlide(index, k) }; });
+  /** Галереи вкладки «Вставка»: только свои разделы библиотеки */
+  const GALLERIES: Record<string, string[]> = {
+    text: ['Текст'], shapes: ['Фигуры', 'Плашки'], table: ['Таблицы'], chart: ['Графики'], numbers: ['Числа'],
+    schemes: ['Схемы из пунктов', 'Схемы'], cards: ['Карточки'], live: ['Интерактив'],
+  };
+  for (const [k, cats] of Object.entries(GALLERIES)) {
+    cmds[`ins.gal.${k}`] = {
+      run: () => {
+        const anchor = [...document.querySelectorAll<HTMLElement>(`.st-ribbon [data-cmd="ins.gal.${k}"]`)].find((b) => b.offsetParent);
+        if (anchor) showLibrary(anchor, deck, insertPreset, undefined, cats);
+      },
+    };
+  }
+
 
   // ---------------- палитра команд (Ctrl+K) ----------------
   const pickColor = (id: string) => () => { const inp = $<HTMLInputElement>(id); reveal('view'); inp.click(); };
