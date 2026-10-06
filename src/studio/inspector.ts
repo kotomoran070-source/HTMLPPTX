@@ -3,6 +3,7 @@ import { DEFAULT_ACCENT, HEX_RE, previewAccent, slideAccent } from '../engine/ac
 import { deckFonts, fontStack } from '../engine/fonts';
 import { fontItems, fontPicker, type FontItem } from '../engine/editor/font-picker';
 import { rowOf } from '../engine/editor/rows';
+import { toView, viewOf, VIEWS } from './block-views';
 import { getAt, setAt, type Path } from '../engine/data';
 import { BACKDROPS } from '../components/backdrop/backdrop';
 import { blockName, keepsRatio } from '../engine/editor/block-edit';
@@ -191,6 +192,8 @@ export class Inspector {
         const cur = typeof this.host.deck().theme?.font === 'string' ? this.host.deck().theme!.font as string : '';
         fontPicker().toggle(pick, () => this.fontItems(), cur, (v) => this.setDeckFont(v));
       }
+      const view = t.closest<HTMLElement>('[data-view]')?.dataset.view;
+      if (view) return this.setView(view);
       if (t.closest('[data-a="font-add"]')) {
         const inp = document.createElement('input');
         inp.type = 'file';
@@ -275,7 +278,7 @@ export class Inspector {
     const content = (deck.slides[this.host.index()]?.template ?? 'content') === 'content';
     const inGroup = !sel.free && sel.block.at(-2) === 'items' && (getAt(deck, sel.block.slice(0, -2)) as Block | undefined)?.type === 'group';
     const kind = sel.free ? 'Свободный объект' : inGroup ? 'Объект группы' : 'Блок в раскладке';
-    const head = `<header class="st-p-head"><span class="st-p-kind">${kind}</span><h2>${blockName(sel.type)}</h2></header>`;
+    const head = `<header class="st-p-head"><span class="st-p-kind">${kind}</span><h2>${blockName(sel.type)}</h2></header>` + this.viewsHtml();
     const schema = BLOCKS[sel.type];
     const ribbon = ON_RIBBON[sel.type];
     // Кадр картинки (обрезка, увеличение) нужен реже: отдельный свёрнутый раздел
@@ -318,6 +321,38 @@ export class Inspector {
       + `<section class="st-p-sec"><button type="button" class="st-p-hint" data-cmd="tab.anim">${icon('sparkle')}<span>Появление: <b data-sum="enter"></b> — на вкладке «Анимация»</span></button></section>`
       + extra
       + actions([['obj.dup', 'copy', 'Дублировать (Ctrl+D)'], ['obj.front', 'front', 'На передний план'], ['obj.back', 'back', 'На задний план'], ['obj.ungroup', 'ungroup', 'Разгруппировать'], ...(content ? [['obj.attach', 'grid', 'В раскладку'] as [string, string, string]] : []), ['obj.del', 'trash', 'Удалить (Delete)', 'danger']]);
+  }
+
+  /** Блок, вид которого можно сменить: выделенный, а у карточки в сетке карточек — вся сетка */
+  private viewTarget(): Path | null {
+    const sel = this.host.editor().selection;
+    if (!sel) return null;
+    const deck = this.host.deck();
+    if (viewOf(getAt(deck, sel.block))) return sel.block;
+    const parent = sel.block.slice(0, -2);
+    return sel.type === 'card' && sel.block.at(-2) === 'items' && viewOf(getAt(deck, parent)) === 'cards' ? parent : null;
+  }
+
+  /** Раздел «Вид»: тот же набор пунктов другой схемой — одним щелчком (Ctrl+Z — как было) */
+  private viewsHtml(): string {
+    const path = this.viewTarget();
+    if (!path) return '';
+    const cur = viewOf(getAt(this.host.deck(), path));
+    return `<section class="st-p-sec"><h3>Вид</h3><div class="st-views" role="radiogroup" aria-label="Вид блока">${VIEWS.map((v) =>
+      `<button type="button" role="radio" aria-checked="${v.id === cur}" data-view="${v.id}" title="${esc(v.name)}">${icon(v.icon)}<span>${esc(v.name)}</span></button>`).join('')}</div></section>`;
+  }
+
+  private setView(view: string): void {
+    const path = this.viewTarget();
+    const ed = this.host.editor();
+    if (!path || viewOf(getAt(this.host.deck(), path)) === view) return;
+    ed.clearSelection();
+    ed.commit((d) => setAt(d, path, toView(getAt(d, path) as Record<string, unknown>, view)), { rebuild: true });
+    // Выделение — снова на блоке (у свободного объекта — на его рамке)
+    requestAnimationFrame(() => {
+      const el = [...this.host.stage().querySelectorAll<HTMLElement>('.slide.on [data-block]')].find((x) => x.getAttribute('data-block') === JSON.stringify(path));
+      if (el) ed.selectBlock(el.parentElement?.hasAttribute('data-free') ? el.parentElement : el);
+    });
   }
 
   /** Живой ряд выделенного объекта: промежуток, выравнивание, «Разобрать» */
