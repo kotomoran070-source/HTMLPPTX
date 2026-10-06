@@ -29,6 +29,8 @@ export interface TextStyle {
   list?: string;
   /** Цвет маркера: #RRGGBB или цвет темы (accent, text…); без поля — акцент */
   listColor?: string;
+  /** Маркер-картинка: файл в assets/ (вместо символа) */
+  listImage?: string;
 }
 
 /**
@@ -46,6 +48,11 @@ export const LIST_MARKERS: Record<string, { name: string; sample: string; css: s
   alpha: { name: 'Буквы а)', sample: 'а)', css: '--li-mark:counter(md-li, cyrillic-lower) ")";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-pad:1.7em;--li-left:0' },
 };
 
+/** Объявления CSS «имя:значение;…» по одному — точка с запятой внутри url("…") не делит */
+export function splitDecls(css: string): [string, string][] {
+  return [...css.matchAll(/([\w-]+)\s*:\s*((?:url\("[^"]*"\)|"[^"]*"|[^;])+)/g)].map((m) => [m[1], m[2].trim()]);
+}
+
 /** Свой маркер: до 12 знаков, без кавычек, точки с запятой и обратной косой черты (они ломают CSS) */
 export function customMarker(v: unknown): string | null {
   if (typeof v !== 'string' || LIST_MARKERS[v]) return null;
@@ -53,9 +60,16 @@ export function customMarker(v: unknown): string | null {
   return t && [...t].length <= 12 && !/["\\;\n\r]/.test(t) ? t : null;
 }
 
-/** Переменные маркера для .md-li (layout.css): вид списка и цвет */
-export function listCss(list: unknown, color?: unknown): string {
+/** Адрес картинки-маркера, безопасный внутри url("…") */
+export function markerImage(v: unknown): string | null {
+  return typeof v === 'string' && v && v.length < 2_000_000 && !/["\\\n\r]/.test(v) ? v : null;
+}
+
+/** Переменные маркера для .md-li (layout.css): вид списка, картинка и цвет */
+export function listCss(list: unknown, color?: unknown, image?: unknown): string {
   const out: string[] = [];
+  const img = markerImage(image);
+  if (img) return `--li-mark:"";--li-bg:url("${img}") center / contain no-repeat;--li-w:.95em;--li-h:.95em;--li-top:.2em;--li-r:0;--li-left:0;--li-pad:1.45em`;
   const mk = typeof list === 'string' ? LIST_MARKERS[list] : undefined;
   if (mk?.css) out.push(mk.css);
   const own = mk ? null : customMarker(list);
@@ -124,7 +138,7 @@ export function textStyleCss(st: unknown): string {
   if (s.upper === true) out.push('text-transform:uppercase');
   const sp = Number(s.spacing);
   if (Number.isFinite(sp) && sp !== 0 && Math.abs(sp) <= 1) out.push(`letter-spacing:${sp}em`);
-  const lc = listCss(s.list, s.listColor);
+  const lc = listCss(s.list, s.listColor, s.listImage);
   if (lc) out.push(lc);
   const ld = Number(s.leading);
   if (Number.isFinite(ld) && ld >= 0.8 && ld <= 3) out.push(`line-height:${ld}`);

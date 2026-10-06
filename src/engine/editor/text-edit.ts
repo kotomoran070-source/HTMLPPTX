@@ -4,7 +4,7 @@ import { icon } from '../../components/icons';
 import { getAt, KEY, setAt, type Path } from '../data';
 import { esc, t } from '../html';
 import { GRADIENTS, TEXT_GRADIENTS, textGradientCss } from '../gradients';
-import { colorCss, customMarker, FONTS, LIST_MARKERS, listCss, SWATCHES, THEME_COLORS, type TextStyle } from '../text-style';
+import { colorCss, customMarker, FONTS, LIST_MARKERS, listCss, markerImage, splitDecls, SWATCHES, THEME_COLORS, type TextStyle } from '../text-style';
 import { plainMarkup, toggleList, toMarkup } from './serialize';
 
 /** Что текстовому редактору нужно от основного редактора. */
@@ -29,6 +29,8 @@ export interface TextHost {
   fontWeights?(name: string): number[];
   /** Шрифт всей презентации (theme.font) */
   themeFont?(): string;
+  /** Файл — в assets/ презентации: адрес для данных (картинка-маркер списка) */
+  storeAsset?(blob: Blob, name: string): Promise<string>;
 }
 
 const readPath = (el: Element, attr: string): Path | null => {
@@ -410,8 +412,7 @@ export class TextEditor {
     if (s.styles.spacing !== undefined) st.letterSpacing = `${Number(s.styles.spacing) || 0}em`;
     // Вид списка — переменные маркера (те же, что в textStyleCss)
     for (const v of ['--li-mark', '--li-w', '--li-h', '--li-bg', '--li-top', '--li-pad', '--li-left', '--li-r', '--li-c']) st.removeProperty(v);
-    const lc = listCss(s.styles.list, s.styles.listColor);
-    if (lc) for (const d of lc.split(';')) { const i = d.indexOf(':'); st.setProperty(d.slice(0, i), d.slice(i + 1)); }
+    for (const [k, v] of splitDecls(listCss(s.styles.list, s.styles.listColor, s.styles.listImage))) st.setProperty(k, v);
   }
 
   /** Пункты выбора шрифта: шрифт темы и общие, шрифты презентации, шрифты компьютера */
@@ -607,7 +608,8 @@ export class TextEditor {
       return;
     }
     const own = customMarker(s.styles.list);
-    const cur = own ?? (typeof s.styles.list === 'string' && LIST_MARKERS[s.styles.list] ? s.styles.list : 'dot');
+    const img = markerImage(s.styles.listImage);
+    const cur = img || own ? '' : typeof s.styles.list === 'string' && LIST_MARKERS[s.styles.list] ? s.styles.list : 'dot';
     const curColor = typeof s.styles.listColor === 'string' ? s.styles.listColor : '';
     this.menu.dataset.kind = 'list';
     // Образец: три строки с маркерами этого вида
@@ -618,42 +620,69 @@ export class TextEditor {
       if (k === 'alpha') return `<i>${'абв'[n - 1]})</i>`;
       return `<i>${esc(LIST_MARKERS[k].sample)}</i>`;
     };
-    const syms = OWN_MARKS.map((m) => `<button type="button" data-own="${esc(m)}" class="${m === own ? 'on' : ''}" title="${esc(m.includes('#') ? `${m.replace('#', '1')} ${m.replace('#', '2')} …` : m)}">${esc(m.replace('#', '1'))}</button>`).join('');
-    const colors = [['', 'Акцент темы', 'var(--ac)'], ['text', 'Как текст', 'var(--tx)'], ['muted', 'Приглушённый', 'var(--mu)'], ...SWATCHES.slice(2).map((c) => [c, c, c])]
+    const ownPreview = () => {
+      const st = this.s?.styles;
+      const im = markerImage(st?.listImage);
+      if (im) return `<img src="${esc(im)}" alt="">`;
+      const o = customMarker(st?.list);
+      return o ? esc(o.replace(/#/g, '1')) : '★';
+    };
+    const colors = [['', 'Акцент темы', 'var(--ac)'], ['text', 'Как текст', 'var(--tx)'], ['#DC2626', 'Красный', '#DC2626'], ['#16A34A', 'Зелёный', '#16A34A'], ['#7C3AED', 'Фиолетовый', '#7C3AED']]
       .map(([v, t, css]) => `<button type="button" data-lc="${v}" title="${esc(t)}" class="${v === curColor ? 'on' : ''}" style="background:${css}"></button>`).join('');
+    const custom = !!(own || img);
     this.menu.innerHTML = `<div class="edmenu-title">Вид списка</div><div class="edlist">${Object.entries(LIST_MARKERS).map(([k, m]) =>
       `<button type="button" data-v="${k}" class="${k === cur ? 'on' : ''}" title="${esc(m.name)}" aria-label="${esc(m.name)}">${[1, 2, 3].map((n) => `<span>${mark(k, n)}<s></s></span>`).join('')}</button>`).join('')}</div>
-      <div class="edmenu-title">Свой маркер</div><div class="edsyms">${syms}</div>
-      <label class="edown"><input type="text" maxlength="12" value="${esc(own ?? '')}" placeholder="Символ, эмодзи или текст" spellcheck="false" aria-label="Свой маркер"><small># — номер пункта: «Шаг #:» → Шаг 1:, Шаг 2:</small></label>
-      <div class="edmenu-title">Цвет маркера</div><div class="edlc">${colors}<label title="Свой цвет"><input type="color" value="${/^#[0-9a-f]{6}$/i.test(curColor) ? curColor.toLowerCase() : '#2563eb'}"></label></div>`;
+      <div class="edlist-foot">
+        <button type="button" class="edown-btn${custom ? ' on' : ''}" data-a="own" aria-expanded="${custom}" title="Свой маркер: символ, эмодзи, текст или картинка"><span class="edown-prev">${ownPreview()}</span>Свой<b class="st-caret"></b></button>
+        <span class="edlc" title="Цвет маркера">${colors}<label title="Свой цвет маркера"><input type="color" value="${/^#[0-9a-f]{6}$/i.test(curColor) ? curColor.toLowerCase() : '#2563eb'}"></label></span>
+      </div>
+      <div class="edown"${custom ? '' : ' hidden'}>
+        <div class="edown-row"><input type="text" maxlength="12" value="${esc(own ?? '')}" placeholder="★, 🔥 или Шаг #:" title="Символ, эмодзи или текст. # — номер пункта: «Шаг #:» → Шаг 1:, Шаг 2:" spellcheck="false" aria-label="Свой маркер"><button type="button" data-a="img" title="Картинка-маркер: значок, логотип" aria-label="Картинка">${icon('image')}</button></div>
+        <div class="edown-picks">${OWN_MARKS.map((m) => `<button type="button" data-own="${esc(m)}" title="${esc(m.includes('#') ? `${m.replace('#', '1')} ${m.replace('#', '2')} …` : m)}">${esc(m.replace('#', '1'))}</button>`).join('')}</div>
+      </div>`;
     // Ещё не список — сначала пункты
     const ensureList = () => { if (this.s && !this.s.el.querySelector('.md-li')) this.toggleList(); };
-    const mark2 = (v: string | undefined) => {
-      for (const b of this.menu.querySelectorAll<HTMLElement>('[data-v], [data-own]')) b.classList.toggle('on', (b.dataset.v ?? b.dataset.own) === (v ?? 'dot'));
+    const inp = this.menu.querySelector<HTMLInputElement>('.edown input')!;
+    const pane = this.menu.querySelector<HTMLElement>('.edown')!;
+    const ownBtn = this.menu.querySelector<HTMLElement>('.edown-btn')!;
+    /** Свой маркер выбран: отметки и образец на кнопке */
+    const markOwn = () => {
+      for (const b of this.menu.querySelectorAll<HTMLElement>('[data-v]')) b.classList.remove('on');
+      ownBtn.classList.add('on');
+      ownBtn.querySelector('.edown-prev')!.innerHTML = ownPreview();
+    };
+    const setOwn = (v: string) => {
+      ensureList();
+      this.setStyle({ list: v, listImage: undefined });
+      markOwn();
     };
     this.menu.onmousedown = (e) => { if (!(e.target as Element).closest('input')) e.preventDefault(); };
     this.menu.onclick = (e) => {
       const t = e.target as Element;
-      const b = t.closest<HTMLButtonElement>('button[data-v], button[data-own]');
+      if (!this.s) return;
       const c = t.closest<HTMLButtonElement>('button[data-lc]');
-      if (!this.s || (!b && !c)) return;
       if (c) {
         this.setStyle({ listColor: c.dataset.lc || undefined });
         for (const x of this.menu.querySelectorAll<HTMLElement>('[data-lc]')) x.classList.toggle('on', x === c);
         return;
       }
-      ensureList();
-      const v = b!.dataset.v ?? b!.dataset.own!;
-      this.setStyle({ list: v === 'dot' ? undefined : v });
-      if (b!.dataset.v) {
-        this.menu.classList.remove('on');
-        this.s?.el.focus({ preventScroll: true });
-      } else {
-        inp.value = v;
-        mark2(v);
+      const a = t.closest<HTMLElement>('[data-a]')?.dataset.a;
+      if (a === 'own') {
+        pane.hidden = !pane.hidden;
+        ownBtn.setAttribute('aria-expanded', String(!pane.hidden));
+        if (!pane.hidden) inp.focus();
+        return;
       }
+      if (a === 'img') { this.pickMarkerImage(markOwn); return; }
+      const o = t.closest<HTMLElement>('[data-own]')?.dataset.own;
+      if (o) { inp.value = o; setOwn(o); return; }
+      const v = t.closest<HTMLElement>('[data-v]')?.dataset.v;
+      if (!v) return;
+      ensureList();
+      this.setStyle({ list: v === 'dot' ? undefined : v, listImage: undefined });
+      this.menu.classList.remove('on');
+      this.s?.el.focus({ preventScroll: true });
     };
-    const inp = this.menu.querySelector<HTMLInputElement>('.edown input')!;
     inp.addEventListener('keydown', (e) => {
       e.stopPropagation();
       if (e.key === 'Enter' || e.key === 'Escape') {
@@ -666,10 +695,7 @@ export class TextEditor {
     inp.addEventListener('input', () => {
       const v = customMarker(inp.value);
       inp.classList.toggle('bad', !!inp.value.trim() && !v);
-      if (!v) return;
-      ensureList();
-      this.setStyle({ list: v });
-      mark2(v);
+      if (v) setOwn(v);
     });
     // Поле своего маркера потеряло фокус не в пользу текста или панели — правка текста закончена
     const leave = () => setTimeout(() => {
@@ -689,6 +715,38 @@ export class TextEditor {
     const w = this.menu.offsetWidth;
     this.menu.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left - 8))}px`;
     this.menu.style.top = `${r.bottom + 6}px`;
+  }
+
+  /** Картинка-маркер: значок уменьшается до 128 px и ложится в assets/ презентации */
+  private pickMarkerImage(done: () => void): void {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/png,image/jpeg,image/webp,image/svg+xml,image/gif';
+    inp.onchange = async () => {
+      const f = inp.files?.[0];
+      if (!f || !this.s || !this.host.storeAsset) return;
+      try {
+        const url = URL.createObjectURL(f);
+        const im = new Image();
+        await new Promise((ok, bad) => { im.onload = ok; im.onerror = bad; im.src = url; });
+        const k = Math.min(1, 128 / Math.max(im.naturalWidth || 128, im.naturalHeight || 128));
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round((im.naturalWidth || 128) * k));
+        c.height = Math.max(1, Math.round((im.naturalHeight || 128) * k));
+        c.getContext('2d')!.drawImage(im, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        const blob = await new Promise<Blob>((ok, bad) => c.toBlob((b) => (b ? ok(b) : bad(new Error('картинка'))), 'image/png'));
+        const stem = f.name.replace(/\.[^.]+$/, '').replace(/[^\p{L}\p{N}_-]+/gu, '-').slice(0, 32) || 'marker';
+        const src = await this.host.storeAsset(blob, `${stem}-marker.png`);
+        if (!this.s) return;
+        if (!this.s.el.querySelector('.md-li')) this.toggleList();
+        this.setStyle({ listImage: src, list: undefined });
+        done();
+      } catch {
+        this.host.toast('Не удалось открыть картинку', 3000, true);
+      }
+    };
+    inp.click();
   }
 
   /** Интервалы как в PowerPoint: готовые значения и точное — числом */
@@ -862,7 +920,7 @@ export class TextEditor {
 }
 
 /** Быстрые свои маркеры: символы, эмодзи и нумерация с текстом (# — номер) */
-const OWN_MARKS = ['★', '◆', '✦', '○', '▸', '❯', '✔', '✗', '💡', '✅', '👉', '📌', '(#)', '[#]', 'Шаг #:'];
+const OWN_MARKS = ['★', '◆', '✦', '➜', '✔', '💡', '✅', '👉', '🔥', '📌'];
 
 function clean(st: TextStyle): TextStyle {
   const out: TextStyle = {};
@@ -879,6 +937,7 @@ function clean(st: TextStyle): TextStyle {
   if (st.leading) out.leading = st.leading;
   if (st.list && (LIST_MARKERS[st.list] || customMarker(st.list)) && st.list !== 'dot') out.list = LIST_MARKERS[st.list] ? st.list : customMarker(st.list)!;
   if (st.listColor && colorCss(st.listColor)) out.listColor = st.listColor;
+  if (markerImage(st.listImage)) out.listImage = st.listImage;
   return out;
 }
 
