@@ -9,18 +9,9 @@ export interface Deck {
     /** Свой логотип для тёмной темы; без него в обеих темах — logo */
     logoDark?: string;
   };
-  theme?: {
-    /** Акцентный цвет, например "#2563EB". Оттенки для обеих тем строятся из него */
-    accent?: string;
-    /** Второй цвет акцента: акцентные заливки становятся градиентом от accent к accent2 */
-    accent2?: string;
-    /** Переливание: цвета градиента акцента плавно текут по акцентным элементам */
-    accentFlow?: boolean;
-    /** Шрифт всей презентации: имя одного из fonts */
-    font?: string;
-  };
+  theme?: DeckTheme;
   /** Свои шрифты: файлы в assets/ — { name: Manrope, src: ./assets/Manrope.woff2 } */
-  fonts?: { name: string; src: string; weight?: number; style?: 'italic' }[];
+  fonts?: { name: string; src: string; weight?: number; style?: 'italic'; from?: 'theme' }[];
   slides: SlideData[];
   /**
    * Свои эффекты появления (сохранены пользователем из импорта): enter: <id> у объекта.
@@ -32,6 +23,62 @@ export interface Deck {
    * Действуют только внутри html-блоков с ns: это пространство — и не задевают остальное.
    */
   scoped?: Record<string, string>;
+}
+
+/** Цвета слайдов для одной темы (светлой или тёмной): #RRGGBB. Нужны фон и текст, остальное выводится из них */
+export interface ThemePalette {
+  /** Фон слайда */
+  bg?: string;
+  /** Карточки и плашки */
+  surf?: string;
+  /** Подложки чуть темнее фона */
+  alt?: string;
+  /** Основной текст */
+  tx?: string;
+  /** Второстепенный текст */
+  tx2?: string;
+  /** Подписи */
+  mu?: string;
+  /** Линии и рамки */
+  bd?: string;
+  /** Линии заметнее */
+  bd2?: string;
+}
+
+/** Оформление презентации (engine/deck-theme.ts) */
+export interface DeckTheme {
+  /** Тема из галереи студии, от которой взяты значения (только для подсветки в галерее) */
+  preset?: string;
+  /** Акцентный цвет, например "#2563EB". Оттенки для обеих тем строятся из него */
+  accent?: string;
+  /** Второй цвет акцента: акцентные заливки становятся градиентом от accent к accent2 */
+  accent2?: string;
+  /** Переливание: цвета градиента акцента плавно текут по акцентным элементам */
+  accentFlow?: boolean;
+  /** Шрифт всей презентации: имя одного из fonts */
+  font?: string;
+  /** Шрифт заголовков и крупных чисел: имя одного из fonts */
+  head?: string;
+  /** Насыщенность заголовков (100–900), заглавные буквы, межбуквенный интервал (em) */
+  headWeight?: number;
+  headCase?: 'upper';
+  headSpacing?: number;
+  /**
+   * Поправка размера заголовков (0.7–1.3): широкий шрифт заголовков чуть меньше, узкий — крупнее,
+   * чтобы строки занимали столько же места, сколько обычным шрифтом
+   */
+  headScale?: number;
+  /** Слайды всегда светлые или всегда тёмные; без поля — как тема у зрителя */
+  mode?: 'light' | 'dark';
+  /** Цвета слайдов в светлой и тёмной теме */
+  light?: ThemePalette;
+  dark?: ThemePalette;
+  /** Фон слайдов: dots, plain, grid, glow, mesh, paper, notebook, band, arc, spot, neon, halftone */
+  bg?: string;
+  /** Вид карточек: soft, flat, outline, raised, glass, poster */
+  cards?: string;
+  /** Скругление углов: множитель от 0 (прямые) до 2 (круглые), 1 — как обычно */
+  radius?: number;
 }
 
 export interface SlideData {

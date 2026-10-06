@@ -6,7 +6,9 @@ import {
 import { asArray, esc } from './html';
 import { slideAccent } from './accent';
 import { applyDeckCss, applyDeckDefs, applyScopedCss } from './deck-css';
+import { applyDeckTheme, themeMode, type SlideMode } from './deck-theme';
 import { applyDeckFonts } from './fonts';
+import { forceTheme } from './theme';
 import { indexPaths, pathOf } from './marks';
 import { controlRange, deriveVars, hasFormula, resolve, type ControlProps } from './formula';
 
@@ -31,6 +33,9 @@ export class Renderer {
   private mounts = new Map<string, PendingMount>();
   private cssKey: string | null;
   private fontKey: string | null;
+  /** Тема презентации (deck-theme.ts) и постоянный вид её слайдов: светлые или тёмные */
+  private themeKey: string | null;
+  private mode: SlideMode | null;
 
   constructor(private deck: Deck, private logo?: string, private varsOverride?: Map<number, Record<string, number>>) {
     // Пути нужны для режима правки: каждый элемент знает, какое значение он показывает
@@ -40,11 +45,24 @@ export class Renderer {
     applyDeckDefs((deck as { defs?: unknown }).defs);
     // Свои шрифты презентации и её шрифт по умолчанию
     this.fontKey = applyDeckFonts(deck.fonts, deck.theme?.font);
+    // Тема: цвета, фон, заголовки и карточки слайдов
+    this.themeKey = applyDeckTheme(deck.theme);
+    this.mode = this.themeKey ? themeMode(deck.theme) : null;
     // Вёрстка из других презентаций — со своими стилями, в своём пространстве
     applyScopedCss(deck.scoped);
   }
 
   slide(slide: SlideData, index: number, extraClass = ''): string {
+    // Слайды с постоянным видом: картинки со своим вариантом для тёмной темы — по нему
+    const was = forceTheme(this.mode);
+    try {
+      return this.slideHtml(slide, index, extraClass);
+    } finally {
+      forceTheme(was);
+    }
+  }
+
+  private slideHtml(slide: SlideData, index: number, extraClass: string): string {
     const name = slide.template ?? 'content';
     const tpl = getTemplate(name);
     const ctx = this.ctx(slide, index);
@@ -65,6 +83,8 @@ export class Renderer {
     const foreign = !!body && !Array.isArray(body) && body.type === 'html' && typeof body.ns === 'string';
     if (this.cssKey && !foreign) attrs += ` data-css="${this.cssKey}"`;
     if (this.fontKey) attrs += ` data-fonts="${this.fontKey}"`;
+    if (this.themeKey) attrs += ` data-th="${this.themeKey}"`;
+    if (this.mode) attrs += ` data-mode="${this.mode}"`;
     // Свои цвета слайда (theme.accent / accent2): правило по атрибуту, см. engine/accent.ts
     const own = slideAccent(slide.theme);
     if (own) attrs += ` data-accent="${own}"`;
@@ -154,7 +174,12 @@ export class Renderer {
 
   /** Разметка одного блока слайда — для пересчёта при движении ползунка */
   blockHtml(b: Block, slide: SlideData, index: number): string {
-    return this.block(b, this.ctx(slide, index));
+    const was = forceTheme(this.mode);
+    try {
+      return this.block(b, this.ctx(slide, index));
+    } finally {
+      forceTheme(was);
+    }
   }
 
   private ctx(slide: SlideData, index: number): RenderCtx {

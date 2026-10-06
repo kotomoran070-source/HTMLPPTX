@@ -5,7 +5,7 @@
   gap: 6px;
   background: var(--alt);
   border: 1px solid var(--bd);
-  border-radius: 12px;
+  border-radius: calc(12px * var(--rk, 1));
   padding: 10px;
   overflow: hidden;
   min-height: 0;
@@ -13,6 +13,6 @@
 .tile svg { max-height: 100%; width: 100%; }
 .tile.photo { grid-template-rows: 1fr auto; place-items: stretch; align-content: stretch; }
 .tile.photo > .mu { text-align: center; }
-.tile.photo .imgbox { border-radius: 8px; min-height: 0; }
+.tile.photo .imgbox { border-radius: calc(8px * var(--rk, 1)); min-height: 0; }
 .tile.photo:not(:has(> .mu)) { grid-template-rows: 1fr; }
-.tile-empty { color: var(--mu); font-size: 14px; border: 2px dashed var(--bd2); border-radius: 10px; padding: 18px 24px; }
+.tile-empty { color: var(--mu); font-size: 14px; border: 2px dashed var(--bd2); border-radius: calc(10px * var(--rk, 1)); padding: 18px 24px; }

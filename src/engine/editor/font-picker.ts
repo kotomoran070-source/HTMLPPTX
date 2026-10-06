@@ -181,11 +181,12 @@ export function fontPicker(): FontPicker {
 }
 
 /** Пункты списка: сначала шрифты темы, затем шрифты презентации и библиотеки, затем шрифты компьютера */
-export function fontItems(head: FontItem[], choices: { name: string; sys?: boolean }[], stack: (n: string) => string): FontItem[] {
+export function fontItems(head: FontItem[], choices: { name: string; sys?: boolean; theme?: boolean }[], stack: (n: string) => string): FontItem[] {
   const names = new Set(head.map((f) => f.value));
   return [
     ...head,
-    ...choices.filter((f) => !f.sys && !names.has(f.name)).map((f) => ({ value: f.name, label: f.name, css: stack(f.name), group: 'Шрифты презентации' })),
+    ...choices.filter((f) => !f.sys && !f.theme && !names.has(f.name)).map((f) => ({ value: f.name, label: f.name, css: stack(f.name), group: 'Шрифты презентации' })),
+    ...choices.filter((f) => f.theme && !names.has(f.name)).map((f) => ({ value: f.name, label: f.name, css: stack(f.name), group: 'Шрифты тем' })),
     ...choices.filter((f) => f.sys && !names.has(f.name)).map((f) => ({ value: f.name, label: f.name, css: stack(f.name), group: 'Шрифты компьютера' })),
   ];
 }

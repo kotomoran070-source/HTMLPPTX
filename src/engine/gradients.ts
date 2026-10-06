@@ -27,7 +27,7 @@ const ROLE_ON: Record<string, string> = { accent: 'var(--on-ac)', text: 'var(--b
 /** Готовые градиенты: первые — от цветов темы (меняются с темой и акцентом), дальше — постоянные */
 export const GRADIENTS: { id: string; name: string; g: ShapeGradient; on?: string }[] = [
   { id: 'accent', name: 'Акцент', g: { from: 'accent-light', to: 'accent-dark', angle: 135 }, on: 'var(--on-ac)' },
-  { id: 'duo', name: 'Градиент акцента (Вид → Оформление)', g: { from: 'accent', to: 'accent2', angle: 135 }, on: 'var(--on-ac)' },
+  { id: 'duo', name: 'Градиент акцента (Дизайн → Цвета)', g: { from: 'accent', to: 'accent2', angle: 135 }, on: 'var(--on-ac)' },
   { id: 'glow', name: 'Сияние акцента', g: { from: 'accent-light', to: 'accent-dark', type: 'radial' }, on: 'var(--on-ac)' },
   { id: 'soft', name: 'Мягкий', g: { from: 'soft', to: 'surface', angle: 135 }, on: 'var(--ach)' },
   { id: 'mist', name: 'Туман', g: { from: 'surface', to: 'alt', angle: 180 }, on: 'var(--tx)' },

@@ -1,6 +1,8 @@
-// Студия: открывается без ошибок, «Сохранить как шаблон…» → «Мои шаблоны», меню «Цвет» картинки, палитра команд
+// Студия: открывается без ошибок, «Сохранить как шаблон…» → «Мои шаблоны», меню «Цвет» картинки, палитра команд, темы «Дизайна»
+import fs from 'node:fs';
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { watchErrors } from './helpers';
+import { DECKS, readDeck, watchErrors } from './helpers';
 
 test.use({ colorScheme: 'light' });
 
@@ -105,5 +107,33 @@ test('палитра команд: Ctrl+K находит команду лент
   await page.keyboard.press('Control+k');
   await q.fill('сетка');
   await expect(page.locator('.st-pal-o').first()).toContainText('вкл.');
+  expect(errors).toEqual([]);
+});
+
+test('«Дизайн»: наведение примеряет тему, щелчок применяет её со шрифтами, Ctrl+Z возвращает', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=design&studio#2');
+  const slide = page.locator('#st-canvas .slide.on');
+  await expect(slide).toHaveCount(1);
+  await page.locator('.st-tabs [data-tab="design"]').click();
+  const tile = page.locator('.st-dz-mini[data-theme-id="midnight"]');
+  // Примерка: только стили открытого слайда, данные не меняются
+  await tile.hover();
+  await expect(page.locator('#st-canvas .stage[data-th-preview]')).toHaveCount(1);
+  await page.mouse.move(10, 600);
+  await expect(page.locator('[data-th-preview]')).toHaveCount(0);
+  await tile.click();
+  // «Полночь» — всегда тёмные слайды: тёмный фон при светлом интерфейсе
+  await expect(slide).toHaveAttribute('data-mode', 'dark');
+  await expect.poll(() => slide.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(7, 11, 24)');
+  await expect.poll(() => readDeck('design')).toContain('preset: midnight');
+  const yaml = readDeck('design');
+  expect(yaml).toContain('head: Unbounded');
+  // Шрифты темы — копией в презентацию
+  expect(yaml).toMatch(/name: Unbounded\n\s+src: \.\/assets\/Unbounded\.woff2/);
+  expect(fs.existsSync(path.join(DECKS, 'design', 'assets', 'Unbounded.woff2'))).toBe(true);
+  await page.keyboard.press('Control+z');
+  await expect(slide).not.toHaveAttribute('data-th', /./);
+  await expect.poll(() => readDeck('design')).not.toContain('preset:');
   expect(errors).toEqual([]);
 });

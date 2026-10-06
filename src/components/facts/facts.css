@@ -1,6 +1,6 @@
 /* Ключевое число */
 .stat { display: flex; flex-direction: column; gap: 4px; }
-.stat-v { font-size: 56px; font-weight: 800; line-height: 1.05; letter-spacing: -.02em; color: var(--tx); font-variant-numeric: tabular-nums; }
+.stat-v { font-family: var(--font-head); font-size: calc(56px * var(--h-scale, 1)); font-weight: var(--hw, 800); line-height: 1.05; letter-spacing: -.02em; color: var(--tx); font-variant-numeric: tabular-nums; }
 .stat-l { font-size: 17px; color: var(--tx2); line-height: 1.35; }
 .stat-d { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; padding: 3px 10px 3px 8px; border-radius: 9999px; font-size: 14px; font-weight: 700; }
 .stat-d i { font-style: normal; }
@@ -13,7 +13,7 @@
 /* Цитата */
 .quote { position: relative; margin: 0; padding: 8px 0 0 64px; }
 .quote-mark { position: absolute; left: 0; top: -18px; font: 800 120px/1 Georgia, "Times New Roman", serif; color: var(--ac); opacity: .9; }
-.quote blockquote { margin: 0; font-size: 28px; line-height: 1.35; font-weight: 600; color: var(--tx); letter-spacing: -.01em; }
+.quote blockquote { margin: 0; font-family: var(--font-head); font-size: calc(28px * var(--h-scale, 1)); line-height: 1.35; font-weight: 600; color: var(--tx); letter-spacing: -.01em; }
 .quote figcaption { display: flex; flex-direction: column; gap: 2px; margin-top: 18px; padding-left: 16px; border-left: 3px solid var(--ac); }
 .quote figcaption b { font-size: 16px; color: var(--tx); }
 .quote figcaption span { font-size: 14px; color: var(--mu); }

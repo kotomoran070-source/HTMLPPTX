@@ -1,6 +1,7 @@
 import { icon } from '../../components/icons';
 import type { Deck, SlideData } from '../../types';
 import { applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, previewAccent } from '../accent';
+import { applyThemeSwatches, hasThemeLook } from '../deck-theme';
 import { clone, getAt, replaceContents, setAt, type Path } from '../data';
 import { esc } from '../html';
 import { darkPath } from '../marks';
@@ -532,6 +533,7 @@ export class Editor {
     this.dirty = true;
     applyAccent(this.host.deck.theme?.accent, this.host.deck.theme?.accent2);
     applyAccentFlow(this.host.deck.theme?.accentFlow);
+    applyThemeSwatches(this.host.deck.theme);
     this.host.refresh(rebuild);
     if (rebuild) {
       this.image.refresh();
@@ -733,7 +735,8 @@ export class Editor {
         delete d.theme.accentFlow;
         if (!Object.keys(d.theme).length) delete d.theme;
       }
-    }, { merge: key, rebuild: false });
+      // У темы презентации свои правила для слайдов (deck-theme.ts): с новым акцентом — новые
+    }, { merge: key, rebuild: hasThemeLook(this.host.deck.theme) });
     this.endAccentPreview();
   }
 
@@ -1224,16 +1227,24 @@ export class Editor {
    * Шрифты для выбора: свои у презентации, из общей библиотеки (lib — ещё не скопирован в презентацию)
    * и после них — установленные на компьютере (sys: в презентацию копируется при выборе)
    */
-  fontChoices(): { name: string; lib: boolean; sys?: boolean }[] {
+  fontChoices(): { name: string; lib: boolean; sys?: boolean; theme?: boolean }[] {
     const own = [...new Set(deckFonts(this.host.deck.fonts).map((f) => f.name.trim()))];
     const lib = this.library.filter((f) => !own.includes(f.name)).map((f) => f.name);
-    const taken = new Set([...own, ...lib]);
+    const themed = (this.themeFonts?.names ?? []).filter((n) => !own.includes(n) && !lib.includes(n));
+    const taken = new Set([...own, ...lib, ...themed]);
     return [
       ...own.map((name) => ({ name, lib: false })),
       ...lib.map((name) => ({ name, lib: true })),
+      ...themed.map((name) => ({ name, lib: true, theme: true })),
       ...localFamilies().filter((n) => !taken.has(n)).map((name) => ({ name, lib: true, sys: true })),
     ];
   }
+
+  /**
+   * Шрифты тем студии (src/fonts): в списках шрифтов — после своих; в презентацию копируются,
+   * когда их выбирают. Задаёт студия: в собранном файле этих шрифтов нет
+   */
+  themeFonts: { names: string[]; get(name: string): { name: string; url: string; file: string } | null } | null = null;
 
   /**
    * Шрифт из библиотеки, выбранный в этой презентации, — копией в её assets/ и в fonts:
@@ -1249,6 +1260,19 @@ export class Editor {
       return true;
     }
     const lib = this.library.find((f) => f.name === name);
+    // Шрифт темы студии — копией файла, как свой
+    const own = !lib ? this.themeFonts?.get(name) : null;
+    if (own) {
+      try {
+        const add = await this.importFonts([own]);
+        this.commit((d) => { d.fonts = [...(Array.isArray(d.fonts) ? d.fonts : []), ...add]; }, { rebuild: false });
+        applyDeckFonts(this.host.deck.fonts, null);
+        return true;
+      } catch (e) {
+        this.toast(`Не удалось добавить шрифт: ${(e as Error).message}`, 5000, true);
+        return false;
+      }
+    }
     if (!lib && localFaces(name).length) return this.embedLocalFont(name, weight ? [weight] : []);
     if (!lib || !this.storage.useFont) return false;
     try {
@@ -1298,6 +1322,25 @@ export class Editor {
     applyDeckFonts(this.host.deck.fonts, null);
     this.toast(have.length ? `Начертание «${name}» добавлено в презентацию` : `Шрифт «${name}» добавлен в презентацию`, 2500);
     return true;
+  }
+
+  /**
+   * Шрифты по адресу (шрифты тем студии) — копиями в презентацию: файл в assets/ (в собранном
+   * файле — внутрь). Возвращает записи для fonts; в данные их кладёт тот, кто вызвал, — одним
+   * шагом вместе со своей правкой. Уже подключённые к презентации шрифты пропускаются
+   */
+  async importFonts(list: { name: string; url: string; file: string }[]): Promise<{ name: string; src: string; from: 'theme' }[]> {
+    const have = new Set(deckFonts(this.host.deck.fonts).map((f) => f.name.trim()));
+    const out: { name: string; src: string; from: 'theme' }[] = [];
+    for (const f of list) {
+      if (have.has(f.name)) continue;
+      const res = await fetch(f.url);
+      if (!res.ok) throw new Error(`нет файла шрифта «${f.name}»`);
+      const file = new File([await res.blob()], f.file, { type: 'font/woff2' });
+      const src = this.mode === 'project' ? (await this.storage.uploadAsset(this.host.deckKey, file, file.name)).url : await blobToDataUrl(file);
+      out.push({ name: f.name, src, from: 'theme' });
+    }
+    return out;
   }
 
   /** Толщины шрифта: у шрифта компьютера — все его начертания, у шрифта презентации — скопированные */

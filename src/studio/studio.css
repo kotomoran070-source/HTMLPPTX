@@ -952,3 +952,55 @@ body.st-marqueeing, body.st-marqueeing * { user-select: none !important; cursor:
 .st-viewpop-slide, .st-viewpop-slide * { animation: none !important; transition: none !important; }
 .st-views-g { margin: 8px 0 5px; font: 600 10.5px var(--font); color: var(--mu); text-transform: uppercase; letter-spacing: .05em; max-width: none; }
 .st-views-g:first-child { margin-top: 0; }
+
+/* ---------- Вкладка «Дизайн» (design-tab.ts) ---------- */
+/* Темы на ленте: два ряда мини-образцов — «Аа» шрифтом заголовков, полоса акцента и карточка.
+   Переменные темы — у внутреннего слоя: рамка выбора остаётся в цветах интерфейса */
+.st-dz-strip { display: grid; grid-template-rows: repeat(2, 40px); grid-auto-flow: column; grid-auto-columns: 70px; gap: 4px; align-self: center; overflow-x: auto; scrollbar-width: none; max-width: 530px; }
+.st-dz-strip::-webkit-scrollbar { display: none; }
+.st-dz-mini { position: relative; padding: 0; border: 1px solid var(--bd); border-radius: 7px; background: none; cursor: pointer; overflow: hidden; transition: border-color .12s, box-shadow .12s, transform .12s; }
+.st-dz-mini:hover { border-color: var(--acb); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 18%, transparent); }
+.st-dz-mini.active { border-color: var(--ac); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 34%, transparent); }
+.st-dz-mini-in { position: absolute; inset: 0; display: block; background: var(--slide-bg); color: var(--tx); }
+.st-dz-mini-in b { position: absolute; left: 7px; top: 5px; font: var(--hw, 800) 16px/1 var(--tile-font); letter-spacing: var(--h-ls, -.01em); }
+.st-dz-mini-in i { position: absolute; left: 7px; bottom: 7px; width: 24px; height: 4px; border-radius: 2px; background: var(--ac-g); }
+.st-dz-mini-in u { position: absolute; right: 6px; bottom: 6px; width: 20px; height: 16px; background: var(--card-bg, var(--surf)); border: var(--card-bw, 1px) solid var(--card-bd, var(--bd)); border-radius: calc(4px * var(--rk, 1)); box-shadow: var(--card-sh, none); }
+
+/* Большая галерея: каждая тема — на одном и том же слайде-образце */
+.st-dz-galpop { width: 640px; max-height: calc(100vh - 150px); overflow: auto; padding: 10px; }
+.st-dz-gal { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.st-pop .st-dz-tile { display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 1px solid transparent; border-radius: 12px; background: none; cursor: pointer; text-align: left; transition: background .15s, border-color .15s; }
+.st-pop .st-dz-tile:hover, .st-pop .st-dz-tile:focus-visible { background: var(--acs); outline: none; }
+.st-pop .st-dz-tile.active { border-color: var(--ac); background: var(--acs); }
+.st-dz-shot { display: block; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(15, 23, 42, .18); }
+.st-dz-shot .thumb { position: relative; overflow: hidden; }
+.st-dz-name { display: flex; align-items: center; gap: 6px; padding: 0 2px; font: 600 13px var(--font); color: var(--tx); }
+.st-dz-name i { display: inline-flex; color: var(--mu); }
+.st-dz-name .ic { width: 13px; height: 13px; }
+
+/* Пары цветов */
+.st-dz-pals { display: grid; grid-template-columns: repeat(5, 36px); gap: 8px; padding: 8px; }
+.st-pop .st-dz-pal { width: 36px; height: 36px; padding: 3px; border: 1px solid var(--bd); border-radius: 50%; background: none; cursor: pointer; transition: transform .12s, border-color .12s; }
+.st-dz-pal i { display: block; width: 100%; height: 100%; border-radius: 50%; background: linear-gradient(135deg, var(--c1) 0 50%, var(--c2) 50% 100%); }
+.st-pop .st-dz-pal:hover { transform: scale(1.08); border-color: var(--acb); }
+.st-pop .st-dz-pal.active { border: 2px solid var(--ac); padding: 2px; }
+
+/* Шрифты: кнопка с названием шрифта, написанным им самим */
+.st-dz-fonts { gap: 4px; }
+.st-rb.st-dz-font { display: grid; grid-template-columns: 62px 128px auto; align-items: center; gap: 6px; padding: 5px 8px; }
+.st-dz-font > span { color: var(--mu); font-size: 12px; text-align: left; }
+.st-dz-font > b:not(.st-caret) { overflow: hidden; text-overflow: ellipsis; font-size: 14px; font-weight: 600; color: var(--tx); text-align: left; }
+
+/* Фон, карточки, углы: образцы в цветах темы */
+.st-dz-opts { display: grid; grid-template-columns: repeat(4, 104px); gap: 8px; padding: 8px; }
+.st-dz-opts.cards, .st-dz-opts.radii { grid-template-columns: repeat(3, 104px); }
+.st-pop .st-dz-opt { display: flex; flex-direction: column; gap: 5px; padding: 4px; border: 1px solid transparent; border-radius: 9px; background: none; cursor: pointer; font-size: 12px; color: var(--tx2); }
+.st-pop .st-dz-opt:hover, .st-pop .st-dz-opt:focus-visible { background: var(--acs); color: var(--ach); outline: none; }
+.st-pop .st-dz-opt.active { border-color: var(--ac); color: var(--ach); }
+.st-dz-opt-in { position: relative; display: grid; place-items: center; height: 58px; border-radius: 6px; background: var(--slide-bg); box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .1); overflow: hidden; }
+.st-dz-card { display: flex; flex-direction: column; justify-content: center; gap: 4px; width: 62px; height: 36px; padding: 0 8px; background: var(--card-bg, var(--surf)); border: var(--card-bw, 1px) solid var(--card-bd, var(--bd)); border-radius: calc(9px * var(--rk, 1)); box-shadow: var(--card-sh, var(--shadow-sm)); font-style: normal; }
+.st-dz-card b { display: block; height: 4px; border-radius: 2px; background: var(--tx); opacity: .7; }
+.st-dz-card b + b { width: 60%; background: var(--ac); opacity: 1; }
+
+/* Смена темы — плавной сменой вида */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .45s; }

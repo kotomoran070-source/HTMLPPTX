@@ -19,26 +19,45 @@ function hex([r, g, b]: RGB): string {
 }
 
 /** Смешивает цвет a с цветом b: amount = доля b. */
-function mix(a: string, b: string, amount: number): string {
+export function mix(a: string, b: string, amount: number): string {
   const x = parse(a);
   const y = parse(b);
   return hex([0, 1, 2].map((i) => x[i] + (y[i] - x[i]) * amount) as RGB);
 }
 
+/** Относительная яркость цвета (WCAG): 0 — чёрный, 1 — белый */
+export function luminance(c: string): number {
+  const [r, g, b] = parse(c).map((v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** Контраст двух цветов (WCAG): от 1 до 21 */
+export function contrast(a: string, b: string): number {
+  const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p);
+  return (x + 0.05) / (y + 0.05);
+}
+
 /** Стандартный акцент (как --ac в tokens.css): от него строится градиент, если задан только второй цвет */
 export const DEFAULT_ACCENT = '#2563EB';
 
-export function accentTokens(accent: string, accent2?: string | null): { light: Record<string, string>; dark: Record<string, string> } {
+/**
+ * Оттенки акцента для светлой и тёмной темы. bg — фон слайдов темы презентации: бледная
+ * подложка акцента (--acs) смешивается с ним, а не со стандартным фоном
+ */
+export function accentTokens(accent: string, accent2?: string | null, bg?: { light?: string; dark?: string }): { light: Record<string, string>; dark: Record<string, string> } {
   const light: Record<string, string> = {
     '--ac': hex(parse(accent)),
     '--ach': mix(accent, '#000000', 0.18),
-    '--acs': mix(accent, '#FFFFFF', 0.92),
+    '--acs': mix(accent, bg?.light ?? '#FFFFFF', 0.92),
     '--acb': mix(accent, '#FFFFFF', 0.55),
   };
   const dark: Record<string, string> = {
     '--ac': mix(accent, '#FFFFFF', 0.12),
     '--ach': mix(accent, '#FFFFFF', 0.55),
-    '--acs': mix(accent, '#0F172A', 0.75),
+    '--acs': mix(accent, bg?.dark ?? '#0F172A', 0.75),
     '--acb': hex(parse(accent)),
   };
   // Второй цвет и градиент — явно: так они верны и там, где токены переопределены не на :root
@@ -74,7 +93,7 @@ export function previewAccent(accent: string | null, stage?: HTMLElement, accent
   const { light, dark } = accentTokens(accent, accent2);
   // Цвет презентации не трогает слайд со своими цветами; own — показ своего цвета этого слайда
   const sel = `[${PREVIEW_ATTR}] .slide.on${own ? '' : ':not([data-accent])'}`;
-  el.textContent = themed(sel, light, dark);
+  el.textContent = `@layer slideria-preview{${themed(sel, light, dark)}}`;
 }
 
 /** Был тихий показ: следующее обычное применение оповестит вставки, даже если стиль уже тот же */
@@ -85,11 +104,19 @@ let quietShown = false;
  * в панелях студии — палитры фигур и текста, фоны слайда, стили фигур и таблиц.
  * Новая палитра с цветами темы — добавьте её класс сюда (или дайте ей класс deck-colors).
  */
-const SWATCHES = '.deck-colors, .st-psw, .st-pmore, .st-stile, .st-ttile, .st-rb-sw, .st-bgs, .edcolors';
+export const SWATCHES = '.deck-colors, .st-psw, .st-pmore, .st-stile, .st-ttile, .st-rb-sw, .st-bgs, .edcolors';
 const DECK_SCOPE = `.slide, .thumb-stage, ${SWATCHES}`;
 
-/** Правила для светлой и тёмной темы: sel — селектор (или список) элементов, где действуют цвета */
-function themed(sel: string, light: Record<string, string>, dark: Record<string, string>): string {
+/**
+ * Правила для светлой и тёмной темы: sel — селектор (или список) элементов, где действуют цвета.
+ * Слайды презентации с постоянной темой (theme.mode — атрибут data-mode у слайда) берут свой
+ * набор, какая бы тема ни была у интерфейса.
+ *
+ * Цвета презентации разложены по слоям CSS (порядок — в tokens.css): цвета презентации
+ * (slideria-deck) < тема презентации (slideria-theme) < свои цвета слайда (slideria-slide) <
+ * показ, пока тянут палитру или наводят на тему (slideria-preview).
+ */
+export function themed(sel: string, light: Record<string, string>, dark: Record<string, string>): string {
   // Сама страница (:root) — условия темы на ней же, а не «внутри» неё
   if (sel === ':root') {
     return `:root{${block(light)}}`
@@ -99,7 +126,10 @@ function themed(sel: string, light: Record<string, string>, dark: Record<string,
   const all = `:is(${sel})`;
   return `${all}{${block(light)}}`
     + `@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) ${all}{${block(dark)}}}`
-    + `:root[data-theme="dark"] ${all}{${block(dark)}}`;
+    + `:root[data-theme="dark"] ${all}{${block(dark)}}`
+    // Та же точность, что у правил выше, и позже их — постоянная тема слайда сильнее темы интерфейса
+    + `:root ${all}:is([data-mode="light"], [data-mode="light"] *){${block(light)}}`
+    + `:root ${all}:is([data-mode="dark"], [data-mode="dark"] *){${block(dark)}}`;
 }
 
 const UI_KEY = 'slideria-ui-accent';
@@ -154,7 +184,7 @@ export function applyAccent(accent: unknown, accent2?: unknown, quiet = false, u
   document.head.appendChild(el);
   if (ui) {
     const own = accentTokens(ui);
-    el.textContent = themed(':root', own.light, own.dark) + themed(DECK_SCOPE, deck.light, deck.dark);
+    el.textContent = themed(':root', own.light, own.dark) + `@layer slideria-deck{${themed(DECK_SCOPE, deck.light, deck.dark)}}`;
   } else {
     el.textContent = themed(':root', deck.light, deck.dark);
   }
@@ -187,7 +217,7 @@ export function slideAccent(theme: unknown): string | null {
       document.head.appendChild(el);
     }
     const { light, dark } = accentTokens(a ?? DEFAULT_ACCENT, a2);
-    el.textContent += themed(`.slide[data-accent="${key}"], [data-accent="${key}"]:not(.slide) :is(${SWATCHES})`, light, dark);
+    el.textContent += `@layer slideria-slide{${themed(`.slide[data-accent="${key}"], [data-accent="${key}"]:not(.slide) :is(${SWATCHES})`, light, dark)}}`;
   }
   return key;
 }

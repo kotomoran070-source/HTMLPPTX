@@ -1,9 +1,9 @@
 .card > :last-child { margin-bottom: 0; }
 
-.panel { border: 1.5px solid var(--acb); border-radius: 12px; padding: 14px; background: var(--acs); }
+.panel { border: 1.5px solid var(--acb); border-radius: calc(12px * var(--rk, 1)); padding: 14px; background: var(--acs); }
 .panel > b { display: block; margin-bottom: 10px; color: var(--ach); }
 .panel .cells { display: grid; gap: 8px; }
-.panel .cells div { background: var(--surf); border: 1px solid var(--bd); border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+.panel .cells div { background: var(--surf); border: 1px solid var(--bd); border-radius: calc(8px * var(--rk, 1)); padding: 8px 10px; font-size: 14px; }
 .panel .cells small { display: block; color: var(--mu); font-size: 12px; }
 
 .kv { display: grid; gap: 6px 14px; padding: 8px 0; border-top: 1px solid var(--bd); align-items: baseline; font-size: 15px; }

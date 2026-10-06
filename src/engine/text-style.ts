@@ -57,14 +57,19 @@ export function textStyleCss(st: unknown): string {
   const s = st as TextStyle;
   const out: string[] = [];
   const size = Number(s.size);
+  // Крупный текст без своего шрифта пишется шрифтом заголовков темы — с его поправкой размера
+  const head = size >= 28 && !(s.font && FONTS[s.font]) && !fontNameOk(s.font);
   // Крупный текст (заголовок) переносится ровными строками
-  if (Number.isFinite(size) && size >= 6 && size <= 300) out.push(`font-size:${size}px`, ...(size >= 28 ? ['text-wrap:balance'] : []));
+  if (Number.isFinite(size) && size >= 6 && size <= 300) out.push(head ? `font-size:calc(${size}px * var(--h-scale, 1))` : `font-size:${size}px`, ...(size >= 28 ? ['text-wrap:balance'] : []));
   const color = colorCss(s.color);
   if (color) out.push(`color:${color}`, `fill:${color}`);
   if (s.align && ALIGN.has(s.align)) out.push(`text-align:${s.align}`);
   if (s.font && FONTS[s.font]) out.push(`font-family:${FONTS[s.font].css}`);
   // Свой шрифт презентации (fonts в deck.yaml) — по имени
   else if (fontNameOk(s.font)) out.push(`font-family:${fontStack(s.font)}`);
+  // Крупный текст без своего шрифта — шрифтом заголовков темы (deck-theme.ts). Без запасного
+  // значения: у презентации без шрифта заголовков текст наследует шрифт, как раньше
+  else if (head && size <= 300) out.push('font-family:var(--font-head)');
   const w = Number(s.width);
   if (Number.isFinite(w) && w >= 40 && w <= 1280) out.push(`max-width:${Math.round(w)}px`);
   const wt = Number(s.weight);

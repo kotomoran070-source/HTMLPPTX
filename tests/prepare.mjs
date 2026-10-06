@@ -2,7 +2,8 @@
 //   tpl      — стартовый шаблон, как «Новая презентация → с примерами»;
 //   slideria — витрина из проекта (только чтение);
 //   morph    — два слайда с переходом «Морф»;
-//   schemes  — новые блоки-схемы (tests/e2e/schemes.yaml).
+//   schemes  — новые блоки-схемы (tests/e2e/schemes.yaml);
+//   design   — стартовый шаблон для вкладки «Дизайн».
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,6 +32,10 @@ slides:
       - {type: text, text: "Архитектура", styles: {text: {size: 40}}, place: {x: 60, y: 40, w: 600}}
       - {type: shape, id: box, kind: round, fill: "#DC2626", place: {x: 200, y: 260, w: 700, h: 300}}
 `);
+// design — стартовый шаблон для вкладки «Дизайн» (темы меняют всю презентацию)
+fs.cpSync(path.join(root, 'templates', 'basic'), path.join(dir, 'design'), { recursive: true });
+const dfile = path.join(dir, 'design', 'deck.yaml');
+fs.writeFileSync(dfile, fs.readFileSync(dfile, 'utf8').replaceAll('{{title}}', 'Темы'));
 // schemes — новые блоки-схемы, по слайду на каждый
 fs.mkdirSync(path.join(dir, 'schemes'));
 fs.copyFileSync(path.join(root, 'tests', 'e2e', 'schemes.yaml'), path.join(dir, 'schemes', 'deck.yaml'));

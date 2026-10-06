@@ -1,5 +1,5 @@
 .hub { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; height: 540px; }
-.hub-item { border-radius: 10px; padding: 14px; border-top: 1px solid var(--bd); transition: background .2s; outline: none; cursor: default; }
+.hub-item { border-radius: calc(10px * var(--rk, 1)); padding: 14px; border-top: 1px solid var(--bd); transition: background .2s; outline: none; cursor: default; }
 .hub-item:first-child { border-top: 0; }
 .hub-item b { display: block; font-size: 19px; margin-bottom: 2px; }
 .hub-item.hl { background: var(--acs); }

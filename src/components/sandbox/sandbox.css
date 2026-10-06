@@ -4,7 +4,7 @@
 
 .sbx { --sbx-mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
   display: grid; grid-template-columns: var(--sbx-split, 56%) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100%; min-height: 240px; overflow: clip;
-  border-radius: 18px; border: 1px solid var(--bd); background: var(--surf);
+  border-radius: calc(18px * var(--rk, 1)); border: 1px solid var(--bd); background: var(--surf);
   box-shadow: 0 30px 70px -34px color-mix(in srgb, var(--ac) 55%, rgba(15, 23, 42, .5)); }
 .sbx-bar { display: flex; align-items: center; gap: 10px; flex: none; height: 42px; padding: 0 12px 0 14px; box-sizing: border-box; font: 700 13px/1 var(--font); }
 .sbx-bar b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

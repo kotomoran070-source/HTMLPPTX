@@ -3,7 +3,7 @@ import { ACCENT_EVENT } from '../../engine/accent';
 import { defineBlock } from '../../engine/component';
 import { esc } from '../../engine/html';
 import { liveDocument } from '../../engine/live-slides';
-import { currentTheme, onThemeChange } from '../../engine/theme';
+import { onThemeChange, slideTheme } from '../../engine/theme';
 import type { Block } from '../../types';
 import './live.css';
 
@@ -66,7 +66,7 @@ defineBlock<LiveProps>('live', {
         if (frame !== f) return;
         f.srcdoc = liveDocument(html, {
           index: Number(p.index) || 0, selector: p.selector ?? null, token,
-          theme: currentTheme(), tokens: themeTokens(ctx.slide),
+          theme: slideTheme(ctx.slide), tokens: themeTokens(ctx.slide),
         });
         f.addEventListener('load', () => setTimeout(() => f.classList.add('on'), 250), { once: true });
         el.append(f);
@@ -91,7 +91,7 @@ defineBlock<LiveProps>('live', {
     };
     // Тема и акцент — в рамку, без перезагрузки
     const recolor = () => {
-      frame?.contentWindow?.postMessage({ htmlpptxLive: token, theme: currentTheme(), tokens: themeTokens(ctx.slide) }, '*');
+      frame?.contentWindow?.postMessage({ htmlpptxLive: token, theme: slideTheme(ctx.slide), tokens: themeTokens(ctx.slide) }, '*');
     };
     const unlive = (e: Event) => {
       if (!(e.target as Element).closest('[data-unlive]')) return;

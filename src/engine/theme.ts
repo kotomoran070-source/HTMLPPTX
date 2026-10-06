@@ -29,6 +29,22 @@ export function currentTheme(): Theme {
   return media.matches ? 'dark' : 'light';
 }
 
+/** Постоянный вид слайдов, которые сейчас рисуются (тема презентации с theme.mode) */
+let forced: Theme | null = null;
+/** Рисование слайдов с постоянным видом: вернёт прежнее значение, чтобы его восстановить */
+export function forceTheme(t: Theme | null): Theme | null {
+  const was = forced;
+  forced = t;
+  return was;
+}
+
+/** Тема для слайда: постоянная тема презентации или тема интерфейса */
+export function slideTheme(el?: Element | null): Theme {
+  const m = el?.closest('[data-mode]')?.getAttribute('data-mode');
+  if (m === 'light' || m === 'dark') return m;
+  return forced ?? currentTheme();
+}
+
 /** Явно выбранная тема запоминается; без выбора тема следует за системой. */
 export function setTheme(theme: Theme, persist = true): void {
   root.setAttribute('data-theme', theme);
@@ -56,9 +72,12 @@ export function onThemeChange(cb: (t: Theme) => void): () => void {
  * адрес выбирается при рендере, а при смене темы меняется на месте.
  */
 export function applyThemeImages(scope: ParentNode = document): void {
-  const dark = currentTheme() === 'dark';
+  const ui = currentTheme();
   scope.querySelectorAll('[data-src-dark]').forEach((el) => {
     const attr = el instanceof HTMLImageElement ? 'src' : 'href';
+    // Слайд с постоянным видом (тема презентации) — по нему, а не по теме интерфейса
+    const m = el.closest('[data-mode]')?.getAttribute('data-mode');
+    const dark = (m === 'light' || m === 'dark' ? m : ui) === 'dark';
     const v = el.getAttribute(dark ? 'data-src-dark' : 'data-src-light');
     if (v && el.getAttribute(attr) !== v) el.setAttribute(attr, v);
   });

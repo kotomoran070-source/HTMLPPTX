@@ -1,5 +1,10 @@
 /* Цветовые токены. Светлая тема по умолчанию, тёмная — по системной настройке
    или по явному выбору (html[data-theme="dark"]). Компоненты используют только эти переменные. */
+
+/* Порядок слоёв с цветами презентации (engine/accent.ts, engine/deck-theme.ts): каждый следующий
+   сильнее предыдущего, что бы ни было в селекторах */
+@layer slideria-deck, slideria-theme, slideria-slide, slideria-preview;
+
 :root {
   --bg: #F8FAFC;
   --surf: #FDFEFF;

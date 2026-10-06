@@ -16,6 +16,7 @@ import { printDeck, setupPrint } from './print';
 import { fullscreenOn, planScreens, popupOn, screensGranted } from './screens';
 import { Sync } from './sync';
 import { currentTheme, onThemeChange, setTheme, toggleTheme } from './theme';
+import { themeMode } from './deck-theme';
 
 const NAV_H = 56;
 
@@ -396,6 +397,14 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   $('nx').addEventListener('click', () => go(index + 1));
   $('pv').addEventListener('click', () => go(index - 1));
   $('thm').addEventListener('click', () => toggleTheme());
+  // Тема презентации со слайдами всегда светлыми или всегда тёмными: страница показа — в тон им,
+  // переключать нечего (выбор зрителя не запоминается)
+  const fixedMode = themeMode(deck.theme);
+  if (fixedMode) {
+    setTheme(fixedMode, false);
+    // У кнопки свой display: hidden её бы не спрятал
+    $('thm').style.display = 'none';
+  }
   $('ov').addEventListener('click', ovShow);
   $('ovx').addEventListener('click', ovHide);
   ovbd.addEventListener('click', (e) => { if (e.target === ovbd) ovHide(); });
@@ -446,7 +455,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     // Буквенные клавиши работают и в русской раскладке
     const letters: Record<string, () => void> = {
       f: toggleFullscreen, 'а': toggleFullscreen,
-      t: () => toggleTheme(), 'е': () => toggleTheme(),
+      t: () => { if (!fixedMode) toggleTheme(); }, 'е': () => { if (!fixedMode) toggleTheme(); },
       o: ovShow, 'щ': ovShow,
       p: () => void openPresenter(), 'з': () => void openPresenter(),
       r: openRemote, 'к': openRemote,
@@ -566,7 +575,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       sync.send({ type: 'state', index, theme: currentTheme(), black }, from);
     } else if (m.type === 'remote-start') {
       if (location.protocol !== 'file:') void import('./remote').then((r) => sync.send({ type: 'remote-room', room: startRemote(r) }, from));
-    } else if (m.type === 'theme' && m.theme !== currentTheme()) setTheme(m.theme);
+    } else if (m.type === 'theme' && !fixedMode && m.theme !== currentTheme()) setTheme(m.theme);
     else if (m.type === 'black' && m.value !== black) setBlack(m.value);
   });
 

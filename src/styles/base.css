@@ -39,13 +39,19 @@ body {
 /* Перенос как в хорошей вёрстке: заголовки — ровными строками, у абзацев последнее слово не висит одно */
 .slide { text-wrap: pretty; }
 .slide :is(h1, h2, h3) { text-wrap: balance; }
+/* Текст слайда — цветом темы слайда (у слайда может быть своя палитра), а не интерфейса */
+.slide { color: var(--tx); }
 .stage .slide.on { animation: enter .55s var(--ease) both; }
+
+/* Фон слайда из темы презентации (engine/deck-theme.ts, --slide-bg). Без темы слайд прозрачный:
+   фон рисует сцена (.canvas) */
+:where(.slide) { background: var(--slide-bg, none); }
 
 /* Переходы между слайдами: data-tr у входящего слайда, уходящий — .out (deck-view.ts) */
 .stage[data-dir="back"] { --tr-s: -1; }
 .stage > .slide.out { display: block; z-index: 0; pointer-events: none; }
 /* На время перехода у слайда свой фон (если шаблон не задал другой), чтобы слайды не просвечивали */
-:where(.stage[data-tr] > .slide) { background: radial-gradient(var(--bd) 1px, transparent 1px) 0 0 / 26px 26px, var(--bg); }
+:where(.stage[data-tr] > .slide) { background: var(--slide-bg, radial-gradient(var(--bd) 1px, transparent 1px) 0 0 / 26px 26px, var(--bg)); }
 .stage > .slide.on[data-tr] { z-index: 1; }
 .stage .slide.on[data-tr="none"] { animation: none; }
 /* Морф (engine/morph.ts): новый слайд на месте сразу, поверх — растворяющийся снимок старого
@@ -112,6 +118,13 @@ body:not(.st-previewing) .stage.still .html-inner *, body:not(.st-previewing) .s
 h1 { font-size: 46px; line-height: 1.1; margin: 22px 0 16px; font-weight: 800; letter-spacing: -.02em; }
 h2 { font-size: 32px; line-height: 1.2; margin: 0 0 24px; font-weight: 700; letter-spacing: -.01em; }
 h3 { font-size: 17px; margin: 0 0 10px; font-weight: 600; }
+/* Заголовки слайдов — шрифтом и видом заголовков темы (deck-theme.ts); без темы — как выше.
+   var() без запасного значения: нет шрифта заголовков — наследуется шрифт слайда */
+/* --h-scale: шрифт заголовков темы шире или уже обычного — размер поправлен так, чтобы строки
+   ложились как задумано и заголовок не наезжал на соседние объекты */
+.slide :is(h1, h2) { font-family: var(--font-head); text-transform: var(--h-tt, none); }
+.slide h1 { font-size: calc(46px * var(--h-scale, 1)); font-weight: var(--hw, 800); letter-spacing: var(--h-ls, -.02em); }
+.slide h2 { font-size: calc(32px * var(--h-scale, 1)); font-weight: var(--hw, 700); letter-spacing: var(--h-ls, -.01em); }
 p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
 
 .lead { font-size: 20px; color: var(--tx2); }
@@ -145,11 +158,12 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
 /* Свой логотип для тёмной темы (brand.logoDark): плашка под ним в тёмной теме — тёмная */
 .logo.has-dark { background: var(--logo-bg-dk); }
 
+/* Карточки и плашки: вид — из темы (--card-*, --rk), без темы — как раньше */
 .card {
-  background: var(--surf);
-  border: 1px solid var(--bd);
-  border-radius: 12px;
-  box-shadow: var(--shadow-sm);
+  background: var(--card-bg, var(--surf));
+  border: var(--card-bw, 1px) solid var(--card-bd, var(--bd));
+  border-radius: calc(12px * var(--rk, 1));
+  box-shadow: var(--card-sh, var(--shadow-sm));
   padding: 20px;
 }
 

@@ -12,7 +12,7 @@ import type { ChipData } from '../types';
 import { KEY, type Path } from './data';
 import { esc, t } from './html';
 import { textStyleCss } from './text-style';
-import { currentTheme } from './theme';
+import { slideTheme } from './theme';
 
 const paths = new WeakMap<object, Path>();
 
@@ -94,7 +94,7 @@ export function eimgPath(p: Path, kind: ImgKind = 'logo'): string {
  */
 export function themedSrc(light: string, dark: unknown, a: 'src' | 'href' = 'src'): string {
   if (typeof dark !== 'string' || !dark) return ` ${a}="${esc(light)}"`;
-  const cur = currentTheme() === 'dark' ? dark : light;
+  const cur = slideTheme() === 'dark' ? dark : light;
   return ` ${a}="${esc(cur)}" data-src-light="${esc(light)}" data-src-dark="${esc(dark)}"`;
 }
 

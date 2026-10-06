@@ -1,5 +1,5 @@
 /* Ползунок, управляющий слайдом */
-.ctl { display: flex; flex-direction: column; gap: 6px; padding: 12px 18px 12px; border-radius: 16px; background: var(--surf); border: 1px solid var(--bd); box-shadow: var(--shadow-sm); }
+.ctl { display: flex; flex-direction: column; gap: 6px; padding: 12px 18px 12px; border-radius: calc(16px * var(--rk, 1)); background: var(--card-bg, var(--surf)); border: var(--card-bw, 1px) solid var(--card-bd, var(--bd)); box-shadow: var(--card-sh, var(--shadow-sm)); }
 .ctl-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; white-space: nowrap; }
 .ctl-l { font-size: 16px; font-weight: 600; color: var(--tx2); }
 .ctl-v { font-size: 24px; font-weight: 800; letter-spacing: -.01em; color: var(--tx); font-variant-numeric: tabular-nums; }

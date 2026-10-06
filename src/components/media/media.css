@@ -1,6 +1,6 @@
 /* Видео и 3D-модель: рамка по размеру блока, без полос вокруг */
 .video, .model3d { margin: 0; display: flex; flex-direction: column; gap: 8px; min-height: 120px; }
-.video-box, .model3d-box { position: relative; flex: 1; min-height: 0; border-radius: var(--r-md, 14px); overflow: hidden; background: #000; }
+.video-box, .model3d-box { position: relative; flex: 1; min-height: 0; border-radius: calc(14px * var(--rk, 1)); overflow: hidden; background: #000; }
 .video-box video, .video-box iframe, .video-cover { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; object-fit: contain; display: block; }
 .video-cover { object-fit: cover; }
 .video-embed iframe { z-index: 1; background: #000; }

@@ -3,6 +3,7 @@ import { CommandPalette } from './palette';
 import { guessGap, rowOf } from '../engine/editor/rows';
 import { toolsCommands } from './tools';
 import { applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, setUiAccent, slideAccent, uiAccent } from '../engine/accent';
+import { applyThemeSwatches } from '../engine/deck-theme';
 import { getAt, setAt, type Path } from '../engine/data';
 import { DeckView, H, W } from '../engine/deck-view';
 import { Editor, SLIDE_PRESETS } from '../engine/editor/editor';
@@ -26,6 +27,8 @@ import { blockName, setSnapLines } from '../engine/editor/block-edit';
 import { blobToDataUrl } from '../engine/editor/persist';
 import { addEffect, addTemplate, assetUrls, findEntrance, deckWithTemplate, listTemplates, pickCss, pickDefs, removeTemplate, replaceUrls, type Template } from './templates';
 import { animCommands, animPanelHtml, animTabHtml, bindDelayField, syncAnimTab, type AnimHost } from './anim-tab';
+import { bindDesignStrip, designCommands, designPanelHtml, designTabHtml, syncDesignTab, type DesignHost } from './design-tab';
+import { THEME_PRESETS } from './theme-presets';
 import { contextCommands, tableMenu, contextPanelsHtml, contextTab, contextTabsHtml, syncSwatches, type ContextTab } from './context-tabs';
 import { Inspector } from './inspector';
 import { closeLibrary, EMBED_SAMPLE, presetOf, SANDBOX_SAMPLE, showLibrary, type Preset } from './library';
@@ -92,6 +95,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     <nav class="st-tabs" role="tablist" aria-label="Вкладки ленты">
       <button type="button" role="tab" data-tab="home" aria-selected="true">Главная</button>
       <button type="button" role="tab" data-tab="insert" aria-selected="false">Вставка</button>
+      ${designTabHtml()}
       ${animTabHtml()}
       <button type="button" role="tab" data-tab="show" aria-selected="false">Показ</button>
       <button type="button" role="tab" data-tab="tools" aria-selected="false">Инструменты</button>
@@ -125,6 +129,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Медиа', rb('ins.video', 'play', 'Видео', { big: true }) + rb('ins.model', 'layers', '3D-модель', { big: true }) + rb('ins.gal.live', 'sliders', 'Интерактив', { big: true, menu: true, title: 'Регуляторы, живой код, песочница, кнопки' }))}
       ${group('Все блоки', rb('insert.blocks', 'sparkle', 'Блоки', { big: true, menu: true, title: 'Все готовые блоки и ваши шаблоны' }))}
     </div>
+    ${designPanelHtml()}
     ${animPanelHtml()}
     <div class="st-rpanel" data-panel="show" hidden>
       ${group('Слайд', `<div class="st-rstack">${chk('show.hide', 'Скрыть слайд', 'Слайд остаётся в презентации, но при показе и в PDF пропускается')}</div>`)}
@@ -141,7 +146,6 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Показать', `<div class="st-rstack">${chk('view.ruler', 'Линейка', 'Линейка сверху и слева; из неё вытягиваются направляющие')}${chk('view.grid', 'Сетка', 'Сетка на слайде, объекты прилипают к ней (Shift+F9)')}${chk('view.guides', 'Направляющие', 'Свои направляющие; объекты прилипают к ним (Alt+F9)')}</div><div class="st-rstack">${rb('view.grid-step', 'grid', 'Шаг сетки', { menu: true })}${rb('view.guides-reset', 'reset', 'Сбросить направляющие', { title: 'Оставить одну вертикальную и одну горизонтальную по центру' })}</div>`)}
       ${group('Скорость', `<div class="st-rstack">${chk('view.lite', 'Облегчённый режим', 'Если редактор подтормаживает: живые фоны, вставки, 3D-модели и анимации на слайде замирают в конечном виде. «Просмотр» и показ — как обычно')}</div>`)}
       ${group('Масштаб', rb('view.fit', 'fullscreen', 'Вписать', { big: true }) + `<div class="st-rstack">${rb('view.zoom-in', 'plus', 'Крупнее')}${rb('view.zoom-out', 'minus', 'Мельче')}</div>`)}
-      ${group('Оформление', `<label class="st-accent" title="Акцентный цвет презентации"><input type="color" id="st-accent" aria-label="Акцентный цвет"><span>Акцент</span></label><label class="st-accent" title="Второй цвет: акцентные заливки становятся градиентом от акцента к нему"><input type="color" id="st-accent2" aria-label="Второй цвет градиента"><span>Градиент</span></label><div class="st-rstack">${rb('design.accent-reset', 'reset', 'Стандартный', { title: 'Стандартный акцент, без градиента' })}${rb('design.accent2-off', 'close', 'Без градиента', { title: 'Ровный акцент без второго цвета' })}</div><div class="st-rstack">${chk('design.accent-flow', 'Переливание', 'Цвета градиента акцента плавно текут по акцентным элементам слайда')}</div>`)}
       ${group('Интерфейс', `<div class="st-rstack">${chk('ui.own', 'Свой цвет', 'Кнопки и панели программы — в своём цвете, а не в цветах презентации. Слайды это не меняет. Запоминается на этом компьютере')}</div><label class="st-accent" title="Цвет интерфейса программы"><input type="color" id="st-uiac" aria-label="Цвет интерфейса"><span>Цвет</span></label>`)}
     </div>
     ${contextPanelsHtml()}
@@ -193,7 +197,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   const count = () => deck.slides.length;
 
   applyAccent(deck.theme?.accent, deck.theme?.accent2);
-
+  applyThemeSwatches(deck.theme);
   applyAccentFlow(deck.theme?.accentFlow);
   updateFavicon(deck.brand?.logo);
   const view = new DeckView(deck, paper);
@@ -1343,6 +1347,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
   const animHost: AnimHost = { deck, editor: ed, index: () => index, selPaths, sequence, preview };
   Object.assign(cmds, animCommands(animHost));
   bindDelayField(animHost);
+  const designHost: DesignHost = { deck, editor: ed, stage: () => view.stage };
+  Object.assign(cmds, designCommands(designHost));
+  bindDesignStrip(designHost, cmds);
   Object.assign(cmds, toolsCommands({ deck, deckKey, editor: ed, go }));
   Object.assign(cmds, contextCommands({ deck, editor: ed, stage: () => view.stage, run: (c) => run(c) }));
   const grips = tableGrips({ deck, editor: ed, stage: () => view.stage });
@@ -1368,7 +1375,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
 
 
   // ---------------- палитра команд (Ctrl+K) ----------------
-  const pickColor = (id: string) => () => { const inp = $<HTMLInputElement>(id); reveal('view'); inp.click(); };
+  const pickColor = (id: string, t = 'design') => () => { const inp = $<HTMLInputElement>(id); reveal(t); inp.click(); };
   function reveal(t: string): void {
     setTab(t);
     if (!lay.ribbon) toggleRibbon(true);
@@ -1384,9 +1391,11 @@ export function startStudio(deck: Deck, deckKey: string): void {
     extra: () => [
       { id: 'design.theme', label: currentTheme() === 'dark' ? 'Светлая тема' : 'Тёмная тема', path: 'Верхняя строка', words: 'тема оформления ночная интерфейс', key: '', ico: icon('moon'), run: () => run('design.theme'), enabled: () => true },
       { id: 'app.home', label: 'Все презентации', path: 'Верхняя строка', words: 'открыть список главная другая', key: '', ico: icon('grid'), run: () => { location.href = './?all'; }, enabled: () => true },
-      { id: 'design.accent', label: 'Акцентный цвет', path: 'Вид · Оформление', words: 'цвет презентации', key: '', ico: icon('fill'), run: pickColor('st-accent'), enabled: () => true },
-      { id: 'design.accent2', label: 'Второй цвет градиента', path: 'Вид · Оформление', words: 'градиент акцент', key: '', ico: icon('fill'), run: pickColor('st-accent2'), enabled: () => true },
-      { id: 'ui.color', label: 'Цвет интерфейса', path: 'Вид · Интерфейс', words: 'свой цвет программы', key: '', ico: icon('fill'), run: pickColor('st-uiac'), enabled: () => true },
+      { id: 'design.accent', label: 'Акцентный цвет', path: 'Дизайн · Цвета', words: 'цвет презентации', key: '', ico: icon('fill'), run: pickColor('st-accent'), enabled: () => true },
+      { id: 'design.accent2', label: 'Второй цвет градиента', path: 'Дизайн · Цвета', words: 'градиент акцент', key: '', ico: icon('fill'), run: pickColor('st-accent2'), enabled: () => true },
+      { id: 'ui.color', label: 'Цвет интерфейса', path: 'Вид · Интерфейс', words: 'свой цвет программы', key: '', ico: icon('fill'), run: pickColor('st-uiac', 'view'), enabled: () => true },
+      // Темы по имени: «тема полночь»
+      ...THEME_PRESETS.map((p) => ({ id: `design.preset.${p.id}`, label: `Тема «${p.name}»`, path: 'Дизайн · Темы', words: 'тема оформление дизайн', key: '', ico: icon('sparkle'), run: () => run(`design.preset.${p.id}`), enabled: () => true })),
       { id: 'edit.replace', label: 'Заменить', path: 'Главная · Правка', words: 'найти и заменить текст', key: 'Ctrl+H', ico: icon('search'), run: () => find?.show(true), enabled: () => true },
     ],
   }, $('st-pal'));
@@ -1721,6 +1730,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     syncContextTab();
     syncSwatches(deck, ed);
     syncAnimTab(animHost);
+    syncDesignTab(designHost);
     aids?.redraw();
     grips.sync();
     code?.syncSelection();

@@ -21,7 +21,7 @@
 .bars { display: flex; align-items: flex-end; justify-content: space-around; gap: 12px; height: 100px; margin-top: 24px; }
 .bars.labeled { margin-bottom: 20px; }
 .bars { border-bottom: 1px solid var(--bd2); }
-.bars div { flex: 1; max-width: 88px; background: linear-gradient(180deg, color-mix(in srgb, var(--ac) 42%, var(--bg)), color-mix(in srgb, var(--ac) 28%, var(--bg))); border-radius: 8px 8px 2px 2px; transform-origin: bottom; position: relative; }
+.bars div { flex: 1; max-width: 88px; background: linear-gradient(180deg, color-mix(in srgb, var(--ac) 42%, var(--bg)), color-mix(in srgb, var(--ac) 28%, var(--bg))); border-radius: calc(8px * var(--rk, 1)) calc(8px * var(--rk, 1)) 2px 2px; transform-origin: bottom; position: relative; }
 .bars div.hl { background: linear-gradient(180deg, var(--ac), color-mix(in srgb, var(--ac2) 78%, var(--bg))); box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--ac) 60%, transparent); }
 .bars small { position: absolute; top: -20px; left: 0; right: 0; text-align: center; font-size: 12px; font-weight: 600; color: var(--tx2); font-variant-numeric: tabular-nums; }
 .bars div.hl small { color: var(--ach); font-weight: 800; }
