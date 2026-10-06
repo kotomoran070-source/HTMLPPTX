@@ -139,7 +139,7 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
   right: 28px;
   width: 40px;
   height: 40px;
-  border-radius: 11px;
+  border-radius: calc(11px * var(--rk, 1));
   border-width: 1.5px;
   z-index: 2;
 }
@@ -151,10 +151,13 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
   height: 88px;
   background: var(--logo-bg);
   border: 2px solid var(--acb);
-  border-radius: 20px;
+  border-radius: calc(20px * var(--rk, 1));
   box-shadow: 0 2px 8px color-mix(in srgb, var(--ac) 14%, transparent);
 }
 .logo img { width: 70%; height: 70%; display: block; }
+/* Плашка логотипа отдельным объектом (разобранный шаблон): заполняет объект, скругление — в долях
+   размера, чтобы при масштабе плашка оставалась той же формы */
+.slide > .free .tpl-part .logo { height: 100%; border-radius: 22.7%; }
 /* Свой логотип для тёмной темы (brand.logoDark): плашка под ним в тёмной теме — тёмная */
 .logo.has-dark { background: var(--logo-bg-dk); }
 

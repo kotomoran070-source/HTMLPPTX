@@ -234,7 +234,7 @@ defineBlock<BackdropProps>('backdrop', {
           stop(true);
         });
         el.appendChild(canvas);
-        el.classList.add('live');
+        el.classList.add('bd-live');
       }
       last = 0;
       if (!raf) raf = requestAnimationFrame(frame);
@@ -251,7 +251,7 @@ defineBlock<BackdropProps>('backdrop', {
         canvas = null;
         gl = null;
         scene = null;
-        el.classList.remove('live');
+        el.classList.remove('bd-live');
       };
       if (now) release();
       else offTimer = window.setTimeout(release, 1000);

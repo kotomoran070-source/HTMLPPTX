@@ -172,7 +172,11 @@ export function explodeSlide(host: Host, index: number): boolean {
       clone.style.inset = 'auto';
       if (/^matrix\(1, 0, 0, 1,/.test(cs.transform)) clone.style.transform = 'none';
     }
+    // Плашка логотипа: растёт вместе с объектом целиком и без искажений пропорций
+    const isLogo = el.classList.contains('logo');
+    if (isLogo) clone.style.height = '100%';
     const b: Block = { type: 'html', scale: 1, html: wrap(el, clone.outerHTML), place };
+    if (isLogo) b.keepRatio = true;
     if (texts.length) b.texts = texts;
     if (images.length) b.images = images;
     // Появление контейнера, из которого часть вынута (ряд кнопок), — если своего нет

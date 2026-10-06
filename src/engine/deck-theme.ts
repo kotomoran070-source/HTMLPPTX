@@ -149,6 +149,9 @@ export function themeVars(t: DeckTheme, mode: SlideMode): Record<string, string>
   for (const k of PALETTE_KEYS) v[`--${k}`] = pal[k];
   v['--shadow-sm'] = dark ? '0 1px 2px rgba(0, 0, 0, .3)' : '0 1px 2px rgba(15, 23, 42, .06)';
   v['--shadow-md'] = dark ? '0 8px 24px rgba(0, 0, 0, .35)' : '0 8px 24px rgba(15, 23, 42, .10)';
+  // Плашка под логотипом — в тон теме: на светлых слайдах цвет карточек, на тёмных — светлый тон
+  // текста темы (белая плашка нужна, чтобы любой логотип читался, но не чисто-белая)
+  v['--logo-bg'] = dark ? mix(pal.tx, '#FFFFFF', 0.4) : pal.surf;
   if (dark) v['--logo-bg-dk'] = pal.alt;
   const ac = accentTokens(isHex(t.accent) ? t.accent : DEFAULT_ACCENT, isHex(t.accent2) ? t.accent2 : null, { [mode]: pal.bg })[mode];
   Object.assign(v, ac);

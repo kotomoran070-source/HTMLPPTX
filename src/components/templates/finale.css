@@ -11,7 +11,7 @@
 .fin > .cap { position: absolute; top: 44px; left: 0; right: 0; color: var(--mu); font-size: 14px; letter-spacing: .12em; }
 :is(.slide.on, .tpl-part).fin > .cap { animation: fi 1.2s ease-out 2.6s both; }
 
-.fin .fin-logo { width: 104px; height: 104px; border-radius: 26px; margin-bottom: 22px; }
+.fin .fin-logo { width: 104px; height: 104px; border-radius: calc(26px * var(--rk, 1)); margin-bottom: 22px; }
 :is(.slide.on, .tpl-part).fin .fin-logo { animation: up .6s var(--ease) .12s both, glow 3s ease-in-out 1s infinite; }
 
 .fin h1 { font-size: calc(76px * var(--h-scale, 1)); line-height: 1.1; margin: 0; display: flex; gap: .3em; justify-content: center; flex-wrap: wrap; }

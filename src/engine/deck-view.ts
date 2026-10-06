@@ -7,6 +7,11 @@ import { Renderer } from './render';
 export const W = 1280;
 export const H = 720;
 
+/** Прожектор: раскладки (выделяется то, что в них) и украшения — не выделяются */
+const SPOT_LAYOUT = new Set(['grid', 'stack', 'spacer']);
+const SPOT_DECOR = new Set(['shape', 'backdrop', 'spacer', 'qr']);
+const SPOT_LINE = new Set(['text', 'note', 'chips']);
+
 export const reducedMotion = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** Все слайды колоды на одной сцене 1280×720; показывается слайд с классом .on */
@@ -252,15 +257,29 @@ export class DeckView {
   }
 
   /**
-   * Что выделить прожектором по щелчку: путь блока; '' — щелчок мимо блоков (снять);
-   * null — щелчок по управлению (ползунок, кнопка, видео) — прожектор не трогать.
+   * Что выделить прожектором по щелчку: путь блока; '' — щелчок мимо (снять); null — щелчок по
+   * управлению (ползунок, кнопка, видео) — прожектор не трогать.
+   *
+   * Выделяется смысловая единица, а не деталь под курсором: от блока под мышью вверх берётся самый
+   * крупный, который ещё можно показать отдельно — карточка целиком, а не строка в ней; свободный
+   * объект целиком. Не выделяются раскладки (сетка, столбец), украшения (фигуры, логотип), совсем
+   * мелкое (отдельная метка) и почти весь слайд.
    */
   static spotKey(target: Element, slide: HTMLElement): string | null {
     if (target.closest('input, textarea, select, button, a, video, model-viewer, canvas, iframe, label, [data-nospot]')) return null;
-    const el = target.closest<HTMLElement>('[data-block]');
-    if (!el || !slide.contains(el)) return '';
-    // Блок почти во весь слайд (тело раскладки) — это «мимо»
-    return el.offsetWidth * el.offsetHeight > slide.offsetWidth * slide.offsetHeight * 0.6 ? '' : el.getAttribute('data-block') ?? '';
+    const area = slide.offsetWidth * slide.offsetHeight || 1;
+    let best: HTMLElement | null = null;
+    for (let el = target.closest<HTMLElement>('[data-block]'); el && slide.contains(el); el = el.parentElement?.closest<HTMLElement>('[data-block]') ?? null) {
+      const type = el.getAttribute('data-type') ?? '';
+      if (SPOT_LAYOUT.has(type)) continue;
+      const share = (el.offsetWidth * el.offsetHeight) / area;
+      if (share > 0.45) break;
+      if (SPOT_DECOR.has(type) || el.querySelector('.logo, .corner-logo') || share < 0.012) continue;
+      // Одна строчка подписи или ряд меток сами по себе — не то, что показывают прожектором
+      if (SPOT_LINE.has(type) && el.offsetHeight < 56) continue;
+      best = el;
+    }
+    return best?.getAttribute('data-block') ?? '';
   }
 
   /** «Число набегает» у объектов слайда (остановка прежнего отсчёта возвращает текст как был) */

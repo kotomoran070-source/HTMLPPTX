@@ -96,7 +96,7 @@ test('морф: пары перелетают, после перехода — �
   expect(errors).toEqual([]);
 });
 
-test('прожектор: щелчок по блоку — он в светлом окне; ещё раз или Esc — снять', async ({ page }) => {
+test('прожектор: щелчок по блоку — он в светлом окне (деталь — вся карточка); ещё раз или Esc — снять', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=slideria#5');
   const chart = page.locator('.slide.on [data-type="line-chart"]');
@@ -108,6 +108,13 @@ test('прожектор: щелчок по блоку — он в светло�
   await chart.click();
   await page.keyboard.press('Escape');
   await expect(page.locator('.spot-frame')).toHaveCount(0);
+  // Метка внутри карточки — выделяется вся карточка, а не одна метка
+  await page.goto('/?deck=slideria#2');
+  const chip = page.locator('.slide.on .chip').nth(3);
+  await chip.click();
+  const frame = page.locator('.slide.on > .spot-frame.on');
+  await expect(frame).toHaveCount(1);
+  expect((await frame.boundingBox())!.width).toBeGreaterThan((await chip.boundingBox())!.width * 4);
   expect(errors).toEqual([]);
 });
 

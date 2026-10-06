@@ -137,3 +137,23 @@ test('«Дизайн»: наведение примеряет тему, щелч
   await expect.poll(() => readDeck('design')).not.toContain('preset:');
   expect(errors).toEqual([]);
 });
+
+test('живой фон не перехватывает мышь: логотип разобранного титула выделяется и растёт целиком', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=design&studio#1');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  await page.locator('[data-cmd="obj.ungroup"]').click();
+  const logo = page.locator('#st-canvas .slide.on > .free').filter({ has: page.locator('.logo') });
+  await expect(logo).toHaveCount(1);
+  const b = (await logo.boundingBox())!;
+  await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+  await expect(page.locator('#ed-frame.on')).toHaveCount(1);
+  const h = (await page.locator('#ed-frame .h-se').boundingBox())!;
+  await page.mouse.move(h.x + 4, h.y + 4);
+  await page.mouse.down();
+  await page.mouse.move(h.x + 104, h.y + 60, { steps: 6 });
+  await page.mouse.up();
+  // Пропорции сохраняются, плашка заполняет объект
+  await expect.poll(async () => { const r = (await logo.locator('.logo').boundingBox())!; return Math.round(r.width) === Math.round(r.height) && r.width > b.width * 1.5; }).toBe(true);
+  expect(errors).toEqual([]);
+});
