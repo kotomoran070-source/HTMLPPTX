@@ -223,10 +223,15 @@ export interface PptxProgress {
 /** Маркер пункта списка в тексте: символ из оформления (--li-mark) или номер по порядку */
 function listMark(li: HTMLElement): string {
   const v = getComputedStyle(li).getPropertyValue('--li-mark').trim();
-  if (!v.includes('counter(')) return /^["'](.+)["']$/.exec(v)?.[1] ?? '•';
+  if (!v) return '•';
+  // Содержимое маркера: строки в кавычках и счётчик пунктов (свой маркер «Шаг #:» — оба)
   const n = [...(li.parentElement?.children ?? [])].filter((x) => x.classList.contains('md-li')).indexOf(li) + 1;
-  const tail = /"([^"]*)"\s*$/.exec(v)?.[1] ?? '.';
-  return `${v.includes('cyrillic') ? 'абвгдежзиклмнопрстуфхцчшэюя'[(n - 1) % 27] : n}${tail}`;
+  let out = '';
+  for (const m of v.matchAll(/"([^"]*)"|'([^']*)'|counter\(\s*md-li\s*(?:,\s*([\w-]+))?\s*\)/g)) {
+    if (m[1] !== undefined || m[2] !== undefined) out += m[1] ?? m[2];
+    else out += m[3] === 'cyrillic-lower' ? 'абвгдежзиклмнопрстуфхцчшэюя'[(n - 1) % 27] : String(n);
+  }
+  return out || '•';
 }
 
 export async function exportPptx(deck: Deck, progress?: PptxProgress, quality: ExportQuality = 'normal'): Promise<Blob> {

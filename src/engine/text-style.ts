@@ -22,8 +22,13 @@ export interface TextStyle {
   spacing?: number;
   /** Межстрочный интервал (множитель) */
   leading?: number;
-  /** Маркер пунктов списка: dot (по умолчанию), dash, check, arrow, square, num, paren, alpha */
+  /**
+   * Маркер пунктов списка: dot (по умолчанию), dash, check, arrow, square, num, paren, alpha —
+   * или свой: символ, эмодзи или короткий текст; # в нём — номер пункта («Шаг #:», «[#]»)
+   */
   list?: string;
+  /** Цвет маркера: #RRGGBB или цвет темы (accent, text…); без поля — акцент */
+  listColor?: string;
 }
 
 /**
@@ -40,6 +45,31 @@ export const LIST_MARKERS: Record<string, { name: string; sample: string; css: s
   paren: { name: 'Нумерация 1)', sample: '1)', css: '--li-mark:counter(md-li) ")";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-pad:1.7em;--li-left:0' },
   alpha: { name: 'Буквы а)', sample: 'а)', css: '--li-mark:counter(md-li, cyrillic-lower) ")";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-pad:1.7em;--li-left:0' },
 };
+
+/** Свой маркер: до 12 знаков, без кавычек, точки с запятой и обратной косой черты (они ломают CSS) */
+export function customMarker(v: unknown): string | null {
+  if (typeof v !== 'string' || LIST_MARKERS[v]) return null;
+  const t = v.trim();
+  return t && [...t].length <= 12 && !/["\\;\n\r]/.test(t) ? t : null;
+}
+
+/** Переменные маркера для .md-li (layout.css): вид списка и цвет */
+export function listCss(list: unknown, color?: unknown): string {
+  const out: string[] = [];
+  const mk = typeof list === 'string' ? LIST_MARKERS[list] : undefined;
+  if (mk?.css) out.push(mk.css);
+  const own = mk ? null : customMarker(list);
+  if (own) {
+    // # — номер пункта: CSS-счётчик между кусками текста
+    const content = own.split('#').map((x) => (x ? `"${x}"` : '')).join(' counter(md-li) ').trim();
+    // Отступ текста — по длине маркера (эмодзи и номер шире буквы)
+    const len = [...own.replace(/#/g, '00')].reduce((n, ch) => n + (/\p{Extended_Pictographic}/u.test(ch) ? 1.6 : 0.62), 0);
+    out.push(`--li-mark:${content};--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-left:0;--li-pad:${Math.max(1.3, Math.round((len + 0.45) * 100) / 100)}em`);
+  }
+  const c = colorCss(color);
+  if (c) out.push(`--li-c:${c}`);
+  return out.join(';');
+}
 
 export const FONTS: Record<string, { name: string; css: string }> = {
   sans: { name: 'Без засечек', css: 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif' },
@@ -94,8 +124,8 @@ export function textStyleCss(st: unknown): string {
   if (s.upper === true) out.push('text-transform:uppercase');
   const sp = Number(s.spacing);
   if (Number.isFinite(sp) && sp !== 0 && Math.abs(sp) <= 1) out.push(`letter-spacing:${sp}em`);
-  const mk = typeof s.list === 'string' ? LIST_MARKERS[s.list] : undefined;
-  if (mk?.css) out.push(mk.css);
+  const lc = listCss(s.list, s.listColor);
+  if (lc) out.push(lc);
   const ld = Number(s.leading);
   if (Number.isFinite(ld) && ld >= 0.8 && ld <= 3) out.push(`line-height:${ld}`);
   return out.join(';');

@@ -4,7 +4,7 @@ import { icon } from '../../components/icons';
 import { getAt, KEY, setAt, type Path } from '../data';
 import { esc, t } from '../html';
 import { GRADIENTS, TEXT_GRADIENTS, textGradientCss } from '../gradients';
-import { colorCss, FONTS, LIST_MARKERS, SWATCHES, THEME_COLORS, type TextStyle } from '../text-style';
+import { colorCss, customMarker, FONTS, LIST_MARKERS, listCss, SWATCHES, THEME_COLORS, type TextStyle } from '../text-style';
 import { plainMarkup, toggleList, toMarkup } from './serialize';
 
 /** Что текстовому редактору нужно от основного редактора. */
@@ -221,7 +221,7 @@ export class TextEditor {
       if (this.s?.el !== el) return;
       const a = document.activeElement;
       // Фокус ушёл в панель, палитру или всплывающее поле — правка продолжается
-      if (a && (this.bar.contains(a) || this.colors.contains(a) || a.closest('.edpop'))) return;
+      if (a && (this.bar.contains(a) || this.colors.contains(a) || this.menu.contains(a) || a.closest('.edpop'))) return;
       this.finish(true);
     }, 0);
     const onInput = () => this.position();
@@ -409,9 +409,9 @@ export class TextEditor {
     if (Number(s.styles.leading)) st.lineHeight = String(s.styles.leading);
     if (s.styles.spacing !== undefined) st.letterSpacing = `${Number(s.styles.spacing) || 0}em`;
     // Вид списка — переменные маркера (те же, что в textStyleCss)
-    for (const v of ['--li-mark', '--li-w', '--li-h', '--li-bg', '--li-top', '--li-pad', '--li-left', '--li-r']) st.removeProperty(v);
-    const mk = s.styles.list ? LIST_MARKERS[s.styles.list] : undefined;
-    if (mk?.css) for (const d of mk.css.split(';')) { const i = d.indexOf(':'); st.setProperty(d.slice(0, i), d.slice(i + 1)); }
+    for (const v of ['--li-mark', '--li-w', '--li-h', '--li-bg', '--li-top', '--li-pad', '--li-left', '--li-r', '--li-c']) st.removeProperty(v);
+    const lc = listCss(s.styles.list, s.styles.listColor);
+    if (lc) for (const d of lc.split(';')) { const i = d.indexOf(':'); st.setProperty(d.slice(0, i), d.slice(i + 1)); }
   }
 
   /** Пункты выбора шрифта: шрифт темы и общие, шрифты презентации, шрифты компьютера */
@@ -606,7 +606,9 @@ export class TextEditor {
       this.menu.classList.remove('on');
       return;
     }
-    const cur = typeof s.styles.list === 'string' && LIST_MARKERS[s.styles.list] ? s.styles.list : 'dot';
+    const own = customMarker(s.styles.list);
+    const cur = own ?? (typeof s.styles.list === 'string' && LIST_MARKERS[s.styles.list] ? s.styles.list : 'dot');
+    const curColor = typeof s.styles.listColor === 'string' ? s.styles.listColor : '';
     this.menu.dataset.kind = 'list';
     // Образец: три строки с маркерами этого вида
     const mark = (k: string, n: number) => {
@@ -616,18 +618,70 @@ export class TextEditor {
       if (k === 'alpha') return `<i>${'абв'[n - 1]})</i>`;
       return `<i>${esc(LIST_MARKERS[k].sample)}</i>`;
     };
+    const syms = OWN_MARKS.map((m) => `<button type="button" data-own="${esc(m)}" class="${m === own ? 'on' : ''}" title="${esc(m.includes('#') ? `${m.replace('#', '1')} ${m.replace('#', '2')} …` : m)}">${esc(m.replace('#', '1'))}</button>`).join('');
+    const colors = [['', 'Акцент темы', 'var(--ac)'], ['text', 'Как текст', 'var(--tx)'], ['muted', 'Приглушённый', 'var(--mu)'], ...SWATCHES.slice(2).map((c) => [c, c, c])]
+      .map(([v, t, css]) => `<button type="button" data-lc="${v}" title="${esc(t)}" class="${v === curColor ? 'on' : ''}" style="background:${css}"></button>`).join('');
     this.menu.innerHTML = `<div class="edmenu-title">Вид списка</div><div class="edlist">${Object.entries(LIST_MARKERS).map(([k, m]) =>
-      `<button type="button" data-v="${k}" class="${k === cur ? 'on' : ''}" title="${esc(m.name)}" aria-label="${esc(m.name)}">${[1, 2, 3].map((n) => `<span>${mark(k, n)}<s></s></span>`).join('')}</button>`).join('')}</div>`;
-    this.menu.onmousedown = (e) => e.preventDefault();
-    this.menu.onclick = (e) => {
-      const b = (e.target as Element).closest<HTMLButtonElement>('button[data-v]');
-      if (!b || !this.s) return;
-      // Ещё не список — сначала пункты
-      if (!this.s.el.querySelector('.md-li')) this.toggleList();
-      this.setStyle({ list: b.dataset.v === 'dot' ? undefined : b.dataset.v });
-      this.menu.classList.remove('on');
-      this.s?.el.focus({ preventScroll: true });
+      `<button type="button" data-v="${k}" class="${k === cur ? 'on' : ''}" title="${esc(m.name)}" aria-label="${esc(m.name)}">${[1, 2, 3].map((n) => `<span>${mark(k, n)}<s></s></span>`).join('')}</button>`).join('')}</div>
+      <div class="edmenu-title">Свой маркер</div><div class="edsyms">${syms}</div>
+      <label class="edown"><input type="text" maxlength="12" value="${esc(own ?? '')}" placeholder="Символ, эмодзи или текст" spellcheck="false" aria-label="Свой маркер"><small># — номер пункта: «Шаг #:» → Шаг 1:, Шаг 2:</small></label>
+      <div class="edmenu-title">Цвет маркера</div><div class="edlc">${colors}<label title="Свой цвет"><input type="color" value="${/^#[0-9a-f]{6}$/i.test(curColor) ? curColor.toLowerCase() : '#2563eb'}"></label></div>`;
+    // Ещё не список — сначала пункты
+    const ensureList = () => { if (this.s && !this.s.el.querySelector('.md-li')) this.toggleList(); };
+    const mark2 = (v: string | undefined) => {
+      for (const b of this.menu.querySelectorAll<HTMLElement>('[data-v], [data-own]')) b.classList.toggle('on', (b.dataset.v ?? b.dataset.own) === (v ?? 'dot'));
     };
+    this.menu.onmousedown = (e) => { if (!(e.target as Element).closest('input')) e.preventDefault(); };
+    this.menu.onclick = (e) => {
+      const t = e.target as Element;
+      const b = t.closest<HTMLButtonElement>('button[data-v], button[data-own]');
+      const c = t.closest<HTMLButtonElement>('button[data-lc]');
+      if (!this.s || (!b && !c)) return;
+      if (c) {
+        this.setStyle({ listColor: c.dataset.lc || undefined });
+        for (const x of this.menu.querySelectorAll<HTMLElement>('[data-lc]')) x.classList.toggle('on', x === c);
+        return;
+      }
+      ensureList();
+      const v = b!.dataset.v ?? b!.dataset.own!;
+      this.setStyle({ list: v === 'dot' ? undefined : v });
+      if (b!.dataset.v) {
+        this.menu.classList.remove('on');
+        this.s?.el.focus({ preventScroll: true });
+      } else {
+        inp.value = v;
+        mark2(v);
+      }
+    };
+    const inp = this.menu.querySelector<HTMLInputElement>('.edown input')!;
+    inp.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter' || e.key === 'Escape') {
+        e.preventDefault();
+        this.menu.classList.remove('on');
+        this.s?.el.focus({ preventScroll: true });
+      }
+    });
+    // Свой маркер — сразу при вводе; кавычки и ; не принимаются (ломают CSS)
+    inp.addEventListener('input', () => {
+      const v = customMarker(inp.value);
+      inp.classList.toggle('bad', !!inp.value.trim() && !v);
+      if (!v) return;
+      ensureList();
+      this.setStyle({ list: v });
+      mark2(v);
+    });
+    // Поле своего маркера потеряло фокус не в пользу текста или панели — правка текста закончена
+    this.menu.onfocusout = () => setTimeout(() => {
+      const a = document.activeElement;
+      if (!this.s || (a && (a === this.s.el || this.bar.contains(a) || this.menu.contains(a) || this.colors.contains(a)))) return;
+      this.finish(true);
+    }, 0);
+    const pick = this.menu.querySelector<HTMLInputElement>('.edlc input[type="color"]')!;
+    pick.addEventListener('input', () => {
+      this.setStyle({ listColor: pick.value.toUpperCase() });
+      for (const x of this.menu.querySelectorAll<HTMLElement>('[data-lc]')) x.classList.remove('on');
+    });
     this.menu.classList.add('on');
     const r = anchor.getBoundingClientRect();
     const w = this.menu.offsetWidth;
@@ -805,6 +859,9 @@ export class TextEditor {
   }
 }
 
+/** Быстрые свои маркеры: символы, эмодзи и нумерация с текстом (# — номер) */
+const OWN_MARKS = ['★', '◆', '✦', '○', '▸', '❯', '✔', '✗', '💡', '✅', '👉', '📌', '(#)', '[#]', 'Шаг #:'];
+
 function clean(st: TextStyle): TextStyle {
   const out: TextStyle = {};
   if (st.size) out.size = Math.round(Number(st.size));
@@ -818,7 +875,8 @@ function clean(st: TextStyle): TextStyle {
   if (st.upper) out.upper = true;
   if (st.spacing) out.spacing = st.spacing;
   if (st.leading) out.leading = st.leading;
-  if (st.list && LIST_MARKERS[st.list] && st.list !== 'dot') out.list = st.list;
+  if (st.list && (LIST_MARKERS[st.list] || customMarker(st.list)) && st.list !== 'dot') out.list = LIST_MARKERS[st.list] ? st.list : customMarker(st.list)!;
+  if (st.listColor && colorCss(st.listColor)) out.listColor = st.listColor;
   return out;
 }
 

@@ -20,9 +20,9 @@
 .image-empty { flex: 1; min-height: 120px; display: grid; place-items: center; text-align: center; padding: 24px; border: 2px dashed var(--bd2); border-radius: calc(12px * var(--rk, 1)); color: var(--mu); font-size: 15px; background: var(--alt); }
 
 /* Разметка в тексте: списки и ссылки */
-/* Маркер — из оформления текста (styles.*.list, text-style.ts): символ, номер или точка по умолчанию */
+/* Маркер — из оформления текста (styles.*.list и listColor, text-style.ts): символ, номер, свой текст или точка по умолчанию */
 .md-li { display: block; position: relative; padding-left: var(--li-pad, 1.1em); counter-increment: md-li; }
 .md-li::before { content: var(--li-mark, ""); position: absolute; left: var(--li-left, .25em); top: var(--li-top, .62em); width: var(--li-w, .32em); height: var(--li-h, .32em);
-  border-radius: var(--li-r, 50%); background: var(--li-bg, var(--ac)); color: var(--ac); font-weight: 700; font-variant-numeric: tabular-nums; }
+  border-radius: var(--li-r, 50%); background: var(--li-bg, var(--li-c, var(--ac))); color: var(--li-c, var(--ac)); white-space: pre; font-weight: 700; font-variant-numeric: tabular-nums; }
 :has(> .md-li) { counter-reset: md-li; }
 .md-a { color: var(--ach); text-decoration: underline; text-underline-offset: 2px; }
