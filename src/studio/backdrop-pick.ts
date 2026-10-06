@@ -18,20 +18,27 @@ export function backdropStrip(cur: string, theme?: string | null): string {
     ...(t ? [['', `Как в теме · ${backdropName(t)}`, t] as [string, string, string], ['none', 'Без фона', ''] as [string, string, string]] : [['', 'Без фона', ''] as [string, string, string]]),
     ...BACKDROPS.map(([k, n]) => [k, n, k] as [string, string, string]),
   ];
-  return `<div class="st-bdpick"><button type="button" class="st-bdnav" data-nav="-1" aria-label="Листать влево" tabindex="-1">${icon('prev')}</button>`
+  const [prev, next] = railNav();
+  return `<div class="st-bdpick">${prev}`
     + `<div class="st-bdstrip" role="radiogroup" aria-label="Анимация фона">${opts.map(([v, n, look]) =>
       `<button type="button" role="radio" aria-checked="${v === cur}" data-backdrop="${v}" title="${esc(n)}"><i class="${look ? `backdrop bd-${look}` : ''}"></i><span>${esc(n)}</span></button>`).join('')}</div>`
-    + `<button type="button" class="st-bdnav" data-nav="1" aria-label="Листать вправо" tabindex="-1">${icon('next')}</button></div>`;
+    + `${next}</div>`;
 }
 
-/** Лента в контейнере: прокрутка вбок и живая примерка на слайде */
-export function bindBackdropStrip(root: HTMLElement, stage: () => HTMLElement, theme?: string | null): void {
-  const strip = root.querySelector<HTMLElement>('.st-bdstrip');
-  if (!strip || strip.dataset.bound) return;
+/** Стрелки листания по краям ленты */
+export const railNav = () => ['-1', '1'].map((d) =>
+  `<button type="button" class="st-bdnav" data-nav="${d}" aria-label="${d === '-1' ? 'Листать влево' : 'Листать вправо'}" tabindex="-1">${icon(d === '-1' ? 'prev' : 'next')}</button>`);
+
+/**
+ * Лента, что листается вбок: колесом, перетаскиванием, стрелками по краям (они гаснут у концов).
+ * root — обёртка со стрелками [data-nav], strip — сама прокручиваемая лента
+ */
+export function bindRail(root: HTMLElement, strip: HTMLElement): void {
+  if (strip.dataset.bound) return;
   strip.dataset.bound = '1';
   const ends = () => {
-    root.querySelector('[data-nav="-1"]')?.classList.toggle('off', strip.scrollLeft < 4);
-    root.querySelector('[data-nav="1"]')?.classList.toggle('off', strip.scrollLeft > strip.scrollWidth - strip.clientWidth - 4);
+    root.querySelector(':scope > [data-nav="-1"]')?.classList.toggle('off', strip.scrollLeft < 4);
+    root.querySelector(':scope > [data-nav="1"]')?.classList.toggle('off', strip.scrollLeft > strip.scrollWidth - strip.clientWidth - 4);
   };
   strip.addEventListener('scroll', ends, { passive: true });
   strip.addEventListener('wheel', (e) => {
@@ -39,13 +46,22 @@ export function bindBackdropStrip(root: HTMLElement, stage: () => HTMLElement, t
     e.preventDefault();
     strip.scrollLeft += e.deltaY;
   }, { passive: false });
-  root.querySelectorAll<HTMLElement>('[data-nav]').forEach((b) => b.addEventListener('click', (e) => {
+  root.querySelectorAll<HTMLElement>(':scope > [data-nav]').forEach((b) => b.addEventListener('click', (e) => {
     e.stopPropagation();
     strip.scrollBy({ left: Number(b.dataset.nav) * strip.clientWidth * 0.8, behavior: 'smooth' });
   }));
   // Выбранная плитка — на виду
-  strip.querySelector<HTMLElement>('[aria-checked="true"]')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  const cur = strip.querySelector<HTMLElement>('[aria-checked="true"], .on');
+  if (cur) strip.scrollLeft = Math.max(0, cur.offsetLeft - (strip.clientWidth - cur.offsetWidth) / 2 - strip.offsetLeft);
   ends();
+  requestAnimationFrame(ends);
+}
+
+/** Лента в контейнере: прокрутка вбок и живая примерка на слайде */
+export function bindBackdropStrip(root: HTMLElement, stage: () => HTMLElement, theme?: string | null): void {
+  const strip = root.querySelector<HTMLElement>('.st-bdstrip');
+  if (!strip || strip.dataset.bound) return;
+  bindRail(strip.parentElement!, strip);
   strip.addEventListener('pointerover', (e) => {
     const b = (e.target as Element).closest<HTMLElement>('[data-backdrop]');
     if (!b) return;

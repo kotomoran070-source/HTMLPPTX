@@ -488,7 +488,9 @@ button.st-g-n { position: relative; }
 .st-anim-sep { padding: 6px 10px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--mu); background: var(--alt); border-bottom: 1px solid var(--bd); }
 
 /* Фон холста */
-.st-bgs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.st-bgs { flex: 1; min-width: 0; display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, auto); grid-auto-columns: calc((100% - 12px) / 3); gap: 6px; padding: 3px 2px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; overscroll-behavior-x: contain; }
+.st-bgs::-webkit-scrollbar { display: none; }
+.st-bgs > * { scroll-snap-align: start; }
 .st-bgs button, .st-bg-own { display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 4px; border: 1px solid var(--bd); border-radius: 8px; background: var(--surf); font: 500 11px var(--font); color: var(--tx2); cursor: pointer; text-align: center; }
 .st-bgs i, .st-bg-own i { display: block; height: 30px; border-radius: 5px; border: 1px solid var(--bd); }
 .st-bgs button:hover, .st-bg-own:hover { border-color: var(--acb); }

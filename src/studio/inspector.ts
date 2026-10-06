@@ -5,7 +5,7 @@ import { fontItems, fontPicker, type FontItem } from '../engine/editor/font-pick
 import { rowOf } from '../engine/editor/rows';
 import { toView, viewOf, VIEWS } from './block-views';
 import { getAt, setAt, type Path } from '../engine/data';
-import { backdropStrip, bindBackdropStrip } from './backdrop-pick';
+import { backdropStrip, bindBackdropStrip, bindRail, railNav } from './backdrop-pick';
 import { blockName, keepsRatio } from '../engine/editor/block-edit';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
@@ -272,6 +272,8 @@ export class Inspector {
       this.root.dataset.subject = sel ? JSON.stringify(sel.block) : `s${i}`;
       if (same) this.root.scrollTop = top;
       bindBackdropStrip(this.root, () => this.host.stage(), this.host.deck().theme?.backdrop);
+      const bgs = this.root.querySelector<HTMLElement>('.st-bgs');
+      if (bgs) bindRail(bgs.parentElement!, bgs);
     }
     this.fill();
   }
@@ -450,9 +452,11 @@ export class Inspector {
 
   private bgHtml(cur: string): string {
     const known = BACKGROUNDS.some(([v]) => v === cur);
-    return `<div class="st-p-field"><span>Фон</span><div class="st-bgs" role="radiogroup" aria-label="Фон слайда">${BACKGROUNDS.map(([v, l, look]) =>
+    const [prev, next] = railNav();
+    // Две строки плиток, остальные листаются вбок
+    return `<div class="st-p-field"><span>Фон</span><div class="st-bdpick st-bgpick">${prev}<div class="st-bgs" role="radiogroup" aria-label="Фон слайда">${BACKGROUNDS.map(([v, l, look]) =>
       `<button type="button" role="radio" aria-checked="${v === cur}" data-bg="${esc(v)}" title="${esc(l)}"><i style="background:${look}"></i><span>${esc(l)}</span></button>`).join('')}
-<label class="st-bg-own${!known && HEX_RE.test(cur) ? ' on' : ''}" title="Свой цвет — тяните по палитре, слайд меняется сразу"><i style="background:${!known && HEX_RE.test(cur) ? cur : 'conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)'}"></i><input type="color" data-f="bgcolor" aria-label="Свой цвет фона"><span>Свой</span></label></div>
+<label class="st-bg-own${!known && HEX_RE.test(cur) ? ' on' : ''}" title="Свой цвет — тяните по палитре, слайд меняется сразу"><i style="background:${!known && HEX_RE.test(cur) ? cur : 'conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)'}"></i><input type="color" data-f="bgcolor" aria-label="Свой цвет фона"><span>Свой</span></label></div>${next}</div>
 ${!known ? `<p class="st-p-note">Сейчас: <code>${esc(cur.length > 60 ? cur.slice(0, 60) + '…' : cur)}</code></p>` : ''}</div>
 <details class="st-p-more"><summary>CSS фона</summary><label class="st-p-field"><input type="text" data-f="bg" placeholder="как у темы" spellcheck="false"></label></details>`;
   }
