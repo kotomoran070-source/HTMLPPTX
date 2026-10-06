@@ -131,6 +131,10 @@ const PALETTES: [string, string | null, string][] = [
   ['#C9A227', '#F3D98B', 'Золото'], ['#0EA5E9', '#6366F1', 'Небо'], ['#334155', null, 'Графит'],
 ];
 
+/** Логотип в углу обычных слайдов: угол и размер */
+const CORNER_POS: [string, string][] = [['tl', 'Слева вверху'], ['tr', 'Справа вверху'], ['bl', 'Слева внизу'], ['br', 'Справа внизу']];
+const CORNER_SIZE: [string, string][] = [['s', 'Маленький'], ['', 'Обычный'], ['l', 'Крупный']];
+
 /** Скругление углов: множитель и название */
 const RADII: [number, string][] = [[0, 'Прямые'], [0.5, 'Небольшие'], [1, 'Обычные'], [1.5, 'Мягкие'], [2, 'Круглые']];
 
@@ -309,6 +313,15 @@ export function designCommands(h: DesignHost): Record<string, Command> {
       if (own) for (const part of own.split(';')) { const [k, v] = part.split(':'); slide.style.setProperty(k, v); }
     }
   };
+  const corner = () => deck.brand?.corner ?? {};
+  const setCorner = (p: { pos?: string; size?: string }) => ed.commit((d) => {
+    if (!d.brand) return;
+    const c: Record<string, unknown> = { ...(d.brand.corner ?? {}), ...p };
+    if (c.pos === 'tr') delete c.pos;
+    if (!c.size) delete c.size;
+    if (Object.keys(c).length) d.brand.corner = c as NonNullable<Deck['brand']>['corner'];
+    else delete d.brand.corner;
+  }, { rebuild: true });
   const logoMenu = async () => {
     const at = anchor('design.logo');
     const logo = deck.brand?.logo;
@@ -322,18 +335,35 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     const logoVars = `--lp-bg:${pal.bg};--lp-bd:${pal.border};--lp-glow:${pal.glow}`;
     const el = showPopover(at, `<div class="st-dz-opts radii">`
       + `<button type="button" class="st-dz-opt${fromLogo ? '' : ' active'}" data-k="theme">${sample('')}<small>Из темы</small></button>`
-      + `<button type="button" class="st-dz-opt${fromLogo ? ' active' : ''}" data-k="logo">${sample(logoVars)}<small>Из логотипа</small></button></div>`, (b) => {
+      + `<button type="button" class="st-dz-opt${fromLogo ? ' active' : ''}" data-k="logo">${sample(logoVars)}<small>Из логотипа</small></button></div>`
+      // Угол и размер на обычных слайдах
+      + `<div class="st-dz-corners">${CORNER_POS.map(([v, l]) => `<button type="button" class="st-dz-corner${(corner().pos ?? 'tr') === v ? ' active' : ''}" data-pos="${v}" title="${l}" aria-label="${l}"><i class="at-${v}"></i></button>`).join('')}`
+      + `<span class="st-dz-sep"></span>${CORNER_SIZE.map(([v, l]) => `<button type="button" class="st-dz-corner${(corner().size ?? '') === v ? ' active' : ''}" data-size="${v}" title="${l}" aria-label="${l}"><i class="at-tr size-${v || 'm'}"></i></button>`).join('')}</div>`, (b) => {
       if (b.dataset.k === 'theme') return { run: () => setPlate(null) };
       if (b.dataset.k === 'logo') return { run: () => setPlate({ from: 'logo', src: logo, ...pal }) };
+      if (b.dataset.pos) return { run: () => setCorner({ pos: b.dataset.pos }) };
+      if (b.dataset.size !== undefined) return { run: () => setCorner({ size: b.dataset.size }) };
       return null;
     });
+    /** Примерка угла и размера: классы у логотипа на открытом слайде */
+    const tryCorner = (pos?: string, size?: string) => {
+      const el2 = h.stage().querySelector<HTMLElement>('.slide.on > .corner-logo');
+      if (!el2) return;
+      el2.classList.remove('at-tl', 'at-tr', 'at-bl', 'at-br', 'size-s', 'size-l');
+      el2.classList.add(`at-${pos ?? corner().pos ?? 'tr'}`);
+      const sz = size ?? corner().size;
+      if (sz) el2.classList.add(`size-${sz}`);
+    };
     el.addEventListener('pointerover', (e) => {
-      const k = (e.target as Element).closest<HTMLElement>('[data-k]')?.dataset.k;
+      const t = (e.target as Element).closest<HTMLElement>('[data-k], [data-pos], [data-size]');
+      const k = t?.dataset.k;
       if (k === 'logo') tryPlate({ '--lp-bg': pal.bg, '--lp-bd': pal.border, '--lp-glow': pal.glow });
       else if (k === 'theme') tryPlate({});
+      else if (t?.dataset.pos) tryCorner(t.dataset.pos);
+      else if (t?.dataset.size !== undefined) tryCorner(undefined, t.dataset.size);
     });
-    el.addEventListener('pointerleave', () => tryPlate(null));
-    new MutationObserver((_m, o) => { if (!el.isConnected) { tryPlate(null); o.disconnect(); } }).observe(document.body, { childList: true });
+    el.addEventListener('pointerleave', () => { tryPlate(null); tryCorner(); });
+    new MutationObserver((_m, o) => { if (!el.isConnected) { tryPlate(null); tryCorner(); o.disconnect(); } }).observe(document.body, { childList: true });
   };
 
   const cmds: Record<string, Command> = {

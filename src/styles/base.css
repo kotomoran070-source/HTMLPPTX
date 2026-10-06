@@ -143,6 +143,16 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
   border-width: 1.5px;
   z-index: 2;
 }
+/* Угол и размер логотипа (brand.corner); заголовок слайда отступает с той стороны, где логотип */
+.logo.corner-logo.at-tl { right: auto; left: 28px; }
+.logo.corner-logo.at-bl { top: auto; bottom: 22px; right: auto; left: 28px; }
+.logo.corner-logo.at-br { top: auto; bottom: 22px; }
+.logo.corner-logo.size-s { width: 30px; height: 30px; border-radius: calc(8px * var(--rk, 1)); }
+.logo.corner-logo.size-l { width: 56px; height: 56px; border-radius: calc(15px * var(--rk, 1)); border-width: 2px; }
+.slide:has(> .corner-logo:is(.at-bl, .at-br)) .slide-head { padding-right: 0; }
+.slide:has(> .corner-logo.at-tl) .slide-head { padding-right: 0; padding-left: 56px; }
+.slide:has(> .corner-logo.at-tl.size-l) .slide-head { padding-left: 72px; }
+.slide:has(> .corner-logo.at-tr.size-l) .slide-head { padding-right: 72px; }
 
 .logo {
   display: grid;

@@ -13,6 +13,8 @@ export interface Deck {
      * подобранные студией по файлу src (если логотип сменили — снова цвета темы)
      */
     plate?: { from: 'logo'; src: string; bg: string; border: string; glow: string };
+    /** Логотип в углу обычных слайдов: угол (tl, tr, bl, br; по умолчанию tr) и размер (s, l) */
+    corner?: { pos?: 'tl' | 'tr' | 'bl' | 'br'; size?: 's' | 'l' };
   };
   theme?: DeckTheme;
   /** Свои шрифты: файлы в assets/ — { name: Manrope, src: ./assets/Manrope.woff2 } */
