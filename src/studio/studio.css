@@ -282,6 +282,7 @@ body.studio { background: var(--alt); }
 /* Длинный раздел: три ряда, листается вбок (стрелки — как у ленты фонов) */
 .st-lib-rail { position: relative; }
 .st-lib-grid.rail { grid-auto-flow: column; grid-template-columns: none; grid-template-rows: repeat(3, auto); grid-auto-columns: calc((100% - 24px) / 4); overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
+.st-lib.part .st-lib-grid.rail { grid-template-rows: repeat(4, auto); }
 .st-lib-grid.rail.compact { grid-auto-columns: calc((100% - 36px) / 7); }
 .st-lib-grid.rail::-webkit-scrollbar { display: none; }
 .st-lib-grid.rail .st-lib-item { scroll-snap-align: start; }

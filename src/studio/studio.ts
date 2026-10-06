@@ -1365,7 +1365,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   /** Галереи вкладки «Вставка»: только свои разделы библиотеки */
   const GALLERIES: Record<string, string[]> = {
     text: ['Текст'], shapes: ['Фигуры', 'Плашки'], table: ['Таблицы'], chart: ['Графики'], numbers: ['Числа'],
-    schemes: ['Схемы из пунктов', 'Схемы'], cards: ['Карточки'], live: ['Интерактив'],
+    schemes: ['Схемы'], cards: ['Карточки'], live: ['Интерактив'],
   };
   for (const [k, cats] of Object.entries(GALLERIES)) {
     cmds[`ins.gal.${k}`] = {

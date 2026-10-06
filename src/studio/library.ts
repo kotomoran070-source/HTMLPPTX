@@ -411,58 +411,6 @@ export const LIBRARY: Category[] = [
   },
   {
     name: 'Схемы',
-    icon: 'layers',
-    items: [
-      {
-        name: 'Хронология', w: 1040, pw: 640, make: () => ({
-          type: 'timeline', items: [
-            { date: 'Март', title: 'Прототип', text: 'первая версия', done: true },
-            { date: 'Май', title: 'Пилот', text: '12 клиентов', done: true },
-            { date: 'Сентябрь', title: 'Эксплуатация', text: 'для всех', done: true },
-            { date: 'Декабрь', title: 'Масштабирование', text: 'новые рынки' },
-          ],
-        }),
-      },
-      {
-        name: 'Шаги по очереди', w: 900, pw: 560, make: () => ({
-          type: 'pipeline', steps: [{ title: 'Заявка', sub: 'онлайн' }, { title: 'Согласование', sub: '1 день' }, { title: 'Работа', sub: 'по плану' }, { title: 'Сдача', sub: 'акт и отчёт' }],
-        }),
-      },
-      { name: 'Схема связей', w: 520, h: 360, make: () => ({ type: 'network', nodes: 7 }) },
-      {
-        name: 'Дорожная карта', w: 1080, h: 380, pw: 700, make: () => kit(
-          '<div class="kt-road"><svg viewBox="0 0 1080 360" preserveAspectRatio="none"><path class="bg" d="M20 260C80 260 100 230 150 230S300 110 400 110S580 230 680 230S850 110 930 110S1030 150 1060 150"/>'
-          + '<path class="fg" pathLength="1" d="M20 260C80 260 100 230 150 230S300 110 400 110S580 230 680 230S850 110 930 110S1030 150 1060 150"/></svg>'
-          + [[13.9, 60.3], [37, 26.9], [63, 60.3], [86.1, 26.9]].map(([x, y], k) => `<div class="kt-mile" style="left:${x}%;top:${y}%"><i></i>${T(k * 2, '', 'kt-eyebrow')}${T(k * 2 + 1, `${HEAD};margin-top:6px;font-size:21px;font-weight:700;line-height:1.2`)}</div>`).join('')
-          + '</div>',
-          ['I квартал', 'Исследование', 'II квартал', 'Прототип', 'III квартал', 'Пилот', 'IV квартал', 'Запуск'],
-        ),
-      },
-      {
-        name: 'Лестница роста', w: 900, h: 400, pw: 560, make: () => kit(
-          `<div class="kt-steps">${[0, 1, 2, 3].map((k) => `<div>${T(k * 2, `${HEAD};font-size:30px;font-weight:800;line-height:1`, 'kt-grad')}${T(k * 2 + 1, 'font-size:16px;line-height:1.3;color:var(--tx2)')}<b></b></div>`).join('')}</div>`,
-          ['2023', 'старт', '2024', '×2 клиентов', '2025', 'новые рынки', '2026', 'лидер ниши'],
-        ),
-      },
-      {
-        name: 'Орбиты', w: 760, h: 520, pw: 480, make: () => kit(
-          `<div class="kt-orbit"><i class="ring r2"></i><i class="ring r1"></i><div class="kt-core">${T(0, `${HEAD};font-size:30px;font-weight:800;line-height:1.1`)}${T(1, 'font-size:15px;opacity:.85')}</div>`
-          + [[17, 18], [83, 22], [13, 78], [86, 80]].map(([x, y], k) => T(k + 2, `left:${x}%;top:${y}%`, 'kt-tag')).join('') + '</div>',
-          ['Продукт', 'в центре всего', 'Клиенты', 'Партнёры', 'Данные', 'Команда'],
-        ),
-      },
-      {
-        name: 'Итоги вокруг логотипа', w: 1040, pw: 760, make: () => ({
-          type: 'hub', items: [
-            { title: 'Первый итог', text: 'Пояснение' }, { title: 'Второй итог', text: 'Пояснение' },
-            { title: 'Третий итог', text: 'Пояснение' }, { title: 'Четвёртый итог', text: 'Пояснение' },
-          ],
-        }),
-      },
-    ],
-  },
-  {
-    name: 'Схемы из пунктов',
     icon: 'cycle',
     items: [
       {
@@ -510,6 +458,52 @@ export const LIBRARY: Category[] = [
         name: 'Вопрос — ответ', w: 1000, pw: 620, make: () => ({
           type: 'faq', items: [{ title: 'Нужен ли интернет?', text: 'Нет: презентация — один файл.' }, { title: 'Можно открыть в PowerPoint?', text: 'Да, через экспорт в PPTX.' }, { title: 'Как показывать с телефона?', text: 'Отсканируйте QR в окне показа.' }],
         }),
+      },
+      {
+        name: 'Хронология', w: 1040, pw: 640, make: () => ({
+          type: 'timeline', items: [
+            { date: 'Март', title: 'Прототип', text: 'первая версия', done: true },
+            { date: 'Май', title: 'Пилот', text: '12 клиентов', done: true },
+            { date: 'Сентябрь', title: 'Эксплуатация', text: 'для всех', done: true },
+            { date: 'Декабрь', title: 'Масштабирование', text: 'новые рынки' },
+          ],
+        }),
+      },
+      {
+        name: 'Итоги вокруг логотипа', w: 1040, pw: 760, make: () => ({
+          type: 'hub', items: [
+            { title: 'Первый итог', text: 'Пояснение' }, { title: 'Второй итог', text: 'Пояснение' },
+            { title: 'Третий итог', text: 'Пояснение' }, { title: 'Четвёртый итог', text: 'Пояснение' },
+          ],
+        }),
+      },
+      {
+        name: 'Шаги по очереди', w: 900, pw: 560, make: () => ({
+          type: 'pipeline', steps: [{ title: 'Заявка', sub: 'онлайн' }, { title: 'Согласование', sub: '1 день' }, { title: 'Работа', sub: 'по плану' }, { title: 'Сдача', sub: 'акт и отчёт' }],
+        }),
+      },
+      { name: 'Схема связей', w: 520, h: 360, make: () => ({ type: 'network', nodes: 7 }) },
+      {
+        name: 'Дорожная карта', w: 1080, h: 380, pw: 700, make: () => kit(
+          '<div class="kt-road"><svg viewBox="0 0 1080 360" preserveAspectRatio="none"><path class="bg" d="M20 260C80 260 100 230 150 230S300 110 400 110S580 230 680 230S850 110 930 110S1030 150 1060 150"/>'
+          + '<path class="fg" pathLength="1" d="M20 260C80 260 100 230 150 230S300 110 400 110S580 230 680 230S850 110 930 110S1030 150 1060 150"/></svg>'
+          + [[13.9, 60.3], [37, 26.9], [63, 60.3], [86.1, 26.9]].map(([x, y], k) => `<div class="kt-mile" style="left:${x}%;top:${y}%"><i></i>${T(k * 2, '', 'kt-eyebrow')}${T(k * 2 + 1, `${HEAD};margin-top:6px;font-size:21px;font-weight:700;line-height:1.2`)}</div>`).join('')
+          + '</div>',
+          ['I квартал', 'Исследование', 'II квартал', 'Прототип', 'III квартал', 'Пилот', 'IV квартал', 'Запуск'],
+        ),
+      },
+      {
+        name: 'Лестница роста', w: 900, h: 400, pw: 560, make: () => kit(
+          `<div class="kt-steps">${[0, 1, 2, 3].map((k) => `<div>${T(k * 2, `${HEAD};font-size:30px;font-weight:800;line-height:1`, 'kt-grad')}${T(k * 2 + 1, 'font-size:16px;line-height:1.3;color:var(--tx2)')}<b></b></div>`).join('')}</div>`,
+          ['2023', 'старт', '2024', '×2 клиентов', '2025', 'новые рынки', '2026', 'лидер ниши'],
+        ),
+      },
+      {
+        name: 'Орбиты', w: 760, h: 520, pw: 480, make: () => kit(
+          `<div class="kt-orbit"><i class="ring r2"></i><i class="ring r1"></i><div class="kt-core">${T(0, `${HEAD};font-size:30px;font-weight:800;line-height:1.1`)}${T(1, 'font-size:15px;opacity:.85')}</div>`
+          + [[17, 18], [83, 22], [13, 78], [86, 80]].map(([x, y], k) => T(k + 2, `left:${x}%;top:${y}%`, 'kt-tag')).join('') + '</div>',
+          ['Продукт', 'в центре всего', 'Клиенты', 'Партнёры', 'Данные', 'Команда'],
+        ),
       },
     ],
   },
@@ -645,11 +639,12 @@ export function showLibrary(anchor: HTMLElement, deck: Deck, pick: (p: Preset) =
     : '';
   // Разделы галереи — в порядке, в котором их просили (новые схемы — первыми)
   const order = only ? only.map((n) => LIBRARY.findIndex((c) => c.name === n)).filter((i) => i >= 0) : LIBRARY.map((_c, i) => i);
-  // Раздел длиннее трёх рядов не растягивает панель: три ряда, остальное листается вбок
+  // Раздел длиннее трёх строк (в галерее вкладки «Вставка» — четырёх: там разделы по одному)
+  // не растягивает панель вниз: остальное листается вбок
   const nav = (d: number) => `<button type="button" class="st-bdnav" data-nav="${d}" aria-label="${d < 0 ? 'Листать влево' : 'Листать вправо'}" tabindex="-1">${icon(d < 0 ? 'prev' : 'next')}</button>`;
   el.innerHTML = own + order.map((ci) => LIBRARY[ci]).map((c, k) => {
     const ci = order[k];
-    const rail = c.items.length > (c.compact ? 7 : 4) * 3;
+    const rail = c.items.length > (c.compact ? 7 : 4) * (only ? 4 : 3);
     const grid = `<div class="st-lib-grid${c.compact ? ' compact' : ''}${rail ? ' rail' : ''}">${c.items.map((p, pi) =>
       `<button type="button" class="st-lib-item" data-c="${ci}" data-p="${pi}" title="Вставить: ${esc(p.name)}"><span class="st-lib-slot">${p.glyph ? `<svg class="st-lib-glyph" viewBox="0 0 48 32" aria-hidden="true">${p.glyph}</svg>` : ''}</span><span class="st-lib-name">${esc(p.name)}</span></button>`).join('')}</div>`;
     return `<section><h4>${icon(c.icon)}<span>${esc(c.name)}</span></h4>${rail ? `<div class="st-lib-rail">${nav(-1)}${grid}${nav(1)}</div>` : grid}</section>`;
