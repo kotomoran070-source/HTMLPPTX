@@ -28,3 +28,4 @@ import './html/html';
 import './live/live';
 import './control/control';
 import './sandbox/sandbox';
+import './schemes/schemes';

@@ -8,15 +8,26 @@ import type { Block } from '../types';
 
 export interface Item { title: string; text?: string; [extra: string]: unknown }
 
-export const VIEWS: { id: string; name: string; icon: string }[] = [
-  { id: 'list', name: 'Список', icon: 'list' },
-  { id: 'pipeline', name: 'Шаги', icon: 'next' },
-  { id: 'timeline', name: 'Таймлайн', icon: 'dist-h' },
-  { id: 'cards', name: 'Карточки', icon: 'grid' },
-  { id: 'hub', name: 'Вокруг центра', icon: 'sensor' },
-  { id: 'chips', name: 'Метки', icon: 'text-box' },
-  { id: 'kv', name: 'Пары', icon: 'eq-cols' },
+export const VIEWS: { id: string; name: string; icon: string; group: 'Списки' | 'Схемы' }[] = [
+  { id: 'list', name: 'Список', icon: 'list', group: 'Списки' },
+  { id: 'numbers', name: 'Номера', icon: 'hash', group: 'Списки' },
+  { id: 'icons', name: 'Иконки', icon: 'star', group: 'Списки' },
+  { id: 'stats', name: 'Цифры', icon: 'chart', group: 'Списки' },
+  { id: 'cards', name: 'Карточки', icon: 'grid', group: 'Списки' },
+  { id: 'faq', name: 'Вопросы', icon: 'faq', group: 'Списки' },
+  { id: 'chips', name: 'Метки', icon: 'text-box', group: 'Списки' },
+  { id: 'kv', name: 'Пары', icon: 'eq-cols', group: 'Списки' },
+  { id: 'pipeline', name: 'Шаги', icon: 'next', group: 'Схемы' },
+  { id: 'timeline', name: 'Таймлайн', icon: 'dist-h', group: 'Схемы' },
+  { id: 'cycle', name: 'Цикл', icon: 'cycle', group: 'Схемы' },
+  { id: 'funnel', name: 'Воронка', icon: 'funnel', group: 'Схемы' },
+  { id: 'pyramid', name: 'Пирамида', icon: 'pyramid', group: 'Схемы' },
+  { id: 'compare', name: 'Сравнение', icon: 'columns', group: 'Схемы' },
+  { id: 'matrix', name: 'Матрица', icon: 'quad', group: 'Схемы' },
+  { id: 'hub', name: 'Вокруг центра', icon: 'sensor', group: 'Схемы' },
 ];
+/** Виды с пунктами items: [{ title, text, … }] — переводятся друг в друга без потерь */
+export const ITEM_VIEWS = new Set(['timeline', 'hub', 'cycle', 'funnel', 'pyramid', 'numbers', 'compare', 'matrix', 'icons', 'stats', 'faq']);
 
 type Obj = Record<string, unknown>;
 const str = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
@@ -48,7 +59,7 @@ export function itemsOf(b: Obj): Item[] {
       });
     case 'pipeline':
       return arr(b.steps).map((s) => { const o = s as Obj; return { ...extras(o), title: str(o.title), ...(o.sub ? { text: str(o.sub) } : {}) }; });
-    case 'timeline': case 'hub':
+    case 'timeline': case 'hub': case 'cycle': case 'funnel': case 'pyramid': case 'numbers': case 'compare': case 'matrix': case 'icons': case 'stats': case 'faq':
       return arr(b.items).map((s) => { const o = s as Obj; return { ...extras(o), title: str(o.title), ...(o.text ? { text: str(o.text) } : {}), ...(o.sub ? { sub: str(o.sub) } : {}) }; });
     case 'cards':
       return arr(b.items).map((s) => { const o = s as Obj; return { ...extras(o), title: str(o.title), ...(o.text ? { text: str(o.text) } : {}) }; });
@@ -83,11 +94,8 @@ export function toView(b: Obj, view: string): Block {
     case 'pipeline':
       out = { type: 'pipeline', steps: items.map((i) => ({ ...rest(i), title: i.title, ...(i.text ? { sub: i.text } : {}) })) };
       break;
-    case 'timeline':
-      out = { type: 'timeline', items: items.map((i) => ({ ...rest(i), title: i.title, ...(i.text ? { text: i.text } : {}) })) };
-      break;
-    case 'hub':
-      out = { type: 'hub', items: items.map((i) => ({ ...rest(i), title: i.title, ...(i.text ? { text: i.text } : {}) })) };
+    case 'timeline': case 'hub': case 'cycle': case 'funnel': case 'pyramid': case 'numbers': case 'compare': case 'matrix': case 'icons': case 'stats': case 'faq':
+      out = { type: view, items: items.map((i) => ({ ...rest(i), title: i.title, ...(i.text ? { text: i.text } : {}) })) };
       break;
     case 'cards': {
       const n = items.length;

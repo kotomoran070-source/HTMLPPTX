@@ -48,6 +48,24 @@ const frame: Field[] = [
   { k: 'position', label: 'Видимая часть', type: 'framepos', hint: 'Какая часть снимка видна в рамке. На слайде — «Кадр» и тянуть картинку' },
 ];
 
+/** Пункты «заголовок + текст» — общие для схем и списков */
+const points = (label: string, item: string, textLabel = 'Пояснение') => ({
+  k: 'items', label, type: 'rows' as const, item,
+  make: () => ({ title: item, text: 'Пояснение' }),
+  fields: [
+    { k: 'title', label: 'Заголовок', type: 'text' as const },
+    { k: 'text', label: textLabel, type: 'text' as const },
+  ],
+});
+/** Пиктограммы для блока «Иконки с подписями» */
+const PICTOS: [string, string][] = [
+  ['bolt', 'Молния'], ['shield', 'Щит'], ['users', 'Люди'], ['clock', 'Часы'], ['target', 'Цель'], ['trend', 'Рост'],
+  ['wallet', 'Кошелёк'], ['globe', 'Глобус'], ['cloud', 'Облако'], ['database', 'Данные'], ['code', 'Код'], ['rocket', 'Ракета'],
+  ['bulb', 'Идея'], ['trophy', 'Кубок'], ['leaf', 'Лист'], ['gear', 'Шестерёнка'], ['chat', 'Чат'], ['heart', 'Сердце'],
+  ['star', 'Звезда'], ['calendar', 'Календарь'], ['cart', 'Корзина'], ['pin', 'Место'], ['handshake', 'Сделка'], ['doc', 'Документ'],
+  ['mail', 'Почта'], ['phone', 'Телефон'], ['lock', 'Замок'], ['chart', 'График'], ['home', 'Дом'], ['sensor', 'Датчик'],
+];
+
 export const BLOCKS: Record<string, Schema> = {
   text: {
     fields: [
@@ -244,6 +262,63 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'author', label: 'Автор', type: 'text' },
       { k: 'role', label: 'Должность или источник', type: 'text' },
     ],
+  },
+  // Схемы и списки из пунктов «заголовок + текст» (components/schemes)
+  cycle: {
+    fields: [{ k: 'center', label: 'В центре кольца', type: 'text' }, points('Этапы', 'Этап')],
+  },
+  funnel: { fields: [points('Ступени', 'Ступень', 'Справа от полосы')] },
+  pyramid: { about: 'Первый пункт — вершина.', fields: [points('Уровни', 'Уровень')] },
+  numbers: { fields: [points('Пункты', 'Пункт')] },
+  compare: {
+    about: 'Строки пояснения: «+ » — галочка, «- » — крестик.',
+    fields: [{
+      k: 'items', label: 'Колонки', type: 'rows', item: 'Колонка',
+      make: () => ({ title: 'Вариант', text: '+ Плюс\n- Минус' }),
+      fields: [
+        { k: 'title', label: 'Заголовок', type: 'text' },
+        { k: 'text', label: 'Строки', type: 'textarea' },
+        { k: 'accent', label: 'Выделить колонку', type: 'bool' },
+      ],
+    }],
+  },
+  matrix: {
+    fields: [
+      { k: 'yAxis', label: 'Ось слева (снизу вверх)', type: 'text' },
+      { k: 'xAxis', label: 'Ось снизу (слева направо)', type: 'text' },
+      points('Квадранты (до 4)', 'Квадрант'),
+    ],
+  },
+  icons: {
+    fields: [{
+      k: 'items', label: 'Пункты', type: 'rows', item: 'Пункт',
+      make: () => ({ title: 'Преимущество', text: 'Пояснение' }),
+      fields: [
+        { k: 'icon', label: 'Иконка', type: 'select', options: [['', 'По смыслу заголовка'], ...PICTOS] },
+        { k: 'title', label: 'Заголовок', type: 'text' },
+        { k: 'text', label: 'Пояснение', type: 'text' },
+      ],
+    }],
+  },
+  stats: {
+    fields: [{
+      k: 'items', label: 'Показатели', type: 'rows', item: 'Показатель',
+      make: () => ({ title: '100 %', text: 'Подпись' }),
+      fields: [
+        { k: 'title', label: 'Число', type: 'text' },
+        { k: 'text', label: 'Подпись', type: 'text' },
+      ],
+    }],
+  },
+  faq: {
+    fields: [{
+      k: 'items', label: 'Вопросы', type: 'rows', item: 'Вопрос',
+      make: () => ({ title: 'Новый вопрос?', text: 'Ответ' }),
+      fields: [
+        { k: 'title', label: 'Вопрос', type: 'text' },
+        { k: 'text', label: 'Ответ', type: 'textarea' },
+      ],
+    }],
   },
   timeline: {
     fields: [{

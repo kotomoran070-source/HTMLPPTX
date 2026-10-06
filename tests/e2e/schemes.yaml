@@ -1,0 +1,29 @@
+title: Схемы
+slides:
+  - template: content
+    title: Цикл
+    body: {type: cycle, center: "Улучшаем", items: [{title: "Планируем", text: "Цели квартала"}, {title: "Делаем", text: "Спринты по 2 недели"}, {title: "Проверяем", text: "Метрики и отзывы"}, {title: "Улучшаем", text: "Выводы в следующий план"}]}
+  - template: content
+    title: Воронка продаж
+    body: {type: funnel, items: [{title: "Посетители", text: "12 400 за месяц"}, {title: "Заявки", text: "1 860 — 15 %"}, {title: "Встречи", text: "420 — каждая четвёртая"}, {title: "Сделки", text: "96 договоров"}]}
+  - template: content
+    title: Пирамида приоритетов
+    body: {type: pyramid, items: [{title: "Миссия", text: "Зачем мы существуем"}, {title: "Стратегия", text: "Куда идём три года"}, {title: "Цели", text: "Что делаем в этом году"}, {title: "Задачи", text: "Ежедневная работа команды"}]}
+  - template: content
+    title: Три причины
+    body: {type: numbers, items: [{title: "Быстро", text: "Слайды собираются из данных за минуты"}, {title: "Живо", text: "Анимации, графики и 3D прямо в показе"}, {title: "Один файл", text: "Открывается где угодно, без программ"}]}
+  - template: content
+    title: Было и стало
+    body: {type: compare, items: [{title: "Было", text: "- Отчёт вручную два дня\n- Ошибки в цифрах\nПять версий файла"}, {title: "Стало", text: "+ Отчёт за минуту\n+ Цифры из таблицы\n+ Один живой файл"}]}
+  - template: content
+    title: Матрица Эйзенхауэра
+    body: {type: matrix, xAxis: "Срочность →", yAxis: "Важность →", items: [{title: "Запланировать", text: "Важно, но не срочно"}, {title: "Сделать сейчас", text: "Важно и срочно"}, {title: "Отказаться", text: "Не важно и не срочно"}, {title: "Поручить", text: "Срочно, но не важно"}]}
+  - template: content
+    title: Почему мы
+    body: {type: icons, items: [{title: "Скорость", text: "Ответ за 5 минут"}, {title: "Безопасность", text: "Данные под защитой"}, {title: "Команда", text: "40 инженеров"}, {title: "Поддержка", text: "Круглосуточный чат"}]}
+  - template: content
+    title: В цифрах
+    body: {type: stats, items: [{title: "99,9 %", text: "показов без сбоев"}, {title: "2,4 с", text: "сборка в один файл"}, {title: "17 234", text: "презентаций в месяц"}]}
+  - template: content
+    title: Частые вопросы
+    body: {type: faq, items: [{title: "Нужен ли интернет?", text: "Нет: презентация — один файл, всё внутри."}, {title: "Можно открыть в PowerPoint?", text: "Да, экспорт в PPTX сохраняет текст и картинки."}, {title: "Как показывать с телефона?", text: "Отсканируйте QR в окне показа — телефон станет пультом."}]}

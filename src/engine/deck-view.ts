@@ -256,7 +256,7 @@ export class DeckView {
    * null — щелчок по управлению (ползунок, кнопка, видео) — прожектор не трогать.
    */
   static spotKey(target: Element, slide: HTMLElement): string | null {
-    if (target.closest('input, textarea, select, button, a, video, model-viewer, canvas, iframe, label')) return null;
+    if (target.closest('input, textarea, select, button, a, video, model-viewer, canvas, iframe, label, [data-nospot]')) return null;
     const el = target.closest<HTMLElement>('[data-block]');
     if (!el || !slide.contains(el)) return '';
     // Блок почти во весь слайд (тело раскладки) — это «мимо»

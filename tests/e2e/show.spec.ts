@@ -110,3 +110,21 @@ test('прожектор: щелчок по блоку — он в светло�
   await expect(page.locator('.spot-frame')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test('блоки-схемы: все рисуются без ошибок, вопрос раскрывается по щелчку', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=schemes#1');
+  const types = ['cycle', 'funnel', 'pyramid', 'numbers', 'compare', 'matrix', 'icons', 'stats', 'faq'];
+  for (const [k, type] of types.entries()) {
+    await expect(page.locator('#ct')).toHaveText(`${k + 1} из ${types.length}`);
+    const block = page.locator(`.slide.on [data-type="${type}"]`);
+    await expect(block).toBeVisible();
+    expect(await block.evaluate((el) => el.getBoundingClientRect().height)).toBeGreaterThan(60);
+    if (k < types.length - 1) await page.keyboard.press('PageDown');
+  }
+  const q = page.locator('.slide.on .fq-q').first();
+  await q.click();
+  await expect(page.locator('.slide.on .fq-item.open')).toHaveCount(1);
+  await expect(page.locator('.spot-frame')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

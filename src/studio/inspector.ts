@@ -343,8 +343,10 @@ export class Inspector {
     const path = this.viewTarget();
     if (!path) return '';
     const cur = viewOf(getAt(this.host.deck(), path));
-    return `<section class="st-p-sec"><h3>Вид</h3><div class="st-views" role="radiogroup" aria-label="Вид блока">${VIEWS.map((v) =>
-      `<button type="button" role="radio" aria-checked="${v.id === cur}" data-view="${v.id}" title="${esc(v.name)}">${icon(v.icon)}<span>${esc(v.name)}</span></button>`).join('')}</div></section>`;
+    const tiles = (g: string) => VIEWS.filter((v) => v.group === g).map((v) =>
+      `<button type="button" role="radio" aria-checked="${v.id === cur}" data-view="${v.id}" title="${esc(v.name)}">${icon(v.icon)}<span>${esc(v.name)}</span></button>`).join('');
+    return `<section class="st-p-sec"><h3>Вид</h3><div role="radiogroup" aria-label="Вид блока">${['Списки', 'Схемы'].map((g) =>
+      `<p class="st-views-g">${g}</p><div class="st-views">${tiles(g)}</div>`).join('')}</div></section>`;
   }
 
   /**

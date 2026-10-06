@@ -37,7 +37,10 @@ export function countUp(slide: HTMLElement | undefined): () => void {
   if ((body.contains('editing') && !body.contains('st-previewing')) || matchMedia('(prefers-reduced-motion: reduce)').matches) return () => {};
   const parts: Part[] = [];
   const delays: number[] = [];
-  for (const el of slide.querySelectorAll<HTMLElement>('.free[data-count]')) {
+  // Объекты с галочкой «Число набегает» и числа блока «Цифры»
+  const els = [...slide.querySelectorAll<HTMLElement>('.free[data-count], [data-count-num]')];
+  // Вложенное в уже выбранное — не считать дважды
+  for (const el of els.filter((x) => !els.some((o) => o !== x && o.contains(x)))) {
     const delay = parseFloat(getComputedStyle(el).getPropertyValue('--fx-d')) || 0;
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {

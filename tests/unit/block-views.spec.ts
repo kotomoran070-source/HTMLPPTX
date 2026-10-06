@@ -27,3 +27,12 @@ test('список читается как «заголовок — текст»
   // Сетка с другими блоками — не «карточки», вид не меняется
   expect(viewOf({ type: 'grid', items: [{ type: 'card', title: 'x', body: { type: 'bars', values: [1] } }] })).toBeNull();
 });
+
+test('новые виды: пункты и свои поля (иконка, выделенная колонка) переходят без потерь', () => {
+  const icons = { type: 'icons', items: [{ title: 'Скорость', text: 'Быстро', icon: 'bolt' }, { title: 'Цена', text: 'Дёшево' }] };
+  const compare = toView(icons, 'compare') as any;
+  expect(compare.items[0]).toMatchObject({ title: 'Скорость', text: 'Быстро', icon: 'bolt' });
+  const funnel = toView({ ...compare, items: [{ ...compare.items[0], accent: true }, compare.items[1]] }, 'funnel') as any;
+  expect(toView(toView(funnel, 'cycle'), 'compare')).toMatchObject({ items: [{ title: 'Скорость', accent: true, icon: 'bolt' }, { title: 'Цена', text: 'Дёшево' }] });
+  for (const v of ['cycle', 'funnel', 'pyramid', 'numbers', 'compare', 'matrix', 'icons', 'stats', 'faq']) expect(viewOf(toView(icons, v))).toBe(v);
+});
