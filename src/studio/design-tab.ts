@@ -18,6 +18,7 @@ import type { Deck, DeckTheme } from '../types';
 import { logoPlate } from '../engine/render';
 import { logoColors } from './logo-colors';
 import { showPopover } from './menu';
+import { addMyTheme, captureTheme, downloadTheme, listMyThemes, MY, parseThemeFile, registerMyFonts, removeMyTheme, type MyTheme } from './my-themes';
 import { registerThemeFonts, SPECIMEN, THEME_FONTS, THEME_PRESETS, themeFont, type ThemePreset } from './theme-presets';
 
 interface Command {
@@ -31,7 +32,25 @@ export interface DesignHost {
   editor: Editor;
   /** Сцена студии: на ней примеряется тема */
   stage(): HTMLElement;
+  /** Спросить название (сохранение своей темы) */
+  askName(anchor: HTMLElement, title: string, note: string, suggestion: string, save: (name: string) => void): void;
 }
+
+/** Своя тема — как тема галереи: id «my:<id>» */
+const asPreset = (m: MyTheme): ThemePreset & { my: MyTheme } => ({ id: MY + m.id, name: m.name, theme: m.theme, my: m });
+/** Тема галереи или своя — по id плитки */
+function findTheme(id: string | undefined): (ThemePreset & { my?: MyTheme }) | null {
+  if (!id) return null;
+  if (id.startsWith(MY)) {
+    const m = listMyThemes().find((x) => MY + x.id === id);
+    return m ? asPreset(m) : null;
+  }
+  return THEME_PRESETS.find((x) => x.id === id) ?? null;
+}
+/** Применить тему по id плитки (задаётся в designCommands) */
+let applyById: ((id: string) => void) | null = null;
+/** Свои темы поменялись — плитки на ленте перерисовываются */
+let myVersion = 0;
 
 const group = (label: string, body: string) =>
   `<div class="st-rgroup" role="group" aria-label="${esc(label)}"><div class="st-rgroup-body">${body}</div><div class="st-rgroup-label">${esc(label)}</div></div>`;
@@ -83,7 +102,7 @@ function currentPreset(deck: Deck): string {
 
 /** Мини-образец темы на ленте: «Аа» шрифтом заголовков, полоса акцента и карточка */
 function miniTile(p: ThemePreset, cur: string): string {
-  return `<button type="button" class="st-dz-mini${p.id === cur ? ' active' : ''}" data-theme-id="${p.id}" title="${esc(p.name)}" aria-label="${esc(p.name)}">`
+  return `<button type="button" class="st-dz-mini${p.id === cur ? ' active' : ''}" data-theme-id="${esc(p.id)}" title="${esc(p.name)}" aria-label="${esc(p.name)}">`
     + `<span class="st-dz-mini-in" style="${esc(tileStyle(p.theme))}"><b>Аа</b><i></i><u></u></span></button>`;
 }
 
@@ -173,10 +192,30 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     }
   };
 
-  const applyPreset = async (p: ThemePreset) => {
+  /** Свои шрифты своей темы — файлами в assets/ презентации (если таких ещё нет) */
+  const ownFonts = async (m: MyTheme | undefined): Promise<NonNullable<Deck['fonts']>> => {
+    const out: NonNullable<Deck['fonts']> = [];
+    for (const f of m?.fonts ?? []) {
+      if (deck.fonts?.some((x) => x.name === f.name && (x.weight ?? 400) === (f.weight ?? 400) && (x.style ?? '') === (f.style ?? ''))) continue;
+      const blob = await (await fetch(f.data)).blob();
+      const src = await ed.storeAsset(blob, f.file);
+      out.push({ name: f.name, src, ...(f.weight ? { weight: f.weight } : {}), ...(f.style ? { style: f.style } : {}) });
+    }
+    return out;
+  };
+
+  const applyPreset = async (p: ThemePreset & { my?: MyTheme }) => {
     previewTheme(null);
-    const add = p.id === 'standard' ? [] : await fontsFor([p.theme.font, p.theme.head]);
+    let add = p.id === 'standard' ? [] : await fontsFor([p.theme.font, p.theme.head]);
     if (!add) return;
+    if (p.my) {
+      try {
+        add = [...add, ...await ownFonts(p.my)];
+      } catch (e) {
+        ed.toast(`Не удалось добавить шрифт темы: ${(e as Error).message}`, 5000, true);
+        return;
+      }
+    }
     smoothly(() => ed.commit((d) => {
       putTheme(d, p.id === 'standard' ? null : { preset: p.id, ...structuredClone(p.theme) });
       if (add.length) d.fonts = [...(Array.isArray(d.fonts) ? d.fonts : []), ...add];
@@ -206,23 +245,91 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     const at = anchor('design.themes');
     if (!at) return;
     const cur = currentPreset(deck);
-    const html = `<div class="st-dz-gal" role="listbox" aria-label="Темы">${THEME_PRESETS.map((p) => {
+    const mine = listMyThemes();
+    registerMyFonts(mine);
+    const tile = (p: ThemePreset, my = false) => {
       const m = themeMode(p.theme);
-      return `<button type="button" class="st-dz-tile${p.id === cur ? ' active' : ''}" data-theme-id="${p.id}" role="option" aria-selected="${p.id === cur}">`
-        + `<span class="st-dz-shot"></span><span class="st-dz-name">${esc(p.name)}${m ? `<i title="${m === 'dark' ? 'Тёмные слайды' : 'Светлые слайды'}">${icon(m === 'dark' ? 'moon' : 'sun')}</i>` : ''}</span></button>`;
-    }).join('')}</div>`;
+      return `<div class="st-dz-cell"><button type="button" class="st-dz-tile${p.id === cur ? ' active' : ''}" data-theme-id="${esc(p.id)}" role="option" aria-selected="${p.id === cur}">`
+        + `<span class="st-dz-shot"></span><span class="st-dz-name">${esc(p.name)}${m ? `<i title="${m === 'dark' ? 'Тёмные слайды' : 'Светлые слайды'}">${icon(m === 'dark' ? 'moon' : 'sun')}</i>` : ''}</span></button>`
+        + (my ? `<span class="st-dz-acts"><button type="button" data-my="file" data-id="${esc(p.id)}" title="Файл темы — поделиться">${icon('save')}</button><button type="button" data-my="del" data-id="${esc(p.id)}" title="Удалить тему">${icon('trash')}</button></span>` : '')
+        + '</div>';
+    };
+    // Своё оформление, ещё не сохранённое темой, — предложение сохранить
+    const unsaved = hasThemeLook(deck.theme) && !cur.startsWith(MY) && !THEME_PRESETS.some((p) => p.id === cur);
+    const html = `<div class="st-dz-sec"><b>Мои темы</b><span>`
+      + `<button type="button" class="st-link" data-my="load">Из файла…</button></span></div>`
+      + `<div class="st-dz-gal" role="listbox" aria-label="Мои темы">`
+      + `<button type="button" class="st-dz-add${unsaved ? ' hint' : ''}" data-my="save">${icon('plus')}<b>Сохранить текущую</b><small>${unsaved ? 'Оформление презентации — темой для других презентаций' : 'Цвета, шрифты, фон, карточки и углы этой презентации'}</small></button>`
+      + `${mine.map((m) => tile(asPreset(m), true)).join('')}</div>`
+      + `<div class="st-dz-sec"><b>Темы Slideria</b></div>`
+      + `<div class="st-dz-gal" role="listbox" aria-label="Темы">${THEME_PRESETS.map((p) => tile(p)).join('')}</div>`;
     const el = showPopover(at, html, (b) => {
-      const p = THEME_PRESETS.find((x) => x.id === b.dataset.themeId);
+      const act = b.dataset.my;
+      if (act === 'save') return { run: () => saveTheme(at) };
+      if (act === 'load') return { run: () => loadTheme() };
+      if (act === 'file') return { run: () => { const p = findTheme(b.dataset.id); if (p?.my) downloadTheme(p.my); }, keep: true };
+      if (act === 'del') {
+        return { run: () => {
+          const p = findTheme(b.dataset.id);
+          if (!p?.my) return;
+          removeMyTheme(p.my.id);
+          myVersion++;
+          b.closest('.st-dz-cell')?.remove();
+          ed.toast(`Тема «${p.name}» удалена`, 2000);
+        }, keep: true };
+      }
+      const p = findTheme(b.dataset.themeId);
       return p ? { run: () => void applyPreset(p) } : null;
     }, 'st-dz-galpop');
     // Справа: открытый слайд в середине окна остаётся на виду — на нём примеряется тема
     el.style.left = `${Math.max(8, innerWidth - el.offsetWidth - 12)}px`;
     el.querySelectorAll<HTMLElement>('.st-dz-tile').forEach((b) => {
-      const p = THEME_PRESETS.find((x) => x.id === b.dataset.themeId)!;
-      b.querySelector('.st-dz-shot')!.appendChild(staticSlide(specimenDeck(p.theme), 0, 284));
+      const p = findTheme(b.dataset.themeId);
+      if (p) b.querySelector('.st-dz-shot')!.appendChild(staticSlide(specimenDeck(p.theme), 0, 284));
     });
-    hoverTry(el, '.st-dz-tile', (b) => THEME_PRESETS.find((x) => x.id === b.dataset.themeId)?.theme ?? null);
+    hoverTry(el, '.st-dz-tile', (b) => findTheme(b.dataset.themeId)?.theme ?? null);
   };
+
+  // ---------- свои темы ----------
+  const saveTheme = (at: HTMLElement) => {
+    if (!hasThemeLook(deck.theme)) {
+      ed.toast('Сначала оформите презентацию: тема, цвета, шрифты или фон — на этой вкладке', 3500);
+      return;
+    }
+    const base = findTheme(currentPreset(deck));
+    const suggestion = base?.my ? base.name : base ? `${base.name} (своя)` : deck.title ? `Тема «${deck.title}»`.slice(0, 50) : 'Моя тема';
+    h.askName(at, 'Сохранить тему', 'Цвета, шрифты (вместе с файлами), фон, карточки, углы и вид слайдов — в «Мои темы» для любой презентации.', suggestion, (name) => void (async () => {
+      const t = await captureTheme(deck, name);
+      // То же имя — обновление темы, а не вторая с тем же названием
+      const same = listMyThemes().find((x) => x.name === name);
+      if (same) t.id = same.id;
+      if (!addMyTheme(t)) { ed.toast('Не хватило места в браузере: удалите ненужные темы или шаблоны', 5000, true); return; }
+      myVersion++;
+      ed.commit((d) => { if (d.theme) d.theme.preset = MY + t.id; }, { rebuild: false, merge: 'theme-preset' });
+      ed.toast(`Тема «${name}» ${same ? 'обновлена' : 'сохранена'} — она в «Все темы» и в ряду тем на ленте`, 3000);
+    })());
+  };
+  const loadTheme = () => {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = '.json,application/json';
+    inp.onchange = async () => {
+      const f = inp.files?.[0];
+      if (!f) return;
+      try {
+        const t = parseThemeFile(await f.text());
+        if (!addMyTheme(t)) throw new Error('не хватило места в браузере');
+        myVersion++;
+        registerMyFonts([t]);
+        await applyPreset(asPreset(t));
+        ed.toast(`Тема «${t.name}» добавлена в «Мои темы» и применена`, 3000);
+      } catch (e) {
+        ed.toast(`Не удалось загрузить тему: ${(e as Error).message}`, 4500, true);
+      }
+    };
+    inp.click();
+  };
+  applyById = (id) => { const p = findTheme(id); if (p) void applyPreset(p); };
 
   // ---------- палитры ----------
   const palettes = () => {
@@ -390,6 +497,8 @@ export function designCommands(h: DesignHost): Record<string, Command> {
   };
   // Темы по имени: плитки на ленте и палитра команд (Ctrl+K)
   for (const p of THEME_PRESETS) cmds[`design.preset.${p.id}`] = { run: () => void applyPreset(p), active: () => currentPreset(deck) === p.id };
+  cmds['design.theme.save'] = { run: () => { const at = anchor('design.themes'); if (at) saveTheme(at); }, enabled: () => hasThemeLook(deck.theme) };
+  cmds['design.theme.load'] = { run: loadTheme };
   return cmds;
 }
 
@@ -402,10 +511,13 @@ export function syncDesignTab(h: DesignHost): void {
   const strip = document.getElementById('st-dz-strip');
   if (!strip) return;
   const cur = currentPreset(h.deck);
-  const key = `${currentTheme()}|${cur}`;
+  const key = `${currentTheme()}|${cur}|${myVersion}`;
   if (key !== stripKey) {
     stripKey = key;
-    strip.innerHTML = THEME_PRESETS.map((p) => miniTile(p, cur)).join('');
+    const mine = listMyThemes();
+    registerMyFonts(mine);
+    // Свои темы — первыми: ими пользуются чаще
+    strip.innerHTML = mine.map((m) => miniTile(asPreset(m), cur)).join('') + THEME_PRESETS.map((p) => miniTile(p, cur)).join('');
   }
   const t = h.deck.theme ?? {};
   const label = (cmd: string, name: string | undefined, none: string) => {
@@ -434,14 +546,16 @@ export function bindDesignStrip(h: DesignHost, cmds: Record<string, Command>): v
   if (!strip) return;
   strip.addEventListener('pointerover', (e) => {
     const b = (e.target as Element).closest<HTMLElement>('.st-dz-mini');
-    const p = b ? THEME_PRESETS.find((x) => x.id === b.dataset.themeId) : null;
+    const p = b ? findTheme(b.dataset.themeId) : null;
     if (p) previewTheme(p.theme, h.stage());
   });
   strip.addEventListener('pointerleave', () => previewTheme(null));
   strip.addEventListener('click', (e) => {
     const b = (e.target as Element).closest<HTMLElement>('.st-dz-mini');
-    const p = b ? THEME_PRESETS.find((x) => x.id === b.dataset.themeId) : null;
-    if (p) cmds[`design.preset.${p.id}`]?.run();
+    const id = b?.dataset.themeId;
+    if (!id) return;
+    if (cmds[`design.preset.${id}`]) cmds[`design.preset.${id}`].run();
+    else applyById?.(id);
   });
   // Колесо мыши листает ряд тем вбок
   strip.addEventListener('wheel', (e) => {

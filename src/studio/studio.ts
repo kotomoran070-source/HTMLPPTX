@@ -1349,7 +1349,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   const animHost: AnimHost = { deck, editor: ed, index: () => index, selPaths, sequence, preview };
   Object.assign(cmds, animCommands(animHost));
   bindDelayField(animHost);
-  const designHost: DesignHost = { deck, editor: ed, stage: () => view.stage };
+  const designHost: DesignHost = { deck, editor: ed, stage: () => view.stage, askName: (a, t, n, sg, save) => askName(a, t, n, sg, save) };
   Object.assign(cmds, designCommands(designHost));
   bindDesignStrip(designHost, cmds);
   Object.assign(cmds, toolsCommands({ deck, deckKey, editor: ed, go }));

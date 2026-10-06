@@ -969,6 +969,24 @@ body.st-marqueeing, body.st-marqueeing * { user-select: none !important; cursor:
 /* Большая галерея: каждая тема — на одном и том же слайде-образце */
 .st-dz-galpop { width: 640px; max-height: calc(100vh - 150px); overflow: auto; padding: 10px; }
 .st-dz-gal { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+/* «Мои темы» над темами Slideria: сохранить текущую, из файла; у своих плиток — файл и удаление */
+.st-dz-sec { display: flex; align-items: baseline; justify-content: space-between; padding: 4px 6px 8px; }
+.st-dz-sec b { font: 700 11px var(--font); letter-spacing: .05em; text-transform: uppercase; color: var(--mu); }
+.st-dz-gal + .st-dz-sec { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--bd); }
+.st-dz-cell { position: relative; display: flex; }
+.st-dz-cell > .st-dz-tile { flex: 1; }
+.st-dz-acts { position: absolute; top: 12px; right: 12px; display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
+.st-dz-cell:hover .st-dz-acts, .st-dz-acts:focus-within { opacity: 1; }
+.st-pop .st-dz-acts button { width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: rgba(15, 18, 28, .72); color: #fff; cursor: pointer; backdrop-filter: blur(4px); }
+.st-pop .st-dz-acts button:hover { background: rgba(15, 18, 28, .9); }
+.st-pop .st-dz-acts button[data-my="del"]:hover { background: #B91C1C; }
+.st-dz-acts .ic { width: 14px; height: 14px; }
+.st-pop .st-dz-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 120px; padding: 12px 18px; border: 1.5px dashed var(--bd2); border-radius: 12px; background: none; color: var(--tx2); text-align: center; cursor: pointer; }
+.st-pop .st-dz-add:hover { border-color: var(--ac); background: var(--acs); color: var(--ach); }
+.st-pop .st-dz-add.hint { border-color: var(--acb); background: color-mix(in srgb, var(--acs) 60%, transparent); }
+.st-dz-add .ic { width: 22px; height: 22px; color: var(--ac); }
+.st-dz-add b { font: 600 13px var(--font); }
+.st-dz-add small { font-size: 11.5px; color: var(--mu); max-width: 220px; }
 .st-pop .st-dz-tile { display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 1px solid transparent; border-radius: 12px; background: none; cursor: pointer; text-align: left; transition: background .15s, border-color .15s; }
 .st-pop .st-dz-tile:hover, .st-pop .st-dz-tile:focus-visible { background: var(--acs); outline: none; }
 .st-pop .st-dz-tile.active { border-color: var(--ac); background: var(--acs); }

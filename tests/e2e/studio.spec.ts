@@ -138,6 +138,27 @@ test('«Дизайн»: наведение примеряет тему, щелч
   expect(errors).toEqual([]);
 });
 
+test('«Мои темы»: оформление сохраняется темой и появляется первым в ряду тем', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=design&studio#1');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  await page.evaluate(() => localStorage.removeItem('slideria-themes'));
+  await page.locator('.st-tabs [data-tab="design"]').click();
+  await page.locator('.st-dz-mini[data-theme-id="midnight"]').click();
+  await expect.poll(() => readDeck('design')).toContain('preset: midnight');
+  await page.locator('[data-cmd="design.themes"]').click();
+  await page.locator('[data-my="save"]').click();
+  await page.locator('.st-tpl-form input').fill('Ночная');
+  await page.locator('.st-tpl-form [data-a="save"]').click();
+  // Своя тема — первой плиткой; презентация отмечена ею
+  await expect(page.locator('#st-dz-strip .st-dz-mini').first()).toHaveAttribute('title', 'Ночная');
+  await expect.poll(() => readDeck('design')).toMatch(/preset: my:\w+/);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('slideria-themes') ?? '[]'));
+  expect(saved[0].theme.head).toBe('Unbounded');
+  expect(saved[0].theme.preset).toBeUndefined();
+  expect(errors).toEqual([]);
+});
+
 test('живой фон не перехватывает мышь: логотип разобранного титула выделяется и растёт целиком', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=design&studio#1');
