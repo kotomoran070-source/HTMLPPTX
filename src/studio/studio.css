@@ -279,6 +279,13 @@ body.studio { background: var(--alt); }
 .st-tpl-note { margin: 0; font: 12px/1.45 var(--font); color: var(--mu); max-width: none; }
 .st-tpl-acts { display: flex; justify-content: flex-end; gap: 6px; }
 .st-lib-item:hover .st-lib-name { color: var(--ach); }
+/* Длинный раздел: три ряда, листается вбок (стрелки — как у ленты фонов) */
+.st-lib-rail { position: relative; }
+.st-lib-grid.rail { grid-auto-flow: column; grid-template-columns: none; grid-template-rows: repeat(3, auto); grid-auto-columns: calc((100% - 24px) / 4); overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
+.st-lib-grid.rail.compact { grid-auto-columns: calc((100% - 36px) / 7); }
+.st-lib-grid.rail::-webkit-scrollbar { display: none; }
+.st-lib-grid.rail .st-lib-item { scroll-snap-align: start; }
+.st-lib-rail .st-bdnav { top: calc(50% - 17px); }
 
 /* Путь к выделенному над слайдом */
 .st-view { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }

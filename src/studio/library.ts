@@ -33,8 +33,6 @@ const line = (text: string, st: Record<string, unknown> = {}, extra: Record<stri
 const eyebrow = (text: string) => line(text, { size: 14, weight: 700, color: 'accent', upper: true, spacing: 0.12 });
 /** Список текстом: вид маркера — как в меню списка (check, num, dash…) */
 const bullets = (items: string[], list?: string, size?: number) => line(items.map((x) => `- ${x}`).join('\n'), { ...(list ? { list } : {}), ...(size ? { size } : {}) });
-/** Фото человека в круге с именем и ролью */
-const person = (name: string, role: string) => ({ type: 'stack', gap: 4, style: 'text-align:center;align-items:center', items: [{ type: 'image', src: '', height: 150, radius: 'circle', style: 'width:150px;margin:0 auto' }, line(name, { size: 20, weight: 700, align: 'center' }), { type: 'note', text: role, style: 'text-align:center' }] });
 /** Тариф: название, цена, что входит; выделенный — с рамкой акцента */
 const plan = (name: string, price: string, items: string[], top = false) => ({
   type: 'card', ...(top ? { style: 'border:2px solid var(--ac);box-shadow:0 18px 40px color-mix(in srgb, var(--ac) 18%, transparent)' } : {}),
@@ -135,17 +133,10 @@ export const LIBRARY: Category[] = [
       { name: 'Список', w: 480, pw: 240, make: () => ({ type: 'list', items: ['Первый пункт', 'Второй пункт', 'Третий пункт'] }) },
       { name: 'Цитата', w: 760, pw: 520, make: () => ({ type: 'quote', text: 'Хорошая презентация отвечает на вопрос раньше, чем его зададут.', author: 'Имя Фамилия', role: 'должность' }) },
       { name: 'Чипы', w: 560, pw: 300, make: () => ({ type: 'chips', items: ['Важное*', 'Метка', 'Ещё метка'] }) },
-      { name: 'Подпись', w: 360, pw: 200, make: () => ({ type: 'note', text: 'Мелкая серая подпись' }) },
       {
         name: 'Заголовок с градиентом', w: 900, pw: 520, make: () => kit(
           `<div>${T(0, `${HEAD};display:inline-block;font-size:68px;font-weight:800;line-height:1.05`, 'kt-grad')}<svg class="kt-swoosh" viewBox="0 0 400 22" preserveAspectRatio="none"><path pathLength="1" d="M4 16C110 3 290 3 396 12"/></svg>${T(1, 'margin-top:16px;font-size:24px;line-height:1.4;color:var(--tx2)')}</div>`,
           ['Рост, который видно', 'Подзаголовок: одна строка о главном'],
-        ),
-      },
-      {
-        name: 'Цитата с кавычкой', w: 820, pw: 520, make: () => kit(
-          `<div class="kt-q">${T(0, `${HEAD};font-size:34px;font-weight:600;line-height:1.35`)}<div class="kt-who"><img data-i="0" alt=""><div>${T(1, 'font-weight:700;font-size:19px')}${T(2, 'color:var(--mu);font-size:16px')}</div></div></div>`,
-          ['Сделали квартальный отчёт за вечер — раньше на него уходила неделя.', 'Елена Васильева', 'финансовый директор'], 1,
         ),
       },
     ],
@@ -170,7 +161,6 @@ export const LIBRARY: Category[] = [
     items: [
       { name: 'Карточка с тенью', w: 360, h: 200, make: () => ({ type: 'shape', fill: 'surface', stroke: 'border', width: 1, radius: 16, shadow: true }) },
       { name: 'Карточка с заголовком', w: 360, h: 200, make: () => ({ type: 'shape', fill: 'surface', stroke: 'line', width: 1, shadow: 'sm', valign: 'top', text: 'Заголовок\nКороткое пояснение в две строки', styles: { text: { align: 'left', size: 20 } } }) },
-      { name: 'Плашка с текстом', w: 360, h: 72, make: () => ({ type: 'shape', kind: 'pill', fill: 'accent', text: 'Главное' }) },
       { name: 'Градиентная плашка', w: 360, h: 120, make: () => ({ type: 'shape', fill: 'gradient', shadow: 'sm', text: 'Ключевая мысль', styles: { text: { size: 24 } } }) },
       { name: 'Метка', w: 200, h: 44, make: () => ({ type: 'shape', kind: 'pill', fill: 'soft', stroke: 'accent', width: 1, text: 'метка', styles: { text: { size: 15 } } }) },
       { name: 'Зона пунктиром', w: 420, h: 240, make: () => ({ type: 'shape', fill: 'none', stroke: 'border', width: 2, dash: 'dash', radius: 20 }) },
@@ -401,9 +391,10 @@ export const LIBRARY: Category[] = [
         }),
       },
       {
-        name: 'Команда', w: 1040, pw: 720, make: () => ({
-          type: 'grid', columns: 4, items: [person('Анна Смирнова', 'руководитель'), person('Игорь Ким', 'дизайн'), person('Мария Лебедева', 'аналитика'), person('Олег Петров', 'разработка')],
-        }),
+        name: 'Команда', w: 1080, h: 380, pw: 720, make: () => kit(
+          `<div class="kt-team">${[0, 1, 2, 3].map((k) => `<div class="kt-person"><span class="kt-ava"><img data-i="${k}" alt=""></span>${T(k * 3, `${HEAD};font-size:22px;font-weight:700;line-height:1.2`)}${T(k * 3 + 1, '', 'kt-role')}${T(k * 3 + 2, 'font-size:15px;line-height:1.4;color:var(--mu)')}</div>`).join('')}</div>`,
+          ['Анна Смирнова', 'руководитель', 'Ведёт проект и отвечает за сроки', 'Игорь Ким', 'дизайн', 'Интерфейсы и фирменный стиль', 'Мария Лебедева', 'аналитика', 'Цифры, гипотезы и отчёты', 'Олег Петров', 'разработка', 'Архитектура и запуск'], 4,
+        ),
       },
       {
         name: 'Панель', w: 520, make: () => ({
@@ -654,9 +645,29 @@ export function showLibrary(anchor: HTMLElement, deck: Deck, pick: (p: Preset) =
     : '';
   // Разделы галереи — в порядке, в котором их просили (новые схемы — первыми)
   const order = only ? only.map((n) => LIBRARY.findIndex((c) => c.name === n)).filter((i) => i >= 0) : LIBRARY.map((_c, i) => i);
-  el.innerHTML = own + order.map((ci) => LIBRARY[ci]).map((c, k) => { const ci = order[k]; return `<section><h4>${icon(c.icon)}<span>${esc(c.name)}</span></h4><div class="st-lib-grid${c.compact ? ' compact' : ''}">${c.items.map((p, pi) =>
-    `<button type="button" class="st-lib-item" data-c="${ci}" data-p="${pi}" title="Вставить: ${esc(p.name)}"><span class="st-lib-slot">${p.glyph ? `<svg class="st-lib-glyph" viewBox="0 0 48 32" aria-hidden="true">${p.glyph}</svg>` : ''}</span><span class="st-lib-name">${esc(p.name)}</span></button>`).join('')}</div></section>`; }).join('');
+  // Раздел длиннее трёх рядов не растягивает панель: три ряда, остальное листается вбок
+  const nav = (d: number) => `<button type="button" class="st-bdnav" data-nav="${d}" aria-label="${d < 0 ? 'Листать влево' : 'Листать вправо'}" tabindex="-1">${icon(d < 0 ? 'prev' : 'next')}</button>`;
+  el.innerHTML = own + order.map((ci) => LIBRARY[ci]).map((c, k) => {
+    const ci = order[k];
+    const rail = c.items.length > (c.compact ? 7 : 4) * 3;
+    const grid = `<div class="st-lib-grid${c.compact ? ' compact' : ''}${rail ? ' rail' : ''}">${c.items.map((p, pi) =>
+      `<button type="button" class="st-lib-item" data-c="${ci}" data-p="${pi}" title="Вставить: ${esc(p.name)}"><span class="st-lib-slot">${p.glyph ? `<svg class="st-lib-glyph" viewBox="0 0 48 32" aria-hidden="true">${p.glyph}</svg>` : ''}</span><span class="st-lib-name">${esc(p.name)}</span></button>`).join('')}</div>`;
+    return `<section><h4>${icon(c.icon)}<span>${esc(c.name)}</span></h4>${rail ? `<div class="st-lib-rail">${nav(-1)}${grid}${nav(1)}</div>` : grid}</section>`;
+  }).join('');
   document.body.appendChild(el);
+  el.querySelectorAll<HTMLElement>('.st-lib-rail').forEach((rail) => {
+    const grid = rail.querySelector<HTMLElement>('.st-lib-grid')!;
+    const ends = () => {
+      rail.querySelector('[data-nav="-1"]')?.classList.toggle('off', grid.scrollLeft < 4);
+      rail.querySelector('[data-nav="1"]')?.classList.toggle('off', grid.scrollLeft > grid.scrollWidth - grid.clientWidth - 4);
+    };
+    grid.addEventListener('scroll', ends, { passive: true });
+    rail.querySelectorAll<HTMLElement>('[data-nav]').forEach((b) => b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      grid.scrollBy({ left: Number(b.dataset.nav) * grid.clientWidth, behavior: 'smooth' });
+    }));
+    requestAnimationFrame(ends);
+  });
   el.querySelectorAll<HTMLElement>('.st-lib-item[data-c]').forEach((b) => {
     const p = LIBRARY[Number(b.dataset.c)].items[Number(b.dataset.p)];
     if (!p.glyph) b.querySelector('.st-lib-slot')!.appendChild(preview(deck, p));
@@ -751,9 +762,20 @@ export function showLibrary(anchor: HTMLElement, deck: Deck, pick: (p: Preset) =
     if (i < 0 || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
     e.preventDefault();
     e.stopPropagation();
-    const cols = Math.max(1, Math.round(el.querySelector('.st-lib-grid')!.clientWidth / (list[0].offsetWidth + 8)));
-    const d = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -cols, ArrowDown: cols }[e.key]!;
-    list[Math.max(0, Math.min(list.length - 1, i + d))].focus();
+    // Ближайшая карточка в сторону стрелки: так же и в разделах, что листаются вбок
+    const [dx, dy] = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key]!;
+    const at = (b: HTMLElement) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+    const [x0, y0] = at(list[i]);
+    let best: HTMLElement | null = null;
+    let bestD = Infinity;
+    for (const b of list) {
+      const [x, y] = at(b);
+      const along = (x - x0) * dx + (y - y0) * dy;
+      if (along < 4) continue;
+      const d = along + Math.abs(dx ? y - y0 : x - x0) * 3;
+      if (d < bestD) { bestD = d; best = b; }
+    }
+    best?.focus();
   };
   el.addEventListener('click', (e) => {
     const del = (e.target as Element).closest<HTMLElement>('[data-del]');
