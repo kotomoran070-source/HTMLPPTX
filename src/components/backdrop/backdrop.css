@@ -86,6 +86,31 @@
     radial-gradient(circle at 80% 44%, color-mix(in srgb, var(--bd2) 22%, transparent), transparent 30%);
   -webkit-mask: radial-gradient(circle at 80% 44%, #000 30%, transparent 75%); mask: radial-gradient(circle at 80% 44%, #000 30%, transparent 75%);
 }
+.bd-globe {
+  background:
+    radial-gradient(circle at 74% 48%, color-mix(in srgb, var(--ac) 40%, transparent) 1.3px, transparent 1.9px) 0 0 / 9px 9px,
+    radial-gradient(circle at 74% 48%, color-mix(in srgb, var(--bd2) 18%, transparent), transparent 36%);
+  -webkit-mask: radial-gradient(circle at 74% 48%, #000 0 34%, transparent 36%); mask: radial-gradient(circle at 74% 48%, #000 0 34%, transparent 36%);
+}
+.bd-terrain {
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--ac) 45%, transparent) 1.2px, transparent 1.8px) 0 0 / 14px 9px,
+    linear-gradient(transparent 45%, color-mix(in srgb, var(--bd2) 10%, transparent));
+  -webkit-mask: linear-gradient(transparent 42%, #000 75%); mask: linear-gradient(transparent 42%, #000 75%);
+}
+.bd-tunnel {
+  background:
+    repeating-radial-gradient(circle at 50% 50%, transparent 0 22px, color-mix(in srgb, var(--ac) 28%, transparent) 23px, transparent 25px),
+    repeating-conic-gradient(from 0deg at 50% 50%, color-mix(in srgb, var(--bd2) 16%, transparent) 0 1.5deg, transparent 1.5deg 15deg);
+  -webkit-mask: radial-gradient(circle at 50% 50%, transparent 8%, #000 45%); mask: radial-gradient(circle at 50% 50%, transparent 8%, #000 45%);
+}
+.bd-lava {
+  background:
+    radial-gradient(circle at 24% 66%, color-mix(in srgb, var(--ac) 32%, transparent) 0 13%, transparent 13.6%),
+    radial-gradient(circle at 36% 54%, color-mix(in srgb, var(--ac) 30%, transparent) 0 8%, transparent 8.6%),
+    radial-gradient(circle at 72% 30%, color-mix(in srgb, var(--bd2) 30%, transparent) 0 15%, transparent 15.6%),
+    radial-gradient(circle at 84% 78%, color-mix(in srgb, var(--bd2) 26%, transparent) 0 9%, transparent 9.6%);
+}
 /* Примерка в студии: настоящий фон слайда спрятан, пока на слайде примеряемый */
 .backdrop.bd-off { visibility: hidden; }
 @media print { .backdrop canvas { display: none; } }

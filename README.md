@@ -283,7 +283,7 @@ yarn test:app    # приложение Electron
             value: 24 из 24 устройств
             percent: 100
   notes: Текст для окна докладчика.
-  backdrop: particles   # анимированный фон: mesh, aurora, silk, waves, topo, rays, bokeh, particles, stars, dots, network, hex, orbits, grid; none — без фона темы
+  backdrop: particles   # анимированный фон: mesh, aurora, silk, waves, topo, rays, bokeh, particles, stars, dots, network, hex, orbits, grid, globe, terrain, tunnel, lava; none — без фона темы
 ```
 
 - **Порядок слайдов** — порядок в списке `slides`.

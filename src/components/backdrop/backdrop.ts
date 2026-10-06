@@ -113,6 +113,27 @@ void main(){vec2 uv=gl_FragCoord.xy/r;float ar=r.x/r.y;vec2 q=uv*vec2(ar,1.)-vec
   float sat=smoothstep(.022,.008,length(vec2(da,(x-rid)/N)))*step(.5,rid)*step(rid,7.5);
   float glow=exp(-d*3.)*.35;
   vec3 c=mix(c1,c2,clamp(rid/7.,0.,1.));float a=(ring*dash*.55+sat+glow)*k*smoothstep(1.6,.6,d);gl_FragColor=vec4(c*a,a);}`,
+  // Тоннель: полёт сквозь кольца — они вырастают из глубины и уходят за края
+  tunnel: `${HEAD}
+void main(){vec2 q=(gl_FragCoord.xy-.5*r)/r.y;q-=vec2(.12*sin(t*.13),.06*cos(t*.11));
+  float d=length(q);float a=atan(q.y,q.x);float z=.9/max(d,.001)+t*.55;
+  float px=.0018/max(d*d,.001)*800./r.y;
+  float ring=smoothstep(.5-.02-px,.5,abs(fract(z)-.5)+.0);
+  float spoke=smoothstep(.5-.012-px*.5,.5,abs(fract(a/6.28318*24.+z*.04)-.5));
+  float depth=smoothstep(.04,.45,d);
+  vec3 c=mix(c2,c1,fract(z*.25));
+  float g=max(ring,spoke*.55)*depth*(.4+.6*smoothstep(.9,.2,d))+exp(-d*9.)*.35;
+  float al=g*k;gl_FragColor=vec4(c*al,al);}`,
+  // Лава: капли жидкости сливаются и расходятся, по краю — блик
+  lava: `${HEAD}
+void main(){vec2 uv=gl_FragCoord.xy/r;float ar=r.x/r.y;vec2 p=uv*vec2(ar,1.);float f=0.;
+  for(int i=0;i<7;i++){float fi=float(i);
+    vec2 c=vec2(ar*(.5+.42*sin(t*(.07+fi*.013)+fi*2.1)),.5+.4*sin(t*(.09+fi*.011)+fi*1.3));
+    float rr=.22+.1*sin(fi*1.7);vec2 d=p-c;f+=rr/dot(d,d);}
+  f*=.1;float m=smoothstep(.95,1.05,f);float rim=smoothstep(.95,1.02,f)-smoothstep(1.02,1.4,f);
+  float body=smoothstep(1.,3.5,f);
+  vec3 c=mix(c1,c2,clamp(uv.y+.2*sin(t*.1),0.,1.));c=mix(c,mix(c,vec3(1.),.25),body);c+=rim*.5*(1.-c);
+  float al=(m*(.55+.25*body)+rim*.3)*k;gl_FragColor=vec4(c*al,al);}`,
   // Сетка: пол в перспективе уходит к горизонту, линии плывут навстречу
   grid: `${HEAD}
 void main(){vec2 uv=gl_FragCoord.xy/r;float hz=.38;float a=0.;
@@ -128,7 +149,7 @@ void main(){vec2 uv=gl_FragCoord.xy/r;float hz=.38;float a=0.;
 /** Сцены из точек: вершинный шейдер двигает их, фрагментный рисует мягкий круг */
 const POINT_FS = `precision mediump float;uniform float k;varying float va;varying vec3 vc;
 void main(){float d=length(gl_PointCoord-.5);float a=smoothstep(.5,.08,d)*va*k;gl_FragColor=vec4(vc*a,a);}`;
-const POINTS: Partial<Record<BackdropKind, { vs: string; count: [lite: number, full: number] }>> = {
+const POINTS: Partial<Record<BackdropKind, { vs: string; count: [lite: number, full: number]; seed?: (i: number, n: number) => [number, number, number] }>> = {
   // Частицы: точки медленно поднимаются, мерцают и покачиваются
   particles: { count: [260, 900], vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;
 void main(){float sp=.008+.022*s.z;
@@ -141,6 +162,22 @@ void main(){float sp=.008+.022*s.z;
 void main(){vec2 q=vec2(fract(s.x+t*(.004+.006*s.z)+.03*sin(t*.1+s.y*9.)),fract(s.y+.04*sin(t*.07+s.x*7.)));
   gl_Position=vec4(q*2.2-1.1,0.,1.);gl_PointSize=(40.+150.*s.z*s.z)*px;
   vc=mix(c1,c2,fract(s.x*3.7+s.y*1.3));va=(.16+.22*(1.-s.z))*(.7+.3*sin(t*.3+s.z*30.));}` },
+  // Глобус: сфера из точек медленно вращается справа; передние точки ярче, задние — тише
+  globe: { count: [900, 2400], seed: (i, n) => [(i + 0.5) / n, i, Math.random()], vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;
+void main(){float y=1.-2.*s.x;float rad=sqrt(max(0.,1.-y*y));float ph=s.y*2.39996;
+  vec3 q=vec3(cos(ph)*rad,y,sin(ph)*rad);float ang=t*.12;q.xz=mat2(cos(ang),-sin(ang),sin(ang),cos(ang))*q.xz;
+  float tl=.38;q.yz=mat2(cos(tl),-sin(tl),sin(tl),cos(tl))*q.yz;
+  float land=step(.15,sin(q.x*5.1+q.y*3.)*sin(q.y*4.3-q.z*3.7)+.3*sin(q.z*9.+q.x*2.));
+  vec2 sc=vec2(.85,-.04)+q.xy*.72;gl_Position=vec4(sc.x*r.y/r.x,sc.y,0.,1.);
+  float front=.5+.5*q.z;gl_PointSize=(1.5+2.6*front)*px*(1.+.4*land);
+  vc=mix(c2,c1,front);va=(.15+.85*front)*(.3+.7*land);}` },
+  // Ландшафт: поле точек волнуется до горизонта
+  terrain: { count: [1800, 5500], seed: (i, n) => { const w = n > 2000 ? 110 : 60; const h = Math.ceil(n / w); return [(i % w) / (w - 1), Math.floor(i / w) / (h - 1), Math.random()]; }, vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;
+void main(){float x=(s.x-.5)*7.;float z=1.2+s.y*9.;
+  float h=.45*sin(s.x*7.+t*.5+s.y*3.)*cos(s.y*5.-t*.35)+.25*sin((s.x*1.3+s.y)*11.+t*.8);
+  vec2 sc=vec2(x/z,(h-1.35)/z+.08);gl_Position=vec4(sc.x*r.y/r.x*1.9,sc.y*1.9,0.,1.);
+  gl_PointSize=(3.4/z+.9)*px*2.;float hh=clamp(h*1.2+.5,0.,1.);
+  vc=mix(c1,c2,hh);va=smoothstep(10.2,3.,z)*(.45+.55*hh);}` },
   // Звёзды: полёт сквозь звёздное поле — звёзды плывут из глубины и мерцают
   stars: { count: [320, 900], vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;
 void main(){float z=fract(s.z-t*.018);vec2 q=(s.xy-.5)/(.25+z*1.6);
@@ -165,6 +202,10 @@ const LOOK: Record<BackdropKind, { scale: number; fps: number; k: [light: number
   hex: { scale: 0.75, fps: 30, k: [0.35, 0.45] },
   orbits: { scale: 1, fps: 30, k: [0.6, 0.8] },
   grid: { scale: 1, fps: 30, k: [0.24, 0.4] },
+  globe: { scale: 1, fps: 30, k: [0.95, 1.1] },
+  terrain: { scale: 1, fps: 30, k: [0.9, 1.1] },
+  tunnel: { scale: 0.75, fps: 30, k: [0.4, 0.6] },
+  lava: { scale: 0.5, fps: 30, k: [0.32, 0.5] },
 };
 
 /** Сеть: узлы плывут, близкие соединены линиями — считается на процессоре, рисуется видеокартой */
@@ -234,7 +275,8 @@ function makeScene(gl: WebGLRenderingContext, kind: BackdropKind, colors: Pal, l
   if (pts) {
     count = pts.count[lite ? 0 : 1];
     const seeds = new Float32Array(count * 3);
-    for (let i = 0; i < seeds.length; i++) seeds[i] = Math.random();
+    if (pts.seed) for (let i = 0; i < count; i++) seeds.set(pts.seed(i, count), i * 3);
+    else for (let i = 0; i < seeds.length; i++) seeds[i] = Math.random();
     gl.bufferData(gl.ARRAY_BUFFER, seeds, gl.STATIC_DRAW);
     const a = gl.getAttribLocation(prog, 's');
     gl.enableVertexAttribArray(a);

@@ -9,6 +9,7 @@ export const BACKDROPS = [
   ['mesh', 'Переливы'], ['aurora', 'Сияние'], ['silk', 'Шёлк'], ['waves', 'Волны'], ['topo', 'Рельеф'],
   ['rays', 'Лучи'], ['bokeh', 'Боке'], ['particles', 'Частицы'], ['stars', 'Звёзды'], ['dots', 'Точки'],
   ['network', 'Сеть'], ['hex', 'Соты'], ['orbits', 'Орбиты'], ['grid', 'Сетка'],
+  ['globe', 'Глобус'], ['terrain', 'Ландшафт'], ['tunnel', 'Тоннель'], ['lava', 'Лава'],
 ] as const satisfies readonly (readonly [string, string])[];
 
 export type BackdropKind = (typeof BACKDROPS)[number][0];
