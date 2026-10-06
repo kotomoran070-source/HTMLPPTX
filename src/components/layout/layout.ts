@@ -105,7 +105,8 @@ defineBlock<ImageProps>('image', {
     const look = imageLookCss(p);
     const img = p.src
       ? `<div class="imgbox${look.cls}"${look.box ? ` style="${look.box}"` : ''}${eimg(p, 'src')}><img${themedSrc(p.src, p.srcDark)} alt="${esc(p.alt ?? p.caption ?? '')}" style="${frameCss(p)}${look.img ? `;${look.img}` : ''}"></div>`
-      : `<div class="image-empty"${eimg(p, 'src')}>Перетащите изображение сюда</div>`;
+      // Пустое место под картинку — той же формы, что будет картинка (скругление, круг)
+      : `<div class="image-empty"${eimg(p, 'src')}${p.radius !== undefined ? ` style="${look.box.split(';').filter((d) => d.startsWith('border-radius')).join(';')}${p.radius === 'circle' ? ';aspect-ratio:1;min-height:0;padding:0;flex:none;height:100%;margin:0 auto' : ''}"` : ''}>${p.radius === 'circle' ? 'Фото' : 'Перетащите изображение сюда'}</div>`;
     const cap = p.caption ? `<figcaption class="mu"${ea(p, 'caption')}>${t(p.caption)}</figcaption>` : '';
     const h = Number(p.height);
     return `<figure class="image r"${styleAttr(h > 0 && `height:${h}px`, p.style)}>${img}${cap}</figure>`;

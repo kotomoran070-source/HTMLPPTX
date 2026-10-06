@@ -27,6 +27,19 @@ export interface Category {
 
 const card = (title: string, text: string) => ({ type: 'card', title, text });
 const stat = (value: string, label: string, delta?: string) => ({ type: 'stat', value, label, ...(delta ? { delta } : {}) });
+/** Строка текста с оформлением: размер, насыщенность, цвет темы, заглавные */
+const line = (text: string, st: Record<string, unknown> = {}, extra: Record<string, unknown> = {}) => ({ type: 'text', text, ...extra, ...(Object.keys(st).length ? { styles: { text: st } } : {}) });
+/** Надпись над заголовком: мелко, заглавными, цветом акцента */
+const eyebrow = (text: string) => line(text, { size: 14, weight: 700, color: 'accent', upper: true, spacing: 0.12 });
+/** Список текстом: вид маркера — как в меню списка (check, num, dash…) */
+const bullets = (items: string[], list?: string, size?: number) => line(items.map((x) => `- ${x}`).join('\n'), { ...(list ? { list } : {}), ...(size ? { size } : {}) });
+/** Фото человека в круге с именем и ролью */
+const person = (name: string, role: string) => ({ type: 'stack', gap: 4, style: 'text-align:center;align-items:center', items: [{ type: 'image', src: '', height: 150, radius: 'circle', style: 'width:150px;margin:0 auto' }, line(name, { size: 20, weight: 700, align: 'center' }), { type: 'note', text: role, style: 'text-align:center' }] });
+/** Тариф: название, цена, что входит; выделенный — с рамкой акцента */
+const plan = (name: string, price: string, items: string[], top = false) => ({
+  type: 'card', ...(top ? { style: 'border:2px solid var(--ac);box-shadow:0 18px 40px color-mix(in srgb, var(--ac) 18%, transparent)' } : {}),
+  body: [eyebrow(top ? `${name} · выбор клиентов` : name), line(price, { size: 40, weight: 800 }), bullets(items, 'check', 17)],
+});
 
 /** Стартовый код живой вставки: частицы в цветах темы, разбегаются от курсора */
 export const EMBED_SAMPLE = `<!doctype html>
@@ -115,6 +128,15 @@ export const LIBRARY: Category[] = [
       { name: 'Цитата', w: 760, pw: 520, make: () => ({ type: 'quote', text: 'Хорошая презентация отвечает на вопрос раньше, чем его зададут.', author: 'Имя Фамилия', role: 'должность' }) },
       { name: 'Чипы', w: 560, pw: 300, make: () => ({ type: 'chips', items: ['Важное*', 'Метка', 'Ещё метка'] }) },
       { name: 'Подпись', w: 360, pw: 200, make: () => ({ type: 'note', text: 'Мелкая серая подпись' }) },
+      {
+        name: 'Заголовок с надписью', w: 820, pw: 460, make: () => ({
+          type: 'stack', gap: 8, items: [eyebrow('Раздел 02'), line('Заголовок, который читается сразу', { size: 48, weight: 700 }), line('Подзаголовок: о чём этот слайд в одной строке', {}, { size: 'lead' })],
+        }),
+      },
+      { name: 'Мысль с чертой', w: 760, pw: 440, make: () => line('Главная мысль — крупно и с акцентной чертой слева, чтобы её нельзя было пропустить.', { size: 30, leading: 1.3 }, { style: 'border-left:5px solid var(--ac);padding-left:24px' }) },
+      { name: 'Список с галочками', w: 520, pw: 300, make: () => bullets(['Готово за один день', 'Без лишних согласований', 'Цифры из таблицы'], 'check', 22) },
+      { name: 'Нумерованный список', w: 520, pw: 300, make: () => bullets(['Собираем данные', 'Проверяем гипотезу', 'Показываем результат'], 'num', 22) },
+      { name: 'Шаги текстом', w: 560, pw: 320, make: () => bullets(['заявка онлайн', 'согласование', 'запуск'], 'Шаг #:', 22) },
     ],
   },
   {
@@ -141,6 +163,19 @@ export const LIBRARY: Category[] = [
       { name: 'Градиентная плашка', w: 360, h: 120, make: () => ({ type: 'shape', fill: 'gradient', shadow: 'sm', text: 'Ключевая мысль', styles: { text: { size: 24 } } }) },
       { name: 'Метка', w: 200, h: 44, make: () => ({ type: 'shape', kind: 'pill', fill: 'soft', stroke: 'accent', width: 1, text: 'метка', styles: { text: { size: 15 } } }) },
       { name: 'Зона пунктиром', w: 420, h: 240, make: () => ({ type: 'shape', fill: 'none', stroke: 'border', width: 2, dash: 'dash', radius: 20 }) },
+      { name: 'Баннер на градиенте', w: 1040, h: 150, make: () => ({ type: 'shape', fill: 'gradient', radius: 28, shadow: 'sm', text: 'Главная мысль слайда — крупно на градиенте', styles: { text: { size: 34, weight: 700 } } }) },
+      { name: 'Выноска', w: 640, h: 120, make: () => ({ type: 'shape', kind: 'rect', fill: 'soft', radius: 14, style: 'border-left:6px solid var(--ac)', text: 'Важно: короткое пояснение, на которое стоит обратить внимание', styles: { text: { align: 'left', size: 20 } } }) },
+      { name: 'Номер в круге', w: 120, h: 120, make: () => ({ type: 'shape', kind: 'ellipse', fill: 'gradient', shadow: 'sm', text: '1', styles: { text: { size: 52, weight: 800 } } }) },
+      {
+        name: 'Карточка с полосой', w: 380, h: 220, make: () => ({
+          type: 'group', base: { w: 380, h: 220 }, items: [
+            { type: 'shape', kind: 'round', fill: 'surface', stroke: 'border', width: 1, radius: 18, shadow: 'sm', place: { x: 0, y: 0, w: 380, h: 220 } },
+            { type: 'shape', kind: 'rect', fill: 'gradient', radius: 0, place: { x: 0, y: 0, w: 380, h: 8 }, style: 'border-radius:18px 18px 0 0' },
+            { ...line('Заголовок карточки', { size: 24, weight: 700 }), place: { x: 28, y: 40, w: 324 } },
+            { ...line('Пояснение в две строки: что это и почему важно.', { size: 17, color: 'text2' }), place: { x: 28, y: 92, w: 324 } },
+          ],
+        }),
+      },
     ],
   },
   {
@@ -148,6 +183,25 @@ export const LIBRARY: Category[] = [
     icon: 'sliders',
     items: [
       { name: 'Ключевое число', w: 300, make: () => stat('128', 'новых клиентов', '+18 за месяц') },
+      {
+        name: 'Число на градиенте', w: 380, h: 240, make: () => ({
+          type: 'group', base: { w: 380, h: 240 }, items: [
+            { type: 'shape', fill: 'gradient', radius: 28, shadow: 'md', place: { x: 0, y: 0, w: 380, h: 240 } },
+            { ...line('+38 %', { size: 84, weight: 800, color: '#FFFFFF' }), place: { x: 32, y: 40, w: 330 } },
+            { ...line('рост выручки за год', { size: 20, color: '#FFFFFF' }), place: { x: 34, y: 158, w: 320 } },
+          ],
+        }),
+      },
+      {
+        name: 'Четыре числа', w: 1080, pw: 700, make: () => ({
+          type: 'grid', columns: 4, items: [stat('3,4 млн', 'выручка, ₽', '+12 %'), stat('12 400', 'клиентов', '+8 %'), stat('98 %', 'довольны'), stat('24/7', 'поддержка')],
+        }),
+      },
+      {
+        name: 'Число и график', w: 520, pw: 380, make: () => ({
+          type: 'card', body: [stat('218', 'заказов в октябре', '+12 %'), { type: 'line-chart', values: [120, 128, 124, 141, 156, 151, 170, 186, 194, 218], start: 'январь', end: 'октябрь' }],
+        }),
+      },
       {
         name: 'Три числа', w: 1040, pw: 620, make: () => ({
           type: 'grid', columns: 3, gap: 40,
@@ -284,6 +338,14 @@ export const LIBRARY: Category[] = [
       },
       { name: 'Столбцы', w: 520, pw: 340, make: () => ({ type: 'bars', values: [1.9, 1.7, 1.6, 1.4, 1.2], labels: ['Янв', 'Фев', 'Мар', 'Апр', 'Май'], height: 150 }) },
       {
+        name: 'Два графика рядом', w: 1080, pw: 700, make: () => ({
+          type: 'grid', columns: 2, items: [
+            { type: 'card', title: 'Выручка, млн ₽', body: { type: 'line-chart', values: [2.1, 2.3, 2.2, 2.6, 2.9, 3.1, 3.4], start: 'апрель', end: 'октябрь' } },
+            { type: 'card', title: 'Время ответа, мин', body: { type: 'bars', values: [1.9, 1.7, 1.6, 1.4, 1.2], labels: ['Июн', 'Июл', 'Авг', 'Сен', 'Окт'], height: 150 } },
+          ],
+        }),
+      },
+      {
         name: 'Доступность по дням', w: 620, pw: 320, make: () => ({
           type: 'uptime', threshold: 99.5,
           values: Array.from({ length: 30 }, (_x, i) => [99.9, 99.8, 99.95, 99.4, 99.7, 99.99][i % 6]),
@@ -298,6 +360,34 @@ export const LIBRARY: Category[] = [
       { name: 'Карточка', w: 380, pw: 300, make: () => card('Заголовок', 'Пояснение в пару строк.') },
       { name: 'Три карточки', w: 1040, pw: 640, make: () => ({ type: 'grid', columns: 3, items: [1, 2, 3].map((k) => card(`Пункт ${k}`, 'Короткое пояснение')) }) },
       { name: 'Было — стало', w: 820, pw: 460, make: () => ({ type: 'grid', columns: 2, items: [card('Было', 'Отчёт собирали вручную два дня'), card('Стало', 'Отчёт готов за минуту')] }) },
+      {
+        name: 'Карточки с номерами', w: 1080, pw: 700, make: () => ({
+          type: 'grid', columns: 3, items: [['01', 'Анализ', 'Собираем данные и находим, где теряем время'], ['02', 'Решение', 'Предлагаем два-три варианта с оценкой'], ['03', 'Запуск', 'Внедряем по шагам и меряем результат']]
+            .map(([n, h, t]) => ({ type: 'card', body: [line(n, { size: 44, weight: 800, color: 'accent' }), line(h, { size: 24, weight: 700 }), line(t, { size: 17, color: 'text2' })] })),
+        }),
+      },
+      {
+        name: 'Тарифы', w: 1080, pw: 760, make: () => ({
+          type: 'grid', columns: 3, align: 'stretch', items: [
+            plan('Старт', '990 ₽', ['5 презентаций', 'Экспорт в PDF']),
+            plan('Команда', '2 490 ₽', ['Без ограничений', 'Общие темы', 'Пульт с телефона'], true),
+            plan('Компания', 'по запросу', ['Свой сервер', 'Поддержка 24/7']),
+          ],
+        }),
+      },
+      {
+        name: 'Команда', w: 1040, pw: 720, make: () => ({
+          type: 'grid', columns: 4, items: [person('Анна Смирнова', 'руководитель'), person('Игорь Ким', 'дизайн'), person('Мария Лебедева', 'аналитика'), person('Олег Петров', 'разработка')],
+        }),
+      },
+      {
+        name: 'Отзывы', w: 1040, pw: 700, make: () => ({
+          type: 'grid', columns: 2, items: [
+            { type: 'card', body: { type: 'quote', text: 'Сделали квартальный отчёт за вечер — раньше уходила неделя.', author: 'Елена В.', role: 'финансовый директор' } },
+            { type: 'card', body: { type: 'quote', text: 'Клиенты листают презентацию с телефона и сами задают вопросы.', author: 'Дмитрий К.', role: 'руководитель продаж' } },
+          ],
+        }),
+      },
       {
         name: 'Панель', w: 520, make: () => ({
           type: 'panel', title: 'Команда проекта', columns: 2,
@@ -331,6 +421,15 @@ export const LIBRARY: Category[] = [
         }),
       },
       { name: 'Схема связей', w: 520, h: 360, make: () => ({ type: 'network', nodes: 7 }) },
+      {
+        name: 'Проблема → решение', w: 1040, pw: 700, make: () => ({
+          type: 'grid', columns: '1fr 72px 1fr', align: 'center', items: [
+            { type: 'card', body: [eyebrow('Проблема'), line('Отчёт собирают вручную два дня', { size: 24, weight: 700 }), line('Ошибки в цифрах, версии путаются', { size: 17, color: 'text2' })] },
+            { type: 'shape', kind: 'arrow', stroke: 'accent', width: 4, style: 'height:28px' },
+            { type: 'card', style: 'border:2px solid var(--ac)', body: [eyebrow('Решение'), line('Отчёт собирается из таблицы за минуту', { size: 24, weight: 700 }), line('Цифры всегда свежие, один файл', { size: 17, color: 'text2' })] },
+          ],
+        }),
+      },
       {
         name: 'Итоги вокруг логотипа', w: 1040, pw: 760, make: () => ({
           type: 'hub', items: [
@@ -400,6 +499,27 @@ export const LIBRARY: Category[] = [
       { name: 'Картинка', w: 480, h: 320, make: () => ({ type: 'image', src: '' }) },
       { name: 'Картинка с подписью', w: 480, make: () => ({ type: 'image', src: '', height: 280, caption: 'Подпись к картинке' }) },
       { name: 'Плитка с фото', w: 420, h: 300, make: () => ({ type: 'tile', caption: 'Подпись к фото' }) },
+      {
+        name: 'Фото и текст', w: 1080, pw: 720, make: () => ({
+          type: 'grid', columns: '1fr 1fr', gap: 48, align: 'center', items: [
+            { type: 'image', src: '', height: 400, radius: 24 },
+            { type: 'stack', gap: 12, items: [eyebrow('О продукте'), line('Заголовок рядом с фотографией', { size: 40, weight: 700 }), line('Пара предложений: что изображено и зачем это зрителю.', {}, { size: 'lead' }), bullets(['Первое преимущество', 'Второе преимущество', 'Третье преимущество'], 'check', 20)] },
+          ],
+        }),
+      },
+      {
+        name: 'Фото с числом', w: 840, h: 470, make: () => ({
+          type: 'group', base: { w: 840, h: 470 }, items: [
+            { type: 'image', src: '', radius: 24, place: { x: 0, y: 0, w: 740, h: 430 } },
+            { type: 'card', style: 'box-shadow:0 20px 50px rgba(2,6,23,.22)', body: stat('+38 %', 'рост за год', 'рекорд'), place: { x: 540, y: 270, w: 300 } },
+          ],
+        }),
+      },
+      {
+        name: 'Три фото', w: 1080, pw: 720, make: () => ({
+          type: 'grid', columns: 3, items: ['Первое фото', 'Второе фото', 'Третье фото'].map((caption) => ({ type: 'image', src: '', height: 300, radius: 18, caption })),
+        }),
+      },
       { name: 'Видео', w: 640, h: 360, make: () => ({ type: 'video' }) },
       { name: '3D-модель', w: 420, h: 420, make: () => ({ type: 'model' }) },
     ],
