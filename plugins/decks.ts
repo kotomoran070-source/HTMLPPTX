@@ -18,7 +18,7 @@ import { mergeYaml } from './yaml-merge';
 const VIRTUAL = 'virtual:decks';
 const RESOLVED = '\0' + VIRTUAL;
 /** Строки в deck.yaml, похожие на путь к файлу рядом с презентацией, превращаются в картинки */
-const ASSET_RE = /^\.{1,2}\/[^\s]+\.(png|jpe?g|gif|webp|avif|svg|mp4|webm|mp3|glb|woff2?|ttf|otf|pdf|htm|wasm|wad)$/i;
+const ASSET_RE = /^\.{1,2}\/[^\s]+\.(png|jpe?g|gif|webp|avif|svg|mp4|webm|mp3|glb|woff2?|ttf|otf|pdf|htm|wasm|wad|cube)$/i;
 const MIME: Record<string, string> = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
   avif: 'image/avif', svg: 'image/svg+xml', mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg', glb: 'model/gltf-binary',
@@ -33,7 +33,7 @@ const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg']);
  * Кроме картинок в assets/ можно положить видео, 3D-модели и документы живых вставок (.htm):
  * их переносит копирование слайда или объекта в другую презентацию
  */
-const MEDIA_EXT = new Set([...IMAGE_EXT, 'mp4', 'webm', 'glb', 'htm', 'woff2', 'woff', 'ttf', 'otf', 'wasm', 'wad']);
+const MEDIA_EXT = new Set([...IMAGE_EXT, 'mp4', 'webm', 'glb', 'htm', 'woff2', 'woff', 'ttf', 'otf', 'wasm', 'wad', 'cube']);
 /** CAD и 3D-печать: при вставке превращаются в GLB (plugins/model-convert.ts) */
 const CAD_EXT = new Set(['stl', 'step', 'stp']);
 /** id тега с данными презентации внутри собранного HTML */
@@ -78,6 +78,15 @@ function mapAssets(v: unknown, fn: (s: string) => string): unknown {
   if (Array.isArray(v)) return v.map((x) => mapAssets(x, fn));
   if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, mapAssets(x, fn)]));
   return v;
+}
+
+/** Данные без параметров цветокоррекции картинок (grade: { src, … }) — для собранного файла */
+function dropGrades(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(dropGrades);
+  if (!v || typeof v !== 'object') return v;
+  return Object.fromEntries(Object.entries(v)
+    .filter(([k, x]) => !(k === 'grade' && x && typeof x === 'object' && typeof (x as { src?: unknown }).src === 'string'))
+    .map(([k, x]) => [k, dropGrades(x)]));
 }
 
 /** JSON, который безопасно вставлять внутрь <script>. */
@@ -346,7 +355,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     const safe = safeFileName(fileName);
     const ext = path.extname(safe).slice(1);
     const cad = CAD_EXT.has(ext.toLowerCase());
-    if (!MEDIA_EXT.has(ext.toLowerCase()) && !cad) throw new Error('Поддерживаются изображения (PNG, JPG, GIF, WebP, AVIF, SVG), видео (MP4, WebM), 3D-модели (GLB, STL, STEP) живые вставки (HTM, WASM, WAD) и шрифты (WOFF2, WOFF, TTF, OTF)');
+    if (!MEDIA_EXT.has(ext.toLowerCase()) && !cad) throw new Error('Поддерживаются изображения (PNG, JPG, GIF, WebP, AVIF, SVG), видео (MP4, WebM), 3D-модели (GLB, STL, STEP) живые вставки (HTM, WASM, WAD), шрифты (WOFF2, WOFF, TTF, OTF) и LUT (.cube)');
     let data = await readBody(req);
     if (!data.length) throw new Error('Пустой файл');
     if (cad) {
@@ -572,7 +581,8 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     async transformIndexHtml(html) {
       if (!opts.only) return html;
       const file = deckFile(opts.only);
-      const deck = readYaml(file) as { title?: string; lang?: string };
+      // Цветокоррекция (grade у картинки) нужна только для правки в студии: исходники и LUT в файл не едут
+      const deck = dropGrades(readYaml(file)) as { title?: string; lang?: string };
       // Компактный файл (--compact): картинки заранее сжимаются в WebP, видео и модели — как есть
       const packed = new Map<string, { mime: string; data: Buffer }>();
       if (process.env.COMPACT === '1') {

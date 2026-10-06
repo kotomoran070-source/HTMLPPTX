@@ -1343,6 +1343,11 @@ export class Editor {
     return out;
   }
 
+  /** Файл — в assets/ презентации (в файле без проекта — внутрь данных): адрес для данных */
+  async storeAsset(blob: Blob, name: string): Promise<string> {
+    return this.mode === 'project' ? (await this.storage.uploadAsset(this.host.deckKey, blob, name)).url : blobToDataUrl(blob);
+  }
+
   /** Толщины шрифта: у шрифта компьютера — все его начертания, у шрифта презентации — скопированные */
   fontWeights(name: string): number[] {
     const local = localWeights(name);

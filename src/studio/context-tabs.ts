@@ -136,6 +136,7 @@ export function contextPanelsHtml(): string {
   ${group('Рамка', btn('image.stroke', 'outline', 'Контур', { big: true, menu: true, swatch: 'istroke', title: 'Цвет, толщина и штрих контура' }) + btn('image.mat', 'mat', 'Паспарту', { big: true, menu: true, title: 'Поле вокруг снимка, как у фотографии в рамке' }))}
   ${group('Эффекты', stack(btn('image.shadow', 'shadow', 'Тень', { menu: true }), btn('image.radius', 'corner', 'Скругление', { menu: true }))
     + stack(btn('image.filter', 'recolor', 'Цвет', { menu: true, title: 'Чёрно-белый, сепия, приглушённый…' }), btn('image.opacity', 'opacity', 'Прозрачность', { menu: true })))}
+  ${group('Цветокоррекция', btn('image.grade', 'sliders', 'Цвет+', { big: true, title: 'Цветокоррекция, как в DaVinci: круги, кривые, HSL, LUT, цвета бренда. Исходный файл не меняется' }))}
   ${group('Кадр', btn('image.crop', 'crop', 'Кадр', { big: true, title: 'Сдвинуть снимок внутри рамки, как «Обрезка» в PowerPoint: тяните картинку. Масштаб — на панели над картинкой. Готово — Esc' }))}
   ${group('Сброс', btn('image.reset', 'reset', 'Сбросить', { big: true, title: 'Убрать всё оформление рисунка' }))}
 </div>`;
@@ -640,6 +641,10 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       enabled: isImage,
     },
     'image.filter': { run: () => filterGallery(), enabled: isImage },
+    'image.grade': {
+      run: () => { const p = targets('image')[0]; if (p) void import('./color/panel').then((m) => m.openColor({ deck, editor: ed }, p)); },
+      enabled: () => targets('image').length === 1 && isImage(),
+    },
     'image.opacity': {
       run: () => lookGallery('image.opacity', 'opacity', [[undefined, '100 %'], [0.8, '80 %'], [0.6, '60 %'], [0.4, '40 %'], [0.2, '20 %']], undefined,
         { label: 'Своя', min: 10, max: 100, unit: ' %', get: (v) => Math.round((Number(v) || 1) * 100), set: (n) => (n >= 100 ? undefined : n / 100) }),
