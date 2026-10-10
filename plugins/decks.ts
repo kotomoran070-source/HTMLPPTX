@@ -4,13 +4,14 @@ import os from 'node:os';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
-import { parseDocument } from 'yaml';
+import { parse as parseYaml, parseDocument } from 'yaml';
 import { denyPage, isLocal, lanPass, remoteRelay } from './remote-relay.mjs';
 import { checkFirewall, checkMessage } from './firewall.mjs';
 import { stepToGlb, stlToGlb } from './model-convert';
 import { AssetStore } from './assets';
 import { BASE_ID, bindProject, importHtml, slug } from './import';
 import { importPptx } from './pptx/index';
+import { merge3 } from '../src/engine/merge3';
 import { packDeck } from '../src/engine/pack';
 import { compactImage } from './optimize';
 import { mergeYaml } from './yaml-merge';
@@ -77,6 +78,14 @@ function mapAssets(v: unknown, fn: (s: string) => string): unknown {
   if (typeof v === 'string') return ASSET_RE.test(v) ? fn(v) : v;
   if (Array.isArray(v)) return v.map((x) => mapAssets(x, fn));
   if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, mapAssets(x, fn)]));
+  return v;
+}
+
+/** Все строки данных через fn */
+function mapStrings(v: unknown, fn: (s: string) => string): unknown {
+  if (typeof v === 'string') return fn(v);
+  if (Array.isArray(v)) return v.map((x) => mapStrings(x, fn));
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, mapStrings(x, fn)]));
   return v;
 }
 
@@ -193,6 +202,44 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     return out;
   }
 
+  /**
+   * Контрольные точки (Ctrl+S в студии): копии deck.yaml в presentations/.checkpoints/<имя>/<время>.yaml,
+   * последние CHECKPOINTS. Та же, что последняя, не повторяется
+   */
+  const CHECKPOINTS = 30;
+  const CP_ID = /^\d{8}-\d{6}(?:-\d+)?$/;
+  const cpDir = (name: string) => path.join(dir, '.checkpoints', name);
+  const cpList = (name: string) => (fs.existsSync(cpDir(name)) ? fs.readdirSync(cpDir(name)) : [])
+    .filter((f) => f.endsWith('.yaml') && CP_ID.test(f.slice(0, -5))).sort();
+
+  function makeCheckpoint(name: string): { id: string; time: number; same: boolean } {
+    const text = fs.readFileSync(deckFile(name), 'utf8');
+    const list = cpList(name);
+    const last = list[list.length - 1];
+    if (last && fs.readFileSync(path.join(cpDir(name), last), 'utf8') === text) {
+      return { id: last.slice(0, -5), time: Math.round(fs.statSync(path.join(cpDir(name), last)).mtimeMs), same: true };
+    }
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, '0');
+    const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+    let id = stamp;
+    for (let i = 2; list.includes(`${id}.yaml`); i++) id = `${stamp}-${i}`;
+    fs.mkdirSync(cpDir(name), { recursive: true });
+    fs.writeFileSync(path.join(cpDir(name), `${id}.yaml`), text);
+    for (const old of [...list, `${id}.yaml`].slice(0, -CHECKPOINTS)) fs.rmSync(path.join(cpDir(name), old), { force: true });
+    return { id, time: d.getTime(), same: false };
+  }
+
+  /** Точки — новые первыми */
+  function listCheckpoints(name: string): { id: string; time: number }[] {
+    return cpList(name).reverse().map((f) => ({ id: f.slice(0, -5), time: Math.round(fs.statSync(path.join(cpDir(name), f)).mtimeMs) }));
+  }
+
+  function readCheckpoint(name: string, id: string): { deck: unknown } {
+    if (!CP_ID.test(id) || !fs.existsSync(path.join(cpDir(name), `${id}.yaml`))) throw new Error('Контрольная точка не найдена');
+    return { deck: parseYaml(fs.readFileSync(path.join(cpDir(name), `${id}.yaml`), 'utf8')) };
+  }
+
   /** Неиспользуемые файлы — в корзину проекта (.trash/<презентация>-files-<время>), не насовсем */
   function trashAssets(name: string, list: unknown): { moved: number } {
     if (!Array.isArray(list)) throw new Error('Нужен список файлов');
@@ -272,8 +319,14 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     return { name };
   }
 
-  async function handleSave(name: string, req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const body = JSON.parse((await readBody(req)).toString('utf8')) as { deck?: unknown };
+  /**
+   * Запись данных из окна. base — версия, с которой окно начинало: тогда из его данных берётся только
+   * то, что оно поменяло само, а чужие правки в файле (заметки из окна докладчика, вторая вкладка)
+   * остаются. Итог с чужими правками возвращается окну (deck), а остальным окнам этой презентации
+   * сообщается, что файл изменился
+   */
+  async function handleSave(name: string, req: IncomingMessage, res: ServerResponse, from: string): Promise<void> {
+    const body = JSON.parse((await readBody(req)).toString('utf8')) as { deck?: unknown; base?: unknown };
     if (!body.deck || typeof body.deck !== 'object') throw new Error('Нет данных презентации');
     // Адреса картинок из yarn dev (/presentations/имя/assets/x.png) → снова ./assets/x.png,
     // встроенные картинки (data:) → файлы в assets/: в deck.yaml остаются только пути
@@ -291,13 +344,25 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     };
     const file = deckFile(name);
     const source = fs.readFileSync(file, 'utf8');
-    const next = mergeYaml(source, toPaths(body.deck));
+    let data = toPaths(body.deck);
+    let theirs: unknown;
+    let disk: unknown = null;
+    try { disk = readYaml(file, source); } catch { /* файл правили руками и сломали — пишем как есть */ }
+    if (disk && body.base && typeof body.base === 'object') {
+      // База — только для сравнения: встроенные картинки в ней в файлы не превращаются
+      const base = mapStrings(body.base, (v) => { const rest = under(v, prefix); return rest !== null ? './' + rest : v; });
+      const m = merge3(base, data, disk);
+      data = m.result;
+      if (m.changed) theirs = mapAssets(m.result, (v) => { const abs = path.resolve(dir, name, v); return fs.existsSync(abs) ? urlOf(abs) : v; });
+    }
+    const next = mergeYaml(source, data);
     store.flush();
     if (next !== source) {
       written.set(fileKey(file), { text: next, at: Date.now() });
       fs.writeFileSync(file, next);
+      server?.ws.send({ type: 'custom', event: 'slideria:deck-saved', data: { name, from } });
     }
-    send(res, 200, { ok: true, changed: next !== source });
+    send(res, 200, { ok: true, changed: next !== source, deck: theirs });
   }
 
   async function handleImport(url: URL, req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -498,10 +563,13 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           const name = assertDeck(url.searchParams.get('deck'));
           if (url.pathname === API + 'delete') return send(res, 200, trashDeck(name));
           if (url.pathname === API + 'assets-list') return send(res, 200, listAssets(name));
+          if (url.pathname === API + 'checkpoint') return send(res, 200, makeCheckpoint(name));
+          if (url.pathname === API + 'checkpoints') return send(res, 200, listCheckpoints(name));
+          if (url.pathname === API + 'checkpoint-read') return send(res, 200, readCheckpoint(name, url.searchParams.get('id') ?? ''));
           if (url.pathname === API + 'assets-trash') return send(res, 200, trashAssets(name, JSON.parse((await readBody(req)).toString('utf8') || '[]')));
           if (url.pathname === API + 'font-use') return useLibraryFont(name, url.searchParams.get('file') ?? '', res);
           if (url.pathname === API + 'bind-theme') return send(res, 200, bindProject(dir, name, url.searchParams.get('dry') === '1'));
-          if (url.pathname === API + 'save') return await handleSave(name, req, res);
+          if (url.pathname === API + 'save') return await handleSave(name, req, res, url.searchParams.get('from') ?? '');
           if (url.pathname === API + 'export') return await handleExport(root, name, url.searchParams.get('mode') === 'clean', url.searchParams.get('quality') === 'compact', res);
           if (url.pathname === API + 'asset') return await handleAsset(name, url.searchParams.get('name') ?? 'image.png', req, res);
           if (url.pathname === API + 'asset-text') return await handleAssetText(name, url.searchParams.get('url') ?? '', req, res);

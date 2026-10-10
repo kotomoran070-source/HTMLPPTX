@@ -16,7 +16,9 @@ import { TextEditor } from './text-edit';
 import { applyDeckFonts, applyLibraryFonts, deckFonts } from '../fonts';
 import { layoutRows, rowAnchors } from './rows';
 import { embeddable, loadLocalFonts, localFaces, localFamilies, localWeights, pickFaces } from '../local-fonts';
-import { History } from './history';
+import { merge3 } from '../merge3';
+import { WINDOW_ID } from './persist';
+import { edits, History } from './history';
 import './editor.css';
 import { initRangeFill } from './range-fill';
 
@@ -175,9 +177,18 @@ export class Editor {
   private pop!: HTMLElement;
   private toastEl!: HTMLElement;
   private file!: HTMLInputElement;
+  /** Данные, какими их последний раз видели в файле: с ними сверяется запись (правки других окон не затираются) */
+  private base: Deck;
 
   constructor(private host: EditorHost, devServer: boolean, opts: EditorOptions = {}) {
     this.mode = devServer ? 'project' : 'file';
+    this.base = clone(host.deck);
+    // Файл записало другое окно этой презентации (окно докладчика, вторая вкладка) — подтянуть его правки
+    import.meta.hot?.on('slideria:deck-saved', (d: { name: string; from: string }) => {
+      if (this.mode !== 'project' || d.name !== this.host.deckKey || d.from === WINDOW_ID) return;
+      this.dirty = true;
+      void this.flush();
+    });
     // История правок вкладки: после перезагрузки страницы (обновился код) отмена продолжает работать
     this.hist = new History(host.deckKey);
     this.hist.load(this.hist.snap(host.deck));
@@ -234,7 +245,7 @@ export class Editor {
     addEventListener('beforeunload', (e) => {
       if (this.mode === 'project' && (this.dirty || this.saving)) {
         // Последняя попытка записать правки перед закрытием вкладки
-        this.storage.save(this.host.deckKey, this.host.deck, true).catch(() => {});
+        this.storage.save(this.host.deckKey, this.host.deck, true, this.base).catch(() => {});
       }
       if (this.mode === 'file' && this.dirty) {
         e.preventDefault();
@@ -503,10 +514,23 @@ export class Editor {
     this.lastMerge = '';
   }
 
+  /** Контрольная точка, на которой отмена остановилась: следующее отдельное нажатие Ctrl+Z идёт дальше */
+  private heldAt = '';
+
   /** Отмена и повтор: данные шага, переход к слайду, где была правка, короткая подсказка */
-  private step(from: 'past' | 'future'): void {
+  private step(from: 'past' | 'future', repeat = false): void {
     this.text.finish(true);
     const list = from === 'past' ? this.hist.past : this.hist.future;
+    // Отмена дошла до контрольной точки (Ctrl+S) — стоп. Зажатая клавиша дальше не идёт; дальше — нажать ещё раз
+    if (from === 'past' && list.length) {
+      const here = this.hist.snap(this.host.deck);
+      const at = this.hist.markOf(here);
+      const key = History.key(here);
+      if (at && (repeat || this.heldAt !== key)) {
+        this.heldAt = key;
+        return this.toast(`Контрольная точка ${at}. Отменять дальше — Ctrl+Z ещё раз`, 2600);
+      }
+    }
     const target = list.pop();
     if (!target) return this.toast(from === 'past' ? 'Отменять нечего' : 'Повторять нечего', 1500);
     const cur = this.hist.snap(this.host.deck);
@@ -523,8 +547,9 @@ export class Editor {
     this.toast(`${word}: ${what[0].toLowerCase()}${what.slice(1)}`, 1600);
   }
 
-  undo(): void {
-    this.step('past');
+  /** repeat — клавиша зажата (автоповтор): на контрольной точке отмена останавливается */
+  undo(repeat = false): void {
+    this.step('past', repeat);
   }
 
   redo(): void {
@@ -532,6 +557,7 @@ export class Editor {
   }
 
   private changed(rebuild: boolean): void {
+    this.heldAt = '';
     if (rebuild) this.hideHint();
     this.touched = true;
     this.dirty = true;
@@ -553,14 +579,29 @@ export class Editor {
 
   // ---------------- сохранение ----------------
 
-  /** Ctrl+S и кнопка «Сохранить». */
+  /**
+   * Ctrl+S и кнопка «Сохранить»: всё записать и сделать контрольную точку — копию файла на диске
+   * (к ней можно вернуться), Ctrl+Z на ней останавливается
+   */
   async save(): Promise<void> {
     this.text.finish(true);
-    if (this.mode === 'project') return this.flush(true);
+    if (this.mode === 'project') {
+      await this.settle();
+      if (this.saveError) return;
+      const cp = await this.storage.checkpoint?.(this.host.deckKey).catch(() => null);
+      const at = clock(cp?.time ?? Date.now());
+      this.hist.mark(this.hist.snap(this.host.deck), at);
+      this.hist.save(this.hist.snap(this.host.deck));
+      // Следующая правка — новый шаг: склеенный шаг перешагнул бы точку
+      this.lastMerge = '';
+      this.toast(!cp ? 'Сохранено' : cp.same ? `Сохранено · точка ${at} уже есть` : `Сохранено · контрольная точка ${at}`, 2200);
+      return;
+    }
     try {
       const html = buildHtml(this.host.deck);
       const res = await saveHtmlFile(html, suggestedFileName(this.host.deckKey));
       if (!res) return;
+      this.hist.mark(this.hist.snap(this.host.deck), clock(Date.now()));
       this.dirty = false;
       this.saveError = '';
       this.status();
@@ -569,6 +610,21 @@ export class Editor {
       this.saveError = (e as Error).message;
       this.status();
       this.toast(`Не удалось сохранить: ${this.saveError}`, 5000, true);
+    }
+  }
+
+  /** Вернуть презентацию к контрольной точке — одной правкой (Ctrl+Z возвращает обратно) */
+  async restoreCheckpoint(id: string, label: string): Promise<void> {
+    if (!this.storage.readCheckpoint) return;
+    this.text.finish(true);
+    try {
+      const data = (await this.storage.readCheckpoint(this.host.deckKey, id)).deck as Deck;
+      if (!data || !Array.isArray(data.slides)) throw new Error('в точке нет слайдов');
+      this.commit((d) => replaceContents(d as unknown as Record<string, unknown>, data as unknown as Record<string, unknown>), { rebuild: true });
+      this.hist.mark(this.hist.snap(this.host.deck), label);
+      this.toast(`Возвращено к точке ${label}. Отменить — Ctrl+Z`, 3500);
+    } catch (e) {
+      this.toast(`Не удалось вернуться к точке: ${(e as Error).message}`, 5000, true);
     }
   }
 
@@ -596,7 +652,22 @@ export class Editor {
     this.dirty = false;
     this.status();
     try {
-      await this.storage.save(this.host.deckKey, this.host.deck);
+      const sent = clone(this.host.deck);
+      const res = await this.storage.save(this.host.deckKey, sent, false, this.base) as { deck?: Deck } | undefined;
+      this.base = sent;
+      // В файле были правки другого окна (заметки из окна докладчика, вторая вкладка): берём их себе,
+      // не трогая того, что успели поправить здесь, пока шла запись
+      if (res?.deck) {
+        this.base = res.deck;
+        const { result, changed } = merge3(sent, this.host.deck, res.deck);
+        if (changed) {
+          const theirs = edits(sent, res.deck);
+          if (theirs) this.hist.rebase(theirs, sent.slides.length);
+          replaceContents(this.host.deck as unknown as Record<string, unknown>, result as Record<string, unknown>);
+          this.host.refresh(true);
+          this.hist.save(this.hist.snap(this.host.deck));
+        }
+      }
       this.saveError = '';
       if (announce) this.toast('Сохранено', 1800);
     } catch (e) {
@@ -671,9 +742,15 @@ export class Editor {
     return this.hist.future.length > 0;
   }
 
-  /** Повторить сохранение после ошибки (клик по строке состояния). */
-  retrySave(): void {
+  /** Повторить сохранение после ошибки (клик по строке состояния); true — была ошибка */
+  retrySave(): boolean {
     if (this.saveError) void this.save();
+    return !!this.saveError;
+  }
+
+  /** Контрольные точки презентации — новые первыми (пусто, если хранилище их не умеет) */
+  async checkpoints(): Promise<{ id: string; time: number }[]> {
+    return (await this.storage.checkpoints?.(this.host.deckKey).catch(() => [])) ?? [];
   }
 
   private accentFrame = 0;
@@ -797,7 +874,7 @@ export class Editor {
     if (mod && !e.altKey && (k === 'z' || k === 'я')) {
       e.preventDefault();
       if (e.shiftKey) this.redo();
-      else this.undo();
+      else this.undo(e.repeat);
       return true;
     }
     if (mod && !e.altKey && (k === 'y' || k === 'н')) {
@@ -1801,4 +1878,11 @@ export function normalizeUrl(input: string): string {
 function nearestWeight(name: string, want: number): number {
   const ws = localWeights(name);
   return ws.length ? ws.reduce((a, b) => (Math.abs(b - want) < Math.abs(a - want) ? b : a)) : want;
+}
+
+/** Время контрольной точки: «14:32» сегодня, иначе «8 окт, 14:32» */
+export function clock(t: number): string {
+  const d = new Date(t);
+  const hm = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  return d.toDateString() === new Date().toDateString() ? hm : `${d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '')}, ${hm}`;
 }

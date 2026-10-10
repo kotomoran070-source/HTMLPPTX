@@ -97,8 +97,15 @@ async function api<T>(url: string, body: BodyInit, type: string, keepalive = fal
   return data as T;
 }
 
-export function saveToProject(deckKey: string, deck: Deck, keepalive = false): Promise<{ changed: boolean }> {
-  return api(`/__htmlpptx/save?deck=${encodeURIComponent(deckKey)}`, JSON.stringify({ deck }), 'application/json', keepalive);
+/** Окно, которое пишет: остальные окна этой презентации узнают, что файл изменили не они */
+export const WINDOW_ID = Math.random().toString(36).slice(2, 10);
+
+/**
+ * Записать данные; base — версия, с которой окно начинало (тогда чужие правки в файле не затираются).
+ * deck в ответе — итог с чужими правками, если они были
+ */
+export function saveToProject(deckKey: string, deck: Deck, keepalive = false, base?: Deck): Promise<{ changed: boolean; deck?: Deck }> {
+  return api(`/__htmlpptx/save?deck=${encodeURIComponent(deckKey)}&from=${WINDOW_ID}`, JSON.stringify({ deck, base }), 'application/json', keepalive);
 }
 
 /** Перезаписать файл живой вставки (assets/*.htm) по его адресу — правка кода в студии */
@@ -112,6 +119,17 @@ export function listDeckAssets(deckKey: string): Promise<{ path: string; size: n
 }
 export function trashDeckAssets(deckKey: string, paths: string[]): Promise<{ moved: number }> {
   return api(`/__htmlpptx/assets-trash?deck=${encodeURIComponent(deckKey)}`, JSON.stringify(paths), 'application/json');
+}
+
+/** Контрольные точки: копия deck.yaml сейчас, список (новые первыми), текст точки */
+export function makeCheckpoint(deckKey: string): Promise<{ id: string; time: number; same: boolean }> {
+  return api(`/__htmlpptx/checkpoint?deck=${encodeURIComponent(deckKey)}`, '', 'text/plain');
+}
+export function listCheckpoints(deckKey: string): Promise<{ id: string; time: number }[]> {
+  return api(`/__htmlpptx/checkpoints?deck=${encodeURIComponent(deckKey)}`, '', 'text/plain');
+}
+export function readCheckpoint(deckKey: string, id: string): Promise<{ deck: unknown }> {
+  return api(`/__htmlpptx/checkpoint-read?deck=${encodeURIComponent(deckKey)}&id=${encodeURIComponent(id)}`, '', 'text/plain');
 }
 
 /** Общая библиотека шрифтов (папка fonts/ проекта) */

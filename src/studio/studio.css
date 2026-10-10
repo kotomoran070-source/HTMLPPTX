@@ -18,7 +18,9 @@ body.studio { background: var(--alt); }
 .st-tabs button[aria-selected="true"] { color: var(--ach); border-bottom-color: var(--ac); }
 .st-top-r { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .st-top-r .btn .ic { width: 14px; height: 14px; }
-.st-status { border: 0; background: none; font: 12px var(--font); color: var(--mu); white-space: nowrap; cursor: default; padding: 4px 6px; border-radius: 6px; }
+.st-status { border: 0; background: none; font: 12px var(--font); color: var(--mu); white-space: nowrap; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+/* Щелчок — контрольные точки (Ctrl+S) */
+.st-status:hover { background: var(--alt); }
 .st-status.ok { color: #16A34A; }
 .st-status.warn { color: #B45309; }
 .st-status.err { color: #DC2626; font-weight: 600; cursor: pointer; }

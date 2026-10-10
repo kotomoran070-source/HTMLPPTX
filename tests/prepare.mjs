@@ -5,7 +5,8 @@
 //   schemes  — новые блоки-схемы (tests/e2e/schemes.yaml);
 //   design   — стартовый шаблон для вкладки «Дизайн»;
 //   math     — пустой слайд для формул;
-//   find     — поиск по тексту и коду.
+//   find     — поиск по тексту и коду;
+//   save     — сохранение: контрольные точки, два окна одной презентации.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -81,5 +82,16 @@ slides:
   - template: canvas
     free:
       - {type: card, title: Гамма, text: бета-версия, place: {x: 80, y: 80, w: 400}}
+`);
+// save — два слайда без заметок
+fs.mkdirSync(path.join(dir, 'save'));
+fs.writeFileSync(path.join(dir, 'save', 'deck.yaml'), `title: Сохранение
+slides:
+  - template: canvas
+    free:
+      - {type: text, text: Первый, place: {x: 80, y: 80, w: 500}}
+  - template: canvas
+    free:
+      - {type: text, text: Второй, place: {x: 80, y: 80, w: 500}}
 `);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

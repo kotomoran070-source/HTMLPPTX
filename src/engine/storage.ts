@@ -1,5 +1,5 @@
 import type { Deck } from '../types';
-import { listDeckAssets, listLibraryFonts, saveLibraryFont, saveToProject, trashDeckAssets, uploadAsset, useLibraryFont } from './editor/persist';
+import { listCheckpoints, listDeckAssets, listLibraryFonts, makeCheckpoint, readCheckpoint, saveLibraryFont, saveToProject, trashDeckAssets, uploadAsset, useLibraryFont } from './editor/persist';
 
 /**
  * Где хранятся презентации. Редактор и студия работают только через этот интерфейс:
@@ -7,8 +7,11 @@ import { listDeckAssets, listLibraryFonts, saveLibraryFont, saveToProject, trash
  * в облако меняется только реализация здесь.
  */
 export interface DeckStorage {
-  /** Записать данные презентации. keepalive — запрос переживёт закрытие вкладки */
-  save(deckKey: string, deck: Deck, keepalive?: boolean): Promise<unknown>;
+  /**
+   * Записать данные презентации. keepalive — запрос переживёт закрытие вкладки; base — версия, с которой
+   * окно начинало: правки других окон в файле не затираются, итог с ними — в ответе (deck)
+   */
+  save(deckKey: string, deck: Deck, keepalive?: boolean, base?: Deck): Promise<{ deck?: Deck } | unknown>;
   /** Сохранить картинку рядом с презентацией; url — адрес для данных слайда */
   uploadAsset(deckKey: string, file: Blob, name: string): Promise<{ url: string }>;
   /** Собрать один HTML-файл: clean — «для показа», без режима правки; compact — картинки сжаты */
@@ -20,6 +23,10 @@ export interface DeckStorage {
   /** Файлы презентации с размерами (сводка) и перенос неиспользуемых в корзину */
   listAssets?(deckKey: string): Promise<{ path: string; size: number }[]>;
   trashAssets?(deckKey: string, paths: string[]): Promise<{ moved: number }>;
+  /** Контрольные точки (Ctrl+S): копия сохранённого файла, список новых первыми, данные точки */
+  checkpoint?(deckKey: string): Promise<{ id: string; time: number; same: boolean }>;
+  checkpoints?(deckKey: string): Promise<{ id: string; time: number }[]>;
+  readCheckpoint?(deckKey: string, id: string): Promise<{ deck: unknown }>;
 }
 
 /** Файлы проекта через API сервера разработки (plugins/decks.ts). */
@@ -31,6 +38,9 @@ export const projectStorage: DeckStorage = {
   useFont: useLibraryFont,
   listAssets: listDeckAssets,
   trashAssets: trashDeckAssets,
+  checkpoint: makeCheckpoint,
+  checkpoints: listCheckpoints,
+  readCheckpoint,
   async exportHtml(deckKey, clean, compact = false) {
     const r = await fetch(`/__htmlpptx/export?deck=${encodeURIComponent(deckKey)}&mode=${clean ? 'clean' : 'edit'}${compact ? '&quality=compact' : ''}`, { method: 'POST' });
     if (!r.ok) {

@@ -1,4 +1,22 @@
 import type { Deck } from '../../types';
+import { same } from '../merge3';
+
+/** Правка поля другим окном: slide < 0 — поле самой презентации */
+export interface Edit { slide: number; key: string; was: unknown; now: unknown }
+
+/** Какие поля поменяло другое окно (слайды — по номерам, если их число не менялось) */
+export function edits(was: Deck, now: Deck): Edit[] | null {
+  if (was.slides.length !== now.slides.length) return null;
+  const out: Edit[] = [];
+  const diff = (a: Record<string, unknown>, b: Record<string, unknown>, slide: number) => {
+    for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) {
+      if (key !== 'slides' && !same(a[key], b[key])) out.push({ slide, key, was: a[key], now: b[key] });
+    }
+  };
+  diff(was as unknown as Record<string, unknown>, now as unknown as Record<string, unknown>, -1);
+  was.slides.forEach((s, i) => diff(s as Record<string, unknown>, now.slides[i] as Record<string, unknown>, i));
+  return out;
+}
 
 /**
  * История правок: шаги отмены и повтора.
@@ -85,6 +103,8 @@ function slideAction(a: Record<string, unknown>, b: Record<string, unknown>): st
 export class History {
   past: Snap[] = [];
   future: Snap[] = [];
+  /** Контрольные точки (Ctrl+S): отпечаток данных → время; на них Ctrl+Z останавливается */
+  marks = new Map<string, string>();
   /** Одинаковые строки слайдов — один экземпляр на всю историю */
   private pool = new Map<string, string>();
   private saveTimer = 0;
@@ -104,6 +124,20 @@ export class History {
       head: this.intern(JSON.stringify({ ...deck, slides: 0 })),
       slides: deck.slides.map((s) => this.intern(JSON.stringify(s))),
     };
+  }
+
+  static key(s: Snap): string {
+    return hash(`${s.head}\u0000${s.slides.join('\u0000')}`);
+  }
+
+  /** Отметить данные контрольной точкой */
+  mark(s: Snap, label: string): void {
+    this.marks.set(History.key(s), label);
+  }
+
+  /** Время точки, если эти данные — контрольная точка */
+  markOf(s: Snap): string | undefined {
+    return this.marks.get(History.key(s));
   }
 
   static same(a: Snap, b: Snap): boolean {
@@ -150,6 +184,37 @@ export class History {
     return `${slideAction(JSON.parse(a.slides[i]), JSON.parse(b.slides[i]))} · слайд ${i + 1}`;
   }
 
+  /**
+   * Правки другого окна — во все шаги истории (где поле было таким же): Ctrl+Z откатывает свои правки,
+   * а не подтянутые чужие (иначе следующее сохранение стёрло бы их и в файле)
+   */
+  rebase(list: Edit[], count: number): void {
+    const put = (o: Record<string, unknown>, e: Edit): boolean => {
+      if (!same(o[e.key], e.was)) return false;
+      if (e.now === undefined) delete o[e.key];
+      else o[e.key] = e.now;
+      return true;
+    };
+    const fix = (s: Snap): Snap => {
+      if (s.slides.length !== count) return s;
+      let head: Record<string, unknown> | null = null;
+      const slides = s.slides.slice();
+      let touched = false;
+      for (const e of list) {
+        if (e.slide < 0) {
+          head ??= JSON.parse(s.head) as Record<string, unknown>;
+          touched = put(head, e) || touched;
+        } else {
+          const o = JSON.parse(slides[e.slide]) as Record<string, unknown>;
+          if (put(o, e)) { slides[e.slide] = this.intern(JSON.stringify(o)); touched = true; }
+        }
+      }
+      return touched ? { head: head ? this.intern(JSON.stringify(head)) : s.head, slides } : s;
+    };
+    this.past = this.past.map(fix);
+    this.future = this.future.map(fix);
+  }
+
   push(s: Snap): void {
     this.past.push(s);
     if (this.past.length > LIMIT) {
@@ -187,7 +252,7 @@ export class History {
     for (let keep = this.past.length; keep >= 0; keep = keep > 8 ? Math.floor(keep / 2) : keep - 1) {
       strings.length = 0;
       index.clear();
-      const data = { v: 1, cur: hash(curText), past: pack(this.past.slice(this.past.length - keep)), future: pack(this.future), strings };
+      const data = { v: 1, cur: hash(curText), past: pack(this.past.slice(this.past.length - keep)), future: pack(this.future), strings, marks: [...this.marks] };
       try {
         sessionStorage.setItem(KEY + this.deckKey, JSON.stringify(data));
         return;
@@ -201,11 +266,12 @@ export class History {
     try {
       const raw = sessionStorage.getItem(KEY + this.deckKey);
       if (!raw) return;
-      const data = JSON.parse(raw) as { v: number; cur: string; past: number[][]; future: number[][]; strings: string[] };
+      const data = JSON.parse(raw) as { v: number; cur: string; past: number[][]; future: number[][]; strings: string[]; marks?: [string, string][] };
       if (data.v !== 1 || data.cur !== hash(`${cur.head}\u0000${cur.slides.join('\u0000')}`)) return;
       const unpack = (list: number[][]) => list.map(([h, ...sl]) => ({ head: this.intern(data.strings[h]), slides: sl.map((k) => this.intern(data.strings[k])) }));
       this.past = unpack(data.past);
       this.future = unpack(data.future);
+      this.marks = new Map(data.marks ?? []);
     } catch { /* повреждено или нет доступа — история с нуля */ }
   }
 }

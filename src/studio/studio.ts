@@ -6,7 +6,7 @@ import { applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, setUiAccent, slid
 import { applyThemeSwatches } from '../engine/deck-theme';
 import { getAt, setAt, type Path } from '../engine/data';
 import { DeckView, H, W } from '../engine/deck-view';
-import { Editor, SLIDE_PRESETS } from '../engine/editor/editor';
+import { clock, Editor, SLIDE_PRESETS } from '../engine/editor/editor';
 import { esc } from '../engine/html';
 import { placeOf, slideLabel } from '../engine/render';
 import { brandMark } from '../engine/brand';
@@ -1530,7 +1530,19 @@ export function startStudio(deck: Deck, deckKey: string): void {
       title.blur();
     }
   });
-  $('st-status').addEventListener('click', () => ed.retrySave());
+  // «Сохранено»: ошибка — повторить; иначе контрольные точки (Ctrl+S) — вернуться к любой
+  $('st-status').addEventListener('click', async (e) => {
+    if (ed.retrySave() || ed.mode !== 'project') return;
+    const at = e.currentTarget as HTMLElement;
+    const list = await ed.checkpoints();
+    showMenu(at, [
+      { label: 'Сделать точку', hint: 'Ctrl+S', run: () => void ed.save() },
+      null,
+      ...(list.length
+        ? list.slice(0, 12).map((c) => ({ label: `Вернуть: ${clock(c.time)}`, run: () => void ed.restoreCheckpoint(c.id, clock(c.time)) }))
+        : [{ label: 'Точек пока нет', disabled: true, run: () => {} }]),
+    ]);
+  });
   $('st-theme').addEventListener('click', () => toggleTheme());
   const accent = $<HTMLInputElement>('st-accent');
   // Пока тянут палитру — только показ; правка и сохранение — когда отпустили
