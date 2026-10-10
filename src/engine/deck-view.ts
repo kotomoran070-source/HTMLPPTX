@@ -335,7 +335,7 @@ export class DeckView {
   }
 
   /**
-   * Масштаб при показе: слайд крупнее окна, z — во сколько раз, (zx, zy) — сдвиг слайда
+   * «Крупнее» при показе: слайд крупнее окна, z — во сколько раз, (zx, zy) — сдвиг слайда
    * от центра в его пикселях. Края слайда в окно не заходят.
    */
   private box = { w: W, h: H, oy: 0 };
@@ -356,61 +356,122 @@ export class DeckView {
     this.zx = Math.max(-mx, Math.min(mx, this.zx));
     this.zy = Math.max(-my, Math.min(my, this.zy));
     this.stage.style.transform = this.z === 1 ? `translate(-50%, -50%) scale(${s})` : `translate(-50%, -50%) scale(${S}) translate(${this.zx}px, ${this.zy}px)`;
+    // Логотип в углу при «Крупнее» уходит за край — не торчит половинкой, а прячется
+    this.stage.classList.toggle('zoomed', this.z > 1);
     // Увеличенный слайд не заходит под панель показа
     const vp = this.stage.parentElement;
     if (vp) {
       const top = vp.clientHeight / 2 + this.box.oy - this.box.h / 2;
       vp.style.clipPath = this.z === 1 ? '' : `inset(${Math.max(0, top)}px 0 ${Math.max(0, vp.clientHeight - top - this.box.h)}px 0)`;
-      vp.classList.toggle('zoomed', this.z > 1);
     }
     return s;
   }
-  /** Точка экрана относительно центра сцены */
-  private fromCenter(clientX: number, clientY: number): [number, number] {
-    const r = this.stage.parentElement!.getBoundingClientRect();
-    return [clientX - r.left - r.width / 2, clientY - r.top - r.height / 2 - this.box.oy];
-  }
-  /**
-   * Новый масштаб (1…4). at — точка, которая остаётся на месте: экранная (client) или
-   * точка слайда (slide, 0…1280 × 0…720); без неё — центр окна.
-   */
-  setZoom(z: number, at?: { client?: [number, number]; slide?: [number, number] }, smooth = false): void {
-    const z2 = Math.max(1, Math.min(4, Math.round(z * 100) / 100));
-    const S1 = this.fitScale() * this.z;
-    const S2 = this.fitScale() * z2;
-    // Точка под курсором: q = S·(p + t) до и после
-    let q: [number, number] = [0, 0];
-    if (at?.client) q = this.fromCenter(...at.client);
-    else if (at?.slide) q = [S1 * (at.slide[0] - W / 2 + this.zx), S1 * (at.slide[1] - H / 2 + this.zy)];
-    const px = q[0] / S1 - this.zx;
-    const py = q[1] / S1 - this.zy;
-    this.z = z2;
-    this.zx = z2 === 1 ? 0 : q[0] / S2 - px;
-    this.zy = z2 === 1 ? 0 : q[1] / S2 - py;
+  /** Слайд снова целиком */
+  resetZoom(smooth = false): void {
+    if (this.z === 1) return;
+    this.z = 1;
+    this.zx = 0;
+    this.zy = 0;
     this.smooth(smooth);
     this.place();
   }
-  /** Сдвиг увеличенного слайда на столько экранных пикселей */
-  panBy(dx: number, dy: number): void {
-    if (this.z === 1) return;
-    const S = this.fitScale() * this.z;
-    this.zx += dx / S;
-    this.zy += dy / S;
-    this.smooth(false);
+  /**
+   * «Крупнее»: содержимое слайда i — во всё окно. Пустые поля по краям уходят за окно,
+   * увеличение не больше max. Возвращает получившийся масштаб.
+   */
+  fitContent(i: number, max: number, smooth = false): number {
+    const b = this.contentBox(i);
+    let z = 1;
+    let cx = W / 2;
+    let cy = H / 2;
+    if (b) {
+      // Запас у края окна: поля слайда уходят почти целиком
+      const m = 12;
+      const x0 = Math.max(0, b[0] - m);
+      const y0 = Math.max(0, b[1] - m);
+      const x1 = Math.min(W, b[2] + m);
+      const y1 = Math.min(H, b[3] + m);
+      z = Math.min(this.box.w / (x1 - x0), this.box.h / (y1 - y0)) / this.fitScale();
+      z = Math.max(1, Math.min(max, Math.round(z * 100) / 100));
+      cx = (x0 + x1) / 2;
+      cy = (y0 + y1) / 2;
+    }
+    if (z < 1.02) z = 1;
+    this.z = z;
+    this.zx = z === 1 ? 0 : W / 2 - cx;
+    this.zy = z === 1 ? 0 : H / 2 - cy;
+    this.smooth(smooth);
     this.place();
+    return z;
   }
-  /** Увеличенный слайд — снова по центру (смена слайда) */
-  recenter(): void {
-    this.zx = 0;
-    this.zy = 0;
-    this.place();
+
+  /**
+   * Где на слайде содержимое, в пикселях слайда: строки текста, картинки, графики, плашки
+   * с фоном или рамкой. Фон во весь слайд и живой фон не в счёт. Объекты меряются такими,
+   * какими станут после анимации появления, скрытые до щелчка — тоже.
+   */
+  contentBox(i: number): [number, number, number, number] | null {
+    const slide = this.slides[i];
+    if (!slide || !slide.isConnected) return null;
+    // Анимации появления — на миг в конец (до отрисовки кадра всё вернётся)
+    const anims = slide.getAnimations({ subtree: true }).filter((a) => Number.isFinite(Number(a.effect?.getComputedTiming().endTime)));
+    const saved = anims.map((a) => a.currentTime);
+    anims.forEach((a) => { a.currentTime = Number(a.effect!.getComputedTiming().endTime); });
+    try {
+      const sr = slide.getBoundingClientRect();
+      const k = sr.width / W;
+      if (!k) return null;
+      const box = [Infinity, Infinity, -Infinity, -Infinity];
+      const add = (r: DOMRect) => {
+        if (r.width < 1 || r.height < 1) return;
+        box[0] = Math.min(box[0], (r.left - sr.left) / k);
+        box[1] = Math.min(box[1], (r.top - sr.top) / k);
+        box[2] = Math.max(box[2], (r.right - sr.left) / k);
+        box[3] = Math.max(box[3], (r.bottom - sr.top) / k);
+      };
+      const range = document.createRange();
+      const big = W * H * 0.6 * k * k;
+      const visit = (el: Element) => {
+        if (el.matches(CONTENT_SKIP)) return;
+        const cs = getComputedStyle(el);
+        if (cs.display === 'none' || cs.opacity === '0') return;
+        const r = el.getBoundingClientRect();
+        if (r.width * r.height < big) {
+          if (CONTENT_MEDIA.has(el.localName)) return add(r);
+          if (hasBox(cs)) add(r);
+        }
+        for (const c of el.childNodes) {
+          if (c.nodeType === Node.TEXT_NODE) {
+            if (!c.nodeValue?.trim()) continue;
+            range.selectNodeContents(c);
+            for (const t of range.getClientRects()) add(t);
+          } else if (c.nodeType === Node.ELEMENT_NODE) visit(c as Element);
+        }
+      };
+      for (const c of slide.children) visit(c);
+      if (!Number.isFinite(box[0])) return null;
+      return [Math.max(0, box[0]), Math.max(0, box[1]), Math.min(W, box[2]), Math.min(H, box[3])];
+    } finally {
+      anims.forEach((a, j) => { a.currentTime = saved[j]; });
+    }
   }
+
   private smoothTimer = 0;
   private smooth(on: boolean): void {
     clearTimeout(this.smoothTimer);
     this.stage.classList.toggle('zoom-anim', on && !reducedMotion());
     if (on) this.smoothTimer = window.setTimeout(() => this.stage.classList.remove('zoom-anim'), 320);
   }
+}
+
+/** «Крупнее»: что не считается содержимым слайда */
+const CONTENT_SKIP = '.backdrop, .canvas-bg, .corner-logo, .spot-frame, script, style, template, [aria-hidden="true"]:not(svg)';
+const CONTENT_MEDIA = new Set(['img', 'svg', 'canvas', 'video', 'iframe', 'model-viewer', 'input', 'textarea', 'select', 'button', 'picture']);
+/** У элемента видна своя плашка: фон, рамка или тень */
+function hasBox(cs: CSSStyleDeclaration): boolean {
+  const seen = (c: string) => !/^(transparent|rgba\(.*,\s*0(\.0+)?\))$/.test(c) && !/\/\s*0\)$/.test(c);
+  return seen(cs.backgroundColor) || cs.backgroundImage !== 'none' || cs.boxShadow !== 'none'
+    || (parseFloat(cs.borderTopWidth) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderBottomWidth) + parseFloat(cs.borderRightWidth) > 0 && seen(cs.borderTopColor));
 }
 
 /** Всё, что влияет на вид любого слайда, кроме самих слайдов. */

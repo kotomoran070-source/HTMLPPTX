@@ -133,14 +133,8 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   let tool: InkTool = 'none';
   let penColor = PEN_COLORS[0];
   const sendInk = (m: InkMsg) => sync.send({ type: 'ink', ink: m }, toMain());
-  // Масштаб у зрителей (+ − 0): крупнее — к точке под мышью, если она над слайдом
-  let zoomAt: [number, number] | undefined;
-  cur.addEventListener('pointermove', (e) => {
-    const p = ink.toSlide(e);
-    zoomAt = p.x >= 0 && p.x <= 1280 && p.y >= 0 && p.y <= 720 ? [p.x, p.y] : undefined;
-  });
-  cur.addEventListener('pointerleave', () => { zoomAt = undefined; });
-  const zoom = (step: 1 | -1 | 0) => sync.send({ type: 'zoom', step, ...(step === 1 && zoomAt ? { at: zoomAt } : {}) }, toMain());
+  // «Крупнее» у зрителей (+ − 0)
+  const zoom = (step: 1 | -1 | 0) => sync.send({ type: 'zoom', step }, toMain());
   // Повтор мыши и живые 3D-модели для зрителей: можно выключить, если на слайдах нет
   // наведений и моделей — тогда окна ничего лишнего не пересылают и не рисуют
   inkInput(cur, ink, () => tool, (): StrokeStyle => ({ color: penColor, width: 5 }), sendInk, () => mirror, () => arrow);

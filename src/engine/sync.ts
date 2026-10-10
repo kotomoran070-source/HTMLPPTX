@@ -24,8 +24,8 @@ export type SyncMsg =
   | { type: 'trigger'; index: number; action: string }
   /** Прожектор на блоке слайда (путь data-block) или снят (null) — в обоих окнах */
   | { type: 'spot'; index: number; key: string | null }
-  /** Масштаб у зрителей из окна докладчика: крупнее (1), мельче (-1), как было (0); at — точка слайда под мышью */
-  | { type: 'zoom'; step: 1 | -1 | 0; at?: [number, number] }
+  /** «Крупнее» у зрителей из окна докладчика: крупнее (1), мельче (-1), как на слайде (0) */
+  | { type: 'zoom'; step: 1 | -1 | 0 }
   /** Окно докладчика просит окно показа включить пульт; ответ — remote-room с кодом комнаты */
   | { type: 'remote-start' }
   | { type: 'remote-room'; room: string }

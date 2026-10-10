@@ -76,26 +76,36 @@ test('обзор всех слайдов (O) открывает слайд по 
   await expect(page.locator('#ct')).toHaveText(/^7 из/);
 });
 
-test('масштаб: + крупнее, перетаскивание двигает слайд, при листании остаётся, 0 — как было', async ({ page }) => {
+test('«Крупнее»: + — содержимое крупнее, но целиком в окне; при листании и после перезагрузки остаётся; Ctrl+0 — как было', async ({ page }) => {
   await page.goto('/?deck=tpl#2');
   await expect(page.locator('#ct')).toHaveText(/^2 из/);
   const stage = page.locator('.stage');
   const width = async () => (await stage.boundingBox())!.width;
   const w0 = await width();
   await page.keyboard.press('+');
-  await page.keyboard.press('+');
-  await expect(page.locator('#zpill')).toHaveText('130 %');
-  await expect.poll(width).toBeCloseTo(w0 * 1.3, 0);
-  const x0 = (await stage.boundingBox())!.x;
-  await page.mouse.move(400, 300);
-  await page.mouse.down();
-  await page.mouse.move(300, 300, { steps: 4 });
-  await page.mouse.up();
-  expect((await stage.boundingBox())!.x).toBeLessThan(x0 - 50);
+  await expect(page.locator('#zpill')).toContainText('Крупнее · 110 %');
+  await expect.poll(width).toBeGreaterThan(w0 * 1.03);
+  // Плавный переход масштаба закончился
+  await expect(stage).not.toHaveClass(/zoom-anim/);
+  expect(await width()).toBeLessThanOrEqual(w0 * 1.1 + 1);
+  // Весь текст слайда — в окне
+  const inside = () => page.locator('.slide.on').evaluate((s) => {
+    const r = document.createRange();
+    const w = document.createTreeWalker(s, NodeFilter.SHOW_TEXT);
+    for (let n = w.nextNode(); n; n = w.nextNode()) {
+      if (!n.nodeValue!.trim() || n.parentElement!.closest('.corner-logo')) continue;
+      r.selectNodeContents(n);
+      for (const b of r.getClientRects()) if (b.width && (b.left < -1 || b.right > innerWidth + 1 || b.top < -1)) return n.nodeValue;
+    }
+    return '';
+  });
+  expect(await inside()).toBe('');
   await page.keyboard.press('ArrowRight');
   await expect(page.locator('#ct')).toHaveText(/^3 из/);
-  await expect.poll(width).toBeCloseTo(w0 * 1.3, 0);
-  await page.keyboard.press('0');
+  await expect.poll(width).toBeGreaterThan(w0 * 1.01);
+  await page.reload();
+  await expect.poll(width).toBeGreaterThan(w0 * 1.01);
+  await page.keyboard.press('Control+0');
   await expect.poll(width).toBeCloseTo(w0, 0);
 });
 

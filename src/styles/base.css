@@ -26,10 +26,9 @@ body {
   box-shadow: var(--shadow-md);
   background: radial-gradient(var(--bd) 1px, transparent 1px) 0 0 / 26px 26px, var(--bg);
 }
-/* Масштаб при показе (DeckView.setZoom): шаг клавишей — плавно, перетаскивание — сразу */
+/* «Крупнее» при показе (DeckView.fitContent): шаг клавишей — плавно */
 .stage.zoom-anim { transition: transform .3s cubic-bezier(.22, 1, .36, 1); }
-.viewport.zoomed { cursor: grab; }
-.viewport.zoomed.panning, .viewport.zoomed.panning * { cursor: grabbing !important; }
+.stage.zoomed > .slide > .corner-logo { opacity: 0; transition: opacity .2s; }
 
 .slide {
   display: none;
