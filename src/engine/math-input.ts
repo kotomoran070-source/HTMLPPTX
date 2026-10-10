@@ -11,7 +11,8 @@
  *   vec(a), bar(x), abs(x)        векторы, черта, модуль
  *   слова по-русски, "в кавычках"  обычным текстом: единицы, пояснения
  *   несколько строк               столбиком, выровнено по знаку «=»
- * Есть «\» — значит, это LaTeX: исходник идёт как есть.
+ *   [[2ab]], ~~x~~                выделить цветом, зачеркнуть («сокращается»)
+ * Есть «\» — значит, это LaTeX: исходник идёт как есть (выделить — \hl{…}, зачеркнуть — \cancel{…}).
  *
  * Живые числа: {{x}} и {{=m*a}} — значения по ползункам слайда, как в тексте.
  */
@@ -91,6 +92,13 @@ function lex(src: string): Tok[] {
         i = end + 1;
         continue;
       }
+    }
+    // [[выделить]] и ~~зачеркнуть~~
+    const pair = src.slice(i, i + 2);
+    if (pair === '[[' || pair === ']]' || pair === '~~') {
+      out.push({ t: 'ch', v: pair });
+      i += 2;
+      continue;
     }
     const op = OPS.find(([k]) => src.startsWith(k, i));
     if (op) {
@@ -204,6 +212,13 @@ class Parser {
         const tall = /\\frac|\\sum|\\int|\\prod|\\sqrt/.test(inner);
         const [l, r] = t.v === '(' ? ['(', ')'] : ['[', ']'];
         return { tex: tall ? `\\left${l}${inner}\\right${r}` : `${l}${inner}${r}`, inner };
+      }
+      if (t.v === '[[' || t.v === '~~') {
+        this.i++;
+        const close = t.v === '[[' ? ']]' : '~~';
+        const inner = this.seq(close);
+        if (this.peek()?.t === 'ch' && (this.peek() as { v: string }).v === close) this.i++;
+        return { tex: t.v === '[[' ? `\\hl{${inner}}` : `\\cancel{${inner}}` };
       }
       this.i++;
       if (t.v === '√') return { tex: `\\sqrt{${this.arg()}}` };
@@ -358,3 +373,26 @@ export function mathTex(src: string, vars: Vars = {}): string {
 
 /** Есть ли в исходнике живые числа */
 export const hasLive = (src: unknown): boolean => typeof src === 'string' && /\{\{[^{}]+\}\}/.test(src);
+
+/** Первый «=» строки вне скобок (не часть <=, >=, !=, =>) — где кончается левая часть */
+function topEq(s: string): number {
+  let d = 0;
+  for (let k = 0; k < s.length; k++) {
+    const c = s[k];
+    if ('([{'.includes(c)) d++;
+    else if (')]}'.includes(c)) d--;
+    else if (c === '=' && d === 0 && !'<>!=~'.includes(s[k - 1] ?? '') && !'=>'.includes(s[k + 1] ?? '')) return k;
+  }
+  return -1;
+}
+
+/**
+ * Шаги превращения: каждая строка исходника — формула целиком. Строка, которая начинается
+ * с «=», продолжает первую: левая часть подставляется сама — (a+b)^2, «= a^2 + …».
+ */
+export function stepLines(src: string): string[] {
+  const lines = String(src ?? '').split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const k = lines.length ? topEq(lines[0]) : -1;
+  const lhs = k >= 0 ? lines[0].slice(0, k).trim() : lines[0];
+  return lines.map((l, i) => (i > 0 && l.startsWith('=') && !l.startsWith('=>') ? `${lhs} ${l}` : l));
+}

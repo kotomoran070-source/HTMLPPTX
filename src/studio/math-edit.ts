@@ -9,7 +9,7 @@ import { esc } from '../engine/html';
 import type { Deck } from '../types';
 
 /** Заготовка: «|» — где окажется курсор (выделенное попадает туда же) */
-type Snip = [label: string, simple: string, latex: string, title?: string];
+type Snip = [label: string, simple: string, latex: string, title?: string, cls?: string];
 const SNIPS: Snip[] = [
   ['a/b', '(|)/()', '\\frac{|}{}', 'Дробь'],
   ['x²', '^(|)', '^{|}', 'Степень'],
@@ -24,6 +24,9 @@ const SNIPS: Snip[] = [
   ['±', ' +- ', ' \\pm '],
   ['→', ' -> ', ' \\to '],
   ['·', ' * ', ' \\cdot '],
+  // Выделить цветом и зачеркнуть («сокращается») — выделенный кусок записи или пустое место под курсором
+  ['a', '[[|]]', '\\hl{|}', 'Выделить цветом', 'mk-hl'],
+  ['x', '~~|~~', '\\cancel{|}', 'Зачеркнуть', 'mk-cancel'],
 ];
 
 let open: { close: () => void } | null = null;
@@ -62,7 +65,7 @@ export function editMath(ed: Editor, deck: () => Deck, stage: () => HTMLElement,
   el.dataset.edKeep = '';
   el.innerHTML = `<textarea class="st-mathed-src" rows="2" spellcheck="false" aria-label="Формула" placeholder="x^2 + 1/2 · sqrt(x) · alpha · есть «\\» — LaTeX"></textarea>`
     + `<div class="st-mathed-err" hidden></div>`
-    + `<div class="st-mathed-keys">${SNIPS.map(([l, , , t], k) => `<button type="button" data-k="${k}"${t ? ` aria-label="${t}"` : ''}>${esc(l)}</button>`).join('')}`
+    + `<div class="st-mathed-keys">${SNIPS.map(([l, , , t, c], k) => `<button type="button" data-k="${k}"${c ? ` class="${c}"` : ''}${t ? ` aria-label="${t}"` : ''}>${esc(l)}</button>`).join('')}`
     + (vars.length ? `<button type="button" class="live" data-live aria-label="Живое число: значение ползунка «${esc(vars[0])}»">{{${esc(vars[0])}}}</button>` : '')
     + `</div>`;
   document.body.appendChild(el);

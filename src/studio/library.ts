@@ -47,7 +47,7 @@ const kit = (html: string, texts: string[], photos = 0) => ({ type: 'html', html
 const T = (i: number, style = '', cls = '', tag = 'div') => `<${tag} data-t="${i}"${cls ? ` class="${cls}"` : ''}${style ? ` style="${style}"` : ''}></${tag}>`;
 const HEAD = 'font-family:var(--font-head, var(--font))';
 /** Формула: простая запись или LaTeX (блок math) */
-const eq = (tex: string, size?: number, color?: string) => ({ type: 'math', tex, ...(size ? { size } : {}), ...(color ? { color } : {}) });
+const eq = (tex: string, size?: number, color?: string): Block => ({ type: 'math', tex, ...(size ? { size } : {}), ...(color ? { color } : {}) });
 
 /** Стартовый код живой вставки: частицы в цветах темы, разбегаются от курсора */
 export const EMBED_SAMPLE = `<!doctype html>
@@ -265,7 +265,11 @@ export const LIBRARY: Category[] = [
       { name: 'Тождество Эйлера', w: 360, make: () => eq('e^(i pi) + 1 = 0', 48) },
       { name: 'Система', w: 300, make: () => eq('\\begin{cases} x + y = 5 \\\\ x - y = 1 \\end{cases}') },
       { name: 'Матрица', w: 340, make: () => eq('A = \\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}') },
-      { name: 'Вывод столбиком', w: 520, make: () => eq('(a+b)^2 = (a+b)(a+b)\n= a^2 + 2ab + b^2', 36) },
+      // По шагам: строки открываются по щелчку при показе
+      { name: 'Решение по шагам', w: 380, make: () => ({ ...eq('2x + 6 = 10\n2x = 4\nx = [[2]]', 40), steps: 'lines' }) },
+      // Превращение: одинаковые части перелетают из строки в строку
+      { name: 'Превращение', w: 640, make: () => ({ ...eq('(a+b)^2\n= (a+b)(a+b)\n= a^2 + ab + ba + b^2\n= a^2 + [[2ab]] + b^2', 44), steps: 'morph' }) },
+      { name: 'Сокращение', w: 420, make: () => eq('(~~3~~ * 7)/(~~3~~ * 5) = [[7/5]]', 48) },
       {
         // Живые числа: формула считает по ползункам и пересчитывается при показе
         name: 'Живая формула', w: 760, pw: 520, make: () => ({

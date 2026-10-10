@@ -1,7 +1,7 @@
 // Формулы: простая запись → LaTeX, живые числа из ползунков, LaTeX как есть
 import { expect, test } from '@playwright/test';
 import temml from 'temml';
-import { mathTex, texNumber, toTex } from '../../src/engine/math-input';
+import { mathTex, stepLines, texNumber, toTex } from '../../src/engine/math-input';
 
 /** Без лишних пробелов — сравнивать проще */
 const t = (s: string) => toTex(s).replace(/\s+/g, ' ').trim();
@@ -68,4 +68,22 @@ test('всё, что выдаёт простая запись, Temml поним�
     const tex = mathTex(src, { m: 2, a: 3 });
     expect(() => temml.renderToString(tex, { throwOnError: true }), `${src} → ${tex}`).not.toThrow();
   }
+});
+
+test('выделить [[…]] и зачеркнуть ~~…~~; ~= — по-прежнему «примерно»', () => {
+  expect(t('a^2 + [[2ab]] + b^2')).toBe('a^{2} + \\hl{2ab} + b^{2}');
+  expect(t('(~~3~~ * 7)/(~~3~~ * 5)')).toBe('\\frac{\\cancel{3} \\cdot 7}{\\cancel{3} \\cdot 5}');
+  expect(t('[[a/b]]')).toBe('\\hl{\\frac{a}{b}}');
+  expect(t('x ~= 3')).toBe('x \\approx 3');
+  const macros = { '\\hl': '\\class{hl}{#1}' };
+  const html = temml.renderToString(toTex('x + [[2ab]] - ~~y~~'), { throwOnError: true, macros, trust: (c: { command?: string; class?: string }) => c.command === '\\class' && c.class === 'hl' });
+  expect(html).toContain('class="hl"');
+  expect(html).toContain('<menclose');
+});
+
+test('шаги превращения: строка с «=» продолжает первую', () => {
+  expect(stepLines('(a+b)^2\n= (a+b)(a+b)\n= a^2 + 2ab + b^2')).toEqual(['(a+b)^2', '(a+b)^2 = (a+b)(a+b)', '(a+b)^2 = a^2 + 2ab + b^2']);
+  expect(stepLines('y = (x+1)^2 - 1\n= x^2 + 2x')).toEqual(['y = (x+1)^2 - 1', 'y = x^2 + 2x']);
+  expect(stepLines('x <= 3\nx => 2')).toEqual(['x <= 3', 'x => 2']);
+  expect(stepLines('2x + 6 = 10\n\n2x = 4')).toEqual(['2x + 6 = 10', '2x = 4']);
 });

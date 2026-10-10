@@ -114,6 +114,33 @@ test('«Крупнее»: + — содержимое крупнее (шаг 2 %,
   await expect.poll(width).toBeCloseTo(w0, 0);
 });
 
+test('формула по шагам: «Далее» открывает строки и превращение, потом листает; назад — слайд целиком', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=math#2');
+  await expect(page.locator('#ct')).toHaveText(/^2 из/);
+  const lines = page.locator('.slide.on [data-steps="lines"]');
+  const morph = page.locator('.slide.on [data-steps="morph"]');
+  await expect(lines.locator('mtr.ms-off')).toHaveCount(2);
+  await expect(morph.locator('.math-step.on')).toHaveText(/^\(a\+b\)2$/);
+  await page.keyboard.press('ArrowRight');
+  await expect(lines.locator('mtr.ms-off')).toHaveCount(1);
+  await page.keyboard.press('ArrowRight');
+  await expect(lines.locator('mtr.ms-off')).toHaveCount(0);
+  await expect(lines.locator('.hl')).toHaveText('2');
+  await page.keyboard.press('ArrowRight');
+  await expect(morph.locator('.math-step.on')).toContainText('=(a+b)(a+b)');
+  await expect(page.locator('#ct')).toHaveText(/^2 из/);
+  // Шаги кончились — следующий слайд; назад — этот целиком
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('#ct')).toHaveText(/^3 из/);
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.locator('#ct')).toHaveText(/^2 из/);
+  await expect(lines.locator('mtr.ms-off')).toHaveCount(0);
+  await page.keyboard.press('ArrowLeft');
+  await expect(morph.locator('.math-step.on')).toHaveText(/^\(a\+b\)2$/);
+  expect(errors).toEqual([]);
+});
+
 test('морф: пары перелетают, после перехода — ровно новый слайд', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=morph#1');

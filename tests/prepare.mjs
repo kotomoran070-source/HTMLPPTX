@@ -42,5 +42,15 @@ fs.mkdirSync(path.join(dir, 'schemes'));
 fs.copyFileSync(path.join(root, 'tests', 'e2e', 'schemes.yaml'), path.join(dir, 'schemes', 'deck.yaml'));
 // math — пустой слайд: формулы вставляются из «Вставка → Уравнение»
 fs.mkdirSync(path.join(dir, 'math'));
-fs.writeFileSync(path.join(dir, 'math', 'deck.yaml'), 'title: Формулы\nslides:\n  - template: canvas\n    free: []\n');
+fs.writeFileSync(path.join(dir, 'math', 'deck.yaml'), `title: Формулы
+slides:
+  - template: canvas
+    free: []
+  - template: canvas
+    free:
+      - {type: math, tex: "2x + 6 = 10\\n2x = 4\\nx = [[2]]", steps: lines, place: {x: 80, y: 80, w: 440}}
+      - {type: math, tex: "(a+b)^2\\n= (a+b)(a+b)", steps: morph, place: {x: 560, y: 120, w: 640}}
+  - template: canvas
+    free: [{type: text, text: Конец, place: {x: 80, y: 80, w: 400}}]
+`);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

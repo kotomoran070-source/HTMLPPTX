@@ -3,6 +3,7 @@ import { countUp } from './count-up';
 import { morph as morphTo, unmorph } from './morph';
 import { getAt, type Path } from './data';
 import { Renderer } from './render';
+import { applySteps, stepTotal } from './steps';
 
 export const W = 1280;
 export const H = 720;
@@ -145,6 +146,57 @@ export class DeckView {
       const fresh = tmp.firstElementChild;
       if (fresh) morph(node, fresh);
     });
+    // Пересчитанная формула по шагам — в том же шаге
+    this.reapplySteps(i);
+  }
+
+  /**
+   * Шаги слайдов при показе (формула по шагам): сколько открыто. Нет записи — слайд целиком:
+   * так в студии, на миниатюрах и при печати.
+   */
+  private stepK = new Map<number, number>();
+  /** Слайд открыт: шаги с начала, а при возврате назад — все открыты, как в PowerPoint */
+  startSteps(i: number, full: boolean): void {
+    const el = this.slides[i];
+    const total = el ? stepTotal(el) : 0;
+    if (!total) {
+      this.stepK.delete(i);
+      return;
+    }
+    this.stepK.set(i, full ? total : 0);
+    applySteps(el, full ? total : 0, false);
+  }
+  /** Сколько шагов открыто (для второго окна); undefined — шагов нет */
+  stepsAt(i: number): number | undefined {
+    return this.stepK.get(i);
+  }
+  setSteps(i: number, k: number, animate = false): void {
+    const el = this.slides[i];
+    if (!el || !this.stepK.has(i)) return;
+    const v = Math.max(0, Math.min(stepTotal(el), k));
+    if (v === this.stepK.get(i)) return;
+    this.stepK.set(i, v);
+    applySteps(el, v, animate && !reducedMotion());
+  }
+  /** «Далее»: следующий шаг открытого слайда; false — шагов не осталось, листать */
+  stepFwd(): boolean {
+    const i = this.current;
+    const k = this.stepK.get(i);
+    if (k === undefined || k >= stepTotal(this.slides[i])) return false;
+    this.setSteps(i, k + 1, true);
+    return true;
+  }
+  /** «Назад»: шаг назад; false — слайд уже в начале, листать */
+  stepBack(): boolean {
+    const i = this.current;
+    const k = this.stepK.get(i);
+    if (!k) return false;
+    this.setSteps(i, k - 1, true);
+    return true;
+  }
+  private reapplySteps(i: number): void {
+    const k = this.stepK.get(i);
+    if (k !== undefined && this.slides[i]) applySteps(this.slides[i], k, false);
   }
 
   private base() {
@@ -174,6 +226,7 @@ export class DeckView {
     const cur = this.current;
     this.current = -1;
     if (cur >= 0 && this.slides.length) this.show(Math.min(cur, this.slides.length - 1));
+    [...this.stepK.keys()].forEach((i) => this.reapplySteps(i));
   }
 
   /**
@@ -200,6 +253,7 @@ export class DeckView {
       this.slides[i] = el;
       this.cleanups[i] = r.activate(el, this.base());
       this.sigs[i] = sig;
+      this.reapplySteps(i);
     });
   }
 

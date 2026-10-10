@@ -91,6 +91,7 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'size', label: 'Размер, px', type: 'number', min: 12, max: 200, placeholder: '40' },
       { k: 'align', label: 'Выравнивание', type: 'select', options: [['', 'По центру'], ['left', 'По левому краю'], ['right', 'По правому краю']] },
       { k: 'font', label: 'Шрифт', type: 'select', options: [['', 'Современный'], ['classic', 'Классический (как в PowerPoint)']] },
+      { k: 'steps', label: 'При показе', type: 'select', options: [['', 'Сразу целиком'], ['lines', 'По щелчку — строка за строкой'], ['morph', 'По щелчку — превращение']], hint: 'Каждая строка формулы — шаг. Превращение: строка — формула целиком, одинаковые части перелетают; строка с «=» в начале продолжает первую' },
       { k: 'color', label: 'Цвет', type: 'color' },
     ],
   },

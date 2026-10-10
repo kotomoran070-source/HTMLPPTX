@@ -375,6 +375,8 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     index = Math.max(0, Math.min(count() - 1, i));
     if (index !== was) ink.apply({ op: 'clear' });
     view.show(index);
+    // Формула по шагам: вперёд — с первого шага, назад — целиком (окно показа делает так же)
+    if (index !== was) view.startSteps(index, index < was);
     // Экономный режим: появление слайда доигрывает, потом сцена замирает
     settle(1800);
     const s = deck.slides[index];
@@ -404,6 +406,15 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     render(target);
     sync.send({ type: 'goto', index: target }, toMain());
   }
+
+  /** Шаг формулы на слайде (dir — вперёд или назад): здесь и у зрителей; false — шагов нет, листать */
+  function step(dir: 1 | -1): boolean {
+    if (!(dir > 0 ? view.stepFwd() : view.stepBack())) return false;
+    sync.send({ type: 'step', index, steps: view.stepsAt(index) ?? 0 }, toMain());
+    return true;
+  }
+  const next = () => { if (!step(1)) go(index + 1); };
+  const prev = () => { if (!step(-1)) go(index - 1); };
 
   function setBlack(v: boolean, send = true): void {
     black = v;
@@ -445,8 +456,8 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   });
 
   // --- управление ---
-  $('nx').addEventListener('click', () => go(index + 1));
-  $('pv').addEventListener('click', () => go(index - 1));
+  $('nx').addEventListener('click', next);
+  $('pv').addEventListener('click', prev);
 
   // --- свайп по заметкам (телефон): содержимое едет за пальцем, дальше трети или резкий взмах —
   // соседний слайд, иначе пружинит назад; на первом и последнем — «резиновый» упор.
@@ -498,7 +509,10 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       const dir = dx < 0 ? 1 : -1;
       const flick = Math.sign(v) === -dir && Math.abs(v) > 0.4 && Math.abs(dx) > 30;
       const can = dir > 0 ? index < count() - 1 : index > 0;
-      if (can && (Math.abs(dx) > w / 3 || flick)) {
+      if ((Math.abs(dx) > w / 3 || flick) && step(dir)) {
+        // Шаг формулы на слайде: сам слайд остаётся
+        move(0, 220);
+      } else if (can && (Math.abs(dx) > w / 3 || flick)) {
         // Уезжает в сторону свайпа, новый слайд въезжает с противоположной
         move(-dir * w, 170, 'ease-in');
         side.style.opacity = '0';
@@ -622,8 +636,8 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       return;
     }
     const map: Record<string, () => void> = {
-      ArrowRight: () => go(index + 1), ArrowDown: () => go(index + 1), PageDown: () => go(index + 1), ' ': () => go(index + 1),
-      ArrowLeft: () => go(index - 1), ArrowUp: () => go(index - 1), PageUp: () => go(index - 1), Backspace: () => go(index - 1),
+      ArrowRight: next, ArrowDown: next, PageDown: next, ' ': next,
+      ArrowLeft: prev, ArrowUp: prev, PageUp: prev, Backspace: prev,
       Home: () => go(0), End: () => go(count() - 1),
     };
     const letters: Record<string, () => void> = {
@@ -743,7 +757,9 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       lastState = Date.now();
       $('link').textContent = 'Связь с окном показа есть';
       $('link').classList.add('ok');
-      if (m.index !== index) render(m.index);
+      const same = m.index === index;
+      if (!same) render(m.index);
+      if (m.steps !== undefined) view.setSteps(index, m.steps, same);
       if (m.theme !== currentTheme()) { remoteTheme = true; setTheme(m.theme, false); remoteTheme = false; }
       if (m.black !== black) setBlack(m.black, false);
     }

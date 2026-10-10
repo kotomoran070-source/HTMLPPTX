@@ -16,7 +16,7 @@
 .math-block.at-left math { margin-left: 0; }
 .math-block.at-right math { margin-right: 0; }
 /* Строкой, а не отдельным блоком: так формулу ровняет text-align, а знаки остаются крупными, как в выключной формуле */
-.math-block math {
+.math-block math, .math-block math.tml-display {
   /* Блоком по ширине формулы: высота — вся формула, а край выбирают поля (выравнивание) */
   display: block math;
   width: fit-content;
@@ -38,3 +38,11 @@
 .math-block .math-wait { opacity: .5; }
 .math-block .math-err { color: #DC2626; text-decoration: underline wavy color-mix(in srgb, #DC2626 60%, transparent); text-underline-offset: 4px; }
 .math-block .math-empty { color: var(--mu); }
+/* Выделено ([[…]] или \hl{…}): цвет акцента и лёгкая подложка */
+.math-block .hl { color: var(--ac); background: color-mix(in srgb, var(--ac) 14%, transparent); border-radius: .14em; padding: 0 .08em; }
+/* По шагам: строки столбика ждут своего щелчка на своём месте — формула не прыгает */
+.math-block mtr.ms-off { visibility: hidden; }
+/* Превращение: все шаги в одной клетке (рамка — по самому большому), виден один */
+.math-steps { display: grid; }
+.math-step { grid-area: 1 / 1; visibility: hidden; }
+.math-step:is(.on, .leaving) { visibility: visible; }

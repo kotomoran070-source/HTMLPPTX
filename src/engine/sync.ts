@@ -3,7 +3,10 @@ import type { InkMsg } from './ink';
 import type { Theme } from './theme';
 
 export type SyncMsg =
-  | { type: 'state'; index: number; theme: Theme; black: boolean }
+  /** steps — сколько шагов слайда открыто (формула по шагам); нет — шагов нет */
+  | { type: 'state'; index: number; theme: Theme; black: boolean; steps?: number }
+  /** Окно докладчика открыло шаг слайда — окно показа повторяет */
+  | { type: 'step'; index: number; steps: number }
   | { type: 'goto'; index: number }
   | { type: 'theme'; theme: Theme }
   | { type: 'black'; value: boolean }

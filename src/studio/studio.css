@@ -1085,4 +1085,6 @@ body.editing .stage .st-shot :is(.st-shot-keep, .st-shot-keep *) { outline: none
 .st-mathed-keys { display: flex; flex-wrap: wrap; gap: 4px; }
 .st-mathed-keys button { min-width: 32px; height: 30px; padding: 0 8px; border: 1px solid var(--bd); border-radius: 7px; background: var(--alt); color: var(--tx); font: 500 14px "Fira Math", "Cambria Math", var(--font); cursor: pointer; }
 .st-mathed-keys button:hover, .st-mathed-keys button:focus-visible { border-color: var(--ac); background: var(--acs); color: var(--ach); outline: none; }
+.st-mathed-keys button.mk-hl { margin-left: 6px; color: var(--ac); background: color-mix(in srgb, var(--ac) 16%, var(--alt)); font-style: italic; }
+.st-mathed-keys button.mk-cancel { font-style: italic; text-decoration: line-through; text-decoration-thickness: 2px; }
 .st-mathed-keys button.live { margin-left: auto; font: 600 12.5px var(--mono, "JetBrains Mono", ui-monospace, monospace); color: var(--ach); background: var(--acs); border-color: color-mix(in srgb, var(--ac) 35%, var(--bd)); }

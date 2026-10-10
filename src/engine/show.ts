@@ -121,7 +121,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   addEventListener('resize', fit);
   fit();
 
-  const broadcast = () => sync.send({ type: 'state', index, theme: currentTheme(), black });
+  const broadcast = () => sync.send({ type: 'state', index, theme: currentTheme(), black, steps: view.stepsAt(index) });
   let deckTimer = 0;
   const broadcastDeck = () => {
     clearTimeout(deckTimer);
@@ -143,8 +143,11 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     const at = Math.max(0, Math.min(count() - 1, i));
     const next = skip() ? landOn(deck, at, view.index) : at;
     const changed = next !== index || view.index !== next;
+    const back = next < index;
     index = next;
     view.show(index);
+    // Формула по шагам: вперёд — с первого шага, назад — уже целиком (как в PowerPoint); в правке — целиком
+    if (changed) view.startSteps(index, back || !!editor?.active);
     updateChrome();
     // Просили скрытый слайд — в адресе тот, что на самом деле показан
     if ((push || next !== at) && changed) history.replaceState(null, '', `#${index + 1}`);
@@ -160,6 +163,16 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       editor?.onSlideChange();
       if (ovOpen()) markCurrent();
     }
+  }
+
+  /** «Далее» и «Назад»: сначала шаги слайда (формула по шагам), потом листание */
+  function next(): void {
+    if (!editor?.active && view.stepFwd()) broadcast();
+    else go(index + 1);
+  }
+  function prev(): void {
+    if (!editor?.active && view.stepBack()) broadcast();
+    else go(index - 1);
   }
 
   // --- обзор ---
@@ -294,6 +307,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       },
       relayout: () => {
         fit();
+        // В правке формула по шагам видна целиком
+        if (editor?.active) view.startSteps(index, true);
         ovBuilt = false;
         if (ovOpen()) { buildOverview(); markCurrent(); }
       },
@@ -478,8 +493,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     bigStep(wheelSum < 0 ? 1 : -1);
     wheelSum = 0;
   }, { passive: false });
-  $('nx').addEventListener('click', () => go(index + 1));
-  $('pv').addEventListener('click', () => go(index - 1));
+  $('nx').addEventListener('click', next);
+  $('pv').addEventListener('click', prev);
   $('thm').addEventListener('click', () => toggleTheme());
   // Тема презентации со слайдами всегда светлыми или всегда тёмными: страница показа — в тон им,
   // переключать нечего (выбор зрителя не запоминается)
@@ -546,8 +561,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     }
     const lower = k.toLowerCase();
     const act: Record<string, () => void> = {
-      ArrowRight: () => go(index + 1), ArrowDown: () => go(index + 1), PageDown: () => go(index + 1), ' ': () => go(index + 1),
-      ArrowLeft: () => go(index - 1), ArrowUp: () => go(index - 1), PageUp: () => go(index - 1), Backspace: () => go(index - 1),
+      ArrowRight: next, ArrowDown: next, PageDown: next, ' ': next,
+      ArrowLeft: prev, ArrowUp: prev, PageUp: prev, Backspace: prev,
       Home: () => go(0), End: () => go(count() - 1),
       '+': () => bigStep(1), '=': () => bigStep(1), '-': () => bigStep(-1),
     };
@@ -583,7 +598,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     if (ovOpen() || editor?.active) return;
     const dx = e.changedTouches[0].clientX - tx;
     const dy = e.changedTouches[0].clientY - ty;
-    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy)) go(index + (dx < 0 ? 1 : -1));
+    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy)) (dx < 0 ? next : prev)();
   });
 
   // --- ссылка на слайд в адресе: #3 ---
@@ -637,6 +652,13 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   });
   sync.on((m, from) => {
     if (m.type === 'goto') go(m.index);
+    // Шаг формулы из окна докладчика или с телефона
+    else if (m.type === 'step') {
+      if (m.index === index) {
+        view.setSteps(index, m.steps, true);
+        broadcast();
+      }
+    }
     else if (m.type === 'spot') { if (m.index === index) view.spot(m.key); }
     else if (m.type === 'zoom') bigStep(m.step, false);
     else if (m.type === 'vars') view.setVars(m.index, m.vars);
