@@ -18,7 +18,9 @@ import type { Deck, DeckTheme } from '../types';
 import { logoPlate } from '../engine/render';
 import { logoColors } from './logo-colors';
 import { showPopover } from './menu';
-import { backdropStrip, bindBackdropStrip } from './backdrop-pick';
+import { backdropStrip, bindBackdropStrip, bindTune, tuneHtml } from './backdrop-pick';
+import { previewBackdrop } from '../components/backdrop/backdrop';
+import { isBackdrop } from '../engine/backdrops';
 import { addMyTheme, captureTheme, downloadTheme, listMyThemes, MY, parseThemeFile, registerMyFonts, removeMyTheme, type MyTheme } from './my-themes';
 import { registerThemeFonts, SPECIMEN, THEME_FONTS, THEME_PRESETS, themeFont, themeFontWeights, type ThemePreset } from './theme-presets';
 
@@ -81,6 +83,25 @@ export function designPanelHtml(): string {
   ${group('Оформление', btn('design.bg', 'image', 'Фон', { big: true, menu: true, title: 'Фон слайдов' }) + btn('design.cards', 'frame', 'Карточки', { big: true, menu: true, title: 'Вид карточек, таблиц и плашек' }) + btn('design.radius', 'corner', 'Углы', { big: true, menu: true, title: 'Скругление углов карточек и картинок' }) + btn('design.backdrop', 'play', 'Анимация', { big: true, menu: true, title: 'Анимированный фон всех слайдов: переливы, волны, звёзды, сеть… У отдельного слайда — свой в панели слайда' }) + btn('design.logo', 'sparkle', 'Логотип', { big: true, menu: true, title: 'Плашка под логотипом: в цветах темы или в цветах самого логотипа' }))}
   ${group('Слайды', `<div class="st-rstack">${chk('design.mode.auto', 'Как у зрителя', 'Слайды светлые или тёмные — как тема у того, кто смотрит')}${chk('design.mode.light', 'Всегда светлые', 'Слайды светлые при любой теме у зрителя')}${chk('design.mode.dark', 'Всегда тёмные', 'Слайды тёмные при любой теме у зрителя')}</div>`)}
 </div>`;
+}
+
+/**
+ * Примерка темы на открытом слайде целиком: палитра, шрифты, фон — и её анимированный фон.
+ * У темы его нет — анимация прежней темы на время примерки прячется. Свой фон слайда важнее темы.
+ * null — примерка заканчивается
+ */
+export function tryTheme(deck: Deck, stage: HTMLElement, t: DeckTheme | null): void {
+  previewTheme(t, stage);
+  if (!t) return previewBackdrop(stage, null);
+  const idx = Number(stage.querySelector<HTMLElement>('.slide.on')?.dataset.index);
+  const own = deck.slides[idx]?.backdrop;
+  if (own === 'none' || isBackdrop(own)) return previewBackdrop(stage, null);
+  const want = isBackdrop(t.backdrop) ? t.backdrop : null;
+  const look = { opacity: t.backdropOpacity, speed: t.backdropSpeed };
+  const now = isBackdrop(deck.theme?.backdrop) ? deck.theme.backdrop : null;
+  // Тот же фон с тем же видом — живой остаётся, без мигания
+  if (want === now && look.opacity === deck.theme?.backdropOpacity && look.speed === deck.theme?.backdropSpeed) return previewBackdrop(stage, null);
+  previewBackdrop(stage, want ?? 'none', look);
 }
 
 /** Вид слайдов, которые видно сейчас: постоянный у темы или как у интерфейса */
@@ -206,7 +227,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
   };
 
   const applyPreset = async (p: ThemePreset & { my?: MyTheme }) => {
-    previewTheme(null);
+    tryTheme(deck, h.stage(), null);
     let add = p.id === 'standard' ? [] : await fontsFor([p.theme.font, p.theme.head]);
     if (!add) return;
     if (p.my) {
@@ -226,7 +247,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
   };
 
   /** Примерка при наведении: на открытом слайде, пока указатель над вариантом */
-  const tryOn = (t: DeckTheme | null) => previewTheme(t, h.stage());
+  const tryOn = (t: DeckTheme | null) => tryTheme(deck, h.stage(), t);
 
   /** Наведение и уход с вариантов всплывающей панели: примерка темы */
   const hoverTry = (el: HTMLElement, sel: string, make: (b: HTMLElement) => DeckTheme | null) => {
@@ -234,10 +255,10 @@ export function designCommands(h: DesignHost): Record<string, Command> {
       const b = (e.target as Element).closest<HTMLElement>(sel);
       if (b) tryOn(make(b));
     });
-    el.addEventListener('pointerleave', () => previewTheme(null));
+    el.addEventListener('pointerleave', () => tryOn(null));
     // Панель закрылась (выбор, Esc, щелчок мимо) — примерка заканчивается
     new MutationObserver((_m, o) => {
-      if (!el.isConnected) { previewTheme(null); o.disconnect(); }
+      if (!el.isConnected) { tryOn(null); o.disconnect(); }
     }).observe(document.body, { childList: true });
   };
 
@@ -295,12 +316,15 @@ export function designCommands(h: DesignHost): Record<string, Command> {
   const backdropMenu = () => {
     const at = anchor('design.backdrop');
     if (!at) return;
-    const el = showPopover(at, `<div class="st-plabel">Анимация фона всех слайдов</div>${backdropStrip(theme().backdrop ?? '')}<p class="st-bdnote">Наведите — фон примерится на слайде. У отдельного слайда фон меняется в панели слайда</p>`, (b) => {
+    const t = theme();
+    const tune = isBackdrop(t.backdrop) ? tuneHtml({ backdropOpacity: t.backdropOpacity ?? 1, backdropSpeed: t.backdropSpeed ?? 1 }) : '';
+    const el = showPopover(at, `<div class="st-plabel">Анимация фона всех слайдов</div>${backdropStrip(t.backdrop ?? '')}${tune}<p class="st-bdnote">Наведите — фон примерится на слайде. У отдельного слайда фон меняется в панели слайда</p>`, (b) => {
       const v = b.dataset.backdrop;
       if (v === undefined) return null;
       return { run: () => patch({ backdrop: v || undefined }) };
     }, 'st-bdpop');
     bindBackdropStrip(el, h.stage);
+    bindTune(el, h.stage, (k, v) => patch({ [k]: v }));
   };
 
   // ---------- свои темы ----------
@@ -561,9 +585,9 @@ export function bindDesignStrip(h: DesignHost, cmds: Record<string, Command>): v
   strip.addEventListener('pointerover', (e) => {
     const b = (e.target as Element).closest<HTMLElement>('.st-dz-mini');
     const p = b ? findTheme(b.dataset.themeId) : null;
-    if (p) previewTheme(p.theme, h.stage());
+    if (p) tryTheme(h.deck, h.stage(), p.theme);
   });
-  strip.addEventListener('pointerleave', () => previewTheme(null));
+  strip.addEventListener('pointerleave', () => tryTheme(h.deck, h.stage(), null));
   strip.addEventListener('click', (e) => {
     const b = (e.target as Element).closest<HTMLElement>('.st-dz-mini');
     const id = b?.dataset.themeId;

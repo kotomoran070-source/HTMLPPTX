@@ -22,3 +22,16 @@ export function slideBackdrop(slide: SlideData, deck: Deck): BackdropKind | null
   if (isBackdrop(slide.backdrop)) return slide.backdrop;
   return isBackdrop(deck.theme?.backdrop) ? deck.theme.backdrop : null;
 }
+
+const clampNum = (v: unknown, lo: number, hi: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : undefined);
+
+/** Заметность и скорость анимированного фона: у слайда свои, иначе — темы, иначе 1 */
+export function backdropLook(slide: SlideData, deck: Deck): { opacity: number; speed: number } {
+  return {
+    opacity: clampNum(slide.backdropOpacity, 0.1, 1) ?? clampNum(deck.theme?.backdropOpacity, 0.1, 1) ?? 1,
+    speed: clampNum(slide.backdropSpeed, 0.25, 3) ?? clampNum(deck.theme?.backdropSpeed, 0.25, 3) ?? 1,
+  };
+}
+
+/** Заметность фона слайда-холста (bg), 0,1–1 */
+export const bgOpacity = (slide: SlideData) => clampNum(slide.bgOpacity, 0.1, 1) ?? 1;

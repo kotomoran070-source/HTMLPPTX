@@ -5,7 +5,8 @@ import { fontItems, fontPicker, type FontItem } from '../engine/editor/font-pick
 import { rowOf } from '../engine/editor/rows';
 import { toView, viewOf, VIEWS } from './block-views';
 import { getAt, setAt, type Path } from '../engine/data';
-import { backdropStrip, bindBackdropStrip, bindRail, railNav } from './backdrop-pick';
+import { backdropStrip, bindBackdropStrip, bindRail, bindTune, railNav, tuneHtml } from './backdrop-pick';
+import { backdropLook, bgOpacity, slideBackdrop } from '../engine/backdrops';
 import { blockName, keepsRatio } from '../engine/editor/block-edit';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
@@ -97,6 +98,8 @@ export class Inspector {
     }, true);
     root.addEventListener('change', (e) => {
       const el = e.target as HTMLInputElement;
+      // Ползунки фона пишут сами (bindTune)
+      if (el.dataset.tune) return;
       if (el.dataset.t) {
         if (!onFieldChange(el, this.edit)) this.fill();
         return;
@@ -261,7 +264,7 @@ export class Inspector {
     this.parts = el ? partsOf(el) : [];
     const key = sel
       ? `b:${JSON.stringify(sel.free ?? sel.block)}:${sel.type}:${sig}:${sel.free ? rowOf(getAt(deck, sel.free))?.id ?? '' : ''}:${this.parts.map((x) => x.label + x.snippet).join('|')}`
-      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}:${deckFonts(deck.fonts).map((f) => f.name).join('|')}:${deck.theme?.font ?? ''}:${deck.theme?.backdrop ?? ''}:${slideAccent(deck.slides[i]?.theme) ? 'own' : ''}${deck.slides[i]?.theme?.accent2 ? '2' : ''}`;
+      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}:${String(deck.slides[i]?.backdropOpacity ?? '')}/${String(deck.slides[i]?.backdropSpeed ?? '')}/${String(deck.slides[i]?.bgOpacity ?? '')}/${String(deck.theme?.backdropOpacity ?? '')}/${String(deck.theme?.backdropSpeed ?? '')}:${deckFonts(deck.fonts).map((f) => f.name).join('|')}:${deck.theme?.font ?? ''}:${deck.theme?.backdrop ?? ''}:${slideAccent(deck.slides[i]?.theme) ? 'own' : ''}${deck.slides[i]?.theme?.accent2 ? '2' : ''}`;
     if (key !== this.key) {
       this.key = key;
       // Прокрутка панели сохраняется, когда форма перестраивается (добавили пункт)
@@ -274,6 +277,13 @@ export class Inspector {
       bindBackdropStrip(this.root, () => this.host.stage(), this.host.deck().theme?.backdrop);
       const bgs = this.root.querySelector<HTMLElement>('.st-bgs');
       if (bgs) bindRail(bgs.parentElement!, bgs);
+      bindTune(this.root, () => this.host.stage(), (k, v) => {
+        const at = this.host.index();
+        this.host.editor().commit((d) => {
+          if (v === undefined) delete d.slides[at][k];
+          else d.slides[at][k] = v;
+        }, { rebuild: true });
+      });
     }
     this.fill();
   }
@@ -456,7 +466,7 @@ export class Inspector {
     // Две строки плиток, остальные листаются вбок
     return `<div class="st-p-field"><span>Фон</span><div class="st-bdpick st-bgpick">${prev}<div class="st-bgs" role="radiogroup" aria-label="Фон слайда">${BACKGROUNDS.map(([v, l, look]) =>
       `<button type="button" role="radio" aria-checked="${v === cur}" data-bg="${esc(v)}" title="${esc(l)}"><i style="background:${look}"></i><span>${esc(l)}</span></button>`).join('')}
-<label class="st-bg-own${!known && HEX_RE.test(cur) ? ' on' : ''}" title="Свой цвет — тяните по палитре, слайд меняется сразу"><i style="background:${!known && HEX_RE.test(cur) ? cur : 'conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)'}"></i><input type="color" data-f="bgcolor" aria-label="Свой цвет фона"><span>Свой</span></label></div>${next}</div>
+<label class="st-bg-own${!known && HEX_RE.test(cur) ? ' on' : ''}" title="Свой цвет — тяните по палитре, слайд меняется сразу"><i style="background:${!known && HEX_RE.test(cur) ? cur : 'conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)'}"></i><input type="color" data-f="bgcolor" aria-label="Свой цвет фона"><span>Свой</span></label></div>${next}</div>${cur ? tuneHtml({ bgOpacity: bgOpacity(this.host.deck().slides[this.host.index()]) }) : ''}
 ${!known ? `<p class="st-p-note">Сейчас: <code>${esc(cur.length > 60 ? cur.slice(0, 60) + '…' : cur)}</code></p>` : ''}</div>
 <details class="st-p-more"><summary>CSS фона</summary><label class="st-p-field"><input type="text" data-f="bg" placeholder="как у темы" spellcheck="false"></label></details>`;
   }
@@ -511,7 +521,11 @@ ${own ? `<span class="st-p-color st-p-sac"><input type="color" data-f="saccent" 
 
   /** Анимированный фон слайда: лента образцов, наведение — примерка на слайде */
   private backdropHtml(cur: string): string {
-    return `<div class="st-p-field"><span>Анимация фона</span>${backdropStrip(cur, this.host.deck().theme?.backdrop)}</div>`;
+    const deck = this.host.deck();
+    const s = deck.slides[this.host.index()];
+    // Ползунки — когда у слайда есть анимированный фон (свой или темы)
+    const look = s && slideBackdrop(s, deck) ? backdropLook(s, deck) : null;
+    return `<div class="st-p-field"><span>Анимация фона</span>${backdropStrip(cur, deck.theme?.backdrop)}${look ? tuneHtml({ backdropOpacity: look.opacity, backdropSpeed: look.speed }) : ''}</div>`;
   }
 
   private slideHtml(): string {

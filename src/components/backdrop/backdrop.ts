@@ -17,6 +17,9 @@ export { BACKDROPS, isBackdrop, type BackdropKind } from '../../engine/backdrops
 
 interface BackdropProps extends Block {
   kind: BackdropKind;
+  /** Заметность 0,1–1 и скорость 0,25–3 (engine/backdrops.ts → backdropLook) */
+  opacity?: number;
+  speed?: number;
 }
 
 const QUAD_VS = `attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}`;
@@ -517,7 +520,9 @@ function networkScene(gl: WebGLRenderingContext, colors: Pal, lite: boolean): Sc
 
 defineBlock<BackdropProps>('backdrop', {
   render(p) {
-    return `<div class="backdrop bd-${p.kind}" aria-hidden="true"></div>`;
+    const op = Number(p.opacity);
+    const sp = Number(p.speed);
+    return `<div class="backdrop bd-${p.kind}" aria-hidden="true"${op > 0 && op < 1 ? ` style="--bd-op:${op}"` : ''}${sp > 0 && sp !== 1 ? ` data-speed="${sp}"` : ''}></div>`;
   },
 
   mount(el, p, ctx) {
@@ -572,7 +577,8 @@ defineBlock<BackdropProps>('backdrop', {
         return;
       }
       last = now;
-      clock += dt;
+      // Скорость читается каждый кадр: ползунок в студии меняет её на лету
+      clock += dt * (Number(el.dataset.speed) || 1);
       size();
       scene.draw(clock);
       if (!frozen()) raf = requestAnimationFrame(frame);
@@ -652,7 +658,7 @@ defineBlock<BackdropProps>('backdrop', {
  * Данные не меняются; выбор — отдельной правкой
  */
 let trial: { el: HTMLElement; off: (() => void) | void; added: boolean } | null = null;
-export function previewBackdrop(stage: HTMLElement, kind: BackdropKind | 'none' | null): void {
+export function previewBackdrop(stage: HTMLElement, kind: BackdropKind | 'none' | null, look?: { opacity?: number; speed?: number }): void {
   const slide = stage.querySelector<HTMLElement>('.slide.on');
   if (trial) {
     trial.off?.();
@@ -667,11 +673,11 @@ export function previewBackdrop(stage: HTMLElement, kind: BackdropKind | 'none' 
   const def = getBlock('backdrop');
   if (!def?.mount) return;
   const box = document.createElement('div');
-  box.innerHTML = def.render({ type: 'backdrop', kind }, {} as never);
+  box.innerHTML = def.render({ type: 'backdrop', kind, ...look }, {} as never);
   const el = box.firstElementChild as HTMLElement;
   el.classList.add('bd-trial');
   const added = !slide.classList.contains('has-backdrop');
   slide.classList.add('has-backdrop');
   slide.prepend(el);
-  trial = { el, added, off: def.mount(el, { type: 'backdrop', kind }, { stage, slide, reducedMotion: false }) };
+  trial = { el, added, off: def.mount(el, { type: 'backdrop', kind, ...look }, { stage, slide, reducedMotion: false }) };
 }

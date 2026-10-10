@@ -5,7 +5,7 @@ import {
 } from './component';
 import { asArray, esc } from './html';
 import { slideAccent } from './accent';
-import { slideBackdrop } from './backdrops';
+import { backdropLook, slideBackdrop } from './backdrops';
 import { applyDeckCss, applyDeckDefs, applyScopedCss } from './deck-css';
 import { applyDeckTheme, themeMode, type SlideMode } from './deck-theme';
 import { applyDeckFonts } from './fonts';
@@ -101,7 +101,9 @@ export class Renderer {
     if (live) cls += ' live-slide';
     // Анимированный фон (свой у слайда или фон темы): первым слоем, под содержимым
     const kind = slideBackdrop(slide, this.deck);
-    const backdrop = kind && getBlock('backdrop') ? this.block({ type: 'backdrop', kind } as Block, ctx) : '';
+    const look = kind ? backdropLook(slide, this.deck) : null;
+    const backdrop = kind && getBlock('backdrop')
+      ? this.block({ type: 'backdrop', kind, ...(look && look.opacity !== 1 ? { opacity: look.opacity } : {}), ...(look && look.speed !== 1 ? { speed: look.speed } : {}) } as Block, ctx) : '';
     if (backdrop) cls += ' has-backdrop';
     return `<section class="${cls}" data-index="${index}" data-tpl="${esc(name)}"${attrs}>${backdrop}${inner}${this.freeLayer(slide, ctx)}${live}</section>`;
   }

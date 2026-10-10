@@ -72,3 +72,53 @@ export function bindBackdropStrip(root: HTMLElement, stage: () => HTMLElement, t
   strip.addEventListener('pointerleave', () => previewBackdrop(stage(), null));
   strip.addEventListener('click', () => previewBackdrop(stage(), null));
 }
+
+// ---------------- заметность и скорость ----------------
+
+export type TuneKey = 'backdropOpacity' | 'backdropSpeed' | 'bgOpacity';
+const TUNE: Record<TuneKey, { label: string; min: number; max: number; step: number; fmt: (v: number) => string }> = {
+  backdropOpacity: { label: 'Заметность', min: 0.1, max: 1, step: 0.05, fmt: (v) => `${Math.round(v * 100)} %` },
+  bgOpacity: { label: 'Заметность', min: 0.1, max: 1, step: 0.05, fmt: (v) => `${Math.round(v * 100)} %` },
+  backdropSpeed: { label: 'Скорость', min: 0.25, max: 3, step: 0.25, fmt: (v) => `${String(v).replace('.', ',')}×` },
+};
+
+/** Компактные ползунки под лентой фона: подпись, ползунок, значение */
+export function tuneHtml(values: Partial<Record<TuneKey, number>>): string {
+  return `<div class="st-tune">${(Object.keys(values) as TuneKey[]).map((k) => {
+    const t = TUNE[k];
+    const v = values[k] ?? 1;
+    return `<label><span>${t.label}</span><input type="range" data-tune="${k}" min="${t.min}" max="${t.max}" step="${t.step}" value="${v}"><output>${t.fmt(v)}</output></label>`;
+  }).join('')}</div>`;
+}
+
+/**
+ * Ползунки: пока тянут — фон открытого слайда меняется сразу (без перестройки), отпустили —
+ * значение записывается (1 — по умолчанию — убирает поле)
+ */
+export function bindTune(root: HTMLElement, stage: () => HTMLElement, commit: (key: TuneKey, v: number | undefined) => void): void {
+  root.querySelectorAll<HTMLInputElement>('input[data-tune]').forEach((inp) => {
+    if (inp.dataset.bound) return;
+    inp.dataset.bound = '1';
+    const key = inp.dataset.tune as TuneKey;
+    const out = inp.parentElement?.querySelector('output');
+    inp.addEventListener('input', () => {
+      const v = Number(inp.value);
+      if (out) out.textContent = TUNE[key].fmt(v);
+      const slide = stage().querySelector<HTMLElement>(':scope > .slide.on');
+      if (!slide) return;
+      if (key === 'bgOpacity') {
+        const bg = slide.querySelector<HTMLElement>(':scope > .canvas-bg');
+        if (bg) bg.style.opacity = String(v);
+      } else {
+        slide.querySelectorAll<HTMLElement>(':scope > .backdrop').forEach((b) => {
+          if (key === 'backdropOpacity') b.style.setProperty('--bd-op', String(v));
+          else b.dataset.speed = String(v);
+        });
+      }
+    });
+    inp.addEventListener('change', () => {
+      const v = Number(inp.value);
+      commit(key, Math.abs(v - 1) < 1e-6 ? undefined : v);
+    });
+  });
+}

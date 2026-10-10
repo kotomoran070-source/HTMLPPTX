@@ -88,6 +88,10 @@ export interface DeckTheme {
   radius?: number;
   /** Анимированный фон всех слайдов (engine/backdrops.ts); у слайда backdrop: none — без него */
   backdrop?: string;
+  /** Заметность анимированного фона, 0,1–1 (у слайда — своя, поле с тем же именем) */
+  backdropOpacity?: number;
+  /** Скорость анимированного фона, 0,25–3 */
+  backdropSpeed?: number;
 }
 
 export interface SlideData {
