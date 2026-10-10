@@ -30,6 +30,7 @@ import { animCommands, animPanelHtml, animTabHtml, bindDelayField, syncAnimTab, 
 import { bindDesignStrip, designCommands, designPanelHtml, designTabHtml, syncDesignTab, type DesignHost } from './design-tab';
 import { THEME_PRESETS } from './theme-presets';
 import { initRibbonSetup } from './ribbon-setup';
+import { pictureName, savePicture } from './save-picture';
 import { contextCommands, tableMenu, contextPanelsHtml, contextTab, contextTabsHtml, syncSwatches, type ContextTab } from './context-tabs';
 import { Inspector } from './inspector';
 import { closeLibrary, EMBED_SAMPLE, presetOf, SANDBOX_SAMPLE, showLibrary, type Preset } from './library';
@@ -766,6 +767,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
         { label: 'Разгруппировать', icon: 'ungroup', hint: 'Ctrl+Shift+G', disabled: !cmds['obj.ungroup'].enabled!(), run: () => run('obj.ungroup') },
         ...(sel.hasParent ? [{ label: 'Выделить внешний блок', icon: 'up', run: () => run('obj.parent') }] : []),
         ...(selectedEntrance() ? [{ label: 'Сохранить появление как эффект…', icon: 'sparkle', run: () => askEffectName() }] : []),
+        { label: 'Сохранить как рисунок…', icon: 'image', run: () => run('obj.picture') },
         null,
         { label: 'Удалить блок', icon: 'trash', danger: true, hint: 'Delete', run: () => run('obj.del') },
       ];
@@ -780,6 +782,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       null,
       { label: 'Дублировать', icon: 'copy', hint: 'Ctrl+D', run: () => run('obj.dup') },
       { label: 'Сохранить как шаблон…', icon: 'sparkle', run: () => run('obj.template') },
+      { label: 'Сохранить как рисунок…', icon: 'image', run: () => run('obj.picture') },
       // Только если у объекта есть появление, которое переносится на другие
       ...(!multi() && selectedEntrance() ? [{ label: 'Сохранить появление как эффект…', icon: 'sparkle', run: () => askEffectName() }] : []),
       ...(multi() ? [
@@ -1031,6 +1034,28 @@ export function startStudio(deck: Deck, deckKey: string): void {
       pick: (t) => void insertTemplate(t),
       remove: (t) => { removeTemplate(t.id); ed.toast(`Шаблон «${t.name}» удалён`, 1800); },
     });
+  }
+
+  // ---------------- сохранить как рисунок ----------------
+  /** Выделенное — файлом PNG, как видно на слайде (как «Сохранить как рисунок» в PowerPoint) */
+  async function savePictureOfSelection(): Promise<void> {
+    const sel = ed.selection;
+    const slide = view.stage.querySelector<HTMLElement>(':scope > .slide.on');
+    if (!sel || !slide) return;
+    const paths = sel.free ? (sel.group.length ? sel.group : [sel.free]) : [sel.block];
+    const els = paths.map((p) => {
+      const key = CSS.escape(JSON.stringify(p));
+      return slide.querySelector<HTMLElement>(sel.free ? `:scope > [data-free="${key}"]` : `[data-block="${key}"]`);
+    }).filter((e): e is HTMLElement => !!e);
+    if (!els.length) return;
+    ed.toast('Сохраняю рисунок…', 0);
+    try {
+      const one = paths.length === 1 ? getAt(deck, paths[0]) : null;
+      await savePicture(slide, els, pictureName(one));
+      ed.toast('Рисунок сохранён — PNG с прозрачным фоном', 2200);
+    } catch (e) {
+      ed.toast(`Не удалось сохранить рисунок: ${(e as Error).message}`, 4000, true);
+    }
   }
 
   // ---------------- мои шаблоны ----------------
@@ -1332,6 +1357,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'format.painter': { run: () => (painter ? stopPainter() : startPainter(false)), enabled: () => !!painter || singleSel(), active: () => !!painter },
     'format.copy': { run: copyFormat, enabled: singleSel },
     'obj.template': { run: askTemplateName, enabled: () => selPaths().length > 0 },
+    'obj.picture': { run: () => void savePictureOfSelection(), enabled: () => !!ed.selection },
     'format.paste': { run: pasteFormat, enabled: () => !!formatClip && !!ed.selection },
     'show.preview': { run: preview },
     'view.notes': { run: () => setNotes(!notesOpen), active: () => notesOpen },

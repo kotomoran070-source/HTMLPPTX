@@ -1065,3 +1065,8 @@ body.st-marqueeing, body.st-marqueeing * { user-select: none !important; cursor:
 .st-dz-corner i.at-tl { left: 4px; top: 4px; } .st-dz-corner i.at-tr { right: 4px; top: 4px; }
 .st-dz-corner i.at-bl { left: 4px; bottom: 4px; } .st-dz-corner i.at-br { right: 4px; bottom: 4px; }
 .st-dz-corner i.size-s { width: 5px; height: 5px; } .st-dz-corner i.size-l { width: 12px; height: 12px; }
+
+/* «Сохранить как рисунок» (save-picture.ts): на время снимка видны только выделенные объекты */
+.st-shot, .st-shot * { visibility: hidden !important; }
+.st-shot .st-shot-keep, .st-shot .st-shot-keep * { visibility: visible !important; }
+body.editing .stage .st-shot :is(.st-shot-keep, .st-shot-keep *) { outline: none !important; }
