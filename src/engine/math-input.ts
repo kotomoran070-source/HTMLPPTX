@@ -396,3 +396,105 @@ export function stepLines(src: string): string[] {
   const lhs = k >= 0 ? lines[0].slice(0, k).trim() : lines[0];
   return lines.map((l, i) => (i > 0 && l.startsWith('=') && !l.startsWith('=>') ? `${lhs} ${l}` : l));
 }
+
+/** Функции, которые умеет расчёт (engine/formula.ts) */
+const CALC_FN = new Set(['sin', 'cos', 'tan', 'tg', 'cot', 'ctg', 'arcsin', 'arccos', 'arctan', 'arctg', 'sinh', 'cosh', 'tanh', 'ln', 'lg', 'log', 'log10', 'exp', 'sqrt', 'cbrt', 'abs', 'sign', 'sgn', 'min', 'max', 'round', 'floor', 'ceil']);
+
+/**
+ * Формула-функция → выражение для графика: «y = a sin(2x) + 1» → «a*sin(2*x)+1», переменная x.
+ * Простая запись: умножение без знака (2x, 4ac), функция без скобок (sin x), f(t) = … — переменная t,
+ * живые числа {{a}} — как есть (их значения дают ползунки). known — имена ползунков слайда
+ * (многобуквенные имена не разбираются на буквы). null — это не функция одной переменной.
+ */
+export function plotExpr(src: string, known: string[] = []): { expr: string; v: string } | null {
+  let s = String(src ?? '').trim();
+  if (!s || s.includes('\n') || s.includes('\\')) return null;
+  s = s.replace(/\{\{\s*=?\s*([^{}]+?)\s*\}\}/g, '($1)').replace(/\[\[|\]\]|~~/g, '')
+    .replace(/[·×]/g, '*').replace(/−/g, '-').replace(/÷/g, '/').replace(/√/g, 'sqrt').replace(/π/g, 'pi')
+    .replace(/\|([^|]+)\|/g, 'abs($1)');
+  const k = topEq(s);
+  let lhs = '';
+  let rhs = s;
+  if (k >= 0) {
+    lhs = s.slice(0, k).trim();
+    rhs = s.slice(k + 1).trim();
+    if (topEq(rhs) >= 0 || /[<>]/.test(lhs)) return null;
+  }
+  // Слева — имя функции: y, f(x), s(t)
+  const fx = /^[A-Za-z]\w*\s*\(\s*([a-z])\s*\)$/.exec(lhs);
+  if (lhs && !fx && !/^[A-Za-z](_\w+)?$/.test(lhs)) return null;
+
+  const toks = [...rhs.matchAll(/\s*(?:(\d+(?:[.,]\d+)?)|([A-Za-z]+)|(\S))/g)].map((m) => (m[1] ? { t: 'num', v: m[1].replace(',', '.') } : m[2] ? { t: 'id', v: m[2] } : { t: 'op', v: m[3] }));
+  // Слова: функция, число, ползунок — или буквы-переменные подряд (ac → a*c, sinx → sin x)
+  const ids: { t: string; v: string }[] = [];
+  for (const t of toks) {
+    if (t.t !== 'id' || CALC_FN.has(t.v) || known.includes(t.v) || t.v === 'pi' || t.v.length === 1) { ids.push(t); continue; }
+    const fn = [...CALC_FN].filter((f) => t.v.startsWith(f)).sort((a, b) => b.length - a.length)[0];
+    const rest = fn ? t.v.slice(fn.length) : t.v;
+    if (fn) ids.push({ t: 'id', v: fn });
+    if (known.includes(rest)) ids.push({ t: 'id', v: rest });
+    else for (const c of rest === 'pi' ? ['pi'] : rest) ids.push({ t: 'id', v: c });
+  }
+
+  let i = 0;
+  const used = new Set<string>();
+  const peek = () => ids[i];
+  const isOp = (v: string) => peek()?.t === 'op' && peek()!.v === v;
+  const starts = () => !!peek() && (peek()!.t !== 'op' || peek()!.v === '(');
+  const fail = (): never => { throw new Error('plot'); };
+  const sum = (): string => {
+    let out = term();
+    while (isOp('+') || isOp('-')) { const op = ids[i++].v; out += op + term(); }
+    return out;
+  };
+  const term = (): string => {
+    let out = factor();
+    for (;;) {
+      if (isOp('*') || isOp('/')) { const op = ids[i++].v; out += op + factor(); }
+      else if (starts()) out += '*' + factor();
+      else return out;
+    }
+  };
+  /** Аргумент функции без скобок: sin 2x — всё произведение без знаков */
+  const implicit = (): string => {
+    let out = factor();
+    while (starts()) out += '*' + factor();
+    return out;
+  };
+  const factor = (): string => {
+    if (isOp('-')) { i++; return `(-${factor()})`; }
+    if (isOp('+')) { i++; return factor(); }
+    const a = atom();
+    if (isOp('^')) { i++; return `${a}^${factor()}`; }
+    return a;
+  };
+  const atom = (): string => {
+    const t = ids[i++] ?? fail();
+    if (t.t === 'num') return t.v;
+    if (t.t === 'op' && t.v === '(') { const x = sum(); if (!isOp(')')) fail(); i++; return `(${x})`; }
+    if (t.t !== 'id') return fail();
+    if (CALC_FN.has(t.v)) {
+      if (isOp('(')) {
+        i++;
+        const args = [sum()];
+        while (isOp(',')) { i++; args.push(sum()); }
+        if (!isOp(')')) fail();
+        i++;
+        return `${t.v}(${args.join(',')})`;
+      }
+      return `${t.v}(${implicit()})`;
+    }
+    if (t.v !== 'pi' && t.v !== 'e') used.add(t.v);
+    return t.v;
+  };
+  let expr: string;
+  try {
+    expr = sum();
+    if (i !== ids.length) return null;
+  } catch {
+    return null;
+  }
+  const v = fx?.[1] ?? (used.has('x') ? 'x' : used.has('t') ? 't' : '');
+  if (!v || !used.has(v)) return null;
+  return { expr, v };
+}

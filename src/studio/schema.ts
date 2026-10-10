@@ -84,6 +84,15 @@ export const BLOCKS: Record<string, Schema> = {
     ],
   },
   note: { fields: [{ k: 'text', label: 'Текст', type: 'textarea' }] },
+  plot: {
+    about: 'График функции. Ползунки слайда — по имени: двигаете ползунок, кривая меняется',
+    fields: [
+      { k: 'fn', label: 'Функция y =', type: 'text', placeholder: 'sin(x)', hint: 'Через x: * / ^, sqrt, sin, ln, pi; ползунки — по имени (a*sin(x))' },
+      { k: 'x', label: 'По x: от и до', type: 'numbers', hint: 'Например −6,28 6,28' },
+      { k: 'y', label: 'По y: от и до', type: 'numbers', hint: 'Пусто — по самой кривой' },
+      { k: 'color', label: 'Цвет кривой', type: 'color' },
+    ],
+  },
   math: {
     about: 'Формула. Двойной щелчок по ней на слайде — правка с подсказками',
     fields: [

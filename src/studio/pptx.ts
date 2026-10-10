@@ -6,6 +6,7 @@ import { fitHtml, hasEmbed } from '../components/html/html';
 import { embedShot } from '../engine/embed-shot';
 import { resolve } from '../engine/formula';
 import { Renderer, actionTarget } from '../engine/render';
+import { equationShape, mathToOmml } from './omml';
 
 /**
  * Экспорт в PowerPoint. Каждый слайд рисуется вне экрана в натуральную величину (1280×720 —
@@ -39,6 +40,11 @@ const sharp = (base: number) => (QUALITY === 'compact' ? Math.max(1, base * 0.75
 /** Блоки, которые передаются картинкой: схемы и вставки со своей графикой */
 /** Блоки, которые уходят в PPTX картинкой целиком (редактор кода с подсветкой) */
 const RASTER = new Set<string>(['sandbox']);
+/**
+ * Формулы этого экспорта: картинка с меткой (altText) → уравнение Office. repair() ставит на место
+ * картинки фигуру с уравнением, а картинку оставляет запасной — для программ без уравнений
+ */
+let MATHS = new Map<string, { omml: string; align: 'l' | 'ctr' | 'r' }>();
 /** Строчные элементы: внутри них текст — одна надпись с разным оформлением кусков */
 const INLINE = new Set(['inline', 'contents']);
 
@@ -236,6 +242,7 @@ function listMark(li: HTMLElement): string {
 
 export async function exportPptx(deck: Deck, progress?: PptxProgress, quality: ExportQuality = 'normal'): Promise<Blob> {
   QUALITY = quality;
+  MATHS = new Map();
   const [{ default: Pptx }, { toPng }] = await Promise.all([import('pptxgenjs'), import('html-to-image')]);
   const pptx: Pptx = new Pptx();
   pptx.layout = 'LAYOUT_WIDE';
@@ -440,8 +447,8 @@ class Converter {
 
     if (el.classList.contains('backdrop')) return this.backgroundPicture(el, b);
     if (type && RASTER.has(type)) return this.raster(el, b);
-    // Формула — картинкой со шрифтом формул внутри: в PowerPoint выглядит так же, как на слайде
-    if (type === 'math') return this.raster(el, b, await import('../components/math/runtime').then((m) => m.mathFontCss()).catch(() => undefined));
+    // Формула — уравнением Office (правится в PowerPoint), а картинка со шрифтом формул — запасной
+    if (type === 'math') return this.math(el, b);
     if (type === 'table') return this.table(el, k);
     if (type === 'embed' && await this.embed(el, b)) return;
     // Вёрстка с объёмной сценой (CSS 3D): фигурами её не передать — картинкой, как на экране
@@ -887,10 +894,26 @@ class Converter {
     } catch { /* пустой холст */ }
   }
 
-  private async raster(el: HTMLElement, b: Box, fontCss?: string): Promise<void> {
+  private async math(el: HTMLElement, b: Box): Promise<void> {
+    const css = await import('../components/math/runtime').then((m) => m.mathFontCss()).catch(() => undefined);
+    // Формула по шагам — в конечном виде (видимый шаг превращения)
+    const m = el.querySelector<Element>(':scope > .math-steps > .math-step.on > math') ?? el.querySelector<Element>(':scope > math');
+    let key: string | undefined;
+    if (m) {
+      const pt = (parseFloat(getComputedStyle(m).fontSize) || 40) * 0.75;
+      const omml = mathToOmml(m as never, { pt, lang: LANG, color: (x) => rgba(getComputedStyle(x as unknown as Element).color)?.hex });
+      if (omml) {
+        key = `slideria-math-${MATHS.size + 1}`;
+        MATHS.set(key, { omml, align: el.classList.contains('at-left') ? 'l' : el.classList.contains('at-right') ? 'r' : 'ctr' });
+      }
+    }
+    return this.raster(el, b, css, key);
+  }
+
+  private async raster(el: HTMLElement, b: Box, fontCss?: string, altText?: string): Promise<void> {
     try {
       const data = await packed(await this.toPng(el, { pixelRatio: sharp(2), ...(fontCss ? { fontEmbedCSS: fontCss } : { skipFonts: true }) }));
-      this.slide.addImage({ data, ...this.pos(b) });
+      this.slide.addImage({ data, ...this.pos(b), ...(altText ? { altText } : {}) });
     } catch { /* не удалось — пропускаем */ }
   }
 
@@ -1085,7 +1108,16 @@ async function repair(blob: Blob): Promise<Blob> {
         return '';
       })}</a:p>`;
     });
-    if (fixed !== x) zip.file(name, fixed);
+    // Картинки формул → уравнения Office (картинка остаётся запасной внутри mc:Fallback)
+    const eq = MATHS.size ? fixed.replace(/<p:pic>((?:(?!<\/p:pic>)[\s\S])*)<\/p:pic>/g, (pic, inner: string) => {
+      const key = /descr="(slideria-math-\d+)"/.exec(inner)?.[1];
+      const m = key ? MATHS.get(key) : undefined;
+      const id = /<p:cNvPr id="(\d+)"/.exec(inner)?.[1];
+      const xfrm = /<a:xfrm\b[\s\S]*?<\/a:xfrm>/.exec(inner)?.[0];
+      if (!m || !id || !xfrm) return pic;
+      return equationShape(id, xfrm, m.omml, m.align, pic.replace(`descr="${key}"`, 'descr="Формула"'));
+    }) : fixed;
+    if (eq !== x) zip.file(name, eq);
   }
   // Упаковка как у самого PowerPoint: настольная версия строже веб-версии
   const out = new JSZip();

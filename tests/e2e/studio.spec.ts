@@ -242,3 +242,29 @@ test('формулы: «Вставка → Уравнение», правка н
   await expect(live).toContainText('196');
   await expect(live.locator('math')).toHaveCount(1);
 });
+
+test('«График» из формулы: только у y = f(x), рядом с формулой, кривая следует за ползунком при показе', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=math&studio#4');
+  const math = page.locator('#st-canvas .slide.on [data-type="math"]');
+  await math.nth(1).dblclick();
+  await expect(page.locator('.st-mathed')).toBeVisible();
+  await expect(page.locator('.st-mathed [data-plot]')).toBeHidden();
+  await page.keyboard.press('Escape');
+  await math.nth(0).dblclick();
+  await page.locator('.st-mathed [data-plot]').click();
+  await expect(page.locator('#st-canvas .slide.on [data-type="plot"] .pc')).not.toHaveCount(0);
+  await expect.poll(() => readDeck('math')).toContain('fn: a*sin(x)');
+  // Диапазон по y — с запасом на крайнее положение ползунка (a до 3)
+  expect(readDeck('math')).toMatch(/type: plot[\s\S]*?y:\s*\n\s*- -3\.6\n\s*- 3\.6/);
+  expect(errors).toEqual([]);
+
+  await page.goto('/?deck=math#4');
+  const curve = page.locator('.slide.on [data-type="plot"] .pc').first();
+  const before = await curve.getAttribute('d');
+  await page.locator('.slide.on [data-type="control"] input[type=range]').evaluate((el: HTMLInputElement) => {
+    el.value = '3';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await expect.poll(() => curve.getAttribute('d')).not.toBe(before);
+});

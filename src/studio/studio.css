@@ -1087,4 +1087,9 @@ body.editing .stage .st-shot :is(.st-shot-keep, .st-shot-keep *) { outline: none
 .st-mathed-keys button:hover, .st-mathed-keys button:focus-visible { border-color: var(--ac); background: var(--acs); color: var(--ach); outline: none; }
 .st-mathed-keys button.mk-hl { margin-left: 6px; color: var(--ac); background: color-mix(in srgb, var(--ac) 16%, var(--alt)); font-style: italic; }
 .st-mathed-keys button.mk-cancel { font-style: italic; text-decoration: line-through; text-decoration-thickness: 2px; }
+.st-mathed-keys button.plot-btn { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; padding: 0 10px; font: 600 12.5px var(--font); color: var(--on-ac, #fff); background: var(--ac); border-color: var(--ac); }
+.st-mathed-keys button.plot-btn[hidden] { display: none; }
+.st-mathed-keys button.plot-btn .ic { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.st-mathed-keys button.plot-btn:hover { color: var(--on-ac, #fff); background: color-mix(in srgb, var(--ac) 88%, #000); }
+.st-mathed-keys button.live + button.plot-btn { margin-left: 4px; }
 .st-mathed-keys button.live { margin-left: auto; font: 600 12.5px var(--mono, "JetBrains Mono", ui-monospace, monospace); color: var(--ach); background: var(--acs); border-color: color-mix(in srgb, var(--ac) 35%, var(--bd)); }

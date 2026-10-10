@@ -5,7 +5,8 @@
  *   - «{{x}}» или «{{=x*2}}» внутри текста — подставленное значение.
  *
  * Формулы считаются без eval: числа, переменные, + − * / ^ %, скобки и функции
- * round, min, max, abs, sqrt, floor, ceil, log10, ln, exp, sin, cos, tan и число pi.
+ * round, min, max, abs, sqrt, cbrt, floor, ceil, log10 (lg, log), ln, exp, sin, cos, tan (tg),
+ * cot (ctg), arcsin, arccos, arctan (arctg), sinh, cosh, tanh, sign и числа pi, e.
  * Не получилось посчитать — поле остаётся как было.
  */
 
@@ -17,6 +18,10 @@ const FUNCS: Record<string, (...a: number[]) => number> = {
   round: (x, d = 0) => { const k = 10 ** Math.max(0, Math.min(6, Math.round(d))); return Math.round(x * k) / k; },
   min: Math.min, max: Math.max, abs: Math.abs, sqrt: Math.sqrt, floor: Math.floor, ceil: Math.ceil,
   log10: Math.log10, ln: Math.log, exp: Math.exp, sin: Math.sin, cos: Math.cos, tan: Math.tan,
+  // Как пишут в школе и в формулах (график функции из формулы)
+  cbrt: Math.cbrt, lg: Math.log10, log: Math.log10, tg: Math.tan, cot: (x) => 1 / Math.tan(x), ctg: (x) => 1 / Math.tan(x),
+  arcsin: Math.asin, arccos: Math.acos, arctan: Math.atan, arctg: Math.atan, sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh,
+  sign: Math.sign, sgn: Math.sign,
 };
 
 function lex(src: string): Tok[] | null {
@@ -63,6 +68,7 @@ export function evalFormula(src: string, vars: Vars): number | null {
       }
       if (k.v in vars) return vars[k.v];
       if (k.v.toLowerCase() === 'pi') return Math.PI;
+      if (k.v === 'e') return Math.E;
       return fail();
     }
     return fail();

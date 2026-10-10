@@ -211,7 +211,8 @@ export class Renderer {
     // Формулы («=x*2», «{{x}}») — по переменным слайда; копия знает те же пути для правки
     const p = pathOf(b);
     let calc = false;
-    if (b.type !== 'control' && ctx.vars && Object.keys(ctx.vars).length && hasFormula(b)) {
+    // График функции считает по ползункам сам: пересчитывается при каждом их движении
+    if (b.type !== 'control' && ctx.vars && Object.keys(ctx.vars).length && (hasFormula(b) || b.type === 'plot')) {
       const rb = resolve(b, ctx.vars);
       if (p) indexPaths(rb, p);
       b = rb;

@@ -1,0 +1,14 @@
+/* График функции (plot.ts): сетка и оси приглушённо, кривая — цветом акцента */
+.plot { width: 100%; }
+.plot svg { width: 100%; height: auto; display: block; overflow: visible; }
+.plot .pg { stroke: var(--bd); stroke-width: 1; }
+.plot .pa { stroke: color-mix(in srgb, var(--tx) 45%, transparent); stroke-width: 1.5; }
+.plot .pt { fill: var(--mu); font-size: 15px; font-variant-numeric: tabular-nums; }
+.plot .pn { fill: var(--mu); font-size: 17px; font-style: italic; font-family: "Fira Math", "Cambria Math", var(--font); }
+.plot .pc { fill: none; stroke: var(--plot, var(--ac)); stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; }
+/* Кривая прорисовывается при открытии слайда */
+.slide.on .plot .pc { stroke-dasharray: 1; animation: plot-draw 1.4s .25s cubic-bezier(.4, 0, .2, 1) both; }
+.slide.static .plot .pc, .stage.paused .plot .pc { animation: none; }
+@keyframes plot-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.plot-empty { padding: 24px; border: 1px dashed var(--bd2); border-radius: 12px; color: var(--mu); font-size: 15px; text-align: center; }
+@media (prefers-reduced-motion: reduce) { .slide.on .plot .pc { animation: none; } }

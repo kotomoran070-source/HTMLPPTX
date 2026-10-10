@@ -18,6 +18,7 @@ import './system/system';
 import './pipeline/pipeline';
 import './charts/charts';
 import './charts/diagrams';
+import './charts/plot';
 import './facts/facts';
 import './shape/shape';
 import './table/table';

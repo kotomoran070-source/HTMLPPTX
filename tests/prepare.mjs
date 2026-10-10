@@ -52,5 +52,10 @@ slides:
       - {type: math, tex: "(a+b)^2\\n= (a+b)(a+b)", steps: morph, place: {x: 560, y: 120, w: 640}}
   - template: canvas
     free: [{type: text, text: Конец, place: {x: 80, y: 80, w: 400}}]
+  - template: canvas
+    free:
+      - {type: control, name: a, label: Амплитуда, min: 0.5, max: 3, step: 0.5, value: 1, place: {x: 60, y: 420, w: 360}}
+      - {type: math, tex: "y = a sin x", place: {x: 60, y: 180, w: 480}}
+      - {type: math, tex: "F = m*a", place: {x: 60, y: 40, w: 300}}
 `);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

@@ -1,7 +1,8 @@
 // Формулы: простая запись → LaTeX, живые числа из ползунков, LaTeX как есть
 import { expect, test } from '@playwright/test';
 import temml from 'temml';
-import { mathTex, stepLines, texNumber, toTex } from '../../src/engine/math-input';
+import { evalFormula } from '../../src/engine/formula';
+import { mathTex, plotExpr, stepLines, texNumber, toTex } from '../../src/engine/math-input';
 
 /** Без лишних пробелов — сравнивать проще */
 const t = (s: string) => toTex(s).replace(/\s+/g, ' ').trim();
@@ -86,4 +87,32 @@ test('шаги превращения: строка с «=» продолжае�
   expect(stepLines('y = (x+1)^2 - 1\n= x^2 + 2x')).toEqual(['y = (x+1)^2 - 1', 'y = x^2 + 2x']);
   expect(stepLines('x <= 3\nx => 2')).toEqual(['x <= 3', 'x => 2']);
   expect(stepLines('2x + 6 = 10\n\n2x = 4')).toEqual(['2x + 6 = 10', '2x = 4']);
+});
+
+test('график из формулы: y = f(x) → выражение для расчёта; не функция — null', () => {
+  const at = (src: string, x: number, vars: Record<string, number> = {}) => {
+    const p = plotExpr(src, Object.keys(vars));
+    return p ? evalFormula(p.expr, { ...vars, [p.v]: x }) : null;
+  };
+  expect(plotExpr('y = 2x + 1')).toEqual({ expr: '2*x+1', v: 'x' });
+  expect(at('y = x^2 - 4x + 3', 1)).toBe(0);
+  expect(at('f(x) = sin x + 1', 0)).toBe(1);
+  expect(at('y = 2 sin(3x)', Math.PI / 6)).toBeCloseTo(2);
+  expect(at('y = sinx/x', 1)).toBeCloseTo(Math.sin(1));
+  expect(at('y = e^(-x^2/2)', 0)).toBe(1);
+  expect(at('y = sqrt(x) + |x - 2|', 4)).toBe(4);
+  expect(at('y = tg x', Math.PI / 4)).toBeCloseTo(1);
+  expect(at('y = 0,5x', 4)).toBe(2);
+  // Ползунки: многобуквенные имена не разбираются на буквы, живые числа — как выражение
+  expect(at('y = amp*sin(x) + {{k}}', Math.PI / 2, { amp: 3, k: 1 })).toBe(4);
+  expect(at('y = a x^2 + b x + c', 2, { a: 1, b: 2, c: 3 })).toBe(11);
+  // Другая переменная
+  expect(plotExpr('s(t) = 5t^2')).toEqual({ expr: '5*t^2', v: 't' });
+  // Не функции: нет переменной, несколько строк, LaTeX, неравенство, уравнение без явного y
+  expect(plotExpr('F = m*a')).toBeNull();
+  expect(plotExpr('a^2 + b^2 = c^2')).toBeNull();
+  expect(plotExpr('x^2 + y^2 = 1')).toBeNull();
+  expect(plotExpr('y = x\n= 2x')).toBeNull();
+  expect(plotExpr('\\frac{x}{2}')).toBeNull();
+  expect(plotExpr('2x + 6 = 10')).toBeNull();
 });
