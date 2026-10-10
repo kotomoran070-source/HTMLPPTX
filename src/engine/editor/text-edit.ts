@@ -1,5 +1,5 @@
 import { deckFonts, fontNameOk, fontStack } from '../fonts';
-import { fontItems, fontPicker, weightName, weightNameEn, type FontItem } from './font-picker';
+import { fontItems, fontPicker, weightName, weightNameEn, type FontItem, tryFontOn } from './font-picker';
 import { icon } from '../../components/icons';
 import { getAt, KEY, setAt, type Path } from '../data';
 import { esc, t } from '../html';
@@ -520,7 +520,13 @@ export class TextEditor {
           break;
         }
         case 'color': this.toggleColors(b); break;
-        case 'font': fontPicker().toggle(b, () => this.fontList(), this.s.styles.font ?? '', (v) => this.setFont(v)); break;
+        case 'font': {
+          // Наведение на шрифт — текст поля сразу им; ушли или закрыли — как было
+          const el = this.s.el;
+          fontPicker().toggle(b, () => this.fontList(), this.s.styles.font ?? '', (v) => this.setFont(v),
+            (f) => tryFontOn(el, 'font-family', f ? (f.value ? f.css : '') : null));
+          break;
+        }
         case 'leading': case 'spacing': this.toggleMenu(cmd, b); break;
         case 'list-kind': this.listMenu(b); break;
         case 'weight': this.weightMenu(b); break;

@@ -1,7 +1,7 @@
 import { icon } from '../components/icons';
 import { DEFAULT_ACCENT, HEX_RE, previewAccent, slideAccent } from '../engine/accent';
 import { deckFonts, fontStack } from '../engine/fonts';
-import { fontItems, fontPicker, type FontItem } from '../engine/editor/font-picker';
+import { fontItems, fontPicker, type FontItem, tryFontOn } from '../engine/editor/font-picker';
 import { rowOf } from '../engine/editor/rows';
 import { toView, viewOf, VIEWS } from './block-views';
 import { getAt, setAt, type Path } from '../engine/data';
@@ -197,7 +197,9 @@ export class Inspector {
       const pick = t.closest<HTMLElement>('[data-a="font-pick"]');
       if (pick) {
         const cur = typeof this.host.deck().theme?.font === 'string' ? this.host.deck().theme!.font as string : '';
-        fontPicker().toggle(pick, () => this.fontItems(), cur, (v) => this.setDeckFont(v));
+        const slide = this.host.stage().querySelector<HTMLElement>(':scope > .slide.on');
+        fontPicker().toggle(pick, () => this.fontItems(), cur, (v) => this.setDeckFont(v),
+          (f) => tryFontOn(slide, '--font', f ? (f.value ? f.css : 'var(--font-base)') : null));
       }
       const view = t.closest<HTMLElement>('[data-view]')?.dataset.view;
       if (view) return this.setView(view);

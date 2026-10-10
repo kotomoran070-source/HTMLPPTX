@@ -18,6 +18,9 @@ import { layoutRows, rowAnchors } from './rows';
 import { embeddable, loadLocalFonts, localFaces, localFamilies, localWeights, pickFaces } from '../local-fonts';
 import { History } from './history';
 import './editor.css';
+import { initRangeFill } from './range-fill';
+
+initRangeFill();
 
 export type MediaKind = 'video' | 'model';
 

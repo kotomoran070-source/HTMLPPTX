@@ -404,3 +404,30 @@ body.ed-copying, body.ed-copying * { cursor: copy !important; }
 .edown-row input.bad { border-color: #DC2626; }
 .edmenu .edown-row button { flex: none; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 1px solid var(--bd); border-radius: 7px; background: var(--bg); color: var(--tx2); cursor: pointer; }
 .edmenu .edown-row button:hover { border-color: var(--acb); background: var(--acs); color: var(--ach); }
+
+/*
+ * Ползунки интерфейса (не на слайдах): тонкая дорожка, заливка акцентом до значения (--p из
+ * range-fill.ts), круглая ручка с ободком акцента, подрастает при наведении и захвате
+ */
+input[type="range"]:not(.slide *):not(.cg *) {
+  -webkit-appearance: none; appearance: none; height: 20px; margin: 0; background: none; cursor: pointer; accent-color: var(--ac);
+  --rt: linear-gradient(90deg, var(--ac) var(--p, 50%), color-mix(in srgb, var(--tx) 14%, transparent) var(--p, 50%));
+}
+input[type="range"]:not(.slide *):not(.cg *)::-webkit-slider-runnable-track { height: 4px; border-radius: 99px; background: var(--rt); }
+input[type="range"]:not(.slide *):not(.cg *)::-moz-range-track { height: 4px; border-radius: 99px; background: color-mix(in srgb, var(--tx) 14%, transparent); }
+input[type="range"]:not(.slide *):not(.cg *)::-moz-range-progress { height: 4px; border-radius: 99px; background: var(--ac); }
+input[type="range"]:not(.slide *):not(.cg *)::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5px; border-radius: 50%;
+  background: var(--surf, #fff); border: 3px solid var(--ac); box-shadow: 0 1px 4px rgba(2, 6, 23, .25);
+  transition: transform .12s, box-shadow .12s;
+}
+input[type="range"]:not(.slide *):not(.cg *)::-moz-range-thumb {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--surf, #fff); border: 3px solid var(--ac); box-shadow: 0 1px 4px rgba(2, 6, 23, .25);
+  transition: transform .12s, box-shadow .12s;
+}
+input[type="range"]:not(.slide *):not(.cg *):hover::-webkit-slider-thumb { transform: scale(1.15); box-shadow: 0 0 0 5px color-mix(in srgb, var(--ac) 16%, transparent), 0 1px 4px rgba(2, 6, 23, .25); }
+input[type="range"]:not(.slide *):not(.cg *):hover::-moz-range-thumb { transform: scale(1.15); box-shadow: 0 0 0 5px color-mix(in srgb, var(--ac) 16%, transparent); }
+input[type="range"]:not(.slide *):not(.cg *):active::-webkit-slider-thumb { transform: scale(1.25); box-shadow: 0 0 0 7px color-mix(in srgb, var(--ac) 20%, transparent), 0 1px 4px rgba(2, 6, 23, .25); }
+input[type="range"]:not(.slide *):not(.cg *):focus-visible { outline: none; }
+input[type="range"]:not(.slide *):not(.cg *):focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ac) 35%, transparent); }
+input[type="range"]:not(.slide *):not(.cg *):disabled { opacity: .45; cursor: default; }

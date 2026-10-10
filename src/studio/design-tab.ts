@@ -10,7 +10,7 @@ import { replaceContents } from '../engine/data';
 import { CARD_STYLES, hasThemeLook, previewTheme, THEME_BGS, themeMode, themeVars, type SlideMode } from '../engine/deck-theme';
 import { reducedMotion, staticSlide } from '../engine/deck-view';
 import type { Editor } from '../engine/editor/editor';
-import { fontItems, fontPicker } from '../engine/editor/font-picker';
+import { fontItems, fontPicker, tryFontOn } from '../engine/editor/font-picker';
 import { deckFonts, fontStack } from '../engine/fonts';
 import { esc } from '../engine/html';
 import { currentTheme } from '../engine/theme';
@@ -405,7 +405,11 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     const first = key === 'head'
       ? { value: '', label: 'Как у текста', css: 'inherit', group: '' }
       : { value: '', label: 'Шрифт по умолчанию', css: 'var(--font-base)', group: '' };
-    fontPicker().toggle(at, () => fontItems([first], ed.fontChoices(), fontStack), theme()[key] ?? '', (name) => void setFont(key, name));
+    // Наведение — открытый слайд сразу этим шрифтом (заголовки или весь текст)
+    const slide = h.stage().querySelector<HTMLElement>(':scope > .slide.on');
+    const prop = key === 'head' ? '--font-head' : '--font';
+    fontPicker().toggle(at, () => fontItems([first], ed.fontChoices(), fontStack), theme()[key] ?? '', (name) => void setFont(key, name),
+      (f) => tryFontOn(slide, prop, f ? (f.value ? f.css : key === 'head' ? 'var(--font)' : 'var(--font-base)') : null));
   };
   const setFont = async (key: 'head' | 'font', name: string) => {
     if (!name) return patch({ [key]: undefined });

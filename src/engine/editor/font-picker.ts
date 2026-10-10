@@ -30,6 +30,9 @@ export class FontPicker {
   private anchor: HTMLElement | null = null;
   private cur = '';
   private pick: ((v: string) => void) | null = null;
+  /** Примерка: шрифт под указателем или под стрелками (null — вернуть как было) */
+  private hover: ((f: FontItem | null) => void) | null = null;
+  private tried = false;
   private items: () => FontItem[] = () => [];
   private shown: FontItem[] = [];
   private at = -1;
@@ -69,7 +72,10 @@ export class FontPicker {
     this.list.addEventListener('pointermove', (e) => {
       const o = (e.target as Element).closest<HTMLElement>('[data-i]');
       if (o && Number(o.dataset.i) !== this.at) this.mark(Number(o.dataset.i), false);
+      if (o) this.try(Number(o.dataset.i));
     });
+    // Указатель ушёл со списка — примерка снимается (выбранный стрелками остаётся отмеченным)
+    this.list.addEventListener('pointerleave', () => this.untry());
     document.addEventListener('pointerdown', (e) => {
       if (!this.open) return;
       const t = e.target as Node;
@@ -83,12 +89,14 @@ export class FontPicker {
   contains(node: Node | null): boolean { return !!node && this.el.contains(node); }
 
   /** Открыть под кнопкой; повторный клик по той же кнопке — закрыть */
-  toggle(anchor: HTMLElement, items: () => FontItem[], cur: string, pick: (v: string) => void): void {
+  toggle(anchor: HTMLElement, items: () => FontItem[], cur: string, pick: (v: string) => void, hover?: (f: FontItem | null) => void): void {
     if (this.open && this.anchor === anchor) { this.close(); return; }
+    this.untry();
     this.anchor = anchor;
     this.items = items;
     this.cur = cur;
     this.pick = pick;
+    this.hover = hover ?? null;
     this.q.value = '';
     this.el.classList.add('on');
     anchor.setAttribute('aria-expanded', 'true');
@@ -99,6 +107,7 @@ export class FontPicker {
 
   close(): void {
     if (!this.open) return;
+    this.untry();
     this.el.classList.remove('on');
     this.anchor?.setAttribute('aria-expanded', 'false');
     // Фокус возвращается кнопке: правка текста (если идёт) продолжается
@@ -151,6 +160,20 @@ export class FontPicker {
     if (scroll) o.scrollIntoView({ block: 'nearest' });
   }
 
+  /** Примерить шрифт пункта на тексте */
+  private try(i: number): void {
+    const f = this.shown[i];
+    if (!f || !this.hover) return;
+    this.tried = true;
+    this.hover(f);
+  }
+
+  private untry(): void {
+    if (!this.tried) return;
+    this.tried = false;
+    this.hover?.(null);
+  }
+
   private choose(i: number): void {
     const f = this.shown[i];
     if (!f) return;
@@ -164,7 +187,10 @@ export class FontPicker {
     e.stopPropagation();
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
-      if (this.shown.length) this.mark((this.at + (e.key === 'ArrowDown' ? 1 : -1) + this.shown.length) % this.shown.length, true);
+      if (this.shown.length) {
+        this.mark((this.at + (e.key === 'ArrowDown' ? 1 : -1) + this.shown.length) % this.shown.length, true);
+        this.try(this.at);
+      }
     } else if (e.key === 'Enter') {
       e.preventDefault();
       this.choose(this.at);
@@ -202,4 +228,25 @@ export function fontItems(head: FontItem[], choices: { name: string; sys?: boole
     ...choices.filter((f) => f.theme && !names.has(f.name)).map(item('Шрифты тем')),
     ...choices.filter((f) => f.sys && !names.has(f.name)).map(item('Шрифты компьютера')),
   ];
+}
+
+/**
+ * Примерка шрифта на элементе: CSS-свойство (font-family или переменная --font) ставится
+ * на время, прежнее значение возвращается при css === null
+ */
+const before = new WeakMap<HTMLElement, Map<string, string>>();
+export function tryFontOn(el: HTMLElement | null | undefined, prop: string, css: string | null): void {
+  if (!el) return;
+  let saved = before.get(el);
+  if (css === null) {
+    const old = saved?.get(prop);
+    if (old === undefined) return;
+    if (old) el.style.setProperty(prop, old);
+    else el.style.removeProperty(prop);
+    saved!.delete(prop);
+    return;
+  }
+  if (!saved) before.set(el, (saved = new Map()));
+  if (!saved.has(prop)) saved.set(prop, el.style.getPropertyValue(prop));
+  el.style.setProperty(prop, css);
 }

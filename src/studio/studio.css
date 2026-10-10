@@ -658,7 +658,7 @@ body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
 /* Заметность и скорость фона: компактные ползунки под лентой */
 .st-tune { display: grid; gap: 2px; margin-top: 6px; }
 .st-tune label { display: grid; grid-template-columns: 78px 1fr 40px; align-items: center; gap: 8px; font: 500 12px var(--font); color: var(--tx2); }
-.st-tune input[type="range"] { width: 100%; min-width: 0; margin: 0; accent-color: var(--ac); height: 18px; }
+.st-tune input[type="range"] { width: 100%; min-width: 0; }
 .st-tune output { color: var(--mu); font-variant-numeric: tabular-nums; text-align: right; }
 .st-bdnote { margin: 6px 2px 0; color: var(--mu); font-size: 12px; max-width: none; }
 .st-bds i { background-color: var(--bg); }
