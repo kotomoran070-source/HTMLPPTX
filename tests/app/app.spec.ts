@@ -54,11 +54,14 @@ test('первый запуск: «Моя первая презентация»,
     const pages = (head.toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length;
     expect(pages).toBeGreaterThan(10);
     await expect.poll(() => app.windows().length).toBe(1);
+    // Редактор говорит, что PDF готов и где он
+    await expect(win.locator('#ed-toast')).toContainText('PDF сохранён');
     // PowerPoint — скачиванием: сохраняется файлом
     await win.locator('[data-cmd="file.export"]').first().click();
     await win.locator('[data-x="pptx"]').click();
     const pptx = path.join(saves, 'moya-pervaya-prezentaciya.pptx');
     await expect.poll(() => fs.existsSync(pptx) && fs.statSync(pptx).size > 50_000, { timeout: 150_000 }).toBe(true);
+    await expect(win.locator('#ed-toast')).toContainText('Сохранено: saves/moya-pervaya-prezentaciya.pptx');
 
     // Вход для телефона открывается по запросу и пускает только к этой презентации.
     // На Windows пропускаем: первый выход в сеть вызывает окно брандмауэра

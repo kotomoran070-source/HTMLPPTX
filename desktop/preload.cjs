@@ -11,4 +11,6 @@ contextBridge.exposeInMainWorld('slideriaApp', {
   pdf: (name) => ipcRenderer.invoke('slideria:pdf', name),
   /** { version, date, commit } — сборка установленной программы; date пустая — запуск из проекта */
   build: ipcRenderer.sendSync('slideria:build'),
+  /** Скачанный файл сохранён: cb({ file }) — путь, или file: null, если сохранение отменили */
+  onSaved: (cb) => ipcRenderer.on('slideria:saved', (_e, info) => cb(info)),
 });

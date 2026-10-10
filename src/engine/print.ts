@@ -88,12 +88,23 @@ export async function printDeck(deck: Deck): Promise<void> {
   await ready(root, deck);
   const app = (window as { slideriaApp?: { pdf?(name: string): Promise<string | null> } }).slideriaApp;
   if (app?.pdf) {
-    await app.pdf(deck.title ?? '').catch(() => null);
+    const file = await app.pdf(deck.title ?? '').catch(() => null);
     deckEl?.remove();
     deckEl = null;
+    // Редактору, который попросил PDF: готово (или не сохранили)
+    tellOpener({ kind: 'pdf', file, done: true });
     // Окно открыто только ради PDF («Экспорт → PDF» в редакторе) — закрывается само
     if (window.name.startsWith('htmlpptx-print-')) window.close();
     return;
   }
+  tellOpener({ kind: 'pdf', open: true });
+  window.addEventListener('afterprint', () => tellOpener({ kind: 'pdf', done: true }), { once: true });
   window.print();
+}
+
+/** Сообщение окну редактора об экспорте (оно показывает, что файл готов) */
+function tellOpener(detail: Record<string, unknown>): void {
+  try {
+    (window.opener as Window | null)?.postMessage({ type: 'slideria-export', ...detail }, location.origin);
+  } catch { /* редактор закрыт */ }
 }

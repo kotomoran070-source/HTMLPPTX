@@ -284,11 +284,15 @@ function buildMenu() {
  */
 /** Скачивания (PPTX, HTML): обычное окно «Сохранить как»; в тестах — сразу в папку */
 function downloads() {
-  session.defaultSession.on('will-download', (_e, item) => {
+  session.defaultSession.on('will-download', (_e, item, wc) => {
     const dir = process.env.SLIDERIA_SAVE_DIR;
     if (dir) item.setSavePath(path.join(dir, item.getFilename()));
     else item.setSaveDialogOptions({ title: 'Сохранить', defaultPath: path.join(app.getPath('documents'), item.getFilename()) });
-    item.once('done', (_x, state) => log('Скачивание:', item.getFilename(), state, item.getSavePath()));
+    item.once('done', (_x, state) => {
+      log('Скачивание:', item.getFilename(), state, item.getSavePath());
+      // Странице — что файл сохранён (или сохранение отменили): она скажет об этом
+      if (!wc.isDestroyed()) wc.send('slideria:saved', { file: state === 'completed' ? item.getSavePath() : null });
+    });
   });
 }
 

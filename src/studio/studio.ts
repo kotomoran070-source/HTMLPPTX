@@ -672,10 +672,23 @@ export function startStudio(deck: Deck, deckKey: string): void {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 10000);
   }
+  // Конец экспорта — явно: PDF из окна печати, а в приложении — что файл сохранён (после «Сохранить как»)
+  const shortPath = (f: string) => f.split(/[\\/]/).slice(-2).join('/');
+  addEventListener('message', (e) => {
+    const m = e.data as { type?: string; kind?: string; file?: string | null; open?: boolean; done?: boolean } | null;
+    if (e.origin !== location.origin || m?.type !== 'slideria-export') return;
+    if (m.open) ed.toast('PDF: в окне печати выберите «Сохранить как PDF»', 8000);
+    else if (m.file) ed.toast(`PDF сохранён: ${shortPath(m.file)}`, 5000);
+    else if (m.done) ed.toast(m.file === null ? 'PDF не сохранён' : 'Окно печати закрыто', 3000);
+  });
+  (window as { slideriaApp?: { onSaved?(cb: (i: { file: string | null }) => void): void } }).slideriaApp?.onSaved?.((i) => {
+    ed.toast(i.file ? `Сохранено: ${shortPath(i.file)}` : 'Сохранение отменено', i.file ? 5000 : 2500);
+  });
   async function runExport(mode: string): Promise<void> {
     if (exporting) return;
     await ed.settle();
     if (mode === 'pdf') {
+      ed.toast('PDF: готовлю листы…', 60000);
       const u = new URL(location.href);
       u.searchParams.delete('studio');
       u.searchParams.set('print', '');
