@@ -104,6 +104,27 @@
     linear-gradient(35deg, transparent 46%, color-mix(in srgb, var(--ac) 55%, transparent) 46% 54%, transparent 54%) 0 0 / 37px 43px,
     linear-gradient(-50deg, transparent 46%, color-mix(in srgb, var(--bd2) 60%, transparent) 46% 54%, transparent 54%) 19px 11px / 53px 47px;
 }
+.bd-caustics {
+  background:
+    radial-gradient(40% 30% at 30% 40%, transparent 60%, color-mix(in srgb, var(--ac) 30%, transparent) 64%, transparent 70%),
+    radial-gradient(35% 28% at 70% 60%, transparent 58%, color-mix(in srgb, var(--bd2) 32%, transparent) 63%, transparent 69%),
+    radial-gradient(30% 24% at 52% 18%, transparent 58%, color-mix(in srgb, var(--ac) 22%, transparent) 63%, transparent 69%);
+}
+.bd-retrosun {
+  background:
+    repeating-linear-gradient(transparent 0 7px, var(--bg) 7px 10px) 0 0 / 100% 100%,
+    radial-gradient(circle at 74% 46%, color-mix(in srgb, var(--bd2) 75%, transparent) 0 21%, transparent 21.5%);
+  -webkit-mask: linear-gradient(#000 46%, rgba(0,0,0,.9) 46%); mask: linear-gradient(#000 46%, rgba(0,0,0,.9) 46%);
+}
+.bd-plankton {
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--ac) 55%, transparent) 1.3px, transparent 2.4px) 0 0 / 47px 41px,
+    radial-gradient(circle, color-mix(in srgb, var(--bd2) 45%, transparent) 1px, transparent 2px) 21px 13px / 33px 37px,
+    radial-gradient(circle at 80% 70%, color-mix(in srgb, var(--ac) 16%, transparent) 0 6%, transparent 9%);
+}
+.bd-pulse {
+  background: linear-gradient(transparent 74%, color-mix(in srgb, var(--ac) 45%, transparent) 74% calc(74% + 2px), transparent calc(74% + 2px));
+}
 .bd-dots {
   background: radial-gradient(circle, color-mix(in srgb, var(--ac) 32%, transparent) 2px, transparent 2.6px) 0 0 / 21px 21px;
   -webkit-mask: linear-gradient(135deg, #000, transparent 70%); mask: linear-gradient(135deg, #000, transparent 70%);

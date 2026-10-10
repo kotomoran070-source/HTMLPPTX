@@ -125,6 +125,55 @@ void main(){vec2 q=(gl_FragCoord.xy-.5*r)/r.y;q-=vec2(.12*sin(t*.13),.06*cos(t*.
   float g=max(ring,spoke*.55)*depth*(.4+.6*smoothstep(.9,.2,d))+exp(-d*9.)*.35;
   float al=g*k;gl_FragColor=vec4(c*al,al);}`,
   // Лава: капли жидкости сливаются и расходятся, по краю — блик
+  // Блики: солнечный свет на дне бассейна — сетка ярких линий медленно перетекает.
+  // Узор считается вдали от нуля (там он без симметрии) — нужна высокая точность, где она есть
+  caustics: `${HEAD}
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#endif
+void main(){vec2 uv=gl_FragCoord.xy/r;vec2 p=uv*vec2(r.x/r.y,1.)*5.-250.;
+  float tt=mod(t,600.)*.28+23.;vec2 i=p;float c=1.;
+  for(int n=0;n<4;n++){float q=tt*(1.-3.5/float(n+1));
+    i=p+vec2(cos(q-i.x)+sin(q+i.y),sin(q-i.y)+cos(q+i.x));
+    c+=1./length(vec2(p.x/(sin(i.x+q)/.005),p.y/(cos(i.y+q)/.005)));}
+  c/=4.;c=1.17-pow(abs(c),1.4);float v=clamp(pow(abs(c),8.),0.,1.);
+  vec3 w=mix(c1,c2,.15+.15*sin(uv.x*2.+t*.07));
+  float m=.35+.65*smoothstep(.15,1.1,length(uv-vec2(0.,1.)));
+  float tint=.08*(.6+.4*sin(uv.x*3.-uv.y*2.+t*.05));float lv=v*.9;
+  float a=(tint+lv*(1.-tint))*k*m;vec3 col=(w*tint+mix(w,vec3(1.),.15)*lv*(1.-tint))*k*m;
+  gl_FragColor=vec4(col,a);}`,
+  // Ретро-закат: солнце с полосами над сеткой, уходящей к горизонту
+  retrosun: `${HEAD}
+void main(){vec2 uv=gl_FragCoord.xy/r;float ar=r.x/r.y;vec2 p=uv*vec2(ar,1.);
+  float h=.24;vec2 sc=vec2(ar*.74,.46);float R=.3;float d=length(p-sc);
+  float y=(p.y-sc.y)/R;float g=clamp(-y*.42+.04,0.,.5);
+  float cut=step(fract(y*7.+t*.18),g);
+  float disk=smoothstep(R,R-.004,d)*(1.-cut)*step(h,uv.y);
+  vec3 sun=mix(c1,c2,clamp(.5+y*.6,0.,1.));
+  float halo=exp(-max(d-R,0.)*9.)*.35*step(h,uv.y);
+  float gr=0.;if(uv.y<h){float dy=h-uv.y;float z=1./(dy+.035);
+    float vx=fract((p.x-sc.x)*z*.35);float lx=smoothstep(.07,0.,min(vx,1.-vx));
+    float vz=fract(z*.55-t*.35);float lz=smoothstep(.09,0.,min(vz,1.-vz));
+    gr=max(lx,lz)*smoothstep(0.,.06,dy)*(.35+.65*smoothstep(0.,.24,dy));}
+  vec3 col=sun*disk*.85+c2*halo*(1.-disk)+c1*gr*.55;float a=(disk*.85+halo*(1.-disk)+gr*.55)*k;
+  gl_FragColor=vec4(col*k,a);}`,
+  // Пульс: кардиограмма бежит по слайду, за ней гаснет след
+  pulse: `${HEAD}
+float ecg(float x){float d;float y=0.;
+  d=(x-.18)/.035;y+=.12*exp(-d*d);d=(x-.36)/.012;y-=.1*exp(-d*d);
+  d=(x-.40)/.014;y+=exp(-d*d);d=(x-.44)/.014;y-=.25*exp(-d*d);d=(x-.68)/.06;y+=.22*exp(-d*d);return y;}
+void main(){vec2 uv=gl_FragCoord.xy/r;float bx=uv.x*2.2;float e=.0015;
+  float base=.24;float amp=.16;float yl=base+ecg(fract(bx))*amp;
+  float sl=(ecg(fract(bx+e))-ecg(fract(bx-e)))/(2.*e)*amp*2.2*r.y/r.x;
+  // Расстояние до линии: по наклону, но не меньше, чем до размаха кривой рядом (иначе у крутого пика — полоса на всю высоту)
+  float dx=4./r.x*2.2;float ya=base+ecg(fract(bx-dx))*amp;float yb=base+ecg(fract(bx+dx))*amp;
+  float env=max(0.,max(uv.y-max(yl,max(ya,yb)),min(yl,min(ya,yb))-uv.y));
+  float dpx=max(abs(uv.y-yl)/sqrt(1.+sl*sl),env)*r.y/max(r.y/720.,.5);
+  float line=smoothstep(2.8,1.,dpx);float glow=exp(-dpx*.12)*.25;
+  float hx=fract(t*.11)*1.3-.15;float be=hx-uv.x;
+  float vis=be>0.?exp(-be*2.6):0.;float head=exp(-be*be*900.)*step(-.02,be);
+  vec3 col=mix(c2,c1,vis);float a=((line+glow)*(.2+.8*vis)+head*glow*2.)*k;
+  gl_FragColor=vec4(col*a,a);}`,
   lava: `${HEAD}
 void main(){vec2 uv=gl_FragCoord.xy/r;float ar=r.x/r.y;vec2 p=uv*vec2(ar,1.);float f=0.;
   for(int i=0;i<7;i++){float fi=float(i);
@@ -248,6 +297,14 @@ void main(){float z=s.z;float y=fract(s.y-t*(.03+.04*z));
   float dir=fract(s.x*6.7)>.5?1.:-1.;
   vr=vec2(t*(1.2+1.6*z)*dir+s.y*6.283,.25+.75*abs(cos(t*(1.4+z)+s.x*9.)));
   float h=fract(s.x*7.3+s.y*3.1);vc=h<.33?c1:h<.66?c2:mix(mix(c1,c2,.5),vec3(1.),.45);va=.6+.4*z;}` },
+  // Планктон: светящиеся точки дрейфуют по течению и мерцают; крупные — как медузы вдали
+  plankton: { count: [260, 700], vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;
+void main(){float z=s.z;float tt=t*(.008+.012*z);vec2 q=s.xy;
+  q+=vec2(sin(q.y*6.+tt*6.+z*3.)*.03+tt,cos(q.x*5.-tt*5.)*.03+sin(t*.05+s.x*9.)*.012);
+  q=fract(q);gl_Position=vec4(q*2.2-1.1,0.,1.);
+  float pl=.5+.5*sin(t*(.3+.6*z)+s.x*40.);float big=step(.9,z);
+  gl_PointSize=mix(3.+8.*z*z,22.+34.*(z-.9)*10.,big)*px;
+  vc=mix(c1,c2,fract(s.x*2.3+s.y*1.7));va=mix((.35+.65*z)*(.35+.65*pl),.2+.14*pl,big);}` },
   // Звёзды: полёт сквозь звёздное поле — звёзды плывут из глубины и мерцают
   stars: { count: [320, 900], vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;
 void main(){float z=fract(s.z-t*.018);vec2 q=(s.xy-.5)/(.25+z*1.6);
@@ -282,6 +339,10 @@ const LOOK: Record<BackdropKind, { scale: number; fps: number; k: [light: number
   bubbles: { scale: 1, fps: 60, k: [0.8, 0.9] },
   hearts: { scale: 1, fps: 60, k: [0.7, 0.85] },
   confetti: { scale: 1, fps: 60, k: [0.8, 0.9] },
+  caustics: { scale: 0.75, fps: 30, k: [0.55, 0.7] },
+  retrosun: { scale: 0.75, fps: 30, k: [0.6, 0.75] },
+  plankton: { scale: 1, fps: 30, k: [1, 1.1] },
+  pulse: { scale: 1, fps: 60, k: [1, 0.9] },
 };
 
 /** Сеть: узлы плывут, близкие соединены линиями — считается на процессоре, рисуется видеокартой */
