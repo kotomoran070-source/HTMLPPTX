@@ -30,3 +30,4 @@ import './live/live';
 import './control/control';
 import './sandbox/sandbox';
 import './schemes/schemes';
+import './math/math';

@@ -115,6 +115,7 @@ const PATHS: Record<string, string> = {
   funnel: '<path d="M3 4h18l-6.5 8v6.5L9.5 21v-9z"/>',
   pyramid: '<path d="M12 3 3 20h18z"/><path d="M8.3 11h7.4M5.7 16h12.6"/>',
   hash: '<path d="M4 9h16M4 15h16M10 4 8 20M16 4l-2 16"/>',
+  sigma: '<path d="M18 6.5V4H6l6.5 8L6 20h12v-2.5"/>',
   columns: '<rect x="3" y="4" width="7.5" height="16" rx="2"/><rect x="13.5" y="4" width="7.5" height="16" rx="2"/><path d="M6 9h2.5M16 9h2.5M6 13h2.5M16 13h2.5"/>',
   quad: '<path d="M12 3v18M3 12h18"/><rect x="3" y="3" width="18" height="18" rx="2.5"/>',
   faq: '<path d="M4 5h16v11H9l-5 4z"/><path d="M10 9a2 2 0 1 1 2.8 1.8c-.5.3-.8.7-.8 1.2M12 14h.01"/>',

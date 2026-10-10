@@ -84,6 +84,16 @@ export const BLOCKS: Record<string, Schema> = {
     ],
   },
   note: { fields: [{ k: 'text', label: 'Текст', type: 'textarea' }] },
+  math: {
+    about: 'Формула. Двойной щелчок по ней на слайде — правка с подсказками',
+    fields: [
+      { k: 'tex', label: 'Формула', type: 'textarea', hint: 'x^2, a/b, sqrt(x), alpha, sum_(i=1)^n, <=, +- · {{x}} — число с ползунка · есть «\\» — LaTeX' },
+      { k: 'size', label: 'Размер, px', type: 'number', min: 12, max: 200, placeholder: '40' },
+      { k: 'align', label: 'Выравнивание', type: 'select', options: [['', 'По центру'], ['left', 'По левому краю'], ['right', 'По правому краю']] },
+      { k: 'font', label: 'Шрифт', type: 'select', options: [['', 'Современный'], ['classic', 'Классический (как в PowerPoint)']] },
+      { k: 'color', label: 'Цвет', type: 'color' },
+    ],
+  },
   list: { fields: [{ k: 'items', label: 'Пункты', type: 'strings', item: 'Пункт' }] },
   spacer: { fields: [{ k: 'size', label: 'Высота отступа, px', type: 'number', min: 0, max: 400, placeholder: '24' }] },
   image: {

@@ -298,7 +298,7 @@ async function settle(box: HTMLElement): Promise<void> {
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 }
 
-type ToPng = (el: HTMLElement, o?: { pixelRatio?: number; skipFonts?: boolean; cacheBust?: boolean; width?: number; height?: number }) => Promise<string>;
+type ToPng = (el: HTMLElement, o?: { pixelRatio?: number; skipFonts?: boolean; fontEmbedCSS?: string; cacheBust?: boolean; width?: number; height?: number }) => Promise<string>;
 
 class Converter {
   private origin: DOMRect;
@@ -440,6 +440,8 @@ class Converter {
 
     if (el.classList.contains('backdrop')) return this.backgroundPicture(el, b);
     if (type && RASTER.has(type)) return this.raster(el, b);
+    // Формула — картинкой со шрифтом формул внутри: в PowerPoint выглядит так же, как на слайде
+    if (type === 'math') return this.raster(el, b, await import('../components/math/runtime').then((m) => m.mathFontCss()).catch(() => undefined));
     if (type === 'table') return this.table(el, k);
     if (type === 'embed' && await this.embed(el, b)) return;
     // Вёрстка с объёмной сценой (CSS 3D): фигурами её не передать — картинкой, как на экране
@@ -885,9 +887,9 @@ class Converter {
     } catch { /* пустой холст */ }
   }
 
-  private async raster(el: HTMLElement, b: Box): Promise<void> {
+  private async raster(el: HTMLElement, b: Box, fontCss?: string): Promise<void> {
     try {
-      const data = await packed(await this.toPng(el, { pixelRatio: sharp(2), skipFonts: true }));
+      const data = await packed(await this.toPng(el, { pixelRatio: sharp(2), ...(fontCss ? { fontEmbedCSS: fontCss } : { skipFonts: true }) }));
       this.slide.addImage({ data, ...this.pos(b) });
     } catch { /* не удалось — пропускаем */ }
   }

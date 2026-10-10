@@ -1,0 +1,40 @@
+/* Формула (math.ts): MathML от Temml, шрифт формул — Fira Math (едет с набором формул, runtime.ts) */
+.math-block {
+  --math-font: "Fira Math", "Cambria Math", "STIX Two Math", "Latin Modern Math", math;
+  font-size: var(--math-size, 40px);
+  line-height: 1.25;
+  color: var(--math-color, var(--tx));
+  text-align: center;
+  overflow-wrap: normal;
+  /* У шрифта формул знаменатель и пределы под знаком уходят ниже рамки MathML: запас снизу больше */
+  padding: .08em 0 .28em;
+}
+/* Классический — как в PowerPoint и учебниках: шрифт формул компьютера (Windows — Cambria Math) */
+.math-block.classic { --math-font: "Cambria Math", "STIX Two Math", "Latin Modern Math", "Fira Math", math; }
+.math-block.at-left { text-align: left; }
+.math-block.at-right { text-align: right; }
+.math-block.at-left math { margin-left: 0; }
+.math-block.at-right math { margin-right: 0; }
+/* Строкой, а не отдельным блоком: так формулу ровняет text-align, а знаки остаются крупными, как в выключной формуле */
+.math-block math {
+  /* Блоком по ширине формулы: высота — вся формула, а край выбирают поля (выравнивание) */
+  display: block math;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  math-style: normal;
+  font-family: var(--math-font);
+  font-size: 1em;
+  font-weight: normal;
+  font-style: normal;
+  letter-spacing: normal;
+  text-transform: none;
+  font-feature-settings: "dtls" off;
+}
+.math-block math * { border-color: currentColor; }
+/* Буквы-«рукописные» (\mathcal) и прочее, чего нет в шрифте: берёт следующий шрифт */
+.math-block .mathcal, .math-block .mathscr { font-family: var(--math-font); }
+.math-block :is(.math-wait, .math-err, .math-empty) { font-family: var(--font, inherit); font-size: .6em; }
+.math-block .math-wait { opacity: .5; }
+.math-block .math-err { color: #DC2626; text-decoration: underline wavy color-mix(in srgb, #DC2626 60%, transparent); text-underline-offset: 4px; }
+.math-block .math-empty { color: var(--mu); }

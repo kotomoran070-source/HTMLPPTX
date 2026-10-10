@@ -36,6 +36,8 @@ import { Inspector } from './inspector';
 import { closeLibrary, EMBED_SAMPLE, presetOf, SANDBOX_SAMPLE, showLibrary, type Preset } from './library';
 import { openCodeDialog } from './code-dialog';
 import { closeMenu, showMenu, showPopover, type MenuEntry } from './menu';
+import { closeMathEditor, editMath } from './math-edit';
+import { loadMath } from '../components/math/math';
 import { projectStorage } from '../engine/storage';
 import { LayersPane } from './layers';
 import { SlidesPanel } from './slides-panel';
@@ -88,6 +90,8 @@ function group(label: string, body: string): string {
  */
 export function startStudio(deck: Deck, deckKey: string): void {
   document.title = `${deck.title} — Slideria`;
+  // Набор формул — заранее: галерея «Уравнения» и вставленная формула рисуются сразу
+  void loadMath();
   document.body.classList.add('studio');
   document.body.innerHTML = `
 <div class="studio-app">
@@ -127,7 +131,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Слайды', rb('slide.new', 'slide-add', 'Новый слайд', { big: true, key: 'Ctrl+M', menu: true }))}
       ${group('Текст', rb('insert.text', 'text', 'Надпись', { big: true, title: 'Текст в любом месте слайда' }) + rb('ins.gal.text', 'list', 'Текст', { big: true, menu: true, title: 'Заголовок, абзац, список, цитата, метки' }))}
       ${group('Иллюстрации', rb('insert.image', 'image', 'Картинка', { big: true }) + rb('ins.gal.shapes', 'frame', 'Фигуры', { big: true, menu: true, title: 'Фигуры, линии, стрелки и плашки' }))}
-      ${group('Данные', rb('ins.gal.table', 'eq-cols', 'Таблица', { big: true, menu: true, title: 'Готовые таблицы разных стилей' }) + rb('ins.gal.chart', 'chart', 'Диаграмма', { big: true, menu: true, title: 'Графики и столбцы' }) + rb('ins.gal.numbers', 'hash', 'Числа', { big: true, menu: true, title: 'Ключевые числа, прогресс, «ключ — значение»' }))}
+      ${group('Данные', rb('ins.gal.table', 'eq-cols', 'Таблица', { big: true, menu: true, title: 'Готовые таблицы разных стилей' }) + rb('ins.gal.chart', 'chart', 'Диаграмма', { big: true, menu: true, title: 'Графики и столбцы' }) + rb('ins.gal.numbers', 'hash', 'Числа', { big: true, menu: true, title: 'Ключевые числа, прогресс, «ключ — значение»' }) + rb('ins.gal.math', 'sigma', 'Уравнение', { big: true, menu: true, title: 'Формулы: дроби, корни, суммы, интегралы, живые числа' }))}
       ${group('Схемы', rb('ins.gal.schemes', 'cycle', 'Схемы', { big: true, menu: true, title: 'Цикл, воронка, пирамида, хронология, матрица и другие' }) + rb('ins.gal.cards', 'grid', 'Карточки', { big: true, menu: true, title: 'Карточки, «было — стало», панель' }))}
       ${group('Медиа', rb('ins.video', 'play', 'Видео', { big: true }) + rb('ins.model', 'layers', '3D-модель', { big: true }) + rb('ins.gal.live', 'sliders', 'Интерактив', { big: true, menu: true, title: 'Регуляторы, живой код, песочница, кнопки' }))}
       ${group('Все блоки', rb('insert.blocks', 'sparkle', 'Блоки', { big: true, menu: true, title: 'Все готовые блоки и ваши шаблоны' }))}
@@ -259,6 +263,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   function go(i: number): void {
     const next = Math.max(0, Math.min(count() - 1, i));
     if (next === index && view.index === next) return;
+    closeMathEditor();
     index = next;
     view.show(index);
     history.replaceState(null, '', `#${index + 1}`);
@@ -605,13 +610,16 @@ export function startStudio(deck: Deck, deckKey: string): void {
     ed.toast(ok ? done : `${done}, но заставку снять не удалось`, 2500, !ok);
   }
 
-  // Двойной щелчок по живой вставке — её код
+  // Двойной щелчок по живой вставке — её код, по формуле — её запись
   view.stage.addEventListener('dblclick', (e) => {
-    const el = (e.target as Element).closest<HTMLElement>('.slide.on :is([data-type="embed"], [data-type="sandbox"])[data-block]');
+    const el = (e.target as Element).closest<HTMLElement>('.slide.on :is([data-type="embed"], [data-type="sandbox"], [data-type="math"])[data-block]');
     if (!el) return;
     e.preventDefault();
     e.stopPropagation();
-    try { void editEmbedCode(JSON.parse(el.dataset.block!) as Path); } catch { /* путь не прочитан */ }
+    let path: Path;
+    try { path = JSON.parse(el.dataset.block!) as Path; } catch { return; }
+    if (el.dataset.type === 'math') editMath(ed, () => deck, () => view.stage, path);
+    else void editEmbedCode(path);
   }, true);
 
   // ---------------- экспорт ----------------
@@ -1242,6 +1250,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
     ed.selectFree(i, at);
     // Живая вставка из галереи сразу получает заставку (миниатюры, PPTX)
     if (block.type === 'embed' || block.type === 'sandbox') void ed.embedPoster(path);
+    // Формула — сразу в правку, как уравнение в PowerPoint
+    if (block.type === 'math') editMath(ed, () => deck, () => view.stage, path);
   }
 
   // ---------------- код ----------------
@@ -1390,7 +1400,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   SLIDE_PRESETS.forEach((_p, k) => { cmds[`slide.preset.${k}`] = { run: () => ed.addSlide(index, k) }; });
   /** Галереи вкладки «Вставка»: только свои разделы библиотеки */
   const GALLERIES: Record<string, string[]> = {
-    text: ['Текст'], shapes: ['Фигуры', 'Плашки'], table: ['Таблицы'], chart: ['Графики'], numbers: ['Числа'],
+    text: ['Текст'], shapes: ['Фигуры', 'Плашки'], table: ['Таблицы'], chart: ['Графики'], numbers: ['Числа'], math: ['Уравнения'],
     schemes: ['Схемы'], cards: ['Карточки'], live: ['Интерактив'],
   };
   for (const [k, cats] of Object.entries(GALLERIES)) {

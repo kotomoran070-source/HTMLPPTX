@@ -11,8 +11,12 @@ const decksDir = process.env.SLIDERIA_DECKS || 'presentations';
 const app = process.env.SLIDERIA_APP === '1';
 
 function usesModel(name: string): boolean {
+  return usesType(name, 'model');
+}
+
+function usesType(name: string, type: string): boolean {
   try {
-    return /\btype:\s*['"]?model\b/.test(fs.readFileSync(path.join(decksDir, name, 'deck.yaml'), 'utf8'));
+    return new RegExp(`\\btype:\\s*['"]?${type}\\b`).test(fs.readFileSync(path.join(decksDir, name, 'deck.yaml'), 'utf8'));
   } catch {
     return true;
   }
@@ -28,6 +32,8 @@ export default defineConfig(({ command }) => ({
     __EDITABLE__: JSON.stringify(process.env.CLEAN !== '1'),
     // Библиотека 3D (≈1 МБ) попадает в файл, только если в презентации есть модель
     __HAS_MODEL__: JSON.stringify(!only || usesModel(only)),
+    // Набор формул (Temml, ≈160 КБ) — только если в презентации есть формулы
+    __HAS_MATH__: JSON.stringify(!only || usesType(only, 'math')),
     // Как называть папку с презентациями в подсказках
     __DECKS_DIR__: JSON.stringify(process.env.SLIDERIA_DECKS_LABEL || 'presentations/'),
     __APP__: JSON.stringify(app),

@@ -2736,6 +2736,11 @@ tar@^7.5.4, tar@^7.5.7:
     minizlib "^3.1.0"
     yallist "^5.0.0"
 
+temml@0.14.0:
+  version "0.14.0"
+  resolved "https://registry.yarnpkg.com/temml/-/temml-0.14.0.tgz#4abce2e8e29b8c48ce4c67183a0e4d7f149d6dd4"
+  integrity sha512-tz1LW/5IZpThK8c7ZpdTSH/n56eAj+ThirLieErtKxYC3EKCIiB4sKdRUehAgH+fQmvIKqMfP3gqTLBdLpy9zw==
+
 temp-file@^3.4.0:
   version "3.4.0"
   resolved "https://registry.yarnpkg.com/temp-file/-/temp-file-3.4.0.tgz#766ea28911c683996c248ef1a20eea04d51652c7"

@@ -121,6 +121,7 @@ export function hasFormula(v: unknown, top = true): boolean {
 /**
  * Копия данных с посчитанными формулами (пути для правки копии задаёт рендер).
  * В вёрстке (поле html) числа без пробелов и с точкой: их подставляют в атрибуты SVG и CSS.
+ * Исходник формулы (tex) не трогается: блок math подставляет числа сам.
  */
 export function resolve<T>(v: T, vars: Vars, plain = false): T {
   if (typeof v === 'string') {
@@ -136,7 +137,8 @@ export function resolve<T>(v: T, vars: Vars, plain = false): T {
   }
   if (v && typeof v === 'object') {
     const out: Record<string, unknown> = {};
-    for (const [k, x] of Object.entries(v)) out[k] = k === 'styles' ? x : resolve(x, vars, plain || k === 'html');
+    // Исходник формулы (блок math) считает сам: числа в нём пишутся по правилам LaTeX
+    for (const [k, x] of Object.entries(v)) out[k] = k === 'styles' || k === 'tex' ? x : resolve(x, vars, plain || k === 'html');
     return out as T;
   }
   return v;

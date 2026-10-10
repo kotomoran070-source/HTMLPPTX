@@ -6,6 +6,7 @@ import './components';
 
 import { decks, fixed } from 'virtual:decks';
 import { esc } from './engine/html';
+import { loadMath, usesMath } from './components/math/math';
 import { startPresenter } from './engine/presenter';
 import { startShow, updateFavicon } from './engine/show';
 import { setupSelectMenus } from './engine/select-menu';
@@ -51,6 +52,8 @@ async function boot(): Promise<void> {
     return;
   }
   setMeta(deck);
+  // Формулы рисуются сразу, без мигания исходником: набор формул — до первой отрисовки
+  if (usesMath(deck)) await loadMath().catch(() => null);
   // Студия (редактор как в PowerPoint) есть только в yarn dev: в собранный файл её код не попадает
   if (import.meta.env.DEV && !fixed && params.has('studio')) {
     const { startStudio } = await import('./studio/studio');

@@ -1075,3 +1075,14 @@ body.st-marqueeing, body.st-marqueeing * { user-select: none !important; cursor:
 .st-shot, .st-shot * { visibility: hidden !important; }
 .st-shot .st-shot-keep, .st-shot .st-shot-keep * { visibility: visible !important; }
 body.editing .stage .st-shot :is(.st-shot-keep, .st-shot-keep *) { outline: none !important; }
+
+/* Правка формулы на слайде (math-edit.ts): поле исходника и заготовки */
+.st-mathed { position: fixed; z-index: 40; display: flex; flex-direction: column; gap: 8px; padding: 10px; background: var(--surf); border: 1px solid var(--bd); border-radius: 12px; box-shadow: 0 14px 36px rgba(15, 23, 42, .22); }
+.st-mathed-src { width: 100%; box-sizing: border-box; resize: none; padding: 9px 11px; border: 1px solid var(--bd2); border-radius: 8px; background: var(--bg); color: var(--tx); font: 15px/1.45 var(--mono, "JetBrains Mono", ui-monospace, monospace); outline: none; }
+.st-mathed-src:focus { border-color: var(--ac); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 18%, transparent); }
+.st-mathed-src::placeholder { color: var(--mu); }
+.st-mathed-err { font-size: 12px; color: #DC2626; }
+.st-mathed-keys { display: flex; flex-wrap: wrap; gap: 4px; }
+.st-mathed-keys button { min-width: 32px; height: 30px; padding: 0 8px; border: 1px solid var(--bd); border-radius: 7px; background: var(--alt); color: var(--tx); font: 500 14px "Fira Math", "Cambria Math", var(--font); cursor: pointer; }
+.st-mathed-keys button:hover, .st-mathed-keys button:focus-visible { border-color: var(--ac); background: var(--acs); color: var(--ach); outline: none; }
+.st-mathed-keys button.live { margin-left: auto; font: 600 12.5px var(--mono, "JetBrains Mono", ui-monospace, monospace); color: var(--ach); background: var(--acs); border-color: color-mix(in srgb, var(--ac) 35%, var(--bd)); }

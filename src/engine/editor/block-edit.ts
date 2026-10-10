@@ -31,7 +31,7 @@ const NAMES: Record<string, string> = {
   grid: 'Сетка', stack: 'Столбик', panel: 'Панель', kv: 'Таблица', progress: 'Прогресс', sliders: 'Ползунки', control: 'Регулятор', sandbox: 'Песочница',
   chips: 'Чипы', network: 'Схема сети', hub: 'Схема итогов', system: 'Схема системы', pipeline: 'Пайплайн',
   'line-chart': 'График', uptime: 'Доступность', bars: 'Столбцы', spacer: 'Отступ',
-  donut: 'Доли', hbars: 'Рейтинг', gauge: 'Шкала', rings: 'Кольца целей', columns: 'Столбцы по группам', lines: 'Линии',
+  math: 'Формула', donut: 'Доли', hbars: 'Рейтинг', gauge: 'Шкала', rings: 'Кольца целей', columns: 'Столбцы по группам', lines: 'Линии',
   html: 'Элемент', embed: 'Живая вставка', stat: 'Число', quote: 'Цитата', timeline: 'Хронология', shape: 'Фигура', table: 'Таблица', group: 'Группа', video: 'Видео', model: '3D-модель',
   cycle: 'Цикл', funnel: 'Воронка', pyramid: 'Пирамида', numbers: 'Крупные номера', compare: 'Сравнение', matrix: 'Матрица 2×2',
   icons: 'Иконки с подписями', stats: 'Цифры', faq: 'Вопрос — ответ',

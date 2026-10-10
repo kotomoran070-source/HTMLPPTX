@@ -199,3 +199,46 @@ test('«Настроить ленту»: простая лента прячет 
   await expect(page.locator('.st-pal-o').first()).toContainText('Инструменты');
   expect(errors).toEqual([]);
 });
+
+test('формулы: «Вставка → Уравнение», правка на слайде, живые числа пересчитываются при показе', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=math&studio#1');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  await page.locator('.st-tabs [data-tab="insert"]').click();
+  const gallery = () => page.locator('.st-ribbon [data-cmd="ins.gal.math"]').filter({ visible: true }).click();
+  await gallery();
+  await page.locator('.st-lib-item').filter({ hasText: 'Квадратное уравнение' }).click();
+  // Сразу правка: поле с простой записью, слайд перерисовывается на лету
+  const src = page.locator('.st-mathed textarea');
+  await expect(src).toHaveValue('x = (-b +- sqrt(b^2 - 4ac))/(2a)');
+  await src.press('End');
+  await src.pressSequentially(' + 1');
+  await expect.poll(() => readDeck('math')).toContain('sqrt(b^2 - 4ac))/(2a) + 1');
+  const math = page.locator('#st-canvas .slide.on [data-type="math"] math');
+  await expect(math).toHaveCount(1);
+  await expect(math.locator('msqrt')).toHaveCount(1);
+  await expect(math.locator('mfrac')).toHaveCount(1);
+  await src.press('Escape');
+  await expect(page.locator('.st-mathed')).toHaveCount(0);
+  // Двойной щелчок — снова правка
+  await page.locator('#st-canvas .slide.on [data-type="math"]').dblclick();
+  await expect(src).toBeVisible();
+  await src.press('Escape');
+  // Живая формула: ползунки и числа в формуле
+  await gallery();
+  await page.locator('.st-lib-item').filter({ hasText: 'Живая формула' }).click();
+  await expect(page.locator('#st-canvas .slide.on [data-type="math"]').nth(1)).toContainText('117,6');
+  await expect.poll(() => readDeck('math')).toContain('{{=m*a}}');
+  expect(errors).toEqual([]);
+
+  // При показе: ползунок двигают — формула пересчитывается
+  await page.goto('/?deck=math#1');
+  const live = page.locator('.slide.on [data-type="math"]').nth(1);
+  await expect(live).toContainText('117,6');
+  await page.locator('.slide.on [data-type="control"] input[type=range]').first().evaluate((el: HTMLInputElement) => {
+    el.value = '20';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await expect(live).toContainText('196');
+  await expect(live.locator('math')).toHaveCount(1);
+});

@@ -46,6 +46,8 @@ const kit = (html: string, texts: string[], photos = 0) => ({ type: 'html', html
 /** Редактируемый текст вёрстки: номер в texts, своё оформление и класс */
 const T = (i: number, style = '', cls = '', tag = 'div') => `<${tag} data-t="${i}"${cls ? ` class="${cls}"` : ''}${style ? ` style="${style}"` : ''}></${tag}>`;
 const HEAD = 'font-family:var(--font-head, var(--font))';
+/** Формула: простая запись или LaTeX (блок math) */
+const eq = (tex: string, size?: number, color?: string) => ({ type: 'math', tex, ...(size ? { size } : {}), ...(color ? { color } : {}) });
 
 /** Стартовый код живой вставки: частицы в цветах темы, разбегаются от курсора */
 export const EMBED_SAMPLE = `<!doctype html>
@@ -243,6 +245,47 @@ export const LIBRARY: Category[] = [
       {
         name: 'Ключ — значение', w: 520, pw: 380, make: () => ({
           type: 'kv', rows: { 'Срок': '3 месяца', 'Команда': '5 человек', 'Бюджет': '1,2 млн ₽' },
+        }),
+      },
+    ],
+  },
+  {
+    name: 'Уравнения',
+    icon: 'sigma',
+    items: [
+      // Двойной щелчок по формуле на слайде — правка: простая запись (x^2, a/b, sqrt(x)) или LaTeX
+      { name: 'Квадратное уравнение', w: 620, make: () => eq('x = (-b +- sqrt(b^2 - 4ac))/(2a)', 48) },
+      { name: 'Теорема Пифагора', w: 420, make: () => eq('a^2 + b^2 = c^2', 48) },
+      { name: 'Дробь', w: 300, make: () => eq('(a + b)/c', 48) },
+      { name: 'Корень', w: 340, make: () => eq('sqrt(x^2 + y^2)', 48) },
+      { name: 'Сумма', w: 460, make: () => eq('sum_(i=1)^n i = n(n+1)/2') },
+      { name: 'Интеграл', w: 420, make: () => eq('int_0^1 x^2 dx = 1/3') },
+      { name: 'Предел', w: 400, make: () => eq('lim_(x->0) sinx/x = 1') },
+      { name: 'Производная', w: 600, make: () => eq("f'(x) = lim_(h->0) (f(x+h) - f(x))/h", 36) },
+      { name: 'Тождество Эйлера', w: 360, make: () => eq('e^(i pi) + 1 = 0', 48) },
+      { name: 'Система', w: 300, make: () => eq('\\begin{cases} x + y = 5 \\\\ x - y = 1 \\end{cases}') },
+      { name: 'Матрица', w: 340, make: () => eq('A = \\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}') },
+      { name: 'Вывод столбиком', w: 520, make: () => eq('(a+b)^2 = (a+b)(a+b)\n= a^2 + 2ab + b^2', 36) },
+      {
+        // Живые числа: формула считает по ползункам и пересчитывается при показе
+        name: 'Живая формула', w: 760, pw: 520, make: () => ({
+          type: 'stack', gap: 22,
+          items: [
+            { type: 'grid', columns: 2, gap: 16, items: [
+              { type: 'control', name: 'm', label: 'Масса', min: 1, max: 50, step: 1, value: 12, unit: ' кг' },
+              { type: 'control', name: 'a', label: 'Ускорение', min: 0.5, max: 20, step: 0.5, value: 9.8, unit: ' м/с²' },
+            ] },
+            eq('F = m*a = {{m}}*{{a}} = {{=m*a}} Н', 44, 'accent'),
+          ],
+        }),
+      },
+      {
+        name: 'Живая площадь круга', w: 640, pw: 480, make: () => ({
+          type: 'stack', gap: 22,
+          items: [
+            { type: 'control', name: 'r', label: 'Радиус', min: 1, max: 20, step: 0.5, value: 5, unit: ' см' },
+            eq('S = pi r^2 = pi * {{r}}^2 ~= {{=pi*r^2}} см^2', 44, 'accent'),
+          ],
         }),
       },
     ],

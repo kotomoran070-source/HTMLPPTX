@@ -1,5 +1,6 @@
 Шрифты тем Slideria — свободные, по лицензии SIL Open Font License 1.1 (текст ниже).
 Файлы — подмножества исходных шрифтов Google Fonts: латиница, кириллица, знаки валют и пунктуация.
+Шрифт формул math/FiraMath.woff2 — Fira Math 0.3.4 целиком, без изменений (только упакован в WOFF2).
 
 Copyright 2015 The Cormorant Project Authors (github.com/CatharsisFonts/Cormorant)
 Copyright 2014 The Caveat Project Authors (https://github.com/googlefonts/caveat)
@@ -16,6 +17,7 @@ Copyright 2021 The Onest Project Authors (https://github.com/simpals/onest)
 Copyright 2020 The Dela Gothic Project Authors (https://github.com/syakuzen/DelaGothic)
 Copyright 2023 The Tektur Project Authors (https://www.github.com/hyvyys/Tektur)
 Copyright 2012 Google Inc. All Rights Reserved. (Noto Serif Display, https://github.com/notofonts/latin-greek-cyrillic)
+Copyright (C) 2018–2020 Xiangdong Zeng (Fira Math, https://github.com/firamath/firamath)
 
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
 -----------------------------------------------------------

@@ -3,7 +3,8 @@
 //   slideria — витрина из проекта (только чтение);
 //   morph    — два слайда с переходом «Морф»;
 //   schemes  — новые блоки-схемы (tests/e2e/schemes.yaml);
-//   design   — стартовый шаблон для вкладки «Дизайн».
+//   design   — стартовый шаблон для вкладки «Дизайн»;
+//   math     — пустой слайд для формул.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -39,4 +40,7 @@ fs.writeFileSync(dfile, fs.readFileSync(dfile, 'utf8').replaceAll('{{title}}', '
 // schemes — новые блоки-схемы, по слайду на каждый
 fs.mkdirSync(path.join(dir, 'schemes'));
 fs.copyFileSync(path.join(root, 'tests', 'e2e', 'schemes.yaml'), path.join(dir, 'schemes', 'deck.yaml'));
+// math — пустой слайд: формулы вставляются из «Вставка → Уравнение»
+fs.mkdirSync(path.join(dir, 'math'));
+fs.writeFileSync(path.join(dir, 'math', 'deck.yaml'), 'title: Формулы\nslides:\n  - template: canvas\n    free: []\n');
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

@@ -4,6 +4,8 @@
 declare const __EDITABLE__: boolean;
 /** false — в собранной презентации нет 3D-моделей: библиотека не нужна */
 declare const __HAS_MODEL__: boolean;
+/** false — в собранной презентации нет формул: набор формул не нужен */
+declare const __HAS_MATH__: boolean;
 /** Папка с презентациями для подсказок: presentations/ или «Документы/Slideria» в приложении */
 declare const __DECKS_DIR__: string;
 /** Страница открыта в приложении Slideria (desktop/), а не через yarn dev */
