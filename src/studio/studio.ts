@@ -1270,7 +1270,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   // ---------------- код ----------------
   let code: CodeView | null = null;
   let codeOpen = false;
-  async function toggleCode(force?: boolean): Promise<void> {
+  async function toggleCode(force?: boolean, focus = true): Promise<void> {
     codeOpen = force ?? !codeOpen;
     const box = $('st-code');
     if (codeOpen && !code) {
@@ -1283,7 +1283,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     document.querySelector('.st-work')!.classList.toggle('with-code', codeOpen);
     if (codeOpen) {
       code!.update(true);
-      code!.focus();
+      if (focus) code!.focus();
     } else {
       code?.apply();
     }
@@ -1854,6 +1854,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
   find = new FindBar({
     deck: () => deck, editor: () => ed, index: () => index, go, stage: () => view.stage,
     showNotes: () => { if (!notesOpen) setNotes(true); },
+    showCode: (mode, from, to) => {
+      if (codeOpen) return code!.showMatch(mode, from, to);
+      void toggleCode(true, false).then(() => code!.showMatch(mode, from, to));
+    },
   }, document.querySelector<HTMLElement>('.st-view')!);
 
   // ---------------- клавиатура ----------------
@@ -1867,10 +1871,15 @@ export function startStudio(deck: Deck, deckKey: string): void {
       e.preventDefault();
       return palette.focus();
     }
-    // Ctrl+F — найти, Ctrl+H — найти и заменить по всей презентации (вместо поиска браузера)
+    // Ctrl+F — найти, Ctrl+H — найти и заменить по всей презентации (вместо поиска браузера);
+    // Ctrl+Shift+F — сразу в коде (и из редактора кода: там Ctrl+F ищет в открытом коде)
     if (mod && !e.altKey && !e.shiftKey && (e.code === 'KeyF' || e.code === 'KeyH')) {
       e.preventDefault();
       return find?.show(e.code === 'KeyH');
+    }
+    if (mod && !e.altKey && e.shiftKey && e.code === 'KeyF') {
+      e.preventDefault();
+      return find?.show(false, true);
     }
     if (painter && e.key === 'Escape') {
       e.preventDefault();

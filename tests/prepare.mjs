@@ -4,7 +4,8 @@
 //   morph    — два слайда с переходом «Морф»;
 //   schemes  — новые блоки-схемы (tests/e2e/schemes.yaml);
 //   design   — стартовый шаблон для вкладки «Дизайн»;
-//   math     — пустой слайд для формул.
+//   math     — пустой слайд для формул;
+//   find     — поиск по тексту и коду.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -62,5 +63,23 @@ slides:
       - {type: text, text: Заголовок, place: {x: 60, y: 40, w: 600}}
       - {type: card, title: Второй, click: true, delay: 300, place: {x: 480, y: 200, w: 340}}
       - {type: card, title: Первый, click: true, place: {x: 60, y: 200, w: 340}}
+`);
+// find — поиск: текст на трёх слайдах и в заметках, цвет — только в коде (YAML и стили)
+fs.mkdirSync(path.join(dir, 'find'));
+fs.writeFileSync(path.join(dir, 'find', 'deck.yaml'), `title: Поиск
+css: |
+  .free { border-color: #2563EB; }
+slides:
+  - template: canvas
+    free:
+      - {type: text, text: Альфа и бета, place: {x: 80, y: 80, w: 500}}
+  - template: canvas
+    notes: бета в заметках
+    free:
+      - {type: text, text: Бета, place: {x: 80, y: 80, w: 500}}
+      - {type: shape, kind: round, fill: "#2563EB", place: {x: 640, y: 80, w: 200, h: 200}}
+  - template: canvas
+    free:
+      - {type: card, title: Гамма, text: бета-версия, place: {x: 80, y: 80, w: 400}}
 `);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

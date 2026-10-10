@@ -17,6 +17,7 @@ import { currentTheme, onThemeChange } from '../engine/theme';
 import type { Deck, SlideData } from '../types';
 import { codeHints, cssProblems, readSlideYaml } from './code-hints';
 import { codeSearch, reopenSearch } from './code-search';
+import { slideYaml } from './find';
 import { collectNodes, cssRules, highlightField, rulesFor, setHighlight, treeHtml, treeToggleIcon, YamlRanges, type CssRule, type TreeNode } from './code-tree';
 
 type Mode = 'slide' | 'css' | 'anim';
@@ -157,8 +158,11 @@ export class CodeView {
     root.addEventListener('focusout', (e) => {
       if (!root.contains(e.relatedTarget as Node | null)) host.editor().endMerge();
     });
-    // Клавиши редактора кода не должны листать слайды и отменять правки слайда
-    root.addEventListener('keydown', (e) => e.stopPropagation());
+    // Клавиши редактора кода не должны листать слайды и отменять правки слайда; Ctrl+Shift+F — поиск
+    // по коду всей презентации — проходит к студии
+    root.addEventListener('keydown', (e) => {
+      if (!((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyF')) e.stopPropagation();
+    });
     onThemeChange((t) => this.view.dispatch({ effects: this.theme.reconfigure(t === 'dark' ? oneDark : []) }));
   }
 
@@ -235,8 +239,7 @@ export class CodeView {
       }
       return '';
     }
-    const s = deck.slides[this.host.index()];
-    return s ? stringify(s, { lineWidth: 0 }) : '';
+    return slideYaml(deck.slides[this.host.index()]);
   }
 
   /** Данные изменились или сменился слайд: показать актуальный код, не затирая незаконченную правку. */
@@ -687,5 +690,19 @@ export class CodeView {
 
   focus(): void {
     this.view.focus();
+  }
+
+  /**
+   * Совпадение поиска по презентации: нужная вкладка, найденное выделено, его строки подсвечены.
+   * Фокус остаётся в поиске — Enter ведёт к следующему
+   */
+  showMatch(mode: 'slide' | 'css', from: number, to: number): void {
+    if (this.mode !== mode) this.setMode(mode);
+    else this.update();
+    if (to > this.view.state.doc.length) return;
+    this.view.dispatch({
+      selection: { anchor: from, head: to },
+      effects: [setHighlight.of({ from, to }), EditorView.scrollIntoView(from, { y: 'center' })],
+    });
   }
 }

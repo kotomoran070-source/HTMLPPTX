@@ -461,3 +461,46 @@ test('код: ошибка — чертой на строке и по-русск
   await expect(tip.locator('span')).toHaveText('#2563EB · 50 %');
   expect(errors).toEqual([]);
 });
+
+test('поиск по презентации: список совпадений ведёт к месту — в тексте на слайд, в коде (Ctrl+Shift+F) в строку кода', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=find&studio#1');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  await page.keyboard.press('Control+f');
+  const q = page.locator('.st-find-q');
+  const items = page.locator('.st-find-it');
+  await q.fill('бета');
+  // Текст: три слайда и заметки; список открыт, пока поиск в фокусе
+  await expect(items).toHaveCount(4);
+  await expect(items.nth(3)).toContainText('С.3');
+  await items.nth(3).click();
+  await expect(page.locator('#st-canvas .slide.on')).toContainText('бета-версия');
+  await expect(page.locator('.st-find-n')).toHaveText('4 из 4');
+  await expect(q).toBeFocused();
+  await page.keyboard.press('ArrowUp');
+  await expect(page.locator('.st-find-n')).toHaveText('3 из 4');
+  // Цвета в тексте не ищутся — в коде находятся: YAML слайда и стили
+  await q.fill('2563EB');
+  await expect(page.locator('.st-find-n')).toHaveText('Нет');
+  await page.locator('[data-fa="code"]').click();
+  await expect(items).toHaveCount(2);
+  await expect(items.nth(0)).toContainText('С.2');
+  await expect(items.nth(1)).toContainText('CSS');
+  await items.nth(1).click();
+  await expect(page.locator('#st-code')).toBeVisible();
+  await expect(page.locator('.st-code-bar [data-mode="css"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.st-code-ed .cm-st-hl')).toContainText('#2563EB');
+  await expect(q).toBeFocused();
+  await items.nth(0).click();
+  await expect(page.locator('.st-code-bar [data-mode="slide"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.st-code-status')).toHaveText('Слайд 2');
+  await expect(page.locator('.st-code-ed .cm-st-hl')).toContainText('fill: "#2563EB"');
+  // Ctrl+Shift+F из редактора кода — сразу поиск в коде (Ctrl+F там ищет в открытом коде)
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.st-find')).toBeHidden();
+  await page.locator('.st-code-ed .cm-content').click();
+  await page.keyboard.press('Control+Shift+f');
+  await expect(page.locator('.st-find.code')).toBeVisible();
+  await expect(q).toBeFocused();
+  expect(errors).toEqual([]);
+});
