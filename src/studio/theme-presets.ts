@@ -149,15 +149,6 @@ export const THEME_PRESETS: ThemePreset[] = [
     },
   },
   {
-    id: 'ocean', name: 'Океан',
-    theme: {
-      accent: '#0369A1', accent2: '#14B8A6', font: 'Golos Text', head: 'Montserrat', headWeight: 700, headSpacing: -0.02, headScale: 0.92,
-      light: { bg: '#FFFFFF', tx: '#0B1B2B', surf: '#FFFFFF', alt: '#F1F6FA', mu: '#5A6B7D', bd: '#E1E8EF', bd2: '#CBD6E1' },
-      dark: { bg: '#06121F', tx: '#E3EEF8', surf: '#0C1B2D', alt: '#030A12', mu: '#8BA0B6', bd: '#18304A', bd2: '#22405F' },
-      bg: 'band', cards: 'soft', radius: 0.75, backdrop: 'waves',
-    },
-  },
-  {
     id: 'mint', name: 'Мята',
     theme: {
       accent: '#0D9488', accent2: '#34D399', font: 'Nunito', head: 'Nunito', headWeight: 800, headSpacing: -0.01,
@@ -231,21 +222,12 @@ export const THEME_PRESETS: ThemePreset[] = [
     },
   },
   {
-    id: 'summer', name: 'Лето',
+    id: 'waves', name: 'Волны',
     theme: {
-      accent: '#0891B2', accent2: '#F5B524', font: 'Onest', head: 'Jost', headWeight: 600, headSpacing: -0.02,
+      accent: '#0891B2', accent2: '#38BDF8', font: 'Onest', head: 'Jost', headWeight: 600, headSpacing: -0.02,
       light: { bg: '#F3FBFC', tx: '#0B2830', surf: '#FFFFFF', alt: '#E5F5F7', tx2: '#264A54', mu: '#5F7F88', bd: '#D3ECEF', bd2: '#B7DEE3' },
       dark: { bg: '#061A20', tx: '#E6F7FA', surf: '#0C262E', alt: '#041216', tx2: '#BFE0E6', mu: '#7FA4AD', bd: '#173A44', bd2: '#21505D' },
       bg: 'spot', cards: 'soft', radius: 1.5, backdrop: 'caustics',
-    },
-  },
-  {
-    id: 'retro', name: 'Ретро-80',
-    theme: {
-      accent: '#EC4F8B', accent2: '#FFA94D', font: 'Golos Text', head: 'Tektur', headWeight: 700, headSpacing: 0.01, headScale: 0.95,
-      light: { bg: '#FFF4EC', tx: '#2A1638', surf: '#FFFBF7', alt: '#FDE8DC', tx2: '#4A2E58', mu: '#8A6F86', bd: '#F6DCCF', bd2: '#EDC5B4' },
-      dark: { bg: '#1B1030', tx: '#FFEFF5', surf: '#251740', alt: '#120A22', tx2: '#E7CDE0', mu: '#A88FB0', bd: '#3A2858', bd2: '#4F3775' },
-      bg: 'plain', cards: 'outline', radius: 0.8, backdrop: 'retrosun',
     },
   },
   {
@@ -260,9 +242,9 @@ export const THEME_PRESETS: ThemePreset[] = [
   {
     id: 'medical', name: 'Медицина',
     theme: {
-      accent: '#0F9D94', accent2: '#3B82F6', font: 'Inter Tight', head: 'Manrope', headWeight: 800, headSpacing: -0.02,
-      light: { bg: '#F8FCFC', tx: '#0D2326', surf: '#FFFFFF', alt: '#EDF6F6', tx2: '#2C4548', mu: '#64797C', bd: '#DCEBEB', bd2: '#C4DDDD' },
-      dark: { bg: '#081619', tx: '#E5F4F4', surf: '#0F2226', alt: '#050E10', tx2: '#BFD8D9', mu: '#7D9A9C', bd: '#1A363A', bd2: '#244A4F' },
+      accent: '#D92D3A', accent2: '#F2737D', font: 'Inter Tight', head: 'Manrope', headWeight: 800, headSpacing: -0.02,
+      light: { bg: '#FFFFFF', tx: '#1F1416', surf: '#FFFFFF', alt: '#FBF3F3', tx2: '#46353A', mu: '#7A686C', bd: '#F1E3E4', bd2: '#E5CDCF' },
+      dark: { bg: '#170B0D', tx: '#FBECEE', surf: '#221215', alt: '#0F0708', tx2: '#E8CDD1', mu: '#B08F95', bd: '#3A1E23', bd2: '#522A31' },
       bg: 'plain', cards: 'soft', radius: 1, backdrop: 'pulse',
     },
   },

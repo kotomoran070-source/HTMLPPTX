@@ -123,7 +123,7 @@
     radial-gradient(circle at 80% 70%, color-mix(in srgb, var(--ac) 16%, transparent) 0 6%, transparent 9%);
 }
 .bd-pulse {
-  background: linear-gradient(transparent 74%, color-mix(in srgb, var(--ac) 45%, transparent) 74% calc(74% + 2px), transparent calc(74% + 2px));
+  background: linear-gradient(transparent 95%, color-mix(in srgb, var(--ac) 50%, transparent) 95% calc(95% + 2px), transparent calc(95% + 2px));
 }
 .bd-dots {
   background: radial-gradient(circle, color-mix(in srgb, var(--ac) 32%, transparent) 2px, transparent 2.6px) 0 0 / 21px 21px;

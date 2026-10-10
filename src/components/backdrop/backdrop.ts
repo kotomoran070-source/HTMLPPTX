@@ -157,19 +157,19 @@ void main(){vec2 uv=gl_FragCoord.xy/r;float ar=r.x/r.y;vec2 p=uv*vec2(ar,1.);
     gr=max(lx,lz)*smoothstep(0.,.06,dy)*(.35+.65*smoothstep(0.,.24,dy));}
   vec3 col=sun*disk*.85+c2*halo*(1.-disk)+c1*gr*.55;float a=(disk*.85+halo*(1.-disk)+gr*.55)*k;
   gl_FragColor=vec4(col*k,a);}`,
-  // Пульс: кардиограмма бежит по слайду, за ней гаснет след
+  // Пульс: кардиограмма бежит узкой полосой у нижнего края (не под содержимым), за ней гаснет след
   pulse: `${HEAD}
 float ecg(float x){float d;float y=0.;
   d=(x-.18)/.035;y+=.12*exp(-d*d);d=(x-.36)/.012;y-=.1*exp(-d*d);
   d=(x-.40)/.014;y+=exp(-d*d);d=(x-.44)/.014;y-=.25*exp(-d*d);d=(x-.68)/.06;y+=.22*exp(-d*d);return y;}
 void main(){vec2 uv=gl_FragCoord.xy/r;float bx=uv.x*2.2;float e=.0015;
-  float base=.24;float amp=.16;float yl=base+ecg(fract(bx))*amp;
+  float base=.045;float amp=.06;float yl=base+ecg(fract(bx))*amp;
   float sl=(ecg(fract(bx+e))-ecg(fract(bx-e)))/(2.*e)*amp*2.2*r.y/r.x;
   // Расстояние до линии: по наклону, но не меньше, чем до размаха кривой рядом (иначе у крутого пика — полоса на всю высоту)
   float dx=4./r.x*2.2;float ya=base+ecg(fract(bx-dx))*amp;float yb=base+ecg(fract(bx+dx))*amp;
   float env=max(0.,max(uv.y-max(yl,max(ya,yb)),min(yl,min(ya,yb))-uv.y));
   float dpx=max(abs(uv.y-yl)/sqrt(1.+sl*sl),env)*r.y/max(r.y/720.,.5);
-  float line=smoothstep(2.8,1.,dpx);float glow=exp(-dpx*.12)*.25;
+  float line=smoothstep(2.4,.8,dpx);float glow=exp(-dpx*.16)*.25;
   float hx=fract(t*.11)*1.3-.15;float be=hx-uv.x;
   float vis=be>0.?exp(-be*2.6):0.;float head=exp(-be*be*900.)*step(-.02,be);
   vec3 col=mix(c2,c1,vis);float a=((line+glow)*(.2+.8*vis)+head*glow*2.)*k;
