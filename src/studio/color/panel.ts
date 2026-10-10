@@ -19,7 +19,8 @@ import { videoEmbed } from '../../components/media/video';
 import type { Block, Deck } from '../../types';
 import { parseCube, type Lut } from '../../engine/color/cube';
 import { GradeGL, wheelColor } from '../../engine/color/gl';
-import { BANDS, brandStops, compact, curveTable as tableOf, isNeutral, LOOKS, type Band, type CurvePoint, type Grade, type Wheel } from '../../engine/color/grade';
+import { addMyLook, listMyLooks, removeMyLook } from './my-looks';
+import { autoGrade, BANDS, brandStops, compact, curveTable as tableOf, isNeutral, LOOKS, scaleGrade, type Band, type CurvePoint, type Grade, type Wheel } from '../../engine/color/grade';
 import './color.css';
 
 export interface ColorHost {
@@ -203,6 +204,10 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
   const brand = brandStops(accent, accent2);
   let g: Grade = structuredClone(compact((block.grade as Grade | undefined) ?? {}));
   delete g.src;
+  // Выбранный образ (или «Авто») и его сила: ползунок «Сила» ослабляет его к исходнику
+  let lookId: string | null = null;
+  let power = 1;
+  let autoBase: Grade = {};
   let lut: Lut | null = null;
   if (g.lut) {
     try {
@@ -222,6 +227,13 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
   const name = (() => { try { return decodeURIComponent(original.split(/[?#]/)[0].split('/').pop() ?? ''); } catch { return ''; } })();
   const back = document.createElement('div');
   back.className = 'cg-back';
+  /** Ряд образов: «Сохранить», свои образы (с крестиком), готовые */
+  function stripHtml(): string {
+    const tile = (id: string, name: string, extra = '') => `<button type="button" class="cg-look" data-look="${esc(id)}" title="${esc(name)}"><canvas></canvas><span>${esc(name)}</span>${extra}</button>`;
+    return `<button type="button" class="cg-look cg-save" data-a="save-look" title="Сохранить настройки образом — он появится здесь во всех презентациях"><i>${icon('plus')}</i><span>Сохранить</span></button>`
+      + listMyLooks().map((l) => tile(`my:${l.id}`, l.name, `<i class="cg-del" data-del="${esc(l.id)}" role="button" aria-label="Удалить образ «${esc(l.name)}»">${icon('close')}</i>`)).join('')
+      + LOOKS.map((l) => tile(l.id, l.name)).join('');
+  }
   back.innerHTML = `<div class="cg" role="dialog" aria-label="Цветокоррекция">
   <header class="cg-head"><b>Цвет</b><span class="cg-file">${original.startsWith('data:') ? '' : esc(name)}</span>
     <span class="cg-sp"></span>
@@ -238,7 +250,8 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
     <div class="cg-side">
       <div class="cg-scopes"><canvas class="cg-hist" title="Гистограмма: яркость и каналы"></canvas><canvas class="cg-vec" title="Вектороскоп: оттенки и насыщенность"></canvas></div>
       <nav class="cg-tabs" role="tablist">${TABS.map(([id, l]) => `<button type="button" role="tab" data-tab="${id}">${l}</button>`).join('')}</nav>
-      <div class="cg-pane" data-pane="basic">${SLIDERS.map(([k, l, min, max, step, cls]) => `<label class="cg-sl${cls ? ` ${cls}` : ''}" data-k="${k}" title="Двойной щелчок — сбросить"><span>${l}</span><input type="range" min="${min}" max="${max}" step="${step}" data-k="${k}"><output></output></label>`).join('')}</div>
+      <div class="cg-pane" data-pane="basic"><div class="cg-quick"><button type="button" class="cg-btn" data-a="auto" title="Подобрать экспозицию, баланс белого и контраст по картинке (A)">${icon('sparkle')}<span>Авто</span></button>
+        <div class="cg-power" hidden><b></b><input type="range" min="0" max="100" step="1" data-pow aria-label="Сила образа"><output></output></div></div>${SLIDERS.map(([k, l, min, max, step, cls]) => `<label class="cg-sl${cls ? ` ${cls}` : ''}" data-k="${k}" title="Двойной щелчок — сбросить"><span>${l}</span><input type="range" min="${min}" max="${max}" step="${step}" data-k="${k}"><output></output></label>`).join('')}</div>
       <div class="cg-pane" data-pane="wheels" hidden><div class="cg-wheels">${WHEELS.map(([k, l]) => `<div class="cg-wheel" data-w="${k}"><div class="cg-wc"><canvas width="132" height="132"></canvas><i class="cg-puck"></i></div><b>${l}</b><input type="range" min="-1" max="1" step="0.01" data-m="${k}" title="Яркость: ${l.toLowerCase()}" aria-label="Яркость: ${l.toLowerCase()}"></div>`).join('')}</div><p class="cg-note">Тяните точку к цвету — оттенок в тенях, полутонах или светах. Двойной щелчок — сброс</p></div>
       <div class="cg-pane" data-pane="curves" hidden><div class="cg-chans">${CHANNELS.map(([k, l, c]) => `<button type="button" data-ch="${k}" style="--c:${c}">${l}</button>`).join('')}</div><canvas class="cg-curve" width="320" height="320"></canvas><p class="cg-note">Щелчок — точка, тяните её. Двойной щелчок по точке — убрать</p></div>
       <div class="cg-pane" data-pane="hsl" hidden><div class="cg-bands">${BANDS.map((b) => `<button type="button" data-b="${b}" title="${BAND_NAMES[b][0]}" style="--c:${BAND_NAMES[b][1]}"><i></i></button>`).join('')}</div>
@@ -251,7 +264,7 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
         <button type="button" class="cg-link" data-a="brand">Цвета презентации</button><p class="cg-note">Тёмные места — в первый цвет, светлые — в последний: снимки разных съёмок выглядят как одна серия</p></div>
     </div>
   </div>
-  <div class="cg-looks">${LOOKS.map((l) => `<button type="button" class="cg-look" data-look="${l.id}" title="${esc(l.name)}"><canvas></canvas><span>${esc(l.name)}</span></button>`).join('')}</div>
+  <div class="cg-looks">${stripHtml()}</div>
   <footer class="cg-foot">
     <button type="button" class="cg-btn" data-a="reset">${icon('reset')}<span>Сбросить</span></button>
     ${isVideo ? '' : `<button type="button" class="cg-btn" data-a="all" title="Та же коррекция для всех фото презентации — одна серия">${icon('layers')}<span>Ко всем картинкам</span></button>`}
@@ -466,7 +479,26 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
     const line = $<HTMLElement>('.cg-line');
     line.hidden = split < 0;
     line.style.left = `${split * 100}%`;
-    back.querySelectorAll<HTMLElement>('.cg-look').forEach((b) => b.classList.toggle('on', JSON.stringify(compact(lookGrade(b.dataset.look!))) === JSON.stringify(compact({ ...g, lut: undefined, lutName: undefined, lutMix: undefined }))));
+    // Образ остаётся выбранным, пока настройки — это он (с силой); подвинули что-то ещё — уже своя коррекция
+    const bare = (x: Grade) => JSON.stringify(compact({ ...x, lut: undefined, lutName: undefined, lutMix: undefined }));
+    if (lookId && bare(scaleGrade(baseOf(lookId), power)) !== bare(g)) lookId = null;
+    if (!lookId) {
+      const ids = [...listMyLooks().map((l) => `my:${l.id}`), ...LOOKS.map((l) => l.id)];
+      const same = ids.find((id) => bare(lookGrade(id)) === bare(g));
+      if (same) { lookId = same; power = 1; }
+    }
+    back.querySelectorAll<HTMLElement>('.cg-look').forEach((b) => b.classList.toggle('on', b.dataset.look === lookId));
+    $<HTMLElement>('[data-a="auto"]').classList.toggle('on', lookId === 'auto');
+    // Сохранять есть что, когда коррекция своя (не готовый образ и не «как есть»)
+    $<HTMLElement>('.cg-save').classList.toggle('off', isNeutral(g) || (!!lookId && lookId !== 'auto' && power === 1));
+    const pw = $<HTMLElement>('.cg-power');
+    pw.hidden = !lookId || lookId === 'none';
+    if (!pw.hidden) {
+      pw.querySelector('b')!.textContent = lookId === 'auto' ? 'Авто' : lookId!.startsWith('my:') ? listMyLooks().find((l) => `my:${l.id}` === lookId)?.name ?? '' : LOOKS.find((l) => l.id === lookId)?.name ?? '';
+      const pi = pw.querySelector<HTMLInputElement>('input')!;
+      pi.value = String(Math.round(power * 100));
+      pw.querySelector('output')!.textContent = `${pi.value} %`;
+    }
     if (tab === 'curves') drawCurve();
   };
   const changed = () => {
@@ -502,6 +534,9 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
       d[Number(t.dataset.d)] = t.value.toUpperCase();
       g.duo = d;
       if (!g.duoMix) g.duoMix = 1;
+    } else if (t.dataset.pow !== undefined && lookId) {
+      power = Number(t.value) / 100;
+      g = { ...scaleGrade(baseOf(lookId), power), ...keepLut() };
     } else return;
     changed();
   });
@@ -673,8 +708,75 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
     changed();
   });
 
+  const keepLut = (): Grade => (g.lut ? { lut: g.lut, lutName: g.lutName, lutMix: g.lutMix } : {});
+  const baseOf = (id: string): Grade => (id === 'auto' ? autoBase : lookGrade(id));
+
+  /** Ряд образов заново: после сохранения и удаления своего */
+  function rebuildStrip(): void {
+    $<HTMLElement>('.cg-looks').innerHTML = stripHtml();
+    looks();
+    sync();
+  }
+
+  /** Имя нового образа — прямо на плитке «Сохранить»: Enter — сохранить, Esc — отмена */
+  function askLookName(): void {
+    const tileEl = $<HTMLElement>('.cg-save');
+    if (tileEl.classList.contains('off') || tileEl.querySelector('input')) return;
+    const span = tileEl.querySelector('span')!;
+    const inp = document.createElement('input');
+    inp.className = 'cg-name';
+    inp.placeholder = 'Название';
+    inp.maxLength = 40;
+    span.replaceWith(inp);
+    inp.focus();
+    let done = false;
+    const finish = (save: boolean) => {
+      if (done) return;
+      done = true;
+      const name = inp.value.trim();
+      if (save && name) {
+        const l = addMyLook(name, g);
+        if (!l) { ed.toast('Не хватает места в хранилище браузера', 3500, true); rebuildStrip(); return; }
+        lookId = `my:${l.id}`;
+        power = 1;
+        rebuildStrip();
+        ed.toast(`Образ «${l.name}» сохранён — он в ряду образов во всех презентациях`, 2800);
+      } else rebuildStrip();
+    };
+    inp.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+      if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+    inp.addEventListener('click', (e) => e.stopPropagation());
+    inp.addEventListener('blur', () => finish(true));
+  }
+
+  // ---------- «Авто»: по уменьшенной копии картинки (у ролика — по текущему кадру) ----------
+  function runAuto(): void {
+    const k = Math.min(1, 320 / Math.max(pic.w, pic.h));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(pic.w * k));
+    c.height = Math.max(1, Math.round(pic.h * k));
+    const x = c.getContext('2d', { willReadFrequently: true })!;
+    try {
+      x.drawImage(pic.src as CanvasImageSource, 0, 0, c.width, c.height);
+      autoBase = autoGrade(x.getImageData(0, 0, c.width, c.height).data);
+    } catch {
+      ed.toast('Не удалось прочитать картинку для «Авто»', 3000, true);
+      return;
+    }
+    remember();
+    g = { ...autoBase, ...keepLut() };
+    lookId = 'auto';
+    power = 1;
+    changed();
+    if (isNeutral(autoBase)) ed.toast('Картинка и так в порядке — «Авто» ничего не меняет', 2500);
+  }
+
   // ---------- образы: плитки на самой картинке ----------
   function lookGrade(id: string): Grade {
+    if (id.startsWith('my:')) return structuredClone(listMyLooks().find((x) => `my:${x.id}` === id)?.grade ?? {});
     const l = LOOKS.find((x) => x.id === id);
     if (!l) return {};
     const out = structuredClone(l.grade);
@@ -684,7 +786,7 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
   const looks = () => {
     const tw = 128;
     const th = Math.max(1, Math.round(tw * Math.min(0.75, pic.h / pic.w)));
-    back.querySelectorAll<HTMLElement>('.cg-look').forEach((b) => {
+    back.querySelectorAll<HTMLElement>('.cg-look[data-look]').forEach((b) => {
       const c = b.querySelector('canvas')!;
       const src = gl.canvasOf(lookGrade(b.dataset.look!), tw * 2, th * 2);
       c.width = tw * 2;
@@ -822,22 +924,33 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
     const tb = t.closest<HTMLElement>('.cg-tabs [data-tab]')?.dataset.tab;
     const ch = t.closest<HTMLElement>('[data-ch]')?.dataset.ch;
     const bd = t.closest<HTMLElement>('[data-b]')?.dataset.b;
+    const del = t.closest<HTMLElement>('[data-del]')?.dataset.del;
+    if (del) {
+      removeMyLook(del);
+      if (lookId === `my:${del}`) lookId = null;
+      rebuildStrip();
+      ed.toast('Образ удалён', 1800);
+      return;
+    }
     const look = t.closest<HTMLElement>('[data-look]')?.dataset.look;
     if (tb) { tab = tb; sync(); if (tab === 'curves') requestAnimationFrame(drawCurve); return; }
     if (ch) { channel = ch as typeof channel; sync(); return; }
     if (bd) { band = bd as Band; sync(); return; }
     if (look) {
       remember();
-      const keepLut = g.lut ? { lut: g.lut, lutName: g.lutName, lutMix: g.lutMix } : {};
-      g = { ...lookGrade(look), ...keepLut };
+      g = { ...lookGrade(look), ...keepLut() };
+      lookId = look === 'none' ? null : look;
+      power = 1;
       changed();
       return;
     }
+    if (a === 'auto') { runAuto(); return; }
+    if (a === 'save-look') { askLookName(); return; }
     switch (a) {
       case 'cancel': close(); break;
       case 'done': void commitOne(); break;
       case 'all': void applyAll(); break;
-      case 'reset': remember(); g = {}; lut = null; gl.setLut(null); changed(); break;
+      case 'reset': remember(); g = {}; lut = null; gl.setLut(null); lookId = null; changed(); break;
       case 'split': split = split < 0 ? 0.5 : -1; changed(); break;
       case 'wide': toggleWide(); break;
       case 'zfit': zoomTo(1); break;
@@ -872,6 +985,8 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
   });
   const onKey = (e: KeyboardEvent) => {
     if (!back.isConnected) return;
+    // Имя нового образа: Enter и Esc — его (см. askLookName)
+    if ((e.target as Element)?.classList?.contains('cg-name')) return;
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
     if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ') {
       e.preventDefault();
@@ -883,6 +998,7 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
     if (e.key === '\\') { split = split < 0 ? 0.5 : -1; changed(); e.preventDefault(); }
     if (!(e.target as Element)?.closest?.('input:not([type="range"])') && !e.ctrlKey && !e.metaKey && !e.altKey) {
       if (e.code === 'KeyF') { toggleWide(); e.preventDefault(); }
+      if (e.code === 'KeyA' && !e.ctrlKey && !e.metaKey) { runAuto(); e.preventDefault(); }
       else if (e.key === '0') { zoomTo(1); e.preventDefault(); }
       else if (e.key === '1') { zoomTo(1 / base() / Math.min(2, devicePixelRatio || 1)); e.preventDefault(); }
       else if (e.key === '+' || e.key === '=') { zoomTo(zoom * 1.25); e.preventDefault(); }

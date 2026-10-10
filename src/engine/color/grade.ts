@@ -162,3 +162,80 @@ export function curveTable(points: CurvePoint[] | undefined): Float32Array {
   }
   return out;
 }
+
+/**
+ * Образ с силой s (0…1): числа и круги — в долю, кривые — к прямой, LUT и карта градиента —
+ * слабее. s = 1 — образ как есть, 0 — без изменений
+ */
+export function scaleGrade(g: Grade, s: number): Grade {
+  const k = Math.max(0, Math.min(1, s));
+  const out: Grade = structuredClone(g);
+  for (const key of ZERO) if (out[key] !== undefined) out[key] = Number(out[key]) * k;
+  for (const w of ['lift', 'gamma', 'gain'] as const) if (out[w]) out[w] = out[w]!.map((v) => v * k) as Wheel;
+  if (out.hsl) for (const b of Object.keys(out.hsl) as Band[]) out.hsl[b] = out.hsl[b]!.map((v) => v * k) as [number, number, number];
+  if (out.curves) {
+    for (const c of Object.keys(out.curves) as (keyof NonNullable<Grade['curves']>)[]) {
+      out.curves[c] = out.curves[c]!.map(([x, y]) => [x, x + (y - x) * k] as CurvePoint);
+    }
+  }
+  if (out.lut) out.lutMix = (out.lutMix ?? 1) * k;
+  if (out.duo) out.duoMix = (out.duoMix ?? 0) * k;
+  return out;
+}
+
+/**
+ * «Авто» по пикселям картинки (RGBA, sRGB): точки чёрного и белого — по краям гистограммы,
+ * экспозиция — к середине, баланс белого — по почти серым местам (цветные логотипы и графики его
+ * не сбивают). Скриншоты с белым фоном не темнеют. Настройки потом можно править как обычно
+ */
+export function autoGrade(px: Uint8ClampedArray): Grade {
+  const n = Math.floor(px.length / 4);
+  if (!n) return {};
+  const hist = new Uint32Array(256);
+  let nr = 0, ng = 0, nb = 0, nn = 0;
+  let satSum = 0;
+  for (let i = 0; i < n; i++) {
+    const r = px[i * 4] / 255, gg = px[i * 4 + 1] / 255, b = px[i * 4 + 2] / 255;
+    if (px[i * 4 + 3] < 128) continue;
+    const y = 0.2126 * r + 0.7152 * gg + 0.0722 * b;
+    hist[Math.min(255, Math.round(y * 255))]++;
+    const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b);
+    const sat = mx > 0 ? (mx - mn) / mx : 0;
+    satSum += sat;
+    // Почти серые полутона — по ним виден цветовой сдвиг
+    if (sat < 0.22 && y > 0.12 && y < 0.92) { nr += r; ng += gg; nb += b; nn++; }
+  }
+  const total = hist.reduce((a, v) => a + v, 0);
+  if (!total) return {};
+  const pct = (q: number) => {
+    let acc = 0;
+    for (let i = 0; i < 256; i++) { acc += hist[i]; if (acc >= total * q) return i / 255; }
+    return 1;
+  };
+  const lo = pct(0.005), hi = pct(0.995), mid = pct(0.5);
+  const out: Grade = {};
+  // Точки чёрного и белого: растягиваем, только если края заметно не дотянуты
+  const black = lo > 0.03 ? Math.min(0.14, lo * 0.85) : 0;
+  const white = hi < 0.95 ? Math.max(0.82, Math.min(1, hi + 0.01)) : 1;
+  if (black > 0 || white < 1) out.curves = { all: [[black, 0], [white, 1]] };
+  // Экспозиция: середина после растяжки — к 0,46; светлую картинку (белый фон) не темним
+  const m = Math.max(0.001, (mid - black) / Math.max(0.05, white - black));
+  const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  if (m < 0.36) out.exposure = Math.round(Math.min(1.2, Math.log2(lin(0.46) / lin(m)) * 0.6) * 100) / 100;
+  // Плоская картинка — немного контраста
+  if (pct(0.95) - pct(0.05) < 0.45) out.contrast = 14;
+  // Баланс белого: только если серого хватает для оценки
+  if (nn > total * 0.02) {
+    const r = nr / nn, gg = ng / nn, b = nb / nn;
+    const ratio = b / Math.max(1e-3, r);
+    const temp = ((ratio - 1) / (0.32 * (ratio + 1))) * 100 * 0.75;
+    const rb = (r + b) / 2;
+    const tint = ((gg - rb) / Math.max(1e-3, 0.22 * gg + 0.12 * rb)) * 100 * 0.75;
+    if (Math.abs(temp) > 3) out.temp = Math.round(Math.max(-40, Math.min(40, temp)));
+    if (Math.abs(tint) > 3) out.tint = Math.round(Math.max(-20, Math.min(20, tint)));
+  }
+  // Блёклое фото — немного красочности (графикам и скриншотам не нужно: они либо серые, либо яркие)
+  const avgSat = satSum / total;
+  if (avgSat > 0.08 && avgSat < 0.3) out.vibrance = 15;
+  return compact(out);
+}

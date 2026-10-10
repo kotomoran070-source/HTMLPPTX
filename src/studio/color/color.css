@@ -104,12 +104,29 @@
 .cg-stops input::-webkit-color-swatch { border: 0; border-radius: 6px; }
 
 /* Образы: ряд листается колесом мыши, без полосы прокрутки; края ряда растворяются */
+.cg-quick { display: flex; flex-direction: column; gap: 8px; padding-bottom: 10px; margin-bottom: 6px; border-bottom: 1px solid var(--cg-bd); }
+.cg-quick > .cg-btn { align-self: flex-start; }
+.cg-power { display: flex; align-items: center; gap: 10px; font: 500 12.5px var(--font); color: var(--cg-mu); }
+.cg-power[hidden] { display: none; }
+.cg-power b { flex: none; min-width: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--cg-tx); font-weight: 700; }
+.cg-power b::after { content: " · Сила"; color: var(--cg-mu); font-weight: 500; }
+.cg .cg-power input[type="range"] { flex: 1; min-width: 0; --tr: linear-gradient(90deg, var(--ac) var(--p, 100%), var(--bd2) var(--p, 100%)); }
+.cg-power output { min-width: 40px; font-variant-numeric: tabular-nums; }
 .cg-looks { display: flex; gap: 6px; padding: 10px 14px; border-top: 1px solid var(--cg-bd); background: var(--cg-pn); overflow-x: auto; scrollbar-width: none;
   -webkit-mask: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 24px), transparent); mask: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 24px), transparent); }
 .cg-looks::-webkit-scrollbar { display: none; }
 .cg-look { flex: none; display: flex; flex-direction: column; gap: 5px; padding: 4px; border: 1px solid transparent; border-radius: 10px; background: none; color: var(--cg-mu); font: 500 11.5px var(--font); cursor: pointer; transition: background .12s, border-color .12s; }
 .cg-look canvas { width: 116px; height: 72px; object-fit: cover; border-radius: 7px; display: block; background: var(--alt); box-shadow: 0 0 0 1px var(--cg-bd); }
 .cg-look:hover { color: var(--cg-tx); background: var(--cg-bg); }
+.cg-look { position: relative; }
+.cg-save > i { display: grid; place-items: center; width: 116px; height: 72px; border-radius: 7px; border: 1.5px dashed var(--acb); color: var(--ac); background: var(--acs); }
+.cg-save > i .ic { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; }
+.cg-save.off { opacity: .45; pointer-events: none; }
+.cg-name { width: 116px; height: 18px; padding: 0 4px; border: 1px solid var(--ac); border-radius: 5px; background: var(--cg-pn); color: var(--cg-tx); font: 500 11.5px var(--font); outline: none; }
+.cg-del { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; background: rgba(15, 23, 42, .7); color: #fff; opacity: 0; transition: opacity .12s; }
+.cg-del .ic { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.2; }
+.cg-look:hover .cg-del { opacity: 1; }
+.cg-del:hover { background: #DC2626; }
 .cg-look.on { border-color: var(--ac); background: var(--acs); color: var(--ach); }
 .cg-foot { border-top: 1px solid var(--cg-bd); }
 .cg-head { background: var(--cg-bg); }
