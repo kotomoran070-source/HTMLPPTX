@@ -28,7 +28,7 @@ uniform vec3 u_lift, u_gamma, u_gain;
 uniform vec3 u_hsl[8];
 uniform float u_hslOn;
 uniform vec3 u_d0, u_d1, u_d2;
-uniform float u_duo, u_vig, u_grain, u_split;
+uniform float u_duo, u_vig, u_grain, u_split, u_inv;
 uniform vec2 u_px;
 
 vec3 toLin(vec3 c) { return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c)); }
@@ -101,6 +101,8 @@ void main() {
     vec3 g = y < 0.5 ? mix(u_d0, u_d1, y * 2.0) : mix(u_d1, u_d2, (y - 0.5) * 2.0);
     c = mix(c, g, u_duo);
   }
+  // Инверсия яркости: светлое — тёмным, цвет (оттенок и насыщенность) остаётся
+  if (u_inv > 0.0) { c = clamp(c, 0.0, 1.0); c = mix(c, c + 1.0 - 2.0 * luma(c), u_inv); }
   if (u_vig != 0.0) c *= 1.0 - u_vig * smoothstep(0.35, 1.15, length((v_uv - 0.5) * vec2(1.0, 0.82)) * 1.6);
   if (u_grain > 0.0) c += (hash(floor(v_uv * u_px)) - 0.5) * u_grain * 0.16;
   o = vec4(clamp(c, 0.0, 1.0), src.a);
@@ -298,6 +300,7 @@ export class GradeGL {
     f('u_duo', g.duo ? Math.max(0, Math.min(1, num(g.duoMix))) : 0);
     f('u_vig', num(g.vignette) / 100);
     f('u_grain', Math.max(0, num(g.grain)) / 100);
+    f('u_inv', Math.max(0, Math.min(100, num(g.invert))) / 100);
     f('u_split', split);
     // Зерно — в долях картинки: одинаковое в предпросмотре и в готовом файле
     gl.uniform2f(this.loc('u_px'), 1600, 1600 * (this.h / Math.max(1, this.w)));

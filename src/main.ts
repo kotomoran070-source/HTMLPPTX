@@ -21,7 +21,10 @@ const names = Object.keys(decks);
 const name = fixed ?? params.get('deck') ?? (names.length === 1 && !params.has('all') ? names[0] : null);
 
 function setMeta(deck: Deck): void {
-  document.title = deck.title;
+  // Окно показа из студии подписано иначе, чем сама студия: в панели задач их не спутать.
+  // Файл презентации, открытый сам по себе, называется просто её названием
+  const fromStudio = window.name.startsWith('htmlpptx-show-') || params.has('present');
+  document.title = fromStudio ? `▶ Показ — ${deck.title}` : deck.title;
   document.documentElement.lang = deck.lang ?? 'ru';
   updateFavicon(deck.brand?.logo);
 }

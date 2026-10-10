@@ -149,6 +149,7 @@ const SLIDERS: [key: keyof Grade, label: string, min: number, max: number, step:
   ['vibrance', 'Красочность', -100, 100, 1],
   ['vignette', 'Виньетка', -100, 100, 1],
   ['grain', 'Зерно', 0, 100, 1],
+  ['invert', 'Инверсия', 0, 100, 1],
 ];
 const BAND_NAMES: Record<Band, [string, string]> = {
   red: ['Красный', '#EF4444'], orange: ['Оранжевый', '#F97316'], yellow: ['Жёлтый', '#EAB308'], green: ['Зелёный', '#22C55E'],

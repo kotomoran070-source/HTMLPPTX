@@ -38,10 +38,12 @@ export interface Grade {
   duoMix?: number;
   vignette?: number;
   grain?: number;
+  /** Инверсия яркости (0…100): светлое — тёмным, оттенки остаются (скриншот для тёмного слайда) */
+  invert?: number;
 }
 
 /** Поля, у которых «без изменений» — ноль */
-const ZERO = ['temp', 'tint', 'exposure', 'contrast', 'highlights', 'shadows', 'saturation', 'vibrance', 'vignette', 'grain'] as const;
+const ZERO = ['temp', 'tint', 'exposure', 'contrast', 'highlights', 'shadows', 'saturation', 'vibrance', 'vignette', 'grain', 'invert'] as const;
 
 const near0 = (v: unknown) => !Number.isFinite(Number(v)) || Math.abs(Number(v)) < 1e-4;
 const flatCurve = (c?: CurvePoint[]) => !c || c.length < 2 || c.every(([x, y]) => Math.abs(x - y) < 1e-3);
@@ -97,6 +99,10 @@ export interface Look {
 
 export const LOOKS: Look[] = [
   { id: 'none', name: 'Как есть', grade: {} },
+  // Практичные: скриншоты, сканы и графики — и тёмные слайды
+  { id: 'clean', name: 'Чистый белый', grade: { curves: { all: [[0, 0], [0.12, 0.03], [0.92, 1], [1, 1]] }, saturation: 6 } },
+  { id: 'dark', name: 'Тёмная версия', grade: { invert: 100, contrast: -6, saturation: 12 } },
+  { id: 'bright', name: 'Светлее', grade: { exposure: 0.35, shadows: 28, highlights: -16, vibrance: 22, contrast: 6 } },
   { id: 'warm', name: 'Тёплый вечер', grade: { temp: 28, tint: 6, contrast: 12, highlights: -18, gain: [0.18, 0.3, 0], saturation: 6 } },
   { id: 'cool', name: 'Холодное утро', grade: { temp: -26, exposure: 0.12, contrast: 6, saturation: -10, lift: [-0.2, -0.25, 0.05] } },
   { id: 'teal', name: 'Кино', grade: { contrast: 22, saturation: 12, lift: [-0.45, -0.35, -0.04], gain: [0.32, 0.28, 0.02], highlights: -12, vignette: 18 } },
