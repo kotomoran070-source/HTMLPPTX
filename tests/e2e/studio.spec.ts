@@ -214,6 +214,16 @@ test('формулы: «Вставка → Уравнение», правка н
   await src.press('End');
   await src.pressSequentially(' + 1');
   await expect.poll(() => readDeck('math')).toContain('sqrt(b^2 - 4ac))/(2a) + 1');
+  // Ctrl+Z прямо в поле — общая отмена студии: поле и слайд возвращаются вместе
+  await page.waitForTimeout(1400);
+  await src.pressSequentially(' + 2');
+  await expect.poll(() => readDeck('math')).toContain('(2a) + 1 + 2');
+  await src.press('Control+z');
+  await expect(src).toHaveValue('x = (-b +- sqrt(b^2 - 4ac))/(2a) + 1');
+  await expect.poll(() => readDeck('math')).not.toContain('+ 1 + 2');
+  await src.press('Control+Shift+z');
+  await expect(src).toHaveValue('x = (-b +- sqrt(b^2 - 4ac))/(2a) + 1 + 2');
+  await expect(page.locator('.st-mathed button[title^="Дробь"]')).toHaveCount(1);
   const math = page.locator('#st-canvas .slide.on [data-type="math"] math');
   await expect(math).toHaveCount(1);
   await expect(math.locator('msqrt')).toHaveCount(1);
