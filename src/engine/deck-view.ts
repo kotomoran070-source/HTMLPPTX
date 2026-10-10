@@ -329,10 +329,87 @@ export class DeckView {
 
   /** Вписывает сцену в прямоугольник с сохранением пропорций. */
   fit(width: number, height: number, offsetY = 0): number {
-    const s = Math.max(0.05, Math.min(width / W, height / H));
-    this.stage.style.transform = `translate(-50%, -50%) scale(${s})`;
+    this.box = { w: width, h: height, oy: offsetY };
     this.stage.style.top = `calc(50% + ${offsetY}px)`;
+    return this.place();
+  }
+
+  /**
+   * Масштаб при показе: слайд крупнее окна, z — во сколько раз, (zx, zy) — сдвиг слайда
+   * от центра в его пикселях. Края слайда в окно не заходят.
+   */
+  private box = { w: W, h: H, oy: 0 };
+  private z = 1;
+  private zx = 0;
+  private zy = 0;
+  get zoom(): number {
+    return this.z;
+  }
+  private fitScale(): number {
+    return Math.max(0.05, Math.min(this.box.w / W, this.box.h / H));
+  }
+  private place(): number {
+    const s = this.fitScale();
+    const S = s * this.z;
+    const mx = Math.max(0, W / 2 - this.box.w / 2 / S);
+    const my = Math.max(0, H / 2 - this.box.h / 2 / S);
+    this.zx = Math.max(-mx, Math.min(mx, this.zx));
+    this.zy = Math.max(-my, Math.min(my, this.zy));
+    this.stage.style.transform = this.z === 1 ? `translate(-50%, -50%) scale(${s})` : `translate(-50%, -50%) scale(${S}) translate(${this.zx}px, ${this.zy}px)`;
+    // Увеличенный слайд не заходит под панель показа
+    const vp = this.stage.parentElement;
+    if (vp) {
+      const top = vp.clientHeight / 2 + this.box.oy - this.box.h / 2;
+      vp.style.clipPath = this.z === 1 ? '' : `inset(${Math.max(0, top)}px 0 ${Math.max(0, vp.clientHeight - top - this.box.h)}px 0)`;
+      vp.classList.toggle('zoomed', this.z > 1);
+    }
     return s;
+  }
+  /** Точка экрана относительно центра сцены */
+  private fromCenter(clientX: number, clientY: number): [number, number] {
+    const r = this.stage.parentElement!.getBoundingClientRect();
+    return [clientX - r.left - r.width / 2, clientY - r.top - r.height / 2 - this.box.oy];
+  }
+  /**
+   * Новый масштаб (1…4). at — точка, которая остаётся на месте: экранная (client) или
+   * точка слайда (slide, 0…1280 × 0…720); без неё — центр окна.
+   */
+  setZoom(z: number, at?: { client?: [number, number]; slide?: [number, number] }, smooth = false): void {
+    const z2 = Math.max(1, Math.min(4, Math.round(z * 100) / 100));
+    const S1 = this.fitScale() * this.z;
+    const S2 = this.fitScale() * z2;
+    // Точка под курсором: q = S·(p + t) до и после
+    let q: [number, number] = [0, 0];
+    if (at?.client) q = this.fromCenter(...at.client);
+    else if (at?.slide) q = [S1 * (at.slide[0] - W / 2 + this.zx), S1 * (at.slide[1] - H / 2 + this.zy)];
+    const px = q[0] / S1 - this.zx;
+    const py = q[1] / S1 - this.zy;
+    this.z = z2;
+    this.zx = z2 === 1 ? 0 : q[0] / S2 - px;
+    this.zy = z2 === 1 ? 0 : q[1] / S2 - py;
+    this.smooth(smooth);
+    this.place();
+  }
+  /** Сдвиг увеличенного слайда на столько экранных пикселей */
+  panBy(dx: number, dy: number): void {
+    if (this.z === 1) return;
+    const S = this.fitScale() * this.z;
+    this.zx += dx / S;
+    this.zy += dy / S;
+    this.smooth(false);
+    this.place();
+  }
+  /** Увеличенный слайд — снова по центру (смена слайда) */
+  recenter(): void {
+    this.zx = 0;
+    this.zy = 0;
+    this.place();
+  }
+  private smoothTimer = 0;
+  private smooth(on: boolean): void {
+    clearTimeout(this.smoothTimer);
+    this.stage.classList.toggle('zoom-anim', on && !reducedMotion());
+    if (on) this.smoothTimer = window.setTimeout(() => this.stage.classList.remove('zoom-anim'), 320);
   }
 }
 

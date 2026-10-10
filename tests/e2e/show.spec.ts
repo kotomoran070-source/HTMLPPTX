@@ -76,6 +76,29 @@ test('обзор всех слайдов (O) открывает слайд по 
   await expect(page.locator('#ct')).toHaveText(/^7 из/);
 });
 
+test('масштаб: + крупнее, перетаскивание двигает слайд, при листании остаётся, 0 — как было', async ({ page }) => {
+  await page.goto('/?deck=tpl#2');
+  await expect(page.locator('#ct')).toHaveText(/^2 из/);
+  const stage = page.locator('.stage');
+  const width = async () => (await stage.boundingBox())!.width;
+  const w0 = await width();
+  await page.keyboard.press('+');
+  await page.keyboard.press('+');
+  await expect(page.locator('#zpill')).toHaveText('130 %');
+  await expect.poll(width).toBeCloseTo(w0 * 1.3, 0);
+  const x0 = (await stage.boundingBox())!.x;
+  await page.mouse.move(400, 300);
+  await page.mouse.down();
+  await page.mouse.move(300, 300, { steps: 4 });
+  await page.mouse.up();
+  expect((await stage.boundingBox())!.x).toBeLessThan(x0 - 50);
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('#ct')).toHaveText(/^3 из/);
+  await expect.poll(width).toBeCloseTo(w0 * 1.3, 0);
+  await page.keyboard.press('0');
+  await expect.poll(width).toBeCloseTo(w0, 0);
+});
+
 test('морф: пары перелетают, после перехода — ровно новый слайд', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=morph#1');

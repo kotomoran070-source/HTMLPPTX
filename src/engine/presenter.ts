@@ -133,6 +133,14 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   let tool: InkTool = 'none';
   let penColor = PEN_COLORS[0];
   const sendInk = (m: InkMsg) => sync.send({ type: 'ink', ink: m }, toMain());
+  // Масштаб у зрителей (+ − 0): крупнее — к точке под мышью, если она над слайдом
+  let zoomAt: [number, number] | undefined;
+  cur.addEventListener('pointermove', (e) => {
+    const p = ink.toSlide(e);
+    zoomAt = p.x >= 0 && p.x <= 1280 && p.y >= 0 && p.y <= 720 ? [p.x, p.y] : undefined;
+  });
+  cur.addEventListener('pointerleave', () => { zoomAt = undefined; });
+  const zoom = (step: 1 | -1 | 0) => sync.send({ type: 'zoom', step, ...(step === 1 && zoomAt ? { at: zoomAt } : {}) }, toMain());
   // Повтор мыши и живые 3D-модели для зрителей: можно выключить, если на слайдах нет
   // наведений и моделей — тогда окна ничего лишнего не пересылают и не рисуют
   inkInput(cur, ink, () => tool, (): StrokeStyle => ({ color: penColor, width: 5 }), sendInk, () => mirror, () => arrow);
@@ -635,6 +643,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       r: openRemote, 'к': openRemote,
       m: () => setMirror(!mirror), 'ь': () => setMirror(!mirror),
       e: editNotes, 'у': editNotes,
+      '+': () => zoom(1), '=': () => zoom(1), '-': () => zoom(-1), '0': () => zoom(0),
       escape: () => { if (!mirMenu.hidden) openMir(false); else if (tool !== 'none') setTool(tool); },
     };
     const fn = map[k] ?? letters[lower];

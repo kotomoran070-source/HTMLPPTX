@@ -49,7 +49,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   </div>
   <div class="navside r">
     ${editable ? `<button class="ibtn" id="ed-btn" type="button" aria-pressed="false" aria-label="Режим правки (E)" title="Режим правки (E)">${icon('pencil')}</button>` : ''}
-    ${import.meta.env.DEV && devServer ? `<a class="ibtn" id="studio-btn" href="?deck=${encodeURIComponent(deckKey)}&amp;studio" aria-label="Открыть в редакторе" title="Открыть в редакторе">${icon('layers')}</a>` : ''}
+    ${import.meta.env.DEV && devServer ? `<a class="ibtn" id="studio-btn" href="?deck=${encodeURIComponent(deckKey)}&amp;studio" aria-label="Открыть в редакторе (S)" title="Открыть в редакторе (S)">${icon('layers')}</a>` : ''}
     <button class="ibtn" id="ov" type="button" aria-label="Все слайды (O)" title="Все слайды (O)">${icon('grid')}</button>
     <button class="ibtn" id="pr" type="button" aria-label="Режим докладчика (P)" title="Режим докладчика (P)">${icon('presenter')}</button>
     <button class="ibtn" id="fs" type="button" aria-label="Во весь экран (F)" title="Во весь экран (F)">${icon('fullscreen')}</button>
@@ -60,9 +60,10 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     <div class="ovhead"><b>Все слайды</b>${import.meta.env.DEV && devServer ? `<span class="ovtools-dev"><a class="btn ghost small" href="./?all" title="Все презентации">Все презентации</a>${deck.slides.some((x) => x.template === 'canvas') ? `<button class="btn ghost small" id="ovtheme" type="button" title="Привязать цвета к теме">Цвета → тема…</button>` : ''}<button class="btn ghost small" id="ovimp" type="button" title="Импорт HTML или PowerPoint (.pptx)">Импорт…</button></span>` : ''}<button class="ibtn small" id="ovx" type="button" aria-label="Закрыть">${icon('close')}</button></div>
     <p class="mu ovedit-hint">Перетащите слайд, чтобы поменять порядок. Кнопки на миниатюре: дублировать и удалить. С клавиатуры: Alt + ← → переставить, Delete — удалить.</p>
     <div class="ovgrid" id="ovgrid"></div>
-    <p class="mu ovkeys">← → пробел — листать · Home/End — в начало/конец · номер + Enter — перейти · O — обзор · P — докладчик · R — пульт с телефона · F — весь экран · T — тема · B — чёрный экран${editable ? ' · E — правка' : ''}</p>
+    <p class="mu ovkeys">← → пробел — листать · Home/End — в начало/конец · номер + Enter — перейти · O — обзор · P — докладчик · R — пульт с телефона · F — весь экран · T — тема · B — чёрный экран · + − 0 — масштаб${editable ? ' · E — правка' : ''}${import.meta.env.DEV && devServer ? ' · S — в редактор' : ''}</p>
   </div>
 </div>
+<div class="zoom-pill" id="zpill" aria-live="polite"></div>
 <div class="blackout" id="blk"></div>
 <div class="show-note" id="snote" role="status"><p></p><button class="btn primary small show-note-go" type="button" hidden></button><button class="ibtn small show-note-x" type="button" aria-label="Закрыть">${icon('close')}</button></div>`);
 
@@ -100,6 +101,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     const navH = full ? 0 : NAV_H;
     const ins = editor?.insets() ?? { top: 0, bottom: 0 };
     const h = innerHeight - navH - ins.top - ins.bottom;
+    // В режиме правки слайд целиком
+    if (editor?.active && view.zoom > 1) view.setZoom(1);
     view.fit(innerWidth, h, ins.top / 2 - (navH + ins.bottom) / 2);
   };
   addEventListener('resize', fit);
@@ -135,6 +138,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     if (changed) {
       ink.apply({ op: 'clear' });
       hover.off();
+      // Масштаб остаётся (мелкий экран у зрителей), новый слайд — с центра
+      if (view.zoom > 1) view.recenter();
       broadcast();
       editor?.onSlideChange();
       if (ovOpen()) markCurrent();
@@ -390,10 +395,99 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   }
 
   // --- кнопки ---
-  document.getElementById('studio-btn')?.addEventListener('click', (e) => {
+  const studioBtn = document.getElementById('studio-btn');
+  /**
+   * В редактор на этом слайде. Показ открыт из редактора и в нём ничего не правили — окно
+   * показа закрывается, редактор переходит к слайду; иначе редактор открывается здесь.
+   */
+  async function openStudio(): Promise<void> {
+    await editor?.settle();
+    const studio = window.opener as Window | null;
+    try {
+      const q = studio && !studio.closed ? new URLSearchParams(studio.location.search) : null;
+      if (q?.has('studio') && q.get('deck') === new URLSearchParams(location.search).get('deck') && !editor?.touched) {
+        studio!.location.hash = `#${index + 1}`;
+        studio!.focus();
+        window.close();
+        if (window.closed) return;
+      }
+    } catch { /* окно с другого адреса */ }
+    location.href = `?deck=${encodeURIComponent(deckKey)}&studio#${index + 1}`;
+  }
+  studioBtn?.addEventListener('click', (e) => {
     e.preventDefault();
-    void (editor?.settle() ?? Promise.resolve()).then(() => { location.href = `?deck=${encodeURIComponent(deckKey)}&studio#${index + 1}`; });
+    void openStudio();
   });
+
+  // --- масштаб: крупнее весь слайд или его часть (у зрителей мелкий экран) ---
+  const ZOOMS = [1, 1.15, 1.3, 1.5, 2, 3, 4];
+  let pillTimer = 0;
+  function zoomTo(z: number, at?: { client?: [number, number]; slide?: [number, number] }, smooth = true, pill = true): void {
+    if (editor?.active) return;
+    view.setZoom(z, at, smooth);
+    if (!pill) return;
+    const el = $('zpill');
+    el.textContent = `${Math.round(view.zoom * 100)} %`;
+    el.classList.add('on');
+    clearTimeout(pillTimer);
+    pillTimer = window.setTimeout(() => el.classList.remove('on'), 900);
+  }
+  /** Шаг масштаба: крупнее (1), мельче (-1), как было (0) */
+  function zoomStep(step: 1 | -1 | 0, at?: { client?: [number, number]; slide?: [number, number] }, pill = true): void {
+    const z = view.zoom;
+    const next = step === 0 ? 1 : step > 0 ? ZOOMS.find((v) => v > z + 0.01) ?? 4 : [...ZOOMS].reverse().find((v) => v < z - 0.01) ?? 1;
+    zoomTo(next, at, true, pill);
+  }
+  /** Мышь над слайдом — точка, к которой приближать */
+  let mouseAt: [number, number] | undefined;
+  vp.addEventListener('pointermove', (e) => { if (e.isTrusted) mouseAt = [e.clientX, e.clientY]; });
+  vp.addEventListener('pointerleave', () => { mouseAt = undefined; });
+  // Ctrl + колесо и щипок на тачпаде — масштаб к курсору; увеличено — колесо двигает слайд
+  vp.addEventListener('wheel', (e) => {
+    if (editor?.active || ovOpen()) return;
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const d = e.deltaMode ? e.deltaY * 40 : e.deltaY;
+      zoomTo(view.zoom * Math.exp(-d * 0.0025), { client: [e.clientX, e.clientY] }, false);
+    } else if (view.zoom > 1) {
+      e.preventDefault();
+      const k = e.deltaMode ? 40 : 1;
+      view.panBy(-(e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX) * k, -(e.shiftKey && !e.deltaX ? 0 : e.deltaY) * k);
+    }
+  }, { passive: false });
+  // Увеличено — слайд перетаскивается; щелчок без перетаскивания работает как обычно
+  let drag: { x: number; y: number; moved: boolean } | null = null;
+  let pannedAt = 0;
+  vp.addEventListener('pointerdown', (e) => {
+    if (view.zoom === 1 || editor?.active || e.button !== 0 || !e.isTrusted) return;
+    if ((e.target as Element).closest('input, textarea, select, button, a, video, model-viewer, iframe, [contenteditable="true"]')) return;
+    drag = { x: e.clientX, y: e.clientY, moved: false };
+  });
+  vp.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x;
+    const dy = e.clientY - drag.y;
+    if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+    if (!drag.moved) {
+      drag.moved = true;
+      vp.classList.add('panning');
+      vp.setPointerCapture(e.pointerId);
+    }
+    view.panBy(dx, dy);
+    drag.x = e.clientX;
+    drag.y = e.clientY;
+  });
+  const endDrag = () => {
+    if (drag?.moved) pannedAt = performance.now();
+    drag = null;
+    vp.classList.remove('panning');
+  };
+  vp.addEventListener('pointerup', endDrag);
+  vp.addEventListener('pointercancel', endDrag);
+  // Отпустили после перетаскивания — это не щелчок (прожектор, кнопки на слайде)
+  vp.addEventListener('click', (e) => {
+    if (performance.now() - pannedAt < 80) { e.stopPropagation(); e.preventDefault(); }
+  }, true);
   $('nx').addEventListener('click', () => go(index + 1));
   $('pv').addEventListener('click', () => go(index - 1));
   $('thm').addEventListener('click', () => toggleTheme());
@@ -421,18 +515,37 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     const typing = el?.isContentEditable || el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.tagName === 'SELECT';
     // Esc сначала закрывает обзор, и только потом — режим правки
     if (!typing && !(ovOpen() && e.key === 'Escape') && editor?.handleKey(e)) return;
+    const at = mouseAt && { client: mouseAt };
+    // Ctrl + = − 0, как масштаб страницы в браузере, — масштаб слайда
+    if (!typing && !editor?.active && !ovOpen() && (e.ctrlKey || e.metaKey) && !e.altKey) {
+      const c = e.code;
+      const s = c === 'Equal' || c === 'NumpadAdd' ? 1 : c === 'Minus' || c === 'NumpadSubtract' ? -1 : c === 'Digit0' || c === 'Numpad0' ? 0 : null;
+      if (s !== null) {
+        e.preventDefault();
+        return zoomStep(s, s === 1 ? at : undefined);
+      }
+    }
     if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key;
-    // Esc сначала гасит прожектор
+    // Esc сначала гасит прожектор, потом возвращает масштаб
     if (k === 'Escape' && view.spotted && !ovOpen()) {
       e.preventDefault();
       view.spot(null);
       sync.send({ type: 'spot', index, key: null });
       return;
     }
+    if (k === 'Escape' && view.zoom > 1 && !ovOpen() && !editor?.active) {
+      e.preventDefault();
+      return zoomStep(0);
+    }
     if (ovOpen()) {
       if (k === 'Escape' || k === 'o' || k === 'O' || k === 'щ' || k === 'Щ') { e.preventDefault(); ovHide(); }
       return;
+    }
+    // 0 сам по себе слайд не набирает — им масштаб возвращается к 100 %
+    if (k === '0' && !digits && view.zoom > 1) {
+      e.preventDefault();
+      return zoomStep(0);
     }
     if (/^[0-9]$/.test(k)) {
       digits += k;
@@ -451,6 +564,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       ArrowRight: () => go(index + 1), ArrowDown: () => go(index + 1), PageDown: () => go(index + 1), ' ': () => go(index + 1),
       ArrowLeft: () => go(index - 1), ArrowUp: () => go(index - 1), PageUp: () => go(index - 1), Backspace: () => go(index - 1),
       Home: () => go(0), End: () => go(count() - 1),
+      '+': () => zoomStep(1, at), '=': () => zoomStep(1, at), '-': () => zoomStep(-1),
     };
     // Буквенные клавиши работают и в русской раскладке
     const letters: Record<string, () => void> = {
@@ -465,6 +579,10 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       letters.e = () => editor!.toggle();
       letters['у'] = () => editor!.toggle();
     }
+    if (studioBtn) {
+      letters.s = () => void openStudio();
+      letters['ы'] = () => void openStudio();
+    }
     const fn = act[k] ?? letters[lower];
     if (fn) {
       e.preventDefault();
@@ -477,7 +595,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   let ty = 0;
   addEventListener('touchstart', (e) => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
   addEventListener('touchend', (e) => {
-    if (ovOpen() || editor?.active) return;
+    // Увеличено — пальцем двигают слайд, а не листают
+    if (ovOpen() || editor?.active || view.zoom > 1) return;
     const dx = e.changedTouches[0].clientX - tx;
     const dy = e.changedTouches[0].clientY - ty;
     if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy)) go(index + (dx < 0 ? 1 : -1));
@@ -535,6 +654,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   sync.on((m, from) => {
     if (m.type === 'goto') go(m.index);
     else if (m.type === 'spot') { if (m.index === index) view.spot(m.key); }
+    else if (m.type === 'zoom') zoomStep(m.step, m.at && { slide: m.at }, false);
     else if (m.type === 'vars') view.setVars(m.index, m.vars);
     else if (m.type === 'trigger') view.trigger(m.index, m.action);
     else if (m.type === 'code') view.setCode(m.index, m.block, m.code, m.run);
