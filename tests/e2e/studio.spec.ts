@@ -450,8 +450,10 @@ test('код: ошибка — чертой на строке и по-русск
       const b = r.getBoundingClientRect();
       return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
     }, t);
+    // Прошлая подсказка закрылась — и мышь ведётся плавно, как настоящая
     await page.mouse.move(0, 0);
-    await page.mouse.move(p.x, p.y);
+    await expect(page.locator('.st-color-tip')).toHaveCount(0);
+    await page.mouse.move(p.x, p.y, { steps: 5 });
   };
   const tip = page.locator('.st-color-tip');
   await hoverText('var(--ac)');
