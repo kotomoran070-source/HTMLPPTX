@@ -57,7 +57,7 @@ const BACKGROUNDS: [string, string, string][] = [
   ['radial-gradient(ellipse 60% 60% at 0% 0%, var(--acs), transparent 70%), radial-gradient(ellipse 60% 60% at 100% 100%, color-mix(in srgb, var(--acs) 70%, var(--alt)), transparent 70%), var(--bg)', 'Углы', 'radial-gradient(ellipse 60% 60% at 0% 0%, var(--acs), transparent 70%), radial-gradient(ellipse 60% 60% at 100% 100%, color-mix(in srgb, var(--acs) 70%, var(--alt)), transparent 70%), var(--bg)'],
 ];
 
-const TEMPLATE_NAMES: Record<string, string> = {
+export const TEMPLATE_NAMES: Record<string, string> = {
   content: 'Обычный', cover: 'Обложка', finale: 'Финал', space: 'Космос', canvas: 'Холст',
 };
 

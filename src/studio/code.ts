@@ -1,12 +1,13 @@
 import { css } from '@codemirror/lang-css';
 import { html } from '@codemirror/lang-html';
 import { yaml } from '@codemirror/lang-yaml';
+import { diagnosticCount, setDiagnostics, type Diagnostic } from '@codemirror/lint';
 import { getSearchQuery, searchPanelOpen } from '@codemirror/search';
 import { Compartment, EditorState, Transaction, type Extension } from '@codemirror/state';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView, keymap } from '@codemirror/view';
 import { basicSetup } from 'codemirror';
-import { parse, stringify, YAMLParseError } from 'yaml';
+import { parse, stringify } from 'yaml';
 import { setEmbedSource, withTheme } from '../components/html/html';
 import { getAt, setAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
@@ -14,10 +15,20 @@ import { writeAssetText } from '../engine/editor/persist';
 import { withPointerBridge } from '../engine/frame-bridge';
 import { currentTheme, onThemeChange } from '../engine/theme';
 import type { Deck, SlideData } from '../types';
+import { codeHints, cssProblems, readSlideYaml } from './code-hints';
 import { codeSearch, reopenSearch } from './code-search';
 import { collectNodes, cssRules, highlightField, rulesFor, setHighlight, treeHtml, treeToggleIcon, YamlRanges, type CssRule, type TreeNode } from './code-tree';
 
 type Mode = 'slide' | 'css' | 'anim';
+
+/** Набранный YAML записывается ровно так, как его записала бы программа */
+function sameYaml(typed: string, text: string): boolean {
+  try {
+    return stringify(parse(typed), { lineWidth: 0 }) === text;
+  } catch {
+    return false;
+  }
+}
 
 export interface CodeHost {
   deck(): Deck;
@@ -156,6 +167,7 @@ export class CodeView {
     return [
       basicSetup,
       codeSearch(),
+      codeHints({ mode: () => this.mode, slide: () => this.host.stage().querySelector('.slide.on') }),
       this.lang.of(this.mode === 'css' ? css() : this.mode === 'anim' ? html() : yaml()),
       this.ro.of(EditorState.readOnly.of(this.readOnly)),
       this.theme.of(currentTheme() === 'dark' ? oneDark : []),
@@ -240,16 +252,18 @@ export class CodeView {
     this.shownFor = subject;
     this.synced = text;
     clearTimeout(this.timer);
-    if (this.view.state.doc.toString() !== text || !same) {
+    const typed = this.view.state.doc.toString();
+    if (typed !== text || !same) {
       // Тот же код, только что применённый (YAML записался чуть иначе), пока в нём печатают, — без
       // отдельного шага отмены; иначе — загрузка заново, с чистой историей
       if (same && !force && this.view.hasFocus) {
-        this.view.dispatch({ changes: { from: 0, to: this.view.state.doc.length, insert: text }, annotations: Transaction.addToHistory.of(false) });
+        // По смыслу то же самое («enter:» записалось бы «enter: null») — набранное остаётся как есть
+        if (this.mode === 'slide' && sameYaml(typed, text)) this.synced = typed;
+        else this.view.dispatch({ changes: { from: 0, to: this.view.state.doc.length, insert: text }, annotations: Transaction.addToHistory.of(false) });
       } else this.reload(text);
       clearTimeout(this.timer);
     }
-    if (this.mode === 'anim') this.animStatus();
-    else this.setStatus(this.mode === 'css' ? this.cssHint() || 'Стили всех слайдов-холстов' : `Слайд ${this.host.index() + 1}`, '');
+    this.idleStatus();
     this.revealed = '';
     this.syncSelection();
   }
@@ -501,7 +515,14 @@ export class CodeView {
   apply(): void {
     clearTimeout(this.timer);
     const text = this.view.state.doc.toString();
-    if (text === this.synced) return;
+    if (text === this.synced) {
+      // Вернули код к применённому (Ctrl+Z, исправили) — старых ошибок нет
+      if (diagnosticCount(this.view.state) || this.status.classList.contains('err')) {
+        this.problems([]);
+        this.idleStatus();
+      }
+      return;
+    }
     const ed = this.host.editor();
     const i = this.host.index();
     if (this.mode === 'anim') return this.applyEmbed(text);
@@ -512,24 +533,41 @@ export class CodeView {
         else delete rec.css;
       }, { rebuild: true, merge: 'code:css', hold: true });
       this.synced = text;
-      const hint = this.cssHint();
+      const bad = cssProblems(text, this.view.state.doc);
+      this.problems(bad);
+      const hint = bad.length ? `${this.where(bad[0])}похоже на ошибку` : this.cssHint();
       this.setStatus(hint ? `Применено · ${hint}` : 'Применено', hint ? '' : 'ok');
       return;
     }
-    let data: unknown;
-    try {
-      data = parse(text);
-    } catch (e) {
-      const pos = e instanceof YAMLParseError ? e.linePos?.[0] : undefined;
-      const msg = (e as Error).message.split('\n')[0].replace(/ at line \d+, column \d+:?$/, '');
-      return this.setStatus(`${pos ? `Строка ${pos.line}: ` : ''}${msg}`, 'err');
+    const { data, problems } = readSlideYaml(text, this.view.state.doc);
+    this.problems(problems);
+    if (problems[0]?.severity === 'error') {
+      const msg = `${this.where(problems[0])}${problems[0].message}`;
+      return this.setStatus(msg[0].toUpperCase() + msg.slice(1), 'err');
     }
     if (!data || typeof data !== 'object' || Array.isArray(data)) return this.setStatus('Слайд — это набор полей «имя: значение»', 'err');
     const slide = data as SlideData;
     if (slide.template !== undefined && typeof slide.template !== 'string') return this.setStatus('template — строка: content, cover, finale, space, canvas', 'err');
     const ok = ed.commit((d) => { d.slides[i] = slide; }, { rebuild: true, merge: `code:${i}`, hold: true });
     this.synced = text;
-    this.setStatus(ok ? 'Применено' : 'Без изменений', 'ok');
+    if (problems.length) this.setStatus(`Применено · ${this.where(problems[0])}${problems[0].message}`, '');
+    else this.setStatus(ok ? 'Применено' : 'Без изменений', 'ok');
+  }
+
+  /** Ошибки — волнистой чертой на строках (текст — при наведении) */
+  private problems(list: Diagnostic[]): void {
+    if (!list.length && !diagnosticCount(this.view.state)) return;
+    this.view.dispatch(setDiagnostics(this.view.state, list));
+  }
+
+  private where(d: Diagnostic): string {
+    return `строка ${this.view.state.doc.lineAt(d.from).number}: `;
+  }
+
+  /** Строка состояния без новостей: что открыто */
+  private idleStatus(): void {
+    if (this.mode === 'anim') this.animStatus();
+    else this.setStatus(this.mode === 'css' ? this.cssHint() || 'Стили всех слайдов-холстов' : `Слайд ${this.host.index() + 1}`, '');
   }
 
   // ---------------- живые вставки (анимации на HTML/JS) ----------------

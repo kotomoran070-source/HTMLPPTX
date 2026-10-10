@@ -364,3 +364,100 @@ test('стили · CSS: правка @keyframes доходит до слайд�
   await page.locator('.st-code-bar [data-mode="css"]').click();
   await expect(status).toContainText('только на слайдах-холстах');
 });
+
+test('код: ошибка — чертой на строке и по-русски, опечатка в типе — «может, …?», подсказки при наборе, цвет при наведении', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=math&studio#3');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  await page.keyboard.press('Control+Backquote');
+  const code = page.locator('.st-code-ed .cm-content');
+  const status = page.locator('.st-code-status');
+  await expect(code).toContainText('text: Конец');
+  const yaml = 'template: canvas\nfree:\n  - type: text\n    text: Конец\n    place:\n      x: 80\n      y: 80\n      w: 400\n';
+  // Двоеточие внутри значения — частая ошибка в русском тексте
+  await code.fill(yaml.replace('text: Конец', 'text: Время: 10:00'));
+  await expect(page.locator('.cm-lintRange-error')).toHaveCount(1);
+  await expect(status).toHaveText(/^Строка 4: Второе «:» в строке/);
+  await page.locator('.cm-lintRange-error').hover();
+  await expect(page.locator('.cm-tooltip-lint')).toContainText('возьмите значение в кавычки');
+  // Исправили — отметки нет, слайд применён
+  await code.fill(yaml);
+  await expect(page.locator('.cm-lintRange')).toHaveCount(0);
+  await expect(status).not.toHaveClass(/err/);
+  // Опечатка в типе блока — предупреждение с подсказкой
+  await code.fill(yaml.replace('type: text', 'type: txet'));
+  await expect(page.locator('.cm-lintRange-warning')).toHaveCount(1);
+  await expect(status).toContainText('Нет блока «txet» — может, «text»?');
+  await code.fill(yaml);
+  await expect(page.locator('.cm-lintRange')).toHaveCount(0);
+
+  // Подсказки: поля объекта (уже заданные не предлагаются) и значения
+  await code.fill(`${yaml}    ent`);
+  await page.keyboard.press('Control+End');
+  await page.keyboard.press('Control+Space');
+  const popup = page.locator('.cm-tooltip-autocomplete');
+  await expect(popup).toContainText('enter');
+  await expect(popup).toContainText('Появление');
+  await page.keyboard.press('Enter');
+  // Пауза после «enter: » — текст не переписывается в «enter: null»
+  await page.waitForTimeout(1200);
+  await expect(code).not.toContainText('null');
+  await page.keyboard.type('ris');
+  await expect(popup.locator('li').first()).toContainText('rise');
+  await expect(popup.locator('li').first()).toContainText('Всплытие снизу');
+  await page.keyboard.press('Enter');
+  await expect(code).toContainText('enter: rise');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Control+Space');
+  await expect(popup).toContainText('click');
+  await expect(popup).not.toContainText('enter');
+  await expect(popup).not.toContainText('place');
+  await page.keyboard.press('Escape');
+  await expect.poll(() => readDeck('math')).toContain('enter: rise');
+
+  // CSS: классы со слайда, своя анимация, переменные темы
+  await page.locator('.st-code-bar [data-mode="css"]').click();
+  await code.fill('@keyframes zzglow { to { opacity: 1 } }\n');
+  await page.keyboard.press('Control+End');
+  await page.keyboard.type('.fre');
+  await expect(popup).toContainText('free');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type(' { animation: zzg');
+  await expect(popup).toContainText('zzglow');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type(' 1s; color: var(--a');
+  await expect(popup).toContainText('Акцент');
+  await page.keyboard.press('Escape');
+  // Пропущенная «;» — предупреждение на строке
+  await code.fill('.free {\n  color: red\n  opacity: .5;\n}');
+  await expect(page.locator('.cm-lintRange-warning')).toHaveCount(1);
+  await expect(status).toContainText('похоже на ошибку');
+  await code.fill('.free { color: var(--ac); border-color: #2563EB80 }');
+  await expect(page.locator('.cm-lintRange')).toHaveCount(0);
+
+  // Цвет при наведении: у переменной темы — образец и её значение, у #RRGGBBAA — образец и прозрачность
+  const hoverText = async (t: string) => {
+    const p = await code.evaluate((el, t) => {
+      const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      let all = '';
+      const nodes: [Text, number][] = [];
+      for (let n = w.nextNode(); n; n = w.nextNode()) { nodes.push([n as Text, all.length]); all += n.nodeValue; }
+      const at = all.indexOf(t) + Math.floor(t.length / 2);
+      const [node, start] = nodes.filter(([, s]) => s <= at).pop()!;
+      const r = document.createRange();
+      r.setStart(node, at - start);
+      r.setEnd(node, at - start + 1);
+      const b = r.getBoundingClientRect();
+      return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+    }, t);
+    await page.mouse.move(0, 0);
+    await page.mouse.move(p.x, p.y);
+  };
+  const tip = page.locator('.st-color-tip');
+  await hoverText('var(--ac)');
+  await expect(tip.locator('i')).toBeVisible();
+  await expect(tip.locator('span')).toHaveText(/^#[0-9A-F]{6}$/);
+  await hoverText('#2563EB80');
+  await expect(tip.locator('span')).toHaveText('#2563EB · 50 %');
+  expect(errors).toEqual([]);
+});
