@@ -278,3 +278,89 @@ test('«График» из формулы: только у y = f(x), рядом
   });
   await expect.poll(() => curve.getAttribute('d')).not.toBe(before);
 });
+
+test('код слайда: Ctrl+Z не стирает загруженный код, после «Анимаций» в код снова пишется, поиск и замена по-русски', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=math&studio#3');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  await page.keyboard.press('Control+Backquote');
+  const code = page.locator('.st-code-ed .cm-content');
+  await expect(code).toContainText('text: Конец');
+  await code.click();
+  // Отменять нечего: загрузка кода — не правка
+  for (let k = 0; k < 4; k++) await page.keyboard.press('Control+z');
+  await expect(code).toContainText('text: Конец');
+  // Другие вкладки и обратно: отмена не возвращает их текст; «только чтение» «Анимаций» не остаётся
+  const tab = (m: string) => page.locator(`.st-code-bar [data-mode="${m}"]`).click();
+  await tab('css');
+  await expect(code).not.toContainText('Конец');
+  await tab('anim');
+  await expect(page.locator('.st-code-status')).toContainText('нет анимаций');
+  await expect(code).toHaveAttribute('aria-readonly', 'true');
+  await tab('slide');
+  await expect(code).not.toHaveAttribute('aria-readonly', 'true');
+  await code.click();
+  for (let k = 0; k < 4; k++) await page.keyboard.press('Control+z');
+  await expect(code).toContainText('text: Конец');
+  // Ctrl+F: сколько найдено
+  await page.keyboard.press('Control+f');
+  const q = page.locator('.st-cs-q');
+  const n = page.locator('.st-cs-n');
+  await expect(q).toBeFocused();
+  await q.pressSequentially('canvas');
+  await expect(n).toHaveText('1 из 1');
+  await q.fill('нет такого');
+  await expect(n).toHaveText('нет');
+  // Ctrl+H: замена — сразу на слайде и в файле
+  await q.fill('Конец');
+  await page.keyboard.press('Control+h');
+  const r = page.locator('.st-cs-r');
+  await expect(r).toBeFocused();
+  await r.fill('Финиш');
+  await page.keyboard.press('Enter');
+  await expect(code).toContainText('text: Финиш');
+  await expect(page.locator('#st-canvas .slide.on')).toContainText('Финиш');
+  await expect.poll(() => readDeck('math')).toContain('text: Финиш');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.st-cs')).toHaveCount(0);
+  await expect(code).toBeFocused();
+  // Ctrl+Z в коде отменяет свою правку
+  await page.keyboard.press('Control+z');
+  await expect(code).toContainText('text: Конец');
+  await expect.poll(() => readDeck('math')).not.toContain('Финиш');
+  expect(errors).toEqual([]);
+});
+
+test('стили · CSS: правка @keyframes доходит до слайда, Ctrl+Z возвращает прежнюю; на обычном слайде — подсказка', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=math&studio#3');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  await page.keyboard.press('Control+Backquote');
+  await page.locator('.st-code-bar [data-mode="css"]').click();
+  const code = page.locator('.st-code-ed .cm-content');
+  const status = page.locator('.st-code-status');
+  await expect(status).toHaveText('Стили всех слайдов-холстов');
+  // Действует последнее на странице правило @keyframes с этим именем
+  const frame = () => page.evaluate(() => {
+    let last = '';
+    for (const s of document.styleSheets) for (const rule of s.cssRules) if (rule instanceof CSSKeyframesRule && rule.name === 'zzpulse') last = rule.cssText;
+    return last;
+  });
+  await code.fill('@keyframes zzpulse { to { opacity: 0.5 } }');
+  await expect.poll(frame).toMatch(/opacity: 0\.5;/);
+  await expect(status).toHaveText('Применено');
+  await code.fill('@keyframes zzpulse { to { opacity: 0.25 } }');
+  await expect.poll(frame).toMatch(/opacity: 0\.25;/);
+  await page.keyboard.press('Control+z');
+  await expect(code).toContainText('opacity: 0.5 }');
+  await expect.poll(frame).toMatch(/opacity: 0\.5;/);
+  await expect.poll(() => readDeck('math')).toContain('opacity: 0.5 }');
+  expect(errors).toEqual([]);
+
+  // Титульный слайд — не холст: стили презентации на нём не видны, и это сказано
+  await page.goto('/?deck=tpl&studio#1');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  await page.keyboard.press('Control+Backquote');
+  await page.locator('.st-code-bar [data-mode="css"]').click();
+  await expect(status).toContainText('только на слайдах-холстах');
+});

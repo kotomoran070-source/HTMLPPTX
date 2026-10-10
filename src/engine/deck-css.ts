@@ -174,12 +174,17 @@ export function applyDeckCss(css: unknown): string | null {
   if (!text) return null;
   const key = cssKey(text);
   const id = `${ID}-${key}`;
-  if (!document.getElementById(id)) {
-    const el = document.createElement('style');
+  let el = document.getElementById(id);
+  if (!el) {
+    el = document.createElement('style');
     el.id = id;
     el.textContent = scopeCss(text, `.canvas-slide[data-css="${key}"]`);
-    document.head.appendChild(el);
   }
+  // Действующие стили — последними среди стилей презентаций: @keyframes и @font-face не привязаны к
+  // слайдам, и при одинаковом имени побеждает последнее. Вернули прежний текст (Ctrl+Z, правка обратно) —
+  // старый блок стилей уже есть, но лежит раньше новых: без переноса анимация оставалась от последней правки
+  const all = document.head.querySelectorAll(`style[id^="${ID}-"]`);
+  if (all[all.length - 1] !== el) document.head.appendChild(el);
   return key;
 }
 

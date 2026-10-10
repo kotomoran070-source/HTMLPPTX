@@ -1,7 +1,8 @@
 import { css } from '@codemirror/lang-css';
 import { html } from '@codemirror/lang-html';
 import { yaml } from '@codemirror/lang-yaml';
-import { Compartment, EditorState } from '@codemirror/state';
+import { getSearchQuery, searchPanelOpen } from '@codemirror/search';
+import { Compartment, EditorState, Transaction, type Extension } from '@codemirror/state';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView, keymap } from '@codemirror/view';
 import { basicSetup } from 'codemirror';
@@ -13,6 +14,7 @@ import { writeAssetText } from '../engine/editor/persist';
 import { withPointerBridge } from '../engine/frame-bridge';
 import { currentTheme, onThemeChange } from '../engine/theme';
 import type { Deck, SlideData } from '../types';
+import { codeSearch, reopenSearch } from './code-search';
 import { collectNodes, cssRules, highlightField, rulesFor, setHighlight, treeHtml, treeToggleIcon, YamlRanges, type CssRule, type TreeNode } from './code-tree';
 
 type Mode = 'slide' | 'css' | 'anim';
@@ -66,6 +68,8 @@ export class CodeView {
   private ruleAt = 0;
   private rulesBtn: HTMLButtonElement;
   private ro = new Compartment();
+  /** Только чтение — пока код вставки грузится или вставок на слайде нет (вкладка «Анимации») */
+  private readOnly = false;
   /** Живые вставки текущего слайда и какая открыта */
   private embeds: EmbedRef[] = [];
   private embedAt = 0;
@@ -103,25 +107,7 @@ export class CodeView {
     this.fold(folded);
     this.view = new EditorView({
       parent: root.querySelector('.st-code-ed')!,
-      state: EditorState.create({
-        doc: '',
-        extensions: [
-          basicSetup,
-          this.lang.of(yaml()),
-          this.ro.of(EditorState.readOnly.of(false)),
-          this.theme.of(currentTheme() === 'dark' ? oneDark : []),
-          EditorView.lineWrapping,
-          highlightField,
-          keymap.of([{ key: 'Mod-Enter', run: () => { this.apply(); return true; } }]),
-          EditorView.updateListener.of((u) => {
-            // Курсор в коде — какой объект под ним
-            if (u.selectionSet && !u.docChanged && u.view.hasFocus) this.peekAt(u.state.selection.main.head);
-            if (!u.docChanged) return;
-            clearTimeout(this.timer);
-            this.timer = window.setTimeout(() => this.apply(), APPLY_MS);
-          }),
-        ],
-      }),
+      state: EditorState.create({ doc: '', extensions: this.extensions() }),
     });
     root.querySelector('.st-seg')!.addEventListener('click', (e) => {
       const b = (e.target as Element).closest<HTMLElement>('[data-mode]');
@@ -165,6 +151,45 @@ export class CodeView {
     onThemeChange((t) => this.view.dispatch({ effects: this.theme.reconfigure(t === 'dark' ? oneDark : []) }));
   }
 
+  /** Настройка редактора — по текущей вкладке, теме и «только чтению» (новое состояние берёт её целиком) */
+  private extensions(): Extension[] {
+    return [
+      basicSetup,
+      codeSearch(),
+      this.lang.of(this.mode === 'css' ? css() : this.mode === 'anim' ? html() : yaml()),
+      this.ro.of(EditorState.readOnly.of(this.readOnly)),
+      this.theme.of(currentTheme() === 'dark' ? oneDark : []),
+      EditorView.lineWrapping,
+      highlightField,
+      keymap.of([{ key: 'Mod-Enter', run: () => { this.apply(); return true; } }]),
+      EditorView.updateListener.of((u) => {
+        // Курсор в коде — какой объект под ним
+        if (u.selectionSet && !u.docChanged && u.view.hasFocus) this.peekAt(u.state.selection.main.head);
+        if (!u.docChanged) return;
+        clearTimeout(this.timer);
+        this.timer = window.setTimeout(() => this.apply(), APPLY_MS);
+      }),
+    ];
+  }
+
+  /**
+   * Код загружен заново (другой слайд, вкладка, вставка, правка не здесь): новое состояние —
+   * с пустой историей. Иначе Ctrl+Z в коде откатывал саму загрузку: код пустел, а после смены
+   * слайда возвращал текст прошлого слайда и применял его к этому. Открытый поиск остаётся
+   */
+  private reload(text: string): void {
+    const searching = searchPanelOpen(this.view.state);
+    const query = getSearchQuery(this.view.state);
+    this.view.setState(EditorState.create({ doc: text, extensions: this.extensions() }));
+    if (searching) reopenSearch(this.view, query);
+  }
+
+  private setReadOnly(on: boolean): void {
+    if (on === this.readOnly) return;
+    this.readOnly = on;
+    this.view.dispatch({ effects: this.ro.reconfigure(EditorState.readOnly.of(on)) });
+  }
+
   private setMode(m: Mode): void {
     this.apply();
     this.mode = m;
@@ -172,6 +197,8 @@ export class CodeView {
     this.view.dispatch({ effects: this.lang.reconfigure(m === 'css' ? css() : m === 'anim' ? html() : yaml()) });
     this.rulesBtn.hidden = true;
     this.picker.hidden = m !== 'anim';
+    // «Только чтение» вкладки «Анимации» не переходит на YAML и CSS
+    if (m !== 'anim') this.setReadOnly(false);
     this.rules = [];
     if (m === 'css') this.mark(-1);
     this.shownFor = '';
@@ -209,15 +236,20 @@ export class CodeView {
     const subject = `${this.mode}:${this.host.index()}:${this.mode === 'anim' ? this.embedAt : ''}`;
     const typing = this.view.hasFocus && this.view.state.doc.toString() !== this.synced;
     if (!force && subject === this.shownFor && (text === this.synced || typing)) return;
+    const same = subject === this.shownFor;
     this.shownFor = subject;
     this.synced = text;
     clearTimeout(this.timer);
-    if (this.view.state.doc.toString() !== text) {
-      this.view.dispatch({ changes: { from: 0, to: this.view.state.doc.length, insert: text } });
+    if (this.view.state.doc.toString() !== text || !same) {
+      // Тот же код, только что применённый (YAML записался чуть иначе), пока в нём печатают, — без
+      // отдельного шага отмены; иначе — загрузка заново, с чистой историей
+      if (same && !force && this.view.hasFocus) {
+        this.view.dispatch({ changes: { from: 0, to: this.view.state.doc.length, insert: text }, annotations: Transaction.addToHistory.of(false) });
+      } else this.reload(text);
       clearTimeout(this.timer);
     }
     if (this.mode === 'anim') this.animStatus();
-    else this.setStatus(this.mode === 'css' ? 'Стили всех слайдов-холстов' : `Слайд ${this.host.index() + 1}`, '');
+    else this.setStatus(this.mode === 'css' ? this.cssHint() || 'Стили всех слайдов-холстов' : `Слайд ${this.host.index() + 1}`, '');
     this.revealed = '';
     this.syncSelection();
   }
@@ -480,7 +512,8 @@ export class CodeView {
         else delete rec.css;
       }, { rebuild: true, merge: 'code:css', hold: true });
       this.synced = text;
-      this.setStatus('Применено', 'ok');
+      const hint = this.cssHint();
+      this.setStatus(hint ? `Применено · ${hint}` : 'Применено', hint ? '' : 'ok');
       return;
     }
     let data: unknown;
@@ -552,11 +585,24 @@ export class CodeView {
       });
   }
 
+  /**
+   * Почему правка стилей может быть не видна на открытом слайде: стили презентации действуют
+   * только на слайдах-холстах; в облегчённом режиме слайд без движения
+   */
+  private cssHint(): string {
+    const s = this.host.deck().slides[this.host.index()];
+    if (s && (s.template ?? 'content') !== 'canvas') return 'на этом слайде не видно: стили презентации действуют только на слайдах-холстах';
+    if (this.host.stage().classList.contains('still') && /animation|@keyframes|transition/.test(this.view.state.doc.toString())) {
+      return 'облегчённый режим: движение видно в «Просмотре» (Анимация → Просмотр)';
+    }
+    return '';
+  }
+
   private animStatus(): void {
     const e = this.embeds[this.embedAt];
     const b = e ? getAt(this.host.deck(), e.path) as EmbedData | undefined : undefined;
     const waiting = !!b?.src && typeof b.code !== 'string' && !this.texts.has(b.src);
-    this.view.dispatch({ effects: this.ro.reconfigure(EditorState.readOnly.of(!e || waiting)) });
+    this.setReadOnly(!e || waiting);
     if (!e) this.setStatus('На этом слайде нет анимаций на HTML/JS. Анимации на CSS (@keyframes) — во вкладке «Стили · CSS»', '');
     else if (waiting) this.setStatus('Загружаю код…', '');
     else this.setStatus(`Вставка ${e.label} · правки сразу на слайде`, '');
