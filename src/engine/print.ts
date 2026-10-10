@@ -82,9 +82,18 @@ export function setupPrint(getDeck: () => Deck): void {
   });
 }
 
-/** Окно печати, когда копия слайдов готова */
+/** Окно печати, когда копия слайдов готова. В приложении Slideria — сразу файл PDF (см. desktop/main.mjs) */
 export async function printDeck(deck: Deck): Promise<void> {
   const root = build(deck);
   await ready(root, deck);
+  const app = (window as { slideriaApp?: { pdf?(name: string): Promise<string | null> } }).slideriaApp;
+  if (app?.pdf) {
+    await app.pdf(deck.title ?? '').catch(() => null);
+    deckEl?.remove();
+    deckEl = null;
+    // Окно открыто только ради PDF («Экспорт → PDF» в редакторе) — закрывается само
+    if (window.name.startsWith('htmlpptx-print-')) window.close();
+    return;
+  }
   window.print();
 }

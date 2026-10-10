@@ -23,7 +23,7 @@
     "typecheck": "tsc --noEmit",
     "verify": "tsc --noEmit && node scripts/build.mjs",
     "app": "electron .",
-    "app:build": "electron-builder --win",
+    "app:build": "node scripts/app-build.mjs",
     "test": "playwright test",
     "test:unit": "playwright test --project=unit",
     "test:e2e": "playwright test --project=e2e",

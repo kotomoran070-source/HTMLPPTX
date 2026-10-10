@@ -97,3 +97,4 @@ body.picker-page {
   .pk-hero h1 { font-size: 34px; }
   .pk-grid { grid-template-columns: 1fr; }
 }
+.pk-foot .pk-build { margin-top: 6px; font-size: 12px; opacity: .8; }

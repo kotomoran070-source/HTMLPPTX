@@ -21,3 +21,4 @@ presentations/.trash/
 
 # Установщик приложения (yarn app:build)
 dist-app/
+desktop/build.json

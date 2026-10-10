@@ -8,9 +8,12 @@ import { _electron as electron, expect, test } from '@playwright/test';
 test('первый запуск: «Моя первая презентация», экспорт и вход для телефона', async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-app-test-'));
   const docs = path.join(tmp, 'docs');
+  // Сохранённые файлы (PDF, PPTX) — сюда, без окна «Сохранить как»
+  const saves = path.join(tmp, 'saves');
+  fs.mkdirSync(saves, { recursive: true });
   const app = await electron.launch({
     args: ['.', ...(process.platform === 'linux' ? ['--no-sandbox'] : [])],
-    env: { ...process.env, SLIDERIA_DOCS_DIR: docs, SLIDERIA_USER_DATA: path.join(tmp, 'data') },
+    env: { ...process.env, SLIDERIA_DOCS_DIR: docs, SLIDERIA_USER_DATA: path.join(tmp, 'data'), SLIDERIA_SAVE_DIR: saves },
     timeout: 60_000,
   });
   try {
@@ -19,8 +22,9 @@ test('первый запуск: «Моя первая презентация»,
     await expect(win.locator('.pk-card[data-name="moya-pervaya-prezentaciya"]')).toBeVisible();
     await expect(win.locator('.pk-hero')).toContainText('Документы/Slideria');
     expect(fs.existsSync(path.join(docs, 'moya-pervaya-prezentaciya', 'deck.yaml'))).toBe(true);
-    // Подсказки внизу — без команд терминала
+    // Подсказки внизу — без команд терминала; какая это сборка программы
     await expect(win.locator('.pk-foot')).not.toContainText('yarn');
+    await expect(win.locator('.pk-build')).toContainText('запуск из проекта');
     // Шрифты компьютера: своему серверу доступ дан без вопроса — список шрифтов в студии полный
     const fonts = await win.evaluate(async () => ({
       state: (await navigator.permissions.query({ name: 'local-fonts' as PermissionName })).state,
@@ -36,6 +40,25 @@ test('первый запуск: «Моя первая презентация»,
     });
     expect(exp.status).toBe(200);
     expect(exp.size).toBeGreaterThan(200_000);
+
+    // «Экспорт → PDF» в приложении — файл PDF средствами Electron (а не окно печати), окно печати закрывается само
+    await win.goto(win.url().replace(/\?all$/, '?deck=moya-pervaya-prezentaciya&studio'));
+    await expect(win.locator('#st-canvas .slide')).not.toHaveCount(0);
+    await win.locator('[data-cmd="file.export"]').first().click();
+    await win.locator('[data-x="pdf"]').click();
+    const pdf = path.join(saves, 'Моя первая презентация.pdf');
+    await expect.poll(() => fs.existsSync(pdf), { timeout: 60_000 }).toBe(true);
+    const head = fs.readFileSync(pdf);
+    expect(head.subarray(0, 5).toString()).toBe('%PDF-');
+    // Страниц — по слайдам (скрытых в шаблоне нет)
+    const pages = (head.toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length;
+    expect(pages).toBeGreaterThan(10);
+    await expect.poll(() => app.windows().length).toBe(1);
+    // PowerPoint — скачиванием: сохраняется файлом
+    await win.locator('[data-cmd="file.export"]').first().click();
+    await win.locator('[data-x="pptx"]').click();
+    const pptx = path.join(saves, 'moya-pervaya-prezentaciya.pptx');
+    await expect.poll(() => fs.existsSync(pptx) && fs.statSync(pptx).size > 50_000, { timeout: 150_000 }).toBe(true);
 
     // Вход для телефона открывается по запросу и пускает только к этой презентации.
     // На Windows пропускаем: первый выход в сеть вызывает окно брандмауэра

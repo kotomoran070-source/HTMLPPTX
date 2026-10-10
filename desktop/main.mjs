@@ -123,6 +123,46 @@ ipcMain.on('slideria:theme', (e, mode) => {
 });
 const ours = (url) => !!origin && (url === origin || url.startsWith(origin + '/'));
 
+/**
+ * Сборка программы: yarn app:build пишет desktop/build.json (дата и коммит). Его нет — запуск из
+ * проекта (yarn app), код всегда свежий. Установленная программа — снимок кода на день сборки:
+ * то, что добавлено в проект позже, появится после новой сборки установщика
+ */
+function buildInfo() {
+  try {
+    return { version: app.getVersion(), ...JSON.parse(fs.readFileSync(path.join(APP_DIR, 'desktop', 'build.json'), 'utf8')) };
+  } catch {
+    return { version: app.getVersion(), date: '', commit: '' };
+  }
+}
+const BUILD = buildInfo();
+ipcMain.on('slideria:build', (e) => { e.returnValue = BUILD; });
+
+/** Имя файла без запрещённых в Windows знаков */
+const fileName = (s) => String(s || 'Презентация').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) || 'Презентация';
+
+/**
+ * PDF: окно печати Electron — системное, без «Сохранить как PDF» и без фонов. Поэтому страница
+ * готовит листы, как для печати, а PDF делает сам Electron: размер листа — слайд (@page), с фонами.
+ * Тесты (SLIDERIA_SAVE_DIR) сохраняют без вопроса
+ */
+ipcMain.handle('slideria:pdf', async (e, name) => {
+  if (!ours(e.senderFrame?.url ?? '')) return null;
+  const data = await e.sender.printToPDF({ printBackground: true, preferCSSPageSize: true, margins: { marginType: 'none' } });
+  const file = `${fileName(name)}.pdf`;
+  let out = process.env.SLIDERIA_SAVE_DIR ? path.join(process.env.SLIDERIA_SAVE_DIR, file) : '';
+  if (!out) {
+    const win = BrowserWindow.fromWebContents(e.sender) ?? main;
+    const r = await dialog.showSaveDialog(win, { title: 'Сохранить PDF', defaultPath: path.join(app.getPath('documents'), file), filters: [{ name: 'PDF', extensions: ['pdf'] }] });
+    if (r.canceled || !r.filePath) return null;
+    out = r.filePath;
+  }
+  fs.writeFileSync(out, data);
+  log('PDF:', out);
+  if (!process.env.SLIDERIA_SAVE_DIR) shell.showItemInFolder(out);
+  return out;
+});
+
 /** Общие правила для всех окон: свои страницы открываются окнами (показ, заметки), чужие — в браузере */
 function guard(win) {
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -232,7 +272,7 @@ function buildMenu() {
       label: 'Справка',
       submenu: [
         { label: 'Журнал работы', click: () => void shell.openPath(LOG) },
-        { label: 'Версия ' + app.getVersion(), enabled: false },
+        { label: `Версия ${BUILD.version}${BUILD.date ? ` · сборка от ${BUILD.date}` : ' · из проекта'}`, enabled: false },
       ],
     },
   ]));
@@ -242,6 +282,16 @@ function buildMenu() {
  * Шрифты компьютера в списке шрифтов студии: доступ без вопроса — только страницам своего сервера.
  * Остальные разрешения — как по умолчанию в Electron (разрешены).
  */
+/** Скачивания (PPTX, HTML): обычное окно «Сохранить как»; в тестах — сразу в папку */
+function downloads() {
+  session.defaultSession.on('will-download', (_e, item) => {
+    const dir = process.env.SLIDERIA_SAVE_DIR;
+    if (dir) item.setSavePath(path.join(dir, item.getFilename()));
+    else item.setSaveDialogOptions({ title: 'Сохранить', defaultPath: path.join(app.getPath('documents'), item.getFilename()) });
+    item.once('done', (_x, state) => log('Скачивание:', item.getFilename(), state, item.getSavePath()));
+  });
+}
+
 function allowLocalFonts() {
   const ours = (o) => !!origin && typeof o === 'string' && o.replace(/\/$/, '') === origin;
   session.defaultSession.setPermissionCheckHandler((_wc, permission, requestingOrigin) => permission !== 'local-fonts' || ours(requestingOrigin));
@@ -251,6 +301,8 @@ function allowLocalFonts() {
 app.whenReady().then(async () => {
   fs.mkdirSync(DATA, { recursive: true });
   allowLocalFonts();
+  downloads();
+  log('Сборка:', BUILD.date ? `${BUILD.version} от ${BUILD.date} (${BUILD.commit})` : 'из проекта');
   buildMenu();
   main = createWindow();
   try {

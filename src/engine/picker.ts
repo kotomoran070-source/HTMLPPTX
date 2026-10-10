@@ -190,7 +190,7 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
   <footer class="pk-foot">${__APP__
     // Приложение: без команд терминала и путей проекта — что можно сделать прямо здесь
     ? `<span>${icon('sparkle')} Импорт понимает PowerPoint (.pptx), презентации из Claude Design и из чата с Claude, а также свой HTML, где каждый слайд — <code>&lt;section class="slide"&gt;</code></span>
-    <span>${icon('upload')} Готовую презентацию отправляйте одним HTML-файлом: «Экспорт» в редакторе. Откроется на любом компьютере без программы и интернета</span>`
+    <span>${icon('upload')} Готовую презентацию отправляйте одним HTML-файлом: «Экспорт» в редакторе. Откроется на любом компьютере без программы и интернета</span>${appBuild()}`
     : `<span>${icon('terminal')} <code>yarn build имя</code> — один HTML-файл для показа и отправки: <code>dist/имя.html</code></span>
     <span>Правила своего HTML — <code>docs/HTML.md</code>, импорт из Claude Design — <code>docs/CLAUDE-DESIGN.md</code></span>`}
   </footer>
@@ -274,4 +274,11 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
   } else {
     cards.forEach((c) => void fill(c));
   }
+}
+
+/** Сборка программы: установленная — снимок кода на день сборки, новое из проекта появится с новой сборкой */
+function appBuild(): string {
+  const b = (window as { slideriaApp?: { build?: { version?: string; date?: string; commit?: string } } }).slideriaApp?.build;
+  if (!b) return '';
+  return `<span class="pk-build">Slideria ${esc(b.version ?? '')} · ${b.date ? `сборка от ${esc(b.date)}${b.commit ? ` (${esc(b.commit)})` : ''}` : 'запуск из проекта'}</span>`;
 }
