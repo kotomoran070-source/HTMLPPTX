@@ -19,16 +19,27 @@ export function defineStepper(s: Stepper): void {
   steppers.push(s);
 }
 
-/** Блоки слайда с шагами — по порядку в разметке */
+/**
+ * Очерёдность: сначала шаги того, что видно сразу (формула по шагам на слайде), потом объекты
+ * «по щелчку» в своём порядке (data-click), а шаги формулы внутри такого объекта — сразу после его появления
+ */
+function keyOf(el: HTMLElement, dom: number): number {
+  const click = el.closest<HTMLElement>('.free[data-click]');
+  if (!click) return -1e6 + dom;
+  return Number(click.dataset.click) + (click === el ? 0 : 0.5);
+}
+
+/** Блоки слайда с шагами — по очереди показа */
 function blocks(slide: HTMLElement): { el: HTMLElement; s: Stepper; n: number }[] {
-  const out: { el: HTMLElement; s: Stepper; n: number }[] = [];
+  const out: { el: HTMLElement; s: Stepper; n: number; key: number }[] = [];
+  const all = [...slide.querySelectorAll<HTMLElement>('*')];
   for (const s of steppers) {
     slide.querySelectorAll<HTMLElement>(s.sel).forEach((el) => {
       const n = s.count(el);
-      if (n > 1) out.push({ el, s, n });
+      if (n > 1) out.push({ el, s, n, key: keyOf(el, all.indexOf(el)) });
     });
   }
-  return out.sort((a, b) => (a.el.compareDocumentPosition(b.el) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+  return out.sort((a, b) => a.key - b.key);
 }
 
 /** Всего шагов на слайде */
@@ -47,3 +58,17 @@ export function applySteps(slide: HTMLElement, k: number, animate: boolean): voi
     b.s.set(b.el, own, animate && was !== own);
   }
 }
+
+// Объект «по щелчку»: до своего шага скрыт, на шаге появляется своим эффектом (как кнопка «показать»)
+defineStepper({
+  sel: ':scope > .free[data-click]',
+  count: () => 2,
+  set(el, k, animate) {
+    el.classList.toggle('click-hid', k === 0);
+    el.classList.remove('trig-in');
+    if (k === 1 && animate) {
+      void el.offsetWidth;
+      el.classList.add('trig-in');
+    }
+  },
+});

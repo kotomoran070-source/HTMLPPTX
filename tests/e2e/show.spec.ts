@@ -141,6 +141,26 @@ test('формула по шагам: «Далее» открывает стро
   expect(errors).toEqual([]);
 });
 
+test('объекты «ждут щелчка»: появляются по одному в порядке очереди, назад — прячутся', async ({ page }) => {
+  await page.goto('/?deck=math#5');
+  await expect(page.locator('#ct')).toHaveText(/^5 из/);
+  const first = page.locator('.slide.on > .free').filter({ hasText: 'Первый' });
+  const second = page.locator('.slide.on > .free').filter({ hasText: 'Второй' });
+  await expect(first).toHaveClass(/click-hid/);
+  await expect(second).toHaveClass(/click-hid/);
+  await expect(first).toHaveCSS('opacity', '0');
+  // Очередь — по задержке, а не по порядку в списке
+  await page.keyboard.press('ArrowRight');
+  await expect(first).not.toHaveClass(/click-hid/);
+  await expect(second).toHaveClass(/click-hid/);
+  await page.keyboard.press('ArrowRight');
+  await expect(second).not.toHaveClass(/click-hid/);
+  await page.keyboard.press('ArrowLeft');
+  await expect(second).toHaveClass(/click-hid/);
+  await expect(first).not.toHaveClass(/click-hid/);
+  await expect(page.locator('#ct')).toHaveText(/^5 из/);
+});
+
 test('морф: пары перелетают, после перехода — ровно новый слайд', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=morph#1');

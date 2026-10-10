@@ -57,5 +57,10 @@ slides:
       - {type: control, name: a, label: Амплитуда, min: 0.5, max: 3, step: 0.5, value: 1, place: {x: 60, y: 420, w: 360}}
       - {type: math, tex: "y = a sin x", place: {x: 60, y: 180, w: 480}}
       - {type: math, tex: "F = m*a", place: {x: 60, y: 40, w: 300}}
+  - template: canvas
+    free:
+      - {type: text, text: Заголовок, place: {x: 60, y: 40, w: 600}}
+      - {type: card, title: Второй, click: true, delay: 300, place: {x: 480, y: 200, w: 340}}
+      - {type: card, title: Первый, click: true, place: {x: 60, y: 200, w: 340}}
 `);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

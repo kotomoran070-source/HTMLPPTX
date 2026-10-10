@@ -82,7 +82,7 @@ export function animPanelHtml(): string {
   ${group('Время и порядок', `<div class="st-rstack">
     <label class="st-rfield" title="Через сколько секунд после открытия слайда объект появляется"><span>Задержка</span><input type="number" id="st-fx-delay" min="0" max="20" step="0.1" aria-label="Задержка появления, секунды"><span>с</span></label>
     <div class="st-rrow">${btn('anim.earlier', 'up', 'Раньше', { title: 'Появляться раньше' })}${btn('anim.later', 'up', 'Позже', { title: 'Появляться позже' })}</div>
-  </div><div class="st-rstack">${btn('anim.seq', 'sparkle', 'По очереди', { title: 'Выделенные объекты (или все на слайде) появляются по очереди: сверху вниз, слева направо' })}${btn('anim.order', 'list', 'Порядок', { menu: true, title: 'Все анимированные объекты слайда по порядку' })}</div>`)}
+  </div><div class="st-rstack"><button type="button" class="st-rb st-chk" data-cmd="anim.click" title="При показе объект ждёт щелчка («Далее», пробел, пульт) и появляется своим эффектом; по порядку — как в «Порядке»"><i class="st-box">${icon('check')}</i><span>Ждёт щелчка</span></button>${btn('anim.seq', 'sparkle', 'По очереди', { title: 'Выделенные объекты (или все на слайде) появляются по очереди: сверху вниз, слева направо' })}${btn('anim.order', 'list', 'Порядок', { menu: true, title: 'Все анимированные объекты слайда по порядку' })}</div>`)}
   ${group('Число', `<div class="st-rstack"><button type="button" class="st-rb st-chk" data-cmd="anim.count" title="Числа в тексте объекта при появлении отсчитываются от нуля до своего значения"><i class="st-box">${icon('check')}</i><span>Число набегает</span></button></div>`)}
 </div>`;
 }
@@ -90,7 +90,7 @@ export function animPanelHtml(): string {
 /** Объекты слайда в порядке появления: анимированные по задержке, затем остальные */
 function order(deck: Deck, i: number): { b: Block; k: number; delay: number; on: boolean }[] {
   const free = (deck.slides[i]?.free ?? []) as Block[];
-  return free.map((b, k) => ({ b, k, delay: Number(b.delay) || 0, on: isOn(deck, b.enter) }))
+  return free.map((b, k) => ({ b, k, delay: Number(b.delay) || 0, on: isOn(deck, b.enter) || b.click === true }))
     .sort((a, b) => (a.on === b.on ? a.delay - b.delay || a.k - b.k : a.on ? -1 : 1));
 }
 
@@ -217,6 +217,30 @@ export function animCommands(h: AnimHost): Record<string, Command> {
   cmds['anim.earlier'] = { run: () => move(-1), enabled: canMove(-1) };
   // «Число набегает»: у выделенных объектов, в тексте которых есть число
   const counted = () => h.selPaths().filter((p) => /\d/.test(JSON.stringify(getAt(deck, p) ?? '')));
+  // По щелчку: объект ждёт «Далее» при показе; новый — последним в очереди
+  const freeSel = () => h.selPaths().filter((p) => p.length === 4 && p[2] === 'free');
+  cmds['anim.click'] = {
+    run: () => {
+      const paths = freeSel();
+      const on = !paths.every((p) => (getAt(deck, p) as Block).click === true);
+      const i = h.index();
+      const others = order(deck, i).filter((o) => o.on && !paths.some((p) => Number(p[3]) === o.k));
+      let next = others.length ? Math.max(...others.map((o) => o.delay)) + STEP : 0;
+      ed.commit((d) => paths.forEach((p) => {
+        const b = getAt(d, p) as Block;
+        if (!on) { delete b.click; return; }
+        const was = isOn(d, b.enter) || b.click === true;
+        b.click = true;
+        if (!was) {
+          if (next) b.delay = next;
+          else delete b.delay;
+          next += STEP;
+        }
+      }), { rebuild: true });
+    },
+    enabled: () => freeSel().length > 0,
+    active: () => { const p = freeSel(); return p.length > 0 && p.every((x) => (getAt(deck, x) as Block).click === true); },
+  };
   cmds['anim.count'] = {
     run: () => {
       const paths = counted();
@@ -255,7 +279,7 @@ function orderPopover(h: AnimHost, move: (dir: 1 | -1, k: number) => void): void
     const still = list.length - on.length;
     const selected = new Set(h.selPaths().map((p) => Number(p[3])));
     return `<div class="st-aorder">${on.length ? on.map((o, n) => `<div class="st-aorder-row${selected.has(o.k) ? ' sel' : ''}">
-  <button type="button" class="st-aorder-pick" data-k="${o.k}" title="Выделить"><b>${n + 1}</b><span><em>${esc(blockName(o.b.type))}</em>${snippet(o.b) ? ` · ${esc(snippet(o.b))}` : ''}</span><small>${esc(effectName(h.deck, o.b.enter))} · ${o.delay ? sec(o.delay) : 'сразу'}</small></button>
+  <button type="button" class="st-aorder-pick" data-k="${o.k}" title="Выделить"><b>${n + 1}</b><span><em>${esc(blockName(o.b.type))}</em>${snippet(o.b) ? ` · ${esc(snippet(o.b))}` : ''}</span><small>${esc(effectName(h.deck, o.b.enter) || 'Появление')} · ${o.b.click === true ? 'по щелчку' : o.delay ? sec(o.delay) : 'сразу'}</small></button>
   <button type="button" class="st-aorder-mv" data-mv="${o.k}" data-dir="-1" title="Раньше" aria-label="Раньше"${n === 0 ? ' disabled' : ''}>${icon('up')}</button>
   <button type="button" class="st-aorder-mv" data-mv="${o.k}" data-dir="1" title="Позже" aria-label="Позже"${n === on.length - 1 ? ' disabled' : ''}>${icon('up')}</button>
 </div>`).join('') : '<p class="st-aorder-empty">На слайде ещё нет анимации. Выделите объект и выберите эффект.</p>'}

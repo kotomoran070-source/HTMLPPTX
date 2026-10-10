@@ -288,6 +288,8 @@ body.editing .slide.on > .free.act { cursor: inherit; translate: none; filter: n
 /* Показать / скрыть по щелчку: скрытый объект не виден и не ловит мышь. Миниатюры, PPTX и PDF —
    как слайд в момент открытия, без скрытых объектов */
 .slide > .free.trig-hid { visibility: hidden; pointer-events: none; }
+/* По щелчку (engine/steps.ts): ждёт своего шага. Прозрачность, а не visibility: шаги формулы внутри не просвечивают */
+.slide > .free.click-hid { opacity: 0 !important; pointer-events: none; }
 .stage .slide.on:not(.static) > .free.trig-in.trig-in { animation: var(--fx, fx-rise) var(--fx-ms, .38s) var(--fx-ease, cubic-bezier(.2, .7, .2, 1)) 0ms both; }
 .stage .slide.on:not(.static) > .free.fx-pop.trig-in.trig-in { animation-timing-function: cubic-bezier(.34, 1.56, .64, 1); }
 .stage .slide.on:not(.static) > .free.trig-out.trig-out { animation: trig-out .26s var(--ease) both; pointer-events: none; }

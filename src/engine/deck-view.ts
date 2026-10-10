@@ -489,7 +489,8 @@ export class DeckView {
       const visit = (el: Element) => {
         if (el.matches(CONTENT_SKIP)) return;
         const cs = getComputedStyle(el);
-        if (cs.display === 'none' || cs.opacity === '0') return;
+        // Объект «по щелчку» ещё скрыт, но место под него — уже сейчас
+        if (cs.display === 'none' || (cs.opacity === '0' && !el.classList.contains('click-hid'))) return;
         const r = el.getBoundingClientRect();
         if (r.width * r.height < big) {
           if (CONTENT_MEDIA.has(el.localName)) return add(r);

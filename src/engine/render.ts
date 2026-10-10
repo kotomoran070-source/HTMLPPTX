@@ -115,6 +115,9 @@ export class Renderer {
    */
   private freeLayer(slide: SlideData, ctx: RenderCtx): string {
     const list = Array.isArray(slide.free) ? (slide.free as Block[]) : [];
+    // По щелчку (click: true): появляются при показе по одному на «Далее» — в порядке задержки, как в «Порядке»
+    const clicks = list.map((b, i) => ({ b, i })).filter(({ b }) => b.click === true)
+      .sort((a, c) => (Number(a.b.delay) || 0) - (Number(c.b.delay) || 0) || a.i - c.i).map(({ i }) => i);
     return list.map((b, i) => {
       const pl = placeOf(b);
       const p = pathOf(b);
@@ -134,10 +137,12 @@ export class Renderer {
       // Имя объекта — для кнопок «показать / скрыть»; hidden — скрыт при показе до щелчка
       const obj = typeof b.id === 'string' && OBJ_ID.test(b.id) ? ` data-obj="${esc(b.id)}"` : '';
       const hid = b.hidden === true ? ' trig-hid' : '';
+      const rank = clicks.indexOf(i);
+      const click = rank >= 0 ? ` data-click="${rank}" data-click-n="${rank + 1}"` : '';
       const emph = (typeof b.emphasis === 'string' && (EMPHASIS as readonly string[]).includes(b.emphasis) ? ` data-emph="${b.emphasis}"` : '')
         // Числа в тексте отсчитываются от нуля при появлении (engine/count-up)
         + (b.count === true ? ' data-count' : '');
-      return `<div class="free${pl.h ? '' : ' auto-h'}${fx}${lock}${act ? ' act' : ''}${hid}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''}${obj}${emph}${hid ? ' data-hid' : ''}${act ? ` data-action="${esc(act)}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
+      return `<div class="free${pl.h ? '' : ' auto-h'}${fx}${lock}${act ? ' act' : ''}${hid}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''}${obj}${emph}${hid ? ' data-hid' : ''}${click}${act ? ` data-action="${esc(act)}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
     }).join('');
   }
 
