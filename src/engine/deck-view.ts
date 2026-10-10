@@ -362,7 +362,7 @@ export class DeckView {
     const vp = this.stage.parentElement;
     if (vp) {
       const top = vp.clientHeight / 2 + this.box.oy - this.box.h / 2;
-      vp.style.clipPath = this.z === 1 ? '' : `inset(${Math.max(0, top)}px 0 ${Math.max(0, vp.clientHeight - top - this.box.h)}px 0)`;
+      vp.style.clipPath = this.z <= 1 ? '' : `inset(${Math.max(0, top)}px 0 ${Math.max(0, vp.clientHeight - top - this.box.h)}px 0)`;
     }
     return s;
   }
@@ -377,11 +377,12 @@ export class DeckView {
   }
   /**
    * «Крупнее»: содержимое слайда i — во всё окно. Пустые поля по краям уходят за окно,
-   * увеличение не больше max. Возвращает получившийся масштаб.
+   * увеличение не больше max. max меньше 1 — слайд целиком, но мельче окна (края экрана
+   * у проектора обрезаются). Возвращает получившийся масштаб.
    */
   fitContent(i: number, max: number, smooth = false): number {
-    const b = this.contentBox(i);
-    let z = 1;
+    const b = max > 1 ? this.contentBox(i) : null;
+    let z = Math.min(1, max);
     let cx = W / 2;
     let cy = H / 2;
     if (b) {
@@ -392,14 +393,14 @@ export class DeckView {
       const x1 = Math.min(W, b[2] + m);
       const y1 = Math.min(H, b[3] + m);
       z = Math.min(this.box.w / (x1 - x0), this.box.h / (y1 - y0)) / this.fitScale();
-      z = Math.max(1, Math.min(max, Math.round(z * 100) / 100));
+      z = Math.max(1, Math.min(max, Math.floor(z * 100) / 100));
       cx = (x0 + x1) / 2;
       cy = (y0 + y1) / 2;
     }
-    if (z < 1.02) z = 1;
+    if (Math.abs(z - 1) < 0.005) z = 1;
     this.z = z;
-    this.zx = z === 1 ? 0 : W / 2 - cx;
-    this.zy = z === 1 ? 0 : H / 2 - cy;
+    this.zx = z > 1 ? W / 2 - cx : 0;
+    this.zy = z > 1 ? H / 2 - cy : 0;
     this.smooth(smooth);
     this.place();
     return z;

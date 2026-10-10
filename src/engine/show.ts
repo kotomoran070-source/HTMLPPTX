@@ -96,15 +96,16 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   let black = false;
   let editor: Editor | null = null;
   // «Крупнее» (+ − 0, Ctrl + − 0): на каждом слайде содержимое крупнее, но целиком в окне —
-  // за край уходят только пустые поля. cap — насколько крупнее можно (1 — как на слайде).
+  // за край уходят только пустые поля. cap — насколько крупнее можно (1 — как на слайде),
+  // шаг 2 %, до 110 %; меньше 100 % — слайд мельче окна (проектор обрезает края экрана).
   // Запоминается в этом браузере: зал и экран те же — и в следующий раз так же
   const BIG_KEY = 'slideria.show.big';
-  const CAPS = [1, 1.1, 1.2, 1.3, 1.4, 1.5];
+  const CAPS = Array.from({ length: 11 }, (_, k) => (90 + k * 2) / 100);
   let cap = 1;
-  try { cap = CAPS.find((c) => c === Number(localStorage.getItem(BIG_KEY))) ?? 1; } catch { /* без хранилища */ }
+  try { cap = CAPS.find((c) => Math.round(c * 100) === Math.round(Number(localStorage.getItem(BIG_KEY)) * 100)) ?? 1; } catch { /* без хранилища */ }
   /** Масштаб для текущего слайда; в режиме правки слайд целиком */
   function applyBig(smooth = false): void {
-    if (cap > 1 && !editor?.active) view.fitContent(index, cap, smooth);
+    if (cap !== 1 && !editor?.active) view.fitContent(index, cap, smooth);
     else view.resetZoom(smooth);
   }
 
@@ -448,6 +449,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   function refitSoon(): void {
     clearTimeout(refitTimer);
     const at = index;
+    if (cap <= 1) return;
     refitTimer = window.setTimeout(() => { if (cap > 1 && at === index) applyBig(true); }, 700);
   }
   void document.fonts?.ready.then(() => { if (cap > 1) applyBig(); });
@@ -459,9 +461,12 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     try { localStorage.setItem(BIG_KEY, String(cap)); } catch { /* без хранилища */ }
     applyBig(true);
     if (!note) return;
+    const pct = Math.round(cap * 100);
     if (cap === 1) return pill('Как на слайде');
-    // Слайд и так заполнен до краёв — так и сказать, а то кажется, что не сработало
-    pill(`Крупнее · ${Math.round(cap * 100)} %${view.zoom === 1 ? ' · этот слайд и так во всё окно' : ''}`);
+    if (cap < 1) return pill(`Мельче · ${pct} %`);
+    // Слайду некуда расти до этого размера — сказать, сколько влезло, а то кажется, что не сработало
+    const got = Math.round(view.zoom * 100);
+    pill(`Крупнее · ${pct} %${got < pct ? ` · этот слайд — ${got} %, больше не помещается` : ''}`);
   }
   // Ctrl + колесо и щипок на тачпаде — тоже крупнее / мельче
   let wheelSum = 0;
@@ -523,7 +528,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       return;
     }
     // 0 сам по себе слайд не набирает — им «Крупнее» выключается
-    if (k === '0' && !digits && cap > 1) {
+    if (k === '0' && !digits && cap !== 1) {
       e.preventDefault();
       return bigStep(0);
     }

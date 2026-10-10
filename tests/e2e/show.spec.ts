@@ -76,13 +76,13 @@ test('обзор всех слайдов (O) открывает слайд по 
   await expect(page.locator('#ct')).toHaveText(/^7 из/);
 });
 
-test('«Крупнее»: + — содержимое крупнее, но целиком в окне; при листании и после перезагрузки остаётся; Ctrl+0 — как было', async ({ page }) => {
+test('«Крупнее»: + — содержимое крупнее (шаг 2 %, до 110 %), но целиком в окне; при листании и после перезагрузки остаётся; − ниже 100 % — мельче; Ctrl+0 — как было', async ({ page }) => {
   await page.goto('/?deck=tpl#2');
   await expect(page.locator('#ct')).toHaveText(/^2 из/);
   const stage = page.locator('.stage');
   const width = async () => (await stage.boundingBox())!.width;
   const w0 = await width();
-  await page.keyboard.press('+');
+  for (let k = 0; k < 7; k++) await page.keyboard.press('+');
   await expect(page.locator('#zpill')).toContainText('Крупнее · 110 %');
   await expect.poll(width).toBeGreaterThan(w0 * 1.03);
   // Плавный переход масштаба закончился
@@ -106,6 +106,11 @@ test('«Крупнее»: + — содержимое крупнее, но цел
   await page.reload();
   await expect.poll(width).toBeGreaterThan(w0 * 1.01);
   await page.keyboard.press('Control+0');
+  await expect.poll(width).toBeCloseTo(w0, 0);
+  await page.keyboard.press('-');
+  await expect(page.locator('#zpill')).toHaveText('Мельче · 98 %');
+  await expect.poll(width).toBeCloseTo(w0 * 0.98, 0);
+  await page.keyboard.press('0');
   await expect.poll(width).toBeCloseTo(w0, 0);
 });
 
