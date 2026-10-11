@@ -11,7 +11,7 @@ import { esc } from '../engine/html';
 import { frameCss } from '../engine/marks';
 import type { Block, Deck } from '../types';
 import { showMenu, showPopover, type MenuEntry } from './menu';
-import { cellAnchor, cellOf, cellRange, cellSpan, colCount, dropCols, dropRows, hasMerge, mergeRange, shiftMerges, splitCell, splitRange, tableCells, type CellRange, type TableData as CellTable } from './table-cells';
+import { cellAnchor, cellOf, cellRange, cellSpan, colCount, dropCols, dropRows, expandRange, hasMerge, mergeRange, shiftMerges, sortRows, splitCell, splitRange, tableCells, type CellRange, type TableData as CellTable } from './table-cells';
 
 /**
  * Контекстные вкладки ленты, как «Формат фигуры» и «Макет таблицы» в PowerPoint:
@@ -138,7 +138,7 @@ export function contextPanelsHtml(): string {
   ${ORDER}
 </div>
 <div class="st-rpanel" data-panel="table" hidden>
-  ${group('Стиль таблицы', `<div class="st-gallery t">${VARIANTS.map(tableTile).join('')}</div>` + btn('table.fill', 'fill', 'Заливка', { big: true, menu: true, title: 'Цвет выделенных ячеек (протяните мышью по ячейкам или Shift+щелчок)' }))}
+  ${group('Стиль таблицы', `<div class="st-gallery t">${VARIANTS.map(tableTile).join('')}</div>` + btn('table.fill', 'fill', 'Заливка', { big: true, menu: true, title: 'Цвет выделенных ячеек (протяните мышью по ячейкам или Shift+щелчок)' }) + btn('table.borders', 'borders', 'Границы', { big: true, menu: true, title: 'Границы выделенных ячеек или всей таблицы' }))}
   ${group('Показать', stack(btn('table.head', '', 'Строка заголовка', { chk: true }), btn('table.total', '', 'Строка итогов', { chk: true, title: 'Последняя строка как итог' }), btn('table.bands', '', 'Чередующиеся строки', { chk: true }))
     + stack(btn('table.labels', '', 'Первый столбец', { chk: true, title: 'Первый столбец жирным' }), btn('table.lastcol', '', 'Последний столбец', { chk: true, title: 'Последний столбец жирным' }), btn('table.highlight', '', 'Выделить строку', { chk: true, title: 'Выделить строку с курсором' })))}
   ${group('Строки и столбцы', btn('table.select', 'cursor', 'Выделить', { big: true, menu: true, title: 'Выделить строку, столбец или всю таблицу' })
@@ -149,7 +149,7 @@ export function contextPanelsHtml(): string {
   ${group('Ячейки', stack(
     row(btn('table.align.left', 'align-left', 'Столбцы — по левому краю', { ico: true }), btn('table.align.center', 'align-center', 'Столбцы — по центру', { ico: true }), btn('table.align.right', 'align-right', 'Столбцы — по правому краю', { ico: true })),
     row(btn('table.valign.top', 'v-top', 'В ячейках — сверху', { ico: true }), btn('table.valign.middle', 'v-middle', 'В ячейках — посередине', { ico: true }), btn('table.valign.bottom', 'v-bottom', 'В ячейках — снизу', { ico: true })),
-    btn('table.cols.equal', 'eq-cols', 'Выровнять ширину', { title: 'Одинаковая ширина столбцов' }),
+    row(btn('table.cols.equal', 'eq-cols', 'Выровнять ширину', { ico: true }), btn('table.rows.equal', 'rows-eq', 'Выровнять высоту строк', { ico: true }), btn('table.sort', 'sort', 'Сортировка по столбцу', { ico: true, menu: true })),
   ) + stack(btn('table.density', 'density', 'Плотность', { menu: true, title: 'Отступы в ячейках' }), row(btn('table.size.up', 'text-up', 'Крупнее', { ico: true }), btn('table.size.down', 'text-down', 'Мельче', { ico: true }))))}
   ${ORDER}
 </div>
@@ -741,12 +741,67 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
         ...(range ? [{ label: 'Очистить ячейки', icon: 'eraser', hint: 'Backspace', run: () => { fillCellsText(''); } }] : []),
         ...(multiCell() ? [{ label: 'Объединить ячейки', icon: 'cell-merge', run: mergeCells }] : []),
         { label: 'Разбить ячейку…', icon: 'cell-split', run: () => splitDialog(cellEl() ?? anchor('table.split')) },
+        null,
+        ...sortItems().map((it) => it && { ...it, label: `Сортировать ${it.label.toLowerCase()}` }),
       ] : []),
       { label: many(nr + head, ['Удалить строку', 'Удалить строки', '']), icon: 'row-del', disabled: nr + head >= total, run: delRow, preview: (on) => killMark('row', on) },
       { label: many(nc, ['Удалить столбец', 'Удалить столбцы', '']), icon: 'col-del', disabled: nCols < 2 || nc >= nCols, run: delCol, preview: (on) => killMark('col', on) },
       null,
       { label: 'Удалить таблицу', icon: 'trash', danger: true, run: () => h.run('obj.del'), preview: (on) => killMark('all', on) },
     ];
+  };
+  /** Куда границы: выделенные ячейки, ячейка с курсором; таблица только выделена — вся таблица */
+  const borderRect = (): CellRange => {
+    const t = first('table') as unknown as CellTable;
+    const key = tableKey();
+    const r = cellRange();
+    if (r && r.table === key) return r;
+    const at = cellOf(ed.editingField) ?? cellAnchor();
+    if (at && at.table === key) return expandRange(t, { table: key, r0: at.r, r1: at.r, c0: at.c, c1: at.c });
+    const top = Array.isArray(t.header) && t.head !== false ? -1 : 0;
+    return { table: key, r0: top, r1: t.rows.length - 1, c0: 0, c1: colCount(t) - 1 };
+  };
+  const setBorders = (kind: string | null) => {
+    const at = borderRect();
+    ed.finishText();
+    editTable((t) => {
+      const list = Array.isArray(t.borders) ? (t.borders as (number | string)[][]) : [];
+      // «Как в стиле»: правила, целиком внутри выделения, убираются
+      const keep = list.filter((b) => !(Number(b[0]) >= at.r0 && Number(b[0]) + Number(b[2]) - 1 <= at.r1 && Number(b[1]) >= at.c0 && Number(b[1]) + Number(b[3]) - 1 <= at.c1));
+      const next = kind ? [...keep, [at.r0, at.c0, at.r1 - at.r0 + 1, at.c1 - at.c0 + 1, kind]] : keep;
+      if (next.length) t.borders = next;
+      else delete t.borders;
+    });
+  };
+  const borderItems = (): MenuEntry[] => [
+    { label: 'Все границы', run: () => setBorders('all') },
+    { label: 'Внешние границы', run: () => setBorders('outer') },
+    { label: 'Внутренние границы', run: () => setBorders('inner') },
+    { label: 'Нижняя граница', run: () => setBorders('bottom') },
+    { label: 'Без границ', run: () => setBorders('none') },
+    null,
+    { label: 'Как в стиле таблицы', run: () => setBorders(null) },
+  ];
+  const sortBy = (desc: boolean) => {
+    const c = cell().c;
+    ed.finishText();
+    let err: string | null = null;
+    editTable((t) => { err = sortRows(t as unknown as CellTable, c, desc); });
+    if (err) ed.toast(err, 3500);
+    cells.select(null);
+  };
+  const sortItems = (): MenuEntry[] => [
+    { label: 'По возрастанию (А→Я, 1→9)', icon: 'sort', run: () => sortBy(false) },
+    { label: 'По убыванию (Я→А, 9→1)', icon: 'sort', run: () => sortBy(true) },
+  ];
+  /** Выровнять высоту строк: все — по средней (шапка как есть) */
+  const equalRows = () => {
+    const p = targets('table')[0];
+    const tbl = p ? h.stage().querySelector<HTMLTableElement>(`.slide.on [data-block="${CSS.escape(JSON.stringify(p))}"] table`) : null;
+    const rows = tbl ? [...(tbl.tBodies[0]?.rows ?? [])] : [];
+    if (!rows.length) return;
+    const avg = Math.round(rows.reduce((a, r) => a + r.offsetHeight, 0) / rows.length);
+    editTable((t) => { t.heights = t.rows.map(() => avg); });
   };
   const multiCell = () => { const r = span(); return r.r0 !== r.r1 || r.c0 !== r.c1; };
   const mergeCells = () => {
@@ -869,6 +924,9 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       enabled: () => isTable() && first('table')?.variant !== 'stripes', active: () => !!first('table')?.bands || first('table')?.variant === 'stripes',
     },
     'table.fill': { run: tableFill, enabled: isTable },
+    'table.borders': { run: () => showMenu(anchor('table.borders'), borderItems()), enabled: isTable },
+    'table.sort': { run: () => showMenu(anchor('table.sort'), sortItems()), enabled: () => isTable() && ((first('table')?.rows as unknown[]) ?? []).length > 1 },
+    'table.rows.equal': { run: equalRows, enabled: isTable },
     'table.merge': { run: mergeCells, enabled: () => isTable() && multiCell() },
     'table.split': { run: () => splitDialog(anchor('table.split')), enabled: isTable },
     'table.select': {

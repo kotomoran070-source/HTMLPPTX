@@ -14,7 +14,7 @@ import type { Deck } from '../types';
 export interface CellRange { table: string; r0: number; r1: number; c0: number; c1: number }
 export interface At { table: string; r: number; c: number }
 
-export interface TableData { header?: unknown[]; rows: unknown[][]; widths?: number[]; align?: string[]; fills?: unknown[][]; headFills?: unknown[]; highlight?: unknown; head?: unknown; merges?: number[][] }
+export interface TableData { header?: unknown[]; rows: unknown[][]; widths?: number[]; align?: string[]; fills?: unknown[][]; headFills?: unknown[]; highlight?: unknown; head?: unknown; merges?: number[][]; borders?: (number | string)[][]; heights?: (number | null)[]; headHeight?: number; total?: unknown }
 
 const mergesOf = (t: TableData | undefined): number[][] => (Array.isArray(t?.merges) ? t!.merges.filter(Array.isArray).map((m) => m.map(Number)) : []);
 
@@ -23,10 +23,26 @@ const mergesOf = (t: TableData | undefined): number[][] => (Array.isArray(t?.mer
  * ниже — сдвигаются, через место вставки — растут, задетые удалением — уменьшаются
  */
 export function shiftMerges(t: TableData, axis: 0 | 1, at: number, n: number): void {
-  if (!Array.isArray(t.merges)) return;
-  const out: number[][] = [];
-  for (const m of mergesOf(t)) {
-    let [r, c, rs, cs] = m;
+  const merges = shiftRects(mergesOf(t), axis, at, n).filter(([, , rs, cs]) => rs * cs > 1);
+  if (merges.length) t.merges = merges;
+  else delete t.merges;
+  // Границы — те же прямоугольники; высоты строк — вместе со строками
+  if (Array.isArray(t.borders)) {
+    const b = shiftRects(t.borders.filter(Array.isArray) as (number | string)[][], axis, at, n);
+    if (b.length) t.borders = b;
+    else delete t.borders;
+  }
+  if (!axis && Array.isArray(t.heights) && t.heights.length > at) {
+    if (n > 0) t.heights.splice(at, 0, ...Array.from({ length: n }, () => null));
+    else t.heights.splice(at, -n);
+  }
+}
+
+/** Прямоугольники [строка, столбец, строк, столбцов, …] при вставке и удалении строк или столбцов */
+function shiftRects<T extends (number | string)[]>(list: T[], axis: 0 | 1, at: number, n: number): T[] {
+  const out: T[] = [];
+  for (const m of list) {
+    let [r, c, rs, cs] = m.slice(0, 4).map(Number);
     let s = axis ? c : r;
     let len = axis ? cs : rs;
     if (n > 0) {
@@ -40,10 +56,9 @@ export function shiftMerges(t: TableData, axis: 0 | 1, at: number, n: number): v
       if (len < 1) continue;
     }
     if (axis) { c = s; cs = len; } else { r = s; rs = len; }
-    if (rs * cs > 1) out.push([r, c, rs, cs]);
+    out.push([r, c, rs, cs, ...m.slice(4)] as T);
   }
-  if (out.length) t.merges = out;
-  else delete t.merges;
+  return out;
 }
 
 /** Объединить ячейки диапазона: текст остальных — в первую (каждый с новой строки), как в PowerPoint */
@@ -142,6 +157,46 @@ export function cellSpan(t: TableData | undefined, r: number, c: number): [numbe
   return m ? [m[2], m[3]] : [1, 1];
 }
 
+/** Число из ячейки: «1 234,5 ₽», «12 %», «−3» — для сортировки; не число — null */
+function numberOf(v: unknown): number | null {
+  if (typeof v === 'number') return v;
+  const s = String(v ?? '').replace(/[\s\u00a0]/g, '').replace(/[−–]/g, '-').replace(',', '.').replace(/[^\d.+-]+$/g, '').replace(/^[^\d.+-]+/, '');
+  return s && /^[+-]?\d*\.?\d+$/.test(s) ? Number(s) : null;
+}
+
+/**
+ * Сортировать строки по столбцу c: числа — по значению, текст — по алфавиту (числа раньше текста,
+ * пустые — в конце). Шапка и строка итогов остаются на месте; заливка, высота и выделенная строка —
+ * вместе со строками. С объединёнными ячейками в строках — нельзя (ошибка)
+ */
+export function sortRows(t: TableData, c: number, desc: boolean): string | null {
+  if (mergesOf(t).some(([r]) => r >= 0)) return 'Сначала разделите объединённые ячейки — с ними строки не переставить';
+  const n = t.rows.length - (t.total && t.rows.length > 1 ? 1 : 0);
+  if (n < 2) return null;
+  const idx = Array.from({ length: n }, (_, k) => k);
+  const key = (k: number) => t.rows[k]?.[c];
+  const empty = (v: unknown) => v === undefined || v === null || !String(v).trim();
+  idx.sort((a, b) => {
+    const va = key(a);
+    const vb = key(b);
+    if (empty(va) || empty(vb)) return empty(va) === empty(vb) ? a - b : empty(va) ? 1 : -1;
+    const na = numberOf(va);
+    const nb = numberOf(vb);
+    let d: number;
+    if (na !== null && nb !== null) d = na - nb;
+    else if (na !== null || nb !== null) d = na !== null ? -1 : 1;
+    else d = String(va).localeCompare(String(vb), 'ru', { numeric: true, sensitivity: 'base' });
+    return (desc ? -d : d) || a - b;
+  });
+  const reorder = <X>(list: X[] | undefined) => { if (Array.isArray(list)) { const head = idx.map((k) => list[k]); list.splice(0, n, ...head); } };
+  reorder(t.rows);
+  reorder(t.fills);
+  reorder(t.heights);
+  const hl = Number(t.highlight);
+  if (Number.isInteger(t.highlight) && hl < n) t.highlight = idx.indexOf(hl);
+  return null;
+}
+
 /** Есть ли объединённые ячейки в диапазоне */
 export function hasMerge(t: TableData | undefined, r: CellRange): boolean {
   return mergesOf(t).some(([mr, mc, rs, cs]) => !(mr + rs - 1 < r.r0 || mr > r.r1 || mc + cs - 1 < r.c0 || mc > r.c1));
@@ -232,6 +287,15 @@ export function dropRows(t: TableData, r0: number, r1: number): void {
     if (ms.length) t.merges = ms;
     else delete t.merges;
     t.header = t.rows.shift();
+    // Высота и границы — вместе со строкой, ставшей шапкой
+    const hh = Array.isArray(t.heights) ? t.heights.shift() : undefined;
+    if (hh) t.headHeight = hh;
+    else delete t.headHeight;
+    if (Array.isArray(t.borders)) {
+      const b = shiftRects(t.borders.filter(Array.isArray) as (number | string)[][], 0, -1, -1);
+      if (b.length) t.borders = b;
+      else delete t.borders;
+    }
     const f = Array.isArray(t.fills) ? t.fills.shift() : undefined;
     if (Array.isArray(f)) t.headFills = f;
     else delete t.headFills;

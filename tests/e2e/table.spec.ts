@@ -270,3 +270,43 @@ test('правый щелчок в правке ячейки — меню; «Р�
   await expect.poll(() => (table(6) as { merges?: number[][] }).merges?.length).toBe(2);
   expect(errors).toEqual([]);
 });
+
+test('сортировка по столбцу, границы ячеек, высота строки мышью и «Выровнять высоту»', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=table&studio#7');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  type T = { rows: string[][]; borders?: unknown[][]; heights?: number[] };
+  const t7 = () => table(7) as unknown as T;
+  // Сортировка по «Факт» по возрастанию — из меню ячейки; числа — по значению
+  await cell(page, '70').click();
+  await cell(page, '70').click({ button: 'right' });
+  await page.locator('.st-menu').getByText(/^Сортировать по возрастанию/).click();
+  await expect.poll(() => t7().rows.map((r) => r[0])).toEqual(['Прибыль', 'Расходы', 'Выручка']);
+  // По убыванию — с ленты
+  await page.locator('.st-tabs [data-tab="table"]').click();
+  await page.locator('[data-cmd="table.sort"]').click();
+  await page.locator('.st-menu').getByText(/^По убыванию/).click();
+  await expect.poll(() => t7().rows.map((r) => r[0])).toEqual(['Выручка', 'Расходы', 'Прибыль']);
+  // Границы выделенных ячеек
+  await page.keyboard.press('Escape');
+  await cell(page, 'Выручка').click();
+  if (await page.locator('#st-canvas [contenteditable="true"]').count()) await page.keyboard.press('Escape');
+  await drag(page, 'Выручка', '80');
+  await page.locator('[data-cmd="table.borders"]').click();
+  await page.locator('.st-menu').getByText('Все границы').click();
+  await expect.poll(() => t7().borders).toEqual([[0, 0, 2, 2, 'all']]);
+  await expect(cell(page, 'Выручка')).toHaveCSS('border-right-width', '1px');
+  // Высота строки — ручкой под строкой (первая строка данных — вторая ручка)
+  const grip = page.locator('.st-rgrip[data-k="1"]');
+  const g = (await grip.boundingBox())!;
+  await page.mouse.move(g.x + 40, g.y + g.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(g.x + 40, g.y + 60, { steps: 6 });
+  await page.mouse.up();
+  await expect.poll(() => t7().heights?.[0] ?? 0).toBeGreaterThan(60);
+  // «Выровнять высоту строк» — у всех строк одна высота
+  await page.locator('[data-cmd="table.rows.equal"]').click();
+  await expect.poll(() => t7().heights?.length).toBe(3);
+  expect(new Set(t7().heights).size).toBe(1);
+  expect(errors).toEqual([]);
+});

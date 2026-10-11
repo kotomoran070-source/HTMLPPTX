@@ -44,6 +44,14 @@ interface TableProps extends Block {
    * Текст и заливка — у первой ячейки, остальные скрыты (их данные не теряются)
    */
   merges?: number[][];
+  /** Высоты строк, px (наименьшие: текст всегда помещается); headHeight — у шапки */
+  heights?: (number | null)[];
+  headHeight?: number;
+  /**
+   * Границы: правила по прямоугольникам ячеек, по порядку — [строка, столбец, строк, столбцов, вид];
+   * вид: all — все, outer — внешние, inner — внутренние, none — без границ, bottom — нижняя
+   */
+  borders?: (number | string)[][];
   /** false — шапку не показывать (данные шапки сохраняются) */
   head?: boolean;
   /** Последняя строка — итог: жирным, с чертой сверху */
@@ -87,15 +95,53 @@ function badge(v: string): string {
   return `<span class="tbl-badge"><i style="--dot:${esc(color)}"></i>${t(text)}</span>`;
 }
 
-/** Заливка ячейки: цвет темы — с его цветом текста; свой #RRGGBB — тёмный получает светлый текст */
+/** Заливка ячейки (CSS): цвет темы — с его цветом текста; свой #RRGGBB — тёмный получает светлый текст */
 function cellFill(f: string): string {
   const role = SHAPE_COLORS[f];
-  if (role) return ` style="background:${role.css};color:${role.on}"`;
+  if (role) return `background:${role.css};color:${role.on};`;
   const m = /^#([0-9a-f]{6})$/i.exec(f);
   if (!m) return '';
   const n = parseInt(m[1], 16);
   const lum = 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
-  return ` style="background:${f};color:${lum < 140 ? '#fff' : '#111827'}"`;
+  return `background:${f};color:${lum < 140 ? '#fff' : '#111827'};`;
+}
+
+type Edges = { t?: boolean; r?: boolean; b?: boolean; l?: boolean };
+
+/**
+ * Границы ячеек по правилам: true — линия, false — без линии, нет — как у вида таблицы. Линия между
+ * соседними ячейками рисуется одной: нижней у верхней и правой у левой (иначе вдвое толще)
+ */
+export function borderEdges(raw: unknown, rows: number, cols: number, top: number): Map<string, Edges> {
+  const out = new Map<string, Edges>();
+  const set = (r: number, c: number, side: 't' | 'r' | 'b' | 'l', v: boolean) => {
+    if (side === 't' && r > top) { r--; side = 'b'; }
+    if (side === 'l' && c > 0) { c--; side = 'r'; }
+    if (r < top || r >= rows || c < 0 || c >= cols) return;
+    const key = `${r}:${c}`;
+    out.set(key, { ...out.get(key), [side]: v });
+  };
+  for (const b of Array.isArray(raw) ? raw : []) {
+    if (!Array.isArray(b)) continue;
+    const [r0, c0, rs, cs] = b.slice(0, 4).map(Number);
+    const kind = String(b[4]);
+    if (![r0, c0, rs, cs].every(Number.isInteger) || rs < 1 || cs < 1) continue;
+    const r1 = r0 + rs - 1;
+    const c1 = c0 + cs - 1;
+    for (let r = Math.max(top, r0); r <= Math.min(rows - 1, r1); r++) {
+      for (let c = Math.max(0, c0); c <= Math.min(cols - 1, c1); c++) {
+        const outer = { t: r === r0, b: r === r1, l: c === c0, r: c === c1 };
+        for (const side of ['t', 'r', 'b', 'l'] as const) {
+          if (kind === 'all') set(r, c, side, true);
+          else if (kind === 'none') set(r, c, side, false);
+          else if (kind === 'outer' && outer[side]) set(r, c, side, true);
+          else if (kind === 'inner' && !outer[side]) set(r, c, side, true);
+          else if (kind === 'bottom' && side === 'b' && outer.b) set(r, c, side, true);
+        }
+      }
+    }
+  }
+  return out;
 }
 
 /** Объединения, проверенные по размеру таблицы: первая ячейка → [строк, столбцов]; закрытые ячейки */
@@ -138,11 +184,21 @@ defineBlock<TableProps>('table', {
     };
     const badgeCol = Number.isInteger(p.badge) ? Number(p.badge) : -1;
     const { spans, covered } = mergeMap(p.merges, rows.length, cols);
-    const cell = (tag: 'th' | 'td', list: Cell[], c: number, extra = '', r = -1) => {
+    const headShown = header.length > 0 && p.head !== false;
+    const edges = borderEdges(p.borders, rows.length, cols, headShown ? -1 : 0);
+    const cell = (tag: 'th' | 'td', list: Cell[], c: number, fill = '', r = -1) => {
       const at = `${r}:${c}`;
       if (covered.has(at)) return '';
       const sp = spans.get(at);
-      if (sp) extra += `${sp[0] > 1 ? ` rowspan="${sp[0]}"` : ''}${sp[1] > 1 ? ` colspan="${sp[1]}"` : ''}`;
+      let extra = sp ? `${sp[0] > 1 ? ` rowspan="${sp[0]}"` : ''}${sp[1] > 1 ? ` colspan="${sp[1]}"` : ''}` : '';
+      // Объединённая ячейка: низ и правый край — от её последней строки и столбца
+      const line = (side: 't' | 'r' | 'b' | 'l', rr: number, cc: number) => {
+        const v = edges.get(`${rr}:${cc}`)?.[side];
+        const prop = { t: 'top', r: 'right', b: 'bottom', l: 'left' }[side];
+        return v === undefined ? '' : v ? `border-${prop}:1px solid var(--tbl-line,var(--tx2));` : `border-${prop}-color:transparent;`;
+      };
+      const css = fill + line('t', r, c) + line('l', r, c) + line('b', r + (sp ? sp[0] - 1 : 0), c) + line('r', r, c + (sp ? sp[1] - 1 : 0));
+      if (css) extra += ` style="${css}"`;
       const v = list[c];
       const empty = v === undefined || v === null || !String(v).trim();
       const html = empty ? '' : tag === 'td' && c === badgeCol ? badge(String(v)) : t(v);
@@ -152,6 +208,10 @@ defineBlock<TableProps>('table', {
     const headFill = (c: number): string => {
       const f = Array.isArray(p.headFills) ? p.headFills[c] : null;
       return typeof f === 'string' ? cellFill(f) : '';
+    };
+    const rowH = (k: number): string => {
+      const h = Number(k < 0 ? p.headHeight : Array.isArray(p.heights) ? p.heights[k] : 0);
+      return h >= 8 && h <= 2000 ? `height:${Math.round(h)}px;` : '';
     };
     const fillOf = (r: number, c: number): string => {
       const f = Array.isArray(fills[r]) ? fills[r][c] : null;
@@ -172,8 +232,8 @@ defineBlock<TableProps>('table', {
     const colgroup = widths ? `<colgroup>${widths.map((w) => `<col style="width:${((w / widths.reduce((a, b) => a + b, 0)) * 100).toFixed(2)}%">`).join('')}</colgroup>` : '';
     return `<div class="tbl r tbl-${variant}${density}${own ? ' tbl-own' : ''}${p.labels ? ' tbl-labels' : ''}${p.lastcol ? ' tbl-lastcol' : ''}${p.bands ? ' tbl-bands' : ''}${p.valign === 'top' || p.valign === 'bottom' ? ` tbl-va-${p.valign}` : ''}${p.total && rows.length > 1 ? ' tbl-total' : ''}${foot ? ' tbl-footed' : ''}"${size || own || p.style ? ` style="${size ? `--ts:${size}px;` : ''}${own}${esc(p.style ?? '')}"` : ''}>`
       + `<table>${colgroup}`
-      + (header.length && p.head !== false ? `<thead><tr>${Array.from({ length: cols }, (_x, c) => cell('th', header, c, headFill(c))).join('')}</tr></thead>` : '')
-      + `<tbody>${rows.map((r, k) => `<tr${k === p.highlight ? ' class="hl"' : ''} style="--k:${k}">${Array.from({ length: cols }, (_x, c) => cell('td', r, c, fillOf(k, c), k)).join('')}</tr>`).join('')}</tbody>`
+      + (headShown ? `<thead><tr${rowH(-1) ? ` style="${rowH(-1)}"` : ''}>${Array.from({ length: cols }, (_x, c) => cell('th', header, c, headFill(c))).join('')}</tr></thead>` : '')
+      + `<tbody>${rows.map((r, k) => `<tr${k === p.highlight ? ' class="hl"' : ''} style="--k:${k};${rowH(k)}">${Array.from({ length: cols }, (_x, c) => cell('td', r, c, fillOf(k, c), k)).join('')}</tr>`).join('')}</tbody>`
       + `</table>${foot}</div>`;
   },
 });

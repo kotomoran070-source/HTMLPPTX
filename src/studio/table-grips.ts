@@ -3,14 +3,19 @@ import type { Editor } from '../engine/editor/editor';
 import type { Block, Deck } from '../types';
 
 /**
- * Ширина столбцов таблицы — прямо на слайде: у выделенной таблицы на границах столбцов
- * появляются ручки, их тянут мышью. Результат — доли ширины (widths) в данных таблицы.
+ * Ширина столбцов и высота строк таблицы — прямо на слайде: у выделенной таблицы на границах
+ * столбцов и под строками появляются ручки, их тянут мышью. Результат — доли ширины (widths)
+ * и высоты строк (heights, headHeight: ниже текста строка не становится)
  */
 export function tableGrips(h: { deck: Deck; editor: Editor; stage(): HTMLElement }): { sync(): void } {
   const layer = document.createElement('div');
   layer.className = 'st-grips';
   layer.dataset.edKeep = '';
   document.body.appendChild(layer);
+  const rows = document.createElement('div');
+  rows.className = 'st-grips';
+  rows.dataset.edKeep = '';
+  document.body.appendChild(rows);
 
   let raf = 0;
   let dragging = false;
@@ -62,8 +67,25 @@ export function tableGrips(h: { deck: Deck; editor: Editor; stage(): HTMLElement
     const cur = current();
     if (!cur) {
       layer.hidden = true;
+      rows.hidden = true;
       return;
     }
+    // Под каждой строкой, кроме последней, — ручка высоты (нижний край таблицы — у рамки, как у столбцов)
+    const trs = [...cur.table.rows].slice(0, -1);
+    const tb = cur.table.getBoundingClientRect();
+    while (rows.children.length < trs.length) {
+      const g = document.createElement('i');
+      g.className = 'st-rgrip';
+      g.title = 'Потяните, чтобы изменить высоту строки';
+      rows.appendChild(g);
+    }
+    while (rows.children.length > trs.length) rows.lastElementChild!.remove();
+    trs.forEach((tr, k) => {
+      const g = rows.children[k] as HTMLElement;
+      g.dataset.k = String(k);
+      Object.assign(g.style, { top: `${tr.getBoundingClientRect().bottom}px`, left: `${tb.left}px`, width: `${tb.width}px` });
+    });
+    rows.hidden = false;
     const g0 = grid(cur.table);
     const need = g0.runs.length;
     while (layer.children.length < need) {
@@ -123,6 +145,53 @@ export function tableGrips(h: { deck: Deck; editor: Editor; stage(): HTMLElement
       if (Math.abs(next[i] - px[i]) < 1) return;
       const widths = next.map((w) => Math.round((w / total) * 1000) / 10);
       h.editor.commit((d) => setAt(d, [...cur.path, 'widths'], widths), { rebuild: true });
+    };
+    g.addEventListener('pointermove', move);
+    g.addEventListener('pointerup', up);
+    g.addEventListener('pointercancel', up);
+  });
+
+  rows.addEventListener('pointerdown', (e) => {
+    const g = (e.target as Element).closest<HTMLElement>('.st-rgrip');
+    const cur = current();
+    if (!g || !cur) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const k = Number(g.dataset.k);
+    const tr = cur.table.rows[k];
+    if (!tr) return;
+    const head = !!cur.table.tHead && k === 0;
+    const r = cur.table.tHead ? k - 1 : k;
+    // Масштаб слайда: сдвиг мыши → пиксели слайда
+    const scale = tr.getBoundingClientRect().height / (tr.offsetHeight || 1);
+    const h0 = tr.offsetHeight;
+    const y0 = e.clientY;
+    dragging = true;
+    g.classList.add('on');
+    g.setPointerCapture(e.pointerId);
+    const move = (ev: PointerEvent) => {
+      tr.style.height = `${Math.max(8, Math.round(h0 + (ev.clientY - y0) / scale))}px`;
+      g.style.top = `${tr.getBoundingClientRect().bottom}px`;
+    };
+    const up = () => {
+      g.removeEventListener('pointermove', move);
+      g.removeEventListener('pointerup', up);
+      g.removeEventListener('pointercancel', up);
+      g.classList.remove('on');
+      dragging = false;
+      // Записывается настоящая высота: ниже текста строка не бывает
+      const hh = tr.offsetHeight;
+      if (Math.abs(hh - h0) < 1) return;
+      h.editor.commit((d) => {
+        const t = getAt(d, cur.path) as { heights?: (number | null)[]; rows?: unknown[] };
+        if (head) setAt(d, [...cur.path, 'headHeight'], hh);
+        else {
+          const list = Array.isArray(t.heights) ? [...t.heights] : [];
+          while (list.length <= r) list.push(null);
+          list[r] = hh;
+          setAt(d, [...cur.path, 'heights'], list);
+        }
+      }, { rebuild: true });
     };
     g.addEventListener('pointermove', move);
     g.addEventListener('pointerup', up);

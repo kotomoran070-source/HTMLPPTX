@@ -95,7 +95,7 @@ slides:
     free:
       - {type: text, text: Второй, place: {x: 80, y: 80, w: 500}}
 `);
-// table — слайды 1, 2, 5 и 6: одинаковые таблицы (ячейки, клавиши), 3: пустой (вставка из Excel),
+// table — слайды 1, 2, 5, 6 и 7: одинаковые таблицы (ячейки, клавиши), 3: пустой (вставка из Excel),
 // 4: фигуры для порядка — back и top перекрываются, mid и far в стороне
 fs.mkdirSync(path.join(dir, 'table'));
 fs.writeFileSync(path.join(dir, 'table', 'deck.yaml'), `title: Таблица
@@ -126,6 +126,15 @@ slides:
       - {type: shape, id: mid, kind: rect, fill: "#CA8A04", place: {x: 80, y: 80, w: 200, h: 200}}
       - {type: shape, id: far, kind: rect, fill: "#16A34A", place: {x: 1100, y: 40, w: 100, h: 100}}
       - {type: shape, id: top, kind: rect, fill: "#DC2626", place: {x: 950, y: 450, w: 200, h: 200}}
+  - template: canvas
+    free:
+      - type: table
+        header: [Показатель, План, Факт]
+        rows:
+          - [Выручка, "100", "120"]
+          - [Расходы, "80", "70"]
+          - [Прибыль, "20", "50"]
+        place: {x: 80, y: 80, w: 700}
   - template: canvas
     free:
       - type: table
