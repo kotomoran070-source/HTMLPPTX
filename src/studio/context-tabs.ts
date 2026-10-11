@@ -11,7 +11,7 @@ import { esc } from '../engine/html';
 import { frameCss } from '../engine/marks';
 import type { Block, Deck } from '../types';
 import { showMenu, showPopover, type MenuEntry } from './menu';
-import { cellAnchor, cellOf, cellRange, colCount, dropCols, dropRows, hasMerge, mergeRange, shiftMerges, splitRange, tableCells, type CellRange, type TableData as CellTable } from './table-cells';
+import { cellAnchor, cellOf, cellRange, cellSpan, colCount, dropCols, dropRows, hasMerge, mergeRange, shiftMerges, splitCell, splitRange, tableCells, type CellRange, type TableData as CellTable } from './table-cells';
 
 /**
  * Контекстные вкладки ленты, как «Формат фигуры» и «Макет таблицы» в PowerPoint:
@@ -145,7 +145,7 @@ export function contextPanelsHtml(): string {
     + stack(btn('table.row.above', 'row-above', 'Вставить сверху'), btn('table.row.below', 'row-below', 'Вставить снизу'))
     + stack(btn('table.col.left', 'col-left', 'Вставить слева'), btn('table.col.right', 'col-right', 'Вставить справа'))
     + btn('table.del', 'table-del', 'Удалить', { big: true, menu: true, title: 'Удалить строку, столбец или таблицу' }))}
-  ${group('Объединение', btn('table.merge', 'cell-merge', 'Объединить', { big: true, title: 'Объединить выделенные ячейки' }) + btn('table.split', 'cell-split', 'Разделить', { big: true, title: 'Разделить объединённые ячейки' }))}
+  ${group('Объединение', btn('table.merge', 'cell-merge', 'Объединить', { big: true, title: 'Объединить выделенные ячейки' }) + btn('table.split', 'cell-split', 'Разделить', { big: true, title: 'Разбить ячейку на столбцы и строки' }))}
   ${group('Ячейки', stack(
     row(btn('table.align.left', 'align-left', 'Столбцы — по левому краю', { ico: true }), btn('table.align.center', 'align-center', 'Столбцы — по центру', { ico: true }), btn('table.align.right', 'align-right', 'Столбцы — по правому краю', { ico: true })),
     row(btn('table.valign.top', 'v-top', 'В ячейках — сверху', { ico: true }), btn('table.valign.middle', 'v-middle', 'В ячейках — посередине', { ico: true }), btn('table.valign.bottom', 'v-bottom', 'В ячейках — снизу', { ico: true })),
@@ -740,7 +740,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
         null,
         ...(range ? [{ label: 'Очистить ячейки', icon: 'eraser', hint: 'Backspace', run: () => { fillCellsText(''); } }] : []),
         ...(multiCell() ? [{ label: 'Объединить ячейки', icon: 'cell-merge', run: mergeCells }] : []),
-        ...(hasMerge((t ?? undefined) as unknown as CellTable | undefined, at) ? [{ label: 'Разделить ячейки', icon: 'cell-split', run: splitCells }] : []),
+        { label: 'Разбить ячейку…', icon: 'cell-split', run: () => splitDialog(cellEl() ?? anchor('table.split')) },
       ] : []),
       { label: many(nr + head, ['Удалить строку', 'Удалить строки', '']), icon: 'row-del', disabled: nr + head >= total, run: delRow, preview: (on) => killMark('row', on) },
       { label: many(nc, ['Удалить столбец', 'Удалить столбцы', '']), icon: 'col-del', disabled: nCols < 2 || nc >= nCols, run: delCol, preview: (on) => killMark('col', on) },
@@ -755,7 +755,50 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     if (err) ed.toast(err, 2500);
     else { const r = span(); cells.select({ ...r, r1: r.r0, c1: r.c0 }); }
   };
+  /** Ячейка с курсором на слайде — к ней окошко «Разбиение ячеек» из меню */
+  const cellEl = () => {
+    const p = targets('table')[0];
+    const at = cell();
+    return p ? h.stage().querySelector<HTMLElement>(`.slide.on [data-edit="${CSS.escape(JSON.stringify([...p, ...(at.r < 0 ? ['header'] : ['rows', at.r]), at.c]))}"]`) : null;
+  };
   const splitCells = () => editTable((t, at) => { splitRange(t, at); });
+  /**
+   * «Разбиение ячеек», как в PowerPoint: число столбцов и строк. Объединённая ячейка — по умолчанию
+   * её размер (просто разъединить); в диапазоне несколько объединённых — разъединяются все
+   */
+  const splitDialog = (at: HTMLElement | { x: number; y: number }) => {
+    const t = first('table') as unknown as CellTable | null;
+    const r = span();
+    const c0 = cell();
+    const many = (r.r0 !== r.r1 || r.c0 !== r.c1) && hasMerge(t ?? undefined, r) && !(cellSpan(t ?? undefined, r.r0, r.c0)[0] === r.r1 - r.r0 + 1 && cellSpan(t ?? undefined, r.r0, r.c0)[1] === r.c1 - r.c0 + 1);
+    if (many) return splitCells();
+    const [rs, cs] = cellSpan(t ?? undefined, c0.r, c0.c);
+    const merged = rs * cs > 1;
+    const html = `<div class="st-splitf">
+      <label><span>Число столбцов</span><input type="number" data-k="cols" min="1" max="12" value="${merged ? cs : 2}"></label>
+      <label><span>Число строк</span><input type="number" data-k="rows" min="1" max="12" value="${merged ? rs : 1}"${c0.r < 0 ? ' disabled title="Шапку — только на столбцы"' : ''}></label>
+      <div class="st-splitf-ok"><button type="button" class="btn small" data-v="ok">ОК</button></div></div>`;
+    const pop = showPopover(at as HTMLElement, html, (b) => {
+      if (b.dataset.v !== 'ok') return null;
+      const val = (k: string) => Math.max(1, Math.min(12, Math.round(Number(b.closest('.st-pop')!.querySelector<HTMLInputElement>(`[data-k="${k}"]`)!.value) || 1)));
+      const cols = val('cols');
+      const rows = val('rows');
+      return {
+        run: () => {
+          let err: string | null = null;
+          editTable((tt) => { err = splitCell(tt as unknown as CellTable, c0.r, c0.c, cols, rows); });
+          if (err) ed.toast(err, 2500);
+          cells.select(null);
+        },
+      };
+    });
+    const first0 = pop.querySelector<HTMLInputElement>('input');
+    first0?.focus();
+    first0?.select();
+    pop.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); pop.querySelector<HTMLButtonElement>('[data-v="ok"]')?.click(); }
+    });
+  };
   /** Текст выделенных ячеек (очистить — пустая строка) */
   const fillCellsText = (v: string) => editTable((t, at) => {
     for (let r = at.r0; r <= at.r1; r++) {
@@ -827,7 +870,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     },
     'table.fill': { run: tableFill, enabled: isTable },
     'table.merge': { run: mergeCells, enabled: () => isTable() && multiCell() },
-    'table.split': { run: splitCells, enabled: () => isTable() && hasMerge(first('table') as unknown as CellTable, span()) },
+    'table.split': { run: () => splitDialog(anchor('table.split')), enabled: isTable },
     'table.select': {
       run: () => showMenu(anchor('table.select'), [
         { label: 'Выделить строку', icon: 'row-below', run: () => selectCells('row') },

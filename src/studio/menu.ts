@@ -135,7 +135,8 @@ function mount(at: { x: number; y: number } | HTMLElement, el: HTMLElement, acti
   const outside = (e: PointerEvent) => {
     // Список выбора шрифта открывается поверх панели (замена шрифта) — щелчок по нему её не закрывает
     if ((e.target as Element).closest?.('.fontpick')) return;
-    if (!el.contains(e.target as Node) && e.target !== anchor && !anchor?.contains(e.target as Node)) close();
+    // Стрелки числового поля (num-step) — часть окошка, не щелчок мимо
+    if (!el.contains(e.target as Node) && e.target !== anchor && !anchor?.contains(e.target as Node) && !(e.target as Element).closest?.('.st-numstep')) close();
   };
   const onKey = (e: KeyboardEvent) => {
     const list = buttons();

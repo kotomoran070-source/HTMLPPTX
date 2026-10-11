@@ -241,7 +241,8 @@ export class TextEditor {
       if (this.s?.el !== el) return;
       const a = document.activeElement;
       // Фокус ушёл в панель, палитру или всплывающее поле — правка продолжается
-      if (a && (this.bar.contains(a) || this.colors.contains(a) || this.menu.contains(a) || a.closest('.edpop'))) return;
+      // Меню правого щелчка студии (.st-menu) — тоже: «Вставить» вернётся в этот текст
+      if (a && (this.bar.contains(a) || this.colors.contains(a) || this.menu.contains(a) || a.closest('.edpop, .st-menu'))) return;
       this.finish(true);
     }, 0);
     const onInput = () => this.position();

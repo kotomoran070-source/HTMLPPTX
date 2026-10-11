@@ -1886,7 +1886,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
     if (e.target === canvas || e.target === paper) ed.clearSelection();
   });
   canvas.addEventListener('contextmenu', (e) => {
-    if ((e.target as Element).closest('[contenteditable="true"]')) return;
+    const editing = (e.target as Element).closest<HTMLElement>('[contenteditable="true"]');
+    if (editing) return textMenu(e, editing);
     e.preventDefault();
     ctxTarget = e.target as Element;
     const freeHost = (e.target as Element).closest('[data-free]');
@@ -1901,6 +1902,33 @@ export function startStudio(deck: Deck, deckKey: string): void {
     showMenu({ x: e.clientX, y: e.clientY }, freeHost || ed.selection ? [...table, ...(table.length ? [null] : []), ...objectMenu()] : slideMenu(index));
     ctxTarget = null;
   });
+  /**
+   * Правый щелчок в тексте, который правят: вырезать, копировать, вставить, выделить всё; в ячейке
+   * таблицы — и её строки, столбцы, объединение. Выделение текста и правка сохраняются
+   */
+  function textMenu(e: MouseEvent, el: HTMLElement): void {
+    e.preventDefault();
+    const sel = getSelection();
+    const range = sel?.rangeCount && el.contains(sel.anchorNode) ? sel.getRangeAt(0).cloneRange() : null;
+    const back = () => {
+      el.focus({ preventScroll: true });
+      if (range && sel) { sel.removeAllRanges(); sel.addRange(range); }
+    };
+    const has = !!range && !range.collapsed;
+    const table = el.matches('td, th') ? tableMenu().map((it) => it && { ...it, run: () => { ed.finishText(); it.run(); } }) : [];
+    showMenu({ x: e.clientX, y: e.clientY }, [
+      { label: 'Вырезать', hint: 'Ctrl+X', disabled: !has, run: () => { back(); document.execCommand('cut'); } },
+      { label: 'Копировать', icon: 'copy', hint: 'Ctrl+C', disabled: !has, run: () => { back(); document.execCommand('copy'); } },
+      {
+        label: 'Вставить', hint: 'Ctrl+V',
+        run: () => void navigator.clipboard.readText()
+          .then((t) => { back(); document.execCommand('insertText', false, t); })
+          .catch(() => { back(); ed.toast('Вставить — Ctrl+V', 2000); }),
+      },
+      { label: 'Выделить всё', hint: 'Ctrl+A', run: () => { back(); sel?.selectAllChildren(el); } },
+      ...(table.length ? [null, ...table] : []),
+    ]);
+  }
   new ResizeObserver(() => { if (zoom === 'fit') layout(); else ed.reposition(); }).observe(canvas);
 
   // ---------------- найти и заменить ----------------

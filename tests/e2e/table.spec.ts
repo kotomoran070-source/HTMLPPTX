@@ -201,6 +201,8 @@ test('объединение ячеек; очищенная строка не с
   await page.locator('#st-canvas .slide.on td[colspan="2"]').click();
   await page.locator('.st-tabs [data-tab="table"]').click();
   await page.locator('[data-cmd="table.split"]').click();
+  // Окно «Разбиение ячеек» предлагает размер объединённой — ОК её разъединяет
+  await page.locator('.st-splitf [data-v="ok"]').click();
   await expect(page.locator('#st-canvas .slide.on td[colspan]')).toHaveCount(0);
   await expect.poll(() => (table(5) as { merges?: unknown }).merges).toBeUndefined();
   // Очищенная строка — той же высоты. Таблица выделена: щелчок выделяет её, а если уже выделена — правка, из неё Esc
@@ -236,5 +238,35 @@ test('объединение ячеек; очищенная строка не с
   const shown = (await free.boundingBox())!.height;
   await expect.poll(() => Math.abs(saved() * scale - shown)).toBeLessThan(4);
   expect(saved()).toBeLessThan(500);
+  expect(errors).toEqual([]);
+});
+
+test('правый щелчок в правке ячейки — меню; «Разбить ячейку…» на два столбца, соседи растягиваются', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=table&studio#6');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  await cell(page, 'Выручка').click();
+  await cell(page, 'Выручка').click();
+  await expect(cell(page, 'Выручка')).toHaveAttribute('contenteditable', 'true');
+  await cell(page, 'Выручка').click({ button: 'right' });
+  const menu = page.locator('.st-menu');
+  await expect(menu).toContainText('Копировать');
+  await expect(menu).toContainText('Вставить строку сверху');
+  await menu.getByText('Разбить ячейку…').click();
+  const cols = page.locator('.st-splitf [data-k="cols"]');
+  await expect(cols).toHaveValue('2');
+  await page.locator('.st-splitf [data-v="ok"]').click();
+  // Четыре столбца; шапка и другие строки в первом столбце растянуты на два
+  await expect.poll(() => table(6).header.length).toBe(4);
+  await expect.poll(() => (table(6) as { merges?: number[][] }).merges).toEqual([[-1, 0, 1, 2], [1, 0, 1, 2], [2, 0, 1, 2]]);
+  await expect(page.locator('#st-canvas .slide.on [colspan="2"]')).toHaveCount(3);
+  // Разбить объединённую обратно на свои ячейки: окно предлагает её размер
+  await page.keyboard.press('Escape');
+  await page.locator('#st-canvas .slide.on td[colspan="2"]').first().click();
+  await page.locator('.st-tabs [data-tab="table"]').click();
+  await page.locator('[data-cmd="table.split"]').click();
+  await expect(cols).toHaveValue('2');
+  await page.keyboard.press('Enter');
+  await expect.poll(() => (table(6) as { merges?: number[][] }).merges?.length).toBe(2);
   expect(errors).toEqual([]);
 });

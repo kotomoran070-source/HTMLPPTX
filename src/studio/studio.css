@@ -1153,3 +1153,11 @@ body.studio input[type="number"]:not(.edsize input) { padding-right: 19px; }
 .st-numstep button:hover { background: var(--acs); color: var(--ach); }
 .st-numstep button:active { background: color-mix(in srgb, var(--ac) 26%, transparent); }
 .st-numstep svg { width: 8px; height: 5px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* «Разбиение ячеек»: число столбцов и строк, ОК */
+.st-splitf { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; min-width: 200px; }
+.st-splitf label { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 12.5px var(--font); color: var(--tx2); }
+.st-splitf input { width: 64px; height: 26px; padding: 0 6px; border: 1px solid var(--bd); border-radius: 6px; background: var(--bg); color: var(--tx); font: 500 12.5px var(--font); text-align: right; }
+.st-splitf input:focus { outline: none; border-color: var(--ac); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 18%, transparent); }
+.st-splitf input:disabled { opacity: .5; }
+.st-splitf-ok { display: flex; justify-content: flex-end; }

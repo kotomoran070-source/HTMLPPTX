@@ -74,6 +74,74 @@ export function splitRange(t: TableData, r: CellRange): boolean {
   return true;
 }
 
+/**
+ * Разбить ячейку на cols × rows, как «Разбиение ячеек» в PowerPoint. Объединённая распадается на свои
+ * ячейки; если нужно больше — рядом вставляются столбцы (строки), а ячейки других строк (столбцов)
+ * растягиваются через них, так что таблица выглядит как раньше, кроме разбитой ячейки. Ширина ячейки
+ * делится поровну. Текст остаётся в первой части
+ */
+export function splitCell(t: TableData, r: number, c: number, cols: number, rows: number): string | null {
+  const all = mergesOf(t);
+  const own = all.find(([mr, mc]) => mr === r && mc === c);
+  const rs = own?.[2] ?? 1;
+  const cs = own?.[3] ?? 1;
+  if (r < 0 && rows > 1) return 'Шапку можно разбить только на столбцы';
+  t.merges = all.filter((m) => m !== own);
+  const addC = Math.max(0, cols - cs);
+  const addR = Math.max(0, rows - rs);
+  const top = Array.isArray(t.header) ? -1 : 0;
+  if (addC) {
+    const at = c + cs;
+    const n = colCount(t);
+    // Ширина: столбцы ячейки делятся поровну на прежнюю ширину
+    const widths = Array.isArray(t.widths) && t.widths.length === n ? t.widths.map(Number) : Array.from({ length: n }, () => 1);
+    const w = widths.slice(c, at).reduce((x, y) => x + y, 0) / (cs + addC);
+    widths.splice(c, cs, ...Array.from({ length: cs + addC }, () => Math.round(w * 100) / 100));
+    t.widths = widths;
+    t.header?.splice(at, 0, ...Array.from({ length: addC }, () => ''));
+    t.rows.forEach((row) => { while (row.length < n) row.push(''); row.splice(at, 0, ...Array.from({ length: addC }, () => '')); });
+    if (Array.isArray(t.align)) t.align.splice(at, 0, ...Array.from({ length: addC }, () => t.align![at - 1] ?? ''));
+    for (const list of [t.headFills, ...(Array.isArray(t.fills) ? t.fills : [])]) if (Array.isArray(list) && list.length > at) list.splice(at, 0, ...Array.from({ length: addC }, () => null));
+    shiftMerges(t, 1, at, addC);
+    // Другие строки: ячейка у места вставки растягивается на новые столбцы
+    const ms = mergesOf(t);
+    for (let rr = top; rr < t.rows.length; rr++) {
+      if (rr >= r && rr < r + rs) continue;
+      const cover = ms.find(([mr, mc, mrs, mcs]) => rr >= mr && rr < mr + mrs && at - 1 >= mc && at - 1 < mc + mcs);
+      if (cover) { if (cover[0] === rr && cover[1] + cover[3] === at) cover[3] += addC; }
+      else ms.push([rr, at - 1, 1, 1 + addC]);
+    }
+    t.merges = ms;
+  }
+  if (addR) {
+    const at = r + rs;
+    const n = colCount(t);
+    t.rows.splice(at, 0, ...Array.from({ length: addR }, () => Array.from({ length: n }, () => '')));
+    if (Array.isArray(t.fills) && t.fills.length > at) t.fills.splice(at, 0, ...Array.from({ length: addR }, () => []));
+    shiftMerges(t, 0, at, addR);
+    // Другие столбцы: ячейка над местом вставки растягивается на новые строки
+    const ms = mergesOf(t);
+    const c1 = c + Math.max(cs, cols);
+    for (let cc = 0; cc < n; cc++) {
+      if (cc >= c && cc < c1) continue;
+      const cover = ms.find(([mr, mc, mrs, mcs]) => at - 1 >= mr && at - 1 < mr + mrs && cc >= mc && cc < mc + mcs);
+      if (cover) { if (cover[1] === cc && cover[0] + cover[2] === at) cover[2] += addR; }
+      else ms.push([at - 1, cc, 1 + addR, 1]);
+    }
+    t.merges = ms;
+  }
+  const keep = mergesOf(t).filter(([, , a, b]) => a * b > 1);
+  if (keep.length) t.merges = keep;
+  else delete t.merges;
+  return null;
+}
+
+/** Размер ячейки: [строк, столбцов] (объединённая — её размах) */
+export function cellSpan(t: TableData | undefined, r: number, c: number): [number, number] {
+  const m = mergesOf(t).find(([mr, mc]) => mr === r && mc === c);
+  return m ? [m[2], m[3]] : [1, 1];
+}
+
 /** Есть ли объединённые ячейки в диапазоне */
 export function hasMerge(t: TableData | undefined, r: CellRange): boolean {
   return mergesOf(t).some(([mr, mc, rs, cs]) => !(mr + rs - 1 < r.r0 || mr > r.r1 || mc + cs - 1 < r.c0 || mc > r.c1));
@@ -273,7 +341,12 @@ export function tableCells(h: CellsHost): { paint(): void; select(r: CellRange |
     const at = cellOf(e.target as Element);
     if (!at) return clear();
     const ed = h.editor();
-    if (!selected(at.table)) return clear();
+    // Таблица ещё не выделена: щелчок выделит её; ячейка запоминается — команды ленты работают с ней
+    if (!selected(at.table)) {
+      anchor = at;
+      head = at;
+      return clear();
+    }
     // Край таблицы — перемещение, как у любого объекта
     const r = box(at.table)!.getBoundingClientRect();
     const edge = 7;
