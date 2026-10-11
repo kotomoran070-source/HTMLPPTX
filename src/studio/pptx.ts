@@ -663,6 +663,12 @@ class Converter {
           return;
         }
         if (getComputedStyle(e).display === 'none') return;
+        // Промежуток между абзацами (пустая строка в тексте) — пустой строкой
+        if (e.classList.contains('md-gap')) {
+          if (out.length) out[out.length - 1].options = { ...out[out.length - 1].options, breakLine: true };
+          out.push({ text: ' ', options: { ...(out[out.length - 1]?.options ?? {}), breakLine: true, hyperlink: undefined } });
+          return;
+        }
         // Пункт списка в тексте (md-li): с новой строки, маркер или номер — как на слайде
         if (e.classList.contains('md-li')) {
           if (out.length) out[out.length - 1].options = { ...out[out.length - 1].options, breakLine: true };

@@ -12,6 +12,7 @@ export function escapeText(s: string): string {
   return s
     .replace(/\\/g, '\\\\')
     .replace(/\{(?=(#[0-9a-f]{3,8}|accent2?|text2?|muted)\|)/gi, '\\{')
+    .replace(/\{(?=((#[0-9a-f]{3,8}|accent2?|text2?|muted) )?s:\d{2,3}\|)/gi, '\\{')
     .replace(/\*/g, '\\*')
     .replace(/__/g, '\\_\\_')
     .replace(/\[([^\]]*)\]\(/g, '\\[$1\\](');
@@ -19,6 +20,7 @@ export function escapeText(s: string): string {
 
 /** Метка пункта списка до финальной сборки строки */
 const LI = '\u0001';
+const GAP = '\u0002';
 
 const BLOCK = new Set(['DIV', 'P', 'LI', 'UL', 'OL', 'H1', 'H2', 'H3', 'H4', 'BLOCKQUOTE']);
 
@@ -30,7 +32,7 @@ function wrap(mark: string, inner: string): string {
   return `${lead}${mark}${inner.trim()}${mark}${tail}`;
 }
 
-const COLORED = /(\{(?:#[0-9a-f]{3,8}|accent2?|text2?|muted|g:[a-z-]+)\|[^{}]*\})/i;
+const COLORED = /(\{(?:(?:#[0-9a-f]{3,8}|accent2?|text2?|muted) )?(?:#[0-9a-f]{3,8}|accent2?|text2?|muted|g:[a-z-]+|s:\d{2,3})\|[^{}]*\})/i;
 
 /** {цвет|…} вокруг текста; уже окрашенные внутри куски не вкладываются, а остаются своими. */
 export function wrapColor(color: string, s: string): string {
@@ -61,6 +63,12 @@ function walk(node: Node): string {
   const tag = el.tagName;
   if (tag === 'BR') return '\n';
   if (el.classList.contains('md-li')) return `\n${LI}${inner().replace(/\n+/g, ' ').trim()}\n`;
+  // Промежуток у списка (пустая строка рядом с пунктами) — остаётся пустой строкой
+  if (el.classList.contains('md-gap')) {
+    // Напечатали прямо в промежутке — это уже строка текста
+    const typed = inner().replace(/\u200b/g, '');
+    return typed.trim() ? `\n${typed}\n` : GAP;
+  }
   const style = el.getAttribute('style') ?? '';
   const bold = tag === 'B' || tag === 'STRONG' || /font-weight:\s*(bold|[6-9]00)/.test(style);
   const italic = tag === 'I' || tag === 'EM' || /font-style:\s*italic/.test(style);
@@ -81,7 +89,9 @@ function walk(node: Node): string {
 }
 
 export function toMarkup(el: HTMLElement): string {
-  const raw = [...el.childNodes].map(walk).join('');
+  // Каждый промежуток (md-gap) — своя строка: после сборки он станет одной пустой строкой
+  const raw = [...el.childNodes].map(walk).join('')
+    .replace(/\n*(\u0002(?:\n*\u0002)*)\n*/g, (_m, run: string) => `\n${run.replace(/\n/g, '').split('').join('\n')}\n`);
   return raw
     // Пункты списка идут строка за строкой, без пустых строк между ними
     .replace(/\n{2,}(?=\u0001)/g, '\n')
@@ -90,8 +100,8 @@ export function toMarkup(el: HTMLElement): string {
     .replace(/\n{3,}/g, '\n\n')
     .replace(/^\n+|\n+$/g, '')
     .split('\n')
-    // Обычная строка, похожая на пункт списка, остаётся обычной строкой
-    .map((line) => (line.startsWith(LI) ? `- ${line.slice(1)}` : line.replace(/^([-•])(\s)/, '\\$1$2')))
+    // Обычная строка, похожая на пункт списка, остаётся обычной строкой; промежуток — пустой строкой
+    .map((line) => (line === GAP ? '' : line.startsWith(LI) ? `- ${line.slice(1)}` : line.replace(/^([-•])(\s)/, '\\$1$2')))
     .join('\n');
 }
 

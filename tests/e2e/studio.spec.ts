@@ -509,3 +509,14 @@ test('поиск по презентации: список совпадений 
   await expect(q).toBeFocused();
   expect(errors).toEqual([]);
 });
+
+test('разметка текста ↔ правка: пустые строки (промежутки), список, размер фрагмента — без потерь', async ({ page }) => {
+  await page.goto('/?all');
+  const res = await page.evaluate(async () => {
+    const { t } = await import('/src/engine/html.ts');
+    const { toMarkup } = await import('/src/engine/editor/serialize.ts');
+    const cases = ['Первая\n\nВторая', 'Список:\n\n- раз\n- два\n\nИтог', 'a\n\n\nb', '- раз\n\n- два', 'Большой {s:50|мелкий} и {#DC2626 s:80|красный}', 'строка\nвторая'];
+    return cases.map((c) => { const el = document.createElement('div'); el.innerHTML = t(c); return [c, toMarkup(el)]; });
+  });
+  for (const [a, b] of res) expect(b).toBe(a);
+});

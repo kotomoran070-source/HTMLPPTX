@@ -2,6 +2,7 @@ import { defineBlock } from '../../engine/component';
 import { asArray, esc, t } from '../../engine/html';
 import { ea } from '../../engine/marks';
 import type { Block } from '../../types';
+import { fontNameOk, fontStack } from '../../engine/fonts';
 import { SHAPE_COLORS } from '../shape/shape';
 import './table.css';
 
@@ -27,6 +28,8 @@ interface TableProps extends Block {
   highlight?: number;
   /** Размер текста, px (по умолчанию 17) */
   size?: number;
+  /** Текст столбцов, если он не такой, как у всей таблицы: размер (px), шрифт, насыщенность — как в PowerPoint */
+  columns?: ({ size?: number; font?: string; weight?: number } | null)[];
   /** Первый столбец — жирным, как подписи строк */
   labels?: boolean;
   /** Последний столбец — жирным (итог по строке) */
@@ -95,8 +98,13 @@ function badge(v: string): string {
   return `<span class="tbl-badge"><i style="--dot:${esc(color)}"></i>${t(text)}</span>`;
 }
 
-/** Заливка ячейки (CSS): цвет темы — с его цветом текста; свой #RRGGBB — тёмный получает светлый текст */
-function cellFill(f: string): string {
+/**
+ * Заливка ячейки (CSS): цвет темы — с его цветом текста; свой #RRGGBB — тёмный получает светлый текст.
+ * У таблицы со своими цветами (из PowerPoint) цвет текста задан ею — заливка его не меняет; none — без заливки
+ */
+function cellFill(f: string, own = false): string {
+  if (f === 'none') return 'background:transparent;';
+  if (own && /^#[0-9a-f]{6}$/i.test(f)) return `background:${f};`;
   const role = SHAPE_COLORS[f];
   if (role) return `background:${role.css};color:${role.on};`;
   const m = /^#([0-9a-f]{6})$/i.exec(f);
@@ -183,6 +191,14 @@ defineBlock<TableProps>('table', {
       return vals.length && vals.every((v) => typeof v === 'number' || NUMERIC.test(String(v))) ? 'right' : 'left';
     };
     const badgeCol = Number.isInteger(p.badge) ? Number(p.badge) : -1;
+    // Текст отдельных столбцов: размер, шрифт, насыщенность
+    const colCss = Array.from({ length: cols }, (_x, c) => {
+      const o = Array.isArray(p.columns) ? p.columns[c] : null;
+      if (!o || typeof o !== 'object') return '';
+      const sz = Number(o.size), wt = Number(o.weight);
+      return (sz >= 4 && sz <= 120 ? `font-size:${sz}px;` : '') + (fontNameOk(o.font) ? `font-family:${fontStack(o.font).replace(/"/g, "'")};` : '')
+        + (wt >= 100 && wt <= 900 ? `font-weight:${Math.round(wt / 100) * 100};` : '');
+    });
     const { spans, covered } = mergeMap(p.merges, rows.length, cols);
     const headShown = header.length > 0 && p.head !== false;
     const edges = borderEdges(p.borders, rows.length, cols, headShown ? -1 : 0);
@@ -202,12 +218,14 @@ defineBlock<TableProps>('table', {
       const v = list[c];
       const empty = v === undefined || v === null || !String(v).trim();
       const html = empty ? '' : tag === 'td' && c === badgeCol ? badge(String(v)) : t(v);
+      if (tag === 'td' && colCss[c]) extra = extra.includes(' style="') ? extra.replace(' style="', ` style="${colCss[c]}`) : `${extra} style="${colCss[c]}"`;
       return `<${tag} class="a-${align(c)}"${extra}${ea(list, c)}>${html}</${tag}>`;
     };
     const fills = Array.isArray(p.fills) ? p.fills : [];
+    const ownColors = !!p.colors && typeof p.colors === 'object';
     const headFill = (c: number): string => {
       const f = Array.isArray(p.headFills) ? p.headFills[c] : null;
-      return typeof f === 'string' ? cellFill(f) : '';
+      return typeof f === 'string' ? cellFill(f, ownColors) : '';
     };
     const rowH = (k: number): string => {
       const h = Number(k < 0 ? p.headHeight : Array.isArray(p.heights) ? p.heights[k] : 0);
@@ -215,7 +233,7 @@ defineBlock<TableProps>('table', {
     };
     const fillOf = (r: number, c: number): string => {
       const f = Array.isArray(fills[r]) ? fills[r][c] : null;
-      return typeof f === 'string' ? cellFill(f) : '';
+      return typeof f === 'string' ? cellFill(f, ownColors) : '';
     };
     const foot = typeof p.footer === 'string' || typeof p.footnote === 'string'
       ? `<div class="tbl-foot"><span${ea(p, 'footer')}>${t(String(p.footer ?? '').replace(/\{rows\}/g, String(rows.length)))}</span>`
@@ -223,7 +241,8 @@ defineBlock<TableProps>('table', {
       : '';
     const variant = VARIANTS.includes(String(p.variant)) ? p.variant : 'lines';
     const density = p.density === 'compact' || p.density === 'roomy' ? ` tbl-${p.density}` : '';
-    const size = Number(p.size) >= 10 && Number(p.size) <= 40 ? Number(p.size) : 0;
+    // Мелкий текст бывает в таблицах-схемах из PowerPoint (сетки, диаграммы Ганта): от 4 px
+    const size = Number(p.size) >= 4 && Number(p.size) <= 60 ? Number(p.size) : 0;
     const HEXC = /^#[0-9a-f]{6}$/i;
     const own = p.colors && typeof p.colors === 'object'
       ? Object.entries({ head: '--th-bg', headText: '--th-tx', fill: '--td-bg', band: '--td-band', text: '--td-tx', line: '--td-line' })

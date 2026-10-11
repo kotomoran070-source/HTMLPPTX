@@ -3,12 +3,27 @@
  * Стандартные фигуры (prstGeom) — самые ходовые из ~180, остальные — прямоугольник (с предупреждением).
  * Свои кривые (custGeom) — полностью: moveTo, lnTo, cubicBezTo, quadBezTo, arcTo, close; формулы gdLst.
  */
+import { DOMParser } from '@xmldom/xmldom';
+import PRESET_XML from './presets';
 import { type El, attr, kids, num, one } from './xml';
 
 export interface GeomPath {
   d: string;
   fill: boolean;
   stroke: boolean;
+  /** Затенённая часть фигуры (изнанка изогнутой стрелки, бок куба): темнее или светлее заливки */
+  shade?: 'darken' | 'darkenLess' | 'lighten' | 'lightenLess';
+}
+
+/** Определения стандартных фигур (presets.ts) — по имени, разбираются один раз */
+let presetDefs: Map<string, El> | null = null;
+function presetDef(prst: string): El | null {
+  if (!presetDefs) {
+    presetDefs = new Map();
+    const doc = new DOMParser().parseFromString(PRESET_XML, 'text/xml');
+    for (const el of kids(doc.documentElement as unknown as El)) presetDefs.set(el.localName, el);
+  }
+  return presetDefs.get(prst) ?? null;
 }
 
 const f = (n: number) => (Math.round(n * 100) / 100).toString();
@@ -47,7 +62,10 @@ function arcPath(cx: number, cy: number, rx: number, ry: number, st: number, sw:
 
 const poly = (pts: [number, number][]) => `M${pts.map(([x, y]) => `${f(x)} ${f(y)}`).join(' L')} Z`;
 
-/** Известна ли стандартная фигура (иначе — прямоугольник и предупреждение) */
+/** Знает ли импорт стандартную фигуру (иначе — прямоугольник и предупреждение) */
+export const knownPreset = (prst: string) => PRESETS.has(prst) || !!presetDef(prst);
+
+/** Фигуры, нарисованные здесь вручную (запасной путь, если определения нет) */
 export const PRESETS = new Set([
   'rect', 'roundRect', 'ellipse', 'triangle', 'rtTriangle', 'diamond', 'parallelogram', 'trapezoid', 'pentagon', 'hexagon', 'octagon',
   'homePlate', 'chevron', 'plus', 'star4', 'star5', 'star6', 'upArrow', 'downArrow', 'leftArrow', 'rightArrow', 'leftRightArrow',
@@ -58,8 +76,14 @@ export const PRESETS = new Set([
   'textNoShape',
 ]);
 
-/** Контуры стандартной фигуры */
+/** Контуры стандартной фигуры: по определению из ECMA-376 (точно как в PowerPoint), иначе — вручную */
 export function presetPaths(prst: string, w: number, h: number, a: Record<string, number>): GeomPath[] {
+  const def = presetDef(prst);
+  if (def) return customPaths(def, w, h, a);
+  return handPaths(prst, w, h, a);
+}
+
+function handPaths(prst: string, w: number, h: number, a: Record<string, number>): GeomPath[] {
   const ss = Math.min(w, h);
   const adj = (name: string, def: number) => (a[name] ?? (name === 'adj1' ? a.adj : undefined) ?? def);
   const P = (d: string, fill = true, stroke = true): GeomPath => ({ d, fill, stroke });
@@ -187,10 +211,18 @@ export function presetPaths(prst: string, w: number, h: number, a: Record<string
 }
 
 /** Формулы gdLst (custGeom): умножение-деление, сложение-вычитание, val, min, max, pin, sin, cos и др. */
-function evalGuides(geom: El, w: number, h: number): Map<string, number> {
-  const v = new Map<string, number>([['w', w], ['h', h], ['l', 0], ['t', 0], ['r', w], ['b', h], ['wd2', w / 2], ['hd2', h / 2], ['ss', Math.min(w, h)], ['ls', Math.max(w, h)], ['hc', w / 2], ['vc', h / 2], ['cd2', 10800000], ['cd4', 5400000], ['3cd4', 16200000]]);
+function evalGuides(geom: El, w: number, h: number, over: Record<string, number> = {}): Map<string, number> {
+  const ss = Math.min(w, h);
+  const v = new Map<string, number>([['w', w], ['h', h], ['l', 0], ['t', 0], ['r', w], ['b', h], ['ss', ss], ['ls', Math.max(w, h)], ['hc', w / 2], ['vc', h / 2],
+    ['cd2', 10800000], ['cd4', 5400000], ['cd8', 2700000], ['3cd4', 16200000], ['3cd8', 8100000], ['5cd8', 13500000], ['7cd8', 18900000]]);
+  // Доли сторон: wd2 … wd32, hd2 … hd32, ssd2 … ssd32
+  for (const n of [2, 3, 4, 5, 6, 8, 10, 12, 16, 32]) { v.set(`wd${n}`, w / n); v.set(`hd${n}`, h / n); v.set(`ssd${n}`, ss / n); }
   const get = (s: string) => (v.has(s) ? v.get(s)! : Number(s) || 0);
   for (const gd of [...kids(one(geom, 'avLst'), 'gd'), ...kids(one(geom, 'gdLst'), 'gd')]) {
+    const name = attr(gd, 'name') ?? '';
+    // Регулировка фигуры из файла сильнее значения по умолчанию (adj и adj1 — одно и то же у фигур с одной ручкой)
+    const own = over[name] ?? (name === 'adj' ? over.adj1 : name === 'adj1' ? over.adj : undefined);
+    if (own !== undefined && gd.parentNode && (gd.parentNode as El).localName === 'avLst') { v.set(name, own); continue; }
     const [op, ...args] = (attr(gd, 'fmla') ?? '').trim().split(/\s+/);
     const [x, y, z] = args.map(get);
     let r = 0;
@@ -214,19 +246,20 @@ function evalGuides(geom: El, w: number, h: number): Map<string, number> {
       case 'sat2': r = x * Math.sin(Math.atan2(z, y)); break;
       default: r = 0;
     }
-    v.set(attr(gd, 'name') ?? '', r);
+    v.set(name, r);
   }
   return v;
 }
 
 /** Контуры своей кривой (custGeom), масштаб — к размеру фигуры */
-export function customPaths(geom: El, w: number, h: number): GeomPath[] {
-  const guides = evalGuides(geom, w, h);
+export function customPaths(geom: El, w: number, h: number, over: Record<string, number> = {}): GeomPath[] {
+  const guides = evalGuides(geom, w, h, over);
   const val = (s: string | null) => (s === null ? 0 : guides.has(s) ? guides.get(s)! : Number(s) || 0);
   const out: GeomPath[] = [];
   for (const p of kids(one(geom, 'pathLst'), 'path')) {
-    const pw = num(p, 'w') || w, ph = num(p, 'h') || h;
-    const sx = w / pw, sy = h / ph;
+    // Своя сетка контура (w, h) — к размеру фигуры; без неё — уже в размере (и у линии нулевой ширины)
+    const pw = num(p, 'w'), ph = num(p, 'h');
+    const sx = pw ? w / pw : 1, sy = ph ? h / ph : 1;
     const X = (pt: El) => val(attr(pt, 'x')) * sx, Y = (pt: El) => val(attr(pt, 'y')) * sy;
     let d = '';
     let cx = 0, cy = 0;
@@ -253,7 +286,11 @@ export function customPaths(geom: El, w: number, h: number): GeomPath[] {
         default: break;
       }
     }
-    out.push({ d: d.trim(), fill: attr(p, 'fill') !== 'none', stroke: attr(p, 'stroke') !== '0' && attr(p, 'stroke') !== 'false' });
+    const fl = attr(p, 'fill');
+    out.push({
+      d: d.trim(), fill: fl !== 'none', stroke: attr(p, 'stroke') !== '0' && attr(p, 'stroke') !== 'false',
+      ...(fl === 'darken' || fl === 'darkenLess' || fl === 'lighten' || fl === 'lightenLess' ? { shade: fl } : {}),
+    });
   }
   return out;
 }

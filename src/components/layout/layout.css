@@ -25,4 +25,5 @@
 .md-li::before { content: var(--li-mark, ""); position: absolute; left: var(--li-left, .25em); top: var(--li-top, .62em); width: var(--li-w, .32em); height: var(--li-h, .32em);
   border-radius: var(--li-r, 50%); background: var(--li-bg, var(--li-c, var(--ac))); color: var(--li-c, var(--ac)); white-space: pre; font-weight: 700; font-variant-numeric: tabular-nums; }
 :has(> .md-li) { counter-reset: md-li; }
+.md-gap { display: block; height: var(--pgap, auto); }
 .md-a { color: var(--ach); text-decoration: underline; text-underline-offset: 2px; }

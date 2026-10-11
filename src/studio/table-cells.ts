@@ -14,7 +14,7 @@ import type { Deck } from '../types';
 export interface CellRange { table: string; r0: number; r1: number; c0: number; c1: number }
 export interface At { table: string; r: number; c: number }
 
-export interface TableData { header?: unknown[]; rows: unknown[][]; widths?: number[]; align?: string[]; fills?: unknown[][]; headFills?: unknown[]; highlight?: unknown; head?: unknown; merges?: number[][]; borders?: (number | string)[][]; heights?: (number | null)[]; headHeight?: number; total?: unknown }
+export interface TableData { header?: unknown[]; rows: unknown[][]; widths?: number[]; align?: string[]; columns?: unknown[]; fills?: unknown[][]; headFills?: unknown[]; highlight?: unknown; head?: unknown; merges?: number[][]; borders?: (number | string)[][]; heights?: (number | null)[]; headHeight?: number; total?: unknown }
 
 const mergesOf = (t: TableData | undefined): number[][] => (Array.isArray(t?.merges) ? t!.merges.filter(Array.isArray).map((m) => m.map(Number)) : []);
 
@@ -116,6 +116,7 @@ export function splitCell(t: TableData, r: number, c: number, cols: number, rows
     t.header?.splice(at, 0, ...Array.from({ length: addC }, () => ''));
     t.rows.forEach((row) => { while (row.length < n) row.push(''); row.splice(at, 0, ...Array.from({ length: addC }, () => '')); });
     if (Array.isArray(t.align)) t.align.splice(at, 0, ...Array.from({ length: addC }, () => t.align![at - 1] ?? ''));
+    if (Array.isArray(t.columns)) t.columns.splice(at, 0, ...Array.from({ length: addC }, () => t.columns![at - 1] ?? null));
     for (const list of [t.headFills, ...(Array.isArray(t.fills) ? t.fills : [])]) if (Array.isArray(list) && list.length > at) list.splice(at, 0, ...Array.from({ length: addC }, () => null));
     shiftMerges(t, 1, at, addC);
     // Другие строки: ячейка у места вставки растягивается на новые столбцы
@@ -260,6 +261,7 @@ export function growCols(t: TableData, n: number): void {
     if (Array.isArray(t.header)) t.header.push('Столбец');
     if (Array.isArray(t.widths)) t.widths.push(Math.round((t.widths.reduce((a, b) => a + Number(b), 0) / t.widths.length) * 100) / 100);
     if (Array.isArray(t.align)) t.align.push('');
+    if (Array.isArray(t.columns)) t.columns.push(null);
   }
   t.rows.forEach((r) => { while (r.length < n) r.push(''); });
 }
@@ -310,7 +312,7 @@ export function dropCols(t: TableData, c0: number, c1: number): void {
   if (n < 1) return;
   t.header?.splice(c0, n);
   t.rows.forEach((r) => r.splice(c0, n));
-  for (const list of [t.widths, t.align, t.headFills, ...(Array.isArray(t.fills) ? t.fills : [])]) if (Array.isArray(list)) list.splice(c0, n);
+  for (const list of [t.widths, t.align, t.columns, t.headFills, ...(Array.isArray(t.fills) ? t.fills : [])]) if (Array.isArray(list)) list.splice(c0, n);
   shiftMerges(t, 1, c0, -n);
 }
 

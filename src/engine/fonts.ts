@@ -26,6 +26,8 @@ const SAME_METRICS: Record<string, string[]> = {
   'times new roman': ['Tinos', 'Liberation Serif'], tinos: ['Times New Roman', 'Liberation Serif'], 'liberation serif': ['Times New Roman', 'Tinos'],
   'courier new': ['Cousine', 'Liberation Mono'], cousine: ['Courier New', 'Liberation Mono'], 'liberation mono': ['Courier New', 'Cousine'],
   calibri: ['Carlito'], carlito: ['Calibri'], cambria: ['Caladea'], caladea: ['Cambria'],
+  // У DejaVu Sans (из Bitstream Vera) ширина букв почти как у Verdana — им её заменяет и LibreOffice
+  verdana: ['DejaVu Sans', 'Bitstream Vera Sans'],
 };
 
 /** Шрифт и его замены тех же размеров — для font-family */
@@ -34,8 +36,14 @@ export const fontFamilies = (name: string) => {
   return [n, ...(SAME_METRICS[n.toLowerCase()] ?? [])].map((x) => `"${x}"`).join(', ');
 };
 
-/** CSS семейства: свой шрифт (и его замена тех же размеров), а при его отсутствии — шрифт интерфейса */
-export const fontStack = (name: string) => `${fontFamilies(name)}, var(--font-base, system-ui, sans-serif)`;
+/**
+ * CSS семейства: свой шрифт (и его замена тех же размеров), а при его отсутствии — Arial, как у
+ * PowerPoint (ширина букв ближе к большинству шрифтов, чем у шрифта интерфейса), затем шрифт интерфейса
+ */
+export const fontStack = (name: string) => {
+  const fam = fontFamilies(name);
+  return `${fam}${/"(Arial|Arimo|Liberation Sans)"/.test(fam) ? '' : ', "Arial", "Liberation Sans"'}, var(--font-base, system-ui, sans-serif)`;
+};
 
 export function deckFonts(fonts: unknown): DeckFont[] {
   if (!Array.isArray(fonts)) return [];

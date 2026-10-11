@@ -37,7 +37,7 @@ export function typo(s: string): string {
 
 /**
  * Разметка внутри строки: **жирный**, *курсив*, __подчёркнутый__, [ссылка](https://…),
- * {#2563EB|цветной} или {accent|цвет темы}.
+ * {#2563EB|цветной} или {accent|цвет темы}, {s:80|мельче} (размер в % от абзаца).
  * Строки, начинающиеся с «- », — пункты списка. \* и подобные — буквальный символ.
  */
 function inline(line: string): string {
@@ -56,6 +56,12 @@ function inline(line: string): string {
     .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
     .replace(/__(.+?)__/g, '<u>$1</u>')
     .replace(/\*(.+?)\*/g, '<i>$1</i>')
+    // Размер части текста (в % от размера абзаца, как в PowerPoint): {s:80|текст}, с цветом — {#2563EB s:80|текст}
+    .replace(/\{(?:(#[0-9a-f]{3,8}|accent2?|text2?|muted) )?s:(\d{2,3})\|([^{}]*?)\}/gi, (_, c: string | undefined, n: string, inner: string) => {
+      const pct = Math.max(20, Math.min(400, Number(n)));
+      const color = c ? `;color:${THEME_CSS[c.toLowerCase()] ?? c}` : '';
+      return `<span class="md-c" data-c="${c ? `${c} ` : ''}s:${pct}" style="font-size:${pct / 100}em${color}">${inner}</span>`;
+    })
     // Цвет части текста: {#2563EB|текст} или {accent|текст}
     .replace(/\{(#[0-9a-f]{3,8}|accent2?|text2?|muted)\|([^{}]*?)\}/gi, (_, c: string, inner: string) =>
       `<span class="md-c" data-c="${c}" style="color:${THEME_CSS[c.toLowerCase()] ?? c}">${inner}</span>`)
@@ -73,16 +79,22 @@ export function t(value: unknown): string {
   if (!src) return '';
   let out = '';
   let prevBlock = true;
-  for (const line of src.split('\n')) {
+  const lines = src.split('\n');
+  lines.forEach((line) => {
     const li = /^[-•]\s+(.*)$/.exec(line);
     if (li) {
       out += `<span class="md-li">${inline(li[1])}</span>`;
+      prevBlock = true;
+    } else if (!line.trim()) {
+      // Пустая строка — промежуток между абзацами: высотой в строку, у текста со своим отступом
+      // абзацев (gap) — такой; у края списка перенос строки схлопнулся бы, а блок — нет
+      out += '<span class="md-gap">\u200b</span>';
       prevBlock = true;
     } else {
       out += (prevBlock ? '' : '<br>') + inline(line);
       prevBlock = false;
     }
-  }
+  });
   return out;
 }
 

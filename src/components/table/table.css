@@ -103,12 +103,14 @@ body.editing .tbl.tbl-kill-all table { outline: 2px solid #DC2626; outline-offse
 body.editing .tbl.tbl-kill-all td, body.editing .tbl.tbl-kill-all th { background: color-mix(in srgb, #DC2626 8%, var(--surf)) !important; }
 
 /* Свои цвета (colors) — таблицы из PowerPoint: шапка, строки, чередование, сетка */
-.tbl.tbl-own table { border-radius: 0; box-shadow: none; background: var(--td-bg, transparent); border: 1px solid var(--td-line, transparent); }
+.tbl.tbl-own table { border-radius: 0; box-shadow: none; background: var(--td-bg, transparent); border: var(--td-lw, 1px) solid var(--td-line, transparent); }
 .tbl.tbl-own thead tr { background: var(--th-bg, transparent); }
-.tbl.tbl-own th { background: var(--th-bg, transparent); color: var(--th-tx, inherit); font-size: var(--th-size, 1em); letter-spacing: 0; text-transform: none; line-height: 1.4; }
+.tbl.tbl-own th { background: var(--th-bg, transparent); color: var(--th-tx, inherit); font-size: var(--th-size, 1em); font-weight: var(--th-fw, 700); letter-spacing: 0; text-transform: none; }
+.tbl.tbl-own :is(th, td) { line-height: var(--tbl-lh, 1.4); }
+.tbl.tbl-own th { font-family: var(--th-font, inherit); }
 .tbl.tbl-own td { color: var(--td-tx, inherit); background: var(--td-bg, transparent); }
 .tbl.tbl-own tbody tr:nth-child(even) td { background: var(--td-band, var(--td-bg, transparent)); }
-.tbl.tbl-own :is(th, td) { border: 0; border-right: 1px solid var(--td-vline, var(--td-line, transparent)); border-bottom: 1px solid var(--td-line, transparent); }
+.tbl.tbl-own :is(th, td) { border: 0; border-right: var(--td-lw, 1px) solid var(--td-vline, var(--td-line, transparent)); border-bottom: var(--td-lw, 1px) solid var(--td-line, transparent); }
 .tbl.tbl-own th { padding-block: var(--th-py, var(--py)); }
 .tbl.tbl-own :is(th, td):last-child { border-right: 0; }
 .tbl.tbl-own tbody tr:last-child td { border-bottom: 0; }

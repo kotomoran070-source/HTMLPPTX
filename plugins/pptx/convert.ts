@@ -9,8 +9,9 @@
  */
 import crypto from 'node:crypto';
 import path from 'node:path';
+import { DOMParser } from '@xmldom/xmldom';
 import { type ColorCtx, type Rgba, colorIn, css, hex } from './color';
-import { type GeomPath, PRESETS, adjusts, customPaths, presetPaths } from './geom';
+import { type GeomPath, adjusts, customPaths, knownPreset, presetPaths } from './geom';
 import { type El, Pkg, attr, bool, find, kid, kids, num, one, textOf } from './xml';
 import { colorFamilies, lightness } from '../../src/engine/recolor';
 import { fontFamilies } from '../../src/engine/fonts';
@@ -41,13 +42,48 @@ interface Box { x: number; y: number; w: number; h: number; rot: number; flipH: 
 /** Свойства текста одного уровня (после наследования) */
 interface TP {
   sz?: number; b?: boolean; i?: boolean; u?: boolean; color?: Rgba | null; font?: string; algn?: string;
-  lnPct?: number; lnPts?: number; bullet?: 'none' | 'char' | 'num'; buChar?: string; cap?: boolean; spc?: number;
+  lnPct?: number; lnPts?: number; bullet?: 'none' | 'char' | 'num'; buChar?: string; buClr?: Rgba | null; buFont?: string; cap?: boolean; spc?: number;
   spcBef?: number; spcAft?: number; marL?: number; indent?: number;
 }
 
 const EMU_PX = 9525; // 96 px на дюйм, как у экспорта в PPTX
 const SLIDE_W = 1280, SLIDE_H = 720;
 const r1 = (n: number) => Math.round(n * 10) / 10;
+/** Перенос строк как в PowerPoint: жадный, без ровных строк заголовков (text-wrap: balance / pretty) */
+const WRAP = 'text-wrap-style:auto !important';
+/**
+ * Одинарный интервал PowerPoint — по метрикам шрифта (подъём + спуск + зазор), а не 1,2 размера:
+ * у Poppins строка заметно выше, у Arial — ниже. Неизвестный шрифт — 1,2
+ */
+const NATURAL_LH: Record<string, number> = {
+  arial: 1.15, arimo: 1.15, 'liberation sans': 1.15, helvetica: 1.15, calibri: 1.22, carlito: 1.22, cambria: 1.17, caladea: 1.17,
+  'times new roman': 1.15, tinos: 1.15, georgia: 1.14, verdana: 1.22, tahoma: 1.21, 'trebuchet ms': 1.16, 'segoe ui': 1.33,
+  'century gothic': 1.23, poppins: 1.5, inter: 1.21, raleway: 1.17, montserrat: 1.22, roboto: 1.17, 'open sans': 1.36, lato: 1.2,
+  'source sans pro': 1.26, nunito: 1.36, 'pt sans': 1.29, manrope: 1.37, oswald: 1.48, 'playfair display': 1.33, merriweather: 1.26,
+  'noto sans': 1.36, 'work sans': 1.17, 'fira sans': 1.2, 'dm sans': 1.3, 'bebas neue': 1.2,
+};
+const WEIGHT_WORDS = /\s+(thin|extralight|extra light|light|regular|medium|semibold|semi bold|bold|extrabold|extra bold|black|heavy)$/i;
+const naturalLh = (font?: string) => (font ? NATURAL_LH[font.trim().toLowerCase().replace(WEIGHT_WORDS, '')] ?? 1.2 : 1.2);
+const hexRgba = (h: string): Rgba => { const n = parseInt(h.slice(1), 16); return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255, a: 1 }; };
+
+/** «Средний стиль 2» PowerPoint (тот, что у новой таблицы) — с акцентом темы или тёмный */
+const BUILTIN_TABLE_STYLES: [string, string][] = [
+  ['{073A0DAA-6AF3-43AB-8588-CEC1D06C72B9}', 'dk1'], ['{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}', 'accent1'],
+  ['{21E4AEA4-8DFA-4A89-87EB-49C32662AFE8}', 'accent2'], ['{F5AB1C69-6EDB-4FF4-983F-18BD219EF322}', 'accent3'],
+  ['{00A15C55-8517-42AA-B614-E9B94910E393}', 'accent4'], ['{7DF18680-E054-41AD-8BC1-D1AEF772440D}', 'accent5'],
+  ['{93296810-A885-4BE3-A3E7-6D5BEEA58F35}', 'accent6'],
+];
+function mediumStyle2(c: string): string {
+  const ln = (w: number) => `<a:ln w="${w}"><a:solidFill><a:schemeClr val="lt1"/></a:solidFill></a:ln>`;
+  const fill = (tint?: number) => `<a:fill><a:solidFill><a:schemeClr val="${c}">${tint ? `<a:tint val="${tint}"/>` : ''}</a:schemeClr></a:solidFill></a:fill>`;
+  const strong = (bdr = '') => `<a:tcTxStyle b="on"><a:schemeClr val="lt1"/></a:tcTxStyle><a:tcStyle><a:tcBdr>${bdr}</a:tcBdr>${fill()}</a:tcStyle>`;
+  return `<a:tblStyle xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">`
+    + `<a:wholeTbl><a:tcTxStyle><a:schemeClr val="dk1"/></a:tcTxStyle><a:tcStyle><a:tcBdr>${['left', 'right', 'top', 'bottom', 'insideH', 'insideV'].map((n) => `<a:${n}>${ln(12700)}</a:${n}>`).join('')}</a:tcBdr>${fill(20000)}</a:tcStyle></a:wholeTbl>`
+    + `<a:band1H><a:tcStyle>${fill(40000)}</a:tcStyle></a:band1H><a:band1V><a:tcStyle>${fill(40000)}</a:tcStyle></a:band1V>`
+    + `<a:lastCol>${strong()}</a:lastCol><a:firstCol>${strong()}</a:firstCol>`
+    + `<a:lastRow>${strong(`<a:top>${ln(38100)}</a:top>`)}</a:lastRow><a:firstRow>${strong(`<a:bottom>${ln(38100)}</a:bottom>`)}</a:firstRow>`
+    + `</a:tblStyle>`;
+}
 
 /**
  * adapt — «Под темы Slideria»: палитра и шрифты файла запоминаются (deck.origin), и тема из вкладки
@@ -74,8 +110,12 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
   let sharp: Awaited<typeof import('sharp')>['default'] | null = null;
   try { sharp = (await import('sharp')).default; } catch { sharp = null; }
 
-  /** Картинка из архива → файл в assets/ (с обрезкой); null — формат не поддерживается */
-  async function asset(part: string, crop: El | null): Promise<string | null> {
+  /**
+   * Картинка из архива → файл в assets/ (с обрезкой); null — формат не поддерживается.
+   * aspect — пропорции рамки, в которую PowerPoint растягивает картинку (stretch): файл растягивается
+   * так же, и на слайде (кадр «заполнить») ничего не обрезается
+   */
+  async function asset(part: string, crop: El | null, aspect?: number): Promise<string | null> {
     const raw = await pkg.bytes(part);
     if (!raw) return null;
     let buf: Buffer = raw;
@@ -96,6 +136,15 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
         const height = Math.max(1, Math.min(H - top, Math.round(H * (1 - (t + b) / 100000))));
         if (width > 0 && height > 0 && (width < W || height < H)) buf = await sharp(buf).extract({ left, top, width, height }).toBuffer();
       } catch { /* обрезать не вышло — целиком */ }
+    }
+    if (aspect && Number.isFinite(aspect) && sharp && ext !== 'svg' && ext !== 'gif') {
+      try {
+        const meta = await sharp(buf).metadata();
+        const W = meta.width ?? 0, H = meta.height ?? 0;
+        // Растягивается одна сторона — без потери точек
+        const [nw, nh] = aspect > W / H ? [Math.round(H * aspect), H] : [W, Math.round(W / aspect)];
+        if (W && H && Math.abs(W / H / aspect - 1) > 0.01 && nw <= 10000 && nh <= 10000) buf = await sharp(buf).resize(nw, nh, { fit: 'fill' }).toBuffer();
+      } catch { /* растянуть не вышло — как есть */ }
     }
     const hash = crypto.createHash('sha1').update(buf).digest('hex').slice(0, 12);
     if (assetByHash.has(hash)) return assetByHash.get(hash)!;
@@ -149,6 +198,9 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
     const sa = one(lvl, 'spcAft', 'spcPts'); if (sa) out.spcAft = (num(sa, 'val') ?? 0) / 100;
     if (kid(lvl, 'buNone')) out.bullet = 'none';
     if (kid(lvl, 'buChar')) { out.bullet = 'char'; out.buChar = attr(kid(lvl, 'buChar'), 'char') ?? '•'; }
+    if (kid(lvl, 'buClr')) out.buClr = colorIn(kid(lvl, 'buClr'), cc);
+    if (kid(lvl, 'buClrTx')) out.buClr = null;
+    if (kid(lvl, 'buFont')) out.buFont = attr(kid(lvl, 'buFont'), 'typeface') ?? undefined;
     if (kid(lvl, 'buAutoNum')) out.bullet = 'num';
     return readRun(kid(lvl, 'defRPr'), theme, cc, out);
   }
@@ -244,6 +296,14 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
     return `url(#${id})`;
   }
 
+  // ---------- стили таблиц ----------
+  // Свои стили файла (ppt/tableStyles.xml) и встроенные в PowerPoint «Средний стиль 2» — их файл лишь называет
+  const tableStyles = new Map<string, El>();
+  for (const st of kids(pkg.xml('ppt/tableStyles.xml'), 'tblStyle')) tableStyles.set((attr(st, 'styleId') ?? '').toUpperCase(), st);
+  for (const [id, scheme] of BUILTIN_TABLE_STYLES) {
+    if (!tableStyles.has(id)) tableStyles.set(id, new DOMParser().parseFromString(mediumStyle2(scheme), 'text/xml').documentElement as unknown as El);
+  }
+
   // ---------- слайд ----------
   const presRels = pkg.rels(presPart);
   const slideParts = kids(one(pres, 'sldIdLst'), 'sldId').map((s) => presRels.get(attr(s, 'r:id') ?? attr(s, 'id') ?? '')?.target).filter((t): t is string => !!t && pkg.has(t));
@@ -328,7 +388,7 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
         bg = p.radial ? `radial-gradient(circle, ${stops})` : `linear-gradient(${r1(p.ang + 90)}deg, ${stops})`;
       } else if (p?.kind === 'blip') {
         const target = pkg.rel(bgPart, attr(kid(p.el, 'blip'), 'r:embed'));
-        const src = target ? await asset(target, kid(p.el, 'srcRect')) : null;
+        const src = target ? await asset(target, kid(p.el, 'srcRect'), kid(p.el, 'stretch') ? SLIDE_W / SLIDE_H : undefined) : null;
         if (src) free.push({ type: 'image', src, fit: 'cover', radius: 0, locked: true, place: { x: 0, y: 0, w: SLIDE_W, h: SLIDE_H } });
       }
     }
@@ -340,8 +400,15 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
     const boxOf = (xfrm: El | null, tf: Tf, sx: number, sy: number): Box | null => {
       const off = kid(xfrm, 'off'), ext = kid(xfrm, 'ext');
       if (!off || !ext) return null;
-      const [x, y] = tf(num(off, 'x') ?? 0, num(off, 'y') ?? 0);
-      return { x, y, w: (num(ext, 'cx') ?? 0) * k * sx, h: (num(ext, 'cy') ?? 0) * k * sy, rot: (num(xfrm, 'rot') ?? 0) / 60000, flipH: bool(xfrm, 'flipH') === true, flipV: bool(xfrm, 'flipV') === true };
+      const rot = (num(xfrm, 'rot') ?? 0) / 60000;
+      const [x0, y0, cw, ch] = [num(off, 'x') ?? 0, num(off, 'y') ?? 0, num(ext, 'cx') ?? 0, num(ext, 'cy') ?? 0];
+      // Фигура, повёрнутая на четверть оборота, в растянутой группе тянется по своей видимой рамке:
+      // ширина — растяжением группы по высоте и наоборот (так считает PowerPoint); центр — на своём месте
+      const q = ((rot % 180) + 180) % 180;
+      const [ssx, ssy] = q >= 45 && q < 135 ? [sy, sx] : [sx, sy];
+      const [cx, cy] = tf(x0 + cw / 2, y0 + ch / 2);
+      const w = cw * k * ssx, h = ch * k * ssy;
+      return { x: cx - w / 2, y: cy - h / 2, w, h, rot, flipH: bool(xfrm, 'flipH') === true, flipV: bool(xfrm, 'flipV') === true };
     };
 
     const styleRef = (el: El, name: string) => one(el, 'style', name);
@@ -407,7 +474,7 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
       let paths: GeomPath[];
       if (cust) paths = customPaths(cust, box.w, box.h);
       else {
-        if (prst && !PRESETS.has(prst)) warn(`Фигура «${prst}» заменена прямоугольником`);
+        if (prst && !knownPreset(prst)) warn(`Фигура «${prst}» заменена прямоугольником`);
         paths = presetPaths(prst ?? 'rect', box.w, box.h, adjusts(kid(spPr, 'prstGeom')));
       }
       const fill = fillFor(el, spPr, grpFill);
@@ -425,7 +492,13 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
       if (dx || dy) tf.push(`translate(${r1(dx)} ${r1(dy)})`);
       if (box.rot) tf.push(`rotate(${r1(box.rot)} ${r1(box.w / 2)} ${r1(box.h / 2)})`);
       if (box.flipH || box.flipV) tf.push(`translate(${box.flipH ? r1(box.w) : 0} ${box.flipV ? r1(box.h) : 0}) scale(${box.flipH ? -1 : 1} ${box.flipV ? -1 : 1})`);
-      const body = paths.map((p) => `<path d="${p.d}" fill="${p.fill ? fillAttr : 'none'}" stroke="${p.stroke ? strokeAttr : 'none'}"${p.stroke && line ? ` stroke-width="${r1(line.w)}" stroke-linecap="${line.cap}" stroke-linejoin="round"${so}${dash}${mEnd ? ` marker-end="${mEnd}"` : ''}${mStart ? ` marker-start="${mStart}"` : ''}` : ''}/>`).join('');
+      // Затенённые части (изнанка изогнутой стрелки, бок куба) — заливка с тенью или светом поверх
+      const SHADE = { darken: ['#000', 0.4], darkenLess: ['#000', 0.2], lighten: ['#FFF', 0.4], lightenLess: ['#FFF', 0.2] } as const;
+      // Сначала заливки всех контуров, потом линии: внутренние линии фигуры не закрываются её заливкой
+      const fills = paths.filter((p) => p.fill && fillAttr !== 'none').map((p) => `<path d="${p.d}" fill="${fillAttr}" stroke="none"/>`
+        + (p.shade ? `<path d="${p.d}" fill="${SHADE[p.shade][0]}" fill-opacity="${SHADE[p.shade][1]}" stroke="none"/>` : ''));
+      const strokes = line && strokeAttr !== 'none' ? paths.filter((p) => p.stroke).map((p) => `<path d="${p.d}" fill="none" stroke="${strokeAttr}" stroke-width="${r1(line.w)}" stroke-linecap="${line.cap}" stroke-linejoin="round"${so}${dash}${mEnd ? ` marker-end="${mEnd}"` : ''}${mStart ? ` marker-start="${mStart}"` : ''}/>`) : [];
+      const body = [...fills, ...strokes].join('');
       return tf.length ? `<g transform="${tf.join(' ')}">${body}</g>` : body;
     }
 
@@ -461,8 +534,9 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
             runs.push({ text: t, p: readRun(kid(r, 'rPr'), theme, cc, pp) });
           }
         }
+        // Пустые фрагменты PowerPoint отбрасывает: строку без букв задаёт конец абзаца
         const endP = readRun(kid(p, 'endParaRPr'), theme, cc, pp);
-        out.push({ runs, p: runs.length ? pp : { ...pp, sz: endP.sz ?? pp.sz }, lvl });
+        out.push({ runs, p: runs.some((r) => r.text) ? pp : { ...pp, sz: endP.sz ?? pp.sz }, lvl });
       }
       return out;
     }
@@ -471,7 +545,7 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
     const sameColor = (a?: Rgba | null, b?: Rgba | null) => (!a && !b) || (!!a && !!b && hex(a) === hex(b));
 
     /** Текст абзацев → разметка Slideria; базовые свойства — у самого длинного фрагмента */
-    function markup(paras: Para[], base: TP): string {
+    function markup(paras: Para[], base: TP, gapAfter: (p: Para) => boolean = () => false): string {
       const lines: string[] = [];
       let num1 = 0;
       for (const para of paras) {
@@ -485,41 +559,65 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
           if (!core) { s += t; continue; }
           if (run.p.b && !base.b) core = `**${core}**`;
           if (run.p.i) core = `*${core}*`;
-          if (run.p.u && !base.u) core = `__${core}__`;
-          if (run.p.color && !sameColor(run.p.color, base.color)) core = `{${hex(run.p.color)}|${core}}`;
+          // Подчёркивание — только разметкой (у оформления текста его нет)
+          if (run.p.u) core = `__${core}__`;
+          // Свой цвет и свой размер фрагмента (в % от размера абзаца): {#цвет|…}, {s:80|…}, {#цвет s:80|…}
+          const col = run.p.color && !sameColor(run.p.color, base.color) ? hex(run.p.color) : '';
+          const pct = run.p.sz && base.sz && Math.abs(run.p.sz / base.sz - 1) > 0.03 ? Math.round((run.p.sz / base.sz) * 100) : 0;
+          if (pct >= 20 && pct <= 400) core = `{${col ? `${col} ` : ''}s:${pct}|${core}}`;
+          else if (col) core = `{${col}|${core}}`;
           s += lead + core + trail;
         }
         const text = para.runs.length ? s : '';
-        if (para.p.bullet === 'char' && text.trim()) lines.push(`${'  '.repeat(para.lvl)}- ${text}`);
+        // Пункт списка (любого уровня: вложенных уровней у текста Slideria нет)
+        if (para.p.bullet === 'char' && text.trim()) lines.push(`- ${text.trim()}`);
         else if (para.p.bullet === 'num' && text.trim()) lines.push(`${++num1}. ${text}`);
         else lines.push(text);
+        // Отступ после абзаца — пустой строкой (её высота — gap у оформления текста)
+        if (gapAfter(para) && para !== paras[paras.length - 1]) lines.push('');
       }
       return lines.join('\n').replace(/\n+$/, '');
     }
 
     /** Свойства, общие для текста: у самого длинного фрагмента */
     function dominant(paras: Para[]): TP {
-      let best: TP | null = null, len = -1;
+      let best: TP | null = null, len = 0;
       for (const para of paras) for (const run of para.runs) if (run.text.trim().length > len) { len = run.text.trim().length; best = run.p; }
       return best ?? paras[0]?.p ?? {};
     }
 
-    function textStyles(p: TP, scale: number): Obj {
+    /** scale и red — автоподгонка PowerPoint: доля размера шрифта и на сколько сжат межстрочный интервал */
+    function textStyles(p: TP, scale: number, red = 0): Obj {
       const st: Obj = {};
       if (p.sz) st.size = r1(p.sz * ptPx * scale);
       if (p.color) st.color = hex(p.color);
       st.weight = p.b ? 700 : 400;
       if (p.font) st.font = p.font;
       if (p.algn === 'ctr') st.align = 'center'; else if (p.algn === 'r') st.align = 'right'; else if (p.algn === 'just' || p.algn === 'dist') st.align = 'justify'; else st.align = 'left';
-      const lead = p.lnPts && p.sz ? p.lnPts / p.sz : (p.lnPct ?? 1) * 1.2;
+      const lead = p.lnPts && p.sz ? p.lnPts / p.sz : Math.max(0.5, (p.lnPct ?? 1) - red) * naturalLh(p.font);
       st.leading = Math.round(lead * 100) / 100;
       if (p.cap) st.upper = true;
       if (p.spc && p.sz) st.spacing = Math.round((p.spc / p.sz) * 1000) / 1000;
       return st;
     }
 
+    /**
+     * Маркер списка как в файле: свой символ (кроме значков шрифтов Wingdings / Symbol — у них точка)
+     * и цвет маркера, а без него — цвет текста, а не акцентный
+     */
+    function listStyle(paras: Para[], base: TP): Obj {
+      const li = paras.find((q) => q.p.bullet === 'char' && q.runs.some((r) => r.text.trim()));
+      if (!li) return {};
+      const st: Obj = {};
+      const ch = (li.p.buChar ?? '•').trim();
+      if (ch && !/^[•●∙·]$/.test(ch) && !/wingdings|symbol|webdings/i.test(li.p.buFont ?? '') && [...ch].length <= 2) st.list = ch;
+      const c = li.p.buClr ?? dominant([li]).color ?? base.color;
+      if (c) st.listColor = hex(c);
+      return st;
+    }
+
     /** Текстовое поле → один или несколько text (разные размеры абзацев — стопкой) */
-    function textObjects(paras: Para[], box: Box, bodyPr: El[], scale: number): Obj[] {
+    function textObjects(paras: Para[], box: Box, bodyPr: El[], scale: number, red = 0): Obj[] {
       const visible = paras.filter((p) => p.runs.some((r) => r.text.trim()));
       if (!visible.length) return [];
       const bp = (name: string) => { for (let i = bodyPr.length - 1; i >= 0; i--) { const v = attr(bodyPr[i], name); if (v !== null) return v; } return null; };
@@ -547,7 +645,7 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
       const est = (g: Para[]) => g.reduce((acc, p) => {
         const d = dominant([p]);
         const size = (d.sz ?? 18) * ptPx * scale;
-        const lead = d.lnPts && d.sz ? d.lnPts / d.sz : (d.lnPct ?? 1) * 1.2;
+        const lead = d.lnPts && d.sz ? d.lnPts / d.sz : Math.max(0.5, (d.lnPct ?? 1) - red) * naturalLh(d.font);
         const chars = p.runs.map((r) => r.text).join('').length;
         const lines = nowrap ? 1 : Math.max(1, Math.ceil((chars * size * 0.52) / innerW));
         return acc + lines * size * lead + ((d.spcBef ?? 0) + (d.spcAft ?? 0)) * ptPx;
@@ -558,12 +656,34 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
       const style = (top: number, bottom: number) => {
         const s = [`padding:${r1(top)}px ${r1(pad[1])}px ${r1(bottom)}px ${r1(pad[3])}px`];
         s.push(nowrap ? 'white-space:pre' : 'white-space:pre-wrap');
+        // Перенос как в PowerPoint — по максимуму в строку, без выравнивания строк Slideria
+        s.push(WRAP);
         if (alpha < 0.999) s.push(`opacity:${r1(alpha * 100) / 100}`);
         return s.join(';');
       };
+      // Отступ перед первым абзацем и после последнего — если файл просит (spcFirstLastPara, так пишет Google Slides)
+      if (bp('spcFirstLastPara') === '1' || bp('spcFirstLastPara') === 'true') {
+        pad[0] += (visible[0].p.spcBef ?? 0) * ptPx;
+        pad[2] += (visible[visible.length - 1].p.spcAft ?? 0) * ptPx;
+      }
+      // Отступы между абзацами (spcBef / spcAft): где они есть — пустая строка высотой в отступ.
+      // Если в тексте есть свои пустые абзацы — как раньше (их высота — строка)
+      const spacing = (g: Para[]) => {
+        const has = (q: Para) => q.runs.some((r) => r.text.trim());
+        const real = g.filter(has);
+        // Пустой абзац среди текста (не в самом конце) — свой интервал, отступы не трогаем
+        if (real.length < 2 || g.slice(0, g.map(has).lastIndexOf(true)).some((q) => !has(q))) return null;
+        const gaps = real.slice(0, -1).map((q, i) => ((q.p.spcAft ?? 0) + (real[i + 1].p.spcBef ?? 0)) * ptPx * scale);
+        const on = gaps.filter((x) => x > 1);
+        if (!on.length) return null;
+        const px = r1(on.sort((a, b) => a - b)[Math.floor(on.length / 2)]);
+        const after = new Set(real.slice(0, -1).filter((_q, i) => gaps[i] > 1));
+        return { px, after: (q: Para) => after.has(q) };
+      };
       if (groups.length === 1) {
         const base = dominant(paras);
-        const o: Obj = { type: 'text', text: markup(paras, base), styles: { text: textStyles(base, scale) }, place: { x: r1(box.x), y: r1(box.y), w: r1(box.w), h: r1(box.h) } };
+        const sp = spacing(paras);
+        const o: Obj = { type: 'text', text: markup(paras, base, sp?.after), styles: { text: { ...textStyles(base, scale, red), ...listStyle(paras, base), ...(sp ? { gap: sp.px } : {}) } }, place: { x: r1(box.x), y: r1(box.y), w: r1(box.w), h: r1(box.h) } };
         // По середине и по низу — рамкой (valign): лишний текст уходит вверх, как в PowerPoint
         if (anchor === 'ctr' || anchor === 'b') o.valign = anchor === 'ctr' ? 'middle' : 'bottom';
         o.style = style(pad[0], pad[2]);
@@ -578,7 +698,10 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
       else if (anchor === 'b') y = box.y + box.h - pad[2] - total;
       groups.forEach((g, i) => {
         const base = dominant(g);
-        out.push({ type: 'text', text: markup(g, base), styles: { text: textStyles(base, scale) }, style: style(0, 0), place: { x: r1(box.x), y: r1(y), w: r1(box.w) }, ...(box.rot ? { angle: r1(box.rot) } : {}) });
+        // Стопка без текста (пустые абзацы своего размера) — только место, без объекта
+        if (!g.some((q) => q.runs.some((r) => r.text.trim()))) { y += heights[i]; return; }
+        const sp = spacing(g);
+        out.push({ type: 'text', text: markup(g, base, sp?.after), styles: { text: { ...textStyles(base, scale, red), ...listStyle(g, base), ...(sp ? { gap: sp.px } : {}) } }, style: style(0, 0), place: { x: r1(box.x), y: r1(y), w: r1(box.w) }, ...(box.rot ? { angle: r1(box.rot) } : {}) });
         y += heights[i];
       });
       return out;
@@ -601,13 +724,50 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
       return false;
     });
 
-    async function walk(tree: El, tf: Tf, sx: number, sy: number, from: 'slide' | 'layout' | 'master', locked: boolean, grpFill: Paint | null, part: string): Promise<void> {
+    /** Свойства фигуры заготовки (placeholder) с наследованием: своё, иначе у макета, иначе у образца */
+    function inheritSpPr(own: El | null, chain: El[]): El | null {
+      if (!chain.length) return own;
+      const up = [...chain].reverse().map((c) => kid(c, 'spPr')).filter((x): x is El => !!x);
+      const has = (x: El | null, k: 'fill' | 'ln' | 'geom') => (k === 'fill' ? !!fillChild(x) : k === 'ln' ? !!kid(x, 'ln') : !!(kid(x, 'prstGeom') || kid(x, 'custGeom')));
+      const need = (['fill', 'ln', 'geom'] as const).filter((k) => !has(own, k) && up.some((u) => has(u, k)));
+      if (!need.length) return own;
+      const doc = (own ?? up[0]).ownerDocument;
+      const out = (own ? own.cloneNode(true) : doc.createElementNS(up[0].namespaceURI, up[0].nodeName)) as El;
+      for (const k of need) {
+        const src = up.find((u) => has(u, k))!;
+        const node = k === 'fill' ? fillChild(src) : k === 'ln' ? kid(src, 'ln') : kid(src, 'prstGeom') ?? kid(src, 'custGeom');
+        if (node) out.appendChild(node.cloneNode(true));
+      }
+      return out;
+    }
+
+    /** Отражение и поворот группы g: рамка объекта внутри неё — на её место на слайде */
+    const groupMove = (g: Box | null) => (b: Box): Box => {
+      if (!g || (!g.rot && !g.flipH && !g.flipV)) return b;
+      const gcx = g.x + g.w / 2, gcy = g.y + g.h / 2;
+      let cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+      let { rot, flipH, flipV } = b;
+      if (g.flipH) { cx = 2 * gcx - cx; flipH = !flipH; rot = -rot; }
+      if (g.flipV) { cy = 2 * gcy - cy; flipV = !flipV; rot = -rot; }
+      if (g.rot) {
+        const a = (g.rot * Math.PI) / 180, dx = cx - gcx, dy = cy - gcy;
+        cx = gcx + dx * Math.cos(a) - dy * Math.sin(a);
+        cy = gcy + dx * Math.sin(a) + dy * Math.cos(a);
+        rot += g.rot;
+      }
+      return { ...b, x: cx - b.w / 2, y: cy - b.h / 2, rot: ((rot % 360) + 360) % 360, flipH, flipV };
+    };
+    const same = (b: Box) => b;
+
+    /** post — повороты и отражения групп, в которые вложен объект (снаружи внутрь) */
+    async function walk(tree: El, tf: Tf, sx: number, sy: number, from: 'slide' | 'layout' | 'master', locked: boolean, grpFill: Paint | null, part: string, post: (b: Box) => Box = same): Promise<void> {
+      const at = (xfrm: El | null) => { const b = boxOf(xfrm, tf, sx, sy); return b && post(b); };
       for (const el of kids(tree)) {
         const name = el.localName;
         if (name === 'AlternateContent') {
           // Новые возможности с запасным вариантом: берём запасной (Fallback)
           const fb = kid(el, 'Fallback') ?? kid(el, 'Choice');
-          if (fb) await walk(fb, tf, sx, sy, from, locked, grpFill, part);
+          if (fb) await walk(fb, tf, sx, sy, from, locked, grpFill, part, post);
           continue;
         }
         if (name === 'grpSp') {
@@ -618,25 +778,27 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
           const [ofx, ofy] = [num(off, 'x') ?? 0, num(off, 'y') ?? 0], [cfx, cfy] = [num(chOff, 'x') ?? 0, num(chOff, 'y') ?? 0];
           const childTf: Tf = (x, y) => tf(ofx + (x - cfx) * gsx, ofy + (y - cfy) * gsy);
           const gf = groupFill(el, grpFill);
-          if (num(gx, 'rot')) warn('Повёрнутые группы разобраны на объекты без поворота группы');
+          // Поворот и отражение группы — её объектам: их места и углы считаются вокруг центра группы
+          const inner = (b: Box) => post(groupMove(boxOf(gx, tf, sx, sy))(b));
           if (vectorOnly(el)) {
             // Вся группа — одна картинка SVG
             const defs: string[] = [];
             const parts: { box: Box; el: El; fill: Paint | null; area?: Box }[] = [];
-            const collect = (g: El, t: Tf, a: number, b: number, fill: Paint | null, area: Box | undefined) => {
+            const collect = (g: El, t: Tf, a: number, b: number, fill: Paint | null, area: Box | undefined, mv: (b: Box) => Box) => {
               for (const c of kids(g)) {
                 if (c.localName === 'sp' || c.localName === 'cxnSp') {
                   const bx = boxOf(one(c, 'spPr', 'xfrm'), t, a, b);
-                  if (bx) parts.push({ box: bx, el: c, fill, area });
+                  if (bx) parts.push({ box: mv(bx), el: c, fill, area });
                 } else if (c.localName === 'grpSp') {
                   const x2 = one(c, 'grpSpPr', 'xfrm');
                   const o2 = kid(x2, 'off'), e2 = kid(x2, 'ext'), co2 = kid(x2, 'chOff'), ce2 = kid(x2, 'chExt');
                   const s2x = (num(e2, 'cx') ?? 0) / (num(ce2, 'cx') || 1), s2y = (num(e2, 'cy') ?? 0) / (num(ce2, 'cy') || 1);
-                  collect(c, (x, y) => t((num(o2, 'x') ?? 0) + (x - (num(co2, 'x') ?? 0)) * s2x, (num(o2, 'y') ?? 0) + (y - (num(co2, 'y') ?? 0)) * s2y), a * s2x, b * s2y, groupFill(c, fill), ownFill(c) ? boxOf(x2, t, a, b) ?? area : area);
+                  const own = boxOf(x2, t, a, b);
+                  collect(c, (x, y) => t((num(o2, 'x') ?? 0) + (x - (num(co2, 'x') ?? 0)) * s2x, (num(o2, 'y') ?? 0) + (y - (num(co2, 'y') ?? 0)) * s2y), a * s2x, b * s2y, groupFill(c, fill), ownFill(c) ? own ?? area : area, (q) => mv(groupMove(own)(q)));
                 }
               }
             };
-            collect(el, childTf, sx * gsx, sy * gsy, gf, boxOf(gx, tf, sx, sy) ?? undefined);
+            collect(el, childTf, sx * gsx, sy * gsy, gf, boxOf(gx, tf, sx, sy) ?? undefined, inner);
             if (!parts.length) continue;
             const minX = Math.min(...parts.map((p) => p.box.x)), minY = Math.min(...parts.map((p) => p.box.y));
             const maxX = Math.max(...parts.map((p) => p.box.x + p.box.w)), maxY = Math.max(...parts.map((p) => p.box.y + p.box.h));
@@ -645,7 +807,7 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
             if (locked) o.locked = true;
             free.push(o);
           } else {
-            await walk(el, childTf, sx * gsx, sy * gsy, from, locked, gf, part);
+            await walk(el, childTf, sx * gsx, sy * gsy, from, locked, gf, part, inner);
           }
           continue;
         }
@@ -654,9 +816,10 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
           // На образце и макете плейсхолдеры — заготовки: показываются только через слайд
           if (ph && from !== 'slide') continue;
           const chain = ph ? phChain(el, from) : [];
-          const spPr = kid(el, 'spPr');
+          // Заготовка без своей заливки, контура или формы — берёт их у макета, затем у образца
+          const spPr = inheritSpPr(kid(el, 'spPr'), chain);
           const xfrm = kid(spPr, 'xfrm') ?? [...chain].reverse().map((c) => one(c, 'spPr', 'xfrm')).find(Boolean) ?? null;
-          const box = boxOf(xfrm, tf, sx, sy);
+          const box = at(xfrm);
           if (!box || offSlide(box)) continue;
           const txBody = kid(el, 'txBody');
           const warp = attr(find(txBody, 'prstTxWarp'), 'prst');
@@ -669,6 +832,7 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
           const fontRefFont = fontRef ? (attr(fontRef, 'idx') === 'major' ? theme.major : attr(fontRef, 'idx') === 'minor' ? theme.minor : undefined) : undefined;
           const autofit = one(txBody, 'bodyPr', 'normAutofit');
           const scale = autofit ? (num(autofit, 'fontScale') ?? 100000) / 100000 : 1;
+          const red = autofit ? (num(autofit, 'lnSpcReduction') ?? 0) / 100000 : 0;
           const paras = paragraphs(txBody, chain.map((c) => one(c, 'txBody', 'lstStyle')).filter((e): e is El => !!e), catLv, fontRefColor, fontRefFont);
           const hasText = paras.some((p) => p.runs.some((r) => r.text.trim()));
           if (ph && phType === 'title' && hasText && !firstTitle) firstTitle = paras.map((p) => p.runs.map((r) => r.text).join('')).join(' ').trim();
@@ -685,7 +849,7 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
           // Картинка внутри фигуры (заливка рисунком)
           if (fill?.kind === 'blip') {
             const target = pkg.rel(part, attr(kid(fill.el, 'blip'), 'r:embed'));
-            const src = target ? await asset(target, kid(fill.el, 'srcRect')) : null;
+            const src = target ? await asset(target, kid(fill.el, 'srcRect'), kid(fill.el, 'stretch') && box.h ? box.w / box.h : undefined) : null;
             if (src) {
               const radius = prst === 'ellipse' ? 'circle' : prst === 'roundRect' ? r1(Math.min(box.w, box.h) * ((adjusts(kid(spPr, 'prstGeom')).adj ?? 16667) / 100000)) : undefined;
               free.push(lockIt({ type: 'image', src, fit: 'cover', radius: radius ?? 0, place: { x: r1(box.x), y: r1(box.y), w: r1(box.w), h: r1(box.h) }, ...(box.rot ? { angle: r1(box.rot) } : {}) }));
@@ -741,24 +905,24 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
               if (hasText && groupsSame) {
                 const base = dominant(paras);
                 o.text = markup(paras, base);
-                o.styles = { text: textStyles(base, scale) };
+                o.styles = { text: textStyles(base, scale, red) };
                 const bp = (n: string) => { for (let i = bodyPrs.length - 1; i >= 0; i--) { const v = attr(bodyPrs[i], n); if (v !== null) return v; } return null; };
                 const anchor = bp('anchor') ?? 't';
                 o.valign = anchor === 'ctr' ? 'middle' : anchor === 'b' ? 'bottom' : 'top';
                 const ins = (n: string, d: number) => r1((Number(bp(n) ?? d) || 0) * k);
-                o.style = ['min-height:0', shadow ? `filter:${shadow}` : '', `padding:${ins('tIns', 45720)}px ${ins('rIns', 91440)}px ${ins('bIns', 45720)}px ${ins('lIns', 91440)}px`, 'overflow:visible'].filter(Boolean).join(';');
+                o.style = ['min-height:0', shadow ? `filter:${shadow}` : '', `padding:${ins('tIns', 45720)}px ${ins('rIns', 91440)}px ${ins('bIns', 45720)}px ${ins('lIns', 91440)}px`, 'overflow:visible', WRAP].filter(Boolean).join(';');
                 free.push(lockIt(o));
               } else {
                 free.push(lockIt(o));
-                if (hasText) for (const t of textObjects(paras, box, bodyPrs, scale)) free.push(lockIt(t));
+                if (hasText) for (const t of textObjects(paras, box, bodyPrs, scale, red)) free.push(lockIt(t));
               }
             } else {
               const defs: string[] = [];
               free.push(lockIt(svgObject(shapeSvg(el, spPr, { ...box, x: 0, y: 0 }, defs, grpFill), defs, box, shadow, line ? Math.max(2, line.w) : 0)));
-              if (hasText) for (const t of textObjects(paras, box, bodyPrs, scale)) free.push(lockIt(t));
+              if (hasText) for (const t of textObjects(paras, box, bodyPrs, scale, red)) free.push(lockIt(t));
             }
           } else if (hasText) {
-            for (const t of textObjects(paras, box, bodyPrs, scale)) free.push(lockIt(t));
+            for (const t of textObjects(paras, box, bodyPrs, scale, red)) free.push(lockIt(t));
           }
           continue;
         }
@@ -768,13 +932,13 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
           const chain = ph ? phChain(el, from) : [];
           const spPr = kid(el, 'spPr');
           const xfrm = kid(spPr, 'xfrm') ?? [...chain].reverse().map((c) => one(c, 'spPr', 'xfrm')).find(Boolean) ?? null;
-          const box = boxOf(xfrm, tf, sx, sy);
+          const box = at(xfrm);
           if (box && offSlide(box)) continue;
           if (find(el, 'videoFile') || find(el, 'audioFile') || find(el, 'media')) warn('Видео и звук не переносятся — на их месте обложка; добавьте файл в студии');
           const blipFill = kid(el, 'blipFill');
           const target = pkg.rel(part, attr(kid(blipFill, 'blip'), 'r:embed'));
           if (!box || !target) continue;
-          const src = await asset(target, kid(blipFill, 'srcRect'));
+          const src = await asset(target, kid(blipFill, 'srcRect'), kid(blipFill, 'stretch') && box.h ? box.w / box.h : undefined);
           if (!src) continue;
           const prst = attr(kid(spPr, 'prstGeom'), 'prst');
           const radius = prst === 'ellipse' ? 'circle' : prst === 'roundRect' ? r1(Math.min(box.w, box.h) * ((adjusts(kid(spPr, 'prstGeom')).adj ?? 16667) / 100000)) : undefined;
@@ -790,7 +954,7 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
           continue;
         }
         if (name === 'graphicFrame') {
-          const box = boxOf(kid(el, 'xfrm'), tf, sx, sy);
+          const box = at(kid(el, 'xfrm'));
           if (!box) continue;
           const tbl = find(el, 'tbl');
           if (tbl) { const o = tableObject(tbl, box); if (o) free.push(o); continue; }
@@ -804,82 +968,205 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
 
     function tableObject(tbl: El, box: Box): Obj | null {
       const cols = kids(one(tbl, 'tblGrid'), 'gridCol').map((g) => num(g, 'w') ?? 1);
+      // Ширина таблицы — сумма столбцов (как у PowerPoint); размер рамки в файле бывает условным
+      const gridW = cols.reduce((a, b) => a + b, 0) * k;
+      if (gridW > 1) box = { ...box, w: gridW };
       const rowsEl = kids(tbl, 'tr');
       if (!rowsEl.length) return null;
+      const nR = rowsEl.length, nC = cols.length;
       const tblPr = kid(tbl, 'tblPr');
-      const styled = !!kid(tblPr, 'tableStyleId');
-      type Cell = { paras: Para[]; p: TP; fill: Paint | null; line: Rgba | null };
-      const cellOf = (tc: El): Cell => {
-        const paras = paragraphs(kid(tc, 'txBody'), [], defLv, null, undefined);
-        const tcPr = kid(tc, 'tcPr');
-        const ln = ['lnB', 'lnR', 'lnT', 'lnL'].map((n) => kid(tcPr, n)).find((l) => l && kid(l, 'solidFill'));
-        return { paras, p: dominant(paras), fill: paintOf(fillChild(tcPr), cc), line: ln ? colorIn(kid(ln, 'solidFill'), cc) : null };
+      const flag = (n: string) => bool(tblPr, n) === true;
+      const [fRow, lRow, fCol, lCol, bRow, bCol] = ['firstRow', 'lastRow', 'firstCol', 'lastCol', 'bandRow', 'bandCol'].map(flag);
+      const style = tableStyles.get((textOf(kid(tblPr, 'tableStyleId')) || kid(tblPr, 'tableStyleId')?.textContent || '').trim().toUpperCase()) ?? null;
+
+      // Части стиля для ячейки — от общей к частной: вся таблица, полосы, крайние столбцы и строки, углы
+      const partsAt = (r: number, c: number): El[] => {
+        const names = ['wholeTbl'];
+        if (bCol) { const i = c - (fCol ? 1 : 0); if (i >= 0 && !(lCol && c === nC - 1)) names.push(i % 2 ? 'band2V' : 'band1V'); }
+        if (bRow) { const i = r - (fRow ? 1 : 0); if (i >= 0 && !(lRow && r === nR - 1)) names.push(i % 2 ? 'band2H' : 'band1H'); }
+        if (lCol && c === nC - 1) names.push('lastCol');
+        if (fCol && c === 0) names.push('firstCol');
+        if (lRow && r === nR - 1) names.push('lastRow');
+        if (fRow && r === 0) names.push('firstRow');
+        if (fRow && fCol && r === 0 && c === 0) names.push('nwCell');
+        if (fRow && lCol && r === 0 && c === nC - 1) names.push('neCell');
+        if (lRow && fCol && r === nR - 1 && c === 0) names.push('swCell');
+        if (lRow && lCol && r === nR - 1 && c === nC - 1) names.push('seCell');
+        return names.map((n) => kid(style, n)).filter((e): e is El => !!e);
       };
-      // Все ячейки сетки (закрытые объединением — пустыми), объединения — отдельно: [строка, столбец, строк, столбцов]
-      const grid = rowsEl.map((tr) => kids(tr, 'tc').map(cellOf));
+      const lnColor = (ln: El | null): { c: Rgba | null; w: number } | undefined => {
+        if (!ln) return undefined;
+        if (kid(ln, 'noFill')) return { c: null, w: 0 };
+        const fc = colorIn(kid(ln, 'solidFill'), cc);
+        return fc ? { c: fc, w: (num(ln, 'w') ?? 12700) * k } : undefined;
+      };
+
+      type Side = { c: Rgba | null; w: number } | undefined;
+      type Cell = { paras: Para[]; p: TP; fill: string; sides: Side[]; algn: string; anchor: string; mar: number[]; len: number };
+      const cellOf = (tc: El, r: number, c: number): Cell => {
+        const parts = partsAt(r, c);
+        // Текст по стилю: жирность, курсив, цвет, шрифт
+        const base: TP = {};
+        let fill: Paint | null | undefined;
+        const sides: Side[] = [undefined, undefined, undefined, undefined]; // слева, справа, сверху, снизу
+        for (const part of parts) {
+          const tx = kid(part, 'tcTxStyle');
+          if (tx) {
+            const b = attr(tx, 'b'), i = attr(tx, 'i');
+            if (b) base.b = b === 'on';
+            if (i) base.i = i === 'on';
+            const col = colorIn(tx, cc);
+            if (col) base.color = col;
+            const fr = kid(tx, 'fontRef');
+            const face = attr(one(tx, 'font', 'latin'), 'typeface') ?? (fr ? (attr(fr, 'idx') === 'major' ? theme.major : theme.minor) : null);
+            if (face) base.font = fontName(face, theme) ?? face;
+          }
+          const ts = kid(part, 'tcStyle');
+          const fe = kid(ts, 'fill');
+          if (fe) fill = paintOf(fillChild(fe), cc);
+          const bdr = kid(ts, 'tcBdr');
+          if (bdr) {
+            const whole = part.localName === 'wholeTbl';
+            const rowPart = /Row$|H$/.test(part.localName), colPart = /Col$|V$/.test(part.localName);
+            const at = (n: string) => lnColor(kid(kid(bdr, n), 'ln'));
+            const pick = (outer: boolean, edge: string, inside: string) => (outer ? at(edge) : at(inside));
+            const L = whole || rowPart ? pick(c === 0, 'left', 'insideV') : at('left');
+            const R = whole || rowPart ? pick(c === nC - 1, 'right', 'insideV') : at('right');
+            const T = whole || colPart ? pick(r === 0, 'top', 'insideH') : at('top');
+            const B = whole || colPart ? pick(r === nR - 1, 'bottom', 'insideH') : at('bottom');
+            [L, R, T, B].forEach((v, n) => { if (v !== undefined) sides[n] = v; });
+          }
+        }
+        const tcPr = kid(tc, 'tcPr');
+        // Своё у ячейки сильнее стиля: заливка и линии
+        const own = fillChild(tcPr);
+        if (own) fill = paintOf(own, cc);
+        ['lnL', 'lnR', 'lnT', 'lnB'].forEach((n, i) => { const v = lnColor(kid(tcPr, n)); if (v !== undefined) sides[i] = v; });
+        const lv = defLv.map((l) => ({ ...l, ...(base.b !== undefined ? { b: base.b } : {}), ...(base.i !== undefined ? { i: base.i } : {}), ...(base.color ? { color: base.color } : {}), ...(base.font ? { font: base.font } : {}) }));
+        const paras = paragraphs(kid(tc, 'txBody'), [], lv, null, undefined);
+        const mar = [num(tcPr, 'marL') ?? 91440, num(tcPr, 'marR') ?? 91440, num(tcPr, 'marT') ?? 45720, num(tcPr, 'marB') ?? 45720].map((v) => v * k);
+        return {
+          paras, p: dominant(paras), sides, mar,
+          fill: fill?.kind === 'solid' ? hex(fill.c) : 'none',
+          algn: paras[0]?.p.algn ?? 'l',
+          anchor: attr(tcPr, 'anchor') ?? 't',
+          len: paras.reduce((a, q) => a + q.runs.reduce((b, x) => b + x.text.trim().length, 0), 0),
+        };
+      };
+      // Все ячейки сетки (закрытые объединением — тоже), объединения — отдельно: [строка, столбец, строк, столбцов]
+      const grid = rowsEl.map((tr, r) => kids(tr, 'tc').map((tc, c) => cellOf(tc, r, c)));
       const spans: number[][] = [];
       rowsEl.forEach((tr, r) => kids(tr, 'tc').forEach((tc, c) => {
         const rs = num(tc, 'rowSpan') ?? 1;
         const cs = num(tc, 'gridSpan') ?? 1;
         if (bool(tc, 'hMerge') !== true && bool(tc, 'vMerge') !== true && (rs > 1 || cs > 1)) spans.push([r, c, rs, cs]);
       }));
-      const solid = (c?: Cell) => (c?.fill?.kind === 'solid' ? c.fill.c : null);
-      const lum = (c: Rgba | null) => (c ? 0.299 * c.r + 0.587 * c.g + 0.114 * c.b : 255);
-      // Шапка: флажок firstRow или первая строка заметно темнее/другого цвета, чем вторая
-      const h0 = solid(grid[0]?.[0]), b0 = solid(grid[1]?.[0]);
-      const firstRow = bool(tblPr, 'firstRow') === true || (!!h0 && (!b0 || Math.abs(lum(h0) - lum(b0)) > 40));
+      // Самое частое значение (по весу)
+      const mode = <T>(items: [T, number][]): T | undefined => {
+        const m = new Map<string, [T, number]>();
+        for (const [v, w] of items) { const key = JSON.stringify(v); const e = m.get(key); m.set(key, [v, (e?.[1] ?? 0) + w]); }
+        return [...m.values()].sort((a, b) => b[1] - a[1])[0]?.[0];
+      };
+      const lum = (h: string) => { const n = parseInt(h.slice(1), 16); return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255); };
+      // Шапка: флажок firstRow или первая строка заметно другого цвета, чем вторая
+      const h0 = grid[0]?.[0]?.fill, b0 = grid[1]?.[0]?.fill;
+      const firstRow = fRow || (!!h0 && h0 !== 'none' && (!b0 || b0 === 'none' || Math.abs(lum(h0) - lum(b0)) > 40));
       const head = firstRow ? grid[0] : null;
       const body = firstRow ? grid.slice(1) : grid;
-      const sample = body[0]?.[0]?.p ?? head?.[0]?.p ?? {};
-      const fill1 = solid(body[0]?.[0]), fill2 = solid(body[1]?.[0]);
-      const line = grid.flat().find((c) => c.line)?.line ?? null;
+      const bodyCells = body.flat();
+      // Вес ячейки в «самом частом»: ячейки с текстом решают, пустые — только если текста нет вовсе
+      const w = (c: Cell) => (c.len ? c.len * 1000 : 1);
+      const px = (sz?: number) => (sz ? r1(sz * ptPx) : 0);
+
+      // Таблица в целом — по самым частым значениям; отличия — у столбцов и ячеек
       const colors: Record<string, string> = {};
-      if (h0 && head) colors.head = hex(h0);
-      if (head?.[0]?.p.color) colors.headText = hex(head[0].p.color);
-      if (fill1) colors.fill = hex(fill1);
-      // Полосы: вторая строка другого цвета (первая может быть и без заливки)
-      if (fill2 && (!fill1 || hex(fill2) !== hex(fill1))) colors.band = hex(fill2);
-      if (sample.color) colors.text = hex(sample.color);
-      // Ячейки, закрашенные иначе, чем их строка в общем узоре таблицы, — своей заливкой
-      const usual = (r: number) => (colors.band && r % 2 === 1 ? colors.band : colors.fill) ?? null;
-      const fills = body.map((row, r) => row.map((c) => { const f = solid(c); return f && hex(f) !== usual(r) ? hex(f) : null; }));
-      const headFills = head?.map((c) => { const f = solid(c); return f && hex(f) !== colors.head ? hex(f) : null; });
-      // Без стиля таблицы PowerPoint рисует тонкую сетку
-      colors.line = line ? hex(line) : styled ? '#D9D9D9' : '#595959';
-      // Цвет текста — общий для таблицы (colors.text / headText): фрагменты другого цвета («● готово»
-      // зелёным) остаются разметкой {#цвет|…}, даже если в ячейке это единственный фрагмент
-      // Жирность — тоже от общей строки таблицы: жирный столбец подписей остаётся **жирным**
+      const fillAll = mode(bodyCells.map((c) => [c.fill, 1] as [string, number])) ?? 'none';
+      if (fillAll !== 'none') colors.fill = fillAll;
+      const headFillAll = head ? mode(head.map((c) => [c.fill, 1] as [string, number])) ?? 'none' : 'none';
+      if (head && headFillAll !== 'none') colors.head = headFillAll;
+      const textColor = mode(bodyCells.filter((c) => c.p.color).map((c) => [hex(c.p.color!), w(c)] as [string, number]));
+      if (textColor) colors.text = textColor;
+      const headColor = head ? mode(head.filter((c) => c.p.color).map((c) => [hex(c.p.color!), w(c)] as [string, number])) : undefined;
+      if (headColor) colors.headText = headColor;
+      const fills = body.map((row) => row.map((c) => (c.fill !== fillAll ? c.fill : null)));
+      const headFills = head?.map((c) => (c.fill !== headFillAll ? c.fill : null));
+      // Линии: самый частый цвет и толщина видимых; без вертикальных — только горизонтальные
+      const sides = grid.flat().flatMap((c) => c.sides);
+      const seen = sides.filter((x): x is { c: Rgba; w: number } => !!x?.c && x.w > 0);
+      const lineColor = mode(seen.map((x) => [hex(x.c), 1] as [string, number]));
+      const lineW = mode(seen.map((x) => [r1(x.w), 1] as [number, number]));
+      if (lineColor) colors.line = lineColor;
+      const vertical = grid.flat().some((c) => [c.sides[0], c.sides[1]].some((x) => !!x?.c && x.w > 0));
+
+      // Текст: размер и шрифт таблицы, жирность шапки; столбцы, где они другие, — в columns
+      const sizeOf = (c: Cell) => c.p.sz ?? c.paras[0]?.p.sz;
+      const size = mode(bodyCells.filter(sizeOf).map((c) => [px(sizeOf(c)), w(c)] as [number, number])) ?? 0;
+      const font = mode(bodyCells.filter((c) => c.p.font).map((c) => [c.p.font!, w(c)] as [string, number]));
+      const columns = Array.from({ length: nC }, (_x, ci) => {
+        const list = body.map((row) => row[ci]).filter(Boolean);
+        const cs = mode(list.filter(sizeOf).map((c) => [px(sizeOf(c)), w(c)] as [number, number]));
+        const cf = mode(list.filter((c) => c.p.font).map((c) => [c.p.font!, w(c)] as [string, number]));
+        // Жирный столбец — только если жирные все его ячейки с текстом (снять жирность разметкой нельзя)
+        const texts = list.filter((c) => c.len);
+        const cb = texts.length > 0 && texts.every((c) => !!c.p.b);
+        const o: Obj = {};
+        if (cs && Math.abs(cs - size) > 0.5) o.size = cs;
+        if (cf && cf !== font) o.font = cf;
+        if (cb) o.weight = 700;
+        return Object.keys(o).length ? o : null;
+      });
+      const headSize = head ? mode(head.filter(sizeOf).map((c) => [px(sizeOf(c)), w(c)] as [number, number])) : 0;
+      // Шапка обычным начертанием — если в ней нет жирных ячеек; иначе жирная (как у таблиц Slideria)
+      const headBold = head ? head.some((c) => c.len && c.p.b) || !head.some((c) => c.len) : true;
+      const headFont = head ? mode(head.filter((c) => c.p.font).map((c) => [c.p.font!, w(c)] as [string, number])) : undefined;
+      // Выравнивание по столбцам и по вертикали, поля ячеек
+      const align = Array.from({ length: nC }, (_x, ci) => {
+        const a = mode(body.map((row) => row[ci]).filter(Boolean).map((c) => [c.algn, w(c)] as [string, number])) ?? 'l';
+        return a === 'ctr' ? 'center' : a === 'r' ? 'right' : 'left';
+      });
+      const anchor = mode(grid.flat().map((c) => [c.anchor, 1] as [string, number])) ?? 't';
+      const mar = mode(grid.flat().map((c) => [c.mar.map(r1), 1] as [number[], number])) ?? [12.8, 12.8, 6.4, 6.4];
+      // Высоты строк — как в файле, но не ниже текста ячеек (у пустой строка тоже есть: по размеру
+      // конца абзаца, пустые фрагменты не в счёт) — так строку считает PowerPoint
+      const lineH = (c: Cell) => c.paras.reduce((a, q) => a + Math.max(q.p.sz ?? 18, ...q.runs.filter((x) => x.text).map((x) => x.p.sz ?? 18)) * ptPx * naturalLh(q.p.font ?? c.p.font), 0) + c.mar[2] + c.mar[3];
+      const hs = rowsEl.map((tr, r) => r1(Math.max((num(tr, 'h') ?? 0) * k, ...grid[r].map(lineH))));
+
+      // Текст ячеек: общий цвет и жирность — у таблицы и столбца, отличия — разметкой (**…**, {#цвет|…})
       const md = (c: Cell, base: TP) => markup(c.paras, { ...c.p, color: base.color ?? c.p.color, b: base.b });
-      // Ячейки таблицы рисуются обычным начертанием, шапка — жирным: остальное — разметкой **…**
-      const bodyBase: TP = { ...sample, b: false };
-      const headPx = head?.[0]?.p.sz ? head[0].p.sz * ptPx : 0;
-      const rowH = (num(rowsEl[Math.min(1, rowsEl.length - 1)], 'h') ?? 0) * k;
-      const fs = (sample.sz ?? 18) * ptPx;
-      // Высота строки = текст + поля + линия под строкой (1 px)
-      const py = rowH ? Math.max(2, (rowH - fs * 1.4 - 1) / 2) : 0;
-      const headH = head ? (num(rowsEl[0], 'h') ?? 0) * k : 0;
-      const thPy = headH && headPx ? Math.max(2, (headH - headPx * 1.4 - 1) / 2) : 0;
-      // Вертикальные линии — только если они есть у ячеек (часто таблица разлинована лишь по строкам)
-      const explicit = rowsEl.some((tr) => kids(tr, 'tc').some((tc) => ['lnL', 'lnR', 'lnT', 'lnB'].some((n) => !!kid(kid(tc, 'tcPr'), n))));
-      const vertical = !explicit || rowsEl.some((tr) => kids(tr, 'tc').some((tc) => ['lnL', 'lnR'].some((n) => { const l = kid(kid(tc, 'tcPr'), n); return !!l && !!kid(l, 'solidFill') && (num(l, 'w') ?? 1) > 0; })));
+      const bodyBase = (ci: number): TP => ({ color: textColor ? hexRgba(textColor) : undefined, b: !!columns[ci]?.weight });
+      const headBase: TP = { color: headColor ? hexRgba(headColor) : undefined, b: headBold };
+      const off = head ? 1 : 0;
+      const css = [
+        `--py:${r1((mar[2] + mar[3]) / 2)}px`, `--px:${r1((mar[0] + mar[1]) / 2)}px`, `--tbl-lh:${naturalLh(font)}`,
+        lineW && lineW !== 1 ? `--td-lw:${lineW}px` : '',
+        lineColor && !vertical ? '--td-vline:transparent' : '',
+        headSize && Math.abs(headSize - size) > 0.5 ? `--th-size:${headSize}px` : '',
+        head && !headBold ? '--th-fw:400' : '',
+        headFont && headFont !== font ? `--th-font:${fontFamilies(headFont).replace(/"/g, "'")},system-ui,sans-serif` : '',
+        font ? `font-family:${fontFamilies(font)},system-ui,sans-serif` : '',
+      ].filter(Boolean).join(';');
       return {
         type: 'table',
         variant: 'boxed',
-        ...(head ? { header: head.map((c) => md(c, { ...head[0].p, b: true })) } : { head: false, header: grid[0].map(() => '') }),
-        rows: body.map((r) => r.map((c) => md(c, bodyBase))),
+        ...(head ? { header: head.map((c) => md(c, headBase)) } : { head: false, header: grid[0].map(() => '') }),
+        rows: body.map((r) => r.map((c, ci) => md(c, bodyBase(ci)))),
         ...(fills.some((r) => r.some(Boolean)) ? { fills } : {}),
         ...(headFills?.some(Boolean) ? { headFills } : {}),
         // Объединения: строки — без шапки (шапка — -1, только по ширине)
         ...(() => {
-          const off = head ? 1 : 0;
           const merges = spans.map(([r, c, rs, cs]) => [r - off, c, rs, cs]).filter(([r, , rs]) => r >= 0 || rs === 1);
           if (merges.length < spans.length) warn('Объединение шапки со строками таблицы разделено');
           return merges.length ? { merges } : {};
         })(),
-        widths: cols.map((w) => Math.round((w / cols.reduce((a, b) => a + b, 0)) * 1000) / 100),
-        ...(sample.sz ? { size: r1(fs) } : {}),
+        widths: cols.map((cw) => Math.round((cw / cols.reduce((a, b) => a + b, 0)) * 1000) / 100),
+        align,
+        ...(anchor === 'ctr' ? {} : { valign: anchor === 'b' ? 'bottom' : 'top' }),
+        ...(columns.some(Boolean) ? { columns } : {}),
+        ...(head && hs[0] ? { headHeight: hs[0] } : {}),
+        ...(hs.slice(off).some(Boolean) ? { heights: hs.slice(off) } : {}),
+        ...(size ? { size } : {}),
         colors,
-        style: `--py:${r1(py)}px;--px:${r1(9.6 * k * EMU_PX)}px${headPx && Math.abs(headPx - fs) > 0.5 ? `;--th-size:${r1(headPx)}px` : ''}${thPy && Math.abs(thPy - py) > 0.5 ? `;--th-py:${r1(thPy)}px` : ''}${styled || vertical ? '' : ';--td-vline:transparent'}${sample.font ? `;font-family:${fontFamilies(sample.font)},system-ui,sans-serif` : ''}`,
+        style: css,
         place: { x: r1(box.x), y: r1(box.y), w: r1(box.w) },
       };
     }

@@ -1,5 +1,6 @@
 // Импорт PowerPoint: файл собирается здесь же (pptxgenjs), переводится в слайды и проверяется по объектам
 import { expect, test } from '@playwright/test';
+import JSZip from 'jszip';
 import PptxGenJS from 'pptxgenjs';
 import { convertPptx } from '../../plugins/pptx/convert';
 
@@ -85,6 +86,70 @@ test('«Под темы Slideria»: палитра файла, шрифты — 
   expect(free.filter((o) => o.type === 'text').map((o) => o.styles.text.font)).toEqual([undefined, undefined]);
   // Белый фон слайда = фон темы
   expect(d.slides[0].bg).toBeUndefined();
+});
+
+test('все стандартные фигуры PowerPoint, таблица как в файле, текст разного размера в строке', async () => {
+  const p = new PptxGenJS();
+  p.layout = 'LAYOUT_WIDE';
+  const s = p.addSlide();
+  for (const [i, n] of ['curvedRightArrow', 'notchedRightArrow', 'stripedRightArrow', 'bentArrow', 'upArrowCallout', 'gear9'].entries()) {
+    s.addShape(n as PptxGenJS.SHAPE_NAME, { x: 0.3 + i * 2, y: 0.3, w: 1.5, h: 1, fill: { color: '4472C4' } });
+  }
+  s.addText([{ text: 'Большой ', options: { fontSize: 40 } }, { text: 'мелкий', options: { fontSize: 20 } }], { x: 1, y: 2, w: 8, h: 1, color: '111111' });
+  s.addTable([
+    [{ text: 'Имя', options: { bold: true, fill: { color: 'E0B4A4' } } }, { text: 'Число', options: { bold: true, fill: { color: 'E0B4A4' } } }],
+    [{ text: 'Альфа', options: { fontSize: 18 } }, { text: '12', options: { align: 'center', fontSize: 12 } }],
+    [{ text: 'Бета', options: { fontSize: 18 } }, { text: '7', options: { align: 'center', fontSize: 12 } }],
+  ], { x: 1, y: 4, w: 6, colW: [3, 3], rowH: [0.6, 0.8, 0.8], fontSize: 12 });
+  const r = await convertPptx((await p.write({ outputType: 'nodebuffer' })) as Buffer, 'Фигуры.pptx');
+  // Ни одной фигуры, заменённой прямоугольником: геометрия — по ECMA-376
+  expect(r.warnings.filter((w) => /прямоугольником/.test(w))).toEqual([]);
+  const free = (r.deck.slides as Obj[])[0].free as Obj[];
+  const svgs = free.filter((o) => o.type === 'html' && /<path d="M/.test(o.html));
+  expect(svgs.length).toBe(6);
+  // Изогнутая стрелка: затенённая изнанка — заливкой с тенью поверх
+  expect(svgs[0].html).toContain('fill-opacity');
+  // Размер фрагмента — в % от абзаца
+  expect(free.find((o) => o.type === 'text')?.text).toBe('Большой {s:50|мелкий}');
+  const t = free.find((o) => o.type === 'table')!;
+  // Ширина — по столбцам (6 дюймов), выравнивание и шрифт столбцов, высоты строк как в файле
+  expect(t.place.w).toBeCloseTo(576, 0);
+  expect(t.align).toEqual(['left', 'center']);
+  expect(t.columns?.[1]?.size).toBeLessThan(t.size);
+  expect(t.headHeight).toBeGreaterThanOrEqual(57);
+  expect(t.heights[0]).toBeGreaterThanOrEqual(76);
+  expect(t.colors.head).toBe('#E0B4A4');
+});
+
+test('пустая ячейка — по концу абзаца; линии в растянутой группе; сжатый автоподгонкой текст', async () => {
+  const p = new PptxGenJS();
+  p.layout = 'LAYOUT_WIDE';
+  const s = p.addSlide();
+  s.addTable([[{ text: 'X', options: { fontSize: 18 } }, { text: 'Y', options: { fontSize: 18 } }]], { x: 1, y: 1, w: 4, colW: [2, 2], rowH: [0.25] });
+  s.addText('Сжатый текст', { x: 1, y: 3, w: 4, h: 1, fontSize: 20, fontFace: 'Arial', fit: 'shrink' });
+  const zip = await JSZip.loadAsync((await p.write({ outputType: 'nodebuffer' })) as Buffer);
+  const line = (id: number, xfrm: string) => `<p:cxnSp><p:nvCxnSpPr><p:cNvPr id="${id}" name="L${id}"/><p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr><p:spPr>${xfrm}<a:prstGeom prst="straightConnector1"><a:avLst/></a:prstGeom><a:ln w="12700"><a:solidFill><a:srgbClr val="222222"/></a:solidFill></a:ln></p:spPr></p:cxnSp>`;
+  // Группа растянута по ширине вдвое: 1 000 000 EMU внутри → 2 000 000 на слайде
+  const group = '<p:grpSp><p:nvGrpSpPr><p:cNvPr id="90" name="G"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="6000000" y="1000000"/><a:ext cx="2000000" cy="1000000"/><a:chOff x="0" y="0"/><a:chExt cx="1000000" cy="1000000"/></a:xfrm></p:grpSpPr>'
+    + line(91, '<a:xfrm><a:off x="500000" y="0"/><a:ext cx="0" cy="1000000"/></a:xfrm>')
+    + line(92, '<a:xfrm rot="5400000"><a:off x="0" y="450000"/><a:ext cx="1000000" cy="0"/></a:xfrm>')
+    + '</p:grpSp>';
+  const name = 'ppt/slides/slide1.xml';
+  // Ячейки с пустым фрагментом 18 pt и концом абзаца 4 pt (так пишет Google Slides)
+  const xml = (await zip.file(name)!.async('string')).replace(/<a:t>[XY]<\/a:t>/g, '<a:t></a:t>').replace(/<a:endParaRPr lang="en-US" sz="1800"/g, '<a:endParaRPr lang="en-US" sz="400"').replace('</p:spTree>', `${group}</p:spTree>`)
+    .replace('<a:normAutofit/>', '<a:normAutofit fontScale="85000" lnSpcReduction="20000"/>');
+  zip.file(name, xml);
+  const r = await convertPptx(await zip.generateAsync({ type: 'nodebuffer' }), 'Линии.pptx');
+  const free = (r.deck.slides as Obj[])[0].free as Obj[];
+  // Пустой фрагмент PowerPoint не учитывает: строка — 0,25 дюйма (24 px), а не под 18 pt
+  expect(free.find((o) => o.type === 'table')!.heights).toEqual([24]);
+  const svg = free.find((o) => o.type === 'html')!.html as string;
+  expect(svg).not.toContain('NaN');
+  // Повёрнутая на 90° линия тянется растяжением группы по высоте (×1), а не по ширине (×2): 105 px
+  const ends = [...svg.matchAll(/d="M0 0 L([\d.]+) ([\d.]+)"/g)].map((m) => [Math.round(+m[1]), Math.round(+m[2])]);
+  expect(ends).toEqual([[0, 105], [105, 0]]);
+  // Автоподгонка: 85 % размера и интервал на 20 % меньше одинарного (у Arial — 1,15)
+  expect(free.find((o) => o.type === 'text')!.styles.text).toMatchObject({ size: 22.7, leading: 0.92 });
 });
 
 test('не PPTX — понятная ошибка', async () => {

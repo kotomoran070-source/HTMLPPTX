@@ -623,6 +623,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     // Новый столбец — средней ширины среди остальных
     if (Array.isArray(t.widths)) t.widths.splice(i, 0, ...Array.from({ length: n }, () => avg));
     if (Array.isArray(t.align)) t.align.splice(i, 0, ...Array.from({ length: n }, () => ''));
+    if (Array.isArray(t.columns)) t.columns.splice(i, 0, ...Array.from({ length: n }, () => null));
     shiftMerges(t, 1, i, n);
     for (const list of [t.headFills, ...(Array.isArray(t.fills) ? t.fills : [])]) if (Array.isArray(list) && list.length > i) list.splice(i, 0, ...Array.from({ length: n }, () => null));
     cells.select(null);

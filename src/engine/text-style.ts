@@ -22,6 +22,8 @@ export interface TextStyle {
   spacing?: number;
   /** Межстрочный интервал (множитель) */
   leading?: number;
+  /** Отступ между абзацами (пустая строка в тексте), px; без него — в строку */
+  gap?: number;
   /**
    * Маркер пунктов списка: dot (по умолчанию), dash, check, arrow, square, num, paren, alpha —
    * или свой: символ, эмодзи или короткий текст; # в нём — номер пункта («Шаг #:», «[#]»)
@@ -142,5 +144,7 @@ export function textStyleCss(st: unknown): string {
   if (lc) out.push(lc);
   const ld = Number(s.leading);
   if (Number.isFinite(ld) && ld >= 0.8 && ld <= 3) out.push(`line-height:${ld}`);
+  const gap = Number(s.gap);
+  if (Number.isFinite(gap) && gap >= 0 && gap <= 200 && s.gap !== undefined) out.push(`--pgap:${gap}px`);
   return out.join(';');
 }
