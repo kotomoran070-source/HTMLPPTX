@@ -1440,7 +1440,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   Object.assign(cmds, designCommands(designHost));
   bindDesignStrip(designHost, cmds);
   Object.assign(cmds, toolsCommands({ deck, deckKey, editor: ed, go }));
-  Object.assign(cmds, contextCommands({ deck, editor: ed, stage: () => view.stage, run: (c) => run(c) }));
+  Object.assign(cmds, contextCommands({ deck, editor: ed, stage: () => view.stage, run: (c) => run(c), refresh: () => queueState() }));
   const grips = tableGrips({ deck, editor: ed, stage: () => view.stage });
   cmds['tab.shape'] = { run: () => setTab('shape') };
   cmds['tab.anim'] = { run: () => { setTab('anim'); if (!lay.ribbon) toggleRibbon(true); } };

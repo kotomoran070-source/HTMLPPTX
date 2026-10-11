@@ -24,8 +24,38 @@ export function tableGrips(h: { deck: Deck; editor: Editor; stage(): HTMLElement
     const table = el?.querySelector('table');
     return table ? { path: sel.block, table } : null;
   };
-  /** Ячейки одной строки — по ним видны границы столбцов */
-  const cells = (table: HTMLTableElement) => [...(table.rows[0]?.cells ?? [])] as HTMLElement[];
+  /**
+   * Столбцы таблицы с учётом объединённых ячеек: левый край первого, правые края всех столбцов
+   * и куски границ, где граница видна (внутри объединённой ячейки ручки нет)
+   */
+  const grid = (table: HTMLTableElement) => {
+    const busy: number[][] = [];
+    const right: number[] = [];
+    let left = Infinity;
+    const runs: { i: number; top: number; bottom: number }[] = [];
+    [...table.rows].forEach((tr, r) => {
+      let c = 0;
+      for (const cell of [...tr.cells]) {
+        while (busy[r]?.[c]) c++;
+        const cs = Math.max(1, cell.colSpan);
+        const rs = Math.max(1, cell.rowSpan);
+        for (let a = 0; a < rs; a++) for (let b = 0; b < cs; b++) (busy[r + a] ??= [])[c + b] = 1;
+        const box = cell.getBoundingClientRect();
+        if (c === 0) left = Math.min(left, box.left);
+        const end = c + cs - 1;
+        right[end] ??= box.right;
+        // Граница справа видна на высоте этой ячейки: продолжаем кусок или начинаем новый
+        const last = [...runs].reverse().find((x) => x.i === end);
+        if (last && Math.abs(last.bottom - box.top) < 2) last.bottom = Math.max(last.bottom, box.bottom);
+        else runs.push({ i: end, top: box.top, bottom: box.bottom });
+        c += cs;
+      }
+    });
+    const n = right.length;
+    for (let k = 0; k < n; k++) right[k] ??= (right[k - 1] ?? left) + 1;
+    const widths = right.map((x, k) => x - (k ? right[k - 1] : left));
+    return { n, right, widths, runs: runs.filter((x) => x.i < n - 1) };
+  };
 
   const place = () => {
     raf = 0;
@@ -34,9 +64,8 @@ export function tableGrips(h: { deck: Deck; editor: Editor; stage(): HTMLElement
       layer.hidden = true;
       return;
     }
-    const list = cells(cur.table);
-    const tr = cur.table.getBoundingClientRect();
-    const need = Math.max(0, list.length - 1);
+    const g0 = grid(cur.table);
+    const need = g0.runs.length;
     while (layer.children.length < need) {
       const g = document.createElement('i');
       g.className = 'st-grip';
@@ -44,10 +73,10 @@ export function tableGrips(h: { deck: Deck; editor: Editor; stage(): HTMLElement
       layer.appendChild(g);
     }
     while (layer.children.length > need) layer.lastElementChild!.remove();
-    list.slice(0, -1).forEach((c, i) => {
-      const g = layer.children[i] as HTMLElement;
-      g.dataset.i = String(i);
-      Object.assign(g.style, { left: `${c.getBoundingClientRect().right}px`, top: `${tr.top}px`, height: `${tr.height}px` });
+    g0.runs.forEach((run, k) => {
+      const g = layer.children[k] as HTMLElement;
+      g.dataset.i = String(run.i);
+      Object.assign(g.style, { left: `${g0.right[run.i]}px`, top: `${run.top}px`, height: `${run.bottom - run.top}px` });
     });
     layer.hidden = false;
     raf = requestAnimationFrame(place);
@@ -60,15 +89,14 @@ export function tableGrips(h: { deck: Deck; editor: Editor; stage(): HTMLElement
     e.preventDefault();
     e.stopPropagation();
     const i = Number(g.dataset.i);
-    const list = cells(cur.table);
-    const px = list.map((c) => c.getBoundingClientRect().width);
+    const px = grid(cur.table).widths;
     const total = px.reduce((a, b) => a + b, 0);
     const min = Math.max(24, total * 0.1);
     // Во время перетаскивания меняются только колонки в разметке; в данные — по отпусканию
     let group = cur.table.querySelector('colgroup');
     if (!group) {
       group = document.createElement('colgroup');
-      group.innerHTML = list.map(() => '<col>').join('');
+      group.innerHTML = px.map(() => '<col>').join('');
       cur.table.prepend(group);
     }
     const colEls = [...group.children] as HTMLElement[];

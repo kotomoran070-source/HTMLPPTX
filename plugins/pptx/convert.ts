@@ -806,8 +806,14 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
         const ln = ['lnB', 'lnR', 'lnT', 'lnL'].map((n) => kid(tcPr, n)).find((l) => l && kid(l, 'solidFill'));
         return { paras, p: dominant(paras), fill: paintOf(fillChild(tcPr), cc), line: ln ? colorIn(kid(ln, 'solidFill'), cc) : null };
       };
-      const grid = rowsEl.map((tr) => kids(tr, 'tc').filter((tc) => bool(tc, 'hMerge') !== true && bool(tc, 'vMerge') !== true).map(cellOf));
-      if (kids(tbl, 'tr').some((tr) => kids(tr, 'tc').some((tc) => num(tc, 'gridSpan') || num(tc, 'rowSpan')))) warn('Объединённые ячейки таблиц разделены');
+      // Все ячейки сетки (закрытые объединением — пустыми), объединения — отдельно: [строка, столбец, строк, столбцов]
+      const grid = rowsEl.map((tr) => kids(tr, 'tc').map(cellOf));
+      const spans: number[][] = [];
+      rowsEl.forEach((tr, r) => kids(tr, 'tc').forEach((tc, c) => {
+        const rs = num(tc, 'rowSpan') ?? 1;
+        const cs = num(tc, 'gridSpan') ?? 1;
+        if (bool(tc, 'hMerge') !== true && bool(tc, 'vMerge') !== true && (rs > 1 || cs > 1)) spans.push([r, c, rs, cs]);
+      }));
       const solid = (c?: Cell) => (c?.fill?.kind === 'solid' ? c.fill.c : null);
       const lum = (c: Rgba | null) => (c ? 0.299 * c.r + 0.587 * c.g + 0.114 * c.b : 255);
       // Шапка: флажок firstRow или первая строка заметно темнее/другого цвета, чем вторая
@@ -854,6 +860,13 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
         rows: body.map((r) => r.map((c) => md(c, bodyBase))),
         ...(fills.some((r) => r.some(Boolean)) ? { fills } : {}),
         ...(headFills?.some(Boolean) ? { headFills } : {}),
+        // Объединения: строки — без шапки (шапка — -1, только по ширине)
+        ...(() => {
+          const off = head ? 1 : 0;
+          const merges = spans.map(([r, c, rs, cs]) => [r - off, c, rs, cs]).filter(([r, , rs]) => r >= 0 || rs === 1);
+          if (merges.length < spans.length) warn('Объединение шапки со строками таблицы разделено');
+          return merges.length ? { merges } : {};
+        })(),
         widths: cols.map((w) => Math.round((w / cols.reduce((a, b) => a + b, 0)) * 1000) / 100),
         ...(sample.sz ? { size: r1(fs) } : {}),
         colors,

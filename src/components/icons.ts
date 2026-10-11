@@ -93,6 +93,8 @@ const PATHS: Record<string, string> = {
   'col-left': '<rect x="12" y="3" width="8" height="18" rx="1.5"/><path d="M3 12h6M6 9v6"/>',
   'col-right': '<rect x="4" y="3" width="8" height="18" rx="1.5"/><path d="M15 12h6M18 9v6"/>',
   'table-del': '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M10 4v16"/><path d="m14 13 4 4M18 13l-4 4"/>',
+  'cell-merge': '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M6.5 12h3.5M14 12h3.5M8.5 10l2 2-2 2M15.5 10l-2 2 2 2"/>',
+  'cell-split': '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 5v14M8.5 10l-2 2 2 2M15.5 10l2 2-2 2"/>',
   bold: '<path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z"/>',
   'v-top': '<path d="M4 4h16"/><rect x="8" y="7.5" width="8" height="8" rx="1.5"/>',
   'v-middle': '<path d="M4 12h3M17 12h3"/><rect x="8" y="8" width="8" height="8" rx="1.5"/>',

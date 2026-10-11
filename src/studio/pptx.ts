@@ -975,13 +975,12 @@ class Converter {
     await this.decoration(table, tcs, tb, 1, k);
     const rows: PptxGenJS.TableRow[] = [];
     const heights: number[] = [];
-    let widths: number[] = [];
-    [...table.rows].forEach((tr, row) => {
+    let widths: number[];
+    [...table.rows].forEach((tr) => {
       heights.push(tr.getBoundingClientRect().height);
       const tcs = getComputedStyle(tr);
       // Шапка градиентом (акцент с градиентом) — в таблице PowerPoint её первым цветом
       const trBg = rgba(tcs.backgroundColor) ?? (/gradient/.test(tcs.backgroundImage) ? flatGradient(tcs.backgroundImage) ?? gradientColor(tcs.backgroundImage) : null);
-      if (row === 0) widths = [...tr.cells].map((c) => c.getBoundingClientRect().width);
       rows.push([...tr.cells].map((cell) => {
         const cs = getComputedStyle(cell);
         const fill = rgba(cs.backgroundColor) ?? trBg;
@@ -1000,9 +999,13 @@ class Converter {
         const dot = (cell as HTMLElement).querySelector<HTMLElement>('.tbl-badge > i');
         const dc = dot ? rgba(getComputedStyle(dot).backgroundColor) : null;
         if (rich?.length && dc) rich.unshift({ text: '● ', options: { ...rich[0].options, color: dc.hex, bold: false } });
+        const td = cell as HTMLTableCellElement;
         return {
           text: rich?.length ? rich : text,
           options: {
+            // Объединённая ячейка: закрытые ею ячейки в строках таблицы и так пропущены
+            colspan: td.colSpan > 1 ? td.colSpan : undefined,
+            rowspan: td.rowSpan > 1 ? td.rowSpan : undefined,
             fill: fill ? { color: fill.hex, transparency: transparency(fill.a) } : undefined,
             color: color?.hex, bold: Number(cs.fontWeight) >= 600, fontSize: pt(parseFloat(cs.fontSize) * k), fontFace: fontFace(cs.fontFamily), lang: LANG,
             align: cs.textAlign === 'center' ? 'center' : cs.textAlign === 'right' ? 'right' : 'left', valign: 'middle',
@@ -1012,6 +1015,7 @@ class Converter {
         };
       }));
     });
+    widths = columnWidths(table);
     this.slide.addTable(rows, { x: inch(tb.x), y: inch(tb.y), w: inch(tb.w), colW: widths.map(inch), rowH: heights.map(inch) });
     // Строка итога под таблицей — подложкой и текстом, как на слайде
     const foot = el.querySelector<HTMLElement>(':scope > .tbl-foot');
@@ -1142,4 +1146,29 @@ async function repair(blob: Blob): Promise<Blob> {
 function lighten(hex: string, k: number): string {
   const n = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
   return n.map((v) => Math.round(v + (255 - v) * k).toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+/**
+ * Ширины столбцов таблицы с объединёнными ячейками: по ячейкам в один столбец (с учётом закрытых
+ * сверху и слева); столбец без таких ячеек — поровну из остатка
+ */
+function columnWidths(table: HTMLTableElement): number[] {
+  const busy: number[][] = [];
+  const w: (number | null)[] = [];
+  [...table.rows].forEach((tr, r) => {
+    let c = 0;
+    for (const cell of [...tr.cells]) {
+      while (busy[r]?.[c]) c++;
+      const cs = Math.max(1, cell.colSpan);
+      const rs = Math.max(1, cell.rowSpan);
+      for (let i = 0; i < rs; i++) for (let j = 0; j < cs; j++) (busy[r + i] ??= [])[c + j] = 1;
+      if (cs === 1 && w[c] == null) w[c] = cell.getBoundingClientRect().width;
+      c += cs;
+    }
+    while (w.length < c) w.push(null);
+  });
+  const total = table.getBoundingClientRect().width;
+  const known = w.reduce<number>((a, x) => a + (x ?? 0), 0);
+  const free = w.filter((x) => x == null).length;
+  return w.map((x) => x ?? Math.max(1, (total - known) / Math.max(1, free)));
 }

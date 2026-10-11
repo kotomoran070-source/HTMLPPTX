@@ -39,6 +39,11 @@ interface TableProps extends Block {
   fills?: (string | null)[][];
   /** Заливка ячеек шапки */
   headFills?: (string | null)[];
+  /**
+   * Объединённые ячейки: [строка, столбец, строк, столбцов]; строка -1 — шапка (только по ширине).
+   * Текст и заливка — у первой ячейки, остальные скрыты (их данные не теряются)
+   */
+  merges?: number[][];
   /** false — шапку не показывать (данные шапки сохраняются) */
   head?: boolean;
   /** Последняя строка — итог: жирным, с чертой сверху */
@@ -93,6 +98,28 @@ function cellFill(f: string): string {
   return ` style="background:${f};color:${lum < 140 ? '#fff' : '#111827'}"`;
 }
 
+/** Объединения, проверенные по размеру таблицы: первая ячейка → [строк, столбцов]; закрытые ячейки */
+export function mergeMap(raw: unknown, rows: number, cols: number): { spans: Map<string, [number, number]>; covered: Set<string> } {
+  const spans = new Map<string, [number, number]>();
+  const covered = new Set<string>();
+  for (const m of Array.isArray(raw) ? raw : []) {
+    if (!Array.isArray(m)) continue;
+    const [r, c] = [Number(m[0]), Number(m[1])];
+    if (!Number.isInteger(r) || !Number.isInteger(c) || r < -1 || r >= rows || c < 0 || c >= cols) continue;
+    const rs = r < 0 ? 1 : Math.max(1, Math.min(Number(m[2]) || 1, rows - r));
+    const cs = Math.max(1, Math.min(Number(m[3]) || 1, cols - c));
+    const key = `${r}:${c}`;
+    if ((rs === 1 && cs === 1) || covered.has(key) || spans.has(key)) continue;
+    // Пересекается с уже объединёнными — пропускаем
+    let clash = false;
+    for (let i = r; i < r + rs; i++) for (let j = c; j < c + cs; j++) if (covered.has(`${i}:${j}`) || spans.has(`${i}:${j}`)) clash = true;
+    if (clash) continue;
+    spans.set(key, [rs, cs]);
+    for (let i = r; i < r + rs; i++) for (let j = c; j < c + cs; j++) if (i !== r || j !== c) covered.add(`${i}:${j}`);
+  }
+  return { spans, covered };
+}
+
 const NUMERIC = /^[\s+−–-]?[\d\s.,]+\s?(%|₽|\$|€|млн|тыс|млрд|с|мс|ч|шт|дБм|°C)?$/i;
 
 /** Таблица: шапка, строки, выравнивание чисел, выделенная строка; каждая ячейка правится на месте. */
@@ -110,7 +137,12 @@ defineBlock<TableProps>('table', {
       return vals.length && vals.every((v) => typeof v === 'number' || NUMERIC.test(String(v))) ? 'right' : 'left';
     };
     const badgeCol = Number.isInteger(p.badge) ? Number(p.badge) : -1;
-    const cell = (tag: 'th' | 'td', list: Cell[], c: number, extra = '') => {
+    const { spans, covered } = mergeMap(p.merges, rows.length, cols);
+    const cell = (tag: 'th' | 'td', list: Cell[], c: number, extra = '', r = -1) => {
+      const at = `${r}:${c}`;
+      if (covered.has(at)) return '';
+      const sp = spans.get(at);
+      if (sp) extra += `${sp[0] > 1 ? ` rowspan="${sp[0]}"` : ''}${sp[1] > 1 ? ` colspan="${sp[1]}"` : ''}`;
       const v = list[c];
       const empty = v === undefined || v === null || !String(v).trim();
       const html = empty ? '' : tag === 'td' && c === badgeCol ? badge(String(v)) : t(v);
@@ -141,7 +173,7 @@ defineBlock<TableProps>('table', {
     return `<div class="tbl r tbl-${variant}${density}${own ? ' tbl-own' : ''}${p.labels ? ' tbl-labels' : ''}${p.lastcol ? ' tbl-lastcol' : ''}${p.bands ? ' tbl-bands' : ''}${p.valign === 'top' || p.valign === 'bottom' ? ` tbl-va-${p.valign}` : ''}${p.total && rows.length > 1 ? ' tbl-total' : ''}${foot ? ' tbl-footed' : ''}"${size || own || p.style ? ` style="${size ? `--ts:${size}px;` : ''}${own}${esc(p.style ?? '')}"` : ''}>`
       + `<table>${colgroup}`
       + (header.length && p.head !== false ? `<thead><tr>${Array.from({ length: cols }, (_x, c) => cell('th', header, c, headFill(c))).join('')}</tr></thead>` : '')
-      + `<tbody>${rows.map((r, k) => `<tr${k === p.highlight ? ' class="hl"' : ''} style="--k:${k}">${Array.from({ length: cols }, (_x, c) => cell('td', r, c, fillOf(k, c))).join('')}</tr>`).join('')}</tbody>`
+      + `<tbody>${rows.map((r, k) => `<tr${k === p.highlight ? ' class="hl"' : ''} style="--k:${k}">${Array.from({ length: cols }, (_x, c) => cell('td', r, c, fillOf(k, c), k)).join('')}</tr>`).join('')}</tbody>`
       + `</table>${foot}</div>`;
   },
 });

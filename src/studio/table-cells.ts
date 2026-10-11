@@ -14,7 +14,84 @@ import type { Deck } from '../types';
 export interface CellRange { table: string; r0: number; r1: number; c0: number; c1: number }
 export interface At { table: string; r: number; c: number }
 
-export interface TableData { header?: unknown[]; rows: unknown[][]; widths?: number[]; align?: string[]; fills?: unknown[][]; headFills?: unknown[]; highlight?: unknown; head?: unknown }
+export interface TableData { header?: unknown[]; rows: unknown[][]; widths?: number[]; align?: string[]; fills?: unknown[][]; headFills?: unknown[]; highlight?: unknown; head?: unknown; merges?: number[][] }
+
+const mergesOf = (t: TableData | undefined): number[][] => (Array.isArray(t?.merges) ? t!.merges.filter(Array.isArray).map((m) => m.map(Number)) : []);
+
+/**
+ * Объединения при вставке (n > 0 строк или столбцов с позиции at) и удалении (n < 0: -n штук с at):
+ * ниже — сдвигаются, через место вставки — растут, задетые удалением — уменьшаются
+ */
+export function shiftMerges(t: TableData, axis: 0 | 1, at: number, n: number): void {
+  if (!Array.isArray(t.merges)) return;
+  const out: number[][] = [];
+  for (const m of mergesOf(t)) {
+    let [r, c, rs, cs] = m;
+    let s = axis ? c : r;
+    let len = axis ? cs : rs;
+    if (n > 0) {
+      if (s >= at) s += n;
+      else if (s + len > at) len += n;
+    } else {
+      const b = at - n;
+      len -= Math.max(0, Math.min(s + len, b) - Math.max(s, at));
+      if (s >= b) s += n;
+      else if (s >= at) s = at;
+      if (len < 1) continue;
+    }
+    if (axis) { c = s; cs = len; } else { r = s; rs = len; }
+    if (rs * cs > 1) out.push([r, c, rs, cs]);
+  }
+  if (out.length) t.merges = out;
+  else delete t.merges;
+}
+
+/** Объединить ячейки диапазона: текст остальных — в первую (каждый с новой строки), как в PowerPoint */
+export function mergeRange(t: TableData, r: CellRange): string | null {
+  if (r.r0 === r.r1 && r.c0 === r.c1) return 'Выделите несколько ячеек';
+  if (r.r0 < 0 && r.r1 >= 0) return 'Шапку нельзя объединить со строками таблицы';
+  const row = (i: number) => (i < 0 ? (t.header ??= []) : t.rows[i]);
+  const texts: string[] = [];
+  for (let i = r.r0; i <= r.r1; i++) {
+    for (let j = r.c0; j <= r.c1; j++) {
+      const v = row(i)?.[j];
+      if (v !== undefined && v !== null && String(v).trim()) texts.push(String(v));
+      if (row(i) && (i !== r.r0 || j !== r.c0)) row(i)[j] = '';
+    }
+  }
+  row(r.r0)[r.c0] = texts.join('\n');
+  t.merges = [...mergesOf(t).filter(([mr, mc, rs, cs]) => mr + rs - 1 < r.r0 || mr > r.r1 || mc + cs - 1 < r.c0 || mc > r.c1), [r.r0, r.c0, r.r1 - r.r0 + 1, r.c1 - r.c0 + 1]];
+  return null;
+}
+
+/** Разделить объединённые ячейки, задетые диапазоном */
+export function splitRange(t: TableData, r: CellRange): boolean {
+  const before = mergesOf(t);
+  const keep = before.filter(([mr, mc, rs, cs]) => mr + rs - 1 < r.r0 || mr > r.r1 || mc + cs - 1 < r.c0 || mc > r.c1);
+  if (keep.length === before.length) return false;
+  if (keep.length) t.merges = keep;
+  else delete t.merges;
+  return true;
+}
+
+/** Есть ли объединённые ячейки в диапазоне */
+export function hasMerge(t: TableData | undefined, r: CellRange): boolean {
+  return mergesOf(t).some(([mr, mc, rs, cs]) => !(mr + rs - 1 < r.r0 || mr > r.r1 || mc + cs - 1 < r.c0 || mc > r.c1));
+}
+
+/** Диапазон с объединёнными ячейками целиком (как выделение в PowerPoint) */
+export function expandRange(t: TableData | undefined, r: CellRange): CellRange {
+  const out = { ...r };
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const [mr, mc, rs, cs] of mergesOf(t)) {
+      if (mr + rs - 1 < out.r0 || mr > out.r1 || mc + cs - 1 < out.c0 || mc > out.c1) continue;
+      const next = { r0: Math.min(out.r0, mr), r1: Math.max(out.r1, mr + rs - 1), c0: Math.min(out.c0, mc), c1: Math.max(out.c1, mc + cs - 1) };
+      if (next.r0 !== out.r0 || next.r1 !== out.r1 || next.c0 !== out.c0 || next.c1 !== out.c1) { Object.assign(out, next); changed = true; }
+    }
+  }
+  return out;
+}
 
 let range: CellRange | null = null;
 let painter: (() => void) | null = null;
@@ -74,6 +151,7 @@ export function dropRows(t: TableData, r0: number, r1: number): void {
   if (n) {
     t.rows.splice(from, n);
     if (Array.isArray(t.fills)) t.fills.splice(from, n);
+    shiftMerges(t, 0, from, -n);
     const hl = Number(t.highlight);
     if (Number.isInteger(t.highlight)) {
       if (hl >= from && hl < from + n) delete t.highlight;
@@ -81,6 +159,10 @@ export function dropRows(t: TableData, r0: number, r1: number): void {
     }
   }
   if (r0 < 0 && t.rows.length > 1) {
+    // Объединения шапки уходят вместе с ней; первой строки — становятся объединениями шапки (если в одну строку)
+    const ms = mergesOf(t).filter((m) => m[0] >= 0 && !(m[0] === 0 && m[2] > 1)).map(([r, c, rs, cs]) => [r - 1, c, rs, cs]);
+    if (ms.length) t.merges = ms;
+    else delete t.merges;
     t.header = t.rows.shift();
     const f = Array.isArray(t.fills) ? t.fills.shift() : undefined;
     if (Array.isArray(f)) t.headFills = f;
@@ -97,6 +179,7 @@ export function dropCols(t: TableData, c0: number, c1: number): void {
   t.header?.splice(c0, n);
   t.rows.forEach((r) => r.splice(c0, n));
   for (const list of [t.widths, t.align, t.headFills, ...(Array.isArray(t.fills) ? t.fills : [])]) if (Array.isArray(list)) list.splice(c0, n);
+  shiftMerges(t, 1, c0, -n);
 }
 
 /** Текст из буфера → ячейки: табуляции и строки, как копирует Excel (с кавычками у многострочных) */
@@ -134,6 +217,8 @@ export interface CellsHost {
   deck(): Deck;
   editor(): Editor;
   stage(): HTMLElement;
+  /** Выделение ячеек поменялось — обновить ленту */
+  refresh?(): void;
 }
 
 export function tableCells(h: CellsHost): { paint(): void; select(r: CellRange | null): void } {
@@ -151,30 +236,34 @@ export function tableCells(h: CellsHost): { paint(): void; select(r: CellRange |
     const el = box(range.table);
     const t = data(range.table);
     if (!el || !t || !selected(range.table)) { range = null; return; }
-    const table = el.querySelector('table');
-    if (!table) return;
-    const hasHead = !!table.tHead;
-    [...table.rows].forEach((tr, k) => {
-      const r = hasHead ? k - 1 : k;
-      if (r < range!.r0 || r > range!.r1) return;
-      [...tr.cells].forEach((td, c) => { if (c >= range!.c0 && c <= range!.c1) td.classList.add('tbl-csel'); });
+    // Ячейки по их месту в данных: объединённая подсвечена, если задета диапазоном
+    const R = range;
+    el.querySelectorAll<HTMLTableCellElement>('td[data-edit], th[data-edit]').forEach((td) => {
+      const at = cellOf(td);
+      if (!at) return;
+      const r1 = at.r + Math.max(1, td.rowSpan) - 1;
+      const c1 = at.c + Math.max(1, td.colSpan) - 1;
+      if (r1 >= R.r0 && at.r <= R.r1 && c1 >= R.c0 && at.c <= R.c1) td.classList.add('tbl-csel');
     });
   };
   const set = (a: At, b: At) => {
     anchor = a;
     head = b;
-    range = { table: a.table, r0: Math.min(a.r, b.r), r1: Math.max(a.r, b.r), c0: Math.min(a.c, b.c), c1: Math.max(a.c, b.c) };
+    range = expandRange(data(a.table), { table: a.table, r0: Math.min(a.r, b.r), r1: Math.max(a.r, b.r), c0: Math.min(a.c, b.c), c1: Math.max(a.c, b.c) });
     paint();
+    h.refresh?.();
   };
   const select = (r: CellRange | null) => {
     range = r;
     if (r) { anchor = { table: r.table, r: r.r0, c: r.c0 }; head = { table: r.table, r: r.r1, c: r.c1 }; }
     paint();
+    h.refresh?.();
   };
   const clear = () => {
     if (!range) return;
     range = null;
     paint();
+    h.refresh?.();
   };
 
   // ---------------- мышь ----------------
@@ -209,6 +298,8 @@ export function tableCells(h: CellsHost): { paint(): void; select(r: CellRange |
     anchor = at;
     head = at;
     clear();
+    // Ячейка с курсором поменялась — кнопки ленты («Разделить», вставка) — по ней
+    h.refresh?.();
     const move = (ev: PointerEvent) => {
       const to = cellOf(document.elementFromPoint(ev.clientX, ev.clientY));
       if (!to || to.table !== at.table || (!range && to.r === at.r && to.c === at.c)) return;
@@ -293,10 +384,11 @@ export function tableCells(h: CellsHost): { paint(): void; select(r: CellRange |
     const cols = colCount(t);
     const top = Array.isArray(t.header) && box(range.table)?.querySelector('thead') ? -1 : 0;
     if (e.key === 'Escape') { stop(); return clear(); }
-    // Выделены строки или столбцы целиком — Delete и Backspace их удаляют (вся таблица — таблицу),
-    // часть ячеек — очищают, как в PowerPoint
+    // Backspace — очистить ячейки. Delete — строки или столбцы целиком удалить вместе с содержимым
+    // (вся таблица — таблицу); часть ячеек — очистить
     if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.metaKey) {
       stop();
+      if (e.key === 'Backspace') return clearCells();
       const r = range;
       const wide = r.c0 === 0 && r.c1 === cols - 1;
       const tall = r.r0 <= top && r.r1 === rows - 1;

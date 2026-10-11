@@ -9,6 +9,11 @@
 .tbl .a-right { text-align: right; font-variant-numeric: tabular-nums; }
 .tbl-labels td:first-child { font-weight: 600; }
 .tbl-lastcol td:last-child { font-weight: 600; }
+/* Пустая ячейка — высотой со строку текста: очищенная строка не сжимается */
+.tbl :is(th, td):empty::after { content: "\200b"; }
+/* Свободная таблица с заданной высотой (потянули за нижний край) — строки растягиваются на всю рамку */
+.free:not(.auto-h) > .tbl { height: 100%; display: flex; flex-direction: column; }
+.free:not(.auto-h) > .tbl > table { flex: 1; }
 .tbl-va-top :is(th, td) { vertical-align: top; }
 .tbl-va-bottom :is(th, td) { vertical-align: bottom; }
 

@@ -11,7 +11,7 @@ import { esc } from '../engine/html';
 import { frameCss } from '../engine/marks';
 import type { Block, Deck } from '../types';
 import { showMenu, showPopover, type MenuEntry } from './menu';
-import { cellAnchor, cellOf, cellRange, colCount, dropCols, dropRows, tableCells, type CellRange } from './table-cells';
+import { cellAnchor, cellOf, cellRange, colCount, dropCols, dropRows, hasMerge, mergeRange, shiftMerges, splitRange, tableCells, type CellRange, type TableData as CellTable } from './table-cells';
 
 /**
  * Контекстные вкладки ленты, как «Формат фигуры» и «Макет таблицы» в PowerPoint:
@@ -32,6 +32,8 @@ export interface ContextHost {
   stage(): HTMLElement;
   /** Выполнить общую команду студии (удаление объекта) */
   run(cmd: string): void;
+  /** Обновить ленту (выделение ячеек поменялось — кнопки «Объединить» и т. п.) */
+  refresh?(): void;
 }
 
 export type ContextTab = 'shape' | 'table' | 'image' | 'video';
@@ -143,6 +145,7 @@ export function contextPanelsHtml(): string {
     + stack(btn('table.row.above', 'row-above', 'Вставить сверху'), btn('table.row.below', 'row-below', 'Вставить снизу'))
     + stack(btn('table.col.left', 'col-left', 'Вставить слева'), btn('table.col.right', 'col-right', 'Вставить справа'))
     + btn('table.del', 'table-del', 'Удалить', { big: true, menu: true, title: 'Удалить строку, столбец или таблицу' }))}
+  ${group('Объединение', btn('table.merge', 'cell-merge', 'Объединить', { big: true, title: 'Объединить выделенные ячейки' }) + btn('table.split', 'cell-split', 'Разделить', { big: true, title: 'Разделить объединённые ячейки' }))}
   ${group('Ячейки', stack(
     row(btn('table.align.left', 'align-left', 'Столбцы — по левому краю', { ico: true }), btn('table.align.center', 'align-center', 'Столбцы — по центру', { ico: true }), btn('table.align.right', 'align-right', 'Столбцы — по правому краю', { ico: true })),
     row(btn('table.valign.top', 'v-top', 'В ячейках — сверху', { ico: true }), btn('table.valign.middle', 'v-middle', 'В ячейках — посередине', { ico: true }), btn('table.valign.bottom', 'v-bottom', 'В ячейках — снизу', { ico: true })),
@@ -556,7 +559,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   };
 
   // ---------- таблица: ячейка с курсором и выделенный диапазон ячеек (table-cells) ----------
-  const cells = tableCells({ deck: () => deck, editor: () => ed, stage: h.stage });
+  const cells = tableCells({ deck: () => deck, editor: () => ed, stage: h.stage, refresh: h.refresh });
   let lastCell: { table: string; r: number; c: number } | null = null;
   const tableKey = () => JSON.stringify(targets('table')[0] ?? null);
   const cell = (): { r: number; c: number } => {
@@ -603,6 +606,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const n = at.r1 - Math.max(0, at.r0) + 1;
     const i = Math.max(0, Math.min(t.rows.length, below ? at.r1 + 1 : Math.max(0, at.r0)));
     t.rows.splice(i, 0, ...Array.from({ length: n }, () => Array.from({ length: cols(t) }, () => '')));
+    shiftMerges(t, 0, i, n);
     if (Array.isArray(t.fills) && t.fills.length > i) t.fills.splice(i, 0, ...Array.from({ length: n }, () => []));
     // Выделенная строка остаётся той же строкой данных
     if (Number.isInteger(t.highlight) && Number(t.highlight) >= i) t.highlight = Number(t.highlight) + n;
@@ -619,6 +623,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     // Новый столбец — средней ширины среди остальных
     if (Array.isArray(t.widths)) t.widths.splice(i, 0, ...Array.from({ length: n }, () => avg));
     if (Array.isArray(t.align)) t.align.splice(i, 0, ...Array.from({ length: n }, () => ''));
+    shiftMerges(t, 1, i, n);
     for (const list of [t.headFills, ...(Array.isArray(t.fills) ? t.fills : [])]) if (Array.isArray(list) && list.length > i) list.splice(i, 0, ...Array.from({ length: n }, () => null));
     cells.select(null);
     lastCell = null;
@@ -733,7 +738,9 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
         { label: many(nc, ['Вставить столбец слева', 'Вставить столбцы слева', '']), icon: 'col-left', run: () => addCol(false) },
         { label: many(nc, ['Вставить столбец справа', 'Вставить столбцы справа', '']), icon: 'col-right', run: () => addCol(true) },
         null,
-        ...(range ? [{ label: 'Очистить ячейки', icon: 'close', hint: 'Delete', run: () => { fillCellsText(''); } }] : []),
+        ...(range ? [{ label: 'Очистить ячейки', icon: 'eraser', hint: 'Backspace', run: () => { fillCellsText(''); } }] : []),
+        ...(multiCell() ? [{ label: 'Объединить ячейки', icon: 'cell-merge', run: mergeCells }] : []),
+        ...(hasMerge((t ?? undefined) as unknown as CellTable | undefined, at) ? [{ label: 'Разделить ячейки', icon: 'cell-split', run: splitCells }] : []),
       ] : []),
       { label: many(nr + head, ['Удалить строку', 'Удалить строки', '']), icon: 'row-del', disabled: nr + head >= total, run: delRow, preview: (on) => killMark('row', on) },
       { label: many(nc, ['Удалить столбец', 'Удалить столбцы', '']), icon: 'col-del', disabled: nCols < 2 || nc >= nCols, run: delCol, preview: (on) => killMark('col', on) },
@@ -741,6 +748,14 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       { label: 'Удалить таблицу', icon: 'trash', danger: true, run: () => h.run('obj.del'), preview: (on) => killMark('all', on) },
     ];
   };
+  const multiCell = () => { const r = span(); return r.r0 !== r.r1 || r.c0 !== r.c1; };
+  const mergeCells = () => {
+    let err: string | null = null;
+    editTable((t, at) => { err = mergeRange(t, at); });
+    if (err) ed.toast(err, 2500);
+    else { const r = span(); cells.select({ ...r, r1: r.r0, c1: r.c0 }); }
+  };
+  const splitCells = () => editTable((t, at) => { splitRange(t, at); });
   /** Текст выделенных ячеек (очистить — пустая строка) */
   const fillCellsText = (v: string) => editTable((t, at) => {
     for (let r = at.r0; r <= at.r1; r++) {
@@ -811,6 +826,8 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       enabled: () => isTable() && first('table')?.variant !== 'stripes', active: () => !!first('table')?.bands || first('table')?.variant === 'stripes',
     },
     'table.fill': { run: tableFill, enabled: isTable },
+    'table.merge': { run: mergeCells, enabled: () => isTable() && multiCell() },
+    'table.split': { run: splitCells, enabled: () => isTable() && hasMerge(first('table') as unknown as CellTable, span()) },
     'table.select': {
       run: () => showMenu(anchor('table.select'), [
         { label: 'Выделить строку', icon: 'row-below', run: () => selectCells('row') },

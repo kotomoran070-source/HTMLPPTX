@@ -1,5 +1,7 @@
 // Таблица, как в PowerPoint: выделение ячеек, клавиши, буфер, вставка из Excel; порядок объектов на шаг
 import { expect, test, type Page } from '@playwright/test';
+import fs from 'node:fs';
+import JSZip from 'jszip';
 import { parse } from 'yaml';
 import { readDeck, watchErrors } from './helpers';
 
@@ -46,20 +48,20 @@ test('ячейки: протянуть — диапазон; Delete, Ctrl+Z, к�
   await expect.poll(() => rows().map((r) => r[0])).toEqual(['Прибыль']);
   await page.keyboard.press('Control+z');
   await expect.poll(() => rows()[0][0]).toBe('Выручка');
-  // Часть ячеек: Delete очищает (Shift+щелчок — от начальной ячейки до этой)
+  // Backspace очищает ячейки
   await cell(page, 'Выручка').click();
   await page.keyboard.press('Escape');
   await drag(page, 'Выручка', '80');
   await expect(sel).toHaveCount(4);
-  await page.keyboard.press('Delete');
+  await page.keyboard.press('Backspace');
   await expect.poll(() => rows()[0]).toEqual(['', '', '120']);
   await page.keyboard.press('Control+z');
   await expect.poll(() => rows()[0][0]).toBe('Выручка');
-  // Столбец целиком (с шапкой): Backspace удаляет его
+  // Столбец целиком (с шапкой): Delete удаляет его вместе с содержимым
   await cell(page, 'План').click();
   await page.keyboard.press('Escape');
   await drag(page, 'План', '20');
-  await page.keyboard.press('Backspace');
+  await page.keyboard.press('Delete');
   await expect.poll(() => table(1).header).toEqual(['Показатель', 'Факт']);
   await page.keyboard.press('Control+z');
   await expect.poll(() => table(1).header).toEqual(['Показатель', 'План', 'Факт']);
@@ -163,5 +165,59 @@ test('порядок: «Вперёд» — над ближайшим перек�
   await expect.poll(order).toEqual(['back', 'mid', 'far', 'top']);
   await page.keyboard.press('Control+Shift+BracketRight');
   await expect.poll(order).toEqual(['mid', 'far', 'top', 'back']);
+  expect(errors).toEqual([]);
+});
+
+test('объединение ячеек; очищенная строка не сжимается; таблица растягивается по высоте', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=table&studio#5');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  const tr = page.locator('#st-canvas .slide.on tbody tr');
+  const h0 = (await tr.nth(0).boundingBox())!.height;
+  // Объединить: текст второй ячейки — в первую, новой строкой
+  await cell(page, 'Выручка').click();
+  await drag(page, 'Выручка', '100');
+  await page.locator('.st-tabs [data-tab="table"]').click();
+  await page.locator('[data-cmd="table.merge"]').click();
+  await expect(page.locator('#st-canvas .slide.on td[colspan="2"]')).toHaveCount(1);
+  await expect.poll(() => (table(5) as { merges?: number[][] }).merges).toEqual([[0, 0, 1, 2]]);
+  expect(rows(5)[0]).toEqual(['Выручка\n100', '', '120']);
+  // Столбец слева — объединение сдвигается вместе с ячейками
+  await page.locator('[data-cmd="table.col.left"]').click();
+  await expect.poll(() => (table(5) as { merges?: number[][] }).merges).toEqual([[0, 1, 1, 2]]);
+  // В PowerPoint — объединённой ячейкой (gridSpan), и обратно — объединением
+  await page.locator('[data-cmd="file.export"]').click();
+  const [download] = await Promise.all([page.waitForEvent('download', { timeout: 150_000 }), page.locator('[data-x="pptx"]').click()]);
+  const pptx = new Uint8Array(fs.readFileSync(await download.path()));
+  const zip = await JSZip.loadAsync(pptx);
+  expect(await zip.file('ppt/slides/slide5.xml')!.async('string')).toMatch(/<a:tc gridSpan="2"[^>]*>/);
+  const back = await fetch('http://localhost:5190/__htmlpptx/import-pptx?file=t.pptx&deck=table-back', { method: 'POST', body: pptx });
+  expect(back.status).toBe(200);
+  const imported = (parse(readDeck('table-back')) as { slides: { free: { type: string; merges?: number[][] }[] }[] }).slides[4].free.find((o) => o.type === 'table');
+  // Строка: шапка без заливки читается обычной строкой — номера строк сдвигаются, объединение то же
+  expect(imported?.merges?.map((m) => m.slice(1))).toEqual([[1, 1, 2]]);
+  await page.keyboard.press('Escape');
+  // Разделить: курсор в объединённой ячейке
+  await page.locator('#st-canvas .slide.on td[colspan="2"]').click();
+  await page.locator('[data-cmd="table.split"]').click();
+  await expect(page.locator('#st-canvas .slide.on td[colspan]')).toHaveCount(0);
+  await expect.poll(() => (table(5) as { merges?: unknown }).merges).toBeUndefined();
+  // Очищенная строка — той же высоты. Таблица выделена: щелчок выделяет её, а если уже выделена — правка, из неё Esc
+  await page.keyboard.press('Escape');
+  await cell(page, 'Расходы').click();
+  if (await page.locator('#st-canvas [contenteditable="true"]').count()) await page.keyboard.press('Escape');
+  await drag(page, 'Расходы', '70');
+  await expect(page.locator('#st-canvas .tbl-csel')).toHaveCount(3);
+  await page.keyboard.press('Backspace');
+  await expect.poll(() => rows(5)[1].join('')).toBe('');
+  expect(Math.abs((await tr.nth(1).boundingBox())!.height - h0)).toBeLessThan(2);
+  // Высота рамки — строки растягиваются
+  await page.keyboard.press('Escape');
+  const box = page.locator('#st-canvas .slide.on [data-type="table"] table');
+  const before = (await box.boundingBox())!.height;
+  const hField = page.locator('.st-props input[data-f="h"]');
+  await hField.fill('500');
+  await hField.press('Enter');
+  await expect.poll(async () => (await box.boundingBox())!.height).toBeGreaterThan(before * 1.5);
   expect(errors).toEqual([]);
 });
