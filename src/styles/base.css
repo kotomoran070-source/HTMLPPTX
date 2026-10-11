@@ -220,6 +220,7 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
 .slide > .free > * { flex: 1 1 auto; width: 100%; min-height: 0; margin: 0; max-width: none; }
 .slide > .free.auto-h > * { flex: none; }
 /* Текст по середине или по низу рамки (valign): лишнее уходит за обе стороны или вверх, как в PowerPoint */
+.slide > .free.file-bg { display: var(--file-bg, flex); }
 .slide > .free.va-m { justify-content: center; }
 .slide > .free.va-b { justify-content: flex-end; }
 .slide > .free:is(.va-m, .va-b) > * { flex: none; }

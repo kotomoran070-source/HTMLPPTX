@@ -1,5 +1,6 @@
 // Цвета импортированного файла по теме (engine/recolor.ts): перекраска, «Как в файле», разметка
 import { expect, test } from '@playwright/test';
+import { themeVars } from '../../src/engine/deck-theme';
 import { colorFamilies, recolorHtml, recolorVars, sameColors } from '../../src/engine/recolor';
 import type { DeckOrigin } from '../../src/types';
 
@@ -47,4 +48,10 @@ test('«Как в файле» — без перекраски; разметка
   expect(recolorHtml(html, new Set(['#E0B4A4', '#4C6A78']))).toBe(
     '<div style="color:var(--k-E0B4A4, #E0B4A4);background:#123456"><svg><path fill="var(--k-4C6A78, #4C6A78)"/></svg>Цвет #E0B4A4</div>',
   );
+});
+
+test('картинка фоном из файла (fileBg) — только в теме «Как в файле»', () => {
+  const o: DeckOrigin = { ...origin, theme: { accent: '#E0B4A4', mode: 'light', light: { bg: '#F0EBE4', tx: '#1C343C' } } };
+  expect(themeVars({ preset: 'file', ...o.theme }, 'light', o)['--file-bg']).toBe('flex');
+  expect(themeVars({ preset: 'winter', accent: '#1D6FD6' }, 'light', o)['--file-bg']).toBe('none');
 });

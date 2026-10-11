@@ -152,6 +152,24 @@ test('пустая ячейка — по концу абзаца; линии в 
   expect(free.find((o) => o.type === 'text')!.styles.text).toMatchObject({ size: 22.7, leading: 0.92 });
 });
 
+test('«Под темы Slideria»: картинка фоном — только для темы файла, под ней её тон, слайд перекрашивается', async () => {
+  const sharp = (await import('sharp')).default;
+  const png = await sharp({ create: { width: 32, height: 18, channels: 3, background: '#203040' } }).png().toBuffer();
+  const p = new PptxGenJS();
+  p.layout = 'LAYOUT_WIDE';
+  const s = p.addSlide();
+  s.background = { data: `image/png;base64,${png.toString('base64')}` };
+  s.addText('Титул', { x: 1, y: 1, w: 8, h: 1, fontSize: 40, color: 'FFFFFF' });
+  p.addSlide().addText('Обычный слайд', { x: 1, y: 1, w: 8, h: 1, fontSize: 18, color: '000000' });
+  const d = (await convertPptx((await p.write({ outputType: 'nodebuffer' })) as Buffer, 'Фон.pptx', { adapt: true })).deck as Obj;
+  const first = d.slides[0];
+  expect(first.free[0]).toMatchObject({ type: 'image', locked: true, fileBg: true });
+  expect(first.bg).toBe('#203040');
+  // Слайд не исключается из перекраски: в другой теме вместо картинки — перекрашенный тон
+  expect(first.recolor).toBeUndefined();
+  expect(d.origin.colors).toContain('#203040');
+});
+
 test('не PPTX — понятная ошибка', async () => {
   await expect(convertPptx(Buffer.from('не архив'), 'x.pptx')).rejects.toThrow();
 });

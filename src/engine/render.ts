@@ -140,7 +140,8 @@ export class Renderer {
       const grow = b.type === 'table';
       const css = `left:${pl.x}px;top:${pl.y}px;width:${pl.w}px;${pl.h ? `${grow ? 'min-height' : 'height'}:${pl.h}px;` : ''}${ang ? `rotate:${ang}deg;` : ''}z-index:${10 + i};${delay}${ownCss}`;
       // Закреплённый объект в редакторе не выделяется мышью (см. editor.css)
-      const lock = b.locked === true ? ' locked' : '';
+      // Картинка фоном из импортированного файла: видна только в теме «Как в файле» (--file-bg)
+      const lock = (b.locked === true ? ' locked' : '') + (b.fileBg === true ? ' file-bg' : '');
       // Действие по щелчку при показе: переход к слайду или ссылка
       const act = actionOf(b.action);
       // Имя объекта — для кнопок «показать / скрыть»; hidden — скрыт при показе до щелчка

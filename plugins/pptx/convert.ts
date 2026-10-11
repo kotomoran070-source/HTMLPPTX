@@ -1259,7 +1259,21 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
   const lang = [...langs].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'ru';
   const deck: Obj = { title, lang };
   const sch = (n: string) => (deckCc ? deckCc.scheme[deckCc.map[n] ?? n] : undefined);
-  if (opts.adapt) Object.assign(deck, fileTheme(slides, sch, slideMasters.map((m) => m === slideMasters[0])));
+  if (opts.adapt) {
+    // Картинка фоном на весь слайд — только для темы «Как в файле» (fileBg); под ней цвет её тона,
+    // и другая тема перекрашивает слайд целиком, как слайд со сплошным фоном
+    for (const s of slides) {
+      const first = (s.free as Obj[] | undefined)?.[0];
+      const buf = fullImage(first) && typeof first!.src === 'string' ? assets.get(first!.src.replace('./assets/', '')) : undefined;
+      if (!buf || !sharp) continue;
+      try {
+        const st = await sharp(buf).flatten({ background: isHex6(s.bg) ? s.bg : '#FFFFFF' }).stats();
+        s.bg = `#${st.channels.slice(0, 3).map((c) => Math.round(c.mean).toString(16).padStart(2, '0')).join('').toUpperCase()}`;
+        first!.fileBg = true;
+      } catch { /* тон не посчитать — слайд остаётся в цветах файла */ }
+    }
+    Object.assign(deck, fileTheme(slides, sch, slideMasters.map((m) => m === slideMasters[0])));
+  }
   else {
     // Как в файле: только акценты темы файла — для кнопок показа и того, что добавят в студии
     const acc = sch('accent1'), acc2 = sch('accent2');
@@ -1270,6 +1284,11 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
 }
 
 const HEX_ALL = /#[0-9A-F]{6}\b/g;
+/** Закреплённая картинка на весь слайд — фон из файла */
+const fullImage = (o: Obj | undefined) => {
+  const pl = o?.place as { x: number; y: number; w: number; h: number } | undefined;
+  return o?.type === 'image' && o.locked === true && !!pl && pl.x <= 1 && pl.y <= 1 && pl.w >= SLIDE_W - 2 && pl.h >= SLIDE_H - 2;
+};
 const isHex6 = (v: unknown): v is string => typeof v === 'string' && /^#[0-9A-F]{6}$/i.test(v);
 
 /**
@@ -1283,11 +1302,10 @@ function fileTheme(slides: Obj[], sch: (n: string) => string | undefined, main: 
   const tx = up(sch('tx1'), '000000');
   // Фон слайда, совпадающий с фоном темы, — от темы (у другой темы — её фон с узором)
   for (const s of slides) if (isHex6(s.bg) && s.bg.toUpperCase() === bg) delete s.bg;
-  // Слайд с картинкой фоном: текст подобран к картинке — его цвета остаются как в файле
+  // Слайд с картинкой фоном, тон которой не посчитать: текст подобран к картинке — цвета как в файле
   for (const s of slides) {
     const first = (s.free as Obj[] | undefined)?.[0];
-    const pl = first?.place as { x: number; y: number; w: number; h: number } | undefined;
-    if (first?.type === 'image' && first.locked && pl && pl.x <= 1 && pl.y <= 1 && pl.w >= SLIDE_W - 2 && pl.h >= SLIDE_H - 2) s.recolor = false;
+    if (fullImage(first) && first!.fileBg !== true) s.recolor = false;
   }
   // Цвета слайдов по частоте — на скольких слайдах встречаются (набор иконок в конце шаблона
   // с сотнями фигур не перевешивает оформление); семейства цветных — акценты

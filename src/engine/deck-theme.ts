@@ -175,8 +175,11 @@ export function themeVars(t: DeckTheme, mode: SlideMode, origin?: DeckOrigin): R
   if (Number.isFinite(hs) && t.headScale !== undefined && hs !== 1) v['--h-scale'] = String(Math.max(0.7, Math.min(1.3, Math.round(hs * 100) / 100)));
   v['color-scheme'] = mode;
   if (origin && Array.isArray(origin.colors)) {
-    if (sameColors(t, origin.theme)) for (const c of origin.colors) v[`--k-${String(c).slice(1).toUpperCase()}`] = 'initial';
+    const same = sameColors(t, origin.theme);
+    if (same) for (const c of origin.colors) v[`--k-${String(c).slice(1).toUpperCase()}`] = 'initial';
     else Object.assign(v, recolorVars(origin, { bg: pal.bg, tx: pal.tx, surf: pal.surf, accents: [ac['--ac'], ac['--ac2']] }));
+    // Картинки фоном из файла (fileBg) — только в его теме; в другой под ними перекрашенный тон
+    v['--file-bg'] = same ? 'flex' : 'none';
   }
   return v;
 }
