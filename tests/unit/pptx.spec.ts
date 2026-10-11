@@ -15,6 +15,7 @@ async function sample(): Promise<Buffer> {
   s1.addText([{ text: 'Обычный ' }, { text: 'жирный', options: { bold: true } }, { text: ' текст' }], { x: 1, y: 2, w: 8, h: 1, fontSize: 18, color: 'E2E8F0' });
   s1.addShape(p.ShapeType.ellipse, { x: 10, y: 1, w: 2, h: 2, fill: { color: 'F97316' } });
   s1.addShape(p.ShapeType.line, { x: 1, y: 4, w: 6, h: 0, line: { color: '38BDF8', width: 3, endArrowType: 'triangle' } });
+  s1.addText('01', { x: 1, y: 5, w: 1, h: 0.6, fontSize: 28, valign: 'bottom', color: 'FFFFFF' });
   s1.addNotes('Заметка докладчика');
   const s2 = p.addSlide();
   s2.addTable([
@@ -44,6 +45,8 @@ test('PPTX → холсты со свободными объектами', async
   expect(a.some((o) => o.type === 'text' && o.text.includes('**жирный**'))).toBe(true);
   expect(a.find((o) => o.type === 'shape' && o.kind === 'ellipse')).toMatchObject({ fill: '#F97316' });
   expect(a.find((o) => o.type === 'shape' && o.kind === 'arrow')).toMatchObject({ stroke: '#38BDF8' });
+  // Текст по низу рамки — valign: лишнее уходит вверх, как в PowerPoint
+  expect(a.find((o) => o.type === 'text' && o.text === '01')).toMatchObject({ valign: 'bottom' });
   expect(slides[0].notes).toContain('Заметка докладчика');
   expect(slides[0].bg).toBe('#1E293B');
 
@@ -56,7 +59,7 @@ test('PPTX → холсты со свободными объектами', async
   expect(b.some((o) => o.fill === '#FF0000')).toBe(false);
 });
 
-test('тема «Как в файле»: палитра файла, шрифты — шрифтами темы, фон темы не пишется у слайда', async () => {
+test('«Под темы Slideria»: палитра файла, шрифты — шрифтами темы, фон темы не пишется у слайда', async () => {
   const p = new PptxGenJS();
   p.layout = 'LAYOUT_WIDE';
   for (const t of ['Первый', 'Второй']) {
@@ -66,7 +69,12 @@ test('тема «Как в файле»: палитра файла, шрифты
     s.addText('Текст слайда', { x: 1, y: 2, w: 8, h: 1, fontSize: 18, color: '000000', fontFace: 'Calibri' });
     s.addShape(p.ShapeType.rect, { x: 10, y: 6, w: 2, h: 0.5, fill: { color: '3C388D' } });
   }
-  const r = await convertPptx((await p.write({ outputType: 'nodebuffer' })) as Buffer, 'Тема.pptx');
+  const file = (await p.write({ outputType: 'nodebuffer' })) as Buffer;
+  // Как в файле (по умолчанию): цвета и шрифты как есть, палитры для тем нет
+  const plain = (await convertPptx(file, 'Тема.pptx')).deck as Obj;
+  expect(plain.origin).toBeUndefined();
+  expect(plain.slides[0].free.find((o: Obj) => o.type === 'text').styles.text.font).toBe('Verdana');
+  const r = await convertPptx(file, 'Тема.pptx', { adapt: true });
   const d = r.deck as Obj;
   expect(d.theme).toMatchObject({ preset: 'file', accent: '#3C388D', mode: 'light', light: { bg: '#FFFFFF', tx: '#000000' }, font: 'Calibri', head: 'Verdana', bg: 'plain' });
   expect(d.origin).toMatchObject({ bg: '#FFFFFF', tx: '#000000', accents: ['#3C388D'] });

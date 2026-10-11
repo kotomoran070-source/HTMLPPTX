@@ -1,13 +1,15 @@
-// Импорт презентации PowerPoint в проект: yarn import-pptx файл.pptx [имя] [--dry-run]
+// Импорт презентации PowerPoint в проект: yarn import-pptx файл.pptx [имя] [--dry-run] [--themes]
+//   --themes — «Под темы Slideria»: тема из вкладки «Дизайн» перекрашивает цвета и шрифты файла
 import fs from 'node:fs';
 import path from 'node:path';
 import { createServer } from 'vite';
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run') || args.includes('-n');
+const adapt = args.includes('--themes');
 const [file, name] = args.filter((a) => !a.startsWith('-'));
 if (!file || !fs.existsSync(file)) {
-  console.error('Использование: yarn import-pptx путь/к/файлу.pptx [имя-презентации] [--dry-run]');
+  console.error('Использование: yarn import-pptx путь/к/файлу.pptx [имя-презентации] [--dry-run] [--themes]');
   process.exit(1);
 }
 const root = process.cwd();
@@ -16,7 +18,7 @@ const dir = process.env.SLIDERIA_DECKS ? path.resolve(process.env.SLIDERIA_DECKS
 const server = await createServer({ configFile: false, root, logLevel: 'silent', server: { middlewareMode: true }, appType: 'custom', optimizeDeps: { noDiscovery: true } });
 try {
   const { importPptx } = await server.ssrLoadModule('/plugins/pptx/index.ts');
-  const r = await importPptx(fs.readFileSync(file), { dir, fileName: path.basename(file), name, dryRun });
+  const r = await importPptx(fs.readFileSync(file), { dir, fileName: path.basename(file), name, dryRun, adapt });
   console.log(`${dryRun ? 'Проверка' : 'Готово'}: «${r.title}» → ${path.relative(root, path.join(dir, r.name))} · слайдов: ${r.slides}, картинок: ${r.assets}`);
   for (const w of r.warnings) console.log(`  · ${w}`);
 } catch (e) {

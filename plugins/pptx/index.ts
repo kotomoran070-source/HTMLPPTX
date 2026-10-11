@@ -17,8 +17,8 @@ export interface PptxImportResult {
   dryRun: boolean;
 }
 
-export async function importPptx(data: Buffer, opts: { dir: string; fileName?: string; name?: string; dryRun?: boolean }): Promise<PptxImportResult> {
-  const res = await convertPptx(data, opts.fileName);
+export async function importPptx(data: Buffer, opts: { dir: string; fileName?: string; name?: string; dryRun?: boolean; adapt?: boolean }): Promise<PptxImportResult> {
+  const res = await convertPptx(data, opts.fileName, { adapt: opts.adapt });
   // Имя папки: заданное, из имени файла или из названия (по границе слова); занятое — с номером
   const short = (t: string) => { const v = slug(t); return v.length < 40 ? v : v.replace(/-[^-]*$/, ''); };
   const base = slug(opts.name ?? '') || short(path.basename(opts.fileName ?? '').replace(/\.pptx$/i, '')) || short(res.title) || 'pptx';

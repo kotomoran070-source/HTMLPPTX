@@ -151,7 +151,9 @@ export class Renderer {
       const emph = (typeof b.emphasis === 'string' && (EMPHASIS as readonly string[]).includes(b.emphasis) ? ` data-emph="${b.emphasis}"` : '')
         // Числа в тексте отсчитываются от нуля при появлении (engine/count-up)
         + (b.count === true ? ' data-count' : '');
-      return `<div class="free${pl.h ? (grow ? ' grow-h' : '') : ' auto-h'}${fx}${lock}${act ? ' act' : ''}${hid}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''}${obj}${emph}${hid ? ' data-hid' : ''}${click}${act ? ` data-action="${esc(act)}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
+      // Текст по середине или по низу рамки (valign: middle, bottom)
+      const va = b.type === 'text' && pl.h ? (b.valign === 'middle' ? ' va-m' : b.valign === 'bottom' ? ' va-b' : '') : '';
+      return `<div class="free${pl.h ? (grow ? ' grow-h' : '') : ' auto-h'}${va}${fx}${lock}${act ? ' act' : ''}${hid}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''}${obj}${emph}${hid ? ' data-hid' : ''}${click}${act ? ` data-action="${esc(act)}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
     }).join('');
   }
 

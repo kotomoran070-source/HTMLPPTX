@@ -219,6 +219,10 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
 .slide > .free { position: absolute; display: flex; flex-direction: column; }
 .slide > .free > * { flex: 1 1 auto; width: 100%; min-height: 0; margin: 0; max-width: none; }
 .slide > .free.auto-h > * { flex: none; }
+/* Текст по середине или по низу рамки (valign): лишнее уходит за обе стороны или вверх, как в PowerPoint */
+.slide > .free.va-m { justify-content: center; }
+.slide > .free.va-b { justify-content: flex-end; }
+.slide > .free:is(.va-m, .va-b) > * { flex: none; }
 .slide > .free > figure.image { height: auto !important; min-height: 0; }
 
 /* Появление свободного объекта: enter (эффект) и delay (мс) — как в импортированных слайдах */

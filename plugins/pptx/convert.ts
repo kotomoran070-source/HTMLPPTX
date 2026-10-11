@@ -13,6 +13,7 @@ import { type ColorCtx, type Rgba, colorIn, css, hex } from './color';
 import { type GeomPath, PRESETS, adjusts, customPaths, presetPaths } from './geom';
 import { type El, Pkg, attr, bool, find, kid, kids, num, one, textOf } from './xml';
 import { colorFamilies, lightness } from '../../src/engine/recolor';
+import { fontFamilies } from '../../src/engine/fonts';
 
 type Obj = Record<string, unknown>;
 
@@ -48,7 +49,11 @@ const EMU_PX = 9525; // 96 px на дюйм, как у экспорта в PPTX
 const SLIDE_W = 1280, SLIDE_H = 720;
 const r1 = (n: number) => Math.round(n * 10) / 10;
 
-export async function convertPptx(data: Buffer | Uint8Array, fileName = 'presentation.pptx'): Promise<PptxResult> {
+/**
+ * adapt — «Под темы Slideria»: палитра и шрифты файла запоминаются (deck.origin), и тема из вкладки
+ * «Дизайн» перекрашивает слайды. Без него — точная копия файла: цвета и шрифты записаны как есть
+ */
+export async function convertPptx(data: Buffer | Uint8Array, fileName = 'presentation.pptx', opts: { adapt?: boolean } = {}): Promise<PptxResult> {
   const pkg = await Pkg.open(data);
   const warnings = new Set<string>();
   const warn = (m: string) => warnings.add(m);
@@ -559,8 +564,9 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
       if (groups.length === 1) {
         const base = dominant(paras);
         const o: Obj = { type: 'text', text: markup(paras, base), styles: { text: textStyles(base, scale) }, place: { x: r1(box.x), y: r1(box.y), w: r1(box.w), h: r1(box.h) } };
-        const v = anchor === 'ctr' ? ';flex:none;margin-block:auto' : anchor === 'b' ? ';flex:none;margin-top:auto' : '';
-        o.style = style(pad[0], pad[2]) + v;
+        // По середине и по низу — рамкой (valign): лишний текст уходит вверх, как в PowerPoint
+        if (anchor === 'ctr' || anchor === 'b') o.valign = anchor === 'ctr' ? 'middle' : 'bottom';
+        o.style = style(pad[0], pad[2]);
         if (box.rot) o.angle = r1(box.rot);
         out.push(o);
         return out;
@@ -873,7 +879,7 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
         widths: cols.map((w) => Math.round((w / cols.reduce((a, b) => a + b, 0)) * 1000) / 100),
         ...(sample.sz ? { size: r1(fs) } : {}),
         colors,
-        style: `--py:${r1(py)}px;--px:${r1(9.6 * k * EMU_PX)}px${headPx && Math.abs(headPx - fs) > 0.5 ? `;--th-size:${r1(headPx)}px` : ''}${thPy && Math.abs(thPy - py) > 0.5 ? `;--th-py:${r1(thPy)}px` : ''}${styled || vertical ? '' : ';--td-vline:transparent'}${sample.font ? `;font-family:"${sample.font}",system-ui,sans-serif` : ''}`,
+        style: `--py:${r1(py)}px;--px:${r1(9.6 * k * EMU_PX)}px${headPx && Math.abs(headPx - fs) > 0.5 ? `;--th-size:${r1(headPx)}px` : ''}${thPy && Math.abs(thPy - py) > 0.5 ? `;--th-py:${r1(thPy)}px` : ''}${styled || vertical ? '' : ';--td-vline:transparent'}${sample.font ? `;font-family:${fontFamilies(sample.font)},system-ui,sans-serif` : ''}`,
         place: { x: r1(box.x), y: r1(box.y), w: r1(box.w) },
       };
     }
@@ -966,7 +972,12 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
   const lang = [...langs].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'ru';
   const deck: Obj = { title, lang };
   const sch = (n: string) => (deckCc ? deckCc.scheme[deckCc.map[n] ?? n] : undefined);
-  Object.assign(deck, fileTheme(slides, sch, slideMasters.map((m) => m === slideMasters[0])));
+  if (opts.adapt) Object.assign(deck, fileTheme(slides, sch, slideMasters.map((m) => m === slideMasters[0])));
+  else {
+    // Как в файле: только акценты темы файла — для кнопок показа и того, что добавят в студии
+    const acc = sch('accent1'), acc2 = sch('accent2');
+    if (acc || acc2) deck.theme = { ...(acc ? { accent: `#${acc.toUpperCase()}` } : {}), ...(acc2 ? { accent2: `#${acc2.toUpperCase()}` } : {}) };
+  }
   deck.slides = slides;
   return { title, deck, assets, warnings: [...warnings], slides: slides.length };
 }
@@ -1033,7 +1044,7 @@ function fileTheme(slides: Obj[], sch: (n: string) => string | undefined, main: 
   }
   if (body) {
     for (const t of tables) {
-      if (typeof t.style === 'string') t.style = t.style.replace(`;font-family:"${body}",system-ui,sans-serif`, '');
+      if (typeof t.style === 'string') t.style = t.style.replace(`;font-family:${fontFamilies(body)},system-ui,sans-serif`, '');
     }
   }
   const mode = lightness(bg) >= 0.6 ? 'light' : 'dark';

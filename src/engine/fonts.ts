@@ -17,8 +17,25 @@ export interface DeckFont {
 const NAME_RE = /^[\p{L}\p{N} _-]{1,60}$/u;
 export const fontNameOk = (n: unknown): n is string => typeof n === 'string' && NAME_RE.test(n.trim());
 
-/** CSS семейства: свой шрифт, а при его отсутствии — шрифт интерфейса */
-export const fontStack = (name: string) => `"${name.trim()}", var(--font-base, system-ui, sans-serif)`;
+/**
+ * Замены с теми же размерами букв: нет одного — берётся другой, и строки переносятся там же
+ * (Arimo из Google Slides — как Arial, Calibri — как Carlito и наоборот)
+ */
+const SAME_METRICS: Record<string, string[]> = {
+  arial: ['Arimo', 'Liberation Sans'], arimo: ['Arial', 'Liberation Sans'], 'liberation sans': ['Arial', 'Arimo'],
+  'times new roman': ['Tinos', 'Liberation Serif'], tinos: ['Times New Roman', 'Liberation Serif'], 'liberation serif': ['Times New Roman', 'Tinos'],
+  'courier new': ['Cousine', 'Liberation Mono'], cousine: ['Courier New', 'Liberation Mono'], 'liberation mono': ['Courier New', 'Cousine'],
+  calibri: ['Carlito'], carlito: ['Calibri'], cambria: ['Caladea'], caladea: ['Cambria'],
+};
+
+/** Шрифт и его замены тех же размеров — для font-family */
+export const fontFamilies = (name: string) => {
+  const n = name.trim();
+  return [n, ...(SAME_METRICS[n.toLowerCase()] ?? [])].map((x) => `"${x}"`).join(', ');
+};
+
+/** CSS семейства: свой шрифт (и его замена тех же размеров), а при его отсутствии — шрифт интерфейса */
+export const fontStack = (name: string) => `${fontFamilies(name)}, var(--font-base, system-ui, sans-serif)`;
 
 export function deckFonts(fonts: unknown): DeckFont[] {
   if (!Array.isArray(fonts)) return [];

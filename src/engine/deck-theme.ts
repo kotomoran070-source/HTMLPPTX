@@ -15,7 +15,7 @@
 import type { DeckOrigin, DeckTheme, ThemePalette } from '../types';
 import { accentTokens, contrast, DEFAULT_ACCENT, HEX_RE, mix, SWATCHES } from './accent';
 import { cssKey } from './deck-css';
-import { fontNameOk } from './fonts';
+import { fontFamilies, fontNameOk, fontStack } from './fonts';
 import { recolorVars, sameColors } from './recolor';
 
 export type SlideMode = 'light' | 'dark';
@@ -165,7 +165,7 @@ export function themeVars(t: DeckTheme, mode: SlideMode, origin?: DeckOrigin): R
   v['--rk'] = String(Number.isFinite(r) && t.radius !== undefined ? Math.max(0, Math.min(2.5, Math.round(r * 100) / 100)) : 1);
   for (const k of OPTIONAL) v[k] = 'initial';
   Object.assign(v, (CARD_STYLES[String(t.cards)] ?? CARD_STYLES.soft).vars(dark));
-  if (fontNameOk(t.head)) v['--font-head'] = `"${t.head.trim()}", var(--font)`;
+  if (fontNameOk(t.head)) v['--font-head'] = `${fontFamilies(t.head)}, var(--font)`;
   const hw = Number(t.headWeight);
   if (Number.isFinite(hw) && hw >= 100 && hw <= 900) v['--hw'] = String(Math.round(hw / 50) * 50);
   if (t.headCase === 'upper') v['--h-tt'] = 'uppercase';
@@ -252,7 +252,7 @@ export function applyDeckTheme(theme: unknown, origin?: DeckOrigin): string | nu
 
 /** Шрифт текста для показа темы: свой шрифт темы или шрифт интерфейса */
 function bodyFont(t: DeckTheme): Record<string, string> {
-  const f = fontNameOk(t.font) ? `"${t.font.trim()}", var(--font-base, system-ui, sans-serif)` : 'var(--font-base, system-ui, sans-serif)';
+  const f = fontNameOk(t.font) ? fontStack(t.font) : 'var(--font-base, system-ui, sans-serif)';
   return { '--font': f, 'font-family': 'var(--font)' };
 }
 

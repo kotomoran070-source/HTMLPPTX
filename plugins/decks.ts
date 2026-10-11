@@ -391,14 +391,14 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     send(res, 200, result);
   }
 
-  /** PowerPoint (.pptx) → новая презентация; dry=1 — только отчёт, без записи */
+  /** PowerPoint (.pptx) → новая презентация; dry=1 — только отчёт, без записи; adapt=1 — под темы Slideria */
   async function handleImportPptx(url: URL, req: IncomingMessage, res: ServerResponse): Promise<void> {
     const data = await readBody(req, MAX_PPTX);
     if (!data.length) throw new Error('Пустой файл');
     if (data.subarray(0, 2).toString('latin1') !== 'PK') throw new Error('Это не файл PowerPoint (.pptx). Старый формат .ppt сначала пересохраните в PowerPoint как .pptx');
     const name = url.searchParams.get('deck') || undefined;
     if (name && !/^[a-z0-9][a-z0-9-_]*$/i.test(name)) throw new Error('Имя презентации: латиница, цифры, дефис');
-    const result = await importPptx(data, { dir, name, fileName: url.searchParams.get('file') || undefined, dryRun: url.searchParams.get('dry') === '1' });
+    const result = await importPptx(data, { dir, name, fileName: url.searchParams.get('file') || undefined, dryRun: url.searchParams.get('dry') === '1', adapt: url.searchParams.get('adapt') === '1' });
     send(res, 200, result);
   }
 

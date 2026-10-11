@@ -114,10 +114,11 @@ const draggingFile = (e: DragEvent) => dragKind(e) !== null;
 /** Ответ /__htmlpptx/import-pptx (см. plugins/pptx/index.ts) */
 interface PptxResult { name: string; title: string; slides: number; assets: number; warnings: string[] }
 
-async function requestPptx(data: ArrayBuffer, file: string, deck: string | undefined, dry: boolean): Promise<PptxResult> {
+async function requestPptx(data: ArrayBuffer, file: string, deck: string | undefined, dry: boolean, adapt: boolean): Promise<PptxResult> {
   const q = new URLSearchParams({ file });
   if (deck) q.set('deck', deck);
   if (dry) q.set('dry', '1');
+  if (adapt) q.set('adapt', '1');
   let res: Response;
   try {
     res = await fetch(`/__htmlpptx/import-pptx?${q}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: data });
@@ -396,12 +397,18 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
       <h2 id="imp-h">Импорт «${esc(file.name)}»</h2>
       <div class="imp-body"><p class="mu">Читаю презентацию PowerPoint…</p></div>
       <label class="imp-name" hidden>Презентация <input spellcheck="false" autocomplete="off"><small class="mu">имя папки: латиница, цифры, дефис</small></label>
+      <fieldset class="imp-mode" hidden><legend>Оформление</legend>
+        <label><input type="radio" name="imp-look" value="file" checked><span><b>Как в файле</b><small>Точная копия: цвета и шрифты не меняются.</small></span></label>
+        <label><input type="radio" name="imp-look" value="themes"><span><b>Под темы Slideria</b><small>Тема во вкладке «Дизайн» перекрашивает цвета и меняет шрифты.</small></span></label>
+      </fieldset>
       <div class="imp-actions"><button type="button" class="btn ghost" data-a="cancel">Отмена</button><button type="button" class="btn primary" data-a="ok" disabled>Создать</button></div>
     </div>`;
     document.body.append(box);
     const body = box.querySelector<HTMLElement>('.imp-body')!;
     const nameRow = box.querySelector<HTMLElement>('.imp-name')!;
     const nameIn = nameRow.querySelector('input')!;
+    const lookRow = box.querySelector<HTMLElement>('.imp-mode')!;
+    const adapt = () => !!lookRow.querySelector<HTMLInputElement>('input[value="themes"]')?.checked;
     const ok = box.querySelector<HTMLButtonElement>('[data-a="ok"]')!;
     const cancel = box.querySelector<HTMLButtonElement>('[data-a="cancel"]')!;
     const data = await file.arrayBuffer();
@@ -426,7 +433,7 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
       const my = ++seq;
       ok.disabled = true;
       try {
-        const r = await requestPptx(data, file.name, deck, true);
+        const r = await requestPptx(data, file.name, deck, true, adapt());
         if (my !== seq) return;
         last = r;
         body.innerHTML = `<p>Будет создана новая презентация <code>${esc(__DECKS_DIR__)}${esc(r.name)}/deck.yaml</code> из PowerPoint: ${r.slides} слайдов.</p>`
@@ -437,6 +444,7 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
           nameRow.hidden = false;
           nameIn.value = r.name;
         }
+        lookRow.hidden = false;
         ok.disabled = false;
       } catch (e) {
         if (my !== seq) return;
@@ -461,10 +469,11 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
     const run = async () => {
       if (!last) return;
       ok.disabled = cancel.disabled = nameIn.disabled = true;
+      lookRow.querySelectorAll('input').forEach((x) => { x.disabled = true; });
       ok.textContent = 'Импорт…';
       try {
         await o.beforeImport?.();
-        const r = await requestPptx(data, file.name, nameIn.value.trim() || last.name, false);
+        const r = await requestPptx(data, file.name, nameIn.value.trim() || last.name, false, adapt());
         body.innerHTML = '<p class="imp-ok">Презентация создана. Открываю…</p>';
         const url = new URL(location.href);
         url.search = `?deck=${encodeURIComponent(r.name)}`;
@@ -473,6 +482,7 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
       } catch (e) {
         body.innerHTML = `<p class="imp-err">Не удалось импортировать: ${esc((e as Error).message)}</p>`;
         cancel.disabled = nameIn.disabled = false;
+        lookRow.querySelectorAll('input').forEach((x) => { x.disabled = false; });
         ok.textContent = 'Повторить';
         ok.disabled = false;
       }
