@@ -11,7 +11,7 @@ import { esc } from '../engine/html';
 import { frameCss } from '../engine/marks';
 import type { Block, Deck } from '../types';
 import { showMenu, showPopover, type MenuEntry } from './menu';
-import { cellAnchor, cellOf, cellRange, colCount, tableCells, type CellRange } from './table-cells';
+import { cellAnchor, cellOf, cellRange, colCount, dropCols, dropRows, tableCells, type CellRange } from './table-cells';
 
 /**
  * Контекстные вкладки ленты, как «Формат фигуры» и «Макет таблицы» в PowerPoint:
@@ -598,8 +598,6 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     }, { rebuild: true });
   };
   const cols = colCount;
-  /** Столбцовые списки таблицы: ширины, выравнивание, заливка шапки и строк */
-  const colLists = (t: TableData): unknown[][] => [t.widths, t.align, t.headFills, ...(Array.isArray(t.fills) ? t.fills : [])].filter(Array.isArray) as unknown[][];
   const many = (n: number, what: [string, string, string]) => (n > 1 ? `${what[1]} (${n})` : what[0]);
   const addRow = (below: boolean) => editTable((t, at) => {
     const n = at.r1 - Math.max(0, at.r0) + 1;
@@ -626,25 +624,12 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     lastCell = null;
   });
   const delRow = () => editTable((t, at) => {
-    const from = Math.max(0, at.r0);
-    const n = Math.min(at.r1 - from + 1, t.rows.length - 1);
-    if (at.r1 < 0 || n < 1) return;
-    t.rows.splice(from, n);
-    if (Array.isArray(t.fills)) t.fills.splice(from, n);
-    const hl = Number(t.highlight);
-    if (Number.isInteger(t.highlight)) {
-      if (hl >= from && hl < from + n) delete t.highlight;
-      else if (hl >= from + n) t.highlight = hl - n;
-    }
+    dropRows(t, at.r0, at.r1);
     cells.select(null);
     lastCell = null;
   });
   const delCol = () => editTable((t, at) => {
-    const n = Math.min(at.c1 - at.c0 + 1, cols(t) - 1);
-    if (n < 1) return;
-    t.header?.splice(at.c0, n);
-    t.rows.forEach((r) => r.splice(at.c0, n));
-    for (const list of colLists(t)) list.splice(at.c0, n);
+    dropCols(t, at.c0, at.c1);
     cells.select(null);
     lastCell = null;
   });
@@ -723,7 +708,10 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     if (!on) return;
     const at = span();
     if (what === 'all') box.classList.add('tbl-kill-all');
-    else if (what === 'row') for (let r = Math.max(0, at.r0); r <= at.r1; r++) tbl.tBodies[0]?.rows[r]?.querySelectorAll('td').forEach((x) => x.classList.add('tbl-kill'));
+    else if (what === 'row') {
+      if (at.r0 < 0) tbl.tHead?.querySelectorAll('th').forEach((x) => x.classList.add('tbl-kill'));
+      for (let r = Math.max(0, at.r0); r <= at.r1; r++) tbl.tBodies[0]?.rows[r]?.querySelectorAll('td').forEach((x) => x.classList.add('tbl-kill'));
+    }
     else [...tbl.rows].forEach((tr) => { for (let c = at.c0; c <= at.c1; c++) tr.cells[c]?.classList.add('tbl-kill'); });
   };
   /** Меню таблицы: правый щелчок по ячейке и кнопка «Удалить» на ленте */
@@ -731,7 +719,10 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const t = first('table');
     const rows = ((t?.rows as unknown[]) ?? []).length;
     const at = span();
-    const nr = at.r1 - Math.max(0, at.r0) + 1;
+    const nr = Math.max(0, at.r1 - Math.max(0, at.r0) + 1);
+    // Строки вместе с шапкой: удалить можно все, кроме последней (всю таблицу — «Удалить таблицу»)
+    const head = at.r0 < 0 ? 1 : 0;
+    const total = rows + (Array.isArray(t?.header) && t?.head !== false ? 1 : 0);
     const nc = at.c1 - at.c0 + 1;
     const nCols = cols({ header: t?.header as unknown[], rows: (t?.rows as unknown[][]) ?? [] });
     const range = cellRange()?.table === tableKey();
@@ -744,7 +735,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
         null,
         ...(range ? [{ label: 'Очистить ячейки', icon: 'close', hint: 'Delete', run: () => { fillCellsText(''); } }] : []),
       ] : []),
-      { label: at.r1 < 0 ? 'Удалить строку (шапку скрывает «Строка заголовка»)' : many(nr, ['Удалить строку', 'Удалить строки', '']), icon: 'row-del', disabled: rows < 2 || at.r1 < 0 || nr >= rows, run: delRow, preview: (on) => killMark('row', on) },
+      { label: many(nr + head, ['Удалить строку', 'Удалить строки', '']), icon: 'row-del', disabled: nr + head >= total, run: delRow, preview: (on) => killMark('row', on) },
       { label: many(nc, ['Удалить столбец', 'Удалить столбцы', '']), icon: 'col-del', disabled: nCols < 2 || nc >= nCols, run: delCol, preview: (on) => killMark('col', on) },
       null,
       { label: 'Удалить таблицу', icon: 'trash', danger: true, run: () => h.run('obj.del'), preview: (on) => killMark('all', on) },

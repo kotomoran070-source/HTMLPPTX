@@ -18,6 +18,7 @@ import { crossPaste } from './cross-paste';
 import type { CodeView } from './code';
 import type { ExportQuality } from './pptx';
 import { FindBar } from './find';
+import { numberSteppers } from './num-step';
 import { paintCells, parseGrid } from './table-cells';
 import { applyFormat, hasFormat, takeFormat, type Format } from './format-painter';
 import { tableGrips } from './table-grips';
@@ -1903,6 +1904,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   new ResizeObserver(() => { if (zoom === 'fit') layout(); else ed.reposition(); }).observe(canvas);
 
   // ---------------- найти и заменить ----------------
+  numberSteppers();
   find = new FindBar({
     deck: () => deck, editor: () => ed, index: () => index, go, stage: () => view.stage,
     showNotes: () => { if (!notesOpen) setNotes(true); },

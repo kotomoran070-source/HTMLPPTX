@@ -41,14 +41,32 @@ test('ячейки: протянуть — диапазон; Delete, Ctrl+Z, к�
   expect(readDeck('table')).toContain('place: {x: 80, y: 80, w: 700}');
   // Копирование — табуляциями, как в Excel
   expect(await clip(page, 'copy')).toBe('Выручка\t100\t120\nРасходы\t80\t70');
-  // Delete — очистить, Ctrl+Z — вернуть
+  // Строки целиком: Delete удаляет их; Ctrl+Z — вернуть
   await page.keyboard.press('Delete');
-  await expect.poll(() => rows()[0]).toEqual(['', '', '']);
+  await expect.poll(() => rows().map((r) => r[0])).toEqual(['Прибыль']);
   await page.keyboard.press('Control+z');
   await expect.poll(() => rows()[0][0]).toBe('Выручка');
-  // Shift+щелчок — от начальной ячейки до этой; Shift+стрелка — ещё на строку; Esc — снять
-  await cell(page, '80').click({ modifiers: ['Shift'] });
+  // Часть ячеек: Delete очищает (Shift+щелчок — от начальной ячейки до этой)
+  await cell(page, 'Выручка').click();
+  await page.keyboard.press('Escape');
+  await drag(page, 'Выручка', '80');
   await expect(sel).toHaveCount(4);
+  await page.keyboard.press('Delete');
+  await expect.poll(() => rows()[0]).toEqual(['', '', '120']);
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => rows()[0][0]).toBe('Выручка');
+  // Столбец целиком (с шапкой): Backspace удаляет его
+  await cell(page, 'План').click();
+  await page.keyboard.press('Escape');
+  await drag(page, 'План', '20');
+  await page.keyboard.press('Backspace');
+  await expect.poll(() => table(1).header).toEqual(['Показатель', 'Факт']);
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => table(1).header).toEqual(['Показатель', 'План', 'Факт']);
+  // Shift+стрелка — ещё на строку; Esc — снять
+  await cell(page, 'Выручка').click();
+  await page.keyboard.press('Escape');
+  await drag(page, 'Выручка', '80');
   await page.keyboard.press('Shift+ArrowDown');
   await expect(sel).toHaveCount(6);
   await page.keyboard.press('Escape');
@@ -109,6 +127,23 @@ test('правка ячейки: Tab в последней — новая стр
   await expect(page.locator('#st-canvas .slide.on [data-type="table"] th')).toHaveCount(2);
   await expect.poll(() => table(3)?.header).toEqual(['Город', 'Люди']);
   expect(errors).toEqual([]);
+});
+
+test('числовые поля: свои стрелки у поля под мышью, щелчок — шаг', async ({ page }) => {
+  await page.goto('/?deck=table&studio#4');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  await page.locator('#st-canvas .slide.on [data-obj="mid"]').click({ position: { x: 10, y: 10 } });
+  const w = page.locator('.st-props input[data-f="w"]');
+  await expect(w).toHaveValue('200');
+  await w.hover();
+  const up = page.locator('.st-numstep [data-d="1"]');
+  await expect(up).toBeVisible();
+  // Стрелки — у правого края поля
+  const [a, b] = [(await w.boundingBox())!, (await up.boundingBox())!];
+  expect(Math.abs(a.x + a.width - (b.x + b.width))).toBeLessThan(6);
+  await up.click();
+  await expect(w).toHaveValue('201');
+  await expect.poll(() => readDeck('table')).toContain('id: mid, kind: rect, fill: "#CA8A04", place: {x: 80, y: 80, w: 201');
 });
 
 test('порядок: «Вперёд» — над ближайшим перекрывающим объектом, Ctrl+[ — на шаг назад, стрелка — меню до конца', async ({ page }) => {

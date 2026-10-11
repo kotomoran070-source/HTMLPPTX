@@ -14,7 +14,7 @@ import type { Deck } from '../types';
 export interface CellRange { table: string; r0: number; r1: number; c0: number; c1: number }
 export interface At { table: string; r: number; c: number }
 
-interface TableData { header?: unknown[]; rows: unknown[][]; widths?: number[]; align?: string[]; fills?: unknown[][]; headFills?: unknown[] }
+export interface TableData { header?: unknown[]; rows: unknown[][]; widths?: number[]; align?: string[]; fills?: unknown[][]; headFills?: unknown[]; highlight?: unknown; head?: unknown }
 
 let range: CellRange | null = null;
 let painter: (() => void) | null = null;
@@ -62,6 +62,41 @@ export function growCols(t: TableData, n: number): void {
     if (Array.isArray(t.align)) t.align.push('');
   }
   t.rows.forEach((r) => { while (r.length < n) r.push(''); });
+}
+
+/**
+ * Удалить строки r0…r1 (-1 — шапка): заливка и выделенная строка сдвигаются вместе. Удалили шапку —
+ * шапкой становится следующая строка (в PowerPoint шапка — просто первая строка). Одна строка остаётся всегда
+ */
+export function dropRows(t: TableData, r0: number, r1: number): void {
+  const from = Math.max(0, r0);
+  const n = r1 >= from ? r1 - from + 1 : 0;
+  if (n) {
+    t.rows.splice(from, n);
+    if (Array.isArray(t.fills)) t.fills.splice(from, n);
+    const hl = Number(t.highlight);
+    if (Number.isInteger(t.highlight)) {
+      if (hl >= from && hl < from + n) delete t.highlight;
+      else if (hl >= from + n) t.highlight = hl - n;
+    }
+  }
+  if (r0 < 0 && t.rows.length > 1) {
+    t.header = t.rows.shift();
+    const f = Array.isArray(t.fills) ? t.fills.shift() : undefined;
+    if (Array.isArray(f)) t.headFills = f;
+    else delete t.headFills;
+    if (Number.isInteger(t.highlight)) t.highlight = Number(t.highlight) - 1 >= 0 ? Number(t.highlight) - 1 : undefined;
+  }
+  if (!t.rows.length) t.rows.push(Array.from({ length: colCount(t) }, () => ''));
+}
+
+/** Удалить столбцы c0…c1 вместе с ширинами, выравниванием и заливкой. Один столбец остаётся всегда */
+export function dropCols(t: TableData, c0: number, c1: number): void {
+  const n = Math.min(c1 - c0 + 1, colCount(t) - 1);
+  if (n < 1) return;
+  t.header?.splice(c0, n);
+  t.rows.forEach((r) => r.splice(c0, n));
+  for (const list of [t.widths, t.align, t.headFills, ...(Array.isArray(t.fills) ? t.fills : [])]) if (Array.isArray(list)) list.splice(c0, n);
 }
 
 /** Текст из буфера → ячейки: табуляции и строки, как копирует Excel (с кавычками у многострочных) */
@@ -258,7 +293,18 @@ export function tableCells(h: CellsHost): { paint(): void; select(r: CellRange |
     const cols = colCount(t);
     const top = Array.isArray(t.header) && box(range.table)?.querySelector('thead') ? -1 : 0;
     if (e.key === 'Escape') { stop(); return clear(); }
-    if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.metaKey) { stop(); return clearCells(); }
+    // Выделены строки или столбцы целиком — Delete и Backspace их удаляют (вся таблица — таблицу),
+    // часть ячеек — очищают, как в PowerPoint
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.metaKey) {
+      stop();
+      const r = range;
+      const wide = r.c0 === 0 && r.c1 === cols - 1;
+      const tall = r.r0 <= top && r.r1 === rows - 1;
+      if (wide && tall) { range = null; return h.editor().blockEditor.remove(); }
+      if (wide) { commit((x) => dropRows(x, r.r0, r.r1)); range = null; return paint(); }
+      if (tall) { commit((x) => dropCols(x, r.c0, r.c1)); range = null; return paint(); }
+      return clearCells();
+    }
     if (e.key === 'Enter' || e.key === 'F2') {
       stop();
       const a = anchor ?? { table: range.table, r: range.r0, c: range.c0 };
