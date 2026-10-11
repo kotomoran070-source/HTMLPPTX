@@ -15,6 +15,7 @@ import { type GeomPath, adjusts, customPaths, knownPreset, presetPaths } from '.
 import { type El, Pkg, attr, bool, find, kid, kids, num, one, textOf } from './xml';
 import { colorFamilies, lightness } from '../../src/engine/recolor';
 import { fontFamilies } from '../../src/engine/fonts';
+import { contrast } from '../../src/engine/accent';
 
 type Obj = Record<string, unknown>;
 
@@ -389,7 +390,7 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
       } else if (p?.kind === 'blip') {
         const target = pkg.rel(bgPart, attr(kid(p.el, 'blip'), 'r:embed'));
         const src = target ? await asset(target, kid(p.el, 'srcRect'), kid(p.el, 'stretch') ? SLIDE_W / SLIDE_H : undefined) : null;
-        if (src) free.push({ type: 'image', src, fit: 'cover', radius: 0, locked: true, place: { x: 0, y: 0, w: SLIDE_W, h: SLIDE_H } });
+        if (src) free.push({ type: 'image', src, fit: 'cover', radius: 0, ...blipAlpha(kid(p.el, 'blip')), locked: true, place: { x: 0, y: 0, w: SLIDE_W, h: SLIDE_H } });
       }
     }
 
@@ -852,7 +853,7 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
             const src = target ? await asset(target, kid(fill.el, 'srcRect'), kid(fill.el, 'stretch') && box.h ? box.w / box.h : undefined) : null;
             if (src) {
               const radius = prst === 'ellipse' ? 'circle' : prst === 'roundRect' ? r1(Math.min(box.w, box.h) * ((adjusts(kid(spPr, 'prstGeom')).adj ?? 16667) / 100000)) : undefined;
-              free.push(lockIt({ type: 'image', src, fit: 'cover', radius: radius ?? 0, place: { x: r1(box.x), y: r1(box.y), w: r1(box.w), h: r1(box.h) }, ...(box.rot ? { angle: r1(box.rot) } : {}) }));
+              free.push(lockIt({ type: 'image', src, fit: 'cover', radius: radius ?? 0, ...blipAlpha(kid(fill.el, 'blip')), place: { x: r1(box.x), y: r1(box.y), w: r1(box.w), h: r1(box.h) }, ...(box.rot ? { angle: r1(box.rot) } : {}) }));
             }
           } else if (isLine && line && !hasText) {
             // Линия: прямая — нашей линией или стрелкой, иначе SVG
@@ -944,11 +945,14 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
           const radius = prst === 'ellipse' ? 'circle' : prst === 'roundRect' ? r1(Math.min(box.w, box.h) * ((adjusts(kid(spPr, 'prstGeom')).adj ?? 16667) / 100000)) : undefined;
           const line = lineFor(el, spPr);
           // Углы — как в файле: у картинки PowerPoint они прямые, а не скруглены темой
-          const o: Obj = { type: 'image', src, fit: 'cover', radius: radius ?? 0, place: { x: r1(box.x), y: r1(box.y), w: r1(box.w), h: r1(box.h) } };
+          const o: Obj = { type: 'image', src, fit: 'cover', radius: radius ?? 0, ...blipAlpha(kid(blipFill, 'blip')), place: { x: r1(box.x), y: r1(box.y), w: r1(box.w), h: r1(box.h) } };
           if (line?.c) { o.stroke = hex(line.c); o.width = r1(line.w); }
           if (box.rot) o.angle = r1(box.rot);
           const shadow = shadowFor(el, spPr);
-          if (shadow) o.style = `filter:${shadow}`;
+          // Отражение — до поворота (поворот у рамки объекта), как в PowerPoint
+          const flip = box.flipH || box.flipV ? `transform:scale(${box.flipH ? -1 : 1},${box.flipV ? -1 : 1})` : '';
+          const st = [shadow ? `filter:${shadow}` : '', flip].filter(Boolean).join(';');
+          if (st) o.style = st;
           if (locked) o.locked = true;
           free.push(o);
           continue;
@@ -1272,6 +1276,13 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
         first!.fileBg = true;
       } catch { /* тон не посчитать — слайд остаётся в цветах файла */ }
     }
+    // Узоры образца и макета (полупрозрачные или крупные картинки) — тоже фон файла; логотипы остаются
+    for (const s of slides) {
+      for (const o of (s.free as Obj[] | undefined) ?? []) {
+        const pl = o.place as { w: number; h: number } | undefined;
+        if (o.type === 'image' && o.locked === true && pl && (Number(o.opacity ?? 1) < 1 || pl.w * pl.h >= SLIDE_W * SLIDE_H * 0.25)) o.fileBg = true;
+      }
+    }
     Object.assign(deck, fileTheme(slides, sch, slideMasters.map((m) => m === slideMasters[0])));
   }
   else {
@@ -1284,6 +1295,11 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
 }
 
 const HEX_ALL = /#[0-9A-F]{6}\b/g;
+/** Прозрачность картинки (alphaModFix у blip) → opacity объекта */
+const blipAlpha = (blip: El | null): Obj => {
+  const a = num(kid(blip, 'alphaModFix'), 'amt') ?? 100000;
+  return a < 99500 ? { opacity: Math.max(0.05, Math.round(a / 1000) / 100) } : {};
+};
 /** Закреплённая картинка на весь слайд — фон из файла */
 const fullImage = (o: Obj | undefined) => {
   const pl = o?.place as { x: number; y: number; w: number; h: number } | undefined;
@@ -1298,8 +1314,24 @@ const isHex6 = (v: unknown): v is string => typeof v === 'string' && /^#[0-9A-F]
  */
 function fileTheme(slides: Obj[], sch: (n: string) => string | undefined, main: boolean[]): Obj {
   const up = (h: string | undefined, def: string) => `#${(h && /^[0-9A-F]{6}$/i.test(h) ? h : def).toUpperCase()}`;
-  const bg = up(sch('bg1'), 'FFFFFF');
-  const tx = up(sch('tx1'), '000000');
+  // Фон и текст файла — какие на слайдах на самом деле (схема темы бывает не про них: у шаблонов
+  // Google Slides bg1 светлый, а слайды тёмные): самый частый фон основного образца и самый
+  // частый цвет текста, если он читается на этом фоне
+  const top1 = (m: Map<string, number>) => [...m].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const bgs = new Map<string, number>();
+  slides.forEach((s, i) => { if (main[i]) { const b = isHex6(s.bg) ? s.bg.toUpperCase() : up(sch('bg1'), 'FFFFFF'); bgs.set(b, (bgs.get(b) ?? 0) + 1); } });
+  const bg = top1(bgs) ?? up(sch('bg1'), 'FFFFFF');
+  const txs = new Map<string, number>();
+  slides.forEach((s, i) => {
+    if (!main[i]) return;
+    for (const o of (s.free as Obj[] | undefined) ?? []) {
+      const c = (o.styles as { text?: { color?: unknown } } | undefined)?.text?.color;
+      if (isHex6(c) && typeof o.text === 'string') txs.set(c.toUpperCase(), (txs.get(c.toUpperCase()) ?? 0) + o.text.length);
+    }
+  });
+  const txTop = top1(txs);
+  const txScheme = up(sch('tx1'), '000000');
+  const tx = txTop && contrast(txTop, bg) >= 3 ? txTop : contrast(txScheme, bg) >= 3 ? txScheme : (contrast('#FFFFFF', bg) > contrast('#000000', bg) ? '#FFFFFF' : '#000000');
   // Фон слайда, совпадающий с фоном темы, — от темы (у другой темы — её фон с узором)
   for (const s of slides) if (isHex6(s.bg) && s.bg.toUpperCase() === bg) delete s.bg;
   // Слайд с картинкой фоном, тон которой не посчитать: текст подобран к картинке — цвета как в файле

@@ -160,7 +160,7 @@ test('«Под темы Slideria»: картинка фоном — только
   const s = p.addSlide();
   s.background = { data: `image/png;base64,${png.toString('base64')}` };
   s.addText('Титул', { x: 1, y: 1, w: 8, h: 1, fontSize: 40, color: 'FFFFFF' });
-  p.addSlide().addText('Обычный слайд', { x: 1, y: 1, w: 8, h: 1, fontSize: 18, color: '000000' });
+  for (const t of ['Обычный слайд', 'Ещё один']) p.addSlide().addText(t, { x: 1, y: 1, w: 8, h: 1, fontSize: 18, color: '000000' });
   const d = (await convertPptx((await p.write({ outputType: 'nodebuffer' })) as Buffer, 'Фон.pptx', { adapt: true })).deck as Obj;
   const first = d.slides[0];
   expect(first.free[0]).toMatchObject({ type: 'image', locked: true, fileBg: true });
@@ -168,6 +168,22 @@ test('«Под темы Slideria»: картинка фоном — только
   // Слайд не исключается из перекраски: в другой теме вместо картинки — перекрашенный тон
   expect(first.recolor).toBeUndefined();
   expect(d.origin.colors).toContain('#203040');
+  // Фон и текст файла — по слайдам: белый фон большинства и чёрный текст
+  expect(d.origin).toMatchObject({ bg: '#FFFFFF', tx: '#000000' });
+});
+
+test('«Под темы Slideria»: фон и текст файла — по самим слайдам, а не по схеме темы', async () => {
+  const p = new PptxGenJS();
+  p.layout = 'LAYOUT_WIDE';
+  for (const t of ['Тёмный', 'Слайд', 'Ещё']) {
+    const s = p.addSlide();
+    s.background = { color: '101121' };
+    s.addText(t, { x: 1, y: 1, w: 8, h: 1, fontSize: 24, color: 'FFFFFF' });
+  }
+  const d = (await convertPptx((await p.write({ outputType: 'nodebuffer' })) as Buffer, 'Тёмная.pptx', { adapt: true })).deck as Obj;
+  // Схема темы pptxgenjs светлая, но слайды тёмные: тема файла — тёмная, светлый текст
+  expect(d.origin).toMatchObject({ bg: '#101121', tx: '#FFFFFF' });
+  expect(d.theme.mode).toBe('dark');
 });
 
 test('не PPTX — понятная ошибка', async () => {
