@@ -263,7 +263,9 @@ body.studio { background: var(--alt); }
 .st-peek { position: fixed; z-index: 41; width: max-content; padding: 8px; border-radius: 14px; background: var(--surf); border: 1px solid var(--bd); box-shadow: 0 24px 60px -18px rgba(15, 23, 42, .35); pointer-events: none;
   opacity: 0; transform: translateY(6px) scale(.98); transition: opacity .16s, transform .16s var(--ease); }
 .st-peek.on { opacity: 1; transform: none; }
-.st-peek-frame { position: relative; width: 440px; height: 248px; overflow: hidden; border-radius: 9px; background: radial-gradient(var(--bd) 1px, transparent 1px) 0 0 / 14px 14px, var(--bg); border: 1px solid var(--bd); }
+.st-peek-frame { position: relative; width: 440px; height: 248px; overflow: hidden; border-radius: 9px; background: var(--bg); border: 1px solid var(--bd); }
+/* Превью блока — на чистом фоне: без живого фона темы и логотипа в углу (их обрезки выглядят случайно) */
+:is(.st-peek-frame, .st-lib-prev) :is(.backdrop, .corner-logo) { display: none !important; }
 .st-peek-frame .thumb-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; background: none; }
 .st-peek-frame .slide { padding: 0; background: none !important; }
 .st-peek-frame img { position: absolute; inset: 12px; width: calc(100% - 24px); height: calc(100% - 24px); object-fit: contain; }
