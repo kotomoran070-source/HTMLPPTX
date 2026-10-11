@@ -129,7 +129,9 @@ export class Renderer {
         ? `--fx:${b.enter};--fx-ms:${Math.max(100, Math.min(4000, Math.round(Number(own.ms) || 600)))}ms;${typeof own.ease === 'string' && /^[\w\s().,-]+$/.test(own.ease) ? `--fx-ease:${own.ease};` : ''}`
         : '';
       const ang = angleOf(b);
-      const css = `left:${pl.x}px;top:${pl.y}px;width:${pl.w}px;${pl.h ? `height:${pl.h}px;` : ''}${ang ? `rotate:${ang}deg;` : ''}z-index:${10 + i};${delay}${ownCss}`;
+      // Таблица не бывает ниже своего текста (как в PowerPoint): заданная высота — наименьшая, строки растягиваются
+      const grow = b.type === 'table';
+      const css = `left:${pl.x}px;top:${pl.y}px;width:${pl.w}px;${pl.h ? `${grow ? 'min-height' : 'height'}:${pl.h}px;` : ''}${ang ? `rotate:${ang}deg;` : ''}z-index:${10 + i};${delay}${ownCss}`;
       // Закреплённый объект в редакторе не выделяется мышью (см. editor.css)
       const lock = b.locked === true ? ' locked' : '';
       // Действие по щелчку при показе: переход к слайду или ссылка
@@ -142,7 +144,7 @@ export class Renderer {
       const emph = (typeof b.emphasis === 'string' && (EMPHASIS as readonly string[]).includes(b.emphasis) ? ` data-emph="${b.emphasis}"` : '')
         // Числа в тексте отсчитываются от нуля при появлении (engine/count-up)
         + (b.count === true ? ' data-count' : '');
-      return `<div class="free${pl.h ? '' : ' auto-h'}${fx}${lock}${act ? ' act' : ''}${hid}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''}${obj}${emph}${hid ? ' data-hid' : ''}${click}${act ? ` data-action="${esc(act)}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
+      return `<div class="free${pl.h ? (grow ? ' grow-h' : '') : ' auto-h'}${fx}${lock}${act ? ' act' : ''}${hid}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''}${obj}${emph}${hid ? ' data-hid' : ''}${click}${act ? ` data-action="${esc(act)}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
     }).join('');
   }
 

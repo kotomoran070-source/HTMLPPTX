@@ -199,6 +199,7 @@ test('объединение ячеек; очищенная строка не с
   await page.keyboard.press('Escape');
   // Разделить: курсор в объединённой ячейке
   await page.locator('#st-canvas .slide.on td[colspan="2"]').click();
+  await page.locator('.st-tabs [data-tab="table"]').click();
   await page.locator('[data-cmd="table.split"]').click();
   await expect(page.locator('#st-canvas .slide.on td[colspan]')).toHaveCount(0);
   await expect.poll(() => (table(5) as { merges?: unknown }).merges).toBeUndefined();
@@ -219,5 +220,21 @@ test('объединение ячеек; очищенная строка не с
   await hField.fill('500');
   await hField.press('Enter');
   await expect.poll(async () => (await box.boundingBox())!.height).toBeGreaterThan(before * 1.5);
+  // Тянем нижний край выше текста — рамка останавливается на таблице и совпадает с ней
+  const handle = page.locator('#ed-frame .h-s');
+  const hb = (await handle.boundingBox())!;
+  await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(hb.x + hb.width / 2, hb.y - 600, { steps: 8 });
+  await page.mouse.up();
+  const free = page.locator('#st-canvas .slide.on > .free').first();
+  await expect.poll(async () => Math.abs((await free.boundingBox())!.height - (await box.boundingBox())!.height)).toBeLessThan(3);
+  await expect.poll(async () => Math.abs((await page.locator('#ed-frame').boundingBox())!.height - (await free.boundingBox())!.height)).toBeLessThan(4);
+  const saved = () => (table(5) as { place: { h?: number } }).place.h ?? 0;
+  // Записанная высота — та, что видна (таблица на слайде в масштабе), меньше прежних 500
+  const scale = (await page.locator('#st-canvas .slide.on').boundingBox())!.width / 1280;
+  const shown = (await free.boundingBox())!.height;
+  await expect.poll(() => Math.abs(saved() * scale - shown)).toBeLessThan(4);
+  expect(saved()).toBeLessThan(500);
   expect(errors).toEqual([]);
 });

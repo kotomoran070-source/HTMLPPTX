@@ -844,6 +844,8 @@ export class BlockEditor {
     const ratio = r0.w / r0.h;
     let cur = r0;
     let changedH = false;
+    // Таблица: ниже своего текста не сжимается — рамка останавливается на высоте содержимого
+    const grows = (getAt(this.host.deck(), s.free!) as { type?: string } | undefined)?.type === 'table';
     const move = (ev: PointerEvent) => {
       const sx = (ev.clientX - e.clientX) / k;
       const sy = (ev.clientY - e.clientY) / k;
@@ -876,7 +878,15 @@ export class BlockEditor {
         y += ey - (ex * sin + ey * cos);
       }
       cur = { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) };
-      Object.assign(s.el.style, { left: `${cur.x}px`, top: `${cur.y}px`, width: `${cur.w}px`, ...(changedH || start.h ? { height: `${cur.h}px` } : {}) });
+      if (grows) {
+        Object.assign(s.el.style, { left: `${cur.x}px`, width: `${cur.w}px`, height: '', minHeight: changedH || start.h ? `${cur.h}px` : '' });
+        const real = s.el.offsetHeight;
+        if (real > cur.h) {
+          cur.h = real;
+          if (dir.includes('n')) cur.y = r0.y + r0.h - real;
+        }
+        s.el.style.top = `${cur.y}px`;
+      } else Object.assign(s.el.style, { left: `${cur.x}px`, top: `${cur.y}px`, width: `${cur.w}px`, ...(changedH || start.h ? { height: `${cur.h}px` } : {}) });
       this.position();
     };
     const up = () => {
