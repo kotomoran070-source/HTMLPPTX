@@ -520,3 +520,29 @@ test('разметка текста ↔ правка: пустые строки 
   });
   for (const [a, b] of res) expect(b).toBe(a);
 });
+
+test('Delete: выделен объект — удаляется он, а не слайд (и после щелчка по миниатюре); ничего не выделено — слайд', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=math&studio#3');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  const thumbs = page.locator('.st-slides-list > *');
+  const n = await thumbs.count();
+  // Фокус на миниатюре, затем щелчок по объекту: клавиши — объекту
+  await thumbs.nth(2).click();
+  const obj = page.locator('#st-canvas .slide.on .free').filter({ hasText: 'Конец' });
+  await obj.click();
+  await page.keyboard.press('Delete');
+  await expect(obj).toHaveCount(0);
+  await expect(thumbs).toHaveCount(n);
+  await page.keyboard.press('Control+z');
+  await expect(obj).toHaveCount(1);
+  await expect.poll(() => readDeck('math')).toContain('text: Конец');
+  // Пустое место слайда — выделения нет: Delete удаляет слайд, Ctrl+Z возвращает
+  const s = (await page.locator('#st-canvas .slide.on').boundingBox())!;
+  await page.mouse.click(s.x + s.width - 20, s.y + s.height - 20);
+  await page.keyboard.press('Delete');
+  await expect(thumbs).toHaveCount(n - 1);
+  await page.keyboard.press('Control+z');
+  await expect(thumbs).toHaveCount(n);
+  expect(errors).toEqual([]);
+});

@@ -430,6 +430,10 @@ export class Editor {
       if (this.text.active && !this.text.owns(e.target as Node)) e.preventDefault();
     }, true);
     on(stage, 'pointerdown', (e) => {
+      // Фокус уходит со списка слайдов и панелей: иначе Delete и стрелки после щелчка по объекту
+      // достались бы им (удалили бы слайд), а не выделенному объекту
+      const a = document.activeElement;
+      if (a instanceof HTMLElement && a !== document.body && !stage.contains(a)) a.blur();
       if (this.text.active && this.text.owns(e.target as Node)) return;
       // Перемещение свободного объекта; иначе — сдвиг кадра выделенной картинки
       if (this.blocks.pointerDown(e, this.image.wantsPan(e))) {

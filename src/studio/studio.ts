@@ -2011,6 +2011,11 @@ export function startStudio(deck: Deck, deckKey: string): void {
     }
     if (typing) return;
     if (ed.handleKey(e)) return;
+    // Delete без выделения на слайде — удаляет сам слайд (выделенный объект удаляет редактор выше)
+    if (e.key === 'Delete' && !mod && !e.altKey && !e.shiftKey && count() > 1) {
+      e.preventDefault();
+      return ed.deleteSlide(index);
+    }
     if (mod && (k === 'g' || k === 'п')) {
       e.preventDefault();
       return run(e.shiftKey ? 'obj.ungroup' : 'obj.group');

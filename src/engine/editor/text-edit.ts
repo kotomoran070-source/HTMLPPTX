@@ -469,6 +469,7 @@ export class TextEditor {
     const s = this.s;
     if (!s) return;
     if (this.menu.classList.contains('on') && this.menu.dataset.kind === 'weight') {
+      tryFontOn(s.el, 'font-weight', null);
       this.menu.classList.remove('on');
       return;
     }
@@ -480,9 +481,18 @@ export class TextEditor {
     this.menu.innerHTML = `<div class="edmenu-title">Начертание</div>${row(0, 'Как в оформлении', 'Default')}<div class="edw-sep"></div>`
       + this.weights.map((w) => row(w, weightName(w), weightNameEn(w))).join('');
     this.menu.onmousedown = (e) => e.preventDefault();
+    // Примерка, как у шрифта: наведение — текст поля сразу этим начертанием; ушли — как было
+    const el = s.el;
+    const tryOn = (w: string | null) => tryFontOn(el, 'font-weight', w);
+    this.menu.onmouseover = (e) => {
+      const b = (e.target as Element).closest<HTMLElement>('[data-w]');
+      if (b) tryOn(b.dataset.w || '');
+    };
+    this.menu.onmouseleave = () => tryOn(null);
     this.menu.onclick = (e) => {
       const b = (e.target as Element).closest<HTMLElement>('[data-w]');
       if (!b || !this.s) return;
+      tryOn(null);
       this.setStyle({ weight: Number(b.dataset.w) || undefined });
       this.menu.classList.remove('on');
       this.s?.el.focus({ preventScroll: true });
@@ -708,6 +718,8 @@ export class TextEditor {
       markOwn();
     };
     this.menu.onmousedown = (e) => { if (!(e.target as Element).closest('input')) e.preventDefault(); };
+    this.menu.onmouseover = null;
+    this.menu.onmouseleave = null;
     this.menu.onclick = (e) => {
       const t = e.target as Element;
       if (!this.s) return;
@@ -834,6 +846,8 @@ export class TextEditor {
       this.setStyle(kind === 'leading' ? { leading: v } : { spacing: v });
     };
     this.menu.onmousedown = (e) => { if ((e.target as HTMLElement).tagName !== 'INPUT') e.preventDefault(); };
+    this.menu.onmouseover = null;
+    this.menu.onmouseleave = null;
     this.menu.onclick = (e) => {
       const b = (e.target as Element).closest<HTMLButtonElement>('button[data-v]');
       if (!b) return;
@@ -894,6 +908,8 @@ export class TextEditor {
       this.bar.querySelectorAll('.on').forEach((b) => b.classList.remove('on'));
     }
     this.colors.classList.remove('on');
+    // Примерка начертания снимается вместе с меню
+    this.menu.onmouseleave?.(new MouseEvent('mouseleave'));
     this.menu.classList.remove('on');
     this.widthHandle.classList.remove('on');
     fontPicker().close();
