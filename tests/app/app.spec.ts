@@ -44,6 +44,12 @@ test('первый запуск: «Моя первая презентация»,
     // «Экспорт → PDF» в приложении — файл PDF средствами Electron (а не окно печати), окно печати закрывается само
     await win.goto(win.url().replace(/\?all$/, '?deck=moya-pervaya-prezentaciya&studio'));
     await expect(win.locator('#st-canvas .slide')).not.toHaveCount(0);
+    // Окно с листами для PDF не появляется на экране
+    await app.evaluate(({ app: a }) => {
+      const g = globalThis as { shown?: number };
+      g.shown = 0;
+      a.on('browser-window-created', (_e, w) => w.once('show', () => { g.shown = (g.shown ?? 0) + 1; }));
+    });
     await win.locator('[data-cmd="file.export"]').first().click();
     await win.locator('[data-x="pdf"]').click();
     const pdf = path.join(saves, 'Моя первая презентация.pdf');
@@ -54,8 +60,18 @@ test('первый запуск: «Моя первая презентация»,
     const pages = (head.toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length;
     expect(pages).toBeGreaterThan(10);
     await expect.poll(() => app.windows().length).toBe(1);
+    expect(await app.evaluate(() => (globalThis as { shown?: number }).shown)).toBe(0);
     // Редактор говорит, что PDF готов и где он
     await expect(win.locator('#ed-toast')).toContainText('PDF сохранён');
+    // Показ — крупным окном (80 % экрана), в заголовке без значка
+    const [show] = await Promise.all([app.waitForEvent('window'), win.keyboard.press('F5')]);
+    await expect(show).toHaveTitle(/^Показ — /);
+    const size = await app.evaluate(({ BrowserWindow, screen }) => {
+      const w = BrowserWindow.getAllWindows().find((x) => x.getTitle().startsWith('Показ'))!;
+      return { w: w.getBounds().width, area: screen.getPrimaryDisplay().workArea.width };
+    });
+    expect(size.w).toBeGreaterThan(size.area * 0.7);
+    await show.close();
     // PowerPoint — скачиванием: сохраняется файлом
     await win.locator('[data-cmd="file.export"]').first().click();
     await win.locator('[data-x="pptx"]').click();

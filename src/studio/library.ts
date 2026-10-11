@@ -432,14 +432,6 @@ export const LIBRARY: Category[] = [
         name: 'Круговая', w: 480, pw: 340, make: () => ({ type: 'donut', hole: 0, values: [55, 30, 15], labels: ['Москва', 'Регионы', 'Другие страны'], unit: ' %' }),
       },
       {
-        name: 'Панель показателей', w: 1120, pw: 760, make: () => ({
-          type: 'grid', columns: '1.4fr 1fr', items: [
-            { type: 'card', title: 'Выручка и расходы, млн ₽', body: { type: 'lines', labels: ['Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт'], series: [{ name: 'Выручка', values: [2.1, 2.3, 2.2, 2.6, 2.9, 3.1, 3.4] }, { name: 'Расходы', values: [1.6, 1.7, 1.7, 1.8, 1.9, 2.0, 2.1] }] } },
-            { type: 'card', title: 'Структура расходов', body: { type: 'donut', values: [48, 27, 15, 10], labels: ['Зарплаты', 'Реклама', 'Аренда', 'Прочее'], unit: ' %', legend: 'bottom', center: '2,1', sub: 'млн ₽ в октябре' } },
-          ],
-        }),
-      },
-      {
         name: 'График в карточке', w: 620, pw: 420, make: () => ({
           type: 'card', title: 'Продажи по месяцам',
           body: { type: 'line-chart', values: [120, 128, 124, 141, 156, 151, 170, 186, 194, 218], start: 'январь', end: 'октябрь' },
@@ -457,14 +449,6 @@ export const LIBRARY: Category[] = [
         }),
       },
       { name: 'Столбцы', w: 520, pw: 340, make: () => ({ type: 'bars', values: [1.9, 1.7, 1.6, 1.4, 1.2], labels: ['Янв', 'Фев', 'Мар', 'Апр', 'Май'], height: 150 }) },
-      {
-        name: 'Два графика рядом', w: 1080, pw: 700, make: () => ({
-          type: 'grid', columns: 2, items: [
-            { type: 'card', title: 'Выручка, млн ₽', body: { type: 'line-chart', values: [2.1, 2.3, 2.2, 2.6, 2.9, 3.1, 3.4], start: 'апрель', end: 'октябрь' } },
-            { type: 'card', title: 'Время ответа, мин', body: { type: 'bars', values: [1.9, 1.7, 1.6, 1.4, 1.2], labels: ['Июн', 'Июл', 'Авг', 'Сен', 'Окт'], height: 150 } },
-          ],
-        }),
-      },
       {
         name: 'Доступность по дням', w: 620, pw: 320, make: () => ({
           type: 'uptime', threshold: 99.5,

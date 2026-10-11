@@ -5,7 +5,7 @@
 //   библиотека шрифтов и кэш Vite — папка данных приложения (%APPDATA%/Slideria).
 import fs from 'node:fs';
 import path from 'node:path';
-import { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, session, shell } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, screen, session, shell } from 'electron';
 import { FIX_FLAG, allowFirewall, runFirewallFix } from './firewall.mjs';
 import { lanGateway } from './lan.mjs';
 
@@ -152,7 +152,9 @@ ipcMain.handle('slideria:pdf', async (e, name) => {
   const file = `${fileName(name)}.pdf`;
   let out = process.env.SLIDERIA_SAVE_DIR ? path.join(process.env.SLIDERIA_SAVE_DIR, file) : '';
   if (!out) {
-    const win = BrowserWindow.fromWebContents(e.sender) ?? main;
+    // Окно PDF скрыто — диалог встаёт над редактором
+    const own = BrowserWindow.fromWebContents(e.sender);
+    const win = own?.isVisible() ? own : main ?? own;
     const r = await dialog.showSaveDialog(win, { title: 'Сохранить PDF', defaultPath: path.join(app.getPath('documents'), file), filters: [{ name: 'PDF', extensions: ['pdf'] }] });
     if (r.canceled || !r.filePath) return null;
     out = r.filePath;
@@ -163,11 +165,24 @@ ipcMain.handle('slideria:pdf', async (e, name) => {
   return out;
 });
 
+/** Новое окно (показ, заметки) — крупное, по центру экрана, где открыт редактор: 80 % рабочей области */
+function openSize(from) {
+  const area = screen.getDisplayMatching(from.getBounds()).workArea;
+  const width = Math.round(area.width * 0.8);
+  const height = Math.round(area.height * 0.8);
+  return { width, height, x: area.x + Math.round((area.width - width) / 2), y: area.y + Math.round((area.height - height) / 2) };
+}
+
 /** Общие правила для всех окон: свои страницы открываются окнами (показ, заметки), чужие — в браузере */
 function guard(win) {
-  win.webContents.setWindowOpenHandler(({ url }) => {
+  win.webContents.setWindowOpenHandler(({ url, frameName }) => {
     if (ours(url)) {
-      return { action: 'allow', overrideBrowserWindowOptions: { icon: ICON, autoHideMenuBar: true, backgroundColor: '#0b0d12', webPreferences: WEB } };
+      const base = { icon: ICON, autoHideMenuBar: true, backgroundColor: '#0b0d12', webPreferences: WEB };
+      // «Экспорт → PDF»: листы готовятся в невидимом окне, оно закрывается само (src/engine/print.ts)
+      if (frameName.startsWith('htmlpptx-print-')) {
+        return { action: 'allow', overrideBrowserWindowOptions: { ...base, show: false, webPreferences: { ...WEB, backgroundThrottling: false } } };
+      }
+      return { action: 'allow', overrideBrowserWindowOptions: { ...base, ...openSize(win) } };
     }
     if (/^https?:|^mailto:/i.test(url)) void shell.openExternal(url);
     return { action: 'deny' };
