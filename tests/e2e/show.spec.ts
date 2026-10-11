@@ -1,6 +1,6 @@
 // Показ: все слайды открываются без ошибок, тема, интерактив, ссылки между слайдами, морф
 import { expect, test } from '@playwright/test';
-import { counter, watchErrors } from './helpers';
+import { counter, nextTo, watchErrors } from './helpers';
 
 test.use({ colorScheme: 'light' });
 
@@ -12,7 +12,7 @@ for (const deck of ['tpl', 'slideria']) {
     const [, n] = await counter(page);
     expect(n).toBeGreaterThan(5);
     for (let i = 2; i <= n; i++) {
-      await page.keyboard.press('PageDown');
+      await nextTo(page, i);
       await expect(page.locator('#ct')).toHaveText(`${i} из ${n}`);
       // На каждом слайде что-то видно: пустой слайд — признак сломанного компонента
       await expect(page.locator('.slide.on')).toBeVisible();

@@ -16,7 +16,7 @@ test('студия открывается, слайды и свойства на
 });
 
 test('свой блок: «Сохранить как шаблон…» → «Блоки» → «Мои шаблоны»', async ({ page }) => {
-  await page.goto('/?deck=tpl&studio#16');
+  await page.goto('/?deck=tpl&studio#20');
   await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
   // Первый свободный объект на видимом слайде
   const obj = page.locator('#st-canvas .free').filter({ hasText: 'Свои блоки', visible: true }).first();
@@ -37,7 +37,7 @@ test('свой блок: «Сохранить как шаблон…» → «Б�
 });
 
 test('меню «Цвет» картинки заканчивается над «Настройкой»', async ({ page }) => {
-  await page.goto('/?deck=tpl&studio#14');
+  await page.goto('/?deck=tpl&studio#19');
   await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
   const img = page.locator('#st-canvas .slide img').filter({ visible: true }).nth(1);
   await img.click();
@@ -188,7 +188,8 @@ test('«Мои темы»: оформление сохраняется темо�
 
 test('живой фон не перехватывает мышь: логотип разобранного титула выделяется и растёт целиком', async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto('/?deck=design&studio#1');
+  // Титул шаблоном cover с живым фоном — последний слайд (см. tests/prepare.mjs)
+  await page.goto('/?deck=design&studio#26');
   await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
   await page.locator('[data-cmd="obj.ungroup"]').click();
   const logo = page.locator('#st-canvas .slide.on > .free').filter({ has: page.locator('.logo') });
@@ -384,8 +385,8 @@ test('стили · CSS: правка @keyframes доходит до слайд�
   await expect.poll(() => readDeck('math')).toContain('opacity: 0.5 }');
   expect(errors).toEqual([]);
 
-  // Титульный слайд — не холст: стили презентации на нём не видны, и это сказано
-  await page.goto('/?deck=tpl&studio#1');
+  // Обычный слайд — не холст: стили презентации на нём не видны, и это сказано
+  await page.goto('/?deck=tpl&studio#2');
   await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
   await page.keyboard.press('Control+Backquote');
   await page.locator('.st-code-bar [data-mode="css"]').click();

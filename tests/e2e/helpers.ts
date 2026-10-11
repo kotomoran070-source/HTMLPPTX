@@ -39,6 +39,19 @@ export async function counter(page: Page): Promise<[number, number]> {
   return m ? [Number(m[1]), Number(m[2])] : [0, 0];
 }
 
+/**
+ * «Далее» до слайда i: шаги слайда (объекты «Ждёт щелчка», формула по шагам) тоже идут по «Далее»,
+ * поэтому нажатий может быть больше одного
+ */
+export async function nextTo(page: Page, i: number): Promise<void> {
+  for (let k = 0; k < 12 && (await counter(page))[0] < i; k++) {
+    const was = (await counter(page))[0];
+    await page.keyboard.press('PageDown');
+    // Слайд сменился или шаг показан — следующее нажатие только после этого
+    await page.waitForFunction((w) => { const m = /(\d+) из/.exec(document.querySelector('#ct')?.textContent ?? ''); return !m || Number(m[1]) !== w; }, was, { timeout: 600 }).catch(() => {});
+  }
+}
+
 /** PNG 1×1 — для загрузки картинки */
 export const PNG = [...Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')];
 

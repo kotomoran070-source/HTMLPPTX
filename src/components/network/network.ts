@@ -27,7 +27,9 @@ defineBlock<NetworkProps>('network', {
         + `<rect class="ndv" x="${x - 14}" y="${y - 14}" width="28" height="28" rx="7"/>`
         + `<circle class="sta" cx="${x}" cy="${y}" r="3.5"/>`;
       if (pulses) {
-        o += `<circle class="pk" r="3.5"><animateMotion dur="2.6s" begin="${(k * 0.37).toFixed(2)}s" repeatCount="indefinite" path="M${x} ${y} L${cx} ${cy}"/></circle>`;
+        // Сдвиг по фазе — отрицательным началом: импульс сразу в пути. С положительной задержкой
+        // кружок до старта стоял в левом верхнем углу схемы (у него нет своих координат)
+        o += `<circle class="pk" r="3.5"><animateMotion dur="2.6s" begin="-${(2.6 - ((k * 0.37) % 2.6)).toFixed(2)}s" repeatCount="indefinite" path="M${x} ${y} L${cx} ${cy}"/></circle>`;
       }
     }
     o += `<rect class="sta" x="${cx - 18}" y="${cy - 18}" width="36" height="36" rx="9"/>`

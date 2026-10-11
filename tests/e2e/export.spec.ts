@@ -4,7 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import JSZip from 'jszip';
 import { expect, test } from '@playwright/test';
-import { DECKS, counter, readDeck, watchErrors } from './helpers';
+import { DECKS, counter, nextTo, readDeck, watchErrors } from './helpers';
 
 const OUT = path.resolve('.tmp', 'test-export');
 
@@ -32,7 +32,7 @@ test('HTML для показа: один файл, без сервера, все
   const [, n] = await counter(page);
   expect(n).toBeGreaterThan(15);
   for (let i = 2; i <= n; i++) {
-    await page.keyboard.press('PageDown');
+    await nextTo(page, i);
     await expect(page.locator('#ct')).toHaveText(`${i} из ${n}`);
   }
   await expect(page.locator('#ed-btn')).toHaveCount(0);

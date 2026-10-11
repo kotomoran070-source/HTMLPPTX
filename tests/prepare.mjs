@@ -40,7 +40,14 @@ slides:
 // design — стартовый шаблон для вкладки «Дизайн» (темы меняют всю презентацию)
 fs.cpSync(path.join(root, 'templates', 'basic'), path.join(dir, 'design'), { recursive: true });
 const dfile = path.join(dir, 'design', 'deck.yaml');
-fs.writeFileSync(dfile, fs.readFileSync(dfile, 'utf8').replaceAll('{{title}}', 'Темы'));
+// В конце — титул шаблоном cover с живым фоном: его разбирают на объекты
+fs.writeFileSync(dfile, `${fs.readFileSync(dfile, 'utf8').replaceAll('{{title}}', 'Темы').trimEnd()}
+  - id: classic
+    template: cover
+    backdrop: aurora
+    title: Титул шаблоном
+    lead: Разбирается на объекты
+`);
 // schemes — новые блоки-схемы, по слайду на каждый
 fs.mkdirSync(path.join(dir, 'schemes'));
 fs.copyFileSync(path.join(root, 'tests', 'e2e', 'schemes.yaml'), path.join(dir, 'schemes', 'deck.yaml'));
