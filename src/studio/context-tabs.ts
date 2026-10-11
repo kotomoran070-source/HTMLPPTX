@@ -11,6 +11,7 @@ import { esc } from '../engine/html';
 import { frameCss } from '../engine/marks';
 import type { Block, Deck } from '../types';
 import { showMenu, showPopover, type MenuEntry } from './menu';
+import { cellAnchor, cellOf, cellRange, colCount, tableCells, type CellRange } from './table-cells';
 
 /**
  * Контекстные вкладки ленты, как «Формат фигуры» и «Макет таблицы» в PowerPoint:
@@ -67,6 +68,17 @@ const group = (label: string, body: string) =>
 const row = (...b: string[]) => `<div class="st-rrow">${b.join('')}</div>`;
 const stack = (...b: string[]) => `<div class="st-rstack">${b.join('')}</div>`;
 
+/** Кнопка с меню, как в PowerPoint: щелчок — на шаг, стрелка — варианты (команда `${cmd}-menu`) */
+const split = (cmd: string, ic: string, label: string, title: string, menuTitle: string) =>
+  `<span class="st-rsplit">${btn(cmd, ic, label, { title })}`
+  + `<button type="button" class="st-rb st-split-m" data-cmd="${cmd}-menu" data-pal="skip" title="${esc(menuTitle)}" aria-label="${esc(menuTitle)}" aria-haspopup="menu"><b class="st-caret"></b></button></span>`;
+
+/** «Упорядочить» — на каждой вкладке объекта, как «Упорядочение» в PowerPoint */
+const ORDER = group('Упорядочить', stack(
+  split('obj.forward', 'front', 'Вперёд', 'Переместить вперёд — над ближайшим объектом (Ctrl+])', 'Вперёд: на шаг или на передний план'),
+  split('obj.backward', 'back', 'Назад', 'Переместить назад — под ближайший объект (Ctrl+[)', 'Назад: на шаг или на задний план'),
+));
+
 const KINDS: [string, string, string][] = [
   ['round', 'sh-round', 'Скруглённый'], ['rect', 'sh-rect', 'Прямоугольник'], ['pill', 'sh-pill', 'Капсула'],
   ['ellipse', 'sh-ellipse', 'Овал'], ['line', 'sh-line', 'Линия'], ['arrow', 'sh-arrow', 'Стрелка'],
@@ -121,18 +133,22 @@ export function contextPanelsHtml(): string {
     ))}
   ${group('Эффекты', stack(btn('shape.shadow', 'shadow', 'Тень', { menu: true }), btn('shape.radius', 'corner', 'Скругление', { menu: true }))
     + stack(btn('shape.rotate', 'rotate', 'Поворот', { menu: true }), btn('shape.opacity', 'opacity', 'Прозрачность', { menu: true })))}
+  ${ORDER}
 </div>
 <div class="st-rpanel" data-panel="table" hidden>
-  ${group('Стиль таблицы', `<div class="st-gallery t">${VARIANTS.map(tableTile).join('')}</div>`)}
-  ${group('Показать', stack(btn('table.head', '', 'Строка заголовка', { chk: true }), btn('table.labels', '', 'Первый столбец', { chk: true, title: 'Выделить первый столбец' }))
-    + stack(btn('table.total', '', 'Итоговая строка', { chk: true, title: 'Последняя строка как итог' }), btn('table.highlight', '', 'Выделить строку', { chk: true, title: 'Выделить текущую строку' })))}
-  ${group('Строки и столбцы', stack(btn('table.row.above', 'row-above', 'Вставить сверху'), btn('table.row.below', 'row-below', 'Вставить снизу'))
+  ${group('Стиль таблицы', `<div class="st-gallery t">${VARIANTS.map(tableTile).join('')}</div>` + btn('table.fill', 'fill', 'Заливка', { big: true, menu: true, title: 'Цвет выделенных ячеек (протяните мышью по ячейкам или Shift+щелчок)' }))}
+  ${group('Показать', stack(btn('table.head', '', 'Строка заголовка', { chk: true }), btn('table.total', '', 'Строка итогов', { chk: true, title: 'Последняя строка как итог' }), btn('table.bands', '', 'Чередующиеся строки', { chk: true }))
+    + stack(btn('table.labels', '', 'Первый столбец', { chk: true, title: 'Первый столбец жирным' }), btn('table.lastcol', '', 'Последний столбец', { chk: true, title: 'Последний столбец жирным' }), btn('table.highlight', '', 'Выделить строку', { chk: true, title: 'Выделить строку с курсором' })))}
+  ${group('Строки и столбцы', btn('table.select', 'cursor', 'Выделить', { big: true, menu: true, title: 'Выделить строку, столбец или всю таблицу' })
+    + stack(btn('table.row.above', 'row-above', 'Вставить сверху'), btn('table.row.below', 'row-below', 'Вставить снизу'))
     + stack(btn('table.col.left', 'col-left', 'Вставить слева'), btn('table.col.right', 'col-right', 'Вставить справа'))
     + btn('table.del', 'table-del', 'Удалить', { big: true, menu: true, title: 'Удалить строку, столбец или таблицу' }))}
   ${group('Ячейки', stack(
-    row(btn('table.align.left', 'align-left', 'Столбец — по левому краю', { ico: true }), btn('table.align.center', 'align-center', 'Столбец — по центру', { ico: true }), btn('table.align.right', 'align-right', 'Столбец — по правому краю', { ico: true })),
+    row(btn('table.align.left', 'align-left', 'Столбцы — по левому краю', { ico: true }), btn('table.align.center', 'align-center', 'Столбцы — по центру', { ico: true }), btn('table.align.right', 'align-right', 'Столбцы — по правому краю', { ico: true })),
+    row(btn('table.valign.top', 'v-top', 'В ячейках — сверху', { ico: true }), btn('table.valign.middle', 'v-middle', 'В ячейках — посередине', { ico: true }), btn('table.valign.bottom', 'v-bottom', 'В ячейках — снизу', { ico: true })),
     btn('table.cols.equal', 'eq-cols', 'Выровнять ширину', { title: 'Одинаковая ширина столбцов' }),
   ) + stack(btn('table.density', 'density', 'Плотность', { menu: true, title: 'Отступы в ячейках' }), row(btn('table.size.up', 'text-up', 'Крупнее', { ico: true }), btn('table.size.down', 'text-down', 'Мельче', { ico: true }))))}
+  ${ORDER}
 </div>
 <div class="st-rpanel" data-panel="image" hidden>
   ${group('Стили рисунка', `<div class="st-gallery">${IMAGE_STYLES.map(imageTile).join('')}</div>`)}
@@ -143,12 +159,14 @@ export function contextPanelsHtml(): string {
   ${group('Кадр', btn('image.crop', 'crop', 'Кадр', { big: true, title: 'Сдвинуть снимок внутри рамки, как «Обрезка» в PowerPoint: тяните картинку. Масштаб — на панели над картинкой. Готово — Esc' }))}
   ${group('Сброс', btn('image.reset', 'reset', 'Сбросить', { big: true, title: 'Убрать всё оформление рисунка' }))}
   ${group('Файл', btn('obj.picture', 'save', 'Сохранить', { big: true, title: 'Сохранить как рисунок: PNG с прозрачным фоном, с кадром, цветом и рамкой' }))}
+  ${ORDER}
 </div>
 <div class="st-rpanel" data-panel="video" hidden>
   ${group('Воспроизведение', stack(btn('video.autoplay', '', 'Запуск со слайдом', { chk: true, title: 'Ролик запускается, когда открывается слайд' }), btn('video.muted', '', 'Без звука', { chk: true }))
     + stack(btn('video.loop', '', 'По кругу', { chk: true }), btn('video.controls', '', 'Кнопки плеера', { chk: true, title: 'Кнопки плеера при наведении' })))}
   ${group('Кадр', btn('video.fit', 'crop', 'Заполнить', { big: true, title: 'Заполнить рамку целиком (края ролика обрезаются) или показать ролик полностью' }))}
   ${group('Цветокоррекция', btn('video.grade', 'sliders', 'Цвет+', { big: true, title: 'Цветокоррекция ролика: круги, кривые, HSL, LUT, цвета бренда. Применяется при показе, файл не меняется' }))}
+  ${ORDER}
 </div>`;
 }
 
@@ -537,108 +555,208 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     });
   };
 
-  // ---------- таблица: ячейка, в которой был курсор ----------
+  // ---------- таблица: ячейка с курсором и выделенный диапазон ячеек (table-cells) ----------
+  const cells = tableCells({ deck: () => deck, editor: () => ed, stage: h.stage });
   let lastCell: { table: string; r: number; c: number } | null = null;
+  const tableKey = () => JSON.stringify(targets('table')[0] ?? null);
   const cell = (): { r: number; c: number } => {
+    const key = tableKey();
+    const editing = cellOf(ed.editingField);
+    if (editing?.table === key) return editing;
+    const a = cellAnchor();
+    if (a?.table === key) return a;
     const t = first('table');
     const rows = (t?.rows as unknown[][] | undefined) ?? [];
-    const last = { r: rows.length - 1, c: Math.max(0, ((t?.header as unknown[]) ?? rows[0] ?? []).length - 1) };
-    if (!lastCell || lastCell.table !== JSON.stringify(targets('table')[0])) return last;
-    return { r: lastCell.r, c: lastCell.c };
+    if (lastCell?.table === key) return lastCell;
+    return { r: rows.length - 1, c: Math.max(0, ((t?.header as unknown[]) ?? rows[0] ?? []).length - 1) };
   };
+  /** Выделенные ячейки или одна — с курсором */
+  const span = (): CellRange => {
+    const r = cellRange();
+    if (r && r.table === tableKey()) return r;
+    const at = cell();
+    return { table: tableKey(), r0: at.r, r1: at.r, c0: at.c, c1: at.c };
+  };
+  // Первое нажатие на ещё не выделенную таблицу (дальше ячейки ведёт table-cells)
   h.stage().addEventListener('pointerdown', (e) => {
-    const el = (e.target as Element).closest<HTMLElement>('td[data-edit], th[data-edit]');
-    const tbl = el?.closest<HTMLElement>('[data-type="table"]');
-    if (!el || !tbl) return;
-    try {
-      const p = JSON.parse(el.getAttribute('data-edit')!) as Path;
-      const isHead = p[p.length - 2] === 'header';
-      lastCell = { table: tbl.getAttribute('data-block')!, r: isHead ? -1 : Number(p[p.length - 2]), c: Number(p[p.length - 1]) };
-    } catch { /* не ячейка */ }
+    const at = cellOf(e.target as Element);
+    if (at) lastCell = at;
   }, true);
 
-  type TableData = { header?: unknown[]; rows: unknown[][]; widths?: number[]; align?: string[] } & Record<string, unknown>;
-  const editTable = (fn: (t: TableData, at: { r: number; c: number }) => void) => {
+  type TableData = { header?: unknown[]; rows: unknown[][]; widths?: number[]; align?: string[]; fills?: unknown[][]; headFills?: unknown[] } & Record<string, unknown>;
+  const editTable = (fn: (t: TableData, at: CellRange) => void) => {
     const p = targets('table')[0];
     if (!p) return;
-    const at = cell();
+    const at = span();
     ed.commit((d) => {
       const t = getAt(d, p) as TableData;
       t.rows = Array.isArray(t.rows) ? t.rows : [];
       fn(t, at);
+      // Заливка без единого цвета не хранится
+      if (Array.isArray(t.fills) && !t.fills.some((r) => Array.isArray(r) && r.some((v) => v))) delete t.fills;
+      if (Array.isArray(t.headFills) && !t.headFills.some((v) => v)) delete t.headFills;
     }, { rebuild: true });
   };
-  const cols = (t: { header?: unknown[]; rows: unknown[][] }) => Math.max(t.header?.length ?? 0, ...t.rows.map((r) => r.length), 1);
+  const cols = colCount;
+  /** Столбцовые списки таблицы: ширины, выравнивание, заливка шапки и строк */
+  const colLists = (t: TableData): unknown[][] => [t.widths, t.align, t.headFills, ...(Array.isArray(t.fills) ? t.fills : [])].filter(Array.isArray) as unknown[][];
+  const many = (n: number, what: [string, string, string]) => (n > 1 ? `${what[1]} (${n})` : what[0]);
   const addRow = (below: boolean) => editTable((t, at) => {
-    const i = Math.max(0, Math.min(t.rows.length, at.r + (below ? 1 : 0)));
-    t.rows.splice(i, 0, Array.from({ length: cols(t) }, () => ''));
+    const n = at.r1 - Math.max(0, at.r0) + 1;
+    const i = Math.max(0, Math.min(t.rows.length, below ? at.r1 + 1 : Math.max(0, at.r0)));
+    t.rows.splice(i, 0, ...Array.from({ length: n }, () => Array.from({ length: cols(t) }, () => '')));
+    if (Array.isArray(t.fills) && t.fills.length > i) t.fills.splice(i, 0, ...Array.from({ length: n }, () => []));
     // Выделенная строка остаётся той же строкой данных
-    if (Number.isInteger(t.highlight) && Number(t.highlight) >= i) t.highlight = Number(t.highlight) + 1;
+    if (Number.isInteger(t.highlight) && Number(t.highlight) >= i) t.highlight = Number(t.highlight) + n;
+    cells.select(null);
     lastCell = null;
   });
   const addCol = (right: boolean) => editTable((t, at) => {
-    const i = at.c + (right ? 1 : 0);
-    const n = cols(t);
-    t.header?.splice(i, 0, 'Столбец');
-    t.rows.forEach((r) => { while (r.length < n) r.push(''); r.splice(i, 0, ''); });
+    const n = at.c1 - at.c0 + 1;
+    const i = right ? at.c1 + 1 : at.c0;
+    const have = cols(t);
+    const avg = Array.isArray(t.widths) ? Math.round((t.widths.reduce((a, b) => a + Number(b), 0) / t.widths.length) * 100) / 100 : 0;
+    t.header?.splice(i, 0, ...Array.from({ length: n }, () => 'Столбец'));
+    t.rows.forEach((r) => { while (r.length < have) r.push(''); r.splice(i, 0, ...Array.from({ length: n }, () => '')); });
     // Новый столбец — средней ширины среди остальных
-    if (Array.isArray(t.widths)) t.widths.splice(i, 0, Math.round((t.widths.reduce((a, b) => a + Number(b), 0) / t.widths.length) * 100) / 100);
-    if (Array.isArray(t.align)) t.align.splice(i, 0, '');
+    if (Array.isArray(t.widths)) t.widths.splice(i, 0, ...Array.from({ length: n }, () => avg));
+    if (Array.isArray(t.align)) t.align.splice(i, 0, ...Array.from({ length: n }, () => ''));
+    for (const list of [t.headFills, ...(Array.isArray(t.fills) ? t.fills : [])]) if (Array.isArray(list) && list.length > i) list.splice(i, 0, ...Array.from({ length: n }, () => null));
+    cells.select(null);
     lastCell = null;
   });
   const delRow = () => editTable((t, at) => {
-    if (at.r < 0 || t.rows.length < 2) return;
-    t.rows.splice(at.r, 1);
+    const from = Math.max(0, at.r0);
+    const n = Math.min(at.r1 - from + 1, t.rows.length - 1);
+    if (at.r1 < 0 || n < 1) return;
+    t.rows.splice(from, n);
+    if (Array.isArray(t.fills)) t.fills.splice(from, n);
     const hl = Number(t.highlight);
     if (Number.isInteger(t.highlight)) {
-      if (hl === at.r) delete t.highlight;
-      else if (hl > at.r) t.highlight = hl - 1;
+      if (hl >= from && hl < from + n) delete t.highlight;
+      else if (hl >= from + n) t.highlight = hl - n;
     }
+    cells.select(null);
     lastCell = null;
   });
   const delCol = () => editTable((t, at) => {
-    if (cols(t) < 2) return;
-    t.header?.splice(at.c, 1);
-    t.rows.forEach((r) => r.splice(at.c, 1));
-    for (const k of ['widths', 'align'] as const) { const a = t[k]; if (Array.isArray(a)) a.splice(at.c, 1); }
+    const n = Math.min(at.c1 - at.c0 + 1, cols(t) - 1);
+    if (n < 1) return;
+    t.header?.splice(at.c0, n);
+    t.rows.forEach((r) => r.splice(at.c0, n));
+    for (const list of colLists(t)) list.splice(at.c0, n);
+    cells.select(null);
     lastCell = null;
   });
+  /** Заливка выделенных ячеек: цвет темы, свой #RRGGBB или undefined — как у таблицы */
+  const fillCells = (v: string | undefined) => editTable((t, at) => {
+    for (let r = at.r0; r <= at.r1; r++) {
+      let row: unknown[];
+      if (r < 0) row = Array.isArray(t.headFills) ? t.headFills : (t.headFills = []);
+      else {
+        const fills = Array.isArray(t.fills) ? t.fills : (t.fills = []);
+        while (fills.length <= r) fills.push([]);
+        row = Array.isArray(fills[r]) ? fills[r] : (fills[r] = []);
+      }
+      for (let c = at.c0; c <= at.c1; c++) {
+        while (row.length <= c) row.push(null);
+        row[c] = v ?? null;
+      }
+    }
+  });
+  const fillOfCell = (): string | undefined => {
+    const t = first('table') as TableData | null;
+    const at = span();
+    const v = at.r0 < 0 ? t?.headFills?.[at.c0] : (t?.fills?.[at.r0] as unknown[] | undefined)?.[at.c0];
+    return typeof v === 'string' ? v : undefined;
+  };
+  const tableFill = () => {
+    const cur = fillOfCell();
+    const sw = (v: string, css: string, name: string) =>
+      `<button type="button" class="st-psw${cur === v ? ' on' : ''}" data-v="${esc(v)}" style="--c:${css}" title="${esc(name)}" aria-label="${esc(name)}"></button>`;
+    const theme = Object.entries(SHAPE_COLORS).filter(([v]) => v !== 'bg').map(([v, c]) => sw(v, c.css, c.name)).join('');
+    const html = `<button type="button" class="st-pnone${cur ? '' : ' on'}" data-v="none">${icon('close')}<span>Как у таблицы</span></button>
+      <div class="st-plabel">Цвета темы</div><div class="st-pgrid">${theme}</div>
+      <div class="st-plabel">Постоянные</div><div class="st-pgrid">${SHAPE_SWATCHES.map((c) => sw(c, c, c)).join('')}</div>
+      <button type="button" class="st-pmore" data-v="custom"><i style="background:conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)"></i><span>Другой цвет…</span></button>`;
+    showPopover(anchor('table.fill'), html, (el) => {
+      const v = el.dataset.v;
+      if (v === 'custom') {
+        return {
+          run: () => {
+            const input = document.createElement('input');
+            input.type = 'color';
+            if (cur && /^#[0-9a-f]{6}$/i.test(cur)) input.value = cur;
+            input.addEventListener('change', () => fillCells(input.value.toUpperCase()));
+            input.click();
+          },
+        };
+      }
+      return v ? { run: () => fillCells(v === 'none' ? undefined : v) } : null;
+    });
+  };
+  /** Выделить строку, столбец или всю таблицу (как «Выделить» в PowerPoint) */
+  const selectCells = (what: 'row' | 'col' | 'all') => {
+    const t = first('table') as TableData | null;
+    if (!t) return;
+    const at = span();
+    const top = Array.isArray(t.header) && t.head !== false ? -1 : 0;
+    const last = { r: (t.rows?.length ?? 1) - 1, c: cols(t) - 1 };
+    cells.select({
+      table: at.table,
+      r0: what === 'col' || what === 'all' ? top : at.r0,
+      r1: what === 'col' || what === 'all' ? last.r : at.r1,
+      c0: what === 'row' || what === 'all' ? 0 : at.c0,
+      c1: what === 'row' || what === 'all' ? last.c : at.c1,
+    });
+  };
   /**
-   * Подсветка того, что удалится: строка (r), столбец (c) или вся таблица — пока пункт меню под мышью.
+   * Подсветка того, что удалится: строки, столбцы или вся таблица — пока пункт меню под мышью.
    * Строка шапки — r = -1.
    */
   const killMark = (what: 'row' | 'col' | 'all', on: boolean) => {
-    const box = h.stage().querySelector<HTMLElement>(`.slide.on [data-block="${CSS.escape(JSON.stringify(targets('table')[0] ?? ''))}"]`);
+    const box = h.stage().querySelector<HTMLElement>(`.slide.on [data-block="${CSS.escape(tableKey())}"]`);
     const tbl = box?.querySelector('table');
     if (!box || !tbl) return;
     box.querySelectorAll('.tbl-kill').forEach((x) => x.classList.remove('tbl-kill'));
     box.classList.remove('tbl-kill-all');
     if (!on) return;
-    const at = cell();
+    const at = span();
     if (what === 'all') box.classList.add('tbl-kill-all');
-    else if (what === 'row') tbl.tBodies[0]?.rows[at.r]?.querySelectorAll('td').forEach((x) => x.classList.add('tbl-kill'));
-    else [...tbl.rows].forEach((tr) => tr.cells[at.c]?.classList.add('tbl-kill'));
+    else if (what === 'row') for (let r = Math.max(0, at.r0); r <= at.r1; r++) tbl.tBodies[0]?.rows[r]?.querySelectorAll('td').forEach((x) => x.classList.add('tbl-kill'));
+    else [...tbl.rows].forEach((tr) => { for (let c = at.c0; c <= at.c1; c++) tr.cells[c]?.classList.add('tbl-kill'); });
   };
   /** Меню таблицы: правый щелчок по ячейке и кнопка «Удалить» на ленте */
   const tableItems = (withInsert: boolean): MenuEntry[] => {
     const t = first('table');
     const rows = ((t?.rows as unknown[]) ?? []).length;
-    const at = cell();
+    const at = span();
+    const nr = at.r1 - Math.max(0, at.r0) + 1;
+    const nc = at.c1 - at.c0 + 1;
     const nCols = cols({ header: t?.header as unknown[], rows: (t?.rows as unknown[][]) ?? [] });
+    const range = cellRange()?.table === tableKey();
     return [
       ...(withInsert ? [
-        { label: 'Вставить строку сверху', icon: 'row-above', run: () => addRow(false) },
-        { label: 'Вставить строку снизу', icon: 'row-below', run: () => addRow(true) },
-        { label: 'Вставить столбец слева', icon: 'col-left', run: () => addCol(false) },
-        { label: 'Вставить столбец справа', icon: 'col-right', run: () => addCol(true) },
+        { label: many(nr, ['Вставить строку сверху', 'Вставить строки сверху', '']), icon: 'row-above', run: () => addRow(false) },
+        { label: many(nr, ['Вставить строку снизу', 'Вставить строки снизу', '']), icon: 'row-below', run: () => addRow(true) },
+        { label: many(nc, ['Вставить столбец слева', 'Вставить столбцы слева', '']), icon: 'col-left', run: () => addCol(false) },
+        { label: many(nc, ['Вставить столбец справа', 'Вставить столбцы справа', '']), icon: 'col-right', run: () => addCol(true) },
         null,
+        ...(range ? [{ label: 'Очистить ячейки', icon: 'close', hint: 'Delete', run: () => { fillCellsText(''); } }] : []),
       ] : []),
-      { label: at.r < 0 ? 'Удалить строку (шапку скрывает «Строка заголовка»)' : 'Удалить строку', icon: 'row-del', disabled: rows < 2 || at.r < 0, run: delRow, preview: (on) => killMark('row', on) },
-      { label: 'Удалить столбец', icon: 'col-del', disabled: nCols < 2, run: delCol, preview: (on) => killMark('col', on) },
+      { label: at.r1 < 0 ? 'Удалить строку (шапку скрывает «Строка заголовка»)' : many(nr, ['Удалить строку', 'Удалить строки', '']), icon: 'row-del', disabled: rows < 2 || at.r1 < 0 || nr >= rows, run: delRow, preview: (on) => killMark('row', on) },
+      { label: many(nc, ['Удалить столбец', 'Удалить столбцы', '']), icon: 'col-del', disabled: nCols < 2 || nc >= nCols, run: delCol, preview: (on) => killMark('col', on) },
       null,
       { label: 'Удалить таблицу', icon: 'trash', danger: true, run: () => h.run('obj.del'), preview: (on) => killMark('all', on) },
     ];
   };
+  /** Текст выделенных ячеек (очистить — пустая строка) */
+  const fillCellsText = (v: string) => editTable((t, at) => {
+    for (let r = at.r0; r <= at.r1; r++) {
+      const row = r < 0 ? t.header : t.rows[r];
+      if (Array.isArray(row)) for (let c = at.c0; c <= at.c1 && c < row.length; c++) row[c] = v;
+    }
+  });
   tableMenuFn = () => (isTable() ? tableItems(true) : []);
 
   /** Выравнивание столбца с курсором: заданное или то, что таблица выбрала сама (числа — вправо) */
@@ -694,6 +812,21 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     'table.highlight': {
       run: () => { const at = cell(); setAll('table', 'highlight', first('table')?.highlight === at.r || at.r < 0 ? undefined : at.r); },
       enabled: isTable, active: () => isTable() && Number.isInteger(first('table')?.highlight),
+    },
+    'table.lastcol': { run: () => setAll('table', 'lastcol', first('table')?.lastcol ? undefined : true), enabled: isTable, active: () => !!first('table')?.lastcol },
+    'table.bands': {
+      // Зебра у вида «Полосы» уже есть; у остальных — флажок
+      run: () => setAll('table', 'bands', first('table')?.bands ? undefined : true),
+      enabled: () => isTable() && first('table')?.variant !== 'stripes', active: () => !!first('table')?.bands || first('table')?.variant === 'stripes',
+    },
+    'table.fill': { run: tableFill, enabled: isTable },
+    'table.select': {
+      run: () => showMenu(anchor('table.select'), [
+        { label: 'Выделить строку', icon: 'row-below', run: () => selectCells('row') },
+        { label: 'Выделить столбец', icon: 'col-right', run: () => selectCells('col') },
+        { label: 'Выделить таблицу', icon: 'grid', run: () => selectCells('all') },
+      ]),
+      enabled: isTable,
     },
     'table.row.above': { run: () => addRow(false), enabled: isTable },
     'table.row.below': { run: () => addRow(true), enabled: isTable },
@@ -789,13 +922,14 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       run: () => editTable((t, at) => {
         const list = Array.isArray(t.align) ? t.align : [];
         while (list.length < cols(t)) list.push('');
-        list[at.c] = a;
+        for (let c = at.c0; c <= at.c1; c++) list[c] = a;
         t.align = list;
       }),
       enabled: isTable, active: () => isTable() && colAlign() === a,
     };
   }
   for (const v of ['top', 'middle', 'bottom']) {
+    cmds[`table.valign.${v}`] = { run: () => setAll('table', 'valign', v === 'middle' ? undefined : v), enabled: isTable, active: () => isTable() && (first('table')?.valign ?? 'middle') === v };
     cmds[`shape.valign.${v}`] = { run: () => setAll('shape', 'valign', v === 'middle' ? undefined : v), enabled: hasText, active: () => hasText() && (first('shape')?.valign ?? 'middle') === v };
   }
   for (const [v] of VARIANTS) {

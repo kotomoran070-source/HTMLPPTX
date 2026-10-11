@@ -8,6 +8,19 @@ import { colorCss, customMarker, FONTS, LIST_MARKERS, listCss, markerImage, spli
 import { plainMarkup, toggleList, toMarkup } from './serialize';
 
 /** Что текстовому редактору нужно от основного редактора. */
+/** Курсор на первой (up) или последней строке поля; пустое поле — на обеих */
+function edgeLine(el: HTMLElement, up: boolean): boolean {
+  const sel = getSelection();
+  if (!sel?.rangeCount || !sel.isCollapsed) return false;
+  const caret = sel.getRangeAt(0).getClientRects()[0] ?? sel.getRangeAt(0).getBoundingClientRect();
+  const all = document.createRange();
+  all.selectNodeContents(el);
+  const lines = all.getClientRects();
+  if (!lines.length || !caret || (!caret.height && !caret.top)) return true;
+  const edge = up ? lines[0] : lines[lines.length - 1];
+  return up ? caret.top < edge.bottom - 2 : caret.bottom > edge.top + 2;
+}
+
 export interface TextHost {
   deck(): Record<string, unknown>;
   stage(): HTMLElement;
@@ -17,6 +30,8 @@ export interface TextHost {
   save(): void;
   /** Перейти к соседнему полю (Tab) */
   neighbour(el: HTMLElement, dir: 1 | -1): void;
+  /** Ячейка таблицы выше или ниже (стрелки на первой или последней строке ячейки) */
+  cellAbove?(el: HTMLElement, dir: 1 | -1): boolean;
   /** Путь блока, который можно удалить целиком (или null) */
   blockOf(path: Path): Path | null;
   removeBlock(path: Path): void;
@@ -212,6 +227,9 @@ export class TextEditor {
       } else if (ev.key === 'Tab') {
         ev.preventDefault();
         this.host.neighbour(el, ev.shiftKey ? -1 : 1);
+      } else if ((ev.key === 'ArrowUp' || ev.key === 'ArrowDown') && !mod && !ev.shiftKey && el.matches('td, th') && edgeLine(el, ev.key === 'ArrowUp')) {
+        // Как в PowerPoint: стрелка с первой (последней) строки ячейки — в ячейку выше (ниже)
+        if (this.host.cellAbove?.(el, ev.key === 'ArrowUp' ? -1 : 1)) ev.preventDefault();
       }
     };
     const onPaste = (ev: ClipboardEvent) => {

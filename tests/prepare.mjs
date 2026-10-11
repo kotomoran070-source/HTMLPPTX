@@ -6,7 +6,8 @@
 //   design   — стартовый шаблон для вкладки «Дизайн»;
 //   math     — пустой слайд для формул;
 //   find     — поиск по тексту и коду;
-//   save     — сохранение: контрольные точки, два окна одной презентации.
+//   save     — сохранение: контрольные точки, два окна одной презентации;
+//   table    — таблица (ячейки, как в PowerPoint) и фигуры для порядка «вперёд / назад».
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -93,5 +94,37 @@ slides:
   - template: canvas
     free:
       - {type: text, text: Второй, place: {x: 80, y: 80, w: 500}}
+`);
+// table — слайды 1 и 2: одинаковые таблицы (ячейки, клавиши), 3: пустой (вставка из Excel),
+// 4: фигуры для порядка — back и top перекрываются, mid и far в стороне
+fs.mkdirSync(path.join(dir, 'table'));
+fs.writeFileSync(path.join(dir, 'table', 'deck.yaml'), `title: Таблица
+slides:
+  - template: canvas
+    free:
+      - type: table
+        header: [Показатель, План, Факт]
+        rows:
+          - [Выручка, "100", "120"]
+          - [Расходы, "80", "70"]
+          - [Прибыль, "20", "50"]
+        place: {x: 80, y: 80, w: 700}
+  - template: canvas
+    free:
+      - type: table
+        header: [Показатель, План, Факт]
+        rows:
+          - [Выручка, "100", "120"]
+          - [Расходы, "80", "70"]
+          - [Прибыль, "20", "50"]
+        place: {x: 80, y: 80, w: 700}
+  - template: canvas
+    free: []
+  - template: canvas
+    free:
+      - {type: shape, id: back, kind: rect, fill: "#2563EB", place: {x: 900, y: 400, w: 200, h: 200}}
+      - {type: shape, id: mid, kind: rect, fill: "#CA8A04", place: {x: 80, y: 80, w: 200, h: 200}}
+      - {type: shape, id: far, kind: rect, fill: "#16A34A", place: {x: 1100, y: 40, w: 100, h: 100}}
+      - {type: shape, id: top, kind: rect, fill: "#DC2626", place: {x: 950, y: 450, w: 200, h: 200}}
 `);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

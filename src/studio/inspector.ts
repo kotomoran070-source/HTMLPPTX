@@ -31,7 +31,7 @@ export interface InspectorHost {
 /** Оформление этих блоков — на контекстной вкладке ленты, в панели его не дублируем */
 const ON_RIBBON: Record<string, { tab: string; name: string; keys: string[] }> = {
   shape: { tab: 'shape', name: 'Фигура', keys: ['kind', 'fill', 'stroke', 'width', 'dash', 'radius', 'rotate', 'shadow', 'opacity', 'valign'] },
-  table: { tab: 'table', name: 'Таблица', keys: ['variant', 'labels', 'highlight', 'size', 'total', 'density', 'widths', 'align', 'head'] },
+  table: { tab: 'table', name: 'Таблица', keys: ['variant', 'labels', 'lastcol', 'bands', 'valign', 'fills', 'headFills', 'highlight', 'size', 'total', 'density', 'widths', 'align', 'head'] },
 };
 
 /** Какие разделы панели развёрнуты: запоминается между выделениями и сеансами */

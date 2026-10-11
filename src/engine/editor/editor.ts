@@ -207,6 +207,7 @@ export class Editor {
       toast: (t, ms, err) => this.toast(t, ms, err),
       save: () => void this.save(),
       neighbour: (el, dir) => this.editNeighbour(el, dir),
+      cellAbove: (el, dir) => this.editCellAbove(el, dir),
       blockOf: (p) => this.blockOf(p),
       removeBlock: (p) => this.removeBlock(p),
       normalizeUrl,
@@ -653,12 +654,12 @@ export class Editor {
     this.status();
     try {
       const sent = clone(this.host.deck);
-      const res = await this.storage.save(this.host.deckKey, sent, false, this.base) as { deck?: Deck } | undefined;
-      this.base = sent;
+      const res = await this.storage.save(this.host.deckKey, sent, false, this.base) as { deck?: Deck; base?: Deck } | undefined;
+      // База — записанное, как оно читается из файла (сервер), иначе — отправленное
+      this.base = res?.base ?? sent;
       // В файле были правки другого окна (заметки из окна докладчика, вторая вкладка): берём их себе,
       // не трогая того, что успели поправить здесь, пока шла запись
       if (res?.deck) {
-        this.base = res.deck;
         const { result, changed } = merge3(sent, this.host.deck, res.deck);
         if (changed) {
           const theirs = edits(sent, res.deck);
@@ -1050,8 +1051,42 @@ export class Editor {
     this.text.start(el, at);
   }
 
+  /** Ячейка выше или ниже в том же столбце; false — её нет (курсор идёт как обычно) */
+  private editCellAbove(el: HTMLElement, dir: 1 | -1): boolean {
+    const tr = el.closest('tr');
+    const rows = tr?.closest('table')?.rows;
+    if (!tr || !rows) return false;
+    const next = rows[tr.rowIndex + dir]?.cells[(el as HTMLTableCellElement).cellIndex];
+    if (!next?.hasAttribute('data-edit')) return false;
+    this.startEdit(next);
+    return true;
+  }
+
   private editNeighbour(el: HTMLElement, dir: 1 | -1): void {
     const path = el.getAttribute('data-edit');
+    // Таблица: Tab ходит по её ячейкам; в последней — новая строка, как в PowerPoint
+    const tbl = el.matches('td, th') ? el.closest('table') : null;
+    const cellPath = readPath(el, 'data-edit');
+    if (tbl && cellPath) {
+      const cells = [...tbl.querySelectorAll<HTMLElement>('td[data-edit], th[data-edit]')];
+      const k = cells.indexOf(el);
+      if (dir < 0 && k === 0) return;
+      if (dir > 0 && k === cells.length - 1 && cellPath[cellPath.length - 3] === 'rows') {
+        const tp = cellPath.slice(0, -3);
+        this.text.finish(true);
+        let r = -1;
+        this.commit((d) => {
+          const t = getAt(d, tp) as { header?: unknown[]; rows?: unknown[][]; fills?: unknown[] };
+          if (!t || !Array.isArray(t.rows)) return;
+          const n = Math.max(t.header?.length ?? 0, ...t.rows.map((x) => (Array.isArray(x) ? x.length : 0)), 1);
+          t.rows.push(Array.from({ length: n }, () => ''));
+          r = t.rows.length - 1;
+        }, { rebuild: true });
+        const cell = r >= 0 ? this.host.stage().querySelector<HTMLElement>(`.slide.on [data-edit="${CSS.escape(JSON.stringify([...tp, 'rows', r, 0]))}"]`) : null;
+        if (cell) this.startEdit(cell);
+        return;
+      }
+    }
     const slide = el.closest('.slide');
     const before = slide ? [...slide.querySelectorAll<HTMLElement>('[data-edit]')].filter((x) => !(x instanceof SVGElement)) : [];
     const i = before.indexOf(el);
@@ -1133,6 +1168,16 @@ export class Editor {
 
   get selection(): BlockSelection | null {
     return this.blocks.info;
+  }
+
+  /** Поле, которое сейчас правят (ячейка таблицы, текст), или null */
+  get editingField(): HTMLElement | null {
+    return this.text.element;
+  }
+
+  /** Закончить правку текста (сохранить) */
+  finishText(): void {
+    this.text.finish(true);
   }
 
   get blockEditor(): BlockEditor {

@@ -104,7 +104,7 @@ export const WINDOW_ID = Math.random().toString(36).slice(2, 10);
  * Записать данные; base — версия, с которой окно начинало (тогда чужие правки в файле не затираются).
  * deck в ответе — итог с чужими правками, если они были
  */
-export function saveToProject(deckKey: string, deck: Deck, keepalive = false, base?: Deck): Promise<{ changed: boolean; deck?: Deck }> {
+export function saveToProject(deckKey: string, deck: Deck, keepalive = false, base?: Deck): Promise<{ changed: boolean; deck?: Deck; base?: Deck }> {
   return api(`/__htmlpptx/save?deck=${encodeURIComponent(deckKey)}&from=${WINDOW_ID}`, JSON.stringify({ deck, base }), 'application/json', keepalive);
 }
 

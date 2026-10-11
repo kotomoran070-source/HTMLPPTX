@@ -8,6 +8,9 @@
 .tbl .a-center { text-align: center; }
 .tbl .a-right { text-align: right; font-variant-numeric: tabular-nums; }
 .tbl-labels td:first-child { font-weight: 600; }
+.tbl-lastcol td:last-child { font-weight: 600; }
+.tbl-va-top :is(th, td) { vertical-align: top; }
+.tbl-va-bottom :is(th, td) { vertical-align: bottom; }
 
 /* Рамка-карточка у всех видов, кроме «Линий» */
 .tbl:not(.tbl-lines) table { border-radius: var(--r); overflow: hidden; background: var(--card-bg, var(--surf)); border: var(--card-bw, 1px) solid var(--card-bd, var(--bd)); box-shadow: var(--card-sh, none); }
@@ -76,11 +79,17 @@
 .tbl-total tbody tr:last-child td { font-weight: 700; border-top: 2px solid var(--bd2); background: color-mix(in srgb, var(--alt) 70%, var(--surf)); }
 .tbl-lines.tbl-total tbody tr:last-child td { background: none; }
 
+/* Чередующиеся строки — поверх любого вида (у таблиц из PowerPoint — свои полосы) */
+.tbl-bands:not(.tbl-own) tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--alt) 65%, var(--surf)); }
+
 /* Выделенная строка */
 .tbl tr.hl td { background: var(--acs) !important; color: var(--ach); font-weight: 600; }
 .tbl tr.hl td:first-child { box-shadow: inset 3px 0 0 var(--ac); }
 
 .slide.on .tbl tbody tr { animation: up .5s var(--ease) both; animation-delay: calc(.25s + var(--k) * .07s); }
+
+/* Редактор: выделенные ячейки (протянуть мышью, Shift+щелчок) */
+body.editing .tbl :is(td, th).tbl-csel { box-shadow: inset 0 0 0 999px color-mix(in srgb, #3B82F6 22%, transparent); }
 
 /* Редактор: что удалится — строка, столбец или вся таблица (пока пункт меню под мышью) */
 body.editing .tbl .tbl-kill { background: color-mix(in srgb, #DC2626 14%, var(--surf)) !important; color: #B91C1C !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, #DC2626 40%, transparent); }

@@ -825,6 +825,10 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
       // Полосы: вторая строка другого цвета (первая может быть и без заливки)
       if (fill2 && (!fill1 || hex(fill2) !== hex(fill1))) colors.band = hex(fill2);
       if (sample.color) colors.text = hex(sample.color);
+      // Ячейки, закрашенные иначе, чем их строка в общем узоре таблицы, — своей заливкой
+      const usual = (r: number) => (colors.band && r % 2 === 1 ? colors.band : colors.fill) ?? null;
+      const fills = body.map((row, r) => row.map((c) => { const f = solid(c); return f && hex(f) !== usual(r) ? hex(f) : null; }));
+      const headFills = head?.map((c) => { const f = solid(c); return f && hex(f) !== colors.head ? hex(f) : null; });
       // Без стиля таблицы PowerPoint рисует тонкую сетку
       colors.line = line ? hex(line) : styled ? '#D9D9D9' : '#595959';
       // Цвет текста — общий для таблицы (colors.text / headText): фрагменты другого цвета («● готово»
@@ -848,6 +852,8 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
         variant: 'boxed',
         ...(head ? { header: head.map((c) => md(c, { ...head[0].p, b: true })) } : { head: false, header: grid[0].map(() => '') }),
         rows: body.map((r) => r.map((c) => md(c, bodyBase))),
+        ...(fills.some((r) => r.some(Boolean)) ? { fills } : {}),
+        ...(headFills?.some(Boolean) ? { headFills } : {}),
         widths: cols.map((w) => Math.round((w / cols.reduce((a, b) => a + b, 0)) * 1000) / 100),
         ...(sample.sz ? { size: r1(fs) } : {}),
         colors,

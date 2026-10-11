@@ -18,6 +18,7 @@ import { crossPaste } from './cross-paste';
 import type { CodeView } from './code';
 import type { ExportQuality } from './pptx';
 import { FindBar } from './find';
+import { paintCells, parseGrid } from './table-cells';
 import { applyFormat, hasFormat, takeFormat, type Format } from './format-painter';
 import { tableGrips } from './table-grips';
 import { GRID_STEPS, ViewAids } from './view-aids';
@@ -79,6 +80,15 @@ function chk(cmd: string, label: string, title?: string): string {
   return `<button type="button" class="st-rb st-chk" data-cmd="${cmd}" title="${esc(title ?? label)}"><i class="st-box">${icon('check')}</i><span>${esc(label)}</span></button>`;
 }
 
+/**
+ * Кнопка с меню, как в PowerPoint: щелчок по кнопке — основное действие, по стрелке — меню вариантов
+ * (команда `${cmd}-menu`)
+ */
+function split(cmd: string, ic: string, label: string, title: string, menuTitle: string): string {
+  return `<span class="st-rsplit">${rb(cmd, ic, label, { title })}`
+    + `<button type="button" class="st-rb st-split-m" data-cmd="${cmd}-menu" data-pal="skip" title="${esc(menuTitle)}" aria-label="${esc(menuTitle)}" aria-haspopup="menu" aria-expanded="false"><b class="st-caret"></b></button></span>`;
+}
+
 function group(label: string, body: string): string {
   return `<div class="st-rgroup" role="group" aria-label="${esc(label)}"><div class="st-rgroup-body">${body}</div><div class="st-rgroup-label">${esc(label)}</div></div>`;
 }
@@ -124,7 +134,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Правка', `<div class="st-rstack">${rb('undo', 'undo', 'Отменить', { key: 'Ctrl+Z' })}${rb('redo', 'redo', 'Повторить', { key: 'Ctrl+Y' })}${rb('format.painter', 'brush', 'Формат по образцу', { title: 'Перенести оформление на другой объект. Двойной щелчок — на несколько объектов' })}</div><div class="st-rstack">${rb('edit.find', 'search', 'Найти', { key: 'Ctrl+F', title: 'Найти и заменить текст во всей презентации (Ctrl+F, замена — Ctrl+H)' })}</div>`)}
       ${group('Текст', '<div id="st-textdock" class="st-textdock"></div>')}
       ${group('Вставка', rb('insert.blocks', 'grid', 'Блоки', { big: true, menu: true, title: 'Готовые блоки: карточки, графики, схемы' }) + `<div class="st-rstack">${rb('insert.text', 'text', 'Надпись')}${rb('insert.image', 'image', 'Картинка')}</div>`)}
-      ${group('Упорядочить', `<div class="st-rstack">${rb('obj.front', 'front', 'Вперёд', { title: 'На передний план — поверх других объектов' })}${rb('obj.back', 'back', 'Назад', { title: 'На задний план — под другие объекты' })}${rb('obj.lock', 'lock', 'Закрепить', { title: 'Объект не выделяется и не двигается мышью. Открепить — в области выделения (Alt+F10)' })}</div><div class="st-rstack">${rb('obj.group', 'group', 'Сгруппировать', { key: 'Ctrl+G', title: 'Объединить выделенные объекты в группу' })}${rb('obj.ungroup', 'ungroup', 'Разгруппировать', { key: 'Ctrl+Shift+G', title: 'Разделить на отдельные объекты' })}${rb('obj.free', 'move', 'Сделать свободным', { title: 'Свободно перемещать и менять размер' })}</div>`)}
+      ${group('Упорядочить', `<div class="st-rstack">${split('obj.forward', 'front', 'Вперёд', 'Переместить вперёд — над ближайшим объектом (Ctrl+])', 'Вперёд: на шаг или на передний план')}${split('obj.backward', 'back', 'Назад', 'Переместить назад — под ближайший объект (Ctrl+[)', 'Назад: на шаг или на задний план')}${rb('obj.lock', 'lock', 'Закрепить', { title: 'Объект не выделяется и не двигается мышью. Открепить — в области выделения (Alt+F10)' })}</div><div class="st-rstack">${rb('obj.group', 'group', 'Сгруппировать', { key: 'Ctrl+G', title: 'Объединить выделенные объекты в группу' })}${rb('obj.ungroup', 'ungroup', 'Разгруппировать', { key: 'Ctrl+Shift+G', title: 'Разделить на отдельные объекты' })}${rb('obj.free', 'move', 'Сделать свободным', { title: 'Свободно перемещать и менять размер' })}</div>`)}
       ${group('Выровнять', `<div class="st-rgrid">${rb('align.left', 'obj-left', 'Слева')}${rb('align.center', 'obj-center', 'По центру')}${rb('align.right', 'obj-right', 'Справа')}${rb('align.top', 'obj-top', 'Сверху')}${rb('align.middle', 'obj-middle', 'Посередине')}${rb('align.bottom', 'obj-bottom', 'Снизу')}</div><div class="st-rstack">${rb('dist.h', 'dist-h', 'По ширине', { title: 'Равные промежутки по горизонтали' })}${rb('dist.v', 'dist-v', 'По высоте', { title: 'Равные промежутки по вертикали' })}</div><div class="st-rstack">${rb('arrange.row', 'eq-cols', 'В ряд', { title: 'Выстроить в ряд: промежутки держатся сами — объект стал шире, соседи сдвигаются' })}${rb('arrange.col', 'list', 'В столбец', { title: 'Выстроить в столбец: промежутки держатся сами' })}</div>`)}
     </div>
     <div class="st-rpanel" data-panel="insert" hidden>
@@ -750,6 +760,17 @@ export function startStudio(deck: Deck, deckKey: string): void {
       label: p.name, icon: ['text', 'grid', 'image', 'frame'][k] ?? 'slide-add', run: () => ed.addSlide(index, k),
     })));
   }
+  /** Видимая кнопка команды: «Упорядочить» есть и на «Главной», и на вкладке объекта */
+  const shown = (cmd: string) => [...document.querySelectorAll<HTMLElement>(`[data-cmd="${cmd}"]`)].find((b) => b.offsetParent) ?? document.querySelector<HTMLElement>(`[data-cmd="${cmd}"]`)!;
+  /** Порядок объекта: на шаг и до конца — в меню объекта и у стрелок кнопок «Вперёд» и «Назад» */
+  function orderItems(): MenuEntry[] {
+    return [
+      { label: 'Переместить вперёд', icon: 'front', hint: 'Ctrl+]', run: () => run('obj.forward') },
+      { label: 'На передний план', icon: 'front', hint: 'Ctrl+Shift+]', run: () => run('obj.front') },
+      { label: 'Переместить назад', icon: 'back', hint: 'Ctrl+[', run: () => run('obj.backward') },
+      { label: 'На задний план', icon: 'back', hint: 'Ctrl+Shift+[', run: () => run('obj.back') },
+    ];
+  }
   function slideMenu(i: number): MenuEntry[] {
     const n = count();
     const clip = takeClip();
@@ -812,8 +833,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
         { label: ed.blockEditor.isLocked ? 'Открепить' : 'Закрепить', icon: ed.blockEditor.isLocked ? 'unlock' : 'lock', run: () => run('obj.lock') },
       ] : [
         { label: 'Разгруппировать', icon: 'ungroup', hint: 'Ctrl+Shift+G', disabled: !cmds['obj.ungroup'].enabled!(), run: () => run('obj.ungroup') },
-        { label: 'На передний план', icon: 'front', run: () => run('obj.front') },
-        { label: 'На задний план', icon: 'back', run: () => run('obj.back') },
+        ...orderItems(),
         ...(hasFree() ? [{ label: ed.blockEditor.isLocked ? 'Открепить' : 'Закрепить', icon: ed.blockEditor.isLocked ? 'unlock' : 'lock', run: () => run('obj.lock') }] : []),
         null,
         { label: 'По центру слайда', icon: 'obj-center', run: () => align('center', 'middle') },
@@ -981,6 +1001,19 @@ export function startStudio(deck: Deck, deckKey: string): void {
     if (!t) return;
     const i = index;
     let at = -1;
+    // Ячейки из Excel или таблицы PowerPoint (табуляции, несколько строк) — таблицей, первая строка — шапка
+    const grid = text.includes('\t') ? parseGrid(text.replace(/\n+$/, '')) : [];
+    if (grid.length > 1 && grid[0].length > 1) {
+      const n = Math.max(...grid.map((r) => r.length));
+      const fit = (r: string[]) => [...r, ...Array.from({ length: n - r.length }, () => '')];
+      if (ed.commit((d) => {
+        const s = d.slides[i];
+        s.free = Array.isArray(s.free) ? s.free : [];
+        s.free.push({ type: 'table', header: fit(grid[0]), rows: grid.slice(1).map(fit), place: { x: 80, y: 140, w: 1120 } });
+        at = s.free.length - 1;
+      }, { rebuild: true })) ed.selectFree(i, at);
+      return;
+    }
     if (ed.commit((d) => {
       const s = d.slides[i];
       s.free = Array.isArray(s.free) ? s.free : [];
@@ -1324,6 +1357,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'insert.image': { run: () => ed.addBlock('image') },
     'obj.front': { run: () => ed.blockEditor.reorder(1), enabled: single },
     'obj.back': { run: () => ed.blockEditor.reorder(-1), enabled: single },
+    'obj.forward': { run: () => ed.blockEditor.step(1), enabled: single },
+    'obj.backward': { run: () => ed.blockEditor.step(-1), enabled: single },
+    'obj.forward-menu': { run: () => showMenu(shown('obj.forward-menu'), orderItems().slice(0, 2)), enabled: single },
+    'obj.backward-menu': { run: () => showMenu(shown('obj.backward-menu'), orderItems().slice(2)), enabled: single },
     'arrange.row': { run: () => makeRow(false), enabled: () => (ed.selection?.group.length ?? 0) > 1 },
     'arrange.col': { run: () => makeRow(true), enabled: () => (ed.selection?.group.length ?? 0) > 1 },
     'arrange.unrow': { run: unRow, enabled: inRow },
@@ -1448,6 +1485,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
       { id: 'ui.color', label: 'Цвет интерфейса', path: 'Вид · Интерфейс', words: 'свой цвет программы', key: '', ico: icon('fill'), run: pickColor('st-uiac', 'view'), enabled: () => true },
       // Темы по имени: «тема полночь»
       ...THEME_PRESETS.map((p) => ({ id: `design.preset.${p.id}`, label: `Тема «${p.name}»`, path: 'Дизайн · Темы', words: 'тема оформление дизайн', key: '', ico: icon('sparkle'), run: () => run(`design.preset.${p.id}`), enabled: () => true })),
+      { id: 'obj.front', label: 'На передний план', path: 'Главная · Упорядочить', words: 'поверх всех порядок наверх', key: 'Ctrl+Shift+]', ico: icon('front'), run: () => run('obj.front'), enabled: single },
+      { id: 'obj.back', label: 'На задний план', path: 'Главная · Упорядочить', words: 'под всеми порядок вниз', key: 'Ctrl+Shift+[', ico: icon('back'), run: () => run('obj.back'), enabled: single },
       { id: 'edit.replace', label: 'Заменить', path: 'Главная · Правка', words: 'найти и заменить текст', key: 'Ctrl+H', ico: icon('search'), run: () => find?.show(true), enabled: () => true },
     ],
   }, $('st-pal'));
@@ -1831,6 +1870,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     syncNotes();
     inspector.sync();
     drawCrumbs();
+    paintCells();
   }
 
   // ---------------- мышь на холсте ----------------
@@ -1944,6 +1984,12 @@ export function startStudio(deck: Deck, deckKey: string): void {
     if (mod && (k === 'g' || k === 'п')) {
       e.preventDefault();
       return run(e.shiftKey ? 'obj.ungroup' : 'obj.group');
+    }
+    // Как в PowerPoint: Ctrl+] / Ctrl+[ — на шаг вперёд / назад, с Shift — на передний / задний план
+    if (mod && !e.altKey && (e.code === 'BracketRight' || e.code === 'BracketLeft') && single()) {
+      e.preventDefault();
+      const fwd = e.code === 'BracketRight';
+      return run(e.shiftKey ? (fwd ? 'obj.front' : 'obj.back') : (fwd ? 'obj.forward' : 'obj.backward'));
     }
     if (mod && !e.shiftKey && (k === 'a' || k === 'ф')) {
       e.preventDefault();

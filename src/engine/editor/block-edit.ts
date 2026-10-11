@@ -488,6 +488,31 @@ export class BlockEditor {
     }, { rebuild: true })) this.selectFree(i, to);
   }
 
+  /**
+   * На шаг вперёд или назад (Ctrl+] / Ctrl+[): над ближайшим объектом, который его перекрывает, — так шаг
+   * всегда виден на слайде. Ничего не перекрывает — на одно место в порядке
+   */
+  step(dir: 1 | -1): void {
+    const s = this.sel;
+    if (!s?.free) return;
+    const i = Number(s.free[1]);
+    const from = Number(s.free[3]);
+    const n = this.slide().free?.length ?? 0;
+    if (from + dir < 0 || from + dir >= n) return this.host.toast(dir > 0 ? 'Объект уже на переднем плане' : 'Объект уже на заднем плане', 1800);
+    const box = (k: number) => this.host.stage().querySelector(`.slide.on [data-free="${CSS.escape(JSON.stringify(['slides', i, 'free', k]))}"]`)?.getBoundingClientRect();
+    const me = s.el.getBoundingClientRect();
+    let to = from + dir;
+    for (let k = from + dir; k >= 0 && k < n; k += dir) {
+      const r = box(k);
+      if (r && r.width && r.left < me.right && r.right > me.left && r.top < me.bottom && r.bottom > me.top) { to = k; break; }
+    }
+    if (this.host.commit((d) => {
+      const list = d.slides[i].free!;
+      const [b] = list.splice(from, 1);
+      list.splice(to, 0, b);
+    }, { rebuild: true })) this.selectFree(i, to);
+  }
+
   selectFree(slide: number, index: number): void {
     const key = JSON.stringify(['slides', slide, 'free', index]);
     const el = [...this.host.stage().querySelectorAll<HTMLElement>('.slide.on [data-free]')].find((x) => x.getAttribute('data-free') === key);

@@ -362,7 +362,11 @@ export function decksPlugin(opts: DecksOptions): Plugin {
       fs.writeFileSync(file, next);
       server?.ws.send({ type: 'custom', event: 'slideria:deck-saved', data: { name, from } });
     }
-    send(res, 200, { ok: true, changed: next !== source, deck: theirs });
+    // Записанное — так, как оно читается из файла: окно сверяется с ним при следующей записи. Иначе
+    // мелкие расхождения записи (перевод строки в конце CSS) выглядели бы чужими правками
+    let saved: unknown = null;
+    try { saved = next === source && disk ? disk : readYaml(file, next); } catch { /* сломанный файл */ }
+    send(res, 200, { ok: true, changed: next !== source, deck: theirs, base: saved });
   }
 
   async function handleImport(url: URL, req: IncomingMessage, res: ServerResponse): Promise<void> {

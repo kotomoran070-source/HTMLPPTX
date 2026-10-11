@@ -2,6 +2,7 @@ import { defineBlock } from '../../engine/component';
 import { asArray, esc, t } from '../../engine/html';
 import { ea } from '../../engine/marks';
 import type { Block } from '../../types';
+import { SHAPE_COLORS } from '../shape/shape';
 import './table.css';
 
 type Cell = string | number | null | undefined;
@@ -28,6 +29,16 @@ interface TableProps extends Block {
   size?: number;
   /** Первый столбец — жирным, как подписи строк */
   labels?: boolean;
+  /** Последний столбец — жирным (итог по строке) */
+  lastcol?: boolean;
+  /** Чередующиеся строки — зебра поверх любого вида */
+  bands?: boolean;
+  /** По вертикали в ячейках: top, bottom (по умолчанию — посередине) */
+  valign?: 'top' | 'bottom';
+  /** Заливка ячеек по строкам, как rows: цвет темы (accent, soft, alt…) или #RRGGBB; пусто — как у таблицы */
+  fills?: (string | null)[][];
+  /** Заливка ячеек шапки */
+  headFills?: (string | null)[];
   /** false — шапку не показывать (данные шапки сохраняются) */
   head?: boolean;
   /** Последняя строка — итог: жирным, с чертой сверху */
@@ -71,6 +82,17 @@ function badge(v: string): string {
   return `<span class="tbl-badge"><i style="--dot:${esc(color)}"></i>${t(text)}</span>`;
 }
 
+/** Заливка ячейки: цвет темы — с его цветом текста; свой #RRGGBB — тёмный получает светлый текст */
+function cellFill(f: string): string {
+  const role = SHAPE_COLORS[f];
+  if (role) return ` style="background:${role.css};color:${role.on}"`;
+  const m = /^#([0-9a-f]{6})$/i.exec(f);
+  if (!m) return '';
+  const n = parseInt(m[1], 16);
+  const lum = 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+  return ` style="background:${f};color:${lum < 140 ? '#fff' : '#111827'}"`;
+}
+
 const NUMERIC = /^[\s+−–-]?[\d\s.,]+\s?(%|₽|\$|€|млн|тыс|млрд|с|мс|ч|шт|дБм|°C)?$/i;
 
 /** Таблица: шапка, строки, выравнивание чисел, выделенная строка; каждая ячейка правится на месте. */
@@ -94,6 +116,15 @@ defineBlock<TableProps>('table', {
       const html = empty ? '' : tag === 'td' && c === badgeCol ? badge(String(v)) : t(v);
       return `<${tag} class="a-${align(c)}"${extra}${ea(list, c)}>${html}</${tag}>`;
     };
+    const fills = Array.isArray(p.fills) ? p.fills : [];
+    const headFill = (c: number): string => {
+      const f = Array.isArray(p.headFills) ? p.headFills[c] : null;
+      return typeof f === 'string' ? cellFill(f) : '';
+    };
+    const fillOf = (r: number, c: number): string => {
+      const f = Array.isArray(fills[r]) ? fills[r][c] : null;
+      return typeof f === 'string' ? cellFill(f) : '';
+    };
     const foot = typeof p.footer === 'string' || typeof p.footnote === 'string'
       ? `<div class="tbl-foot"><span${ea(p, 'footer')}>${t(String(p.footer ?? '').replace(/\{rows\}/g, String(rows.length)))}</span>`
         + `<span${ea(p, 'footnote')}>${t(String(p.footnote ?? '').replace(/\{rows\}/g, String(rows.length)))}</span></div>`
@@ -107,10 +138,10 @@ defineBlock<TableProps>('table', {
         .map(([k, v]) => { const c = (p.colors as Record<string, unknown>)[k]; return typeof c === 'string' && HEXC.test(c) ? `${v}:${c};` : ''; }).join('')
       : '';
     const colgroup = widths ? `<colgroup>${widths.map((w) => `<col style="width:${((w / widths.reduce((a, b) => a + b, 0)) * 100).toFixed(2)}%">`).join('')}</colgroup>` : '';
-    return `<div class="tbl r tbl-${variant}${density}${own ? ' tbl-own' : ''}${p.labels ? ' tbl-labels' : ''}${p.total && rows.length > 1 ? ' tbl-total' : ''}${foot ? ' tbl-footed' : ''}"${size || own || p.style ? ` style="${size ? `--ts:${size}px;` : ''}${own}${esc(p.style ?? '')}"` : ''}>`
+    return `<div class="tbl r tbl-${variant}${density}${own ? ' tbl-own' : ''}${p.labels ? ' tbl-labels' : ''}${p.lastcol ? ' tbl-lastcol' : ''}${p.bands ? ' tbl-bands' : ''}${p.valign === 'top' || p.valign === 'bottom' ? ` tbl-va-${p.valign}` : ''}${p.total && rows.length > 1 ? ' tbl-total' : ''}${foot ? ' tbl-footed' : ''}"${size || own || p.style ? ` style="${size ? `--ts:${size}px;` : ''}${own}${esc(p.style ?? '')}"` : ''}>`
       + `<table>${colgroup}`
-      + (header.length && p.head !== false ? `<thead><tr>${Array.from({ length: cols }, (_x, c) => cell('th', header, c)).join('')}</tr></thead>` : '')
-      + `<tbody>${rows.map((r, k) => `<tr${k === p.highlight ? ' class="hl"' : ''} style="--k:${k}">${Array.from({ length: cols }, (_x, c) => cell('td', r, c)).join('')}</tr>`).join('')}</tbody>`
+      + (header.length && p.head !== false ? `<thead><tr>${Array.from({ length: cols }, (_x, c) => cell('th', header, c, headFill(c))).join('')}</tr></thead>` : '')
+      + `<tbody>${rows.map((r, k) => `<tr${k === p.highlight ? ' class="hl"' : ''} style="--k:${k}">${Array.from({ length: cols }, (_x, c) => cell('td', r, c, fillOf(k, c))).join('')}</tr>`).join('')}</tbody>`
       + `</table>${foot}</div>`;
   },
 });

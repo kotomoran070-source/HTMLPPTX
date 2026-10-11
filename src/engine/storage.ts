@@ -11,7 +11,7 @@ export interface DeckStorage {
    * Записать данные презентации. keepalive — запрос переживёт закрытие вкладки; base — версия, с которой
    * окно начинало: правки других окон в файле не затираются, итог с ними — в ответе (deck)
    */
-  save(deckKey: string, deck: Deck, keepalive?: boolean, base?: Deck): Promise<{ deck?: Deck } | unknown>;
+  save(deckKey: string, deck: Deck, keepalive?: boolean, base?: Deck): Promise<{ deck?: Deck; base?: Deck } | unknown>;
   /** Сохранить картинку рядом с презентацией; url — адрес для данных слайда */
   uploadAsset(deckKey: string, file: Blob, name: string): Promise<{ url: string }>;
   /** Собрать один HTML-файл: clean — «для показа», без режима правки; compact — картинки сжаты */

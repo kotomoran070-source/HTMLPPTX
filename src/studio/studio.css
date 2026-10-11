@@ -153,6 +153,13 @@ body.studio { background: var(--alt); }
 .st-rb:disabled { opacity: .38; cursor: default; }
 .st-rb:disabled .ic { color: inherit; }
 .st-rstack { display: flex; flex-direction: column; gap: 2px; }
+/* Кнопка с меню (split): основное действие и стрелка вариантов — одна кнопка с разделённым наведением */
+.st-rsplit { display: inline-flex; align-items: stretch; }
+.st-rsplit > .st-rb:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; padding-right: 5px; }
+.st-split-m { padding: 4px 5px !important; border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important; }
+.st-split-m .st-caret { margin-left: 0 !important; }
+.st-rsplit:hover > .st-rb:not(:disabled) { background: color-mix(in srgb, var(--acs) 55%, transparent); }
+.st-rsplit > .st-rb:hover:not(:disabled) { background: var(--acs); color: var(--ach); }
 .st-rgrid { display: grid; grid-template-columns: repeat(3, auto); gap: 2px; }
 .st-rgrid .st-rb { padding: 5px 7px; }
 .st-rgrid .st-rb span { display: none; }
