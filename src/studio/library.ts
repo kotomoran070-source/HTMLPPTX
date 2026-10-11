@@ -1,5 +1,6 @@
 import { icon } from '../components/icons';
 import { H, W } from '../engine/deck-view';
+import { uiLook } from '../engine/deck-theme';
 import { esc } from '../engine/html';
 import { Renderer } from '../engine/render';
 import type { Block, Deck } from '../types';
@@ -624,6 +625,9 @@ export const LIBRARY: Category[] = [
   },
 ];
 
+/** Превью в панели — темой презентации, но в виде интерфейса (светлом или тёмном), см. PANEL_SWATCHES */
+const panelDeck = (deck: Deck): Deck => (deck.theme?.mode ? { ...deck, theme: uiLook(deck.theme) } : deck);
+
 const PREVIEW_W = 136;
 const PREVIEW_H = 76;
 const PAD = 6;
@@ -634,7 +638,7 @@ function preview(deck: Deck, p: Preset): HTMLElement {
   box.className = 'st-lib-prev';
   const w0 = p.pw ?? p.w;
   const block = { ...p.make(), place: { x: 0, y: 0, w: w0, ...(p.h ? { h: p.h } : {}) } } as Block;
-  const tmp: Deck = { ...deck, slides: [{ template: 'canvas', free: [block] }] };
+  const tmp: Deck = { ...panelDeck(deck), slides: [{ template: 'canvas', free: [block] }] };
   const inner = document.createElement('div');
   inner.className = 'thumb-stage canvas static';
   inner.style.width = `${W}px`;
@@ -665,7 +669,7 @@ function bigPreview(deck: Deck, p: Preset): HTMLElement {
   box.className = 'st-peek-frame';
   const w0 = p.w;
   const block = { ...p.make(), place: { x: 0, y: 0, w: w0, ...(p.h ? { h: p.h } : {}) } } as Block;
-  const tmp: Deck = { ...deck, slides: [{ template: 'canvas', free: [block] }] };
+  const tmp: Deck = { ...panelDeck(deck), slides: [{ template: 'canvas', free: [block] }] };
   const inner = document.createElement('div');
   inner.className = 'thumb-stage canvas';
   inner.style.width = `${W}px`;

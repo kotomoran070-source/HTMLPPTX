@@ -13,7 +13,7 @@
  *   --rk                                           множитель скругления углов
  */
 import type { DeckOrigin, DeckTheme, ThemePalette } from '../types';
-import { accentTokens, contrast, DEFAULT_ACCENT, HEX_RE, mix, SWATCHES } from './accent';
+import { accentTokens, contrast, DEFAULT_ACCENT, HEX_RE, mix, PANEL_SWATCHES, SWATCHES } from './accent';
 import { cssKey } from './deck-css';
 import { fontFamilies, fontNameOk, fontStack } from './fonts';
 import { recolorVars, sameColors } from './recolor';
@@ -259,6 +259,9 @@ function bodyFont(t: DeckTheme): Record<string, string> {
   return { '--font': f, 'font-family': 'var(--font)' };
 }
 
+/** Тема без постоянного вида: светлый или тёмный — как у интерфейса (для плиток в панелях студии) */
+export const uiLook = (t: DeckTheme): DeckTheme => (t.mode ? { ...t, mode: undefined } : t);
+
 const SWATCH_ID = 'htmlpptx-theme-swatches';
 /** Образцы цветов в панелях студии — в цветах темы открытой презентации */
 export function applyThemeSwatches(theme: unknown): void {
@@ -272,7 +275,8 @@ export function applyThemeSwatches(theme: unknown): void {
     el.id = SWATCH_ID;
     document.head.appendChild(el);
   }
-  const css = `@layer slideria-theme{${themeCss(theme, SWATCHES)}}`;
+  // Плитки фонов и блоков — в виде интерфейса (правило позже: сильнее постоянного вида темы)
+  const css = `@layer slideria-theme{${themeCss(theme, SWATCHES)}${themeCss(uiLook(theme), PANEL_SWATCHES)}}`;
   if (el.textContent !== css) el.textContent = css;
 }
 

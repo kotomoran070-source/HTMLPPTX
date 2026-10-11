@@ -100,11 +100,18 @@ export function previewAccent(accent: string | null, stage?: HTMLElement, accent
 let quietShown = false;
 
 /**
+ * Плитки панелей студии с фонами и блоками темы (фоны слайда, анимированные фоны, библиотека
+ * блоков и её крупное превью): цвета презентации, а светлый или тёмный вид — как у интерфейса,
+ * даже если у темы вид постоянный. Иначе светлые плитки выделялись бы в тёмном интерфейсе
+ * (и наоборот), а светлый текст тёмной темы ложился бы на светлую плитку
+ */
+export const PANEL_SWATCHES = '.st-bgs, .st-bdstrip, .st-lib-prev, .st-peek-frame';
+/**
  * Где цвета презентации, а не интерфейса: слайды, миниатюры (и превью блоков) и образцы цветов
- * в панелях студии — палитры фигур и текста, фоны слайда, стили фигур и таблиц.
+ * в панелях студии — палитры фигур и текста, стили фигур и таблиц, плитки фонов и блоков.
  * Новая палитра с цветами темы — добавьте её класс сюда (или дайте ей класс deck-colors).
  */
-export const SWATCHES = '.deck-colors, .st-psw, .st-pmore, .st-stile, .st-ttile, .st-rb-sw, .st-bgs, .edcolors';
+export const SWATCHES = `.deck-colors, .st-psw, .st-pmore, .st-stile, .st-ttile, .st-rb-sw, .edcolors, ${PANEL_SWATCHES}`;
 const DECK_SCOPE = `.slide, .thumb-stage, ${SWATCHES}`;
 
 /**
