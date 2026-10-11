@@ -462,7 +462,7 @@ export const BLOCKS: Record<string, Schema> = {
   },
   video: {
     fields: [
-      { k: 'src', label: 'Видео', type: 'media', kind: 'video', placeholder: 'Файл MP4 или ссылка на YouTube, Vimeo' },
+      { k: 'src', label: 'Видео', type: 'media', kind: 'video', placeholder: 'Файл MP4 или ссылка на YouTube, Vimeo, Twitch' },
       { k: 'poster', label: 'Обложка', type: 'image', hint: 'Видна до запуска и при печати' },
       { k: 'autoplay', label: 'Запускать при открытии слайда', type: 'bool', default: true },
       { k: 'muted', label: 'Без звука', type: 'bool', default: true },

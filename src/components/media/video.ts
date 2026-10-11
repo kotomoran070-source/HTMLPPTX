@@ -7,7 +7,7 @@ import { icon } from '../icons';
 import './media.css';
 
 interface VideoProps extends Block {
-  /** Файл ./assets/clip.mp4 (MP4, WebM) или ссылка на YouTube / Vimeo */
+  /** Файл ./assets/clip.mp4 (MP4, WebM) или ссылка на YouTube / Vimeo / Twitch (в том числе трансляция) */
   src?: string;
   /** Обложка до запуска и при печати */
   poster?: string;
@@ -28,8 +28,11 @@ interface VideoProps extends Block {
 
 const YOUTUBE = /(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/i;
 const VIMEO = /vimeo\.com\/(?:video\/)?(\d+)/i;
+const TWITCH_CLIP = /(?:clips\.twitch\.tv\/|twitch\.tv\/\w+\/clip\/)([\w-]+)/i;
+const TWITCH_VIDEO = /twitch\.tv\/videos\/(\d+)/i;
+const TWITCH_CHANNEL = /twitch\.tv\/(\w{3,25})\/?(?:[?#]|$)/i;
 
-/** Ролик с YouTube или Vimeo: адрес плеера и обложка. */
+/** Ролик с YouTube, Vimeo или Twitch: адрес плеера и обложка. Плееру Twitch адрес сайта (parent) добавляется при запуске */
 export function videoEmbed(src: string, o: { autoplay: boolean; muted: boolean; loop: boolean; controls: boolean }): { url: string; thumb?: string; service: string; watch: string } | null {
   const b = (v: boolean) => (v ? 1 : 0);
   const yt = YOUTUBE.exec(src);
@@ -45,6 +48,22 @@ export function videoEmbed(src: string, o: { autoplay: boolean; muted: boolean; 
   const vm = VIMEO.exec(src);
   if (vm) {
     return { service: 'Vimeo', watch: `https://vimeo.com/${vm[1]}`, url: `https://player.vimeo.com/video/${vm[1]}?autoplay=${b(o.autoplay)}&muted=${b(o.muted)}&loop=${b(o.loop)}&controls=${b(o.controls)}&dnt=1` };
+  }
+  const tw = `autoplay=${o.autoplay}&muted=${o.muted}`;
+  const clip = TWITCH_CLIP.exec(src);
+  if (clip) return { service: 'Twitch', watch: `https://clips.twitch.tv/${clip[1]}`, url: `https://clips.twitch.tv/embed?clip=${clip[1]}&${tw}` };
+  const vod = TWITCH_VIDEO.exec(src);
+  if (vod) return { service: 'Twitch', watch: `https://www.twitch.tv/videos/${vod[1]}`, url: `https://player.twitch.tv/?video=${vod[1]}&${tw}` };
+  const ch = TWITCH_CHANNEL.exec(src);
+  if (ch && !/^(videos|directory|downloads|p|search|settings)$/i.test(ch[1])) {
+    const name = ch[1].toLowerCase();
+    return {
+      service: 'Twitch',
+      watch: `https://www.twitch.tv/${name}`,
+      // Кадр идущей трансляции; канал не в эфире — серая заглушка Twitch
+      thumb: `https://static-cdn.jtvnw.net/previews-ttv/live_user_${name}-640x360.jpg`,
+      url: `https://player.twitch.tv/?channel=${name}&${tw}`,
+    };
   }
   return null;
 }
@@ -123,7 +142,9 @@ defineBlock<VideoProps>('video', {
         const f = document.createElement('iframe');
         // Плеер узнаёт, на каком сайте он встроен: без этого YouTube отвечает ошибкой 153
         f.referrerPolicy = 'strict-origin-when-cross-origin';
-        const url = presenter() ? embed.dataset.embed!.replace(/([?&])(mute|muted)=0/, '$1$2=1') : embed.dataset.embed!;
+        let url = presenter() ? embed.dataset.embed!.replace(/([?&])(mute|muted)=(0|false)/, (_m, a, k, v) => `${a}${k}=${v === '0' ? 1 : true}`) : embed.dataset.embed!;
+        // Twitch пускает плеер только на сайт, указанный в адресе (localhost, 127.0.0.1 в приложении)
+        if (embed.dataset.service === 'Twitch') url += `&parent=${encodeURIComponent(location.hostname)}`;
         f.src = url;
         f.allow = 'autoplay; fullscreen; picture-in-picture; encrypted-media';
         f.setAttribute('allowfullscreen', '');
