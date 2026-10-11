@@ -7,7 +7,8 @@
 //   math     — пустой слайд для формул;
 //   find     — поиск по тексту и коду;
 //   save     — сохранение: контрольные точки, два окна одной презентации;
-//   table    — таблица (ячейки, как в PowerPoint) и фигуры для порядка «вперёд / назад».
+//   table    — таблица (ячейки, как в PowerPoint) и фигуры для порядка «вперёд / назад»;
+//   origin   — как после импорта из PowerPoint: цвета файла и тема «Как в файле».
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -153,5 +154,32 @@ slides:
           - [Расходы, "80", "70"]
           - [Прибыль, "20", "50"]
         place: {x: 80, y: 80, w: 700}
+`);
+// origin — как после импорта PowerPoint: цвета файла в слайдах, их палитра и тема «Как в файле»
+fs.mkdirSync(path.join(dir, 'origin'));
+fs.writeFileSync(path.join(dir, 'origin', 'deck.yaml'), `title: Импорт
+theme:
+  preset: file
+  accent: "#3C388D"
+  mode: light
+  light: {bg: "#FFFFFF", tx: "#000000"}
+  font: Arial
+  bg: plain
+origin:
+  bg: "#FFFFFF"
+  tx: "#000000"
+  accents: ["#3C388D"]
+  colors: ["#3C388D", "#000000", "#FFFFFF"]
+  theme:
+    accent: "#3C388D"
+    mode: light
+    light: {bg: "#FFFFFF", tx: "#000000"}
+    font: Arial
+    bg: plain
+slides:
+  - template: canvas
+    free:
+      - {type: text, text: "Цели проекта", styles: {text: {size: 40, color: "#3C388D", weight: 700}}, place: {x: 60, y: 60, w: 900}}
+      - {type: shape, id: bar, kind: rect, fill: "#3C388D", width: 0, place: {x: 1100, y: 660, w: 180, h: 60}}
 `);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

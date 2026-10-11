@@ -12,10 +12,11 @@
  *   --card-bg --card-bd --card-bw --card-sh        карточки и плашки
  *   --rk                                           множитель скругления углов
  */
-import type { DeckTheme, ThemePalette } from '../types';
+import type { DeckOrigin, DeckTheme, ThemePalette } from '../types';
 import { accentTokens, contrast, DEFAULT_ACCENT, HEX_RE, mix, SWATCHES } from './accent';
 import { cssKey } from './deck-css';
 import { fontNameOk } from './fonts';
+import { recolorVars, sameColors } from './recolor';
 
 export type SlideMode = 'light' | 'dark';
 
@@ -141,8 +142,11 @@ function onAccent(ac: string, p: FullPalette): string {
   return contrast(ac, dark) >= contrast(ac, '#0B1020') ? dark : '#0B1020';
 }
 
-/** Все переменные темы для светлого или тёмного вида слайдов */
-export function themeVars(t: DeckTheme, mode: SlideMode): Record<string, string> {
+/**
+ * Все переменные темы для светлого или тёмного вида слайдов. origin — палитра исходного файла:
+ * его цвета перекрашиваются в цвета темы (у темы «Как в файле» — остаются свои)
+ */
+export function themeVars(t: DeckTheme, mode: SlideMode, origin?: DeckOrigin): Record<string, string> {
   const dark = mode === 'dark';
   const pal = fullPalette(t[mode], mode);
   const v: Record<string, string> = {};
@@ -170,6 +174,10 @@ export function themeVars(t: DeckTheme, mode: SlideMode): Record<string, string>
   const hs = Number(t.headScale);
   if (Number.isFinite(hs) && t.headScale !== undefined && hs !== 1) v['--h-scale'] = String(Math.max(0.7, Math.min(1.3, Math.round(hs * 100) / 100)));
   v['color-scheme'] = mode;
+  if (origin && Array.isArray(origin.colors)) {
+    if (sameColors(t, origin.theme)) for (const c of origin.colors) v[`--k-${String(c).slice(1).toUpperCase()}`] = 'initial';
+    else Object.assign(v, recolorVars(origin, { bg: pal.bg, tx: pal.tx, surf: pal.surf, accents: [ac['--ac'], ac['--ac2']] }));
+  }
   return v;
 }
 
@@ -178,6 +186,11 @@ export function hasThemeLook(theme: unknown): theme is DeckTheme {
   if (!theme || typeof theme !== 'object') return false;
   const t = theme as DeckTheme;
   return !!(t.preset || t.mode || t.light || t.dark || t.bg || t.cards || t.radius !== undefined || t.head || t.headWeight || t.headCase || t.headSpacing !== undefined || t.headScale !== undefined);
+}
+
+/** Есть ли у презентации палитра исходного файла (deck.origin) */
+export function hasOrigin(o: unknown): o is DeckOrigin {
+  return !!o && typeof o === 'object' && Array.isArray((o as DeckOrigin).colors) && (o as DeckOrigin).colors.length > 0;
 }
 
 /** Постоянный вид слайдов темы или null — как тема у зрителя */
@@ -192,10 +205,10 @@ const decl = (v: Record<string, string>, imp: boolean) => Object.entries(v).map(
  * CSS темы для селектора: светлый и тёмный вид (или один постоянный). extra — переменные сверху
  * (шрифт текста у показа темы); important — сильнее стилей без слоя (показ поверх шрифтов презентации)
  */
-export function themeCss(t: DeckTheme, sel: string, extra: Record<string, string> = {}, important = false): string {
+export function themeCss(t: DeckTheme, sel: string, extra: Record<string, string> = {}, important = false, origin?: DeckOrigin): string {
   const s = sel.includes(',') ? `:is(${sel})` : sel;
-  const L = decl({ ...themeVars(t, 'light'), ...extra }, important);
-  const D = decl({ ...themeVars(t, 'dark'), ...extra }, important);
+  const L = decl({ ...themeVars(t, 'light', origin), ...extra }, important);
+  const D = decl({ ...themeVars(t, 'dark', origin), ...extra }, important);
   const m = themeMode(t);
   if (m) return `${s}{${m === 'dark' ? D : L}}`;
   return `${s}{${L}}@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) ${s}{${D}}}:root[data-theme="dark"] ${s}{${D}}`;
@@ -209,9 +222,12 @@ const KEEP = 24;
  * Подключает тему презентации и возвращает метку для её слайдов (data-th) или null, если темы
  * нет. У каждой презентации своя метка: на странице выбора и в галерее их несколько сразу
  */
-export function applyDeckTheme(theme: unknown): string | null {
-  if (!hasThemeLook(theme) || typeof document === 'undefined') return null;
-  const css = themeCss(theme, '.slide[data-th="@"]');
+export function applyDeckTheme(theme: unknown, origin?: DeckOrigin): string | null {
+  if (typeof document === 'undefined') return null;
+  // Импорт с палитрой файла: тема есть всегда (без неё — стандартная), цвета файла следуют за ней
+  const own = hasOrigin(origin);
+  if (!hasThemeLook(theme) && !own) return null;
+  const css = themeCss((theme && typeof theme === 'object' ? theme : {}) as DeckTheme, '.slide[data-th="@"]', {}, false, own ? origin : undefined);
   const key = cssKey(css);
   const had = styles.get(key);
   if (had?.isConnected) {
@@ -263,7 +279,7 @@ const PREVIEW_ATTR = 'data-th-preview';
  * Примерка темы на открытом слайде (наведение на тему в галерее): только стили, слайд не
  * перерисовывается. null — примерка закончена. Без темы — показ стандартного вида
  */
-export function previewTheme(theme: DeckTheme | null | undefined, stage?: HTMLElement): void {
+export function previewTheme(theme: DeckTheme | null | undefined, stage?: HTMLElement, origin?: DeckOrigin): void {
   let el = document.getElementById(PREVIEW_ID);
   if (theme === null) {
     el?.remove();
@@ -278,5 +294,5 @@ export function previewTheme(theme: DeckTheme | null | undefined, stage?: HTMLEl
   }
   const t: DeckTheme = theme ?? {};
   // Стандартный вид — тоже тема: с палитрой и фоном по умолчанию, поверх темы презентации
-  el.textContent = `@layer slideria-preview{${themeCss(t, `[${PREVIEW_ATTR}] .slide.on`, bodyFont(t), true)}}`;
+  el.textContent = `@layer slideria-preview{${themeCss(t, `[${PREVIEW_ATTR}] .slide.on`, bodyFont(t), true, hasOrigin(origin) ? origin : undefined)}}`;
 }

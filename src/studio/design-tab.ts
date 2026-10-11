@@ -41,9 +41,16 @@ export interface DesignHost {
 
 /** Своя тема — как тема галереи: id «my:<id>» */
 const asPreset = (m: MyTheme): ThemePreset & { my: MyTheme } => ({ id: MY + m.id, name: m.name, theme: m.theme, my: m });
-/** Тема галереи или своя — по id плитки */
-function findTheme(id: string | undefined): (ThemePreset & { my?: MyTheme }) | null {
+/** Тема «Как в файле»: оформление исходного файла импортированной презентации (deck.origin) */
+const FILE = 'file';
+function fileTheme(deck: Deck): ThemePreset | null {
+  const t = deck.origin?.theme;
+  return t && typeof t === 'object' ? { id: FILE, name: 'Как в файле', theme: t } : null;
+}
+/** Тема галереи, своя или «Как в файле» — по id плитки */
+function findTheme(deck: Deck, id: string | undefined): (ThemePreset & { my?: MyTheme }) | null {
   if (!id) return null;
+  if (id === FILE) return fileTheme(deck);
   if (id.startsWith(MY)) {
     const m = listMyThemes().find((x) => MY + x.id === id);
     return m ? asPreset(m) : null;
@@ -91,7 +98,7 @@ export function designPanelHtml(): string {
  * null — примерка заканчивается
  */
 export function tryTheme(deck: Deck, stage: HTMLElement, t: DeckTheme | null): void {
-  previewTheme(t, stage);
+  previewTheme(t, stage, deck.origin);
   if (!t) return previewBackdrop(stage, null);
   const idx = Number(stage.querySelector<HTMLElement>('.slide.on')?.dataset.index);
   const own = deck.slides[idx]?.backdrop;
@@ -284,15 +291,15 @@ export function designCommands(h: DesignHost): Record<string, Command> {
       + `<button type="button" class="st-dz-add${unsaved ? ' hint' : ''}" data-my="save">${icon('plus')}<b>Сохранить текущую</b><small>${unsaved ? 'Оформление презентации — темой для других презентаций' : 'Цвета, шрифты, фон, карточки и углы этой презентации'}</small></button>`
       + `${mine.map((m) => tile(asPreset(m), true)).join('')}</div>`
       + `<div class="st-dz-sec"><b>Темы Slideria</b></div>`
-      + `<div class="st-dz-gal" role="listbox" aria-label="Темы">${THEME_PRESETS.map((p) => tile(p)).join('')}</div>`;
+      + `<div class="st-dz-gal" role="listbox" aria-label="Темы">${[fileTheme(deck), ...THEME_PRESETS].filter((p): p is ThemePreset => !!p).map((p) => tile(p)).join('')}</div>`;
     const el = showPopover(at, html, (b) => {
       const act = b.dataset.my;
       if (act === 'save') return { run: () => saveTheme(at) };
       if (act === 'load') return { run: () => loadTheme() };
-      if (act === 'file') return { run: () => { const p = findTheme(b.dataset.id); if (p?.my) downloadTheme(p.my); }, keep: true };
+      if (act === 'file') return { run: () => { const p = findTheme(deck, b.dataset.id); if (p?.my) downloadTheme(p.my); }, keep: true };
       if (act === 'del') {
         return { run: () => {
-          const p = findTheme(b.dataset.id);
+          const p = findTheme(deck, b.dataset.id);
           if (!p?.my) return;
           removeMyTheme(p.my.id);
           myVersion++;
@@ -300,16 +307,16 @@ export function designCommands(h: DesignHost): Record<string, Command> {
           ed.toast(`Тема «${p.name}» удалена`, 2000);
         }, keep: true };
       }
-      const p = findTheme(b.dataset.themeId);
+      const p = findTheme(deck, b.dataset.themeId);
       return p ? { run: () => void applyPreset(p) } : null;
     }, 'st-dz-galpop');
     // Справа: открытый слайд в середине окна остаётся на виду — на нём примеряется тема
     el.style.left = `${Math.max(8, innerWidth - el.offsetWidth - 12)}px`;
     el.querySelectorAll<HTMLElement>('.st-dz-tile').forEach((b) => {
-      const p = findTheme(b.dataset.themeId);
+      const p = findTheme(deck, b.dataset.themeId);
       if (p) b.querySelector('.st-dz-shot')!.appendChild(staticSlide(specimenDeck(p.theme), 0, 284));
     });
-    hoverTry(el, '.st-dz-tile', (b) => findTheme(b.dataset.themeId)?.theme ?? null);
+    hoverTry(el, '.st-dz-tile', (b) => findTheme(deck, b.dataset.themeId)?.theme ?? null);
   };
 
   // ---------- анимация фона всех слайдов ----------
@@ -333,8 +340,8 @@ export function designCommands(h: DesignHost): Record<string, Command> {
       ed.toast('Сначала оформите презентацию: тема, цвета, шрифты или фон — на этой вкладке', 3500);
       return;
     }
-    const base = findTheme(currentPreset(deck));
-    const suggestion = base?.my ? base.name : base ? `${base.name} (своя)` : deck.title ? `Тема «${deck.title}»`.slice(0, 50) : 'Моя тема';
+    const base = findTheme(deck, currentPreset(deck));
+    const suggestion = base?.my ? base.name : base && base.id !== FILE ? `${base.name} (своя)` : deck.title ? `Тема «${deck.title}»`.slice(0, 50) : 'Моя тема';
     h.askName(at, 'Сохранить тему', 'Цвета, шрифты (вместе с файлами), фон, карточки, углы и вид слайдов — в «Мои темы» для любой презентации.', suggestion, (name) => void (async () => {
       const t = await captureTheme(deck, name);
       // То же имя — обновление темы, а не вторая с тем же названием
@@ -366,7 +373,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     };
     inp.click();
   };
-  applyById = (id) => { const p = findTheme(id); if (p) void applyPreset(p); };
+  applyById = (id) => { const p = findTheme(deck, id); if (p) void applyPreset(p); };
 
   // ---------- палитры ----------
   const palettes = () => {
@@ -553,13 +560,15 @@ export function syncDesignTab(h: DesignHost): void {
   const strip = document.getElementById('st-dz-strip');
   if (!strip) return;
   const cur = currentPreset(h.deck);
-  const key = `${currentTheme()}|${cur}|${myVersion}`;
+  const file = fileTheme(h.deck);
+  const key = `${currentTheme()}|${cur}|${myVersion}|${file ? JSON.stringify(file.theme) : ''}`;
   if (key !== stripKey) {
     stripKey = key;
     const mine = listMyThemes();
     registerMyFonts(mine);
     // Свои темы — первыми: ими пользуются чаще
-    strip.innerHTML = mine.map((m) => miniTile(asPreset(m), cur)).join('') + THEME_PRESETS.map((p) => miniTile(p, cur)).join('');
+    // Тема исходного файла (импорт из PowerPoint) — самой первой: к ней возвращаются
+    strip.innerHTML = (file ? miniTile(file, cur) : '') + mine.map((m) => miniTile(asPreset(m), cur)).join('') + THEME_PRESETS.map((p) => miniTile(p, cur)).join('');
   }
   const t = h.deck.theme ?? {};
   const label = (cmd: string, name: string | undefined, none: string) => {
@@ -588,7 +597,7 @@ export function bindDesignStrip(h: DesignHost, cmds: Record<string, Command>): v
   if (!strip) return;
   strip.addEventListener('pointerover', (e) => {
     const b = (e.target as Element).closest<HTMLElement>('.st-dz-mini');
-    const p = b ? findTheme(b.dataset.themeId) : null;
+    const p = b ? findTheme(h.deck, b.dataset.themeId) : null;
     if (p) tryTheme(h.deck, h.stage(), p.theme);
   });
   strip.addEventListener('pointerleave', () => tryTheme(h.deck, h.stage(), null));

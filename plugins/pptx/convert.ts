@@ -12,6 +12,7 @@ import path from 'node:path';
 import { type ColorCtx, type Rgba, colorIn, css, hex } from './color';
 import { type GeomPath, PRESETS, adjusts, customPaths, presetPaths } from './geom';
 import { type El, Pkg, attr, bool, find, kid, kids, num, one, textOf } from './xml';
+import { colorFamilies, lightness } from '../../src/engine/recolor';
 
 type Obj = Record<string, unknown>;
 
@@ -251,6 +252,8 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
   let firstTitle = '';
   let deckTheme: Theme | null = null;
   let deckCc: ColorCtx | null = null;
+  /** Образец каждого слайда: акценты темы файла — по слайдам главного (первого) образца */
+  const slideMasters: (string | null)[] = [];
 
   for (let si = 0; si < slideParts.length; si++) {
     const sp = slideParts[si];
@@ -321,7 +324,7 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
       } else if (p?.kind === 'blip') {
         const target = pkg.rel(bgPart, attr(kid(p.el, 'blip'), 'r:embed'));
         const src = target ? await asset(target, kid(p.el, 'srcRect')) : null;
-        if (src) free.push({ type: 'image', src, fit: 'cover', locked: true, place: { x: 0, y: 0, w: SLIDE_W, h: SLIDE_H } });
+        if (src) free.push({ type: 'image', src, fit: 'cover', radius: 0, locked: true, place: { x: 0, y: 0, w: SLIDE_W, h: SLIDE_H } });
       }
     }
 
@@ -679,7 +682,7 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
             const src = target ? await asset(target, kid(fill.el, 'srcRect')) : null;
             if (src) {
               const radius = prst === 'ellipse' ? 'circle' : prst === 'roundRect' ? r1(Math.min(box.w, box.h) * ((adjusts(kid(spPr, 'prstGeom')).adj ?? 16667) / 100000)) : undefined;
-              free.push(lockIt({ type: 'image', src, fit: 'cover', ...(radius !== undefined ? { radius } : {}), place: { x: r1(box.x), y: r1(box.y), w: r1(box.w), h: r1(box.h) }, ...(box.rot ? { angle: r1(box.rot) } : {}) }));
+              free.push(lockIt({ type: 'image', src, fit: 'cover', radius: radius ?? 0, place: { x: r1(box.x), y: r1(box.y), w: r1(box.w), h: r1(box.h) }, ...(box.rot ? { angle: r1(box.rot) } : {}) }));
             }
           } else if (isLine && line && !hasText) {
             // Линия: прямая — нашей линией или стрелкой, иначе SVG
@@ -770,8 +773,8 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
           const prst = attr(kid(spPr, 'prstGeom'), 'prst');
           const radius = prst === 'ellipse' ? 'circle' : prst === 'roundRect' ? r1(Math.min(box.w, box.h) * ((adjusts(kid(spPr, 'prstGeom')).adj ?? 16667) / 100000)) : undefined;
           const line = lineFor(el, spPr);
-          const o: Obj = { type: 'image', src, fit: 'cover', place: { x: r1(box.x), y: r1(box.y), w: r1(box.w), h: r1(box.h) } };
-          if (radius !== undefined) o.radius = radius;
+          // Углы — как в файле: у картинки PowerPoint они прямые, а не скруглены темой
+          const o: Obj = { type: 'image', src, fit: 'cover', radius: radius ?? 0, place: { x: r1(box.x), y: r1(box.y), w: r1(box.w), h: r1(box.h) } };
           if (line?.c) { o.stroke = hex(line.c); o.width = r1(line.w); }
           if (box.rot) o.angle = r1(box.rot);
           const shadow = shadowFor(el, spPr);
@@ -942,6 +945,7 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
     o.free = free;
     if (notes) o.notes = notes;
     slides.push(o);
+    slideMasters.push(masterPart);
   }
 
   // Заголовок: свойства файла → первый заголовок → имя файла
@@ -961,11 +965,90 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
   }
   const lang = [...langs].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'ru';
   const deck: Obj = { title, lang };
-  if (deckTheme && deckCc) {
-    const sch = (n: string) => deckCc!.scheme[deckCc!.map[n] ?? n];
-    const acc = sch('accent1'), acc2 = sch('accent2');
-    deck.theme = { ...(acc ? { accent: `#${acc.toUpperCase()}` } : {}), ...(acc2 ? { accent2: `#${acc2.toUpperCase()}` } : {}) };
-  }
+  const sch = (n: string) => (deckCc ? deckCc.scheme[deckCc.map[n] ?? n] : undefined);
+  Object.assign(deck, fileTheme(slides, sch, slideMasters.map((m) => m === slideMasters[0])));
   deck.slides = slides;
   return { title, deck, assets, warnings: [...warnings], slides: slides.length };
+}
+
+const HEX_ALL = /#[0-9A-F]{6}\b/g;
+const isHex6 = (v: unknown): v is string => typeof v === 'string' && /^#[0-9A-F]{6}$/i.test(v);
+
+/**
+ * Тема «Как в файле» и палитра файла (deck.origin): по ней цвета слайдов следуют за темой,
+ * которую выберут во вкладке «Дизайн». Шрифты заголовков и текста файла становятся шрифтами темы —
+ * у текста они больше не записываются, и другая тема меняет их на свои
+ */
+function fileTheme(slides: Obj[], sch: (n: string) => string | undefined, main: boolean[]): Obj {
+  const up = (h: string | undefined, def: string) => `#${(h && /^[0-9A-F]{6}$/i.test(h) ? h : def).toUpperCase()}`;
+  const bg = up(sch('bg1'), 'FFFFFF');
+  const tx = up(sch('tx1'), '000000');
+  // Фон слайда, совпадающий с фоном темы, — от темы (у другой темы — её фон с узором)
+  for (const s of slides) if (isHex6(s.bg) && s.bg.toUpperCase() === bg) delete s.bg;
+  // Слайд с картинкой фоном: текст подобран к картинке — его цвета остаются как в файле
+  for (const s of slides) {
+    const first = (s.free as Obj[] | undefined)?.[0];
+    const pl = first?.place as { x: number; y: number; w: number; h: number } | undefined;
+    if (first?.type === 'image' && first.locked && pl && pl.x <= 1 && pl.y <= 1 && pl.w >= SLIDE_W - 2 && pl.h >= SLIDE_H - 2) s.recolor = false;
+  }
+  // Цвета слайдов по частоте — на скольких слайдах встречаются (набор иконок в конце шаблона
+  // с сотнями фигур не перевешивает оформление); семейства цветных — акценты
+  // Слайды других образцов (приложения шаблона в своём стиле) дают только запасные акценты
+  const counts = new Map<string, number>();
+  slides.forEach((s, i) => {
+    if (s.recolor === false) return;
+    for (const h of new Set(JSON.stringify(s).match(HEX_ALL) ?? [])) counts.set(h, (counts.get(h) ?? 0) + (main[i] ? 1000 : 1));
+  });
+  const accents = colorFamilies(counts);
+  const acc1 = accents[0] ?? up(sch('accent1'), '2563EB');
+  // Шрифты: заголовков — у крупного текста (от 28 px), текста — у остального; по объёму текста
+  type St = { size?: number; font?: string };
+  const styled: { st: St; len: number }[] = [];
+  const tables: Obj[] = [];
+  slides.forEach((s, i) => {
+    for (const o of (s.free as Obj[] | undefined) ?? []) {
+      const st = (o.styles as { text?: St } | undefined)?.text;
+      if (st && typeof o.text === 'string') styled.push({ st, len: o.text.length * (main[i] ? 1000 : 1) });
+      if (o.type === 'table') tables.push(o);
+    }
+  });
+  const top = (big: boolean) => {
+    const m = new Map<string, number>();
+    for (const { st, len } of styled) if (st.font && (Number(st.size) >= 28) === big) m.set(st.font, (m.get(st.font) ?? 0) + len);
+    return [...m].sort((a, b) => b[1] - a[1])[0]?.[0];
+  };
+  const body = top(false);
+  const head = top(true) ?? body;
+  // «Poppins ExtraBold» при шрифте заголовков Poppins — тот же шрифт с насыщенностью 800
+  const WEIGHTS: Record<string, number> = { thin: 100, extralight: 200, light: 300, medium: 500, semibold: 600, bold: 700, extrabold: 800, black: 900 };
+  for (const { st } of styled) {
+    const role = Number(st.size) >= 28 ? head : body;
+    if (!st.font || !role) continue;
+    const w = st.font.startsWith(`${role} `) ? WEIGHTS[st.font.slice(role.length + 1).replace(/[\s-]/g, '').toLowerCase()] : undefined;
+    if (st.font === role) delete st.font;
+    else if (w) {
+      delete st.font;
+      (st as { weight?: number }).weight = w;
+    }
+  }
+  if (body) {
+    for (const t of tables) {
+      if (typeof t.style === 'string') t.style = t.style.replace(`;font-family:"${body}",system-ui,sans-serif`, '');
+    }
+  }
+  const mode = lightness(bg) >= 0.6 ? 'light' : 'dark';
+  const theme: Obj = {
+    accent: acc1,
+    ...(accents[1] ? { accent2: accents[1] } : {}),
+    mode,
+    [mode]: { bg, tx },
+    ...(body ? { font: body } : {}),
+    ...(head && head !== body ? { head } : {}),
+    bg: 'plain',
+  };
+  const colors = [...counts.keys()].sort((a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0));
+  return {
+    theme: { preset: 'file', ...structuredClone(theme) },
+    ...(colors.length ? { origin: { bg, tx, ...(accents.length ? { accents } : {}), colors, theme } } : {}),
+  };
 }

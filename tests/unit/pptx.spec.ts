@@ -56,6 +56,29 @@ test('PPTX → холсты со свободными объектами', async
   expect(b.some((o) => o.fill === '#FF0000')).toBe(false);
 });
 
+test('тема «Как в файле»: палитра файла, шрифты — шрифтами темы, фон темы не пишется у слайда', async () => {
+  const p = new PptxGenJS();
+  p.layout = 'LAYOUT_WIDE';
+  for (const t of ['Первый', 'Второй']) {
+    const s = p.addSlide();
+    s.background = { color: 'FFFFFF' };
+    s.addText(t, { x: 1, y: 0.5, w: 8, h: 1, fontSize: 40, bold: true, color: '3C388D', fontFace: 'Verdana' });
+    s.addText('Текст слайда', { x: 1, y: 2, w: 8, h: 1, fontSize: 18, color: '000000', fontFace: 'Calibri' });
+    s.addShape(p.ShapeType.rect, { x: 10, y: 6, w: 2, h: 0.5, fill: { color: '3C388D' } });
+  }
+  const r = await convertPptx((await p.write({ outputType: 'nodebuffer' })) as Buffer, 'Тема.pptx');
+  const d = r.deck as Obj;
+  expect(d.theme).toMatchObject({ preset: 'file', accent: '#3C388D', mode: 'light', light: { bg: '#FFFFFF', tx: '#000000' }, font: 'Calibri', head: 'Verdana', bg: 'plain' });
+  expect(d.origin).toMatchObject({ bg: '#FFFFFF', tx: '#000000', accents: ['#3C388D'] });
+  expect(d.origin.colors).toEqual(expect.arrayContaining(['#3C388D', '#000000']));
+  expect(d.origin.theme.preset).toBeUndefined();
+  const free = d.slides[0].free as Obj[];
+  // Шрифт заголовка и текста — от темы: у объектов не записан
+  expect(free.filter((o) => o.type === 'text').map((o) => o.styles.text.font)).toEqual([undefined, undefined]);
+  // Белый фон слайда = фон темы
+  expect(d.slides[0].bg).toBeUndefined();
+});
+
 test('не PPTX — понятная ошибка', async () => {
   await expect(convertPptx(Buffer.from('не архив'), 'x.pptx')).rejects.toThrow();
 });

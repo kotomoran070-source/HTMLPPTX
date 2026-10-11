@@ -138,6 +138,33 @@ test('«Дизайн»: наведение примеряет тему, щелч
   expect(errors).toEqual([]);
 });
 
+test('импорт из PowerPoint: другая тема перекрашивает цвета файла, «Как в файле» возвращает их', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=origin&studio#1');
+  const title = page.locator('#st-canvas .slide.on [data-type="text"]').first();
+  const bar = page.locator('#st-canvas .slide.on [data-obj="bar"] .shape, #st-canvas .slide.on [data-obj="bar"] [data-type="shape"]').first();
+  await expect(title).toHaveCSS('color', 'rgb(60, 56, 141)');
+  await page.locator('.st-tabs [data-tab="design"]').click();
+  // Тема файла — первой плиткой и отмечена
+  const file = page.locator('#st-dz-strip .st-dz-mini').first();
+  await expect(file).toHaveAttribute('data-theme-id', 'file');
+  await expect(file).toHaveClass(/active/);
+  // Примерка «Зимы» уже перекрашивает: синий оттенок вместо фиолетового
+  await page.locator('.st-dz-mini[data-theme-id="winter"]').hover();
+  await expect.poll(() => title.evaluate((el) => getComputedStyle(el).color)).not.toBe('rgb(60, 56, 141)');
+  await page.locator('.st-dz-mini[data-theme-id="winter"]').click();
+  await expect.poll(() => readDeck('origin')).toContain('preset: winter');
+  const blue = await bar.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const [r, , b] = blue.match(/\d+/g)!.map(Number);
+  expect(b).toBeGreaterThan(r * 1.5);
+  // Палитра файла остаётся в данных: к ней можно вернуться
+  expect(readDeck('origin')).toContain('origin:');
+  await file.click();
+  await expect.poll(() => readDeck('origin')).toContain('preset: file');
+  await expect(title).toHaveCSS('color', 'rgb(60, 56, 141)');
+  expect(errors).toEqual([]);
+});
+
 test('«Мои темы»: оформление сохраняется темой и появляется первым в ряду тем', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=design&studio#1');

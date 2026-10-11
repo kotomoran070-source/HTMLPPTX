@@ -7,7 +7,8 @@ import { asArray, esc } from './html';
 import { slideAccent } from './accent';
 import { backdropLook, slideBackdrop } from './backdrops';
 import { applyDeckCss, applyDeckDefs, applyScopedCss } from './deck-css';
-import { applyDeckTheme, themeMode, type SlideMode } from './deck-theme';
+import { applyDeckTheme, hasOrigin, themeMode, type SlideMode } from './deck-theme';
+import { recolorHtml } from './recolor';
 import { applyDeckFonts } from './fonts';
 import { forceTheme } from './theme';
 import { indexPaths, pathOf } from './marks';
@@ -37,6 +38,8 @@ export class Renderer {
   /** Тема презентации (deck-theme.ts) и постоянный вид её слайдов: светлые или тёмные */
   private themeKey: string | null;
   private mode: SlideMode | null;
+  /** Цвета исходного файла, которые следуют за темой (deck.origin) */
+  private recolor: Set<string>;
 
   constructor(private deck: Deck, private logo?: string, private varsOverride?: Map<number, Record<string, number>>) {
     // Пути нужны для режима правки: каждый элемент знает, какое значение он показывает
@@ -47,7 +50,8 @@ export class Renderer {
     // Свои шрифты презентации и её шрифт по умолчанию
     this.fontKey = applyDeckFonts(deck.fonts, deck.theme?.font);
     // Тема: цвета, фон, заголовки и карточки слайдов
-    this.themeKey = applyDeckTheme(deck.theme);
+    this.themeKey = applyDeckTheme(deck.theme, deck.origin);
+    this.recolor = new Set(hasOrigin(deck.origin) ? deck.origin.colors.map((c) => String(c).toUpperCase()) : []);
     this.mode = this.themeKey ? themeMode(deck.theme) : null;
     // Вёрстка из других презентаций — со своими стилями, в своём пространстве
     applyScopedCss(deck.scoped);
@@ -105,7 +109,10 @@ export class Renderer {
     const backdrop = kind && getBlock('backdrop')
       ? this.block({ type: 'backdrop', kind, ...(look && look.opacity !== 1 ? { opacity: look.opacity } : {}), ...(look && look.speed !== 1 ? { speed: look.speed } : {}) } as Block, ctx) : '';
     if (backdrop) cls += ' has-backdrop';
-    return `<section class="${cls}" data-index="${index}" data-tpl="${esc(name)}"${attrs}>${backdrop}${inner}${this.freeLayer(slide, ctx)}${live}</section>`;
+    let content = `${inner}${this.freeLayer(slide, ctx)}`;
+    // Цвета исходного файла — переменными темы (кроме слайдов с картинкой фоном из файла)
+    if (this.recolor.size && slide.recolor !== false) content = recolorHtml(content, this.recolor);
+    return `<section class="${cls}" data-index="${index}" data-tpl="${esc(name)}"${attrs}>${backdrop}${content}${live}</section>`;
   }
 
   /**
@@ -186,7 +193,8 @@ export class Renderer {
   blockHtml(b: Block, slide: SlideData, index: number): string {
     const was = forceTheme(this.mode);
     try {
-      return this.block(b, this.ctx(slide, index));
+      const html = this.block(b, this.ctx(slide, index));
+      return this.recolor.size && slide.recolor !== false ? recolorHtml(html, this.recolor) : html;
     } finally {
       forceTheme(was);
     }
