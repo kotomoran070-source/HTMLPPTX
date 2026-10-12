@@ -206,7 +206,7 @@ test('прожектор: щелчок по блоку — он в светло�
 test('блоки-схемы: все рисуются без ошибок, вопрос раскрывается по щелчку', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=schemes#1');
-  const types = ['cycle', 'funnel', 'pyramid', 'numbers', 'compare', 'matrix', 'icons', 'stats', 'faq'];
+  const types = ['cycle', 'funnel', 'pyramid', 'numbers', 'compare', 'matrix', 'icons', 'stats', 'roadmap', 'ladder', 'orbit', 'faq'];
   for (const [k, type] of types.entries()) {
     await expect(page.locator('#ct')).toHaveText(`${k + 1} из ${types.length}`);
     const block = page.locator(`.slide.on [data-type="${type}"]`);

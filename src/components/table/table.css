@@ -65,6 +65,12 @@
 .tbl-plan tbody tr { transition: background-color .15s; }
 .tbl-plan tbody tr:hover { background: color-mix(in srgb, var(--alt) 60%, var(--surf)); }
 
+/* Наведение на строку — у всех видов: строка подсвечивается тоном акцента, у первой ячейки — полоса
+   акцента (при показе удобно вести рассказ по строкам). Своя заливка ячейки остаётся сверху */
+.tbl tbody td { transition: background-color .15s, box-shadow .15s; }
+.tbl tbody tr:hover > td { background-color: color-mix(in srgb, var(--acs) 70%, transparent); }
+.tbl tbody tr:hover > td:first-child { box-shadow: inset 3px 0 0 var(--ac); }
+
 /* Метка в ячейке: рамка и цветная точка (приоритет, статус) */
 .tbl-badge { display: inline-flex; align-items: center; gap: .5em; padding: .22em .75em; border: 1px solid var(--bd); border-radius: 8px; background: var(--surf); color: var(--tx2); font-size: .82em; font-weight: 600; line-height: 1.35; white-space: nowrap; }
 .tbl-badge i { flex: none; width: .55em; height: .55em; border-radius: 50%; background: var(--dot, var(--mu)); }

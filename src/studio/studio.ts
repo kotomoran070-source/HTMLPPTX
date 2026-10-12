@@ -1375,6 +1375,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
       run: () => { const sel = ed.selection; if (sel && sel.group.length > 1) groupObjects({ deck, stage: view.stage, editor: ed }, index, sel.group); },
       enabled: multi,
     },
+    // Логотип презентации: файл картинки — в brand.logo (на всех слайдах с логотипом сразу)
+    'brand.logo.add': { run: () => ed.pickImage(['brand', 'logo']) },
     'slide.explode': { run: () => { ed.clearSelection(); explodeSlide({ deck, stage: view.stage, editor: ed }, index); }, enabled: () => canExplode(deck.slides[index]) },
     'obj.ungroup': {
       run: () => {

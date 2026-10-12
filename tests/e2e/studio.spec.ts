@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { DECKS, readDeck, watchErrors } from './helpers';
+import { DECKS, readDeck, waitFile, watchErrors } from './helpers';
 
 test.use({ colorScheme: 'light' });
 
@@ -16,7 +16,7 @@ test('студия открывается, слайды и свойства на
 });
 
 test('свой блок: «Сохранить как шаблон…» → «Блоки» → «Мои шаблоны»', async ({ page }) => {
-  await page.goto('/?deck=tpl&studio#20');
+  await page.goto('/?deck=tpl&studio#21');
   await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
   // Первый свободный объект на видимом слайде
   const obj = page.locator('#st-canvas .free').filter({ hasText: 'Свои блоки', visible: true }).first();
@@ -36,8 +36,22 @@ test('свой блок: «Сохранить как шаблон…» → «Б�
   await expect(mine).toContainText('Подпись раздела');
 });
 
+test('логотип: у холста включается галочкой, знак — в цветах темы', async ({ page }) => {
+  const errors = watchErrors(page);
+  // 5 — холст «Коротко о главном», логотипа в углу у него нет
+  await page.goto('/?deck=tpl&studio#5');
+  const slide = page.locator('#st-canvas .slide.on');
+  await expect(slide).toHaveCount(1);
+  await expect(slide.locator('.corner-logo')).toHaveCount(0);
+  await page.locator('#st-props label', { hasText: 'Логотип в углу' }).click();
+  await expect(slide.locator('.corner-logo img.logo-tint')).toHaveCount(1);
+  const summary = () => { const y = readDeck('tpl'); return y.slice(y.indexOf('id: summary'), y.indexOf('id: points')); };
+  expect(await waitFile(() => summary().includes('\n    logo: true'))).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('меню «Цвет» картинки заканчивается над «Настройкой»', async ({ page }) => {
-  await page.goto('/?deck=tpl&studio#19');
+  await page.goto('/?deck=tpl&studio#20');
   await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
   const img = page.locator('#st-canvas .slide img').filter({ visible: true }).nth(1);
   await img.click();
@@ -189,7 +203,7 @@ test('«Мои темы»: оформление сохраняется темо�
 test('живой фон не перехватывает мышь: логотип разобранного титула выделяется и растёт целиком', async ({ page }) => {
   const errors = watchErrors(page);
   // Титул шаблоном cover с живым фоном — последний слайд (см. tests/prepare.mjs)
-  await page.goto('/?deck=design&studio#26');
+  await page.goto('/?deck=design&studio#27');
   await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
   await page.locator('[data-cmd="obj.ungroup"]').click();
   const logo = page.locator('#st-canvas .slide.on > .free').filter({ has: page.locator('.logo') });

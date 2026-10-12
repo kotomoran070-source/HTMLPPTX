@@ -247,6 +247,8 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
 /* Холст: фон на весь слайд; вёрстка (body) — во всю площадь, поверх — свободные объекты */
 .slide.canvas-slide { padding: 0; }
 .slide.canvas-slide > .canvas-bg { position: absolute; inset: 0; }
+/* Логотип в углу холста (logo: true) — над объектами: их расставляют вручную под него */
+.slide.canvas-slide > .corner-logo { z-index: 9000; }
 .slide.canvas-slide > .slide-body { position: absolute; inset: 0; display: flex; flex-direction: column; margin: 0; }
 .slide.canvas-slide > .slide-body > * { flex: 1 1 auto; min-height: 0; }
 /* Корень вёрстки слайда из своего HTML: 1280×720 с обычными полями слайда */
@@ -318,3 +320,15 @@ body.editing .stage > .slide > .free.trig-hid { visibility: visible; pointer-eve
 /* Наведён или выделен — виден почти целиком: его удобно править, а остальное время он не заслоняет слайд */
 body.editing .stage > .slide > .free.trig-hid:is(:hover, .ed-block-sel, :has(.ed-block-sel), :focus-within) { opacity: .92; }
 @media (prefers-reduced-motion: reduce) { .stage .slide.on > .free.trig-in.trig-in, .stage .slide.on > .free.trig-out.trig-out { animation: none; } }
+
+/* Знак логотипа в цветах темы (brand.tint): картинка — маска, цвет — градиент акцента; сама картинка
+   уводится за край рамки, а img остаётся — по нему логотип выделяют и меняют */
+img.logo-tint {
+  object-fit: none;
+  object-position: -99999px 0;
+  background: linear-gradient(135deg, var(--ac), var(--ac2, var(--ac)));
+  -webkit-mask: var(--logo-mask) center / contain no-repeat;
+  mask: var(--logo-mask) center / contain no-repeat;
+}
+/* Плашка под таким знаком — цвета карточки темы: светлая в светлой, тёмная в тёмной */
+.logo.tint { background: var(--lp-bg, var(--surf)); }

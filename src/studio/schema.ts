@@ -352,6 +352,27 @@ export const BLOCKS: Record<string, Schema> = {
     fields: [{ k: 'center', label: 'В центре кольца', type: 'text' }, points('Этапы', 'Этап')],
   },
   funnel: { fields: [points('Ступени', 'Ступень', 'Справа от полосы')] },
+  ladder: { about: 'Ступени растут слева направо: сколько пунктов, столько ступеней.', fields: [points('Ступени', 'Ступень', 'Подпись')] },
+  orbit: {
+    fields: [
+      { k: 'logo', label: 'В центре — логотип презентации', type: 'bool' },
+      { k: 'center', label: 'В центре', type: 'text' },
+      { k: 'sub', label: 'Подпись в центре', type: 'text' },
+      points('Метки вокруг', 'Метка', 'Мелкая подпись'),
+    ],
+  },
+  roadmap: {
+    about: 'Сколько вех, столько изгибов пути. Пройденные закрашены, путь до последней из них — сплошной.',
+    fields: [{
+      k: 'items', label: 'Вехи', type: 'rows', item: 'Веха',
+      make: () => ({ title: 'Новая веха', text: 'Срок' }),
+      fields: [
+        { k: 'title', label: 'Название', type: 'text' },
+        { k: 'text', label: 'Срок над вехой', type: 'text' },
+        { k: 'done', label: 'Пройдена', type: 'bool' },
+      ],
+    }],
+  },
   pyramid: { about: 'Первый пункт — вершина.', fields: [points('Уровни', 'Уровень')] },
   numbers: { fields: [points('Пункты', 'Пункт')] },
   compare: {
@@ -535,7 +556,11 @@ export const TEMPLATES: Record<string, Schema> = {
       BUTTONS,
     ],
   },
-  canvas: { fields: [] },
+  canvas: {
+    fields: [
+      { k: 'logo', label: 'Логотип в углу', type: 'bool', default: false },
+    ],
+  },
 };
 
 /** Поле «CSS блока» — запасной выход, есть у всех блоков. */

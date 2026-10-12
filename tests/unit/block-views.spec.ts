@@ -36,3 +36,15 @@ test('новые виды: пункты и свои поля (иконка, вы
   expect(toView(toView(funnel, 'cycle'), 'compare')).toMatchObject({ items: [{ title: 'Скорость', accent: true, icon: 'bolt' }, { title: 'Цена', text: 'Дёшево' }] });
   for (const v of ['cycle', 'funnel', 'pyramid', 'numbers', 'compare', 'matrix', 'icons', 'stats', 'faq']) expect(viewOf(toView(icons, v))).toBe(v);
 });
+
+test('дорожная карта, лестница и орбиты: те же пункты, пройденные вехи и места сохраняются', () => {
+  const roadmap = { type: 'roadmap', id: 'road', place: { x: 40, y: 160, w: 1200, h: 320 },
+    items: [{ title: 'Исследование', text: 'I квартал', done: true }, { title: 'Пилот', text: 'III квартал' }] };
+  const steps = toView(roadmap, 'pipeline') as any;
+  expect(steps.steps[0]).toMatchObject({ title: 'Исследование', sub: 'I квартал', done: true });
+  const back = toView(toView(toView(steps, 'ladder'), 'orbit'), 'roadmap') as any;
+  expect(back).toMatchObject({ type: 'roadmap', id: 'road', place: { x: 40, y: 160, w: 1200 }, items: [{ title: 'Исследование', text: 'I квартал', done: true }, { title: 'Пилот', text: 'III квартал' }] });
+  // Даты таймлайна переживают дорожную карту
+  expect(toView(toView(timeline, 'roadmap'), 'timeline')).toMatchObject({ items: [{ date: 'Март', title: 'Запуск', done: true }, { date: 'Июнь', title: 'Рост' }] });
+  for (const v of ['roadmap', 'ladder', 'orbit']) expect(viewOf(toView(roadmap, v))).toBe(v);
+});

@@ -5,6 +5,7 @@ import { isAlive, withPointerBridge } from '../../engine/frame-bridge';
 import { NS_RE } from '../../engine/deck-css';
 import { currentTheme, onThemeChange } from '../../engine/theme';
 import { esc, t } from '../../engine/html';
+import { tintCss } from '../templates/content';
 import { fieldStyle, frameCss, pathOf, type ImageFrame } from '../../engine/marks';
 import type { Block } from '../../types';
 import './html.css';
@@ -224,6 +225,14 @@ defineBlock<HtmlProps>('html', {
         if (currentTheme() === 'dark') img.setAttribute('src', dark);
       }
       if (item && typeof item === 'object' && item.brand && !item.src) {
+        // Знак логотипа в цветах темы (brand.tint) — маской, как на шаблонах
+        if (src && ctx.logoTint) {
+          img.classList.add('logo-tint');
+          img.removeAttribute('data-src-light');
+          img.removeAttribute('data-src-dark');
+          img.setAttribute('src', src);
+          addStyle(img, tintCss(src));
+        }
         // Замена такой картинки — замена логотипа презентации, как на исходном слайде
         img.setAttribute('data-edit-img', JSON.stringify(['brand', 'logo']));
         img.setAttribute('data-img-kind', 'logo');

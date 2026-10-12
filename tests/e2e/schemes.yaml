@@ -25,5 +25,14 @@ slides:
     title: В цифрах
     body: {type: stats, items: [{title: "99,9 %", text: "показов без сбоев"}, {title: "2,4 с", text: "сборка в один файл"}, {title: "17 234", text: "презентаций в месяц"}]}
   - template: content
+    title: Дорожная карта
+    body: {type: roadmap, items: [{title: "Исследование", text: "I квартал", done: true}, {title: "Прототип", text: "II квартал", done: true}, {title: "Пилот", text: "III квартал"}, {title: "Запуск", text: "IV квартал"}]}
+  - template: content
+    title: Лестница роста
+    body: {type: ladder, items: [{title: "Пилот", text: "1 команда"}, {title: "Отдел", text: "40 человек"}, {title: "Компания", text: "600 человек"}, {title: "Группа", text: "5 компаний"}]}
+  - template: content
+    title: Орбиты
+    body: {type: orbit, center: "Продукт", sub: "версия 2.0", items: [{title: "Команда"}, {title: "Клиенты"}, {title: "Партнёры"}, {title: "Данные"}]}
+  - template: content
     title: Частые вопросы
     body: {type: faq, items: [{title: "Нужен ли интернет?", text: "Нет: презентация — один файл, всё внутри."}, {title: "Можно открыть в PowerPoint?", text: "Да, экспорт в PPTX сохраняет текст и картинки."}, {title: "Как показывать с телефона?", text: "Отсканируйте QR в окне показа — телефон станет пультом."}]}

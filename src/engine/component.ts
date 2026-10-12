@@ -8,6 +8,8 @@ export interface RenderCtx {
   logo?: string;
   /** Вариант логотипа для тёмной темы (brand.logoDark) */
   logoDark?: string;
+  /** Знак логотипа в цветах темы (brand.tint): картинка — маска, цвет — градиент акцента */
+  logoTint?: boolean;
   /** Рендер вложенного блока или списка блоков */
   block(b: Block | Block[] | undefined): string;
   /** Атрибут data-mount: после вставки в DOM у компонента вызовется mount() */

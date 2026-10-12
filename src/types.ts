@@ -15,6 +15,11 @@ export interface Deck {
     plate?: { from: 'logo'; src: string; bg: string; border: string; glow: string };
     /** Логотип в углу обычных слайдов: угол (tl, tr, bl, br; по умолчанию tr) и размер (s, l) */
     corner?: { pos?: 'tl' | 'tr' | 'bl' | 'br'; size?: 's' | 'l' };
+    /**
+     * Знак в цветах темы: логотип (одноцветный, с прозрачным фоном) перекрашивается градиентом
+     * акцента, плашка под ним — цвета карточки темы, светлая и тёмная
+     */
+    tint?: boolean;
   };
   theme?: DeckTheme;
   /** Свои шрифты: файлы в assets/ — { name: Manrope, src: ./assets/Manrope.woff2 } */
@@ -138,7 +143,7 @@ export interface SlideData {
   transitionMs?: number;
   /** Свои цвета слайда вместо цветов презентации: акцент и второй цвет градиента */
   theme?: { accent?: string; accent2?: string };
-  /** Показывать логотип в углу (content-слайды, по умолчанию да) */
+  /** Логотип в углу: у обычного слайда есть, пока не false; у холста — только с true */
   logo?: boolean;
   body?: Block | Block[];
   /** Свободные объекты поверх раскладки: блоки с place: { x, y, w, h } */

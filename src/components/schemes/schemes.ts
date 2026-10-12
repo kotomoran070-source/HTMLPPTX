@@ -8,6 +8,7 @@ import { asArray, styleAttr, t } from '../../engine/html';
 import { ea } from '../../engine/marks';
 import type { Block } from '../../types';
 import { icon, iconNames } from '../icons';
+import { logoImg } from '../templates/content';
 import './schemes.css';
 
 export interface Point { title: string; text?: string; icon?: string; accent?: boolean; [extra: string]: unknown }
@@ -237,3 +238,84 @@ defineBlock<ItemsProps>('faq', {
   },
 });
 
+
+// ---------------- дорожная карта ----------------
+
+interface RoadPoint extends Point { done?: boolean }
+
+/**
+ * Дорожная карта: извилистый путь через вехи — сколько пунктов, столько вех, кривая строится по ним.
+ * Над названием вехи — срок (text). Пройденные (done: true) закрашены, путь до последней из них
+ * сплошной. Путь прорисовывается, вехи появляются по очереди, по оставшемуся пути бегут штрихи.
+ */
+defineBlock<ItemsProps>('roadmap', {
+  render(p) {
+    const items = pts(p) as RoadPoint[];
+    const n = Math.max(1, items.length);
+    const W = 1000;
+    const H = 340;
+    // Вехи — равномерно по ширине, попеременно ниже и выше; места в процентах блока
+    const px = (k: number) => (n === 1 ? 50 : 9 + (k * 82) / (n - 1));
+    const py = (k: number) => (k % 2 === 0 ? 64 : 26);
+    const P = items.map((_, k) => [(px(k) / 100) * W, (py(k) / 100) * H] as const);
+    const f = (v: number) => round(v);
+    // Плавные S-изгибы между соседними вехами (касательные горизонтальны) и короткие хвосты по краям
+    const seg = (a: readonly [number, number], b: readonly [number, number]) => {
+      const dx = (b[0] - a[0]) / 2;
+      return `C${f(a[0] + dx)} ${f(a[1])} ${f(b[0] - dx)} ${f(b[1])} ${f(b[0])} ${f(b[1])}`;
+    };
+    const start = [0, (P[0]?.[1] ?? H / 2) + 26] as const;
+    const end = [W, (P[P.length - 1]?.[1] ?? H / 2) + (n % 2 ? 26 : -26)] as const;
+    const pts2 = [start, ...P, end];
+    const pathTo = (last: number) => `M${f(start[0])} ${f(start[1])}${pts2.slice(1, last + 1).map((q, i) => seg(pts2[i], q)).join('')}`;
+    const full = pathTo(pts2.length - 1);
+    // Путь до последней пройденной вехи — сплошной
+    const lastDone = items.reduce((a, m, k) => (m.done ? k : a), -1);
+    const done = lastDone >= 0 ? `<path class="rm-done" pathLength="1" d="${pathTo(lastDone + 1)}"/>` : '';
+    const miles = items.map((m, k) =>
+      `<div class="rm-mile${m.done ? ' done' : ''}" style="left:${round(px(k))}%;top:${py(k)}%;--k:${k}"><i></i>`
+      + (m.text ? `<span class="rm-when"${ea(m, 'text')}>${t(m.text)}</span>` : '')
+      + `${title(m)}</div>`).join('');
+    return `<div class="roadmap r"${styleAttr(p.style)}><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">`
+      + `<path class="rm-bg" pathLength="1" d="${full}"/>${done}<path class="rm-fg" pathLength="1" d="${full}"/></svg>${miles}</div>`;
+  },
+});
+
+// ---------------- лестница роста ----------------
+
+/** Лестница роста: столбцы растут слева направо (сколько пунктов, столько ступеней), над каждым — крупная подпись. */
+defineBlock<ItemsProps>('ladder', {
+  render(p) {
+    const items = pts(p);
+    const n = Math.max(1, items.length);
+    const h = (k: number) => round(n === 1 ? 70 : 22 + (k * 54) / (n - 1));
+    const o = (k: number) => round(n === 1 ? 1 : 0.45 + (k * 0.55) / (n - 1));
+    return `<div class="ladder r" style="--n:${n}${p.style ? `;${p.style}` : ''}">${items.map((m, k) =>
+      `<div class="ld-step" style="--k:${k}">${title(m)}${text(m)}<i style="height:${h(k)}%;opacity:${o(k)}"></i></div>`).join('')}</div>`;
+  },
+});
+
+// ---------------- орбиты ----------------
+
+interface OrbitProps extends ItemsProps { center?: string; sub?: string; logo?: boolean }
+
+/**
+ * Орбиты: главное в центре (текст или логотип презентации, logo: true), вокруг — метки по эллипсу,
+ * сколько пунктов, столько меток. Два пунктирных кольца медленно вращаются, по ним бегут точки.
+ */
+defineBlock<OrbitProps>('orbit', {
+  render(p, ctx) {
+    const items = pts(p);
+    const n = Math.max(1, items.length);
+    // Метки — по эллипсу вокруг центра, первая — слева сверху
+    const tags = items.map((m, k) => {
+      const a = ((-140 + (k * 360) / n) * Math.PI) / 180;
+      return `<div class="ob-tag" style="left:${round(50 + Math.cos(a) * 40)}%;top:${round(50 + Math.sin(a) * 38)}%;--k:${k}">${title(m)}${text(m)}</div>`;
+    }).join('');
+    const logo = p.logo && ctx.logo
+      ? `<span class="ob-logo">${logoImg(ctx.logo, ctx.logoDark, ctx.logoTint)}</span>`
+      : `<b${ea(p, 'center')}>${t(p.center ?? '')}</b>${p.sub ? `<span${ea(p, 'sub')}>${t(p.sub)}</span>` : ''}`;
+    return `<div class="orbit r${p.logo ? ' with-logo' : ''}"${styleAttr(p.style)}><i class="ob-ring r2"></i><i class="ob-ring r1"></i>`
+      + `<div class="ob-core">${logo}</div>${tags}</div>`;
+  },
+});

@@ -1,6 +1,7 @@
 import { defineTemplate } from '../../engine/component';
 import type { SlideData } from '../../types';
 import { bgOpacity } from '../../engine/backdrops';
+import { cornerLogo } from './content';
 
 interface CanvasSlide extends SlideData {
   /** Цвет или CSS-фон слайда */
@@ -21,6 +22,8 @@ defineTemplate<CanvasSlide>('canvas', {
     // Заметность фона (bgOpacity): сквозь него виден фон темы
     const op = bgOpacity(s);
     const bg = typeof s.bg === 'string' && safeBg(s.bg.trim()) ? `<div class="canvas-bg" style="background:${s.bg.trim()}${op < 1 ? `;opacity:${op}` : ''}"></div>` : '';
-    return `${bg}${s.body ? `<div class="slide-body">${ctx.block(s.body)}</div>` : ''}`;
+    // Логотип в углу — по желанию (logo: true): на холсте всё расставлено вручную
+    const logo = s.logo === true ? cornerLogo(ctx.logo, ctx.logoDark, ctx.deck.brand?.corner, ctx.logoTint) : '';
+    return `${bg}${logo}${s.body ? `<div class="slide-body">${ctx.block(s.body)}</div>` : ''}`;
   },
 });

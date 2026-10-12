@@ -211,6 +211,7 @@ export class Renderer {
       index,
       logo: this.logo,
       logoDark: this.deck.brand?.logoDark,
+      logoTint: this.deck.brand?.tint === true,
       block: (b) => asArray(b).map((item) => this.block(item, ctx)).join(''),
       mount: (component, props) => {
         const id = 'm' + ++uidCounter;

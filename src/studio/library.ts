@@ -570,26 +570,23 @@ export const LIBRARY: Category[] = [
       },
       { name: 'Схема связей', w: 520, h: 360, make: () => ({ type: 'network', nodes: 7 }) },
       {
-        name: 'Дорожная карта', w: 1080, h: 380, pw: 700, make: () => kit(
-          '<div class="kt-road"><svg viewBox="0 0 1080 360" preserveAspectRatio="none"><path class="bg" d="M20 260C80 260 100 230 150 230S300 110 400 110S580 230 680 230S850 110 930 110S1030 150 1060 150"/>'
-          + '<path class="fg" pathLength="1" d="M20 260C80 260 100 230 150 230S300 110 400 110S580 230 680 230S850 110 930 110S1030 150 1060 150"/></svg>'
-          + [[13.9, 60.3], [37, 26.9], [63, 60.3], [86.1, 26.9]].map(([x, y], k) => `<div class="kt-mile" style="left:${x}%;top:${y}%"><i></i>${T(k * 2, '', 'kt-eyebrow')}${T(k * 2 + 1, `${HEAD};margin-top:6px;font-size:21px;font-weight:700;line-height:1.2`)}</div>`).join('')
-          + '</div>',
-          ['I квартал', 'Исследование', 'II квартал', 'Прототип', 'III квартал', 'Пилот', 'IV квартал', 'Запуск'],
-        ),
+        // Настоящий блок: вехи добавляются и убираются в свойствах, путь строится по их числу
+        name: 'Дорожная карта', w: 1080, h: 360, pw: 700, make: () => ({
+          type: 'roadmap', items: [
+            { title: 'Исследование', text: 'I квартал', done: true }, { title: 'Прототип', text: 'II квартал', done: true },
+            { title: 'Пилот', text: 'III квартал' }, { title: 'Запуск', text: 'IV квартал' },
+          ],
+        }),
       },
       {
-        name: 'Лестница роста', w: 900, h: 400, pw: 560, make: () => kit(
-          `<div class="kt-steps">${[0, 1, 2, 3].map((k) => `<div>${T(k * 2, `${HEAD};font-size:30px;font-weight:800;line-height:1`, 'kt-grad')}${T(k * 2 + 1, 'font-size:16px;line-height:1.3;color:var(--tx2)')}<b></b></div>`).join('')}</div>`,
-          ['2023', 'старт', '2024', '×2 клиентов', '2025', 'новые рынки', '2026', 'лидер ниши'],
-        ),
+        name: 'Лестница роста', w: 900, h: 400, pw: 560, make: () => ({
+          type: 'ladder', items: [{ title: '2023', text: 'старт' }, { title: '2024', text: '×2 клиентов' }, { title: '2025', text: 'новые рынки' }, { title: '2026', text: 'лидер ниши' }],
+        }),
       },
       {
-        name: 'Орбиты', w: 760, h: 520, pw: 480, make: () => kit(
-          `<div class="kt-orbit"><i class="ring r2"></i><i class="ring r1"></i><div class="kt-core">${T(0, `${HEAD};font-size:30px;font-weight:800;line-height:1.1`)}${T(1, 'font-size:15px;opacity:.85')}</div>`
-          + [[17, 18], [83, 22], [13, 78], [86, 80]].map(([x, y], k) => T(k + 2, `left:${x}%;top:${y}%`, 'kt-tag')).join('') + '</div>',
-          ['Продукт', 'в центре всего', 'Клиенты', 'Партнёры', 'Данные', 'Команда'],
-        ),
+        name: 'Орбиты', w: 760, h: 520, pw: 480, make: () => ({
+          type: 'orbit', center: 'Продукт', sub: 'в центре всего', items: [{ title: 'Клиенты' }, { title: 'Партнёры' }, { title: 'Данные' }, { title: 'Команда' }],
+        }),
       },
     ],
   },

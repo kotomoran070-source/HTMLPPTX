@@ -10,11 +10,21 @@ lang: ru
 brand:
   name: "{{title}}"
   logo: ./assets/logo.svg
+  # Знак перекрашивается в цвета темы («Дизайн» → «Логотип» → «В цвет темы»). Свой цветной логотип —
+  # уберите эту строку, иначе он станет одноцветным
+  tint: true
 # Цвета презентации: акцент и второй цвет — градиенты и выделенные {g:duo|слова}.
 # Поменять — вкладка «Дизайн» в студии (там же 22 готовые темы) или здесь.
 theme:
   accent: "#4F46E5"
   accent2: "#0EA5E9"
+# Свои анимации презентации: в студии — «Код» (Ctrl+`) → CSS. Действуют на слайдах-холстах,
+# объект включает анимацию полем style (см. слайд «Своя анимация в коде»)
+css: |
+  @keyframes tpl-float { 50% { translate: 0 -22px; } }
+  @keyframes tpl-spin { to { rotate: 360deg; } }
+  @keyframes tpl-breath { 50% { scale: 1.08; opacity: .55; } }
+  @keyframes tpl-hue { to { filter: hue-rotate(360deg); } }
 
 slides:
 
@@ -24,10 +34,9 @@ slides:
     backdrop: aurora
     transition: zoom
     free:
-      - type: html
-        html: '<div class="kt-orbit"><i class="ring r2"></i><i class="ring r1"></i><div class="kt-core" style="background:var(--surf);border:1px solid var(--bd)"><img data-i="0" alt="" style="width:64%;height:auto;margin:auto"></div><div data-t="0" class="kt-tag" style="left:16%;top:20%"></div><div data-t="1" class="kt-tag" style="left:86%;top:24%"></div><div data-t="2" class="kt-tag" style="left:12%;top:76%"></div><div data-t="3" class="kt-tag" style="left:84%;top:80%"></div></div>'
-        texts: [Цели, Цифры, План, Итоги]
-        images: [{src: ./assets/logo.svg}]
+      - type: orbit
+        logo: true
+        items: [{title: Цели}, {title: Цифры}, {title: План}, {title: Итоги}]
         place: {x: 690, y: 70, w: 560, h: 580}
         enter: scale
         delay: 150
@@ -57,8 +66,9 @@ slides:
         enter: fade
         delay: 620
     notes: |
-      Представиться и назвать тему. Название, подзаголовок и подписи орбит правятся прямо на слайде,
-      логотип в центре — ваш (assets/logo.svg). Фон «Сияние» — в цветах акцента: «Анимация фона» в свойствах слайда.
+      Представиться и назвать тему. Название, подзаголовок и метки орбит правятся прямо на слайде; метку
+      добавить или убрать — «Свойства» → «Метки вокруг». В центре — логотип презентации, в цветах темы.
+      Фон «Сияние» — в цветах акцента: «Анимация фона» в свойствах слайда.
 
   - id: start
     title: С чего {g:duo|начать}
@@ -145,7 +155,7 @@ slides:
         delay: 100
       - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Текст и цифры**\nключевые числа, тезисы, цитата", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:summary", place: {x: 48, y: 166, w: 284, h: 190}, enter: pop, delay: 180}
       - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Графики и таблицы**\n9 видов диаграмм, таблицы как в Excel", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:data", place: {x: 348, y: 166, w: 284, h: 190}, enter: pop, delay: 240}
-      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Схемы**\nцикл, воронка, дорожная карта — 16 видов", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:schemes", place: {x: 648, y: 166, w: 284, h: 190}, enter: pop, delay: 300}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Схемы**\nцикл, воронка, дорожная карта — 19 видов", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:schemes", place: {x: 648, y: 166, w: 284, h: 190}, enter: pop, delay: 300}
       - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Анимация и морф**\nпо щелчку, числа набегают, объекты перелетают", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:motion", place: {x: 948, y: 166, w: 284, h: 190}, enter: pop, delay: 360}
       - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Интерактив**\nползунки, формулы, код на слайде", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:interactive", place: {x: 48, y: 372, w: 284, h: 190}, enter: pop, delay: 420}
       - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Медиа**\nфото, фильтры, видео, 3D, свои блоки", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:media", place: {x: 348, y: 372, w: 284, h: 190}, enter: pop, delay: 480}
@@ -156,62 +166,73 @@ slides:
       Плитки — обычные фигуры со ссылкой на слайд. Удалили раздел — удалите и его плитку.
 
   - id: summary
-    title: Коротко о {g:duo|главном}
-    badge: Текст
-    transition: push
-    gap: 40
-    body:
-      - type: grid
-        columns: 3
-        height: 230
-        align: stretch
-        items:
-          - type: card
-            body: {type: stat, value: "42 %", label: рост главного показателя, delta: "+8 п. п.", note: за квартал}
-          - type: card
-            body: {type: stat, value: "1,2 млн", label: человек охватили, delta: "+15 %", note: с начала года}
-          - type: card
-            body: {type: stat, value: "3", label: "решения, о которых расскажем", note: дальше — по слайду на каждое}
+    template: canvas
+    label: Коротко о главном
+    transition: fade
+    free:
+      - {type: text, text: Главное, styles: {text: {size: 13, weight: 800, upper: true, spacing: 0.14, color: accent}}, place: {x: 50, y: 30, w: 600}, enter: fade}
+      - type: text
+        text: Коротко о {g:duo|главном}
+        styles: {text: {size: 42, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 48, w: 900}
+        enter: rise
+      - type: html
+        html: '<div class="kt-halo"><i></i><i></i><i></i><div><div data-t="0" class="kt-grad" style="font-family:var(--font-head, var(--font));font-size:92px;font-weight:800;line-height:1"></div><div data-t="1" style="margin-top:10px;font-size:19px;color:var(--mu)"></div></div></div>'
+        texts: [42 %, рост главного показателя]
+        place: {x: 40, y: 140, w: 440, h: 440}
+        enter: scale
+        delay: 150
+        count: true
+      - type: card
+        body: {type: stat, value: "1,2 млн", label: человек охватили, delta: "+15 %", note: с начала года}
+        place: {x: 512, y: 156, w: 350, h: 200}
+        enter: rise
+        delay: 250
+        count: true
+      - type: card
+        body: {type: stat, value: "3", label: "решения, о которых расскажем", note: дальше — по слайду на каждое}
+        place: {x: 882, y: 156, w: 350, h: 200}
+        enter: rise
+        delay: 350
+        count: true
       - type: quote
         text: Одна фраза, ради которой стоит досмотреть эту презентацию до конца.
         author: Имя Фамилия
         role: должность
+        place: {x: 512, y: 392, w: 720}
+        enter: fade
+        delay: 500
       - type: chips
         items: [Главный вывод*, Второй факт, Третий факт]
+        place: {x: 512, y: 560, w: 720}
+        enter: fade
+        delay: 650
     notes: |
-      Три числа, которые зал должен запомнить. Числа и подписи правятся прямо на слайде.
-      Минус в «delta» — красная стрелка вниз; звёздочка в конце чипа — выделение.
+      Три числа, которые зал должен запомнить: при показе они набегают от нуля («Анимация» → «Число набегает»).
+      Число в ореоле — блок «Числа → Число в ореоле». Минус в «delta» — красная стрелка вниз; звёздочка в чипе — выделение.
 
   - id: points
-    title: Проблема, решение, {g:duo|результат}
-    label: Три мысли
+    title: Было → {g:duo|стало}
+    label: Проблема и решение
     badge: Текст
     transition: push
-    gap: 30
+    gap: 64
     body:
-      - type: grid
-        columns: 3
-        height: 330
-        align: stretch
+      - type: compare
+        style: "--cmp-fs: 20px; --cmp-h: 28px; margin-top: 22px"
         items:
-          - type: card
-            title: Проблема
-            text: Что мешает сейчас и кого это касается — в двух строках.
-            body: {type: list, items: [Факт или цифра, Кто от этого страдает, Сколько это стоит]}
-          - type: card
-            title: Решение
-            text: Что предлагаем и чем это лучше привычного способа.
-            body: {type: list, items: [Суть решения, Чем отличается, Что уже проверено]}
-          - type: card
-            title: Результат
-            text: Что изменится, как и когда это измерить.
-            body: {type: list, items: [Главная метрика, Срок, Что нужно для старта]}
-      - type: card
-        title: Итог
-        text: Одной фразой — почему это важно именно сейчас и что вы просите у зала.
+          - {title: Сейчас, text: "- Отчёт собирают вручную два дня\n- В цифрах ошибки, их ищут по таблицам\n- Решение ждёт до следующей недели"}
+          - {title: С нашим решением, text: "+ Отчёт готов за минуту\n+ Цифры — прямо из данных, без ручного переноса\n+ Решение — в тот же день", accent: true}
+      - type: stats
+        items:
+          - {title: −40 %, text: времени на отчёты}
+          - {title: 3 мес., text: окупаемость}
+          - {title: ×2, text: быстрее решения}
+      - type: chips
+        items: [Пилот за 2 недели*, Без доработок у IT, Данные остаются у вас]
     notes: |
-      Одна мысль — одна карточка. Лишнюю удалите (Delete), новую — Ctrl+D.
-      Те же три пункта можно показать схемой: выделите блок → «Свойства» → «Вид».
+      Проблема и решение рядом: «- » в строке — крестик, «+ » — галочка; выбранная колонка поднята.
+      Внизу — результат в цифрах. Те же пункты другой схемой — выделите блок → «Свойства» → «Вид».
 
   - id: data
     title: Цифры и {g:duo|динамика}
@@ -289,15 +310,18 @@ slides:
         place: {x: 48, y: 48, w: 900}
         enter: rise
       - type: text
-        text: Линия прорисовывается при показе, этапы появляются по очереди — их подписи правятся прямо на слайде.
+        text: Путь прорисовывается при показе, вехи появляются по очереди. Пройденные — закрашены.
         styles: {text: {size: 17, color: text2}}
         place: {x: 50, y: 106, w: 1100}
         enter: fade
         delay: 100
-      - type: html
-        html: '<div class="kt-road"><svg viewBox="0 0 1080 360" preserveAspectRatio="none"><path class="bg" d="M20 260C80 260 100 230 150 230S300 110 400 110S580 230 680 230S850 110 930 110S1030 150 1060 150"/><path class="fg" pathLength="1" d="M20 260C80 260 100 230 150 230S300 110 400 110S580 230 680 230S850 110 930 110S1030 150 1060 150"/></svg><div class="kt-mile" style="left:13.9%;top:60.3%"><i></i><div data-t="0" class="kt-eyebrow"></div><div data-t="1" style="font-family:var(--font-head, var(--font));margin-top:6px;font-size:21px;font-weight:700;line-height:1.2"></div></div><div class="kt-mile" style="left:37%;top:26.9%"><i></i><div data-t="2" class="kt-eyebrow"></div><div data-t="3" style="font-family:var(--font-head, var(--font));margin-top:6px;font-size:21px;font-weight:700;line-height:1.2"></div></div><div class="kt-mile" style="left:63%;top:60.3%"><i></i><div data-t="4" class="kt-eyebrow"></div><div data-t="5" style="font-family:var(--font-head, var(--font));margin-top:6px;font-size:21px;font-weight:700;line-height:1.2"></div></div><div class="kt-mile" style="left:86.1%;top:26.9%"><i></i><div data-t="6" class="kt-eyebrow"></div><div data-t="7" style="font-family:var(--font-head, var(--font));margin-top:6px;font-size:21px;font-weight:700;line-height:1.2"></div></div></div>'
-        texts: [I квартал, Исследование, II квартал, Прототип, III квартал, Пилот, IV квартал, Запуск]
-        place: {x: 100, y: 150, w: 1080, h: 330}
+      - type: roadmap
+        items:
+          - {title: Исследование, text: I квартал, done: true}
+          - {title: Прототип, text: II квартал, done: true}
+          - {title: Пилот, text: III квартал}
+          - {title: Запуск, text: IV квартал}
+        place: {x: 60, y: 150, w: 1160, h: 330}
         enter: fade
         delay: 200
       - type: pipeline
@@ -313,13 +337,14 @@ slides:
         kind: round
         fill: soft
         radius: 14
-        text: "**Как сделать** · «Вставка → Схемы» → «Дорожная карта» или «Шаги по очереди». Подписи — щелчок по тексту; появление — вкладка «Анимация»."
+        text: "**Как сделать** · «Вставка → Схемы» → «Дорожная карта». Веху добавить или убрать — «Свойства» → «Вехи» (путь перестроится сам), «Пройдена» — закрасить."
         styles: {text: {size: 15, align: left, leading: 1.4}}
         place: {x: 48, y: 622, w: 1184, h: 58}
         enter: fade
         delay: 700
     notes: |
-      Дорожная карта — готовый блок с анимацией линии. Шаги внизу подсвечиваются по очереди при показе.
+      Дорожная карта — настоящий блок: сколько вех, столько изгибов пути. Шаги внизу подсвечиваются по очереди.
+      Тот же список вех можно показать таймлайном, шагами или лестницей — «Свойства» → «Вид».
 
   - id: schemes
     template: canvas
@@ -333,7 +358,7 @@ slides:
         place: {x: 48, y: 48, w: 1000}
         enter: rise
       - type: text
-        text: Цикл, воронка, пирамида, матрица, сравнение — 16 видов. Пункты те же, вид меняется одним щелчком.
+        text: Цикл, воронка, пирамида, матрица, орбиты — 19 видов. Пункты те же, вид меняется одним щелчком.
         styles: {text: {size: 17, color: text2}}
         place: {x: 50, y: 106, w: 1100}
         enter: fade
@@ -733,6 +758,54 @@ slides:
     notes: |
       Правки во время показа в презентацию не сохраняются: каждый показ начинается с исходного кода.
 
+  - id: css-anim
+    template: canvas
+    label: Своя анимация в коде
+    transition: fade
+    free:
+      - {type: shape, kind: ellipse, fill: none, stroke: accent, width: 2, dash: dash, opacity: 0.5, style: "animation: tpl-spin 40s linear infinite", place: {x: 740, y: 130, w: 470, h: 470}, enter: fade}
+      - {type: shape, kind: ellipse, fill: none, stroke: border, width: 2, style: "animation: tpl-spin 24s linear infinite reverse", place: {x: 820, y: 210, w: 310, h: 310}, enter: fade, delay: 100}
+      - {type: shape, kind: ellipse, fill: soft, style: "animation: tpl-breath 5s ease-in-out infinite", place: {x: 850, y: 240, w: 250, h: 250}, enter: scale, delay: 150}
+      - {type: shape, kind: ellipse, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, text: CSS, styles: {text: {size: 30, weight: 800}}, style: "animation: tpl-float 4s ease-in-out infinite, tpl-hue 12s linear infinite", place: {x: 905, y: 295, w: 140, h: 140}, enter: pop, delay: 300}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 14, text: "@keyframes", styles: {text: {size: 15, weight: 700}}, style: "animation: tpl-float 5s ease-in-out -1s infinite; font-family: ui-monospace, Consolas, monospace", place: {x: 760, y: 168, w: 170, h: 48}, enter: pop, delay: 450}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 14, text: "animation", styles: {text: {size: 15, weight: 700}}, style: "animation: tpl-float 6s ease-in-out -3s infinite; font-family: ui-monospace, Consolas, monospace", place: {x: 1040, y: 540, w: 160, h: 48}, enter: pop, delay: 550}
+      - {type: text, text: Код, styles: {text: {size: 13, weight: 800, upper: true, spacing: 0.14, color: accent}}, place: {x: 50, y: 30, w: 600}, enter: fade}
+      - type: text
+        text: Своя анимация — {g:duo|в коде}
+        styles: {text: {size: 42, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 48, w: 1000}
+        enter: rise
+      - type: text
+        text: Всё, что движется справа, — обычные фигуры и четыре строки CSS. Поменяйте число — слайд изменится сразу.
+        styles: {text: {size: 17, color: text2}}
+        place: {x: 50, y: 106, w: 640}
+        enter: fade
+        delay: 100
+      - type: shape
+        kind: round
+        fill: "#0F172A"
+        radius: 16
+        shadow: md
+        valign: top
+        text: "{#7DD3FC|@keyframes} {#F0ABFC|tpl-float} {\n  {#94A3B8|50%} { translate: 0 {#FCD34D|-22px}; }\n}\n{#7DD3FC|@keyframes} {#F0ABFC|tpl-spin} {\n  {#94A3B8|to} { rotate: {#FCD34D|360deg}; }\n}\n\n{#64748B|# у фигуры, поле style:}\nanimation: {#F0ABFC|tpl-float} {#FCD34D|4s} ease-in-out infinite"
+        styles: {text: {size: 17, align: left, leading: 1.6, color: "#E2E8F0", weight: 500}}
+        style: "padding: 24px 28px; white-space: pre-wrap; font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace"
+        place: {x: 48, y: 176, w: 640, h: 300}
+        enter: rise
+        delay: 200
+      - type: shape
+        kind: round
+        fill: soft
+        radius: 14
+        text: "**Как сделать** · «Код» (Ctrl+`) → «Стили · CSS»: здесь @keyframes этой презентации — поменяйте 4s на 1s. Фигуре анимация задаётся полем style в коде слайда. Сложнее — «Вставка → Интерактив» → «Живой код»."
+        styles: {text: {size: 15, align: left, leading: 1.4}}
+        place: {x: 48, y: 600, w: 1184, h: 80}
+        enter: fade
+        delay: 600
+    notes: |
+      Анимации CSS лежат в поле css в начале deck.yaml — их видно и правят в студии: «Код» → «Стили · CSS».
+      У фигуры — поле style (Ctrl+` на этом слайде): animation с именем из CSS. В PDF и PowerPoint — неподвижный кадр.
+
   - id: media
     title: Картинки, видео и {g:duo|3D}
     badge: Медиа
@@ -826,7 +899,7 @@ slides:
         shadow: lg
         stroke: border
         width: 1
-        place: {x: 472, y: 160, w: 447, h: 400}
+        place: {x: 472, y: 160, w: 450, h: 400}
         enter: rise
         delay: 500
       - {type: text, text: "**1.** Правый щелчок по объекту → «Сохранить как шаблон…»", styles: {text: {size: 15, color: text2}}, place: {x: 48, y: 576, w: 330}, enter: fade, delay: 600}

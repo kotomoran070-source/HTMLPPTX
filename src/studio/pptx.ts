@@ -130,6 +130,31 @@ async function imageToPng(src: string, w: number, h: number): Promise<string | n
 }
 
 /**
+ * Знак логотипа в цветах темы (img.logo-tint): градиент акцента по прозрачности картинки, картинка
+ * вписана в рамку (как маска contain на слайде)
+ */
+async function tintedPng(src: string, w: number, h: number, from: string, to: string): Promise<string | null> {
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  if (!await new Promise<boolean>((r) => { img.onload = () => r(true); img.onerror = () => r(false); img.src = src; })) return null;
+  const k = sharp(2);
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w * k));
+  c.height = Math.max(1, Math.round(h * k));
+  const g = c.getContext('2d')!;
+  const grad = g.createLinearGradient(0, 0, c.width, c.height);
+  grad.addColorStop(0, from || '#2563EB');
+  grad.addColorStop(1, to || from || '#2563EB');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, c.width, c.height);
+  const nw = img.naturalWidth || c.width, nh = img.naturalHeight || c.height;
+  const s = Math.min(c.width / nw, c.height / nh);
+  g.globalCompositeOperation = 'destination-in';
+  g.drawImage(img, (c.width - nw * s) / 2, (c.height - nh * s) / 2, nw * s, nh * s);
+  try { return c.toDataURL('image/png'); } catch { return null; }
+}
+
+/**
  * Фотография для компактного файла: уменьшается до нужного размера и сохраняется в JPEG,
  * если в ней нет прозрачности (иначе PNG). null — меньше не стало, остаётся исходник.
  */
@@ -789,6 +814,11 @@ class Converter {
   private async image(img: HTMLImageElement, b: Box, cs: CSSStyleDeclaration): Promise<void> {
     const src = img.currentSrc || img.src;
     if (!src) return;
+    if (img.classList.contains('logo-tint')) {
+      const data = await tintedPng(src, b.w, b.h, cs.getPropertyValue('--ac').trim(), cs.getPropertyValue('--ac2').trim());
+      if (data) this.slide.addImage({ data, ...this.pos(b) });
+      return;
+    }
     // GIF не запекаем в PNG: PowerPoint проигрывает его сам, анимация важнее скруглений и фильтров
     const gif = /^data:image\/gif[;,]|\.gif(?:[?#]|$)/i.test(src);
     const fx = !gif && img.parentElement?.classList.contains('img-fx') ? img.parentElement : null;

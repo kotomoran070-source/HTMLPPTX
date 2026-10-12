@@ -632,9 +632,17 @@ body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
 .st-top { min-width: 0; }
 .st-top-r { min-width: 0; }
 .st-status { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-@media (max-width: 1200px) {
+@media (min-width: 1181px) { .st-top-r > .ibtn { flex-shrink: 0; } }
+/* Место под надпись «Автосохранение» на ноутбуке: сначала уже название, потом «Экспорт» — одним значком */
+@media (max-width: 1520px) {
   .st-title { width: 170px; }
+}
+@media (max-width: 1366px) {
   .st-top .st-export span { display: none; }
+}
+/* Совсем тесно: спокойное «Сохранено» прячется, «Сохранение…» и ошибка остаются */
+@media (max-width: 1280px) {
+  .st-status.ok { display: none; }
 }
 @media (max-width: 1080px) {
   .st-status { max-width: 150px; }
@@ -937,8 +945,10 @@ body.st-marqueeing, body.st-marqueeing * { user-select: none !important; cursor:
 .st-find.code .st-find-it span, .st-find.code .st-find-ctx { font-family: var(--mono, "JetBrains Mono", ui-monospace, monospace); font-size: 11.5px; }
 .st-find.code [data-fa="notes"], .st-find.code .st-find-rep { display: none; }
 
-/* Палитра команд в верхней строке (Ctrl+K) */
+/* Палитра команд в верхней строке (Ctrl+K). На широком экране сжимается первой: надпись «Автосохранение»
+   и кнопки справа остаются целиком */
 .st-pal { position: relative; flex: 0 1 260px; min-width: 36px; margin-left: auto; }
+@media (min-width: 1521px) { .st-pal { flex-shrink: 1000; } .st-top-r { flex-shrink: 0; } }
 .st-pal-field { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px; border: 1px solid var(--bd); border-radius: 8px; background: var(--bg); color: var(--mu); cursor: text; transition: border-color .15s; }
 .st-pal-field:hover { border-color: var(--bd2); }
 .st-pal.on .st-pal-field { border-color: var(--ac); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 18%, transparent); }
@@ -959,8 +969,8 @@ body.st-marqueeing, body.st-marqueeing * { user-select: none !important; cursor:
 .st-pal-on { flex: none; font: 600 11px var(--font); color: var(--ach); background: var(--acs); border-radius: 4px; padding: 1px 5px; }
 .st-pal-o.act small { flex: 1; }
 .st-pal-none { padding: 10px 8px; color: var(--mu); font-size: 13px; }
-/* Узкое окно: от поля остаётся лупа, по щелчку — поле поверх */
-@media (max-width: 1180px) {
+/* Окно уже — от поля остаётся лупа, по щелчку — поле поверх. Иначе сжатое поле наезжает на соседей */
+@media (max-width: 1520px) {
   .st-pal { flex: 0 0 36px; }
   .st-pal-field { width: 36px; padding: 0; justify-content: center; }
   .st-pal-field .st-pal-q, .st-pal-field kbd { position: absolute; opacity: 0; width: 1px; }
@@ -1091,6 +1101,7 @@ body.st-marqueeing, body.st-marqueeing * { user-select: none !important; cursor:
 /* Образец плашки логотипа (Дизайн → Логотип): те же переменные, что у плашки на слайде */
 .st-dz-plate { display: grid; place-items: center; width: 40px; height: 40px; background: var(--lp-bg, var(--logo-bg)); border: 1.5px solid var(--lp-bd, var(--acb)); border-radius: calc(9px * var(--rk, 1)); box-shadow: 0 2px 8px color-mix(in srgb, var(--lp-glow, var(--ac)) 18%, transparent); }
 .st-dz-plate img { width: 70%; height: 70%; }
+.st-dz-plate.tint { background: var(--surf); }
 /* Угол и размер логотипа: мини-слайды с квадратиком логотипа */
 .st-dz-corners { display: flex; align-items: center; gap: 6px; padding: 2px 8px 10px; }
 .st-dz-sep { width: 1px; height: 26px; margin: 0 4px; background: var(--bd); }

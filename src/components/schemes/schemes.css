@@ -90,9 +90,10 @@
 .compare.duo { gap: 64px; }
 .cmp-col { position: relative; display: flex; flex-direction: column; gap: 14px; padding: 24px 24px 26px; border-radius: calc(18px * var(--rk, 1));
   background: var(--card-bg, var(--surf)); border: var(--card-bw, 1px) solid var(--card-bd, var(--bd)); box-shadow: var(--card-sh, none); }
-.cmp-col h4 { margin: 0; font-family: var(--font-head); font-size: calc(22px * var(--h-scale, 1)); line-height: 1.2; color: var(--tx); }
+.cmp-col h4 { margin: 0; font-family: var(--font-head); font-size: calc(var(--cmp-h, 22px) * var(--h-scale, 1)); line-height: 1.2; color: var(--tx); }
 .cmp-col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.cmp-col li { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; line-height: 1.4; color: var(--tx2, var(--tx)); }
+/* Размер текста колонок — --cmp-fs и --cmp-h у блока (style), например для крупного слайда */
+.cmp-col li { display: flex; gap: 10px; align-items: flex-start; font-size: var(--cmp-fs, 15px); line-height: 1.4; color: var(--tx2, var(--tx)); }
 .cmp-col li .ic { flex: none; width: 20px; height: 20px; padding: 3px; border-radius: 50%; fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; box-sizing: border-box; }
 .cmp-col li.yes .ic { stroke: var(--on-ac, #fff); background: var(--ac); }
 .cmp-col li.no .ic { stroke: var(--mu); background: color-mix(in srgb, var(--mu) 18%, transparent); }
@@ -183,3 +184,59 @@
 /* В правке, миниатюрах и PDF ответы видны: их правят и печатают */
 body.editing:not(.st-previewing) .fq-a, .static .fq-a { grid-template-rows: 1fr; }
 .slide.on .fq-item { animation: up .55s var(--ease) both; animation-delay: calc(.12s + var(--k) * .09s); }
+
+/* Дорожная карта: путь через вехи, вехи по очереди, по пути бегут штрихи */
+.roadmap { position: relative; width: 100%; height: 100%; min-height: 260px; }
+.roadmap > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.rm-bg { fill: none; stroke: var(--bd); stroke-width: 14; stroke-linecap: round; }
+.rm-done { fill: none; stroke: color-mix(in srgb, var(--ac) 45%, var(--bd)); stroke-width: 14; stroke-linecap: round; }
+.rm-fg { fill: none; stroke: var(--ac); stroke-width: 4; stroke-linecap: round; stroke-dasharray: .012 .014; }
+.slide.on .rm-bg, .slide.on .rm-done { stroke-dasharray: 1 1; animation: rm-draw 1.1s var(--ease) both; }
+.slide.on .rm-done { animation-delay: .4s; }
+.slide.on .rm-fg { animation: rm-march 30s linear infinite, fi .6s ease 1s both; }
+@keyframes rm-draw { from { stroke-dashoffset: 1; } }
+@keyframes rm-march { to { stroke-dashoffset: -1; } }
+.rm-mile { position: absolute; width: 220px; translate: -50% -13px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.rm-mile > i { width: 26px; height: 26px; margin-bottom: 8px; border-radius: 50%; background: var(--surf); border: 6px solid var(--ac); box-shadow: 0 0 0 6px color-mix(in srgb, var(--ac) 16%, transparent); }
+.rm-mile.done > i { background: var(--ac); }
+.rm-when { font: 700 13px/1.2 var(--font); letter-spacing: .12em; text-transform: uppercase; color: var(--ac); }
+.rm-mile > b { font: var(--hw, 700) 21px/1.25 var(--font-head, var(--font)); color: var(--tx); }
+.slide.on .rm-mile { animation: rm-pop .5s cubic-bezier(.3, 1.4, .5, 1) both; animation-delay: calc(.3s + var(--k) * .15s); }
+@keyframes rm-pop { from { opacity: 0; transform: translateY(14px); } }
+
+/* Лестница роста: ступени растут по очереди */
+.ladder { display: grid; grid-template-columns: repeat(var(--n), 1fr); align-items: end; gap: 18px; height: 100%; min-height: 260px; }
+.ld-step { display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; height: 100%; }
+.ld-step > b { font: 800 30px/1 var(--font-head, var(--font)); background: linear-gradient(90deg, var(--ac), var(--ac2, var(--ac))); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.ld-step > span { font-size: 16px; line-height: 1.3; color: var(--tx2); }
+.ld-step > i { display: block; margin-top: 4px; border-radius: calc(16px * var(--rk, 1)) calc(16px * var(--rk, 1)) 4px 4px; background: linear-gradient(180deg, var(--ac), color-mix(in srgb, var(--ac2, var(--ac)) 70%, var(--ac))); box-shadow: 0 12px 30px color-mix(in srgb, var(--ac) 22%, transparent); transform-origin: bottom; }
+.slide.on .ld-step > i { animation: ld-grow .8s cubic-bezier(.3, 1.3, .5, 1) both; animation-delay: calc(var(--k) * .15s); }
+.slide.on .ld-step > :is(b, span) { animation: fi .5s ease both; animation-delay: calc(.3s + var(--k) * .15s); }
+@keyframes ld-grow { from { transform: scaleY(0); } }
+
+/* Орбиты вокруг главного */
+.orbit { position: relative; width: 100%; height: 100%; min-height: 320px; }
+.ob-ring { position: absolute; left: 50%; top: 50%; translate: -50% -50%; aspect-ratio: 1; border-radius: 50%; border: 1.5px dashed var(--bd2); }
+.ob-ring.r1 { height: 54%; }
+.ob-ring.r2 { height: 94%; }
+.ob-ring::after { content: ""; position: absolute; left: 50%; top: -6px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--ac); box-shadow: 0 0 12px var(--ac); }
+.ob-ring.r2::after { background: var(--ac2, var(--ac)); top: auto; bottom: -6px; }
+.slide.on .ob-ring.r1 { animation: ob-spin 14s linear infinite; }
+.slide.on .ob-ring.r2 { animation: ob-spin 26s linear infinite reverse; }
+@keyframes ob-spin { to { rotate: 360deg; } }
+.ob-core { position: absolute; left: 50%; top: 50%; translate: -50% -50%; height: 34%; aspect-ratio: 1; border-radius: 50%; display: grid; place-content: center; text-align: center; padding: 12px; background: linear-gradient(145deg, var(--ac), var(--ac2, var(--ac))); color: var(--on-ac); box-shadow: 0 20px 50px color-mix(in srgb, var(--ac) 35%, transparent); }
+.ob-core > b { font: 800 30px/1.1 var(--font-head, var(--font)); }
+.ob-core > span { font-size: 15px; opacity: .85; }
+/* С логотипом — центр цвета карточки, знак в нём */
+.orbit.with-logo .ob-core { background: var(--surf); border: 1px solid var(--bd); color: var(--tx); place-content: stretch; }
+.ob-logo { display: grid; place-items: center; width: 100%; height: 100%; }
+.ob-logo img { width: 64%; height: 64%; }
+.ob-tag { position: absolute; translate: -50% -50%; display: flex; flex-direction: column; align-items: center; padding: 10px 18px; border-radius: 99px; background: var(--surf); border: 1px solid var(--bd); box-shadow: 0 10px 26px rgba(2, 6, 23, .08); text-align: center; white-space: nowrap; }
+.ob-tag > b { font: 600 17px/1.2 var(--font); }
+.ob-tag > span { font-size: 13px; color: var(--mu); }
+.slide.on .ob-tag { animation: rm-pop .5s cubic-bezier(.3, 1.4, .5, 1) both; animation-delay: calc(.4s + var(--k) * .12s); }
+
+/* Свободный объект без высоты (вид сменили в «Свойствах»): схема берёт свою, а не схлопывается.
+   Общее правило свободных объектов обнуляет min-height у содержимого */
+.slide > .free.auto-h > :is(.roadmap, .ladder) { min-height: 260px; }
+.slide > .free.auto-h > .orbit { min-height: 320px; }

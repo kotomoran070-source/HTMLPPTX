@@ -62,8 +62,16 @@ defineBlock<HubProps>('hub', {
         + (it.sub ? `<text class="sb" x="${mid.toFixed(1)}" y="${(ny + 41).toFixed(1)}" text-anchor="middle"${ea(it, 'sub')}>${esc(it.sub)}</text>` : '')
         + `</g>`;
     });
-    const center = `<rect class="hub-center${ctx.logoDark ? ' has-dark' : ''}" x="${CX - 40}" y="${CY - 40}" width="80" height="80" rx="18"/>`
-      + (ctx.logo ? `<image${themedSrc(ctx.logo, ctx.logoDark, 'href')} x="${CX - 28}" y="${CY - 28}" width="56" height="56"${eimgPath(['brand', 'logo'])}/>` : '');
+    // Знак логотипа в цветах темы (brand.tint): картинка — маска по прозрачности, цвет — градиент акцента
+    const tid = ctx.logoTint && ctx.logo ? ctx.uid('hbt') : '';
+    const tinted = tid
+      ? `<defs><linearGradient id="${tid}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--ac)"/><stop offset="1" style="stop-color:var(--ac2, var(--ac))"/></linearGradient>`
+        + `<mask id="${tid}m" style="mask-type:alpha"><image href="${esc(ctx.logo!)}" x="${CX - 28}" y="${CY - 28}" width="56" height="56"/></mask></defs>`
+        + `<rect x="${CX - 28}" y="${CY - 28}" width="56" height="56" fill="url(#${tid}g)" mask="url(#${tid}m)"/>`
+      : '';
+    const center = `<rect class="hub-center${tid ? ' tint' : ctx.logoDark ? ' has-dark' : ''}" x="${CX - 40}" y="${CY - 40}" width="80" height="80" rx="18"/>`
+      + tinted
+      + (ctx.logo ? `<image${tid ? ` href="${esc(ctx.logo)}" opacity="0"` : themedSrc(ctx.logo, ctx.logoDark, 'href')} x="${CX - 28}" y="${CY - 28}" width="56" height="56"${eimgPath(['brand', 'logo'])}/>` : '');
     const svg = `<svg class="hb r" viewBox="0 0 ${W} ${H}" role="img" aria-label="Схема">${lines}${center}${nodes}</svg>`;
 
     return `<div class="hub"${styleAttr(p.height && `height:${p.height}px`, p.style)}><div class="hub-list">${list}</div><div>${svg}</div></div>`;

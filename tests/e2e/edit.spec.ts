@@ -26,10 +26,10 @@ test('правка текста на слайде сохраняется в deck
 });
 
 test('Ctrl+Z отменяет правку и в файле', async ({ page }) => {
-  await page.goto('/?deck=tpl&studio#5');
+  await page.goto('/?deck=tpl&studio#7');
   await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
   const before = readDeck('tpl');
-  const title = page.locator('#st-canvas .slide h2[data-edit]').filter({ hasText: 'Коротко о' }).first();
+  const title = page.locator('#st-canvas .slide h2[data-edit]').filter({ hasText: 'Цифры и' }).first();
   await title.click();
   await page.keyboard.press('Control+A');
   await page.keyboard.type('Временно');

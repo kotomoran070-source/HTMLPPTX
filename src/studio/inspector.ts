@@ -266,7 +266,7 @@ export class Inspector {
     this.parts = el ? partsOf(el) : [];
     const key = sel
       ? `b:${JSON.stringify(sel.free ?? sel.block)}:${sel.type}:${sig}:${sel.free ? rowOf(getAt(deck, sel.free))?.id ?? '' : ''}:${this.parts.map((x) => x.label + x.snippet).join('|')}`
-      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}:${String(deck.slides[i]?.backdropOpacity ?? '')}/${String(deck.slides[i]?.backdropSpeed ?? '')}/${String(deck.slides[i]?.bgOpacity ?? '')}/${String(deck.theme?.backdropOpacity ?? '')}/${String(deck.theme?.backdropSpeed ?? '')}:${deckFonts(deck.fonts).map((f) => f.name).join('|')}:${deck.theme?.font ?? ''}:${deck.theme?.backdrop ?? ''}:${slideAccent(deck.slides[i]?.theme) ? 'own' : ''}${deck.slides[i]?.theme?.accent2 ? '2' : ''}`;
+      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}:${String(deck.slides[i]?.backdropOpacity ?? '')}/${String(deck.slides[i]?.backdropSpeed ?? '')}/${String(deck.slides[i]?.bgOpacity ?? '')}/${String(deck.theme?.backdropOpacity ?? '')}/${String(deck.theme?.backdropSpeed ?? '')}:${deckFonts(deck.fonts).map((f) => f.name).join('|')}:${deck.theme?.font ?? ''}:${deck.theme?.backdrop ?? ''}:${slideAccent(deck.slides[i]?.theme) ? 'own' : ''}${deck.slides[i]?.theme?.accent2 ? '2' : ''}:${deck.brand?.logo ? 'logo' : ''}`;
     if (key !== this.key) {
       this.key = key;
       // Прокрутка панели сохраняется, когда форма перестраивается (добавили пункт)
@@ -543,6 +543,7 @@ ${tpl === 'canvas' ? this.bgHtml(typeof s.bg === 'string' ? s.bg.trim() : '') : 
 ${this.backdropHtml(typeof s.backdrop === 'string' ? s.backdrop : '')}
 ${this.slideColorsHtml(s)}
 ${formHtml(this.fields, deck, ['slides', i])}
+${(tpl === 'content' || tpl === 'canvas') && !deck.brand?.logo ? cmdBtn('brand.logo.add', 'image', 'Добавить логотип…') : ''}
 <button type="button" class="st-p-hint" data-cmd="tab.anim">${icon('sparkle')}<span>Переход и появление объектов — на вкладке «Анимация»</span></button>
 </section>
 ${tpl !== 'canvas' && !s.live ? `<section class="st-p-sec"><h3>Раскладка шаблона</h3><p class="st-p-note">Части слайда стоят на своих местах. Разберите слайд, чтобы двигать и масштабировать их по отдельности: вид и анимации сохранятся. Вернуть — Ctrl+Z.</p>${cmdBtn('slide.explode', 'ungroup', 'Разобрать на объекты')}</section>` : ''}

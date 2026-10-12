@@ -16,6 +16,7 @@ import { esc } from '../engine/html';
 import { currentTheme } from '../engine/theme';
 import type { Deck, DeckTheme } from '../types';
 import { logoPlate } from '../engine/render';
+import { logoImg } from '../components/templates/content';
 import { logoColors } from './logo-colors';
 import { showPopover } from './menu';
 import { backdropStrip, bindBackdropStrip, bindTune, tuneHtml } from './backdrop-pick';
@@ -452,10 +453,12 @@ export function designCommands(h: DesignHost): Record<string, Command> {
   const setMode = (m: SlideMode | null) => smoothly(() => patch({ mode: m ?? undefined }));
 
   // ---------- плашка логотипа ----------
-  const setPlate = (plate: NonNullable<Deck['brand']>['plate'] | null) => ed.commit((d) => {
+  const setPlate = (plate: NonNullable<Deck['brand']>['plate'] | null, tint = false) => ed.commit((d) => {
     if (!d.brand) return;
     if (plate) d.brand.plate = plate;
     else delete d.brand.plate;
+    if (tint) d.brand.tint = true;
+    else delete d.brand.tint;
   }, { rebuild: true });
   /** Примерка плашки на открытом слайде: переменные --lp-* у слайда, null — как в данных */
   const tryPlate = (vars: Record<string, string> | null) => {
@@ -481,21 +484,25 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     const at = anchor('design.logo');
     const logo = deck.brand?.logo;
     if (!at) return;
-    if (!logo) return ed.toast('У презентации нет логотипа: добавьте его на титульном слайде', 3500);
+    if (!logo) return ed.pickImage(['brand', 'logo']);
     let pal: Awaited<ReturnType<typeof logoColors>>;
     try { pal = await logoColors(logo); } catch (e) { return ed.toast(`Не удалось прочитать логотип: ${(e as Error).message}`, 4000, true); }
     const fromLogo = deck.brand?.plate?.from === 'logo';
-    // Образцы — тем же логотипом на фоне слайда темы; у «из темы» — переменные темы, у «из логотипа» — свои
-    const sample = (vars: string) => `<span class="st-dz-opt-in" style="${esc(`${tileStyle(theme())};${vars}`)}"><i class="st-dz-plate"><img src="${esc(logo)}" alt=""></i></span>`;
+    const tinted = deck.brand?.tint === true;
+    // Образцы — тем же логотипом на фоне слайда темы; у «из темы» — переменные темы, у «из логотипа» — свои,
+    // «в цвет темы» — знак градиентом акцента на плашке цвета карточки
+    const sample = (vars: string, tint = false) => `<span class="st-dz-opt-in" style="${esc(`${tileStyle(theme())};${vars}`)}"><i class="st-dz-plate${tint ? ' tint' : ''}">${logoImg(logo, undefined, tint)}</i></span>`;
     const logoVars = `--lp-bg:${pal.bg};--lp-bd:${pal.border};--lp-glow:${pal.glow}`;
     const el = showPopover(at, `<div class="st-dz-opts radii">`
-      + `<button type="button" class="st-dz-opt${fromLogo ? '' : ' active'}" data-k="theme">${sample('')}<small>Из темы</small></button>`
-      + `<button type="button" class="st-dz-opt${fromLogo ? ' active' : ''}" data-k="logo">${sample(logoVars)}<small>Из логотипа</small></button></div>`
+      + `<button type="button" class="st-dz-opt${fromLogo || tinted ? '' : ' active'}" data-k="theme">${sample('')}<small>Из темы</small></button>`
+      + `<button type="button" class="st-dz-opt${fromLogo && !tinted ? ' active' : ''}" data-k="logo">${sample(logoVars)}<small>Из логотипа</small></button>`
+      + `<button type="button" class="st-dz-opt${tinted ? ' active' : ''}" data-k="tint" title="Одноцветный знак с прозрачным фоном перекрашивается в цвета темы">${sample('', true)}<small>В цвет темы</small></button></div>`
       // Угол и размер на обычных слайдах
       + `<div class="st-dz-corners">${CORNER_POS.map(([v, l]) => `<button type="button" class="st-dz-corner${(corner().pos ?? 'tr') === v ? ' active' : ''}" data-pos="${v}" title="${l}" aria-label="${l}"><i class="at-${v}"></i></button>`).join('')}`
       + `<span class="st-dz-sep"></span>${CORNER_SIZE.map(([v, l]) => `<button type="button" class="st-dz-corner${(corner().size ?? '') === v ? ' active' : ''}" data-size="${v}" title="${l}" aria-label="${l}"><i class="at-tr size-${v || 'm'}"></i></button>`).join('')}</div>`, (b) => {
       if (b.dataset.k === 'theme') return { run: () => setPlate(null) };
       if (b.dataset.k === 'logo') return { run: () => setPlate({ from: 'logo', src: logo, ...pal }) };
+      if (b.dataset.k === 'tint') return { run: () => setPlate(null, true) };
       if (b.dataset.pos) return { run: () => setCorner({ pos: b.dataset.pos }) };
       if (b.dataset.size !== undefined) return { run: () => setCorner({ size: b.dataset.size }) };
       return null;
@@ -538,7 +545,8 @@ export function designCommands(h: DesignHost): Record<string, Command> {
       run: () => options('design.radius', RADII, typeof theme().radius === 'number' ? theme().radius! : 1,
         (v) => ({ ...theme(), radius: v }), () => card, (v) => patch({ radius: v === 1 ? undefined : v }), 'radii'),
     },
-    'design.logo': { run: () => void logoMenu(), enabled: () => !!deck.brand?.logo },
+    // Логотипа нет — кнопка его добавляет (файл картинки), есть — плашка, цвет, угол и размер
+    'design.logo': { run: () => (deck.brand?.logo ? void logoMenu() : ed.pickImage(['brand', 'logo'])) },
     'design.backdrop': { run: () => backdropMenu(), active: () => !!theme().backdrop },
     'design.mode.auto': { run: () => setMode(null), active: () => !themeMode(deck.theme) },
     'design.mode.light': { run: () => setMode('light'), active: () => themeMode(deck.theme) === 'light' },
