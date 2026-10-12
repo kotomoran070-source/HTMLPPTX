@@ -85,12 +85,10 @@ export function registerMyFonts(list: MyTheme[]): void {
   }
 }
 
-/** Файл темы — скачать */
-export function downloadTheme(t: MyTheme): void {
-  const blob = new Blob([JSON.stringify({ slideria: 'theme', version: 1, ...t }, null, 2)], { type: 'application/json' });
+function saveJson(data: unknown, file: string): void {
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `${t.name.replace(/[\\/:*?"<>|]+/g, '-').trim() || 'theme'}.slideria-theme.json`;
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+  a.download = file;
   a.hidden = true;
   document.body.appendChild(a);
   a.click();
@@ -98,9 +96,33 @@ export function downloadTheme(t: MyTheme): void {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
+/** Файл темы — скачать */
+export function downloadTheme(t: MyTheme): void {
+  saveJson({ slideria: 'theme', version: 1, ...t }, `${t.name.replace(/[\\/:*?"<>|]+/g, '-').trim() || 'theme'}.slideria-theme.json`);
+}
+
+/** Все свои темы одним файлом (набор) — перенести на другой компьютер или поделиться */
+export function downloadThemes(list: MyTheme[]): void {
+  saveJson({ slideria: 'themes', version: 1, themes: list }, 'Мои темы.slideria-themes.json');
+}
+
+/** Файл темы или набор тем ({ slideria: 'themes', themes: […] } или список) → свои темы */
+export function parseThemeFiles(text: string): MyTheme[] {
+  const v = JSON.parse(text) as { slideria?: string; themes?: unknown };
+  // Темы набора — без своей отметки slideria; одиночный файл — только с ней
+  const pack = Array.isArray(v) ? v : v?.slideria === 'themes' && Array.isArray(v.themes) ? v.themes : null;
+  const out = pack ? pack.map((x) => parseTheme({ slideria: 'theme', ...(x as object) })) : [parseTheme(v)];
+  if (!out.length) throw new Error('в наборе нет тем');
+  return out;
+}
+
 /** Файл темы → своя тема (новый id: можно загрузить тот же файл дважды) */
 export function parseThemeFile(text: string): MyTheme {
-  const v = JSON.parse(text) as Partial<MyTheme> & { slideria?: string };
+  return parseTheme(JSON.parse(text));
+}
+
+function parseTheme(raw: unknown): MyTheme {
+  const v = (raw ?? {}) as Partial<MyTheme> & { slideria?: string };
   if (v.slideria !== 'theme' || !v.theme || typeof v.theme !== 'object') throw new Error('это не файл темы Slideria');
   const fonts = Array.isArray(v.fonts) ? v.fonts.filter((f) => f && typeof f.name === 'string' && typeof f.data === 'string' && f.data.startsWith('data:')) : [];
   const theme = v.theme as DeckTheme;

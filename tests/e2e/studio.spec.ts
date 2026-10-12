@@ -210,6 +210,27 @@ test('импорт из PowerPoint: другая тема перекрашива
   expect(errors).toEqual([]);
 });
 
+test('файлы тем: несколько сразу и набор — перетаскиванием на студию, чужой JSON — понятной ошибкой', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=tpl&studio#7');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  const theme = (name: string, accent: string) => ({ slideria: 'theme', version: 1, name, theme: { accent, bg: 'glow' } });
+  await page.evaluate((files) => {
+    const dt = new DataTransfer();
+    for (const [n, txt] of files) dt.items.add(new File([txt], n, { type: 'application/json' }));
+    document.querySelector('#st-canvas .slide.on')!.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+  }, [
+    ['Закат.slideria-theme.json', JSON.stringify(theme('Закат', '#E11D48'))],
+    ['Набор.slideria-themes.json', JSON.stringify({ slideria: 'themes', version: 1, themes: [theme('Лес', '#15803D'), theme('Море', '#0369A1')] })],
+    ['чужой.json', '{"a":1}'],
+  ]);
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('slideria-themes') ?? '[]').map((t: { name: string }) => t.name).sort().join())).toBe('Закат,Лес,Море');
+  await expect(page.getByText('чужой.json: это не файл темы Slideria')).toBeVisible();
+  // Несколько тем только добавляются: оформление презентации не меняется
+  expect(readDeck('tpl')).not.toContain('preset: my:');
+  expect(errors).toEqual([]);
+});
+
 test('«Мои темы»: оформление сохраняется темой и появляется первым в ряду тем', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=design&studio#1');

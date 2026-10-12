@@ -29,7 +29,7 @@ import { blockName, setSnapLines } from '../engine/editor/block-edit';
 import { blobToDataUrl } from '../engine/editor/persist';
 import { addEffect, addTemplate, assetUrls, findEntrance, deckWithTemplate, listTemplates, pickCss, pickDefs, removeTemplate, replaceUrls, type Template } from './templates';
 import { animCommands, animPanelHtml, animTabHtml, bindDelayField, syncAnimTab, type AnimHost } from './anim-tab';
-import { bindDesignStrip, designCommands, designPanelHtml, designTabHtml, syncDesignTab, type DesignHost } from './design-tab';
+import { bindDesignStrip, designCommands, designPanelHtml, designTabHtml, importThemeFiles, isThemeFile, syncDesignTab, type DesignHost } from './design-tab';
 import { THEME_PRESETS } from './theme-presets';
 import { initRibbonSetup } from './ribbon-setup';
 import { pictureName, savePicture } from './save-picture';
@@ -1060,8 +1060,15 @@ export function startStudio(deck: Deck, deckKey: string): void {
     }
   });
   canvas.addEventListener('drop', (e) => {
-    if (view.stage.contains(e.target as Node)) return;
     const files = [...(e.dataTransfer?.files ?? [])];
+    // Файлы тем (.json) — в «Мои темы», где бы их ни бросили: на слайд или мимо
+    const themes = files.filter(isThemeFile);
+    if (themes.length) {
+      e.preventDefault();
+      importThemeFiles(themes);
+      return;
+    }
+    if (view.stage.contains(e.target as Node)) return;
     // Файл шрифта — свой шрифт презентации
     const font = files.find((x) => /\.(woff2?|ttf|otf)$/i.test(x.name));
     if (font) {

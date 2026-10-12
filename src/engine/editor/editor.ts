@@ -1765,6 +1765,8 @@ export class Editor {
 
   private onDrop(e: DragEvent): void {
     if (!e.dataTransfer?.files.length) return;
+    // Файл темы (.json) — не картинка: его принимает студия («Мои темы»)
+    if (/\.json$/i.test(e.dataTransfer.files[0].name)) return;
     if (isFontFile(e.dataTransfer.files[0])) {
       e.preventDefault();
       e.stopPropagation();

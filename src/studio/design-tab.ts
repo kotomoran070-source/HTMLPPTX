@@ -22,7 +22,7 @@ import { showPopover } from './menu';
 import { backdropStrip, bindBackdropStrip, bindTune, tuneHtml } from './backdrop-pick';
 import { previewBackdrop } from '../components/backdrop/backdrop';
 import { isBackdrop } from '../engine/backdrops';
-import { addMyTheme, captureTheme, downloadTheme, listMyThemes, MY, parseThemeFile, registerMyFonts, removeMyTheme, type MyTheme } from './my-themes';
+import { addMyTheme, captureTheme, downloadTheme, downloadThemes, listMyThemes, MY, parseThemeFiles, registerMyFonts, removeMyTheme, type MyTheme } from './my-themes';
 import { registerThemeFonts, SPECIMEN, THEME_FONTS, THEME_PRESETS, themeFont, themeFontWeights, type ThemePreset } from './theme-presets';
 
 interface Command {
@@ -62,6 +62,10 @@ function findTheme(deck: Deck, id: string | undefined): (ThemePreset & { my?: My
 let applyById: ((id: string) => void) | null = null;
 /** Свои темы поменялись — плитки на ленте перерисовываются */
 let myVersion = 0;
+/** Файлы тем (.json) → «Мои темы»: кнопка «Из файлов…», перетаскивание на студию и в галерею тем */
+let importThemes: ((files: File[]) => Promise<void>) | null = null;
+export const isThemeFile = (f: File) => /\.json$/i.test(f.name) || f.type === 'application/json';
+export function importThemeFiles(files: File[]): void { void importThemes?.(files); }
 
 const group = (label: string, body: string) =>
   `<div class="st-rgroup" role="group" aria-label="${esc(label)}"><div class="st-rgroup-body">${body}</div><div class="st-rgroup-label">${esc(label)}</div></div>`;
@@ -289,7 +293,8 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     // Своё оформление, ещё не сохранённое темой, — предложение сохранить
     const unsaved = hasThemeLook(deck.theme) && !cur.startsWith(MY) && !THEME_PRESETS.some((p) => p.id === cur);
     const html = `<div class="st-dz-sec"><b>Мои темы</b><span>`
-      + `<button type="button" class="st-link" data-my="load">Из файла…</button></span></div>`
+      + (mine.length > 1 ? `<button type="button" class="st-link" data-my="pack" title="Все свои темы одним файлом — перенести на другой компьютер">Все в файл</button>` : '')
+      + `<button type="button" class="st-link" data-my="load" title="Можно выбрать несколько файлов или перетащить их сюда">Из файлов…</button></span></div>`
       + `<div class="st-dz-gal" role="listbox" aria-label="Мои темы">`
       + `<button type="button" class="st-dz-add${unsaved ? ' hint' : ''}" data-my="save">${icon('plus')}<b>Сохранить текущую</b><small>${unsaved ? 'Оформление презентации — темой для других презентаций' : 'Цвета, шрифты, фон, карточки и углы этой презентации'}</small></button>`
       + `${mine.map((m) => tile(asPreset(m), true)).join('')}</div>`
@@ -299,6 +304,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
       const act = b.dataset.my;
       if (act === 'save') return { run: () => saveTheme(at) };
       if (act === 'load') return { run: () => loadTheme() };
+      if (act === 'pack') return { run: () => downloadThemes(listMyThemes()), keep: true };
       if (act === 'file') return { run: () => { const p = findTheme(deck, b.dataset.id); if (p?.my) downloadTheme(p.my); }, keep: true };
       if (act === 'del') {
         return { run: () => {
@@ -320,6 +326,20 @@ export function designCommands(h: DesignHost): Record<string, Command> {
       if (p) b.querySelector('.st-dz-shot')!.appendChild(staticSlide(specimenDeck(p.theme), 0, 284));
     });
     hoverTry(el, '.st-dz-tile', (b) => findTheme(deck, b.dataset.themeId)?.theme ?? null);
+    // Файлы тем можно бросить прямо в галерею — она откроется заново уже с ними
+    el.addEventListener('dragover', (e) => {
+      if (!e.dataTransfer?.types.includes('Files')) return;
+      e.preventDefault();
+      el.classList.add('st-drop');
+    });
+    el.addEventListener('dragleave', (e) => { if (!el.contains(e.relatedTarget as Node)) el.classList.remove('st-drop'); });
+    el.addEventListener('drop', (e) => {
+      el.classList.remove('st-drop');
+      const files = [...(e.dataTransfer?.files ?? [])].filter(isThemeFile);
+      if (!files.length) return;
+      e.preventDefault();
+      void importThemes?.(files).then(() => gallery());
+    });
   };
 
   // ---------- анимация фона всех слайдов ----------
@@ -356,24 +376,36 @@ export function designCommands(h: DesignHost): Record<string, Command> {
       ed.toast(`Тема «${name}» ${same ? 'обновлена' : 'сохранена'} — она в «Все темы» и в ряду тем на ленте`, 3000);
     })());
   };
+  // Одна тема — добавляется и сразу применяется; несколько (файлов или в наборе) — только добавляются
+  importThemes = async (files) => {
+    const added: MyTheme[] = [];
+    const bad: string[] = [];
+    for (const f of files) {
+      try {
+        for (const t of parseThemeFiles(await f.text())) {
+          if (!addMyTheme(t)) throw new Error('не хватило места в браузере');
+          added.push(t);
+        }
+      } catch (e) {
+        bad.push(`${f.name}: ${(e as Error).message}`);
+      }
+    }
+    if (added.length) {
+      myVersion++;
+      registerMyFonts(added);
+      if (added.length === 1) await applyPreset(asPreset(added[0]));
+    }
+    const names = added.map((t) => `«${t.name}»`).join(', ');
+    if (bad.length) ed.toast(`${added.length ? `Добавлено: ${names}. ` : ''}Не загрузилось — ${bad.join('; ')}`, 6000, true);
+    else if (added.length === 1) ed.toast(`Тема ${names} добавлена в «Мои темы» и применена`, 3000);
+    else if (added.length) ed.toast(`Добавлено тем: ${added.length} — ${names}. Они в «Все темы» → «Мои темы»`, 4500);
+  };
   const loadTheme = () => {
     const inp = document.createElement('input');
     inp.type = 'file';
+    inp.multiple = true;
     inp.accept = '.json,application/json';
-    inp.onchange = async () => {
-      const f = inp.files?.[0];
-      if (!f) return;
-      try {
-        const t = parseThemeFile(await f.text());
-        if (!addMyTheme(t)) throw new Error('не хватило места в браузере');
-        myVersion++;
-        registerMyFonts([t]);
-        await applyPreset(asPreset(t));
-        ed.toast(`Тема «${t.name}» добавлена в «Мои темы» и применена`, 3000);
-      } catch (e) {
-        ed.toast(`Не удалось загрузить тему: ${(e as Error).message}`, 4500, true);
-      }
-    };
+    inp.onchange = () => { if (inp.files?.length) void importThemes?.([...inp.files]); };
     inp.click();
   };
   applyById = (id) => { const p = findTheme(deck, id); if (p) void applyPreset(p); };
