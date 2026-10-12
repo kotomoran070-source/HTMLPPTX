@@ -23,3 +23,7 @@ presentations/.checkpoints/
 # Установщик приложения (yarn app:build)
 dist-app/
 desktop/build.json
+
+# Сертификаты подписи (docs/SIGNING.md) — только вне репозитория
+*.pfx
+*.p12
