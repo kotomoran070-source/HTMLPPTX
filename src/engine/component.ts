@@ -10,6 +10,8 @@ export interface RenderCtx {
   logoDark?: string;
   /** Знак логотипа в цветах темы (brand.tint): картинка — маска, цвет — градиент акцента */
   logoTint?: boolean;
+  /** Размер знака в плашке, доля стороны (brand.mark); без него — 0.7 */
+  logoMark?: number;
   /** Рендер вложенного блока или списка блоков */
   block(b: Block | Block[] | undefined): string;
   /** Атрибут data-mount: после вставки в DOM у компонента вызовется mount() */

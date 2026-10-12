@@ -456,6 +456,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     clearTimeout(previewTimer);
     if (!document.body.classList.contains('st-previewing')) return;
     document.body.classList.remove('st-previewing');
+    view.stopTextEffects();
     applyLite();
     document.body.classList.add('editing');
     const back = previewSel;

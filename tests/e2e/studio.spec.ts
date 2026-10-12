@@ -16,7 +16,7 @@ test('студия открывается, слайды и свойства на
 });
 
 test('свой блок: «Сохранить как шаблон…» → «Блоки» → «Мои шаблоны»', async ({ page }) => {
-  await page.goto('/?deck=tpl&studio#21');
+  await page.goto('/?deck=tpl&studio#22');
   await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
   // Первый свободный объект на видимом слайде
   const obj = page.locator('#st-canvas .free').filter({ hasText: 'Свои блоки', visible: true }).first();
@@ -50,8 +50,39 @@ test('логотип: у холста включается галочкой, з�
   expect(errors).toEqual([]);
 });
 
+test('«Эффект текста»: выбор пишет textFx, «Просмотр» играет буквами, после него текст в правке целый', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=tpl&studio#19');
+  const tile = page.locator('#st-canvas .slide.on > .free').filter({ hasText: 'Неон' }).first();
+  const b = (await tile.boundingBox())!;
+  await page.mouse.click(b.x + 16, b.y + 16);
+  await page.locator('[data-tab="anim"]').first().click();
+  await page.locator('[data-cmd="anim.textfx"]').first().click();
+  await page.locator('.st-menu button', { hasText: 'Волна' }).click();
+  const neon = () => { const y = readDeck('tpl'); return y.split('\n').find((l) => l.includes('text: Неон')) ?? ''; };
+  expect(await waitFile(() => neon().includes('textFx: wave'))).toBe(true);
+  // «Просмотр» запущен сам; когда закончится, буквы снова одним текстом
+  await expect(page.locator('body.st-previewing')).toHaveCount(1);
+  await expect(page.locator('body.st-previewing')).toHaveCount(0, { timeout: 10_000 });
+  await expect(page.locator('#st-canvas .slide.on .tfx-c')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('логотип: размер знака в плашке — отдельно от плашки', async ({ page }) => {
+  await page.goto('/?deck=tpl&studio#7');
+  const img = page.locator('#st-canvas .slide.on .corner-logo img');
+  await expect(img).toHaveCount(1);
+  const share = () => img.evaluate((el) => (el as HTMLElement).offsetWidth / el.parentElement!.clientWidth);
+  expect(await share()).toBeCloseTo(0.7, 1);
+  await page.locator('[data-tab="design"]').first().click();
+  await page.locator('[data-cmd="design.logo"]').first().click();
+  await page.locator('.st-dz-mark[data-mark="0.45"]').click();
+  expect(await waitFile(() => /\n  mark: 0\.45\n/.test(readDeck('tpl')))).toBe(true);
+  await expect.poll(share).toBeLessThan(0.5);
+});
+
 test('меню «Цвет» картинки заканчивается над «Настройкой»', async ({ page }) => {
-  await page.goto('/?deck=tpl&studio#20');
+  await page.goto('/?deck=tpl&studio#21');
   await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
   const img = page.locator('#st-canvas .slide img').filter({ visible: true }).nth(1);
   await img.click();
@@ -203,7 +234,7 @@ test('«Мои темы»: оформление сохраняется темо�
 test('живой фон не перехватывает мышь: логотип разобранного титула выделяется и растёт целиком', async ({ page }) => {
   const errors = watchErrors(page);
   // Титул шаблоном cover с живым фоном — последний слайд (см. tests/prepare.mjs)
-  await page.goto('/?deck=design&studio#27');
+  await page.goto('/?deck=design&studio#30');
   await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
   await page.locator('[data-cmd="obj.ungroup"]').click();
   const logo = page.locator('#st-canvas .slide.on > .free').filter({ has: page.locator('.logo') });

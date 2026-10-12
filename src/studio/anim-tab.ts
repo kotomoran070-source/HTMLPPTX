@@ -3,6 +3,7 @@ import { getAt, type Path } from '../engine/data';
 import { blockName } from '../engine/editor/block-edit';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
+import { TEXT_FX, TEXT_FX_NAMES, textFxPreview } from '../engine/text-fx';
 import type { Block, Deck } from '../types';
 import { showMenu, showPopover } from './menu';
 import { deckWithEffect, listEffects, removeEffect, type UserEffect } from './templates';
@@ -83,7 +84,7 @@ export function animPanelHtml(): string {
     <label class="st-rfield" title="Через сколько секунд после открытия слайда объект появляется"><span>Задержка</span><input type="number" id="st-fx-delay" min="0" max="20" step="0.1" aria-label="Задержка появления, секунды"><span>с</span></label>
     <div class="st-rrow">${btn('anim.earlier', 'up', 'Раньше', { title: 'Появляться раньше' })}${btn('anim.later', 'up', 'Позже', { title: 'Появляться позже' })}</div>
   </div><div class="st-rstack"><button type="button" class="st-rb st-chk" data-cmd="anim.click" title="При показе объект ждёт щелчка («Далее», пробел, пульт) и появляется своим эффектом; по порядку — как в «Порядке»"><i class="st-box">${icon('check')}</i><span>Ждёт щелчка</span></button>${btn('anim.seq', 'sparkle', 'По очереди', { title: 'Выделенные объекты (или все на слайде) появляются по очереди: сверху вниз, слева направо' })}${btn('anim.order', 'list', 'Порядок', { menu: true, title: 'Все анимированные объекты слайда по порядку' })}</div>`)}
-  ${group('Число', `<div class="st-rstack"><button type="button" class="st-rb st-chk" data-cmd="anim.count" title="Числа в тексте объекта при появлении отсчитываются от нуля до своего значения"><i class="st-box">${icon('check')}</i><span>Число набегает</span></button></div>`)}
+  ${group('Текст', `<div class="st-rstack"><button type="button" class="st-rb st-chk" data-cmd="anim.count" title="Числа в тексте объекта при появлении отсчитываются от нуля до своего значения"><i class="st-box">${icon('check')}</i><span>Число набегает</span></button>${btn('anim.textfx', 'sparkle', 'Эффект текста', { menu: true, title: 'Глитч, неон, блик, волна, печатная машинка, расшифровка — у надписи или текста фигуры' })}</div>`)}
 </div>`;
 }
 
@@ -254,6 +255,42 @@ export function animCommands(h: AnimHost): Record<string, Command> {
     },
     enabled: () => counted().length > 0,
     active: () => { const p = counted(); return p.length > 0 && p.every((x) => (getAt(deck, x) as Block).count === true); },
+  };
+  // Эффект текста: у выделенных надписей и фигур с текстом; наведение на пункт — примерка на слайде
+  const texty = () => h.selPaths().filter((p) => {
+    const b = getAt(deck, p) as Block | undefined;
+    return !!b && (b.type === 'text' || b.type === 'shape') && typeof b.text === 'string' && b.text.trim() !== '';
+  });
+  cmds['anim.textfx'] = {
+    run: () => {
+      const paths = texty();
+      const cur = new Set(paths.map((p) => String((getAt(deck, p) as Block).textFx ?? '')));
+      const objs = paths.map((p) => document.querySelector<HTMLElement>(`#st-canvas .slide.on > .free[data-free='${JSON.stringify(p)}']`)).filter((x): x is HTMLElement => !!x);
+      let stops: (() => void)[] = [];
+      const tryFx = (v: string | null) => {
+        stops.forEach((f) => f());
+        stops = [];
+        objs.forEach((o, k) => {
+          const own = String((getAt(deck, paths[k]) as Block).textFx ?? '');
+          const fx = v ?? own;
+          if (fx) o.dataset.tfx = fx;
+          else delete o.dataset.tfx;
+          if (v !== null && fx) stops.push(textFxPreview(o));
+        });
+      };
+      const set = (v: string) => ed.commit((d) => paths.forEach((p) => {
+        const b = getAt(d, p) as Block;
+        if (v) b.textFx = v;
+        else delete b.textFx;
+      }), { rebuild: true });
+      showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="anim.textfx"]')!, [['', 'Без эффекта'] as [string, string], ...TEXT_FX.map((v) => [v, TEXT_FX_NAMES[v]] as [string, string])].map(([v, l]) => ({
+        label: l,
+        checked: cur.size === 1 && cur.has(v),
+        preview: (on: boolean) => tryFx(on ? v : null),
+        run: () => { tryFx(null); set(v); if (v) requestAnimationFrame(() => h.preview()); },
+      })));
+    },
+    enabled: () => texty().length > 0,
   };
   cmds['anim.later'] = { run: () => move(1), enabled: canMove(1) };
   cmds['anim.seq'] = {

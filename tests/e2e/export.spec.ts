@@ -48,7 +48,8 @@ test('компактный HTML: картинки в WebP, файл не бол�
   };
   const [plain, compact] = [await get(''), await get('&quality=compact')];
   expect(compact.length).toBeLessThanOrEqual(plain.length);
-  expect(compact).not.toMatch(/data:image\/(png|jpeg|gif);base64,.{200000}/);
+  // Крупных PNG / JPEG / GIF нет: длина считается по самим данным картинки (за ней в строке идёт остальной код)
+  expect(compact).not.toMatch(/data:image\/(png|jpeg|gif);base64,[A-Za-z0-9+/=]{200000}/);
 });
 
 test('HTML с правкой: есть режим правки', async ({ page }) => {

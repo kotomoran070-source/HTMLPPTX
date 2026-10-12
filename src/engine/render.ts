@@ -3,6 +3,7 @@ import {
   blockNames, getBlock, getTemplate, templateNames,
   type Component, type MountCtx, type RenderCtx,
 } from './component';
+import { TEXT_FX } from './text-fx';
 import { asArray, esc } from './html';
 import { slideAccent } from './accent';
 import { backdropLook, slideBackdrop } from './backdrops';
@@ -151,7 +152,9 @@ export class Renderer {
       const click = rank >= 0 ? ` data-click="${rank}" data-click-n="${rank + 1}"` : '';
       const emph = (typeof b.emphasis === 'string' && (EMPHASIS as readonly string[]).includes(b.emphasis) ? ` data-emph="${b.emphasis}"` : '')
         // Числа в тексте отсчитываются от нуля при появлении (engine/count-up)
-        + (b.count === true ? ' data-count' : '');
+        + (b.count === true ? ' data-count' : '')
+        // Эффект текста: глитч, неон, блик, волна, машинка, расшифровка (engine/text-fx)
+        + (typeof b.textFx === 'string' && (TEXT_FX as readonly string[]).includes(b.textFx) ? ` data-tfx="${b.textFx}"` : '');
       // Текст по середине или по низу рамки (valign: middle, bottom)
       const va = b.type === 'text' && pl.h ? (b.valign === 'middle' ? ' va-m' : b.valign === 'bottom' ? ' va-b' : '') : '';
       return `<div class="free${pl.h ? (grow ? ' grow-h' : '') : ' auto-h'}${va}${fx}${lock}${act ? ' act' : ''}${hid}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''}${obj}${emph}${hid ? ' data-hid' : ''}${click}${act ? ` data-action="${esc(act)}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
@@ -212,6 +215,7 @@ export class Renderer {
       logo: this.logo,
       logoDark: this.deck.brand?.logoDark,
       logoTint: this.deck.brand?.tint === true,
+      logoMark: logoMark(this.deck),
       block: (b) => asArray(b).map((item) => this.block(item, ctx)).join(''),
       mount: (component, props) => {
         const id = 'm' + ++uidCounter;
@@ -319,9 +323,19 @@ const HEX = /^#[0-9a-f]{6}$/i;
  * не подберёт цвета заново
  */
 export function logoPlate(deck: Deck): string {
+  const mark = logoMark(deck);
+  const out = mark === undefined ? [] : [`--logo-mark:${Math.round(mark * 100)}%`];
   const p = deck.brand?.plate;
-  if (!p || p.from !== 'logo' || p.src !== deck.brand?.logo || ![p.bg, p.border, p.glow].every((c) => typeof c === 'string' && HEX.test(c))) return '';
-  return `--lp-bg:${p.bg};--lp-bd:${p.border};--lp-glow:${p.glow}`;
+  if (p && p.from === 'logo' && p.src === deck.brand?.logo && [p.bg, p.border, p.glow].every((c) => typeof c === 'string' && HEX.test(c))) {
+    out.push(`--lp-bg:${p.bg};--lp-bd:${p.border};--lp-glow:${p.glow}`);
+  }
+  return out.join(';');
+}
+
+/** Размер знака в плашке (brand.mark), доля её стороны; без поля или с мусором — undefined (70 %) */
+export function logoMark(deck: Deck): number | undefined {
+  const m = Number(deck.brand?.mark);
+  return deck.brand?.mark !== undefined && Number.isFinite(m) ? Math.min(0.95, Math.max(0.3, m)) : undefined;
 }
 
 export interface Place { x: number; y: number; w: number; h?: number }

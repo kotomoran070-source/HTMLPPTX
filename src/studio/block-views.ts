@@ -78,7 +78,7 @@ export function itemsOf(b: Obj): Item[] {
 }
 
 /** Свойства объекта, которые переходят в новый вид (место, появление, имя, ряд…) */
-const KEEP = ['place', 'enter', 'delay', 'id', 'locked', 'hidden', 'action', 'emphasis', 'row', 'count', 'angle', 'rotate', 'keepRatio'];
+const KEEP = ['place', 'enter', 'delay', 'id', 'locked', 'hidden', 'action', 'emphasis', 'textFx', 'row', 'count', 'angle', 'rotate', 'keepRatio'];
 
 export function toView(b: Obj, view: string): Block {
   const items = itemsOf(b);

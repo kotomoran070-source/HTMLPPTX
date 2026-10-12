@@ -64,14 +64,18 @@ defineBlock<HubProps>('hub', {
     });
     // Знак логотипа в цветах темы (brand.tint): картинка — маска по прозрачности, цвет — градиент акцента
     const tid = ctx.logoTint && ctx.logo ? ctx.uid('hbt') : '';
+    // Знак в плашке 80×80: его размер — brand.mark (по умолчанию 70 %, 56 px)
+    const lm = Math.round(80 * (ctx.logoMark ?? 0.7));
+    const lx = CX - lm / 2;
+    const ly = CY - lm / 2;
     const tinted = tid
       ? `<defs><linearGradient id="${tid}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--ac)"/><stop offset="1" style="stop-color:var(--ac2, var(--ac))"/></linearGradient>`
-        + `<mask id="${tid}m" style="mask-type:alpha"><image href="${esc(ctx.logo!)}" x="${CX - 28}" y="${CY - 28}" width="56" height="56"/></mask></defs>`
-        + `<rect x="${CX - 28}" y="${CY - 28}" width="56" height="56" fill="url(#${tid}g)" mask="url(#${tid}m)"/>`
+        + `<mask id="${tid}m" style="mask-type:alpha"><image href="${esc(ctx.logo!)}" x="${lx}" y="${ly}" width="${lm}" height="${lm}"/></mask></defs>`
+        + `<rect x="${lx}" y="${ly}" width="${lm}" height="${lm}" fill="url(#${tid}g)" mask="url(#${tid}m)"/>`
       : '';
     const center = `<rect class="hub-center${tid ? ' tint' : ctx.logoDark ? ' has-dark' : ''}" x="${CX - 40}" y="${CY - 40}" width="80" height="80" rx="18"/>`
       + tinted
-      + (ctx.logo ? `<image${tid ? ` href="${esc(ctx.logo)}" opacity="0"` : themedSrc(ctx.logo, ctx.logoDark, 'href')} x="${CX - 28}" y="${CY - 28}" width="56" height="56"${eimgPath(['brand', 'logo'])}/>` : '');
+      + (ctx.logo ? `<image${tid ? ` href="${esc(ctx.logo)}" opacity="0"` : themedSrc(ctx.logo, ctx.logoDark, 'href')} x="${lx}" y="${ly}" width="${lm}" height="${lm}"${eimgPath(['brand', 'logo'])}/>` : '');
     const svg = `<svg class="hb r" viewBox="0 0 ${W} ${H}" role="img" aria-label="Схема">${lines}${center}${nodes}</svg>`;
 
     return `<div class="hub"${styleAttr(p.height && `height:${p.height}px`, p.style)}><div class="hub-list">${list}</div><div>${svg}</div></div>`;

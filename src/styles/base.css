@@ -168,7 +168,8 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
   border-radius: calc(20px * var(--rk, 1));
   box-shadow: 0 2px 8px color-mix(in srgb, var(--lp-glow, var(--ac)) 14%, transparent);
 }
-.logo img { width: 70%; height: 70%; display: block; }
+/* Размер знака в плашке — brand.mark (--logo-mark у слайда); плашка своего размера не меняет */
+.logo img { width: var(--logo-mark, 70%); height: var(--logo-mark, 70%); display: block; }
 /* Плашка логотипа отдельным объектом (разобранный шаблон): заполняет объект, скругление — в долях
    размера, чтобы при масштабе плашка оставалась той же формы */
 .slide > .free .tpl-part .logo { height: 100%; border-radius: 22.7%; }
@@ -315,6 +316,59 @@ body.editing .slide.on > .free.act { cursor: inherit; translate: none; filter: n
 @keyframes emph-spin { to { transform: rotate(360deg); } }
 @keyframes emph-bounce { 30% { transform: translateY(-36px); } 55% { transform: translateY(0); } 72% { transform: translateY(-12px); } 88% { transform: translateY(0); } }
 @keyframes emph-flash { 20%, 60% { opacity: .15; } 40%, 80% { opacity: 1; } }
+
+/* Эффекты текста (textFx, engine/text-fx.ts). Неон — сам по себе; копия текста data-text для глитча и блика,
+   буквы .tfx-c для волны, машинки и расшифровки — только при показе и в «Просмотре» */
+.free[data-tfx] :is(p[data-type="text"], .shape-t) { position: relative; }
+.free[data-tfx="neon"] :is(p[data-type="text"], .shape-t) { animation: tfx-neon 5s linear infinite; }
+@keyframes tfx-neon {
+  0%, 46%, 52%, 56%, 100% { opacity: 1; text-shadow: 0 0 2px color-mix(in srgb, #fff 65%, var(--ac)), 0 0 10px var(--ac), 0 0 26px var(--ac), 0 0 52px var(--ac2, var(--ac)); }
+  48%, 54% { opacity: .72; text-shadow: none; }
+}
+.free[data-tfx="glitch"] :is(p[data-type="text"], .shape-t) { animation: tfx-glitch 3.4s steps(1, end) infinite; }
+@keyframes tfx-glitch {
+  0%, 78%, 91%, 100% { transform: none; text-shadow: none; }
+  79% { transform: translate(-2px, 1px) skewX(-7deg); text-shadow: -3px 0 #FF2BD6, 3px 0 #22D3EE; }
+  82% { transform: translate(3px, -1px); text-shadow: 3px 0 #FF2BD6, -3px 0 #22D3EE; }
+  85% { transform: none; text-shadow: -1px 0 #FF2BD6, 1px 0 #22D3EE; }
+  88% { transform: translate(1px, 0) skewX(5deg); text-shadow: 2px 0 #FF2BD6, -2px 0 #22D3EE; }
+}
+.free:is([data-tfx="glitch"], [data-tfx="shine"]) [data-text]::before,
+.free:is([data-tfx="glitch"], [data-tfx="shine"]) [data-text]::after {
+  content: attr(data-text); position: absolute; inset: 0; padding: inherit; white-space: pre-wrap; pointer-events: none; text-shadow: none;
+}
+.free[data-tfx="glitch"] [data-text]::before { color: #FF2BD6; opacity: 0; animation: tfx-gl1 3.4s steps(1, end) infinite; }
+.free[data-tfx="glitch"] [data-text]::after { color: #22D3EE; opacity: 0; animation: tfx-gl2 3.4s steps(1, end) infinite; }
+@keyframes tfx-gl1 {
+  0%, 78%, 91%, 100% { opacity: 0; }
+  79% { opacity: .85; transform: translate(-9px, 0); clip-path: inset(10% 0 60% 0); }
+  82% { transform: translate(7px, 0); clip-path: inset(55% 0 22% 0); }
+  85% { transform: translate(-4px, 0); clip-path: inset(80% 0 2% 0); }
+  88% { transform: translate(11px, 0); clip-path: inset(32% 0 46% 0); }
+}
+@keyframes tfx-gl2 {
+  0%, 79%, 92%, 100% { opacity: 0; }
+  80% { opacity: .85; transform: translate(8px, 0); clip-path: inset(62% 0 12% 0); }
+  83% { transform: translate(-10px, 0); clip-path: inset(20% 0 64% 0); }
+  86% { transform: translate(5px, 0); clip-path: inset(44% 0 38% 0); }
+  89% { transform: translate(-6px, 0); clip-path: inset(4% 0 82% 0); }
+}
+.free[data-tfx="shine"] [data-text]::before { content: none; }
+.free[data-tfx="shine"] [data-text]::after {
+  color: transparent; -webkit-text-fill-color: transparent;
+  background: linear-gradient(105deg, transparent 42%, color-mix(in srgb, #fff 85%, var(--ac)) 50%, transparent 58%) 0 0 / 300% 100% no-repeat;
+  -webkit-background-clip: text; background-clip: text;
+  animation: tfx-shine 3.2s ease-in-out infinite;
+}
+@keyframes tfx-shine { 0% { background-position: 100% 0; } 65%, 100% { background-position: 0 0; } }
+.free[data-tfx="wave"] .tfx-c { position: relative; animation: tfx-wave 1.8s ease-in-out infinite; animation-delay: calc(var(--i) * 70ms - 5s); }
+@keyframes tfx-wave { 0%, 60%, 100% { top: 0; } 30% { top: -.24em; } }
+.tfx-c.tfx-off { visibility: hidden; }
+.tfx-c.tfx-caret { position: relative; }
+.tfx-c.tfx-caret::after { content: ''; position: absolute; left: calc(100% + 1px); top: .08em; bottom: .02em; width: .08em; min-width: 2px; background: var(--ac); animation: tfx-blink .9s steps(1, end) infinite; }
+@keyframes tfx-blink { 50% { opacity: 0; } }
+.tfx-c.tfx-dim { -webkit-text-fill-color: var(--ac); color: var(--ac); opacity: .75; }
+@media (prefers-reduced-motion: reduce) { .free[data-tfx] *, .free[data-tfx] *::before, .free[data-tfx] *::after { animation: none !important; } }
 /* В редакторе скрытый объект виден полупрозрачным: его можно выделить и править */
 body.editing .stage > .slide > .free.trig-hid { visibility: visible; pointer-events: auto; opacity: .14; outline: 1.5px dashed color-mix(in srgb, var(--mu) 70%, transparent); outline-offset: 4px; transition: opacity .15s; }
 /* Наведён или выделен — виден почти целиком: его удобно править, а остальное время он не заслоняет слайд */

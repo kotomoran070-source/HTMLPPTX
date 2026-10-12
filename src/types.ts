@@ -20,6 +20,8 @@ export interface Deck {
      * акцента, плашка под ним — цвета карточки темы, светлая и тёмная
      */
     tint?: boolean;
+    /** Размер знака в плашке, доля её стороны: 0.3–0.95, по умолчанию 0.7. Плашка своего размера не меняет */
+    mark?: number;
   };
   theme?: DeckTheme;
   /** Свои шрифты: файлы в assets/ — { name: Manrope, src: ./assets/Manrope.woff2 } */

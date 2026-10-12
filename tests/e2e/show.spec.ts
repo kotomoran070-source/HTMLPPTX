@@ -169,6 +169,10 @@ test('морф: пары перелетают, после перехода — �
   // Во время перехода: снимок старого слайда и летящие копии двух пар; настоящие объекты ждут под ними
   await expect(page.locator('.morph-layer .morph-fly')).toHaveCount(4);
   await expect(page.locator('.morph-ghost')).toHaveCount(1);
+  // Поворот фигуры не растворяется, а играет в полёте: у копий он в transform
+  const turns = await page.locator('.morph-layer .morph-fly').evaluateAll((els) => els.map((el) => el.getAnimations()
+    .flatMap((a) => (a.effect as KeyframeEffect).getKeyframes().map((k) => String(k.transform ?? ''))).join(' ')));
+  expect(turns.filter((t) => t.includes('rotate(0deg)') && t.includes('rotate(30deg)'))).toHaveLength(2);
   // Переход закончился: слоёв нет, объекты на местах и видны
   await expect(page.locator('.morph-layer, .morph-ghost')).toHaveCount(0);
   const box = page.locator('.slide.on [data-obj="box"]');
@@ -178,6 +182,24 @@ test('морф: пары перелетают, после перехода — �
   await page.keyboard.press('ArrowLeft');
   await expect(page.locator('.morph-layer .morph-fly')).toHaveCount(4);
   await expect(page.locator('.morph-layer, .morph-ghost')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('эффекты текста: при показе буквы по отдельности (волна, машинка, расшифровка), у глитча — копия текста; уйти со слайда — текст как был', async ({ page }) => {
+  const errors = watchErrors(page);
+  // 19 — «Текст, который оживает»: по объекту на каждый эффект
+  await page.goto('/?deck=tpl#19');
+  const slide = page.locator('.slide.on');
+  await expect(slide.locator('.free[data-tfx]')).toHaveCount(7);
+  const wave = slide.locator('.free[data-tfx="wave"]');
+  await expect(wave.locator('.tfx-c')).toHaveCount('Волнапобуквам'.length);
+  await expect(slide.locator('.free[data-tfx="glitch"] [data-text="ГЛИТЧ"]')).toHaveCount(1);
+  // Машинка допечатала, расшифровка встала на место
+  await expect(slide.locator('.free[data-tfx="type"] .tfx-off')).toHaveCount(0);
+  await expect(slide.locator('.free[data-tfx="scramble"]')).toHaveText('ДОСТУП ОТКРЫТ');
+  await page.keyboard.press('PageDown');
+  await expect(page.locator('#ct')).toHaveText(/^20 из/);
+  await expect(page.locator('.slide .tfx-c, .slide [data-text]')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 

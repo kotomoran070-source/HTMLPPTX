@@ -156,11 +156,11 @@ slides:
       - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Текст и цифры**\nключевые числа, тезисы, цитата", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:summary", place: {x: 48, y: 166, w: 284, h: 190}, enter: pop, delay: 180}
       - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Графики и таблицы**\n9 видов диаграмм, таблицы как в Excel", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:data", place: {x: 348, y: 166, w: 284, h: 190}, enter: pop, delay: 240}
       - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Схемы**\nцикл, воронка, дорожная карта — 19 видов", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:schemes", place: {x: 648, y: 166, w: 284, h: 190}, enter: pop, delay: 300}
-      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Анимация и морф**\nпо щелчку, числа набегают, объекты перелетают", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:motion", place: {x: 948, y: 166, w: 284, h: 190}, enter: pop, delay: 360}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Анимация и морф**\nпо щелчку, морф, эффекты текста — глитч, неон", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:motion", place: {x: 948, y: 166, w: 284, h: 190}, enter: pop, delay: 360}
       - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Интерактив**\nползунки, формулы, код на слайде", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:interactive", place: {x: 48, y: 372, w: 284, h: 190}, enter: pop, delay: 420}
       - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Медиа**\nфото, фильтры, видео, 3D, свои блоки", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:media", place: {x: 348, y: 372, w: 284, h: 190}, enter: pop, delay: 480}
       - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Оформление**\n22 темы, 28 живых фонов, тёмная тема", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:design", place: {x: 648, y: 372, w: 284, h: 190}, enter: pop, delay: 540}
-      - {type: shape, kind: round, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, radius: 18, text: "**Импорт и показ**\nPowerPoint, пульт, экспорт", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:import", place: {x: 948, y: 372, w: 284, h: 190}, enter: pop, delay: 600}
+      - {type: shape, kind: round, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, radius: 18, text: "**Импорт и связки**\nPowerPoint, Claude Design, пульт, экспорт", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:import", place: {x: 948, y: 372, w: 284, h: 190}, enter: pop, delay: 600}
       - {type: text, text: "**Как сделать** · выделите фигуру → «Свойства» → «По щелчку при показе» → слайд, ссылка или «Показать объект»", styles: {text: {size: 15, color: text2}}, place: {x: 50, y: 600, w: 1180}, enter: fade, delay: 700}
     notes: |
       Плитки — обычные фигуры со ссылкой на слайд. Удалили раздел — удалите и его плитку.
@@ -479,6 +479,8 @@ slides:
     template: canvas
     label: Морф — до
     transition: fade
+    backdrop: mesh
+    backdropOpacity: 0.55
     free:
       - {type: text, text: Анимация, styles: {text: {size: 13, weight: 800, upper: true, spacing: 0.14, color: accent}}, place: {x: 50, y: 30, w: 600}, enter: fade}
       - id: m-orb
@@ -487,8 +489,12 @@ slides:
         fill: gradient
         gradient: {from: accent, to: accent2, angle: 135}
         shadow: md
-        place: {x: 760, y: 120, w: 440, h: 440}
+        place: {x: 760, y: 130, w: 420, h: 420}
         enter: scale
+      - {id: m-ring, type: shape, kind: ellipse, fill: none, stroke: accent2, width: 4, place: {x: 1090, y: 470, w: 130, h: 130}, enter: pop, delay: 250}
+      - {id: m-dot, type: shape, kind: ellipse, fill: accent, shadow: sm, place: {x: 716, y: 500, w: 58, h: 58}, enter: pop, delay: 320}
+      - {id: m-tile, type: shape, kind: round, radius: 22, fill: soft, stroke: accent, width: 2, shadow: sm, angle: 18, place: {x: 1110, y: 90, w: 96, h: 96}, enter: pop, delay: 390}
+      - {id: m-bar, type: shape, kind: pill, fill: gradient, gradient: {from: accent2, to: accent, angle: 90}, angle: -14, place: {x: 650, y: 150, w: 170, h: 38}, enter: pop, delay: 460}
       - id: m-title
         type: text
         text: Переход {g:duo|«Морф»}
@@ -498,22 +504,26 @@ slides:
         delay: 150
       - id: m-lead
         type: text
-        text: Нажмите «Далее» — объекты перелетят на новые места.
+        text: Нажмите «Далее» — фигуры перелетят, повернутся и станут другим слайдом.
         styles: {text: {size: 22, color: text2}}
-        place: {x: 72, y: 314, w: 640}
+        place: {x: 72, y: 314, w: 600}
         enter: fade
         delay: 300
-      - {id: m-1, type: shape, kind: pill, fill: soft, text: Дублировать, styles: {text: {size: 17, weight: 700}}, place: {x: 72, y: 410, w: 190, h: 54}, enter: pop, delay: 450}
-      - {id: m-2, type: shape, kind: pill, fill: soft, text: Переставить, styles: {text: {size: 17, weight: 700}}, place: {x: 276, y: 410, w: 190, h: 54}, enter: pop, delay: 520}
-      - {id: m-3, type: shape, kind: pill, fill: soft, text: Морф, styles: {text: {size: 17, weight: 700}}, place: {x: 480, y: 410, w: 150, h: 54}, enter: pop, delay: 590}
+      - {id: m-1, type: shape, kind: pill, fill: soft, text: Дублировать, styles: {text: {size: 17, weight: 700}}, place: {x: 72, y: 430, w: 190, h: 54}, enter: pop, delay: 450}
+      - {id: m-2, type: shape, kind: pill, fill: soft, text: Переставить, styles: {text: {size: 17, weight: 700}}, place: {x: 276, y: 430, w: 190, h: 54}, enter: pop, delay: 520}
+      - {id: m-3, type: shape, kind: pill, fill: soft, text: Морф, styles: {text: {size: 17, weight: 700}}, place: {x: 480, y: 430, w: 150, h: 54}, enter: pop, delay: 590}
     notes: |
-      Следующий слайд — копия этого, где те же объекты переставлены. Переход к нему — «Морф»:
-      круг, заголовок и кнопки перелетают на новые места, меняют размер и цвет.
+      Следующий слайд — копия этого, где те же объекты (у них те же имена) переставлены. Переход к нему — «Морф»:
+      круг уходит в угол, кнопки становятся карточками, кружок, квадрат и кольцо — их номерами, а полоска —
+      чертой под заголовком. Повёрнутый квадрат по пути выпрямляется.
 
   - id: morph-how
     template: canvas
     label: Морф — после
     transition: morph
+    transitionMs: 1000
+    backdrop: mesh
+    backdropOpacity: 0.55
     free:
       - {type: text, text: Анимация, styles: {text: {size: 13, weight: 800, upper: true, spacing: 0.14, color: accent}}, place: {x: 50, y: 30, w: 600}}
       - id: m-orb
@@ -528,11 +538,12 @@ slides:
         text: Переход {g:duo|«Морф»}
         styles: {text: {size: 42, weight: 800, spacing: -0.02, color: text}}
         place: {x: 48, y: 48, w: 1000}
+      - {id: m-bar, type: shape, kind: pill, fill: gradient, gradient: {from: accent, to: accent2, angle: 90}, style: "padding: 0; min-height: 0", place: {x: 50, y: 106, w: 96, h: 6}}
       - id: m-lead
         type: text
-        text: Одинаковые объекты перелетают, меняют размер и цвет. Делается за минуту — три шага.
+        text: Одинаковые объекты перелетают, меняют размер, цвет и поворот. Делается за минуту — три шага.
         styles: {text: {size: 17, color: text2}}
-        place: {x: 50, y: 106, w: 1000}
+        place: {x: 50, y: 126, w: 1000}
       - id: m-1
         type: shape
         kind: round
@@ -541,9 +552,10 @@ slides:
         shadow: sm
         radius: 22
         valign: top
-        text: "{s:250|**01**}\n**Дублируйте слайд**\nCtrl+D в ленте миниатюр — копия со всеми объектами."
-        styles: {text: {size: 19, weight: 500, align: left, leading: 1.4}}
-        place: {x: 48, y: 196, w: 376, h: 300}
+        text: "**Дублируйте слайд**\nCtrl+D в ленте миниатюр — копия со всеми объектами."
+        styles: {text: {size: 20, weight: 500, align: left, leading: 1.4}}
+        style: "padding: 104px 28px 28px"
+        place: {x: 48, y: 196, w: 376, h: 270}
       - id: m-2
         type: shape
         kind: round
@@ -552,9 +564,10 @@ slides:
         shadow: sm
         radius: 22
         valign: top
-        text: "{s:250|**02**}\n**Переставьте**\nНа копии подвиньте, растяните, перекрасьте объекты."
-        styles: {text: {size: 19, weight: 500, align: left, leading: 1.4}}
-        place: {x: 452, y: 196, w: 376, h: 300}
+        text: "**Переставьте**\nНа копии подвиньте, растяните, поверните, перекрасьте."
+        styles: {text: {size: 20, weight: 500, align: left, leading: 1.4}}
+        style: "padding: 104px 28px 28px"
+        place: {x: 452, y: 196, w: 376, h: 270}
       - id: m-3
         type: shape
         kind: round
@@ -563,9 +576,13 @@ slides:
         shadow: md
         radius: 22
         valign: top
-        text: "{s:250|**03**}\n**Включите «Морф»**\n«Анимация» → «Переход к слайду» → «Морф»."
-        styles: {text: {size: 19, weight: 500, align: left, leading: 1.4}}
-        place: {x: 856, y: 196, w: 376, h: 300}
+        text: "**Включите «Морф»**\n«Анимация» → «Переход к слайду» → «Морф»."
+        styles: {text: {size: 20, weight: 500, align: left, leading: 1.4}}
+        style: "padding: 104px 28px 28px"
+        place: {x: 856, y: 196, w: 376, h: 270}
+      - {id: m-dot, type: shape, kind: ellipse, fill: accent, text: "1", styles: {text: {size: 22, weight: 800}}, style: "padding: 0", place: {x: 76, y: 224, w: 58, h: 58}}
+      - {id: m-tile, type: shape, kind: round, radius: 16, fill: soft, stroke: accent, width: 2, text: "2", styles: {text: {size: 22, weight: 800, color: accent}}, style: "padding: 0", place: {x: 480, y: 224, w: 58, h: 58}}
+      - {id: m-ring, type: shape, kind: ellipse, fill: none, stroke: "#FFFFFF", width: 3, text: "3", styles: {text: {size: 22, weight: 800, color: "#FFFFFF"}}, style: "padding: 0", place: {x: 884, y: 224, w: 58, h: 58}}
       - type: shape
         kind: round
         fill: soft
@@ -574,7 +591,7 @@ slides:
         styles: {text: {size: 15, align: left, leading: 1.4}}
         place: {x: 48, y: 622, w: 1184, h: 58}
         enter: fade
-        delay: 700
+        delay: 900
     notes: |
       Этот слайд — копия предыдущего: те же объекты (у них одинаковые имена) на других местах.
       Нажмите «Назад» и снова «Далее» — морф работает в обе стороны.
@@ -724,39 +741,51 @@ slides:
         place: {x: 48, y: 48, w: 900}
         enter: rise
       - type: text
-        text: Песочница для лекций и демо — правьте код при показе, результат обновится сам. Esc — снова листать слайды.
+        text: Песочница для лекций и демо — поменяйте числа при показе, график перестроится сам. Esc — снова листать слайды.
         styles: {text: {size: 17, color: text2}}
         place: {x: 50, y: 106, w: 1100}
         enter: fade
         delay: 100
       - type: sandbox
-        title: hello.html
+        title: chart.html
         theme: true
-        size: 15
-        split: 54
+        size: 13
+        split: 57
         console: true
-        code: |
-          <h1>Привет, зал!</h1>
+        code: |-
+          <div id="chart"></div>
           <style>
-            body { display: grid; place-items: center; height: 100vh; margin: 0; font: 800 54px system-ui; }
-            h1 { background: linear-gradient(90deg, var(--ac), var(--ac2));
-                 -webkit-background-clip: text; color: transparent; }
+            body { margin: 0; height: 100vh; display: grid;
+                   place-items: center; font: 700 15px system-ui; }
+            #chart { display: flex; align-items: end; gap: 14px; height: 70%; }
+            .bar { width: 46px; text-align: center; color: var(--tx);
+                   border-radius: 12px 12px 4px 4px;
+                   background: linear-gradient(var(--ac2), var(--ac));
+                   animation: grow .9s cubic-bezier(.3, 1.4, .5, 1) both; }
+            .bar::before { content: attr(data-v); position: relative; top: -24px; }
+            @keyframes grow { from { height: 0; } }
           </style>
           <script>
-            // Поменяйте текст выше — результат обновится сам
-            console.log('Два плюс два =', 2 + 2);
+            // Поменяйте числа — столбцы перестроятся
+            const data = [12, 19, 7, 24, 15, 31];
+            const max = Math.max(...data);
+            chart.innerHTML = data.map((v, i) => `<div class="bar" data-v="${v}"
+              style="height:${v / max * 100}%; animation-delay:${i * 90}ms"></div>`)
+              .join('');
+            console.log('Сумма:', data.reduce((a, b) => a + b));
           </script>
-        place: {x: 48, y: 150, w: 1184, h: 456}
+        place: {x: 48, y: 146, w: 1184, h: 500}
         enter: rise
         delay: 200
       - type: text
         text: "**Как сделать** · «Вставка → Интерактив» → «Песочница»; свой HTML-файл с анимацией перетащите на слайд — он станет живой вставкой"
         styles: {text: {size: 15, color: text2}}
-        place: {x: 50, y: 630, w: 1180}
+        place: {x: 50, y: 662, w: 1180}
         enter: fade
         delay: 500
     notes: |
       Правки во время показа в презентацию не сохраняются: каждый показ начинается с исходного кода.
+      Цвета столбцов — из темы (var(--ac), var(--ac2)): смените тему — график перекрасится.
 
   - id: css-anim
     template: canvas
@@ -806,36 +835,113 @@ slides:
       Анимации CSS лежат в поле css в начале deck.yaml — их видно и правят в студии: «Код» → «Стили · CSS».
       У фигуры — поле style (Ctrl+` на этом слайде): animation с именем из CSS. В PDF и PowerPoint — неподвижный кадр.
 
-  - id: media
-    title: Картинки, видео и {g:duo|3D}
-    badge: Медиа
-    transition: push
-    body:
-      - type: grid
-        columns: 1.25fr 1fr
-        align: stretch
-        items:
-          - type: image
-            src: ./assets/photo.svg
-            height: 530
-            radius: 18
-            shadow: md
-            caption: Перетащите своё фото на картинку — оно встанет в рамку
-          - type: card
-            title: Что можно принести
-            text: Перетащите файл на слайд — он встанет сам.
-            body:
-              type: kv
-              keyWidth: 96
-              rows:
-                Фото: PNG, JPG, WebP, SVG — большие ужмутся сами
-                GIF: при каждом заходе на слайд — с начала
-                Видео: MP4, WebM или ссылка YouTube, Vimeo, Twitch
-                3D: GLB, STL или STEP — модель крутится мышью
-                Таблицы: из Excel — вставкой в ячейку
-                Шрифты: WOFF2, TTF, OTF — свои
+  - id: text-fx
+    template: canvas
+    label: Эффекты текста
+    transition: fade
+    backdrop: grid
+    backdropOpacity: 0.4
+    free:
+      - {type: text, text: Текст, styles: {text: {size: 13, weight: 800, upper: true, spacing: 0.14, color: accent}}, place: {x: 50, y: 30, w: 600}, enter: fade}
+      - type: text
+        text: Текст, который {g:duo|оживает}
+        styles: {text: {size: 42, weight: 800, spacing: -0.02, color: text}}
+        textFx: shine
+        place: {x: 48, y: 48, w: 1000}
+        enter: rise
+      - type: text
+        text: Шесть эффектов у любой надписи и текста фигуры. Наведите на пункт меню — эффект примерится прямо на слайде.
+        styles: {text: {size: 17, color: text2}}
+        place: {x: 50, y: 106, w: 1100}
+        enter: fade
+        delay: 100
+      - {type: shape, kind: round, fill: "#0B1020", radius: 18, shadow: md, text: ГЛИТЧ, styles: {text: {size: 58, weight: 900, spacing: 0.04, color: "#F8FAFC"}}, textFx: glitch, place: {x: 48, y: 156, w: 376, h: 150}, enter: pop, delay: 200}
+      - {type: shape, kind: round, fill: "#0B1020", radius: 18, shadow: md, text: Неон, styles: {text: {size: 58, weight: 800, color: "#F5F3FF"}}, textFx: neon, place: {x: 452, y: 156, w: 376, h: 150}, enter: pop, delay: 280}
+      - {type: shape, kind: round, fill: surface, stroke: border, radius: 18, shadow: sm, text: "{g:duo|Премиум}", styles: {text: {size: 56, weight: 900}}, textFx: shine, place: {x: 856, y: 156, w: 376, h: 150}, enter: pop, delay: 360}
+      - {type: text, text: "**Глитч** · цифровой сбой: сдвиг и цветные срезы", styles: {text: {size: 15, color: text2}}, place: {x: 50, y: 316, w: 372}, enter: fade, delay: 300}
+      - {type: text, text: "**Неон** · свечение цветом темы, изредка мигает", styles: {text: {size: 15, color: text2}}, place: {x: 454, y: 316, w: 372}, enter: fade, delay: 380}
+      - {type: text, text: "**Блик** · свет пробегает по буквам", styles: {text: {size: 15, color: text2}}, place: {x: 858, y: 316, w: 372}, enter: fade, delay: 460}
+      - {type: shape, kind: round, fill: surface, stroke: border, radius: 18, shadow: sm, text: Волна по буквам, styles: {text: {size: 40, weight: 800, color: accent}}, textFx: wave, place: {x: 48, y: 372, w: 376, h: 150}, enter: pop, delay: 440}
+      - {type: shape, kind: round, fill: surface, stroke: border, radius: 18, shadow: sm, text: "Печатаю по буквам", styles: {text: {size: 30, weight: 700}}, style: "font-family: ui-monospace, 'Cascadia Code', Consolas, monospace", textFx: type, place: {x: 452, y: 372, w: 376, h: 150}, enter: pop, delay: 520}
+      - {type: shape, kind: round, fill: "#0B1020", radius: 18, shadow: md, text: ДОСТУП ОТКРЫТ, styles: {text: {size: 34, weight: 800, spacing: 0.06, color: "#86EFAC"}}, style: "font-family: ui-monospace, 'Cascadia Code', Consolas, monospace", textFx: scramble, place: {x: 856, y: 372, w: 376, h: 150}, enter: pop, delay: 600}
+      - {type: text, text: "**Волна** · буквы качаются по очереди", styles: {text: {size: 15, color: text2}}, place: {x: 50, y: 532, w: 372}, enter: fade, delay: 520}
+      - {type: text, text: "**Печатная машинка** · по букве, с курсором", styles: {text: {size: 15, color: text2}}, place: {x: 454, y: 532, w: 372}, enter: fade, delay: 600}
+      - {type: text, text: "**Расшифровка** · символы встают на место", styles: {text: {size: 15, color: text2}}, place: {x: 858, y: 532, w: 372}, enter: fade, delay: 680}
+      - type: shape
+        kind: round
+        fill: soft
+        radius: 14
+        text: "**Как сделать** · выделите надпись → «Анимация» → «Эффект текста». Волна, машинка и расшифровка играют при показе. Свой эффект — @keyframes в «Код» → «Стили · CSS» и style у объекта."
+        styles: {text: {size: 15, align: left, leading: 1.4}}
+        place: {x: 48, y: 600, w: 1184, h: 58}
+        enter: fade
+        delay: 800
     notes: |
-      Обрезка, рамка, фильтры и цвет снимка — вкладка «Рисунок» (выделите картинку).
+      Эффект — поле textFx у объекта: glitch, neon, shine, wave, type, scramble.
+      Машинка и расшифровка начинаются заново при каждом заходе на слайд. В PDF и PowerPoint текст — обычный.
+
+  - id: media
+    template: canvas
+    label: Картинки, видео и 3D
+    transition: push
+    backdrop: bokeh
+    backdropOpacity: 0.45
+    free:
+      - {type: text, text: Медиа, styles: {text: {size: 13, weight: 800, upper: true, spacing: 0.14, color: accent}}, place: {x: 50, y: 30, w: 600}, enter: fade}
+      - type: text
+        text: Картинки, видео и {g:duo|3D}
+        styles: {text: {size: 42, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 48, w: 1000}
+        enter: rise
+      - type: text
+        text: Здесь настоящие файлы. Перетащите свой на слайд — он встанет так же.
+        styles: {text: {size: 17, color: text2}}
+        place: {x: 50, y: 106, w: 1100}
+        enter: fade
+        delay: 100
+      - type: image
+        src: ./assets/rocket.gif
+        radius: 18
+        shadow: md
+        place: {x: 48, y: 156, w: 376, h: 236}
+        enter: pop
+        delay: 200
+      - type: video
+        src: ./assets/film.webm
+        poster: ./assets/film-poster.png
+        loop: true
+        fit: cover
+        place: {x: 452, y: 156, w: 376, h: 236}
+        enter: pop
+        delay: 320
+      - {type: shape, kind: round, fill: soft, radius: 18, shadow: md, place: {x: 856, y: 156, w: 376, h: 236}, enter: pop, delay: 440}
+      - type: model
+        src: ./assets/slideria-3d.glb
+        poster: ./assets/slideria-3d.png
+        orbit: -28deg 68deg
+        rotate: true
+        place: {x: 856, y: 156, w: 376, h: 236}
+        enter: pop
+        delay: 440
+      - {type: text, text: "**GIF** · с начала при каждом заходе на слайд", styles: {text: {size: 15, color: text2}}, place: {x: 50, y: 404, w: 372}, enter: fade, delay: 300}
+      - {type: text, text: "**Видео** · MP4, WebM или ссылка YouTube, Vimeo, Twitch", styles: {text: {size: 15, color: text2}}, place: {x: 454, y: 404, w: 372}, enter: fade, delay: 420}
+      - {type: text, text: "**3D** · GLB, STL, STEP — покрутите мышью при показе", styles: {text: {size: 15, color: text2}}, place: {x: 858, y: 404, w: 372}, enter: fade, delay: 540}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 16, valign: top, text: "**Фото**\nPNG, JPG, WebP, AVIF, SVG — большие ужмутся сами", styles: {text: {size: 16, weight: 500, align: left, leading: 1.45}}, place: {x: 48, y: 456, w: 280, h: 116}, enter: rise, delay: 600}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 16, valign: top, text: "**Рисунок → Цвет**\nфильтры и цвет в тон темы — файл не меняется", styles: {text: {size: 16, weight: 500, align: left, leading: 1.45}}, place: {x: 349, y: 456, w: 280, h: 116}, enter: rise, delay: 680}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 16, valign: top, text: "**Таблицы**\nиз Excel и Google Таблиц — вставкой в ячейку", styles: {text: {size: 16, weight: 500, align: left, leading: 1.45}}, place: {x: 650, y: 456, w: 280, h: 116}, enter: rise, delay: 760}
+      - {type: shape, kind: round, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, radius: 16, valign: top, text: "**HTML с анимацией**\nперетащите на слайд — станет живой вставкой", styles: {text: {size: 16, weight: 500, align: left, leading: 1.45}}, place: {x: 951, y: 456, w: 281, h: 116}, enter: rise, delay: 840}
+      - type: shape
+        kind: round
+        fill: soft
+        radius: 14
+        text: "**Как сделать** · перетащите файл из папки на слайд или «Вставка → Картинка / Видео / 3D-модель». Обрезка, рамка, тень и фильтры — вкладка «Рисунок»."
+        styles: {text: {size: 15, align: left, leading: 1.4}}
+        place: {x: 48, y: 600, w: 1184, h: 58}
+        enter: fade
+        delay: 900
+    notes: |
+      GIF начинается сначала при каждом заходе на слайд, видео играет по кругу без звука, 3D-модель медленно
+      вращается сама и крутится мышью. В PDF и PowerPoint у видео и 3D — их обложки (poster).
       Для тёмной темы можно задать отдельную картинку — кнопка «Тёмная тема» на панели картинки.
 
   - id: filters
@@ -1059,6 +1165,68 @@ slides:
       Ещё: таблицы из Excel и Google Таблиц вставляются прямо в ячейку, свои шрифты — «Добавить шрифт…» в свойствах
       текста или перетаскиванием файла на страницу.
 
+  - id: flows
+    template: canvas
+    label: Связки с другими инструментами
+    transition: fade
+    backdrop: network
+    backdropOpacity: 0.4
+    free:
+      - {type: text, text: Связки, styles: {text: {size: 13, weight: 800, upper: true, spacing: 0.14, color: accent}}, place: {x: 50, y: 30, w: 600}, enter: fade}
+      - type: text
+        text: Генерируйте там — {g:duo|доводите здесь}
+        styles: {text: {size: 42, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 48, w: 1100}
+        enter: rise
+      - type: text
+        text: Черновик делает нейросеть или другая программа, а темы, анимацию и показ добавляет Slideria.
+        styles: {text: {size: 17, color: text2}}
+        place: {x: 50, y: 106, w: 1100}
+        enter: fade
+        delay: 100
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 16, valign: middle, text: "**Claude Design**\nкаркас мышью, промпт с палитрой темы", styles: {text: {size: 16, weight: 500, align: left, leading: 1.4}}, place: {x: 48, y: 160, w: 380, h: 84}, enter: left, delay: 200}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 16, valign: middle, text: "**Claude, Claude Code + навык**\nslideria-deck — пишет deck.yaml по нашей структуре", styles: {text: {size: 16, weight: 500, align: left, leading: 1.4}}, place: {x: 48, y: 262, w: 380, h: 84}, enter: left, delay: 300}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 16, valign: middle, text: "**Open Design, чат с ИИ, своя вёрстка**\nслайды как <section class=\"slide\">", styles: {text: {size: 16, weight: 500, align: left, leading: 1.4}}, place: {x: 48, y: 364, w: 380, h: 84}, enter: left, delay: 400}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 16, valign: middle, text: "**PowerPoint, Google Slides, Keynote**\nсохраните как .pptx", styles: {text: {size: 16, weight: 500, align: left, leading: 1.4}}, place: {x: 48, y: 466, w: 380, h: 84}, enter: left, delay: 500}
+      - {type: shape, kind: arrow, stroke: accent, width: 3, place: {x: 440, y: 188, w: 56, h: 28}, enter: fade, delay: 260}
+      - {type: shape, kind: arrow, stroke: accent, width: 3, place: {x: 440, y: 290, w: 56, h: 28}, enter: fade, delay: 360}
+      - {type: shape, kind: arrow, stroke: accent, width: 3, place: {x: 440, y: 392, w: 56, h: 28}, enter: fade, delay: 460}
+      - {type: shape, kind: arrow, stroke: accent, width: 3, place: {x: 440, y: 494, w: 56, h: 28}, enter: fade, delay: 560}
+      - {type: shape, kind: pill, fill: soft, text: HTML-экспорт, styles: {text: {size: 16, weight: 700}}, place: {x: 508, y: 180, w: 196, h: 44}, enter: pop, delay: 320}
+      - {type: shape, kind: pill, fill: soft, text: deck.yaml, styles: {text: {size: 16, weight: 700}}, style: "font-family: ui-monospace, Consolas, monospace", place: {x: 508, y: 282, w: 196, h: 44}, enter: pop, delay: 420}
+      - {type: shape, kind: pill, fill: soft, text: HTML-файл, styles: {text: {size: 16, weight: 700}}, place: {x: 508, y: 384, w: 196, h: 44}, enter: pop, delay: 520}
+      - {type: shape, kind: pill, fill: soft, text: .pptx, styles: {text: {size: 16, weight: 700}}, style: "font-family: ui-monospace, Consolas, monospace", place: {x: 508, y: 486, w: 196, h: 44}, enter: pop, delay: 620}
+      - {type: shape, kind: arrow, stroke: accent, width: 3, place: {x: 716, y: 188, w: 56, h: 28}, enter: fade, delay: 380}
+      - {type: shape, kind: arrow, stroke: accent, width: 3, place: {x: 716, y: 290, w: 56, h: 28}, enter: fade, delay: 480}
+      - {type: shape, kind: arrow, stroke: accent, width: 3, place: {x: 716, y: 392, w: 56, h: 28}, enter: fade, delay: 580}
+      - {type: shape, kind: arrow, stroke: accent, width: 3, place: {x: 716, y: 494, w: 56, h: 28}, enter: fade, delay: 680}
+      - type: shape
+        kind: round
+        fill: gradient
+        gradient: {from: accent, to: accent2, angle: 135}
+        shadow: md
+        radius: 22
+        valign: top
+        text: "{s:130|**Здесь — доводка**}\n\nтемы и тёмный вид — щелчком\nанимация, морф, эффекты текста\nсхемы, графики, таблицы — живые\nпоказ, пульт, окно докладчика\nPPTX, PDF или один HTML-файл"
+        styles: {text: {size: 20, weight: 500, align: left, leading: 1.75}}
+        style: "padding: 34px 34px"
+        place: {x: 784, y: 160, w: 448, h: 390}
+        enter: scale
+        delay: 700
+      - type: shape
+        kind: round
+        fill: soft
+        radius: 14
+        text: "**Где взять** · навык для Claude — docs/skills/slideria-deck (загрузите в Claude или положите в .claude/skills), промпт для Claude Design — docs/CLAUDE-DESIGN.md, правила HTML — docs/HTML.md. Готовый файл перетащите на страницу «Презентации»."
+        styles: {text: {size: 15, align: left, leading: 1.4}}
+        place: {x: 48, y: 580, w: 1184, h: 80}
+        enter: fade
+        delay: 900
+    notes: |
+      Claude Design — каркас мышью: промпт с палитрой темы в docs/CLAUDE-DESIGN.md, экспорт HTML импортируется почти 1:1.
+      Навык slideria-deck учит Claude писать deck.yaml из родных блоков: такие слайды правятся в студии целиком.
+      Любой генератор HTML-слайдов — импорт по правилам docs/HTML.md. Из PowerPoint — «Под темы Slideria».
+
   - id: remote
     template: canvas
     label: Пульт и окно докладчика
@@ -1134,6 +1302,177 @@ slides:
                 Скрыть слайд: остаётся в файле, но при показе и в PDF пропускается
     notes: |
       Кликер с USB-приёмником работает без настройки. Буквенные клавиши работают и в русской раскладке.
+
+  - id: cartoon
+    template: canvas
+    label: Одна фигура — целый мультик
+    transition: zoom
+    free:
+      - {type: text, text: Финал, styles: {text: {size: 13, weight: 800, upper: true, spacing: 0.14, color: accent}}, place: {x: 50, y: 30, w: 600}, enter: fade}
+      - type: text
+        text: Одна фигура — {g:duo|целый мультик}
+        styles: {text: {size: 42, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 48, w: 1100}
+        enter: rise
+      - type: text
+        text: Эффекты накладываются по одному, и ни одного из них нет в меню — это несколько строк кода. Щёлкните по сцене — следующий.
+        styles: {text: {size: 17, color: text2}}
+        place: {x: 50, y: 106, w: 1100}
+        enter: fade
+        delay: 100
+      - type: embed
+        theme: true
+        interactive: true
+        poster: ./assets/cartoon.webp
+        code: |-
+          <canvas id="c"></canvas>
+          <style>
+            html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+            canvas { display: block; width: 100%; height: 100%; cursor: pointer; }
+          </style>
+          <script>
+          // Одна фигура — целый мультик. Эффекты накладываются по одному: список steps.
+          // Уберите строку из steps — эффект пропадёт; щелчок по сцене — следующий.
+          const steps = ['Фигура', 'Пружина', 'Морфинг', 'Градиент', 'Свечение', 'Глаза — уже персонаж', 'Полёт со шлейфом', 'Частицы', 'Клоны на орбите', 'Глитч', 'Финал: конфетти'];
+          const has = (name) => steps.indexOf(name) <= level;
+          const STEP_MS = 2300;
+
+          const c = document.getElementById('c');
+          const x = c.getContext('2d');
+          const css = (v, d) => getComputedStyle(document.documentElement).getPropertyValue(v).trim() || d;
+          const AC = css('--ac', '#4F46E5'), AC2 = css('--ac2', '#0EA5E9'), TX = css('--tx', '#111827'), MU = css('--mu', '#6B7280');
+          let W = 0, H = 0, level = 0, since = performance.now(), parts = [], trail = [], confetti = [];
+          const fit = () => { const r = devicePixelRatio || 1; W = c.clientWidth; H = c.clientHeight; c.width = W * r; c.height = H * r; x.setTransform(r, 0, 0, r, 0, 0); };
+          addEventListener('resize', fit); fit();
+          const next = () => { level = level + 1 >= steps.length + 1 ? 0 : level + 1; since = performance.now(); if (level === 0) { trail = []; parts = []; confetti = []; } };
+          c.addEventListener('click', next);
+
+          // Форма: круг, а с «Морфингом» — дышащая звезда-клякса
+          function blob(cx, cy, R, t, sx = 1, sy = 1) {
+            x.beginPath();
+            const k = has('Морфинг') ? 0.1 + 0.08 * Math.sin(t * 1.3) : 0;
+            for (let i = 0; i <= 96; i++) {
+              const a = (i / 96) * Math.PI * 2;
+              const r = R * (1 + k * Math.sin(5 * a + t * 2.2));
+              const px = cx + Math.cos(a) * r * sx, py = cy + Math.sin(a) * r * sy;
+              i ? x.lineTo(px, py) : x.moveTo(px, py);
+            }
+            x.closePath();
+          }
+          function paint(cx, cy, R, t, sx, sy, color) {
+            blob(cx, cy, R, t, sx, sy);
+            if (color) x.fillStyle = color;
+            else if (has('Градиент')) {
+              const a = t * 0.8, g = x.createLinearGradient(cx - Math.cos(a) * R, cy - Math.sin(a) * R, cx + Math.cos(a) * R, cy + Math.sin(a) * R);
+              g.addColorStop(0, AC); g.addColorStop(1, AC2); x.fillStyle = g;
+            } else x.fillStyle = AC;
+            x.fill();
+          }
+
+          function frame(now) {
+            const t = now / 1000;
+            if (level < steps.length && now - since > STEP_MS) next();
+            if (level === steps.length && now - since > 3200) next();
+            x.clearRect(0, 0, W, H);
+            const stageW = W * 0.62, R = Math.min(stageW, H) * 0.16;
+            // Где фигура: в центре сцены, а с «Полётом» — по восьмёрке
+            let cx = stageW / 2, cy = H * 0.56;
+            if (has('Полёт со шлейфом')) { cx += Math.sin(t * 1.1) * stageW * 0.2; cy += Math.sin(t * 2.2) * H * 0.12; }
+            // Пружина: прыжки, сжатие при приземлении
+            let sx = 1, sy = 1;
+            if (has('Пружина')) {
+              const ph = (t * 1.5) % 1, hop = Math.sin(ph * Math.PI);
+              cy -= hop * H * 0.14;
+              const squash = ph < 0.12 || ph > 0.88 ? 0.22 * (1 - Math.min(ph, 1 - ph) / 0.12) : 0;
+              sx = 1 + squash; sy = 1 - squash * 0.8 + (hop > 0.5 ? 0.06 : 0);
+              cy += R * (1 - sy);
+            }
+            // Тень на «полу»
+            x.fillStyle = 'rgba(0,0,0,.08)';
+            x.beginPath(); x.ellipse(cx, H * 0.56 + R * 1.05, R * (has('Пружина') ? 1.1 - (H * 0.56 - cy) / H : 1.1), R * 0.18, 0, 0, Math.PI * 2); x.fill();
+            // Шлейф: прежние положения бледнее
+            if (has('Полёт со шлейфом')) {
+              trail.push([cx, cy]); if (trail.length > 22) trail.shift();
+              trail.forEach(([px, py], i) => { x.globalAlpha = (i / trail.length) * 0.25; paint(px, py, R * (0.5 + i / trail.length / 2), t, sx, sy); });
+              x.globalAlpha = 1;
+            }
+            // Клоны на орбите
+            if (has('Клоны на орбите')) for (let i = 0; i < 3; i++) {
+              const a = t * 1.6 + i * 2.094;
+              paint(cx + Math.cos(a) * R * 1.75, cy + Math.sin(a) * R * 0.65, R * 0.28, t + i, 1, 1);
+            }
+            // Свечение
+            if (has('Свечение')) { x.shadowColor = AC; x.shadowBlur = 30 + 18 * Math.sin(t * 3); }
+            // Глитч: короткие сбои — цветные копии со сдвигом и срезы
+            const glitch = has('Глитч') && (t % 1.7) < 0.18;
+            if (glitch) {
+              x.globalCompositeOperation = 'multiply';
+              paint(cx - 9, cy, R, t, sx, sy, '#FF2BD6'); paint(cx + 9, cy, R, t, sx, sy, '#22D3EE');
+              x.globalCompositeOperation = 'source-over';
+            }
+            paint(cx, cy, R, t, sx, sy);
+            x.shadowBlur = 0;
+            if (glitch) { const y0 = cy - R + ((t * 997) % 1) * R * 1.5; const sl = x.getImageData(0, (y0 | 0) * (devicePixelRatio || 1), c.width, 14 * (devicePixelRatio || 1)); x.putImageData(sl, 18 * (devicePixelRatio || 1), (y0 | 0) * (devicePixelRatio || 1)); }
+            // Глаза: смотрят по сторонам и моргают
+            if (has('Глаза — уже персонаж')) {
+              const look = Math.sin(t * 0.9) * 0.6, blink = (t % 3.2) < 0.12 ? 0.1 : 1;
+              for (const s of [-1, 1]) {
+                const ex = cx + s * R * 0.36, ey = cy - R * 0.18 * sy;
+                x.fillStyle = '#fff'; x.beginPath(); x.ellipse(ex, ey, R * 0.2, R * 0.26 * blink, 0, 0, Math.PI * 2); x.fill();
+                x.fillStyle = '#111827'; x.beginPath(); x.ellipse(ex + look * R * 0.08, ey + R * 0.04, R * 0.1, R * 0.13 * blink, 0, 0, Math.PI * 2); x.fill();
+              }
+              x.strokeStyle = '#111827'; x.lineWidth = R * 0.06; x.lineCap = 'round';
+              x.beginPath(); x.arc(cx, cy + R * 0.22 * sy, R * 0.22, 0.15 * Math.PI, 0.85 * Math.PI); x.stroke();
+            }
+            // Частицы: искры летят из фигуры и падают
+            if (has('Частицы') && Math.random() < 0.7) parts.push({ x: cx, y: cy, vx: (Math.random() - 0.5) * 6, vy: -Math.random() * 6 - 2, life: 1 });
+            parts = parts.filter((p) => (p.life -= 0.016) > 0);
+            for (const p of parts) {
+              p.x += p.vx; p.y += p.vy; p.vy += 0.18;
+              x.globalAlpha = p.life; x.fillStyle = p.life > 0.5 ? AC2 : AC;
+              x.beginPath(); x.arc(p.x, p.y, 3 + p.life * 3, 0, Math.PI * 2); x.fill();
+            }
+            x.globalAlpha = 1;
+            // Финал: конфетти
+            if (has('Финал: конфетти')) {
+              if (confetti.length < 160) for (let i = 0; i < 8; i++) confetti.push({ x: Math.random() * stageW, y: -10, vx: (Math.random() - 0.5) * 2, vy: Math.random() * 2 + 2, a: Math.random() * 6, col: [AC, AC2, '#F59E0B', '#EC4899'][i % 4] });
+              for (const q of confetti) {
+                q.x += q.vx; q.y += q.vy; q.a += 0.1;
+                x.save(); x.translate(q.x, q.y); x.rotate(q.a); x.fillStyle = q.col; x.fillRect(-5, -3, 10, 6); x.restore();
+              }
+            }
+            // Рецепт: эффекты по порядку, добавленные — с галочкой, новый — акцентом
+            const lx = W * 0.66, ly = H * 0.1, lh = Math.min(34, (H * 0.84) / steps.length);
+            x.font = `800 ${Math.round(lh * 0.42)}px system-ui, sans-serif`; x.fillStyle = MU;
+            x.fillText('РЕЦЕПТ', lx, ly);
+            steps.forEach((s, i) => {
+              const y = ly + (i + 1) * lh, on = i <= level, cur = i === Math.min(level, steps.length - 1);
+              x.globalAlpha = on ? 1 : 0.28;
+              x.fillStyle = cur ? AC : TX;
+              x.font = `${cur ? 800 : 600} ${Math.round(lh * 0.5)}px system-ui, sans-serif`;
+              x.fillText(`${on ? '✓' : '+'}  ${s}`, lx, y);
+            });
+            x.globalAlpha = 1;
+            requestAnimationFrame(frame);
+          }
+          requestAnimationFrame(frame);
+          </script>
+        place: {x: 40, y: 146, w: 1200, h: 470}
+        enter: fade
+        delay: 200
+      - type: shape
+        kind: round
+        fill: soft
+        radius: 14
+        text: "**Как сделать** · двойной щелчок по сцене в студии — её код. Эффекты — список steps в начале: уберите строку — эффект пропадёт, допишите свою функцию — появится новый."
+        styles: {text: {size: 15, align: left, leading: 1.4}}
+        place: {x: 48, y: 622, w: 1184, h: 58}
+        enter: fade
+        delay: 600
+    notes: |
+      Живая вставка с холстом: фигура, на которую по очереди «накидываются» эффекты — пружина, морфинг, градиент,
+      свечение, глаза, полёт со шлейфом, частицы, клоны, глитч и конфетти. Каждые две секунды — следующий,
+      щелчок по сцене — сразу. Цвета — из темы. В PDF и PowerPoint — кадр-заставка.
 
   - id: thanks
     template: finale

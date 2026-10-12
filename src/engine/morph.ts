@@ -40,8 +40,11 @@ function still<T extends HTMLElement>(el: T): T {
   return c;
 }
 
-const place = (el: HTMLElement, b: Box) => Object.assign(el.style, { left: `${b.x}px`, top: `${b.y}px`, width: `${b.w}px`, height: `${b.h}px`, margin: '0' });
+// Поворот объекта (rotate у .free) у копий уходит в transform: так он поворачивается в полёте, а не растворяется
+const place = (el: HTMLElement, b: Box) => Object.assign(el.style, { left: `${b.x}px`, top: `${b.y}px`, width: `${b.w}px`, height: `${b.h}px`, margin: '0', rotate: 'none' });
 const flip = (from: Box, to: Box) => `translate(${from.x - to.x}px, ${from.y - to.y}px) scale(${from.w / to.w}, ${from.h / to.h})`;
+const HOME = 'translate(0px, 0px) scale(1, 1)';
+const turn = (el: HTMLElement) => parseFloat(el.style.rotate) || 0;
 
 /** Запустить морф от prev к next внутри stage; возвращает завершение (убрать слои, показать объекты) */
 export function morph(stage: HTMLElement, prev: HTMLElement, next: HTMLElement, ms: number): () => void {
@@ -82,9 +85,11 @@ export function morph(stage: HTMLElement, prev: HTMLElement, next: HTMLElement, 
       layer.append(c);
     }
     const opts = { duration: ms, easing: ease, fill: 'forwards' as const };
+    const ra = `rotate(${turn(p.from)}deg)`;
+    const rb = `rotate(${turn(p.to)}deg)`;
     anims.push(
-      neu.animate([{ transform: flip(p.fb, p.tb), opacity: 0 }, { opacity: 1, offset: 0.45 }, { transform: 'none', opacity: 1 }], opts),
-      old.animate([{ transform: 'none', opacity: 1 }, { opacity: 0, offset: 0.55 }, { transform: flip(p.tb, p.fb), opacity: 0 }], opts),
+      neu.animate([{ transform: `${flip(p.fb, p.tb)} ${ra}`, opacity: 0 }, { opacity: 1, offset: 0.45 }, { transform: `${HOME} ${rb}`, opacity: 1 }], opts),
+      old.animate([{ transform: `${HOME} ${ra}`, opacity: 1 }, { opacity: 0, offset: 0.55 }, { transform: `${flip(p.tb, p.fb)} ${rb}`, opacity: 0 }], opts),
     );
   }
 

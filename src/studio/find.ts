@@ -35,7 +35,7 @@ export function slideYaml(s: SlideData | undefined): string {
 const SKIP = new Set([
   'id', 'type', 'template', 'kind', 'variant', 'src', 'srcDark', 'poster', 'href', 'url', 'action', 'actionUrl', 'link',
   'style', 'css', 'html', 'code', 'files', 'place', 'styles', 'theme', 'fill', 'stroke', 'color', 'bg', 'backdrop',
-  'transition', 'enter', 'emphasis', 'icon', 'font', 'fonts', 'align', 'valign', 'gradient', 'strokeGradient', 'live',
+  'transition', 'enter', 'emphasis', 'textFx', 'icon', 'font', 'fonts', 'align', 'valign', 'gradient', 'strokeGradient', 'live',
   'selector', 'ns', 'vars', 'look', 'filter', 'frame', 'fit', 'dash', 'mode', 'format', 'unit', 'colors', 'brand',
 ]);
 /** Строки, которые не текст, даже в текстовом поле: адреса, пути, цвета, формулы */

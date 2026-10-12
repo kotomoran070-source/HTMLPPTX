@@ -15,7 +15,7 @@ import { deckFonts, fontStack } from '../engine/fonts';
 import { esc } from '../engine/html';
 import { currentTheme } from '../engine/theme';
 import type { Deck, DeckTheme } from '../types';
-import { logoPlate } from '../engine/render';
+import { logoMark, logoPlate } from '../engine/render';
 import { logoImg } from '../components/templates/content';
 import { logoColors } from './logo-colors';
 import { showPopover } from './menu';
@@ -88,7 +88,7 @@ export function designPanelHtml(): string {
     + `<label class="st-accent" title="Второй цвет: акцентные заливки становятся градиентом от акцента к нему"><input type="color" id="st-accent2" aria-label="Второй цвет градиента"><span>Градиент</span></label>`
     + `<div class="st-rstack">${btn('design.palettes', 'fill', 'Палитры', { menu: true, title: 'Готовые пары цветов' })}${btn('design.accent2-off', 'close', 'Без градиента', { title: 'Ровный акцент без второго цвета' })}${chk('design.accent-flow', 'Переливание', 'Цвета градиента акцента плавно текут по акцентным элементам слайда')}</div>`)}
   ${group('Шрифты', `<div class="st-rstack st-dz-fonts">${fontBtn('design.font.head', 'Заголовки', 'Шрифт заголовков и крупных чисел')}${fontBtn('design.font.body', 'Текст', 'Шрифт текста презентации')}</div>`)}
-  ${group('Оформление', btn('design.bg', 'image', 'Фон', { big: true, menu: true, title: 'Фон слайдов' }) + btn('design.cards', 'frame', 'Карточки', { big: true, menu: true, title: 'Вид карточек, таблиц и плашек' }) + btn('design.radius', 'corner', 'Углы', { big: true, menu: true, title: 'Скругление углов карточек и картинок' }) + btn('design.backdrop', 'play', 'Анимация', { big: true, menu: true, title: 'Анимированный фон всех слайдов: переливы, волны, звёзды, сеть… У отдельного слайда — свой в панели слайда' }) + btn('design.logo', 'sparkle', 'Логотип', { big: true, menu: true, title: 'Плашка под логотипом: в цветах темы или в цветах самого логотипа' }))}
+  ${group('Оформление', btn('design.bg', 'image', 'Фон', { big: true, menu: true, title: 'Фон слайдов' }) + btn('design.cards', 'frame', 'Карточки', { big: true, menu: true, title: 'Вид карточек, таблиц и плашек' }) + btn('design.radius', 'corner', 'Углы', { big: true, menu: true, title: 'Скругление углов карточек и картинок' }) + btn('design.backdrop', 'play', 'Анимация', { big: true, menu: true, title: 'Анимированный фон всех слайдов: переливы, волны, звёзды, сеть… У отдельного слайда — свой в панели слайда' }) + btn('design.logo', 'sparkle', 'Логотип', { big: true, menu: true, title: 'Логотип: плашка в цветах темы или логотипа, знак в цвет темы, угол и размер, размер знака в плашке' }))}
   ${group('Слайды', `<div class="st-rstack">${chk('design.mode.auto', 'Как у зрителя', 'Слайды светлые или тёмные — как тема у того, кто смотрит')}${chk('design.mode.light', 'Всегда светлые', 'Слайды светлые при любой теме у зрителя')}${chk('design.mode.dark', 'Всегда тёмные', 'Слайды тёмные при любой теме у зрителя')}</div>`)}
 </div>`;
 }
@@ -183,6 +183,8 @@ const PALETTES: [string, string | null, string][] = [
 /** Логотип в углу обычных слайдов: угол и размер */
 const CORNER_POS: [string, string][] = [['tl', 'Слева вверху'], ['tr', 'Справа вверху'], ['bl', 'Слева внизу'], ['br', 'Справа внизу']];
 const CORNER_SIZE: [string, string][] = [['s', 'Маленький'], ['', 'Обычный'], ['l', 'Крупный']];
+/** Размер знака в плашке (brand.mark): доля стороны плашки; '' — по умолчанию, 70 % */
+const MARKS: [string, string][] = [['0.45', 'Знак 45 % плашки'], ['0.55', 'Знак 55 % плашки'], ['', 'Знак 70 % плашки — обычный'], ['0.85', 'Знак 85 % плашки']];
 
 /** Скругление углов: множитель и название */
 const RADII: [number, string][] = [[0, 'Прямые'], [0.5, 'Небольшие'], [1, 'Обычные'], [1.5, 'Мягкие'], [2, 'Круглые']];
@@ -471,6 +473,20 @@ export function designCommands(h: DesignHost): Record<string, Command> {
       if (own) for (const part of own.split(';')) { const [k, v] = part.split(':'); slide.style.setProperty(k, v); }
     }
   };
+  const markKey = () => { const m = logoMark(deck); return m === undefined || m === 0.7 ? '' : String(m); };
+  const setMark = (v: string) => ed.commit((d) => {
+    if (!d.brand) return;
+    if (v) d.brand.mark = Number(v);
+    else delete d.brand.mark;
+  }, { rebuild: true });
+  /** Примерка размера знака: --logo-mark у открытого слайда; без значения — как в данных */
+  const tryMark = (v?: string) => {
+    const slide = h.stage().querySelector<HTMLElement>('.slide.on');
+    if (!slide) return;
+    const m = v === undefined ? logoMark(deck) : v ? Number(v) : undefined;
+    if (m === undefined) slide.style.removeProperty('--logo-mark');
+    else slide.style.setProperty('--logo-mark', `${Math.round(m * 100)}%`);
+  };
   const corner = () => deck.brand?.corner ?? {};
   const setCorner = (p: { pos?: string; size?: string }) => ed.commit((d) => {
     if (!d.brand) return;
@@ -491,7 +507,8 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     const tinted = deck.brand?.tint === true;
     // Образцы — тем же логотипом на фоне слайда темы; у «из темы» — переменные темы, у «из логотипа» — свои,
     // «в цвет темы» — знак градиентом акцента на плашке цвета карточки
-    const sample = (vars: string, tint = false) => `<span class="st-dz-opt-in" style="${esc(`${tileStyle(theme())};${vars}`)}"><i class="st-dz-plate${tint ? ' tint' : ''}">${logoImg(logo, undefined, tint)}</i></span>`;
+    const mk = logoMark(deck);
+    const sample = (vars: string, tint = false) => `<span class="st-dz-opt-in" style="${esc(`${tileStyle(theme())};${vars}${mk === undefined ? '' : `;--logo-mark:${Math.round(mk * 100)}%`}`)}"><i class="st-dz-plate${tint ? ' tint' : ''}">${logoImg(logo, undefined, tint)}</i></span>`;
     const logoVars = `--lp-bg:${pal.bg};--lp-bd:${pal.border};--lp-glow:${pal.glow}`;
     const el = showPopover(at, `<div class="st-dz-opts radii">`
       + `<button type="button" class="st-dz-opt${fromLogo || tinted ? '' : ' active'}" data-k="theme">${sample('')}<small>Из темы</small></button>`
@@ -499,12 +516,15 @@ export function designCommands(h: DesignHost): Record<string, Command> {
       + `<button type="button" class="st-dz-opt${tinted ? ' active' : ''}" data-k="tint" title="Одноцветный знак с прозрачным фоном перекрашивается в цвета темы">${sample('', true)}<small>В цвет темы</small></button></div>`
       // Угол и размер на обычных слайдах
       + `<div class="st-dz-corners">${CORNER_POS.map(([v, l]) => `<button type="button" class="st-dz-corner${(corner().pos ?? 'tr') === v ? ' active' : ''}" data-pos="${v}" title="${l}" aria-label="${l}"><i class="at-${v}"></i></button>`).join('')}`
-      + `<span class="st-dz-sep"></span>${CORNER_SIZE.map(([v, l]) => `<button type="button" class="st-dz-corner${(corner().size ?? '') === v ? ' active' : ''}" data-size="${v}" title="${l}" aria-label="${l}"><i class="at-tr size-${v || 'm'}"></i></button>`).join('')}</div>`, (b) => {
+      + `<span class="st-dz-sep"></span>${CORNER_SIZE.map(([v, l]) => `<button type="button" class="st-dz-corner${(corner().size ?? '') === v ? ' active' : ''}" data-size="${v}" title="${l}" aria-label="${l}"><i class="at-tr size-${v || 'm'}"></i></button>`).join('')}</div>`
+      // Размер знака внутри плашки — отдельно от плашки
+      + `<div class="st-dz-corners"><span class="st-dz-lbl">Знак</span>${MARKS.map(([v, l]) => `<button type="button" class="st-dz-corner st-dz-mark${markKey() === v ? ' active' : ''}" data-mark="${v}" title="${l}" aria-label="${l}"><i style="--m:${Math.round(Number(v || 0.7) * 100)}%"></i></button>`).join('')}</div>`, (b) => {
       if (b.dataset.k === 'theme') return { run: () => setPlate(null) };
       if (b.dataset.k === 'logo') return { run: () => setPlate({ from: 'logo', src: logo, ...pal }) };
       if (b.dataset.k === 'tint') return { run: () => setPlate(null, true) };
       if (b.dataset.pos) return { run: () => setCorner({ pos: b.dataset.pos }) };
       if (b.dataset.size !== undefined) return { run: () => setCorner({ size: b.dataset.size }) };
+      if (b.dataset.mark !== undefined) return { run: () => setMark(b.dataset.mark!) };
       return null;
     });
     /** Примерка угла и размера: классы у логотипа на открытом слайде */
@@ -517,15 +537,16 @@ export function designCommands(h: DesignHost): Record<string, Command> {
       if (sz) el2.classList.add(`size-${sz}`);
     };
     el.addEventListener('pointerover', (e) => {
-      const t = (e.target as Element).closest<HTMLElement>('[data-k], [data-pos], [data-size]');
+      const t = (e.target as Element).closest<HTMLElement>('[data-k], [data-pos], [data-size], [data-mark]');
       const k = t?.dataset.k;
       if (k === 'logo') tryPlate({ '--lp-bg': pal.bg, '--lp-bd': pal.border, '--lp-glow': pal.glow });
       else if (k === 'theme') tryPlate({});
       else if (t?.dataset.pos) tryCorner(t.dataset.pos);
       else if (t?.dataset.size !== undefined) tryCorner(undefined, t.dataset.size);
+      else if (t?.dataset.mark !== undefined) tryMark(t.dataset.mark);
     });
-    el.addEventListener('pointerleave', () => { tryPlate(null); tryCorner(); });
-    new MutationObserver((_m, o) => { if (!el.isConnected) { tryPlate(null); tryCorner(); o.disconnect(); } }).observe(document.body, { childList: true });
+    el.addEventListener('pointerleave', () => { tryPlate(null); tryCorner(); tryMark(); });
+    new MutationObserver((_m, o) => { if (!el.isConnected) { tryPlate(null); tryCorner(); tryMark(); o.disconnect(); } }).observe(document.body, { childList: true });
   };
 
   const cmds: Record<string, Command> = {
