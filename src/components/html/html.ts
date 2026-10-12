@@ -1,4 +1,5 @@
 import { ACCENT_EVENT } from '../../engine/accent';
+import { audioFrameHost, loadFrame } from '../../engine/frame-host';
 import { icon } from '../icons';
 import { defineBlock } from '../../engine/component';
 import { isAlive, withPointerBridge } from '../../engine/frame-bridge';
@@ -394,7 +395,8 @@ defineBlock<EmbedProps>('embed', {
       frame = f;
       embedSource(p).then((html) => {
         if (frame !== f) return;
-        f.srcdoc = doc(html);
+        // Вставка со звуком (аудиовизуализатор) — со своего адреса, иначе браузер не даст ей микрофон и звук
+        loadFrame(f, doc(html), audioFrameHost(html));
         f.addEventListener('load', () => { alive = performance.now(); f.classList.add('on'); }, { once: true });
         el.append(f);
       }).catch(() => { /* остаётся заставка */ });
@@ -404,7 +406,7 @@ defineBlock<EmbedProps>('embed', {
       if (!p.theme || !frame) return;
       const f = frame;
       embedSource(p).then((html) => {
-        if (frame === f) f.srcdoc = doc(html);
+        if (frame === f) loadFrame(f, doc(html), audioFrameHost(html));
       }).catch(() => {});
     };
     const offTheme = onThemeChange(recolor);
@@ -433,7 +435,7 @@ defineBlock<EmbedProps>('embed', {
       alive = performance.now();
       armed = false;
       embedSource(p).then((html) => {
-        if (frame === f) f.srcdoc = doc(html);
+        if (frame === f) loadFrame(f, doc(html), audioFrameHost(html));
       }).catch(() => {});
     }, 1500);
     const off = () => {

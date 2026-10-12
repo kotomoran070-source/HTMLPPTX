@@ -1,4 +1,5 @@
 import { icon } from '../icons';
+import { audioFrameHost, loadFrame } from '../../engine/frame-host';
 import { ACCENT_EVENT } from '../../engine/accent';
 import { defineBlock } from '../../engine/component';
 import { esc } from '../../engine/html';
@@ -64,10 +65,11 @@ defineBlock<LiveProps>('live', {
       frame = f;
       load(p.src!).then((html) => {
         if (frame !== f) return;
-        f.srcdoc = liveDocument(html, {
+        // Слайд со звуком (аудиовизуализатор) — со своего адреса, иначе браузер не даст ему микрофон и звук
+        loadFrame(f, liveDocument(html, {
           index: Number(p.index) || 0, selector: p.selector ?? null, token,
           theme: slideTheme(ctx.slide), tokens: themeTokens(ctx.slide),
-        });
+        }), audioFrameHost(html));
         f.addEventListener('load', () => setTimeout(() => f.classList.add('on'), 250), { once: true });
         el.append(f);
       }).catch(() => { /* остаётся обычная копия слайда */ });

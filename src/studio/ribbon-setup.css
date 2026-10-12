@@ -18,34 +18,46 @@
 .rs-x:hover { background: var(--alt); color: var(--tx); }
 
 .rs-presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 0 12px; }
-.rs-presets button { display: flex; flex-direction: column; gap: 3px; padding: 9px 9px 8px; border: 1px solid var(--bd); border-radius: 10px; background: var(--bg); color: var(--tx); text-align: left; cursor: pointer; }
-.rs-presets button:hover { border-color: var(--acb); background: var(--acs); }
-.rs-presets button.on { border-color: var(--ac); background: var(--acs); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 22%, transparent); }
-.rs-presets b { font: 700 13px var(--font); }
-.rs-presets small { color: var(--mu); font: 500 11.5px/1.3 var(--font); }
-.rs-presets button.on b { color: var(--ach); }
+.rs-presets button { display: flex; flex-direction: column; gap: 2px; padding: 8px 9px; border: 1.5px solid transparent; border-radius: 10px; background: var(--alt); color: var(--tx); text-align: left; cursor: pointer; transition: border-color .15s, background .15s; }
+.rs-presets button:hover { border-color: var(--acb); }
+.rs-presets button.on { border-color: var(--ac); background: color-mix(in srgb, var(--ac) 8%, var(--surf)); }
+.rs-presets b { font: 700 12.5px var(--font); }
+.rs-presets small { color: var(--mu); font: 500 11px/1.3 var(--font); white-space: nowrap; }
+.rs-presets button.on b { color: var(--ac); }
 
-.rs-opts { display: flex; gap: 14px; padding: 12px 16px 4px; }
+.rs-opts { display: flex; gap: 18px; padding: 12px 16px 2px; }
 .rs label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.rs input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: var(--ac); cursor: pointer; flex: none; }
+/* Свои флажки в цвет акцента интерфейса вместо системных */
+.rs input[type="checkbox"] { appearance: none; -webkit-appearance: none; display: grid; place-items: center; width: 16px; height: 16px; margin: 0; flex: none; cursor: pointer;
+  border: 1.5px solid var(--bd2); border-radius: 5px; background: var(--surf); transition: background .12s, border-color .12s; }
+.rs input[type="checkbox"]:hover { border-color: var(--ac); }
+.rs input[type="checkbox"]:checked { border-color: var(--ac); background: var(--ac) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5 9-10'/%3E%3C/svg%3E") center / 11px no-repeat; }
+.rs input[type="checkbox"]:focus-visible { outline: 2px solid var(--acb); outline-offset: 1px; }
+.rs input:disabled { opacity: .45; cursor: default; }
 .rs input:disabled + span { color: var(--mu); }
 
-.rs-h { display: flex; align-items: center; gap: 8px; padding: 12px 16px 6px; color: var(--mu); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.rs-h { display: flex; align-items: center; gap: 8px; padding: 14px 16px 6px; color: var(--mu); font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
 .rs-h i { padding: 1px 7px; border-radius: 99px; background: var(--acs); color: var(--ach); font-style: normal; letter-spacing: 0; text-transform: none; }
-.rs-tabs { list-style: none; margin: 0; padding: 0 8px; overflow: auto; flex: 1; min-height: 0; }
+.rs-tabs { list-style: none; margin: 0; padding: 0 8px 6px; overflow: auto; flex: 1; min-height: 0; }
 .rs-tabs > li { border-radius: 9px; }
-.rs-tabs > li.open { background: var(--bg); }
-.rs-tab { display: flex; align-items: center; gap: 8px; padding: 0 8px; }
-.rs-ctx { width: 15px; display: grid; place-items: center; color: var(--mu); }
-.rs-ctx .ic { width: 13px; height: 13px; }
-.rs-name { flex: 1; display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 0; border: 0; background: none; color: var(--tx); font: 600 13px var(--font); text-align: left; cursor: pointer; }
-.rs-name span { flex: 1; }
-.rs-name small { color: var(--mu); font-weight: 500; font-size: 12px; }
+.rs-tabs > li.open { background: var(--alt); }
+.rs-tab { display: flex; align-items: center; gap: 9px; padding: 0 8px; }
+.rs-name { flex: 1; display: flex; align-items: center; gap: 9px; min-height: 34px; padding: 0; border: 0; background: none; color: var(--tx); font: 600 13px var(--font); text-align: left; cursor: pointer; }
+.rs-name span { width: 106px; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Полоска: какая часть групп вкладки на ленте */
+.rs-meter { flex: 1; height: 4px; border-radius: 99px; background: var(--alt); overflow: hidden; }
+.rs-tabs > li.open .rs-meter { background: var(--surf); }
+.rs-meter > i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--ac), var(--ac2, var(--ac))); transition: width .2s; }
+.rs-name small { width: 50px; flex: none; text-align: right; color: var(--mu); font-weight: 500; font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .rs-chev { display: grid; color: var(--mu); transition: transform .15s; }
 .rs-chev .ic { width: 14px; height: 14px; }
 .rs-tabs > li.open .rs-chev { transform: rotate(90deg); }
 .rs-tabs > li.off .rs-name span { color: var(--mu); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--mu) 50%, transparent); }
-.rs-groups { display: none; grid-template-columns: 1fr 1fr; gap: 4px 12px; padding: 2px 10px 10px 31px; }
+.rs-sub { display: flex; align-items: center; gap: 7px; margin: 10px 0 2px; padding: 8px 8px 4px; border-top: 1px solid var(--bd); color: var(--mu); font-size: 11.5px; }
+.rs-sub .ic { width: 13px; height: 13px; }
+.rs-gap { width: 16px; flex: none; }
+.rs-groups { display: none; grid-template-columns: 1fr 1fr; gap: 6px 12px; padding: 4px 12px 10px 33px; }
 .rs-tabs > li.open .rs-groups { display: grid; }
-.rs-groups label { min-height: 26px; font-size: 12.5px; }
-.rs-note { margin: 0; padding: 10px 16px 12px; border-top: 1px solid var(--bd); color: var(--mu); font-size: 12px; max-width: none; }
+.rs-groups label { min-height: 24px; font-size: 12.5px; }
+.rs-note { display: flex; align-items: center; gap: 7px; margin: 0; padding: 10px 16px 12px; border-top: 1px solid var(--bd); color: var(--mu); font-size: 12px; max-width: none; }
+.rs-note .ic { width: 13px; height: 13px; }

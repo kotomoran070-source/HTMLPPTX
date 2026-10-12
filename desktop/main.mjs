@@ -5,7 +5,7 @@
 //   библиотека шрифтов и кэш Vite — папка данных приложения (%APPDATA%/Slideria).
 import fs from 'node:fs';
 import path from 'node:path';
-import { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, screen, session, shell } from 'electron';
+import { app, BrowserWindow, Menu, desktopCapturer, dialog, ipcMain, nativeTheme, screen, session, shell } from 'electron';
 import { FIX_FLAG, allowFirewall, runFirewallFix } from './firewall.mjs';
 import { lanGateway } from './lan.mjs';
 
@@ -293,10 +293,6 @@ function buildMenu() {
   ]));
 }
 
-/**
- * Шрифты компьютера в списке шрифтов студии: доступ без вопроса — только страницам своего сервера.
- * Остальные разрешения — как по умолчанию в Electron (разрешены).
- */
 /** Скачивания (PPTX, HTML): обычное окно «Сохранить как»; в тестах — сразу в папку */
 function downloads() {
   session.defaultSession.on('will-download', (_e, item, wc) => {
@@ -311,15 +307,57 @@ function downloads() {
   });
 }
 
-function allowLocalFonts() {
+/**
+ * Разрешения страниц (таблица с объяснениями — docs/PERMISSIONS.md). Только то, чем пользуется программа:
+ * буфер обмена, полный экран, второй монитор, сохранение файла, шрифты компьютера (только своим страницам).
+ * Микрофон и звук компьютера просят живые слайды и вставки (аудиовизуализаторы) — один вопрос за запуск.
+ * Камера, местоположение, уведомления, USB и прочее — запрещены.
+ */
+const ALLOWED = new Set(['clipboard-read', 'clipboard-sanitized-write', 'fullscreen', 'window-management', 'fileSystem', 'pointerLock', 'keyboardLock', 'mediaKeySystem']);
+const asked = new Map();
+async function askOnce(key, message, detail) {
+  if (!asked.has(key)) {
+    const win = BrowserWindow.getFocusedWindow() ?? main;
+    asked.set(key, dialog.showMessageBox(win, { type: 'question', buttons: ['Разрешить', 'Запретить'], defaultId: 0, cancelId: 1, message, detail })
+      .then((r) => { log('Разрешение', key, r.response === 0 ? 'дано' : 'не дано'); return r.response === 0; }));
+  }
+  return asked.get(key);
+}
+const MIC = ['mic', 'Слайд просит доступ к микрофону', 'Живой слайд или вставка хочет слышать микрофон — например, аудиовизуализатор. Разрешение действует до закрытия программы.'];
+const SYS = ['sys', 'Слайд просит звук компьютера', 'Живой слайд или вставка хочет слышать звук, который играет на компьютере, — например, аудиовизуализатор под музыку. Разрешение действует до закрытия программы.'];
+
+function permissions() {
   const ours = (o) => !!origin && typeof o === 'string' && o.replace(/\/$/, '') === origin;
-  session.defaultSession.setPermissionCheckHandler((_wc, permission, requestingOrigin) => permission !== 'local-fonts' || ours(requestingOrigin));
-  session.defaultSession.setPermissionRequestHandler((_wc, permission, done, details) => done(permission !== 'local-fonts' || ours(new URL(details.requestingUrl).origin)));
+  const audioOnly = (types) => Array.isArray(types) && types.length > 0 && types.every((t) => t === 'audio');
+  session.defaultSession.setPermissionCheckHandler((_wc, permission, requestingOrigin, details) => {
+    if (permission === 'local-fonts') return ours(requestingOrigin);
+    if (permission === 'media') return details?.mediaType !== 'video' && asked.has(MIC[0]);
+    return ALLOWED.has(permission);
+  });
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, done, details) => {
+    if (permission === 'local-fonts') return done(ours(new URL(details.requestingUrl).origin));
+    // Только звук: камере в программе делать нечего
+    if (permission === 'media') return audioOnly(details.mediaTypes) ? void askOnce(...MIC).then(done) : done(false);
+    done(ALLOWED.has(permission));
+  });
+  // «Звук вкладки или экрана» из слайда: в программе — звук всего компьютера (Windows умеет отдавать его напрямую)
+  session.defaultSession.setDisplayMediaRequestHandler((_req, callback) => {
+    void (async () => {
+      try {
+        if (!await askOnce(...SYS)) return callback({});
+        const [src] = await desktopCapturer.getSources({ types: ['screen'] });
+        callback(process.platform === 'win32' ? { video: src, audio: 'loopback' } : { video: src });
+      } catch (e) {
+        log('Захват звука:', e?.message ?? e);
+        callback({});
+      }
+    })();
+  });
 }
 
 app.whenReady().then(async () => {
   fs.mkdirSync(DATA, { recursive: true });
-  allowLocalFonts();
+  permissions();
   downloads();
   log('Сборка:', BUILD.date ? `${BUILD.version} от ${BUILD.date} (${BUILD.commit})` : 'из проекта');
   buildMenu();

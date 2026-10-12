@@ -119,16 +119,18 @@ export function initRibbonSetup(host: RibbonHost): { open(anchor?: HTMLElement):
     <label><input type="checkbox" data-o="noLabels"${prefs.noLabels ? ' checked' : ''}><span>Без подписей групп</span></label>
   </div>
   <div class="rs-h">Вкладки и группы${preset === 'own' ? '<i>своя</i>' : ''}</div>
-  <ul class="rs-tabs">${tabs.map((t) => {
+  <ul class="rs-tabs">${tabs.map((t, k) => {
     const off = !t.context && hide.has(t.id);
     const n = t.groups.filter((g) => !hide.has(`${t.id}/${g}`)).length;
-    return `<li class="${off ? 'off' : ''}${openTab === t.id ? ' open' : ''}">
-      <div class="rs-tab">${t.context ? `<span class="rs-ctx" title="Появляется, когда выделен подходящий объект">${icon('cursor')}</span>` : `<input type="checkbox" data-tab="${t.id}"${off ? '' : ' checked'} aria-label="${esc(t.name)}">`}
-        <button type="button" class="rs-name" data-open="${t.id}"><span>${esc(t.name)}</span><small>${off ? 'скрыта' : `${n} из ${t.groups.length}`}</small><b class="rs-chev">${icon('next')}</b></button></div>
+    // Вкладки по выделению — отдельным списком под подзаголовком
+    const sub = t.context && !tabs[k - 1]?.context ? `<li class="rs-sub">${icon('cursor')}Появляются с выделением</li>` : '';
+    return `${sub}<li class="${off ? 'off' : ''}${openTab === t.id ? ' open' : ''}">
+      <div class="rs-tab">${t.context ? '<i class="rs-gap"></i>' : `<input type="checkbox" data-tab="${t.id}"${off ? '' : ' checked'} aria-label="${esc(t.name)}">`}
+        <button type="button" class="rs-name" data-open="${t.id}"><span>${esc(t.name)}</span><i class="rs-meter" aria-hidden="true"><i style="width:${off || !t.groups.length ? 0 : Math.round((n / t.groups.length) * 100)}%"></i></i><small>${off ? 'скрыта' : `${n} из ${t.groups.length}`}</small><b class="rs-chev">${icon('next')}</b></button></div>
       <div class="rs-groups">${t.groups.map((g) => `<label><input type="checkbox" data-group="${esc(`${t.id}/${g}`)}"${hide.has(`${t.id}/${g}`) ? '' : ' checked'}${off ? ' disabled' : ''}><span>${esc(g)}</span></label>`).join('')}</div>
     </li>`;
   }).join('')}</ul>
-  <p class="rs-note">Скрытое не пропадает: любую команду найдёт поиск — Ctrl+K</p>`;
+  <p class="rs-note">${icon('search')}<span>Скрытое не пропадает: любую команду найдёт поиск — Ctrl+K</span></p>`;
   }
 
   const open = (anchor?: HTMLElement) => {

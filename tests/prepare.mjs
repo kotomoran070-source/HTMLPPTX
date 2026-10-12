@@ -8,7 +8,8 @@
 //   find     — поиск по тексту и коду;
 //   save     — сохранение: контрольные точки, два окна одной презентации;
 //   table    — таблица (ячейки, как в PowerPoint) и фигуры для порядка «вперёд / назад»;
-//   origin   — как после импорта из PowerPoint: цвета файла и тема «Как в файле».
+//   origin   — как после импорта из PowerPoint: цвета файла и тема «Как в файле»;
+//   audio    — вставка, которой нужен микрофон (аудиовизуализатор): рамка со своего адреса.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -188,5 +189,24 @@ slides:
     free:
       - {type: text, text: "Цели проекта", styles: {text: {size: 40, color: "#3C388D", weight: 700}}, place: {x: 60, y: 60, w: 900}}
       - {type: shape, id: bar, kind: rect, fill: "#3C388D", width: 0, place: {x: 1100, y: 660, w: 180, h: 60}}
+`);
+// audio — вставка просит микрофон, а заодно пробует дотянуться до студии и её команд
+fs.mkdirSync(path.join(dir, 'audio'));
+fs.writeFileSync(path.join(dir, 'audio', 'deck.yaml'), `title: Звук
+slides:
+  - template: canvas
+    free:
+      - type: embed
+        code: |
+          <p id="mic">…</p><p id="up">…</p><p id="api">…</p>
+          <script>
+            navigator.mediaDevices.getUserMedia({ audio: true })
+              .then((s) => { mic.textContent = 'микрофон: ' + s.getAudioTracks().length; })
+              .catch((e) => { mic.textContent = 'микрофон: ' + e.name; });
+            try { up.textContent = 'студия: ' + parent.document.title; } catch (e) { up.textContent = 'студия: ' + e.name; }
+            fetch(location.protocol + '//' + document.baseURI.split('/')[2] + '/__htmlpptx/delete?deck=audio', { method: 'POST', mode: 'no-cors' })
+              .then(() => { api.textContent = 'команда: отправлена'; }, () => { api.textContent = 'команда: не дошла'; });
+          </script>
+        place: {x: 40, y: 40, w: 600, h: 240}
 `);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));
