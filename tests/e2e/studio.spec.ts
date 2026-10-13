@@ -613,3 +613,30 @@ test('Delete: выделен объект — удаляется он, а не �
   await expect(thumbs).toHaveCount(n);
   expect(errors).toEqual([]);
 });
+
+test('смена вида блока: панель не мигает, выделение остаётся на блоке, Ctrl+Z — как было', async ({ page }) => {
+  const errors = watchErrors(page);
+  const before = readDeck('tpl');
+  await page.goto('/?deck=tpl&studio#10');
+  const block = page.locator(`#st-canvas .slide.on [data-block='["slides",9,"free",3]']`);
+  await block.click();
+  await expect(page.locator('[data-view="cycle"]')).toHaveAttribute('aria-checked', 'true');
+  // Кадры, в которых плиток «Вида» нет: раньше выделение снималось на кадр и панель мигала свойствами слайда
+  await page.evaluate(() => {
+    const w = window as unknown as { gone: number; watch: boolean };
+    w.gone = 0; w.watch = true;
+    const tick = () => { if (!document.querySelector('[data-view]')) w.gone++; if (w.watch) requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  });
+  for (const v of ['list', 'numbers', 'icons']) {
+    await page.locator(`[data-view="${v}"]`).click();
+    await expect(page.locator(`[data-view="${v}"]`)).toHaveAttribute('aria-checked', 'true');
+  }
+  await expect(block).toHaveAttribute('data-type', 'icons');
+  expect(await page.evaluate(() => { const w = window as unknown as { gone: number; watch: boolean }; w.watch = false; return w.gone; })).toBe(0);
+  for (let k = 0; k < 3; k++) await page.keyboard.press('Control+z');
+  await expect(block).toHaveAttribute('data-type', 'cycle');
+  // После отмены файл снова такой, как был (сохраняется он не мгновенно)
+  expect(await waitFile(() => readDeck('tpl') === before)).toBe(true);
+  expect(errors).toEqual([]);
+});

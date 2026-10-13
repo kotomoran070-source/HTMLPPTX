@@ -77,6 +77,14 @@ const opts = (p: VideoProps) => {
 const editing = () => document.body.classList.contains('editing');
 const presenter = () => document.body.classList.contains('presenter');
 
+/**
+ * Запуск, пауза и перемотка видео докладчиком — у зрителей. Окно докладчика (и телефон-пульт)
+ * сообщает событием MEDIA (его пересылает presenter.ts), окно показа получает MEDIA_SET (от show.ts).
+ */
+export const MEDIA = 'htmlpptx:media';
+export const MEDIA_SET = 'htmlpptx:media-set';
+export interface MediaState { key: string; playing: boolean; time: number }
+
 /** Видео: файл из папки презентации или ролик YouTube / Vimeo. Запускается при открытии слайда. */
 defineBlock<VideoProps>('video', {
   render(p) {
@@ -104,9 +112,12 @@ defineBlock<VideoProps>('video', {
   mount(el, p, ctx) {
     const o = opts(p);
     const video = el.querySelector('video');
+    const key = `${ctx.slide.dataset.index ?? ''}:${el.closest('[data-block]')?.getAttribute('data-block') ?? ''}`;
     const embed = el.querySelector<HTMLElement>('.video-embed');
     let frame: HTMLIFrameElement | null = null;
     let timer = 0;
+    /** До этого момента запуск и перемотка — автозапуск при открытии слайда, а не действие докладчика */
+    let quietUntil = 0;
     // Цветокоррекция — только у открытого слайда: у браузера мало контекстов WebGL
     const graded = !!video && !!p.grade && typeof p.grade === 'object' && !isNeutral(p.grade);
     let ungrade: (() => void) | null = null;
@@ -129,6 +140,7 @@ defineBlock<VideoProps>('video', {
       if (video) {
         if (presenter()) video.muted = true;
         if (o.autoplay && !editing()) {
+          quietUntil = performance.now() + 800;
           video.currentTime = 0;
           void video.play().catch(() => { /* браузер не дал запустить со звуком: остаётся кнопка плеера */ });
         }
@@ -167,7 +179,28 @@ defineBlock<VideoProps>('video', {
     const mo = new MutationObserver(sync);
     mo.observe(ctx.slide, { attributes: true, attributeFilter: ['class'] });
     sync();
+    // Докладчик запустил, остановил или перемотал ролик на текущем слайде — зрителям то же самое
+    // (снимок следующего слайда в окне докладчика не в счёт)
+    const lead = !!video && presenter() && !!el.closest('#cur');
+    const tell = () => {
+      // Скрытую страницу (погас экран телефона, окно свернули) браузер ставит на паузу сам — это не действие докладчика
+      // Автозапуск при открытии слайда идёт в обоих окнах сам: окно докладчика, открытое посреди ролика, не отматывает его зрителям
+      if (document.hidden || performance.now() < quietUntil) return;
+      window.dispatchEvent(new CustomEvent<MediaState>(MEDIA, { detail: { key, playing: !video!.paused, time: video!.currentTime } }));
+    };
+    const follow = (e: Event) => {
+      const m = (e as CustomEvent<MediaState>).detail;
+      if (!video || m?.key !== key) return;
+      // Сообщение идёт до зрителей десятки миллисекунд: мелкое расхождение не перематываем, иначе картинка дёргается
+      if (Math.abs(video.currentTime - m.time) > .35) video.currentTime = m.time;
+      if (m.playing) void video.play().catch(() => { /* браузер не дал запустить: остаётся кнопка плеера */ });
+      else video.pause();
+    };
+    if (lead) ['play', 'pause', 'seeked'].forEach((ev) => video!.addEventListener(ev, tell));
+    else if (video && !presenter()) window.addEventListener(MEDIA_SET, follow);
     return () => {
+      if (lead) ['play', 'pause', 'seeked'].forEach((ev) => video!.removeEventListener(ev, tell));
+      window.removeEventListener(MEDIA_SET, follow);
       mo.disconnect();
       clearTimeout(timer);
       video?.pause();

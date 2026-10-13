@@ -242,3 +242,36 @@ test('блоки-схемы: все рисуются без ошибок, воп
   await expect(page.locator('.spot-frame')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test('видео: пауза, перемотка и запуск в окне докладчика — у зрителей то же', async ({ page, context }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=slideria#9');
+  const show = page.locator('.slide.on video');
+  await expect(show).toHaveCount(1);
+  const state = (v: typeof show) => v.evaluate((el: HTMLVideoElement) => ({ paused: el.paused, t: el.currentTime }));
+  // Окно докладчика, открытое посреди ролика, не отматывает его зрителям в начало:
+  // считаем скачки назад не в конце ролика (ролик по кругу — в конце он начинается заново сам)
+  await show.evaluate((el: HTMLVideoElement) => {
+    const w = window as unknown as { back: number };
+    w.back = 0;
+    let last = 0;
+    const tick = () => { const t = el.currentTime; if (t < last - .2 && last < el.duration - .4) w.back++; last = t; requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  });
+  await expect.poll(async () => (await state(show)).t).toBeGreaterThan(.5);
+  const pres = await context.newPage();
+  await pres.goto('/?deck=slideria&view=presenter');
+  const own = pres.locator('#cur .slide.on video');
+  await expect(own).toHaveCount(1);
+  await expect.poll(async () => (await state(own)).paused).toBe(false);
+  await pres.waitForTimeout(1000);
+  expect(await page.evaluate(() => (window as unknown as { back: number }).back)).toBe(0);
+  await own.evaluate((el: HTMLVideoElement) => el.pause());
+  await expect.poll(async () => (await state(show)).paused).toBe(true);
+  await own.evaluate((el: HTMLVideoElement) => { el.currentTime = 2.5; });
+  await expect.poll(async () => Math.abs((await state(show)).t - 2.5)).toBeLessThan(.1);
+  await own.evaluate((el: HTMLVideoElement) => el.play());
+  await expect.poll(async () => (await state(show)).paused).toBe(false);
+  await pres.close();
+  expect(errors).toEqual([]);
+});

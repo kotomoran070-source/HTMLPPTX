@@ -419,13 +419,22 @@ export class Inspector {
     const path = this.viewTarget();
     const ed = this.host.editor();
     if (!path || viewOf(getAt(this.host.deck(), path)) === view) return;
-    ed.clearSelection();
+    ed.finishText();
+    const tilesY = () => this.root.querySelector('[aria-label="Вид блока"]')?.getBoundingClientRect().top;
+    const y0 = tilesY();
+    // Выделение не снимаем: блок остаётся по тому же адресу, и редактор находит его после перестройки.
+    // Иначе панель на кадр переключалась на свойства слайда и обратно — при щелчках по видам всё мигало
     ed.commit((d) => setAt(d, path, toView(getAt(d, path) as Record<string, unknown>, view)), { rebuild: true });
-    // Выделение — снова на блоке (у свободного объекта — на его рамке)
-    requestAnimationFrame(() => {
-      const el = [...this.host.stage().querySelectorAll<HTMLElement>('.slide.on [data-block]')].find((x) => x.getAttribute('data-block') === JSON.stringify(path));
-      if (el) ed.selectBlock(el.parentElement?.hasAttribute('data-free') ? el.parentElement : el);
-    });
+    const el = this.blockEl(path);
+    if (!el) return;
+    // Была выделена карточка в сетке — выделение на весь блок, в том же кадре
+    if (JSON.stringify(ed.selection?.block) !== JSON.stringify(path)) ed.selectBlock(el.parentElement?.hasAttribute('data-free') ? el.parentElement : el);
+    // Поля над видами у разных блоков разной высоты — плитки остаются под курсором (панель — сразу, не в следующем кадре)
+    this.sync();
+    const y1 = tilesY();
+    if (y0 !== undefined && y1 !== undefined) this.root.scrollTop += y1 - y0;
+    // Новый вид проявляется, а не появляется скачком
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) el.animate([{ opacity: .35 }, { opacity: 1 }], { duration: 180, easing: 'ease-out' });
   }
 
   /** Живой ряд выделенного объекта: промежуток, выравнивание, «Разобрать» */

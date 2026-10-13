@@ -15,6 +15,8 @@ export type SyncMsg =
   | { type: 'hello' }
   /** Поворот 3D-модели в окне докладчика */
   | { type: 'camera'; key: string; orbit: string; target: string; fov: number }
+  /** Видео в окне докладчика запустили, остановили или перемотали */
+  | { type: 'media'; key: string; playing: boolean; time: number }
   /** Заметки слайда, дописанные в окне докладчика; окно показа отвечает notes-ok с тем же id */
   | { type: 'notes'; id: string; index: number; slide?: string; notes: string }
   | { type: 'notes-ok'; id: string; saved: 'auto' | 'file' | 'memory' }
@@ -44,6 +46,7 @@ function latestKey(env: Envelope): string | null {
   const to = env.to ?? '';
   switch (m.type) {
     case 'camera': return `camera:${m.key}:${to}`;
+    case 'media': return `media:${m.key}:${to}`;
     case 'vars': return `vars:${m.index}:${to}`;
     case 'code': return `code:${m.index}:${m.block}:${to}`;
     case 'state': case 'hello': case 'theme': case 'black': case 'deck': return `${m.type}:${to}`;

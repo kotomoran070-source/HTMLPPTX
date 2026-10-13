@@ -2,6 +2,7 @@ import { icon } from '../components/icons';
 import { landOn, stepVisible, visiblePos } from './hidden';
 import { frameAt, postPointer } from './frame-bridge';
 import { CAMERA, type CameraState } from '../components/media/model';
+import { MEDIA, type MediaState } from '../components/media/video';
 import type { Deck } from '../types';
 import { applyAccent, applyAccentFlow } from './accent';
 import { replaceContents } from './data';
@@ -72,9 +73,9 @@ export function startPresenter(deck: Deck, deckKey: string): void {
         <button type="button" class="pd-btn" id="bk" aria-pressed="false" title="Чёрный экран у зрителей (B)" aria-label="Чёрный экран">${icon('screen-off')}</button>
         ${new URLSearchParams(location.search).get('remote') ? `<button type="button" class="pd-btn" id="eco" aria-pressed="true" title="Экономный режим: слайд на паузе, касание — оживить" aria-label="Экономный режим">${icon('pause')}</button>` : ''}
         <span class="pd-mir">
-          <button type="button" class="pd-btn pd-more" id="tmir" aria-pressed="true" aria-haspopup="menu" title="Мышь и 3D у зрителей (M): курсор, наведение и поворот моделей повторяются в окне показа. Удерживайте — настройки" aria-label="Мышь и 3D у зрителей">${icon('cursor')}</button>
+          <button type="button" class="pd-btn pd-more" id="tmir" aria-pressed="true" aria-haspopup="menu" title="Мышь и 3D у зрителей (M): курсор, наведение, поворот моделей, запуск и пауза видео повторяются в окне показа. Удерживайте — настройки" aria-label="Мышь и 3D у зрителей">${icon('cursor')}</button>
           <span class="pd-menu" id="mirmenu" role="menu" hidden>
-            <button type="button" role="menuitemcheckbox" data-mir="all">Мышь и 3D у зрителей<small>наведение, щелчки, поворот моделей</small></button>
+            <button type="button" role="menuitemcheckbox" data-mir="all">Мышь и 3D у зрителей<small>наведение, щелчки, поворот моделей, видео</small></button>
             <button type="button" role="menuitemcheckbox" data-mir="arrow">Показывать курсор<small>без него наведение работает, стрелки не видно (K)</small></button>
           </span>
         </span>
@@ -161,6 +162,9 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   });
   window.addEventListener(CAMERA, (e) => {
     if (mirror) sync.send({ type: 'camera', ...(e as CustomEvent<CameraState>).detail }, toMain());
+  });
+  window.addEventListener(MEDIA, (e) => {
+    if (mirror) sync.send({ type: 'media', ...(e as CustomEvent<MediaState>).detail }, toMain());
   });
   function syncMirUi(): void {
     $('tmir').classList.toggle('pd-noarrow', mirror && !arrow);

@@ -12,6 +12,7 @@ import { Ink } from './ink';
 import { RemoteHover } from './remote-hover';
 import { forwardCovered } from './frame-bridge';
 import { CAMERA_SET } from '../components/media/model';
+import { MEDIA_SET } from '../components/media/video';
 import { printDeck, setupPrint } from './print';
 import { fullscreenOn, planScreens, popupOn, screensGranted } from './screens';
 import { Sync } from './sync';
@@ -680,6 +681,9 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     } else if (m.type === 'camera') {
       const { type: _t, ...detail } = m;
       window.dispatchEvent(new CustomEvent(CAMERA_SET, { detail }));
+    } else if (m.type === 'media') {
+      const { type: _t, ...detail } = m;
+      window.dispatchEvent(new CustomEvent(MEDIA_SET, { detail }));
     } else if (m.type === 'ink') {
       ink.apply(m.ink);
       if (m.ink.op === 'cursor') hover.move(m.ink.x, m.ink.y);
