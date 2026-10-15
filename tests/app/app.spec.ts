@@ -72,6 +72,8 @@ test('первый запуск: «Моя первая презентация»,
     const licText = (await lic.locator('body').textContent()) ?? '';
     for (const t of ['Slideria — MIT', 'Electron — MIT', 'SIL OPEN FONT LICENSE', 'qrcode-generator', 'лицензии Chromium']) expect(licText).toContain(t);
     expect(await lic.evaluate(() => fetch('/__slideria/licenses/chromium').then((r) => r.status))).toBe(200);
+    // У страницы свой фон: тёмная подложка окна программы не просвечивает под тёмным текстом
+    expect(await lic.evaluate(() => getComputedStyle(document.body).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
     await lic.close();
     // Показ — крупным окном (80 % экрана), в заголовке без значка
     const [show] = await Promise.all([app.waitForEvent('window'), win.keyboard.press('F5')]);

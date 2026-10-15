@@ -199,8 +199,8 @@ export function licensesPage(root, chromiumUrl) {
   const item = (title, text) => `<details><summary>${esc(title)}</summary><pre>${esc(text)}</pre></details>`;
   const pkgs = prodPackages(root);
   return `<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slideria — лицензии</title>
-<style>:root{color-scheme:light dark}body{font:15px/1.5 system-ui,"Segoe UI",sans-serif;max-width:960px;margin:32px auto;padding:0 20px}h1{font-size:24px}h2{font-size:18px;margin-top:28px}
-details{border-top:1px solid color-mix(in srgb,currentColor 15%,transparent);padding:6px 0}summary{cursor:pointer}pre{white-space:pre-wrap;font:12px/1.45 ui-monospace,Consolas,monospace;background:color-mix(in srgb,currentColor 6%,transparent);padding:12px;border-radius:8px}</style>
+<style>:root{color-scheme:light;--bg:#fff;--tx:#1f2937;--mu:#e5e7eb;--code:#f3f4f6;--a:#4f46e5}@media (prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#0f1115;--tx:#e5e7eb;--mu:#2a2e37;--code:#181b22;--a:#a5b4fc}}html,body{background:var(--bg);color:var(--tx)}body{font:15px/1.5 system-ui,"Segoe UI",sans-serif;max-width:960px;margin:0 auto;padding:32px 20px}a{color:var(--a)}h1{font-size:24px;margin-top:0}h2{font-size:18px;margin-top:28px}
+details{border-top:1px solid var(--mu);padding:6px 0}summary{cursor:pointer}pre{white-space:pre-wrap;font:12px/1.45 ui-monospace,Consolas,monospace;background:var(--code);padding:12px;border-radius:8px}</style>
 <h1>Slideria ${esc(pj.version ?? '')}${stamp.date ? ` · сборка от ${esc(stamp.date)}` : ''} — лицензии</h1>
 <h2>Программа</h2>${item('Slideria — MIT', read(path.join(root, 'LICENSE')))}
 ${electron ? item('Electron — MIT', read(electron)) : ''}
