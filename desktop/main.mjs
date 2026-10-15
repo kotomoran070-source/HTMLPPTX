@@ -5,11 +5,9 @@
 //   библиотека шрифтов и кэш Vite — папка данных приложения (%APPDATA%/Slideria).
 import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { app, BrowserWindow, Menu, desktopCapturer, dialog, ipcMain, nativeTheme, screen, session, shell } from 'electron';
 import { FIX_FLAG, allowFirewall, runFirewallFix } from './firewall.mjs';
 import { lanGateway } from './lan.mjs';
-import { prodPackages } from '../plugins/licenses.mjs';
 
 // Экземпляр, запущенный кнопкой «Разрешить в брандмауэре» с правами администратора:
 // меняет правила и выходит, окно не открывает
@@ -289,40 +287,12 @@ function buildMenu() {
       label: 'Справка',
       submenu: [
         { label: 'Журнал работы', click: () => void shell.openPath(LOG) },
-        { label: 'Лицензии', click: () => void showLicenses() },
+        // Та же страница, что у кнопки на вкладке «Инструменты»: окно программы (plugins/licenses.mjs)
+        { label: 'Лицензии', click: () => void main?.webContents.executeJavaScript("window.open('/__slideria/licenses', '_blank')") },
         { label: `Версия ${BUILD.version}${BUILD.date ? ` · сборка от ${BUILD.date}` : ' · из проекта'}`, enabled: false },
       ],
     },
   ]));
-}
-
-/**
- * «Справка → Лицензии»: лицензия Slideria, Electron и Chromium, шрифтов комплекта и всех библиотек
- * с их авторами — страницей в браузере (файл в папке программы, его можно переслать)
- */
-async function showLicenses() {
-  const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  const read = (f) => { try { return fs.readFileSync(f, 'utf8').trim(); } catch { return ''; } };
-  const exeDir = path.dirname(process.execPath);
-  // Установщик кладёт лицензию Electron рядом с программой как LICENSE.electron.txt, в проекте она — LICENSE
-  const electron = read(path.join(exeDir, 'LICENSE.electron.txt')) || read(path.join(exeDir, 'LICENSE'));
-  const chromium = path.join(exeDir, 'LICENSES.chromium.html');
-  const item = (title, text) => `<details><summary>${esc(title)}</summary><pre>${esc(text)}</pre></details>`;
-  const pkgs = prodPackages(APP_DIR);
-  const html = `<!doctype html><html lang="ru"><meta charset="utf-8"><title>Slideria — лицензии</title>
-<style>body{font:15px/1.5 system-ui,sans-serif;max-width:960px;margin:32px auto;padding:0 20px;color:#1f2937}h1{font-size:24px}h2{font-size:18px;margin-top:28px}
-details{border-top:1px solid #e5e7eb;padding:6px 0}summary{cursor:pointer}pre{white-space:pre-wrap;font:12px/1.45 ui-monospace,Consolas,monospace;background:#f8fafc;padding:12px;border-radius:8px}</style>
-<h1>Slideria ${esc(BUILD.version)} — лицензии</h1>
-<h2>Программа</h2>${item('Slideria — MIT', read(path.join(APP_DIR, 'LICENSE')))}
-${electron ? item('Electron — MIT', electron) : ''}
-${fs.existsSync(chromium) ? `<p>Chromium и его компоненты: <a href="${esc(pathToFileURL(chromium).href)}">LICENSES.chromium.html</a></p>` : ''}
-<h2>Шрифты</h2>${item('Шрифты тем и формул — SIL Open Font License 1.1', read(path.join(APP_DIR, 'src', 'fonts', 'OFL.txt')))}
-<h2>Библиотеки (${pkgs.length})</h2>${pkgs.map((p) => item(`${p.name} ${p.version} — ${p.license}`, p.text || 'Текст лицензии не найден')).join('\n')}
-</html>`;
-  const file = path.join(DATA, 'licenses.html');
-  fs.writeFileSync(file, html);
-  const err = await shell.openPath(file);
-  if (err) log('Лицензии: не открылись', err);
 }
 
 /** Скачивания (PPTX, HTML): обычное окно «Сохранить как»; в тестах — сразу в папку */

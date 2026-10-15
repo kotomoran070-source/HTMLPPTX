@@ -174,3 +174,38 @@ export function licenseNotice(root) {
     },
   ];
 }
+
+/** Лицензия Electron и список лицензий Chromium — рядом с программой (только когда сервер работает внутри приложения) */
+export function electronFiles() {
+  if (!process.versions.electron) return { electron: '', chromium: '' };
+  const dir = path.dirname(process.execPath);
+  // Установщик кладёт лицензию Electron как LICENSE.electron.txt, в проекте (yarn app) она — LICENSE
+  const electron = ['LICENSE.electron.txt', 'LICENSE'].map((n) => path.join(dir, n)).find((f) => fs.existsSync(f)) ?? '';
+  const chromium = path.join(dir, 'LICENSES.chromium.html');
+  return { electron, chromium: fs.existsSync(chromium) ? chromium : '' };
+}
+
+/**
+ * Страница «Лицензии» (кнопка на вкладке «Инструменты», «Справка → Лицензии» в приложении):
+ * Slideria, Electron и Chromium, шрифты комплекта и все библиотеки с авторами
+ */
+export function licensesPage(root, chromiumUrl) {
+  const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const read = (f) => { try { return fs.readFileSync(f, 'utf8').trim(); } catch { return ''; } };
+  const pj = JSON.parse(read(path.join(root, 'package.json')) || '{}');
+  let stamp = {};
+  try { stamp = JSON.parse(read(path.join(root, 'desktop', 'build.json'))); } catch { /* из проекта */ }
+  const { electron, chromium } = electronFiles();
+  const item = (title, text) => `<details><summary>${esc(title)}</summary><pre>${esc(text)}</pre></details>`;
+  const pkgs = prodPackages(root);
+  return `<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slideria — лицензии</title>
+<style>:root{color-scheme:light dark}body{font:15px/1.5 system-ui,"Segoe UI",sans-serif;max-width:960px;margin:32px auto;padding:0 20px}h1{font-size:24px}h2{font-size:18px;margin-top:28px}
+details{border-top:1px solid color-mix(in srgb,currentColor 15%,transparent);padding:6px 0}summary{cursor:pointer}pre{white-space:pre-wrap;font:12px/1.45 ui-monospace,Consolas,monospace;background:color-mix(in srgb,currentColor 6%,transparent);padding:12px;border-radius:8px}</style>
+<h1>Slideria ${esc(pj.version ?? '')}${stamp.date ? ` · сборка от ${esc(stamp.date)}` : ''} — лицензии</h1>
+<h2>Программа</h2>${item('Slideria — MIT', read(path.join(root, 'LICENSE')))}
+${electron ? item('Electron — MIT', read(electron)) : ''}
+${chromium && chromiumUrl ? `<p>Chromium и его компоненты: <a href="${esc(chromiumUrl)}">лицензии Chromium</a></p>` : ''}
+<h2>Шрифты</h2>${item('Шрифты тем и формул — SIL Open Font License 1.1', read(path.join(root, 'src', 'fonts', 'OFL.txt')))}
+<h2>Библиотеки (${pkgs.length})</h2>${pkgs.map((p) => item(`${p.name} ${p.version} — ${p.license}`, p.text || 'Текст лицензии не найден')).join('\n')}
+</html>`;
+}

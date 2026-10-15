@@ -15,8 +15,12 @@ import { importPptx } from './pptx/index';
 import { merge3 } from '../src/engine/merge3';
 import { packDeck } from '../src/engine/pack';
 import { fontRights } from '../src/engine/font-license';
+import { electronFiles, licensesPage } from './licenses.mjs';
 import { compactImage } from './optimize';
 import { mergeYaml } from './yaml-merge';
+
+/** Адрес страницы «Лицензии» */
+export const LICENSES = '/__slideria/licenses';
 
 const VIRTUAL = 'virtual:decks';
 const RESOLVED = '\0' + VIRTUAL;
@@ -551,6 +555,21 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           const msg = checkMessage(st);
           if (msg) s.config.logger.info(msg);
         });
+      });
+
+      // Страница «Лицензии» (вкладка «Инструменты», «Справка → Лицензии» в приложении): только этому компьютеру
+      s.middlewares.use((req, res, next) => {
+        const u = req.url?.split('?')[0];
+        if (u !== LICENSES && u !== LICENSES + '/chromium') return next();
+        if (!isLocal(req)) return send(res, 403, { error: 'Только с этого компьютера' });
+        const chromium = electronFiles().chromium;
+        if (u !== LICENSES) {
+          if (!chromium) return send(res, 404, { error: 'Нет файла' });
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          return void fs.createReadStream(chromium).pipe(res);
+        }
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.end(licensesPage(root, LICENSES + '/chromium'));
       });
 
       s.middlewares.use(async (req, res, next) => {

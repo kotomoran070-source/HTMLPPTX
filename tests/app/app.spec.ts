@@ -63,16 +63,16 @@ test('первый запуск: «Моя первая презентация»,
     expect(await app.evaluate(() => (globalThis as { shown?: number }).shown)).toBe(0);
     // Редактор говорит, что PDF готов и где он
     await expect(win.locator('#ed-toast')).toContainText('PDF сохранён');
-    // «Справка → Лицензии»: страница со всеми лицензиями (браузер в тесте не открывается)
-    await app.evaluate(({ Menu, shell }) => {
-      (shell as { openPath: (p: string) => Promise<string> }).openPath = async () => '';
+    // «Справка → Лицензии» — окно программы с той же страницей, что у кнопки на вкладке «Инструменты»
+    const [lic] = await Promise.all([app.waitForEvent('window'), app.evaluate(({ Menu }) => {
       const help = Menu.getApplicationMenu()!.items.find((i) => i.label === 'Справка')!;
       help.submenu!.items.find((i) => i.label === 'Лицензии')!.click();
-    });
-    const lic = path.join(tmp, 'data', 'licenses.html');
-    await expect.poll(() => fs.existsSync(lic)).toBe(true);
-    const licHtml = fs.readFileSync(lic, 'utf8');
-    for (const s of ['Slideria — MIT', 'Electron — MIT', 'SIL OPEN FONT LICENSE', 'qrcode-generator', 'LICENSES.chromium.html']) expect(licHtml).toContain(s);
+    })]);
+    await expect(lic).toHaveTitle('Slideria — лицензии');
+    const licText = (await lic.locator('body').textContent()) ?? '';
+    for (const t of ['Slideria — MIT', 'Electron — MIT', 'SIL OPEN FONT LICENSE', 'qrcode-generator', 'лицензии Chromium']) expect(licText).toContain(t);
+    expect(await lic.evaluate(() => fetch('/__slideria/licenses/chromium').then((r) => r.status))).toBe(200);
+    await lic.close();
     // Показ — крупным окном (80 % экрана), в заголовке без значка
     const [show] = await Promise.all([app.waitForEvent('window'), win.keyboard.press('F5')]);
     await expect(show).toHaveTitle(/^Показ — /);

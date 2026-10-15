@@ -669,3 +669,14 @@ test('шрифт, который автор не разрешил встраив
   expect(readDeck('tpl')).not.toContain('Locked');
   expect(errors.filter((e) => !e.includes('http 400'))).toEqual([]);
 });
+
+test('«Инструменты» → «Лицензии»: страница с лицензиями программы, шрифтов и библиотек', async ({ page, context }) => {
+  await page.goto('/?deck=tpl&studio#1');
+  await page.locator('[data-tab="tools"]').click();
+  const [lic] = await Promise.all([context.waitForEvent('page'), page.locator('.st-ribbon [data-cmd="tools.licenses"]').click()]);
+  await expect(lic).toHaveTitle('Slideria — лицензии');
+  const text = (await lic.locator('body').textContent()) ?? '';
+  for (const t of ['Slideria — MIT', 'SIL OPEN FONT LICENSE', 'qrcode-generator', 'Permission is hereby granted']) expect(text).toContain(t);
+  // Electron нет — нет и его лицензии (страница из yarn dev)
+  expect(text).not.toContain('Electron — MIT');
+});

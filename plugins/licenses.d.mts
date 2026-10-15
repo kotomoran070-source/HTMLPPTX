@@ -9,3 +9,5 @@ export function prodPackages(root: string): PackageInfo[];
 export function checkLicenses(pkgs: PackageInfo[], opts?: { html?: boolean }): PackageInfo[];
 export function noticeText(pkgs: PackageInfo[], fonts?: string): string;
 export function licenseNotice(root: string): Plugin[];
+export function electronFiles(): { electron: string; chromium: string };
+export function licensesPage(root: string, chromiumUrl?: string): string;
