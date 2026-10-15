@@ -25,6 +25,10 @@ test('HTML для показа: один файл, без сервера, все
   // Внутри всё: никаких ссылок на файлы рядом
   expect(html).not.toMatch(/src="\.?\/?assets\//);
   expect(html).not.toContain('/@fs/');
+  // Лицензии встроенных библиотек — в самом файле (на странице не видны)
+  const notice = /<script type="text\/plain" id="slideria-licenses">([\s\S]*?)<\/script>/.exec(html)?.[1] ?? '';
+  expect(notice).toContain('qrcode-generator');
+  expect(notice).toContain('Permission is hereby granted');
 
   const errors = watchErrors(page);
   await page.goto(pathToFileURL(file).href + '#1');

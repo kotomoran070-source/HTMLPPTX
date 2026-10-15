@@ -5,6 +5,7 @@
  * Выбранный шрифт копируется в презентацию (см. editor.ensureFont) — на другом компьютере он тот же.
  */
 import { fontNameOk } from './fonts';
+import { sfntRights } from './font-license';
 
 interface FontData {
   family: string;
@@ -145,26 +146,15 @@ export function pickFaces(family: string, extra: number[] = []): { face: LocalFa
 
 /**
  * Можно ли встроить файл: формат (одиночный TTF/OTF, не коллекция TTC) и разрешение автора
- * (OS/2 fsType: бит 1 — «встраивать нельзя»). Возвращает расширение файла или причину отказа.
+ * (флаг в таблице OS/2, см. font-license.ts). Возвращает расширение файла или причину отказа.
  */
 export function embeddable(buf: ArrayBuffer): { ext: 'ttf' | 'otf' } | { reason: string } {
   const v = new DataView(buf);
   if (buf.byteLength < 12) return { reason: 'файл не читается' };
   const tag = v.getUint32(0);
   if (tag === 0x74746366) return { reason: 'шрифт хранится в коллекции и не встраивается' }; // 'ttcf'
-  const ext = tag === 0x4f54544f ? 'otf' : 'ttf'; // 'OTTO'
-  const n = v.getUint16(4);
-  for (let i = 0; i < n; i++) {
-    const at = 12 + i * 16;
-    if (at + 16 > buf.byteLength) break;
-    if (v.getUint32(at) !== 0x4f532f32) continue; // 'OS/2'
-    const off = v.getUint32(at + 8);
-    if (off + 10 > buf.byteLength) break;
-    const fsType = v.getUint16(off + 8);
-    // Только бит 1 без битов 2–3 (просмотр/правка) означает полный запрет
-    if ((fsType & 0x000f) === 0x0002) return { reason: 'автор шрифта запретил его встраивать' };
-    break;
-  }
-  return { ext };
+  const r = sfntRights(new Uint8Array(buf));
+  if (r.ok === false) return { reason: r.reason };
+  return { ext: tag === 0x4f54544f ? 'otf' : 'ttf' }; // 'OTTO'
 }
 

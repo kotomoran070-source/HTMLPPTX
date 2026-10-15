@@ -5,8 +5,15 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { licenseProblems } from './licenses.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// Библиотека с неподходящей лицензией в установщик не попадёт: сборка останавливается (yarn licenses — подробности)
+const bad = licenseProblems();
+if (bad.length) {
+  console.error(`Лицензия вне разрешённого списка (plugins/licenses.mjs):\n  ${bad.join('\n  ')}`);
+  process.exit(1);
+}
 const stamp = path.join(root, 'desktop', 'build.json');
 let commit = '';
 try {

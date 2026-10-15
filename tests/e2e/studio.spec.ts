@@ -2,7 +2,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { DECKS, readDeck, waitFile, watchErrors } from './helpers';
+import { api, DECKS, readDeck, waitFile, watchErrors } from './helpers';
+import { kitWoff2, sfnt } from '../fonts';
 
 test.use({ colorScheme: 'light' });
 
@@ -639,4 +640,32 @@ test('смена вида блока: панель не мигает, выдел
   // После отмены файл снова такой, как был (сохраняется он не мгновенно)
   expect(await waitFile(() => readDeck('tpl') === before)).toBe(true);
   expect(errors).toEqual([]);
+});
+
+test('шрифт, который автор не разрешил встраивать, в презентацию не попадает: ни через студию, ни через сервер', async ({ page }) => {
+  const errors = watchErrors(page);
+  const kit = path.resolve('src/fonts/Manrope.woff2');
+  // Сервер: WOFF2 («только просмотр и печать», запрет) — ни в презентацию, ни в общую библиотеку; свободный — можно
+  for (const [fsType, why] of [[4, 'только для просмотра и печати'], [2, 'запретил его встраивать']] as const) {
+    const bytes = [...kitWoff2(kit, fsType)];
+    const a = await api(page, 'asset?deck=tpl&name=Restricted.woff2', bytes);
+    expect(a.status).toBe(400);
+    expect(a.json.error).toContain(why);
+    const s = await api(page, 'font-save?file=Restricted.woff2', bytes);
+    expect(s.status).toBe(400);
+  }
+  expect(fs.existsSync(path.join(DECKS, 'tpl', 'assets', 'Restricted.woff2'))).toBe(false);
+  expect((await api(page, 'font-save?file=Manrope-ok.woff2', [...fs.readFileSync(kit)])).status).toBe(200);
+  // Студия: файл с запретом — отказ с причиной, данные презентации не меняются
+  await page.goto('/?deck=tpl&studio#1');
+  await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
+  // Файл шрифта перетаскивают на страницу
+  await page.locator('#st-canvas').evaluate((el, bytes) => {
+    const dt = new DataTransfer();
+    dt.items.add(new File([new Uint8Array(bytes)], 'Locked.ttf', { type: 'font/ttf' }));
+    for (const type of ['dragenter', 'dragover', 'drop']) el.dispatchEvent(new DragEvent(type, { dataTransfer: dt, bubbles: true, cancelable: true }));
+  }, [...sfnt(2)]);
+  await expect(page.locator('#ed-toast.err')).toContainText('запретил его встраивать');
+  expect(readDeck('tpl')).not.toContain('Locked');
+  expect(errors.filter((e) => !e.includes('http 400'))).toEqual([]);
 });

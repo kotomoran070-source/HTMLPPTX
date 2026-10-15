@@ -19,6 +19,7 @@ import { embeddable, loadLocalFonts, localFaces, localFamilies, localWeights, pi
 import { merge3 } from '../merge3';
 import { WINDOW_ID } from './persist';
 import { edits, History } from './history';
+import { browserInflate, fontRights } from '../font-license';
 import './editor.css';
 import { initRangeFill } from './range-fill';
 
@@ -1499,6 +1500,9 @@ export class Editor {
   async addFontFile(file: File): Promise<void> {
     if (!isFontFile(file)) return this.toast('Подойдут шрифты WOFF2, WOFF, TTF или OTF', 3500, true);
     if (file.size > 8 * 1024 * 1024) return this.toast('Файл шрифта больше 8 МБ', 4000, true);
+    // Разрешение автора на встраивание — в самом файле. WOFF2 браузер не распаковывает: его проверит сервер студии при загрузке
+    const rights = await fontRights(new Uint8Array(await file.arrayBuffer()), { inflate: browserInflate });
+    if (rights.ok === false) return this.toast(`Шрифт не добавлен: ${rights.reason}. Встраивать в презентацию можно шрифты, которые автор разрешил устанавливать или править`, 8000, true);
     const fonts = Array.isArray(this.host.deck.fonts) ? this.host.deck.fonts : [];
     const base = fontNameOf(file.name);
     let name = base;

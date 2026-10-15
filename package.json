@@ -24,6 +24,7 @@
     "verify": "tsc --noEmit && node scripts/build.mjs",
     "app": "electron .",
     "app:build": "node scripts/app-build.mjs",
+    "licenses": "node scripts/licenses.mjs",
     "test": "playwright test",
     "test:unit": "playwright test --project=unit",
     "test:e2e": "playwright test --project=e2e",
@@ -76,6 +77,7 @@
       "en-US"
     ],
     "files": [
+      "LICENSE",
       "index.html",
       "vite.config.ts",
       "tsconfig.json",

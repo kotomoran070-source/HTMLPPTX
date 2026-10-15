@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
+import zlib from 'node:zlib';
 import os from 'node:os';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
@@ -13,6 +14,7 @@ import { BASE_ID, bindProject, importHtml, slug } from './import';
 import { importPptx } from './pptx/index';
 import { merge3 } from '../src/engine/merge3';
 import { packDeck } from '../src/engine/pack';
+import { fontRights } from '../src/engine/font-license';
 import { compactImage } from './optimize';
 import { mergeYaml } from './yaml-merge';
 
@@ -427,6 +429,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     if (!MEDIA_EXT.has(ext.toLowerCase()) && !cad) throw new Error('Поддерживаются изображения (PNG, JPG, GIF, WebP, AVIF, SVG), видео (MP4, WebM), 3D-модели (GLB, STL, STEP) живые вставки (HTM, WASM, WAD), шрифты (WOFF2, WOFF, TTF, OTF) и LUT (.cube)');
     let data = await readBody(req);
     if (!data.length) throw new Error('Пустой файл');
+    if (FONT_EXT.test(safe)) await mayEmbed(data);
     if (cad) {
       // STL / STEP → GLB: на слайде это обычная 3D-модель
       data = ext.toLowerCase() === 'stl' ? stlToGlb(data) : await stepToGlb(data);
@@ -437,16 +440,25 @@ export function decksPlugin(opts: DecksOptions): Plugin {
 
   // ---------- общая библиотека шрифтов ----------
   const FONT_EXT = /\.(woff2?|ttf|otf)$/i;
+  /**
+   * Шрифт встраивается в презентацию, только если автор разрешил его устанавливать или править
+   * (флаг в файле, src/engine/font-license.ts). Здесь же проверяется и WOFF2: браузер его не распаковывает
+   */
+  async function mayEmbed(data: Buffer): Promise<void> {
+    const r = await fontRights(new Uint8Array(data), { inflate: (d) => zlib.inflateSync(d), brotli: (d) => zlib.brotliDecompressSync(d) });
+    if (r.ok === false) throw new Error(`Шрифт не встраивается: ${r.reason}`);
+  }
   const fontsDir = () => opts.fonts ? path.resolve(opts.fonts) : path.join(root, 'fonts');
   function listFonts(): { file: string; url: string }[] {
     if (!fs.existsSync(fontsDir())) return [];
     return fs.readdirSync(fontsDir()).filter((f) => FONT_EXT.test(f)).sort().map((f) => ({ file: f, url: urlOf(path.join(fontsDir(), f)) }));
   }
   /** Шрифт в библиотеку; такой же файл уже есть — второй не появляется */
-  function saveLibraryFont(fileName: string, data: Buffer): { file: string } {
+  async function saveLibraryFont(fileName: string, data: Buffer): Promise<{ file: string }> {
     const safe = safeFileName(fileName);
     if (!FONT_EXT.test(safe)) throw new Error('Подойдут шрифты WOFF2, WOFF, TTF или OTF');
     if (!data.length) throw new Error('Пустой файл');
+    await mayEmbed(data);
     fs.mkdirSync(fontsDir(), { recursive: true });
     const target = path.join(fontsDir(), safe);
     if (fs.existsSync(target) && fs.readFileSync(target).equals(data)) return { file: safe };
@@ -456,10 +468,12 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     return { file };
   }
   /** Шрифт из библиотеки — копией в assets/ презентации: собранный файл несёт его с собой */
-  function useLibraryFont(name: string, fileName: string, res: ServerResponse): void {
+  async function useLibraryFont(name: string, fileName: string, res: ServerResponse): Promise<void> {
     const safe = path.basename(fileName);
     const src = path.join(fontsDir(), safe);
     if (!FONT_EXT.test(safe) || !fs.existsSync(src)) throw new Error('Шрифта нет в библиотеке');
+    // В библиотеке может лежать шрифт, добавленный до проверки, или положенный в папку руками
+    await mayEmbed(fs.readFileSync(src));
     const own = path.join(dir, name, 'assets', safe);
     if (fs.existsSync(own) && fs.readFileSync(own).equals(fs.readFileSync(src))) return send(res, 200, { url: urlOf(own), path: './assets/' + safe });
     return saveAsset(name, safe, fs.readFileSync(src), res);
@@ -563,7 +577,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
             const fix = (globalThis as { __slideriaFirewall?: () => Promise<string> }).__slideriaFirewall;
             return send(res, 200, { state: fix ? await fix() : 'skip' });
           }
-          if (url.pathname === API + 'font-save') return send(res, 200, saveLibraryFont(url.searchParams.get('file') ?? '', await readBody(req)));
+          if (url.pathname === API + 'font-save') return send(res, 200, await saveLibraryFont(url.searchParams.get('file') ?? '', await readBody(req)));
           const name = assertDeck(url.searchParams.get('deck'));
           if (url.pathname === API + 'delete') return send(res, 200, trashDeck(name));
           if (url.pathname === API + 'assets-list') return send(res, 200, listAssets(name));
@@ -571,7 +585,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           if (url.pathname === API + 'checkpoints') return send(res, 200, listCheckpoints(name));
           if (url.pathname === API + 'checkpoint-read') return send(res, 200, readCheckpoint(name, url.searchParams.get('id') ?? ''));
           if (url.pathname === API + 'assets-trash') return send(res, 200, trashAssets(name, JSON.parse((await readBody(req)).toString('utf8') || '[]')));
-          if (url.pathname === API + 'font-use') return useLibraryFont(name, url.searchParams.get('file') ?? '', res);
+          if (url.pathname === API + 'font-use') return await useLibraryFont(name, url.searchParams.get('file') ?? '', res);
           if (url.pathname === API + 'bind-theme') return send(res, 200, bindProject(dir, name, url.searchParams.get('dry') === '1'));
           if (url.pathname === API + 'save') return await handleSave(name, req, res, url.searchParams.get('from') ?? '');
           if (url.pathname === API + 'export') return await handleExport(root, name, url.searchParams.get('mode') === 'clean', url.searchParams.get('quality') === 'compact', res);
@@ -664,6 +678,20 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           const r = await compactImage(fs.readFileSync(abs), path.extname(abs).slice(1));
           if (r) packed.set(abs, r);
         }));
+      }
+      // Шрифт, который автор не разрешил встраивать (добавлен до проверки или положен в assets руками), в файл не едет:
+      // текст остаётся с его именем и виден там, где шрифт установлен
+      const fonts = (deck as { fonts?: { name?: string; src?: string }[] }).fonts;
+      if (Array.isArray(fonts)) {
+        const keep = await Promise.all(fonts.map(async (f) => {
+          const abs = typeof f?.src === 'string' && !/^(data:|https?:)/.test(f.src) ? path.resolve(path.dirname(file), f.src) : '';
+          if (!abs || !fs.existsSync(abs)) return true;
+          try { await mayEmbed(fs.readFileSync(abs)); return true; } catch (e) {
+            console.warn(`Шрифт «${f.name ?? f.src}» не встроен в файл: ${(e as Error).message.replace(/^Шрифт не встраивается: /, '')}`);
+            return false;
+          }
+        }));
+        (deck as { fonts?: unknown[] }).fonts = fonts.filter((_, i) => keep[i]);
       }
       const embedded = mapAssets(deck, (v) => {
         const abs = path.resolve(path.dirname(file), v);

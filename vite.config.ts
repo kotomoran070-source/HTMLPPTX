@@ -4,6 +4,7 @@ import { defineConfig } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import { decksPlugin } from './plugins/decks';
 import { frameHostPlugin } from './plugins/frame-host';
+import { licenseNotice } from './plugins/licenses.mjs';
 
 // DECK=имя задаёт scripts/build.mjs: собирается одна презентация в один HTML-файл
 const only = process.env.DECK || undefined;
@@ -27,7 +28,7 @@ export default defineConfig(({ command }) => ({
   plugins: [
     decksPlugin({ dir: decksDir, only, fonts: process.env.SLIDERIA_FONTS }),
     frameHostPlugin(),
-    ...(command === 'build' ? [viteSingleFile({ removeViteModuleLoader: true })] : []),
+    ...(command === 'build' ? [viteSingleFile({ removeViteModuleLoader: true }), ...licenseNotice(process.cwd())] : []),
   ],
   // Сборка «для показа» (yarn build --clean): режим правки не попадает в файл
   define: {
