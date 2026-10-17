@@ -1,5 +1,6 @@
 import { icon } from '../components/icons';
-import { TEXT_GRADIENTS } from '../engine/gradients';
+import { gradColor, gradientMid, TEXT_GRADIENTS } from '../engine/gradients';
+import { gradientPanel, type GradValue } from './gradient-edit';
 import { GRADIENTS, SHAPE_COLORS, SHAPE_STYLES, SHAPE_SWATCHES, gradientCss, gradientOn, isGradient, sameGradient, shapeFill, type ShapeGradient } from '../components/shape/shape';
 import { IMAGE_ADJUST, IMAGE_FILTER_GROUPS, IMAGE_FILTERS, IMAGE_LOOK_KEYS, IMAGE_SHADOWS, IMAGE_STYLES, adjustCss, filterCss, imageLookCss, type ImageLook } from '../components/layout/image-look';
 
@@ -410,55 +411,43 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     }, 'st-palette');
   };
   /** Свой градиент: два цвета, направление или от центра; правки видны сразу и в истории — одним шагом */
+  /** Свой градиент заливки или контура: точки (цвета темы или постоянные), направление, готовые */
   const gradientEditor = (cmd: string, start: ShapeGradient, k: 'fill' | 'stroke' = 'fill') => {
     const gk = k === 'fill' ? 'gradient' : 'strokeGradient';
-    const g: ShapeGradient = { ...start };
-    const DIRS: [number, string][] = [[0, '↑'], [45, '↗'], [90, '→'], [135, '↘'], [180, '↓'], [225, '↙'], [270, '←'], [315, '↖']];
-    const html = `<div class="st-plabel">Свой градиент</div>
-      <div class="st-gprev"></div>
-      <div class="st-grow"><label class="st-gcol"><input type="color" data-gc="from" aria-label="Цвет начала"><span>Начало</span></label>
-        <button type="button" class="st-gswap" data-swap="1" title="Поменять цвета местами" aria-label="Поменять цвета местами">⇄</button>
-        <label class="st-gcol"><input type="color" data-gc="to" aria-label="Цвет конца"><span>Конец</span></label></div>
-      <div class="st-plabel">Направление</div>
-      <div class="st-pseg st-gdir">${DIRS.map(([a, l]) => `<button type="button" data-ang="${a}" title="${a}°">${l}</button>`).join('')}<button type="button" data-ang="radial" title="От центра">◎</button></div>`;
     const key = `grad:${Date.now()}`;
-    const save = () => {
+    const save = (g: GradValue) => {
       const paths = targets('shape');
-      const val: ShapeGradient = g.type === 'radial' ? { from: g.from, to: g.to, type: 'radial' } : { from: g.from, to: g.to, angle: g.angle ?? 135 };
+      const mid = gradientMid(g.mid);
+      const val: ShapeGradient = { from: g.from, to: g.to, ...(mid.length ? { mid } : {}), ...(g.type === 'radial' ? { type: 'radial' as const } : { angle: g.angle ?? 135 }) };
       ed.commit((d) => paths.forEach((p) => {
         setAt(d, [...p, k], 'gradient');
         setAt(d, [...p, gk], val);
         const b = getAt(d, p) as Block;
         if (k === 'stroke' && !isLine(b) && !Number(b.width)) b.width = 2;
       }), { rebuild: true, merge: key, hold: true });
-      paint();
     };
-    let pop: HTMLElement;
-    const paint = () => {
-      pop.querySelector<HTMLElement>('.st-gprev')!.style.background = gradientCss(g);
-      pop.querySelectorAll<HTMLButtonElement>('[data-ang]').forEach((b) => b.classList.toggle('on', b.dataset.ang === (g.type === 'radial' ? 'radial' : String(g.angle ?? 135))));
-      for (const k of ['from', 'to'] as const) {
-        const input = pop.querySelector<HTMLInputElement>(`[data-gc="${k}"]`)!;
-        if (document.activeElement !== input) input.value = toHex(g[k]);
-      }
-    };
-    pop = showPopover(anchor(cmd), html, (el) => {
-      if (el.dataset.swap) return { keep: true, run: () => { [g.from, g.to] = [g.to, g.from]; save(); } };
-      const a = el.dataset.ang;
-      if (a) return { keep: true, run: () => { if (a === 'radial') g.type = 'radial'; else { delete g.type; g.angle = Number(a); } save(); } };
-      return null;
-    }, 'st-palette st-grad');
-    pop.querySelectorAll<HTMLInputElement>('[data-gc]').forEach((input) => input.addEventListener('input', () => {
-      g[input.dataset.gc as 'from' | 'to'] = input.value.toUpperCase();
-      save();
-    }));
-    paint();
+    const list = k === 'fill' ? GRADIENTS : GRADIENTS.filter((x) => TEXT_GRADIENTS.includes(x.id));
+    const theme: [string, string, string][] = [
+      ...Object.entries(SHAPE_COLORS).filter(([v]) => v !== 'bg').map(([v, c]) => [v, c.css, c.name] as [string, string, string]),
+      ['accent-light', 'color-mix(in srgb, var(--ac) 72%, #fff)', 'Светлый акцент'], ['accent-dark', 'color-mix(in srgb, var(--ac) 78%, #000)', 'Тёмный акцент'], ['accent2', 'var(--ac2)', 'Второй цвет акцента'],
+    ];
+    const panel = gradientPanel({
+      css: gradColor,
+      hex: toHex,
+      swatches: [{ label: 'Цвета темы', items: theme }, { label: 'Постоянные', items: SHAPE_SWATCHES.map((c) => [c, c, c]) }],
+      direction: true,
+      presets: list.map((x) => ({ name: x.name, css: gradientCss(x.g), g: { from: x.g.from, to: x.g.to, mid: gradientMid(x.g.mid), angle: x.g.angle, type: x.g.type }, on: sameGradient(x.g, start) })),
+      preview: save,
+      commit: (g) => { if (g) save(g); },
+    }, { from: start.from, to: start.to, mid: gradientMid(start.mid), angle: start.angle, type: start.type });
+    const pop = showPopover(anchor(cmd), `<div class="st-plabel">Свой градиент</div>${panel.html}`, panel.pick, 'st-palette st-grad');
+    panel.bind(pop);
   };
   /** Цвет темы или CSS-цвет → #RRGGBB для поля выбора цвета */
   const toHex = (c: string): string => {
     if (/^#[0-9a-f]{6}$/i.test(c)) return c.toLowerCase();
     const probe = document.createElement('i');
-    probe.style.color = c === 'accent-light' ? 'color-mix(in srgb, var(--ac) 72%, #fff)' : c === 'accent-dark' ? 'color-mix(in srgb, var(--ac) 78%, #000)' : shapeFill(c) ?? c;
+    probe.style.color = gradColor(c);
     h.stage().appendChild(probe);
     const v = getComputedStyle(probe).color;
     probe.remove();

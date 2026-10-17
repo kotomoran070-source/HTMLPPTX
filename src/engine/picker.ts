@@ -1,6 +1,6 @@
 import { icon } from '../components/icons';
 import type { Deck } from '../types';
-import { accentTokens, applyAccent, DEFAULT_ACCENT, HEX_RE, slideAccent } from './accent';
+import { accentTail, accentTokens, applyAccent, DEFAULT_ACCENT, HEX_RE, slideAccent } from './accent';
 import { brandMark, updateFavicon } from './brand';
 import { staticSlide } from './deck-view';
 import { esc } from './html';
@@ -141,7 +141,7 @@ function accentVars(deck: Deck): string {
   const a2 = deck.theme?.accent2;
   const ok = (v: unknown): v is string => typeof v === 'string' && HEX_RE.test(v);
   if (!ok(a) && !ok(a2)) return '';
-  const t = accentTokens(ok(a) ? a : DEFAULT_ACCENT, ok(a2) ? a2 : null)[currentTheme() === 'dark' ? 'dark' : 'light'];
+  const t = accentTokens(ok(a) ? a : DEFAULT_ACCENT, accentTail(deck.theme))[currentTheme() === 'dark' ? 'dark' : 'light'];
   return Object.entries(t).map(([k, v]) => `${k}:${v}`).join(';');
 }
 

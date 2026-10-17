@@ -369,6 +369,87 @@ test('«Дизайн» → «Фон»: своя картинка (с замет�
   expect(errors).toEqual([]);
 });
 
+test('градиент акцента — больше двух цветов: точка щелчком по полосе, тянется, красится, вниз — убрана; готовые сочетания; Ctrl+Z', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=design&studio#2');
+  const slide = page.locator('#st-canvas .slide.on');
+  await expect(slide).toHaveCount(1);
+  const acg = () => slide.evaluate((s) => getComputedStyle(s).getPropertyValue('--ac-g'));
+  await page.locator('.st-tabs [data-tab="design"]').click();
+  // На ленте — акцент и одна кнопка «Градиент» с полоской его цветов
+  await expect(page.locator('#st-dz-gsw')).toHaveCSS('background-image', /linear-gradient/);
+  await page.locator('[data-cmd="design.gradient"]').click();
+  const pop = page.locator('.st-pop');
+  const strip = (await pop.locator('.st-gstrip').boundingBox())!;
+  await page.mouse.click(strip.x + strip.width * 0.5, strip.y + strip.height / 2);
+  await expect.poll(() => readDeck('design')).toMatch(/accentMid:\s*\n\s*- c: "#\w{6}"\s*\n\s*at: 50/);
+  // Тянуть вбок — место точки
+  const m = (await pop.locator('.st-gmark[data-gi="1"]').boundingBox())!;
+  await page.mouse.move(m.x + m.width / 2, m.y + m.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(strip.x + strip.width * 0.3, m.y + m.height / 2, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(() => readDeck('design')).toMatch(/at: 3\d/);
+  // Цвет выбранной точки — образцом
+  await pop.locator('[data-gcolor="#EA580C"]').click();
+  await expect.poll(acg).toMatch(/^linear-gradient\(135deg, #4F46E5, #EA580C 3\d%, #0EA5E9\)$/);
+  // Утянуть вниз — точки нет
+  const m2 = (await pop.locator('.st-gmark[data-gi="1"]').boundingBox())!;
+  await page.mouse.move(m2.x + m2.width / 2, m2.y + m2.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(m2.x + m2.width / 2, m2.y + 90, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(() => readDeck('design')).not.toContain('accentMid');
+  // Готовое сочетание с точками меняет и акцент
+  await pop.locator('[data-gpre]').nth(14).click();
+  await expect.poll(() => readDeck('design')).toMatch(/accent: "#2563EB"[\s\S]*accentMid:/);
+  await expect.poll(acg).toBe('linear-gradient(135deg, #2563EB, #14B8A6 33%, #FACC15 66%, #F43F5E)');
+  // Ctrl+Z — прежний градиент
+  await page.locator('#st-canvas').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => readDeck('design')).toMatch(/accent: "#4F46E5"/);
+  expect(readDeck('design')).not.toContain('accentMid');
+  expect(errors).toEqual([]);
+});
+
+test('градиент со своими точками у слайда и у фигуры: цвета точек — и постоянные, и цвета темы', async ({ page }) => {
+  const errors = watchErrors(page);
+  const before = readDeck('tpl');
+  await page.goto('/?deck=tpl&studio#4');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  // Свои цвета слайда — тем же окном градиента
+  await page.locator('#st-canvas').click({ position: { x: 5, y: 5 } });
+  await page.locator('[data-sac="own"]').click();
+  await page.locator('[data-a="sgrad"]').click();
+  await page.locator('.st-pop [data-gpre]').nth(14).click();
+  await expect(page.locator('#st-canvas .slide.on')).toHaveAttribute('data-accent', '#2563EB #F43F5E #14B8A6@33 #FACC15@66');
+  // Фигура: точка цветом темы
+  const sh = page.locator('#st-canvas .slide.on [data-type="shape"]').first();
+  await sh.click({ position: { x: 10, y: 10 } });
+  await page.locator('.st-tabs [data-tab="shape"]').click();
+  await page.locator('.st-ribbon [data-cmd="shape.fill"]').click();
+  await page.locator('.st-pop [data-v="grad-edit"]').click();
+  const pop = page.locator('.st-pop');
+  const strip = (await pop.locator('.st-gstrip').boundingBox())!;
+  await page.mouse.click(strip.x + strip.width * 0.5, strip.y + strip.height / 2);
+  await pop.locator('[data-gcolor="accent2"]').click();
+  await expect.poll(() => readDeck('tpl')).toMatch(/mid: \[\{c: accent2, at: 50\}\]/);
+  await expect.poll(() => sh.evaluate((e) => getComputedStyle(e.matches('.shape') ? e : e.querySelector('.shape')!).backgroundImage)).toContain('50%');
+  // Delete на бегунке убирает точку — не саму фигуру
+  const shapes = await page.locator('#st-canvas .slide.on [data-type="shape"]').count();
+  await pop.locator('.st-gmark[data-gi="1"]').click();
+  await page.keyboard.press('Delete');
+  await expect.poll(() => readDeck('tpl')).not.toMatch(/mid: \[/);
+  await expect(page.locator('#st-canvas .slide.on [data-type="shape"]')).toHaveCount(shapes);
+  await page.keyboard.press('Escape');
+  for (let k = 0; k < 6 && readDeck('tpl') !== before; k++) {
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(300);
+  }
+  await expect.poll(() => readDeck('tpl')).toBe(before);
+  expect(errors).toEqual([]);
+});
+
 test('цвета темы в палитрах: наискось — у светлых и у тёмных слайдов; у постоянно тёмных — один цвет', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=tpl&studio#4');

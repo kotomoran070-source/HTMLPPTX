@@ -13,7 +13,7 @@
  *   --rk                                           множитель скругления углов
  */
 import type { DarkLook, DeckOrigin, DeckTheme, ThemePalette } from '../types';
-import { accentTokens, contrast, DEFAULT_ACCENT, HEX_RE, mix, PANEL_SWATCHES, SWATCHES } from './accent';
+import { accentTail, accentTokens, contrast, DEFAULT_ACCENT, HEX_RE, mix, PANEL_SWATCHES, SWATCHES } from './accent';
 import { cssKey } from './deck-css';
 import { fontFamilies, fontNameOk, fontStack } from './fonts';
 import { recolorVars, sameColors } from './recolor';
@@ -106,7 +106,7 @@ export const THEME_BGS: Record<string, { name: string; css: (dark: boolean) => s
     css: (d) => `${d ? '' : `linear-gradient(90deg, transparent 0 92px, ${cm('#EF4444', 45)} 92px 94px, transparent 94px), `}`
       + `${grid(d ? 'rgba(255, 255, 255, .07)' : cm('var(--ac)', 14), 28)}, var(--bg)`,
   },
-  band: { name: 'Полоса', css: () => 'linear-gradient(90deg, var(--ac), var(--ac2)) 0 0 / 100% 10px no-repeat, var(--bg)' },
+  band: { name: 'Полоса', css: () => 'linear-gradient(90deg, var(--ac-stops)) 0 0 / 100% 10px no-repeat, var(--bg)' },
   arc: {
     name: 'Дуги',
     css: (d) => `radial-gradient(circle at 100% 100%, ${cm('var(--ac)', d ? 18 : 14)} 0 24%, transparent 24.3%), `
@@ -193,7 +193,7 @@ export function themeVars(t: DeckTheme, mode: SlideMode, origin?: DeckOrigin): R
   // текста темы (белая плашка нужна, чтобы любой логотип читался, но не чисто-белая)
   v['--logo-bg'] = dark ? mix(pal.tx, '#FFFFFF', 0.4) : pal.surf;
   if (dark) v['--logo-bg-dk'] = pal.alt;
-  const ac = accentTokens(isHex(t.accent) ? t.accent : DEFAULT_ACCENT, isHex(t.accent2) ? t.accent2 : null, { [mode]: pal.bg })[mode];
+  const ac = accentTokens(isHex(t.accent) ? t.accent : DEFAULT_ACCENT, accentTail(t), { [mode]: pal.bg })[mode];
   Object.assign(v, ac);
   v['--on-ac'] = onAccent(ac['--ac'], pal);
   // Своё у тёмных: узор фона и карточки; два анимированных фона — видим тот, что для этого вида

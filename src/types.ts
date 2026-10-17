@@ -86,6 +86,8 @@ export interface DeckTheme {
   accent?: string;
   /** Второй цвет акцента: акцентные заливки становятся градиентом от accent к accent2 */
   accent2?: string;
+  /** Точки градиента между accent и accent2: цвет и место в процентах — [{ c: "#22D3EE", at: 40 }] */
+  accentMid?: { c: string; at: number }[];
   /** Переливание: цвета градиента акцента плавно текут по акцентным элементам */
   accentFlow?: boolean;
   /** Шрифт всей презентации: имя одного из fonts */
@@ -163,8 +165,8 @@ export interface SlideData {
   transition?: string;
   /** Длительность перехода, мс (по умолчанию 600) */
   transitionMs?: number;
-  /** Свои цвета слайда вместо цветов презентации: акцент и второй цвет градиента */
-  theme?: { accent?: string; accent2?: string };
+  /** Свои цвета слайда вместо цветов презентации: акцент, второй цвет градиента и точки между ними */
+  theme?: { accent?: string; accent2?: string; accentMid?: { c: string; at: number }[] };
   /** Логотип в углу: у обычного слайда есть, пока не false; у холста — только с true */
   logo?: boolean;
   body?: Block | Block[];

@@ -2,7 +2,7 @@ import { icon } from '../components/icons';
 import { CommandPalette } from './palette';
 import { guessGap, rowOf } from '../engine/editor/rows';
 import { toolsCommands } from './tools';
-import { applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, setUiAccent, slideAccent, uiAccent } from '../engine/accent';
+import { accentTail, applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, setUiAccent, slideAccent, uiAccent } from '../engine/accent';
 import { applyThemeSwatches } from '../engine/deck-theme';
 import { getAt, setAt, type Path } from '../engine/data';
 import { DeckView, H, W } from '../engine/deck-view';
@@ -216,7 +216,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   const notesText = $<HTMLTextAreaElement>('st-notes-text');
   const count = () => deck.slides.length;
 
-  applyAccent(deck.theme?.accent, deck.theme?.accent2);
+  applyAccent(deck.theme?.accent, accentTail(deck.theme));
   applyThemeSwatches(deck.theme);
   applyAccentFlow(deck.theme?.accentFlow);
   updateFavicon(deck.brand?.logo);
@@ -300,7 +300,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
         if (index > count() - 1) index = count() - 1;
         view.show(index);
       }
-      applyAccent(deck.theme?.accent, deck.theme?.accent2);
+      applyAccent(deck.theme?.accent, accentTail(deck.theme));
       applyAccentFlow(deck.theme?.accentFlow);
       updateFavicon(deck.brand?.logo);
       slides.update();
@@ -1417,7 +1417,6 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'obj.parent': { run: () => ed.blockEditor.selectParent(), enabled: () => !!ed.selection?.hasParent },
     'design.accent-reset': { run: () => ed.setAccent(null), enabled: () => !!deck.theme?.accent || !!deck.theme?.accent2 },
     'design.accent-flow': { run: () => ed.setAccentFlow(!deck.theme?.accentFlow), enabled: () => !!deck.theme?.accent2, active: () => !!deck.theme?.accentFlow },
-    'design.accent2-off': { run: () => ed.setAccent(null, 'accent2'), enabled: () => !!deck.theme?.accent2 },
     'edit.find': { run: () => find?.show() },
     'ui.own': { run: () => { setUiAccent(uiAccent() ? null : uiColor.value); queueState(); }, active: () => !!uiAccent() },
     'design.theme': { run: () => toggleTheme() },
@@ -1497,7 +1496,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       { id: 'design.theme', label: currentTheme() === 'dark' ? 'Светлая тема' : 'Тёмная тема', path: 'Верхняя строка', words: 'тема оформления ночная интерфейс', key: '', ico: icon('moon'), run: () => run('design.theme'), enabled: () => true },
       { id: 'app.home', label: 'Все презентации', path: 'Верхняя строка', words: 'открыть список главная другая', key: '', ico: icon('grid'), run: () => { location.href = './?all'; }, enabled: () => true },
       { id: 'design.accent', label: 'Акцентный цвет', path: 'Дизайн · Цвета', words: 'цвет презентации', key: '', ico: icon('fill'), run: pickColor('st-accent'), enabled: () => true },
-      { id: 'design.accent2', label: 'Второй цвет градиента', path: 'Дизайн · Цвета', words: 'градиент акцент', key: '', ico: icon('fill'), run: pickColor('st-accent2'), enabled: () => true },
+      { id: 'design.gradient', label: 'Градиент акцента', path: 'Дизайн · Цвета', words: 'градиент второй цвет точки палитры', key: '', ico: icon('fill'), run: () => { reveal('design'); run('design.gradient'); }, enabled: () => true },
       { id: 'ui.color', label: 'Цвет интерфейса', path: 'Вид · Интерфейс', words: 'свой цвет программы', key: '', ico: icon('fill'), run: pickColor('st-uiac', 'view'), enabled: () => true },
       // Темы по имени: «тема полночь»
       ...THEME_PRESETS.map((p) => ({ id: `design.preset.${p.id}`, label: `Тема «${p.name}»`, path: 'Дизайн · Темы', words: 'тема оформление дизайн', key: '', ico: icon('sparkle'), run: () => run(`design.preset.${p.id}`), enabled: () => true })),
@@ -1604,10 +1603,6 @@ export function startStudio(deck: Deck, deckKey: string): void {
   accent.addEventListener('input', () => ed.previewAccent(accent.value));
   accent.addEventListener('change', () => ed.setAccent(accent.value));
   accent.addEventListener('blur', () => ed.endAccentPreview());
-  const accent2 = $<HTMLInputElement>('st-accent2');
-  accent2.addEventListener('input', () => ed.previewAccent(accent2.value, 'accent2'));
-  accent2.addEventListener('change', () => ed.setAccent(accent2.value, 'accent2'));
-  accent2.addEventListener('blur', () => ed.endAccentPreview());
   // Цвет интерфейса: свой (запоминается на компьютере) или как у презентации. Выбор цвета сразу включает «Свой цвет»
   const uiColor = $<HTMLInputElement>('st-uiac');
   uiColor.value = (uiAccent() ?? '#475569').toLowerCase();
@@ -1878,10 +1873,6 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const a = deck.theme?.accent;
     const av = typeof a === 'string' && HEX_RE.test(a) ? a : DEFAULT_ACCENT;
     if (document.activeElement !== accent && HEX_RE.test(av)) accent.value = av.toLowerCase();
-    const a2 = deck.theme?.accent2;
-    const a2v = typeof a2 === 'string' && HEX_RE.test(a2) ? a2 : av;
-    if (document.activeElement !== accent2 && HEX_RE.test(a2v)) accent2.value = a2v.toLowerCase();
-    accent2.closest('label')!.classList.toggle('on', !!a2);
     $('st-pos').textContent = `Слайд ${index + 1} из ${count()} · ${slideLabel(deck.slides[index], index)}`;
     syncNotes();
     inspector.sync();

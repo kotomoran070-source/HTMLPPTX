@@ -1,5 +1,5 @@
 import { icon } from '../components/icons';
-import { DEFAULT_ACCENT, HEX_RE, previewAccent, slideAccent } from '../engine/accent';
+import { accentTail, DEFAULT_ACCENT, HEX_RE, previewAccent, slideAccent } from '../engine/accent';
 import { lookFor, themeMode } from '../engine/deck-theme';
 import { deckFonts, fontStack } from '../engine/fonts';
 import { currentTheme } from '../engine/theme';
@@ -18,6 +18,7 @@ import { fillForm, formHtml, formSig, onFieldAction, onFieldChange, onGridPaste,
 import { BLOCKS, STYLE_FIELD, TEMPLATES, type Field } from './schema';
 import { partsOf, type Part } from './structure';
 import { effectName } from './anim-tab';
+import { accentSwatch, openAccentGradient } from './accent-gradient';
 
 /** Презентация с оформлением того вида слайдов, что на экране: у тёмных фон темы может быть своим */
 const shownDeck = (deck: Deck): Deck => ({ ...deck, theme: lookFor(deck.theme ?? {}, themeMode(deck.theme) ?? currentTheme()) });
@@ -137,8 +138,8 @@ export class Inspector {
       // Цвет меняется сразу, пока тянут ползунок палитры
       if (el.type !== 'color') return;
       // Акцент перекрашивает всю презентацию: пока тянут — только показ, правка — по change
-      if (el.dataset.f === 'accent' || el.dataset.f === 'accent2') this.host.editor().previewAccent(el.value, el.dataset.f);
-      else if (el.dataset.f === 'saccent' || el.dataset.f === 'saccent2') this.previewSlideColors(el);
+      if (el.dataset.f === 'accent') this.host.editor().previewAccent(el.value);
+      else if (el.dataset.f === 'saccent') this.previewSlideColors(el);
       // Свой фон: пока тянут — только показ на слайде; запись — по change (иначе панель перестраивается
       // вместе с палитрой и цвет меняется только щелчками)
       else if (el.dataset.f === 'bgcolor') this.previewBg(el.value);
@@ -146,8 +147,8 @@ export class Inspector {
     });
     root.addEventListener('focusout', (e) => {
       const f = (e.target as HTMLElement).dataset?.f;
-      if (f === 'accent' || f === 'accent2') this.host.editor().endAccentPreview();
-      if (f === 'saccent' || f === 'saccent2') previewAccent(null);
+      if (f === 'accent') this.host.editor().endAccentPreview();
+      if (f === 'saccent') previewAccent(null);
     });
     root.addEventListener('keydown', (e) => {
       const el = e.target as HTMLInputElement;
@@ -193,12 +194,9 @@ export class Inspector {
       }
       const sac = t.closest<HTMLElement>('[data-sac]')?.dataset.sac;
       if (sac) return this.setSlideColors(sac === 'own');
-      if (t.closest('[data-a="saccent2-off"]')) {
-        const i = this.host.index();
-        return void this.host.editor().commit((d) => { if (d.slides[i].theme) delete d.slides[i].theme!.accent2; }, { rebuild: true });
-      }
+      const grad = t.closest<HTMLElement>('[data-a="grad"], [data-a="sgrad"]');
+      if (grad) return this.openGradient(grad, grad.dataset.a === 'sgrad');
       if (t.closest('[data-a="accent-reset"]')) this.host.editor().setAccent(null);
-      if (t.closest('[data-a="accent2-off"]')) this.host.editor().setAccent(null, 'accent2');
       const pick = t.closest<HTMLElement>('[data-a="font-pick"]');
       if (pick) {
         const cur = typeof this.host.deck().theme?.font === 'string' ? this.host.deck().theme!.font as string : '';
@@ -271,7 +269,7 @@ export class Inspector {
     this.parts = el ? partsOf(el) : [];
     const key = sel
       ? `b:${JSON.stringify(sel.free ?? sel.block)}:${sel.type}:${sig}:${sel.free ? rowOf(getAt(deck, sel.free))?.id ?? '' : ''}:${this.parts.map((x) => x.label + x.snippet).join('|')}`
-      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}:${String(deck.slides[i]?.backdropOpacity ?? '')}/${String(deck.slides[i]?.backdropSpeed ?? '')}/${String(deck.slides[i]?.bgOpacity ?? '')}/${String(deck.theme?.backdropOpacity ?? '')}/${String(deck.theme?.backdropSpeed ?? '')}:${deckFonts(deck.fonts).map((f) => f.name).join('|')}:${deck.theme?.font ?? ''}:${deck.theme?.backdrop ?? ''}:${deck.theme?.darkLook ? `${JSON.stringify(deck.theme.darkLook)}${currentTheme()}` : ''}:${slideAccent(deck.slides[i]?.theme) ? 'own' : ''}${deck.slides[i]?.theme?.accent2 ? '2' : ''}:${deck.brand?.logo ? 'logo' : ''}`;
+      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}:${String(deck.slides[i]?.backdropOpacity ?? '')}/${String(deck.slides[i]?.backdropSpeed ?? '')}/${String(deck.slides[i]?.bgOpacity ?? '')}/${String(deck.theme?.backdropOpacity ?? '')}/${String(deck.theme?.backdropSpeed ?? '')}:${deckFonts(deck.fonts).map((f) => f.name).join('|')}:${deck.theme?.font ?? ''}:${deck.theme?.backdrop ?? ''}:${deck.theme?.darkLook ? `${JSON.stringify(deck.theme.darkLook)}${currentTheme()}` : ''}:${JSON.stringify([deck.slides[i]?.theme ?? null, deck.theme?.accent2 ?? null, deck.theme?.accentMid ?? null])}:${deck.brand?.logo ? 'logo' : ''}`;
     if (key !== this.key) {
       this.key = key;
       // Прокрутка панели сохраняется, когда форма перестраивается (добавили пункт)
@@ -515,6 +513,7 @@ ${!known ? `<p class="st-p-note">Сейчас: <code>${esc(cur.length > 60 ? cur
       else if (!slideAccent(s.theme)) {
         s.theme = { accent: typeof t?.accent === 'string' && HEX_RE.test(t.accent) ? t.accent : DEFAULT_ACCENT };
         if (typeof t?.accent2 === 'string' && HEX_RE.test(t.accent2)) s.theme.accent2 = t.accent2;
+        if (s.theme.accent2 && Array.isArray(t?.accentMid) && t.accentMid.length) s.theme.accentMid = structuredClone(t.accentMid);
       }
     }, { rebuild: true });
   }
@@ -522,9 +521,27 @@ ${!known ? `<p class="st-p-note">Сейчас: <code>${esc(cur.length > 60 ? cur
   /** Пока тянут палитру цвета слайда — показ только на открытом слайде, запись — по change */
   private previewSlideColors(el: HTMLInputElement): void {
     const s = this.host.deck().slides[this.host.index()];
-    const a = el.dataset.f === 'saccent' ? el.value : s?.theme?.accent ?? DEFAULT_ACCENT;
-    const a2 = el.dataset.f === 'saccent2' ? el.value : s?.theme?.accent2 ?? null;
-    previewAccent(a, this.host.stage(), a2, true);
+    previewAccent(el.value, this.host.stage(), accentTail(s?.theme), true);
+  }
+
+  /** Градиент акцента презентации или своих цветов слайда (own): готовые сочетания и свои точки */
+  private openGradient(at: HTMLElement, own: boolean): void {
+    const i = this.host.index();
+    const ed = this.host.editor();
+    const t = own ? this.host.deck().slides[i]?.theme : this.host.deck().theme;
+    openAccentGradient(at, { accent: t?.accent, accent2: t?.accent2, accentMid: t?.accentMid }, () => this.host.stage(), own, (c) => ed.commit((d) => {
+      if (own) {
+        const s = d.slides[i];
+        s.theme = { accent: c.accent ?? s.theme?.accent ?? DEFAULT_ACCENT, ...(c.accent2 ? { accent2: c.accent2 } : {}), ...(c.accentMid?.length ? { accentMid: c.accentMid } : {}) };
+        return;
+      }
+      const th = (d.theme ??= {});
+      if (c.accent) th.accent = c.accent;
+      if (c.accent2) th.accent2 = c.accent2;
+      else { delete th.accent2; delete th.accentFlow; }
+      if (c.accentMid?.length) th.accentMid = c.accentMid;
+      else delete th.accentMid;
+    }, { rebuild: true }), () => ed.endAccentPreview());
   }
 
   /** Цвета слайда: как у презентации или свои (акцент и второй цвет градиента) */
@@ -532,7 +549,7 @@ ${!known ? `<p class="st-p-note">Сейчас: <code>${esc(cur.length > 60 ? cur
     const own = !!slideAccent(s.theme);
     const seg = (v: string, l: string, on: boolean) => `<button type="button" role="radio" aria-checked="${on}" data-sac="${v}">${l}</button>`;
     return `<div class="st-p-field"><span>Цвета слайда</span><div class="st-p-seg" role="radiogroup" aria-label="Цвета слайда">${seg('deck', 'Как у презентации', !own)}${seg('own', 'Свои', own)}</div>
-${own ? `<span class="st-p-color st-p-sac"><input type="color" data-f="saccent" aria-label="Акцент слайда" title="Акцент слайда"><input type="color" data-f="saccent2" aria-label="Второй цвет градиента слайда" title="Второй цвет градиента"><button type="button" class="st-link" data-a="saccent2-off"${s.theme?.accent2 ? '' : ' hidden'}>Без градиента</button></span>` : ''}</div>`;
+${own ? `<span class="st-p-color st-p-sac"><input type="color" data-f="saccent" aria-label="Акцент слайда" title="Акцент слайда — первая точка градиента">${gradBtn('sgrad', accentSwatch(s.theme), 'Градиент слайда: готовые сочетания и свои точки')}</span>` : ''}</div>`;
   }
 
   /** Анимированный фон слайда: лента образцов, наведение — примерка на слайде */
@@ -563,7 +580,7 @@ ${(tpl === 'content' || tpl === 'canvas') && !deck.brand?.logo ? cmdBtn('brand.l
 ${tpl !== 'canvas' && !s.live ? `<section class="st-p-sec"><h3>Раскладка шаблона</h3><p class="st-p-note">Части слайда стоят на своих местах. Разберите слайд, чтобы двигать и масштабировать их по отдельности: вид и анимации сохранятся. Вернуть — Ctrl+Z.</p>${cmdBtn('slide.explode', 'ungroup', 'Разобрать на объекты')}</section>` : ''}
 ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Название</span><input type="text" data-f="title"></label>
 <label class="st-p-field"><span>Акцентный цвет</span><span class="st-p-color"><input type="color" data-f="accent" aria-label="Акцентный цвет"><button type="button" class="st-link" data-a="accent-reset">Стандартный</button></span></label>
-<label class="st-p-field"><span>Градиент акцента — второй цвет</span><span class="st-p-color"><input type="color" data-f="accent2" aria-label="Второй цвет градиента"><button type="button" class="st-link" data-a="accent2-off">Без градиента</button></span></label>
+<div class="st-p-field"><span>Градиент акцента</span><span class="st-p-color">${gradBtn('grad', accentSwatch(deck.theme), 'Градиент акцента презентации: готовые сочетания и свои точки')}</span></div>
 ${this.fontsHtml(deck)}`)}`;
   }
 
@@ -654,7 +671,6 @@ ${this.fontsHtml(deck)}`)}`;
     const bg = typeof s?.bg === 'string' ? s.bg : '';
     const accent = deck.theme?.accent;
     const acNow = (typeof accent === 'string' && HEX_RE.test(accent) ? accent : DEFAULT_ACCENT).toLowerCase();
-    const accent2 = deck.theme?.accent2;
     return {
       label: typeof s?.label === 'string' ? s.label : '',
       bg,
@@ -662,9 +678,6 @@ ${this.fontsHtml(deck)}`)}`;
       title: deck.title ?? '',
       accent: acNow,
       saccent: (typeof s?.theme?.accent === 'string' && HEX_RE.test(s.theme.accent) ? s.theme.accent : acNow).toLowerCase(),
-      saccent2: (typeof s?.theme?.accent2 === 'string' && HEX_RE.test(s.theme.accent2) ? s.theme.accent2
-        : typeof s?.theme?.accent === 'string' && HEX_RE.test(s.theme.accent) ? s.theme.accent : acNow).toLowerCase(),
-      accent2: typeof accent2 === 'string' && HEX_RE.test(accent2) ? accent2.toLowerCase() : acNow,
     };
   }
 
@@ -688,8 +701,6 @@ ${this.fontsHtml(deck)}`)}`;
     if (actSel && actObj) actObj.hidden = !/^(show|hide|toggle|play):$/.test(actSel.value);
     const reset = this.root.querySelector<HTMLElement>('[data-a="accent-reset"]');
     if (reset) reset.hidden = !this.host.deck().theme?.accent && !this.host.deck().theme?.accent2;
-    const off2 = this.root.querySelector<HTMLElement>('[data-a="accent2-off"]');
-    if (off2) off2.hidden = !this.host.deck().theme?.accent2;
     const sum = this.root.querySelector<HTMLElement>('[data-sum="enter"]');
     if (sum) sum.textContent = (v.enter ? effectName(this.host.deck(), v.enter) : '') || 'нет';
   }
@@ -832,15 +843,18 @@ ${this.fontsHtml(deck)}`)}`;
       if (!raw) return this.fill();
       ed.commit((d) => { d.title = raw; }, { rebuild: false, merge: 'title' });
       document.title = `${raw} — Slideria`;
-    } else if (f === 'accent' || f === 'accent2') {
+    } else if (f === 'accent') {
       ed.setAccent(raw, f);
-    } else if ((f === 'saccent' || f === 'saccent2') && HEX_RE.test(raw)) {
+    } else if (f === 'saccent' && HEX_RE.test(raw)) {
       previewAccent(null);
-      const key = f === 'saccent' ? 'accent' : 'accent2';
-      ed.commit((d) => { d.slides[i].theme = { ...(d.slides[i].theme ?? {}), [key]: raw.toUpperCase() }; }, { rebuild: true, merge: `sac:${i}` });
+      ed.commit((d) => { d.slides[i].theme = { ...(d.slides[i].theme ?? {}), accent: raw.toUpperCase() }; }, { rebuild: true, merge: `sac:${i}` });
     }
   }
 }
+
+/** Кнопка градиента акцента в панели: полоска его цветов */
+const gradBtn = (a: string, css: string, title: string) =>
+  `<button type="button" class="st-p-grad" data-a="${a}" title="${esc(title)}" aria-haspopup="true"><i style="background:${esc(css)}"></i><span>Градиент</span></button>`;
 
 /** Объект слайда в списке: вид блока и начало его текста */
 function objLabel(b: Block): string {

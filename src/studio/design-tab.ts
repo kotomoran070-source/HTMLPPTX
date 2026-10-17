@@ -5,7 +5,6 @@
  * щелчок применяет его одним шагом (Ctrl+Z возвращает прежнее).
  */
 import { icon } from '../components/icons';
-import { previewAccent } from '../engine/accent';
 import { replaceContents } from '../engine/data';
 import { CARD_STYLES, hasThemeLook, lookFor, ownBg, previewTheme, THEME_BGS, themeMode, themeVars, type SlideMode } from '../engine/deck-theme';
 import { reducedMotion, staticSlide } from '../engine/deck-view';
@@ -20,6 +19,7 @@ import { logoMark, logoPlate } from '../engine/render';
 import { logoImg } from '../components/templates/content';
 import { logoColors } from './logo-colors';
 import { closeMenu, showPopover } from './menu';
+import { accentSwatch, openAccentGradient } from './accent-gradient';
 import { backdropStrip, bindBackdropStrip, bindTune, tuneHtml } from './backdrop-pick';
 import { previewBackdrop } from '../components/backdrop/backdrop';
 import { isBackdrop } from '../engine/backdrops';
@@ -90,9 +90,9 @@ export function designTabHtml(): string {
 export function designPanelHtml(): string {
   return `<div class="st-rpanel" data-panel="design" hidden>
   ${group('Темы', `<div class="st-dz-strip" id="st-dz-strip" role="group" aria-label="Темы"></div>${btn('design.themes', 'grid', 'Все темы', { big: true, menu: true, title: 'Все темы на одном слайде-образце. Наведите — тема примерится на ваш слайд' })}`)}
-  ${group('Цвета', `<label class="st-accent" title="Акцентный цвет презентации"><input type="color" id="st-accent" aria-label="Акцентный цвет"><span>Акцент</span></label>`
-    + `<label class="st-accent" title="Второй цвет: акцентные заливки становятся градиентом от акцента к нему"><input type="color" id="st-accent2" aria-label="Второй цвет градиента"><span>Градиент</span></label>`
-    + `<div class="st-rstack">${btn('design.palettes', 'fill', 'Палитры', { menu: true, title: 'Готовые пары цветов' })}${btn('design.accent2-off', 'close', 'Без градиента', { title: 'Ровный акцент без второго цвета' })}${chk('design.accent-flow', 'Переливание', 'Цвета градиента акцента плавно текут по акцентным элементам слайда')}</div>`)}
+  ${group('Цвета', `<label class="st-accent" title="Акцентный цвет презентации — первая точка градиента"><input type="color" id="st-accent" aria-label="Акцентный цвет"><span>Акцент</span></label>`
+    + `<button type="button" class="st-accent st-dz-grad" data-cmd="design.gradient" title="Градиент акцента: готовые сочетания и свои точки — до шести цветов" aria-haspopup="true" aria-expanded="false"><i id="st-dz-gsw"></i><span>Градиент<b class="st-caret"></b></span></button>`
+    + `<div class="st-rstack">${chk('design.accent-flow', 'Переливание', 'Цвета градиента акцента плавно текут по акцентным элементам слайда')}</div>`)}
   ${group('Шрифты', `<div class="st-rstack st-dz-fonts">${fontBtn('design.font.head', 'Заголовки', 'Шрифт заголовков и крупных чисел')}${fontBtn('design.font.body', 'Текст', 'Шрифт текста презентации')}</div>`)}
   ${group('Оформление', btn('design.bg', 'image', 'Фон', { big: true, menu: true, title: 'Фон слайдов' }) + btn('design.cards', 'frame', 'Карточки', { big: true, menu: true, title: 'Вид карточек, таблиц и плашек' }) + btn('design.radius', 'corner', 'Углы', { big: true, menu: true, title: 'Скругление углов карточек и картинок' }) + btn('design.backdrop', 'play', 'Анимация', { big: true, menu: true, title: 'Анимированный фон всех слайдов: переливы, волны, звёзды, сеть… У отдельного слайда — свой в панели слайда' }) + btn('design.logo', 'sparkle', 'Логотип', { big: true, menu: true, title: 'Логотип: плашка в цветах темы или логотипа, знак в цвет темы, угол и размер, размер знака в плашке' }))}
   ${group('Слайды', `<div class="st-rstack">${chk('design.mode.auto', 'Как у зрителя', 'Слайды светлые или тёмные — как тема у того, кто смотрит')}${chk('design.mode.light', 'Всегда светлые', 'Слайды светлые при любой теме у зрителя')}${chk('design.mode.dark', 'Всегда тёмные', 'Слайды тёмные при любой теме у зрителя')}</div>`)}
@@ -189,14 +189,6 @@ function smoothly(fn: () => void): void {
   if (doc.startViewTransition && !reducedMotion()) doc.startViewTransition(fn);
   else fn();
 }
-
-/** Готовые пары цветов: акцент и второй цвет градиента */
-const PALETTES: [string, string | null, string][] = [
-  ['#2563EB', null, 'Синий'], ['#4F46E5', '#06B6D4', 'Индиго и бирюза'], ['#7C3AED', '#EC4899', 'Фиолетовый и розовый'],
-  ['#0D9488', '#34D399', 'Бирюзовый'], ['#16A34A', '#A3E635', 'Зелёный'], ['#0369A1', '#14B8A6', 'Океан'],
-  ['#E11D48', null, 'Красный'], ['#DB2777', '#F97316', 'Закат'], ['#EA580C', '#FACC15', 'Солнечный'],
-  ['#C9A227', '#F3D98B', 'Золото'], ['#0EA5E9', '#6366F1', 'Небо'], ['#334155', null, 'Графит'],
-];
 
 /** Логотип в углу обычных слайдов: угол и размер */
 const CORNER_POS: [string, string][] = [['tl', 'Слева вверху'], ['tr', 'Справа вверху'], ['bl', 'Слева внизу'], ['br', 'Справа внизу']];
@@ -467,34 +459,14 @@ export function designCommands(h: DesignHost): Record<string, Command> {
   };
   applyById = (id) => { const p = findTheme(deck, id); if (p) void applyPreset(p); };
 
-  // ---------- палитры ----------
-  const palettes = () => {
-    const at = anchor('design.palettes');
+  // ---------- градиент акцента ----------
+  const gradient = () => {
+    const at = anchor('design.gradient');
     if (!at) return;
-    const own = THEME_PRESETS.find((p) => p.id === deck.theme?.preset && p.theme.accent);
-    const mine: [string, string | null, string] | null = own ? [own.theme.accent!, own.theme.accent2 ?? null, `Как в теме «${own.name}»`] : null;
-    const list: [string, string | null, string][] = [
-      ...(mine ? [mine] : []),
-      // Пара темы уже первая — без повтора
-      ...PALETTES.filter(([c1, c2]) => !mine || c1 !== mine[0].toUpperCase() || c2 !== (mine[1]?.toUpperCase() ?? null)),
-    ];
-    const a = theme().accent?.toUpperCase();
-    const a2 = theme().accent2?.toUpperCase() ?? null;
-    const html = `<div class="st-dz-pals">${list.map(([c1, c2, name], k) =>
-      `<button type="button" class="st-dz-pal${c1 === a && c2 === a2 ? ' active' : ''}" data-k="${k}" title="${esc(name)}" aria-label="${esc(name)}" style="--c1:${c1};--c2:${c2 ?? c1}"><i></i></button>`).join('')}</div>`;
-    const el = showPopover(at, html, (b) => {
-      const p = list[Number(b.dataset.k)];
-      return p ? { run: () => patch({ accent: p[0], accent2: p[1] ?? undefined, accentFlow: p[1] ? theme().accentFlow : undefined }) } : null;
-    });
-    el.addEventListener('pointerover', (e) => {
-      const b = (e.target as Element).closest<HTMLElement>('.st-dz-pal');
-      const p = b ? list[Number(b.dataset.k)] : null;
-      if (p) previewAccent(p[0], h.stage(), p[1], true);
-    });
-    el.addEventListener('pointerleave', () => ed.endAccentPreview());
-    new MutationObserver((_m, o) => {
-      if (!el.isConnected) { ed.endAccentPreview(); o.disconnect(); }
-    }).observe(document.body, { childList: true });
+    const t = theme();
+    openAccentGradient(at, { accent: t.accent, accent2: t.accent2, accentMid: t.accentMid }, h.stage, false,
+      (c) => patch({ accent: c.accent, accent2: c.accent2, accentMid: c.accentMid?.length ? c.accentMid : undefined, accentFlow: c.accent2 ? t.accentFlow : undefined }),
+      () => ed.endAccentPreview());
   };
 
   // ---------- шрифты ----------
@@ -770,7 +742,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
 
   const cmds: Record<string, Command> = {
     'design.themes': { run: gallery },
-    'design.palettes': { run: palettes },
+    'design.gradient': { run: gradient },
     'design.font.head': { run: () => pickFont('head') },
     'design.font.body': { run: () => pickFont('font') },
     'design.bg': { run: () => themed('design.bg', 'bg', Object.entries(THEME_BGS).map(([k, b]) => [k, b.name] as [string, string]), 'dots', () => '', 'bgs') },
@@ -820,6 +792,8 @@ export function syncDesignTab(h: DesignHost): void {
     b.style.fontFamily = name ? fontStack(name) : '';
   };
   label('design.font.head', t.head, t.font ? 'Как у текста' : 'Обычный');
+  const gsw = document.getElementById('st-dz-gsw');
+  if (gsw) gsw.style.background = accentSwatch(t);
   label('design.font.body', t.font, 'Обычный');
   // Сменили логотип, а плашка была в его цветах — цвета подбираются заново по новому файлу
   const plate = h.deck.brand?.plate;

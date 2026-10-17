@@ -304,7 +304,7 @@ function embedFiles(files: Record<string, string>): Promise<Record<string, Array
 }
 
 /** Цвета темы, которые передаются во вставку */
-const TOKENS = ['--bg', '--surf', '--alt', '--tx', '--tx2', '--mu', '--bd', '--bd2', '--ac', '--ac2', '--ach', '--acs', '--acb', '--on-ac', '--font'];
+const TOKENS = ['--bg', '--surf', '--alt', '--tx', '--tx2', '--mu', '--bd', '--bd2', '--ac', '--ac2', '--ac-stops', '--ach', '--acs', '--acb', '--on-ac', '--font'];
 
 /**
  * Документ вставки с цветами темы: :root:root сильнее :root самой вставки.

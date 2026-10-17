@@ -1,7 +1,7 @@
 import { icon } from '../components/icons';
 import { isHidden, landOn, stepVisible, visiblePos } from './hidden';
 import type { Deck } from '../types';
-import { applyAccent, applyAccentFlow } from './accent';
+import { accentTail, applyAccent, applyAccentFlow } from './accent';
 import { updateFavicon } from './brand';
 import { DeckView, staticSlide } from './deck-view';
 import { Editor, SLIDE_PRESETS } from './editor/editor';
@@ -712,7 +712,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     else if (m.type === 'black' && m.value !== black) setBlack(m.value);
   });
 
-  applyAccent(deck.theme?.accent, deck.theme?.accent2);
+  applyAccent(deck.theme?.accent, accentTail(deck.theme));
 
   applyAccentFlow(deck.theme?.accentFlow);
   index = -1;

@@ -48,7 +48,7 @@
 .hb-l { color: var(--tx2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hb-t { position: relative; height: 14px; border-radius: 4px; background: color-mix(in srgb, var(--ac) 8%, var(--alt)); overflow: hidden; }
 .hb-t i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: color-mix(in srgb, var(--ac) 42%, var(--surf)); transform-origin: left; }
-.hb.hl .hb-t i { background: linear-gradient(90deg, var(--ac), var(--ac2)); }
+.hb.hl .hb-t i { background: linear-gradient(90deg, var(--ac-stops, var(--ac), var(--ac2))); }
 .hb b { min-width: 3em; text-align: right; color: var(--tx); font-weight: 700; font-variant-numeric: tabular-nums; }
 .hb.hl .hb-l { color: var(--tx); font-weight: 600; }
 .slide.on .hb-t i { animation: hb-gr .9s calc(.3s + var(--k) * .08s) cubic-bezier(.3, 0, .2, 1) both; }

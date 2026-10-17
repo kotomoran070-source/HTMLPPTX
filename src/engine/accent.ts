@@ -43,11 +43,38 @@ export function contrast(a: string, b: string): number {
 /** Стандартный акцент (как --ac в tokens.css): от него строится градиент, если задан только второй цвет */
 export const DEFAULT_ACCENT = '#2563EB';
 
+/** Точка градиента акцента между акцентом и вторым цветом: цвет и место, 1–99 % (theme.accentMid) */
+export interface AccentStop { c: string; at: number }
+/** Конец градиента акцента: второй цвет и точки между ним и акцентом */
+export interface AccentTail { to: string | null; mid: AccentStop[] }
+
+/** Промежуточные точки градиента в порядке: #RRGGBB, место 1–99 %, по возрастанию, не больше четырёх */
+export function accentMid(v: unknown): AccentStop[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is AccentStop => !!x && typeof x.c === 'string' && HEX_RE.test(x.c) && Number.isFinite(Number(x.at)))
+    .map((x) => ({ c: x.c.toUpperCase(), at: Math.max(1, Math.min(99, Math.round(Number(x.at)))) }))
+    .sort((a, b) => a.at - b.at).slice(0, 4);
+}
+
+/** Второй цвет и промежуточные точки темы или слайда (theme.accent2, theme.accentMid) — для accentTokens и др. */
+export function accentTail(theme: unknown): AccentTail {
+  const t = theme as { accent2?: unknown; accentMid?: unknown } | undefined;
+  const to = typeof t?.accent2 === 'string' && HEX_RE.test(t.accent2) ? t.accent2 : null;
+  return { to, mid: to ? accentMid(t?.accentMid) : [] };
+}
+/** Второй цвет: строкой (как раньше) или вместе с точками */
+const tailOf = (v: unknown): AccentTail => {
+  if (v && typeof v === 'object') return accentTail({ accent2: (v as AccentTail).to, accentMid: (v as AccentTail).mid });
+  return { to: typeof v === 'string' && HEX_RE.test(v) ? v : null, mid: [] };
+};
+
 /**
  * Оттенки акцента для светлой и тёмной темы. bg — фон слайдов темы презентации: бледная
- * подложка акцента (--acs) смешивается с ним, а не со стандартным фоном
+ * подложка акцента (--acs) смешивается с ним, а не со стандартным фоном. accent2 — второй цвет
+ * (строкой) или второй цвет с промежуточными точками (AccentTail)
  */
-export function accentTokens(accent: string, accent2?: string | null, bg?: { light?: string; dark?: string }): { light: Record<string, string>; dark: Record<string, string> } {
+export function accentTokens(accent: string, accent2?: string | AccentTail | null, bg?: { light?: string; dark?: string }): { light: Record<string, string>; dark: Record<string, string> } {
+  const tail = tailOf(accent2);
   const light: Record<string, string> = {
     '--ac': hex(parse(accent)),
     '--ach': mix(accent, '#000000', 0.18),
@@ -61,10 +88,17 @@ export function accentTokens(accent: string, accent2?: string | null, bg?: { lig
     '--acb': hex(parse(accent)),
   };
   // Второй цвет и градиент — явно: так они верны и там, где токены переопределены не на :root
-  const two = accent2 && HEX_RE.test(accent2) ? accent2 : accent;
+  const two = tail.to ?? accent;
   light['--ac2'] = hex(parse(two));
   dark['--ac2'] = mix(two, '#FFFFFF', 0.12);
-  for (const t of [light, dark]) t['--ac-g'] = `linear-gradient(135deg, ${t['--ac']}, ${t['--ac2']})`;
+  // Точки градиента: --ac-stops — для своих направлений (linear-gradient(90deg, var(--ac-stops))),
+  // --ac-loop — туда и обратно, для переливания по кругу
+  for (const [t, dk] of [[light, false], [dark, true]] as const) {
+    const mid = tail.mid.map((m) => ({ c: dk ? mix(m.c, '#FFFFFF', 0.12) : m.c, at: m.at }));
+    t['--ac-stops'] = [t['--ac'], ...mid.map((m) => `${m.c} ${m.at}%`), t['--ac2']].join(', ');
+    t['--ac-loop'] = [t['--ac'], ...mid.map((m) => `${m.c} ${m.at / 2}%`), `${t['--ac2']} 50%`, ...[...mid].reverse().map((m) => `${m.c} ${100 - m.at / 2}%`), t['--ac']].join(', ');
+    t['--ac-g'] = `linear-gradient(135deg, ${t['--ac-stops']})`;
+  }
   return { light, dark };
 }
 
@@ -77,7 +111,7 @@ const PREVIEW_ATTR = 'data-accent-preview';
  * Показ цвета, пока тянут палитру: новые токены только у открытого слайда в stage — остальная
  * страница (миниатюры, лента) не пересчитывает стили на каждое движение. null — показ закончен.
  */
-export function previewAccent(accent: string | null, stage?: HTMLElement, accent2?: string | null, own = false): void {
+export function previewAccent(accent: string | null, stage?: HTMLElement, accent2?: string | AccentTail | null, own = false): void {
   let el = document.getElementById(PREVIEW_ID);
   if (!accent || !HEX_RE.test(accent)) {
     el?.remove();
@@ -176,8 +210,8 @@ export function applyAccent(accent: unknown, accent2?: unknown, quiet = false, u
     }
   };
   const a = typeof accent === 'string' && HEX_RE.test(accent) ? accent : null;
-  const a2 = typeof accent2 === 'string' && HEX_RE.test(accent2) ? accent2 : null;
-  if (!a && !a2 && !ui) {
+  const a2 = tailOf(accent2);
+  if (!a && !a2.to && !ui) {
     el?.remove();
     notify(!!before);
     return;
@@ -204,17 +238,18 @@ export function applyAccent(accent: unknown, accent2?: unknown, quiet = false, u
 const SLIDE_ID = 'htmlpptx-slide-accents';
 const slideKeys = new Set<string>();
 /**
- * Свои цвета слайда (slide.theme.accent / accent2): значение атрибута data-accent у слайда
- * («#4F46E5» или «#4F46E5 #EC4899»); null — у слайда цвета презентации. Правило для такого
+ * Свои цвета слайда (slide.theme.accent / accent2 / accentMid): значение атрибута data-accent у слайда
+ * («#4F46E5», «#4F46E5 #EC4899» или с точками «#4F46E5 #EC4899 #22D3EE@40»); null — у слайда цвета презентации. Правило для такого
  * сочетания создаётся один раз; образцы цветов в панелях берут цвета текущего слайда по
  * data-accent у студии.
  */
 export function slideAccent(theme: unknown): string | null {
   const t = theme as { accent?: unknown; accent2?: unknown } | undefined;
   const a = typeof t?.accent === 'string' && HEX_RE.test(t.accent) ? t.accent.toUpperCase() : null;
-  const a2 = typeof t?.accent2 === 'string' && HEX_RE.test(t.accent2) ? t.accent2.toUpperCase() : null;
+  const tail = accentTail(t);
+  const a2 = tail.to?.toUpperCase() ?? null;
   if (!a && !a2) return null;
-  const key = a2 ? `${a ?? DEFAULT_ACCENT} ${a2}` : a!;
+  const key = a2 ? `${a ?? DEFAULT_ACCENT} ${a2}${tail.mid.map((m) => ` ${m.c}@${m.at}`).join('')}` : a!;
   if (!slideKeys.has(key) && typeof document !== 'undefined') {
     slideKeys.add(key);
     let el = document.getElementById(SLIDE_ID);
@@ -223,7 +258,7 @@ export function slideAccent(theme: unknown): string | null {
       el.id = SLIDE_ID;
       document.head.appendChild(el);
     }
-    const { light, dark } = accentTokens(a ?? DEFAULT_ACCENT, a2);
+    const { light, dark } = accentTokens(a ?? DEFAULT_ACCENT, tail);
     el.textContent += `@layer slideria-slide{${themed(`.slide[data-accent="${key}"], [data-accent="${key}"]:not(.slide) :is(${SWATCHES})`, light, dark)}}`;
   }
   return key;

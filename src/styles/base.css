@@ -267,13 +267,13 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
 @keyframes ac-flow { from { background-position: 0% 0; } to { background-position: -200% 0; } }
 .ac-flow .slide.on :is(.fill, .strip i, .tbl-accent thead tr, .fin .ln2, .pl > .primary i, .tl-line i, .md-g[data-c="g:duo"]),
 .ac-flow .progress-top {
-  background-image: linear-gradient(90deg, var(--ac), var(--ac2), var(--ac));
+  background-image: linear-gradient(90deg, var(--ac-loop, var(--ac), var(--ac2), var(--ac)));
   background-size: 200% 100%;
   animation: ac-flow 6s linear infinite;
 }
 /* У фигуры заливка задана в style — перекрываем явно */
 .ac-flow .slide.on .shape-duo {
-  background-image: linear-gradient(90deg, var(--ac), var(--ac2), var(--ac)) !important;
+  background-image: linear-gradient(90deg, var(--ac-loop, var(--ac), var(--ac2), var(--ac))) !important;
   background-size: 200% 100% !important;
   animation: ac-flow 6s linear infinite;
 }

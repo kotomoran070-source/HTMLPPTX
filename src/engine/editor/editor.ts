@@ -1,6 +1,6 @@
 import { icon } from '../../components/icons';
 import type { Deck, SlideData } from '../../types';
-import { applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, previewAccent } from '../accent';
+import { accentTail, applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, previewAccent } from '../accent';
 import { applyThemeSwatches, hasThemeLook } from '../deck-theme';
 import { clone, getAt, replaceContents, setAt, type Path } from '../data';
 import { esc } from '../html';
@@ -567,7 +567,7 @@ export class Editor {
     if (rebuild) this.hideHint();
     this.touched = true;
     this.dirty = true;
-    applyAccent(this.host.deck.theme?.accent, this.host.deck.theme?.accent2);
+    applyAccent(this.host.deck.theme?.accent, accentTail(this.host.deck.theme));
     applyAccentFlow(this.host.deck.theme?.accentFlow);
     applyThemeSwatches(this.host.deck.theme);
     this.host.refresh(rebuild);
@@ -778,7 +778,7 @@ export class Editor {
       this.accentFrame = requestAnimationFrame(() => {
         this.accentFrame = 0;
         const c = cur();
-        previewAccent(c.accent && HEX_RE.test(c.accent) ? c.accent : DEFAULT_ACCENT, this.host.stage(), c.accent2);
+        previewAccent(c.accent && HEX_RE.test(c.accent) ? c.accent : DEFAULT_ACCENT, this.host.stage(), accentTail({ ...this.host.deck.theme, accent2: c.accent2 }));
       });
     }
     if (!this.accentTimer) {
@@ -786,7 +786,7 @@ export class Editor {
       this.accentTimer = window.setTimeout(() => {
         this.accentTimer = 0;
         this.accentAt = performance.now();
-        applyAccent(cur().accent, cur().accent2, true);
+        applyAccent(cur().accent, accentTail({ ...this.host.deck.theme, accent2: cur().accent2 }), true);
       }, wait);
     }
   }
@@ -799,7 +799,7 @@ export class Editor {
     this.accentTimer = 0;
     this.accentPreview = {};
     previewAccent(null);
-    applyAccent(this.host.deck.theme?.accent, this.host.deck.theme?.accent2);
+    applyAccent(this.host.deck.theme?.accent, accentTail(this.host.deck.theme));
     applyAccentFlow(this.host.deck.theme?.accentFlow);
   }
 
@@ -818,7 +818,8 @@ export class Editor {
       } else if (d.theme) {
         delete d.theme[key];
         if (key === 'accent') delete d.theme.accent2;
-        // Без второго цвета переливаться нечему
+        // Без второго цвета нет и точек между цветами, и переливаться нечему
+        delete d.theme.accentMid;
         delete d.theme.accentFlow;
         if (!Object.keys(d.theme).length) delete d.theme;
       }

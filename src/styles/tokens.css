@@ -32,6 +32,9 @@
   /* Второй цвет акцента (theme.accent2) и акцентный градиент; без второго цвета — ровный акцент */
   --ac2: var(--ac);
   --ac-g: linear-gradient(135deg, var(--ac), var(--ac2));
+  /* Точки градиента акцента (с theme.accentMid — и промежуточные): для своих направлений и переливания */
+  --ac-stops: var(--ac), var(--ac2);
+  --ac-loop: var(--ac), var(--ac2), var(--ac);
   color-scheme: light;
 }
 

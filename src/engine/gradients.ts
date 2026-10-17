@@ -3,13 +3,25 @@
  */
 /**
  * Свой градиент заливки: цвета — роли темы (accent, soft, surface…, а также accent-light и accent-dark)
- * или #RRGGBB; angle — направление в градусах (как в CSS: 180 — сверху вниз); radial — от центра.
+ * или #RRGGBB; mid — точки между началом и концом (место 1–99 %); angle — направление в градусах
+ * (как в CSS: 180 — сверху вниз); radial — от центра.
  */
 export interface ShapeGradient {
   from: string;
   to: string;
+  mid?: GradientStop[];
   angle?: number;
   type?: 'linear' | 'radial';
+}
+/** Точка градиента между началом и концом: цвет и место, 1–99 % */
+export interface GradientStop { c: string; at: number }
+
+/** Точки между началом и концом в порядке: цвет есть, место 1–99 %, по возрастанию, не больше четырёх */
+export function gradientMid(v: unknown): GradientStop[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is GradientStop => !!x && typeof x.c === 'string' && Number.isFinite(Number(x.at)))
+    .map((x) => ({ c: x.c, at: Math.max(1, Math.min(99, Math.round(Number(x.at)))) }))
+    .sort((a, b) => a.at - b.at).slice(0, 4);
 }
 
 /** Роли темы в градиентах: те же, что у цветов фигур (shape.ts), и светлый/тёмный акцент */
@@ -49,12 +61,19 @@ export function isGradient(g: unknown): g is ShapeGradient {
   return !!g && typeof g === 'object' && typeof (g as ShapeGradient).from === 'string' && typeof (g as ShapeGradient).to === 'string';
 }
 
+/** Цвета градиента через запятую: начало, точки между, конец. От акцента ко второму цвету — все точки темы */
+function stopsCss(g: ShapeGradient): string {
+  const mid = gradientMid(g.mid);
+  if (!mid.length && g.from === 'accent' && g.to === 'accent2') return 'var(--ac-stops, var(--ac), var(--ac2))';
+  return [gradColor(g.from), ...mid.map((m) => `${gradColor(m.c)} ${m.at}%`), gradColor(g.to)].join(', ');
+}
+
 /** CSS градиента; без своего — градиент акцента */
 export function gradientCss(g: unknown): string {
   if (!isGradient(g)) return ACCENT.css;
-  if (g.type === 'radial') return `radial-gradient(circle at 50% 40%, ${gradColor(g.from)}, ${gradColor(g.to)})`;
+  if (g.type === 'radial') return `radial-gradient(circle at 50% 40%, ${stopsCss(g)})`;
   const a = Number.isFinite(Number(g.angle)) ? Number(g.angle) : 135;
-  return `linear-gradient(${a}deg, ${gradColor(g.from)}, ${gradColor(g.to)})`;
+  return `linear-gradient(${a}deg, ${stopsCss(g)})`;
 }
 
 /** Цвет текста поверх градиента: у готовых — свой, у постоянных цветов — по яркости середины */
@@ -68,15 +87,15 @@ export function gradientOn(g: unknown): string {
     const [r, gr, b] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
     return 0.299 * r + 0.587 * gr + 0.114 * b;
   };
-  const a = lum(g.from);
-  const b = lum(g.to);
-  if (a === null || b === null) return GRADIENTS.find((x) => x.g.from === g.from)?.on ?? ROLE_ON[g.from] ?? 'var(--tx)';
-  return (a + b) / 2 > 165 ? '#111827' : '#FFFFFF';
+  const all = [g.from, ...gradientMid(g.mid).map((m) => m.c), g.to].map(lum);
+  if (all.some((x) => x === null)) return GRADIENTS.find((x) => x.g.from === g.from)?.on ?? ROLE_ON[g.from] ?? 'var(--tx)';
+  return (all as number[]).reduce((s, x) => s + x, 0) / all.length > 165 ? '#111827' : '#FFFFFF';
 }
 
 export function sameGradient(a: unknown, b: unknown): boolean {
   if (!isGradient(a) || !isGradient(b)) return false;
-  return a.from.toLowerCase() === b.from.toLowerCase() && a.to.toLowerCase() === b.to.toLowerCase()
+  const mid = (g: ShapeGradient) => gradientMid(g.mid).map((m) => `${m.c.toLowerCase()}@${m.at}`).join(',');
+  return a.from.toLowerCase() === b.from.toLowerCase() && a.to.toLowerCase() === b.to.toLowerCase() && mid(a) === mid(b)
     && (a.type ?? 'linear') === (b.type ?? 'linear') && (a.type === 'radial' || (a.angle ?? 135) === (b.angle ?? 135));
 }
 
