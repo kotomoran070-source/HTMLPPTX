@@ -20,6 +20,8 @@ interface BackdropProps extends Block {
   /** Заметность 0,1–1 и скорость 0,25–3 (engine/backdrops.ts → backdropLook) */
   opacity?: number;
   speed?: number;
+  /** Только для светлых или только для тёмных слайдов: у тёмных свой фон темы (theme.darkLook) */
+  only?: 'light' | 'dark';
 }
 
 const QUAD_VS = `attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}`;
@@ -522,7 +524,8 @@ defineBlock<BackdropProps>('backdrop', {
   render(p) {
     const op = Number(p.opacity);
     const sp = Number(p.speed);
-    return `<div class="backdrop bd-${p.kind}" aria-hidden="true"${op > 0 && op < 1 ? ` style="--bd-op:${op}"` : ''}${sp > 0 && sp !== 1 ? ` data-speed="${sp}"` : ''}></div>`;
+    const only = p.only === 'light' || p.only === 'dark' ? ` bd-only-${p.only}` : '';
+    return `<div class="backdrop bd-${p.kind}${only}" aria-hidden="true"${op > 0 && op < 1 ? ` style="--bd-op:${op}"` : ''}${sp > 0 && sp !== 1 ? ` data-speed="${sp}"` : ''}></div>`;
   },
 
   mount(el, p, ctx) {
@@ -628,7 +631,9 @@ defineBlock<BackdropProps>('backdrop', {
       else offTimer = window.setTimeout(release, 1000);
     };
 
-    const sync = () => (ctx.slide.classList.contains('on') ? start() : stop());
+    // Слой другого вида (светлый при тёмных слайдах) спрятан — его сцена не рисуется
+    const shown = () => !p.only || getComputedStyle(el).display !== 'none';
+    const sync = () => (ctx.slide.classList.contains('on') && shown() ? start() : stop());
     const recolor = () => {
       if (!scene) return;
       readColors();
@@ -641,7 +646,7 @@ defineBlock<BackdropProps>('backdrop', {
     mo.observe(ctx.slide, { attributes: true, attributeFilter: ['class'] });
     // Сняли паузу — кадры идут снова (start() сам ничего не делает, если они уже идут)
     mo.observe(ctx.stage, { attributes: true, attributeFilter: ['class'] });
-    const offTheme = onThemeChange(() => requestAnimationFrame(recolor));
+    const offTheme = onThemeChange(() => requestAnimationFrame(() => { if (p.only) sync(); recolor(); }));
     addEventListener(ACCENT_EVENT, recolor);
     sync();
     return () => {

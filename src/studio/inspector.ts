@@ -1,6 +1,8 @@
 import { icon } from '../components/icons';
 import { DEFAULT_ACCENT, HEX_RE, previewAccent, slideAccent } from '../engine/accent';
+import { lookFor, themeMode } from '../engine/deck-theme';
 import { deckFonts, fontStack } from '../engine/fonts';
+import { currentTheme } from '../engine/theme';
 import { fontItems, fontPicker, type FontItem, tryFontOn } from '../engine/editor/font-picker';
 import { rowOf } from '../engine/editor/rows';
 import { toView, viewOf, VIEWS } from './block-views';
@@ -16,6 +18,9 @@ import { fillForm, formHtml, formSig, onFieldAction, onFieldChange, onGridPaste,
 import { BLOCKS, STYLE_FIELD, TEMPLATES, type Field } from './schema';
 import { partsOf, type Part } from './structure';
 import { effectName } from './anim-tab';
+
+/** Презентация с оформлением того вида слайдов, что на экране: у тёмных фон темы может быть своим */
+const shownDeck = (deck: Deck): Deck => ({ ...deck, theme: lookFor(deck.theme ?? {}, themeMode(deck.theme) ?? currentTheme()) });
 
 export interface InspectorHost {
   deck(): Deck;
@@ -266,7 +271,7 @@ export class Inspector {
     this.parts = el ? partsOf(el) : [];
     const key = sel
       ? `b:${JSON.stringify(sel.free ?? sel.block)}:${sel.type}:${sig}:${sel.free ? rowOf(getAt(deck, sel.free))?.id ?? '' : ''}:${this.parts.map((x) => x.label + x.snippet).join('|')}`
-      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}:${String(deck.slides[i]?.backdropOpacity ?? '')}/${String(deck.slides[i]?.backdropSpeed ?? '')}/${String(deck.slides[i]?.bgOpacity ?? '')}/${String(deck.theme?.backdropOpacity ?? '')}/${String(deck.theme?.backdropSpeed ?? '')}:${deckFonts(deck.fonts).map((f) => f.name).join('|')}:${deck.theme?.font ?? ''}:${deck.theme?.backdrop ?? ''}:${slideAccent(deck.slides[i]?.theme) ? 'own' : ''}${deck.slides[i]?.theme?.accent2 ? '2' : ''}:${deck.brand?.logo ? 'logo' : ''}`;
+      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}:${String(deck.slides[i]?.backdropOpacity ?? '')}/${String(deck.slides[i]?.backdropSpeed ?? '')}/${String(deck.slides[i]?.bgOpacity ?? '')}/${String(deck.theme?.backdropOpacity ?? '')}/${String(deck.theme?.backdropSpeed ?? '')}:${deckFonts(deck.fonts).map((f) => f.name).join('|')}:${deck.theme?.font ?? ''}:${deck.theme?.backdrop ?? ''}:${deck.theme?.darkLook ? `${JSON.stringify(deck.theme.darkLook)}${currentTheme()}` : ''}:${slideAccent(deck.slides[i]?.theme) ? 'own' : ''}${deck.slides[i]?.theme?.accent2 ? '2' : ''}:${deck.brand?.logo ? 'logo' : ''}`;
     if (key !== this.key) {
       this.key = key;
       // Прокрутка панели сохраняется, когда форма перестраивается (добавили пункт)
@@ -276,7 +281,7 @@ export class Inspector {
       this.root.innerHTML = sel ? this.blockHtml() : this.slideHtml();
       this.root.dataset.subject = sel ? JSON.stringify(sel.block) : `s${i}`;
       if (same) this.root.scrollTop = top;
-      bindBackdropStrip(this.root, () => this.host.stage(), this.host.deck().theme?.backdrop);
+      bindBackdropStrip(this.root, () => this.host.stage(), shownDeck(this.host.deck()).theme?.backdrop);
       const bgs = this.root.querySelector<HTMLElement>('.st-bgs');
       if (bgs) bindRail(bgs.parentElement!, bgs);
       bindTune(this.root, () => this.host.stage(), (k, v) => {
@@ -532,7 +537,7 @@ ${own ? `<span class="st-p-color st-p-sac"><input type="color" data-f="saccent" 
 
   /** Анимированный фон слайда: лента образцов, наведение — примерка на слайде */
   private backdropHtml(cur: string): string {
-    const deck = this.host.deck();
+    const deck = shownDeck(this.host.deck());
     const s = deck.slides[this.host.index()];
     // Ползунки — когда у слайда есть анимированный фон (свой или темы)
     const look = s && slideBackdrop(s, deck) ? backdropLook(s, deck) : null;

@@ -1,3 +1,4 @@
+import { themeSwatches } from '../deck-theme';
 import { deckFonts, fontNameOk, fontStack } from '../fonts';
 import { fontItems, fontPicker, weightName, weightNameEn, type FontItem, tryFontOn } from './font-picker';
 import { icon } from '../../components/icons';
@@ -877,6 +878,15 @@ export class TextEditor {
     this.colors.querySelector<HTMLElement>('.edcolors-foot button')!.textContent = this.partial ? 'Как у всего текста' : 'Как в теме';
     this.colors.classList.toggle('on', on);
     if (!on) return;
+    // Цвета темы — как на слайдах этой презентации: наискось у светлых и у тёмных, если они разные
+    const deck = this.host.deck() as { theme?: unknown; origin?: unknown };
+    const bg = themeSwatches(deck.theme, deck.origin, THEME_COLORS);
+    this.colors.querySelectorAll<HTMLElement>('.edcolors-row:first-child [data-c]').forEach((b) => {
+      const c = THEME_COLORS[b.dataset.c!];
+      if (!c) return;
+      b.style.background = bg[b.dataset.c!];
+      b.title = bg[b.dataset.c!].startsWith('linear-gradient') ? `${c.name} — меняется с темой: у светлых и у тёмных слайдов свой` : c.name;
+    });
     const r = anchor.getBoundingClientRect();
     const w = this.colors.offsetWidth;
     this.colors.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left - 8))}px`;

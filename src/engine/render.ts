@@ -8,7 +8,7 @@ import { asArray, esc } from './html';
 import { slideAccent } from './accent';
 import { backdropLook, slideBackdrop } from './backdrops';
 import { applyDeckCss, applyDeckDefs, applyScopedCss } from './deck-css';
-import { applyDeckTheme, hasOrigin, themeMode, type SlideMode } from './deck-theme';
+import { applyDeckTheme, hasOrigin, lookFor, themeMode, type SlideMode } from './deck-theme';
 import { recolorHtml } from './recolor';
 import { applyDeckFonts } from './fonts';
 import { forceTheme } from './theme';
@@ -105,10 +105,19 @@ export class Renderer {
       ? this.block({ ...(slide.live as object), type: 'live', empty, label: slideLabel(slide, index) } as Block, ctx) : '';
     if (live) cls += ' live-slide';
     // Анимированный фон (свой у слайда или фон темы): первым слоем, под содержимым
-    const kind = slideBackdrop(slide, this.deck);
-    const look = kind ? backdropLook(slide, this.deck) : null;
-    const backdrop = kind && getBlock('backdrop')
-      ? this.block({ type: 'backdrop', kind, ...(look && look.opacity !== 1 ? { opacity: look.opacity } : {}), ...(look && look.speed !== 1 ? { speed: look.speed } : {}) } as Block, ctx) : '';
+    // У тёмных слайдов свой фон темы (theme.darkLook) — два слоя, виден тот, что для этого вида
+    const theme = this.deck.theme ?? {};
+    const fixed = themeMode(theme);
+    const modes: SlideMode[] = fixed ? [fixed] : ['light', 'dark'];
+    const layers = modes.map((m) => {
+      const d = { ...this.deck, theme: lookFor(theme, m) };
+      const kind = slideBackdrop(slide, d);
+      return { m, kind, look: kind ? backdropLook(slide, d) : null };
+    });
+    const same = layers.length < 2 || (layers[0].kind === layers[1].kind && JSON.stringify(layers[0].look) === JSON.stringify(layers[1].look));
+    const backdrop = getBlock('backdrop') ? (same ? layers.slice(0, 1) : layers).filter((l) => l.kind).map(({ m, kind, look }) => this.block({
+      type: 'backdrop', kind, ...(look && look.opacity !== 1 ? { opacity: look.opacity } : {}), ...(look && look.speed !== 1 ? { speed: look.speed } : {}), ...(same ? {} : { only: m }),
+    } as Block, ctx)).join('') : '';
     if (backdrop) cls += ' has-backdrop';
     let content = `${inner}${this.freeLayer(slide, ctx)}`;
     // Цвета исходного файла — переменными темы (кроме слайдов с картинкой фоном из файла)

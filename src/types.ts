@@ -118,6 +118,20 @@ export interface DeckTheme {
   backdropOpacity?: number;
   /** Скорость анимированного фона, 0,25–3 */
   backdropSpeed?: number;
+  /**
+   * Своё у тёмных слайдов — поверх общего: узор фона, вид карточек, анимированный фон, его заметность
+   * и скорость (backdrop: none — у тёмных без анимации). Чего нет — как у светлых
+   */
+  darkLook?: DarkLook;
+}
+
+/** Поля оформления, которые у тёмных слайдов могут быть своими */
+export interface DarkLook {
+  bg?: string;
+  cards?: string;
+  backdrop?: string;
+  backdropOpacity?: number;
+  backdropSpeed?: number;
 }
 
 export interface SlideData {

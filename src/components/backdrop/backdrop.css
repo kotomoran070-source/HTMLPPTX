@@ -4,6 +4,9 @@
  */
 .slide.has-backdrop { isolation: isolate; }
 .backdrop { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; opacity: var(--bd-op, 1); }
+/* Фон темы своим у светлых и у тёмных слайдов: виден слой своего вида (переменные — deck-theme.ts) */
+.backdrop.bd-only-light { display: var(--bd-light, block); }
+.backdrop.bd-only-dark { display: var(--bd-dark, none); }
 .backdrop canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 @media screen { .backdrop.bd-live { background: none !important; } }
 

@@ -7,14 +7,14 @@
 import { icon } from '../components/icons';
 import { previewAccent } from '../engine/accent';
 import { replaceContents } from '../engine/data';
-import { CARD_STYLES, hasThemeLook, previewTheme, THEME_BGS, themeMode, themeVars, type SlideMode } from '../engine/deck-theme';
+import { CARD_STYLES, hasThemeLook, lookFor, previewTheme, THEME_BGS, themeMode, themeVars, type SlideMode } from '../engine/deck-theme';
 import { reducedMotion, staticSlide } from '../engine/deck-view';
 import type { Editor } from '../engine/editor/editor';
 import { fontItems, fontPicker, tryFontOn } from '../engine/editor/font-picker';
 import { deckFonts, fontStack } from '../engine/fonts';
 import { esc } from '../engine/html';
-import { currentTheme } from '../engine/theme';
-import type { Deck, DeckTheme } from '../types';
+import { currentTheme, setTheme } from '../engine/theme';
+import type { DarkLook, Deck, DeckTheme } from '../types';
 import { logoMark, logoPlate } from '../engine/render';
 import { logoImg } from '../components/templates/content';
 import { logoColors } from './logo-colors';
@@ -109,11 +109,14 @@ export function tryTheme(deck: Deck, stage: HTMLElement, t: DeckTheme | null): v
   const idx = Number(stage.querySelector<HTMLElement>('.slide.on')?.dataset.index);
   const own = deck.slides[idx]?.backdrop;
   if (own === 'none' || isBackdrop(own)) return previewBackdrop(stage, null);
-  const want = isBackdrop(t.backdrop) ? t.backdrop : null;
-  const look = { opacity: t.backdropOpacity, speed: t.backdropSpeed };
-  const now = isBackdrop(deck.theme?.backdrop) ? deck.theme.backdrop : null;
+  // Фон того вида слайдов, что на экране: у тёмных он может быть своим (theme.darkLook)
+  const tt = lookFor(t, shownMode(t));
+  const was = lookFor(deck.theme ?? {}, shownMode(deck.theme));
+  const want = isBackdrop(tt.backdrop) ? tt.backdrop : null;
+  const look = { opacity: tt.backdropOpacity, speed: tt.backdropSpeed };
+  const now = isBackdrop(was.backdrop) ? was.backdrop : null;
   // Тот же фон с тем же видом — живой остаётся, без мигания
-  if (want === now && look.opacity === deck.theme?.backdropOpacity && look.speed === deck.theme?.backdropSpeed) return previewBackdrop(stage, null);
+  if (want === now && look.opacity === was.backdropOpacity && look.speed === was.backdropSpeed) return previewBackdrop(stage, null);
   previewBackdrop(stage, want ?? 'none', look);
 }
 
@@ -122,9 +125,9 @@ const shownMode = (t: DeckTheme | undefined): SlideMode => themeMode(t) ?? curre
 
 const decl = (v: Record<string, string>) => Object.entries(v).map(([k, x]) => `${k}:${x}`).join(';');
 
-/** Переменные темы для плитки (образец без слайда) */
-function tileStyle(t: DeckTheme): string {
-  const v = themeVars(t, shownMode(t));
+/** Переменные темы для плитки (образец без слайда): в виде слайдов на экране или в заданном */
+function tileStyle(t: DeckTheme, mode = shownMode(t)): string {
+  const v = themeVars(t, mode);
   const head = t.head ? `"${t.head}", ` : t.font ? `"${t.font}", ` : '';
   return `${decl(v)};--tile-font:${head}var(--font-base, system-ui, sans-serif)`;
 }
@@ -344,18 +347,30 @@ export function designCommands(h: DesignHost): Record<string, Command> {
   };
 
   // ---------- анимация фона всех слайдов ----------
-  const backdropMenu = () => {
+  /** «Для тёмных» — свой фон у тёмных слайдов: «Без фона» у них — none, тот же, что у всех, — своё убирается */
+  const BD_KEYS: (keyof DarkLook)[] = ['backdrop', 'backdropOpacity', 'backdropSpeed'];
+  const backdropMenu = (dark = darkFirst(BD_KEYS)) => {
     const at = anchor('design.backdrop');
     if (!at) return;
     const t = theme();
-    const tune = isBackdrop(t.backdrop) ? tuneHtml({ backdropOpacity: t.backdropOpacity ?? 1, backdropSpeed: t.backdropSpeed ?? 1 }) : '';
-    const el = showPopover(at, `<div class="st-plabel">Анимация фона всех слайдов</div>${backdropStrip(t.backdrop ?? '')}${tune}<p class="st-bdnote">Наведите — фон примерится на слайде. У отдельного слайда фон меняется в панели слайда</p>`, (b) => {
+    const head = scope(BD_KEYS, dark, backdropMenu);
+    const inDark = dark && !!head;
+    const d = inDark ? lookFor(t, 'dark') : t;
+    const tune = isBackdrop(d.backdrop) ? tuneHtml({ backdropOpacity: d.backdropOpacity ?? 1, backdropSpeed: d.backdropSpeed ?? 1 }) : '';
+    const el = showPopover(at, `${head?.html ?? '<div class="st-plabel">Анимация фона всех слайдов</div>'}${backdropStrip(d.backdrop ?? '')}${tune}<p class="st-bdnote">Наведите — фон примерится на слайде. У отдельного слайда фон меняется в панели слайда</p>`, (b) => {
+      if (b.dataset.scope) return head?.pick(b) ?? null;
       const v = b.dataset.backdrop;
       if (v === undefined) return null;
-      return { run: () => patch({ backdrop: v || undefined }) };
+      if (!inDark) return { run: () => patch({ backdrop: v || undefined }) };
+      return { run: () => patchDark({ backdrop: v === (t.backdrop ?? '') ? undefined : v || 'none' }) };
     }, 'st-bdpop');
     bindBackdropStrip(el, h.stage);
-    bindTune(el, h.stage, (k, v) => patch({ [k]: v }));
+    // У тёмных — своё значение; совпало с общим — своё убирается (1 у ползунка — «по умолчанию»)
+    bindTune(el, h.stage, (k, v) => {
+      if (!inDark) return patch({ [k]: v });
+      const key = k as 'backdropOpacity' | 'backdropSpeed';
+      patchDark({ [key]: (v ?? 1) === (t[key] ?? 1) ? undefined : v ?? 1 });
+    });
   };
 
   // ---------- свои темы ----------
@@ -488,14 +503,60 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     patch({ [key]: name });
   };
 
+  // ---------- своё у тёмных слайдов (theme.darkLook) ----------
+  const darkLook = (): DarkLook => { const d = theme().darkLook; return d && typeof d === 'object' ? d : {}; };
+  const ownDark = (keys: (keyof DarkLook)[]) => keys.some((k) => darkLook()[k] !== undefined);
+  /** Своё у тёмных одним шагом; undefined убирает поле — у тёмных снова как у всех */
+  const patchDark = (p: Partial<Record<keyof DarkLook, unknown>>) => {
+    const d: Record<string, unknown> = { ...darkLook() };
+    for (const [k, v] of Object.entries(p)) {
+      if (v === undefined || v === null || v === '') delete d[k];
+      else d[k] = v;
+    }
+    patch({ darkLook: Object.keys(d).length ? d : undefined });
+  };
+  /** Открыть сразу «Для тёмных»: на экране тёмные слайды, и у них уже своё */
+  const darkFirst = (keys: (keyof DarkLook)[]) => !themeMode(deck.theme) && currentTheme() === 'dark' && ownDark(keys);
+  /**
+   * Над вариантами — «Для всех | Для тёмных», если слайды бывают и светлыми, и тёмными (вид не постоянный).
+   * Точка у «Для тёмных» — у них своё; «Как у всех» убирает своё. Выбор «Для тёмных» включает тёмную
+   * тему студии: правится то, что видно
+   */
+  const scope = (keys: (keyof DarkLook)[], dark: boolean, reopen: (dark: boolean) => void) => {
+    if (themeMode(deck.theme)) return null;
+    const own = ownDark(keys);
+    const tab = (v: string, label: string, on: boolean, title: string) =>
+      `<button type="button" role="tab" data-scope="${v}" aria-selected="${on}" title="${esc(title)}">${label}</button>`;
+    const reset = '<button type="button" class="st-link" data-scope="reset" title="Убрать своё у тёмных слайдов">Как у всех</button>';
+    const note = dark ? (own ? `Своё у тёмных · ${reset}` : 'Сейчас как у всех') : own ? `${icon('moon')}У тёмных — своё · ${reset}` : '';
+    return {
+      html: `<div class="st-dz-scope"><div class="st-seg" role="tablist" aria-label="Для каких слайдов">`
+        + tab('all', 'Для всех', !dark, own ? 'Для светлых слайдов (у тёмных — своё)' : 'Для светлых и тёмных слайдов')
+        + tab('dark', `${icon('moon')}Для тёмных${own ? '<i class="st-dz-dot"></i>' : ''}`, dark, 'Своё у тёмных слайдов: у светлых остаётся как есть')
+        + `</div>${note ? `<span>${note}</span>` : ''}</div>`,
+      pick: (b: HTMLElement) => {
+        const v = b.dataset.scope;
+        if (v === 'all') return { run: () => reopen(false) };
+        if (v === 'dark') return { run: () => { if (currentTheme() !== 'dark') setTheme('dark'); reopen(true); } };
+        if (v === 'reset') return { run: () => patchDark(Object.fromEntries(keys.map((k) => [k, undefined]))) };
+        return null;
+      },
+    };
+  };
+
   // ---------- фон, карточки, углы ----------
-  /** Всплывающая панель вариантов: образцы в цветах темы, наведение — примерка, щелчок — выбор */
-  const options = <T>(cmd: string, items: [T, string][], cur: T, make: (v: T) => DeckTheme, sample: (v: T) => string, apply: (v: T) => void, cls: string) => {
+  /**
+   * Всплывающая панель вариантов: образцы в цветах темы, наведение — примерка, щелчок — выбор.
+   * head — строка над вариантами (для всех или для тёмных) и её кнопки; mode — в каком виде образцы
+   */
+  const options = <T>(cmd: string, items: [T, string][], cur: T, make: (v: T) => DeckTheme, sample: (v: T) => string, apply: (v: T) => void, cls: string,
+    head: ReturnType<typeof scope> = null, mode?: SlideMode) => {
     const at = anchor(cmd);
     if (!at) return;
-    const html = `<div class="st-dz-opts ${cls}">${items.map(([v, name], k) =>
-      `<button type="button" class="st-dz-opt${v === cur ? ' active' : ''}" data-k="${k}"><span class="st-dz-opt-in" style="${esc(tileStyle(make(v)))}">${sample(v)}</span><small>${esc(name)}</small></button>`).join('')}</div>`;
+    const html = `${head?.html ?? ''}<div class="st-dz-opts ${cls}">${items.map(([v, name], k) =>
+      `<button type="button" class="st-dz-opt${v === cur ? ' active' : ''}" data-k="${k}"><span class="st-dz-opt-in" style="${esc(tileStyle(make(v), mode))}">${sample(v)}</span><small>${esc(name)}</small></button>`).join('')}</div>`;
     const el = showPopover(at, html, (b) => {
+      if (b.dataset.scope) return head?.pick(b) ?? null;
       const it = items[Number(b.dataset.k)];
       return it ? { run: () => apply(it[0]) } : null;
     });
@@ -505,6 +566,23 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     });
   };
   const card = '<i class="st-dz-card"><b></b><b></b></i>';
+
+  /**
+   * Фон или карточки: для всех слайдов или своё у тёмных. «Для тёмных» — образцы тёмные, выбор пишется
+   * в theme.darkLook (тот же, что у всех, — своё убирается)
+   */
+  const themed = (cmd: string, key: 'bg' | 'cards', items: [string, string][], def: string, sample: () => string, cls: string, dark = darkFirst([key])) => {
+    const base = theme()[key] ?? def;
+    const own = darkLook()[key];
+    const head = scope([key], dark, (d) => themed(cmd, key, items, def, sample, cls, d));
+    if (!dark || !head) {
+      // Своё у тёмных есть — образцы «для всех» светлые: у тёмных на экране было бы своё
+      // Обычные карточки — без поля; фон пишется всегда (как раньше)
+      return options(cmd, items, base, (v) => ({ ...theme(), [key]: v }), sample, (v) => patch({ [key]: key === 'cards' && v === def ? undefined : v }), cls, head, head && ownDark([key]) ? 'light' : undefined);
+    }
+    options(cmd, items, own ?? base, (v) => ({ ...theme(), darkLook: { ...darkLook(), [key]: v } }), sample,
+      (v) => patchDark({ [key]: v === base ? undefined : v }), cls, head, 'dark');
+  };
 
   const setMode = (m: SlideMode | null) => smoothly(() => patch({ mode: m ?? undefined }));
 
@@ -608,21 +686,15 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     'design.palettes': { run: palettes },
     'design.font.head': { run: () => pickFont('head') },
     'design.font.body': { run: () => pickFont('font') },
-    'design.bg': {
-      run: () => options('design.bg', Object.entries(THEME_BGS).map(([k, b]) => [k, b.name] as [string, string]), theme().bg ?? 'dots',
-        (v) => ({ ...theme(), bg: v }), () => '', (v) => patch({ bg: v }), 'bgs'),
-    },
-    'design.cards': {
-      run: () => options('design.cards', Object.entries(CARD_STYLES).map(([k, c]) => [k, c.name] as [string, string]), theme().cards ?? 'soft',
-        (v) => ({ ...theme(), cards: v }), () => card, (v) => patch({ cards: v === 'soft' ? undefined : v }), 'cards'),
-    },
+    'design.bg': { run: () => themed('design.bg', 'bg', Object.entries(THEME_BGS).map(([k, b]) => [k, b.name] as [string, string]), 'dots', () => '', 'bgs') },
+    'design.cards': { run: () => themed('design.cards', 'cards', Object.entries(CARD_STYLES).map(([k, c]) => [k, c.name] as [string, string]), 'soft', () => card, 'cards') },
     'design.radius': {
       run: () => options('design.radius', RADII, typeof theme().radius === 'number' ? theme().radius! : 1,
         (v) => ({ ...theme(), radius: v }), () => card, (v) => patch({ radius: v === 1 ? undefined : v }), 'radii'),
     },
     // Логотипа нет — кнопка его добавляет (файл картинки), есть — плашка, цвет, угол и размер
     'design.logo': { run: () => (deck.brand?.logo ? void logoMenu() : ed.pickImage(['brand', 'logo'])) },
-    'design.backdrop': { run: () => backdropMenu(), active: () => !!theme().backdrop },
+    'design.backdrop': { run: () => backdropMenu(), active: () => isBackdrop(theme().backdrop) || isBackdrop(darkLook().backdrop) },
     'design.mode.auto': { run: () => setMode(null), active: () => !themeMode(deck.theme) },
     'design.mode.light': { run: () => setMode('light'), active: () => themeMode(deck.theme) === 'light' },
     'design.mode.dark': { run: () => setMode('dark'), active: () => themeMode(deck.theme) === 'dark' },

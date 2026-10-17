@@ -12,7 +12,7 @@
  *   --card-bg --card-bd --card-bw --card-sh        карточки и плашки
  *   --rk                                           множитель скругления углов
  */
-import type { DeckOrigin, DeckTheme, ThemePalette } from '../types';
+import type { DarkLook, DeckOrigin, DeckTheme, ThemePalette } from '../types';
 import { accentTokens, contrast, DEFAULT_ACCENT, HEX_RE, mix, PANEL_SWATCHES, SWATCHES } from './accent';
 import { cssKey } from './deck-css';
 import { fontFamilies, fontNameOk, fontStack } from './fonts';
@@ -52,6 +52,24 @@ export function fullPalette(p: ThemePalette | undefined, mode: SlideMode): FullP
   for (const k of PALETTE_KEYS) {
     const v = p[k];
     if (isHex(v)) out[k] = v.toUpperCase();
+  }
+  return out;
+}
+
+/** Что у тёмных слайдов может быть своим (theme.darkLook) */
+export const DARK_KEYS = ['bg', 'cards', 'backdrop', 'backdropOpacity', 'backdropSpeed'] as const satisfies readonly (keyof DarkLook)[];
+
+/**
+ * Тема для вида слайдов: у тёмных — их своё оформление поверх общего (backdrop: none — без анимации).
+ * У постоянного вида (theme.mode) оформление одно — общее
+ */
+export function lookFor(t: DeckTheme, mode: SlideMode): DeckTheme {
+  const d = mode === 'dark' && !themeMode(t) && t.darkLook && typeof t.darkLook === 'object' ? t.darkLook : null;
+  if (!d) return t;
+  const out: DeckTheme = { ...t };
+  for (const k of DARK_KEYS) {
+    if (d[k] === undefined) continue;
+    (out as Record<string, unknown>)[k] = k === 'backdrop' && d[k] === 'none' ? undefined : d[k];
   }
   return out;
 }
@@ -160,11 +178,15 @@ export function themeVars(t: DeckTheme, mode: SlideMode, origin?: DeckOrigin): R
   const ac = accentTokens(isHex(t.accent) ? t.accent : DEFAULT_ACCENT, isHex(t.accent2) ? t.accent2 : null, { [mode]: pal.bg })[mode];
   Object.assign(v, ac);
   v['--on-ac'] = onAccent(ac['--ac'], pal);
-  v['--slide-bg'] = (THEME_BGS[String(t.bg)] ?? THEME_BGS.dots).css(dark);
+  // Своё у тёмных: узор фона и карточки; два анимированных фона — видим тот, что для этого вида
+  const own = lookFor(t, mode);
+  v['--slide-bg'] = (THEME_BGS[String(own.bg)] ?? THEME_BGS.dots).css(dark);
+  v['--bd-light'] = dark ? 'none' : 'block';
+  v['--bd-dark'] = dark ? 'block' : 'none';
   const r = Number(t.radius);
   v['--rk'] = String(Number.isFinite(r) && t.radius !== undefined ? Math.max(0, Math.min(2.5, Math.round(r * 100) / 100)) : 1);
   for (const k of OPTIONAL) v[k] = 'initial';
-  Object.assign(v, (CARD_STYLES[String(t.cards)] ?? CARD_STYLES.soft).vars(dark));
+  Object.assign(v, (CARD_STYLES[String(own.cards)] ?? CARD_STYLES.soft).vars(dark));
   if (fontNameOk(t.head)) v['--font-head'] = `${fontFamilies(t.head)}, var(--font)`;
   const hw = Number(t.headWeight);
   if (Number.isFinite(hw) && hw >= 100 && hw <= 900) v['--hw'] = String(Math.round(hw / 50) * 50);
@@ -188,7 +210,7 @@ export function themeVars(t: DeckTheme, mode: SlideMode, origin?: DeckOrigin): R
 export function hasThemeLook(theme: unknown): theme is DeckTheme {
   if (!theme || typeof theme !== 'object') return false;
   const t = theme as DeckTheme;
-  return !!(t.preset || t.mode || t.light || t.dark || t.bg || t.cards || t.radius !== undefined || t.head || t.headWeight || t.headCase || t.headSpacing !== undefined || t.headScale !== undefined);
+  return !!(t.preset || t.mode || t.light || t.dark || t.darkLook || t.bg || t.cards || t.radius !== undefined || t.head || t.headWeight || t.headCase || t.headSpacing !== undefined || t.headScale !== undefined);
 }
 
 /** Есть ли у презентации палитра исходного файла (deck.origin) */
@@ -200,6 +222,28 @@ export function hasOrigin(o: unknown): o is DeckOrigin {
 export function themeMode(theme: unknown): SlideMode | null {
   const m = (theme as DeckTheme | undefined)?.mode;
   return m === 'light' || m === 'dark' ? m : null;
+}
+
+/**
+ * Образцы цветов темы для палитр: у слайдов то светлых, то тёмных — наискось половина цвета у светлых
+ * и половина у тёмных (видно, что цвет меняется с темой); у постоянного вида — один цвет.
+ * colors — имя → css (var(--ac)…), ответ — имя → фон образца
+ */
+export function themeSwatches(theme: unknown, origin: unknown, colors: Record<string, { css: string }>): Record<string, string> {
+  const t = (theme && typeof theme === 'object' ? theme : {}) as DeckTheme;
+  const fixed = themeMode(t);
+  const probe = document.createElement('i');
+  probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none';
+  document.body.appendChild(probe);
+  const [light, dark] = (fixed ? [fixed] : (['light', 'dark'] as SlideMode[])).map((m) => {
+    for (const [k, x] of Object.entries(themeVars(t, m, hasOrigin(origin) ? origin : undefined))) probe.style.setProperty(k, x);
+    return Object.fromEntries(Object.entries(colors).map(([k, c]) => {
+      probe.style.color = c.css;
+      return [k, getComputedStyle(probe).color];
+    }));
+  });
+  probe.remove();
+  return Object.fromEntries(Object.keys(colors).map((k) => [k, dark && dark[k] !== light[k] ? `linear-gradient(135deg, ${light[k]} 50%, ${dark[k]} 50%)` : light[k]]));
 }
 
 const decl = (v: Record<string, string>, imp: boolean) => Object.entries(v).map(([k, x]) => `${k}:${x}${imp ? ' !important' : ''}`).join(';');

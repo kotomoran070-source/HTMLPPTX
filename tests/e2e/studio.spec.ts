@@ -253,6 +253,100 @@ test('файлы тем: несколько сразу и набор — пер�
   expect(errors).toEqual([]);
 });
 
+test('«Дизайн»: своё у тёмных слайдов — фон и анимация, «Как у всех» возвращает общее; цвета темы в палитре — у светлых и у тёмных', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=design&studio#2');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  const slide = page.locator('#st-canvas .slide.on');
+  const bg = () => slide.evaluate((s) => getComputedStyle(s).getPropertyValue('--slide-bg'));
+  await page.locator('.st-tabs [data-tab="design"]').click();
+  await page.locator('[data-cmd="design.bg"]').click();
+  const pop = page.locator('.st-pop');
+  await expect(pop.locator('[data-scope="all"]')).toHaveAttribute('aria-selected', 'true');
+  // «Для тёмных» — студия тёмная: правится то, что видно
+  await pop.locator('[data-scope="dark"]').click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(pop.locator('[data-scope="dark"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(pop.locator('.st-dz-scope')).toContainText('Сейчас как у всех');
+  const was = await bg();
+  const grid = pop.locator('.st-dz-opt').filter({ hasText: 'Сетка' });
+  await grid.hover();
+  await expect.poll(bg).not.toBe(was);
+  await grid.click();
+  await expect.poll(() => readDeck('design')).toMatch(/darkLook:\s*\n\s*bg: grid/);
+  // Снова открыта — сразу «Для тёмных», с точкой: у них своё. «Для всех» меняет общее, своё у тёмных остаётся
+  await page.locator('[data-cmd="design.bg"]').click();
+  await expect(pop.locator('[data-scope="dark"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(pop.locator('[data-scope="dark"] .st-dz-dot')).toHaveCount(1);
+  await pop.locator('[data-scope="all"]').click();
+  await expect(pop.locator('.st-dz-scope')).toContainText('У тёмных — своё');
+  await pop.locator('.st-dz-opt').filter({ hasText: 'Сияние' }).click();
+  await expect.poll(() => readDeck('design')).toMatch(/\n {2}bg: glow/);
+  expect(readDeck('design')).toMatch(/darkLook:\s*\n\s*bg: grid/);
+  const darkBg = await bg();
+  await page.locator('#st-theme').click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  expect(await bg()).not.toBe(darkBg);
+  // Анимация у тёмных — своя: два слоя, виден слой своего вида
+  await page.locator('[data-cmd="design.backdrop"]').click();
+  await pop.locator('[data-scope="dark"]').click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await pop.locator('[data-backdrop="waves"]').click();
+  await expect.poll(() => readDeck('design')).toMatch(/darkLook:[\s\S]*backdrop: waves/);
+  await page.locator('[data-cmd="design.backdrop"]').click();
+  await pop.locator('[data-scope="all"]').click();
+  await pop.locator('[data-backdrop="aurora"]').click();
+  const layer = (m: string) => slide.locator(`:scope > .backdrop.bd-only-${m}`);
+  await expect(layer('dark')).toBeVisible();
+  await expect(layer('light')).toBeHidden();
+  await expect(layer('dark')).toHaveClass(/bd-waves/);
+  await page.locator('#st-theme').click();
+  await expect(layer('light')).toBeVisible();
+  await expect(layer('dark')).toBeHidden();
+  // «Как у всех» — своё у тёмных убирается: один общий слой
+  await page.locator('[data-cmd="design.backdrop"]').click();
+  await expect(pop.locator('[data-scope="dark"] .st-dz-dot')).toHaveCount(1);
+  await pop.locator('[data-scope="reset"]').click();
+  await expect.poll(() => readDeck('design')).not.toMatch(/backdrop: waves/);
+  await expect(slide.locator(':scope > .backdrop')).toHaveCount(1);
+  await expect(slide.locator(':scope > .backdrop')).toHaveClass(/bd-aurora/);
+  expect(readDeck('design')).toMatch(/darkLook:\s*\n\s*bg: grid/);
+  // Ctrl+Z — снова своё у тёмных
+  await page.locator('#st-canvas').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => readDeck('design')).toMatch(/backdrop: waves/);
+  expect(errors).toEqual([]);
+});
+
+test('цвета темы в палитрах: наискось — у светлых и у тёмных слайдов; у постоянно тёмных — один цвет', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=tpl&studio#4');
+  const sh = page.locator('#st-canvas .slide.on [data-type="shape"]').first();
+  await sh.click({ position: { x: 10, y: 10 } });
+  await page.locator('.st-tabs [data-tab="shape"]').click();
+  await page.locator('.st-ribbon [data-cmd="shape.fill"]').click();
+  const text = page.locator('.st-pop .st-psw[data-v="text"]');
+  await expect(text).toHaveAttribute('title', /меняется с темой/);
+  expect(await text.evaluate((b) => getComputedStyle(b).backgroundImage)).toBe('linear-gradient(135deg, rgb(17, 24, 39) 50%, rgb(230, 235, 243) 50%)');
+  // Постоянные цвета — как были
+  expect(await page.locator('.st-pop .st-pgrid').nth(1).locator('.st-psw').first().evaluate((b) => getComputedStyle(b).backgroundImage)).toBe('none');
+  await page.keyboard.press('Escape');
+  // Слайды всегда тёмные — у образца один цвет, тёмного вида
+  await page.locator('.st-tabs [data-tab="design"]').click();
+  const before = readDeck('tpl');
+  await page.locator('[data-cmd="design.mode.dark"]').click();
+  await expect.poll(() => readDeck('tpl')).toContain('mode: dark');
+  // Фигура так и выделена
+  await page.locator('.st-tabs [data-tab="shape"]').click();
+  await page.locator('.st-ribbon [data-cmd="shape.fill"]').click();
+  await expect(text).toHaveAttribute('title', 'Цвет текста');
+  expect(await text.evaluate((b) => getComputedStyle(b).backgroundColor)).toBe('rgb(230, 235, 243)');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => readDeck('tpl')).toBe(before);
+  expect(errors).toEqual([]);
+});
+
 test('«Мои темы»: оформление сохраняется темой и появляется первым в ряду тем', async ({ page }) => {
   const errors = watchErrors(page);
   fs.rmSync(path.join(LIBRARY, 'themes'), { recursive: true, force: true });

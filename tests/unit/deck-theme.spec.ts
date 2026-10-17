@@ -1,6 +1,6 @@
 // Тема презентации: палитра из фона и текста, постоянный вид слайдов, текст на акценте
 import { expect, test } from '@playwright/test';
-import { fullPalette, hasThemeLook, themeCss, themeVars } from '../../src/engine/deck-theme';
+import { fullPalette, hasThemeLook, lookFor, themeCss, themeVars } from '../../src/engine/deck-theme';
 
 test('палитра выводится из фона и текста, заданные цвета не трогаются', () => {
   const p = fullPalette({ bg: '#FFFFFF', tx: '#000000', mu: '#123456' }, 'light');
@@ -31,4 +31,22 @@ test('постоянно тёмные слайды — один набор бе�
   const v = themeVars({ headScale: 3 }, 'light');
   expect(v['--font-head']).toBe('initial');
   expect(v['--h-scale']).toBe('1.3');
+});
+
+test('своё у тёмных слайдов: узор фона, карточки, анимированный фон — только у тёмных, чего нет — как у всех', () => {
+  const t = { bg: 'glow', cards: 'flat', backdrop: 'waves', darkLook: { bg: 'grid', backdrop: 'none', backdropSpeed: 2 } };
+  const light = themeVars(t, 'light');
+  const dark = themeVars(t, 'dark');
+  expect(light['--slide-bg']).toBe(themeVars({ bg: 'glow' }, 'light')['--slide-bg']);
+  expect(dark['--slide-bg']).toBe(themeVars({ bg: 'grid' }, 'dark')['--slide-bg']);
+  // Карточки у тёмных своими не заданы — как у всех
+  expect(dark['--card-bg']).toBe(themeVars({ cards: 'flat' }, 'dark')['--card-bg']);
+  // Из двух слоёв анимированного фона виден слой своего вида
+  expect([light['--bd-light'], light['--bd-dark'], dark['--bd-light'], dark['--bd-dark']]).toEqual(['block', 'none', 'none', 'block']);
+  expect(lookFor(t, 'light')).toBe(t);
+  // none — у тёмных без анимации
+  expect(lookFor(t, 'dark')).toMatchObject({ bg: 'grid', cards: 'flat', backdrop: undefined, backdropSpeed: 2 });
+  expect(hasThemeLook({ darkLook: { bg: 'grid' } })).toBe(true);
+  // Слайды всегда тёмные — оформление одно, общее (переключателя «Для тёмных» тогда нет)
+  expect(themeVars({ ...t, mode: 'dark' }, 'dark')['--slide-bg']).toBe(themeVars({ bg: 'glow', mode: 'dark' }, 'dark')['--slide-bg']);
 });

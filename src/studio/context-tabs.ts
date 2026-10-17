@@ -32,6 +32,7 @@ import { getBlock } from '../engine/component';
 import { getAt, setAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
+import { themeSwatches } from '../engine/deck-theme';
 import { frameCss } from '../engine/marks';
 import type { Block, Deck } from '../types';
 import { showMenu, showPopover, type MenuEntry } from './menu';
@@ -328,6 +329,15 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   /** Фигуры, у которых есть тело (не линии) */
   const isBody = () => isShape() && !isLine(first('shape'));
   const anchor = (cmd: string) => document.querySelector<HTMLElement>(`.st-ribbon [data-cmd="${cmd}"]`)!;
+  /** Цвета темы в палитре: наискось — у светлых и у тёмных слайдов, если они разные */
+  const themeRow = (cur: unknown) => {
+    const bg = themeSwatches(deck.theme, deck.origin, SHAPE_COLORS);
+    return Object.entries(SHAPE_COLORS).filter(([v]) => v !== 'bg').map(([v, c]) => {
+      const two = bg[v].startsWith('linear-gradient');
+      const name = two ? `${c.name} — меняется с темой: у светлых и у тёмных слайдов свой` : c.name;
+      return `<button type="button" class="st-psw${cur === v ? ' on' : ''}" data-v="${esc(v)}" style="--c:${bg[v]}" title="${esc(name)}" aria-label="${esc(c.name)}"></button>`;
+    }).join('');
+  };
 
   // ---------- фигура: цвета ----------
 
@@ -340,7 +350,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const cur = line ? b?.stroke ?? b?.fill : b?.[key];
     const sw = (v: string, css: string, name: string) =>
       `<button type="button" class="st-psw${cur === v ? ' on' : ''}" data-v="${esc(v)}" style="--c:${css}" title="${esc(name)}" aria-label="${esc(name)}"></button>`;
-    const theme = Object.entries(SHAPE_COLORS).filter(([v]) => v !== 'bg').map(([v, c]) => sw(v, c.css, c.name)).join('');
+    const theme = themeRow(cur);
     // Градиенты — только у заливки фигуры
     // Градиент хранится рядом: gradient у заливки, strokeGradient у контура и линии
     const gk = k === 'fill' ? 'gradient' : 'strokeGradient';
@@ -798,7 +808,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const cur = fillOfCell();
     const sw = (v: string, css: string, name: string) =>
       `<button type="button" class="st-psw${cur === v ? ' on' : ''}" data-v="${esc(v)}" style="--c:${css}" title="${esc(name)}" aria-label="${esc(name)}"></button>`;
-    const theme = Object.entries(SHAPE_COLORS).filter(([v]) => v !== 'bg').map(([v, c]) => sw(v, c.css, c.name)).join('');
+    const theme = themeRow(cur);
     const html = `<button type="button" class="st-pnone${cur ? '' : ' on'}" data-v="none">${icon('close')}<span>Как у таблицы</span></button>
       <div class="st-plabel">Цвета темы</div><div class="st-pgrid">${theme}</div>
       <div class="st-plabel">Постоянные</div><div class="st-pgrid">${SHAPE_SWATCHES.map((c) => sw(c, c, c)).join('')}</div>
