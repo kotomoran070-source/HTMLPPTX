@@ -31,6 +31,36 @@ const clip = (page: Page, type: 'copy' | 'paste', text = '') => page.evaluate(([
 const table = (slide: number) => (parse(readDeck('table')) as { slides: { free: Record<string, unknown>[] }[] }).slides[slide - 1].free[0] as { rows: string[][]; header: string[]; fills?: unknown[][] };
 const rows = (slide = 1) => table(slide).rows;
 
+test('«Границы» и «Плотность» — плитками на мини-таблице, наведение примеряет на самой таблице', async ({ page }) => {
+  const errors = watchErrors(page);
+  const before = readDeck('table');
+  await page.goto('/?deck=table&studio#1');
+  const td = cell(page, 'Выручка');
+  await td.click();
+  await page.locator('.st-tabs [data-tab="table"]').click();
+  await page.locator('[data-cmd="table.borders"]').click();
+  const pop = page.locator('.st-lkpop');
+  await expect(pop.locator('.st-smp-tbl table')).toHaveCount(6);
+  // Наведение — линии на ячейке с курсором, файл не меняется
+  await pop.locator('[data-lk][title="Все"]').hover();
+  await expect.poll(() => td.evaluate((e) => getComputedStyle(e).borderLeftStyle)).toBe('solid');
+  expect(readDeck('table')).toBe(before);
+  await pop.locator('[data-lk][title="Все"]').click();
+  await expect.poll(() => (table(1) as { borders?: unknown }).borders).toEqual([[0, 0, 1, 1, 'all']]);
+  // Плотность
+  await page.locator('[data-cmd="table.density"]').click();
+  const tbl = page.locator('#st-canvas .slide.on .tbl').first();
+  await pop.locator('[data-lk][title="Свободная"]').hover();
+  await expect(tbl).toHaveClass(/tbl-roomy/);
+  await pop.locator('[data-lk][title="Компактная"]').click();
+  await expect.poll(() => (table(1) as { density?: string }).density).toBe('compact');
+  await expect(tbl).toHaveClass(/tbl-compact/);
+  await page.keyboard.press('Control+z');
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => readDeck('table')).toBe(before);
+  expect(errors).toEqual([]);
+});
+
 test('ячейки: протянуть — диапазон; Delete, Ctrl+Z, копирование, вставка из Excel, строки и заливка на весь диапазон', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=table&studio#1');
@@ -293,7 +323,7 @@ test('сортировка по столбцу, границы ячеек, вы�
   if (await page.locator('#st-canvas [contenteditable="true"]').count()) await page.keyboard.press('Escape');
   await drag(page, 'Выручка', '80');
   await page.locator('[data-cmd="table.borders"]').click();
-  await page.locator('.st-menu').getByText('Все границы').click();
+  await page.locator('.st-lkpop [data-lk][title="Все"]').click();
   await expect.poll(() => t7().borders).toEqual([[0, 0, 2, 2, 'all']]);
   await expect(cell(page, 'Выручка')).toHaveCSS('border-right-width', '1px');
   // Высота строки — ручкой под строкой (первая строка данных — вторая ручка)

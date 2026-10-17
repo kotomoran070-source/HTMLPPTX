@@ -20,11 +20,13 @@ interface LookKind {
   type: string;
   /** Элемент оформления внутри корня блока на слайде */
   el(root: HTMLElement): HTMLElement | null;
+  /** Что ещё внутри меняет примерка (вид запоминается и возвращается); по умолчанию — снимки */
+  parts?(el: HTMLElement): Element[];
   /** Показать на нём вид блока b */
   apply(el: HTMLElement, b: Block): void;
   sample(b: Block): string;
 }
-interface LookOption { label: string; patch: Record<string, unknown>; on: boolean; pick(): void }
+interface LookOption { label: string; patch: Record<string, unknown>; /** Для образца, если отличается от примерки на слайде */ preview?: Record<string, unknown>; on: boolean; pick(): void }
 interface LookSlider { label: string; min: number; max: number; unit: string; key: string; value: number; set(n: number): unknown; /** Ползунок недоступен: подсказка почему */ off?: string }
 import { getBlock } from '../engine/component';
 import { getAt, setAt, type Path } from '../engine/data';
@@ -151,10 +153,10 @@ const sample = (b: ImageLook) => {
   return `<i class="st-smp"><i class="st-smp-pic${look.cls}" style="${esc([look.box, sh].filter(Boolean).join(';'))}"><b${look.img ? ` style="${esc(look.img)}"` : ''}></b></i></i>`;
 };
 
-/** Разметка фигуры тем же кодом, что на слайде */
-const shapeEl = (b: Block): Element | null => {
+/** Разметка блока тем же кодом, что на слайде */
+const blockEl = (type: string, b: Block): Element | null => {
   const t = document.createElement('div');
-  t.innerHTML = getBlock('shape')?.render(b, {} as never) ?? '';
+  t.innerHTML = getBlock(type)?.render(b, {} as never) ?? '';
   return t.firstElementChild;
 };
 /**
@@ -164,8 +166,27 @@ const shapeEl = (b: Block): Element | null => {
 const shapeSample = (b: Block) => {
   const line = b.kind === 'line' || b.kind === 'arrow';
   const r = Number(b.radius);
-  const n = shapeEl({ ...b, text: line ? undefined : 'Аа', radius: Number.isFinite(r) && b.radius !== undefined ? Math.round(r * 0.35) : b.kind === 'rect' ? 0 : 6, style: undefined, width: b.width ? Math.min(3, Number(b.width)) : b.width });
+  const n = blockEl('shape', { ...b, text: line ? undefined : 'Аа', radius: Number.isFinite(r) && b.radius !== undefined ? Math.round(r * 0.35) : b.kind === 'rect' ? 0 : 6, style: undefined, width: b.width ? Math.min(3, Number(b.width)) : b.width });
   return `<i class="st-smp st-smp-sh"><i class="st-smp-shape${line ? ' line' : ''}">${n?.outerHTML ?? ''}</i></i>`;
+};
+
+/** Поля вида таблицы, которые переносит образец (данные, размеры и свои правки ячеек — нет) */
+const TABLE_LOOK = ['variant', 'colors', 'labels', 'lastcol', 'bands', 'total', 'head', 'density', 'valign', 'borders'] as const;
+/**
+ * Образец таблицы для галерей «Таблицы»: мини-таблица 3×3 с шапкой тем же кодом, что на слайде,
+ * вместо текста — полоски, как у плиток стиля таблицы. Саму таблицу — при наведении
+ */
+const tableSample = (b: Block) => {
+  const head = b.head !== false;
+  const n = blockEl('table', {
+    type: 'table', ...Object.fromEntries(TABLE_LOOK.map((k) => [k, b[k]])),
+    header: ['a', 'b', 'c'], rows: [['a', 'b', 'c'], ['a', 'b', 'c'], ['a', 'b', 'c']],
+    total: undefined, ...(head ? {} : { head: false }),
+  });
+  if (!n) return '';
+  n.classList.add('st-tmini');
+  n.querySelectorAll('th, td').forEach((c) => { c.innerHTML = '<i></i>'; });
+  return `<i class="st-smp st-smp-tbl">${n.outerHTML}</i>`;
 };
 
 /** На ленте — ходовые стили и последний столбец с недавними (на этом компьютере); все стили — по стрелке */
@@ -547,13 +568,29 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     type: 'shape',
     el: (root) => (root.matches('.shape') ? root : root.querySelector('.shape')),
     apply: (el, b) => {
-      const n = shapeEl(b);
+      const n = blockEl('shape', b);
       if (!n) return;
       // Классы правки (выделение и т. п.) остаются, классы фигуры — новые
       el.className = [...[...el.classList].filter((c) => !c.startsWith('shape')), ...n.classList].join(' ');
       put(el, n.getAttribute('style'));
     },
     sample: shapeSample,
+  };
+  /** Таблица: класс вида у корня и линии ячеек — из разметки, перерисованной тем же кодом */
+  const TABLE_KIND: LookKind = {
+    type: 'table',
+    el: (root) => (root.matches('.tbl') ? root : root.querySelector('.tbl')),
+    parts: (el) => [...el.querySelectorAll('th, td')],
+    apply: (el, b) => {
+      const n = blockEl('table', b);
+      if (!n) return;
+      el.className = [...[...el.classList].filter((c) => c !== 'r' && !c.startsWith('tbl')), ...n.classList].join(' ');
+      put(el, n.getAttribute('style'));
+      const live = el.querySelectorAll('th, td');
+      const fresh = n.querySelectorAll('th, td');
+      if (live.length === fresh.length) live.forEach((c, i) => put(c, fresh[i].getAttribute('style')));
+    },
+    sample: tableSample,
   };
   /**
    * Тень, скругление, прозрачность, паспарту, поворот, все стили — как «Цвет»: превью на образце, наведение
@@ -564,7 +601,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     // Сохраняем вид объекта и снимков внутри: примерка меняет только классы и style
     const snap = () => paths.flatMap((p) => [...h.stage().querySelectorAll<HTMLElement>(`.slide.on [data-block='${JSON.stringify(p)}']`)].map((root) => ({ el: kind.el(root), p })))
       .filter((x): x is { el: HTMLElement; p: Path } => !!x.el)
-      .map(({ el, p }) => ({ el, p, parts: [el, ...el.querySelectorAll('img')].map((n) => ({ n, cls: n.className, style: n.getAttribute('style') })) }));
+      .map(({ el, p }) => ({ el, p, parts: [el, ...(kind.parts?.(el) ?? el.querySelectorAll('img'))].map((n) => ({ n, cls: n.className, style: n.getAttribute('style') })) }));
     let saved = snap();
     const fresh = () => { if (saved[0] && !saved[0].el.isConnected) saved = snap(); };
     const b0 = first(kind.type);
@@ -576,7 +613,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     };
     const options = sections.flatMap((s) => s.options);
     const tile = (o: LookOption) => `<button type="button" class="st-flt${o.on ? ' on' : ''}" data-lk="${options.indexOf(o)}" title="${esc(o.label)}">`
-      + `${kind.sample({ ...(b0 ?? {}), ...o.patch } as Block)}<span>${esc(o.label)}</span></button>`;
+      + `${kind.sample({ ...(b0 ?? {}), ...(o.preview ?? o.patch) } as Block)}<span>${esc(o.label)}</span></button>`;
     const grids = sections.map((s) => `${s.title ? `<h4>${esc(s.title)}</h4>` : ''}<div class="st-flt-grid${s.cls ? ` ${s.cls}` : ''}">${s.options.map(tile).join('')}</div>`).join('');
     const range = slider ? `<div class="st-adj"><label${slider.off ? ` title="${esc(slider.off)}"` : ''}><span>${esc(slider.label)}</span><input type="range" min="${slider.min}" max="${slider.max}" step="1" value="${slider.value}" data-lkr="1" aria-label="${esc(slider.label)}"${slider.off ? ' disabled' : ''}><output>${slider.value}${slider.unit}</output></label></div>` : '';
     const pop = showPopover(at, `<div class="st-flt-pop">${grids}${range}<p class="st-flt-note">Наведите — примерка на слайде, щелчок — применить</p></div>`, (b) => {
@@ -858,27 +895,31 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const top = Array.isArray(t.header) && t.head !== false ? -1 : 0;
     return { table: key, r0: top, r1: t.rows.length - 1, c0: 0, c1: colCount(t) - 1 };
   };
+  /** Правила границ после выбора kind для диапазона at (null — «как в стиле»: правила, целиком внутри него, убираются) */
+  const bordersWith = (raw: unknown, at: CellRange, kind: string | null) => {
+    const list = Array.isArray(raw) ? (raw as (number | string)[][]) : [];
+    const keep = list.filter((b) => !(Number(b[0]) >= at.r0 && Number(b[0]) + Number(b[2]) - 1 <= at.r1 && Number(b[1]) >= at.c0 && Number(b[1]) + Number(b[3]) - 1 <= at.c1));
+    const next = kind ? [...keep, [at.r0, at.c0, at.r1 - at.r0 + 1, at.c1 - at.c0 + 1, kind]] : keep;
+    return next.length ? next : undefined;
+  };
   const setBorders = (kind: string | null) => {
     const at = borderRect();
     ed.finishText();
     editTable((t) => {
-      const list = Array.isArray(t.borders) ? (t.borders as (number | string)[][]) : [];
-      // «Как в стиле»: правила, целиком внутри выделения, убираются
-      const keep = list.filter((b) => !(Number(b[0]) >= at.r0 && Number(b[0]) + Number(b[2]) - 1 <= at.r1 && Number(b[1]) >= at.c0 && Number(b[1]) + Number(b[3]) - 1 <= at.c1));
-      const next = kind ? [...keep, [at.r0, at.c0, at.r1 - at.r0 + 1, at.c1 - at.c0 + 1, kind]] : keep;
-      if (next.length) t.borders = next;
+      const next = bordersWith(t.borders, at, kind);
+      if (next) t.borders = next;
       else delete t.borders;
     });
   };
-  const borderItems = (): MenuEntry[] => [
-    { label: 'Все границы', run: () => setBorders('all') },
-    { label: 'Внешние границы', run: () => setBorders('outer') },
-    { label: 'Внутренние границы', run: () => setBorders('inner') },
-    { label: 'Нижняя граница', run: () => setBorders('bottom') },
-    { label: 'Без границ', run: () => setBorders('none') },
-    null,
-    { label: 'Как в стиле таблицы', run: () => setBorders(null) },
-  ];
+  /** Границы выделенных ячеек (или всей таблицы): образец — мини-таблица целиком, наведение — на самих ячейках */
+  const bordersGallery = () => {
+    const at = borderRect();
+    const raw = first('table')?.borders;
+    const kinds: [string | null, string][] = [['all', 'Все'], ['outer', 'Внешние'], ['inner', 'Внутренние'], ['bottom', 'Нижняя'], ['none', 'Без границ'], [null, 'Как в стиле']];
+    lookPopover(anchor('table.borders'), [{ cls: 't3', options: kinds.map(([k, label]) => ({
+      label, patch: { borders: bordersWith(raw, at, k) }, preview: { borders: k ? [[-1, 0, 4, 3, k]] : undefined }, on: false, pick: () => setBorders(k),
+    })) }], undefined, '', TABLE_KIND);
+  };
   const sortBy = (desc: boolean) => {
     const c = cell().c;
     ed.finishText();
@@ -1038,7 +1079,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       enabled: () => isTable() && first('table')?.variant !== 'stripes', active: () => !!first('table')?.bands || first('table')?.variant === 'stripes',
     },
     'table.fill': { run: tableFill, enabled: isTable },
-    'table.borders': { run: () => showMenu(anchor('table.borders'), borderItems()), enabled: isTable },
+    'table.borders': { run: bordersGallery, enabled: isTable },
     'table.sort': { run: () => showMenu(anchor('table.sort'), sortItems()), enabled: () => isTable() && ((first('table')?.rows as unknown[]) ?? []).length > 1 },
     'table.rows.equal': { run: equalRows, enabled: isTable },
     'table.merge': { run: mergeCells, enabled: () => isTable() && multiCell() },
@@ -1062,13 +1103,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       enabled: isTable,
     },
     'table.cols.equal': { run: () => setAll('table', 'widths', undefined), enabled: () => isTable() && Array.isArray(first('table')?.widths) },
-    'table.density': {
-      run: () => {
-        const cur = first('table')?.density;
-        showMenu(anchor('table.density'), ([[undefined, 'Обычная'], ['compact', 'Компактная'], ['roomy', 'Свободная']] as const).map(([v, l]) => ({ label: l, checked: cur === v, run: () => setAll('table', 'density', v) })));
-      },
-      enabled: isTable,
-    },
+    'table.density': { run: () => lookGallery('table.density', 'density', [[undefined, 'Обычная'], ['compact', 'Компактная'], ['roomy', 'Свободная']], undefined, 't3', TABLE_KIND), enabled: isTable },
     'table.size.up': { run: () => setAll('table', 'size', Math.min(40, (Number(first('table')?.size) || 17) + 1)), enabled: isTable },
     'table.size.down': { run: () => setAll('table', 'size', Math.max(10, (Number(first('table')?.size) || 17) - 1)), enabled: isTable },
   };
