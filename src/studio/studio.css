@@ -92,6 +92,12 @@ body.studio { background: var(--alt); }
 .st-smp-pic.img-tint { isolation: isolate; }
 .st-smp-pic.img-tint::after { content: ""; position: absolute; inset: var(--mat, 0); background: var(--tint); mix-blend-mode: var(--tint-blend, normal); opacity: var(--tint-op, 1); border-radius: inherit; }
 .st-flt-grid.f { grid-template-columns: repeat(5, 1fr); }
+/* Образец фигуры (shapeSample): сама фигура в уменьшенном виде, тени заметнее, чем на слайде */
+.st-smp-shape { display: flex; align-items: stretch; width: 54px; height: 34px; font-style: normal; --shadow-sm: 0 1px 4px rgba(15, 23, 42, .24); --shadow-md: 0 4px 10px rgba(15, 23, 42, .34); }
+.st-smp-shape > .shape { flex: 1; min-height: 0; padding: 0; font-size: 12px; justify-content: center; }
+.st-smp-shape .shape-t { flex: none; font-size: 12px !important; text-align: center !important; }
+.st-smp-shape.line { align-items: center; }
+.st-flt-grid.f .st-smp-shape { width: 46px; height: 30px; }
 .st-flt-grid.f .st-smp { height: 54px; }
 .st-flt-grid.f .st-smp-pic { width: 54px; height: 36px; }
 .st-flt-grid.f .st-smp-pic.img-round { width: 36px; }

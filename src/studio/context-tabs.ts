@@ -16,8 +16,17 @@ const stylePatch = (st: (typeof IMAGE_STYLES)[number]): Record<string, unknown> 
 };
 const styleOn = (st: (typeof IMAGE_STYLES)[number], b: Block) => IMAGE_LOOK_KEYS.every((k) => COLOR_KEYS.has(k) || k === 'fadeSize' || b[k] === (st.props as Record<string, unknown>)[k]);
 
+interface LookKind {
+  type: string;
+  /** Элемент оформления внутри корня блока на слайде */
+  el(root: HTMLElement): HTMLElement | null;
+  /** Показать на нём вид блока b */
+  apply(el: HTMLElement, b: Block): void;
+  sample(b: Block): string;
+}
 interface LookOption { label: string; patch: Record<string, unknown>; on: boolean; pick(): void }
 interface LookSlider { label: string; min: number; max: number; unit: string; key: string; value: number; set(n: number): unknown; /** Ползунок недоступен: подсказка почему */ off?: string }
+import { getBlock } from '../engine/component';
 import { getAt, setAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
@@ -140,6 +149,23 @@ const sample = (b: ImageLook) => {
   });
   const sh = b.shadow && SAMPLE_SHADOWS[b.shadow] ? `box-shadow:${SAMPLE_SHADOWS[b.shadow]}` : '';
   return `<i class="st-smp"><i class="st-smp-pic${look.cls}" style="${esc([look.box, sh].filter(Boolean).join(';'))}"><b${look.img ? ` style="${esc(look.img)}"` : ''}></b></i></i>`;
+};
+
+/** Разметка фигуры тем же кодом, что на слайде */
+const shapeEl = (b: Block): Element | null => {
+  const t = document.createElement('div');
+  t.innerHTML = getBlock('shape')?.render(b, {} as never) ?? '';
+  return t.firstElementChild;
+};
+/**
+ * Образец фигуры для галерей «Фигуры»: сама фигура в уменьшенном виде (скругление — в её масштабе,
+ * тень заметнее), чтобы вариант было видно отчётливо. Саму фигуру — при наведении
+ */
+const shapeSample = (b: Block) => {
+  const line = b.kind === 'line' || b.kind === 'arrow';
+  const r = Number(b.radius);
+  const n = shapeEl({ ...b, text: line ? undefined : 'Аа', radius: Number.isFinite(r) && b.radius !== undefined ? Math.round(r * 0.35) : b.kind === 'rect' ? 0 : 6, style: undefined, width: b.width ? Math.min(3, Number(b.width)) : b.width });
+  return `<i class="st-smp st-smp-sh"><i class="st-smp-shape${line ? ' line' : ''}">${n?.outerHTML ?? ''}</i></i>`;
 };
 
 /** На ленте — ходовые стили и последний столбец с недавними (на этом компьютере); все стили — по стрелке */
@@ -412,10 +438,6 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   };
   const mark = (el: HTMLElement) => el.parentElement?.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === el));
 
-  const choice = (cmd: string, key: string, options: [unknown, string][], def: unknown, type = 'shape') => {
-    const cur = first(type)?.[key] ?? def;
-    showMenu(anchor(cmd), options.map(([v, l]) => ({ label: l, checked: cur === v, run: () => setAll(type, key, v === def ? undefined : v) })));
-  };
   // ---------- рисунок: цвет — галерея превью и ползунки; наведение и ползунки примеряются на слайде ----------
   const filterGallery = () => {
     const paths = targets('image');
@@ -505,33 +527,56 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const mo = new MutationObserver(() => { if (!pop.isConnected) { mo.disconnect(); restore(); } });
     mo.observe(document.body, { childList: true });
   };
+  const put = (el: Element | null, v: string | null) => { if (el) { if (v === null) el.removeAttribute('style'); else el.setAttribute('style', v); } };
+  /** Рисунок: оформление — на рамке .imgbox и самом снимке, образец — пейзаж */
+  const IMAGE_KIND: LookKind = {
+    type: 'image',
+    el: (root) => root.querySelector('.imgbox'),
+    apply: (bx, blk) => {
+      const b = blk as ImageLook & Parameters<typeof frameCss>[0];
+      const look = imageLookCss(b);
+      bx.className = `${bx.className.replace(/\s*\bimg-(fx|tint|round)\b/g, '')}${look.cls}`;
+      put(bx, look.box || null);
+      const img = bx.querySelector('img');
+      if (img) put(img, `${frameCss(b)}${look.img ? `;${look.img}` : ''}`);
+    },
+    sample: (b) => sample(b as ImageLook),
+  };
+  /** Фигура: перерисовывается тем же кодом, что на слайде; образец — фигура с «Аа» */
+  const SHAPE_KIND: LookKind = {
+    type: 'shape',
+    el: (root) => (root.matches('.shape') ? root : root.querySelector('.shape')),
+    apply: (el, b) => {
+      const n = shapeEl(b);
+      if (!n) return;
+      // Классы правки (выделение и т. п.) остаются, классы фигуры — новые
+      el.className = [...[...el.classList].filter((c) => !c.startsWith('shape')), ...n.classList].join(' ');
+      put(el, n.getAttribute('style'));
+    },
+    sample: shapeSample,
+  };
   /**
-   * Тень, скругление, прозрачность, паспарту, все стили — как «Цвет»: превью на образце, наведение примеряет
-   * на самом снимке на слайде, щелчок — применить; ползунок — своё значение (на слайде сразу, в данные — когда отпустили).
+   * Тень, скругление, прозрачность, паспарту, поворот, все стили — как «Цвет»: превью на образце, наведение
+   * примеряет на самом объекте на слайде, щелчок — применить; ползунок — своё значение (на слайде сразу, в данные — когда отпустили).
    */
-  const lookPopover = (at: HTMLElement, sections: { title?: string; cls?: string; options: LookOption[] }[], slider?: LookSlider, cls = '') => {
-    const paths = targets('image');
-    const snap = () => paths.flatMap((p) => [...h.stage().querySelectorAll<HTMLElement>(`.slide.on [data-block='${JSON.stringify(p)}'] .imgbox`)].map((bx) => ({ bx, p })))
-      .map(({ bx, p }) => ({ bx, p, img: bx.querySelector('img'), cls: bx.className, style: bx.getAttribute('style'), imgStyle: bx.querySelector('img')?.getAttribute('style') ?? null }));
+  const lookPopover = (at: HTMLElement, sections: { title?: string; cls?: string; options: LookOption[] }[], slider?: LookSlider, cls = '', kind = IMAGE_KIND) => {
+    const paths = targets(kind.type);
+    // Сохраняем вид объекта и снимков внутри: примерка меняет только классы и style
+    const snap = () => paths.flatMap((p) => [...h.stage().querySelectorAll<HTMLElement>(`.slide.on [data-block='${JSON.stringify(p)}']`)].map((root) => ({ el: kind.el(root), p })))
+      .filter((x): x is { el: HTMLElement; p: Path } => !!x.el)
+      .map(({ el, p }) => ({ el, p, parts: [el, ...el.querySelectorAll('img')].map((n) => ({ n, cls: n.className, style: n.getAttribute('style') })) }));
     let saved = snap();
-    const fresh = () => { if (saved[0] && !saved[0].bx.isConnected) saved = snap(); };
-    const b0 = first('image');
+    const fresh = () => { if (saved[0] && !saved[0].el.isConnected) saved = snap(); };
+    const b0 = first(kind.type);
     let picked = false;
-    const put = (el: Element | null, v: string | null) => { if (el) { if (v === null) el.removeAttribute('style'); else el.setAttribute('style', v); } };
-    const restore = () => { if (picked) return; fresh(); saved.forEach((x) => { x.bx.className = x.cls; put(x.bx, x.style); put(x.img, x.imgStyle); }); };
+    const restore = () => { if (picked) return; fresh(); saved.forEach((x) => x.parts.forEach(({ n, cls, style }) => { n.className = cls; put(n, style); })); };
     const tryOn = (patch: Record<string, unknown>) => {
       restore();
-      for (const { bx, p, img } of saved) {
-        const b = { ...(getAt(deck, p) as Block), ...patch } as Parameters<typeof imageLookCss>[0] & Parameters<typeof frameCss>[0];
-        const look = imageLookCss(b);
-        bx.className = `${bx.className.replace(/\s*\bimg-(fx|tint|round)\b/g, '')}${look.cls}`;
-        put(bx, look.box || null);
-        if (img) put(img, `${frameCss(b)}${look.img ? `;${look.img}` : ''}`);
-      }
+      for (const { el, p } of saved) kind.apply(el, { ...(getAt(deck, p) as Block), ...patch });
     };
     const options = sections.flatMap((s) => s.options);
     const tile = (o: LookOption) => `<button type="button" class="st-flt${o.on ? ' on' : ''}" data-lk="${options.indexOf(o)}" title="${esc(o.label)}">`
-      + `${sample({ ...(b0 ?? {}), ...o.patch } as ImageLook)}<span>${esc(o.label)}</span></button>`;
+      + `${kind.sample({ ...(b0 ?? {}), ...o.patch } as Block)}<span>${esc(o.label)}</span></button>`;
     const grids = sections.map((s) => `${s.title ? `<h4>${esc(s.title)}</h4>` : ''}<div class="st-flt-grid${s.cls ? ` ${s.cls}` : ''}">${s.options.map(tile).join('')}</div>`).join('');
     const range = slider ? `<div class="st-adj"><label${slider.off ? ` title="${esc(slider.off)}"` : ''}><span>${esc(slider.label)}</span><input type="range" min="${slider.min}" max="${slider.max}" step="1" value="${slider.value}" data-lkr="1" aria-label="${esc(slider.label)}"${slider.off ? ' disabled' : ''}><output>${slider.value}${slider.unit}</output></label></div>` : '';
     const pop = showPopover(at, `<div class="st-flt-pop">${grids}${range}<p class="st-flt-note">Наведите — примерка на слайде, щелчок — применить</p></div>`, (b) => {
@@ -554,18 +599,18 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       const r = e.target as HTMLInputElement;
       if (!slider || !r.dataset.lkr) return;
       const v = slider.set(Number(r.value));
-      ed.commit((d) => paths.forEach((p) => setAt(d, [...p, slider.key], v)), { rebuild: true, merge: `img-${slider.key}` });
+      ed.commit((d) => paths.forEach((p) => setAt(d, [...p, slider.key], v)), { rebuild: true, merge: `${kind.type}-${slider.key}` });
       saved = snap();
     });
     const mo = new MutationObserver(() => { if (!pop.isConnected) { mo.disconnect(); restore(); } });
     mo.observe(document.body, { childList: true });
   };
-  /** Одно поле: тень, скругление, прозрачность, паспарту (cls «f» — пять образцов в ряд) */
+  /** Одно поле: тень, скругление, прозрачность, паспарту, поворот (cls «f» — пять образцов в ряд) */
   const lookGallery = (cmd: string, key: string, options: [unknown, string][],
-    slider?: { label: string; min: number; max: number; unit: string; get: (v: unknown) => number; set: (n: number) => unknown }, cls?: string) => {
-    const cur = first('image')?.[key];
-    lookPopover(anchor(cmd), [{ cls, options: options.map(([v, label]) => ({ label, patch: { [key]: v }, on: cur === v, pick: () => setAll('image', key, v) })) }],
-      slider && { ...slider, key, value: slider.get(cur) });
+    slider?: { label: string; min: number; max: number; unit: string; get: (v: unknown) => number; set: (n: number) => unknown }, cls?: string, kind = IMAGE_KIND) => {
+    const cur = first(kind.type)?.[key];
+    lookPopover(anchor(cmd), [{ cls, options: options.map(([v, label]) => ({ label, patch: { [key]: v }, on: cur === v, pick: () => setAll(kind.type, key, v) })) }],
+      slider && { ...slider, key, value: slider.get(cur) }, '', kind);
   };
   /** Все стили рисунка: рамка и тень, растворение и сколько снимка тает */
   const stylesGallery = () => {
@@ -928,10 +973,22 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   const cmds: Record<string, Command> = {
     'shape.fill': { run: () => palette('shape.fill', 'fill'), enabled: isBody },
     'shape.stroke': { run: () => palette('shape.stroke', 'stroke'), enabled: isShape },
-    'shape.shadow': { run: () => choice('shape.shadow', 'shadow', [[undefined, 'Без тени'], ['sm', 'Лёгкая'], ['md', 'Заметная']], undefined), enabled: isBody },
-    'shape.radius': { run: () => choice('shape.radius', 'radius', [[0, 'Острые углы'], [8, 'Малое — 8 px'], [16, 'Среднее — 16 px'], [24, 'Большое — 24 px'], [40, 'Очень большое — 40 px']], undefined), enabled: () => isShape() && ['round', 'rect', undefined].includes(first('shape')?.kind as string | undefined) },
-    'shape.rotate': { run: () => choice('shape.rotate', 'rotate', [[undefined, 'Без поворота'], [45, '45°'], [90, '90°'], [135, '135°'], [180, '180°'], [-45, '−45°'], [-90, '−90°']], undefined), enabled: isShape },
-    'shape.opacity': { run: () => choice('shape.opacity', 'opacity', [[undefined, 'Непрозрачная'], [0.8, '80 %'], [0.6, '60 %'], [0.4, '40 %'], [0.2, '20 %']], undefined), enabled: isShape },
+    'shape.shadow': { run: () => lookGallery('shape.shadow', 'shadow', [[undefined, 'Без тени'], ['sm', 'Лёгкая'], ['md', 'Заметная']], undefined, undefined, SHAPE_KIND), enabled: isBody },
+    'shape.radius': {
+      run: () => lookGallery('shape.radius', 'radius', [[0, 'Острые'], [8, 'Малое'], [undefined, 'Обычное'], [24, 'Большое'], [40, 'Очень большое']],
+        { label: 'Своё, px', min: 0, max: 120, unit: ' px', get: (v) => (Number.isFinite(Number(v)) && v !== undefined ? Number(v) : first('shape')?.kind === 'rect' ? 0 : 16), set: (n) => n }, 'f', SHAPE_KIND),
+      enabled: () => isShape() && ['round', 'rect', undefined].includes(first('shape')?.kind as string | undefined),
+    },
+    'shape.rotate': {
+      run: () => lookGallery('shape.rotate', 'rotate', [[undefined, 'Без поворота'], [-90, '−90°'], [-45, '−45°'], [45, '45°'], [90, '90°'], [135, '135°'], [180, '180°']],
+        { label: 'Свой, °', min: -180, max: 180, unit: '°', get: (v) => Number(v) || 0, set: (n) => n || undefined }, undefined, SHAPE_KIND),
+      enabled: isShape,
+    },
+    'shape.opacity': {
+      run: () => lookGallery('shape.opacity', 'opacity', [[undefined, '100 %'], [0.8, '80 %'], [0.6, '60 %'], [0.4, '40 %'], [0.2, '20 %']],
+        { label: 'Своя', min: 10, max: 100, unit: ' %', get: (v) => Math.round((Number(v) || 1) * 100), set: (n) => (n >= 100 ? undefined : n / 100) }, 'f', SHAPE_KIND),
+      enabled: isShape,
+    },
     'shape.text': { run: editShapeText, enabled: () => isBody() && targets('shape').length === 1 },
     'shape.font.up': { run: () => fontStep(1), enabled: hasText },
     'shape.font.down': { run: () => fontStep(-1), enabled: hasText },

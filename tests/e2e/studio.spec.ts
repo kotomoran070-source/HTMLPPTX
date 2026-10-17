@@ -681,6 +681,36 @@ test('«Инструменты» → «Лицензии»: страница с �
   expect(text).not.toContain('Electron — MIT');
 });
 
+test('фигура: тень, скругление, поворот, прозрачность — плитками на образце, наведение примеряет на самой фигуре', async ({ page }) => {
+  const errors = watchErrors(page);
+  const before = readDeck('tpl');
+  await page.goto('/?deck=tpl&studio#4');
+  const sh = page.locator('#st-canvas .slide.on [data-type="shape"]').first();
+  await sh.click({ position: { x: 10, y: 10 } });
+  await page.locator('.st-tabs [data-tab="shape"]').click();
+  const shadow = () => sh.evaluate((e) => getComputedStyle(e.matches('.shape') ? e : e.querySelector('.shape')!).boxShadow);
+  const was = await shadow();
+  await page.locator('.st-ribbon [data-cmd="shape.shadow"]').click();
+  const pop = page.locator('.st-lkpop');
+  await expect(pop.locator('.st-smp-shape .shape')).toHaveCount(3);
+  await pop.locator('[data-lk][title="Без тени"]').hover();
+  await expect.poll(shadow).toBe('none');
+  expect(readDeck('tpl')).toBe(before);
+  await pop.locator('[data-lk][title="Заметная"]').click();
+  await expect.poll(() => readDeck('tpl')).toMatch(/text: "\*\*Текст и цифры[^\n]*shadow: md|shadow: md[^\n]*Текст и цифры/);
+  expect(await shadow()).not.toBe(was);
+  // Поворот: плитки и свой угол ползунком
+  await page.locator('.st-ribbon [data-cmd="shape.rotate"]').click();
+  await expect(pop.locator('[data-lk]')).toHaveCount(7);
+  await pop.locator('[data-lkr]').fill('30');
+  await expect.poll(() => readDeck('tpl')).toMatch(/rotate: 30/);
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Control+z');
+  await page.keyboard.press('Control+z');
+  expect(await waitFile(() => readDeck('tpl') === before)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('картинка: галереи «Рисунка» на образце, наведение — на самом снимке; «Круг» — настоящий круг, «Овал» — во всю рамку; паспарту плитками', async ({ page }) => {
   const errors = watchErrors(page);
   const before = readDeck('tpl');
