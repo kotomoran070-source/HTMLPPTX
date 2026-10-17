@@ -187,22 +187,23 @@ defineBlock<VideoProps>('video', {
     // (снимок следующего слайда в окне докладчика не в счёт)
     const lead = !!video && presenter() && !!el.closest('#cur');
     // Откуда ролик перематывается: перезапуск по кругу (loop) — тоже перемотка в начало, но не действие докладчика.
-    // Запоминается в начале перемотки: отметка времени с новым местом приходит ещё до её конца
+    // Отметки времени приходят редко (раз в 0,25 с, под нагрузкой реже): где ролик был в момент перемотки —
+    // последняя отметка плюс прошедшее время. Считается в начале перемотки: отметка с новым местом приходит до её конца
     let lastT = 0;
+    let lastAt = 0;
     let fromT = 0;
-    const tick = () => { if (!video!.seeking) lastT = video!.currentTime; };
-    const seeking = () => { fromT = lastT; };
+    const tick = () => { if (!video!.seeking) { lastT = video!.currentTime; lastAt = performance.now(); } };
+    const seeking = () => { fromT = video!.paused ? lastT : lastT + ((performance.now() - lastAt) / 1000) * (video!.playbackRate || 1); };
     const tell = (e: Event) => {
       // Скрытую страницу (погас экран телефона, окно свернули) браузер ставит на паузу сам — это не действие докладчика
       // Автозапуск при открытии слайда идёт в обоих окнах сам: окно докладчика, открытое посреди ролика, не отматывает его зрителям
-      if (auto) {
-        if (!video!.paused && !video!.seeking) auto = false;
-        return;
-      }
+      // Пока ролик не пошёл на самом деле ('playing'), всё — от автозапуска: и перемотка в начало, которую браузер
+      // делает только после загрузки ролика (под нагрузкой — уже после 'play')
+      if (auto) return;
       if (document.hidden) return;
       // Ролик по кругу начался заново сам: у зрителей он тоже идёт по кругу — не отматываем их
       const d = video!.duration;
-      if (e.type === 'seeked' && video!.loop && !video!.paused && video!.currentTime < 0.6 && Number.isFinite(d) && fromT > d - 0.6) return;
+      if (e.type === 'seeked' && video!.loop && !video!.paused && video!.currentTime < 0.6 && Number.isFinite(d) && fromT > d - 0.3) return;
       window.dispatchEvent(new CustomEvent<MediaState>(MEDIA, { detail: { key, playing: !video!.paused, time: video!.currentTime } }));
     };
     const follow = (e: Event) => {

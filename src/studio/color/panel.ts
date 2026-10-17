@@ -18,7 +18,8 @@ import { esc } from '../../engine/html';
 import { videoEmbed } from '../../components/media/video';
 import type { Block, Deck } from '../../types';
 import { parseCube, type Lut } from '../../engine/color/cube';
-import { GradeGL, wheelColor } from '../../engine/color/gl';
+import { GradeGL, wheelColor, type BakeType } from '../../engine/color/gl';
+import { gifFirstFrame, gradeGif, isGif } from './gif';
 import { addMyLook, listMyLooks, removeMyLook } from './my-looks';
 import { autoGrade, BANDS, brandStops, compact, curveTable as tableOf, isNeutral, LOOKS, scaleGrade, type Band, type CurvePoint, type Grade, type Wheel } from '../../engine/color/grade';
 import './color.css';
@@ -30,7 +31,6 @@ export interface ColorHost {
 
 /** Поле с картинкой: у блока image — src, у плитки — image */
 export const imageKey = (b: Block): 'src' | 'image' => (b.type === 'image' ? 'src' : 'image');
-const GIF = /^data:image\/gif[;,]|\.gif(?:[?#]|$)/i;
 const SVG = /^data:image\/svg|\.svg(?:[?#]|$)/i;
 
 /** Ролик — свой файл, не YouTube и не Vimeo */
@@ -39,12 +39,12 @@ const localVideo = (b: Block): boolean => {
   return !!v && !videoEmbed(v, { autoplay: false, muted: true, loop: false, controls: false });
 };
 
-/** Можно ли править цвет: картинка (не анимированный GIF) или свой ролик */
+/** Можно ли править цвет: картинка (и анимированный GIF — все его кадры) или свой ролик */
 export function gradable(b: Block | undefined): boolean {
   if (b?.type === 'video') return localVideo(b);
   if (!b || (b.type !== 'image' && b.type !== 'tile')) return false;
   const v = b[imageKey(b)];
-  return typeof v === 'string' && !!v && !GIF.test(v);
+  return typeof v === 'string' && !!v;
 }
 
 /** Исходная картинка блока: до цветокоррекции */
@@ -88,8 +88,25 @@ const seek = (v: HTMLVideoElement, t: number) => new Promise<void>((resolve) => 
   v.currentTime = t;
 });
 
-/** Картинка → источник для видеокарты; SVG — растром не меньше 1600 px по ширине */
-async function source(url: string): Promise<{ src: TexImageSource; w: number; h: number; alpha: boolean }> {
+/**
+ * Формат готовой картинки — как у исходника: PNG (снимки экрана, схемы) остаётся без потерь, WebP — WebP,
+ * фото JPEG — JPEG. Прозрачность — всегда PNG
+ */
+function bakeType(url: string, alpha: boolean): BakeType {
+  if (alpha) return 'png';
+  const ext = /^data:image\/([a-z+]+)/i.exec(url)?.[1] ?? /\.([a-z0-9]+)(?:[?#]|$)/i.exec(url)?.[1] ?? '';
+  const e = ext.toLowerCase();
+  if (e === 'jpg' || e === 'jpeg' || e === 'avif' || e === 'heic') return 'jpeg';
+  if (e === 'webp') return 'webp';
+  return 'png';
+}
+
+/** Картинка → источник для видеокарты; SVG — растром не меньше 1600 px по ширине; GIF — первым кадром */
+async function source(url: string): Promise<{ src: TexImageSource; w: number; h: number; alpha: boolean; type: BakeType; frames?: number }> {
+  if (isGif(url)) {
+    const f = await gifFirstFrame(url);
+    return { src: f.src, w: f.w, h: f.h, alpha: hasAlpha(f.src), type: 'png', frames: f.frames };
+  }
   const img = await loadImage(url);
   let w = img.naturalWidth || 1600;
   let h = img.naturalHeight || 900;
@@ -101,28 +118,40 @@ async function source(url: string): Promise<{ src: TexImageSource; w: number; h:
     c.width = w;
     c.height = h;
     c.getContext('2d')!.drawImage(img, 0, 0, w, h);
-    return { src: c, w, h, alpha: true };
+    return { src: c, w, h, alpha: true, type: 'png' };
   }
-  // Прозрачность — по уменьшенной копии: JPEG для фото, PNG для картинок с прозрачными местами
+  const alpha = hasAlpha(img);
+  return { src: img, w, h, alpha, type: bakeType(url, alpha) };
+}
+
+/** Есть ли прозрачные места — по уменьшенной копии */
+function hasAlpha(img: CanvasImageSource & { width: number; height: number }): boolean {
+  const w = (img as HTMLImageElement).naturalWidth || img.width;
+  const h = (img as HTMLImageElement).naturalHeight || img.height;
   const c = document.createElement('canvas');
-  const k = Math.min(1, 256 / Math.max(w, h));
+  const k = Math.min(1, 256 / Math.max(w, h, 1));
   c.width = Math.max(1, Math.round(w * k));
   c.height = Math.max(1, Math.round(h * k));
   const ctx = c.getContext('2d', { willReadFrequently: true })!;
   ctx.drawImage(img, 0, 0, c.width, c.height);
   const d = ctx.getImageData(0, 0, c.width, c.height).data;
-  let alpha = false;
-  for (let i = 3; i < d.length; i += 4) if (d[i] < 250) { alpha = true; break; }
-  return { src: img, w, h, alpha };
+  for (let i = 3; i < d.length; i += 4) if (d[i] < 250) return true;
+  return false;
+}
+
+/** Готовый файл картинки или GIF (все кадры) с коррекцией g; gl после GIF — на его кадрах */
+async function bakeFile(gl: GradeGL, url: string, g: Grade, pic: Awaited<ReturnType<typeof source>>, progress?: (done: number, total: number) => void): Promise<{ blob: Blob; ext: string }> {
+  if (pic.frames) return { blob: await gradeGif(gl, url, g, progress), ext: 'gif' };
+  return { blob: await gl.bake(g, pic.type), ext: pic.type === 'jpeg' ? 'jpg' : pic.type };
 }
 
 /** Имя готового файла: от исходного, с отпечатком параметров */
-function bakedName(original: string, g: Grade, alpha: boolean): string {
+function bakedName(original: string, g: Grade, ext: string): string {
   let base = 'image';
   try { base = decodeURIComponent(original.split(/[?#]/)[0].split('/').pop() ?? 'image'); } catch { /* имя как есть */ }
   if (original.startsWith('data:')) base = 'image';
   const stem = base.replace(/\.[a-z0-9]+$/i, '').replace(/-cg-[a-z0-9]+$/i, '').replace(/[^\p{L}\p{N}_-]+/gu, '-').slice(0, 40) || 'image';
-  return `${stem}-cg-${cssKey(JSON.stringify(compact({ ...g, src: undefined })))}.${alpha ? 'png' : 'jpg'}`;
+  return `${stem}-cg-${cssKey(JSON.stringify(compact({ ...g, src: undefined })))}.${ext}`;
 }
 
 /** Все картинки презентации, которые можно перекрасить (фото: без SVG и GIF) */
@@ -189,7 +218,7 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
       clip = await loadVideo(original);
       // Кадр из начала, но не самый первый: первый часто чёрный
       await seek(clip, Math.min(1, durationOf(clip) * 0.1));
-      pic = { src: clip, w: clip.videoWidth || 1280, h: clip.videoHeight || 720, alpha: false };
+      pic = { src: clip, w: clip.videoWidth || 1280, h: clip.videoHeight || 720, alpha: false, type: 'jpeg' };
     } else pic = await source(original);
   } catch (e) {
     gl.dispose();
@@ -235,7 +264,7 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
       + LOOKS.map((l) => tile(l.id, l.name)).join('');
   }
   back.innerHTML = `<div class="cg" role="dialog" aria-label="Цветокоррекция">
-  <header class="cg-head"><b>Цвет</b><span class="cg-file">${original.startsWith('data:') ? '' : esc(name)}</span>
+  <header class="cg-head"><b>Цвет</b><span class="cg-file">${original.startsWith('data:') ? '' : esc(name)}${pic.frames ? ` · GIF, кадров: ${pic.frames} — настройка по первому, применяется ко всем` : ''}</span>
     <span class="cg-sp"></span>
     <button type="button" class="cg-btn" data-a="split" title="До и после: тяните границу по картинке (\\)">${icon('columns')}<span>До / после</span></button>
     <button type="button" class="cg-btn" data-a="wide" title="Только картинка: настройки и образы скрыты (F)">${icon('fullscreen')}<span>Крупно</span></button>
@@ -868,10 +897,10 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
       close();
       return;
     }
-    ed.toast('Цвет применяется…', 0);
+    ed.toast(pic.frames ? `Цвет применяется к кадрам GIF: 0 из ${pic.frames}…` : 'Цвет применяется…', 0);
     try {
-      const blob = await gl.bake(g, pic.alpha);
-      const url = await store(blob, bakedName(original, g, pic.alpha));
+      const { blob, ext } = await bakeFile(gl, original, g, pic, (i, n) => ed.toast(`Цвет применяется к кадрам GIF: ${i} из ${n}…`, 0));
+      const url = await store(blob, bakedName(original, g, ext));
       const grade = { ...compact(g), src: original };
       ed.commit((d) => {
         const b = getAt(d, path) as Block;
@@ -897,7 +926,8 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
         if (neutral) { done.push({ path: paths[i], url: orig }); continue; }
         const p = await source(orig);
         gl.setImage(p.src, p.w, p.h);
-        const url = await store(await gl.bake(g, p.alpha), bakedName(orig, g, p.alpha));
+        const { blob, ext } = await bakeFile(gl, orig, g, p);
+        const url = await store(blob, bakedName(orig, g, ext));
         done.push({ path: paths[i], url, grade: { ...compact(g), src: orig } });
       }
     } catch (e) {

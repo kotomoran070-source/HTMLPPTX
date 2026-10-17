@@ -132,6 +132,9 @@ function wb(temp = 0, tint = 0): [number, number, number] {
   return g.map((v) => v / y) as [number, number, number];
 }
 
+/** Формат готовой картинки */
+export type BakeType = 'png' | 'jpeg' | 'webp';
+
 export class GradeGL {
   readonly canvas: HTMLCanvasElement;
   readonly gl: WebGL2RenderingContext;
@@ -346,25 +349,32 @@ export class GradeGL {
     return px;
   }
 
-  /** Холст 2D с картинкой w×h (строки уже сверху вниз) */
-  canvasOf(g: Grade, w: number, h: number): HTMLCanvasElement {
+  /** Пиксели RGBA w×h с коррекцией, строки сверху вниз */
+  pixels(g: Grade, w: number, h: number): Uint8ClampedArray<ArrayBuffer> {
     const px = this.read(g, w, h);
+    const out = new Uint8ClampedArray(new ArrayBuffer(w * h * 4));
+    const row = w * 4;
+    for (let y = 0; y < h; y++) out.set(px.subarray((h - 1 - y) * row, (h - y) * row), y * row);
+    return out;
+  }
+
+  /** Холст 2D с картинкой w×h */
+  canvasOf(g: Grade, w: number, h: number): HTMLCanvasElement {
     const c = document.createElement('canvas');
     c.width = w;
     c.height = h;
-    const ctx = c.getContext('2d')!;
-    const im = ctx.createImageData(w, h);
-    const row = w * 4;
-    for (let y = 0; y < h; y++) im.data.set(px.subarray((h - 1 - y) * row, (h - y) * row), y * row);
-    ctx.putImageData(im, 0, 0);
+    c.getContext('2d')!.putImageData(new ImageData(this.pixels(g, w, h), w, h), 0, 0);
     return c;
   }
 
-  /** Готовый файл в размере картинки: PNG, если есть прозрачность, иначе JPEG */
-  async bake(g: Grade, alpha: boolean): Promise<Blob> {
+  /**
+   * Готовый файл в размере картинки, в формате исходника: PNG (скриншоты, прозрачность) — без потерь,
+   * WebP и JPEG — с качеством 95 (сжатие 92 давало «грязь» вокруг текста на снимках интерфейса)
+   */
+  async bake(g: Grade, type: BakeType): Promise<Blob> {
     const k = Math.min(1, this.maxSide / Math.max(this.w, this.h));
     const c = this.canvasOf(g, Math.max(1, Math.round(this.w * k)), Math.max(1, Math.round(this.h * k)));
-    return new Promise((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('не удалось сохранить картинку'))), alpha ? 'image/png' : 'image/jpeg', 0.92));
+    return new Promise((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('не удалось сохранить картинку'))), `image/${type}`, 0.95));
   }
 
   dispose(): void {

@@ -11,7 +11,8 @@
 //   origin   — как после импорта из PowerPoint: цвета файла и тема «Как в файле»;
 //   audio    — вставка, которой нужен микрофон (аудиовизуализатор): рамка со своего адреса;
 //   tidy     — ошибки для «Привести в порядок»: копия поверх, ссылки в никуда, скрытое без кнопки;
-//   mirror   — мышь докладчика у зрителей: кнопки, ссылки, переход, прожектор, наведение.
+//   mirror   — мышь докладчика у зрителей: кнопки, ссылки, переход, прожектор, наведение;
+//   gif      — анимированный GIF (три кадра: красный, зелёный, синий) и снимок WebP для «Цвет+».
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -257,4 +258,24 @@ slides:
           <script>let m = 0, c = 0; addEventListener('mousemove', () => { n.textContent = ++m; }); b.onclick = () => { b.textContent = ++c; };</script>
         place: {x: 200, y: 100, w: 800, h: 500}
 `);
+// gif — «Цвет+» у анимированного GIF: кадры красный, зелёный, синий по 0,2 с, по кругу
+{
+  const { GIFEncoder } = (await import('gifenc')).default;
+  const enc = GIFEncoder();
+  const w = 40, h = 30;
+  [[220, 40, 40], [40, 180, 60], [40, 80, 220]].forEach((rgb, i) => {
+    enc.writeFrame(new Uint8Array(w * h), w, h, { palette: [rgb], delay: 200, ...(i === 0 ? { repeat: 0 } : {}) });
+  });
+  enc.finish();
+  fs.mkdirSync(path.join(dir, 'gif', 'assets'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'gif', 'assets', 'anim.gif'), enc.bytes());
+  fs.copyFileSync(path.join(dir, 'tpl', 'assets', 'ui-studio.webp'), path.join(dir, 'gif', 'assets', 'shot.webp'));
+  fs.writeFileSync(path.join(dir, 'gif', 'deck.yaml'), `title: GIF
+slides:
+  - template: canvas
+    free:
+      - {type: image, src: ./assets/anim.gif, place: {x: 100, y: 100, w: 400, h: 300}}
+      - {type: image, src: ./assets/shot.webp, place: {x: 600, y: 100, w: 600, h: 338}}
+`);
+}
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

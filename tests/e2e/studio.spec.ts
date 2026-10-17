@@ -794,6 +794,54 @@ test('«Привести в порядок»: копия поверх, ссыл�
   expect(errors).toEqual([]);
 });
 
+test('«Цвет+» у GIF: все кадры перекрашены, анимация, задержки и повторы на месте; у снимка WebP формат остаётся', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=gif&studio#1');
+  const imgs = page.locator('#st-canvas .slide.on [data-edit-img]');
+  await expect(imgs).toHaveCount(2);
+  await imgs.first().click();
+  await page.locator('.st-tabs [data-tab="image"]').click();
+  await page.locator('.st-ribbon [data-cmd="image.grade"]').click();
+  await expect(page.locator('.cg-file')).toContainText('GIF, кадров: 3');
+  await page.locator('.cg [data-look="mono"]').click();
+  await page.locator('.cg [data-a="done"]').click();
+  await expect.poll(() => readDeck('gif')).toMatch(/src: \.\/assets\/anim-cg-\w+\.gif/);
+  expect(readDeck('gif')).toContain('src: ./assets/anim.gif'); // исходник — в grade.src
+  // Новый файл: три кадра в сером, по 0,2 с, по кругу
+  const info = await page.locator('#st-canvas .slide.on img').first().evaluate(async (img: HTMLImageElement) => {
+    const D = (window as unknown as { ImageDecoder: new (o: object) => any }).ImageDecoder;
+    const dec = new D({ data: await (await fetch(img.currentSrc)).arrayBuffer(), type: 'image/gif' });
+    await dec.tracks.ready; await dec.completed;
+    const t = dec.tracks.selectedTrack;
+    const frames: { rgb: number[]; ms: number }[] = [];
+    for (let i = 0; i < t.frameCount; i++) {
+      const { image } = await dec.decode({ frameIndex: i });
+      const c = new OffscreenCanvas(image.displayWidth, image.displayHeight);
+      const g = c.getContext('2d')!;
+      g.drawImage(image, 0, 0);
+      const d = g.getImageData(20, 15, 1, 1).data;
+      frames.push({ rgb: [d[0], d[1], d[2]], ms: Math.round(image.duration / 1000) });
+      image.close();
+    }
+    return { n: t.frameCount, repeat: t.repetitionCount, frames };
+  });
+  expect(info.n).toBe(3);
+  expect(info.repeat).toBe(Infinity);
+  for (const f of info.frames) {
+    expect(f.ms).toBe(200);
+    expect(Math.max(...f.rgb) - Math.min(...f.rgb)).toBeLessThan(12);
+  }
+  // Кадры остались разными: зелёный в сером светлее красного
+  expect(info.frames[1].rgb[0]).toBeGreaterThan(info.frames[0].rgb[0] + 20);
+  // Снимок WebP: результат тоже WebP, а не JPEG
+  await imgs.nth(1).click();
+  await page.locator('.st-ribbon [data-cmd="image.grade"]').click();
+  await page.locator('.cg [data-look="dark"]').click();
+  await page.locator('.cg [data-a="done"]').click();
+  await expect.poll(() => readDeck('gif')).toMatch(/src: \.\/assets\/shot-cg-\w+\.webp/);
+  expect(errors).toEqual([]);
+});
+
 test('«Инструменты» → «Лицензии»: страница с лицензиями программы, шрифтов и библиотек', async ({ page, context }) => {
   await page.goto('/?deck=tpl&studio#1');
   await page.locator('[data-tab="tools"]').click();

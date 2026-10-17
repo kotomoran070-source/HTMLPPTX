@@ -4,8 +4,18 @@
  * слайде (фон, соседние объекты, карточка вокруг картинки) скрывается на время снимка.
  */
 
-/** Сколько пикселей файла на пиксель слайда (слайд 1280 — рисунок до 2560) */
-const RATIO = 2;
+/**
+ * Сколько пикселей файла на пиксель слайда: не меньше двух (слайд 1280 — рисунок до 2560), а у крупного
+ * фото — сколько в нём есть, до 4: рисунок не мельче самого снимка
+ */
+function ratioFor(els: HTMLElement[]): number {
+  let r = 2;
+  for (const img of els.flatMap((e) => [...e.querySelectorAll('img')])) {
+    if (!img.naturalWidth || !img.offsetWidth) continue;
+    r = Math.max(r, Math.min(img.naturalWidth / img.offsetWidth, img.naturalHeight / Math.max(1, img.offsetHeight)));
+  }
+  return Math.min(4, Math.round(r * 4) / 4);
+}
 /** Запас вокруг объектов: тень и повёрнутые углы не обрезаются; пустые края потом срезаются */
 const MARGIN = 60;
 
@@ -21,6 +31,7 @@ export async function savePicture(slide: HTMLElement, els: HTMLElement[], name: 
   const x1 = (Math.max(...rs.map((r) => r.right)) - sr.left) / k + MARGIN;
   const y1 = (Math.max(...rs.map((r) => r.bottom)) - sr.top) / k + MARGIN;
 
+  const RATIO = ratioFor(els);
   slide.classList.add('st-shot');
   els.forEach((e) => e.classList.add('st-shot-keep'));
   let url: string;

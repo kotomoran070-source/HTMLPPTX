@@ -169,6 +169,7 @@ async function shrinkPhoto(data: string, w: number, h: number, matte?: string): 
   c.width = Math.max(1, Math.round(nw * k));
   c.height = Math.max(1, Math.round(nh * k));
   const g = c.getContext('2d', { willReadFrequently: true })!;
+  g.imageSmoothingQuality = 'high';
   // Подложка: картинка всё равно лежит на этом цвете — прозрачность не нужна
   if (matte) {
     g.fillStyle = `#${matte}`;
@@ -856,11 +857,17 @@ class Converter {
     const src = new Image();
     src.crossOrigin = 'anonymous';
     if (!await new Promise<boolean>((res) => { src.onload = () => res(true); src.onerror = () => res(false); src.src = img.currentSrc || img.src; })) return false;
-    const q = sharp(2);
+    // Пикселей файла на пиксель слайда: сколько есть у самого снимка (крупное фото не ужимается
+    // до двойного размера — без оформления оно уходит в файл целиком), но не меньше обычного и не больше 4
+    const fit0 = cs.objectFit === 'contain' ? Math.min(W / nw, H / nh) : Math.max(W / nw, H / nh);
+    const z0 = Number(/matrix\(([^,]+)/.exec(cs.transform)?.[1]) || 1;
+    const q = Math.max(sharp(2), Math.min(4, 1 / (fit0 * z0 * scale), 4096 / (Math.max(W, H) * scale)));
     const c = document.createElement('canvas');
     c.width = Math.round(W * scale * q);
     c.height = Math.round(H * scale * q);
     const g = c.getContext('2d')!;
+    // Уменьшение большого фото — с качественным сглаживанием (по умолчанию — грубое, с «лесенкой» и муаром)
+    g.imageSmoothingQuality = 'high';
     g.scale(c.width / W, c.height / H);
     // Форма: у паспарту — скругление самого снимка, иначе — внутренний край рамки
     const bw = parseFloat(bcs.borderTopWidth) || 0;
