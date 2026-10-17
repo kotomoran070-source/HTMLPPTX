@@ -37,6 +37,11 @@ body.studio { background: var(--alt); }
 /* Галереи стилей на контекстных вкладках: живые образцы в цветах темы */
 .st-gallery { display: grid; grid-template-columns: repeat(4, 46px); grid-auto-rows: 30px; gap: 4px; }
 .st-gallery.t { grid-template-columns: repeat(3, 62px); grid-auto-rows: 34px; }
+.st-gallery.i { grid-template-columns: repeat(4, 46px) 14px; grid-template-rows: repeat(2, 30px); grid-auto-flow: column; }
+.st-gmore { grid-row: 1 / span 2; display: grid; place-items: center; padding: 0; border: 1px solid var(--bd); border-radius: 7px; background: var(--bg); color: var(--tx2); cursor: pointer; }
+.st-gmore:hover:not(:disabled), .st-gmore[aria-expanded="true"] { border-color: var(--acb); color: var(--ach); }
+.st-gmore:disabled { opacity: .38; cursor: default; }
+.st-gmore .st-caret { display: block; width: 0; height: 0; border: 3.5px solid transparent; border-top: 4px solid currentColor; border-bottom: 0; }
 .st-stile, .st-ttile { display: grid; place-items: center; padding: 2px; border: 1px solid var(--bd); border-radius: 7px; background: var(--bg); cursor: pointer; transition: border-color .12s, box-shadow .12s; }
 .st-stile:hover:not(:disabled), .st-ttile:hover:not(:disabled) { border-color: var(--acb); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 14%, transparent); }
 .st-stile.active, .st-ttile.active { border-color: var(--ac); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 28%, transparent); }
@@ -84,6 +89,11 @@ body.studio { background: var(--alt); }
 .st-lkpop { width: 420px; }
 .st-lkpop .st-flt-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .st-lkpop .st-adj { margin-top: 10px; }
+.st-stpop { width: 460px; }
+.st-stpop .st-flt-grid { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.st-stpop .st-flt-grid.f { grid-template-columns: repeat(5, 1fr); }
+.st-stpop .st-lk-box { height: 52px; margin: 4px 6px 2px; }
+.st-adj label:has(input:disabled) { opacity: .5; }
 .st-lk-box { position: relative; display: block; height: 62px; margin: 6px 8px 2px; overflow: hidden; border-radius: 12px; }
 .st-lk-box img { position: absolute; inset: var(--mat, 0); width: calc(100% - 2 * var(--mat, 0px)); height: calc(100% - 2 * var(--mat, 0px)); object-fit: cover; }
 .st-adj { display: flex; flex-direction: column; gap: 6px; padding: 0 2px; }

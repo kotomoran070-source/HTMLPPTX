@@ -15,6 +15,19 @@ let on = false;
 export function initRangeFill(): void {
   if (on || typeof document === 'undefined') return;
   on = true;
+  // Значение из кода (input.value = …) событий не даёт: без этого дорожка оставалась залитой по старому
+  // значению, пока над ползунком не проведут мышью (масштаб картинки после выбора другой картинки)
+  for (const prop of ['value', 'valueAsNumber'] as const) {
+    const d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, prop);
+    if (!d?.set) continue;
+    Object.defineProperty(HTMLInputElement.prototype, prop, {
+      ...d,
+      set(this: HTMLInputElement, v: unknown) {
+        d.set!.call(this, v);
+        if (this.type === 'range') fill(this);
+      },
+    });
+  }
   const scan = (root: ParentNode) => root.querySelectorAll<HTMLInputElement>(RANGE).forEach(fill);
   document.addEventListener('input', (e) => {
     const t = e.target as HTMLInputElement;
@@ -31,7 +44,7 @@ export function initRangeFill(): void {
     }
   }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['value', 'min', 'max'] });
   scan(document);
-  // Значение, выставленное свойством .value, событий не даёт — подхватываем при наведении и фокусе
+  // Запасной путь: при наведении заливка сверяется со значением
   document.addEventListener('pointerover', (e) => {
     const t = e.target as HTMLInputElement;
     if (t.matches?.(RANGE)) fill(t);

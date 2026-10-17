@@ -680,3 +680,52 @@ test('«Инструменты» → «Лицензии»: страница с �
   // Electron нет — нет и его лицензии (страница из yarn dev)
   expect(text).not.toContain('Electron — MIT');
 });
+
+test('картинка: все стили по стрелке галереи — примерка, растворение и сколько тает; недавние в последнем столбце; заливка ползунка масштаба', async ({ page }) => {
+  const errors = watchErrors(page);
+  const before = readDeck('tpl');
+  await page.goto('/?deck=tpl&studio#3');
+  const img = page.locator('#st-canvas .slide.on [data-edit-img]').first();
+  await img.click();
+  // Ползунок масштаба: заливка дорожки сразу на месте значения (100 % на дорожке 30–300 % — около 26 %)
+  const zoom = page.locator('#ed-img [data-i="zoom"]');
+  await expect(zoom).toBeVisible();
+  expect(parseFloat(await zoom.evaluate((e) => e.style.getPropertyValue('--p')))).toBeCloseTo(((Number(await zoom.inputValue()) - 30) / 270) * 100, 0);
+  // На ленте 8 стилей: 6 ходовых и столбец недавних (пока пусто — круг и «Тает снизу»)
+  const gallery = page.locator('.st-ribbon .st-gallery.i');
+  await expect(gallery.locator('.st-itile')).toHaveCount(8);
+  const recent = gallery.locator('[data-recent]');
+  await expect(recent).toHaveCount(2);
+  await expect(recent.first()).toHaveAttribute('data-cmd', 'image.style.circle');
+  await gallery.locator('[data-cmd="image.styles"]').click();
+  const pop = page.locator('.st-stpop');
+  await expect(pop.locator('[data-lk]')).toHaveCount(13);
+  // Ползунок «Растворяется» — только когда снимок тает
+  await expect(pop.locator('[data-lkr]')).toBeDisabled();
+  // Наведение — примерка на слайде, файл не меняется
+  const box = page.locator('#st-canvas .slide.on .imgbox').first();
+  const left = pop.locator('[data-lk][title="Тает слева"]');
+  await left.hover();
+  await expect.poll(() => box.evaluate((e) => getComputedStyle(e).maskImage)).toContain('to left');
+  expect(readDeck('tpl')).toBe(before);
+  await left.click();
+  await expect(pop).toHaveCount(0);
+  await expect.poll(() => readDeck('tpl')).toMatch(/fade: left/);
+  await expect(recent.first()).toHaveAttribute('data-cmd', 'image.style.fade-left');
+  await expect(recent.first()).toHaveClass(/active/);
+  // Сколько снимка тает
+  await gallery.locator('[data-cmd="image.styles"]').click();
+  await expect(pop.locator('[data-lk][title="Тает слева"]')).toHaveClass(/\bon\b/);
+  await pop.locator('[data-lkr]').fill('70');
+  await expect.poll(() => readDeck('tpl')).toMatch(/fadeSize: 70/);
+  await expect.poll(() => box.evaluate((e) => getComputedStyle(e).maskImage)).toContain('30%');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Control+z');
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => box.evaluate((e) => getComputedStyle(e).maskImage)).toBe('none');
+  expect(await waitFile(() => readDeck('tpl') === before)).toBe(true);
+  // Недавние помнятся на этом компьютере
+  await page.reload();
+  await expect(page.locator('.st-ribbon .st-gallery.i [data-recent]').first()).toHaveAttribute('data-cmd', 'image.style.fade-left');
+  expect(errors).toEqual([]);
+});

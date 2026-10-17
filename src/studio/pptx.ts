@@ -893,6 +893,34 @@ class Converter {
       g.globalAlpha = 1;
       g.globalCompositeOperation = 'source-over';
     }
+    // Растворение (маска рамки, image-look.ts fadeMask) — тем же градиентом в прозрачность
+    const mask = (bcs.maskImage && bcs.maskImage !== 'none' ? bcs.maskImage : (bcs as CSSStyleDeclaration & { webkitMaskImage?: string }).webkitMaskImage) ?? '';
+    // Браузер сокращает направление по умолчанию: «to bottom» в вычисленном стиле не пишется
+    const fm = /(linear|radial)-gradient\((?:(?:to (top|bottom|left|right)|closest-side),\s*)?rgba?\([^)]*\)\s*([\d.]+)%/.exec(mask);
+    if (fm) {
+      const stop = Math.max(0, Math.min(1, parseFloat(fm[3]) / 100));
+      g.filter = 'none';
+      g.globalCompositeOperation = 'destination-in';
+      const paint = (gr: CanvasGradient, x: number, y: number, w: number, h: number) => {
+        gr.addColorStop(0, '#000');
+        gr.addColorStop(stop, '#000');
+        gr.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = gr;
+        g.fillRect(x, y, w, h);
+      };
+      if (fm[1] === 'radial') {
+        // closest-side у прямоугольника — эллипс по сторонам рамки
+        g.save();
+        g.translate(W / 2, H / 2);
+        g.scale(W / 2, H / 2);
+        paint(g.createRadialGradient(0, 0, 0, 0, 0, 1), -1, -1, 2, 2);
+        g.restore();
+      } else {
+        const [x0, y0, x1, y1] = { bottom: [0, 0, 0, H], top: [0, H, 0, 0], right: [0, 0, W, 0], left: [W, 0, 0, 0] }[(fm[2] ?? 'bottom') as 'bottom'];
+        paint(g.createLinearGradient(x0, y0, x1, y1), 0, 0, W, H);
+      }
+      g.globalCompositeOperation = 'source-over';
+    }
     let data: string;
     try { data = c.toDataURL('image/png'); } catch { return false; }
     const at = { x: br.left - this.origin.left + (bw + img.offsetLeft) * scale, y: br.top - this.origin.top + (bw + img.offsetTop) * scale, w: W * scale, h: H * scale };

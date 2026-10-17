@@ -19,6 +19,10 @@ export interface ImageLook {
   mat?: number;
   /** Непрозрачность, от 0.1 до 1 */
   opacity?: number;
+  /** Растворение: с какой стороны снимок плавно уходит в прозрачность (edges — со всех сторон) */
+  fade?: 'bottom' | 'top' | 'left' | 'right' | 'edges';
+  /** Какая часть снимка растворяется, % (по умолчанию 50) */
+  fadeSize?: number;
   /** Цвет (фильтр, как LUT): ключ из IMAGE_FILTERS — gray, sepia, film, duo… */
   filter?: string;
   /** Тонкая настройка поверх фильтра, % (100 — как есть): яркость, контраст, насыщенность */
@@ -77,7 +81,19 @@ export function filterCss(key: unknown): { img: string; box: string; tint: boole
 }
 
 /** Поля оформления: их стирает «Сбросить оформление» и переносит формат по образцу */
-export const IMAGE_LOOK_KEYS = ['stroke', 'width', 'dash', 'radius', 'shadow', 'mat', 'opacity', 'filter', 'bright', 'contrast', 'saturate'] as const;
+export const IMAGE_LOOK_KEYS = ['stroke', 'width', 'dash', 'radius', 'shadow', 'mat', 'opacity', 'fade', 'fadeSize', 'filter', 'bright', 'contrast', 'saturate'] as const;
+
+/**
+ * Маска растворения: снимок непрозрачен до (100 − fadeSize) % и плавно исчезает к краю.
+ * Так показывают часть интерфейса или фото в нужном масштабе без резкой обрезки
+ */
+export function fadeMask(p: Pick<ImageLook, 'fade' | 'fadeSize'>): string {
+  const size = Math.max(5, Math.min(95, Number(p.fadeSize) || 50));
+  const solid = `#000 ${100 - size}%, transparent`;
+  if (p.fade === 'edges') return `radial-gradient(closest-side, ${solid})`;
+  const dir = p.fade === 'bottom' || p.fade === 'top' || p.fade === 'left' || p.fade === 'right' ? `to ${p.fade}` : '';
+  return dir ? `linear-gradient(${dir}, ${solid})` : '';
+}
 
 /** Ползунки цвета: поле, подпись, пределы в % */
 export const IMAGE_ADJUST: [key: 'bright' | 'contrast' | 'saturate', label: string, min: number, max: number][] = [
@@ -105,6 +121,11 @@ export const IMAGE_STYLES: { id: string; name: string; props: ImageLook }[] = [
   { id: 'photo', name: 'Фотография', props: { mat: 10, radius: 6, shadow: 'md' } },
   { id: 'soft', name: 'Мягкий', props: { radius: 28, shadow: 'sm' } },
   { id: 'circle', name: 'Круг', props: { radius: 'circle' } },
+  { id: 'fade', name: 'Тает снизу', props: { fade: 'bottom' } },
+  { id: 'fade-top', name: 'Тает сверху', props: { fade: 'top' } },
+  { id: 'fade-left', name: 'Тает слева', props: { fade: 'left' } },
+  { id: 'fade-right', name: 'Тает справа', props: { fade: 'right' } },
+  { id: 'vignette', name: 'Тает по краям', props: { fade: 'edges' } },
 ];
 
 /** CSS рамки картинки (box), самой картинки (img) и признак явного оформления (для экспорта в PPTX) */
@@ -120,6 +141,8 @@ export function imageLookCss(p: ImageLook): { box: string; img: string; fx: bool
   if (mat) box.push(`--mat:${mat}px`, 'background:var(--surf)');
   const op = Number(p.opacity);
   if (Number.isFinite(op) && op >= 0.1 && op < 1) box.push(`opacity:${op}`);
+  const mask = fadeMask(p);
+  if (mask) box.push(`-webkit-mask-image:${mask}`, `mask-image:${mask}`);
   const img: string[] = [];
   const fl = filterCss(p.filter);
   const adj = adjustCss(p);
