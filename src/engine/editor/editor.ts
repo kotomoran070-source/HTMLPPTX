@@ -217,6 +217,7 @@ export class Editor {
       fontWeights: (n) => this.fontWeights(n),
       themeFont: () => (typeof this.host.deck.theme?.font === 'string' ? this.host.deck.theme.font : ''),
       storeAsset: (b, n) => this.storeAsset(b, n),
+      ownGradient: this.studio,
     }, opts.textDock);
     this.image = new ImageEditor({
       deck, commit,

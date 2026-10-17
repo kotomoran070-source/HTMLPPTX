@@ -5,7 +5,7 @@
  */
 import { accentMid, DEFAULT_ACCENT, HEX_RE, previewAccent, type AccentStop } from '../engine/accent';
 import { SHAPE_SWATCHES } from '../components/shape/shape';
-import { gradientPanel, type GradValue } from './gradient-edit';
+import { gradientPanel, type GradValue } from '../engine/editor/gradient-edit';
 import { showPopover } from './menu';
 
 /** Готовые сочетания: акцент и второй цвет (null — ровный акцент), точки между, название */
@@ -24,6 +24,14 @@ export interface AccentColors { accent?: string; accent2?: string; accentMid?: A
 const css = (a: string, a2: string | null, mid: AccentStop[] = []) =>
   a2 ? `linear-gradient(90deg, ${[a, ...mid.map((m) => `${m.c} ${m.at}%`), a2].join(', ')})` : a;
 
+/** Плашка готового сочетания, как в прежних «Палитрах»: цвета ровными полосами наискось */
+const bands = (a: string, a2: string | null, mid: AccentStop[] = []) => {
+  const list = a2 ? [a, ...mid.map((m) => m.c), a2] : [a];
+  if (list.length < 2) return a;
+  const w = 100 / list.length;
+  return `linear-gradient(135deg, ${list.map((c, i) => `${c} ${Math.round(i * w)}% ${Math.round((i + 1) * w)}%`).join(', ')})`;
+};
+
 /** Как выглядит градиент акцента — для кнопки «Градиент» на ленте и в панели слайда */
 export function accentSwatch(t: unknown): string {
   const c = (t ?? {}) as AccentColors;
@@ -41,7 +49,7 @@ export function openAccentGradient(at: HTMLElement, cur: AccentColors, stage: ()
   const mid = accentMid(cur.accentMid);
   const val = (g: GradValue): AccentColors => ({ accent: g.from, accent2: g.to, accentMid: accentMid(g.mid) });
   const presets = PALETTES.map(([c1, c2, name, m]) => ({
-    name, css: css(c1, c2, m),
+    name, css: bands(c1, c2, m),
     g: c2 ? { from: c1, to: c2, mid: m ?? [] } : null,
     accent: c1,
     on: c1 === a && c2 === a2 && JSON.stringify(m ?? []) === JSON.stringify(mid),
@@ -52,6 +60,7 @@ export function openAccentGradient(at: HTMLElement, cur: AccentColors, stage: ()
     hex: (c) => (HEX_RE.test(c) ? c : DEFAULT_ACCENT),
     swatches: [{ label: 'Цвета', items: [...new Set([a, ...(a2 ? [a2] : []), ...mid.map((m) => m.c), ...SHAPE_SWATCHES.map((x) => x.toUpperCase())])].slice(0, 20).map((c) => [c, c, c]) }],
     presets,
+    round: true,
     preview: (g) => previewAccent(g.from, stage(), { to: g.to, mid: accentMid(g.mid) }, own),
     commit: (g) => { commit(g ? val(g) : { accent: a }); done(); },
     // Готовое сочетание меняет и акцент; без второго цвета — ровный акцент

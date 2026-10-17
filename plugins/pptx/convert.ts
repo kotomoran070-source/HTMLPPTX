@@ -43,6 +43,8 @@ interface Box { x: number; y: number; w: number; h: number; rot: number; flipH: 
 /** Свойства текста одного уровня (после наследования) */
 interface TP {
   sz?: number; b?: boolean; i?: boolean; u?: boolean; color?: Rgba | null; font?: string; algn?: string;
+  /** Градиент текста — кодом разметки {g:…|…} (color — его первый цвет, запасной) */
+  grad?: string;
   lnPct?: number; lnPts?: number; bullet?: 'none' | 'char' | 'num'; buChar?: string; buClr?: Rgba | null; buFont?: string; cap?: boolean; spc?: number;
   spcBef?: number; spcAft?: number; marL?: number; indent?: number;
 }
@@ -223,11 +225,30 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
     const cap = attr(rp, 'cap'); if (cap !== null) out.cap = cap === 'all';
     const spc = num(rp, 'spc'); if (spc !== null) out.spc = spc / 100;
     const fill = kid(rp, 'solidFill');
-    if (fill) out.color = colorIn(fill, cc);
-    else if (kid(rp, 'gradFill')) out.color = colorIn(one(rp, 'gradFill', 'gsLst', 'gs'), cc);
+    if (fill) { out.color = colorIn(fill, cc); delete out.grad; }
+    else if (kid(rp, 'gradFill')) {
+      out.color = colorIn(one(rp, 'gradFill', 'gsLst', 'gs'), cc);
+      const g = textGradient(kid(rp, 'gradFill')!, cc);
+      if (g) out.grad = g;
+      else delete out.grad;
+    }
     const f = fontName(attr(kid(rp, 'latin'), 'typeface'), theme) ?? fontName(attr(kid(rp, 'cs'), 'typeface'), theme);
     if (f) out.font = f;
     return out;
+  }
+
+  /**
+   * Градиент текста PowerPoint → код разметки Slideria {g:…|…}: все точки (до шести) со своими местами
+   * и направление (lin ang: 0 — слева направо, как 90deg в CSS)
+   */
+  function textGradient(g: El, cc: ColorCtx): string | null {
+    let stops = kids(one(g, 'gsLst'), 'gs').map((x) => ({ pos: (num(x, 'pos') ?? 0) / 1000, c: colorIn(x, cc) }))
+      .filter((x): x is { pos: number; c: Rgba } => !!x.c).sort((a, b) => a.pos - b.pos);
+    if (stops.length < 2) return null;
+    if (stops.length > 6) stops = [0, 1, 2, 3, 4, 5].map((i) => stops[Math.round((i / 5) * (stops.length - 1))]);
+    const ang = Math.round(((num(kid(g, 'lin'), 'ang') ?? 0) / 60000 + 90) % 360);
+    const pts = stops.map((x, i) => (i === 0 || i === stops.length - 1 ? hex(x.c) : `${hex(x.c)}@${Math.max(1, Math.min(99, Math.round(x.pos)))}`));
+    return `g:${ang === 90 || kid(g, 'path') ? '' : `${ang}deg,`}${pts.join(',')}`;
   }
 
   /** Уровни 1…9 из списка стилей (lstStyle, titleStyle, bodyStyle…) поверх base */
@@ -551,7 +572,19 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
       let num1 = 0;
       for (const para of paras) {
         let s = '';
+        // Подряд идущие фрагменты с одним градиентом — одним куском {g:…|…}: градиент тянется через весь кусок
+        let grad = '';
+        let gs = '';
+        const flush = () => {
+          if (!grad) return;
+          const lead = /^\s*/.exec(gs)![0], trail = /\s*$/.exec(gs)![0];
+          const core = gs.slice(lead.length, gs.length - trail.length);
+          s += core ? `${lead}{${grad}|${core}}${trail}` : gs;
+          grad = '';
+          gs = '';
+        };
         for (const run of para.runs) {
+          if (run.p.grad !== grad || run.text === '\n') flush();
           if (run.text === '\n') { s += '\n'; continue; }
           let t = esc(run.text);
           if (run.p.cap && !base.cap) t = t.toUpperCase();
@@ -563,12 +596,16 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
           // Подчёркивание — только разметкой (у оформления текста его нет)
           if (run.p.u) core = `__${core}__`;
           // Свой цвет и свой размер фрагмента (в % от размера абзаца): {#цвет|…}, {s:80|…}, {#цвет s:80|…}
-          const col = run.p.color && !sameColor(run.p.color, base.color) ? hex(run.p.color) : '';
+          const col = !run.p.grad && run.p.color && !sameColor(run.p.color, base.color) ? hex(run.p.color) : '';
           const pct = run.p.sz && base.sz && Math.abs(run.p.sz / base.sz - 1) > 0.03 ? Math.round((run.p.sz / base.sz) * 100) : 0;
           if (pct >= 20 && pct <= 400) core = `{${col ? `${col} ` : ''}s:${pct}|${core}}`;
           else if (col) core = `{${col}|${core}}`;
-          s += lead + core + trail;
+          if (run.p.grad) {
+            grad = run.p.grad;
+            gs += lead + core + trail;
+          } else s += lead + core + trail;
         }
+        flush();
         const text = para.runs.length ? s : '';
         // Пункт списка (любого уровня: вложенных уровней у текста Slideria нет)
         if (para.p.bullet === 'char' && text.trim()) lines.push(`- ${text.trim()}`);

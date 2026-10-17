@@ -3,6 +3,7 @@
  * (**жирный**, *курсив*, __подчёркнутый__, [ссылка](url), {#цвет|текст}, «- » для пунктов списка).
  * Работает с тем, что создают браузеры при правке: b/strong, i/em, u, a, font, br, div/p.
  */
+import { TEXT_GRADIENT_RE } from '../gradients';
 
 /** Символы разметки в обычном тексте экранируются, чтобы не стать оформлением. */
 export function escapeText(s: string): string {
@@ -32,7 +33,7 @@ function wrap(mark: string, inner: string): string {
   return `${lead}${mark}${inner.trim()}${mark}${tail}`;
 }
 
-const COLORED = /(\{(?:(?:#[0-9a-f]{3,8}|accent2?|text2?|muted) )?(?:#[0-9a-f]{3,8}|accent2?|text2?|muted|g:[a-z-]+|s:\d{2,3})\|[^{}]*\})/i;
+const COLORED = new RegExp(`(\\{(?:(?:#[0-9a-f]{3,8}|accent2?|text2?|muted) )?(?:#[0-9a-f]{3,8}|accent2?|text2?|muted|${TEXT_GRADIENT_RE}|s:\\d{2,3})\\|[^{}]*\\})`, 'i');
 
 /** {цвет|…} вокруг текста; уже окрашенные внутри куски не вкладываются, а остаются своими. */
 export function wrapColor(color: string, s: string): string {

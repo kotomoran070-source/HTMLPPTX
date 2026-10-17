@@ -4,9 +4,9 @@
  * (цвет — каким полоса там и была), бегунок тянется вбок, утянули вниз (или Delete) — точка убрана.
  * У выбранной точки — цвета (темы и постоянные) и свой цвет. Начало и конец — всегда по краям.
  */
-import { icon } from '../components/icons';
-import { esc } from '../engine/html';
-import type { GradientStop } from '../engine/gradients';
+import { icon } from '../../components/icons';
+import { esc } from '../html';
+import type { GradientStop } from '../gradients';
 
 /** Градиент в панели: начало, точки между (место 1–99 %), конец, направление */
 export interface GradValue {
@@ -28,6 +28,8 @@ export interface GradPanel {
   direction?: boolean;
   /** Готовые градиенты над полосой; g: null — «без градиента» */
   presets?: { name: string; g: GradValue | null; css: string; on?: boolean }[];
+  /** Готовые — круглыми плашками с цветами полосами (как «Палитры»), а не плитками градиента */
+  round?: boolean;
   /** Пока тянут бегунок или палитру — только показ */
   preview(g: GradValue): void;
   /** Отпустили, выбрали цвет или готовый — записать (null — без градиента) */
@@ -70,8 +72,9 @@ export function gradientPanel(o: GradPanel, start: GradValue) {
   const swatchRows = () => o.swatches.map((grp) => `<div class="st-plabel">${esc(grp.label)}</div><div class="st-pgrid st-gsw">${grp.items.map(([v, css, name]) =>
     `<button type="button" class="st-psw" data-gcolor="${esc(v)}" style="--c:${css}" title="${esc(name)}" aria-label="${esc(name)}"></button>`).join('')}</div>`).join('');
 
-  const html = (o.presets?.length ? `<div class="st-plabel">Готовые</div><div class="st-gpre">${o.presets.map((p, k) =>
-    `<button type="button" class="st-psw${p.on ? ' on' : ''}" data-gpre="${k}" style="--c:${p.css}" title="${esc(p.name)}" aria-label="${esc(p.name)}"></button>`).join('')}</div>` : '')
+  const html = (o.presets?.length ? `<div class="st-plabel">Готовые</div><div class="st-gpre${o.round ? ' round' : ''}">${o.presets.map((p, k) => o.round
+    ? `<button type="button" class="st-gpal${p.on ? ' on' : ''}" data-gpre="${k}" title="${esc(p.name)}" aria-label="${esc(p.name)}"><i style="background:${p.css}"></i></button>`
+    : `<button type="button" class="st-psw${p.on ? ' on' : ''}" data-gpre="${k}" style="--c:${p.css}" title="${esc(p.name)}" aria-label="${esc(p.name)}"></button>`).join('')}</div>` : '')
     + `<div class="st-plabel">Точки градиента</div>`
     + `<div class="st-gbar deck-colors"><div class="st-gstrip" title="Щелчок — новая точка"></div><div class="st-gmarks"></div></div>`
     + `<p class="st-ghint">Щелчок по полосе — новая точка. Бегунок тянется вбок, вниз — убрать</p>`
@@ -102,8 +105,32 @@ export function gradientPanel(o: GradPanel, start: GradValue) {
     pop.querySelectorAll<HTMLElement>('[data-gcolor]').forEach((b) => b.classList.toggle('on', b.dataset.gcolor?.toLowerCase() === cur.c.toLowerCase()));
     pop.querySelectorAll<HTMLElement>('[data-ang]').forEach((b) => b.classList.toggle('on', b.dataset.ang === (g.type === 'radial' ? 'radial' : String(g.angle ?? 135))));
   };
-  const done = () => { paint(); o.commit({ ...g, mid: g.mid.map((m) => ({ ...m })) }); };
-  const live = () => { paint(); o.preview({ ...g, mid: g.mid.map((m) => ({ ...m })) }); };
+  const copy = (): GradValue => ({ ...g, mid: g.mid.map((m) => ({ ...m })) });
+  /** Показ на слайде — не чаще раза за кадр: пока тянут, событий больше, чем кадров */
+  let frame = 0;
+  const live = () => {
+    if (frame) return;
+    frame = requestAnimationFrame(() => { frame = 0; o.preview(copy()); });
+  };
+  const done = () => {
+    cancelAnimationFrame(frame);
+    frame = 0;
+    paint();
+    o.commit(copy());
+  };
+  /** Пока тянут бегунок: полоса и бегунки — на месте, без перерисовки панели */
+  const nudge = () => {
+    if (!pop) return;
+    pop.querySelector<HTMLElement>('.st-gstrip')!.style.background = strip();
+    const list = stops();
+    pop.querySelectorAll<HTMLElement>('.st-gmark').forEach((m, i) => {
+      if (!list[i]) return;
+      m.style.left = `${list[i].at}%`;
+      m.style.setProperty('--c', o.css(list[i].c));
+      m.classList.toggle('on', i === sel);
+    });
+    pop.querySelector<HTMLElement>('.st-gname')!.textContent = sel === 0 ? 'Начало' : sel === list.length - 1 ? 'Конец' : `Точка · ${list[sel].at} %`;
+  };
   const drop = (i: number) => {
     if (i <= 0 || i > g.mid.length) return;
     g.mid.splice(i - 1, 1);
@@ -141,6 +168,8 @@ export function gradientPanel(o: GradPanel, start: GradValue) {
       return Math.max(1, Math.min(99, Math.round(((x - r.left) / r.width) * 100)));
     };
     // Щелчок по полосе — новая точка цвета полосы в этом месте
+    // Фокус остаётся где был: у текста в правке щелчок по полосе или бегунку не заканчивает правку
+    bar.addEventListener('mousedown', (e) => e.preventDefault());
     el.querySelector<HTMLElement>('.st-gstrip')!.addEventListener('pointerdown', (e) => {
       if (g.mid.length >= MAX_MID) {
         el.querySelector<HTMLElement>('.st-ghint')!.textContent = 'Не больше шести точек — уберите одну, чтобы добавить новую';
@@ -178,8 +207,9 @@ export function gradientPanel(o: GradPanel, start: GradValue) {
         gone = ev.clientY - y0 > 28 && g.mid.length > 0;
         g.mid.sort((x, y) => x.at - y.at);
         sel = g.mid.indexOf(stop) + 1;
+        nudge();
         live();
-        el.querySelector(`.st-gmark[data-gi="${sel}"]`)?.classList.toggle('gone', gone);
+        el.querySelectorAll('.st-gmark').forEach((x, i) => x.classList.toggle('gone', gone && i === sel));
       };
       const up = () => {
         removeEventListener('pointermove', move);
@@ -199,7 +229,7 @@ export function gradientPanel(o: GradPanel, start: GradValue) {
       if ((e.target as Element).closest('.st-gmark')) drop(sel);
     });
     const inp = el.querySelector<HTMLInputElement>('[data-gc]')!;
-    inp.addEventListener('input', () => { setColor(sel, inp.value.toUpperCase()); live(); });
+    inp.addEventListener('input', () => { setColor(sel, inp.value.toUpperCase()); nudge(); live(); });
     inp.addEventListener('change', () => { setColor(sel, inp.value.toUpperCase()); done(); });
     if (o.tryPreset) {
       el.addEventListener('pointerover', (e) => {
@@ -210,5 +240,13 @@ export function gradientPanel(o: GradPanel, start: GradValue) {
     }
     paint();
   };
-  return { html, pick, bind };
+  /** Окно не из showPopover (палитра текста): щелчки по кнопкам панели — сюда; true — окно закрыть */
+  const click = (e: Event): boolean | null => {
+    const b = (e.target as Element).closest<HTMLElement>('button');
+    const a = b ? pick(b) : null;
+    if (!a) return null;
+    a.run();
+    return !a.keep;
+  };
+  return { html, pick, bind, click };
 }

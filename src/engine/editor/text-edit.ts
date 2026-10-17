@@ -4,7 +4,8 @@ import { fontItems, fontPicker, weightName, weightNameEn, type FontItem, tryFont
 import { icon } from '../../components/icons';
 import { getAt, KEY, setAt, type Path } from '../data';
 import { esc, t } from '../html';
-import { GRADIENTS, TEXT_GRADIENTS, textGradientCss } from '../gradients';
+import { GRADIENTS, gradColor, gradientMid, parseTextGradient, TEXT_GRADIENTS, textGradientCode, textGradientCss } from '../gradients';
+import { gradientPanel, type GradValue } from './gradient-edit';
 import { colorCss, customMarker, FONTS, LIST_MARKERS, listCss, markerImage, splitDecls, SWATCHES, THEME_COLORS, type TextStyle } from '../text-style';
 import { plainMarkup, toggleList, toMarkup } from './serialize';
 
@@ -47,6 +48,8 @@ export interface TextHost {
   themeFont?(): string;
   /** Файл — в assets/ презентации: адрес для данных (картинка-маркер списка) */
   storeAsset?(blob: Blob, name: string): Promise<string>;
+  /** Свой градиент текста (панель с точками) — в студии */
+  ownGradient?: boolean;
 }
 
 const readPath = (el: Element, attr: string): Path | null => {
@@ -129,6 +132,7 @@ export class TextEditor {
   <div class="edcolors-row">${SWATCHES.map((c) => `<button type="button" data-c="${c}" title="${c}" style="background:${c}"></button>`).join('')}</div>
   <div class="edcolors-label">Градиент</div>
   <div class="edcolors-row">${TEXT_GRADIENTS.map((id) => GRADIENTS.find((g) => g.id === id)!).map((g) => `<button type="button" data-c="g:${g.id}" title="${esc(g.name)}" style="background:var(--g);${textGradientCss(`g:${g.id}`)}"></button>`).join('')}</div>
+  ${host.ownGradient ? '<button type="button" class="edgrad-own" data-gown="1" aria-expanded="false"><i></i><span>Свой градиент…</span><b class="st-caret"></b></button><div class="edgrad-panel" hidden></div>' : ''}
   <div class="edcolors-foot"><label><input type="color" data-c="custom"> Свой цвет</label><button type="button" data-c="" class="btn ghost small">Как в теме</button></div>
 </div>`);
     this.bar = document.getElementById('ed-text')!;
@@ -243,7 +247,8 @@ export class TextEditor {
       const a = document.activeElement;
       // Фокус ушёл в панель, палитру или всплывающее поле — правка продолжается
       // Меню правого щелчка студии (.st-menu) — тоже: «Вставить» вернётся в этот текст
-      if (a && (this.bar.contains(a) || this.colors.contains(a) || this.menu.contains(a) || a.closest('.edpop, .st-menu'))) return;
+      // Фокус уже снова в тексте (палитра вернула его после цвета) — тоже
+      if (a && (el.contains(a) || this.bar.contains(a) || this.colors.contains(a) || this.menu.contains(a) || a.closest('.edpop, .st-menu'))) return;
       this.finish(true);
     }, 0);
     const onInput = () => this.position();
@@ -584,6 +589,13 @@ export class TextEditor {
       }
     });
     this.colors.addEventListener('click', (e) => {
+      if ((e.target as Element).closest('[data-gown]')) return this.ownGradient();
+      const panel = (e.target as Element).closest('.edgrad-panel');
+      if (panel) {
+        // Готовый градиент из панели — применён, палитра закрывается
+        if (this.gradPanel?.click(e)) this.closeColors();
+        return;
+      }
       const b = (e.target as Element).closest<HTMLElement>('button[data-c]');
       if (!b) return;
       const c = b.dataset.c ?? '';
@@ -648,6 +660,87 @@ export class TextEditor {
     s.el.normalize();
     this.syncButtons();
     return true;
+  }
+
+  /** Свой градиент: панель точек под готовыми градиентами */
+  private gradPanel: ReturnType<typeof gradientPanel> | null = null;
+  /** Куски текста со своим градиентом, который сейчас настраивается: правятся на месте, пока панель открыта */
+  private gradSpans: HTMLElement[] = [];
+
+  private closeColors(): void {
+    this.colors.classList.remove('on');
+    const box = this.colors.querySelector<HTMLElement>('.edgrad-panel');
+    if (box) box.hidden = true;
+    this.colors.querySelector('[data-gown]')?.setAttribute('aria-expanded', 'false');
+    this.gradPanel = null;
+    this.s?.el.focus({ preventScroll: true });
+  }
+
+  /**
+   * «Свой градиент…»: точки, цвета темы или постоянные, направление. Ложится на выделенные слова
+   * (без выделения — на весь текст поля), пока тянут — меняется на месте; запись — когда правку закончат
+   */
+  private ownGradient(): void {
+    const s = this.s;
+    const box = this.colors.querySelector<HTMLElement>('.edgrad-panel');
+    const btn = this.colors.querySelector('[data-gown]');
+    if (!s || !box) return;
+    if (!box.hidden) {
+      box.hidden = true;
+      btn?.setAttribute('aria-expanded', 'false');
+      return;
+    }
+    const range = this.partial ?? this.wholeRange();
+    if (!range) return;
+    const whole = !this.partial;
+    // Начало — градиент, который уже у этих слов; иначе — градиент акцента
+    const at = (range.startContainer.nodeType === Node.TEXT_NODE ? range.startContainer.parentElement : range.startContainer as Element)?.closest<HTMLElement>('.md-g');
+    const cur = (at && s.el.contains(at) ? parseTextGradient(at.dataset.c ?? '') : null) ?? { from: 'accent', to: 'accent2', angle: 90 };
+    this.gradSpans = at && s.el.contains(at) && !whole ? [at] : [];
+    const apply = (g: GradValue) => {
+      const code = textGradientCode({ from: g.from, to: g.to, mid: g.mid, angle: g.angle, type: g.type });
+      const css = textGradientCss(code);
+      if (!css) return;
+      const live = this.gradSpans.filter((x) => x.isConnected);
+      if (live.length) {
+        for (const sp of live) { sp.setAttribute('data-c', code); sp.setAttribute('style', css); }
+        return;
+      }
+      // Первый раз — кусок текста в градиент, как у готовых; дальше правятся эти же куски
+      if (whole) {
+        s.el.querySelectorAll('span.md-c, font[color]').forEach((x) => x.replaceWith(...x.childNodes));
+        s.el.normalize();
+      }
+      this.partial = whole ? this.wholeRange() : range;
+      this.colorSelection(code);
+      this.gradSpans = [...s.el.querySelectorAll<HTMLElement>('span.md-g')].filter((x) => x.getAttribute('data-c') === code);
+    };
+    const probe = (c: string) => {
+      if (/^#[0-9a-f]{6}$/i.test(c)) return c;
+      const i = document.createElement('i');
+      i.style.color = gradColor(c);
+      this.host.stage().appendChild(i);
+      const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(i).color);
+      i.remove();
+      return m ? `#${[m[1], m[2], m[3]].map((x) => Number(x).toString(16).padStart(2, '0')).join('')}` : '#2563eb';
+    };
+    const theme: [string, string, string][] = Object.entries(THEME_COLORS).map(([k, c]) => [k === 'accent2' ? 'accent-dark' : k, c.css, c.name]);
+    theme.push(['accent2', 'var(--ac2)', 'Второй цвет акцента']);
+    this.gradPanel = gradientPanel({
+      css: gradColor,
+      hex: probe,
+      swatches: [{ label: 'Цвета темы', items: theme }, { label: 'Постоянные', items: SWATCHES.map((c) => [c, c, c]) }],
+      direction: true,
+      preview: apply,
+      commit: (g) => { if (g) apply(g); },
+    }, { from: cur.from, to: cur.to, mid: gradientMid(cur.mid), angle: cur.angle ?? 90, type: cur.type });
+    box.innerHTML = this.gradPanel.html;
+    box.hidden = false;
+    btn?.setAttribute('aria-expanded', 'true');
+    this.gradPanel.bind(box);
+    // Окно не вылезает за низ экрана
+    const r = this.colors.getBoundingClientRect();
+    if (r.bottom > innerHeight - 8) this.colors.style.top = `${Math.max(8, innerHeight - r.height - 8)}px`;
   }
 
   /** Весь текст поля как выделение (градиент без выделения — на всё поле) */
@@ -877,6 +970,12 @@ export class TextEditor {
     this.partial = on && this.s && !this.s.isKey && this.selectionInside() && sel && !sel.isCollapsed ? sel.getRangeAt(0).cloneRange() : null;
     this.colors.querySelector<HTMLElement>('.edcolors-foot button')!.textContent = this.partial ? 'Как у всего текста' : 'Как в теме';
     this.colors.classList.toggle('on', on);
+    // Панель своего градиента — свёрнута, пока её не откроют снова
+    const own = this.colors.querySelector<HTMLElement>('.edgrad-panel');
+    if (own) own.hidden = true;
+    this.colors.querySelector('[data-gown]')?.setAttribute('aria-expanded', 'false');
+    this.gradPanel = null;
+    this.gradSpans = [];
     if (!on) return;
     // Цвета темы — как на слайдах этой презентации: наискось у светлых и у тёмных, если они разные
     const deck = this.host.deck() as { theme?: unknown; origin?: unknown };

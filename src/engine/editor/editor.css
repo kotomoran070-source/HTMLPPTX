@@ -203,6 +203,13 @@ body.editing .ovedit-hint { display: block; }
 .edcolors-row button { width: 24px; height: 24px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, .15); cursor: pointer; padding: 0; }
 .edcolors-row button:hover { transform: scale(1.12); }
 .edcolors-label { font: 600 11px var(--font); color: var(--mu); margin-bottom: -2px; }
+/* Свой градиент текста: кнопка под готовыми и панель точек (gradient-edit.ts, стили панели — в studio.css) */
+.edgrad-own { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border: 0; border-radius: 6px; background: none; font: 600 12px var(--font); color: var(--tx2); cursor: pointer; text-align: left; }
+.edgrad-own:hover, .edgrad-own[aria-expanded="true"] { background: var(--acs); color: var(--ach); }
+.edgrad-own i { width: 24px; height: 14px; border-radius: 4px; background: linear-gradient(90deg, #F97316, #EC4899, #7C3AED, #06B6D4); }
+.edgrad-own span { flex: 1; }
+.edgrad-panel { width: 294px; padding-top: 4px; border-top: 1px solid var(--bd); }
+.edgrad-panel[hidden] { display: none; }
 .edcolors-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; font: 600 12px var(--font); color: var(--tx2); }
 .edcolors-foot label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .edcolors-foot input { width: 24px; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; }

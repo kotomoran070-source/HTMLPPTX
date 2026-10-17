@@ -7,6 +7,7 @@ import { embedShot } from '../engine/embed-shot';
 import { resolve } from '../engine/formula';
 import { Renderer, actionTarget } from '../engine/render';
 import { equationShape, mathToOmml } from './omml';
+import { GradientMarks, gradFillXml, parseCssGradient, type CssGradient } from './pptx-gradient';
 
 /**
  * Экспорт в PowerPoint. Каждый слайд рисуется вне экрана в натуральную величину (1280×720 —
@@ -45,6 +46,16 @@ const RASTER = new Set<string>(['sandbox']);
  * картинки фигуру с уравнением, а картинку оставляет запасной — для программ без уравнений
  */
 let MATHS = new Map<string, { omml: string; align: 'l' | 'ctr' | 'r' }>();
+/** Градиенты этого экспорта: цвет-метка в файле pptxgenjs → настоящий градиент PowerPoint (repair) */
+let MARKS = new GradientMarks();
+
+/** Градиент элемента, который переносится градиентом PowerPoint: один слой на весь элемент, без узора и картинки */
+function nativeGradient(cs: CSSStyleDeclaration): CssGradient | null {
+  if (cs.backgroundImage.includes('url(')) return null;
+  const size = cs.backgroundSize.trim();
+  if (size !== 'auto' && size !== 'auto auto' && size !== '100% 100%' && size !== 'cover') return null;
+  return parseCssGradient(cs.backgroundImage);
+}
 /** Строчные элементы: внутри них текст — одна надпись с разным оформлением кусков */
 const INLINE = new Set(['inline', 'contents']);
 
@@ -269,6 +280,7 @@ function listMark(li: HTMLElement): string {
 export async function exportPptx(deck: Deck, progress?: PptxProgress, quality: ExportQuality = 'normal'): Promise<Blob> {
   QUALITY = quality;
   MATHS = new Map();
+  MARKS = new GradientMarks();
   const [{ default: Pptx }, { toPng }] = await Promise.all([import('pptxgenjs'), import('html-to-image')]);
   const pptx: Pptx = new Pptx();
   pptx.layout = 'LAYOUT_WIDE';
@@ -512,7 +524,10 @@ class Converter {
     const grad = !flat && cs.backgroundImage !== 'none' && /gradient|url\(/.test(cs.backgroundImage);
     // Текст с градиентом (background-clip: text) — не подложка
     const clipText = /text/.test(cs.getPropertyValue('background-clip') || cs.getPropertyValue('-webkit-background-clip'));
-    if (grad && !clipText) {
+    // Один градиент на весь элемент — градиентом PowerPoint (фигура остаётся фигурой); узоры и картинки — картинкой
+    const native = grad && !clipText ? nativeGradient(cs) : null;
+    if (native) fill = { hex: MARKS.mark(gradFillXml(native, op)), a: 1 };
+    else if (grad && !clipText) {
       await this.backgroundPicture(el, b);
       fill = null;
     }
@@ -669,7 +684,11 @@ class Converter {
         if (!text) return;
         if (cs.textTransform === 'uppercase') text = text.toUpperCase();
         let color = rgba(cs.color);
-        if (!color || /text/.test(cs.getPropertyValue('-webkit-background-clip'))) color = gradientColor(cs.backgroundImage) ?? color;
+        // Текст с градиентом — градиентом PowerPoint со всеми точками; не вышло — первым цветом
+        if (!color || /text/.test(cs.getPropertyValue('-webkit-background-clip'))) {
+          const g = /text/.test(cs.getPropertyValue('-webkit-background-clip')) ? parseCssGradient(cs.backgroundImage) : null;
+          color = g ? { hex: MARKS.mark(gradFillXml(g, op)), a: 1 } : gradientColor(cs.backgroundImage) ?? color;
+        }
         const size = parseFloat(cs.fontSize) * k;
         const ls = parseFloat(cs.letterSpacing) * k;
         out.push({
@@ -1192,7 +1211,9 @@ async function repair(blob: Blob): Promise<Blob> {
       if (!m || !id || !xfrm) return pic;
       return equationShape(id, xfrm, m.omml, m.align, pic.replace(`descr="${key}"`, 'descr="Формула"'));
     }) : fixed;
-    if (eq !== x) zip.file(name, eq);
+    // Цвета-метки → градиенты PowerPoint
+    const done = MARKS.swap(eq);
+    if (done !== x) zip.file(name, done);
   }
   // Упаковка как у самого PowerPoint: настольная версия строже веб-версии
   const out = new JSZip();

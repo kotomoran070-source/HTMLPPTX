@@ -27,7 +27,7 @@ export function gradientMid(v: unknown): GradientStop[] {
 /** Роли темы в градиентах: те же, что у цветов фигур (shape.ts), и светлый/тёмный акцент */
 export const GRADIENT_ROLES: Record<string, string> = {
   surface: 'var(--surf)', bg: 'var(--bg)', alt: 'var(--alt)', soft: 'var(--acs)', accent: 'var(--ac)', accent2: 'var(--ac2)', text: 'var(--tx)',
-  line: 'var(--bd)', border: 'var(--bd2)', muted: 'var(--mu)',
+  text2: 'var(--tx2)', line: 'var(--bd)', border: 'var(--bd2)', muted: 'var(--mu)',
   'accent-light': 'color-mix(in srgb, var(--ac) 72%, #fff)',
   'accent-dark': 'color-mix(in srgb, var(--ac) 78%, #000)',
 };
@@ -103,13 +103,45 @@ export function sameGradient(a: unknown, b: unknown): boolean {
 /** Градиенты, которые годятся для текста: контрастные и на светлом, и на тёмном фоне */
 export const TEXT_GRADIENTS = ['duo', 'accent', 'night', 'sunset', 'ocean', 'forest', 'violet', 'fire'];
 
-/** Градиент текста по имени готового: {g:ocean|слова} в разметке */
-export function textGradientCss(code: string): string | null {
+/** Код градиента текста в разметке: имя готового или свои цвета (см. parseTextGradient) */
+export const TEXT_GRADIENT_RE = 'g:[#a-z0-9@,-]+';
+
+/**
+ * Свой градиент текста в разметке: {g:#F97316,#EC4899@40,#7C3AED|слова} — цвета через запятую
+ * (#RRGGBB или цвета темы: accent, accent2, text…), у точек между — место в % после @; первым может
+ * идти направление: {g:180deg,#FFD700,#B8860B|…} (без него — слева направо). Готовые — по имени: {g:ocean|…}
+ */
+export function parseTextGradient(code: string): ShapeGradient | null {
   const id = /^g:([a-z-]+)$/i.exec(code)?.[1];
-  const preset = id ? GRADIENTS.find((x) => x.id === id) : undefined;
-  if (!preset) return null;
-  // Текст идёт слева направо: у текста градиент всегда поперёк строки
-  const g = preset.g.type === 'radial' ? { ...preset.g, type: undefined, angle: 90 } : { ...preset.g, angle: 90 };
+  if (id) {
+    const preset = GRADIENTS.find((x) => x.id === id);
+    // Текст идёт слева направо: у готового градиента — всегда поперёк строки
+    return preset ? { ...preset.g, type: undefined, angle: 90 } : null;
+  }
+  const parts = /^g:(.+)$/i.exec(code)?.[1].split(',');
+  if (!parts) return null;
+  const deg = /^(\d{1,3})deg$/i.exec(parts[0]);
+  if (deg) parts.shift();
+  if (parts.length < 2 || parts.length > 6) return null;
+  const pts = parts.map((x) => /^(#[0-9a-f]{6}|#[0-9a-f]{3}|[a-z][a-z0-9-]*)(?:@(\d{1,2}))?$/i.exec(x.trim()));
+  if (pts.some((m) => !m || (!m[1].startsWith('#') && !GRADIENT_ROLES[m[1]]))) return null;
+  const n = pts.length - 1;
+  const mid = pts.slice(1, -1).map((m, i) => ({ c: m![1], at: m![2] ? Number(m![2]) : Math.round(((i + 1) / n) * 100) }));
+  return { from: pts[0]![1], to: pts[n]![1], ...(mid.length ? { mid: gradientMid(mid) } : {}), angle: deg ? Number(deg[1]) % 360 : 90 };
+}
+
+/** Градиент → код для разметки текста ({g:…|слова}); готовый — своим именем */
+export function textGradientCode(g: ShapeGradient): string {
+  const preset = GRADIENTS.find((x) => TEXT_GRADIENTS.includes(x.id) && sameGradient({ ...x.g, type: undefined, angle: 90 }, g));
+  if (preset) return `g:${preset.id}`;
+  const a = g.type === 'radial' ? 90 : Math.round(Number(g.angle ?? 90)) % 360;
+  return `g:${a === 90 ? '' : `${a}deg,`}${[g.from, ...gradientMid(g.mid).map((m) => `${m.c}@${m.at}`), g.to].join(',')}`;
+}
+
+/** Градиент текста по коду: {g:ocean|слова} или свои цвета {g:#F97316,#EC4899@40,#7C3AED|слова} */
+export function textGradientCss(code: string): string | null {
+  const g = parseTextGradient(code);
+  if (!g) return null;
   // color — запасной цвет (печать без фона, экспорт в PowerPoint)
-  return `--g:${gradientCss(g)};color:${gradColor(preset.g.from)}`;
+  return `--g:${gradientCss(g)};color:${gradColor(g.from)}`;
 }

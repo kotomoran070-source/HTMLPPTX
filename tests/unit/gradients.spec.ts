@@ -1,7 +1,8 @@
 // Градиенты с промежуточными точками: акцент темы и слайда, заливка фигур
 import { expect, test } from '@playwright/test';
 import { accentMid, accentTail, accentTokens, slideAccent } from '../../src/engine/accent';
-import { gradientCss, gradientMid, gradientOn, sameGradient } from '../../src/engine/gradients';
+import { gradientCss, gradientMid, gradientOn, parseTextGradient, sameGradient, textGradientCode, textGradientCss } from '../../src/engine/gradients';
+import { t } from '../../src/engine/html';
 
 test('градиент акцента: точки между акцентом и вторым цветом — в --ac-g, --ac-stops и в переливании', () => {
   const { light, dark } = accentTokens('#000000', { to: '#FFFFFF', mid: [{ c: '#FF0000', at: 40 }] });
@@ -35,4 +36,20 @@ test('градиент фигуры: точки — цвета темы или �
   // Текст поверх — по яркости всех точек
   expect(gradientOn({ from: '#FFFFFF', to: '#FFFFFF', mid: [{ c: '#000000', at: 50 }] })).toBe('#111827');
   expect(gradientOn({ from: '#FFFFFF', to: '#000000', mid: [{ c: '#000000', at: 50 }] })).toBe('#FFFFFF');
+});
+
+test('свой градиент текста в разметке: цвета, места, направление, цвета темы; готовые — по имени', () => {
+  expect(parseTextGradient('g:#F97316,#EC4899@40,#7C3AED')).toEqual({ from: '#F97316', to: '#7C3AED', mid: [{ c: '#EC4899', at: 40 }], angle: 90 });
+  // Без мест — поровну; направление первым
+  expect(parseTextGradient('g:180deg,accent,#FFFFFF,#000000,accent2')).toEqual({ from: 'accent', to: 'accent2', mid: [{ c: '#FFFFFF', at: 33 }, { c: '#000000', at: 67 }], angle: 180 });
+  expect(parseTextGradient('g:ocean')?.from).toBe('#06B6D4');
+  for (const bad of ['g:#F97316', 'g:#F97316,url(x)', 'g:nope,#FFFFFF', 'g:1,2,3,4,5,6,7']) expect(parseTextGradient(bad)).toBeNull();
+  // Код из градиента — обратно тот же; совпал с готовым — его имя
+  const g = { from: '#F97316', to: 'accent2', mid: [{ c: '#EC4899', at: 40 }], angle: 45 };
+  expect(textGradientCode(g)).toBe('g:45deg,#F97316,#EC4899@40,accent2');
+  expect(parseTextGradient(textGradientCode(g))).toEqual(g);
+  expect(textGradientCode({ from: '#F97316', to: '#DB2777', angle: 90 })).toBe('g:sunset');
+  expect(textGradientCss('g:#000000,#FFFFFF')).toBe('--g:linear-gradient(90deg, #000000, #FFFFFF);color:#000000');
+  // В тексте — кусок с градиентом
+  expect(t('Это {g:#F97316,#EC4899@40,#7C3AED|радуга}')).toContain('<span class="md-c md-g" data-c="g:#F97316,#EC4899@40,#7C3AED" style="--g:linear-gradient(90deg, #F97316, #EC4899 40%, #7C3AED);color:#F97316">радуга</span>');
 });

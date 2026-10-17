@@ -450,6 +450,38 @@ test('градиент со своими точками у слайда и у ф
   expect(errors).toEqual([]);
 });
 
+test('свой градиент у текста: «Свой градиент…» в палитре текста — точки, цвета, направление; в данных — {g:…|…}', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=design&studio#2');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  const t = page.locator('#st-canvas .slide.on [data-edit]').first();
+  await t.click();
+  if (!(await page.locator('#ed-text').isVisible())) await t.click();
+  await expect(page.locator('#ed-text')).toBeVisible();
+  const words = ((await t.textContent()) ?? '').replace(/\u00a0/g, ' ').trim();
+  await page.locator('#ed-text [data-t="color"]').click();
+  await page.locator('#ed-colors [data-gown]').click();
+  const box = page.locator('#ed-colors .edgrad-panel');
+  // Щелчок по полосе — точка; правка текста при этом продолжается
+  const r = (await box.locator('.st-gstrip').boundingBox())!;
+  await page.mouse.click(r.x + r.width * 0.5, r.y + r.height / 2);
+  await expect(t).toHaveClass(/ed-active/);
+  await box.locator('[data-gcolor="#DC2626"]').click();
+  await box.locator('[data-ang="180"]').click();
+  // Пока правят — меняется сам кусок текста, без пересборки слайда
+  await expect(t.locator('.md-g')).toHaveAttribute('data-c', 'g:180deg,accent,#DC2626@50,accent2');
+  await page.keyboard.press('Escape');
+  await page.locator('#st-canvas').click({ position: { x: 5, y: 5 } });
+  await expect.poll(() => readDeck('design')).toContain(`{g:180deg,accent,#DC2626@50,accent2|${words}}`);
+  // После перезагрузки — тот же градиент
+  await page.reload();
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  const g = page.locator('#st-canvas .slide.on .md-g').first();
+  // Сверху вниз (180° браузер не пишет — так по умолчанию)
+  await expect(g).toHaveCSS('background-image', /^linear-gradient\(rgb\(\d+, \d+, \d+\), rgb\(220, 38, 38\) 50%, rgb\(\d+, \d+, \d+\)\)$/);
+  expect(errors).toEqual([]);
+});
+
 test('цвета темы в палитрах: наискось — у светлых и у тёмных слайдов; у постоянно тёмных — один цвет', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=tpl&studio#4');

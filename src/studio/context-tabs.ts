@@ -1,6 +1,6 @@
 import { icon } from '../components/icons';
 import { gradColor, gradientMid, TEXT_GRADIENTS } from '../engine/gradients';
-import { gradientPanel, type GradValue } from './gradient-edit';
+import { gradientPanel, type GradValue } from '../engine/editor/gradient-edit';
 import { GRADIENTS, SHAPE_COLORS, SHAPE_STYLES, SHAPE_SWATCHES, gradientCss, gradientOn, isGradient, sameGradient, shapeFill, type ShapeGradient } from '../components/shape/shape';
 import { IMAGE_ADJUST, IMAGE_FILTER_GROUPS, IMAGE_FILTERS, IMAGE_LOOK_KEYS, IMAGE_SHADOWS, IMAGE_STYLES, adjustCss, filterCss, imageLookCss, type ImageLook } from '../components/layout/image-look';
 
@@ -415,10 +415,22 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   const gradientEditor = (cmd: string, start: ShapeGradient, k: 'fill' | 'stroke' = 'fill') => {
     const gk = k === 'fill' ? 'gradient' : 'strokeGradient';
     const key = `grad:${Date.now()}`;
+    const value = (g: GradValue): ShapeGradient => {
+      const mid = gradientMid(g.mid);
+      return { from: g.from, to: g.to, ...(mid.length ? { mid } : {}), ...(g.type === 'radial' ? { type: 'radial' as const } : { angle: g.angle ?? 135 }) };
+    };
+    /** Пока тянут — градиент только на самих фигурах на слайде, без пересборки; запись — когда отпустили */
+    const preview = (g: GradValue) => {
+      for (const p of targets('shape')) {
+        for (const root of h.stage().querySelectorAll<HTMLElement>(`.slide.on [data-block='${JSON.stringify(p)}']`)) {
+          const el = SHAPE_KIND.el(root);
+          if (el) SHAPE_KIND.apply(el, { ...(getAt(deck, p) as Block), [k]: 'gradient', [gk]: value(g) });
+        }
+      }
+    };
     const save = (g: GradValue) => {
       const paths = targets('shape');
-      const mid = gradientMid(g.mid);
-      const val: ShapeGradient = { from: g.from, to: g.to, ...(mid.length ? { mid } : {}), ...(g.type === 'radial' ? { type: 'radial' as const } : { angle: g.angle ?? 135 }) };
+      const val = value(g);
       ed.commit((d) => paths.forEach((p) => {
         setAt(d, [...p, k], 'gradient');
         setAt(d, [...p, gk], val);
@@ -437,7 +449,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       swatches: [{ label: 'Цвета темы', items: theme }, { label: 'Постоянные', items: SHAPE_SWATCHES.map((c) => [c, c, c]) }],
       direction: true,
       presets: list.map((x) => ({ name: x.name, css: gradientCss(x.g), g: { from: x.g.from, to: x.g.to, mid: gradientMid(x.g.mid), angle: x.g.angle, type: x.g.type }, on: sameGradient(x.g, start) })),
-      preview: save,
+      preview,
       commit: (g) => { if (g) save(g); },
     }, { from: start.from, to: start.to, mid: gradientMid(start.mid), angle: start.angle, type: start.type });
     const pop = showPopover(anchor(cmd), `<div class="st-plabel">Свой градиент</div>${panel.html}`, panel.pick, 'st-palette st-grad');

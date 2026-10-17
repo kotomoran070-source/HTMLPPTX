@@ -94,6 +94,10 @@ test('PowerPoint: файл PPTX со всеми слайдами и заметк
   expect(xml).toMatch(/<a:srgbClr val="16A34A"\/><\/a:solidFill>[^]*?<a:t>● готово<\/a:t>/);
   // Размеры — без потерь: заголовок 32 px = 24 pt ровно
   expect(xml).toContain('sz="2400"');
+  // Градиенты фигур и выделенных слов — градиентами PowerPoint (а не картинкой и не одним цветом), меток не осталось
+  expect(xml).toMatch(/<p:spPr>(?:(?!<\/p:spPr>)[\s\S])*<a:gradFill rotWithShape="1"><a:gsLst>/);
+  expect(xml).toMatch(/<a:rPr\b[^>]*>(?:(?!<\/a:rPr>)[\s\S])*<a:gradFill/);
+  expect(xml).not.toMatch(/srgbClr val="01[7-9A-F][0-9A-F]{3}"/);
 });
 
 test('PowerPoint обратно: экспорт шаблона импортируется с теми же слайдами и текстами', async ({ page }) => {
