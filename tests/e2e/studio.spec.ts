@@ -163,11 +163,17 @@ test('«Дизайн»: наведение примеряет тему, щелч
   await expect(slide).toHaveCount(1);
   await page.locator('.st-tabs [data-tab="design"]').click();
   const tile = page.locator('.st-dz-mini[data-theme-id="midnight"]');
-  // Примерка: только стили открытого слайда, данные не меняются
+  // Примерка: только стили открытого слайда (у самого слайда — миниатюры не пересчитываются), данные не меняются
+  const bg = () => slide.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const was = await bg();
+  const before = readDeck('design');
   await tile.hover();
-  await expect(page.locator('#st-canvas .stage[data-th-preview]')).toHaveCount(1);
+  await expect.poll(bg).toBe('rgb(7, 11, 24)');
+  expect(await page.locator('#st-slides .slide[style*="--bg"]').count()).toBe(0);
   await page.mouse.move(10, 600);
-  await expect(page.locator('[data-th-preview]')).toHaveCount(0);
+  await expect.poll(bg).toBe(was);
+  expect(await slide.getAttribute('style') ?? '').not.toContain('--bg');
+  expect(readDeck('design')).toBe(before);
   await tile.click();
   // «Полночь» — всегда тёмные слайды: тёмный фон при светлом интерфейсе
   await expect(slide).toHaveAttribute('data-mode', 'dark');

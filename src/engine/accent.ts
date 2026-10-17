@@ -104,30 +104,43 @@ export function accentTokens(accent: string, accent2?: string | AccentTail | nul
 
 const block = (vars: Record<string, string>) => Object.entries(vars).map(([k, v]) => `${k}:${v}`).join(';');
 
-const PREVIEW_ID = 'htmlpptx-accent-preview';
-const PREVIEW_ATTR = 'data-accent-preview';
+/** Вид слайда: постоянный (data-mode у слайда или выше) или как тема интерфейса */
+export function shownMode(el: Element): 'light' | 'dark' {
+  const m = el.closest('[data-mode]')?.getAttribute('data-mode');
+  if (m === 'light' || m === 'dark') return m;
+  const a = document.documentElement.getAttribute('data-theme');
+  if (a === 'light' || a === 'dark') return a;
+  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+/**
+ * Переменные прямо на одном элементе (style) — показ цвета или темы на открытом слайде. Через общий
+ * <style> браузер пересчитывал бы всю страницу (миниатюры, ленту) на каждое движение палитры,
+ * а так — только этот слайд. set(null) — показ снят
+ */
+export function inlineVars() {
+  let shown: { el: HTMLElement; keys: string[] } | null = null;
+  return (el: HTMLElement | null, vars: Record<string, string> | null, important = false) => {
+    if (shown && (shown.el !== el || !vars)) {
+      for (const k of shown.keys) shown.el.style.removeProperty(k);
+      shown = null;
+    }
+    if (!el || !vars) return;
+    for (const [k, v] of Object.entries(vars)) el.style.setProperty(k, v, important ? 'important' : '');
+    shown = { el, keys: Object.keys(vars) };
+  };
+}
+const accentShown = inlineVars();
 
 /**
  * Показ цвета, пока тянут палитру: новые токены только у открытого слайда в stage — остальная
  * страница (миниатюры, лента) не пересчитывает стили на каждое движение. null — показ закончен.
  */
 export function previewAccent(accent: string | null, stage?: HTMLElement, accent2?: string | AccentTail | null, own = false): void {
-  let el = document.getElementById(PREVIEW_ID);
-  if (!accent || !HEX_RE.test(accent)) {
-    el?.remove();
-    document.querySelectorAll(`[${PREVIEW_ATTR}]`).forEach((x) => x.removeAttribute(PREVIEW_ATTR));
-    return;
-  }
-  stage?.setAttribute(PREVIEW_ATTR, '');
-  if (!el) {
-    el = document.createElement('style');
-    el.id = PREVIEW_ID;
-  }
-  document.head.appendChild(el);
-  const { light, dark } = accentTokens(accent, accent2);
+  const slide = accent && HEX_RE.test(accent) ? stage?.querySelector<HTMLElement>('.slide.on') ?? null : null;
   // Цвет презентации не трогает слайд со своими цветами; own — показ своего цвета этого слайда
-  const sel = `[${PREVIEW_ATTR}] .slide.on${own ? '' : ':not([data-accent])'}`;
-  el.textContent = `@layer slideria-preview{${themed(sel, light, dark)}}`;
+  if (!slide || (!own && slide.hasAttribute('data-accent'))) return accentShown(null, null);
+  accentShown(slide, accentTokens(accent!, accent2)[shownMode(slide)]);
 }
 
 /** Был тихий показ: следующее обычное применение оповестит вставки, даже если стиль уже тот же */
@@ -221,8 +234,10 @@ export function applyAccent(accent: unknown, accent2?: unknown, quiet = false, u
     el = document.createElement('style');
     el.id = ID;
   }
-  // Стиль всегда последним в <head>, чтобы перекрыть базовые токены
-  document.head.appendChild(el);
+  // Стиль всегда последним в <head>, чтобы перекрыть базовые токены; уже последний — не трогаем:
+  // перестановка стиля заставляет браузер пересчитать всю страницу
+  const tail = document.getElementById(SLIDE_ID);
+  if (!(el.parentNode === document.head && (el === document.head.lastElementChild || (el.nextElementSibling === tail && tail === document.head.lastElementChild)))) document.head.appendChild(el);
   if (ui) {
     const own = accentTokens(ui);
     el.textContent = themed(':root', own.light, own.dark) + `@layer slideria-deck{${themed(DECK_SCOPE, deck.light, deck.dark)}}`;
@@ -231,7 +246,7 @@ export function applyAccent(accent: unknown, accent2?: unknown, quiet = false, u
   }
   // Свои цвета слайдов — после цветов презентации (и выше по точности селектора)
   const own = document.getElementById(SLIDE_ID);
-  if (own) document.head.appendChild(own);
+  if (own && own !== document.head.lastElementChild) document.head.appendChild(own);
   notify(el.textContent !== before);
 }
 

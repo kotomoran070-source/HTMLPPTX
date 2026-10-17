@@ -25,10 +25,11 @@
     "app": "electron .",
     "app:build": "node scripts/app-build.mjs",
     "licenses": "node scripts/licenses.mjs",
-    "test": "playwright test",
+    "test": "playwright test --project=unit --project=e2e --project=app",
     "test:unit": "playwright test --project=unit",
     "test:e2e": "playwright test --project=e2e",
-    "test:app": "playwright test --project=app"
+    "test:app": "playwright test --project=app",
+    "test:perf": "playwright test --project=perf"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

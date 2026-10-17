@@ -13,7 +13,7 @@
  *   --rk                                           множитель скругления углов
  */
 import type { DarkLook, DeckOrigin, DeckTheme, ThemePalette } from '../types';
-import { accentTail, accentTokens, contrast, DEFAULT_ACCENT, HEX_RE, mix, PANEL_SWATCHES, SWATCHES } from './accent';
+import { accentTail, accentTokens, contrast, DEFAULT_ACCENT, HEX_RE, inlineVars, mix, PANEL_SWATCHES, shownMode, SWATCHES } from './accent';
 import { cssKey } from './deck-css';
 import { fontFamilies, fontNameOk, fontStack } from './fonts';
 import { recolorVars, sameColors } from './recolor';
@@ -342,26 +342,17 @@ export function applyThemeSwatches(theme: unknown): void {
   if (el.textContent !== css) el.textContent = css;
 }
 
-const PREVIEW_ID = 'htmlpptx-theme-preview';
-const PREVIEW_ATTR = 'data-th-preview';
+const themeShown = inlineVars();
 /**
- * Примерка темы на открытом слайде (наведение на тему в галерее): только стили, слайд не
- * перерисовывается. null — примерка закончена. Без темы — показ стандартного вида
+ * Примерка темы на открытом слайде (наведение на тему в галерее): только переменные у самого слайда —
+ * слайд не перерисовывается, остальная страница не пересчитывается. null — примерка закончена.
+ * Без темы — показ стандартного вида
  */
 export function previewTheme(theme: DeckTheme | null | undefined, stage?: HTMLElement, origin?: DeckOrigin): void {
-  let el = document.getElementById(PREVIEW_ID);
-  if (theme === null) {
-    el?.remove();
-    document.querySelectorAll(`[${PREVIEW_ATTR}]`).forEach((x) => x.removeAttribute(PREVIEW_ATTR));
-    return;
-  }
-  stage?.setAttribute(PREVIEW_ATTR, '');
-  if (!el) {
-    el = document.createElement('style');
-    el.id = PREVIEW_ID;
-    document.head.appendChild(el);
-  }
+  const slide = theme === null ? null : stage?.querySelector<HTMLElement>('.slide.on') ?? null;
+  if (!slide) return themeShown(null, null);
   const t: DeckTheme = theme ?? {};
   // Стандартный вид — тоже тема: с палитрой и фоном по умолчанию, поверх темы презентации
-  el.textContent = `@layer slideria-preview{${themeCss(t, `[${PREVIEW_ATTR}] .slide.on`, bodyFont(t), true, hasOrigin(origin) ? origin : undefined)}}`;
+  // Вид — как будет после выбора: постоянный у темы или как у интерфейса (свой вид презентации тема заменит)
+  themeShown(slide, { ...themeVars(t, themeMode(t) ?? shownMode(document.documentElement), hasOrigin(origin) ? origin : undefined), ...bodyFont(t) }, true);
 }
