@@ -225,8 +225,20 @@ test('файлы тем: несколько сразу и набор — пер�
     ['Набор.slideria-themes.json', JSON.stringify({ slideria: 'themes', version: 1, themes: [theme('Лес', '#15803D'), theme('Море', '#0369A1')] })],
     ['чужой.json', '{"a":1}'],
   ]);
-  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('slideria-themes') ?? '[]').map((t: { name: string }) => t.name).sort().join())).toBe('Закат,Лес,Море');
+  const names = () => page.evaluate(() => JSON.parse(localStorage.getItem('slideria-themes') ?? '[]').map((t: { name: string }) => t.name).sort().join());
+  await expect.poll(names).toBe('Закат,Лес,Море');
   await expect(page.getByText('чужой.json: это не файл темы Slideria')).toBeVisible();
+  // Те же файлы второй раз — без двойников; другая тема с занятым именем — с номером
+  await page.evaluate((files) => {
+    const dt = new DataTransfer();
+    for (const [n, txt] of files) dt.items.add(new File([txt], n, { type: 'application/json' }));
+    document.querySelector('#st-canvas .slide.on')!.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+  }, [
+    ['Закат.slideria-theme.json', JSON.stringify({ ...theme('Закат', '#E11D48'), version: 1, created: 1 })],
+    ['Набор.slideria-themes.json', JSON.stringify({ slideria: 'themes', version: 1, themes: [{ theme: { bg: 'glow', accent: '#15803D' }, name: 'Лес' }, theme('Лес', '#65A30D')] })],
+  ]);
+  await expect.poll(names).toBe('Закат,Лес,Лес (2),Море');
+  await expect(page.locator('#ed-toast')).toContainText('Уже есть в «Моих темах»: «Закат», «Лес»');
   // Несколько тем только добавляются: оформление презентации не меняется
   expect(readDeck('tpl')).not.toContain('preset: my:');
   expect(errors).toEqual([]);
@@ -250,6 +262,13 @@ test('«Мои темы»: оформление сохраняется темо�
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('slideria-themes') ?? '[]'));
   expect(saved[0].theme.head).toBe('Unbounded');
   expect(saved[0].theme.preset).toBeUndefined();
+  // То же оформление под другим именем — второй темы нет
+  await page.locator('[data-cmd="design.themes"]').click();
+  await page.locator('[data-my="save"]').click();
+  await page.locator('.st-tpl-form input').fill('Ещё ночная');
+  await page.locator('.st-tpl-form [data-a="save"]').click();
+  await expect(page.locator('#ed-toast')).toContainText('Такая тема уже есть в «Моих темах» — «Ночная»');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('slideria-themes') ?? '[]').length)).toBe(1);
   expect(errors).toEqual([]);
 });
 
@@ -668,6 +687,38 @@ test('шрифт, который автор не разрешил встраив
   await expect(page.locator('#ed-toast.err')).toContainText('запретил его встраивать');
   expect(readDeck('tpl')).not.toContain('Locked');
   expect(errors.filter((e) => !e.includes('http 400'))).toEqual([]);
+});
+
+test('без двойников: тот же файл под другим именем — в презентации и в библиотеке шрифтов один; шрифт второй раз не добавляется', async ({ page }) => {
+  const errors = watchErrors(page);
+  // Сервер: картинка и шрифт под другим именем — тот же файл
+  const png = [...Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')];
+  const a = await api(page, 'asset?deck=tpl&name=Dup-a.png', png);
+  const b = await api(page, 'asset?deck=tpl&name=Dup-b.png', png);
+  expect(b.json.path).toBe(a.json.path);
+  expect(fs.existsSync(path.join(DECKS, 'tpl', 'assets', 'Dup-b.png'))).toBe(false);
+  const kit = [...fs.readFileSync(path.resolve('src/fonts/Manrope.woff2'))];
+  const f1 = await api(page, 'font-save?file=Dup-a.woff2', kit);
+  const f2 = await api(page, 'font-save?file=Dup-b.woff2', kit);
+  expect(f2.json.file).toBe(f1.json.file);
+  // Студия: тот же шрифт второй раз (под другим именем) — одна запись в fonts и подсказка
+  const before = readDeck('tpl');
+  await page.goto('/?deck=tpl&studio#1');
+  await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
+  const drop = (name: string) => page.locator('#st-canvas').evaluate((el, [bytes, name]) => {
+    const dt = new DataTransfer();
+    dt.items.add(new File([new Uint8Array(bytes as number[])], name as string, { type: 'font/woff2' }));
+    for (const type of ['dragenter', 'dragover', 'drop']) el.dispatchEvent(new DragEvent(type, { dataTransfer: dt, bubbles: true, cancelable: true }));
+  }, [kit, name] as const);
+  await drop('Mine.woff2');
+  await expect.poll(() => readDeck('tpl')).toMatch(/name: Mine/);
+  await drop('Mine-copy.woff2');
+  await expect(page.locator('#ed-toast')).toContainText('Шрифт «Mine» уже есть в презентации');
+  expect(readDeck('tpl')).not.toContain('Mine-copy');
+  expect(readDeck('tpl').match(/name: Mine/g)).toHaveLength(1);
+  await page.keyboard.press('Control+z');
+  expect(await waitFile(() => readDeck('tpl') === before)).toBe(true);
+  expect(errors).toEqual([]);
 });
 
 test('«Инструменты» → «Лицензии»: страница с лицензиями программы, шрифтов и библиотек', async ({ page, context }) => {

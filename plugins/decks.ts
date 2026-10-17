@@ -457,15 +457,15 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     if (!fs.existsSync(fontsDir())) return [];
     return fs.readdirSync(fontsDir()).filter((f) => FONT_EXT.test(f)).sort().map((f) => ({ file: f, url: urlOf(path.join(fontsDir(), f)) }));
   }
-  /** Шрифт в библиотеку; такой же файл уже есть — второй не появляется */
+  /** Шрифт в библиотеку; такой же файл уже есть (под любым именем) — второй не появляется */
   async function saveLibraryFont(fileName: string, data: Buffer): Promise<{ file: string }> {
     const safe = safeFileName(fileName);
     if (!FONT_EXT.test(safe)) throw new Error('Подойдут шрифты WOFF2, WOFF, TTF или OTF');
     if (!data.length) throw new Error('Пустой файл');
     await mayEmbed(data);
     fs.mkdirSync(fontsDir(), { recursive: true });
-    const target = path.join(fontsDir(), safe);
-    if (fs.existsSync(target) && fs.readFileSync(target).equals(data)) return { file: safe };
+    const twin = sameFile(fontsDir(), data, (f) => FONT_EXT.test(f));
+    if (twin) return { file: twin };
     let file = safe;
     for (let i = 2; fs.existsSync(path.join(fontsDir(), file)); i++) file = safe.replace(FONT_EXT, (m) => `-${i}${m}`);
     fs.writeFileSync(path.join(fontsDir(), file), data);
@@ -483,10 +483,24 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     return saveAsset(name, safe, fs.readFileSync(src), res);
   }
 
+  /** Файл в папке с тем же содержимым (под любым именем): второй такой же не нужен */
+  function sameFile(folder: string, data: Buffer, ok: (file: string) => boolean = () => true): string | null {
+    for (const f of fs.readdirSync(folder)) {
+      if (!ok(f)) continue;
+      const abs = path.join(folder, f);
+      const st = fs.statSync(abs);
+      if (st.isFile() && st.size === data.length && fs.readFileSync(abs).equals(data)) return f;
+    }
+    return null;
+  }
+
   function saveAsset(name: string, safe: string, data: Buffer, res: ServerResponse): void {
     const ext = path.extname(safe).slice(1);
     const assets = path.join(dir, name, 'assets');
     fs.mkdirSync(assets, { recursive: true });
+    // Тот же файл под другим именем (перетащили второй раз, переименовали) — используем его
+    const twin = sameFile(assets, data, (f) => path.extname(f).slice(1).toLowerCase() === ext.toLowerCase());
+    if (twin) return send(res, 200, { url: urlOf(path.join(assets, twin)), path: './assets/' + twin });
     let target = path.join(assets, safe);
     const stem = safe.slice(0, safe.length - ext.length - 1);
     // Такой же файл уже есть — используем его; другой с тем же именем — добавляем номер

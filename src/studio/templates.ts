@@ -1,5 +1,6 @@
 import { statements } from '../engine/deck-css';
 import type { Block, Deck } from '../types';
+import { stableJson } from './same';
 
 /**
  * «Мои шаблоны»: объекты, которые пользователь сам сохранил (правый щелчок → «Сохранить как шаблон»).
@@ -48,9 +49,20 @@ function store(list: Template[]): boolean {
   }
 }
 
-/** false — не хватило места в хранилище браузера */
-export function addTemplate(t: Template): boolean {
-  return store([t, ...listTemplates()]);
+/** Содержимое шаблона для сравнения: объекты, стили, определения и файлы — без имени, даты и картинки галереи */
+const templateKey = (t: Template) => stableJson({ w: t.w, h: t.h, items: t.items, css: t.css, defs: t.defs, assets: t.assets });
+
+/**
+ * Шаблон в библиотеку: такой же (то же содержимое под любым именем) второй раз не добавляется,
+ * с тем же именем — заменяется. same — уже был, updated — заменил одноимённый, null — не хватило места
+ */
+export function addTemplate(t: Template): { status: 'added' | 'updated' | 'same'; template: Template } | null {
+  const list = listTemplates();
+  const key = templateKey(t);
+  const twin = list.find((x) => templateKey(x) === key);
+  if (twin) return { status: 'same', template: twin };
+  const named = list.find((x) => x.name === t.name);
+  return store([t, ...list.filter((x) => x !== named)]) ? { status: named ? 'updated' : 'added', template: t } : null;
 }
 
 export function removeTemplate(id: string): void {
@@ -198,12 +210,25 @@ export function listEffects(): UserEffect[] {
   }
 }
 
-export function addEffect(e: UserEffect): boolean {
+/** Движение эффекта для сравнения: кадры без своего имени @keyframes, длительность и плавность */
+const effectKey = (e: UserEffect) => stableJson({ css: e.css.replace(/^@(-webkit-)?keyframes\s+[^\s{]+/, '@keyframes').replace(/\s+/g, ' ').trim(), ms: e.ms, ease: e.ease });
+
+/**
+ * Эффект в «Мои эффекты»: такой же второй раз не добавляется, с тем же именем — заменяется
+ * (под прежним id: имя @keyframes у презентаций, где он уже есть, не меняется). null — не хватило места
+ */
+export function addEffect(e: UserEffect): { status: 'added' | 'updated' | 'same'; effect: UserEffect } | null {
+  const list = listEffects();
+  const key = effectKey(e);
+  const twin = list.find((x) => effectKey(x) === key);
+  if (twin) return { status: 'same', effect: twin };
+  const named = list.find((x) => x.name === e.name);
+  const add = named ? { ...e, id: named.id, css: e.css.replace(/^@(-webkit-)?keyframes\s+[^\s{]+/, `@keyframes ${named.id}`) } : e;
   try {
-    localStorage.setItem(FX_KEY, JSON.stringify([e, ...listEffects()]));
-    return true;
+    localStorage.setItem(FX_KEY, JSON.stringify([add, ...list.filter((x) => x !== named)]));
+    return { status: named ? 'updated' : 'added', effect: add };
   } catch {
-    return false;
+    return null;
   }
 }
 

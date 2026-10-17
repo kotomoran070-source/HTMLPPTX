@@ -735,12 +735,12 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
       done = true;
       const name = inp.value.trim();
       if (save && name) {
-        const l = addMyLook(name, g);
-        if (!l) { ed.toast('Не хватает места в хранилище браузера', 3500, true); rebuildStrip(); return; }
-        lookId = `my:${l.id}`;
+        const r = addMyLook(name, g);
+        if (!r) { ed.toast('Не хватает места в хранилище браузера', 3500, true); rebuildStrip(); return; }
+        lookId = `my:${r.look.id}`;
         power = 1;
         rebuildStrip();
-        ed.toast(`Образ «${l.name}» сохранён — он в ряду образов во всех презентациях`, 2800);
+        ed.toast(r.status === 'same' ? `Такой образ уже есть — «${r.look.name}»` : `Образ «${r.look.name}» ${r.status === 'updated' ? 'обновлён' : 'сохранён'} — он в ряду образов во всех презентациях`, 2800);
       } else rebuildStrip();
     };
     inp.addEventListener('keydown', (e) => {

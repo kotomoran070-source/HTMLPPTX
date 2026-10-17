@@ -22,7 +22,8 @@ import { showPopover } from './menu';
 import { backdropStrip, bindBackdropStrip, bindTune, tuneHtml } from './backdrop-pick';
 import { previewBackdrop } from '../components/backdrop/backdrop';
 import { isBackdrop } from '../engine/backdrops';
-import { addMyTheme, captureTheme, downloadTheme, downloadThemes, listMyThemes, MY, parseThemeFiles, registerMyFonts, removeMyTheme, type MyTheme } from './my-themes';
+import { addMyTheme, captureTheme, downloadTheme, downloadThemes, listMyThemes, MY, parseThemeFiles, registerMyFonts, removeMyTheme, sameTheme, type MyTheme } from './my-themes';
+import { freeName } from './same';
 import { registerThemeFonts, SPECIMEN, THEME_FONTS, THEME_PRESETS, themeFont, themeFontWeights, type ThemePreset } from './theme-presets';
 
 interface Command {
@@ -367,6 +368,13 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     const suggestion = base?.my ? base.name : base && base.id !== FILE ? `${base.name} (своя)` : deck.title ? `Тема «${deck.title}»`.slice(0, 50) : 'Моя тема';
     h.askName(at, 'Сохранить тему', 'Цвета, шрифты (вместе с файлами), фон, карточки, углы и вид слайдов — в «Мои темы» для любой презентации.', suggestion, (name) => void (async () => {
       const t = await captureTheme(deck, name);
+      // Такая тема уже есть (под любым именем) — второй не появляется: презентация отмечается ею
+      const twin = sameTheme(t);
+      if (twin) {
+        ed.commit((d) => { if (d.theme) d.theme.preset = MY + twin.id; }, { rebuild: false, merge: 'theme-preset' });
+        ed.toast(`Такая тема уже есть в «Моих темах» — «${twin.name}»`, 3500);
+        return;
+      }
       // То же имя — обновление темы, а не вторая с тем же названием
       const same = listMyThemes().find((x) => x.name === name);
       if (same) t.id = same.id;
@@ -376,13 +384,22 @@ export function designCommands(h: DesignHost): Record<string, Command> {
       ed.toast(`Тема «${name}» ${same ? 'обновлена' : 'сохранена'} — она в «Все темы» и в ряду тем на ленте`, 3000);
     })());
   };
-  // Одна тема — добавляется и сразу применяется; несколько (файлов или в наборе) — только добавляются
+  /**
+   * Одна тема — добавляется и сразу применяется; несколько (файлов или в наборе) — только добавляются.
+   * Тема, которая уже есть (то же содержимое под любым именем), второй раз не добавляется;
+   * другая тема с занятым именем получает номер: «Тема (2)»
+   */
   importThemes = async (files) => {
     const added: MyTheme[] = [];
+    const known: MyTheme[] = [];
     const bad: string[] = [];
     for (const f of files) {
       try {
         for (const t of parseThemeFiles(await f.text())) {
+          const list = listMyThemes();
+          const twin = sameTheme(t, list);
+          if (twin) { if (!known.includes(twin)) known.push(twin); continue; }
+          t.name = freeName(t.name, list.map((x) => x.name));
           if (!addMyTheme(t)) throw new Error('не хватило места в браузере');
           added.push(t);
         }
@@ -393,12 +410,17 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     if (added.length) {
       myVersion++;
       registerMyFonts(added);
-      if (added.length === 1) await applyPreset(asPreset(added[0]));
     }
-    const names = added.map((t) => `«${t.name}»`).join(', ');
-    if (bad.length) ed.toast(`${added.length ? `Добавлено: ${names}. ` : ''}Не загрузилось — ${bad.join('; ')}`, 6000, true);
-    else if (added.length === 1) ed.toast(`Тема ${names} добавлена в «Мои темы» и применена`, 3000);
-    else if (added.length) ed.toast(`Добавлено тем: ${added.length} — ${names}. Они в «Все темы» → «Мои темы»`, 4500);
+    // Одна тема (новая или уже бывшая) — применяется
+    const one = added.length + known.length === 1 ? added[0] ?? known[0] : null;
+    if (one) await applyPreset(asPreset(one));
+    const list = (l: MyTheme[]) => l.map((t) => `«${t.name}»`).join(', ');
+    const parts = [
+      added.length > 1 ? `Добавлено тем: ${added.length} — ${list(added)}. Они в «Все темы» → «Мои темы»` : added.length ? `Тема ${list(added)} добавлена в «Мои темы»${one ? ' и применена' : ''}` : '',
+      known.length ? `${known.length > 1 ? 'Уже есть в «Моих темах»' : 'Такая тема уже есть в «Моих темах»'}: ${list(known)}${one ? ' — применена' : ''}` : '',
+      bad.length ? `Не загрузилось — ${bad.join('; ')}` : '',
+    ].filter(Boolean);
+    if (parts.length) ed.toast(parts.join('. '), bad.length || parts.length > 1 ? 6000 : 3500, !!bad.length);
   };
   const loadTheme = () => {
     const inp = document.createElement('input');

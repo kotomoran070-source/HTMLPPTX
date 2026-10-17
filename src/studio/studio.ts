@@ -1163,8 +1163,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
       css: pickCss(d.css, items) || undefined, defs: pickDefs(d.defs, items) || undefined,
       assets: Object.keys(assets).length ? assets : undefined, preview,
     };
-    if (!addTemplate(t)) return ed.toast('Не хватает места в хранилище браузера: удалите ненужные шаблоны', 4500, true);
-    ed.toast(`Шаблон «${name}» сохранён — он в «Блоках», раздел «Мои шаблоны»`, 3000);
+    const r = addTemplate(t);
+    if (!r) return ed.toast('Не хватает места в хранилище браузера: удалите ненужные шаблоны', 4500, true);
+    if (r.status === 'same') return ed.toast(`Такой шаблон уже есть — «${r.template.name}» в «Блоках», раздел «Мои шаблоны»`, 3500);
+    ed.toast(`Шаблон «${name}» ${r.status === 'updated' ? 'обновлён' : 'сохранён'} — он в «Блоках», раздел «Мои шаблоны»`, 3000);
   }
 
   /** Картинка шаблона для галереи: слайд только с этими объектами, обрезанный по ним */
@@ -1278,10 +1280,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
     askName(anchor, 'Сохранить появление как эффект', 'Движение объекта появится на вкладке «Анимация» → «Мои эффекты», его можно дать любому объекту.', 'Эффект из импорта', (name) => {
       const id = `ufx-${Math.random().toString(36).slice(2, 9)}`;
       const css = found.keyframes.cssText.replace(/^@(-webkit-)?keyframes\s+[^\s{]+/, `@keyframes ${id}`);
-      if (!addEffect({ id, name, css, ms: found.ms, ease: found.ease, created: Date.now() })) {
-        return ed.toast('Не хватает места в хранилище браузера', 4000, true);
-      }
-      ed.toast(`Эффект «${name}» сохранён — вкладка «Анимация» → «Мои эффекты»`, 3000);
+      const r = addEffect({ id, name, css, ms: found.ms, ease: found.ease, created: Date.now() });
+      if (!r) return ed.toast('Не хватает места в хранилище браузера', 4000, true);
+      if (r.status === 'same') return ed.toast(`Такой эффект уже есть — «${r.effect.name}» на вкладке «Анимация» → «Мои эффекты»`, 3500);
+      ed.toast(`Эффект «${name}» ${r.status === 'updated' ? 'обновлён' : 'сохранён'} — вкладка «Анимация» → «Мои эффекты»`, 3000);
     });
   }
   function insertPreset(p: Preset): void {

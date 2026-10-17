@@ -1527,11 +1527,14 @@ export class Editor {
     } catch {
       return this.toast('Файл не похож на шрифт — браузер не смог его прочитать', 5000, true);
     }
-    if (!this.commit((d) => { d.fonts = [...(Array.isArray(d.fonts) ? d.fonts : []), { name, src: url }]; }, { rebuild: true })) return;
-    // И в общую библиотеку: шрифт появится в списках всех презентаций
+    // Тот же файл уже подключён (добавили второй раз, под другим именем) — вторая запись не нужна
+    const twin = deckFonts(this.host.deck.fonts).find((f) => f.src === url);
+    if (!twin && !this.commit((d) => { d.fonts = [...(Array.isArray(d.fonts) ? d.fonts : []), { name, src: url }]; }, { rebuild: true })) return;
+    // И в общую библиотеку: шрифт появится в списках всех презентаций (такой же файл там не повторится)
     if (this.mode === 'project' && this.storage.saveFont) {
       try { await this.storage.saveFont(file, file.name); await this.loadFontLibrary(); } catch { /* останется в этой презентации */ }
     }
+    if (twin) return this.toast(`Шрифт «${twin.name.trim()}» уже есть в презентации`, 3500);
     this.toast(cyr
       ? `Шрифт «${name}» добавлен — и в общую библиотеку: он есть в списке шрифтов всех презентаций`
       : `Шрифт «${name}» добавлен, но в нём нет русских букв — они будут запасным шрифтом`, cyr ? 4500 : 6000, !cyr);

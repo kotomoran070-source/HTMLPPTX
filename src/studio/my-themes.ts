@@ -6,6 +6,7 @@
  */
 import type { Deck, DeckTheme } from '../types';
 import { blobToDataUrl } from '../engine/editor/persist';
+import { themeKey } from './same';
 import { THEME_FONTS } from './theme-presets';
 
 export interface MyTheme {
@@ -42,6 +43,12 @@ function store(list: MyTheme[]): boolean {
 /** false — не хватило места в хранилище браузера */
 export function addMyTheme(t: MyTheme): boolean {
   return store([t, ...listMyThemes().filter((x) => x.id !== t.id)]);
+}
+
+/** Своя тема с тем же содержимым (под любым именем) */
+export function sameTheme(t: Pick<MyTheme, 'theme' | 'fonts'>, list = listMyThemes()): MyTheme | undefined {
+  const key = themeKey(t);
+  return list.find((x) => themeKey(x) === key);
 }
 
 export function removeMyTheme(id: string): void {
