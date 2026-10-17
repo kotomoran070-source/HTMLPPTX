@@ -56,7 +56,9 @@ async function boot(): Promise<void> {
   if (usesMath(deck)) await loadMath().catch(() => null);
   // Студия (редактор как в PowerPoint) есть только в yarn dev: в собранный файл её код не попадает
   if (import.meta.env.DEV && !fixed && params.has('studio')) {
-    const { startStudio } = await import('./studio/studio');
+    // Свои темы, шаблоны, эффекты и образы — с диска, до первой отрисовки ленты
+    const [{ startStudio }, { loadUserLibrary }] = await Promise.all([import('./studio/studio'), import('./studio/user-library')]);
+    await loadUserLibrary();
     return startStudio(deck, name);
   }
   // Телефон-пульт по QR из окна показа — тот же режим докладчика (связь через сервер показа)

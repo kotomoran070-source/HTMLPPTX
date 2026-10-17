@@ -34,6 +34,6 @@ export default defineConfig({
     url: `http://localhost:${PORT}`,
     reuseExistingServer: false,
     timeout: 120_000,
-    env: { SLIDERIA_DECKS: '.tmp/test-decks', SLIDERIA_FONTS: '.tmp/test-fonts', BROWSER: 'none' },
+    env: { SLIDERIA_DECKS: '.tmp/test-decks', SLIDERIA_FONTS: '.tmp/test-fonts', SLIDERIA_LIBRARY: '.tmp/test-library', BROWSER: 'none' },
   },
 });

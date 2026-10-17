@@ -2,11 +2,12 @@
  * «Мои темы»: оформление презентации (цвета, шрифты, фон, карточки, углы, вид слайдов),
  * сохранённое пользователем, — в галерее тем рядом с готовыми. Свои шрифты темы (не из набора
  * студии) сохраняются вместе с ней содержимым: тема работает и в другой презентации.
- * Хранится в браузере; файлом .slideria-theme.json темой можно поделиться.
+ * Хранится в своей библиотеке студии (user-library.ts); файлом .slideria-theme.json темой можно поделиться.
  */
 import type { Deck, DeckTheme } from '../types';
 import { blobToDataUrl } from '../engine/editor/persist';
 import { themeKey } from './same';
+import { libList, libPut, libRemove } from './user-library';
 import { THEME_FONTS } from './theme-presets';
 
 export interface MyTheme {
@@ -18,31 +19,16 @@ export interface MyTheme {
   fonts?: { name: string; weight?: number; style?: 'italic'; file: string; data: string }[];
 }
 
-const KEY = 'slideria-themes';
 /** Признак своей темы в theme.preset: «my:<id>» */
 export const MY = 'my:';
 
 export function listMyThemes(): MyTheme[] {
-  try {
-    const v = JSON.parse(localStorage.getItem(KEY) ?? '[]');
-    return Array.isArray(v) ? v.filter((t) => t && typeof t.id === 'string' && t.theme && typeof t.theme === 'object') : [];
-  } catch {
-    return [];
-  }
+  return libList<MyTheme>('themes').filter((t) => t.theme && typeof t.theme === 'object');
 }
 
-function store(list: MyTheme[]): boolean {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(list));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** false — не хватило места в хранилище браузера */
+/** Новая или обновлённая (тот же id) — первой; false — некуда записать */
 export function addMyTheme(t: MyTheme): boolean {
-  return store([t, ...listMyThemes().filter((x) => x.id !== t.id)]);
+  return libPut('themes', t);
 }
 
 /** Своя тема с тем же содержимым (под любым именем) */
@@ -52,7 +38,7 @@ export function sameTheme(t: Pick<MyTheme, 'theme' | 'fonts'>, list = listMyThem
 }
 
 export function removeMyTheme(id: string): void {
-  store(listMyThemes().filter((t) => t.id !== id));
+  libRemove('themes', id);
 }
 
 export const newId = () => Math.random().toString(36).slice(2, 10);

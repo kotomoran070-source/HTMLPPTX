@@ -6,8 +6,13 @@
  *   отличие маленькое (38 → 40, но не 28 → 40);
  * - обложка и последний слайд, закреплённые объекты не трогаются;
  * - цвета — только неотличимые на глаз (#1F2937 / #1F2938).
+ * И то, что точно ошибка:
+ * - копия объекта точно поверх такого же (вставили дважды) — лишняя убирается, видимое не меняется;
+ * - «по щелчку» ведёт на удалённый слайд или показывает удалённый объект — ссылка убирается;
+ * - объект «скрыт до щелчка», но кнопки, которая его показывает, нет — он показывается всегда.
  * Найденное показывается списком с галочками, применяется одним действием (Ctrl+Z — как было).
  */
+import { stableJson } from './same';
 import type { Deck } from '../types';
 
 export interface Fix {
@@ -79,6 +84,105 @@ function headings(deck: Deck): { slide: number; k: number; o: Obj; x: number; y:
 }
 
 const placeAt = (d: Deck, slide: number, k: number) => obj(obj((d.slides[slide].free as unknown[])?.[k])?.place);
+/** Помечает объект к удалению: удаляются все разом в applyFixes — номера остальных не сдвигаются между исправлениями */
+const DROP = { type: '__drop' };
+const freeAt = (d: Deck, slide: number, k: number) => { const o = (d.slides[slide].free as unknown[] | undefined)?.[k]; return o === DROP ? null : obj(o); };
+
+/** Применить выбранные исправления к данным (внутри одной правки) */
+export function applyFixes(d: Deck, list: Fix[]): void {
+  list.forEach((f) => f.apply(d));
+  for (const s of d.slides) {
+    if (!Array.isArray(s.free)) continue;
+    s.free = s.free.filter((b) => b !== DROP);
+    if (!s.free.length) delete s.free;
+  }
+}
+
+/** Подпись объекта для списка: начало текста или вид объекта */
+function objLabel(o: Obj): string {
+  const text = typeof o.text === 'string' ? o.text : typeof o.title === 'string' ? o.title : '';
+  const plain = text.replace(/\{[^{}|]+\|([^{}]*)\}/g, '$1').replace(/[*_#>`]/g, '').replace(/\s+/g, ' ').trim();
+  if (plain) return `«${plain.length > 24 ? `${plain.slice(0, 23)}…` : plain}»`;
+  const kind: Record<string, string> = { image: 'картинка', shape: 'фигура', text: 'надпись', table: 'таблица', video: 'видео', group: 'группа', chart: 'диаграмма' };
+  return kind[String(o.type)] ?? `объект ${String(o.type)}`;
+}
+
+const TRIG = /^(show|hide|toggle|play):(.+)$/;
+/** Команды кнопки «показать / скрыть»: show:a,b;hide:c → [[show, [a, b]], [hide, [c]]] */
+const triggerParts = (a: unknown): [string, string[]][] | null => {
+  if (typeof a !== 'string') return null;
+  const parts = a.trim().split(';').map((c) => TRIG.exec(c.trim()));
+  return parts.length && parts.every(Boolean) ? parts.map((m) => [m![1], m![2].split(',').map((x) => x.trim()).filter(Boolean)]) : null;
+};
+
+/** Копии точно поверх таких же: то же содержимое, место отличается не больше чем на 2 px */
+function duplicates(deck: Deck): Fix[] {
+  const out: Fix[] = [];
+  deck.slides.forEach((s, slide) => {
+    const list = (Array.isArray(s.free) ? s.free : []).map((b, k) => ({ k, o: obj(b) }));
+    const seen: { key: string; place: Obj | null; k: number }[] = [];
+    for (const { k, o } of list) {
+      if (!o || o.locked === true) continue;
+      const { place, ...rest } = o;
+      const key = stableJson(rest);
+      const p = obj(place);
+      const near = (a: Obj | null, b: Obj | null) => ['x', 'y', 'w', 'h'].every((c) => Math.abs((num(a?.[c]) ?? 0) - (num(b?.[c]) ?? 0)) <= 2);
+      const twin = seen.find((x) => x.key === key && near(x.place, p));
+      if (!twin) { seen.push({ key, place: p, k }); continue; }
+      out.push({
+        id: `dup:${slide}:${k}`, what: 'Копия поверх такого же объекта', from: objLabel(o), to: 'убрать копию', slides: [slide],
+        apply: (d) => { const arr = d.slides[slide].free as unknown[]; if (arr?.[k]) arr[k] = DROP; },
+      });
+    }
+  });
+  return out;
+}
+
+/** «По щелчку» на удалённый слайд или объект; скрытые объекты, которые нечем показать */
+function deadLinks(deck: Deck): Fix[] {
+  const out: Fix[] = [];
+  const slideIds = new Set(deck.slides.map((s) => s.id).filter((v): v is string => typeof v === 'string'));
+  deck.slides.forEach((s, slide) => {
+    const free = (Array.isArray(s.free) ? s.free : []).map((b) => obj(b));
+    const ids = new Set(free.map((o) => o?.id).filter((v): v is string => typeof v === 'string'));
+    const shown = new Set<string>();
+    free.forEach((o, k) => {
+      if (!o) return;
+      const a = o.action;
+      if (typeof a === 'string' && a.startsWith('slide:') && !slideIds.has(a.slice(6))) {
+        out.push({
+          id: `link:${slide}:${k}`, what: 'Ссылка на удалённый слайд', from: `${objLabel(o)}: слайда «${a.slice(6)}» нет`, to: 'убрать ссылку', slides: [slide],
+          apply: (d) => { const t = freeAt(d, slide, k); if (t) delete t.action; },
+        });
+        return;
+      }
+      const parts = triggerParts(a);
+      if (!parts) return;
+      for (const [verb, list] of parts) if (verb === 'show' || verb === 'toggle') list.forEach((id) => shown.add(id));
+      const missing = [...new Set(parts.flatMap(([, list]) => list).filter((id) => !ids.has(id)))];
+      if (!missing.length) return;
+      out.push({
+        id: `trig:${slide}:${k}`, what: 'Кнопка управляет удалённым объектом', from: `${objLabel(o)}: ${missing.length > 1 ? 'объектов' : 'объекта'} ${missing.join(', ')} нет`, to: 'убрать из кнопки', slides: [slide],
+        apply: (d) => {
+          const t = freeAt(d, slide, k);
+          const cur = triggerParts(t?.action);
+          if (!t || !cur) return;
+          const left = cur.map(([verb, list]) => [verb, list.filter((id) => !missing.includes(id))] as const).filter(([, list]) => list.length);
+          if (left.length) t.action = left.map(([verb, list]) => `${verb}:${list.join(',')}`).join(';');
+          else delete t.action;
+        },
+      });
+    });
+    free.forEach((o, k) => {
+      if (!o || o.hidden !== true || (typeof o.id === 'string' && shown.has(o.id))) return;
+      out.push({
+        id: `hid:${slide}:${k}`, what: 'Скрыт до щелчка, но кнопки нет', from: objLabel(o), to: 'показывать всегда', slides: [slide],
+        apply: (d) => { const t = freeAt(d, slide, k); if (t) delete t.hidden; },
+      });
+    });
+  });
+  return out;
+}
 
 export function findFixes(deck: Deck): Fix[] {
   const fixes: Fix[] = [];
@@ -135,5 +239,6 @@ export function findFixes(deck: Deck): Fix[] {
   const sameColor = (a: string, b: string) => { const x = rgb(a); const y = rgb(b); return x.every((c, i) => Math.abs(c - y[i]) <= 4); };
   add('Цвет', '', outliers(colors, (a, b) => sameColor(String(a), String(b))) as { to: number | string; off: Sample<number | string>[] }[]);
 
-  return fixes;
+  // 3. Точно ошибки: копии поверх, ссылки в никуда, скрытое без кнопки
+  return [...fixes, ...duplicates(deck), ...deadLinks(deck)];
 }

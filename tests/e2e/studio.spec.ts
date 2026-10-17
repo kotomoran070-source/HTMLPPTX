@@ -211,8 +211,17 @@ test('импорт из PowerPoint: другая тема перекрашива
   expect(errors).toEqual([]);
 });
 
+/** Свои темы — файлами в библиотеке студии (SLIDERIA_LIBRARY тестов) */
+const LIBRARY = path.resolve('.tmp/test-library');
+const myThemes = (): { name: string; theme: Record<string, unknown> }[] => {
+  const d = path.join(LIBRARY, 'themes');
+  return (fs.existsSync(d) ? fs.readdirSync(d).filter((f) => f.endsWith('.json')) : []).map((f) => JSON.parse(fs.readFileSync(path.join(d, f), 'utf8')))
+    .sort((a, b) => b.created - a.created);
+};
+
 test('файлы тем: несколько сразу и набор — перетаскиванием на студию, чужой JSON — понятной ошибкой', async ({ page }) => {
   const errors = watchErrors(page);
+  fs.rmSync(path.join(LIBRARY, 'themes'), { recursive: true, force: true });
   await page.goto('/?deck=tpl&studio#7');
   await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
   const theme = (name: string, accent: string) => ({ slideria: 'theme', version: 1, name, theme: { accent, bg: 'glow' } });
@@ -225,7 +234,7 @@ test('файлы тем: несколько сразу и набор — пер�
     ['Набор.slideria-themes.json', JSON.stringify({ slideria: 'themes', version: 1, themes: [theme('Лес', '#15803D'), theme('Море', '#0369A1')] })],
     ['чужой.json', '{"a":1}'],
   ]);
-  const names = () => page.evaluate(() => JSON.parse(localStorage.getItem('slideria-themes') ?? '[]').map((t: { name: string }) => t.name).sort().join());
+  const names = () => myThemes().map((t) => t.name).sort().join();
   await expect.poll(names).toBe('Закат,Лес,Море');
   await expect(page.getByText('чужой.json: это не файл темы Slideria')).toBeVisible();
   // Те же файлы второй раз — без двойников; другая тема с занятым именем — с номером
@@ -246,9 +255,9 @@ test('файлы тем: несколько сразу и набор — пер�
 
 test('«Мои темы»: оформление сохраняется темой и появляется первым в ряду тем', async ({ page }) => {
   const errors = watchErrors(page);
+  fs.rmSync(path.join(LIBRARY, 'themes'), { recursive: true, force: true });
   await page.goto('/?deck=design&studio#1');
   await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
-  await page.evaluate(() => localStorage.removeItem('slideria-themes'));
   await page.locator('.st-tabs [data-tab="design"]').click();
   await page.locator('.st-dz-mini[data-theme-id="midnight"]').click();
   await expect.poll(() => readDeck('design')).toContain('preset: midnight');
@@ -259,7 +268,10 @@ test('«Мои темы»: оформление сохраняется темо�
   // Своя тема — первой плиткой; презентация отмечена ею
   await expect(page.locator('#st-dz-strip .st-dz-mini').first()).toHaveAttribute('title', 'Ночная');
   await expect.poll(() => readDeck('design')).toMatch(/preset: my:\w+/);
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('slideria-themes') ?? '[]'));
+  // Тема — файлом в библиотеке студии, не в браузере
+  await expect.poll(() => myThemes().length).toBe(1);
+  const saved = myThemes();
+  expect(await page.evaluate(() => localStorage.getItem('slideria-themes'))).toBeNull();
   expect(saved[0].theme.head).toBe('Unbounded');
   expect(saved[0].theme.preset).toBeUndefined();
   // То же оформление под другим именем — второй темы нет
@@ -268,7 +280,40 @@ test('«Мои темы»: оформление сохраняется темо�
   await page.locator('.st-tpl-form input').fill('Ещё ночная');
   await page.locator('.st-tpl-form [data-a="save"]').click();
   await expect(page.locator('#ed-toast')).toContainText('Такая тема уже есть в «Моих темах» — «Ночная»');
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('slideria-themes') ?? '[]').length)).toBe(1);
+  expect(myThemes()).toHaveLength(1);
+  expect(errors).toEqual([]);
+});
+
+test('свои библиотеки переезжают из браузера на диск: темы, шаблоны, эффекты, образы', async ({ page }) => {
+  const errors = watchErrors(page);
+  for (const k of ['themes', 'templates', 'effects', 'looks']) fs.rmSync(path.join(LIBRARY, k), { recursive: true, force: true });
+  // Как было раньше: всё в хранилище браузера
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('zz-seeded')) return;
+    sessionStorage.setItem('zz-seeded', '1');
+    localStorage.setItem('slideria-themes', JSON.stringify([{ id: 'old1', name: 'Старая', created: 5, theme: { accent: '#E11D48' } }]));
+    localStorage.setItem('htmlpptx-templates', JSON.stringify([{ id: 'tpl1', name: 'Карточка', created: 5, w: 100, h: 50, items: [{ type: 'text', text: 'А', place: { x: 0, y: 0, w: 100 } }] }]));
+    localStorage.setItem('htmlpptx-effects', JSON.stringify([{ id: 'ufx-old', name: 'Проявление', css: '@keyframes ufx-old { from { opacity: 0 } }', ms: 400, ease: 'ease', created: 5 }]));
+    localStorage.setItem('slideria-looks', JSON.stringify([{ id: 'lk1', name: 'Тёплый', grade: { temp: 20 } }, { id: 'lk2', name: 'Холодный', grade: { temp: -20 } }]));
+  });
+  await page.goto('/?deck=design&studio#1');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  const files = (k: string) => (fs.existsSync(path.join(LIBRARY, k)) ? fs.readdirSync(path.join(LIBRARY, k)).sort() : []);
+  expect(files('themes')).toEqual(['old1.json']);
+  expect(files('templates')).toEqual(['tpl1.json']);
+  expect(files('effects')).toEqual(['ufx-old.json']);
+  expect(files('looks')).toEqual(['lk1.json', 'lk2.json']);
+  // В браузере больше ничего не держим; порядок образов (новые первыми) сохранён
+  expect(await page.evaluate(() => ['slideria-themes', 'htmlpptx-templates', 'htmlpptx-effects', 'slideria-looks'].map((k) => localStorage.getItem(k)))).toEqual([null, null, null, null]);
+  const looks = files('looks').map((f) => JSON.parse(fs.readFileSync(path.join(LIBRARY, 'looks', f), 'utf8')));
+  expect(looks.find((l) => l.id === 'lk1').created).toBeGreaterThan(looks.find((l) => l.id === 'lk2').created);
+  // Тема с диска — в ряду тем на ленте
+  await page.locator('.st-tabs [data-tab="design"]').click();
+  await expect(page.locator('#st-dz-strip .st-dz-mini[title="Старая"]')).toHaveCount(1);
+  // Удалить — файл уходит
+  await page.locator('[data-cmd="design.themes"]').click();
+  await page.locator('[data-my="del"][data-id="my:old1"]').click();
+  await expect.poll(() => files('themes')).toEqual([]);
   expect(errors).toEqual([]);
 });
 
@@ -718,6 +763,34 @@ test('без двойников: тот же файл под другим име
   expect(readDeck('tpl').match(/name: Mine/g)).toHaveLength(1);
   await page.keyboard.press('Control+z');
   expect(await waitFile(() => readDeck('tpl') === before)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('«Привести в порядок»: копия поверх, ссылки в никуда, скрытое без кнопки — одним действием, Ctrl+Z — как было', async ({ page }) => {
+  const errors = watchErrors(page);
+  const before = readDeck('tidy');
+  await page.goto('/?deck=tidy&studio#1');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  await page.locator('.st-tabs [data-tab="tools"]').click();
+  await page.locator('[data-cmd="tools.tidy"]').click();
+  const items = page.locator('.st-tidy li');
+  await expect(items).toHaveCount(4);
+  await expect(page.locator('.st-tidy')).toContainText('Копия поверх такого же объекта');
+  await expect(page.locator('.st-tidy')).toContainText('Ссылка на удалённый слайд');
+  await expect(page.locator('.st-tidy')).toContainText('Кнопка управляет удалённым объектом');
+  await expect(page.locator('.st-tidy')).toContainText('Скрыт до щелчка, но кнопки нет');
+  await page.locator('[data-tidy]').click();
+  await expect.poll(() => (readDeck('tidy').match(/text: Карточка/g) ?? []).length).toBe(1);
+  const after = readDeck('tidy');
+  expect(after).not.toContain('slide:gone');
+  expect(after).not.toContain('show:lost');
+  expect(after).not.toContain('hidden: true');
+  await expect(page.locator('#st-canvas .slide.on > .free')).toHaveCount(4);
+  // Ctrl+Z — всё как было (файл записывается заново, поэтому сверяем содержимое, а не текст)
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => (readDeck('tidy').match(/Карточка/g) ?? []).length).toBe(2);
+  for (const v of ['slide:gone', 'show:lost', 'hidden: true']) expect(readDeck('tidy')).toContain(v);
+  expect(before).toContain('slide:gone');
   expect(errors).toEqual([]);
 });
 

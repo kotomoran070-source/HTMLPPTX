@@ -57,6 +57,8 @@ export interface DecksOptions {
   only?: string;
   /** Общая библиотека шрифтов; по умолчанию — fonts/ в корне проекта */
   fonts?: string;
+  /** Свои темы, шаблоны, эффекты и образы студии; по умолчанию — library/ в корне проекта */
+  library?: string;
 }
 
 export function listDecks(dir: string): string[] {
@@ -494,6 +496,45 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     return null;
   }
 
+  // ---------- свои библиотеки студии: темы, шаблоны, эффекты появления, образы «Цвет+» ----------
+  // По файлу на запись (<вид>/<id>.json): окна студии пишут каждое своё, не затирая чужие
+  const LIB_KINDS = ['themes', 'templates', 'effects', 'looks'];
+  const LIB_ID = /^[\w-]{1,64}$/;
+  const libDir = () => opts.library ? path.resolve(opts.library) : path.join(root, 'library');
+  function libFile(kind: string, id: string): string {
+    if (!LIB_KINDS.includes(kind)) throw new Error('Неизвестная библиотека');
+    if (!LIB_ID.test(id)) throw new Error('Неверный id записи');
+    return path.join(libDir(), kind, `${id}.json`);
+  }
+  /** Все записи всех библиотек; испорченный файл пропускается */
+  function listLibrary(): Record<string, unknown[]> {
+    const out: Record<string, unknown[]> = {};
+    for (const kind of LIB_KINDS) {
+      const d = path.join(libDir(), kind);
+      out[kind] = (fs.existsSync(d) ? fs.readdirSync(d) : []).filter((f) => f.endsWith('.json')).flatMap((f) => {
+        try {
+          const v = JSON.parse(fs.readFileSync(path.join(d, f), 'utf8'));
+          return v && typeof v === 'object' && v.id === f.slice(0, -5) ? [v] : [];
+        } catch { return []; }
+      });
+    }
+    return out;
+  }
+  function putLibrary(kind: string, id: string, body: Buffer): { ok: true } {
+    const file = libFile(kind, id);
+    const v = JSON.parse(body.toString('utf8') || 'null');
+    if (!v || typeof v !== 'object' || v.id !== id) throw new Error('Запись не совпадает с id');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    // Сначала во временный файл: оборванная запись не портит прежнюю
+    fs.writeFileSync(`${file}.tmp`, JSON.stringify(v));
+    fs.renameSync(`${file}.tmp`, file);
+    return { ok: true };
+  }
+  function deleteLibrary(kind: string, id: string): { ok: true } {
+    fs.rmSync(libFile(kind, id), { force: true });
+    return { ok: true };
+  }
+
   function saveAsset(name: string, safe: string, data: Buffer, res: ServerResponse): void {
     const ext = path.extname(safe).slice(1);
     const assets = path.join(dir, name, 'assets');
@@ -611,6 +652,9 @@ export function decksPlugin(opts: DecksOptions): Plugin {
             return send(res, 200, { state: fix ? await fix() : 'skip' });
           }
           if (url.pathname === API + 'font-save') return send(res, 200, await saveLibraryFont(url.searchParams.get('file') ?? '', await readBody(req)));
+          if (url.pathname === API + 'library') return send(res, 200, listLibrary());
+          if (url.pathname === API + 'library-put') return send(res, 200, putLibrary(url.searchParams.get('kind') ?? '', url.searchParams.get('id') ?? '', await readBody(req)));
+          if (url.pathname === API + 'library-delete') return send(res, 200, deleteLibrary(url.searchParams.get('kind') ?? '', url.searchParams.get('id') ?? ''));
           const name = assertDeck(url.searchParams.get('deck'));
           if (url.pathname === API + 'delete') return send(res, 200, trashDeck(name));
           if (url.pathname === API + 'assets-list') return send(res, 200, listAssets(name));

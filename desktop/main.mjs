@@ -72,6 +72,7 @@ async function startServer() {
     SLIDERIA_DECKS: DECKS,
     SLIDERIA_DECKS_LABEL: 'Документы/Slideria/',
     SLIDERIA_FONTS: path.join(DATA, 'fonts'),
+    SLIDERIA_LIBRARY: path.join(DATA, 'library'),
     SLIDERIA_CACHE: path.join(DATA, 'vite-cache'),
   });
   // Плагины и сборка считают пути от корня проекта

@@ -27,6 +27,7 @@ import { setupMarquee } from './marquee';
 import { canExplode, explodeSlide } from './explode';
 import { blockName, setSnapLines } from '../engine/editor/block-edit';
 import { blobToDataUrl } from '../engine/editor/persist';
+import { onLibraryError } from './user-library';
 import { addEffect, addTemplate, assetUrls, findEntrance, deckWithTemplate, listTemplates, pickCss, pickDefs, removeTemplate, replaceUrls, type Template } from './templates';
 import { animCommands, animPanelHtml, animTabHtml, bindDelayField, syncAnimTab, type AnimHost } from './anim-tab';
 import { bindDesignStrip, designCommands, designPanelHtml, designTabHtml, importThemeFiles, isThemeFile, syncDesignTab, type DesignHost } from './design-tab';
@@ -312,6 +313,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     state: queueState,
   }, true, { studio: true, textDock: $('st-textdock') });
   const ed = editor;
+  onLibraryError((msg) => ed.toast(msg, 5000, true));
 
   const slides = new SlidesPanel($('st-slides'), {
     deck: () => deck,

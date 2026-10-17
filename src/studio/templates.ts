@@ -1,13 +1,14 @@
 import { statements } from '../engine/deck-css';
 import type { Block, Deck } from '../types';
 import { stableJson } from './same';
+import { libList, libPut, libRemove } from './user-library';
 
 /**
  * «Мои шаблоны»: объекты, которые пользователь сам сохранил (правый щелчок → «Сохранить как шаблон»).
  * Шаблон несёт всё, что нужно для того же вида в другой презентации: объекты с анимацией появления,
  * нужные им стили и анимации из стилей презентации (deck.css), SVG-определения и картинки.
  * При импорте ничего не сохраняется само — только вручную.
- * Хранится в браузере; при переезде в облако меняется только load/store здесь.
+ * Хранится в своей библиотеке студии (user-library.ts): на диске, а без сервера — в браузере.
  */
 
 export interface Template {
@@ -29,24 +30,8 @@ export interface Template {
   preview?: string;
 }
 
-const KEY = 'htmlpptx-templates';
-
 export function listTemplates(): Template[] {
-  try {
-    const v = JSON.parse(localStorage.getItem(KEY) ?? '[]');
-    return Array.isArray(v) ? v : [];
-  } catch {
-    return [];
-  }
-}
-
-function store(list: Template[]): boolean {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(list));
-    return true;
-  } catch {
-    return false;
-  }
+  return libList<Template>('templates').filter((t) => Array.isArray(t.items));
 }
 
 /** Содержимое шаблона для сравнения: объекты, стили, определения и файлы — без имени, даты и картинки галереи */
@@ -62,11 +47,11 @@ export function addTemplate(t: Template): { status: 'added' | 'updated' | 'same'
   const twin = list.find((x) => templateKey(x) === key);
   if (twin) return { status: 'same', template: twin };
   const named = list.find((x) => x.name === t.name);
-  return store([t, ...list.filter((x) => x !== named)]) ? { status: named ? 'updated' : 'added', template: t } : null;
+  return libPut('templates', t, named ? [named.id] : []) ? { status: named ? 'updated' : 'added', template: t } : null;
 }
 
 export function removeTemplate(id: string): void {
-  store(listTemplates().filter((t) => t.id !== id));
+  libRemove('templates', id);
 }
 
 // ---------------- что нужно объектам из презентации ----------------
@@ -199,15 +184,8 @@ export interface UserEffect {
   created: number;
 }
 
-const FX_KEY = 'htmlpptx-effects';
-
 export function listEffects(): UserEffect[] {
-  try {
-    const v = JSON.parse(localStorage.getItem(FX_KEY) ?? '[]');
-    return Array.isArray(v) ? v : [];
-  } catch {
-    return [];
-  }
+  return libList<UserEffect>('effects').filter((e) => typeof e.css === 'string');
 }
 
 /** Движение эффекта для сравнения: кадры без своего имени @keyframes, длительность и плавность */
@@ -224,16 +202,11 @@ export function addEffect(e: UserEffect): { status: 'added' | 'updated' | 'same'
   if (twin) return { status: 'same', effect: twin };
   const named = list.find((x) => x.name === e.name);
   const add = named ? { ...e, id: named.id, css: e.css.replace(/^@(-webkit-)?keyframes\s+[^\s{]+/, `@keyframes ${named.id}`) } : e;
-  try {
-    localStorage.setItem(FX_KEY, JSON.stringify([add, ...list.filter((x) => x !== named)]));
-    return { status: named ? 'updated' : 'added', effect: add };
-  } catch {
-    return null;
-  }
+  return libPut('effects', add) ? { status: named ? 'updated' : 'added', effect: add } : null;
 }
 
 export function removeEffect(id: string): void {
-  try { localStorage.setItem(FX_KEY, JSON.stringify(listEffects().filter((e) => e.id !== id))); } catch { /* нет доступа */ }
+  libRemove('effects', id);
 }
 
 /** Свойства, которые двигают сам объект: такая анимация переносится на любой */

@@ -12,7 +12,7 @@ import { FONTS } from '../engine/text-style';
 import type { Deck } from '../types';
 import { texts } from './find';
 import { showPopover } from './menu';
-import { findFixes } from './tidy';
+import { applyFixes, findFixes } from './tidy';
 
 export interface ToolsHost {
   deck: Deck;
@@ -166,7 +166,7 @@ function tidy(h: ToolsHost, at: HTMLElement): void {
       run: () => {
         const on = [...pop.querySelectorAll<HTMLInputElement>('input[data-i]')].filter((x) => x.checked).map((x) => fixes[Number(x.dataset.i)]);
         if (!on.length) return;
-        h.editor.commit((d) => on.forEach((f) => f.apply(d)), { rebuild: true });
+        h.editor.commit((d) => applyFixes(d, on), { rebuild: true });
         h.editor.toast(`Исправлено: ${on.length}. Отменить — Ctrl+Z`, 4000);
       },
     };

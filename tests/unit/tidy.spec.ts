@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { parse } from 'yaml';
-import { findFixes } from '../../src/studio/tidy';
+import { applyFixes, findFixes } from '../../src/studio/tidy';
 import type { Deck } from '../../src/types';
 
 const head = (size: number, x: number, y: number, extra: object = {}) => ({ type: 'text', text: 'Заголовок', styles: { text: { size } }, place: { x, y, w: 900 }, ...extra });
@@ -51,4 +51,50 @@ test('исправления меняют ровно эти значения', (
 
 test('на готовых презентациях — без ложных срабатываний', () => {
   for (const n of ['lora', 'microclimate']) expect(findFixes(parse(fs.readFileSync(`presentations/${n}/deck.yaml`, 'utf8')))).toEqual([]);
+});
+
+test('точно ошибки: копия поверх такой же, ссылки в никуда, скрытое без кнопки — и только они', () => {
+  const card = { type: 'shape', kind: 'round', text: 'Важное', place: { x: 100, y: 100, w: 200, h: 80 } };
+  const d = {
+    title: 'т',
+    slides: [
+      { id: 'a', template: 'canvas', free: [
+        card,
+        { ...card, place: { x: 101, y: 100, w: 200, h: 80 } }, // вставили дважды — на 1 px в сторону
+        { ...card, place: { x: 140, y: 120, w: 200, h: 80 } }, // нарочно рядом — не копия
+        { ...card, text: 'Другое' }, // поверх, но другое
+        { type: 'text', text: 'Дальше', action: 'slide:gone' }, // слайда нет
+        { type: 'text', text: 'Назад', action: 'slide:b', place: { x: 0, y: 500, w: 100 } },
+        { type: 'text', text: 'Открыть', action: 'show:tip,lost;hide:old', place: { x: 0, y: 600, w: 100 } },
+        { type: 'text', id: 'tip', text: 'Подсказка', hidden: true, place: { x: 0, y: 650, w: 100 } }, // кнопка есть
+        { type: 'text', id: 'orphan', text: 'Сюрприз', hidden: true, place: { x: 0, y: 700, w: 100 } }, // кнопки нет
+      ] },
+      { id: 'b', template: 'canvas', free: [{ ...card, locked: true }, { ...card, locked: true }] }, // закреплённое не трогаем
+    ],
+  } as unknown as Deck;
+  const fixes = findFixes(d);
+  expect(fixes.map((f) => `${f.what}: ${f.from}`).sort()).toEqual([
+    'Кнопка управляет удалённым объектом: «Открыть»: объектов lost, old нет',
+    'Копия поверх такого же объекта: «Важное»',
+    'Скрыт до щелчка, но кнопки нет: «Сюрприз»',
+    'Ссылка на удалённый слайд: «Дальше»: слайда «gone» нет',
+  ]);
+  applyFixes(d, fixes);
+  const free = d.slides[0].free as Record<string, any>[];
+  expect(free).toHaveLength(8);
+  expect(free.map((o) => o.text)).toEqual(['Важное', 'Важное', 'Другое', 'Дальше', 'Назад', 'Открыть', 'Подсказка', 'Сюрприз']);
+  expect(free[1].place.x).toBe(140);
+  expect(free[3].action).toBeUndefined();
+  expect(free[4].action).toBe('slide:b');
+  expect(free[5].action).toBe('show:tip');
+  expect(free[6].hidden).toBe(true);
+  expect(free[7].hidden).toBeUndefined();
+  expect(d.slides[1].free).toHaveLength(2);
+  expect(findFixes(d)).toEqual([]);
+});
+
+test('кнопка, у которой не осталось ни одного объекта, — без действия', () => {
+  const d = { title: 'т', slides: [{ template: 'canvas', free: [{ type: 'text', text: 'Кнопка', action: 'toggle:x;play:y' }] }] } as unknown as Deck;
+  applyFixes(d, findFixes(d));
+  expect((d.slides[0].free as Record<string, any>[])[0].action).toBeUndefined();
 });

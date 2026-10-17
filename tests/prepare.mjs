@@ -9,7 +9,8 @@
 //   save     — сохранение: контрольные точки, два окна одной презентации;
 //   table    — таблица (ячейки, как в PowerPoint) и фигуры для порядка «вперёд / назад»;
 //   origin   — как после импорта из PowerPoint: цвета файла и тема «Как в файле»;
-//   audio    — вставка, которой нужен микрофон (аудиовизуализатор): рамка со своего адреса.
+//   audio    — вставка, которой нужен микрофон (аудиовизуализатор): рамка со своего адреса;
+//   tidy     — ошибки для «Привести в порядок»: копия поверх, ссылки в никуда, скрытое без кнопки.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,6 +19,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dir = path.join(root, '.tmp', 'test-decks');
 fs.rmSync(dir, { recursive: true, force: true });
 fs.rmSync(path.join(root, '.tmp', 'test-fonts'), { recursive: true, force: true });
+fs.rmSync(path.join(root, '.tmp', 'test-library'), { recursive: true, force: true });
 fs.mkdirSync(dir, { recursive: true });
 
 fs.cpSync(path.join(root, 'templates', 'basic'), path.join(dir, 'tpl'), { recursive: true });
@@ -208,5 +210,18 @@ slides:
               .then(() => { api.textContent = 'команда: отправлена'; }, () => { api.textContent = 'команда: не дошла'; });
           </script>
         place: {x: 40, y: 40, w: 600, h: 240}
+`);
+// tidy — копия карточки поверх такой же, кнопки на удалённый слайд и объект, скрытое без кнопки
+fs.mkdirSync(path.join(dir, 'tidy'));
+fs.writeFileSync(path.join(dir, 'tidy', 'deck.yaml'), `title: Порядок
+slides:
+  - id: one
+    template: canvas
+    free:
+      - {type: shape, kind: round, text: Карточка, place: {x: 100, y: 100, w: 300, h: 120}}
+      - {type: shape, kind: round, text: Карточка, place: {x: 100, y: 100, w: 300, h: 120}}
+      - {type: text, text: Дальше, action: "slide:gone", place: {x: 100, y: 400, w: 200}}
+      - {type: text, text: Открыть, action: "show:lost", place: {x: 400, y: 400, w: 200}}
+      - {type: text, id: tip, text: Сюрприз, hidden: true, place: {x: 100, y: 500, w: 200}}
 `);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

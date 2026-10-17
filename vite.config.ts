@@ -26,7 +26,7 @@ function usesType(name: string, type: string): boolean {
 
 export default defineConfig(({ command }) => ({
   plugins: [
-    decksPlugin({ dir: decksDir, only, fonts: process.env.SLIDERIA_FONTS }),
+    decksPlugin({ dir: decksDir, only, fonts: process.env.SLIDERIA_FONTS, library: process.env.SLIDERIA_LIBRARY }),
     frameHostPlugin(),
     ...(command === 'build' ? [viteSingleFile({ removeViteModuleLoader: true }), ...licenseNotice(process.cwd())] : []),
   ],
