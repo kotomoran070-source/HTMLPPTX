@@ -57,7 +57,7 @@ export function fullPalette(p: ThemePalette | undefined, mode: SlideMode): FullP
 }
 
 /** Что у тёмных слайдов может быть своим (theme.darkLook) */
-export const DARK_KEYS = ['bg', 'cards', 'backdrop', 'backdropOpacity', 'backdropSpeed'] as const satisfies readonly (keyof DarkLook)[];
+export const DARK_KEYS = ['bg', 'bgOpacity', 'cards', 'backdrop', 'backdropOpacity', 'backdropSpeed'] as const satisfies readonly (keyof DarkLook)[];
 
 /**
  * Тема для вида слайдов: у тёмных — их своё оформление поверх общего (backdrop: none — без анимации).
@@ -123,6 +123,24 @@ export const THEME_BGS: Record<string, { name: string; css: (dark: boolean) => s
   halftone: { name: 'Растр', css: (d) => `radial-gradient(${cm('var(--tx)', d ? 16 : 13)} 1.6px, transparent 2px) 0 0 / 22px 22px, var(--bg)` },
 };
 
+/** Свой фон темы: цвет (#RRGGBB) или картинка (адрес файла) вместо узора; null — узор */
+export function ownBg(v: unknown): 'color' | 'image' | null {
+  if (typeof v !== 'string' || THEME_BGS[v]) return null;
+  if (HEX_RE.test(v)) return 'color';
+  return /^(\/|\.{1,2}\/|data:image\/|https?:|blob:)/.test(v) ? 'image' : null;
+}
+
+/** Фон слайдов темы: узор, свой цвет или своя картинка на весь слайд (заметность — пеленой цвета фона темы) */
+function bgCss(t: DeckTheme, dark: boolean): string {
+  const v = String(t.bg);
+  const own = ownBg(t.bg);
+  if (own === 'color') return v;
+  if (own !== 'image') return (THEME_BGS[v] ?? THEME_BGS.dots).css(dark);
+  const op = Number(t.bgOpacity);
+  const veil = Number.isFinite(op) && op < 1 ? cm('var(--bg)', Math.round((1 - Math.max(0.1, op)) * 100)) : '';
+  return `${veil ? `linear-gradient(${veil}, ${veil}), ` : ''}url("${v.replace(/["\\\n\r]/g, '')}") center / cover no-repeat, var(--bg)`;
+}
+
 /**
  * Вид карточек и плашек (карточка, блоки схем, вопросы, таблицы): фон, рамка и тень.
  * «Мягкие» — как без темы: у каждого блока свои значения по умолчанию
@@ -180,7 +198,7 @@ export function themeVars(t: DeckTheme, mode: SlideMode, origin?: DeckOrigin): R
   v['--on-ac'] = onAccent(ac['--ac'], pal);
   // Своё у тёмных: узор фона и карточки; два анимированных фона — видим тот, что для этого вида
   const own = lookFor(t, mode);
-  v['--slide-bg'] = (THEME_BGS[String(own.bg)] ?? THEME_BGS.dots).css(dark);
+  v['--slide-bg'] = bgCss(own, dark);
   v['--bd-light'] = dark ? 'none' : 'block';
   v['--bd-dark'] = dark ? 'block' : 'none';
   const r = Number(t.radius);

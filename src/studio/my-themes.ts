@@ -5,6 +5,7 @@
  * Хранится в своей библиотеке студии (user-library.ts); файлом .slideria-theme.json темой можно поделиться.
  */
 import type { Deck, DeckTheme } from '../types';
+import { ownBg } from '../engine/deck-theme';
 import { blobToDataUrl } from '../engine/editor/persist';
 import { themeKey } from './same';
 import { libList, libPut, libRemove } from './user-library';
@@ -41,12 +42,33 @@ export function removeMyTheme(id: string): void {
   libRemove('themes', id);
 }
 
+/** Где у темы фон: у всех и у тёмных слайдов */
+const bgSlots = (t: DeckTheme): { bg?: string }[] => [t, t.darkLook].filter((x): x is { bg?: string } => !!x && typeof x === 'object');
+
+/** Картинки фона своей темы (содержимым) — файлами в презентацию: store кладёт файл и отдаёт адрес */
+export async function placeThemeImages(t: DeckTheme, store: (blob: Blob, name: string) => Promise<string>): Promise<void> {
+  for (const slot of bgSlots(t)) {
+    if (ownBg(slot.bg) !== 'image' || !slot.bg!.startsWith('data:')) continue;
+    const blob = await (await fetch(slot.bg!)).blob();
+    slot.bg = await store(blob, `theme-bg.${blob.type.split('/')[1]?.replace('jpeg', 'jpg').replace(/\W.*/, '') || 'png'}`);
+  }
+}
+
 export const newId = () => Math.random().toString(36).slice(2, 10);
 
 /** Оформление презентации → своя тема: без отметки галереи, со своими шрифтами */
 export async function captureTheme(deck: Deck, name: string): Promise<MyTheme> {
   const theme = structuredClone(deck.theme ?? {});
   delete theme.preset;
+  // Своя картинка фона — содержимым: тема работает и в другой презентации
+  for (const slot of bgSlots(theme)) {
+    if (ownBg(slot.bg) !== 'image' || slot.bg!.startsWith('data:')) continue;
+    try {
+      slot.bg = await blobToDataUrl(await (await fetch(slot.bg!)).blob());
+    } catch {
+      delete slot.bg;
+    }
+  }
   const names = new Set([theme.font, theme.head].filter((n): n is string => !!n && !THEME_FONTS[n]));
   const fonts: NonNullable<MyTheme['fonts']> = [];
   for (const f of deck.fonts ?? []) {
@@ -120,5 +142,7 @@ function parseTheme(raw: unknown): MyTheme {
   const fonts = Array.isArray(v.fonts) ? v.fonts.filter((f) => f && typeof f.name === 'string' && typeof f.data === 'string' && f.data.startsWith('data:')) : [];
   const theme = v.theme as DeckTheme;
   delete theme.preset;
+  // Картинка фона — только содержимым из самого файла, не ссылкой
+  for (const slot of bgSlots(theme)) if (ownBg(slot.bg) === 'image' && !slot.bg!.startsWith('data:image/')) delete slot.bg;
   return { id: newId(), name: String(v.name || 'Тема').slice(0, 60), created: Date.now(), theme, ...(fonts.length ? { fonts } : {}) };
 }

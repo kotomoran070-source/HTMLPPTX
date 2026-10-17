@@ -106,8 +106,13 @@ export interface DeckTheme {
   /** Цвета слайдов в светлой и тёмной теме */
   light?: ThemePalette;
   dark?: ThemePalette;
-  /** Фон слайдов: dots, plain, grid, glow, mesh, paper, notebook, band, arc, spot, neon, halftone */
+  /**
+   * Фон слайдов: dots, plain, grid, glow, mesh, paper, notebook, band, arc, spot, neon, halftone —
+   * или свой: цвет (#RRGGBB) или картинка (файл в assets/, на весь слайд)
+   */
   bg?: string;
+  /** Заметность своей картинки фона, 0,1–1: сквозь фон темы (текст читается) */
+  bgOpacity?: number;
   /** Вид карточек: soft, flat, outline, raised, glass, poster */
   cards?: string;
   /** Скругление углов: множитель от 0 (прямые) до 2 (круглые), 1 — как обычно */
@@ -128,6 +133,7 @@ export interface DeckTheme {
 /** Поля оформления, которые у тёмных слайдов могут быть своими */
 export interface DarkLook {
   bg?: string;
+  bgOpacity?: number;
   cards?: string;
   backdrop?: string;
   backdropOpacity?: number;

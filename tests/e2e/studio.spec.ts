@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { api, DECKS, readDeck, waitFile, watchErrors } from './helpers';
+import { api, DECKS, PNG, readDeck, waitFile, watchErrors } from './helpers';
 import { kitWoff2, sfnt } from '../fonts';
 
 test.use({ colorScheme: 'light' });
@@ -315,6 +315,57 @@ test('«Дизайн»: своё у тёмных слайдов — фон и а
   await page.locator('#st-canvas').click({ position: { x: 5, y: 5 } });
   await page.keyboard.press('Control+z');
   await expect.poll(() => readDeck('design')).toMatch(/backdrop: waves/);
+  expect(errors).toEqual([]);
+});
+
+test('«Дизайн» → «Фон»: своя картинка (с заметностью) и свой цвет, в том числе только у тёмных; своя тема уносит картинку с собой', async ({ page }) => {
+  const errors = watchErrors(page);
+  fs.rmSync(path.join(LIBRARY, 'themes'), { recursive: true, force: true });
+  await page.goto('/?deck=design&studio#2');
+  const slide = page.locator('#st-canvas .slide.on');
+  await expect(slide).toHaveCount(1);
+  const bg = () => slide.evaluate((s) => getComputedStyle(s).getPropertyValue('--slide-bg'));
+  await page.locator('.st-tabs [data-tab="design"]').click();
+  await page.locator('[data-cmd="design.bg"]').click();
+  const pop = page.locator('.st-pop');
+  // Картинка — файлом в assets/, на всех слайдах
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), pop.locator('[data-own="image"]').click()]);
+  await chooser.setFiles({ name: 'sky.png', mimeType: 'image/png', buffer: Buffer.from(PNG) });
+  await expect.poll(() => readDeck('design')).toMatch(/\n {2}bg: \.\/assets\/sky[\w-]*\.png/);
+  await expect.poll(bg).toContain('url(');
+  // Снова открыта — плитка «Своя картинка» выбрана, под плитками — заметность
+  await page.locator('[data-cmd="design.bg"]').click();
+  await expect(pop.locator('[data-own="image"]')).toHaveClass(/active/);
+  await expect(pop.locator('[data-own="image"]')).toContainText('Своя картинка');
+  await pop.locator('input[data-tune="bgOpacity"]').evaluate((e: HTMLInputElement) => { e.value = '0.5'; e.dispatchEvent(new Event('input')); e.dispatchEvent(new Event('change')); });
+  await expect.poll(() => readDeck('design')).toMatch(/bgOpacity: 0.5/);
+  await expect.poll(bg).toContain('color-mix');
+  // Своя тема — с картинкой содержимым: работает и в другой презентации
+  await page.locator('[data-cmd="design.themes"]').click();
+  await page.locator('[data-my="save"]').click();
+  await page.locator('.st-tpl-form input').fill('С картинкой');
+  await page.locator('.st-tpl-form [data-a="save"]').click();
+  await expect.poll(() => myThemes().length).toBe(1);
+  expect(myThemes()[0].theme.bg).toMatch(/^data:image\/png;base64,/);
+  // Свой цвет — только у тёмных
+  await page.locator('[data-cmd="design.bg"]').click();
+  await pop.locator('[data-scope="dark"]').click();
+  await pop.locator('[data-own="color"]').click();
+  await pop.locator('.st-dz-owncolor').evaluate((e: HTMLInputElement) => { e.value = '#112233'; e.dispatchEvent(new Event('input')); e.dispatchEvent(new Event('change')); });
+  await expect.poll(() => readDeck('design')).toMatch(/darkLook:\s*\n\s*bg: "?#112233/);
+  await expect.poll(bg).toBe('#112233');
+  await page.locator('#st-theme').click();
+  await expect.poll(bg).toContain('url(');
+  // Узор вместо картинки — заметность картинки больше не нужна
+  await page.locator('[data-cmd="design.bg"]').click();
+  await pop.locator('.st-dz-opt').filter({ hasText: 'Сетка' }).click();
+  await expect.poll(() => readDeck('design')).toMatch(/\n {2}bg: grid/);
+  expect(readDeck('design')).not.toContain('bgOpacity');
+  // Своя тема с картинкой — картинка снова файлом в assets/, а не содержимым в deck.yaml
+  await page.locator('#st-dz-strip .st-dz-mini[title="С картинкой"]').click();
+  await expect.poll(() => readDeck('design')).toMatch(/\n {2}bg: \.\/assets\/[\w-]+\.png/);
+  expect(readDeck('design')).not.toContain('data:image');
+  fs.rmSync(path.join(LIBRARY, 'themes'), { recursive: true, force: true });
   expect(errors).toEqual([]);
 });
 

@@ -1,6 +1,6 @@
 // Тема презентации: палитра из фона и текста, постоянный вид слайдов, текст на акценте
 import { expect, test } from '@playwright/test';
-import { fullPalette, hasThemeLook, lookFor, themeCss, themeVars } from '../../src/engine/deck-theme';
+import { fullPalette, hasThemeLook, lookFor, ownBg, themeCss, themeVars } from '../../src/engine/deck-theme';
 
 test('палитра выводится из фона и текста, заданные цвета не трогаются', () => {
   const p = fullPalette({ bg: '#FFFFFF', tx: '#000000', mu: '#123456' }, 'light');
@@ -49,4 +49,17 @@ test('своё у тёмных слайдов: узор фона, карточк
   expect(hasThemeLook({ darkLook: { bg: 'grid' } })).toBe(true);
   // Слайды всегда тёмные — оформление одно, общее (переключателя «Для тёмных» тогда нет)
   expect(themeVars({ ...t, mode: 'dark' }, 'dark')['--slide-bg']).toBe(themeVars({ bg: 'glow', mode: 'dark' }, 'dark')['--slide-bg']);
+});
+
+test('свой фон темы: цвет или картинка на весь слайд, заметность картинки — пеленой цвета фона', () => {
+  expect(ownBg('grid')).toBeNull();
+  expect(ownBg('#112233')).toBe('color');
+  expect(ownBg('./assets/sky.jpg')).toBe('image');
+  expect(ownBg('javascript:alert(1)')).toBeNull();
+  expect(themeVars({ bg: '#112233' }, 'light')['--slide-bg']).toBe('#112233');
+  const img = themeVars({ bg: '/presentations/x/assets/a"b.png' }, 'light')['--slide-bg'];
+  expect(img).toBe('url("/presentations/x/assets/ab.png") center / cover no-repeat, var(--bg)');
+  expect(themeVars({ bg: './assets/a.png', bgOpacity: 0.6 }, 'light')['--slide-bg']).toMatch(/^linear-gradient\(color-mix\(in srgb, var\(--bg\) 40%, transparent\)/);
+  // У тёмных — своя картинка и своя заметность
+  expect(themeVars({ bg: 'dots', darkLook: { bg: './assets/n.png', bgOpacity: 0.3 } }, 'dark')['--slide-bg']).toContain('url("./assets/n.png")');
 });

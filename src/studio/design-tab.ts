@@ -7,10 +7,11 @@
 import { icon } from '../components/icons';
 import { previewAccent } from '../engine/accent';
 import { replaceContents } from '../engine/data';
-import { CARD_STYLES, hasThemeLook, lookFor, previewTheme, THEME_BGS, themeMode, themeVars, type SlideMode } from '../engine/deck-theme';
+import { CARD_STYLES, hasThemeLook, lookFor, ownBg, previewTheme, THEME_BGS, themeMode, themeVars, type SlideMode } from '../engine/deck-theme';
 import { reducedMotion, staticSlide } from '../engine/deck-view';
 import type { Editor } from '../engine/editor/editor';
 import { fontItems, fontPicker, tryFontOn } from '../engine/editor/font-picker';
+import { prepareImage } from '../engine/editor/persist';
 import { deckFonts, fontStack } from '../engine/fonts';
 import { esc } from '../engine/html';
 import { currentTheme, setTheme } from '../engine/theme';
@@ -18,11 +19,11 @@ import type { DarkLook, Deck, DeckTheme } from '../types';
 import { logoMark, logoPlate } from '../engine/render';
 import { logoImg } from '../components/templates/content';
 import { logoColors } from './logo-colors';
-import { showPopover } from './menu';
+import { closeMenu, showPopover } from './menu';
 import { backdropStrip, bindBackdropStrip, bindTune, tuneHtml } from './backdrop-pick';
 import { previewBackdrop } from '../components/backdrop/backdrop';
 import { isBackdrop } from '../engine/backdrops';
-import { addMyTheme, captureTheme, downloadTheme, downloadThemes, listMyThemes, MY, parseThemeFiles, registerMyFonts, removeMyTheme, sameTheme, type MyTheme } from './my-themes';
+import { addMyTheme, captureTheme, downloadTheme, downloadThemes, listMyThemes, MY, parseThemeFiles, placeThemeImages, registerMyFonts, removeMyTheme, sameTheme, type MyTheme } from './my-themes';
 import { freeName } from './same';
 import { registerThemeFonts, SPECIMEN, THEME_FONTS, THEME_PRESETS, themeFont, themeFontWeights, type ThemePreset } from './theme-presets';
 
@@ -149,6 +150,15 @@ function specimenDeck(t: DeckTheme): Deck {
   return { title: 'Образец', theme: structuredClone(t), slides: [structuredClone(SPECIMEN)] };
 }
 
+/** Свои плитки после вариантов (свой фон): разметка в сетке и под ней, выбор, примерка, свои поля */
+interface OwnTiles {
+  tiles: string;
+  below: string;
+  pick(b: HTMLElement): { run(): void; keep?: boolean } | null;
+  hover(b: HTMLElement): DeckTheme | null;
+  bind(el: HTMLElement): void;
+}
+
 /** Тема — в данные: рядом с brand, а не в конце файла; null — без темы */
 function putTheme(d: Deck, t: DeckTheme | null): void {
   if (!t || !Object.keys(t).length) {
@@ -256,8 +266,18 @@ export function designCommands(h: DesignHost): Record<string, Command> {
         return;
       }
     }
+    // Своя картинка фона своей темы — файлом в assets/ этой презентации
+    const look = structuredClone(p.theme);
+    if (p.my) {
+      try {
+        await placeThemeImages(look, (b, n) => ed.storeAsset(b, n));
+      } catch (e) {
+        ed.toast(`Не удалось добавить картинку фона темы: ${(e as Error).message}`, 5000, true);
+        return;
+      }
+    }
     smoothly(() => ed.commit((d) => {
-      putTheme(d, p.id === 'standard' ? null : { preset: p.id, ...structuredClone(p.theme) });
+      putTheme(d, p.id === 'standard' ? null : { preset: p.id, ...look });
       if (add.length) d.fonts = [...(Array.isArray(d.fonts) ? d.fonts : []), ...add];
       dropUnusedThemeFonts(d);
     }, { rebuild: true }));
@@ -550,20 +570,23 @@ export function designCommands(h: DesignHost): Record<string, Command> {
    * head — строка над вариантами (для всех или для тёмных) и её кнопки; mode — в каком виде образцы
    */
   const options = <T>(cmd: string, items: [T, string][], cur: T, make: (v: T) => DeckTheme, sample: (v: T) => string, apply: (v: T) => void, cls: string,
-    head: ReturnType<typeof scope> = null, mode?: SlideMode) => {
+    head: ReturnType<typeof scope> = null, mode?: SlideMode, more?: OwnTiles) => {
     const at = anchor(cmd);
-    if (!at) return;
+    if (!at) return null;
     const html = `${head?.html ?? ''}<div class="st-dz-opts ${cls}">${items.map(([v, name], k) =>
-      `<button type="button" class="st-dz-opt${v === cur ? ' active' : ''}" data-k="${k}"><span class="st-dz-opt-in" style="${esc(tileStyle(make(v), mode))}">${sample(v)}</span><small>${esc(name)}</small></button>`).join('')}</div>`;
+      `<button type="button" class="st-dz-opt${v === cur ? ' active' : ''}" data-k="${k}"><span class="st-dz-opt-in" style="${esc(tileStyle(make(v), mode))}">${sample(v)}</span><small>${esc(name)}</small></button>`).join('')}${more?.tiles ?? ''}</div>${more?.below ?? ''}`;
     const el = showPopover(at, html, (b) => {
       if (b.dataset.scope) return head?.pick(b) ?? null;
+      if (b.dataset.own) return more?.pick(b) ?? null;
       const it = items[Number(b.dataset.k)];
       return it ? { run: () => apply(it[0]) } : null;
     });
     hoverTry(el, '.st-dz-opt', (b) => {
       const it = items[Number(b.dataset.k)];
-      return it ? make(it[0]) : null;
+      return it ? make(it[0]) : more?.hover(b) ?? null;
     });
+    more?.bind(el);
+    return el;
   };
   const card = '<i class="st-dz-card"><b></b><b></b></i>';
 
@@ -572,16 +595,80 @@ export function designCommands(h: DesignHost): Record<string, Command> {
    * в theme.darkLook (тот же, что у всех, — своё убирается)
    */
   const themed = (cmd: string, key: 'bg' | 'cards', items: [string, string][], def: string, sample: () => string, cls: string, dark = darkFirst([key])) => {
+    const keys: (keyof DarkLook)[] = key === 'bg' ? ['bg', 'bgOpacity'] : [key];
     const base = theme()[key] ?? def;
-    const own = darkLook()[key];
-    const head = scope([key], dark, (d) => themed(cmd, key, items, def, sample, cls, d));
-    if (!dark || !head) {
-      // Своё у тёмных есть — образцы «для всех» светлые: у тёмных на экране было бы своё
-      // Обычные карточки — без поля; фон пишется всегда (как раньше)
-      return options(cmd, items, base, (v) => ({ ...theme(), [key]: v }), sample, (v) => patch({ [key]: key === 'cards' && v === def ? undefined : v }), cls, head, head && ownDark([key]) ? 'light' : undefined);
-    }
-    options(cmd, items, own ?? base, (v) => ({ ...theme(), darkLook: { ...darkLook(), [key]: v } }), sample,
-      (v) => patchDark({ [key]: v === base ? undefined : v }), cls, head, 'dark');
+    const head = scope(keys, dark, (d) => themed(cmd, key, items, def, sample, cls, d));
+    const inDark = dark && !!head;
+    const cur = inDark ? darkLook()[key] ?? base : base;
+    // Своё у тёмных есть — образцы «для всех» светлые: у тёмных на экране было бы своё
+    const mode = inDark ? 'dark' : head && ownDark(keys) ? 'light' : undefined;
+    const make = (v: string, op?: number): DeckTheme => {
+      const extra = key === 'bg' && op !== undefined ? { bgOpacity: op } : {};
+      return inDark ? { ...theme(), darkLook: { ...darkLook(), [key]: v, ...extra } } : { ...theme(), [key]: v, ...extra };
+    };
+    // Обычные карточки — без поля; фон пишется всегда (как раньше). Заметность — только у своей картинки
+    const opNow = inDark ? darkLook().bgOpacity ?? theme().bgOpacity : theme().bgOpacity;
+    const apply = (v: string, op = opNow) => {
+      const keepOp = key === 'bg' && ownBg(v) === 'image' && op !== undefined && op < 0.999 ? op : undefined;
+      if (!inDark) return patch({ [key]: key === 'cards' && v === def ? undefined : v, ...(key === 'bg' ? { bgOpacity: keepOp } : {}) });
+      // У тёмных — только то, что отличается от общего
+      patchDark({ [key]: v === base ? undefined : v, ...(key === 'bg' ? { bgOpacity: ownBg(v) !== 'image' || (keepOp ?? 1) === (theme().bgOpacity ?? 1) ? undefined : keepOp ?? 1 } : {}) });
+    };
+    options(cmd, items, cur, (v) => make(v), sample, (v) => apply(v), cls, head, mode, key === 'bg' ? ownBgTiles(cur, opNow ?? 1, make, apply, mode) : undefined);
+  };
+
+  /**
+   * Свой фон после узоров: «Картинка…» (файл на весь слайд; под плитками — её заметность) и «Цвет…».
+   * Выбранный свой фон виден на плитке; наведение и палитра цвета примеряют его на слайде
+   */
+  const ownBgTiles = (cur: string, op: number, make: (v: string, op?: number) => DeckTheme, apply: (v: string, op?: number) => void, mode?: SlideMode): OwnTiles => {
+    const kind = ownBg(cur);
+    const tile = (own: string, on: boolean, look: DeckTheme | null, mark: string, label: string, title: string) =>
+      `<button type="button" class="st-dz-opt st-dz-own${on ? ' active' : ''}" data-own="${own}" title="${esc(title)}"><span class="st-dz-opt-in" style="${esc(tileStyle(look ?? { ...theme(), bg: 'plain', darkLook: undefined }, mode))}">${look ? '' : mark}</span><small>${label}</small></button>`;
+    const color = kind === 'color' ? cur : themeVars(make(cur), mode ?? shownMode(theme()))['--bg'];
+    return {
+      tiles: tile('image', kind === 'image', kind === 'image' ? make(cur) : null, `<i class="st-dz-ownmark">${icon('image')}</i>`, kind === 'image' ? 'Своя картинка' : 'Картинка…', 'Своя картинка на весь фон слайдов: файл с компьютера')
+        + tile('color', kind === 'color', kind === 'color' ? make(cur) : null, '<i class="st-dz-ownmark st-dz-rainbow"></i>', kind === 'color' ? 'Свой цвет' : 'Цвет…', 'Свой цвет фона слайдов')
+        + `<input type="color" class="st-dz-owncolor" value="${esc(color)}" tabindex="-1" aria-label="Свой цвет фона">`,
+      below: kind === 'image' ? tuneHtml({ bgOpacity: op }) : '',
+      hover: (b) => (b.dataset.own === 'image' && kind === 'image') || (b.dataset.own === 'color' && kind === 'color') ? make(cur) : null,
+      pick: (b) => b.dataset.own === 'image'
+        ? { run: () => pickBgImage((url) => apply(url)) }
+        : { run: () => b.closest('.st-pop')?.querySelector<HTMLInputElement>('.st-dz-owncolor')?.click(), keep: true },
+      bind: (el) => {
+        const inp = el.querySelector<HTMLInputElement>('.st-dz-owncolor');
+        // Палитра цвета: примерка на слайде, пока тянут; выбрали — свой цвет фона
+        inp?.addEventListener('input', () => tryOn(make(inp.value.toUpperCase())));
+        inp?.addEventListener('change', () => { closeMenu(); apply(inp.value.toUpperCase()); });
+        const range = el.querySelector<HTMLInputElement>('input[data-tune="bgOpacity"]');
+        const out = range?.parentElement?.querySelector('output');
+        range?.addEventListener('input', () => {
+          if (out) out.textContent = `${Math.round(Number(range.value) * 100)} %`;
+          tryOn(make(cur, Number(range.value)));
+        });
+        range?.addEventListener('change', () => apply(cur, Number(range.value)));
+      },
+    };
+  };
+  /** Картинка фона с компьютера: уменьшается до 2400 px и кладётся в assets/ презентации */
+  const pickBgImage = (done: (url: string) => void) => {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/*';
+    inp.onchange = () => void (async () => {
+      const f = inp.files?.[0];
+      if (!f) return;
+      if (!/^image\//.test(f.type)) return ed.toast('Формат не поддерживается. Подойдут PNG, JPG, GIF, WebP, AVIF, SVG.', 3500, true);
+      ed.toast('Загрузка картинки…', 0);
+      try {
+        const { blob, name } = await prepareImage(f);
+        done(await ed.storeAsset(blob, name));
+        ed.toast('Своя картинка фона — на всех слайдах. Заметность — ползунок под плитками', 3000);
+      } catch (e) {
+        ed.toast(`Не удалось добавить картинку: ${(e as Error).message}`, 5000, true);
+      }
+    })();
+    inp.click();
   };
 
   const setMode = (m: SlideMode | null) => smoothly(() => patch({ mode: m ?? undefined }));
