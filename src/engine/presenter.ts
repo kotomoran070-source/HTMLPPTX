@@ -154,12 +154,27 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       postPointer(f, 'up', e.clientX, e.clientY);
     } else postPointer(f, 'move', e.clientX, e.clientY, e.buttons);
   };
-  cur.addEventListener('pointermove', (e) => toFrame(e));
+  // Где мышь на слайде: после смены слайда наведение у зрителей ставится сразу, без движения мыши
+  let ptrAt: { x: number; y: number } | null = null;
+  cur.addEventListener('pointermove', (e) => {
+    toFrame(e);
+    ptrAt = e.pointerType === 'mouse' ? ink.toSlide(e) : null;
+  });
   cur.addEventListener('click', (e) => toFrame(e, true));
   cur.addEventListener('pointerleave', () => {
     if (ptrFrame?.isConnected) postPointer(ptrFrame, 'leave');
     ptrFrame = null;
+    ptrAt = null;
   });
+  let ptrTimer = 0;
+  const resendPointer = () => {
+    clearTimeout(ptrTimer);
+    // После смены слайда у зрителей: новый слайд уже на месте
+    ptrTimer = window.setTimeout(() => {
+      const p = ptrAt;
+      if (p && mirror && tool === 'none' && p.x >= 0 && p.y >= 0 && p.x <= 1280 && p.y <= 720) sendInk({ op: 'cursor', ...p, hide: !arrow });
+    }, 120);
+  };
   window.addEventListener(CAMERA, (e) => {
     if (mirror) sync.send({ type: 'camera', ...(e as CustomEvent<CameraState>).detail }, toMain());
   });
@@ -377,7 +392,10 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   function render(i: number): void {
     const was = index;
     index = Math.max(0, Math.min(count() - 1, i));
-    if (index !== was) ink.apply({ op: 'clear' });
+    if (index !== was) {
+      ink.apply({ op: 'clear' });
+      resendPointer();
+    }
     view.show(index);
     // Формула по шагам: вперёд — с первого шага, назад — целиком (окно показа делает так же)
     if (index !== was) view.startSteps(index, index < was);

@@ -186,7 +186,13 @@ defineBlock<VideoProps>('video', {
     // Докладчик запустил, остановил или перемотал ролик на текущем слайде — зрителям то же самое
     // (снимок следующего слайда в окне докладчика не в счёт)
     const lead = !!video && presenter() && !!el.closest('#cur');
-    const tell = () => {
+    // Откуда ролик перематывается: перезапуск по кругу (loop) — тоже перемотка в начало, но не действие докладчика.
+    // Запоминается в начале перемотки: отметка времени с новым местом приходит ещё до её конца
+    let lastT = 0;
+    let fromT = 0;
+    const tick = () => { if (!video!.seeking) lastT = video!.currentTime; };
+    const seeking = () => { fromT = lastT; };
+    const tell = (e: Event) => {
       // Скрытую страницу (погас экран телефона, окно свернули) браузер ставит на паузу сам — это не действие докладчика
       // Автозапуск при открытии слайда идёт в обоих окнах сам: окно докладчика, открытое посреди ролика, не отматывает его зрителям
       if (auto) {
@@ -194,6 +200,9 @@ defineBlock<VideoProps>('video', {
         return;
       }
       if (document.hidden) return;
+      // Ролик по кругу начался заново сам: у зрителей он тоже идёт по кругу — не отматываем их
+      const d = video!.duration;
+      if (e.type === 'seeked' && video!.loop && !video!.paused && video!.currentTime < 0.6 && Number.isFinite(d) && fromT > d - 0.6) return;
       window.dispatchEvent(new CustomEvent<MediaState>(MEDIA, { detail: { key, playing: !video!.paused, time: video!.currentTime } }));
     };
     const follow = (e: Event) => {
@@ -208,11 +217,15 @@ defineBlock<VideoProps>('video', {
     if (lead) {
       ['play', 'pause', 'seeked'].forEach((ev) => video!.addEventListener(ev, tell));
       video!.addEventListener('playing', started);
+      video!.addEventListener('timeupdate', tick);
+      video!.addEventListener('seeking', seeking);
     } else if (video && !presenter()) window.addEventListener(MEDIA_SET, follow);
     return () => {
       if (lead) {
         ['play', 'pause', 'seeked'].forEach((ev) => video!.removeEventListener(ev, tell));
         video!.removeEventListener('playing', started);
+        video!.removeEventListener('timeupdate', tick);
+        video!.removeEventListener('seeking', seeking);
       }
       window.removeEventListener(MEDIA_SET, follow);
       mo.disconnect();

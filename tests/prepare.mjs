@@ -10,7 +10,8 @@
 //   table    — таблица (ячейки, как в PowerPoint) и фигуры для порядка «вперёд / назад»;
 //   origin   — как после импорта из PowerPoint: цвета файла и тема «Как в файле»;
 //   audio    — вставка, которой нужен микрофон (аудиовизуализатор): рамка со своего адреса;
-//   tidy     — ошибки для «Привести в порядок»: копия поверх, ссылки в никуда, скрытое без кнопки.
+//   tidy     — ошибки для «Привести в порядок»: копия поверх, ссылки в никуда, скрытое без кнопки;
+//   mirror   — мышь докладчика у зрителей: кнопки, ссылки, переход, прожектор, наведение.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -223,5 +224,37 @@ slides:
       - {type: text, text: Дальше, action: "slide:gone", place: {x: 100, y: 400, w: 200}}
       - {type: text, text: Открыть, action: "show:lost", place: {x: 400, y: 400, w: 200}}
       - {type: text, id: tip, text: Сюрприз, hidden: true, place: {x: 100, y: 500, w: 200}}
+`);
+// mirror — что делает щелчок докладчика у зрителей: переключатель, ссылка, «дальше», прожектор, наведение
+fs.mkdirSync(path.join(dir, 'mirror'));
+fs.writeFileSync(path.join(dir, 'mirror', 'deck.yaml'), `title: Повтор мыши
+slides:
+  - id: one
+    template: canvas
+    free:
+      - {type: shape, kind: round, text: Переключить, action: "toggle:box", place: {x: 60, y: 60, w: 240, h: 80}}
+      - {type: shape, id: box, kind: rect, text: Коробка, place: {x: 60, y: 200, w: 240, h: 120}}
+      - {type: shape, kind: round, text: Сайт, action: "https://example.com/", place: {x: 400, y: 60, w: 200, h: 80}}
+      - {type: shape, kind: round, text: Дальше, action: next, place: {x: 700, y: 60, w: 200, h: 80}}
+      - {type: card, title: Карточка, place: {x: 400, y: 300, w: 400, h: 200}}
+      - {type: shape, kind: round, text: Показать, action: "show:tip", place: {x: 900, y: 300, w: 200, h: 80}}
+      - {type: shape, id: tip, kind: round, text: Подсказка, hidden: true, place: {x: 900, y: 420, w: 200, h: 80}}
+  - id: two
+    template: canvas
+    free:
+      - {type: shape, kind: round, text: Второй, place: {x: 400, y: 300, w: 400, h: 200}}
+  - id: three
+    title: Вопросы
+    body: {type: faq, items: [{title: "Первый вопрос", text: "Ответ один."}, {title: "Второй вопрос", text: "Ответ два."}]}
+  - id: four
+    template: canvas
+    free:
+      - type: embed
+        interactive: true
+        code: |
+          <style>html,body{margin:0;height:100%}button{width:100%;height:50%;font:40px sans-serif}</style>
+          <div id="n" style="height:50%;font:40px sans-serif">0</div><button id="b">0</button>
+          <script>let m = 0, c = 0; addEventListener('mousemove', () => { n.textContent = ++m; }); b.onclick = () => { b.textContent = ++c; };</script>
+        place: {x: 200, y: 100, w: 800, h: 500}
 `);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

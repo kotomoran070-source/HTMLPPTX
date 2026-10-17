@@ -784,7 +784,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       // Правый щелчок по части слайда с красивым появлением: его можно забрать себе
       ...(part ? [{ label: 'Сохранить появление как эффект…', icon: 'sparkle', run: () => askEffectName(part) }, null] : []),
       { label: 'Копировать слайд', icon: 'copy', hint: 'Ctrl+C', run: () => copy(false) },
-      { label: 'Вставить', icon: 'plus', hint: 'Ctrl+V', disabled: !clip, run: () => clip && pasteClip(clip) },
+      { label: 'Вставить', icon: 'paste', hint: 'Ctrl+V', disabled: !clip, run: () => clip && pasteClip(clip) },
       null,
       ...(i === index && canExplode(deck.slides[i]) ? [{ label: 'Разобрать на объекты', icon: 'ungroup', run: () => run('slide.explode') }, null] : []),
       // Закреплённые объекты правым щелчком не достать: открепить их можно отсюда
@@ -821,9 +821,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
     }
     const clip = takeClip();
     return [
+      { label: 'Вырезать', icon: 'cut', hint: 'Ctrl+X', run: () => copy(true) },
       { label: 'Копировать', icon: 'copy', hint: 'Ctrl+C', run: () => copy(false) },
-      { label: 'Вырезать', icon: 'eraser', hint: 'Ctrl+X', run: () => copy(true) },
-      { label: 'Вставить', icon: 'plus', hint: 'Ctrl+V', disabled: !clip, run: () => clip && pasteClip(clip) },
+      { label: 'Вставить', icon: 'paste', hint: 'Ctrl+V', disabled: !clip, run: () => clip && pasteClip(clip) },
       { label: 'Копировать оформление', icon: 'brush', hint: 'Ctrl+Shift+C', disabled: multi(), run: () => run('format.copy') },
       { label: 'Вставить оформление', icon: 'brush', hint: 'Ctrl+Shift+V', disabled: !formatClip, run: () => run('format.paste') },
       null,
@@ -1932,15 +1932,15 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const has = !!range && !range.collapsed;
     const table = el.matches('td, th') ? tableMenu().map((it) => it && { ...it, run: () => { ed.finishText(); it.run(); } }) : [];
     showMenu({ x: e.clientX, y: e.clientY }, [
-      { label: 'Вырезать', hint: 'Ctrl+X', disabled: !has, run: () => { back(); document.execCommand('cut'); } },
+      { label: 'Вырезать', icon: 'cut', hint: 'Ctrl+X', disabled: !has, run: () => { back(); document.execCommand('cut'); } },
       { label: 'Копировать', icon: 'copy', hint: 'Ctrl+C', disabled: !has, run: () => { back(); document.execCommand('copy'); } },
       {
-        label: 'Вставить', hint: 'Ctrl+V',
+        label: 'Вставить', icon: 'paste', hint: 'Ctrl+V',
         run: () => void navigator.clipboard.readText()
           .then((t) => { back(); document.execCommand('insertText', false, t); })
           .catch(() => { back(); ed.toast('Вставить — Ctrl+V', 2000); }),
       },
-      { label: 'Выделить всё', hint: 'Ctrl+A', run: () => { back(); sel?.selectAllChildren(el); } },
+      { label: 'Выделить всё', icon: 'select-all', hint: 'Ctrl+A', run: () => { back(); sel?.selectAllChildren(el); } },
       ...(table.length ? [null, ...table] : []),
     ]);
   }

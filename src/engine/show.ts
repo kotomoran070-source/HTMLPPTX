@@ -614,6 +614,9 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   // Объекты-кнопки: щелчок при показе — переход к слайду или ссылка (в режиме правки — обычный объект)
   view.stage.addEventListener('click', (e) => {
     if (document.body.classList.contains('editing')) return;
+    // Щелчок докладчика, повторённый здесь (RemoteHover), — только для эффектов самих блоков (вопрос, волна).
+    // Кнопки, переходы и прожектор окно докладчика присылает своими сообщениями: второй раз не выполняются
+    if (!e.isTrusted) return;
     const t = e.target as Element;
     const el = t.closest<HTMLElement>('.slide.on > .free[data-action]');
     if (!el || t.closest('input, textarea, button, a, video, model-viewer')) {

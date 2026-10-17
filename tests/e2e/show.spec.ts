@@ -263,7 +263,8 @@ test('видео: пауза, перемотка и запуск в окне д�
   const own = pres.locator('#cur .slide.on video');
   await expect(own).toHaveCount(1);
   await expect.poll(async () => (await state(own)).paused).toBe(false);
-  await pres.waitForTimeout(1000);
+  // Дольше одного круга ролика (около 4 с): его перезапуск по кругу у докладчика тоже не отматывает зрителей
+  await pres.waitForTimeout(5000);
   expect(await page.evaluate(() => (window as unknown as { back: number }).back)).toBe(0);
   await own.evaluate((el: HTMLVideoElement) => el.pause());
   await expect.poll(async () => (await state(show)).paused).toBe(true);
@@ -273,4 +274,107 @@ test('видео: пауза, перемотка и запуск в окне д�
   await expect.poll(async () => (await state(show)).paused).toBe(false);
   await pres.close();
   expect(errors).toEqual([]);
+});
+
+test('мышь докладчика у зрителей: стрелка, наведение, указка, прожектор, кнопки, вопросы, вставка — каждое ровно один раз', async ({ page, context }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=mirror#1');
+  await expect(page.locator('.slide.on')).toHaveCount(1);
+  const pres = await context.newPage();
+  const presErrors = watchErrors(pres);
+  await pres.goto('/?deck=mirror&view=presenter');
+  await expect(pres.locator('#cur .slide.on')).toHaveCount(1);
+  const obj = (p: typeof page, root: string, t: string) => p.locator(`${root} .slide.on > .free`).filter({ hasText: new RegExp(`^${t}$`) }).first();
+  const hoverAt = async (t: string) => { const b = (await obj(pres, '#cur', t).boundingBox())!; await pres.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 4 }); };
+  const arrow = () => page.evaluate(() => !!document.querySelector('.ink-cur.on'));
+  const hovered = (t: string) => obj(page, '', t).evaluate((e) => e.classList.contains('rhov') || !!e.querySelector('.rhov'));
+  const spot = (p: typeof page, root = '') => p.evaluate((r) => !!document.querySelector(`${r} .slide.on > .spot-frame`), root);
+
+  // Стрелка и наведение — там, где мышь докладчика; ушла со слайда (на «следующий») — нет ни того, ни другого
+  await hoverAt('Коробка');
+  await expect.poll(arrow).toBe(true);
+  await expect.poll(() => hovered('Коробка')).toBe(true);
+  const nb = (await pres.locator('#next').boundingBox())!;
+  await pres.mouse.move(nb.x + 20, nb.y + 20, { steps: 3 });
+  await expect.poll(arrow).toBe(false);
+  await expect.poll(() => hovered('Коробка')).toBe(false);
+  // K — стрелки не видно, наведение остаётся
+  await pres.keyboard.press('k');
+  await hoverAt('Коробка');
+  await expect.poll(() => hovered('Коробка')).toBe(true);
+  expect(await arrow()).toBe(false);
+  await pres.keyboard.press('k');
+  // Указка: точка вместо стрелки
+  await pres.keyboard.press('l');
+  await hoverAt('Карточка');
+  await expect.poll(() => page.evaluate(() => !!document.querySelector('.ink-dot.on'))).toBe(true);
+  expect(await arrow()).toBe(false);
+  await pres.keyboard.press('l');
+  await expect.poll(() => page.evaluate(() => !!document.querySelector('.ink-dot.on'))).toBe(false);
+
+  // Прожектор: щелчок докладчика включает его в обоих окнах, второй — снимает (повтор щелчка у зрителей его не переключает)
+  await obj(pres, '#cur', 'Карточка').click();
+  await expect.poll(() => spot(page)).toBe(true);
+  await pres.waitForTimeout(600);
+  expect(await spot(page)).toBe(true);
+  expect(await spot(pres, '#cur')).toBe(true);
+  await obj(pres, '#cur', 'Карточка').click();
+  await expect.poll(() => spot(page)).toBe(false);
+  expect(await spot(pres, '#cur')).toBe(false);
+  // Кнопки: переключатель — ровно один раз; «показать» — показывает
+  await obj(pres, '#cur', 'Переключить').click();
+  await expect(obj(page, '', 'Коробка')).toHaveClass(/trig-hid/);
+  await pres.waitForTimeout(500);
+  await expect(obj(page, '', 'Коробка')).toHaveClass(/trig-hid/);
+  await expect(obj(pres, '#cur', 'Коробка')).toHaveClass(/trig-hid/);
+  await obj(pres, '#cur', 'Показать').click();
+  await expect(obj(page, '', 'Подсказка')).not.toHaveClass(/trig-hid/);
+  // Ссылка открывается только у докладчика, не на проекторе
+  const opened: string[] = [];
+  context.on('page', (p) => opened.push(p.url()));
+  await obj(pres, '#cur', 'Сайт').click();
+  await pres.waitForTimeout(800);
+  expect(opened).toHaveLength(1);
+  // «Дальше» — на один слайд, не на два; мышь стоит — наведение на новом слайде сразу
+  await hoverAt('Дальше');
+  await obj(pres, '#cur', 'Дальше').click();
+  await expect(page).toHaveURL(/#2$/);
+  await pres.waitForTimeout(500);
+  await expect(page).toHaveURL(/#2$/);
+  await hoverAt('Второй');
+  await pres.keyboard.press('ArrowLeft');
+  await pres.keyboard.press('ArrowRight');
+  await expect.poll(() => hovered('Второй')).toBe(true);
+  // Вопрос раскрывается в обоих окнах
+  await pres.keyboard.press('ArrowRight');
+  await expect(page).toHaveURL(/#3$/);
+  await pres.locator('#cur .slide.on .fq-q').first().click();
+  await expect(page.locator('.slide.on .fq-item.open')).toHaveCount(1);
+  await expect(pres.locator('#cur .slide.on .fq-item.open')).toHaveCount(1);
+  // Вставка: движения доходят в обоих окнах, щелчок по её кнопке — ровно один раз
+  await pres.keyboard.press('ArrowRight');
+  await expect(page).toHaveURL(/#4$/);
+  const frame = pres.locator('#cur .slide.on .embed.interactive > iframe.on');
+  await expect(frame).toHaveCount(1);
+  await expect(page.locator('.slide.on .embed.interactive > iframe.on')).toHaveCount(1);
+  const fb = (await frame.boundingBox())!;
+  for (let i = 0; i < 6; i++) await pres.mouse.move(fb.x + 50 + i * 10, fb.y + 40, { steps: 2 });
+  const showFrame = page.frameLocator('.slide.on iframe').first();
+  const presFrame = pres.frameLocator('#cur .slide.on iframe').first();
+  await expect.poll(async () => Number(await showFrame.locator('#n').textContent())).toBeGreaterThan(0);
+  await expect.poll(async () => Number(await presFrame.locator('#n').textContent())).toBeGreaterThan(0);
+  await pres.mouse.click(fb.x + fb.width / 2, fb.y + fb.height * 0.75);
+  await expect(showFrame.locator('#b')).toHaveText('1');
+  await expect(presFrame.locator('#b')).toHaveText('1');
+  // M — повтор выключен: зрители ничего не получают
+  await pres.keyboard.press('m');
+  await expect.poll(arrow).toBe(false);
+  const was = await showFrame.locator('#n').textContent();
+  for (let i = 0; i < 5; i++) await pres.mouse.move(fb.x + 300 + i * 10, fb.y + 60, { steps: 2 });
+  await pres.waitForTimeout(400);
+  expect(await showFrame.locator('#n').textContent()).toBe(was);
+  expect(await arrow()).toBe(false);
+  await pres.keyboard.press('m');
+  expect(errors).toEqual([]);
+  expect(presErrors).toEqual([]);
 });
