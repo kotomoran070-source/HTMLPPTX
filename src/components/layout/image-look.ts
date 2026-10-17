@@ -11,8 +11,8 @@ export interface ImageLook {
   width?: number;
   /** Штрих контура: dash — пунктир, dot — точки */
   dash?: 'dash' | 'dot';
-  /** Скругление углов, px; circle — круг или овал. По умолчанию 12 */
-  radius?: number | 'circle';
+  /** Скругление углов, px; circle — круг (по меньшей стороне рамки, по центру), oval — овал во всю рамку. По умолчанию 12 */
+  radius?: number | 'circle' | 'oval';
   /** Тень: sm — лёгкая, md — заметная, lg — глубокая */
   shadow?: 'sm' | 'md' | 'lg';
   /** Паспарту: поле цвета карточки вокруг снимка, px */
@@ -134,7 +134,8 @@ export function imageLookCss(p: ImageLook): { box: string; img: string; fx: bool
   const w = Math.max(0, Math.min(40, Number(p.width) || 0));
   const stroke = w ? shapeColor(p.stroke) ?? 'var(--bd2)' : '';
   if (stroke) box.push(`border:${w}px ${p.dash === 'dot' ? 'dotted' : p.dash === 'dash' ? 'dashed' : 'solid'} ${stroke}`);
-  const r = p.radius === 'circle' ? '50%' : Number.isFinite(Number(p.radius)) && p.radius !== undefined ? `${Math.max(0, Math.min(400, Number(p.radius)))}px` : '';
+  const round = p.radius === 'circle' || p.radius === 'oval';
+  const r = round ? '50%' : Number.isFinite(Number(p.radius)) && p.radius !== undefined ? `${Math.max(0, Math.min(400, Number(p.radius)))}px` : '';
   if (r) box.push(`border-radius:${r}`);
   if (p.shadow && IMAGE_SHADOWS[p.shadow]) box.push(`box-shadow:${IMAGE_SHADOWS[p.shadow].css}`);
   const mat = Math.max(0, Math.min(80, Number(p.mat) || 0));
@@ -149,7 +150,7 @@ export function imageLookCss(p: ImageLook): { box: string; img: string; fx: bool
   if (fl.img || adj) img.push(`filter:${[fl.img.replace(/^filter:/, ''), adj].filter(Boolean).join(' ')}`);
   if (fl.box) box.push(fl.box);
   // Снимок в паспарту скруглён в тон рамке
-  if (mat) img.push(`border-radius:${p.radius === 'circle' ? '50%' : `${Math.max(0, (r ? parseFloat(r) : 12) - mat)}px`}`);
+  if (mat) img.push(`border-radius:${round ? '50%' : `${Math.max(0, (r ? parseFloat(r) : 12) - mat)}px`}`);
   const fx = box.length + img.length > 0;
-  return { box: box.join(';'), img: img.join(';'), fx, cls: `${fx ? ' img-fx' : ''}${fl.tint ? ' img-tint' : ''}` };
+  return { box: box.join(';'), img: img.join(';'), fx, cls: `${fx ? ' img-fx' : ''}${fl.tint ? ' img-tint' : ''}${p.radius === 'circle' ? ' img-round' : ''}` };
 }

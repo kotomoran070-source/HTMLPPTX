@@ -116,8 +116,11 @@ defineBlock<VideoProps>('video', {
     const embed = el.querySelector<HTMLElement>('.video-embed');
     let frame: HTMLIFrameElement | null = null;
     let timer = 0;
-    /** До этого момента запуск и перемотка — автозапуск при открытии слайда, а не действие докладчика */
-    let quietUntil = 0;
+    /**
+     * Идёт автозапуск при открытии слайда: его перемотка в начало и запуск — не действие докладчика.
+     * Заканчивается, когда ролик пошёл и перемотка завершилась (по событиям ролика, а не по времени: загрузка бывает долгой)
+     */
+    let auto = false;
     // Цветокоррекция — только у открытого слайда: у браузера мало контекстов WebGL
     const graded = !!video && !!p.grade && typeof p.grade === 'object' && !isNeutral(p.grade);
     let ungrade: (() => void) | null = null;
@@ -140,9 +143,10 @@ defineBlock<VideoProps>('video', {
       if (video) {
         if (presenter()) video.muted = true;
         if (o.autoplay && !editing()) {
-          quietUntil = performance.now() + 800;
+          auto = true;
           video.currentTime = 0;
-          void video.play().catch(() => { /* браузер не дал запустить со звуком: остаётся кнопка плеера */ });
+          // Браузер не дал запустить со звуком: остаётся кнопка плеера, и её запуск — уже действие докладчика
+          void video.play().catch(() => { auto = false; });
         }
       } else if (embed && !frame && !editing() && location.protocol === 'file:') {
         // Файл с диска: у страницы нет адреса, и YouTube не показывает встроенный плеер (ошибка 153).
@@ -185,7 +189,11 @@ defineBlock<VideoProps>('video', {
     const tell = () => {
       // Скрытую страницу (погас экран телефона, окно свернули) браузер ставит на паузу сам — это не действие докладчика
       // Автозапуск при открытии слайда идёт в обоих окнах сам: окно докладчика, открытое посреди ролика, не отматывает его зрителям
-      if (document.hidden || performance.now() < quietUntil) return;
+      if (auto) {
+        if (!video!.paused && !video!.seeking) auto = false;
+        return;
+      }
+      if (document.hidden) return;
       window.dispatchEvent(new CustomEvent<MediaState>(MEDIA, { detail: { key, playing: !video!.paused, time: video!.currentTime } }));
     };
     const follow = (e: Event) => {
@@ -196,10 +204,16 @@ defineBlock<VideoProps>('video', {
       if (m.playing) void video.play().catch(() => { /* браузер не дал запустить: остаётся кнопка плеера */ });
       else video.pause();
     };
-    if (lead) ['play', 'pause', 'seeked'].forEach((ev) => video!.addEventListener(ev, tell));
-    else if (video && !presenter()) window.addEventListener(MEDIA_SET, follow);
+    const started = () => { if (!video!.seeking) auto = false; };
+    if (lead) {
+      ['play', 'pause', 'seeked'].forEach((ev) => video!.addEventListener(ev, tell));
+      video!.addEventListener('playing', started);
+    } else if (video && !presenter()) window.addEventListener(MEDIA_SET, follow);
     return () => {
-      if (lead) ['play', 'pause', 'seeked'].forEach((ev) => video!.removeEventListener(ev, tell));
+      if (lead) {
+        ['play', 'pause', 'seeked'].forEach((ev) => video!.removeEventListener(ev, tell));
+        video!.removeEventListener('playing', started);
+      }
       window.removeEventListener(MEDIA_SET, follow);
       mo.disconnect();
       clearTimeout(timer);

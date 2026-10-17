@@ -249,14 +249,13 @@ test('видео: пауза, перемотка и запуск в окне д�
   const show = page.locator('.slide.on video');
   await expect(show).toHaveCount(1);
   const state = (v: typeof show) => v.evaluate((el: HTMLVideoElement) => ({ paused: el.paused, t: el.currentTime }));
-  // Окно докладчика, открытое посреди ролика, не отматывает его зрителям в начало:
-  // считаем скачки назад не в конце ролика (ролик по кругу — в конце он начинается заново сам)
-  await show.evaluate((el: HTMLVideoElement) => {
+  // Окно докладчика, открытое посреди ролика, не отматывает его зрителям в начало: считаем перемотки назад
+  // из кода страницы (ролик по кругу начинается заново сам, а кадры фоновой вкладки редкие — по времени это не отличить)
+  await page.evaluate(() => {
     const w = window as unknown as { back: number };
     w.back = 0;
-    let last = 0;
-    const tick = () => { const t = el.currentTime; if (t < last - .2 && last < el.duration - .4) w.back++; last = t; requestAnimationFrame(tick); };
-    requestAnimationFrame(tick);
+    const d = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'currentTime')!;
+    Object.defineProperty(HTMLMediaElement.prototype, 'currentTime', { ...d, set(this: HTMLMediaElement, v: number) { if (v < this.currentTime - .2) w.back++; d.set!.call(this, v); } });
   });
   await expect.poll(async () => (await state(show)).t).toBeGreaterThan(.5);
   const pres = await context.newPage();

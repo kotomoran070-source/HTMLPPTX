@@ -11,7 +11,11 @@
 .note { margin: 12px 0 0; }
 
 .image { margin: 0; display: flex; flex-direction: column; gap: 8px; min-height: 200px; }
+.imgfit { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .imgbox { position: relative; flex: 1; min-height: 0; overflow: hidden; border-radius: calc(12px * var(--rk, 1)); }
+/* Круг: квадрат по меньшей стороне места под картинку, по центру — круг при любой рамке, а не овал */
+.imgfit:has(> .img-round) { container-type: size; justify-content: center; align-items: center; }
+.imgfit > .imgbox.img-round { flex: none; width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); }
 .imgbox img { position: absolute; inset: var(--mat, 0); width: calc(100% - 2 * var(--mat, 0px)); height: calc(100% - 2 * var(--mat, 0px)); display: block; }
 /* Тонировка фильтра (тёплый, дуотон акцента…): слой цвета поверх снимка в своём режиме наложения */
 .imgbox.img-tint { isolation: isolate; }

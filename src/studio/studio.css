@@ -49,7 +49,10 @@ body.studio { background: var(--alt); }
 .st-stile i { display: grid; place-items: center; width: 36px; height: 20px; box-sizing: border-box; border-radius: 5px; font: 700 10px var(--font); font-style: normal; }
 /* Образец стиля рисунка: маленький «снимок» — небо и холм */
 .st-itile i { position: relative; width: 34px; height: 22px; padding: var(--mat, 0); background: var(--surf); overflow: hidden; border-radius: 4px; }
-.st-itile b { display: block; width: 100%; height: 100%; border-radius: inherit; background: radial-gradient(circle at 72% 32%, #FDE68A 0 3px, transparent 3.5px), linear-gradient(160deg, transparent 58%, #16A34A 59%), linear-gradient(#93C5FD, #60A5FA); }
+.st-itile b { display: block; width: 100%; height: 100%; border-radius: inherit; }
+/* Пейзаж образца: небо, солнце, два холма — в нём заметны и форма, и любой цветовой фильтр */
+.st-itile b, .st-smp-pic b { background: radial-gradient(circle at 72% 30%, #FDE047 0 11%, transparent 12%), radial-gradient(90% 62% at 18% 104%, #22C55E 0 98%, transparent 100%),
+  radial-gradient(80% 50% at 92% 108%, #15803D 0 98%, transparent 100%), linear-gradient(#3B82F6, #93C5FD 62%, #FDE2C4); }
 .st-ttile .st-tmini { --ts: 5px; --py: 2.5px; --px: 3px; --r: 3px; width: 54px; pointer-events: none; }
 .st-tmini table { box-shadow: none !important; }
 .st-tmini :is(th, td) i { display: block; width: 70%; height: 1.5px; border-radius: 1px; background: currentColor; opacity: .3; }
@@ -81,21 +84,20 @@ body.studio { background: var(--alt); }
 .st-pop .st-flt { display: flex; flex-direction: column; gap: 4px; padding: 4px; border: 1px solid transparent; border-radius: 9px; background: none; cursor: pointer; font: 500 11.5px/1.2 var(--font); color: var(--tx2); text-align: center; }
 .st-pop .st-flt:hover, .st-pop .st-flt:focus-visible { background: var(--acs); color: var(--ach); outline: none; }
 .st-pop .st-flt.on { border-color: var(--ac); color: var(--ach); }
-.st-flt-img { position: relative; display: block; height: 58px; border-radius: 6px; overflow: hidden; background: var(--alt); }
-.st-flt-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.st-flt-img.img-tint { isolation: isolate; }
-.st-flt-img.img-tint::after { content: ""; position: absolute; inset: 0; background: var(--tint); mix-blend-mode: var(--tint-blend, normal); opacity: var(--tint-op, 1); }
+/* Образец (context-tabs.ts sample): пейзаж в рамке, тени и форме варианта, как плитки «Дизайна» */
+.st-smp { display: grid; place-items: center; height: 62px; border-radius: 6px; background: var(--alt); box-shadow: inset 0 0 0 1px var(--bd); overflow: hidden; font-style: normal; }
+.st-smp-pic { position: relative; display: block; width: 64px; height: 42px; overflow: hidden; border-radius: 4px; font-style: normal; }
+.st-smp-pic.img-round { width: 42px; }
+.st-smp-pic b { position: absolute; inset: var(--mat, 0); }
+.st-smp-pic.img-tint { isolation: isolate; }
+.st-smp-pic.img-tint::after { content: ""; position: absolute; inset: var(--mat, 0); background: var(--tint); mix-blend-mode: var(--tint-blend, normal); opacity: var(--tint-op, 1); border-radius: inherit; }
+.st-flt-grid.f { grid-template-columns: repeat(5, 1fr); }
+.st-flt-grid.f .st-smp { height: 54px; }
+.st-flt-grid.f .st-smp-pic { width: 54px; height: 36px; }
+.st-flt-grid.f .st-smp-pic.img-round { width: 36px; }
 .st-flt-note { margin: 10px 2px 0; font-size: 11.5px; color: var(--mu); }
-.st-lkpop { width: 420px; }
-.st-lkpop .st-flt-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .st-lkpop .st-adj { margin-top: 10px; }
-.st-stpop { width: 460px; }
-.st-stpop .st-flt-grid { grid-template-columns: repeat(4, 1fr); gap: 6px; }
-.st-stpop .st-flt-grid.f { grid-template-columns: repeat(5, 1fr); }
-.st-stpop .st-lk-box { height: 52px; margin: 4px 6px 2px; }
 .st-adj label:has(input:disabled) { opacity: .5; }
-.st-lk-box { position: relative; display: block; height: 62px; margin: 6px 8px 2px; overflow: hidden; border-radius: 12px; }
-.st-lk-box img { position: absolute; inset: var(--mat, 0); width: calc(100% - 2 * var(--mat, 0px)); height: calc(100% - 2 * var(--mat, 0px)); object-fit: cover; }
 .st-adj { display: flex; flex-direction: column; gap: 6px; padding: 0 2px; }
 .st-adj label { display: grid; grid-template-columns: 96px minmax(0, 1fr) 42px; align-items: center; gap: 8px; font-size: 12px; color: var(--tx2); }
 .st-adj input { width: 100%; accent-color: var(--ac); }

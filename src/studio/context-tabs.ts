@@ -1,7 +1,7 @@
 import { icon } from '../components/icons';
 import { TEXT_GRADIENTS } from '../engine/gradients';
 import { GRADIENTS, SHAPE_COLORS, SHAPE_STYLES, SHAPE_SWATCHES, gradientCss, gradientOn, isGradient, sameGradient, shapeFill, type ShapeGradient } from '../components/shape/shape';
-import { IMAGE_ADJUST, IMAGE_FILTER_GROUPS, IMAGE_FILTERS, IMAGE_LOOK_KEYS, IMAGE_SHADOWS, IMAGE_STYLES, adjustCss, filterCss, imageLookCss } from '../components/layout/image-look';
+import { IMAGE_ADJUST, IMAGE_FILTER_GROUPS, IMAGE_FILTERS, IMAGE_LOOK_KEYS, IMAGE_SHADOWS, IMAGE_STYLES, adjustCss, filterCss, imageLookCss, type ImageLook } from '../components/layout/image-look';
 
 /** Цвет снимка: стиль рисунка (рамка, тень, форма) его не трогает */
 const COLOR_KEYS = new Set<string>(['filter', 'opacity', 'bright', 'contrast', 'saturate']);
@@ -125,6 +125,21 @@ const imageTile = (s: (typeof IMAGE_STYLES)[number], recent = false) => {
   const look = imageLookCss({ ...s.props, ...(s.props.width ? { width: Math.min(2, s.props.width) } : {}), ...(s.props.mat ? { mat: 3 } : {}), ...(typeof s.props.radius === 'number' ? { radius: Math.round(s.props.radius / 3) } : {}) });
   return `<button type="button" class="st-stile st-itile" data-cmd="image.style.${s.id}"${recent ? ' data-recent=""' : ''} title="${esc(recent ? `${s.name} · недавний` : s.name)}" aria-label="${esc(s.name)}">`
     + `<i style="${look.box || 'border-radius:4px'}${s.props.shadow ? ';box-shadow:0 2px 5px rgba(15,23,42,.3)' : ''}"><b${look.img ? ` style="${look.img}"` : ''}></b></i></button>`;
+};
+
+/** Тени образца — в его масштабе: на маленьком снимке настоящая тень расплылась бы за плитку */
+const SAMPLE_SHADOWS: Record<string, string> = { sm: '0 1px 4px rgba(15,23,42,.24)', md: '0 4px 10px rgba(15,23,42,.32)', lg: '0 8px 18px rgba(15,23,42,.42)' };
+/**
+ * Образец для галерей «Рисунка», как плитки вкладки «Дизайн»: пейзаж, на котором форма, рамка, тень,
+ * растворение и цвет видны отчётливо (на скриншоте или тёмном фото их не разглядеть). Сам снимок — при наведении
+ */
+const sample = (b: ImageLook) => {
+  const look = imageLookCss({
+    ...b, shadow: undefined, width: b.width ? Math.min(3, Number(b.width)) : undefined,
+    radius: typeof b.radius === 'number' ? Math.round(b.radius * 0.3) : b.radius, mat: b.mat ? Math.max(2, Math.round(Number(b.mat) * 0.3)) : undefined,
+  });
+  const sh = b.shadow && SAMPLE_SHADOWS[b.shadow] ? `box-shadow:${SAMPLE_SHADOWS[b.shadow]}` : '';
+  return `<i class="st-smp"><i class="st-smp-pic${look.cls}" style="${esc([look.box, sh].filter(Boolean).join(';'))}"><b${look.img ? ` style="${esc(look.img)}"` : ''}></b></i></i>`;
 };
 
 /** На ленте — ходовые стили и последний столбец с недавними (на этом компьютере); все стили — по стрелке */
@@ -409,7 +424,6 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       .map((bx) => ({ bx, img: bx.querySelector('img'), cls: bx.className, style: bx.getAttribute('style'), imgStyle: bx.querySelector('img')?.getAttribute('style') ?? null }));
     let saved = snap();
     const fresh = () => { if (saved[0] && !saved[0].bx.isConnected) saved = snap(); };
-    const src = saved[0]?.img?.currentSrc ?? '';
     const b0 = first('image');
     const cur = typeof b0?.filter === 'string' && IMAGE_FILTERS[b0.filter] ? b0.filter : '';
     const adj: Record<string, number> = Object.fromEntries(IMAGE_ADJUST.map(([k]) => [k, Number(b0?.[k]) || 100]));
@@ -429,11 +443,8 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
         if (f.tint) for (const d of f.box.split(';')) { const [n, ...v] = d.split(':'); bx.style.setProperty(n, v.join(':')); }
       }
     };
-    const tile = (key: string, name: string) => {
-      const f = filterCss(key);
-      return `<button type="button" class="st-flt${key === cur ? ' on' : ''}" data-flt="${key}" title="${esc(name)}">`
-        + `<i class="st-flt-img${f.tint ? ' img-tint' : ''}"${f.box ? ` style="${esc(f.box)}"` : ''}>${src ? `<img alt="" src="${esc(src)}"${f.img ? ` style="${esc(f.img)}"` : ''}>` : ''}</i><span>${esc(name)}</span></button>`;
-    };
+    const tile = (key: string, name: string) => `<button type="button" class="st-flt${key === cur ? ' on' : ''}" data-flt="${key}" title="${esc(name)}">`
+      + `${sample({ ...(b0 ?? {}), filter: key || undefined, bright: undefined, contrast: undefined, saturate: undefined } as ImageLook)}<span>${esc(name)}</span></button>`;
     const groups = Object.entries(IMAGE_FILTER_GROUPS).map(([g, label]) => {
       const list = Object.entries(IMAGE_FILTERS).filter(([, f]) => f.group === g);
       return `<h4>${esc(label)}</h4><div class="st-flt-grid">${g === 'base' ? tile('', 'Исходный') : ''}${list.map(([k, f]) => tile(k, f.name)).join('')}</div>`;
@@ -495,8 +506,8 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     mo.observe(document.body, { childList: true });
   };
   /**
-   * Тень, скругление, прозрачность, все стили — как «Цвет»: превью на самом снимке, наведение примеряет
-   * на слайде, щелчок — применить; ползунок — своё значение (на слайде сразу, в данные — когда отпустили).
+   * Тень, скругление, прозрачность, паспарту, все стили — как «Цвет»: превью на образце, наведение примеряет
+   * на самом снимке на слайде, щелчок — применить; ползунок — своё значение (на слайде сразу, в данные — когда отпустили).
    */
   const lookPopover = (at: HTMLElement, sections: { title?: string; cls?: string; options: LookOption[] }[], slider?: LookSlider, cls = '') => {
     const paths = targets('image');
@@ -504,7 +515,6 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       .map(({ bx, p }) => ({ bx, p, img: bx.querySelector('img'), cls: bx.className, style: bx.getAttribute('style'), imgStyle: bx.querySelector('img')?.getAttribute('style') ?? null }));
     let saved = snap();
     const fresh = () => { if (saved[0] && !saved[0].bx.isConnected) saved = snap(); };
-    const src = saved[0]?.img?.currentSrc ?? '';
     const b0 = first('image');
     let picked = false;
     const put = (el: Element | null, v: string | null) => { if (el) { if (v === null) el.removeAttribute('style'); else el.setAttribute('style', v); } };
@@ -514,22 +524,14 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       for (const { bx, p, img } of saved) {
         const b = { ...(getAt(deck, p) as Block), ...patch } as Parameters<typeof imageLookCss>[0] & Parameters<typeof frameCss>[0];
         const look = imageLookCss(b);
-        bx.className = `${bx.className.replace(/\s*\bimg-(fx|tint)\b/g, '')}${look.cls}`;
+        bx.className = `${bx.className.replace(/\s*\bimg-(fx|tint|round)\b/g, '')}${look.cls}`;
         put(bx, look.box || null);
         if (img) put(img, `${frameCss(b)}${look.img ? `;${look.img}` : ''}`);
       }
     };
-    // Превью: та же рамка в масштабе плитки (скругление пропорционально размеру снимка)
-    const k = saved[0] ? 88 / Math.max(1, saved[0].bx.offsetWidth) : 0.25;
     const options = sections.flatMap((s) => s.options);
-    const tile = (o: LookOption) => {
-      const i = options.indexOf(o);
-      const b = { ...(b0 ?? {}), ...o.patch } as Block;
-      const r = typeof b.radius === 'number' ? Math.round(b.radius * k) : b.radius;
-      const look = imageLookCss({ ...b, radius: r as number | 'circle' | undefined, mat: b.mat ? Math.max(2, Math.round(Number(b.mat) * k)) : undefined });
-      return `<button type="button" class="st-flt${o.on ? ' on' : ''}" data-lk="${i}" title="${esc(o.label)}"><i class="st-lk-box${look.cls}" style="${esc(look.box)}">`
-        + (src ? `<img alt="" src="${esc(src)}"${look.img ? ` style="${esc(look.img)}"` : ''}>` : '') + `</i><span>${esc(o.label)}</span></button>`;
-    };
+    const tile = (o: LookOption) => `<button type="button" class="st-flt${o.on ? ' on' : ''}" data-lk="${options.indexOf(o)}" title="${esc(o.label)}">`
+      + `${sample({ ...(b0 ?? {}), ...o.patch } as ImageLook)}<span>${esc(o.label)}</span></button>`;
     const grids = sections.map((s) => `${s.title ? `<h4>${esc(s.title)}</h4>` : ''}<div class="st-flt-grid${s.cls ? ` ${s.cls}` : ''}">${s.options.map(tile).join('')}</div>`).join('');
     const range = slider ? `<div class="st-adj"><label${slider.off ? ` title="${esc(slider.off)}"` : ''}><span>${esc(slider.label)}</span><input type="range" min="${slider.min}" max="${slider.max}" step="1" value="${slider.value}" data-lkr="1" aria-label="${esc(slider.label)}"${slider.off ? ' disabled' : ''}><output>${slider.value}${slider.unit}</output></label></div>` : '';
     const pop = showPopover(at, `<div class="st-flt-pop">${grids}${range}<p class="st-flt-note">Наведите — примерка на слайде, щелчок — применить</p></div>`, (b) => {
@@ -558,11 +560,11 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const mo = new MutationObserver(() => { if (!pop.isConnected) { mo.disconnect(); restore(); } });
     mo.observe(document.body, { childList: true });
   };
-  /** Одно поле: тень, скругление, прозрачность */
+  /** Одно поле: тень, скругление, прозрачность, паспарту (cls «f» — пять образцов в ряд) */
   const lookGallery = (cmd: string, key: string, options: [unknown, string][],
-    slider?: { label: string; min: number; max: number; unit: string; get: (v: unknown) => number; set: (n: number) => unknown }) => {
+    slider?: { label: string; min: number; max: number; unit: string; get: (v: unknown) => number; set: (n: number) => unknown }, cls?: string) => {
     const cur = first('image')?.[key];
-    lookPopover(anchor(cmd), [{ options: options.map(([v, label]) => ({ label, patch: { [key]: v }, on: cur === v, pick: () => setAll('image', key, v) })) }],
+    lookPopover(anchor(cmd), [{ cls, options: options.map(([v, label]) => ({ label, patch: { [key]: v }, on: cur === v, pick: () => setAll('image', key, v) })) }],
       slider && { ...slider, key, value: slider.get(cur) });
   };
   /** Все стили рисунка: рамка и тень, растворение и сколько снимка тает */
@@ -938,11 +940,15 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       enabled: hasText, active: () => hasText() && (Number(textStyle(first('shape')).weight) || 600) >= 600,
     },
     'image.stroke': { run: () => palette('image.stroke', 'stroke', 'image'), enabled: isImage },
-    'image.mat': { run: () => choice('image.mat', 'mat', [[undefined, 'Без паспарту'], [6, 'Узкое — 6 px'], [12, 'Среднее — 12 px'], [20, 'Широкое — 20 px'], [32, 'Очень широкое — 32 px']], undefined, 'image'), enabled: isImage },
+    'image.mat': {
+      run: () => lookGallery('image.mat', 'mat', [[undefined, 'Без паспарту'], [6, 'Узкое'], [12, 'Среднее'], [20, 'Широкое'], [32, 'Очень широкое']],
+        { label: 'Своё, px', min: 0, max: 80, unit: ' px', get: (v) => Number(v) || 0, set: (n) => n || undefined }, 'f'),
+      enabled: isImage,
+    },
     'image.shadow': { run: () => lookGallery('image.shadow', 'shadow', [[undefined, 'Без тени'], ...Object.entries(IMAGE_SHADOWS).map(([v, s]) => [v, s.name] as [string, string])]), enabled: isImage },
     'image.radius': {
-      run: () => lookGallery('image.radius', 'radius', [[0, 'Острые'], [6, 'Малое'], [undefined, 'Обычное'], [24, 'Большое'], [48, 'Очень большое'], ['circle', 'Круг или овал']],
-        { label: 'Своё, px', min: 0, max: 120, unit: ' px', get: (v) => (typeof v === 'number' ? v : v === 'circle' ? 120 : 12), set: (n) => n }),
+      run: () => lookGallery('image.radius', 'radius', [[0, 'Острые'], [6, 'Малое'], [undefined, 'Обычное'], [24, 'Большое'], [48, 'Очень большое'], ['oval', 'Овал'], ['circle', 'Круг']],
+        { label: 'Своё, px', min: 0, max: 120, unit: ' px', get: (v) => (typeof v === 'number' ? v : v === 'circle' || v === 'oval' ? 120 : 12), set: (n) => n }),
       enabled: isImage,
     },
     'image.filter': { run: () => filterGallery(), enabled: isImage },
@@ -953,7 +959,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     ...videoCommands(),
     'image.opacity': {
       run: () => lookGallery('image.opacity', 'opacity', [[undefined, '100 %'], [0.8, '80 %'], [0.6, '60 %'], [0.4, '40 %'], [0.2, '20 %']],
-        { label: 'Своя', min: 10, max: 100, unit: ' %', get: (v) => Math.round((Number(v) || 1) * 100), set: (n) => (n >= 100 ? undefined : n / 100) }),
+        { label: 'Своя', min: 10, max: 100, unit: ' %', get: (v) => Math.round((Number(v) || 1) * 100), set: (n) => (n >= 100 ? undefined : n / 100) }, 'f'),
       enabled: isImage,
     },
     'image.styles': { run: stylesGallery, enabled: isImage },

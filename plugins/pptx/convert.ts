@@ -852,7 +852,7 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
             const target = pkg.rel(part, attr(kid(fill.el, 'blip'), 'r:embed'));
             const src = target ? await asset(target, kid(fill.el, 'srcRect'), kid(fill.el, 'stretch') && box.h ? box.w / box.h : undefined) : null;
             if (src) {
-              const radius = prst === 'ellipse' ? 'circle' : prst === 'roundRect' ? r1(Math.min(box.w, box.h) * ((adjusts(kid(spPr, 'prstGeom')).adj ?? 16667) / 100000)) : undefined;
+              const radius = prst === 'ellipse' ? 'oval' : prst === 'roundRect' ? r1(Math.min(box.w, box.h) * ((adjusts(kid(spPr, 'prstGeom')).adj ?? 16667) / 100000)) : undefined;
               free.push(lockIt({ type: 'image', src, fit: 'cover', radius: radius ?? 0, ...blipAlpha(kid(fill.el, 'blip')), place: { x: r1(box.x), y: r1(box.y), w: r1(box.w), h: r1(box.h) }, ...(box.rot ? { angle: r1(box.rot) } : {}) }));
             }
           } else if (isLine && line && !hasText) {
@@ -942,7 +942,7 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
           const src = await asset(target, kid(blipFill, 'srcRect'), kid(blipFill, 'stretch') && box.h ? box.w / box.h : undefined);
           if (!src) continue;
           const prst = attr(kid(spPr, 'prstGeom'), 'prst');
-          const radius = prst === 'ellipse' ? 'circle' : prst === 'roundRect' ? r1(Math.min(box.w, box.h) * ((adjusts(kid(spPr, 'prstGeom')).adj ?? 16667) / 100000)) : undefined;
+          const radius = prst === 'ellipse' ? 'oval' : prst === 'roundRect' ? r1(Math.min(box.w, box.h) * ((adjusts(kid(spPr, 'prstGeom')).adj ?? 16667) / 100000)) : undefined;
           const line = lineFor(el, spPr);
           // Углы — как в файле: у картинки PowerPoint они прямые, а не скруглены темой
           const o: Obj = { type: 'image', src, fit: 'cover', radius: radius ?? 0, ...blipAlpha(kid(blipFill, 'blip')), place: { x: r1(box.x), y: r1(box.y), w: r1(box.w), h: r1(box.h) } };

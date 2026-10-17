@@ -681,6 +681,41 @@ test('«Инструменты» → «Лицензии»: страница с �
   expect(text).not.toContain('Electron — MIT');
 });
 
+test('картинка: галереи «Рисунка» на образце, наведение — на самом снимке; «Круг» — настоящий круг, «Овал» — во всю рамку; паспарту плитками', async ({ page }) => {
+  const errors = watchErrors(page);
+  const before = readDeck('tpl');
+  await page.goto('/?deck=tpl&studio#3');
+  await page.locator('#st-canvas .slide.on [data-edit-img]').first().click();
+  const box = page.locator('#st-canvas .slide.on .imgbox').first();
+  const size = () => box.evaluate((e) => { const r = e.getBoundingClientRect(), f = e.closest('.free')!.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), dx: Math.round(r.left + r.width / 2 - (f.left + f.width / 2)) }; });
+  const frame = await size();
+  expect(frame.w).toBeGreaterThan(frame.h);
+  await page.locator('.st-ribbon [data-cmd="image.radius"]').click();
+  const pop = page.locator('.st-lkpop');
+  // Плитки — образец, а не сам снимок
+  await expect(pop.locator('.st-smp-pic')).toHaveCount(7);
+  await expect(pop.locator('img')).toHaveCount(0);
+  await pop.locator('[data-lk][title="Круг"]').hover();
+  await expect.poll(async () => { const s = await size(); return s.w === s.h && s.w === frame.h && Math.abs(s.dx) <= 1; }).toBe(true);
+  expect(readDeck('tpl')).toBe(before);
+  await pop.locator('[data-lk][title="Круг"]').click();
+  await expect.poll(() => readDeck('tpl')).toMatch(/radius: circle/);
+  await expect.poll(async () => { const s = await size(); return s.w === s.h; }).toBe(true);
+  // Овал — во всю рамку
+  await page.locator('.st-ribbon [data-cmd="image.radius"]').click();
+  await pop.locator('[data-lk][title="Овал"]').click();
+  await expect.poll(() => readDeck('tpl')).toMatch(/radius: oval/);
+  await expect.poll(size).toEqual(frame);
+  // Паспарту — плитками с ползунком
+  await page.locator('.st-ribbon [data-cmd="image.mat"]').click();
+  await expect(pop.locator('[data-lk]')).toHaveCount(5);
+  await pop.locator('[data-lk][title="Среднее"]').click();
+  await expect.poll(() => readDeck('tpl')).toMatch(/mat: 12/);
+  for (let i = 0; i < 3; i++) await page.keyboard.press('Control+z');
+  expect(await waitFile(() => readDeck('tpl') === before)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('картинка: все стили по стрелке галереи — примерка, растворение и сколько тает; недавние в последнем столбце; заливка ползунка масштаба', async ({ page }) => {
   const errors = watchErrors(page);
   const before = readDeck('tpl');
