@@ -103,21 +103,21 @@ test('«Эффект текста»: при наведении примеряе�
   expect(errors).toEqual([]);
 });
 
-test('панель свойств без дублей ленты; шрифт из файла — из списка шрифтов, лишний — «убрать» в «Сводке»', async ({ page }) => {
+test('панель свойств без дублей ленты; кадр картинки числами; шрифт из файла — из списка шрифтов, лишний — «убрать» в «Сводке»', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=tpl&studio#20');
   const props = page.locator('#st-props');
   await expect(props.locator('h3', { hasText: 'Оформление' })).toHaveCount(1);
-  // Название, акцент и шрифт презентации — в заголовке окна и на «Дизайне», не в панели слайда
-  await expect(props.locator('summary', { hasText: 'Презентация' })).toHaveCount(0);
+  await expect(props.locator('summary', { hasText: 'Презентация' })).toHaveCount(1);
   const pick = async (k: number) => {
     const b = (await page.locator('#st-canvas .slide.on > .free').nth(k).boundingBox())!;
     await page.mouse.click(b.x + 12, b.y + 12);
   };
-  // Картинка: заменить, кадр и тёмный вариант — на панели над ней; видео: воспроизведение — на вкладке «Видео»
+  // Картинка: заменить и тёмный вариант — на панели над ней, кадр — и там, и числами здесь;
+  // видео: воспроизведение — на вкладке «Видео»
   await pick(3);
   await expect(props.locator('.st-p-kind')).toHaveText('Свободный объект');
-  await expect(props.getByText('Кадр картинки')).toHaveCount(0);
+  await expect(props.getByText('Кадр картинки')).toHaveCount(1);
   await expect(props.getByText('Для тёмной темы')).toHaveCount(0);
   await expect(props.getByText('Высота, px')).toHaveCount(0);
   await pick(4);
