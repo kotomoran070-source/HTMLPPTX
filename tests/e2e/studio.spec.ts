@@ -103,6 +103,50 @@ test('«Эффект текста»: при наведении примеряе�
   expect(errors).toEqual([]);
 });
 
+test('панель свойств без дублей ленты; шрифт из файла — из списка шрифтов, лишний — «убрать» в «Сводке»', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=tpl&studio#20');
+  const props = page.locator('#st-props');
+  await expect(props.locator('h3', { hasText: 'Оформление' })).toHaveCount(1);
+  // Название, акцент и шрифт презентации — в заголовке окна и на «Дизайне», не в панели слайда
+  await expect(props.locator('summary', { hasText: 'Презентация' })).toHaveCount(0);
+  const pick = async (k: number) => {
+    const b = (await page.locator('#st-canvas .slide.on > .free').nth(k).boundingBox())!;
+    await page.mouse.click(b.x + 12, b.y + 12);
+  };
+  // Картинка: заменить, кадр и тёмный вариант — на панели над ней; видео: воспроизведение — на вкладке «Видео»
+  await pick(3);
+  await expect(props.locator('.st-p-kind')).toHaveText('Свободный объект');
+  await expect(props.getByText('Кадр картинки')).toHaveCount(0);
+  await expect(props.getByText('Для тёмной темы')).toHaveCount(0);
+  await expect(props.getByText('Высота, px')).toHaveCount(0);
+  await pick(4);
+  await expect(props.locator('h2')).toHaveText('Видео');
+  await expect(props.getByText('Без звука')).toHaveCount(0);
+  await expect(props.locator('[data-cmd="tab.video"]')).toHaveCount(1);
+  // «По щелчку» свёрнут, а что задано — видно в его заголовке
+  const click = props.locator('[data-sec="click"]');
+  await expect(click).not.toHaveAttribute('open', '');
+  await click.locator('summary').click();
+  await click.locator('[data-f="action"]').selectOption('next');
+  await expect(click.locator('[data-sum="click"]')).toHaveText('Следующий слайд');
+  await page.keyboard.press('Escape');
+
+  await page.locator('[data-tab="design"]').first().click();
+  await page.locator('[data-cmd="design.font.body"]').click();
+  const chooser = page.waitForEvent('filechooser');
+  await page.locator('.fontpick [data-file]').click();
+  await (await chooser).setFiles('src/fonts/Caveat.woff2');
+  const fonts = () => /\nfonts:\n\s+- name: Caveat/.test(readDeck('tpl'));
+  expect(await waitFile(fonts)).toBe(true);
+  // Шрифт добавлен, но нигде не задан — в «Сводке» его можно убрать
+  await page.locator('[data-tab="tools"]').first().click();
+  await page.locator('[data-cmd="tools.summary"]').click();
+  await page.locator('.st-sumpop [data-unfont="Caveat"]').click();
+  expect(await waitFile(() => !fonts())).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('логотип: размер знака в плашке — отдельно от плашки', async ({ page }) => {
   await page.goto('/?deck=tpl&studio#7');
   const img = page.locator('#st-canvas .slide.on .corner-logo img');

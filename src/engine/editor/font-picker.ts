@@ -1,6 +1,6 @@
 /**
  * Выбор шрифта со строкой поиска: шрифты темы, шрифты презентации, шрифты компьютера.
- * Один на страницу, открывается под кнопкой (панель текста, «Шрифт презентации»).
+ * Один на страницу, открывается под кнопкой (панель текста, шрифты на «Дизайне», «Заменить шрифт»).
  * Каждый шрифт в списке написан самим собой — шрифт подключается, когда строка видна.
  */
 import { loadLocalFonts, localFontsState } from '../local-fonts';
@@ -60,6 +60,15 @@ export class FontPicker {
     this.q.addEventListener('keydown', (e) => this.key(e));
     this.list.addEventListener('mousedown', (e) => e.preventDefault());
     this.list.addEventListener('click', (e) => {
+      if ((e.target as Element).closest('[data-file]')) {
+        const inp = document.createElement('input');
+        inp.type = 'file';
+        inp.accept = '.woff2,.woff,.ttf,.otf';
+        inp.onchange = () => { const f = inp.files?.[0]; if (f) addFile?.(f); };
+        this.close();
+        inp.click();
+        return;
+      }
       const ask = (e.target as Element).closest('[data-ask]');
       if (ask) {
         // Клик — действие пользователя: браузер может спросить разрешение
@@ -145,6 +154,7 @@ export class FontPicker {
     });
     if (!this.shown.length) html = `<div class="fontpick-none">Нет шрифта «${esc(this.q.value.trim())}»</div>`;
     if (localFontsState() === 'ask') html += `<button type="button" class="fontpick-ask" data-ask>Показать шрифты компьютера…</button>`;
+    if (addFile) html += `<button type="button" class="fontpick-ask" data-file title="Файл WOFF2, WOFF, TTF или OTF — его можно и просто перетащить на страницу">Добавить шрифт из файла…</button>`;
     this.list.innerHTML = html;
     this.list.querySelectorAll('[data-css]').forEach((o) => this.seen.observe(o));
     const cur = this.shown.findIndex((f) => f.value === this.cur);
@@ -211,6 +221,12 @@ export const WEIGHT_NAMES: Record<number, [string, string]> = {
 };
 export const weightName = (w: number) => WEIGHT_NAMES[w]?.[0] ?? String(w);
 export const weightNameEn = (w: number) => WEIGHT_NAMES[w]?.[1] ?? String(w);
+
+/** Что делать с файлом из «Добавить шрифт из файла…» в конце списка; без него пункта нет (студия задаёт) */
+let addFile: ((f: File) => void) | null = null;
+export function onFontFile(fn: ((f: File) => void) | null): void {
+  addFile = fn;
+}
 
 let shared: FontPicker | null = null;
 /** Один список выбора шрифта на страницу */

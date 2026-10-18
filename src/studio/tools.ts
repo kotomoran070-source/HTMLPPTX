@@ -115,6 +115,8 @@ async function summary(h: ToolsHost, at: HTMLElement): Promise<void> {
     const state = FONTS[name] ? 'общий' : own.length ? `встроен · ${size(own.reduce((a, f) => a + fileSize(f.src), 0))}` : '';
     return { name, n: uses.length, state };
   });
+  // Встроенные, но нигде не заданные (и не у заголовков темы): их можно убрать из презентации
+  const idle = [...new Set(embedded.map((f) => f.name.trim()))].filter((n) => n && !fonts.some((f) => f.name === n) && deck.theme?.head !== n);
 
   const tile = (v: string, l: string) => `<div class="st-sum-t"><b>${v}</b><span>${l}</span></div>`;
   const slideLink = (i: number) => `<button type="button" class="st-link" data-go="${i}">слайд ${i + 1}</button>`;
@@ -127,12 +129,25 @@ async function summary(h: ToolsHost, at: HTMLElement): Promise<void> {
 </div>
 ${withNotes && withNotes < deck.slides.length ? `<p class="st-sum-note">Заметки есть у ${withNotes} из ${deck.slides.length} слайдов.</p>` : ''}
 ${heavy.length ? `<h4>Самые тяжёлые файлы</h4><ul class="st-sum-list">${heavy.map((f) => `<li><span class="st-sum-n" title="${esc(f.path)}">${esc(f.path.replace(/^assets\//, ''))}</span><b>${size(f.size)}</b>${f.slides.length ? slideLink(f.slides[0]) : '<i>оформление</i>'}</li>`).join('')}</ul>` : ''}
-${fonts.length ? `<h4>Шрифты</h4><ul class="st-sum-list">${fonts.map((f) => `<li><span class="st-sum-n" style="font-family:${esc(FONTS[f.name]?.css ?? fontStack(f.name))}">${esc(fontLabel(f.name))}</span>${f.state ? `<small>${esc(f.state)}</small>` : '<small class="warn" title="Файла шрифта в презентации нет: на компьютере без этого шрифта текст будет другим">не встроен</small>'}<button type="button" class="st-link" data-font="${esc(f.name)}">заменить</button></li>`).join('')}</ul>` : ''}
+${fonts.length || idle.length ? `<h4>Шрифты</h4><ul class="st-sum-list">${fonts.map((f) => `<li><span class="st-sum-n" style="font-family:${esc(FONTS[f.name]?.css ?? fontStack(f.name))}">${esc(fontLabel(f.name))}</span>${f.state ? `<small>${esc(f.state)}</small>` : '<small class="warn" title="Файла шрифта в презентации нет: на компьютере без этого шрифта текст будет другим">не встроен</small>'}<button type="button" class="st-link" data-font="${esc(f.name)}">заменить</button></li>`).join('')}${idle.map((n) => `<li><span class="st-sum-n" style="font-family:${esc(fontStack(n))}">${esc(n)}</span><small>не используется</small><button type="button" class="st-link" data-unfont="${esc(n)}" title="Убрать файл шрифта из презентации (в общей библиотеке он останется)">убрать</button></li>`).join('')}</ul>` : ''}
 ${unused.length ? `<div class="st-sum-unused"><span>Не используются: ${unused.length} ${unused.length === 1 ? 'файл' : unused.length < 5 ? 'файла' : 'файлов'} · ${size(unused.reduce((a, f) => a + f.size, 0))}</span><button type="button" class="btn ghost small" data-trash title="${esc(unused.map((f) => f.path.replace(/^assets\//, '')).join('\n'))}">Убрать в корзину</button></div>` : ''}`;
 
   showPopover(at, html, (b) => {
     if (b.dataset.go) return { run: () => h.go(Number(b.dataset.go)) };
     if (b.dataset.font !== undefined) return { run: () => replaceFont(h, at, b.dataset.font) };
+    const gone = b.dataset.unfont;
+    if (gone !== undefined) {
+      return {
+        run: () => {
+          h.editor.commit((d) => {
+            const list = (Array.isArray(d.fonts) ? d.fonts : []).filter((f) => f?.name?.trim() !== gone);
+            if (list.length) d.fonts = list;
+            else delete d.fonts;
+          }, { rebuild: true });
+          h.editor.toast(`Шрифт «${gone}» убран из презентации. Вернуть — Ctrl+Z`, 4000);
+        },
+      };
+    }
     if (b.hasAttribute('data-trash')) {
       return {
         run: () => {

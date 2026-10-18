@@ -616,7 +616,7 @@ slides:
       - {type: text, text: "Заявок в месяц при росте 15 % — формула **=v\\*c\\*0.3** и дальше", styles: {text: {size: 15, color: muted}}, place: {x: 562, y: 560, w: 656}, enter: fade, delay: 700}
       - {type: shape, kind: pill, fill: soft, stroke: accent, width: 1, text: "← Форматы", action: "slide:formats", styles: {text: {size: 18}}, place: {x: 64, y: 612, w: 200, h: 56}, enter: pop, delay: 800}
       - {type: shape, kind: pill, fill: gradient, shadow: sm, text: "Дальше →", action: next, styles: {text: {size: 18}}, place: {x: 284, y: 612, w: 200, h: 56}, enter: pop, delay: 880}
-      - {type: text, text: "Кнопка — любая фигура: «По щелчку при показе» в студии", styles: {text: {size: 15, color: muted}}, place: {x: 562, y: 626, w: 656}, enter: fade, delay: 950}
+      - {type: text, text: "Кнопка — любая фигура: «По щелчку» в «Свойствах»", styles: {text: {size: 15, color: muted}}, place: {x: 562, y: 626, w: 656}, enter: fade, delay: 950}
     notes: |
       Ползунки задают переменные v и c. Число, подпись и столбцы — обычные блоки с формулами:
       «{{round(v*c/100)}}» в тексте, «=v*c*0.3» в значениях графика. Кнопки внизу — фигуры с переходом по щелчку.

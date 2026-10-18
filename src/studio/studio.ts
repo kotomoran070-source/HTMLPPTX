@@ -36,6 +36,7 @@ import { initRibbonSetup } from './ribbon-setup';
 import { pictureName, savePicture } from './save-picture';
 import { contextCommands, tableMenu, contextPanelsHtml, contextTab, contextTabsHtml, syncSwatches, type ContextTab } from './context-tabs';
 import { Inspector } from './inspector';
+import { onFontFile } from '../engine/editor/font-picker';
 import { closeLibrary, EMBED_SAMPLE, presetOf, SANDBOX_SAMPLE, showLibrary, type Preset } from './library';
 import { openCodeDialog } from './code-dialog';
 import { closeMenu, showMenu, showPopover, type MenuEntry } from './menu';
@@ -314,6 +315,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
   }, true, { studio: true, textDock: $('st-textdock') });
   const ed = editor;
   onLibraryError((msg) => ed.toast(msg, 5000, true));
+  // «Добавить шрифт из файла…» в каждом списке шрифтов: на «Дизайне», в панели текста, в «Заменить шрифт»
+  onFontFile((f) => void ed.addFontFile(f));
 
   const slides = new SlidesPanel($('st-slides'), {
     deck: () => deck,
@@ -1859,6 +1862,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
     grips.sync();
     code?.syncSelection();
     layers?.update();
+    // Панель свойств — до доступности кнопок: её новые кнопки тоже получают «недоступно»
+    inspector.sync();
     document.querySelectorAll<HTMLButtonElement>('[data-cmd]').forEach((b) => {
       const c = cmds[b.dataset.cmd!];
       if (!c) return;
@@ -1875,7 +1880,6 @@ export function startStudio(deck: Deck, deckKey: string): void {
     if (document.activeElement !== accent && HEX_RE.test(av)) accent.value = av.toLowerCase();
     $('st-pos').textContent = `Слайд ${index + 1} из ${count()} · ${slideLabel(deck.slides[index], index)}`;
     syncNotes();
-    inspector.sync();
     drawCrumbs();
     paintCells();
   }

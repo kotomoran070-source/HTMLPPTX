@@ -161,7 +161,7 @@ slides:
       - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Медиа**\nфото, фильтры, видео, 3D, свои блоки", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:media", place: {x: 348, y: 372, w: 284, h: 190}, enter: pop, delay: 480}
       - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Оформление**\n22 темы, 28 живых фонов, тёмная тема", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:design", place: {x: 648, y: 372, w: 284, h: 190}, enter: pop, delay: 540}
       - {type: shape, kind: round, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, radius: 18, text: "**Импорт и связки**\nPowerPoint, Claude Design, пульт, экспорт", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:import", place: {x: 948, y: 372, w: 284, h: 190}, enter: pop, delay: 600}
-      - {type: text, text: "**Как сделать** · выделите фигуру → «Свойства» → «По щелчку при показе» → слайд, ссылка или «Показать объект»", styles: {text: {size: 15, color: text2}}, place: {x: 50, y: 600, w: 1180}, enter: fade, delay: 700}
+      - {type: text, text: "**Как сделать** · выделите фигуру → «Свойства» → «По щелчку» → слайд, ссылка или «Показать объект»", styles: {text: {size: 15, color: text2}}, place: {x: 50, y: 600, w: 1180}, enter: fade, delay: 700}
     notes: |
       Плитки — обычные фигуры со ссылкой на слайд. Удалили раздел — удалите и его плитку.
 

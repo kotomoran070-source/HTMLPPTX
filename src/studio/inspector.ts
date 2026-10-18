@@ -1,9 +1,7 @@
 import { icon } from '../components/icons';
 import { accentTail, DEFAULT_ACCENT, HEX_RE, previewAccent, slideAccent } from '../engine/accent';
 import { lookFor, themeMode } from '../engine/deck-theme';
-import { deckFonts, fontStack } from '../engine/fonts';
 import { currentTheme } from '../engine/theme';
-import { fontItems, fontPicker, type FontItem, tryFontOn } from '../engine/editor/font-picker';
 import { rowOf } from '../engine/editor/rows';
 import { toView, viewOf, VIEWS } from './block-views';
 import { getAt, setAt, type Path } from '../engine/data';
@@ -34,15 +32,27 @@ export interface InspectorHost {
   stage(): HTMLElement;
 }
 
-/** Оформление этих блоков — на контекстной вкладке ленты, в панели его не дублируем */
-const ON_RIBBON: Record<string, { tab: string; name: string; keys: string[] }> = {
-  shape: { tab: 'shape', name: 'Фигура', keys: ['kind', 'fill', 'stroke', 'width', 'dash', 'radius', 'rotate', 'shadow', 'opacity', 'valign'] },
+/**
+ * Поля, которые правятся не в панели — там их не дублируем: на контекстной вкладке ленты (tab),
+ * на панели над картинкой (заменить, «Целиком / Заполнить», масштаб, кадр, тёмная тема) или прямо
+ * на слайде (текст надписи и фигуры)
+ */
+const ELSEWHERE: Record<string, { tab?: string; name?: string; keys: string[] }> = {
+  text: { keys: ['text'] },
+  shape: { tab: 'shape', name: 'Фигура', keys: ['kind', 'text', 'fill', 'stroke', 'width', 'dash', 'radius', 'rotate', 'shadow', 'opacity', 'valign'] },
   table: { tab: 'table', name: 'Таблица', keys: ['variant', 'labels', 'lastcol', 'bands', 'valign', 'fills', 'headFills', 'highlight', 'size', 'total', 'density', 'widths', 'align', 'head'] },
+  image: { tab: 'image', name: 'Рисунок', keys: ['src', 'srcDark', 'fit', 'zoom', 'position'] },
+  video: { tab: 'video', name: 'Видео', keys: ['autoplay', 'muted', 'loop', 'controls', 'fit'] },
 };
+/** Поля не по месту: у свободной картинки высота — в «Положении и размере» (своя высота блока на неё не действует) */
+const skipped = (type: string, free: boolean) => new Set([...(ELSEWHERE[type]?.keys ?? []), ...(free && type === 'image' ? ['height'] : [])]);
+
+/** Поля шаблона слайда про вид, а не про текст — в разделе «Оформление» */
+const LOOK_KEYS = new Set(['gap', 'logo', 'layout', 'tone']);
 
 /** Какие разделы панели развёрнуты: запоминается между выделениями и сеансами */
 const FOLD_KEY = 'htmlpptx-studio-folds';
-const FOLD_DEFAULT: Record<string, boolean> = { frame: false, pos: true, anim: false, parts: false, more: false, layout: true, objects: true, deck: false, row: true };
+const FOLD_DEFAULT: Record<string, boolean> = { view: true, frame: false, pos: true, click: false, parts: false, more: false, layout: true, row: true };
 let folds: Record<string, boolean> = { ...FOLD_DEFAULT };
 try { folds = { ...folds, ...JSON.parse(localStorage.getItem(FOLD_KEY) ?? '{}') }; } catch { /* нет сохранённого */ }
 
@@ -137,18 +147,15 @@ export class Inspector {
       }
       // Цвет меняется сразу, пока тянут ползунок палитры
       if (el.type !== 'color') return;
-      // Акцент перекрашивает всю презентацию: пока тянут — только показ, правка — по change
-      if (el.dataset.f === 'accent') this.host.editor().previewAccent(el.value);
-      else if (el.dataset.f === 'saccent') this.previewSlideColors(el);
+      // Цвет слайда: пока тянут — только показ, правка — по change
+      if (el.dataset.f === 'saccent') this.previewSlideColors(el);
       // Свой фон: пока тянут — только показ на слайде; запись — по change (иначе панель перестраивается
       // вместе с палитрой и цвет меняется только щелчками)
       else if (el.dataset.f === 'bgcolor') this.previewBg(el.value);
       else this.onChange(el);
     });
     root.addEventListener('focusout', (e) => {
-      const f = (e.target as HTMLElement).dataset?.f;
-      if (f === 'accent') this.host.editor().endAccentPreview();
-      if (f === 'saccent') previewAccent(null);
+      if ((e.target as HTMLElement).dataset?.f === 'saccent') previewAccent(null);
     });
     root.addEventListener('keydown', (e) => {
       const el = e.target as HTMLInputElement;
@@ -194,35 +201,10 @@ export class Inspector {
       }
       const sac = t.closest<HTMLElement>('[data-sac]')?.dataset.sac;
       if (sac) return this.setSlideColors(sac === 'own');
-      const grad = t.closest<HTMLElement>('[data-a="grad"], [data-a="sgrad"]');
-      if (grad) return this.openGradient(grad, grad.dataset.a === 'sgrad');
-      if (t.closest('[data-a="accent-reset"]')) this.host.editor().setAccent(null);
-      const pick = t.closest<HTMLElement>('[data-a="font-pick"]');
-      if (pick) {
-        const cur = typeof this.host.deck().theme?.font === 'string' ? this.host.deck().theme!.font as string : '';
-        const slide = this.host.stage().querySelector<HTMLElement>(':scope > .slide.on');
-        fontPicker().toggle(pick, () => this.fontItems(), cur, (v) => this.setDeckFont(v),
-          (f) => tryFontOn(slide, '--font', f ? (f.value ? f.css : 'var(--font-base)') : null));
-      }
+      const grad = t.closest<HTMLElement>('[data-a="sgrad"]');
+      if (grad) return this.openGradient(grad);
       const view = t.closest<HTMLElement>('[data-view]')?.dataset.view;
       if (view) return this.setView(view);
-      if (t.closest('[data-a="font-add"]')) {
-        const inp = document.createElement('input');
-        inp.type = 'file';
-        inp.accept = '.woff2,.woff,.ttf,.otf';
-        inp.onchange = () => { const f = inp.files?.[0]; if (f) void this.host.editor().addFontFile(f); };
-        inp.click();
-      }
-      const del = t.closest<HTMLElement>('[data-a="font-del"]');
-      if (del) {
-        const gone = del.dataset.name ?? '';
-        this.host.editor().commit((d) => {
-          const list = (Array.isArray(d.fonts) ? d.fonts : []).filter((f) => f?.name?.trim() !== gone);
-          if (list.length) d.fonts = list;
-          else delete d.fonts;
-          if (gone && d.theme?.font === gone) delete d.theme.font;
-        }, { rebuild: true });
-      }
     });
   }
 
@@ -257,7 +239,7 @@ export class Inspector {
       return this.fill();
     }
     if (sel) {
-      const skip = new Set(ON_RIBBON[sel.type]?.keys ?? []);
+      const skip = skipped(sel.type, !!sel.free);
       this.fields = [...(BLOCKS[sel.type]?.fields ?? []).filter((f) => !skip.has(f.k)), STYLE_FIELD];
       this.base = sel.block;
     } else {
@@ -269,7 +251,7 @@ export class Inspector {
     this.parts = el ? partsOf(el) : [];
     const key = sel
       ? `b:${JSON.stringify(sel.free ?? sel.block)}:${sel.type}:${sig}:${sel.free ? rowOf(getAt(deck, sel.free))?.id ?? '' : ''}:${this.parts.map((x) => x.label + x.snippet).join('|')}`
-      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}:${String(deck.slides[i]?.backdropOpacity ?? '')}/${String(deck.slides[i]?.backdropSpeed ?? '')}/${String(deck.slides[i]?.bgOpacity ?? '')}/${String(deck.theme?.backdropOpacity ?? '')}/${String(deck.theme?.backdropSpeed ?? '')}:${deckFonts(deck.fonts).map((f) => f.name).join('|')}:${deck.theme?.font ?? ''}:${deck.theme?.backdrop ?? ''}:${deck.theme?.darkLook ? `${JSON.stringify(deck.theme.darkLook)}${currentTheme()}` : ''}:${JSON.stringify([deck.slides[i]?.theme ?? null, deck.theme?.accent2 ?? null, deck.theme?.accentMid ?? null])}:${deck.brand?.logo ? 'logo' : ''}`;
+      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}:${String(deck.slides[i]?.backdropOpacity ?? '')}/${String(deck.slides[i]?.backdropSpeed ?? '')}/${String(deck.slides[i]?.bgOpacity ?? '')}/${String(deck.theme?.backdropOpacity ?? '')}/${String(deck.theme?.backdropSpeed ?? '')}:${deck.theme?.backdrop ?? ''}:${deck.theme?.darkLook ? `${JSON.stringify(deck.theme.darkLook)}${currentTheme()}` : ''}:${JSON.stringify([deck.slides[i]?.theme ?? null, deck.theme?.accent2 ?? null, deck.theme?.accentMid ?? null])}:${deck.brand?.logo ? 'logo' : ''}`;
     if (key !== this.key) {
       this.key = key;
       // Прокрутка панели сохраняется, когда форма перестраивается (добавили пункт)
@@ -303,14 +285,15 @@ export class Inspector {
     const kind = sel.free ? 'Свободный объект' : inGroup ? 'Объект группы' : 'Блок в раскладке';
     const head = `<header class="st-p-head"><span class="st-p-kind">${kind}</span><h2>${blockName(sel.type)}</h2></header>` + this.viewsHtml();
     const schema = BLOCKS[sel.type];
-    const ribbon = ON_RIBBON[sel.type];
-    // Кадр картинки (обрезка, увеличение) нужен реже: отдельный свёрнутый раздел
-    // Кадр — у картинок (с увеличением); у видео «Кадр» остаётся среди основных полей
+    const ribbon = ELSEWHERE[sel.type]?.tab ? ELSEWHERE[sel.type] : null;
+    const skip = skipped(sel.type, !!sel.free);
+    // Кадр (обрезка, увеличение) нужен реже: отдельный свёрнутый раздел — у плитки с фото; у картинки
+    // кадр на панели над ней, у видео — на вкладке «Видео»
     const FRAME = schema?.fields.some((f) => f.k === 'zoom') ? ['fit', 'zoom', 'position'] : [];
-    const all = (schema?.fields ?? []).filter((f) => !ribbon?.keys.includes(f.k));
+    const all = (schema?.fields ?? []).filter((f) => !skip.has(f.k));
     const own = all.filter((f) => !FRAME.includes(f.k));
     const frame = all.filter((f) => FRAME.includes(f.k));
-    const ribbonNote = ribbon ? `<button type="button" class="st-p-hint" data-cmd="tab.${ribbon.tab}">${icon('layers')}<span>Оформление — на вкладке «${ribbon.name}»</span></button>` : '';
+    const ribbonNote = ribbon ? `<button type="button" class="st-p-hint" data-cmd="tab.${ribbon.tab}">${icon('layers')}<span>${sel.type === 'video' ? 'Воспроизведение' : 'Оформление'} — на вкладке «${ribbon.name}»</span></button>` : '';
     const contentSec = own.length || schema?.about || ribbon
       ? `<section class="st-p-sec"><h3>Содержимое</h3>${ribbonNote}${schema?.about ? `<p class="st-p-note">${esc(schema.about)}</p>` : ''}${formHtml(own, deck, sel.block)}${sel.type === 'model' ? `<div class="st-p-col">${cmdBtn('model.snapshot', 'image', 'Снимок текущего вида')}</div>` : ''}${sel.type === 'embed' || sel.type === 'sandbox' ? `<div class="st-p-col">${cmdBtn('embed.code', 'terminal', sel.type === 'sandbox' ? 'Код песочницы…' : 'Код вставки…', 'primary')}${cmdBtn('embed.poster', 'image', 'Обновить заставку')}</div>` : ''}</section>`
         + (frame.length ? sec('frame', 'Кадр картинки', formHtml(frame, deck, sel.block)) : '')
@@ -363,8 +346,9 @@ export class Inspector {
     const cur = viewOf(getAt(this.host.deck(), path));
     const tiles = (g: string) => VIEWS.filter((v) => v.group === g).map((v) =>
       `<button type="button" role="radio" aria-checked="${v.id === cur}" data-view="${v.id}" title="${esc(v.name)}">${icon(v.icon)}<span>${esc(v.name)}</span></button>`).join('');
-    return `<section class="st-p-sec"><h3>Вид</h3><div role="radiogroup" aria-label="Вид блока">${['Списки', 'Схемы'].map((g) =>
-      `<p class="st-views-g">${g}</p><div class="st-views">${tiles(g)}</div>`).join('')}</div></section>`;
+    const name = VIEWS.find((v) => v.id === cur)?.name;
+    return sec('view', 'Вид', `<div role="radiogroup" aria-label="Вид блока">${['Списки', 'Схемы'].map((g) =>
+      `<p class="st-views-g">${g}</p><div class="st-views">${tiles(g)}</div>`).join('')}</div>`, name ? ` <span class="st-p-sum">${esc(name)}</span>` : '');
   }
 
   /**
@@ -459,8 +443,7 @@ export class Inspector {
     const own = sel?.free ? Number(sel.free[3]) : -1;
     const free = (deck.slides[this.host.index()]?.free ?? []) as Block[];
     const objs = free.map((b, k) => `<option value="${k}">${k + 1} · ${objLabel(b)}${k === own ? ' (этот объект)' : ''}</option>`).join('');
-    return `<section class="st-p-sec"><h3>По щелчку при показе</h3>
-<label class="st-p-field"><select data-f="action" aria-label="Действие по щелчку">
+    return sec('click', 'По щелчку', `<label class="st-p-field"><select data-f="action" aria-label="Действие по щелчку">
   <option value="">Ничего</option>
   <optgroup label="Переход"><option value="next">Следующий слайд</option><option value="prev">Предыдущий слайд</option><option value="first">Первый слайд</option><option value="last">Последний слайд</option></optgroup>
   <optgroup label="Слайд">${slides}</optgroup>
@@ -470,8 +453,8 @@ export class Inspector {
 <label class="st-p-field" data-act-url hidden><span>Адрес</span><input type="url" data-f="actionUrl" placeholder="https://… или mailto:…" spellcheck="false"></label>
 <label class="st-p-field" data-act-obj hidden><span>Какой объект</span><select data-f="actionObj"><option value="">— выберите —</option>${objs}</select></label>
 <label class="st-p-check"><input type="checkbox" data-f="hidden"><span>Скрыт, пока не нажмут кнопку</span></label>
-<label class="st-p-field"><span>Анимация по кнопке «Проиграть»</span><select data-f="emphasis"><option value="">Как появление</option><option value="pulse">Пульс</option><option value="shake">Покачивание</option><option value="spin">Вращение</option><option value="bounce">Прыжок</option><option value="flash">Вспышка</option></select></label>
-</section>`;
+<label class="st-p-field"><span>Анимация по кнопке «Проиграть»</span><select data-f="emphasis"><option value="">Как появление</option><option value="pulse">Пульс</option><option value="shake">Покачивание</option><option value="spin">Вращение</option><option value="bounce">Прыжок</option><option value="flash">Вспышка</option></select></label>`,
+    ' <span class="st-p-sum" data-sum="click"></span>');
   }
 
   private bgHtml(cur: string): string {
@@ -481,7 +464,7 @@ export class Inspector {
     return `<div class="st-p-field"><span>Фон</span><div class="st-bdpick st-bgpick">${prev}<div class="st-bgs" role="radiogroup" aria-label="Фон слайда">${BACKGROUNDS.map(([v, l, look]) =>
       `<button type="button" role="radio" aria-checked="${v === cur}" data-bg="${esc(v)}" title="${esc(l)}"><i style="background:${look}"></i><span>${esc(l)}</span></button>`).join('')}
 <label class="st-bg-own${!known && HEX_RE.test(cur) ? ' on' : ''}" title="Свой цвет — тяните по палитре, слайд меняется сразу"><i style="background:${!known && HEX_RE.test(cur) ? cur : 'conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)'}"></i><input type="color" data-f="bgcolor" aria-label="Свой цвет фона"><span>Свой</span></label></div>${next}</div>${cur ? tuneHtml({ bgOpacity: bgOpacity(this.host.deck().slides[this.host.index()]) }) : ''}
-${!known ? `<p class="st-p-note">Сейчас: <code>${esc(cur.length > 60 ? cur.slice(0, 60) + '…' : cur)}</code></p>` : ''}</div>
+${!known && !HEX_RE.test(cur) ? `<p class="st-p-note">Сейчас: <code>${esc(cur.length > 60 ? cur.slice(0, 60) + '…' : cur)}</code></p>` : ''}</div>
 <details class="st-p-more"><summary>CSS фона</summary><label class="st-p-field"><input type="text" data-f="bg" placeholder="как у темы" spellcheck="false"></label></details>`;
   }
 
@@ -524,23 +507,14 @@ ${!known ? `<p class="st-p-note">Сейчас: <code>${esc(cur.length > 60 ? cur
     previewAccent(el.value, this.host.stage(), accentTail(s?.theme), true);
   }
 
-  /** Градиент акцента презентации или своих цветов слайда (own): готовые сочетания и свои точки */
-  private openGradient(at: HTMLElement, own: boolean): void {
+  /** Градиент своих цветов слайда: готовые сочетания и свои точки (градиент презентации — на «Дизайне») */
+  private openGradient(at: HTMLElement): void {
     const i = this.host.index();
     const ed = this.host.editor();
-    const t = own ? this.host.deck().slides[i]?.theme : this.host.deck().theme;
-    openAccentGradient(at, { accent: t?.accent, accent2: t?.accent2, accentMid: t?.accentMid }, () => this.host.stage(), own, (c) => ed.commit((d) => {
-      if (own) {
-        const s = d.slides[i];
-        s.theme = { accent: c.accent ?? s.theme?.accent ?? DEFAULT_ACCENT, ...(c.accent2 ? { accent2: c.accent2 } : {}), ...(c.accentMid?.length ? { accentMid: c.accentMid } : {}) };
-        return;
-      }
-      const th = (d.theme ??= {});
-      if (c.accent) th.accent = c.accent;
-      if (c.accent2) th.accent2 = c.accent2;
-      else { delete th.accent2; delete th.accentFlow; }
-      if (c.accentMid?.length) th.accentMid = c.accentMid;
-      else delete th.accentMid;
+    const t = this.host.deck().slides[i]?.theme;
+    openAccentGradient(at, { accent: t?.accent, accent2: t?.accent2, accentMid: t?.accentMid }, () => this.host.stage(), true, (c) => ed.commit((d) => {
+      const s = d.slides[i];
+      s.theme = { accent: c.accent ?? s.theme?.accent ?? DEFAULT_ACCENT, ...(c.accent2 ? { accent2: c.accent2 } : {}), ...(c.accentMid?.length ? { accentMid: c.accentMid } : {}) };
     }, { rebuild: true }), () => ed.endAccentPreview());
   }
 
@@ -567,49 +541,23 @@ ${own ? `<span class="st-p-color st-p-sac"><input type="color" data-f="saccent" 
     const s = deck.slides[i];
     if (!s) return '';
     const tpl = s.template ?? 'content';
+    const canvas = tpl === 'canvas';
+    // Сначала то, что на слайде написано, затем его вид
+    const text = this.fields.filter((f) => !LOOK_KEYS.has(f.k));
+    const look = this.fields.filter((f) => LOOK_KEYS.has(f.k));
+    // У холста заголовка нет — это его имя; у остальных нужно, только если в списке — не как заголовок
+    const name = `<label class="st-p-field"><span>${canvas ? 'Название слайда' : 'Название в списке'}</span><input type="text" data-f="label" placeholder="${esc(canvas ? `Слайд ${i + 1}` : slideLabel({ ...s, label: undefined }, i))}"></label>`;
     return `<header class="st-p-head"><span class="st-p-kind">Слайд ${i + 1} · ${esc(TEMPLATE_NAMES[tpl] ?? tpl)}</span><h2>${esc(slideLabel(s, i))}</h2></header>
-<section class="st-p-sec"><h3>Слайд</h3>
-<label class="st-p-field"><span>Название в списке</span><input type="text" data-f="label" placeholder="${esc(s.title ?? `Слайд ${i + 1}`)}"></label>
-${tpl === 'canvas' ? this.bgHtml(typeof s.bg === 'string' ? s.bg.trim() : '') : ''}
+${canvas || text.length ? `<section class="st-p-sec"><h3>Содержимое</h3>${canvas ? name : ''}${formHtml(text, deck, ['slides', i])}</section>` : ''}
+<section class="st-p-sec"><h3>Оформление</h3>
+${canvas ? this.bgHtml(typeof s.bg === 'string' ? s.bg.trim() : '') : ''}
 ${this.backdropHtml(typeof s.backdrop === 'string' ? s.backdrop : '')}
 ${this.slideColorsHtml(s)}
-${formHtml(this.fields, deck, ['slides', i])}
-${(tpl === 'content' || tpl === 'canvas') && !deck.brand?.logo ? cmdBtn('brand.logo.add', 'image', 'Добавить логотип…') : ''}
-<button type="button" class="st-p-hint" data-cmd="tab.anim">${icon('sparkle')}<span>Переход и появление объектов — на вкладке «Анимация»</span></button>
+${formHtml(look, deck, ['slides', i])}
+${(tpl === 'content' || canvas) && !deck.brand?.logo ? cmdBtn('brand.logo.add', 'image', 'Добавить логотип…') : ''}
 </section>
-${tpl !== 'canvas' && !s.live ? `<section class="st-p-sec"><h3>Раскладка шаблона</h3><p class="st-p-note">Части слайда стоят на своих местах. Разберите слайд, чтобы двигать и масштабировать их по отдельности: вид и анимации сохранятся. Вернуть — Ctrl+Z.</p>${cmdBtn('slide.explode', 'ungroup', 'Разобрать на объекты')}</section>` : ''}
-${sec('deck', 'Презентация', `<label class="st-p-field"><span>Название</span><input type="text" data-f="title"></label>
-<label class="st-p-field"><span>Акцентный цвет</span><span class="st-p-color"><input type="color" data-f="accent" aria-label="Акцентный цвет"><button type="button" class="st-link" data-a="accent-reset">Стандартный</button></span></label>
-<div class="st-p-field"><span>Градиент акцента</span><span class="st-p-color">${gradBtn('grad', accentSwatch(deck.theme), 'Градиент акцента презентации: готовые сочетания и свои точки')}</span></div>
-${this.fontsHtml(deck)}`)}`;
-  }
-
-  /** Шрифт презентации и свои шрифты: выбор, список с «×», «Добавить шрифт…» (или перетащить файл) */
-  private fontsHtml(deck: Deck): string {
-    const own = deckFonts(deck.fonts);
-    const cur = typeof deck.theme?.font === 'string' ? deck.theme.font : '';
-    // Шрифт компьютера — несколько файлов (жирный, курсив) под одним именем: в списке он один
-    const names = [...new Set(own.map((f) => f.name.trim()))];
-    const list = names.map((n) => `<span class="st-font" style="font-family:${esc(fontStack(n))}">${esc(n)}<button type="button" data-a="font-del" data-name="${esc(n)}" title="Убрать шрифт" aria-label="Убрать шрифт ${esc(n)}">×</button></span>`).join('');
-    const label = cur || 'Системный';
-    return `<div class="st-p-field"><span>Шрифт презентации</span><button type="button" class="edfont st-p-font" data-a="font-pick" aria-haspopup="listbox" aria-expanded="false" aria-label="Шрифт презентации: ${esc(label)}"><span style="font-family:${esc(cur ? fontStack(cur) : 'var(--font)')}">${esc(label)}</span></button></div>
-<div class="st-fonts">${list}<button type="button" class="st-link" data-a="font-add" title="Файл WOFF2, WOFF, TTF или OTF — можно просто перетащить на страницу">Добавить шрифт…</button></div>`;
-  }
-
-  /** Варианты «Шрифта презентации»: системный, свои шрифты презентации и библиотеки, шрифты компьютера */
-  private fontItems(): FontItem[] {
-    return fontItems([{ value: '', label: 'Системный', css: 'var(--font)', group: 'Шрифты темы' }], this.host.editor().fontChoices(), fontStack);
-  }
-
-  /** Шрифт всей презентации; шрифт библиотеки или компьютера — сначала копией в презентацию */
-  private setDeckFont(raw: string): void {
-    const ed = this.host.editor();
-    const apply = () => ed.commit((d) => {
-      if (raw) d.theme = { ...(d.theme ?? {}), font: raw };
-      else if (d.theme) delete d.theme.font;
-    }, { rebuild: true });
-    if (!raw) apply();
-    else void ed.ensureFont(raw).then((ok) => (ok ? apply() : this.fill()));
+${!canvas && !s.live ? `<section class="st-p-sec"><button type="button" class="st-pbtn" data-cmd="slide.explode" title="Части слайда стоят на своих местах. Разберите слайд, чтобы двигать и масштабировать их по отдельности: вид и анимации сохранятся. Вернуть — Ctrl+Z">${icon('ungroup')}<span>Разобрать на объекты</span></button></section>` : ''}
+${canvas ? '' : sec('more', 'Дополнительно', name)}`;
   }
 
   /** Раздел «Состав»: вложенные блоки и поля выделенного блока. Клик — выделить или править. */
@@ -623,6 +571,7 @@ ${this.fontsHtml(deck)}`)}`;
   }
 
   private multiHtml(n: number): string {
+    const few = n < 3 ? '<p class="st-p-note">Распределение — от трёх объектов.</p>' : '';
     return `<header class="st-p-head"><span class="st-p-kind">Несколько объектов</span><h2>Выделено: ${n}</h2></header>
 <section class="st-p-sec"><h3>Выровнять относительно друг друга</h3>
 <div class="st-p-icons" role="group" aria-label="Выровнять">${ALIGN.map(([c, ic, l]) => `<button type="button" data-cmd="${c}" title="${l}" aria-label="${l}">${icon(ic)}</button>`).join('')}</div>
@@ -630,9 +579,8 @@ ${this.fontsHtml(deck)}`)}`;
   <button type="button" data-cmd="dist.h" title="Равные промежутки по ширине" aria-label="Распределить по ширине">${icon('dist-h')}</button>
   <button type="button" data-cmd="dist.v" title="Равные промежутки по высоте" aria-label="Распределить по высоте">${icon('dist-v')}</button>
 </div>
-<p class="st-p-note">Распределение доступно от трёх объектов.</p>
+${few}
 </section>
-<section class="st-p-sec"><button type="button" class="st-p-hint" data-cmd="tab.anim">${icon('sparkle')}<span>Появление и порядок — на вкладке «Анимация»</span></button></section>
 <section class="st-p-sec st-p-end"><div class="st-p-row">${cmdBtn('obj.dup', 'copy', 'Дублировать')}${cmdBtn('obj.del', 'trash', 'Удалить', 'danger')}</div></section>`;
   }
 
@@ -675,8 +623,6 @@ ${this.fontsHtml(deck)}`)}`;
       label: typeof s?.label === 'string' ? s.label : '',
       bg,
       bgcolor: HEX_RE.test(bg.trim()) ? bg.trim().toLowerCase() : '#ffffff',
-      title: deck.title ?? '',
-      accent: acNow,
       saccent: (typeof s?.theme?.accent === 'string' && HEX_RE.test(s.theme.accent) ? s.theme.accent : acNow).toLowerCase(),
     };
   }
@@ -699,8 +645,11 @@ ${this.fontsHtml(deck)}`)}`;
     if (actSel && actUrl) actUrl.hidden = actSel.value !== 'url';
     const actObj = this.root.querySelector<HTMLElement>('[data-act-obj]');
     if (actSel && actObj) actObj.hidden = !/^(show|hide|toggle|play):$/.test(actSel.value);
-    const reset = this.root.querySelector<HTMLElement>('[data-a="accent-reset"]');
-    if (reset) reset.hidden = !this.host.deck().theme?.accent && !this.host.deck().theme?.accent2;
+    const click = this.root.querySelector<HTMLElement>('[data-sum="click"]');
+    if (click && actSel) {
+      const what = [actSel.value ? (actSel.selectedOptions[0]?.textContent ?? '').replace(/…$/, '') : '', v.hidden ? 'скрыт' : ''].filter(Boolean);
+      click.textContent = what.join(', ');
+    }
     const sum = this.root.querySelector<HTMLElement>('[data-sum="enter"]');
     if (sum) sum.textContent = (v.enter ? effectName(this.host.deck(), v.enter) : '') || 'нет';
   }
@@ -839,12 +788,6 @@ ${this.fontsHtml(deck)}`)}`;
         if (raw) d.slides[i].bg = raw;
         else delete d.slides[i].bg;
       }, { rebuild: true, merge: `bg:${i}` });
-    } else if (f === 'title') {
-      if (!raw) return this.fill();
-      ed.commit((d) => { d.title = raw; }, { rebuild: false, merge: 'title' });
-      document.title = `${raw} — Slideria`;
-    } else if (f === 'accent') {
-      ed.setAccent(raw, f);
     } else if (f === 'saccent' && HEX_RE.test(raw)) {
       previewAccent(null);
       ed.commit((d) => { d.slides[i].theme = { ...(d.slides[i].theme ?? {}), accent: raw.toUpperCase() }; }, { rebuild: true, merge: `sac:${i}` });
