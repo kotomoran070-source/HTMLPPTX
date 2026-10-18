@@ -69,6 +69,40 @@ test('«Эффект текста»: выбор пишет textFx, «Просм�
   expect(errors).toEqual([]);
 });
 
+test('«Эффект текста»: при наведении примеряется каждый эффект, а не только машинка и расшифровка', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=tpl&studio#19');
+  const tile = page.locator('#st-canvas .slide.on > .free').filter({ hasText: 'Неон' }).first();
+  const b = (await tile.boundingBox())!;
+  await page.mouse.click(b.x + 16, b.y + 16);
+  await page.locator('[data-tab="anim"]').first().click();
+  await page.locator('[data-cmd="anim.textfx"]').first().click();
+  // Анимации эффекта на объекте: у текста, его букв и копий для глитча и блика
+  const anims = () => tile.evaluate((o) => {
+    const names = new Set<string>();
+    for (const el of o.querySelectorAll('*')) {
+      for (const pseudo of [null, '::before', '::after']) {
+        const n = getComputedStyle(el, pseudo).animationName;
+        if (n && n !== 'none') n.split(',').forEach((x) => names.add(x.trim()));
+      }
+    }
+    return [...names].sort();
+  });
+  const want: [string, string[]][] = [['Неон', ['tfx-neon']], ['Глитч', ['tfx-gl1', 'tfx-gl2', 'tfx-glitch']], ['Блик', ['tfx-shine']], ['Волна', ['tfx-wave']]];
+  for (const [name, keys] of want) {
+    await page.locator('.st-menu button', { hasText: name }).hover();
+    await expect.poll(anims).toEqual(keys);
+  }
+  await page.locator('.st-menu button', { hasText: 'Печатная машинка' }).hover();
+  await expect.poll(() => tile.locator('.tfx-c').count()).toBeGreaterThan(0);
+  // Ушли из меню — примерка снята, в правке объект снова без анимаций
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.st-menu')).toHaveCount(0);
+  await expect(tile).not.toHaveClass(/tfx-try/);
+  await expect.poll(anims).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
 test('логотип: размер знака в плашке — отдельно от плашки', async ({ page }) => {
   await page.goto('/?deck=tpl&studio#7');
   const img = page.locator('#st-canvas .slide.on .corner-logo img');

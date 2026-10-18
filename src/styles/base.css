@@ -318,14 +318,17 @@ body.editing .slide.on > .free.act { cursor: inherit; translate: none; filter: n
 @keyframes emph-flash { 20%, 60% { opacity: .15; } 40%, 80% { opacity: 1; } }
 
 /* Эффекты текста (textFx, engine/text-fx.ts). Неон — сам по себе; копия текста data-text для глитча и блика,
-   буквы .tfx-c для волны, машинки и расшифровки — только при показе и в «Просмотре» */
+   буквы .tfx-c для волны, машинки и расшифровки — только при показе и в «Просмотре».
+   Анимация эффекта — ещё и в --tfx-anim (не наследуется): по ней примерка в студии включает её и при правке,
+   где анимации на слайде выключены (editor.css) */
+@property --tfx-anim { syntax: '*'; inherits: false; }
 .free[data-tfx] :is(p[data-type="text"], .shape-t) { position: relative; }
-.free[data-tfx="neon"] :is(p[data-type="text"], .shape-t) { animation: tfx-neon 5s linear infinite; }
+.free[data-tfx="neon"] :is(p[data-type="text"], .shape-t) { --tfx-anim: tfx-neon 5s linear infinite; animation: var(--tfx-anim); }
 @keyframes tfx-neon {
   0%, 46%, 52%, 56%, 100% { opacity: 1; text-shadow: 0 0 2px color-mix(in srgb, #fff 65%, var(--ac)), 0 0 10px var(--ac), 0 0 26px var(--ac), 0 0 52px var(--ac2, var(--ac)); }
   48%, 54% { opacity: .72; text-shadow: none; }
 }
-.free[data-tfx="glitch"] :is(p[data-type="text"], .shape-t) { animation: tfx-glitch 3.4s steps(1, end) infinite; }
+.free[data-tfx="glitch"] :is(p[data-type="text"], .shape-t) { --tfx-anim: tfx-glitch 3.4s steps(1, end) infinite; animation: var(--tfx-anim); }
 @keyframes tfx-glitch {
   0%, 78%, 91%, 100% { transform: none; text-shadow: none; }
   79% { transform: translate(-2px, 1px) skewX(-7deg); text-shadow: -3px 0 #FF2BD6, 3px 0 #22D3EE; }
@@ -337,8 +340,8 @@ body.editing .slide.on > .free.act { cursor: inherit; translate: none; filter: n
 .free:is([data-tfx="glitch"], [data-tfx="shine"]) [data-text]::after {
   content: attr(data-text); position: absolute; inset: 0; padding: inherit; white-space: pre-wrap; pointer-events: none; text-shadow: none;
 }
-.free[data-tfx="glitch"] [data-text]::before { color: #FF2BD6; opacity: 0; animation: tfx-gl1 3.4s steps(1, end) infinite; }
-.free[data-tfx="glitch"] [data-text]::after { color: #22D3EE; opacity: 0; animation: tfx-gl2 3.4s steps(1, end) infinite; }
+.free[data-tfx="glitch"] [data-text]::before { color: #FF2BD6; opacity: 0; --tfx-anim: tfx-gl1 3.4s steps(1, end) infinite; animation: var(--tfx-anim); }
+.free[data-tfx="glitch"] [data-text]::after { color: #22D3EE; opacity: 0; --tfx-anim: tfx-gl2 3.4s steps(1, end) infinite; animation: var(--tfx-anim); }
 @keyframes tfx-gl1 {
   0%, 78%, 91%, 100% { opacity: 0; }
   79% { opacity: .85; transform: translate(-9px, 0); clip-path: inset(10% 0 60% 0); }
@@ -358,14 +361,14 @@ body.editing .slide.on > .free.act { cursor: inherit; translate: none; filter: n
   color: transparent; -webkit-text-fill-color: transparent;
   background: linear-gradient(105deg, transparent 42%, color-mix(in srgb, #fff 85%, var(--ac)) 50%, transparent 58%) 0 0 / 300% 100% no-repeat;
   -webkit-background-clip: text; background-clip: text;
-  animation: tfx-shine 3.2s ease-in-out infinite;
+  --tfx-anim: tfx-shine 3.2s ease-in-out infinite; animation: var(--tfx-anim);
 }
 @keyframes tfx-shine { 0% { background-position: 100% 0; } 65%, 100% { background-position: 0 0; } }
-.free[data-tfx="wave"] .tfx-c { position: relative; animation: tfx-wave 1.8s ease-in-out infinite; animation-delay: calc(var(--i) * 70ms - 5s); }
+.free[data-tfx="wave"] .tfx-c { position: relative; --tfx-anim: tfx-wave 1.8s ease-in-out calc(var(--i) * 70ms - 5s) infinite; animation: var(--tfx-anim); }
 @keyframes tfx-wave { 0%, 60%, 100% { top: 0; } 30% { top: -.24em; } }
 .tfx-c.tfx-off { visibility: hidden; }
 .tfx-c.tfx-caret { position: relative; }
-.tfx-c.tfx-caret::after { content: ''; position: absolute; left: calc(100% + 1px); top: .08em; bottom: .02em; width: .08em; min-width: 2px; background: var(--ac); animation: tfx-blink .9s steps(1, end) infinite; }
+.tfx-c.tfx-caret::after { content: ''; position: absolute; left: calc(100% + 1px); top: .08em; bottom: .02em; width: .08em; min-width: 2px; background: var(--ac); --tfx-anim: tfx-blink .9s steps(1, end) infinite; animation: var(--tfx-anim); }
 @keyframes tfx-blink { 50% { opacity: 0; } }
 .tfx-c.tfx-dim { -webkit-text-fill-color: var(--ac); color: var(--ac); opacity: .75; }
 @media (prefers-reduced-motion: reduce) { .free[data-tfx] *, .free[data-tfx] *::before, .free[data-tfx] *::after { animation: none !important; } }

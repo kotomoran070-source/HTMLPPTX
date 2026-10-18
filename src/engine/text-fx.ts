@@ -47,9 +47,17 @@ export function textFx(slide: HTMLElement | undefined): () => void {
   return run([...slide.querySelectorAll<HTMLElement>('.free[data-tfx]')]);
 }
 
-/** Примерка эффекта на одном объекте (студия, наведение на пункт меню) — и в правке */
+/**
+ * Примерка эффекта на одном объекте (студия, наведение на пункт меню) — и в правке: класс tfx-try
+ * включает анимации эффекта, выключенные на слайде при правке (editor.css)
+ */
 export function textFxPreview(obj: HTMLElement): () => void {
-  return run([obj], 0);
+  obj.classList.add('tfx-try');
+  const stop = run([obj], 0);
+  return () => {
+    obj.classList.remove('tfx-try');
+    stop();
+  };
 }
 
 function run(objs: HTMLElement[], wait?: number): () => void {

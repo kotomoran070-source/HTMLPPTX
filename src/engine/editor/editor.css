@@ -20,6 +20,14 @@ body.editing .stage .free.locked, body.editing .stage .free.locked * { pointer-e
 /* Скрытый на время правки из области выделения: место занимает, но не виден и не мешает */
 body.editing .stage .free.st-hidden, body.editing .stage .free.st-hidden * { visibility: hidden !important; pointer-events: none !important; }
 body.editing .stage .slide.on > .free.fx { animation: none !important; }
+/* Примерка эффекта текста (наведение в «Эффект текста», класс tfx-try): его анимации идут и при правке —
+   у каждого эффекта, а не только у тех, что двигает скрипт (машинка, расшифровка). Глитч — сразу, без паузы */
+@media (prefers-reduced-motion: no-preference) {
+  body.editing .stage .slide .free.tfx-try[data-tfx] *, body.editing .stage .slide .free.tfx-try[data-tfx] *::before,
+  body.editing .stage .slide .free.tfx-try[data-tfx] *::after { animation: var(--tfx-anim, none) !important; }
+  body.editing .stage .slide .free.tfx-try[data-tfx="glitch"] *, body.editing .stage .slide .free.tfx-try[data-tfx="glitch"] *::before,
+  body.editing .stage .slide .free.tfx-try[data-tfx="glitch"] *::after { animation-delay: -2.55s !important; }
+}
 body.editing .stage .fin .rg circle { opacity: .35; }
 
 /* Подписи кнопок на финальных слайдах видны всегда, чтобы их можно было править */
