@@ -70,6 +70,40 @@ test('новая презентация и удаление в корзину', 
   await expect(page.locator('.pk-card[data-name="pustaya-iz-testa"]')).toHaveCount(0, { timeout: 15_000 });
 });
 
+test('удаление со страницы выбора: карточка уходит сразу, без перезагрузки; та же папка снова — видна и отслеживается', async ({ page }) => {
+  const name = 'udalit-iz-testa';
+  fs.cpSync(path.join(DECKS, 'design'), path.join(DECKS, name), { recursive: true });
+  await page.goto('/?all');
+  const card = page.locator(`.pk-card[data-name="${name}"]`);
+  await expect(card).toBeVisible({ timeout: 15_000 });
+  const count = () => page.locator('.pk-card[data-name]').count();
+  const before = await count();
+  // Метка в окне: перезагрузка страницы её сотрёт
+  await page.evaluate(() => { (window as { zzStay?: number }).zzStay = 1; });
+  await page.locator(`.pk-del[data-del="${name}"]`).click();
+  const t0 = Date.now();
+  await page.locator('.pk-confirm [data-a="ok"]').click();
+  await expect(card).toHaveCount(0, { timeout: 3000 });
+  expect(Date.now() - t0).toBeLessThan(3000);
+  expect(await count()).toBe(before - 1);
+  await expect(page.locator('.pk-hero p')).toContainText(`${before - 1} `);
+  expect(await page.evaluate(() => (window as { zzStay?: number }).zzStay)).toBe(1);
+  expect(fs.existsSync(path.join(DECKS, name))).toBe(false);
+  expect(fs.readdirSync(path.join(DECKS, '.trash')).some((d) => d.startsWith(`${name}-`))).toBe(true);
+  // Та же папка снова: карточка появляется, правки её файла сервер замечает
+  await page.waitForTimeout(3200);
+  fs.cpSync(path.join(DECKS, 'design'), path.join(DECKS, name), { recursive: true });
+  await expect(card).toBeVisible({ timeout: 15_000 });
+  const file = path.join(DECKS, name, 'deck.yaml');
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(/^title: .*$/m, 'title: Снова здесь'));
+  // Карточки за краем экрана заполняются при прокрутке
+  await expect(async () => {
+    await card.scrollIntoViewIfNeeded();
+    await expect(card.locator('.pk-title')).toHaveText('Снова здесь', { timeout: 1000 });
+  }).toPass({ timeout: 15_000 });
+  fs.rmSync(path.join(DECKS, name), { recursive: true, force: true });
+});
+
 test('запрос с чужого сайта не может править проект', async () => {
   const res = await fetch('http://localhost:5190/__htmlpptx/delete?deck=slideria', { method: 'POST', headers: { Origin: 'http://evil.example' } });
   expect(res.status).toBe(403);

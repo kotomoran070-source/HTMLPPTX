@@ -30,6 +30,9 @@ function setMeta(deck: Deck): void {
   updateFavicon(deck.brand?.logo);
 }
 
+// Открытую презентацию удалили (в другом окне) — к списку презентаций
+import.meta.hot?.on('slideria:deck-removed', (d: { name: string }) => { if (name && d.name === name) location.href = './?all'; });
+
 async function boot(): Promise<void> {
   if (!name || !decks[name]) {
     // Страница выбора есть только в yarn dev: собранный файл всегда открывает свою презентацию

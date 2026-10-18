@@ -80,14 +80,30 @@ async function remove(name: string, item: HTMLElement): Promise<void> {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((data as { error?: string }).error ?? `ошибка ${res.status}`);
       close();
-      item.classList.add('pk-gone');
-      // Остаёмся на странице выбора, даже если осталась одна презентация
-      setTimeout(() => { location.href = './?all'; }, 300);
+      // Карточка уходит на месте — страница не перезагружается
+      dropCard(name);
     } catch (e) {
       box.querySelector('.imp-body')!.insertAdjacentHTML('beforeend', `<p class="imp-err">Не удалось: ${esc((e as Error).message)}</p>`);
       ok.disabled = cancel.disabled = false;
     }
   };
+}
+
+/** Строка под заголовком: сколько презентаций и где они */
+const heroText = (n: number) => (n
+  ? `${n} ${plural(n, 'презентация', 'презентации', 'презентаций')} в папке <code>${esc(__DECKS_DIR__)}</code>. Откройте, чтобы показать или править.`
+  : 'Пока ни одной. Создайте новую или импортируйте HTML.');
+
+/** Карточка удалённой презентации — плавно убирается, число в заголовке — меньше */
+function dropCard(name: string): void {
+  const item = document.querySelector<HTMLElement>(`.pk-card[data-name="${CSS.escape(name)}"]`)?.closest<HTMLElement>('.pk-item');
+  if (!item || item.classList.contains('pk-gone')) return;
+  item.classList.add('pk-gone');
+  setTimeout(() => {
+    item.remove();
+    const hero = document.querySelector('.pk-hero p');
+    if (hero) hero.innerHTML = heroText(document.querySelectorAll('.pk-card[data-name]').length);
+  }, 260);
 }
 
 /** Новая презентация: название и старт — пустая или с примерами; после создания открывается редактор. */
@@ -164,9 +180,7 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
   </header>
   <section class="pk-hero">
     <h1>Презентации</h1>
-    <p>${names.length
-      ? `${names.length} ${plural(names.length, 'презентация', 'презентации', 'презентаций')} в папке <code>${esc(__DECKS_DIR__)}</code>. Откройте, чтобы показать или править.`
-      : 'Пока ни одной. Создайте новую или импортируйте HTML.'}</p>
+    <p>${heroText(names.length)}</p>
   </section>
   <div class="pk-grid" id="pk-grid">
     ${names.map((n) => `<div class="pk-item"><a class="pk-card" href="?deck=${encodeURIComponent(n)}" data-name="${esc(n)}">
@@ -211,6 +225,9 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
       retheme();
     }
   });
+
+  // Удалили в другом окне (или из студии): карточка уходит и здесь, без перезагрузки
+  import.meta.hot?.on('slideria:deck-removed', (d: { name: string }) => dropCard(d.name));
 
   const newBtn = document.getElementById('pk-new');
   if (newBtn) newBtn.onclick = () => void create();

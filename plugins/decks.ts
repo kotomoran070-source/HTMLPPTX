@@ -269,7 +269,20 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     return { moved };
   }
 
-  function trashDeck(name: string): { trashed: string } {
+  /** Презентации, которые сейчас уходят в корзину: события наблюдения за их папкой страницы не перезагружают */
+  const trashing = new Set<string>();
+  /** Папка и всё внутри: наблюдение снимается со всего — вложенные папки (assets/) тоже держат её на Windows */
+  const tree = (p: string): string[] => [p, ...fs.readdirSync(p, { withFileTypes: true })
+    .flatMap((e) => (e.isDirectory() ? tree(path.join(p, e.name)) : [path.join(p, e.name)]))];
+
+  /**
+   * Удаление: папка — в presentations/.trash, мгновенно (переименование). Windows не даёт переименовать
+   * папку, пока за ней следит сервер (EPERM / EBUSY): наблюдение снимается со всей папки, и попытки
+   * повторяются, не останавливая сервер, — иначе Windows не успевает отпустить папку, и раньше всё
+   * кончалось копированием всей презентации (с картинками и видео) в корзину. Страницы узнают об
+   * удалении сообщением и убирают карточку на месте — без перезагрузки
+   */
+  async function trashDeck(name: string): Promise<{ trashed: string }> {
     const d = new Date();
     const p = (n: number) => String(n).padStart(2, '0');
     const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
@@ -277,24 +290,39 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     fs.mkdirSync(trash, { recursive: true });
     const target = path.join(trash, `${name}-${stamp}`);
     const src = path.join(dir, name);
-    // Windows не даёт переименовать папку, за которой следит сервер (EPERM / EBUSY):
-    // снимаем наблюдение, пробуем ещё раз, в крайнем случае — копия в корзину и удаление
-    server?.watcher.unwatch(src);
-    let moved = false;
-    for (let i = 0; i < 6 && !moved; i++) {
-      try {
-        fs.renameSync(src, target);
-        moved = true;
-      } catch (e) {
-        const code = (e as NodeJS.ErrnoException).code;
-        if (code !== 'EPERM' && code !== 'EBUSY' && code !== 'EACCES') throw e;
-        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 150);
+    trashing.add(name);
+    const watched = tree(src);
+    try {
+      server?.watcher.unwatch(watched);
+      let moved = false;
+      for (let i = 0; i < 16 && !moved; i++) {
+        try {
+          await fs.promises.rename(src, target);
+          moved = true;
+        } catch (e) {
+          const code = (e as NodeJS.ErrnoException).code;
+          if (code !== 'EPERM' && code !== 'EBUSY' && code !== 'EACCES') throw e;
+          await new Promise((r) => setTimeout(r, 50 + i * 25));
+        }
+      }
+      if (!moved) {
+        await fs.promises.cp(src, target, { recursive: true });
+        await fs.promises.rm(src, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+      }
+    } finally {
+      // События наблюдения могут прийти и после переименования
+      setTimeout(() => trashing.delete(name), 3000);
+      // unwatch навсегда записывает пути в игнор наблюдателя: новая презентация с тем же именем
+      // иначе не замечалась бы (правки файла не обновляли страницу)
+      const w = server?.watcher as unknown as { _ignoredPaths?: Set<string>; _userIgnored?: unknown } | undefined;
+      if (w?._ignoredPaths) {
+        for (const x of watched) { w._ignoredPaths.delete(x); w._ignoredPaths.delete(`${x}/**`); }
+        w._userIgnored = undefined;
       }
     }
-    if (!moved) {
-      fs.cpSync(src, target, { recursive: true });
-      fs.rmSync(src, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
-    }
+    const mod = server?.moduleGraph.getModuleById(RESOLVED);
+    if (mod) server!.moduleGraph.invalidateModule(mod);
+    server?.ws.send({ type: 'custom', event: 'slideria:deck-removed', data: { name } });
     return { trashed: path.relative(path.dirname(dir), target).split(path.sep).join('/') };
   }
 
@@ -557,6 +585,12 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     name: 'htmlpptx-decks',
     enforce: 'pre',
 
+    // Корзина не отслеживается: удалённые презентации не держатся наблюдением (на Windows — открытыми
+    // папками) и не перезагружают страницы своим появлением там
+    config() {
+      return { server: { watch: { ignored: [(p: string) => /[\\/]\.trash([\\/]|$)/.test(p)] } } };
+    },
+
     configResolved(c) {
       root = c.root;
     },
@@ -565,8 +599,12 @@ export function decksPlugin(opts: DecksOptions): Plugin {
       server = s;
       const refresh = (file: string) => {
         if (!file.startsWith(dir) || path.basename(file) !== 'deck.yaml') return;
+        const rel = path.relative(dir, file).split(path.sep);
+        if (rel[0] === '.trash') return;
         const mod = s.moduleGraph.getModuleById(RESOLVED);
         if (mod) s.moduleGraph.invalidateModule(mod);
+        // Удаление из студии — страницы получили сообщение и убрали карточку сами
+        if (trashing.has(rel[0])) return;
         s.ws.send({ type: 'full-reload' });
       };
       s.watcher.add(dir);
@@ -656,7 +694,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           if (url.pathname === API + 'library-put') return send(res, 200, putLibrary(url.searchParams.get('kind') ?? '', url.searchParams.get('id') ?? '', await readBody(req)));
           if (url.pathname === API + 'library-delete') return send(res, 200, deleteLibrary(url.searchParams.get('kind') ?? '', url.searchParams.get('id') ?? ''));
           const name = assertDeck(url.searchParams.get('deck'));
-          if (url.pathname === API + 'delete') return send(res, 200, trashDeck(name));
+          if (url.pathname === API + 'delete') return send(res, 200, await trashDeck(name));
           if (url.pathname === API + 'assets-list') return send(res, 200, listAssets(name));
           if (url.pathname === API + 'checkpoint') return send(res, 200, makeCheckpoint(name));
           if (url.pathname === API + 'checkpoints') return send(res, 200, listCheckpoints(name));
