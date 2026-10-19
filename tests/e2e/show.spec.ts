@@ -276,6 +276,68 @@ test('видео: пауза, перемотка и запуск в окне д�
   expect(errors).toEqual([]);
 });
 
+test('пульт: часы показа общие с окном показа, наведение пальцем видно и на самом пульте, как у зрителей', async ({ page, context }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=mirror#1');
+  await expect(page.locator('.slide.on')).toHaveCount(1);
+  // Пульт открывают позже окна показа: без общих часов его анимации отставали бы на это время
+  await page.waitForTimeout(1500);
+  const pres = await context.newPage();
+  const presErrors = watchErrors(pres);
+  await pres.goto('/?deck=mirror&view=presenter');
+  await expect(pres.locator('#cur .slide.on')).toHaveCount(1);
+  await expect(pres.locator('#link.ok')).toHaveCount(1);
+  const clock = (p: typeof page) => p.evaluate(async () => { const u = '/src/engine/show-clock.ts'; return (await import(u)).showTime() as number; });
+  const before = await clock(page);
+  const own = await clock(pres);
+  const after = await clock(page);
+  expect(own).toBeGreaterThan(before - 100);
+  expect(own).toBeLessThan(after + 100);
+
+  // Палец на элементе с наведением: и у зрителей, и на самом пульте (у касания своего наведения нет)
+  const obj = (p: typeof page, root: string) => p.locator(`${root} .slide.on > .free`).filter({ hasText: /^Коробка$/ }).first();
+  const hovered = (p: typeof page, root: string) => obj(p, root).evaluate((e) => e.classList.contains('rhov') || !!e.querySelector('.rhov'));
+  const b = (await obj(pres, '#cur').boundingBox())!;
+  const touch = (type: string) => pres.evaluate(([t, x, y]) => {
+    document.getElementById('cur')!.dispatchEvent(new PointerEvent(t as string, { pointerType: 'touch', pointerId: 7, isPrimary: true, bubbles: true, clientX: x as number, clientY: y as number, buttons: t === 'pointerup' ? 0 : 1 }));
+  }, [type, b.x + b.width / 2, b.y + b.height / 2] as const);
+  await touch('pointerdown');
+  await expect.poll(() => hovered(pres, '#cur')).toBe(true);
+  await expect.poll(() => hovered(page, '')).toBe(true);
+  // Палец подняли — наведение уходит и там, и там
+  await touch('pointerup');
+  await expect.poll(() => hovered(pres, '#cur')).toBe(false);
+  await expect.poll(() => hovered(page, '')).toBe(false);
+  await pres.close();
+  expect(errors).toEqual([]);
+  expect(presErrors).toEqual([]);
+});
+
+test('небо «Космоса» и фон «Сеть» у зрителей и на пульте: рисуются, без ошибок', async ({ page, context }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=space#1');
+  await expect(page.locator('.slide.on canvas.sp-cv')).toHaveCount(1);
+  const pres = await context.newPage();
+  const presErrors = watchErrors(pres);
+  await pres.goto('/?deck=space&view=presenter');
+  await expect(pres.locator('#cur .slide.on canvas.sp-cv')).toHaveCount(1);
+  // На небе что-то нарисовано (звёзды и узлы), и у пульта тоже
+  const drawn = (p: typeof page, root: string) => p.locator(`${root} .slide.on canvas.sp-cv`).evaluate((c: HTMLCanvasElement) => {
+    const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+    let n = 0;
+    for (let i = 3; i < d.length; i += 4 * 97) if (d[i] > 0) n++;
+    return n;
+  });
+  await expect.poll(() => drawn(page, '')).toBeGreaterThan(20);
+  await expect.poll(() => drawn(pres, '#cur')).toBeGreaterThan(20);
+  await page.keyboard.press('PageDown');
+  await expect(page.locator('.slide.on .bd-live canvas, .slide.on canvas')).not.toHaveCount(0);
+  await expect(pres.locator('#cur .slide.on canvas')).not.toHaveCount(0);
+  await pres.close();
+  expect(errors).toEqual([]);
+  expect(presErrors).toEqual([]);
+});
+
 test('мышь докладчика у зрителей: стрелка, наведение, указка, прожектор, кнопки, вопросы, вставка — каждое ровно один раз', async ({ page, context }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=mirror#1');

@@ -56,7 +56,11 @@ export class RemoteHover {
   /** Элемент под мышью докладчика и его предки до сцены */
   private chain: Element[] = [];
 
-  constructor(private stage: HTMLElement) {}
+  /**
+   * frames — передавать движение и щелчки во вставки. Окно докладчика (наведение пальцем у себя)
+   * передаёт их само, ему это не нужно
+   */
+  constructor(private stage: HTMLElement, private frames = true) {}
 
   private at(x: number, y: number): { el: Element | null; cx: number; cy: number } {
     const r = this.stage.getBoundingClientRect();
@@ -70,6 +74,7 @@ export class RemoteHover {
   private frame: HTMLIFrameElement | null = null;
 
   private toFrame(f: HTMLIFrameElement | null, cx: number, cy: number): void {
+    if (!this.frames) return;
     if (this.frame && this.frame !== f && this.frame.isConnected) postPointer(this.frame, 'leave');
     this.frame = f;
     if (f) postPointer(f, 'move', cx, cy);

@@ -4,7 +4,8 @@ import type { Theme } from './theme';
 
 export type SyncMsg =
   /** steps — сколько шагов слайда открыто (формула по шагам); нет — шагов нет */
-  | { type: 'state'; index: number; theme: Theme; black: boolean; steps?: number }
+  /** clock — время показа (engine/show-clock): анимации на пульте идут с тем же отсчётом */
+  | { type: 'state'; index: number; theme: Theme; black: boolean; steps?: number; clock?: number }
   /** Окно докладчика открыло шаг слайда — окно показа повторяет */
   | { type: 'step'; index: number; steps: number }
   | { type: 'goto'; index: number }

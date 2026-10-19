@@ -10,6 +10,8 @@ import { DeckView, staticSlide } from './deck-view';
 import { esc, t } from './html';
 import { actionTarget, slideLabel } from './render';
 import { Ink, inkInput, type InkMsg, type InkTool, type StrokeStyle } from './ink';
+import { RemoteHover } from './remote-hover';
+import { alignShowTime } from './show-clock';
 import './presenter.css';
 import { RELAY, Sync } from './sync';
 import { currentTheme, onThemeChange, setTheme, toggleTheme } from './theme';
@@ -139,6 +141,27 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   // Повтор мыши и живые 3D-модели для зрителей: можно выключить, если на слайдах нет
   // наведений и моделей — тогда окна ничего лишнего не пересылают и не рисуют
   inkInput(cur, ink, () => tool, (): StrokeStyle => ({ color: penColor, width: 5 }), sendInk, () => mirror, () => arrow);
+  // Наведение пальцем: у зрителей элемент под пальцем получает наведение (RemoteHover в окне показа),
+  // здесь — то же самое: у касания своего наведения нет, и на телефоне его не было видно
+  const touchHover = new RemoteHover(view.stage, false);
+  let touchOff = 0;
+  const touchAt = (e: PointerEvent) => {
+    if (e.pointerType === 'mouse' || tool !== 'none') return;
+    const p = ink.toSlide(e);
+    if (p.x < 0 || p.y < 0 || p.x > 1280 || p.y > 720) return;
+    clearTimeout(touchOff);
+    touchHover.move(p.x, p.y);
+  };
+  cur.addEventListener('pointerdown', touchAt);
+  cur.addEventListener('pointermove', (e) => { if (e.pointerType === 'touch' && e.buttons) touchAt(e); });
+  const touchEnd = (e: PointerEvent) => {
+    if (e.pointerType === 'mouse') return;
+    // Как у зрителей: палец подняли — наведение уходит чуть позже, после щелчка
+    clearTimeout(touchOff);
+    touchOff = window.setTimeout(() => touchHover.off(), 80);
+  };
+  cur.addEventListener('pointerup', touchEnd);
+  cur.addEventListener('pointercancel', touchEnd);
   // Вставки и песочница при повторе не забирают мышь и палец себе (иначе зрители их не видят):
   // окно докладчика получает их само и передаёт документу в рамке — здесь и у зрителей
   let ptrFrame: HTMLIFrameElement | null = null;
@@ -774,6 +797,8 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       index = -1;
       render(i);
     } else if (m.type === 'state') {
+      // Часы показа: анимации здесь идут с тем же отсчётом, что у зрителей
+      if (m.clock !== undefined) alignShowTime(m.clock);
       // Записи, которые окно показа ещё не подтвердило, — ещё раз
       if (pending.size) flushNotes();
       lastState = Date.now();

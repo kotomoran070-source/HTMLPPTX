@@ -1,5 +1,6 @@
 import { ACCENT_EVENT } from '../../engine/accent';
 import { defineBlock, getBlock } from '../../engine/component';
+import { showTime } from '../../engine/show-clock';
 import { onThemeChange } from '../../engine/theme';
 import type { Block } from '../../types';
 import './backdrop.css';
@@ -22,6 +23,16 @@ interface BackdropProps extends Block {
   speed?: number;
   /** Только для светлых или только для тёмных слайдов: у тёмных свой фон темы (theme.darkLook) */
   only?: 'light' | 'dark';
+}
+
+/**
+ * Частицы фона — из зерна вида фона, время — общее время показа (engine/show-clock): у зрителей,
+ * в окне докладчика и на телефоне фон один и тот же (у докладчика частиц меньше — часть тех же)
+ */
+function seeded(kind: string): () => number {
+  let s = 1;
+  for (const ch of kind) s = (s * 31 + ch.charCodeAt(0)) % 2147483647;
+  return () => (s = (s * 16807) % 2147483647) / 2147483647;
 }
 
 const QUAD_VS = `attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}`;
@@ -230,7 +241,7 @@ void main(){vec2 q=(gl_PointCoord-.5)*2.7;q.y=-q.y+.25;float h=q.x*q.x+q.y*q.y-1
 const CONFETTI_FS = `precision mediump float;uniform float k;varying float va;varying vec3 vc;varying vec2 vr;
 void main(){vec2 p=gl_PointCoord-.5;float c=cos(vr.x);float s=sin(vr.x);p=mat2(c,-s,s,c)*p;
   float a=step(abs(p.x),.15*vr.y)*step(abs(p.y),.3)*va*k;if(a<.004)discard;gl_FragColor=vec4(vc*a,a);}`;
-const POINTS: Partial<Record<BackdropKind, { vs: string; fs?: string; count: [lite: number, full: number]; seed?: (i: number, n: number) => [number, number, number] }>> = {
+const POINTS: Partial<Record<BackdropKind, { vs: string; fs?: string; count: [lite: number, full: number]; seed?: (i: number, n: number, r: () => number) => [number, number, number] }>> = {
   // Частицы: точки медленно поднимаются, мерцают и покачиваются
   particles: { count: [260, 900], vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;
 void main(){float sp=.008+.022*s.z;
@@ -244,7 +255,7 @@ void main(){vec2 q=vec2(fract(s.x+t*(.004+.006*s.z)+.03*sin(t*.1+s.y*9.)),fract(
   gl_Position=vec4(q*2.2-1.1,0.,1.);gl_PointSize=(40.+150.*s.z*s.z)*px;
   vc=mix(c1,c2,fract(s.x*3.7+s.y*1.3));va=(.16+.22*(1.-s.z))*(.7+.3*sin(t*.3+s.z*30.));}` },
   // Глобус: сфера из точек медленно вращается справа; передние точки ярче, задние — тише
-  globe: { count: [900, 2400], seed: (i, n) => [(i + 0.5) / n, i, Math.random()], vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;
+  globe: { count: [900, 2400], seed: (i, n, r) => [(i + 0.5) / n, i, r()], vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;
 void main(){float y=1.-2.*s.x;float rad=sqrt(max(0.,1.-y*y));float ph=s.y*2.39996;
   vec3 q=vec3(cos(ph)*rad,y,sin(ph)*rad);float ang=t*.12;q.xz=mat2(cos(ang),-sin(ang),sin(ang),cos(ang))*q.xz;
   float tl=.38;q.yz=mat2(cos(tl),-sin(tl),sin(tl),cos(tl))*q.yz;
@@ -253,7 +264,7 @@ void main(){float y=1.-2.*s.x;float rad=sqrt(max(0.,1.-y*y));float ph=s.y*2.3999
   float front=.5+.5*q.z;gl_PointSize=(1.5+2.6*front)*px*(1.+.4*land);
   vc=mix(c2,c1,front);va=(.15+.85*front)*(.3+.7*land);}` },
   // Ландшафт: поле точек волнуется до горизонта
-  terrain: { count: [1800, 5500], seed: (i, n) => { const w = n > 2000 ? 110 : 60; const h = Math.ceil(n / w); return [(i % w) / (w - 1), Math.floor(i / w) / (h - 1), Math.random()]; }, vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;
+  terrain: { count: [1800, 5500], seed: (i, n, r) => { const w = n > 2000 ? 110 : 60; const h = Math.ceil(n / w); return [(i % w) / (w - 1), Math.floor(i / w) / (h - 1), r()]; }, vs: `attribute vec3 s;uniform float t;uniform vec2 r;uniform float px;uniform vec3 c1;uniform vec3 c2;varying float va;varying vec3 vc;
 void main(){float x=(s.x-.5)*7.;float z=1.2+s.y*9.;
   float h=.45*sin(s.x*7.+t*.5+s.y*3.)*cos(s.y*5.-t*.35)+.25*sin((s.x*1.3+s.y)*11.+t*.8);
   vec2 sc=vec2(x/z,(h-1.35)/z+.08);gl_Position=vec4(sc.x*r.y/r.x*1.9,sc.y*1.9,0.,1.);
@@ -417,8 +428,9 @@ function makeScene(gl: WebGLRenderingContext, kind: BackdropKind, colors: Pal, l
   if (pts) {
     count = pts.count[lite ? 0 : 1];
     const seeds = new Float32Array(count * 3);
-    if (pts.seed) for (let i = 0; i < count; i++) seeds.set(pts.seed(i, count), i * 3);
-    else for (let i = 0; i < seeds.length; i++) seeds[i] = Math.random();
+    const r = seeded(kind);
+    if (pts.seed) for (let i = 0; i < count; i++) seeds.set(pts.seed(i, count, r), i * 3);
+    else for (let i = 0; i < seeds.length; i++) seeds[i] = r();
     gl.bufferData(gl.ARRAY_BUFFER, seeds, gl.STATIC_DRAW);
     const a = gl.getAttribLocation(prog, 's');
     gl.enableVertexAttribArray(a);
@@ -462,7 +474,11 @@ function networkScene(gl: WebGLRenderingContext, colors: Pal, lite: boolean): Sc
   if (!prog) return null;
   gl.useProgram(prog);
   const n = lite ? 34 : 64;
-  const nodes = Array.from({ length: n }, () => ({ x: Math.random(), y: Math.random(), vx: (Math.random() - 0.5) * 0.012, vy: (Math.random() - 0.5) * 0.012 }));
+  const r = seeded('network');
+  const seeds = Array.from({ length: n }, () => ({ x: r(), y: r(), vx: (r() - 0.5) * 0.012, vy: (r() - 0.5) * 0.012 }));
+  const nodes = seeds.map((p) => ({ x: p.x, y: p.y }));
+  // Узел отражается от краёв (с запасом 5 %): положение — от времени, а не шаг за шагом
+  const bounce = (v: number) => { const L = 1.1; const u = (((v + 0.05) % (2 * L)) + 2 * L) % (2 * L); return -0.05 + (u < L ? u : 2 * L - u); };
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   const a = gl.getAttribLocation(prog, 'v');
@@ -473,21 +489,16 @@ function networkScene(gl: WebGLRenderingContext, colors: Pal, lite: boolean): Sc
   const u = (s: string) => gl.getUniformLocation(prog, s);
   const lines = new Float32Array(n * n * 6);
   const dots = new Float32Array(n * 3);
-  let prev = 0;
   return {
     draw(t) {
       const { c1, c2, k } = colors();
-      const dt = prev ? Math.min(0.1, t - prev) : 0;
-      prev = t;
       const W = gl.drawingBufferWidth;
       const H = gl.drawingBufferHeight;
       const ar = W / H;
-      for (const p of nodes) {
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        if (p.x < -0.05 || p.x > 1.05) p.vx *= -1;
-        if (p.y < -0.05 || p.y > 1.05) p.vy *= -1;
-      }
+      seeds.forEach((p, i) => {
+        nodes[i].x = bounce(p.x + p.vx * t);
+        nodes[i].y = bounce(p.y + p.vy * t);
+      });
       let m = 0;
       const R = 0.2;
       for (let i = 0; i < n; i++) {
@@ -539,8 +550,17 @@ defineBlock<BackdropProps>('backdrop', {
     let raf = 0;
     let last = 0;
     let offTimer = 0;
-    // Время фона идёт только на экране: при возвращении на слайд анимация продолжается с того же места
-    let clock = Math.random() * 100;
+    // Время фона — общее время показа: у зрителей и на пульте фон в одной фазе. Скорость (ползунок
+    // в студии) меняет ход с этого мгновения — без скачка
+    let anchor = { at: 0, clock: 0, speed: NaN };
+    const clockNow = () => {
+      const now = showTime() / 1000;
+      const speed = Number(el.dataset.speed) || 1;
+      if (speed !== anchor.speed) {
+        anchor = { at: now, clock: Number.isNaN(anchor.speed) ? now * speed : anchor.clock + (now - anchor.at) * anchor.speed, speed };
+      }
+      return anchor.clock + (now - anchor.at) * speed;
+    };
     let pal = { c1: [0, 0, 0] as Rgb, c2: [0, 0, 0] as Rgb, k: 1 };
 
     const readColors = () => {
@@ -572,7 +592,6 @@ defineBlock<BackdropProps>('backdrop', {
     const frame = (now: number) => {
       raf = 0;
       if (!scene || !ctx.slide.classList.contains('on')) return;
-      const dt = last ? Math.min(0.1, (now - last) / 1000) : 0;
       // Медленные сцены, окно докладчика и редактор — 30 кадров в секунду
       const slow = lite || document.body.classList.contains('editing') || (LOOK[p.kind]?.fps ?? 60) <= 30;
       if (slow && last && now - last < 30) {
@@ -580,10 +599,8 @@ defineBlock<BackdropProps>('backdrop', {
         return;
       }
       last = now;
-      // Скорость читается каждый кадр: ползунок в студии меняет её на лету
-      clock += dt * (Number(el.dataset.speed) || 1);
       size();
-      scene.draw(clock);
+      scene.draw(clockNow());
       if (!frozen()) raf = requestAnimationFrame(frame);
     };
 
@@ -639,7 +656,7 @@ defineBlock<BackdropProps>('backdrop', {
       readColors();
       if (frozen() && scene) {
         size();
-        scene.draw(clock);
+        scene.draw(clockNow());
       }
     };
     const mo = new MutationObserver(sync);

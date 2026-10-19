@@ -10,6 +10,7 @@ import { esc } from './html';
 import { actionTarget, slideLabel } from './render';
 import { Ink } from './ink';
 import { RemoteHover } from './remote-hover';
+import { showTime } from './show-clock';
 import { forwardCovered } from './frame-bridge';
 import { CAMERA_SET } from '../components/media/model';
 import { MEDIA_SET } from '../components/media/video';
@@ -122,7 +123,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   addEventListener('resize', fit);
   fit();
 
-  const broadcast = () => sync.send({ type: 'state', index, theme: currentTheme(), black, steps: view.stepsAt(index) });
+  const broadcast = () => sync.send({ type: 'state', index, theme: currentTheme(), black, steps: view.stepsAt(index), clock: showTime() });
   let deckTimer = 0;
   const broadcastDeck = () => {
     clearTimeout(deckTimer);
@@ -705,7 +706,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       }
       // Новому окну докладчика — актуальные данные (с несохранёнными правками) и положение
       if (editor?.touched) sync.send({ type: 'deck', deck: JSON.parse(JSON.stringify(deck)) }, from);
-      sync.send({ type: 'state', index, theme: currentTheme(), black }, from);
+      sync.send({ type: 'state', index, theme: currentTheme(), black, clock: showTime() }, from);
     } else if (m.type === 'remote-start') {
       if (location.protocol !== 'file:') void import('./remote').then((r) => sync.send({ type: 'remote-room', room: startRemote(r) }, from));
     } else if (m.type === 'theme' && !fixedMode && m.theme !== currentTheme()) setTheme(m.theme);

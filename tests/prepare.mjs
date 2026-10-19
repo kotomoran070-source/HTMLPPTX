@@ -12,7 +12,8 @@
 //   audio    — вставка, которой нужен микрофон (аудиовизуализатор): рамка со своего адреса;
 //   tidy     — ошибки для «Привести в порядок»: копия поверх, ссылки в никуда, скрытое без кнопки;
 //   mirror   — мышь докладчика у зрителей: кнопки, ссылки, переход, прожектор, наведение;
-//   gif      — анимированный GIF (три кадра: красный, зелёный, синий) и снимок WebP для «Цвет+».
+//   gif      — анимированный GIF (три кадра: красный, зелёный, синий) и снимок WebP для «Цвет+»;
+//   space    — финальный «Космос» с орбитой и фон «Сеть»: одна и та же анимация у зрителей и на пульте.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -278,4 +279,17 @@ slides:
       - {type: image, src: ./assets/shot.webp, place: {x: 600, y: 100, w: 600, h: 338}}
 `);
 }
+// space — живая анимация, которая должна совпадать у зрителей и на пульте (engine/show-clock)
+fs.mkdirSync(path.join(dir, 'space'));
+fs.writeFileSync(path.join(dir, 'space', 'deck.yaml'), `title: Космос
+slides:
+  - template: space
+    layout: orbit
+    title: Спасибо за внимание
+    lead: Вопросы?
+  - template: canvas
+    backdrop: network
+    free:
+      - {type: text, text: "Сеть", place: {x: 80, y: 280, w: 700}}
+`);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

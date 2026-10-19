@@ -2,7 +2,7 @@
 //   unit — функции движка и сервера без браузера;
 //   e2e  — сервер разработки на временной копии презентаций (.tmp/test-decks) и браузер;
 //   app  — приложение Electron во временных папках;
-//   perf — скорость студии (yarn test:perf), только по запросу.
+//   perf — скорость студии и показа (yarn test:perf), только по запросу.
 // Браузер: на Windows — установленный Microsoft Edge (качать ничего не нужно),
 // в остальных системах — Chromium Playwright (npx playwright install chromium).
 import path from 'node:path';
@@ -33,7 +33,7 @@ export default defineConfig({
     { name: 'unit', testDir: 'tests/unit' },
     { name: 'e2e', testDir: 'tests/e2e' },
     { name: 'app', testDir: 'tests/app', timeout: 120_000 },
-    // Скорость студии (yarn test:perf): только по запросу, в yarn test не входит
+    // Скорость студии и показа (yarn test:perf): только по запросу, в yarn test не входит
     { name: 'perf', testDir: 'tests/perf', timeout: 300_000 },
   ],
   webServer: {
