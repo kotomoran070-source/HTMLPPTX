@@ -338,6 +338,25 @@ test('небо «Космоса» и фон «Сеть» у зрителей и 
   expect(presErrors).toEqual([]);
 });
 
+test('все анимированные фоны собираются: у каждого шейдер компилируется и сцена живая', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=tpl#1');
+  await expect(page.locator('.slide.on')).toHaveCount(1);
+  const dead = await page.evaluate(async () => {
+    const { BACKDROPS, previewBackdrop } = await import('/src/components/backdrop/backdrop.ts');
+    const stage = document.querySelector<HTMLElement>('.stage')!;
+    const out: string[] = [];
+    for (const [kind] of BACKDROPS) {
+      previewBackdrop(stage, kind);
+      if (!stage.querySelector('.bd-trial.bd-live canvas')) out.push(kind);
+    }
+    previewBackdrop(stage, null);
+    return out;
+  });
+  expect(dead).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
 test('фон «Сеть» отвечает на мышь: у курсора светится точка — у зрителей и от мыши докладчика; щелчок без ошибок', async ({ page, context }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=space#2');

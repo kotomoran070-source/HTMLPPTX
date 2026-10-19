@@ -174,6 +174,74 @@
     radial-gradient(circle at 72% 30%, color-mix(in srgb, var(--bd2) 30%, transparent) 0 15%, transparent 15.6%),
     radial-gradient(circle at 84% 78%, color-mix(in srgb, var(--bd2) 26%, transparent) 0 9%, transparent 9.6%);
 }
+/* Статичный вид новых фонов (миниатюры, печать, PDF): рисунок справа, угол под заголовок чистый */
+.bd-field {
+  background:
+    radial-gradient(ellipse 14% 16% at 80% 58%, transparent 97.5%, color-mix(in srgb, var(--ac) 45%, transparent) 98.5%, transparent 99.5%),
+    radial-gradient(ellipse 28% 30% at 80% 58%, transparent 97.5%, color-mix(in srgb, var(--bd2) 38%, transparent) 98.5%, transparent 99.5%),
+    radial-gradient(ellipse 44% 46% at 80% 58%, transparent 97.5%, color-mix(in srgb, var(--ac) 32%, transparent) 98.5%, transparent 99.5%),
+    radial-gradient(ellipse 62% 64% at 80% 58%, transparent 97.5%, color-mix(in srgb, var(--bd2) 26%, transparent) 98.5%, transparent 99.5%),
+    radial-gradient(ellipse 82% 84% at 80% 58%, transparent 97.5%, color-mix(in srgb, var(--ac) 20%, transparent) 98.5%, transparent 99.5%),
+    radial-gradient(circle at 80% 58%, color-mix(in srgb, var(--bd2) 14%, transparent), transparent 40%);
+  -webkit-mask: linear-gradient(110deg, transparent 22%, #000 70%); mask: linear-gradient(110deg, transparent 22%, #000 70%);
+}
+.bd-halftone {
+  background: radial-gradient(circle, color-mix(in srgb, var(--ac) 45%, transparent) 0 32%, transparent 38%) 0 0 / 1.1% 1.95%;
+  -webkit-mask: radial-gradient(circle at 88% 55%, #000 0 18%, rgba(0,0,0,.35) 45%, transparent 65%); mask: radial-gradient(circle at 88% 55%, #000 0 18%, rgba(0,0,0,.35) 45%, transparent 65%);
+}
+.bd-origami {
+  background:
+    linear-gradient(45deg, transparent 47%, color-mix(in srgb, var(--ac) 30%, transparent) 47% 53%, transparent 53%) 0 0 / 5% 8.9%,
+    linear-gradient(-45deg, transparent 47%, color-mix(in srgb, var(--bd2) 26%, transparent) 47% 53%, transparent 53%) 0 0 / 5% 8.9%;
+  -webkit-mask: linear-gradient(110deg, transparent 25%, #000 75%); mask: linear-gradient(110deg, transparent 25%, #000 75%);
+}
+.bd-dither {
+  background: repeating-conic-gradient(color-mix(in srgb, var(--ac) 30%, transparent) 0 25%, transparent 0 50%) 0 0 / .8% 1.4%;
+  -webkit-mask: radial-gradient(70% 80% at 85% 60%, #000, rgba(0,0,0,.25) 60%, transparent); mask: radial-gradient(70% 80% at 85% 60%, #000, rgba(0,0,0,.25) 60%, transparent);
+}
+.bd-radar {
+  background:
+    conic-gradient(from 60deg at 85% 50%, color-mix(in srgb, var(--ac) 30%, transparent), transparent 22%),
+    radial-gradient(circle at 85% 50%, transparent 7.4%, color-mix(in srgb, var(--ac) 40%, transparent) 8%, transparent 8.6%),
+    radial-gradient(circle at 85% 50%, transparent 14.4%, color-mix(in srgb, var(--ac) 32%, transparent) 15%, transparent 15.6%),
+    radial-gradient(circle at 85% 50%, transparent 21.4%, color-mix(in srgb, var(--ac) 24%, transparent) 22%, transparent 22.6%),
+    radial-gradient(circle at 85% 50%, transparent 28.4%, color-mix(in srgb, var(--ac) 16%, transparent) 29%, transparent 29.6%),
+    radial-gradient(circle at 85% 50%, color-mix(in srgb, var(--bd2) 60%, transparent) 0 1%, transparent 3%);
+  -webkit-mask: radial-gradient(circle at 85% 50%, #000 0 22%, transparent 32%); mask: radial-gradient(circle at 85% 50%, #000 0 22%, transparent 32%);
+}
+.bd-cymatics {
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--ac) 40%, transparent) 0 18%, transparent 30%) 0 0 / 4% 7.1%,
+    linear-gradient(transparent 46%, color-mix(in srgb, var(--ac) 26%, transparent) 46% 54%, transparent 54%) 0 0 / 100% 7.1%,
+    linear-gradient(90deg, transparent 46%, color-mix(in srgb, var(--bd2) 22%, transparent) 46% 54%, transparent 54%) 0 0 / 4% 100%;
+  -webkit-mask: radial-gradient(circle at 80% 50%, #000 0 12%, transparent 26%); mask: radial-gradient(circle at 80% 50%, #000 0 12%, transparent 26%);
+}
+.bd-dna {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--ac) 30%, transparent) 0 22%, transparent 22%) 0 38% / 2.2% 24% repeat-x,
+    linear-gradient(transparent 37.6%, color-mix(in srgb, var(--ac) 42%, transparent) 37.6% 38.4%, transparent 38.4% 61.6%, color-mix(in srgb, var(--bd2) 42%, transparent) 61.6% 62.4%, transparent 62.4%);
+  -webkit-mask: linear-gradient(90deg, transparent 30%, #000 75%); mask: linear-gradient(90deg, transparent 30%, #000 75%);
+}
+.bd-growth {
+  background:
+    radial-gradient(ellipse 100% 82% at 0% 0%, transparent 99%, color-mix(in srgb, var(--ac) 40%, transparent) 99.4%, transparent 100.2%),
+    radial-gradient(ellipse 100% 72% at 0% 0%, transparent 99%, color-mix(in srgb, var(--bd2) 32%, transparent) 99.4%, transparent 100.2%),
+    radial-gradient(ellipse 100% 62% at 0% 0%, transparent 99%, color-mix(in srgb, var(--ac) 24%, transparent) 99.4%, transparent 100.2%);
+  -webkit-mask: linear-gradient(90deg, transparent 25%, #000 85%); mask: linear-gradient(90deg, transparent 25%, #000 85%);
+}
+.bd-candles {
+  background:
+    linear-gradient(90deg, transparent 0 22%, color-mix(in srgb, var(--ac) 36%, transparent) 22% 72%, transparent 72%) 0 36% / 3.6% 22% repeat-x,
+    linear-gradient(90deg, transparent 0 22%, color-mix(in srgb, var(--bd2) 30%, transparent) 22% 72%, transparent 72%) 1.8% 52% / 3.6% 14% repeat-x,
+    linear-gradient(transparent 49.6%, color-mix(in srgb, var(--bd2) 14%, transparent) 49.6% 50.4%, transparent 50.4%) 0 0 / 100% 7.1%;
+  -webkit-mask: linear-gradient(90deg, transparent 25%, #000 80%); mask: linear-gradient(90deg, transparent 25%, #000 80%);
+}
+.bd-spectrum {
+  background:
+    linear-gradient(90deg, transparent 15%, color-mix(in srgb, var(--ac) 38%, transparent) 15% 85%, transparent 85%) 0 100% / 3.125% 50% repeat-x,
+    linear-gradient(90deg, transparent 15%, color-mix(in srgb, var(--ac) 38%, transparent) 15% 85%, transparent 85%) 1.5625% 100% / 3.125% 30% repeat-x;
+  -webkit-mask: linear-gradient(90deg, transparent 25%, #000 85%); mask: linear-gradient(90deg, transparent 25%, #000 85%);
+}
 /* Примерка в студии: настоящий фон слайда спрятан, пока на слайде примеряемый */
 .backdrop.bd-off { visibility: hidden; }
 @media print { .backdrop canvas { display: none; } }

@@ -46,6 +46,9 @@ float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
   return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y);}
 float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*noise(p);p*=2.02;a*=.5;}return v;}`;
 
+/** Тихий угол под заголовок (слева сверху): к нему рисунок сходит на нет */
+const SAFE = `float safe(vec2 uv){return smoothstep(.18,.72,length(uv-vec2(.18,.82)));}`;
+
 /** Сцены на весь слайд: фрагментный шейдер; выход — цвет, умноженный на прозрачность */
 const FS: Partial<Record<BackdropKind, string>> = {
   // Переливы: четыре мягких пятна цвета медленно плывут — «живой» градиент
@@ -108,6 +111,100 @@ void main(){vec2 g=gl_FragCoord.xy/(r.y/34.);vec2 id=floor(g);vec2 f=fract(g)-.5
   float w=.5+.5*sin(id.x*.21+id.y*.16-t*.8)*cos(id.y*.19-id.x*.05-t*.45);
   float rad=.07+.25*w;float d=length(f);float l=smoothstep(rad,rad-.09,d);
   vec3 c=mix(c1,c2,w);float a=l*(.18+.82*w)*k;gl_FragColor=vec4(c*a,a);}`,
+  // Поле: линии уровня медленно текущего потенциала, у «седла» мягкое свечение
+  field: `#extension GL_OES_standard_derivatives : enable
+${HEAD}${SAFE}
+void main(){vec2 uv=gl_FragCoord.xy/r;vec2 p=uv*vec2(r.x/r.y,1.);float tm=t*.35;
+  float v=(sin(p.x*3.2+tm*.6)+cos(p.y*2.8-tm*.4))*.5+sin(p.x*2.-p.y*3.5+tm*.5)*.5;
+  float q=v*3.5;float l=1.-smoothstep(0.,max(fwidth(q)*2.5,.03),abs(fract(q)-.5));
+  float glow=exp(-abs(v)*1.5)*.45;
+  float a=clamp((l*.75+glow)*smoothstep(.12,.88,uv.x)*safe(uv),0.,.62)*k;
+  vec3 c=mix(mix(c1,c2,clamp(v*.5+.5,0.,1.)),vec3(1.),l*.3);gl_FragColor=vec4(c*a,a);}`,
+  // Поп-арт: растр точек под 45°, точки растут и тают волнами
+  halftone: `${HEAD}${SAFE}
+void main(){vec2 uv=gl_FragCoord.xy/r;float ar=r.x/r.y;vec2 p=uv*vec2(ar,1.);float tm=t*.35;
+  vec2 cu=fract(mat2(.7071,.7071,-.7071,.7071)*p*26.)-.5;
+  float lum=smoothstep(.1,.9,sin(p.x*4.+tm*.7)*cos(p.y*3.5-tm*.5)*.5+.5);
+  float rd=lum*.45;float d=smoothstep(rd+.05,rd-.05,length(cu));
+  float glow=exp(-length(p-vec2(.9*ar,.5))*2.5)*.35;
+  float a=clamp((d*.75+glow)*smoothstep(.12,.88,uv.x)*safe(uv),0.,.62)*k;
+  vec3 c=mix(mix(c1,c2,clamp(lum*1.1,0.,1.)),vec3(1.),d*.25);gl_FragColor=vec4(c*a,a);}`,
+  // Оригами: сетка сгибов, грани бумаги по-разному ловят медленно идущий свет
+  origami: `${HEAD}${SAFE}
+void main(){vec2 uv=gl_FragCoord.xy/r;vec2 p=uv*vec2(r.x/r.y,1.)*6.;float tm=t*.3;
+  vec2 f=fract(p)-.5;float cr=min(abs(f.x+f.y),abs(f.x-f.y));
+  vec2 n=abs(f.y)>abs(f.x)?vec2(0.,sign(f.y)):vec2(sign(f.x),0.);
+  vec2 L=vec2(cos(tm*.5+p.x*.08),sin(tm*.5+p.y*.08));
+  float lit=(.68+.32*dot(n,L))*(.65+.35*sin(p.x*.5+tm));
+  float a=clamp(smoothstep(0.,.15,cr)*lit*.6*smoothstep(.15,.85,uv.x)*safe(uv),0.,.55)*k;
+  vec3 c=mix(c1,c2,clamp(f.x*.5+.5,0.,1.));gl_FragColor=vec4(c*a,a);}`,
+  // 8 бит: крупные пиксели, упорядоченный дизеринг (матрица Байера 4×4) по плывущему свету
+  dither: `${HEAD}${SAFE}
+float b2(vec2 v){return mod(2.*v.x+3.*v.y,4.);}
+void main(){vec2 uv=gl_FragCoord.xy/r;float tm=t*.4;
+  vec2 g=floor(uv*vec2(140.*r.x/r.y,80.));vec2 pu=g/vec2(140.*r.x/r.y,80.);
+  float th=(4.*b2(mod(g,2.))+b2(mod(floor(g/2.),2.))+.5)/16.;
+  float lum=(sin(pu.x*5.+tm*.8)+cos(pu.y*6.-tm*.6+pu.x*3.))*.25+.5;
+  float d=step(th,lum);float row=.75+.25*smoothstep(.5,.3,abs(fract(uv.y*80.)-.5));
+  float a=clamp((d*.65+lum*.25)*row*smoothstep(.12,.85,uv.x)*safe(uv),0.,.6)*k;
+  vec3 c=mix(mix(c1,c2,clamp(pu.y*1.2,0.,1.)),vec3(1.),d*.2);gl_FragColor=vec4(c*a,a);}`,
+  // Радар: луч обходит круг, от центра расходятся кольца
+  radar: `${HEAD}${SAFE}
+void main(){vec2 uv=gl_FragCoord.xy/r;float ar=r.x/r.y;vec2 p=uv*vec2(ar,1.)-vec2(.85*ar,.5);float tm=t*.7;
+  float d=length(p);float sw=mod(atan(p.y,p.x)-tm,6.28318);
+  float beam=exp(-sw*3.5)*smoothstep(.65,.05,d);
+  float ring=exp(-abs(fract(d*8.-tm*.8)-.5)*12.)*exp(-d*2.5);
+  float core=exp(-d*14.)*.8;
+  float a=clamp((beam*.65+ring*.45+core)*safe(uv),0.,.62)*k;
+  vec3 c=mix(mix(c1,c2,clamp(d*1.5,0.,1.)),vec3(1.),core*.3);gl_FragColor=vec4(c*a,a);}`,
+  // Резонанс: фигуры Хладни — узоры стоячих волн на пластине, медленно перетекают
+  cymatics: `${HEAD}${SAFE}
+void main(){vec2 uv=gl_FragCoord.xy/r;vec2 p=(uv-vec2(.8,.5))*vec2(r.x/r.y,1.)*7.;float tm=t*.4;
+  float w1=cos(3.*p.x)*cos(5.*p.y)-cos(5.*p.x)*cos(3.*p.y);
+  float w=mix(w1,sin(4.*p.x+tm)*sin(5.*p.y-tm),sin(tm*.5)*.3+.3);
+  float nd=exp(-abs(w)*6.5);
+  float a=clamp(nd*smoothstep(3.8,1.2,length(p))*safe(uv)*.65,0.,.58)*k;
+  vec3 c=mix(mix(c1,c2,clamp(w*.4+.5,0.,1.)),vec3(1.),nd*.2);gl_FragColor=vec4(c*a,a);}`,
+  // ДНК: двойная спираль вращается, ближняя нить ярче дальней, между нитями — ступени
+  dna: `${HEAD}${SAFE}
+void main(){vec2 uv=gl_FragCoord.xy/r;vec2 p=uv*vec2(r.x/r.y,1.);float tm=t*.6;
+  float x=(p.x-1.1)*3.5;float s=sin(x+tm);float z=cos(x+tm);float y1=.5+s*.22,y2=.5-s*.22;float px=1./r.y;
+  float st=exp(-abs(p.y-y1)*32.)*(.75+.25*z)+exp(-abs(p.y-y2)*32.)*(.75-.25*z);
+  float w=10./r.y;float rung=smoothstep(.09+w,.09-w,abs(fract(x*2.86)-.5))
+    *smoothstep(min(y1,y2)-px,min(y1,y2)+px,p.y)*smoothstep(max(y1,y2)+px,max(y1,y2)-px,p.y)*.5;
+  float a=clamp((st*.85+rung)*smoothstep(.15,.88,uv.x)*safe(uv),0.,.6)*k;
+  vec3 c=mix(mix(c1,c2,clamp(s*.5+.5,0.,1.)),vec3(1.),exp(-abs(p.y-y1)*32.)*.2);gl_FragColor=vec4(c*a,a);}`,
+  // Рост: пучок кривых вверх-вправо, по нижней бежит огонёк
+  growth: `${HEAD}${SAFE}
+void main(){vec2 uv=gl_FragCoord.xy/r;float ar=r.x/r.y;float tm=t*.35;float g=0.;
+  for(int i=0;i<4;i++){float f=float(i);
+    float y=.2+pow(uv.x,1.8+f*.3)*.65+sin(uv.x*4.-tm*(.8+f*.2)+f)*.04;
+    g+=exp(-abs(uv.y-y)*40.)*(.4+f*.15);}
+  float mx=fract(tm*.15);float my=.2+pow(mx,1.8)*.65+sin(mx*4.-tm*.8)*.04;
+  float dg=exp(-length((uv-vec2(mx,my))*vec2(ar,1.))*25.)*.7;
+  float a=clamp((g+dg)*smoothstep(.15,.9,uv.x)*safe(uv),0.,.62)*k;
+  vec3 c=mix(mix(c1,c2,clamp(uv.x*.8+uv.y*.4,0.,1.)),vec3(1.),dg*.2);gl_FragColor=vec4(c*a,a);}`,
+  // Биржа: японские свечи плывут волной, тонкие уровни поддержки
+  candles: `${HEAD}${SAFE}
+void main(){vec2 uv=gl_FragCoord.xy/r;float tm=t*.45;float px=1./r.y;float pw=28./r.x;
+  float id=floor(uv.x*28.);float fx=abs(fract(uv.x*28.)-.5);
+  float base=.35+sin(id*.28+tm*.5)*.18+cos(id*.12-tm*.3)*.1;float h=.04+abs(sin(id*2.3+tm))*.11;
+  float dy=abs(uv.y-base);
+  float body=smoothstep(h+px,h-px,dy)*smoothstep(.32+pw,.32-pw,fx);
+  float wick=smoothstep(h+.06+px,h+.06-px,dy)*smoothstep(.06+pw,.06-pw,fx);
+  float grid=(1.-smoothstep(.03,.03+14.*px,abs(fract(uv.y*14.)-.5)))*.12;
+  float a=clamp((max(body*.9,wick*.6)*.85+grid)*smoothstep(.12,.88,uv.x)*safe(uv),0.,.65)*k;
+  vec3 c=mix(mix(c1,c2,clamp((uv.y-.2)*1.6+sin(id*.3)*.3,0.,1.)),vec3(1.),body*.18);gl_FragColor=vec4(c*a,a);}`,
+  // Эквалайзер: столбцы спектра пляшут, над каждым — метка пика
+  spectrum: `${HEAD}${SAFE}
+void main(){vec2 uv=gl_FragCoord.xy/r;float tm=t*.8;float px=1./r.y;float w=32./r.x;
+  float id=floor(uv.x*32.);float fx=abs(fract(uv.x*32.)-.5);float f=id/32.;
+  float h=.15+abs(sin(f*12.-tm*2.)*cos(f*6.+tm*1.5))*.5+sin(tm*3.+id*1.7)*.1;
+  float col=smoothstep(.35+w,.35-w,fx);
+  float bar=col*smoothstep(h+px,h-px,uv.y);float peak=col*smoothstep(.015+px,.015-px,abs(uv.y-h-.03));
+  float sub=exp(-length(uv-vec2(.8,.2))*3.)*.25;
+  float a=clamp((bar*.85+peak+sub)*smoothstep(.15,.9,uv.x)*safe(uv),0.,.65)*k;
+  vec3 c=mix(mix(c1,c2,clamp(uv.y/.7,0.,1.)),vec3(1.),peak*.3);gl_FragColor=vec4(c*a,a);}`,
   // Соты: шестиугольники, по ним расходятся мягкие волны света
   hex: `${HEAD}
 const vec2 S=vec2(1.,1.7320508);
@@ -361,6 +458,16 @@ const LOOK: Record<BackdropKind, { scale: number; fps: number; k: [light: number
   retrosun: { scale: 0.75, fps: 30, k: [0.6, 0.75] },
   plankton: { scale: 1, fps: 30, k: [1, 1.1] },
   pulse: { scale: 1, fps: 60, k: [1, 0.9] },
+  field: { scale: 0.75, fps: 30, k: [0.55, 0.65] },
+  halftone: { scale: 0.75, fps: 30, k: [0.5, 0.6] },
+  origami: { scale: 0.75, fps: 30, k: [0.42, 0.55] },
+  dither: { scale: 0.75, fps: 30, k: [0.5, 0.6] },
+  radar: { scale: 0.75, fps: 30, k: [0.6, 0.7] },
+  cymatics: { scale: 0.75, fps: 30, k: [0.55, 0.65] },
+  dna: { scale: 0.75, fps: 30, k: [0.6, 0.7] },
+  growth: { scale: 0.75, fps: 30, k: [0.6, 0.7] },
+  candles: { scale: 0.75, fps: 30, k: [0.55, 0.65] },
+  spectrum: { scale: 0.75, fps: 30, k: [0.55, 0.65] },
 };
 
 /** Сеть: узлы плывут, близкие соединены линиями — считается на процессоре, рисуется видеокартой */
@@ -427,7 +534,7 @@ function makeScene(gl: WebGLRenderingContext, kind: BackdropKind, colors: Pal, l
   if (kind === 'network') return networkScene(gl, colors, lite);
   const pts = POINTS[kind];
   // Ровные линии рельефа — по производным (есть почти везде; без них сцена не соберётся — фон останется статичным)
-  if (kind === 'topo') gl.getExtension('OES_standard_derivatives');
+  if (FS[kind]?.startsWith('#extension GL_OES_standard_derivatives')) gl.getExtension('OES_standard_derivatives');
   const prog = pts ? program(gl, pts.vs, pts.fs ?? POINT_FS) : FS[kind] ? program(gl, QUAD_VS, FS[kind]!) : null;
   if (!prog) return null;
   gl.useProgram(prog);
