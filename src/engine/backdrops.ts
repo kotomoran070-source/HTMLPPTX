@@ -7,7 +7,7 @@ import type { Deck, SlideData } from '../types';
 
 export const BACKDROPS = [
   ['mesh', 'Переливы'], ['aurora', 'Сияние'], ['silk', 'Шёлк'], ['waves', 'Волны'], ['topo', 'Рельеф'], ['field', 'Поле'],
-  ['rays', 'Лучи'], ['bokeh', 'Боке'], ['particles', 'Частицы'], ['stars', 'Звёзды'], ['snow', 'Снегопад'], ['leaves', 'Листопад'], ['petals', 'Лепестки'], ['bubbles', 'Пузыри'], ['hearts', 'Сердечки'], ['confetti', 'Конфетти'], ['caustics', 'Блики'], ['plankton', 'Планктон'], ['pulse', 'Пульс'], ['dots', 'Точки'],
+  ['rays', 'Лучи'], ['bokeh', 'Боке'], ['particles', 'Частицы'], ['stars', 'Звёзды'], ['snow', 'Снегопад'], ['leaves', 'Листопад'], ['petals', 'Лепестки'], ['bubbles', 'Пузыри'], ['hearts', 'Сердечки'], ['confetti', 'Конфетти'], ['caustics', 'Блики'], ['ripples', 'Капли'], ['plankton', 'Планктон'], ['pulse', 'Пульс'], ['dots', 'Точки'],
   ['halftone', 'Поп-арт'], ['origami', 'Оригами'], ['dither', '8 бит'],
   ['network', 'Сеть'], ['hex', 'Соты'], ['orbits', 'Орбиты'], ['radar', 'Радар'], ['cymatics', 'Резонанс'], ['dna', 'ДНК'],
   ['growth', 'Рост'], ['candles', 'Биржа'], ['spectrum', 'Эквалайзер'], ['grid', 'Сетка'], ['retrosun', 'Ретро-закат'],

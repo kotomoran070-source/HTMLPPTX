@@ -568,6 +568,9 @@ button.st-g-n { position: relative; }
 .st-bgs > * { scroll-snap-align: start; }
 .st-bgs button, .st-bg-own { display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 4px; border: 1px solid var(--bd); border-radius: 8px; background: var(--surf); font: 500 11px var(--font); color: var(--tx2); cursor: pointer; text-align: center; }
 .st-bgs i, .st-bg-own i { display: block; height: 30px; border-radius: 5px; border: 1px solid var(--bd); }
+/* Фон темы — уменьшенным, как на миниатюре слайда: узор во всю плитку, а не его кусок */
+.st-bgs i.st-bg-theme { position: relative; overflow: hidden; }
+.st-bgs i.st-bg-theme b { position: absolute; left: 0; top: 0; width: 250%; height: 250%; transform: scale(.4); transform-origin: 0 0; }
 .st-bgs button:hover, .st-bg-own:hover { border-color: var(--acb); }
 .st-bgs button[aria-checked="true"], .st-bg-own.on { border-color: var(--ac); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 22%, transparent); color: var(--ach); }
 .st-bg-own { position: relative; }

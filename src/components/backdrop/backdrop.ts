@@ -205,6 +205,19 @@ void main(){vec2 uv=gl_FragCoord.xy/r;float tm=t*.8;float px=1./r.y;float w=32./
   float sub=exp(-length(uv-vec2(.8,.2))*3.)*.25;
   float a=clamp((bar*.85+peak+sub)*smoothstep(.15,.9,uv.x)*safe(uv),0.,.65)*k;
   vec3 c=mix(mix(c1,c2,clamp(uv.y/.7,0.,1.)),vec3(1.),peak*.3);gl_FragColor=vec4(c*a,a);}`,
+  // Капли: по воде расходятся круги — двойные, как от дождя; каждая капля падает в новом месте
+  ripples: `${HEAD}${SAFE}
+float h1(float n){return fract(sin(n)*43758.5);}
+void main(){vec2 uv=gl_FragCoord.xy/r;float ar=r.x/r.y;vec2 p=uv*vec2(ar,1.);float tm=t*.55;float rp=0.;
+  for(int i=0;i<7;i++){float f=float(i);float ph=tm*.28+h1(f*29.3);float life=fract(ph);
+    float n=mod(floor(ph),97.)+f*13.;
+    vec2 q=vec2((.45+h1(n*12.99)*.5)*ar,.15+h1(n*78.23)*.7);
+    float d=length(p-q);float R=life*.45;
+    float ring=exp(-abs(d-R)*42.)+.45*step(.1,life)*exp(-abs(d-R*.72)*42.);
+    rp+=ring*(1.-life)*smoothstep(0.,.08,life);}
+  float glow=exp(-length(uv-vec2(.85,.8))*2.8)*.35;
+  float a=clamp((rp*.85+glow)*smoothstep(.1,.88,uv.x)*safe(uv),0.,.6)*k;
+  vec3 c=mix(mix(c1,c2,clamp(rp*.9+uv.y*.3,0.,1.)),vec3(1.),rp*.3);gl_FragColor=vec4(c*a,a);}`,
   // Соты: шестиугольники, по ним расходятся мягкие волны света
   hex: `${HEAD}
 const vec2 S=vec2(1.,1.7320508);
@@ -468,6 +481,7 @@ const LOOK: Record<BackdropKind, { scale: number; fps: number; k: [light: number
   growth: { scale: 0.75, fps: 30, k: [0.6, 0.7] },
   candles: { scale: 0.75, fps: 30, k: [0.55, 0.65] },
   spectrum: { scale: 0.75, fps: 30, k: [0.55, 0.65] },
+  ripples: { scale: 0.75, fps: 30, k: [0.6, 0.7] },
 };
 
 /** Сеть: узлы плывут, близкие соединены линиями — считается на процессоре, рисуется видеокартой */

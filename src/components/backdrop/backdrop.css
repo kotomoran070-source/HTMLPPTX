@@ -236,6 +236,14 @@
     linear-gradient(transparent 49.6%, color-mix(in srgb, var(--bd2) 14%, transparent) 49.6% 50.4%, transparent 50.4%) 0 0 / 100% 7.1%;
   -webkit-mask: linear-gradient(90deg, transparent 25%, #000 80%); mask: linear-gradient(90deg, transparent 25%, #000 80%);
 }
+.bd-ripples {
+  background:
+    radial-gradient(circle at 70% 40%, transparent 5.5%, color-mix(in srgb, var(--ac) 42%, transparent) 6%, transparent 6.5%),
+    radial-gradient(circle at 70% 40%, transparent 3.5%, color-mix(in srgb, var(--ac) 24%, transparent) 4%, transparent 4.5%),
+    radial-gradient(circle at 86% 70%, transparent 8.5%, color-mix(in srgb, var(--bd2) 34%, transparent) 9%, transparent 9.5%),
+    radial-gradient(circle at 86% 70%, transparent 6.0%, color-mix(in srgb, var(--bd2) 18%, transparent) 6.5%, transparent 7.0%),
+    radial-gradient(circle at 60% 76%, transparent 3.0%, color-mix(in srgb, var(--ac) 30%, transparent) 3.5%, transparent 4.0%);
+}
 .bd-spectrum {
   background:
     linear-gradient(90deg, transparent 15%, color-mix(in srgb, var(--ac) 38%, transparent) 15% 85%, transparent 85%) 0 100% / 3.125% 50% repeat-x,

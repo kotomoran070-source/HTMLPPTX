@@ -62,9 +62,12 @@ try { folds = { ...folds, ...JSON.parse(localStorage.getItem(FOLD_KEY) ?? '{}') 
 const sec = (key: string, title: string, body: string, extra = '') =>
   `<details class="st-p-sec st-p-fold" data-sec="${key}"${folds[key] ? ' open' : ''}><summary>${title}${extra}</summary><div class="st-p-body">${body}</div></details>`;
 
-/** Готовые фоны холста: значение поля bg и как выглядит образец. */
+/**
+ * Готовые фоны холста: значение поля bg и как выглядит образец. Первый — своего фона нет:
+ * виден фон темы (какой он у презентации, такой и образец; без темы — точки)
+ */
 const BACKGROUNDS: [string, string, string][] = [
-  ['', 'Точки', 'radial-gradient(var(--bd2) 1px, transparent 1px) 0 0 / 6px 6px, var(--bg)'],
+  ['', 'Без фона', 'var(--slide-bg, radial-gradient(var(--bd) 1px, transparent 1px) 0 0 / 26px 26px, var(--bg))'],
   ['var(--bg)', 'Ровный', 'var(--bg)'],
   ['var(--surf)', 'Светлый', 'var(--surf)'],
   ['var(--acs)', 'Акцентный', 'var(--acs)'],
@@ -499,7 +502,7 @@ export class Inspector {
     const [prev, next] = railNav();
     // Две строки плиток, остальные листаются вбок
     return `<div class="st-p-field"><span>Фон</span><div class="st-bdpick st-bgpick">${prev}<div class="st-bgs" role="radiogroup" aria-label="Фон слайда">${BACKGROUNDS.map(([v, l, look]) =>
-      `<button type="button" role="radio" aria-checked="${v === cur}" data-bg="${esc(v)}" title="${esc(l)}"><i style="background:${look}"></i><span>${esc(l)}</span></button>`).join('')}
+      `<button type="button" role="radio" aria-checked="${v === cur}" data-bg="${esc(v)}" title="${esc(v ? l : 'Своего фона у слайда нет — виден фон темы («Дизайн» → «Фон»)')}">${v ? `<i style="background:${look}"></i>` : `<i class="st-bg-theme"><b style="background:${look}"></b></i>`}<span>${esc(l)}</span></button>`).join('')}
 <label class="st-bg-own${!known && HEX_RE.test(cur) ? ' on' : ''}" title="Свой цвет — тяните по палитре, слайд меняется сразу"><i style="background:${!known && HEX_RE.test(cur) ? cur : 'conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)'}"></i><input type="color" data-f="bgcolor" aria-label="Свой цвет фона"><span>Свой</span></label></div>${next}</div>${cur ? tuneHtml({ bgOpacity: bgOpacity(this.host.deck().slides[this.host.index()]) }) : ''}
 ${!known && !HEX_RE.test(cur) ? `<p class="st-p-note">Сейчас: <code>${esc(cur.length > 60 ? cur.slice(0, 60) + '…' : cur)}</code></p>` : ''}</div>
 <details class="st-p-more"><summary>CSS фона</summary><label class="st-p-field"><input type="text" data-f="bg" placeholder="как у темы" spellcheck="false"></label></details>`;
