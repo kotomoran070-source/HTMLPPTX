@@ -8,7 +8,7 @@ import { rowOf } from '../engine/editor/rows';
 import { toView, viewOf, VIEWS } from './block-views';
 import { getAt, setAt, type Path } from '../engine/data';
 import { backdropStrip, bindBackdropStrip, bindRail, bindTune, railNav, tuneHtml } from './backdrop-pick';
-import { backdropLook, bgOpacity, slideBackdrop } from '../engine/backdrops';
+import { backdropLook, bgOpacity, slideBackdrop, TOUCH_BACKDROPS } from '../engine/backdrops';
 import { blockName, keepsRatio } from '../engine/editor/block-edit';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
@@ -281,7 +281,7 @@ export class Inspector {
     this.parts = el ? partsOf(el) : [];
     const key = sel
       ? `b:${JSON.stringify(sel.free ?? sel.block)}:${sel.type}:${sig}:${sel.free ? rowOf(getAt(deck, sel.free))?.id ?? '' : ''}:${this.parts.map((x) => x.label + x.snippet).join('|')}`
-      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}:${String(deck.slides[i]?.backdropOpacity ?? '')}/${String(deck.slides[i]?.backdropSpeed ?? '')}/${String(deck.slides[i]?.bgOpacity ?? '')}/${String(deck.theme?.backdropOpacity ?? '')}/${String(deck.theme?.backdropSpeed ?? '')}:${deckFonts(deck.fonts).map((f) => f.name).join('|')}:${deck.theme?.font ?? ''}:${deck.theme?.backdrop ?? ''}:${deck.theme?.darkLook ? `${JSON.stringify(deck.theme.darkLook)}${currentTheme()}` : ''}:${JSON.stringify([deck.slides[i]?.theme ?? null, deck.theme?.accent2 ?? null, deck.theme?.accentMid ?? null])}:${deck.brand?.logo ? 'logo' : ''}`;
+      : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}:${String(deck.slides[i]?.backdropOpacity ?? '')}/${String(deck.slides[i]?.backdropSpeed ?? '')}/${String(deck.slides[i]?.bgOpacity ?? '')}/${String(deck.theme?.backdropOpacity ?? '')}/${String(deck.theme?.backdropSpeed ?? '')}/${String(deck.slides[i]?.backdropTouch ?? '')}/${String(deck.theme?.backdropTouch ?? '')}:${deckFonts(deck.fonts).map((f) => f.name).join('|')}:${deck.theme?.font ?? ''}:${deck.theme?.backdrop ?? ''}:${deck.theme?.darkLook ? `${JSON.stringify(deck.theme.darkLook)}${currentTheme()}` : ''}:${JSON.stringify([deck.slides[i]?.theme ?? null, deck.theme?.accent2 ?? null, deck.theme?.accentMid ?? null])}:${deck.brand?.logo ? 'logo' : ''}`;
     if (key !== this.key) {
       this.key = key;
       // Прокрутка панели сохраняется, когда форма перестраивается (добавили пункт)
@@ -299,6 +299,13 @@ export class Inspector {
         this.host.editor().commit((d) => {
           if (v === undefined) delete d.slides[at][k];
           else d.slides[at][k] = v;
+        }, { rebuild: true });
+      }, (on) => {
+        // Как у темы — своё у слайда убирается
+        const at = this.host.index();
+        this.host.editor().commit((d) => {
+          if (on === (d.theme?.backdropTouch !== false)) delete d.slides[at].backdropTouch;
+          else d.slides[at].backdropTouch = on;
         }, { rebuild: true });
       });
     }
@@ -570,8 +577,9 @@ ${own ? `<span class="st-p-color st-p-sac"><input type="color" data-f="saccent" 
     const deck = shownDeck(this.host.deck());
     const s = deck.slides[this.host.index()];
     // Ползунки — когда у слайда есть анимированный фон (свой или темы)
-    const look = s && slideBackdrop(s, deck) ? backdropLook(s, deck) : null;
-    return `<div class="st-p-field"><span>Анимация фона</span>${backdropStrip(cur, deck.theme?.backdrop)}${look ? tuneHtml({ backdropOpacity: look.opacity, backdropSpeed: look.speed }) : ''}</div>`;
+    const kind = s ? slideBackdrop(s, deck) : null;
+    const look = s && kind ? backdropLook(s, deck) : null;
+    return `<div class="st-p-field"><span>Анимация фона</span>${backdropStrip(cur, deck.theme?.backdrop)}${look ? tuneHtml({ backdropOpacity: look.opacity, backdropSpeed: look.speed }, kind && TOUCH_BACKDROPS.has(kind) ? look.touch : undefined) : ''}</div>`;
   }
 
   private slideHtml(): string {

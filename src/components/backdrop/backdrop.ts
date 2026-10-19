@@ -13,7 +13,7 @@ import './backdrop.css';
  * докладчика — облегчённо; миниатюры, печать и «уменьшить движение» — статичный CSS того же вида.
  */
 
-import type { BackdropKind } from '../../engine/backdrops';
+import { TOUCH_BACKDROPS, type BackdropKind } from '../../engine/backdrops';
 export { BACKDROPS, isBackdrop, type BackdropKind } from '../../engine/backdrops';
 
 interface BackdropProps extends Block {
@@ -21,6 +21,8 @@ interface BackdropProps extends Block {
   /** Заметность 0,1–1 и скорость 0,25–3 (engine/backdrops.ts → backdropLook) */
   opacity?: number;
   speed?: number;
+  /** false — не отвечает на мышь и щелчки (у «Сети») */
+  touch?: boolean;
   /** Только для светлых или только для тёмных слайдов: у тёмных свой фон темы (theme.darkLook) */
   only?: 'light' | 'dark';
 }
@@ -750,8 +752,8 @@ defineBlock<BackdropProps>('backdrop', {
       Object.assign(touch, { cx: b.x, cy: b.y, s: 1 });
       clickAt = showTime() / 1000;
     };
-    // Отвечает на мышь только «Сеть»: у остальных фонов это было бы лишним
-    if (p.kind === 'network' && !still) {
+    // Отвечает на мышь только «Сеть» (и это выключается: touch: false); у остальных фонов было бы лишним
+    if (TOUCH_BACKDROPS.has(p.kind) && p.touch !== false && !still) {
       ctx.slide.addEventListener('mousemove', onMove);
       ctx.slide.addEventListener('mouseleave', onLeave);
       ctx.slide.addEventListener('click', onClick);

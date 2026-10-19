@@ -82,23 +82,30 @@ const TUNE: Record<TuneKey, { label: string; min: number; max: number; step: num
   backdropSpeed: { label: 'Скорость', min: 0.25, max: 3, step: 0.25, fmt: (v) => `${String(v).replace('.', ',')}×` },
 };
 
-/** Компактные ползунки под лентой фона: подпись, ползунок, значение */
-export function tuneHtml(values: Partial<Record<TuneKey, number>>): string {
+/**
+ * Компактные ползунки под лентой фона: подпись, ползунок, значение. touch — галка «Отвечает на мышь»
+ * (только у фонов, которые на неё отвечают; undefined — галки нет)
+ */
+export function tuneHtml(values: Partial<Record<TuneKey, number>>, touch?: boolean): string {
   return `<div class="st-tune">${(Object.keys(values) as TuneKey[]).map((k) => {
     const t = TUNE[k];
     const v = values[k] ?? 1;
     return `<label><span>${t.label}</span><input type="range" data-tune="${k}" min="${t.min}" max="${t.max}" step="${t.step}" value="${v}"><output>${t.fmt(v)}</output></label>`;
-  }).join('')}</div>`;
+  }).join('')}${touch === undefined ? '' : `<label class="st-p-check" title="Наведение и щелчок по слайду меняют фон — у зрителей и от мыши докладчика. Выключите, если отвлекает"><input type="checkbox" data-tune="backdropTouch"${touch ? ' checked' : ''}><span>Отвечает на мышь и щелчки</span></label>`}</div>`;
 }
 
 /**
  * Ползунки: пока тянут — фон открытого слайда меняется сразу (без перестройки), отпустили —
  * значение записывается (1 — по умолчанию — убирает поле)
  */
-export function bindTune(root: HTMLElement, stage: () => HTMLElement, commit: (key: TuneKey, v: number | undefined) => void): void {
+export function bindTune(root: HTMLElement, stage: () => HTMLElement, commit: (key: TuneKey, v: number | undefined) => void, touch?: (on: boolean) => void): void {
   root.querySelectorAll<HTMLInputElement>('input[data-tune]').forEach((inp) => {
     if (inp.dataset.bound) return;
     inp.dataset.bound = '1';
+    if (inp.type === 'checkbox') {
+      inp.addEventListener('change', () => touch?.(inp.checked));
+      return;
+    }
     const key = inp.dataset.tune as TuneKey;
     const out = inp.parentElement?.querySelector('output');
     inp.addEventListener('input', () => {

@@ -318,6 +318,7 @@ yarn test:perf   # скорость студии (листать, тянуть �
   backdrop: particles   # анимированный фон: mesh, aurora, silk, waves, topo, rays, bokeh, particles, stars, snow, leaves, petals, bubbles, hearts, confetti, caustics, plankton, pulse, dots, network, hex, orbits, grid, retrosun, globe, terrain, tunnel, lava; none — без фона темы
   backdropOpacity: 0.6  # заметность анимированного фона, 0.1–1 (у слайда — своя)
   backdropSpeed: 1.5    # скорость, 0.25–3
+  backdropTouch: false  # фон не отвечает на мышь и щелчки (у «Сети»; так же у темы — для всех слайдов)
 ```
 
 - **Порядок слайдов** — порядок в списке `slides`.

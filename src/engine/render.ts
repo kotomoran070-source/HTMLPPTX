@@ -116,7 +116,7 @@ export class Renderer {
     });
     const same = layers.length < 2 || (layers[0].kind === layers[1].kind && JSON.stringify(layers[0].look) === JSON.stringify(layers[1].look));
     const backdrop = getBlock('backdrop') ? (same ? layers.slice(0, 1) : layers).filter((l) => l.kind).map(({ m, kind, look }) => this.block({
-      type: 'backdrop', kind, ...(look && look.opacity !== 1 ? { opacity: look.opacity } : {}), ...(look && look.speed !== 1 ? { speed: look.speed } : {}), ...(same ? {} : { only: m }),
+      type: 'backdrop', kind, ...(look && look.opacity !== 1 ? { opacity: look.opacity } : {}), ...(look && look.speed !== 1 ? { speed: look.speed } : {}), ...(look && !look.touch ? { touch: false } : {}), ...(same ? {} : { only: m }),
     } as Block, ctx)).join('') : '';
     if (backdrop) cls += ' has-backdrop';
     let content = `${inner}${this.freeLayer(slide, ctx)}`;

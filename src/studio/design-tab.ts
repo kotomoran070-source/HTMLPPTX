@@ -22,7 +22,7 @@ import { closeMenu, showPopover } from './menu';
 import { accentSwatch, openAccentGradient } from './accent-gradient';
 import { backdropStrip, bindBackdropStrip, bindTune, tuneHtml } from './backdrop-pick';
 import { previewBackdrop } from '../components/backdrop/backdrop';
-import { isBackdrop } from '../engine/backdrops';
+import { isBackdrop, TOUCH_BACKDROPS } from '../engine/backdrops';
 import { addMyTheme, captureTheme, downloadTheme, downloadThemes, listMyThemes, MY, parseThemeFiles, placeThemeImages, registerMyFonts, removeMyTheme, sameTheme, type MyTheme } from './my-themes';
 import { freeName } from './same';
 import { registerThemeFonts, SPECIMEN, THEME_FONTS, THEME_PRESETS, themeFont, themeFontWeights, type ThemePreset } from './theme-presets';
@@ -368,7 +368,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     const head = scope(BD_KEYS, dark, backdropMenu);
     const inDark = dark && !!head;
     const d = inDark ? lookFor(t, 'dark') : t;
-    const tune = isBackdrop(d.backdrop) ? tuneHtml({ backdropOpacity: d.backdropOpacity ?? 1, backdropSpeed: d.backdropSpeed ?? 1 }) : '';
+    const tune = isBackdrop(d.backdrop) ? tuneHtml({ backdropOpacity: d.backdropOpacity ?? 1, backdropSpeed: d.backdropSpeed ?? 1 }, TOUCH_BACKDROPS.has(d.backdrop) ? t.backdropTouch !== false : undefined) : '';
     const el = showPopover(at, `${head?.html ?? '<div class="st-plabel">Анимация фона всех слайдов</div>'}${backdropStrip(d.backdrop ?? '')}${tune}<p class="st-bdnote">Наведите — фон примерится на слайде. У отдельного слайда фон меняется в панели слайда</p>`, (b) => {
       if (b.dataset.scope) return head?.pick(b) ?? null;
       const v = b.dataset.backdrop;
@@ -382,7 +382,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
       if (!inDark) return patch({ [k]: v });
       const key = k as 'backdropOpacity' | 'backdropSpeed';
       patchDark({ [key]: (v ?? 1) === (t[key] ?? 1) ? undefined : v ?? 1 });
-    });
+    }, (on) => patch({ backdropTouch: on ? undefined : false }));
   };
 
   // ---------- свои темы ----------

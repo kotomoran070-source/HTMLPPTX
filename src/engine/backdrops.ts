@@ -15,6 +15,8 @@ export const BACKDROPS = [
 export type BackdropKind = (typeof BACKDROPS)[number][0];
 export const isBackdrop = (v: unknown): v is BackdropKind => BACKDROPS.some(([k]) => k === v);
 export const backdropName = (v: unknown) => BACKDROPS.find(([k]) => k === v)?.[1] ?? '';
+/** Фоны, которые отвечают на мышь и щелчок (это можно выключить — backdropTouch: false) */
+export const TOUCH_BACKDROPS: ReadonlySet<BackdropKind> = new Set(['network']);
 
 /** Фон, который у слайда на самом деле: свой, «без фона» или фон темы */
 export function slideBackdrop(slide: SlideData, deck: Deck): BackdropKind | null {
@@ -25,11 +27,14 @@ export function slideBackdrop(slide: SlideData, deck: Deck): BackdropKind | null
 
 const clampNum = (v: unknown, lo: number, hi: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : undefined);
 
-/** Заметность и скорость анимированного фона: у слайда свои, иначе — темы, иначе 1 */
-export function backdropLook(slide: SlideData, deck: Deck): { opacity: number; speed: number } {
+const bool = (v: unknown) => (typeof v === 'boolean' ? v : undefined);
+
+/** Заметность, скорость и ответ на мышь анимированного фона: у слайда свои, иначе — темы, иначе 1 и «да» */
+export function backdropLook(slide: SlideData, deck: Deck): { opacity: number; speed: number; touch: boolean } {
   return {
     opacity: clampNum(slide.backdropOpacity, 0.1, 1) ?? clampNum(deck.theme?.backdropOpacity, 0.1, 1) ?? 1,
     speed: clampNum(slide.backdropSpeed, 0.25, 3) ?? clampNum(deck.theme?.backdropSpeed, 0.25, 3) ?? 1,
+    touch: bool(slide.backdropTouch) ?? bool(deck.theme?.backdropTouch) ?? true,
   };
 }
 

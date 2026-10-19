@@ -1,6 +1,6 @@
 // Показ: все слайды открываются без ошибок, тема, интерактив, ссылки между слайдами, морф
 import { expect, test } from '@playwright/test';
-import { counter, nextTo, watchErrors } from './helpers';
+import { counter, nextTo, readDeck, watchErrors } from './helpers';
 
 test.use({ colorScheme: 'light' });
 
@@ -385,6 +385,24 @@ test('фон «Сеть» отвечает на мышь: у курсора св
   await pres.mouse.move(pb.x + pb.width * 0.3, pb.y + pb.height * 0.7, { steps: 3 });
   await expect.poll(async () => (await tinted(page, '', 0.3, 0.7)).blue).toBeGreaterThan(40);
   await pres.close();
+  expect(errors).toEqual([]);
+});
+
+test('галка «Отвечает на мышь и щелчки» у фона слайда: снял — backdropTouch: false, поставил — как у темы', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=space&studio#2');
+  await expect(page.locator('#st-canvas .slide.on .backdrop.bd-network')).toHaveCount(1);
+  const box = page.locator('input[data-tune="backdropTouch"]');
+  await expect(box).toBeChecked();
+  await box.uncheck();
+  await expect.poll(() => readDeck('space')).toMatch(/backdropTouch: false/);
+  await expect(page.locator('input[data-tune="backdropTouch"]')).not.toBeChecked();
+  await page.locator('input[data-tune="backdropTouch"]').check();
+  await expect.poll(() => readDeck('space')).not.toMatch(/backdropTouch/);
+  // У фонов, которые на мышь не отвечают, галки нет
+  await page.goto('/?deck=space&studio#1');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  await expect(page.locator('input[data-tune="backdropTouch"]')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
