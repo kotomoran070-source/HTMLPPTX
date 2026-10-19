@@ -29,7 +29,8 @@
     "test:unit": "playwright test --project=unit",
     "test:e2e": "playwright test --project=e2e",
     "test:app": "playwright test --project=app",
-    "test:perf": "playwright test --project=perf"
+    "test:perf": "playwright test --project=perf",
+    "test:stage": "node scripts/test-stage.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
@@ -72,7 +73,15 @@
     "directories": {
       "output": "dist-app"
     },
-    "asar": false,
+    "asar": true,
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "grantFileProtocolExtraPrivileges": false
+    },
     "npmRebuild": false,
     "electronLanguages": [
       "ru",

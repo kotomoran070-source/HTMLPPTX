@@ -73,3 +73,7 @@ for (const name of names) {
   const kb = (fs.statSync(out).size / 1024).toFixed(0);
   console.log(`✓ ${path.relative(root, out)}  ${kb} КБ${clean ? ' · для показа' : ''}${compact ? ' · компактный' : ''}`);
 }
+
+// «Экспорт» в приложении идёт служебным процессом Electron (desktop/main.mjs), а он сам не завершается:
+// выход — когда сообщения об ошибках дописаны
+if (process.parentPort) process.stderr.write('', () => process.exit(process.exitCode ?? 0));

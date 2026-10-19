@@ -5,9 +5,14 @@
 //   perf — скорость студии (yarn test:perf), только по запросу.
 // Браузер: на Windows — установленный Microsoft Edge (качать ничего не нужно),
 // в остальных системах — Chromium Playwright (npx playwright install chromium).
+import path from 'node:path';
 import { defineConfig } from '@playwright/test';
 
 const PORT = 5190;
+// SLIDERIA_STAGE=папка — сервер на сжатом коде программы (node scripts/app-stage.mjs), а не на исходниках:
+// так проверяется, что установщик работает так же. Пути — полные: «Экспорт» собирает из папки этого кода
+const stage = process.env.SLIDERIA_STAGE;
+const tmp = (p: string) => (stage ? path.resolve(p) : p);
 const channel = process.env.SLIDERIA_TEST_BROWSER || (process.platform === 'win32' ? 'msedge' : undefined);
 
 export default defineConfig({
@@ -33,10 +38,14 @@ export default defineConfig({
   ],
   webServer: {
     // Копия презентаций для тестов, затем сервер на ней: правки тестов не трогают presentations/
-    command: `node tests/prepare.mjs && npx vite --port ${PORT} --strictPort`,
+    command: `node tests/prepare.mjs && npx vite ${stage ? `"${stage}" ` : ''}--port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: false,
     timeout: 120_000,
-    env: { SLIDERIA_DECKS: '.tmp/test-decks', SLIDERIA_FONTS: '.tmp/test-fonts', SLIDERIA_LIBRARY: '.tmp/test-library', BROWSER: 'none' },
+    env: {
+      SLIDERIA_DECKS: tmp('.tmp/test-decks'), SLIDERIA_FONTS: tmp('.tmp/test-fonts'), SLIDERIA_LIBRARY: tmp('.tmp/test-library'), BROWSER: 'none',
+      // package.json программы — не в папке сжатого кода, как и в установленной программе
+      ...(stage ? { SLIDERIA_PACKAGE: path.resolve('package.json') } : {}),
+    },
   },
 });

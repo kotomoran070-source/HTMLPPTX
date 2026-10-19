@@ -3,9 +3,13 @@
 // ассеты, шрифты, экспорт работают тем же кодом, что в браузере. Отличаются только папки:
 //   презентации — «Документы/Slideria» (при первом запуске там появляется презентация из шаблона),
 //   библиотека шрифтов и кэш Vite — папка данных приложения (%APPDATA%/Slideria).
+// Установленная программа (docs/PROTECTION.md): этот загрузчик — в app.asar, его проверяет сам Electron;
+// сжатый код программы — рядом, в app.asar.unpacked, и перед запуском сверяется с отпечатками из app.asar.
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { app, BrowserWindow, Menu, desktopCapturer, dialog, ipcMain, nativeTheme, screen, session, shell } from 'electron';
+import { pathToFileURL } from 'node:url';
+import { app, BrowserWindow, Menu, desktopCapturer, dialog, ipcMain, nativeTheme, screen, session, shell, utilityProcess } from 'electron';
 import { FIX_FLAG, allowFirewall, runFirewallFix } from './firewall.mjs';
 import { lanGateway } from './lan.mjs';
 
@@ -18,6 +22,9 @@ app.setName('Slideria');
 // Автотесты (tests/app) запускают приложение во временных папках, не трогая настоящие
 if (process.env.SLIDERIA_USER_DATA) app.setPath('userData', process.env.SLIDERIA_USER_DATA);
 const APP_DIR = app.getAppPath();
+// Код программы: в установленной — рядом с app.asar (Vite и esbuild читают обычные файлы), из проекта — сам проект
+const PACKED = APP_DIR.endsWith('.asar');
+const ROOT = PACKED ? `${APP_DIR}.unpacked` : APP_DIR;
 const DATA = app.getPath('userData');
 const DECKS = process.env.SLIDERIA_DOCS_DIR || path.join(app.getPath('documents'), 'Slideria');
 const LOG = path.join(DATA, 'slideria.log');
@@ -31,6 +38,24 @@ let port = 0;
 // Пульт с телефона: вход в локальной сети открывается, когда в показе нажимают R (desktop/lan.mjs)
 const lan = lanGateway(() => port, DECKS, (...a) => log(...a));
 globalThis.__slideriaLan = (deck) => lan.open(deck);
+/**
+ * «Экспорт» (plugins/decks.ts): сборка — отдельным служебным процессом Electron. Запуск самого Electron
+ * в роли Node в установленной программе выключен (docs/PROTECTION.md), служебный процесс работает и без него
+ */
+globalThis.__slideriaRun = (script, args, { cwd, env }) => new Promise((resolve) => {
+  let stderr = '';
+  let code = null;
+  let left = 2;
+  // Ответ — когда процесс вышел и его сообщения об ошибках дочитаны (они приходят и после выхода)
+  const done = () => { if (--left === 0) resolve({ code, stderr }); };
+  const child = utilityProcess.fork(script, args, { cwd, env, stdio: 'pipe', serviceName: 'Slideria — сборка' });
+  child.stdout?.resume();
+  if (child.stderr) {
+    child.stderr.on('data', (d) => { stderr += d; });
+    child.stderr.once('end', done);
+  } else done();
+  child.once('exit', (c) => { code = c; done(); });
+});
 if (process.platform === 'win32') globalThis.__slideriaFirewall = () => allowFirewall((...a) => log(...a));
 
 function log(...a) {
@@ -57,13 +82,44 @@ const FIRST_DIR = 'moya-pervaya-prezentaciya';
 function ensureDecks() {
   if (fs.existsSync(DECKS)) return;
   fs.mkdirSync(DECKS, { recursive: true });
-  const tpl = path.join(APP_DIR, 'templates', 'basic');
+  const tpl = path.join(ROOT, 'templates', 'basic');
   if (!fs.existsSync(tpl)) return;
   const dst = path.join(DECKS, FIRST_DIR);
   fs.cpSync(tpl, dst, { recursive: true });
   const file = path.join(dst, 'deck.yaml');
   fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replaceAll('{{title}}', FIRST_TITLE));
   log('Создана первая презентация в', dst);
+}
+
+/**
+ * Изменённый код программы — какие файлы не совпали с отпечатками сборки (scripts/app-stage.mjs).
+ * Отпечатки лежат в app.asar: подменить их, не сломав проверку самого Electron, нельзя
+ */
+function tampered() {
+  if (!PACKED) return [];
+  let files;
+  try {
+    files = JSON.parse(fs.readFileSync(path.join(APP_DIR, 'desktop', 'integrity.json'), 'utf8')).files;
+  } catch {
+    return ['desktop/integrity.json'];
+  }
+  return Object.entries(files).filter(([rel, sum]) => {
+    try {
+      return createHash('sha256').update(fs.readFileSync(path.join(ROOT, rel))).digest('base64') !== sum;
+    } catch {
+      return true;
+    }
+  }).map(([rel]) => rel);
+}
+
+/** Vite — из папки кода программы (не из app.asar): так он и esbuild работают с обычными файлами */
+async function loadVite() {
+  if (!PACKED) return import('vite');
+  const dir = path.join(ROOT, 'node_modules', 'vite');
+  const pj = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+  const exp = pj.exports?.['.'];
+  const entry = (typeof exp === 'string' ? exp : exp?.import?.default ?? exp?.import ?? exp?.default) || pj.module || pj.main;
+  return import(pathToFileURL(path.join(dir, entry)).href);
 }
 
 async function startServer() {
@@ -74,15 +130,17 @@ async function startServer() {
     SLIDERIA_FONTS: path.join(DATA, 'fonts'),
     SLIDERIA_LIBRARY: path.join(DATA, 'library'),
     SLIDERIA_CACHE: path.join(DATA, 'vite-cache'),
+    // package.json и штамп сборки — в app.asar, а не рядом с кодом (страница лицензий)
+    ...(PACKED ? { SLIDERIA_PACKAGE: path.join(APP_DIR, 'package.json'), SLIDERIA_BUILD_STAMP: path.join(APP_DIR, 'desktop', 'build.json') } : {}),
   });
   // Плагины и сборка считают пути от корня проекта
-  process.chdir(APP_DIR);
-  const { createServer } = await import('vite');
+  process.chdir(ROOT);
+  const { createServer } = await loadVite();
   server = await createServer({
-    configFile: path.join(APP_DIR, 'vite.config.ts'),
+    configFile: path.join(ROOT, 'vite.config.ts'),
     // Без временного файла рядом с конфигом: папка программы может быть только для чтения
     configLoader: 'runner',
-    root: APP_DIR,
+    root: ROOT,
     clearScreen: false,
     server: { port: 47320, strictPort: false },
   });
@@ -274,7 +332,8 @@ function buildMenu() {
       submenu: [
         { role: 'reload', label: 'Обновить' },
         { role: 'forceReload', label: 'Обновить без кэша' },
-        { role: 'toggleDevTools', label: 'Инструменты разработчика' },
+        // В установленной программе инструментов разработчика нет: только при запуске из проекта
+        ...(PACKED ? [] : [{ role: 'toggleDevTools', label: 'Инструменты разработчика' }]),
         { type: 'separator' },
         // Клавиши масштаба ловит zoomKeys: так Ctrl + «=/+» работает без Shift и на цифровом блоке
         { label: 'Обычный масштаб', accelerator: 'CmdOrCtrl+0', registerAccelerator: false, click: () => zoom(focused(), 0) },
@@ -363,6 +422,14 @@ app.whenReady().then(async () => {
   permissions();
   downloads();
   log('Сборка:', BUILD.date ? `${BUILD.version} от ${BUILD.date} (${BUILD.commit})` : 'из проекта');
+  const bad = tampered();
+  if (bad.length) {
+    log('Код программы изменён, запуск остановлен:', bad.slice(0, 10).join(', '));
+    // Автотесты (SLIDERIA_USER_DATA) проверяют это без окна с вопросом
+    if (!process.env.SLIDERIA_USER_DATA) dialog.showErrorBox('Slideria повреждена', 'Файлы программы изменены после установки. Переустановите Slideria.');
+    app.exit(1);
+    return;
+  }
   buildMenu();
   main = createWindow();
   try {

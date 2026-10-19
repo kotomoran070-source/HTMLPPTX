@@ -1,9 +1,15 @@
-// Приложение Electron: первый запуск, страница выбора, экспорт (сборка идёт через сам Electron),
+// Приложение Electron: первый запуск, страница выбора, экспорт (сборка — служебным процессом Electron),
 // вход для телефона. Папки — временные: настоящие «Документы/Slideria» и данные приложения не трогаются.
+// SLIDERIA_APP_EXE=путь — то же для собранной программы (SLIDERIA_FUSES_TEST=1 node scripts/app-build.mjs --linux dir):
+// сжатый код рядом с app.asar, предохранители Electron, а изменённый код программа не запускает
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { _electron as electron, expect, test } from '@playwright/test';
+
+const EXE = process.env.SLIDERIA_APP_EXE;
+const sandbox = process.platform === 'linux' ? ['--no-sandbox'] : [];
 
 test('первый запуск: «Моя первая презентация», экспорт и вход для телефона', async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-app-test-'));
@@ -12,7 +18,7 @@ test('первый запуск: «Моя первая презентация»,
   const saves = path.join(tmp, 'saves');
   fs.mkdirSync(saves, { recursive: true });
   const app = await electron.launch({
-    args: ['.', ...(process.platform === 'linux' ? ['--no-sandbox'] : [])],
+    ...(EXE ? { executablePath: EXE, args: sandbox } : { args: ['.', ...sandbox] }),
     env: { ...process.env, SLIDERIA_DOCS_DIR: docs, SLIDERIA_USER_DATA: path.join(tmp, 'data'), SLIDERIA_SAVE_DIR: saves },
     timeout: 60_000,
   });
@@ -24,7 +30,7 @@ test('первый запуск: «Моя первая презентация»,
     expect(fs.existsSync(path.join(docs, 'moya-pervaya-prezentaciya', 'deck.yaml'))).toBe(true);
     // Подсказки внизу — без команд терминала; какая это сборка программы
     await expect(win.locator('.pk-foot')).not.toContainText('yarn');
-    await expect(win.locator('.pk-build')).toContainText('запуск из проекта');
+    await expect(win.locator('.pk-build')).toContainText(EXE ? 'сборка от' : 'запуск из проекта');
     // Шрифты компьютера: своему серверу доступ дан без вопроса — список шрифтов в студии полный
     const fonts = await win.evaluate(async () => ({
       state: (await navigator.permissions.query({ name: 'local-fonts' as PermissionName })).state,
@@ -33,7 +39,7 @@ test('первый запуск: «Моя первая презентация»,
     expect(fonts).toMatchObject({ state: 'granted' });
     expect(fonts.n).toBeGreaterThan(0);
 
-    // Экспорт: сборка во втором процессе Electron в роли Node (ELECTRON_RUN_AS_NODE)
+    // Экспорт: сборка служебным процессом Electron (в роли Node Electron в собранной программе не запускается)
     const exp = await win.evaluate(async () => {
       const r = await fetch('/__htmlpptx/export?deck=moya-pervaya-prezentaciya&mode=clean', { method: 'POST' });
       return { status: r.status, size: (await r.text()).length };
@@ -110,6 +116,26 @@ test('первый запуск: «Моя первая презентация»,
     }
   } finally {
     await app.close();
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('собранная программа: изменённый код не запускается', async () => {
+  test.skip(!EXE, 'только для собранной программы (SLIDERIA_APP_EXE)');
+  const file = path.join(path.dirname(EXE!), 'resources', 'app.asar.unpacked', 'src', 'main.ts');
+  const was = fs.readFileSync(file);
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-app-tamper-'));
+  const env = { ...process.env, SLIDERIA_DOCS_DIR: path.join(tmp, 'docs'), SLIDERIA_USER_DATA: path.join(tmp, 'data') };
+  try {
+    fs.writeFileSync(file, Buffer.concat([was, Buffer.from('\nconsole.log(1);')]));
+    const r = spawnSync(EXE!, sandbox, { env, timeout: 60_000, encoding: 'utf8' });
+    expect(r.status).toBe(1);
+    expect(fs.readFileSync(path.join(tmp, 'data', 'slideria.log'), 'utf8')).toContain('Код программы изменён, запуск остановлен: src/main.ts');
+    // Сам Electron в роли Node не запускается: предохранитель выключен
+    const node = spawnSync(EXE!, ['-e', 'console.log("node-mode")'], { env: { ...env, ELECTRON_RUN_AS_NODE: '1' }, timeout: 20_000, encoding: 'utf8' });
+    expect(node.stdout ?? '').not.toContain('node-mode');
+  } finally {
+    fs.writeFileSync(file, was);
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });

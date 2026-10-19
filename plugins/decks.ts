@@ -834,6 +834,9 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 }
 
+/** Запуск скрипта сборки отдельным процессом: код выхода и сообщения об ошибках */
+type Runner = (script: string, args: string[], opts: { cwd: string; env: NodeJS.ProcessEnv }) => Promise<{ code: number | null; stderr: string }>;
+
 /**
  * «Экспорт» из редактора: та же сборка, что yarn build, в отдельном процессе и во временную папку
  * (сервер разработки не видит промежуточных файлов). Ответ — готовый HTML.
@@ -842,13 +845,16 @@ function handleExport(root: string, name: string, clean: boolean, compact: boole
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'htmlpptx-export-'));
   const out = path.join(tmp, `${name}.html`);
   const args = [path.join(root, 'scripts/build.mjs'), name, `--out=${out}`, ...(clean ? ['--clean'] : []), ...(compact ? ['--compact'] : [])];
+  // В приложении — служебным процессом Electron (desktop/main.mjs): запуск Electron в роли Node там выключен
+  const run = (globalThis as { __slideriaRun?: Runner }).__slideriaRun ?? ((script, a, o) => new Promise((done) => {
+    execFile(process.execPath, [script, ...a], { ...o, maxBuffer: 8 << 20 }, (err, _stdout, stderr) => done({ code: err ? 1 : 0, stderr: stderr || (err?.message ?? '') }));
+  }));
   return new Promise((resolve) => {
-    // В приложении process.execPath — сам Electron: ELECTRON_RUN_AS_NODE запускает его как обычный Node
-    const env = { ...process.env, BUILD_TMP: tmp, ...(process.versions.electron ? { ELECTRON_RUN_AS_NODE: '1' } : {}) };
-    execFile(process.execPath, args, { cwd: root, env, maxBuffer: 8 << 20 }, (err, _stdout, stderr) => {
+    const env = { ...process.env, BUILD_TMP: tmp };
+    void run(args[0], args.slice(1), { cwd: root, env }).then(({ code, stderr }) => {
       try {
-        if (err || !fs.existsSync(out)) {
-          const msg = (stderr || (err as Error | null)?.message || 'Сборка не удалась').trim().split('\n').slice(-3).join(' ');
+        if (code || !fs.existsSync(out)) {
+          const msg = (stderr || 'Сборка не удалась').trim().split('\n').slice(-3).join(' ');
           send(res, 500, { error: msg });
         } else {
           const body = fs.readFileSync(out);

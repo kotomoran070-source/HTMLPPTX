@@ -84,6 +84,13 @@ export function packageDirOf(id) {
   return fs.existsSync(path.join(dir, 'package.json')) ? dir : null;
 }
 
+/**
+ * package.json и штамп сборки программы. В установленной программе они внутри app.asar, а код — рядом
+ * с ним (scripts/app-stage.mjs): desktop/main.mjs называет их пути в SLIDERIA_PACKAGE и SLIDERIA_BUILD_STAMP
+ */
+const packageFile = (root) => process.env.SLIDERIA_PACKAGE || path.join(root, 'package.json');
+const stampFile = (root) => process.env.SLIDERIA_BUILD_STAMP || path.join(root, 'desktop', 'build.json');
+
 /** Все библиотеки, которые программа везёт с собой (dependencies и их зависимости, без инструментов разработки) */
 export function prodPackages(root) {
   const seen = new Map();
@@ -100,7 +107,7 @@ export function prodPackages(root) {
     for (const d of Object.keys(pj.dependencies ?? {})) walk(d, dir, false);
     for (const d of Object.keys(pj.optionalDependencies ?? {})) walk(d, dir, true);
   };
-  const pj = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const pj = JSON.parse(fs.readFileSync(packageFile(root), 'utf8'));
   for (const d of Object.keys(pj.dependencies ?? {})) walk(d, root, false);
   return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -192,9 +199,9 @@ export function electronFiles() {
 export function licensesPage(root, chromiumUrl) {
   const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const read = (f) => { try { return fs.readFileSync(f, 'utf8').trim(); } catch { return ''; } };
-  const pj = JSON.parse(read(path.join(root, 'package.json')) || '{}');
+  const pj = JSON.parse(read(packageFile(root)) || '{}');
   let stamp = {};
-  try { stamp = JSON.parse(read(path.join(root, 'desktop', 'build.json'))); } catch { /* из проекта */ }
+  try { stamp = JSON.parse(read(stampFile(root))); } catch { /* из проекта */ }
   const { electron, chromium } = electronFiles();
   const item = (title, text) => `<details><summary>${esc(title)}</summary><pre>${esc(text)}</pre></details>`;
   const pkgs = prodPackages(root);
