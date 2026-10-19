@@ -76,14 +76,21 @@ void main(){vec2 uv=gl_FragCoord.xy/r;vec2 p=uv*vec2(r.x/r.y,1.)*2.2;
   float f=.5+.5*sin(s*2.4);float hl=pow(f,8.);
   vec3 c=mix(c1,c2,.5+.5*sin(s*.8+t*.05));c+=hl*.4*(1.-c);
   float a=(.12+.5*f+.25*hl)*k*(.55+.45*uv.y);gl_FragColor=vec4(c*a,a);}`,
-  // Волны: тонкие линии бегут волной через слайд, от акцента ко второму цвету
+  // Волны: тонкие линии бегут волной через слайд, от акцента ко второму цвету. Синусы — один раз на
+  // пиксель: у следующей линии фаза сдвинута на шаг, это поворот пары (sin, cos) на постоянный угол;
+  // цвет — две суммы, смешиваются один раз; вне полосы линий (с запасом на свечение) — сразу пусто
   waves: `${HEAD}
-void main(){vec2 uv=gl_FragCoord.xy/r;vec3 col=vec3(0.);float a=0.;
+void main(){vec2 uv=gl_FragCoord.xy/r;float px=r.y/(1.+.0007*r.y);
+  if(abs(uv.y-.42)>.32+60./px){gl_FragColor=vec4(0.);return;}
+  float a1=uv.x*2.6+t*.22,a2=uv.x*6.3-t*.31;vec2 w1=vec2(sin(a1),cos(a1)),w2=vec2(sin(a2),cos(a2));
+  float s1=0.,s2=0.;
   for(int i=0;i<16;i++){float fi=float(i)/15.;
-    float y=.42+.17*sin(uv.x*2.6+t*.22+fi*1.9)+.07*sin(uv.x*6.3-t*.31+fi*3.1)+(fi-.5)*.16;
-    float d=abs(uv.y-y)*r.y/(1.+.0007*r.y);float l=smoothstep(1.7,.2,d)*(.3+.7*fi)+exp(-d*.09)*.05;
-    col+=mix(c1,c2,fi)*l;a+=l;}
-  float m=min(1.,1./max(a,1e-3));gl_FragColor=vec4(col*m*k,a*m*k);}`,
+    float y=.42+.17*w1.x+.07*w2.x+(fi-.5)*.16;
+    float d=abs(uv.y-y)*px;float l=smoothstep(1.7,.2,d)*(.3+.7*fi)+exp(-d*.09)*.05;
+    s1+=l*(1.-fi);s2+=l*fi;
+    w1=vec2(w1.x*.991988+w1.y*.126328,w1.y*.991988-w1.x*.126328);
+    w2=vec2(w2.x*.97872+w2.y*.205199,w2.y*.97872-w2.x*.205199);}
+  float a=s1+s2;float m=min(1.,1./max(a,1e-3));gl_FragColor=vec4((c1*s1+c2*s2)*m*k,a*m*k);}`,
   // Рельеф: линии высот, как на топографической карте, медленно перетекают
   topo: `#extension GL_OES_standard_derivatives : enable
 ${HEAD}${NOISE}
@@ -446,7 +453,7 @@ const LOOK: Record<BackdropKind, { scale: number; fps: number; k: [light: number
   mesh: { scale: 0.35, fps: 30, k: [0.3, 0.4] },
   aurora: { scale: 0.5, fps: 30, k: [0.5, 0.6] },
   silk: { scale: 0.5, fps: 30, k: [0.32, 0.45] },
-  waves: { scale: 1, fps: 30, k: [0.55, 0.75] },
+  waves: { scale: 0.75, fps: 30, k: [0.55, 0.75] },
   topo: { scale: 1, fps: 30, k: [0.35, 0.45] },
   rays: { scale: 0.5, fps: 30, k: [0.45, 0.6] },
   bokeh: { scale: 0.5, fps: 30, k: [0.75, 1.1] },
