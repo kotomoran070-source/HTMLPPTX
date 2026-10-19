@@ -338,6 +338,56 @@ test('небо «Космоса» и фон «Сеть» у зрителей и 
   expect(presErrors).toEqual([]);
 });
 
+test('фон «Сеть» отвечает на мышь: у курсора светится точка — у зрителей и от мыши докладчика; щелчок без ошибок', async ({ page, context }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=space#2');
+  await expect(page.locator('.slide.on .backdrop.bd-live canvas')).toHaveCount(1);
+  // Слайд встал на место (переход закончился): иначе доли слайда — не там, где он будет
+  const settled = async (p: typeof page, root: string) => {
+    let was = '';
+    await expect.poll(async () => { const b = JSON.stringify(await p.locator(`${root} .slide.on`).boundingBox()); const same = b === was; was = b; return same; }).toBe(true);
+  };
+  // Пиксель экрана в доле (fx, fy) слайда: точка курсора — цвета акцента, фон слайда почти белый
+  const tinted = async (p: typeof page, root: string, fx: number, fy: number) => {
+    const b = (await p.locator(`${root} .slide.on`).boundingBox())!;
+    const x = Math.round(b.x + b.width * fx);
+    const y = Math.round(b.y + b.height * fy);
+    const png = await p.screenshot({ clip: { x: x - 1, y: y - 1, width: 3, height: 3 } });
+    return { x, y, blue: await p.evaluate(async (src) => {
+      const img = new Image();
+      img.src = src;
+      await img.decode();
+      const c = new OffscreenCanvas(3, 3).getContext('2d')!;
+      c.drawImage(img, 0, 0);
+      const [r, , b] = c.getImageData(1, 1, 1, 1).data;
+      return b - r;
+    }, `data:image/png;base64,${png.toString('base64')}`) };
+  };
+  await settled(page, '');
+  const at = await tinted(page, '', 0.62, 0.55);
+  await page.mouse.move(at.x, at.y);
+  await expect.poll(async () => (await tinted(page, '', 0.62, 0.55)).blue).toBeGreaterThan(40);
+  await page.mouse.click(at.x, at.y);
+  await page.waitForTimeout(300);
+  await expect(page.locator('.slide.on .backdrop.bd-live canvas')).toHaveCount(1);
+
+  // Мышь докладчика на его слайде — точка у зрителей там же
+  await page.mouse.move(2, 2);
+  const pres = await context.newPage();
+  await pres.goto('/?deck=space&view=presenter');
+  await expect(pres.locator('#cur .slide.on')).toHaveCount(1);
+  await expect(page.locator('#ct')).toHaveText(/^2 из/);
+  await expect(pres.locator('#cur .slide.on .backdrop.bd-live canvas')).toHaveCount(1);
+  // Стрелку докладчика у зрителей прячем (K): иначе она закроет точку
+  await pres.keyboard.press('k');
+  await settled(pres, '#cur');
+  const pb = (await pres.locator('#cur .slide.on').boundingBox())!;
+  await pres.mouse.move(pb.x + pb.width * 0.3, pb.y + pb.height * 0.7, { steps: 3 });
+  await expect.poll(async () => (await tinted(page, '', 0.3, 0.7)).blue).toBeGreaterThan(40);
+  await pres.close();
+  expect(errors).toEqual([]);
+});
+
 test('мышь докладчика у зрителей: стрелка, наведение, указка, прожектор, кнопки, вопросы, вставка — каждое ровно один раз', async ({ page, context }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=mirror#1');

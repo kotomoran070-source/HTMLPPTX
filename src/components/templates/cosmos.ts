@@ -12,8 +12,10 @@ export const H = 720;
 const PULSE: [number, number] = [640, 232];
 /** Импульс от логотипа — раз в столько секунд */
 const PULSE_EVERY = 3.8;
-/** Узлы расступаются от курсора на этом расстоянии */
+/** Узлы отползают от курсора на это расстояние */
 const CLEAR = 150;
+/** Вплотную к курсору — с этой скоростью, точек в секунду (1,2 точки за кадр при 60 кадрах, как было), к краю круга — всё медленнее */
+const PUSH_SPEED = 72;
 const NODE_COLORS = ['56, 189, 248', '129, 140, 248', '52, 211, 153', '96, 165, 250', '167, 139, 250'];
 
 /** Цвета неба на canvas: тёмное (всегда) и светлое (tone: theme в светлой теме) */
@@ -68,7 +70,7 @@ export function cosmos(el: HTMLElement, cv: HTMLCanvasElement, stage: HTMLElemen
   if (!g) return () => {};
   g.scale(cv.width / W, cv.height / H);
   const { stars, nodes } = skyModel();
-  // Сдвиг узлов от курсора: плавно к цели и плавно обратно, когда курсор ушёл
+  // Насколько курсор отодвинул каждый узел от его пути
   const push = nodes.map(() => ({ x: 0, y: 0 }));
   const waves: { x: number; y: number; t: number }[] = [];
   const mouse = { x: 0, y: 0, on: false };
@@ -104,21 +106,24 @@ export function cosmos(el: HTMLElement, cv: HTMLCanvasElement, stage: HTMLElemen
       if (w.a < 0.015 || w.rad > 380 || t < waves[i].t) waves.splice(i, 1);
       else drawWave(waves[i].x, waves[i].y, w);
     }
-    // Плавность сдвига не зависит от частоты кадров
-    const ease = 1 - Math.exp(-dt * 6);
+    // Отползают со скоростью, а не по кадрам: на экране 60 и 120 Гц одинаково; курсор ушёл — медленно на место
+    const back = 1 - Math.exp(-dt * 0.8);
     const at = nodes.map((n, i) => {
       const b = nodeAt(n, t);
-      let tx = 0;
-      let ty = 0;
-      if (mouse.on && !still) {
-        const dx = b.x - mouse.x;
-        const dy = b.y - mouse.y;
-        const d = Math.hypot(dx, dy);
-        if (d < CLEAR && d > 1) { const k = ((CLEAR - d) * 0.9) / d; tx = dx * k; ty = dy * k; }
-      }
       const p = push[i];
-      p.x += (tx - p.x) * ease;
-      p.y += (ty - p.y) * ease;
+      if (mouse.on && !still) {
+        const dx = b.x + p.x - mouse.x;
+        const dy = b.y + p.y - mouse.y;
+        const d = Math.hypot(dx, dy);
+        if (d < CLEAR && d > 1) {
+          const f = ((CLEAR - d) / CLEAR) * PUSH_SPEED * dt;
+          p.x += (dx / d) * f;
+          p.y += (dy / d) * f;
+        }
+      } else {
+        p.x -= p.x * back;
+        p.y -= p.y * back;
+      }
       return { x: b.x + p.x, y: b.y + p.y };
     });
     nodes.forEach((n, i) => {

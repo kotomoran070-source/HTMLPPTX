@@ -408,8 +408,15 @@ function program(gl: WebGLRenderingContext, vs: string, fs: string): WebGLProgra
   return gl.getProgramParameter(p, gl.LINK_STATUS) ? p : null;
 }
 
+/**
+ * Курсор и щелчок по слайду — свои или докладчика (их повторяет RemoteHover): x, y — доли слайда
+ * сверху слева, on — насколько курсор над слайдом (плавно 0…1), cx, cy, age — где и сколько секунд
+ * назад щёлкнули, s — сила волны (0 — щелчков не было)
+ */
+interface Touch { x: number; y: number; on: number; cx: number; cy: number; age: number; s: number }
+
 interface Scene {
-  draw(t: number): void;
+  draw(t: number, m: Touch): void;
 }
 
 type Pal = () => { c1: Rgb; c2: Rgb; k: number };
@@ -487,17 +494,42 @@ function networkScene(gl: WebGLRenderingContext, colors: Pal, lite: boolean): Sc
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   const u = (s: string) => gl.getUniformLocation(prog, s);
-  const lines = new Float32Array(n * n * 6);
-  const dots = new Float32Array(n * 3);
+  // Связи между узлами, от узлов к курсору и кольцо от щелчка; точки — узлы и сам курсор
+  const RING = 48;
+  const lines = new Float32Array((n * n + n + RING) * 6);
+  const dots = new Float32Array((n + 1) * 3);
   return {
-    draw(t) {
+    draw(t, touch) {
       const { c1, c2, k } = colors();
       const W = gl.drawingBufferWidth;
       const H = gl.drawingBufferHeight;
       const ar = W / H;
+      // Курсор — снизу вверх, как координаты узлов; узлы расступаются от него, от щелчка бежит волна
+      const mx = touch.x;
+      const my = 1 - touch.y;
+      const cx = touch.cx;
+      const cy = 1 - touch.cy;
+      const wave = touch.age < 0 ? 0 : touch.s * Math.exp(-touch.age * 1.6);
       seeds.forEach((p, i) => {
-        nodes[i].x = bounce(p.x + p.vx * t);
-        nodes[i].y = bounce(p.y + p.vy * t);
+        let x = bounce(p.x + p.vx * t);
+        let y = bounce(p.y + p.vy * t);
+        if (touch.on > 0.01) {
+          const dx = (x - mx) * ar;
+          const dy = y - my;
+          const d = Math.hypot(dx, dy) + 1e-4;
+          if (d < 0.2) { const f = (0.2 - d) * 0.35 * touch.on; x += (dx / d / ar) * f; y += (dy / d) * f; }
+        }
+        if (wave > 0.01) {
+          const dx = (x - cx) * ar;
+          const dy = y - cy;
+          const d = Math.hypot(dx, dy) + 1e-4;
+          const w = (d - touch.age * 0.6) * 8;
+          const f = wave * 0.05 * Math.exp(-w * w);
+          x += (dx / d / ar) * f;
+          y += (dy / d) * f;
+        }
+        nodes[i].x = x;
+        nodes[i].y = y;
       });
       let m = 0;
       const R = 0.2;
@@ -509,6 +541,30 @@ function networkScene(gl: WebGLRenderingContext, colors: Pal, lite: boolean): Sc
           if (d > R) continue;
           const al = (1 - d / R) * 0.85;
           lines.set([nodes[i].x, nodes[i].y, al, nodes[j].x, nodes[j].y, al], m);
+          m += 6;
+        }
+      }
+      // Курсор тянет к себе линии от ближних узлов и сам светится точкой
+      let shown = n;
+      if (touch.on > 0.01) {
+        for (const p of nodes) {
+          const d = Math.hypot((p.x - mx) * ar, p.y - my);
+          if (d > 0.26) continue;
+          const al = (1 - d / 0.26) * 0.9 * touch.on;
+          lines.set([p.x, p.y, al, mx, my, al], m);
+          m += 6;
+        }
+        dots.set([mx, my, 0.9 * touch.on], n * 3);
+        shown = n + 1;
+      }
+      // Щелчок: от него расходится тонкое кольцо и гаснет; узлы на его пути вздрагивают
+      if (wave > 0.01) {
+        const rad = touch.age * 0.6;
+        const al = wave * 0.7;
+        for (let i = 0; i < RING; i++) {
+          const a0 = (i / RING) * Math.PI * 2;
+          const a1 = ((i + 1) / RING) * Math.PI * 2;
+          lines.set([cx + (Math.cos(a0) * rad) / ar, cy + Math.sin(a0) * rad, al, cx + (Math.cos(a1) * rad) / ar, cy + Math.sin(a1) * rad, al], m);
           m += 6;
         }
       }
@@ -525,8 +581,8 @@ function networkScene(gl: WebGLRenderingContext, colors: Pal, lite: boolean): Sc
       gl.bufferData(gl.ARRAY_BUFFER, lines.subarray(0, m), gl.DYNAMIC_DRAW);
       gl.drawArrays(gl.LINES, 0, m / 3);
       gl.uniform1f(u('dot'), 1);
-      gl.bufferData(gl.ARRAY_BUFFER, dots, gl.DYNAMIC_DRAW);
-      gl.drawArrays(gl.POINTS, 0, n);
+      gl.bufferData(gl.ARRAY_BUFFER, dots.subarray(0, shown * 3), gl.DYNAMIC_DRAW);
+      gl.drawArrays(gl.POINTS, 0, shown);
     },
   };
 }
@@ -562,6 +618,25 @@ defineBlock<BackdropProps>('backdrop', {
       return anchor.clock + (now - anchor.at) * speed;
     };
     let pal = { c1: [0, 0, 0] as Rgb, c2: [0, 0, 0] as Rgb, k: 1 };
+    // Курсор и щелчок для «Сети»: куда навели (aim) и плавно сглаженное (touch) — на экране любой частоты одинаково
+    const touch: Touch = { x: 0.5, y: 0.5, on: 0, cx: 0.5, cy: 0.5, age: 99, s: 0 };
+    const aim = { x: 0.5, y: 0.5, on: 0 };
+    let clickAt = 0;
+    let felt = 0;
+    const feel = () => {
+      const now = performance.now() / 1000;
+      const dt = felt ? Math.min(0.1, now - felt) : 0;
+      felt = now;
+      const ease = (rate: number) => 1 - Math.exp(-dt * rate);
+      // Курсор только появился — узлы расступаются там, где он, а не ползут из прошлого места
+      if (touch.on < 0.01) Object.assign(touch, { x: aim.x, y: aim.y });
+      else {
+        touch.x += (aim.x - touch.x) * ease(12);
+        touch.y += (aim.y - touch.y) * ease(12);
+      }
+      touch.on += (aim.on - touch.on) * ease(4);
+      touch.age = showTime() / 1000 - clickAt;
+    };
 
     const readColors = () => {
       const ac = cssRgb(el, 'var(--ac)');
@@ -600,7 +675,8 @@ defineBlock<BackdropProps>('backdrop', {
       }
       last = now;
       size();
-      scene.draw(clockNow());
+      feel();
+      scene.draw(clockNow(), touch);
       if (!frozen()) raf = requestAnimationFrame(frame);
     };
 
@@ -646,6 +722,7 @@ defineBlock<BackdropProps>('backdrop', {
       };
       if (now) release();
       else offTimer = window.setTimeout(release, 1000);
+      aim.on = touch.on = touch.s = felt = 0;
     };
 
     // Слой другого вида (светлый при тёмных слайдах) спрятан — его сцена не рисуется
@@ -656,9 +733,29 @@ defineBlock<BackdropProps>('backdrop', {
       readColors();
       if (frozen() && scene) {
         size();
-        scene.draw(clockNow());
+        scene.draw(clockNow(), touch);
       }
     };
+    // Наведение и щелчок по слайду (не по ссылкам и кнопкам); в редакторе мышь занята правкой
+    const toBox = (e: MouseEvent) => {
+      const r = el.getBoundingClientRect();
+      return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
+    };
+    const busy = () => document.body.classList.contains('editing');
+    const onMove = (e: MouseEvent) => { if (!busy()) Object.assign(aim, toBox(e), { on: 1 }); };
+    const onLeave = () => { aim.on = 0; };
+    const onClick = (e: MouseEvent) => {
+      if (busy() || (e.target as Element).closest('a, button, input, select, textarea, label, summary, iframe, [contenteditable]')) return;
+      const b = toBox(e);
+      Object.assign(touch, { cx: b.x, cy: b.y, s: 1 });
+      clickAt = showTime() / 1000;
+    };
+    // Отвечает на мышь только «Сеть»: у остальных фонов это было бы лишним
+    if (p.kind === 'network' && !still) {
+      ctx.slide.addEventListener('mousemove', onMove);
+      ctx.slide.addEventListener('mouseleave', onLeave);
+      ctx.slide.addEventListener('click', onClick);
+    }
     const mo = new MutationObserver(sync);
     mo.observe(ctx.slide, { attributes: true, attributeFilter: ['class'] });
     // Сняли паузу — кадры идут снова (start() сам ничего не делает, если они уже идут)
@@ -670,6 +767,9 @@ defineBlock<BackdropProps>('backdrop', {
       mo.disconnect();
       offTheme();
       removeEventListener(ACCENT_EVENT, recolor);
+      ctx.slide.removeEventListener('mousemove', onMove);
+      ctx.slide.removeEventListener('mouseleave', onLeave);
+      ctx.slide.removeEventListener('click', onClick);
       stop(true);
     };
   },
