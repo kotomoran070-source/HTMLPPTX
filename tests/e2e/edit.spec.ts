@@ -1,5 +1,6 @@
 // Правка и сохранение: текст на месте → deck.yaml, картинки → assets/, новая презентация, корзина, импорт HTML
 import fs from 'node:fs';
+import http from 'node:http';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { DECKS, PNG, api, deckFile, readDeck, waitFile, watchErrors } from './helpers';
@@ -108,6 +109,36 @@ test('запрос с чужого сайта не может править п�
   const res = await fetch('http://localhost:5190/__htmlpptx/delete?deck=slideria', { method: 'POST', headers: { Origin: 'http://evil.example' } });
   expect(res.status).toBe(403);
   expect(fs.existsSync(deckFile('slideria'))).toBe(true);
+});
+
+/** Запрос к серверу тестов со своим заголовком Host (fetch его не меняет) */
+function rawPost(pathname: string, host: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port: 5190, path: pathname, method: 'POST', headers: { Host: host, Origin: `http://${host}` } }, (res) => {
+      res.resume();
+      resolve(res.statusCode ?? 0);
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+test('подмена адреса (DNS rebinding): чужое имя, направленное на этот компьютер, не пускают', async () => {
+  // Чужой сайт направил своё имя на 127.0.0.1: запрос идёт с этого компьютера, Origin совпадает с Host
+  const name = 'zz-rebind';
+  fs.cpSync(path.join(DECKS, 'design'), path.join(DECKS, name), { recursive: true });
+  try {
+    expect(await rawPost('/__htmlpptx/list', 'evil.example:5190')).toBe(403);
+    expect(await rawPost(`/__htmlpptx/delete?deck=${name}`, 'evil.example:5190')).toBe(403);
+    expect(await rawPost('/__slideria/remote/open?room=rebindroom1', 'evil.example:5190')).toBe(403);
+    expect(fs.existsSync(path.join(DECKS, name, 'deck.yaml'))).toBe(true);
+    // Свои адреса работают: localhost, 127.0.0.1 и IP-адрес (телефон в сети)
+    expect(await rawPost('/__htmlpptx/list', 'localhost:5190')).toBe(200);
+    expect(await rawPost('/__htmlpptx/list', '127.0.0.1:5190')).toBe(200);
+    expect(await rawPost('/__htmlpptx/list', '[::1]:5190')).toBe(200);
+  } finally {
+    fs.rmSync(path.join(DECKS, name), { recursive: true, force: true });
+  }
 });
 
 test('импорт HTML по правилам: пробный прогон находит слайды и ничего не пишет', async ({ page }) => {

@@ -6,6 +6,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 import { parse as parseYaml, parseDocument } from 'yaml';
+import { hostGuard } from './host-guard';
 import { denyPage, isLocal, lanPass, remoteRelay } from './remote-relay.mjs';
 import { checkFirewall, checkMessage } from './firewall.mjs';
 import { stepToGlb, stlToGlb } from './model-convert';
@@ -597,6 +598,8 @@ export function decksPlugin(opts: DecksOptions): Plugin {
 
     configureServer(s) {
       server = s;
+      // Первым: чужое имя, направленное на этот компьютер (DNS rebinding), не доходит ни до одного обработчика
+      s.middlewares.use(hostGuard(() => s.config.server.allowedHosts));
       const refresh = (file: string) => {
         if (!file.startsWith(dir) || path.basename(file) !== 'deck.yaml') return;
         const rel = path.relative(dir, file).split(path.sep);
