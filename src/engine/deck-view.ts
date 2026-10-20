@@ -395,7 +395,7 @@ export class DeckView {
       // Пришедший морфом слайд своё появление не играет и после перехода (иначе по концу полёта он дёргается)
       next.classList.add('morph-in');
       this.endMorph = morphTo(this.stage, prev, next, ms);
-    }
+    } else if (tr === 'doors') this.endMorph = doors(this.stage, prev);
     this.outTimer = window.setTimeout(() => this.endOut(), ms + 60);
   }
 
@@ -634,4 +634,25 @@ function morph(a: Element, b: Element): void {
     else if (n.nodeType === 3) { if (n.textContent !== m.textContent) n.textContent = m.textContent; }
     else if (n.nodeType === 1) morph(n as Element, m as Element);
   });
+}
+
+/**
+ * «Двери»: уходящий слайд — две створки (копии без живых частей: видео, вставок, холстов), распахиваются
+ * внутрь, за ними из глубины выходит новый (base.css). Возвращает уборку створок
+ */
+function doors(stage: HTMLElement, prev: HTMLElement): () => void {
+  const leaf = (side: string) => {
+    const c = prev.cloneNode(true) as HTMLElement;
+    c.querySelectorAll('video, iframe, canvas, model-viewer').forEach((x) => x.remove());
+    c.removeAttribute('id');
+    c.querySelectorAll('[id]').forEach((x) => x.removeAttribute('id'));
+    c.classList.remove('on', 'out');
+    c.classList.add('door', side);
+    c.setAttribute('aria-hidden', 'true');
+    stage.append(c);
+    return c;
+  };
+  const l = leaf('door-l');
+  const r = leaf('door-r');
+  return () => { l.remove(); r.remove(); };
 }

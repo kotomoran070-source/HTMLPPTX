@@ -56,4 +56,6 @@ test('вместе с предыдущим и по пунктам: номера 
 test('направление перехода: своё — только у переходов с направлением; по умолчанию — справа, у шторки — слева', () => {
   expect([trDir('push', undefined), trDir('wipe', undefined), trDir('push', 'top'), trDir('cover', 'nope'), trDir('fade', 'left'), trDir(undefined, 'left')])
     .toEqual(['right', 'left', 'top', 'right', '', '']);
+  // Объёмные с направлением — куб, отражение, галерея, взмах; двери и падение — без
+  expect(['cube', 'flip', 'gallery', 'switch', 'doors', 'fall'].map((t) => trDir(t, 'bottom'))).toEqual(['bottom', 'bottom', 'bottom', 'bottom', '', '']);
 });

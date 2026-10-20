@@ -707,3 +707,36 @@ test('переходы: открывание, шторка сверху, пан�
   })).toBe('||none');
   expect(errors).toEqual([]);
 });
+
+test('объёмные переходы: куб, отражение, галерея, взмах, двери, падение — в перспективе; створки дверей потом убраны', async ({ page }) => {
+  const errors = watchErrors(page);
+  const mid = async (i: number) => {
+    await page.goto(`/?deck=trs#${i - 1}`);
+    await expect(page.locator('#ct')).toHaveText(new RegExp(`^${i - 1} из`));
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(200);
+    return page.evaluate(() => {
+      const stage = document.querySelector<HTMLElement>('.stage')!;
+      const on = stage.querySelector<HTMLElement>(':scope > .slide.on')!;
+      const out = stage.querySelector<HTMLElement>(':scope > .slide.out');
+      return {
+        tr: stage.dataset.tr, trd: stage.dataset.trd ?? '', persp: getComputedStyle(stage).perspective,
+        on: getComputedStyle(on).transform, out: out ? getComputedStyle(out).transform : '', outZ: out ? getComputedStyle(out).zIndex : '',
+        doors: stage.querySelectorAll(':scope > .slide.door').length,
+      };
+    });
+  };
+  const cube = await mid(9);
+  expect([cube.tr, cube.trd, cube.persp]).toEqual(['cube', 'right', '1800px']);
+  expect(cube.on).toMatch(/^matrix3d/);
+  expect(cube.out).toMatch(/^matrix3d/);
+  expect((await mid(10)).trd).toBe('top');
+  expect((await mid(11)).out).toMatch(/^matrix3d/);
+  expect((await mid(12)).on).toMatch(/^matrix3d/);
+  expect((await mid(13)).doors).toBe(2);
+  const fall = await mid(14);
+  expect([fall.outZ, fall.on]).toEqual(['2', 'none']);
+  await page.waitForTimeout(800);
+  expect(await page.locator('.stage > .slide.door').count()).toBe(0);
+  expect(errors).toEqual([]);
+});

@@ -1582,5 +1582,13 @@ test('переходы: галерея в два ряда со стрелкам�
   await page.locator('[data-cmd="tr.set.clock"]').click();
   expect(await waitFile(() => slide(3).includes('transition: clock'))).toBe(true);
   await expect(page.locator('[data-cmd="tr.dir"]')).toBeDisabled();
+  // Стрелки ленты переходов — посередине по высоте, как у появлений
+  const mid = async (sel: string) => {
+    const g = (await page.locator(`${sel} .st-fxgal`).boundingBox())!;
+    const n = (await page.locator(`${sel} [data-nav="1"]`).boundingBox())!;
+    return Math.round(n.y + n.height / 2 - (g.y + g.height / 2));
+  };
+  expect(Math.abs(await mid('.st-trpick'))).toBeLessThan(3);
+  expect(Math.abs(await mid('.st-fxpick'))).toBeLessThan(3);
   expect(errors).toEqual([]);
 });

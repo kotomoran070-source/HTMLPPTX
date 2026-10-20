@@ -15,7 +15,8 @@
 //   gif      — анимированный GIF (три кадра: красный, зелёный, синий) и снимок WebP для «Цвет+»;
 //   space    — финальный «Космос» с орбитой и фон «Сеть»: одна и та же анимация у зрителей и на пульте;
 //   fx       — новые появления, маркер, наплыв камеры; появление, исчезновение и выделение по щелчку.
-//   trs      — переходы между слайдами: открывание, шторка с направлением, панорама, круг, часы, вспышка.
+//   trs      — переходы между слайдами: открывание, шторка с направлением, панорама, круг, часы, вспышка;
+//              объёмные: куб, отражение сверху, галерея, взмах, двери, падение, куб снизу (слайды 9–15).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -357,5 +358,7 @@ fs.mkdirSync(path.join(dir, 'trs'), { recursive: true });
 fs.writeFileSync(path.join(dir, 'trs', 'deck.yaml'), 'title: Переходы\nslides:\n' + [
   '', '    transition: uncover\n', '    transition: wipe\n    transitionDir: top\n', '    transition: split\n', '    transition: circle\n',
   '    transition: clock\n', '    transition: flash\n', '    transition: push\n    transitionDir: bottom\n',
+  '    transition: cube\n', '    transition: flip\n    transitionDir: top\n', '    transition: gallery\n', '    transition: switch\n',
+  '    transition: doors\n', '    transition: fall\n', '    transition: cube\n    transitionDir: bottom\n',
 ].map((t, n) => trSlide(n, t)).join(''));
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

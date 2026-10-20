@@ -1265,12 +1265,15 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
     const tr = one(slide, 'transition');
     const trEl = kids(tr).find((c) => c.localName !== 'extLst');
     const trKind = trEl?.localName;
-    // Переходы PowerPoint → свои; pull — «Открывание», wheel — «Часы»; остальное — без перехода
-    const TR: Record<string, string> = { fade: 'fade', push: 'push', cover: 'cover', pull: 'uncover', zoom: 'zoom', wipe: 'wipe', split: 'split', circle: 'circle', wheel: 'clock', flash: 'flash' };
-    const transition = trKind ? TR[trKind] : undefined;
+    // Переходы PowerPoint → свои; pull — «Открывание», wheel — «Часы», prism — «Куб», prstTrans fallOver — «Падение»
+    const TR: Record<string, string> = {
+      fade: 'fade', push: 'push', cover: 'cover', pull: 'uncover', zoom: 'zoom', wipe: 'wipe', split: 'split', circle: 'circle', wheel: 'clock', flash: 'flash',
+      prism: 'cube', flip: 'flip', gallery: 'gallery', switch: 'switch', doors: 'doors',
+    };
+    const transition = trKind === 'prstTrans' ? (trEl?.getAttribute('prst') === 'fallOver' ? 'fall' : undefined) : trKind ? TR[trKind] : undefined;
     // dir — куда движется слайд: l — влево (новый идёт справа), r — вправо, u — вверх (снизу), d — вниз (сверху)
     const trDirOf: Record<string, string> = { l: 'right', r: 'left', u: 'bottom', d: 'top' };
-    const transitionDir = trEl && ['push', 'cover', 'pull', 'wipe'].includes(trKind!) ? trDirOf[trEl.getAttribute('dir') ?? 'l'] : undefined;
+    const transitionDir = trEl && ['push', 'cover', 'pull', 'wipe', 'prism', 'flip', 'gallery', 'switch'].includes(trKind!) ? trDirOf[trEl.getAttribute('dir') ?? 'l'] : undefined;
     const label = (() => {
       for (const s of Array.from(slide.getElementsByTagNameNS('*', 'sp')) as El[]) {
         const ph = phOf(s);

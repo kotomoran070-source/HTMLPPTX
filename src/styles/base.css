@@ -119,6 +119,62 @@ body {
 @keyframes tr-circle-in { from { clip-path: circle(0% at 50% 50%); } to { clip-path: circle(75% at 50% 50%); } }
 @keyframes tr-clock-in { from { --fx-a: 0deg; } to { --fx-a: 360deg; } }
 @keyframes tr-flash { from { opacity: 0; } 45% { opacity: .96; } to { opacity: 0; } }
+/* Объёмные переходы: перспектива у сцены, направление — вектор (--tr-X, --tr-Y) с учётом «Назад» */
+.stage { --tr-X: calc(var(--tr-x, 1) * var(--tr-s, 1)); --tr-Y: calc(var(--tr-y, 0) * var(--tr-s, 1)); }
+.stage:is([data-tr="cube"], [data-tr="flip"], [data-tr="gallery"], [data-tr="switch"], [data-tr="doors"], [data-tr="fall"]) { perspective: 1800px; }
+/* Куб: слайды — соседние грани, поворачиваются вокруг общего ребра */
+.stage .slide.on[data-tr="cube"] { transform-origin: calc(50% - 50% * var(--tr-X)) calc(50% - 50% * var(--tr-Y)); animation: tr-cube-in var(--tr-ms, 600ms) cubic-bezier(.45, 0, .25, 1) both; }
+.stage[data-tr="cube"] > .slide.out { transform-origin: calc(50% + 50% * var(--tr-X)) calc(50% + 50% * var(--tr-Y)); animation: tr-cube-out var(--tr-run, 600ms) cubic-bezier(.45, 0, .25, 1) both; }
+@keyframes tr-cube-in { from { transform: translate(calc(100% * var(--tr-X)), calc(100% * var(--tr-Y))) rotateY(calc(90deg * var(--tr-X))) rotateX(calc(-90deg * var(--tr-Y))); filter: brightness(.65); } }
+@keyframes tr-cube-out { to { transform: translate(calc(-100% * var(--tr-X)), calc(-100% * var(--tr-Y))) rotateY(calc(-90deg * var(--tr-X))) rotateX(calc(90deg * var(--tr-Y))); filter: brightness(.65); } }
+/* Отражение: слайд переворачивается, как карточка, — на ребре старый сменяется новым */
+.stage .slide.on[data-tr="flip"] { animation: tr-flip-in var(--tr-ms, 600ms) ease-in-out both; }
+.stage[data-tr="flip"] > .slide.out { animation: tr-flip-out var(--tr-run, 600ms) ease-in-out both; }
+@keyframes tr-flip-in {
+  from, 50% { opacity: 0; transform: rotateY(calc(90deg * var(--tr-X))) rotateX(calc(-90deg * var(--tr-Y))) scale(.86); }
+  50.1% { opacity: 1; }
+  to { opacity: 1; transform: none; }
+}
+@keyframes tr-flip-out {
+  50% { opacity: 1; transform: rotateY(calc(-90deg * var(--tr-X))) rotateX(calc(90deg * var(--tr-Y))) scale(.86); }
+  50.1%, to { opacity: 0; transform: rotateY(calc(-90deg * var(--tr-X))) rotateX(calc(90deg * var(--tr-Y))) scale(.86); }
+}
+/* Галерея: слайды отъезжают в глубину, проходят вбок с поворотом и выходят вперёд */
+.stage .slide.on[data-tr="gallery"] { animation: tr-gallery-in var(--tr-ms, 600ms) cubic-bezier(.45, 0, .25, 1) both; }
+.stage[data-tr="gallery"] > .slide.out { animation: tr-gallery-out var(--tr-run, 600ms) cubic-bezier(.45, 0, .25, 1) both; }
+@keyframes tr-gallery-in {
+  from { transform: translate(calc(104% * var(--tr-X)), calc(104% * var(--tr-Y))) rotateY(calc(28deg * var(--tr-X))) rotateX(calc(-28deg * var(--tr-Y))) scale(.78); }
+  72% { transform: scale(.78); }
+}
+@keyframes tr-gallery-out {
+  28% { transform: scale(.78); }
+  to { transform: translate(calc(-104% * var(--tr-X)), calc(-104% * var(--tr-Y))) rotateY(calc(-28deg * var(--tr-X))) rotateX(calc(28deg * var(--tr-Y))) scale(.78); }
+}
+/* Взмах: слайды расходятся в стороны и меняются местами — новый выходит вперёд */
+.stage .slide.on[data-tr="switch"] { animation: tr-switch-in var(--tr-ms, 600ms) cubic-bezier(.45, 0, .3, 1) both; }
+.stage[data-tr="switch"] > .slide.out { z-index: 1; animation: tr-switch-out var(--tr-run, 600ms) cubic-bezier(.45, 0, .3, 1) both; }
+@keyframes tr-switch-in {
+  from { z-index: 0; transform: translate(calc(30% * var(--tr-X)), calc(30% * var(--tr-Y))) rotateY(calc(-40deg * var(--tr-X))) rotateX(calc(40deg * var(--tr-Y))) scale(.6); filter: brightness(.7); }
+  50% { z-index: 2; transform: translate(calc(48% * var(--tr-X)), calc(48% * var(--tr-Y))) rotateY(calc(-28deg * var(--tr-X))) rotateX(calc(28deg * var(--tr-Y))) scale(.74); }
+  to { z-index: 2; }
+}
+@keyframes tr-switch-out {
+  50% { transform: translate(calc(-48% * var(--tr-X)), calc(-48% * var(--tr-Y))) rotateY(calc(28deg * var(--tr-X))) rotateX(calc(-28deg * var(--tr-Y))) scale(.74); }
+  to { transform: translate(calc(-30% * var(--tr-X)), calc(-30% * var(--tr-Y))) rotateY(calc(40deg * var(--tr-X))) rotateX(calc(-40deg * var(--tr-Y))) scale(.6); filter: brightness(.7); opacity: 0; }
+}
+/* Двери: створки — копии уходящего слайда (deck-view), распахиваются внутрь; новый выходит из глубины */
+.stage[data-tr="doors"] > .slide.out { visibility: hidden; }
+.stage .slide.on[data-tr="doors"] { animation: tr-doors-in var(--tr-ms, 600ms) cubic-bezier(.3, 0, .2, 1) both; }
+.stage > .slide.door { display: block; z-index: 3; pointer-events: none; animation: tr-door-l var(--tr-run, 600ms) cubic-bezier(.55, 0, .25, 1) both; }
+.stage > .slide.door-l { clip-path: inset(0 50% 0 0); transform-origin: 0 50%; }
+.stage > .slide.door-r { clip-path: inset(0 0 0 50%); transform-origin: 100% 50%; animation-name: tr-door-r; }
+@keyframes tr-doors-in { from { transform: scale(.8); filter: brightness(.6); } }
+@keyframes tr-door-l { 75% { opacity: 1; } to { transform: rotateY(84deg); opacity: 0; } }
+@keyframes tr-door-r { 75% { opacity: 1; } to { transform: rotateY(-84deg); opacity: 0; } }
+/* Падение: старый слайд опрокидывается назад, под ним — новый */
+.stage .slide.on[data-tr="fall"] { animation: none; }
+.stage[data-tr="fall"] > .slide.out { z-index: 2; transform-origin: 50% 100%; animation: tr-fall-out var(--tr-run, 600ms) cubic-bezier(.55, 0, .85, .35) both; }
+@keyframes tr-fall-out { 80% { opacity: 1; } to { transform: rotateX(86deg); opacity: 0; } }
 @keyframes tr-flash-in { from, 44% { opacity: 0; } 45%, to { opacity: 1; } }
 @keyframes tr-cover-out { to { transform: scale(.94); opacity: .35; } }
 @keyframes tr-zoom-in { from { transform: scale(.82); opacity: 0; } }
