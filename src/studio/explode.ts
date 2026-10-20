@@ -28,8 +28,14 @@ export function canExplode(slide: SlideData | undefined): boolean {
   return !!slide && TEMPLATES.has(slide.template ?? 'content') && !slide.live;
 }
 
-/** Поля слайда, которые остаются после разбора: всё остальное — у объектов */
-const KEEP = ['id', 'label', 'notes', 'transition', 'transitionMs', 'backdrop', 'free'];
+/**
+ * Поля слайда, которые остаются после разбора: имя, заметки, скрытие, ползунки, свои цвета, переход с направлением,
+ * анимированный фон с заметностью, скоростью и ответом на мышь. Всё остальное — у объектов
+ */
+const KEEP = [
+  'id', 'label', 'notes', 'notesEdited', 'hidden', 'vars', 'recolor', 'theme', 'transition', 'transitionMs', 'transitionDir',
+  'backdrop', 'backdropOpacity', 'backdropSpeed', 'backdropTouch', 'free',
+];
 
 export function explodeSlide(host: Host, index: number): boolean {
   const { deck, stage, editor } = host;
@@ -43,10 +49,11 @@ export function explodeSlide(host: Host, index: number): boolean {
     const f = (n: number) => Math.round(n * 10) / 10;
     return { x: f((r.left - sr.left) * k), y: f((r.top - sr.top) * k), w: f(r.width * k), h: f(r.height * k) };
   };
-  const tplClass = [...slide.classList].filter((c) => !['slide', 'on', 'out', 'static'].includes(c)).join(' ');
+  const tplClass = [...slide.classList].filter((c) => !['slide', 'on', 'out', 'static', 'has-backdrop'].includes(c)).join(' ');
   const editable = (el: Element) => el.matches('[data-edit],[data-edit-img],[data-block]') || !!el.querySelector('[data-edit],[data-edit-img],[data-block]');
   const shown = (el: Element) => {
-    if (el.classList.contains('free')) return false;
+    // Анимированный фон слайд рисует сам (поле backdrop остаётся): копия была бы пустым холстом поверх живого
+    if (el.classList.contains('free') || el.classList.contains('backdrop')) return false;
     const cs = getComputedStyle(el);
     if (cs.display === 'none' || cs.visibility === 'hidden') return false;
     const r = el.getBoundingClientRect();

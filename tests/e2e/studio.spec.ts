@@ -1592,3 +1592,32 @@ test('переходы: галерея в два ряда со стрелкам�
   expect(Math.abs(await mid('.st-fxpick'))).toBeLessThan(3);
   expect(errors).toEqual([]);
 });
+
+test('«Разобрать на объекты»: живой фон не закрыт копией, его заметность, скорость, ответ на мышь и переход с направлением — остаются', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=expl&studio#1');
+  const look = () => page.locator('#st-canvas .slide.on .backdrop').evaluate((b) => `${b.className.match(/bd-\w+/)?.[0]} ${getComputedStyle(b).opacity}`);
+  await expect.poll(look).toBe('bd-aurora 0.5');
+  // Выделен блок раскладки — подпись «Анимации» подсказывает, что делать
+  await page.locator('[data-tab="anim"]').first().click();
+  await page.locator('#st-canvas .slide.on li').first().click();
+  await expect(page.locator('#st-fx-label')).toContainText('Сделать свободным');
+  await page.keyboard.press('Escape');
+  await page.locator('#st-canvas .slide.on').click({ button: 'right', position: { x: 8, y: 8 } });
+  await page.locator('.st-menu button', { hasText: 'Разобрать на объекты' }).click();
+  const slide = () => readDeck('expl').split('\n  - ')[1] ?? '';
+  expect(await waitFile(() => slide().includes('template: canvas'))).toBe(true);
+  for (const f of ['backdrop: aurora', 'backdropOpacity: 0.5', 'backdropSpeed: 2', 'backdropTouch: false', 'transition: cube', 'transitionDir: top']) expect(slide()).toContain(f);
+  await expect.poll(look).toBe('bd-aurora 0.5');
+  // Фон рисует сам слайд: его копии в декоре нет (пустой холст закрыл бы живой фон)
+  await expect(page.locator('#st-canvas .slide.on .backdrop')).toHaveCount(1);
+  // Финал: живой фон один, кольца — в декоре и движутся
+  await page.goto('/?deck=expl&studio#3');
+  await page.locator('#st-canvas .slide.on').click({ button: 'right', position: { x: 8, y: 8 } });
+  await page.locator('.st-menu button', { hasText: 'Разобрать на объекты' }).click();
+  expect(await waitFile(() => (readDeck('expl').split('\n  - ')[3] ?? '').includes('template: canvas'))).toBe(true);
+  await expect(page.locator('#st-canvas .slide.on .backdrop')).toHaveCount(1);
+  await expect(page.locator('#st-canvas .slide.on .backdrop.bd-network')).toHaveCount(1);
+  await expect.poll(() => page.locator('#st-canvas .slide.on .rg circle').first().evaluate((c) => c.getAnimations().length)).toBeGreaterThan(0);
+  expect(errors).toEqual([]);
+});

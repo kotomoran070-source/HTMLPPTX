@@ -361,4 +361,24 @@ fs.writeFileSync(path.join(dir, 'trs', 'deck.yaml'), 'title: Переходы\ns
   '    transition: cube\n', '    transition: flip\n    transitionDir: top\n', '    transition: gallery\n', '    transition: switch\n',
   '    transition: doors\n', '    transition: fall\n', '    transition: cube\n    transitionDir: bottom\n',
 ].map((t, n) => trSlide(n, t)).join(''));
+// expl — разбор на объекты: свой анимированный фон с заметностью и скоростью, фон темы у обложки, финал
+fs.mkdirSync(path.join(dir, 'expl'), { recursive: true });
+fs.writeFileSync(path.join(dir, 'expl', 'deck.yaml'), `title: Разбор
+theme: {backdrop: waves}
+slides:
+  - title: Свой фон
+    backdrop: aurora
+    backdropOpacity: 0.5
+    backdropSpeed: 2
+    backdropTouch: false
+    transition: cube
+    transitionDir: top
+    body: {type: list, items: [Один, Два, Три]}
+  - template: cover
+    title: Фон темы
+    subtitle: Обложка
+  - template: finale
+    title: Спасибо
+    backdrop: network
+`);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

@@ -538,6 +538,9 @@ export function animCommands(h: AnimHost): Record<string, Command> {
   const root = document.getElementById('st-apane');
   const split = document.getElementById('st-sa');
   pane = root && split ? new OrderPane(root, split, h, { move, place, together }) : null;
+  // Начали или кончили править текст раскладки — подпись «Анимации» (подсказка «Сделать свободным») обновляется
+  const canvasEl = document.getElementById('st-canvas');
+  for (const ev of ['focusin', 'focusout']) canvasEl?.addEventListener(ev, () => requestAnimationFrame(() => syncAnimTab(h)));
   cmds['anim.order'] = { run: () => pane?.toggle(), active: () => !!pane?.open };
   // Длительность эффектов выделенных объектов: множитель для появления, выделения и исчезновения
   cmds['anim.tempo'] = {
@@ -935,7 +938,9 @@ export function syncAnimTab(h: AnimHost): void {
     const more = list.length === 1
       ? `${typeof list[0].emphAt === 'number' && list[0].emphasis ? ` · ${nameOf(EMPHASIS, list[0].emphasis).toLowerCase()}` : ''}${list[0].exit ? ' · исчезает' : ''}`
       : '';
-    fxLabel.textContent = !list.length ? 'Анимация: выделите объект'
+    // Выделен (или правится) блок раскладки или поле шаблона: анимация — у свободных объектов
+    const layout = !list.length && (!!h.editor.selection || !!document.querySelector('#st-canvas [contenteditable="true"]'));
+    fxLabel.textContent = layout ? 'Анимация: блок — «Сделать свободным»' : !list.length ? 'Анимация: выделите объект'
       : fx.size > 1 ? 'Появление: разные' : `Появление: ${effectName(h.deck, [...fx][0]) || 'Без анимации'}${more}`;
   }
   const delay = document.getElementById('st-fx-delay') as HTMLInputElement | null;
