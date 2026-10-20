@@ -97,6 +97,8 @@ interface ImageProps extends Block, ImageFrame, ImageLook {
   caption?: string;
   /** Высота блока в пикселях слайда */
   height?: number;
+  /** Наплыв камеры при показе: in — приближение, out — отдаление, pan — панорама (base.css) */
+  camera?: 'in' | 'out' | 'pan';
 }
 
 /** Картинка из папки презентации: src: ./assets/photo.jpg */
@@ -109,7 +111,8 @@ defineBlock<ImageProps>('image', {
       : `<div class="image-empty"${eimg(p, 'src')}${p.radius !== undefined ? ` style="${look.box.split(';').filter((d) => d.startsWith('border-radius')).join(';')}${p.radius === 'circle' ? ';aspect-ratio:1;min-height:0;padding:0;flex:none;height:100%;margin:0 auto' : ''}"` : ''}>${p.radius === 'circle' ? 'Фото' : 'Перетащите изображение сюда'}</div>`;
     const cap = p.caption ? `<figcaption class="mu"${ea(p, 'caption')}>${t(p.caption)}</figcaption>` : '';
     const h = Number(p.height);
-    return `<figure class="image r"${styleAttr(h > 0 && `height:${h}px`, p.style)}>${img}${cap}</figure>`;
+    const cam = p.src && (p.camera === 'in' || p.camera === 'out' || p.camera === 'pan') ? ` cam-${p.camera}` : '';
+    return `<figure class="image r${cam}"${styleAttr(h > 0 && `height:${h}px`, p.style)}>${img}${cap}</figure>`;
   },
 });
 

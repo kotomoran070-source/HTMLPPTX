@@ -1,16 +1,19 @@
 import { icon } from '../components/icons';
+import { actsOf, EMPHASIS, ENTER, EXIT, nameOf, TEXT_ENTER, type ActKind, type Pair } from '../engine/anim';
 import { getAt, type Path } from '../engine/data';
 import { blockName } from '../engine/editor/block-edit';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
 import { TEXT_FX, TEXT_FX_NAMES, textFxPreview } from '../engine/text-fx';
 import type { Block, Deck } from '../types';
+import { bindRail, railNav } from './backdrop-pick';
 import { showMenu, showPopover } from './menu';
 import { deckWithEffect, listEffects, removeEffect, type UserEffect } from './templates';
 
 /**
- * Вкладка «Анимация»: переход к слайду и появление объектов.
- * Образцы на ленте — живые: при наведении проигрывают свой эффект.
+ * Вкладка «Анимация»: переход к слайду, появление, выделение и исчезновение объектов.
+ * Образцы на ленте — живые: при наведении проигрывают свой эффект; пункты выделения
+ * и исчезновения при наведении проигрываются на самих объектах слайда.
  */
 
 interface Command {
@@ -35,10 +38,13 @@ export const TRANSITIONS: [string, string][] = [
   ['cover', 'Наплыв'], ['zoom', 'Приближение'], ['blur', 'Размытие'], ['morph', 'Морф'],
 ];
 
-export const EFFECTS: [string, string][] = [
-  ['', 'Без анимации'], ['fade', 'Проявление'], ['rise', 'Всплытие снизу'], ['drop', 'Появление сверху'],
-  ['left', 'Выезд слева'], ['right', 'Выезд справа'], ['scale', 'Увеличение'], ['pop', 'Пружина'],
-];
+export const EFFECTS: [string, string][] = [['', 'Без анимации'], ...ENTER.map(([k, n]) => [k, n] as [string, string])];
+
+/** Подсказки к появлениям, которые есть не у всех объектов */
+const FX_HINT: Record<string, string> = {
+  words: 'По словам: у надписи и текста фигуры', letters: 'По буквам: у надписи и текста фигуры',
+  draw: 'Прорисовка: у линий, стрелок и фигур — контур проводится, заливка следом',
+};
 
 const SPEEDS: [number, string][] = [[300, 'Быстро · 0,3 с'], [600, 'Обычно · 0,6 с'], [1000, 'Медленно · 1 с'], [1600, 'Очень медленно · 1,6 с']];
 
@@ -65,9 +71,9 @@ const TR_HINT: Record<string, string> = { morph: 'Морф: одинаковые
 const trTile = ([v, l]: [string, string]) =>
   `<button type="button" class="st-atile" data-cmd="tr.set.${v || 'default'}" title="${esc(TR_HINT[v] ?? l)}" aria-label="${esc(l)}"><i class="st-trv" data-v="${v || 'default'}"><b></b><b></b></i></button>`;
 
-/** Образец появления: плашка въезжает на «слайд» */
+/** Образец появления: плашка въезжает на «слайд» (по словам и буквам — три плашки по очереди) */
 const fxTile = ([v, l]: [string, string]) =>
-  `<button type="button" class="st-atile" data-cmd="fx.set.${v || 'none'}" title="${esc(l)}" aria-label="${esc(l)}"><i class="st-fxv" data-v="${v || 'none'}"><b></b></i></button>`;
+  `<button type="button" class="st-atile" data-cmd="fx.set.${v || 'none'}" title="${esc(FX_HINT[v] ?? l)}" aria-label="${esc(l)}"><i class="st-fxv" data-v="${v || 'none'}"><b></b>${TEXT_ENTER.has(v) ? '<b></b><b></b>' : ''}</i></button>`;
 
 export function animTabHtml(): string {
   return '<button type="button" role="tab" data-tab="anim" aria-selected="false">Анимация</button>';
@@ -78,8 +84,10 @@ export function animPanelHtml(): string {
   ${group('Просмотр', btn('show.preview', 'play', 'Просмотр', { big: true, title: 'Проиграть переход и появление объектов на этом слайде' }))}
   ${group('Переход к слайду', `<div class="st-agallery">${TRANSITIONS.map(trTile).join('')}</div>`
     + `<div class="st-rstack">${btn('tr.speed', 'reset', 'Длительность', { menu: true, title: 'Сколько длится переход' })}${btn('tr.all', 'layers', 'Ко всем слайдам', { title: 'Такой же переход у всех слайдов' })}</div>`, 'st-tr-label')}
-  ${group('Появление объекта', `<div class="st-agallery">${EFFECTS.map(fxTile).join('')}</div>`
-    + `<div class="st-rstack">${btn('fx.mine', 'sparkle', 'Мои эффекты', { menu: true, title: 'Эффекты, сохранённые из импортированных слайдов' })}</div>`, 'st-fx-label')}
+  ${group('Анимация объекта', `<div class="st-bdpick st-fxpick">${railNav().join(`<div class="st-agallery st-fxgal">${EFFECTS.map(fxTile).join('')}</div>`)}</div>`
+    + `<div class="st-rstack">${btn('fx.emph', 'sparkle', 'Выделение', { menu: true, title: 'По щелчку объект пульсирует, качается, светится… — шагом в очереди щелчков' })}`
+    + btn('fx.exit', 'close', 'Исчезновение', { menu: true, title: 'По щелчку объект уходит со слайда — шагом в очереди щелчков' })
+    + `${btn('fx.mine', 'layers', 'Мои эффекты', { menu: true, title: 'Эффекты, сохранённые из импортированных слайдов' })}</div>`, 'st-fx-label')}
   ${group('Время и порядок', `<div class="st-rstack">
     <label class="st-rfield" title="Через сколько секунд после открытия слайда объект появляется"><span>Задержка</span><input type="number" id="st-fx-delay" min="0" max="20" step="0.1" aria-label="Задержка появления, секунды"><span>с</span></label>
     <div class="st-rrow">${btn('anim.earlier', 'up', 'Раньше', { title: 'Появляться раньше' })}${btn('anim.later', 'up', 'Позже', { title: 'Появляться позже' })}</div>
@@ -88,11 +96,41 @@ export function animPanelHtml(): string {
 </div>`;
 }
 
-/** Объекты слайда в порядке появления: анимированные по задержке, затем остальные */
-function order(deck: Deck, i: number): { b: Block; k: number; delay: number; on: boolean }[] {
+/** Анимация слайда: появление (сразу или по щелчку), выделение или исчезновение объекта k; key — место в очереди */
+interface Item { b: Block; k: number; kind: ActKind; key: number; click: boolean }
+const RANK: Record<ActKind, number> = { in: 0, emph: 1, out: 2 };
+/** Место «в конце очереди» у исчезновения без своего места (записано вручную) */
+const LAST = Number.MAX_SAFE_INTEGER;
+
+/** Анимации слайда по порядку: сначала появления при открытии (по задержке), потом очередь щелчков */
+function items(deck: Deck, i: number): Item[] {
   const free = (deck.slides[i]?.free ?? []) as Block[];
-  return free.map((b, k) => ({ b, k, delay: Number(b.delay) || 0, on: isOn(deck, b.enter) || b.click === true }))
-    .sort((a, b) => (a.on === b.on ? a.delay - b.delay || a.k - b.k : a.on ? -1 : 1));
+  const out: Item[] = [];
+  free.forEach((b, k) => {
+    if (isOn(deck, b.enter) && b.click !== true) out.push({ b, k, kind: 'in', key: Number(b.delay) || 0, click: false });
+    for (const a of actsOf(b, k)) out.push({ b, k, kind: a.kind, key: a.key, click: true });
+  });
+  return out.sort((a, c) => Number(a.click) - Number(c.click) || a.key - c.key || RANK[a.kind] - RANK[c.kind] || a.k - c.k);
+}
+
+/** Место после всех анимаций слайда (кроме анимаций объектов skip) */
+function nextKey(deck: Deck, i: number, skip: Set<number> = new Set()): number {
+  const keys = items(deck, i).filter((o) => !skip.has(o.k) && o.key < LAST).map((o) => o.key);
+  return keys.length ? Math.max(...keys) + STEP : 0;
+}
+
+/** У объекта есть текст: надпись или фигура с текстом */
+const texty = (b: Block | undefined) => !!b && (b.type === 'text' || b.type === 'shape') && typeof b.text === 'string' && b.text.trim() !== '';
+/** Есть что прорисовать: линия, стрелка, фигура, вставка с рисунком SVG */
+const drawable = (b: Block | undefined) => !!b && (b.type === 'shape' || (b.type === 'html' && /<svg/i.test(String(b.html ?? ''))));
+/** Появление годится объекту */
+const fits = (v: string, b: Block | undefined) => (TEXT_ENTER.has(v) ? texty(b) : v === 'draw' ? drawable(b) : true);
+
+/** Подпись анимации в «Порядке» */
+function itemName(deck: Deck, o: Item): string {
+  if (o.kind === 'emph') return `Выделение: ${nameOf(EMPHASIS, o.b.emphasis)}`;
+  if (o.kind === 'out') return `Исчезновение: ${nameOf(EXIT, o.b.exit)}`;
+  return effectName(deck, o.b.enter) || 'Появление';
 }
 
 function snippet(b: Block): string {
@@ -161,8 +199,7 @@ export function animCommands(h: AnimHost): Record<string, Command> {
   const setEffect = (v: string, prep?: (d: Deck) => void) => {
     const paths = h.selPaths();
     const i = h.index();
-    const others = order(deck, i).filter((o) => o.on && !paths.some((p) => Number(p[3]) === o.k));
-    let next = others.length ? Math.max(...others.map((o) => o.delay)) + STEP : 0;
+    let next = nextKey(deck, i, new Set(paths.map((p) => Number(p[3]))));
     ed.commit((d) => {
       prep?.(d);
       paths.forEach((p) => {
@@ -182,7 +219,8 @@ export function animCommands(h: AnimHost): Record<string, Command> {
   for (const [v] of EFFECTS) {
     cmds[`fx.set.${v || 'none'}`] = {
       run: () => setEffect(v),
-      enabled: hasSel,
+      // По словам и буквам — у текста, прорисовка — у линий и фигур
+      enabled: () => hasSel() && blocks().every((b) => fits(v, b)),
       active: () => {
         const list = blocks();
         return list.length > 0 && list.every((b) => (isStd(b.enter) ? b.enter : '') === v);
@@ -191,31 +229,73 @@ export function animCommands(h: AnimHost): Record<string, Command> {
   }
   cmds['fx.mine'] = { run: () => minePopover(h, (e) => setEffect(e.id, (d) => deckWithEffect(d, e))) };
 
-  // ---------- время и порядок ----------
-  const move = (dir: 1 | -1, k = Number(single()?.[3] ?? -1)) => {
-    if (k < 0) return;
+  // ---------- выделение и исчезновение по щелчку ----------
+  /** Выделение (emphasis + emphAt) или исчезновение (exit + exitAt) у выделенных; '' — убрать. Новое — в конец очереди */
+  const setAct = (kind: 'emph' | 'out', v: string) => {
+    const paths = freeSel();
     const i = h.index();
-    const list = order(deck, i).filter((o) => o.on);
-    const at = list.findIndex((o) => o.k === k);
+    const [field, at] = kind === 'emph' ? ['emphasis', 'emphAt'] : ['exit', 'exitAt'];
+    let next = nextKey(deck, i);
+    ed.commit((d) => paths.forEach((p) => {
+      const b = getAt(d, p) as Block;
+      if (!v) { delete b[field]; delete b[at]; return; }
+      b[field] = v;
+      if (typeof b[at] !== 'number') { b[at] = next; next += STEP; }
+    }), { rebuild: true });
+  };
+  const objEl = (p: Path) => document.querySelector<HTMLElement>(`#st-canvas .slide.on > .free[data-free='${JSON.stringify(p)}']`);
+  /** Меню выделения или исчезновения: наведение на пункт проигрывает его на объектах слайда */
+  const actMenu = (kind: 'emph' | 'out') => {
+    const paths = freeSel();
+    const list: readonly Pair[] = kind === 'emph' ? EMPHASIS : EXIT;
+    const cur = new Set(paths.map((p) => {
+      const b = getAt(deck, p) as Block;
+      return kind === 'emph' ? (typeof b.emphAt === 'number' ? String(b.emphasis ?? '') : '') : String(b.exit ?? '');
+    }));
+    const objs = paths.map(objEl).filter((x): x is HTMLElement => !!x);
+    const marked = paths.every((p) => /\{mark\|/i.test(JSON.stringify(getAt(deck, p) ?? '')));
+    showMenu(document.querySelector<HTMLElement>(`.st-ribbon [data-cmd="fx.${kind === 'emph' ? 'emph' : 'exit'}"]`)!, [['', kind === 'emph' ? 'Без выделения' : 'Без исчезновения'] as Pair, ...list].map(([v, l]) => ({
+      label: v === 'mark' && !marked ? `${l} — нужен {mark|…} в тексте` : l,
+      checked: cur.size === 1 && cur.has(v),
+      disabled: v === 'mark' && !marked,
+      preview: v ? (on: boolean) => objs.forEach((o) => tryAct(o, kind, on ? v : null)) : undefined,
+      run: () => { objs.forEach((o) => tryAct(o, kind, null)); setAct(kind, v); },
+    })));
+  };
+  cmds['fx.emph'] = { run: () => actMenu('emph'), enabled: () => freeSel().length > 0 };
+  cmds['fx.exit'] = { run: () => actMenu('out'), enabled: () => freeSel().length > 0 };
+
+  // ---------- время и порядок ----------
+  /** Сдвинуть анимацию номер at в очереди слайда; места всех перенумеровываются с шагом STEP */
+  const move = (dir: 1 | -1, at: number) => {
+    const i = h.index();
+    const list = items(deck, i);
     const to = at + dir;
-    if (at < 0 || to < 0 || to >= list.length) return;
+    // Появление при открытии и шаг по щелчку не меняются местами: это разные очереди
+    if (at < 0 || to < 0 || to >= list.length || list[at].click !== list[to].click) return;
     [list[at], list[to]] = [list[to], list[at]];
-    const first = Math.min(...list.map((o) => o.delay));
+    const keys = list.map((o) => o.key).filter((x) => x < LAST);
+    const first = keys.length ? Math.min(...keys) : 0;
     ed.commit((d) => list.forEach((o, n) => {
       const b = d.slides[i].free![o.k] as Block;
-      const delay = first + n * STEP;
-      if (delay) b.delay = delay;
+      const key = first + n * STEP;
+      if (o.kind === 'emph') b.emphAt = key;
+      else if (o.kind === 'out') b.exitAt = key;
+      else if (key) b.delay = key;
       else delete b.delay;
     }), { rebuild: true, merge: `anim:${i}` });
   };
-  const canMove = (dir: 1 | -1) => () => {
+  /** Первая анимация выделенного объекта — её двигают «Раньше» и «Позже» */
+  const selAt = () => {
     const p = single();
-    if (!p) return false;
-    const list = order(deck, h.index()).filter((o) => o.on);
-    const at = list.findIndex((o) => o.k === Number(p[3]));
-    return at >= 0 && at + dir >= 0 && at + dir < list.length;
+    return p ? items(deck, h.index()).findIndex((o) => o.k === Number(p[3])) : -1;
   };
-  cmds['anim.earlier'] = { run: () => move(-1), enabled: canMove(-1) };
+  const canMove = (dir: 1 | -1) => () => {
+    const at = selAt();
+    const list = items(deck, h.index());
+    return at >= 0 && at + dir >= 0 && at + dir < list.length && list[at].click === list[at + dir].click;
+  };
+  cmds['anim.earlier'] = { run: () => move(-1, selAt()), enabled: canMove(-1) };
   // «Число набегает»: у выделенных объектов, в тексте которых есть число
   const counted = () => h.selPaths().filter((p) => /\d/.test(JSON.stringify(getAt(deck, p) ?? '')));
   // По щелчку: объект ждёт «Далее» при показе; новый — последним в очереди
@@ -225,8 +305,7 @@ export function animCommands(h: AnimHost): Record<string, Command> {
       const paths = freeSel();
       const on = !paths.every((p) => (getAt(deck, p) as Block).click === true);
       const i = h.index();
-      const others = order(deck, i).filter((o) => o.on && !paths.some((p) => Number(p[3]) === o.k));
-      let next = others.length ? Math.max(...others.map((o) => o.delay)) + STEP : 0;
+      let next = nextKey(deck, i, new Set(paths.map((p) => Number(p[3]))));
       ed.commit((d) => paths.forEach((p) => {
         const b = getAt(d, p) as Block;
         if (!on) { delete b.click; return; }
@@ -292,7 +371,7 @@ export function animCommands(h: AnimHost): Record<string, Command> {
     },
     enabled: () => texty().length > 0,
   };
-  cmds['anim.later'] = { run: () => move(1), enabled: canMove(1) };
+  cmds['anim.later'] = { run: () => move(1, selAt()), enabled: canMove(1) };
   cmds['anim.seq'] = {
     run: () => {
       const paths = h.selPaths();
@@ -307,18 +386,18 @@ export function animCommands(h: AnimHost): Record<string, Command> {
   return cmds;
 }
 
-/** Порядок появления: компактный список, клик — выделить объект, стрелки — переставить */
-function orderPopover(h: AnimHost, move: (dir: 1 | -1, k: number) => void): void {
+/** Порядок анимаций: компактный список, клик — выделить объект, стрелки — переставить */
+function orderPopover(h: AnimHost, move: (dir: 1 | -1, at: number) => void): void {
   const anchor = document.querySelector<HTMLElement>('.st-ribbon [data-cmd="anim.order"]')!;
   const html = () => {
-    const list = order(h.deck, h.index());
-    const on = list.filter((o) => o.on);
-    const still = list.length - on.length;
+    const on = items(h.deck, h.index());
+    const free = (h.deck.slides[h.index()]?.free ?? []) as Block[];
+    const still = free.filter((_b, k) => !on.some((o) => o.k === k)).length;
     const selected = new Set(h.selPaths().map((p) => Number(p[3])));
-    return `<div class="st-aorder">${on.length ? on.map((o, n) => `<div class="st-aorder-row${selected.has(o.k) ? ' sel' : ''}">
-  <button type="button" class="st-aorder-pick" data-k="${o.k}" title="Выделить"><b>${n + 1}</b><span><em>${esc(blockName(o.b.type))}</em>${snippet(o.b) ? ` · ${esc(snippet(o.b))}` : ''}</span><small>${esc(effectName(h.deck, o.b.enter) || 'Появление')} · ${o.b.click === true ? 'по щелчку' : o.delay ? sec(o.delay) : 'сразу'}</small></button>
-  <button type="button" class="st-aorder-mv" data-mv="${o.k}" data-dir="-1" title="Раньше" aria-label="Раньше"${n === 0 ? ' disabled' : ''}>${icon('up')}</button>
-  <button type="button" class="st-aorder-mv" data-mv="${o.k}" data-dir="1" title="Позже" aria-label="Позже"${n === on.length - 1 ? ' disabled' : ''}>${icon('up')}</button>
+    return `<div class="st-aorder">${on.length ? on.map((o, n) => `<div class="st-aorder-row${selected.has(o.k) ? ' sel' : ''}" data-kind="${o.kind}">
+  <button type="button" class="st-aorder-pick" data-k="${o.k}" title="Выделить"><b>${n + 1}</b><span><em>${esc(blockName(o.b.type))}</em>${snippet(o.b) ? ` · ${esc(snippet(o.b))}` : ''}</span><small>${esc(itemName(h.deck, o))} · ${o.click ? 'по щелчку' : o.key ? sec(o.key) : 'сразу'}</small></button>
+  <button type="button" class="st-aorder-mv" data-mv="${n}" data-dir="-1" title="Раньше" aria-label="Раньше"${n === 0 || on[n - 1].click !== o.click ? ' disabled' : ''}>${icon('up')}</button>
+  <button type="button" class="st-aorder-mv" data-mv="${n}" data-dir="1" title="Позже" aria-label="Позже"${n === on.length - 1 || on[n + 1].click !== o.click ? ' disabled' : ''}>${icon('up')}</button>
 </div>`).join('') : '<p class="st-aorder-empty">На слайде ещё нет анимации. Выделите объект и выберите эффект.</p>'}
 ${still ? `<p class="st-aorder-still">Без анимации, видны сразу: ${still}</p>` : ''}</div>`;
   };
@@ -328,12 +407,12 @@ ${still ? `<p class="st-aorder-still">Без анимации, видны сра
       return { run: () => h.editor.selectFree(h.index(), k) };
     }
     if (b.dataset.mv) {
-      const k = Number(b.dataset.mv);
+      const at = Number(b.dataset.mv);
       const dir = Number(b.dataset.dir) as 1 | -1;
       return {
         keep: true,
         run: () => {
-          move(dir, k);
+          move(dir, at);
           el.innerHTML = html();
         },
       };
@@ -408,8 +487,12 @@ export function syncAnimTab(h: AnimHost): void {
   const fxLabel = document.getElementById('st-fx-label');
   if (fxLabel) {
     const fx = new Set(list.map((b) => (isOn(h.deck, b.enter) ? String(b.enter) : '')));
-    fxLabel.textContent = !list.length ? 'Появление: выделите объект'
-      : fx.size > 1 ? 'Появление: разные' : `Появление: ${effectName(h.deck, [...fx][0]) || 'Без анимации'}`;
+    // Выделение и исчезновение по щелчку — коротко после появления
+    const more = list.length === 1
+      ? `${typeof list[0].emphAt === 'number' && list[0].emphasis ? ` · ${nameOf(EMPHASIS, list[0].emphasis).toLowerCase()}` : ''}${list[0].exit ? ' · исчезает' : ''}`
+      : '';
+    fxLabel.textContent = !list.length ? 'Анимация: выделите объект'
+      : fx.size > 1 ? 'Появление: разные' : `Появление: ${effectName(h.deck, [...fx][0]) || 'Без анимации'}${more}`;
   }
   const delay = document.getElementById('st-fx-delay') as HTMLInputElement | null;
   if (delay && document.activeElement !== delay) {
@@ -443,4 +526,32 @@ export function bindDelayField(h: AnimHost): void {
     if (e.key === 'Enter') { e.preventDefault(); apply(); input.select(); }
     e.stopPropagation();
   });
+}
+
+/** Лента появлений: листается вбок колесом и стрелками */
+export function bindFxGallery(): void {
+  const root = document.querySelector<HTMLElement>('.st-fxpick');
+  const strip = root?.querySelector<HTMLElement>('.st-fxgal');
+  if (root && strip) bindRail(root, strip);
+}
+
+/**
+ * Примерка выделения или исчезновения на объекте при правке: его вид (data-emph, data-exit) на время
+ * меняется, класс st-fx-try включает анимацию (editor.css); null — вернуть как было
+ */
+function tryAct(o: HTMLElement, kind: 'emph' | 'out', v: string | null): void {
+  const attr = kind === 'emph' ? 'emph' : 'exit';
+  const cls = kind === 'emph' ? 'st-fx-try-emph' : 'st-fx-try-out';
+  if (o.dataset.tryWas === undefined) o.dataset.tryWas = o.dataset[attr] ?? '';
+  o.classList.remove(cls);
+  if (v === null) {
+    const was = o.dataset.tryWas;
+    if (was) o.dataset[attr] = was;
+    else delete o.dataset[attr];
+    delete o.dataset.tryWas;
+    return;
+  }
+  o.dataset[attr] = v;
+  void o.offsetWidth;
+  o.classList.add(cls);
 }

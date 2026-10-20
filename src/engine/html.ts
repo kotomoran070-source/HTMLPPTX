@@ -35,9 +35,12 @@ export function typo(s: string): string {
     .replace(UNIT, '$1\u00a0');
 }
 
+const MARK = /\{mark\|([^{}]*?)\}/gi;
+const markHtml = (_: string, inner: string) => `<mark class="md-m">${inner}</mark>`;
+
 /**
  * Разметка внутри строки: **жирный**, *курсив*, __подчёркнутый__, [ссылка](https://…),
- * {#2563EB|цветной} или {accent|цвет темы}, {s:80|мельче} (размер в % от абзаца).
+ * {#2563EB|цветной} или {accent|цвет темы}, {s:80|мельче} (размер в % от абзаца), {mark|маркером}.
  * Строки, начинающиеся с «- », — пункты списка. \* и подобные — буквальный символ.
  */
 function inline(line: string): string {
@@ -53,6 +56,9 @@ function inline(line: string): string {
     return href ? `${hold(`<a class="md-a" href="${esc(href)}" target="_blank" rel="noopener">`)}${label}${hold('</a>')}` : m;
   });
   s = esc(typo(s))
+    // Маркер: полоса цвета акцента под словами; при показе проводится (base.css .md-m). Первый раз — до цвета:
+    // {#2563EB|{mark|…}}; второй — после: {mark|{accent|…}}
+    .replace(MARK, markHtml)
     .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
     .replace(/__(.+?)__/g, '<u>$1</u>')
     .replace(/\*(.+?)\*/g, '<i>$1</i>')
@@ -65,6 +71,8 @@ function inline(line: string): string {
     // Цвет части текста: {#2563EB|текст} или {accent|текст}
     .replace(/\{(#[0-9a-f]{3,8}|accent2?|text2?|muted)\|([^{}]*?)\}/gi, (_, c: string, inner: string) =>
       `<span class="md-c" data-c="${c}" style="color:${THEME_CSS[c.toLowerCase()] ?? c}">${inner}</span>`)
+    // Маркер второй раз: внутри него был цвет или размер — теперь это уже разметка
+    .replace(MARK, markHtml)
     // Градиент части текста: {g:ocean|текст} или свои цвета {g:#F97316,#EC4899@40,accent2|текст}
     .replace(new RegExp(`\\{(${TEXT_GRADIENT_RE})\\|([^{}]*?)\\}`, 'gi'), (m, c: string, inner: string) => {
       const css = textGradientCss(c);

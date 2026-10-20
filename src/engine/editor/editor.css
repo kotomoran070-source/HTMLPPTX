@@ -28,6 +28,13 @@ body.editing .stage .slide.on > .free.fx { animation: none !important; }
   body.editing .stage .slide .free.tfx-try[data-tfx="glitch"] *, body.editing .stage .slide .free.tfx-try[data-tfx="glitch"] *::before,
   body.editing .stage .slide .free.tfx-try[data-tfx="glitch"] *::after { animation-delay: -2.55s !important; }
 }
+/* Примерка выделения и исчезновения (наведение на пункт меню на ленте «Анимация»): проигрывается дважды,
+   исчезновение — туда и обратно, объект остаётся на месте */
+@media (prefers-reduced-motion: no-preference) {
+  body.editing .stage .slide > .free.st-fx-try-emph.st-fx-try-emph { animation: var(--emph, fx-pop) var(--emph-ms, .5s) var(--emph-ease, ease) 2 both !important; }
+  body.editing .stage .slide > .free.st-fx-try-emph[data-emph="mark"] .md-m { animation: mk-draw2 .75s cubic-bezier(.4, 0, .2, 1) 2 both !important; }
+  body.editing .stage .slide > .free.st-fx-try-out.st-fx-try-out { animation: var(--xfx, fx-x-fade) .45s cubic-bezier(.5, 0, .9, .4) 2 alternate both !important; }
+}
 body.editing .stage .fin .rg circle { opacity: .35; }
 
 /* Подписи кнопок на финальных слайдах видны всегда, чтобы их можно было править */

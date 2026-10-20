@@ -113,6 +113,7 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'caption', label: 'Подпись', type: 'text' },
       { k: 'alt', label: 'Описание для незрячих', type: 'text' },
       { k: 'height', label: 'Высота, px', type: 'number', min: 40, max: 720, placeholder: 'по картинке' },
+      { k: 'camera', label: 'Наплыв камеры', type: 'select', options: [['', 'Нет'], ['in', 'Приближение'], ['out', 'Отдаление'], ['pan', 'Панорама']], hint: 'При показе фото медленно приближается, отдаляется или плывёт вбок' },
       ...frame,
     ],
   },

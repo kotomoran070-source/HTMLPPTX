@@ -1,6 +1,6 @@
 /**
  * Обратное преобразование: содержимое редактируемого элемента → строка с разметкой
- * (**жирный**, *курсив*, __подчёркнутый__, [ссылка](url), {#цвет|текст}, «- » для пунктов списка).
+ * (**жирный**, *курсив*, __подчёркнутый__, [ссылка](url), {#цвет|текст}, {mark|маркер}, «- » для пунктов списка).
  * Работает с тем, что создают браузеры при правке: b/strong, i/em, u, a, font, br, div/p.
  */
 import { TEXT_GRADIENT_RE } from '../gradients';
@@ -14,6 +14,7 @@ export function escapeText(s: string): string {
     .replace(/\\/g, '\\\\')
     .replace(/\{(?=(#[0-9a-f]{3,8}|accent2?|text2?|muted)\|)/gi, '\\{')
     .replace(/\{(?=((#[0-9a-f]{3,8}|accent2?|text2?|muted) )?s:\d{2,3}\|)/gi, '\\{')
+    .replace(/\{(?=mark\|)/gi, '\\{')
     .replace(/\*/g, '\\*')
     .replace(/__/g, '\\_\\_')
     .replace(/\[([^\]]*)\]\(/g, '\\[$1\\](');
@@ -80,6 +81,7 @@ function walk(node: Node): string {
     return href && text.trim() ? `[${text.trim()}](${href})` : text;
   }
   let s = inner();
+  if (tag === 'MARK') return s.trim() ? `{mark|${s}}` : s;
   const color = tag === 'SPAN' || tag === 'FONT' ? colorOf(el) : null;
   if (color) s = wrapColor(color, s);
   if (under) s = wrap('__', s);

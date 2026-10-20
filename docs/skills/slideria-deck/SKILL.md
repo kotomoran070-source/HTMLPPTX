@@ -72,7 +72,7 @@ slides:
       text: Заголовок {g:duo|слайда}
       styles: {text: {size: 42, weight: 800}}
       place: {x: 48, y: 48, w: 1000}        # без h — высота по тексту
-      enter: rise                           # fade, rise, drop, left, right, scale, pop
+      enter: rise                           # fade, rise, drop, left, right, scale, pop, blur, wipe, circle, diamond, mask, words, letters (текст), draw (линии, фигуры)
       delay: 150                            # мс
     - type: shape
       kind: round                           # round, rect, pill, ellipse, line, arrow

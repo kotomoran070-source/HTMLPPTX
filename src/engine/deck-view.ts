@@ -1,6 +1,7 @@
 import type { Block, Deck } from '../types';
 import { countUp } from './count-up';
 import { textFx } from './text-fx';
+import { enterFx } from './enter-fx';
 import { morph as morphTo, unmorph } from './morph';
 import { getAt, type Path } from './data';
 import { Renderer } from './render';
@@ -337,13 +338,15 @@ export class DeckView {
     return best?.getAttribute('data-block') ?? '';
   }
 
-  /** «Число набегает» и эффекты текста у объектов слайда (остановка возвращает текст как был) */
+  /** «Число набегает», эффекты текста и появления по частям у объектов слайда (остановка возвращает разметку как была) */
   private stopCount: () => void = () => {};
   private count(el: HTMLElement | undefined): void {
     this.stopCount();
+    // Сначала части появлений: «Число набегает» и эффекты текста с ними не делят один текст
+    const c = enterFx(el);
     const a = countUp(el);
     const b = textFx(el);
-    this.stopCount = () => { a(); b(); };
+    this.stopCount = () => { a(); b(); c(); };
   }
 
   /** Вернуть текст как в данных: студия зовёт в конце «Просмотра», чтобы правка не застала буквы по отдельности */

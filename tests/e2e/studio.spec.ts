@@ -1308,3 +1308,80 @@ test('картинка: все стили по стрелке галереи —
   await expect(page.locator('.st-ribbon .st-gallery.i [data-recent]').first()).toHaveAttribute('data-cmd', 'image.style.fade-left');
   expect(errors).toEqual([]);
 });
+
+test('«Анимация»: исчезновение и выделение по щелчку — меню на ленте; по словам и прорисовка — только у подходящих объектов', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=fx&studio#2');
+  const pick = async (k: number) => {
+    const o = page.locator('#st-canvas .slide.on > .free').nth(k);
+    const bb = (await o.boundingBox())!;
+    await page.mouse.click(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.locator('[data-tab="anim"]').first().click();
+  };
+  const line = (s: string) => readDeck('fx').split('\n').find((l) => new RegExp(`text: "?${s}"?[,}]`).test(l)) ?? '';
+  await pick(0);
+  await page.locator('[data-cmd="fx.exit"]').click();
+  // Наведение примеряет на объекте, уход — как было
+  await page.locator('.st-menu button', { hasText: 'Сжатие' }).hover();
+  await expect(page.locator('#st-canvas .slide.on > .free').nth(0)).toHaveClass(/st-fx-try-out/);
+  await page.locator('.st-menu button', { hasText: 'Сжатие' }).click();
+  expect(await waitFile(() => line('A').includes('exit: shrink') && line('A').includes('exitAt: 600'))).toBe(true);
+  await page.locator('[data-cmd="fx.exit"]').click();
+  await page.locator('.st-menu button', { hasText: 'Без исчезновения' }).click();
+  expect(await waitFile(() => !line('A').includes('exit'))).toBe(true);
+  // Выделение: новое — в конец очереди
+  await pick(2);
+  await page.locator('[data-cmd="fx.emph"]').click();
+  await expect(page.locator('.st-menu button', { hasText: 'Маркер' })).toBeDisabled();
+  await page.locator('.st-menu button', { hasText: 'Пульс' }).click();
+  expect(await waitFile(() => line('C').includes('emphasis: pulse') && /emphAt: \d+/.test(line('C')))).toBe(true);
+  // «Порядок»: выделение C — в очереди щелчков
+  await page.locator('[data-cmd="anim.order"]').click();
+  await expect(page.locator('.st-aorder-row').last()).toContainText('Выделение: Пульс');
+  await page.keyboard.press('Escape');
+  // Картинка: по словам и прорисовка недоступны, шторка — да
+  await page.goto('/?deck=fx&studio#1');
+  await pick(4);
+  await expect(page.locator('[data-cmd="fx.set.words"]')).toBeDisabled();
+  await expect(page.locator('[data-cmd="fx.set.draw"]')).toBeDisabled();
+  await expect(page.locator('[data-cmd="fx.set.wipe"]')).toBeEnabled();
+  expect(errors).toEqual([]);
+});
+
+test('маркер в тексте: кнопка в правке текста пишет {mark|…}; «Просмотр» делит заголовок по словам, после него текст целый', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=fx&studio#1');
+  // Оформление текста — на «Главной» (студия помнит последнюю вкладку)
+  await page.locator('[data-tab="home"]').first().click();
+  const text = page.locator('#st-canvas .slide.on > .free').nth(5).locator('p[data-type="text"]');
+  // Не в середину: там у невысокой надписи ручки рамки выделения
+  const tb = (await text.boundingBox())!;
+  await text.dblclick({ position: { x: tb.width * 0.25, y: tb.height / 2 } });
+  await page.evaluate(() => {
+    const el = [...document.querySelectorAll('#st-canvas .slide.on p[data-type="text"]')].find((x) => x.textContent!.includes('остальное'))!;
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = w.nextNode() as Text | null; n; n = w.nextNode() as Text | null) {
+      const i = n.data.indexOf('остальное');
+      if (i < 0) continue;
+      const r = document.createRange();
+      r.setStart(n, i);
+      r.setEnd(n, i + 'остальное'.length);
+      getSelection()!.removeAllRanges();
+      getSelection()!.addRange(r);
+      break;
+    }
+  });
+  await page.locator('[data-t="mark"]').click();
+  await expect(page.locator('[data-t="mark"]')).toHaveClass(/\bon\b/);
+  await page.keyboard.press('Escape');
+  expect(await waitFile(() => readDeck('fx').includes('{mark|маркером}, {mark|остальное} потом'))).toBe(true);
+  // «Просмотр»: заголовок по словам, после — снова одним текстом
+  await page.locator('[data-tab="anim"]').first().click();
+  await page.locator('.st-ribbon [data-cmd="show.preview"]').first().click();
+  await expect(page.locator('#st-canvas .slide.on .fx-w')).not.toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('body.st-previewing')).toHaveCount(0);
+  await expect(page.locator('#st-canvas .slide.on .fx-w')).toHaveCount(0);
+  await expect(page.locator('#st-canvas .slide.on .fx-ol')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

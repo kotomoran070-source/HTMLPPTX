@@ -13,7 +13,8 @@
 //   tidy     — ошибки для «Привести в порядок»: копия поверх, ссылки в никуда, скрытое без кнопки;
 //   mirror   — мышь докладчика у зрителей: кнопки, ссылки, переход, прожектор, наведение;
 //   gif      — анимированный GIF (три кадра: красный, зелёный, синий) и снимок WebP для «Цвет+»;
-//   space    — финальный «Космос» с орбитой и фон «Сеть»: одна и та же анимация у зрителей и на пульте.
+//   space    — финальный «Космос» с орбитой и фон «Сеть»: одна и та же анимация у зрителей и на пульте;
+//   fx       — новые появления, маркер, наплыв камеры; появление, исчезновение и выделение по щелчку.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -291,5 +292,25 @@ slides:
     backdrop: network
     free:
       - {type: text, text: "Сеть", place: {x: 80, y: 280, w: 700}}
+`);
+// fx — анимация объектов: появления (по словам, раскрытия, прорисовка), маркер, наплыв камеры;
+// на втором слайде очередь щелчков: A появляется (1) и исчезает (3), B появляется (2) и светится (4), C исчезает (5)
+fs.mkdirSync(path.join(dir, 'fx', 'assets'), { recursive: true });
+fs.copyFileSync(path.join(dir, 'tpl', 'assets', 'ui-studio.webp'), path.join(dir, 'fx', 'assets', 'shot.webp'));
+fs.writeFileSync(path.join(dir, 'fx', 'deck.yaml'), `title: Анимация объектов
+slides:
+  - template: canvas
+    free:
+      - {type: text, text: "Заголовок собирается по словам", enter: words, place: {x: 80, y: 60, w: 1100}}
+      - {type: shape, kind: round, text: "Шторка", enter: wipe, place: {x: 80, y: 220, w: 260, h: 140}}
+      - {type: shape, kind: arrow, enter: draw, place: {x: 400, y: 260, w: 400, h: 40}}
+      - {type: shape, kind: round, fill: none, stroke: accent, width: 3, text: "Контур", enter: draw, place: {x: 860, y: 220, w: 300, h: 140}}
+      - {type: image, src: ./assets/shot.webp, camera: in, place: {x: 80, y: 400, w: 420, h: 260}}
+      - {type: text, text: "Главное — {mark|маркером}, остальное потом", emphasis: mark, emphAt: 0, place: {x: 560, y: 520, w: 640}}
+  - template: canvas
+    free:
+      - {type: shape, kind: round, text: "A", click: true, exit: fade, exitAt: 600, place: {x: 80, y: 300, w: 300, h: 120}}
+      - {type: shape, kind: round, text: "B", click: true, delay: 300, emphasis: glow, emphAt: 900, place: {x: 480, y: 300, w: 300, h: 120}}
+      - {type: shape, kind: round, text: "C", exit: left, exitAt: 1200, place: {x: 880, y: 300, w: 300, h: 120}}
 `);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

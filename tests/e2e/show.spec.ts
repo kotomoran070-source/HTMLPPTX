@@ -527,3 +527,63 @@ test('мышь докладчика у зрителей: стрелка, нав�
   expect(errors).toEqual([]);
   expect(presErrors).toEqual([]);
 });
+
+test('анимация объектов: по словам и прорисовка готовятся при показе, наплыв камеры идёт, маркер ждёт своего щелчка', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=fx#1');
+  const objs = page.locator('.slide.on > .free');
+  // По словам: четыре слова — четыре части, у каждой своя задержка
+  await expect(objs.nth(0).locator('.fx-w')).toHaveCount(4);
+  await expect(objs.nth(0)).toHaveClass(/fx-ready/);
+  const delays = await objs.nth(0).locator('.fx-w').evaluateAll((ws) => ws.map((w) => w.getAnimations()[0]?.effect?.getComputedTiming().delay));
+  expect(delays).toEqual([0, 85, 170, 255]);
+  // Шторка: обрезка только на время анимации
+  expect(await objs.nth(1).evaluate((o) => o.getAnimations()[0]?.animationName)).toBe('fx-wipe');
+  // Прорисовка: стрелка растёт, у контура — обводка поверх
+  await expect(objs.nth(2)).toHaveClass(/fx-ready/);
+  expect(await objs.nth(2).locator('.shape-bar').evaluate((b) => b.getAnimations()[0]?.animationName)).toBe('fx-bar');
+  await expect(objs.nth(3).locator('svg.fx-ol')).toHaveCount(1);
+  // Наплыв камеры — у фото, пока слайд на экране
+  expect(await objs.nth(4).locator('img').evaluate((i) => i.getAnimations()[0]?.animationName)).toBe('cam-in');
+  // Маркер у объекта с выделением «Маркер»: ждёт; щелчок — проводится, слайд тот же
+  const mark = objs.nth(5).locator('mark.md-m');
+  expect(await mark.evaluate((m) => m.getAnimations()[0]?.animationName)).toBe('mk-hold');
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('#ct')).toHaveText(/^1 из/);
+  await expect.poll(() => mark.evaluate((m) => m.getAnimations()[0]?.animationName)).toBe('mk-draw2');
+  // Ушли со слайда — разметка как в данных
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('#ct')).toHaveText(/^2 из/);
+  await page.keyboard.press('Home');
+  await expect(page.locator('#ct')).toHaveText(/^1 из/);
+  expect(errors).toEqual([]);
+});
+
+test('очередь щелчков: появление, исчезновение и выделение одного объекта — на своих местах; назад — как было', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=fx#2');
+  const [a, b, c] = [0, 1, 2].map((k) => page.locator('.slide.on > .free').nth(k));
+  const seen = async () => (await Promise.all([a, b, c].map((o) => o.evaluate((e) => Number(getComputedStyle(e).opacity) > 0.5 && !e.classList.contains('click-hid'))))).map((v) => (v ? 1 : 0)).join('');
+  // Сначала A и B ждут щелчка, C видна
+  await expect.poll(seen).toBe('001');
+  await page.keyboard.press('ArrowRight'); // 1: A появляется
+  await expect.poll(seen).toBe('101');
+  await page.keyboard.press('ArrowRight'); // 2: B появляется
+  await expect.poll(seen).toBe('111');
+  await page.keyboard.press('ArrowRight'); // 3: A исчезает своим эффектом
+  await expect(a).toHaveClass(/click-out/);
+  await expect.poll(seen).toBe('011');
+  await page.keyboard.press('ArrowRight'); // 4: B светится
+  await expect(b).toHaveClass(/trig-play/);
+  expect(await b.evaluate((e) => e.getAnimations()[0]?.animationName)).toBe('emph-glow');
+  await page.keyboard.press('ArrowRight'); // 5: C уходит влево
+  await expect.poll(seen).toBe('010');
+  // Назад: шаг за шагом обратно, без анимации
+  await page.keyboard.press('ArrowLeft');
+  await expect.poll(seen).toBe('011');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await expect.poll(seen).toBe('111');
+  await expect(page.locator('#ct')).toHaveText(/^2 из/);
+  expect(errors).toEqual([]);
+});

@@ -114,6 +114,7 @@ export class TextEditor {
   <button type="button" data-t="bold" title="Жирный (Ctrl+B)" aria-label="Жирный"><b>B</b></button>
   <button type="button" data-t="italic" title="Курсив (Ctrl+I)" aria-label="Курсив"><i style="font-family:Georgia,serif">I</i></button>
   <button type="button" data-t="underline" title="Подчёркнутый (Ctrl+U)" aria-label="Подчёркнутый"><u>U</u></button>
+  <button type="button" data-t="mark" title="Маркер: главное в тексте — при показе проводится маркером" aria-label="Маркер">${icon('marker')}</button>
   <button type="button" data-t="link" title="Ссылка (Ctrl+K)" aria-label="Ссылка">${icon('link')}</button>
   <i class="edsep" data-g="block"></i>
   <span class="edsplit" data-g="block"><button type="button" data-t="list" title="Список" aria-label="Список">${icon('list')}</button><button type="button" data-t="list-kind" class="edcaret" title="Вид списка: маркер или нумерация" aria-label="Вид списка" aria-haspopup="true"><b class="st-caret"></b></button></span>
@@ -353,6 +354,59 @@ export class TextEditor {
     this.syncButtons();
   }
 
+  /** Маркер у выделенного текста ({mark|…}); всё выделенное уже под маркером — маркер снимается */
+  private markSelection(): void {
+    const s = this.s;
+    if (!s || s.isKey) return;
+    s.el.focus({ preventScroll: true });
+    this.ensureSelection();
+    const range = getSelection()!.getRangeAt(0);
+    const under = (n: Node) => n.parentElement?.closest<HTMLElement>('mark.md-m') ?? null;
+    // Куски текста внутри выделения (граница на самом краю узла — не в счёт)
+    const texts: Text[] = [];
+    const walker = document.createTreeWalker(s.el, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode() as Text | null; n; n = walker.nextNode() as Text | null) {
+      if (!range.intersectsNode(n) || !n.data.trim()) continue;
+      if (n === range.endContainer && range.endOffset === 0) continue;
+      if (n === range.startContainer && range.startOffset >= n.length) continue;
+      texts.push(n);
+    }
+    if (!texts.length) return;
+    // Затронутые куски текста: после правки выделение снова на них
+    let pieces = texts;
+    if (texts.every((n) => under(n))) {
+      new Set(texts.map((n) => under(n)!)).forEach((m) => m.replaceWith(...m.childNodes));
+    } else {
+      const { startContainer: a, startOffset: ao, endContainer: z, endOffset: zo } = range;
+      pieces = [];
+      for (let n of texts) {
+        if (!under(n)) {
+          if (n === z) n.splitText(zo);
+          if (n === a && ao > 0) n = n.splitText(ao);
+          const m = document.createElement('mark');
+          m.className = 'md-m';
+          n.replaceWith(m);
+          m.append(n);
+        }
+        pieces.push(n);
+      }
+      // Соседние куски — один маркер
+      s.el.querySelectorAll('mark.md-m').forEach((m) => {
+        const prev = m.previousSibling;
+        if (prev instanceof HTMLElement && prev.matches('mark.md-m')) { prev.append(...m.childNodes); m.remove(); }
+      });
+    }
+    const last = pieces[pieces.length - 1];
+    const r = document.createRange();
+    r.setStart(pieces[0], 0);
+    r.setEnd(last, last.length);
+    getSelection()!.removeAllRanges();
+    getSelection()!.addRange(r);
+    s.el.normalize();
+    this.syncButtons();
+    this.position();
+  }
+
   private async link(): Promise<void> {
     const s = this.s;
     if (!s || s.isKey) return;
@@ -542,6 +596,7 @@ export class TextEditor {
       if (cmd !== 'leading' && cmd !== 'spacing' && cmd !== 'list-kind') this.menu.classList.remove('on');
       switch (cmd) {
         case 'bold': case 'italic': case 'underline': this.format(cmd); break;
+        case 'mark': this.markSelection(); break;
         case 'link': void this.link(); break;
         case 'list': this.toggleList(); break;
         case 'align-left': case 'align-center': case 'align-right': {
@@ -997,7 +1052,7 @@ export class TextEditor {
     const disp = getComputedStyle(s.el).display;
     const blockish = !s.isKey && disp !== 'inline' && !s.el.classList.contains('chip');
     this.bar.querySelectorAll<HTMLElement>('[data-g="block"]').forEach((b) => (b.hidden = !blockish));
-    this.bar.querySelectorAll<HTMLElement>('[data-t="bold"],[data-t="italic"],[data-t="underline"],[data-t="link"],[data-t="reset"]')
+    this.bar.querySelectorAll<HTMLElement>('[data-t="bold"],[data-t="italic"],[data-t="underline"],[data-t="mark"],[data-t="link"],[data-t="reset"]')
       .forEach((b) => (b.hidden = s.isKey));
     const styleable = !!s.owner;
     this.bar.querySelectorAll<HTMLElement>('[data-t="font"],.edsize,[data-t="color"],[data-t="spacing"]').forEach((b) => (b.hidden = !styleable));
@@ -1083,6 +1138,9 @@ export class TextEditor {
     q('bold')?.classList.toggle('on', state('bold'));
     q('italic')?.classList.toggle('on', state('italic'));
     q('underline')?.classList.toggle('on', state('underline'));
+    const sel = getSelection();
+    const node = sel?.rangeCount ? sel.getRangeAt(0).commonAncestorContainer : null;
+    q('mark')?.classList.toggle('on', !!node && this.selectionInside() && !!(node.nodeType === 1 ? node as Element : node.parentElement)?.closest('mark.md-m'));
     for (const a of ['left', 'center', 'right']) q(`align-${a}`)?.classList.toggle('on', s.styles.align === a);
     const size = this.bar.querySelector<HTMLInputElement>('[data-t="size"]')!;
     if (document.activeElement !== size) {

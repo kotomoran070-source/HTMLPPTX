@@ -4,6 +4,7 @@ import {
   type Component, type MountCtx, type RenderCtx,
 } from './component';
 import { TEXT_FX } from './text-fx';
+import { clickActs, EMPHASIS_IDS, ENTER_IDS, EXIT_IDS, type ActKind } from './anim';
 import { asArray, esc } from './html';
 import { slideAccent } from './accent';
 import { backdropLook, slideBackdrop } from './backdrops';
@@ -20,8 +21,10 @@ export const TRANSITION_IDS = new Set(['none', 'fade', 'push', 'cover', 'zoom', 
 
 let uidCounter = 0;
 
-/** Эффекты появления свободных объектов: enter: rise (см. base.css) */
-const FX = new Set(['fade', 'rise', 'drop', 'left', 'right', 'scale', 'pop']);
+/** Эффекты появления свободных объектов: enter: rise (список — engine/anim, вид — base.css) */
+const FX = ENTER_IDS;
+/** Метка шага на объекте в студии: появление — номер, выделение — ✦, исчезновение — ✕ */
+const ACT_MARK: Record<ActKind, string> = { in: '', emph: '✦', out: '✕' };
 
 interface PendingMount {
   component: Component;
@@ -128,13 +131,12 @@ export class Renderer {
   /**
    * Свободные объекты слайда (slide.free): лежат поверх раскладки на своих координатах.
    * place: { x, y, w, h } — в пикселях слайда 1280×720; без h высота по содержимому.
-   * enter: rise (fade, drop, left, right, scale, pop) и delay: 380 — появление при открытии слайда.
+   * enter: rise (fade, drop, left, …, см. engine/anim) и delay: 380 — появление при открытии слайда.
    */
   private freeLayer(slide: SlideData, ctx: RenderCtx): string {
     const list = Array.isArray(slide.free) ? (slide.free as Block[]) : [];
-    // По щелчку (click: true): появляются при показе по одному на «Далее» — в порядке задержки, как в «Порядке»
-    const clicks = list.map((b, i) => ({ b, i })).filter(({ b }) => b.click === true)
-      .sort((a, c) => (Number(a.b.delay) || 0) - (Number(c.b.delay) || 0) || a.i - c.i).map(({ i }) => i);
+    // Очередь щелчков (engine/anim): появления по щелчку, выделения и исчезновения — по «Далее», по одному
+    const acts = clickActs(list);
     return list.map((b, i) => {
       const pl = placeOf(b);
       const p = pathOf(b);
@@ -157,9 +159,14 @@ export class Renderer {
       // Имя объекта — для кнопок «показать / скрыть»; hidden — скрыт при показе до щелчка
       const obj = typeof b.id === 'string' && OBJ_ID.test(b.id) ? ` data-obj="${esc(b.id)}"` : '';
       const hid = b.hidden === true ? ' trig-hid' : '';
-      const rank = clicks.indexOf(i);
-      const click = rank >= 0 ? ` data-click="${rank}" data-click-n="${rank + 1}"` : '';
-      const emph = (typeof b.emphasis === 'string' && (EMPHASIS as readonly string[]).includes(b.emphasis) ? ` data-emph="${b.emphasis}"` : '')
+      // Шаги объекта: data-acts="in:0 out:3" (место в очереди), data-click — место появления (по нему встают шаги формулы внутри)
+      const mine = acts.map((a, n) => ({ ...a, n })).filter((a) => a.k === i);
+      const rank = mine.find((a) => a.kind === 'in')?.n ?? -1;
+      const click = mine.length
+        ? ` data-acts="${mine.map((a) => `${a.kind}:${a.n}`).join(' ')}"${rank >= 0 ? ` data-click="${rank}"` : ''} data-click-n="${mine.map((a) => `${a.n + 1}${ACT_MARK[a.kind]}`).join(' · ')}"`
+        : '';
+      const emph = (EMPHASIS_IDS.has(String(b.emphasis)) ? ` data-emph="${b.emphasis}"` : '')
+        + (EXIT_IDS.has(String(b.exit)) ? ` data-exit="${b.exit}"` : '')
         // Числа в тексте отсчитываются от нуля при появлении (engine/count-up)
         + (b.count === true ? ' data-count' : '')
         // Эффект текста: глитч, неон, блик, волна, машинка, расшифровка (engine/text-fx)
@@ -298,9 +305,6 @@ export const OBJ_ID = /^[\w-]+$/;
  * команд — несколько через «;» (вкладки: «show:a;hide:b,c»)
  */
 export const TRIGGER = /^(show|hide|toggle|play):[\w-]+(,[\w-]+)*(;(show|hide|toggle|play):[\w-]+(,[\w-]+)*)*$/;
-
-/** Анимации выделения по кнопке (play:<id>): иначе объект заново играет своё появление */
-export const EMPHASIS = ['pulse', 'shake', 'spin', 'bounce', 'flash'] as const;
 
 /**
  * Действие объекта по щелчку при показе: next, prev, first, last, slide:<id слайда>

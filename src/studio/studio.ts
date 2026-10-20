@@ -29,7 +29,7 @@ import { blockName, setSnapLines } from '../engine/editor/block-edit';
 import { blobToDataUrl } from '../engine/editor/persist';
 import { onLibraryError } from './user-library';
 import { addEffect, addTemplate, assetUrls, findEntrance, deckWithTemplate, listTemplates, pickCss, pickDefs, removeTemplate, replaceUrls, type Template } from './templates';
-import { animCommands, animPanelHtml, animTabHtml, bindDelayField, syncAnimTab, type AnimHost } from './anim-tab';
+import { animCommands, animPanelHtml, animTabHtml, bindDelayField, bindFxGallery, syncAnimTab, type AnimHost } from './anim-tab';
 import { bindDesignStrip, designCommands, designPanelHtml, designTabHtml, importThemeFiles, isThemeFile, syncDesignTab, type DesignHost } from './design-tab';
 import { THEME_PRESETS } from './theme-presets';
 import { initRibbonSetup } from './ribbon-setup';
@@ -1453,6 +1453,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   const animHost: AnimHost = { deck, editor: ed, index: () => index, selPaths, sequence, preview };
   Object.assign(cmds, animCommands(animHost));
   bindDelayField(animHost);
+  bindFxGallery();
   const designHost: DesignHost = { deck, editor: ed, stage: () => view.stage, askName: (a, t, n, sg, save) => askName(a, t, n, sg, save) };
   Object.assign(cmds, designCommands(designHost));
   bindDesignStrip(designHost, cmds);

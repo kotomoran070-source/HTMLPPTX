@@ -1,5 +1,6 @@
 import { icon } from '../components/icons';
 import { accentTail, DEFAULT_ACCENT, HEX_RE, previewAccent, slideAccent } from '../engine/accent';
+import { EMPHASIS } from '../engine/anim';
 import { lookFor, themeMode } from '../engine/deck-theme';
 import { deckFonts, fontStack } from '../engine/fonts';
 import { currentTheme } from '../engine/theme';
@@ -493,7 +494,7 @@ export class Inspector {
 <label class="st-p-field" data-act-url hidden><span>Адрес</span><input type="url" data-f="actionUrl" placeholder="https://… или mailto:…" spellcheck="false"></label>
 <label class="st-p-field" data-act-obj hidden><span>Какой объект</span><select data-f="actionObj"><option value="">— выберите —</option>${objs}</select></label>
 <label class="st-p-check"><input type="checkbox" data-f="hidden"><span>Скрыт, пока не нажмут кнопку</span></label>
-<label class="st-p-field"><span>Анимация по кнопке «Проиграть»</span><select data-f="emphasis"><option value="">Как появление</option><option value="pulse">Пульс</option><option value="shake">Покачивание</option><option value="spin">Вращение</option><option value="bounce">Прыжок</option><option value="flash">Вспышка</option></select></label>`,
+<label class="st-p-field"><span>Анимация по кнопке «Проиграть»</span><select data-f="emphasis"><option value="">Как появление</option>${EMPHASIS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></label>`,
     ' <span class="st-p-sum" data-sum="click"></span>');
   }
 
@@ -837,7 +838,11 @@ ${few}
       ed.commit((d) => setAt(d, [...path, 'angle'], angleOf({ angle: n }) || undefined), { rebuild: true });
     } else if (sel?.free && f === 'emphasis') {
       const path = sel.free;
-      ed.commit((d) => setAt(d, [...path, 'emphasis'], raw || undefined), { rebuild: true });
+      // Без выделения — и без его шага по щелчку
+      ed.commit((d) => {
+        setAt(d, [...path, 'emphasis'], raw || undefined);
+        if (!raw) setAt(d, [...path, 'emphAt'], undefined);
+      }, { rebuild: true });
     } else if (sel?.free && f === 'keepRatio') {
       const path = sel.free;
       const on = (el as HTMLInputElement).checked;
