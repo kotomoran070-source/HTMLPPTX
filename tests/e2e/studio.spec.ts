@@ -1385,3 +1385,58 @@ test('маркер в тексте: кнопка в правке текста п
   await expect(page.locator('#st-canvas .slide.on .fx-ol')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test('«Порядок»: строки перетаскиваются, выделенные — вместе; появление, перенесённое в другую группу, начинает или перестаёт ждать щелчка', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=fx&studio#3');
+  await page.locator('[data-tab="anim"]').first().click();
+  const line = (s: string) => readDeck('fx').split('\n').find((l) => new RegExp(`text: "?${s}"?[,}]`).test(l)) ?? '';
+  await page.locator('[data-cmd="anim.order"]').click();
+  const rows = page.locator('.st-aorder-row');
+  const list = () => rows.evaluateAll((rs) => rs.map((r) => `${r.querySelector('span')!.textContent!.split(' · ')[1]}:${(r as HTMLElement).dataset.kind}`).join(' '));
+  const drag = async (from: number, to: number, after = false) => {
+    const bb = (await rows.nth(to).boundingBox())!;
+    await rows.nth(from).dragTo(rows.nth(to), { targetPosition: { x: bb.width / 2, y: after ? bb.height - 4 : 4 } });
+  };
+  // Две группы со своей нумерацией
+  await expect(page.locator('.st-aorder-head')).toHaveText(['При открытии слайда', 'По щелчку']);
+  expect(await list()).toBe('D:in E:in F:in G:in G:out');
+  await expect(rows.locator('b')).toHaveText(['1', '2', '3', '1', '2']);
+  // F — наверх: задержки слайда остаются те же (0, 1, 2 с), меняется, у кого какая
+  await drag(2, 0);
+  await expect.poll(list).toBe('F:in D:in E:in G:in G:out');
+  expect(await waitFile(() => !line('F').includes('delay') && line('D').includes('delay: 1000') && line('E').includes('delay: 2000'))).toBe(true);
+  // Появление G — в «При открытии слайда»: больше не ждёт щелчка, исчезновение осталось шагом по щелчку
+  await drag(3, 2, true);
+  await expect.poll(list).toBe('F:in D:in E:in G:in G:out');
+  expect(await waitFile(() => !line('G').includes('click') && line('G').includes('delay: 3000') && line('G').includes('exit: fade'))).toBe(true);
+  await expect(rows.locator('b')).toHaveText(['1', '2', '3', '4', '1']);
+  // Исчезновение в «При открытии слайда» не переносится
+  await drag(4, 0);
+  await expect.poll(list).toBe('F:in D:in E:in G:in G:out');
+  // Несколько сразу: D и E (Ctrl) — в конец очереди щелчков, вместе и в том же порядке
+  await rows.nth(1).locator('.st-aorder-pick').click();
+  await rows.nth(2).locator('.st-aorder-pick').click({ modifiers: ['Control'] });
+  await expect(page.locator('.st-aorder-row.sel')).toHaveCount(2);
+  // Объекты выделены на слайде, а лента осталась на «Анимации»
+  await expect(page.locator('#st-canvas .slide.on > .free.ed-block-sel')).toHaveCount(2);
+  await expect(page.locator('[data-tab="anim"]').first()).toHaveAttribute('aria-selected', 'true');
+  await drag(1, 4, true);
+  await expect.poll(list).toBe('F:in G:in G:out D:in E:in');
+  expect(await waitFile(() => line('D').includes('click: true') && line('D').includes('delay: 300') && line('E').includes('click: true') && line('E').includes('delay: 600') && line('G').includes('delay: 1000'))).toBe(true);
+  await expect(page.locator('.st-aorder-row.sel')).toHaveCount(2);
+  // Каждое перетаскивание — свой шаг отмены
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Control+z');
+  expect(await waitFile(() => !line('D').includes('click') && line('D').includes('delay: 1000') && !line('G').includes('click'))).toBe(true);
+  // Стрелки — на шаг в своей группе; исчезновение раньше своего появления не встаёт
+  await page.locator('[data-tab="anim"]').first().click();
+  await page.locator('[data-cmd="anim.order"]').click();
+  expect(await list()).toBe('F:in D:in E:in G:in G:out');
+  await rows.nth(0).locator('.st-aorder-mv[data-dir="1"]').click();
+  await expect.poll(list).toBe('D:in F:in E:in G:in G:out');
+  expect(await waitFile(() => !line('D').includes('delay') && line('F').includes('delay: 1000'))).toBe(true);
+  await expect(rows.nth(4).locator('.st-aorder-mv')).toHaveCount(2);
+  await expect(rows.nth(4).locator('.st-aorder-mv:disabled')).toHaveCount(2);
+  expect(errors).toEqual([]);
+});

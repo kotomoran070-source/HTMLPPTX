@@ -294,7 +294,8 @@ slides:
       - {type: text, text: "Сеть", place: {x: 80, y: 280, w: 700}}
 `);
 // fx — анимация объектов: появления (по словам, раскрытия, прорисовка), маркер, наплыв камеры;
-// на втором слайде очередь щелчков: A появляется (1) и исчезает (3), B появляется (2) и светится (4), C исчезает (5)
+// на втором слайде очередь щелчков: A появляется (1) и исчезает (3), B появляется (2) и светится (4), C исчезает (5);
+// на третьем — «Порядок»: D, E, F появляются сами (0, 1 и 2 с), G — по щелчку и исчезает следующим щелчком
 fs.mkdirSync(path.join(dir, 'fx', 'assets'), { recursive: true });
 fs.copyFileSync(path.join(dir, 'tpl', 'assets', 'ui-studio.webp'), path.join(dir, 'fx', 'assets', 'shot.webp'));
 fs.writeFileSync(path.join(dir, 'fx', 'deck.yaml'), `title: Анимация объектов
@@ -312,5 +313,11 @@ slides:
       - {type: shape, kind: round, text: "A", click: true, exit: fade, exitAt: 600, place: {x: 80, y: 300, w: 300, h: 120}}
       - {type: shape, kind: round, text: "B", click: true, delay: 300, emphasis: glow, emphAt: 900, place: {x: 480, y: 300, w: 300, h: 120}}
       - {type: shape, kind: round, text: "C", exit: left, exitAt: 1200, place: {x: 880, y: 300, w: 300, h: 120}}
+  - template: canvas
+    free:
+      - {type: shape, kind: round, text: "D", enter: rise, place: {x: 80, y: 120, w: 240, h: 100}}
+      - {type: shape, kind: round, text: "E", enter: fade, delay: 1000, place: {x: 380, y: 120, w: 240, h: 100}}
+      - {type: shape, kind: round, text: "F", enter: pop, delay: 2000, place: {x: 680, y: 120, w: 240, h: 100}}
+      - {type: shape, kind: round, text: "G", enter: pop, click: true, exit: fade, place: {x: 380, y: 400, w: 240, h: 100}}
 `);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

@@ -1450,7 +1450,16 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ]),
     },
   };
-  const animHost: AnimHost = { deck, editor: ed, index: () => index, selPaths, sequence, preview };
+  const animHost: AnimHost = {
+    deck, editor: ed, index: () => index, selPaths, sequence, preview,
+    // Выбор строк в «Порядке» выделяет объекты, но лента остаётся на «Анимации»
+    select: (ks) => {
+      keepTab = true;
+      if (ks.length) ed.selectMany(index, ks);
+      else ed.clearSelection();
+      requestAnimationFrame(() => { keepTab = false; });
+    },
+  };
   Object.assign(cmds, animCommands(animHost));
   bindDelayField(animHost);
   bindFxGallery();
@@ -1834,6 +1843,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
   /** Контекстная вкладка ленты: появляется с выделением фигуры или таблицы и сразу открывается. */
   let ctxTab: ContextTab | null = null;
   let ctxKey = '';
+  /** Выделение сменилось не щелчком по слайду — вкладка объекта появляется, но не открывается */
+  let keepTab = false;
   function syncContextTab(): void {
     const next = contextTab(deck, ed);
     document.querySelectorAll<HTMLElement>('.st-tabs .ctx').forEach((t) => { t.hidden = t.dataset.tab !== next; });
@@ -1841,8 +1852,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const sel = ed.selection;
     const key = next && sel ? JSON.stringify(sel.group.length > 1 ? sel.group : sel.block) : '';
     if (next !== ctxTab || key !== ctxKey) {
-      if (next) setTab(next);
-      else if (tab === 'shape' || tab === 'table' || tab === 'image' || tab === 'video') setTab('home');
+      if (!keepTab) {
+        if (next) setTab(next);
+        else if (tab === 'shape' || tab === 'table' || tab === 'image' || tab === 'video') setTab('home');
+      }
       ctxTab = next;
       ctxKey = key;
     }

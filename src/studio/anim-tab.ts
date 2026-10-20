@@ -7,6 +7,7 @@ import { esc } from '../engine/html';
 import { TEXT_FX, TEXT_FX_NAMES, textFxPreview } from '../engine/text-fx';
 import type { Block, Deck } from '../types';
 import { bindRail, railNav } from './backdrop-pick';
+import { snippet } from './code-tree';
 import { showMenu, showPopover } from './menu';
 import { deckWithEffect, listEffects, removeEffect, type UserEffect } from './templates';
 
@@ -31,6 +32,8 @@ export interface AnimHost {
   /** Появление по очереди в порядке чтения */
   sequence(paths?: Path[]): void;
   preview(): void;
+  /** Выделить свободные объекты слайда по номерам, не уводя ленту с «Анимации» */
+  select(indexes: number[]): void;
 }
 
 export const TRANSITIONS: [string, string][] = [
@@ -133,10 +136,43 @@ function itemName(deck: Deck, o: Item): string {
   return effectName(deck, o.b.enter) || 'Появление';
 }
 
-function snippet(b: Block): string {
-  const texts = Array.isArray(b.texts) ? b.texts : [];
-  const raw = [b.text, b.title, b.caption, texts[0], b.label].find((v) => typeof v === 'string' && v.trim());
-  return typeof raw === 'string' ? raw.replace(/\{[\w#-]+\|([^}]*)\}/g, '$1').replace(/<[^>]+>|[*_`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 30) : '';
+/** Строка «Порядка»: объект и вид анимации */
+const rowId = (o: Item) => `${o.k}:${o.kind}`;
+
+/** Шаги по щелчку одного объекта идут как положено: появление, потом выделение, потом исчезновение */
+function inOrder(list: Item[]): boolean {
+  const seen = new Map<number, number>();
+  for (const o of list) {
+    if (!o.click) continue;
+    if ((seen.get(o.k) ?? -1) > RANK[o.kind]) return false;
+    seen.set(o.k, RANK[o.kind]);
+  }
+  return true;
+}
+
+/** Анимация at на шаг раньше или позже — в своей группе; null — так нельзя */
+function swapped(list: Item[], at: number, dir: 1 | -1): Item[] | null {
+  const to = at + dir;
+  if (at < 0 || to < 0 || to >= list.length || list[at].click !== list[to].click) return null;
+  const out = [...list];
+  [out[at], out[to]] = [out[to], out[at]];
+  return inOrder(out) ? out : null;
+}
+
+/**
+ * Анимации ids — на место перед строкой p (в списке с ними, p = длина — в конец), в группу click: появление,
+ * перенесённое в другую группу, начинает или перестаёт ждать щелчка. null — так нельзя или ничего не меняется
+ */
+function placed(list: Item[], ids: Set<string>, p: number, click: boolean): Item[] | null {
+  const moving = list.filter((o) => ids.has(rowId(o)));
+  // Выделение и исчезновение бывают только по щелчку
+  if (!moving.length || (!click && moving.some((o) => o.kind !== 'in'))) return null;
+  const rest = list.filter((o) => !ids.has(rowId(o)));
+  const at = list.slice(0, p).filter((o) => !ids.has(rowId(o))).length;
+  const out = [...rest.slice(0, at), ...moving.map((o) => ({ ...o, click })), ...rest.slice(at)];
+  // Группы не перемешиваются: появления при открытии — сверху, очередь щелчков — под ними
+  if (out.some((o, n) => n && out[n - 1].click && !o.click) || !inOrder(out)) return null;
+  return out.some((o, n) => rowId(o) !== rowId(list[n]) || o.click !== list[n].click) ? out : null;
 }
 
 export function animCommands(h: AnimHost): Record<string, Command> {
@@ -266,35 +302,70 @@ export function animCommands(h: AnimHost): Record<string, Command> {
   cmds['fx.exit'] = { run: () => actMenu('out'), enabled: () => freeSel().length > 0 };
 
   // ---------- время и порядок ----------
-  /** Сдвинуть анимацию номер at в очереди слайда; места всех перенумеровываются с шагом STEP */
-  const move = (dir: 1 | -1, at: number) => {
+  /**
+   * Записать новый порядок анимаций слайда. Появления при открытии получают прежние задержки по возрастанию —
+   * ритм слайда остаётся (одновременные, чей порядок не трогали, так и идут вместе); очередь щелчков — места через STEP.
+   * Шаги стрелками подряд отменяются одним Ctrl+Z, перетаскивание — каждое своим
+   */
+  const reorder = (next: Item[], merge = true) => {
     const i = h.index();
-    const list = items(deck, i);
-    const to = at + dir;
-    // Появление при открытии и шаг по щелчку не меняются местами: это разные очереди
-    if (at < 0 || to < 0 || to >= list.length || list[at].click !== list[to].click) return;
-    [list[at], list[to]] = [list[to], list[at]];
-    const keys = list.map((o) => o.key).filter((x) => x < LAST);
-    const first = keys.length ? Math.min(...keys) : 0;
-    ed.commit((d) => list.forEach((o, n) => {
-      const b = d.slides[i].free![o.k] as Block;
-      const key = first + n * STEP;
-      if (o.kind === 'emph') b.emphAt = key;
-      else if (o.kind === 'out') b.exitAt = key;
-      else if (key) b.delay = key;
-      else delete b.delay;
-    }), { rebuild: true, merge: `anim:${i}` });
+    const old = items(deck, i);
+    const was = new Map(old.map((o, n) => [rowId(o), { n, o }]));
+    const delays = old.filter((o) => !o.click).map((o) => o.key).sort((a, b) => a - b);
+    const timed = next.filter((o) => !o.click);
+    const tied = (a: Item, b: Item) => {
+      const x = was.get(rowId(a));
+      const y = was.get(rowId(b));
+      return !!x && !!y && !x.o.click && !y.o.click && x.o.key === y.o.key && x.n < y.n;
+    };
+    // Обычный промежуток между появлениями слайда — им раздвигаются те, кому не хватило места (нет — STEP)
+    const gaps = delays.slice(1).map((v, n) => v - delays[n]).filter((v) => v > 0).sort((x, y) => x - y);
+    const gap = gaps.length ? gaps[gaps.length >> 1] : STEP;
+    const at: number[] = [];
+    timed.forEach((o, n) => {
+      let v = delays[n] ?? (n ? at[n - 1] + gap : 0);
+      if (n && tied(timed[n - 1], o)) v = at[n - 1];
+      else if (n && v <= at[n - 1]) v = at[n - 1] + gap;
+      at.push(v);
+    });
+    ed.commit((d) => {
+      const free = d.slides[i].free as Block[];
+      timed.forEach((o, n) => {
+        const b = free[o.k];
+        delete b.click;
+        if (at[n]) b.delay = at[n];
+        else delete b.delay;
+      });
+      next.filter((o) => o.click).forEach((o, n) => {
+        const b = free[o.k];
+        const key = n * STEP;
+        if (o.kind === 'emph') b.emphAt = key;
+        else if (o.kind === 'out') b.exitAt = key;
+        else {
+          b.click = true;
+          if (key) b.delay = key;
+          else delete b.delay;
+        }
+      });
+    }, { rebuild: true, merge: merge ? `anim:${i}` : undefined });
+  };
+  /** Сдвинуть анимацию номер at на шаг в своей группе */
+  const move = (dir: 1 | -1, at: number) => {
+    const next = swapped(items(deck, h.index()), at, dir);
+    if (next) reorder(next);
+  };
+  /** Перетащить анимации в «Порядке»; false — так нельзя */
+  const place = (ids: Set<string>, p: number, click: boolean) => {
+    const next = placed(items(deck, h.index()), ids, p, click);
+    if (next) reorder(next, false);
+    return !!next;
   };
   /** Первая анимация выделенного объекта — её двигают «Раньше» и «Позже» */
   const selAt = () => {
     const p = single();
     return p ? items(deck, h.index()).findIndex((o) => o.k === Number(p[3])) : -1;
   };
-  const canMove = (dir: 1 | -1) => () => {
-    const at = selAt();
-    const list = items(deck, h.index());
-    return at >= 0 && at + dir >= 0 && at + dir < list.length && list[at].click === list[at + dir].click;
-  };
+  const canMove = (dir: 1 | -1) => () => !!swapped(items(deck, h.index()), selAt(), dir);
   cmds['anim.earlier'] = { run: () => move(-1, selAt()), enabled: canMove(-1) };
   // «Число набегает»: у выделенных объектов, в тексте которых есть число
   const counted = () => h.selPaths().filter((p) => /\d/.test(JSON.stringify(getAt(deck, p) ?? '')));
@@ -382,29 +453,75 @@ export function animCommands(h: AnimHost): Record<string, Command> {
     },
     enabled: () => h.selPaths().length > 1 || (slide()?.free ?? []).length > 1,
   };
-  cmds['anim.order'] = { run: () => orderPopover(h, move), enabled: () => (slide()?.free ?? []).length > 0 };
+  cmds['anim.order'] = { run: () => orderPopover(h, { move, place }), enabled: () => (slide()?.free ?? []).length > 0 };
   return cmds;
 }
 
-/** Порядок анимаций: компактный список, клик — выделить объект, стрелки — переставить */
-function orderPopover(h: AnimHost, move: (dir: 1 | -1, at: number) => void): void {
+/**
+ * Порядок анимаций: компактный список по группам — при открытии слайда и по щелчку. Щелчок выделяет объект
+ * (Ctrl — добавить, Shift — подряд), стрелки — на шаг, перетаскивание — на любое место, выделенные строки — вместе.
+ * Появление, перетащенное в «По щелчку», начинает ждать щелчка, обратно — появляется само
+ */
+function orderPopover(h: AnimHost, act: { move(dir: 1 | -1, at: number): void; place(ids: Set<string>, p: number, click: boolean): boolean }): void {
   const anchor = document.querySelector<HTMLElement>('.st-ribbon [data-cmd="anim.order"]')!;
+  const list = () => items(h.deck, h.index());
+  // Сначала выделены анимации объектов, выделенных на слайде
+  const objs = new Set(h.selPaths().map((p) => Number(p[3])));
+  let picked = new Set(list().filter((o) => objs.has(o.k)).map(rowId));
+  let from = -1;
+  let mods = { ctrl: false, shift: false };
+  let drag: Set<string> | null = null;
   const html = () => {
-    const on = items(h.deck, h.index());
+    const on = list();
     const free = (h.deck.slides[h.index()]?.free ?? []) as Block[];
     const still = free.filter((_b, k) => !on.some((o) => o.k === k)).length;
-    const selected = new Set(h.selPaths().map((p) => Number(p[3])));
-    return `<div class="st-aorder">${on.length ? on.map((o, n) => `<div class="st-aorder-row${selected.has(o.k) ? ' sel' : ''}" data-kind="${o.kind}">
-  <button type="button" class="st-aorder-pick" data-k="${o.k}" title="Выделить"><b>${n + 1}</b><span><em>${esc(blockName(o.b.type))}</em>${snippet(o.b) ? ` · ${esc(snippet(o.b))}` : ''}</span><small>${esc(itemName(h.deck, o))} · ${o.click ? 'по щелчку' : o.key ? sec(o.key) : 'сразу'}</small></button>
-  <button type="button" class="st-aorder-mv" data-mv="${n}" data-dir="-1" title="Раньше" aria-label="Раньше"${n === 0 || on[n - 1].click !== o.click ? ' disabled' : ''}>${icon('up')}</button>
-  <button type="button" class="st-aorder-mv" data-mv="${n}" data-dir="1" title="Позже" aria-label="Позже"${n === on.length - 1 || on[n + 1].click !== o.click ? ' disabled' : ''}>${icon('up')}</button>
-</div>`).join('') : '<p class="st-aorder-empty">На слайде ещё нет анимации. Выделите объект и выберите эффект.</p>'}
+    const both = on.some((o) => o.click) && on.some((o) => !o.click);
+    let num = 0;
+    const rows = on.map((o, n) => {
+      const first = n === 0 || on[n - 1].click !== o.click;
+      if (first) num = 0;
+      const label = snippet(o.b as Record<string, unknown>);
+      return (both && first ? `<p class="st-aorder-head">${o.click ? 'По щелчку' : 'При открытии слайда'}</p>` : '')
+        + `<div class="st-aorder-row${picked.has(rowId(o)) ? ' sel' : ''}" draggable="true" data-n="${n}" data-kind="${o.kind}">
+  <button type="button" class="st-aorder-pick" data-pick="${n}" title="Выделить (Ctrl — добавить, Shift — подряд); перетащите, чтобы переставить"><b>${++num}</b><span><em>${esc(blockName(o.b.type))}</em>${label ? ` · ${esc(label)}` : ''}</span><small>${esc(itemName(h.deck, o))} · ${o.click ? 'по щелчку' : o.key ? sec(o.key) : 'сразу'}</small></button>
+  <button type="button" class="st-aorder-mv" data-mv="${n}" data-dir="-1" title="Раньше" aria-label="Раньше"${swapped(on, n, -1) ? '' : ' disabled'}>${icon('up')}</button>
+  <button type="button" class="st-aorder-mv" data-mv="${n}" data-dir="1" title="Позже" aria-label="Позже"${swapped(on, n, 1) ? '' : ' disabled'}>${icon('up')}</button>
+</div>`;
+    }).join('');
+    return `<div class="st-aorder">${on.length ? rows : '<p class="st-aorder-empty">На слайде ещё нет анимации. Выделите объект и выберите эффект.</p>'}
+${on.length > 1 ? '<p class="st-aorder-still">Перетащите строку на новое место; Ctrl или Shift — несколько сразу</p>' : ''}
 ${still ? `<p class="st-aorder-still">Без анимации, видны сразу: ${still}</p>` : ''}</div>`;
   };
+  const render = (focus?: string) => {
+    const top = el.scrollTop;
+    el.innerHTML = html();
+    el.scrollTop = top;
+    if (focus) el.querySelector<HTMLElement>(focus)?.focus({ preventScroll: true });
+  };
+  // На слайде выделены объекты выделенных строк
+  const sync = () => {
+    h.select([...new Set(list().filter((o) => picked.has(rowId(o))).map((o) => o.k))].sort((a, b) => a - b));
+  };
   const el = showPopover(anchor, html(), (b) => {
-    if (b.dataset.k) {
-      const k = Number(b.dataset.k);
-      return { run: () => h.editor.selectFree(h.index(), k) };
+    if (b.dataset.pick) {
+      const n = Number(b.dataset.pick);
+      return {
+        keep: true,
+        run: () => {
+          const on = list();
+          const id = rowId(on[n]);
+          if (mods.shift && from >= 0) picked = new Set(on.slice(Math.min(from, n), Math.max(from, n) + 1).map(rowId));
+          else if (mods.ctrl) {
+            if (!picked.delete(id)) picked.add(id);
+            from = n;
+          } else {
+            picked = new Set([id]);
+            from = n;
+          }
+          sync();
+          render(`[data-pick="${n}"]`);
+        },
+      };
     }
     if (b.dataset.mv) {
       const at = Number(b.dataset.mv);
@@ -412,13 +529,73 @@ ${still ? `<p class="st-aorder-still">Без анимации, видны сра
       return {
         keep: true,
         run: () => {
-          move(dir, at);
-          el.innerHTML = html();
+          act.move(dir, at);
+          render(`[data-mv="${at + dir}"][data-dir="${dir}"]`);
         },
       };
     }
     return null;
   }, 'st-aorder-pop');
+  // Ctrl и Shift при щелчке: обработчик меню получает только кнопку
+  el.addEventListener('click', (e) => { mods = { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey }; }, true);
+
+  // ---------- перетаскивание ----------
+  const rows = () => [...el.querySelectorAll<HTMLElement>('.st-aorder-row')];
+  const marks = () => rows().forEach((r) => r.classList.remove('drop-before', 'drop-after'));
+  /** Куда бросают: строка под мышью — перед ней (верхняя половина) или после (нижняя), в её группу */
+  const dropAt = (y: number) => {
+    const rs = rows();
+    if (!rs.length) return null;
+    const r = rs.find((x) => y < x.getBoundingClientRect().bottom) ?? rs[rs.length - 1];
+    const box = r.getBoundingClientRect();
+    const after = y >= box.top + box.height / 2;
+    const n = Number(r.dataset.n);
+    return { r, after, p: n + (after ? 1 : 0), click: !!list()[n]?.click };
+  };
+  el.addEventListener('dragstart', (e) => {
+    const r = (e.target as Element).closest?.<HTMLElement>('.st-aorder-row');
+    const on = list();
+    const o = r ? on[Number(r.dataset.n)] : undefined;
+    if (!o) return;
+    // Строка из выделенных — тянутся все выделенные, иначе только она
+    if (!picked.has(rowId(o))) picked = new Set([rowId(o)]);
+    drag = new Set(picked);
+    rows().forEach((x) => {
+      const it = on[Number(x.dataset.n)];
+      x.classList.toggle('sel', !!it && picked.has(rowId(it)));
+      x.classList.toggle('dragging', !!it && drag!.has(rowId(it)));
+    });
+    e.dataTransfer!.effectAllowed = 'move';
+    e.dataTransfer!.setData('text/plain', '');
+  });
+  el.addEventListener('dragover', (e) => {
+    if (!drag) return;
+    const at = dropAt(e.clientY);
+    marks();
+    // Нельзя (исчезновение — в «При открытии», исчезновение раньше появления) или ничего не меняется — без отметки
+    if (!at || !placed(list(), drag, at.p, at.click)) return;
+    e.preventDefault();
+    e.dataTransfer!.dropEffect = 'move';
+    at.r.classList.add(at.after ? 'drop-after' : 'drop-before');
+  });
+  el.addEventListener('drop', (e) => {
+    if (!drag) return;
+    e.preventDefault();
+    const at = dropAt(e.clientY);
+    const ids = drag;
+    drag = null;
+    if (at && act.place(ids, at.p, at.click)) {
+      picked = new Set(ids);
+      sync();
+    }
+    render();
+  });
+  el.addEventListener('dragend', () => {
+    if (!drag) return;
+    drag = null;
+    marks();
+    rows().forEach((r) => r.classList.remove('dragging'));
+  });
 }
 
 /** Анимации своих эффектов для образцов в списке (на странице — один раз) */
