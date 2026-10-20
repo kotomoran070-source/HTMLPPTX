@@ -980,7 +980,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const html = `<div class="st-splitf">
       <label><span>Число столбцов</span><input type="number" data-k="cols" min="1" max="12" value="${merged ? cs : 2}"></label>
       <label><span>Число строк</span><input type="number" data-k="rows" min="1" max="12" value="${merged ? rs : 1}"${c0.r < 0 ? ' disabled title="Шапку — только на столбцы"' : ''}></label>
-      <div class="st-splitf-ok"><button type="button" class="btn small" data-v="ok">ОК</button></div></div>`;
+      <div class="st-splitf-ok"><button type="button" class="btn primary small" data-v="ok">Разбить</button></div></div>`;
     const pop = showPopover(at as HTMLElement, html, (b) => {
       if (b.dataset.v !== 'ok') return null;
       const val = (k: string) => Math.max(1, Math.min(12, Math.round(Number(b.closest('.st-pop')!.querySelector<HTMLInputElement>(`[data-k="${k}"]`)!.value) || 1)));

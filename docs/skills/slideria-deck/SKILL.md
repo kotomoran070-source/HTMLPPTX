@@ -56,7 +56,7 @@ slides:
 | Число | `stat` (`value`, `label`, `delta: +12 %`, `note`) |
 | Графики | `line-chart` (`values`, `start`, `end`, `unit`), `bars` (`values`, `labels`), `donut` / `hbars` / `columns` / `lines` (`values`, `labels`) |
 | Таблица | `table` (`header`, `rows`, `variant: stripes`, `highlight`) |
-| Схемы из пунктов | `items: [{title, text}]` у `cycle`, `funnel`, `pyramid`, `numbers`, `compare`, `matrix`, `icons`, `stats`, `faq`, `timeline` (`date`, `done`), `roadmap` (`text` — срок, `done`), `ladder`, `orbit` (`center` или `logo: true`); `pipeline` — `steps: [{title, sub}]`; `hub` — итоги вокруг логотипа |
+| Схемы из пунктов | `items: [{title, text}]` у `cycle`, `funnel`, `pyramid`, `numbers`, `compare`, `matrix`, `icons`, `stats`, `faq`, `timeline` (`date`, `done`), `roadmap` (`text` — срок, `done`), `ladder`, `orbit` (`center` или `logo: true`), `venn` (`center` — общее в пересечении), `nested` (первый — самый большой круг, `text` — пояснение справа); `pipeline` — `steps: [{title, sub}]`; `hub` — итоги вокруг логотипа |
 | Формула | `math` (`x^2 + y^2 = r^2` или LaTeX), график функции — `plot` |
 | Медиа | `image` (`src`, `caption`), `video` (`src` — файл или ссылка YouTube), `model` (`src` — GLB) |
 | Код | `sandbox` (`code`, `theme: true`, `console: true`) — правится при показе |

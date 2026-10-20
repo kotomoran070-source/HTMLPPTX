@@ -48,3 +48,13 @@ test('дорожная карта, лестница и орбиты: те же �
   expect(toView(toView(timeline, 'roadmap'), 'timeline')).toMatchObject({ items: [{ date: 'Март', title: 'Запуск', done: true }, { date: 'Июнь', title: 'Рост' }] });
   for (const v of ['roadmap', 'ladder', 'orbit']) expect(viewOf(toView(roadmap, v))).toBe(v);
 });
+
+test('Венн и вложенные круги: те же пункты туда и обратно, место и появление остаются', () => {
+  const venn = { type: 'venn', enter: 'fade', place: { x: 100, y: 120, w: 780 },
+    items: [{ title: 'Скорость', text: 'Минуты' }, { title: 'Качество', text: 'Без дизайнера' }, { title: 'Цена' }] };
+  const nested = toView(venn, 'nested') as any;
+  expect(nested).toMatchObject({ type: 'nested', enter: 'fade', place: { x: 100, y: 120, w: 780 }, items: [{ title: 'Скорость', text: 'Минуты' }, { title: 'Качество' }, { title: 'Цена' }] });
+  expect(toView(toView(nested, 'pyramid'), 'venn')).toMatchObject({ type: 'venn', items: venn.items });
+  expect(viewOf(venn)).toBe('venn');
+  expect(viewOf(nested)).toBe('nested');
+});

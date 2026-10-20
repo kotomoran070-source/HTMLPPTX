@@ -1,7 +1,7 @@
 /**
  * Схемы и списки из пунктов «заголовок + текст» — все переключаются друг в друга («Вид» в свойствах):
  * цикл, воронка, пирамида, крупные номера, сравнение, матрица 2×2, иконки с подписями, цифры,
- * вопрос — ответ. У каждой своя анимация появления; в миниатюрах и PDF — конечный вид.
+ * вопрос — ответ, диаграмма Венна, вложенные круги. У каждой своя анимация появления; в миниатюрах и PDF — конечный вид.
  */
 import { defineBlock } from '../../engine/component';
 import { asArray, styleAttr, t } from '../../engine/html';
@@ -317,5 +317,90 @@ defineBlock<OrbitProps>('orbit', {
       : `<b${ea(p, 'center')}>${t(p.center ?? '')}</b>${p.sub ? `<span${ea(p, 'sub')}>${t(p.sub)}</span>` : ''}`;
     return `<div class="orbit r${p.logo ? ' with-logo' : ''}"${styleAttr(p.style)}><i class="ob-ring r2"></i><i class="ob-ring r1"></i>`
       + `<div class="ob-core">${logo}</div>${tags}</div>`;
+  },
+});
+
+// ---------------- диаграмма Венна ----------------
+
+interface VennProps extends ItemsProps { center?: string }
+
+/** Проценты от размера блока: v — в диаметрах круга, всего size диаметров */
+const pc = (v: number, size: number) => round((v / size) * 100);
+
+/**
+ * Диаграмма Венна: два или три круга пересекаются, общее — подписью в середине (center); четыре
+ * и больше — цепочкой. Подпись круга отодвинута от пересечения. Круги сходятся при появлении,
+ * под мышью круг подсвечивается.
+ */
+defineBlock<VennProps>('venn', {
+  render(p) {
+    const items = pts(p);
+    const n = Math.max(1, items.length);
+    // Центры кругов и размер блока — в диаметрах круга
+    let at: [number, number][];
+    let w = 1;
+    let h = 1;
+    if (n === 2) { at = [[0.5, 0.5], [1.18, 0.5]]; w = 1.68; } else if (n === 3) {
+      const s = 0.58;
+      const dy = s * 0.866;
+      at = [[0.5 + s / 2, 0.5], [0.5, 0.5 + dy], [0.5 + s, 0.5 + dy]];
+      w = 1 + s;
+      h = 1 + dy;
+    } else {
+      at = Array.from({ length: n }, (_, k) => [0.5 + k * 0.74, 0.5]);
+      w = 1 + (n - 1) * 0.74;
+    }
+    const cx = at.reduce((a, q) => a + q[0], 0) / n;
+    const cy = at.reduce((a, q) => a + q[1], 0) / n;
+    const pair = n === 2 || n === 3;
+    const circles = items.map((m, k) => {
+      const [x, y] = at[k];
+      // Прочь от общего центра: туда отодвинута подпись, оттуда круг съезжается
+      const len = Math.hypot(x - cx, y - cy) || 1;
+      const ux = pair ? (x - cx) / len : 0;
+      const uy = pair ? (y - cy) / len : 0;
+      const shift = pair ? 17 : 0;
+      const mix = n > 1 ? Math.round((k / (n - 1)) * 100) : 0;
+      return `<div class="vn-c" style="left:${pc(x - 0.5, w)}%;top:${pc(y - 0.5, h)}%;width:${pc(1, w)}%;--k:${k};--mix:${mix}%;--ux:${round(pair ? ux : -0.6)};--uy:${round(uy)}">`
+        + `<div class="vn-l" style="left:${round(50 + ux * shift)}%;top:${round(50 + uy * shift)}%">${title(m)}${text(m)}</div></div>`;
+    }).join('');
+    const mid = pair && p.center ? `<div class="vn-mid" style="left:${pc(cx, w)}%;top:${pc(cy, h)}%"><b${ea(p, 'center')}>${t(p.center)}</b></div>` : '';
+    return `<div class="venn r${pair ? '' : ' chain'}" style="aspect-ratio:${round(w / h)} / 1;--ar:${round(w / h)};--n:${n}${p.style ? `;${p.style}` : ''}">${circles}${mid}</div>`;
+  },
+});
+
+// ---------------- вложенные круги ----------------
+
+/**
+ * Вложенные круги (рынок: TAM, SAM, SOM): круги друг в друге, касаются снизу, первый пункт — самый
+ * большой. Заголовок — в своём полумесяце (у последнего — в середине круга), пояснение — справа,
+ * к нему ведёт линия. Круги вырастают снизу по очереди; под мышью круг и его пояснение подсвечены.
+ */
+defineBlock<ItemsProps>('nested', {
+  render(p) {
+    const items = pts(p);
+    const n = Math.max(1, items.length);
+    const notes = items.some((m) => m.text);
+    // Ширина блока к высоте: с пояснениями круги слева, без них — по центру
+    const A = notes ? 2 : 1.1;
+    const d = (k: number) => (n - k) / n;
+    const rings = items.map((m, k) => {
+      const dk = d(k);
+      const dn = k < n - 1 ? d(k + 1) : 0;
+      // Середина полосы между кругом и следующим (в долях своего круга) и половина хорды там
+      const mid = k < n - 1 ? (1 - dn / dk) / 2 : 0.5;
+      const half = k < n - 1 ? Math.sqrt(1 - (dn / dk) ** 2) / 2 : 0.5;
+      const tone = n > 1 ? Math.round(14 + (k / (n - 1)) * 86) : 100;
+      // Пояснение — с 56 % ширины блока; места — в долях своего круга (у круга ширина = высота)
+      const from = round((0.5 + half) * 100);
+      const noteX = round(((0.56 * A - 0.5 + dk / 2) / dk) * 100);
+      const note = notes && m.text
+        ? `<i class="ns-line" style="top:${round(mid * 100)}%;left:${from}%;width:${round(noteX - from - 2)}%"></i>`
+          + `<div class="ns-note" style="top:${round(mid * 100)}%;left:${noteX}%;width:${round(((0.42 * A) / dk) * 100)}%">${text(m, 'p')}</div>`
+        : '';
+      return `<div class="ns-c${tone > 55 ? ' on' : ''}" style="height:${round(dk * 100)}%;left:${notes ? round((0.5 / A) * 100) : 50}%;--k:${k};--tone:${tone}%">`
+        + `<div class="ns-l" style="top:${round(mid * 100)}%;width:${round(half * 2 * (k < n - 1 ? 80 : 74))}%">${title(m)}</div>${note}</div>`;
+    }).join('');
+    return `<div class="nested r${notes ? ' notes' : ''}" style="aspect-ratio:${A} / 1;--ar:${A};--n:${n}${p.style ? `;${p.style}` : ''}">${rings}</div>`;
   },
 });

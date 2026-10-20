@@ -1407,4 +1407,5 @@ body.studio input[type="number"]:not(.edsize input) { padding-right: 19px; }
 .st-splitf input { width: 64px; height: 26px; padding: 0 6px; border: 1px solid var(--bd); border-radius: 6px; background: var(--bg); color: var(--tx); font: 500 12.5px var(--font); text-align: right; }
 .st-splitf input:focus { outline: none; border-color: var(--ac); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 18%, transparent); }
 .st-splitf input:disabled { opacity: .5; }
-.st-splitf-ok { display: flex; justify-content: flex-end; }
+.st-splitf-ok { display: flex; justify-content: flex-end; margin-top: 2px; }
+.st-splitf-ok .btn { padding: 6px 14px; font: 600 12.5px var(--font); }

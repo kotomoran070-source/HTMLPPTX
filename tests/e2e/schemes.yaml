@@ -34,5 +34,11 @@ slides:
     title: Орбиты
     body: {type: orbit, center: "Продукт", sub: "версия 2.0", items: [{title: "Команда"}, {title: "Клиенты"}, {title: "Партнёры"}, {title: "Данные"}]}
   - template: content
+    title: Где мы сильны
+    body: {type: venn, center: "Наш продукт", items: [{title: "Скорость", text: "Готово за минуты"}, {title: "Качество", text: "Дизайн без дизайнера"}, {title: "Цена", text: "Дешевле агентства"}]}
+  - template: content
+    title: Размер рынка
+    body: {type: nested, items: [{title: "TAM", text: "120 млрд ₽ — весь рынок презентаций"}, {title: "SAM", text: "18 млрд ₽ — компании, которые готовят их сами"}, {title: "SOM", text: "1,2 млрд ₽ — наша доля за три года"}]}
+  - template: content
     title: Частые вопросы
     body: {type: faq, items: [{title: "Нужен ли интернет?", text: "Нет: презентация — один файл, всё внутри."}, {title: "Можно открыть в PowerPoint?", text: "Да, экспорт в PPTX сохраняет текст и картинки."}, {title: "Как показывать с телефона?", text: "Отсканируйте QR в окне показа — телефон станет пультом."}]}

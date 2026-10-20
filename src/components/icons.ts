@@ -126,6 +126,8 @@ const PATHS: Record<string, string> = {
   sigma: '<path d="M18 6.5V4H6l6.5 8L6 20h12v-2.5"/>',
   columns: '<rect x="3" y="4" width="7.5" height="16" rx="2"/><rect x="13.5" y="4" width="7.5" height="16" rx="2"/><path d="M6 9h2.5M16 9h2.5M6 13h2.5M16 13h2.5"/>',
   quad: '<path d="M12 3v18M3 12h18"/><rect x="3" y="3" width="18" height="18" rx="2.5"/>',
+  venn: '<circle cx="9" cy="12" r="6.2"/><circle cx="15" cy="12" r="6.2"/>',
+  nested: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="15" r="6"/><circle cx="12" cy="18" r="3"/>',
   faq: '<path d="M4 5h16v11H9l-5 4z"/><path d="M10 9a2 2 0 1 1 2.8 1.8c-.5.3-.8.7-.8 1.2M12 14h.01"/>',
   // Пиктограммы для блока «Иконки»
   rocket: '<path d="M12 15c4-3 6-7 6-12-5 0-9 2-12 6l-3 1 2 2-1 3 3-1 2 2z"/><circle cx="14" cy="8" r="1.6"/><path d="M6 17c-2 0-3 1-3 4 3 0 4-1 4-3"/>',

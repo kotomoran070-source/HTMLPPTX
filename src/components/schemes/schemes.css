@@ -240,3 +240,46 @@ body.editing:not(.st-previewing) .fq-a, .static .fq-a { grid-template-rows: 1fr;
    Общее правило свободных объектов обнуляет min-height у содержимого */
 .slide > .free.auto-h > :is(.roadmap, .ladder) { min-height: 260px; }
 .slide > .free.auto-h > .orbit { min-height: 320px; }
+
+/* Венн и вложенные круги: высота — по пропорции схемы (--ar). В раскладке слайда — не выше 440 px;
+   свободный объект — по ширине рамки (выше рамка — схема по середине) */
+:is(.venn, .nested) { max-width: calc(440px * var(--ar)); margin-inline: auto; }
+.slide > .free > :is(.venn, .nested) { flex: none; max-width: none; margin: auto 0; }
+
+/* Диаграмма Венна: круги полупрозрачные — пересечения темнеют сами; подпись отодвинута от пересечения */
+.venn { position: relative; width: 100%; }
+.vn-c { --vc: color-mix(in srgb, var(--ac2, var(--ac)) var(--mix), var(--ac));
+  position: absolute; aspect-ratio: 1; border-radius: 50%;
+  background: color-mix(in srgb, var(--vc) 20%, transparent); border: 2px solid color-mix(in srgb, var(--vc) 60%, transparent);
+  transition: background .2s, box-shadow .2s; }
+.vn-c:hover { background: color-mix(in srgb, var(--vc) 34%, transparent); box-shadow: 0 0 0 6px color-mix(in srgb, var(--vc) 16%, transparent); }
+.vn-l { position: absolute; translate: -50% -50%; width: 46%; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.venn.chain .vn-l { width: 40%; }
+.vn-l > b { font: var(--hw, 700) 20px/1.2 var(--font-head, var(--font)); color: var(--tx); }
+.vn-l > span { font-size: 14px; line-height: 1.35; color: var(--tx2, var(--mu)); }
+.vn-mid { position: absolute; translate: -50% -50%; white-space: nowrap; padding: 8px 16px; border-radius: 99px; background: var(--surf); border: 1px solid var(--bd); box-shadow: 0 10px 26px rgba(2, 6, 23, .12); text-align: center; z-index: 1; }
+.vn-mid > b { font: 700 15px/1.2 var(--font); color: var(--ach); }
+.slide.on .vn-c { animation: vn-in .9s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(.1s + var(--k) * .12s); }
+@keyframes vn-in { from { opacity: 0; transform: translate(calc(var(--ux) * 26%), calc(var(--uy) * 26%)) scale(.9); } }
+.slide.on .vn-mid { animation: vn-pop .5s cubic-bezier(.3, 1.4, .5, 1) both; animation-delay: .85s; }
+@keyframes vn-pop { from { opacity: 0; scale: .6; } }
+
+/* Вложенные круги: касаются снизу, заливка гуще к середине (на густой — светлый текст, .on);
+   пояснение справа — дочернее у круга: под мышью подсвечиваются оба */
+.nested { position: relative; width: 100%; }
+.ns-c { position: absolute; bottom: 0; translate: -50% 0; aspect-ratio: 1; border-radius: 50%;
+  background: color-mix(in srgb, var(--ac) var(--tone), var(--surf)); border: 2px solid color-mix(in srgb, var(--surf) 75%, transparent);
+  transition: box-shadow .2s; }
+.ns-c:hover { box-shadow: 0 0 0 6px color-mix(in srgb, var(--ac) 22%, transparent); }
+.ns-l { position: absolute; left: 50%; translate: -50% -50%; text-align: center; }
+.ns-l > b { font: var(--hw, 700) 20px/1.2 var(--font-head, var(--font)); color: var(--tx); }
+.ns-c.on > .ns-l > b { color: var(--on-ac, #fff); }
+.ns-line { position: absolute; height: 0; border-top: 1.5px dashed color-mix(in srgb, var(--ac) 55%, var(--bd)); transition: border-color .2s; }
+.ns-line::before { content: ""; position: absolute; left: -4px; top: -4.75px; width: 8px; height: 8px; border-radius: 50%; background: var(--ac); box-shadow: 0 0 0 3px var(--surf); }
+.ns-note { position: absolute; translate: 0 -50%; }
+.ns-note > p { margin: 0; max-width: none; font-size: 16px; line-height: 1.4; color: var(--tx2, var(--tx)); transition: color .2s; }
+.ns-c:hover > .ns-line { border-top-style: solid; border-top-color: var(--ac); }
+.ns-c:hover > .ns-note > p { color: var(--tx); }
+.slide.on .ns-c { transform-origin: 50% 100%; animation: ns-grow .7s cubic-bezier(.3, 1.2, .5, 1) both; animation-delay: calc(.1s + var(--k) * .14s); }
+@keyframes ns-grow { from { scale: 0; opacity: 0; } }
+.slide.on :is(.ns-line, .ns-note) { animation: fi .5s ease both; animation-delay: calc(.6s + var(--k) * .14s); }

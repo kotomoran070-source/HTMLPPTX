@@ -228,7 +228,7 @@ test('прожектор: щелчок по блоку — он в светло�
 test('блоки-схемы: все рисуются без ошибок, вопрос раскрывается по щелчку', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=schemes#1');
-  const types = ['cycle', 'funnel', 'pyramid', 'numbers', 'compare', 'matrix', 'icons', 'stats', 'roadmap', 'ladder', 'orbit', 'faq'];
+  const types = ['cycle', 'funnel', 'pyramid', 'numbers', 'compare', 'matrix', 'icons', 'stats', 'roadmap', 'ladder', 'orbit', 'venn', 'nested', 'faq'];
   for (const [k, type] of types.entries()) {
     await expect(page.locator('#ct')).toHaveText(`${k + 1} из ${types.length}`);
     const block = page.locator(`.slide.on [data-type="${type}"]`);
@@ -236,6 +236,19 @@ test('блоки-схемы: все рисуются без ошибок, воп
     expect(await block.evaluate((el) => el.getBoundingClientRect().height)).toBeGreaterThan(60);
     if (k < types.length - 1) await page.keyboard.press('PageDown');
   }
+  // Под мышью — круг подсвечен: у вложенных кругов и линия к пояснению сплошная
+  await page.goto('/?deck=schemes#13');
+  const sam = page.locator('.slide.on .ns-c').nth(1);
+  const line = sam.locator('.ns-line');
+  await expect(line).toHaveCSS('border-top-style', 'dashed');
+  await sam.locator('.ns-l').hover();
+  await expect(line).toHaveCSS('border-top-style', 'solid');
+  // Пояснение — часть своего круга: наведение на текст подсвечивает его круг
+  await page.mouse.move(5, 5);
+  await expect(line).toHaveCSS('border-top-style', 'dashed');
+  await sam.locator('.ns-note').hover();
+  await expect(line).toHaveCSS('border-top-style', 'solid');
+  await page.goto('/?deck=schemes#14');
   const q = page.locator('.slide.on .fq-q').first();
   await q.click();
   await expect(page.locator('.slide.on .fq-item.open')).toHaveCount(1);
