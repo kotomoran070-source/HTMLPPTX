@@ -72,19 +72,20 @@ slides:
       text: Заголовок {g:duo|слайда}
       styles: {text: {size: 42, weight: 800}}
       place: {x: 48, y: 48, w: 1000}        # без h — высота по тексту
-      enter: rise                           # fade, rise, drop, left, right, scale, pop, blur, wipe, circle, diamond, mask, words, letters (текст), draw (линии, фигуры)
+      enter: rise                           # appear, fade, rise, drop, left, right, scale, pop, swivel, growturn, blur, wipe, split, circle, diamond, wheel, mask, words, letters (текст), draw (линии, фигуры)
       delay: 150                            # мс
     - type: shape
       kind: round                           # round, rect, pill, ellipse, line, arrow
       fill: gradient                        # surface, soft, accent, gradient, none…
       text: "**Главное**\nодна мысль"
       place: {x: 48, y: 180, w: 360, h: 200}
-      click: true                           # появится по «Далее»
+      click: true                           # появится по «Далее»; clickWith: true — на том же щелчке, что предыдущий шаг
       textFx: shine                         # glitch, neon, shine, wave, type, scramble
 ```
 
 - **Морф**: следующий слайд — копия с теми же `id` у объектов на других местах и `transition: morph`. Объекты перелетают, меняют размер, цвет и поворот (`angle`).
 - **Своя анимация**: `@keyframes` в поле `css` в начале файла, у объекта — `style: "animation: имя 4s infinite"`.
+- **По щелчку дальше**: `exit` (+ `exitAt`) — уход, `emphasis` (+ `emphAt`) — выделение; стойкие `dim`, `grow`, `recolor` держатся. Список по пунктам — `byItem: true`, длительность — `tempo: fast|slow|slower`.
 - **Число набегает**: `count: true` у объекта с числом (отсчёт от нуля), `count: odometer` — цифры крутятся барабаном.
 
 ## Правила

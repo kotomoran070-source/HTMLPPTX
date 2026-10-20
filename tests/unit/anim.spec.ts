@@ -1,6 +1,6 @@
 // Анимация объектов: очередь щелчков (появление, выделение, исчезновение) и маркер в тексте
 import { expect, test } from '@playwright/test';
-import { clickActs, timedOrder } from '../../src/engine/anim';
+import { clickActs, partsOf, timedOrder } from '../../src/engine/anim';
 import { t } from '../../src/engine/html';
 import type { Block } from '../../src/types';
 
@@ -34,4 +34,20 @@ test('маркер в тексте: {mark|…} — полоса под слов�
 test('номера появлений при открытии слайда: по задержке, при равной — по номеру объекта; по щелчку и без эффекта — не в счёт', () => {
   const free = [b({ enter: 'rise', delay: 600 }), b({ enter: 'fade' }), b({ enter: 'pop', click: true }), b({}), b({ enter: 'fade', delay: 600 }), b({ enter: 'blur', delay: 100 })];
   expect(timedOrder(free, (x) => typeof x.enter === 'string')).toEqual([1, 5, 0, 4]);
+});
+
+test('вместе с предыдущим и по пунктам: номера щелчков общие у «вместе», пункты — по щелчку на каждый', () => {
+  const free = [
+    b({ click: true }),
+    b({ click: true, delay: 300, clickWith: true }),
+    b({ type: 'list', items: ['a', 'b', 'c'], click: true, delay: 600, byItem: true }),
+    b({ emphasis: 'dim', emphAt: 900 }),
+    b({ exit: 'up', exitAt: 1200, exitWith: true }),
+  ];
+  expect(clickActs(free).map((a) => `${a.kind}${a.k}@${a.step}`)).toEqual(['in0@0', 'in1@0', 'in2@1', 'item2@2', 'item2@3', 'emph3@4', 'out4@4']);
+  // Первый шаг «вместе» не с чем — он первый щелчок
+  expect(clickActs([b({ click: true, clickWith: true })])[0].step).toBe(0);
+  // По пунктам: строки списка, пункты «- » в тексте; один пункт — как обычно
+  expect([partsOf(b({ type: 'list', items: [1, 2] })), partsOf(b({ text: '- раз\nтекст\n• два' })), partsOf(b({ text: 'просто' }))]).toEqual([2, 2, 0]);
+  expect(clickActs([b({ type: 'list', items: ['один'], click: true, byItem: true })]).map((a) => a.kind)).toEqual(['in']);
 });

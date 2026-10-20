@@ -29,6 +29,14 @@ export function enterFx(slide: HTMLElement | undefined): () => void {
       holders.forEach((h, k) => { if (h.isConnected) h.innerHTML = html[k]; });
     });
   });
+  // По пунктам без щелчка: пункты появляются один за другим (номер --i), сам объект стоит
+  slide.querySelectorAll<HTMLElement>(':scope > .free.by-item').forEach((obj) => {
+    if (/\bin:/.test(obj.dataset.acts ?? '')) return;
+    const items = [...obj.querySelectorAll<HTMLElement>('li, .md-li')];
+    items.forEach((it, i) => it.style.setProperty('--i', String(i)));
+    obj.classList.add('fx-items');
+    undo.push(() => { obj.classList.remove('fx-items'); items.forEach((it) => it.style.removeProperty('--i')); });
+  });
   slide.querySelectorAll<HTMLElement>(':scope > .free.fx-draw').forEach((obj) => {
     const off = draw(obj);
     if (!off) return;

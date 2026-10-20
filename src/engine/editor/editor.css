@@ -31,8 +31,14 @@ body.editing .stage .slide.on > .free.fx { animation: none !important; }
 /* Примерка выделения и исчезновения (наведение на пункт меню на ленте «Анимация»): проигрывается дважды,
    исчезновение — туда и обратно, объект остаётся на месте */
 @media (prefers-reduced-motion: no-preference) {
-  body.editing .stage .slide > .free.st-fx-try-emph.st-fx-try-emph { animation: var(--emph, fx-pop) var(--emph-ms, .5s) var(--emph-ease, ease) 2 both !important; }
+  body.editing .stage .slide > .free.st-fx-try-emph.st-fx-try-emph { animation: var(--emph-try, var(--emph, fx-pop)) var(--emph-ms, .5s) var(--emph-ease, ease) 2 both !important; }
+  /* Стойкие выделения при примерке: туда и обратно (на слайде состояние держится до возврата) */
+  body.editing .stage .slide > .free.st-fx-try-emph:is([data-emph="dim"], [data-emph="grow"]) { --emph-try: emph-hold-try; --emph-ms: .9s; }
+  body.editing .stage .slide > .free.st-fx-try-emph[data-emph="dim"] { --try-op: .3; --try-fl: grayscale(.85); }
+  body.editing .stage .slide > .free.st-fx-try-emph[data-emph="grow"] { --try-sc: 1.12; }
+  body.editing .stage .slide > .free.st-fx-try-emph[data-emph="recolor"] * { color: var(--ac) !important; -webkit-text-fill-color: var(--ac); transition: color .3s; }
   body.editing .stage .slide > .free.st-fx-try-emph[data-emph="mark"] .md-m { animation: mk-draw2 .75s cubic-bezier(.4, 0, .2, 1) 2 both !important; }
+  @keyframes emph-hold-try { 35%, 100% { opacity: var(--try-op, 1); filter: var(--try-fl, none); scale: var(--try-sc, 1); } }
   body.editing .stage .slide > .free.st-fx-try-out.st-fx-try-out { animation: var(--xfx, fx-x-fade) .45s cubic-bezier(.5, 0, .9, .4) 2 alternate both !important; }
 }
 body.editing .stage .fin .rg circle { opacity: .35; }

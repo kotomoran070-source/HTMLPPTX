@@ -228,7 +228,7 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
 .slide > .free > figure.image { height: auto !important; min-height: 0; }
 
 /* Появление свободного объекта: enter (эффект) и delay (мс) — как в импортированных слайдах */
-.stage .slide.on:not(.static) > .free.fx { animation: var(--fx) var(--fx-ms, .38s) var(--fx-ease, cubic-bezier(.2, .7, .2, 1)) var(--fx-d, 0ms) both; }
+.stage .slide.on:not(.static) > .free.fx { animation: var(--fx) calc(var(--fx-ms, .38s) * var(--fx-k, 1)) var(--fx-ease, cubic-bezier(.2, .7, .2, 1)) var(--fx-d, 0ms) both; }
 .free.fx-fade { --fx: fx-fade; }
 .free.fx-rise { --fx: fx-rise; }
 .free.fx-drop { --fx: fx-drop; }
@@ -244,6 +244,13 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
 @keyframes fx-right { from { opacity: 0; transform: translateX(48px); } }
 @keyframes fx-scale { from { opacity: 0; transform: scale(.8); } }
 @keyframes fx-pop { from { opacity: 0; transform: scale(.5); } }
+/* Возникновение — сразу, в свой момент; вращение — поворот вокруг вертикальной оси; увеличение с поворотом */
+.free.fx-appear { --fx: fx-appear; --fx-ms: 1ms; }
+.free.fx-swivel { --fx: fx-swivel; --fx-ms: .6s; --fx-ease: cubic-bezier(.2, .8, .3, 1); }
+.free.fx-growturn { --fx: fx-growturn; --fx-ms: .6s; --fx-ease: cubic-bezier(.2, .8, .3, 1); }
+@keyframes fx-appear { from { opacity: 0; } }
+@keyframes fx-swivel { from { opacity: 0; transform: perspective(900px) rotateY(90deg); } 40% { opacity: 1; } }
+@keyframes fx-growturn { from { opacity: 0; transform: scale(.25) rotate(-80deg); } }
 /* Из фокуса: проступает из размытия */
 .free.fx-blur { --fx: fx-blur; --fx-ms: .6s; }
 @keyframes fx-blur { from { opacity: 0; filter: blur(14px); transform: scale(1.04); } }
@@ -253,7 +260,18 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
 .free.fx-circle { --fx: fx-circle; --fx-ms: .75s; --fx-ease: cubic-bezier(.65, 0, .35, 1); }
 .free.fx-diamond { --fx: fx-diamond; --fx-ms: .75s; --fx-ease: cubic-bezier(.65, 0, .35, 1); }
 .free.fx-mask { --fx: fx-mask; --fx-ms: .9s; --fx-ease: cubic-bezier(.4, 0, .2, 1); }
-.stage .slide.on:not(.static) > .free:is(.fx-wipe, .fx-circle, .fx-diamond, .fx-mask):is(.fx, .trig-in) { animation-fill-mode: backwards; }
+.free.fx-split { --fx: fx-split; --fx-ms: .7s; --fx-ease: cubic-bezier(.65, 0, .35, 1); }
+.free.fx-wheel { --fx: fx-wheel; --fx-ms: .9s; --fx-ease: cubic-bezier(.45, 0, .3, 1); }
+.stage .slide.on:not(.static) > .free:is(.fx-wipe, .fx-split, .fx-circle, .fx-diamond, .fx-wheel, .fx-mask):is(.fx, .trig-in) { animation-fill-mode: backwards; }
+/* Панорама — от середины к краям; часовая стрелка — сектор по кругу: маска стоит на объекте, анимируется
+   только угол --fx-a (@property; в покое 360° — видно всё). Маска втрое больше объекта — тень не обрезается */
+@keyframes fx-split { from { clip-path: inset(-30% 50% -30% 50%); } to { clip-path: inset(-30% -30% -30% -30%); } }
+@property --fx-a { syntax: "<angle>"; inherits: false; initial-value: 360deg; }
+.stage .slide.on:not(.static) > .free:is(.fx-wheel:is(.fx, .trig-in), .click-out[data-exit="wheel"]) {
+  -webkit-mask: conic-gradient(#000 var(--fx-a), transparent 0) center / 300% 300% no-repeat;
+  mask: conic-gradient(#000 var(--fx-a), transparent 0) center / 300% 300% no-repeat;
+}
+@keyframes fx-wheel { from { --fx-a: 0deg; } to { --fx-a: 360deg; } }
 @keyframes fx-wipe { from { clip-path: inset(-30% 100% -30% -30%); } to { clip-path: inset(-30% -30% -30% -30%); } }
 @keyframes fx-circle { from { clip-path: circle(0% at 50% 50%); } to { clip-path: circle(75% at 50% 50%); } }
 @keyframes fx-diamond { from { clip-path: polygon(50% 50%, 50% 50%, 50% 50%, 50% 50%); } to { clip-path: polygon(50% -60%, 160% 50%, 50% 160%, -60% 50%); } }
@@ -266,8 +284,8 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
 .free:is(.fx-words, .fx-letters, .fx-draw) { --fx: fx-fade; }
 .free.fx-ready { --fx: fx-none; }
 @keyframes fx-none { from { opacity: 1; } }
-.free.fx-words { --fx-step: 85ms; }
-.free.fx-letters { --fx-step: 26ms; }
+.free.fx-words { --fx-step: calc(85ms * var(--fx-k, 1)); }
+.free.fx-letters { --fx-step: calc(26ms * var(--fx-k, 1)); }
 .free.fx-ready .fx-w { position: relative; }
 .stage .slide.on:not(.static) > .free.fx-ready .fx-w { animation: fx-word .55s cubic-bezier(.2, .7, .2, 1) calc(var(--fx-d, 0ms) + var(--i) * var(--fx-step)) both; }
 .stage .slide.on[data-tr]:not([data-tr="none"]):not(.static) > .free.fx-ready .fx-w { animation-delay: calc(var(--fx-d, 0ms) + var(--tr-ms, 600ms) + var(--i) * var(--fx-step)); }
@@ -359,36 +377,66 @@ body.editing .slide.on > .free.act { cursor: inherit; translate: none; filter: n
 .slide > .free.trig-hid { visibility: hidden; pointer-events: none; }
 /* По щелчку (engine/steps.ts): ждёт своего шага. Прозрачность, а не visibility: шаги формулы внутри не просвечивают */
 .slide > .free.click-hid { opacity: 0 !important; pointer-events: none; }
-.stage .slide.on:not(.static) > .free.trig-in.trig-in { animation: var(--fx, fx-rise) var(--fx-ms, .38s) var(--fx-ease, cubic-bezier(.2, .7, .2, 1)) 0ms both; }
+.stage .slide.on:not(.static) > .free.trig-in.trig-in { animation: var(--fx, fx-rise) calc(var(--fx-ms, .38s) * var(--fx-k, 1)) var(--fx-ease, cubic-bezier(.2, .7, .2, 1)) 0ms both; }
 .stage .slide.on:not(.static) > .free.fx-pop.trig-in.trig-in { animation-timing-function: cubic-bezier(.34, 1.56, .64, 1); }
 .stage .slide.on:not(.static) > .free.trig-out.trig-out { animation: trig-out .26s var(--ease) both; pointer-events: none; }
 @keyframes trig-out { to { opacity: 0; transform: translateY(6px) scale(.98); } }
 /* Исчезновение по щелчку (exit, engine/steps): короче появления, с ускорением; конец анимации держится —
    объект остаётся скрытым. Без анимации (назад, «уменьшить движение») — сразу click-hid */
 .slide > .free.click-out { pointer-events: none; }
-.stage .slide.on:not(.static) > .free.click-out.click-out { animation: var(--xfx, fx-x-fade) .42s cubic-bezier(.5, 0, .9, .4) 0ms both; }
+.stage .slide.on:not(.static) > .free.click-out.click-out { animation: var(--xfx, fx-x-fade) calc(var(--x-ms, .42s) * var(--fx-k, 1)) var(--x-ease, cubic-bezier(.5, 0, .9, .4)) 0ms both; }
 .free[data-exit="sink"] { --xfx: fx-x-sink; }
 .free[data-exit="left"] { --xfx: fx-x-left; }
 .free[data-exit="right"] { --xfx: fx-x-right; }
 .free[data-exit="shrink"] { --xfx: fx-x-shrink; }
 .free[data-exit="wipe"] { --xfx: fx-x-wipe; }
+.free[data-exit="up"] { --xfx: fx-x-up; }
+.free[data-exit="vanish"] { --xfx: fx-x-vanish; --x-ms: 1ms; }
+.free[data-exit="swivel"] { --xfx: fx-x-swivel; --x-ms: .5s; --x-ease: cubic-bezier(.6, 0, .8, .3); }
+.free[data-exit="split"] { --xfx: fx-x-split; --x-ms: .55s; --x-ease: cubic-bezier(.65, 0, .35, 1); }
+.free[data-exit="wheel"] { --xfx: fx-x-wheel; --x-ms: .7s; --x-ease: cubic-bezier(.45, 0, .3, 1); }
 @keyframes fx-x-fade { to { opacity: 0; } }
 @keyframes fx-x-sink { to { opacity: 0; transform: translateY(36px); } }
 @keyframes fx-x-left { to { opacity: 0; transform: translateX(-64px); } }
 @keyframes fx-x-right { to { opacity: 0; transform: translateX(64px); } }
 @keyframes fx-x-shrink { to { opacity: 0; transform: scale(.6); } }
 @keyframes fx-x-wipe { from { clip-path: inset(-30% -30% -30% -30%); } to { clip-path: inset(-30% -30% -30% 100%); opacity: 0; } }
+@keyframes fx-x-up { to { opacity: 0; transform: translateY(-36px); } }
+@keyframes fx-x-vanish { from, to { opacity: 0; } }
+@keyframes fx-x-swivel { 60% { opacity: 1; } to { opacity: 0; transform: perspective(900px) rotateY(90deg); } }
+@keyframes fx-x-split { from { clip-path: inset(-30% -30% -30% -30%); } to { clip-path: inset(-30% 50% -30% 50%); opacity: 0; } }
+@keyframes fx-x-wheel { from { --fx-a: 360deg; } 99% { opacity: 1; } to { --fx-a: 0deg; opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .slide > .free.click-out { opacity: 0 !important; } }
+/* Появление по пунктам (byItem): по щелчку — скрытые пункты ждут своего (место держат), новый — эффектом объекта;
+   без щелчка — пункты один за другим (номер --i ставит engine/enter-fx) */
+.slide > .free :is(li, .md-li).item-hid { opacity: 0; }
+.stage .slide.on:not(.static) > .free :is(li, .md-li).item-in { animation: var(--fx, fx-rise) calc(var(--fx-ms, .38s) * var(--fx-k, 1)) var(--fx-ease, cubic-bezier(.2, .7, .2, 1)) both; }
+.stage .slide.on:not(.static) > .free.by-item.fx-items { animation: none; }
+.stage .slide.on:not(.static) > .free.by-item.fx-items :is(li, .md-li) {
+  animation: var(--fx, fx-rise) calc(var(--fx-ms, .38s) * var(--fx-k, 1)) var(--fx-ease, cubic-bezier(.2, .7, .2, 1)) calc(var(--fx-d, 0ms) + var(--i) * 280ms * var(--fx-k, 1)) both;
+}
+.stage .slide.on[data-tr]:not([data-tr="none"]):not(.static) > .free.by-item.fx-items :is(li, .md-li) { animation-delay: calc(var(--fx-d, 0ms) + var(--tr-ms, 600ms) + var(--i) * 280ms * var(--fx-k, 1)); }
 /* Сцена на паузе (экономный режим пульта): анимации замирают там, где были */
 .stage.paused *, .stage.paused *::before, .stage.paused *::after { animation-play-state: paused !important; }
 /* Проиграть анимацию по кнопке (play:<id>): выделение (emphasis) или заново появление объекта */
-.stage .slide.on:not(.static) > .free.trig-play.trig-play { animation: var(--emph, var(--fx, fx-pop)) var(--emph-ms, var(--fx-ms, .5s)) var(--emph-ease, cubic-bezier(.2, .7, .2, 1)) 0ms both; }
+.stage .slide.on:not(.static) > .free.trig-play.trig-play { animation: var(--emph, var(--fx, fx-pop)) calc(var(--emph-ms, var(--fx-ms, .5s)) * var(--fx-k, 1)) var(--emph-ease, cubic-bezier(.2, .7, .2, 1)) 0ms both; }
 .free[data-emph="pulse"] { --emph: emph-pulse; --emph-ms: .6s; --emph-ease: ease-in-out; }
 .free[data-emph="shake"] { --emph: emph-shake; --emph-ms: .55s; --emph-ease: ease-in-out; }
 .free[data-emph="spin"] { --emph: emph-spin; --emph-ms: .8s; --emph-ease: cubic-bezier(.45, 0, .2, 1); }
 .free[data-emph="bounce"] { --emph: emph-bounce; --emph-ms: .7s; --emph-ease: ease-out; }
 .free[data-emph="flash"] { --emph: emph-flash; --emph-ms: .8s; --emph-ease: linear; }
 .free[data-emph="glow"] { --emph: emph-glow; --emph-ms: 1.3s; --emph-ease: ease-in-out; }
+/* Стойкие выделения (engine/anim PERSIST): состояние держит emph-on (шаг пройден) или кнопка «Проиграть»;
+   анимация только подводит к нему — назад состояние снимается сразу */
+.free[data-emph="dim"] { --emph: emph-dim; --emph-ms: .5s; --emph-ease: ease; }
+.free[data-emph="grow"] { --emph: emph-grow; --emph-ms: .45s; --emph-ease: cubic-bezier(.34, 1.4, .64, 1); }
+.free[data-emph="recolor"] { --emph: fx-none; --emph-ms: .4s; }
+.stage .slide.on > .free:is(.emph-on, .trig-play)[data-emph="dim"] { opacity: .3; filter: grayscale(.85); }
+.stage .slide.on > .free:is(.emph-on, .trig-play)[data-emph="grow"] { scale: 1.12; }
+.stage .slide.on > .free:is(.emph-on, .trig-play)[data-emph="recolor"] * { color: var(--ac) !important; -webkit-text-fill-color: var(--ac); }
+.stage .slide.on:not(.static) > .free.trig-play[data-emph="recolor"] * { transition: color .4s ease, -webkit-text-fill-color .4s ease; }
+@keyframes emph-dim { from { opacity: 1; filter: none; } }
+@keyframes emph-grow { from { scale: 1; } }
 /* Маркер: сам объект стоит, проводится маркер в его тексте ({mark|…}) */
 .free[data-emph="mark"] { --emph: fx-none; --emph-ms: .9s; }
 @keyframes emph-pulse { 40% { transform: scale(1.12); } }

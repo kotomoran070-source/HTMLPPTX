@@ -1499,3 +1499,45 @@ test('«Вставка» → «Блоки»: бегущая строка и те
   await expect(page.locator('#st-canvas .slide.on > .free').last().locator('.circ-text .ct-text span')).not.toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test('«Порядок»: вместе с предыдущим — звеном; «По пунктам» и «Длительность» на ленте; новые эффекты в меню', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=fx&studio#7');
+  const obj = (k: number) => page.locator('#st-canvas .slide.on > .free').nth(k);
+  await expect(obj(1)).toHaveAttribute('data-click-n', '2');
+  const line = (s: string) => readDeck('fx').split('\n').find((l) => new RegExp(`text: "?${s}"?[,}]`).test(l)) ?? '';
+  await page.locator('[data-tab="anim"]').first().click();
+  await page.locator('[data-cmd="anim.order"]').click();
+  // У первого шага звена нет, у второго — есть: нажали — Q на том же щелчке, что P
+  await expect(page.locator('.st-aorder-row').nth(0).locator('.st-aorder-with')).toHaveCount(0);
+  await page.locator('.st-aorder-row').nth(1).locator('.st-aorder-with').click();
+  expect(await waitFile(() => line('Q').includes('clickWith: true'))).toBe(true);
+  await expect(page.locator('.st-aorder-row').nth(1).locator('b')).toHaveText('1');
+  await expect(page.locator('.st-aorder-row').nth(1)).toContainText('вместе с предыдущим');
+  await expect(obj(1)).toHaveAttribute('data-click-n', '1');
+  await page.keyboard.press('Escape');
+  // Список: «По пунктам» — появление с эффектом, Ждёт щелчка — по щелчку на пункт
+  const lb = (await obj(2).boundingBox())!;
+  await page.mouse.click(lb.x + 30, lb.y + 8);
+  await page.locator('[data-tab="anim"]').first().click();
+  await page.locator('[data-cmd="anim.byitem"]').click();
+  const list = () => readDeck('fx').split('\n').find((l) => l.includes('Альфа')) ?? '';
+  expect(await waitFile(() => list().includes('byItem: true') && list().includes('enter: rise'))).toBe(true);
+  await page.locator('[data-cmd="anim.click"]').click();
+  await expect(obj(2)).toHaveAttribute('data-click-n', '2–4');
+  // Длительность — множитель у объекта
+  await page.locator('[data-cmd="anim.tempo"]').click();
+  await page.locator('.st-menu button', { hasText: 'Медленнее' }).click();
+  expect(await waitFile(() => list().includes('tempo: slow'))).toBe(true);
+  // Новые эффекты: появление в галерее, исчезновение и стойкое выделение в меню
+  await expect(page.locator('[data-cmd="fx.set.wheel"]')).toBeEnabled();
+  await page.locator('[data-cmd="fx.exit"]').click();
+  await expect(page.locator('.st-menu button', { hasText: 'Часовая стрелка' })).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await page.locator('[data-cmd="fx.emph"]').click();
+  await page.locator('.st-menu button', { hasText: 'Приглушить' }).hover();
+  await expect(obj(2)).toHaveClass(/st-fx-try-emph/);
+  await page.locator('.st-menu button', { hasText: 'Приглушить' }).click();
+  expect(await waitFile(() => list().includes('emphasis: dim'))).toBe(true);
+  expect(errors).toEqual([]);
+});

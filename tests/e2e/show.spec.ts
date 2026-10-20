@@ -633,3 +633,32 @@ test('бегущая строка, текст по кругу и одометр:
   expect(await page.locator('.slide').nth(3).locator('p[data-type="text"]').textContent()).toMatch(/^Выручка\s17\s234\s₽$/);
   expect(errors).toEqual([]);
 });
+
+test('вместе с предыдущим, по пунктам, стойкое выделение: шаги на своих щелчках, назад — как было', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=fx#6');
+  // Каждый объект: V/H — виден (или ушёл), пункты списка 1/0, * — стойкое выделение держится
+  const state = () => page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.slide.on > .free')].slice(0, 5).map((e) => {
+    const items = [...e.querySelectorAll('li')].map((l) => (l.classList.contains('item-hid') ? 0 : 1)).join('');
+    return `${e.classList.contains('click-hid') || e.classList.contains('click-out') ? 'H' : 'V'}${items}${e.classList.contains('emph-on') ? '*' : ''}`;
+  }).join(' '));
+  await expect.poll(state).toBe('H H H000 V V');
+  const next = async (want: string) => { await page.keyboard.press('ArrowRight'); await expect.poll(state).toBe(want); };
+  await next('V V H000 V V'); // K и L — одним щелчком
+  await next('V V V100 V V'); // список: первый пункт вместе с ним
+  await next('V V V110 V V');
+  await next('V V V111 V V');
+  await next('V V V111 V* H'); // N приглушается и O уходит одним щелчком
+  await expect.poll(() => page.locator('.slide.on > .free').nth(3).evaluate((e) => Number(getComputedStyle(e).opacity))).toBeLessThan(0.5);
+  await expect(page.locator('#ct')).toHaveText(/^6 из/);
+  await page.keyboard.press('ArrowLeft');
+  await expect.poll(state).toBe('V V V111 V V');
+  await page.keyboard.press('ArrowLeft');
+  await expect.poll(state).toBe('V V V110 V V');
+  // Пункты текста без щелчка — по очереди; медленная часовая стрелка — в 1,6 раза дольше
+  await page.goto('/?deck=fx#6');
+  const delays = await page.locator('.slide.on > .free').nth(5).locator('.md-li').evaluateAll((els) => els.map((e) => getComputedStyle(e).animationDelay));
+  expect(delays).toEqual(['0s', '0.28s', '0.56s']);
+  expect(await page.locator('.slide.on > .free').nth(6).evaluate((e) => getComputedStyle(e).animationDuration)).toBe('1.44s');
+  expect(errors).toEqual([]);
+});

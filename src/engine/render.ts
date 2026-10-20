@@ -4,7 +4,7 @@ import {
   type Component, type MountCtx, type RenderCtx,
 } from './component';
 import { TEXT_FX } from './text-fx';
-import { clickActs, EMPHASIS_IDS, ENTER_IDS, EXIT_IDS, timedOrder, type ActKind } from './anim';
+import { byItems, clickActs, EMPHASIS_IDS, ENTER_IDS, EXIT_IDS, tempoOf, timedOrder, type Act } from './anim';
 import { asArray, esc } from './html';
 import { slideAccent } from './accent';
 import { backdropLook, slideBackdrop } from './backdrops';
@@ -23,8 +23,20 @@ let uidCounter = 0;
 
 /** Эффекты появления свободных объектов: enter: rise (список — engine/anim, вид — base.css) */
 const FX = ENTER_IDS;
-/** Метка шага на объекте в студии: появление — номер, выделение — ✦, исчезновение — ✕ */
-const ACT_MARK: Record<ActKind, string> = { in: '', emph: '✦', out: '✕' };
+/**
+ * Метка шагов объекта в студии: номер щелчка; появление по пунктам — «2–4», выделение — ✦, исчезновение — ✕.
+ * Шаги «вместе с предыдущим» — с тем же номером, что предыдущий
+ */
+function actsLabel(mine: Act[]): string {
+  const out: string[] = [];
+  mine.forEach((a, n) => {
+    if (a.kind === 'item') return;
+    let last = a.step;
+    for (let m = n + 1; m < mine.length && mine[m].kind === 'item'; m++) last = mine[m].step;
+    out.push(`${a.step + 1}${last > a.step ? `–${last + 1}` : ''}${a.kind === 'emph' ? '✦' : a.kind === 'out' ? '✕' : ''}`);
+  });
+  return out.join(' · ');
+}
 
 interface PendingMount {
   component: Component;
@@ -146,7 +158,9 @@ export class Renderer {
       const p = pathOf(b);
       const own = ownOf(b);
       const fx = FX.has(String(b.enter)) ? ` fx fx-${b.enter}` : own ? ' fx fx-own' : '';
-      const delay = fx && Number(b.delay) > 0 ? `--fx-d:${Math.min(20000, Math.round(Number(b.delay)))}ms;` : '';
+      const delay = (fx && Number(b.delay) > 0 ? `--fx-d:${Math.min(20000, Math.round(Number(b.delay)))}ms;` : '')
+        // Длительность всех эффектов объекта (tempo): множитель времени
+        + (tempoOf(b) !== 1 ? `--fx-k:${tempoOf(b)};` : '');
       const ownCss = own
         ? `--fx:${b.enter};--fx-ms:${Math.max(100, Math.min(4000, Math.round(Number(own.ms) || 600)))}ms;${typeof own.ease === 'string' && /^[\w\s().,-]+$/.test(own.ease) ? `--fx-ease:${own.ease};` : ''}`
         : '';
@@ -162,11 +176,11 @@ export class Renderer {
       // Имя объекта — для кнопок «показать / скрыть»; hidden — скрыт при показе до щелчка
       const obj = typeof b.id === 'string' && OBJ_ID.test(b.id) ? ` data-obj="${esc(b.id)}"` : '';
       const hid = b.hidden === true ? ' trig-hid' : '';
-      // Шаги объекта: data-acts="in:0 out:3" (место в очереди), data-click — место появления (по нему встают шаги формулы внутри)
-      const mine = acts.map((a, n) => ({ ...a, n })).filter((a) => a.k === i);
-      const rank = mine.find((a) => a.kind === 'in')?.n ?? -1;
+      // Шаги объекта: data-acts="in:0 item:1 out:3" (номер щелчка), data-click — щелчок появления (по нему встают шаги формулы внутри)
+      const mine = acts.filter((a) => a.k === i);
+      const rank = mine.find((a) => a.kind === 'in')?.step ?? -1;
       const click = mine.length
-        ? ` data-acts="${mine.map((a) => `${a.kind}:${a.n}`).join(' ')}"${rank >= 0 ? ` data-click="${rank}"` : ''} data-click-n="${mine.map((a) => `${a.n + 1}${ACT_MARK[a.kind]}`).join(' · ')}"`
+        ? ` data-acts="${mine.map((a) => `${a.kind}:${a.step}`).join(' ')}"${rank >= 0 ? ` data-click="${rank}"` : ''} data-click-n="${actsLabel(mine)}"`
         : '';
       // Номер появления при открытии; у самого края слайда номера встают внутрь объекта (за краем их не видно)
       const tn = timed.indexOf(i);
@@ -179,7 +193,9 @@ export class Renderer {
         + (typeof b.textFx === 'string' && (TEXT_FX as readonly string[]).includes(b.textFx) ? ` data-tfx="${b.textFx}"` : '');
       // Текст по середине или по низу рамки (valign: middle, bottom)
       const va = b.type === 'text' && pl.h ? (b.valign === 'middle' ? ' va-m' : b.valign === 'bottom' ? ' va-b' : '') : '';
-      return `<div class="free${pl.h ? (grow ? ' grow-h' : '') : ' auto-h'}${va}${fx}${lock}${act ? ' act' : ''}${hid}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''}${obj}${emph}${hid ? ' data-hid' : ''}${click}${badge}${act ? ` data-action="${esc(act)}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
+      // Появление по пунктам: списка или пунктов «- » в тексте (engine/steps, engine/enter-fx)
+      const items = (fx || b.click === true) && byItems(b) ? ' by-item' : '';
+      return `<div class="free${pl.h ? (grow ? ' grow-h' : '') : ' auto-h'}${va}${fx}${items}${lock}${act ? ' act' : ''}${hid}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''}${obj}${emph}${hid ? ' data-hid' : ''}${click}${badge}${act ? ` data-action="${esc(act)}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
     }).join('');
   }
 

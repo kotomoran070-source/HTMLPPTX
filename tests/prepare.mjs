@@ -296,7 +296,9 @@ slides:
 // fx — анимация объектов: появления (по словам, раскрытия, прорисовка), маркер, наплыв камеры;
 // на втором слайде очередь щелчков: A появляется (1) и исчезает (3), B появляется (2) и светится (4), C исчезает (5);
 // на третьем — «Порядок»: D, E, F появляются сами (0, 1 и 2 с), G — по щелчку и исчезает следующим щелчком
-// на четвёртом — бегущие строки, текст по кругу (акцентом и печатью) и одометр; на пятом — одометр и номера анимаций для студии (H, I — сами, J — по щелчку)
+// на четвёртом — бегущие строки, текст по кругу (акцентом и печатью) и одометр; на пятом — одометр и номера анимаций для студии (H, I — сами, J — по щелчку);
+// на шестом — K и L на одном щелчке, список по пунктам, N приглушается вместе с уходом O, пункты текста по очереди, часовая стрелка;
+// на седьмом — P, Q и список для правки в студии («вместе с предыдущим», по пунктам, длительность)
 fs.mkdirSync(path.join(dir, 'fx', 'assets'), { recursive: true });
 fs.copyFileSync(path.join(dir, 'tpl', 'assets', 'ui-studio.webp'), path.join(dir, 'fx', 'assets', 'shot.webp'));
 fs.writeFileSync(path.join(dir, 'fx', 'deck.yaml'), `title: Анимация объектов
@@ -333,5 +335,19 @@ slides:
       - {type: shape, kind: round, text: "H", enter: rise, place: {x: 200, y: 300, w: 240, h: 100}}
       - {type: shape, kind: round, text: "I", enter: fade, delay: 500, place: {x: 520, y: 300, w: 240, h: 100}}
       - {type: shape, kind: round, text: "J", enter: pop, click: true, exit: fade, place: {x: 840, y: 300, w: 240, h: 100}}
+  - template: canvas
+    free:
+      - {type: shape, kind: round, text: "K", click: true, place: {x: 60, y: 60, w: 200, h: 90}}
+      - {type: shape, kind: round, text: "L", click: true, delay: 300, clickWith: true, place: {x: 300, y: 60, w: 200, h: 90}}
+      - {type: list, items: [Первый, Второй, Третий], click: true, delay: 600, byItem: true, enter: left, place: {x: 60, y: 200, w: 400}}
+      - {type: shape, kind: round, text: "N", emphasis: dim, emphAt: 900, place: {x: 560, y: 60, w: 200, h: 90}}
+      - {type: shape, kind: round, text: "O", exit: up, exitAt: 1200, exitWith: true, place: {x: 800, y: 60, w: 200, h: 90}}
+      - {type: text, text: "- раз\\n- два\\n- три", byItem: true, enter: fade, place: {x: 560, y: 220, w: 300}}
+      - {type: shape, kind: ellipse, fill: accent, enter: wheel, tempo: slow, place: {x: 960, y: 220, w: 200, h: 200}}
+  - template: canvas
+    free:
+      - {type: shape, kind: round, text: "P", click: true, place: {x: 60, y: 60, w: 200, h: 90}}
+      - {type: shape, kind: round, text: "Q", click: true, delay: 300, place: {x: 300, y: 60, w: 200, h: 90}}
+      - {type: list, items: [Альфа, Бета, Гамма], place: {x: 60, y: 200, w: 400}}
 `);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

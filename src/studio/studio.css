@@ -824,6 +824,22 @@ body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
 .st-fxv[data-v="circle"] b { clip-path: circle(35% at 50% 50%); }
 .st-fxv[data-v="diamond"] b { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
 .st-fxv[data-v="mask"] b { -webkit-mask: linear-gradient(90deg, #000 40%, transparent 80%); mask: linear-gradient(90deg, #000 40%, transparent 80%); }
+.st-fxv[data-v="appear"] b { opacity: .5; }
+.st-fxv[data-v="swivel"] b { transform: perspective(40px) rotateY(55deg); opacity: .7; }
+.st-fxv[data-v="growturn"] b { transform: scale(.55) rotate(-35deg); opacity: .7; }
+.st-fxv[data-v="split"] b { clip-path: inset(0 25% 0 25%); }
+.st-fxv[data-v="wheel"] b { -webkit-mask: conic-gradient(#000 250deg, transparent 0); mask: conic-gradient(#000 250deg, transparent 0); }
+.st-atile:hover .st-fxv[data-v="appear"] b { animation: af-appear 1.6s steps(1, end) infinite both; }
+.st-atile:hover .st-fxv[data-v="swivel"] b { animation-name: af-swivel; }
+.st-atile:hover .st-fxv[data-v="growturn"] b { animation-name: af-growturn; }
+.st-atile:hover .st-fxv[data-v="split"] b { animation-name: af-split; }
+.st-atile:hover .st-fxv[data-v="wheel"] b { animation-name: af-wheel; }
+@keyframes af-appear { 0% { opacity: 0; } 40%, 100% { opacity: 1; } }
+@keyframes af-swivel { 0%, 15% { transform: perspective(40px) rotateY(90deg); opacity: 0; } 55%, 100% { transform: none; opacity: 1; } }
+@keyframes af-growturn { 0%, 15% { transform: scale(.2) rotate(-90deg); opacity: 0; } 55%, 100% { transform: none; opacity: 1; } }
+@keyframes af-split { 0%, 15% { clip-path: inset(0 50% 0 50%); } 55%, 100% { clip-path: inset(0); } }
+@keyframes af-wheel { 0%, 15% { --fx-a: 0deg; } 55%, 100% { --fx-a: 360deg; } }
+.st-atile:hover .st-fxv[data-v="wheel"] b { -webkit-mask: conic-gradient(#000 var(--fx-a), transparent 0); mask: conic-gradient(#000 var(--fx-a), transparent 0); }
 .st-fxv:is([data-v="words"], [data-v="letters"]) b { right: auto; width: 6px; }
 .st-fxv:is([data-v="words"], [data-v="letters"]) b:nth-of-type(2) { left: 15px; }
 .st-fxv:is([data-v="words"], [data-v="letters"]) b:nth-of-type(3) { left: 22px; }
@@ -871,14 +887,19 @@ body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
 .st-aorder-head { margin: 6px 0 2px; padding: 0 10px; font: 700 10.5px var(--font); letter-spacing: .05em; text-transform: uppercase; color: var(--mu); }
 .st-aorder-head:first-child { margin-top: 2px; }
 .st-aorder-row.sel { background: var(--acs); }
-.st-aorder-pick { flex: 1; min-width: 0; display: grid; grid-template-columns: 22px 1fr; grid-template-rows: auto auto; column-gap: 8px; padding: 6px 8px; border: 0; border-radius: 8px; background: none; text-align: left; cursor: pointer; color: var(--tx); }
+.st-aorder-pick { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(22px, auto) 1fr; grid-template-rows: auto auto; column-gap: 8px; padding: 6px 8px; border: 0; border-radius: 8px; background: none; text-align: left; cursor: pointer; color: var(--tx); }
 .st-aorder-pick:hover { background: color-mix(in srgb, var(--tx) 6%, transparent); }
-.st-aorder-pick b { grid-row: span 2; align-self: center; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 11px; background: var(--ac); color: var(--on-ac, #fff); font: 700 11.5px var(--font); }
+.st-aorder-pick b { grid-row: span 2; align-self: center; justify-self: start; display: grid; place-items: center; min-width: 22px; padding: 0 5px; box-sizing: border-box; height: 22px; border-radius: 11px; white-space: nowrap; background: var(--ac); color: var(--on-ac, #fff); font: 700 11.5px var(--font); }
 /* Как метки на слайде: по щелчку — залитая, при открытии — контуром */
 .st-aorder-row[data-group="open"] .st-aorder-pick b { background: none; color: var(--ac); box-shadow: inset 0 0 0 1.5px var(--ac); }
 .st-aorder-pick span { font: 500 12.5px var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--tx2); }
 .st-aorder-pick em { font-style: normal; font-weight: 650; color: var(--tx); }
 .st-aorder-pick small { font: 500 11.5px var(--font); color: var(--mu); }
+/* «Вместе с предыдущим»: звено — шаг на том же щелчке, что строка выше */
+.st-aorder-with { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 6px; background: none; color: var(--mu); cursor: pointer; opacity: .55; }
+.st-aorder-with .ic { width: 15px; height: 15px; }
+.st-aorder-with:hover { opacity: 1; background: var(--acs); color: var(--ach); }
+.st-aorder-with.on { opacity: 1; color: var(--ach); background: var(--acs); }
 .st-aorder-mv { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 6px; background: none; color: var(--tx2); cursor: pointer; }
 .st-aorder-mv:hover:not(:disabled) { background: var(--acs); color: var(--ach); }
 .st-aorder-mv:disabled { opacity: .3; cursor: default; }

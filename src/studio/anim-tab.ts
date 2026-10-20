@@ -1,5 +1,5 @@
 import { icon } from '../components/icons';
-import { actsOf, EMPHASIS, ENTER, EXIT, nameOf, TEXT_ENTER, type ActKind, type Pair } from '../engine/anim';
+import { actsOf, byItems, clickActs, EMPHASIS, ENTER, EXIT, nameOf, partsOf, TEMPO, TEXT_ENTER, type ActKind, type Pair } from '../engine/anim';
 import { getAt, type Path } from '../engine/data';
 import { blockName } from '../engine/editor/block-edit';
 import type { Editor } from '../engine/editor/editor';
@@ -93,16 +93,24 @@ export function animPanelHtml(): string {
     + `${btn('fx.mine', 'layers', 'Мои эффекты', { menu: true, title: 'Эффекты, сохранённые из импортированных слайдов' })}</div>`, 'st-fx-label')}
   ${group('Время и порядок', `<div class="st-rstack">
     <label class="st-rfield" title="Через сколько секунд после открытия слайда объект появляется"><span>Задержка</span><input type="number" id="st-fx-delay" min="0" max="20" step="0.1" aria-label="Задержка появления, секунды"><span>с</span></label>
+    ${btn('anim.tempo', 'clock', 'Длительность', { menu: true, title: 'Быстрее или медленнее идут все эффекты объекта: появление, выделение, исчезновение' })}
     <div class="st-rrow">${btn('anim.earlier', 'up', 'Раньше', { title: 'Появляться раньше' })}${btn('anim.later', 'up', 'Позже', { title: 'Появляться позже' })}</div>
   </div><div class="st-rstack"><button type="button" class="st-rb st-chk" data-cmd="anim.click" title="При показе объект ждёт щелчка («Далее», пробел, пульт) и появляется своим эффектом; по порядку — как в «Порядке»"><i class="st-box">${icon('check')}</i><span>Ждёт щелчка</span></button>${btn('anim.seq', 'sparkle', 'По очереди', { title: 'Выделенные объекты (или все на слайде) появляются по очереди: сверху вниз, слева направо' })}${btn('anim.order', 'list', 'Порядок', { menu: true, title: 'Все анимированные объекты слайда по порядку' })}</div>`)}
   ${group('Текст', `<div class="st-rstack"><span class="st-rsplit"><button type="button" class="st-rb st-chk" data-cmd="anim.count" title="Числа в тексте объекта при появлении отсчитываются от нуля до своего значения"><i class="st-box">${icon('check')}</i><span>Число набегает</span></button>`
-    + `<button type="button" class="st-rb st-split-m" data-cmd="anim.count-menu" data-pal="skip" title="Как набегает: отсчёт или одометр" aria-label="Как набегает число" aria-haspopup="menu"><b class="st-caret"></b></button></span>${btn('anim.textfx', 'sparkle', 'Эффект текста', { menu: true, title: 'Глитч, неон, блик, волна, печатная машинка, расшифровка — у надписи или текста фигуры' })}</div>`)}
+    + `<button type="button" class="st-rb st-split-m" data-cmd="anim.count-menu" data-pal="skip" title="Как набегает: отсчёт или одометр" aria-label="Как набегает число" aria-haspopup="menu"><b class="st-caret"></b></button></span>${btn('anim.textfx', 'sparkle', 'Эффект текста', { menu: true, title: 'Глитч, неон, блик, волна, печатная машинка, расшифровка — у надписи или текста фигуры' })}`
+    + `<button type="button" class="st-rb st-chk" data-cmd="anim.byitem" title="Список или пункты «- » в тексте появляются по одному; с «Ждёт щелчка» — по щелчку на пункт"><i class="st-box">${icon('check')}</i><span>По пунктам</span></button></div>`)}
 </div>`;
 }
 
-/** Анимация слайда: появление (сразу или по щелчку), выделение или исчезновение объекта k; key — место в очереди */
-interface Item { b: Block; k: number; kind: ActKind; key: number; click: boolean }
-const RANK: Record<ActKind, number> = { in: 0, emph: 1, out: 2 };
+/**
+ * Анимация слайда: появление (сразу или по щелчку), выделение или исчезновение объекта k; key — место в очереди,
+ * together — шаг по щелчку вместе с предыдущим. Пункты появления по пунктам — внутри строки появления
+ */
+type Kind = Exclude<ActKind, 'item'>;
+interface Item { b: Block; k: number; kind: Kind; key: number; click: boolean; together: boolean }
+const RANK: Record<Kind, number> = { in: 0, emph: 1, out: 2 };
+/** Поле «вместе с предыдущим» у шага объекта */
+const WITH: Record<Kind, string> = { in: 'clickWith', emph: 'emphWith', out: 'exitWith' };
 /** Место «в конце очереди» у исчезновения без своего места (записано вручную) */
 const LAST = Number.MAX_SAFE_INTEGER;
 
@@ -111,8 +119,8 @@ function items(deck: Deck, i: number): Item[] {
   const free = (deck.slides[i]?.free ?? []) as Block[];
   const out: Item[] = [];
   free.forEach((b, k) => {
-    if (isOn(deck, b.enter) && b.click !== true) out.push({ b, k, kind: 'in', key: Number(b.delay) || 0, click: false });
-    for (const a of actsOf(b, k)) out.push({ b, k, kind: a.kind, key: a.key, click: true });
+    if (isOn(deck, b.enter) && b.click !== true) out.push({ b, k, kind: 'in', key: Number(b.delay) || 0, click: false, together: false });
+    for (const a of actsOf(b, k)) out.push({ b, k, kind: a.kind as Kind, key: a.key, click: true, together: a.together });
   });
   return out.sort((a, c) => Number(a.click) - Number(c.click) || a.key - c.key || RANK[a.kind] - RANK[c.kind] || a.k - c.k);
 }
@@ -134,7 +142,20 @@ const fits = (v: string, b: Block | undefined) => (TEXT_ENTER.has(v) ? texty(b) 
 function itemName(deck: Deck, o: Item): string {
   if (o.kind === 'emph') return `Выделение: ${nameOf(EMPHASIS, o.b.emphasis)}`;
   if (o.kind === 'out') return `Исчезновение: ${nameOf(EXIT, o.b.exit)}`;
-  return effectName(deck, o.b.enter) || 'Появление';
+  return (effectName(deck, o.b.enter) || 'Появление') + (byItems(o.b) ? ` по пунктам (${partsOf(o.b)})` : '');
+}
+
+/** Номера щелчков строк очереди, как у меток на слайде: «3», по пунктам — «3–5» */
+function stepNos(free: Block[]): Map<string, string> {
+  const acts = clickActs(free);
+  const out = new Map<string, string>();
+  acts.forEach((a, n) => {
+    if (a.kind === 'item') return;
+    let last = a.step;
+    for (let m = n + 1; m < acts.length && acts[m].kind === 'item' && acts[m].k === a.k; m++) last = acts[m].step;
+    out.set(`${a.k}:${a.kind}`, `${a.step + 1}${last > a.step ? `–${last + 1}` : ''}`);
+  });
+  return out;
 }
 
 /** Строка «Порядка»: объект и вид анимации */
@@ -334,6 +355,7 @@ export function animCommands(h: AnimHost): Record<string, Command> {
       timed.forEach((o, n) => {
         const b = free[o.k];
         delete b.click;
+        delete b.clickWith;
         if (at[n]) b.delay = at[n];
         else delete b.delay;
       });
@@ -474,7 +496,63 @@ export function animCommands(h: AnimHost): Record<string, Command> {
     },
     enabled: () => h.selPaths().length > 1 || (slide()?.free ?? []).length > 1,
   };
-  cmds['anim.order'] = { run: () => orderPopover(h, { move, place }), enabled: () => (slide()?.free ?? []).length > 0 };
+  /** Шаг по щелчку — вместе с предыдущим (на том же щелчке) или отдельным щелчком */
+  const together = (o: Item, on: boolean) => {
+    const i = h.index();
+    const f = WITH[o.kind];
+    ed.commit((d) => {
+      const b = d.slides[i].free![o.k] as Block;
+      if (on) b[f] = true;
+      else delete b[f];
+    }, { rebuild: true });
+  };
+  cmds['anim.order'] = { run: () => orderPopover(h, { move, place, together }), enabled: () => (slide()?.free ?? []).length > 0 };
+  // Длительность эффектов выделенных объектов: множитель для появления, выделения и исчезновения
+  cmds['anim.tempo'] = {
+    run: () => {
+      const paths = freeSel();
+      const cur = new Set(paths.map((p) => String((getAt(deck, p) as Block).tempo ?? '')));
+      showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="anim.tempo"]')!, TEMPO.map(([v, l]) => ({
+        label: l,
+        checked: cur.size === 1 && cur.has(v),
+        run: () => {
+          ed.commit((d) => paths.forEach((p) => {
+            const b = getAt(d, p) as Block;
+            if (v) b.tempo = v;
+            else delete b.tempo;
+          }), { rebuild: true });
+          requestAnimationFrame(() => h.preview());
+        },
+      })));
+    },
+    enabled: () => freeSel().length > 0,
+  };
+  // По пунктам: список или пункты «- » в тексте появляются по одному (с «Ждёт щелчка» — по щелчку на пункт)
+  const listy = () => freeSel().filter((p) => partsOf(getAt(deck, p) as Block) > 1);
+  cmds['anim.byitem'] = {
+    run: () => {
+      const paths = listy();
+      const on = !paths.every((p) => (getAt(deck, p) as Block).byItem === true);
+      const i = h.index();
+      let next = nextKey(deck, i, new Set(paths.map((p) => Number(p[3]))));
+      ed.commit((d) => paths.forEach((p) => {
+        const b = getAt(d, p) as Block;
+        if (!on) { delete b.byItem; return; }
+        b.byItem = true;
+        // Без эффекта появления пунктам нечем появляться: всплытие, новое — в конец очереди
+        if (!isOn(d, b.enter)) {
+          b.enter = 'rise';
+          if (b.click !== true) {
+            if (next) b.delay = next;
+            next += STEP;
+          }
+        }
+      }), { rebuild: true });
+      if (on) requestAnimationFrame(() => h.preview());
+    },
+    enabled: () => listy().length > 0,
+    active: () => { const p = listy(); return p.length > 0 && p.every((x) => (getAt(deck, x) as Block).byItem === true); },
+  };
   return cmds;
 }
 
@@ -483,7 +561,7 @@ export function animCommands(h: AnimHost): Record<string, Command> {
  * (Ctrl — добавить, Shift — подряд), стрелки — на шаг, перетаскивание — на любое место, выделенные строки — вместе.
  * Появление, перетащенное в «По щелчку», начинает ждать щелчка, обратно — появляется само
  */
-function orderPopover(h: AnimHost, act: { move(dir: 1 | -1, at: number): void; place(ids: Set<string>, p: number, click: boolean): boolean }): void {
+function orderPopover(h: AnimHost, act: { move(dir: 1 | -1, at: number): void; place(ids: Set<string>, p: number, click: boolean): boolean; together(o: Item, on: boolean): void }): void {
   const anchor = document.querySelector<HTMLElement>('.st-ribbon [data-cmd="anim.order"]')!;
   const list = () => items(h.deck, h.index());
   // Сначала выделены анимации объектов, выделенных на слайде
@@ -497,14 +575,20 @@ function orderPopover(h: AnimHost, act: { move(dir: 1 | -1, at: number): void; p
     const free = (h.deck.slides[h.index()]?.free ?? []) as Block[];
     const still = free.filter((_b, k) => !on.some((o) => o.k === k)).length;
     const both = on.some((o) => o.click) && on.some((o) => !o.click);
+    const steps = stepNos(free);
     let num = 0;
     const rows = on.map((o, n) => {
       const first = n === 0 || on[n - 1].click !== o.click;
       if (first) num = 0;
       const label = snippet(o.b as Record<string, unknown>);
+      // Шаг по щелчку, кроме первого, — отдельным щелчком или вместе с предыдущим
+      const link = o.click && !first
+        ? `<button type="button" class="st-aorder-with${o.together ? ' on' : ''}" data-with="${n}" aria-pressed="${o.together}" title="${o.together ? 'Вместе с предыдущим — нажмите, чтобы отдельным щелчком' : 'Отдельным щелчком — нажмите, чтобы вместе с предыдущим'}" aria-label="Вместе с предыдущим">${icon('link')}</button>`
+        : '';
       return (both && first ? `<p class="st-aorder-head">${o.click ? 'По щелчку' : 'При открытии слайда'}</p>` : '')
         + `<div class="st-aorder-row${picked.has(rowId(o)) ? ' sel' : ''}" draggable="true" data-n="${n}" data-kind="${o.kind}" data-group="${o.click ? 'click' : 'open'}">
-  <button type="button" class="st-aorder-pick" data-pick="${n}" title="Выделить (Ctrl — добавить, Shift — подряд); перетащите, чтобы переставить"><b>${++num}</b><span><em>${esc(blockName(o.b.type))}</em>${label ? ` · ${esc(label)}` : ''}</span><small>${esc(itemName(h.deck, o))} · ${o.click ? 'по щелчку' : o.key ? sec(o.key) : 'сразу'}</small></button>
+  <button type="button" class="st-aorder-pick" data-pick="${n}" title="Выделить (Ctrl — добавить, Shift — подряд); перетащите, чтобы переставить"><b>${o.click ? steps.get(rowId(o)) ?? ++num : ++num}</b><span><em>${esc(blockName(o.b.type))}</em>${label ? ` · ${esc(label)}` : ''}</span><small>${esc(itemName(h.deck, o))} · ${o.click ? (o.together && !first ? 'вместе с предыдущим' : 'по щелчку') : o.key ? sec(o.key) : 'сразу'}</small></button>
+  ${link}
   <button type="button" class="st-aorder-mv" data-mv="${n}" data-dir="-1" title="Раньше" aria-label="Раньше"${swapped(on, n, -1) ? '' : ' disabled'}>${icon('up')}</button>
   <button type="button" class="st-aorder-mv" data-mv="${n}" data-dir="1" title="Позже" aria-label="Позже"${swapped(on, n, 1) ? '' : ' disabled'}>${icon('up')}</button>
 </div>`;
@@ -541,6 +625,17 @@ ${still ? `<p class="st-aorder-still">Без анимации, видны сра
           }
           sync();
           render(`[data-pick="${n}"]`);
+        },
+      };
+    }
+    if (b.dataset.with) {
+      const n = Number(b.dataset.with);
+      return {
+        keep: true,
+        run: () => {
+          const o = list()[n];
+          if (o) act.together(o, !o.together);
+          render(`[data-with="${n}"]`);
         },
       };
     }
