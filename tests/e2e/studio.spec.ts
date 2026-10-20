@@ -1429,10 +1429,8 @@ test('«Порядок»: строки перетаскиваются, выде�
   await page.keyboard.press('Escape');
   await page.keyboard.press('Control+z');
   expect(await waitFile(() => !line('D').includes('click') && line('D').includes('delay: 1000') && !line('G').includes('click'))).toBe(true);
-  // Стрелки — на шаг в своей группе; исчезновение раньше своего появления не встаёт
-  await page.locator('[data-tab="anim"]').first().click();
-  await page.locator('[data-cmd="anim.order"]').click();
-  expect(await list()).toBe('F:in D:in E:in G:in G:out');
+  // Стрелки — на шаг в своей группе; исчезновение раньше своего появления не встаёт. Область анимации так и открыта
+  await expect.poll(list).toBe('F:in D:in E:in G:in G:out');
   await rows.nth(0).locator('.st-aorder-mv[data-dir="1"]').click();
   await expect.poll(list).toBe('D:in F:in E:in G:in G:out');
   expect(await waitFile(() => !line('D').includes('delay') && line('F').includes('delay: 1000'))).toBe(true);
@@ -1441,7 +1439,7 @@ test('«Порядок»: строки перетаскиваются, выде�
   expect(errors).toEqual([]);
 });
 
-test('номера анимаций на слайде: появление при открытии — только на «Анимации», шаг по щелчку — всегда; «Число набегает» — отсчёт или одометр', async ({ page }) => {
+test('номера анимаций на слайде — только на «Анимации» или с областью анимации; область сбоку тянется и переезжает; «Число набегает» — отсчёт или одометр', async ({ page }) => {
   const errors = watchErrors(page);
   // Слайд с одометром в правке — текст целый, без барабанов
   await page.goto('/?deck=fx&studio#5');
@@ -1449,17 +1447,37 @@ test('номера анимаций на слайде: появление при
   await expect(obj(0)).toContainText('42');
   await expect(page.locator('#st-canvas .odo')).toHaveCount(0);
   const badge = (k: number, pseudo: string) => obj(k).evaluate((e, p) => getComputedStyle(e, p).content, pseudo);
+  // При правке (другая вкладка) номеров нет — ни появлений, ни шагов по щелчку
   await page.locator('[data-tab="home"]').first().click();
-  expect(await badge(1, '::after')).toBe('none');
-  expect(await badge(3, '::before')).toBe('"1 · 2✕"');
+  expect([await badge(1, '::after'), await badge(3, '::before')]).toEqual(['none', 'none']);
   await page.locator('[data-tab="anim"]').first().click();
+  expect(await badge(3, '::before')).toBe('"1 · 2✕"');
   expect([await badge(0, '::after'), await badge(1, '::after'), await badge(2, '::after'), await badge(3, '::after')]).toEqual(['none', '"1"', '"2"', 'none']);
-  // Строка «Порядка» под мышью — её объект обведён
+  // Область анимации сбоку: строка под мышью — её объект обведён; открытая область показывает номера и на других вкладках
   await page.locator('[data-cmd="anim.order"]').click();
+  await expect(page.locator('#st-apane')).toBeVisible();
   await page.locator('.st-aorder-row').nth(1).hover();
   await expect(obj(2)).toHaveClass(/st-aorder-hl/);
-  await page.keyboard.press('Escape');
+  await page.mouse.move(5, 400);
   await expect(page.locator('.st-aorder-hl')).toHaveCount(0);
+  await page.locator('[data-tab="home"]').first().click();
+  expect(await badge(1, '::after')).toBe('"1"');
+  // Ширина тянется за край, панель переезжает влево; всё запоминается
+  const w0 = (await page.locator('#st-apane').boundingBox())!.width;
+  const sb = (await page.locator('#st-sa').boundingBox())!;
+  await page.mouse.move(sb.x + sb.width / 2, sb.y + 200);
+  await page.mouse.down();
+  await page.mouse.move(sb.x - 80, sb.y + 200, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(async () => Math.abs((await page.locator('#st-apane').boundingBox())!.width - (w0 + 80))).toBeLessThan(8);
+  await page.locator('#st-apane [data-a="side"]').click();
+  await expect.poll(async () => (await page.locator('#st-apane').boundingBox())!.x < (await page.locator('#st-canvas').boundingBox())!.x).toBe(true);
+  await page.reload();
+  await expect(page.locator('#st-apane')).toBeVisible();
+  await expect(page.locator('#st-apane')).toHaveClass(/left/);
+  await page.locator('#st-apane [data-a="close"]').click();
+  await expect(page.locator('#st-apane')).toBeHidden();
+  await page.locator('[data-tab="anim"]').first().click();
   // Вид «Числа набегает» — стрелкой рядом с галочкой
   const line = () => readDeck('fx').split('\n').find((l) => l.includes('Итого')) ?? '';
   const tb = (await obj(0).boundingBox())!;

@@ -191,6 +191,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
         <textarea id="st-notes-text" spellcheck="true" placeholder="Что сказать на этом слайде. Видно только в окне докладчика."></textarea>
       </section>
     </main>
+    <section class="st-apane" id="st-apane" data-ed-keep hidden aria-label="Область анимации"></section>
+    <div class="st-split v st-sa" id="st-sa" role="separator" aria-orientation="vertical" aria-label="Ширина области анимации" tabindex="0" title="Потяните, чтобы изменить ширину. Двойной щелчок — сбросить" hidden></div>
     <aside class="st-props" id="st-props" aria-label="Свойства" data-ed-keep></aside>
   </div>
   <footer class="st-foot" data-ed-keep>

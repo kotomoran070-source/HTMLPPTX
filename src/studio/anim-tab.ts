@@ -95,7 +95,7 @@ export function animPanelHtml(): string {
     <label class="st-rfield" title="Через сколько секунд после открытия слайда объект появляется"><span>Задержка</span><input type="number" id="st-fx-delay" min="0" max="20" step="0.1" aria-label="Задержка появления, секунды"><span>с</span></label>
     ${btn('anim.tempo', 'clock', 'Длительность', { menu: true, title: 'Быстрее или медленнее идут все эффекты объекта: появление, выделение, исчезновение' })}
     <div class="st-rrow">${btn('anim.earlier', 'up', 'Раньше', { title: 'Появляться раньше' })}${btn('anim.later', 'up', 'Позже', { title: 'Появляться позже' })}</div>
-  </div><div class="st-rstack"><button type="button" class="st-rb st-chk" data-cmd="anim.click" title="При показе объект ждёт щелчка («Далее», пробел, пульт) и появляется своим эффектом; по порядку — как в «Порядке»"><i class="st-box">${icon('check')}</i><span>Ждёт щелчка</span></button>${btn('anim.seq', 'sparkle', 'По очереди', { title: 'Выделенные объекты (или все на слайде) появляются по очереди: сверху вниз, слева направо' })}${btn('anim.order', 'list', 'Порядок', { menu: true, title: 'Все анимированные объекты слайда по порядку' })}</div>`)}
+  </div><div class="st-rstack"><button type="button" class="st-rb st-chk" data-cmd="anim.click" title="При показе объект ждёт щелчка («Далее», пробел, пульт) и появляется своим эффектом; по порядку — как в «Порядке»"><i class="st-box">${icon('check')}</i><span>Ждёт щелчка</span></button>${btn('anim.seq', 'sparkle', 'По очереди', { title: 'Выделенные объекты (или все на слайде) появляются по очереди: сверху вниз, слева направо' })}${btn('anim.order', 'list', 'Порядок', { title: 'Область анимации: все анимации слайда по порядку — панелью сбоку от слайда' })}</div>`)}
   ${group('Текст', `<div class="st-rstack"><span class="st-rsplit"><button type="button" class="st-rb st-chk" data-cmd="anim.count" title="Числа в тексте объекта при появлении отсчитываются от нуля до своего значения"><i class="st-box">${icon('check')}</i><span>Число набегает</span></button>`
     + `<button type="button" class="st-rb st-split-m" data-cmd="anim.count-menu" data-pal="skip" title="Как набегает: отсчёт или одометр" aria-label="Как набегает число" aria-haspopup="menu"><b class="st-caret"></b></button></span>${btn('anim.textfx', 'sparkle', 'Эффект текста', { menu: true, title: 'Глитч, неон, блик, волна, печатная машинка, расшифровка — у надписи или текста фигуры' })}`
     + `<button type="button" class="st-rb st-chk" data-cmd="anim.byitem" title="Список или пункты «- » в тексте появляются по одному; с «Ждёт щелчка» — по щелчку на пункт"><i class="st-box">${icon('check')}</i><span>По пунктам</span></button></div>`)}
@@ -506,7 +506,11 @@ export function animCommands(h: AnimHost): Record<string, Command> {
       else delete b[f];
     }, { rebuild: true });
   };
-  cmds['anim.order'] = { run: () => orderPopover(h, { move, place, together }), enabled: () => (slide()?.free ?? []).length > 0 };
+  // Область анимации — панель сбоку от слайда (в студии; на странице без неё — ничего)
+  const root = document.getElementById('st-apane');
+  const split = document.getElementById('st-sa');
+  pane = root && split ? new OrderPane(root, split, h, { move, place, together }) : null;
+  cmds['anim.order'] = { run: () => pane?.toggle(), active: () => !!pane?.open };
   // Длительность эффектов выделенных объектов: множитель для появления, выделения и исчезновения
   cmds['anim.tempo'] = {
     run: () => {
@@ -556,23 +560,132 @@ export function animCommands(h: AnimHost): Record<string, Command> {
   return cmds;
 }
 
+interface OrderAct { move(dir: 1 | -1, at: number): void; place(ids: Set<string>, p: number, click: boolean): boolean; together(o: Item, on: boolean): void }
+interface PaneState { open: boolean; side: 'left' | 'right'; w: number }
+const PANE_KEY = 'htmlpptx-anim-pane';
+const PANE_W: [number, number] = [260, 560];
+
 /**
- * Порядок анимаций: компактный список по группам — при открытии слайда и по щелчку. Щелчок выделяет объект
- * (Ctrl — добавить, Shift — подряд), стрелки — на шаг, перетаскивание — на любое место, выделенные строки — вместе.
+ * Область анимации (как в PowerPoint): порядок анимаций слайда панелью на всю высоту сбоку от слайда — открыта,
+ * пока с ней работают; ширина тянется за край, прикрепить можно слева или справа (запоминается на компьютере).
+ * Список по группам — при открытии слайда и по щелчку. Щелчок выделяет объект (Ctrl — добавить, Shift — подряд),
+ * стрелки — на шаг, перетаскивание — на любое место, выделенные строки — вместе, звено — вместе с предыдущим.
  * Появление, перетащенное в «По щелчку», начинает ждать щелчка, обратно — появляется само
  */
-function orderPopover(h: AnimHost, act: { move(dir: 1 | -1, at: number): void; place(ids: Set<string>, p: number, click: boolean): boolean; together(o: Item, on: boolean): void }): void {
-  const anchor = document.querySelector<HTMLElement>('.st-ribbon [data-cmd="anim.order"]')!;
-  const list = () => items(h.deck, h.index());
-  // Сначала выделены анимации объектов, выделенных на слайде
-  const objs = new Set(h.selPaths().map((p) => Number(p[3])));
-  let picked = new Set(list().filter((o) => objs.has(o.k)).map(rowId));
-  let from = -1;
-  let mods = { ctrl: false, shift: false };
-  let drag: Set<string> | null = null;
-  const html = () => {
-    const on = list();
-    const free = (h.deck.slides[h.index()]?.free ?? []) as Block[];
+class OrderPane {
+  private st: PaneState = { open: false, side: 'right', w: 320 };
+  private body: HTMLElement;
+  /** Выделенные строки; selKey — выделение на слайде, под которое они подобраны */
+  private picked = new Set<string>();
+  private selKey = '';
+  private from = -1;
+  private drag: Set<string> | null = null;
+  private hl: HTMLElement | null = null;
+
+  constructor(private root: HTMLElement, private split: HTMLElement, private h: AnimHost, private act: OrderAct) {
+    try { this.st = { ...this.st, ...JSON.parse(localStorage.getItem(PANE_KEY) ?? '{}') }; } catch { /* ещё не открывали */ }
+    root.innerHTML = `<header class="st-lyr-head"><b>Анимация слайда</b>
+  <button type="button" class="st-lyr-x" data-a="side"></button>
+  <button type="button" class="st-lyr-x" data-a="close" title="Закрыть" aria-label="Закрыть область анимации">${icon('close')}</button>
+</header><div class="st-apane-body"></div>`;
+    this.body = root.querySelector('.st-apane-body')!;
+    root.querySelector('[data-a="close"]')!.addEventListener('click', () => this.toggle(false));
+    root.querySelector('[data-a="side"]')!.addEventListener('click', () => { this.st.side = this.st.side === 'right' ? 'left' : 'right'; this.apply(); });
+    this.body.addEventListener('click', (e) => this.onClick(e));
+    this.body.addEventListener('pointerover', (e) => {
+      const r = (e.target as Element).closest?.<HTMLElement>('.st-aorder-row');
+      this.light(r ? this.list()[Number(r.dataset.n)]?.k ?? null : null);
+    });
+    this.body.addEventListener('pointerleave', () => this.light(null));
+    this.dnd();
+    this.resizer();
+    this.apply(false);
+  }
+
+  get open(): boolean { return this.st.open; }
+
+  toggle(on = !this.st.open): void {
+    this.st.open = on;
+    if (!on) this.light(null);
+    this.apply();
+  }
+
+  /** Раскладка: видна ли, ширина, сторона; запоминается */
+  private apply(save = true): void {
+    this.st.w = Math.round(Math.max(PANE_W[0], Math.min(PANE_W[1], this.st.w)));
+    this.root.hidden = !this.st.open;
+    this.split.hidden = !this.st.open;
+    // Открытая область — номера анимаций на слайде видны и вне вкладки «Анимация» (studio.css)
+    document.body.classList.toggle('st-apane-on', this.st.open);
+    document.querySelectorAll('.st-ribbon [data-cmd="anim.order"]').forEach((b) => b.classList.toggle('active', this.st.open));
+    // Своя колонка в сетке студии, на всю высоту: между списком слайдов и слайдом или между слайдом и свойствами
+    const body = this.root.parentElement!;
+    body.style.setProperty('--apl', this.st.open && this.st.side === 'left' ? `${this.st.w}px` : '0px');
+    body.style.setProperty('--apr', this.st.open && this.st.side === 'right' ? `${this.st.w}px` : '0px');
+    this.root.classList.toggle('left', this.st.side === 'left');
+    this.split.classList.toggle('left', this.st.side === 'left');
+    const side = this.root.querySelector<HTMLElement>('[data-a="side"]')!;
+    const to = this.st.side === 'right' ? 'слева' : 'справа';
+    side.innerHTML = icon(this.st.side === 'right' ? 'obj-left' : 'obj-right');
+    side.title = `Прикрепить ${to}`;
+    side.setAttribute('aria-label', `Прикрепить область анимации ${to}`);
+    if (save) try { localStorage.setItem(PANE_KEY, JSON.stringify(this.st)); } catch { /* нет доступа */ }
+    if (this.st.open) this.update();
+  }
+
+  /** Край панели: тянуть мышью, стрелки ±8 px, двойной щелчок — как было */
+  private resizer(): void {
+    const s = this.split;
+    s.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      s.setPointerCapture(e.pointerId);
+      const box = this.root.getBoundingClientRect();
+      document.querySelector('.studio-app')?.classList.add('resizing');
+      const move = (ev: PointerEvent) => {
+        this.st.w = this.st.side === 'right' ? box.right - ev.clientX : ev.clientX - box.left;
+        this.apply(false);
+      };
+      const up = () => {
+        s.removeEventListener('pointermove', move);
+        s.removeEventListener('pointerup', up);
+        document.querySelector('.studio-app')?.classList.remove('resizing');
+        this.apply();
+      };
+      s.addEventListener('pointermove', move);
+      s.addEventListener('pointerup', up);
+    });
+    s.addEventListener('dblclick', () => { this.st.w = 320; this.apply(); });
+    s.addEventListener('keydown', (e) => {
+      const d = { ArrowLeft: -8, ArrowRight: 8 }[e.key];
+      if (d === undefined) return;
+      e.preventDefault();
+      this.st.w += this.st.side === 'right' ? -d : d;
+      this.apply();
+    });
+  }
+
+  private list(): Item[] { return items(this.h.deck, this.h.index()); }
+
+  /** Перерисовать список (после правок, смены слайда и выделения); во время перетаскивания — нет */
+  update(focus?: string): void {
+    if (!this.st.open || this.drag) return;
+    const on = this.list();
+    // Выделение на слайде сменилось не отсюда — выделены строки его объектов
+    const sel = this.h.selPaths().map((p) => Number(p[3]));
+    const key = `${this.h.index()}:${sel.join(',')}`;
+    if (key !== this.selKey) {
+      this.selKey = key;
+      this.picked = new Set(on.filter((o) => sel.includes(o.k)).map(rowId));
+    }
+    const top = this.body.scrollTop;
+    this.body.innerHTML = this.html(on);
+    this.body.scrollTop = top;
+    if (focus) this.body.querySelector<HTMLElement>(focus)?.focus({ preventScroll: true });
+  }
+
+  private html(on: Item[]): string {
+    const free = (this.h.deck.slides[this.h.index()]?.free ?? []) as Block[];
     const still = free.filter((_b, k) => !on.some((o) => o.k === k)).length;
     const both = on.some((o) => o.click) && on.some((o) => !o.click);
     const steps = stepNos(free);
@@ -586,8 +699,8 @@ function orderPopover(h: AnimHost, act: { move(dir: 1 | -1, at: number): void; p
         ? `<button type="button" class="st-aorder-with${o.together ? ' on' : ''}" data-with="${n}" aria-pressed="${o.together}" title="${o.together ? 'Вместе с предыдущим — нажмите, чтобы отдельным щелчком' : 'Отдельным щелчком — нажмите, чтобы вместе с предыдущим'}" aria-label="Вместе с предыдущим">${icon('link')}</button>`
         : '';
       return (both && first ? `<p class="st-aorder-head">${o.click ? 'По щелчку' : 'При открытии слайда'}</p>` : '')
-        + `<div class="st-aorder-row${picked.has(rowId(o)) ? ' sel' : ''}" draggable="true" data-n="${n}" data-kind="${o.kind}" data-group="${o.click ? 'click' : 'open'}">
-  <button type="button" class="st-aorder-pick" data-pick="${n}" title="Выделить (Ctrl — добавить, Shift — подряд); перетащите, чтобы переставить"><b>${o.click ? steps.get(rowId(o)) ?? ++num : ++num}</b><span><em>${esc(blockName(o.b.type))}</em>${label ? ` · ${esc(label)}` : ''}</span><small>${esc(itemName(h.deck, o))} · ${o.click ? (o.together && !first ? 'вместе с предыдущим' : 'по щелчку') : o.key ? sec(o.key) : 'сразу'}</small></button>
+        + `<div class="st-aorder-row${this.picked.has(rowId(o)) ? ' sel' : ''}" draggable="true" data-n="${n}" data-kind="${o.kind}" data-group="${o.click ? 'click' : 'open'}">
+  <button type="button" class="st-aorder-pick" data-pick="${n}" title="Выделить (Ctrl — добавить, Shift — подряд); перетащите, чтобы переставить"><b>${o.click ? steps.get(rowId(o)) ?? ++num : ++num}</b><span><em>${esc(blockName(o.b.type))}</em>${label ? ` · ${esc(label)}` : ''}</span><small>${esc(itemName(this.h.deck, o))} · ${o.click ? (o.together && !first ? 'вместе с предыдущим' : 'по щелчку') : o.key ? sec(o.key) : 'сразу'}</small></button>
   ${link}
   <button type="button" class="st-aorder-mv" data-mv="${n}" data-dir="-1" title="Раньше" aria-label="Раньше"${swapped(on, n, -1) ? '' : ' disabled'}>${icon('up')}</button>
   <button type="button" class="st-aorder-mv" data-mv="${n}" data-dir="1" title="Позже" aria-label="Позже"${swapped(on, n, 1) ? '' : ' disabled'}>${icon('up')}</button>
@@ -596,137 +709,114 @@ function orderPopover(h: AnimHost, act: { move(dir: 1 | -1, at: number): void; p
     return `<div class="st-aorder">${on.length ? rows : '<p class="st-aorder-empty">На слайде ещё нет анимации. Выделите объект и выберите эффект.</p>'}
 ${on.length > 1 ? '<p class="st-aorder-still">Перетащите строку на новое место; Ctrl или Shift — несколько сразу</p>' : ''}
 ${still ? `<p class="st-aorder-still">Без анимации, видны сразу: ${still}</p>` : ''}</div>`;
-  };
-  const render = (focus?: string) => {
-    const top = el.scrollTop;
-    el.innerHTML = html();
-    el.scrollTop = top;
-    if (focus) el.querySelector<HTMLElement>(focus)?.focus({ preventScroll: true });
-  };
-  // На слайде выделены объекты выделенных строк
-  const sync = () => {
-    h.select([...new Set(list().filter((o) => picked.has(rowId(o))).map((o) => o.k))].sort((a, b) => a - b));
-  };
-  const el = showPopover(anchor, html(), (b) => {
+  }
+
+  /** На слайде выделены объекты выделенных строк */
+  private sync(): void {
+    const ks = [...new Set(this.list().filter((o) => this.picked.has(rowId(o))).map((o) => o.k))].sort((a, b) => a - b);
+    this.selKey = `${this.h.index()}:${ks.join(',')}`;
+    this.h.select(ks);
+  }
+
+  private onClick(e: MouseEvent): void {
+    const b = (e.target as Element).closest<HTMLButtonElement>('button');
+    if (!b || b.disabled) return;
+    const on = this.list();
     if (b.dataset.pick) {
       const n = Number(b.dataset.pick);
-      return {
-        keep: true,
-        run: () => {
-          const on = list();
-          const id = rowId(on[n]);
-          if (mods.shift && from >= 0) picked = new Set(on.slice(Math.min(from, n), Math.max(from, n) + 1).map(rowId));
-          else if (mods.ctrl) {
-            if (!picked.delete(id)) picked.add(id);
-            from = n;
-          } else {
-            picked = new Set([id]);
-            from = n;
-          }
-          sync();
-          render(`[data-pick="${n}"]`);
-        },
-      };
-    }
-    if (b.dataset.with) {
+      const id = rowId(on[n]);
+      if (e.shiftKey && this.from >= 0) this.picked = new Set(on.slice(Math.min(this.from, n), Math.max(this.from, n) + 1).map(rowId));
+      else if (e.ctrlKey || e.metaKey) {
+        if (!this.picked.delete(id)) this.picked.add(id);
+        this.from = n;
+      } else {
+        this.picked = new Set([id]);
+        this.from = n;
+      }
+      this.sync();
+      this.update(`[data-pick="${n}"]`);
+    } else if (b.dataset.with) {
       const n = Number(b.dataset.with);
-      return {
-        keep: true,
-        run: () => {
-          const o = list()[n];
-          if (o) act.together(o, !o.together);
-          render(`[data-with="${n}"]`);
-        },
-      };
-    }
-    if (b.dataset.mv) {
+      if (on[n]) this.act.together(on[n], !on[n].together);
+      this.update(`[data-with="${n}"]`);
+    } else if (b.dataset.mv) {
       const at = Number(b.dataset.mv);
       const dir = Number(b.dataset.dir) as 1 | -1;
-      return {
-        keep: true,
-        run: () => {
-          act.move(dir, at);
-          render(`[data-mv="${at + dir}"][data-dir="${dir}"]`);
-        },
-      };
+      this.act.move(dir, at);
+      this.update(`[data-mv="${at + dir}"][data-dir="${dir}"]`);
     }
-    return null;
-  }, 'st-aorder-pop');
-  // Ctrl и Shift при щелчке: обработчик меню получает только кнопку
-  el.addEventListener('click', (e) => { mods = { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey }; }, true);
-  // Строка под мышью — её объект на слайде обведён
-  let hl: HTMLElement | null = null;
-  const light = (k: number | null) => {
-    hl?.classList.remove('st-aorder-hl');
-    hl = k === null ? null : document.querySelector<HTMLElement>(`#st-canvas .slide.on > .free[data-free='${JSON.stringify(['slides', h.index(), 'free', k])}']`);
-    hl?.classList.add('st-aorder-hl');
-  };
-  el.addEventListener('pointerover', (e) => {
-    const r = (e.target as Element).closest?.<HTMLElement>('.st-aorder-row');
-    light(r ? list()[Number(r.dataset.n)]?.k ?? null : null);
-  });
-  el.addEventListener('pointerleave', () => light(null));
-  // Окно закрыли — обводка гаснет
-  new MutationObserver((_m, mo) => { if (!el.isConnected) { light(null); mo.disconnect(); } }).observe(document.body, { childList: true });
+  }
+
+  /** Строка под мышью — её объект на слайде обведён */
+  private light(k: number | null): void {
+    this.hl?.classList.remove('st-aorder-hl');
+    this.hl = k === null ? null : document.querySelector<HTMLElement>(`#st-canvas .slide.on > .free[data-free='${JSON.stringify(['slides', this.h.index(), 'free', k])}']`);
+    this.hl?.classList.add('st-aorder-hl');
+  }
 
   // ---------- перетаскивание ----------
-  const rows = () => [...el.querySelectorAll<HTMLElement>('.st-aorder-row')];
-  const marks = () => rows().forEach((r) => r.classList.remove('drop-before', 'drop-after'));
-  /** Куда бросают: строка под мышью — перед ней (верхняя половина) или после (нижняя), в её группу */
-  const dropAt = (y: number) => {
-    const rs = rows();
-    if (!rs.length) return null;
-    const r = rs.find((x) => y < x.getBoundingClientRect().bottom) ?? rs[rs.length - 1];
-    const box = r.getBoundingClientRect();
-    const after = y >= box.top + box.height / 2;
-    const n = Number(r.dataset.n);
-    return { r, after, p: n + (after ? 1 : 0), click: !!list()[n]?.click };
-  };
-  el.addEventListener('dragstart', (e) => {
-    const r = (e.target as Element).closest?.<HTMLElement>('.st-aorder-row');
-    const on = list();
-    const o = r ? on[Number(r.dataset.n)] : undefined;
-    if (!o) return;
-    // Строка из выделенных — тянутся все выделенные, иначе только она
-    if (!picked.has(rowId(o))) picked = new Set([rowId(o)]);
-    drag = new Set(picked);
-    rows().forEach((x) => {
-      const it = on[Number(x.dataset.n)];
-      x.classList.toggle('sel', !!it && picked.has(rowId(it)));
-      x.classList.toggle('dragging', !!it && drag!.has(rowId(it)));
+  private dnd(): void {
+    const el = this.body;
+    const rows = () => [...el.querySelectorAll<HTMLElement>('.st-aorder-row')];
+    const marks = () => rows().forEach((r) => r.classList.remove('drop-before', 'drop-after'));
+    /** Куда бросают: строка под мышью — перед ней (верхняя половина) или после (нижняя), в её группу */
+    const dropAt = (y: number) => {
+      const rs = rows();
+      if (!rs.length) return null;
+      const r = rs.find((x) => y < x.getBoundingClientRect().bottom) ?? rs[rs.length - 1];
+      const box = r.getBoundingClientRect();
+      const after = y >= box.top + box.height / 2;
+      const n = Number(r.dataset.n);
+      return { r, after, p: n + (after ? 1 : 0), click: !!this.list()[n]?.click };
+    };
+    el.addEventListener('dragstart', (e) => {
+      const r = (e.target as Element).closest?.<HTMLElement>('.st-aorder-row');
+      const on = this.list();
+      const o = r ? on[Number(r.dataset.n)] : undefined;
+      if (!o) return;
+      // Строка из выделенных — тянутся все выделенные, иначе только она
+      if (!this.picked.has(rowId(o))) this.picked = new Set([rowId(o)]);
+      const drag = new Set(this.picked);
+      this.drag = drag;
+      rows().forEach((x) => {
+        const it = on[Number(x.dataset.n)];
+        x.classList.toggle('sel', !!it && this.picked.has(rowId(it)));
+        x.classList.toggle('dragging', !!it && drag.has(rowId(it)));
+      });
+      e.dataTransfer!.effectAllowed = 'move';
+      e.dataTransfer!.setData('text/plain', '');
     });
-    e.dataTransfer!.effectAllowed = 'move';
-    e.dataTransfer!.setData('text/plain', '');
-  });
-  el.addEventListener('dragover', (e) => {
-    if (!drag) return;
-    const at = dropAt(e.clientY);
-    marks();
-    // Нельзя (исчезновение — в «При открытии», исчезновение раньше появления) или ничего не меняется — без отметки
-    if (!at || !placed(list(), drag, at.p, at.click)) return;
-    e.preventDefault();
-    e.dataTransfer!.dropEffect = 'move';
-    at.r.classList.add(at.after ? 'drop-after' : 'drop-before');
-  });
-  el.addEventListener('drop', (e) => {
-    if (!drag) return;
-    e.preventDefault();
-    const at = dropAt(e.clientY);
-    const ids = drag;
-    drag = null;
-    if (at && act.place(ids, at.p, at.click)) {
-      picked = new Set(ids);
-      sync();
-    }
-    render();
-  });
-  el.addEventListener('dragend', () => {
-    if (!drag) return;
-    drag = null;
-    marks();
-    rows().forEach((r) => r.classList.remove('dragging'));
-  });
+    el.addEventListener('dragover', (e) => {
+      if (!this.drag) return;
+      const at = dropAt(e.clientY);
+      marks();
+      // Нельзя (исчезновение — в «При открытии», исчезновение раньше появления) или ничего не меняется — без отметки
+      if (!at || !placed(this.list(), this.drag, at.p, at.click)) return;
+      e.preventDefault();
+      e.dataTransfer!.dropEffect = 'move';
+      at.r.classList.add(at.after ? 'drop-after' : 'drop-before');
+    });
+    el.addEventListener('drop', (e) => {
+      if (!this.drag) return;
+      e.preventDefault();
+      const at = dropAt(e.clientY);
+      const ids = this.drag;
+      this.drag = null;
+      if (at && this.act.place(ids, at.p, at.click)) {
+        this.picked = new Set(ids);
+        this.sync();
+      }
+      this.update();
+    });
+    el.addEventListener('dragend', () => {
+      if (!this.drag) return;
+      this.drag = null;
+      marks();
+      rows().forEach((r) => r.classList.remove('dragging'));
+    });
+  }
 }
+let pane: OrderPane | null = null;
 
 /** Анимации своих эффектов для образцов в списке (на странице — один раз) */
 function injectEffects(list: UserEffect[]): void {
@@ -783,6 +873,7 @@ function minePopover(h: AnimHost, apply: (e: UserEffect) => void): void {
 
 /** Подписи групп и поле задержки — по текущему слайду и выделению */
 export function syncAnimTab(h: AnimHost): void {
+  pane?.update();
   const s = h.deck.slides[h.index()];
   const trLabel = document.getElementById('st-tr-label');
   if (trLabel) {
