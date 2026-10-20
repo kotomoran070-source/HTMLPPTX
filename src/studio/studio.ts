@@ -1854,7 +1854,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const sel = ed.selection;
     const key = next && sel ? JSON.stringify(sel.group.length > 1 ? sel.group : sel.block) : '';
     if (next !== ctxTab || key !== ctxKey) {
-      if (!keepTab) {
+      // На «Анимации» лента остаётся: объекты выделяют, чтобы дать им эффект (вкладка объекта лишь появляется)
+      if (!keepTab && tab !== 'anim') {
         if (next) setTab(next);
         else if (tab === 'shape' || tab === 'table' || tab === 'image' || tab === 'video') setTab('home');
       }

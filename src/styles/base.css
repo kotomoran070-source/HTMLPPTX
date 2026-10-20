@@ -64,7 +64,7 @@ body {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 60%, transparent), 0 0 0 4000px rgba(6, 8, 14, .64); }
 .slide > .spot-frame.on { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .slide > .spot-frame { transition: none; } }
-.stage[data-tr="morph"] > .slide.on { animation: none; }
+.stage[data-tr="morph"] > .slide.on, .stage > .slide.on.morph-in { animation: none; }
 .stage[data-tr="morph"] > .slide.out { visibility: hidden; }
 .stage > .slide.morph-ghost { display: block; z-index: 2; pointer-events: none; }
 .stage > .morph-layer { display: block; z-index: 3; pointer-events: none; background: none !important; box-shadow: none !important; animation: none !important; }

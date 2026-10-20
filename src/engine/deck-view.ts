@@ -386,7 +386,11 @@ export class DeckView {
     this.stage.dataset.tr = tr;
     this.stage.dataset.dir = back ? 'back' : 'fwd';
     prev.classList.add('out');
-    if (tr === 'morph') this.endMorph = morphTo(this.stage, prev, next, ms);
+    if (tr === 'morph') {
+      // Пришедший морфом слайд своё появление не играет и после перехода (иначе по концу полёта он дёргается)
+      next.classList.add('morph-in');
+      this.endMorph = morphTo(this.stage, prev, next, ms);
+    }
     this.outTimer = window.setTimeout(() => this.endOut(), ms + 60);
   }
 

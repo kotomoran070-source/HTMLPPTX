@@ -106,6 +106,7 @@ export function morph(stage: HTMLElement, prev: HTMLElement, next: HTMLElement, 
 
 /** Перед новым показом слайда: объекты, прилетевшие морфом, снова играют своё появление */
 export function unmorph(slide: HTMLElement | undefined): void {
+  slide?.classList.remove('morph-in');
   slide?.querySelectorAll<HTMLElement>('[data-morphed]').forEach((el) => {
     delete el.dataset.morphed;
     el.style.animation = '';
