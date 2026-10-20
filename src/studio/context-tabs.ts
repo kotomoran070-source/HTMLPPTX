@@ -864,7 +864,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     }
     else [...tbl.rows].forEach((tr) => { for (let c = at.c0; c <= at.c1; c++) tr.cells[c]?.classList.add('tbl-kill'); });
   };
-  /** Меню таблицы: правый щелчок по ячейке и кнопка «Удалить» на ленте */
+  /** Меню таблицы: правый щелчок по ячейке и кнопка «Удалить» на ленте (сортировка — только на ленте) */
   const tableItems = (withInsert: boolean): MenuEntry[] => {
     const t = first('table');
     const rows = ((t?.rows as unknown[]) ?? []).length;
@@ -887,7 +887,6 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
         ...(multiCell() ? [{ label: 'Объединить ячейки', icon: 'cell-merge', run: mergeCells }] : []),
         { label: 'Разбить ячейку…', icon: 'cell-split', run: () => splitDialog(cellEl() ?? anchor('table.split')) },
         null,
-        ...sortItems().map((it) => it && { ...it, label: `Сортировать ${it.label.toLowerCase()}` }),
       ] : []),
       { label: many(nr + head, ['Удалить строку', 'Удалить строки', '']), icon: 'row-del', disabled: nr + head >= total, run: delRow, preview: (on) => killMark('row', on) },
       { label: many(nc, ['Удалить столбец', 'Удалить столбцы', '']), icon: 'col-del', disabled: nCols < 2 || nc >= nCols, run: delCol, preview: (on) => killMark('col', on) },

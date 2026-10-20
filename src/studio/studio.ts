@@ -810,6 +810,15 @@ export function startStudio(deck: Deck, deckKey: string): void {
       { label: 'Удалить слайд', icon: 'trash', danger: true, disabled: n <= 1, hint: 'Delete', run: () => ed.deleteSlide(i) },
     ];
   }
+  /** Вырезать, копировать, вставить: в меню объекта и в меню ячейки таблицы */
+  function clipItems(): MenuEntry[] {
+    const clip = takeClip();
+    return [
+      { label: 'Вырезать', icon: 'cut', hint: 'Ctrl+X', run: () => copy(true) },
+      { label: 'Копировать', icon: 'copy', hint: 'Ctrl+C', run: () => copy(false) },
+      { label: 'Вставить', icon: 'paste', hint: 'Ctrl+V', disabled: !clip, run: () => clip && pasteClip(clip) },
+    ];
+  }
   function objectMenu(): MenuEntry[] {
     const sel = ed.selection;
     if (!sel) return slideMenu(index);
@@ -824,11 +833,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
         { label: 'Удалить блок', icon: 'trash', danger: true, hint: 'Delete', run: () => run('obj.del') },
       ];
     }
-    const clip = takeClip();
     return [
-      { label: 'Вырезать', icon: 'cut', hint: 'Ctrl+X', run: () => copy(true) },
-      { label: 'Копировать', icon: 'copy', hint: 'Ctrl+C', run: () => copy(false) },
-      { label: 'Вставить', icon: 'paste', hint: 'Ctrl+V', disabled: !clip, run: () => clip && pasteClip(clip) },
+      ...clipItems(),
       { label: 'Копировать оформление', icon: 'brush', hint: 'Ctrl+Shift+C', disabled: multi(), run: () => run('format.copy') },
       { label: 'Вставить оформление', icon: 'brush', hint: 'Ctrl+Shift+V', disabled: !formatClip, run: () => run('format.paste') },
       null,
@@ -1928,7 +1934,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const tbl = (e.target as Element).closest<HTMLElement>('td[data-edit], th[data-edit]')?.closest<HTMLElement>('[data-type="table"][data-block]');
     if (tbl && !freeHost) ed.selectBlock(tbl);
     const table = tbl ? tableMenu() : [];
-    showMenu({ x: e.clientX, y: e.clientY }, freeHost || ed.selection ? [...table, ...(table.length ? [null] : []), ...objectMenu()] : slideMenu(index));
+    // По ячейке — строки, столбцы и буфер обмена; всё про объект целиком (порядок, шаблон, рисунок…) — у рамки таблицы и на ленте
+    const items = table.length && !multi() ? [...clipItems(), null, ...table] : [...table, ...(table.length ? [null] : []), ...objectMenu()];
+    showMenu({ x: e.clientX, y: e.clientY }, freeHost || ed.selection ? items : slideMenu(index));
     ctxTarget = null;
   });
   /**

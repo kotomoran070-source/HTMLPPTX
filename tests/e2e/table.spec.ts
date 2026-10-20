@@ -307,13 +307,20 @@ test('сортировка по столбцу, границы ячеек, вы�
   await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
   type T = { rows: string[][]; borders?: unknown[][]; heights?: number[] };
   const t7 = () => table(7) as unknown as T;
-  // Сортировка по «Факт» по возрастанию — из меню ячейки; числа — по значению
+  // Меню ячейки — короткое: строки, столбцы, буфер обмена; сортировки и порядка объекта в нём нет
   await cell(page, '70').click();
   await cell(page, '70').click({ button: 'right' });
-  await page.locator('.st-menu').getByText(/^Сортировать по возрастанию/).click();
-  await expect.poll(() => t7().rows.map((r) => r[0])).toEqual(['Прибыль', 'Расходы', 'Выручка']);
-  // По убыванию — с ленты
+  const menu = page.locator('.st-menu');
+  await expect(menu.getByText('Вставить строку сверху')).toHaveCount(1);
+  await expect(menu.getByText(/^Копировать$/)).toHaveCount(1);
+  await expect(menu.getByText(/Сортировать|Переместить вперёд|Копировать оформление|Разгруппировать|Сохранить как/)).toHaveCount(0);
+  await expect(menu.getByText(/^Удалить/)).toHaveText(['Удалить строку', 'Удалить столбец', 'Удалить таблицу']);
+  await page.keyboard.press('Escape');
+  // Сортировка по «Факт» — с ленты; числа — по значению
   await page.locator('.st-tabs [data-tab="table"]').click();
+  await page.locator('[data-cmd="table.sort"]').click();
+  await page.locator('.st-menu').getByText(/^По возрастанию/).click();
+  await expect.poll(() => t7().rows.map((r) => r[0])).toEqual(['Прибыль', 'Расходы', 'Выручка']);
   await page.locator('[data-cmd="table.sort"]').click();
   await page.locator('.st-menu').getByText(/^По убыванию/).click();
   await expect.poll(() => t7().rows.map((r) => r[0])).toEqual(['Выручка', 'Расходы', 'Прибыль']);
