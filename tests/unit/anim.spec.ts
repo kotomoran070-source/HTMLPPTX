@@ -1,6 +1,6 @@
 // Анимация объектов: очередь щелчков (появление, выделение, исчезновение) и маркер в тексте
 import { expect, test } from '@playwright/test';
-import { clickActs } from '../../src/engine/anim';
+import { clickActs, timedOrder } from '../../src/engine/anim';
 import { t } from '../../src/engine/html';
 import type { Block } from '../../src/types';
 
@@ -29,4 +29,9 @@ test('маркер в тексте: {mark|…} — полоса под слов�
   expect(t('{accent|{mark|цвет снаружи}}')).toContain('<span class="md-c" data-c="accent" style="color:var(--ac)"><mark class="md-m">цвет снаружи</mark></span>');
   expect(t('{mark|{accent|цвет внутри}}')).toContain('<mark class="md-m"><span class="md-c" data-c="accent"');
   expect(t('\\{mark|не маркер}')).not.toContain('<mark');
+});
+
+test('номера появлений при открытии слайда: по задержке, при равной — по номеру объекта; по щелчку и без эффекта — не в счёт', () => {
+  const free = [b({ enter: 'rise', delay: 600 }), b({ enter: 'fade' }), b({ enter: 'pop', click: true }), b({}), b({ enter: 'fade', delay: 600 }), b({ enter: 'blur', delay: 100 })];
+  expect(timedOrder(free, (x) => typeof x.enter === 'string')).toEqual([1, 5, 0, 4]);
 });

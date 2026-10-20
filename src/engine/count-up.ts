@@ -1,7 +1,9 @@
 /**
  * «Число набегает»: у объекта с count: true числа в тексте при появлении слайда отсчитываются
- * от нуля до своего значения — с тем же видом записи («17 234», «2,4», «$12.84M», «−5 %»).
- * Только при показе и в «Просмотре»: в правке текст не трогается. Конец — ровно исходный текст.
+ * от нуля до своего значения — с тем же видом записи («17 234», «2,4», «$12.84M», «−5 %»);
+ * count: odometer — цифры прокручиваются барабаном, как на счётчике, и встают на свои места
+ * (младшие крутятся дольше). Только при показе и в «Просмотре»: в правке текст не трогается.
+ * Конец отсчёта — ровно исходный текст; остановка возвращает разметку как была.
  */
 const NUM = /[-−]?\d{1,3}(?:[   ,]\d{3})+(?:[.,]\d+)?|[-−]?\d+(?:[.,]\d+)?/g;
 const MS = 1400;
@@ -37,12 +39,15 @@ export function countUp(slide: HTMLElement | undefined): () => void {
   if ((body.contains('editing') && !body.contains('st-previewing')) || matchMedia('(prefers-reduced-motion: reduce)').matches) return () => {};
   const parts: Part[] = [];
   const delays: number[] = [];
+  const drums: (() => void)[] = [];
   // Объекты с галочкой «Число набегает» и числа блока «Цифры»
   const els = [...slide.querySelectorAll<HTMLElement>('.free[data-count], [data-count-num]')];
   // Вложенное в уже выбранное — не считать дважды
   for (const el of els.filter((x) => !els.some((o) => o !== x && o.contains(x)))) {
     const delay = parseFloat(getComputedStyle(el).getPropertyValue('--fx-d')) || 0;
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const odo = el.dataset.count === 'odometer';
+    const found: Text[] = [];
     for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
       const text = node.data;
       const nums: Part['nums'] = [];
@@ -50,10 +55,14 @@ export function countUp(slide: HTMLElement | undefined): () => void {
         const p = parse(m[0]);
         if (p) nums.push({ ...p, start: m.index!, end: m.index! + m[0].length });
       }
-      if (nums.length) { parts.push({ node, text, nums }); delays.push(delay); }
+      if (!nums.length) continue;
+      if (odo) found.push(node);
+      else { parts.push({ node, text, nums }); delays.push(delay); }
     }
+    // Барабаны — после обхода: замена узлов посреди обхода сбила бы его
+    for (const node of found) drums.push(odometer(node, delay));
   }
-  if (!parts.length) return () => {};
+  if (!parts.length) return () => drums.forEach((f) => f());
   const t0 = performance.now();
   let raf = 0;
   const draw = (now: number) => {
@@ -78,5 +87,48 @@ export function countUp(slide: HTMLElement | undefined): () => void {
   return () => {
     cancelAnimationFrame(raf);
     for (const p of parts) if (p.node.isConnected) p.node.data = p.text;
+    drums.forEach((f) => f());
   };
+}
+
+/**
+ * Одометр: каждая цифра чисел в тексте — барабан 0…9, который прокручивается до своей цифры
+ * (старшие — один оборот, младшие — два-три и дольше). Остальной текст — как был. Возвращает остановку
+ */
+function odometer(node: Text, delay: number): () => void {
+  const wrap = document.createElement('span');
+  wrap.className = 'odo-txt';
+  const text = node.data;
+  let at = 0;
+  for (const m of text.matchAll(NUM)) {
+    wrap.append(text.slice(at, m.index));
+    // Число целиком на одной строке: между барабанами строка не переносится
+    const num = document.createElement('span');
+    num.className = 'odo-num';
+    const digits = [...m[0]].filter((c) => /\d/.test(c)).length;
+    let pos = 0;
+    for (const c of m[0]) {
+      if (!/\d/.test(c)) { num.append(c); continue; }
+      // От правого края: 0 — младшая цифра
+      const right = digits - 1 - pos++;
+      const turns = right === 0 ? 3 : right === 1 ? 2 : 1;
+      const rows = turns * 10 + Number(c) + 1;
+      const col = document.createElement('span');
+      col.className = 'odo-col';
+      col.textContent = Array.from({ length: rows }, (_v, i) => i % 10).join('\n');
+      col.style.setProperty('--y', `${(-100 * (rows - 1)) / rows}%`);
+      col.style.setProperty('--odo-ms', `${1100 + 260 * (digits - 1 - right)}ms`);
+      col.style.setProperty('--odo-d', `${delay + 120}ms`);
+      const drum = document.createElement('span');
+      drum.className = 'odo';
+      drum.dataset.d = c;
+      drum.append(col);
+      num.append(drum);
+    }
+    wrap.append(num);
+    at = m.index! + m[0].length;
+  }
+  wrap.append(text.slice(at));
+  node.replaceWith(wrap);
+  return () => { if (wrap.isConnected) wrap.replaceWith(node); };
 }

@@ -1,0 +1,46 @@
+/* ---------- бегущая строка ---------- */
+/* Края тают в фон слайда; дорожка — две одинаковые половины, сдвиг на половину незаметен */
+.marquee {
+  position: relative; display: flex; align-items: center; overflow: hidden; min-height: calc(var(--mq-size) * 1.7);
+  font-size: var(--mq-size); line-height: 1.2;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+}
+.mq-track { display: flex; flex: none; width: max-content; }
+.slide.on .mq-track { animation: mq-run var(--mq-dur, 30s) linear infinite; }
+.marquee.mq-right .mq-track { animation-direction: reverse; }
+/* Правка: наведение останавливает строку — пункт можно выделить и поправить */
+body.editing .marquee:hover .mq-track { animation-play-state: paused; }
+.mq-run { display: flex; flex: none; align-items: center; }
+.mq-item { flex: none; padding: 0 .55em; white-space: nowrap; font-family: var(--font-head, var(--font)); font-weight: 750; letter-spacing: -.01em; color: var(--tx); }
+.mq-item img { display: block; height: 1.4em; width: auto; max-width: 8em; object-fit: contain; }
+.mq-dot { flex: none; width: .26em; height: .26em; border-radius: 50%; background: var(--ac); }
+.marquee.mq-chips .mq-item { margin-right: .5em; padding: .32em .9em; border: 1px solid var(--bd); border-radius: 999px; background: var(--surf); font-weight: 650; font-size: .82em; }
+.marquee.mq-chips .mq-item:nth-child(3n + 2) { border-color: transparent; background: var(--ac); color: var(--on-ac, #fff); }
+.marquee.mq-outline .mq-item { padding: 0 .4em; text-transform: uppercase; }
+.marquee.mq-outline .mq-item.mq-ol { color: transparent; -webkit-text-stroke: max(1px, .03em) var(--ac); }
+@keyframes mq-run { to { transform: translateX(-50%); } }
+
+/* ---------- текст по окружности ---------- */
+/* Круг вписан в рамку объекта: cqmin — доля её меньшей стороны */
+.circ-text { position: relative; width: 100%; height: 100%; min-height: 140px; container-type: size; display: grid; place-items: center; }
+.slide > .free.auto-h > .circ-text { height: auto; aspect-ratio: 1; }
+.ct-disc { position: relative; width: 100cqmin; height: 100cqmin; border-radius: 50%; }
+.ct-text { position: absolute; inset: 0; }
+.slide.on .circ-text.ct-turn .ct-text { animation: ct-spin 26s linear infinite; }
+.slide.on .circ-text.ct-turn.ct-rev .ct-text { animation-direction: reverse; }
+/* Каждая буква — на луче от центра: верх луча на окружности, поворот по номеру */
+.ct-text span {
+  position: absolute; left: 50%; top: 3cqmin; height: calc(47cqmin); width: 1em; margin-left: -.5em; transform-origin: 50% 100%;
+  rotate: calc(var(--i) * 360deg / var(--n)); text-align: center; font: 750 var(--ct-fs)/1 var(--font-head, var(--font));
+  text-transform: uppercase; color: var(--ac);
+}
+.ct-core { position: absolute; inset: 24cqmin; display: grid; place-items: center; border-radius: 50%; background: var(--surf); border: 1px solid var(--bd); color: var(--tx); text-align: center; overflow: hidden; }
+.ct-core b { font: 800 16cqmin/1 var(--font-head, var(--font)); }
+.ct-logo { display: grid; place-items: center; width: 60%; height: 60%; }
+.ct-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+/* Печать: залитый круг в цветах темы, буквы и центр — цветом на акценте */
+.circ-text.ct-badge .ct-disc { background: linear-gradient(135deg, var(--ac), var(--ac2, var(--ac))); }
+.circ-text.ct-badge .ct-text span { color: var(--on-ac, #fff); }
+.circ-text.ct-badge .ct-core { background: none; border: 1.5px dashed color-mix(in srgb, var(--on-ac, #fff) 55%, transparent); color: var(--on-ac, #fff); }
+@keyframes ct-spin { to { rotate: 360deg; } }

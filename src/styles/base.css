@@ -407,6 +407,11 @@ body.editing .slide.on > .free.act { cursor: inherit; translate: none; filter: n
 .stage .slide.on:not(.static) > .free[data-emph="mark"]:not(.trig-play) .md-m { animation: mk-hold 1s both; }
 .stage .slide.on:not(.static) > .free[data-emph="mark"].trig-play .md-m { animation: mk-draw2 .75s cubic-bezier(.4, 0, .2, 1) both; }
 @keyframes mk-draw { from { background-size: 0 100%; } }
+/* Одометр (count: odometer, engine/count-up): цифра — барабан высотой в строку, прокручивается до своей */
+.odo-num { white-space: nowrap; }
+.odo { display: inline-block; height: 1lh; overflow: hidden; vertical-align: top; font-variant-numeric: tabular-nums; }
+.odo-col { display: block; white-space: pre; text-align: center; animation: odo-run var(--odo-ms, 1.2s) cubic-bezier(.16, .84, .3, 1) var(--odo-d, 0ms) both; }
+@keyframes odo-run { from { transform: translateY(0); } to { transform: translateY(var(--y)); } }
 @keyframes mk-draw2 { from { background-size: 0 100%; } }
 @keyframes mk-hold { from, to { background-size: 0 100%; } }
 

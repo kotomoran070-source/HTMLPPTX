@@ -54,6 +54,12 @@ export function actsOf(b: Block, k: number): Act[] {
   return out;
 }
 
+/** Появления при открытии слайда по порядку (по задержке, при равной — по номеру объекта); animated — у объекта есть эффект */
+export function timedOrder(free: Block[], animated: (b: Block) => boolean): number[] {
+  return free.map((b, k) => ({ b, k })).filter(({ b }) => b.click !== true && animated(b))
+    .sort((x, y) => (Number(x.b.delay) || 0) - (Number(y.b.delay) || 0) || x.k - y.k).map(({ k }) => k);
+}
+
 /** Очередь щелчков слайда: по месту, при равенстве — появление, выделение, исчезновение, потом по номеру объекта */
 export function clickActs(free: Block[]): Act[] {
   return free.flatMap((b, k) => actsOf(b, k)).sort((a, b) => a.key - b.key || RANK[a.kind] - RANK[b.kind] || a.k - b.k);

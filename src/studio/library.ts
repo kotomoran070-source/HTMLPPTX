@@ -136,6 +136,8 @@ export const LIBRARY: Category[] = [
       { name: 'Список', w: 480, pw: 240, make: () => ({ type: 'list', items: ['Первый пункт', 'Второй пункт', 'Третий пункт'] }) },
       { name: 'Цитата', w: 760, pw: 520, make: () => ({ type: 'quote', text: 'Хорошая презентация отвечает на вопрос раньше, чем его зададут.', author: 'Имя Фамилия', role: 'должность' }) },
       { name: 'Чипы', w: 560, pw: 300, make: () => ({ type: 'chips', items: ['Важное*', 'Метка', 'Ещё метка'] }) },
+      { name: 'Бегущая строка', w: 1280, pw: 520, make: () => ({ type: 'marquee', items: ['Быстрее', 'Понятнее', 'Красивее', 'Без лишнего'] }) },
+      { name: 'Текст по кругу', w: 240, h: 240, pw: 200, make: () => ({ type: 'ring', text: 'Slideria • презентации', center: '★' }) },
       {
         name: 'Заголовок с градиентом', w: 900, pw: 520, make: () => kit(
           `<div>${T(0, `${HEAD};display:inline-block;font-size:68px;font-weight:800;line-height:1.05`, 'kt-grad')}<svg class="kt-swoosh" viewBox="0 0 400 22" preserveAspectRatio="none"><path pathLength="1" d="M4 16C110 3 290 3 396 12"/></svg>${T(1, 'margin-top:16px;font-size:24px;line-height:1.4;color:var(--tx2)')}</div>`,

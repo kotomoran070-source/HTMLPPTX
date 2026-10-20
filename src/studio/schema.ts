@@ -348,6 +348,26 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'role', label: 'Должность или источник', type: 'text' },
     ],
   },
+  marquee: {
+    about: 'Строка без конца прокручивается вбок; наведение в правке её останавливает. Путь к картинке (./assets/logo.png) вместо фразы — логотип.',
+    fields: [
+      { k: 'items', label: 'Пункты', type: 'strings', item: 'Пункт' },
+      { k: 'variant', label: 'Вид', type: 'select', options: [['', 'Текст через точку'], ['chips', 'Плашки'], ['outline', 'Через один контуром']] },
+      { k: 'speed', label: 'Скорость', type: 'select', options: [['slow', 'Медленно'], ['', 'Обычно'], ['fast', 'Быстро']] },
+      { k: 'dir', label: 'Направление', type: 'select', options: [['', 'Влево'], ['right', 'Вправо']] },
+      { k: 'size', label: 'Размер текста, px', type: 'number', min: 12, max: 160, placeholder: '28' },
+    ],
+  },
+  ring: {
+    about: 'Буквы равномерно по кругу, размер подбирается по длине текста. Разделитель «•» на стыке ставится сам.',
+    fields: [
+      { k: 'text', label: 'Текст по кругу', type: 'text', placeholder: 'Slideria • презентации' },
+      { k: 'center', label: 'В центре', type: 'text', placeholder: '★' },
+      { k: 'logo', label: 'В центре — логотип презентации', type: 'bool' },
+      { k: 'variant', label: 'Вид', type: 'select', options: [['', 'Буквы акцентом'], ['badge', 'Печать: залитый круг']] },
+      { k: 'spin', label: 'Вращение', type: 'select', options: [['', 'По часовой'], ['reverse', 'Против часовой'], ['none', 'Без вращения']] },
+    ],
+  },
   // Схемы и списки из пунктов «заголовок + текст» (components/schemes)
   cycle: {
     fields: [{ k: 'center', label: 'В центре кольца', type: 'text' }, points('Этапы', 'Этап')],

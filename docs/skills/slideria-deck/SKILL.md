@@ -51,7 +51,7 @@ slides:
 | Что показать | Блок и поля |
 |---|---|
 | Раскладка | `grid` (`columns: 3` или `1.6fr 1fr`, `items`), `stack` (`items`) |
-| Текст | `text` (`text`, `size: lead`), `list` (`items`), `chips` (`items`, звёздочка в конце — выделить), `quote` (`text`, `author`, `role`) |
+| Текст | `text` (`text`, `size: lead`), `list` (`items`), `chips` (`items`, звёздочка в конце — выделить), `quote` (`text`, `author`, `role`), `marquee` — бегущая строка (`items`, `variant: chips/outline`, `speed`, `dir: right`), `ring` — текст по кругу (`text`, `center`, `variant: badge`, `spin`) |
 | Карточка | `card` (`title`, `text`, `body` — блоки внутри), `kv` (`rows: {Ключ: значение}`) |
 | Число | `stat` (`value`, `label`, `delta: +12 %`, `note`) |
 | Графики | `line-chart` (`values`, `start`, `end`, `unit`), `bars` (`values`, `labels`), `donut` / `hbars` / `columns` / `lines` (`values`, `labels`) |
@@ -85,7 +85,7 @@ slides:
 
 - **Морф**: следующий слайд — копия с теми же `id` у объектов на других местах и `transition: morph`. Объекты перелетают, меняют размер, цвет и поворот (`angle`).
 - **Своя анимация**: `@keyframes` в поле `css` в начале файла, у объекта — `style: "animation: имя 4s infinite"`.
-- **Число набегает**: `count: true` у объекта с числом.
+- **Число набегает**: `count: true` у объекта с числом (отсчёт от нуля), `count: odometer` — цифры крутятся барабаном.
 
 ## Правила
 

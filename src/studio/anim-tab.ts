@@ -95,7 +95,8 @@ export function animPanelHtml(): string {
     <label class="st-rfield" title="Через сколько секунд после открытия слайда объект появляется"><span>Задержка</span><input type="number" id="st-fx-delay" min="0" max="20" step="0.1" aria-label="Задержка появления, секунды"><span>с</span></label>
     <div class="st-rrow">${btn('anim.earlier', 'up', 'Раньше', { title: 'Появляться раньше' })}${btn('anim.later', 'up', 'Позже', { title: 'Появляться позже' })}</div>
   </div><div class="st-rstack"><button type="button" class="st-rb st-chk" data-cmd="anim.click" title="При показе объект ждёт щелчка («Далее», пробел, пульт) и появляется своим эффектом; по порядку — как в «Порядке»"><i class="st-box">${icon('check')}</i><span>Ждёт щелчка</span></button>${btn('anim.seq', 'sparkle', 'По очереди', { title: 'Выделенные объекты (или все на слайде) появляются по очереди: сверху вниз, слева направо' })}${btn('anim.order', 'list', 'Порядок', { menu: true, title: 'Все анимированные объекты слайда по порядку' })}</div>`)}
-  ${group('Текст', `<div class="st-rstack"><button type="button" class="st-rb st-chk" data-cmd="anim.count" title="Числа в тексте объекта при появлении отсчитываются от нуля до своего значения"><i class="st-box">${icon('check')}</i><span>Число набегает</span></button>${btn('anim.textfx', 'sparkle', 'Эффект текста', { menu: true, title: 'Глитч, неон, блик, волна, печатная машинка, расшифровка — у надписи или текста фигуры' })}</div>`)}
+  ${group('Текст', `<div class="st-rstack"><span class="st-rsplit"><button type="button" class="st-rb st-chk" data-cmd="anim.count" title="Числа в тексте объекта при появлении отсчитываются от нуля до своего значения"><i class="st-box">${icon('check')}</i><span>Число набегает</span></button>`
+    + `<button type="button" class="st-rb st-split-m" data-cmd="anim.count-menu" data-pal="skip" title="Как набегает: отсчёт или одометр" aria-label="Как набегает число" aria-haspopup="menu"><b class="st-caret"></b></button></span>${btn('anim.textfx', 'sparkle', 'Эффект текста', { menu: true, title: 'Глитч, неон, блик, волна, печатная машинка, расшифровка — у надписи или текста фигуры' })}</div>`)}
 </div>`;
 }
 
@@ -392,19 +393,39 @@ export function animCommands(h: AnimHost): Record<string, Command> {
     enabled: () => freeSel().length > 0,
     active: () => { const p = freeSel(); return p.length > 0 && p.every((x) => (getAt(deck, x) as Block).click === true); },
   };
+  /** Вид «Число набегает»: true — отсчёт от нуля, odometer — цифры барабаном */
+  const COUNTS: [true | 'odometer' | '', string][] = [[true, 'Отсчёт от нуля'], ['odometer', 'Одометр: цифры барабаном'], ['', 'Не набегает']];
+  const isCount = (b: Block) => b.count === true || b.count === 'odometer';
+  const setCount = (v: true | 'odometer' | '') => {
+    h.editor.commit((d) => counted().forEach((p) => {
+      const b = getAt(d, p) as Block;
+      if (v) b.count = v;
+      else delete b.count;
+    }), { rebuild: true });
+    if (v) requestAnimationFrame(() => h.preview());
+  };
+  cmds['anim.count-menu'] = {
+    run: () => {
+      const cur = new Set(counted().map((p) => (getAt(deck, p) as Block).count ?? ''));
+      showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="anim.count-menu"]')!, COUNTS.map(([v, l]) => ({
+        label: l, checked: cur.size === 1 && cur.has(v), run: () => setCount(v),
+      })));
+    },
+    enabled: () => counted().length > 0,
+  };
   cmds['anim.count'] = {
     run: () => {
       const paths = counted();
-      const on = !paths.every((p) => (getAt(deck, p) as Block).count === true);
+      const on = !paths.every((p) => isCount(getAt(deck, p) as Block));
       h.editor.commit((d) => paths.forEach((p) => {
         const b = getAt(d, p) as Block;
-        if (on) b.count = true;
-        else delete b.count;
+        if (!on) delete b.count;
+        else if (!isCount(b)) b.count = true;
       }), { rebuild: true });
       if (on) requestAnimationFrame(() => h.preview());
     },
     enabled: () => counted().length > 0,
-    active: () => { const p = counted(); return p.length > 0 && p.every((x) => (getAt(deck, x) as Block).count === true); },
+    active: () => { const p = counted(); return p.length > 0 && p.every((x) => isCount(getAt(deck, x) as Block)); },
   };
   // Эффект текста: у выделенных надписей и фигур с текстом; наведение на пункт — примерка на слайде
   const texty = () => h.selPaths().filter((p) => {
@@ -482,7 +503,7 @@ function orderPopover(h: AnimHost, act: { move(dir: 1 | -1, at: number): void; p
       if (first) num = 0;
       const label = snippet(o.b as Record<string, unknown>);
       return (both && first ? `<p class="st-aorder-head">${o.click ? 'По щелчку' : 'При открытии слайда'}</p>` : '')
-        + `<div class="st-aorder-row${picked.has(rowId(o)) ? ' sel' : ''}" draggable="true" data-n="${n}" data-kind="${o.kind}">
+        + `<div class="st-aorder-row${picked.has(rowId(o)) ? ' sel' : ''}" draggable="true" data-n="${n}" data-kind="${o.kind}" data-group="${o.click ? 'click' : 'open'}">
   <button type="button" class="st-aorder-pick" data-pick="${n}" title="Выделить (Ctrl — добавить, Shift — подряд); перетащите, чтобы переставить"><b>${++num}</b><span><em>${esc(blockName(o.b.type))}</em>${label ? ` · ${esc(label)}` : ''}</span><small>${esc(itemName(h.deck, o))} · ${o.click ? 'по щелчку' : o.key ? sec(o.key) : 'сразу'}</small></button>
   <button type="button" class="st-aorder-mv" data-mv="${n}" data-dir="-1" title="Раньше" aria-label="Раньше"${swapped(on, n, -1) ? '' : ' disabled'}>${icon('up')}</button>
   <button type="button" class="st-aorder-mv" data-mv="${n}" data-dir="1" title="Позже" aria-label="Позже"${swapped(on, n, 1) ? '' : ' disabled'}>${icon('up')}</button>
@@ -538,6 +559,20 @@ ${still ? `<p class="st-aorder-still">Без анимации, видны сра
   }, 'st-aorder-pop');
   // Ctrl и Shift при щелчке: обработчик меню получает только кнопку
   el.addEventListener('click', (e) => { mods = { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey }; }, true);
+  // Строка под мышью — её объект на слайде обведён
+  let hl: HTMLElement | null = null;
+  const light = (k: number | null) => {
+    hl?.classList.remove('st-aorder-hl');
+    hl = k === null ? null : document.querySelector<HTMLElement>(`#st-canvas .slide.on > .free[data-free='${JSON.stringify(['slides', h.index(), 'free', k])}']`);
+    hl?.classList.add('st-aorder-hl');
+  };
+  el.addEventListener('pointerover', (e) => {
+    const r = (e.target as Element).closest?.<HTMLElement>('.st-aorder-row');
+    light(r ? list()[Number(r.dataset.n)]?.k ?? null : null);
+  });
+  el.addEventListener('pointerleave', () => light(null));
+  // Окно закрыли — обводка гаснет
+  new MutationObserver((_m, mo) => { if (!el.isConnected) { light(null); mo.disconnect(); } }).observe(document.body, { childList: true });
 
   // ---------- перетаскивание ----------
   const rows = () => [...el.querySelectorAll<HTMLElement>('.st-aorder-row')];

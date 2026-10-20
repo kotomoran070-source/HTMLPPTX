@@ -12,7 +12,7 @@ export const H = 720;
 
 /** Прожектор: раскладки (выделяется то, что в них) и украшения — не выделяются */
 const SPOT_LAYOUT = new Set(['grid', 'stack', 'spacer']);
-const SPOT_DECOR = new Set(['shape', 'backdrop', 'spacer', 'qr']);
+const SPOT_DECOR = new Set(['shape', 'backdrop', 'spacer', 'qr', 'marquee', 'ring']);
 const SPOT_LINE = new Set(['text', 'note', 'chips']);
 
 export const reducedMotion = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -37,6 +37,12 @@ export class DeckView {
     this.stage.className = 'stage canvas';
     container.appendChild(this.stage);
     this.build(deck);
+    // Включилась правка (и когда слайд показали раньше, чем студия её отметила): текст по словам, барабаны
+    // одометра и эффекты текста — назад как в данных, иначе правка застанет их разобранными
+    new MutationObserver(() => {
+      const b = document.body.classList;
+      if (b.contains('editing') && !b.contains('st-previewing')) this.stopTextEffects();
+    }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
     // Ползунок на слайде сдвинули: пересчитать связанные с ним блоки
     this.stage.addEventListener('slideria:var', (e) => {
       const d = (e as CustomEvent<{ name: string; value: number }>).detail;

@@ -1440,3 +1440,62 @@ test('«Порядок»: строки перетаскиваются, выде�
   await expect(rows.nth(4).locator('.st-aorder-mv:disabled')).toHaveCount(2);
   expect(errors).toEqual([]);
 });
+
+test('номера анимаций на слайде: появление при открытии — только на «Анимации», шаг по щелчку — всегда; «Число набегает» — отсчёт или одометр', async ({ page }) => {
+  const errors = watchErrors(page);
+  // Слайд с одометром в правке — текст целый, без барабанов
+  await page.goto('/?deck=fx&studio#5');
+  const obj = (k: number) => page.locator('#st-canvas .slide.on > .free').nth(k);
+  await expect(obj(0)).toContainText('42');
+  await expect(page.locator('#st-canvas .odo')).toHaveCount(0);
+  const badge = (k: number, pseudo: string) => obj(k).evaluate((e, p) => getComputedStyle(e, p).content, pseudo);
+  await page.locator('[data-tab="home"]').first().click();
+  expect(await badge(1, '::after')).toBe('none');
+  expect(await badge(3, '::before')).toBe('"1 · 2✕"');
+  await page.locator('[data-tab="anim"]').first().click();
+  expect([await badge(0, '::after'), await badge(1, '::after'), await badge(2, '::after'), await badge(3, '::after')]).toEqual(['none', '"1"', '"2"', 'none']);
+  // Строка «Порядка» под мышью — её объект обведён
+  await page.locator('[data-cmd="anim.order"]').click();
+  await page.locator('.st-aorder-row').nth(1).hover();
+  await expect(obj(2)).toHaveClass(/st-aorder-hl/);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.st-aorder-hl')).toHaveCount(0);
+  // Вид «Числа набегает» — стрелкой рядом с галочкой
+  const line = () => readDeck('fx').split('\n').find((l) => l.includes('Итого')) ?? '';
+  const tb = (await obj(0).boundingBox())!;
+  await page.mouse.click(tb.x + 20, tb.y + 10);
+  await page.locator('[data-tab="anim"]').first().click();
+  await expect(page.locator('[data-cmd="anim.count"]')).toHaveClass(/\bactive\b/);
+  await page.locator('[data-cmd="anim.count-menu"]').click();
+  await page.locator('.st-menu button', { hasText: 'Отсчёт от нуля' }).click();
+  expect(await waitFile(() => /count: true/.test(line()))).toBe(true);
+  await page.keyboard.press('Escape');
+  await page.locator('[data-cmd="anim.count-menu"]').click();
+  await page.locator('.st-menu button', { hasText: 'Одометр' }).click();
+  expect(await waitFile(() => /count: odometer/.test(line()))).toBe(true);
+  // Галочка снимает, вид не спрашивает
+  await page.keyboard.press('Escape');
+  await page.locator('[data-cmd="anim.count"]').click();
+  expect(await waitFile(() => !line().includes('count'))).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('«Вставка» → «Блоки»: бегущая строка и текст по кругу встают на слайд, свойства меняют вид', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=fx&studio#4');
+  await expect(page.locator('#st-canvas .slide.on > .free')).toHaveCount(5);
+  await page.locator('[data-tab="insert"]').first().click();
+  await page.locator('.st-rpanel:not([hidden]) [data-cmd="insert.blocks"]').first().click();
+  await page.locator('.st-lib-item', { hasText: 'Бегущая строка' }).click();
+  await expect(page.locator('#st-canvas .slide.on > .free')).toHaveCount(6);
+  await expect(page.locator('#st-canvas .slide.on > .free').last().locator('.marquee')).toHaveCount(1);
+  // Свойства: вид «Плашки» и направление вправо
+  await page.locator('#st-props select[data-p*="variant"]').selectOption('chips');
+  await expect(page.locator('#st-canvas .slide.on > .free').last().locator('.marquee.mq-chips')).toHaveCount(1);
+  expect(await waitFile(() => /type: marquee/.test(readDeck('fx')) && /variant: chips/.test(readDeck('fx')))).toBe(true);
+  await page.locator('[data-tab="insert"]').first().click();
+  await page.locator('.st-rpanel:not([hidden]) [data-cmd="insert.blocks"]').first().click();
+  await page.locator('.st-lib-item', { hasText: 'Текст по кругу' }).click();
+  await expect(page.locator('#st-canvas .slide.on > .free').last().locator('.circ-text .ct-text span')).not.toHaveCount(0);
+  expect(errors).toEqual([]);
+});

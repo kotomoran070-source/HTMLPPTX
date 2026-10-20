@@ -296,6 +296,7 @@ slides:
 // fx — анимация объектов: появления (по словам, раскрытия, прорисовка), маркер, наплыв камеры;
 // на втором слайде очередь щелчков: A появляется (1) и исчезает (3), B появляется (2) и светится (4), C исчезает (5);
 // на третьем — «Порядок»: D, E, F появляются сами (0, 1 и 2 с), G — по щелчку и исчезает следующим щелчком
+// на четвёртом — бегущие строки, текст по кругу (акцентом и печатью) и одометр; на пятом — одометр и номера анимаций для студии (H, I — сами, J — по щелчку)
 fs.mkdirSync(path.join(dir, 'fx', 'assets'), { recursive: true });
 fs.copyFileSync(path.join(dir, 'tpl', 'assets', 'ui-studio.webp'), path.join(dir, 'fx', 'assets', 'shot.webp'));
 fs.writeFileSync(path.join(dir, 'fx', 'deck.yaml'), `title: Анимация объектов
@@ -319,5 +320,18 @@ slides:
       - {type: shape, kind: round, text: "E", enter: fade, delay: 1000, place: {x: 380, y: 120, w: 240, h: 100}}
       - {type: shape, kind: round, text: "F", enter: pop, delay: 2000, place: {x: 680, y: 120, w: 240, h: 100}}
       - {type: shape, kind: round, text: "G", enter: pop, click: true, exit: fade, place: {x: 380, y: 400, w: 240, h: 100}}
+  - template: canvas
+    free:
+      - {type: marquee, items: [Быстрее, Понятнее, "", Красивее], place: {x: 0, y: 40, w: 1280}}
+      - {type: marquee, items: [Метка, Ещё метка, Третья], variant: chips, dir: right, speed: fast, size: 22, place: {x: 0, y: 150, w: 1280}}
+      - {type: ring, text: "Slideria • презентации", center: "★", place: {x: 80, y: 280, w: 300, h: 300}}
+      - {type: ring, text: "Новинка • 2025", variant: badge, spin: reverse, place: {x: 440, y: 300, w: 260, h: 260}}
+      - {type: text, text: "Выручка 17 234 ₽", count: odometer, styles: {text: {size: 54, weight: 800}}, place: {x: 760, y: 360, w: 480}}
+  - template: canvas
+    free:
+      - {type: text, text: "Итого 42 шт.", count: odometer, styles: {text: {size: 54, weight: 800}}, place: {x: 200, y: 60, w: 800}}
+      - {type: shape, kind: round, text: "H", enter: rise, place: {x: 200, y: 300, w: 240, h: 100}}
+      - {type: shape, kind: round, text: "I", enter: fade, delay: 500, place: {x: 520, y: 300, w: 240, h: 100}}
+      - {type: shape, kind: round, text: "J", enter: pop, click: true, exit: fade, place: {x: 840, y: 300, w: 240, h: 100}}
 `);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

@@ -587,3 +587,49 @@ test('очередь щелчков: появление, исчезновени�
   await expect(page.locator('#ct')).toHaveText(/^2 из/);
   expect(errors).toEqual([]);
 });
+
+test('бегущая строка, текст по кругу и одометр: строка едет без конца, круг вращается, цифры барабаном встают на число', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=fx#4');
+  const mq = page.locator('.slide.on .marquee').first();
+  // Две одинаковые половины дорожки, каждая шире строки; вторая — только для глаз
+  expect(await mq.evaluate((m) => {
+    const runs = [...m.querySelectorAll<HTMLElement>('.mq-run')];
+    return { runs: runs.length, hidden: runs[1].getAttribute('aria-hidden'), same: runs[0].textContent === runs[1].textContent, wide: runs[0].offsetWidth > m.clientWidth };
+  })).toEqual({ runs: 2, hidden: 'true', same: true, wide: true });
+  // Пустой пункт пропущен, правка на месте — у пунктов первой копии, с их номерами в данных
+  const edits = await mq.locator('[data-edit]').evaluateAll((els) => els.map((e) => JSON.parse(e.getAttribute('data-edit')!).at(-1)));
+  expect(edits).toEqual([0, 1, 3]);
+  // Едет: сдвиг дорожки меняется; вторая строка — в другую сторону
+  const shift = (k: number) => page.locator('.slide.on .mq-track').nth(k).evaluate((e) => new DOMMatrix(getComputedStyle(e).transform).m41);
+  const a = await shift(0);
+  await page.waitForTimeout(400);
+  expect(await shift(0)).toBeLessThan(a);
+  expect(await page.locator('.slide.on .mq-track').nth(1).evaluate((e) => getComputedStyle(e).animationDirection)).toBe('reverse');
+  // Текст по кругу: буква на каждый знак, разделитель на стыке добавлен; круг вращается
+  const ring = page.locator('.slide.on .circ-text').first();
+  expect(await ring.locator('.ct-text span').count()).toBe([...'Slideria • презентации • '].length);
+  await expect(ring.locator('.ct-text')).toHaveAttribute('aria-label', 'Slideria • презентации');
+  const turn = () => ring.locator('.ct-text').evaluate((e) => getComputedStyle(e).rotate);
+  const r0 = await turn();
+  await page.waitForTimeout(300);
+  expect(await turn()).not.toBe(r0);
+  // Одометр: барабан на каждую цифру, число не переносится; в конце — то же число
+  const odo = page.locator('.slide.on .odo');
+  await expect(odo).toHaveCount(5);
+  expect(await odo.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.d).join(''))).toBe('17234');
+  await page.waitForFunction(() => [...document.querySelectorAll('.slide.on .odo-col')].every((c) => c.getAnimations().every((x) => x.playState === 'finished')), null, { timeout: 6000 });
+  const drums = await odo.evaluateAll((els) => els.map((e) => {
+    const box = e.getBoundingClientRect();
+    const col = e.firstElementChild!.getBoundingClientRect();
+    // Видна последняя строка барабана — сама цифра
+    return Math.abs(col.bottom - box.bottom) < 1.5 && e.firstElementChild!.textContent!.trim().endsWith((e as HTMLElement).dataset.d!);
+  }));
+  expect(drums).toEqual([true, true, true, true, true]);
+  expect(await page.locator('.slide.on .odo-num').evaluate((e) => getComputedStyle(e).whiteSpace)).toBe('nowrap');
+  // Ушли со слайда — текст снова как в данных
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.locator('.odo')).toHaveCount(0);
+  expect(await page.locator('.slide').nth(3).locator('p[data-type="text"]').textContent()).toMatch(/^Выручка\s17\s234\s₽$/);
+  expect(errors).toEqual([]);
+});

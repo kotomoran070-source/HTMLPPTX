@@ -1536,6 +1536,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
   let tab = 'home';
   function setTab(name: string): void {
     tab = name;
+    // На «Анимации» у объектов видны номера и появлений при открытии слайда (studio.css)
+    document.body.classList.toggle('st-tab-anim', name === 'anim');
     document.querySelectorAll<HTMLElement>('.st-tabs [data-tab]').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
     document.querySelectorAll<HTMLElement>('.st-rpanel').forEach((p) => { p.hidden = p.dataset.panel !== name; });
     fitRibbon();

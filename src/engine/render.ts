@@ -4,7 +4,7 @@ import {
   type Component, type MountCtx, type RenderCtx,
 } from './component';
 import { TEXT_FX } from './text-fx';
-import { clickActs, EMPHASIS_IDS, ENTER_IDS, EXIT_IDS, type ActKind } from './anim';
+import { clickActs, EMPHASIS_IDS, ENTER_IDS, EXIT_IDS, timedOrder, type ActKind } from './anim';
 import { asArray, esc } from './html';
 import { slideAccent } from './accent';
 import { backdropLook, slideBackdrop } from './backdrops';
@@ -137,11 +137,14 @@ export class Renderer {
     const list = Array.isArray(slide.free) ? (slide.free as Block[]) : [];
     // Очередь щелчков (engine/anim): появления по щелчку, выделения и исчезновения — по «Далее», по одному
     const acts = clickActs(list);
+    // Свой эффект: имя анимации и её время — из deck.effects
+    const ownOf = (b: Block) => (!FX.has(String(b.enter)) && typeof b.enter === 'string' && /^ufx-[\w-]+$/.test(b.enter) ? this.deck.effects?.[b.enter] : undefined);
+    // Появления при открытии слайда по порядку — их номера студия показывает на вкладке «Анимация»
+    const timed = timedOrder(list, (b) => FX.has(String(b.enter)) || !!ownOf(b));
     return list.map((b, i) => {
       const pl = placeOf(b);
       const p = pathOf(b);
-      // Свой эффект: имя анимации и её время — из deck.effects
-      const own = !FX.has(String(b.enter)) && typeof b.enter === 'string' && /^ufx-[\w-]+$/.test(b.enter) ? this.deck.effects?.[b.enter] : undefined;
+      const own = ownOf(b);
       const fx = FX.has(String(b.enter)) ? ` fx fx-${b.enter}` : own ? ' fx fx-own' : '';
       const delay = fx && Number(b.delay) > 0 ? `--fx-d:${Math.min(20000, Math.round(Number(b.delay)))}ms;` : '';
       const ownCss = own
@@ -165,15 +168,18 @@ export class Renderer {
       const click = mine.length
         ? ` data-acts="${mine.map((a) => `${a.kind}:${a.n}`).join(' ')}"${rank >= 0 ? ` data-click="${rank}"` : ''} data-click-n="${mine.map((a) => `${a.n + 1}${ACT_MARK[a.kind]}`).join(' · ')}"`
         : '';
+      // Номер появления при открытии; у самого края слайда номера встают внутрь объекта (за краем их не видно)
+      const tn = timed.indexOf(i);
+      const badge = (tn >= 0 ? ` data-anim-n="${tn + 1}"` : '') + ((tn >= 0 || mine.length) && pl.x < 40 ? ' data-nb-in' : '');
       const emph = (EMPHASIS_IDS.has(String(b.emphasis)) ? ` data-emph="${b.emphasis}"` : '')
         + (EXIT_IDS.has(String(b.exit)) ? ` data-exit="${b.exit}"` : '')
-        // Числа в тексте отсчитываются от нуля при появлении (engine/count-up)
-        + (b.count === true ? ' data-count' : '')
+        // Числа в тексте отсчитываются от нуля при появлении или крутятся барабаном (engine/count-up)
+        + (b.count === true ? ' data-count' : b.count === 'odometer' ? ' data-count="odometer"' : '')
         // Эффект текста: глитч, неон, блик, волна, машинка, расшифровка (engine/text-fx)
         + (typeof b.textFx === 'string' && (TEXT_FX as readonly string[]).includes(b.textFx) ? ` data-tfx="${b.textFx}"` : '');
       // Текст по середине или по низу рамки (valign: middle, bottom)
       const va = b.type === 'text' && pl.h ? (b.valign === 'middle' ? ' va-m' : b.valign === 'bottom' ? ' va-b' : '') : '';
-      return `<div class="free${pl.h ? (grow ? ' grow-h' : '') : ' auto-h'}${va}${fx}${lock}${act ? ' act' : ''}${hid}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''}${obj}${emph}${hid ? ' data-hid' : ''}${click}${act ? ` data-action="${esc(act)}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
+      return `<div class="free${pl.h ? (grow ? ' grow-h' : '') : ' auto-h'}${va}${fx}${lock}${act ? ' act' : ''}${hid}"${p ? ` data-free="${esc(JSON.stringify(p))}"` : ''}${obj}${emph}${hid ? ' data-hid' : ''}${click}${badge}${act ? ` data-action="${esc(act)}"` : ''} style="${css}">${this.block(b, ctx)}</div>`;
     }).join('');
   }
 
