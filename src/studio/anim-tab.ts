@@ -45,6 +45,7 @@ export const EFFECTS: [string, string][] = [['', 'Без анимации'], ...
 const FX_HINT: Record<string, string> = {
   words: 'По словам: у надписи и текста фигуры', letters: 'По буквам: у надписи и текста фигуры',
   draw: 'Прорисовка: у линий, стрелок и фигур — контур проводится, заливка следом',
+  ripple: 'Из ряби: объект проступает из волн, рябь утихает',
 };
 
 const SPEEDS: [number, string][] = [[300, 'Быстро · 0,3 с'], [600, 'Обычно · 0,6 с'], [1000, 'Медленно · 1 с'], [1600, 'Очень медленно · 1,6 с']];
@@ -102,7 +103,7 @@ export function animPanelHtml(): string {
     <div class="st-rrow">${btn('anim.earlier', 'up', 'Раньше', { title: 'Появляться раньше' })}${btn('anim.later', 'up', 'Позже', { title: 'Появляться позже' })}</div>
   </div><div class="st-rstack"><button type="button" class="st-rb st-chk" data-cmd="anim.click" title="При показе объект ждёт щелчка («Далее», пробел, пульт) и появляется своим эффектом; по порядку — как в «Порядке»"><i class="st-box">${icon('check')}</i><span>Ждёт щелчка</span></button>${btn('anim.seq', 'sparkle', 'По очереди', { title: 'Выделенные объекты (или все на слайде) появляются по очереди: сверху вниз, слева направо' })}${btn('anim.order', 'list', 'Порядок', { title: 'Область анимации: все анимации слайда по порядку — панелью сбоку от слайда' })}</div>`)}
   ${group('Текст', `<div class="st-rstack"><span class="st-rsplit"><button type="button" class="st-rb st-chk" data-cmd="anim.count" title="Числа в тексте объекта при появлении отсчитываются от нуля до своего значения"><i class="st-box">${icon('check')}</i><span>Число набегает</span></button>`
-    + `<button type="button" class="st-rb st-split-m" data-cmd="anim.count-menu" data-pal="skip" title="Как набегает: отсчёт или одометр" aria-label="Как набегает число" aria-haspopup="menu"><b class="st-caret"></b></button></span>${btn('anim.textfx', 'sparkle', 'Эффект текста', { menu: true, title: 'Глитч, неон, блик, волна, печатная машинка, расшифровка — у надписи или текста фигуры' })}`
+    + `<button type="button" class="st-rb st-split-m" data-cmd="anim.count-menu" data-pal="skip" title="Как набегает: отсчёт или одометр" aria-label="Как набегает число" aria-haspopup="menu"><b class="st-caret"></b></button></span>${btn('anim.textfx', 'sparkle', 'Эффект текста', { menu: true, title: 'Глитч, неон, блик, волна, печатная машинка, расшифровка, жидкость — у надписи или текста фигуры' })}`
     + `<button type="button" class="st-rb st-chk" data-cmd="anim.byitem" title="Список или пункты «- » в тексте появляются по одному; с «Ждёт щелчка» — по щелчку на пункт"><i class="st-box">${icon('check')}</i><span>По пунктам</span></button></div>`)}
 </div>`;
 }

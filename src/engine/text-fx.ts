@@ -1,14 +1,15 @@
 /**
  * Эффекты текста у свободного объекта (поле textFx): глитч, неон, блик, волна, печатная машинка,
- * расшифровка. Неон — только CSS (base.css), он виден и в правке. Остальным нужен текст по буквам или
+ * расшифровка, жидкость (буквы колышутся, как отражение в воде: SVG-фильтр feTurbulence + feDisplacementMap). Неон — только CSS (base.css), он виден и в правке. Остальным нужен текст по буквам или
  * его копия (data-text для слоёв глитча и блика) — это делается здесь, только при показе и в «Просмотре»,
  * как у «Числа набегает»: в правке текст не трогается. Остановка возвращает разметку как была.
  */
-export const TEXT_FX = ['glitch', 'neon', 'shine', 'wave', 'type', 'scramble'] as const;
+export const TEXT_FX = ['glitch', 'neon', 'shine', 'wave', 'type', 'scramble', 'liquid'] as const;
 export type TextFx = typeof TEXT_FX[number];
 
 export const TEXT_FX_NAMES: Record<TextFx, string> = {
   glitch: 'Глитч', neon: 'Неон', shine: 'Блик', wave: 'Волна', type: 'Печатная машинка', scramble: 'Расшифровка',
+  liquid: 'Жидкость',
 };
 
 /** Элемент с текстом объекта: надпись или текст фигуры */
@@ -68,6 +69,13 @@ function run(objs: HTMLElement[], wait?: number): () => void {
     const fx = obj.dataset.tfx as TextFx;
     const delay = wait ?? (parseFloat(getComputedStyle(obj).getPropertyValue('--fx-d')) || 0) + 250;
     for (const el of obj.querySelectorAll<HTMLElement>(HOLDER)) {
+      if (fx === 'liquid') {
+        liquidFilter();
+        const was = el.style.filter;
+        el.style.filter = `url(#${LIQUID})`;
+        undo.push(() => { el.style.filter = was; });
+        continue;
+      }
       if (fx === 'glitch' || fx === 'shine') {
         // Копия текста для слоёв ::before / ::after
         el.dataset.text = el.innerText;
@@ -95,6 +103,24 @@ function run(objs: HTMLElement[], wait?: number): () => void {
     cancelAnimationFrame(raf);
     undo.forEach((f) => f());
   };
+}
+
+const LIQUID = 'sl-liquid';
+/**
+ * Фильтр «Жидкости» — один на документ: шум медленно меняет частоту (SMIL), смещение небольшое,
+ * в пикселях слайда — колышется одинаково при любом масштабе показа
+ */
+function liquidFilter(): void {
+  if (document.getElementById(LIQUID)) return;
+  const box = document.createElement('div');
+  box.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">`
+    + `<filter id="${LIQUID}" x="-3%" y="-10%" width="106%" height="120%" color-interpolation-filters="sRGB">`
+    + '<feTurbulence type="fractalNoise" baseFrequency="0.004 0.035" numOctaves="1" seed="7">'
+    + '<animate attributeName="baseFrequency" dur="7s" values="0.004 0.035;0.006 0.026;0.003 0.042;0.004 0.035" repeatCount="indefinite"/>'
+    // Только по горизонтали (зелёный — середина): строки текста плывут, буквы не крошатся
+    + '</feTurbulence><feColorMatrix values="1 0 0 0 0  0 0 0 0 .5  0 0 0 0 0  0 0 0 0 1" result="n"/>'
+    + '<feDisplacementMap in="SourceGraphic" in2="n" scale="12" xChannelSelector="R" yChannelSelector="G"/></filter></svg>';
+  document.body.append(box.firstElementChild!);
 }
 
 /** Печатная машинка: буквы по одной, за последней — мигающий курсор, потом гаснет */

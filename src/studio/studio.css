@@ -882,6 +882,7 @@ body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
 .st-atile:hover .st-fxv[data-v="pop"] b { animation-name: af-pop; animation-timing-function: cubic-bezier(.34, 1.56, .64, 1); }
 /* Новые появления: из фокуса, раскрытия, по словам и буквам (три плашки по очереди), прорисовка контуром */
 .st-fxv[data-v="blur"] b { filter: blur(2px); opacity: .6; }
+.st-fxv[data-v="ripple"] b { opacity: .6; transform: skewX(-12deg) scaleY(.8); }
 .st-fxv[data-v="wipe"] b { clip-path: inset(0 45% 0 0); }
 .st-fxv[data-v="circle"] b { clip-path: circle(35% at 50% 50%); }
 .st-fxv[data-v="diamond"] b { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
@@ -908,6 +909,7 @@ body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
 .st-fxv[data-v="letters"] b { width: 3px; top: 8px; height: 8px; }
 .st-fxv[data-v="draw"] b { background: none; box-shadow: inset 0 0 0 1.5px var(--ac); }
 .st-atile:hover .st-fxv[data-v="blur"] b { animation-name: af-blur; }
+.st-atile:hover .st-fxv[data-v="ripple"] b { animation-name: af-ripple; animation-timing-function: linear; }
 .st-atile:hover .st-fxv[data-v="wipe"] b { animation-name: af-wipe; }
 .st-atile:hover .st-fxv[data-v="circle"] b { animation-name: af-circle; }
 .st-atile:hover .st-fxv[data-v="diamond"] b { animation-name: af-diamond; }
@@ -916,6 +918,10 @@ body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
 .st-atile:hover .st-fxv:is([data-v="words"], [data-v="letters"]) b:nth-of-type(2) { animation-delay: .12s; }
 .st-atile:hover .st-fxv:is([data-v="words"], [data-v="letters"]) b:nth-of-type(3) { animation-delay: .24s; }
 .st-atile:hover .st-fxv[data-v="draw"] b { animation-name: af-draw; }
+@keyframes af-ripple {
+  0%, 15% { opacity: 0; transform: skewX(-18deg) scaleY(.7); } 25% { opacity: .5; transform: skewX(14deg) scaleY(1.12); }
+  35% { opacity: .8; transform: skewX(-8deg) scaleY(.94); } 45% { transform: skewX(4deg); } 55%, 100% { opacity: 1; transform: none; }
+}
 @keyframes af-blur { 0%, 15% { filter: blur(4px); opacity: 0; } 55%, 100% { filter: none; opacity: 1; } }
 @keyframes af-wipe { 0%, 15% { clip-path: inset(0 100% 0 0); } 55%, 100% { clip-path: inset(0); } }
 @keyframes af-circle { 0%, 15% { clip-path: circle(0% at 50% 50%); } 55%, 100% { clip-path: circle(75% at 50% 50%); } }

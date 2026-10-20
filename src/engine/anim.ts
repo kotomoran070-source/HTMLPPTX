@@ -19,7 +19,7 @@ export type Pair = readonly [id: string, name: string];
 export const ENTER: readonly Pair[] = [
   ['appear', 'Возникновение'], ['fade', 'Проявление'], ['rise', 'Всплытие снизу'], ['drop', 'Появление сверху'], ['left', 'Выезд слева'],
   ['right', 'Выезд справа'], ['scale', 'Увеличение'], ['pop', 'Пружина'], ['swivel', 'Вращение'], ['growturn', 'Увеличение с поворотом'],
-  ['blur', 'Из фокуса'], ['wipe', 'Шторка'], ['split', 'Панорама'], ['circle', 'Круг'], ['diamond', 'Ромб'], ['wheel', 'Часовая стрелка'],
+  ['blur', 'Из фокуса'], ['ripple', 'Из ряби'], ['wipe', 'Шторка'], ['split', 'Панорама'], ['circle', 'Круг'], ['diamond', 'Ромб'], ['wheel', 'Часовая стрелка'],
   ['mask', 'Проявление маской'], ['words', 'По словам'], ['letters', 'По буквам'], ['draw', 'Прорисовка'],
 ];
 export const ENTER_IDS: ReadonlySet<string> = new Set(ENTER.map(([k]) => k));

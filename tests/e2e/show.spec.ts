@@ -663,6 +663,57 @@ test('вместе с предыдущим, по пунктам, стойкое 
   expect(errors).toEqual([]);
 });
 
+test('«Жидкость» и «Из ряби»: SVG-фильтр у текста и на время появления (с задержкой и по щелчку); щелчок проигрывает появление заново', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=fx#8');
+  const slide = page.locator('.slide.on');
+  // Жидкость: у текста — общий фильтр с шумом и смещением
+  const liquid = slide.locator('.free[data-tfx="liquid"] p[data-type="text"]');
+  await expect.poll(() => liquid.evaluate((e) => e.style.filter)).toBe('url("#sl-liquid")');
+  await expect(page.locator('#sl-liquid feDisplacementMap')).toHaveCount(1);
+  // Сама: рябь на время появления, потом фильтра нет
+  const timed = slide.locator('.free.fx-ripple').first();
+  await expect.poll(() => timed.evaluate((e) => e.style.filter)).toMatch(/^url\("#sl-ripple-\d+"\)$/);
+  await expect.poll(() => timed.evaluate((e) => e.style.filter)).toBe('');
+  // По щелчку: до щелчка скрыт и без фильтра; после — проступает заново (прозрачность растёт) с рябью
+  const click = slide.locator('.free.fx-ripple').nth(1);
+  await expect(click).toHaveClass(/click-hid/);
+  expect(await click.evaluate((e) => e.style.filter)).toBe('');
+  await page.keyboard.press('ArrowRight');
+  const frames = await click.evaluate((o) => new Promise<{ op: number; f: string; sc: number }[]>((res) => {
+    const out: { op: number; f: string; sc: number }[] = [];
+    const t0 = performance.now();
+    const tick = () => {
+      const id = /#([\w-]+)/.exec(o.style.filter)?.[1];
+      const dm = id ? document.getElementById(id)?.querySelector('feDisplacementMap') as SVGFEDisplacementMapElement | null : null;
+      out.push({ op: Number(getComputedStyle(o).opacity), f: o.style.filter, sc: dm?.scale.animVal ?? -1 });
+      if (performance.now() - t0 < 400) requestAnimationFrame(tick); else res(out);
+    };
+    requestAnimationFrame(tick);
+  }));
+  expect(frames[0].op).toBeLessThan(0.5);
+  expect(frames.some((f) => /sl-ripple/.test(f.f) && f.sc > 10)).toBe(true);
+  // Смещение утихает
+  const sc = frames.filter((f) => f.sc >= 0).map((f) => f.sc);
+  expect(sc[sc.length - 1]).toBeLessThan(Math.max(...sc));
+  await expect.poll(() => click.evaluate((e) => e.style.filter)).toBe('');
+  // Ушли со слайда — фильтров нет
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.locator('#ct')).toHaveText(/^7 из/);
+  await expect(page.locator('[id^="sl-ripple-"]')).toHaveCount(0);
+  expect(await page.locator('.slide').nth(7).locator('.free[data-tfx="liquid"] p[data-type="text"]').evaluate((e) => e.style.filter)).toBe('');
+  // Появление по щелчку и у обычного эффекта начинается заново (а не уже отыгранным при открытии слайда)
+  await page.goto('/?deck=fx#3');
+  await page.reload();
+  const g = page.locator('.slide.on > .free').nth(3);
+  await expect(g).toHaveClass(/click-hid/);
+  await page.keyboard.press('ArrowRight');
+  await expect(g).toHaveClass(/trig-in/);
+  expect(await g.evaluate((e) => e.getAnimations().some((a) => (a as CSSAnimation).animationName === 'fx-pop' && a.playState === 'running'))).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('переходы: открывание, шторка сверху, панорама, круг, часы, вспышка, сдвиг снизу — в середине перехода; потом слайд целиком', async ({ page }) => {
   const errors = watchErrors(page);
   // Середина перехода к слайду i (с i-1): что у сцены, входящего и уходящего слайда

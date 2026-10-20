@@ -72,7 +72,7 @@ slides:
       text: Заголовок {g:duo|слайда}
       styles: {text: {size: 42, weight: 800}}
       place: {x: 48, y: 48, w: 1000}        # без h — высота по тексту
-      enter: rise                           # appear, fade, rise, drop, left, right, scale, pop, swivel, growturn, blur, wipe, split, circle, diamond, wheel, mask, words, letters (текст), draw (линии, фигуры)
+      enter: rise                           # appear, fade, rise, drop, left, right, scale, pop, swivel, growturn, blur, ripple, wipe, split, circle, diamond, wheel, mask, words, letters (текст), draw (линии, фигуры)
       delay: 150                            # мс
     - type: shape
       kind: round                           # round, rect, pill, ellipse, line, arrow
@@ -80,7 +80,7 @@ slides:
       text: "**Главное**\nодна мысль"
       place: {x: 48, y: 180, w: 360, h: 200}
       click: true                           # появится по «Далее»; clickWith: true — на том же щелчке, что предыдущий шаг
-      textFx: shine                         # glitch, neon, shine, wave, type, scramble
+      textFx: shine                         # glitch, neon, shine, wave, type, scramble, liquid
 ```
 
 - **Переход к слайду**: `transition` у слайда — `fade`, `push`, `cover`, `uncover`, `wipe`, `split`, `circle`, `clock`, `flash`, `zoom`, `blur`, объёмные `cube`, `flip`, `gallery`, `switch`, `doors`, `fall`, `morph`, `none`; `transitionDir: right|left|top|bottom` (у push, cover, uncover, wipe, cube, flip, gallery, switch), `transitionMs`.

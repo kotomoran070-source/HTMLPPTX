@@ -1,6 +1,7 @@
 /**
  * Появления, которым мало CSS: «По словам» и «По буквам» (текст делится на части .fx-w с номером --i)
- * и «Прорисовка» (контуры SVG получают pathLength=1, у фигуры — обводка-подсказка поверх). Как и эффекты
+ * «Прорисовка» (контуры SVG получают pathLength=1, у фигуры — обводка-подсказка поверх) и «Из ряби»
+ * (на время появления — SVG-фильтр, рябь утихает). Как и эффекты
  * текста, это делается только при показе и в «Просмотре»; остановка возвращает разметку как была.
  * Подготовленный объект получает класс fx-ready: дальше двигают только его части (base.css)
  */
@@ -43,7 +44,63 @@ export function enterFx(slide: HTMLElement | undefined): () => void {
     obj.classList.add('fx-ready');
     undo.push(() => { obj.classList.remove('fx-ready'); off(); });
   });
+  slide.querySelectorAll<HTMLElement>(':scope > .free.fx-ripple').forEach((obj) => undo.push(ripple(obj)));
   return () => undo.forEach((f) => f());
+}
+
+let rippleN = 0;
+/**
+ * Из ряби: объект проступает (fx-ripple, base.css), а пока идёт появление — свой фильтр: рябь шума
+ * (feTurbulence) сдвигает его (feDisplacementMap), смещение утихает до нуля за время появления.
+ * Начало ловится по animationstart — так и с задержкой, и по щелчку; по концу фильтр снимается
+ */
+function ripple(obj: HTMLElement): () => void {
+  const id = `sl-ripple-${++rippleN}`;
+  const svg = document.createElementNS(SVG, 'svg');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('style', 'position:absolute;width:0;height:0;overflow:hidden');
+  svg.innerHTML = `<filter id="${id}" y="-10%" height="120%" color-interpolation-filters="sRGB">`
+    + '<feTurbulence type="fractalNoise" baseFrequency="0.003 0.05" numOctaves="1" seed="4">'
+    + '<animate attributeName="baseFrequency" values="0.003 0.05;0.002 0.02" dur="1s" begin="indefinite" fill="freeze"/></feTurbulence>'
+    // Волны идут поперёк: смещение только по горизонтали (зелёный — середина)
+    + '<feColorMatrix values="1 0 0 0 0  0 0 0 0 .5  0 0 0 0 0  0 0 0 0 1" result="n"/>'
+    + '<feDisplacementMap in="SourceGraphic" in2="n" scale="0" xChannelSelector="R" yChannelSelector="G">'
+    + '<animate attributeName="scale" values="90;0" dur="1s" begin="indefinite" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines=".35 .2 .45 1"/>'
+    + '</feDisplacementMap></filter>';
+  document.body.append(svg);
+  const filter = svg.querySelector('filter')!;
+  const anims = [...svg.querySelectorAll('animate')];
+  const was = obj.style.filter;
+  const off = () => { obj.style.filter = was; };
+  const start = (e: AnimationEvent) => {
+    if (e.target !== obj || e.animationName !== 'fx-ripple') return;
+    off();
+    const cs = getComputedStyle(obj);
+    const dur = cs.animationDuration.split(',')[0].trim();
+    const base = cs.filter;
+    // Сила ряби — по ширине объекта (не больше 90 px), поле фильтра — с запасом на сдвиг: края не срезаются
+    const w = Math.max(1, obj.offsetWidth);
+    const amp = Math.round(Math.min(90, Math.max(24, w * 0.22)));
+    filter.setAttribute('x', `${(-(amp / 2 + 6) / w) * 100}%`);
+    filter.setAttribute('width', `${(1 + (amp + 12) / w) * 100}%`);
+    anims[1].setAttribute('values', `${amp};0`);
+    obj.style.filter = `url(#${id})${base && base !== 'none' ? ` ${base}` : ''}`;
+    for (const a of anims) {
+      a.setAttribute('dur', dur);
+      a.beginElement();
+    }
+  };
+  const end = (e: AnimationEvent) => { if (e.target === obj && e.animationName === 'fx-ripple') off(); };
+  obj.addEventListener('animationstart', start);
+  obj.addEventListener('animationend', end);
+  obj.addEventListener('animationcancel', end);
+  return () => {
+    obj.removeEventListener('animationstart', start);
+    obj.removeEventListener('animationend', end);
+    obj.removeEventListener('animationcancel', end);
+    off();
+    svg.remove();
+  };
 }
 
 /** Текст элемента — по словам или по буквам в span.fx-w; пробелы остаются текстом. Возвращает следующий номер */

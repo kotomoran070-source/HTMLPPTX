@@ -300,7 +300,8 @@ slides:
 // на третьем — «Порядок»: D, E, F появляются сами (0, 1 и 2 с), G — по щелчку и исчезает следующим щелчком
 // на четвёртом — бегущие строки, текст по кругу (акцентом и печатью) и одометр; на пятом — одометр и номера анимаций для студии (H, I — сами, J — по щелчку);
 // на шестом — K и L на одном щелчке, список по пунктам, N приглушается вместе с уходом O, пункты текста по очереди, часовая стрелка;
-// на седьмом — P, Q и список для правки в студии («вместе с предыдущим», по пунктам, длительность)
+// на седьмом — P, Q и список для правки в студии («вместе с предыдущим», по пунктам, длительность);
+// на восьмом — «Жидкость» у заголовка и «Из ряби» (само, с задержкой, и по щелчку)
 fs.mkdirSync(path.join(dir, 'fx', 'assets'), { recursive: true });
 fs.copyFileSync(path.join(dir, 'tpl', 'assets', 'ui-studio.webp'), path.join(dir, 'fx', 'assets', 'shot.webp'));
 fs.writeFileSync(path.join(dir, 'fx', 'deck.yaml'), `title: Анимация объектов
@@ -351,6 +352,11 @@ slides:
       - {type: shape, kind: round, text: "P", click: true, place: {x: 60, y: 60, w: 200, h: 90}}
       - {type: shape, kind: round, text: "Q", click: true, delay: 300, place: {x: 300, y: 60, w: 200, h: 90}}
       - {type: list, items: [Альфа, Бета, Гамма], place: {x: 60, y: 200, w: 400}}
+  - template: canvas
+    free:
+      - {type: text, text: "Жидкий заголовок", textFx: liquid, styles: {text: {size: 72, weight: 800}}, place: {x: 80, y: 60, w: 1100}}
+      - {type: shape, kind: round, fill: accent, text: "Рябь", enter: ripple, delay: 300, place: {x: 80, y: 300, w: 420, h: 220}}
+      - {type: shape, kind: round, text: "Рябь щелчком", enter: ripple, click: true, place: {x: 600, y: 300, w: 420, h: 220}}
 `);
 // trs — переходы: открывание, шторка сверху, панорама, круг, часы, вспышка, сдвиг снизу
 const trSlide = (n, extra) => `  - template: canvas\n    bg: "${['#FDE68A', '#BFDBFE', '#BBF7D0', '#FBCFE8'][n % 4]}"\n${extra}    free:\n      - {type: text, text: "Слайд ${n + 1}", styles: {text: {size: 80, weight: 800}}, place: {x: 80, y: 260, w: 1100}}\n`;

@@ -95,11 +95,16 @@ test('«Эффект текста»: при наведении примеряе�
   }
   await page.locator('.st-menu button', { hasText: 'Печатная машинка' }).hover();
   await expect.poll(() => tile.locator('.tfx-c').count()).toBeGreaterThan(0);
+  // Жидкость — SVG-фильтр у текста
+  const filter = () => tile.locator(':is(p[data-type="text"], .shape-t)').first().evaluate((e) => e.style.filter);
+  await page.locator('.st-menu button', { hasText: 'Жидкость' }).hover();
+  await expect.poll(filter).toBe('url("#sl-liquid")');
   // Ушли из меню — примерка снята, в правке объект снова без анимаций
   await page.keyboard.press('Escape');
   await expect(page.locator('.st-menu')).toHaveCount(0);
   await expect(tile).not.toHaveClass(/tfx-try/);
   await expect.poll(anims).toEqual([]);
+  expect(await filter()).toBe('');
   expect(errors).toEqual([]);
 });
 
