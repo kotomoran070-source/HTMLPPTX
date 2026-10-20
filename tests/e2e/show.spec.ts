@@ -662,3 +662,48 @@ test('вместе с предыдущим, по пунктам, стойкое 
   expect(await page.locator('.slide.on > .free').nth(6).evaluate((e) => getComputedStyle(e).animationDuration)).toBe('1.44s');
   expect(errors).toEqual([]);
 });
+
+test('переходы: открывание, шторка сверху, панорама, круг, часы, вспышка, сдвиг снизу — в середине перехода; потом слайд целиком', async ({ page }) => {
+  const errors = watchErrors(page);
+  // Середина перехода к слайду i (с i-1): что у сцены, входящего и уходящего слайда
+  const mid = async (i: number) => {
+    await page.goto(`/?deck=trs#${i - 1}`);
+    await expect(page.locator('#ct')).toHaveText(new RegExp(`^${i - 1} из`));
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(200);
+    return page.evaluate(() => {
+      const stage = document.querySelector<HTMLElement>('.stage')!;
+      const on = stage.querySelector<HTMLElement>(':scope > .slide.on')!;
+      const out = stage.querySelector<HTMLElement>(':scope > .slide.out');
+      const cs = getComputedStyle(on);
+      return {
+        tr: stage.dataset.tr, trd: stage.dataset.trd ?? '', clip: cs.clipPath, mask: cs.maskImage || cs.webkitMaskImage,
+        onT: new DOMMatrix(cs.transform === 'none' ? undefined : cs.transform), outZ: out ? getComputedStyle(out).zIndex : '',
+        outT: out ? new DOMMatrix(getComputedStyle(out).transform === 'none' ? undefined : getComputedStyle(out).transform) : null,
+        flash: getComputedStyle(stage, '::after').animationName,
+      };
+    });
+  };
+  const uncover = await mid(2);
+  expect(uncover.tr).toBe('uncover');
+  expect(uncover.outZ).toBe('2');
+  expect(uncover.outT!.m41).toBeLessThan(-50); // старый уезжает влево
+  const wipe = await mid(3);
+  expect([wipe.tr, wipe.trd]).toEqual(['wipe', 'top']);
+  expect(wipe.clip).toMatch(/^inset\(0(px|%)? 0(px|%)? [1-9]/); // открыт верх, снизу ещё закрыто
+  expect((await mid(4)).clip).toMatch(/^inset\(0(px|%)? [1-9]/);
+  expect((await mid(5)).clip).toMatch(/^circle\(/);
+  expect((await mid(6)).mask).toMatch(/conic-gradient/);
+  expect((await mid(7)).flash).toBe('tr-flash');
+  const push = await mid(8);
+  expect(push.trd).toBe('bottom');
+  expect(push.onT.m42).toBeGreaterThan(50); // новый идёт снизу
+  expect(push.outT!.m42).toBeLessThan(-50);
+  // Переход кончился — у сцены нет перехода и направления, слайд целиком
+  await page.waitForTimeout(700);
+  expect(await page.evaluate(() => {
+    const stage = document.querySelector<HTMLElement>('.stage')!;
+    return `${stage.dataset.tr ?? ''}|${stage.dataset.trd ?? ''}|${getComputedStyle(stage.querySelector(':scope > .slide.on')!).clipPath}`;
+  })).toBe('||none');
+  expect(errors).toEqual([]);
+});

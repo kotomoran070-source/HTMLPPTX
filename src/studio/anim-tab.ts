@@ -5,6 +5,7 @@ import { blockName } from '../engine/editor/block-edit';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
 import { TEXT_FX, TEXT_FX_NAMES, textFxPreview } from '../engine/text-fx';
+import { TR_DIR_DEFAULT, TR_DIRS, trDir, TRANSITIONS } from '../engine/transitions';
 import type { Block, Deck } from '../types';
 import { bindRail, railNav } from './backdrop-pick';
 import { snippet } from './code-tree';
@@ -36,10 +37,7 @@ export interface AnimHost {
   select(indexes: number[]): void;
 }
 
-export const TRANSITIONS: [string, string][] = [
-  ['', 'Стандартный'], ['none', 'Без перехода'], ['fade', 'Растворение'], ['push', 'Сдвиг'],
-  ['cover', 'Наплыв'], ['zoom', 'Приближение'], ['blur', 'Размытие'], ['morph', 'Морф'],
-];
+export { TRANSITIONS };
 
 export const EFFECTS: [string, string][] = [['', 'Без анимации'], ...ENTER.map(([k, n]) => [k, n] as [string, string])];
 
@@ -70,8 +68,12 @@ const btn = (cmd: string, ic: string, label: string, o: { big?: boolean; menu?: 
 
 /** Образец перехода: два маленьких слайда, «старый» и «новый» */
 /** Подсказки к переходам, которые не понять по названию */
-const TR_HINT: Record<string, string> = { morph: 'Морф: одинаковые объекты (с тем же именем или текстом) перелетают на новое место' };
-const trTile = ([v, l]: [string, string]) =>
+const TR_HINT: Record<string, string> = {
+  morph: 'Морф: одинаковые объекты (с тем же именем или текстом) перелетают на новое место',
+  uncover: 'Открывание: старый слайд уезжает, под ним — новый', split: 'Панорама: новый слайд раскрывается от середины к краям',
+  clock: 'Часы: новый слайд открывается по кругу, как стрелка', flash: 'Вспышка: экран вспыхивает, на пике — новый слайд',
+};
+const trTile = ([v, l]: readonly [string, string]) =>
   `<button type="button" class="st-atile" data-cmd="tr.set.${v || 'default'}" title="${esc(TR_HINT[v] ?? l)}" aria-label="${esc(l)}"><i class="st-trv" data-v="${v || 'default'}"><b></b><b></b></i></button>`;
 
 /** Образец появления: плашка въезжает на «слайд» (по словам и буквам — три плашки по очереди) */
@@ -85,8 +87,8 @@ export function animTabHtml(): string {
 export function animPanelHtml(): string {
   return `<div class="st-rpanel" data-panel="anim" hidden>
   ${group('Просмотр', btn('show.preview', 'play', 'Просмотр', { big: true, title: 'Проиграть переход и появление объектов на этом слайде' }))}
-  ${group('Переход к слайду', `<div class="st-agallery">${TRANSITIONS.map(trTile).join('')}</div>`
-    + `<div class="st-rstack">${btn('tr.speed', 'reset', 'Длительность', { menu: true, title: 'Сколько длится переход' })}${btn('tr.all', 'layers', 'Ко всем слайдам', { title: 'Такой же переход у всех слайдов' })}</div>`, 'st-tr-label')}
+  ${group('Переход к слайду', `<div class="st-bdpick st-trpick">${railNav().join(`<div class="st-agallery st-fxgal st-trgal">${TRANSITIONS.map(trTile).join('')}</div>`)}</div>`
+    + `<div class="st-rstack">${btn('tr.speed', 'reset', 'Длительность', { menu: true, title: 'Сколько длится переход' })}${btn('tr.dir', 'move', 'Направление', { menu: true, title: 'Откуда идёт переход: у Сдвига, Наплыва, Открывания и Шторки' })}${btn('tr.all', 'layers', 'Ко всем слайдам', { title: 'Такой же переход у всех слайдов' })}</div>`, 'st-tr-label')}
   ${group('Анимация объекта', `<div class="st-bdpick st-fxpick">${railNav().join(`<div class="st-agallery st-fxgal">${EFFECTS.map(fxTile).join('')}</div>`)}</div>`
     + `<div class="st-rstack">${btn('fx.emph', 'sparkle', 'Выделение', { menu: true, title: 'По щелчку объект пульсирует, качается, светится… — шагом в очереди щелчков' })}`
     + btn('fx.exit', 'close', 'Исчезновение', { menu: true, title: 'По щелчку объект уходит со слайда — шагом в очереди щелчков' })
@@ -225,11 +227,14 @@ export function animCommands(h: AnimHost): Record<string, Command> {
       const s = slide();
       const v = s?.transition;
       const ms = s?.transitionMs;
+      const dir = s?.transitionDir;
       ed.commit((d) => d.slides.forEach((x) => {
         if (v) x.transition = v;
         else delete x.transition;
         if (ms) x.transitionMs = ms;
         else delete x.transitionMs;
+        if (dir) x.transitionDir = dir;
+        else delete x.transitionDir;
       }), { rebuild: true });
       ed.toast('Переход применён ко всем слайдам', 1600);
     },
@@ -250,6 +255,26 @@ export function animCommands(h: AnimHost): Record<string, Command> {
       })));
     },
     enabled: () => !!slide()?.transition && slide()?.transition !== 'none',
+  };
+  // Направление перехода: у Сдвига, Наплыва, Открывания и Шторки; сразу показать
+  cmds['tr.dir'] = {
+    run: () => {
+      const s = slide();
+      const cur = trDir(s?.transition, s?.transitionDir);
+      showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="tr.dir"]')!, TR_DIRS.map(([v, l]) => ({
+        label: l,
+        checked: cur === v,
+        run: () => {
+          const i = h.index();
+          ed.commit((d) => {
+            if (v === TR_DIR_DEFAULT[String(d.slides[i].transition)]) delete d.slides[i].transitionDir;
+            else d.slides[i].transitionDir = v;
+          }, { rebuild: true });
+          requestAnimationFrame(() => h.preview());
+        },
+      })));
+    },
+    enabled: () => !!trDir(slide()?.transition, ''),
   };
 
   // ---------- появление объекта ----------
@@ -872,14 +897,32 @@ function minePopover(h: AnimHost, apply: (e: UserEffect) => void): void {
 }
 
 /** Подписи групп и поле задержки — по текущему слайду и выделению */
+/** Выбранная плитка ленты — на виду, если ушла за край (после смены слайда или выделения) */
+function revealActive(strip: HTMLElement): void {
+  const cur = strip.querySelector<HTMLElement>('.active');
+  if (!cur) return;
+  const s = strip.getBoundingClientRect();
+  const c = cur.getBoundingClientRect();
+  if (c.left >= s.left && c.right <= s.right) return;
+  strip.scrollLeft += c.left - s.left - (s.width - c.width) / 2;
+}
+let shownFor = '';
+
 export function syncAnimTab(h: AnimHost): void {
   pane?.update();
+  const key = `${h.index()}|${h.selPaths().map((p) => p.join('.')).join(',')}`;
+  if (key !== shownFor) {
+    shownFor = key;
+    // Кнопкам «выбрано» проставляется после этой функции — через кадр
+    requestAnimationFrame(() => document.querySelectorAll<HTMLElement>('.st-ribbon .st-fxgal').forEach(revealActive));
+  }
   const s = h.deck.slides[h.index()];
   const trLabel = document.getElementById('st-tr-label');
   if (trLabel) {
     const name = TRANSITIONS.find(([v]) => v === (s?.transition ?? ''))?.[1] ?? 'Стандартный';
     const ms = Number(s?.transitionMs) || (s?.transition === 'morph' ? 800 : 600);
-    trLabel.textContent = `Переход: ${name}${s?.transition && s.transition !== 'none' ? ` · ${sec(ms)}` : ''}`;
+    const dir = TR_DIRS.find(([v]) => v === trDir(s?.transition, s?.transitionDir))?.[1];
+    trLabel.textContent = `Переход: ${name}${dir ? ` ${dir.toLowerCase()}` : ''}${s?.transition && s.transition !== 'none' ? ` · ${sec(ms)}` : ''}`;
   }
   const list = h.selPaths().map((p) => getAt(h.deck, p) as Block);
   const fxLabel = document.getElementById('st-fx-label');
@@ -928,9 +971,11 @@ export function bindDelayField(h: AnimHost): void {
 
 /** Лента появлений: листается вбок колесом и стрелками */
 export function bindFxGallery(): void {
-  const root = document.querySelector<HTMLElement>('.st-fxpick');
-  const strip = root?.querySelector<HTMLElement>('.st-fxgal');
-  if (root && strip) bindRail(root, strip);
+  for (const sel of ['.st-fxpick', '.st-trpick']) {
+    const root = document.querySelector<HTMLElement>(sel);
+    const strip = root?.querySelector<HTMLElement>('.st-fxgal');
+    if (root && strip) bindRail(root, strip);
+  }
 }
 
 /**

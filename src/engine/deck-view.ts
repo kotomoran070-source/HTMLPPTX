@@ -385,6 +385,11 @@ export class DeckView {
     const ms = parseFloat(getComputedStyle(tr === 'morph' && back ? prev : next).getPropertyValue('--tr-ms')) || (tr === 'morph' ? 800 : 600);
     this.stage.dataset.tr = tr;
     this.stage.dataset.dir = back ? 'back' : 'fwd';
+    // Направление и длительность — входящего слайда (назад по морфу — уходящего): их видят оба слайда и вспышка сцены
+    const own = tr === 'morph' && back ? prev : next;
+    if (own.dataset.trd) this.stage.dataset.trd = own.dataset.trd;
+    else delete this.stage.dataset.trd;
+    this.stage.style.setProperty('--tr-run', `${ms}ms`);
     prev.classList.add('out');
     if (tr === 'morph') {
       // Пришедший морфом слайд своё появление не играет и после перехода (иначе по концу полёта он дёргается)
@@ -401,6 +406,8 @@ export class DeckView {
     this.endMorph = null;
     this.stage.querySelectorAll(':scope > .slide.out').forEach((s) => s.classList.remove('out'));
     delete this.stage.dataset.tr;
+    delete this.stage.dataset.trd;
+    this.stage.style.removeProperty('--tr-run');
   }
 
   /** Вписывает сцену в прямоугольник с сохранением пропорций. */

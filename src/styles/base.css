@@ -51,7 +51,11 @@ body {
 :where(.slide) { background: var(--slide-bg, none); }
 
 /* Переходы между слайдами: data-tr у входящего слайда, уходящий — .out (deck-view.ts) */
+/* Направление (data-trd, engine/transitions): откуда идёт новый слайд — вектор (--tr-x, --tr-y); назад — обратно */
 .stage[data-dir="back"] { --tr-s: -1; }
+.stage[data-trd="left"] { --tr-x: -1; }
+.stage[data-trd="top"] { --tr-x: 0; --tr-y: -1; }
+.stage[data-trd="bottom"] { --tr-x: 0; --tr-y: 1; }
 .stage > .slide.out { display: block; z-index: 0; pointer-events: none; }
 /* На время перехода у слайда свой фон (если шаблон не задал другой), чтобы слайды не просвечивали */
 :where(.stage[data-tr] > .slide) { background: var(--slide-bg, radial-gradient(var(--bd) 1px, transparent 1px) 0 0 / 26px 26px, var(--bg)); }
@@ -81,14 +85,41 @@ body {
 .stage[data-tr="zoom"] > .slide.out { animation: tr-zoom-out var(--tr-ms, 600ms) ease both; }
 .stage .slide.on[data-tr="blur"] { animation: tr-blur-in var(--tr-ms, 600ms) ease both; }
 .stage[data-tr="blur"] > .slide.out { animation: tr-blur-out var(--tr-ms, 600ms) ease both; }
+/* Открывание: старый слайд поверх уезжает, под ним — новый, уже на месте */
+.stage .slide.on[data-tr="uncover"] { animation: none; }
+.stage[data-tr="uncover"] > .slide.out { z-index: 2; animation: tr-uncover-out var(--tr-run, 600ms) cubic-bezier(.65, 0, .35, 1) both; box-shadow: 0 0 48px rgba(15, 23, 42, .22); }
+/* Раскрытия нового слайда поверх старого: шторка, панорама от середины, круг, часы. Обрезка — только на время
+   перехода (fill: backwards), потом слайд снова целиком */
+.stage .slide.on[data-tr="wipe"] { animation: tr-wipe-in var(--tr-ms, 600ms) cubic-bezier(.65, 0, .35, 1) backwards; }
+.stage .slide.on[data-tr="split"] { animation: tr-split-in var(--tr-ms, 600ms) cubic-bezier(.65, 0, .35, 1) backwards; }
+.stage .slide.on[data-tr="circle"] { animation: tr-circle-in var(--tr-ms, 600ms) cubic-bezier(.55, 0, .3, 1) backwards; }
+.stage .slide.on[data-tr="clock"] { animation: tr-clock-in var(--tr-ms, 600ms) cubic-bezier(.45, 0, .35, 1) backwards; }
+.stage[data-tr="clock"] > .slide.on { -webkit-mask: conic-gradient(#000 var(--fx-a), transparent 0); mask: conic-gradient(#000 var(--fx-a), transparent 0); }
+/* Вспышка: сцена вспыхивает белым, на пике старый слайд сменяется новым */
+.stage .slide.on[data-tr="flash"] { animation: tr-flash-in var(--tr-ms, 600ms) linear both; }
+.stage[data-tr="flash"]::after { content: ""; position: absolute; inset: 0; z-index: 4; background: #fff; pointer-events: none; animation: tr-flash var(--tr-run, 600ms) ease both; }
 /* Объекты слайда появляются после перехода */
 .stage .slide.on[data-tr]:not([data-tr="none"]) .r { animation-delay: calc(var(--i, 0) * 90ms + 120ms + var(--tr-ms, 600ms)); }
 .stage .slide.on[data-tr]:not([data-tr="none"]):not(.static) > .free.fx { animation-delay: calc(var(--fx-d, 0ms) + var(--tr-ms, 600ms)); }
 @keyframes tr-fade { from { opacity: 0; } }
 @keyframes tr-fade-out { to { opacity: 0; } }
-@keyframes tr-push-in { from { transform: translateX(calc(100% * var(--tr-s, 1))); } }
-@keyframes tr-push-out { to { transform: translateX(calc(-100% * var(--tr-s, 1))); } }
-@keyframes tr-cover-in { from { transform: translateX(calc(100% * var(--tr-s, 1))); } }
+@keyframes tr-push-in { from { transform: translate(calc(100% * var(--tr-x, 1) * var(--tr-s, 1)), calc(100% * var(--tr-y, 0) * var(--tr-s, 1))); } }
+@keyframes tr-push-out { to { transform: translate(calc(-100% * var(--tr-x, 1) * var(--tr-s, 1)), calc(-100% * var(--tr-y, 0) * var(--tr-s, 1))); } }
+@keyframes tr-cover-in { from { transform: translate(calc(100% * var(--tr-x, 1) * var(--tr-s, 1)), calc(100% * var(--tr-y, 0) * var(--tr-s, 1))); } }
+@keyframes tr-uncover-out { to { transform: translate(calc(-100% * var(--tr-x, 1) * var(--tr-s, 1)), calc(-100% * var(--tr-y, 0) * var(--tr-s, 1))); } }
+/* Шторка со стороны направления: inset по той стороне, откуда идёт, — 0, по противоположной — 100% */
+@keyframes tr-wipe-in {
+  from {
+    clip-path: inset(calc(max(var(--tr-y, 0) * var(--tr-s, 1), 0) * 100%) calc(max(var(--tr-x, 1) * var(--tr-s, 1) * -1, 0) * 100%)
+      calc(max(var(--tr-y, 0) * var(--tr-s, 1) * -1, 0) * 100%) calc(max(var(--tr-x, 1) * var(--tr-s, 1), 0) * 100%));
+  }
+  to { clip-path: inset(0); }
+}
+@keyframes tr-split-in { from { clip-path: inset(0 50% 0 50%); } to { clip-path: inset(0); } }
+@keyframes tr-circle-in { from { clip-path: circle(0% at 50% 50%); } to { clip-path: circle(75% at 50% 50%); } }
+@keyframes tr-clock-in { from { --fx-a: 0deg; } to { --fx-a: 360deg; } }
+@keyframes tr-flash { from { opacity: 0; } 45% { opacity: .96; } to { opacity: 0; } }
+@keyframes tr-flash-in { from, 44% { opacity: 0; } 45%, to { opacity: 1; } }
 @keyframes tr-cover-out { to { transform: scale(.94); opacity: .35; } }
 @keyframes tr-zoom-in { from { transform: scale(.82); opacity: 0; } }
 @keyframes tr-zoom-out { to { transform: scale(1.1); opacity: 0; } }

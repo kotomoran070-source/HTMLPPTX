@@ -1559,3 +1559,28 @@ test('«Порядок»: вместе с предыдущим — звеном;
   expect(await waitFile(() => list().includes('emphasis: dim'))).toBe(true);
   expect(errors).toEqual([]);
 });
+
+test('переходы: галерея в два ряда со стрелками, «Направление» — у переходов с направлением, по умолчанию не пишется', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=trs&studio#3');
+  await page.locator('[data-tab="anim"]').first().click();
+  const slide = (n: number) => readDeck('trs').split('\n  - ')[n] ?? '';
+  await expect(page.locator('#st-tr-label')).toContainText('Шторка сверху');
+  // Выбранный переход — на виду в ленте
+  await expect(page.locator('.st-trgal [data-cmd="tr.set.wipe"]')).toHaveClass(/active/);
+  // Направление: снизу — пишется, слева (как по умолчанию у шторки) — убирается
+  await page.locator('[data-cmd="tr.dir"]').click();
+  await page.locator('.st-menu button', { hasText: 'Снизу' }).click();
+  expect(await waitFile(() => slide(3).includes('transitionDir: bottom'))).toBe(true);
+  await page.keyboard.press('Escape');
+  await page.locator('[data-cmd="tr.dir"]').click();
+  await page.locator('.st-menu button', { hasText: 'Слева' }).click();
+  expect(await waitFile(() => slide(3).includes('transition: wipe') && !slide(3).includes('transitionDir'))).toBe(true);
+  // Новый переход из ленты: «Часы» — без направления
+  await page.keyboard.press('Escape');
+  await page.locator('.st-trpick [data-nav="1"]').click();
+  await page.locator('[data-cmd="tr.set.clock"]').click();
+  expect(await waitFile(() => slide(3).includes('transition: clock'))).toBe(true);
+  await expect(page.locator('[data-cmd="tr.dir"]')).toBeDisabled();
+  expect(errors).toEqual([]);
+});

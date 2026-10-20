@@ -163,10 +163,12 @@ export interface SlideData {
   hidden?: boolean;
   /** Название в обзоре слайдов, если отличается от заголовка */
   label?: string;
-  /** Переход к слайду: none, fade, push, cover, zoom, blur (без поля — стандартный) */
+  /** Переход к слайду (engine/transitions): none, fade, push, cover, uncover, wipe, split, circle, clock, flash, zoom, blur, morph (без поля — стандартный) */
   transition?: string;
   /** Длительность перехода, мс (по умолчанию 600) */
   transitionMs?: number;
+  /** Откуда идёт переход (Сдвиг, Наплыв, Открывание, Шторка): right, left, top, bottom */
+  transitionDir?: string;
   /** Свои цвета слайда вместо цветов презентации: акцент, второй цвет градиента и точки между ними */
   theme?: { accent?: string; accent2?: string; accentMid?: { c: string; at: number }[] };
   /** Логотип в углу: у обычного слайда есть, пока не false; у холста — только с true */

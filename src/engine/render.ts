@@ -1,3 +1,4 @@
+import { TRANSITION_IDS, trDir } from './transitions';
 import type { Block, Deck, SlideData } from '../types';
 import {
   blockNames, getBlock, getTemplate, templateNames,
@@ -16,8 +17,8 @@ import { forceTheme } from './theme';
 import { indexPaths, pathOf } from './marks';
 import { controlRange, deriveVars, hasFormula, resolve, type ControlProps } from './formula';
 
-/** Переходы между слайдами (slide.transition); без поля — стандартное появление */
-export const TRANSITION_IDS = new Set(['none', 'fade', 'push', 'cover', 'zoom', 'blur', 'morph']);
+/** Переходы между слайдами (slide.transition, engine/transitions); без поля — стандартное появление */
+export { TRANSITION_IDS };
 
 let uidCounter = 0;
 
@@ -111,6 +112,9 @@ export class Renderer {
     if (own) attrs += ` data-accent="${own}"`;
     // Переход к слайду и его длительность
     if (typeof slide.transition === 'string' && TRANSITION_IDS.has(slide.transition)) attrs += ` data-tr="${slide.transition}"`;
+    // Откуда идёт переход (Сдвиг, Наплыв, Открывание, Шторка): сцена берёт его у входящего слайда (deck-view)
+    const dir = trDir(slide.transition, slide.transitionDir);
+    if (dir) attrs += ` data-trd="${dir}"`;
     const trMs = Number(slide.transitionMs);
     const css = [trMs > 0 ? `--tr-ms:${Math.min(3000, Math.round(trMs))}ms` : '', logoPlate(this.deck)].filter(Boolean).join(';');
     if (css) attrs += ` style="${css}"`;

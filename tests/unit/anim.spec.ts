@@ -2,6 +2,7 @@
 import { expect, test } from '@playwright/test';
 import { clickActs, partsOf, timedOrder } from '../../src/engine/anim';
 import { t } from '../../src/engine/html';
+import { trDir } from '../../src/engine/transitions';
 import type { Block } from '../../src/types';
 
 const b = (o: Record<string, unknown>): Block => ({ type: 'shape', ...o }) as Block;
@@ -50,4 +51,9 @@ test('вместе с предыдущим и по пунктам: номера 
   // По пунктам: строки списка, пункты «- » в тексте; один пункт — как обычно
   expect([partsOf(b({ type: 'list', items: [1, 2] })), partsOf(b({ text: '- раз\nтекст\n• два' })), partsOf(b({ text: 'просто' }))]).toEqual([2, 2, 0]);
   expect(clickActs([b({ type: 'list', items: ['один'], click: true, byItem: true })]).map((a) => a.kind)).toEqual(['in']);
+});
+
+test('направление перехода: своё — только у переходов с направлением; по умолчанию — справа, у шторки — слева', () => {
+  expect([trDir('push', undefined), trDir('wipe', undefined), trDir('push', 'top'), trDir('cover', 'nope'), trDir('fade', 'left'), trDir(undefined, 'left')])
+    .toEqual(['right', 'left', 'top', 'right', '', '']);
 });

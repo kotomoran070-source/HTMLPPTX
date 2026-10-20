@@ -1263,8 +1263,14 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
 
     if (find(one(slide, 'timing'), 'par')) warn('Анимации PowerPoint не переносятся — появление объектов задаётся в студии, вкладка «Анимация»');
     const tr = one(slide, 'transition');
-    const trKind = kids(tr).find((c) => c.localName !== 'extLst')?.localName;
-    const transition = trKind === 'fade' ? 'fade' : trKind === 'push' || trKind === 'cover' || trKind === 'pull' ? 'push' : trKind === 'zoom' ? 'zoom' : undefined;
+    const trEl = kids(tr).find((c) => c.localName !== 'extLst');
+    const trKind = trEl?.localName;
+    // Переходы PowerPoint → свои; pull — «Открывание», wheel — «Часы»; остальное — без перехода
+    const TR: Record<string, string> = { fade: 'fade', push: 'push', cover: 'cover', pull: 'uncover', zoom: 'zoom', wipe: 'wipe', split: 'split', circle: 'circle', wheel: 'clock', flash: 'flash' };
+    const transition = trKind ? TR[trKind] : undefined;
+    // dir — куда движется слайд: l — влево (новый идёт справа), r — вправо, u — вверх (снизу), d — вниз (сверху)
+    const trDirOf: Record<string, string> = { l: 'right', r: 'left', u: 'bottom', d: 'top' };
+    const transitionDir = trEl && ['push', 'cover', 'pull', 'wipe'].includes(trKind!) ? trDirOf[trEl.getAttribute('dir') ?? 'l'] : undefined;
     const label = (() => {
       for (const s of Array.from(slide.getElementsByTagNameNS('*', 'sp')) as El[]) {
         const ph = phOf(s);
@@ -1276,6 +1282,8 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
     if (bool(slide, 'show') === false) o.label = `${label} (скрытый в PowerPoint)`;
     if (bg) o.bg = bg;
     if (transition) o.transition = transition;
+    // Своё направление — только если не как у нас по умолчанию (Шторка — слева, остальные — справа)
+    if (transition && transitionDir && transitionDir !== (transition === 'wipe' ? 'left' : 'right')) o.transitionDir = transitionDir;
     o.free = free;
     if (notes) o.notes = notes;
     slides.push(o);
