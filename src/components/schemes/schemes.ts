@@ -322,15 +322,15 @@ defineBlock<OrbitProps>('orbit', {
 
 // ---------------- диаграмма Венна ----------------
 
-interface VennProps extends ItemsProps { center?: string }
+interface VennProps extends ItemsProps { center?: string; variant?: string }
 
 /** Проценты от размера блока: v — в диаметрах круга, всего size диаметров */
 const pc = (v: number, size: number) => round((v / size) * 100);
 
 /**
  * Диаграмма Венна: два или три круга пересекаются, общее — подписью в середине (center); четыре
- * и больше — цепочкой. Подпись круга отодвинута от пересечения. Круги сходятся при появлении,
- * под мышью круг подсвечивается.
+ * и больше — цепочкой. Подпись круга отодвинута от пересечения. Круги прозрачные (пересечения
+ * темнеют сами) или залитые (variant: filled). Сходятся при появлении, под мышью круг подсвечивается.
  */
 defineBlock<VennProps>('venn', {
   render(p) {
@@ -365,7 +365,7 @@ defineBlock<VennProps>('venn', {
         + `<div class="vn-l" style="left:${round(50 + ux * shift)}%;top:${round(50 + uy * shift)}%">${title(m)}${text(m)}</div></div>`;
     }).join('');
     const mid = pair && p.center ? `<div class="vn-mid" style="left:${pc(cx, w)}%;top:${pc(cy, h)}%"><b${ea(p, 'center')}>${t(p.center)}</b></div>` : '';
-    return `<div class="venn r${pair ? '' : ' chain'}" style="aspect-ratio:${round(w / h)} / 1;--ar:${round(w / h)};--n:${n}${p.style ? `;${p.style}` : ''}">${circles}${mid}</div>`;
+    return `<div class="venn r${pair ? '' : ' chain'}${p.variant === 'filled' ? ' filled' : ''}" style="aspect-ratio:${round(w / h)} / 1;--ar:${round(w / h)};--n:${n}${p.style ? `;${p.style}` : ''}">${circles}${mid}</div>`;
   },
 });
 
@@ -373,13 +373,15 @@ defineBlock<VennProps>('venn', {
 
 /**
  * Вложенные круги (рынок: TAM, SAM, SOM): круги друг в друге, касаются снизу, первый пункт — самый
- * большой. Заголовок — в своём полумесяце (у последнего — в середине круга), пояснение — справа,
- * к нему ведёт линия. Круги вырастают снизу по очереди; под мышью круг и его пояснение подсвечены.
+ * большой; мишень (variant: target) — те же круги по центру. Заголовок — в своей полосе (у последнего —
+ * в середине круга), пояснение — справа, к нему ведёт линия. Круги вырастают по очереди; под мышью
+ * круг и его пояснение подсвечены.
  */
-defineBlock<ItemsProps>('nested', {
+defineBlock<ItemsProps & { variant?: string }>('nested', {
   render(p) {
     const items = pts(p);
     const n = Math.max(1, items.length);
+    const target = p.variant === 'target';
     const notes = items.some((m) => m.text);
     // Ширина блока к высоте: с пояснениями круги слева, без них — по центру
     const A = notes ? 2 : 1.1;
@@ -387,20 +389,25 @@ defineBlock<ItemsProps>('nested', {
     const rings = items.map((m, k) => {
       const dk = d(k);
       const dn = k < n - 1 ? d(k + 1) : 0;
-      // Середина полосы между кругом и следующим (в долях своего круга) и половина хорды там
-      const mid = k < n - 1 ? (1 - dn / dk) / 2 : 0.5;
-      const half = k < n - 1 ? Math.sqrt(1 - (dn / dk) ** 2) / 2 : 0.5;
+      // Середина полосы над следующим кругом (в долях своего круга) и половина хорды там
+      const q = dn / dk;
+      const mid = k === n - 1 ? 0.5 : target ? (1 - q) / 4 : (1 - q) / 2;
+      const half = k === n - 1 ? 0.5 : target ? Math.sqrt(0.25 - ((1 + q) / 4) ** 2) : Math.sqrt(1 - q * q) / 2;
       const tone = n > 1 ? Math.round(14 + (k / (n - 1)) * 86) : 100;
-      // Пояснение — с 56 % ширины блока; места — в долях своего круга (у круга ширина = высота)
-      const from = round((0.5 + half) * 100);
-      const noteX = round(((0.56 * A - 0.5 + dk / 2) / dk) * 100);
+      // Пояснение — с 56 % ширины блока; у мишени пояснения — ровно по высоте блока, у кругов снизу —
+      // на высоте своей полосы. Места — в долях своего круга (у круга ширина = высота)
+      const from = 0.5 + half;
+      const noteX = (0.56 * A - 0.5 + dk / 2) / dk;
+      const noteY = target ? ((k + 0.5) / n - (1 - dk) / 2) / dk : mid;
+      const dx = noteX - 0.02 - from;
+      const dy = noteY - mid;
       const note = notes && m.text
-        ? `<i class="ns-line" style="top:${round(mid * 100)}%;left:${from}%;width:${round(noteX - from - 2)}%"></i>`
-          + `<div class="ns-note" style="top:${round(mid * 100)}%;left:${noteX}%;width:${round(((0.42 * A) / dk) * 100)}%">${text(m, 'p')}</div>`
+        ? `<i class="ns-line" style="top:${round(mid * 100)}%;left:${round(from * 100)}%;width:${round(Math.hypot(dx, dy) * 100)}%;rotate:${round((Math.atan2(dy, dx) * 180) / Math.PI)}deg"></i>`
+          + `<div class="ns-note" style="top:${round(noteY * 100)}%;left:${round(noteX * 100)}%;width:${round(((0.42 * A) / dk) * 100)}%">${text(m, 'p')}</div>`
         : '';
       return `<div class="ns-c${tone > 55 ? ' on' : ''}" style="height:${round(dk * 100)}%;left:${notes ? round((0.5 / A) * 100) : 50}%;--k:${k};--tone:${tone}%">`
         + `<div class="ns-l" style="top:${round(mid * 100)}%;width:${round(half * 2 * (k < n - 1 ? 80 : 74))}%">${title(m)}</div>${note}</div>`;
     }).join('');
-    return `<div class="nested r${notes ? ' notes' : ''}" style="aspect-ratio:${A} / 1;--ar:${A};--n:${n}${p.style ? `;${p.style}` : ''}">${rings}</div>`;
+    return `<div class="nested r${notes ? ' notes' : ''}${target ? ' target' : ''}" style="aspect-ratio:${A} / 1;--ar:${A};--n:${n}${p.style ? `;${p.style}` : ''}">${rings}</div>`;
   },
 });

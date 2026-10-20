@@ -1523,6 +1523,35 @@ test('«Вставка» → «Блоки»: бегущая строка и те
   expect(errors).toEqual([]);
 });
 
+test('галерея блоков: каждая заготовка помещается на слайд (превью и вставка не режутся его краем)', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=fx&studio#3');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  const res = await page.evaluate(async () => {
+    const { LIBRARY } = await import('/src/studio/library.ts');
+    const { Renderer } = await import('/src/engine/render.ts');
+    const host = document.createElement('div');
+    host.className = 'thumb-stage canvas static';
+    Object.assign(host.style, { position: 'fixed', left: '0', top: '0', width: '1280px', height: '720px', visibility: 'hidden' });
+    document.body.append(host);
+    const tall: string[] = [];
+    let n = 0;
+    for (const c of LIBRARY) for (const p of c.items) {
+      if (!p.make) continue;
+      const deck = { title: 't', slides: [{ template: 'canvas', free: [{ ...p.make(), place: { x: 0, y: 0, w: p.w, ...(p.h ? { h: p.h } : {}) } }] }] };
+      host.innerHTML = new Renderer(deck as never).slide(deck.slides[0] as never, 0, 'on static');
+      const f = host.querySelector<HTMLElement>('.free');
+      n++;
+      if (!f || f.scrollHeight > 720 || f.scrollWidth > 1280) tall.push(`${p.name}: ${f?.scrollWidth}×${f?.scrollHeight}`);
+    }
+    host.remove();
+    return { n, tall };
+  });
+  expect(res.n).toBeGreaterThan(40);
+  expect(res.tall).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
 test('«Порядок»: вместе с предыдущим — звеном; «По пунктам» и «Длительность» на ленте; новые эффекты в меню', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=fx&studio#7');

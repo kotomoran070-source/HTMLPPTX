@@ -331,6 +331,8 @@ body.studio { background: var(--alt); }
 .st-peek-frame { position: relative; width: 440px; height: 248px; overflow: hidden; border-radius: 9px; background: var(--bg); border: 1px solid var(--bd); }
 /* Превью блока — на чистом фоне: без живого фона темы и логотипа в углу (их обрезки выглядят случайно) */
 :is(.st-peek-frame, .st-lib-prev) :is(.backdrop, .corner-logo) { display: none !important; }
+/* Блок выше слайда виден в превью целиком: масштаб вписывает его в рамку, край слайда не режет */
+:is(.st-peek-frame, .st-lib-prev) :is(.thumb-stage, .slide) { overflow: visible !important; }
 .st-peek-frame .thumb-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; background: none; }
 .st-peek-frame .slide { padding: 0; background: none !important; }
 .st-peek-frame img { position: absolute; inset: 12px; width: calc(100% - 24px); height: calc(100% - 24px); object-fit: contain; }

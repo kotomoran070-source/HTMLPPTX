@@ -417,11 +417,18 @@ export const BLOCKS: Record<string, Schema> = {
   },
   venn: {
     about: 'Два или три круга пересекаются, общее — подписью в середине; четыре и больше — цепочкой.',
-    fields: [{ k: 'center', label: 'Общее в середине', type: 'text', placeholder: 'Наш продукт' }, points('Круги', 'Круг')],
+    fields: [
+      { k: 'variant', label: 'Вид кругов', type: 'select', options: [['', 'Прозрачные'], ['filled', 'Залитые']] },
+      { k: 'center', label: 'Общее в середине', type: 'text', placeholder: 'Наш продукт' },
+      points('Круги', 'Круг'),
+    ],
   },
   nested: {
     about: 'Первый пункт — самый большой круг. Заголовок — в круге, пояснение — справа, к нему ведёт линия.',
-    fields: [points('Круги', 'Круг', 'Пояснение справа')],
+    fields: [
+      { k: 'variant', label: 'Расположение', type: 'select', options: [['', 'Касаются снизу'], ['target', 'Мишень — по центру']] },
+      points('Круги', 'Круг', 'Пояснение справа'),
+    ],
   },
   icons: {
     fields: [{

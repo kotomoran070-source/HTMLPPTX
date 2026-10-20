@@ -257,6 +257,12 @@ body.editing:not(.st-previewing) .fq-a, .static .fq-a { grid-template-rows: 1fr;
 .venn.chain .vn-l { width: 40%; }
 .vn-l > b { font: var(--hw, 700) 20px/1.2 var(--font-head, var(--font)); color: var(--tx); }
 .vn-l > span { font-size: 14px; line-height: 1.35; color: var(--tx2, var(--mu)); }
+/* Залитые: от светлого к насыщенному по порядку, чуть прозрачные — пересечения темнее */
+.venn.filled .vn-c { --vf: color-mix(in srgb, var(--vc) calc(66% + var(--mix) * .34), var(--surf));
+  background: color-mix(in srgb, var(--vf) 88%, transparent); border-color: color-mix(in srgb, var(--surf) 70%, transparent); }
+.venn.filled .vn-c:hover { background: var(--vf); box-shadow: 0 0 0 6px color-mix(in srgb, var(--vc) 20%, transparent); }
+.venn.filled .vn-l > :is(b, span) { color: var(--on-ac, #fff); }
+.venn.filled .vn-l > span { opacity: .85; }
 .vn-mid { position: absolute; translate: -50% -50%; white-space: nowrap; padding: 8px 16px; border-radius: 99px; background: var(--surf); border: 1px solid var(--bd); box-shadow: 0 10px 26px rgba(2, 6, 23, .12); text-align: center; z-index: 1; }
 .vn-mid > b { font: 700 15px/1.2 var(--font); color: var(--ach); }
 .slide.on .vn-c { animation: vn-in .9s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(.1s + var(--k) * .12s); }
@@ -274,12 +280,15 @@ body.editing:not(.st-previewing) .fq-a, .static .fq-a { grid-template-rows: 1fr;
 .ns-l { position: absolute; left: 50%; translate: -50% -50%; text-align: center; }
 .ns-l > b { font: var(--hw, 700) 20px/1.2 var(--font-head, var(--font)); color: var(--tx); }
 .ns-c.on > .ns-l > b { color: var(--on-ac, #fff); }
-.ns-line { position: absolute; height: 0; border-top: 1.5px dashed color-mix(in srgb, var(--ac) 55%, var(--bd)); transition: border-color .2s; }
+/* Мишень: те же круги по центру, растут из середины */
+.nested.target .ns-c { bottom: auto; top: 50%; translate: -50% -50%; }
+.ns-line { position: absolute; height: 0; transform-origin: 0 0; border-top: 1.5px dashed color-mix(in srgb, var(--ac) 55%, var(--bd)); transition: border-color .2s; }
 .ns-line::before { content: ""; position: absolute; left: -4px; top: -4.75px; width: 8px; height: 8px; border-radius: 50%; background: var(--ac); box-shadow: 0 0 0 3px var(--surf); }
 .ns-note { position: absolute; translate: 0 -50%; }
 .ns-note > p { margin: 0; max-width: none; font-size: 16px; line-height: 1.4; color: var(--tx2, var(--tx)); transition: color .2s; }
 .ns-c:hover > .ns-line { border-top-style: solid; border-top-color: var(--ac); }
 .ns-c:hover > .ns-note > p { color: var(--tx); }
+.slide.on .nested.target .ns-c { transform-origin: 50% 50%; }
 .slide.on .ns-c { transform-origin: 50% 100%; animation: ns-grow .7s cubic-bezier(.3, 1.2, .5, 1) both; animation-delay: calc(.1s + var(--k) * .14s); }
 @keyframes ns-grow { from { scale: 0; opacity: 0; } }
 .slide.on :is(.ns-line, .ns-note) { animation: fi .5s ease both; animation-delay: calc(.6s + var(--k) * .14s); }
