@@ -58,3 +58,14 @@ test('Венн и вложенные круги: те же пункты туда
   expect(viewOf(venn)).toBe('venn');
   expect(viewOf(nested)).toBe('nested');
 });
+
+test('шестерёнки, колонны, слои, ромбы, дуга, карта идей: пункты и свои иконки переходят по кругу без потерь', () => {
+  const start = { type: 'cycle', id: 'c', place: { x: 10, y: 20, w: 900 },
+    items: [{ title: 'Идея', text: 'Что меняем', icon: 'bulb' }, { title: 'Запуск', text: 'Выход на рынок' }] };
+  let b: any = start;
+  for (const v of ['gears', 'pillars', 'layers', 'diamonds', 'arc', 'mindmap']) {
+    b = toView(b, v);
+    expect(viewOf(b)).toBe(v);
+  }
+  expect(toView(b, 'cycle')).toMatchObject({ type: 'cycle', id: 'c', place: { x: 10, y: 20, w: 900 }, items: start.items });
+});

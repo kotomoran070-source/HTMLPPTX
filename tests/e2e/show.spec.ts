@@ -228,7 +228,7 @@ test('прожектор: щелчок по блоку — он в светло�
 test('блоки-схемы: все рисуются без ошибок, вопрос раскрывается по щелчку', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=schemes#1');
-  const types = ['cycle', 'funnel', 'pyramid', 'numbers', 'compare', 'matrix', 'icons', 'stats', 'roadmap', 'ladder', 'orbit', 'venn', 'nested', 'faq'];
+  const types = ['cycle', 'funnel', 'pyramid', 'numbers', 'compare', 'matrix', 'icons', 'stats', 'roadmap', 'ladder', 'orbit', 'venn', 'nested', 'gears', 'pillars', 'layers', 'diamonds', 'arc', 'mindmap', 'faq'];
   for (const [k, type] of types.entries()) {
     await expect(page.locator('#ct')).toHaveText(`${k + 1} из ${types.length}`);
     const block = page.locator(`.slide.on [data-type="${type}"]`);
@@ -248,7 +248,24 @@ test('блоки-схемы: все рисуются без ошибок, воп
   await expect(line).toHaveCSS('border-top-style', 'dashed');
   await sam.locator('.ns-note').hover();
   await expect(line).toHaveCSS('border-top-style', 'solid');
+  // Шестерёнки крутятся; слой под мышью приподнят, остальные бледнеют; ромб под мышью поворачивается
   await page.goto('/?deck=schemes#14');
+  const gear = page.locator('.slide.on .gr-gear').first();
+  const spin = () => gear.evaluate((e) => getComputedStyle(e).rotate);
+  const a1 = await spin();
+  await expect.poll(spin).not.toBe(a1);
+  await page.goto('/?deck=schemes#16');
+  const layer = page.locator('.slide.on .ly-l');
+  await expect(layer.nth(2)).toHaveCSS('opacity', '1');
+  await layer.nth(1).locator('.ly-note').hover();
+  await expect(layer.nth(2)).toHaveCSS('opacity', '0.5');
+  await expect(layer.nth(1).locator('.ly-plate')).toHaveCSS('translate', '0px -12px');
+  await page.goto('/?deck=schemes#17');
+  const dm = page.locator('.slide.on .dm-shape > i').first();
+  await expect(dm).toHaveCSS('rotate', '45deg');
+  await page.locator('.slide.on .dm-shape').first().hover();
+  await expect(dm).toHaveCSS('rotate', '135deg');
+  await page.goto('/?deck=schemes#20');
   const q = page.locator('.slide.on .fq-q').first();
   await q.click();
   await expect(page.locator('.slide.on .fq-item.open')).toHaveCount(1);

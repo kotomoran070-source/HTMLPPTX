@@ -12,13 +12,13 @@ import { logoImg } from '../templates/content';
 import './schemes.css';
 
 export interface Point { title: string; text?: string; icon?: string; accent?: boolean; [extra: string]: unknown }
-interface ItemsProps extends Block { items: Point[] }
+export interface ItemsProps extends Block { items: Point[] }
 
-const pts = (p: ItemsProps): Point[] => asArray(p.items).filter((x): x is Point => !!x && typeof x === 'object');
-const title = (m: Point, tag = 'b') => `<${tag}${ea(m, 'title')}>${t(m.title ?? '')}</${tag}>`;
-const text = (m: Point, tag = 'span') => (m.text ? `<${tag}${ea(m, 'text')}>${t(m.text)}</${tag}>` : '');
-const two = (k: number) => String(k + 1).padStart(2, '0');
-const round = (v: number) => Math.round(v * 100) / 100;
+export const pts = (p: ItemsProps): Point[] => asArray(p.items).filter((x): x is Point => !!x && typeof x === 'object');
+export const title = (m: Point, tag = 'b') => `<${tag}${ea(m, 'title')}>${t(m.title ?? '')}</${tag}>`;
+export const text = (m: Point, tag = 'span') => (m.text ? `<${tag}${ea(m, 'text')}>${t(m.text)}</${tag}>` : '');
+export const two = (k: number) => String(k + 1).padStart(2, '0');
+export const round = (v: number) => Math.round(v * 100) / 100;
 
 // ---------------- цикл ----------------
 

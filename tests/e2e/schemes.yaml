@@ -40,5 +40,23 @@ slides:
     title: Размер рынка
     body: {type: nested, items: [{title: "TAM", text: "120 млрд ₽ — весь рынок презентаций"}, {title: "SAM", text: "18 млрд ₽ — компании, которые готовят их сами"}, {title: "SOM", text: "1,2 млрд ₽ — наша доля за три года"}]}
   - template: content
+    title: Как всё работает вместе
+    body: {type: gears, items: [{title: "Продажи", text: "Приводят клиентов"}, {title: "Продукт", text: "Решает задачу"}, {title: "Поддержка", text: "Удерживает"}, {title: "Данные", text: "Подсказывают, что менять"}]}
+  - template: content
+    title: На чём держимся
+    body: {type: pillars, center: "Стратегия 2027", items: [{title: "Люди", text: "Сильная команда"}, {title: "Продукт", text: "Лучший в нише"}, {title: "Клиенты", text: "Растём вместе"}, {title: "Деньги", text: "Прибыль каждый квартал"}]}
+  - template: content
+    title: Архитектура
+    body: {type: layers, items: [{title: "Интерфейс", text: "Что видит пользователь"}, {title: "Сервисы", text: "Логика и правила"}, {title: "Данные", text: "Хранилище и аналитика"}, {title: "Инфраструктура", text: "Серверы и сеть"}]}
+  - template: content
+    title: Путь продукта
+    body: {type: diamonds, items: [{title: "Идея", text: "Что меняем"}, {title: "Команда", text: "Кто делает"}, {title: "Запуск", text: "Выход на рынок"}, {title: "Рост", text: "Как масштабируем"}]}
+  - template: content
+    title: Дорога к цели
+    body: {type: arc, center: "1 млн клиентов", items: [{title: "Старт", text: "Первые 100 клиентов"}, {title: "Рост", text: "Реклама и партнёры"}, {title: "Масштаб", text: "Новые регионы"}, {title: "Лидерство", text: "Номер один в нише"}]}
+  - template: content
+    title: Новый продукт
+    body: {type: mindmap, center: "Новый продукт", items: [{title: "Аудитория", text: "Малый бизнес"}, {title: "Цена", text: "Подписка от 990 ₽"}, {title: "Каналы", text: "Соцсети и партнёры"}, {title: "Команда", text: "Пять человек"}, {title: "Сроки", text: "Запуск в марте"}]}
+  - template: content
     title: Частые вопросы
     body: {type: faq, items: [{title: "Нужен ли интернет?", text: "Нет: презентация — один файл, всё внутри."}, {title: "Можно открыть в PowerPoint?", text: "Да, экспорт в PPTX сохраняет текст и картинки."}, {title: "Как показывать с телефона?", text: "Отсканируйте QR в окне показа — телефон станет пультом."}]}

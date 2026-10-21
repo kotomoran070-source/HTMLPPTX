@@ -128,6 +128,11 @@ const PATHS: Record<string, string> = {
   quad: '<path d="M12 3v18M3 12h18"/><rect x="3" y="3" width="18" height="18" rx="2.5"/>',
   venn: '<circle cx="9" cy="12" r="6.2"/><circle cx="15" cy="12" r="6.2"/>',
   nested: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="15" r="6"/><circle cx="12" cy="18" r="3"/>',
+  gears: '<circle cx="8.5" cy="10" r="4.2"/><circle cx="8.5" cy="10" r="1.4"/><path d="M8.5 3.5v2.3M8.5 14.2v2.3M2 10h2.3M12.7 10h2.3"/><circle cx="16.5" cy="16.5" r="3.4"/><path d="M16.5 11.8v1.3M16.5 19.9v1.3M21.2 16.5h-1.3"/>',
+  pillars: '<path d="M3 8 12 3l9 5z"/><path d="M5 10v8M9.7 10v8M14.3 10v8M19 10v8M3 21h18"/>',
+  diamonds: '<path d="m6 7 4 5-4 5-4-5zM18 7l4 5-4 5-4-5zM12 7l4 5-4 5-4-5z"/>',
+  arc: '<path d="M3.5 18a8.5 8.5 0 0 1 17 0"/><circle cx="5.2" cy="12.6" r="1.4"/><circle cx="12" cy="9.5" r="1.4"/><circle cx="18.8" cy="12.6" r="1.4"/>',
+  mindmap: '<rect x="9" y="10" width="6" height="4" rx="2"/><path d="M15 12c2 0 2-5 4-5M15 12c2 0 2 5 4 5M9 12c-2 0-2-5-4-5M9 12c-2 0-2 5-4 5"/>',
   faq: '<path d="M4 5h16v11H9l-5 4z"/><path d="M10 9a2 2 0 1 1 2.8 1.8c-.5.3-.8.7-.8 1.2M12 14h.01"/>',
   // Пиктограммы для блока «Иконки»
   rocket: '<path d="M12 15c4-3 6-7 6-12-5 0-9 2-12 6l-3 1 2 2-1 3 3-1 2 2z"/><circle cx="14" cy="8" r="1.6"/><path d="M6 17c-2 0-3 1-3 4 3 0 4-1 4-3"/>',

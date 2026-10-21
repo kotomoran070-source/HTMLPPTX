@@ -430,6 +430,23 @@ export const BLOCKS: Record<string, Schema> = {
       points('Круги', 'Круг', 'Пояснение справа'),
     ],
   },
+  gears: { about: 'Колёса через одно большие и малые, крутятся в зацеплении. Заголовок — в колесе, пояснение — под ним.', fields: [points('Колёса', 'Колесо')] },
+  pillars: { about: 'Общая крыша на опорах: по колонне на пункт.', fields: [{ k: 'center', label: 'На крыше', type: 'text', placeholder: 'Стратегия' }, points('Колонны', 'Колонна')] },
+  layers: { about: 'Первый пункт — верхний слой. Под мышью слой приподнимается.', fields: [points('Слои', 'Слой')] },
+  diamonds: {
+    about: 'Иконка в ромбе — по смыслу заголовка или своя.',
+    fields: [{
+      k: 'items', label: 'Ромбы', type: 'rows', item: 'Ромб',
+      make: () => ({ title: 'Этап', text: 'Пояснение' }),
+      fields: [
+        { k: 'icon', label: 'Иконка', type: 'select', options: [['', 'По смыслу заголовка'], ...PICTOS] },
+        { k: 'title', label: 'Заголовок', type: 'text' },
+        { k: 'text', label: 'Пояснение', type: 'text' },
+      ],
+    }],
+  },
+  arc: { about: 'Вехи по дуге слева направо, цель — в середине.', fields: [{ k: 'center', label: 'Цель в середине', type: 'text' }, points('Вехи', 'Веха')] },
+  mindmap: { about: 'Пункты — через один справа и слева от главной мысли.', fields: [{ k: 'center', label: 'Главная мысль', type: 'text' }, points('Ветви', 'Ветвь')] },
   icons: {
     fields: [{
       k: 'items', label: 'Пункты', type: 'rows', item: 'Пункт',
