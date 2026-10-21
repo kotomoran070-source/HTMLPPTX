@@ -1,6 +1,6 @@
 /**
  * Схемы-фигуры из тех же пунктов «заголовок + текст» (переключаются со всеми схемами в «Виде»):
- * шестерёнки, колонны, изометрические слои, ромбы, дуга-дорога, карта идей. У каждой своё появление
+ * шестерёнки, колонны, изометрические слои, ромбы, дуга-дорога, карта идей, айсберг. У каждой своё появление
  * и подсветка под мышью; в миниатюрах и PDF — конечный вид.
  */
 import { defineBlock } from '../../engine/component';
@@ -212,5 +212,54 @@ defineBlock<CenterProps>('mindmap', {
     }).join('');
     return `<div class="mindmap r"${style(p, `aspect-ratio:${round(W / H)} / 1;--ar:${round(W / H)};--n:${n}`)}>${branches}`
       + `<div class="mm-c${p.center ? '' : ' dot'}">${p.center ? `<b${ea(p, 'center')}>${t(p.center)}</b>` : ''}</div></div>`;
+  },
+});
+
+// ---------------- айсберг ----------------
+
+/** Правый край подводной части: по нему стоят точки подписей */
+const BERG_EDGE: [number, number][] = [[560, 178], [604, 250], [586, 350], [528, 448], [430, 508]];
+const edgeX = (y: number) => {
+  for (let i = 1; i < BERG_EDGE.length; i++) {
+    const [x0, y0] = BERG_EDGE[i - 1];
+    const [x1, y1] = BERG_EDGE[i];
+    if (y <= y1) return x0 + ((x1 - x0) * (y - y0)) / (y1 - y0);
+  }
+  return BERG_EDGE[BERG_EDGE.length - 1][0];
+};
+
+/**
+ * Айсберг: первый пункт — верхушка над водой (что видно), остальные — под водой (что за этим стоит),
+ * у каждого подпись справа и линия к своей точке. По воде бегут волны, айсберг всплывает при
+ * появлении; под мышью подпись и её линия выделяются.
+ */
+defineBlock<ItemsProps>('iceberg', {
+  render(p) {
+    const items = pts(p);
+    const n = Math.max(1, items.length);
+    const W = 1000;
+    const H = 560;
+    const WL = 172;
+    const below = Math.max(1, n - 1);
+    const notes = items.map((m, k) => {
+      // Верхушка — точка у её склона; подводные — по краю, ровно по высоте
+      const y = k === 0 ? 92 : WL + 56 + ((k - 1 + 0.5) * (H - WL - 96)) / below;
+      const x = k === 0 ? 452 : edgeX(y) - 26;
+      const lx = 660;
+      return `<div class="ib-br${k === 0 ? ' top' : ''}" style="--k:${k}">`
+        + `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="M${round(x)} ${round(y)}H${lx - 12}"/><circle cx="${round(x)}" cy="${round(y)}" r="5"/></svg>`
+        + `<div class="ib-note" style="left:${pc(lx, W)}%;top:${pc(y, H)}%">${title(m)}${text(m)}</div></div>`;
+    }).join('');
+    const wave = (y: number) => {
+      let d = `M-200 ${y}`;
+      for (let x = -200; x < W + 200; x += 100) d += `q25 -9 50 0t50 0`;
+      return d;
+    };
+    return `<div class="iceberg r"${style(p, `aspect-ratio:${W / H} / 1;--ar:${round(W / H)};--n:${n}`)}>`
+      + `<svg class="ib-svg" viewBox="0 0 ${W} ${H}" aria-hidden="true">`
+      + `<rect class="ib-water" x="0" y="${WL}" width="${W}" height="${H - WL}" rx="18"/>`
+      + `<g class="ib-berg"><polygon class="ib-body" points="232,${WL + 4} ${BERG_EDGE.map(([x, y]) => `${x},${y}`).join(' ')} 318,478 246,398 206,292"/>`
+      + `<polygon class="ib-tip" points="290,${WL} 334,112 372,64 404,38 446,76 476,96 520,${WL}"/></g>`
+      + `<path class="ib-wave" d="${wave(WL)}"/><path class="ib-wave w2" d="${wave(WL + 16)}"/></svg>${notes}</div>`;
   },
 });

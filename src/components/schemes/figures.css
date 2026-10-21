@@ -149,3 +149,29 @@
 @keyframes mm-in-l { from { opacity: 0; transform: translateX(24px); } }
 
 @media (prefers-reduced-motion: reduce) { .ar-run { display: none; } }
+
+/* ---------- айсберг ---------- */
+.iceberg { position: relative; width: 100%; max-width: calc(440px * var(--ar)); margin-inline: auto; overflow: hidden; }
+.slide > .free > .iceberg { flex: none; max-width: none; margin: auto 0; }
+.ib-svg, .ib-br svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ib-water { fill: color-mix(in srgb, var(--ac) 16%, var(--surf)); }
+.ib-body { fill: color-mix(in srgb, var(--ac) 42%, var(--surf)); opacity: .9; }
+.ib-tip { fill: color-mix(in srgb, #fff 90%, var(--ac)); stroke: color-mix(in srgb, var(--ac) 45%, #fff); stroke-width: 2; stroke-linejoin: round; }
+.ib-wave { fill: none; stroke: color-mix(in srgb, var(--ac) 55%, var(--surf)); stroke-width: 3; stroke-linecap: round; }
+.ib-wave.w2 { opacity: .45; }
+.stage .slide.on:not(.static) .ib-wave { animation: ib-wave 4s linear infinite; }
+.stage .slide.on:not(.static) .ib-wave.w2 { animation-duration: 6s; animation-direction: reverse; }
+@keyframes ib-wave { to { translate: 100px 0; } }
+.ib-br { position: absolute; inset: 0; pointer-events: none; }
+.ib-br path { fill: none; stroke: color-mix(in srgb, var(--ac) 55%, var(--bd)); stroke-width: 1.5; stroke-dasharray: 5 5; transition: stroke .2s; }
+.ib-br circle { fill: var(--ac); stroke: var(--surf); stroke-width: 3; transition: r .2s; }
+.ib-note { position: absolute; translate: 0 -50%; width: 33%; pointer-events: auto; display: flex; flex-direction: column; gap: 2px; }
+.ib-note > b { font: var(--hw, 700) 19px/1.2 var(--font-head, var(--font)); color: var(--tx); transition: color .2s; }
+.ib-note > span { font-size: 14px; line-height: 1.4; color: var(--tx2, var(--mu)); }
+.ib-br.top .ib-note > b { font-size: 22px; }
+.ib-br:hover path { stroke: var(--ac); stroke-dasharray: none; }
+.ib-br:hover circle { r: 8; }
+.ib-br:hover .ib-note > b { color: var(--ach); }
+.slide.on .ib-berg { animation: ib-rise .9s cubic-bezier(.3, 1.2, .5, 1) both; }
+@keyframes ib-rise { from { opacity: 0; transform: translateY(40px); } }
+.slide.on .ib-br { animation: fi .5s ease both; animation-delay: calc(.6s + var(--k) * .14s); }

@@ -446,6 +446,7 @@ export const BLOCKS: Record<string, Schema> = {
     }],
   },
   arc: { about: 'Вехи по дуге слева направо, цель — в середине.', fields: [{ k: 'center', label: 'Цель в середине', type: 'text' }, points('Вехи', 'Веха')] },
+  iceberg: { about: 'Первый пункт — верхушка над водой (что видно), остальные — под водой (что за этим стоит).', fields: [points('Пункты', 'Пункт')] },
   mindmap: { about: 'Пункты — через один справа и слева от главной мысли.', fields: [{ k: 'center', label: 'Главная мысль', type: 'text' }, points('Ветви', 'Ветвь')] },
   icons: {
     fields: [{

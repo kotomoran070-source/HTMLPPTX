@@ -35,10 +35,11 @@ export const VIEWS: { id: string; name: string; icon: string; group: 'Списк
   { id: 'diamonds', name: 'Ромбы', icon: 'diamonds', group: 'Схемы' },
   { id: 'arc', name: 'Дуга', icon: 'arc', group: 'Схемы' },
   { id: 'mindmap', name: 'Карта идей', icon: 'mindmap', group: 'Схемы' },
+  { id: 'iceberg', name: 'Айсберг', icon: 'iceberg', group: 'Схемы' },
   { id: 'hub', name: 'Вокруг центра', icon: 'sensor', group: 'Схемы' },
 ];
 /** Виды с пунктами items: [{ title, text, … }] — переводятся друг в друга без потерь */
-export const ITEM_VIEWS = new Set(['timeline', 'roadmap', 'ladder', 'orbit', 'hub', 'cycle', 'funnel', 'pyramid', 'numbers', 'compare', 'matrix', 'venn', 'nested', 'gears', 'pillars', 'layers', 'diamonds', 'arc', 'mindmap', 'icons', 'stats', 'faq']);
+export const ITEM_VIEWS = new Set(['timeline', 'roadmap', 'ladder', 'orbit', 'hub', 'cycle', 'funnel', 'pyramid', 'numbers', 'compare', 'matrix', 'venn', 'nested', 'gears', 'pillars', 'layers', 'diamonds', 'arc', 'mindmap', 'iceberg', 'icons', 'stats', 'faq']);
 
 type Obj = Record<string, unknown>;
 const str = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
@@ -71,7 +72,7 @@ export function itemsOf(b: Obj): Item[] {
     case 'pipeline':
       return arr(b.steps).map((s) => { const o = s as Obj; return { ...extras(o), title: str(o.title), ...(o.sub ? { text: str(o.sub) } : {}) }; });
     case 'timeline': case 'roadmap': case 'ladder': case 'orbit': case 'hub': case 'cycle': case 'funnel': case 'pyramid': case 'numbers': case 'compare': case 'matrix': case 'venn': case 'nested':
-    case 'gears': case 'pillars': case 'layers': case 'diamonds': case 'arc': case 'mindmap': case 'icons': case 'stats': case 'faq':
+    case 'gears': case 'pillars': case 'layers': case 'diamonds': case 'arc': case 'mindmap': case 'iceberg': case 'icons': case 'stats': case 'faq':
       return arr(b.items).map((s) => { const o = s as Obj; return { ...extras(o), title: str(o.title), ...(o.text ? { text: str(o.text) } : {}), ...(o.sub ? { sub: str(o.sub) } : {}) }; });
     case 'cards':
       return arr(b.items).map((s) => { const o = s as Obj; return { ...extras(o), title: str(o.title), ...(o.text ? { text: str(o.text) } : {}) }; });
@@ -107,7 +108,7 @@ export function toView(b: Obj, view: string): Block {
       out = { type: 'pipeline', steps: items.map((i) => ({ ...rest(i), title: i.title, ...(i.text ? { sub: i.text } : {}) })) };
       break;
     case 'timeline': case 'roadmap': case 'ladder': case 'orbit': case 'hub': case 'cycle': case 'funnel': case 'pyramid': case 'numbers': case 'compare': case 'matrix': case 'venn': case 'nested':
-    case 'gears': case 'pillars': case 'layers': case 'diamonds': case 'arc': case 'mindmap': case 'icons': case 'stats': case 'faq':
+    case 'gears': case 'pillars': case 'layers': case 'diamonds': case 'arc': case 'mindmap': case 'iceberg': case 'icons': case 'stats': case 'faq':
       out = { type: view, items: items.map((i) => ({ ...rest(i), title: i.title, ...(i.text ? { text: i.text } : {}) })) };
       break;
     case 'cards': {

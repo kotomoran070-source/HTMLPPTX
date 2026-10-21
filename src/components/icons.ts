@@ -132,6 +132,7 @@ const PATHS: Record<string, string> = {
   pillars: '<path d="M3 8 12 3l9 5z"/><path d="M5 10v8M9.7 10v8M14.3 10v8M19 10v8M3 21h18"/>',
   diamonds: '<path d="m6 7 4 5-4 5-4-5zM18 7l4 5-4 5-4-5zM12 7l4 5-4 5-4-5z"/>',
   arc: '<path d="M3.5 18a8.5 8.5 0 0 1 17 0"/><circle cx="5.2" cy="12.6" r="1.4"/><circle cx="12" cy="9.5" r="1.4"/><circle cx="18.8" cy="12.6" r="1.4"/>',
+  iceberg: '<path d="M3 10h18"/><path d="m8 10 2.5-5 2 2 1.5-1 2 4M6 10l2 7 4 3 4-3 2-7"/>',
   mindmap: '<rect x="9" y="10" width="6" height="4" rx="2"/><path d="M15 12c2 0 2-5 4-5M15 12c2 0 2 5 4 5M9 12c-2 0-2-5-4-5M9 12c-2 0-2 5-4 5"/>',
   faq: '<path d="M4 5h16v11H9l-5 4z"/><path d="M10 9a2 2 0 1 1 2.8 1.8c-.5.3-.8.7-.8 1.2M12 14h.01"/>',
   // Пиктограммы для блока «Иконки»

@@ -63,7 +63,7 @@ test('шестерёнки, колонны, слои, ромбы, дуга, ка
   const start = { type: 'cycle', id: 'c', place: { x: 10, y: 20, w: 900 },
     items: [{ title: 'Идея', text: 'Что меняем', icon: 'bulb' }, { title: 'Запуск', text: 'Выход на рынок' }] };
   let b: any = start;
-  for (const v of ['gears', 'pillars', 'layers', 'diamonds', 'arc', 'mindmap']) {
+  for (const v of ['gears', 'pillars', 'layers', 'diamonds', 'arc', 'mindmap', 'iceberg']) {
     b = toView(b, v);
     expect(viewOf(b)).toBe(v);
   }
