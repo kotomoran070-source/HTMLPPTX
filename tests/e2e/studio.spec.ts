@@ -1,7 +1,7 @@
 // Студия: открывается без ошибок, «Сохранить как шаблон…» → «Мои шаблоны», меню «Цвет» картинки, палитра команд, темы «Дизайна»
 import fs from 'node:fs';
 import path from 'node:path';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { api, DECKS, PNG, readDeck, waitFile, watchErrors } from './helpers';
 import { kitWoff2, sfnt } from '../fonts';
 
@@ -1520,6 +1520,113 @@ test('«Вставка» → «Блоки»: бегущая строка и те
   await page.locator('.st-rpanel:not([hidden]) [data-cmd="insert.blocks"]').first().click();
   await page.locator('.st-lib-item', { hasText: 'Текст по кругу' }).click();
   await expect(page.locator('#st-canvas .slide.on > .free').last().locator('.circ-text .ct-text span')).not.toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+const ctxTab = (page: Page, t: string) => page.locator('.st-tabs [data-tab="' + t + '"]').click();
+test('примерка при наведении: стиль таблицы на ленте и заливка ячеек — на слайде сразу, уход и Esc — как было', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=table&studio#7');
+  const c = page.locator('#st-canvas .slide.on td', { hasText: '70' }).first();
+  await c.click();
+  if (await page.locator('#st-canvas [contenteditable="true"]').count()) await page.keyboard.press('Escape');
+  await ctxTab(page, 'table');
+  const tbl = page.locator('#st-canvas .slide.on .tbl').first();
+  const cls0 = await tbl.getAttribute('class');
+  await page.locator('[data-cmd="table.variant.accent"]').hover();
+  await expect(tbl).toHaveClass(/tbl-accent/);
+  await page.mouse.move(700, 800);
+  await expect.poll(() => tbl.getAttribute('class')).toBe(cls0);
+  // заливка ячейки
+  await c.click();
+  if (await page.locator('#st-canvas [contenteditable="true"]').count()) await page.keyboard.press('Escape');
+  await page.locator('[data-cmd="table.fill"]').filter({ visible: true }).click();
+  const bg = () => c.evaluate((e) => getComputedStyle(e).backgroundColor);
+  const b0 = await bg();
+  await page.locator('.st-pop .st-psw[data-v="#DC2626"]').hover();
+  await expect.poll(bg).toBe('rgb(220, 38, 38)');
+  await page.keyboard.press('Escape');
+  await expect.poll(bg).toBe(b0);
+  expect(errors).toEqual([]);
+});
+
+test('примерка при наведении: стиль, форма и заливка фигуры; щелчок записывает примеренное', async ({ page }) => {
+  const errors = watchErrors(page);
+  const before = readDeck('fx');
+  await page.goto('/?deck=fx&studio#3');
+  const o = page.locator('#st-canvas .slide.on > .free').nth(0);
+  const b = (await o.boundingBox())!;
+  await page.mouse.click(b.x + 10, b.y + 10);
+  await ctxTab(page, 'shape');
+  const sh = o.locator('.shape').first();
+  const st0 = await sh.getAttribute('style'); const cl0 = await sh.getAttribute('class');
+  const tiles = page.locator('.st-ribbon [data-cmd^="shape.style."]').filter({ visible: true });
+  await tiles.nth(5).hover();
+  await expect.poll(() => sh.getAttribute('style')).not.toBe(st0);
+  await page.locator('[data-cmd="shape.kind.ellipse"]').hover();
+  await expect(sh).toHaveClass(/shape-ellipse/);
+  await page.mouse.move(700, 850);
+  await expect.poll(() => sh.getAttribute('class')).toBe(cl0);
+  expect(await sh.getAttribute('style')).toBe(st0);
+  await page.locator('[data-cmd="shape.fill"]').filter({ visible: true }).click();
+  await page.locator('.st-pop .st-psw[data-v="#16A34A"]').hover();
+  await expect.poll(() => sh.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe('rgb(22, 163, 74)');
+  await page.locator('.st-pop .st-psw[data-v="#16A34A"]').click();
+  await expect.poll(() => sh.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe('rgb(22, 163, 74)');
+  // щелчок по стилю: записан, уход мышью его не снимает
+  await tiles.nth(2).hover();
+  const tried = await o.locator('.shape').first().getAttribute('style');
+  await tiles.nth(2).click();
+  await page.mouse.move(700, 850);
+  await page.waitForTimeout(300);
+  expect(await o.locator('.shape').first().getAttribute('style')).toBe(tried);
+  // Записанное — обратно: следующие тесты берут fx как в заготовке
+  await page.keyboard.press('Escape');
+  for (let k = 0; k < 2; k++) await page.keyboard.press('Control+z');
+  expect(await waitFile(() => readDeck('fx') === before)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('примерка при наведении: стиль рисунка на ленте', async ({ page }) => {
+  await page.goto('/?deck=fx&studio#1');
+  const img = page.locator('#st-canvas .slide.on > .free').nth(4);
+  const b = (await img.boundingBox())!;
+  await page.mouse.click(b.x + 30, b.y + 30);
+  await ctxTab(page, 'image');
+  const box = img.locator('.imgbox');
+  const s0 = await box.getAttribute('style');
+  await page.locator('.st-ribbon [data-cmd^="image.style."]').filter({ visible: true }).nth(3).hover();
+  await expect.poll(() => box.getAttribute('style')).not.toBe(s0);
+  await page.mouse.move(700, 850);
+  await expect.poll(() => box.getAttribute('style')).toBe(s0);
+});
+
+test('примерка при наведении: цвет всего текста — стилем, части — подсветкой, текст не меняется', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=design&studio#2');
+  const t = page.locator('#st-canvas .slide.on [data-edit]').first();
+  await t.click();
+  if (!(await page.locator('#ed-text').isVisible())) await t.click();
+  const col = () => t.evaluate((e) => getComputedStyle(e).color);
+  const c0 = await col();
+  await page.locator('#ed-text [data-t="color"]').click();
+  await page.locator('#ed-colors [data-c="#DC2626"]').hover();
+  await expect.poll(col).toBe('rgb(220, 38, 38)');
+  await page.mouse.move(700, 850);
+  await expect.poll(col).toBe(c0);
+  // часть текста: подсветка-примерка, текст не меняется
+  await page.keyboard.press('Escape');
+  await t.click();
+  if (!(await page.locator('#ed-text').isVisible())) await t.click();
+  await page.keyboard.press('Home');
+  await page.keyboard.press('Shift+ArrowRight'); await page.keyboard.press('Shift+ArrowRight'); await page.keyboard.press('Shift+ArrowRight');
+  await page.locator('#ed-text [data-t="color"]').click();
+  const html0 = await t.innerHTML();
+  await page.locator('#ed-colors [data-c="#2563EB"]').hover();
+  await expect.poll(() => page.evaluate(() => (CSS as any).highlights?.has('ed-try'))).toBe(true);
+  expect(await t.innerHTML()).toBe(html0);
+  await page.mouse.move(700, 850);
+  await expect.poll(() => page.evaluate(() => (CSS as any).highlights?.has('ed-try'))).toBe(false);
   expect(errors).toEqual([]);
 });
 

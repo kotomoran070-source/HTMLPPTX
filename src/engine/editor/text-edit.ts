@@ -643,7 +643,16 @@ export class TextEditor {
         this.s?.el.focus({ preventScroll: true });
       }
     });
+    // Наведение на цвет — примерка (tryColor); палитра закрылась — примерка снята
+    const swatch = (t: EventTarget | null) => {
+      const b = (t as Element | null)?.closest?.<HTMLElement>('button[data-c]');
+      return b && !b.closest('.edgrad-panel') ? b.dataset.c ?? '' : null;
+    };
+    this.colors.addEventListener('pointerover', (e) => this.tryColor(swatch(e.target)));
+    this.colors.addEventListener('pointerleave', () => this.tryColor(null));
+    new MutationObserver(() => { if (!this.colors.classList.contains('on')) this.tryColor(null); }).observe(this.colors, { attributes: true, attributeFilter: ['class'] });
     this.colors.addEventListener('click', (e) => {
+      this.tryColor(null);
       if ((e.target as Element).closest('[data-gown]')) return this.ownGradient();
       const panel = (e.target as Element).closest('.edgrad-panel');
       if (panel) {
@@ -675,6 +684,48 @@ export class TextEditor {
       this.colors.classList.remove('on');
       this.s?.el.focus({ preventScroll: true });
     });
+  }
+
+  private tryUndo: (() => void) | null = null;
+  /**
+   * Примерка цвета из палитры, без записи: весь текст поля — его стилем, выделенная часть — подсветкой
+   * (CSS Custom Highlight: текст не меняется, градиент так не показать — его видно после щелчка).
+   * null — вернуть как было
+   */
+  private tryColor(c: string | null): void {
+    this.tryUndo?.();
+    this.tryUndo = null;
+    const s = this.s;
+    if (c === null || !s) return;
+    if (this.partial) {
+      const Hl = (globalThis as { Highlight?: new (r: Range) => object }).Highlight;
+      const reg = (CSS as unknown as { highlights?: Map<string, object> }).highlights;
+      if (c.startsWith('g:') || !Hl || !reg) return;
+      // Цвет — готовым значением: переменные темы внутри ::highlight не раскрываются
+      const probe = document.createElement('i');
+      if (c) probe.style.color = colorCss(c) ?? c;
+      s.el.append(probe);
+      const col = getComputedStyle(probe).color;
+      probe.remove();
+      const css = document.getElementById('ed-try-css') ?? Object.assign(document.head.appendChild(document.createElement('style')), { id: 'ed-try-css' });
+      css.textContent = `::highlight(ed-try) { color: ${col}; }`;
+      reg.set('ed-try', new Hl(this.partial));
+      // Синее выделение закрыло бы примерку: на время прячем, потом возвращаем
+      const range = this.partial;
+      const sel = getSelection();
+      sel?.removeAllRanges();
+      this.tryUndo = () => {
+        reg.delete('ed-try');
+        if (this.partial === range && sel && !sel.rangeCount) sel.addRange(range);
+      };
+      return;
+    }
+    const el = s.el;
+    const was = el.getAttribute('style');
+    if (c.startsWith('g:')) el.setAttribute('style', `${was ? `${was};` : ''}${textGradientCss(c)}`);
+    else if (c) el.style.color = colorCss(c) ?? c;
+    else el.style.removeProperty('color');
+    this.tryUndo = () => { if (was === null) el.removeAttribute('style'); else el.setAttribute('style', was); };
   }
 
   /**

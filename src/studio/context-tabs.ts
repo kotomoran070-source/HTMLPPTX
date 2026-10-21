@@ -379,7 +379,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       const paths = targets(type);
       ed.commit((d) => paths.forEach((p) => fn(d, p)), { rebuild: true });
     };
-    showPopover(anchor(cmd), html, (el) => {
+    const pop = showPopover(anchor(cmd), html, (el) => {
       const v = el.dataset.v;
       if (el.dataset.g) {
         const g = GRADIENTS.find((x) => x.id === el.dataset.g)!.g;
@@ -409,6 +409,20 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       }
       return null;
     }, 'st-palette');
+    // Наведение на цвет, градиент, толщину или штрих — примерка на самой фигуре (рисунке)
+    const wide = (b: Block): Block => (k === 'stroke' && !isLine(b) && !Number(b.width) ? { ...b, width: 2 } : b);
+    bindTry(pop, tryLook(type === 'image' ? IMAGE_KIND : SHAPE_KIND, targets(type)), (el) => {
+      const v = el.dataset.v;
+      if (el.dataset.g) {
+        const g = GRADIENTS.find((x) => x.id === el.dataset.g)?.g;
+        return g ? (b) => wide({ ...b, [k]: 'gradient', [gk]: { ...g } }) : null;
+      }
+      if (v === 'none') return (b) => (k === 'stroke' ? { ...b, width: undefined } : { ...b, fill: 'none', gradient: undefined });
+      if (v && v !== 'custom' && v !== 'grad-edit') return (b) => wide({ ...b, [k]: v, [gk]: undefined });
+      if (el.dataset.w) return (b) => ({ ...b, width: Number(el.dataset.w) });
+      if (el.dataset.dash !== undefined) return (b) => wide({ ...b, dash: el.dataset.dash || undefined });
+      return null;
+    });
   };
   /** Свой градиент: два цвета, направление или от центра; правки видны сразу и в истории — одним шагом */
   /** Свой градиент заливки или контура: точки (цвета темы или постоянные), направление, готовые */
@@ -560,6 +574,43 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     mo.observe(document.body, { childList: true });
   };
   const put = (el: Element | null, v: string | null) => { if (el) { if (v === null) el.removeAttribute('style'); else el.setAttribute('style', v); } };
+  /**
+   * Примерка на объектах на слайде, без записи: вид (классы и style) запоминается, tryOn показывает
+   * блок, каким его сделает выбор, restore возвращает как было. forget — выбор сделан, объект
+   * перерисован с новым видом: прежний вид больше не возвращать (следующая примерка запомнит новый)
+   */
+  const tryLook = (kind: LookKind, paths: Path[] = targets(kind.type)) => {
+    const snap = () => paths.flatMap((p) => [...h.stage().querySelectorAll<HTMLElement>(`.slide.on [data-block='${JSON.stringify(p)}']`)].map((root) => ({ el: kind.el(root), p })))
+      .filter((x): x is { el: HTMLElement; p: Path } => !!x.el)
+      .map(({ el, p }) => ({ el, p, parts: [el, ...(kind.parts?.(el) ?? el.querySelectorAll('img'))].map((n) => ({ n, cls: n.className, style: n.getAttribute('style') })) }));
+    let saved = snap();
+    const fresh = () => { if (!saved.length || !saved[0].el.isConnected) saved = snap(); };
+    const restore = () => saved.forEach((x) => x.parts.forEach(({ n, cls, style }) => { n.className = cls; put(n, style); }));
+    return {
+      kind,
+      tryOn(fn: (b: Block) => Block) {
+        fresh();
+        restore();
+        for (const { el, p } of saved) kind.apply(el, fn(getAt(deck, p) as Block));
+      },
+      restore,
+      forget() { saved = []; },
+    };
+  };
+  /**
+   * Примерка в окошке с вариантами: наведение и фокус на варианте — tryOn, уход — restore, щелчок —
+   * forget (выбор записан и перерисован), закрыли окошко — restore
+   */
+  const bindTry = (pop: HTMLElement, look: ReturnType<typeof tryLook>, fnOf: (el: HTMLElement) => ((b: Block) => Block) | null) => {
+    const opt = (t: EventTarget | null) => (t as Element | null)?.closest?.<HTMLElement>('button');
+    const show = (t: EventTarget | null) => { const b = opt(t); const fn = b && pop.contains(b) ? fnOf(b) : null; if (fn) look.tryOn(fn); else look.restore(); };
+    pop.addEventListener('pointerover', (e) => show(e.target));
+    pop.addEventListener('focusin', (e) => show(e.target));
+    pop.addEventListener('pointerleave', () => look.restore());
+    pop.addEventListener('pointerdown', (e) => { if (opt(e.target)) look.forget(); });
+    const mo = new MutationObserver(() => { if (!pop.isConnected) { mo.disconnect(); look.restore(); } });
+    mo.observe(document.body, { childList: true });
+  };
   /** Рисунок: оформление — на рамке .imgbox и самом снимке, образец — пейзаж */
   const IMAGE_KIND: LookKind = {
     type: 'image',
@@ -609,19 +660,11 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
    */
   const lookPopover = (at: HTMLElement, sections: { title?: string; cls?: string; options: LookOption[] }[], slider?: LookSlider, cls = '', kind = IMAGE_KIND) => {
     const paths = targets(kind.type);
-    // Сохраняем вид объекта и снимков внутри: примерка меняет только классы и style
-    const snap = () => paths.flatMap((p) => [...h.stage().querySelectorAll<HTMLElement>(`.slide.on [data-block='${JSON.stringify(p)}']`)].map((root) => ({ el: kind.el(root), p })))
-      .filter((x): x is { el: HTMLElement; p: Path } => !!x.el)
-      .map(({ el, p }) => ({ el, p, parts: [el, ...(kind.parts?.(el) ?? el.querySelectorAll('img'))].map((n) => ({ n, cls: n.className, style: n.getAttribute('style') })) }));
-    let saved = snap();
-    const fresh = () => { if (saved[0] && !saved[0].el.isConnected) saved = snap(); };
+    const look = tryLook(kind, paths);
     const b0 = first(kind.type);
     let picked = false;
-    const restore = () => { if (picked) return; fresh(); saved.forEach((x) => x.parts.forEach(({ n, cls, style }) => { n.className = cls; put(n, style); })); };
-    const tryOn = (patch: Record<string, unknown>) => {
-      restore();
-      for (const { el, p } of saved) kind.apply(el, { ...(getAt(deck, p) as Block), ...patch });
-    };
+    const restore = () => { if (!picked) look.restore(); };
+    const tryOn = (patch: Record<string, unknown>) => { if (!picked) look.tryOn((b) => ({ ...b, ...patch })); };
     const options = sections.flatMap((s) => s.options);
     const tile = (o: LookOption) => `<button type="button" class="st-flt${o.on ? ' on' : ''}" data-lk="${options.indexOf(o)}" title="${esc(o.label)}">`
       + `${kind.sample({ ...(b0 ?? {}), ...(o.preview ?? o.patch) } as Block)}<span>${esc(o.label)}</span></button>`;
@@ -648,7 +691,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       if (!slider || !r.dataset.lkr) return;
       const v = slider.set(Number(r.value));
       ed.commit((d) => paths.forEach((p) => setAt(d, [...p, slider.key], v)), { rebuild: true, merge: `${kind.type}-${slider.key}` });
-      saved = snap();
+      look.forget();
     });
     const mo = new MutationObserver(() => { if (!pop.isConnected) { mo.disconnect(); restore(); } });
     mo.observe(document.body, { childList: true });
@@ -784,7 +827,8 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     lastCell = null;
   });
   /** Заливка выделенных ячеек: цвет темы, свой #RRGGBB или undefined — как у таблицы */
-  const fillCells = (v: string | undefined) => editTable((t, at) => {
+  const fillCells = (v: string | undefined) => editTable((t, at) => paintCells(t, at, v));
+  const paintCells = (t: TableData, at: CellRange, v: string | undefined) => {
     for (let r = at.r0; r <= at.r1; r++) {
       let row: unknown[];
       if (r < 0) row = Array.isArray(t.headFills) ? t.headFills : (t.headFills = []);
@@ -798,7 +842,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
         row[c] = v ?? null;
       }
     }
-  });
+  };
   const fillOfCell = (): string | undefined => {
     const t = first('table') as TableData | null;
     const at = span();
@@ -814,7 +858,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       <div class="st-plabel">Цвета темы</div><div class="st-pgrid">${theme}</div>
       <div class="st-plabel">Постоянные</div><div class="st-pgrid">${SHAPE_SWATCHES.map((c) => sw(c, c, c)).join('')}</div>
       <button type="button" class="st-pmore" data-v="custom"><i style="background:conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)"></i><span>Другой цвет…</span></button>`;
-    showPopover(anchor('table.fill'), html, (el) => {
+    const pop = showPopover(anchor('table.fill'), html, (el) => {
       const v = el.dataset.v;
       if (v === 'custom') {
         return {
@@ -828,6 +872,17 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
         };
       }
       return v ? { run: () => fillCells(v === 'none' ? undefined : v) } : null;
+    });
+    // Наведение на цвет — выделенные ячейки на слайде уже в нём
+    const at = span();
+    bindTry(pop, tryLook(TABLE_KIND, targets('table').slice(0, 1)), (el) => {
+      const v = el.dataset.v;
+      if (!v || v === 'custom') return null;
+      return (b) => {
+        const t = structuredClone(b) as unknown as TableData;
+        paintCells(t, at, v === 'none' ? undefined : v);
+        return t as unknown as Block;
+      };
     });
   };
   /** Выделить строку, столбец или всю таблицу (как «Выделить» в PowerPoint) */
@@ -1200,6 +1255,45 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   for (const [v] of VARIANTS) {
     cmds[`table.variant.${v}`] = { run: () => setAll('table', 'variant', v === 'lines' ? undefined : v), enabled: isTable, active: () => isTable() && (first('table')?.variant ?? 'lines') === v };
   }
+
+  // ---------- примерка с ленты: плитка под мышью или в фокусе — вид на самом объекте ----------
+  /** Каким станет блок, если нажать плитку ленты cmd (как в её команде); null — плитка без примерки */
+  const ribbonTry = (cmd: string): { kind: LookKind; fn: (b: Block) => Block } | null => {
+    const [, group, id] = /^(shape\.style|shape\.kind|table\.variant|image\.style)\.(.+)$/.exec(cmd) ?? [];
+    if (group === 'shape.style') {
+      const s = SHAPE_STYLES.find((x) => x.id === id);
+      return s ? {
+        kind: SHAPE_KIND,
+        fn: (b) => (isLine(b) ? { ...b, stroke: s.line, dash: s.props.dash } : { ...Object.fromEntries(Object.entries(b).filter(([k]) => !(STYLE_KEYS as readonly string[]).includes(k))), ...s.props } as Block),
+      } : null;
+    }
+    // Форма — только у фигур с телом: линия и стрелка устроены иначе, их показывает щелчок
+    if (group === 'shape.kind') return id === 'line' || id === 'arrow' ? null : { kind: SHAPE_KIND, fn: (b) => (isLine(b) ? b : { ...b, kind: id === 'round' ? undefined : id }) };
+    if (group === 'table.variant') return { kind: TABLE_KIND, fn: (b) => ({ ...b, variant: id === 'lines' ? undefined : id }) };
+    if (group === 'image.style') {
+      const st = IMAGE_STYLES.find((x) => x.id === id);
+      return st ? { kind: IMAGE_KIND, fn: (b) => ({ ...b, ...stylePatch(st) }) } : null;
+    }
+    return null;
+  };
+  let trying: { cmd: string; look: ReturnType<typeof tryLook> } | null = null;
+  const tileOf = (t: EventTarget | null) => (t as Element | null)?.closest?.<HTMLElement>('.st-ribbon [data-cmd]') ?? null;
+  const showTile = (tile: HTMLElement | null) => {
+    const cmd = tile && !(tile as HTMLButtonElement).disabled ? tile.dataset.cmd ?? '' : '';
+    if (trying?.cmd === cmd) return;
+    trying?.look.restore();
+    trying = null;
+    const spec = cmd ? ribbonTry(cmd) : null;
+    if (!spec || cmds[cmd]?.enabled?.() === false) return;
+    const look = tryLook(spec.kind);
+    look.tryOn(spec.fn);
+    trying = { cmd, look };
+  };
+  document.addEventListener('pointerover', (e) => showTile(tileOf(e.target)));
+  document.addEventListener('focusin', (e) => showTile(tileOf(e.target)));
+  // Нажали плитку — команда запишет этот вид: прежний не возвращаем
+  document.addEventListener('pointerdown', (e) => { if (trying && tileOf(e.target)?.dataset.cmd === trying.cmd) { trying.look.forget(); trying = null; } }, true);
+  document.addEventListener('keydown', (e) => { if (trying && (e.key === 'Enter' || e.key === ' ') && tileOf(e.target)) { trying.look.forget(); trying = null; } }, true);
   return cmds;
 }
 
