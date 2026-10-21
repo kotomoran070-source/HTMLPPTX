@@ -1490,7 +1490,7 @@ test('номера анимаций на слайде — только на «А
   await page.locator('[data-tab="anim"]').first().click();
   await expect(page.locator('[data-cmd="anim.count"]')).toHaveClass(/\bactive\b/);
   await page.locator('[data-cmd="anim.count-menu"]').click();
-  await page.locator('.st-menu button', { hasText: 'Отсчёт от нуля' }).click();
+  await page.locator('.st-menu button', { hasText: 'Отсчёт' }).click();
   expect(await waitFile(() => /count: true/.test(line()))).toBe(true);
   await page.keyboard.press('Escape');
   await page.locator('[data-cmd="anim.count-menu"]').click();

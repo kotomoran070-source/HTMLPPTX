@@ -16,7 +16,8 @@ function row(label: string, body: string, hint?: string, wide = false): string {
   return `<label class="st-f${wide ? ' wide' : ''}"><span class="st-f-l">${esc(label)}</span>${body}${hint ? `<small>${esc(hint)}</small>` : ''}</label>`;
 }
 
-const ICON_OPTIONS = iconNames.filter((n) => !/^(obj-|align-|slide-add|minus|drag|sparkle|home|frame|eraser|contain|cover)/.test(n));
+// Значки интерфейса (выравнивание, эффекты анимации в меню, шкалы) в выбор иконки блока не попадают
+const ICON_OPTIONS = iconNames.filter((n) => !/^(obj-|align-|slide-add|minus|drag|sparkle|home|frame|eraser|contain|cover|fx-|arr-|speed-|grid-\d|odometer)/.test(n));
 
 function listTools(p: Path, i: number, n: number, what: string): string {
   return `<span class="st-f-tools">`

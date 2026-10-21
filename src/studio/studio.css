@@ -598,6 +598,50 @@ button.st-g-n { position: relative; }
 .st-menu:not(.st-pop) button.danger:hover:not(:disabled) { background: #FEF2F2; color: #B91C1C; }
 :root[data-theme="dark"] .st-menu button.danger:hover:not(:disabled) { background: rgba(220, 38, 38, .14); color: #FCA5A5; }
 .st-menu-sep { height: 1px; margin: 4px 6px; background: var(--bd); }
+/* Заголовок группы пунктов и пояснение второй строкой */
+.st-menu-h { padding: 7px 10px 3px; font: 600 10.5px var(--font); color: var(--mu); text-transform: uppercase; letter-spacing: .07em; }
+.st-menu:not(.st-pop) button .st-mi-t { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.st-menu:not(.st-pop) button .st-mi-t > b { font-weight: inherit; }
+.st-menu:not(.st-pop) button .st-mi-t > small { font: 11.5px var(--font); color: var(--mu); white-space: normal; }
+/* Отмеченный пункт меню со значками — цветом, как в коротком списке */
+.st-menu:not(.plain):not(.st-pop) button[aria-checked="true"] { color: var(--ach); font-weight: 600; }
+.st-menu:not(.plain):not(.st-pop) button[aria-checked="true"] > .ic:first-child { color: var(--ach); }
+/* «Живой» значок эффекта: под мышью или в фокусе повторяет движение эффекта */
+.st-menu button.fxi > .ic:first-child { transform-origin: 50% 50%; }
+.st-menu button.fxi:is(:hover, :focus-visible):not(:disabled) > .ic:first-child { animation: var(--fxi, none) 1s ease-in-out infinite; }
+.st-menu button.fxi-pulse { --fxi: fxi-pulse; } .st-menu button.fxi-shake { --fxi: fxi-shake; } .st-menu button.fxi-spin { --fxi: fxi-spin; }
+.st-menu button.fxi-bounce { --fxi: fxi-bounce; } .st-menu button.fxi-flash { --fxi: fxi-flash; } .st-menu button.fxi-glow { --fxi: fxi-glow; }
+.st-menu button.fxi-mark { --fxi: fxi-right; } .st-menu button.fxi-dim { --fxi: fxi-dim; } .st-menu button.fxi-grow { --fxi: fxi-grow; } .st-menu button.fxi-recolor { --fxi: fxi-recolor; }
+.st-menu button:is(.fxi-x-vanish, .fxi-x-fade, .fxi-x-wipe, .fxi-x-split, .fxi-x-wheel) { --fxi: fxi-dim; } .st-menu button.fxi-x-sink { --fxi: fxi-down; }
+.st-menu button.fxi-x-up { --fxi: fxi-up; } .st-menu button.fxi-x-left { --fxi: fxi-left; } .st-menu button.fxi-x-right { --fxi: fxi-right; }
+.st-menu button.fxi-x-shrink { --fxi: fxi-shrink; } .st-menu button.fxi-x-swivel { --fxi: fxi-swivel; }
+@keyframes fxi-pulse { 50% { transform: scale(1.28); } }
+@keyframes fxi-shake { 25% { transform: translateX(-2px) rotate(-6deg); } 75% { transform: translateX(2px) rotate(6deg); } }
+@keyframes fxi-spin { to { transform: rotate(360deg); } }
+@keyframes fxi-bounce { 40% { transform: translateY(-4px); } 60% { transform: translateY(-4px); } }
+@keyframes fxi-flash { 50% { opacity: .15; } }
+@keyframes fxi-glow { 50% { filter: drop-shadow(0 0 3px var(--ac)); } }
+@keyframes fxi-dim { 50% { opacity: .3; } }
+@keyframes fxi-grow { 50% { transform: scale(1.3); } }
+@keyframes fxi-recolor { 50% { color: var(--ac2, #DB2777); } }
+@keyframes fxi-down { 60% { transform: translateY(4px); opacity: .25; } }
+@keyframes fxi-up { 60% { transform: translateY(-4px); opacity: .25; } }
+@keyframes fxi-left { 60% { transform: translateX(-4px); opacity: .25; } }
+@keyframes fxi-right { 60% { transform: translateX(4px); opacity: .25; } }
+@keyframes fxi-shrink { 60% { transform: scale(.55); opacity: .35; } }
+@keyframes fxi-swivel { 50% { transform: perspective(40px) rotateY(70deg); } }
+@media (prefers-reduced-motion: reduce) { .st-menu button.fxi > .ic:first-child { animation: none !important; } }
+/* Эффект текста: название пункта — образцом своего эффекта */
+.st-menu button.tfx-s-glitch > span { text-shadow: -1px 0 rgba(255, 43, 214, .7), 1px 0 rgba(34, 211, 238, .7); }
+.st-menu button.tfx-s-neon > span { color: var(--ach); text-shadow: 0 0 6px color-mix(in srgb, var(--ac) 50%, transparent); }
+.st-menu button.tfx-s-shine > span { background: linear-gradient(100deg, currentColor 38%, color-mix(in srgb, var(--ac) 55%, #fff) 50%, currentColor 62%) 0 0 / 220% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.st-menu button.tfx-s-shine:hover > span { animation: tfx-s-shine 1.2s ease-in-out infinite; }
+@keyframes tfx-s-shine { from { background-position: 100% 0; } to { background-position: 0 0; } }
+.st-menu button.tfx-s-wave > span { text-decoration: underline wavy color-mix(in srgb, var(--ac) 70%, transparent); text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+.st-menu button.tfx-s-type > span { font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 12.5px; }
+.st-menu button.tfx-s-type > span::after { content: '|'; margin-left: 1px; color: var(--ac); animation: tfx-blink .9s steps(1, end) infinite; }
+.st-menu button.tfx-s-scramble > span { font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 12.5px; letter-spacing: .02em; }
+.st-menu button.tfx-s-liquid > span { display: inline-block; transform: skewX(-8deg); }
 
 /* Просмотр анимации: слайд проигрывает появление, правка на это время выключена */
 .st-preview-shield { display: none; position: fixed; inset: 0; z-index: 30; cursor: pointer; }

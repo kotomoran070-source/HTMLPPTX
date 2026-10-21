@@ -1371,8 +1371,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'view.lite': { run: () => { lay.lite = !lay.lite; applyLayout(); queueState(); ed.toast(lay.lite ? 'Облегчённый режим: слайд без движения, редактор легче' : 'Облегчённый режим выключен', 2500); }, active: () => lay.lite },
     'view.guides-reset': { run: () => { aids!.resetGuides(); if (!lay.guides) toggleAid('guides', true); } },
     'view.grid-step': {
-      run: () => showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="view.grid-step"]')!, GRID_STEPS.map((st) => ({
+      run: () => showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="view.grid-step"]')!, GRID_STEPS.map((st, k) => ({
         label: `${st} px`,
+        // Мельче шаг — гуще сетка на значке
+        icon: `grid-${GRID_STEPS.length - k}`,
         checked: lay.step === st,
         run: () => { lay.step = st; aids!.state.step = st; aids!.apply(); applyLayout(); if (!lay.grid) toggleAid('grid', true); },
       }))),
@@ -1452,9 +1454,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'view.fit': { run: () => setZoom('fit'), active: () => zoom === 'fit' },
     'view.zoom-menu': {
       run: () => showMenu($('st-zoom'), [
-        { label: 'Вписать в окно', icon: 'fullscreen', run: () => setZoom('fit') },
+        { label: 'Вписать в окно', checked: zoom === 'fit', run: () => setZoom('fit') },
         null,
-        ...[0.5, 0.75, 1, 1.5, 2].map((z) => ({ label: `${Math.round(z * 100)}%`, run: () => setZoom(z) })),
+        ...[0.5, 0.75, 1, 1.5, 2].map((z) => ({ label: `${Math.round(z * 100)}%`, checked: zoom === z, run: () => setZoom(z) })),
       ]),
     },
   };

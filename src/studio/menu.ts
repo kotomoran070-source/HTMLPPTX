@@ -12,6 +12,10 @@ export interface MenuItem {
   swatch?: string;
   /** Отмечено галочкой: текущее значение */
   checked?: boolean;
+  /** Пояснение второй строкой — мелко, под названием */
+  sub?: string;
+  /** Свой класс пункта: «живая» иконка эффекта (fxi-…), образец эффекта текста в названии (tfx-s-…) */
+  cls?: string;
   /** Предпросмотр, пока пункт под мышью или в фокусе: например, подсветить то, что удалится */
   preview?(on: boolean): void;
   run(): void;
@@ -19,6 +23,10 @@ export interface MenuItem {
 
 /** null — разделитель */
 export type MenuEntry = MenuItem | null;
+/** Заголовок группы пунктов */
+export interface MenuHead { head: string }
+type MenuRow = MenuEntry | MenuHead;
+const isHead = (it: MenuRow): it is MenuHead => !!it && 'head' in it;
 
 let open: { el: HTMLElement; close(): void } | null = null;
 
@@ -30,16 +38,21 @@ export function closeMenu(): void {
  * Всплывающее меню у точки или под кнопкой. Клавиатура: стрелки, Enter, Esc.
  * Закрывается кликом мимо, прокруткой и сменой размера окна.
  */
-export function showMenu(at: { x: number; y: number } | HTMLElement, items: MenuEntry[]): void {
+export function showMenu(at: { x: number; y: number } | HTMLElement, rows: MenuRow[]): void {
   const el = document.createElement('div');
+  const items = rows.map((it) => (isHead(it) ? null : it));
   // Меню выбора без значков (угол, толщина): короткий список, отмеченное — галочкой и цветом
   const plain = !items.some((it) => it && (it.icon || it.swatch));
   el.className = `st-menu${plain ? ' plain' : ''}`;
   el.setAttribute('role', 'menu');
-  el.innerHTML = items.map((it, k) => it === null
-    ? '<i class="st-menu-sep" role="separator"></i>'
-    : `<button type="button" role="${it.checked === undefined ? 'menuitem' : 'menuitemradio'}" data-k="${k}"${it.disabled ? ' disabled' : ''}${it.checked === undefined ? '' : ` aria-checked="${it.checked}"`}${it.danger ? ' class="danger"' : ''}>`
-      + `${it.swatch ? `<i class="st-sw" style="background:${it.swatch}"></i>` : it.icon ? icon(it.icon) : plain ? '' : '<i class="ic"></i>'}<span>${esc(it.label)}</span>${it.checked ? icon('check') : ''}${it.hint ? `<kbd>${esc(it.hint)}</kbd>` : ''}</button>`).join('');
+  el.innerHTML = rows.map((it, k) => {
+    if (it === null) return '<i class="st-menu-sep" role="separator"></i>';
+    if (isHead(it)) return `<div class="st-menu-h" role="presentation">${esc(it.head)}</div>`;
+    const cls = [it.danger ? 'danger' : '', it.cls ?? ''].filter(Boolean).join(' ');
+    const text = it.sub ? `<span class="st-mi-t"><b>${esc(it.label)}</b><small>${esc(it.sub)}</small></span>` : `<span>${esc(it.label)}</span>`;
+    return `<button type="button" role="${it.checked === undefined ? 'menuitem' : 'menuitemradio'}" data-k="${k}"${it.disabled ? ' disabled' : ''}${it.checked === undefined ? '' : ` aria-checked="${it.checked}"`}${cls ? ` class="${cls}"` : ''}>`
+      + `${it.swatch ? `<i class="st-sw" style="background:${it.swatch}"></i>` : it.icon ? icon(it.icon) : plain ? '' : '<i class="ic"></i>'}${text}${it.checked ? icon('check') : ''}${it.hint ? `<kbd>${esc(it.hint)}</kbd>` : ''}</button>`;
+  }).join('');
   mount(at, el, (b) => {
     const it = items[Number(b.dataset.k)];
     return it ? () => it.run() : null;

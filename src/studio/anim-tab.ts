@@ -1,15 +1,15 @@
 import { icon } from '../components/icons';
-import { actsOf, byItems, clickActs, EMPHASIS, ENTER, EXIT, nameOf, partsOf, TEMPO, TEXT_ENTER, type ActKind, type Pair } from '../engine/anim';
+import { actsOf, byItems, clickActs, EMPHASIS, ENTER, EXIT, nameOf, partsOf, PERSIST, TEMPO, TEXT_ENTER, type ActKind, type Pair } from '../engine/anim';
 import { getAt, type Path } from '../engine/data';
 import { blockName } from '../engine/editor/block-edit';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
-import { TEXT_FX, TEXT_FX_NAMES, textFxPreview } from '../engine/text-fx';
+import { TEXT_FX, TEXT_FX_NAMES, textFxPreview, type TextFx } from '../engine/text-fx';
 import { TR_DIR_DEFAULT, TR_DIRS, trDir, TRANSITIONS } from '../engine/transitions';
 import type { Block, Deck } from '../types';
 import { bindRail, railNav } from './backdrop-pick';
 import { snippet } from './code-tree';
-import { showMenu, showPopover } from './menu';
+import { showMenu, showPopover, type MenuHead, type MenuItem } from './menu';
 import { deckWithEffect, listEffects, removeEffect, type UserEffect } from './templates';
 
 /**
@@ -48,7 +48,23 @@ const FX_HINT: Record<string, string> = {
   ripple: 'Из ряби: объект проступает из волн, рябь утихает',
 };
 
-const SPEEDS: [number, string][] = [[300, 'Быстро · 0,3 с'], [600, 'Обычно · 0,6 с'], [1000, 'Медленно · 1 с'], [1600, 'Очень медленно · 1,6 с']];
+const SPEEDS: [number, string, string][] = [[300, 'Быстро', 'speed-4'], [600, 'Обычно', 'speed-3'], [1000, 'Медленно', 'speed-2'], [1600, 'Очень медленно', 'speed-1']];
+
+/** Значки эффектов в меню ленты; у пункта класс fxi-… — значок под мышью повторяет движение эффекта */
+const EMPH_ICON: Record<string, string> = {
+  pulse: 'fx-pulse', shake: 'fx-shake', spin: 'fx-spin', bounce: 'fx-bounce', flash: 'fx-flash', glow: 'fx-glow', mark: 'marker',
+  dim: 'fx-dim', grow: 'fx-grow', recolor: 'fx-recolor',
+};
+const EXIT_ICON: Record<string, string> = {
+  vanish: 'eye-off', fade: 'fx-fade', sink: 'arr-down', up: 'arr-up', left: 'arr-left', right: 'arr-right', shrink: 'fx-shrink',
+  swivel: 'fx-swivel', wipe: 'fx-wipe', split: 'fx-split', wheel: 'fx-wheel',
+};
+/** Исчезновения срезом — отдельной группой в меню */
+const EXIT_CUT = new Set(['wipe', 'split', 'wheel']);
+const TFX_ICON: Record<TextFx, string> = { glitch: 'fx-flash', neon: 'fx-glow', shine: 'sparkle', wave: 'fx-pulse', type: 'text', scramble: 'hash', liquid: 'fx-recolor' };
+/** Сторона, откуда переход: значок — прижатый к этой стороне объект */
+const DIR_ICON: Record<string, string> = { right: 'obj-right', left: 'obj-left', top: 'obj-top', bottom: 'obj-bottom' };
+const TEMPO_ICON: Record<string, string> = { fast: 'speed-4', '': 'speed-3', slow: 'speed-2', slower: 'speed-1' };
 
 /** Шаг между появлениями при перестановке и «по очереди», мс */
 export const STEP = 300;
@@ -246,8 +262,10 @@ export function animCommands(h: AnimHost): Record<string, Command> {
   cmds['tr.speed'] = {
     run: () => {
       const cur = Number(slide()?.transitionMs) || 600;
-      showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="tr.speed"]')!, SPEEDS.map(([ms, l]) => ({
+      showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="tr.speed"]')!, SPEEDS.map(([ms, l, ic]) => ({
         label: l,
+        icon: ic,
+        hint: sec(ms),
         checked: cur === ms,
         run: () => {
           const i = h.index();
@@ -267,6 +285,7 @@ export function animCommands(h: AnimHost): Record<string, Command> {
       const cur = trDir(s?.transition, s?.transitionDir);
       showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="tr.dir"]')!, TR_DIRS.map(([v, l]) => ({
         label: l,
+        icon: DIR_ICON[v],
         checked: cur === v,
         run: () => {
           const i = h.index();
@@ -341,13 +360,24 @@ export function animCommands(h: AnimHost): Record<string, Command> {
     }));
     const objs = paths.map(objEl).filter((x): x is HTMLElement => !!x);
     const marked = paths.every((p) => /\{mark\|/i.test(JSON.stringify(getAt(deck, p) ?? '')));
-    showMenu(document.querySelector<HTMLElement>(`.st-ribbon [data-cmd="fx.${kind === 'emph' ? 'emph' : 'exit'}"]`)!, [['', kind === 'emph' ? 'Без выделения' : 'Без исчезновения'] as Pair, ...list].map(([v, l]) => ({
-      label: v === 'mark' && !marked ? `${l} — нужен {mark|…} в тексте` : l,
+    const row = ([v, l]: Pair): MenuItem => ({
+      label: l,
+      icon: v ? (kind === 'emph' ? EMPH_ICON : EXIT_ICON)[v] : 'fx-none',
+      cls: v ? `fxi fxi-${kind === 'emph' ? '' : 'x-'}${v}` : undefined,
+      sub: v === 'mark' && !marked ? 'Отметьте слова маркером в тексте' : undefined,
       checked: cur.size === 1 && cur.has(v),
       disabled: v === 'mark' && !marked,
       preview: v ? (on: boolean) => objs.forEach((o) => tryAct(o, kind, on ? v : null)) : undefined,
       run: () => { objs.forEach((o) => tryAct(o, kind, null)); setAct(kind, v); },
-    })));
+    });
+    // Группы: у выделения — разовые и те, что держатся; у исчезновения — простые и срезом
+    const late = kind === 'emph' ? PERSIST : EXIT_CUT;
+    const head = (s: string): MenuHead => ({ head: s });
+    showMenu(document.querySelector<HTMLElement>(`.st-ribbon [data-cmd="fx.${kind === 'emph' ? 'emph' : 'exit'}"]`)!, [
+      row(['', kind === 'emph' ? 'Без выделения' : 'Без исчезновения']), null,
+      head(kind === 'emph' ? 'Один раз' : 'Простые'), ...list.filter(([v]) => !late.has(v)).map(row), null,
+      head(kind === 'emph' ? 'Держатся до возврата назад' : 'Срезом'), ...list.filter(([v]) => late.has(v)).map(row),
+    ]);
   };
   cmds['fx.emph'] = { run: () => actMenu('emph'), enabled: () => freeSel().length > 0 };
   cmds['fx.exit'] = { run: () => actMenu('out'), enabled: () => freeSel().length > 0 };
@@ -445,7 +475,8 @@ export function animCommands(h: AnimHost): Record<string, Command> {
     active: () => { const p = freeSel(); return p.length > 0 && p.every((x) => (getAt(deck, x) as Block).click === true); },
   };
   /** Вид «Число набегает»: true — отсчёт от нуля, odometer — цифры барабаном */
-  const COUNTS: [true | 'odometer' | '', string][] = [[true, 'Отсчёт от нуля'], ['odometer', 'Одометр: цифры барабаном'], ['', 'Не набегает']];
+  /** Как набегает: выключить — флажком «Число набегает» рядом */
+  const COUNTS: [true | 'odometer', string, string, string][] = [[true, 'Отсчёт', 'trend', 'от нуля'], ['odometer', 'Одометр', 'odometer', 'барабан']];
   const isCount = (b: Block) => b.count === true || b.count === 'odometer';
   const setCount = (v: true | 'odometer' | '') => {
     h.editor.commit((d) => counted().forEach((p) => {
@@ -458,8 +489,8 @@ export function animCommands(h: AnimHost): Record<string, Command> {
   cmds['anim.count-menu'] = {
     run: () => {
       const cur = new Set(counted().map((p) => (getAt(deck, p) as Block).count ?? ''));
-      showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="anim.count-menu"]')!, COUNTS.map(([v, l]) => ({
-        label: l, checked: cur.size === 1 && cur.has(v), run: () => setCount(v),
+      showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="anim.count-menu"]')!, COUNTS.map(([v, l, ic, hint]) => ({
+        label: l, icon: ic, hint, checked: cur.size === 1 && cur.has(v), run: () => setCount(v),
       })));
     },
     enabled: () => counted().length > 0,
@@ -507,6 +538,9 @@ export function animCommands(h: AnimHost): Record<string, Command> {
       }), { rebuild: true });
       showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="anim.textfx"]')!, [['', 'Без эффекта'] as [string, string], ...TEXT_FX.map((v) => [v, TEXT_FX_NAMES[v]] as [string, string])].map(([v, l]) => ({
         label: l,
+        // Название — образцом своего эффекта
+        icon: v ? TFX_ICON[v as TextFx] : 'fx-none',
+        cls: v ? `tfx-s tfx-s-${v}` : undefined,
         checked: cur.size === 1 && cur.has(v),
         preview: (on: boolean) => tryFx(on ? v : null),
         run: () => { tryFx(null); set(v); if (v) requestAnimationFrame(() => h.preview()); },
@@ -550,6 +584,7 @@ export function animCommands(h: AnimHost): Record<string, Command> {
       const cur = new Set(paths.map((p) => String((getAt(deck, p) as Block).tempo ?? '')));
       showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="anim.tempo"]')!, TEMPO.map(([v, l]) => ({
         label: l,
+        icon: TEMPO_ICON[v],
         checked: cur.size === 1 && cur.has(v),
         run: () => {
           ed.commit((d) => paths.forEach((p) => {
