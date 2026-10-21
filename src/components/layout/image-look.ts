@@ -1,4 +1,4 @@
-import { shapeColor } from '../shape/shape';
+import { SHADOWS, shapeColor } from '../shape/shape';
 
 /**
  * Оформление картинки, как «Формат рисунка» в PowerPoint: контур, тень, скругление, паспарту,
@@ -31,11 +31,8 @@ export interface ImageLook {
   saturate?: number;
 }
 
-export const IMAGE_SHADOWS: Record<string, { name: string; css: string }> = {
-  sm: { name: 'Лёгкая', css: '0 2px 8px rgba(15, 23, 42, .14)' },
-  md: { name: 'Заметная', css: '0 10px 28px rgba(15, 23, 42, .20)' },
-  lg: { name: 'Глубокая', css: '0 22px 50px rgba(15, 23, 42, .30)' },
-};
+/** Тени — общие с фигурами (shape.ts) */
+export const IMAGE_SHADOWS = SHADOWS;
 
 /**
  * Цветовые фильтры — как LUT: цепочка CSS-фильтров и, у части, тонировка поверх снимка

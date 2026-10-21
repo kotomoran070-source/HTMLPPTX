@@ -1079,7 +1079,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   const cmds: Record<string, Command> = {
     'shape.fill': { run: () => palette('shape.fill', 'fill'), enabled: isBody },
     'shape.stroke': { run: () => palette('shape.stroke', 'stroke'), enabled: isShape },
-    'shape.shadow': { run: () => lookGallery('shape.shadow', 'shadow', [[undefined, 'Без тени'], ['sm', 'Лёгкая'], ['md', 'Заметная']], undefined, undefined, SHAPE_KIND), enabled: isBody },
+    'shape.shadow': { run: () => lookGallery('shape.shadow', 'shadow', [[undefined, 'Без тени'], ...Object.entries(IMAGE_SHADOWS).map(([v, s]) => [v, s.name] as [string, string])], undefined, undefined, SHAPE_KIND), enabled: isBody },
     'shape.radius': {
       run: () => lookGallery('shape.radius', 'radius', [[0, 'Острые'], [8, 'Малое'], [undefined, 'Обычное'], [24, 'Большое'], [40, 'Очень большое']],
         { label: 'Своё, px', min: 0, max: 120, unit: ' px', get: (v) => (Number.isFinite(Number(v)) && v !== undefined ? Number(v) : first('shape')?.kind === 'rect' ? 0 : 16), set: (n) => n }, 'f', SHAPE_KIND),

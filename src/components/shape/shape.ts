@@ -5,6 +5,13 @@ import { ea } from '../../engine/marks';
 import type { Block } from '../../types';
 import './shape.css';
 
+/** Тени фигуры и рисунка: лёгкая, заметная, глубокая */
+export const SHADOWS: Record<string, { name: string; css: string }> = {
+  sm: { name: 'Лёгкая', css: '0 2px 8px rgba(15, 23, 42, .14)' },
+  md: { name: 'Заметная', css: '0 10px 28px rgba(15, 23, 42, .20)' },
+  lg: { name: 'Глубокая', css: '0 22px 50px rgba(15, 23, 42, .30)' },
+};
+
 /**
  * Цвета фигур по ролям темы: подстраиваются под тёмную тему и акцентный цвет.
  * Кроме имён можно писать #RRGGBB — тогда цвет постоянный.
@@ -87,7 +94,8 @@ export interface ShapeProps extends Block {
   /** Скругление углов, px (у round по умолчанию 16) */
   radius?: number;
   /** Тень: true или md — заметная, sm — лёгкая */
-  shadow?: boolean | 'sm' | 'md';
+  /** Тень — те же три, что у рисунка: лёгкая, заметная, глубокая (true — заметная) */
+  shadow?: boolean | 'sm' | 'md' | 'lg';
   /** Непрозрачность, от 0.1 до 1 */
   opacity?: number;
   /** Поворот, градусы (линию и стрелку можно повернуть в любую сторону) */
@@ -124,7 +132,7 @@ defineBlock<ShapeProps>('shape', {
     const css = [
       `background:${fill}`, `border-radius:${radius}`, `color:${p.fill === 'gradient' ? gradientOn(p.gradient) : onColor(p.fill ?? 'soft')}`,
       stroke ? `border:${w}px ${dash ? (dash === 'dot' ? 'dotted' : 'dashed') : 'solid'} ${stroke}` : '',
-      p.shadow ? `box-shadow:var(--shadow-${p.shadow === 'sm' ? 'sm' : 'md'})` : '',
+      p.shadow ? `box-shadow:${(SHADOWS[p.shadow === true ? 'md' : p.shadow] ?? SHADOWS.md).css}` : '',
       ring, rot, opacity,
     ].filter(Boolean).join(';');
     const v = p.valign === 'top' || p.valign === 'bottom' ? ` v-${p.valign}` : '';

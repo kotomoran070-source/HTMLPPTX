@@ -1211,7 +1211,8 @@ test('фигура: тень, скругление, поворот, прозра
   const was = await shadow();
   await page.locator('.st-ribbon [data-cmd="shape.shadow"]').click();
   const pop = page.locator('.st-lkpop');
-  await expect(pop.locator('.st-smp-shape .shape')).toHaveCount(3);
+  // Без тени, лёгкая, заметная, глубокая — как у рисунка
+  await expect(pop.locator('.st-smp-shape .shape')).toHaveCount(4);
   await pop.locator('[data-lk][title="Без тени"]').hover();
   await expect.poll(shadow).toBe('none');
   expect(readDeck('tpl')).toBe(before);
