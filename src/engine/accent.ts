@@ -102,6 +102,69 @@ export function accentTokens(accent: string, accent2?: string | AccentTail | nul
   return { light, dark };
 }
 
+/** Тон, насыщенность и светлота (HSL, все от 0 до 1) */
+function toHsl(c: string): RGB {
+  const [r, g, b] = parse(c).map((v) => v / 255);
+  const hi = Math.max(r, g, b);
+  const lo = Math.min(r, g, b);
+  const l = (hi + lo) / 2;
+  const d = hi - lo;
+  if (!d) return [0, 0, l];
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const h = hi === r ? ((g - b) / d + 6) % 6 : hi === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h / 6, s, l];
+}
+function fromHsl([h, s, l]: RGB): string {
+  const k = (n: number) => (n + h * 12) % 12;
+  const a = s * Math.min(l, 1 - l);
+  return hex([0, 8, 4].map((n) => (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))) * 255) as RGB);
+}
+
+/**
+ * Ближайший цвет того же тона, у которого яркость (после how — так цвет попадёт на экран) в пределах
+ * lo…hi: светлота меняется ровно настолько, насколько нужно. Яркость растёт вместе со светлотой — поиск делением пополам
+ */
+function fitLuminance(c: string, lo: number, hi: number, how: (c: string) => string = (x) => x): string {
+  const [h, s, l] = toHsl(c);
+  const at = (v: number) => luminance(how(fromHsl([h, s, v])));
+  const y = at(l);
+  if (y >= lo && y <= hi) return hex(parse(c));
+  let [a, b] = y > hi ? [0, l] : [l, 1];
+  for (let n = 0; n < 24; n++) {
+    const m = (a + b) / 2;
+    if (y > hi ? at(m) <= hi : at(m) < lo) a = m; else b = m;
+  }
+  return fromHsl([h, s, y > hi ? a : b]);
+}
+
+/**
+ * Цвет интерфейса не ломает интерфейс: белый текст на кнопках цвета акцента и подписи, значки, рамки
+ * цветом акцента на фоне панелей видны (контраст не меньше 3 : 1, как для крупного текста и значков
+ * по WCAG). Слишком светлый цвет становится темнее, в тёмной теме слишком тёмный — светлее; тон тот же.
+ */
+const UI_CONTRAST = 3;
+/** Самая большая яркость: белый текст на кнопке цвета акцента */
+const UI_HI = (1 + 0.05) / UI_CONTRAST - 0.05;
+/** Самая малая яркость в тёмной теме: акцент на панели (--surf тёмной темы) */
+const UI_LO_DARK = UI_CONTRAST * (luminance('#162033') + 0.05) - 0.05;
+/** В тёмной теме на экране акцент чуть светлее (как в accentTokens) */
+const darkShown = (c: string) => mix(c, '#FFFFFF', 0.12);
+
+/** Цвет, который интерфейс возьмёт за свой акцент в светлой или тёмной теме */
+export function uiSafeAccent(c: string, mode: 'light' | 'dark'): string {
+  return mode === 'dark' ? fitLuminance(c, UI_LO_DARK, UI_HI, darkShown) : fitLuminance(c, 0, UI_HI);
+}
+
+/** Токены акцента для самой страницы (лента, кнопки, панели): как accentTokens, но читаемые в обеих темах */
+export function uiAccentTokens(accent: string, accent2?: string | AccentTail | null): { light: Record<string, string>; dark: Record<string, string> } {
+  const tail = tailOf(accent2);
+  const side = (mode: 'light' | 'dark') => {
+    const fit = (c: string) => uiSafeAccent(c, mode);
+    return accentTokens(fit(accent), { to: tail.to && fit(tail.to), mid: tail.mid.map((m) => ({ c: fit(m.c), at: m.at })) })[mode];
+  };
+  return { light: side('light'), dark: side('dark') };
+}
+
 const block = (vars: Record<string, string>) => Object.entries(vars).map(([k, v]) => `${k}:${v}`).join(';');
 
 /** Вид слайда: постоянный (data-mode у слайда или выше) или как тема интерфейса */
@@ -238,9 +301,11 @@ export function applyAccent(accent: unknown, accent2?: unknown, quiet = false, u
   // перестановка стиля заставляет браузер пересчитать всю страницу
   const tail = document.getElementById(SLIDE_ID);
   if (!(el.parentNode === document.head && (el === document.head.lastElementChild || (el.nextElementSibling === tail && tail === document.head.lastElementChild)))) document.head.appendChild(el);
-  if (ui) {
-    const own = accentTokens(ui);
-    el.textContent = themed(':root', own.light, own.dark) + `@layer slideria-deck{${themed(DECK_SCOPE, deck.light, deck.dark)}}`;
+  // Страница — в читаемом варианте цвета (uiAccentTokens). Цвет презентации слишком светлый или тёмный для
+  // интерфейса — у страницы читаемый вариант, а слайды, миниатюры и образцы — в настоящем цвете
+  const face = ui ? uiAccentTokens(ui) : uiAccentTokens(a ?? DEFAULT_ACCENT, a2);
+  if (ui || JSON.stringify(face) !== JSON.stringify(deck)) {
+    el.textContent = themed(':root', face.light, face.dark) + `@layer slideria-deck{${themed(DECK_SCOPE, deck.light, deck.dark)}}`;
   } else {
     el.textContent = themed(':root', deck.light, deck.dark);
   }

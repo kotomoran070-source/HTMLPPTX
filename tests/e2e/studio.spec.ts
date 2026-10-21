@@ -4,6 +4,7 @@ import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { api, DECKS, PNG, readDeck, waitFile, watchErrors } from './helpers';
 import { kitWoff2, sfnt } from '../fonts';
+import { contrast } from '../../src/engine/accent';
 
 test.use({ colorScheme: 'light' });
 
@@ -498,6 +499,76 @@ test('градиент акцента — больше двух цветов: т
   await page.keyboard.press('Control+z');
   await expect.poll(() => readDeck('design')).toMatch(/accent: "#4F46E5"/);
   expect(readDeck('design')).not.toContain('accentMid');
+  expect(errors).toEqual([]);
+});
+
+test('объект за краем слайда остаётся там (можно отложить про запас), а его рамка не ложится на панели', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=fx&studio#3');
+  const before = readDeck('fx');
+  const f = page.locator('#st-canvas .slide.on > .free').filter({ hasText: 'F' }).first();
+  await f.click();
+  if (await page.locator('#st-canvas [contenteditable="true"]').count()) await page.keyboard.press('Escape');
+  const x = page.locator('[data-f="x"]').filter({ visible: true }).first();
+  await x.fill('1320');
+  await x.press('Enter');
+  expect(await waitFile(() => /text: "?F"?,.*x: 1320,/.test(readDeck('fx')))).toBe(true);
+  // Видимая часть рамки — в пределах холста
+  const over = () => page.evaluate(() => {
+    const fr = document.getElementById('ed-frame')!;
+    const m = /inset\(([-\d.]+)px ([-\d.]+)px/.exec(getComputedStyle(fr).clipPath);
+    return m ? fr.getBoundingClientRect().right - Number(m[2]) - document.getElementById('st-canvas')!.getBoundingClientRect().right : 999;
+  });
+  await expect.poll(over).toBeLessThanOrEqual(0.5);
+  await page.locator('#st-canvas').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => readDeck('fx')).toBe(before);
+  expect(errors).toEqual([]);
+});
+
+test('цвет интерфейса: слишком светлый и слишком тёмный — ближайший читаемый оттенок, слайды — в настоящем цвете презентации', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.addInitScript(() => localStorage.setItem('htmlpptx-theme', 'light'));
+  await page.goto('/?deck=design&studio#2');
+  const slide = page.locator('#st-canvas .slide.on');
+  await expect(slide).toHaveCount(1);
+  const rootAc = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--ac').trim());
+  const slideAc = () => slide.evaluate((s) => getComputedStyle(s).getPropertyValue('--ac').trim());
+  const deckAc = await slideAc();
+  const toast = page.locator('#ed-toast');
+  await page.locator('.st-tabs [data-tab="view"]').click();
+  const pick = page.locator('#st-uiac');
+  // Белый в светлой теме: белый текст на кнопках и значки на панелях видны; образец и запомненное — читаемый оттенок
+  await pick.fill('#ffffff');
+  await expect(toast).toContainText('Слишком светлый');
+  await expect(pick).not.toHaveValue('#ffffff');
+  expect(contrast(await rootAc(), '#FFFFFF')).toBeGreaterThanOrEqual(2.99);
+  expect(await page.evaluate(() => localStorage.getItem('slideria-ui-accent'))).toBe(await pick.inputValue());
+  expect(await slideAc()).toBe(deckAc);
+  // Тёмная тема, чёрный: акцент виден на тёмных панелях, белый текст на нём — тоже
+  await page.locator('#st-theme').click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await pick.fill('#000000');
+  await expect(toast).toContainText('Слишком тёмный');
+  const dark = await rootAc();
+  expect(contrast(dark, '#162033')).toBeGreaterThanOrEqual(2.99);
+  expect(contrast(dark, '#FFFFFF')).toBeGreaterThanOrEqual(2.99);
+  // Обычный цвет не меняется
+  await pick.fill('#2563eb');
+  await expect(pick).toHaveValue('#2563eb');
+  // «Свой цвет» снят — интерфейс в цвете презентации. Белый акцент презентации: слайды белые, интерфейс читаемый
+  await page.locator('[data-cmd="ui.own"]').first().click();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('slideria-ui-accent'))).toBeNull();
+  await page.locator('.st-tabs [data-tab="design"]').click();
+  await page.locator('#st-accent').fill('#ffffff');
+  await expect.poll(() => readDeck('design')).toMatch(/accent: "#FFFFFF"/);
+  await expect.poll(slideAc).toBe('#FFFFFF');
+  const face = await rootAc();
+  expect(contrast(face, '#FFFFFF')).toBeGreaterThanOrEqual(2.99);
+  expect(contrast(face, '#162033')).toBeGreaterThanOrEqual(2.99);
+  await page.locator('#st-canvas').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => readDeck('design')).toMatch(/accent: "#4F46E5"/);
   expect(errors).toEqual([]);
 });
 

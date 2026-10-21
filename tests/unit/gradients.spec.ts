@@ -1,6 +1,6 @@
 // Градиенты с промежуточными точками: акцент темы и слайда, заливка фигур
 import { expect, test } from '@playwright/test';
-import { accentMid, accentTail, accentTokens, slideAccent } from '../../src/engine/accent';
+import { accentMid, accentTail, accentTokens, contrast, slideAccent, uiAccentTokens, uiSafeAccent } from '../../src/engine/accent';
 import { gradientCss, gradientMid, gradientOn, parseTextGradient, sameGradient, textGradientCode, textGradientCss } from '../../src/engine/gradients';
 import { t } from '../../src/engine/html';
 
@@ -52,4 +52,25 @@ test('свой градиент текста в разметке: цвета, м
   expect(textGradientCss('g:#000000,#FFFFFF')).toBe('--g:linear-gradient(90deg, #000000, #FFFFFF);color:#000000');
   // В тексте — кусок с градиентом
   expect(t('Это {g:#F97316,#EC4899@40,#7C3AED|радуга}')).toContain('<span class="md-c md-g" data-c="g:#F97316,#EC4899@40,#7C3AED" style="--g:linear-gradient(90deg, #F97316, #EC4899 40%, #7C3AED);color:#F97316">радуга</span>');
+});
+
+test('цвет интерфейса: слишком светлый темнеет, в тёмной теме слишком тёмный светлеет; тон тот же, обычный не меняется', () => {
+  expect(uiSafeAccent('#2563EB', 'light')).toBe('#2563EB');
+  expect(uiSafeAccent('#2563EB', 'dark')).toBe('#2563EB');
+  expect(uiAccentTokens('#2563EB')).toEqual(accentTokens('#2563EB'));
+  for (const c of ['#FFFFFF', '#FDE047', '#A7F3D0', '#94A3B8', '#000000', '#1E1B4B', '#0000FF']) {
+    // Белый текст на кнопке и значки на панели видны (3 : 1)
+    const { light, dark } = uiAccentTokens(c);
+    expect(contrast(light['--ac'], '#FFFFFF')).toBeGreaterThanOrEqual(2.99);
+    expect(contrast(dark['--ac'], '#FFFFFF')).toBeGreaterThanOrEqual(2.99);
+    expect(contrast(dark['--ac'], '#162033')).toBeGreaterThanOrEqual(2.99);
+  }
+  // Чёрный в светлой теме читается — остаётся; жёлтый остаётся жёлтым, только темнее
+  expect(uiSafeAccent('#000000', 'light')).toBe('#000000');
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(uiSafeAccent('#FFFF00', 'light').slice(i, i + 2), 16));
+  expect(r).toBe(g);
+  expect(b).toBe(0);
+  expect(r).toBeLessThan(160);
+  // Второй цвет градиента — тоже читаемый
+  expect(contrast(uiAccentTokens('#2563EB', '#FFFFFF').light['--ac2'], '#FFFFFF')).toBeGreaterThanOrEqual(2.99);
 });

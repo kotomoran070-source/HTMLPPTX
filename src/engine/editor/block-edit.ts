@@ -331,12 +331,27 @@ export class BlockEditor {
     } else {
       Object.assign(this.frame.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, rotate: '' });
     }
+    // Рамка поверх всей страницы: у объекта за краем слайда или прокрученного из вида она
+    // обрезается по холсту и не ложится на панели и ленту
+    const view = !a || this.isMulti ? this.viewRect() : null;
+    this.frame.style.clipPath = view ? `inset(${view.top - r.top}px ${r.left + r.width - view.right}px ${r.bottom - view.bottom}px ${view.left - r.left}px)` : '';
     const w = this.bar.offsetWidth;
     const h = this.bar.offsetHeight;
     const below = r.bottom + 12;
     const top = below + h < innerHeight - 64 ? below : Math.max(60, r.top - h - 12);
     this.bar.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
     this.bar.style.top = `${top}px`;
+  }
+
+  private scroller: HTMLElement | null | undefined;
+  /** Видимая часть холста: ближайший обрезающий родитель сцены (сама сцена — это слайд) */
+  private viewRect(): DOMRect | null {
+    if (this.scroller === undefined) {
+      let p = this.host.stage().parentElement;
+      while (p && p !== document.body && getComputedStyle(p).overflow === 'visible') p = p.parentElement;
+      this.scroller = p && p !== document.body ? p : null;
+    }
+    return this.scroller?.getBoundingClientRect() ?? null;
   }
 
   // ---------------- команды ----------------

@@ -2,7 +2,7 @@ import { icon } from '../components/icons';
 import { CommandPalette } from './palette';
 import { guessGap, rowOf } from '../engine/editor/rows';
 import { toolsCommands } from './tools';
-import { accentTail, applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, setUiAccent, slideAccent, uiAccent } from '../engine/accent';
+import { accentTail, applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, luminance, setUiAccent, slideAccent, uiAccent, uiSafeAccent } from '../engine/accent';
 import { applyThemeSwatches } from '../engine/deck-theme';
 import { getAt, setAt, type Path } from '../engine/data';
 import { DeckView, H, W } from '../engine/deck-view';
@@ -167,7 +167,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Показать', `<div class="st-rstack">${chk('view.ruler', 'Линейка', 'Линейка сверху и слева; из неё вытягиваются направляющие')}${chk('view.grid', 'Сетка', 'Сетка на слайде, объекты прилипают к ней (Shift+F9)')}${chk('view.guides', 'Направляющие', 'Свои направляющие; объекты прилипают к ним (Alt+F9)')}</div><div class="st-rstack">${rb('view.grid-step', 'grid', 'Шаг сетки', { menu: true })}${rb('view.guides-reset', 'reset', 'Сбросить направляющие', { title: 'Оставить одну вертикальную и одну горизонтальную по центру' })}</div>`)}
       ${group('Скорость', `<div class="st-rstack">${chk('view.lite', 'Облегчённый режим', 'Если редактор подтормаживает: живые фоны, вставки, 3D-модели и анимации на слайде замирают в конечном виде. «Просмотр» и показ — как обычно')}</div>`)}
       ${group('Масштаб', rb('view.fit', 'fullscreen', 'Вписать', { big: true }) + `<div class="st-rstack">${rb('view.zoom-in', 'plus', 'Крупнее')}${rb('view.zoom-out', 'minus', 'Мельче')}</div>`)}
-      ${group('Интерфейс', `${rb('ui.ribbon', 'sliders', 'Настроить ленту', { big: true, title: 'Какие вкладки и кнопки видны: простая, полная, компактная или своя лента. Также — правый щелчок по ленте' })}<div class="st-rstack">${chk('ui.own', 'Свой цвет', 'Кнопки и панели программы — в своём цвете, а не в цветах презентации. Слайды это не меняет. Запоминается на этом компьютере')}</div><label class="st-accent" title="Цвет интерфейса программы"><input type="color" id="st-uiac" aria-label="Цвет интерфейса"><span>Цвет</span></label>`)}
+      ${group('Интерфейс', `${rb('ui.ribbon', 'sliders', 'Настроить ленту', { big: true, title: 'Какие вкладки и кнопки видны: простая, полная, компактная или своя лента. Также — правый щелчок по ленте' })}<div class="st-rstack">${chk('ui.own', 'Свой цвет', 'Кнопки и панели программы — в своём цвете, а не в цветах презентации. Слайды это не меняет. Запоминается на этом компьютере')}</div><label class="st-accent" title="Цвет интерфейса программы. Слишком светлый (в тёмной теме и слишком тёмный) станет ближайшим читаемым оттенком"><input type="color" id="st-uiac" aria-label="Цвет интерфейса"><span>Цвет</span></label>`)}
     </div>
     ${contextPanelsHtml()}
   </div>
@@ -1628,13 +1628,25 @@ export function startStudio(deck: Deck, deckKey: string): void {
   accent.addEventListener('input', () => ed.previewAccent(accent.value));
   accent.addEventListener('change', () => ed.setAccent(accent.value));
   accent.addEventListener('blur', () => ed.endAccentPreview());
-  // Цвет интерфейса: свой (запоминается на компьютере) или как у презентации. Выбор цвета сразу включает «Свой цвет»
+  // Цвет интерфейса: свой (запоминается на компьютере) или как у презентации. Выбор цвета сразу включает «Свой цвет».
+  // Слишком светлый цвет (в тёмной теме и слишком тёмный) интерфейс берёт в ближайшем читаемом оттенке — его и запоминаем
   const uiColor = $<HTMLInputElement>('st-uiac');
-  uiColor.value = (uiAccent() ?? '#475569').toLowerCase();
+  uiColor.value = uiSafeAccent(uiAccent() ?? '#475569', currentTheme()).toLowerCase();
   let uiFrame = 0;
   uiColor.addEventListener('input', () => {
     if (uiFrame) return;
     uiFrame = requestAnimationFrame(() => { uiFrame = 0; setUiAccent(uiColor.value); queueState(); });
+  });
+  uiColor.addEventListener('change', () => {
+    cancelAnimationFrame(uiFrame);
+    uiFrame = 0;
+    const picked = uiColor.value;
+    const safe = uiSafeAccent(picked, currentTheme()).toLowerCase();
+    setUiAccent(safe);
+    queueState();
+    if (safe === picked.toLowerCase()) return;
+    uiColor.value = safe;
+    ed.toast(`${luminance(safe) < luminance(picked) ? 'Слишком светлый' : 'Слишком тёмный'} цвет — на нём не было бы видно кнопок и подписей. Взят ближайший читаемый оттенок`, 4000);
   });
   onThemeChange(() => { slides.update(); queueState(); });
 
