@@ -273,6 +273,28 @@ test('блоки-схемы: все рисуются без ошибок, воп
   expect(errors).toEqual([]);
 });
 
+test('тепловая карта: числа подкрашены по величине, шкала, фокус под мышью; водопад: ступени от начала к итогу', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=table#8');
+  const slide = page.locator('.slide.on');
+  // Наименьшее (0,8) — 0 %, наибольшее (2,9) — 100 %, светлый текст — у насыщенных
+  const cell = (s: string) => slide.locator('.tbl-heat td.hm', { hasText: new RegExp(`^${s}$`) });
+  await expect(slide.locator('.tbl-heat td.hm')).toHaveCount(9);
+  await expect(cell('0,8')).toHaveAttribute('style', /--h:0%/);
+  await expect(cell('2,9')).toHaveAttribute('style', /--h:100%/);
+  await expect(cell('2,9')).toHaveClass(/hm-on/);
+  await expect(slide.locator('.tbl-heat-key')).toHaveCount(1);
+  await cell('2,9').hover();
+  await expect(cell('0,8')).toHaveCSS('opacity', '0.45');
+  // Водопад: начало, рост, снижение, рост и итог 12,4 + 3,1 − 2,2 + 1,5 = 14,8
+  const kinds = await slide.locator('.wf-c').evaluateAll((els) => els.map((e) => e.className.replace('wf-c ', '')));
+  expect(kinds).toEqual(['start', 'up', 'down', 'up', 'total']);
+  await expect(slide.locator('.wf-c.total b')).toHaveText('14,8');
+  await expect(slide.locator('.wf-c.down b')).toHaveText('−2,2');
+  await expect(slide.locator('.wf-axis span').last()).toHaveText('2026');
+  expect(errors).toEqual([]);
+});
+
 test('видео: пауза, перемотка и запуск в окне докладчика — у зрителей то же', async ({ page, context }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=slideria#9');
@@ -791,31 +813,40 @@ test('переходы: открывание, шторка сверху, пан�
 
 test('объёмные переходы: куб, отражение, галерея, взмах, двери, падение — в перспективе; створки дверей потом убраны', async ({ page }) => {
   const errors = watchErrors(page);
-  const mid = async (i: number) => {
+  type Snap = { tr?: string; trd: string; persp: string; on: string; out: string; outZ: string; doors: number };
+  const snap = () => page.evaluate((): Snap => {
+    const stage = document.querySelector<HTMLElement>('.stage')!;
+    const on = stage.querySelector<HTMLElement>(':scope > .slide.on')!;
+    const out = stage.querySelector<HTMLElement>(':scope > .slide.out');
+    return {
+      tr: stage.dataset.tr, trd: stage.dataset.trd ?? '', persp: getComputedStyle(stage).perspective,
+      on: getComputedStyle(on).transform, out: out ? getComputedStyle(out).transform : '', outZ: out ? getComputedStyle(out).zIndex : '',
+      doors: stage.querySelectorAll(':scope > .slide.door').length,
+    };
+  });
+  // Кадр середины перехода к слайду i: снимки каждые ~40 мс, пока не виден нужный признак (не дольше секунды) —
+  // на холодной странице переход стартует позже, а фиксированная пауза то опаздывает, то не дожидается
+  const mid = async (i: number, ready: (s: Snap) => boolean = (s) => !!s.tr) => {
     await page.goto(`/?deck=trs#${i - 1}`);
     await expect(page.locator('#ct')).toHaveText(new RegExp(`^${i - 1} из`));
     await page.keyboard.press('ArrowRight');
-    await page.waitForTimeout(200);
-    return page.evaluate(() => {
-      const stage = document.querySelector<HTMLElement>('.stage')!;
-      const on = stage.querySelector<HTMLElement>(':scope > .slide.on')!;
-      const out = stage.querySelector<HTMLElement>(':scope > .slide.out');
-      return {
-        tr: stage.dataset.tr, trd: stage.dataset.trd ?? '', persp: getComputedStyle(stage).perspective,
-        on: getComputedStyle(on).transform, out: out ? getComputedStyle(out).transform : '', outZ: out ? getComputedStyle(out).zIndex : '',
-        doors: stage.querySelectorAll(':scope > .slide.door').length,
-      };
-    });
+    let s = await snap();
+    for (let n = 0; n < 25 && !ready(s); n++) {
+      await page.waitForTimeout(40);
+      s = await snap();
+    }
+    return s;
   };
-  const cube = await mid(9);
+  const d3 = (s: string) => s.startsWith('matrix3d');
+  const cube = await mid(9, (x) => d3(x.on) && d3(x.out));
   expect([cube.tr, cube.trd, cube.persp]).toEqual(['cube', 'right', '1800px']);
   expect(cube.on).toMatch(/^matrix3d/);
   expect(cube.out).toMatch(/^matrix3d/);
   expect((await mid(10)).trd).toBe('top');
-  expect((await mid(11)).out).toMatch(/^matrix3d/);
-  expect((await mid(12)).on).toMatch(/^matrix3d/);
-  expect((await mid(13)).doors).toBe(2);
-  const fall = await mid(14);
+  expect((await mid(11, (x) => d3(x.out))).out).toMatch(/^matrix3d/);
+  expect((await mid(12, (x) => d3(x.on))).on).toMatch(/^matrix3d/);
+  expect((await mid(13, (x) => x.doors === 2)).doors).toBe(2);
+  const fall = await mid(14, (x) => x.outZ === '2');
   expect([fall.outZ, fall.on]).toEqual(['2', 'none']);
   await page.waitForTimeout(800);
   expect(await page.locator('.stage > .slide.door').count()).toBe(0);

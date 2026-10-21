@@ -54,8 +54,8 @@ slides:
 | Текст | `text` (`text`, `size: lead`), `list` (`items`), `chips` (`items`, звёздочка в конце — выделить), `quote` (`text`, `author`, `role`), `marquee` — бегущая строка (`items`, `variant: chips/outline`, `speed`, `dir: right`), `ring` — текст по кругу (`text`, `center`, `variant: badge`, `spin`) |
 | Карточка | `card` (`title`, `text`, `body` — блоки внутри), `kv` (`rows: {Ключ: значение}`) |
 | Число | `stat` (`value`, `label`, `delta: +12 %`, `note`) |
-| Графики | `line-chart` (`values`, `start`, `end`, `unit`), `bars` (`values`, `labels`), `donut` / `hbars` / `columns` / `lines` (`values`, `labels`) |
-| Таблица | `table` (`header`, `rows`, `variant: stripes`, `highlight`) |
+| Графики | `line-chart` (`values`, `start`, `end`, `unit`), `bars` (`values`, `labels`), `donut` / `hbars` / `columns` / `lines` (`values`, `labels`), `waterfall` (`values` — начало и изменения, `labels`, `total`) |
+| Таблица | `table` (`header`, `rows`, `variant: stripes` или `heat` — тепловая карта, `highlight`) |
 | Схемы из пунктов | `items: [{title, text}]` у `cycle`, `funnel`, `pyramid`, `numbers`, `compare`, `matrix`, `icons`, `stats`, `faq`, `timeline` (`date`, `done`), `roadmap` (`text` — срок, `done`), `ladder`, `orbit` (`center` или `logo: true`), `venn` (`center` — общее в пересечении, `variant: filled`), `nested` (первый — самый большой круг, `text` — пояснение справа, `variant: target` — мишень), `gears`, `pillars` (`center` — крыша), `layers`, `diamonds`, `arc` (`center` — цель), `mindmap` (`center` — главная мысль), `iceberg` (первый пункт — над водой); `pipeline` — `steps: [{title, sub}]`; `hub` — итоги вокруг логотипа |
 | Формула | `math` (`x^2 + y^2 = r^2` или LaTeX), график функции — `plot` |
 | Медиа | `image` (`src`, `caption`), `video` (`src` — файл или ссылка YouTube), `model` (`src` — GLB) |

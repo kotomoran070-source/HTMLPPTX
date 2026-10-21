@@ -87,3 +87,30 @@
 @media (prefers-reduced-motion: reduce) {
   .slide.on :is(.dn-seg, .dn-leg li, .rg-v, .hb-t i, .gg-v, .cl-b, .ln-l, .ln-a, .ln-e) { animation: none; }
 }
+
+/* ---------- водопад ---------- */
+.waterfall { --h: 230px; --gap: 14px; width: 100%; font: 14px/1.3 var(--font); }
+.wf-plot, .wf-axis { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: var(--gap); }
+.wf-plot { position: relative; height: var(--h); margin-top: 26px; border-bottom: 1px solid var(--bd2); }
+.wf-c { position: relative; height: 100%; }
+.wf-b { position: absolute; left: 12%; right: 12%; border-radius: calc(6px * var(--rk, 1)); transition: filter .2s, box-shadow .2s; }
+.wf-c.start .wf-b { background: color-mix(in srgb, var(--ac) 40%, var(--surf)); }
+.wf-c.total .wf-b { background: linear-gradient(180deg, var(--ac), color-mix(in srgb, var(--ac2, var(--ac)) 75%, var(--ac))); box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--ac) 60%, transparent); }
+.wf-c.up .wf-b { background: color-mix(in srgb, #16A34A 78%, var(--surf)); }
+.wf-c.down .wf-b { background: color-mix(in srgb, #DC2626 75%, var(--surf)); }
+.wf-b > b { position: absolute; left: 50%; bottom: calc(100% + 5px); translate: -50% 0; white-space: nowrap; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--tx2); transition: color .2s, scale .2s; }
+.wf-c.down .wf-b > b { bottom: auto; top: calc(100% + 5px); }
+.wf-c.up .wf-b > b { color: #15803D; }
+.wf-c.down .wf-b > b { color: #B91C1C; }
+.wf-c.total .wf-b > b { color: var(--ach); font-size: 1.15em; }
+.wf-link { position: absolute; left: 88%; width: calc(24% + var(--gap)); border-top: 1.5px dashed color-mix(in srgb, var(--mu) 70%, transparent); }
+.wf-axis { margin-top: 8px; }
+.wf-axis span { text-align: center; color: var(--mu); font-size: 13px; overflow-wrap: anywhere; }
+.wf-c:hover .wf-b { filter: brightness(1.08) saturate(1.1); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 25%, transparent); }
+.wf-c:hover .wf-b > b { scale: 1.15; }
+.slide.on .wf-c.start .wf-b, .slide.on .wf-c.total .wf-b, .slide.on .wf-c.up .wf-b { transform-origin: bottom; }
+.slide.on .wf-c.down .wf-b { transform-origin: top; }
+.slide.on .wf-b { animation: wf-drop .55s cubic-bezier(.3, 1.3, .5, 1) both; animation-delay: calc(.3s + var(--k) * .18s); }
+.slide.on .wf-link { animation: dg-fade .3s ease both; animation-delay: calc(.6s + var(--k) * .18s); }
+@keyframes wf-drop { from { opacity: 0; transform: scaleY(0); } }
+@media (prefers-reduced-motion: reduce) { .slide.on :is(.wf-b, .wf-link) { animation: none; } }

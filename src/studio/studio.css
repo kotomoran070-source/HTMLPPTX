@@ -36,7 +36,7 @@ body.studio { background: var(--alt); }
 .st-rb.big .st-rb-sw { order: 0; }
 /* Галереи стилей на контекстных вкладках: живые образцы в цветах темы */
 .st-gallery { display: grid; grid-template-columns: repeat(4, 46px); grid-auto-rows: 30px; gap: 4px; }
-.st-gallery.t { grid-template-columns: repeat(3, 62px); grid-auto-rows: 34px; }
+.st-gallery.t { grid-template-columns: repeat(4, 62px); grid-auto-rows: 34px; }
 .st-gallery.i { grid-template-columns: repeat(4, 46px) 14px; grid-template-rows: repeat(2, 30px); grid-auto-flow: column; }
 .st-gmore { grid-row: 1 / span 2; display: grid; place-items: center; padding: 0; border: 1px solid var(--bd); border-radius: 7px; background: var(--bg); color: var(--tx2); cursor: pointer; }
 .st-gmore:hover:not(:disabled), .st-gmore[aria-expanded="true"] { border-color: var(--acb); color: var(--ach); }
@@ -58,6 +58,13 @@ body.studio { background: var(--alt); }
 .st-tmini :is(th, td) i { display: block; width: 70%; height: 1.5px; border-radius: 1px; background: currentColor; opacity: .3; }
 .st-tmini th i { height: 2px; opacity: .75; }
 .st-tmini.tbl-lines th { border-bottom-width: 1.5px; }
+/* Тепловая карта в миниатюре: плитки разной густоты */
+.st-tmini.tbl-heat table { border-spacing: 1.5px; margin: 0; width: 100%; }
+.st-tmini.tbl-heat td { border-radius: 1.5px; background: color-mix(in srgb, var(--ac) var(--m, 20%), var(--surf)); }
+.st-tmini.tbl-heat td i { opacity: 0; }
+.st-tmini.tbl-heat tr:nth-child(1) td:nth-child(2) { --m: 70%; } .st-tmini.tbl-heat tr:nth-child(1) td:nth-child(3) { --m: 35%; }
+.st-tmini.tbl-heat tr:nth-child(2) td:nth-child(1) { --m: 50%; } .st-tmini.tbl-heat tr:nth-child(2) td:nth-child(3) { --m: 95%; }
+.st-tmini.tbl-heat tr:nth-child(3) td:nth-child(1) { --m: 12%; } .st-tmini.tbl-heat tr:nth-child(3) td:nth-child(2) { --m: 60%; }
 
 /* Кнопки-иконки в рядах, флажки */
 .st-rrow { display: flex; gap: 1px; }

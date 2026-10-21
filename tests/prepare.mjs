@@ -113,7 +113,7 @@ slides:
       - {type: text, text: Второй, place: {x: 80, y: 80, w: 500}}
 `);
 // table — слайды 1, 2, 5, 6 и 7: одинаковые таблицы (ячейки, клавиши), 3: пустой (вставка из Excel),
-// 4: фигуры для порядка — back и top перекрываются, mid и far в стороне
+// 4: фигуры для порядка — back и top перекрываются, mid и far в стороне; 8: тепловая карта и водопад
 fs.mkdirSync(path.join(dir, 'table'));
 fs.writeFileSync(path.join(dir, 'table', 'deck.yaml'), `title: Таблица
 slides:
@@ -170,6 +170,21 @@ slides:
           - [Расходы, "80", "70"]
           - [Прибыль, "20", "50"]
         place: {x: 80, y: 80, w: 700}
+  - template: canvas
+    free:
+      - type: table
+        variant: heat
+        header: [Конверсия, Янв, Фев, Мар]
+        rows:
+          - [Сайт, "2,1", "2,4", "2,9"]
+          - [Реклама, "1,2", "1,1", "1,6"]
+          - [Соцсети, "0,8", "1,4", "1,9"]
+        place: {x: 60, y: 60, w: 560}
+      - type: waterfall
+        values: [12.4, 3.1, -2.2, 1.5]
+        labels: ["2025", Клиенты, Зарплаты, Прочее]
+        total: "2026"
+        place: {x: 680, y: 80, w: 540}
 `);
 // origin — как после импорта PowerPoint: цвета файла в слайдах, их палитра и тема «Как в файле»
 fs.mkdirSync(path.join(dir, 'origin'));

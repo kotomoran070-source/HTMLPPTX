@@ -332,3 +332,53 @@ defineBlock<LinesProps>('lines', {
       + `${yGrid(min, max, x0, x1, top, bottom, p.unit)}${xl}${g}</svg></div>`;
   },
 });
+
+// ---------------- водопад ----------------
+
+interface WaterfallProps extends Block {
+  /** Первое — начальное значение, дальше — изменения: 3.1 (рост) или -2.2 (снижение) */
+  values: number[];
+  labels?: string[];
+  /** Подпись итогового столбца (по умолчанию «Итог»); false — без итога */
+  total?: string | false;
+  unit?: string;
+  /** Высота поля, px */
+  height?: number;
+}
+
+/**
+ * Водопад: как из начального значения через плюсы и минусы получился итог. Ступени висят на уровне,
+ * где закончилась предыдущая, их соединяют пунктиры; рост — зелёный, снижение — красный, начало и
+ * итог — цветом темы. Ступени падают по очереди, под мышью ступень и её число выделяются.
+ */
+defineBlock<WaterfallProps>('waterfall', {
+  render(p) {
+    const vals = nums(p.values);
+    const labels = strs(p.labels);
+    const unit = esc(p.unit ?? '');
+    type Step = { from: number; to: number; kind: 'start' | 'up' | 'down' | 'total'; v: number; label: string; edit: string };
+    const steps: Step[] = [];
+    let level = 0;
+    vals.forEach((v, k) => {
+      const from = k === 0 ? 0 : level;
+      level = k === 0 ? v : level + v;
+      steps.push({ from, to: level, kind: k === 0 ? 'start' : v >= 0 ? 'up' : 'down', v, label: labels[k] ?? '', edit: ea(p.labels, k) });
+    });
+    if (p.total !== false && vals.length > 1) steps.push({ from: 0, to: level, kind: 'total', v: level, label: typeof p.total === 'string' ? p.total : 'Итог', edit: typeof p.total === 'string' ? ea(p, 'total') : '' });
+    const lo = Math.min(0, ...steps.map((s) => Math.min(s.from, s.to)));
+    const hi = Math.max(...steps.map((s) => Math.max(s.from, s.to)), lo + 1);
+    const pc = (v: number) => (((v - lo) / (hi - lo)) * 100).toFixed(2);
+    const sign = (s: Step) => (s.kind === 'up' ? '+' : s.kind === 'down' ? '−' : '');
+    const cols = steps.map((s, k) => {
+      const bottom = Math.min(s.from, s.to);
+      const top = Math.max(s.from, s.to);
+      // Пунктир — от края этой ступени к следующей, на уровне, где она закончилась
+      const link = k < steps.length - 1 ? `<i class="wf-link" style="bottom:${pc(s.to)}%"></i>` : '';
+      return `<div class="wf-c ${s.kind}" style="--k:${k}">`
+        + `<div class="wf-b" style="bottom:${pc(bottom)}%;height:max(2px, ${(Number(pc(top)) - Number(pc(bottom))).toFixed(2)}%)"><b>${sign(s)}${fmtNum(Math.abs(s.v))}${unit}</b></div>${link}</div>`;
+    }).join('');
+    const axis = steps.map((s) => `<span${s.edit}>${t(s.label)}</span>`).join('');
+    return `<div class="waterfall"${styleAttr(`--n:${steps.length}`, p.height && `--h:${Math.max(80, Math.min(600, Number(p.height)))}px`, p.style)}>`
+      + `<div class="wf-plot">${cols}</div><div class="wf-axis">${axis}</div></div>`;
+  },
+});

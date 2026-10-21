@@ -91,6 +91,23 @@
 .tbl-total tbody tr:last-child td { font-weight: 700; border-top: 2px solid var(--bd2); background: color-mix(in srgb, var(--alt) 70%, var(--surf)); }
 .tbl-lines.tbl-total tbody tr:last-child td { background: none; }
 
+/* heat — тепловая карта: ячейки-плитки с промежутками; число подкрашено по своей величине (--h от 0
+   до 100 % между наименьшим и наибольшим), насыщенные — светлым текстом. При показе цвет наливается
+   (--hv, @property), под мышью ячейка в фокусе, остальные бледнеют. Под таблицей — шкала */
+@property --hv { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
+.tbl.tbl-heat table { border: 0; background: none; box-shadow: none; border-radius: 0; overflow: visible; border-spacing: 5px; margin: -5px; width: calc(100% + 10px); }
+.tbl-heat th { padding-block: .3em; }
+.tbl-heat td { border-radius: calc(10px * var(--rk, 1)); background: color-mix(in srgb, var(--alt) 70%, var(--surf)); transition: opacity .2s, box-shadow .2s; }
+.tbl-heat td:first-child:not(.hm) { background: none; padding-left: .2em; }
+.tbl-heat td.hm { --hv: var(--h); background: color-mix(in srgb, var(--ac) calc(7% + var(--hv) * .88), var(--surf)); font-weight: 600; font-variant-numeric: tabular-nums; }
+.tbl-heat td.hm-on { color: var(--on-ac, #fff); }
+.tbl-heat td.hm:hover { box-shadow: 0 0 0 2px var(--surf), 0 0 0 4px var(--ac); }
+.tbl-heat:has(td.hm:hover) td.hm:not(:hover) { opacity: .45; }
+.slide.on .tbl-heat td.hm { animation: hm-fill 1s cubic-bezier(.3, .7, .3, 1) both; animation-delay: calc(.35s + var(--k) * .09s); }
+@keyframes hm-fill { from { --hv: 0%; } }
+.tbl-heat-key { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 12px; font-size: 12px; color: var(--mu); }
+.tbl-heat-key i { width: 120px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, color-mix(in srgb, var(--ac) 7%, var(--surf)), var(--ac)); }
+
 /* Чередующиеся строки — поверх любого вида (у таблиц из PowerPoint — свои полосы) */
 .tbl-bands:not(.tbl-own) tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--alt) 65%, var(--surf)); }
 

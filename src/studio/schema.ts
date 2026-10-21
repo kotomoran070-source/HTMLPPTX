@@ -274,6 +274,16 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'max', label: 'Значение для полной длины', type: 'number', placeholder: 'максимум' },
     ],
   },
+  waterfall: {
+    about: 'Первое значение — начало, дальше — изменения: 3.1 (рост) или -2.2 (снижение). Итог считается сам.',
+    fields: [
+      { k: 'values', label: 'Начало и изменения', type: 'numbers' },
+      { k: 'labels', label: 'Подписи', type: 'strings', item: 'Подпись' },
+      { k: 'total', label: 'Подпись итога', type: 'text', placeholder: 'Итог' },
+      { k: 'unit', label: 'Единица у значений', type: 'text', placeholder: ' млн' },
+      { k: 'height', label: 'Высота, px', type: 'number', min: 80, max: 600, placeholder: '230' },
+    ],
+  },
   gauge: {
     fields: [
       { k: 'value', label: 'Значение', type: 'number' },
@@ -324,7 +334,7 @@ export const BLOCKS: Record<string, Schema> = {
     about: 'Таблицу из Excel можно вставить в любую ячейку.',
     fields: [
       { k: 'rows', label: 'Данные', type: 'grid' },
-      { k: 'variant', label: 'Вид', type: 'select', options: [['', 'Линии'], ['stripes', 'Зебра'], ['boxed', 'Сетка'], ['accent', 'Акцентная шапка'], ['soft', 'Мягкая'], ['dark', 'Тёмная шапка'], ['plan', 'План с приоритетами']] },
+      { k: 'variant', label: 'Вид', type: 'select', options: [['', 'Линии'], ['stripes', 'Зебра'], ['boxed', 'Сетка'], ['accent', 'Акцентная шапка'], ['soft', 'Мягкая'], ['dark', 'Тёмная шапка'], ['plan', 'План с приоритетами'], ['heat', 'Тепловая карта']] },
       { k: 'labels', label: 'Первый столбец — подписи (жирным)', type: 'bool' },
       { k: 'highlight', label: 'Выделенная строка', type: 'number', min: 0, placeholder: 'нет', hint: 'Номер с нуля' },
       { k: 'size', label: 'Размер текста, px', type: 'number', min: 10, max: 40, placeholder: '17' },

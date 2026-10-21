@@ -17,9 +17,10 @@ interface TableProps extends Block {
    * Вид: lines — тонкие линии между строками (по умолчанию), stripes — зебра,
    * boxed — сетка в рамке, accent — шапка акцентного цвета,
    * soft — мягкая карточка без линий, dark — тёмная шапка,
-   * plan — план работ: номера «01», задача в две строки (**Задача**\nрезультат), метки приоритета
+   * plan — план работ: номера «01», задача в две строки (**Задача**\nрезультат), метки приоритета,
+   * heat — тепловая карта: ячейки-плитки, числа подкрашены по величине, под таблицей шкала
    */
-  variant?: 'lines' | 'stripes' | 'boxed' | 'accent' | 'soft' | 'dark' | 'plan';
+  variant?: 'lines' | 'stripes' | 'boxed' | 'accent' | 'soft' | 'dark' | 'plan' | 'heat';
   /** Доли ширины столбцов: [1, 4, 2]; без них — поровну, первый уже */
   widths?: number[];
   /** Выравнивание столбцов: left, center, right. Без него числа — вправо */
@@ -77,7 +78,7 @@ interface TableProps extends Block {
   footnote?: string;
 }
 
-const VARIANTS = ['stripes', 'boxed', 'accent', 'soft', 'dark', 'plan'];
+const VARIANTS = ['stripes', 'boxed', 'accent', 'soft', 'dark', 'plan', 'heat'];
 
 /** Цвет точки метки по её слову: приоритеты и статусы */
 const DOTS: [RegExp, string][] = [
@@ -176,6 +177,14 @@ export function mergeMap(raw: unknown, rows: number, cols: number): { spans: Map
 
 const NUMERIC = /^[\s+−–-]?[\d\s.,]+\s?(%|₽|\$|€|млн|тыс|млрд|с|мс|ч|шт|дБм|°C)?$/i;
 
+/** Число ячейки для тепловой карты: 12, «1 240», «18,5 %», «−3»; не число — NaN */
+function cellNum(v: Cell): number {
+  if (typeof v === 'number') return v;
+  const s = String(v ?? '').trim();
+  if (!s || !NUMERIC.test(s)) return NaN;
+  return Number(s.replace(/[−–]/g, '-').replace(/[^\d.,-]/g, '').replace(',', '.'));
+}
+
 /** Таблица: шапка, строки, выравнивание чисел, выделенная строка; каждая ячейка правится на месте. */
 defineBlock<TableProps>('table', {
   render(p) {
@@ -200,6 +209,15 @@ defineBlock<TableProps>('table', {
         + (wt >= 100 && wt <= 900 ? `font-weight:${Math.round(wt / 100) * 100};` : '');
     });
     const { spans, covered } = mergeMap(p.merges, rows.length, cols);
+    // Тепловая карта: доля числа между наименьшим и наибольшим в таблице (строка итога — не в счёт)
+    const heat = new Map<string, number>();
+    if (p.variant === 'heat') {
+      const body = p.total && rows.length > 1 ? rows.slice(0, -1) : rows;
+      const all = body.flatMap((r, k) => r.map((v, c) => [k, c, cellNum(v)] as const)).filter(([, , n]) => Number.isFinite(n));
+      const lo = Math.min(...all.map(([, , n]) => n));
+      const hi = Math.max(...all.map(([, , n]) => n));
+      for (const [k, c, n] of all) heat.set(`${k}:${c}`, hi > lo ? (n - lo) / (hi - lo) : 1);
+    }
     const headShown = header.length > 0 && p.head !== false;
     const edges = borderEdges(p.borders, rows.length, cols, headShown ? -1 : 0);
     const cell = (tag: 'th' | 'td', list: Cell[], c: number, fill = '', r = -1) => {
@@ -213,13 +231,15 @@ defineBlock<TableProps>('table', {
         const prop = { t: 'top', r: 'right', b: 'bottom', l: 'left' }[side];
         return v === undefined ? '' : v ? `border-${prop}:1px solid var(--tbl-line,var(--tx2));` : `border-${prop}-color:transparent;`;
       };
-      const css = fill + line('t', r, c) + line('l', r, c) + line('b', r + (sp ? sp[0] - 1 : 0), c) + line('r', r, c + (sp ? sp[1] - 1 : 0));
+      const h = tag === 'td' && !fill ? heat.get(at) : undefined;
+      const css = fill + line('t', r, c) + line('l', r, c) + line('b', r + (sp ? sp[0] - 1 : 0), c) + line('r', r, c + (sp ? sp[1] - 1 : 0))
+        + (h === undefined ? '' : `--h:${Math.round(h * 100)}%;`);
       if (css) extra += ` style="${css}"`;
       const v = list[c];
       const empty = v === undefined || v === null || !String(v).trim();
       const html = empty ? '' : tag === 'td' && c === badgeCol ? badge(String(v)) : t(v);
       if (tag === 'td' && colCss[c]) extra = extra.includes(' style="') ? extra.replace(' style="', ` style="${colCss[c]}`) : `${extra} style="${colCss[c]}"`;
-      return `<${tag} class="a-${align(c)}"${extra}${ea(list, c)}>${html}</${tag}>`;
+      return `<${tag} class="a-${align(c)}${h === undefined ? '' : ` hm${h > 0.55 ? ' hm-on' : ''}`}"${extra}${ea(list, c)}>${html}</${tag}>`;
     };
     const fills = Array.isArray(p.fills) ? p.fills : [];
     const ownColors = !!p.colors && typeof p.colors === 'object';
@@ -253,6 +273,6 @@ defineBlock<TableProps>('table', {
       + `<table>${colgroup}`
       + (headShown ? `<thead><tr${rowH(-1) ? ` style="${rowH(-1)}"` : ''}>${Array.from({ length: cols }, (_x, c) => cell('th', header, c, headFill(c))).join('')}</tr></thead>` : '')
       + `<tbody>${rows.map((r, k) => `<tr${k === p.highlight ? ' class="hl"' : ''} style="--k:${k};${rowH(k)}">${Array.from({ length: cols }, (_x, c) => cell('td', r, c, fillOf(k, c), k)).join('')}</tr>`).join('')}</tbody>`
-      + `</table>${foot}</div>`;
+      + `</table>${heat.size ? '<div class="tbl-heat-key" aria-hidden="true"><span>меньше</span><i></i><span>больше</span></div>' : ''}${foot}</div>`;
   },
 });
