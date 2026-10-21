@@ -669,9 +669,19 @@ test('живой фон не перехватывает мышь: логотип
   // Титул шаблоном cover с живым фоном — последний слайд (см. tests/prepare.mjs)
   await page.goto('/?deck=design&studio#30');
   await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  const before = readDeck('design');
+  // У темы свой фон («Сияние»): после разбора он остаётся фоном темы, а не своим фоном холста поверх живого фона
+  await page.locator('.st-tabs [data-tab="design"]').click();
+  await page.locator('[data-cmd="design.bg"]').click();
+  await page.locator('.st-pop .st-dz-opt').filter({ hasText: 'Сияние' }).click();
+  await expect.poll(() => readDeck('design')).toMatch(/\n {2}bg: glow/);
+  await page.keyboard.press('Escape');
+  await page.locator('.st-tabs [data-tab="home"]').click();
   await page.locator('[data-cmd="obj.ungroup"]').click();
   const logo = page.locator('#st-canvas .slide.on > .free').filter({ has: page.locator('.logo') });
   await expect(logo).toHaveCount(1);
+  await expect(page.locator('#st-canvas .slide.on > .canvas-bg')).toHaveCount(0);
+  await expect(page.locator('#st-canvas .slide.on > .backdrop')).toHaveCount(1);
   const b = (await logo.boundingBox())!;
   await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
   await expect(page.locator('#ed-frame.on')).toHaveCount(1);
@@ -682,6 +692,12 @@ test('живой фон не перехватывает мышь: логотип
   await page.mouse.up();
   // Пропорции сохраняются, плашка заполняет объект
   await expect.poll(async () => { const r = (await logo.locator('.logo').boundingBox())!; return Math.round(r.width) === Math.round(r.height) && r.width > b.width * 1.5; }).toBe(true);
+  for (let k = 0; k < 6 && readDeck('design') !== before; k++) {
+    await page.locator('#st-canvas').click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(300);
+  }
+  await expect.poll(() => readDeck('design')).toBe(before);
   expect(errors).toEqual([]);
 });
 

@@ -9,7 +9,7 @@ import { deckWithEffect, findEntrance, type UserEffect } from './templates';
  *
  * Вид и анимации шаблона сохраняются: каждая часть — вёрстка с теми же классами, обёрнутая в
  * невидимый «слайд шаблона» (display: contents), поэтому его стили продолжают действовать.
- * Тексты остаются полями (правятся на слайде). Фон шаблона — фоном холста, декор (кольца,
+ * Тексты остаются полями (правятся на слайде). Свой фон шаблона (у «Космоса») — фоном холста; фон темы и живой фон остаются как были, декор (кольца,
  * луч, звёздное небо) — вёрсткой во весь слайд под объектами. Появление по словам, которое
  * пропадает, когда заголовок становится обычным текстом, переходит к объекту целиком.
  */
@@ -208,10 +208,20 @@ export function explodeSlide(host: Host, index: number): boolean {
   const objects = parts.map(toBlock).filter((b): b is Block => !!b);
 
   // ---------- фон ----------
-  const cs = getComputedStyle(slide);
-  const bgImage = cs.backgroundImage !== 'none' ? cs.backgroundImage : '';
-  const bgColor = cs.backgroundColor !== 'rgba(0, 0, 0, 0)' ? cs.backgroundColor : '';
-  const bg = [bgImage, bgColor].filter(Boolean).join(', ');
+  // Свой фон холста — только если у шаблона фон свой (у «Космоса»): фон темы у холста и так есть, а записанный
+  // своим он закрыл бы анимированный фон слайда и перестал бы меняться вместе с темой
+  const bgOf = (el: Element) => {
+    const cs = getComputedStyle(el);
+    return [cs.backgroundImage !== 'none' ? cs.backgroundImage : '', cs.backgroundColor !== 'rgba(0, 0, 0, 0)' ? cs.backgroundColor : ''].filter(Boolean).join(', ');
+  };
+  const probe = slide.cloneNode(false) as HTMLElement;
+  probe.removeAttribute('id');
+  probe.className = 'slide canvas-slide';
+  slide.after(probe);
+  const plain = bgOf(probe);
+  probe.remove();
+  const own = bgOf(slide);
+  const bg = own !== plain ? own : '';
   let body: Block | undefined;
   if (data.template === 'space') body = { type: 'space-sky', ...(data.layout === 'orbit' ? { layout: 'orbit' } : {}) };
   else if (decor.length) {
