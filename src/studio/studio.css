@@ -401,6 +401,15 @@ body.editing .stage .st-peek { outline: 2px dashed var(--ac) !important; outline
 .st-canvas.fit { overflow: hidden; }
 .st-paper { position: relative; margin: auto; flex: none; }
 .st-paper .stage { border-radius: 4px; box-shadow: 0 1px 3px rgba(15, 23, 42, .08), 0 8px 28px rgba(15, 23, 42, .14); }
+/* Поля вокруг слайда, как в PowerPoint: что за краем — видно бледным и берётся мышью (объект можно
+   отложить про запас). В «Просмотре», показе, миниатюрах и экспорте край обрезает, как всегда */
+body:not(.st-previewing) .st-paper .stage, body:not(.st-previewing) .st-paper .stage > .slide.on { overflow: visible; }
+.st-paper .stage > .slide.on { isolation: isolate; }
+body:not(.st-previewing) .st-paper .stage { box-shadow: none; }
+body:not(.st-previewing) .st-paper::after {
+  content: ""; position: absolute; inset: 0; z-index: 5; pointer-events: none; border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .08), 0 8px 28px rgba(15, 23, 42, .14), 0 0 0 4000px color-mix(in srgb, var(--alt) 45%, transparent);
+}
 body.studio .edblock { display: none !important; }
 
 /* Заметки */
