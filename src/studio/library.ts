@@ -800,7 +800,8 @@ export function showLibrary(anchor: HTMLElement, deck: Deck, pick: (p: Preset) =
   const nav = (d: number) => `<button type="button" class="st-bdnav" data-nav="${d}" aria-label="${d < 0 ? 'Листать влево' : 'Листать вправо'}" tabindex="-1">${icon(d < 0 ? 'prev' : 'next')}</button>`;
   el.innerHTML = own + order.map((ci) => LIBRARY[ci]).map((c, k) => {
     const ci = order[k];
-    const rail = c.items.length > (c.compact ? 7 : 4) * (only ? 4 : 3);
+    // Мелкие плитки (фигуры) в общей библиотеке — два ряда: всё сразу не нужно
+    const rail = c.items.length > (c.compact ? 7 * (only ? 4 : 2) : 4 * (only ? 4 : 3));
     const grid = `<div class="st-lib-grid${c.compact ? ' compact' : ''}${rail ? ' rail' : ''}">${c.items.map((p, pi) =>
       `<button type="button" class="st-lib-item" data-c="${ci}" data-p="${pi}" title="Вставить: ${esc(p.name)}"><span class="st-lib-slot">${p.glyph ? `<svg class="st-lib-glyph" viewBox="0 0 48 32" aria-hidden="true">${p.glyph}</svg>` : ''}</span><span class="st-lib-name">${esc(p.name)}</span></button>`).join('')}</div>`;
     return `<section><h4>${icon(c.icon)}<span>${esc(c.name)}</span></h4>${rail ? `<div class="st-lib-rail">${nav(-1)}${grid}${nav(1)}</div>` : grid}</section>`;
@@ -813,6 +814,14 @@ export function showLibrary(anchor: HTMLElement, deck: Deck, pick: (p: Preset) =
       rail.querySelector('[data-nav="1"]')?.classList.toggle('off', grid.scrollLeft > grid.scrollWidth - grid.clientWidth - 4);
     };
     grid.addEventListener('scroll', ends, { passive: true });
+    // Колёсико над разделом листает его вбок; на краю — дальше листается сама библиотека
+    grid.addEventListener('wheel', (e) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      const max = grid.scrollWidth - grid.clientWidth;
+      if ((e.deltaY > 0 && grid.scrollLeft >= max - 2) || (e.deltaY < 0 && grid.scrollLeft <= 2)) return;
+      e.preventDefault();
+      grid.scrollBy({ left: Math.sign(e.deltaY) * grid.clientWidth / (grid.classList.contains('compact') ? 7 : 4) * 2, behavior: 'smooth' });
+    }, { passive: false });
     rail.querySelectorAll<HTMLElement>('[data-nav]').forEach((b) => b.addEventListener('click', (e) => {
       e.stopPropagation();
       grid.scrollBy({ left: Number(b.dataset.nav) * grid.clientWidth, behavior: 'smooth' });
