@@ -921,6 +921,8 @@ test('автопоказ из окна докладчика: A включает 
   const errors = watchErrors(page);
   await page.goto('/?deck=auto#1');
   await expect(page.locator('.slide.on')).toHaveCount(1);
+  // Автопоказ не включали — кнопки паузы на панели нет
+  await expect(page.locator('#ap')).toBeHidden();
   const pres = await context.newPage();
   const presErrors = watchErrors(pres);
   await pres.goto('/?deck=auto&view=presenter');

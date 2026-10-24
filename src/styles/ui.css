@@ -23,6 +23,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px s
 .btn.ghost:hover, .btn.ghost.active { background: var(--acs); }
 .btn[disabled] { opacity: .4; cursor: default; }
 
+.ibtn[hidden] { display: none; }
 .ibtn { width: 40px; height: 40px; border-radius: 9999px; background: var(--surf); border: 1px solid var(--bd); box-shadow: 0 1px 2px rgba(15, 23, 42, .08); display: inline-grid; place-items: center; cursor: pointer; padding: 0; color: var(--ac); transition: border-color .2s, box-shadow .2s; }
 .ibtn:hover { border-color: var(--acb); box-shadow: 0 2px 8px rgba(15, 23, 42, .10); }
 .ibtn.small { width: 32px; height: 32px; font-size: 12px; }
