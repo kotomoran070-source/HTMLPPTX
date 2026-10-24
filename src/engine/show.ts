@@ -8,7 +8,7 @@ import { Editor, SLIDE_PRESETS } from './editor/editor';
 import { canSaveFile } from './editor/persist';
 import { esc } from './html';
 import { actionTarget, slideLabel } from './render';
-import { Autoplay } from './autoplay';
+import { Autoplay, runFill, type Timeline } from './autoplay';
 import { Ink } from './ink';
 import { RemoteHover } from './remote-hover';
 import { showTime } from './show-clock';
@@ -43,6 +43,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
 <div class="progress-top" id="pg"></div>
 <div class="viewport" id="vp"></div>
 <div class="ap-flash" id="apf" aria-hidden="true"></div>
+<div class="ap-line" id="apl" hidden aria-hidden="true"><b></b><span></span></div>
 <nav class="navbar" id="nav">
   <div class="navside">
     <button class="ibtn theme-btn" id="thm" type="button" aria-label="Переключить тему (T)" title="Тема (T)">${icon('sun', 'ic sun')}${icon('moon', 'ic moon')}</button>
@@ -204,6 +205,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   };
   const auto = new Autoplay({
     slide: () => view.slides[index] ?? null,
+    stepsTotal: () => view.stepsTotal(),
     stepsLeft: () => view.stepsLeft(),
     atEnd: () => (skip() ? stepVisible(deck, index, 1) < 0 : index >= count() - 1),
     options: () => deck.autoplay ?? {},
@@ -224,8 +226,19 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       b.setAttribute('aria-label', b.title);
       sync.send({ type: 'autoplay', on });
     },
-    timing: (ms) => sync.send({ type: 'autoplay', on: true, ms }),
+    timeline: (t) => {
+      sync.send({ type: 'autoplay', on: auto.on, tl: t });
+      screenLine(t);
+    },
   });
+  /** Таймлайн на экране (autoplay.timeline): тонкая полоса внизу, просветы — шаги слайда; без текста */
+  function screenLine(t: Timeline | null): void {
+    const line = $('apl');
+    line.hidden = !t || !deck.autoplay?.timeline;
+    if (!t || line.hidden) return;
+    line.querySelector('span')!.innerHTML = t.ticks.map((x) => `<i style="left:${x * 100}%"></i>`).join('');
+    runFill(line.querySelector('b')!, t);
+  }
   /** Слайд или шаг сменились: второму окну — что видно, автопоказу — отсчёт заново */
   function moved(): void {
     broadcast();
@@ -740,7 +753,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     // Автопоказ из окна докладчика или с телефона (зрители значка не видят)
     else if (m.type === 'autoplay') {
       if (m.on !== auto.on) auto.toggle(m.on);
-      else sync.send({ type: 'autoplay', on: auto.on }, from);
+      else sync.send({ type: 'autoplay', on: auto.on, tl: auto.now() }, from);
     }
     else if (m.type === 'zoom') bigStep(m.step, false);
     else if (m.type === 'vars') view.setVars(m.index, m.vars);
@@ -785,7 +798,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       }
       // Новому окну докладчика — актуальные данные (с несохранёнными правками) и положение
       if (editor?.touched) sync.send({ type: 'deck', deck: JSON.parse(JSON.stringify(deck)) }, from);
-      sync.send({ type: 'autoplay', on: auto.on }, from);
+      sync.send({ type: 'autoplay', on: auto.on, tl: auto.now() }, from);
       sync.send({ type: 'state', index, theme: currentTheme(), black, clock: showTime() }, from);
     } else if (m.type === 'remote-start') {
       if (location.protocol !== 'file:') void import('./remote').then((r) => sync.send({ type: 'remote-room', room: startRemote(r) }, from));

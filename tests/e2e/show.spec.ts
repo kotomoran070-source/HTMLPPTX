@@ -898,11 +898,14 @@ test('автопоказ: листает сам после анимаций, ш�
   const errors = watchErrors(page);
   await page.goto('/?deck=auto&autoplay#1');
   await expect(page.locator('#pg')).toBeHidden();
+  // Таймлайн на экране: полоса внизу, на втором слайде — просвет на месте шага
+  await expect(page.locator('#apl')).toBeVisible();
   const at = async () => (await counter(page))[0];
   await expect.poll(at, { timeout: 5000 }).toBe(2);
   // Объект по щелчку: сначала скрыт, потом открывается сам
   const step = page.locator('.slide.on .free').filter({ hasText: 'По щелчку' });
   await expect(step).toHaveAttribute('data-step', '0');
+  await expect(page.locator('#apl i')).toHaveCount(1);
   await expect(step).toHaveAttribute('data-step', '1', { timeout: 4000 });
   // Пауза: дальше не листает
   await page.keyboard.press('a');
@@ -932,8 +935,10 @@ test('автопоказ из окна докладчика: A включает 
   await pres.keyboard.press('a');
   await expect(btn).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(async () => (await counter(page))[0], { timeout: 5000 }).toBe(2);
-  // Отсчёт виден докладчику
-  await expect(pres.locator('#tautob.run')).toHaveCount(1, { timeout: 4000 });
+  // Таймлайн слайда у докладчика: шаг — чёрточкой, справа — сколько ещё
+  await expect(pres.locator('#ptl')).toBeVisible();
+  await expect(pres.locator('#ptlt i')).toHaveCount(1);
+  await expect(pres.locator('#ptlr')).toHaveText(/^ещё \d+ с$/);
   // Руками — дальше, автопоказ не выключается
   await pres.locator('#nx').click();
   await pres.locator('#nx').click();
@@ -946,6 +951,7 @@ test('автопоказ из окна докладчика: A включает 
   await expect(btn).toHaveAttribute('aria-pressed', 'true');
   await btn.click();
   await expect(btn).toHaveAttribute('aria-pressed', 'false');
+  await expect(pres.locator('#ptlr')).toHaveText('пауза');
   await page.waitForTimeout(2500);
   expect((await counter(page))[0]).toBe(1);
   await pres.close();

@@ -1,3 +1,4 @@
+import type { Timeline } from './autoplay';
 import type { Deck } from '../types';
 import type { InkMsg } from './ink';
 import type { Theme } from './theme';
@@ -20,9 +21,9 @@ export type SyncMsg =
   | { type: 'media'; key: string; playing: boolean; time: number }
   /**
    * Автопоказ: окно докладчика или телефон включают его и ставят на паузу (on); окно показа отвечает всем,
-   * идёт ли он и через сколько ms следующий шаг (без ms — ждёт, пока доиграют анимации)
+   * идёт ли он, и таймлайн слайда (tl; null — убрать, без поля — какой был)
    */
-  | { type: 'autoplay'; on: boolean; ms?: number }
+  | { type: 'autoplay'; on: boolean; tl?: Timeline | null }
   /** Кадр картинки с кадрами перелистнули в одном окне — другое повторяет (key — слайд и путь картинки) */
   | { type: 'frame'; key: string; at: number }
   /** Заметки слайда, дописанные в окне докладчика; окно показа отвечает notes-ok с тем же id */

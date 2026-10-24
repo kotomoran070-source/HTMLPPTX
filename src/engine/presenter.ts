@@ -13,6 +13,7 @@ import { actionTarget, slideLabel } from './render';
 import { Ink, inkInput, type InkMsg, type InkTool, type StrokeStyle } from './ink';
 import { RemoteHover } from './remote-hover';
 import { alignShowTime } from './show-clock';
+import { runFill, type Timeline } from './autoplay';
 import './presenter.css';
 import { RELAY, Sync } from './sync';
 import { currentTheme, onThemeChange, setTheme, toggleTheme } from './theme';
@@ -74,7 +75,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
         <i class="pd-sep" aria-hidden="true"></i>
         <button type="button" class="pd-btn" id="tgrid" title="Все слайды (G)" aria-label="Все слайды">${icon('grid')}</button>
         <button type="button" class="pd-btn" id="bk" aria-pressed="false" title="Чёрный экран у зрителей (B)" aria-label="Чёрный экран">${icon('screen-off')}</button>
-        <button type="button" class="pd-btn" id="tauto" aria-pressed="false" title="Автопоказ (A): слайды листаются сами — когда доиграли анимации, через заданное время. Листать руками можно и дальше. Ещё раз — пауза" aria-label="Автопоказ">${icon('autoplay')}<i class="pd-auto" id="tautob" aria-hidden="true"></i></button>
+        <button type="button" class="pd-btn" id="tauto" aria-pressed="false" title="Автопоказ (A): слайды листаются сами — когда доиграли анимации, через заданное время. Листать руками можно и дальше. Ещё раз — пауза" aria-label="Автопоказ">${icon('autoplay')}</button>
         ${new URLSearchParams(location.search).get('remote') ? `<button type="button" class="pd-btn" id="eco" aria-pressed="true" title="Экономный режим: слайд на паузе, касание — оживить" aria-label="Экономный режим">${icon('pause')}</button>` : ''}
         <span class="pd-mir">
           <button type="button" class="pd-btn pd-more" id="tmir" aria-pressed="true" aria-haspopup="menu" title="Мышь и 3D у зрителей (M): курсор, наведение, поворот моделей, запуск и пауза видео повторяются в окне показа. Удерживайте — настройки" aria-label="Мышь и 3D у зрителей">${icon('cursor')}</button>
@@ -84,6 +85,11 @@ export function startPresenter(deck: Deck, deckKey: string): void {
           </span>
         </span>
         ${new URLSearchParams(location.search).get('remote') ? '' : `<button type="button" class="pd-btn" id="trmt" title="Пульт с телефона (R): QR здесь, у докладчика — зал его не видит" aria-label="Пульт с телефона">${icon('phone')}</button>`}
+      </div>
+      <div class="pres-tl" id="ptl" hidden role="group" aria-label="Автопоказ: шаги слайда и сколько осталось">
+        <span class="pres-tl-l">Автопоказ</span>
+        <div class="pres-tl-track"><b id="ptlf"></b><span id="ptlt"></span></div>
+        <span class="pres-tl-r" id="ptlr"></span>
       </div>
     </section>
     <div class="pres-split v" id="sv" role="separator" aria-orientation="vertical" aria-label="Размер текущего слайда" tabindex="0" title="Потяните, чтобы изменить размер. Двойной щелчок — сбросить"></div>
@@ -583,22 +589,36 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     side.addEventListener('pointercancel', release);
   }
   $('bk').addEventListener('click', () => setBlack(!black));
-  // Автопоказ идёт в окне показа: отсюда — включить или пауза, обратно — идёт ли и через сколько следующий шаг
+  // Автопоказ идёт в окне показа: отсюда — включить или пауза, обратно — идёт ли и таймлайн слайда
   let autoOn = false;
   const toggleAuto = () => sync.send({ type: 'autoplay', on: !autoOn }, toMain());
   $('tauto').addEventListener('click', toggleAuto);
-  /** Полоска под кнопкой: идёт ms до следующего шага; без ms — как есть (ответ на «hello» отсчёт не сбрасывает) */
-  function showAuto(on: boolean, ms?: number): void {
+  function showAuto(on: boolean, tl?: Timeline | null): void {
     autoOn = on;
     $('tauto').setAttribute('aria-pressed', String(on));
-    const b = $('tautob');
-    if (!on || ms) b.classList.remove('run');
-    if (on && ms) {
-      b.style.setProperty('--ms', `${ms}ms`);
-      void b.offsetWidth;
-      b.classList.add('run');
-    }
+    if (tl !== undefined) drawTimeline(tl);
   }
+  /** Таймлайн слайда под панелью: чёрточки — шаги, конец — следующий слайд; справа — сколько ещё (без анимаций) */
+  let tl: (Timeline & { t0: number }) | null = null;
+  function drawTimeline(t: Timeline | null): void {
+    tl = t && { ...t, t0: performance.now() };
+    $('ptl').hidden = !t;
+    if (!t) return;
+    const next = stepVisible(deck, index, 1);
+    const end = next >= 0 ? `слайд ${visiblePos(deck, next).pos} →` : deck.autoplay?.loop ? 'слайд 1 →' : 'конец';
+    $('ptlt').innerHTML = t.ticks.map((x, k) => `<i style="left:${x * 100}%"></i><em style="left:${x * 100}%">шаг ${k + 1}</em>`).join('')
+      + `<em class="end">${end}</em>`;
+    runFill($('ptlf'), t);
+    tlLeft();
+  }
+  function tlLeft(): void {
+    if (!tl) return;
+    const p = tl.ms ? Math.min(1, (performance.now() - tl.t0) / tl.ms) : 0;
+    const at = tl.from + (tl.to - tl.from) * p;
+    $('ptlr').textContent = tl.paused ? 'пауза' : `ещё ${Math.max(0, Math.ceil((tl.total * (1 - at)) / 1000))} с`;
+    $('ptlt').querySelectorAll('i').forEach((i, k) => i.classList.toggle('on', tl!.ticks[k] <= at + 1e-6));
+  }
+  setInterval(tlLeft, 250);
   $('tmir').setAttribute('aria-pressed', String(mirror));
   syncMirUi();
   // Нажатие — повтор целиком вкл/выкл; удержание (или правая кнопка) — меню: показывать ли стрелку
@@ -788,7 +808,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       return;
     }
     if (m.type === 'autoplay') {
-      if (!mainId || from === mainId) showAuto(m.on, m.ms);
+      if (!mainId || from === mainId) showAuto(m.on, m.tl);
       return;
     }
     if (m.type === 'spot') {
@@ -837,8 +857,6 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       $('link').textContent = 'Связь с окном показа есть';
       $('link').classList.add('ok');
       const same = m.index === index;
-      // Слайд или шаг сменился — отсчёт автопоказа начнётся заново, когда доиграют анимации
-      if (!same || m.steps !== view.stepsAt(index)) $('tautob').classList.remove('run');
       if (!same) render(m.index);
       if (m.steps !== undefined) view.setSteps(index, m.steps, same);
       if (m.theme !== currentTheme()) { remoteTheme = true; setTheme(m.theme, false); remoteTheme = false; }

@@ -30,10 +30,19 @@
 .pd-btn:hover { background: var(--alt); color: var(--tx); }
 .pd-btn:focus-visible { outline: 2px solid var(--ac); outline-offset: 1px; }
 .pd-btn[aria-pressed="true"] { background: var(--acs); color: var(--ach); box-shadow: inset 0 0 0 1px var(--acb); }
-/* Автопоказ: полоска под значком — через сколько следующий шаг или слайд */
-.pd-auto { position: absolute; left: 8px; right: 8px; bottom: 4px; height: 2px; border-radius: 1px; background: var(--ac); transform: scaleX(0); transform-origin: left; opacity: 0; pointer-events: none; }
-.pd-auto.run { opacity: 1; animation: pd-auto var(--ms, 5s) linear forwards; }
-@keyframes pd-auto { to { transform: scaleX(1); } }
+/* Таймлайн автопоказа под панелью: шаги слайда чёрточками, заливка идёт к следующему; справа — сколько ещё */
+.pres-tl { display: flex; align-items: center; gap: 14px; padding: 6px 6px 16px; font: 600 12px var(--font); color: var(--tx2); }
+.pres-tl[hidden] { display: none; }
+.pres-tl-l { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.pres-tl-track { position: relative; flex: 1; height: 6px; border-radius: 3px; background: var(--alt); box-shadow: inset 0 0 0 1px var(--bd); }
+.pres-tl-track > b { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 3px; background: var(--ac-g); }
+.pres-tl-track i { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--tx2); }
+.pres-tl-track i.on { background: var(--ach); }
+.pres-tl-track em { position: absolute; top: 12px; transform: translateX(-50%); font-style: normal; font-size: 11px; color: var(--mu); white-space: nowrap; }
+.pres-tl-track em.end { right: 0; transform: none; }
+.pres-tl-r { min-width: 64px; text-align: right; font-size: 13px; color: var(--tx); font-variant-numeric: tabular-nums; }
+/* Таймлайн виден — слайду чуть меньше высоты, чтобы строка не уходила за край */
+.pres .pres-cur:has(.pres-tl:not([hidden])) .pres-vp { max-height: calc(100% - 140px); }
 .pd-btn[data-tool="laser"][aria-pressed="true"] { background: rgba(239, 68, 68, .12); color: #DC2626; box-shadow: inset 0 0 0 1px rgba(239, 68, 68, .45); }
 :root[data-theme="dark"] .pd-btn[data-tool="laser"][aria-pressed="true"] { color: #F87171; }
 #bk[aria-pressed="true"] { background: #0B1220; color: #fff; box-shadow: inset 0 0 0 1px #334155; }
@@ -135,7 +144,7 @@
     padding: 8px max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
     grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr) auto auto auto minmax(0, 1fr); }
   .pres .pres-main, .pres .pres-cur { display: contents; }
-  .pres-cur > .pres-label, .pres .pres-split, .pres .pres-side { display: none; }
+  .pres-cur > .pres-label, .pres .pres-split, .pres .pres-side, .pres .pres-tl { display: none; }
   .pres .pres-vp { grid-column: 1; grid-row: 1 / -1; align-self: center; justify-self: center; margin: 0; flex: none; max-height: none;
     width: min(100%, calc((100dvh - 16px - env(safe-area-inset-bottom)) * 16 / 9)); aspect-ratio: 16 / 9; }
   /* Таймер — только время */

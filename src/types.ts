@@ -45,9 +45,10 @@ export interface Deck {
   origin?: DeckOrigin;
   /**
    * Автопоказ (engine/autoplay.ts): слайд стоит after секунд (по умолчанию 5) после своих анимаций и роликов,
-   * loop — по кругу, start — презентация открывается автопоказом (стенд, файл посмотреть)
+   * loop — по кругу, start — презентация открывается автопоказом (стенд, файл посмотреть),
+   * timeline — таймлайн слайда тонкой полосой внизу экрана (рассказывать без окна докладчика)
    */
-  autoplay?: { after?: number; loop?: boolean; start?: boolean };
+  autoplay?: { after?: number; loop?: boolean; start?: boolean; timeline?: boolean };
   /** false — без полоски прогресса сверху при показе */
   progress?: boolean;
 }

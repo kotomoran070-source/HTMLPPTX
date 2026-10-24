@@ -154,11 +154,12 @@ export function startStudio(deck: Deck, deckKey: string): void {
     ${animPanelHtml()}
     <div class="st-rpanel" data-panel="show" hidden>
       ${group('Слайд', `<div class="st-rstack">${chk('show.hide', 'Скрыть слайд', 'Слайд остаётся в презентации, но при показе и в PDF пропускается')}</div>`)}
-      ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'next', 'С текущего слайда', { big: true, key: 'Shift+F5' }) + rb('show.presenter', 'presenter', 'Режим докладчика', { big: true, key: 'Alt+F5', title: 'Показ на втором экране, заметки — на вашем' })
-        + `<div class="st-rstack">${chk('show.progress', 'Полоска прогресса', 'Тонкая полоска сверху при показе: сколько презентации уже показано')}</div>`)}
+      ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'next', 'С текущего слайда', { big: true, key: 'Shift+F5' }) + rb('show.presenter', 'presenter', 'Режим докладчика', { big: true, key: 'Alt+F5', title: 'Показ на втором экране, заметки — на вашем' }))}
       ${group('Автопоказ', rb('show.auto', 'autoplay', 'Автопоказ', { big: true, title: 'Показ с начала, слайды листаются сами: когда доиграли анимации и ролики — через заданное время. A — пауза' })
         + `<div class="st-rstack"><label class="st-rfield" title="Сколько стоит слайд после своих анимаций и роликов"><span>Слайд</span><input type="number" id="st-auto-after" min="1" max="600" step="1" placeholder="5" aria-label="Сколько стоит слайд при автопоказе, секунды"><span>с</span></label>`
         + `${chk('show.auto.loop', 'По кругу', 'После последнего слайда — снова с первого')}${chk('show.auto.start', 'Сразу при открытии', 'Презентация открывается автопоказом: для стенда или чтобы отправить посмотреть. A — пауза')}</div>`)}
+      ${group('На экране', `<div class="st-rstack">${chk('show.progress', 'Полоска прогресса', 'Тонкая полоска сверху при показе: сколько презентации уже показано')}`
+        + `${chk('show.auto.timeline', 'Таймлайн автопоказа', 'Тонкая полоса внизу экрана во время автопоказа: просветы — шаги слайда, заливка идёт к следующему. Чтобы рассказывать по экрану, без окна докладчика')}</div>`)}
     </div>
     <div class="st-rpanel" data-panel="tools" hidden>
       ${group('Презентация', rb('tools.summary', 'chart', 'Сводка', { big: true, title: 'Слайды, слова, время доклада, тяжёлые и лишние файлы, шрифты' }))}
@@ -772,7 +773,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     }, { rebuild: false });
   }
   /** Настройка автопоказа (engine/autoplay.ts); пустая — поля в данных нет */
-  function setAutoplay(key: 'after' | 'loop' | 'start', value: number | boolean | undefined): void {
+  function setAutoplay(key: 'after' | 'loop' | 'start' | 'timeline', value: number | boolean | undefined): void {
     ed.commit((d) => {
       const a = { ...d.autoplay };
       if (value === undefined) delete a[key];
@@ -1467,6 +1468,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'show.auto': { run: () => void openShow(0, false, true) },
     'show.auto.loop': { run: () => setAutoplay('loop', deck.autoplay?.loop ? undefined : true), active: () => !!deck.autoplay?.loop },
     'show.auto.start': { run: () => setAutoplay('start', deck.autoplay?.start ? undefined : true), active: () => !!deck.autoplay?.start },
+    'show.auto.timeline': { run: () => setAutoplay('timeline', deck.autoplay?.timeline ? undefined : true), active: () => !!deck.autoplay?.timeline },
     'show.progress': { run: () => ed.commit((d) => { if (d.progress === false) delete d.progress; else d.progress = false; }, { rebuild: false }), active: () => deck.progress !== false },
     'file.export': { run: () => exportMenu() },
     'model.snapshot': { run: () => void modelSnapshot(), enabled: () => ed.selection?.type === 'model' },

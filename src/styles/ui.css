@@ -4,6 +4,12 @@
 .viewport { position: fixed; inset: 0; }
 
 .progress-top { position: fixed; top: 0; left: 0; height: 3px; width: 0; background: var(--ac-g); transition: width .5s var(--ease); z-index: 5; }
+/* Таймлайн автопоказа на экране (autoplay.timeline): тонкая полоса внизу, просветы — шаги слайда; над панелью, пока она видна */
+.ap-line { position: fixed; left: 0; right: 0; bottom: 0; height: 5px; background: color-mix(in srgb, var(--tx) 10%, transparent); z-index: 7; pointer-events: none; }
+.ap-line[hidden] { display: none; }
+body:not(.fs) .ap-line { bottom: 56px; }
+.ap-line > b { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--ac-g); }
+.ap-line i { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; background: var(--bg); }
 /* Автопоказ: A — пауза или дальше, значок посреди экрана мелькает и гаснет (show.ts) */
 .ap-flash { position: fixed; left: 50%; top: 50%; width: 84px; height: 84px; margin: -42px 0 0 -42px; border-radius: 50%; display: grid; place-items: center;
   background: rgba(15, 23, 42, .5); color: #fff; opacity: 0; pointer-events: none; z-index: 8; }
