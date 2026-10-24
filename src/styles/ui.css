@@ -34,6 +34,9 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px s
 .btn.primary { background: var(--ac-g); color: #fff; border: 0; }
 .btn.primary:hover { background: var(--ach); }
 :root[data-theme="dark"] .btn.primary:hover { color: #0F172A; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .btn.primary:hover { color: #0F172A; }
+}
 .btn.ghost { background: transparent; color: var(--ach); border: 1px solid var(--acb); }
 .btn.ghost:hover, .btn.ghost.active { background: var(--acs); }
 .btn[disabled] { opacity: .4; cursor: default; }
@@ -137,6 +140,10 @@ body.presenter { overflow: hidden; background: var(--alt); }
 .pres-jot-st.warn { color: #B45309; }
 :root[data-theme="dark"] .pres-jot-st.ok { color: #4ADE80; }
 :root[data-theme="dark"] .pres-jot-st.warn { color: #FBBF24; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .pres-jot-st.ok { color: #4ADE80; }
+  :root:not([data-theme="light"]) .pres-jot-st.warn { color: #FBBF24; }
+}
 .pres-bottom .counter { font: 700 18px var(--font); min-width: 70px; }
 .pres-link { margin-left: auto; font-size: 12px; color: var(--mu); }
 .pres-link.ok { color: #16A34A; }

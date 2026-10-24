@@ -63,10 +63,10 @@ export const IMAGE_FILTERS: Record<string, ImageFilter> = {
   cinema: { name: 'Кино', group: 'mood', css: 'contrast(1.12) saturate(1.05) brightness(.97)', tint: { color: '#0E7490', blend: 'soft-light', opacity: 0.32 } },
   dusk: { name: 'Сумерки', group: 'mood', css: 'brightness(.9) contrast(1.08) saturate(1.1)', tint: { color: '#7C3AED', blend: 'soft-light', opacity: 0.38 } },
   noir: { name: 'Нуар', group: 'mood', css: 'grayscale(1) contrast(1.4) brightness(.9)' },
-  tone: { name: 'Тон акцента', group: 'theme', css: 'saturate(.9)', tint: { color: 'var(--ac)', blend: 'soft-light', opacity: 0.55 } },
-  duo: { name: 'Дуотон акцента', group: 'theme', css: 'grayscale(1) contrast(1.1)', tint: { color: 'var(--ac)', blend: 'color', opacity: 0.85 } },
-  duo2: { name: 'Два акцента', group: 'theme', css: 'grayscale(1) contrast(1.1)', tint: { color: 'linear-gradient(135deg, var(--ac), var(--ac2, var(--ac)))', blend: 'color', opacity: 0.85 } },
-  haze: { name: 'Дымка акцента', group: 'theme', css: 'contrast(.9) brightness(1.08) saturate(.7)', tint: { color: 'var(--ac)', blend: 'screen', opacity: 0.28 } },
+  tone: { name: 'Оттенок', group: 'theme', css: 'saturate(.9)', tint: { color: 'var(--ac)', blend: 'soft-light', opacity: 0.55 } },
+  duo: { name: 'Монохром', group: 'theme', css: 'grayscale(1) contrast(1.1)', tint: { color: 'var(--ac)', blend: 'color', opacity: 0.85 } },
+  duo2: { name: 'Два цвета', group: 'theme', css: 'grayscale(1) contrast(1.1)', tint: { color: 'linear-gradient(135deg, var(--ac), var(--ac2, var(--ac)))', blend: 'color', opacity: 0.85 } },
+  haze: { name: 'Дымка', group: 'theme', css: 'contrast(.9) brightness(1.08) saturate(.7)', tint: { color: 'var(--ac)', blend: 'screen', opacity: 0.28 } },
 };
 
 /** CSS фильтра: для снимка (img) и для рамки (тонировка — через ::after, см. layout.css) */

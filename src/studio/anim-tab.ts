@@ -370,13 +370,13 @@ export function animCommands(h: AnimHost): Record<string, Command> {
       preview: v ? (on: boolean) => objs.forEach((o) => tryAct(o, kind, on ? v : null)) : undefined,
       run: () => { objs.forEach((o) => tryAct(o, kind, null)); setAct(kind, v); },
     });
-    // Группы: у выделения — разовые и те, что держатся; у исчезновения — простые и срезом
+    // Группы: у выделения — разовые и те, что остаются; у исчезновения — простые и стиранием (шторка, панорама, стрелка)
     const late = kind === 'emph' ? PERSIST : EXIT_CUT;
     const head = (s: string): MenuHead => ({ head: s });
     showMenu(document.querySelector<HTMLElement>(`.st-ribbon [data-cmd="fx.${kind === 'emph' ? 'emph' : 'exit'}"]`)!, [
       row(['', kind === 'emph' ? 'Без выделения' : 'Без исчезновения']), null,
       head(kind === 'emph' ? 'Один раз' : 'Простые'), ...list.filter(([v]) => !late.has(v)).map(row), null,
-      head(kind === 'emph' ? 'Держатся до возврата назад' : 'Срезом'), ...list.filter(([v]) => late.has(v)).map(row),
+      head(kind === 'emph' ? 'Остаются' : 'Стиранием'), ...list.filter(([v]) => late.has(v)).map(row),
     ]);
   };
   cmds['fx.emph'] = { run: () => actMenu('emph'), enabled: () => freeSel().length > 0 };
@@ -915,7 +915,7 @@ function minePopover(h: AnimHost, apply: (e: UserEffect) => void): void {
     + (own ? `<button type="button" class="st-mfx-del" data-del="${esc(e.id)}" title="Убрать из списка (в презентациях эффект останется)" aria-label="Убрать эффект «${esc(e.name)}»">${icon('close')}</button>` : '') + '</div>';
   const html = () => `<div class="st-mfx-list">${all.length
     ? all.map((e) => tile(e, saved.some((x) => x.id === e.id))).join('')
-    : '<p class="st-mfx-empty">Пока нет своих эффектов. Правый щелчок по импортированному объекту с красивым появлением → «Сохранить появление как эффект…».</p>'}</div>`
+    : '<p class="st-mfx-empty">Своих эффектов пока нет. Сохранить — правый щелчок по объекту с появлением.</p>'}</div>`
     + (all.length && !can ? '<p class="st-mfx-empty">Выделите объект на слайде, чтобы применить эффект.</p>' : '');
   const el = showPopover(anchor, html(), (b) => {
     if (b.dataset.del) {

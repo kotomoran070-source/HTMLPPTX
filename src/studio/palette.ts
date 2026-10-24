@@ -136,7 +136,10 @@ export class CommandPalette {
         g.querySelectorAll<HTMLElement>('[data-cmd]').forEach((b) => add(b, path, tab));
       }
     }
-    return [...out, ...this.host.extra()];
+    // Своя запись (с понятным названием и значком) заменяет кнопку ленты с той же командой — без дублей
+    const extra = this.host.extra();
+    const own = new Set(extra.map((e) => e.id));
+    return [...out.filter((e) => !own.has(e.id)), ...extra];
   }
 
   private recent(): string[] {

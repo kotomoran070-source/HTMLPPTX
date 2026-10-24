@@ -835,7 +835,7 @@ export class TextEditor {
     this.gradPanel = gradientPanel({
       css: gradColor,
       hex: probe,
-      swatches: [{ label: 'Цвета темы', items: theme }, { label: 'Постоянные', items: SWATCHES.map((c) => [c, c, c]) }],
+      swatches: [{ label: 'Цвета темы', items: theme }, { label: 'Стандартные', items: SWATCHES.map((c) => [c, c, c]) }],
       direction: true,
       preview: apply,
       commit: (g) => { if (g) apply(g); },

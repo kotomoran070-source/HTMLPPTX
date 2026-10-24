@@ -15,7 +15,7 @@ body:not(.editing) .stage .embed-ph { visibility: hidden; }
 /* interactive: мышь внутри вставки при показе; в режиме правки вставку по-прежнему выделяют */
 .embed.interactive .embed-frame { pointer-events: auto; }
 body.editing .embed.interactive .embed-frame { pointer-events: none; }
-.embed:has(.embed-frame.on) .embed-poster { visibility: hidden; }
+.embed:has(.embed-frame.on) :is(.embed-poster, .embed-ph) { visibility: hidden; }
 /* Заставка вставки снята в светлой теме. В тёмной — перевёрнутые яркости с тем же оттенком:
    светлые подложки темнеют, акцент остаётся синим (для миниатюр и до загрузки вставки).
    Тёмная заставка (dark: своя тёмная сцена) остаётся как есть */

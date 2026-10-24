@@ -369,7 +369,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     const inDark = dark && !!head;
     const d = inDark ? lookFor(t, 'dark') : t;
     const tune = isBackdrop(d.backdrop) ? tuneHtml({ backdropOpacity: d.backdropOpacity ?? 1, backdropSpeed: d.backdropSpeed ?? 1 }, TOUCH_BACKDROPS.has(d.backdrop) ? t.backdropTouch !== false : undefined) : '';
-    const el = showPopover(at, `${head?.html ?? '<div class="st-plabel">Анимация фона всех слайдов</div>'}${backdropStrip(d.backdrop ?? '')}${tune}<p class="st-bdnote">Наведите — фон примерится на слайде. У отдельного слайда фон меняется в панели слайда</p>`, (b) => {
+    const el = showPopover(at, `${head?.html ?? '<div class="st-plabel">Анимация фона всех слайдов</div>'}${backdropStrip(d.backdrop ?? '')}${tune}<p class="st-bdnote">Наведите — примерка на слайде. Свой фон у слайда — в его свойствах</p>`, (b) => {
       if (b.dataset.scope) return head?.pick(b) ?? null;
       const v = b.dataset.backdrop;
       if (v === undefined) return null;

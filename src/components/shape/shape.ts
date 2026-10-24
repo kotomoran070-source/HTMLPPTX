@@ -44,7 +44,7 @@ export const SHAPE_GRADIENT = { name: 'Градиент акцента', css: 'l
 
 export { GRADIENTS, gradientCss, gradientOn, isGradient, sameGradient, type ShapeGradient } from '../../engine/gradients';
 
-/** Постоянные цвета: те же, что у текста */
+/** Стандартные цвета: те же, что у текста */
 export const SHAPE_SWATCHES = ['#111827', '#64748B', '#DC2626', '#EA580C', '#CA8A04', '#16A34A', '#0891B2', '#2563EB', '#7C3AED', '#DB2777'];
 
 /**

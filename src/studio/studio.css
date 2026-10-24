@@ -27,6 +27,10 @@ body.studio { background: var(--alt); }
 .st-status.err:hover { background: #FEE2E2; }
 :root[data-theme="dark"] .st-status.ok { color: #4ADE80; }
 :root[data-theme="dark"] .st-status.err:hover { background: rgba(220, 38, 38, .15); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .st-status.ok { color: #4ADE80; }
+  :root:not([data-theme="light"]) .st-status.err:hover { background: rgba(220, 38, 38, .15); }
+}
 
 /* Контекстные вкладки (Фигура, Таблица): цветная метка, как в PowerPoint */
 .st-tabs button.ctx { color: var(--ach); position: relative; }
@@ -320,6 +324,10 @@ body.studio { background: var(--alt); }
 .st-code-status.err { color: #DC2626; font-weight: 600; white-space: normal; }
 :root[data-theme="dark"] .st-code-status.ok { color: #4ADE80; }
 :root[data-theme="dark"] .st-code-status.err { color: #F87171; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .st-code-status.ok { color: #4ADE80; }
+  :root:not([data-theme="light"]) .st-code-status.err { color: #F87171; }
+}
 .st-code-ed { flex: 1; min-height: 0; overflow: hidden; }
 .st-code-ed .cm-editor { height: 100%; font-size: 12.5px; }
 .st-code-ed .cm-editor.cm-focused { outline: none; }
@@ -474,6 +482,10 @@ body.studio .edblock { display: none !important; }
 .st-pbtn.danger:hover { border-color: #FCA5A5; background: #FEF2F2; color: #B91C1C; }
 :root[data-theme="dark"] .st-pbtn.danger { color: #F87171; }
 :root[data-theme="dark"] .st-pbtn.danger:hover { background: rgba(220, 38, 38, .14); border-color: #7F1D1D; color: #FCA5A5; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .st-pbtn.danger { color: #F87171; }
+  :root:not([data-theme="light"]) .st-pbtn.danger:hover { background: rgba(220, 38, 38, .14); border-color: #7F1D1D; color: #FCA5A5; }
+}
 .st-link { border: 0; background: none; padding: 0; font: 600 12.5px var(--font); color: var(--ach); cursor: pointer; }
 .st-link:hover { text-decoration: underline; }
 .st-layers { display: flex; flex-direction: column; border: 1px solid var(--bd); border-radius: 8px; overflow: hidden; }
@@ -531,6 +543,9 @@ body.studio .edblock { display: none !important; }
 .st-f-tools button:hover:not(:disabled) { background: var(--acs); color: var(--ach); }
 .st-f-tools button.danger:hover { background: #FEF2F2; color: #DC2626; }
 :root[data-theme="dark"] .st-f-tools button.danger:hover { background: rgba(220, 38, 38, .14); color: #F87171; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .st-f-tools button.danger:hover { background: rgba(220, 38, 38, .14); color: #F87171; }
+}
 .st-f-tools button:disabled { opacity: .3; cursor: default; }
 .st-f-add { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; height: 28px; padding: 0 10px; border: 1px dashed var(--bd2); border-radius: 6px; background: none; font: 600 12px var(--font); color: var(--mu); cursor: pointer; }
 .st-f-add .ic { width: 14px; height: 14px; }
@@ -621,6 +636,9 @@ button.st-g-n { position: relative; }
 .st-menu:not(.st-pop) button.danger .ic { color: currentColor; }
 .st-menu:not(.st-pop) button.danger:hover:not(:disabled) { background: #FEF2F2; color: #B91C1C; }
 :root[data-theme="dark"] .st-menu button.danger:hover:not(:disabled) { background: rgba(220, 38, 38, .14); color: #FCA5A5; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .st-menu button.danger:hover:not(:disabled) { background: rgba(220, 38, 38, .14); color: #FCA5A5; }
+}
 .st-menu-sep { height: 1px; margin: 4px 6px; background: var(--bd); }
 /* Заголовок группы пунктов и пояснение второй строкой */
 .st-menu-h { padding: 7px 10px 3px; font: 600 10.5px var(--font); color: var(--mu); text-transform: uppercase; letter-spacing: .07em; }
@@ -687,6 +705,11 @@ body.st-previewing :is(.st-top, .st-ribbon) { position: relative; z-index: 31; }
 :root[data-theme="dark"] :is(.st-psw, .st-sw, .st-rb-sw) { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .2); }
 :root[data-theme="dark"] .st-psw:is(:hover, :focus-visible) { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .2), 0 0 0 2px var(--surf), 0 0 0 3.5px var(--acb); }
 :root[data-theme="dark"] .st-psw.on { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .2), 0 0 0 2px var(--surf), 0 0 0 3.5px var(--ac); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) :is(.st-psw, .st-sw, .st-rb-sw) { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .2); }
+  :root:not([data-theme="light"]) .st-psw:is(:hover, :focus-visible) { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .2), 0 0 0 2px var(--surf), 0 0 0 3.5px var(--acb); }
+  :root:not([data-theme="light"]) .st-psw.on { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .2), 0 0 0 2px var(--surf), 0 0 0 3.5px var(--ac); }
+}
 
 /* Оформление текста — на ленте «Главная», как «Шрифт» и «Абзац» в PowerPoint */
 .st-textdock { display: flex; align-self: stretch; align-items: center; }

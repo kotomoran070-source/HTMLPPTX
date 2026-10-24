@@ -109,6 +109,10 @@ body.editing .progress-top { top: 52px; }
 .edstatus.err { color: #DC2626; font-weight: 600; }
 :root[data-theme="dark"] .edstatus.ok { color: #4ADE80; }
 :root[data-theme="dark"] .edstatus.warn { color: #FBBF24; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .edstatus.ok { color: #4ADE80; }
+  :root:not([data-theme="light"]) .edstatus.warn { color: #FBBF24; }
+}
 @media (max-width: 980px) {
   .edbar .btn span, .edcolor span, .edstatus { display: none; }
 }
@@ -221,7 +225,8 @@ body.editing .ovedit-hint { display: block; }
 }
 .edcolors.on { display: flex; }
 .edcolors-row { display: flex; gap: 6px; }
-.edcolors-row button { width: 24px; height: 24px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, .15); cursor: pointer; padding: 0; }
+/* Обводка от цвета текста: чёрный образец виден и на тёмной панели */
+.edcolors-row button { width: 24px; height: 24px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--tx) 22%, transparent); cursor: pointer; padding: 0; }
 .edcolors-row button:hover { transform: scale(1.12); }
 .edcolors-label { font: 600 11px var(--font); color: var(--mu); margin-bottom: -2px; }
 /* Свой градиент текста: кнопка под готовыми и панель точек (gradient-edit.ts, стили панели — в studio.css) */

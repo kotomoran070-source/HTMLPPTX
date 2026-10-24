@@ -18,8 +18,8 @@ import { AFTER_S } from '../engine/autoplay';
 /** Вид прогресса у зрителей (deck.progress): значение, название, пояснение, значок */
 const PROGRESS: [Deck['progress'] | undefined, string, string, string][] = [
   [undefined, 'Линия', 'Тонкая полоса сверху', 'pg-line'],
-  ['segments', 'Сегменты', 'Ячейка на каждый слайд; при автопоказе текущая заливается', 'pg-seg'],
-  ['number', 'Номер', '«6 / 29» в углу, когда панели внизу не видно', 'pg-num'],
+  ['segments', 'Сегменты', 'По ячейке на слайд', 'pg-seg'],
+  ['number', 'Номер', '«6 / 29» в углу', 'pg-num'],
   [false, 'Нет', 'Ничего поверх слайдов', 'eye-off'],
 ];
 import { CLIP_TYPE, putClip, takeClip, type Clip } from './clipboard';
@@ -887,13 +887,15 @@ export function startStudio(deck: Deck, deckKey: string): void {
       { label: 'Вставить', icon: 'paste', hint: 'Ctrl+V', disabled: !clip, run: () => clip && pasteClip(clip) },
     ];
   }
+  /** «Разгруппировать» — только у того, что можно разобрать: серый пункт у каждой надписи лишь удлинял меню */
+  const ungroupItem = (): MenuEntry[] => (cmds['obj.ungroup'].enabled!() ? [{ label: 'Разгруппировать', icon: 'ungroup', hint: 'Ctrl+Shift+G', run: () => run('obj.ungroup') }] : []);
   function objectMenu(): MenuEntry[] {
     const sel = ed.selection;
     if (!sel) return slideMenu(index);
     if (!sel.free) {
       return [
         { label: 'Сделать свободным', icon: 'move', run: () => run('obj.free') },
-        { label: 'Разгруппировать', icon: 'ungroup', hint: 'Ctrl+Shift+G', disabled: !cmds['obj.ungroup'].enabled!(), run: () => run('obj.ungroup') },
+        ...ungroupItem(),
         ...(sel.hasParent ? [{ label: 'Выделить внешний блок', icon: 'up', run: () => run('obj.parent') }] : []),
         ...(selectedEntrance() ? [{ label: 'Сохранить появление как эффект…', icon: 'sparkle', run: () => askEffectName() }] : []),
         { label: 'Сохранить как рисунок…', icon: 'image', run: () => run('obj.picture') },
@@ -916,7 +918,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
         { label: 'Появляться по очереди', icon: 'sparkle', run: () => sequence() },
         { label: ed.blockEditor.isLocked ? 'Открепить' : 'Закрепить', icon: ed.blockEditor.isLocked ? 'unlock' : 'lock', run: () => run('obj.lock') },
       ] : [
-        { label: 'Разгруппировать', icon: 'ungroup', hint: 'Ctrl+Shift+G', disabled: !cmds['obj.ungroup'].enabled!(), run: () => run('obj.ungroup') },
+        ...ungroupItem(),
         ...orderItems(),
         ...(hasFree() ? [{ label: ed.blockEditor.isLocked ? 'Открепить' : 'Закрепить', icon: ed.blockEditor.isLocked ? 'unlock' : 'lock', run: () => run('obj.lock') }] : []),
         null,
@@ -1313,7 +1315,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const guess = [first.title, first.text, ...(Array.isArray(first.texts) ? first.texts : [])]
       .find((v) => typeof v === 'string' && v.trim()) as string | undefined;
     const suggestion = (guess ?? blockName(first.type)).replace(/\{[\w#-]+\|([^}]*)\}|[*_`]/g, '$1').slice(0, 40);
-    askName(anchor, 'Сохранить как шаблон', 'Объекты сохранятся вместе с анимацией, стилями и картинками и появятся в «Блоках» → «Мои шаблоны».', suggestion, (name) => void makeTemplate(name));
+    askName(anchor, 'Сохранить как шаблон', 'С анимацией и картинками — в «Блоках» → «Мои шаблоны».', suggestion, (name) => void makeTemplate(name));
   }
 
   /** Небольшое окно с названием: Enter или «Сохранить» — сохранить, Esc — отмена */
@@ -1359,7 +1361,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const found = from?.found ?? selectedEntrance();
     if (!found) return ed.toast('У этого объекта нет появления, которое можно перенести на другие', 2500);
     const anchor = from?.el ?? selectedEl() ?? $('st-canvas');
-    askName(anchor, 'Сохранить появление как эффект', 'Движение объекта появится на вкладке «Анимация» → «Мои эффекты», его можно дать любому объекту.', 'Эффект из импорта', (name) => {
+    askName(anchor, 'Сохранить появление как эффект', 'Появится в «Анимация» → «Мои эффекты» — для любого объекта.', 'Эффект из импорта', (name) => {
       const id = `ufx-${Math.random().toString(36).slice(2, 9)}`;
       const css = found.keyframes.cssText.replace(/^@(-webkit-)?keyframes\s+[^\s{]+/, `@keyframes ${id}`);
       const r = addEffect({ id, name, css, ms: found.ms, ease: found.ease, created: Date.now() });

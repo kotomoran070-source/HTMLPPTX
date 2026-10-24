@@ -363,7 +363,8 @@ defineBlock<EmbedProps>('embed', {
   render(p) {
     const poster = p.poster ? `<img class="embed-poster" src="${esc(p.poster)}" alt="">` : '';
     // Пустая вставка видна в редакторе: её можно выделить и открыть «Код вставки»
-    const empty = !poster && !hasEmbed(p) ? `<div class="embed-ph">${icon('terminal')}<span>Живая вставка</span></div>` : '';
+    // Без заставки — заглушка и у вставки с кодом: миниатюры и превью не запускают код, плитка была пустой
+    const empty = !poster ? `<div class="embed-ph">${icon('terminal')}<span>Живая вставка</span></div>` : '';
     return `<div class="embed${p.theme ? ' themed' : ''}${p.interactive ? ' interactive' : ''}${p.dark ? ' dark' : ''}">${poster}${empty}</div>`;
   },
   mount(el, p, ctx) {

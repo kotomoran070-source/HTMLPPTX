@@ -383,7 +383,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const outline = key === 'stroke' || line;
     const html = `${line ? '' : `<button type="button" class="st-pnone${cur === 'none' || (key === 'stroke' && !width) ? ' on' : ''}" data-v="none">${icon('close')}<span>${key === 'fill' ? 'Без заливки' : 'Без контура'}</span></button>`}
       <div class="st-plabel">Цвета темы</div><div class="st-pgrid">${theme}</div>
-      <div class="st-plabel">Постоянные</div><div class="st-pgrid">${SHAPE_SWATCHES.map((c) => sw(c, c, c)).join('')}</div>
+      <div class="st-plabel">Стандартные</div><div class="st-pgrid">${SHAPE_SWATCHES.map((c) => sw(c, c, c)).join('')}</div>
       <button type="button" class="st-pmore" data-v="custom"><i style="background:conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)"></i><span>Другой цвет…</span></button>
       ${grads}
       ${outline ? `<div class="st-plabel">Толщина</div><div class="st-pseg">${[1, 2, 3, 4, 6, 8].map((w) => `<button type="button" data-w="${w}" class="${width === w ? 'on' : ''}" title="${w} px"><i style="height:${Math.min(w, 6)}px"></i></button>`).join('')}</div>
@@ -477,7 +477,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const panel = gradientPanel({
       css: gradColor,
       hex: toHex,
-      swatches: [{ label: 'Цвета темы', items: theme }, { label: 'Постоянные', items: SHAPE_SWATCHES.map((c) => [c, c, c]) }],
+      swatches: [{ label: 'Цвета темы', items: theme }, { label: 'Стандартные', items: SHAPE_SWATCHES.map((c) => [c, c, c]) }],
       direction: true,
       presets: list.map((x) => ({ name: x.name, css: gradientCss(x.g), g: { from: x.g.from, to: x.g.to, mid: gradientMid(x.g.mid), angle: x.g.angle, type: x.g.type }, on: sameGradient(x.g, start) })),
       preview,
@@ -893,7 +893,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const theme = themeRow(cur);
     const html = `<button type="button" class="st-pnone${cur ? '' : ' on'}" data-v="none">${icon('close')}<span>Как у таблицы</span></button>
       <div class="st-plabel">Цвета темы</div><div class="st-pgrid">${theme}</div>
-      <div class="st-plabel">Постоянные</div><div class="st-pgrid">${SHAPE_SWATCHES.map((c) => sw(c, c, c)).join('')}</div>
+      <div class="st-plabel">Стандартные</div><div class="st-pgrid">${SHAPE_SWATCHES.map((c) => sw(c, c, c)).join('')}</div>
       <button type="button" class="st-pmore" data-v="custom"><i style="background:conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)"></i><span>Другой цвет…</span></button>`;
     const pop = showPopover(anchor('table.fill'), html, (el) => {
       const v = el.dataset.v;
@@ -1135,7 +1135,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     },
     'shape.shadow': { run: () => lookGallery('shape.shadow', 'shadow', [[undefined, 'Без тени'], ...Object.entries(IMAGE_SHADOWS).map(([v, s]) => [v, s.name] as [string, string])], undefined, undefined, SHAPE_KIND), enabled: isBody },
     'shape.radius': {
-      run: () => lookGallery('shape.radius', 'radius', [[0, 'Острые'], [8, 'Малое'], [undefined, 'Обычное'], [24, 'Большое'], [40, 'Очень большое']],
+      run: () => lookGallery('shape.radius', 'radius', [[0, 'Без скругления'], [8, 'Малое'], [undefined, 'Обычное'], [24, 'Большое'], [40, 'Очень большое']],
         { label: 'Своё, px', min: 0, max: 120, unit: ' px', get: (v) => (Number.isFinite(Number(v)) && v !== undefined ? Number(v) : first('shape')?.kind === 'rect' ? 0 : 16), set: (n) => n }, 'f', SHAPE_KIND),
       enabled: () => isShape() && ['round', 'rect', undefined].includes(first('shape')?.kind as string | undefined),
     },
@@ -1164,7 +1164,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     },
     'image.shadow': { run: () => lookGallery('image.shadow', 'shadow', [[undefined, 'Без тени'], ...Object.entries(IMAGE_SHADOWS).map(([v, s]) => [v, s.name] as [string, string])]), enabled: isImage },
     'image.radius': {
-      run: () => lookGallery('image.radius', 'radius', [[0, 'Острые'], [6, 'Малое'], [undefined, 'Обычное'], [24, 'Большое'], [48, 'Очень большое'], ['oval', 'Овал'], ['circle', 'Круг']],
+      run: () => lookGallery('image.radius', 'radius', [[0, 'Без скругления'], [6, 'Малое'], [undefined, 'Обычное'], [24, 'Большое'], [48, 'Очень большое'], ['oval', 'Овал'], ['circle', 'Круг']],
         { label: 'Своё, px', min: 0, max: 120, unit: ' px', get: (v) => (typeof v === 'number' ? v : v === 'circle' || v === 'oval' ? 120 : 12), set: (n) => n }),
       enabled: isImage,
     },
