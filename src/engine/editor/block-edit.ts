@@ -36,7 +36,7 @@ const NAMES: Record<string, string> = {
   cycle: 'Цикл', funnel: 'Воронка', pyramid: 'Пирамида', numbers: 'Крупные номера', compare: 'Сравнение', matrix: 'Матрица 2×2',
   icons: 'Иконки с подписями', stats: 'Цифры', faq: 'Вопрос — ответ',
   roadmap: 'Дорожная карта', ladder: 'Лестница', orbit: 'Орбиты', venn: 'Диаграмма Венна', nested: 'Вложенные круги',
-  gears: 'Шестерёнки', pillars: 'Колонны', layers: 'Слои', diamonds: 'Ромбы', arc: 'Дуга', mindmap: 'Карта идей', iceberg: 'Айсберг',
+  gears: 'Шестерни', pillars: 'Колонны', layers: 'Слои', diamonds: 'Ромбы', arc: 'Дуга', mindmap: 'Карта идей', iceberg: 'Айсберг',
   'link-card': 'Ссылка с QR', 'link-buttons': 'Кнопки-ссылки', 'link-plate': 'Контакты', 'space-sky': 'Звёздное небо',
 };
 

@@ -335,22 +335,22 @@ export class Inspector {
     const all = (schema?.fields ?? []).filter((f) => !skip.has(f.k) && !(f.type === 'rows' && f.hideEmpty && !(Array.isArray(b?.[f.k]) && (b[f.k] as unknown[]).length)));
     const own = all.filter((f) => !FRAME.includes(f.k));
     const frame = all.filter((f) => FRAME.includes(f.k));
-    const ribbonNote = ribbon ? `<button type="button" class="st-p-hint" data-cmd="tab.${ribbon.tab}">${icon('layers')}<span>${sel.type === 'video' ? 'Воспроизведение' : 'Оформление'} — на вкладке «${ribbon.name}»</span></button>` : '';
+    const ribbonNote = ribbon ? hintBtn(`tab.${ribbon.tab}`, 'layers', `${sel.type === 'video' ? 'Плеер' : 'Стиль'} — вкладка «${ribbon.name}»`) : '';
     const contentSec = own.length || schema?.about || ribbon
       ? `<section class="st-p-sec"><h3>Содержимое</h3>${ribbonNote}${schema?.about ? `<p class="st-p-note">${esc(schema.about)}</p>` : ''}${formHtml(own, deck, sel.block)}${sel.type === 'model' ? `<div class="st-p-col">${cmdBtn('model.snapshot', 'image', 'Снимок текущего вида')}</div>` : ''}${sel.type === 'embed' || sel.type === 'sandbox' ? `<div class="st-p-col">${cmdBtn('embed.code', 'terminal', sel.type === 'sandbox' ? 'Код песочницы…' : 'Код вставки…', 'primary')}${cmdBtn('embed.poster', 'image', 'Обновить заставку')}</div>` : ''}</section>`
         + (frame.length ? sec('frame', 'Кадр картинки', formHtml(frame, deck, sel.block)) : '')
       : '';
-    const extra = this.partsHtml() + sec('more', 'Дополнительно', formHtml([STYLE_FIELD], deck, sel.block));
+    const extra = this.partsHtml(own.length > 0) + sec('more', 'Дополнительно', formHtml([STYLE_FIELD], deck, sel.block));
     // Действия — одной строкой значков: они же есть на ленте и в меню по правому клику
     const actions = (list: [string, string, string, string?][]) => `<section class="st-p-sec st-p-end"><div class="st-p-acts">${list.map(([c, ic, l, cls]) =>
       `<button type="button" class="st-pbtn${cls ? ` ${cls}` : ''}" data-cmd="${c}" title="${esc(l)}" aria-label="${esc(l)}">${icon(ic)}</button>`).join('')}</div></section>`;
     if (!sel.free) {
       if (inGroup) {
-        return head + contentSec + sec('layout', 'В группе', `<p class="st-p-note">Объект перемещается внутри группы. Чтобы изменить размер, извлеките его из группы.</p>
+        return head + contentSec + sec('layout', 'В группе', `<p class="st-p-note">Чтобы менять размер, извлеките объект из группы.</p>
 <div class="st-p-col">${cmdBtn('obj.free', 'move', 'Извлечь из группы', 'primary')}${cmdBtn('obj.parent', 'up', 'Выделить группу')}</div>`)
           + sec('more', 'Дополнительно', formHtml([STYLE_FIELD], deck, sel.block)) + actions([['obj.del', 'trash', 'Удалить из группы', 'danger']]);
       }
-      return head + contentSec + sec('layout', 'Раскладка', `<p class="st-p-note">Блок закреплён в макете слайда. Сделайте его свободным, чтобы перемещать и менять размер.</p>
+      return head + contentSec + sec('layout', 'Раскладка', `<p class="st-p-note">Чтобы двигать блок и менять размер, сделайте его свободным.</p>
 <div class="st-p-col">${cmdBtn('obj.free', 'move', 'Сделать свободным', 'primary')}${sel.hasParent ? cmdBtn('obj.parent', 'up', 'Выделить внешний блок') : ''}</div>`)
         + extra + actions([['obj.ungroup', 'ungroup', 'Разгруппировать'], ['obj.del', 'trash', 'Удалить блок', 'danger']]);
     }
@@ -366,7 +366,7 @@ export class Inspector {
 <div class="st-p-icons" role="group" aria-label="Выровнять на слайде">${ALIGN.map(([c, ic, l]) => `<button type="button" data-cmd="${c}" title="${l}" aria-label="${l}">${icon(ic)}</button>`).join('')}</div>`)
       + this.rowHtml(deck)
       + this.actionHtml(deck)
-      + `<section class="st-p-sec"><button type="button" class="st-p-hint" data-cmd="tab.anim">${icon('sparkle')}<span>Появление: <b data-sum="enter"></b> — на вкладке «Анимация»</span></button></section>`
+      + `<section class="st-p-sec">${hintBtn('tab.anim', 'sparkle', 'Появление: <b data-sum="enter"></b>', 'Настроить на вкладке «Анимация»')}</section>`
       + extra
       + actions([['obj.dup', 'copy', 'Дублировать (Ctrl+D)'], ['obj.front', 'front', 'На передний план'], ['obj.back', 'back', 'На задний план'], ['obj.ungroup', 'ungroup', 'Разгруппировать'], ...(content ? [['obj.attach', 'grid', 'В раскладку'] as [string, string, string]] : []), ['obj.del', 'trash', 'Удалить (Delete)', 'danger']]);
   }
@@ -573,7 +573,7 @@ ${!known && !HEX_RE.test(cur) ? `<p class="st-p-note">Сейчас: <code>${esc(
   private slideColorsHtml(s: SlideData): string {
     const own = !!slideAccent(s.theme);
     const seg = (v: string, l: string, on: boolean) => `<button type="button" role="radio" aria-checked="${on}" data-sac="${v}">${l}</button>`;
-    return `<div class="st-p-field"><span>Цвета слайда</span><div class="st-p-seg" role="radiogroup" aria-label="Цвета слайда">${seg('deck', 'Как у презентации', !own)}${seg('own', 'Свои', own)}</div>
+    return `<div class="st-p-field"><span>Цвета слайда</span><div class="st-p-seg" role="radiogroup" aria-label="Цвета слайда">${seg('deck', 'Общие', !own)}${seg('own', 'Свои', own)}</div>
 ${own ? `<span class="st-p-color st-p-sac"><input type="color" data-f="saccent" aria-label="Акцент слайда" title="Акцент слайда — первая точка градиента">${gradBtn('sgrad', accentSwatch(s.theme), 'Градиент слайда: готовые сочетания и свои точки')}</span>` : ''}</div>`;
   }
 
@@ -611,7 +611,7 @@ ${(tpl === 'content' || canvas) && !deck.brand?.logo ? cmdBtn('brand.logo.add', 
 ${!canvas && !s.live ? `<section class="st-p-sec"><button type="button" class="st-pbtn" data-cmd="slide.explode" title="Части слайда стоят на своих местах. Разберите слайд, чтобы двигать и масштабировать их по отдельности: вид и анимации сохранятся. Вернуть — Ctrl+Z">${icon('ungroup')}<span>Разобрать на объекты</span></button></section>` : ''}
 ${canvas ? '' : sec('more', 'Дополнительно', name)}
 ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Название</span><input type="text" data-f="title"></label>
-<label class="st-p-field"><span>Акцентный цвет</span><span class="st-p-color"><input type="color" data-f="accent" aria-label="Акцентный цвет"><button type="button" class="st-link" data-a="accent-reset">Стандартный</button></span></label>
+<label class="st-p-field"><span>Акцентный цвет</span><span class="st-p-color"><input type="color" data-f="accent" aria-label="Акцентный цвет"><button type="button" class="st-link" data-a="accent-reset" title="Вернуть стандартный цвет">Сбросить</button></span></label>
 <div class="st-p-field"><span>Градиент акцента</span><span class="st-p-color">${gradBtn('grad', accentSwatch(deck.theme), 'Градиент акцента презентации: готовые сочетания и свои точки')}</span></div>
 ${this.fontsHtml(deck)}`)}`;
   }
@@ -645,11 +645,14 @@ ${this.fontsHtml(deck)}`)}`;
   }
 
 
-  /** Раздел «Состав»: вложенные блоки и поля выделенного блока. Клик — выделить или править. */
-  private partsHtml(): string {
+  /**
+   * Раздел «Состав»: вложенные блоки и поля выделенного блока. Клик — выделить или править.
+   * Только поля, и они же есть в форме (form) — список повторял бы форму
+   */
+  private partsHtml(form: boolean): string {
     const list = this.parts;
     // Для блока из одного поля состав очевиден
-    if (list.length < 2 && !list.some((x) => x.kind === 'block')) return '';
+    if (!list.some((x) => x.kind === 'block') && (form || list.length < 2)) return '';
     return sec('parts', 'Состав', `<div class="st-parts">${list.map((x, k) =>
       `<button type="button" class="st-part ${x.kind}" data-part="${k}" title="${x.kind === 'block' ? 'Выделить' : 'Править текст'}"><b>${esc(x.label)}</b>${x.snippet ? `<span>${esc(x.snippet)}</span>` : ''}<i aria-hidden="true">${x.kind === 'block' ? '›' : '✎'}</i></button>`).join('')}</div>
 <p class="st-p-note">Esc — выделить внешний блок.</p>`, ` <span class="st-p-count">${list.length}</span>`);
@@ -893,6 +896,10 @@ ${few}
     }
   }
 }
+
+/** Переход к вкладке ленты, где это правится: одна строка со стрелкой */
+const hintBtn = (cmd: string, ic: string, html: string, title = '') =>
+  `<button type="button" class="st-p-hint" data-cmd="${cmd}"${title ? ` title="${esc(title)}"` : ''}>${icon(ic)}<span>${html}</span>${icon('next')}</button>`;
 
 /** Кнопка градиента акцента в панели: полоска его цветов */
 const gradBtn = (a: string, css: string, title: string) =>

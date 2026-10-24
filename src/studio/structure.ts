@@ -12,6 +12,7 @@ const FIELDS: Record<string, string> = {
   sub: 'Подпись', meta: 'Нижняя строка', badge: 'Надпись', note: 'Подпись', delta: 'Изменение', author: 'Автор', role: 'Должность',
   date: 'Дата', node: 'Подпись узла', start: 'Подпись слева', end: 'Подпись справа', url: 'Ссылка', items: 'Пункт',
   header: 'Шапка', rows: 'Строка', cells: 'Ячейка', steps: 'Шаг', texts: 'Текст', buttons: 'Кнопка', chips: 'Чип',
+  center: 'В центре', footer: 'Итог', footnote: 'Подпись справа', labels: 'Подпись', values: 'Значение', total: 'Итог',
 };
 
 export interface Crumb {
@@ -36,7 +37,8 @@ export function fieldName(path: Path): string {
   const k = path.indexOf(KEY);
   if (k >= 0) return 'Ключ';
   const last = path[path.length - 1];
-  if (typeof last === 'string') return FIELDS[last] ?? last;
+  // Имя поля из данных (center, footer…) в интерфейсе не показываем
+  if (typeof last === 'string') return FIELDS[last] ?? 'Текст';
   // Элемент списка: по имени списка выше
   const prev = path[path.length - 2];
   if (typeof prev === 'number' && path[path.length - 3] === 'rows') return `Ячейка ${prev + 1} · ${last + 1}`;

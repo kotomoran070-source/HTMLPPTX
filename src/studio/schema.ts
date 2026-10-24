@@ -8,7 +8,8 @@ import { PRESET_KINDS } from '../components/shape/kinds';
 
 export type Field =
   | { k: string; label: string; type: 'text' | 'textarea' | 'url'; placeholder?: string; hint?: string }
-  | { k: string; label: string; type: 'number'; min?: number; max?: number; step?: number; placeholder?: string; hint?: string }
+  /** fromOne — номер (строки, столбца): в поле с единицы, в данных — с нуля */
+  | { k: string; label: string; type: 'number'; min?: number; max?: number; step?: number; placeholder?: string; hint?: string; fromOne?: boolean }
   /** Видимая часть картинки (position: "X% Y%") — два ползунка */
   | { k: string; label: string; type: 'framepos'; hint?: string }
   | { k: string; label: string; type: 'select'; options: [string, string][]; hint?: string }
@@ -21,8 +22,8 @@ export type Field =
   | { k: string; label: string; type: 'strings'; item: string }
   /** Чипы: строка, звёздочка в конце — выделенный чип */
   | { k: string; label: string; type: 'chips' }
-  /** Числа через пробел или запятую */
-  | { k: string; label: string; type: 'numbers'; hint?: string }
+  /** Числа через пробел или запятую; short — пара чисел (от и до) в одну строку */
+  | { k: string; label: string; type: 'numbers'; hint?: string; short?: boolean }
   /** Словарь «ключ — значение» */
   | { k: string; label: string; type: 'kv' }
   /** Список объектов. Элемент-строка (если допустим) правится как поле asString; from — номер первого (без него — 1) */
@@ -47,7 +48,7 @@ const frame: Field[] = [
   { k: 'fit', label: 'Кадр', type: 'select', options: FIT },
   // Как ползунок «Масштаб» на панели картинки: 0,3–3 (30–300 %)
   { k: 'zoom', label: 'Масштаб', type: 'number', min: 0.3, max: 3, step: 0.05, placeholder: '1', hint: '1 — как есть; 0,9 — 90 %, 1,5 — 150 %' },
-  { k: 'position', label: 'Видимая часть', type: 'framepos', hint: 'Какая часть снимка видна в рамке. На слайде — «Кадр» и тянуть картинку' },
+  { k: 'position', label: 'Видимая часть', type: 'framepos', hint: 'Какая часть снимка видна. Мышью — «Кадр» на слайде' },
 ];
 
 /** Ряды диаграммы: название и значения */
@@ -87,22 +88,21 @@ export const BLOCKS: Record<string, Schema> = {
   },
   note: { fields: [{ k: 'text', label: 'Текст', type: 'textarea' }] },
   plot: {
-    about: 'График функции. Ползунки слайда — по имени: двигаете ползунок, кривая меняется',
     fields: [
-      { k: 'fn', label: 'Функция y =', type: 'text', placeholder: 'sin(x)', hint: 'Через x: * / ^, sqrt, sin, ln, pi; ползунки — по имени (a*sin(x))' },
-      { k: 'x', label: 'По x: от и до', type: 'numbers', hint: 'Например −6,28 6,28' },
-      { k: 'y', label: 'По y: от и до', type: 'numbers', hint: 'Пусто — по самой кривой' },
+      { k: 'fn', label: 'Функция y =', type: 'text', placeholder: 'sin(x)', hint: '^, sqrt, sin, ln, pi и имена ползунков слайда: a*sin(x)' },
+      { k: 'x', label: 'По x: от и до', type: 'numbers', short: true, hint: 'Например -6.28 6.28' },
+      { k: 'y', label: 'По y: от и до', type: 'numbers', short: true, hint: 'Пусто — по самой кривой' },
       { k: 'color', label: 'Цвет кривой', type: 'color' },
     ],
   },
   math: {
-    about: 'Формула. Двойной щелчок по ней на слайде — правка с подсказками',
+    about: 'Двойной щелчок по формуле на слайде — правка с подсказками',
     fields: [
-      { k: 'tex', label: 'Формула', type: 'textarea', hint: 'x^2, a/b, sqrt(x), alpha, sum_(i=1)^n, <=, +- · {{x}} — число с ползунка · есть «\\» — LaTeX' },
+      { k: 'tex', label: 'Формула', type: 'textarea', hint: 'x^2, a/b, sqrt(x), alpha, <= — или LaTeX' },
       { k: 'size', label: 'Размер, px', type: 'number', min: 12, max: 200, placeholder: '40' },
       { k: 'align', label: 'Выравнивание', type: 'select', options: [['', 'По центру'], ['left', 'По левому краю'], ['right', 'По правому краю']] },
       { k: 'font', label: 'Шрифт', type: 'select', options: [['', 'Современный'], ['classic', 'Классический (как в PowerPoint)']] },
-      { k: 'steps', label: 'При показе', type: 'select', options: [['', 'Сразу целиком'], ['lines', 'По щелчку — строка за строкой'], ['morph', 'По щелчку — превращение']], hint: 'Каждая строка формулы — шаг. Превращение: строка — формула целиком, одинаковые части перелетают; строка с «=» в начале продолжает первую' },
+      { k: 'steps', label: 'При показе', type: 'select', options: [['', 'Сразу целиком'], ['lines', 'По щелчку — строка за строкой'], ['morph', 'По щелчку — превращение']], hint: 'Шаг — строка формулы; при превращении одинаковые части перелетают' },
       { k: 'color', label: 'Цвет', type: 'color' },
     ],
   },
@@ -187,14 +187,14 @@ export const BLOCKS: Record<string, Schema> = {
   },
   control: {
     fields: [
-      { k: 'name', label: 'Имя переменной', type: 'text', placeholder: 'x', hint: 'Используйте в других блоках: «=x*2» в значениях графика, {{x}} в тексте' },
+      { k: 'name', label: 'Имя переменной', type: 'text', placeholder: 'x', hint: 'В тексте — {{x}}, в значениях графика — =x*2' },
       { k: 'label', label: 'Подпись', type: 'text' },
       { k: 'min', label: 'Минимум', type: 'number', placeholder: '0' },
       { k: 'max', label: 'Максимум', type: 'number', placeholder: '100' },
       { k: 'step', label: 'Шаг', type: 'number', min: 0, placeholder: '1' },
       { k: 'value', label: 'Начальное значение', type: 'number' },
       { k: 'unit', label: 'Единица', type: 'text', placeholder: ' ₽, %, шт' },
-      { k: 'steps', label: 'Варианты вместо min…max', type: 'numbers', hint: 'Например: 125 250 500 — ползунок щёлкает по ним' },
+      { k: 'steps', label: 'Только эти значения', type: 'numbers', hint: 'Например 125 250 500 — вместо минимума и максимума' },
       { k: 'labels', label: 'Подписи вариантов', type: 'strings', item: 'Подпись' },
     ],
   },
@@ -220,9 +220,9 @@ export const BLOCKS: Record<string, Schema> = {
         k: 'items', label: 'Пункты', type: 'rows', item: 'Пункт',
         make: () => ({ title: 'Новый пункт', text: 'Пояснение' }),
         fields: [
-          { k: 'title', label: 'Пункт', type: 'text' },
+          { k: 'title', label: 'Название', type: 'text' },
           { k: 'text', label: 'Пояснение', type: 'text' },
-          { k: 'node', label: 'Подпись узла', type: 'text', placeholder: 'как пункт' },
+          { k: 'node', label: 'Подпись узла', type: 'text', placeholder: 'как название' },
           { k: 'sub', label: 'Мелкая подпись узла', type: 'text' },
         ],
       },
@@ -262,8 +262,8 @@ export const BLOCKS: Record<string, Schema> = {
     fields: [
       { k: 'values', label: 'Значения', type: 'numbers' },
       { k: 'labels', label: 'Подписи', type: 'strings', item: 'Подпись' },
-      { k: 'highlight', label: 'Выделенный столбец', type: 'number', min: 0, placeholder: 'последний', hint: 'Номер с нуля' },
-      { k: 'max', label: 'Значение для полной высоты', type: 'number', placeholder: 'максимум' },
+      { k: 'highlight', label: 'Выделенный столбец', type: 'number', min: 1, fromOne: true, placeholder: 'последний' },
+      { k: 'max', label: 'Шкала до', type: 'number', placeholder: 'наибольшего значения' },
       { k: 'height', label: 'Высота, px', type: 'number', min: 40, max: 600, placeholder: '100' },
     ],
   },
@@ -283,12 +283,12 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'values', label: 'Значения', type: 'numbers' },
       { k: 'labels', label: 'Подписи', type: 'strings', item: 'Подпись' },
       { k: 'unit', label: 'Единица у значений', type: 'text', placeholder: ' %' },
-      { k: 'highlight', label: 'Выделенная полоса', type: 'number', min: 0, placeholder: 'первая', hint: 'Номер с нуля' },
-      { k: 'max', label: 'Значение для полной длины', type: 'number', placeholder: 'максимум' },
+      { k: 'highlight', label: 'Выделенная полоса', type: 'number', min: 1, fromOne: true, placeholder: 'первая' },
+      { k: 'max', label: 'Шкала до', type: 'number', placeholder: 'наибольшего значения' },
     ],
   },
   waterfall: {
-    about: 'Первое значение — начало, дальше — изменения: 3.1 (рост) или -2.2 (снижение). Итог считается сам.',
+    about: 'Первое значение — начало, дальше — изменения: 3.1 или -2.2. Итог считается сам.',
     fields: [
       { k: 'values', label: 'Начало и изменения', type: 'numbers' },
       { k: 'labels', label: 'Подписи', type: 'strings', item: 'Подпись' },
@@ -348,10 +348,10 @@ export const BLOCKS: Record<string, Schema> = {
     fields: [
       { k: 'rows', label: 'Данные', type: 'grid' },
       { k: 'variant', label: 'Вид', type: 'select', options: [['', 'Линии'], ['stripes', 'Зебра'], ['boxed', 'Сетка'], ['accent', 'Акцентная шапка'], ['soft', 'Мягкая'], ['dark', 'Тёмная шапка'], ['plan', 'План с приоритетами'], ['heat', 'Тепловая карта']] },
-      { k: 'labels', label: 'Первый столбец — подписи (жирным)', type: 'bool' },
-      { k: 'highlight', label: 'Выделенная строка', type: 'number', min: 0, placeholder: 'нет', hint: 'Номер с нуля' },
+      { k: 'labels', label: 'Первый столбец — подписи', type: 'bool' },
+      { k: 'highlight', label: 'Выделенная строка', type: 'number', min: 1, fromOne: true, placeholder: 'нет' },
       { k: 'size', label: 'Размер текста, px', type: 'number', min: 10, max: 40, placeholder: '17' },
-      { k: 'badge', label: 'Столбец меток', type: 'number', min: 0, placeholder: 'нет', hint: 'Номер с нуля. Ячейки — метки с точкой: «Высокий», «Готово» или {#16A34A|свой цвет}' },
+      { k: 'badge', label: 'Столбец меток', type: 'number', min: 1, fromOne: true, placeholder: 'нет', hint: 'Ячейки столбца — цветные метки: «Высокий», «Готово»' },
       { k: 'footer', label: 'Итог под таблицей', type: 'text', placeholder: 'Всего позиций: {rows}', hint: '{rows} — число строк' },
       { k: 'footnote', label: 'Подпись справа', type: 'text' },
     ],
@@ -372,7 +372,7 @@ export const BLOCKS: Record<string, Schema> = {
     ],
   },
   marquee: {
-    about: 'Строка без конца прокручивается вбок; наведение в правке её останавливает. Путь к картинке (./assets/logo.png) вместо фразы — логотип.',
+    about: 'Строка бежит вбок без конца. Путь к картинке вместо текста пункта — логотип.',
     fields: [
       { k: 'items', label: 'Пункты', type: 'strings', item: 'Пункт' },
       { k: 'variant', label: 'Вид', type: 'select', options: [['', 'Текст через точку'], ['chips', 'Плашки'], ['outline', 'Через один контуром']] },
@@ -382,7 +382,7 @@ export const BLOCKS: Record<string, Schema> = {
     ],
   },
   ring: {
-    about: 'Буквы равномерно по кругу, размер подбирается по длине текста. Разделитель «•» на стыке ставится сам.',
+    about: 'Размер букв подбирается по длине текста.',
     fields: [
       { k: 'text', label: 'Текст по кругу', type: 'text', placeholder: 'Slideria • презентации' },
       { k: 'center', label: 'В центре', type: 'text', placeholder: '★' },
@@ -396,7 +396,7 @@ export const BLOCKS: Record<string, Schema> = {
     fields: [{ k: 'center', label: 'В центре кольца', type: 'text' }, points('Этапы', 'Этап')],
   },
   funnel: { fields: [points('Ступени', 'Ступень', 'Справа от полосы')] },
-  ladder: { about: 'Ступени растут слева направо: сколько пунктов, столько ступеней.', fields: [points('Ступени', 'Ступень', 'Подпись')] },
+  ladder: { about: 'Сколько пунктов, столько ступеней — слева направо.', fields: [points('Ступени', 'Ступень', 'Подпись')] },
   orbit: {
     fields: [
       { k: 'logo', label: 'В центре — логотип презентации', type: 'bool' },
@@ -406,7 +406,7 @@ export const BLOCKS: Record<string, Schema> = {
     ],
   },
   roadmap: {
-    about: 'Сколько вех, столько изгибов пути. Пройденные закрашены, путь до последней из них — сплошной.',
+    about: 'Сколько вех, столько изгибов пути. Пройденные закрашены.',
     fields: [{
       k: 'items', label: 'Вехи', type: 'rows', item: 'Веха',
       make: () => ({ title: 'Новая веха', text: 'Срок' }),
@@ -439,7 +439,7 @@ export const BLOCKS: Record<string, Schema> = {
     ],
   },
   venn: {
-    about: 'Два или три круга пересекаются, общее — подписью в середине; четыре и больше — цепочкой.',
+    about: 'Два-три круга пересекаются, общее — в середине; четыре и больше — цепочкой.',
     fields: [
       { k: 'variant', label: 'Вид кругов', type: 'select', options: [['', 'Прозрачные'], ['filled', 'Залитые']] },
       { k: 'center', label: 'Общее в середине', type: 'text', placeholder: 'Наш продукт' },
@@ -447,15 +447,15 @@ export const BLOCKS: Record<string, Schema> = {
     ],
   },
   nested: {
-    about: 'Первый пункт — самый большой круг. Заголовок — в круге, пояснение — справа, к нему ведёт линия.',
+    about: 'Первый пункт — самый большой круг, пояснения — справа.',
     fields: [
       { k: 'variant', label: 'Расположение', type: 'select', options: [['', 'Касаются снизу'], ['target', 'Мишень — по центру']] },
       points('Круги', 'Круг', 'Пояснение справа'),
     ],
   },
-  gears: { about: 'Колёса через одно большие и малые, крутятся в зацеплении. Заголовок — в колесе, пояснение — под ним.', fields: [points('Колёса', 'Колесо')] },
+  gears: { about: 'Колёса через одно большие и малые, пояснение — под колесом.', fields: [points('Колёса', 'Колесо')] },
   pillars: { about: 'Общая крыша на опорах: по колонне на пункт.', fields: [{ k: 'center', label: 'На крыше', type: 'text', placeholder: 'Стратегия' }, points('Колонны', 'Колонна')] },
-  layers: { about: 'Первый пункт — верхний слой. Под мышью слой приподнимается.', fields: [points('Слои', 'Слой')] },
+  layers: { about: 'Первый пункт — верхний слой.', fields: [points('Слои', 'Слой')] },
   diamonds: {
     about: 'Иконка в ромбе — по смыслу заголовка или своя.',
     fields: [{
@@ -469,7 +469,7 @@ export const BLOCKS: Record<string, Schema> = {
     }],
   },
   arc: { about: 'Вехи по дуге слева направо, цель — в середине.', fields: [{ k: 'center', label: 'Цель в середине', type: 'text' }, points('Вехи', 'Веха')] },
-  iceberg: { about: 'Первый пункт — верхушка над водой (что видно), остальные — под водой (что за этим стоит).', fields: [points('Пункты', 'Пункт')] },
+  iceberg: { about: 'Первый пункт — над водой, остальные — под водой.', fields: [points('Пункты', 'Пункт')] },
   mindmap: { about: 'Пункты — через один справа и слева от главной мысли.', fields: [{ k: 'center', label: 'Главная мысль', type: 'text' }, points('Ветви', 'Ветвь')] },
   icons: {
     fields: [{
@@ -526,7 +526,7 @@ export const BLOCKS: Record<string, Schema> = {
     ],
   },
   sandbox: {
-    about: 'Песочница: код слева, результат справа. При показе код правится прямо на слайде, результат обновляется на лету; правки показа не сохраняются. Код в студии — кнопкой ниже или двойным щелчком.',
+    about: 'Код слева, результат справа. При показе код правится на слайде, без сохранения.',
     fields: [
       { k: 'title', label: 'Имя файла в заголовке', type: 'text', placeholder: 'index.html' },
       { k: 'size', label: 'Кегль кода, px', type: 'number', min: 9, max: 40, placeholder: '15' },
@@ -537,19 +537,18 @@ export const BLOCKS: Record<string, Schema> = {
     ],
   },
   embed: {
-    about: 'Живая вставка: HTML, CSS и JavaScript в изолированной рамке. Код — кнопкой ниже или двойным щелчком по вставке; HTML-файл можно просто перетащить на слайд.',
+    about: 'HTML, CSS и JavaScript в отдельной рамке. HTML-файл можно перетащить на слайд.',
     fields: [
       { k: 'poster', label: 'Заставка', type: 'image' },
       { k: 'theme', label: 'Цвета темы внутри вставки', type: 'bool' },
       { k: 'interactive', label: 'Отвечает на мышь при показе', type: 'bool' },
-      { k: 'dark', label: 'Тёмная заставка (не переворачивать в тёмной теме)', type: 'bool' },
+      { k: 'dark', label: 'Заставка уже тёмная', type: 'bool' },
     ],
   },
   model: {
-    about: 'Снимок нужен для печати, PDF, миниатюр и окна докладчика.',
     fields: [
       { k: 'src', label: 'Модель', type: 'media', kind: 'model', placeholder: 'Файл GLB' },
-      { k: 'poster', label: 'Снимок', type: 'image' },
+      { k: 'poster', label: 'Снимок', type: 'image', hint: 'Для печати, PDF, миниатюр и окна докладчика' },
       { k: 'rotate', label: 'Вращается сама', type: 'bool', default: false },
       { k: 'controls', label: 'Вращать мышью при показе', type: 'bool', default: true },
       { k: 'exposure', label: 'Яркость', type: 'number', min: 0.2, max: 3, step: 0.1, placeholder: '1' },
@@ -641,4 +640,4 @@ export const TEMPLATES: Record<string, Schema> = {
 };
 
 /** Поле «CSS блока» — запасной выход, есть у всех блоков. */
-export const STYLE_FIELD: Field = { k: 'style', label: 'CSS блока', type: 'text', placeholder: 'margin-top: 12px', hint: 'Дополнительные стили блока' };
+export const STYLE_FIELD: Field = { k: 'style', label: 'CSS блока', type: 'text', placeholder: 'margin-top: 12px' };

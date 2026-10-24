@@ -43,7 +43,7 @@ function fieldHtml(f: Field, data: unknown, p: Path): string {
     case 'textarea':
       return row(f.label, `<textarea rows="3" data-t="text" data-p="${P(p)}" placeholder="${esc(f.placeholder ?? '')}"></textarea>`, f.hint, true);
     case 'number':
-      return row(f.label, `<input type="number" data-t="number" data-p="${P(p)}"${f.min !== undefined ? ` min="${f.min}"` : ''}${f.max !== undefined ? ` max="${f.max}"` : ''} step="${f.step ?? 1}" placeholder="${esc(f.placeholder ?? '')}">`, f.hint);
+      return row(f.label, `<input type="number" data-t="number" data-p="${P(p)}"${f.fromOne ? ' data-one' : ''}${f.min !== undefined ? ` min="${f.min}"` : ''}${f.max !== undefined ? ` max="${f.max}"` : ''} step="${f.step ?? 1}" placeholder="${esc(f.placeholder ?? '')}">`, f.hint);
     case 'framepos': {
       const axis = (a: 'x' | 'y', l: string, ends: string) => `<span class="st-f-pos"><span>${l}</span><input type="range" min="0" max="100" step="1" data-t="framepos" data-axis="${a}" data-p="${P(p)}" title="${ends}" aria-label="${esc(f.label)}: ${l}"><output data-pos-out="${a}"></output></span>`;
       return row(f.label, `<span class="st-f-posbox">${axis('x', 'По горизонтали', '0 — левый край, 100 — правый')}${axis('y', 'По вертикали', '0 — верх, 100 — низ')}</span>`, f.hint, true);
@@ -65,8 +65,8 @@ function fieldHtml(f: Field, data: unknown, p: Path): string {
         + (v ? `<button type="button" class="st-f-x" data-act="clear" data-p="${P(p)}" title="Убрать" aria-label="Убрать файл">${icon('close')}</button>` : '')
         + `</span>`, f.hint, true);
     case 'numbers':
-      return row(f.label, `<textarea rows="2" data-t="numbers" data-p="${P(p)}" spellcheck="false"></textarea>`,
-        f.hint ?? 'Через пробел или запятую, дробные — через точку. Формулы (=price*2) — через «;»', true);
+      return row(f.label, f.short ? `<input type="text" data-t="numbers" data-p="${P(p)}" spellcheck="false">` : `<textarea rows="2" data-t="numbers" data-p="${P(p)}" spellcheck="false"></textarea>`,
+        f.hint ?? 'Через пробел, дробные — с точкой; формулы — через «;»', !f.short);
     case 'strings': {
       const list = Array.isArray(v) ? v : [];
       return `<div class="st-f-list"><span class="st-f-l">${esc(f.label)}</span>`
@@ -115,7 +115,7 @@ function fieldHtml(f: Field, data: unknown, p: Path): string {
       const col = (c: number) => `<button type="button" class="st-g-x" data-act="gcoldel" data-p="${P(base)}" data-i="${c}" title="Удалить столбец" aria-label="Удалить столбец ${c + 1}"${cols < 2 ? ' disabled' : ''}>×</button>`;
       return `<div class="st-f-list"><span class="st-f-l">${esc(f.label)}</span><div class="st-g" style="--cols:${cols}">`
         + `<span></span>${Array.from({ length: cols }, (_x, c) => `<span class="st-g-h">${col(c)}</span>`).join('')}`
-        + `<span class="st-g-n" title="Шапка">Ш</span>${Array.from({ length: cols }, (_x, c) => `<input type="text" class="th" data-t="cell" data-p="${P([...hp, c])}" data-grid="${P(base)}" aria-label="Шапка, столбец ${c + 1}">`).join('')}`
+        + `<span class="st-g-n" title="Шапка"></span>${Array.from({ length: cols }, (_x, c) => `<input type="text" class="th" data-t="cell" data-p="${P([...hp, c])}" data-grid="${P(base)}" aria-label="Шапка, столбец ${c + 1}">`).join('')}`
         + rows.map((_r, r) => `<button type="button" class="st-g-n" data-act="growdel" data-p="${P(base)}" data-i="${r}" title="Удалить строку ${r + 1}" aria-label="Удалить строку ${r + 1}">${r + 1}</button>`
           + Array.from({ length: cols }, (_x, c) => `<input type="text" data-t="cell" data-p="${P([...p, r, c])}" data-grid="${P(base)}" aria-label="Строка ${r + 1}, столбец ${c + 1}">`).join('')).join('')
         + `</div><span class="st-p-row"><button type="button" class="st-f-add" data-act="growadd" data-p="${P(base)}">${icon('plus')}<span>Строка</span></button>`
@@ -189,7 +189,8 @@ export function fillForm(root: HTMLElement, data: unknown, resolveUrl: (src: str
     } else if (t === 'colorhex') {
       if (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)) el.value = v.toLowerCase();
     } else {
-      el.value = v === undefined || v === null ? '' : String(v);
+      // Номер строки или столбца: в данных с нуля, в поле — с единицы
+      el.value = v === undefined || v === null ? '' : String(el.hasAttribute('data-one') && typeof v === 'number' ? v + 1 : v);
     }
   });
   root.querySelectorAll<HTMLElement>('[data-cp]').forEach((el) => {
@@ -246,7 +247,8 @@ export function onFieldChange(el: HTMLInputElement, e: FormEdit): boolean {
   } else if (t === 'number') {
     const s = raw.trim().replace(',', '.');
     if (s && !Number.isFinite(Number(s))) return false;
-    e.commit((d) => write(d, p, s ? Number(s) : undefined, as));
+    const n = el.hasAttribute('data-one') ? Math.max(0, Math.round(Number(s)) - 1) : Number(s);
+    e.commit((d) => write(d, p, s ? n : undefined, as));
   } else if (t === 'bool') {
     const def = el.dataset.def === '1';
     e.commit((d) => write(d, p, el.checked === def ? undefined : el.checked, as));
