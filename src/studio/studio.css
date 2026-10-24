@@ -349,7 +349,8 @@ body.studio { background: var(--alt); }
 .st-peek-cap { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 8px 4px 2px; font: 12px var(--font); color: var(--mu); }
 .st-peek-cap b { font-size: 13.5px; font-weight: 700; color: var(--tx); }
 @media (prefers-reduced-motion: reduce) { .st-peek { transition: none; } }
-.st-lib-name { font: 500 12px/1.3 var(--font); color: var(--tx2); padding: 0 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Название — целиком: длинное переносится на вторую строку ровно, «…» — только у очень длинных своих шаблонов */
+.st-lib-name { font: 500 12px/1.3 var(--font); color: var(--tx2); padding: 0 3px; text-wrap: balance; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 /* Мои шаблоны: картинка-превью и кнопка удаления при наведении */
 .st-lib-own { position: relative; }
 .st-lib-own .st-lib-item { width: 100%; }
@@ -1171,7 +1172,7 @@ body.st-marqueeing, body.st-marqueeing * { user-select: none !important; cursor:
 .st-p-seg button:focus-visible { outline: 2px solid var(--ac); outline-offset: -2px; }
 .st-p-sac { margin-top: 8px; }
 /* Найти и заменить (Ctrl+F, Ctrl+H): панель в углу над слайдом, найденное подсвечено на слайде */
-.st-find { position: absolute; top: 40px; right: 16px; z-index: 30; width: min(460px, calc(100% - 32px)); display: flex; flex-direction: column; gap: 6px; padding: 8px;
+.st-find { position: absolute; top: 40px; right: 16px; z-index: 30; width: min(560px, calc(100% - 32px)); display: flex; flex-direction: column; gap: 6px; padding: 8px;
   border-radius: 12px; background: var(--surf); border: 1px solid var(--bd); box-shadow: var(--shadow-md); font: 13px var(--font); color: var(--tx); }
 .st-find[hidden] { display: none; }
 .st-find-row { display: flex; align-items: center; gap: 4px; }
@@ -1210,10 +1211,10 @@ body.st-marqueeing, body.st-marqueeing * { user-select: none !important; cursor:
 .st-find.code .st-find-it span, .st-find.code .st-find-ctx { font-family: var(--mono, "JetBrains Mono", ui-monospace, monospace); font-size: 11.5px; }
 .st-find.code [data-fa="notes"], .st-find.code .st-find-rep { display: none; }
 
-/* Палитра команд в верхней строке (Ctrl+K). На широком экране сжимается первой: надпись «Автосохранение»
-   и кнопки справа остаются целиком */
-.st-pal { position: relative; flex: 0 1 260px; min-width: 36px; margin-left: auto; }
-@media (min-width: 1521px) { .st-pal { flex-shrink: 1000; } .st-top-r { flex-shrink: 0; } }
+/* Палитра команд в верхней строке (Ctrl+K). Сжимается первой: надпись «Автосохранение» и кнопки справа
+   остаются целиком; не помещаются «Найти команду» и Ctrl+K целиком — остаётся лупа (.mini, palette.ts) */
+.st-pal { position: relative; flex: 0 1000 260px; min-width: 36px; margin-left: auto; }
+.st-top-r { flex-shrink: 0; }
 .st-pal-field { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px; border: 1px solid var(--bd); border-radius: 8px; background: var(--bg); color: var(--mu); cursor: text; transition: border-color .15s; }
 .st-pal-field:hover { border-color: var(--bd2); }
 .st-pal.on .st-pal-field { border-color: var(--ac); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 18%, transparent); }
@@ -1234,16 +1235,13 @@ body.st-marqueeing, body.st-marqueeing * { user-select: none !important; cursor:
 .st-pal-on { flex: none; font: 600 11px var(--font); color: var(--ach); background: var(--acs); border-radius: 4px; padding: 1px 5px; }
 .st-pal-o.act small { flex: 1; }
 .st-pal-none { padding: 10px 8px; color: var(--mu); font-size: 13px; }
-/* Окно уже — от поля остаётся лупа, по щелчку — поле поверх. Иначе сжатое поле наезжает на соседей */
-@media (max-width: 1520px) {
-  .st-pal { flex: 0 0 36px; }
-  .st-pal-field { width: 36px; padding: 0; justify-content: center; }
-  .st-pal-field .st-pal-q, .st-pal-field kbd { position: absolute; opacity: 0; width: 1px; }
-  .st-pal.on { flex-basis: 36px; }
-  .st-pal.on .st-pal-field { position: absolute; right: 0; top: -15px; width: 380px; padding: 0 8px; justify-content: flex-start; background: var(--bg); z-index: 31; }
-  .st-pal.on .st-pal-field .st-pal-q { position: static; opacity: 1; width: auto; }
-  .st-pal-list { left: auto; right: 0; top: 22px; width: 380px; }
-}
+/* Места мало — от поля остаётся лупа, по щелчку — поле поверх. Иначе подсказка обрезается на полуслове */
+.st-pal.mini { flex: 0 0 36px; }
+.st-pal.mini .st-pal-field { width: 36px; padding: 0; justify-content: center; }
+.st-pal.mini .st-pal-field :is(.st-pal-q, kbd) { position: absolute; opacity: 0; width: 1px; }
+.st-pal.mini.on .st-pal-field { position: absolute; right: 0; top: -15px; width: 380px; padding: 0 8px; justify-content: flex-start; background: var(--bg); z-index: 31; }
+.st-pal.mini.on .st-pal-field .st-pal-q { position: static; opacity: 1; width: auto; }
+.st-pal.mini .st-pal-list { left: auto; right: 0; top: 22px; width: 380px; }
 .st-pal + .st-top-r { margin-left: 0; }
 
 /* Инструменты: сводка презентации и замена шрифта */
@@ -1348,6 +1346,8 @@ body.st-marqueeing, body.st-marqueeing * { user-select: none !important; cursor:
 /* Шрифты: кнопка с названием шрифта, написанным им самим */
 .st-dz-fonts { gap: 4px; }
 .st-rb.st-dz-font { display: grid; grid-template-columns: 62px 128px auto; align-items: center; gap: 6px; padding: 5px 8px; }
+/* Лента ужала подписи «Заголовки» и «Текст» — название шрифта остаётся во всю свою ширину */
+.st-rgroup.min .st-rb.st-dz-font { grid-template-columns: 128px auto; }
 .st-dz-font > span { color: var(--mu); font-size: 12px; text-align: left; }
 .st-dz-font > b:not(.st-caret) { overflow: hidden; text-overflow: ellipsis; font-size: 14px; font-weight: 600; color: var(--tx); text-align: left; }
 

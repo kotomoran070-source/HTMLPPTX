@@ -54,6 +54,18 @@ export class CommandPalette {
 <div class="st-pal-list" id="st-pal-list" role="listbox" aria-label="Команды" hidden></div>`;
     this.q = slot.querySelector('input')!;
     this.list = slot.querySelector('.st-pal-list')!;
+    // Поле во всю подсказку («Найти команду» и Ctrl+K целиком) — если хватает места в строке, иначе лупа.
+    // Место — ширина поля и свободный промежуток перед ним (margin-left: auto)
+    const fit = () => {
+      if (this.box.classList.contains('on')) return;
+      const prev = this.box.previousElementSibling;
+      const gap = prev ? this.box.getBoundingClientRect().left - prev.getBoundingClientRect().right : 0;
+      this.box.classList.toggle('mini', this.box.getBoundingClientRect().width + Math.max(0, gap) < 205);
+    };
+    // Строка и её части: появилась вкладка по выделению — места меньше, а размер строки тот же
+    const ro = new ResizeObserver(fit);
+    if (slot.parentElement) for (const el of [slot.parentElement, ...slot.parentElement.children]) if (el !== slot) ro.observe(el);
+    requestAnimationFrame(fit);
     this.q.addEventListener('focus', () => this.open());
     this.q.addEventListener('input', () => this.render());
     this.q.addEventListener('keydown', (e) => this.key(e));
