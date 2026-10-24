@@ -893,3 +893,26 @@ test('картинка с кадрами: стрелки и точки лист�
   expect((await counter(page))[0]).toBe(2);
   expect(errors).toEqual([]);
 });
+
+test('автопоказ: листает сам после анимаций, шаг по щелчку — через паузу; A — пауза; на последнем слайде останавливается', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=auto&autoplay#1');
+  await expect(page.locator('#pg')).toBeHidden();
+  const at = async () => (await counter(page))[0];
+  await expect.poll(at, { timeout: 5000 }).toBe(2);
+  // Объект по щелчку: сначала скрыт, потом открывается сам
+  const step = page.locator('.slide.on .free').filter({ hasText: 'По щелчку' });
+  await expect(step).toHaveAttribute('data-step', '0');
+  await expect(step).toHaveAttribute('data-step', '1', { timeout: 4000 });
+  // Пауза: дальше не листает
+  await page.keyboard.press('a');
+  await expect(page.locator('#ap')).toHaveAttribute('title', /дальше/);
+  await page.waitForTimeout(2500);
+  expect(await at()).toBe(2);
+  await page.keyboard.press('a');
+  await expect.poll(at, { timeout: 5000 }).toBe(3);
+  // Последний слайд без «По кругу»: автопоказ закончился
+  await expect(page.locator('#ap')).toHaveAttribute('title', /дальше/, { timeout: 5000 });
+  expect(await at()).toBe(3);
+  expect(errors).toEqual([]);
+});

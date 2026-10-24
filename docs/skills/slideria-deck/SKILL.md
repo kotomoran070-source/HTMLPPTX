@@ -85,6 +85,7 @@ slides:
 
 - **Переход к слайду**: `transition` у слайда — `fade`, `push`, `cover`, `uncover`, `wipe`, `split`, `circle`, `clock`, `flash`, `zoom`, `blur`, объёмные `cube`, `flip`, `gallery`, `switch`, `doors`, `fall`, `morph`, `none`; `transitionDir: right|left|top|bottom` (у push, cover, uncover, wipe, cube, flip, gallery, switch), `transitionMs`.
 - **Морф**: следующий слайд — копия с теми же `id` у объектов на других местах и `transition: morph`. Объекты перелетают, меняют размер, цвет и поворот (`angle`).
+- **Автопоказ** (стенд, файл посмотреть): у презентации `autoplay: {after: 8, loop: true, start: true}` — слайд стоит `after` с после своих анимаций, `loop` — по кругу, `start` — открывается сразу автопоказом; `progress: false` — без полоски прогресса сверху. Клавиша A при показе — пауза.
 - **Своя анимация**: `@keyframes` в поле `css` в начале файла, у объекта — `style: "animation: имя 4s infinite"`.
 - **По щелчку дальше**: `exit` (+ `exitAt`) — уход, `emphasis` (+ `emphAt`) — выделение; стойкие `dim`, `grow`, `recolor` держатся. Список по пунктам — `byItem: true`, длительность — `tempo: fast|slow|slower`.
 - **Число набегает**: `count: true` у объекта с числом (отсчёт от нуля), `count: odometer` — цифры крутятся барабаном.

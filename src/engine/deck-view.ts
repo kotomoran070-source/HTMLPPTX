@@ -178,6 +178,11 @@ export class DeckView {
   stepsAt(i: number): number | undefined {
     return this.stepK.get(i);
   }
+  /** Сколько шагов открытого слайда ещё впереди (автопоказ) */
+  stepsLeft(): number {
+    const k = this.stepK.get(this.current);
+    return k === undefined ? 0 : Math.max(0, stepTotal(this.slides[this.current]) - k);
+  }
   setSteps(i: number, k: number, animate = false): void {
     const el = this.slides[i];
     if (!el || !this.stepK.has(i)) return;

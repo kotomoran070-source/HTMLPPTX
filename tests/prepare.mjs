@@ -18,6 +18,7 @@
 //   trs      — переходы между слайдами: открывание, шторка с направлением, панорама, круг, часы, вспышка;
 //              объёмные: куб, отражение сверху, галерея, взмах, двери, падение, куб снизу (слайды 9–15).
 //   gal      — картинка с кадрами: листается стрелками и точками; по «Далее», а после кадров — объект по щелчку.
+//   auto     — автопоказ: слайд по секунде, объект по щелчку на втором, без полоски прогресса.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -415,5 +416,22 @@ slides:
     free:
       - {type: image, src: ./assets/photo.svg, flip: click, images: [./assets/cartoon.webp], place: {x: 80, y: 80, w: 640, h: 400}}
       - {type: text, text: "После кадров", click: true, place: {x: 800, y: 200, w: 400}}
+`);
+// auto — автопоказ: слайд стоит секунду после анимаций, на втором — объект по щелчку (шаг через паузу)
+fs.mkdirSync(path.join(dir, 'auto'), { recursive: true });
+fs.writeFileSync(path.join(dir, 'auto', 'deck.yaml'), `title: Автопоказ
+autoplay: {after: 1}
+progress: false
+slides:
+  - template: canvas
+    free:
+      - {type: text, text: "Первый", enter: rise, place: {x: 80, y: 80, w: 600}}
+  - template: canvas
+    free:
+      - {type: text, text: "Второй", place: {x: 80, y: 80, w: 600}}
+      - {type: text, text: "По щелчку", click: true, place: {x: 80, y: 300, w: 600}}
+  - template: canvas
+    free:
+      - {type: text, text: "Третий", place: {x: 80, y: 80, w: 600}}
 `);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

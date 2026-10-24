@@ -13,6 +13,7 @@ import { brandMark } from '../engine/brand';
 import { updateFavicon } from '../engine/show';
 import { currentTheme, onThemeChange, toggleTheme } from '../engine/theme';
 import type { Block, Deck } from '../types';
+import { AFTER_S } from '../engine/autoplay';
 import { CLIP_TYPE, putClip, takeClip, type Clip } from './clipboard';
 import { crossPaste } from './cross-paste';
 import type { CodeView } from './code';
@@ -153,7 +154,11 @@ export function startStudio(deck: Deck, deckKey: string): void {
     ${animPanelHtml()}
     <div class="st-rpanel" data-panel="show" hidden>
       ${group('Слайд', `<div class="st-rstack">${chk('show.hide', 'Скрыть слайд', 'Слайд остаётся в презентации, но при показе и в PDF пропускается')}</div>`)}
-      ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'next', 'С текущего слайда', { big: true, key: 'Shift+F5' }) + rb('show.presenter', 'presenter', 'Режим докладчика', { big: true, key: 'Alt+F5', title: 'Показ на втором экране, заметки — на вашем' }))}
+      ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'next', 'С текущего слайда', { big: true, key: 'Shift+F5' }) + rb('show.presenter', 'presenter', 'Режим докладчика', { big: true, key: 'Alt+F5', title: 'Показ на втором экране, заметки — на вашем' })
+        + `<div class="st-rstack">${chk('show.progress', 'Полоска прогресса', 'Тонкая полоска сверху при показе: сколько презентации уже показано')}</div>`)}
+      ${group('Автопоказ', rb('show.auto', 'autoplay', 'Автопоказ', { big: true, title: 'Показ с начала, слайды листаются сами: когда доиграли анимации и ролики — через заданное время. A — пауза' })
+        + `<div class="st-rstack"><label class="st-rfield" title="Сколько стоит слайд после своих анимаций и роликов"><span>Слайд</span><input type="number" id="st-auto-after" min="1" max="600" step="1" placeholder="5" aria-label="Сколько стоит слайд при автопоказе, секунды"><span>с</span></label>`
+        + `${chk('show.auto.loop', 'По кругу', 'После последнего слайда — снова с первого')}${chk('show.auto.start', 'Сразу при открытии', 'Презентация открывается автопоказом: для стенда или чтобы отправить посмотреть. A — пауза')}</div>`)}
     </div>
     <div class="st-rpanel" data-panel="tools" hidden>
       ${group('Презентация', rb('tools.summary', 'chart', 'Сводка', { big: true, title: 'Слайды, слова, время доклада, тяжёлые и лишние файлы, шрифты' }))}
@@ -494,11 +499,12 @@ export function startStudio(deck: Deck, deckKey: string): void {
   $('st-shield').addEventListener('click', endPreview);
 
   // ---------------- показ ----------------
-  async function openShow(from: number, present = false): Promise<void> {
+  async function openShow(from: number, present = false, autoplay = false): Promise<void> {
     await ed.settle();
     const u = new URL(location.href);
     u.searchParams.delete('studio');
     if (present) u.searchParams.set('present', '');
+    if (autoplay) u.searchParams.set('autoplay', '');
     u.hash = `#${from + 1}`;
     window.open(u.toString(), `htmlpptx-show-${deckKey}`);
   }
@@ -765,6 +771,26 @@ export function startStudio(deck: Deck, deckKey: string): void {
       else s.hidden = true;
     }, { rebuild: false });
   }
+  /** Настройка автопоказа (engine/autoplay.ts); пустая — поля в данных нет */
+  function setAutoplay(key: 'after' | 'loop' | 'start', value: number | boolean | undefined): void {
+    ed.commit((d) => {
+      const a = { ...d.autoplay };
+      if (value === undefined) delete a[key];
+      else (a as Record<string, unknown>)[key] = value;
+      if (Object.keys(a).length) d.autoplay = a;
+      else delete d.autoplay;
+    }, { rebuild: false, merge: `autoplay:${key}` });
+  }
+  // Время слайда при автопоказе: по умолчанию (5 с) не пишется
+  const autoAfter = $('st-auto-after') as HTMLInputElement;
+  autoAfter.addEventListener('change', () => {
+    const n = Math.round(Number(autoAfter.value.replace(',', '.')));
+    setAutoplay('after', Number.isFinite(n) && n >= 1 && n !== AFTER_S ? Math.min(600, n) : undefined);
+  });
+  autoAfter.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); autoAfter.blur(); }
+    e.stopPropagation();
+  });
   function newSlideMenu(anchor: HTMLElement): void {
     showMenu(anchor, SLIDE_PRESETS.map((p, k) => ({
       label: p.name, icon: ['text', 'grid', 'image', 'frame'][k] ?? 'slide-add', run: () => ed.addSlide(index, k),
@@ -1438,6 +1464,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'show.hide': { run: () => toggleHidden(index), active: () => deck.slides[index]?.hidden === true },
     'show.current': { run: () => void openShow(index) },
     'show.presenter': { run: () => void openShow(index, true) },
+    'show.auto': { run: () => void openShow(0, false, true) },
+    'show.auto.loop': { run: () => setAutoplay('loop', deck.autoplay?.loop ? undefined : true), active: () => !!deck.autoplay?.loop },
+    'show.auto.start': { run: () => setAutoplay('start', deck.autoplay?.start ? undefined : true), active: () => !!deck.autoplay?.start },
+    'show.progress': { run: () => ed.commit((d) => { if (d.progress === false) delete d.progress; else d.progress = false; }, { rebuild: false }), active: () => deck.progress !== false },
     'file.export': { run: () => exportMenu() },
     'model.snapshot': { run: () => void modelSnapshot(), enabled: () => ed.selection?.type === 'model' },
     'embed.code': { run: () => void editEmbedCode(), enabled: () => ed.selection?.type === 'embed' || ed.selection?.type === 'sandbox' },
@@ -1919,6 +1949,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     status.textContent = st.text;
     status.className = `st-status ${st.cls}`;
     if (document.activeElement !== title) title.value = deck.title ?? '';
+    if (document.activeElement !== autoAfter) autoAfter.value = deck.autoplay?.after ? String(deck.autoplay.after) : '';
     const a = deck.theme?.accent;
     const av = typeof a === 'string' && HEX_RE.test(a) ? a : DEFAULT_ACCENT;
     if (document.activeElement !== accent && HEX_RE.test(av)) accent.value = av.toLowerCase();

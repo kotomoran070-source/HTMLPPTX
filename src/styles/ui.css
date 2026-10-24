@@ -4,6 +4,12 @@
 .viewport { position: fixed; inset: 0; }
 
 .progress-top { position: fixed; top: 0; left: 0; height: 3px; width: 0; background: var(--ac-g); transition: width .5s var(--ease); z-index: 5; }
+/* Автопоказ: A — пауза или дальше, значок посреди экрана мелькает и гаснет (show.ts) */
+.ap-flash { position: fixed; left: 50%; top: 50%; width: 84px; height: 84px; margin: -42px 0 0 -42px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(15, 23, 42, .5); color: #fff; opacity: 0; pointer-events: none; z-index: 8; }
+.ap-flash .ic { width: 34px; height: 34px; fill: currentColor; stroke: currentColor; stroke-width: 3.2; stroke-linejoin: round; stroke-linecap: round; }
+.ap-flash.on { animation: ap-flash .8s ease-out; }
+@keyframes ap-flash { from { opacity: 1; transform: scale(.9); } to { opacity: 0; transform: scale(1.15); } }
 
 button { font: 600 14px var(--font); color: inherit; }
 button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }

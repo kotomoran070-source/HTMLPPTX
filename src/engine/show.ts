@@ -8,6 +8,7 @@ import { Editor, SLIDE_PRESETS } from './editor/editor';
 import { canSaveFile } from './editor/persist';
 import { esc } from './html';
 import { actionTarget, slideLabel } from './render';
+import { Autoplay } from './autoplay';
 import { Ink } from './ink';
 import { RemoteHover } from './remote-hover';
 import { showTime } from './show-clock';
@@ -41,12 +42,14 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   document.body.insertAdjacentHTML('beforeend', `
 <div class="progress-top" id="pg"></div>
 <div class="viewport" id="vp"></div>
+<div class="ap-flash" id="apf" aria-hidden="true"></div>
 <nav class="navbar" id="nav">
   <div class="navside">
     <button class="ibtn theme-btn" id="thm" type="button" aria-label="Переключить тему (T)" title="Тема (T)">${icon('sun', 'ic sun')}${icon('moon', 'ic moon')}</button>
   </div>
   <div class="navc">
     <button class="btn ghost" id="pv" type="button">Назад</button>
+    <button class="ibtn" id="ap" type="button" hidden></button>
     <span class="mu counter" id="ct"></span>
     <button class="btn primary" id="nx" type="button">Далее</button>
   </div>
@@ -140,6 +143,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     $('nx').style.visibility = more(1) ? 'visible' : 'hidden';
     $('pv').style.visibility = more(-1) ? 'visible' : 'hidden';
     $('pg').style.width = `${(pos / total) * 100}%`;
+    $('pg').hidden = deck.progress === false;
   }
 
   function go(i: number, push = true): void {
@@ -162,7 +166,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
         applyBig();
         refitSoon();
       }
-      broadcast();
+      moved();
       editor?.onSlideChange();
       if (ovOpen()) markCurrent();
     }
@@ -170,12 +174,70 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
 
   /** «Далее» и «Назад»: сначала шаги слайда (формула по шагам), потом листание */
   function next(): void {
-    if (!editor?.active && view.stepFwd()) broadcast();
+    if (!editor?.active && view.stepFwd()) moved();
     else go(index + 1);
   }
   function prev(): void {
-    if (!editor?.active && view.stepBack()) broadcast();
+    if (!editor?.active && view.stepBack()) moved();
     else go(index - 1);
+  }
+
+  // --- автопоказ (autoplay.ts): листает сам, A — пауза; полоска прогресса плавно идёт к следующему слайду ---
+  const pg = $('pg');
+  const bar = {
+    grow: (ms: number) => {
+      const { pos, total } = skip() ? visiblePos(deck, index) : { pos: index + 1, total: count() };
+      pg.style.transition = `width ${ms}ms linear`;
+      pg.style.width = `${(Math.min(total, pos + 1) / total) * 100}%`;
+    },
+    // Остановилась там, где была
+    freeze: () => {
+      pg.style.width = getComputedStyle(pg).width;
+      pg.style.transition = 'none';
+    },
+    reset: () => {
+      bar.freeze();
+      void pg.offsetWidth;
+      pg.style.transition = '';
+      updateChrome();
+    },
+  };
+  const auto = new Autoplay({
+    slide: () => view.slides[index] ?? null,
+    stepsLeft: () => view.stepsLeft(),
+    atEnd: () => (skip() ? stepVisible(deck, index, 1) < 0 : index >= count() - 1),
+    options: () => deck.autoplay ?? {},
+    next,
+    // По кругу: первый слайд — с начала, а не «вернулись назад» (шаги не открыты)
+    first: () => {
+      go(0);
+      view.startSteps(index, false);
+      moved();
+    },
+    blocked: () => ovOpen() || !!editor?.active || black,
+    bar,
+    changed: (on) => {
+      const b = $('ap');
+      b.hidden = !auto.used;
+      b.innerHTML = icon(on ? 'pause' : 'play');
+      b.title = on ? 'Автопоказ: пауза (A)' : 'Автопоказ: дальше (A)';
+      b.setAttribute('aria-label', b.title);
+    },
+  });
+  /** Слайд или шаг сменились: второму окну — что видно, автопоказу — отсчёт заново */
+  function moved(): void {
+    broadcast();
+    if (!auto.on) pg.style.transition = '';
+    void auto.schedule();
+  }
+  /** A: пауза или дальше — со значком посреди экрана (на весь экран панели не видно) */
+  function toggleAuto(): void {
+    auto.toggle();
+    const f = $('apf');
+    f.innerHTML = icon(auto.on ? 'play' : 'pause');
+    f.classList.remove('on');
+    void f.offsetWidth;
+    f.classList.add('on');
   }
 
   // --- обзор ---
@@ -498,6 +560,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   }, { passive: false });
   $('nx').addEventListener('click', next);
   $('pv').addEventListener('click', prev);
+  $('ap').addEventListener('click', toggleAuto);
   $('thm').addEventListener('click', () => toggleTheme());
   // Тема презентации со слайдами всегда светлыми или всегда тёмными: страница показа — в тон им,
   // переключать нечего (выбор зрителя не запоминается)
@@ -577,6 +640,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       p: () => void openPresenter(), 'з': () => void openPresenter(),
       r: openRemote, 'к': openRemote,
       b: () => setBlack(!black), 'и': () => setBlack(!black), '.': () => setBlack(!black),
+      a: toggleAuto, 'ф': toggleAuto,
     };
     if (editor) {
       letters.e = () => editor!.toggle();
@@ -667,7 +731,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     else if (m.type === 'step') {
       if (m.index === index) {
         view.setSteps(index, m.steps, true);
-        broadcast();
+        moved();
       }
     }
     else if (m.type === 'spot') { if (m.index === index) view.spot(m.key); }
@@ -726,4 +790,6 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   applyAccentFlow(deck.theme?.accentFlow);
   index = -1;
   go(fromHash(), false);
+  // Автопоказ: кнопка «Автопоказ» в студии (?autoplay) или «Сразу при открытии» у презентации
+  if (new URLSearchParams(location.search).has('autoplay') || deck.autoplay?.start) auto.toggle(true);
 }
