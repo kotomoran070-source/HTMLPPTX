@@ -89,7 +89,7 @@ export function designTabHtml(): string {
 
 export function designPanelHtml(): string {
   return `<div class="st-rpanel" data-panel="design" hidden>
-  ${group('Темы', `<div class="st-dz-strip" id="st-dz-strip" role="group" aria-label="Темы"></div>${btn('design.themes', 'grid', 'Все темы', { big: true, menu: true, title: 'Все темы на одном слайде-образце. Наведите — тема примерится на ваш слайд' })}`)}
+  ${group('Темы', `<div class="st-dz-strip" id="st-dz-strip" role="group" aria-label="Темы" data-shrink="74 218"></div>${btn('design.themes', 'grid', 'Все темы', { big: true, menu: true, title: 'Все темы на одном слайде-образце. Наведите — тема примерится на ваш слайд' })}`)}
   ${group('Цвета', `<label class="st-accent" title="Акцентный цвет презентации — первая точка градиента"><input type="color" id="st-accent" aria-label="Акцентный цвет"><span>Акцент</span></label>`
     + `<button type="button" class="st-accent st-dz-grad" data-cmd="design.gradient" title="Градиент акцента: готовые сочетания и свои точки — до шести цветов" aria-haspopup="true" aria-expanded="false"><i id="st-dz-gsw"></i><span>Градиент<b class="st-caret"></b></span></button>`
     + `<div class="st-rstack">${chk('design.accent-flow', 'Переливание', 'Цвета градиента акцента плавно текут по акцентным элементам слайда')}</div>`)}
@@ -824,10 +824,4 @@ export function bindDesignStrip(h: DesignHost, cmds: Record<string, Command>): v
     if (cmds[`design.preset.${id}`]) cmds[`design.preset.${id}`].run();
     else applyById?.(id);
   });
-  // Колесо мыши листает ряд тем вбок
-  strip.addEventListener('wheel', (e) => {
-    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
-    e.preventDefault();
-    strip.scrollLeft += e.deltaY;
-  }, { passive: false });
 }

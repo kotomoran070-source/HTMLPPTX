@@ -1657,11 +1657,25 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const groups = [...panel.querySelectorAll<HTMLElement>('.st-rgroup')];
     groups.forEach((g) => g.classList.remove('min', 'min2'));
     const over = () => panel.scrollWidth > panel.clientWidth + 1;
+    // Сначала ужимаются галереи с прокруткой (темы «Дизайна»): по столбцу, пока не влезет, — подписи кнопок остаются
+    const strips = [...panel.querySelectorAll<HTMLElement>('[data-shrink]')];
+    strips.forEach((s) => { s.style.maxWidth = ''; });
+    for (const s of strips) {
+      const [step, min] = s.dataset.shrink!.split(' ').map(Number);
+      while (over() && s.offsetWidth - step >= min) s.style.maxWidth = `${s.offsetWidth - step}px`;
+    }
     for (const level of ['min', 'min2']) {
       for (let i = groups.length - 1; i >= 0 && over(); i--) groups[i].classList.add(level);
     }
   }
   new ResizeObserver(() => fitRibbon()).observe($('st-ribbon'));
+  // Колесо мыши листает вбок ужатые галереи ленты (темы «Дизайна», стили таблицы)
+  $('st-ribbon').addEventListener('wheel', (e) => {
+    const strip = (e.target as Element).closest<HTMLElement>('[data-shrink]');
+    if (!strip || strip.scrollWidth <= strip.clientWidth || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    e.preventDefault();
+    strip.scrollLeft += e.deltaY;
+  }, { passive: false });
   // Своя лента: скрытые вкладки и группы, только значки (запоминается на компьютере)
   const ribbonSetup = initRibbonSetup({ tab: () => tab, setTab, fit: fitRibbon });
   cmds['ui.ribbon'] = { run: () => ribbonSetup.open() };

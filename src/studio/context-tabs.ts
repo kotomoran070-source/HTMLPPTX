@@ -247,7 +247,7 @@ export function contextPanelsHtml(): string {
   ${ORDER}
 </div>
 <div class="st-rpanel" data-panel="table" hidden>
-  ${group('Стиль таблицы', `<div class="st-gallery t">${VARIANTS.map(tableTile).join('')}</div>` + btn('table.fill', 'fill', 'Заливка', { big: true, menu: true, title: 'Цвет выделенных ячеек (протяните мышью по ячейкам или Shift+щелчок)' }) + btn('table.borders', 'borders', 'Границы', { big: true, menu: true, title: 'Границы выделенных ячеек или всей таблицы' }))}
+  ${group('Стиль таблицы', `<div class="st-gallery t" data-shrink="66 194">${VARIANTS.map(tableTile).join('')}</div>` + btn('table.fill', 'fill', 'Заливка', { big: true, menu: true, title: 'Цвет выделенных ячеек (протяните мышью по ячейкам или Shift+щелчок)' }) + btn('table.borders', 'borders', 'Границы', { big: true, menu: true, title: 'Границы выделенных ячеек или всей таблицы' }))}
   ${group('Показать', stack(btn('table.head', '', 'Строка заголовка', { chk: true }), btn('table.total', '', 'Строка итогов', { chk: true, title: 'Последняя строка как итог' }), btn('table.bands', '', 'Чередующиеся строки', { chk: true }))
     + stack(btn('table.labels', '', 'Первый столбец', { chk: true, title: 'Первый столбец жирным' }), btn('table.lastcol', '', 'Последний столбец', { chk: true, title: 'Последний столбец жирным' }), btn('table.highlight', '', 'Выделить строку', { chk: true, title: 'Выделить строку с курсором' })))}
   ${group('Строки и столбцы', btn('table.select', 'cursor', 'Выделить', { big: true, menu: true, title: 'Выделить строку, столбец или всю таблицу' })
