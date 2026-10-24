@@ -53,11 +53,11 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   </div>
   <div class="navc">
     <button class="btn ghost" id="pv" type="button">Назад</button>
-    <button class="ibtn" id="ap" type="button" hidden></button>
     <span class="mu counter" id="ct"></span>
     <button class="btn primary" id="nx" type="button">Далее</button>
   </div>
   <div class="navside r">
+    <button class="ibtn" id="ap" type="button" hidden></button>
     ${editable ? `<button class="ibtn" id="ed-btn" type="button" aria-pressed="false" aria-label="Режим правки (E)" title="Режим правки (E)">${icon('pencil')}</button>` : ''}
     ${import.meta.env.DEV && devServer ? `<a class="ibtn" id="studio-btn" href="?deck=${encodeURIComponent(deckKey)}&amp;studio" aria-label="Открыть в редакторе (S)" title="Открыть в редакторе (S)">${icon('layers')}</a>` : ''}
     <button class="ibtn" id="ov" type="button" aria-label="Все слайды (O)" title="Все слайды (O)">${icon('grid')}</button>

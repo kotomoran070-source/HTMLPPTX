@@ -61,8 +61,9 @@ export interface AutoplayHost {
 
 /** Слайд досказал: конечные анимации внутри него доиграли, ролик без повтора — тоже */
 export async function settled(slide: HTMLElement): Promise<void> {
-  // Анимации нового слайда появляются после пересчёта стилей
-  await new Promise((r) => requestAnimationFrame(r));
+  // Анимации нового слайда появляются после пересчёта стилей. Окно показа, закрытое окном докладчика,
+  // кадров не рисует: без запасного таймера автопоказ по A стоял, пока окна не сдвинут
+  await new Promise((r) => { requestAnimationFrame(r); setTimeout(r, 100); });
   const anims = slide.getAnimations({ subtree: true }).filter((a) => {
     const end = a.effect?.getComputedTiming().endTime;
     return typeof end === 'number' && Number.isFinite(end) && a.playState !== 'finished';

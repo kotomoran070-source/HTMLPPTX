@@ -165,9 +165,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'next', 'С текущего слайда', { big: true, key: 'Shift+F5' })
         + rb('show.presenter', 'presenter', 'Режим докладчика', { big: true, key: 'Alt+F5', title: 'Показ на втором экране, заметки — на вашем' })
         + rb('show.auto', 'autoplay', 'Автопоказ', { big: true, title: 'Показ с начала, слайды листаются сами: когда доиграли анимации и ролики — через заданное время. A — пауза' }))}
-      ${group('Автопоказ', `<div class="st-rstack">${rb('show.auto.after', 'clock', 'Слайд 5 с', { menu: true, title: 'Сколько стоит слайд при автопоказе — после того, как доиграли его анимации и ролики' })}`
-        + `${chk('show.auto.loop', 'По кругу', 'После последнего слайда — снова с первого')}${chk('show.auto.start', 'Сразу при открытии', 'Презентация открывается автопоказом: для стенда или чтобы отправить посмотреть. A — пауза')}</div>`)}
-      ${group('Доклад', rb('show.plan', 'stopwatch', 'Без плана', { big: true, menu: true, title: 'План доклада: у таймера в окне докладчика — сколько осталось и запас или отставание' }))}
+      ${group('Время', `<div class="st-rstack">${rb('show.auto.after', 'clock', 'Слайд 5 с', { menu: true, title: 'Сколько стоит слайд при автопоказе — после того, как доиграли его анимации и ролики' })}`
+        + `${rb('show.plan', 'stopwatch', 'Без плана', { menu: true, title: 'План доклада: у таймера в окне докладчика — сколько осталось и запас или отставание' })}</div>`
+        + `<div class="st-rstack">${chk('show.auto.loop', 'По кругу', 'Автопоказ: после последнего слайда — снова с первого')}${chk('show.auto.start', 'Сразу при открытии', 'Презентация открывается автопоказом: для стенда или чтобы отправить посмотреть. A — пауза')}</div>`)}
       ${group('На экране', rb('show.progress', 'pg-line', 'Прогресс', { big: true, menu: true, title: 'Сколько презентации показано — сверху экрана: линия, ячейки по слайдам, номер слайда или ничего' })
         + `<div class="st-rstack">${chk('show.auto.timeline', 'Таймлайн автопоказа', 'Тонкая полоса внизу экрана во время автопоказа: просветы — шаги слайда, заливка идёт к следующему. Чтобы рассказывать по экрану, без окна докладчика')}</div>`)}
     </div>
@@ -793,7 +793,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     }, { rebuild: false, merge: `autoplay:${key}` });
   }
   /**
-   * Число с заготовками (время слайда, план доклада): плашки — щелчок и готово, своё — полем внизу (Enter);
+   * Число с заготовками (время слайда, план доклада): пара плашек — щелчок и готово, своё — полем внизу (Enter);
    * none — плашка «без значения»
    */
   function valuePopover(cmd: string, o: { title: string; unit: string; presets: number[]; max: number; value?: number; none?: string; note?: string; set(n: number | undefined): void }): void {
@@ -1520,17 +1520,17 @@ export function startStudio(deck: Deck, deckKey: string): void {
     },
     'show.auto.after': {
       run: () => valuePopover('show.auto.after', {
-        title: 'Слайд стоит после своих анимаций', unit: 'с', presets: [3, 5, 8, 10, 15, 20, 30, 60], max: 600,
+        title: 'Слайд стоит после своих анимаций', unit: 'с', presets: [3, 5, 10], max: 600,
         value: deck.autoplay?.after ?? AFTER_S,
         set: (n) => setAutoplay('after', n === AFTER_S ? undefined : n),
       }),
     },
     'show.plan': {
       run: () => valuePopover('show.plan', {
-        title: 'План доклада', unit: 'мин', presets: [5, 10, 15, 20, 30, 45, 60, 90], max: 600, none: 'Без плана',
+        title: 'План доклада', unit: 'мин', presets: [10, 20, 30], max: 600, none: 'Нет',
         value: deck.plan,
         set: (n) => ed.commit((d) => { if (n) d.plan = n; else delete d.plan; }, { rebuild: false }),
-        note: 'Окно докладчика покажет у таймера, сколько осталось и запас',
+        note: 'У таймера докладчика — сколько осталось и запас',
       }),
     },
     'file.export': { run: () => exportMenu() },

@@ -1843,13 +1843,13 @@ test('«Показ»: план доклада и время слайда — п�
   await expect.poll(() => readDeck('prog')).toMatch(/^plan: 7$/m);
   await expect(cmd('show.plan')).toContainText('План 7 мин');
   await cmd('show.plan').click();
-  await page.locator('.st-vpop .st-vchip', { hasText: 'Без плана' }).click();
+  await page.locator('.st-vpop .st-vchip', { hasText: 'Нет' }).click();
   await expect.poll(() => readDeck('prog')).not.toMatch(/^plan:/m);
   // Время слайда при автопоказе
   await cmd('show.auto.after').click();
-  await page.locator('.st-vpop .st-vchip', { hasText: '8 с' }).click();
-  await expect.poll(() => readDeck('prog')).toMatch(/autoplay:\s+after: 8/);
-  await expect(cmd('show.auto.after')).toContainText('Слайд 8 с');
+  await page.locator('.st-vpop .st-vchip', { hasText: '10 с' }).click();
+  await expect.poll(() => readDeck('prog')).toMatch(/autoplay:\s+after: 10/);
+  await expect(cmd('show.auto.after')).toContainText('Слайд 10 с');
   // Вид прогресса
   await cmd('show.progress').click();
   await page.locator('.st-menu button', { hasText: 'Номер' }).click();

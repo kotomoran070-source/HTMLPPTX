@@ -241,7 +241,10 @@ function guard(win) {
       if (frameName.startsWith('htmlpptx-print-')) {
         return { action: 'allow', overrideBrowserWindowOptions: { ...base, show: false, webPreferences: { ...WEB, backgroundThrottling: false } } };
       }
-      return { action: 'allow', overrideBrowserWindowOptions: { ...base, ...openSize(win) } };
+      // Докладчик уже 900 px складывается в столбик, как на телефоне; показ меньше 640 × 400 — уже не показ.
+      // Фоном не притормаживают: окно показа, закрытое докладчиком, продолжает автопоказ
+      const min = frameName.startsWith('htmlpptx-presenter-') ? { minWidth: 960, minHeight: 600 } : { minWidth: 640, minHeight: 400 };
+      return { action: 'allow', overrideBrowserWindowOptions: { ...base, ...min, ...openSize(win), webPreferences: { ...WEB, backgroundThrottling: false } } };
     }
     if (/^https?:|^mailto:/i.test(url)) void shell.openExternal(url);
     return { action: 'deny' };
