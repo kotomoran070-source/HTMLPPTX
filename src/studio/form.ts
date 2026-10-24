@@ -51,7 +51,7 @@ function fieldHtml(f: Field, data: unknown, p: Path): string {
     case 'select':
       return row(f.label, `<select data-t="select" data-p="${P(p)}">${f.options.map(([val, l]) => `<option value="${esc(val)}">${esc(l)}</option>`).join('')}</select>`, f.hint);
     case 'bool':
-      return `<label class="st-p-check"><input type="checkbox" data-t="bool" data-p="${P(p)}" data-def="${f.default ? 1 : 0}"><span>${esc(f.label)}</span></label>`;
+      return `<label class="st-p-check"><input type="checkbox" data-t="bool" data-p="${P(p)}" data-def="${f.default ? 1 : 0}"${f.only ? ' data-only' : ''}${f.hides ? ` data-hides="${esc(f.hides.join(' '))}"` : ''}><span>${esc(f.label)}</span></label>`;
     case 'icon':
       return row(f.label, `<span class="st-f-icon"><i data-icon-prev="${P(p)}"></i><select data-t="select" data-p="${P(p)}">${ICON_OPTIONS.map((n) => `<option value="${n}">${n}</option>`).join('')}</select></span>`);
     case 'image':
@@ -193,6 +193,16 @@ export function fillForm(root: HTMLElement, data: unknown, resolveUrl: (src: str
       el.value = v === undefined || v === null ? '' : String(el.hasAttribute('data-one') && typeof v === 'number' ? v + 1 : v);
     }
   });
+  // Отметка, при которой соседние поля не действуют (логотип вместо текста в центре), — прячет их
+  root.querySelectorAll<HTMLInputElement>('[data-hides]').forEach((el) => {
+    const base = readP(el).slice(0, -1);
+    for (const k of el.dataset.hides!.split(' ')) {
+      const key = JSON.stringify([...base, k]);
+      const f = [...root.querySelectorAll<HTMLElement>('[data-p]')].find((x) => x.getAttribute('data-p') === key);
+      const row = f?.closest<HTMLElement>('.st-f');
+      if (row) row.hidden = el.checked;
+    }
+  });
   root.querySelectorAll<HTMLElement>('[data-cp]').forEach((el) => {
     const v = getAt(data, JSON.parse(el.dataset.cp!));
     el.querySelectorAll<HTMLElement>('[data-v]').forEach((b) => b.classList.toggle('on', b.dataset.v === v));
@@ -251,7 +261,14 @@ export function onFieldChange(el: HTMLInputElement, e: FormEdit): boolean {
     e.commit((d) => write(d, p, s ? n : undefined, as));
   } else if (t === 'bool') {
     const def = el.dataset.def === '1';
-    e.commit((d) => write(d, p, el.checked === def ? undefined : el.checked, as));
+    const only = el.hasAttribute('data-only') && el.checked;
+    e.commit((d) => {
+      write(d, p, el.checked === def ? undefined : el.checked, as);
+      // Одна отметка на список: у остальных пунктов снимается
+      const list = only ? getAt(d, p.slice(0, -2)) : null;
+      const k = p[p.length - 1];
+      if (Array.isArray(list)) list.forEach((it, j) => { if (j !== p[p.length - 2] && it && typeof it === 'object') delete (it as Record<string, unknown>)[k]; });
+    });
   } else if (t === 'numbers') {
     const parts = raw.includes('=') ? raw.split(/[;\n]+/) : raw.split(/[\s;,]+/);
     const nums = parts.map((x) => x.trim()).filter(Boolean).map((x) => (x.startsWith('=') ? x : Number(x.replace(',', '.'))));

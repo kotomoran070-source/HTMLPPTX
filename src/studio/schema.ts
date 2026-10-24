@@ -13,7 +13,11 @@ export type Field =
   /** Видимая часть картинки (position: "X% Y%") — два ползунка */
   | { k: string; label: string; type: 'framepos'; hint?: string }
   | { k: string; label: string; type: 'select'; options: [string, string][]; hint?: string }
-  | { k: string; label: string; type: 'bool'; default?: boolean; hint?: string }
+  /**
+   * only — отметка у одного пункта списка: отметили другой, у прежнего снимается (блок всё равно берёт один);
+   * hides — поля рядом, которые при отметке не действуют (логотип вместо текста в центре): их прячем
+   */
+  | { k: string; label: string; type: 'bool'; default?: boolean; hint?: string; only?: boolean; hides?: string[] }
   | { k: string; label: string; type: 'icon' }
   | { k: string; label: string; type: 'image'; hint?: string }
   /** Видео или 3D-модель: путь или ссылка текстом и кнопка выбора файла */
@@ -386,7 +390,7 @@ export const BLOCKS: Record<string, Schema> = {
     fields: [
       { k: 'text', label: 'Текст по кругу', type: 'text', placeholder: 'Slideria • презентации' },
       { k: 'center', label: 'В центре', type: 'text', placeholder: '★' },
-      { k: 'logo', label: 'В центре — логотип презентации', type: 'bool' },
+      { k: 'logo', label: 'В центре — логотип презентации', type: 'bool', hides: ['center'] },
       { k: 'variant', label: 'Вид', type: 'select', options: [['', 'Буквы акцентом'], ['badge', 'Печать: залитый круг']] },
       { k: 'spin', label: 'Вращение', type: 'select', options: [['', 'По часовой'], ['reverse', 'Против часовой'], ['none', 'Без вращения']] },
     ],
@@ -399,7 +403,7 @@ export const BLOCKS: Record<string, Schema> = {
   ladder: { about: 'Сколько пунктов, столько ступеней — слева направо.', fields: [points('Ступени', 'Ступень', 'Подпись')] },
   orbit: {
     fields: [
-      { k: 'logo', label: 'В центре — логотип презентации', type: 'bool' },
+      { k: 'logo', label: 'В центре — логотип презентации', type: 'bool', hides: ['center', 'sub'] },
       { k: 'center', label: 'В центре', type: 'text' },
       { k: 'sub', label: 'Подпись в центре', type: 'text' },
       points('Метки вокруг', 'Метка', 'Мелкая подпись'),
@@ -427,7 +431,7 @@ export const BLOCKS: Record<string, Schema> = {
       fields: [
         { k: 'title', label: 'Заголовок', type: 'text' },
         { k: 'text', label: 'Строки', type: 'textarea' },
-        { k: 'accent', label: 'Выделить колонку', type: 'bool' },
+        { k: 'accent', label: 'Выделить колонку', type: 'bool', only: true },
       ],
     }],
   },

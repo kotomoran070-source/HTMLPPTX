@@ -290,11 +290,17 @@ export class Inspector {
       this.key = key;
       // Прокрутка панели сохраняется, когда форма перестраивается (добавили пункт)
       const top = this.root.scrollTop;
+      const viewsTop = this.root.querySelector('.st-views-box')?.scrollTop;
       const same = this.root.dataset.subject === (sel ? JSON.stringify(sel.block) : `s${i}`);
       this.endViewPreview();
       this.root.innerHTML = sel ? this.blockHtml() : this.slideHtml();
       this.root.dataset.subject = sel ? JSON.stringify(sel.block) : `s${i}`;
       if (same) this.root.scrollTop = top;
+      // Виды листаются в своём окошке: после смены вида — там же, у нового блока — выбранный посередине
+      const views = this.root.querySelector<HTMLElement>('.st-views-box');
+      const cur = views?.querySelector<HTMLElement>('[aria-checked="true"]');
+      if (views && same && viewsTop !== undefined) views.scrollTop = viewsTop;
+      else if (views && cur) views.scrollTop = cur.offsetTop - (views.clientHeight - cur.offsetHeight) / 2;
       bindBackdropStrip(this.root, () => this.host.stage(), shownDeck(this.host.deck()).theme?.backdrop);
       const bgs = this.root.querySelector<HTMLElement>('.st-bgs');
       if (bgs) bindRail(bgs.parentElement!, bgs);
@@ -389,7 +395,7 @@ export class Inspector {
     const tiles = (g: string) => VIEWS.filter((v) => v.group === g).map((v) =>
       `<button type="button" role="radio" aria-checked="${v.id === cur}" data-view="${v.id}" title="${esc(v.name)}">${icon(v.icon)}<span>${esc(v.name)}</span></button>`).join('');
     const name = VIEWS.find((v) => v.id === cur)?.name;
-    return sec('view', 'Вид', `<div role="radiogroup" aria-label="Вид блока">${['Списки', 'Схемы'].map((g) =>
+    return sec('view', 'Вид', `<div class="st-views-box" role="radiogroup" aria-label="Вид блока">${['Списки', 'Схемы'].map((g) =>
       `<p class="st-views-g">${g}</p><div class="st-views">${tiles(g)}</div>`).join('')}</div>`, name ? ` <span class="st-p-sum">${esc(name)}</span>` : '');
   }
 
