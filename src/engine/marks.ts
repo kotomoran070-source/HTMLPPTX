@@ -83,8 +83,8 @@ export function eimg(obj: unknown, key: string, kind: ImgKind = 'photo'): string
   return p ? attr('data-edit-img', [...p, key]) + attr('data-img-owner', p) + ` data-img-kind="${kind}"` : '';
 }
 
-export function eimgPath(p: Path, kind: ImgKind = 'logo'): string {
-  return attr('data-edit-img', p) + ` data-img-kind="${kind}"`;
+export function eimgPath(p: Path, kind: ImgKind = 'logo', owner?: Path): string {
+  return attr('data-edit-img', p) + (owner ? attr('data-img-owner', owner) : '') + ` data-img-kind="${kind}"`;
 }
 
 /**

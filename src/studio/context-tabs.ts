@@ -2,6 +2,8 @@ import { icon } from '../components/icons';
 import { gradColor, gradientMid, TEXT_GRADIENTS } from '../engine/gradients';
 import { gradientPanel, type GradValue } from '../engine/editor/gradient-edit';
 import { GRADIENTS, PRESET_KINDS, SHAPE_COLORS, SHAPE_STYLES, SHAPE_SWATCHES, gradientCss, gradientOn, isGradient, sameGradient, shapeFill, type ShapeGradient } from '../components/shape/shape';
+import { frameList, moveFrame, removeFrame } from '../components/layout/frame-list';
+import { showFrame, shownFrame } from '../components/layout/frames';
 import { IMAGE_ADJUST, IMAGE_FILTER_GROUPS, IMAGE_FILTERS, IMAGE_LOOK_KEYS, IMAGE_SHADOWS, IMAGE_STYLES, adjustCss, filterCss, imageLookCss, type ImageLook } from '../components/layout/image-look';
 
 /** Цвет снимка: стиль рисунка (рамка, тень, форма) его не трогает */
@@ -267,6 +269,11 @@ export function contextPanelsHtml(): string {
     + stack(btn('image.filter', 'recolor', 'Цвет', { menu: true, title: 'Чёрно-белый, сепия, приглушённый…' }), btn('image.opacity', 'opacity', 'Прозрачность', { menu: true })))}
   ${group('Цветокоррекция', btn('image.grade', 'sliders', 'Цвет+', { big: true, title: 'Цветокоррекция, как в DaVinci: круги, кривые, HSL, LUT, цвета бренда. Исходный файл не меняется' }))}
   ${group('Кадр', btn('image.crop', 'crop', 'Кадр', { big: true, title: 'Сдвинуть снимок внутри рамки, как «Обрезка» в PowerPoint: тяните картинку. Масштаб — на панели над картинкой. Готово — Esc' }))}
+  ${group('Галерея', btn('image.frame.add', 'frames', 'Ещё кадры', { big: true, title: 'Добавить картинки в эту рамку: на слайде листаются стрелками, точками и свайпом. Можно выбрать несколько файлов или бросить их на картинку' })
+    // Кнопки кадров — только у картинки с кадрами (studio.ts): обычной хватает «Ещё кадры», лента не теснится
+    + `<div class="st-frames">${stack(btn('image.frame.del', 'trash', 'Убрать кадр', { title: 'Убрать открытый кадр; останется один — обычная картинка' }),
+      row(btn('image.frame.prev', 'arr-left', 'Кадр раньше', { ico: true }), btn('image.frame.next', 'arr-right', 'Кадр позже', { ico: true })),
+      btn('image.flip', '', 'По «Далее»', { chk: true, title: 'Кадры листает «Далее», как анимации: по одному на щелчок. Без флажка — стрелки и точки на картинке' }))}</div>`)}
   ${group('Сброс', btn('image.reset', 'reset', 'Сбросить', { big: true, title: 'Убрать всё оформление рисунка' }))}
   ${group('Файл', btn('obj.picture', 'save', 'Сохранить', { big: true, title: 'Сохранить как рисунок: PNG с прозрачным фоном, с кадром, цветом и рамкой' }))}
   ${ORDER}
@@ -731,6 +738,20 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   };
   const isImage = () => targets('image').length > 0 && targets('image').every((p) => { const b = getAt(deck, p) as Block; return !!(b.src ?? b.image); });
 
+  // ---------- рисунок: кадры (картинка с кадрами, frames.ts) ----------
+  const frameBlock = () => (targets('image').length === 1 && isImage() ? targets('image')[0] : null);
+  const frameCount = () => { const p = frameBlock(); return p ? frameList(getAt(deck, p) as Block).length : 0; };
+  /** Открытый кадр — его убирают и переставляют */
+  const frameNow = () => { const p = frameBlock(); return p ? shownFrame(p, frameCount()) : 0; };
+  /** Правка кадров; d — куда сдвинулся открытый кадр (он и остаётся открытым) */
+  const frameEdit = (edit: (b: Block, k: number) => void, d = 0) => {
+    const p = frameBlock();
+    if (!p) return;
+    const k = frameNow();
+    showFrame(p, k + d);
+    ed.commit((x) => edit(getAt(x, p) as Block, k), { rebuild: true });
+  };
+
   // ---------- фигура: текст ----------
   const textStyle = (b: Block | null) => ((b?.styles as Record<string, Record<string, unknown>> | undefined)?.text ?? {});
   const hasText = () => isBody() && targets('shape').some((p) => !!(getAt(deck, p) as Block).text);
@@ -1159,6 +1180,14 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       enabled: isImage,
     },
     'image.styles': { run: stylesGallery, enabled: isImage },
+    'image.frame.add': { run: () => { const p = frameBlock(); if (p) ed.pickFrames(p, frameNow()); }, enabled: () => !!frameBlock() },
+    'image.frame.del': { run: () => frameEdit((b, k) => removeFrame(b, k)), enabled: () => frameCount() > 1 },
+    'image.frame.prev': { run: () => frameEdit((b, k) => moveFrame(b, k, -1), -1), enabled: () => frameCount() > 1 && frameNow() > 0 },
+    'image.frame.next': { run: () => frameEdit((b, k) => moveFrame(b, k, 1), 1), enabled: () => frameCount() > 1 && frameNow() < frameCount() - 1 },
+    'image.flip': {
+      run: () => setAll('image', 'flip', first('image')?.flip === 'click' ? undefined : 'click'),
+      enabled: () => frameCount() > 1, active: () => frameCount() > 1 && first('image')?.flip === 'click',
+    },
     'image.reset': {
       run: () => { const paths = targets('image'); ed.commit((d) => paths.forEach((p) => { const b = getAt(d, p) as Block; IMAGE_LOOK_KEYS.forEach((k) => delete b[k]); }), { rebuild: true }); },
       enabled: () => isImage() && targets('image').some((p) => IMAGE_LOOK_KEYS.some((k) => (getAt(deck, p) as Block)[k] !== undefined)),

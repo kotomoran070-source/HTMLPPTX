@@ -2,6 +2,7 @@ import { icon } from '../../components/icons';
 import { getAt, setAt, type Path } from '../data';
 import { W } from '../deck-view';
 import { darkPath, frameCss, type ImageFrame } from '../marks';
+import { frameAt, removeFrame } from '../../components/layout/frame-list';
 
 export interface ImageHost {
   deck(): Record<string, unknown>;
@@ -75,6 +76,11 @@ export class ImageEditor {
 
   get selected(): boolean {
     return this.sel !== null;
+  }
+
+  /** Выделенная картинка (рамка с data-edit-img) */
+  get element(): HTMLElement | null {
+    return this.sel?.el ?? null;
   }
 
   owns(node: Node | null): boolean {
@@ -154,7 +160,8 @@ export class ImageEditor {
     show('crop', pannable && inFree);
     show('tip', pannable && (!inFree || this.cropping));
     show('framed', framed);
-    show('img', hasImage);
+    // Своя картинка для тёмной темы — у кадра-объекта (srcDark), у кадра строкой её некуда записать
+    show('img', hasImage && typeof s.path[s.path.length - 1] !== 'number');
     const dark = getAt(this.host.deck(), darkPath(s.path));
     const hasDark = typeof dark === 'string' && dark !== '';
     const q = (k: string) => this.bar.querySelector<HTMLElement>(`[data-i="${k}"]`)!;
@@ -221,11 +228,19 @@ export class ImageEditor {
     }
   }
 
-  private setFrame(patch: Partial<ImageFrame> & { height?: number }, merge?: string): void {
+  private setFrame(patch: Partial<ImageFrame>, merge?: string): void {
     const s = this.sel;
     if (!s?.owner) return;
     const owner = s.owner;
+    // Кадр строкой (images: [a.jpg]) становится объектом {src}: у объекта есть своё вписывание и кадр.
+    // Выделение — по новому адресу, чтобы пережить перерисовку
+    if (typeof getAt(this.host.deck(), owner) === 'string') {
+      s.path = [...owner, 'src'];
+      s.key = JSON.stringify(s.path);
+    }
     this.host.commit((d) => {
+      const cur = getAt(d, owner);
+      if (typeof cur === 'string') setAt(d, owner, { src: cur });
       for (const [k, v] of Object.entries(patch)) setAt(d, [...owner, k], v);
     }, { rebuild: true, merge });
   }
@@ -254,6 +269,12 @@ export class ImageEditor {
           const logo = s.kind === 'logo';
           const { path, owner } = s;
           this.clear();
+          // Кадр картинки с кадрами: убирается этот кадр, остальные остаются
+          const fr = owner && !logo ? frameAt(owner, (p) => getAt(this.host.deck(), p)) : null;
+          if (fr) {
+            if (this.host.commit((d) => removeFrame(getAt(d, fr.block) as Record<string, unknown>, fr.k), { rebuild: true })) this.host.toast('Кадр убран. Вернуть: Ctrl+Z', 2500);
+            break;
+          }
           if (this.host.commit((d) => {
             setAt(d, path, undefined);
             setAt(d, darkPath(path), undefined);
@@ -300,7 +321,9 @@ export class ImageEditor {
       const up = () => {
         this.handle.removeEventListener('pointermove', move);
         this.handle.removeEventListener('pointerup', up);
-        this.setFrame({ height: h });
+        // Высота — у блока: у картинки с кадрами хозяин открытого кадра может быть кадром из images
+        const block = s.owner ? this.host.blockOf(s.owner) : null;
+        if (block) this.host.commit((d) => setAt(d, [...block, 'height'], h), { rebuild: true });
       };
       this.handle.addEventListener('pointermove', move);
       this.handle.addEventListener('pointerup', up);

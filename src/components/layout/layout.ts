@@ -1,7 +1,8 @@
 import { defineBlock } from '../../engine/component';
 import { asArray, esc, styleAttr, t } from '../../engine/html';
-import { ea, eimg, frameCss, themedSrc, type ImageFrame } from '../../engine/marks';
+import { ea, eimg, eimgPath, frameCss, pathOf, themedSrc, type ImageFrame } from '../../engine/marks';
 import type { Block } from '../../types';
+import { frameControls, framesOf, mountFrames, startFrame } from './frames';
 import { imageLookCss, type ImageLook } from './image-look';
 import './layout.css';
 
@@ -99,12 +100,18 @@ interface ImageProps extends Block, ImageFrame, ImageLook {
   height?: number;
   /** Наплыв камеры при показе: in — приближение, out — отдаление, pan — панорама (base.css) */
   camera?: 'in' | 'out' | 'pan';
+  /** Ещё кадры (frames.ts): листаются на слайде; первый кадр — сама картинка */
+  images?: (string | { src: string; srcDark?: string; alt?: string; caption?: string } & ImageFrame)[];
+  /** click — кадры листает «Далее» (по одному на щелчок), иначе — стрелки, точки и свайп */
+  flip?: 'click';
 }
 
-/** Картинка из папки презентации: src: ./assets/photo.jpg */
+/** Картинка из папки презентации: src: ./assets/photo.jpg; images — ещё кадры, листаются на слайде */
 defineBlock<ImageProps>('image', {
   render(p) {
     const look = imageLookCss(p);
+    const frames = p.src ? framesOf(p) : [];
+    if (frames.length > 1) return framesHtml(p, frames, look);
     const img = p.src
       ? `<div class="imgfit"><div class="imgbox${look.cls}"${look.box ? ` style="${look.box}"` : ''}${eimg(p, 'src')}><img${themedSrc(p.src, p.srcDark)} alt="${esc(p.alt ?? p.caption ?? '')}" style="${frameCss(p)}${look.img ? `;${look.img}` : ''}"></div></div>`
       // Пустое место под картинку — той же формы, что будет картинка (скругление, круг, овал)
@@ -114,7 +121,30 @@ defineBlock<ImageProps>('image', {
     const cam = p.src && (p.camera === 'in' || p.camera === 'out' || p.camera === 'pan') ? ` cam-${p.camera}` : '';
     return `<figure class="image r${cam}"${styleAttr(h > 0 && `height:${h}px`, p.style)}>${img}${cap}</figure>`;
   },
+  mount(el, _p, ctx) {
+    if (el.classList.contains('gal')) return mountFrames(el, ctx.slide);
+  },
 });
+
+/** Картинка с кадрами: кадры — рамки с общим оформлением, видна одна; подписи — у каждого кадра своя */
+function framesHtml(p: ImageProps, frames: ReturnType<typeof framesOf>, look: ReturnType<typeof imageLookCss>): string {
+  const at = startFrame(p, frames.length);
+  const path = pathOf(p);
+  const boxes = frames.map(({ f, owner, n }, k) => {
+    const frame = { fit: f.fit ?? p.fit, position: f.position, zoom: f.zoom };
+    // Кадр строкой (images: [a.jpg]) правится по своему месту в списке; кадрировать — станет объектом (image-edit)
+    const edit = owner ? eimg(owner, 'src') : path ? eimgPath([...path, 'images', n], 'photo', [...path, 'images', n]) : '';
+    return `<div class="imgbox gal-f${k === at ? ' on' : k < at ? ' past' : ''}${look.cls}"${look.box ? ` style="${look.box}"` : ''}${edit}>`
+      + `<img${themedSrc(f.src, f.srcDark)} alt="${esc(f.alt ?? f.caption ?? '')}"${k ? ' loading="lazy"' : ''} style="${frameCss(frame)}${look.img ? `;${look.img}` : ''}"></div>`;
+  }).join('');
+  const caps = frames.some(({ f }) => f.caption)
+    ? frames.map(({ f, owner }, k) => `<figcaption class="mu gal-cap${k === at ? ' on' : ''}" data-k="${k}"${owner ? ea(owner, 'caption') : ''}>${f.caption ? t(f.caption) : ''}</figcaption>`).join('')
+    : '';
+  const h = Number(p.height);
+  const cam = p.camera === 'in' || p.camera === 'out' || p.camera === 'pan' ? ` cam-${p.camera}` : '';
+  return `<figure class="image r gal${cam}" data-at="${at}"${p.flip === 'click' ? ' data-flip="click"' : ''}${styleAttr(h > 0 && `height:${h}px`, p.style)}>`
+    + `<div class="imgfit">${boxes}${frameControls(frames.length, at)}</div>${caps}</figure>`;
+}
 
 interface SpacerProps extends Block { size?: number }
 

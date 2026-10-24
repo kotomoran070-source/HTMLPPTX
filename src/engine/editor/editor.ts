@@ -8,6 +8,8 @@ import { darkPath } from '../marks';
 import { currentTheme } from '../theme';
 import { BlockEditor } from './block-edit';
 import { ImageEditor } from './image-edit';
+import { frameAt, insertFrames } from '../../components/layout/frame-list';
+import { showFrame } from '../../components/layout/frames';
 import { projectStorage, type DeckStorage } from '../storage';
 import {
   blobToDataUrl, buildHtml, canSaveFile, MAX_FILE, prepareImage, saveHtmlFile, suggestedFileName,
@@ -431,7 +433,10 @@ export class Editor {
     on(stage, 'mousedown', (e) => {
       if (this.text.active && !this.text.owns(e.target as Node)) e.preventDefault();
     }, true);
+    // Свои кнопки блока (стрелки и точки картинки с кадрами — data-ed-pass): щелчок — им, а не правке
+    const pass = (e: Event) => !!(e.target as Element | null)?.closest?.('[data-ed-pass]');
     on(stage, 'pointerdown', (e) => {
+      if (pass(e)) return;
       // Фокус уходит со списка слайдов и панелей: иначе Delete и стрелки после щелчка по объекту
       // достались бы им (удалили бы слайд), а не выделенному объекту
       const a = document.activeElement;
@@ -454,8 +459,17 @@ export class Editor {
       if (this.image.selected && !this.image.owns(t) && !this.blocks.owns(t)) this.image.clear();
       if (this.blocks.selected && !this.blocks.owns(t) && !this.image.owns(t) && !this.text.owns(t)) this.blocks.clear();
     }, true);
-    on(stage, 'click', (e) => this.onClick(e), true);
-    on(stage, 'dblclick', (e) => this.onDblClick(e), true);
+    on(stage, 'click', (e) => { if (!pass(e)) this.onClick(e); }, true);
+    // Перелистнули кадр картинки, которая выделена: выделен открытый кадр (замена, кадр, «Цвет+» — его)
+    on(stage, 'slideria:frame-shown' as keyof HTMLElementEventMap, (e) => {
+      const fig = e.target as HTMLElement;
+      const cur = this.image.element;
+      const next = fig.querySelector<HTMLElement>('.gal-f.on[data-edit-img]');
+      if (cur && next && cur !== next && fig.contains(cur)) this.image.select(next);
+      // Кнопки «Галереи» (раньше, позже, убрать) — про открытый кадр
+      this.host.state?.();
+    });
+    on(stage, 'dblclick', (e) => { if (!pass(e)) this.onDblClick(e); }, true);
     on(stage, 'mouseover', (e) => {
       this.onOver(e);
       this.blocks.onOver(e.target as Element);
@@ -968,7 +982,8 @@ export class Editor {
       this.image.clear();
       this.blocks.select(free);
       // Картинка объекта сразу получает свою панель (масштаб, кадр) — и в студии, как после вставки
-      const img = free.querySelector<HTMLElement>('[data-edit-img]');
+      // У картинки с кадрами — открытый кадр
+      const img = free.querySelector<HTMLElement>('.gal-f.on[data-edit-img]') ?? free.querySelector<HTMLElement>('[data-edit-img]');
       const path = img ? readPath(img, 'data-edit-img') : null;
       if (img && path && getAt(this.host.deck, path)) this.image.select(img);
       return;
@@ -1158,7 +1173,15 @@ export class Editor {
         .find((x) => x.getAttribute('data-edit') === JSON.stringify(path));
       if (el) this.text.start(el);
     } else {
-      this.pickImage(path);
+      // Выбрали несколько файлов — картинка с кадрами
+      this.file.value = '';
+      this.file.multiple = true;
+      this.file.onchange = () => {
+        const files = [...(this.file.files ?? [])];
+        if (files.length > 1) void this.addFrames(path.slice(0, -1), files, -1);
+        else if (files.length) void this.replaceImage(path, files[0]);
+      };
+      this.file.click();
     }
   }
 
@@ -1607,6 +1630,7 @@ export class Editor {
 
   pickImage(path: Path): void {
     this.file.value = '';
+    this.file.multiple = false;
     this.file.onchange = () => {
       const f = this.file.files?.[0];
       if (f) void this.replaceImage(path, f);
@@ -1642,20 +1666,61 @@ export class Editor {
     }
   }
 
+  /** Ещё кадры картинке (картинка с кадрами — frames.ts): файлы — после кадра after, можно несколько сразу */
+  pickFrames(block: Path, after: number): void {
+    this.file.value = '';
+    this.file.multiple = true;
+    this.file.onchange = () => {
+      const files = [...(this.file.files ?? [])];
+      if (files.length) void this.addFrames(block, files, after);
+    };
+    this.file.click();
+  }
+
+  /** Картинки в assets/ (или внутрь данных) по порядку; не картинки и файлы больше 25 МБ пропускаются */
+  private async storeImages(files: File[]): Promise<string[]> {
+    const urls: string[] = [];
+    for (const f of files) {
+      if (!/^image\//.test(f.type) || f.size > MAX_FILE) continue;
+      const { blob, name } = await prepareImage(f);
+      urls.push(await this.storeAsset(blob, name));
+    }
+    return urls;
+  }
+
+  private badImages(files: File[]): void {
+    this.toast(files.some((f) => /^image\//.test(f.type)) ? 'Файл больше 25 МБ' : 'Формат не поддерживается. Подойдут PNG, JPG, GIF, WebP, AVIF, SVG.', 4000, true);
+  }
+
+  async addFrames(block: Path, files: File[], after: number): Promise<void> {
+    this.toast('Загрузка картинки…', 0);
+    try {
+      const urls = await this.storeImages(files);
+      if (!urls.length) return this.badImages(files);
+      const b = getAt(this.host.deck, block) as { type?: string; src?: string } | undefined;
+      if (b?.type !== 'image') return this.toast('Картинку убрали, пока шла загрузка', 3000, true);
+      // Открыт первый новый кадр — его и правят дальше
+      showFrame(block, after + 1);
+      this.commit((d) => insertFrames(getAt(d, block) as Record<string, unknown>, after, urls), { rebuild: true });
+      const img = this.host.stage().querySelector<HTMLElement>(`.slide.on [data-block="${CSS.escape(JSON.stringify(block))}"] .gal-f.on[data-edit-img]`);
+      if (img) this.image.select(img);
+      this.toast(!b.src ? `Картинка с кадрами: ${urls.length}` : urls.length > 1 ? `Добавлено кадров: ${urls.length}` : 'Кадр добавлен', 1800);
+    } catch (e) {
+      this.toast(`Не удалось добавить кадр: ${(e as Error).message}`, 5000, true);
+    }
+  }
+
   /**
    * Новая картинка свободным объектом (вставка из буфера, перетаскивание на пустое место).
-   * at — точка на слайде, куда поставить центр; без неё — центр слайда.
+   * Несколько файлов — одна картинка с кадрами. at — точка на слайде, куда поставить центр; без неё — центр слайда.
    */
-  async insertImageFile(file: File, at?: { x: number; y: number }): Promise<void> {
-    if (!/^image\//.test(file.type)) return this.toast('Формат не поддерживается. Подойдут PNG, JPG, GIF, WebP, AVIF, SVG.', 3500, true);
-    if (file.size > MAX_FILE) return this.toast('Файл больше 25 МБ', 4000, true);
+  async insertImageFile(file: File | File[], at?: { x: number; y: number }): Promise<void> {
+    const files = Array.isArray(file) ? file : [file];
     const i = this.host.index();
     this.toast('Загрузка картинки…', 0);
     try {
-      const { blob, name } = await prepareImage(file);
-      const url = this.mode === 'project'
-        ? (await this.storage.uploadAsset(this.host.deckKey, blob, name)).url
-        : await blobToDataUrl(blob);
+      const [url, ...more] = await this.storeImages(files);
+      if (!url) return this.badImages(files);
       // Размер по пропорциям картинки, не больше половины слайда
       const dims = await new Promise<{ w: number; h: number }>((resolve) => {
         const img = new Image();
@@ -1670,14 +1735,18 @@ export class Editor {
       const cy = at?.y ?? 360;
       const place = { x: Math.round(Math.max(0, Math.min(1280 - w, cx - w / 2))), y: Math.round(Math.max(0, Math.min(720 - h, cy - h / 2))), w, h };
       let idx = -1;
+      // Открыт первый кадр (а не тот, что открывали у прежней картинки на этом месте)
+      const free = this.host.deck.slides[i]?.free;
+      showFrame(['slides', i, 'free', Array.isArray(free) ? free.length : 0], 0);
       this.commit((d) => {
         const sl = d.slides[i];
         sl.free = Array.isArray(sl.free) ? sl.free : [];
-        sl.free.push({ type: 'image', src: url, place });
+        sl.free.push({ type: 'image', src: url, ...(more.length ? { images: more.map((src) => ({ src })) } : {}), place });
         idx = sl.free.length - 1;
       }, { rebuild: true });
       if (idx >= 0) this.selectFree(i, idx);
-      this.toast(gifNote(file) ?? 'Картинка добавлена', gifNote(file) ? 7000 : 1800);
+      const gif = files.map(gifNote).find(Boolean);
+      this.toast(gif ?? (more.length ? `Картинка с кадрами: ${more.length + 1}` : 'Картинка добавлена'), gif ? 7000 : 1800);
     } catch (e) {
       this.toast(`Не удалось добавить картинку: ${(e as Error).message}`, 5000, true);
     }
@@ -1799,8 +1868,18 @@ export class Editor {
       return;
     }
     const t = this.dropTarget(e);
-    if (!t && this.studio) {
-      void this.insertImageFile(e.dataTransfer.files[0], this.toSlide(e.clientX, e.clientY));
+    const images = [...e.dataTransfer.files].filter((f) => /^image\//.test(f.type));
+    // Несколько картинок на картинку слайда — её новые кадры (после открытого)
+    const owner = t && images.length > 1 && this.studio ? readPath(t, 'data-img-owner') : null;
+    if (owner) {
+      const fr = frameAt(owner, (p) => getAt(this.host.deck, p)) ?? { block: owner, k: 0 };
+      if ((getAt(this.host.deck, fr.block) as { type?: string } | undefined)?.type === 'image') {
+        void this.addFrames(fr.block, images, fr.k);
+        return;
+      }
+    }
+    if ((!t || images.length > 1) && this.studio) {
+      void this.insertImageFile(images.length > 1 ? images : e.dataTransfer.files[0], this.toSlide(e.clientX, e.clientY));
       return;
     }
     if (!t) return this.toast('Перетащите файл на картинку или логотип', 2500);

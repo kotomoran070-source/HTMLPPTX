@@ -331,7 +331,8 @@ export class Inspector {
     // Кадр картинки (обрезка, увеличение) нужен реже: отдельный свёрнутый раздел — точно, числами;
     // мышью — «Кадр» на панели над картинкой. У видео кадр — на вкладке «Видео»
     const FRAME = schema?.fields.some((f) => f.k === 'zoom') ? ['fit', 'zoom', 'position'] : [];
-    const all = (schema?.fields ?? []).filter((f) => !skip.has(f.k));
+    const b = getAt(deck, sel.block) as Block | undefined;
+    const all = (schema?.fields ?? []).filter((f) => !skip.has(f.k) && !(f.type === 'rows' && f.hideEmpty && !(Array.isArray(b?.[f.k]) && (b[f.k] as unknown[]).length)));
     const own = all.filter((f) => !FRAME.includes(f.k));
     const frame = all.filter((f) => FRAME.includes(f.k));
     const ribbonNote = ribbon ? `<button type="button" class="st-p-hint" data-cmd="tab.${ribbon.tab}">${icon('layers')}<span>${sel.type === 'video' ? 'Воспроизведение' : 'Оформление'} — на вкладке «${ribbon.name}»</span></button>` : '';

@@ -14,6 +14,7 @@ import { showTime } from './show-clock';
 import { forwardCovered } from './frame-bridge';
 import { CAMERA_SET } from '../components/media/model';
 import { MEDIA_SET } from '../components/media/video';
+import { GAL, GAL_SET, type FrameState } from '../components/layout/frames';
 import { printDeck, setupPrint } from './print';
 import { fullscreenOn, planScreens, popupOn, screensGranted } from './screens';
 import { Sync } from './sync';
@@ -650,6 +651,11 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     const { code, run } = (e as CustomEvent<{ code: string; run?: boolean }>).detail ?? {};
     if (Number.isInteger(i) && el.dataset.block && typeof code === 'string') sync.send({ type: 'code', index: i, block: el.dataset.block, code, ...(run ? { run } : {}) });
   });
+  // Картинка с кадрами: здесь перелистнули — докладчику
+  addEventListener(GAL, (e) => {
+    const d = (e as CustomEvent<FrameState>).detail;
+    sync.send({ type: 'frame', key: d.key, at: d.at });
+  });
   // Ползунки: здесь сдвинули — докладчику; от докладчика — сюда
   addEventListener('slideria:vars', (e) => {
     const d = (e as CustomEvent<{ index: number; vars: Record<string, number> }>).detail;
@@ -688,6 +694,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     } else if (m.type === 'media') {
       const { type: _t, ...detail } = m;
       window.dispatchEvent(new CustomEvent(MEDIA_SET, { detail }));
+    } else if (m.type === 'frame') {
+      window.dispatchEvent(new CustomEvent<FrameState>(GAL_SET, { detail: { key: m.key, at: m.at } }));
     } else if (m.type === 'ink') {
       ink.apply(m.ink);
       if (m.ink.op === 'cursor') hover.move(m.ink.x, m.ink.y);

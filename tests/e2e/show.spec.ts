@@ -852,3 +852,44 @@ test('объёмные переходы: куб, отражение, галер�
   expect(await page.locator('.stage > .slide.door').count()).toBe(0);
   expect(errors).toEqual([]);
 });
+
+test('картинка с кадрами: стрелки и точки листают кадры, а не слайды; по «Далее» — кадр на щелчок; докладчик и зрители вместе', async ({ page, context }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=gal#1');
+  const fig = page.locator('.slide.on .image.gal');
+  await expect(fig).toHaveAttribute('data-at', '0');
+  const pres = await context.newPage();
+  await pres.goto('/?deck=gal&view=presenter');
+  const own = pres.locator('#cur .slide.on .image.gal');
+  await expect(pres.locator('#link.ok')).toHaveCount(1);
+  await fig.hover();
+  await fig.locator('.gal-nav[data-d="1"]').click();
+  await expect(fig).toHaveAttribute('data-at', '1');
+  await expect(fig.locator('.gal-cap.on')).toHaveText('Второй');
+  expect((await counter(page))[0]).toBe(1);
+  await expect(own).toHaveAttribute('data-at', '1');
+  // По кругу: назад с первого — последний
+  await own.hover();
+  await own.locator('.gal-dot[data-k="0"]').click();
+  await expect(fig).toHaveAttribute('data-at', '0');
+  await fig.hover();
+  await fig.locator('.gal-nav[data-d="-1"]').click();
+  await expect(fig).toHaveAttribute('data-at', '2');
+  await pres.close();
+
+  // По «Далее»: кадр, потом объект по щелчку, потом следующий слайд; «Назад» — кадр назад
+  await page.keyboard.press('PageDown');
+  await expect.poll(async () => (await counter(page))[0]).toBe(2);
+  const flip = page.locator('.slide.on .image.gal[data-flip="click"]');
+  await expect(flip).toHaveAttribute('data-at', '0');
+  await expect(flip.locator('.gal-nav').first()).toBeHidden();
+  await page.keyboard.press('PageDown');
+  await expect(flip).toHaveAttribute('data-at', '1');
+  await page.keyboard.press('PageUp');
+  await expect(flip).toHaveAttribute('data-at', '0');
+  await page.keyboard.press('PageDown');
+  await page.keyboard.press('PageDown');
+  await expect(page.locator('.slide.on .free').filter({ hasText: 'После кадров' })).toBeVisible();
+  expect((await counter(page))[0]).toBe(2);
+  expect(errors).toEqual([]);
+});

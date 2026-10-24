@@ -3,6 +3,7 @@ import { landOn, stepVisible, visiblePos } from './hidden';
 import { frameAt, postPointer } from './frame-bridge';
 import { CAMERA, type CameraState } from '../components/media/model';
 import { MEDIA, type MediaState } from '../components/media/video';
+import { GAL, GAL_SET, type FrameState } from '../components/layout/frames';
 import type { Deck } from '../types';
 import { accentTail, applyAccent, applyAccentFlow } from './accent';
 import { replaceContents } from './data';
@@ -203,6 +204,11 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   });
   window.addEventListener(MEDIA, (e) => {
     if (mirror) sync.send({ type: 'media', ...(e as CustomEvent<MediaState>).detail }, toMain());
+  });
+  // Картинка с кадрами: перелистнули здесь — зрителям (как кнопки «показать / скрыть» — всегда)
+  window.addEventListener(GAL, (e) => {
+    const d = (e as CustomEvent<FrameState>).detail;
+    sync.send({ type: 'frame', key: d.key, at: d.at }, toMain());
   });
   function syncMirUi(): void {
     $('tmir').classList.toggle('pd-noarrow', mirror && !arrow);
@@ -757,6 +763,10 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     }
     if (m.type === 'trigger') {
       if (!mainId || from === mainId) view.trigger(m.index, m.action);
+      return;
+    }
+    if (m.type === 'frame') {
+      if (!mainId || from === mainId) window.dispatchEvent(new CustomEvent<FrameState>(GAL_SET, { detail: { key: m.key, at: m.at } }));
       return;
     }
     if (m.type === 'spot') {

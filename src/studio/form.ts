@@ -92,11 +92,11 @@ function fieldHtml(f: Field, data: unknown, p: Path): string {
     case 'rows': {
       const list = Array.isArray(v) ? v : [];
       return `<div class="st-f-list"><span class="st-f-l">${esc(f.label)}</span>`
-        + list.map((item, i) => `<fieldset class="st-f-row"><legend>${esc(f.item)} ${i + 1}${listTools(p, i, list.length, f.item)}</legend>`
+        + list.map((item, i) => `<fieldset class="st-f-row"><legend>${esc(f.item)} ${i + (f.from ?? 1)}${listTools(p, i, list.length, f.item)}</legend>`
           + f.fields.map((sf) => {
-            // Элемент-строка («Redis» в ячейках панели): первое поле правит саму строку
+            // Элемент-строка («Redis» в ячейках панели): первое поле правит саму строку (картинка — выбором файла)
             if (typeof item === 'string' && f.asString && sf.k === f.asString) {
-              return row(sf.label, `<input type="text" data-t="text" data-p="${P([...p, i])}">`);
+              return sf.type === 'image' ? fieldHtml(sf, data, [...p, i]) : row(sf.label, `<input type="text" data-t="text" data-p="${P([...p, i])}">`);
             }
             return fieldHtml(sf, data, [...p, i, sf.k]).replace(/data-p="/g, `data-as="${typeof item === 'string' ? esc(f.asString ?? '') : ''}" data-p="`);
           }).join('')

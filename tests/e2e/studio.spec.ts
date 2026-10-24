@@ -1779,3 +1779,49 @@ test('«Разобрать на объекты»: живой фон не зак�
   await expect.poll(() => page.locator('#st-canvas .slide.on .rg circle').first().evaluate((c) => c.getAnimations().length)).toBeGreaterThan(0);
   expect(errors).toEqual([]);
 });
+
+test('картинка с кадрами: точки открывают кадр для правки, «Галерея» добавляет, переставляет и убирает кадры; несколько файлов — одна картинка', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=gal&studio#1');
+  const fig = page.locator('#st-canvas .slide.on .image.gal');
+  await expect(fig).toHaveCount(1);
+  await fig.click({ position: { x: 200, y: 150 } });
+  const cmd = (c: string) => page.locator(`.st-ribbon [data-cmd="${c}"]`);
+  await expect(cmd('image.frame.prev')).toBeDisabled();
+  // Точка — кадр открыт, выделен он: правка — его
+  await fig.locator('.gal-dot[data-k="1"]').click();
+  await expect(fig).toHaveAttribute('data-at', '1');
+  await expect(page.locator('.ed-selected')).toHaveAttribute('data-edit-img', JSON.stringify(['slides', 0, 'free', 0, 'images', 0, 'src']));
+  // Раньше: второй кадр становится первым и остаётся открытым
+  await cmd('image.frame.prev').click();
+  await expect(fig).toHaveAttribute('data-at', '0');
+  await expect.poll(() => { const y = readDeck('gal'); return y.indexOf('cartoon.webp') < y.indexOf('photo.svg'); }).toBe(true);
+  // Миниатюра — первый кадр, без кнопок
+  await expect(page.locator('.st-thumb .image.gal .gal-f').first()).toBeVisible();
+  // Ещё кадры: два файла сразу — после открытого
+  const chooser = page.waitForEvent('filechooser');
+  await cmd('image.frame.add').click();
+  await (await chooser).setFiles([
+    { name: 'one.png', mimeType: 'image/png', buffer: Buffer.from(PNG) },
+    { name: 'two.png', mimeType: 'image/png', buffer: Buffer.from(PNG) },
+  ]);
+  await expect(fig.locator('.gal-f')).toHaveCount(5);
+  await expect(fig).toHaveAttribute('data-at', '1');
+  await cmd('image.frame.del').click();
+  await expect(fig.locator('.gal-f')).toHaveCount(4);
+  await cmd('image.flip').click();
+  await expect(fig).toHaveAttribute('data-flip', 'click');
+  // Несколько картинок на пустое место — одна картинка с кадрами
+  await page.locator('#st-canvas').evaluate((stage, bytes) => {
+    const dt = new DataTransfer();
+    for (const n of ['a.png', 'b.png', 'c.png']) dt.items.add(new File([new Uint8Array(bytes)], n, { type: 'image/png' }));
+    const r = stage.querySelector('.slide.on')!.getBoundingClientRect();
+    const at = { clientX: r.right - 40, clientY: r.bottom - 40, bubbles: true, cancelable: true, dataTransfer: dt };
+    const t = document.elementFromPoint(at.clientX, at.clientY)!;
+    t.dispatchEvent(new DragEvent('dragover', at));
+    t.dispatchEvent(new DragEvent('drop', at));
+  }, PNG);
+  await expect(page.locator('#st-canvas .slide.on .image.gal')).toHaveCount(2);
+  await expect(page.locator('#st-canvas .slide.on .image.gal').nth(1).locator('.gal-f')).toHaveCount(3);
+  expect(errors).toEqual([]);
+});

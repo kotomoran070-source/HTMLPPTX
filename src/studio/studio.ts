@@ -1054,10 +1054,11 @@ export function startStudio(deck: Deck, deckKey: string): void {
       e.preventDefault();
       return pasteClip(clip);
     }
-    const file = [...data.files].find((f) => f.type.startsWith('image/'));
-    if (file) {
+    // Несколько картинок — одна картинка с кадрами
+    const images = [...data.files].filter((f) => f.type.startsWith('image/'));
+    if (images.length) {
       e.preventDefault();
-      void ed.insertImageFile(file);
+      void ed.insertImageFile(images);
       return;
     }
     const text = data.getData('text/plain');
@@ -1097,10 +1098,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
       void ed.insertEmbedFile(html);
       return;
     }
-    const f = files.find((x) => x.type.startsWith('image/'));
-    if (!f) return;
+    const images = files.filter((x) => x.type.startsWith('image/'));
+    if (!images.length) return;
     e.preventDefault();
-    void ed.insertImageFile(f);
+    void ed.insertImageFile(images);
   });
 
   // ---------------- библиотека блоков ----------------
@@ -1890,6 +1891,14 @@ export function startStudio(deck: Deck, deckKey: string): void {
     if (own) root?.setAttribute('data-accent', own);
     else root?.removeAttribute('data-accent');
     syncContextTab();
+    // «Галерея» на «Рисунке»: убрать и переставить кадры — у картинки с кадрами (место на ленте — остальным)
+    const pic = ed.selection ? getAt(deck, ed.selection.block) as Block | undefined : undefined;
+    const frames = Array.isArray(pic?.images) && pic.images.length > 0;
+    const imageTab = document.querySelector<HTMLElement>('.st-rpanel[data-panel="image"]');
+    if (imageTab && imageTab.classList.contains('frames') !== frames) {
+      imageTab.classList.toggle('frames', frames);
+      fitRibbon();
+    }
     syncSwatches(deck, ed);
     syncAnimTab(animHost);
     syncDesignTab(designHost);

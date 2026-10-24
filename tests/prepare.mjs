@@ -17,6 +17,7 @@
 //   fx       — новые появления, маркер, наплыв камеры; появление, исчезновение и выделение по щелчку.
 //   trs      — переходы между слайдами: открывание, шторка с направлением, панорама, круг, часы, вспышка;
 //              объёмные: куб, отражение сверху, галерея, взмах, двери, падение, куб снизу (слайды 9–15).
+//   gal      — картинка с кадрами: листается стрелками и точками; по «Далее», а после кадров — объект по щелчку.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -401,5 +402,18 @@ slides:
   - template: finale
     title: Спасибо
     backdrop: network
+`);
+// gal — картинка с кадрами: стрелки и точки (кадр строкой и с подписью), по «Далее» с объектом по щелчку после кадров
+fs.mkdirSync(path.join(dir, 'gal', 'assets'), { recursive: true });
+for (const f of ['photo.svg', 'cartoon.webp', 'film-poster.png']) fs.copyFileSync(path.join(dir, 'tpl', 'assets', f), path.join(dir, 'gal', 'assets', f));
+fs.writeFileSync(path.join(dir, 'gal', 'deck.yaml'), `title: Кадры
+slides:
+  - template: canvas
+    free:
+      - {type: image, src: ./assets/photo.svg, caption: Первый, images: [{src: ./assets/cartoon.webp, caption: Второй}, ./assets/film-poster.png], place: {x: 80, y: 80, w: 640, h: 400}}
+  - template: canvas
+    free:
+      - {type: image, src: ./assets/photo.svg, flip: click, images: [./assets/cartoon.webp], place: {x: 80, y: 80, w: 640, h: 400}}
+      - {type: text, text: "После кадров", click: true, place: {x: 800, y: 200, w: 400}}
 `);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

@@ -31,3 +31,35 @@
 :has(> .md-li) { counter-reset: md-li; }
 .md-gap { display: block; height: var(--pgap, auto); }
 .md-a { color: var(--ach); text-decoration: underline; text-underline-offset: 2px; }
+
+/* Картинка с кадрами (frames.ts): кадры — рамки друг на друге, видна одна; смена — сдвиг с растворением */
+.image.gal > .imgfit { position: relative; }
+.gal-f { transition: opacity .5s var(--ease), transform .5s var(--ease), visibility 0s linear .5s; }
+.gal-f.on { transition-delay: 0s; }
+.gal-f:not(.on) { position: absolute; inset: 0; margin: auto; opacity: 0; visibility: hidden; pointer-events: none; transform: translateX(4%); }
+.gal-f.past:not(.on) { transform: translateX(-4%); }
+.image.gal-now .gal-f { transition: none; }
+.gal-cap:not(.on) { display: none; }
+.gal-ctl { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.gal-nav, .gal-dot { pointer-events: auto; cursor: pointer; border: 0; padding: 0; font: inherit; }
+.gal-nav { position: absolute; top: 50%; width: 40px; height: 40px; margin-top: -20px; display: grid; place-items: center; border-radius: 50%;
+  background: color-mix(in srgb, #fff 88%, transparent); color: #0F172A; box-shadow: 0 4px 14px rgba(15, 23, 42, .22); opacity: 0; transition: opacity .2s, transform .2s; }
+.gal-nav[data-d="-1"] { left: 12px; }
+.gal-nav[data-d="1"] { right: 12px; }
+.gal-nav .ic { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.gal-nav:hover { transform: scale(1.08); }
+.image.gal:hover .gal-nav, .gal-nav:focus-visible { opacity: 1; }
+.gal-dots { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; gap: 6px; padding: 5px 8px; border-radius: 999px; background: rgba(15, 23, 42, .38); backdrop-filter: blur(6px); }
+.gal-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, .5); transition: background .2s, transform .2s; }
+.gal-dot.on { background: #fff; transform: scale(1.2); }
+/* По «Далее»: листает очередь щелчков — без стрелок, точки только показывают, где мы (в студии листать можно) */
+.image.gal[data-flip="click"] .gal-nav { display: none; }
+.image.gal[data-flip="click"] .gal-dot { pointer-events: none; }
+body.editing .image.gal[data-flip="click"] :is(.gal-nav, .gal-dot) { display: grid; pointer-events: auto; }
+body.editing .image.gal[data-flip="click"] .gal-dot { display: block; }
+/* Миниатюры, печать, PDF, PowerPoint: первый кадр (в студии слайд может быть открыт на другом) без кнопок */
+:is(.static, .thumb-stage) .gal-ctl { display: none; }
+:is(.static, .thumb-stage) .image.gal .gal-f { position: absolute; inset: 0; opacity: 0; visibility: hidden; transition: none; }
+:is(.static, .thumb-stage) .image.gal .gal-f:first-child { position: relative; inset: auto; margin: 0; opacity: 1; visibility: visible; transform: none; }
+:is(.static, .thumb-stage) .image.gal .gal-cap { display: none; }
+:is(.static, .thumb-stage) .image.gal .gal-cap[data-k="0"] { display: block; }

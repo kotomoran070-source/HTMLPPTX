@@ -58,7 +58,7 @@ slides:
 | Таблица | `table` (`header`, `rows`, `variant: stripes` или `heat` — тепловая карта, `highlight`) |
 | Схемы из пунктов | `items: [{title, text}]` у `cycle`, `funnel`, `pyramid`, `numbers`, `compare`, `matrix`, `icons`, `stats`, `faq`, `timeline` (`date`, `done`), `roadmap` (`text` — срок, `done`), `ladder`, `orbit` (`center` или `logo: true`), `venn` (`center` — общее в пересечении, `variant: filled`), `nested` (первый — самый большой круг, `text` — пояснение справа, `variant: target` — мишень), `gears`, `pillars` (`center` — крыша), `layers`, `diamonds`, `arc` (`center` — цель), `mindmap` (`center` — главная мысль), `iceberg` (первый пункт — над водой); `pipeline` — `steps: [{title, sub}]`; `hub` — итоги вокруг логотипа |
 | Формула | `math` (`x^2 + y^2 = r^2` или LaTeX), график функции — `plot` |
-| Медиа | `image` (`src`, `caption`), `video` (`src` — файл или ссылка YouTube), `model` (`src` — GLB) |
+| Медиа | `image` (`src`, `caption`; `images` — ещё кадры в той же рамке, листаются на слайде, `flip: click` — по «Далее»), `video` (`src` — файл или ссылка YouTube), `model` (`src` — GLB) |
 | Код | `sandbox` (`code`, `theme: true`, `console: true`) — правится при показе |
 
 ## Холст и свободные объекты

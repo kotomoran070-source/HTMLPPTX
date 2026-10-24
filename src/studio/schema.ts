@@ -25,8 +25,8 @@ export type Field =
   | { k: string; label: string; type: 'numbers'; hint?: string }
   /** Словарь «ключ — значение» */
   | { k: string; label: string; type: 'kv' }
-  /** Список объектов. Элемент-строка (если допустим) правится как поле asString */
-  | { k: string; label: string; type: 'rows'; item: string; fields: Field[]; make: () => unknown; asString?: string }
+  /** Список объектов. Элемент-строка (если допустим) правится как поле asString; from — номер первого (без него — 1) */
+  | { k: string; label: string; type: 'rows'; item: string; fields: Field[]; make: () => unknown; asString?: string; hideEmpty?: boolean; from?: number }
   /** Вложенный объект (ссылка финального слайда) */
   | { k: string; label: string; type: 'group'; fields: Field[] }
   /** Цвет фигуры: роли темы или свой #RRGGBB; none — без цвета */
@@ -117,6 +117,17 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'height', label: 'Высота, px', type: 'number', min: 40, max: 720, placeholder: 'по картинке' },
       { k: 'camera', label: 'Наплыв камеры', type: 'select', options: [['', 'Нет'], ['in', 'Приближение'], ['out', 'Отдаление'], ['pan', 'Панорама']], hint: 'При показе фото медленно приближается, отдаляется или плывёт вбок' },
       ...frame,
+      // Картинка с кадрами (frames.ts): первый кадр — поля выше, остальные — здесь
+      {
+        // Пустой не показывается: кадры добавляют на вкладке «Рисунок» («Ещё кадры») или бросают файлы на картинку
+        k: 'images', label: 'Ещё кадры', type: 'rows', item: 'Кадр', asString: 'src', hideEmpty: true, from: 2,
+        make: () => ({ src: '' }),
+        fields: [
+          { k: 'src', label: 'Картинка', type: 'image' },
+          { k: 'caption', label: 'Подпись', type: 'text' },
+          { k: 'alt', label: 'Описание для незрячих', type: 'text' },
+        ],
+      },
     ],
   },
   tile: {
