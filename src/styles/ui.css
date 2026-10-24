@@ -4,6 +4,15 @@
 .viewport { position: fixed; inset: 0; }
 
 .progress-top { position: fixed; top: 0; left: 0; height: 3px; width: 0; background: var(--ac-g); transition: width .5s var(--ease); z-index: 5; }
+/* Прогресс у зрителей (deck.progress): сегменты — ячейка на слайд; номер — в углу, когда панели внизу не видно */
+.pg-seg { position: fixed; left: 8px; right: 8px; top: 6px; display: flex; gap: 3px; z-index: 5; pointer-events: none; }
+.pg-seg[hidden], .pg-num[hidden] { display: none; }
+.pg-seg i { flex: 1; height: 3px; border-radius: 2px; overflow: hidden; background: color-mix(in srgb, var(--tx) 14%, transparent); }
+.pg-seg b { display: block; height: 100%; width: 0; background: var(--ac); }
+.pg-seg :is(.past, .cur) b { width: 100%; }
+.pg-num { position: fixed; right: 18px; bottom: 14px; padding: 4px 10px; border-radius: 99px; font: 600 13px var(--font); color: var(--mu);
+  background: color-mix(in srgb, var(--surf) 80%, transparent); border: 1px solid var(--bd); font-variant-numeric: tabular-nums; z-index: 5; pointer-events: none; }
+body:not(.fs) .pg-num { display: none; }
 /* Таймлайн автопоказа на экране (autoplay.timeline): тонкая полоса внизу, просветы — шаги слайда; над панелью, пока она видна */
 .ap-line { position: fixed; left: 0; right: 0; bottom: 0; height: 5px; background: color-mix(in srgb, var(--tx) 10%, transparent); z-index: 7; pointer-events: none; }
 .ap-line[hidden] { display: none; }

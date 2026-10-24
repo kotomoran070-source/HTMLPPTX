@@ -85,7 +85,8 @@ slides:
 
 - **Переход к слайду**: `transition` у слайда — `fade`, `push`, `cover`, `uncover`, `wipe`, `split`, `circle`, `clock`, `flash`, `zoom`, `blur`, объёмные `cube`, `flip`, `gallery`, `switch`, `doors`, `fall`, `morph`, `none`; `transitionDir: right|left|top|bottom` (у push, cover, uncover, wipe, cube, flip, gallery, switch), `transitionMs`.
 - **Морф**: следующий слайд — копия с теми же `id` у объектов на других местах и `transition: morph`. Объекты перелетают, меняют размер, цвет и поворот (`angle`).
-- **Автопоказ** (стенд, файл посмотреть): у презентации `autoplay: {after: 8, loop: true, start: true, timeline: true}` — слайд стоит `after` с после своих анимаций, `loop` — по кругу, `start` — открывается сразу автопоказом, `timeline` — таймлайн слайда полосой внизу экрана; `progress: false` — без полоски прогресса сверху. Клавиша A при показе — пауза.
+- **Автопоказ** (стенд, файл посмотреть): у презентации `autoplay: {after: 8, loop: true, start: true, timeline: true}` — слайд стоит `after` с после своих анимаций, `loop` — по кругу, `start` — открывается сразу автопоказом, `timeline` — таймлайн слайда полосой внизу экрана. Клавиша A при показе — пауза.
+- **Прогресс и план**: `progress` у презентации — `segments` (ячейка на слайд), `number` («6 / 29» в углу), `false` (ничего), без поля — линия сверху; `plan: 20` — план доклада в минутах: у таймера докладчика — осталось, запас или отставание.
 - **Своя анимация**: `@keyframes` в поле `css` в начале файла, у объекта — `style: "animation: имя 4s infinite"`.
 - **По щелчку дальше**: `exit` (+ `exitAt`) — уход, `emphasis` (+ `emphAt`) — выделение; стойкие `dim`, `grow`, `recolor` держатся. Список по пунктам — `byItem: true`, длительность — `tempo: fast|slow|slower`.
 - **Число набегает**: `count: true` у объекта с числом (отсчёт от нуля), `count: odometer` — цифры крутятся барабаном.

@@ -17,6 +17,7 @@ const PATHS: Record<string, string> = {
   prev: '<path d="m15 6-6 6 6 6"/>',
   next: '<path d="m9 6 6 6-6 6"/>',
   play: '<path d="M8 5v14l11-7z"/>',
+  progress: '<path d="M3 12h4.5M9.75 12h4.5M16.5 12h4.5"/>',
   autoplay: '<path d="M21 12a9 9 0 1 1-2.64-6.36L21 8"/><path d="M21 3v5h-5"/><path d="m10 8.5 5 3.5-5 3.5z"/>',
   pause: '<path d="M9 5v14M15 5v14"/>',
   reset: '<path d="M4 12a8 8 0 1 0 2.3-5.7"/><path d="M4 4v5h5"/>',

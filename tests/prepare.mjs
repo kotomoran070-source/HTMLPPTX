@@ -19,6 +19,7 @@
 //              объёмные: куб, отражение сверху, галерея, взмах, двери, падение, куб снизу (слайды 9–15).
 //   gal      — картинка с кадрами: листается стрелками и точками; по «Далее», а после кадров — объект по щелчку.
 //   auto     — автопоказ: слайд по секунде, объект по щелчку на втором, таймлайн на экране, без полоски прогресса.
+//   prog     — прогресс сегментами по слайдам и план доклада на 10 минут.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -433,5 +434,18 @@ slides:
   - template: canvas
     free:
       - {type: text, text: "Третий", place: {x: 80, y: 80, w: 600}}
+`);
+// prog — прогресс у зрителей ячейками по слайдам, план доклада — 10 минут
+fs.mkdirSync(path.join(dir, 'prog'), { recursive: true });
+fs.writeFileSync(path.join(dir, 'prog', 'deck.yaml'), `title: Прогресс
+progress: segments
+plan: 10
+slides:
+  - template: canvas
+    free: [{type: text, text: "Первый", place: {x: 80, y: 80, w: 600}}]
+  - template: canvas
+    free: [{type: text, text: "Второй", place: {x: 80, y: 80, w: 600}}]
+  - template: canvas
+    free: [{type: text, text: "Третий", place: {x: 80, y: 80, w: 600}}]
 `);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

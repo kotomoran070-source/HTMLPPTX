@@ -1,6 +1,7 @@
 // Показ: все слайды открываются без ошибок, тема, интерактив, ссылки между слайдами, морф
 import { expect, test } from '@playwright/test';
-import { counter, nextTo, readDeck, watchErrors } from './helpers';
+import fs from 'node:fs';
+import { counter, deckFile, nextTo, readDeck, watchErrors } from './helpers';
 
 test.use({ colorScheme: 'light' });
 
@@ -957,4 +958,30 @@ test('автопоказ из окна докладчика: A включает 
   await pres.close();
   expect(errors).toEqual([]);
   expect(presErrors).toEqual([]);
+});
+
+test('прогресс у зрителей — сегменты по слайдам или номер; план доклада у докладчика — метка у таймера: осталось и запас', async ({ page, context }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=prog#2');
+  await expect(page.locator('#pg')).toBeHidden();
+  await expect(page.locator('#pgs i')).toHaveCount(3);
+  await expect(page.locator('#pgs i').nth(0)).toHaveClass('past');
+  await expect(page.locator('#pgs i').nth(1)).toHaveClass('cur');
+  await expect(page.locator('#pgs i').nth(2)).toHaveClass('');
+
+  const pres = await context.newPage();
+  await pres.goto('/?deck=prog&view=presenter');
+  await expect(pres.locator('#link.ok')).toHaveCount(1);
+  // 10 минут на 3 слайда: на второй слайд пришли сразу — запас больше трёх минут, метка зелёная
+  await expect(pres.locator('#pplan')).toBeVisible();
+  await expect(pres.locator('#pplan')).toHaveText(/^осталось 9:5\d · запас 3:\d\d$/);
+  await expect(pres.locator('#pplan')).toHaveClass(/\bok\b/);
+  await pres.close();
+
+  // Номер в углу (виден во весь экран, когда панели нет)
+  fs.writeFileSync(deckFile('prog'), readDeck('prog').replace('progress: segments', 'progress: number'));
+  await page.goto('/?deck=prog#2');
+  await expect(page.locator('#pgs')).toBeHidden();
+  await expect(page.locator('#pgn')).toHaveText('2 / 3');
+  expect(errors).toEqual([]);
 });

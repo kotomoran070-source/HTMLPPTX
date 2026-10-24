@@ -9,6 +9,7 @@ import { canSaveFile } from './editor/persist';
 import { esc } from './html';
 import { actionTarget, slideLabel } from './render';
 import { Autoplay, runFill, type Timeline } from './autoplay';
+import { progressMode } from './plan';
 import { Ink } from './ink';
 import { RemoteHover } from './remote-hover';
 import { showTime } from './show-clock';
@@ -41,6 +42,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   document.body.classList.add('show');
   document.body.insertAdjacentHTML('beforeend', `
 <div class="progress-top" id="pg"></div>
+<div class="pg-seg" id="pgs" hidden aria-hidden="true"></div>
+<div class="pg-num" id="pgn" hidden aria-hidden="true"></div>
 <div class="viewport" id="vp"></div>
 <div class="ap-flash" id="apf" aria-hidden="true"></div>
 <div class="ap-line" id="apl" hidden aria-hidden="true"><b></b><span></span></div>
@@ -144,7 +147,23 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     $('nx').style.visibility = more(1) ? 'visible' : 'hidden';
     $('pv').style.visibility = more(-1) ? 'visible' : 'hidden';
     $('pg').style.width = `${(pos / total) * 100}%`;
-    $('pg').hidden = deck.progress === false;
+    // Прогресс у зрителей: линия, сегменты по слайдам, номер в углу или ничего (deck.progress)
+    const mode = progressMode(deck.progress, total);
+    $('pg').hidden = mode !== 'line';
+    segments(mode === 'segments' ? total : 0, pos);
+    $('pgn').hidden = mode !== 'number';
+    $('pgn').textContent = `${pos} / ${total}`;
+  }
+  /** Сегменты: ячейка на слайд, прошедшие и текущий залиты; текущий при автопоказе заливается по таймлайну слайда */
+  function segments(total: number, pos: number): void {
+    const box = $('pgs');
+    box.hidden = !total;
+    if (!total) return;
+    if (box.childElementCount !== total) box.innerHTML = '<i><b></b></i>'.repeat(total);
+    [...box.children].forEach((c, k) => {
+      c.className = k < pos - 1 ? 'past' : k === pos - 1 ? 'cur' : '';
+      if (k !== pos - 1) (c.firstElementChild as HTMLElement).style.cssText = '';
+    });
   }
 
   function go(i: number, push = true): void {
@@ -229,6 +248,11 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     timeline: (t) => {
       sync.send({ type: 'autoplay', on: auto.on, tl: t });
       screenLine(t);
+      const cur = $('pgs').querySelector<HTMLElement>('.cur > b');
+      if (cur) {
+        if (t) runFill(cur, t);
+        else cur.style.cssText = '';
+      }
     },
   });
   /** Таймлайн на экране (autoplay.timeline): тонкая полоса внизу, просветы — шаги слайда; без текста */

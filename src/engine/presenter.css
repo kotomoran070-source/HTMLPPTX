@@ -41,8 +41,20 @@
 .pres-tl-track em { position: absolute; top: 12px; transform: translateX(-50%); font-style: normal; font-size: 11px; color: var(--mu); white-space: nowrap; }
 .pres-tl-track em.end { right: 0; transform: none; }
 .pres-tl-r { min-width: 64px; text-align: right; font-size: 13px; color: var(--tx); font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .pres-tl-l { display: none; } }
 /* Таймлайн виден — слайду чуть меньше высоты, чтобы строка не уходила за край */
 .pres .pres-cur:has(.pres-tl:not([hidden])) .pres-vp { max-height: calc(100% - 140px); }
+
+/* План доклада (deck.plan): метка у таймера — осталось, запас (зелёная) или отставание (красная) */
+.pres-plan { margin-left: 6px; padding: 5px 12px; border-radius: 99px; font: 600 13px var(--font); white-space: nowrap; font-variant-numeric: tabular-nums;
+  background: var(--alt); color: var(--tx2); border: 1px solid var(--bd); }
+.pres-plan[hidden] { display: none; }
+.pres-plan.ok { background: rgba(22, 163, 74, .1); color: #15803D; border-color: rgba(22, 163, 74, .3); }
+.pres-plan.late { background: rgba(220, 38, 38, .1); color: #B91C1C; border-color: rgba(220, 38, 38, .3); }
+:root[data-theme="dark"] .pres-plan.ok { color: #4ADE80; }
+:root[data-theme="dark"] .pres-plan.late { color: #F87171; }
+/* Узко — только запас или отставание */
+@media (max-width: 900px) { .pres-plan .pl-left { display: none; } }
 .pd-btn[data-tool="laser"][aria-pressed="true"] { background: rgba(239, 68, 68, .12); color: #DC2626; box-shadow: inset 0 0 0 1px rgba(239, 68, 68, .45); }
 :root[data-theme="dark"] .pd-btn[data-tool="laser"][aria-pressed="true"] { color: #F87171; }
 #bk[aria-pressed="true"] { background: #0B1220; color: #fff; box-shadow: inset 0 0 0 1px #334155; }
@@ -149,7 +161,7 @@
     width: min(100%, calc((100dvh - 16px - env(safe-area-inset-bottom)) * 16 / 9)); aspect-ratio: 16 / 9; }
   /* Таймер — только время */
   .pres .pres-top { grid-column: 2; grid-row: 2; justify-content: center; }
-  .pres .pres-title, .pres .pres-right, .pres .pres-timer .ibtn { display: none; }
+  .pres .pres-title, .pres .pres-right, .pres .pres-timer .ibtn, .pres .pres-plan { display: none; }
   .pres .pres-time { font-size: 17px; }
   /* Инструменты — в два столбца; цвета пера и меню повтора открываются влево, над слайдом */
   .pres .pres-dock { grid-column: 2; grid-row: 3; display: grid; grid-template-columns: repeat(2, 40px); gap: 2px; padding: 4px; align-self: center; }

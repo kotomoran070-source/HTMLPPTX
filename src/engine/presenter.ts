@@ -14,6 +14,7 @@ import { Ink, inkInput, type InkMsg, type InkTool, type StrokeStyle } from './in
 import { RemoteHover } from './remote-hover';
 import { alignShowTime } from './show-clock';
 import { runFill, type Timeline } from './autoplay';
+import { clock, planState } from './plan';
 import './presenter.css';
 import { RELAY, Sync } from './sync';
 import { currentTheme, onThemeChange, setTheme, toggleTheme } from './theme';
@@ -52,6 +53,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       <span class="pres-time" id="tm">00:00</span>
       <button class="ibtn small" id="tp" type="button" aria-label="Пауза" title="Пауза">${icon('pause')}</button>
       <button class="ibtn small" id="tr" type="button" aria-label="Сбросить таймер" title="Сбросить таймер">${icon('reset')}</button>
+      <span class="pres-plan" id="pplan" hidden role="status"><span class="pl-left" id="pplanl"></span><span id="pplanr"></span></span>
     </div>
     <div class="pres-right">
       <span class="pres-clock" id="clk"></span>
@@ -442,6 +444,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     const { pos, total } = visiblePos(deck, index);
     $('curl').textContent = `Слайд ${pos} из ${total} · ${slideLabel(s, index)}`;
     $('ct').textContent = `${pos} / ${total}`;
+    drawPlan();
     const next = $('next');
     next.innerHTML = '';
     const after = stepVisible(deck, index, 1);
@@ -491,6 +494,22 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     $('tm').textContent = (h ? `${h}:` : '') + `${pad(Math.floor(sec / 60) % 60)}:${pad(sec % 60)}`;
     const d = new Date();
     $('clk').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    drawPlan();
+  }
+
+  // --- план доклада (deck.plan, минуты; plan.ts): метка у таймера — сколько осталось, запас или отставание ---
+  function drawPlan(): void {
+    const min = Number(deck.plan);
+    const tag = $('pplan');
+    tag.hidden = !(min > 0) || index < 0;
+    if (tag.hidden) return;
+    const { pos, total } = visiblePos(deck, index);
+    const st = planState(pos, total, (pausedAt ?? Date.now()) - started, min * 60_000);
+    tag.className = `pres-plan${st.delta > 0 ? ' ok' : st.delta < 0 || st.left < 0 ? ' late' : ''}`;
+    tag.title = `План доклада ${clock(min * 60_000)}: по ${clock((min * 60_000) / Math.max(1, total))} на слайд`;
+    $('pplanl').textContent = st.left >= 0 ? `осталось ${clock(st.left)} · ` : '';
+    $('pplanr').textContent = st.left < 0 ? `перерасход ${clock(st.left)}`
+      : st.delta > 0 ? `запас ${clock(st.delta)}` : st.delta < 0 ? `отстаём ${clock(st.delta)}` : 'по плану';
   }
   setInterval(tick, 500);
   tick();
