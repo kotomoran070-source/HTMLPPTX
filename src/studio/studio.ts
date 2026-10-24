@@ -14,6 +14,14 @@ import { updateFavicon } from '../engine/show';
 import { currentTheme, onThemeChange, toggleTheme } from '../engine/theme';
 import type { Block, Deck } from '../types';
 import { AFTER_S } from '../engine/autoplay';
+
+/** Вид прогресса у зрителей (deck.progress): значение, название, пояснение, значок */
+const PROGRESS: [Deck['progress'] | undefined, string, string, string][] = [
+  [undefined, 'Линия', 'Тонкая полоса сверху', 'pg-line'],
+  ['segments', 'Сегменты', 'Ячейка на каждый слайд; при автопоказе текущая заливается', 'pg-seg'],
+  ['number', 'Номер', '«6 / 29» в углу, когда панели внизу не видно', 'pg-num'],
+  [false, 'Нет', 'Ничего поверх слайдов', 'eye-off'],
+];
 import { CLIP_TYPE, putClip, takeClip, type Clip } from './clipboard';
 import { crossPaste } from './cross-paste';
 import type { CodeView } from './code';
@@ -154,13 +162,14 @@ export function startStudio(deck: Deck, deckKey: string): void {
     ${animPanelHtml()}
     <div class="st-rpanel" data-panel="show" hidden>
       ${group('Слайд', `<div class="st-rstack">${chk('show.hide', 'Скрыть слайд', 'Слайд остаётся в презентации, но при показе и в PDF пропускается')}</div>`)}
-      ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'next', 'С текущего слайда', { big: true, key: 'Shift+F5' }) + rb('show.presenter', 'presenter', 'Режим докладчика', { big: true, key: 'Alt+F5', title: 'Показ на втором экране, заметки — на вашем' })
-        + `<div class="st-rstack"><label class="st-rfield" title="План доклада: окно докладчика показывает, где вы должны быть по времени, сколько осталось и запас. Пусто — без плана"><span>План</span><input type="number" id="st-plan" min="1" max="600" step="1" placeholder="—" aria-label="План доклада, минуты"><span>мин</span></label></div>`)}
-      ${group('Автопоказ', rb('show.auto', 'autoplay', 'Автопоказ', { big: true, title: 'Показ с начала, слайды листаются сами: когда доиграли анимации и ролики — через заданное время. A — пауза' })
-        + `<div class="st-rstack"><label class="st-rfield" title="Сколько стоит слайд после своих анимаций и роликов"><span>Слайд</span><input type="number" id="st-auto-after" min="1" max="600" step="1" placeholder="5" aria-label="Сколько стоит слайд при автопоказе, секунды"><span>с</span></label>`
+      ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'next', 'С текущего слайда', { big: true, key: 'Shift+F5' })
+        + rb('show.presenter', 'presenter', 'Режим докладчика', { big: true, key: 'Alt+F5', title: 'Показ на втором экране, заметки — на вашем' })
+        + rb('show.auto', 'autoplay', 'Автопоказ', { big: true, title: 'Показ с начала, слайды листаются сами: когда доиграли анимации и ролики — через заданное время. A — пауза' }))}
+      ${group('Автопоказ', `<div class="st-rstack">${rb('show.auto.after', 'clock', 'Слайд 5 с', { menu: true, title: 'Сколько стоит слайд при автопоказе — после того, как доиграли его анимации и ролики' })}`
         + `${chk('show.auto.loop', 'По кругу', 'После последнего слайда — снова с первого')}${chk('show.auto.start', 'Сразу при открытии', 'Презентация открывается автопоказом: для стенда или чтобы отправить посмотреть. A — пауза')}</div>`)}
-      ${group('На экране', `<div class="st-rstack">${rb('show.progress', 'progress', 'Прогресс', { menu: true, title: 'Сколько презентации показано — сверху экрана: линия, ячейки по слайдам, номер слайда или ничего' })}`
-        + `${chk('show.auto.timeline', 'Таймлайн автопоказа', 'Тонкая полоса внизу экрана во время автопоказа: просветы — шаги слайда, заливка идёт к следующему. Чтобы рассказывать по экрану, без окна докладчика')}</div>`)}
+      ${group('Доклад', rb('show.plan', 'stopwatch', 'Без плана', { big: true, menu: true, title: 'План доклада: у таймера в окне докладчика — сколько осталось и запас или отставание' }))}
+      ${group('На экране', rb('show.progress', 'pg-line', 'Прогресс', { big: true, menu: true, title: 'Сколько презентации показано — сверху экрана: линия, ячейки по слайдам, номер слайда или ничего' })
+        + `<div class="st-rstack">${chk('show.auto.timeline', 'Таймлайн автопоказа', 'Тонкая полоса внизу экрана во время автопоказа: просветы — шаги слайда, заливка идёт к следующему. Чтобы рассказывать по экрану, без окна докладчика')}</div>`)}
     </div>
     <div class="st-rpanel" data-panel="tools" hidden>
       ${group('Презентация', rb('tools.summary', 'chart', 'Сводка', { big: true, title: 'Слайды, слова, время доклада, тяжёлые и лишние файлы, шрифты' }))}
@@ -783,26 +792,47 @@ export function startStudio(deck: Deck, deckKey: string): void {
       else delete d.autoplay;
     }, { rebuild: false, merge: `autoplay:${key}` });
   }
-  // План доклада, минуты: пусто — без плана
-  const planInput = $('st-plan') as HTMLInputElement;
-  planInput.addEventListener('change', () => {
-    const n = Math.round(Number(planInput.value.replace(',', '.')));
-    ed.commit((d) => { if (Number.isFinite(n) && n >= 1) d.plan = Math.min(600, n); else delete d.plan; }, { rebuild: false, merge: 'plan' });
-  });
-  planInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); planInput.blur(); }
-    e.stopPropagation();
-  });
-  // Время слайда при автопоказе: по умолчанию (5 с) не пишется
-  const autoAfter = $('st-auto-after') as HTMLInputElement;
-  autoAfter.addEventListener('change', () => {
-    const n = Math.round(Number(autoAfter.value.replace(',', '.')));
-    setAutoplay('after', Number.isFinite(n) && n >= 1 && n !== AFTER_S ? Math.min(600, n) : undefined);
-  });
-  autoAfter.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); autoAfter.blur(); }
-    e.stopPropagation();
-  });
+  /**
+   * Число с заготовками (время слайда, план доклада): плашки — щелчок и готово, своё — полем внизу (Enter);
+   * none — плашка «без значения»
+   */
+  function valuePopover(cmd: string, o: { title: string; unit: string; presets: number[]; max: number; value?: number; none?: string; note?: string; set(n: number | undefined): void }): void {
+    const chip = (v: number | undefined, label: string) => `<button type="button" class="st-vchip${o.value === v ? ' on' : ''}" data-v="${v ?? ''}">${esc(label)}</button>`;
+    const own = o.value !== undefined && !o.presets.includes(o.value) ? o.value : '';
+    const pop = showPopover(shown(cmd), `<div class="st-plabel">${esc(o.title)}</div>`
+      + `<div class="st-vchips">${o.none ? chip(undefined, o.none) : ''}${o.presets.map((v) => chip(v, `${v} ${o.unit}`)).join('')}</div>`
+      + `<label class="st-vown"><span>Своё</span><input type="number" min="1" max="${o.max}" step="1" value="${own}" aria-label="${esc(o.title)}, ${esc(o.unit)}"><span>${esc(o.unit)}</span></label>`
+      + (o.note ? `<p class="st-vnote">${esc(o.note)}</p>` : ''), (b) => {
+      if (!b.classList.contains('st-vchip')) return null;
+      return { run: () => o.set(b.dataset.v ? Number(b.dataset.v) : undefined) };
+    }, 'st-vpop');
+    const input = pop.querySelector('input')!;
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const n = Math.round(Number(input.value.replace(',', '.')));
+      if (Number.isFinite(n) && n >= 1) o.set(Math.min(o.max, n));
+      closeMenu();
+    });
+  }
+  /**
+   * Подпись и значок кнопки ленты — по текущему значению (время слайда, план, вид прогресса);
+   * keep — сколько последних слов не разрывать (вместе со стрелкой меню)
+   */
+  function setRibbonButton(cmd: string, label: string, ic?: string, keep = 1): void {
+    const words = label.split(' ');
+    const head = words.slice(0, -keep).join(' ');
+    document.querySelectorAll<HTMLElement>(`.st-ribbon [data-cmd="${cmd}"]`).forEach((b) => {
+      const span = b.querySelector(':scope > span');
+      if (span) span.innerHTML = `${head ? `${esc(head)} ` : ''}<span class="st-nw">${esc(words.slice(-keep).join(' '))}<b class="st-caret"></b></span>`;
+      const svg = b.querySelector(':scope > svg');
+      if (ic && svg && svg.getAttribute('data-ic') !== ic) {
+        svg.outerHTML = icon(ic);
+        b.querySelector(':scope > svg')?.setAttribute('data-ic', ic);
+      }
+    });
+  }
   function newSlideMenu(anchor: HTMLElement): void {
     showMenu(anchor, SLIDE_PRESETS.map((p, k) => ({
       label: p.name, icon: ['text', 'grid', 'image', 'frame'][k] ?? 'slide-add', run: () => ed.addSlide(index, k),
@@ -1481,16 +1511,25 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'show.auto.start': { run: () => setAutoplay('start', deck.autoplay?.start ? undefined : true), active: () => !!deck.autoplay?.start },
     'show.auto.timeline': { run: () => setAutoplay('timeline', deck.autoplay?.timeline ? undefined : true), active: () => !!deck.autoplay?.timeline },
     'show.progress': {
-      run: () => {
-        const opts: [Deck['progress'] | undefined, string, string][] = [
-          [undefined, 'Линия', 'Тонкая полоса сверху'], ['segments', 'Сегменты', 'Ячейка на каждый слайд; при автопоказе текущая заливается'],
-          ['number', 'Номер', '«6 / 29» в углу, когда панели внизу не видно'], [false, 'Нет', 'Ничего поверх слайдов'],
-        ];
-        showMenu(shown('show.progress'), opts.map(([v, label, sub]) => ({
-          label, sub, checked: deck.progress === v,
-          run: () => ed.commit((d) => { if (v === undefined) delete d.progress; else d.progress = v; }, { rebuild: false }),
-        })));
-      },
+      run: () => showMenu(shown('show.progress'), PROGRESS.map(([v, label, sub, ic]) => ({
+        label, sub, icon: ic, checked: deck.progress === v,
+        run: () => ed.commit((d) => { if (v === undefined) delete d.progress; else d.progress = v; }, { rebuild: false }),
+      }))),
+    },
+    'show.auto.after': {
+      run: () => valuePopover('show.auto.after', {
+        title: 'Слайд стоит после своих анимаций', unit: 'с', presets: [3, 5, 8, 10, 15, 20, 30, 60], max: 600,
+        value: deck.autoplay?.after ?? AFTER_S,
+        set: (n) => setAutoplay('after', n === AFTER_S ? undefined : n),
+      }),
+    },
+    'show.plan': {
+      run: () => valuePopover('show.plan', {
+        title: 'План доклада', unit: 'мин', presets: [5, 10, 15, 20, 30, 45, 60, 90], max: 600, none: 'Без плана',
+        value: deck.plan,
+        set: (n) => ed.commit((d) => { if (n) d.plan = n; else delete d.plan; }, { rebuild: false }),
+        note: 'Окно докладчика покажет у таймера, сколько осталось и запас',
+      }),
     },
     'file.export': { run: () => exportMenu() },
     'model.snapshot': { run: () => void modelSnapshot(), enabled: () => ed.selection?.type === 'model' },
@@ -1973,8 +2012,12 @@ export function startStudio(deck: Deck, deckKey: string): void {
     status.textContent = st.text;
     status.className = `st-status ${st.cls}`;
     if (document.activeElement !== title) title.value = deck.title ?? '';
-    if (document.activeElement !== autoAfter) autoAfter.value = deck.autoplay?.after ? String(deck.autoplay.after) : '';
-    if (document.activeElement !== planInput) planInput.value = deck.plan ? String(deck.plan) : '';
+    // «Показ»: на кнопках — текущие время слайда, план и вид прогресса
+    setRibbonButton('show.auto.after', `Слайд ${deck.autoplay?.after ?? AFTER_S} с`);
+    // «План» сверху, «20 мин ▾» под ним; «Без плана» — одной строкой
+    setRibbonButton('show.plan', deck.plan ? `План ${deck.plan} мин` : 'Без плана', undefined, 2);
+    const pm = PROGRESS.find(([v]) => v === deck.progress) ?? PROGRESS[0];
+    setRibbonButton('show.progress', `Прогресс: ${pm[1].toLowerCase()}`, pm[3]);
     const a = deck.theme?.accent;
     const av = typeof a === 'string' && HEX_RE.test(a) ? a : DEFAULT_ACCENT;
     if (document.activeElement !== accent && HEX_RE.test(av)) accent.value = av.toLowerCase();

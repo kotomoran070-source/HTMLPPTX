@@ -1825,3 +1825,35 @@ test('картинка с кадрами: точки открывают кадр
   await expect(page.locator('#st-canvas .slide.on .image.gal').nth(1).locator('.gal-f')).toHaveCount(3);
   expect(errors).toEqual([]);
 });
+
+test('«Показ»: план доклада и время слайда — плашками и своим значением, вид прогресса — меню; на кнопках — текущее', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=prog&studio#1');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  await page.locator('.st-tabs [data-tab="show"]').click();
+  const cmd = (c: string) => page.locator(`.st-ribbon [data-cmd="${c}"]`);
+  await expect(cmd('show.plan')).toContainText('План 10 мин');
+  // План: плашка, своё значение (Enter), «Без плана»
+  await cmd('show.plan').click();
+  await page.locator('.st-vpop .st-vchip', { hasText: '20 мин' }).click();
+  await expect.poll(() => readDeck('prog')).toMatch(/^plan: 20$/m);
+  await cmd('show.plan').click();
+  await page.locator('.st-vpop input').fill('7');
+  await page.locator('.st-vpop input').press('Enter');
+  await expect.poll(() => readDeck('prog')).toMatch(/^plan: 7$/m);
+  await expect(cmd('show.plan')).toContainText('План 7 мин');
+  await cmd('show.plan').click();
+  await page.locator('.st-vpop .st-vchip', { hasText: 'Без плана' }).click();
+  await expect.poll(() => readDeck('prog')).not.toMatch(/^plan:/m);
+  // Время слайда при автопоказе
+  await cmd('show.auto.after').click();
+  await page.locator('.st-vpop .st-vchip', { hasText: '8 с' }).click();
+  await expect.poll(() => readDeck('prog')).toMatch(/autoplay:\s+after: 8/);
+  await expect(cmd('show.auto.after')).toContainText('Слайд 8 с');
+  // Вид прогресса
+  await cmd('show.progress').click();
+  await page.locator('.st-menu button', { hasText: 'Номер' }).click();
+  await expect.poll(() => readDeck('prog')).toMatch(/^progress: number$/m);
+  await expect(cmd('show.progress')).toContainText('Прогресс: номер');
+  expect(errors).toEqual([]);
+});
