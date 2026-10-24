@@ -497,6 +497,7 @@ class Converter {
       return this.raster(el, b);
     }
     if (type === 'shape' && el.querySelector(':scope > .shape-bar, :scope .shape-bar')) return this.line(el, cs, k);
+    if (type === 'shape' && el.dataset.prst) return this.presetShape(el, cs, b, op, k);
     if (tag === 'img') return this.image(el as HTMLImageElement, b, cs);
     if (tag === 'svg') return this.svg(el as unknown as SVGSVGElement, b);
     if (tag === 'video') return this.video(el as HTMLVideoElement, b);
@@ -582,6 +583,42 @@ class Converter {
       if (r) line(b.x + b.w - sides[1].w / 2, b.y, 0, b.h, sides[1]);
     }
     await this.pseudo(el, b, op, k);
+  }
+
+  /**
+   * Фигура PowerPoint из студии (ромб, звезда, стрелки, выноска…): той же стандартной фигурой (prstGeom) — правится
+   * в PowerPoint, с заливкой (и градиентом), контуром, тенью и поворотом; текст — поверх, как у остальных фигур
+   */
+  private async presetShape(el: HTMLElement, cs: CSSStyleDeclaration, b: Box, op: number, k: number): Promise<void> {
+    // Заливка — какой её видит браузер: цвета темы и градиент уже посчитаны
+    const probe = document.createElement('i');
+    probe.style.cssText = 'position:absolute;width:0;height:0;background:var(--sf)';
+    el.appendChild(probe);
+    const pcs = getComputedStyle(probe);
+    const filled = !!el.querySelector(':scope > .shape-f');
+    let fill = filled ? rgba(pcs.backgroundColor) : null;
+    const flat = flatGradient(pcs.backgroundImage);
+    if (filled && flat) fill = flat;
+    const native = filled && !flat && /gradient/.test(pcs.backgroundImage) ? nativeGradient(pcs) : null;
+    if (native) fill = { hex: MARKS.mark(gradFillXml(native, op)), a: 1 };
+    probe.remove();
+    // Контур: цвет слоя (у градиентного — его первый цвет), толщина и штрих — из атрибутов слоя
+    const o = el.querySelector<HTMLElement>(':scope > .shape-o');
+    const ocs = o ? getComputedStyle(o) : null;
+    const line = ocs ? rgba(ocs.backgroundColor) ?? rgba(/rgba?\([^)]*\)/.exec(ocs.backgroundImage)?.[0] ?? '') : null;
+    const shadow = this.shadow(/drop-shadow\((.*)\)/.exec(cs.filter)?.[1] ?? '', k);
+    const rot = this.rotation(cs);
+    const size = rot ? { w: el.offsetWidth * k, h: el.offsetHeight * k } : { w: b.w, h: b.h };
+    const at = rot ? { x: b.x + b.w / 2 - size.w / 2, y: b.y + b.h / 2 - size.h / 2, ...size } : b;
+    this.slide.addShape(el.dataset.prst as PptxGenJS.SHAPE_NAME, {
+      ...this.pos(at),
+      fill: fill ? { color: fill.hex, transparency: transparency(fill.a * op) } : { type: 'none' } as never,
+      line: o && line ? { color: line.hex, width: pt(Number(o.dataset.w) * k), transparency: transparency(line.a * op), dashType: o.dataset.dash === 'dash' ? 'dash' : o.dataset.dash === 'dot' ? 'sysDot' : 'solid' } : { type: 'none' } as never,
+      rotate: this.spin(rot) || undefined,
+      shadow: shadow ?? undefined,
+    });
+    const text = el.querySelector<HTMLElement>(':scope > .shape-t');
+    if (text) await this.walk(text, op, k);
   }
 
   /** Украшения из ::before / ::after с абсолютным положением: точки, полоски, метки */

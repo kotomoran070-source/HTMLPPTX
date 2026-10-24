@@ -1,7 +1,7 @@
 import { icon } from '../components/icons';
 import { gradColor, gradientMid, TEXT_GRADIENTS } from '../engine/gradients';
 import { gradientPanel, type GradValue } from '../engine/editor/gradient-edit';
-import { GRADIENTS, SHAPE_COLORS, SHAPE_STYLES, SHAPE_SWATCHES, gradientCss, gradientOn, isGradient, sameGradient, shapeFill, type ShapeGradient } from '../components/shape/shape';
+import { GRADIENTS, PRESET_KINDS, SHAPE_COLORS, SHAPE_STYLES, SHAPE_SWATCHES, gradientCss, gradientOn, isGradient, sameGradient, shapeFill, type ShapeGradient } from '../components/shape/shape';
 import { IMAGE_ADJUST, IMAGE_FILTER_GROUPS, IMAGE_FILTERS, IMAGE_LOOK_KEYS, IMAGE_SHADOWS, IMAGE_STYLES, adjustCss, filterCss, imageLookCss, type ImageLook } from '../components/layout/image-look';
 
 /** Цвет снимка: стиль рисунка (рамка, тень, форма) его не трогает */
@@ -168,7 +168,16 @@ const blockEl = (type: string, b: Block): Element | null => {
 const shapeSample = (b: Block) => {
   const line = b.kind === 'line' || b.kind === 'arrow';
   const r = Number(b.radius);
-  const n = blockEl('shape', { ...b, text: line ? undefined : 'Аа', radius: Number.isFinite(r) && b.radius !== undefined ? Math.round(r * 0.35) : b.kind === 'rect' ? 0 : 6, style: undefined, width: b.width ? Math.min(3, Number(b.width)) : b.width });
+  // Фигура PowerPoint — в своих пропорциях, вписанная в образец
+  const pre = PRESET_KINDS[b.kind as string];
+  const k = pre ? Math.min(54 / pre.size[0], 34 / pre.size[1]) : 0;
+  const fit = pre ? { place: { w: Math.round(pre.size[0] * k), h: Math.round(pre.size[1] * k) } } : {};
+  const size = pre ? `flex:none;width:${fit.place!.w}px;height:${fit.place!.h}px;margin:auto` : undefined;
+  // Образец формы (галерея «Ещё»): сама форма — без «Аа» и с контуром, даже если у фигуры его нет
+  const form = (b as { sample?: unknown }).sample === 'form';
+  const outline = form && !Number(b.width) ? { stroke: 'accent', width: 1.5 } : {};
+  const wd = outline.width ?? b.width;
+  const n = blockEl('shape', { ...b, ...fit, ...outline, text: line || form ? undefined : 'Аа', radius: Number.isFinite(r) && b.radius !== undefined ? Math.round(r * 0.35) : b.kind === 'rect' ? 0 : 6, style: size, width: wd ? Math.min(3, Number(wd)) : wd });
   return `<i class="st-smp st-smp-sh"><i class="st-smp-shape${line ? ' line' : ''}">${n?.outerHTML ?? ''}</i></i>`;
 };
 
@@ -222,7 +231,8 @@ export function contextTabsHtml(): string {
 export function contextPanelsHtml(): string {
   return `<div class="st-rpanel" data-panel="shape" hidden>
   ${group('Стили', `<div class="st-gallery">${SHAPE_STYLES.map(styleTile).join('')}</div>`)}
-  ${group('Форма', `<div class="st-rgrid">${KINDS.map(([k, ic, l]) => btn(`shape.kind.${k}`, ic, l, { ico: true })).join('')}</div>`)}
+  ${group('Форма', `<div class="st-rgrid">${KINDS.map(([k, ic, l]) => btn(`shape.kind.${k}`, ic, l, { ico: true })).join('')}</div>`
+    + btn('shape.kinds', 'sh-more', 'Ещё', { big: true, menu: true, title: 'Ромб, треугольник, звезда, стрелки, выноска и другие фигуры' }))}
   ${group('Цвет', btn('shape.fill', 'fill', 'Заливка', { big: true, menu: true, swatch: 'fill' }) + btn('shape.stroke', 'outline', 'Контур', { big: true, menu: true, swatch: 'stroke', title: 'Цвет, толщина и штрих контура' }))}
   ${group('Текст', btn('shape.text', 'text-box', 'Надпись', { big: true, title: 'Текст внутри фигуры' })
     + stack(
@@ -635,6 +645,12 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       // Классы правки (выделение и т. п.) остаются, классы фигуры — новые
       el.className = [...[...el.classList].filter((c) => !c.startsWith('shape')), ...n.classList].join(' ');
       put(el, n.getAttribute('style'));
+      // Фигура PowerPoint: слои заливки и контура — новые, текст и его правка остаются
+      el.querySelectorAll(':scope > :is(.shape-f, .shape-o)').forEach((x) => x.remove());
+      el.prepend(...n.querySelectorAll(':scope > :is(.shape-f, .shape-o)'));
+      const prst = n.getAttribute('data-prst');
+      if (prst) el.setAttribute('data-prst', prst);
+      else el.removeAttribute('data-prst');
     },
     sample: shapeSample,
   };
@@ -1079,6 +1095,23 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   const cmds: Record<string, Command> = {
     'shape.fill': { run: () => palette('shape.fill', 'fill'), enabled: isBody },
     'shape.stroke': { run: () => palette('shape.stroke', 'stroke'), enabled: isShape },
+    // Фигуры PowerPoint: образцы — выделенная фигура в каждой форме, наведение примеряет форму на слайде
+    'shape.kinds': {
+      run: () => {
+        const b0 = first('shape');
+        const cur = b0?.kind;
+        const opt = (k: string): LookOption => ({
+          label: PRESET_KINDS[k].short ?? PRESET_KINDS[k].name, on: cur === k, pick: () => cmds[`shape.kind.${k}`].run(),
+          patch: isLine(b0) ? { kind: k, fill: 'soft', width: undefined } : { kind: k },
+          preview: { ...(isLine(b0) ? { fill: 'soft', width: undefined } : {}), kind: k, sample: 'form' },
+        });
+        lookPopover(anchor('shape.kinds'), [
+          { title: 'Многоугольники и знаки', options: ['diamond', 'triangle', 'right-triangle', 'parallelogram', 'trapezoid', 'pentagon', 'hexagon', 'octagon', 'star', 'plus', 'heart', 'lightning', 'donut', 'cloud'].map(opt) },
+          { title: 'Стрелки и выноски', options: ['block-arrow', 'double-arrow', 'chevron', 'pointer', 'callout', 'cylinder', 'brace'].map(opt) },
+        ], undefined, 'st-kindpop', SHAPE_KIND);
+      },
+      enabled: isShape, active: () => isShape() && !!PRESET_KINDS[first('shape')?.kind as string],
+    },
     'shape.shadow': { run: () => lookGallery('shape.shadow', 'shadow', [[undefined, 'Без тени'], ...Object.entries(IMAGE_SHADOWS).map(([v, s]) => [v, s.name] as [string, string])], undefined, undefined, SHAPE_KIND), enabled: isBody },
     'shape.radius': {
       run: () => lookGallery('shape.radius', 'radius', [[0, 'Острые'], [8, 'Малое'], [undefined, 'Обычное'], [24, 'Большое'], [40, 'Очень большое']],
@@ -1172,7 +1205,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     'table.size.up': { run: () => setAll('table', 'size', Math.min(40, (Number(first('table')?.size) || 17) + 1)), enabled: isTable },
     'table.size.down': { run: () => setAll('table', 'size', Math.max(10, (Number(first('table')?.size) || 17) - 1)), enabled: isTable },
   };
-  for (const [k] of KINDS) {
+  for (const k of [...KINDS.map(([id]) => id), ...Object.keys(PRESET_KINDS)]) {
     cmds[`shape.kind.${k}`] = {
       run: () => {
         const paths = targets('shape');

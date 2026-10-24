@@ -1,4 +1,6 @@
 // Импорт PowerPoint: файл собирается здесь же (pptxgenjs), переводится в слайды и проверяется по объектам
+import fs from 'node:fs';
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import JSZip from 'jszip';
 import PptxGenJS from 'pptxgenjs';
@@ -188,4 +190,18 @@ test('«Под темы Slideria»: фон и текст файла — по с�
 
 test('не PPTX — понятная ошибка', async () => {
   await expect(convertPptx(Buffer.from('не архив'), 'x.pptx')).rejects.toThrow();
+});
+
+test('фигуры студии (ромб, звезда, выноска…) — контуры точно как у импорта PowerPoint, определения все на месте', async () => {
+  const { presetPaths } = await import('../../plugins/pptx/geom');
+  const { PRESET_KINDS, presetGeometry } = await import('../../src/components/shape/kinds');
+  const script = fs.readFileSync(path.resolve('scripts/shape-presets.mjs'), 'utf8');
+  for (const [kind, { prst }] of Object.entries(PRESET_KINDS)) {
+    expect(script, `${prst} нет в scripts/shape-presets.mjs`).toContain(`'${prst}'`);
+    for (const [w, h] of [[200, 200], [300, 120], [90, 260]]) {
+      const own = presetGeometry(kind, w, h);
+      expect(own.length, kind).toBeGreaterThan(0);
+      expect(own).toEqual(presetPaths(prst, w, h, {}));
+    }
+  }
 });

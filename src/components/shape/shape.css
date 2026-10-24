@@ -18,3 +18,9 @@
 .shape-lg .shape-bar { background: var(--sg); }
 .shape-lg.shape-dash .shape-bar { -webkit-mask: repeating-linear-gradient(90deg, #000 0 calc(var(--w) * 3), transparent 0 calc(var(--w) * 5)); mask: repeating-linear-gradient(90deg, #000 0 calc(var(--w) * 3), transparent 0 calc(var(--w) * 5)); }
 .shape-lg.shape-dot .shape-bar { background: var(--sg); -webkit-mask: radial-gradient(circle closest-side, #000 96%, transparent) 0 0 / calc(var(--w) * 2) var(--w) repeat-x; mask: radial-gradient(circle closest-side, #000 96%, transparent) 0 0 / calc(var(--w) * 2) var(--w) repeat-x; }
+
+/* Фигуры PowerPoint (ромб, звезда, стрелки…): заливка и контур — слои с маской по контуру (--m), тень — по контуру */
+.shape-p { overflow: visible; }
+.shape-p > :is(.shape-f, .shape-o) { position: absolute; pointer-events: none; -webkit-mask: var(--m) 0 0 / 100% 100% no-repeat; mask: var(--m) 0 0 / 100% 100% no-repeat; }
+.shape-p > .shape-f { background: linear-gradient(var(--sh, transparent), var(--sh, transparent)), var(--sf); }
+.shape-p > .shape-t { position: relative; }

@@ -79,6 +79,7 @@ const PATHS: Record<string, string> = {
   'sh-ellipse': '<ellipse cx="12" cy="12" rx="8.5" ry="6.5"/>',
   'sh-line': '<path d="M4 18 20 6"/>',
   'sh-arrow': '<path d="M4 18 19 7"/><path d="M12 6.5h7.5V14"/>',
+  'sh-more': '<path d="M8 3.5 12.5 11h-9z"/><circle cx="17" cy="7.5" r="3.8"/><rect x="3.5" y="14" width="7" height="7" rx="1"/><path d="m17 13.5 3.8 3.8-3.8 3.8-3.8-3.8z"/>',
   fill: '<path d="m5 11 6-6 7 7-6 6a1.5 1.5 0 0 1-2 0l-5-5a1.5 1.5 0 0 1 0-2z"/><path d="M4 21h16"/><path d="M19.5 14.5s1.5 1.8 1.5 2.8a1.5 1.5 0 0 1-3 0c0-1 1.5-2.8 1.5-2.8z"/>',
   outline: '<rect x="4" y="4" width="16" height="16" rx="3" stroke-dasharray="3 2"/>',
   weight: '<path d="M4 6h16" stroke-width="1"/><path d="M4 11h16" stroke-width="2"/><path d="M4 17h16" stroke-width="3.4"/>',

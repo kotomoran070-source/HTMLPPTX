@@ -1,4 +1,5 @@
 import { icon } from '../components/icons';
+import { PRESET_KINDS, presetGlyph } from '../components/shape/kinds';
 import { H, W } from '../engine/deck-view';
 import { uiLook } from '../engine/deck-theme';
 import { esc } from '../engine/html';
@@ -31,6 +32,11 @@ const stat = (value: string, label: string, delta?: string) => ({ type: 'stat', 
 /** Строка текста с оформлением: размер, насыщенность, цвет темы, заглавные */
 const line = (text: string, st: Record<string, unknown> = {}, extra: Record<string, unknown> = {}) => ({ type: 'text', text, ...extra, ...(Object.keys(st).length ? { styles: { text: st } } : {}) });
 /** Надпись над заголовком: мелко, заглавными, цветом акцента */
+/** Фигуры PowerPoint (components/shape: PRESET_KINDS) для галереи «Фигуры»: значок — из той же геометрии; скобка — только контур */
+const presets = (...kinds: string[]): Preset[] => kinds.map((kind) => {
+  const { name, short, size: [w, h] } = PRESET_KINDS[kind];
+  return { name: short ?? name, w, h, glyph: presetGlyph(kind), make: () => (kind === 'brace' ? { type: 'shape', kind, fill: 'none', stroke: 'accent', width: 3 } : { type: 'shape', kind, fill: 'soft', stroke: 'accent', width: 2 }) };
+});
 const eyebrow = (text: string) => line(text, { size: 14, weight: 700, color: 'accent', upper: true, spacing: 0.12 });
 /** Список текстом: вид маркера — как в меню списка (check, num, dash…) */
 const bullets = (items: string[], list?: string, size?: number) => line(items.map((x) => `- ${x}`).join('\n'), { ...(list ? { list } : {}), ...(size ? { size } : {}) });
@@ -156,8 +162,10 @@ export const LIBRARY: Category[] = [
       { name: 'Капсула', w: 320, h: 96, glyph: '<rect x="5" y="8" width="38" height="16" rx="8"/>', make: () => ({ type: 'shape', kind: 'pill', fill: 'soft', stroke: 'accent', width: 2 }) },
       { name: 'Круг', w: 180, h: 180, glyph: '<circle cx="24" cy="16" r="10.5"/>', make: () => ({ type: 'shape', kind: 'ellipse', fill: 'soft', stroke: 'accent', width: 2 }) },
       { name: 'Овал', w: 300, h: 180, glyph: '<ellipse cx="24" cy="16" rx="19" ry="10.5"/>', make: () => ({ type: 'shape', kind: 'ellipse', fill: 'soft', stroke: 'accent', width: 2 }) },
+      ...presets('diamond', 'triangle', 'right-triangle', 'parallelogram', 'trapezoid', 'pentagon', 'hexagon', 'octagon', 'star', 'plus', 'heart', 'lightning', 'donut', 'cloud'),
       { name: 'Линия', w: 400, h: 16, glyph: '<path class="ln" d="M6 16h36"/>', make: () => ({ type: 'shape', kind: 'line', stroke: 'accent', width: 3 }) },
       { name: 'Стрелка', w: 260, h: 24, glyph: '<path class="ln" d="M6 16h34M33 10l7 6-7 6"/>', make: () => ({ type: 'shape', kind: 'arrow', stroke: 'accent', width: 3 }) },
+      ...presets('block-arrow', 'double-arrow', 'chevron', 'pointer', 'callout', 'cylinder', 'brace'),
     ],
   },
   {

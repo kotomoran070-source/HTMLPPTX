@@ -5,15 +5,10 @@
  */
 import { DOMParser } from '@xmldom/xmldom';
 import PRESET_XML from './presets';
-import { type El, attr, kids, num, one } from './xml';
+import { type El, attr, kids, one } from './xml';
+import { type GeomPath, ANG, arcPath, customPaths, f, onEllipse, poly } from '../../src/engine/geom';
 
-export interface GeomPath {
-  d: string;
-  fill: boolean;
-  stroke: boolean;
-  /** Затенённая часть фигуры (изнанка изогнутой стрелки, бок куба): темнее или светлее заливки */
-  shade?: 'darken' | 'darkenLess' | 'lighten' | 'lightenLess';
-}
+export { type GeomPath, customPaths } from '../../src/engine/geom';
 
 /** Определения стандартных фигур (presets.ts) — по имени, разбираются один раз */
 let presetDefs: Map<string, El> | null = null;
@@ -26,10 +21,6 @@ function presetDef(prst: string): El | null {
   return presetDefs.get(prst) ?? null;
 }
 
-const f = (n: number) => (Math.round(n * 100) / 100).toString();
-const ANG = 60000; // единицы углов DrawingML: 1/60000 градуса
-const rad = (a: number) => (a / ANG) * (Math.PI / 180);
-
 /** Значения регулировок фигуры (avLst): adj, adj1… */
 export function adjusts(geom: El | null): Record<string, number> {
   const out: Record<string, number> = {};
@@ -39,28 +30,6 @@ export function adjusts(geom: El | null): Record<string, number> {
   }
   return out;
 }
-
-/** Точка на эллипсе (rx, ry) с центром (cx, cy) под углом ang (единицы DrawingML, по часовой) */
-const onEllipse = (cx: number, cy: number, rx: number, ry: number, ang: number): [number, number] => {
-  // Угол «видимый», как в PowerPoint: для неравных осей точка — на луче под этим углом
-  const t = rad(ang);
-  const u = Math.atan2(Math.sin(t) * rx, Math.cos(t) * ry);
-  return [cx + rx * Math.cos(u), cy + ry * Math.sin(u)];
-};
-
-function arcPath(cx: number, cy: number, rx: number, ry: number, st: number, sw: number, move: boolean): string {
-  const [x1, y1] = onEllipse(cx, cy, rx, ry, st);
-  const [x2, y2] = onEllipse(cx, cy, rx, ry, st + sw);
-  const large = Math.abs(sw) > 180 * ANG ? 1 : 0;
-  const sweep = sw > 0 ? 1 : 0;
-  if (Math.abs(sw) >= 360 * ANG - 1) {
-    const [xm, ym] = onEllipse(cx, cy, rx, ry, st + sw / 2);
-    return `${move ? `M${f(x1)} ${f(y1)}` : `L${f(x1)} ${f(y1)}`} A${f(rx)} ${f(ry)} 0 0 ${sweep} ${f(xm)} ${f(ym)} A${f(rx)} ${f(ry)} 0 0 ${sweep} ${f(x2)} ${f(y2)}`;
-  }
-  return `${move ? `M${f(x1)} ${f(y1)}` : `L${f(x1)} ${f(y1)}`} A${f(rx)} ${f(ry)} 0 ${large} ${sweep} ${f(x2)} ${f(y2)}`;
-}
-
-const poly = (pts: [number, number][]) => `M${pts.map(([x, y]) => `${f(x)} ${f(y)}`).join(' L')} Z`;
 
 /** Знает ли импорт стандартную фигуру (иначе — прямоугольник и предупреждение) */
 export const knownPreset = (prst: string) => PRESETS.has(prst) || !!presetDef(prst);
@@ -210,87 +179,3 @@ function handPaths(prst: string, w: number, h: number, a: Record<string, number>
   }
 }
 
-/** Формулы gdLst (custGeom): умножение-деление, сложение-вычитание, val, min, max, pin, sin, cos и др. */
-function evalGuides(geom: El, w: number, h: number, over: Record<string, number> = {}): Map<string, number> {
-  const ss = Math.min(w, h);
-  const v = new Map<string, number>([['w', w], ['h', h], ['l', 0], ['t', 0], ['r', w], ['b', h], ['ss', ss], ['ls', Math.max(w, h)], ['hc', w / 2], ['vc', h / 2],
-    ['cd2', 10800000], ['cd4', 5400000], ['cd8', 2700000], ['3cd4', 16200000], ['3cd8', 8100000], ['5cd8', 13500000], ['7cd8', 18900000]]);
-  // Доли сторон: wd2 … wd32, hd2 … hd32, ssd2 … ssd32
-  for (const n of [2, 3, 4, 5, 6, 8, 10, 12, 16, 32]) { v.set(`wd${n}`, w / n); v.set(`hd${n}`, h / n); v.set(`ssd${n}`, ss / n); }
-  const get = (s: string) => (v.has(s) ? v.get(s)! : Number(s) || 0);
-  for (const gd of [...kids(one(geom, 'avLst'), 'gd'), ...kids(one(geom, 'gdLst'), 'gd')]) {
-    const name = attr(gd, 'name') ?? '';
-    // Регулировка фигуры из файла сильнее значения по умолчанию (adj и adj1 — одно и то же у фигур с одной ручкой)
-    const own = over[name] ?? (name === 'adj' ? over.adj1 : name === 'adj1' ? over.adj : undefined);
-    if (own !== undefined && gd.parentNode && (gd.parentNode as El).localName === 'avLst') { v.set(name, own); continue; }
-    const [op, ...args] = (attr(gd, 'fmla') ?? '').trim().split(/\s+/);
-    const [x, y, z] = args.map(get);
-    let r = 0;
-    switch (op) {
-      case 'val': r = x; break;
-      case '*/': r = (x * y) / (z || 1); break;
-      case '+-': r = x + y - z; break;
-      case '+/': r = (x + y) / (z || 1); break;
-      case '?:': r = x > 0 ? y : z; break;
-      case 'abs': r = Math.abs(x); break;
-      case 'max': r = Math.max(x, y); break;
-      case 'min': r = Math.min(x, y); break;
-      case 'mod': r = Math.sqrt(x * x + y * y + z * z); break;
-      case 'pin': r = y < x ? x : y > z ? z : y; break;
-      case 'sqrt': r = Math.sqrt(x); break;
-      case 'sin': r = x * Math.sin(rad(y)); break;
-      case 'cos': r = x * Math.cos(rad(y)); break;
-      case 'tan': r = x * Math.tan(rad(y)); break;
-      case 'at2': r = (Math.atan2(y, x) * 180 / Math.PI) * ANG; break;
-      case 'cat2': r = x * Math.cos(Math.atan2(z, y)); break;
-      case 'sat2': r = x * Math.sin(Math.atan2(z, y)); break;
-      default: r = 0;
-    }
-    v.set(name, r);
-  }
-  return v;
-}
-
-/** Контуры своей кривой (custGeom), масштаб — к размеру фигуры */
-export function customPaths(geom: El, w: number, h: number, over: Record<string, number> = {}): GeomPath[] {
-  const guides = evalGuides(geom, w, h, over);
-  const val = (s: string | null) => (s === null ? 0 : guides.has(s) ? guides.get(s)! : Number(s) || 0);
-  const out: GeomPath[] = [];
-  for (const p of kids(one(geom, 'pathLst'), 'path')) {
-    // Своя сетка контура (w, h) — к размеру фигуры; без неё — уже в размере (и у линии нулевой ширины)
-    const pw = num(p, 'w'), ph = num(p, 'h');
-    const sx = pw ? w / pw : 1, sy = ph ? h / ph : 1;
-    const X = (pt: El) => val(attr(pt, 'x')) * sx, Y = (pt: El) => val(attr(pt, 'y')) * sy;
-    let d = '';
-    let cx = 0, cy = 0;
-    for (const c of kids(p)) {
-      const pts = kids(c, 'pt');
-      switch (c.localName) {
-        case 'moveTo': cx = X(pts[0]); cy = Y(pts[0]); d += `M${f(cx)} ${f(cy)} `; break;
-        case 'lnTo': cx = X(pts[0]); cy = Y(pts[0]); d += `L${f(cx)} ${f(cy)} `; break;
-        case 'cubicBezTo': d += `C${pts.map((q) => `${f(X(q))} ${f(Y(q))}`).join(' ')} `; cx = X(pts[2]); cy = Y(pts[2]); break;
-        case 'quadBezTo': d += `Q${pts.map((q) => `${f(X(q))} ${f(Y(q))}`).join(' ')} `; cx = X(pts[1]); cy = Y(pts[1]); break;
-        case 'arcTo': {
-          const rx = val(attr(c, 'wR')) * sx, ry = val(attr(c, 'hR')) * sy;
-          const st = val(attr(c, 'stAng')), sw = val(attr(c, 'swAng'));
-          // Центр — так, чтобы текущая точка лежала на эллипсе под углом stAng
-          const t0 = rad(st), u0 = Math.atan2(Math.sin(t0) * rx, Math.cos(t0) * ry);
-          const ccx = cx - rx * Math.cos(u0), ccy = cy - ry * Math.sin(u0);
-          const seg = arcPath(ccx, ccy, rx, ry, st, sw, false).replace(/^L[^A]*/, '');
-          const t1 = rad(st + sw), u1 = Math.atan2(Math.sin(t1) * rx, Math.cos(t1) * ry);
-          cx = ccx + rx * Math.cos(u1); cy = ccy + ry * Math.sin(u1);
-          d += `${seg} `;
-          break;
-        }
-        case 'close': d += 'Z '; break;
-        default: break;
-      }
-    }
-    const fl = attr(p, 'fill');
-    out.push({
-      d: d.trim(), fill: fl !== 'none', stroke: attr(p, 'stroke') !== '0' && attr(p, 'stroke') !== 'false',
-      ...(fl === 'darken' || fl === 'darkenLess' || fl === 'lighten' || fl === 'lightenLess' ? { shade: fl } : {}),
-    });
-  }
-  return out;
-}

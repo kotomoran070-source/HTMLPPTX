@@ -3,6 +3,8 @@
  * По этим описаниям строится форма (см. form.ts): поле схемы = поле в deck.yaml.
  * Новый компонент получает редактор свойств, если описать его здесь.
  */
+import { PRESET_KINDS } from '../components/shape/kinds';
+
 
 export type Field =
   | { k: string; label: string; type: 'text' | 'textarea' | 'url'; placeholder?: string; hint?: string }
@@ -320,7 +322,7 @@ export const BLOCKS: Record<string, Schema> = {
   },
   shape: {
     fields: [
-      { k: 'kind', label: 'Форма', type: 'select', options: [['', 'Скруглённый прямоугольник'], ['rect', 'Прямоугольник'], ['pill', 'Капсула'], ['ellipse', 'Овал'], ['line', 'Линия'], ['arrow', 'Стрелка']] },
+      { k: 'kind', label: 'Форма', type: 'select', options: [['', 'Скруглённый прямоугольник'], ['rect', 'Прямоугольник'], ['pill', 'Капсула'], ['ellipse', 'Овал'], ['line', 'Линия'], ['arrow', 'Стрелка'], ...Object.entries(PRESET_KINDS).map(([k, v]) => [k, v.name] as [string, string])] },
       { k: 'text', label: 'Текст внутри', type: 'textarea' },
       { k: 'fill', label: 'Заливка', type: 'color', none: true },
       { k: 'stroke', label: 'Рамка / цвет линии', type: 'color', none: true },

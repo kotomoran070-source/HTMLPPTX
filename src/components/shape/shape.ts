@@ -3,7 +3,18 @@ import { styleAttr, t } from '../../engine/html';
 import { GRADIENTS, gradColor, gradientCss, gradientOn, isGradient, type ShapeGradient } from '../../engine/gradients';
 import { ea } from '../../engine/marks';
 import type { Block } from '../../types';
+import { boundsOf, PRESET_KINDS, presetGeometry } from './kinds';
 import './shape.css';
+
+export { PRESET_KINDS, presetGeometry, presetGlyph } from './kinds';
+
+/** Затенённые части (крышка цилиндра): заливка с наложенным чёрным или белым, как в PowerPoint */
+const SHADE = { darken: 'rgba(0, 0, 0, .4)', darkenLess: 'rgba(0, 0, 0, .2)', lighten: 'rgba(255, 255, 255, .4)', lightenLess: 'rgba(255, 255, 255, .2)' } as const;
+
+/** Маска слоя: контуры в SVG, растянутом на весь слой */
+function maskOf(box: string, body: string): string {
+  return `url('data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${box}" preserveAspectRatio="none">${body}</svg>`)}')`;
+}
 
 /** Тени фигуры и рисунка: лёгкая, заметная, глубокая */
 export const SHADOWS: Record<string, { name: string; css: string }> = {
@@ -77,8 +88,11 @@ function onColor(fill: unknown): string {
 }
 
 export interface ShapeProps extends Block {
-  /** rect — прямоугольник, round — скруглённый, pill — капсула, ellipse — круг/овал, line — линия, arrow — стрелка */
-  kind?: 'rect' | 'round' | 'pill' | 'ellipse' | 'line' | 'arrow';
+  /**
+   * rect — прямоугольник, round — скруглённый, pill — капсула, ellipse — круг/овал, line — линия, arrow — стрелка;
+   * фигуры PowerPoint — ключи PRESET_KINDS: diamond, triangle, star, block-arrow, callout, cylinder…
+   */
+  kind?: string;
   /** Заливка: surface, alt, soft, accent, text, border, muted, gradient, none или #RRGGBB */
   fill?: string;
   /** Свой градиент при fill: gradient (без него — градиент акцента) */
@@ -125,6 +139,7 @@ defineBlock<ShapeProps>('shape', {
         + (kind === 'arrow' ? `<i class="shape-head" style="--h:${head}px"></i>` : '') + `</div>`;
     }
     const fill = p.fill === 'gradient' ? gradientCss(p.gradient) : shapeFill(p.fill) ?? 'var(--acs)';
+    if (PRESET_KINDS[kind]) return presetShape(p, kind, fill, w, sg, dash, [rot, opacity]);
     const stroke = w && !sg ? shapeColor(p.stroke) ?? 'var(--acb)' : '';
     // Градиентный контур — кольцом поверх краёв (рамка CSS градиентом не красится)
     const ring = w && sg ? `--sg:${gradientCss(p.strokeGradient)};--sw:${w}px` : '';
@@ -143,3 +158,44 @@ defineBlock<ShapeProps>('shape', {
       + `</div>`;
   },
 });
+
+/**
+ * Фигура PowerPoint: заливка и контур — слои с маской по контуру фигуры (градиенты и цвета темы — как у остальных
+ * фигур), затенённые части — своим слоем, тень — по контуру. Контур считается под размер объекта (place)
+ */
+function presetShape(p: ShapeProps, kind: string, fill: string, w: number, sg: boolean, dash: string, extra: string[]): string {
+  const pl = (p as { place?: { w?: unknown; h?: unknown } }).place;
+  const [dw, dh] = PRESET_KINDS[kind].size;
+  const W = Math.max(8, Math.round(Number(pl?.w) || dw));
+  const H = Math.max(8, Math.round(Number(pl?.h) || (W * dh) / dw));
+  const paths = presetGeometry(kind, W, H);
+  const fills = paths.filter((g) => g.fill && !g.shade).map((g) => `<path d="${g.d}"/>`).join('');
+  const shades = paths.filter((g) => g.fill && g.shade);
+  const lines = paths.filter((g) => g.stroke).map((g) => `<path d="${g.d}"/>`).join('');
+  // Слой — по границам контура (хвост выноски выходит за рамку фигуры), у контура — с запасом под толщину и углы
+  const [x0, y0, x1, y1] = boundsOf(paths, W, H);
+  const layer = (pad: number) => ({
+    box: `${x0 - pad} ${y0 - pad} ${x1 - x0 + pad * 2} ${y1 - y0 + pad * 2}`,
+    at: `inset:${y0 - pad}px ${W - x1 - pad}px ${H - y1 - pad}px ${x0 - pad}px`,
+  });
+  const lf = layer(0);
+  let layers = fill !== 'transparent' && fills ? `<i class="shape-f" style="${lf.at};--m:${maskOf(lf.box, fills)}"></i>` : '';
+  if (fill !== 'transparent') {
+    for (const g of shades) layers += `<i class="shape-f" style="${lf.at};--m:${maskOf(lf.box, `<path d="${g.d}"/>`)};--sh:${SHADE[g.shade!]}"></i>`;
+  }
+  if (w && lines) {
+    const lo = layer(Math.ceil(w * 2 + 1));
+    const pattern = dash === 'dash' ? ` stroke-dasharray="${w * 3} ${w * 2}"` : dash === 'dot' ? ` stroke-dasharray="0 ${w * 2}" stroke-linecap="round"` : '';
+    const body = `<g fill="none" stroke="#000" stroke-width="${w}" stroke-linejoin="miter" stroke-miterlimit="4"${pattern}>${lines}</g>`;
+    const color = sg ? gradientCss(p.strokeGradient) : shapeColor(p.stroke) ?? 'var(--acb)';
+    layers += `<i class="shape-o" data-w="${w}"${dash ? ` data-dash="${dash}"` : ''} style="${lo.at};--m:${maskOf(lo.box, body)};background:${color}"></i>`;
+  }
+  const css = [
+    `--sf:${fill}`, `color:${p.fill === 'gradient' ? gradientOn(p.gradient) : onColor(p.fill ?? 'soft')}`,
+    p.shadow ? `filter:drop-shadow(${(SHADOWS[p.shadow === true ? 'md' : p.shadow] ?? SHADOWS.md).css})` : '', ...extra,
+  ].filter(Boolean).join(';');
+  const v = p.valign === 'top' || p.valign === 'bottom' ? ` v-${p.valign}` : '';
+  return `<div class="shape shape-p shape-${kind}${v}" data-prst="${PRESET_KINDS[kind].prst}"${styleAttr(css, p.style)}>${layers}`
+    + (p.text ? `<div class="shape-t"${ea(p, 'text')}>${t(p.text)}</div>` : '')
+    + `</div>`;
+}

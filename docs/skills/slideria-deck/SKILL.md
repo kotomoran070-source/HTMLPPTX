@@ -75,7 +75,7 @@ slides:
       enter: rise                           # appear, fade, rise, drop, left, right, scale, pop, swivel, growturn, blur, ripple, wipe, split, circle, diamond, wheel, mask, words, letters (текст), draw (линии, фигуры)
       delay: 150                            # мс
     - type: shape
-      kind: round                           # round, rect, pill, ellipse, line, arrow
+      kind: round                           # round, rect, pill, ellipse, line, arrow; фигуры PowerPoint: diamond, triangle, right-triangle, parallelogram, trapezoid, pentagon, hexagon, octagon, star, plus, heart, lightning, donut, cloud, block-arrow, double-arrow, chevron, pointer, callout, cylinder, brace
       fill: gradient                        # surface, soft, accent, gradient, none…
       text: "**Главное**\nодна мысль"
       place: {x: 48, y: 180, w: 360, h: 200}

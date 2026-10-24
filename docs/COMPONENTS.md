@@ -855,7 +855,7 @@ colors: {head: "#1F3B4D", headText: "#FFFFFF", fill: "#FFFFFF", band: "#E8F0F3",
 
 ```yaml
 type: shape
-kind: round        # round (по умолчанию), rect, pill, ellipse, line, arrow
+kind: round        # round (по умолчанию), rect, pill, ellipse, line, arrow — или фигура PowerPoint (ниже)
 fill: soft         # surface, bg, alt, soft, accent, text, line, border, muted, gradient, none или #RRGGBB
 stroke: accent     # рамка; у линии и стрелки — их цвет
 width: 2           # толщина рамки или линии, px
@@ -869,6 +869,8 @@ valign: top        # текст по вертикали: top, middle (по ум�
 styles: {text: {size: 24, align: left}}   # оформление текста, как у любого поля
 place: {x: 100, y: 100, w: 320, h: 180}
 ```
+
+Фигуры PowerPoint — `kind` с контуром точно по стандарту (ECMA-376, как в PowerPoint, под размер фигуры): `diamond` (ромб), `triangle`, `right-triangle` (прямоугольный), `parallelogram`, `trapezoid`, `pentagon`, `hexagon`, `octagon`, `star` (звезда), `plus`, `heart`, `lightning` (молния), `donut` (кольцо), `cloud`, `block-arrow` (стрелка-блок), `double-arrow`, `chevron`, `pointer` (указатель), `callout` (выноска), `cylinder`, `brace` (фигурная скобка). Заливка (и градиенты), контур со штрихом, тень, поворот и текст — те же, что у остальных фигур; скругления у них нет. В PowerPoint они уходят той же стандартной фигурой — правятся там как родные. В студии: «Вставка» → «Фигуры» или вкладка «Фигура» → «Ещё» (наведение примеряет форму на слайде). Новая фигура из 187 стандартных — имя в `scripts/shape-presets.mjs` и в `PRESET_KINDS` (`components/shape/kinds.ts`).
 
 Цвета по ролям темы сами меняются в тёмной теме и при смене акцента; `gradient` — градиент от акцентного цвета или свой:
 
