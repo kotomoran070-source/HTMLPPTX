@@ -26,6 +26,8 @@ export interface AutoplayHost {
   blocked(): boolean;
   bar: { grow(ms: number): void; reset(): void; freeze(): void };
   changed(on: boolean): void;
+  /** Отсчёт пошёл: через ms — следующий шаг или слайд (окну докладчика) */
+  timing(ms: number): void;
 }
 
 /** Слайд досказал: конечные анимации внутри него доиграли, ролик без повтора — тоже */
@@ -85,6 +87,7 @@ export class Autoplay {
     const last = !steps && this.h.atEnd();
     // Полоска прогресса плавно идёт к следующему слайду; на последнем без «по кругу» идти некуда
     if (!steps && !(last && !loop)) this.h.bar.grow(ms);
+    this.h.timing(ms);
     this.timer = window.setTimeout(() => {
       if (run !== this.run) return;
       if (this.h.blocked()) return void this.schedule();

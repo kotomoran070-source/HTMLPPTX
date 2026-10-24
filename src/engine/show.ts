@@ -222,7 +222,9 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       b.innerHTML = icon(on ? 'pause' : 'play');
       b.title = on ? 'Автопоказ: пауза (A)' : 'Автопоказ: дальше (A)';
       b.setAttribute('aria-label', b.title);
+      sync.send({ type: 'autoplay', on });
     },
+    timing: (ms) => sync.send({ type: 'autoplay', on: true, ms }),
   });
   /** Слайд или шаг сменились: второму окну — что видно, автопоказу — отсчёт заново */
   function moved(): void {
@@ -735,6 +737,11 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       }
     }
     else if (m.type === 'spot') { if (m.index === index) view.spot(m.key); }
+    // Автопоказ из окна докладчика или с телефона (зрители значка не видят)
+    else if (m.type === 'autoplay') {
+      if (m.on !== auto.on) auto.toggle(m.on);
+      else sync.send({ type: 'autoplay', on: auto.on }, from);
+    }
     else if (m.type === 'zoom') bigStep(m.step, false);
     else if (m.type === 'vars') view.setVars(m.index, m.vars);
     else if (m.type === 'trigger') view.trigger(m.index, m.action);
@@ -778,6 +785,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       }
       // Новому окну докладчика — актуальные данные (с несохранёнными правками) и положение
       if (editor?.touched) sync.send({ type: 'deck', deck: JSON.parse(JSON.stringify(deck)) }, from);
+      sync.send({ type: 'autoplay', on: auto.on }, from);
       sync.send({ type: 'state', index, theme: currentTheme(), black, clock: showTime() }, from);
     } else if (m.type === 'remote-start') {
       if (location.protocol !== 'file:') void import('./remote').then((r) => sync.send({ type: 'remote-room', room: startRemote(r) }, from));

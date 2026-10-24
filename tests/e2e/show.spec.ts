@@ -916,3 +916,37 @@ test('автопоказ: листает сам после анимаций, ш�
   expect(await at()).toBe(3);
   expect(errors).toEqual([]);
 });
+
+test('автопоказ из окна докладчика: A включает у зрителей, листать руками можно и дальше, ещё A — пауза', async ({ page, context }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=auto#1');
+  await expect(page.locator('.slide.on')).toHaveCount(1);
+  const pres = await context.newPage();
+  const presErrors = watchErrors(pres);
+  await pres.goto('/?deck=auto&view=presenter');
+  await expect(pres.locator('#link.ok')).toHaveCount(1);
+  const btn = pres.locator('#tauto');
+  await expect(btn).toHaveAttribute('aria-pressed', 'false');
+  await pres.keyboard.press('a');
+  await expect(btn).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(async () => (await counter(page))[0], { timeout: 5000 }).toBe(2);
+  // Отсчёт виден докладчику
+  await expect(pres.locator('#tautob.run')).toHaveCount(1, { timeout: 4000 });
+  // Руками — дальше, автопоказ не выключается
+  await pres.locator('#nx').click();
+  await pres.locator('#nx').click();
+  await expect.poll(async () => (await counter(page))[0]).toBe(3);
+  // Последний слайд без «По кругу»: автопоказ закончился — и у докладчика
+  await expect(btn).toHaveAttribute('aria-pressed', 'false', { timeout: 5000 });
+  await pres.keyboard.press('Home');
+  await expect.poll(async () => (await counter(page))[0]).toBe(1);
+  await btn.click();
+  await expect(btn).toHaveAttribute('aria-pressed', 'true');
+  await btn.click();
+  await expect(btn).toHaveAttribute('aria-pressed', 'false');
+  await page.waitForTimeout(2500);
+  expect((await counter(page))[0]).toBe(1);
+  await pres.close();
+  expect(errors).toEqual([]);
+  expect(presErrors).toEqual([]);
+});

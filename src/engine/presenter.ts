@@ -74,6 +74,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
         <i class="pd-sep" aria-hidden="true"></i>
         <button type="button" class="pd-btn" id="tgrid" title="Все слайды (G)" aria-label="Все слайды">${icon('grid')}</button>
         <button type="button" class="pd-btn" id="bk" aria-pressed="false" title="Чёрный экран у зрителей (B)" aria-label="Чёрный экран">${icon('screen-off')}</button>
+        <button type="button" class="pd-btn" id="tauto" aria-pressed="false" title="Автопоказ (A): слайды листаются сами — когда доиграли анимации, через заданное время. Листать руками можно и дальше. Ещё раз — пауза" aria-label="Автопоказ">${icon('autoplay')}<i class="pd-auto" id="tautob" aria-hidden="true"></i></button>
         ${new URLSearchParams(location.search).get('remote') ? `<button type="button" class="pd-btn" id="eco" aria-pressed="true" title="Экономный режим: слайд на паузе, касание — оживить" aria-label="Экономный режим">${icon('pause')}</button>` : ''}
         <span class="pd-mir">
           <button type="button" class="pd-btn pd-more" id="tmir" aria-pressed="true" aria-haspopup="menu" title="Мышь и 3D у зрителей (M): курсор, наведение, поворот моделей, запуск и пауза видео повторяются в окне показа. Удерживайте — настройки" aria-label="Мышь и 3D у зрителей">${icon('cursor')}</button>
@@ -582,6 +583,22 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     side.addEventListener('pointercancel', release);
   }
   $('bk').addEventListener('click', () => setBlack(!black));
+  // Автопоказ идёт в окне показа: отсюда — включить или пауза, обратно — идёт ли и через сколько следующий шаг
+  let autoOn = false;
+  const toggleAuto = () => sync.send({ type: 'autoplay', on: !autoOn }, toMain());
+  $('tauto').addEventListener('click', toggleAuto);
+  /** Полоска под кнопкой: идёт ms до следующего шага; без ms — как есть (ответ на «hello» отсчёт не сбрасывает) */
+  function showAuto(on: boolean, ms?: number): void {
+    autoOn = on;
+    $('tauto').setAttribute('aria-pressed', String(on));
+    const b = $('tautob');
+    if (!on || ms) b.classList.remove('run');
+    if (on && ms) {
+      b.style.setProperty('--ms', `${ms}ms`);
+      void b.offsetWidth;
+      b.classList.add('run');
+    }
+  }
   $('tmir').setAttribute('aria-pressed', String(mirror));
   syncMirUi();
   // Нажатие — повтор целиком вкл/выкл; удержание (или правая кнопка) — меню: показывать ли стрелку
@@ -693,6 +710,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     };
     const letters: Record<string, () => void> = {
       b: () => setBlack(!black), 'и': () => setBlack(!black), '.': () => setBlack(!black),
+      a: toggleAuto, 'ф': toggleAuto,
       t: () => toggleTheme(), 'е': () => toggleTheme(),
       l: () => setTool('laser'), 'д': () => setTool('laser'),
       k: () => setArrow(!arrow), 'л': () => setArrow(!arrow),
@@ -769,6 +787,10 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       if (!mainId || from === mainId) window.dispatchEvent(new CustomEvent<FrameState>(GAL_SET, { detail: { key: m.key, at: m.at } }));
       return;
     }
+    if (m.type === 'autoplay') {
+      if (!mainId || from === mainId) showAuto(m.on, m.ms);
+      return;
+    }
     if (m.type === 'spot') {
       if ((!mainId || from === mainId) && m.index === index) view.spot(m.key);
       return;
@@ -815,6 +837,8 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       $('link').textContent = 'Связь с окном показа есть';
       $('link').classList.add('ok');
       const same = m.index === index;
+      // Слайд или шаг сменился — отсчёт автопоказа начнётся заново, когда доиграют анимации
+      if (!same || m.steps !== view.stepsAt(index)) $('tautob').classList.remove('run');
       if (!same) render(m.index);
       if (m.steps !== undefined) view.setSteps(index, m.steps, same);
       if (m.theme !== currentTheme()) { remoteTheme = true; setTheme(m.theme, false); remoteTheme = false; }
