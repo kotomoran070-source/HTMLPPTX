@@ -39,33 +39,90 @@ export interface TextStyle {
   underline?: boolean;
   /** Тень букв: TEXT_SHADOWS (soft, lift, hard, extrude, retro) */
   shadow?: string;
-  /** Свечение вокруг букв: цвет темы или #RRGGBB */
+  /** Своя тень поверх готовой (панель «Свойства»): цвет, непрозрачность 0–1, размытие и расстояние в em, направление в градусах (0 — вправо, 90 — вниз) */
+  shadowColor?: string;
+  shadowOpacity?: number;
+  shadowBlur?: number;
+  shadowDist?: number;
+  shadowAngle?: number;
+  /** Свечение вокруг букв: цвет темы или #RRGGBB; размер в em и яркость 0–1 */
   glow?: string;
+  glowSize?: number;
+  glowOpacity?: number;
   /** Контур букв, px, и его цвет (без цвета — акцент) */
   outline?: number;
   outlineColor?: string;
   /** Только контур: буквы без заливки */
   hollow?: boolean;
-  /** Плашка под текстом: цвет темы, soft (светлый акцент) или #RRGGBB */
+  /** Плашка под текстом: цвет темы, soft (светлый акцент) или #RRGGBB; скругление и поля в em */
   plate?: string;
+  plateRadius?: number;
+  platePad?: number;
   /** Непрозрачность текста, 0.1–1 */
   opacity?: number;
 }
 
+/** Тень букв числами: от неё и ручки в «Свойствах»; extrude — объём из слоёв до края */
+export interface TextShadow {
+  name: string;
+  kind: 'drop' | 'extrude';
+  /** Цвет темы (accent…) или #RRGGBB */
+  color: string;
+  opacity: number;
+  /** Размытие и расстояние, em: тень растёт вместе с текстом */
+  blur: number;
+  dist: number;
+  /** Направление, градусы: 0 — вправо, 90 — вниз */
+  angle: number;
+}
+
 /**
- * Тени букв — в em, растут вместе с текстом. Объёмная и ретро — в цвете акцента: меняются с темой.
- * У градиентного и контурного текста тень рисуется фильтром: text-shadow просвечивал бы сквозь буквы
+ * Готовые тени. Объёмная и ретро — в цвете акцента: меняются с темой. У градиентного и контурного
+ * текста тень рисуется фильтром: text-shadow просвечивал бы сквозь буквы
  */
-export const TEXT_SHADOWS: Record<string, { name: string; css: string }> = {
-  soft: { name: 'Мягкая', css: '0 .04em .14em rgb(15 23 42 / .35)' },
-  lift: { name: 'Парящая', css: '0 .1em .3em rgb(15 23 42 / .42)' },
-  hard: { name: 'Чёткая', css: '.05em .06em 0 rgb(15 23 42 / .5)' },
-  extrude: {
-    name: 'Объёмная',
-    css: [1, 2, 3, 4, 5, 6].map((i) => `${(i * 0.016).toFixed(3)}em ${(i * 0.016).toFixed(3)}em 0 color-mix(in srgb, var(--ac) ${70 - i * 4}%, #000)`).join(', '),
-  },
-  retro: { name: 'Ретро', css: '.06em .06em 0 var(--ac)' },
+export const TEXT_SHADOWS: Record<string, TextShadow> = {
+  soft: { name: 'Мягкая', kind: 'drop', color: '#0F172A', opacity: 0.35, blur: 0.14, dist: 0.04, angle: 90 },
+  lift: { name: 'Парящая', kind: 'drop', color: '#0F172A', opacity: 0.42, blur: 0.3, dist: 0.1, angle: 90 },
+  hard: { name: 'Чёткая', kind: 'drop', color: '#0F172A', opacity: 0.5, blur: 0, dist: 0.078, angle: 50 },
+  extrude: { name: 'Объёмная', kind: 'extrude', color: 'accent', opacity: 1, blur: 0, dist: 0.136, angle: 45 },
+  retro: { name: 'Ретро', kind: 'drop', color: 'accent', opacity: 1, blur: 0, dist: 0.085, angle: 45 },
 };
+
+/** Свечение по умолчанию: размер (em) и яркость */
+export const GLOW_SIZE = 0.34;
+/** Плашка по умолчанию: скругление и поля по бокам, em */
+export const PLATE_RADIUS = 0.3;
+export const PLATE_PAD = 0.5;
+
+/** Тень текста: готовая с поправками из ручек «Свойств» (null — тени нет) */
+export function textShadowOf(s: TextStyle): TextShadow | null {
+  const base = typeof s.shadow === 'string' ? TEXT_SHADOWS[s.shadow] : undefined;
+  if (!base) return null;
+  const n = (v: unknown, d: number, min: number, max: number) => (Number.isFinite(Number(v)) && v !== undefined && v !== null ? Math.max(min, Math.min(max, Number(v))) : d);
+  return {
+    ...base,
+    color: typeof s.shadowColor === 'string' && fxColor(s.shadowColor) ? s.shadowColor : base.color,
+    opacity: n(s.shadowOpacity, base.opacity, 0, 1),
+    blur: n(s.shadowBlur, base.blur, 0, 2),
+    dist: n(s.shadowDist, base.dist, 0, 2),
+    angle: n(s.shadowAngle, base.angle, -360, 360),
+  };
+}
+
+const em = (v: number) => `${Math.round(v * 1000) / 1000}em`;
+/** Цвет с непрозрачностью: color-mix — работает и с цветами темы */
+const alpha = (c: string, a: number) => (a >= 0.999 ? c : `color-mix(in srgb, ${c} ${Math.round(a * 100)}%, transparent)`);
+
+function shadowCss(t: TextShadow): string {
+  const c = fxColor(t.color) ?? 'rgb(15 23 42)';
+  const rad = (t.angle * Math.PI) / 180;
+  const at = (d: number) => `${em(d * Math.cos(rad))} ${em(d * Math.sin(rad))}`;
+  if (t.kind === 'extrude') {
+    // Объём — шесть слоёв до края, каждый темнее
+    return [1, 2, 3, 4, 5, 6].map((i) => `${at((t.dist * i) / 6)} 0 ${alpha(`color-mix(in srgb, ${c} ${70 - i * 4}%, #000)`, t.opacity)}`).join(', ');
+  }
+  return `${at(t.dist)} ${em(t.blur)} ${alpha(c, t.opacity)}`;
+}
 
 /** Цвета эффектов (плашка, контур, свечение): цвета темы и ещё светлый акцент и цвет фона карточек */
 const FX_COLORS: Record<string, string> = { soft: 'var(--acs)', surface: 'var(--surf)' };
@@ -173,7 +230,11 @@ export function textStyleCss(st: unknown): string {
     if (s.align === 'center') out.push('margin-left:auto', 'margin-right:auto');
     else if (s.align === 'right') out.push('margin-left:auto');
   }
-  if (plate) out.push(`background:${plate}`, 'padding:.14em .5em .18em', 'border-radius:.3em');
+  if (plate) {
+    const num = (v: unknown, d: number) => (Number.isFinite(Number(v)) && v !== undefined && Number(v) >= 0 ? Math.min(3, Number(v)) : d);
+    const pad = num(s.platePad, PLATE_PAD);
+    out.push(`background:${plate}`, `padding:${em(pad * 0.28)} ${em(pad)} ${em(pad * 0.36)}`, `border-radius:${em(num(s.plateRadius, PLATE_RADIUS))}`);
+  }
   if (s.font && FONTS[s.font]) out.push(`font-family:${FONTS[s.font].css}`);
   // Свой шрифт презентации (fonts в deck.yaml) — по имени
   else if (fontNameOk(s.font)) out.push(`font-family:${fontStack(s.font)}`);
@@ -214,9 +275,15 @@ function effectCss(s: TextStyle, grad: boolean): string[] {
   }
   if (hollow) out.push('color:transparent', '-webkit-text-fill-color:transparent');
   const shadows: string[] = [];
-  if (typeof s.shadow === 'string' && TEXT_SHADOWS[s.shadow]) shadows.push(TEXT_SHADOWS[s.shadow].css);
+  const sh = textShadowOf(s);
+  if (sh) shadows.push(shadowCss(sh));
   const glow = fxColor(s.glow);
-  if (glow) shadows.push(`0 0 .03em ${glow}`, `0 0 .12em ${glow}`, `0 0 .34em color-mix(in srgb, ${glow} 50%, transparent)`);
+  if (glow) {
+    const size = Number.isFinite(Number(s.glowSize)) && Number(s.glowSize) > 0 ? Math.min(2, Number(s.glowSize)) : GLOW_SIZE;
+    const a = Number.isFinite(Number(s.glowOpacity)) && s.glowOpacity !== undefined ? Math.max(0.05, Math.min(1, Number(s.glowOpacity))) : 1;
+    const k = size / GLOW_SIZE;
+    shadows.push(`0 0 ${em(0.03 * k)} ${alpha(glow, a)}`, `0 0 ${em(0.12 * k)} ${alpha(glow, a)}`, `0 0 ${em(size)} ${alpha(glow, a * 0.5)}`);
+  }
   if (!shadows.length) return out;
   if (grad || hollow) {
     // Фильтр понимает только по одной тени в drop-shadow: список — цепочкой

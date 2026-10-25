@@ -20,7 +20,7 @@ test.afterAll(() => fs.rmSync(DIR, { recursive: true, force: true }));
 
 const styles = () => ((parse(fs.readFileSync(deckFile('txtab'), 'utf8')) as { slides: { free: { styles?: { text?: Record<string, unknown> } }[] }[] }).slides[0].free.map((b) => b.styles?.text ?? {}));
 
-test('«Надпись»: две надписи — стиль с примеркой, курсив и тень сразу у обеих; правка текста — на «Главной»', async ({ page }) => {
+test('«Надпись»: две надписи — стиль с примеркой, курсив и тень сразу у обеих; ручки эффекта в «Свойствах»; правка текста — на «Главной»', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=txtab&studio#1');
   const t = (k: number) => page.locator('#st-canvas .slide.on [data-free]').nth(k);
@@ -45,6 +45,13 @@ test('«Надпись»: две надписи — стиль с примерк
   expect(await waitFile(() => styles().every((s) => s.shadow === 'retro'))).toBe(true);
   await page.keyboard.press('Control+z');
   expect(await waitFile(() => styles().every((s) => !s.shadow && s.glow === 'accent'))).toBe(true);
+  // Выбранный эффект — в «Свойствах» со своими ручками: размер свечения — у обеих, «×» убирает
+  await expect(page.locator('#st-props .st-fx-card[data-fxk="glow"]')).toHaveCount(1);
+  await page.locator('#st-props [data-fx="glowSize"]').fill('30');
+  expect(await waitFile(() => styles().every((s) => typeof s.glowSize === 'number' && (s.glowSize as number) > 0.34))).toBe(true);
+  await page.locator('#st-props [data-fxoff="glow"]').click();
+  expect(await waitFile(() => styles().every((s) => !s.glow && !s.glowSize))).toBe(true);
+  await expect(page.locator('#st-props .st-fx')).toHaveCount(0);
   // Щелчок в текст выделенной надписи — правка: панель «Текст» на «Главной»
   await page.keyboard.press('Escape');
   await t(1).click({ position: { x: 20, y: 12 } });

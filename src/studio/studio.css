@@ -73,6 +73,28 @@ body.studio { background: var(--alt); }
 .st-txsep { width: 1px; height: 18px; margin: 0 3px; align-self: center; background: var(--bd); }
 .st-rb.ico .st-rb-sw { position: absolute; left: 6px; right: 6px; bottom: 3px; width: auto; height: 3px; margin: 0; }
 .st-rb.ico:has(.st-rb-sw) { position: relative; }
+/* «Эффекты текста» в «Свойствах»: карточка на эффект — цвета и ручки, как панель «Формат» в PowerPoint */
+.st-fx-card { margin-top: 8px; padding: 8px 10px 10px; border: 1px solid var(--bd); border-radius: 10px; background: var(--bg); }
+.st-fx-card header { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.st-fx-card header > .ic { width: 16px; height: 16px; color: var(--ac); }
+.st-fx-card header b { font: 600 12.5px var(--font); color: var(--tx); }
+.st-fx-card header small { font: 500 11.5px var(--font); color: var(--mu); }
+.st-fx-off { display: grid; place-items: center; width: 22px; height: 22px; margin-left: auto; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--mu); cursor: pointer; }
+.st-fx-off:hover { background: color-mix(in srgb, #DC2626 12%, transparent); color: #DC2626; }
+.st-fx-off .ic { width: 14px; height: 14px; }
+.st-fx-sw { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+.st-fx-sw button, .st-fx-own { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .18); cursor: pointer; }
+/* Выбранный и под мышью — кольцом снаружи (тёмная тема меняет только тонкий ободок) */
+.st-fx-sw button:hover { outline: 2px solid var(--acb); outline-offset: 1px; }
+.st-fx-sw button[aria-pressed="true"] { outline: 2px solid var(--ac); outline-offset: 2px; }
+:root[data-theme="dark"] :is(.st-fx-sw button, .st-fx-own) { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .28); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) :is(.st-fx-sw button, .st-fx-own) { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .28); } }
+.st-fx-own { position: relative; overflow: hidden; background: conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171); }
+.st-fx-own input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.st-fx-tune { margin-top: 2px; }
+.st-fx-tune label { grid-template-columns: 82px 1fr 50px; }
+.st-fx-chk { margin-top: 6px; font-size: 12px !important; }
+.st-fx > .st-p-note { margin-top: 8px; }
 /* Образец в окнах «Тень», «Свечение», «Контур», «Плашка»: «Аа» на фоне слайда */
 .st-smp-tx { background: var(--bg); }
 .st-smp-tx b { display: block; line-height: 1; white-space: nowrap; color: var(--tx); }

@@ -1255,11 +1255,13 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   const FX_SWATCH: [string, string][] = [['accent', 'Акцент'], ['accent2', 'Тёмный акцент'], ['text', 'Цвет текста'], ['soft', 'Светлый акцент'], ['surface', 'Цвет фона'], ['#FFFFFF', 'Белый'], ['#111827', 'Чёрный'], ['#FDE047', 'Жёлтый'], ['#22D3EE', 'Голубой'], ['#F472B6', 'Розовый']];
   const shadowMenu = () => {
     const cur = tx0().shadow;
-    txPopover('text.shadow', [{ options: [['Без тени', set({ shadow: undefined }), !cur], ...Object.entries(TEXT_SHADOWS).map(([k, v]): TxOption => [v.name, set({ shadow: k }), cur === k])] }], undefined, 'st-txpop');
+    // Готовая тень — с чистого листа: свои ручки («Свойства») сбрасываются
+    const fresh = { shadowColor: undefined, shadowOpacity: undefined, shadowBlur: undefined, shadowDist: undefined, shadowAngle: undefined };
+    txPopover('text.shadow', [{ options: [['Без тени', set({ shadow: undefined, ...fresh }), !cur], ...Object.entries(TEXT_SHADOWS).map(([k, v]): TxOption => [v.name, set({ shadow: k, ...fresh }), cur === k])] }], undefined, 'st-txpop');
   };
   const glowMenu = () => {
     const cur = tx0().glow;
-    txPopover('text.glow', [{ cls: 'f', options: [['Без свечения', set({ glow: undefined }), !cur], ...FX_SWATCH.filter(([v]) => v !== 'soft' && v !== 'surface').map(([v, l]): TxOption => [l, set({ glow: v }), cur === v])] }], undefined, 'st-txpop');
+    txPopover('text.glow', [{ cls: 'f', options: [['Без свечения', set({ glow: undefined, glowSize: undefined, glowOpacity: undefined }), !cur], ...FX_SWATCH.filter(([v]) => v !== 'soft' && v !== 'surface').map(([v, l]): TxOption => [l, set({ glow: v }), cur === v])] }], undefined, 'st-txpop');
   };
   const outlineMenu = () => {
     const st = tx0();
@@ -1277,7 +1279,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const cur = st.plate;
     // Плашка подбирает цвет текста, а без плашки подобранный цвет уходит — текст не пропадает на фоне
     const auto = new Set(['#FFFFFF', '#111827', 'accent2']);
-    const plate = (v: string | undefined, color?: string) => (x: TextStyle): TextStyle => ({ ...x, plate: v, color: color ?? (auto.has(String(x.color)) ? undefined : x.color), hollow: undefined });
+    const plate = (v: string | undefined, color?: string) => (x: TextStyle): TextStyle => ({ ...x, plate: v, color: color ?? (auto.has(String(x.color)) ? undefined : x.color), hollow: undefined, ...(v ? {} : { plateRadius: undefined, platePad: undefined }) });
     txPopover('text.plate', [{ options: [
       ['Без плашки', plate(undefined), !cur],
       ['Акцент', plate('accent', '#FFFFFF'), cur === 'accent'],

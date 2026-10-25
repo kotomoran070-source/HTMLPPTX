@@ -18,6 +18,7 @@ import type { Block, Deck, SlideData } from '../types';
 import { fillForm, formHtml, formSig, onFieldAction, onFieldChange, onGridPaste, type FormEdit } from './form';
 import { BLOCKS, STYLE_FIELD, TEMPLATES, type Field } from './schema';
 import { partsOf, type Part } from './structure';
+import { bindTextFx, fillTextFx, textFxHtml, textFxSig, textTargets } from './text-fx-panel';
 import { effectName } from './anim-tab';
 import { accentSwatch, openAccentGradient } from './accent-gradient';
 
@@ -118,10 +119,13 @@ export class Inspector {
       folds[key] = d.open;
       try { localStorage.setItem(FOLD_KEY, JSON.stringify(folds)); } catch { /* нет доступа */ }
     }, true);
+    // Эффекты текста (text-fx-panel): свои ручки, свои обработчики
+    bindTextFx(root, { deck: () => this.host.deck(), editor: () => this.host.editor(), stage: () => this.host.stage() });
+    const ownFx = (el: HTMLElement) => !!(el.dataset.fx || el.dataset.fxown || el.dataset.fxchk);
     root.addEventListener('change', (e) => {
       const el = e.target as HTMLInputElement;
       // Ползунки фона пишут сами (bindTune)
-      if (el.dataset.tune) return;
+      if (el.dataset.tune || ownFx(el)) return;
       if (el.dataset.t) {
         if (!onFieldChange(el, this.edit)) this.fill();
         return;
@@ -145,6 +149,7 @@ export class Inspector {
     });
     root.addEventListener('input', (e) => {
       const el = e.target as HTMLInputElement;
+      if (ownFx(el)) return;
       // Ползунок видимой части: число рядом обновляется, пока тянут; запись — по change
       if (el.dataset.t === 'framepos') {
         const out = el.parentElement?.querySelector('output');
@@ -264,7 +269,7 @@ export class Inspector {
     if (sel && sel.group.length > 1) {
       this.fields = [];
       this.base = [];
-      const key = `m:${JSON.stringify(sel.group)}`;
+      const key = `m:${JSON.stringify(sel.group)}:${textFxSig(deck, textTargets(deck, this.host.editor()))}`;
       if (key !== this.key) {
         this.key = key;
         this.root.innerHTML = this.multiHtml(sel.group.length);
@@ -284,7 +289,7 @@ export class Inspector {
     const el = sel ? this.blockEl(sel.block) : null;
     this.parts = el ? partsOf(el) : [];
     const key = sel
-      ? `b:${JSON.stringify(sel.free ?? sel.block)}:${sel.type}:${sig}:${sel.free ? rowOf(getAt(deck, sel.free))?.id ?? '' : ''}:${this.parts.map((x) => x.label + x.snippet).join('|')}`
+      ? `b:${JSON.stringify(sel.free ?? sel.block)}:${sel.type}:${sig}:${sel.free ? rowOf(getAt(deck, sel.free))?.id ?? '' : ''}:${this.parts.map((x) => x.label + x.snippet).join('|')}:${textFxSig(deck, textTargets(deck, this.host.editor()))}`
       : `s:${i}:${deck.slides[i]?.template ?? ''}:${sig}:${String(deck.slides[i]?.bg ?? '')}:${String(deck.slides[i]?.backdrop ?? '')}:${String(deck.slides[i]?.backdropOpacity ?? '')}/${String(deck.slides[i]?.backdropSpeed ?? '')}/${String(deck.slides[i]?.bgOpacity ?? '')}/${String(deck.theme?.backdropOpacity ?? '')}/${String(deck.theme?.backdropSpeed ?? '')}/${String(deck.slides[i]?.backdropTouch ?? '')}/${String(deck.theme?.backdropTouch ?? '')}:${deckFonts(deck.fonts).map((f) => f.name).join('|')}:${deck.theme?.font ?? ''}:${deck.theme?.backdrop ?? ''}:${deck.theme?.darkLook ? `${JSON.stringify(deck.theme.darkLook)}${currentTheme()}` : ''}:${JSON.stringify([deck.slides[i]?.theme ?? null, deck.theme?.accent2 ?? null, deck.theme?.accentMid ?? null])}:${deck.brand?.logo ? 'logo' : ''}`;
     if (key !== this.key) {
       this.key = key;
@@ -346,21 +351,23 @@ export class Inspector {
       ? `<section class="st-p-sec"><h3>Содержимое</h3>${ribbonNote}${schema?.about ? `<p class="st-p-note">${esc(schema.about)}</p>` : ''}${formHtml(own, deck, sel.block)}${sel.type === 'model' ? `<div class="st-p-col">${cmdBtn('model.snapshot', 'image', 'Снимок текущего вида')}</div>` : ''}${sel.type === 'embed' || sel.type === 'sandbox' ? `<div class="st-p-col">${cmdBtn('embed.code', 'terminal', sel.type === 'sandbox' ? 'Код песочницы…' : 'Код вставки…', 'primary')}${cmdBtn('embed.poster', 'image', 'Обновить заставку')}</div>` : ''}</section>`
         + (frame.length ? sec('frame', 'Кадр картинки', formHtml(frame, deck, sel.block)) : '')
       : '';
+    // Эффект, выбранный на ленте «Надпись», — здесь со своими ручками
+    const fx = textFxHtml(deck, textTargets(deck, this.host.editor()));
     const extra = this.partsHtml(own.length > 0) + sec('more', 'Дополнительно', formHtml([STYLE_FIELD], deck, sel.block));
     // Действия — одной строкой значков: они же есть на ленте и в меню по правому клику
     const actions = (list: [string, string, string, string?][]) => `<section class="st-p-sec st-p-end"><div class="st-p-acts">${list.map(([c, ic, l, cls]) =>
       `<button type="button" class="st-pbtn${cls ? ` ${cls}` : ''}" data-cmd="${c}" title="${esc(l)}" aria-label="${esc(l)}">${icon(ic)}</button>`).join('')}</div></section>`;
     if (!sel.free) {
       if (inGroup) {
-        return head + contentSec + sec('layout', 'В группе', `<p class="st-p-note">Чтобы менять размер, извлеките объект из группы.</p>
+        return head + contentSec + fx + sec('layout', 'В группе', `<p class="st-p-note">Чтобы менять размер, извлеките объект из группы.</p>
 <div class="st-p-col">${cmdBtn('obj.free', 'move', 'Извлечь из группы', 'primary')}${cmdBtn('obj.parent', 'up', 'Выделить группу')}</div>`)
           + sec('more', 'Дополнительно', formHtml([STYLE_FIELD], deck, sel.block)) + actions([['obj.del', 'trash', 'Удалить из группы', 'danger']]);
       }
-      return head + contentSec + sec('layout', 'Раскладка', `<p class="st-p-note">Чтобы двигать блок и менять размер, сделайте его свободным.</p>
+      return head + contentSec + fx + sec('layout', 'Раскладка', `<p class="st-p-note">Чтобы двигать блок и менять размер, сделайте его свободным.</p>
 <div class="st-p-col">${cmdBtn('obj.free', 'move', 'Сделать свободным', 'primary')}${sel.hasParent ? cmdBtn('obj.parent', 'up', 'Выделить внешний блок') : ''}</div>`)
         + extra + actions([['obj.ungroup', 'ungroup', 'Разгруппировать'], ['obj.del', 'trash', 'Удалить блок', 'danger']]);
     }
-    return head + contentSec
+    return head + contentSec + fx
       + sec('pos', 'Положение и размер', `<div class="st-p-grid">
   <label><span>X</span><input type="number" data-f="x" step="1"></label>
   <label><span>Y</span><input type="number" data-f="y" step="1"></label>
@@ -675,6 +682,7 @@ ${this.fontsHtml(deck)}`)}`;
 </div>
 ${few}
 </section>
+${textFxHtml(this.host.deck(), textTargets(this.host.deck(), this.host.editor()))}
 <section class="st-p-sec st-p-end"><div class="st-p-row">${cmdBtn('obj.dup', 'copy', 'Дублировать')}${cmdBtn('obj.del', 'trash', 'Удалить', 'danger')}</div></section>`;
   }
 
@@ -725,6 +733,7 @@ ${few}
 
   private fill(): void {
     fillForm(this.root, this.host.deck(), (u) => u);
+    fillTextFx(this.root, { deck: () => this.host.deck(), editor: () => this.host.editor(), stage: () => this.host.stage() }, textTargets(this.host.deck(), this.host.editor()));
     const v = this.values();
     const sel = this.host.editor().selection;
     this.root.querySelectorAll<HTMLInputElement>('[data-f]').forEach((el) => {

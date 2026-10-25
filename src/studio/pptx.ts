@@ -800,7 +800,7 @@ class Converter {
       if (!c) continue;
       if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
         // Свечение: самый широкий слой
-        if (blur > 0 && pt(blur * 0.6) > (glow?.size ?? 0)) glow = { size: pt(blur * 0.6), color: c.hex, opacity: Math.min(1, Math.max(c.a, 0.65) * op) };
+        if (blur > 0 && pt(blur * 0.6) > (glow?.size ?? 0)) glow = { size: pt(blur * 0.6), color: c.hex, opacity: Math.min(1, c.a * 1.4 * op) };
       } else if (Math.hypot(dx, dy) >= far) {
         // Тень: самая дальняя (у объёмной — край объёма)
         far = Math.hypot(dx, dy);

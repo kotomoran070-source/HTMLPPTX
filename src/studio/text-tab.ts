@@ -18,6 +18,8 @@ export interface TextLook {
  * и прозрачность остаются свои — стиль меняет вид, а не вёрстку
  */
 export const LOOK_KEYS = ['color', 'weight', 'upper', 'spacing', 'shadow', 'glow', 'outline', 'outlineColor', 'hollow', 'plate'] as const;
+/** Ручки эффектов из «Свойств»: стиль начинает с чистого эффекта */
+export const TUNE_KEYS = ['shadowColor', 'shadowOpacity', 'shadowBlur', 'shadowDist', 'shadowAngle', 'glowSize', 'glowOpacity', 'plateRadius', 'platePad'] as const;
 
 /** Готовые стили: в цветах темы — меняются вместе с ней, светлой и тёмной */
 export const TEXT_LOOKS: TextLook[] = [
@@ -48,7 +50,7 @@ export const LOOK_GROUPS: [string, string[]][] = [
 /** Оформление с ключами стиля — только стиля look, остальное как было */
 export function applyLook(st: TextStyle, look: TextLook): TextStyle {
   const out: TextStyle = { ...st };
-  for (const k of LOOK_KEYS) delete out[k];
+  for (const k of [...LOOK_KEYS, ...TUNE_KEYS]) delete out[k];
   return { ...out, ...look.props };
 }
 

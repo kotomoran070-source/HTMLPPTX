@@ -1247,6 +1247,9 @@ function clean(st: TextStyle): TextStyle {
   if (st.italic) out.italic = true;
   if (st.underline) out.underline = true;
   if (st.shadow) out.shadow = st.shadow;
+  for (const k of ['shadowColor', 'shadowOpacity', 'shadowBlur', 'shadowDist', 'shadowAngle', 'glowSize', 'glowOpacity', 'plateRadius', 'platePad'] as const) {
+    if (st[k] !== undefined) (out as Record<string, unknown>)[k] = st[k];
+  }
   if (st.glow) out.glow = st.glow;
   if (st.outline) out.outline = st.outline;
   if (st.outlineColor) out.outlineColor = st.outlineColor;
