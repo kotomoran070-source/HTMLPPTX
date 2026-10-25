@@ -29,6 +29,8 @@ test('HTML для показа: один файл, без сервера, все
   const notice = /<script type="text\/plain" id="slideria-licenses">([\s\S]*?)<\/script>/.exec(html)?.[1] ?? '';
   expect(notice).toContain('qrcode-generator');
   expect(notice).toContain('Permission is hereby granted');
+  // Без «Как на этом компьютере» — как у системы зрителя
+  expect(html).toContain('prefers-reduced-motion');
 
   const errors = watchErrors(page);
   await page.goto(pathToFileURL(file).href + '#1');
@@ -54,6 +56,27 @@ test('компактный HTML: картинки в WebP, файл не бол�
   expect(compact.length).toBeLessThanOrEqual(plain.length);
   // Крупных PNG / JPEG / GIF нет: длина считается по самим данным картинки (за ней в строке идёт остальной код)
   expect(compact).not.toMatch(/data:image\/(png|jpeg|gif);base64,[A-Za-z0-9+/=]{200000}/);
+});
+
+test('«Как на этом компьютере»: вид слайдов автора и анимации при «Уменьшить движение» у зрителя', async ({ page }) => {
+  test.setTimeout(120_000);
+  const r = await fetch('http://localhost:5190/__htmlpptx/export?deck=auto&mode=clean&look=dark&motion=1', { method: 'POST' });
+  const html = await r.text();
+  expect(r.ok).toBe(true);
+  // Стили и код не спрашивают систему про «Уменьшить движение»
+  expect(html).not.toContain('prefers-reduced-motion');
+  const file = path.join(OUT, 'auto-same.html');
+  fs.mkdirSync(OUT, { recursive: true });
+  fs.writeFileSync(file, html);
+  const errors = watchErrors(page);
+  await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
+  await page.goto(pathToFileURL(file).href + '#1');
+  await expect(page.locator('#ct')).toHaveText('1 из 3');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  // T переключает, как обычно
+  await page.keyboard.press('t');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  expect(errors).toEqual([]);
 });
 
 test('HTML с правкой: есть режим правки', async ({ page }) => {

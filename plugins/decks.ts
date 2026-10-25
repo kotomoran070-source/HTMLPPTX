@@ -706,7 +706,16 @@ export function decksPlugin(opts: DecksOptions): Plugin {
           if (url.pathname === API + 'font-use') return await useLibraryFont(name, url.searchParams.get('file') ?? '', res);
           if (url.pathname === API + 'bind-theme') return send(res, 200, bindProject(dir, name, url.searchParams.get('dry') === '1'));
           if (url.pathname === API + 'save') return await handleSave(name, req, res, url.searchParams.get('from') ?? '');
-          if (url.pathname === API + 'export') return await handleExport(root, name, url.searchParams.get('mode') === 'clean', url.searchParams.get('quality') === 'compact', res);
+          if (url.pathname === API + 'export') {
+            const q = url.searchParams;
+            const look = q.get('look');
+            return await handleExport(root, name, {
+              clean: q.get('mode') === 'clean',
+              compact: q.get('quality') === 'compact',
+              look: look === 'light' || look === 'dark' ? look : undefined,
+              motion: q.get('motion') === '1',
+            }, res);
+          }
           if (url.pathname === API + 'asset') return await handleAsset(name, url.searchParams.get('name') ?? 'image.png', req, res);
           if (url.pathname === API + 'asset-text') return await handleAssetText(name, url.searchParams.get('url') ?? '', req, res);
           send(res, 404, { error: 'Неизвестная команда' });
@@ -844,10 +853,19 @@ type Runner = (script: string, args: string[], opts: { cwd: string; env: NodeJS.
  * «Экспорт» из редактора: та же сборка, что yarn build, в отдельном процессе и во временную папку
  * (сервер разработки не видит промежуточных файлов). Ответ — готовый HTML.
  */
-function handleExport(root: string, name: string, clean: boolean, compact: boolean, res: ServerResponse): Promise<void> {
+interface ExportOptions {
+  clean: boolean;
+  compact: boolean;
+  /** «Как на этом компьютере»: вид слайдов автора и анимации при «Уменьшить движение» у зрителя */
+  look?: 'light' | 'dark';
+  motion: boolean;
+}
+
+function handleExport(root: string, name: string, o: ExportOptions, res: ServerResponse): Promise<void> {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'htmlpptx-export-'));
   const out = path.join(tmp, `${name}.html`);
-  const args = [path.join(root, 'scripts/build.mjs'), name, `--out=${out}`, ...(clean ? ['--clean'] : []), ...(compact ? ['--compact'] : [])];
+  const args = [path.join(root, 'scripts/build.mjs'), name, `--out=${out}`,
+    ...(o.clean ? ['--clean'] : []), ...(o.compact ? ['--compact'] : []), ...(o.look ? [`--look=${o.look}`] : []), ...(o.motion ? ['--motion'] : [])];
   // В приложении — служебным процессом Electron (desktop/main.mjs): запуск Electron в роли Node там выключен
   const run = (globalThis as { __slideriaRun?: Runner }).__slideriaRun ?? ((script, a, o) => new Promise((done) => {
     execFile(process.execPath, [script, ...a], { ...o, maxBuffer: 8 << 20 }, (err, _stdout, stderr) => done({ code: err ? 1 : 0, stderr: stderr || (err?.message ?? '') }));

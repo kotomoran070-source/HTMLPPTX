@@ -15,7 +15,8 @@ export interface DeckStorage {
   /** Сохранить картинку рядом с презентацией; url — адрес для данных слайда */
   uploadAsset(deckKey: string, file: Blob, name: string): Promise<{ url: string }>;
   /** Собрать один HTML-файл: clean — «для показа», без режима правки; compact — картинки сжаты */
-  exportHtml(deckKey: string, clean: boolean, compact?: boolean): Promise<Blob>;
+  /** look и motion — «Как на этом компьютере»: файл открывается в этом виде слайдов и с анимациями у любого зрителя */
+  exportHtml(deckKey: string, clean: boolean, compact?: boolean, same?: { look?: 'light' | 'dark'; motion?: boolean }): Promise<Blob>;
   /** Общая библиотека шрифтов (на все презентации): список, добавить, взять копией в презентацию */
   listFonts?(): Promise<{ file: string; url: string }[]>;
   saveFont?(file: Blob, name: string): Promise<{ file: string }>;
@@ -41,8 +42,9 @@ export const projectStorage: DeckStorage = {
   checkpoint: makeCheckpoint,
   checkpoints: listCheckpoints,
   readCheckpoint,
-  async exportHtml(deckKey, clean, compact = false) {
-    const r = await fetch(`/__htmlpptx/export?deck=${encodeURIComponent(deckKey)}&mode=${clean ? 'clean' : 'edit'}${compact ? '&quality=compact' : ''}`, { method: 'POST' });
+  async exportHtml(deckKey, clean, compact = false, same = {}) {
+    const q = `${compact ? '&quality=compact' : ''}${same.look ? `&look=${same.look}` : ''}${same.motion ? '&motion=1' : ''}`;
+    const r = await fetch(`/__htmlpptx/export?deck=${encodeURIComponent(deckKey)}&mode=${clean ? 'clean' : 'edit'}${q}`, { method: 'POST' });
     if (!r.ok) {
       const e = await r.json().catch(() => ({})) as { error?: string };
       throw new Error(e.error || `Сборка не удалась (${r.status})`);

@@ -4,6 +4,9 @@
 //   --clean                — «для показа»: без режима правки, файл dist/<имя>.show.html
 //   --compact              — картинки сжаты в WebP (GIF — в анимированный WebP): файл в разы меньше
 //   --out=путь             — куда положить файл (одна презентация; так собирает кнопка «Экспорт» редактора)
+//   --look=light|dark      — файл открывается со светлыми или тёмными слайдами, а не как в системе зрителя
+//   --motion               — анимации, даже если в системе зрителя включено «Уменьшить движение»
+//                            (оба — галочка «Как на этом компьютере» в «Экспорте»)
 import fs from 'node:fs';
 import path from 'node:path';
 import { build } from 'vite';
@@ -47,6 +50,13 @@ if (outArg && names.length !== 1) {
 if (clean) process.env.CLEAN = '1';
 const compact = args.includes('--compact');
 if (compact) process.env.COMPACT = '1';
+const look = args.find((a) => a.startsWith('--look='))?.slice(7);
+if (look && look !== 'light' && look !== 'dark') {
+  console.error(`--look: light или dark, а не «${look}»`);
+  process.exit(1);
+}
+process.env.LOOK = look ?? '';
+process.env.MOTION = args.includes('--motion') ? '1' : '';
 
 for (const name of names) {
   const tmp = path.join(tmpRoot ?? dist, `.build-${name}-${process.pid}`);

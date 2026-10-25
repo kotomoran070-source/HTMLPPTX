@@ -10,6 +10,8 @@ declare const __HAS_MATH__: boolean;
 declare const __DECKS_DIR__: string;
 /** Страница открыта в приложении Slideria (desktop/), а не через yarn dev */
 declare const __APP__: boolean;
+/** Вид слайдов, в котором файл открывается (yarn build --look=dark, «Как на этом компьютере»); '' — как у системы зрителя */
+declare const __LOOK__: '' | 'light' | 'dark';
 
 declare module 'virtual:decks' {
   import type { Deck } from './types';

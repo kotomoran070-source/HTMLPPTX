@@ -84,7 +84,8 @@ export function applyThemeImages(scope: ParentNode = document): void {
 }
 
 export function initTheme(): void {
-  const s = stored();
+  // Файл «Как на этом компьютере» открывается в виде, который был у автора при экспорте (T переключает)
+  const s = __LOOK__ || stored();
   if (s) root.setAttribute('data-theme', s);
   tellApp();
   media.addEventListener('change', () => {

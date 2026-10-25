@@ -3,7 +3,7 @@ import { CommandPalette } from './palette';
 import { guessGap, rowOf } from '../engine/editor/rows';
 import { toolsCommands } from './tools';
 import { accentTail, applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, setUiAccent, slideAccent, uiAccent, uiSafeAccent } from '../engine/accent';
-import { applyThemeSwatches } from '../engine/deck-theme';
+import { applyThemeSwatches, themeMode } from '../engine/deck-theme';
 import { getAt, setAt, type Path } from '../engine/data';
 import { DeckView, H, W } from '../engine/deck-view';
 import { clock, Editor, SLIDE_PRESETS } from '../engine/editor/editor';
@@ -675,11 +675,21 @@ export function startStudio(deck: Deck, deckKey: string): void {
   const QUALITY_KEY = 'htmlpptx-export-quality';
   let quality: ExportQuality = 'normal';
   try { const q = localStorage.getItem(QUALITY_KEY); if (QUALITIES.some(([k]) => k === q)) quality = q as ExportQuality; } catch { /* нет доступа */ }
+  /**
+   * «Как на этом компьютере» у HTML для показа: файл открывается в том виде слайдов, что сейчас у автора,
+   * и с анимациями, даже если в системе зрителя включено «Уменьшить движение». Запоминается
+   */
+  const SAME_KEY = 'htmlpptx-export-same';
+  let same = true;
+  try { same = localStorage.getItem(SAME_KEY) !== '0'; } catch { /* нет доступа */ }
   function exportMenu(): void {
     const seg = QUALITIES.map(([k, t]) => `<button type="button" role="radio" data-q="${k}" aria-checked="${k === quality}">${esc(t)}</button>`).join('');
     const hint = () => QUALITIES.find(([k]) => k === quality)![2];
+    const sameHint = themeMode(deck.theme) ? 'Анимации — на любом компьютере, даже где они выключены в системе'
+      : `${currentTheme() === 'dark' ? 'Тёмные' : 'Светлые'} слайды, как сейчас, и анимации — на любом компьютере`;
+    const sameBox = `<label class="st-xsame" title="Без галочки файл берёт светлый или тёмный вид из системы зрителя, а анимации не показывает, если там включено «Уменьшить движение»"><input type="checkbox"${same ? ' checked' : ''}><span><b>Как на этом компьютере</b><small>${esc(sameHint)}</small></span></label>`;
     const html = `<div class="st-xq"><span class="st-xq-l">Качество</span><div class="st-xq-seg" role="radiogroup" aria-label="Качество файла">${seg}</div><small class="st-xq-hint">${esc(hint())}</small></div>`
-      + EXPORTS.map(([k, ic, t, d]) => `<button type="button" class="st-xopt" data-x="${k}">${icon(ic)}<span><b>${esc(t)}</b><small>${esc(d)}</small></span></button>`).join('');
+      + EXPORTS.map(([k, ic, t, d]) => `<button type="button" class="st-xopt" data-x="${k}">${icon(ic)}<span><b>${esc(t)}</b><small>${esc(d)}</small></span></button>${k === 'clean' ? sameBox : ''}`).join('');
     const pop = showPopover(document.querySelector<HTMLElement>('.st-top [data-cmd="file.export"]')!, html, (b) => {
       const q = b.dataset.q as ExportQuality | undefined;
       if (q) {
@@ -696,6 +706,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
       const m = b.dataset.x;
       return m ? { run: () => void runExport(m) } : null;
     }, 'st-exportpop');
+    pop.querySelector<HTMLInputElement>('.st-xsame input')!.addEventListener('change', (e) => {
+      same = (e.target as HTMLInputElement).checked;
+      try { localStorage.setItem(SAME_KEY, same ? '1' : '0'); } catch { /* нет доступа */ }
+    });
   }
   let exporting = false;
   const sizeText = (n: number) => (n >= 1048576 ? `${(n / 1048576).toFixed(1).replace('.', ',')} МБ` : `${Math.max(1, Math.round(n / 1024))} КБ`);
@@ -750,7 +764,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     }
     try {
       if (quality === 'compact') ed.toast('Сжимаю картинки…', 60000);
-      const blob = await projectStorage.exportHtml(deckKey, mode === 'clean', quality === 'compact');
+      const blob = await projectStorage.exportHtml(deckKey, mode === 'clean', quality === 'compact', mode === 'clean' && same ? { look: currentTheme(), motion: true } : {});
       // Имя — как у папки презентации (и у yarn build): латиница открывается везде
       const name = `${deckKey}${mode === 'clean' ? '' : '-edit'}.html`;
       const a = document.createElement('a');
