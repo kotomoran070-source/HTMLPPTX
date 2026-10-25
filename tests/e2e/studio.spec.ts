@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import { parse } from 'yaml';
 import { api, DECKS, PNG, readDeck, waitFile, watchErrors } from './helpers';
 import { kitWoff2, sfnt } from '../fonts';
 
@@ -1777,6 +1778,27 @@ test('«Разобрать на объекты»: живой фон не зак�
   await expect(page.locator('#st-canvas .slide.on .backdrop')).toHaveCount(1);
   await expect(page.locator('#st-canvas .slide.on .backdrop.bd-network')).toHaveCount(1);
   await expect.poll(() => page.locator('#st-canvas .slide.on .rg circle').first().evaluate((c) => c.getAnimations().length)).toBeGreaterThan(0);
+  expect(errors).toEqual([]);
+});
+
+test('«Собрать в галерею»: две картинки слайда — кадрами одной, левая остаётся на месте; Ctrl+Z — как было', async ({ page }) => {
+  const errors = watchErrors(page);
+  const before = readDeck('gal');
+  await page.goto('/?deck=gal&studio#3');
+  const pics = page.locator('#st-canvas .slide.on [data-type="image"]');
+  await expect(pics).toHaveCount(2);
+  await pics.nth(0).click({ position: { x: 40, y: 40 } });
+  await pics.nth(1).click({ position: { x: 40, y: 40 }, modifiers: ['Shift'] });
+  await page.locator('.st-tabs [data-tab="image"]').click();
+  await page.locator('.st-ribbon [data-cmd="image.frames.join"]').click();
+  await expect(page.locator('#st-canvas .slide.on [data-type="image"]')).toHaveCount(1);
+  await expect(page.locator('#st-canvas .slide.on .image.gal .gal-f')).toHaveCount(2);
+  // Первая — левая: её место и скругление, кадр правой — со своей подписью
+  await expect.poll(() => readDeck('gal')).toMatch(/src: \.\/assets\/photo\.svg, radius: 24[^\n]*images: \[\{src: \.\/assets\/cartoon\.webp, caption: Справа\}\]/);
+  await page.keyboard.press('Control+z');
+  await expect(page.locator('#st-canvas .slide.on [data-type="image"]')).toHaveCount(2);
+  // Те же данные (картинку, которую правили, файл пишет уже блоком, а не строкой)
+  expect(await waitFile(() => JSON.stringify(parse(readDeck('gal'))) === JSON.stringify(parse(before)))).toBe(true);
   expect(errors).toEqual([]);
 });
 

@@ -915,6 +915,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ...(!multi() && selectedEntrance() ? [{ label: 'Сохранить появление как эффект…', icon: 'sparkle', run: () => askEffectName() }] : []),
       ...(multi() ? [
         { label: 'Сгруппировать', icon: 'group', hint: 'Ctrl+G', run: () => run('obj.group') },
+        ...(cmds['image.frames.join']?.enabled?.() ? [{ label: 'Собрать в галерею', icon: 'frames', run: () => run('image.frames.join') }] : []),
         { label: 'Появляться по очереди', icon: 'sparkle', run: () => sequence() },
         { label: ed.blockEditor.isLocked ? 'Открепить' : 'Закрепить', icon: ed.blockEditor.isLocked ? 'unlock' : 'lock', run: () => run('obj.lock') },
       ] : [
@@ -2004,8 +2005,11 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const pic = ed.selection ? getAt(deck, ed.selection.block) as Block | undefined : undefined;
     const frames = Array.isArray(pic?.images) && pic.images.length > 0;
     const imageTab = document.querySelector<HTMLElement>('.st-rpanel[data-panel="image"]');
-    if (imageTab && imageTab.classList.contains('frames') !== frames) {
+    // Несколько картинок — «Собрать в галерею» вместо «Ещё кадры»
+    const many = (ed.selection?.group.length ?? 0) > 1;
+    if (imageTab && (imageTab.classList.contains('frames') !== frames || imageTab.classList.contains('many') !== many)) {
       imageTab.classList.toggle('frames', frames);
+      imageTab.classList.toggle('many', many);
       fitRibbon();
     }
     syncSwatches(deck, ed);

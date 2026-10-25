@@ -55,6 +55,14 @@ export function insertFrames(b: Img, k: number, srcs: string[]): void {
   setFrameList(b, list);
 }
 
+/**
+ * Картинки слайда — кадрами одной: target остаётся (место, размер, оформление), кадры остальных — следом,
+ * по порядку, со своими подписями и кадрированием
+ */
+export function joinFrames(target: Img, others: Img[]): void {
+  setFrameList(target, [...frameList(target), ...others.flatMap((o) => frameList(o))]);
+}
+
 /** Переставить кадр k на d мест (−1 — раньше, 1 — позже) */
 export function moveFrame(b: Img, k: number, d: number): void {
   const list = frameList(b);

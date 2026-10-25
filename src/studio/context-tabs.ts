@@ -2,7 +2,7 @@ import { icon } from '../components/icons';
 import { gradColor, gradientMid, TEXT_GRADIENTS } from '../engine/gradients';
 import { gradientPanel, type GradValue } from '../engine/editor/gradient-edit';
 import { GRADIENTS, PRESET_KINDS, SHAPE_COLORS, SHAPE_STYLES, SHAPE_SWATCHES, gradientCss, gradientOn, isGradient, sameGradient, shapeFill, type ShapeGradient } from '../components/shape/shape';
-import { frameList, moveFrame, removeFrame } from '../components/layout/frame-list';
+import { frameList, joinFrames, moveFrame, removeFrame } from '../components/layout/frame-list';
 import { showFrame, shownFrame } from '../components/layout/frames';
 import { IMAGE_ADJUST, IMAGE_FILTER_GROUPS, IMAGE_FILTERS, IMAGE_LOOK_KEYS, IMAGE_SHADOWS, IMAGE_STYLES, adjustCss, filterCss, imageLookCss, type ImageLook } from '../components/layout/image-look';
 
@@ -34,6 +34,7 @@ interface LookSlider { label: string; min: number; max: number; unit: string; ke
 import { getBlock } from '../engine/component';
 import { getAt, setAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
+import { placeOf } from '../engine/render';
 import { esc } from '../engine/html';
 import { themeSwatches } from '../engine/deck-theme';
 import { frameCss } from '../engine/marks';
@@ -269,7 +270,8 @@ export function contextPanelsHtml(): string {
     + stack(btn('image.filter', 'recolor', 'Цвет', { menu: true, title: 'Чёрно-белый, сепия, приглушённый…' }), btn('image.opacity', 'opacity', 'Прозрачность', { menu: true })))}
   ${group('Цветокоррекция', btn('image.grade', 'sliders', 'Цвет+', { big: true, title: 'Цветокоррекция, как в DaVinci: круги, кривые, HSL, LUT, цвета бренда. Исходный файл не меняется' }))}
   ${group('Кадр', btn('image.crop', 'crop', 'Кадр', { big: true, title: 'Сдвинуть снимок внутри рамки, как «Обрезка» в PowerPoint: тяните картинку. Масштаб — на панели над картинкой. Готово — Esc' }))}
-  ${group('Галерея', btn('image.frame.add', 'frames', 'Ещё кадры', { big: true, title: 'Добавить картинки в эту рамку: на слайде листаются стрелками, точками и свайпом. Можно выбрать несколько файлов или бросить их на картинку' })
+  ${group('Галерея', btn('image.frames.join', 'frames', 'Собрать в галерею', { big: true, title: 'Выделенные картинки — кадрами одной: первая (слева сверху) остаётся на месте, остальные становятся её кадрами' })
+    + btn('image.frame.add', 'frames', 'Ещё кадры', { big: true, title: 'Добавить картинки в эту рамку: на слайде листаются стрелками, точками и свайпом. Можно выбрать несколько файлов или бросить их на картинку' })
     // Кнопки кадров — только у картинки с кадрами (studio.ts): обычной хватает «Ещё кадры», лента не теснится
     + `<div class="st-frames">${stack(btn('image.frame.del', 'trash', 'Убрать кадр', { title: 'Убрать открытый кадр; останется один — обычная картинка' }),
       row(btn('image.frame.prev', 'arr-left', 'Кадр раньше', { ico: true }), btn('image.frame.next', 'arr-right', 'Кадр позже', { ico: true })),
@@ -752,6 +754,26 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     ed.commit((x) => edit(getAt(x, p) as Block, k), { rebuild: true });
   };
 
+  /** Несколько картинок выделено — их можно собрать кадрами одной */
+  const joinable = () => { const ps = targets('image'); return ps.length > 1 && isImage() && ps.every((p) => (getAt(deck, p) as Block).type === 'image'); };
+  const joinImages = () => {
+    const sel = ed.selection;
+    if (!sel || !joinable()) return;
+    // По порядку чтения: сверху вниз, в ряду — слева направо
+    const paths = [...targets('image')].map((p) => ({ p, pl: placeOf(getAt(deck, p) as Block) }))
+      .sort((a, b) => (Math.abs(a.pl.y - b.pl.y) > 40 ? a.pl.y - b.pl.y : a.pl.x - b.pl.x)).map((x) => x.p);
+    const [main, ...rest] = paths;
+    // Удаляются с конца списка: номера остальных не сдвигаются
+    const gone = [...rest].sort((a, b) => Number(b.at(-1)) - Number(a.at(-1)));
+    const shift = gone.filter((p) => JSON.stringify(p.slice(0, -1)) === JSON.stringify(main.slice(0, -1)) && Number(p.at(-1)) < Number(main.at(-1))).length;
+    ed.clearSelection();
+    ed.commit((d) => {
+      joinFrames(getAt(d, main) as Block, rest.map((p) => getAt(d, p) as Block));
+      for (const p of gone) (getAt(d, p.slice(0, -1)) as unknown[]).splice(Number(p.at(-1)), 1);
+    }, { rebuild: true });
+    if (main[2] === 'free') ed.selectFree(Number(main[1]), Number(main.at(-1)) - shift);
+  };
+
   // ---------- фигура: текст ----------
   const textStyle = (b: Block | null) => ((b?.styles as Record<string, Record<string, unknown>> | undefined)?.text ?? {});
   const hasText = () => isBody() && targets('shape').some((p) => !!(getAt(deck, p) as Block).text);
@@ -1181,6 +1203,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     },
     'image.styles': { run: stylesGallery, enabled: isImage },
     'image.frame.add': { run: () => { const p = frameBlock(); if (p) ed.pickFrames(p, frameNow()); }, enabled: () => !!frameBlock() },
+    'image.frames.join': { run: joinImages, enabled: joinable },
     'image.frame.del': { run: () => frameEdit((b, k) => removeFrame(b, k)), enabled: () => frameCount() > 1 },
     'image.frame.prev': { run: () => frameEdit((b, k) => moveFrame(b, k, -1), -1), enabled: () => frameCount() > 1 && frameNow() > 0 },
     'image.frame.next': { run: () => frameEdit((b, k) => moveFrame(b, k, 1), 1), enabled: () => frameCount() > 1 && frameNow() < frameCount() - 1 },

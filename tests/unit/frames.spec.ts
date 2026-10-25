@@ -1,6 +1,6 @@
 // Картинка с кадрами: правка списка кадров (первый — поля самой картинки, остальные — images)
 import { expect, test } from '@playwright/test';
-import { frameAt, frameList, insertFrames, moveFrame, removeFrame } from '../../src/components/layout/frame-list';
+import { frameAt, frameList, insertFrames, joinFrames, moveFrame, removeFrame } from '../../src/components/layout/frame-list';
 
 const pic = () => ({ type: 'image', src: 'a.jpg', caption: 'A', fit: 'contain', radius: 16, images: [{ src: 'b.jpg', caption: 'B' }, 'c.jpg', { caption: 'без адреса' }] });
 
@@ -37,4 +37,13 @@ test('кадр по адресу хозяина: кадр из images — его
   expect(frameAt(['slides', 0, 'free', 0, 'images', 2], get)).toEqual({ block: ['slides', 0, 'free', 0], k: 2 });
   expect(frameAt(['slides', 0, 'free', 0], get)).toEqual({ block: ['slides', 0, 'free', 0], k: 0 });
   expect(frameAt(['slides', 0, 'free', 1], get)).toBeNull();
+});
+
+test('собрать в галерею: картинки слайда — кадрами первой, со своими подписями и кадрами; оформление — у первой', () => {
+  const a: Record<string, unknown> = { type: 'image', src: 'a.jpg', radius: 16, place: { x: 0, y: 0, w: 400 } };
+  const b = { type: 'image', src: 'b.jpg', caption: 'B', position: '30% 50%', shadow: 'deep' };
+  joinFrames(a, [b, pic()]);
+  expect(a).toMatchObject({ src: 'a.jpg', radius: 16, place: { x: 0, y: 0, w: 400 } });
+  expect(frameList(a).map((f) => f.src)).toEqual(['a.jpg', 'b.jpg', 'a.jpg', 'b.jpg', 'c.jpg']);
+  expect((a.images as Record<string, unknown>[])[0]).toEqual({ src: 'b.jpg', caption: 'B', position: '30% 50%' });
 });

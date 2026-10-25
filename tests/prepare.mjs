@@ -405,7 +405,8 @@ slides:
     title: Спасибо
     backdrop: network
 `);
-// gal — картинка с кадрами: стрелки и точки (кадр строкой и с подписью), по «Далее» с объектом по щелчку после кадров
+// gal — картинка с кадрами: стрелки и точки (кадр строкой и с подписью), по «Далее» с объектом по щелчку после кадров;
+//   на третьем — две картинки, их собирают в галерею
 fs.mkdirSync(path.join(dir, 'gal', 'assets'), { recursive: true });
 for (const f of ['photo.svg', 'cartoon.webp', 'film-poster.png']) fs.copyFileSync(path.join(dir, 'tpl', 'assets', f), path.join(dir, 'gal', 'assets', f));
 fs.writeFileSync(path.join(dir, 'gal', 'deck.yaml'), `title: Кадры
@@ -417,6 +418,10 @@ slides:
     free:
       - {type: image, src: ./assets/photo.svg, flip: click, images: [./assets/cartoon.webp], place: {x: 80, y: 80, w: 640, h: 400}}
       - {type: text, text: "После кадров", click: true, place: {x: 800, y: 200, w: 400}}
+  - template: canvas
+    free:
+      - {type: image, src: ./assets/cartoon.webp, caption: Справа, place: {x: 700, y: 120, w: 440, h: 300}}
+      - {type: image, src: ./assets/photo.svg, radius: 24, place: {x: 120, y: 120, w: 440, h: 300}}
 `);
 // auto — автопоказ: слайд стоит секунду после анимаций, на втором — объект по щелчку (шаг через паузу)
 fs.mkdirSync(path.join(dir, 'auto'), { recursive: true });
