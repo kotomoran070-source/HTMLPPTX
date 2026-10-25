@@ -1992,8 +1992,6 @@ export function startStudio(deck: Deck, deckKey: string): void {
   function syncContextTab(): void {
     const next = contextTab(deck, ed);
     document.querySelectorAll<HTMLElement>('.st-tabs .ctx').forEach((t) => { t.hidden = t.dataset.tab !== next; });
-    // Правка текста надписи — на «Главной»: там панель «Текст» для выделенных слов («Надпись» — для всего текста)
-    if (ed.editingField && tab === 'text') setTab('home');
     // Вкладка открывается, когда выделили другой объект, — и не мешает, пока правят тот же
     const sel = ed.selection;
     const key = next && sel ? JSON.stringify(sel.group.length > 1 ? sel.group : sel.block) : '';
@@ -2006,6 +2004,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ctxTab = next;
       ctxKey = key;
     }
+    // Правка текста надписи — на «Главной»: там панель «Текст» для выделенных слов («Надпись» — для всего текста).
+    // После выбора вкладки: двойной щелчок выделяет и начинает правку за один проход
+    if (ed.editingField && tab === 'text') setTab('home');
   }
 
   function syncUi(): void {
