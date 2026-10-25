@@ -21,7 +21,8 @@ export function loadFrame(f: HTMLIFrameElement, html: string, host: string | nul
   }
   // Свой адрес отделён от студии портом: доступ к своему адресу рамке не даёт доступа к странице студии
   f.setAttribute('sandbox', 'allow-scripts allow-same-origin');
-  f.setAttribute('allow', 'microphone; display-capture');
+  // autoplay — от страницы показа: звук анализируется без щелчка по самой рамке
+  f.setAttribute('allow', 'microphone; display-capture; autoplay');
   // Картинки и файлы слайда — по адресам студии, как у рамки без адреса
   const base = `<base href="${document.baseURI.replace(/"/g, '&quot;')}">`;
   const doc = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => m + base) : base + html;

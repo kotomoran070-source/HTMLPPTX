@@ -115,6 +115,7 @@ export const VISUALIZER_SAMPLE = `<!doctype html>
   #src button { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%;
     background: none; color: #fff; opacity: .6; cursor: pointer; }
   #src button:hover, #src button.on { opacity: 1; background: rgb(255 255 255 / .18); }
+  #src button.err { color: #fca5a5; }
   #src svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 </style></head>
 <body><canvas id="c"></canvas>
@@ -238,29 +239,44 @@ function quiet() {
   document.querySelectorAll('#src button').forEach((b) => b.classList.remove('on'));
 }
 
+// Неудача — в подсказке кнопки (видна при наведении), визуализатор в покое
+function fail(kind, why) {
+  const b = document.getElementById(kind);
+  b.classList.add('err');
+  b.title = why;
+}
+
 async function listen(kind) {
+  const b = document.getElementById(kind);
+  b.classList.remove('err');
+  b.title = kind === 'pc' ? 'Звук компьютера' : 'Микрофон';
+  let s;
   try {
-    const s = kind === 'pc'
+    s = kind === 'pc'
       ? await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
       : await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
-    // Звук экрана без галочки «Поделиться звуком» — звука нет
-    if (!s.getAudioTracks().length) { s.getTracks().forEach((t) => t.stop()); return; }
-    if (stream) stream.getTracks().forEach((t) => t.stop());
-    stream = s;
-    ac = ac || new AudioContext();
-    await ac.resume();
-    const node = ac.createAnalyser();
-    node.fftSize = 4096; node.smoothingTimeConstant = 0.55; node.minDecibels = -85; node.maxDecibels = -25;
-    ac.createMediaStreamSource(s).connect(node);
-    bins = new Uint8Array(node.frequencyBinCount); wave = new Uint8Array(node.fftSize);
-    const was = an;
-    an = node;
-    if (!was) requestAnimationFrame(frame);
-    document.querySelectorAll('#src button').forEach((b) => b.classList.toggle('on', b.id === kind));
-    s.getAudioTracks()[0].addEventListener('ended', () => { if (stream === s) { stream = null; quiet(); } });
   } catch (e) {
-    // Нет разрешения или звука — визуализатор в покое
+    return fail(kind, 'Нет доступа к звуку: ' + (e && e.name === 'NotAllowedError' ? 'не разрешено' : (e && e.message) || e));
   }
+  // Звук экрана без галочки «Поделиться звуком» — звука нет
+  if (!s.getAudioTracks().length) {
+    s.getTracks().forEach((t) => t.stop());
+    return fail(kind, 'Нет звука: при выборе включите «Поделиться звуком»');
+  }
+  if (stream) stream.getTracks().forEach((t) => t.stop());
+  stream = s;
+  ac = ac || new AudioContext();
+  // Не ждём: без щелчка в рамке браузер может придержать звук — анализ пойдёт, как только отпустит
+  ac.resume();
+  const node = ac.createAnalyser();
+  node.fftSize = 4096; node.smoothingTimeConstant = 0.55; node.minDecibels = -85; node.maxDecibels = -25;
+  ac.createMediaStreamSource(s).connect(node);
+  bins = new Uint8Array(node.frequencyBinCount); wave = new Uint8Array(node.fftSize);
+  const was = an;
+  an = node;
+  if (!was) requestAnimationFrame(frame);
+  document.querySelectorAll('#src button').forEach((x) => x.classList.toggle('on', x.id === kind));
+  s.getAudioTracks()[0].addEventListener('ended', () => { if (stream === s) { stream = null; quiet(); } });
 }
 
 addEventListener('resize', fit);
@@ -271,7 +287,7 @@ if (!can) document.getElementById('src').remove();
 else {
   document.getElementById('mic').onclick = () => listen('mic');
   document.getElementById('pc').onclick = () => listen('pc');
-  addEventListener('pointerdown', () => { if (ac) ac.resume(); });
+  for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => { if (ac) ac.resume(); });
   if (AUTO) listen('mic');
 }
 </script></body></html>

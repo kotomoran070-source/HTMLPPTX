@@ -172,7 +172,8 @@ function saveState(win) {
 
 const ICON = path.join(APP_DIR, 'desktop', 'icon.png');
 const PRELOAD = path.join(APP_DIR, 'desktop', 'preload.cjs');
-const WEB = { contextIsolation: true, sandbox: true, nodeIntegration: false, preload: PRELOAD };
+// Звук слайда (аудиовизуализатор во вставке) — без щелчка по ней: слушать начинает сразу
+const WEB = { contextIsolation: true, sandbox: true, nodeIntegration: false, preload: PRELOAD, autoplayPolicy: 'no-user-gesture-required' };
 
 // Тема Slideria → заголовок окна Windows (тёмный или светлый). Цвет заголовка рисует система,
 // поэтому точного цвета темы здесь нет — только светлый или тёмный вариант
