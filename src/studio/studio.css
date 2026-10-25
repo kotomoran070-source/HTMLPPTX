@@ -744,8 +744,8 @@ body.st-previewing :is(.st-top, .st-ribbon) { position: relative; z-index: 31; }
 .st-xopt span { display: flex; flex-direction: column; gap: 2px; }
 .st-xopt b { font-weight: 600; }
 .st-xopt small { font-size: 12px; line-height: 1.4; color: var(--mu); }
-/* «Как на этом компьютере» — под «HTML для показа», вровень с его текстом */
-.st-xsame { display: flex; align-items: center; gap: 6px; width: max-content; margin: -8px 0 4px 42px; padding: 2px 0; font: 12px var(--font); color: var(--mu); cursor: pointer; }
+/* «Как на этом компьютере» — под качеством: к обоим HTML */
+.st-xsame { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; width: max-content; padding: 2px 0; font: 12px var(--font); color: var(--mu); cursor: pointer; }
 .st-xsame:hover { color: var(--tx2); }
 .st-xsame input { flex: none; width: 13px; height: 13px; margin: 0; accent-color: var(--ac); cursor: pointer; }
 .st-top .st-export .ic { width: 14px; height: 14px; }

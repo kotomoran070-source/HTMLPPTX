@@ -676,7 +676,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   let quality: ExportQuality = 'normal';
   try { const q = localStorage.getItem(QUALITY_KEY); if (QUALITIES.some(([k]) => k === q)) quality = q as ExportQuality; } catch { /* нет доступа */ }
   /**
-   * «Как на этом компьютере» у HTML для показа: файл открывается в том виде слайдов, что сейчас у автора,
+   * «Как на этом компьютере» у обоих HTML: файл открывается в том виде слайдов, что сейчас у автора,
    * и с анимациями, даже если в системе зрителя включено «Уменьшить движение». Запоминается
    */
   const SAME_KEY = 'htmlpptx-export-same';
@@ -685,9 +685,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
   function exportMenu(): void {
     const seg = QUALITIES.map(([k, t]) => `<button type="button" role="radio" data-q="${k}" aria-checked="${k === quality}">${esc(t)}</button>`).join('');
     const hint = () => QUALITIES.find(([k]) => k === quality)![2];
-    const sameBox = `<label class="st-xsame" title="Тот же вид слайдов и анимации на любом компьютере"><input type="checkbox"${same ? ' checked' : ''}>Как на этом компьютере</label>`;
-    const html = `<div class="st-xq"><span class="st-xq-l">Качество</span><div class="st-xq-seg" role="radiogroup" aria-label="Качество файла">${seg}</div><small class="st-xq-hint">${esc(hint())}</small></div>`
-      + EXPORTS.map(([k, ic, t, d]) => `<button type="button" class="st-xopt" data-x="${k}">${icon(ic)}<span><b>${esc(t)}</b><small>${esc(d)}</small></span></button>${k === 'clean' ? sameBox : ''}`).join('');
+    const sameBox = `<label class="st-xsame" title="HTML: тот же вид слайдов и анимации на любом компьютере"><input type="checkbox"${same ? ' checked' : ''}>Как на этом компьютере</label>`;
+    const html = `<div class="st-xq"><span class="st-xq-l">Качество</span><div class="st-xq-seg" role="radiogroup" aria-label="Качество файла">${seg}</div><small class="st-xq-hint">${esc(hint())}</small>${sameBox}</div>`
+      + EXPORTS.map(([k, ic, t, d]) => `<button type="button" class="st-xopt" data-x="${k}">${icon(ic)}<span><b>${esc(t)}</b><small>${esc(d)}</small></span></button>`).join('');
     const pop = showPopover(document.querySelector<HTMLElement>('.st-top [data-cmd="file.export"]')!, html, (b) => {
       const q = b.dataset.q as ExportQuality | undefined;
       if (q) {
@@ -762,7 +762,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     }
     try {
       if (quality === 'compact') ed.toast('Сжимаю картинки…', 60000);
-      const blob = await projectStorage.exportHtml(deckKey, mode === 'clean', quality === 'compact', mode === 'clean' && same ? { look: currentTheme(), motion: true } : {});
+      const blob = await projectStorage.exportHtml(deckKey, mode === 'clean', quality === 'compact', same ? { look: currentTheme(), motion: true } : {});
       // Имя — как у папки презентации (и у yarn build): латиница открывается везде
       const name = `${deckKey}${mode === 'clean' ? '' : '-edit'}.html`;
       const a = document.createElement('a');
