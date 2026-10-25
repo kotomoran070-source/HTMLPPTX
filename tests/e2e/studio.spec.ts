@@ -381,6 +381,8 @@ test('«Дизайн»: своё у тёмных слайдов — фон и а
   await page.locator('[data-cmd="design.backdrop"]').click();
   await pop.locator('[data-scope="dark"]').click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  // Плитки — кадром той же сцены, что на слайде, а не CSS-приближением
+  await expect(pop.locator('[data-backdrop="waves"] i.bd-still')).toHaveCSS('background-image', /^url\("data:image\/png/);
   await pop.locator('[data-backdrop="waves"]').click();
   await expect.poll(() => readDeck('design')).toMatch(/darkLook:[\s\S]*backdrop: waves/);
   await page.locator('[data-cmd="design.backdrop"]').click();
@@ -390,6 +392,8 @@ test('«Дизайн»: своё у тёмных слайдов — фон и а
   await expect(layer('dark')).toBeVisible();
   await expect(layer('light')).toBeHidden();
   await expect(layer('dark')).toHaveClass(/bd-waves/);
+  // И миниатюра слайда — тоже кадром сцены
+  await expect(page.locator('.st-thumb.cur .backdrop.bd-still').first()).toHaveCSS('background-image', /data:image\/png/);
   await page.locator('#st-theme').click();
   await expect(layer('light')).toBeVisible();
   await expect(layer('dark')).toBeHidden();

@@ -9,6 +9,8 @@
 .backdrop.bd-only-dark { display: var(--bd-dark, none); }
 .backdrop canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 @media screen { .backdrop.bd-live { background: none !important; } }
+/* Кадр настоящей сцены вместо CSS (миниатюры в студии): узоры и маски CSS ему не нужны */
+.backdrop.bd-still { background: center / cover no-repeat; -webkit-mask: none; mask: none; }
 
 .bd-aurora {
   background:

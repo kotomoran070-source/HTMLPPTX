@@ -1,4 +1,5 @@
 import { icon } from '../components/icons';
+import { stillBackdrops } from '../components/backdrop/backdrop';
 import { staticSlide } from '../engine/deck-view';
 import { slideLabel } from '../engine/render';
 import type { Deck } from '../types';
@@ -64,6 +65,7 @@ export class SlidesPanel {
       if (full || this.sigs[i] !== sig) {
         const box = item.querySelector('.st-tbox')!;
         box.replaceChildren(staticSlide(deck, i));
+        stillBackdrops(box as HTMLElement);
         this.sigs[i] = sig;
       }
       item.setAttribute('aria-label', `Слайд ${i + 1}: ${slideLabel(deck.slides[i], i)}`);

@@ -21,7 +21,7 @@ import { logoColors } from './logo-colors';
 import { closeMenu, showPopover } from './menu';
 import { accentSwatch, openAccentGradient } from './accent-gradient';
 import { backdropStrip, bindBackdropStrip, bindTune, tuneHtml } from './backdrop-pick';
-import { previewBackdrop } from '../components/backdrop/backdrop';
+import { previewBackdrop, stillBackdrops } from '../components/backdrop/backdrop';
 import { isBackdrop, TOUCH_BACKDROPS } from '../engine/backdrops';
 import { addMyTheme, captureTheme, downloadTheme, downloadThemes, listMyThemes, MY, parseThemeFiles, placeThemeImages, registerMyFonts, removeMyTheme, sameTheme, type MyTheme } from './my-themes';
 import { freeName } from './same';
@@ -341,6 +341,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
       const p = findTheme(deck, b.dataset.themeId);
       if (p) b.querySelector('.st-dz-shot')!.appendChild(staticSlide(specimenDeck(p.theme), 0, 284));
     });
+    stillBackdrops(el);
     hoverTry(el, '.st-dz-tile', (b) => findTheme(deck, b.dataset.themeId)?.theme ?? null);
     // Файлы тем можно бросить прямо в галерею — она откроется заново уже с ними
     el.addEventListener('dragover', (e) => {

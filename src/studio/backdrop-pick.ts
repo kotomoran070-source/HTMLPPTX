@@ -4,7 +4,7 @@
  * свойств) и у темы («Дизайн» → «Фон анимации»).
  */
 import { icon } from '../components/icons';
-import { previewBackdrop } from '../components/backdrop/backdrop';
+import { backdropStill, previewBackdrop } from '../components/backdrop/backdrop';
 import { BACKDROPS, backdropName, isBackdrop, type BackdropKind } from '../engine/backdrops';
 import { esc } from '../engine/html';
 
@@ -21,7 +21,7 @@ export function backdropStrip(cur: string, theme?: string | null): string {
   const [prev, next] = railNav();
   return `<div class="st-bdpick">${prev}`
     + `<div class="st-bdstrip" role="radiogroup" aria-label="Анимация фона">${opts.map(([v, n, look]) =>
-      `<button type="button" role="radio" aria-checked="${v === cur}" data-backdrop="${v}" title="${esc(n)}"><i class="${look ? `backdrop bd-${look}` : ''}"></i><span>${esc(n)}</span></button>`).join('')}</div>`
+      `<button type="button" role="radio" aria-checked="${v === cur}" data-backdrop="${v}" title="${esc(n)}"><i class="${look ? `backdrop bd-${look}` : ''}"${look ? ` data-bd="${look}"` : ''}></i><span>${esc(n)}</span></button>`).join('')}</div>`
     + `${next}</div>`;
 }
 
@@ -71,6 +71,37 @@ export function bindBackdropStrip(root: HTMLElement, stage: () => HTMLElement, t
   });
   strip.addEventListener('pointerleave', () => previewBackdrop(stage(), null));
   strip.addEventListener('click', () => previewBackdrop(stage(), null));
+  fillStills(strip, stage().querySelector<HTMLElement>('.slide.on'));
+}
+
+/** Кадр плитки, точек: 16:9, с запасом под экраны с высокой плотностью */
+const STILL_W = 240;
+const STILL_H = 135;
+
+/**
+ * Плитки — настоящим кадром фона (та же сцена, что на слайде) на фоне открытого слайда и в его цветах.
+ * Пока кадр не готов (или без WebGL) — статичный CSS того же вида. Кадры рисуются по нескольку за кадр
+ * экрана: лента открывается сразу; нарисованные запоминаются
+ */
+function fillStills(strip: HTMLElement, slide: HTMLElement | null): void {
+  if (!slide) return;
+  const bg = getComputedStyle(slide).getPropertyValue('--bg').trim();
+  const tiles = [...strip.querySelectorAll<HTMLElement>('button > i')];
+  if (bg) tiles.forEach((i) => { i.style.backgroundColor = bg; });
+  const todo = tiles.filter((i) => isBackdrop(i.dataset.bd));
+  const step = () => {
+    if (!strip.isConnected) return;
+    const t0 = performance.now();
+    while (todo.length && performance.now() - t0 < 14) {
+      const i = todo.shift()!;
+      const url = backdropStill(i.dataset.bd as BackdropKind, slide, STILL_W, STILL_H);
+      if (!url) continue;
+      i.className = 'bd-still';
+      i.style.backgroundImage = `url("${url}")`;
+    }
+    if (todo.length) requestAnimationFrame(step);
+  };
+  step();
 }
 
 // ---------------- заметность и скорость ----------------

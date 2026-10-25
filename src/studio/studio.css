@@ -890,6 +890,7 @@ body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
 .st-bdstrip button[aria-checked="true"] { border-color: var(--ac); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 22%, transparent); color: var(--ach); }
 .st-bdstrip i { position: relative; display: block; aspect-ratio: 16 / 9; border-radius: 6px; border: 1px solid var(--bd); background-color: var(--bg); overflow: hidden; }
 .st-bdstrip i.backdrop { inset: auto; z-index: auto; background-color: var(--bg); }
+.st-bdstrip i.bd-still { background: center / cover no-repeat; }
 .st-bdnav { position: absolute; top: calc(50% - 22px); z-index: 1; width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: 1px solid var(--bd); border-radius: 50%; background: var(--surf); color: var(--tx2); box-shadow: 0 2px 6px rgba(2, 6, 23, .15); cursor: pointer; transition: opacity .15s; }
 .st-bdnav[data-nav="-1"] { left: -6px; }
 .st-bdnav[data-nav="1"] { right: -6px; }

@@ -10,10 +10,11 @@ import './backdrop.css';
  * рельеф, лучи, боке, частицы, звёзды, точки, сеть, соты, орбиты, сетка. Чистый WebGL, без
  * библиотек, в цветах темы (акцент и второй цвет). Бережно к компьютеру: контекст — только пока
  * слайд на экране, мягкие сцены рисуются в половинном размере и 30 кадров в секунду; в окне
- * докладчика — облегчённо; миниатюры, печать и «уменьшить движение» — статичный CSS того же вида.
+ * докладчика — облегчённо; печать и «уменьшить движение» — статичный CSS того же вида, миниатюры
+ * в студии и плитки выбора фона — кадром той же сцены (backdropStill).
  */
 
-import { TOUCH_BACKDROPS, type BackdropKind } from '../../engine/backdrops';
+import { BACKDROPS, TOUCH_BACKDROPS, type BackdropKind } from '../../engine/backdrops';
 export { BACKDROPS, isBackdrop, type BackdropKind } from '../../engine/backdrops';
 
 interface BackdropProps extends Block {
@@ -551,8 +552,22 @@ interface Scene {
 
 type Pal = () => { c1: Rgb; c2: Rgb; k: number };
 
-function makeScene(gl: WebGLRenderingContext, kind: BackdropKind, colors: Pal, lite: boolean): Scene | null {
-  if (kind === 'network') return networkScene(gl, colors, lite);
+/** Цвета сцены — как они вычислены на элементе el (фон или сам слайд): акцент, второй цвет, сила */
+function paletteOf(el: HTMLElement, kind: BackdropKind): { c1: Rgb; c2: Rgb; k: number } {
+  const ac = cssRgb(el, 'var(--ac)');
+  const bg = cssRgb(el, 'var(--bg)');
+  const dark = bg[0] + bg[1] + bg[2] < 1.2;
+  // На тёмном фоне — светлее и заметнее, на светлом — сдержаннее
+  const lift = (c: Rgb, x: number): Rgb => [c[0] + (1 - c[0]) * x, c[1] + (1 - c[1]) * x, c[2] + (1 - c[2]) * x];
+  const look = LOOK[kind] ?? LOOK.aurora;
+  // Второй цвет — второй цвет темы (градиент акцента), без него — акцент со сдвигом оттенка
+  const two = getComputedStyle(el).getPropertyValue('--ac2').trim() ? cssRgb(el, 'var(--ac2)') : shiftHue(ac, kind === 'grid' ? -25 : 40);
+  return { c1: dark ? lift(ac, 0.25) : ac, c2: dark ? lift(two, 0.15) : two, k: look.k[dark ? 1 : 0] };
+}
+
+/** px — масштаб точек и частиц (по умолчанию — высота кадра к 720) */
+function makeScene(gl: WebGLRenderingContext, kind: BackdropKind, colors: Pal, lite: boolean, px?: number): Scene | null {
+  if (kind === 'network') return networkScene(gl, colors, lite, px);
   const pts = POINTS[kind];
   // Ровные линии рельефа — по производным (есть почти везде; без них сцена не соберётся — фон останется статичным)
   if (FS[kind]?.startsWith('#extension GL_OES_standard_derivatives')) gl.getExtension('OES_standard_derivatives');
@@ -598,7 +613,7 @@ function makeScene(gl: WebGLRenderingContext, kind: BackdropKind, colors: Pal, l
       if (uC1) gl.uniform3fv(uC1, c1);
       if (uC2) gl.uniform3fv(uC2, c2);
       gl.uniform1f(uK, k);
-      if (uPx) gl.uniform1f(uPx, gl.drawingBufferHeight / 720);
+      if (uPx) gl.uniform1f(uPx, px ?? gl.drawingBufferHeight / 720);
       if (pts) gl.drawArrays(gl.POINTS, 0, count);
       else gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     },
@@ -606,7 +621,7 @@ function makeScene(gl: WebGLRenderingContext, kind: BackdropKind, colors: Pal, l
 }
 
 /** Сеть: узлы с линиями между близкими; координаты — доли слайда */
-function networkScene(gl: WebGLRenderingContext, colors: Pal, lite: boolean): Scene | null {
+function networkScene(gl: WebGLRenderingContext, colors: Pal, lite: boolean, px?: number): Scene | null {
   const prog = program(gl, NET_VS, NET_FS);
   if (!prog) return null;
   gl.useProgram(prog);
@@ -703,7 +718,7 @@ function networkScene(gl: WebGLRenderingContext, colors: Pal, lite: boolean): Sc
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.uniform2f(u('r'), W, H);
-      gl.uniform1f(u('px'), H / 720);
+      gl.uniform1f(u('px'), px ?? H / 720);
       gl.uniform3fv(u('c1'), c1);
       gl.uniform3fv(u('c2'), c2);
       gl.uniform1f(u('k'), k);
@@ -768,17 +783,7 @@ defineBlock<BackdropProps>('backdrop', {
       touch.age = showTime() / 1000 - clickAt;
     };
 
-    const readColors = () => {
-      const ac = cssRgb(el, 'var(--ac)');
-      const bg = cssRgb(el, 'var(--bg)');
-      const dark = bg[0] + bg[1] + bg[2] < 1.2;
-      // На тёмном фоне — светлее и заметнее, на светлом — сдержаннее
-      const lift = (c: Rgb, x: number): Rgb => [c[0] + (1 - c[0]) * x, c[1] + (1 - c[1]) * x, c[2] + (1 - c[2]) * x];
-      const look = LOOK[p.kind] ?? LOOK.aurora;
-      // Второй цвет — второй цвет темы (градиент акцента), без него — акцент со сдвигом оттенка
-      const two = getComputedStyle(el).getPropertyValue('--ac2').trim() ? cssRgb(el, 'var(--ac2)') : shiftHue(ac, p.kind === 'grid' ? -25 : 40);
-      pal = { c1: dark ? lift(ac, 0.25) : ac, c2: dark ? lift(two, 0.15) : two, k: look.k[dark ? 1 : 0] };
-    };
+    const readColors = () => { pal = paletteOf(el, p.kind); };
 
     const size = () => {
       if (!canvas) return;
@@ -932,4 +937,61 @@ export function previewBackdrop(stage: HTMLElement, kind: BackdropKind | 'none' 
   slide.classList.add('has-backdrop');
   slide.prepend(el);
   trial = { el, added, off: def.mount(el, { type: 'backdrop', kind, ...look }, { stage, slide, reducedMotion: false }) };
+}
+
+/**
+ * Кадр фона картинкой — для плиток выбора фона: та же сцена, что на слайде, в цветах элемента from
+ * (открытого слайда), w×h точек. Точки и частицы — крупнее, чем у слайда в том же уменьшении: в плитке
+ * они иначе растаяли бы. Кадры запоминаются; без WebGL — null (у плитки остаётся статичный CSS)
+ */
+const stills = new Map<string, string>();
+export function backdropStill(kind: BackdropKind, from: HTMLElement, w: number, h: number): string | null {
+  const pal = paletteOf(from, kind);
+  const key = `${kind}:${w}x${h}:${pal.c1.join()}:${pal.c2.join()}:${pal.k}`;
+  const hit = stills.get(key);
+  if (hit) return hit;
+  const canvas = document.createElement('canvas');
+  // Линии WebGL — в одну точку: у «Сети» кадр меньше, при растяжке в плитку линии толще
+  const thin = kind === 'network' ? 0.6 : 1;
+  canvas.width = Math.round(w * thin);
+  canvas.height = Math.round(h * thin);
+  h = canvas.height;
+  const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: true, preserveDrawingBuffer: true });
+  if (!gl) return null;
+  try {
+    const scene = makeScene(gl, kind, () => pal, true, Math.max(h / 720, STILL_PX * (STILL_DOTS[kind] ?? 1) * (h / 135)));
+    if (!scene) return null;
+    scene.draw(STILL_AT[kind] ?? 9, { x: 0.5, y: 0.5, on: 0, cx: 0.5, cy: 0.5, age: 99, s: 0 });
+    const url = canvas.toDataURL('image/png');
+    stills.set(key, url);
+    return url;
+  } finally {
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+  }
+}
+/** Масштаб точек в кадре плитки высотой 135 точек; у фонов из мелких точек — ещё крупнее */
+const STILL_PX = 0.42;
+const STILL_DOTS: Partial<Record<BackdropKind, number>> = { particles: 2, stars: 2, globe: 1.5, terrain: 1.5, network: 1.6 };
+/** Мгновение кадра, с: у сцен, которым нужно время (рост, биржа), — позже */
+const STILL_AT: Partial<Record<BackdropKind, number>> = {};
+
+/**
+ * Статичные слайды (миниатюры в студии, плитки тем): фон — кадром настоящей сцены вместо CSS.
+ * Кадры рисуются по нескольку за кадр экрана и запоминаются; без WebGL остаётся CSS
+ */
+export function stillBackdrops(root: HTMLElement): void {
+  const todo = [...root.querySelectorAll<HTMLElement>('.backdrop:not(.bd-live):not(.bd-still)')];
+  const step = () => {
+    const t0 = performance.now();
+    while (todo.length && performance.now() - t0 < 12) {
+      const el = todo.shift()!;
+      const kind = el.isConnected ? BACKDROPS.find(([k]) => el.classList.contains(`bd-${k}`))?.[0] : undefined;
+      const url = kind ? backdropStill(kind, el, 240, 135) : null;
+      if (!url) continue;
+      el.classList.add('bd-still');
+      el.style.backgroundImage = `url("${url}")`;
+    }
+    if (todo.length) requestAnimationFrame(step);
+  };
+  step();
 }
