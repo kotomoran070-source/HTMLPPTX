@@ -6,7 +6,7 @@ import { getAt, KEY, setAt, type Path } from '../data';
 import { esc, t } from '../html';
 import { GRADIENTS, gradColor, gradientMid, parseTextGradient, TEXT_GRADIENTS, textGradientCode, textGradientCss } from '../gradients';
 import { gradientPanel, type GradValue } from './gradient-edit';
-import { colorCss, customMarker, FONTS, LIST_MARKERS, listCss, markerImage, splitDecls, SWATCHES, THEME_COLORS, type TextStyle } from '../text-style';
+import { colorCss, customMarker, FONTS, LIST_MARKERS, listCss, markerImage, splitDecls, SWATCHES, textStyleCss, THEME_COLORS, type TextStyle } from '../text-style';
 import { plainMarkup, toggleList, toMarkup } from './serialize';
 
 /** Что текстовому редактору нужно от основного редактора. */
@@ -70,6 +70,8 @@ interface Session {
   baseline: string;
   html: string;
   styleAttr: string | null;
+  /** style элемента без своего оформления поля (оно — в конце style); null — не отделить */
+  baseStyle: string | null;
   /** Путь объекта-владельца: оформление хранится в owner.styles[field] */
   owner: Path | null;
   field: string;
@@ -264,8 +266,11 @@ export class TextEditor {
     const probe = document.createElement('div');
     probe.innerHTML = t(raw);
     const baseline = isKey ? raw.replace(/\s+/g, ' ').trim() : toMarkup(probe);
+    const styleAttr = el.getAttribute('style');
+    const own = textStyleCss(stored);
+    const baseStyle = !own ? styleAttr ?? '' : styleAttr?.endsWith(own) ? styleAttr.slice(0, -own.length).replace(/;$/, '') : null;
     this.s = {
-      el, path, suffix, before: raw, baseline, html, styleAttr: el.getAttribute('style'), owner, field,
+      el, path, suffix, before: raw, baseline, html, styleAttr, baseStyle, owner, field,
       styles, stylesBefore: JSON.stringify(styles), isKey, block: this.host.blockOf(path),
       off: () => {
         el.removeEventListener('keydown', onKey);
@@ -470,6 +475,14 @@ export class TextEditor {
   private applyLive(): void {
     const s = this.s;
     if (!s) return;
+    // Своё оформление поля стоит в конце style (marks.ts, ea): без него — исходный вид, поверх — новое,
+    // тем же кодом, что на слайде (тень, контур, плашка видны и во время правки)
+    if (s.baseStyle !== null) {
+      const css = [s.baseStyle, textStyleCss(s.styles)].filter(Boolean).join(';');
+      if (css) s.el.setAttribute('style', css);
+      else s.el.removeAttribute('style');
+      return;
+    }
     const st = s.el.style;
     const size = Number(s.styles.size);
     // Сначала исходный style элемента, поверх — новое оформление
@@ -568,9 +581,12 @@ export class TextEditor {
     if (!s) return;
     s.styles = {};
     // Исходное оформление компонента без сохранённых styles поля
-    if (s.styleAttr === null) s.el.removeAttribute('style');
-    else s.el.setAttribute('style', s.styleAttr);
-    for (const p of ['font-size', 'color', 'fill', 'text-align', 'font-family', 'font-weight', 'max-width']) s.el.style.removeProperty(p);
+    if (s.baseStyle !== null) this.applyLive();
+    else {
+      if (s.styleAttr === null) s.el.removeAttribute('style');
+      else s.el.setAttribute('style', s.styleAttr);
+      for (const p of ['font-size', 'color', 'fill', 'text-align', 'font-family', 'font-weight', 'max-width']) s.el.style.removeProperty(p);
+    }
     s.el.innerHTML = t(plainMarkup(s.el));
     placeCaret(s.el, undefined, true);
     this.syncButtons();
@@ -1226,6 +1242,17 @@ function clean(st: TextStyle): TextStyle {
   if (st.list && (LIST_MARKERS[st.list] || customMarker(st.list)) && st.list !== 'dot') out.list = LIST_MARKERS[st.list] ? st.list : customMarker(st.list)!;
   if (st.listColor && colorCss(st.listColor)) out.listColor = st.listColor;
   if (markerImage(st.listImage)) out.listImage = st.listImage;
+  if (st.gap !== undefined) out.gap = st.gap;
+  // Оформление с вкладки «Надпись»: курсив и подчёркивание поля, эффекты букв, плашка, прозрачность
+  if (st.italic) out.italic = true;
+  if (st.underline) out.underline = true;
+  if (st.shadow) out.shadow = st.shadow;
+  if (st.glow) out.glow = st.glow;
+  if (st.outline) out.outline = st.outline;
+  if (st.outlineColor) out.outlineColor = st.outlineColor;
+  if (st.hollow) out.hollow = true;
+  if (st.plate) out.plate = st.plate;
+  if (st.opacity !== undefined) out.opacity = st.opacity;
   return out;
 }
 

@@ -53,6 +53,30 @@ body.studio { background: var(--alt); }
 .st-stile.active, .st-ttile.active { border-color: var(--ac); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 28%, transparent); }
 .st-stile:disabled, .st-ttile:disabled { opacity: .38; cursor: default; }
 .st-stile i { display: grid; place-items: center; width: 36px; height: 20px; box-sizing: border-box; border-radius: 5px; font: 700 10px var(--font); font-style: normal; }
+/* Стили текста («Надпись»): «Аа» в самом оформлении — цвет, градиент, тень, свечение, контур, плашка */
+.st-gallery.x { grid-template-columns: repeat(4, 46px) 14px; grid-template-rows: repeat(2, 30px); grid-auto-flow: column; }
+.st-xtile { overflow: hidden; }
+.st-xtile i { width: 40px; height: 24px; background: none; }
+.st-xtile b { display: block; font-size: 15px; line-height: 1; white-space: nowrap; color: var(--tx); }
+.st-xtile b[style*="padding"] { padding: 2px 5px !important; font-size: 13px !important; }
+/* «Шрифт» на «Надписи»: список шрифтов, размер и начертание — как у панели «Текст» на «Главной» */
+.st-txf { display: flex; flex-direction: column; gap: 3px; }
+.st-txfont { width: 150px; height: 28px; justify-content: space-between; padding: 0 8px !important; border: 1px solid var(--bd) !important; border-radius: 6px; background: var(--bg) !important; color: var(--tx) !important; font-weight: 500; }
+.st-txfont span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-txfont:hover:not(:disabled), .st-txfont[aria-expanded="true"] { border-color: var(--ac) !important; }
+.st-txsize { display: inline-flex; align-items: center; margin-left: 4px; border: 1px solid var(--bd); border-radius: 6px; background: var(--bg); }
+.st-txsize .st-rb.ico { padding: 3px 4px; }
+.st-txsize input { width: 38px; height: 26px; padding: 0 !important; border: 0; background: transparent; color: var(--tx); text-align: center; font: 600 13px var(--font); -moz-appearance: textfield; appearance: textfield; }
+.st-txsize input::-webkit-inner-spin-button, .st-txsize input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.st-txsize input:focus { outline: 2px solid var(--ac); border-radius: 4px; }
+.st-txsize input:disabled { opacity: .4; }
+.st-txsep { width: 1px; height: 18px; margin: 0 3px; align-self: center; background: var(--bd); }
+.st-rb.ico .st-rb-sw { position: absolute; left: 6px; right: 6px; bottom: 3px; width: auto; height: 3px; margin: 0; }
+.st-rb.ico:has(.st-rb-sw) { position: relative; }
+/* Образец в окнах «Тень», «Свечение», «Контур», «Плашка»: «Аа» на фоне слайда */
+.st-smp-tx { background: var(--bg); }
+.st-smp-tx b { display: block; line-height: 1; white-space: nowrap; color: var(--tx); }
+.st-txpop .st-smp { height: 56px; }
 /* Образец стиля рисунка: маленький «снимок» — небо и холм */
 .st-itile i { position: relative; width: 34px; height: 22px; padding: var(--mat, 0); background: var(--surf); overflow: hidden; border-radius: 4px; }
 .st-itile b { display: block; width: 100%; height: 100%; border-radius: inherit; }

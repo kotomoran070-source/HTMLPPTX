@@ -41,7 +41,7 @@ export interface InspectorHost {
  * на слайде (текст надписи и фигуры)
  */
 const ELSEWHERE: Record<string, { tab?: string; name?: string; keys: string[] }> = {
-  text: { keys: ['text'] },
+  text: { tab: 'text', name: 'Надпись', keys: ['text'] },
   shape: { tab: 'shape', name: 'Фигура', keys: ['kind', 'text', 'fill', 'stroke', 'width', 'dash', 'radius', 'rotate', 'shadow', 'opacity', 'valign'] },
   table: { tab: 'table', name: 'Таблица', keys: ['variant', 'labels', 'lastcol', 'bands', 'valign', 'fills', 'headFills', 'highlight', 'size', 'total', 'density', 'widths', 'align', 'head'] },
   image: { tab: 'image', name: 'Рисунок', keys: ['src', 'srcDark'] },

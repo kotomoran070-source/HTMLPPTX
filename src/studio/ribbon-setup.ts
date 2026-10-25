@@ -25,7 +25,7 @@ interface Prefs {
 
 const KEY = 'slideria.ribbon';
 /** Вкладки, которые появляются с выделением: скрываются только их группы */
-const CONTEXT = new Set(['shape', 'table', 'image', 'video']);
+const CONTEXT = new Set(['text', 'shape', 'table', 'image', 'video']);
 
 /** «Простая»: привычное — слайды, текст, вставка, темы, переходы и показ */
 const SIMPLE: string[] = ['tools', 'view', 'home/Упорядочить', 'home/Выровнять', 'insert/Все блоки', 'anim/Время и порядок', 'anim/Число'];

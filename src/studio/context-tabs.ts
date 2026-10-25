@@ -29,8 +29,19 @@ interface LookKind {
   apply(el: HTMLElement, b: Block): void;
   sample(b: Block): string;
 }
-interface LookOption { label: string; patch: Record<string, unknown>; /** Для образца, если отличается от примерки на слайде */ preview?: Record<string, unknown>; on: boolean; pick(): void }
-interface LookSlider { label: string; min: number; max: number; unit: string; key: string; value: number; set(n: number): unknown; /** Ползунок недоступен: подсказка почему */ off?: string }
+interface LookOption {
+  label: string; patch: Record<string, unknown>; /** Для образца, если отличается от примерки на слайде */ preview?: Record<string, unknown>; on: boolean; pick(): void;
+  /** Каким станет блок (вместо patch): у надписи вид — в styles.text, у каждой своё */
+  fn?(b: Block): Block;
+  /** Образец, если отличается от примерки */
+  sample?(b: Block): Block;
+}
+interface LookSlider {
+  label: string; min: number; max: number; unit: string; key: string; value: number; set(n: number): unknown; /** Ползунок недоступен: подсказка почему */ off?: string;
+  /** Примерка и запись значения не полем key блока (оформление текста надписи) */
+  fn?(b: Block, v: unknown): Block;
+  write?(v: unknown): void;
+}
 import { getBlock } from '../engine/component';
 import { getAt, setAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
@@ -40,6 +51,12 @@ import { themeSwatches } from '../engine/deck-theme';
 import { frameCss } from '../engine/marks';
 import type { Block, Deck } from '../types';
 import { showMenu, showPopover, type MenuEntry } from './menu';
+import { fontItems, fontPicker, tryFontOn, type FontItem } from '../engine/editor/font-picker';
+import { fontNameOk, fontStack } from '../engine/fonts';
+import { colorCss, FONTS, SWATCHES, TEXT_SHADOWS, THEME_COLORS, type TextStyle } from '../engine/text-style';
+import { textGradientCss } from '../engine/gradients';
+import { angleOf } from '../engine/render';
+import { applyLook, LOOK_GROUPS, lookOn, textPanelHtml, textSampleHtml, TEXT_LOOKS } from './text-tab';
 import { cellAnchor, cellOf, cellRange, cellSpan, colCount, dropCols, dropRows, expandRange, hasMerge, mergeRange, shiftMerges, sortRows, splitCell, splitRange, tableCells, type CellRange, type TableData as CellTable } from './table-cells';
 
 /**
@@ -65,7 +82,7 @@ export interface ContextHost {
   refresh?(): void;
 }
 
-export type ContextTab = 'shape' | 'table' | 'image' | 'video';
+export type ContextTab = 'shape' | 'table' | 'image' | 'video' | 'text';
 
 /** Какая контекстная вкладка нужна для выделения (у группы — если все одного типа). */
 export function contextTab(deck: Deck, ed: Editor): ContextTab | null {
@@ -79,7 +96,7 @@ export function contextTab(deck: Deck, ed: Editor): ContextTab | null {
   if (t === 'tile') return paths.every((p) => !!(getAt(deck, p) as Block).image) ? 'image' : null;
   // Ролик — когда файл уже выбран
   if (t === 'video') return paths.length === 1 && !!(getAt(deck, paths[0]) as Block).src ? 'video' : null;
-  return t === 'shape' || t === 'table' || t === 'image' ? t : null;
+  return t === 'shape' || t === 'table' || t === 'image' || t === 'text' ? t : null;
 }
 
 /** Блок подходит вкладке: «рисунок» — картинка или плитка с фото */
@@ -225,7 +242,8 @@ const rememberStyle = (id: string) => {
 
 /** Вкладки и панели ленты (скрыты, пока нет подходящего выделения). */
 export function contextTabsHtml(): string {
-  return `<button type="button" role="tab" data-tab="shape" class="ctx" aria-selected="false" hidden>Фигура</button>`
+  return `<button type="button" role="tab" data-tab="text" class="ctx" aria-selected="false" hidden>Надпись</button>`
+    + `<button type="button" role="tab" data-tab="shape" class="ctx" aria-selected="false" hidden>Фигура</button>`
     + `<button type="button" role="tab" data-tab="table" class="ctx" aria-selected="false" hidden>Таблица</button>`
     + `<button type="button" role="tab" data-tab="image" class="ctx" aria-selected="false" hidden>Рисунок</button>`
     + `<button type="button" role="tab" data-tab="video" class="ctx" aria-selected="false" hidden>Видео</button>`;
@@ -287,7 +305,8 @@ export function contextPanelsHtml(): string {
   ${group('Кадр', btn('video.fit', 'crop', 'Заполнить', { big: true, title: 'Заполнить рамку целиком (края ролика обрезаются) или показать ролик полностью' }))}
   ${group('Цветокоррекция', btn('video.grade', 'sliders', 'Цвет+', { big: true, title: 'Цветокоррекция ролика: круги, кривые, HSL, LUT, цвета бренда. Применяется при показе, файл не меняется' }))}
   ${ORDER}
-</div>`;
+</div>
+${textPanelHtml({ btn, group, row, stack, order: ORDER })}`;
 }
 
 /** Цвет из данных фигуры → CSS для образца на кнопке. */
@@ -690,10 +709,11 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const b0 = first(kind.type);
     let picked = false;
     const restore = () => { if (!picked) look.restore(); };
-    const tryOn = (patch: Record<string, unknown>) => { if (!picked) look.tryOn((b) => ({ ...b, ...patch })); };
+    const tryFn = (fn: (b: Block) => Block) => { if (!picked) look.tryOn(fn); };
+    const fnOf = (o: LookOption) => o.fn ?? ((b: Block) => ({ ...b, ...o.patch }));
     const options = sections.flatMap((s) => s.options);
     const tile = (o: LookOption) => `<button type="button" class="st-flt${o.on ? ' on' : ''}" data-lk="${options.indexOf(o)}" title="${esc(o.label)}">`
-      + `${kind.sample({ ...(b0 ?? {}), ...(o.preview ?? o.patch) } as Block)}<span>${esc(o.label)}</span></button>`;
+      + `${kind.sample((o.sample ?? o.fn)?.({ ...(b0 ?? {}) } as Block) ?? { ...(b0 ?? {}), ...(o.preview ?? o.patch) } as Block)}<span>${esc(o.label)}</span></button>`;
     const grids = sections.map((s) => `${s.title ? `<h4>${esc(s.title)}</h4>` : ''}<div class="st-flt-grid${s.cls ? ` ${s.cls}` : ''}">${s.options.map(tile).join('')}</div>`).join('');
     const range = slider ? `<div class="st-adj"><label${slider.off ? ` title="${esc(slider.off)}"` : ''}><span>${esc(slider.label)}</span><input type="range" min="${slider.min}" max="${slider.max}" step="1" value="${slider.value}" data-lkr="1" aria-label="${esc(slider.label)}"${slider.off ? ' disabled' : ''}><output>${slider.value}${slider.unit}</output></label></div>` : '';
     const pop = showPopover(at, `<div class="st-flt-pop">${grids}${range}<p class="st-flt-note">Наведите — примерка на слайде, щелчок — применить</p></div>`, (b) => {
@@ -702,21 +722,23 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       return { run: () => { restore(); picked = true; options[Number(i)].pick(); } };
     }, `st-fltpop st-lkpop ${cls}`.trim());
     const hovered = (e: Event) => (e.target as Element).closest<HTMLElement>('[data-lk]');
-    pop.addEventListener('pointerover', (e) => { const b = hovered(e); if (b) tryOn(options[Number(b.dataset.lk)].patch); });
+    pop.addEventListener('pointerover', (e) => { const b = hovered(e); if (b) tryFn(fnOf(options[Number(b.dataset.lk)])); });
     pop.addEventListener('pointerout', (e) => { if (hovered(e) && !(e.relatedTarget as Element | null)?.closest?.('[data-lk]')) restore(); });
     pop.addEventListener('pointerleave', restore);
-    pop.addEventListener('focusin', (e) => { const b = hovered(e); if (b) tryOn(options[Number(b.dataset.lk)].patch); });
+    pop.addEventListener('focusin', (e) => { const b = hovered(e); if (b) tryFn(fnOf(options[Number(b.dataset.lk)])); });
     pop.addEventListener('input', (e) => {
       const r = e.target as HTMLInputElement;
       if (!slider || !r.dataset.lkr) return;
       r.nextElementSibling!.textContent = `${r.value}${slider.unit}`;
-      tryOn({ [slider.key]: slider.set(Number(r.value)) });
+      const v = slider.set(Number(r.value));
+      tryFn(slider.fn ? (b) => slider.fn!(b, v) : (b) => ({ ...b, [slider.key]: v }));
     });
     pop.addEventListener('change', (e) => {
       const r = e.target as HTMLInputElement;
       if (!slider || !r.dataset.lkr) return;
       const v = slider.set(Number(r.value));
-      ed.commit((d) => paths.forEach((p) => setAt(d, [...p, slider.key], v)), { rebuild: true, merge: `${kind.type}-${slider.key}` });
+      if (slider.write) slider.write(v);
+      else ed.commit((d) => paths.forEach((p) => setAt(d, [...p, slider.key], v)), { rebuild: true, merge: `${kind.type}-${slider.key}` });
       look.forget();
     });
     const mo = new MutationObserver(() => { if (!pop.isConnected) { mo.disconnect(); restore(); } });
@@ -1174,6 +1196,233 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     return td?.classList.contains('a-right') ? 'right' : td?.classList.contains('a-center') ? 'center' : 'left';
   };
 
+  // ---------- надпись: оформление всего текста выделенных надписей (вкладка «Надпись», text-tab.ts) ----------
+  const isText = () => targets('text').length > 0;
+  /** Только свободные надписи: поворот и место текста в рамке — у них */
+  const freeText = () => isText() && targets('text').every((p) => p[2] === 'free');
+  const tst = (b: Block | null | undefined): TextStyle => ((b?.styles as Record<string, TextStyle> | undefined)?.text ?? {});
+  const tidy = (st: TextStyle): TextStyle => Object.fromEntries(Object.entries(st).filter(([, v]) => v !== undefined && v !== null && v !== '' && v !== false)) as TextStyle;
+  /** Надпись с другим оформлением текста — для примерки и образцов */
+  const withStyle = (b: Block, st: TextStyle): Block => ({ ...b, styles: { ...((b.styles as Record<string, unknown>) ?? {}), text: tidy(st) } });
+  /** Оформление текста всех выделенных надписей: fn — новое по прежнему (у каждой — своё прежнее) */
+  const editText = (fn: (st: TextStyle) => TextStyle, merge?: string) => {
+    const paths = targets('text');
+    if (!paths.length) return;
+    ed.commit((d) => paths.forEach((p) => {
+      const b = getAt(d, p) as Block;
+      const next = tidy(fn({ ...tst(b) }));
+      const styles = { ...((b.styles as Record<string, unknown>) ?? {}) };
+      if (Object.keys(next).length) styles.text = next;
+      else delete styles.text;
+      if (Object.keys(styles).length) b.styles = styles;
+      else delete b.styles;
+    }), { rebuild: true, ...(merge ? { merge } : {}) });
+  };
+  const setTx = (patch: TextStyle) => editText((st) => ({ ...st, ...patch }));
+  const tx0 = () => tst(first('text'));
+  /** Текст надписей на слайде (для примерки шрифта и вычисленного вида) */
+  const textEls = () => targets('text').flatMap((p) => [...h.stage().querySelectorAll<HTMLElement>(`.slide.on [data-block='${JSON.stringify(p)}']`)]);
+  const shown = () => { const el = textEls()[0]; return el ? getComputedStyle(el) : null; };
+  /** Надпись: оформление — style самого текста, поворот — у рамки свободного объекта */
+  const TEXT_KIND: LookKind = {
+    type: 'text',
+    el: (root) => root,
+    parts: (el) => (el.parentElement?.classList.contains('free') ? [el.parentElement] : []),
+    apply: (el, b) => {
+      const n = blockEl('text', b);
+      if (n) put(el, n.getAttribute('style'));
+      const box = el.parentElement;
+      if (box?.classList.contains('free')) box.style.rotate = angleOf(b) ? `${angleOf(b)}deg` : '';
+    },
+    sample: (b) => textSampleHtml(tst(b), angleOf(b)),
+  };
+  /** Окно вариантов оформления текста: образец на каждом, наведение — примерка на всех выделенных */
+  type TxOption = [label: string, edit: (st: TextStyle) => TextStyle, on: boolean];
+  const txPopover = (cmd: string, sections: { title?: string; cls?: string; options: TxOption[] }[], slider?: Omit<LookSlider, 'fn' | 'write'> & { put(st: TextStyle, v: unknown): TextStyle }, cls = '') => {
+    // Образцы тени, свечения, контура — без плашки: на ней эффекты букв не разглядеть (на слайде примерка — как есть)
+    const bare = (st: TextStyle): TextStyle => (cmd === 'text.plate' || !st.plate ? st : { ...st, plate: undefined, color: st.color === '#FFFFFF' ? undefined : st.color });
+    lookPopover(anchor(cmd), sections.map((sec) => ({
+      ...sec,
+      options: sec.options.map(([label, edit, on]) => ({
+        label, patch: {}, on, pick: () => editText(edit),
+        fn: (b: Block) => withStyle(b, edit({ ...tst(b) })),
+        sample: (b: Block) => withStyle(b, bare(edit({ ...tst(b) }))),
+      })),
+    })), slider && { ...slider, fn: (b, v) => withStyle(b, slider.put({ ...tst(b) }, v)), write: (v) => editText((st) => slider.put(st, v), `text-${slider.key}`) }, cls, TEXT_KIND);
+  };
+  const set = (patch: TextStyle) => (st: TextStyle): TextStyle => ({ ...st, ...patch });
+  /** Цвета эффектов: цвета темы, светлый акцент, фон карточек и постоянные */
+  const FX_SWATCH: [string, string][] = [['accent', 'Акцент'], ['accent2', 'Тёмный акцент'], ['text', 'Цвет текста'], ['soft', 'Светлый акцент'], ['surface', 'Цвет фона'], ['#FFFFFF', 'Белый'], ['#111827', 'Чёрный'], ['#FDE047', 'Жёлтый'], ['#22D3EE', 'Голубой'], ['#F472B6', 'Розовый']];
+  const shadowMenu = () => {
+    const cur = tx0().shadow;
+    txPopover('text.shadow', [{ options: [['Без тени', set({ shadow: undefined }), !cur], ...Object.entries(TEXT_SHADOWS).map(([k, v]): TxOption => [v.name, set({ shadow: k }), cur === k])] }], undefined, 'st-txpop');
+  };
+  const glowMenu = () => {
+    const cur = tx0().glow;
+    txPopover('text.glow', [{ cls: 'f', options: [['Без свечения', set({ glow: undefined }), !cur], ...FX_SWATCH.filter(([v]) => v !== 'soft' && v !== 'surface').map(([v, l]): TxOption => [l, set({ glow: v }), cur === v])] }], undefined, 'st-txpop');
+  };
+  const outlineMenu = () => {
+    const st = tx0();
+    const w = Number(st.outline) || 0;
+    // Контур появляется вместе с цветом или видом: без толщины его не видно
+    const withW = (patch: TextStyle) => (x: TextStyle): TextStyle => ({ ...x, ...patch, outline: Number(x.outline) || 2 });
+    txPopover('text.outline', [
+      { title: 'Толщина', cls: 'f', options: [['Без контура', set({ outline: undefined, outlineColor: undefined, hollow: undefined }), !w && !st.hollow], ...[1, 2, 3, 5].map((n): TxOption => [`${n} px`, (x) => ({ ...x, outline: n }), w === n])] },
+      { title: 'Цвет', cls: 'f', options: FX_SWATCH.filter(([v]) => v !== 'soft').map(([v, l]): TxOption => [l, withW({ outlineColor: v }), !!w && (st.outlineColor ?? 'accent') === v]) },
+      { title: 'Буквы', cls: 't3', options: [['С заливкой', (x) => ({ ...x, hollow: undefined }), !st.hollow], ['Только контур', withW({ hollow: true }), !!st.hollow]] },
+    ], undefined, 'st-txpop');
+  };
+  const plateMenu = () => {
+    const st = tx0();
+    const cur = st.plate;
+    // Плашка подбирает цвет текста, а без плашки подобранный цвет уходит — текст не пропадает на фоне
+    const auto = new Set(['#FFFFFF', '#111827', 'accent2']);
+    const plate = (v: string | undefined, color?: string) => (x: TextStyle): TextStyle => ({ ...x, plate: v, color: color ?? (auto.has(String(x.color)) ? undefined : x.color), hollow: undefined });
+    txPopover('text.plate', [{ options: [
+      ['Без плашки', plate(undefined), !cur],
+      ['Акцент', plate('accent', '#FFFFFF'), cur === 'accent'],
+      ['Светлая', plate('soft', 'accent2'), cur === 'soft'],
+      ['Цвет фона', plate('surface'), cur === 'surface'],
+      ['Тёмная', plate('#111827', '#FFFFFF'), cur === '#111827'],
+      ['Жёлтая', plate('#FDE047', '#111827'), cur === '#FDE047'],
+      ['Красная', plate('#DC2626', '#FFFFFF'), cur === '#DC2626'],
+      ['Белая', plate('#FFFFFF', '#111827'), cur === '#FFFFFF'],
+    ] }], undefined, 'st-txpop');
+  };
+  const opacityMenu = () => {
+    const cur = tx0().opacity;
+    txPopover('text.opacity', [{ cls: 'f', options: ([[undefined, '100 %'], [0.8, '80 %'], [0.6, '60 %'], [0.4, '40 %'], [0.2, '20 %']] as [number | undefined, string][]).map(([v, l]): TxOption => [l, set({ opacity: v }), cur === v]) }],
+      { label: 'Своя', min: 10, max: 100, unit: ' %', key: 'opacity', value: Math.round((Number(cur) || 1) * 100), set: (n) => (n >= 100 ? undefined : n / 100), put: (st, v) => ({ ...st, opacity: v as number | undefined }) }, 'st-txpop');
+  };
+  /** Поворот свободной надписи — у её рамки (angle), как ручкой поворота на слайде */
+  const rotateMenu = () => {
+    const cur = angleOf(first('text'));
+    lookPopover(anchor('text.rotate'), [{ cls: 'f', options: ([[0, 'Без поворота'], [-90, '−90°'], [-45, '−45°'], [-15, '−15°'], [15, '15°'], [45, '45°'], [90, '90°'], [180, '180°']] as [number, string][])
+      .map(([v, label]) => ({ label, patch: { angle: v || undefined }, on: cur === v, pick: () => setAll('text', 'angle', v || undefined) })) }],
+    { label: 'Свой, °', min: -180, max: 180, unit: '°', key: 'angle', value: cur, set: (n) => n || undefined }, 'st-txpop', TEXT_KIND);
+  };
+  const stepMenu = (cmd: string, key: 'leading' | 'spacing', list: [number | undefined, string][]) => {
+    const cur = tx0()[key];
+    showMenu(anchor(cmd), list.map(([v, label]) => ({ label, checked: cur === v, run: () => setTx({ [key]: v }) })));
+  };
+  /** Шрифт всего текста: тот же список, что у панели «Текст»; наведение — примерка на всех выделенных */
+  const fontMenu = () => {
+    const head: FontItem[] = [{ value: '', label: 'Шрифт темы', css: 'inherit', group: 'Шрифты темы' }, ...Object.entries(FONTS).map(([k, f]) => ({ value: k, label: f.name, css: f.css, group: 'Шрифты темы' }))];
+    const els = textEls();
+    fontPicker().toggle(anchor('text.font'), () => fontItems(head, ed.fontChoices(), fontStack), tx0().font ?? '', (v) => {
+      els.forEach((el) => tryFontOn(el, 'font-family', null));
+      setTx({ font: v || undefined });
+      // Шрифт библиотеки или компьютера — копией в презентацию
+      if (fontNameOk(v) && !FONTS[v]) void ed.ensureFont(v, Number(tx0().weight) || undefined);
+    }, (f) => els.forEach((el) => tryFontOn(el, 'font-family', f ? (f.value ? f.css : '') : null)));
+  };
+  /** Цвет текста: цвета темы, постоянные, градиенты; наведение — примерка */
+  const colorMenu = () => {
+    const cur = tx0().color;
+    const sw = (v: string, css: string, name: string) => `<button type="button" class="st-psw${cur === v ? ' on' : ''}" data-v="${esc(v)}" style="--c:${css}" title="${esc(name)}" aria-label="${esc(name)}"></button>`;
+    const grads = GRADIENTS.filter((g) => TEXT_GRADIENTS.includes(g.id));
+    const html = `<button type="button" class="st-pnone${!cur ? ' on' : ''}" data-v="">${icon('reset')}<span>Как в теме</span></button>
+      <div class="st-plabel">Цвета темы</div><div class="st-pgrid">${Object.entries(THEME_COLORS).map(([v, c]) => sw(v, c.css, c.name)).join('')}</div>
+      <div class="st-plabel">Стандартные</div><div class="st-pgrid">${SWATCHES.map((c) => sw(c, c, c)).join('')}</div>
+      <div class="st-plabel">Градиент</div><div class="st-pgrid st-grads by8">${grads.map((g) => sw(`g:${g.id}`, gradientCss(g.g), g.name)).join('')}</div>
+      <button type="button" class="st-pmore" data-v="custom"><i style="background:conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)"></i><span>Другой цвет…</span></button>`;
+    // Градиент и контурные буквы не вместе: градиент заливает буквы
+    const paint = (v: string) => (x: TextStyle): TextStyle => ({ ...x, color: v || undefined, ...(v.startsWith('g:') ? { hollow: undefined, plate: undefined } : {}) });
+    const pop = showPopover(anchor('text.color'), html, (el) => {
+      const v = el.dataset.v;
+      if (v === undefined) return null;
+      if (v === 'custom') {
+        return {
+          run: () => {
+            const input = document.createElement('input');
+            input.type = 'color';
+            if (typeof cur === 'string' && /^#[0-9a-f]{6}$/i.test(cur)) input.value = cur;
+            input.addEventListener('change', () => editText(paint(input.value.toUpperCase())));
+            input.click();
+          },
+        };
+      }
+      return { run: () => editText(paint(v)) };
+    }, 'st-palette');
+    bindTry(pop, tryLook(TEXT_KIND, targets('text')), (el) => {
+      const v = el.dataset.v;
+      return v === undefined || v === 'custom' ? null : (b) => withStyle(b, paint(v)({ ...tst(b) }));
+    });
+  };
+  const sizeNow = () => Number(tx0().size) || Math.round(parseFloat(shown()?.fontSize ?? '') || 24);
+  const sizeStep = (dir: 1 | -1) => {
+    const steps = [...FONT_STEPS, 120, 160, 200];
+    const cur = sizeNow();
+    setTx({ size: dir > 0 ? steps.find((x) => x > cur) ?? cur : [...steps].reverse().find((x) => x < cur) ?? cur });
+  };
+  const boldNow = () => (Number(tx0().weight) || Number(shown()?.fontWeight) || 400) >= 600;
+  const allStyles = () => {
+    const st = tx0();
+    const opt = (id: string): LookOption => {
+      const l = TEXT_LOOKS.find((x) => x.id === id)!;
+      return { label: l.name, patch: {}, on: lookOn(st, l), fn: (b) => withStyle(b, applyLook(tst(b), l)), pick: () => cmds[`text.style.${id}`].run() };
+    };
+    const at = anchor('text.styles');
+    lookPopover(at.closest<HTMLElement>('.st-gallery') ?? at, LOOK_GROUPS.map(([title, ids]) => ({ title, options: ids.map(opt) })), undefined, 'st-txpop st-stpop', TEXT_KIND);
+  };
+  // Размер — числом в поле на ленте
+  document.addEventListener('change', (e) => {
+    const inp = e.target as HTMLInputElement;
+    if (!inp.matches?.('.st-ribbon [data-txsize]')) return;
+    const v = Math.round(Number(inp.value));
+    if (v >= 6 && v <= 300) setTx({ size: v });
+  });
+  document.addEventListener('keydown', (e) => {
+    const inp = e.target as HTMLInputElement;
+    if (!inp.matches?.('.st-ribbon [data-txsize]')) return;
+    e.stopPropagation();
+    if (e.key === 'Enter') { e.preventDefault(); inp.dispatchEvent(new Event('change', { bubbles: true })); inp.blur(); }
+  }, true);
+  /** Выравнивание объектов — те же команды, что на «Главной» («Выровнять»): надписи часто выделяют именно для этого */
+  const arrangeMenu = () => {
+    const n = ed.selection?.group.length ?? 0;
+    const it = (cmd: string, ic: string, label: string, off = false) => ({ label, icon: ic, disabled: off, run: () => h.run(cmd) });
+    showMenu(anchor('text.arrange'), [
+      { head: n > 1 ? 'Относительно друг друга' : 'По слайду' },
+      it('align.left', 'obj-left', 'Слева'), it('align.center', 'obj-center', 'По центру'), it('align.right', 'obj-right', 'Справа'),
+      null,
+      it('align.top', 'obj-top', 'Сверху'), it('align.middle', 'obj-middle', 'Посередине'), it('align.bottom', 'obj-bottom', 'Снизу'),
+      null,
+      it('dist.h', 'dist-h', 'Равные промежутки по ширине', n < 3), it('dist.v', 'dist-v', 'Равные промежутки по высоте', n < 3),
+    ]);
+  };
+  const textCmds: Record<string, Command> = {
+    'text.arrange': { run: arrangeMenu, enabled: freeText },
+    'text.styles': { run: allStyles, enabled: isText },
+    'text.font': { run: fontMenu, enabled: isText },
+    'text.size.up': { run: () => sizeStep(1), enabled: isText },
+    'text.size.down': { run: () => sizeStep(-1), enabled: isText },
+    'text.bold': { run: () => setTx({ weight: !boldNow() ? 700 : Number(tx0().weight) >= 600 ? undefined : 400 }), enabled: isText, active: () => isText() && boldNow() },
+    'text.italic': { run: () => setTx({ italic: !tx0().italic || undefined }), enabled: isText, active: () => isText() && !!tx0().italic },
+    'text.underline': { run: () => setTx({ underline: !tx0().underline || undefined }), enabled: isText, active: () => isText() && !!tx0().underline },
+    'text.upper': { run: () => setTx({ upper: !tx0().upper || undefined }), enabled: isText, active: () => isText() && !!tx0().upper },
+    'text.color': { run: colorMenu, enabled: isText },
+    'text.clear': { run: () => editText(() => ({})), enabled: () => isText() && targets('text').some((p) => Object.keys(tst(getAt(deck, p) as Block)).length > 0) },
+    'text.leading': { run: () => stepMenu('text.leading', 'leading', [[undefined, 'Как в теме'], [1, '1,0'], [1.15, '1,15'], [1.3, '1,3'], [1.5, '1,5'], [2, '2,0']]), enabled: isText },
+    'text.spacing': { run: () => stepMenu('text.spacing', 'spacing', [[-0.03, 'Сжатый'], [undefined, 'Обычный'], [0.04, 'Разреженный'], [0.1, 'Широкий'], [0.2, 'Очень широкий']]), enabled: isText },
+    'text.shadow': { run: shadowMenu, enabled: isText, active: () => isText() && !!tx0().shadow },
+    'text.glow': { run: glowMenu, enabled: isText, active: () => isText() && !!tx0().glow },
+    'text.outline': { run: outlineMenu, enabled: isText, active: () => isText() && (!!tx0().outline || !!tx0().hollow) },
+    'text.plate': { run: plateMenu, enabled: isText, active: () => isText() && !!tx0().plate },
+    'text.opacity': { run: opacityMenu, enabled: isText },
+    'text.rotate': { run: rotateMenu, enabled: freeText },
+  };
+  for (const a of ['left', 'center', 'right', 'justify'] as const) {
+    textCmds[`text.align.${a}`] = { run: () => setTx({ align: a === 'left' ? undefined : a }), enabled: isText, active: () => isText() && (tx0().align ?? 'left') === a };
+  }
+  // Место текста в рамке — у надписи с высотой (у растущей по тексту оно не видно)
+  const framed = () => freeText() && targets('text').every((p) => !!placeOf(getAt(deck, p) as Block).h);
+  for (const v of ['top', 'middle', 'bottom'] as const) {
+    textCmds[`text.valign.${v}`] = { run: () => setAll('text', 'valign', v === 'top' ? undefined : v), enabled: framed, active: () => framed() && (first('text')?.valign ?? 'top') === v };
+  }
+  for (const l of TEXT_LOOKS) {
+    textCmds[`text.style.${l.id}`] = { run: () => editText((st) => applyLook(st, l)), enabled: isText, active: () => isText() && lookOn(tx0(), l) };
+  }
   const cmds: Record<string, Command> = {
     'shape.fill': { run: () => palette('shape.fill', 'fill'), enabled: isBody },
     'shape.stroke': { run: () => palette('shape.stroke', 'stroke'), enabled: isShape },
@@ -1235,6 +1484,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       enabled: () => targets('image').length === 1 && isImage(),
     },
     ...videoCommands(),
+    ...textCmds,
     'image.opacity': {
       run: () => lookGallery('image.opacity', 'opacity', [[undefined, '100 %'], [0.8, '80 %'], [0.6, '60 %'], [0.4, '40 %'], [0.2, '20 %']],
         { label: 'Своя', min: 10, max: 100, unit: ' %', get: (v) => Math.round((Number(v) || 1) * 100), set: (n) => (n >= 100 ? undefined : n / 100) }, 'f'),
@@ -1384,7 +1634,11 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   // ---------- примерка с ленты: плитка под мышью или в фокусе — вид на самом объекте ----------
   /** Каким станет блок, если нажать плитку ленты cmd (как в её команде); null — плитка без примерки */
   const ribbonTry = (cmd: string): { kind: LookKind; fn: (b: Block) => Block } | null => {
-    const [, group, id] = /^(shape\.style|shape\.kind|table\.variant|image\.style)\.(.+)$/.exec(cmd) ?? [];
+    const [, group, id] = /^(shape\.style|shape\.kind|table\.variant|image\.style|text\.style)\.(.+)$/.exec(cmd) ?? [];
+    if (group === 'text.style') {
+      const l = TEXT_LOOKS.find((x) => x.id === id);
+      return l ? { kind: TEXT_KIND, fn: (b) => withStyle(b, applyLook(tst(b), l)) } : null;
+    }
     if (group === 'shape.style') {
       const s = SHAPE_STYLES.find((x) => x.id === id);
       return s ? {
@@ -1422,14 +1676,21 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   return cmds;
 }
 
-/** Образцы текущей заливки и контура на кнопках вкладки «Фигура». */
+/** Образцы текущей заливки и контура на кнопках вкладки «Фигура»; шрифт, размер и цвет текста — на «Надписи». */
 export function syncSwatches(deck: Deck, ed: Editor): void {
   const sel = ed.selection;
   const b = sel ? (getAt(deck, sel.block) as Block | undefined) : undefined;
+  if (b?.type === 'text') syncText(b, ed);
   const line = b?.kind === 'line' || b?.kind === 'arrow';
   document.querySelectorAll<HTMLElement>('.st-rb-sw').forEach((el) => {
-    const key = el.dataset.sw as 'fill' | 'stroke' | 'istroke';
+    const key = el.dataset.sw as 'fill' | 'stroke' | 'istroke' | 'tcolor';
     let css = 'transparent';
+    if (key === 'tcolor') {
+      const c = ((b?.styles as Record<string, TextStyle> | undefined)?.text ?? {}).color;
+      const g = typeof c === 'string' && c.startsWith('g:') ? /--g:([^;]+)/.exec(textGradientCss(c) ?? '')?.[1] : null;
+      el.style.background = b?.type === 'text' ? g ?? colorCss(c) ?? 'var(--tx)' : 'transparent';
+      return;
+    }
     if (key === 'istroke') {
       el.style.background = ofType(b, 'image') && Number(b?.width) ? swatchCss(b!.stroke, 'var(--bd2)') : 'transparent';
       return;
@@ -1442,4 +1703,21 @@ export function syncSwatches(deck: Deck, ed: Editor): void {
     }
     el.style.background = css;
   });
+}
+
+/** Шрифт и размер выделенной надписи — на её вкладке */
+function syncText(b: Block, ed: Editor): void {
+  const st = (b.styles as Record<string, TextStyle> | undefined)?.text ?? {};
+  const font = document.querySelector<HTMLElement>('.st-ribbon .st-txfont span');
+  if (font) {
+    const f = st.font ?? '';
+    font.textContent = !f ? 'Шрифт темы' : FONTS[f]?.name ?? f;
+    font.style.fontFamily = !f ? '' : FONTS[f]?.css ?? (fontNameOk(f) ? fontStack(f) : '');
+  }
+  const size = document.querySelector<HTMLInputElement>('.st-ribbon [data-txsize]');
+  if (size && document.activeElement !== size) {
+    const path = ed.selection?.block;
+    const el = path ? document.querySelector<HTMLElement>(`.slide.on [data-block='${JSON.stringify(path)}']`) : null;
+    size.value = String(Number(st.size) || (el ? Math.round(parseFloat(getComputedStyle(el).fontSize)) : ''));
+  }
 }

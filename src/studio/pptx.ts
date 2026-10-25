@@ -729,10 +729,18 @@ class Converter {
         }
         const size = parseFloat(cs.fontSize) * k;
         const ls = parseFloat(cs.letterSpacing) * k;
+        // Контур букв (вкладка «Надпись») — линией текста PowerPoint; у букв «только контур» заливка прозрачная
+        const sw = parseFloat(cs.getPropertyValue('-webkit-text-stroke-width')) || 0;
+        const sc = sw > 0 ? rgba(cs.getPropertyValue('-webkit-text-stroke-color')) : null;
+        const hollow = !!sc && !rgba(cs.getPropertyValue('-webkit-text-fill-color') || cs.color) && !/text/.test(cs.getPropertyValue('-webkit-background-clip'));
+        // Только контур — без заливки букв (a:noFill, как у контурного WordArt): метка вместо цвета, как у градиента
+        if (hollow) color = { hex: MARKS.mark('<a:noFill/>'), a: 1 };
         out.push({
           text,
           options: {
             color: color?.hex, transparency: color ? transparency(color.a * op) : undefined,
+            // Контур CSS идёт под заливкой (paint-order) и виден наполовину; PowerPoint рисует его по краю буквы
+            outline: sc ? { color: sc.hex, size: pt((hollow ? sw : sw / 2) * k) } : undefined,
             bold: Number(cs.fontWeight) >= 600, italic: cs.fontStyle === 'italic', underline: /underline/.test(cs.textDecorationLine) ? { style: 'sng' } : undefined,
             fontSize: pt(size), fontFace: fontFace(cs.fontFamily), lang: LANG,
             charSpacing: Number.isFinite(ls) && ls ? pt(ls) : undefined,
@@ -776,9 +784,37 @@ class Converter {
     return out.filter((r) => r.text || r.options?.breakLine);
   }
 
+  /**
+   * Тень и свечение букв: text-shadow (у градиентного и контурного текста — фильтр drop-shadow).
+   * Свечение — эффектом текста PowerPoint, тень — тенью надписи: у надписи без заливки её видно у букв
+   */
+  private textFx(cs: CSSStyleDeclaration, k: number, op: number): { glow?: PptxGenJS.TextGlowProps; shadow?: PptxGenJS.ShadowProps } {
+    const raw = cs.textShadow && cs.textShadow !== 'none' ? cs.textShadow.split(/,(?![^(]*\))/)
+      : [...cs.filter.matchAll(/drop-shadow\(((?:[^()]|\([^()]*\))*)\)/g)].map((m) => m[1]);
+    let glow: PptxGenJS.TextGlowProps | undefined;
+    let shadow: PptxGenJS.ShadowProps | undefined;
+    let far = 0;
+    for (const one of raw) {
+      const c = rgba(one);
+      const [dx = 0, dy = 0, blur = 0] = [...one.replace(/(?:rgba?|color)\([^)]*\)/g, '').matchAll(/(-?[\d.]+)px/g)].map((m) => Number(m[1]) * k);
+      if (!c) continue;
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
+        // Свечение: самый широкий слой
+        if (blur > 0 && pt(blur * 0.6) > (glow?.size ?? 0)) glow = { size: pt(blur * 0.6), color: c.hex, opacity: Math.min(1, Math.max(c.a, 0.65) * op) };
+      } else if (Math.hypot(dx, dy) >= far) {
+        // Тень: самая дальняя (у объёмной — край объёма)
+        far = Math.hypot(dx, dy);
+        shadow = { type: 'outer', color: c.hex, opacity: Math.min(1, c.a * op), blur: blur > 0.3 ? pt(blur) : 0.01, offset: pt(far), angle: Math.round(((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360) };
+      }
+    }
+    return { glow, shadow };
+  }
+
   private text(el: HTMLElement, cs: CSSStyleDeclaration, op: number, k: number): void {
     const runs = this.runs(el, op, k);
     if (!runs.length) return;
+    const fx = this.textFx(cs, k, op);
+    if (fx.glow) runs.forEach((r) => { r.options = { ...r.options, glow: fx.glow }; });
     // Маркер из ::before в строке («•», «—», «✓»)
     const before = getComputedStyle(el, '::before');
     const mark = /^["'](.+)["']$/.exec(before.content)?.[1];
@@ -827,6 +863,7 @@ class Converter {
       // Точный интервал в пунктах: не зависит от того, каким шрифтом PowerPoint заменит системный
       lineSpacing: Number.isFinite(lh) && lh > 0 ? pt(lh) : undefined,
       rotate: this.spin(this.rotation(cs)) || undefined,
+      shadow: fx.shadow,
     });
   }
 

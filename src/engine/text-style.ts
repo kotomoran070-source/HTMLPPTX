@@ -1,4 +1,5 @@
 import { fontNameOk, fontStack } from './fonts';
+import { textGradientCss } from './gradients';
 /**
  * Оформление отдельного текстового поля. Хранится рядом с полем:
  *   title: Итоги
@@ -8,7 +9,7 @@ import { fontNameOk, fontStack } from './fonts';
 export interface TextStyle {
   /** Размер шрифта в пикселях слайда (слайд — 1280×720) */
   size?: number;
-  /** Цвет: #RRGGBB или имя из палитры: accent, text, muted, white */
+  /** Цвет: #RRGGBB, имя из палитры (accent, text, muted) или градиент всего текста (g:sunset, g:#F97316,#7C3AED) */
   color?: string;
   align?: 'left' | 'center' | 'right' | 'justify';
   font?: string;
@@ -33,7 +34,42 @@ export interface TextStyle {
   listColor?: string;
   /** Маркер-картинка: файл в assets/ (вместо символа) */
   listImage?: string;
+  // Оформление всего поля с вкладки «Надпись» (части текста — разметкой: **жирный**, *курсив*, __подчёркнутый__)
+  italic?: boolean;
+  underline?: boolean;
+  /** Тень букв: TEXT_SHADOWS (soft, lift, hard, extrude, retro) */
+  shadow?: string;
+  /** Свечение вокруг букв: цвет темы или #RRGGBB */
+  glow?: string;
+  /** Контур букв, px, и его цвет (без цвета — акцент) */
+  outline?: number;
+  outlineColor?: string;
+  /** Только контур: буквы без заливки */
+  hollow?: boolean;
+  /** Плашка под текстом: цвет темы, soft (светлый акцент) или #RRGGBB */
+  plate?: string;
+  /** Непрозрачность текста, 0.1–1 */
+  opacity?: number;
 }
+
+/**
+ * Тени букв — в em, растут вместе с текстом. Объёмная и ретро — в цвете акцента: меняются с темой.
+ * У градиентного и контурного текста тень рисуется фильтром: text-shadow просвечивал бы сквозь буквы
+ */
+export const TEXT_SHADOWS: Record<string, { name: string; css: string }> = {
+  soft: { name: 'Мягкая', css: '0 .04em .14em rgb(15 23 42 / .35)' },
+  lift: { name: 'Парящая', css: '0 .1em .3em rgb(15 23 42 / .42)' },
+  hard: { name: 'Чёткая', css: '.05em .06em 0 rgb(15 23 42 / .5)' },
+  extrude: {
+    name: 'Объёмная',
+    css: [1, 2, 3, 4, 5, 6].map((i) => `${(i * 0.016).toFixed(3)}em ${(i * 0.016).toFixed(3)}em 0 color-mix(in srgb, var(--ac) ${70 - i * 4}%, #000)`).join(', '),
+  },
+  retro: { name: 'Ретро', css: '.06em .06em 0 var(--ac)' },
+};
+
+/** Цвета эффектов (плашка, контур, свечение): цвета темы и ещё светлый акцент и цвет фона карточек */
+const FX_COLORS: Record<string, string> = { soft: 'var(--acs)', surface: 'var(--surf)' };
+export const fxColor = (c: unknown): string | null => (typeof c === 'string' && FX_COLORS[c] ? FX_COLORS[c] : colorCss(c));
 
 /**
  * Маркеры списка: подпись для меню и переменные для .md-li::before (layout.css).
@@ -125,8 +161,19 @@ export function textStyleCss(st: unknown): string {
   // Крупный текст (заголовок) переносится ровными строками
   if (Number.isFinite(size) && size >= 6 && size <= 300) out.push(head ? `font-size:calc(${size}px * var(--h-scale, 1))` : `font-size:${size}px`, ...(size >= 28 ? ['text-wrap:balance'] : []));
   const color = colorCss(s.color);
+  // Градиент всего текста: рамка по самому тексту (иначе градиент растянулся бы на всю ширину поля)
+  const grad = !color && typeof s.color === 'string' && s.color.startsWith('g:') ? textGradientCss(s.color) : null;
+  const plate = grad ? null : fxColor(s.plate);
   if (color) out.push(`color:${color}`, `fill:${color}`);
+  if (grad) out.push(grad, 'background:var(--g)', '-webkit-background-clip:text', 'background-clip:text', '-webkit-text-fill-color:transparent');
   if (s.align && ALIGN.has(s.align)) out.push(`text-align:${s.align}`);
+  if (grad || plate) {
+    // По ширине текста, на своём месте строки: слева, по центру или справа
+    out.push('width:fit-content', 'max-width:100%', 'flex:none', 'box-sizing:border-box');
+    if (s.align === 'center') out.push('margin-left:auto', 'margin-right:auto');
+    else if (s.align === 'right') out.push('margin-left:auto');
+  }
+  if (plate) out.push(`background:${plate}`, 'padding:.14em .5em .18em', 'border-radius:.3em');
   if (s.font && FONTS[s.font]) out.push(`font-family:${FONTS[s.font].css}`);
   // Свой шрифт презентации (fonts в deck.yaml) — по имени
   else if (fontNameOk(s.font)) out.push(`font-family:${fontStack(s.font)}`);
@@ -146,5 +193,35 @@ export function textStyleCss(st: unknown): string {
   if (Number.isFinite(ld) && ld >= 0.8 && ld <= 3) out.push(`line-height:${ld}`);
   const gap = Number(s.gap);
   if (Number.isFinite(gap) && gap >= 0 && gap <= 200 && s.gap !== undefined) out.push(`--pgap:${gap}px`);
+  if (s.italic === true) out.push('font-style:italic');
+  if (s.underline === true) out.push('text-decoration:underline', 'text-underline-offset:.12em');
+  out.push(...effectCss(s, !!grad));
+  const op = Number(s.opacity);
+  if (Number.isFinite(op) && op >= 0.1 && op < 1) out.push(`opacity:${op}`);
   return out.join(';');
+}
+
+/** Тень, свечение и контур букв; у градиентного и контурного текста тень и свечение — фильтром */
+function effectCss(s: TextStyle, grad: boolean): string[] {
+  const out: string[] = [];
+  const hollow = s.hollow === true;
+  const w = Number(s.outline);
+  const width = Number.isFinite(w) && w > 0 ? Math.min(12, w) : hollow ? 2 : 0;
+  if (width) {
+    const c = fxColor(s.outlineColor) ?? (hollow ? colorCss(s.color) : null) ?? 'var(--ac)';
+    // Контур под заливкой (paint-order): буквы не худеют; без заливки — виден целиком
+    out.push(`-webkit-text-stroke:${hollow ? width : width * 2}px ${c}`, 'paint-order:stroke fill');
+  }
+  if (hollow) out.push('color:transparent', '-webkit-text-fill-color:transparent');
+  const shadows: string[] = [];
+  if (typeof s.shadow === 'string' && TEXT_SHADOWS[s.shadow]) shadows.push(TEXT_SHADOWS[s.shadow].css);
+  const glow = fxColor(s.glow);
+  if (glow) shadows.push(`0 0 .03em ${glow}`, `0 0 .12em ${glow}`, `0 0 .34em color-mix(in srgb, ${glow} 50%, transparent)`);
+  if (!shadows.length) return out;
+  if (grad || hollow) {
+    // Фильтр понимает только по одной тени в drop-shadow: список — цепочкой
+    const list = shadows.join(', ').split(/,(?![^(]*\))/).map((x) => x.trim());
+    out.push(`filter:${list.map((x) => `drop-shadow(${x})`).join(' ')}`);
+  } else out.push(`text-shadow:${shadows.join(', ')}`);
+  return out;
 }

@@ -1593,6 +1593,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   cmds['tab.table'] = { run: () => setTab('table') };
   cmds['tab.image'] = { run: () => setTab('image') };
   cmds['tab.video'] = { run: () => setTab('video') };
+  cmds['tab.text'] = { run: () => setTab('text') };
   for (const k of ['left', 'center', 'right', 'top', 'middle', 'bottom']) cmds[`align.${k}`] = { run: () => align(k), enabled: hasFree };
   SLIDE_PRESETS.forEach((_p, k) => { cmds[`slide.preset.${k}`] = { run: () => ed.addSlide(index, k) }; });
   /** Галереи вкладки «Вставка»: только свои разделы библиотеки */
@@ -1991,6 +1992,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
   function syncContextTab(): void {
     const next = contextTab(deck, ed);
     document.querySelectorAll<HTMLElement>('.st-tabs .ctx').forEach((t) => { t.hidden = t.dataset.tab !== next; });
+    // Правка текста надписи — на «Главной»: там панель «Текст» для выделенных слов («Надпись» — для всего текста)
+    if (ed.editingField && tab === 'text') setTab('home');
     // Вкладка открывается, когда выделили другой объект, — и не мешает, пока правят тот же
     const sel = ed.selection;
     const key = next && sel ? JSON.stringify(sel.group.length > 1 ? sel.group : sel.block) : '';
@@ -1998,7 +2001,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       // На «Анимации» лента остаётся: объекты выделяют, чтобы дать им эффект (вкладка объекта лишь появляется)
       if (!keepTab && tab !== 'anim') {
         if (next) setTab(next);
-        else if (tab === 'shape' || tab === 'table' || tab === 'image' || tab === 'video') setTab('home');
+        else if (tab === 'shape' || tab === 'table' || tab === 'image' || tab === 'video' || tab === 'text') setTab('home');
       }
       ctxTab = next;
       ctxKey = key;
