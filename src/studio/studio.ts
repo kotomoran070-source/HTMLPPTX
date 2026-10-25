@@ -3,7 +3,7 @@ import { CommandPalette } from './palette';
 import { guessGap, rowOf } from '../engine/editor/rows';
 import { toolsCommands } from './tools';
 import { accentTail, applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, setUiAccent, slideAccent, uiAccent, uiSafeAccent } from '../engine/accent';
-import { applyThemeSwatches, themeMode } from '../engine/deck-theme';
+import { applyThemeSwatches } from '../engine/deck-theme';
 import { getAt, setAt, type Path } from '../engine/data';
 import { DeckView, H, W } from '../engine/deck-view';
 import { clock, Editor, SLIDE_PRESETS } from '../engine/editor/editor';
@@ -685,9 +685,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   function exportMenu(): void {
     const seg = QUALITIES.map(([k, t]) => `<button type="button" role="radio" data-q="${k}" aria-checked="${k === quality}">${esc(t)}</button>`).join('');
     const hint = () => QUALITIES.find(([k]) => k === quality)![2];
-    const sameHint = themeMode(deck.theme) ? 'Анимации — на любом компьютере, даже где они выключены в системе'
-      : `${currentTheme() === 'dark' ? 'Тёмные' : 'Светлые'} слайды, как сейчас, и анимации — на любом компьютере`;
-    const sameBox = `<label class="st-xsame" title="Без галочки файл берёт светлый или тёмный вид из системы зрителя, а анимации не показывает, если там включено «Уменьшить движение»"><input type="checkbox"${same ? ' checked' : ''}><span><b>Как на этом компьютере</b><small>${esc(sameHint)}</small></span></label>`;
+    const sameBox = `<label class="st-xsame" title="Тот же вид слайдов и анимации на любом компьютере"><input type="checkbox"${same ? ' checked' : ''}>Как на этом компьютере</label>`;
     const html = `<div class="st-xq"><span class="st-xq-l">Качество</span><div class="st-xq-seg" role="radiogroup" aria-label="Качество файла">${seg}</div><small class="st-xq-hint">${esc(hint())}</small></div>`
       + EXPORTS.map(([k, ic, t, d]) => `<button type="button" class="st-xopt" data-x="${k}">${icon(ic)}<span><b>${esc(t)}</b><small>${esc(d)}</small></span></button>${k === 'clean' ? sameBox : ''}`).join('');
     const pop = showPopover(document.querySelector<HTMLElement>('.st-top [data-cmd="file.export"]')!, html, (b) => {

@@ -745,12 +745,9 @@ body.st-previewing :is(.st-top, .st-ribbon) { position: relative; z-index: 31; }
 .st-xopt b { font-weight: 600; }
 .st-xopt small { font-size: 12px; line-height: 1.4; color: var(--mu); }
 /* «Как на этом компьютере» — под «HTML для показа», вровень с его текстом */
-.st-xsame { display: flex; align-items: flex-start; gap: 8px; margin: -6px 0 4px; padding: 4px 12px 6px 42px; border-radius: 8px; font: 12px var(--font); color: var(--tx2); cursor: pointer; }
-.st-xsame:hover { background: var(--alt); }
-.st-xsame input { flex: none; width: 15px; height: 15px; margin: 1px 0 0; accent-color: var(--ac); cursor: pointer; }
-.st-xsame span { display: flex; flex-direction: column; gap: 1px; }
-.st-xsame b { font-weight: 600; color: var(--tx); }
-.st-xsame small { font-size: 11.5px; line-height: 1.4; color: var(--mu); }
+.st-xsame { display: flex; align-items: center; gap: 6px; width: max-content; margin: -8px 0 4px 42px; padding: 2px 0; font: 12px var(--font); color: var(--mu); cursor: pointer; }
+.st-xsame:hover { color: var(--tx2); }
+.st-xsame input { flex: none; width: 13px; height: 13px; margin: 0; accent-color: var(--ac); cursor: pointer; }
 .st-top .st-export .ic { width: 14px; height: 14px; }
 
 /* Инспектор объектов в режиме кода: дерево блоков над YAML */
