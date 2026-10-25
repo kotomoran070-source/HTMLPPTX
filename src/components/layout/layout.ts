@@ -104,7 +104,13 @@ interface ImageProps extends Block, ImageFrame, ImageLook {
   images?: (string | { src: string; srcDark?: string; alt?: string; caption?: string } & ImageFrame)[];
   /** click — кадры листает «Далее» (по одному на щелчок), иначе — стрелки, точки и свайп */
   flip?: 'click';
+  /** Снимок «целиком» (fit: contain): поля по краям — тот же снимок, размытый */
+  fitBlur?: boolean;
 }
+
+/** Размытые поля у снимка «целиком»: класс и картинка рамки (рисует ::before, layout.css) */
+const blurFill = (on: unknown, fit: unknown, src: string) =>
+  (on === true && fit === 'contain' ? { cls: ' img-bf', css: `--bf:url(${JSON.stringify(src)})` } : { cls: '', css: '' });
 
 /** Картинка из папки презентации: src: ./assets/photo.jpg; images — ещё кадры, листаются на слайде */
 defineBlock<ImageProps>('image', {
@@ -112,8 +118,10 @@ defineBlock<ImageProps>('image', {
     const look = imageLookCss(p);
     const frames = p.src ? framesOf(p) : [];
     if (frames.length > 1) return framesHtml(p, frames, look);
+    const bf = blurFill(p.fitBlur, p.fit, p.src);
+    const box = [look.box, bf.css].filter(Boolean).join(';');
     const img = p.src
-      ? `<div class="imgfit"><div class="imgbox${look.cls}"${look.box ? ` style="${look.box}"` : ''}${eimg(p, 'src')}><img${themedSrc(p.src, p.srcDark)} alt="${esc(p.alt ?? p.caption ?? '')}" style="${frameCss(p)}${look.img ? `;${look.img}` : ''}"></div></div>`
+      ? `<div class="imgfit"><div class="imgbox${look.cls}${bf.cls}"${box ? ` style="${esc(box)}"` : ''}${eimg(p, 'src')}><img${themedSrc(p.src, p.srcDark)} alt="${esc(p.alt ?? p.caption ?? '')}" style="${frameCss(p)}${look.img ? `;${look.img}` : ''}"></div></div>`
       // Пустое место под картинку — той же формы, что будет картинка (скругление, круг, овал)
       : `<div class="image-empty"${eimg(p, 'src')}${p.radius !== undefined ? ` style="${look.box.split(';').filter((d) => d.startsWith('border-radius')).join(';')}${p.radius === 'circle' ? ';aspect-ratio:1;min-height:0;padding:0;flex:none;height:100%;margin:0 auto' : ''}"` : ''}>${p.radius === 'circle' ? 'Фото' : 'Перетащите изображение сюда'}</div>`;
     const cap = p.caption ? `<figcaption class="mu"${ea(p, 'caption')}>${t(p.caption)}</figcaption>` : '';
@@ -132,9 +140,11 @@ function framesHtml(p: ImageProps, frames: ReturnType<typeof framesOf>, look: Re
   const path = pathOf(p);
   const boxes = frames.map(({ f, owner, n }, k) => {
     const frame = { fit: f.fit ?? p.fit, position: f.position, zoom: f.zoom };
+    const bf = blurFill(p.fitBlur, frame.fit, f.src);
+    const box = [look.box, bf.css].filter(Boolean).join(';');
     // Кадр строкой (images: [a.jpg]) правится по своему месту в списке; кадрировать — станет объектом (image-edit)
     const edit = owner ? eimg(owner, 'src') : path ? eimgPath([...path, 'images', n], 'photo', [...path, 'images', n]) : '';
-    return `<div class="imgbox gal-f${k === at ? ' on' : k < at ? ' past' : ''}${look.cls}"${look.box ? ` style="${look.box}"` : ''}${edit}>`
+    return `<div class="imgbox gal-f${k === at ? ' on' : k < at ? ' past' : ''}${look.cls}${bf.cls}"${box ? ` style="${esc(box)}"` : ''}${edit}>`
       + `<img${themedSrc(f.src, f.srcDark)} alt="${esc(f.alt ?? f.caption ?? '')}"${k ? ' loading="lazy"' : ''} style="${frameCss(frame)}${look.img ? `;${look.img}` : ''}"></div>`;
   }).join('');
   const caps = frames.some(({ f }) => f.caption)

@@ -2,7 +2,7 @@ import { icon } from '../components/icons';
 import { gradColor, gradientMid, TEXT_GRADIENTS } from '../engine/gradients';
 import { gradientPanel, type GradValue } from '../engine/editor/gradient-edit';
 import { GRADIENTS, PRESET_KINDS, SHAPE_COLORS, SHAPE_STYLES, SHAPE_SWATCHES, gradientCss, gradientOn, isGradient, sameGradient, shapeFill, type ShapeGradient } from '../components/shape/shape';
-import { frameList, joinFrames, moveFrame, removeFrame } from '../components/layout/frame-list';
+import { frameList, joinFrames, moveFrame, removeFrame, setFrameList } from '../components/layout/frame-list';
 import { showFrame, shownFrame } from '../components/layout/frames';
 import { IMAGE_ADJUST, IMAGE_FILTER_GROUPS, IMAGE_FILTERS, IMAGE_LOOK_KEYS, IMAGE_SHADOWS, IMAGE_STYLES, adjustCss, filterCss, imageLookCss, type ImageLook } from '../components/layout/image-look';
 
@@ -269,7 +269,8 @@ export function contextPanelsHtml(): string {
   ${group('Эффекты', stack(btn('image.shadow', 'shadow', 'Тень', { menu: true }), btn('image.radius', 'corner', 'Скругление', { menu: true }))
     + stack(btn('image.filter', 'recolor', 'Цвет', { menu: true, title: 'Чёрно-белый, сепия, приглушённый…' }), btn('image.opacity', 'opacity', 'Прозрачность', { menu: true })))}
   ${group('Цветокоррекция', btn('image.grade', 'sliders', 'Цвет+', { big: true, title: 'Цветокоррекция, как в DaVinci: круги, кривые, HSL, LUT, цвета бренда. Исходный файл не меняется' }))}
-  ${group('Кадр', btn('image.crop', 'crop', 'Кадр', { big: true, title: 'Сдвинуть снимок внутри рамки, как «Обрезка» в PowerPoint: тяните картинку. Масштаб — на панели над картинкой. Готово — Esc' }))}
+  ${group('Кадр', btn('image.crop', 'crop', 'Кадр', { big: true, title: 'Сдвинуть снимок внутри рамки, как «Обрезка» в PowerPoint: тяните картинку. Масштаб — на панели над картинкой. Готово — Esc' })
+    + btn('image.fit', 'contain', 'Вписать', { big: true, menu: true, title: 'Как снимок встаёт в рамку: заполняет её (края обрезаются) или целиком — с полями, пустыми или из размытого снимка. У картинки с кадрами — у всех кадров' }))}
   ${group('Галерея', btn('image.frames.join', 'frames', 'Собрать в галерею', { big: true, title: 'Выделенные картинки — кадрами одной: первая (слева сверху) остаётся на месте, остальные становятся её кадрами' })
     + btn('image.frame.add', 'frames', 'Ещё кадры', { big: true, title: 'Добавить картинки в эту рамку: на слайде листаются стрелками, точками и свайпом. Можно выбрать несколько файлов или бросить их на картинку' })
     // Кнопки кадров — только у картинки с кадрами (studio.ts): обычной хватает «Ещё кадры», лента не теснится
@@ -754,6 +755,36 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     ed.commit((x) => edit(getAt(x, p) as Block, k), { rebuild: true });
   };
 
+  /** Как вписаны снимки: у всех кадров одинаково (заполнить, целиком, целиком на размытом фоне) */
+  type FitMode = 'cover' | 'contain' | 'blur';
+  const fitMode = (b: Block): FitMode => {
+    const list = frameList(b);
+    const contain = list.length > 0 && list.every((f) => f.fit === 'contain');
+    return contain ? (b.fitBlur === true ? 'blur' : 'contain') : 'cover';
+  };
+  const setFit = (b: Block, m: FitMode) => {
+    const list = frameList(b).map((f) => {
+      const { fit: _fit, ...rest } = f;
+      return m === 'cover' ? rest : { ...rest, fit: 'contain' };
+    });
+    if (list.length) setFrameList(b, list);
+    if (m === 'blur') b.fitBlur = true;
+    else delete b.fitBlur;
+  };
+  const fitMenu = () => {
+    const paths = targets('image').filter((p) => (getAt(deck, p) as Block).type === 'image');
+    const cur = paths.length ? fitMode(getAt(deck, paths[0]) as Block) : 'cover';
+    const item = (m: FitMode, ic: string, label: string, sub: string) => ({
+      label, sub, icon: ic, checked: cur === m,
+      run: () => ed.commit((d) => paths.forEach((p) => setFit(getAt(d, p) as Block, m)), { rebuild: true }),
+    });
+    showMenu(anchor('image.fit'), [
+      item('cover', 'cover', 'Заполнить рамку', 'Края обрезаются, сдвинуть — «Кадр»'),
+      item('contain', 'contain', 'Целиком', 'Без обрезки, по краям поля'),
+      item('blur', 'fit-blur', 'Целиком на размытом фоне', 'Поля — тот же снимок, размытый'),
+    ]);
+  };
+
   /** Несколько картинок выделено — их можно собрать кадрами одной */
   const joinable = () => { const ps = targets('image'); return ps.length > 1 && isImage() && ps.every((p) => (getAt(deck, p) as Block).type === 'image'); };
   const joinImages = () => {
@@ -766,9 +797,17 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     // Удаляются с конца списка: номера остальных не сдвигаются
     const gone = [...rest].sort((a, b) => Number(b.at(-1)) - Number(a.at(-1)));
     const shift = gone.filter((p) => JSON.stringify(p.slice(0, -1)) === JSON.stringify(main.slice(0, -1)) && Number(p.at(-1)) < Number(main.at(-1))).length;
+    // Снимки разной формы: целиком на размытом фоне, а не обрезанные под первый
+    const ratio = (p: Path) => {
+      const img = [...h.stage().querySelectorAll<HTMLElement>('.slide.on [data-block]')].find((x) => x.getAttribute('data-block') === JSON.stringify(p))?.querySelector('img');
+      return img?.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : 0;
+    };
+    const rs = paths.map(ratio).filter((r) => r > 0);
+    const mixed = rs.length > 1 && Math.max(...rs) / Math.min(...rs) > 1.15;
     ed.clearSelection();
     ed.commit((d) => {
       joinFrames(getAt(d, main) as Block, rest.map((p) => getAt(d, p) as Block));
+      if (mixed) setFit(getAt(d, main) as Block, 'blur');
       for (const p of gone) (getAt(d, p.slice(0, -1)) as unknown[]).splice(Number(p.at(-1)), 1);
     }, { rebuild: true });
     if (main[2] === 'free') ed.selectFree(Number(main[1]), Number(main.at(-1)) - shift);
@@ -1204,6 +1243,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     'image.styles': { run: stylesGallery, enabled: isImage },
     'image.frame.add': { run: () => { const p = frameBlock(); if (p) ed.pickFrames(p, frameNow()); }, enabled: () => !!frameBlock() },
     'image.frames.join': { run: joinImages, enabled: joinable },
+    'image.fit': { run: fitMenu, enabled: () => isImage() && targets('image').some((p) => (getAt(deck, p) as Block).type === 'image') },
     'image.frame.del': { run: () => frameEdit((b, k) => removeFrame(b, k)), enabled: () => frameCount() > 1 },
     'image.frame.prev': { run: () => frameEdit((b, k) => moveFrame(b, k, -1), -1), enabled: () => frameCount() > 1 && frameNow() > 0 },
     'image.frame.next': { run: () => frameEdit((b, k) => moveFrame(b, k, 1), 1), enabled: () => frameCount() > 1 && frameNow() < frameCount() - 1 },

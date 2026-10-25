@@ -1781,7 +1781,7 @@ test('«Разобрать на объекты»: живой фон не зак�
   expect(errors).toEqual([]);
 });
 
-test('«Собрать в галерею»: две картинки слайда — кадрами одной, левая остаётся на месте; Ctrl+Z — как было', async ({ page }) => {
+test('«Собрать в галерею»: две картинки слайда — кадрами одной, левая остаётся на месте, разной формы — целиком на размытом фоне; Ctrl+Z — как было', async ({ page }) => {
   const errors = watchErrors(page);
   const before = readDeck('gal');
   await page.goto('/?deck=gal&studio#3');
@@ -1793,8 +1793,12 @@ test('«Собрать в галерею»: две картинки слайда
   await page.locator('.st-ribbon [data-cmd="image.frames.join"]').click();
   await expect(page.locator('#st-canvas .slide.on [data-type="image"]')).toHaveCount(1);
   await expect(page.locator('#st-canvas .slide.on .image.gal .gal-f')).toHaveCount(2);
-  // Первая — левая: её место и скругление, кадр правой — со своей подписью
-  await expect.poll(() => readDeck('gal')).toMatch(/src: \.\/assets\/photo\.svg, radius: 24[^\n]*images: \[\{src: \.\/assets\/cartoon\.webp, caption: Справа\}\]/);
+  // Первая — левая: её место и скругление, кадр правой — со своей подписью; снимки разной формы — целиком на размытом фоне
+  await expect.poll(() => parse(readDeck('gal')).slides[2].free).toEqual([{
+    type: 'image', src: './assets/photo.svg', radius: 24, place: { x: 120, y: 120, w: 440, h: 300 }, fit: 'contain', fitBlur: true,
+    images: [{ src: './assets/cartoon.webp', caption: 'Справа', fit: 'contain' }],
+  }]);
+  await expect(page.locator('#st-canvas .slide.on .image.gal .gal-f.img-bf')).toHaveCount(2);
   await page.keyboard.press('Control+z');
   await expect(page.locator('#st-canvas .slide.on [data-type="image"]')).toHaveCount(2);
   // Те же данные (картинку, которую правили, файл пишет уже блоком, а не строкой)

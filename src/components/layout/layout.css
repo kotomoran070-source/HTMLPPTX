@@ -17,6 +17,8 @@
 .imgfit:has(> .img-round) { container-type: size; justify-content: center; align-items: center; }
 .imgfit > .imgbox.img-round { flex: none; width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); }
 .imgbox img { position: absolute; inset: var(--mat, 0); width: calc(100% - 2 * var(--mat, 0px)); height: calc(100% - 2 * var(--mat, 0px)); display: block; }
+/* Снимок целиком на размытом фоне (fitBlur): поля — тот же снимок, размытый и чуть крупнее (края размытия за рамкой) */
+.imgbox.img-bf::before { content: ""; position: absolute; inset: var(--mat, 0); background: var(--bf) center / cover; filter: blur(18px) saturate(1.1); transform: scale(1.15); opacity: .9; }
 /* Тонировка фильтра (тёплый, дуотон акцента…): слой цвета поверх снимка в своём режиме наложения */
 .imgbox.img-tint { isolation: isolate; }
 .imgbox.img-tint::after { content: ""; position: absolute; inset: var(--mat, 0); background: var(--tint); mix-blend-mode: var(--tint-blend, normal); opacity: var(--tint-op, 1); border-radius: inherit; pointer-events: none; }

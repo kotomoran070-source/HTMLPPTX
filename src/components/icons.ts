@@ -47,6 +47,7 @@ const PATHS: Record<string, string> = {
   eraser: '<path d="m7 21-4-4 11-11 7 7-8 8z"/><path d="M11 21h10M8.5 11.5l6 6"/>',
   contain: '<rect x="3" y="4" width="18" height="16" rx="2"/><rect x="7" y="8" width="10" height="8" rx="1"/>',
   cover: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M3 15h18M9 4v16M15 4v16"/>',
+  'fit-blur': '<rect x="3" y="4" width="18" height="16" rx="2"/><rect x="8" y="7" width="8" height="10" rx="1"/><path d="M5 9v.01M5 12v.01M5 15v.01M19 9v.01M19 12v.01M19 15v.01"/>',
   crop: '<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>',
   move: '<path d="M12 3v18M3 12h18"/><path d="m9 6 3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/>',
   up: '<path d="m6 11 6-6 6 6M12 5v14"/>',
