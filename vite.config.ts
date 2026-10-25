@@ -50,7 +50,7 @@ export default defineConfig(({ command }) => ({
   plugins: [
     decksPlugin({ dir: decksDir, only, fonts: process.env.SLIDERIA_FONTS, library: process.env.SLIDERIA_LIBRARY }),
     frameHostPlugin(),
-    ...(process.env.MOTION === '1' ? [keepMotion()] : []),
+    ...(command === 'build' && process.env.MOTION === '1' ? [keepMotion()] : []),
     ...(command === 'build' ? [viteSingleFile({ removeViteModuleLoader: true }), ...licenseNotice(process.cwd())] : []),
   ],
   // Сборка «для показа» (yarn build --clean): режим правки не попадает в файл
@@ -63,7 +63,8 @@ export default defineConfig(({ command }) => ({
     // Как называть папку с презентациями в подсказках
     __DECKS_DIR__: JSON.stringify(process.env.SLIDERIA_DECKS_LABEL || 'presentations/'),
     __APP__: JSON.stringify(app),
-    __LOOK__: JSON.stringify(process.env.LOOK === 'light' || process.env.LOOK === 'dark' ? process.env.LOOK : ''),
+    // «Как на этом компьютере» — только у собранного файла (scripts/build.mjs --look / --motion)
+    __LOOK__: JSON.stringify(command === 'build' && (process.env.LOOK === 'light' || process.env.LOOK === 'dark') ? process.env.LOOK : ''),
   },
   // Документы «живых» вставок (компонент embed) — обычные файлы-ассеты
   assetsInclude: ['**/*.htm', '**/*.glb', '**/*.wad', '**/*.cube'],
