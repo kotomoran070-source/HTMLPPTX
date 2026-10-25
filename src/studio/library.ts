@@ -100,6 +100,183 @@ const P = Array.from({ length: 160 }, (_, i) => ({
 </script></body></html>
 `;
 
+/**
+ * Визуализатор звука (живая вставка): микрофон или звук компьютера, в цветах темы. Прозрачный — ставится
+ * поверх картинки. Без звука (собранный файл, телефон, нет разрешения) — в покое, без выдуманного движения
+ */
+export const VISUALIZER_SAMPLE = `<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #src { position: fixed; right: 8px; bottom: 8px; display: flex; gap: 2px; padding: 3px; border-radius: 999px;
+    background: rgb(0 0 0 / .5); opacity: 0; transition: opacity .2s; }
+  body:hover #src { opacity: 1; }
+  #src button { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%;
+    background: none; color: #fff; opacity: .6; cursor: pointer; }
+  #src button:hover, #src button.on { opacity: 1; background: rgb(255 255 255 / .18); }
+  #src svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+</style></head>
+<body><canvas id="c"></canvas>
+<div id="src">
+  <button id="mic" title="Микрофон"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+  <button id="pc" title="Звук компьютера"><svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
+</div>
+<script>
+// Визуализатор звука: сразу слушает микрофон, «Звук компьютера» — кнопкой внизу справа (видна при наведении).
+// Звук есть в студии и в приложении; в собранном файле и на телефоне браузер звук не даёт — визуализатор в покое.
+// Прозрачный: поставьте под него картинку. Цвета — акцент и второй цвет темы.
+const LOOK = 'bars';   // вид: 'bars' — столбики, 'ring' — кольцо, 'wave' — волна
+const BARS = 64;       // число столбиков
+const SENSE = 1;       // чувствительность: 0.5 — тише, 2 — сильнее
+const AUTO = true;     // сразу слушать микрофон
+
+const c = document.getElementById('c'), x = c.getContext('2d');
+const css = getComputedStyle(document.documentElement);
+const A = css.getPropertyValue('--ac').trim() || '#6366F1';
+const B2 = css.getPropertyValue('--ac2').trim();
+// Второй цвет темы; если его нет — верхушки светлее акцента
+const B = B2 && B2 !== A ? B2 : lighter(A, 0.45);
+function lighter(c, k) {
+  const m = /^#([0-9a-f]{6})$/i.exec(c);
+  if (!m) return c;
+  const n = parseInt(m[1], 16), up = (v) => Math.round(v + (255 - v) * k);
+  return 'rgb(' + up(n >> 16) + ',' + up((n >> 8) & 255) + ',' + up(n & 255) + ')';
+}
+const half = BARS >> 1, lv = new Float32Array(half);
+let w = 0, h = 0, ac = null, an = null, bins = null, wave = null, stream = null;
+
+function fit() {
+  const r = devicePixelRatio || 1;
+  w = c.clientWidth; h = c.clientHeight;
+  c.width = Math.round(w * r); c.height = Math.round(h * r);
+  x.setTransform(r, 0, 0, r, 0, 0);
+  draw();
+}
+
+// Полосы частот от 40 Гц до 12 кГц; растут сразу, опадают плавно
+function levels() {
+  an.getByteFrequencyData(bins);
+  an.getByteTimeDomainData(wave);
+  const hz = ac.sampleRate / an.fftSize;
+  for (let i = 0; i < half; i++) {
+    const b0 = 40 * Math.pow(300, i / half) / hz, b1 = 40 * Math.pow(300, (i + 1) / half) / hz;
+    let m = 0;
+    if (b1 - b0 < 1) {
+      // Узкая полоса (басы) — значение между соседними точками спектра, иначе соседние столбики одинаковые
+      const p = (b0 + b1) / 2, k = Math.floor(p);
+      m = bins[k] + (bins[k + 1] - bins[k]) * (p - k);
+    } else for (let k = Math.floor(b0); k <= Math.ceil(b1) && k < bins.length; k++) m = Math.max(m, bins[k]);
+    // Высокие в музыке тише басов: подтягиваются, чтобы края не стояли
+    const v = m ? Math.min(1, Math.pow(Math.min(1, m / 255 + 0.22 * i / half), 1.5) * SENSE) : 0;
+    lv[i] = v > lv[i] ? v : lv[i] * 0.86 + v * 0.14;
+  }
+}
+
+function bars() {
+  const cw = w / BARS, bw = Math.max(2, cw * 0.56), pad = bw;
+  const g = x.createLinearGradient(0, h, 0, 0);
+  g.addColorStop(0, A); g.addColorStop(1, B);
+  x.fillStyle = g;
+  for (let k = 0; k < BARS; k++) {
+    // Низкие частоты — в середине, высокие — к краям
+    const v = lv[k < half ? half - 1 - k : k - half];
+    const bh = bw + v * (h - pad * 2 - bw);
+    x.beginPath();
+    x.roundRect(k * cw + (cw - bw) / 2, h - pad - bh, bw, bh, bw / 2);
+    x.fill();
+  }
+}
+
+function ring() {
+  const cx = w / 2, cy = h / 2, s = Math.min(w, h), R = s * 0.27, n = BARS * 2;
+  const g = x.createConicGradient(-Math.PI / 2, cx, cy);
+  g.addColorStop(0, A); g.addColorStop(0.5, B); g.addColorStop(1, A);
+  x.strokeStyle = g; x.lineCap = 'round';
+  x.lineWidth = Math.max(2, Math.PI * R / n);
+  x.beginPath();
+  for (let k = 0; k < n; k++) {
+    // Низкие — сверху, левая половина — отражение правой
+    const v = lv[Math.floor((k < n / 2 ? k : n - 1 - k) * half / (n / 2))];
+    const a = -Math.PI / 2 + (k + 0.5) / n * Math.PI * 2, len = 0.01 + v * s * 0.2;
+    x.moveTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R);
+    x.lineTo(cx + Math.cos(a) * (R + len), cy + Math.sin(a) * (R + len));
+  }
+  x.stroke();
+}
+
+function line() {
+  const g = x.createLinearGradient(0, 0, w, 0);
+  g.addColorStop(0, A); g.addColorStop(1, B);
+  x.strokeStyle = g; x.lineJoin = 'round';
+  x.lineWidth = Math.max(2, h * 0.012);
+  x.beginPath();
+  const n = 240;
+  for (let k = 0; k <= n; k++) {
+    // К краям волна затихает
+    const v = wave ? (wave[Math.floor(k / n * (wave.length - 1))] - 128) / 128 * Math.sin(Math.PI * k / n) : 0;
+    const px = k / n * w, py = h / 2 + v * h * 0.45 * SENSE;
+    if (k) x.lineTo(px, py); else x.moveTo(px, py);
+  }
+  x.stroke();
+}
+
+function draw() {
+  x.clearRect(0, 0, w, h);
+  x.shadowColor = A; x.shadowBlur = 16;
+  (LOOK === 'ring' ? ring : LOOK === 'wave' ? line : bars)();
+}
+
+function frame() {
+  if (!an) return;
+  levels(); draw();
+  requestAnimationFrame(frame);
+}
+
+function quiet() {
+  an = null; wave = null; lv.fill(0); draw();
+  document.querySelectorAll('#src button').forEach((b) => b.classList.remove('on'));
+}
+
+async function listen(kind) {
+  try {
+    const s = kind === 'pc'
+      ? await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
+      : await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    // Звук экрана без галочки «Поделиться звуком» — звука нет
+    if (!s.getAudioTracks().length) { s.getTracks().forEach((t) => t.stop()); return; }
+    if (stream) stream.getTracks().forEach((t) => t.stop());
+    stream = s;
+    ac = ac || new AudioContext();
+    await ac.resume();
+    const node = ac.createAnalyser();
+    node.fftSize = 4096; node.smoothingTimeConstant = 0.55; node.minDecibels = -85; node.maxDecibels = -25;
+    ac.createMediaStreamSource(s).connect(node);
+    bins = new Uint8Array(node.frequencyBinCount); wave = new Uint8Array(node.fftSize);
+    const was = an;
+    an = node;
+    if (!was) requestAnimationFrame(frame);
+    document.querySelectorAll('#src button').forEach((b) => b.classList.toggle('on', b.id === kind));
+    s.getAudioTracks()[0].addEventListener('ended', () => { if (stream === s) { stream = null; quiet(); } });
+  } catch (e) {
+    // Нет разрешения или звука — визуализатор в покое
+  }
+}
+
+addEventListener('resize', fit);
+fit();
+// Звук дают только рамке со своим адресом (студия, приложение); без адреса кнопкам делать нечего
+const can = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && self.origin !== 'null';
+if (!can) document.getElementById('src').remove();
+else {
+  document.getElementById('mic').onclick = () => listen('mic');
+  document.getElementById('pc').onclick = () => listen('pc');
+  addEventListener('pointerdown', () => { if (ac) ac.resume(); });
+  if (AUTO) listen('mic');
+}
+</script></body></html>
+`;
+
 /** Стартовый код песочницы: короткий, чтобы его было удобно править при показе */
 export const SANDBOX_SAMPLE = `<style>
   body { margin: 0; height: 100vh;
@@ -322,6 +499,11 @@ export const LIBRARY: Category[] = [
       },
       { name: 'Песочница', w: 1040, h: 440, pw: 360, make: () => ({ type: 'sandbox', theme: true, code: SANDBOX_SAMPLE }) },
       { name: 'Живой код', w: 640, h: 360, make: () => ({ type: 'embed', theme: true, interactive: true, code: EMBED_SAMPLE }) },
+      {
+        name: 'Визуализатор звука', w: 960, h: 300,
+        glyph: '<rect x="6" y="20" width="4" height="6" rx="2"/><rect x="13" y="13" width="4" height="13" rx="2"/><rect x="20" y="6" width="4" height="20" rx="2"/><rect x="27" y="10" width="4" height="16" rx="2"/><rect x="34" y="16" width="4" height="10" rx="2"/>',
+        make: () => ({ type: 'embed', theme: true, interactive: true, code: VISUALIZER_SAMPLE }),
+      },
       { name: 'Кнопка «Дальше»', w: 260, h: 64, make: () => ({ type: 'shape', kind: 'pill', fill: 'gradient', text: 'Дальше →', action: 'next', styles: { text: { size: 20 } } }) },
     ],
   },

@@ -1111,6 +1111,9 @@ body.st-marqueeing, body.st-marqueeing * { user-select: none !important; cursor:
 /* Галерея простых фигур: мелкие плитки со значками одного масштаба */
 .st-lib-grid.compact { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
 .st-lib-grid.compact .st-lib-item { align-items: center; padding: 4px 0 5px; }
+/* Значок в обычной галерее — в такой же рамке, как живые миниатюры соседей */
+.st-lib-grid:not(.compact) .st-lib-slot:has(> .st-lib-glyph) { display: grid; place-items: center; width: 136px; max-width: 100%; height: 76px; margin: 0 auto; border: 1px solid var(--bd); border-radius: 6px; background: var(--bg); }
+.st-lib-grid:not(.compact) .st-lib-glyph { width: 66px; height: 44px; }
 .st-lib-grid.compact .st-lib-slot { display: grid; place-items: center; width: 100%; height: 46px; border: 1px solid var(--bd); border-radius: 8px; background: var(--bg); }
 .st-lib-grid.compact .st-lib-name { font-size: 10.5px; letter-spacing: -.02em; overflow: visible; text-overflow: clip; padding: 0; text-align: center; max-width: 100%; }
 /* Фигуры в общей библиотеке: два ряда по семь, остальное — стрелками и колёсиком */
