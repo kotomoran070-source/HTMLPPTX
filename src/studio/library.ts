@@ -127,7 +127,7 @@ export const VISUALIZER_SAMPLE = `<!doctype html>
 // Визуализатор звука: сразу слушает микрофон, «Звук компьютера» — кнопкой внизу справа (видна при наведении).
 // Звук есть в студии и в приложении; в собранном файле и на телефоне браузер звук не даёт — визуализатор в покое.
 // Прозрачный: поставьте под него картинку. Цвета — акцент и второй цвет темы.
-const LOOK = 'bars';   // вид: 'bars' — столбики, 'ring' — кольцо, 'wave' — волна
+const LOOK = 1;       // вид: 1 — столбики, 2 — кольцо, 3 — волна, 4 — зеркальные столбики, 5 — пульс
 const BARS = 64;       // число столбиков
 const SENSE = 1;       // чувствительность: 0.5 — тише, 2 — сильнее
 const AUTO = true;     // сразу слушать микрофон
@@ -222,10 +222,46 @@ function line() {
   x.stroke();
 }
 
+// Столбики вверх и вниз от средней линии
+function mirror() {
+  const cw = w / BARS, bw = Math.max(2, cw * 0.56), mid = h / 2;
+  const g = x.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, B); g.addColorStop(0.5, A); g.addColorStop(1, B);
+  x.fillStyle = g;
+  for (let k = 0; k < BARS; k++) {
+    const v = lv[k < half ? half - 1 - k : k - half];
+    const bh = bw + v * (h - bw * 2);
+    x.beginPath();
+    x.roundRect(k * cw + (cw - bw) / 2, mid - bh / 2, bw, bh, bw / 2);
+    x.fill();
+  }
+}
+
+// Круг, который дышит под звук: край — по спектру, размер — по басам
+function pulse() {
+  const cx = w / 2, cy = h / 2, s = Math.min(w, h), n = BARS * 2;
+  const R = s * (0.24 + lv[0] * 0.06), pts = [];
+  for (let k = 0; k < n; k++) {
+    const v = lv[Math.floor((k < n / 2 ? k : n - 1 - k) * half / (n / 2))];
+    const a = -Math.PI / 2 + k / n * Math.PI * 2, r = R + v * s * 0.14;
+    pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+  }
+  // Плавный край: кривые через середины соседних точек
+  x.beginPath();
+  for (let k = 0; k <= n; k++) {
+    const p = pts[k % n], q = pts[(k + 1) % n], mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2;
+    if (k) x.quadraticCurveTo(p[0], p[1], mx, my); else x.moveTo(mx, my);
+  }
+  const g = x.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * 1.6);
+  g.addColorStop(0, 'rgb(255 255 255 / 0)'); g.addColorStop(1, B);
+  x.globalAlpha = 0.35; x.fillStyle = g; x.fill();
+  x.globalAlpha = 1; x.strokeStyle = A; x.lineWidth = Math.max(2, s * 0.008); x.stroke();
+}
+
 function draw() {
   x.clearRect(0, 0, w, h);
   x.shadowColor = A; x.shadowBlur = 16;
-  (LOOK === 'ring' ? ring : LOOK === 'wave' ? line : bars)();
+  ([bars, ring, line, mirror, pulse][LOOK - 1] || bars)();
 }
 
 function frame() {

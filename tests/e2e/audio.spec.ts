@@ -30,7 +30,7 @@ test('«Визуализатор звука» из галереи: вставк�
     await page.locator('.st-tabs [data-tab="insert"]').click();
     await page.locator('#st-ribbon [data-cmd="ins.gal.live"]:visible').first().click();
     await page.locator('[title="Вставить: Визуализатор звука"]').click();
-    await expect.poll(() => fs.readFileSync(deckFile('viz'), 'utf8')).toContain("const LOOK = 'bars'");
+    await expect.poll(() => fs.readFileSync(deckFile('viz'), 'utf8')).toContain('const LOOK = 1;');
     await expect(page.locator('#st-canvas .slide.on .embed-frame')).toHaveAttribute('src', /^http:\/\/127\.0\.0\.1:\d+\/$/);
     await expect(page.frameLocator('#st-canvas .slide.on .embed-frame').locator('#mic')).toHaveClass('on');
   } finally {
