@@ -28,18 +28,33 @@ slides:
     await page.locator('.st-ribbon [data-cmd="shape.shadow"]').click();
     await page.locator('.st-lkpop [data-lk][title="Заметная"]').click();
     const card = page.locator('.st-fx-card[data-fxk="shadow"]');
-    await expect(card.locator('header small')).toHaveText('Заметная');
+    // Без подписи готового варианта: подкрутили — он уже не «Заметная»
+    await expect(card.locator('header small')).toHaveCount(0);
+    await expect(card.locator('[data-fx="shadowBlur"]')).toHaveValue('28');
     await expect(page.locator('.st-fx h3')).toHaveText('Эффекты фигуры');
     await card.locator('[data-fx="shadowDist"]').fill('30');
     await expect.poll(yaml).toMatch(/shadowDist: 30/);
     await card.locator('[data-fxc="shadowColor"][data-v="accent"]').click();
     await expect.poll(yaml).toMatch(/shadowColor: accent/);
-    // Готовая тень с ленты — с чистого листа
+    // Подкрученная тень на ленте не отмечается готовой; готовая с ленты — с чистого листа
     await page.locator('.st-ribbon [data-cmd="shape.shadow"]').click();
+    await expect(page.locator('.st-lkpop [data-lk][title="Заметная"]')).not.toHaveClass(/\bon\b/);
     await page.locator('.st-lkpop [data-lk][title="Глубокая"]').click();
     await expect.poll(yaml).toMatch(/shadow: lg/);
     expect(yaml()).not.toMatch(/shadowDist|shadowColor/);
-    await expect(card.locator('header small')).toHaveText('Глубокая');
+    await expect(card.locator('[data-fx="shadowBlur"]')).toHaveValue('50');
+    await page.locator('.st-ribbon [data-cmd="shape.shadow"]').click();
+    await expect(page.locator('.st-lkpop [data-lk][title="Глубокая"]')).toHaveClass(/\bon\b/);
+    await page.keyboard.press('Escape');
+
+    // «Прозрачность» — как в PowerPoint: 0 % — видна полностью; пишется непрозрачность
+    await page.locator('.st-ribbon [data-cmd="shape.opacity"]').click();
+    await expect(page.locator('.st-lkpop [data-lk][title="0 %"]')).toHaveClass(/\bon\b/);
+    await page.locator('.st-lkpop [data-lk][title="40 %"]').click();
+    await expect.poll(yaml).toMatch(/opacity: 0.6/);
+    await page.locator('.st-ribbon [data-cmd="shape.opacity"]').click();
+    await expect(page.locator('.st-lkpop [data-lkr]')).toHaveValue('40');
+    await page.keyboard.press('Escape');
 
     // Свечение: наведение примеряет на фигуре, щелчок — пишет, ручки — в «Свойствах»
     const box = () => shape.evaluate((e) => getComputedStyle(e.matches('.shape') ? e : e.querySelector('.shape')!).boxShadow);

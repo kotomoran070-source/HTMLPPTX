@@ -13,7 +13,7 @@ import { getBlock } from '../engine/component';
 import { getAt, setAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
-import { fxColor, GLOW_SIZE, PLATE_PAD, PLATE_RADIUS, TEXT_SHADOWS, textShadowOf, type TextStyle } from '../engine/text-style';
+import { fxColor, GLOW_SIZE, PLATE_PAD, PLATE_RADIUS, textShadowOf, type TextStyle } from '../engine/text-style';
 import type { Block, Deck } from '../types';
 import { applyImageLook, applyShapeLook, imageEl, shapeEl } from './look-apply';
 
@@ -44,8 +44,6 @@ interface Card {
   id: string;
   icon: string;
   title: string;
-  /** От какой готовой тени */
-  sub?: string;
   /** Цвета: поле, варианты, выбранный; set — что пишет выбор (по умолчанию — само поле) */
   colors?: { key: string; list: [string, string][]; cur: unknown; set?(v: string): Rec };
   knobs: Knob[];
@@ -89,7 +87,7 @@ function textCards(st: TextStyle): Card[] {
   const sh = textShadowOf(st);
   if (sh) {
     out.push({
-      id: 'shadow', icon: 'text-shadow', title: 'Тень', sub: TEXT_SHADOWS[st.shadow!]?.name, knobs: T_SHADOW_KNOBS,
+      id: 'shadow', icon: 'text-shadow', title: 'Тень', knobs: T_SHADOW_KNOBS,
       colors: { key: 'shadowColor', list: T_SHADOW_COLORS, cur: sh.color }, off: (x) => without(x, ['shadow', ...SHADOW_TUNE]),
     });
   }
@@ -149,7 +147,7 @@ function boxCards(b: Rec, kind: 'shape' | 'image'): Card[] {
   const sh = line ? null : boxShadowOf(b);
   if (sh) {
     out.push({
-      id: 'shadow', icon: 'shadow', title: 'Тень', sub: sh.name, knobs: B_SHADOW_KNOBS,
+      id: 'shadow', icon: 'shadow', title: 'Тень', knobs: B_SHADOW_KNOBS,
       colors: { key: 'shadowColor', list: B_SHADOW_COLORS, cur: sh.color }, off: (x) => without(x, ['shadow', ...SHADOW_TUNE]),
     });
   }
@@ -221,7 +219,7 @@ const firstOf = (deck: Deck, paths: Path[]) => {
 /** Набор карточек: вид панели меняется, когда он другой */
 export function fxSig(deck: Deck, paths: Path[]): string {
   const f = firstOf(deck, paths);
-  return f ? `${f.kind}:${cardsOf(f.b, f.kind).map((c) => `${c.id}${c.sub ?? ''}`).join(',')}` : '';
+  return f ? `${f.kind}:${cardsOf(f.b, f.kind).map((c) => c.id).join(',')}` : '';
 }
 
 const TITLES: Record<Kind, [string, string]> = {
@@ -232,7 +230,7 @@ const TITLES: Record<Kind, [string, string]> = {
 
 function cardHtml(c: Card, kind: Kind): string {
   const name = esc(c.title.toLowerCase());
-  const head = `<header>${icon(c.icon)}<b>${esc(c.title)}</b>${c.sub ? `<small>${esc(c.sub)}</small>` : ''}`
+  const head = `<header>${icon(c.icon)}<b>${esc(c.title)}</b>`
     + (c.off ? `<button type="button" class="st-fx-off" data-fxoff="${c.id}" title="Убрать: ${name}" aria-label="Убрать: ${name}">${icon('close')}</button>` : '') + '</header>';
   const colors = c.colors ? `<div class="st-fx-sw" role="group" aria-label="Цвет">${c.colors.list.map(([v, n]) =>
     `<button type="button" data-fxc="${c.colors!.key}" data-v="${esc(v)}" style="--c:${colorCss(kind, v)}" title="${esc(n)}" aria-label="${esc(n)}"></button>`).join('')}`

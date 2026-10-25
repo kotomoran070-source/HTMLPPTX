@@ -54,9 +54,9 @@ export function applyLook(st: TextStyle, look: TextLook): TextStyle {
   return { ...out, ...look.props };
 }
 
-/** Стиль совпадает с оформлением текста */
+/** Стиль совпадает с оформлением текста: эффекты, подкрученные в «Свойствах», — уже не этот стиль */
 export function lookOn(st: TextStyle, look: TextLook): boolean {
-  return LOOK_KEYS.every((k) => (st[k] ?? undefined) === (look.props[k] ?? undefined));
+  return LOOK_KEYS.every((k) => (st[k] ?? undefined) === (look.props[k] ?? undefined)) && TUNE_KEYS.every((k) => st[k] === undefined);
 }
 
 /** «Аа» в оформлении st (и с поворотом надписи) — образец для окон с вариантами */

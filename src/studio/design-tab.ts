@@ -579,7 +579,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
       const extra = key === 'bg' && op !== undefined ? { bgOpacity: op } : {};
       return inDark ? { ...theme(), darkLook: { ...darkLook(), [key]: v, ...extra } } : { ...theme(), [key]: v, ...extra };
     };
-    // Обычные карточки — без поля; фон пишется всегда (как раньше). Заметность — только у своей картинки
+    // Обычные карточки — без поля; фон пишется всегда (как раньше). Прозрачность — только у своей картинки
     const opNow = inDark ? darkLook().bgOpacity ?? theme().bgOpacity : theme().bgOpacity;
     const apply = (v: string, op = opNow) => {
       const keepOp = key === 'bg' && ownBg(v) === 'image' && op !== undefined && op < 0.999 ? op : undefined;
@@ -591,7 +591,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
   };
 
   /**
-   * Свой фон после узоров: «Картинка…» (файл на весь слайд; под плитками — её заметность) и «Цвет…».
+   * Свой фон после узоров: «Картинка…» (файл на весь слайд; под плитками — её прозрачность) и «Цвет…».
    * Выбранный свой фон виден на плитке; наведение и палитра цвета примеряют его на слайде
    */
   const ownBgTiles = (cur: string, op: number, make: (v: string, op?: number) => DeckTheme, apply: (v: string, op?: number) => void, mode?: SlideMode): OwnTiles => {
@@ -615,11 +615,13 @@ export function designCommands(h: DesignHost): Record<string, Command> {
         inp?.addEventListener('change', () => { closeMenu(); apply(inp.value.toUpperCase()); });
         const range = el.querySelector<HTMLInputElement>('input[data-tune="bgOpacity"]');
         const out = range?.parentElement?.querySelector('output');
+        // Ползунок — прозрачность, пишется непрозрачность картинки
+        const op = () => Math.round((1 - Number(range!.value)) * 100) / 100;
         range?.addEventListener('input', () => {
           if (out) out.textContent = `${Math.round(Number(range.value) * 100)} %`;
-          tryOn(make(cur, Number(range.value)));
+          tryOn(make(cur, op()));
         });
-        range?.addEventListener('change', () => apply(cur, Number(range.value)));
+        range?.addEventListener('change', () => apply(cur, op()));
       },
     };
   };
@@ -636,7 +638,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
       try {
         const { blob, name } = await prepareImage(f);
         done(await ed.storeAsset(blob, name));
-        ed.toast('Своя картинка фона — на всех слайдах. Заметность — ползунок под плитками', 3000);
+        ed.toast('Своя картинка фона — на всех слайдах. Прозрачность — ползунок под плитками', 3000);
       } catch (e) {
         ed.toast(`Не удалось добавить картинку: ${(e as Error).message}`, 5000, true);
       }

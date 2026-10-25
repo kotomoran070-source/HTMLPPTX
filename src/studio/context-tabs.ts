@@ -6,8 +6,10 @@ import { frameList, joinFrames, moveFrame, removeFrame, setFrameList } from '../
 import { showFrame, shownFrame } from '../components/layout/frames';
 import { IMAGE_ADJUST, IMAGE_FILTER_GROUPS, IMAGE_FILTERS, IMAGE_LOOK_KEYS, IMAGE_SHADOWS, IMAGE_STYLES, adjustCss, filterCss, imageLookCss, type ImageLook } from '../components/layout/image-look';
 
-/** Цвет снимка: стиль рисунка (рамка, тень, форма) его не трогает */
-const COLOR_KEYS = new Set<string>(['filter', 'opacity', 'bright', 'contrast', 'saturate']);
+/** Цвет снимка и свечение: стиль рисунка (рамка, тень, форма) их не трогает — как и у стилей фигуры */
+const COLOR_KEYS = new Set<string>(['filter', 'opacity', 'bright', 'contrast', 'saturate', 'glow', 'glowSize', 'glowOpacity']);
+/** Тень подкручена в «Свойствах» — она уже не та готовая, что на ленте: плитка не отмечается */
+const shadowTuned = (st: object | null | undefined) => SHADOW_TUNE.some((k) => (st as Record<string, unknown> | null | undefined)?.[k] !== undefined);
 /**
  * Что стиль меняет в картинке: он про рамку, тень и форму — цвет и прозрачность остаются.
  * Растворение: выбранная часть (fadeSize) остаётся, если стиль тоже с растворением
@@ -312,6 +314,17 @@ ${textPanelHtml({ btn, group, row, stack, order: ORDER })}`;
 const swatchCss = (v: unknown, fallback: string): string => shapeFill(v) ?? fallback;
 
 const FONT_STEPS = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72, 96];
+
+/**
+ * «Прозрачность» — как в PowerPoint: 0 % — объект виден полностью, 80 % — почти растворился.
+ * Пишется непрозрачность (opacity, как в CSS): 1 − прозрачность
+ */
+const CLEAR_STEPS: [number | undefined, string][] = [[undefined, '0 %'], [0.8, '20 %'], [0.6, '40 %'], [0.4, '60 %'], [0.2, '80 %']];
+const CLEAR_SLIDER = {
+  min: 0, max: 90, unit: ' %',
+  get: (v: unknown) => Math.round((1 - (Number(v) || 1)) * 100),
+  set: (n: number) => (n <= 0 ? undefined : Math.round(100 - n) / 100),
+};
 
 let tableMenuFn: (() => MenuEntry[]) | null = null;
 
@@ -730,7 +743,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const tune: readonly string[] = key === 'shadow' ? SHADOW_TUNE : ['glowSize', 'glowOpacity'];
     const patchOf = (v: unknown) => ({ [key]: v, ...(key === 'shadow' || v === undefined ? Object.fromEntries(tune.map((k) => [k, undefined])) : {}) });
     lookPopover(anchor(cmd), [{ cls, options: options.map(([v, label]): LookOption => ({
-      label, patch: patchOf(v), on: cur === v,
+      label, patch: patchOf(v), on: cur === v && (key !== 'shadow' || v === undefined || !shadowTuned(first(kind.type))),
       pick: () => { const paths = targets(kind.type); ed.commit((d) => paths.forEach((p) => Object.entries(patchOf(v)).forEach(([k, x]) => setAt(d, [...p, k], x))), { rebuild: true }); },
     })) }], undefined, '', kind);
   };
@@ -1240,9 +1253,10 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   const FX_SWATCH: [string, string][] = [['accent', 'Акцент'], ['accent2', 'Тёмный акцент'], ['text', 'Цвет текста'], ['soft', 'Светлый акцент'], ['surface', 'Цвет фона'], ['#FFFFFF', 'Белый'], ['#111827', 'Чёрный'], ['#FDE047', 'Жёлтый'], ['#22D3EE', 'Голубой'], ['#F472B6', 'Розовый']];
   const shadowMenu = () => {
     const cur = tx0().shadow;
+    const tuned = shadowTuned(tx0());
     // Готовая тень — с чистого листа: свои ручки («Свойства») сбрасываются
-    const fresh = { shadowColor: undefined, shadowOpacity: undefined, shadowBlur: undefined, shadowDist: undefined, shadowAngle: undefined };
-    txPopover('text.shadow', [{ options: [['Без тени', set({ shadow: undefined, ...fresh }), !cur], ...Object.entries(TEXT_SHADOWS).map(([k, v]): TxOption => [v.name, set({ shadow: k, ...fresh }), cur === k])] }], undefined, 'st-txpop');
+    const fresh = Object.fromEntries(SHADOW_TUNE.map((k) => [k, undefined]));
+    txPopover('text.shadow', [{ options: [['Без тени', set({ shadow: undefined, ...fresh }), !cur], ...Object.entries(TEXT_SHADOWS).map(([k, v]): TxOption => [v.name, set({ shadow: k, ...fresh }), cur === k && !tuned])] }], undefined, 'st-txpop');
   };
   const glowMenu = () => {
     const cur = tx0().glow;
@@ -1278,8 +1292,8 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   };
   const opacityMenu = () => {
     const cur = tx0().opacity;
-    txPopover('text.opacity', [{ cls: 'f', options: ([[undefined, '100 %'], [0.8, '80 %'], [0.6, '60 %'], [0.4, '40 %'], [0.2, '20 %']] as [number | undefined, string][]).map(([v, l]): TxOption => [l, set({ opacity: v }), cur === v]) }],
-      { label: 'Своя', min: 10, max: 100, unit: ' %', key: 'opacity', value: Math.round((Number(cur) || 1) * 100), set: (n) => (n >= 100 ? undefined : n / 100), put: (st, v) => ({ ...st, opacity: v as number | undefined }) }, 'st-txpop');
+    txPopover('text.opacity', [{ cls: 'f', options: CLEAR_STEPS.map(([v, l]): TxOption => [l, set({ opacity: v }), cur === v]) }],
+      { label: 'Своя', ...CLEAR_SLIDER, key: 'opacity', value: CLEAR_SLIDER.get(cur), put: (st, v) => ({ ...st, opacity: v as number | undefined }) }, 'st-txpop');
   };
   /** Поворот свободной надписи — у её рамки (angle), как ручкой поворота на слайде */
   const rotateMenu = () => {
@@ -1443,8 +1457,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       enabled: isShape,
     },
     'shape.opacity': {
-      run: () => lookGallery('shape.opacity', 'opacity', [[undefined, '100 %'], [0.8, '80 %'], [0.6, '60 %'], [0.4, '40 %'], [0.2, '20 %']],
-        { label: 'Своя', min: 10, max: 100, unit: ' %', get: (v) => Math.round((Number(v) || 1) * 100), set: (n) => (n >= 100 ? undefined : n / 100) }, 'f', SHAPE_KIND),
+      run: () => lookGallery('shape.opacity', 'opacity', CLEAR_STEPS, { label: 'Своя', ...CLEAR_SLIDER }, 'f', SHAPE_KIND),
       enabled: isShape,
     },
     'shape.text': { run: editShapeText, enabled: () => isBody() && targets('shape').length === 1 },
@@ -1475,8 +1488,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     ...videoCommands(),
     ...textCmds,
     'image.opacity': {
-      run: () => lookGallery('image.opacity', 'opacity', [[undefined, '100 %'], [0.8, '80 %'], [0.6, '60 %'], [0.4, '40 %'], [0.2, '20 %']],
-        { label: 'Своя', min: 10, max: 100, unit: ' %', get: (v) => Math.round((Number(v) || 1) * 100), set: (n) => (n >= 100 ? undefined : n / 100) }, 'f'),
+      run: () => lookGallery('image.opacity', 'opacity', CLEAR_STEPS, { label: 'Своя', ...CLEAR_SLIDER }, 'f'),
       enabled: isImage,
     },
     'image.styles': { run: stylesGallery, enabled: isImage },

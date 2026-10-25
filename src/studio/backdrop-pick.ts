@@ -104,14 +104,22 @@ function fillStills(strip: HTMLElement, slide: HTMLElement | null): void {
   step();
 }
 
-// ---------------- заметность и скорость ----------------
+// ---------------- прозрачность и скорость ----------------
 
 export type TuneKey = 'backdropOpacity' | 'backdropSpeed' | 'bgOpacity';
-const TUNE: Record<TuneKey, { label: string; min: number; max: number; step: number; fmt: (v: number) => string }> = {
-  backdropOpacity: { label: 'Заметность', min: 0.1, max: 1, step: 0.05, fmt: (v) => `${Math.round(v * 100)} %` },
-  bgOpacity: { label: 'Заметность', min: 0.1, max: 1, step: 0.05, fmt: (v) => `${Math.round(v * 100)} %` },
-  backdropSpeed: { label: 'Скорость', min: 0.25, max: 3, step: 0.25, fmt: (v) => `${String(v).replace('.', ',')}×` },
+/**
+ * Ползунок: пределы — в его значениях; side — значение поля → положение ползунка и обратно (у прозрачности
+ * ползунок показывает прозрачность, 0 % — фон виден полностью, а пишется непрозрачность, как в CSS)
+ */
+interface Tune { label: string; min: number; max: number; step: number; fmt(s: number): string; side?(v: number): number }
+const CLEAR: Tune = { label: 'Прозрачность', min: 0, max: 0.9, step: 0.05, fmt: (s) => `${Math.round(s * 100)} %`, side: (v) => Math.round((1 - v) * 100) / 100 };
+const TUNE: Record<TuneKey, Tune> = {
+  backdropOpacity: CLEAR,
+  bgOpacity: CLEAR,
+  backdropSpeed: { label: 'Скорость', min: 0.25, max: 3, step: 0.25, fmt: (s) => `${String(s).replace('.', ',')}×` },
 };
+/** Значение поля ↔ положение ползунка (у прозрачности переход взаимно обратный) */
+const flip = (t: Tune, v: number) => (t.side ? t.side(v) : v);
 
 /**
  * Компактные ползунки под лентой фона: подпись, ползунок, значение. touch — галка «Отвечает на мышь»
@@ -120,7 +128,7 @@ const TUNE: Record<TuneKey, { label: string; min: number; max: number; step: num
 export function tuneHtml(values: Partial<Record<TuneKey, number>>, touch?: boolean): string {
   return `<div class="st-tune">${(Object.keys(values) as TuneKey[]).map((k) => {
     const t = TUNE[k];
-    const v = values[k] ?? 1;
+    const v = flip(t, values[k] ?? 1);
     return `<label><span>${t.label}</span><input type="range" data-tune="${k}" min="${t.min}" max="${t.max}" step="${t.step}" value="${v}"><output>${t.fmt(v)}</output></label>`;
   }).join('')}${touch === undefined ? '' : `<label class="st-p-check" title="Наведение и щелчок по слайду меняют фон — у зрителей и от мыши докладчика. Выключите, если отвлекает"><input type="checkbox" data-tune="backdropTouch"${touch ? ' checked' : ''}><span>Отвечает на мышь и щелчки</span></label>`}</div>`;
 }
@@ -140,8 +148,8 @@ export function bindTune(root: HTMLElement, stage: () => HTMLElement, commit: (k
     const key = inp.dataset.tune as TuneKey;
     const out = inp.parentElement?.querySelector('output');
     inp.addEventListener('input', () => {
-      const v = Number(inp.value);
-      if (out) out.textContent = TUNE[key].fmt(v);
+      const v = flip(TUNE[key], Number(inp.value));
+      if (out) out.textContent = TUNE[key].fmt(Number(inp.value));
       const slide = stage().querySelector<HTMLElement>(':scope > .slide.on');
       if (!slide) return;
       if (key === 'bgOpacity') {
@@ -155,7 +163,7 @@ export function bindTune(root: HTMLElement, stage: () => HTMLElement, commit: (k
       }
     });
     inp.addEventListener('change', () => {
-      const v = Number(inp.value);
+      const v = flip(TUNE[key], Number(inp.value));
       commit(key, Math.abs(v - 1) < 1e-6 ? undefined : v);
     });
   });
