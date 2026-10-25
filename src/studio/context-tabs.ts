@@ -42,13 +42,14 @@ interface LookSlider {
   fn?(b: Block, v: unknown): Block;
   write?(v: unknown): void;
 }
-import { getBlock } from '../engine/component';
+import { BOX_GLOW, boxFxCss, SHADOW_TUNE } from '../engine/box-fx';
+import { applyImageLook, applyShapeLook, blockEl, imageEl, putStyle, shapeEl } from './look-apply';
+import { B_GLOW_COLORS } from './fx-panel';
 import { getAt, setAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
 import { placeOf } from '../engine/render';
 import { esc } from '../engine/html';
 import { themeSwatches } from '../engine/deck-theme';
-import { frameCss } from '../engine/marks';
 import type { Block, Deck } from '../types';
 import { showMenu, showPopover, type MenuEntry } from './menu';
 import { fontItems, fontPicker, tryFontOn, type FontItem } from '../engine/editor/font-picker';
@@ -168,19 +169,16 @@ const SAMPLE_SHADOWS: Record<string, string> = { sm: '0 1px 4px rgba(15,23,42,.2
  */
 const sample = (b: ImageLook) => {
   const look = imageLookCss({
-    ...b, shadow: undefined, width: b.width ? Math.min(3, Number(b.width)) : undefined,
+    ...b, shadow: undefined, glow: undefined, width: b.width ? Math.min(3, Number(b.width)) : undefined,
     radius: typeof b.radius === 'number' ? Math.round(b.radius * 0.3) : b.radius, mat: b.mat ? Math.max(2, Math.round(Number(b.mat) * 0.3)) : undefined,
   });
-  const sh = b.shadow && SAMPLE_SHADOWS[b.shadow] ? `box-shadow:${SAMPLE_SHADOWS[b.shadow]}` : '';
+  // Свечение — в масштабе образца, одной box-shadow с его тенью
+  const halo = boxFxCss({ glow: b.glow, glowSize: Math.max(3, (Number(b.glowSize) || BOX_GLOW.size) * 0.35), glowOpacity: b.glowOpacity });
+  const layers = [halo, b.shadow ? SAMPLE_SHADOWS[b.shadow] : ''].filter(Boolean).join(', ');
+  const sh = layers ? `box-shadow:${layers}` : '';
   return `<i class="st-smp"><i class="st-smp-pic${look.cls}" style="${esc([look.box, sh].filter(Boolean).join(';'))}"><b${look.img ? ` style="${esc(look.img)}"` : ''}></b></i></i>`;
 };
 
-/** Разметка блока тем же кодом, что на слайде */
-const blockEl = (type: string, b: Block): Element | null => {
-  const t = document.createElement('div');
-  t.innerHTML = getBlock(type)?.render(b, {} as never) ?? '';
-  return t.firstElementChild;
-};
 /**
  * Образец фигуры для галерей «Фигуры»: сама фигура в уменьшенном виде (скругление — в её масштабе,
  * тень заметнее), чтобы вариант было видно отчётливо. Саму фигуру — при наведении
@@ -197,7 +195,8 @@ const shapeSample = (b: Block) => {
   const form = (b as { sample?: unknown }).sample === 'form';
   const outline = form && !Number(b.width) ? { stroke: 'accent', width: 1.5 } : {};
   const wd = outline.width ?? b.width;
-  const n = blockEl('shape', { ...b, ...fit, ...outline, text: line || form ? undefined : 'Аа', radius: Number.isFinite(r) && b.radius !== undefined ? Math.round(r * 0.35) : b.kind === 'rect' ? 0 : 6, style: size, width: wd ? Math.min(3, Number(wd)) : wd });
+  const glowSize = b.glow ? Math.max(3, (Number(b.glowSize) || BOX_GLOW.size) * 0.4) : undefined;
+  const n = blockEl('shape', { ...b, ...fit, ...outline, text: line || form ? undefined : 'Аа', radius: Number.isFinite(r) && b.radius !== undefined ? Math.round(r * 0.35) : b.kind === 'rect' ? 0 : 6, style: size, width: wd ? Math.min(3, Number(wd)) : wd, glowSize });
   return `<i class="st-smp st-smp-sh"><i class="st-smp-shape${line ? ' line' : ''}">${n?.outerHTML ?? ''}</i></i>`;
 };
 
@@ -261,7 +260,7 @@ export function contextPanelsHtml(): string {
       row(btn('shape.align.left', 'align-left', 'По левому краю', { ico: true }), btn('shape.align.center', 'align-center', 'По центру', { ico: true }), btn('shape.align.right', 'align-right', 'По правому краю', { ico: true })),
       row(btn('shape.valign.top', 'v-top', 'Сверху', { ico: true }), btn('shape.valign.middle', 'v-middle', 'Посередине по высоте', { ico: true }), btn('shape.valign.bottom', 'v-bottom', 'Снизу', { ico: true })),
     ))}
-  ${group('Эффекты', stack(btn('shape.shadow', 'shadow', 'Тень', { menu: true }), btn('shape.radius', 'corner', 'Скругление', { menu: true }))
+  ${group('Эффекты', stack(btn('shape.shadow', 'shadow', 'Тень', { menu: true }), btn('shape.glow', 'glow', 'Свечение', { menu: true, title: 'Свечение по краю фигуры' }), btn('shape.radius', 'corner', 'Скругление', { menu: true }))
     + stack(btn('shape.rotate', 'rotate', 'Поворот', { menu: true }), btn('shape.opacity', 'opacity', 'Прозрачность', { menu: true })))}
   ${ORDER}
 </div>
@@ -284,7 +283,7 @@ export function contextPanelsHtml(): string {
 <div class="st-rpanel" data-panel="image" hidden>
   ${group('Стили рисунка', imageGallery())}
   ${group('Рамка', btn('image.stroke', 'outline', 'Контур', { big: true, menu: true, swatch: 'istroke', title: 'Цвет, толщина и штрих контура' }) + btn('image.mat', 'mat', 'Паспарту', { big: true, menu: true, title: 'Поле вокруг снимка, как у фотографии в рамке' }))}
-  ${group('Эффекты', stack(btn('image.shadow', 'shadow', 'Тень', { menu: true }), btn('image.radius', 'corner', 'Скругление', { menu: true }))
+  ${group('Эффекты', stack(btn('image.shadow', 'shadow', 'Тень', { menu: true }), btn('image.glow', 'glow', 'Свечение', { menu: true, title: 'Свечение по краю рисунка' }), btn('image.radius', 'corner', 'Скругление', { menu: true }))
     + stack(btn('image.filter', 'recolor', 'Цвет', { menu: true, title: 'Чёрно-белый, сепия, приглушённый…' }), btn('image.opacity', 'opacity', 'Прозрачность', { menu: true })))}
   ${group('Цветокоррекция', btn('image.grade', 'sliders', 'Цвет+', { big: true, title: 'Цветокоррекция, как в DaVinci: круги, кривые, HSL, LUT, цвета бренда. Исходный файл не меняется' }))}
   ${group('Кадр', btn('image.crop', 'crop', 'Кадр', { big: true, title: 'Сдвинуть снимок внутри рамки, как «Обрезка» в PowerPoint: тяните картинку. Масштаб — на панели над картинкой. Готово — Esc' })
@@ -612,7 +611,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const mo = new MutationObserver(() => { if (!pop.isConnected) { mo.disconnect(); restore(); } });
     mo.observe(document.body, { childList: true });
   };
-  const put = (el: Element | null, v: string | null) => { if (el) { if (v === null) el.removeAttribute('style'); else el.setAttribute('style', v); } };
+  const put = putStyle;
   /**
    * Примерка на объектах на слайде, без записи: вид (классы и style) запоминается, tryOn показывает
    * блок, каким его сделает выбор, restore возвращает как было. forget — выбор сделан, объект
@@ -651,38 +650,9 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     mo.observe(document.body, { childList: true });
   };
   /** Рисунок: оформление — на рамке .imgbox и самом снимке, образец — пейзаж */
-  const IMAGE_KIND: LookKind = {
-    type: 'image',
-    el: (root) => root.querySelector('.imgbox'),
-    apply: (bx, blk) => {
-      const b = blk as ImageLook & Parameters<typeof frameCss>[0];
-      const look = imageLookCss(b);
-      bx.className = `${bx.className.replace(/\s*\bimg-(fx|tint|round)\b/g, '')}${look.cls}`;
-      put(bx, look.box || null);
-      const img = bx.querySelector('img');
-      if (img) put(img, `${frameCss(b)}${look.img ? `;${look.img}` : ''}`);
-    },
-    sample: (b) => sample(b as ImageLook),
-  };
+  const IMAGE_KIND: LookKind = { type: 'image', el: imageEl, apply: applyImageLook, sample: (b) => sample(b as ImageLook) };
   /** Фигура: перерисовывается тем же кодом, что на слайде; образец — фигура с «Аа» */
-  const SHAPE_KIND: LookKind = {
-    type: 'shape',
-    el: (root) => (root.matches('.shape') ? root : root.querySelector('.shape')),
-    apply: (el, b) => {
-      const n = blockEl('shape', b);
-      if (!n) return;
-      // Классы правки (выделение и т. п.) остаются, классы фигуры — новые
-      el.className = [...[...el.classList].filter((c) => !c.startsWith('shape')), ...n.classList].join(' ');
-      put(el, n.getAttribute('style'));
-      // Фигура PowerPoint: слои заливки и контура — новые, текст и его правка остаются
-      el.querySelectorAll(':scope > :is(.shape-f, .shape-o)').forEach((x) => x.remove());
-      el.prepend(...n.querySelectorAll(':scope > :is(.shape-f, .shape-o)'));
-      const prst = n.getAttribute('data-prst');
-      if (prst) el.setAttribute('data-prst', prst);
-      else el.removeAttribute('data-prst');
-    },
-    sample: shapeSample,
-  };
+  const SHAPE_KIND: LookKind = { type: 'shape', el: shapeEl, apply: applyShapeLook, sample: shapeSample };
   /** Таблица: класс вида у корня и линии ячеек — из разметки, перерисованной тем же кодом */
   const TABLE_KIND: LookKind = {
     type: 'table',
@@ -751,6 +721,21 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     lookPopover(anchor(cmd), [{ cls, options: options.map(([v, label]) => ({ label, patch: { [key]: v }, on: cur === v, pick: () => setAll(kind.type, key, v) })) }],
       slider && { ...slider, key, value: slider.get(cur) }, '', kind);
   };
+  /**
+   * Тень и свечение с ленты — готовые варианты; подкрутка — в «Свойствах» (fx-panel.ts). Готовая тень и «Без …»
+   * начинают с чистого листа (своя подкрутка сбрасывается), другой цвет свечения — с прежними размером и яркостью
+   */
+  const fxGallery = (cmd: string, key: 'shadow' | 'glow', options: [unknown, string][], kind: LookKind, cls?: string) => {
+    const cur = first(kind.type)?.[key];
+    const tune: readonly string[] = key === 'shadow' ? SHADOW_TUNE : ['glowSize', 'glowOpacity'];
+    const patchOf = (v: unknown) => ({ [key]: v, ...(key === 'shadow' || v === undefined ? Object.fromEntries(tune.map((k) => [k, undefined])) : {}) });
+    lookPopover(anchor(cmd), [{ cls, options: options.map(([v, label]): LookOption => ({
+      label, patch: patchOf(v), on: cur === v,
+      pick: () => { const paths = targets(kind.type); ed.commit((d) => paths.forEach((p) => Object.entries(patchOf(v)).forEach(([k, x]) => setAt(d, [...p, k], x))), { rebuild: true }); },
+    })) }], undefined, '', kind);
+  };
+  /** Цвета свечения — те же, что в «Свойствах» */
+  const GLOWS: [unknown, string][] = [[undefined, 'Без свечения'], ...B_GLOW_COLORS];
   /** Все стили рисунка: рамка и тень, растворение и сколько снимка тает */
   const stylesGallery = () => {
     const b0 = first('image');
@@ -1445,7 +1430,8 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       },
       enabled: isShape, active: () => isShape() && !!PRESET_KINDS[first('shape')?.kind as string],
     },
-    'shape.shadow': { run: () => lookGallery('shape.shadow', 'shadow', [[undefined, 'Без тени'], ...Object.entries(IMAGE_SHADOWS).map(([v, s]) => [v, s.name] as [string, string])], undefined, undefined, SHAPE_KIND), enabled: isBody },
+    'shape.shadow': { run: () => fxGallery('shape.shadow', 'shadow', [[undefined, 'Без тени'], ...Object.entries(IMAGE_SHADOWS).map(([v, s]) => [v, s.name] as [string, string])], SHAPE_KIND), enabled: isBody, active: () => isBody() && !!first('shape')?.shadow },
+    'shape.glow': { run: () => fxGallery('shape.glow', 'glow', GLOWS, SHAPE_KIND, 'f'), enabled: isShape, active: () => isShape() && !!first('shape')?.glow },
     'shape.radius': {
       run: () => lookGallery('shape.radius', 'radius', [[0, 'Без скругления'], [8, 'Малое'], [undefined, 'Обычное'], [24, 'Большое'], [40, 'Очень большое']],
         { label: 'Своё, px', min: 0, max: 120, unit: ' px', get: (v) => (Number.isFinite(Number(v)) && v !== undefined ? Number(v) : first('shape')?.kind === 'rect' ? 0 : 16), set: (n) => n }, 'f', SHAPE_KIND),
@@ -1474,7 +1460,8 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
         { label: 'Своё, px', min: 0, max: 80, unit: ' px', get: (v) => Number(v) || 0, set: (n) => n || undefined }, 'f'),
       enabled: isImage,
     },
-    'image.shadow': { run: () => lookGallery('image.shadow', 'shadow', [[undefined, 'Без тени'], ...Object.entries(IMAGE_SHADOWS).map(([v, s]) => [v, s.name] as [string, string])]), enabled: isImage },
+    'image.shadow': { run: () => fxGallery('image.shadow', 'shadow', [[undefined, 'Без тени'], ...Object.entries(IMAGE_SHADOWS).map(([v, s]) => [v, s.name] as [string, string])], IMAGE_KIND), enabled: isImage, active: () => isImage() && !!first('image')?.shadow },
+    'image.glow': { run: () => fxGallery('image.glow', 'glow', GLOWS, IMAGE_KIND, 'f'), enabled: isImage, active: () => isImage() && !!first('image')?.glow },
     'image.radius': {
       run: () => lookGallery('image.radius', 'radius', [[0, 'Без скругления'], [6, 'Малое'], [undefined, 'Обычное'], [24, 'Большое'], [48, 'Очень большое'], ['oval', 'Овал'], ['circle', 'Круг']],
         { label: 'Своё, px', min: 0, max: 120, unit: ' px', get: (v) => (typeof v === 'number' ? v : v === 'circle' || v === 'oval' ? 120 : 12), set: (n) => n }),
@@ -1587,7 +1574,8 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       active: () => { const b = first('image'); return !!b && styleOn(st, b); },
     };
   }
-  const STYLE_KEYS = ['fill', 'stroke', 'width', 'shadow', 'dash', 'gradient', 'strokeGradient'] as const;
+  // Стиль — сочетание заливки, контура и тени: подкрутка прежней тени уходит вместе с ней
+  const STYLE_KEYS = ['fill', 'stroke', 'width', 'shadow', ...SHADOW_TUNE, 'dash', 'gradient', 'strokeGradient'] as const;
   for (const s of SHAPE_STYLES) {
     cmds[`shape.style.${s.id}`] = {
       run: () => {

@@ -1,10 +1,11 @@
 import { SHADOWS, shapeColor } from '../shape/shape';
+import { BOX_FX_KEYS, boxFxColor, boxFxCss, type BoxFx } from '../../engine/box-fx';
 
 /**
  * Оформление картинки, как «Формат рисунка» в PowerPoint: контур, тень, скругление, паспарту,
  * прозрачность и цветовой фильтр. Всё — поля блока image, общие с фигурой, где смысл тот же.
  */
-export interface ImageLook {
+export interface ImageLook extends Omit<BoxFx, 'shadow'> {
   /** Цвет контура: роль темы (accent, line, text…) или #RRGGBB */
   stroke?: string;
   /** Толщина контура, px */
@@ -13,10 +14,12 @@ export interface ImageLook {
   dash?: 'dash' | 'dot';
   /** Скругление углов, px; circle — круг (по меньшей стороне рамки, по центру), oval — овал во всю рамку. По умолчанию 12 */
   radius?: number | 'circle' | 'oval';
-  /** Тень: sm — лёгкая, md — заметная, lg — глубокая */
+  /** Тень: sm — лёгкая, md — заметная, lg — глубокая; подкрутка и свечение — BoxFx */
   shadow?: 'sm' | 'md' | 'lg';
   /** Паспарту: поле цвета карточки вокруг снимка, px */
   mat?: number;
+  /** Цвет паспарту: роль темы (surface — цвет карточки, по умолчанию) или #RRGGBB */
+  matColor?: string;
   /** Непрозрачность, от 0.1 до 1 */
   opacity?: number;
   /** Растворение: с какой стороны снимок плавно уходит в прозрачность (edges — со всех сторон) */
@@ -78,7 +81,7 @@ export function filterCss(key: unknown): { img: string; box: string; tint: boole
 }
 
 /** Поля оформления: их стирает «Сбросить оформление» и переносит формат по образцу */
-export const IMAGE_LOOK_KEYS = ['stroke', 'width', 'dash', 'radius', 'shadow', 'mat', 'opacity', 'fade', 'fadeSize', 'filter', 'bright', 'contrast', 'saturate'] as const;
+export const IMAGE_LOOK_KEYS = ['stroke', 'width', 'dash', 'radius', ...BOX_FX_KEYS, 'mat', 'matColor', 'opacity', 'fade', 'fadeSize', 'filter', 'bright', 'contrast', 'saturate'] as const;
 
 /**
  * Маска растворения: снимок непрозрачен до (100 − fadeSize) % и плавно исчезает к краю.
@@ -134,9 +137,10 @@ export function imageLookCss(p: ImageLook): { box: string; img: string; fx: bool
   const round = p.radius === 'circle' || p.radius === 'oval';
   const r = round ? '50%' : Number.isFinite(Number(p.radius)) && p.radius !== undefined ? `${Math.max(0, Math.min(400, Number(p.radius)))}px` : '';
   if (r) box.push(`border-radius:${r}`);
-  if (p.shadow && IMAGE_SHADOWS[p.shadow]) box.push(`box-shadow:${IMAGE_SHADOWS[p.shadow].css}`);
+  const halo = boxFxCss(p);
+  if (halo) box.push(`box-shadow:${halo}`);
   const mat = Math.max(0, Math.min(80, Number(p.mat) || 0));
-  if (mat) box.push(`--mat:${mat}px`, 'background:var(--surf)');
+  if (mat) box.push(`--mat:${mat}px`, `background:${boxFxColor(p.matColor) ?? 'var(--surf)'}`);
   const op = Number(p.opacity);
   if (Number.isFinite(op) && op >= 0.1 && op < 1) box.push(`opacity:${op}`);
   const mask = fadeMask(p);

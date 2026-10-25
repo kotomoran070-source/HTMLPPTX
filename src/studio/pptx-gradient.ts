@@ -113,9 +113,11 @@ export class GradientMarks {
     return hex;
   }
   get size(): number { return this.map.size; }
-  /** Заливки цветом-меткой в XML слайда → градиенты */
+  /** Заливки цветом-меткой в XML слайда → градиенты; тень цветом-меткой → свой список эффектов (свечение и тень) */
   swap(xml: string): string {
     if (!this.map.size) return xml;
-    return xml.replace(/<a:solidFill><a:srgbClr val="(01[0-9A-F]{4})"(?:\/>|>(?:(?!<\/a:srgbClr>)[\s\S])*<\/a:srgbClr>)<\/a:solidFill>/g, (m, hex: string) => this.map.get(hex) ?? m);
+    return xml
+      .replace(/<a:solidFill><a:srgbClr val="(01[0-9A-F]{4})"(?:\/>|>(?:(?!<\/a:srgbClr>)[\s\S])*<\/a:srgbClr>)<\/a:solidFill>/g, (m, hex: string) => this.map.get(hex) ?? m)
+      .replace(/<a:effectLst>(?:(?!<\/a:effectLst>)[\s\S])*?<a:srgbClr val="(01[0-9A-F]{4})"(?:(?!<\/a:effectLst>)[\s\S])*<\/a:effectLst>/g, (m, hex: string) => this.map.get(hex) ?? m);
   }
 }

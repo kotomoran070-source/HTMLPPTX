@@ -91,6 +91,7 @@ const PATHS: Record<string, string> = {
   outline: '<rect x="4" y="4" width="16" height="16" rx="3" stroke-dasharray="3 2"/>',
   weight: '<path d="M4 6h16" stroke-width="1"/><path d="M4 11h16" stroke-width="2"/><path d="M4 17h16" stroke-width="3.4"/>',
   shadow: '<rect x="4" y="4" width="12" height="12" rx="2"/><path d="M8 20h10a2 2 0 0 0 2-2V8" opacity=".55"/>',
+  glow: '<rect x="7.5" y="7.5" width="9" height="9" rx="2"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4" opacity=".6"/>',
   corner: '<path d="M4 20v-8a8 8 0 0 1 8-8h8"/>',
   rotate: '<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/>',
   'row-add': '<rect x="3" y="4" width="18" height="6" rx="1.5"/><path d="M12 14v6M9 17h6"/>',

@@ -2,6 +2,7 @@ import { defineBlock } from '../../engine/component';
 import { styleAttr, t } from '../../engine/html';
 import { GRADIENTS, gradColor, gradientCss, gradientOn, isGradient, type ShapeGradient } from '../../engine/gradients';
 import { ea } from '../../engine/marks';
+import { BOX_SHADOWS, boxFxCss, dropFxCss, type BoxFx } from '../../engine/box-fx';
 import type { Block } from '../../types';
 import { boundsOf, PRESET_KINDS, presetGeometry } from './kinds';
 import './shape.css';
@@ -16,12 +17,8 @@ function maskOf(box: string, body: string): string {
   return `url('data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${box}" preserveAspectRatio="none">${body}</svg>`)}')`;
 }
 
-/** Тени фигуры и рисунка: лёгкая, заметная, глубокая */
-export const SHADOWS: Record<string, { name: string; css: string }> = {
-  sm: { name: 'Лёгкая', css: '0 2px 8px rgba(15, 23, 42, .14)' },
-  md: { name: 'Заметная', css: '0 10px 28px rgba(15, 23, 42, .20)' },
-  lg: { name: 'Глубокая', css: '0 22px 50px rgba(15, 23, 42, .30)' },
-};
+/** Тени фигуры и рисунка: лёгкая, заметная, глубокая (подкрутка и свечение — box-fx.ts) */
+export const SHADOWS = BOX_SHADOWS;
 
 /**
  * Цвета фигур по ролям темы: подстраиваются под тёмную тему и акцентный цвет.
@@ -87,7 +84,7 @@ function onColor(fill: unknown): string {
   return 'var(--tx)';
 }
 
-export interface ShapeProps extends Block {
+export interface ShapeProps extends Block, Omit<BoxFx, 'shadow'> {
   /**
    * rect — прямоугольник, round — скруглённый, pill — капсула, ellipse — круг/овал, line — линия, arrow — стрелка;
    * фигуры PowerPoint — ключи PRESET_KINDS: diamond, triangle, star, block-arrow, callout, cylinder…
@@ -107,8 +104,7 @@ export interface ShapeProps extends Block {
   dash?: 'dash' | 'dot';
   /** Скругление углов, px (у round по умолчанию 16) */
   radius?: number;
-  /** Тень: true или md — заметная, sm — лёгкая */
-  /** Тень — те же три, что у рисунка: лёгкая, заметная, глубокая (true — заметная) */
+  /** Тень — те же три, что у рисунка: лёгкая, заметная, глубокая (true — заметная); подкрутка и свечение — BoxFx */
   shadow?: boolean | 'sm' | 'md' | 'lg';
   /** Непрозрачность, от 0.1 до 1 */
   opacity?: number;
@@ -135,7 +131,9 @@ defineBlock<ShapeProps>('shape', {
       const lg = sg ? (isGradient(p.strokeGradient) ? p.strokeGradient : GRADIENTS[0].g) : null;
       const color = lg ? gradColor(lg.to) : shapeColor(p.stroke ?? p.fill) ?? 'var(--ac)';
       const head = Math.round(w * 2.2 + 6);
-      return `<div class="shape shape-line${dash ? ` shape-${dash}` : ''}${lg ? ' shape-lg' : ''}"${styleAttr(`--c:${color};--w:${w}px`, lg && `--sg:${gradientCss({ from: lg.from, to: lg.to, angle: 90 })}`, rot, opacity, p.style)} aria-hidden="true"><i class="shape-bar"></i>`
+      // У линии — только свечение (неоновая линия): тень ей не даётся
+      const glow = dropFxCss({ glow: p.glow, glowSize: p.glowSize, glowOpacity: p.glowOpacity });
+      return `<div class="shape shape-line${dash ? ` shape-${dash}` : ''}${lg ? ' shape-lg' : ''}"${styleAttr(`--c:${color};--w:${w}px`, lg && `--sg:${gradientCss({ from: lg.from, to: lg.to, angle: 90 })}`, rot, opacity, glow && `filter:${glow}`, p.style)} aria-hidden="true"><i class="shape-bar"></i>`
         + (kind === 'arrow' ? `<i class="shape-head" style="--h:${head}px"></i>` : '') + `</div>`;
     }
     const fill = p.fill === 'gradient' ? gradientCss(p.gradient) : shapeFill(p.fill) ?? 'var(--acs)';
@@ -143,11 +141,12 @@ defineBlock<ShapeProps>('shape', {
     const stroke = w && !sg ? shapeColor(p.stroke) ?? 'var(--acb)' : '';
     // Градиентный контур — кольцом поверх краёв (рамка CSS градиентом не красится)
     const ring = w && sg ? `--sg:${gradientCss(p.strokeGradient)};--sw:${w}px` : '';
+    const fx = boxFxCss(p);
     const radius = kind === 'ellipse' ? '50%' : kind === 'pill' ? '9999px' : kind === 'rect' ? `${Number(p.radius) || 0}px` : `${Number.isFinite(Number(p.radius)) ? Number(p.radius) : 16}px`;
     const css = [
       `background:${fill}`, `border-radius:${radius}`, `color:${p.fill === 'gradient' ? gradientOn(p.gradient) : onColor(p.fill ?? 'soft')}`,
       stroke ? `border:${w}px ${dash ? (dash === 'dot' ? 'dotted' : 'dashed') : 'solid'} ${stroke}` : '',
-      p.shadow ? `box-shadow:${(SHADOWS[p.shadow === true ? 'md' : p.shadow] ?? SHADOWS.md).css}` : '',
+      fx ? `box-shadow:${fx}` : '',
       ring, rot, opacity,
     ].filter(Boolean).join(';');
     const v = p.valign === 'top' || p.valign === 'bottom' ? ` v-${p.valign}` : '';
@@ -190,9 +189,10 @@ function presetShape(p: ShapeProps, kind: string, fill: string, w: number, sg: b
     const color = sg ? gradientCss(p.strokeGradient) : shapeColor(p.stroke) ?? 'var(--acb)';
     layers += `<i class="shape-o" data-w="${w}"${dash ? ` data-dash="${dash}"` : ''} style="${lo.at};--m:${maskOf(lo.box, body)};background:${color}"></i>`;
   }
+  const drop = dropFxCss(p);
   const css = [
     `--sf:${fill}`, `color:${p.fill === 'gradient' ? gradientOn(p.gradient) : onColor(p.fill ?? 'soft')}`,
-    p.shadow ? `filter:drop-shadow(${(SHADOWS[p.shadow === true ? 'md' : p.shadow] ?? SHADOWS.md).css})` : '', ...extra,
+    drop ? `filter:${drop}` : '', ...extra,
   ].filter(Boolean).join(';');
   const v = p.valign === 'top' || p.valign === 'bottom' ? ` v-${p.valign}` : '';
   return `<div class="shape shape-p shape-${kind}${v}" data-prst="${PRESET_KINDS[kind].prst}"${styleAttr(css, p.style)}>${layers}`

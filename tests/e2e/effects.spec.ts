@@ -1,0 +1,77 @@
+// Эффекты фигур и рисунков: готовые — на ленте, ручки выбранного — в «Свойствах»
+import { expect, test } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
+import { DECKS, deckFile, watchErrors } from './helpers';
+
+test('фигура и рисунок: тень и свечение с ленты, подкрутка в «Свойствах», готовая тень сбрасывает подкрутку, «×» убирает', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'fxbox');
+  fs.mkdirSync(path.join(dir, 'assets'), { recursive: true });
+  fs.copyFileSync(path.join(DECKS, 'fx', 'assets', 'shot.webp'), path.join(dir, 'assets', 'shot.webp'));
+  fs.writeFileSync(path.join(dir, 'deck.yaml'), `title: Эффекты
+slides:
+  - template: canvas
+    free:
+      - {type: shape, kind: round, fill: soft, text: "Фигура", place: {x: 80, y: 80, w: 300, h: 160}}
+      - {type: image, src: ./assets/shot.webp, place: {x: 520, y: 80, w: 420, h: 300}}
+`);
+  const yaml = () => fs.readFileSync(deckFile('fxbox'), 'utf8');
+  try {
+    await page.goto('/?deck=fxbox&studio#1');
+    const blocks = page.locator('#st-canvas .slide.on [data-block]');
+    const shape = blocks.nth(0);
+    await shape.click({ position: { x: 12, y: 12 } });
+    // Эффектов нет — нет и раздела
+    await expect(page.locator('.st-p-sec.st-fx')).toHaveCount(0);
+    await page.locator('.st-tabs [data-tab="shape"]').click();
+    await page.locator('.st-ribbon [data-cmd="shape.shadow"]').click();
+    await page.locator('.st-lkpop [data-lk][title="Заметная"]').click();
+    const card = page.locator('.st-fx-card[data-fxk="shadow"]');
+    await expect(card.locator('header small')).toHaveText('Заметная');
+    await expect(page.locator('.st-fx h3')).toHaveText('Эффекты фигуры');
+    await card.locator('[data-fx="shadowDist"]').fill('30');
+    await expect.poll(yaml).toMatch(/shadowDist: 30/);
+    await card.locator('[data-fxc="shadowColor"][data-v="accent"]').click();
+    await expect.poll(yaml).toMatch(/shadowColor: accent/);
+    // Готовая тень с ленты — с чистого листа
+    await page.locator('.st-ribbon [data-cmd="shape.shadow"]').click();
+    await page.locator('.st-lkpop [data-lk][title="Глубокая"]').click();
+    await expect.poll(yaml).toMatch(/shadow: lg/);
+    expect(yaml()).not.toMatch(/shadowDist|shadowColor/);
+    await expect(card.locator('header small')).toHaveText('Глубокая');
+
+    // Свечение: наведение примеряет на фигуре, щелчок — пишет, ручки — в «Свойствах»
+    const box = () => shape.evaluate((e) => getComputedStyle(e.matches('.shape') ? e : e.querySelector('.shape')!).boxShadow);
+    await page.locator('.st-ribbon [data-cmd="shape.glow"]').click();
+    await page.locator('.st-lkpop [data-lk][title="Розовое"]').hover();
+    await expect.poll(box).toContain('rgba(244, 114, 182, 0.7)');
+    expect(yaml()).not.toMatch(/glow/);
+    await page.locator('.st-lkpop [data-lk][title="Розовое"]').click();
+    await expect.poll(yaml).toMatch(/glow: "#F472B6"/);
+    const glow = page.locator('.st-fx-card[data-fxk="glow"]');
+    await glow.locator('[data-fx="glowSize"]').fill('30');
+    await expect.poll(yaml).toMatch(/glowSize: 30/);
+    await expect.poll(box).toContain('0px 0px 30px 9px');
+    await glow.locator('[data-fxoff="glow"]').click();
+    await expect.poll(yaml).not.toMatch(/glow/);
+    await expect(glow).toHaveCount(0);
+
+    // Рисунок: паспарту с ленты, цвет — в «Свойствах»; Ctrl+Z — шагом
+    await blocks.nth(1).click({ position: { x: 20, y: 20 } });
+    await page.locator('.st-tabs [data-tab="image"]').click();
+    await page.locator('.st-ribbon [data-cmd="image.mat"]').click();
+    await page.locator('.st-lkpop [data-lk][title="Среднее"]').click();
+    const mat = page.locator('.st-fx-card[data-fxk="mat"]');
+    await expect(page.locator('.st-fx h3')).toHaveText('Эффекты рисунка');
+    await mat.locator('[data-fxc="matColor"][data-v="#F5F0E6"]').click();
+    await expect.poll(yaml).toMatch(/matColor: "#F5F0E6"/);
+    await expect(blocks.nth(1).locator('.imgbox')).toHaveCSS('background-color', 'rgb(245, 240, 230)');
+    await page.keyboard.press('Control+z');
+    await expect.poll(yaml).not.toMatch(/matColor/);
+    expect(yaml()).toMatch(/mat: 12/);
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

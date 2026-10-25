@@ -91,6 +91,13 @@ body.studio { background: var(--alt); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) :is(.st-fx-sw button, .st-fx-own) { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .28); } }
 .st-fx-own { position: relative; overflow: hidden; background: conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171); }
 .st-fx-own input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.st-fx-seg { margin-bottom: 6px; }
+.st-fx-seg i:is(.f-bottom, .f-top, .f-left, .f-right, .f-edges) { width: 18px; height: 13px; border-radius: 2px; }
+.st-fx-seg i.f-bottom { background: linear-gradient(to bottom, var(--tx) 35%, transparent); }
+.st-fx-seg i.f-top { background: linear-gradient(to top, var(--tx) 35%, transparent); }
+.st-fx-seg i.f-left { background: linear-gradient(to left, var(--tx) 35%, transparent); }
+.st-fx-seg i.f-right { background: linear-gradient(to right, var(--tx) 35%, transparent); }
+.st-fx-seg i.f-edges { background: radial-gradient(closest-side, var(--tx) 35%, transparent); }
 .st-fx-tune { margin-top: 2px; }
 .st-fx-tune label { grid-template-columns: 82px 1fr 50px; }
 .st-fx-chk { margin-top: 6px; font-size: 12px !important; }

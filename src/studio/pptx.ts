@@ -540,7 +540,7 @@ class Converter {
     }));
     const visible = sides.map((s) => s.w > 0.2 && !!s.c && s.style !== 'none' && s.style !== 'hidden');
     const uniform = visible.every(Boolean) && sides.every((s) => Math.abs(s.w - sides[0].w) < 0.5 && s.c!.hex === sides[0].c!.hex);
-    const shadow = this.shadow(cs.boxShadow, k);
+    const shadow = this.effects(cs.boxShadow, k);
     if (clipText) fill = null;
     if (!fill && !uniform && !shadow && !visible.some(Boolean)) {
       // Градиентный контур без заливки: кольцо рисует ::before
@@ -606,7 +606,7 @@ class Converter {
     const o = el.querySelector<HTMLElement>(':scope > .shape-o');
     const ocs = o ? getComputedStyle(o) : null;
     const line = ocs ? rgba(ocs.backgroundColor) ?? rgba(/rgba?\([^)]*\)/.exec(ocs.backgroundImage)?.[0] ?? '') : null;
-    const shadow = this.shadow(/drop-shadow\((.*)\)/.exec(cs.filter)?.[1] ?? '', k);
+    const shadow = this.effects(cs.filter, k, true);
     const rot = this.rotation(cs);
     const size = rot ? { w: el.offsetWidth * k, h: el.offsetHeight * k } : { w: b.w, h: b.h };
     const at = rot ? { x: b.x + b.w / 2 - size.w / 2, y: b.y + b.h / 2 - size.h / 2, ...size } : b;
@@ -666,17 +666,39 @@ class Converter {
     }
   }
 
-  private shadow(css: string, k: number): PptxGenJS.ShadowProps | null {
+  /**
+   * Тень и свечение (box-shadow или фильтр drop-shadow): слой без сдвига с размытием (у box-shadow — и с разливом,
+   * так пишет box-fx.ts) — свечение, первый сдвинутый — тень. В PowerPoint — своим списком эффектов
+   * (a:glow и a:outerShdw): метка вместо цвета тени pptxgenjs, MARKS.swap подменяет весь a:effectLst
+   */
+  private effects(css: string, k: number, drop = false): PptxGenJS.ShadowProps | null {
     if (!css || css === 'none') return null;
-    const first = css.split(/,(?![^(]*\))/)[0];
-    const color = rgba(first);
-    const nums = [...first.replace(/rgba?\([^)]*\)/, '').matchAll(/(-?[\d.]+)px/g)].map((m) => Number(m[1]));
-    if (!color || nums.length < 3 || /inset/.test(first)) return null;
-    const [dx, dy, blur] = nums.map((n) => n * k);
-    return {
-      type: 'outer', color: color.hex, opacity: Math.min(1, color.a * 1.4), blur: pt(blur),
-      offset: pt(Math.hypot(dx, dy)), angle: Math.round(((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360),
-    };
+    const parts = drop ? [...css.matchAll(/drop-shadow\(((?:[^()]|\([^()]*\))*)\)/g)].map((m) => m[1]) : css.split(/,(?![^(]*\))/);
+    let shadow: { c: Rgba; blur: number; dist: number; angle: number } | null = null;
+    let glow: { c: Rgba; size: number } | null = null;
+    for (const l of parts) {
+      const c = rgba(l);
+      const nums = [...l.replace(/(?:rgba?|color)\([^)]*\)/, '').matchAll(/(-?[\d.]+)px/g)].map((m) => Number(m[1]) * k);
+      if (!c || nums.length < 3 || /inset/.test(l)) continue;
+      const [dx, dy, blur, spread = 0] = nums;
+      if (Math.abs(dx) < 0.05 && Math.abs(dy) < 0.05) {
+        // Без сдвига: свечение; кольцо без размытия (рамка выделения и т. п.) — не эффект
+        if (blur > 0 && (drop || spread > 0)) {
+          const size = drop ? blur * 0.875 : spread + blur * 0.4;
+          if (!glow || size > glow.size) glow = { c, size };
+        }
+        continue;
+      }
+      shadow ??= { c, blur, dist: Math.hypot(dx, dy), angle: Math.round(((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360) };
+    }
+    if (!shadow && !glow) return null;
+    const emu = (px: number) => Math.round(pt(px) * 12700);
+    const clr = (c: Rgba, a: number) => `<a:srgbClr val="${c.hex}"><a:alpha val="${Math.round(Math.min(1, a) * 100000)}"/></a:srgbClr>`;
+    const xml = '<a:effectLst>'
+      + (glow ? `<a:glow rad="${emu(glow.size)}">${clr(glow.c, glow.c.a)}</a:glow>` : '')
+      + (shadow ? `<a:outerShdw blurRad="${emu(shadow.blur)}" dist="${emu(shadow.dist)}" dir="${shadow.angle * 60000}" algn="ctr" rotWithShape="0">${clr(shadow.c, shadow.c.a * 1.4)}</a:outerShdw>` : '')
+      + '</a:effectLst>';
+    return { type: 'outer', color: MARKS.mark(xml), opacity: 1, blur: 1, offset: 1, angle: 90 };
   }
 
   private rotation(cs: CSSStyleDeclaration): number {
@@ -1026,7 +1048,7 @@ class Converter {
     try { data = c.toDataURL('image/png'); } catch { return false; }
     const at = { x: br.left - this.origin.left + (bw + img.offsetLeft) * scale, y: br.top - this.origin.top + (bw + img.offsetTop) * scale, w: W * scale, h: H * scale };
     const plain = !rgba(bcs.backgroundColor) && !bw;
-    const shadow = plain ? this.shadow(bcs.boxShadow, scale) : null;
+    const shadow = plain ? this.effects(bcs.boxShadow, scale) : null;
     const op = Number(bcs.opacity || 1);
     this.slide.addImage({ data, ...this.pos(at), shadow: shadow ?? undefined, transparency: op < 1 ? transparency(op) : undefined });
     return true;
@@ -1126,6 +1148,8 @@ class Converter {
     this.slide.addShape(this.pptx.ShapeType.line, {
       x: inch(cx - len / 2), y: inch(cy), w: inch(len), h: 0, rotate: this.spin(rot) || undefined,
       line: { color: color.hex, width: pt((bar.offsetHeight || 3) * k), dashType: dash, endArrowType: el.querySelector('.shape-head') ? 'triangle' : undefined },
+      // Свечение линии (box-fx.ts) — свечением PowerPoint
+      shadow: this.effects(cs.filter, k, true) ?? undefined,
     });
   }
 
