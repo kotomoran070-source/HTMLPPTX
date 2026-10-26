@@ -5,7 +5,7 @@
  * Лицензии — программы, её библиотек и шрифтов, страницей в новом окне.
  */
 import type { Editor } from '../engine/editor/editor';
-import { fontItems, fontPicker } from '../engine/editor/font-picker';
+import { fontItems, fontPicker, plural } from '../engine/editor/font-picker';
 import { getAt, type Path } from '../engine/data';
 import { deckFonts, fontNameOk, fontStack } from '../engine/fonts';
 import { FONTS } from '../engine/text-style';
@@ -122,12 +122,12 @@ async function summary(h: ToolsHost, at: HTMLElement): Promise<void> {
   const slideLink = (i: number) => `<button type="button" class="st-link" data-go="${i}">слайд ${i + 1}</button>`;
   const html = `<h3 class="st-sum-h">Сводка презентации</h3>
 <div class="st-sum-tiles">
-  ${tile(num(deck.slides.length), 'слайдов')}
-  ${tile(num(slideWords), 'слов на слайдах')}
+  ${tile(num(deck.slides.length), plural(deck.slides.length, 'слайд', 'слайда', 'слайдов'))}
+  ${tile(num(slideWords), `${plural(slideWords, 'слово', 'слова', 'слов')} на слайдах`)}
   ${tile(noteWords ? `≈ ${minutes} мин` : '—', noteWords ? 'доклад по заметкам' : 'заметок нет')}
   ${tile(files ? size(total) : '—', 'файлы')}
 </div>
-${withNotes && withNotes < deck.slides.length ? `<p class="st-sum-note">Заметки есть у ${withNotes} из ${deck.slides.length} слайдов.</p>` : ''}
+${withNotes && withNotes < deck.slides.length ? `<p class="st-sum-note">Заметки есть у ${withNotes} из ${deck.slides.length} ${plural(deck.slides.length, 'слайда', 'слайдов', 'слайдов')}.</p>` : ''}
 ${heavy.length ? `<h4>Самые тяжёлые файлы</h4><ul class="st-sum-list">${heavy.map((f) => `<li><span class="st-sum-n" title="${esc(f.path)}">${esc(f.path.replace(/^assets\//, ''))}</span><b>${size(f.size)}</b>${f.slides.length ? slideLink(f.slides[0]) : '<i>оформление</i>'}</li>`).join('')}</ul>` : ''}
 ${fonts.length || idle.length ? `<h4>Шрифты</h4><ul class="st-sum-list">${fonts.map((f) => `<li><span class="st-sum-n" style="font-family:${esc(FONTS[f.name]?.css ?? fontStack(f.name))}">${esc(fontLabel(f.name))}</span>${f.state ? `<small>${esc(f.state)}</small>` : '<small class="warn" title="Шрифт не встроен: без него на компьютере текст будет другим">не встроен</small>'}<button type="button" class="st-link" data-font="${esc(f.name)}">заменить</button></li>`).join('')}${idle.map((n) => `<li><span class="st-sum-n" style="font-family:${esc(fontStack(n))}">${esc(n)}</span><small>не используется</small><button type="button" class="st-link" data-unfont="${esc(n)}" title="Убрать файл шрифта (в библиотеке он останется)">убрать</button></li>`).join('')}</ul>` : ''}
 ${unused.length ? `<div class="st-sum-unused"><span>Не используются: ${unused.length} ${unused.length === 1 ? 'файл' : unused.length < 5 ? 'файла' : 'файлов'} · ${size(unused.reduce((a, f) => a + f.size, 0))}</span><button type="button" class="btn ghost small" data-trash title="${esc(unused.map((f) => f.path.replace(/^assets\//, '')).join('\n'))}">Убрать в корзину</button></div>` : ''}`;

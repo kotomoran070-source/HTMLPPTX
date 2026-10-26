@@ -988,19 +988,15 @@ slides:
         enter: fade
         delay: 100
       - type: image
-        src: ./assets/ui-studio.webp
-        srcDark: ./assets/ui-studio-dark.webp
-        caption: Студия
+        src: ./assets/ui-summary.webp
+        srcDark: ./assets/ui-summary-dark.webp
+        caption: "«Инструменты» → «Сводка»: слайды, время доклада, тяжёлые файлы"
         radius: 18
         shadow: md
-        fit: contain
-        fitBlur: true
         images:
-          - {src: ./assets/photo.svg, caption: Пейзаж}
-          - {src: ./assets/cartoon.webp, caption: Мультфильм}
-          - {src: ./assets/slideria-3d.png, caption: 3D-логотип}
-          - {src: ./assets/film-poster.png, caption: Кадр из ролика}
-        place: {x: 48, y: 156, w: 580, h: 330}
+          - {src: ./assets/ui-code.webp, srcDark: ./assets/ui-code-dark.webp, caption: "«Вид» → «Код слайда»: тот же слайд текстом, правки видны сразу"}
+          - {src: ./assets/ui-ribbon.webp, srcDark: ./assets/ui-ribbon-dark.webp, caption: "«Вид» → «Настроить ленту»: простая, полная или только значки"}
+        place: {x: 48, y: 156, w: 580, h: 362}
         enter: rise
         delay: 200
       - type: image
@@ -1008,18 +1004,18 @@ slides:
         radius: 18
         shadow: md
         filter: dark
-        place: {x: 652, y: 156, w: 580, h: 300}
+        place: {x: 652, y: 156, w: 580, h: 330}
         enter: rise
         delay: 300
       - type: embed
         src: ./assets/visualizer.htm
         theme: true
         interactive: true
-        place: {x: 652, y: 156, w: 580, h: 300}
+        place: {x: 652, y: 156, w: 580, h: 330}
         enter: fade
         delay: 400
-      - {type: text, text: "**Галерея** · стрелки, точки и свайп при показе; или кадр на каждое «Далее»", styles: {text: {size: 15, color: text2}}, place: {x: 50, y: 500, w: 576}, enter: fade, delay: 450}
-      - {type: text, text: "**Визуализатор** · микрофон или звук компьютера — кнопка справа внизу; три вида", styles: {text: {size: 15, color: text2}}, place: {x: 654, y: 500, w: 576}, enter: fade, delay: 520}
+      - {type: text, text: "**Галерея** · стрелки, точки и свайп при показе; или кадр на каждое «Далее»", styles: {text: {size: 15, color: text2}}, place: {x: 50, y: 532, w: 576}, enter: fade, delay: 450}
+      - {type: text, text: "**Визуализатор** · микрофон или звук компьютера — кнопка справа внизу; три вида", styles: {text: {size: 15, color: text2}}, place: {x: 654, y: 532, w: 576}, enter: fade, delay: 520}
       - type: shape
         kind: round
         fill: soft

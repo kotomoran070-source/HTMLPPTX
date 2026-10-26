@@ -15,7 +15,8 @@ export interface FontItem {
   weights?: number;
 }
 
-const plural = (n: number, one: string, few: string, many: string) => {
+/** Слово при числе: «1 слайд», «3 слайда», «31 слайд», «12 слайдов» */
+export const plural = (n: number, one: string, few: string, many: string) => {
   const d = n % 10;
   const h = n % 100;
   return d === 1 && h !== 11 ? one : d >= 2 && d <= 4 && (h < 12 || h > 14) ? few : many;
