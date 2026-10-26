@@ -3,12 +3,12 @@ import { isHidden, landOn, stepVisible, visiblePos } from './hidden';
 import type { Deck } from '../types';
 import { accentTail, applyAccent, applyAccentFlow } from './accent';
 import { updateFavicon } from './brand';
-import { DeckView, staticSlide } from './deck-view';
+import { DeckView, reducedMotion, staticSlide } from './deck-view';
 import { Editor, SLIDE_PRESETS } from './editor/editor';
 import { canSaveFile } from './editor/persist';
 import { esc } from './html';
 import { actionTarget, slideLabel } from './render';
-import { Autoplay, runFill, type Timeline } from './autoplay';
+import { Autoplay, REPEAT_PAUSE_MS, runFill, settled, type Timeline } from './autoplay';
 import { progressMode } from './plan';
 import { Ink } from './ink';
 import { RemoteHover } from './remote-hover';
@@ -227,7 +227,9 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     stepsTotal: () => view.stepsTotal(),
     stepsLeft: () => view.stepsLeft(),
     atEnd: () => (skip() ? stepVisible(deck, index, 1) < 0 : index >= count() - 1),
-    options: () => deck.autoplay ?? {},
+    // Своё время слайда — вместо общего
+    options: () => ({ ...deck.autoplay, after: deck.slides[index]?.after ?? deck.autoplay?.after }),
+    hold: () => deck.slides[index]?.repeat === true,
     next,
     // По кругу: первый слайд — с начала, а не «вернулись назад» (шаги не открыты)
     first: () => {
@@ -268,6 +270,26 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     broadcast();
     if (!auto.on) pg.style.transition = '';
     void auto.schedule();
+    void repeatLoop();
+  }
+  /**
+   * Повтор (slide.repeat): доиграли появления — пауза — играют заново, пока слайд на экране. Шаги, открытые
+   * щелчком, остаются открытыми; на время правки, обзора и чёрного экрана повтор ждёт
+   */
+  let repeatRun = 0;
+  async function repeatLoop(): Promise<void> {
+    const run = ++repeatRun;
+    const i = index;
+    if (deck.slides[i]?.repeat !== true || reducedMotion()) return;
+    const alive = () => run === repeatRun && index === i && deck.slides[i]?.repeat === true;
+    while (alive()) {
+      const el = view.slides[i];
+      if (!el) return;
+      await settled(el);
+      await new Promise((r) => setTimeout(r, REPEAT_PAUSE_MS));
+      if (!alive()) return;
+      if (!ovOpen() && !editor?.active && !black) view.replay(i, false);
+    }
   }
   /** A: пауза или дальше — со значком посреди экрана (на весь экран панели не видно) */
   function toggleAuto(): void {

@@ -370,8 +370,8 @@ export class DeckView {
     this.stopCount = () => {};
   }
 
-  /** Заново проиграть появление слайда — вместе с переходом от предыдущего */
-  replay(i: number): void {
+  /** Заново проиграть появление слайда — вместе с переходом от предыдущего (withTransition: false — только появления) */
+  replay(i: number, withTransition = true): void {
     const el = this.slides[i];
     if (!el) return;
     this.endOut();
@@ -382,7 +382,7 @@ export class DeckView {
     DeckView.resetTriggers(el);
     restartGifs(el);
     const prev = this.slides[i - 1];
-    if (prev) this.runOut(prev, el, false);
+    if (prev && withTransition) this.runOut(prev, el, false);
     this.count(el);
   }
 

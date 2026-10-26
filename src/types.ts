@@ -171,6 +171,10 @@ export interface SlideData {
   vars?: Record<string, string | number>;
   /** Скрыт: при показе, в окне докладчика и в PDF пропускается (см. engine/hidden) */
   hidden?: boolean;
+  /** Автопоказ: свои секунды у этого слайда вместо deck.autoplay.after */
+  after?: number;
+  /** Повтор: при показе появления слайда идут по кругу, пока его не перелистнут; автопоказ здесь ждёт «Далее» */
+  repeat?: boolean;
   /** Название в обзоре слайдов, если отличается от заголовка */
   label?: string;
   /** Переход к слайду (engine/transitions): none, fade, push, cover, uncover, wipe, split, circle, clock, flash, zoom, blur, morph (без поля — стандартный) */

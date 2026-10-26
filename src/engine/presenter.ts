@@ -634,7 +634,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     if (!tl) return;
     const p = tl.ms ? Math.min(1, (performance.now() - tl.t0) / tl.ms) : 0;
     const at = tl.from + (tl.to - tl.from) * p;
-    $('ptlr').textContent = tl.paused ? 'пауза' : `ещё ${Math.max(0, Math.ceil((tl.total * (1 - at)) / 1000))} с`;
+    $('ptlr').textContent = tl.paused ? 'пауза' : tl.hold ? 'ждёт «Далее»' : `ещё ${Math.max(0, Math.ceil((tl.total * (1 - at)) / 1000))} с`;
     $('ptlt').querySelectorAll('i').forEach((i, k) => i.classList.toggle('on', tl!.ticks[k] <= at + 1e-6));
   }
   setInterval(tlLeft, 250);

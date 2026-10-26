@@ -813,28 +813,32 @@ export function startStudio(deck: Deck, deckKey: string): void {
     }, { rebuild: false, merge: `autoplay:${key}` });
   }
   /**
-   * Число с заготовками (время слайда, план доклада): пара плашек — щелчок и готово, своё — полем внизу (Enter);
-   * none — плашка «без значения»
+   * Число с заготовками (время слайда, план доклада): пара плашек — щелчок и готово, своё — полем (Enter);
+   * none — плашка «без значения». Разделов может быть несколько (время всех слайдов и этого)
    */
-  function valuePopover(cmd: string, o: { title: string; unit: string; presets: number[]; max: number; value?: number; none?: string; note?: string; set(n: number | undefined): void }): void {
-    const chip = (v: number | undefined, label: string) => `<button type="button" class="st-vchip${o.value === v ? ' on' : ''}" data-v="${v ?? ''}">${esc(label)}</button>`;
-    const own = o.value !== undefined && !o.presets.includes(o.value) ? o.value : '';
-    const pop = showPopover(shown(cmd), `<div class="st-plabel">${esc(o.title)}</div>`
-      + `<div class="st-vchips">${o.none ? chip(undefined, o.none) : ''}${o.presets.map((v) => chip(v, `${v} ${o.unit}`)).join('')}</div>`
-      + `<label class="st-vown"><span>Своё</span><input type="number" min="1" max="${o.max}" step="1" value="${own}" aria-label="${esc(o.title)}, ${esc(o.unit)}"><span>${esc(o.unit)}</span></label>`
-      + (o.note ? `<p class="st-vnote">${esc(o.note)}</p>` : ''), (b) => {
+  type ValueSection = { title: string; unit: string; presets: number[]; max: number; value?: number; none?: string; note?: string; set(n: number | undefined): void };
+  function valuePopover(cmd: string, ...secs: ValueSection[]): void {
+    const html = secs.map((o, k) => {
+      const chip = (v: number | undefined, label: string) => `<button type="button" class="st-vchip${o.value === v ? ' on' : ''}" data-s="${k}" data-v="${v ?? ''}">${esc(label)}</button>`;
+      const own = o.value !== undefined && !o.presets.includes(o.value) ? o.value : '';
+      return `<div class="st-plabel">${esc(o.title)}</div>`
+        + `<div class="st-vchips">${o.none ? chip(undefined, o.none) : ''}${o.presets.map((v) => chip(v, `${v} ${o.unit}`)).join('')}</div>`
+        + `<label class="st-vown"><span>Своё</span><input type="number" min="1" max="${o.max}" step="1" value="${own}" data-s="${k}" aria-label="${esc(o.title)}, ${esc(o.unit)}"><span>${esc(o.unit)}</span></label>`
+        + (o.note ? `<p class="st-vnote">${esc(o.note)}</p>` : '');
+    }).join('');
+    const pop = showPopover(shown(cmd), html, (b) => {
       if (!b.classList.contains('st-vchip')) return null;
-      return { run: () => o.set(b.dataset.v ? Number(b.dataset.v) : undefined) };
+      return { run: () => secs[Number(b.dataset.s)].set(b.dataset.v ? Number(b.dataset.v) : undefined) };
     }, 'st-vpop');
-    const input = pop.querySelector('input')!;
-    input.addEventListener('keydown', (e) => {
+    pop.querySelectorAll('input').forEach((input) => input.addEventListener('keydown', (e) => {
       e.stopPropagation();
       if (e.key !== 'Enter') return;
       e.preventDefault();
+      const o = secs[Number(input.dataset.s)];
       const n = Math.round(Number(input.value.replace(',', '.')));
       if (Number.isFinite(n) && n >= 1) o.set(Math.min(o.max, n));
       closeMenu();
-    });
+    }));
   }
   /**
    * Подпись и значок кнопки ленты — по текущему значению (время слайда, план, вид прогресса);
@@ -1575,9 +1579,19 @@ export function startStudio(deck: Deck, deckKey: string): void {
     },
     'show.auto.after': {
       run: () => valuePopover('show.auto.after', {
-        title: 'Слайд стоит после своих анимаций', unit: 'с', presets: [3, 5, 10], max: 600,
+        title: 'Все слайды — после своих анимаций', unit: 'с', presets: [3, 5, 10], max: 600,
         value: deck.autoplay?.after ?? AFTER_S,
         set: (n) => setAutoplay('after', n === AFTER_S ? undefined : n),
+      }, {
+        title: `Слайд ${index + 1} — своё время`, unit: 'с', presets: [3, 5, 10], max: 600, none: 'Как все',
+        value: deck.slides[index]?.after,
+        note: deck.slides[index]?.repeat ? 'У слайда повтор: автопоказ ждёт «Далее»' : undefined,
+        set: (n) => ed.commit((d) => {
+          const sl = d.slides[index];
+          if (!sl) return;
+          if (n) sl.after = n;
+          else delete sl.after;
+        }, { rebuild: false }),
       }),
     },
     'show.plan': {
@@ -2102,8 +2116,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
     status.textContent = st.text;
     status.className = `st-status ${st.cls}`;
     if (document.activeElement !== title) title.value = deck.title ?? '';
-    // «Показ»: на кнопках — текущие время слайда, план и вид прогресса
-    setRibbonButton('show.auto.after', `Слайд ${deck.autoplay?.after ?? AFTER_S} с`);
+    // «Показ»: на кнопках — текущие время слайда (своё у открытого — «Этот слайд 10 с»), план и вид прогресса
+    const ownAfter = deck.slides[index]?.after;
+    setRibbonButton('show.auto.after', ownAfter ? `Этот слайд ${ownAfter} с` : `Слайд ${deck.autoplay?.after ?? AFTER_S} с`);
     // «План» сверху, «20 мин ▾» под ним; «Без плана» — одной строкой
     setRibbonButton('show.plan', deck.plan ? `План ${deck.plan} мин` : 'Без плана', undefined, 2);
     const pm = PROGRESS.find(([v]) => v === deck.progress) ?? PROGRESS[0];

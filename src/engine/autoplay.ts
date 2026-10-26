@@ -2,13 +2,16 @@
  * Автопоказ: показ сам нажимает «Далее». Отсчёт идёт, когда слайд «досказал»: доиграли переход, появления,
  * прорисовки, «Число набегает» и ролик без повтора; бесконечное (живые фоны, бегущая строка, наплыв камеры)
  * не ждём. Шаги слайда (объекты по щелчку, кадры по «Далее», формула по шагам) — через короткую паузу,
- * сам слайд — через deck.autoplay.after секунд.
+ * сам слайд — через deck.autoplay.after секунд (или свои slide.after). Слайд с повтором (slide.repeat) показ не листает:
+ * шаги открываются, а дальше — по «Далее».
  */
 
 /** Пауза между шагами слайда */
 export const STEP_MS = 1500;
 /** Сколько стоит слайд, если время не задано */
 export const AFTER_S = 5;
+/** Повтор слайда: пауза между кругами появлений */
+export const REPEAT_PAUSE_MS = 2000;
 /** Дольше ждать анимации не стоит: что-то зависло (ролик ждём до конца) */
 const MAX_WAIT_MS = 60_000;
 
@@ -16,7 +19,7 @@ const MAX_WAIT_MS = 60_000;
  * Таймлайн слайда (окно докладчика, полоса внизу экрана): чёрточки шагов — доли полосы, и отрезок, который идёт сейчас:
  * от from до to за ms (ms 0 — стоит: доигрывают анимации или пауза). total — сколько всего ждать на слайде, мс (без анимаций)
  */
-export interface Timeline { ticks: number[]; from: number; to: number; ms: number; total: number; paused?: boolean }
+export interface Timeline { ticks: number[]; from: number; to: number; ms: number; total: number; paused?: boolean; hold?: boolean }
 
 /** План слайда: steps шагов по STEP_MS, потом сам слайд — afterMs; seg(k) — отрезок после k открытых шагов */
 export function plan(steps: number, afterMs: number) {
@@ -49,6 +52,8 @@ export interface AutoplayHost {
   atEnd(): boolean;
   /** Время слайда (с), «по кругу», таймлайн на экране — из данных: студия может их поменять на ходу */
   options(): { after?: number; loop?: boolean; timeline?: boolean };
+  /** Слайд с повтором: дальше — только по «Далее» */
+  hold(): boolean;
   next(): void;
   first(): void;
   /** Сейчас листать нельзя: обзор слайдов, правка, чёрный экран */
@@ -140,6 +145,8 @@ export class Autoplay {
     const slide = this.h.slide();
     if (slide) await settled(slide);
     if (run !== this.run || !this.on) return;
+    // Повтор: слайд стоит, пока не нажмут «Далее»; таймлайн — у конца шагов
+    if (!left && this.h.hold()) return this.show({ ticks: p.ticks, total: p.total, from: seg.from, to: seg.from, ms: 0, hold: true });
     const last = !left && this.h.atEnd();
     // Полоска прогресса плавно идёт к следующему слайду (с таймлайном на экране — стоит);
     // на последнем без «по кругу» идти некуда

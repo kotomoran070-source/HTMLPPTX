@@ -1857,7 +1857,7 @@ test('картинка с кадрами: точки открывают кадр
   expect(errors).toEqual([]);
 });
 
-test('«Показ»: план доклада и время слайда — плашками и своим значением, вид прогресса — меню; на кнопках — текущее', async ({ page }) => {
+test('«Показ»: план доклада и время слайда (у всех и своё у этого) — плашками и своим значением, вид прогресса — меню; на кнопках — текущее; повтор слайда', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=prog&studio#1');
   await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
@@ -1876,11 +1876,34 @@ test('«Показ»: план доклада и время слайда — п�
   await cmd('show.plan').click();
   await page.locator('.st-vpop .st-vchip', { hasText: 'Нет' }).click();
   await expect.poll(() => readDeck('prog')).not.toMatch(/^plan:/m);
-  // Время слайда при автопоказе
+  // Время слайда при автопоказе: у всех слайдов…
   await cmd('show.auto.after').click();
-  await page.locator('.st-vpop .st-vchip', { hasText: '10 с' }).click();
+  await page.locator('.st-vpop .st-vchip[data-s="0"]', { hasText: '10 с' }).click();
   await expect.poll(() => readDeck('prog')).toMatch(/autoplay:\s+after: 10/);
   await expect(cmd('show.auto.after')).toContainText('Слайд 10 с');
+  // …и своё у этого: на кнопке и значком на миниатюре; «Как все» — снова общее
+  const thumb = page.locator('.st-thumb').first();
+  await cmd('show.auto.after').click();
+  await page.locator('.st-vpop input[data-s="1"]').fill('25');
+  await page.locator('.st-vpop input[data-s="1"]').press('Enter');
+  await expect.poll(() => parse(readDeck('prog')).slides[0].after).toBe(25);
+  await expect(cmd('show.auto.after')).toContainText('Этот слайд 25 с');
+  await expect(thumb.locator('.st-tmarks svg')).toHaveCount(1);
+  await expect(thumb).toHaveAttribute('title', /в автопоказе 25 с/);
+  await cmd('show.auto.after').click();
+  await page.locator('.st-vpop .st-vchip[data-s="1"]', { hasText: 'Как все' }).click();
+  await expect.poll(() => parse(readDeck('prog')).slides[0].after).toBeUndefined();
+  await expect(cmd('show.auto.after')).toContainText('Слайд 10 с');
+  await expect(thumb.locator('.st-tmarks svg')).toHaveCount(0);
+  // Повтор слайда — на вкладке «Анимация»
+  await page.locator('.st-tabs [data-tab="anim"]').click();
+  await cmd('anim.repeat').click();
+  await expect.poll(() => parse(readDeck('prog')).slides[0].repeat).toBe(true);
+  await expect(cmd('anim.repeat')).toHaveAttribute('aria-pressed', 'true');
+  await expect(thumb.locator('.st-tmarks svg')).toHaveCount(1);
+  await cmd('anim.repeat').click();
+  await expect.poll(() => parse(readDeck('prog')).slides[0].repeat).toBeUndefined();
+  await page.locator('.st-tabs [data-tab="show"]').click();
   // Вид прогресса
   await cmd('show.progress').click();
   await page.locator('.st-menu button', { hasText: 'Номер' }).click();

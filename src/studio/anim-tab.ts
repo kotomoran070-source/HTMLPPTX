@@ -79,8 +79,8 @@ const sec = (ms: number) => `${(ms / 1000).toLocaleString('ru-RU', { maximumFrac
 const group = (label: string, body: string, id = '') =>
   `<div class="st-rgroup" role="group" aria-label="${esc(label)}"><div class="st-rgroup-body">${body}</div><div class="st-rgroup-label"${id ? ` id="${id}"` : ''}>${esc(label)}</div></div>`;
 
-const btn = (cmd: string, ic: string, label: string, o: { big?: boolean; menu?: boolean; title?: string; ico?: boolean } = {}) =>
-  `<button type="button" class="st-rb${o.big ? ' big' : ''}${o.ico ? ' ico' : ''}" data-cmd="${cmd}" title="${esc(o.title ?? label)}"${o.menu ? ' aria-haspopup="true"' : ''}${o.ico ? ` aria-label="${esc(label)}"` : ''}>`
+const btn = (cmd: string, ic: string, label: string, o: { big?: boolean; menu?: boolean; title?: string; ico?: boolean; toggle?: boolean } = {}) =>
+  `<button type="button" class="st-rb${o.big ? ' big' : ''}${o.ico ? ' ico' : ''}" data-cmd="${cmd}" title="${esc(o.title ?? label)}"${o.menu ? ' aria-haspopup="true"' : ''}${o.ico ? ` aria-label="${esc(label)}"` : ''}${o.toggle ? ' aria-pressed="false"' : ''}>`
   + icon(ic) + (o.ico ? '' : `<span>${esc(label)}${o.menu ? '<b class="st-caret"></b>' : ''}</span>`) + '</button>';
 
 /** Образец перехода: два маленьких слайда, «старый» и «новый» */
@@ -106,7 +106,8 @@ export function animTabHtml(): string {
 
 export function animPanelHtml(): string {
   return `<div class="st-rpanel" data-panel="anim" hidden>
-  ${group('Просмотр', btn('show.preview', 'play', 'Просмотр', { big: true, title: 'Проиграть анимацию слайда' }))}
+  ${group('Слайд', btn('show.preview', 'play', 'Просмотр', { big: true, title: 'Проиграть анимацию слайда' })
+    + btn('anim.repeat', 'cycle', 'Повторять', { big: true, toggle: true, title: 'При показе появления слайда идут по кругу, пока его не перелистнут; автопоказ здесь ждёт «Далее»' }))}
   ${group('Переход к слайду', `<div class="st-bdpick st-trpick">${railNav().join(`<div class="st-agallery st-fxgal st-trgal">${TRANSITIONS.map(trTile).join('')}</div>`)}</div>`
     + `<div class="st-rstack">${btn('tr.speed', 'reset', 'Длительность', { menu: true, title: 'Сколько длится переход' })}${btn('tr.dir', 'move', 'Направление', { menu: true, title: 'Откуда идёт переход' })}${btn('tr.all', 'layers', 'Ко всем слайдам', { title: 'Такой же переход у всех слайдов' })}</div>`, 'st-tr-label')}
   ${group('Анимация объекта', `<div class="st-bdpick st-fxpick">${railNav().join(`<div class="st-agallery st-fxgal">${EFFECTS.map(fxTile).join('')}</div>`)}</div>`
@@ -242,6 +243,17 @@ export function animCommands(h: AnimHost): Record<string, Command> {
       active: () => (slide()?.transition ?? '') === v,
     };
   }
+  // Повтор слайда при показе (slide.repeat)
+  cmds['anim.repeat'] = {
+    run: () => {
+      const i = h.index();
+      ed.commit((d) => {
+        if (d.slides[i].repeat) delete d.slides[i].repeat;
+        else d.slides[i].repeat = true;
+      }, { rebuild: false });
+    },
+    active: () => slide()?.repeat === true,
+  };
   cmds['tr.all'] = {
     run: () => {
       const s = slide();

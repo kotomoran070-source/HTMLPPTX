@@ -33,7 +33,7 @@ export function canExplode(slide: SlideData | undefined): boolean {
  * анимированный фон с заметностью, скоростью и ответом на мышь. Всё остальное — у объектов
  */
 const KEEP = [
-  'id', 'label', 'notes', 'notesEdited', 'hidden', 'vars', 'recolor', 'theme', 'transition', 'transitionMs', 'transitionDir',
+  'id', 'label', 'notes', 'notesEdited', 'hidden', 'after', 'repeat', 'vars', 'recolor', 'theme', 'transition', 'transitionMs', 'transitionDir',
   'backdrop', 'backdropOpacity', 'backdropSpeed', 'backdropTouch', 'free',
 ];
 

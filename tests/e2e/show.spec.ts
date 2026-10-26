@@ -1,7 +1,8 @@
 // Показ: все слайды открываются без ошибок, тема, интерактив, ссылки между слайдами, морф
 import { expect, test } from '@playwright/test';
 import fs from 'node:fs';
-import { counter, deckFile, nextTo, readDeck, watchErrors } from './helpers';
+import path from 'node:path';
+import { counter, DECKS, deckFile, nextTo, readDeck, watchErrors } from './helpers';
 
 test.use({ colorScheme: 'light' });
 
@@ -919,6 +920,51 @@ test('автопоказ: листает сам после анимаций, ш�
   await expect(page.locator('#ap')).toHaveAttribute('title', /дальше/, { timeout: 5000 });
   expect(await at()).toBe(3);
   expect(errors).toEqual([]);
+});
+
+test('автопоказ: своё время слайда; повтор — появления по кругу, автопоказ ждёт «Далее», листание повтор снимает', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'autorep');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'deck.yaml'), `title: Повтор
+autoplay: {after: 1}
+slides:
+  - title: Первый
+  - title: Дольше
+    after: 4
+  - template: canvas
+    repeat: true
+    free:
+      - {type: text, text: Кругом, enter: rise, place: {x: 100, y: 100, w: 400}}
+  - title: Последний
+`);
+  try {
+    await page.goto('/?deck=autorep&autoplay#1');
+    const at = async () => (await counter(page))[0];
+    await expect.poll(at, { timeout: 5000 }).toBe(2);
+    // Своё время: 4 с вместо общей секунды
+    await page.waitForTimeout(3000);
+    expect(await at()).toBe(2);
+    await expect.poll(at, { timeout: 5000 }).toBe(3);
+    // Повтор: появление играет снова и снова, дальше автопоказ не листает
+    const starts = () => page.evaluate(() => (window as unknown as { __starts?: number }).__starts ?? 0);
+    await page.evaluate(() => {
+      const w = window as unknown as { __starts?: number };
+      w.__starts = 0;
+      document.querySelector('.slide.on')!.addEventListener('animationstart', (e) => { if ((e.target as Element).closest('.free')) w.__starts! += 1; });
+    });
+    await expect.poll(starts, { timeout: 10_000 }).toBeGreaterThanOrEqual(2);
+    expect(await at()).toBe(3);
+    // «Далее» руками — следующий слайд, повтор прежнего остановлен
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(at).toBe(4);
+    const n = await starts();
+    await page.waitForTimeout(3500);
+    expect(await starts()).toBe(n);
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('автопоказ из окна докладчика: A включает у зрителей, листать руками можно и дальше, ещё A — пауза', async ({ page, context }) => {

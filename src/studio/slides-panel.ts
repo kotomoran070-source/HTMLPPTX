@@ -57,7 +57,7 @@ export class SlidesPanel {
         item.setAttribute('role', 'option');
         item.dataset.i = String(i);
         item.draggable = true;
-        item.innerHTML = `<span class="st-num">${i + 1}</span><div class="st-tbox"></div>`;
+        item.innerHTML = `<span class="st-num">${i + 1}<span class="st-tmarks"></span></span><div class="st-tbox"></div>`;
         this.list.appendChild(item);
         this.items[i] = item;
         this.sigs[i] = '';
@@ -74,7 +74,17 @@ export class SlidesPanel {
       // …или заметки правили там же: отметка до тех пор, пока их не поправят в студии
       const jots = notes.includes('✎') || deck.slides[i].notesEdited === true;
       const hidden = deck.slides[i].hidden === true;
-      item.title = slideLabel(deck.slides[i], i) + (hidden ? ' · скрыт при показе' : '') + (jots ? ' · заметки дописаны на показе' : '');
+      // Автопоказ: своё время слайда и повтор — значками под номером
+      const after = deck.slides[i].after;
+      const repeat = deck.slides[i].repeat === true;
+      const box = item.querySelector<HTMLElement>('.st-tmarks')!;
+      const marks = `${after ? 'clock' : ''} ${repeat ? 'cycle' : ''}`;
+      if (box.dataset.k !== marks) {
+        box.dataset.k = marks;
+        box.innerHTML = marks.split(' ').filter(Boolean).map((n) => icon(n)).join('');
+      }
+      item.title = slideLabel(deck.slides[i], i) + (hidden ? ' · скрыт при показе' : '') + (after ? ` · в автопоказе ${after} с` : '')
+        + (repeat ? ' · появления по кругу' : '') + (jots ? ' · заметки дописаны на показе' : '');
       item.classList.toggle('is-hidden', hidden);
       item.classList.toggle('has-notes', !!notes);
       item.classList.toggle('has-jots', jots);
