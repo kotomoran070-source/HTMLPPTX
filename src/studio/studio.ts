@@ -80,9 +80,9 @@ const readPath = (el: Element, attr: string): Path | null => {
 };
 
 /** Кнопка ленты: большая (иконка над подписью) или малая (в строку). */
-function rb(cmd: string, ic: string, label: string, opts: { big?: boolean; key?: string; menu?: boolean; title?: string } = {}): string {
+function rb(cmd: string, ic: string, label: string, opts: { big?: boolean; key?: string; menu?: boolean; title?: string; toggle?: boolean } = {}): string {
   const tip = (opts.title ?? label) + (opts.key ? ` (${opts.key})` : '');
-  return `<button type="button" class="st-rb${opts.big ? ' big' : ''}" data-cmd="${cmd}" title="${esc(tip)}"${opts.menu ? ' aria-haspopup="menu" aria-expanded="false"' : ''}>`
+  return `<button type="button" class="st-rb${opts.big ? ' big' : ''}" data-cmd="${cmd}" title="${esc(tip)}"${opts.menu ? ' aria-haspopup="menu" aria-expanded="false"' : ''}${opts.toggle ? ' aria-pressed="false"' : ''}>`
     // Стрелка меню — вместе с последним словом подписи: не уезжает одна на новую строку
     + `${icon(ic)}<span>${opts.menu ? `${esc(label.replace(/\S+$/, ''))}<span class="st-nw">${esc(/\S+$/.exec(label)?.[0] ?? '')}<b class="st-caret"></b></span>` : esc(label)}</span></button>`;
 }
@@ -161,7 +161,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     ${designPanelHtml()}
     ${animPanelHtml()}
     <div class="st-rpanel" data-panel="show" hidden>
-      ${group('Слайд', `<div class="st-rstack">${chk('show.hide', 'Скрыть слайд', 'Пропускать при показе и в PDF')}</div>`)}
+      ${group('Слайд', rb('show.hide', 'eye-off', 'Скрыть слайд', { big: true, toggle: true, title: 'Пропускать слайд при показе и в PDF' }))}
       ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'next', 'С текущего слайда', { big: true, key: 'Shift+F5' })
         + rb('show.presenter', 'presenter', 'Режим докладчика', { big: true, key: 'Alt+F5', title: 'Показ на втором экране, заметки — на вашем' })
         + rb('show.auto', 'autoplay', 'Автопоказ', { big: true, title: 'Показ со сменой слайдов по времени (A — пауза)' }))}
@@ -181,7 +181,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     <div class="st-rpanel" data-panel="view" hidden>
       ${group('Панели', rb('view.slides', 'grid', 'Слайды', { big: true, key: 'Ctrl+Shift+1', title: 'Список слайдов слева' }) + rb('view.props', 'sliders', 'Свойства', { big: true, key: 'Ctrl+Shift+2', title: 'Панель свойств справа' }) + rb('view.notes', 'notes', 'Заметки', { big: true, key: 'Ctrl+Shift+3' }) + rb('view.code', 'terminal', 'Код слайда', { big: true, key: 'Ctrl+`', title: 'Код слайда (YAML), стили (CSS) и анимации (HTML/JS)' }) + rb('view.layers', 'layers', 'Область выделения', { big: true, key: 'Alt+F10', title: 'Объекты слайда списком' }))}
       ${group('Показать', `<div class="st-rstack">${chk('view.ruler', 'Линейка', 'Линейки сверху и слева')}${chk('view.grid', 'Сетка', 'Сетка и привязка к ней (Shift+F9)')}${chk('view.guides', 'Направляющие', 'Направляющие и привязка к ним (Alt+F9)')}</div><div class="st-rstack">${rb('view.grid-step', 'grid', 'Шаг сетки', { menu: true })}${rb('view.guides-reset', 'reset', 'Сбросить направляющие', { title: 'Оставить по одной направляющей по центру' })}</div>`)}
-      ${group('Скорость', `<div class="st-rstack">${chk('view.lite', 'Облегчённый режим', 'Для слабых компьютеров: анимации на слайде в редакторе остановлены. На показ не влияет')}</div>`)}
+      ${group('Скорость', rb('view.lite', 'leaf', 'Облегчённый режим', { big: true, toggle: true, title: 'Для слабых компьютеров: анимации на слайде в редакторе остановлены. На показ не влияет' }))}
       ${group('Масштаб', rb('view.fit', 'fullscreen', 'Вписать', { big: true }) + `<div class="st-rstack">${rb('view.zoom-in', 'plus', 'Крупнее')}${rb('view.zoom-out', 'minus', 'Мельче')}</div>`)}
       ${group('Интерфейс', rb('ui.ribbon', 'sliders', 'Настроить ленту', { big: true, title: 'Какие вкладки и кнопки видны' })
         + `<div class="st-rstack">${rb('view.ui-theme', 'sun', 'Тема', { menu: true, title: 'Тема программы: светлая, тёмная или как в системе (T)' })}${rb('view.slides-look', 'frame', 'Вид слайдов', { menu: true, title: 'Слайды в редакторе: как интерфейс, светлые или тёмные' })}${rb('view.ui-color', 'fill', 'Цвет', { menu: true, title: 'Цвет кнопок и панелей программы' })}</div>`
@@ -2092,7 +2092,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
       const c = cmds[b.dataset.cmd!];
       if (!c) return;
       b.disabled = !!c.enabled && !c.enabled();
-      if (c.active) b.classList.toggle('active', c.active());
+      if (!c.active) return;
+      const on = c.active();
+      b.classList.toggle('active', on);
+      if (b.hasAttribute('aria-pressed')) b.setAttribute('aria-pressed', String(on));
     });
     const st = ed.statusInfo;
     const status = $('st-status');

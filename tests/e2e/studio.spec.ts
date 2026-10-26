@@ -194,8 +194,9 @@ test('облегчённый режим: слайд замирает в коне
   const lite = page.locator('.st-ribbon [data-cmd="view.lite"]');
   await lite.click();
   await expect(stage).toHaveClass(/\bstill\b/);
-  // Галочка на ленте — сразу после щелчка
+  // Кнопка на ленте нажата — сразу после щелчка
   await expect(lite).toHaveClass(/\bactive\b/);
+  await expect(lite).toHaveAttribute('aria-pressed', 'true');
   await expect(stage).toHaveClass(/\bpaused\b/);
   // Ни одной идущей анимации на слайде, а объекты видны (появление не застыло на старте)
   const state = await page.evaluate(() => {
