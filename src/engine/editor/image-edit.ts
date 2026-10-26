@@ -57,7 +57,7 @@ export class ImageEditor {
     <button type="button" data-i="cover" title="Заполнить рамку">${icon('cover')}<span>Заполнить</span></button>
   </span>
   <label class="edzoom" data-g="photo" title="Масштаб">${icon('search')}<input type="range" data-i="zoom" min="30" max="300" step="5" aria-label="Масштаб"><output></output></label>
-  <button type="button" data-i="crop" data-g="crop" title="Кадр: тяните снимок в рамке (Esc — готово)">${icon('crop')}<span>Кадр</span></button>
+  <button type="button" data-i="crop" data-g="crop" title="Кадр: перетащите снимок в рамке (Esc — готово)">${icon('crop')}<span>Кадр</span></button>
   <span class="edtip" data-g="tip">${icon('move')} тяните картинку, чтобы сдвинуть</span>
   <button type="button" data-i="reset" data-g="framed" title="Сбросить кадр">Сбросить кадр</button>
   <i class="edsep" data-g="img"></i>

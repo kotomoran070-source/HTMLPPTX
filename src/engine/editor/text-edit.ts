@@ -116,7 +116,7 @@ export class TextEditor {
   <button type="button" data-t="bold" title="Жирный (Ctrl+B)" aria-label="Жирный"><b>B</b></button>
   <button type="button" data-t="italic" title="Курсив (Ctrl+I)" aria-label="Курсив"><i style="font-family:Georgia,serif">I</i></button>
   <button type="button" data-t="underline" title="Подчёркнутый (Ctrl+U)" aria-label="Подчёркнутый"><u>U</u></button>
-  <button type="button" data-t="mark" title="Маркер: проводится по тексту при показе" aria-label="Маркер">${icon('marker')}</button>
+  <button type="button" data-t="mark" title="Маркер: выделение текста при показе" aria-label="Маркер">${icon('marker')}</button>
   <button type="button" data-t="link" title="Ссылка (Ctrl+K)" aria-label="Ссылка">${icon('link')}</button>
   <i class="edsep" data-g="block"></i>
   <span class="edsplit" data-g="block"><button type="button" data-t="list" title="Список" aria-label="Список">${icon('list')}</button><button type="button" data-t="list-kind" class="edcaret" title="Вид списка: маркер или нумерация" aria-label="Вид списка" aria-haspopup="true"><b class="st-caret"></b></button></span>

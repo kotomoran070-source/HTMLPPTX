@@ -621,7 +621,7 @@ ${this.slideColorsHtml(s)}
 ${formHtml(look, deck, ['slides', i])}
 ${(tpl === 'content' || canvas) && !deck.brand?.logo ? cmdBtn('brand.logo.add', 'image', 'Добавить логотип…') : ''}
 </section>
-${!canvas && !s.live ? `<section class="st-p-sec"><button type="button" class="st-pbtn" data-cmd="slide.explode" title="Части слайда станут объектами: двигать по отдельности. Вернуть — Ctrl+Z">${icon('ungroup')}<span>Разобрать на объекты</span></button></section>` : ''}
+${!canvas && !s.live ? `<section class="st-p-sec"><button type="button" class="st-pbtn" data-cmd="slide.explode" title="Сделать части слайда отдельными объектами. Отменить — Ctrl+Z">${icon('ungroup')}<span>Разобрать на объекты</span></button></section>` : ''}
 ${canvas ? '' : sec('more', 'Дополнительно', name)}
 ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Название</span><input type="text" data-f="title"></label>
 <label class="st-p-field"><span>Акцентный цвет</span><span class="st-p-color"><input type="color" data-f="accent" aria-label="Акцентный цвет"><button type="button" class="st-link" data-a="accent-reset" title="Вернуть стандартный цвет">Сбросить</button></span></label>

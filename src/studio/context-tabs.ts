@@ -290,12 +290,12 @@ export function contextPanelsHtml(): string {
   ${group('Цветокоррекция', btn('image.grade', 'sliders', 'Цвет+', { big: true, title: 'Цветокоррекция: круги, кривые, HSL, LUT' }))}
   ${group('Кадр', btn('image.crop', 'crop', 'Кадр', { big: true, title: 'Сдвинуть снимок в рамке (Esc — готово)' })
     + btn('image.fit', 'contain', 'Вписать', { big: true, menu: true, title: 'Как снимок заполняет рамку' }))}
-  ${group('Галерея', btn('image.frames.join', 'frames', 'Собрать в галерею', { big: true, title: 'Выделенные картинки — кадрами одной' })
-    + btn('image.frame.add', 'frames', 'Ещё кадры', { big: true, title: 'Добавить кадры — листаются прямо на слайде' })
+  ${group('Галерея', btn('image.frames.join', 'frames', 'Собрать в галерею', { big: true, title: 'Объединить выделенные картинки в одну с кадрами' })
+    + btn('image.frame.add', 'frames', 'Ещё кадры', { big: true, title: 'Добавить кадры в картинку' })
     // Кнопки кадров — только у картинки с кадрами (studio.ts): обычной хватает «Ещё кадры», лента не теснится
     + `<div class="st-frames">${stack(btn('image.frame.del', 'trash', 'Убрать кадр', { title: 'Убрать открытый кадр' }),
       row(btn('image.frame.prev', 'arr-left', 'Кадр раньше', { ico: true }), btn('image.frame.next', 'arr-right', 'Кадр позже', { ico: true })),
-      btn('image.flip', '', 'По «Далее»', { chk: true, title: 'Листать кадры щелчком «Далее», как анимации' }))}</div>`)}
+      btn('image.flip', '', 'По «Далее»', { chk: true, title: 'Переключать кадры кнопкой «Далее», как анимации' }))}</div>`)}
   ${group('Сброс', btn('image.reset', 'reset', 'Сбросить', { big: true, title: 'Убрать всё оформление рисунка' }))}
   ${group('Файл', btn('obj.picture', 'save', 'Сохранить', { big: true, title: 'Сохранить как PNG' }))}
   ${ORDER}
