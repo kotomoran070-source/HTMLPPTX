@@ -45,6 +45,34 @@ const place = (el: HTMLElement, b: Box) => Object.assign(el.style, { left: `${b.
 const flip = (from: Box, to: Box) => `translate(${from.x - to.x}px, ${from.y - to.y}px) scale(${from.w / to.w}, ${from.h / to.h})`;
 const HOME = 'translate(0px, 0px) scale(1, 1)';
 const turn = (el: HTMLElement) => parseFloat(el.style.rotate) || 0;
+const geo = (b: Box) => ({ left: `${b.x}px`, top: `${b.y}px`, width: `${b.w}px`, height: `${b.h}px` });
+
+/** Корень блока внутри объекта: у него размер шрифта и выравнивание текста */
+const blockOf = (el: HTMLElement) => el.querySelector<HTMLElement>('[data-type]') ?? el;
+const textOf = (el: HTMLElement) => (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+
+/**
+ * Как летит пара:
+ * - text — та же надпись: одна и та же строка пропорционально меняет размер (шрифт → шрифт), без искажения
+ *   и без двоения; копии совпадают, их смена видна только по цвету;
+ * - shape — фигура PowerPoint: контур завязан на размер, поэтому растягивается целиком;
+ * - box — остальное: меняется рамка (место и размер), содержимое — своего размера, старое уходит, новое проявляется
+ */
+function kindOf(from: HTMLElement, to: HTMLElement): 'text' | 'shape' | 'box' {
+  const a = blockOf(from);
+  const b = blockOf(to);
+  if (a.dataset.type === 'text' && b.dataset.type === 'text' && textOf(from) === textOf(to)) return 'text';
+  if (from.querySelector('[data-prst]') || to.querySelector('[data-prst]')) return 'shape';
+  return 'box';
+}
+
+/** Точка привязки надписи: по выравниванию текста и месту в рамке (по низу, посередине) */
+function anchor(el: HTMLElement): [number, number] {
+  const al = getComputedStyle(blockOf(el)).textAlign;
+  const ax = al === 'center' ? 0.5 : al === 'right' || al === 'end' ? 1 : 0;
+  const ay = el.classList.contains('va-b') ? 1 : el.classList.contains('va-m') ? 0.5 : 0;
+  return [ax, ay];
+}
 
 /** Запустить морф от prev к next внутри stage; возвращает завершение (убрать слои, показать объекты) */
 export function morph(stage: HTMLElement, prev: HTMLElement, next: HTMLElement, ms: number): () => void {
@@ -76,6 +104,10 @@ export function morph(stage: HTMLElement, prev: HTMLElement, next: HTMLElement, 
     p.to.dataset.morphed = '';
     p.to.style.animation = 'none';
     p.to.style.visibility = 'hidden';
+    const kind = kindOf(p.from, p.to);
+    // Размер шрифта и привязка — до того, как копии уйдут в слой полёта
+    const scale = kind === 'text' ? (parseFloat(getComputedStyle(blockOf(p.from)).fontSize) || 1) / (parseFloat(getComputedStyle(blockOf(p.to)).fontSize) || 1) : 1;
+    const [ax, ay] = kind === 'text' ? anchor(p.to) : [0, 0];
     const old = still(p.from);
     const neu = still(p.to);
     neu.style.visibility = '';
@@ -87,10 +119,31 @@ export function morph(stage: HTMLElement, prev: HTMLElement, next: HTMLElement, 
     const opts = { duration: ms, easing: ease, fill: 'forwards' as const };
     const ra = `rotate(${turn(p.from)}deg)`;
     const rb = `rotate(${turn(p.to)}deg)`;
-    anims.push(
-      neu.animate([{ transform: `${flip(p.fb, p.tb)} ${ra}`, opacity: 0 }, { opacity: 1, offset: 0.45 }, { transform: `${HOME} ${rb}`, opacity: 1 }], opts),
-      old.animate([{ transform: `${HOME} ${ra}`, opacity: 1 }, { opacity: 0, offset: 0.55 }, { transform: `${flip(p.tb, p.fb)} ${rb}`, opacity: 0 }], opts),
-    );
+    if (kind === 'text') {
+      // Точка привязки старой и новой надписи; масштаб — вокруг неё
+      const pa = { x: p.fb.x + ax * p.fb.w, y: p.fb.y + ay * p.fb.h };
+      const pb = { x: p.tb.x + ax * p.tb.w, y: p.tb.y + ay * p.tb.h };
+      for (const c of [old, neu]) c.style.transformOrigin = `${ax * 100}% ${ay * 100}%`;
+      anims.push(
+        neu.animate([{ transform: `translate(${pa.x - pb.x}px, ${pa.y - pb.y}px) scale(${scale}) ${ra}`, opacity: 0 }, { opacity: 1, offset: 0.5 }, { transform: `${HOME} ${rb}`, opacity: 1 }], opts),
+        old.animate([{ transform: `${HOME} ${ra}`, opacity: 1 }, { opacity: 0, offset: 0.5 }, { transform: `translate(${pb.x - pa.x}px, ${pb.y - pa.y}px) scale(${1 / scale}) ${rb}`, opacity: 0 }], opts),
+      );
+    } else if (kind === 'shape') {
+      anims.push(
+        neu.animate([{ transform: `${flip(p.fb, p.tb)} ${ra}`, opacity: 0 }, { opacity: 1, offset: 0.45 }, { transform: `${HOME} ${rb}`, opacity: 1 }], opts),
+        old.animate([{ transform: `${HOME} ${ra}`, opacity: 1 }, { opacity: 0, offset: 0.55 }, { transform: `${flip(p.tb, p.fb)} ${rb}`, opacity: 0 }], opts),
+      );
+    } else {
+      // Рамка меняет место и размер, содержимое — своего размера; у надписей старый текст уходит раньше,
+      // чем проявляется новый (меньше двоения), у фигур — внахлёст (заливка не просвечивает)
+      const bare = blockOf(p.to).dataset.type === 'text';
+      const [outAt, inAt] = bare ? [0.4, 0.6] : [0.6, 0.45];
+      for (const c of [old, neu]) c.style.transformOrigin = '50% 50%';
+      anims.push(
+        neu.animate([{ ...geo(p.fb), transform: ra, opacity: 0 }, ...(bare ? [{ opacity: 0, offset: 0.3 }] : []), { opacity: 1, offset: inAt }, { ...geo(p.tb), transform: rb, opacity: 1 }], opts),
+        old.animate([{ ...geo(p.fb), transform: ra, opacity: 1 }, { opacity: 0, offset: outAt }, { ...geo(p.tb), transform: rb, opacity: 0 }], opts),
+      );
+    }
   }
 
   let done = false;

@@ -80,8 +80,8 @@ slides:
       - type: numbers
         items:
           - {title: Правьте на месте, text: "Щёлкните по тексту и пишите. Свою картинку перетащите на чужую — она встанет в рамку."}
-          - {title: Добавляйте, text: "«Вставка» — 108 готовых блоков: числа, графики, схемы, формулы. Новый слайд — Ctrl+M."}
-          - {title: Оформляйте, text: "«Дизайн» — 22 темы и 28 живых фонов. Наведите на тему — слайды примерят её."}
+          - {title: Добавляйте, text: "«Вставка» — больше сотни готовых блоков: числа, графики, схемы, формулы. Новый слайд — Ctrl+M."}
+          - {title: Оформляйте, text: "«Дизайн» — 22 темы и 39 живых фонов. Наведите на тему — слайды примерят её."}
           - {title: Показывайте, text: "F5 — показ, P — окно докладчика, R — пульт с телефона. «Экспорт» — HTML, PowerPoint, PDF."}
       - type: grid
         columns: 3
@@ -159,7 +159,7 @@ slides:
       - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Анимация и морф**\nпо щелчку, морф, эффекты текста — глитч, неон", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:motion", place: {x: 948, y: 166, w: 284, h: 190}, enter: pop, delay: 360}
       - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Интерактив**\nползунки, формулы, код на слайде", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:interactive", place: {x: 48, y: 372, w: 284, h: 190}, enter: pop, delay: 420}
       - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Медиа**\nфото, фильтры, видео, 3D, свои блоки", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:media", place: {x: 348, y: 372, w: 284, h: 190}, enter: pop, delay: 480}
-      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Оформление**\n22 темы, 28 живых фонов, тёмная тема", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:design", place: {x: 648, y: 372, w: 284, h: 190}, enter: pop, delay: 540}
+      - {type: shape, kind: round, fill: surface, stroke: border, shadow: sm, radius: 18, text: "**Оформление**\n22 темы, 39 живых фонов, эффекты", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:design", place: {x: 648, y: 372, w: 284, h: 190}, enter: pop, delay: 540}
       - {type: shape, kind: round, fill: gradient, gradient: {from: accent, to: accent2, angle: 135}, shadow: md, radius: 18, text: "**Импорт и связки**\nPowerPoint, Claude Design, пульт, экспорт", styles: {text: {size: 19, weight: 500, align: left, leading: 1.45}}, action: "slide:import", place: {x: 948, y: 372, w: 284, h: 190}, enter: pop, delay: 600}
       - {type: text, text: "**Как сделать** · выделите фигуру → «Свойства» → «По щелчку» → слайд, ссылка или «Показать объект»", styles: {text: {size: 15, color: text2}}, place: {x: 50, y: 600, w: 1180}, enter: fade, delay: 700}
     notes: |
@@ -970,6 +970,73 @@ slides:
             text: "Круги, кривые, HSL и цвета бренда — для фото и видео. «Авто» подберёт образ сам; исходный файл не меняется."
     notes: Здесь одна и та же картинка с разными фильтрами. Ещё на вкладке «Рисунок» — кадр, скругление, тень, рамка и паспарту.
 
+  - id: gallery
+    template: canvas
+    label: Галерея и звук
+    transition: push
+    free:
+      - {type: text, text: Медиа, styles: {text: {size: 13, weight: 800, upper: true, spacing: 0.14, color: accent}}, place: {x: 50, y: 30, w: 600}, enter: fade}
+      - type: text
+        text: Галерея и {g:duo|звук}
+        styles: {text: {size: 42, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 48, w: 1000}
+        enter: rise
+      - type: text
+        text: Несколько снимков листаются в одной рамке, а музыка или голос рисуют живой визуализатор поверх картинки.
+        styles: {text: {size: 17, color: text2}}
+        place: {x: 50, y: 106, w: 1100}
+        enter: fade
+        delay: 100
+      - type: image
+        src: ./assets/ui-studio.webp
+        srcDark: ./assets/ui-studio-dark.webp
+        caption: Студия
+        radius: 18
+        shadow: md
+        fit: contain
+        fitBlur: true
+        images:
+          - {src: ./assets/photo.svg, caption: Пейзаж}
+          - {src: ./assets/cartoon.webp, caption: Мультфильм}
+          - {src: ./assets/slideria-3d.png, caption: 3D-логотип}
+          - {src: ./assets/film-poster.png, caption: Кадр из ролика}
+        place: {x: 48, y: 156, w: 580, h: 330}
+        enter: rise
+        delay: 200
+      - type: image
+        src: ./assets/photo.svg
+        radius: 18
+        shadow: md
+        filter: dark
+        place: {x: 652, y: 156, w: 580, h: 300}
+        enter: rise
+        delay: 300
+      - type: embed
+        src: ./assets/visualizer.htm
+        theme: true
+        interactive: true
+        place: {x: 652, y: 156, w: 580, h: 300}
+        enter: fade
+        delay: 400
+      - {type: text, text: "**Галерея** · стрелки, точки и свайп при показе; или кадр на каждое «Далее»", styles: {text: {size: 15, color: text2}}, place: {x: 50, y: 500, w: 576}, enter: fade, delay: 450}
+      - {type: text, text: "**Визуализатор** · микрофон или звук компьютера — кнопка справа внизу; семь видов", styles: {text: {size: 15, color: text2}}, place: {x: 654, y: 500, w: 576}, enter: fade, delay: 520}
+      - type: shape
+        kind: round
+        fill: soft
+        radius: 14
+        text: "**Как сделать** · несколько картинок сразу перетащите на слайд — станет галереей; «Рисунок» → «Галерея» — кадры и порядок. Визуализатор — «Вставка» → «Интерактив»; вид — число LOOK в «Код вставки»."
+        styles: {text: {size: 15, align: left, leading: 1.4}}
+        place: {x: 48, y: 600, w: 1184, h: 58}
+        enter: fade
+        delay: 800
+    notes: |
+      Галерея — одна картинка с кадрами: при показе листается стрелками, точками и свайпом, окна показа и докладчика
+      листают вместе. Флажок «По «Далее»» на вкладке «Рисунок» — кадр на каждый щелчок, как анимация.
+      Визуализатор — живая вставка с прозрачным фоном поверх картинки. Звук берётся с микрофона или с компьютера
+      (кнопки появляются при наведении, внизу справа); в собранном HTML-файле и на телефоне браузер звук не даёт.
+      Вид меняется числом в начале кода: 1 — хребты, 2 — неоновое кольцо, 3 — искры, 4 — рябь, 5 — жидкость,
+      6 — столбики, 7 — волна.
+
   - id: custom
     template: canvas
     label: Свои блоки
@@ -1018,6 +1085,68 @@ slides:
     notes: |
       Свои шаблоны хранятся на этом компьютере и видны во всех презентациях.
       Снимки на слайде — настоящая студия; в тёмной теме они тоже тёмные.
+
+  - id: effects
+    template: canvas
+    label: Эффекты
+    transition: fade
+    free:
+      - {type: text, text: Эффекты, styles: {text: {size: 13, weight: 800, upper: true, spacing: 0.14, color: accent}}, place: {x: 50, y: 30, w: 600}, enter: fade}
+      - type: text
+        text: Свечение, тень, контур — {g:duo|с настройкой}
+        styles: {text: {size: 42, weight: 800, spacing: -0.02, color: text}}
+        place: {x: 48, y: 48, w: 1100}
+        enter: rise
+      - type: text
+        text: "Готовый эффект — щелчком на ленте, тонкая настройка — в «Свойствах»: размытие, расстояние, направление, яркость."
+        styles: {text: {size: 17, color: text2}}
+        place: {x: 50, y: 106, w: 1100}
+        enter: fade
+        delay: 100
+      - {type: shape, kind: round, fill: "#0B1020", radius: 18, shadow: md, place: {x: 48, y: 156, w: 280, h: 150}, enter: pop, delay: 200}
+      - {type: text, text: Неон, styles: {text: {size: 60, weight: 800, align: center, color: accent, glow: accent}}, valign: middle, place: {x: 48, y: 156, w: 280, h: 150}, enter: pop, delay: 200}
+      - {type: shape, kind: round, fill: surface, stroke: border, radius: 18, shadow: sm, place: {x: 349, y: 156, w: 280, h: 150}, enter: pop, delay: 260}
+      - {type: text, text: Контур, styles: {text: {size: 60, weight: 900, align: center, hollow: true, outline: 2.5, outlineColor: accent}}, valign: middle, place: {x: 349, y: 156, w: 280, h: 150}, enter: pop, delay: 260}
+      - {type: shape, kind: round, fill: surface, stroke: border, radius: 18, shadow: sm, place: {x: 650, y: 156, w: 280, h: 150}, enter: pop, delay: 320}
+      - {type: text, text: Объём, styles: {text: {size: 60, weight: 900, align: center, color: accent, shadow: extrude}}, valign: middle, place: {x: 650, y: 156, w: 280, h: 150}, enter: pop, delay: 320}
+      - {type: shape, kind: round, fill: surface, stroke: border, radius: 18, shadow: sm, place: {x: 951, y: 156, w: 281, h: 150}, enter: pop, delay: 380}
+      - {type: text, text: Плашка, styles: {text: {size: 44, weight: 800, align: center, color: "#FFFFFF", plate: accent}}, valign: middle, place: {x: 951, y: 156, w: 281, h: 150}, enter: pop, delay: 380}
+      - {type: text, text: "**Неон** · свечение в цвете темы", styles: {text: {size: 15, color: text2}}, place: {x: 50, y: 316, w: 276}, enter: fade, delay: 300}
+      - {type: text, text: "**Контур** · только обводка букв", styles: {text: {size: 15, color: text2}}, place: {x: 351, y: 316, w: 276}, enter: fade, delay: 360}
+      - {type: text, text: "**Объём** · тень слоями", styles: {text: {size: 15, color: text2}}, place: {x: 652, y: 316, w: 276}, enter: fade, delay: 420}
+      - {type: text, text: "**Плашка** · цветная подложка", styles: {text: {size: 15, color: text2}}, place: {x: 953, y: 316, w: 276}, enter: fade, delay: 480}
+      - {type: shape, kind: round, fill: "#0B1020", radius: 18, shadow: md, place: {x: 48, y: 372, w: 581, h: 190}, enter: rise, delay: 450}
+      - {type: shape, kind: round, fill: none, stroke: "#22D3EE", width: 3, radius: 16, glow: "#22D3EE", glowSize: 20, text: Свечение, styles: {text: {size: 26, weight: 800, color: "#E0F2FE"}}, place: {x: 84, y: 412, w: 230, h: 110}, enter: pop, delay: 550}
+      - {type: shape, kind: star, fill: "#FDE047", glow: "#FDE047", glowSize: 24, place: {x: 352, y: 408, w: 118, h: 118}, enter: pop, delay: 620}
+      - {type: shape, kind: line, stroke: "#F472B6", width: 4, glow: "#F472B6", glowSize: 16, rotate: -35, place: {x: 478, y: 456, w: 130, h: 20}, enter: draw, delay: 700}
+      - type: image
+        src: ./assets/photo.svg
+        mat: 12
+        matColor: "#F5F0E6"
+        radius: 10
+        shadow: lg
+        shadowAngle: 60
+        shadowDist: 30
+        shadowOpacity: 0.45
+        place: {x: 668, y: 384, w: 250, h: 166}
+        enter: rise
+        delay: 560
+      - {type: shape, kind: round, fill: surface, stroke: border, width: 1, radius: 18, shadow: md, shadowColor: accent, shadowOpacity: 0.4, shadowBlur: 30, shadowDist: 16, shadowAngle: 45, valign: top, text: "**Цветная тень**\nсвой цвет, размытие и направление", styles: {text: {size: 17, weight: 500, align: left, leading: 1.45}}, style: "padding: 22px 24px", place: {x: 952, y: 396, w: 260, h: 140}, enter: rise, delay: 640}
+      - {type: text, text: "**Свечение** · у фигур, линий и рисунков", styles: {text: {size: 15, color: text2}}, place: {x: 50, y: 572, w: 576}, enter: fade, delay: 700}
+      - {type: text, text: "**Паспарту и тень** · ширина, цвет, направление", styles: {text: {size: 15, color: text2}}, place: {x: 652, y: 572, w: 576}, enter: fade, delay: 760}
+      - type: shape
+        kind: round
+        fill: soft
+        radius: 14
+        text: "**Как сделать** · выделите надпись, фигуру или картинку → вкладка «Надпись», «Фигура» или «Рисунок» → «Эффекты». Выбранный эффект появится в «Свойствах» с настройками."
+        styles: {text: {size: 15, align: left, leading: 1.4}}
+        place: {x: 48, y: 622, w: 1184, h: 58}
+        enter: fade
+        delay: 850
+    notes: |
+      Стили надписей — «Надпись» → «Стили текста»: неон, контурный, объёмный, плашка и другие, в цветах темы.
+      Тень, свечение, контур и плашка настраиваются в «Свойствах»; «×» на карточке убирает эффект.
+      В PowerPoint тень и свечение уходят настоящими эффектами — их можно править там.
 
   - id: design
     template: canvas
@@ -1116,14 +1245,14 @@ slides:
           - {type: shape, kind: pill, fill: gradient, gradient: {from: "#FF2BD6", to: "#00E5FF", angle: 90}, place: {x: 22, y: 24, w: 96, h: 12}}
           - {type: text, text: Неон, styles: {text: {size: 22, weight: 800, color: "#F4E9FF"}}, place: {x: 22, y: 54, w: 240}}
           - {type: text, text: сетка · всегда тёмная, styles: {text: {size: 14, color: "#A08BBE"}}, place: {x: 22, y: 92, w: 240}}
-      - {type: text, text: "**28 живых фонов**\nсияние, снегопад, глобус, лава — у темы или у одного слайда", styles: {text: {size: 15, color: text2, leading: 1.45}}, place: {x: 48, y: 494, w: 380}, enter: fade, delay: 600}
-      - {type: text, text: "**Тёмная тема — клавиша T**\nоттенки строятся сами, картинке можно дать тёмный вариант", styles: {text: {size: 15, color: text2, leading: 1.45}}, place: {x: 450, y: 494, w: 380}, enter: fade, delay: 650}
+      - {type: text, text: "**39 живых фонов**\nсияние, снегопад, глобус, лава — у темы или у одного слайда", styles: {text: {size: 15, color: text2, leading: 1.45}}, place: {x: 48, y: 494, w: 380}, enter: fade, delay: 600}
+      - {type: text, text: "**Тёмная тема — клавиша T**\nоттенки строятся сами; «Вид» → «Вид слайдов» — слайды светлые или тёмные при любой теме программы", styles: {text: {size: 15, color: text2, leading: 1.45}}, place: {x: 450, y: 494, w: 380}, enter: fade, delay: 650}
       - {type: text, text: "**Мои темы**\nсохраните своё оформление — и применяйте в любой презентации", styles: {text: {size: 15, color: text2, leading: 1.45}}, place: {x: 852, y: 494, w: 380}, enter: fade, delay: 700}
       - type: shape
         kind: round
         fill: soft
         radius: 14
-        text: "**Как сделать** · вкладка «Дизайн» → тема или «Цвета» (акцент и второй цвет). Живой фон — «Анимация фона» в свойствах слайда, заметность и скорость — ползунками."
+        text: "**Как сделать** · вкладка «Дизайн» → тема или «Цвета» (акцент и второй цвет). Живой фон — «Анимация фона» в свойствах слайда, прозрачность и скорость — ползунками."
         styles: {text: {size: 15, align: left, leading: 1.4}}
         place: {x: 48, y: 622, w: 1184, h: 58}
         enter: fade
@@ -1283,6 +1412,7 @@ slides:
                 F: во весь экран
                 P: окно докладчика — заметки, таймер, следующий слайд
                 R: пульт — QR-код для телефона
+                A: автопоказ — слайды листаются сами, ещё раз — пауза
                 T: светлая или тёмная тема
                 B: чёрный экран
                 O: все слайды
@@ -1299,9 +1429,12 @@ slides:
                 PowerPoint: тексты, таблицы, графики и формулы остаются редактируемыми
                 PDF: Ctrl+P в показе → «Сохранить как PDF»
                 HTML с правкой: получатель поправит и вернёт вам
+                Автопоказ: «Показ» → «Сразу при открытии» — для стенда или рассылки; время у каждого слайда своё
                 Скрыть слайд: остаётся в файле, но при показе и в PDF пропускается
     notes: |
       Кликер с USB-приёмником работает без настройки. Буквенные клавиши работают и в русской раскладке.
+      Автопоказ листает слайды сам, когда доиграли анимации: время слайда — «Показ» → «Слайд 5 с», «По кругу» —
+      снова с первого, «Таймлайн автопоказа» — тонкая полоса внизу, сколько осталось до следующего слайда.
 
   - id: cartoon
     template: canvas

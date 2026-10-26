@@ -18,7 +18,7 @@ test('студия открывается, слайды и свойства на
 });
 
 test('свой блок: «Сохранить как шаблон…» → «Блоки» → «Мои шаблоны»', async ({ page }) => {
-  await page.goto('/?deck=tpl&studio#22');
+  await page.goto('/?deck=tpl&studio#23');
   await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
   // Первый свободный объект на видимом слайде
   const obj = page.locator('#st-canvas .free').filter({ hasText: 'Свои блоки', visible: true }).first();
@@ -672,7 +672,7 @@ test('свои библиотеки переезжают из браузера �
 test('живой фон не перехватывает мышь: логотип разобранного титула выделяется и растёт целиком', async ({ page }) => {
   const errors = watchErrors(page);
   // Титул шаблоном cover с живым фоном — последний слайд (см. tests/prepare.mjs)
-  await page.goto('/?deck=design&studio#30');
+  await page.goto('/?deck=design&studio#32');
   await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
   const before = readDeck('design');
   // У темы свой фон («Сияние»): после разбора он остаётся фоном темы, а не своим фоном холста поверх живого фона

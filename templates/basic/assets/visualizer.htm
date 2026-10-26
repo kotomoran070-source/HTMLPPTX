@@ -1,0 +1,305 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #src { position: fixed; right: 8px; bottom: 8px; display: flex; gap: 2px; padding: 3px; border-radius: 999px;
+    background: rgb(0 0 0 / .5); opacity: 0; transition: opacity .2s; }
+  body:hover #src { opacity: 1; }
+  #src button { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%;
+    background: none; color: #fff; opacity: .6; cursor: pointer; }
+  #src button:hover, #src button.on { opacity: 1; background: rgb(255 255 255 / .18); }
+  #src button.err { color: #fca5a5; }
+  #src svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+</style></head>
+<body><canvas id="c"></canvas>
+<div id="src">
+  <button id="mic" title="Микрофон"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+  <button id="pc" title="Звук компьютера"><svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
+</div>
+<script>
+// Визуализатор звука: слушает по кнопке внизу справа (видна при наведении) — микрофон или звук компьютера.
+// Звук есть в студии и в приложении; в собранном файле и на телефоне браузер звук не даёт — визуализатор в покое.
+// Прозрачный: поставьте под него картинку. Цвета — акцент и второй цвет темы.
+// Вид: 1 — хребты, 2 — неоновое кольцо, 3 — искры, 4 — рябь, 5 — жидкость, 6 — столбики, 7 — волна
+const LOOK = 1;
+const BARS = 64;       // число столбиков
+const SENSE = 1;       // чувствительность: 0.5 — тише, 2 — сильнее
+const AUTO = false;    // true — сразу слушать микрофон
+
+const c = document.getElementById('c'), x = c.getContext('2d');
+const css = getComputedStyle(document.documentElement);
+const A = css.getPropertyValue('--ac').trim() || '#6366F1';
+const B2 = css.getPropertyValue('--ac2').trim();
+// Второй цвет темы; если его нет — верхушки светлее акцента
+const B = B2 && B2 !== A ? B2 : lighter(A, 0.45);
+function lighter(c, k) {
+  const m = /^#([0-9a-f]{6})$/i.exec(c);
+  if (!m) return c;
+  const n = parseInt(m[1], 16), up = (v) => Math.round(v + (255 - v) * k);
+  return 'rgb(' + up(n >> 16) + ',' + up((n >> 8) & 255) + ',' + up(n & 255) + ')';
+}
+const half = BARS >> 1, lv = new Float32Array(half);
+let w = 0, h = 0, ac = null, an = null, bins = null, wave = null, stream = null;
+
+function fit() {
+  const r = devicePixelRatio || 1;
+  w = c.clientWidth; h = c.clientHeight;
+  c.width = Math.round(w * r); c.height = Math.round(h * r);
+  x.setTransform(r, 0, 0, r, 0, 0);
+  draw();
+}
+
+// Полосы частот от 40 Гц до 12 кГц; растут сразу, опадают плавно. Басы и громкость — для ударов и вращения
+let bass = 0, energy = 0, avg = 0, last = 0, beat = false, t0 = 0, dt = 0, spin = 0;
+function levels(now) {
+  an.getByteFrequencyData(bins);
+  an.getByteTimeDomainData(wave);
+  const hz = ac.sampleRate / an.fftSize;
+  for (let i = 0; i < half; i++) {
+    const b0 = 40 * Math.pow(300, i / half) / hz, b1 = 40 * Math.pow(300, (i + 1) / half) / hz;
+    let m = 0;
+    if (b1 - b0 < 1) {
+      // Узкая полоса (басы) — значение между соседними точками спектра, иначе соседние столбики одинаковые
+      const p = (b0 + b1) / 2, k = Math.floor(p);
+      m = bins[k] + (bins[k + 1] - bins[k]) * (p - k);
+    } else for (let k = Math.floor(b0); k <= Math.ceil(b1) && k < bins.length; k++) m = Math.max(m, bins[k]);
+    // Высокие в музыке тише басов: подтягиваются, чтобы края не стояли
+    const v = m ? Math.min(1, Math.pow(Math.min(1, m / 255 + 0.22 * i / half), 1.5) * SENSE) : 0;
+    lv[i] = v > lv[i] ? v : lv[i] * 0.86 + v * 0.14;
+  }
+  let sb = 0, se = 0;
+  for (let i = 0; i < half; i++) { se += lv[i]; if (i < half / 6) sb += lv[i]; }
+  bass = sb / Math.ceil(half / 6); energy = se / half;
+  // Удар — басы резко выше обычного
+  beat = bass > avg * 1.25 + 0.06 && now - last > 160;
+  if (beat) last = now;
+  avg = avg * 0.94 + bass * 0.06;
+  // Вращение копится от громкости: в тишине всё стоит
+  spin += energy * dt * 0.9;
+}
+
+/** Спектр по кругу или по ширине: t от 0 до 1, басы в середине (t = 0.5), края — высокие */
+const at = (t) => {
+  const f = Math.abs(t - 0.5) * 2 * (half - 1), k = Math.floor(f), r = f - k;
+  return lv[k] + ((lv[Math.min(half - 1, k + 1)] || 0) - lv[k]) * r;
+};
+const grad = (x0, y0, x1, y1) => { const g = x.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, A); g.addColorStop(1, B); return g; };
+
+// Хребты: прошлые спектры рядами, ближние закрывают дальние (как обложка Joy Division)
+const ROWS = 26, hist = Array.from({ length: ROWS }, () => new Float32Array(BARS)), push = { t: 0 };
+function ridges() {
+  if (an && (push.t += dt) > 0.05) {
+    push.t = 0;
+    const row = hist.shift();
+    for (let k = 0; k < BARS; k++) row[k] = at(k / (BARS - 1));
+    hist.push(row);
+  }
+  const top = h * 0.3, gap = (h * 0.62) / ROWS, amp = h * 0.32, m = w * 0.12;
+  x.shadowBlur = 0; x.lineJoin = 'round';
+  for (let j = 0; j < ROWS; j++) {
+    const y0 = top + j * gap, row = hist[j], ridge = new Path2D();
+    ridge.moveTo(m, y0);
+    for (let k = 0; k < BARS; k++) {
+      const t = k / (BARS - 1), env = Math.pow(Math.sin(Math.PI * t), 3);
+      ridge.lineTo(m + t * (w - 2 * m), y0 - row[k] * amp * env);
+    }
+    // Под линией — прозрачно: ряд сзади не просвечивает, картинка под визуализатором — видна
+    const under = new Path2D(ridge);
+    under.lineTo(w - m, y0 + gap * 2); under.lineTo(m, y0 + gap * 2); under.closePath();
+    x.globalCompositeOperation = 'destination-out'; x.fill(under);
+    x.globalCompositeOperation = 'source-over';
+    x.globalAlpha = 0.25 + 0.75 * j / ROWS;
+    x.strokeStyle = grad(m, 0, w - m, 0); x.lineWidth = 1.6; x.stroke(ridge);
+    x.globalAlpha = 1;
+  }
+}
+
+// Неоновое кольцо: лучи по спектру, сердце дышит басами, кольцо поворачивается от громкости
+function neon() {
+  const cx = w / 2, cy = h / 2, s = Math.min(w, h), R = s * (0.22 + bass * 0.04), n = BARS * 2;
+  const core = x.createRadialGradient(cx, cy, 0, cx, cy, R);
+  core.addColorStop(0, 'rgb(255 255 255 / 0)'); core.addColorStop(1, B);
+  x.globalAlpha = 0.15 + bass * 0.35; x.fillStyle = core;
+  x.beginPath(); x.arc(cx, cy, R, 0, Math.PI * 2); x.fill();
+  x.globalAlpha = 1; x.shadowBlur = 20;
+  x.strokeStyle = A; x.lineWidth = Math.max(1.5, s * 0.005);
+  x.beginPath(); x.arc(cx, cy, R * 0.92, 0, Math.PI * 2); x.stroke();
+  const g = x.createConicGradient(spin, cx, cy);
+  g.addColorStop(0, A); g.addColorStop(0.5, B); g.addColorStop(1, A);
+  x.strokeStyle = g; x.lineCap = 'round'; x.lineWidth = Math.max(2, Math.PI * R / n * 0.9);
+  x.beginPath();
+  for (let k = 0; k < n; k++) {
+    const a = spin - Math.PI / 2 + k / n * Math.PI * 2, v = at((k / n + 0.5) % 1), len = 0.01 + v * s * 0.22;
+    x.moveTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R);
+    x.lineTo(cx + Math.cos(a) * (R + len), cy + Math.sin(a) * (R + len));
+  }
+  x.stroke();
+}
+
+// Искры: на каждом ударе — вспышка из центра, между ударами — редкие искры от громкости
+const sparks = [];
+function burst(n, power) {
+  for (let i = 0; i < n && sparks.length < 600; i++) {
+    const a = Math.random() * Math.PI * 2, v = (0.25 + Math.random() * 0.75) * power;
+    sparks.push({ x: w / 2, y: h / 2, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, c: Math.random() < 0.5 ? A : B });
+  }
+}
+function fire() {
+  const s = Math.min(w, h);
+  if (an) {
+    if (beat) burst(40 + bass * 80, s * (0.5 + bass));
+    if (Math.random() < energy * 2) burst(2, s * 0.3);
+  }
+  x.globalCompositeOperation = 'lighter'; x.shadowBlur = 0; x.lineCap = 'round';
+  for (let i = sparks.length - 1; i >= 0; i--) {
+    const p = sparks[i], px = p.x, py = p.y;
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.96; p.vy *= 0.96; p.life -= dt * 0.8;
+    if (p.life <= 0) { sparks.splice(i, 1); continue; }
+    x.globalAlpha = p.life; x.strokeStyle = p.c; x.lineWidth = 1 + p.life * 2.5;
+    x.beginPath(); x.moveTo(px - p.vx * 0.05, py - p.vy * 0.05); x.lineTo(p.x, p.y); x.stroke();
+  }
+  x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
+  x.shadowBlur = 24; x.fillStyle = A;
+  x.beginPath(); x.arc(w / 2, h / 2, s * (0.015 + bass * 0.05), 0, Math.PI * 2); x.fill();
+}
+
+// Рябь: удары расходятся кругами, как от капли
+const rings = [];
+function ripple() {
+  const s = Math.min(w, h), cx = w / 2, cy = h / 2;
+  if (an && beat) rings.push({ r: s * 0.06, life: 1, wd: 2 + bass * 8 });
+  x.shadowBlur = 14;
+  for (let i = rings.length - 1; i >= 0; i--) {
+    const q = rings[i];
+    q.r += s * 0.35 * dt; q.life -= dt * 0.55;
+    if (q.life <= 0) { rings.splice(i, 1); continue; }
+    x.globalAlpha = q.life; x.strokeStyle = i % 2 ? A : B; x.lineWidth = q.wd * q.life;
+    x.beginPath(); x.arc(cx, cy, q.r, 0, Math.PI * 2); x.stroke();
+  }
+  x.globalAlpha = 1; x.strokeStyle = A; x.lineWidth = Math.max(2, s * 0.006);
+  x.beginPath(); x.arc(cx, cy, s * (0.06 + energy * 0.06), 0, Math.PI * 2); x.stroke();
+}
+
+// Жидкость: три слоя — басы, середина и верха, края волнуются по своей части спектра
+function liquid() {
+  const cx = w / 2, cy = h / 2, s = Math.min(w, h), n = 72;
+  x.shadowBlur = 30;
+  [[0, 0.3, A, 1], [0.33, 0.24, B, -1.3], [0.66, 0.18, A, 1.7]].forEach(([from, size, col, dir], L) => {
+    // Слой прозрачный к середине — как стекло, слои видны друг сквозь друга
+    const g = x.createRadialGradient(cx, cy, 0, cx, cy, s * (size + 0.2));
+    g.addColorStop(0, 'rgb(255 255 255 / 0)'); g.addColorStop(1, col);
+    x.shadowColor = col; x.fillStyle = g; x.globalAlpha = 0.45 + L * 0.15;
+    const pts = [];
+    for (let k = 0; k < n; k++) {
+      const t = k / n, a = t * Math.PI * 2 + spin * dir;
+      const v = lv[Math.floor(from * half + Math.abs(Math.sin(t * Math.PI * (3 + L))) * (half / 3 - 1))];
+      const r = s * (size + v * 0.16 + bass * 0.03);
+      pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+    }
+    x.beginPath();
+    for (let k = 0; k <= n; k++) {
+      const p = pts[k % n], q = pts[(k + 1) % n];
+      if (k) x.quadraticCurveTo(p[0], p[1], (p[0] + q[0]) / 2, (p[1] + q[1]) / 2); else x.moveTo((p[0] + q[0]) / 2, (p[1] + q[1]) / 2);
+    }
+    x.fill();
+  });
+  x.globalAlpha = 1; x.shadowColor = A;
+}
+
+// Классика: столбики от низа, басы в середине
+function bars() {
+  const cw = w / BARS, bw = Math.max(2, cw * 0.56), pad = bw;
+  x.fillStyle = grad(0, h, 0, 0);
+  for (let k = 0; k < BARS; k++) {
+    const bh = bw + at(k / (BARS - 1)) * (h - pad * 2 - bw);
+    x.beginPath();
+    x.roundRect(k * cw + (cw - bw) / 2, h - pad - bh, bw, bh, bw / 2);
+    x.fill();
+  }
+}
+
+// Классика: волна звука, к краям затихает
+function line() {
+  x.strokeStyle = grad(0, 0, w, 0); x.lineJoin = 'round';
+  x.lineWidth = Math.max(2, h * 0.012);
+  x.beginPath();
+  const n = 240;
+  for (let k = 0; k <= n; k++) {
+    const v = an ? (wave[Math.floor(k / n * (wave.length - 1))] - 128) / 128 * Math.sin(Math.PI * k / n) : 0;
+    const px = k / n * w, py = h / 2 + v * h * 0.45 * SENSE;
+    if (k) x.lineTo(px, py); else x.moveTo(px, py);
+  }
+  x.stroke();
+}
+
+function draw() {
+  x.clearRect(0, 0, w, h);
+  x.shadowColor = A; x.shadowBlur = 16;
+  ([ridges, neon, fire, ripple, liquid, bars, line][LOOK - 1] || ridges)();
+}
+
+function frame(now) {
+  if (!an) return;
+  dt = Math.min(0.05, t0 ? (now - t0) / 1000 : 0.016); t0 = now;
+  levels(now); draw();
+  requestAnimationFrame(frame);
+}
+
+function quiet() {
+  an = null; lv.fill(0); bass = energy = 0; t0 = 0; draw();
+  document.querySelectorAll('#src button').forEach((b) => b.classList.remove('on'));
+}
+
+// Неудача — в подсказке кнопки (видна при наведении), визуализатор в покое
+function fail(kind, why) {
+  const b = document.getElementById(kind);
+  b.classList.add('err');
+  b.title = why;
+}
+
+async function listen(kind) {
+  const b = document.getElementById(kind);
+  b.classList.remove('err');
+  b.title = kind === 'pc' ? 'Звук компьютера' : 'Микрофон';
+  let s;
+  try {
+    s = kind === 'pc'
+      ? await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
+      : await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  } catch (e) {
+    return fail(kind, 'Нет доступа к звуку: ' + (e && e.name === 'NotAllowedError' ? 'не разрешено' : (e && e.message) || e));
+  }
+  // Звук экрана без галочки «Поделиться звуком» — звука нет
+  if (!s.getAudioTracks().length) {
+    s.getTracks().forEach((t) => t.stop());
+    return fail(kind, 'Нет звука: при выборе включите «Поделиться звуком»');
+  }
+  if (stream) stream.getTracks().forEach((t) => t.stop());
+  stream = s;
+  ac = ac || new AudioContext();
+  // Не ждём: без щелчка в рамке браузер может придержать звук — анализ пойдёт, как только отпустит
+  ac.resume();
+  const node = ac.createAnalyser();
+  node.fftSize = 4096; node.smoothingTimeConstant = 0.55; node.minDecibels = -85; node.maxDecibels = -25;
+  ac.createMediaStreamSource(s).connect(node);
+  bins = new Uint8Array(node.frequencyBinCount); wave = new Uint8Array(node.fftSize);
+  const was = an;
+  an = node;
+  if (!was) requestAnimationFrame(frame);
+  document.querySelectorAll('#src button').forEach((x) => x.classList.toggle('on', x.id === kind));
+  s.getAudioTracks()[0].addEventListener('ended', () => { if (stream === s) { stream = null; quiet(); } });
+}
+
+addEventListener('resize', fit);
+fit();
+// Звук дают только рамке со своим адресом (студия, приложение); без адреса кнопкам делать нечего
+const can = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && self.origin !== 'null';
+if (!can) document.getElementById('src').remove();
+else {
+  document.getElementById('mic').onclick = () => listen('mic');
+  document.getElementById('pc').onclick = () => listen('pc');
+  for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => { if (ac) ac.resume(); });
+  if (AUTO) listen('mic');
+}
+</script></body></html>
