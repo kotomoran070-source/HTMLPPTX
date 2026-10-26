@@ -49,6 +49,9 @@ body {
 /* Фон слайда из темы презентации (engine/deck-theme.ts, --slide-bg). Без темы слайд прозрачный:
    фон рисует сцена (.canvas) */
 :where(.slide) { background: var(--slide-bg, none); }
+/* Слайд с постоянным видом (data-mode: тема презентации или свой вид слайдов в студии) — свой фон, как у
+   сцены, но своими цветами: сцена под ним — в цветах интерфейса */
+:where(.slide[data-mode]) { background: var(--slide-bg, radial-gradient(var(--bd) 1px, transparent 1px) 0 0 / 26px 26px, var(--bg)); }
 
 /* Переходы между слайдами: data-tr у входящего слайда, уходящий — .out (deck-view.ts) */
 /* Направление (data-trd, engine/transitions): откуда идёт новый слайд — вектор (--tr-x, --tr-y); назад — обратно */

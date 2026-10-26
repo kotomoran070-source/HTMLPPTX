@@ -1,6 +1,7 @@
 import type PptxGenJS from 'pptxgenjs';
 import { getAt, type Path } from '../engine/data';
 import { staticSlide } from '../engine/deck-view';
+import { setSlidesLook, slidesLookOwn } from '../engine/theme';
 import type { Block, Deck } from '../types';
 import { fitHtml, hasEmbed } from '../components/html/html';
 import { embedShot } from '../engine/embed-shot';
@@ -289,10 +290,11 @@ export async function exportPptx(deck: Deck, progress?: PptxProgress, quality: E
   const lang = String((deck as { lang?: unknown }).lang ?? 'ru');
   LANG = lang.includes('-') ? lang : lang === 'en' ? 'en-US' : `${lang}-${lang.toUpperCase()}`;
 
-  // Слайды рисуются в светлой теме — так PowerPoint-файл выглядит привычно
+  // Слайды рисуются в светлой теме — так PowerPoint-файл выглядит привычно (и без своего вида слайдов студии)
   const root = document.documentElement;
   const theme = root.getAttribute('data-theme');
   root.setAttribute('data-theme', 'light');
+  const own = setSlidesLookFor(null);
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;left:-20000px;top:0;width:1280px;height:720px;overflow:hidden;pointer-events:none';
   document.body.appendChild(host);
@@ -318,9 +320,17 @@ export async function exportPptx(deck: Deck, progress?: PptxProgress, quality: E
     return await repair(await pptx.write({ outputType: 'blob' }) as Blob);
   } finally {
     host.remove();
+    setSlidesLookFor(own);
     if (theme === null) root.removeAttribute('data-theme');
     else root.setAttribute('data-theme', theme);
   }
+}
+
+/** Свой вид слайдов студии на время экспорта: вернёт прежний */
+function setSlidesLookFor(t: 'light' | 'dark' | null): 'light' | 'dark' | null {
+  const was = slidesLookOwn();
+  setSlidesLook(t);
+  return was;
 }
 
 /** Ждём картинки, шрифты и два кадра: вёрстка должна устояться */

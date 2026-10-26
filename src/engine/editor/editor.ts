@@ -5,7 +5,7 @@ import { applyThemeSwatches, hasThemeLook } from '../deck-theme';
 import { clone, getAt, replaceContents, setAt, type Path } from '../data';
 import { esc } from '../html';
 import { darkPath } from '../marks';
-import { currentTheme } from '../theme';
+import { slidesLook } from '../theme';
 import { BlockEditor } from './block-edit';
 import { ImageEditor } from './image-edit';
 import { frameAt, insertFrames } from '../../components/layout/frame-list';
@@ -863,6 +863,13 @@ export class Editor {
     if (this.notesOpen) (document.getElementById('ed-notes-text') as HTMLTextAreaElement).focus();
   }
 
+  /** Слайды перерисованы целиком не правкой (другой вид слайдов): рамки выделения — по новым элементам */
+  redrawn(): void {
+    this.image.refresh();
+    this.blocks.refresh();
+    this.syncBar();
+  }
+
   /** Движок сообщает о смене слайда. */
   onSlideChange(): void {
     if (this.text.active) this.text.finish(true);
@@ -1643,7 +1650,7 @@ export class Editor {
   private async replaceImage(path: Path, file: File): Promise<void> {
     // Заменяется то, что видно: в тёмной теме — её вариант, если он есть
     const base = /Dark$/.test(String(path[path.length - 1])) ? [...path.slice(0, -1), String(path[path.length - 1]).slice(0, -4)] : path;
-    const dark = base !== path || (currentTheme() === 'dark' && !!getAt(this.host.deck, darkPath(base)));
+    const dark = base !== path || (slidesLook() === 'dark' && !!getAt(this.host.deck, darkPath(base)));
     if (dark) path = darkPath(base);
     if (!/^image\//.test(file.type)) return this.toast('Формат не поддерживается. Подойдут PNG, JPG, GIF, WebP, AVIF, SVG.', 3500, true);
     if (file.size > MAX_FILE) return this.toast('Файл больше 25 МБ', 4000, true);
@@ -1660,7 +1667,7 @@ export class Editor {
         .find((x) => x.getAttribute('data-edit-img') === JSON.stringify(base));
       if (el) this.image.select(el);
       const done = dark
-        ? (isLogo ? 'Логотип для тёмной темы сохранён' : 'Картинка для тёмной темы сохранена') + (currentTheme() === 'dark' ? '' : ' — видна в тёмной теме')
+        ? (isLogo ? 'Логотип для тёмной темы сохранён' : 'Картинка для тёмной темы сохранена') + (slidesLook() === 'dark' ? '' : ' — видна в тёмной теме')
         : isLogo ? 'Логотип заменён на всех слайдах' : 'Картинка заменена';
       this.toast(gifNote(file) ?? done + (resized ? ' (уменьшена до 2400 px)' : ''), gifNote(file) ? 7000 : 3000);
     } catch (e) {

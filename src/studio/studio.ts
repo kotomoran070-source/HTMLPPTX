@@ -3,7 +3,7 @@ import { CommandPalette } from './palette';
 import { guessGap, rowOf } from '../engine/editor/rows';
 import { toolsCommands } from './tools';
 import { accentTail, applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, setUiAccent, slideAccent, uiAccent, uiSafeAccent } from '../engine/accent';
-import { applyThemeSwatches } from '../engine/deck-theme';
+import { applyThemeSwatches, themeMode } from '../engine/deck-theme';
 import { getAt, setAt, type Path } from '../engine/data';
 import { DeckView, H, W } from '../engine/deck-view';
 import { clock, Editor, SLIDE_PRESETS } from '../engine/editor/editor';
@@ -11,7 +11,7 @@ import { esc } from '../engine/html';
 import { placeOf, slideLabel } from '../engine/render';
 import { brandMark } from '../engine/brand';
 import { updateFavicon } from '../engine/show';
-import { currentTheme, onThemeChange, toggleTheme } from '../engine/theme';
+import { chooseSlidesLook, currentTheme, followSystemTheme, initSlidesLook, onSlidesLook, onThemeChange, setTheme, slidesLook, slidesLookOwn, toggleTheme } from '../engine/theme';
 import type { Block, Deck } from '../types';
 import { AFTER_S } from '../engine/autoplay';
 
@@ -136,7 +136,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       <button type="button" class="st-status" id="st-status" role="status" aria-live="polite"></button>
       <button class="btn ghost small st-export" type="button" data-cmd="file.export" title="Скачать один HTML-файл или PDF" aria-haspopup="true">${icon('save')}<span>Экспорт</span></button>
 <button class="ibtn small" type="button" data-cmd="ui.ribbon" aria-label="Настроить ленту" title="Настроить ленту: простая, полная, компактная или своя">${icon('sliders')}</button>
-      <button class="ibtn small theme-btn" id="st-theme" type="button" aria-label="Тема интерфейса" title="Тема">${icon('sun', 'ic sun')}${icon('moon', 'ic moon')}</button>
+      <button class="ibtn small theme-btn" id="st-theme" type="button" aria-label="Тема интерфейса" title="Тема интерфейса (T)">${icon('sun', 'ic sun')}${icon('moon', 'ic moon')}</button>
       <button class="btn primary small" type="button" data-cmd="show.current" title="Показ с текущего слайда (Shift+F5)">${icon('play')}<span>Показ</span></button>
     </div>
   </header>
@@ -183,7 +183,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Показать', `<div class="st-rstack">${chk('view.ruler', 'Линейка', 'Линейка сверху и слева; из неё вытягиваются направляющие')}${chk('view.grid', 'Сетка', 'Сетка на слайде, объекты прилипают к ней (Shift+F9)')}${chk('view.guides', 'Направляющие', 'Свои направляющие; объекты прилипают к ним (Alt+F9)')}</div><div class="st-rstack">${rb('view.grid-step', 'grid', 'Шаг сетки', { menu: true })}${rb('view.guides-reset', 'reset', 'Сбросить направляющие', { title: 'Оставить одну вертикальную и одну горизонтальную по центру' })}</div>`)}
       ${group('Скорость', `<div class="st-rstack">${chk('view.lite', 'Облегчённый режим', 'Если редактор подтормаживает: живые фоны, вставки, 3D-модели и анимации на слайде замирают в конечном виде. «Просмотр» и показ — как обычно')}</div>`)}
       ${group('Масштаб', rb('view.fit', 'fullscreen', 'Вписать', { big: true }) + `<div class="st-rstack">${rb('view.zoom-in', 'plus', 'Крупнее')}${rb('view.zoom-out', 'minus', 'Мельче')}</div>`)}
-      ${group('Интерфейс', `${rb('ui.ribbon', 'sliders', 'Настроить ленту', { big: true, title: 'Какие вкладки и кнопки видны: простая, полная, компактная или своя лента. Также — правый щелчок по ленте' })}<div class="st-rstack">${chk('ui.own', 'Свой цвет', 'Кнопки и панели программы — в своём цвете, а не в цветах презентации. Слайды это не меняет. Запоминается на этом компьютере')}</div><label class="st-accent" title="Цвет интерфейса программы"><input type="color" id="st-uiac" aria-label="Цвет интерфейса"><span>Цвет</span></label>`)}
+      ${group('Интерфейс', rb('ui.ribbon', 'sliders', 'Настроить ленту', { big: true, title: 'Какие вкладки и кнопки видны. Или правый щелчок по ленте' })
+        + `<div class="st-rstack">${rb('view.ui-theme', 'sun', 'Тема', { menu: true, title: 'Тема программы: светлая, тёмная или как в системе (T)' })}${rb('view.slides-look', 'frame', 'Вид слайдов', { menu: true, title: 'Слайды в редакторе: как интерфейс, светлые или тёмные' })}${rb('view.ui-color', 'fill', 'Цвет', { menu: true, title: 'Цвет кнопок и панелей программы' })}</div>`
+        + '<input type="color" id="st-uiac" class="st-uiac" tabindex="-1" aria-label="Свой цвет интерфейса">')}
     </div>
     ${contextPanelsHtml()}
   </div>
@@ -239,6 +241,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
   applyThemeSwatches(deck.theme);
   applyAccentFlow(deck.theme?.accentFlow);
   updateFavicon(deck.brand?.logo);
+  // Свой вид слайдов студии («Вид» → «Слайды») — до первого рисования
+  initSlidesLook();
   const view = new DeckView(deck, paper);
   /** Найти и заменить (создаётся вместе с клавиатурой, ниже) */
   let find: FindBar | null = null;
@@ -516,6 +520,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
     u.searchParams.delete('studio');
     if (present) u.searchParams.set('present', '');
     if (autoplay) u.searchParams.set('autoplay', '');
+    // Свой вид слайдов студии — и у показа (у зрителей в своём окне — их тема)
+    const own = themeMode(deck.theme) ? null : slidesLookOwn();
+    if (own) u.searchParams.set('look', own);
+    else u.searchParams.delete('look');
     u.hash = `#${from + 1}`;
     window.open(u.toString(), `htmlpptx-show-${deckKey}`);
   }
@@ -762,7 +770,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     }
     try {
       if (quality === 'compact') ed.toast('Сжимаю картинки…', 60000);
-      const blob = await projectStorage.exportHtml(deckKey, mode === 'clean', quality === 'compact', same ? { look: currentTheme(), motion: true } : {});
+      const blob = await projectStorage.exportHtml(deckKey, mode === 'clean', quality === 'compact', same ? { look: slidesLook(), motion: true } : {});
       // Имя — как у папки презентации (и у yarn build): латиница открывается везде
       const name = `${deckKey}${mode === 'clean' ? '' : '-edit'}.html`;
       const a = document.createElement('a');
@@ -1463,6 +1471,41 @@ export function startStudio(deck: Deck, deckKey: string): void {
         run: () => { lay.step = st; aids!.state.step = st; aids!.apply(); applyLayout(); if (!lay.grid) toggleAid('grid', true); },
       }))),
     },
+    'view.ui-theme': {
+      run: () => {
+        const cur = document.documentElement.getAttribute('data-theme');
+        showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="view.ui-theme"]')!, [
+          { label: 'Светлая', checked: cur === 'light', run: () => setTheme('light') },
+          { label: 'Тёмная', checked: cur === 'dark', run: () => setTheme('dark') },
+          { label: 'Как в системе', checked: cur !== 'light' && cur !== 'dark', run: followSystemTheme },
+        ]);
+      },
+    },
+    // Только вид в редакторе: у презентации с постоянным видом («Дизайн» → «Слайды») он её
+    'view.slides-look': {
+      run: () => {
+        const own = slidesLookOwn();
+        showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="view.slides-look"]')!, [
+          { label: 'Как интерфейс', checked: !own, run: () => chooseSlidesLook(null) },
+          { label: 'Светлые', checked: own === 'light', run: () => chooseSlidesLook('light') },
+          { label: 'Тёмные', checked: own === 'dark', run: () => chooseSlidesLook('dark') },
+        ]);
+      },
+      enabled: () => !themeMode(deck.theme),
+      active: () => !themeMode(deck.theme) && !!slidesLookOwn(),
+    },
+    // Цвет программы: как у презентации или свой (запоминается на этом компьютере); слайды не меняются
+    'view.ui-color': {
+      run: () => {
+        const own = uiAccent();
+        const a = deck.theme?.accent;
+        showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="view.ui-color"]')!, [
+          { label: 'Как у презентации', swatch: typeof a === 'string' && HEX_RE.test(a) ? a : DEFAULT_ACCENT, checked: !own, run: () => { setUiAccent(null); queueState(); } },
+          { label: 'Свой…', swatch: uiColor.value, checked: !!own, run: () => uiColor.click() },
+        ]);
+      },
+      active: () => !!uiAccent(),
+    },
     'view.slides': { run: () => togglePanel('left'), active: () => lay.left },
     'view.props': { run: () => togglePanel('right'), active: () => lay.right },
     'insert.image': { run: () => ed.addBlock('image') },
@@ -1515,7 +1558,6 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'design.accent-reset': { run: () => ed.setAccent(null), enabled: () => !!deck.theme?.accent || !!deck.theme?.accent2 },
     'design.accent-flow': { run: () => ed.setAccentFlow(!deck.theme?.accentFlow), enabled: () => !!deck.theme?.accent2, active: () => !!deck.theme?.accentFlow },
     'edit.find': { run: () => find?.show() },
-    'ui.own': { run: () => { setUiAccent(uiAccent() ? null : uiColor.value); queueState(); }, active: () => !!uiAccent() },
     'design.theme': { run: () => toggleTheme() },
     'show.start': { run: () => void openShow(0) },
     'show.hide': { run: () => toggleHidden(index), active: () => deck.slides[index]?.hidden === true },
@@ -1769,6 +1811,15 @@ export function startStudio(deck: Deck, deckKey: string): void {
     queueState();
   });
   onThemeChange(() => { slides.update(); queueState(); });
+  // Свой вид слайдов сменился: данные те же, слайды и миниатюры — заново
+  onSlidesLook(() => {
+    view.build(deck);
+    view.show(index);
+    slides.redraw();
+    ed.redrawn();
+    layers?.apply();
+    queueState();
+  });
 
   // ---------------- раскладка окна: панели тянутся, лента сворачивается ----------------
   const LAYOUT_KEY = 'htmlpptx-studio-layout';

@@ -13,7 +13,7 @@ import { fontItems, fontPicker, tryFontOn } from '../engine/editor/font-picker';
 import { prepareImage } from '../engine/editor/persist';
 import { deckFonts, fontStack } from '../engine/fonts';
 import { esc } from '../engine/html';
-import { currentTheme, setTheme } from '../engine/theme';
+import { showSlidesIn, slidesLook } from '../engine/theme';
 import type { DarkLook, Deck, DeckTheme } from '../types';
 import { logoMark, logoPlate } from '../engine/render';
 import { logoImg } from '../components/templates/content';
@@ -121,8 +121,8 @@ export function tryTheme(deck: Deck, stage: HTMLElement, t: DeckTheme | null): v
   previewBackdrop(stage, want ?? 'none', look);
 }
 
-/** Вид слайдов, которые видно сейчас: постоянный у темы или как у интерфейса */
-const shownMode = (t: DeckTheme | undefined): SlideMode => themeMode(t) ?? currentTheme();
+/** Вид слайдов, которые видно сейчас: постоянный у темы, свой вид слайдов студии или как у интерфейса */
+const shownMode = (t: DeckTheme | undefined): SlideMode => themeMode(t) ?? slidesLook();
 
 const decl = (v: Record<string, string>) => Object.entries(v).map(([k, x]) => `${k}:${x}`).join(';');
 
@@ -509,11 +509,11 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     patch({ darkLook: Object.keys(d).length ? d : undefined });
   };
   /** Открыть сразу «Для тёмных»: на экране тёмные слайды, и у них уже своё */
-  const darkFirst = (keys: (keyof DarkLook)[]) => !themeMode(deck.theme) && currentTheme() === 'dark' && ownDark(keys);
+  const darkFirst = (keys: (keyof DarkLook)[]) => !themeMode(deck.theme) && slidesLook() === 'dark' && ownDark(keys);
   /**
    * Над вариантами — «Для всех | Для тёмных», если слайды бывают и светлыми, и тёмными (вид не постоянный).
-   * Точка у «Для тёмных» — у них своё; «Как у всех» убирает своё. Выбор «Для тёмных» включает тёмную
-   * тему студии: правится то, что видно
+   * Точка у «Для тёмных» — у них своё; «Как у всех» убирает своё. Выбор «Для тёмных» показывает тёмные
+   * слайды (свой вид слайдов студии или тёмную тему): правится то, что видно
    */
   const scope = (keys: (keyof DarkLook)[], dark: boolean, reopen: (dark: boolean) => void) => {
     if (themeMode(deck.theme)) return null;
@@ -530,7 +530,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
       pick: (b: HTMLElement) => {
         const v = b.dataset.scope;
         if (v === 'all') return { run: () => reopen(false) };
-        if (v === 'dark') return { run: () => { if (currentTheme() !== 'dark') setTheme('dark'); reopen(true); } };
+        if (v === 'dark') return { run: () => { if (slidesLook() !== 'dark') showSlidesIn('dark'); reopen(true); } };
         if (v === 'reset') return { run: () => patchDark(Object.fromEntries(keys.map((k) => [k, undefined]))) };
         return null;
       },
@@ -778,7 +778,7 @@ export function syncDesignTab(h: DesignHost): void {
   if (!strip) return;
   const cur = currentPreset(h.deck);
   const file = fileTheme(h.deck);
-  const key = `${currentTheme()}|${cur}|${myVersion}|${file ? JSON.stringify(file.theme) : ''}`;
+  const key = `${slidesLook()}|${cur}|${myVersion}|${file ? JSON.stringify(file.theme) : ''}`;
   if (key !== stripKey) {
     stripKey = key;
     const mine = listMyThemes();

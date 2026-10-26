@@ -38,6 +38,51 @@ export function forceTheme(t: Theme | null): Theme | null {
   return was;
 }
 
+/**
+ * Вид слайдов в студии отдельно от темы интерфейса («Вид» → «Слайды»): светлые или тёмные при любом
+ * интерфейсе; null — как интерфейс. Постоянный вид презентации (theme.mode) сильнее. Не данные, а
+ * настройка этого компьютера: рисование слайдов берёт его как постоянный вид (render.ts)
+ */
+let slidesOwn: Theme | null = null;
+export function setSlidesLook(t: Theme | null): void {
+  slidesOwn = t;
+}
+export function slidesLookOwn(): Theme | null {
+  return slidesOwn;
+}
+/** Каким видно слайды без постоянного вида презентации: свой вид студии или тема интерфейса */
+export function slidesLook(): Theme {
+  return slidesOwn ?? currentTheme();
+}
+
+const SLIDES_KEY = 'htmlpptx-slides-look';
+const slidesListeners = new Set<() => void>();
+/** Студия: свой вид слайдов с прошлого раза (на этом компьютере) */
+export function initSlidesLook(): void {
+  try {
+    const v = localStorage.getItem(SLIDES_KEY);
+    slidesOwn = v === 'light' || v === 'dark' ? v : null;
+  } catch { /* приватный режим */ }
+}
+/** Выбор в студии: запоминается, слайды перерисовываются (onSlidesLook) */
+export function chooseSlidesLook(t: Theme | null): void {
+  slidesOwn = t;
+  try {
+    if (t) localStorage.setItem(SLIDES_KEY, t);
+    else localStorage.removeItem(SLIDES_KEY);
+  } catch { /* приватный режим */ }
+  slidesListeners.forEach((l) => l());
+}
+export function onSlidesLook(cb: () => void): () => void {
+  slidesListeners.add(cb);
+  return () => slidesListeners.delete(cb);
+}
+/** Показать слайды в этом виде: свой вид слайдов, если он выбран, иначе — тема интерфейса */
+export function showSlidesIn(t: Theme): void {
+  if (slidesOwn) chooseSlidesLook(t);
+  else setTheme(t);
+}
+
 /** Тема для слайда: постоянная тема презентации или тема интерфейса */
 export function slideTheme(el?: Element | null): Theme {
   const m = el?.closest('[data-mode]')?.getAttribute('data-mode');
@@ -45,13 +90,24 @@ export function slideTheme(el?: Element | null): Theme {
   return forced ?? currentTheme();
 }
 
+/** Показ из студии со своим видом слайдов (?look=): переключение темы в нём не меняет тему студии */
+let lookParam = false;
+
 /** Явно выбранная тема запоминается; без выбора тема следует за системой. */
 export function setTheme(theme: Theme, persist = true): void {
   root.setAttribute('data-theme', theme);
-  if (persist) {
+  if (persist && !lookParam) {
     try { localStorage.setItem(KEY, theme); } catch { /* приватный режим */ }
   }
   listeners.forEach((l) => l(theme));
+  tellApp();
+}
+
+/** Тема как в системе: выбор забывается */
+export function followSystemTheme(): void {
+  root.removeAttribute('data-theme');
+  try { localStorage.removeItem(KEY); } catch { /* приватный режим */ }
+  listeners.forEach((l) => l(currentTheme()));
   tellApp();
 }
 
@@ -84,8 +140,11 @@ export function applyThemeImages(scope: ParentNode = document): void {
 }
 
 export function initTheme(): void {
-  // Файл «Как на этом компьютере» открывается в виде, который был у автора при экспорте (T переключает)
-  const s = __LOOK__ || stored();
+  // Файл «Как на этом компьютере» открывается в виде, который был у автора при экспорте (T переключает);
+  // показ из студии со своим видом слайдов (look) — в нём, а не в теме интерфейса
+  const q = new URLSearchParams(location.search).get('look');
+  lookParam = q === 'light' || q === 'dark';
+  const s = __LOOK__ || (lookParam ? q : null) || stored();
   if (s) root.setAttribute('data-theme', s);
   tellApp();
   media.addEventListener('change', () => {

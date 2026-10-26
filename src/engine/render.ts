@@ -13,7 +13,7 @@ import { applyDeckCss, applyDeckDefs, applyScopedCss } from './deck-css';
 import { applyDeckTheme, hasOrigin, lookFor, themeMode, type SlideMode } from './deck-theme';
 import { recolorHtml } from './recolor';
 import { applyDeckFonts } from './fonts';
-import { forceTheme } from './theme';
+import { forceTheme, slidesLookOwn } from './theme';
 import { indexPaths, pathOf } from './marks';
 import { controlRange, deriveVars, hasFormula, resolve, type ControlProps } from './formula';
 
@@ -69,7 +69,8 @@ export class Renderer {
     // Тема: цвета, фон, заголовки и карточки слайдов
     this.themeKey = applyDeckTheme(deck.theme, deck.origin);
     this.recolor = new Set(hasOrigin(deck.origin) ? deck.origin.colors.map((c) => String(c).toUpperCase()) : []);
-    this.mode = this.themeKey ? themeMode(deck.theme) : null;
+    // Постоянный вид презентации, иначе — свой вид слайдов студии (если выбран)
+    this.mode = (this.themeKey ? themeMode(deck.theme) : null) ?? slidesLookOwn();
     // Вёрстка из других презентаций — со своими стилями, в своём пространстве
     applyScopedCss(deck.scoped);
   }

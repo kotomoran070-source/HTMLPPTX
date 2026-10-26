@@ -1,7 +1,7 @@
 import { defineBlock, defineTemplate } from '../../engine/component';
 import { asArray, esc, t } from '../../engine/html';
 import { ea, eurl, tx } from '../../engine/marks';
-import { currentTheme } from '../../engine/theme';
+import { slideTheme } from '../../engine/theme';
 import { qrSvg } from '../qr';
 import { cosmos, rng } from './cosmos';
 import { logoImg } from './content';
@@ -99,7 +99,7 @@ function skyHtml(orbit: boolean): string {
 /** Движение неба: canvas «орбиты» и параллакс за мышью, пока слайд показан */
 function mountSky(root: HTMLElement, slide: HTMLElement, stage: HTMLElement, still: boolean, themed = false): (() => void) | undefined {
   const cv = root.querySelector<HTMLCanvasElement>('.sp-cv');
-  const stopSky = cv ? cosmos(slide, cv, stage, still, () => themed && currentTheme() === 'light') : undefined;
+  const stopSky = cv ? cosmos(slide, cv, stage, still, () => themed && slideTheme(slide) === 'light') : undefined;
   if (still) return stopSky;
   const hubs = root.querySelector<HTMLElement>('.sp-hubs');
   const stars = root.querySelector<HTMLElement>('.sp-stars');

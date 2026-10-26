@@ -285,6 +285,8 @@ body.studio { background: var(--alt); }
 .st-rgrid { display: grid; grid-template-columns: repeat(3, auto); gap: 2px; }
 .st-rgrid .st-rb { padding: 5px 7px; }
 .st-rgrid .st-rb span { display: none; }
+/* Свой цвет интерфейса: палитра открывается из меню «Вид» → «Цвет», само поле не видно */
+.st-uiac { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .st-accent { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; font: 500 12.5px var(--font); color: var(--tx2); padding: 6px 8px; border-radius: 6px; cursor: pointer; }
 .st-accent:hover { background: var(--acs); }
 .st-accent input { width: 30px; height: 26px; padding: 0; border: 1px solid var(--bd); border-radius: 6px; background: none; cursor: pointer; }

@@ -276,7 +276,9 @@ export function themeCss(t: DeckTheme, sel: string, extra: Record<string, string
   const D = decl({ ...themeVars(t, 'dark', origin), ...extra }, important);
   const m = themeMode(t);
   if (m) return `${s}{${m === 'dark' ? D : L}}`;
-  return `${s}{${L}}@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) ${s}{${D}}}:root[data-theme="dark"] ${s}{${D}}`;
+  // Свой вид слайдов студии (data-mode у слайда) — сильнее темы интерфейса: та же точность и позже
+  return `${s}{${L}}@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) ${s}{${D}}}:root[data-theme="dark"] ${s}{${D}}`
+    + `:root ${s}:is([data-mode="light"], [data-mode="light"] *){${L}}:root ${s}:is([data-mode="dark"], [data-mode="dark"] *){${D}}`;
 }
 
 /** Стили тем на странице: метка → <style>. Давно не нужные (цвет правили много раз) убираются */

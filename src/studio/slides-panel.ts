@@ -84,6 +84,12 @@ export class SlidesPanel {
     this.mark();
   }
 
+  /** Перерисовать все миниатюры (вид слайдов сменился, данные — те же) */
+  redraw(): void {
+    this.deckSig = '';
+    this.update();
+  }
+
   /** Отметить текущий слайд и прокрутить к нему. */
   mark(): void {
     const cur = this.host.index();

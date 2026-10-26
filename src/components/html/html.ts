@@ -4,7 +4,7 @@ import { icon } from '../icons';
 import { defineBlock } from '../../engine/component';
 import { isAlive, withPointerBridge } from '../../engine/frame-bridge';
 import { NS_RE } from '../../engine/deck-css';
-import { currentTheme, onThemeChange } from '../../engine/theme';
+import { onThemeChange, slideTheme } from '../../engine/theme';
 import { esc, t } from '../../engine/html';
 import { tintCss } from '../templates/content';
 import { fieldStyle, frameCss, pathOf, type ImageFrame } from '../../engine/marks';
@@ -223,7 +223,7 @@ defineBlock<HtmlProps>('html', {
       if (src && dark) {
         img.setAttribute('data-src-light', src);
         img.setAttribute('data-src-dark', dark);
-        if (currentTheme() === 'dark') img.setAttribute('src', dark);
+        if (slideTheme(img) === 'dark') img.setAttribute('src', dark);
       }
       if (item && typeof item === 'object' && item.brand && !item.src) {
         // Знак логотипа в цветах темы (brand.tint) — маской, как на шаблонах
