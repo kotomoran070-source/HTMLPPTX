@@ -402,8 +402,13 @@ function permissions() {
   });
   session.defaultSession.setPermissionRequestHandler((_wc, permission, done, details) => {
     if (permission === 'local-fonts') return done(ours(new URL(details.requestingUrl).origin));
-    // Только звук: камере в программе делать нечего
-    if (permission === 'media') return audioOnly(details.mediaTypes) ? void askOnce(...MIC).then(done) : done(false);
+    // Только звук: камере в программе делать нечего. Захват экрана (getDisplayMedia) приходит без типов —
+    // пропускаем к обработчику ниже, вопрос задаёт он
+    if (permission === 'media') {
+      const types = details.mediaTypes ?? [];
+      if (!types.length) return done(true);
+      return audioOnly(types) ? void askOnce(...MIC).then(done) : done(false);
+    }
     done(ALLOWED.has(permission));
   });
   // «Звук вкладки или экрана» из слайда: в программе — звук всего компьютера (Windows умеет отдавать его напрямую)

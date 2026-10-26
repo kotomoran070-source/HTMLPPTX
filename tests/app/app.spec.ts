@@ -120,6 +120,47 @@ test('первый запуск: «Моя первая презентация»,
   }
 });
 
+test('визуализатор в программе: микрофон и звук компьютера — каждый со своим вопросом', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-app-audio-'));
+  // Поддельный микрофон Chromium: без устройства браузер отказывает сразу, не спрашивая
+  const fake = ['--use-fake-device-for-media-stream'];
+  const app = await electron.launch({
+    ...(EXE ? { executablePath: EXE, args: [...sandbox, ...fake] } : { args: ['.', ...sandbox, ...fake] }),
+    env: { ...process.env, SLIDERIA_DOCS_DIR: path.join(tmp, 'docs'), SLIDERIA_USER_DATA: path.join(tmp, 'data') },
+    timeout: 60_000,
+  });
+  try {
+    const win = await app.firstWindow();
+    await win.waitForURL(/\/\?all$/, { timeout: 90_000 });
+    // Вопросы программы записываются и запрещаются: окно не ждёт ответа
+    await app.evaluate(({ dialog }) => {
+      const g = globalThis as { asked?: string[] };
+      g.asked = [];
+      dialog.showMessageBox = (async (...a: unknown[]) => { g.asked!.push((a.at(-1) as { message: string }).message); return { response: 1, checkboxChecked: false }; }) as typeof dialog.showMessageBox;
+    });
+    // Слайд «Галерея и звук» стартового шаблона
+    await win.goto(win.url().replace(/\?all$/, '?deck=moya-pervaya-prezentaciya#22'));
+    const frame = win.locator('.slide.on .embed-frame');
+    const viz = win.frameLocator('.slide.on .embed-frame');
+    // Вставка загрузилась, слайд доиграл появление
+    await expect(frame).toHaveClass(/\bon\b/);
+    let last = '';
+    await expect.poll(async () => { const b = JSON.stringify(await frame.boundingBox()); const same = b === last; last = b; return same; }).toBe(true);
+    for (const id of ['mic', 'pc']) {
+      // Слайд вписан в окно масштабом: щелчок — по месту кнопки на экране (звук экрана просит настоящий щелчок)
+      const box = (await frame.boundingBox())!;
+      const r = await viz.locator(`#${id}`).evaluate((b) => { const q = b.getBoundingClientRect(); return { x: q.x + q.width / 2, y: q.y + q.height / 2, w: innerWidth }; });
+      const k = box.width / r.w;
+      await win.mouse.click(box.x + r.x * k, box.y + r.y * k);
+      await expect(viz.locator(`#${id}`)).toHaveAttribute('title', /^Нет доступа к звуку/);
+    }
+    expect(await app.evaluate(() => (globalThis as { asked?: string[] }).asked)).toEqual(['Слайд просит доступ к микрофону', 'Слайд просит звук компьютера']);
+  } finally {
+    await app.close();
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('собранная программа: изменённый код не запускается', async () => {
   test.skip(!EXE, 'только для собранной программы (SLIDERIA_APP_EXE)');
   const file = path.join(path.dirname(EXE!), 'resources', 'app.asar.unpacked', 'src', 'main.ts');

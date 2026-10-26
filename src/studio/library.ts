@@ -127,7 +127,7 @@ export const VISUALIZER_SAMPLE = `<!doctype html>
 // Визуализатор звука: сразу слушает микрофон, «Звук компьютера» — кнопкой внизу справа (видна при наведении).
 // Звук есть в студии и в приложении; в собранном файле и на телефоне браузер звук не даёт — визуализатор в покое.
 // Прозрачный: поставьте под него картинку. Цвета — акцент и второй цвет темы.
-// Вид: 1 — хребты, 2 — неоновое кольцо, 3 — искры, 4 — рябь, 5 — жидкость, 6 — столбики, 7 — волна
+// Вид: 1 — неоновое кольцо, 2 — жидкость, 3 — столбики
 const LOOK = 1;
 const BARS = 64;       // число столбиков
 const SENSE = 1;       // чувствительность: 0.5 — тише, 2 — сильнее
@@ -146,7 +146,7 @@ function lighter(c, k) {
   return 'rgb(' + up(n >> 16) + ',' + up((n >> 8) & 255) + ',' + up(n & 255) + ')';
 }
 const half = BARS >> 1, lv = new Float32Array(half);
-let w = 0, h = 0, ac = null, an = null, bins = null, wave = null, stream = null;
+let w = 0, h = 0, ac = null, an = null, bins = null, stream = null;
 
 function fit() {
   const r = devicePixelRatio || 1;
@@ -156,11 +156,10 @@ function fit() {
   draw();
 }
 
-// Полосы частот от 40 Гц до 12 кГц; растут сразу, опадают плавно. Басы и громкость — для ударов и вращения
-let bass = 0, energy = 0, avg = 0, last = 0, beat = false, t0 = 0, dt = 0, spin = 0;
-function levels(now) {
+// Полосы частот от 40 Гц до 12 кГц; растут сразу, опадают плавно. Басы и громкость — для пульса и вращения
+let bass = 0, energy = 0, t0 = 0, dt = 0, spin = 0;
+function levels() {
   an.getByteFrequencyData(bins);
-  an.getByteTimeDomainData(wave);
   const hz = ac.sampleRate / an.fftSize;
   for (let i = 0; i < half; i++) {
     const b0 = 40 * Math.pow(300, i / half) / hz, b1 = 40 * Math.pow(300, (i + 1) / half) / hz;
@@ -177,10 +176,6 @@ function levels(now) {
   let sb = 0, se = 0;
   for (let i = 0; i < half; i++) { se += lv[i]; if (i < half / 6) sb += lv[i]; }
   bass = sb / Math.ceil(half / 6); energy = se / half;
-  // Удар — басы резко выше обычного
-  beat = bass > avg * 1.25 + 0.06 && now - last > 160;
-  if (beat) last = now;
-  avg = avg * 0.94 + bass * 0.06;
   // Вращение копится от громкости: в тишине всё стоит
   spin += energy * dt * 0.9;
 }
@@ -191,35 +186,6 @@ const at = (t) => {
   return lv[k] + ((lv[Math.min(half - 1, k + 1)] || 0) - lv[k]) * r;
 };
 const grad = (x0, y0, x1, y1) => { const g = x.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, A); g.addColorStop(1, B); return g; };
-
-// Хребты: прошлые спектры рядами, ближние закрывают дальние (как обложка Joy Division)
-const ROWS = 26, hist = Array.from({ length: ROWS }, () => new Float32Array(BARS)), push = { t: 0 };
-function ridges() {
-  if (an && (push.t += dt) > 0.05) {
-    push.t = 0;
-    const row = hist.shift();
-    for (let k = 0; k < BARS; k++) row[k] = at(k / (BARS - 1));
-    hist.push(row);
-  }
-  const top = h * 0.3, gap = (h * 0.62) / ROWS, amp = h * 0.32, m = w * 0.12;
-  x.shadowBlur = 0; x.lineJoin = 'round';
-  for (let j = 0; j < ROWS; j++) {
-    const y0 = top + j * gap, row = hist[j], ridge = new Path2D();
-    ridge.moveTo(m, y0);
-    for (let k = 0; k < BARS; k++) {
-      const t = k / (BARS - 1), env = Math.pow(Math.sin(Math.PI * t), 3);
-      ridge.lineTo(m + t * (w - 2 * m), y0 - row[k] * amp * env);
-    }
-    // Под линией — прозрачно: ряд сзади не просвечивает, картинка под визуализатором — видна
-    const under = new Path2D(ridge);
-    under.lineTo(w - m, y0 + gap * 2); under.lineTo(m, y0 + gap * 2); under.closePath();
-    x.globalCompositeOperation = 'destination-out'; x.fill(under);
-    x.globalCompositeOperation = 'source-over';
-    x.globalAlpha = 0.25 + 0.75 * j / ROWS;
-    x.strokeStyle = grad(m, 0, w - m, 0); x.lineWidth = 1.6; x.stroke(ridge);
-    x.globalAlpha = 1;
-  }
-}
 
 // Неоновое кольцо: лучи по спектру, сердце дышит басами, кольцо поворачивается от громкости
 function neon() {
@@ -241,50 +207,6 @@ function neon() {
     x.lineTo(cx + Math.cos(a) * (R + len), cy + Math.sin(a) * (R + len));
   }
   x.stroke();
-}
-
-// Искры: на каждом ударе — вспышка из центра, между ударами — редкие искры от громкости
-const sparks = [];
-function burst(n, power) {
-  for (let i = 0; i < n && sparks.length < 600; i++) {
-    const a = Math.random() * Math.PI * 2, v = (0.25 + Math.random() * 0.75) * power;
-    sparks.push({ x: w / 2, y: h / 2, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, c: Math.random() < 0.5 ? A : B });
-  }
-}
-function fire() {
-  const s = Math.min(w, h);
-  if (an) {
-    if (beat) burst(40 + bass * 80, s * (0.5 + bass));
-    if (Math.random() < energy * 2) burst(2, s * 0.3);
-  }
-  x.globalCompositeOperation = 'lighter'; x.shadowBlur = 0; x.lineCap = 'round';
-  for (let i = sparks.length - 1; i >= 0; i--) {
-    const p = sparks[i], px = p.x, py = p.y;
-    p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.96; p.vy *= 0.96; p.life -= dt * 0.8;
-    if (p.life <= 0) { sparks.splice(i, 1); continue; }
-    x.globalAlpha = p.life; x.strokeStyle = p.c; x.lineWidth = 1 + p.life * 2.5;
-    x.beginPath(); x.moveTo(px - p.vx * 0.05, py - p.vy * 0.05); x.lineTo(p.x, p.y); x.stroke();
-  }
-  x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
-  x.shadowBlur = 24; x.fillStyle = A;
-  x.beginPath(); x.arc(w / 2, h / 2, s * (0.015 + bass * 0.05), 0, Math.PI * 2); x.fill();
-}
-
-// Рябь: удары расходятся кругами, как от капли
-const rings = [];
-function ripple() {
-  const s = Math.min(w, h), cx = w / 2, cy = h / 2;
-  if (an && beat) rings.push({ r: s * 0.06, life: 1, wd: 2 + bass * 8 });
-  x.shadowBlur = 14;
-  for (let i = rings.length - 1; i >= 0; i--) {
-    const q = rings[i];
-    q.r += s * 0.35 * dt; q.life -= dt * 0.55;
-    if (q.life <= 0) { rings.splice(i, 1); continue; }
-    x.globalAlpha = q.life; x.strokeStyle = i % 2 ? A : B; x.lineWidth = q.wd * q.life;
-    x.beginPath(); x.arc(cx, cy, q.r, 0, Math.PI * 2); x.stroke();
-  }
-  x.globalAlpha = 1; x.strokeStyle = A; x.lineWidth = Math.max(2, s * 0.006);
-  x.beginPath(); x.arc(cx, cy, s * (0.06 + energy * 0.06), 0, Math.PI * 2); x.stroke();
 }
 
 // Жидкость: три слоя — басы, середина и верха, края волнуются по своей части спектра
@@ -325,30 +247,16 @@ function bars() {
   }
 }
 
-// Классика: волна звука, к краям затихает
-function line() {
-  x.strokeStyle = grad(0, 0, w, 0); x.lineJoin = 'round';
-  x.lineWidth = Math.max(2, h * 0.012);
-  x.beginPath();
-  const n = 240;
-  for (let k = 0; k <= n; k++) {
-    const v = an ? (wave[Math.floor(k / n * (wave.length - 1))] - 128) / 128 * Math.sin(Math.PI * k / n) : 0;
-    const px = k / n * w, py = h / 2 + v * h * 0.45 * SENSE;
-    if (k) x.lineTo(px, py); else x.moveTo(px, py);
-  }
-  x.stroke();
-}
-
 function draw() {
   x.clearRect(0, 0, w, h);
   x.shadowColor = A; x.shadowBlur = 16;
-  ([ridges, neon, fire, ripple, liquid, bars, line][LOOK - 1] || ridges)();
+  ([neon, liquid, bars][LOOK - 1] || neon)();
 }
 
 function frame(now) {
   if (!an) return;
   dt = Math.min(0.05, t0 ? (now - t0) / 1000 : 0.016); t0 = now;
-  levels(now); draw();
+  levels(); draw();
   requestAnimationFrame(frame);
 }
 
@@ -389,7 +297,7 @@ async function listen(kind) {
   const node = ac.createAnalyser();
   node.fftSize = 4096; node.smoothingTimeConstant = 0.55; node.minDecibels = -85; node.maxDecibels = -25;
   ac.createMediaStreamSource(s).connect(node);
-  bins = new Uint8Array(node.frequencyBinCount); wave = new Uint8Array(node.fftSize);
+  bins = new Uint8Array(node.frequencyBinCount);
   const was = an;
   an = node;
   if (!was) requestAnimationFrame(frame);
