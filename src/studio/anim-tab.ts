@@ -106,21 +106,21 @@ export function animTabHtml(): string {
 
 export function animPanelHtml(): string {
   return `<div class="st-rpanel" data-panel="anim" hidden>
-  ${group('Просмотр', btn('show.preview', 'play', 'Просмотр', { big: true, title: 'Проиграть переход и появление объектов на этом слайде' }))}
+  ${group('Просмотр', btn('show.preview', 'play', 'Просмотр', { big: true, title: 'Проиграть анимацию слайда' }))}
   ${group('Переход к слайду', `<div class="st-bdpick st-trpick">${railNav().join(`<div class="st-agallery st-fxgal st-trgal">${TRANSITIONS.map(trTile).join('')}</div>`)}</div>`
-    + `<div class="st-rstack">${btn('tr.speed', 'reset', 'Длительность', { menu: true, title: 'Сколько длится переход' })}${btn('tr.dir', 'move', 'Направление', { menu: true, title: 'Откуда идёт переход: у Сдвига, Наплыва, Открывания, Шторки, Куба, Отражения, Галереи и Взмаха' })}${btn('tr.all', 'layers', 'Ко всем слайдам', { title: 'Такой же переход у всех слайдов' })}</div>`, 'st-tr-label')}
+    + `<div class="st-rstack">${btn('tr.speed', 'reset', 'Длительность', { menu: true, title: 'Сколько длится переход' })}${btn('tr.dir', 'move', 'Направление', { menu: true, title: 'Откуда идёт переход' })}${btn('tr.all', 'layers', 'Ко всем слайдам', { title: 'Такой же переход у всех слайдов' })}</div>`, 'st-tr-label')}
   ${group('Анимация объекта', `<div class="st-bdpick st-fxpick">${railNav().join(`<div class="st-agallery st-fxgal">${EFFECTS.map(fxTile).join('')}</div>`)}</div>`
-    + `<div class="st-rstack">${btn('fx.emph', 'sparkle', 'Выделение', { menu: true, title: 'По щелчку объект пульсирует, качается, светится… — шагом в очереди щелчков' })}`
-    + btn('fx.exit', 'close', 'Исчезновение', { menu: true, title: 'По щелчку объект уходит со слайда — шагом в очереди щелчков' })
+    + `<div class="st-rstack">${btn('fx.emph', 'sparkle', 'Выделение', { menu: true, title: 'Выделение объекта по щелчку' })}`
+    + btn('fx.exit', 'close', 'Исчезновение', { menu: true, title: 'Исчезновение объекта по щелчку' })
     + `${btn('fx.mine', 'layers', 'Мои эффекты', { menu: true, title: 'Эффекты, сохранённые из импортированных слайдов' })}</div>`, 'st-fx-label')}
   ${group('Время и порядок', `<div class="st-rstack">
-    <label class="st-rfield" title="Через сколько секунд после открытия слайда объект появляется"><span>Задержка</span><input type="number" id="st-fx-delay" min="0" max="20" step="0.1" aria-label="Задержка появления, секунды"><span>с</span></label>
-    ${btn('anim.tempo', 'clock', 'Длительность', { menu: true, title: 'Быстрее или медленнее идут все эффекты объекта: появление, выделение, исчезновение' })}
+    <label class="st-rfield" title="Через сколько секунд объект появляется"><span>Задержка</span><input type="number" id="st-fx-delay" min="0" max="20" step="0.1" aria-label="Задержка появления, секунды"><span>с</span></label>
+    ${btn('anim.tempo', 'clock', 'Длительность', { menu: true, title: 'Скорость всех эффектов объекта' })}
     <div class="st-rrow">${btn('anim.earlier', 'up', 'Раньше', { title: 'Появляться раньше' })}${btn('anim.later', 'up', 'Позже', { title: 'Появляться позже' })}</div>
-  </div><div class="st-rstack"><button type="button" class="st-rb st-chk" data-cmd="anim.click" title="При показе объект ждёт щелчка («Далее», пробел, пульт) и появляется своим эффектом; по порядку — как в «Порядке»"><i class="st-box">${icon('check')}</i><span>Ждёт щелчка</span></button>${btn('anim.seq', 'sparkle', 'По очереди', { title: 'Выделенные объекты (или все на слайде) появляются по очереди: сверху вниз, слева направо' })}${btn('anim.order', 'list', 'Порядок', { title: 'Область анимации: все анимации слайда по порядку — панелью сбоку от слайда' })}</div>`)}
-  ${group('Текст', `<div class="st-rstack"><span class="st-rsplit"><button type="button" class="st-rb st-chk" data-cmd="anim.count" title="Числа в тексте объекта при появлении отсчитываются от нуля до своего значения"><i class="st-box">${icon('check')}</i><span>Число набегает</span></button>`
-    + `<button type="button" class="st-rb st-split-m" data-cmd="anim.count-menu" data-pal="skip" title="Как набегает: отсчёт или одометр" aria-label="Как набегает число" aria-haspopup="menu"><b class="st-caret"></b></button></span>${btn('anim.textfx', 'sparkle', 'Эффект текста', { menu: true, title: 'Глитч, неон, блик, волна, печатная машинка, расшифровка, жидкость — у надписи или текста фигуры' })}`
-    + `<button type="button" class="st-rb st-chk" data-cmd="anim.byitem" title="Список или пункты «- » в тексте появляются по одному; с «Ждёт щелчка» — по щелчку на пункт"><i class="st-box">${icon('check')}</i><span>По пунктам</span></button></div>`)}
+  </div><div class="st-rstack"><button type="button" class="st-rb st-chk" data-cmd="anim.click" title="Появляться по щелчку («Далее», пробел, пульт)"><i class="st-box">${icon('check')}</i><span>Ждёт щелчка</span></button>${btn('anim.seq', 'sparkle', 'По очереди', { title: 'Объекты появляются по очереди: сверху вниз, слева направо' })}${btn('anim.order', 'list', 'Порядок', { title: 'Все анимации слайда по порядку' })}</div>`)}
+  ${group('Текст', `<div class="st-rstack"><span class="st-rsplit"><button type="button" class="st-rb st-chk" data-cmd="anim.count" title="Числа отсчитываются от нуля при появлении"><i class="st-box">${icon('check')}</i><span>Число набегает</span></button>`
+    + `<button type="button" class="st-rb st-split-m" data-cmd="anim.count-menu" data-pal="skip" title="Как набегает: отсчёт или одометр" aria-label="Как набегает число" aria-haspopup="menu"><b class="st-caret"></b></button></span>${btn('anim.textfx', 'sparkle', 'Эффект текста', { menu: true, title: 'Глитч, неон, блик, печатная машинка…' })}`
+    + `<button type="button" class="st-rb st-chk" data-cmd="anim.byitem" title="Пункты списка появляются по одному"><i class="st-box">${icon('check')}</i><span>По пунктам</span></button></div>`)}
 </div>`;
 }
 
@@ -767,7 +767,7 @@ class OrderPane {
         : '';
       return (both && first ? `<p class="st-aorder-head">${o.click ? 'По щелчку' : 'При открытии слайда'}</p>` : '')
         + `<div class="st-aorder-row${this.picked.has(rowId(o)) ? ' sel' : ''}" draggable="true" data-n="${n}" data-kind="${o.kind}" data-group="${o.click ? 'click' : 'open'}">
-  <button type="button" class="st-aorder-pick" data-pick="${n}" title="Выделить (Ctrl — добавить, Shift — подряд); перетащите, чтобы переставить"><b>${o.click ? steps.get(rowId(o)) ?? ++num : ++num}</b><span><em>${esc(blockName(o.b.type))}</em>${label ? ` · ${esc(label)}` : ''}</span><small>${esc(itemName(this.h.deck, o))} · ${o.click ? (o.together && !first ? 'вместе с предыдущим' : 'по щелчку') : o.key ? sec(o.key) : 'сразу'}</small></button>
+  <button type="button" class="st-aorder-pick" data-pick="${n}" title="Ctrl — добавить, Shift — подряд; перетащите — переставить"><b>${o.click ? steps.get(rowId(o)) ?? ++num : ++num}</b><span><em>${esc(blockName(o.b.type))}</em>${label ? ` · ${esc(label)}` : ''}</span><small>${esc(itemName(this.h.deck, o))} · ${o.click ? (o.together && !first ? 'вместе с предыдущим' : 'по щелчку') : o.key ? sec(o.key) : 'сразу'}</small></button>
   ${link}
   <button type="button" class="st-aorder-mv" data-mv="${n}" data-dir="-1" title="Раньше" aria-label="Раньше"${swapped(on, n, -1) ? '' : ' disabled'}>${icon('up')}</button>
   <button type="button" class="st-aorder-mv" data-mv="${n}" data-dir="1" title="Позже" aria-label="Позже"${swapped(on, n, 1) ? '' : ' disabled'}>${icon('up')}</button>

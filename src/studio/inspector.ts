@@ -373,9 +373,9 @@ export class Inspector {
   <label><span>Y</span><input type="number" data-f="y" step="1"></label>
   <label><span>Ширина</span><input type="number" data-f="w" min="20" step="1"></label>
   <label><span>Высота</span><input type="number" data-f="h" min="20" step="1"></label>
-  <label title="Поворот по часовой стрелке. На слайде — кружок над рамкой (Shift — шагами по 15°)"><span>Поворот, °</span><input type="number" data-f="angle" min="-180" max="180" step="1"></label>
+  <label title="По часовой стрелке (Shift на слайде — по 15°)"><span>Поворот, °</span><input type="number" data-f="angle" min="-180" max="180" step="1"></label>
 </div>
-<label class="st-p-check" title="Углы рамки и поля «Ширина / Высота» меняют размер без искажения. Shift при перетаскивании — наоборот"><input type="checkbox" data-f="keepRatio"><span>Сохранять пропорции</span></label>
+<label class="st-p-check" title="Менять размер без искажения (Shift — наоборот)"><input type="checkbox" data-f="keepRatio"><span>Сохранять пропорции</span></label>
 <div class="st-p-icons" role="group" aria-label="Выровнять на слайде">${ALIGN.map(([c, ic, l]) => `<button type="button" data-cmd="${c}" title="${l}" aria-label="${l}">${icon(ic)}</button>`).join('')}</div>`)
       + this.rowHtml(deck)
       + this.actionHtml(deck)
@@ -518,7 +518,7 @@ export class Inspector {
     // Две строки плиток, остальные листаются вбок
     return `<div class="st-p-field"><span>Фон</span><div class="st-bdpick st-bgpick">${prev}<div class="st-bgs" role="radiogroup" aria-label="Фон слайда">${BACKGROUNDS.map(([v, l, look]) =>
       `<button type="button" role="radio" aria-checked="${v === cur}" data-bg="${esc(v)}" title="${esc(v ? l : 'Своего фона у слайда нет — виден фон темы («Дизайн» → «Фон»)')}">${v ? `<i style="background:${look}"></i>` : `<i class="st-bg-theme"><b style="background:${look}"></b></i>`}<span>${esc(l)}</span></button>`).join('')}
-<label class="st-bg-own${!known && HEX_RE.test(cur) ? ' on' : ''}" title="Свой цвет — тяните по палитре, слайд меняется сразу"><i style="background:${!known && HEX_RE.test(cur) ? cur : 'conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)'}"></i><input type="color" data-f="bgcolor" aria-label="Свой цвет фона"><span>Свой</span></label></div>${next}</div>${cur ? tuneHtml({ bgOpacity: bgOpacity(this.host.deck().slides[this.host.index()]) }) : ''}
+<label class="st-bg-own${!known && HEX_RE.test(cur) ? ' on' : ''}" title="Свой цвет"><i style="background:${!known && HEX_RE.test(cur) ? cur : 'conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)'}"></i><input type="color" data-f="bgcolor" aria-label="Свой цвет фона"><span>Свой</span></label></div>${next}</div>${cur ? tuneHtml({ bgOpacity: bgOpacity(this.host.deck().slides[this.host.index()]) }) : ''}
 ${!known && !HEX_RE.test(cur) ? `<p class="st-p-note">Сейчас: <code>${esc(cur.length > 60 ? cur.slice(0, 60) + '…' : cur)}</code></p>` : ''}</div>
 <details class="st-p-more"><summary>CSS фона</summary><label class="st-p-field"><input type="text" data-f="bg" placeholder="как у темы" spellcheck="false"></label></details>`;
   }
@@ -621,7 +621,7 @@ ${this.slideColorsHtml(s)}
 ${formHtml(look, deck, ['slides', i])}
 ${(tpl === 'content' || canvas) && !deck.brand?.logo ? cmdBtn('brand.logo.add', 'image', 'Добавить логотип…') : ''}
 </section>
-${!canvas && !s.live ? `<section class="st-p-sec"><button type="button" class="st-pbtn" data-cmd="slide.explode" title="Части слайда стоят на своих местах. Разберите слайд, чтобы двигать и масштабировать их по отдельности: вид и анимации сохранятся. Вернуть — Ctrl+Z">${icon('ungroup')}<span>Разобрать на объекты</span></button></section>` : ''}
+${!canvas && !s.live ? `<section class="st-p-sec"><button type="button" class="st-pbtn" data-cmd="slide.explode" title="Части слайда станут объектами: двигать по отдельности. Вернуть — Ctrl+Z">${icon('ungroup')}<span>Разобрать на объекты</span></button></section>` : ''}
 ${canvas ? '' : sec('more', 'Дополнительно', name)}
 ${sec('deck', 'Презентация', `<label class="st-p-field"><span>Название</span><input type="text" data-f="title"></label>
 <label class="st-p-field"><span>Акцентный цвет</span><span class="st-p-color"><input type="color" data-f="accent" aria-label="Акцентный цвет"><button type="button" class="st-link" data-a="accent-reset" title="Вернуть стандартный цвет">Сбросить</button></span></label>
@@ -638,7 +638,7 @@ ${this.fontsHtml(deck)}`)}`;
     const list = names.map((n) => `<span class="st-font" style="font-family:${esc(fontStack(n))}">${esc(n)}<button type="button" data-a="font-del" data-name="${esc(n)}" title="Убрать шрифт" aria-label="Убрать шрифт ${esc(n)}">×</button></span>`).join('');
     const label = cur || 'Системный';
     return `<div class="st-p-field"><span>Шрифт презентации</span><button type="button" class="edfont st-p-font" data-a="font-pick" aria-haspopup="listbox" aria-expanded="false" aria-label="Шрифт презентации: ${esc(label)}"><span style="font-family:${esc(cur ? fontStack(cur) : 'var(--font)')}">${esc(label)}</span></button></div>
-<div class="st-fonts">${list}<button type="button" class="st-link" data-a="font-add" title="Файл WOFF2, WOFF, TTF или OTF — можно просто перетащить на страницу">Добавить шрифт…</button></div>`;
+<div class="st-fonts">${list}<button type="button" class="st-link" data-a="font-add" title="WOFF2, WOFF, TTF или OTF (можно перетащить)">Добавить шрифт…</button></div>`;
   }
 
   /** Варианты «Шрифта презентации»: системный, свои шрифты презентации и библиотеки, шрифты компьютера */

@@ -244,7 +244,7 @@ export class Editor {
       const i = (e as CustomEvent<{ index: number }>).detail?.index;
       if (!this.active || !Number.isInteger(i) || !this.host.deck.slides[i]) return;
       if (this.commit((d) => { delete d.slides[i].live; }, { rebuild: true })) {
-        this.toast('Слайд преобразован для правки. Отменить: Ctrl+Z', 4000);
+        this.toast('Слайд преобразован для правки. Отменить — Ctrl+Z', 4000);
       }
     });
     addEventListener('beforeunload', (e) => {
@@ -1155,7 +1155,7 @@ export class Editor {
       // Пустой список свободных объектов в данных не нужен
       const sl = d.slides[Number(path[1])];
       if (Array.isArray(sl?.free) && !sl.free.length) delete sl.free;
-    }, { rebuild: true })) this.toast('Блок удалён. Вернуть: Ctrl+Z', 3000);
+    }, { rebuild: true })) this.toast('Блок удалён. Вернуть — Ctrl+Z', 3000);
   }
 
   /** Вставка текста или картинки свободным объектом в центр текущего слайда. */
@@ -1950,7 +1950,7 @@ export class Editor {
     const cur = this.host.index();
     if (this.commit((d) => d.slides.splice(i, 1))) {
       this.host.go(cur > i ? cur - 1 : Math.min(cur, n - 2));
-      this.toast('Слайд удалён. Вернуть: Ctrl+Z', 3000);
+      this.toast('Слайд удалён. Вернуть — Ctrl+Z', 3000);
     }
   }
 

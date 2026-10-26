@@ -254,7 +254,7 @@ export function contextPanelsHtml(): string {
   return `<div class="st-rpanel" data-panel="shape" hidden>
   ${group('Стили', `<div class="st-gallery">${SHAPE_STYLES.map(styleTile).join('')}</div>`)}
   ${group('Форма', `<div class="st-rgrid">${KINDS.map(([k, ic, l]) => btn(`shape.kind.${k}`, ic, l, { ico: true })).join('')}</div>`
-    + btn('shape.kinds', 'sh-more', 'Ещё', { big: true, menu: true, title: 'Ромб, треугольник, звезда, стрелки, выноска и другие фигуры' }))}
+    + btn('shape.kinds', 'sh-more', 'Ещё', { big: true, menu: true, title: 'Ромб, звезда, стрелки, выноска…' }))}
   ${group('Цвет', btn('shape.fill', 'fill', 'Заливка', { big: true, menu: true, swatch: 'fill' }) + btn('shape.stroke', 'outline', 'Контур', { big: true, menu: true, swatch: 'stroke', title: 'Цвет, толщина и штрих контура' }))}
   ${group('Текст', btn('shape.text', 'text-box', 'Надпись', { big: true, title: 'Текст внутри фигуры' })
     + stack(
@@ -267,7 +267,7 @@ export function contextPanelsHtml(): string {
   ${ORDER}
 </div>
 <div class="st-rpanel" data-panel="table" hidden>
-  ${group('Стиль таблицы', `<div class="st-gallery t" data-shrink="66 194">${VARIANTS.map(tableTile).join('')}</div>` + btn('table.fill', 'fill', 'Заливка', { big: true, menu: true, title: 'Цвет выделенных ячеек (протяните мышью по ячейкам или Shift+щелчок)' }) + btn('table.borders', 'borders', 'Границы', { big: true, menu: true, title: 'Границы выделенных ячеек или всей таблицы' }))}
+  ${group('Стиль таблицы', `<div class="st-gallery t" data-shrink="66 194">${VARIANTS.map(tableTile).join('')}</div>` + btn('table.fill', 'fill', 'Заливка', { big: true, menu: true, title: 'Заливка выделенных ячеек' }) + btn('table.borders', 'borders', 'Границы', { big: true, menu: true, title: 'Границы выделенных ячеек или всей таблицы' }))}
   ${group('Показать', stack(btn('table.head', '', 'Строка заголовка', { chk: true }), btn('table.total', '', 'Строка итогов', { chk: true, title: 'Последняя строка как итог' }), btn('table.bands', '', 'Чередующиеся строки', { chk: true }))
     + stack(btn('table.labels', '', 'Первый столбец', { chk: true, title: 'Первый столбец жирным' }), btn('table.lastcol', '', 'Последний столбец', { chk: true, title: 'Последний столбец жирным' }), btn('table.highlight', '', 'Выделить строку', { chk: true, title: 'Выделить строку с курсором' })))}
   ${group('Строки и столбцы', btn('table.select', 'cursor', 'Выделить', { big: true, menu: true, title: 'Выделить строку, столбец или всю таблицу' })
@@ -284,27 +284,27 @@ export function contextPanelsHtml(): string {
 </div>
 <div class="st-rpanel" data-panel="image" hidden>
   ${group('Стили рисунка', imageGallery())}
-  ${group('Рамка', btn('image.stroke', 'outline', 'Контур', { big: true, menu: true, swatch: 'istroke', title: 'Цвет, толщина и штрих контура' }) + btn('image.mat', 'mat', 'Паспарту', { big: true, menu: true, title: 'Поле вокруг снимка, как у фотографии в рамке' }))}
+  ${group('Рамка', btn('image.stroke', 'outline', 'Контур', { big: true, menu: true, swatch: 'istroke', title: 'Цвет, толщина и штрих контура' }) + btn('image.mat', 'mat', 'Паспарту', { big: true, menu: true, title: 'Поле вокруг снимка' }))}
   ${group('Эффекты', stack(btn('image.shadow', 'shadow', 'Тень', { menu: true }), btn('image.glow', 'glow', 'Свечение', { menu: true, title: 'Свечение по краю рисунка' }), btn('image.radius', 'corner', 'Скругление', { menu: true }))
-    + stack(btn('image.filter', 'recolor', 'Цвет', { menu: true, title: 'Чёрно-белый, сепия, приглушённый…' }), btn('image.opacity', 'opacity', 'Прозрачность', { menu: true })))}
-  ${group('Цветокоррекция', btn('image.grade', 'sliders', 'Цвет+', { big: true, title: 'Цветокоррекция, как в DaVinci: круги, кривые, HSL, LUT, цвета бренда. Исходный файл не меняется' }))}
-  ${group('Кадр', btn('image.crop', 'crop', 'Кадр', { big: true, title: 'Сдвинуть снимок внутри рамки, как «Обрезка» в PowerPoint: тяните картинку. Масштаб — на панели над картинкой. Готово — Esc' })
-    + btn('image.fit', 'contain', 'Вписать', { big: true, menu: true, title: 'Как снимок встаёт в рамку: заполняет её (края обрезаются) или целиком — с полями, пустыми или из размытого снимка. У картинки с кадрами — у всех кадров' }))}
-  ${group('Галерея', btn('image.frames.join', 'frames', 'Собрать в галерею', { big: true, title: 'Выделенные картинки — кадрами одной: первая (слева сверху) остаётся на месте, остальные становятся её кадрами' })
-    + btn('image.frame.add', 'frames', 'Ещё кадры', { big: true, title: 'Добавить картинки в эту рамку: на слайде листаются стрелками, точками и свайпом. Можно выбрать несколько файлов или бросить их на картинку' })
+    + stack(btn('image.filter', 'recolor', 'Цвет', { menu: true, title: 'Цветовой фильтр' }), btn('image.opacity', 'opacity', 'Прозрачность', { menu: true })))}
+  ${group('Цветокоррекция', btn('image.grade', 'sliders', 'Цвет+', { big: true, title: 'Цветокоррекция: круги, кривые, HSL, LUT' }))}
+  ${group('Кадр', btn('image.crop', 'crop', 'Кадр', { big: true, title: 'Сдвинуть снимок в рамке (Esc — готово)' })
+    + btn('image.fit', 'contain', 'Вписать', { big: true, menu: true, title: 'Как снимок заполняет рамку' }))}
+  ${group('Галерея', btn('image.frames.join', 'frames', 'Собрать в галерею', { big: true, title: 'Выделенные картинки — кадрами одной' })
+    + btn('image.frame.add', 'frames', 'Ещё кадры', { big: true, title: 'Добавить кадры — листаются прямо на слайде' })
     // Кнопки кадров — только у картинки с кадрами (studio.ts): обычной хватает «Ещё кадры», лента не теснится
-    + `<div class="st-frames">${stack(btn('image.frame.del', 'trash', 'Убрать кадр', { title: 'Убрать открытый кадр; останется один — обычная картинка' }),
+    + `<div class="st-frames">${stack(btn('image.frame.del', 'trash', 'Убрать кадр', { title: 'Убрать открытый кадр' }),
       row(btn('image.frame.prev', 'arr-left', 'Кадр раньше', { ico: true }), btn('image.frame.next', 'arr-right', 'Кадр позже', { ico: true })),
-      btn('image.flip', '', 'По «Далее»', { chk: true, title: 'Кадры листает «Далее», как анимации: по одному на щелчок. Без флажка — стрелки и точки на картинке' }))}</div>`)}
+      btn('image.flip', '', 'По «Далее»', { chk: true, title: 'Листать кадры щелчком «Далее», как анимации' }))}</div>`)}
   ${group('Сброс', btn('image.reset', 'reset', 'Сбросить', { big: true, title: 'Убрать всё оформление рисунка' }))}
-  ${group('Файл', btn('obj.picture', 'save', 'Сохранить', { big: true, title: 'Сохранить как рисунок: PNG с прозрачным фоном, с кадром, цветом и рамкой' }))}
+  ${group('Файл', btn('obj.picture', 'save', 'Сохранить', { big: true, title: 'Сохранить как PNG' }))}
   ${ORDER}
 </div>
 <div class="st-rpanel" data-panel="video" hidden>
   ${group('Воспроизведение', stack(btn('video.autoplay', '', 'Запуск со слайдом', { chk: true, title: 'Ролик запускается, когда открывается слайд' }), btn('video.muted', '', 'Без звука', { chk: true }))
     + stack(btn('video.loop', '', 'По кругу', { chk: true }), btn('video.controls', '', 'Кнопки плеера', { chk: true, title: 'Кнопки плеера при наведении' })))}
-  ${group('Кадр', btn('video.fit', 'crop', 'Заполнить', { big: true, title: 'Заполнить рамку целиком (края ролика обрезаются) или показать ролик полностью' }))}
-  ${group('Цветокоррекция', btn('video.grade', 'sliders', 'Цвет+', { big: true, title: 'Цветокоррекция ролика: круги, кривые, HSL, LUT, цвета бренда. Применяется при показе, файл не меняется' }))}
+  ${group('Кадр', btn('video.fit', 'crop', 'Заполнить', { big: true, title: 'Заполнить рамку или показать ролик целиком' }))}
+  ${group('Цветокоррекция', btn('video.grade', 'sliders', 'Цвет+', { big: true, title: 'Цветокоррекция ролика' }))}
   ${ORDER}
 </div>
 ${textPanelHtml({ btn, group, row, stack, order: ORDER })}`;
@@ -386,7 +386,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const bg = themeSwatches(deck.theme, deck.origin, SHAPE_COLORS);
     return Object.entries(SHAPE_COLORS).filter(([v]) => v !== 'bg').map(([v, c]) => {
       const two = bg[v].startsWith('linear-gradient');
-      const name = two ? `${c.name} — меняется с темой: у светлых и у тёмных слайдов свой` : c.name;
+      const name = two ? `${c.name} · меняется с темой` : c.name;
       return `<button type="button" class="st-psw${cur === v ? ' on' : ''}" data-v="${esc(v)}" style="--c:${bg[v]}" title="${esc(name)}" aria-label="${esc(c.name)}"></button>`;
     }).join('');
   };
@@ -571,7 +571,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const sliders = `<h4>Настройка</h4><div class="st-adj">${IMAGE_ADJUST.map(([k, l, min, max]) =>
       `<label><span>${esc(l)}</span><input type="range" min="${min}" max="${max}" step="1" value="${adj[k]}" data-adj="${k}" aria-label="${esc(l)}"><output>${adj[k]}%</output></label>`).join('')}`
       + `<button type="button" class="st-adj-reset" data-adj-reset="1">Сбросить настройку</button></div>`;
-    const pop = showPopover(anchor('image.filter'), `<div class="st-flt-pop">${groups}${sliders}<p class="st-flt-note">Наведите — примерка на слайде, щелчок — применить. Ползунки — поверх фильтра</p></div>`, (b) => {
+    const pop = showPopover(anchor('image.filter'), `<div class="st-flt-pop">${groups}${sliders}</div>`, (b) => {
       if (b.dataset.adjReset) {
         return { keep: true, run: () => {
           IMAGE_ADJUST.forEach(([k]) => { adj[k] = 100; });
@@ -699,7 +699,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       + `${kind.sample((o.sample ?? o.fn)?.({ ...(b0 ?? {}) } as Block) ?? { ...(b0 ?? {}), ...(o.preview ?? o.patch) } as Block)}<span>${esc(o.label)}</span></button>`;
     const grids = sections.map((s) => `${s.title ? `<h4>${esc(s.title)}</h4>` : ''}<div class="st-flt-grid${s.cls ? ` ${s.cls}` : ''}">${s.options.map(tile).join('')}</div>`).join('');
     const range = slider ? `<div class="st-adj"><label${slider.off ? ` title="${esc(slider.off)}"` : ''}><span>${esc(slider.label)}</span><input type="range" min="${slider.min}" max="${slider.max}" step="1" value="${slider.value}" data-lkr="1" aria-label="${esc(slider.label)}"${slider.off ? ' disabled' : ''}><output>${slider.value}${slider.unit}</output></label></div>` : '';
-    const pop = showPopover(at, `<div class="st-flt-pop">${grids}${range}<p class="st-flt-note">Наведите — примерка на слайде, щелчок — применить</p></div>`, (b) => {
+    const pop = showPopover(at, `<div class="st-flt-pop">${grids}${range}</div>`, (b) => {
       const i = b.dataset.lk;
       if (i === undefined) return null;
       return { run: () => { restore(); picked = true; options[Number(i)].pick(); } };

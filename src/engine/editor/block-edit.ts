@@ -147,7 +147,7 @@ export class BlockEditor {
   /** Закреплён: подсказка вместо действия */
   private guardLocked(): boolean {
     if (!this.isLocked) return false;
-    this.host.toast('Объект закреплён. Открепить: правый щелчок или область выделения', 2600);
+    this.host.toast('Объект закреплён. Открепить — правый щелчок или Alt+F10', 2600);
     return true;
   }
 
@@ -390,7 +390,7 @@ export class BlockEditor {
         const list = d.slides[i].free!;
         paths.forEach((p) => list.splice(Number(p[3]), 1));
         if (!list.length) delete d.slides[i].free;
-      }, { rebuild: true })) this.host.toast(`Удалено объектов: ${paths.length}. Вернуть: Ctrl+Z`, 2500);
+      }, { rebuild: true })) this.host.toast(`Удалено объектов: ${paths.length}. Вернуть — Ctrl+Z`, 2500);
       return;
     }
     const target = s.free ?? s.block;
@@ -403,7 +403,7 @@ export class BlockEditor {
       dropEmptyGroup(d, target);
       const sl = d.slides[Number(target[1])];
       if (Array.isArray(sl?.free) && !sl.free.length) delete sl.free;
-    }, { rebuild: true })) this.host.toast('Удалено. Вернуть: Ctrl+Z', 2500);
+    }, { rebuild: true })) this.host.toast('Удалено. Вернуть — Ctrl+Z', 2500);
   }
 
   /** Блок из раскладки → свободный объект на том же месте и того же размера. */

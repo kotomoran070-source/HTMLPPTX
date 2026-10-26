@@ -329,7 +329,7 @@ export function ungroup(host: Host, slide: number, sel: { block: Path; free: Pat
   }, { rebuild: true });
   if (!ok) return false;
   editor.selectMany(slide, parts.map((_p, k) => from + k));
-  editor.toast(`Разгруппировано: ${objects(parts.length)}. Вернуть: Ctrl+Z`, 3000);
+  editor.toast(`Разгруппировано: ${objects(parts.length)}. Вернуть — Ctrl+Z`, 3000);
   return true;
 }
 
@@ -358,7 +358,7 @@ function splitGroup(host: Host, slide: number, freePath: Path, g: Block): boolea
   const ok = editor.commit((d) => { d.slides[slide].free!.splice(from, 1, ...parts); }, { rebuild: true });
   if (!ok) return false;
   editor.selectMany(slide, parts.map((_p, k) => from + k));
-  editor.toast(`Группа разобрана: ${objects(parts.length)}. Вернуть: Ctrl+Z`, 2500);
+  editor.toast(`Группа разобрана: ${objects(parts.length)}. Вернуть — Ctrl+Z`, 2500);
   return true;
 }
 
@@ -407,7 +407,7 @@ export function groupObjects(host: Host, slide: number, paths: Path[]): boolean 
   }, { rebuild: true });
   if (!ok) return false;
   editor.selectFree(slide, at);
-  editor.toast('Сгруппировано. Разгруппировать: Ctrl+Shift+G', 2500);
+  editor.toast('Сгруппировано. Разгруппировать — Ctrl+Shift+G', 2500);
   return true;
 }
 

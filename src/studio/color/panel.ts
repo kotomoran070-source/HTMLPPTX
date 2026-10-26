@@ -259,7 +259,7 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
   /** Ряд образов: «Сохранить», свои образы (с крестиком), готовые */
   function stripHtml(): string {
     const tile = (id: string, name: string, extra = '') => `<button type="button" class="cg-look" data-look="${esc(id)}" title="${esc(name)}"><canvas></canvas><span>${esc(name)}</span>${extra}</button>`;
-    return `<button type="button" class="cg-look cg-save" data-a="save-look" title="Сохранить настройки образом — он появится здесь во всех презентациях"><i>${icon('plus')}</i><span>Сохранить</span></button>`
+    return `<button type="button" class="cg-look cg-save" data-a="save-look" title="Сохранить как образ — для всех презентаций"><i>${icon('plus')}</i><span>Сохранить</span></button>`
       + listMyLooks().map((l) => tile(`my:${l.id}`, l.name, `<i class="cg-del" data-del="${esc(l.id)}" role="button" aria-label="Удалить образ «${esc(l.name)}»">${icon('close')}</i>`)).join('')
       + LOOKS.map((l) => tile(l.id, l.name)).join('');
   }

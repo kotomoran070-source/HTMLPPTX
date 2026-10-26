@@ -92,8 +92,8 @@ export function textPanelHtml({ btn, group, row, stack, order }: Ui): string {
     btn('text.bold', 'bold', 'Жирный', { ico: true }), btn('text.italic', 'italic', 'Курсив', { ico: true }), btn('text.underline', 'underline', 'Подчёркнутый', { ico: true }),
     btn('text.upper', 'text-case', 'Все заглавные', { ico: true }),
     `<i class="st-txsep"></i>`,
-    btn('text.color', 'text-color', 'Цвет текста', { ico: true, menu: true, swatch: 'tcolor', title: 'Цвет текста: цвета темы, свои, градиент' }),
-    btn('text.clear', 'eraser', 'Сбросить оформление', { ico: true, title: 'Сбросить оформление: как в теме' }),
+    btn('text.color', 'text-color', 'Цвет текста', { ico: true, menu: true, swatch: 'tcolor', title: 'Цвет текста' }),
+    btn('text.clear', 'eraser', 'Сбросить оформление', { ico: true, title: 'Сбросить оформление' }),
   )}</div>`)}
   ${group('Абзац', stack(
     row(btn('text.align.left', 'align-left', 'По левому краю', { ico: true }), btn('text.align.center', 'align-center', 'По центру', { ico: true }), btn('text.align.right', 'align-right', 'По правому краю', { ico: true }), btn('text.align.justify', 'align-justify', 'По ширине', { ico: true })),
@@ -101,9 +101,9 @@ export function textPanelHtml({ btn, group, row, stack, order }: Ui): string {
     row(btn('text.leading', 'leading', 'Междустрочный интервал', { ico: true, menu: true }), btn('text.spacing', 'tracking', 'Интервал между буквами', { ico: true, menu: true })),
   ))}
   ${group('Эффекты', stack(btn('text.shadow', 'text-shadow', 'Тень', { menu: true, title: 'Тень букв' }), btn('text.glow', 'text-glow', 'Свечение', { menu: true, title: 'Свечение вокруг букв' }))
-    + stack(btn('text.outline', 'text-outline', 'Контур', { menu: true, title: 'Контур букв: толщина, цвет, только контур' }), btn('text.plate', 'plate', 'Плашка', { menu: true, title: 'Цветная плашка под текстом' }))
+    + stack(btn('text.outline', 'text-outline', 'Контур', { menu: true, title: 'Контур букв' }), btn('text.plate', 'plate', 'Плашка', { menu: true, title: 'Цветная плашка под текстом' }))
     + stack(btn('text.opacity', 'opacity', 'Прозрачность', { menu: true }), btn('text.rotate', 'rotate', 'Поворот', { menu: true })))}
-  ${group('Выровнять', btn('text.arrange', 'obj-left', 'Выровнять', { big: true, menu: true, title: 'Выровнять надписи относительно друг друга (или одну — по слайду), равные промежутки' }))}
+  ${group('Выровнять', btn('text.arrange', 'obj-left', 'Выровнять', { big: true, menu: true, title: 'Выровнять и распределить надписи' }))}
   ${order}
 </div>`;
 }

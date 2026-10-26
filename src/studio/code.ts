@@ -96,7 +96,7 @@ export class CodeView {
   <div class="st-seg" role="tablist" aria-label="Что править">
     <button type="button" role="tab" data-mode="slide" aria-selected="true">Слайд · YAML</button>
     <button type="button" role="tab" data-mode="css" aria-selected="false">Стили · CSS</button>
-    <button type="button" role="tab" data-mode="anim" aria-selected="false" title="Код живых вставок слайда: анимации на HTML и JavaScript, в том числе спрятанные под другими объектами">Анимации · HTML/JS</button>
+    <button type="button" role="tab" data-mode="anim" aria-selected="false" title="Живые вставки слайда: HTML и JavaScript">Анимации · HTML/JS</button>
   </div>
   <select class="st-code-pick" hidden aria-label="Какая вставка"></select>
   <button type="button" class="st-code-rules" hidden title="Следующее правило"></button>

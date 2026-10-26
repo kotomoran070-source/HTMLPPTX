@@ -120,7 +120,7 @@ export class LayersPane {
     }
     this.showAll.hidden = !this.hidden.get(this.slideKey(i))?.size;
     if (!items.length) {
-      this.list.innerHTML = '<p class="st-lyr-empty">На слайде нет свободных объектов. Здесь появятся надписи, фигуры и картинки, которые лежат поверх раскладки.</p>';
+      this.list.innerHTML = '<p class="st-lyr-empty">Свободных объектов на слайде нет.</p>';
       return;
     }
     const focused = (document.activeElement as HTMLElement | null)?.closest?.('.st-lyr')?.getAttribute('data-k');

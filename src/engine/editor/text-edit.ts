@@ -116,7 +116,7 @@ export class TextEditor {
   <button type="button" data-t="bold" title="Жирный (Ctrl+B)" aria-label="Жирный"><b>B</b></button>
   <button type="button" data-t="italic" title="Курсив (Ctrl+I)" aria-label="Курсив"><i style="font-family:Georgia,serif">I</i></button>
   <button type="button" data-t="underline" title="Подчёркнутый (Ctrl+U)" aria-label="Подчёркнутый"><u>U</u></button>
-  <button type="button" data-t="mark" title="Маркер: главное в тексте — при показе проводится маркером" aria-label="Маркер">${icon('marker')}</button>
+  <button type="button" data-t="mark" title="Маркер: проводится по тексту при показе" aria-label="Маркер">${icon('marker')}</button>
   <button type="button" data-t="link" title="Ссылка (Ctrl+K)" aria-label="Ссылка">${icon('link')}</button>
   <i class="edsep" data-g="block"></i>
   <span class="edsplit" data-g="block"><button type="button" data-t="list" title="Список" aria-label="Список">${icon('list')}</button><button type="button" data-t="list-kind" class="edcaret" title="Вид списка: маркер или нумерация" aria-label="Вид списка" aria-haspopup="true"><b class="st-caret"></b></button></span>
@@ -160,7 +160,7 @@ export class TextEditor {
     }
     this.widthHandle = document.createElement('div');
     this.widthHandle.className = 'edwidth';
-    this.widthHandle.title = 'Потяните, чтобы изменить ширину текста. Двойной клик — как было';
+    this.widthHandle.title = 'Ширина текста (двойной щелчок — как было)';
     document.body.appendChild(this.widthHandle);
     this.bindBar();
     this.bindWidth();
@@ -913,7 +913,7 @@ export class TextEditor {
       </div>
       <div class="edlc" hidden>${colors}<label title="Свой цвет"><input type="color" value="${/^#[0-9a-f]{6}$/i.test(curColor) ? curColor.toLowerCase() : '#2563eb'}"></label></div>
       <div class="edown"${custom ? '' : ' hidden'}>
-        <div class="edown-row"><input type="text" maxlength="12" value="${esc(own ?? '')}" placeholder="Символ, эмодзи или Шаг #:" title="Символ, эмодзи или текст. # — номер пункта: «Шаг #:» → Шаг 1:, Шаг 2:" spellcheck="false" aria-label="Свой маркер"><button type="button" data-a="img" title="Картинка-маркер: значок, логотип" aria-label="Картинка">${icon('image')}</button></div>
+        <div class="edown-row"><input type="text" maxlength="12" value="${esc(own ?? '')}" placeholder="Символ, эмодзи или Шаг #:" title="Символ, эмодзи или текст; # — номер пункта" spellcheck="false" aria-label="Свой маркер"><button type="button" data-a="img" title="Картинка-маркер: значок, логотип" aria-label="Картинка">${icon('image')}</button></div>
       </div>`;
     // Ещё не список — сначала пункты
     const ensureList = () => { if (this.s && !this.s.el.querySelector('.md-li')) this.toggleList(); };
@@ -1106,7 +1106,7 @@ export class TextEditor {
       const c = THEME_COLORS[b.dataset.c!];
       if (!c) return;
       b.style.background = bg[b.dataset.c!];
-      b.title = bg[b.dataset.c!].startsWith('linear-gradient') ? `${c.name} — меняется с темой: у светлых и у тёмных слайдов свой` : c.name;
+      b.title = bg[b.dataset.c!].startsWith('linear-gradient') ? `${c.name} · меняется с темой` : c.name;
     });
     const r = anchor.getBoundingClientRect();
     const w = this.colors.offsetWidth;

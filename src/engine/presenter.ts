@@ -77,10 +77,10 @@ export function startPresenter(deck: Deck, deckKey: string): void {
         <i class="pd-sep" aria-hidden="true"></i>
         <button type="button" class="pd-btn" id="tgrid" title="Все слайды (G)" aria-label="Все слайды">${icon('grid')}</button>
         <button type="button" class="pd-btn" id="bk" aria-pressed="false" title="Чёрный экран у зрителей (B)" aria-label="Чёрный экран">${icon('screen-off')}</button>
-        <button type="button" class="pd-btn" id="tauto" aria-pressed="false" title="Автопоказ (A): слайды листаются сами — когда доиграли анимации, через заданное время. Листать руками можно и дальше. Ещё раз — пауза" aria-label="Автопоказ">${icon('autoplay')}</button>
+        <button type="button" class="pd-btn" id="tauto" aria-pressed="false" title="Автопоказ (A): слайды листаются сами. Ещё раз — пауза" aria-label="Автопоказ">${icon('autoplay')}</button>
         ${new URLSearchParams(location.search).get('remote') ? `<button type="button" class="pd-btn" id="eco" aria-pressed="true" title="Экономный режим: слайд на паузе, касание — оживить" aria-label="Экономный режим">${icon('pause')}</button>` : ''}
         <span class="pd-mir">
-          <button type="button" class="pd-btn pd-more" id="tmir" aria-pressed="true" aria-haspopup="menu" title="Мышь и 3D у зрителей (M): курсор, наведение, поворот моделей, запуск и пауза видео повторяются в окне показа. Удерживайте — настройки" aria-label="Мышь и 3D у зрителей">${icon('cursor')}</button>
+          <button type="button" class="pd-btn pd-more" id="tmir" aria-pressed="true" aria-haspopup="menu" title="Мышь и 3D у зрителей (M). Удерживайте — настройки" aria-label="Мышь и 3D у зрителей">${icon('cursor')}</button>
           <span class="pd-menu" id="mirmenu" role="menu" hidden>
             <button type="button" role="menuitemcheckbox" data-mir="all">Мышь и 3D у зрителей<small>наведение, щелчки, поворот моделей, видео</small></button>
             <button type="button" role="menuitemcheckbox" data-mir="arrow">Показывать курсор<small>без него наведение работает, стрелки не видно (K)</small></button>
@@ -94,13 +94,13 @@ export function startPresenter(deck: Deck, deckKey: string): void {
         <span class="pres-tl-r" id="ptlr"></span>
       </div>
     </section>
-    <div class="pres-split v" id="sv" role="separator" aria-orientation="vertical" aria-label="Размер текущего слайда" tabindex="0" title="Потяните, чтобы изменить размер. Двойной щелчок — сбросить"></div>
+    <div class="pres-split v" id="sv" role="separator" aria-orientation="vertical" aria-label="Размер текущего слайда" tabindex="0" title="Двойной щелчок — сбросить размер"></div>
     <aside class="pres-side" id="pside">
       <section class="pres-nextbox">
         <div class="pres-label">Далее</div>
         <div class="pres-next" id="next"></div>
       </section>
-      <div class="pres-split h" id="sh" role="separator" aria-orientation="horizontal" aria-label="Размер следующего слайда и заметок" tabindex="0" title="Потяните, чтобы изменить размер. Двойной щелчок — сбросить"></div>
+      <div class="pres-split h" id="sh" role="separator" aria-orientation="horizontal" aria-label="Размер следующего слайда и заметок" tabindex="0" title="Двойной щелчок — сбросить размер"></div>
       <section class="pres-notesbox">
         <div class="pres-label pres-notes-head">Заметки
           <span class="pres-jot-st" id="jotst" role="status" aria-live="polite"></span>

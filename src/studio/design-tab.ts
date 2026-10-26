@@ -89,13 +89,13 @@ export function designTabHtml(): string {
 
 export function designPanelHtml(): string {
   return `<div class="st-rpanel" data-panel="design" hidden>
-  ${group('Темы', `<div class="st-dz-strip" id="st-dz-strip" role="group" aria-label="Темы" data-shrink="74 218"></div>${btn('design.themes', 'grid', 'Все темы', { big: true, menu: true, title: 'Все темы на одном слайде-образце. Наведите — тема примерится на ваш слайд' })}`)}
-  ${group('Цвета', `<label class="st-accent" title="Акцентный цвет презентации — первая точка градиента"><input type="color" id="st-accent" aria-label="Акцентный цвет"><span>Акцент</span></label>`
-    + `<button type="button" class="st-accent st-dz-grad" data-cmd="design.gradient" title="Градиент акцента: готовые сочетания и свои точки — до шести цветов" aria-haspopup="true" aria-expanded="false"><i id="st-dz-gsw"></i><span>Градиент<b class="st-caret"></b></span></button>`
-    + `<div class="st-rstack">${chk('design.accent-flow', 'Переливание', 'Цвета градиента акцента плавно текут по акцентным элементам слайда')}</div>`)}
+  ${group('Темы', `<div class="st-dz-strip" id="st-dz-strip" role="group" aria-label="Темы" data-shrink="74 218"></div>${btn('design.themes', 'grid', 'Все темы', { big: true, menu: true, title: 'Все темы' })}`)}
+  ${group('Цвета', `<label class="st-accent" title="Акцентный цвет"><input type="color" id="st-accent" aria-label="Акцентный цвет"><span>Акцент</span></label>`
+    + `<button type="button" class="st-accent st-dz-grad" data-cmd="design.gradient" title="Градиент акцента" aria-haspopup="true" aria-expanded="false"><i id="st-dz-gsw"></i><span>Градиент<b class="st-caret"></b></span></button>`
+    + `<div class="st-rstack">${chk('design.accent-flow', 'Переливание', 'Цвета градиента текут по акцентным элементам')}</div>`)}
   ${group('Шрифты', `<div class="st-rstack st-dz-fonts">${fontBtn('design.font.head', 'Заголовки', 'Шрифт заголовков и крупных чисел')}${fontBtn('design.font.body', 'Текст', 'Шрифт текста презентации')}</div>`)}
-  ${group('Оформление', btn('design.bg', 'image', 'Фон', { big: true, menu: true, title: 'Фон слайдов' }) + btn('design.cards', 'frame', 'Карточки', { big: true, menu: true, title: 'Вид карточек, таблиц и плашек' }) + btn('design.radius', 'corner', 'Углы', { big: true, menu: true, title: 'Скругление углов карточек и картинок' }) + btn('design.backdrop', 'play', 'Анимация', { big: true, menu: true, title: 'Анимированный фон всех слайдов: переливы, волны, звёзды, сеть… У отдельного слайда — свой в панели слайда' }) + btn('design.logo', 'sparkle', 'Логотип', { big: true, menu: true, title: 'Логотип: плашка в цветах темы или логотипа, знак в цвет темы, угол и размер, размер знака в плашке' }))}
-  ${group('Слайды', `<div class="st-rstack">${chk('design.mode.auto', 'Как у зрителя', 'Слайды светлые или тёмные — как тема у того, кто смотрит')}${chk('design.mode.light', 'Всегда светлые', 'Слайды светлые при любой теме у зрителя')}${chk('design.mode.dark', 'Всегда тёмные', 'Слайды тёмные при любой теме у зрителя')}</div>`)}
+  ${group('Оформление', btn('design.bg', 'image', 'Фон', { big: true, menu: true, title: 'Фон слайдов' }) + btn('design.cards', 'frame', 'Карточки', { big: true, menu: true, title: 'Вид карточек, таблиц и плашек' }) + btn('design.radius', 'corner', 'Углы', { big: true, menu: true, title: 'Скругление углов карточек и картинок' }) + btn('design.backdrop', 'play', 'Анимация', { big: true, menu: true, title: 'Анимированный фон всех слайдов' }) + btn('design.logo', 'sparkle', 'Логотип', { big: true, menu: true, title: 'Логотип в углу слайдов' }))}
+  ${group('Слайды', `<div class="st-rstack">${chk('design.mode.auto', 'Как у зрителя', 'Светлые или тёмные — как тема у зрителя')}${chk('design.mode.light', 'Всегда светлые', 'Слайды светлые при любой теме у зрителя')}${chk('design.mode.dark', 'Всегда тёмные', 'Слайды тёмные при любой теме у зрителя')}</div>`)}
 </div>`;
 }
 
@@ -370,7 +370,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     const inDark = dark && !!head;
     const d = inDark ? lookFor(t, 'dark') : t;
     const tune = isBackdrop(d.backdrop) ? tuneHtml({ backdropOpacity: d.backdropOpacity ?? 1, backdropSpeed: d.backdropSpeed ?? 1 }, TOUCH_BACKDROPS.has(d.backdrop) ? t.backdropTouch !== false : undefined) : '';
-    const el = showPopover(at, `${head?.html ?? '<div class="st-plabel">Анимация фона всех слайдов</div>'}${backdropStrip(d.backdrop ?? '')}${tune}<p class="st-bdnote">Наведите — примерка на слайде. Свой фон у слайда — в его свойствах</p>`, (b) => {
+    const el = showPopover(at, `${head?.html ?? '<div class="st-plabel">Анимация фона всех слайдов</div>'}${backdropStrip(d.backdrop ?? '')}${tune}<p class="st-bdnote">Свой фон слайда — в его свойствах</p>`, (b) => {
       if (b.dataset.scope) return head?.pick(b) ?? null;
       const v = b.dataset.backdrop;
       if (v === undefined) return null;
@@ -394,7 +394,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     }
     const base = findTheme(deck, currentPreset(deck));
     const suggestion = base?.my ? base.name : base && base.id !== FILE ? `${base.name} (своя)` : deck.title ? `Тема «${deck.title}»`.slice(0, 50) : 'Моя тема';
-    h.askName(at, 'Сохранить тему', 'Цвета, шрифты (вместе с файлами), фон, карточки, углы и вид слайдов — в «Мои темы» для любой презентации.', suggestion, (name) => void (async () => {
+    h.askName(at, 'Сохранить тему', 'Сохранится в «Мои темы» — для любой презентации.', suggestion, (name) => void (async () => {
       const t = await captureTheme(deck, name);
       // Такая тема уже есть (под любым именем) — второй не появляется: презентация отмечается ею
       const twin = sameTheme(t);
@@ -707,7 +707,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     const el = showPopover(at, `<div class="st-dz-opts radii">`
       + `<button type="button" class="st-dz-opt${fromLogo || tinted ? '' : ' active'}" data-k="theme">${sample('')}<small>Из темы</small></button>`
       + `<button type="button" class="st-dz-opt${fromLogo && !tinted ? ' active' : ''}" data-k="logo">${sample(logoVars)}<small>Из логотипа</small></button>`
-      + `<button type="button" class="st-dz-opt${tinted ? ' active' : ''}" data-k="tint" title="Одноцветный знак с прозрачным фоном перекрашивается в цвета темы">${sample('', true)}<small>В цвет темы</small></button></div>`
+      + `<button type="button" class="st-dz-opt${tinted ? ' active' : ''}" data-k="tint" title="Перекрасить одноцветный знак в цвета темы">${sample('', true)}<small>В цвет темы</small></button></div>`
       // Угол и размер на обычных слайдах
       + `<div class="st-dz-corners">${CORNER_POS.map(([v, l]) => `<button type="button" class="st-dz-corner${(corner().pos ?? 'tr') === v ? ' active' : ''}" data-pos="${v}" title="${l}" aria-label="${l}"><i class="at-${v}"></i></button>`).join('')}`
       + `<span class="st-dz-sep"></span>${CORNER_SIZE.map(([v, l]) => `<button type="button" class="st-dz-corner${(corner().size ?? '') === v ? ' active' : ''}" data-size="${v}" title="${l}" aria-label="${l}"><i class="at-tr size-${v || 'm'}"></i></button>`).join('')}</div>`

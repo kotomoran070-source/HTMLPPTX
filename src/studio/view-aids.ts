@@ -127,7 +127,7 @@ export class ViewAids {
     const k = this.scale();
     this.grid.style.setProperty('--gs', `${this.state.step * k}px`);
     this.layer.innerHTML = (['v', 'h'] as const).flatMap((axis) => this.lines[axis].map((at, i) =>
-      `<i class="st-guide ${axis}" data-g="${axis}" data-i="${i}" style="${axis === 'v' ? 'left' : 'top'}:${at * k}px" title="${Math.round(at)} — потяните, чтобы переместить; за край слайда — удалить"></i>`)).join('');
+      `<i class="st-guide ${axis}" data-g="${axis}" data-i="${i}" style="${axis === 'v' ? 'left' : 'top'}:${at * k}px" title="${Math.round(at)} · за край слайда — удалить"></i>`)).join('');
     if (this.state.ruler) this.drawRulers(k);
   }
 

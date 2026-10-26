@@ -57,13 +57,13 @@ export class ImageEditor {
     <button type="button" data-i="cover" title="Заполнить рамку">${icon('cover')}<span>Заполнить</span></button>
   </span>
   <label class="edzoom" data-g="photo" title="Масштаб">${icon('search')}<input type="range" data-i="zoom" min="30" max="300" step="5" aria-label="Масштаб"><output></output></label>
-  <button type="button" data-i="crop" data-g="crop" title="Кадр: тяните картинку внутри рамки, как «Обрезка» в PowerPoint. Готово — Esc или щелчок мимо">${icon('crop')}<span>Кадр</span></button>
+  <button type="button" data-i="crop" data-g="crop" title="Кадр: тяните снимок в рамке (Esc — готово)">${icon('crop')}<span>Кадр</span></button>
   <span class="edtip" data-g="tip">${icon('move')} тяните картинку, чтобы сдвинуть</span>
   <button type="button" data-i="reset" data-g="framed" title="Сбросить кадр">Сбросить кадр</button>
   <i class="edsep" data-g="img"></i>
   <span class="edseg" data-g="img" role="group" aria-label="Тёмная тема">
     <button type="button" data-i="dark">${icon('moon')}<span>Тёмная тема</span></button>
-    <button type="button" data-i="undark" title="Убрать вариант для тёмной темы: в обеих темах будет основная картинка" aria-label="Убрать вариант для тёмной темы">${icon('close')}</button>
+    <button type="button" data-i="undark" title="Убрать вариант для тёмной темы" aria-label="Убрать вариант для тёмной темы">${icon('close')}</button>
   </span>
   <i class="edsep"></i>
   <button type="button" data-i="remove" class="danger" title="Убрать картинку (Delete)" aria-label="Убрать картинку">${icon('close')}</button>
@@ -258,7 +258,7 @@ export class ImageEditor {
         case 'dark': this.host.pick(darkPath(s.path)); break;
         case 'undark': {
           const p = darkPath(s.path);
-          if (this.host.commit((d) => setAt(d, p, undefined), { rebuild: true })) this.host.toast('Вариант для тёмной темы убран. Вернуть: Ctrl+Z', 3000);
+          if (this.host.commit((d) => setAt(d, p, undefined), { rebuild: true })) this.host.toast('Вариант для тёмной темы убран. Вернуть — Ctrl+Z', 3000);
           break;
         }
         case 'crop': this.setCrop(!this.cropping); break;
@@ -272,7 +272,7 @@ export class ImageEditor {
           // Кадр картинки с кадрами: убирается этот кадр, остальные остаются
           const fr = owner && !logo ? frameAt(owner, (p) => getAt(this.host.deck(), p)) : null;
           if (fr) {
-            if (this.host.commit((d) => removeFrame(getAt(d, fr.block) as Record<string, unknown>, fr.k), { rebuild: true })) this.host.toast('Кадр убран. Вернуть: Ctrl+Z', 2500);
+            if (this.host.commit((d) => removeFrame(getAt(d, fr.block) as Record<string, unknown>, fr.k), { rebuild: true })) this.host.toast('Кадр убран. Вернуть — Ctrl+Z', 2500);
             break;
           }
           if (this.host.commit((d) => {
@@ -281,7 +281,7 @@ export class ImageEditor {
             // Настройки кадра без картинки не нужны
             if (owner && !logo) for (const k of ['fit', 'position', 'zoom']) setAt(d, [...owner, k], undefined);
           }, { rebuild: true })) {
-            this.host.toast(logo ? 'Логотип убран со всех слайдов. Вернуть: Ctrl+Z' : 'Картинка убрана. Вернуть: Ctrl+Z', 3000);
+            this.host.toast(logo ? 'Логотип убран со всех слайдов. Вернуть — Ctrl+Z' : 'Картинка убрана. Вернуть — Ctrl+Z', 3000);
           }
           break;
         }

@@ -154,7 +154,7 @@ export class FontPicker {
     });
     if (!this.shown.length) html = `<div class="fontpick-none">Нет шрифта «${esc(this.q.value.trim())}»</div>`;
     if (localFontsState() === 'ask') html += `<button type="button" class="fontpick-ask" data-ask>Показать шрифты компьютера…</button>`;
-    if (addFile) html += `<button type="button" class="fontpick-ask" data-file title="Файл WOFF2, WOFF, TTF или OTF — его можно и просто перетащить на страницу">Добавить шрифт из файла…</button>`;
+    if (addFile) html += `<button type="button" class="fontpick-ask" data-file title="WOFF2, WOFF, TTF или OTF (можно перетащить)">Добавить шрифт из файла…</button>`;
     this.list.innerHTML = html;
     this.list.querySelectorAll('[data-css]').forEach((o) => this.seen.observe(o));
     const cur = this.shown.findIndex((f) => f.value === this.cur);

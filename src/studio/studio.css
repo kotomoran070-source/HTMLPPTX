@@ -170,7 +170,6 @@ body.studio { background: var(--alt); }
 .st-flt-grid.f .st-smp { height: 54px; }
 .st-flt-grid.f .st-smp-pic { width: 54px; height: 36px; }
 .st-flt-grid.f .st-smp-pic.img-round { width: 36px; }
-.st-flt-note { margin: 10px 2px 0; font-size: 11.5px; color: var(--mu); }
 .st-lkpop .st-adj { margin-top: 10px; }
 /* «Ещё фигуры»: 21 форма — по семь в ряд, всё видно без прокрутки */
 .st-kindpop { width: 760px; max-width: calc(100vw - 24px); max-height: none; }

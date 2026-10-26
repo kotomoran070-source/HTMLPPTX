@@ -246,6 +246,6 @@ export function explodeSlide(host: Host, index: number): boolean {
     d.slides[index] = next;
   }, { rebuild: true });
   if (!ok) return false;
-  editor.toast(`Слайд разобран: ${objects.length} ${objects.length % 10 === 1 && objects.length % 100 !== 11 ? 'объект' : objects.length % 10 >= 2 && objects.length % 10 <= 4 && (objects.length % 100 < 12 || objects.length % 100 > 14) ? 'объекта' : 'объектов'}. Вернуть: Ctrl+Z`, 3500);
+  editor.toast(`Слайд разобран: ${objects.length} ${objects.length % 10 === 1 && objects.length % 100 !== 11 ? 'объект' : objects.length % 10 >= 2 && objects.length % 10 <= 4 && (objects.length % 100 < 12 || objects.length % 100 > 14) ? 'объекта' : 'объектов'}. Вернуть — Ctrl+Z`, 3500);
   return true;
 }

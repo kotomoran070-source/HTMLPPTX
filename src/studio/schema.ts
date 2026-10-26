@@ -119,7 +119,7 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'caption', label: 'Подпись', type: 'text' },
       { k: 'alt', label: 'Описание для незрячих', type: 'text' },
       { k: 'height', label: 'Высота, px', type: 'number', min: 40, max: 720, placeholder: 'по картинке' },
-      { k: 'camera', label: 'Наплыв камеры', type: 'select', options: [['', 'Нет'], ['in', 'Приближение'], ['out', 'Отдаление'], ['pan', 'Панорама']], hint: 'При показе фото медленно приближается, отдаляется или плывёт вбок' },
+      { k: 'camera', label: 'Наплыв камеры', type: 'select', options: [['', 'Нет'], ['in', 'Приближение'], ['out', 'Отдаление'], ['pan', 'Панорама']], hint: 'Медленное движение фото при показе' },
       ...frame,
       // Картинка с кадрами (frames.ts): первый кадр — поля выше, остальные — здесь
       {
@@ -376,7 +376,7 @@ export const BLOCKS: Record<string, Schema> = {
     ],
   },
   marquee: {
-    about: 'Строка бежит вбок без конца. Путь к картинке вместо текста пункта — логотип.',
+    about: 'Путь к картинке вместо текста пункта — логотип.',
     fields: [
       { k: 'items', label: 'Пункты', type: 'strings', item: 'Пункт' },
       { k: 'variant', label: 'Вид', type: 'select', options: [['', 'Текст через точку'], ['chips', 'Плашки'], ['outline', 'Через один контуром']] },
@@ -443,7 +443,7 @@ export const BLOCKS: Record<string, Schema> = {
     ],
   },
   venn: {
-    about: 'Два-три круга пересекаются, общее — в середине; четыре и больше — цепочкой.',
+    about: 'Два-три круга пересекаются, четыре и больше — цепочкой.',
     fields: [
       { k: 'variant', label: 'Вид кругов', type: 'select', options: [['', 'Прозрачные'], ['filled', 'Залитые']] },
       { k: 'center', label: 'Общее в середине', type: 'text', placeholder: 'Наш продукт' },
@@ -530,7 +530,7 @@ export const BLOCKS: Record<string, Schema> = {
     ],
   },
   sandbox: {
-    about: 'Код слева, результат справа. При показе код правится на слайде, без сохранения.',
+    about: 'Код слева, результат справа; при показе код можно править.',
     fields: [
       { k: 'title', label: 'Имя файла в заголовке', type: 'text', placeholder: 'index.html' },
       { k: 'size', label: 'Кегль кода, px', type: 'number', min: 9, max: 40, placeholder: '15' },
@@ -541,7 +541,7 @@ export const BLOCKS: Record<string, Schema> = {
     ],
   },
   embed: {
-    about: 'HTML, CSS и JavaScript в отдельной рамке. HTML-файл можно перетащить на слайд.',
+    about: 'HTML, CSS и JavaScript в своей рамке.',
     fields: [
       { k: 'poster', label: 'Заставка', type: 'image' },
       { k: 'theme', label: 'Цвета темы внутри вставки', type: 'bool' },

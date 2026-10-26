@@ -130,7 +130,7 @@ export function tuneHtml(values: Partial<Record<TuneKey, number>>, touch?: boole
     const t = TUNE[k];
     const v = flip(t, values[k] ?? 1);
     return `<label><span>${t.label}</span><input type="range" data-tune="${k}" min="${t.min}" max="${t.max}" step="${t.step}" value="${v}"><output>${t.fmt(v)}</output></label>`;
-  }).join('')}${touch === undefined ? '' : `<label class="st-p-check" title="Наведение и щелчок по слайду меняют фон — у зрителей и от мыши докладчика. Выключите, если отвлекает"><input type="checkbox" data-tune="backdropTouch"${touch ? ' checked' : ''}><span>Отвечает на мышь и щелчки</span></label>`}</div>`;
+  }).join('')}${touch === undefined ? '' : `<label class="st-p-check" title="Фон откликается на мышь и щелчки"><input type="checkbox" data-tune="backdropTouch"${touch ? ' checked' : ''}><span>Отвечает на мышь и щелчки</span></label>`}</div>`;
 }
 
 /**

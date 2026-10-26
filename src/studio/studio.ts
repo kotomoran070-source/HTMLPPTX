@@ -135,7 +135,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     <div class="st-top-r">
       <button type="button" class="st-status" id="st-status" role="status" aria-live="polite"></button>
       <button class="btn ghost small st-export" type="button" data-cmd="file.export" title="Скачать один HTML-файл или PDF" aria-haspopup="true">${icon('save')}<span>Экспорт</span></button>
-<button class="ibtn small" type="button" data-cmd="ui.ribbon" aria-label="Настроить ленту" title="Настроить ленту: простая, полная, компактная или своя">${icon('sliders')}</button>
+<button class="ibtn small" type="button" data-cmd="ui.ribbon" aria-label="Настроить ленту" title="Настроить ленту">${icon('sliders')}</button>
       <button class="ibtn small theme-btn" id="st-theme" type="button" aria-label="Тема интерфейса" title="Тема интерфейса (T)">${icon('sun', 'ic sun')}${icon('moon', 'ic moon')}</button>
       <button class="btn primary small" type="button" data-cmd="show.current" title="Показ с текущего слайда (Shift+F5)">${icon('play')}<span>Показ</span></button>
     </div>
@@ -143,47 +143,47 @@ export function startStudio(deck: Deck, deckKey: string): void {
   <div class="st-ribbon" id="st-ribbon" data-ed-keep>
     <div class="st-rpanel" data-panel="home">
       ${group('Слайды', rb('slide.new', 'slide-add', 'Новый слайд', { big: true, key: 'Ctrl+M', menu: true }) + `<div class="st-rstack">${rb('slide.dup', 'copy', 'Дублировать')}${rb('slide.del', 'trash', 'Удалить')}</div>`)}
-      ${group('Правка', `<div class="st-rstack">${rb('undo', 'undo', 'Отменить', { key: 'Ctrl+Z' })}${rb('redo', 'redo', 'Повторить', { key: 'Ctrl+Y' })}${rb('format.painter', 'brush', 'Формат по образцу', { title: 'Перенести оформление на другой объект. Двойной щелчок — на несколько объектов' })}</div><div class="st-rstack">${rb('edit.find', 'search', 'Найти', { key: 'Ctrl+F', title: 'Найти и заменить текст во всей презентации (Ctrl+F, замена — Ctrl+H)' })}</div>`)}
+      ${group('Правка', `<div class="st-rstack">${rb('undo', 'undo', 'Отменить', { key: 'Ctrl+Z' })}${rb('redo', 'redo', 'Повторить', { key: 'Ctrl+Y' })}${rb('format.painter', 'brush', 'Формат по образцу', { title: 'Перенести оформление (двойной щелчок — на несколько объектов)' })}</div><div class="st-rstack">${rb('edit.find', 'search', 'Найти', { key: 'Ctrl+F', title: 'Найти и заменить (Ctrl+F, Ctrl+H)' })}</div>`)}
       ${group('Текст', '<div id="st-textdock" class="st-textdock"></div>')}
       ${group('Вставка', rb('insert.blocks', 'grid', 'Блоки', { big: true, menu: true, title: 'Готовые блоки: карточки, графики, схемы' }) + `<div class="st-rstack">${rb('insert.text', 'text', 'Надпись')}${rb('insert.image', 'image', 'Картинка')}</div>`)}
-      ${group('Упорядочить', `<div class="st-rstack">${split('obj.forward', 'front', 'Вперёд', 'Переместить вперёд — над ближайшим объектом (Ctrl+])', 'Вперёд: на шаг или на передний план')}${split('obj.backward', 'back', 'Назад', 'Переместить назад — под ближайший объект (Ctrl+[)', 'Назад: на шаг или на задний план')}${rb('obj.lock', 'lock', 'Закрепить', { title: 'Объект не выделяется и не двигается мышью. Открепить — в области выделения (Alt+F10)' })}</div><div class="st-rstack">${rb('obj.group', 'group', 'Сгруппировать', { key: 'Ctrl+G', title: 'Объединить выделенные объекты в группу' })}${rb('obj.ungroup', 'ungroup', 'Разгруппировать', { key: 'Ctrl+Shift+G', title: 'Разделить на отдельные объекты' })}${rb('obj.free', 'move', 'Сделать свободным', { title: 'Свободно перемещать и менять размер' })}</div>`)}
-      ${group('Выровнять', `<div class="st-rgrid">${rb('align.left', 'obj-left', 'Слева')}${rb('align.center', 'obj-center', 'По центру')}${rb('align.right', 'obj-right', 'Справа')}${rb('align.top', 'obj-top', 'Сверху')}${rb('align.middle', 'obj-middle', 'Посередине')}${rb('align.bottom', 'obj-bottom', 'Снизу')}</div><div class="st-rstack">${rb('dist.h', 'dist-h', 'По ширине', { title: 'Равные промежутки по горизонтали' })}${rb('dist.v', 'dist-v', 'По высоте', { title: 'Равные промежутки по вертикали' })}</div><div class="st-rstack">${rb('arrange.row', 'eq-cols', 'В ряд', { title: 'Выстроить в ряд: промежутки держатся сами — объект стал шире, соседи сдвигаются' })}${rb('arrange.col', 'list', 'В столбец', { title: 'Выстроить в столбец: промежутки держатся сами' })}</div>`)}
+      ${group('Упорядочить', `<div class="st-rstack">${split('obj.forward', 'front', 'Вперёд', 'Переместить вперёд — над ближайшим объектом (Ctrl+])', 'Вперёд: на шаг или на передний план')}${split('obj.backward', 'back', 'Назад', 'Переместить назад — под ближайший объект (Ctrl+[)', 'Назад: на шаг или на задний план')}${rb('obj.lock', 'lock', 'Закрепить', { title: 'Мышь не сдвинет объект. Открепить — Alt+F10' })}</div><div class="st-rstack">${rb('obj.group', 'group', 'Сгруппировать', { key: 'Ctrl+G', title: 'Объединить выделенные объекты в группу' })}${rb('obj.ungroup', 'ungroup', 'Разгруппировать', { key: 'Ctrl+Shift+G', title: 'Разделить на отдельные объекты' })}${rb('obj.free', 'move', 'Сделать свободным', { title: 'Свободно перемещать и менять размер' })}</div>`)}
+      ${group('Выровнять', `<div class="st-rgrid">${rb('align.left', 'obj-left', 'Слева')}${rb('align.center', 'obj-center', 'По центру')}${rb('align.right', 'obj-right', 'Справа')}${rb('align.top', 'obj-top', 'Сверху')}${rb('align.middle', 'obj-middle', 'Посередине')}${rb('align.bottom', 'obj-bottom', 'Снизу')}</div><div class="st-rstack">${rb('dist.h', 'dist-h', 'По ширине', { title: 'Равные промежутки по горизонтали' })}${rb('dist.v', 'dist-v', 'По высоте', { title: 'Равные промежутки по вертикали' })}</div><div class="st-rstack">${rb('arrange.row', 'eq-cols', 'В ряд', { title: 'Ряд с постоянными промежутками' })}${rb('arrange.col', 'list', 'В столбец', { title: 'Столбец с постоянными промежутками' })}</div>`)}
     </div>
     <div class="st-rpanel" data-panel="insert" hidden>
       ${group('Слайды', rb('slide.new', 'slide-add', 'Новый слайд', { big: true, key: 'Ctrl+M', menu: true }))}
       ${group('Текст', rb('insert.text', 'text', 'Надпись', { big: true, title: 'Текст в любом месте слайда' }) + rb('ins.gal.text', 'list', 'Текст', { big: true, menu: true, title: 'Заголовок, абзац, список, цитата, метки' }))}
       ${group('Иллюстрации', rb('insert.image', 'image', 'Картинка', { big: true }) + rb('ins.gal.shapes', 'frame', 'Фигуры', { big: true, menu: true, title: 'Фигуры, линии, стрелки и плашки' }))}
-      ${group('Данные', rb('ins.gal.table', 'eq-cols', 'Таблица', { big: true, menu: true, title: 'Готовые таблицы разных стилей' }) + rb('ins.gal.chart', 'chart', 'Диаграмма', { big: true, menu: true, title: 'Графики и столбцы' }) + rb('ins.gal.numbers', 'hash', 'Числа', { big: true, menu: true, title: 'Ключевые числа, прогресс, «ключ — значение»' }) + rb('ins.gal.math', 'sigma', 'Уравнение', { big: true, menu: true, title: 'Формулы: дроби, корни, суммы, интегралы, живые числа' }))}
-      ${group('Схемы', rb('ins.gal.schemes', 'cycle', 'Схемы', { big: true, menu: true, title: 'Цикл, воронка, пирамида, хронология, матрица и другие' }) + rb('ins.gal.cards', 'grid', 'Карточки', { big: true, menu: true, title: 'Карточки, «было — стало», панель' }))}
+      ${group('Данные', rb('ins.gal.table', 'eq-cols', 'Таблица', { big: true, menu: true, title: 'Готовые таблицы разных стилей' }) + rb('ins.gal.chart', 'chart', 'Диаграмма', { big: true, menu: true, title: 'Графики и столбцы' }) + rb('ins.gal.numbers', 'hash', 'Числа', { big: true, menu: true, title: 'Ключевые числа, прогресс, «ключ — значение»' }) + rb('ins.gal.math', 'sigma', 'Уравнение', { big: true, menu: true, title: 'Формулы и живые числа' }))}
+      ${group('Схемы', rb('ins.gal.schemes', 'cycle', 'Схемы', { big: true, menu: true, title: 'Цикл, воронка, пирамида, хронология…' }) + rb('ins.gal.cards', 'grid', 'Карточки', { big: true, menu: true, title: 'Карточки, «было — стало», панель' }))}
       ${group('Медиа', rb('ins.video', 'play', 'Видео', { big: true }) + rb('ins.model', 'layers', '3D-модель', { big: true }) + rb('ins.gal.live', 'sliders', 'Интерактив', { big: true, menu: true, title: 'Регуляторы, живой код, песочница, кнопки' }))}
       ${group('Все блоки', rb('insert.blocks', 'sparkle', 'Блоки', { big: true, menu: true, title: 'Все готовые блоки и ваши шаблоны' }))}
     </div>
     ${designPanelHtml()}
     ${animPanelHtml()}
     <div class="st-rpanel" data-panel="show" hidden>
-      ${group('Слайд', `<div class="st-rstack">${chk('show.hide', 'Скрыть слайд', 'Слайд остаётся в презентации, но при показе и в PDF пропускается')}</div>`)}
+      ${group('Слайд', `<div class="st-rstack">${chk('show.hide', 'Скрыть слайд', 'Пропускать при показе и в PDF')}</div>`)}
       ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'next', 'С текущего слайда', { big: true, key: 'Shift+F5' })
         + rb('show.presenter', 'presenter', 'Режим докладчика', { big: true, key: 'Alt+F5', title: 'Показ на втором экране, заметки — на вашем' })
-        + rb('show.auto', 'autoplay', 'Автопоказ', { big: true, title: 'Показ с начала, слайды листаются сами: когда доиграли анимации и ролики — через заданное время. A — пауза' }))}
-      ${group('Время', `<div class="st-rstack">${rb('show.auto.after', 'clock', 'Слайд 5 с', { menu: true, title: 'Сколько стоит слайд при автопоказе — после того, как доиграли его анимации и ролики' })}`
-        + `${rb('show.plan', 'stopwatch', 'Без плана', { menu: true, title: 'План доклада: у таймера в окне докладчика — сколько осталось и запас или отставание' })}</div>`
-        + `<div class="st-rstack">${chk('show.auto.loop', 'По кругу', 'Автопоказ: после последнего слайда — снова с первого')}${chk('show.auto.start', 'Сразу при открытии', 'Презентация открывается автопоказом: для стенда или чтобы отправить посмотреть. A — пауза')}</div>`)}
-      ${group('На экране', rb('show.progress', 'pg-line', 'Прогресс', { big: true, menu: true, title: 'Сколько презентации показано — сверху экрана: линия, ячейки по слайдам, номер слайда или ничего' })
-        + `<div class="st-rstack">${chk('show.auto.timeline', 'Таймлайн автопоказа', 'Тонкая полоса внизу экрана во время автопоказа: просветы — шаги слайда, заливка идёт к следующему. Чтобы рассказывать по экрану, без окна докладчика')}</div>`)}
+        + rb('show.auto', 'autoplay', 'Автопоказ', { big: true, title: 'Показ листается сам (A — пауза)' }))}
+      ${group('Время', `<div class="st-rstack">${rb('show.auto.after', 'clock', 'Слайд 5 с', { menu: true, title: 'Сколько слайд стоит при автопоказе' })}`
+        + `${rb('show.plan', 'stopwatch', 'Без плана', { menu: true, title: 'План по времени для таймера докладчика' })}</div>`
+        + `<div class="st-rstack">${chk('show.auto.loop', 'По кругу', 'После последнего слайда — снова с первого')}${chk('show.auto.start', 'Сразу при открытии', 'Открывать сразу автопоказом — для стенда')}</div>`)}
+      ${group('На экране', rb('show.progress', 'pg-line', 'Прогресс', { big: true, menu: true, title: 'Полоса прогресса у зрителей' })
+        + `<div class="st-rstack">${chk('show.auto.timeline', 'Таймлайн автопоказа', 'Полоса времени внизу экрана при автопоказе')}</div>`)}
     </div>
     <div class="st-rpanel" data-panel="tools" hidden>
-      ${group('Презентация', rb('tools.summary', 'chart', 'Сводка', { big: true, title: 'Слайды, слова, время доклада, тяжёлые и лишние файлы, шрифты' }))}
-      ${group('Оформление', rb('tools.tidy', 'sparkle', 'Привести в порядок', { big: true, title: 'Найти почти одинаковые размеры, отступы и цвета на разных слайдах и выровнять их' }))}
+      ${group('Презентация', rb('tools.summary', 'chart', 'Сводка', { big: true, title: 'Слайды, время доклада, файлы и шрифты' }))}
+      ${group('Оформление', rb('tools.tidy', 'sparkle', 'Привести в порядок', { big: true, title: 'Выровнять почти одинаковые размеры, отступы и цвета' }))}
       ${group('Шрифты', rb('tools.font', 'text', 'Заменить шрифт', { big: true, title: 'Один шрифт на другой во всей презентации' }))}
       ${group('Заметки', rb('tools.notes-clear', 'notes', 'Удалить заметки', { big: true, title: 'Заметки докладчика со всех слайдов' }))}
       ${group('Программа', rb('tools.licenses', 'shield', 'Лицензии', { big: true, title: 'Лицензии Slideria, её библиотек и шрифтов' }))}
     </div>
     <div class="st-rpanel" data-panel="view" hidden>
-      ${group('Панели', rb('view.slides', 'grid', 'Слайды', { big: true, key: 'Ctrl+Shift+1', title: 'Список слайдов слева' }) + rb('view.props', 'sliders', 'Свойства', { big: true, key: 'Ctrl+Shift+2', title: 'Панель свойств справа' }) + rb('view.notes', 'notes', 'Заметки', { big: true, key: 'Ctrl+Shift+3' }) + rb('view.code', 'terminal', 'Код слайда', { big: true, key: 'Ctrl+`', title: 'Код слайда (YAML), стили (CSS) и анимации (HTML/JS)' }) + rb('view.layers', 'layers', 'Область выделения', { big: true, key: 'Alt+F10', title: 'Объекты слайда списком: скрыть, закрепить, поменять порядок' }))}
-      ${group('Показать', `<div class="st-rstack">${chk('view.ruler', 'Линейка', 'Линейка сверху и слева; из неё вытягиваются направляющие')}${chk('view.grid', 'Сетка', 'Сетка на слайде, объекты прилипают к ней (Shift+F9)')}${chk('view.guides', 'Направляющие', 'Свои направляющие; объекты прилипают к ним (Alt+F9)')}</div><div class="st-rstack">${rb('view.grid-step', 'grid', 'Шаг сетки', { menu: true })}${rb('view.guides-reset', 'reset', 'Сбросить направляющие', { title: 'Оставить одну вертикальную и одну горизонтальную по центру' })}</div>`)}
-      ${group('Скорость', `<div class="st-rstack">${chk('view.lite', 'Облегчённый режим', 'Если редактор подтормаживает: живые фоны, вставки, 3D-модели и анимации на слайде замирают в конечном виде. «Просмотр» и показ — как обычно')}</div>`)}
+      ${group('Панели', rb('view.slides', 'grid', 'Слайды', { big: true, key: 'Ctrl+Shift+1', title: 'Список слайдов слева' }) + rb('view.props', 'sliders', 'Свойства', { big: true, key: 'Ctrl+Shift+2', title: 'Панель свойств справа' }) + rb('view.notes', 'notes', 'Заметки', { big: true, key: 'Ctrl+Shift+3' }) + rb('view.code', 'terminal', 'Код слайда', { big: true, key: 'Ctrl+`', title: 'Код слайда (YAML), стили (CSS) и анимации (HTML/JS)' }) + rb('view.layers', 'layers', 'Область выделения', { big: true, key: 'Alt+F10', title: 'Объекты слайда списком' }))}
+      ${group('Показать', `<div class="st-rstack">${chk('view.ruler', 'Линейка', 'Линейки; из них тянутся направляющие')}${chk('view.grid', 'Сетка', 'Сетка с прилипанием (Shift+F9)')}${chk('view.guides', 'Направляющие', 'Направляющие с прилипанием (Alt+F9)')}</div><div class="st-rstack">${rb('view.grid-step', 'grid', 'Шаг сетки', { menu: true })}${rb('view.guides-reset', 'reset', 'Сбросить направляющие', { title: 'Оставить две — по центру' })}</div>`)}
+      ${group('Скорость', `<div class="st-rstack">${chk('view.lite', 'Облегчённый режим', 'Если редактор тормозит: движение на слайде замирает. Показ — как обычно')}</div>`)}
       ${group('Масштаб', rb('view.fit', 'fullscreen', 'Вписать', { big: true }) + `<div class="st-rstack">${rb('view.zoom-in', 'plus', 'Крупнее')}${rb('view.zoom-out', 'minus', 'Мельче')}</div>`)}
-      ${group('Интерфейс', rb('ui.ribbon', 'sliders', 'Настроить ленту', { big: true, title: 'Какие вкладки и кнопки видны. Или правый щелчок по ленте' })
+      ${group('Интерфейс', rb('ui.ribbon', 'sliders', 'Настроить ленту', { big: true, title: 'Какие вкладки и кнопки видны' })
         + `<div class="st-rstack">${rb('view.ui-theme', 'sun', 'Тема', { menu: true, title: 'Тема программы: светлая, тёмная или как в системе (T)' })}${rb('view.slides-look', 'frame', 'Вид слайдов', { menu: true, title: 'Слайды в редакторе: как интерфейс, светлые или тёмные' })}${rb('view.ui-color', 'fill', 'Цвет', { menu: true, title: 'Цвет кнопок и панелей программы' })}</div>`
         + '<input type="color" id="st-uiac" class="st-uiac" tabindex="-1" aria-label="Свой цвет интерфейса">')}
     </div>
@@ -191,12 +191,12 @@ export function startStudio(deck: Deck, deckKey: string): void {
   </div>
   <div class="st-body" id="st-body">
     <aside class="st-slides" id="st-slides" aria-label="Слайды"></aside>
-    <div class="st-split v" id="st-sl" role="separator" aria-orientation="vertical" aria-label="Ширина ленты слайдов" tabindex="0" title="Потяните, чтобы изменить ширину. Двойной щелчок — сбросить"></div>
-    <div class="st-split v" id="st-sr" role="separator" aria-orientation="vertical" aria-label="Ширина панели свойств" tabindex="0" title="Потяните, чтобы изменить ширину. Двойной щелчок — сбросить"></div>
+    <div class="st-split v" id="st-sl" role="separator" aria-orientation="vertical" aria-label="Ширина ленты слайдов" tabindex="0" title="Двойной щелчок — сбросить ширину"></div>
+    <div class="st-split v" id="st-sr" role="separator" aria-orientation="vertical" aria-label="Ширина панели свойств" tabindex="0" title="Двойной щелчок — сбросить ширину"></div>
     <main class="st-main">
       <div class="st-work">
         <section class="st-code" id="st-code" data-ed-keep hidden aria-label="Код слайда"></section>
-        <div class="st-split v st-sc" id="st-sc" role="separator" aria-orientation="vertical" aria-label="Ширина кода" tabindex="0" title="Потяните, чтобы изменить ширину. Двойной щелчок — сбросить" hidden></div>
+        <div class="st-split v st-sc" id="st-sc" role="separator" aria-orientation="vertical" aria-label="Ширина кода" tabindex="0" title="Двойной щелчок — сбросить ширину" hidden></div>
         <div class="st-view">
           <nav class="st-crumbs" id="st-crumbs" aria-label="Где находится выделенное" data-ed-keep></nav>
           <div class="st-canvas" id="st-canvas"><div class="st-paper" id="st-paper"></div></div>
@@ -204,13 +204,13 @@ export function startStudio(deck: Deck, deckKey: string): void {
         <section class="st-layers" id="st-layers" data-ed-keep hidden aria-label="Область выделения"></section>
       </div>
       <section class="st-notes" id="st-notes" data-ed-keep>
-        <div class="st-split h" id="st-sn" role="separator" aria-orientation="horizontal" aria-label="Высота заметок" tabindex="0" title="Потяните, чтобы изменить высоту. Двойной щелчок — сбросить"></div>
+        <div class="st-split h" id="st-sn" role="separator" aria-orientation="horizontal" aria-label="Высота заметок" tabindex="0" title="Двойной щелчок — сбросить высоту"></div>
         <label for="st-notes-text" id="st-notes-label">Заметки докладчика</label>
         <textarea id="st-notes-text" spellcheck="true" placeholder="Что сказать на этом слайде. Видно только в окне докладчика."></textarea>
       </section>
     </main>
     <section class="st-apane" id="st-apane" data-ed-keep hidden aria-label="Область анимации"></section>
-    <div class="st-split v st-sa" id="st-sa" role="separator" aria-orientation="vertical" aria-label="Ширина области анимации" tabindex="0" title="Потяните, чтобы изменить ширину. Двойной щелчок — сбросить" hidden></div>
+    <div class="st-split v st-sa" id="st-sa" role="separator" aria-orientation="vertical" aria-label="Ширина области анимации" tabindex="0" title="Двойной щелчок — сбросить ширину" hidden></div>
     <aside class="st-props" id="st-props" aria-label="Свойства" data-ed-keep></aside>
   </div>
   <footer class="st-foot" data-ed-keep>
@@ -671,14 +671,14 @@ export function startStudio(deck: Deck, deckKey: string): void {
   const EXPORTS: [string, string, string, string][] = [
     ['clean', 'play', 'HTML для показа', 'Один файл для просмотра в браузере'],
     ['edit', 'pencil', 'HTML с правкой', 'Файл, в котором можно править текст'],
-    ['pptx', 'layers', 'PowerPoint', 'Файл PPTX: тексты, фигуры, таблицы и диаграммы правятся в PowerPoint'],
+    ['pptx', 'layers', 'PowerPoint', 'PPTX: тексты, фигуры и таблицы правятся в PowerPoint'],
     ['pdf', 'notes', 'PDF', 'Один слайд на странице'],
   ];
   /** Качество файла: запоминается для следующих экспортов */
   const QUALITIES: [ExportQuality, string, string][] = [
-    ['compact', 'Компактное', 'Файл в разы меньше: картинки сжаты, GIF в HTML — в WebP. Для почты и мессенджеров'],
-    ['normal', 'Обычное', 'Картинки как есть, сложная графика в PowerPoint — в двойной чёткости'],
-    ['high', 'Высокое', 'Сложная графика в PowerPoint — в тройной чёткости: для экранов 4K и печати. HTML — как «Обычное»'],
+    ['compact', 'Компактное', 'Файл в разы меньше — для почты и мессенджеров'],
+    ['normal', 'Обычное', 'Картинки как есть'],
+    ['high', 'Высокое', 'Для экранов 4K и печати'],
   ];
   const QUALITY_KEY = 'htmlpptx-export-quality';
   let quality: ExportQuality = 'normal';
@@ -1040,7 +1040,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       const at = index + 1;
       if (ed.commit((d) => { res.apply(d); d.slides.splice(at, 0, ...copies); })) {
         go(at);
-        ed.toast(`Вставлено из другой презентации: ${copies.length > 1 ? `${copies.length} слайда` : 'слайд'}.${files} Вернуть: Ctrl+Z`, 3500);
+        ed.toast(`Вставлено из другой презентации: ${copies.length > 1 ? `${copies.length} слайда` : 'слайд'}.${files} Вернуть — Ctrl+Z`, 3500);
       }
       return;
     }
@@ -1058,7 +1058,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       s.free.push(...blocks);
     }, { rebuild: true })) return;
     ed.selectMany(i, blocks.map((_b, k) => from + k));
-    ed.toast(`Вставлено из другой презентации.${files} Вернуть: Ctrl+Z`, 3000);
+    ed.toast(`Вставлено из другой презентации.${files} Вернуть — Ctrl+Z`, 3000);
   }
 
   function pasteClip(clip: Clip): void {
