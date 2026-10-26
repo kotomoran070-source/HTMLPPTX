@@ -7,6 +7,7 @@ import { icon } from '../components/icons';
 import { backdropStill, previewBackdrop } from '../components/backdrop/backdrop';
 import { BACKDROPS, backdropName, isBackdrop, type BackdropKind } from '../engine/backdrops';
 import { esc } from '../engine/html';
+import { onSlidesLook, onThemeChange } from '../engine/theme';
 
 /**
  * Плитки: cur — выбранное значение ('' — по умолчанию). theme — фон темы для слайда:
@@ -72,6 +73,12 @@ export function bindBackdropStrip(root: HTMLElement, stage: () => HTMLElement, t
   strip.addEventListener('pointerleave', () => previewBackdrop(stage(), null));
   strip.addEventListener('click', () => previewBackdrop(stage(), null));
   fillStills(strip, stage().querySelector<HTMLElement>('.slide.on'));
+  // Сменилась тема или вид слайдов — кадры в новых цветах; лента ушла со страницы — отписка
+  const again = () => requestAnimationFrame(() => {
+    if (!strip.isConnected) return offs.forEach((f) => f());
+    fillStills(strip, stage().querySelector<HTMLElement>('.slide.on'));
+  });
+  const offs = [onThemeChange(again), onSlidesLook(again)];
 }
 
 /** Кадр плитки, точек: 16:9, с запасом под экраны с высокой плотностью */

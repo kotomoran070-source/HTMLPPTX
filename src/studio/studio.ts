@@ -1810,7 +1810,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     setUiAccent(uiColor.value);
     queueState();
   });
-  onThemeChange(() => { slides.update(); queueState(); });
+  onThemeChange(() => { slides.update(); slides.repaintStills(); queueState(); });
   // Свой вид слайдов сменился: данные те же, слайды и миниатюры — заново
   onSlidesLook(() => {
     view.build(deck);

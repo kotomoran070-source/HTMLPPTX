@@ -84,6 +84,11 @@ export class SlidesPanel {
     this.mark();
   }
 
+  /** Сменилась тема: кадры живых фонов в миниатюрах — в новых цветах */
+  repaintStills(): void {
+    stillBackdrops(this.list, true);
+  }
+
   /** Перерисовать все миниатюры (вид слайдов сменился, данные — те же) */
   redraw(): void {
     this.deckSig = '';

@@ -979,8 +979,9 @@ const STILL_AT: Partial<Record<BackdropKind, number>> = {};
  * Статичные слайды (миниатюры в студии, плитки тем): фон — кадром настоящей сцены вместо CSS.
  * Кадры рисуются по нескольку за кадр экрана и запоминаются; без WebGL остаётся CSS
  */
-export function stillBackdrops(root: HTMLElement): void {
-  const todo = [...root.querySelectorAll<HTMLElement>('.backdrop:not(.bd-live):not(.bd-still)')];
+export function stillBackdrops(root: HTMLElement, again = false): void {
+  // again — заново (сменилась тема: цвета кадров уже другие)
+  const todo = [...root.querySelectorAll<HTMLElement>(again ? '.backdrop:not(.bd-live)' : '.backdrop:not(.bd-live):not(.bd-still)')];
   const step = () => {
     const t0 = performance.now();
     while (todo.length && performance.now() - t0 < 12) {
