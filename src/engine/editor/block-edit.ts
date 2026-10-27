@@ -1,4 +1,5 @@
 import { icon } from '../../components/icons';
+import { PRESET_KINDS, refitPreset, type ShapeProps } from '../../components/shape/shape';
 import type { Deck, SlideData } from '../../types';
 import { clone, getAt, setAt, type Path } from '../data';
 import { H, W } from '../deck-view';
@@ -863,6 +864,10 @@ export class BlockEditor {
     let changedH = false;
     // Таблица: ниже своего текста не сжимается — рамка останавливается на высоте содержимого
     const grows = (getAt(this.host.deck(), s.free!) as { type?: string } | undefined)?.type === 'table';
+    // Фигура PowerPoint: контур — под новый размер прямо на ходу (раз за кадр)
+    const shape = getAt(this.host.deck(), s.free!) as ShapeProps | undefined;
+    const preset = shape?.type === 'shape' && !!PRESET_KINDS[shape.kind ?? ''];
+    let refit = 0;
     const move = (ev: PointerEvent) => {
       const sx = (ev.clientX - e.clientX) / k;
       const sy = (ev.clientY - e.clientY) / k;
@@ -904,11 +909,13 @@ export class BlockEditor {
         }
         s.el.style.top = `${cur.y}px`;
       } else Object.assign(s.el.style, { left: `${cur.x}px`, top: `${cur.y}px`, width: `${cur.w}px`, ...(changedH || start.h ? { height: `${cur.h}px` } : {}) });
+      if (preset && !refit) refit = requestAnimationFrame(() => { refit = 0; refitPreset(s.el, shape!, cur.w, cur.h); });
       this.position();
     };
     const up = () => {
       removeEventListener('pointermove', move);
       removeEventListener('pointerup', up);
+      cancelAnimationFrame(refit);
       this.guides.innerHTML = '';
       const path = s.free!;
       const keepH = changedH || !!start.h;

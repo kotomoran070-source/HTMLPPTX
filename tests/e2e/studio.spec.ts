@@ -1075,6 +1075,27 @@ test('смена вида блока: панель не мигает, выдел
   expect(errors).toEqual([]);
 });
 
+test('превью вида при наведении: схема в настоящую ширину, подписи за рамкой блока не обрезаны', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=tpl&studio#10');
+  await page.locator(`#st-canvas .slide.on [data-block='["slides",9,"free",3]']`).click();
+  for (const v of ['arc', 'orbit', 'cycle']) {
+    if (v === 'cycle') await page.locator('[data-view="list"]').click();
+    await page.locator(`[data-view="${v}"]`).hover();
+    const pop = page.locator('.st-viewpop');
+    await expect(pop).toHaveCount(1);
+    // Всё содержимое — внутри карточки превью
+    const out = await pop.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return [...el.querySelectorAll('*')].map((x) => x.getBoundingClientRect()).filter((q) => q.width && q.height)
+        .filter((q) => q.left < r.left - 1 || q.top < r.top - 1 || q.right > r.right + 1 || q.bottom > r.bottom + 1).length;
+    });
+    expect(out, v).toBe(0);
+    await page.mouse.move(5, 5);
+  }
+  expect(errors).toEqual([]);
+});
+
 test('шрифт, который автор не разрешил встраивать, в презентацию не попадает: ни через студию, ни через сервер', async ({ page }) => {
   const errors = watchErrors(page);
   const kit = path.resolve('src/fonts/Manrope.woff2');

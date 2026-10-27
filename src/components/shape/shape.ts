@@ -117,46 +117,60 @@ export interface ShapeProps extends Block, Omit<BoxFx, 'shadow'> {
 }
 
 /** Фигура: прямоугольник, скруглённый, капсула, овал, линия, стрелка; с текстом внутри или без. */
-defineBlock<ShapeProps>('shape', {
-  render(p) {
-    const kind = p.kind ?? 'round';
-    const w = Number.isFinite(Number(p.width)) ? Math.max(0, Math.min(40, Number(p.width))) : kind === 'line' || kind === 'arrow' ? 3 : 0;
-    const rot = Number(p.rotate) ? `transform:rotate(${Number(p.rotate)}deg)` : '';
-    const op = Number(p.opacity);
-    const opacity = Number.isFinite(op) && op >= 0.1 && op < 1 ? `opacity:${op}` : '';
-    const dash = p.dash === 'dash' || p.dash === 'dot' ? p.dash : '';
-    const sg = p.stroke === 'gradient';
-    if (kind === 'line' || kind === 'arrow') {
-      // Градиент линии идёт вдоль неё; наконечник — цветом конца
-      const lg = sg ? (isGradient(p.strokeGradient) ? p.strokeGradient : GRADIENTS[0].g) : null;
-      const color = lg ? gradColor(lg.to) : shapeColor(p.stroke ?? p.fill) ?? 'var(--ac)';
-      const head = Math.round(w * 2.2 + 6);
-      // У линии — только свечение (неоновая линия): тень ей не даётся
-      const glow = dropFxCss({ glow: p.glow, glowSize: p.glowSize, glowOpacity: p.glowOpacity });
-      return `<div class="shape shape-line${dash ? ` shape-${dash}` : ''}${lg ? ' shape-lg' : ''}"${styleAttr(`--c:${color};--w:${w}px`, lg && `--sg:${gradientCss({ from: lg.from, to: lg.to, angle: 90 })}`, rot, opacity, glow && `filter:${glow}`, p.style)} aria-hidden="true"><i class="shape-bar"></i>`
-        + (kind === 'arrow' ? `<i class="shape-head" style="--h:${head}px"></i>` : '') + `</div>`;
-    }
-    const fill = p.fill === 'gradient' ? gradientCss(p.gradient) : shapeFill(p.fill) ?? 'var(--acs)';
-    if (PRESET_KINDS[kind]) return presetShape(p, kind, fill, w, sg, dash, [rot, opacity]);
-    const stroke = w && !sg ? shapeColor(p.stroke) ?? 'var(--acb)' : '';
-    // Градиентный контур — кольцом поверх краёв (рамка CSS градиентом не красится)
-    const ring = w && sg ? `--sg:${gradientCss(p.strokeGradient)};--sw:${w}px` : '';
-    const fx = boxFxCss(p);
-    const radius = kind === 'ellipse' ? '50%' : kind === 'pill' ? '9999px' : kind === 'rect' ? `${Number(p.radius) || 0}px` : `${Number.isFinite(Number(p.radius)) ? Number(p.radius) : 16}px`;
-    const css = [
-      `background:${fill}`, `border-radius:${radius}`, `color:${p.fill === 'gradient' ? gradientOn(p.gradient) : onColor(p.fill ?? 'soft')}`,
-      stroke ? `border:${w}px ${dash ? (dash === 'dot' ? 'dotted' : 'dashed') : 'solid'} ${stroke}` : '',
-      fx ? `box-shadow:${fx}` : '',
-      ring, rot, opacity,
-    ].filter(Boolean).join(';');
-    const v = p.valign === 'top' || p.valign === 'bottom' ? ` v-${p.valign}` : '';
-    // Градиент акцента (от акцента ко второму цвету) переливается вместе с темой (theme.accentFlow)
-    const duo = p.fill === 'gradient' && isGradient(p.gradient) && p.gradient.from === 'accent' && p.gradient.to === 'accent2';
-    return `<div class="shape shape-${kind}${v}${ring ? ' shape-gs' : ''}${duo ? ' shape-duo' : ''}"${styleAttr(css, p.style)}>`
-      + (p.text ? `<div class="shape-t"${ea(p, 'text')}>${t(p.text)}</div>` : '')
-      + `</div>`;
-  },
-});
+defineBlock<ShapeProps>('shape', { render: shapeHtml });
+
+/**
+ * Фигуру PowerPoint тянут за ручку рамки: заливка и контур — заново под новый размер, до записи в данные.
+ * Без этого слои с масками растягивались вместе с запасом под контур — контур толстел и уходил внутрь заливки
+ */
+export function refitPreset(root: HTMLElement, p: ShapeProps, w: number, h: number): void {
+  const el = root.querySelector<HTMLElement>('.shape-p');
+  if (!el || !PRESET_KINDS[p.kind ?? '']) return;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = shapeHtml({ ...p, place: { ...(p as { place?: object }).place, w, h } } as ShapeProps);
+  const fresh = [...(tmp.firstElementChild?.querySelectorAll(':scope > i') ?? [])];
+  el.querySelectorAll(':scope > i').forEach((i) => i.remove());
+  el.prepend(...fresh);
+}
+
+function shapeHtml(p: ShapeProps): string {
+  const kind = p.kind ?? 'round';
+  const w = Number.isFinite(Number(p.width)) ? Math.max(0, Math.min(40, Number(p.width))) : kind === 'line' || kind === 'arrow' ? 3 : 0;
+  const rot = Number(p.rotate) ? `transform:rotate(${Number(p.rotate)}deg)` : '';
+  const op = Number(p.opacity);
+  const opacity = Number.isFinite(op) && op >= 0.1 && op < 1 ? `opacity:${op}` : '';
+  const dash = p.dash === 'dash' || p.dash === 'dot' ? p.dash : '';
+  const sg = p.stroke === 'gradient';
+  if (kind === 'line' || kind === 'arrow') {
+    // Градиент линии идёт вдоль неё; наконечник — цветом конца
+    const lg = sg ? (isGradient(p.strokeGradient) ? p.strokeGradient : GRADIENTS[0].g) : null;
+    const color = lg ? gradColor(lg.to) : shapeColor(p.stroke ?? p.fill) ?? 'var(--ac)';
+    const head = Math.round(w * 2.2 + 6);
+    // У линии — только свечение (неоновая линия): тень ей не даётся
+    const glow = dropFxCss({ glow: p.glow, glowSize: p.glowSize, glowOpacity: p.glowOpacity });
+    return `<div class="shape shape-line${dash ? ` shape-${dash}` : ''}${lg ? ' shape-lg' : ''}"${styleAttr(`--c:${color};--w:${w}px`, lg && `--sg:${gradientCss({ from: lg.from, to: lg.to, angle: 90 })}`, rot, opacity, glow && `filter:${glow}`, p.style)} aria-hidden="true"><i class="shape-bar"></i>`
+      + (kind === 'arrow' ? `<i class="shape-head" style="--h:${head}px"></i>` : '') + `</div>`;
+  }
+  const fill = p.fill === 'gradient' ? gradientCss(p.gradient) : shapeFill(p.fill) ?? 'var(--acs)';
+  if (PRESET_KINDS[kind]) return presetShape(p, kind, fill, w, sg, dash, [rot, opacity]);
+  const stroke = w && !sg ? shapeColor(p.stroke) ?? 'var(--acb)' : '';
+  // Градиентный контур — кольцом поверх краёв (рамка CSS градиентом не красится)
+  const ring = w && sg ? `--sg:${gradientCss(p.strokeGradient)};--sw:${w}px` : '';
+  const fx = boxFxCss(p);
+  const radius = kind === 'ellipse' ? '50%' : kind === 'pill' ? '9999px' : kind === 'rect' ? `${Number(p.radius) || 0}px` : `${Number.isFinite(Number(p.radius)) ? Number(p.radius) : 16}px`;
+  const css = [
+    `background:${fill}`, `border-radius:${radius}`, `color:${p.fill === 'gradient' ? gradientOn(p.gradient) : onColor(p.fill ?? 'soft')}`,
+    stroke ? `border:${w}px ${dash ? (dash === 'dot' ? 'dotted' : 'dashed') : 'solid'} ${stroke}` : '',
+    fx ? `box-shadow:${fx}` : '',
+    ring, rot, opacity,
+  ].filter(Boolean).join(';');
+  const v = p.valign === 'top' || p.valign === 'bottom' ? ` v-${p.valign}` : '';
+  // Градиент акцента (от акцента ко второму цвету) переливается вместе с темой (theme.accentFlow)
+  const duo = p.fill === 'gradient' && isGradient(p.gradient) && p.gradient.from === 'accent' && p.gradient.to === 'accent2';
+  return `<div class="shape shape-${kind}${v}${ring ? ' shape-gs' : ''}${duo ? ' shape-duo' : ''}"${styleAttr(css, p.style)}>`
+    + (p.text ? `<div class="shape-t"${ea(p, 'text')}>${t(p.text)}</div>` : '')
+    + `</div>`;
+}
 
 /**
  * Фигура PowerPoint: заливка и контур — слои с маской по контуру фигуры (градиенты и цвета темы — как у остальных

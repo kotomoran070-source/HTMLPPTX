@@ -245,7 +245,7 @@ interface RoadPoint extends Point { done?: boolean }
 
 /**
  * Дорожная карта: извилистый путь через вехи — сколько пунктов, столько вех, кривая строится по ним.
- * Над названием вехи — срок (text). Пройденные (done: true) закрашены, путь до последней из них
+ * Над названием вехи — срок (text); длинный text (пояснение из другого вида) — обычным текстом под названием. Пройденные (done: true) закрашены, путь до последней из них
  * сплошной. Путь прорисовывается, вехи появляются по очереди, по оставшемуся пути бегут штрихи.
  */
 defineBlock<ItemsProps>('roadmap', {
@@ -272,10 +272,11 @@ defineBlock<ItemsProps>('roadmap', {
     // Путь до последней пройденной вехи — сплошной
     const lastDone = items.reduce((a, m, k) => (m.done ? k : a), -1);
     const done = lastDone >= 0 ? `<path class="rm-done" pathLength="1" d="${pathTo(lastDone + 1)}"/>` : '';
+    const when = (m: RoadPoint) => !!m.text && m.text.length <= 24;
     const miles = items.map((m, k) =>
       `<div class="rm-mile${m.done ? ' done' : ''}" style="left:${round(px(k))}%;top:${py(k)}%;--k:${k}"><i></i>`
-      + (m.text ? `<span class="rm-when"${ea(m, 'text')}>${t(m.text)}</span>` : '')
-      + `${title(m)}</div>`).join('');
+      + (when(m) ? `<span class="rm-when"${ea(m, 'text')}>${t(m.text!)}</span>` : '')
+      + `${title(m)}${m.text && !when(m) ? `<span class="rm-note"${ea(m, 'text')}>${t(m.text)}</span>` : ''}</div>`).join('');
     return `<div class="roadmap r"${styleAttr(p.style)}><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">`
       + `<path class="rm-bg" pathLength="1" d="${full}"/>${done}<path class="rm-fg" pathLength="1" d="${full}"/></svg>${miles}</div>`;
   },

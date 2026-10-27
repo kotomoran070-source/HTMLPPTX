@@ -230,8 +230,9 @@ const edgeX = (y: number) => {
 
 /**
  * Айсберг: первый пункт — верхушка над водой (что видно), остальные — под водой (что за этим стоит),
- * у каждого подпись справа и линия к своей точке. По воде бегут волны, айсберг всплывает при
- * появлении; под мышью подпись и её линия выделяются.
+ * у каждого подпись справа и линия к своей точке. Подводные подписи — столбиком: длинный текст
+ * раздвигает их, а не наезжает на соседнюю; линия идёт от середины подписи к краю льдины.
+ * По воде бегут волны, айсберг всплывает при появлении; под мышью подпись и её линия выделяются.
  */
 defineBlock<ItemsProps>('iceberg', {
   render(p) {
@@ -241,15 +242,18 @@ defineBlock<ItemsProps>('iceberg', {
     const H = 560;
     const WL = 172;
     const below = Math.max(1, n - 1);
-    const notes = items.map((m, k) => {
-      // Верхушка — точка у её склона; подводные — по краю, ровно по высоте
-      const y = k === 0 ? 92 : WL + 56 + ((k - 1 + 0.5) * (H - WL - 96)) / below;
-      const x = k === 0 ? 452 : edgeX(y) - 26;
-      const lx = 660;
-      return `<div class="ib-br${k === 0 ? ' top' : ''}" style="--k:${k}">`
-        + `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="M${round(x)} ${round(y)}H${lx - 12}"/><circle cx="${round(x)}" cy="${round(y)}" r="5"/></svg>`
-        + `<div class="ib-note" style="left:${pc(lx, W)}%;top:${pc(y, H)}%">${title(m)}${text(m)}</div></div>`;
+    const lx = 660;
+    // Верхушка — точка у её склона
+    const top = items[0] ? `<div class="ib-br top" style="--k:0">`
+      + `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="M452 92H${lx - 12}"/><circle cx="452" cy="92" r="5"/></svg>`
+      + `<div class="ib-note" style="left:${pc(lx, W)}%;top:${pc(92, H)}%">${title(items[0])}${text(items[0])}</div></div>` : '';
+    // Подводные — поровну по глубине от WL + 56 до H − 40; точка — у края льдины на своей глубине
+    const deep = items.slice(1).map((m, j) => {
+      const y = WL + 56 + ((j + 0.5) * (H - WL - 96)) / below;
+      return `<div class="ib-n" style="--k:${j + 1};--dx:${round(((lx - 12 - (edgeX(y) - 26)) / (W - lx - 10)) * 100)}%">`
+        + `<i aria-hidden="true"></i><div class="ib-note">${title(m)}${text(m)}</div></div>`;
     }).join('');
+    const notes = top + (deep ? `<div class="ib-deep" style="top:${pc(WL + 56, H)}%;bottom:${pc(40, H)}%">${deep}</div>` : '');
     const wave = (y: number) => {
       let d = `M-200 ${y}`;
       for (let x = -200; x < W + 200; x += 100) d += `q25 -9 50 0t50 0`;

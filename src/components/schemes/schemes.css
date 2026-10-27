@@ -201,6 +201,7 @@ body.editing:not(.st-previewing) .fq-a, .static .fq-a { grid-template-rows: 1fr;
 .rm-mile.done > i { background: var(--ac); }
 .rm-when { font: 700 13px/1.2 var(--font); letter-spacing: .12em; text-transform: uppercase; color: var(--ac); }
 .rm-mile > b { font: var(--hw, 700) 21px/1.25 var(--font-head, var(--font)); color: var(--tx); }
+.rm-note { font-size: 14px; line-height: 1.4; color: var(--tx2, var(--mu)); }
 .slide.on .rm-mile { animation: rm-pop .5s cubic-bezier(.3, 1.4, .5, 1) both; animation-delay: calc(.3s + var(--k) * .15s); }
 @keyframes rm-pop { from { opacity: 0; transform: translateY(14px); } }
 

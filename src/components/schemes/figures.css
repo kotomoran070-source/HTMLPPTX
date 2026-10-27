@@ -169,9 +169,18 @@
 .ib-note > b { font: var(--hw, 700) 19px/1.2 var(--font-head, var(--font)); color: var(--tx); transition: color .2s; }
 .ib-note > span { font-size: 14px; line-height: 1.4; color: var(--tx2, var(--mu)); }
 .ib-br.top .ib-note > b { font-size: 22px; }
+.ib-deep { position: absolute; left: 66%; right: 1%; display: flex; flex-direction: column; justify-content: space-around; gap: 10px; pointer-events: none; }
+.ib-n { position: relative; pointer-events: auto; }
+.ib-n > .ib-note { position: static; translate: none; width: auto; }
+/* Линия к краю льдины: от середины подписи, длина — доля ширины столбца подписей; на конце — точка */
+.ib-n > i { position: absolute; top: 50%; right: calc(100% + 12% / 3.3); width: var(--dx); border-top: 1.5px dashed color-mix(in srgb, var(--ac) 55%, var(--bd)); transition: border-color .2s; }
+.ib-n > i::before { content: ""; position: absolute; left: -8px; top: -8px; width: 10px; height: 10px; border-radius: 50%; background: var(--ac); border: 3px solid var(--surf); transition: scale .2s; }
+.ib-n:hover > i { border-top-style: solid; border-top-color: var(--ac); }
+.ib-n:hover > i::before { scale: 1.5; }
+.ib-n:hover .ib-note > b { color: var(--ach); }
 .ib-br:hover path { stroke: var(--ac); stroke-dasharray: none; }
 .ib-br:hover circle { r: 8; }
 .ib-br:hover .ib-note > b { color: var(--ach); }
 .slide.on .ib-berg { animation: ib-rise .9s cubic-bezier(.3, 1.2, .5, 1) both; }
 @keyframes ib-rise { from { opacity: 0; transform: translateY(40px); } }
-.slide.on .ib-br { animation: fi .5s ease both; animation-delay: calc(.6s + var(--k) * .14s); }
+.slide.on :is(.ib-br, .ib-n) { animation: fi .5s ease both; animation-delay: calc(.6s + var(--k) * .14s); }

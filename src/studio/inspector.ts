@@ -8,6 +8,7 @@ import { fontItems, fontPicker, type FontItem, tryFontOn } from '../engine/edito
 import { rowOf } from '../engine/editor/rows';
 import { toView, viewOf, VIEWS } from './block-views';
 import { getAt, setAt, type Path } from '../engine/data';
+import { W } from '../engine/deck-view';
 import { backdropStrip, bindBackdropStrip, bindRail, bindTune, railNav, tuneHtml } from './backdrop-pick';
 import { backdropLook, bgOpacity, slideBackdrop, TOUCH_BACKDROPS } from '../engine/backdrops';
 import { blockName, keepsRatio } from '../engine/editor/block-edit';
@@ -427,8 +428,8 @@ export class Inspector {
     const live = this.host.stage().querySelector<HTMLElement>(':scope > .slide.on');
     if (!fresh || !live) return;
     const outer = fresh.parentElement?.classList.contains('free') ? fresh.parentElement : null;
-    // Ширина — как у блока на слайде, но не шире 760: в уменьшенной карточке текст остаётся читаемым
-    const w = Math.max(320, Math.min(760, Number(((getAt(tmp, path) as Block).place as { w?: number } | undefined)?.w) || live.querySelector<HTMLElement>(`[data-block='${CSS.escape(key)}']`)?.offsetWidth || 900));
+    // Ширина — как у блока на слайде: схема раскладывается так же, как ляжет после щелчка
+    const w = Math.max(320, Math.min(W, Number(((getAt(tmp, path) as Block).place as { w?: number } | undefined)?.w) || live.querySelector<HTMLElement>(`[data-block='${CSS.escape(key)}']`)?.offsetWidth || 900));
     const pop = document.createElement('div');
     pop.className = 'st-viewpop';
     // «Слайд» вокруг блока: цвета, шрифты и стили презентации действуют как на слайде
@@ -440,13 +441,30 @@ export class Inspector {
     frame.appendChild(outer ?? fresh);
     pop.appendChild(frame);
     document.body.appendChild(pop);
-    const k = Math.min(1, 460 / (w + 48));
+    // Подписи схем (дуга, цикл, орбиты) выходят за рамку блока: поля «слайда» — по ним, превью ничего не обрезает
+    const fr = frame.getBoundingClientRect();
+    const out = { l: 0, t: 0, r: 0, b: 0 };
+    frame.querySelectorAll('*').forEach((el) => {
+      const q = el.getBoundingClientRect();
+      if (!q.width || !q.height) return;
+      out.l = Math.max(out.l, fr.left - q.left);
+      out.t = Math.max(out.t, fr.top - q.top);
+      out.r = Math.max(out.r, q.right - fr.right);
+      out.b = Math.max(out.b, q.bottom - fr.bottom);
+    });
+    const [pl, pt, pr, pb] = [out.l, out.t, out.r, out.b].map((v) => Math.ceil(24 + (v ? v + 12 : 0)));
+    frame.style.setProperty('padding', `${pt}px ${pr}px ${pb}px ${pl}px`, 'important');
+    frame.style.width = `${w + pl + pr}px`;
+    // Не шире места слева от панели свойств и не выше окна
+    const panel = this.root.getBoundingClientRect();
+    const fw = frame.offsetWidth;
+    const fh = frame.offsetHeight;
+    const k = Math.min(1, Math.max(320, Math.min(620, panel.left - 24)) / fw, (innerHeight - 24) / fh);
     frame.style.transform = `scale(${k})`;
-    pop.style.width = `${Math.round((w + 48) * k)}px`;
-    pop.style.height = `${Math.round(Math.min(frame.offsetHeight, 900) * k)}px`;
+    pop.style.width = `${Math.ceil(fw * k)}px`;
+    pop.style.height = `${Math.ceil(fh * k)}px`;
     // Слева от панели свойств, напротив плитки
     const r = tile.getBoundingClientRect();
-    const panel = this.root.getBoundingClientRect();
     pop.style.left = `${Math.max(8, panel.left - pop.offsetWidth - 12)}px`;
     pop.style.top = `${Math.max(8, Math.min(innerHeight - pop.offsetHeight - 8, r.top - 8))}px`;
     this.viewPreview = { view, pop };

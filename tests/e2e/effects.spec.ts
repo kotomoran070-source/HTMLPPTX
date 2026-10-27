@@ -90,3 +90,37 @@ slides:
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('фигуру PowerPoint тянут за угол: контур под новый размер уже на ходу, не толстеет и не уходит внутрь', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'fxdia');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'deck.yaml'), `title: Ромб
+slides:
+  - template: canvas
+    free:
+      - {type: shape, kind: diamond, fill: soft, stroke: accent, width: 6, place: {x: 200, y: 150, w: 100, h: 100}}
+`);
+  try {
+    await page.goto('/?deck=fxdia&studio#1');
+    const obj = page.locator('#st-canvas .slide.on .free').first();
+    const b = (await obj.boundingBox())!;
+    await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+    const h = (await page.locator('#ed-frame .h-se').boundingBox())!;
+    await page.mouse.move(h.x + 4, h.y + 4);
+    await page.mouse.down();
+    await page.mouse.move(h.x + 80, h.y + 160, { steps: 8 });
+    // Маска контура — по текущей ширине объекта (запас под контур — 13 px с каждой стороны), а не по старой
+    const fit = () => obj.evaluate((el) => {
+      const o = el.querySelector<HTMLElement>('.shape-o')!;
+      const vb = /viewBox%3D%22([^%]+)%20([^%]+)%20([^%]+)%20/.exec(o.style.getPropertyValue('--m'));
+      return Math.abs(Number(vb?.[3]) - (el.offsetWidth + 26)) <= 1;
+    });
+    await expect.poll(fit).toBe(true);
+    await page.mouse.up();
+    await expect.poll(fit).toBe(true);
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
