@@ -126,7 +126,7 @@ slides:
   }
 });
 
-test('сжатие за край: фигура и картинка — не меньше 40 px (картинка — в своих пропорциях), текст блока не обрезается', async ({ page }) => {
+test('сжатие за край: фигура и картинка — не меньше 20 px (картинка — в своих пропорциях), текст блока не обрезается', async ({ page }) => {
   const errors = watchErrors(page);
   const dir = path.join(DECKS, 'fxmin');
   fs.mkdirSync(path.join(dir, 'assets'), { recursive: true });
@@ -153,16 +153,16 @@ slides:
       await page.mouse.move(h.x + 4 + dx, h.y + 4 + dy, { steps: 10 });
       await page.mouse.up();
     };
-    // Фигура — угол за противоположный край: 40 × 40, средние ручки у маленькой рамки спрятаны
+    // Фигура — угол за противоположный край: 20 × 20, средние ручки у маленькой рамки спрятаны
     await drag(0, 'se', -800, -600);
-    await expect.poll(() => place(0)).toMatchObject({ w: 40, h: 40 });
+    await expect.poll(() => place(0)).toMatchObject({ w: 20, h: 20 });
     await expect(page.locator('#ed-frame')).toHaveClass(/slim-w/);
     await expect(page.locator('#ed-frame .h-n')).toBeHidden();
     await expect(page.locator('#ed-frame .h-se')).toBeVisible();
     // Картинка: пропорции сохраняются и у минимума
     await drag(1, 'se', -800, -600);
-    await expect.poll(() => place(1).h).toBe(40);
-    expect(place(1).w).toBe(71);
+    await expect.poll(() => place(1).h).toBe(20);
+    expect(place(1).w).toBe(36);
     // Блок с текстом: снизу вверх — рамка останавливается там, где текст ещё виден целиком
     await drag(2, 's', 0, -500);
     await expect.poll(() => place(2).h).toBeLessThan(260);
