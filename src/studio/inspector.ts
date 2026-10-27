@@ -12,6 +12,7 @@ import { W } from '../engine/deck-view';
 import { backdropStrip, bindBackdropStrip, bindRail, bindTune, railNav, tuneHtml } from './backdrop-pick';
 import { backdropLook, bgOpacity, slideBackdrop, TOUCH_BACKDROPS } from '../engine/backdrops';
 import { blockName, keepsRatio } from '../engine/editor/block-edit';
+import { ContentFit, minSize } from '../engine/editor/fit';
 import type { Editor } from '../engine/editor/editor';
 import { esc } from '../engine/html';
 import { OBJ_ID, Renderer, actionOf, angleOf, placeOf, slideLabel } from '../engine/render';
@@ -814,19 +815,29 @@ ${fxHtml(this.host.deck(), fxTargets(this.host.deck(), this.host.editor()))}
       const path = sel.free;
       const n = Math.round(Number(raw));
       if (raw && !Number.isFinite(n)) return this.fill();
+      const b0 = getAt(this.host.deck(), path);
+      const min = minSize(b0);
+      const pl = placeOf(b0);
+      const next: Record<string, number | undefined> = { ...pl };
+      if (f === 'h') next.h = raw ? Math.max(min.h, n) : undefined;
+      else if (raw) next[f] = f === 'w' ? Math.max(min.w, n) : n;
+      // Пропорции закреплены: вторая сторона меняется вместе с первой
+      if (keepsRatio(b0) && raw && pl.h && pl.w && (f === 'w' || f === 'h')) {
+        if (f === 'w') next.h = Math.max(min.h, Math.round((next.w! * pl.h) / pl.w));
+        else next.w = Math.max(min.w, Math.round((next.h! * pl.w) / pl.h));
+      }
+      // Текст не обрезается: высота — не меньше той, на которой он виден целиком (как при растяжении мышью)
+      const live = this.blockEl(path)?.closest<HTMLElement>('.free');
+      if (live && next.h !== undefined && (f === 'w' || f === 'h')) {
+        const fit = ContentFit.of(live, b0);
+        const was = live.style.width;
+        live.style.width = `${next.w}px`;
+        if (fit) next.h = fit.min(next.h);
+        live.style.width = was;
+      }
       ed.commit((d) => {
-        const b = getAt(d, path);
-        const pl = placeOf(b);
-        const next: Record<string, number | undefined> = { ...pl };
-        if (f === 'h') next.h = raw ? Math.max(20, n) : undefined;
-        else if (raw) next[f] = f === 'w' ? Math.max(20, n) : n;
-        // Пропорции закреплены: вторая сторона меняется вместе с первой
-        if (keepsRatio(b) && raw && pl.h && pl.w && (f === 'w' || f === 'h')) {
-          if (f === 'w') next.h = Math.max(20, Math.round((next.w! * pl.h) / pl.w));
-          else next.w = Math.max(20, Math.round((next.h! * pl.w) / pl.h));
-        }
         if (next.h === undefined) delete next.h;
-        setAt(d, [...path, 'place'], next);
+        setAt(d, [...path, 'place'], { ...next });
       }, { rebuild: true });
     } else if (sel?.free && f === 'action') {
       const path = sel.free;

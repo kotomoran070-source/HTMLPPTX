@@ -2,6 +2,7 @@
 import { expect, test } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { parse } from 'yaml';
 import { DECKS, deckFile, watchErrors } from './helpers';
 
 test('фигура и рисунок: тень и свечение с ленты, подкрутка в «Свойствах», готовая тень сбрасывает подкрутку, «×» убирает', async ({ page }) => {
@@ -119,6 +120,62 @@ slides:
     await expect.poll(fit).toBe(true);
     await page.mouse.up();
     await expect.poll(fit).toBe(true);
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('сжатие за край: фигура и картинка — не меньше 40 px (картинка — в своих пропорциях), текст блока не обрезается', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'fxmin');
+  fs.mkdirSync(path.join(dir, 'assets'), { recursive: true });
+  fs.copyFileSync(path.join(DECKS, 'fx', 'assets', 'shot.webp'), path.join(dir, 'assets', 'shot.webp'));
+  fs.writeFileSync(path.join(dir, 'deck.yaml'), `title: Минимум
+slides:
+  - template: canvas
+    free:
+      - {type: shape, kind: diamond, fill: accent, place: {x: 100, y: 100, w: 300, h: 160}}
+      - {type: image, src: ./assets/shot.webp, place: {x: 600, y: 100, w: 400, h: 225}}
+      - type: faq
+        items: [{title: "Нужен ли интернет?", text: "Нет: презентация — один файл."}, {title: "Можно открыть в PowerPoint?", text: "Да, через экспорт в PPTX."}]
+        place: {x: 100, y: 380, w: 700, h: 260}
+`);
+  const place = (k: number) => parse(fs.readFileSync(deckFile('fxmin'), 'utf8')).slides[0].free[k].place;
+  try {
+    await page.goto('/?deck=fxmin&studio#1');
+    const drag = async (k: number, hd: string, dx: number, dy: number) => {
+      const b = (await page.locator('#st-canvas .slide.on .free').nth(k).boundingBox())!;
+      await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+      const h = (await page.locator(`#ed-frame .h-${hd}`).boundingBox())!;
+      await page.mouse.move(h.x + 4, h.y + 4);
+      await page.mouse.down();
+      await page.mouse.move(h.x + 4 + dx, h.y + 4 + dy, { steps: 10 });
+      await page.mouse.up();
+    };
+    // Фигура — угол за противоположный край: 40 × 40, средние ручки у маленькой рамки спрятаны
+    await drag(0, 'se', -800, -600);
+    await expect.poll(() => place(0)).toMatchObject({ w: 40, h: 40 });
+    await expect(page.locator('#ed-frame')).toHaveClass(/slim-w/);
+    await expect(page.locator('#ed-frame .h-n')).toBeHidden();
+    await expect(page.locator('#ed-frame .h-se')).toBeVisible();
+    // Картинка: пропорции сохраняются и у минимума
+    await drag(1, 'se', -800, -600);
+    await expect.poll(() => place(1).h).toBe(40);
+    expect(place(1).w).toBe(71);
+    // Блок с текстом: снизу вверх — рамка останавливается там, где текст ещё виден целиком
+    await drag(2, 's', 0, -500);
+    await expect.poll(() => place(2).h).toBeLessThan(260);
+    const clipped = await page.locator('#st-canvas .slide.on .free').nth(2).evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return [...el.querySelectorAll('b, span, p, div')].filter((x) => x.childElementCount === 0 && x.textContent!.trim())
+        .some((x) => x.getBoundingClientRect().bottom > r.bottom + 1.5);
+    });
+    expect(clipped).toBe(false);
+    // Поле «Высота» в «Свойствах» — то же правило
+    await page.locator('.st-props input[data-f="h"]').fill('20');
+    await page.locator('.st-props input[data-f="h"]').press('Enter');
+    await expect.poll(() => place(2).h).toBeGreaterThan(100);
     expect(errors).toEqual([]);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

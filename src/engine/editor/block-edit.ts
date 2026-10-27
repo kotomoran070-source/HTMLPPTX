@@ -5,6 +5,7 @@ import { clone, getAt, setAt, type Path } from '../data';
 import { H, W } from '../deck-view';
 import { esc } from '../html';
 import { angleOf, placeOf, type Place } from '../render';
+import { ContentFit, minSize } from './fit';
 
 /**
  * Сохраняет ли объект пропорции при изменении размера (углы рамки, поля «Ширина / Высота»).
@@ -332,6 +333,11 @@ export class BlockEditor {
     } else {
       Object.assign(this.frame.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, rotate: '' });
     }
+    // Маленькая рамка на экране: средние ручки прячутся, угловые не тонут в куче (область ручки — 26 px)
+    const fw = parseFloat(this.frame.style.width);
+    const fh = parseFloat(this.frame.style.height);
+    this.frame.classList.toggle('slim-w', fw < 56);
+    this.frame.classList.toggle('slim-h', fh < 56);
     // Рамка поверх всей страницы: у объекта за краем слайда или прокрученного из вида она
     // обрезается по холсту и не ложится на панели и ленту
     const view = !a || this.isMulti ? this.viewRect() : null;
@@ -865,8 +871,11 @@ export class BlockEditor {
     // Таблица: ниже своего текста не сжимается — рамка останавливается на высоте содержимого
     const grows = (getAt(this.host.deck(), s.free!) as { type?: string } | undefined)?.type === 'table';
     // Фигура PowerPoint: контур — под новый размер прямо на ходу (раз за кадр)
-    const shape = getAt(this.host.deck(), s.free!) as ShapeProps | undefined;
-    const preset = shape?.type === 'shape' && !!PRESET_KINDS[shape.kind ?? ''];
+    const obj = getAt(this.host.deck(), s.free!) as ShapeProps | undefined;
+    const preset = obj?.type === 'shape' && !!PRESET_KINDS[obj.kind ?? ''];
+    // Не меньше своего минимума и не ниже, чем нужно тексту (fit.ts); у таблицы — своё правило ниже
+    const min = minSize(obj);
+    const fit = grows ? null : ContentFit.of(s.el, obj);
     let refit = 0;
     const move = (ev: PointerEvent) => {
       const sx = (ev.clientX - e.clientX) / k;
@@ -880,16 +889,19 @@ export class BlockEditor {
       if (dir.includes('n')) { h = r0.h - dy; y = r0.y + dy; changedH = true; }
       const snapped = this.snapResize({ x, y, w, h }, dir, ev.altKey || !!ang);
       ({ x, y, w, h } = snapped);
-      if (keepRatioDefault !== ev.shiftKey && dir.length === 2) {
-        // Пропорционально: берём большее изменение
+      const keep = keepRatioDefault !== ev.shiftKey && dir.length === 2;
+      if (keep) {
+        // Пропорционально: берём большее изменение; у минимума — обе стороны вместе
         if (Math.abs(w - r0.w) / r0.w > Math.abs(h - r0.h) / r0.h) h = w / ratio;
         else w = h * ratio;
-        if (dir.includes('w')) x = r0.x + r0.w - w;
-        if (dir.includes('n')) y = r0.y + r0.h - h;
+        if (w <= 0 || h <= 0) h = (w = min.w) / ratio;
+        const up = Math.max(1, min.w / w, min.h / h);
+        w *= up;
+        h *= up;
         changedH = true;
       }
-      w = Math.max(20, w);
-      h = Math.max(20, h);
+      w = Math.max(min.w, w);
+      h = Math.max(min.h, h);
       if (dir.includes('w')) x = r0.x + r0.w - w;
       if (dir.includes('n')) y = r0.y + r0.h - h;
       if (ang) {
@@ -908,8 +920,17 @@ export class BlockEditor {
           if (dir.includes('n')) cur.y = r0.y + r0.h - real;
         }
         s.el.style.top = `${cur.y}px`;
-      } else Object.assign(s.el.style, { left: `${cur.x}px`, top: `${cur.y}px`, width: `${cur.w}px`, ...(changedH || start.h ? { height: `${cur.h}px` } : {}) });
-      if (preset && !refit) refit = requestAnimationFrame(() => { refit = 0; refitPreset(s.el, shape!, cur.w, cur.h); });
+      } else {
+        Object.assign(s.el.style, { left: `${cur.x}px`, top: `${cur.y}px`, width: `${cur.w}px`, ...(changedH || start.h ? { height: `${cur.h}px` } : {}) });
+        // Текст не обрезается: рамка останавливается на высоте, где он ещё виден целиком
+        const need = fit && (changedH || start.h) ? fit.min(cur.h) : cur.h;
+        if (need > cur.h) {
+          if (dir.includes('n')) cur.y = r0.y + r0.h - need;
+          cur.h = need;
+          Object.assign(s.el.style, { top: `${cur.y}px`, height: `${cur.h}px` });
+        }
+      }
+      if (preset && !refit) refit = requestAnimationFrame(() => { refit = 0; refitPreset(s.el, obj!, cur.w, cur.h); });
       this.position();
     };
     const up = () => {
