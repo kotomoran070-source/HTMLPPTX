@@ -302,6 +302,9 @@ body.editing .stage .free.auto-h:empty, body.editing .stage .free > p:empty { mi
 .edframe .h-sw { left: 0; top: 100%; cursor: nesw-resize; }
 .edframe .h-w { left: 0; top: 50%; cursor: ew-resize; }
 .edframe.slim-w :is(.h-n, .h-s), .edframe.slim-h :is(.h-e, .h-w) { display: none; }
+/* Жёлтые ручки формы (регулировки фигуры PowerPoint), как в PowerPoint */
+.edframe .h-adj { width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #FACC15; border: 1.5px solid #78350F; cursor: pointer; z-index: 1; }
+.edframe .h-adj:hover { background: #FDE047; }
 /* Ручка поворота: кружок над рамкой, с ножкой к верхней стороне */
 .edframe .h-rot {
   left: 50%; top: -28px; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%;

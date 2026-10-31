@@ -4,10 +4,10 @@ import { GRADIENTS, gradColor, gradientCss, gradientOn, isGradient, type ShapeGr
 import { ea } from '../../engine/marks';
 import { BOX_SHADOWS, boxFxCss, dropFxCss, type BoxFx } from '../../engine/box-fx';
 import type { Block } from '../../types';
-import { boundsOf, PRESET_KINDS, presetGeometry } from './kinds';
+import { adjText, boundsOf, PRESET_KINDS, presetGeometry } from './kinds';
 import './shape.css';
 
-export { PRESET_KINDS, presetGeometry, presetGlyph } from './kinds';
+export { adjText, PRESET_KINDS, presetAdjust, presetGeometry, presetGlyph, presetHandles } from './kinds';
 
 /** Затенённые части (крышка цилиндра): заливка с наложенным чёрным или белым, как в PowerPoint */
 const SHADE = { darken: 'rgba(0, 0, 0, .4)', darkenLess: 'rgba(0, 0, 0, .2)', lighten: 'rgba(255, 255, 255, .4)', lightenLess: 'rgba(255, 255, 255, .2)' } as const;
@@ -18,9 +18,9 @@ function maskOf(box: string, body: string): string {
 }
 
 /** Маска по форме фигуры PowerPoint на рамку w×h — рисунок, обрезанный по фигуре (image-look.ts) */
-export function presetMask(kind: unknown, w: number, h: number): string | null {
+export function presetMask(kind: unknown, w: number, h: number, adj?: unknown): string | null {
   if (typeof kind !== 'string' || !PRESET_KINDS[kind]) return null;
-  const fills = presetGeometry(kind, w, h).filter((g) => g.fill).map((g) => `<path d="${g.d}"/>`).join('');
+  const fills = presetGeometry(kind, w, h, adj).filter((g) => g.fill).map((g) => `<path d="${g.d}"/>`).join('');
   return maskOf(`0 0 ${w} ${h}`, fills);
 }
 
@@ -121,6 +121,8 @@ export interface ShapeProps extends Block, Omit<BoxFx, 'shadow'> {
   text?: string;
   /** Текст по вертикали: top, middle (по умолчанию), bottom */
   valign?: 'top' | 'middle' | 'bottom';
+  /** Регулировки фигуры PowerPoint (жёлтые ручки), единицы DrawingML: { adj: 30000 } или { adj1: …, adj2: … } */
+  adj?: Record<string, number>;
 }
 
 /** Фигура: прямоугольник, скруглённый, капсула, овал, линия, стрелка; с текстом внутри или без. */
@@ -188,7 +190,7 @@ function presetShape(p: ShapeProps, kind: string, fill: string, w: number, sg: b
   const [dw, dh] = PRESET_KINDS[kind].size;
   const W = Math.max(8, Math.round(Number(pl?.w) || dw));
   const H = Math.max(8, Math.round(Number(pl?.h) || (W * dh) / dw));
-  const paths = presetGeometry(kind, W, H);
+  const paths = presetGeometry(kind, W, H, p.adj);
   const fills = paths.filter((g) => g.fill && !g.shade).map((g) => `<path d="${g.d}"/>`).join('');
   const shades = paths.filter((g) => g.fill && g.shade);
   const lines = paths.filter((g) => g.stroke).map((g) => `<path d="${g.d}"/>`).join('');
@@ -216,7 +218,8 @@ function presetShape(p: ShapeProps, kind: string, fill: string, w: number, sg: b
     drop ? `filter:${drop}` : '', ...extra,
   ].filter(Boolean).join(';');
   const v = p.valign === 'top' || p.valign === 'bottom' ? ` v-${p.valign}` : '';
-  return `<div class="shape shape-p shape-${kind}${v}" data-prst="${PRESET_KINDS[kind].prst}"${styleAttr(css, p.style)}>${layers}`
+  const adj = adjText(p.adj);
+  return `<div class="shape shape-p shape-${kind}${v}" data-prst="${PRESET_KINDS[kind].prst}"${adj ? ` data-adj="${adj}"` : ''}${styleAttr(css, p.style)}>${layers}`
     + (p.text ? `<div class="shape-t"${ea(p, 'text')}>${t(p.text)}</div>` : '')
     + `</div>`;
 }

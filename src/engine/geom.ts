@@ -170,3 +170,67 @@ export function customPaths(geom: El, w: number, h: number, over: Record<string,
   }
   return out;
 }
+
+/**
+ * Жёлтая ручка фигуры (ahLst): где стоит в пикселях фигуры и какие регулировки двигает — по осям (ahXY) или
+ * по радиусу и углу от центра (ahPolar). Пределы — уже посчитанные числа
+ */
+export interface GeomHandle {
+  x: number;
+  y: number;
+  refs: { name: string; min: number; max: number }[];
+}
+
+export function geomHandles(geom: El, w: number, h: number, over: Record<string, number> = {}): GeomHandle[] {
+  const guides = evalGuides(geom, w, h, over);
+  const val = (s: string | null, d = 0) => (s === null ? d : guides.has(s) ? guides.get(s)! : Number.isFinite(Number(s)) ? Number(s) : d);
+  return kids(one(geom, 'ahLst')).map((ah) => {
+    const pos = one(ah, 'pos');
+    const refs: GeomHandle['refs'] = [];
+    for (const [ref, mn, mx] of ah.localName === 'ahPolar' ? [['gdRefR', 'minR', 'maxR'], ['gdRefAng', 'minAng', 'maxAng']] : [['gdRefX', 'minX', 'maxX'], ['gdRefY', 'minY', 'maxY']]) {
+      const name = attr(ah, ref);
+      if (name) refs.push({ name, min: val(attr(ah, mn), -2147483647), max: val(attr(ah, mx), 2147483647) });
+    }
+    return { x: val(attr(pos, 'x')), y: val(attr(pos, 'y')), refs };
+  });
+}
+
+/**
+ * Ручку k потянули в точку (px, py) пикселей фигуры: регулировки, при которых ручка ближе всего к ней. Положение
+ * ручки — формулы от регулировок, обратных формул нет: каждая регулировка подбирается по очереди перебором с уточнением
+ */
+export function geomAdjust(geom: El, w: number, h: number, over: Record<string, number>, k: number, px: number, py: number): Record<string, number> {
+  const cur = { ...over };
+  const base = evalGuides(geom, w, h, cur);
+  const hd = geomHandles(geom, w, h, cur)[k];
+  if (!hd) return cur;
+  // Значение регулировки по умолчанию — из avLst
+  for (const r of hd.refs) if (cur[r.name] === undefined && base.has(r.name)) cur[r.name] = base.get(r.name)!;
+  const miss = (v: Record<string, number>) => {
+    const a = geomHandles(geom, w, h, v)[k];
+    return a ? (a.x - px) ** 2 + (a.y - py) ** 2 : Infinity;
+  };
+  for (let round = 0; round < 2; round++) {
+    for (const r of hd.refs) {
+      // Пределы «без ограничений» (±2³¹) — в разумных рамках: от −2 до 2 размеров фигуры в единицах регулировки
+      const lo = Math.max(r.min, -200000);
+      const hi = Math.min(r.max, 200000);
+      let best = cur[r.name] ?? 0;
+      let bestMiss = miss(cur);
+      let step = (hi - lo) / 40;
+      let from = lo;
+      let to = hi;
+      for (let pass = 0; pass < 4 && step > 1; pass++) {
+        for (let v = from; v <= to + 1e-6; v += step) {
+          const m = miss({ ...cur, [r.name]: v });
+          if (m < bestMiss) { bestMiss = m; best = v; }
+        }
+        from = Math.max(lo, best - step);
+        to = Math.min(hi, best + step);
+        step /= 8;
+      }
+      cur[r.name] = Math.round(best);
+    }
+  }
+  return cur;
+}

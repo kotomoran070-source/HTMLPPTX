@@ -5,6 +5,7 @@ import { setSlidesLook, slidesLookOwn } from '../engine/theme';
 import type { Block, Deck } from '../types';
 import { fitHtml, hasEmbed } from '../components/html/html';
 import { PRESET_KINDS, presetGeometry } from '../components/shape/shape';
+import { adjParse } from '../components/shape/kinds';
 import { embedShot } from '../engine/embed-shot';
 import { resolve } from '../engine/formula';
 import { Renderer, actionTarget } from '../engine/render';
@@ -623,6 +624,8 @@ class Converter {
     const at = rot ? { x: b.x + b.w / 2 - size.w / 2, y: b.y + b.h / 2 - size.h / 2, ...size } : b;
     this.slide.addShape(el.dataset.prst as PptxGenJS.SHAPE_NAME, {
       ...this.pos(at),
+      // Регулировки (жёлтые ручки) pptxgenjs не пишет: метка в имени, значения — при доработке XML (adjFix)
+      ...(el.dataset.adj ? { objectName: `slideria-adj:${el.dataset.adj}` } : {}),
       fill: fill ? { color: fill.hex, transparency: transparency(fill.a * op) } : { type: 'none' } as never,
       line: o && line ? { color: line.hex, width: pt(Number(o.dataset.w) * k), transparency: transparency(line.a * op), dashType: o.dataset.dash === 'dash' ? 'dash' : o.dataset.dash === 'dot' ? 'sysDot' : 'solid' } : { type: 'none' } as never,
       rotate: this.spin(rot) || undefined,
@@ -1003,7 +1006,7 @@ class Converter {
     const crop = bcs.getPropertyValue('--crop').trim();
     if (PRESET_KINDS[crop]) {
       const path = new Path2D();
-      presetGeometry(crop, W, H).filter((p) => p.fill).forEach((p) => path.addPath(new Path2D(p.d)));
+      presetGeometry(crop, W, H, adjParse(bcs.getPropertyValue('--crop-adj').trim())).filter((p) => p.fill).forEach((p) => path.addPath(new Path2D(p.d)));
       g.clip(path);
     } else {
       g.beginPath();
@@ -1331,7 +1334,7 @@ async function repair(blob: Blob): Promise<Blob> {
       return equationShape(id, xfrm, m.omml, m.align, pic.replace(`descr="${key}"`, 'descr="Формула"'));
     }) : fixed;
     // Цвета-метки → градиенты PowerPoint
-    const done = MARKS.swap(eq);
+    const done = MARKS.swap(adjFix(eq));
     if (done !== x) zip.file(name, done);
   }
   // Упаковка как у самого PowerPoint: настольная версия строже веб-версии
@@ -1382,4 +1385,16 @@ function columnWidths(table: HTMLTableElement): number[] {
   const known = w.reduce<number>((a, x) => a + (x ?? 0), 0);
   const free = w.filter((x) => x == null).length;
   return w.map((x) => x ?? Math.max(1, (total - known) / Math.max(1, free)));
+}
+
+/** Фигура с регулировками (метка slideria-adj в имени): значения — в avLst её prstGeom, имя — обычное */
+function adjFix(xml: string): string {
+  if (!xml.includes('slideria-adj:')) return xml;
+  return xml.replace(/<p:sp>((?:(?!<\/p:sp>)[\s\S])*)<\/p:sp>/g, (sp, inner: string) => {
+    const m = /name="slideria-adj:([^"]*)"/.exec(inner);
+    if (!m) return sp;
+    const gds = m[1].split(',').map((kv) => kv.split('=')).filter(([k, v]) => /^adj\d*$/.test(k) && Number.isFinite(Number(v)))
+      .map(([k, v]) => `<a:gd name="${k}" fmla="val ${Math.round(Number(v))}"/>`).join('');
+    return sp.replace(m[0], 'name="Фигура"').replace(/<a:avLst\s*\/>|<a:avLst><\/a:avLst>/, `<a:avLst>${gds}</a:avLst>`);
+  });
 }

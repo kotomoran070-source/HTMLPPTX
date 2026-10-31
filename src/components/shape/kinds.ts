@@ -2,7 +2,7 @@
  * Виды фигур со стандартной геометрией PowerPoint и их контуры — без стилей (нужны и панелям студии, и тестам).
  * Отрисовка — в shape.ts
  */
-import { customPaths, parsePresets, type GeomPath } from '../../engine/geom';
+import { customPaths, geomAdjust, geomHandles, parsePresets, type GeomHandle, type GeomPath } from '../../engine/geom';
 import PRESET_XML from './presets';
 
 /**
@@ -36,22 +36,47 @@ export const PRESET_KINDS: Record<string, { prst: string; name: string; size: [n
 
 let presetDefs: Map<string, Element> | null = null;
 const geomCache = new Map<string, GeomPath[]>();
-/** Контуры фигуры из PRESET_KINDS в пикселях w × h */
-export function presetGeometry(kind: string, w: number, h: number): GeomPath[] {
+const defOf = (kind: string) => {
+  const prst = PRESET_KINDS[kind]?.prst;
+  presetDefs ??= parsePresets(PRESET_XML);
+  return prst ? presetDefs.get(prst) ?? null : null;
+};
+/** Регулировки фигуры (жёлтые ручки, единицы DrawingML): adj, adj1… из данных — только числа */
+export const adjOf = (v: unknown): Record<string, number> =>
+  Object.fromEntries(Object.entries(v && typeof v === 'object' ? v : {}).filter(([k, x]) => /^adj\d*$/.test(k) && Number.isFinite(Number(x))).map(([k, x]) => [k, Number(x)]));
+
+/** Контуры фигуры из PRESET_KINDS в пикселях w × h; adj — свои регулировки (жёлтые ручки) */
+export function presetGeometry(kind: string, w: number, h: number, adj?: unknown): GeomPath[] {
   const prst = PRESET_KINDS[kind]?.prst;
   if (!prst) return [];
-  const key = `${prst} ${w} ${h}`;
+  const over = adjOf(adj);
+  const key = `${prst} ${w} ${h} ${JSON.stringify(over)}`;
   let out = geomCache.get(key);
   if (!out) {
-    presetDefs ??= parsePresets(PRESET_XML);
-    const def = presetDefs.get(prst);
-    out = def ? customPaths(def, w, h) : [];
+    const def = defOf(kind);
+    out = def ? customPaths(def, w, h, over) : [];
     if (geomCache.size > 500) geomCache.clear();
     geomCache.set(key, out);
   }
   return out;
 }
 
+
+/** Жёлтые ручки фигуры w × h с регулировками adj */
+export function presetHandles(kind: string, w: number, h: number, adj?: unknown): GeomHandle[] {
+  const def = defOf(kind);
+  return def ? geomHandles(def, w, h, adjOf(adj)) : [];
+}
+
+/** Ручку k потянули в точку (x, y) пикселей фигуры: новые регулировки */
+export function presetAdjust(kind: string, w: number, h: number, adj: unknown, k: number, x: number, y: number): Record<string, number> {
+  const def = defOf(kind);
+  return def ? geomAdjust(def, w, h, adjOf(adj), k, x, y) : adjOf(adj);
+}
+
+/** Регулировки строкой для CSS-переменной и PPTX: adj1=30000,adj2=50000 */
+export const adjText = (adj: unknown): string => Object.entries(adjOf(adj)).map(([k, v]) => `${k}=${v}`).join(',');
+export const adjParse = (s: string): Record<string, number> => Object.fromEntries(s.split(',').map((p) => p.split('=')).filter(([k, v]) => k && Number.isFinite(Number(v))).map(([k, v]) => [k.trim(), Number(v)]));
 
 /** Границы контуров вместе с рамкой фигуры: точки и опорные точки кривых (кривая внутри них), у дуг — концы */
 export function boundsOf(paths: GeomPath[], w: number, h: number): [number, number, number, number] {

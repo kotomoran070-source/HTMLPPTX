@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { parse } from 'yaml';
+import JSZip from 'jszip';
 import { DECKS, deckFile, watchErrors } from './helpers';
 
 test('фигура и рисунок: тень и свечение с ленты, подкрутка в «Свойствах», готовая тень сбрасывает подкрутку, «×» убирает', async ({ page }) => {
@@ -223,6 +224,62 @@ slides:
     await page.locator('.st-lkpop [data-lk][title="Без формы"]').click();
     await expect.poll(yaml).not.toMatch(/crop:/);
     await expect(box).not.toHaveClass(/img-crop/);
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('жёлтые ручки формы: у звезды — глубина лучей, у снимка в форме стрелки — толщина и остриё; в PowerPoint — регулировки фигуры', async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'fxadj');
+  fs.mkdirSync(path.join(dir, 'assets'), { recursive: true });
+  fs.copyFileSync(path.join(DECKS, 'fx', 'assets', 'shot.webp'), path.join(dir, 'assets', 'shot.webp'));
+  fs.writeFileSync(path.join(dir, 'deck.yaml'), `title: Ручки
+slides:
+  - template: canvas
+    free:
+      - {type: shape, kind: star, fill: accent, place: {x: 80, y: 120, w: 360, h: 340}}
+      - {type: image, src: ./assets/shot.webp, crop: block-arrow, place: {x: 560, y: 160, w: 600, h: 300}}
+`);
+  const free = () => parse(fs.readFileSync(deckFile('fxadj'), 'utf8')).slides[0].free;
+  try {
+    await page.goto('/?deck=fxadj&studio#1');
+    const drag = async (k: number, dx: number, dy: number) => {
+      const b = (await page.locator('#st-canvas .slide.on .free').nth(k).boundingBox())!;
+      await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+      const h = (await page.locator('#ed-frame .h-adj').last().boundingBox())!;
+      await page.mouse.move(h.x + 6, h.y + 6);
+      await page.mouse.down();
+      await page.mouse.move(h.x + 6 + dx, h.y + 6 + dy, { steps: 6 });
+      await page.mouse.up();
+    };
+    // Звезда: одна ручка; вверх — лучи толще
+    const star = page.locator('#st-canvas .slide.on .free').first();
+    await star.click({ position: { x: 180, y: 200 } });
+    await expect(page.locator('#ed-frame .h-adj')).toHaveCount(1);
+    const before = await star.locator('.shape-f').evaluate((e) => e.style.cssText);
+    await drag(0, 0, -25);
+    await expect.poll(() => free()[0].adj?.adj ?? 0).toBeGreaterThan(19098);
+    expect(await star.locator('.shape-f').evaluate((e) => e.style.cssText)).not.toBe(before);
+    // Снимок в форме стрелки: две ручки; остриё длиннее
+    await drag(1, -100, 0);
+    await expect(page.locator('#ed-frame .h-adj')).toHaveCount(2);
+    await expect.poll(() => free()[1].adj?.adj2 ?? 0).toBeGreaterThan(60000);
+    // Другая форма — регулировки сбрасываются
+    await page.locator('.st-tabs [data-tab="image"]').click();
+    await page.locator('.st-ribbon [data-cmd="image.shape"]').click();
+    await page.locator('.st-lkpop [data-lk][title="Шеврон"]').click();
+    await expect.poll(() => free()[1].adj).toBeUndefined();
+    await page.keyboard.press('Escape');
+    // PowerPoint: звезда — родной фигурой с регулировкой
+    await page.locator('[data-cmd="file.export"]').first().click();
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 90_000 }), page.locator('[data-x="pptx"]').click()]);
+    const zip = await JSZip.loadAsync(fs.readFileSync(await dl.path()));
+    const xml = await zip.file('ppt/slides/slide1.xml')!.async('string');
+    expect(xml).toMatch(/<a:prstGeom prst="star5"><a:avLst><a:gd name="adj" fmla="val \d+"\/><\/a:avLst>/);
+    expect(xml).not.toContain('slideria-adj');
     expect(errors).toEqual([]);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

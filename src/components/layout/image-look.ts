@@ -1,4 +1,4 @@
-import { PRESET_KINDS, presetMask, SHADOWS, shapeColor } from '../shape/shape';
+import { adjText, PRESET_KINDS, presetMask, SHADOWS, shapeColor } from '../shape/shape';
 import { BOX_FX_KEYS, boxFxColor, boxFxCss, dropFxCss, type BoxFx } from '../../engine/box-fx';
 
 /**
@@ -34,6 +34,8 @@ export interface ImageLook extends Omit<BoxFx, 'shadow'> {
   saturate?: number;
   /** Обрезка по фигуре PowerPoint: ключ PRESET_KINDS — diamond, star, heart, cloud… Скругление, контур и паспарту тогда не действуют */
   crop?: string;
+  /** Регулировки фигуры обрезки (жёлтые ручки), как у фигуры */
+  adj?: Record<string, number>;
 }
 
 /** Тени — общие с фигурами (shape.ts) */
@@ -83,7 +85,7 @@ export function filterCss(key: unknown): { img: string; box: string; tint: boole
 }
 
 /** Поля оформления: их стирает «Сбросить оформление» и переносит формат по образцу */
-export const IMAGE_LOOK_KEYS = ['stroke', 'width', 'dash', 'radius', ...BOX_FX_KEYS, 'mat', 'matColor', 'opacity', 'fade', 'fadeSize', 'filter', 'bright', 'contrast', 'saturate', 'crop'] as const;
+export const IMAGE_LOOK_KEYS = ['stroke', 'width', 'dash', 'radius', ...BOX_FX_KEYS, 'mat', 'matColor', 'opacity', 'fade', 'fadeSize', 'filter', 'bright', 'contrast', 'saturate', 'crop', 'adj'] as const;
 
 /**
  * Маска растворения: снимок непрозрачен до (100 − fadeSize) % и плавно исчезает к краю.
@@ -168,8 +170,9 @@ function croppedCss(p: ImageLook): { box: string; img: string; wrap: string; fx:
   const [dw, dh] = PRESET_KINDS[p.crop!].size;
   const W = Math.max(8, Math.round(Number(pl?.w) || dw));
   const H = Math.max(8, Math.round(Number(pl?.h) || (W * dh) / dw));
-  const masks = [presetMask(p.crop, W, H)!, fadeMask(p)].filter(Boolean).join(', ');
-  const box = ['border-radius:0', `--crop:${p.crop}`, `-webkit-mask-image:${masks}`, `mask-image:${masks}`, '-webkit-mask-size:100% 100%', 'mask-size:100% 100%',
+  const masks = [presetMask(p.crop, W, H, p.adj)!, fadeMask(p)].filter(Boolean).join(', ');
+  const adjs = adjText(p.adj);
+  const box = ['border-radius:0', `--crop:${p.crop}`, ...(adjs ? [`--crop-adj:${adjs}`] : []), `-webkit-mask-image:${masks}`, `mask-image:${masks}`, '-webkit-mask-size:100% 100%', 'mask-size:100% 100%',
     '-webkit-mask-repeat:no-repeat', 'mask-repeat:no-repeat', ...(fadeMask(p) ? ['-webkit-mask-composite:source-in', 'mask-composite:intersect'] : [])];
   const op = Number(p.opacity);
   if (Number.isFinite(op) && op >= 0.1 && op < 1) box.push(`opacity:${op}`);

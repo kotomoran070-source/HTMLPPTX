@@ -1488,7 +1488,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
         const opt = (k: string | undefined): LookOption => ({
           label: k ? PRESET_KINDS[k].short ?? PRESET_KINDS[k].name : 'Без формы', on: cur === k, patch: { crop: k },
           // Выбрали форму — сразу «Кадр»: снимок целиком вокруг формы, его можно сдвинуть и увеличить за углы
-          pick: () => { setAll('image', 'crop', k); if (k) requestAnimationFrame(() => { if (ed.imageCrop.can && !ed.imageCrop.on) h.run('image.crop'); }); },
+          pick: () => { const paths = targets('image'); ed.commit((d) => paths.forEach((p) => { setAt(d, [...p, 'crop'], k); setAt(d, [...p, 'adj'], undefined); }), { rebuild: true }); if (k) requestAnimationFrame(() => { if (ed.imageCrop.can && !ed.imageCrop.on) h.run('image.crop'); }); },
         });
         lookPopover(anchor('image.shape'), [
           { options: [undefined, 'diamond', 'triangle', 'right-triangle', 'parallelogram', 'trapezoid', 'pentagon', 'hexagon', 'octagon', 'star', 'plus', 'heart', 'lightning', 'donut', 'cloud'].map(opt) },
@@ -1573,6 +1573,8 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
           const b = getAt(d, p) as Block;
           const wasLine = isLine(b);
           const toLine = k === 'line' || k === 'arrow';
+          // Регулировки (жёлтые ручки) — свои у каждой формы
+          if (b.kind !== k) setAt(d, [...p, 'adj'], undefined);
           setAt(d, [...p, 'kind'], k === 'round' ? undefined : k);
           // Линия берёт цвет у заливки, фигура из линии — обычную заливку
           if (toLine && !wasLine) {

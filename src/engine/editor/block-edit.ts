@@ -1,5 +1,7 @@
 import { icon } from '../../components/icons';
-import { PRESET_KINDS, refitPreset, type ShapeProps } from '../../components/shape/shape';
+import { PRESET_KINDS, presetAdjust, presetHandles, refitPreset, type ShapeProps } from '../../components/shape/shape';
+import { adjOf } from '../../components/shape/kinds';
+import { imageLookCss } from '../../components/layout/image-look';
 import type { Deck, SlideData } from '../../types';
 import { clone, getAt, setAt, type Path } from '../data';
 import { H, W } from '../deck-view';
@@ -338,6 +340,7 @@ export class BlockEditor {
     const fh = parseFloat(this.frame.style.height);
     this.frame.classList.toggle('slim-w', fw < 56);
     this.frame.classList.toggle('slim-h', fh < 56);
+    this.placeAdj();
     // Рамка поверх всей страницы: у объекта за краем слайда или прокрученного из вида она
     // обрезается по холсту и не ложится на панели и ленту
     const view = !a || this.isMulti ? this.viewRect() : null;
@@ -381,7 +384,8 @@ export class BlockEditor {
     this.frame.addEventListener('pointerdown', (e) => {
       const t = e.target as HTMLElement;
       const dir = t.dataset.dir as Dir | undefined;
-      if (t.dataset.rot && this.sel?.free && !this.guardLocked()) this.rotate(e);
+      if (t.dataset.adj !== undefined && this.sel?.free && !this.guardLocked()) this.adjust(e, Number(t.dataset.adj));
+      else if (t.dataset.rot && this.sel?.free && !this.guardLocked()) this.rotate(e);
       else if (dir && this.sel?.free && !this.guardLocked()) this.resize(e, dir);
     });
   }
@@ -941,6 +945,76 @@ export class BlockEditor {
       const path = s.free!;
       const keepH = changedH || !!start.h;
       this.host.commit((d) => setAt(d, [...path, 'place'], keepH ? cur : { x: cur.x, y: cur.y, w: cur.w }), { rebuild: true });
+    };
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+  }
+
+  /**
+   * Жёлтые ручки фигуры PowerPoint и рисунка, обрезанного по фигуре: форма — глубина лучей звезды, остриё стрелки,
+   * хвост выноски (регулировки adj). Только у одного выделенного свободного объекта
+   */
+  private adjTarget(): { kind: string; block: Record<string, unknown>; w: number; h: number } | null {
+    const s = this.sel;
+    if (!s?.free || this.isMulti) return null;
+    const block = getAt(this.host.deck(), s.free) as Record<string, unknown> | undefined;
+    const kind = String(block?.type === 'shape' ? block.kind : block?.type === 'image' ? block.crop : '');
+    if (!block || !PRESET_KINDS[kind]) return null;
+    const pl = placeOf(block);
+    return { kind, block, w: Math.max(8, Math.round(pl.w)), h: Math.max(8, Math.round(pl.h ?? s.el.offsetHeight)) };
+  }
+
+  private placeAdj(adj?: Record<string, number>): void {
+    const t = this.adjTarget();
+    const hs = t ? presetHandles(t.kind, t.w, t.h, adj ?? t.block.adj) : [];
+    const have = [...this.frame.querySelectorAll<HTMLElement>(':scope > .h-adj')];
+    have.slice(hs.length).forEach((e) => e.remove());
+    hs.forEach((p, k) => {
+      let i = have[k];
+      if (!i) {
+        i = document.createElement('i');
+        i.className = 'h-adj';
+        i.dataset.adj = String(k);
+        i.title = 'Изменить форму';
+        this.frame.appendChild(i);
+      }
+      i.style.left = `${(p.x / t!.w) * 100}%`;
+      i.style.top = `${(p.y / t!.h) * 100}%`;
+    });
+  }
+
+  /** Жёлтую ручку тянут: форма меняется на ходу, в данные — когда отпустили (одним шагом отмены) */
+  private adjust(e: PointerEvent, k: number): void {
+    const s = this.sel;
+    const t = this.adjTarget();
+    if (!s?.free || !t) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const path = s.free;
+    const scale = this.scale();
+    const rad = (angleOf(t.block) * Math.PI) / 180;
+    const r = this.frame.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    let cur = adjOf(t.block.adj);
+    const move = (ev: PointerEvent) => {
+      // Точка мыши — в осях объекта (повёрнутый — обратно на его угол), в пикселях слайда
+      const dx = (ev.clientX - cx) / scale;
+      const dy = (ev.clientY - cy) / scale;
+      const x = dx * Math.cos(rad) + dy * Math.sin(rad) + t.w / 2;
+      const y = -dx * Math.sin(rad) + dy * Math.cos(rad) + t.h / 2;
+      cur = presetAdjust(t.kind, t.w, t.h, t.block.adj, k, x, y);
+      if (t.block.type === 'shape') refitPreset(s.el, { ...t.block, adj: cur } as ShapeProps, t.w, t.h);
+      else {
+        const bx = s.el.querySelector<HTMLElement>('.imgbox');
+        if (bx) bx.setAttribute('style', imageLookCss({ ...t.block, adj: cur }).box);
+      }
+      this.placeAdj(cur);
+    };
+    const up = () => {
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', up);
+      if (JSON.stringify(cur) !== JSON.stringify(adjOf(t.block.adj))) this.host.commit((d) => setAt(d, [...path, 'adj'], Object.keys(cur).length ? cur : undefined), { rebuild: true });
     };
     addEventListener('pointermove', move);
     addEventListener('pointerup', up);

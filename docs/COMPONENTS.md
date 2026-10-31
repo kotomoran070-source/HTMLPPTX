@@ -490,6 +490,7 @@ zoom: 1.5                 # увеличение от 1 до 4
 
 ```yaml
 radius: 24                # скругление, px; circle — круг (по меньшей стороне рамки, по центру), oval — овал во всю рамку
+adj: {adj: 30000}         # регулировки формы (жёлтые ручки), единицы DrawingML; есть и у фигур PowerPoint (shape с kind)
 crop: heart               # обрезка по фигуре PowerPoint: diamond, star, heart, cloud, hexagon, chevron… (скругление, контур и паспарту тогда не действуют; тень и свечение — по форме)
 shadow: md                # sm, md, lg
 shadowDist: 16            # подкрутка тени: shadowColor, shadowOpacity (0–1), shadowBlur и shadowDist (px), shadowAngle (90 — вниз)
