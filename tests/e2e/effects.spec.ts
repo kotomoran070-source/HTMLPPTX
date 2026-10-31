@@ -182,7 +182,7 @@ slides:
   }
 });
 
-test('рисунок по фигуре: «Форма» на ленте обрезает снимок ромбом, сердцем…; тень — снаружи формы; «Без формы» и «Сбросить» убирают', async ({ page }) => {
+test('рисунок по фигуре: «Форма» обрезает снимок и сразу включает «Кадр» — снимок целиком, углы — масштаб; тень — снаружи формы; «Без формы» и «Сбросить» убирают', async ({ page }) => {
   const errors = watchErrors(page);
   const dir = path.join(DECKS, 'fxcrop');
   fs.mkdirSync(path.join(dir, 'assets'), { recursive: true });
@@ -203,6 +203,17 @@ slides:
     await page.locator('.st-ribbon [data-cmd="image.shape"]').click();
     await page.locator('.st-lkpop [data-lk][title="Сердце"]').click();
     await expect.poll(yaml).toMatch(/crop: heart/);
+    // Сразу «Кадр»: снимок целиком вокруг формы, контур формы; угол снимка — масштаб
+    await expect(page.locator('#ed-ghost')).toBeVisible();
+    await expect(page.locator('#ed-ghost-o')).toBeVisible();
+    const c = (await page.locator('#ed-ghost [data-c="se"]').boundingBox())!;
+    await page.mouse.move(c.x + 7, c.y + 7);
+    await page.mouse.down();
+    await page.mouse.move(c.x + 80, c.y + 60, { steps: 6 });
+    await page.mouse.up();
+    await expect.poll(yaml).toMatch(/zoom: 1\.\d+/);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#ed-ghost')).toBeHidden();
     const box = obj.locator('.imgbox');
     await expect(box).toHaveClass(/img-crop/);
     expect(await box.evaluate((e) => getComputedStyle(e).webkitMaskImage || getComputedStyle(e).maskImage)).toContain('svg');

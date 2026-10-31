@@ -1486,7 +1486,9 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       run: () => {
         const cur = first('image')?.crop;
         const opt = (k: string | undefined): LookOption => ({
-          label: k ? PRESET_KINDS[k].short ?? PRESET_KINDS[k].name : 'Без формы', on: cur === k, patch: { crop: k }, pick: () => setAll('image', 'crop', k),
+          label: k ? PRESET_KINDS[k].short ?? PRESET_KINDS[k].name : 'Без формы', on: cur === k, patch: { crop: k },
+          // Выбрали форму — сразу «Кадр»: снимок целиком вокруг формы, его можно сдвинуть и увеличить за углы
+          pick: () => { setAll('image', 'crop', k); if (k) requestAnimationFrame(() => { if (ed.imageCrop.can && !ed.imageCrop.on) h.run('image.crop'); }); },
         });
         lookPopover(anchor('image.shape'), [
           { options: [undefined, 'diamond', 'triangle', 'right-triangle', 'parallelogram', 'trapezoid', 'pentagon', 'hexagon', 'octagon', 'star', 'plus', 'heart', 'lightning', 'donut', 'cloud'].map(opt) },

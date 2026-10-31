@@ -465,3 +465,16 @@ input[type="range"]:not(.slide *):not(.cg *):active::-webkit-slider-thumb { tran
 input[type="range"]:not(.slide *):not(.cg *):focus-visible { outline: none; }
 input[type="range"]:not(.slide *):not(.cg *):focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ac) 35%, transparent); }
 input[type="range"]:not(.slide *):not(.cg *):disabled { opacity: .45; cursor: default; }
+/* Режим «Кадр»: снимок целиком — полупрозрачно вокруг рамки, углы — масштаб; контур формы обрезки */
+.edghost { position: fixed; z-index: 11; display: none; outline: 1px solid var(--ac); cursor: grab; }
+.edghost::before { content: ""; position: absolute; inset: 0; background: var(--g) center / 100% 100% no-repeat; opacity: .35; }
+.edghost.on { display: block; }
+.edghost:active { cursor: grabbing; }
+.edghost > i { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; background: #fff; border: 2px solid #111827; border-radius: 50%; }
+.edghost > i[data-c="nw"] { left: 0; top: 0; cursor: nwse-resize; }
+.edghost > i[data-c="ne"] { left: 100%; top: 0; cursor: nesw-resize; }
+.edghost > i[data-c="se"] { left: 100%; top: 100%; cursor: nwse-resize; }
+.edghost > i[data-c="sw"] { left: 0; top: 100%; cursor: nesw-resize; }
+.edghost-o { position: fixed; z-index: 13; display: none; overflow: visible; pointer-events: none; }
+.edghost-o.on { display: block; }
+.edghost-o path { fill: none; stroke: var(--ac); stroke-width: 2; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke; }

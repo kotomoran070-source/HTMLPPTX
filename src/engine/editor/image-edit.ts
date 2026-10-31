@@ -3,6 +3,7 @@ import { getAt, setAt, type Path } from '../data';
 import { W } from '../deck-view';
 import { darkPath, frameCss, type ImageFrame } from '../marks';
 import { frameAt, removeFrame } from '../../components/layout/frame-list';
+import { PRESET_KINDS, presetGeometry } from '../../components/shape/shape';
 
 export interface ImageHost {
   deck(): Record<string, unknown>;
@@ -46,6 +47,9 @@ export class ImageEditor {
   private pannable = false;
   readonly bar: HTMLElement;
   private handle: HTMLElement;
+  /** Кадр: снимок целиком — полупрозрачно вокруг рамки, с ручками масштаба по углам; контур формы обрезки */
+  private ghost: HTMLElement;
+  private outline: SVGSVGElement;
 
   constructor(private host: ImageHost) {
     document.body.insertAdjacentHTML('beforeend', `
@@ -68,9 +72,13 @@ export class ImageEditor {
   <i class="edsep"></i>
   <button type="button" data-i="remove" class="danger" title="Убрать картинку (Delete)" aria-label="Убрать картинку">${icon('close')}</button>
 </div>
-<div class="edhandle" id="ed-handle" title="Потяните, чтобы изменить высоту" aria-hidden="true"></div>`);
+<div class="edhandle" id="ed-handle" title="Потяните, чтобы изменить высоту" aria-hidden="true"></div>
+<div class="edghost" id="ed-ghost" title="Тяните снимок, чтобы сдвинуть; углы — масштаб" aria-hidden="true">${['nw', 'ne', 'se', 'sw'].map((c) => `<i data-c="${c}"></i>`).join('')}</div>
+<svg class="edghost-o" id="ed-ghost-o" aria-hidden="true" preserveAspectRatio="none"><path/></svg>`);
     this.bar = document.getElementById('ed-img')!;
     this.handle = document.getElementById('ed-handle')!;
+    this.ghost = document.getElementById('ed-ghost')!;
+    this.outline = document.getElementById('ed-ghost-o') as unknown as SVGSVGElement;
     this.bind();
   }
 
@@ -84,7 +92,7 @@ export class ImageEditor {
   }
 
   owns(node: Node | null): boolean {
-    return !!node && (this.bar.contains(node) || this.handle.contains(node));
+    return !!node && (this.bar.contains(node) || this.handle.contains(node) || this.ghost.contains(node));
   }
 
   select(el: HTMLElement): void {
@@ -112,6 +120,8 @@ export class ImageEditor {
     this.pannable = false;
     this.bar.classList.remove('on');
     this.handle.classList.remove('on');
+    this.ghost.classList.remove('on');
+    this.outline.classList.remove('on');
   }
 
   /** После перерисовки слайда выделение переходит на новый элемент. */
@@ -220,6 +230,7 @@ export class ImageEditor {
     const top = r.top - h - 10 > 60 ? r.top - h - 10 : Math.min(innerHeight - h - 8, r.bottom + 10);
     this.bar.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
     this.bar.style.top = `${top}px`;
+    this.placeGhost();
     if (this.handle.classList.contains('on')) {
       const box = s.el.closest('figure') ?? s.el;
       const b = box.getBoundingClientRect();
@@ -295,6 +306,39 @@ export class ImageEditor {
       const z = Number(zoom.value) / 100;
       this.bar.querySelector('output')!.textContent = `${zoom.value}%`;
       if (img) img.setAttribute('style', frameCss({ ...this.frame(), zoom: z }));
+      this.placeGhost({ ...this.frame(), zoom: z });
+    });
+
+    // Снимок целиком вокруг рамки: потянуть за него — сдвиг кадра, за угол — масштаб от середины рамки
+    this.ghost.addEventListener('pointerdown', (e) => {
+      const c = (e.target as Element).closest<HTMLElement>('[data-c]');
+      if (!c) return void this.pointerDown(e);
+      const s = this.sel;
+      const img = this.img();
+      if (!s || !img) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const f = this.frame();
+      const z0 = Number(f.zoom) || 1;
+      const box = this.box()!;
+      const cx = box.left + box.width / 2;
+      const cy = box.top + box.height / 2;
+      const d0 = Math.hypot(e.clientX - cx, e.clientY - cy) || 1;
+      let z = z0;
+      const move = (ev: PointerEvent) => {
+        z = Math.round(Math.max(0.3, Math.min(4, (z0 * Math.hypot(ev.clientX - cx, ev.clientY - cy)) / d0)) * 100) / 100;
+        img.setAttribute('style', frameCss({ ...f, zoom: z }));
+        zoom.value = String(Math.round(z * 100));
+        this.bar.querySelector('output')!.textContent = `${zoom.value}%`;
+        this.placeGhost({ ...f, zoom: z });
+      };
+      const up = () => {
+        removeEventListener('pointermove', move);
+        removeEventListener('pointerup', up);
+        if (z !== z0) this.setFrame({ zoom: Math.abs(z - 1) > 0.001 ? z : undefined }, 'zoom');
+      };
+      addEventListener('pointermove', move);
+      addEventListener('pointerup', up);
     });
     zoom.addEventListener('change', () => {
       const z = Number(zoom.value) / 100;
@@ -330,6 +374,49 @@ export class ImageEditor {
     });
   }
 
+  /** Рамка снимка на экране (без масштаба кадра: transform у самой картинки) */
+  private box(): DOMRect | null {
+    const img = this.img();
+    const par = img?.parentElement;
+    if (!img || !par) return null;
+    const pr = par.getBoundingClientRect();
+    const k = par.offsetWidth ? pr.width / par.offsetWidth : 1;
+    return new DOMRect(pr.left + img.offsetLeft * k, pr.top + img.offsetTop * k, img.offsetWidth * k, img.offsetHeight * k);
+  }
+
+  /**
+   * Снимок целиком в режиме «Кадр»: где он лежит относительно рамки (левый край = p · (рамка − снимок), как
+   * у object-position с масштабом от той же точки), и контур формы, если снимок обрезан по фигуре
+   */
+  private placeGhost(f: ImageFrame = this.frame()): void {
+    const s = this.sel;
+    const img = this.img();
+    const box = this.box();
+    const on = !!s && !!img?.naturalWidth && !!box && s.el.classList.contains('ed-pan');
+    this.ghost.classList.toggle('on', on);
+    const crop = on ? getComputedStyle(img!.parentElement!).getPropertyValue('--crop').trim() : '';
+    this.outline.classList.toggle('on', on && !!PRESET_KINDS[crop]);
+    if (!on) return;
+    const nw = img!.naturalWidth;
+    const nh = img!.naturalHeight;
+    const z = Math.max(0.3, Math.min(4, Number(f.zoom) || 1));
+    const base = (f.fit === 'contain' ? Math.min : Math.max)(box!.width / nw, box!.height / nh);
+    const w = nw * base * z;
+    const h = nh * base * z;
+    const m = POS.exec(f.position ?? '');
+    const px = m ? Number(m[1]) / 100 : 0.5;
+    const py = m ? Number(m[2]) / 100 : 0.5;
+    Object.assign(this.ghost.style, {
+      left: `${box!.left + px * (box!.width - w)}px`, top: `${box!.top + py * (box!.height - h)}px`, width: `${w}px`, height: `${h}px`,
+    });
+    this.ghost.style.setProperty('--g', `url(${JSON.stringify(img!.currentSrc || img!.src)})`);
+    if (PRESET_KINDS[crop]) {
+      Object.assign(this.outline.style, { left: `${box!.left}px`, top: `${box!.top}px`, width: `${box!.width}px`, height: `${box!.height}px` });
+      this.outline.setAttribute('viewBox', `0 0 ${Math.round(box!.width)} ${Math.round(box!.height)}`);
+      this.outline.querySelector('path')!.setAttribute('d', presetGeometry(crop, Math.round(box!.width), Math.round(box!.height)).filter((g) => g.fill).map((g) => g.d).join(' '));
+    }
+  }
+
   /**
    * Перетаскивание картинки внутри рамки: картинка идёт за мышью.
    * Левый край картинки в рамке = p · (ширина рамки − ширина картинки с учётом масштаба),
@@ -338,7 +425,7 @@ export class ImageEditor {
    */
   pointerDown(e: PointerEvent): boolean {
     const s = this.sel;
-    if (!s || !s.el.contains(e.target as Node) || !this.pannable) return false;
+    if (!s || !(s.el.contains(e.target as Node) || this.ghost.contains(e.target as Node)) || !this.pannable) return false;
     // У свободной картинки обычное перетаскивание двигает объект, кадр — в режиме «Кадр» или с Alt
     if (s.el.closest('[data-free]') && !e.altKey && !this.cropping) return false;
     const img = this.img();
@@ -363,6 +450,7 @@ export class ImageEditor {
         y: Math.abs(rangeY) < 1 ? start.y : clamp(start.y + (dy / rangeY) * 100),
       };
       img.setAttribute('style', frameCss({ ...f, position: `${pos.x}% ${pos.y}%` }));
+      this.placeGhost({ ...f, position: `${pos.x}% ${pos.y}%` });
     };
     const up = () => {
       removeEventListener('pointermove', move);
