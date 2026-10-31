@@ -1,6 +1,7 @@
 import { defineBlock } from '../../engine/component';
 import { asArray, esc, t } from '../../engine/html';
-import { ea } from '../../engine/marks';
+import { ea, pathOf } from '../../engine/marks';
+import { textStyleCss, type TextStyle } from '../../engine/text-style';
 import type { Block } from '../../types';
 import { fontNameOk, fontStack } from '../../engine/fonts';
 import { SHAPE_COLORS } from '../shape/shape';
@@ -18,9 +19,10 @@ interface TableProps extends Block {
    * boxed — сетка в рамке, accent — шапка акцентного цвета,
    * soft — мягкая карточка без линий, dark — тёмная шапка,
    * plan — план работ: номера «01», задача в две строки (**Задача**\nрезультат), метки приоритета,
-   * heat — тепловая карта: ячейки-плитки, числа подкрашены по величине, под таблицей шкала
+   * heat — тепловая карта: ячейки-плитки, числа подкрашены по величине, под таблицей шкала,
+   * cards — строки-карточки: каждая строка отдельной плашкой с полосой акцента, шапка — подписями над ними
    */
-  variant?: 'lines' | 'stripes' | 'boxed' | 'accent' | 'soft' | 'dark' | 'plan' | 'heat';
+  variant?: 'lines' | 'stripes' | 'boxed' | 'accent' | 'soft' | 'dark' | 'plan' | 'heat' | 'cards';
   /** Доли ширины столбцов: [1, 4, 2]; без них — поровну, первый уже */
   widths?: number[];
   /** Выравнивание столбцов: left, center, right. Без него числа — вправо */
@@ -43,6 +45,12 @@ interface TableProps extends Block {
   fills?: (string | null)[][];
   /** Заливка ячеек шапки */
   headFills?: (string | null)[];
+  /**
+   * Оформление текста ячеек по строкам, как fills: шрифт, размер, цвет, начертание, выравнивание
+   * ({ size: 20, color: accent, weight: 700 }) — с «Главной», как в PowerPoint; headStyles — у шапки
+   */
+  cellStyles?: (TextStyle | null)[][];
+  headStyles?: (TextStyle | null)[];
   /**
    * Объединённые ячейки: [строка, столбец, строк, столбцов]; строка -1 — шапка (только по ширине).
    * Текст и заливка — у первой ячейки, остальные скрыты (их данные не теряются)
@@ -78,7 +86,7 @@ interface TableProps extends Block {
   footnote?: string;
 }
 
-const VARIANTS = ['stripes', 'boxed', 'accent', 'soft', 'dark', 'plan', 'heat'];
+const VARIANTS = ['stripes', 'boxed', 'accent', 'soft', 'dark', 'plan', 'heat', 'cards'];
 
 /** Цвет точки метки по её слову: приоритеты и статусы */
 const DOTS: [RegExp, string][] = [
@@ -220,6 +228,10 @@ defineBlock<TableProps>('table', {
     }
     const headShown = header.length > 0 && p.head !== false;
     const edges = borderEdges(p.borders, rows.length, cols, headShown ? -1 : 0);
+    // Оформление текста ячейки: в конце style (правка текста отделяет его от остального) и путь к нему
+    const tp = pathOf(p);
+    const styleOf = (r: number, c: number): unknown => (r < 0 ? (Array.isArray(p.headStyles) ? p.headStyles[c] : null)
+      : Array.isArray(p.cellStyles) && Array.isArray(p.cellStyles[r]) ? p.cellStyles[r][c] : null);
     const cell = (tag: 'th' | 'td', list: Cell[], c: number, fill = '', r = -1) => {
       const at = `${r}:${c}`;
       if (covered.has(at)) return '';
@@ -233,8 +245,9 @@ defineBlock<TableProps>('table', {
       };
       const h = tag === 'td' && !fill ? heat.get(at) : undefined;
       const css = fill + line('t', r, c) + line('l', r, c) + line('b', r + (sp ? sp[0] - 1 : 0), c) + line('r', r, c + (sp ? sp[1] - 1 : 0))
-        + (h === undefined ? '' : `--h:${Math.round(h * 100)}%;`);
-      if (css) extra += ` style="${css}"`;
+        + (h === undefined ? '' : `--h:${Math.round(h * 100)}%;`) + textStyleCss(styleOf(r, c));
+      if (css) extra += ` style="${esc(css)}"`;
+      if (tp) extra += ` data-ed-style-at="${esc(JSON.stringify(r < 0 ? [...tp, 'headStyles', c] : [...tp, 'cellStyles', r, c]))}"`;
       const v = list[c];
       const empty = v === undefined || v === null || !String(v).trim();
       const html = empty ? '' : tag === 'td' && c === badgeCol ? badge(String(v)) : t(v);

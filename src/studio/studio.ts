@@ -7,6 +7,7 @@ import { applyThemeSwatches, themeMode } from '../engine/deck-theme';
 import { getAt, setAt, type Path } from '../engine/data';
 import { DeckView, H, W } from '../engine/deck-view';
 import { clock, Editor, SLIDE_PRESETS } from '../engine/editor/editor';
+import type { TextTarget } from '../engine/editor/text-edit';
 import { esc } from '../engine/html';
 import { placeOf, slideLabel } from '../engine/render';
 import { brandMark } from '../engine/brand';
@@ -1642,7 +1643,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
   Object.assign(cmds, designCommands(designHost));
   bindDesignStrip(designHost, cmds);
   Object.assign(cmds, toolsCommands({ deck, deckKey, editor: ed, go }));
-  Object.assign(cmds, contextCommands({ deck, editor: ed, stage: () => view.stage, run: (c) => run(c), refresh: () => queueState() }));
+  /** Что оформляет панель текста «Главной» без правки (context-tabs) */
+  let textOf: (() => TextTarget | null) | null = null;
+  Object.assign(cmds, contextCommands({ deck, editor: ed, stage: () => view.stage, run: (c) => run(c), refresh: () => queueState(), textTarget: (get) => { textOf = get; } }));
   const grips = tableGrips({ deck, editor: ed, stage: () => view.stage });
   cmds['tab.shape'] = { run: () => setTab('shape') };
   cmds['tab.anim'] = { run: () => { setTab('anim'); if (!lay.ribbon) toggleRibbon(true); } };
@@ -2099,6 +2102,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
       fitRibbon();
     }
     syncSwatches(deck, ed);
+    // «Главная» → «Текст» без правки текста — для выделенной таблицы или ячеек
+    ed.textTarget(textOf?.() ?? null);
     syncAnimTab(animHost);
     syncDesignTab(designHost);
     aids?.redraw();

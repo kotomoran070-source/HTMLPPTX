@@ -1220,6 +1220,7 @@ class Converter {
             rowspan: td.rowSpan > 1 ? td.rowSpan : undefined,
             fill: fill ? { color: fill.hex, transparency: transparency(fill.a) } : undefined,
             color: color?.hex, bold: Number(cs.fontWeight) >= 600, fontSize: pt(parseFloat(cs.fontSize) * k), fontFace: fontFace(cs.fontFamily), lang: LANG,
+            italic: cs.fontStyle === 'italic' || undefined, underline: cs.textDecorationLine.includes('underline') ? { style: 'sng' } : undefined,
             align: cs.textAlign === 'center' ? 'center' : cs.textAlign === 'right' ? 'right' : 'left', valign: 'middle',
             margin: [pt(parseFloat(cs.paddingTop) * k), pt(parseFloat(cs.paddingRight) * k), pt(parseFloat(cs.paddingBottom) * k), pt(parseFloat(cs.paddingLeft) * k)],
             border: [side('top'), side('right'), side('bottom'), side('left')],

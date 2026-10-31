@@ -14,7 +14,24 @@ import type { Deck } from '../types';
 export interface CellRange { table: string; r0: number; r1: number; c0: number; c1: number }
 export interface At { table: string; r: number; c: number }
 
-export interface TableData { header?: unknown[]; rows: unknown[][]; widths?: number[]; align?: string[]; columns?: unknown[]; fills?: unknown[][]; headFills?: unknown[]; highlight?: unknown; head?: unknown; merges?: number[][]; borders?: (number | string)[][]; heights?: (number | null)[]; headHeight?: number; total?: unknown }
+export interface TableData { header?: unknown[]; rows: unknown[][]; widths?: number[]; align?: string[]; columns?: unknown[]; fills?: unknown[][]; headFills?: unknown[]; cellStyles?: unknown[][]; headStyles?: unknown[]; highlight?: unknown; head?: unknown; merges?: number[][]; borders?: (number | string)[][]; heights?: (number | null)[]; headHeight?: number; total?: unknown }
+
+/** Данные ячеек, идущие вместе со строками: заливка и оформление текста (у шапки — свои списки) */
+const BY_ROW = [['fills', 'headFills'], ['cellStyles', 'headStyles']] as const;
+/** Списки по строкам, которые есть у таблицы (fills, cellStyles) */
+export const rowLists = (t: TableData): unknown[][][] => BY_ROW.map(([k]) => t[k]).filter(Array.isArray) as unknown[][][];
+/** Все ряды данных ячеек — шапки и строк: при вставке и удалении столбцов */
+export const cellLists = (t: TableData): unknown[][] =>
+  [...BY_ROW.map(([, h]) => t[h]), ...rowLists(t).flat()].filter(Array.isArray) as unknown[][];
+/** Пустые списки данных ячеек (ни одного значения) не хранятся */
+export function pruneCellData(t: TableData): void {
+  for (const [k, h] of BY_ROW) {
+    const rows = t[k];
+    if (Array.isArray(rows) && !rows.some((r) => Array.isArray(r) && r.some((v) => v))) delete t[k];
+    const head = t[h];
+    if (Array.isArray(head) && !head.some((v) => v)) delete t[h];
+  }
+}
 
 const mergesOf = (t: TableData | undefined): number[][] => (Array.isArray(t?.merges) ? t!.merges.filter(Array.isArray).map((m) => m.map(Number)) : []);
 
@@ -117,7 +134,7 @@ export function splitCell(t: TableData, r: number, c: number, cols: number, rows
     t.rows.forEach((row) => { while (row.length < n) row.push(''); row.splice(at, 0, ...Array.from({ length: addC }, () => '')); });
     if (Array.isArray(t.align)) t.align.splice(at, 0, ...Array.from({ length: addC }, () => t.align![at - 1] ?? ''));
     if (Array.isArray(t.columns)) t.columns.splice(at, 0, ...Array.from({ length: addC }, () => t.columns![at - 1] ?? null));
-    for (const list of [t.headFills, ...(Array.isArray(t.fills) ? t.fills : [])]) if (Array.isArray(list) && list.length > at) list.splice(at, 0, ...Array.from({ length: addC }, () => null));
+    for (const list of cellLists(t)) if (list.length > at) list.splice(at, 0, ...Array.from({ length: addC }, () => null));
     shiftMerges(t, 1, at, addC);
     // Другие строки: ячейка у места вставки растягивается на новые столбцы
     const ms = mergesOf(t);
@@ -133,7 +150,7 @@ export function splitCell(t: TableData, r: number, c: number, cols: number, rows
     const at = r + rs;
     const n = colCount(t);
     t.rows.splice(at, 0, ...Array.from({ length: addR }, () => Array.from({ length: n }, () => '')));
-    if (Array.isArray(t.fills) && t.fills.length > at) t.fills.splice(at, 0, ...Array.from({ length: addR }, () => []));
+    for (const list of rowLists(t)) if (list.length > at) list.splice(at, 0, ...Array.from({ length: addR }, () => []));
     shiftMerges(t, 0, at, addR);
     // Другие столбцы: ячейка над местом вставки растягивается на новые строки
     const ms = mergesOf(t);
@@ -191,7 +208,7 @@ export function sortRows(t: TableData, c: number, desc: boolean): string | null 
   });
   const reorder = <X>(list: X[] | undefined) => { if (Array.isArray(list)) { const head = idx.map((k) => list[k]); list.splice(0, n, ...head); } };
   reorder(t.rows);
-  reorder(t.fills);
+  rowLists(t).forEach((l) => reorder(l));
   reorder(t.heights);
   const hl = Number(t.highlight);
   if (Number.isInteger(t.highlight) && hl < n) t.highlight = idx.indexOf(hl);
@@ -275,7 +292,7 @@ export function dropRows(t: TableData, r0: number, r1: number): void {
   const n = r1 >= from ? r1 - from + 1 : 0;
   if (n) {
     t.rows.splice(from, n);
-    if (Array.isArray(t.fills)) t.fills.splice(from, n);
+    rowLists(t).forEach((l) => l.splice(from, n));
     shiftMerges(t, 0, from, -n);
     const hl = Number(t.highlight);
     if (Number.isInteger(t.highlight)) {
@@ -298,9 +315,11 @@ export function dropRows(t: TableData, r0: number, r1: number): void {
       if (b.length) t.borders = b;
       else delete t.borders;
     }
-    const f = Array.isArray(t.fills) ? t.fills.shift() : undefined;
-    if (Array.isArray(f)) t.headFills = f;
-    else delete t.headFills;
+    for (const [k, h] of BY_ROW) {
+      const f = Array.isArray(t[k]) ? t[k]!.shift() : undefined;
+      if (Array.isArray(f)) t[h] = f;
+      else delete t[h];
+    }
     if (Number.isInteger(t.highlight)) t.highlight = Number(t.highlight) - 1 >= 0 ? Number(t.highlight) - 1 : undefined;
   }
   if (!t.rows.length) t.rows.push(Array.from({ length: colCount(t) }, () => ''));
@@ -312,7 +331,7 @@ export function dropCols(t: TableData, c0: number, c1: number): void {
   if (n < 1) return;
   t.header?.splice(c0, n);
   t.rows.forEach((r) => r.splice(c0, n));
-  for (const list of [t.widths, t.align, t.columns, t.headFills, ...(Array.isArray(t.fills) ? t.fills : [])]) if (Array.isArray(list)) list.splice(c0, n);
+  for (const list of [t.widths, t.align, t.columns, ...cellLists(t)]) if (Array.isArray(list)) list.splice(c0, n);
   shiftMerges(t, 1, c0, -n);
 }
 

@@ -3,7 +3,8 @@ import { expect, test, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import JSZip from 'jszip';
 import { parse } from 'yaml';
-import { readDeck, watchErrors } from './helpers';
+import path from 'node:path';
+import { DECKS, deckFile, readDeck, watchErrors } from './helpers';
 
 test.use({ colorScheme: 'light' });
 
@@ -355,4 +356,58 @@ test('сортировка по столбцу, границы ячеек, вы�
   await expect.poll(() => t7().heights?.length).toBe(3);
   expect(new Set(t7().heights).size).toBe(1);
   expect(errors).toEqual([]);
+});
+
+test('«Главная» → «Текст» у таблицы: без правки — всей таблице или выделенным ячейкам, в правке ячейки — шрифт, размер и цвет', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'tbltext');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(deckFile('tbltext'), `title: Текст таблицы
+slides:
+  - template: canvas
+    free:
+      - type: table
+        header: [Город, Люди, Рост]
+        rows: [[Москва, '13', '2%'], [Казань, '1,3', '4%'], [Омск, '1,1', '1%']]
+        place: {x: 80, y: 120, w: 900}
+`);
+  const t = () => (parse(fs.readFileSync(deckFile('tbltext'), 'utf8')) as { slides: { free: Record<string, unknown>[] }[] }).slides[0].free[0] as { size?: number; cellStyles?: unknown[][]; headStyles?: unknown[] };
+  const bar = page.getByRole('toolbar', { name: 'Оформление текста' });
+  try {
+    await page.goto('/?deck=tbltext&studio#1');
+    await cell(page, 'Омск').click();
+    await page.locator('.st-tabs [data-tab="home"]').click();
+    // Таблица выделена, текст не правится — панель работает со всей таблицей: размер — таблицы
+    await expect(bar).not.toHaveClass(/idle/);
+    await expect(bar.locator('[data-t="font"]')).toBeVisible();
+    await bar.locator('[data-t="size"]').fill('21');
+    await bar.locator('[data-t="size"]').press('Enter');
+    await expect.poll(() => t().size).toBe(21);
+    // Диапазон ячеек — жирный и цвет только им
+    await drag(page, '1,3', '1%');
+    await page.locator('.st-tabs [data-tab="home"]').click();
+    await bar.getByRole('button', { name: 'Жирный' }).click();
+    await bar.locator('[data-t="color"]').click();
+    await page.locator('#ed-colors [data-c="accent"]').click();
+    await expect.poll(() => t().cellStyles).toEqual([null, [null, { weight: 700, color: 'accent' }, { weight: 700, color: 'accent' }], [null, { weight: 700, color: 'accent' }, { weight: 700, color: 'accent' }]]);
+    await expect.poll(() => cell(page, '1,3').evaluate((e) => getComputedStyle(e).fontWeight)).toBe('700');
+    expect(await cell(page, 'Москва').evaluate((e) => getComputedStyle(e).fontWeight)).not.toBe('700');
+    // Правка ячейки: шрифт и размер видны и пишутся в оформление этой ячейки
+    await cell(page, 'Москва').click();
+    await cell(page, 'Москва').click();
+    await expect(cell(page, 'Москва')).toHaveAttribute('contenteditable', 'true');
+    await page.locator('.st-tabs [data-tab="home"]').click();
+    await expect(bar.locator('.edsize')).toBeVisible();
+    await bar.locator('[data-t="size+"]').click();
+    await page.keyboard.press('Escape');
+    await expect.poll(() => (t().cellStyles?.[0] as unknown[] | undefined)?.[0]).toEqual({ size: 23 });
+    // Esc закончил правку, таблица выделена — панель снова у всей таблицы: «Сбросить оформление»
+    await expect(page.locator('#st-canvas .slide.on [contenteditable="true"]')).toHaveCount(0);
+    await expect(bar).not.toHaveClass(/idle/);
+    await bar.locator('[data-t="reset"]').click();
+    await expect.poll(() => [t().size, t().cellStyles, t().headStyles]).toEqual([undefined, undefined, undefined]);
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

@@ -14,7 +14,7 @@ import { projectStorage, type DeckStorage } from '../storage';
 import {
   blobToDataUrl, buildHtml, canSaveFile, MAX_FILE, prepareImage, saveHtmlFile, suggestedFileName,
 } from './persist';
-import { TextEditor } from './text-edit';
+import { TextEditor, type TextTarget } from './text-edit';
 import { applyDeckFonts, applyLibraryFonts, deckFonts } from '../fonts';
 import { layoutRows, rowAnchors } from './rows';
 import { embeddable, loadLocalFonts, localFaces, localFamilies, localWeights, pickFaces } from '../local-fonts';
@@ -1212,6 +1212,11 @@ export class Editor {
   /** Поле, которое сейчас правят (ячейка таблицы, текст), или null */
   get editingField(): HTMLElement | null {
     return this.text.element;
+  }
+
+  /** Что оформляет панель текста на ленте без правки текста (выделенная таблица или её ячейки); null — ничего */
+  textTarget(t: TextTarget | null): void {
+    this.text.target(t);
   }
 
   /** Закончить правку текста (сохранить) */

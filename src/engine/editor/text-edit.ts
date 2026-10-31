@@ -52,6 +52,22 @@ export interface TextHost {
   ownGradient?: boolean;
 }
 
+/**
+ * Оформление выделенного объекта без правки текста (таблица или её ячейки): панель «Главной» оформляет
+ * весь их текст сразу, как в PowerPoint. Функции, а не значения: после записи слайд перерисован
+ */
+export interface TextTarget {
+  /** Элементы с текстом: по ним — примерка и состояние кнопок */
+  els(): HTMLElement[];
+  /** Оформление первого из них */
+  styles(): TextStyle;
+  /** Записать: undefined в patch — снять; null — сбросить всё оформление */
+  apply(patch: Partial<TextStyle> | null): void;
+}
+
+/** Без правки текста эти кнопки не работают: они — для выделенных слов или одного поля */
+const TARGET_OFF = '[data-t="mark"],[data-t="link"],[data-g="block"]:not([data-t^="align-"]),[data-t="spacing"],[data-t="delete"],[data-t="weight"]';
+
 const readPath = (el: Element, attr: string): Path | null => {
   try {
     const v = JSON.parse(el.getAttribute(attr) ?? '');
@@ -74,6 +90,8 @@ interface Session {
   baseStyle: string | null;
   /** Путь объекта-владельца: оформление хранится в owner.styles[field] */
   owner: Path | null;
+  /** Или путь к самому оформлению (data-ed-style-at): у ячейки таблицы — cellStyles[строка][столбец] */
+  styleAt: Path | null;
   field: string;
   styles: TextStyle;
   stylesBefore: string;
@@ -100,6 +118,10 @@ export class TextEditor {
 
   /** Панель встроена в ленту: видна всегда, без правки текста — неактивна */
   private docked: boolean;
+  /** Выделенный объект, который панель оформляет без правки текста */
+  private tg: TextTarget | null = null;
+  /** Размер в поле, показанный для него: поле записывает только своё изменение */
+  private sizeShown = '';
 
   constructor(private host: TextHost, dock?: HTMLElement) {
     document.body.insertAdjacentHTML('beforeend', `
@@ -129,8 +151,8 @@ export class TextEditor {
   <button type="button" data-t="reset" title="Сбросить оформление" aria-label="Сбросить оформление">${icon('eraser')}</button>
   <button type="button" data-t="delete" class="danger" title="Удалить блок" aria-label="Удалить блок">${icon('trash')}</button>
 </div>
-<div class="edmenu" id="ed-menu" role="menu"></div>
-<div class="edcolors" id="ed-colors" role="dialog" aria-label="Цвет текста">
+<div class="edmenu" id="ed-menu" role="menu" data-ed-keep></div>
+<div class="edcolors" id="ed-colors" role="dialog" aria-label="Цвет текста" data-ed-keep>
   <div class="edcolors-row">${Object.entries(THEME_COLORS).map(([k, c]) => `<button type="button" data-c="${k}" title="${esc(c.name)}" style="background:${c.css}"></button>`).join('')}</div>
   <div class="edcolors-row">${SWATCHES.map((c) => `<button type="button" data-c="${c}" title="${c}" style="background:${c}"></button>`).join('')}</div>
   <div class="edcolors-label">Градиент</div>
@@ -192,8 +214,9 @@ export class TextEditor {
     if (suffix && raw.endsWith(suffix)) raw = raw.slice(0, -suffix.length).trimEnd();
     const isKey = path.includes(KEY);
     const owner = readPath(el, 'data-ed-style');
+    const styleAt = owner ? null : readPath(el, 'data-ed-style-at');
     const field = String(path[path.length - 1]);
-    const stored = owner ? (getAt(this.host.deck(), [...owner, 'styles', field]) as TextStyle | undefined) : undefined;
+    const stored = (owner ? getAt(this.host.deck(), [...owner, 'styles', field]) : styleAt ? getAt(this.host.deck(), styleAt) : undefined) as TextStyle | undefined;
     const styles: TextStyle = stored && typeof stored === 'object' ? { ...stored } : {};
 
     el.classList.add('ed-active');
@@ -270,7 +293,7 @@ export class TextEditor {
     const own = textStyleCss(stored);
     const baseStyle = !own ? styleAttr ?? '' : styleAttr?.endsWith(own) ? styleAttr.slice(0, -own.length).replace(/;$/, '') : null;
     this.s = {
-      el, path, suffix, before: raw, baseline, html, styleAttr, baseStyle, owner, field,
+      el, path, suffix, before: raw, baseline, html, styleAttr, baseStyle, owner, styleAt, field,
       styles, stylesBefore: JSON.stringify(styles), isKey, block: this.host.blockOf(path),
       off: () => {
         el.removeEventListener('keydown', onKey);
@@ -318,6 +341,7 @@ export class TextEditor {
               else delete owner.styles;
             }
           }
+          if (styleChanged && s.styleAt) putStyle(d, s.styleAt, clean(s.styles));
         }, { rebuild: true });
       }
     }
@@ -461,7 +485,7 @@ export class TextEditor {
   private setStyle(patch: Partial<TextStyle>): void {
     const s = this.s;
     if (!s) return;
-    if (!s.owner) {
+    if (!s.owner && !s.styleAt) {
       this.host.toast('Для этого текста оформление недоступно', 2500);
       return;
     }
@@ -530,7 +554,7 @@ export class TextEditor {
     const ws = fontNameOk(font) && !FONTS[font] ? this.host.fontWeights?.(font) ?? [] : [];
     const cur = Number(s.styles.weight) || 0;
     this.weights = cur && !ws.includes(cur) && ws.length ? [...ws, cur].sort((a, b) => a - b) : ws;
-    btn.hidden = !s.owner || this.weights.length < 2;
+    btn.hidden = (!s.owner && !s.styleAt) || this.weights.length < 2;
     // На кнопке — толщина, которой текст написан сейчас (своя или из оформления)
     const shown = cur || Math.round((Number(getComputedStyle(s.el).fontWeight) || 400) / 100) * 100;
     btn.querySelector('span')!.textContent = weightName(shown);
@@ -606,6 +630,7 @@ export class TextEditor {
     });
     this.bar.addEventListener('click', (e) => {
       const b = (e.target as Element).closest<HTMLElement>('button[data-t]');
+      if (b && !this.s && this.tg) return this.targetCmd(b.dataset.t!, b);
       if (!b || !this.s) return;
       const cmd = b.dataset.t!;
       if (cmd !== 'color') this.colors.classList.remove('on');
@@ -649,11 +674,23 @@ export class TextEditor {
     const size = this.bar.querySelector<HTMLInputElement>('[data-t="size"]')!;
     size.addEventListener('change', () => {
       const v = Math.round(Number(size.value));
+      if (!this.s && this.tg) {
+        // Без правки: change приходит и по Enter, и при уходе из поля — записываем один раз
+        if (size.value === this.sizeShown) return;
+        this.sizeShown = size.value;
+        this.tg.apply({ size: v >= 6 && v <= 300 ? v : undefined });
+        return;
+      }
       this.setStyle({ size: v >= 6 && v <= 300 ? v : undefined });
     });
     size.addEventListener('keydown', (e) => {
       e.stopPropagation();
-      if (e.key === 'Enter' || e.key === 'Escape') {
+      if ((e.key === 'Enter' || e.key === 'Escape') && !this.s && this.tg) {
+        e.preventDefault();
+        if (e.key === 'Escape') size.value = this.sizeShown;
+        size.blur();
+        size.dispatchEvent(new Event('change'));
+      } else if (e.key === 'Enter' || e.key === 'Escape') {
         e.preventDefault();
         size.dispatchEvent(new Event('change'));
         this.s?.el.focus({ preventScroll: true });
@@ -664,6 +701,11 @@ export class TextEditor {
       const b = (t as Element | null)?.closest?.<HTMLElement>('button[data-c]');
       return b && !b.closest('.edgrad-panel') ? b.dataset.c ?? '' : null;
     };
+    // Без правки текста палитру закрывает щелчок мимо неё (в правке — конец правки)
+    document.addEventListener('pointerdown', (e) => {
+      const n = e.target as Node;
+      if (!this.s && this.colors.classList.contains('on') && !this.colors.contains(n) && !this.bar.contains(n)) this.colors.classList.remove('on');
+    }, true);
     this.colors.addEventListener('pointerover', (e) => this.tryColor(swatch(e.target)));
     this.colors.addEventListener('pointerleave', () => this.tryColor(null));
     new MutationObserver(() => { if (!this.colors.classList.contains('on')) this.tryColor(null); }).observe(this.colors, { attributes: true, attributeFilter: ['class'] });
@@ -679,6 +721,11 @@ export class TextEditor {
       const b = (e.target as Element).closest<HTMLElement>('button[data-c]');
       if (!b) return;
       const c = b.dataset.c ?? '';
+      if (!this.s && this.tg) {
+        this.colors.classList.remove('on');
+        this.tg.apply({ color: c || undefined });
+        return;
+      }
       // Градиент — только разметкой по тексту: без выделения — на весь текст поля
       // Без выделения градиент ложится на весь текст, а «Как в теме» снимает и цвета частей текста
       if ((c.startsWith('g:') || !c) && !this.partial && this.s) {
@@ -693,9 +740,15 @@ export class TextEditor {
     });
     const custom = this.colors.querySelector<HTMLInputElement>('input[data-c="custom"]')!;
     custom.addEventListener('input', () => {
-      if (!this.partial) this.setStyle({ color: custom.value.toUpperCase() });
+      if (!this.s && this.tg) this.tg.els().forEach((x) => (x.style.color = custom.value));
+      else if (!this.partial) this.setStyle({ color: custom.value.toUpperCase() });
     });
     custom.addEventListener('change', () => {
+      if (!this.s && this.tg) {
+        this.colors.classList.remove('on');
+        this.tg.apply({ color: custom.value.toUpperCase() });
+        return;
+      }
       if (this.partial) this.colorSelection(custom.value.toUpperCase());
       this.colors.classList.remove('on');
       this.s?.el.focus({ preventScroll: true });
@@ -712,6 +765,17 @@ export class TextEditor {
     this.tryUndo?.();
     this.tryUndo = null;
     const s = this.s;
+    if (c !== null && !s && this.tg) {
+      const els = this.tg.els();
+      const was = els.map((x) => x.getAttribute('style'));
+      els.forEach((x) => {
+        if (c.startsWith('g:')) x.setAttribute('style', `${x.getAttribute('style') ?? ''};${textGradientCss(c)}`);
+        else if (c) x.style.color = colorCss(c) ?? c;
+        else x.style.removeProperty('color');
+      });
+      this.tryUndo = () => els.forEach((x, i) => { if (was[i] === null) x.removeAttribute('style'); else x.setAttribute('style', was[i]!); });
+      return;
+    }
     if (c === null || !s) return;
     if (this.partial) {
       const Hl = (globalThis as { Highlight?: new (r: Range) => object }).Highlight;
@@ -1091,6 +1155,9 @@ export class TextEditor {
     const sel = getSelection();
     this.partial = on && this.s && !this.s.isKey && this.selectionInside() && sel && !sel.isCollapsed ? sel.getRangeAt(0).cloneRange() : null;
     this.colors.querySelector<HTMLElement>('.edcolors-foot button')!.textContent = this.partial ? 'Как у всего текста' : 'Как в теме';
+    // Свой градиент настраивается на одном тексте — в правке
+    const gown = this.colors.querySelector<HTMLElement>('[data-gown]');
+    if (gown) gown.style.display = this.s ? '' : 'none';
     this.colors.classList.toggle('on', on);
     // Панель своего градиента — свёрнута, пока её не откроют снова
     const own = this.colors.querySelector<HTMLElement>('.edgrad-panel');
@@ -1121,13 +1188,13 @@ export class TextEditor {
     this.bar.querySelectorAll<HTMLElement>('[data-g="block"]').forEach((b) => (b.hidden = !blockish));
     this.bar.querySelectorAll<HTMLElement>('[data-t="bold"],[data-t="italic"],[data-t="underline"],[data-t="mark"],[data-t="link"],[data-t="reset"]')
       .forEach((b) => (b.hidden = s.isKey));
-    const styleable = !!s.owner;
+    const styleable = !!s.owner || !!s.styleAt;
     this.bar.querySelectorAll<HTMLElement>('[data-t="font"],.edsize,[data-t="color"],[data-t="spacing"]').forEach((b) => (b.hidden = !styleable));
     const lead = this.bar.querySelector<HTMLElement>('[data-t="leading"]');
     if (lead && !styleable) lead.hidden = true;
     (this.bar.querySelector('[data-t="delete"]') as HTMLElement).hidden = !s.block;
     this.bar.classList.add('on');
-    this.bar.classList.remove('idle');
+    this.bar.classList.remove('idle', 'st-target');
     this.syncButtons();
     this.position();
   }
@@ -1137,6 +1204,8 @@ export class TextEditor {
     if (this.docked) {
       this.bar.classList.add('idle');
       this.bar.querySelectorAll('.on').forEach((b) => b.classList.remove('on'));
+      // Объект остался выделенным — панель оформляет его (после того, как правка закроет палитру и меню)
+      if (this.tg) queueMicrotask(() => this.target(this.tg));
     }
     this.colors.classList.remove('on');
     // Примерка начертания снимается вместе с меню
@@ -1195,6 +1264,83 @@ export class TextEditor {
     }
   }
 
+  /**
+   * Объект, который панель оформляет без правки текста (только панель на ленте). null — нет такого:
+   * панель неактивна, пока не начнут править текст
+   */
+  target(t: TextTarget | null): void {
+    this.tg = this.docked ? t : null;
+    if (this.s) return;
+    const on = !!this.tg && this.tg.els().length > 0;
+    this.bar.classList.toggle('idle', !on);
+    this.bar.classList.toggle('st-target', on);
+    if (!on) {
+      this.bar.querySelectorAll('.on').forEach((b) => b.classList.remove('on'));
+      this.colors.classList.remove('on');
+      return;
+    }
+    this.bar.querySelectorAll<HTMLElement>('button[data-t], .edsize').forEach((b) => (b.hidden = false));
+    this.bar.querySelectorAll<HTMLElement>(TARGET_OFF).forEach((b) => (b.hidden = true));
+    this.syncTarget();
+  }
+
+  /** Кнопка панели без правки текста: оформление всего выделенного */
+  private targetCmd(cmd: string, b: HTMLElement): void {
+    const tg = this.tg!;
+    const els = tg.els();
+    if (!els.length) return;
+    const st = tg.styles();
+    if (cmd !== 'color') this.colors.classList.remove('on');
+    const all = (fn: (cs: CSSStyleDeclaration) => boolean) => els.every((x) => fn(getComputedStyle(x)));
+    switch (cmd) {
+      // Как в Word: всё уже жирное — снять, иначе — всем
+      case 'bold': tg.apply({ weight: all((cs) => Number(cs.fontWeight) >= 600) ? 400 : 700 }); break;
+      case 'italic': tg.apply({ italic: all((cs) => cs.fontStyle === 'italic') ? undefined : true }); break;
+      case 'underline': tg.apply({ underline: all((cs) => cs.textDecorationLine.includes('underline')) ? undefined : true }); break;
+      case 'align-left': case 'align-center': case 'align-right': {
+        const a = cmd.slice(6) as TextStyle['align'];
+        tg.apply({ align: st.align === a ? undefined : a });
+        break;
+      }
+      case 'size-': case 'size+': {
+        const cur = Number(st.size) || Math.round(parseFloat(getComputedStyle(els[0]).fontSize));
+        tg.apply({ size: Math.max(6, Math.min(300, cur + (cmd === 'size+' ? 2 : -2))) });
+        break;
+      }
+      case 'color': this.toggleColors(b); break;
+      case 'font':
+        fontPicker().toggle(b, () => this.fontList(), st.font ?? '', (v) => tg.apply({ font: v || undefined }),
+          (f) => tg.els().forEach((x) => tryFontOn(x, 'font-family', f ? (f.value ? f.css : '') : null)));
+        break;
+      case 'reset': tg.apply(null); break;
+    }
+  }
+
+  /** Состояние кнопок без правки текста: по оформлению выделенного */
+  private syncTarget(): void {
+    const tg = this.tg;
+    const els = tg?.els() ?? [];
+    if (!tg || !els.length) return;
+    const st = tg.styles();
+    const q = (k: string) => this.bar.querySelector<HTMLElement>(`[data-t="${k}"]`);
+    const all = (fn: (cs: CSSStyleDeclaration) => boolean) => els.every((x) => fn(getComputedStyle(x)));
+    q('bold')?.classList.toggle('on', all((cs) => Number(cs.fontWeight) >= 600));
+    q('italic')?.classList.toggle('on', all((cs) => cs.fontStyle === 'italic'));
+    q('underline')?.classList.toggle('on', all((cs) => cs.textDecorationLine.includes('underline')));
+    for (const a of ['left', 'center', 'right']) q(`align-${a}`)?.classList.toggle('on', st.align === a);
+    const size = this.bar.querySelector<HTMLInputElement>('[data-t="size"]')!;
+    if (document.activeElement !== size) {
+      size.value = st.size ? String(st.size) : '';
+      size.placeholder = String(Math.round(parseFloat(getComputedStyle(els[0]).fontSize)));
+      this.sizeShown = size.value;
+    }
+    const font = this.bar.querySelector<HTMLElement>('[data-t="font"] span')!;
+    const f = st.font ?? '';
+    font.textContent = !f ? 'Шрифт темы' : FONTS[f]?.name ?? f;
+    font.style.fontFamily = !f ? '' : FONTS[f]?.css ?? (fontNameOk(f) ? fontStack(f) : '');
+    this.bar.querySelector<HTMLElement>('.edswatch span')!.style.background = colorCss(st.color) ?? getComputedStyle(els[0]).color;
+  }
+
   private syncButtons(): void {
     const s = this.s;
     if (!s) return;
@@ -1223,6 +1369,28 @@ export class TextEditor {
     const sw = this.bar.querySelector<HTMLElement>('.edswatch span')!;
     sw.style.background = colorCss(s.styles.color) ?? getComputedStyle(s.el).color;
     q('reset')?.classList.toggle('on', false);
+  }
+}
+
+/**
+ * Оформление по пути data-ed-style-at (ячейка таблицы): недостающие списки создаются, пустое
+ * оформление — null, а список, где не осталось ни одного значения, убирается целиком
+ */
+export function putStyle(root: unknown, at: Path, st: TextStyle): void {
+  const empty = !Object.keys(st).length;
+  if (empty && getAt(root, at) == null) return;
+  setAt(root, at, empty ? null : st);
+  // Пропуски в созданных списках — null (в файле — явные пустые места, а не дыры)
+  for (let i = 1; i < at.length; i++) {
+    const list = getAt(root, at.slice(0, i));
+    if (Array.isArray(list)) for (let k = 0; k < list.length; k++) if (list[k] === undefined) list[k] = null;
+  }
+  for (let i = at.length - 1; i > 0; i--) {
+    const list = getAt(root, at.slice(0, i));
+    if (!Array.isArray(list) || list.some((v) => v != null && !(Array.isArray(v) && !v.some((x) => x != null)))) break;
+    const parent = getAt(root, at.slice(0, i - 1)) as Record<string | number, unknown>;
+    if (Array.isArray(parent)) parent[at[i - 1] as number] = null;
+    else delete parent[at[i - 1]];
   }
 }
 

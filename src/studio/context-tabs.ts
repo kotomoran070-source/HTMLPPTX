@@ -49,6 +49,7 @@ import { applyImageLook, applyShapeLook, blockEl, imageEl, putStyle, shapeEl } f
 import { B_GLOW_COLORS } from './fx-panel';
 import { getAt, setAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
+import type { TextTarget } from '../engine/editor/text-edit';
 import { placeOf } from '../engine/render';
 import { esc } from '../engine/html';
 import { themeSwatches } from '../engine/deck-theme';
@@ -60,7 +61,7 @@ import { colorCss, FONTS, SWATCHES, TEXT_SHADOWS, THEME_COLORS, type TextStyle }
 import { textGradientCss } from '../engine/gradients';
 import { angleOf } from '../engine/render';
 import { applyLook, LOOK_GROUPS, lookOn, textPanelHtml, textSampleHtml, TEXT_LOOKS } from './text-tab';
-import { cellAnchor, cellOf, cellRange, cellSpan, colCount, dropCols, dropRows, expandRange, hasMerge, mergeRange, shiftMerges, sortRows, splitCell, splitRange, tableCells, type CellRange, type TableData as CellTable } from './table-cells';
+import { cellAnchor, cellLists, cellOf, cellRange, cellSpan, colCount, dropCols, dropRows, expandRange, hasMerge, mergeRange, pruneCellData, rowLists, shiftMerges, sortRows, splitCell, splitRange, tableCells, type CellRange, type TableData as CellTable } from './table-cells';
 
 /**
  * Контекстные вкладки ленты, как «Формат фигуры» и «Макет таблицы» в PowerPoint:
@@ -83,6 +84,8 @@ export interface ContextHost {
   run(cmd: string): void;
   /** Обновить ленту (выделение ячеек поменялось — кнопки «Объединить» и т. п.) */
   refresh?(): void;
+  /** Что оформляет панель «Текст» на «Главной» без правки текста: студия спрашивает при каждом обновлении ленты */
+  textTarget?(get: () => TextTarget | null): void;
 }
 
 export type ContextTab = 'shape' | 'table' | 'image' | 'video' | 'text';
@@ -136,7 +139,7 @@ const KINDS: [string, string, string][] = [
 ];
 
 const VARIANTS: [string, string][] = [
-  ['lines', 'Линии'], ['stripes', 'Зебра'], ['boxed', 'Сетка'], ['accent', 'Акцент'], ['soft', 'Мягкая'], ['dark', 'Тёмная шапка'], ['heat', 'Тепловая карта'],
+  ['lines', 'Линии'], ['stripes', 'Зебра'], ['boxed', 'Сетка'], ['accent', 'Акцент'], ['soft', 'Мягкая'], ['dark', 'Тёмная шапка'], ['cards', 'Карточки'], ['heat', 'Тепловая карта'],
 ];
 
 /** Живой образец стиля фигуры: те же цвета темы, что на слайде */
@@ -892,7 +895,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     if (at) lastCell = at;
   }, true);
 
-  type TableData = { header?: unknown[]; rows: unknown[][]; widths?: number[]; align?: string[]; fills?: unknown[][]; headFills?: unknown[] } & Record<string, unknown>;
+  type TableData = CellTable & Record<string, unknown>;
   const editTable = (fn: (t: TableData, at: CellRange) => void) => {
     const p = targets('table')[0];
     if (!p) return;
@@ -901,9 +904,8 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       const t = getAt(d, p) as TableData;
       t.rows = Array.isArray(t.rows) ? t.rows : [];
       fn(t, at);
-      // Заливка без единого цвета не хранится
-      if (Array.isArray(t.fills) && !t.fills.some((r) => Array.isArray(r) && r.some((v) => v))) delete t.fills;
-      if (Array.isArray(t.headFills) && !t.headFills.some((v) => v)) delete t.headFills;
+      // Заливка и оформление ячеек без единого значения не хранятся
+      pruneCellData(t);
     }, { rebuild: true });
   };
   const cols = colCount;
@@ -913,7 +915,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const i = Math.max(0, Math.min(t.rows.length, below ? at.r1 + 1 : Math.max(0, at.r0)));
     t.rows.splice(i, 0, ...Array.from({ length: n }, () => Array.from({ length: cols(t) }, () => '')));
     shiftMerges(t, 0, i, n);
-    if (Array.isArray(t.fills) && t.fills.length > i) t.fills.splice(i, 0, ...Array.from({ length: n }, () => []));
+    for (const list of rowLists(t)) if (list.length > i) list.splice(i, 0, ...Array.from({ length: n }, () => []));
     // Выделенная строка остаётся той же строкой данных
     if (Number.isInteger(t.highlight) && Number(t.highlight) >= i) t.highlight = Number(t.highlight) + n;
     cells.select(null);
@@ -931,7 +933,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     if (Array.isArray(t.align)) t.align.splice(i, 0, ...Array.from({ length: n }, () => ''));
     if (Array.isArray(t.columns)) t.columns.splice(i, 0, ...Array.from({ length: n }, () => null));
     shiftMerges(t, 1, i, n);
-    for (const list of [t.headFills, ...(Array.isArray(t.fills) ? t.fills : [])]) if (Array.isArray(list) && list.length > i) list.splice(i, 0, ...Array.from({ length: n }, () => null));
+    for (const list of cellLists(t)) if (list.length > i) list.splice(i, 0, ...Array.from({ length: n }, () => null));
     cells.select(null);
     lastCell = null;
   });
@@ -945,6 +947,82 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     cells.select(null);
     lastCell = null;
   });
+  /**
+   * «Главная» → «Текст» у выделенной таблицы, как в PowerPoint: шрифт, размер, цвет, начертание и
+   * выравнивание — выделенным ячейкам, без диапазона — всей таблице (у нескольких таблиц — всем).
+   * Размер всей таблицы — её размер текста (как «Крупнее» на вкладке «Таблица»)
+   */
+  type Rect = { r0: number; r1: number; c0: number; c1: number };
+  const wholeOf = (t: CellTable): Rect => ({ r0: Array.isArray(t.header) && t.header.length && (t as TableData).head !== false ? -1 : 0, r1: t.rows.length - 1, c0: 0, c1: colCount(t) - 1 });
+  const cellStyleOf = (t: CellTable, r: number, c: number): TextStyle => {
+    const v = r < 0 ? t.headStyles?.[c] : (t.cellStyles?.[r] as unknown[] | undefined)?.[c];
+    return v && typeof v === 'object' ? { ...(v as TextStyle) } : {};
+  };
+  const setCellStyle = (t: CellTable, r: number, c: number, st: TextStyle) => {
+    const empty = !Object.keys(st).length;
+    let row: unknown[];
+    if (r < 0) row = Array.isArray(t.headStyles) ? t.headStyles : (t.headStyles = []);
+    else {
+      const all = Array.isArray(t.cellStyles) ? t.cellStyles : (t.cellStyles = []);
+      while (all.length <= r) all.push(null as unknown as unknown[]);
+      row = Array.isArray(all[r]) ? all[r] : (all[r] = []);
+    }
+    while (row.length <= c) row.push(null);
+    row[c] = empty ? null : st;
+  };
+  const tableText = (): TextTarget | null => {
+    // В правке ячейки панель занята ею, но цель остаётся: Esc вернёт панель к таблице и без перерисовки
+    const paths = targets('table');
+    if (!paths.length) return null;
+    const key = JSON.stringify(paths[0]);
+    const r = paths.length === 1 ? cellRange() : null;
+    const range: Rect | null = r && r.table === key ? r : null;
+    const tables = () => paths.map((p) => getAt(deck, p) as CellTable | undefined).filter((t): t is CellTable => !!t && Array.isArray(t.rows));
+    return {
+      els: () => paths.flatMap((p) => {
+        const box = h.stage().querySelector<HTMLElement>(`.slide.on [data-type="table"][data-block="${CSS.escape(JSON.stringify(p))}"]`);
+        const all = box ? [...box.querySelectorAll<HTMLElement>('td[data-edit], th[data-edit]')] : [];
+        // Ячейки строк — первыми: по первой панель показывает размер и цвет (шапка бывает мельче)
+        return range ? all.filter((x) => { const at = cellOf(x); return !!at && at.r >= range.r0 && at.r <= range.r1 && at.c >= range.c0 && at.c <= range.c1; })
+          : [...all.filter((x) => x.tagName === 'TD'), ...all.filter((x) => x.tagName !== 'TD')];
+      }),
+      styles: () => {
+        const t = tables()[0];
+        if (!t) return {};
+        const at = range ?? wholeOf(t);
+        const st = cellStyleOf(t, at.r0, at.c0);
+        if (!range) { delete st.size; if (Number((t as TableData).size)) st.size = Number((t as TableData).size); }
+        return st;
+      },
+      apply: (patch) => {
+        ed.commit((d) => {
+          for (const p of paths) {
+            const t = getAt(d, p) as TableData;
+            if (!t || !Array.isArray(t.rows)) continue;
+            const at = range ?? wholeOf(t);
+            let rest = patch;
+            // Размер всей таблицы — её размер текста; свой размер ячеек при этом снимается
+            if (!range && (patch === null || 'size' in patch)) {
+              if (patch?.size) t.size = Math.max(4, Math.min(60, patch.size));
+              else delete t.size;
+              if (patch) { rest = { ...patch }; delete rest.size; }
+            }
+            for (let rr = at.r0; rr <= at.r1; rr++) {
+              for (let c = at.c0; c <= at.c1; c++) {
+                const st = rest === null ? {} : { ...cellStyleOf(t, rr, c), ...rest };
+                if (!range && patch && 'size' in patch) delete st.size;
+                for (const k of Object.keys(st) as (keyof TextStyle)[]) if (st[k] === undefined) delete st[k];
+                setCellStyle(t, rr, c, st);
+              }
+            }
+            pruneCellData(t);
+          }
+        }, { rebuild: true });
+        h.refresh?.();
+      },
+    };
+  };
+  h.textTarget?.(tableText);
   /** Заливка выделенных ячеек: цвет темы, свой #RRGGBB или undefined — как у таблицы */
   const fillCells = (v: string | undefined) => editTable((t, at) => paintCells(t, at, v));
   const paintCells = (t: TableData, at: CellRange, v: string | undefined) => {
@@ -1486,7 +1564,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       run: () => {
         const cur = first('image')?.crop;
         const opt = (k: string | undefined): LookOption => ({
-          label: k ? PRESET_KINDS[k].short ?? PRESET_KINDS[k].name : 'Прямоугольник', on: cur === k, patch: { crop: k },
+          label: k ? PRESET_KINDS[k].short ?? PRESET_KINDS[k].name : 'Без формы', on: cur === k, patch: { crop: k },
           // Выбрали форму — сразу «Кадр»: снимок целиком вокруг формы, его можно сдвинуть и увеличить за углы
           pick: () => { const paths = targets('image'); ed.commit((d) => paths.forEach((p) => { setAt(d, [...p, 'crop'], k); setAt(d, [...p, 'adj'], undefined); }), { rebuild: true }); if (k) requestAnimationFrame(() => { if (ed.imageCrop.can && !ed.imageCrop.on) h.run('image.crop'); }); },
         });

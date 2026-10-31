@@ -1,4 +1,4 @@
-/* Таблица: шесть видов, числа вправо, итоговая и выделенная строки, строки проявляются по очереди */
+/* Таблица: девять видов, числа вправо, итоговая и выделенная строки, строки проявляются по очереди */
 .tbl { --ts: 17px; --py: .68em; --px: .95em; --r: calc(12px * var(--rk, 1)); width: 100%; font-size: var(--ts); line-height: 1.4; color: var(--tx); }
 .tbl-compact { --py: .42em; --px: .8em; }
 .tbl-roomy { --py: .98em; --px: 1.1em; }
@@ -64,6 +64,20 @@
 .tbl-plan td:first-child { color: var(--mu); font-size: .86em; font-variant-numeric: tabular-nums; }
 .tbl-plan tbody tr { transition: background-color .15s; }
 .tbl-plan tbody tr:hover { background: color-mix(in srgb, var(--alt) 60%, var(--surf)); }
+
+/* cards — строки-карточки: каждая строка отдельной плашкой с промежутками, слева полоса акцента (рамкой —
+   так она уходит и в PowerPoint); шапка без фона — подписи акцентного цвета над карточками */
+.tbl.tbl-cards table { border: 0; background: none; box-shadow: none; border-radius: 0; overflow: visible; border-spacing: 0 calc(var(--ts) * .4); margin-block: calc(var(--ts) * -.4); }
+.tbl-cards th { padding-block: .2em; color: var(--ac); }
+.tbl-cards td { background: var(--surf); border-block: 1px solid var(--bd); }
+.tbl-cards td:first-child { border-left: 4px solid var(--ac); border-radius: var(--r) 0 0 var(--r); font-weight: 600; }
+.tbl-cards td:last-child { border-right: 1px solid var(--bd); border-radius: 0 var(--r) var(--r) 0; }
+.tbl-cards td:only-child { border-radius: var(--r); }
+.tbl.tbl-cards tbody tr:last-child td { border-bottom: 1px solid var(--bd); }
+.tbl-cards tbody tr:hover > td { border-block-color: var(--acb); }
+.tbl-cards tbody tr:hover > td:last-child { border-right-color: var(--acb); }
+.tbl-cards tbody tr:hover > td:first-child { box-shadow: none; }
+.tbl-cards.tbl-total tbody tr:last-child td { border-top: 1px solid var(--bd2); }
 
 /* Наведение на строку — у всех видов: строка подсвечивается тоном акцента, у первой ячейки — полоса
    акцента (при показе удобно вести рассказ по строкам). Своя заливка ячейки остаётся сверху */

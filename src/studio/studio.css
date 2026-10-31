@@ -118,6 +118,9 @@ body.studio { background: var(--alt); }
 .st-tmini.tbl-lines th { border-bottom-width: 1.5px; }
 /* Тепловая карта в миниатюре: плитки разной густоты */
 .st-tmini.tbl-heat table { border-spacing: 1.5px; margin: 0; width: 100%; }
+.st-tmini.tbl-cards { --py: 1.5px; }
+.st-tmini.tbl-cards table { border-spacing: 0 1.5px; margin-block: -1.5px; }
+.st-tmini.tbl-cards td:first-child { border-left-width: 2px; }
 .st-tmini.tbl-heat td { border-radius: 1.5px; background: color-mix(in srgb, var(--ac) var(--m, 20%), var(--surf)); }
 .st-tmini.tbl-heat td i { opacity: 0; }
 .st-tmini.tbl-heat tr:nth-child(1) td:nth-child(2) { --m: 70%; } .st-tmini.tbl-heat tr:nth-child(1) td:nth-child(3) { --m: 35%; }

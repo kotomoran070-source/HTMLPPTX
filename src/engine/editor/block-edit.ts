@@ -633,7 +633,7 @@ export class BlockEditor {
         const g = el.cloneNode(true) as HTMLElement;
         // Снимок оригинала: без адресов правки, чтобы поиск по слайду его не находил
         for (const x of [g, ...g.querySelectorAll<HTMLElement>('*')]) {
-          for (const a of ['data-free', 'data-block', 'data-edit', 'data-edit-img', 'data-ed-style', 'data-mount', 'data-img-owner', 'id']) x.removeAttribute(a);
+          for (const a of ['data-free', 'data-block', 'data-edit', 'data-edit-img', 'data-ed-style', 'data-ed-style-at', 'data-mount', 'data-img-owner', 'id']) x.removeAttribute(a);
         }
         g.classList.add('ed-copy-ghost');
         g.style.left = starts[n].left;

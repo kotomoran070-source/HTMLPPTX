@@ -351,7 +351,7 @@ export const BLOCKS: Record<string, Schema> = {
     about: 'Таблицу из Excel можно вставить в любую ячейку.',
     fields: [
       { k: 'rows', label: 'Данные', type: 'grid' },
-      { k: 'variant', label: 'Вид', type: 'select', options: [['', 'Линии'], ['stripes', 'Зебра'], ['boxed', 'Сетка'], ['accent', 'Акцентная шапка'], ['soft', 'Мягкая'], ['dark', 'Тёмная шапка'], ['plan', 'План с приоритетами'], ['heat', 'Тепловая карта']] },
+      { k: 'variant', label: 'Вид', type: 'select', options: [['', 'Линии'], ['stripes', 'Зебра'], ['boxed', 'Сетка'], ['accent', 'Акцентная шапка'], ['soft', 'Мягкая'], ['dark', 'Тёмная шапка'], ['plan', 'План с приоритетами'], ['heat', 'Тепловая карта'], ['cards', 'Карточки']] },
       { k: 'labels', label: 'Первый столбец — подписи', type: 'bool' },
       { k: 'highlight', label: 'Выделенная строка', type: 'number', min: 1, fromOne: true, placeholder: 'нет' },
       { k: 'size', label: 'Размер текста, px', type: 'number', min: 10, max: 40, placeholder: '17' },
