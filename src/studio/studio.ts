@@ -1758,6 +1758,11 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ribbonSetup.open();
     });
   }
+  // Идёт правка текста (ячейка таблицы, надпись): вкладка переключается, а курсор остаётся в тексте —
+  // «Главная» → «Текст» сразу применяется к нему, а не завершает правку
+  document.querySelector('.st-tabs')!.addEventListener('mousedown', (e) => {
+    if ((document.activeElement as HTMLElement | null)?.isContentEditable && (e.target as Element).closest('[data-tab]')) e.preventDefault();
+  });
   document.querySelector('.st-tabs')!.addEventListener('click', (e) => {
     const t = (e.target as Element).closest<HTMLElement>('[data-tab]');
     if (t) {

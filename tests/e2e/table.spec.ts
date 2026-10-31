@@ -145,6 +145,15 @@ test('правка ячейки: Tab в последней — новая стр
   await page.keyboard.type('Новая');
   await page.keyboard.press('Escape');
   await expect.poll(() => rows(2)[3][0]).toBe('Новая');
+  // Переход на «Главную» не прерывает правку ячейки: кнопки текста работают с выделением в ней
+  await cell(page, 'Новая').click();
+  await expect(cell(page, 'Новая')).toHaveAttribute('contenteditable', 'true');
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.locator('.st-tabs [data-tab="home"]').click();
+  await expect(cell(page, 'Новая')).toHaveAttribute('contenteditable', 'true');
+  await page.getByRole('toolbar', { name: 'Оформление текста' }).getByRole('button', { name: 'Жирный' }).click();
+  await page.keyboard.press('Escape');
+  await expect.poll(() => rows(2)[3][0]).toBe('**Новая**');
   // Стрелка вниз с последней строки ячейки — в ячейку ниже
   await cell(page, 'План').click();
   await expect(cell(page, 'План')).toHaveAttribute('contenteditable', 'true');

@@ -11,6 +11,9 @@ import PRESET_XML from './presets';
  * PowerPoint), в PPTX уходит той же фигурой. Новая — сюда и в scripts/shape-presets.mjs
  */
 export const PRESET_KINDS: Record<string, { prst: string; name: string; size: [number, number]; short?: string }> = {
+  // Начало галереи «Форма» у рисунка (у фигур эти формы — свои: round и ellipse); у скруглённого — ручка радиуса углов
+  'round-rect': { prst: 'roundRect', name: 'Скруглённый прямоугольник', short: 'Скруглённый', size: [280, 180] },
+  oval: { prst: 'ellipse', name: 'Овал', size: [260, 180] },
   diamond: { prst: 'diamond', name: 'Ромб', size: [200, 200] },
   triangle: { prst: 'triangle', name: 'Треугольник', size: [220, 190] },
   'right-triangle': { prst: 'rtTriangle', name: 'Прямоугольный треугольник', short: 'Треугольник 90°', size: [200, 180] },

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const NAMES = [
-  'diamond', 'triangle', 'rtTriangle', 'parallelogram', 'trapezoid', 'pentagon', 'hexagon', 'octagon',
+  'roundRect', 'ellipse', 'diamond', 'triangle', 'rtTriangle', 'parallelogram', 'trapezoid', 'pentagon', 'hexagon', 'octagon',
   'star5', 'plus', 'heart', 'lightningBolt', 'donut', 'cloud',
   'rightArrow', 'leftRightArrow', 'chevron', 'homePlate',
   'wedgeRoundRectCallout', 'can', 'rightBrace',

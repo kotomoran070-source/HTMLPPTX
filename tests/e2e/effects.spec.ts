@@ -183,7 +183,7 @@ slides:
   }
 });
 
-test('рисунок по фигуре: «Форма» обрезает снимок и сразу включает «Кадр» — снимок целиком, углы — масштаб; тень — снаружи формы; «Без формы» и «Сбросить» убирают', async ({ page }) => {
+test('рисунок по фигуре: «Форма» обрезает снимок и сразу включает «Кадр» — снимок целиком, углы — масштаб; тень — снаружи формы; «Прямоугольник» убирает форму', async ({ page }) => {
   const errors = watchErrors(page);
   const dir = path.join(DECKS, 'fxcrop');
   fs.mkdirSync(path.join(dir, 'assets'), { recursive: true });
@@ -221,7 +221,7 @@ slides:
     // Тень — фильтром обёртки: маска её не срезает
     expect(await obj.locator('.imgfit').evaluate((e) => getComputedStyle(e).filter)).toContain('drop-shadow');
     await page.locator('.st-ribbon [data-cmd="image.shape"]').click();
-    await page.locator('.st-lkpop [data-lk][title="Без формы"]').click();
+    await page.locator('.st-lkpop [data-lk][title="Прямоугольник"]').click();
     await expect.poll(yaml).not.toMatch(/crop:/);
     await expect(box).not.toHaveClass(/img-crop/);
     expect(errors).toEqual([]);
