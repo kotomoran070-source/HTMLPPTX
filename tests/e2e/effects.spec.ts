@@ -181,3 +181,39 @@ slides:
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('рисунок по фигуре: «Форма» на ленте обрезает снимок ромбом, сердцем…; тень — снаружи формы; «Без формы» и «Сбросить» убирают', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'fxcrop');
+  fs.mkdirSync(path.join(dir, 'assets'), { recursive: true });
+  fs.copyFileSync(path.join(DECKS, 'fx', 'assets', 'shot.webp'), path.join(dir, 'assets', 'shot.webp'));
+  fs.writeFileSync(path.join(dir, 'deck.yaml'), `title: Форма
+slides:
+  - template: canvas
+    free:
+      - {type: image, src: ./assets/shot.webp, shadow: md, place: {x: 200, y: 120, w: 400, h: 300}}
+`);
+  const yaml = () => fs.readFileSync(deckFile('fxcrop'), 'utf8');
+  try {
+    await page.goto('/?deck=fxcrop&studio#1');
+    const obj = page.locator('#st-canvas .slide.on .free').first();
+    const b = (await obj.boundingBox())!;
+    await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+    await page.locator('.st-tabs [data-tab="image"]').click();
+    await page.locator('.st-ribbon [data-cmd="image.shape"]').click();
+    await page.locator('.st-lkpop [data-lk][title="Сердце"]').click();
+    await expect.poll(yaml).toMatch(/crop: heart/);
+    const box = obj.locator('.imgbox');
+    await expect(box).toHaveClass(/img-crop/);
+    expect(await box.evaluate((e) => getComputedStyle(e).webkitMaskImage || getComputedStyle(e).maskImage)).toContain('svg');
+    // Тень — фильтром обёртки: маска её не срезает
+    expect(await obj.locator('.imgfit').evaluate((e) => getComputedStyle(e).filter)).toContain('drop-shadow');
+    await page.locator('.st-ribbon [data-cmd="image.shape"]').click();
+    await page.locator('.st-lkpop [data-lk][title="Без формы"]').click();
+    await expect.poll(yaml).not.toMatch(/crop:/);
+    await expect(box).not.toHaveClass(/img-crop/);
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

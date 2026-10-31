@@ -4,6 +4,7 @@ import { staticSlide } from '../engine/deck-view';
 import { setSlidesLook, slidesLookOwn } from '../engine/theme';
 import type { Block, Deck } from '../types';
 import { fitHtml, hasEmbed } from '../components/html/html';
+import { PRESET_KINDS, presetGeometry } from '../components/shape/shape';
 import { embedShot } from '../engine/embed-shot';
 import { resolve } from '../engine/formula';
 import { Renderer, actionTarget } from '../engine/render';
@@ -998,10 +999,18 @@ class Converter {
     // Форма: у паспарту — скругление самого снимка, иначе — внутренний край рамки
     const bw = parseFloat(bcs.borderTopWidth) || 0;
     const rCss = img.style.borderRadius ? cs.borderTopLeftRadius : bcs.borderTopLeftRadius;
-    g.beginPath();
-    if (rCss.endsWith('%') && parseFloat(rCss) >= 50) g.ellipse(W / 2, H / 2, W / 2, H / 2, 0, 0, Math.PI * 2);
-    else g.roundRect(0, 0, W, H, Math.max(0, Math.min(W / 2, H / 2, (parseFloat(rCss) || 0) - (img.style.borderRadius ? 0 : bw))));
-    g.clip();
+    // Обрезка по фигуре PowerPoint — по её контуру под размер снимка
+    const crop = bcs.getPropertyValue('--crop').trim();
+    if (PRESET_KINDS[crop]) {
+      const path = new Path2D();
+      presetGeometry(crop, W, H).filter((p) => p.fill).forEach((p) => path.addPath(new Path2D(p.d)));
+      g.clip(path);
+    } else {
+      g.beginPath();
+      if (rCss.endsWith('%') && parseFloat(rCss) >= 50) g.ellipse(W / 2, H / 2, W / 2, H / 2, 0, 0, Math.PI * 2);
+      else g.roundRect(0, 0, W, H, Math.max(0, Math.min(W / 2, H / 2, (parseFloat(rCss) || 0) - (img.style.borderRadius ? 0 : bw))));
+      g.clip();
+    }
     // Кадр: object-fit, object-position и увеличение, как на слайде
     const fit = cs.objectFit === 'contain' ? Math.min(W / nw, H / nh) : Math.max(W / nw, H / nh);
     const [px, py] = cs.objectPosition.split(' ').map((v, i) => (v.endsWith('%') ? parseFloat(v) / 100 : (parseFloat(v) || 0) / ((i ? H - nh * fit : W - nw * fit) || 1)));
@@ -1058,7 +1067,8 @@ class Converter {
     try { data = c.toDataURL('image/png'); } catch { return false; }
     const at = { x: br.left - this.origin.left + (bw + img.offsetLeft) * scale, y: br.top - this.origin.top + (bw + img.offsetTop) * scale, w: W * scale, h: H * scale };
     const plain = !rgba(bcs.backgroundColor) && !bw;
-    const shadow = plain ? this.effects(bcs.boxShadow, scale) : null;
+    // Обрезанный по фигуре: тень и свечение — на обёртке (drop-shadow), PowerPoint ведёт их по прозрачности снимка
+    const shadow = PRESET_KINDS[crop] ? this.effects(getComputedStyle(box.parentElement!).filter, scale, true) : plain ? this.effects(bcs.boxShadow, scale) : null;
     const op = Number(bcs.opacity || 1);
     this.slide.addImage({ data, ...this.pos(at), shadow: shadow ?? undefined, transparency: op < 1 ? transparency(op) : undefined });
     return true;

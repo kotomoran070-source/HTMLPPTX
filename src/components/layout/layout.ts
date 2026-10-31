@@ -121,7 +121,7 @@ defineBlock<ImageProps>('image', {
     const bf = blurFill(p.fitBlur, p.fit, p.src);
     const box = [look.box, bf.css].filter(Boolean).join(';');
     const img = p.src
-      ? `<div class="imgfit"><div class="imgbox${look.cls}${bf.cls}"${box ? ` style="${esc(box)}"` : ''}${eimg(p, 'src')}><img${themedSrc(p.src, p.srcDark)} alt="${esc(p.alt ?? p.caption ?? '')}" style="${frameCss(p)}${look.img ? `;${look.img}` : ''}"></div></div>`
+      ? `<div class="imgfit"${look.wrap ? ` style="${esc(look.wrap)}"` : ''}><div class="imgbox${look.cls}${bf.cls}"${box ? ` style="${esc(box)}"` : ''}${eimg(p, 'src')}><img${themedSrc(p.src, p.srcDark)} alt="${esc(p.alt ?? p.caption ?? '')}" style="${frameCss(p)}${look.img ? `;${look.img}` : ''}"></div></div>`
       // Пустое место под картинку — той же формы, что будет картинка (скругление, круг, овал)
       : `<div class="image-empty"${eimg(p, 'src')}${p.radius !== undefined ? ` style="${look.box.split(';').filter((d) => d.startsWith('border-radius')).join(';')}${p.radius === 'circle' ? ';aspect-ratio:1;min-height:0;padding:0;flex:none;height:100%;margin:0 auto' : ''}"` : ''}>${p.radius === 'circle' ? 'Фото' : 'Перетащите изображение сюда'}</div>`;
     const cap = p.caption ? `<figcaption class="mu"${ea(p, 'caption')}>${t(p.caption)}</figcaption>` : '';
@@ -153,7 +153,7 @@ function framesHtml(p: ImageProps, frames: ReturnType<typeof framesOf>, look: Re
   const h = Number(p.height);
   const cam = p.camera === 'in' || p.camera === 'out' || p.camera === 'pan' ? ` cam-${p.camera}` : '';
   return `<figure class="image r gal${cam}" data-at="${at}"${p.flip === 'click' ? ' data-flip="click"' : ''}${styleAttr(h > 0 && `height:${h}px`, p.style)}>`
-    + `<div class="imgfit">${boxes}${frameControls(frames.length, at)}</div>${caps}</figure>`;
+    + `<div class="imgfit"${look.wrap ? ` style="${esc(look.wrap)}"` : ''}>${boxes}${frameControls(frames.length, at)}</div>${caps}</figure>`;
 }
 
 interface SpacerProps extends Block { size?: number }

@@ -1,5 +1,5 @@
-import { SHADOWS, shapeColor } from '../shape/shape';
-import { BOX_FX_KEYS, boxFxColor, boxFxCss, type BoxFx } from '../../engine/box-fx';
+import { PRESET_KINDS, presetMask, SHADOWS, shapeColor } from '../shape/shape';
+import { BOX_FX_KEYS, boxFxColor, boxFxCss, dropFxCss, type BoxFx } from '../../engine/box-fx';
 
 /**
  * Оформление картинки, как «Формат рисунка» в PowerPoint: контур, тень, скругление, паспарту,
@@ -32,6 +32,8 @@ export interface ImageLook extends Omit<BoxFx, 'shadow'> {
   bright?: number;
   contrast?: number;
   saturate?: number;
+  /** Обрезка по фигуре PowerPoint: ключ PRESET_KINDS — diamond, star, heart, cloud… Скругление, контур и паспарту тогда не действуют */
+  crop?: string;
 }
 
 /** Тени — общие с фигурами (shape.ts) */
@@ -81,7 +83,7 @@ export function filterCss(key: unknown): { img: string; box: string; tint: boole
 }
 
 /** Поля оформления: их стирает «Сбросить оформление» и переносит формат по образцу */
-export const IMAGE_LOOK_KEYS = ['stroke', 'width', 'dash', 'radius', ...BOX_FX_KEYS, 'mat', 'matColor', 'opacity', 'fade', 'fadeSize', 'filter', 'bright', 'contrast', 'saturate'] as const;
+export const IMAGE_LOOK_KEYS = ['stroke', 'width', 'dash', 'radius', ...BOX_FX_KEYS, 'mat', 'matColor', 'opacity', 'fade', 'fadeSize', 'filter', 'bright', 'contrast', 'saturate', 'crop'] as const;
 
 /**
  * Маска растворения: снимок непрозрачен до (100 − fadeSize) % и плавно исчезает к краю.
@@ -128,8 +130,12 @@ export const IMAGE_STYLES: { id: string; name: string; props: ImageLook }[] = [
   { id: 'vignette', name: 'Тает по краям', props: { fade: 'edges' } },
 ];
 
-/** CSS рамки картинки (box), самой картинки (img) и признак явного оформления (для экспорта в PPTX) */
-export function imageLookCss(p: ImageLook): { box: string; img: string; fx: boolean; cls: string } {
+/**
+ * CSS рамки картинки (box), самой картинки (img), обёртки (wrap: тень и свечение обрезанного по фигуре — снаружи маски)
+ * и признак явного оформления (для экспорта в PPTX)
+ */
+export function imageLookCss(p: ImageLook): { box: string; img: string; wrap: string; fx: boolean; cls: string } {
+  if (PRESET_KINDS[p.crop ?? '']) return croppedCss(p);
   const box: string[] = [];
   const w = Math.max(0, Math.min(40, Number(p.width) || 0));
   const stroke = w ? shapeColor(p.stroke) ?? 'var(--bd2)' : '';
@@ -153,5 +159,25 @@ export function imageLookCss(p: ImageLook): { box: string; img: string; fx: bool
   // Снимок в паспарту скруглён в тон рамке
   if (mat) img.push(`border-radius:${round ? '50%' : `${Math.max(0, (r ? parseFloat(r) : 12) - mat)}px`}`);
   const fx = box.length + img.length > 0;
-  return { box: box.join(';'), img: img.join(';'), fx, cls: `${fx ? ' img-fx' : ''}${fl.tint ? ' img-tint' : ''}${p.radius === 'circle' ? ' img-round' : ''}` };
+  return { box: box.join(';'), img: img.join(';'), wrap: '', fx, cls: `${fx ? ' img-fx' : ''}${fl.tint ? ' img-tint' : ''}${p.radius === 'circle' ? ' img-round' : ''}` };
+}
+
+/** Рисунок, обрезанный по фигуре: маска по её контуру под размер объекта, с растворением — пересечением масок */
+function croppedCss(p: ImageLook): { box: string; img: string; wrap: string; fx: boolean; cls: string } {
+  const pl = (p as { place?: { w?: unknown; h?: unknown } }).place;
+  const [dw, dh] = PRESET_KINDS[p.crop!].size;
+  const W = Math.max(8, Math.round(Number(pl?.w) || dw));
+  const H = Math.max(8, Math.round(Number(pl?.h) || (W * dh) / dw));
+  const masks = [presetMask(p.crop, W, H)!, fadeMask(p)].filter(Boolean).join(', ');
+  const box = ['border-radius:0', `--crop:${p.crop}`, `-webkit-mask-image:${masks}`, `mask-image:${masks}`, '-webkit-mask-size:100% 100%', 'mask-size:100% 100%',
+    '-webkit-mask-repeat:no-repeat', 'mask-repeat:no-repeat', ...(fadeMask(p) ? ['-webkit-mask-composite:source-in', 'mask-composite:intersect'] : [])];
+  const op = Number(p.opacity);
+  if (Number.isFinite(op) && op >= 0.1 && op < 1) box.push(`opacity:${op}`);
+  const img: string[] = [];
+  const fl = filterCss(p.filter);
+  const adj = adjustCss(p);
+  if (fl.img || adj) img.push(`filter:${[fl.img.replace(/^filter:/, ''), adj].filter(Boolean).join(' ')}`);
+  if (fl.box) box.push(fl.box);
+  const drop = dropFxCss(p);
+  return { box: box.join(';'), img: img.join(';'), wrap: drop ? `filter:${drop}` : '', fx: true, cls: ` img-fx img-crop${fl.tint ? ' img-tint' : ''}` };
 }

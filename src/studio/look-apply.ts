@@ -45,8 +45,10 @@ export const imageEl = (root: HTMLElement): HTMLElement | null => root.querySele
 export function applyImageLook(bx: HTMLElement, blk: Block): void {
   const b = blk as ImageLook & Parameters<typeof frameCss>[0];
   const look = imageLookCss(b);
-  bx.className = `${bx.className.replace(/\s*\bimg-(fx|tint|round)\b/g, '')}${look.cls}`;
+  bx.className = `${bx.className.replace(/\s*\bimg-(fx|tint|round|crop)\b/g, '')}${look.cls}`;
   putStyle(bx, look.box || null);
+  // Тень и свечение обрезанного по фигуре — на обёртке, снаружи маски
+  if (bx.parentElement?.classList.contains('imgfit')) putStyle(bx.parentElement, look.wrap || null);
   const img = bx.querySelector('img');
   if (img) putStyle(img, `${frameCss(b)}${look.img ? `;${look.img}` : ''}`);
 }

@@ -289,6 +289,7 @@ export function contextPanelsHtml(): string {
     + stack(btn('image.filter', 'recolor', 'Цвет', { menu: true, title: 'Цветовой фильтр' }), btn('image.opacity', 'opacity', 'Прозрачность', { menu: true })))}
   ${group('Цветокоррекция', btn('image.grade', 'sliders', 'Цвет+', { big: true, title: 'Цветокоррекция: круги, кривые, HSL, LUT' }))}
   ${group('Кадр', btn('image.crop', 'crop', 'Кадр', { big: true, title: 'Сдвинуть снимок в рамке (Esc — готово)' })
+    + btn('image.shape', 'star', 'Форма', { big: true, menu: true, title: 'Обрезать по фигуре: ромб, звезда, сердце, облако…' })
     + btn('image.fit', 'contain', 'Вписать', { big: true, menu: true, title: 'Как снимок заполняет рамку' }))}
   ${group('Галерея', btn('image.frames.join', 'frames', 'Собрать в галерею', { big: true, title: 'Объединить выделенные картинки в одну с кадрами' })
     + btn('image.frame.add', 'frames', 'Ещё кадры', { big: true, title: 'Добавить кадры в картинку' })
@@ -1479,6 +1480,20 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       run: () => lookGallery('image.radius', 'radius', [[0, 'Без скругления'], [6, 'Малое'], [undefined, 'Обычное'], [24, 'Большое'], [48, 'Очень большое'], ['oval', 'Овал'], ['circle', 'Круг']],
         { label: 'Своё, px', min: 0, max: 120, unit: ' px', get: (v) => (typeof v === 'number' ? v : v === 'circle' || v === 'oval' ? 120 : 12), set: (n) => n }),
       enabled: isImage,
+    },
+    // Обрезка по фигуре PowerPoint: образцы — снимок в каждой форме, наведение примеряет на слайде
+    'image.shape': {
+      run: () => {
+        const cur = first('image')?.crop;
+        const opt = (k: string | undefined): LookOption => ({
+          label: k ? PRESET_KINDS[k].short ?? PRESET_KINDS[k].name : 'Без формы', on: cur === k, patch: { crop: k }, pick: () => setAll('image', 'crop', k),
+        });
+        lookPopover(anchor('image.shape'), [
+          { options: [undefined, 'diamond', 'triangle', 'right-triangle', 'parallelogram', 'trapezoid', 'pentagon', 'hexagon', 'octagon', 'star', 'plus', 'heart', 'lightning', 'donut', 'cloud'].map(opt) },
+          { title: 'Стрелки и выноски', options: ['block-arrow', 'double-arrow', 'chevron', 'pointer', 'callout'].map(opt) },
+        ], undefined, 'st-kindpop', IMAGE_KIND);
+      },
+      enabled: isImage, active: () => isImage() && !!PRESET_KINDS[first('image')?.crop as string],
     },
     'image.filter': { run: () => filterGallery(), enabled: isImage },
     'image.grade': {

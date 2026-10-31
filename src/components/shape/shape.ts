@@ -17,6 +17,13 @@ function maskOf(box: string, body: string): string {
   return `url('data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${box}" preserveAspectRatio="none">${body}</svg>`)}')`;
 }
 
+/** Маска по форме фигуры PowerPoint на рамку w×h — рисунок, обрезанный по фигуре (image-look.ts) */
+export function presetMask(kind: unknown, w: number, h: number): string | null {
+  if (typeof kind !== 'string' || !PRESET_KINDS[kind]) return null;
+  const fills = presetGeometry(kind, w, h).filter((g) => g.fill).map((g) => `<path d="${g.d}"/>`).join('');
+  return maskOf(`0 0 ${w} ${h}`, fills);
+}
+
 /** Тени фигуры и рисунка: лёгкая, заметная, глубокая (подкрутка и свечение — box-fx.ts) */
 export const SHADOWS = BOX_SHADOWS;
 
