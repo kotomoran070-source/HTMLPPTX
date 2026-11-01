@@ -68,6 +68,8 @@ const series: Field = {
 };
 
 /** Пункты «заголовок + текст» — общие для схем и списков */
+/** Сторона объекта для соединителя */
+const SIDE_OPTS: [string, string][] = [['', 'По положению'], ['top', 'Сверху'], ['right', 'Справа'], ['bottom', 'Снизу'], ['left', 'Слева']];
 const points = (label: string, item: string, textLabel = 'Пояснение') => ({
   k: 'items', label, type: 'rows' as const, item,
   make: () => ({ title: item, text: 'Пояснение' }),
@@ -517,7 +519,7 @@ export const BLOCKS: Record<string, Schema> = {
     ],
   },
   diagram: {
-    about: 'Двойной щелчок по диаграмме — текст с живым превью и подсказкой.',
+    about: 'Двойной щелчок — текст с живым превью; правый — «Разобрать на фигуры».',
     fields: [
       { k: 'kind', label: 'Вид', type: 'select', options: [['', 'Последовательность'], ['flow', 'Блок-схема'], ['state', 'Состояния']] },
       { k: 'code', label: 'Текст диаграммы', type: 'textarea', hint: 'Клиент -> Сервер: запрос · [Шаг] -> {Решение?}' },
@@ -533,6 +535,8 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'color', label: 'Цвет', type: 'color' },
       { k: 'width', label: 'Толщина, px', type: 'number', min: 0.5, max: 12, step: 0.5, placeholder: '2,5' },
       { k: 'dash', label: 'Штрих', type: 'select', options: [['', 'Сплошной'], ['dash', 'Пунктир'], ['dot', 'Точки']] },
+      { k: 'fromSide', label: 'Начало — сторона', type: 'select', options: SIDE_OPTS },
+      { k: 'toSide', label: 'Конец — сторона', type: 'select', options: SIDE_OPTS },
       { k: 'from', label: 'От объекта', type: 'text', hint: 'Имя объекта (id); задаётся командой «Соединить»' },
       { k: 'to', label: 'К объекту', type: 'text' },
     ],

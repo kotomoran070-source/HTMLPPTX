@@ -158,8 +158,23 @@ export function layoutFlow(flow: Flow, size: (n: FlowNode) => Size = (n) => meas
   // 6. Стрелки: от края узла через промежуточные точки к краю узла; подпись — посередине пути
   const nodeAt = (id: string) => V.get(id)!;
   const shapeOf = new Map(flow.nodes.map((n) => [n.id, n.shape]));
+  // Несколько стрелок между одной парой узлов (туда и обратно): расходятся дугами, подписи не накладываются
+  const pairOf = (e: { from: string; to: string }) => [e.from, e.to].sort().join('\n');
+  const pairs = new Map<string, number[]>();
+  edges.forEach((e, i) => { if (e.from !== e.to) pairs.set(pairOf(e), [...(pairs.get(pairOf(e)) ?? []), i]); });
+  const labelW = (t: string) => (t ? t.length * 15 * 0.82 * 0.62 + 20 : 0);
   const edge = (from: string, to: string, i: number) => {
     const chain = chains.get(i) ?? [from, to];
+    const group = pairs.get(pairOf({ from, to })) ?? [i];
+    if (chain.length === 2 && group.length > 1) {
+      // Поперёк хода схемы: у «вправо» подписи друг под другом, у «вниз» — рядом (шаг — по ширине подписей)
+      const step = right ? 32 : Math.max(36, ...group.map((g) => labelW(edges[g].text) + 6));
+      const o = (group.indexOf(i) - (group.length - 1) / 2) * step;
+      const [a, b] = [nodeAt(chain[0]), nodeAt(chain[1])];
+      const m: [number, number] = [(a.x + b.x) / 2 + o, (a.y + b.y) / 2];
+      const pts: [number, number][] = [border(a, shapeOf.get(a.id)!, m), m, border(b, shapeOf.get(b.id)!, m)];
+      return back.has(i) ? pts.reverse() : pts;
+    }
     let pts = chain.map((id) => [nodeAt(id).x, nodeAt(id).y] as [number, number]);
     pts[0] = border(nodeAt(chain[0]), shapeOf.get(chain[0])!, pts[1]);
     pts[pts.length - 1] = border(nodeAt(chain[chain.length - 1]), shapeOf.get(chain[chain.length - 1])!, pts[pts.length - 2]);

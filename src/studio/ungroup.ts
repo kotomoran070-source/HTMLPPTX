@@ -4,6 +4,7 @@ import { placeOf, type Place } from '../engine/render';
 import type { Editor } from '../engine/editor/editor';
 import { THEME_COLORS, type TextStyle } from '../engine/text-style';
 import type { Block, Deck } from '../types';
+import { diagramParts } from './diagram-explode';
 
 /**
  * Разгруппировка: составной блок (карточка, панель, сетка, числа, импортированная вёрстка…)
@@ -261,7 +262,10 @@ export function ungroup(host: Host, slide: number, sel: { block: Path; free: Pat
     return s.trim() ? s : null;
   };
 
-  const parts: Block[] = [];
+  // Диаграмма из текста — фигурами и соединителями, по тому, как она нарисована (diagram-explode)
+  const parts: Block[] = blk.type === 'diagram'
+    ? diagramParts(root, { rect, textStyle, color: (c, el) => fillColor(seen(c, el)), used: new Set((deck.slides[slide]?.free ?? []).map((b) => (b as Block)?.id)) }, blk as { code?: unknown; kind?: unknown; dir?: unknown })
+    : [];
   const walk = (el: HTMLElement) => {
     if (el !== root && el.hasAttribute('data-block')) {
       // Вложенный блок (карточка сетки, график в карточке) переносится целиком
@@ -300,7 +304,7 @@ export function ungroup(host: Host, slide: number, sel: { block: Path; free: Pat
     if (el !== root && el.getBoundingClientRect().width > 1) parts.push(...sideLines(el, cs));
     for (const c of el.children) walk(c as HTMLElement);
   };
-  walk(root);
+  if (blk.type !== 'diagram') walk(root);
 
   if (!parts.length) {
     editor.toast('Внутри нет частей, которые можно сделать отдельными', 2500);
@@ -329,7 +333,7 @@ export function ungroup(host: Host, slide: number, sel: { block: Path; free: Pat
   }, { rebuild: true });
   if (!ok) return false;
   editor.selectMany(slide, parts.map((_p, k) => from + k));
-  editor.toast(`Разгруппировано: ${objects(parts.length)}. Вернуть — Ctrl+Z`, 3000);
+  editor.toast(`${blk.type === 'diagram' ? 'Диаграмма разобрана' : 'Разгруппировано'}: ${objects(parts.length)}. Вернуть — Ctrl+Z`, 3000);
   return true;
 }
 

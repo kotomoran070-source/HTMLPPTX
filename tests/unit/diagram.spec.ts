@@ -62,3 +62,16 @@ test('раскладка: слои по ходу стрелок, цикл не �
   expect(r.nodes[1].x).toBeGreaterThan(r.nodes[0].x);
   expect(r.nodes[1].y).toBe(r.nodes[0].y);
 });
+
+test('туда и обратно между соседями: стрелки расходятся дугами, подписи не накладываются', () => {
+  for (const dir of ['down', 'right'] as const) {
+    const lay = layoutFlow({ ...parseFlow('[Черновик] -> [Проверка]: отправить\nПроверка --> Черновик: вернуть'), dir });
+    const [go, back] = lay.edges;
+    expect(back.back).toBe(true);
+    expect(go.points).toHaveLength(3);
+    // Середины путей и подписи разнесены поперёк хода схемы
+    const k = dir === 'down' ? 0 : 1;
+    expect(Math.abs(go.label![k] - back.label![k])).toBeGreaterThanOrEqual(dir === 'down' ? 60 : 30);
+    expect(back.points[0]).not.toEqual(go.points.at(-1));
+  }
+});

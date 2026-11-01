@@ -44,6 +44,17 @@ test('кривая — четыре точки Безье, середина пр
   expect(pathD(connect(A, { x: 600, y: 300, w: 200, h: 100 }))).toContain('Q');
 });
 
+test('стороны заданы: одна и та же — скобкой снаружи обоих; перпендикулярные — одним изломом; кривая — наружу из сторон', () => {
+  const B = { x: 100, y: 400, w: 200, h: 100 };
+  const c = connect(B, A, 'elbow', 14, { from: 'right', to: 'right' });
+  expect(c.pts).toEqual([[300, 450], [328, 450], [328, 150], [300, 150]]);
+  const l = connect(A, { x: 500, y: 400, w: 200, h: 100 }, 'elbow', 14, { from: 'right', to: 'top' });
+  expect(l.pts).toEqual([[300, 150], [600, 150], [600, 400]]);
+  const q = connect(B, A, 'curve', 14, { from: 'left', to: 'left' });
+  expect(q.pts[1][0]).toBeLessThan(100);
+  expect(q.pts[2][0]).toBeLessThan(100);
+});
+
 test('копии с соединителями: занятые имена — новые, линия — к копиям; линия без своих объектов не копируется', () => {
   const copies = relink([
     { type: 'connector', from: 'a', to: 'b' },

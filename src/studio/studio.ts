@@ -941,7 +941,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
     ];
   }
   /** «Разгруппировать» — только у того, что можно разобрать: серый пункт у каждой надписи лишь удлинял меню */
-  const ungroupItem = (): MenuEntry[] => (cmds['obj.ungroup'].enabled!() ? [{ label: 'Разгруппировать', icon: 'ungroup', hint: 'Ctrl+Shift+G', run: () => run('obj.ungroup') }] : []);
+  // Диаграмма из текста разбирается на фигуры и соединители
+  const ungroupItem = (): MenuEntry[] => (cmds['obj.ungroup'].enabled!()
+    ? [{ label: ed.selection?.type === 'diagram' ? 'Разобрать на фигуры' : 'Разгруппировать', icon: 'ungroup', hint: 'Ctrl+Shift+G', run: () => run('obj.ungroup') }] : []);
   function objectMenu(): MenuEntry[] {
     const sel = ed.selection;
     if (!sel) return slideMenu(index);

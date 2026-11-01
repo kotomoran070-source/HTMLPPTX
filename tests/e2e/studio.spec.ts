@@ -2237,3 +2237,52 @@ slides:
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('диаграмма: «Разобрать на фигуры» — узлы фигурами с текстом, стрелки соединителями с подписями; последовательность — стрелками и подписями', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'dgmexplode');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'deck.yaml');
+  fs.writeFileSync(file, `title: Д
+slides:
+  - template: canvas
+    free:
+      - { type: diagram, kind: flow, code: "(Код) -> {Тесты?}\\nТесты? -> [Выкладка]: да\\nТесты? --> Код: нет", place: { x: 200, y: 60, w: 700, h: 560 } }
+  - template: canvas
+    free:
+      - { type: diagram, code: "нумерация\\nКлиент -> Сервер: запрос\\nСервер -> Сервер: проверка\\nСервер --> Клиент: ответ\\nзаметка Сервер: кэш\\n== Итог ==", place: { x: 140, y: 60, w: 1000, h: 560 } }
+`);
+  const free = (i: number) => (parse(fs.readFileSync(file, 'utf8')) as { slides: { free?: Record<string, unknown>[] }[] }).slides[i].free ?? [];
+  try {
+    await page.goto('/?deck=dgmexplode&studio#1');
+    const d = page.locator('#st-canvas .slide.on [data-type="diagram"]');
+    await d.click();
+    await d.click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Разобрать на фигуры' }).click();
+    // Сначала соединители (под фигурами), затем узлы с именами и текстом
+    await expect.poll(() => free(0).map((b) => b.type)).toEqual(['connector', 'connector', 'connector', 'shape', 'shape', 'shape']);
+    const f = free(0);
+    expect(f.slice(3).map((b) => [b.id, b.kind, b.text])).toEqual([['node-1', 'rect', 'Код'], ['node-2', 'diamond', 'Тесты?'], ['node-3', 'rect', 'Выкладка']]);
+    expect(f.slice(0, 3).map((b) => [b.from, b.to, b.text ?? '', b.dash ?? ''])).toEqual([['node-1', 'node-2', '', ''], ['node-2', 'node-3', 'да', ''], ['node-2', 'node-1', 'нет', 'dash']]);
+    // Обратная стрелка — скобкой сбоку, а не поверх прямых
+    expect([f[2].fromSide, f[2].toSide]).toEqual(['right', 'right']);
+    await expect(page.locator('#st-canvas .slide.on .conn-line')).toHaveCount(3);
+    await expect(page.locator('#st-canvas .slide.on .conn-box.conn-off')).toHaveCount(0);
+    // Последовательность: участники — фигурами, сообщения — стрелками, подписи и номера — отдельно
+    await page.keyboard.press('Escape');
+    await page.goto('/?deck=dgmexplode&studio#2');
+    const s = page.locator('#st-canvas .slide.on [data-type="diagram"]');
+    await s.click();
+    await s.click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Разобрать на фигуры' }).click();
+    await expect.poll(() => free(1).length).toBeGreaterThan(10);
+    const q = free(1);
+    expect(q.filter((b) => b.kind === 'arrow')).toHaveLength(3);
+    expect(q.filter((b) => b.type === 'text').map((b) => b.text)).toEqual(['запрос', 'проверка', 'ответ']);
+    expect(q.filter((b) => b.type === 'shape' && typeof b.text === 'string').map((b) => b.text)).toEqual(expect.arrayContaining(['Клиент', 'Сервер', 'кэш', 'Итог', '1', '2', '3']));
+    expect(q.find((b) => b.kind === 'arrow' && b.dash === 'dash')?.rotate).toBe(180);
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -11,7 +11,7 @@ import { ea } from '../../engine/marks';
 import { placeOf } from '../../engine/render';
 import type { Block, SlideData } from '../../types';
 import { shapeColor } from '../shape/shape';
-import { connect, pathD, type Box, type Geo, type Route } from './geom';
+import { connect, pathD, SIDES, type Box, type Geo, type Route, type Side } from './geom';
 import './connector.css';
 
 export interface ConnectorProps extends Block {
@@ -22,6 +22,9 @@ export interface ConnectorProps extends Block {
   route?: Route;
   /** Стрелка: end — на конце (по умолчанию), both — на обоих, start — в начале, none — без */
   head?: 'end' | 'both' | 'start' | 'none';
+  /** Стороны, от которой и к которой идёт линия: top, right, bottom, left (по умолчанию — по положению объектов) */
+  fromSide?: Side;
+  toSide?: Side;
   /** Подпись посередине */
   text?: string;
   /** Цвет: цвет темы (accent, text…) или #RRGGBB; толщина, px; пунктир */
@@ -31,6 +34,8 @@ export interface ConnectorProps extends Block {
 }
 
 const routeOf = (v: unknown): Route => (v === 'straight' || v === 'curve' ? v : 'elbow');
+const sideOf = (v: unknown): Side | undefined => (SIDES.includes(v as Side) ? v as Side : undefined);
+const sidesOf = (from: unknown, to: unknown) => ({ from: sideOf(from), to: sideOf(to) });
 
 /** Рамка объекта по данным: без высоты — оценка (у текста — строка-две, у остального — по ширине) */
 function boxOf(slide: SlideData, id: unknown): Box | null {
@@ -63,7 +68,7 @@ const isOval = (b: Block) => b.type === 'shape' && b.kind === 'ellipse';
 export function connectorGeo(p: ConnectorProps, slide: SlideData): Geo | null {
   const a = boxOf(slide, p.from);
   const b = boxOf(slide, p.to);
-  return a && b ? connect(a, b, routeOf(p.route)) : null;
+  return a && b ? connect(a, b, routeOf(p.route), 14, sidesOf(p.fromSide, p.toSide)) : null;
 }
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
@@ -87,7 +92,8 @@ defineBlock<ConnectorProps>('connector', {
     const all = (Array.isArray(ctx.slide.free) ? ctx.slide.free : []).flatMap((x) => [x, ...((x as Block)?.type === 'group' && Array.isArray((x as Block).items) ? (x as Block).items as Block[] : [])]);
     const oval = (id: unknown) => all.some((x) => (x as Block)?.id === id && isOval(x as Block));
     const ovals = (oval(p.from) ? 'a' : '') + (oval(p.to) ? 'b' : '');
-    const attrs = ` data-from="${esc(String(p.from ?? ''))}" data-to="${esc(String(p.to ?? ''))}" data-route="${routeOf(p.route)}"${ovals ? ` data-oval="${ovals}"` : ''}`;
+    const attrs = ` data-from="${esc(String(p.from ?? ''))}" data-to="${esc(String(p.to ?? ''))}" data-route="${routeOf(p.route)}"${ovals ? ` data-oval="${ovals}"` : ''}`
+      + (sideOf(p.fromSide) || sideOf(p.toSide) ? ` data-sides="${sideOf(p.fromSide) ?? ''},${sideOf(p.toSide) ?? ''}"` : '');
     const m = (k: 's' | 'e') => `<marker id="${id}${k}" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="${(10 / w) * 1.6 + 2.2}" markerHeight="${(10 / w) * 1.6 + 2.2}" markerUnits="strokeWidth" orient="auto-start-reverse"><path d="M0 0.8 9.5 5 0 9.2z"/></marker>`;
     const label = p.text ? `<span class="conn-l" style="left:${g ? r1(g.mid[0] - g.box.x) : 0}px;top:${g ? r1(g.mid[1] - g.box.y) : 0}px"${ea(p, 'text')}>${t(p.text)}</span>` : '';
     // Опорные точки — для выгрузки в PowerPoint родной линией (на слайде их уточняет reroute)
@@ -133,7 +139,8 @@ export function reroute(el: HTMLElement, slide: HTMLElement): void {
     for (let e: HTMLElement | null = f; e && e !== slide; e = e.offsetParent as HTMLElement | null) { x += e.offsetLeft; y += e.offsetTop; }
     return { x, y, w: f.offsetWidth, h: f.offsetHeight, oval: ov.includes(k) };
   };
-  const g = connect(box(a, 'a'), box(b, 'b'), routeOf(el.dataset.route));
+  const [s1, s2] = (el.dataset.sides ?? ',').split(',');
+  const g = connect(box(a, 'a'), box(b, 'b'), routeOf(el.dataset.route), 14, sidesOf(s1, s2));
   const d = pathD(g);
   el.querySelectorAll('path.conn-hit, path.conn-line').forEach((p) => p.setAttribute('d', d));
   el.querySelector('svg.conn')?.setAttribute('viewBox', `0 0 ${r1(g.box.w)} ${r1(g.box.h)}`);

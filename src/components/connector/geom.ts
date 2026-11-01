@@ -29,32 +29,57 @@ function edge(b: Box, p: Pt): Pt {
   return [cx(b) + dx * t, cy(b) + dy * t];
 }
 
-export function connect(a: Box, b: Box, route: Route = 'elbow', pad = 14): Geo {
+export type Side = 'top' | 'right' | 'bottom' | 'left';
+const NORM: Record<Side, Pt> = { top: [0, -1], right: [1, 0], bottom: [0, 1], left: [-1, 0] };
+export const SIDES = Object.keys(NORM) as Side[];
+/** Середина стороны прямоугольника */
+const port = (b: Box, s: Side): Pt => (s === 'top' ? [cx(b), b.y] : s === 'bottom' ? [cx(b), b.y + b.h] : s === 'left' ? [b.x, cy(b)] : [b.x + b.w, cy(b)]);
+/** Отступ ломаной от объектов, когда она обходит их с одной стороны */
+const AROUND = 28;
+
+/**
+ * Путь от a к b. sides — стороны, от которой и к которой идёт линия (иначе — по взаимному положению):
+ * одна и та же сторона у обоих — линия обходит их скобкой (обратная стрелка схемы)
+ */
+export function connect(a: Box, b: Box, route: Route = 'elbow', pad = 14, sides: { from?: Side; to?: Side } = {}): Geo {
   // Зазоры: положительный — прямоугольники разнесены по этой оси
   const gx = Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w));
   const gy = Math.max(b.y - (a.y + a.h), a.y - (b.y + b.h));
   const horiz = gx >= gy;
+  const right = cx(b) >= cx(a);
+  const down = cy(b) >= cy(a);
+  const s1: Side = sides.from ?? (horiz ? (right ? 'right' : 'left') : (down ? 'bottom' : 'top'));
+  const s2: Side = sides.to ?? (horiz ? (right ? 'left' : 'right') : (down ? 'top' : 'bottom'));
   let pts: Pt[];
-  if (route === 'straight' || (gx < 0 && gy < 0)) {
-    // Прямая: по линии центров, от края до края
+  if (route === 'straight' || (gx < 0 && gy < 0 && !sides.from && !sides.to)) {
+    // Прямая: по линии центров, от края до края; наложенные объекты — тоже прямой
     pts = [edge(a, [cx(b), cy(b)]), edge(b, [cx(a), cy(a)])];
-    route = route === 'straight' ? 'straight' : route;
-    if (gx < 0 && gy < 0) route = 'straight';
+    route = 'straight';
   } else {
-    const right = cx(b) >= cx(a);
-    const down = cy(b) >= cy(a);
-    const p1: Pt = horiz ? [right ? a.x + a.w : a.x, cy(a)] : [cx(a), down ? a.y + a.h : a.y];
-    const p2: Pt = horiz ? [right ? b.x : b.x + b.w, cy(b)] : [cx(b), down ? b.y : b.y + b.h];
+    const p1 = port(a, s1);
+    const p2 = port(b, s2);
+    const [n1, n2] = [NORM[s1], NORM[s2]];
     if (route === 'curve') {
       const k = Math.max(30, Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) / 2.4);
-      const n1: Pt = horiz ? [right ? 1 : -1, 0] : [0, down ? 1 : -1];
-      pts = [p1, [p1[0] + n1[0] * k, p1[1] + n1[1] * k], [p2[0] - n1[0] * k, p2[1] - n1[1] * k], p2];
-    } else if (horiz ? Math.abs(p1[1] - p2[1]) < 1 : Math.abs(p1[0] - p2[0]) < 1) {
-      pts = [p1, p2];
+      pts = [p1, [p1[0] + n1[0] * k, p1[1] + n1[1] * k], [p2[0] + n2[0] * k, p2[1] + n2[1] * k], p2];
     } else {
-      // Ломаная: наружу из стороны, поворот посередине между объектами, внутрь к стороне
-      const m = horiz ? (p1[0] + p2[0]) / 2 : (p1[1] + p2[1]) / 2;
-      pts = horiz ? [p1, [m, p1[1]], [m, p2[1]], p2] : [p1, [p1[0], m], [p2[0], m], p2];
+      const h1 = n1[0] !== 0;
+      const h2 = n2[0] !== 0;
+      if (h1 !== h2) {
+        // Из стороны и в перпендикулярную — один излом
+        pts = [p1, h1 ? [p2[0], p1[1]] : [p1[0], p2[1]], p2];
+      } else if (h1 ? n1[0] === n2[0] : n1[1] === n2[1]) {
+        // Одна и та же сторона: скобкой снаружи обоих объектов
+        const k = h1 ? 0 : 1;
+        const far = n1[k] > 0 ? Math.max(p1[k], p2[k]) + AROUND : Math.min(p1[k], p2[k]) - AROUND;
+        pts = h1 ? [p1, [far, p1[1]], [far, p2[1]], p2] : [p1, [p1[0], far], [p2[0], far], p2];
+      } else if (h1 ? Math.abs(p1[1] - p2[1]) < 1 : Math.abs(p1[0] - p2[0]) < 1) {
+        pts = [p1, p2];
+      } else {
+        // Ломаная: наружу из стороны, поворот посередине между объектами, внутрь к стороне
+        const m = h1 ? (p1[0] + p2[0]) / 2 : (p1[1] + p2[1]) / 2;
+        pts = h1 ? [p1, [m, p1[1]], [m, p2[1]], p2] : [p1, [p1[0], m], [p2[0], m], p2];
+      }
     }
   }
   const mid = midOf(pts, route);
