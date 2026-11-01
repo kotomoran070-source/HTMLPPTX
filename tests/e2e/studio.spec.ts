@@ -2395,3 +2395,29 @@ slides:
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('«Вставка → Из текста»: вопросы текстом — превью с ошибками; «Добавить слайды» — по вопросу на слайд и итог после открытого слайда', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'quiztext');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'deck.yaml');
+  fs.writeFileSync(file, 'title: Т\nslides:\n  - template: canvas\n  - template: canvas\n    label: Конец\n');
+  const slides = () => (parse(fs.readFileSync(file, 'utf8')) as { slides: Record<string, unknown>[] }).slides;
+  try {
+    await page.goto('/?deck=quiztext&studio#1');
+    await page.locator('.st-tabs [data-tab="insert"]').click();
+    await page.locator('.st-ribbon [data-cmd="ins.quiz.text"]').click();
+    const src = page.locator('.st-cd-src');
+    await src.fill('# Сортировки\nУстойчивая сортировка?\n- Быстрая\n+ Слиянием :: равные по порядку\n\nБит в double?\n= 64\n\nБез верного\n- Раз\n- Два');
+    await expect(page.locator('.st-cd-live .qt-q')).toHaveCount(2);
+    await expect(page.locator('.st-cd-live .qt-err')).toContainText('Вопрос 3: нет верного варианта');
+    await page.locator('.st-cd [data-a="ok"]').click();
+    await expect.poll(() => slides().map((s) => s.label ?? '')).toEqual(['', 'Вопрос 1', 'Вопрос 2', 'Итог теста', 'Конец']);
+    expect(slides()[1]).toMatchObject({ title: 'Сортировки', body: { type: 'quiz', options: [{ text: 'Быстрая' }, { text: 'Слиянием', correct: true, note: 'равные по порядку' }] } });
+    expect(slides()[2]).toMatchObject({ body: { kind: 'input', answer: '64' } });
+    await expect(page.locator('#st-canvas .slide.on .qz-tag')).toHaveText('Вопрос 1 из 2');
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

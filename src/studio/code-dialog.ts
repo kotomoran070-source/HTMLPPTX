@@ -20,6 +20,8 @@ export interface CodeDialog {
   vars?: string;
   about?: string;
   cheat?: string;
+  /** Подпись главной кнопки (без неё — «Применить») */
+  okLabel?: string;
 }
 
 export function openCodeDialog(o: CodeDialog): void {
@@ -33,9 +35,9 @@ export function openCodeDialog(o: CodeDialog): void {
   </div>
   <footer class="st-cd-bot">
     ${o.render ? '' : `<button type="button" class="btn ghost" data-a="file">${icon('upload')}Из файла…</button>`}
-    <span class="st-cd-hint">Ctrl+Enter — применить</span>
+    <span class="st-cd-hint">Ctrl+Enter — ${esc((o.okLabel ?? 'Применить').toLowerCase())}</span>
     <button type="button" class="btn ghost" data-a="cancel">Отмена</button>
-    <button type="button" class="btn primary" data-a="ok">Применить</button>
+    <button type="button" class="btn primary" data-a="ok">${esc(o.okLabel ?? 'Применить')}</button>
   </footer>
 </div>`;
   document.body.append(box);

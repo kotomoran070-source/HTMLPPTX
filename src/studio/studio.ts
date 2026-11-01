@@ -61,6 +61,7 @@ import { crumbs, type Crumb } from './structure';
 import { canUngroup, groupObjects, ungroup } from './ungroup';
 import { connectTool, lineEnds, pickedPair } from './connect';
 import { quizEdit } from './quiz-edit';
+import { parseQuizText, quizSlides } from '../components/quiz/parse';
 import { relink } from '../components/connector/links';
 import './studio.css';
 
@@ -116,6 +117,19 @@ function group(label: string, body: string): string {
  * слайд в центре, свойства справа, заметки снизу. Правка на слайде — тот же движок, что
  * в режиме правки (Editor), данные и сохранение — через него же (storage).
  */
+/** Пример в окне «Тест из текста»: виден весь формат */
+const QUIZ_SAMPLE = `# Проверим себя
+Какая сортировка сохраняет порядок равных элементов?
+- Быстрая :: может переставить равные элементы
++ Слиянием
+- Пирамидальная
+
+Сколько сравнений нужно, чтобы найти наибольшее из 8 чисел?
+= 7
+= семь
+> Каждое сравнение отсеивает одного кандидата
+`;
+
 export function startStudio(deck: Deck, deckKey: string): void {
   document.title = `${deck.title} — Slideria`;
   // Набор формул — заранее: галерея «Уравнения» и вставленная формула рисуются сразу
@@ -162,7 +176,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Данные', rb('ins.gal.table', 'eq-cols', 'Таблица', { big: true, menu: true, title: 'Готовые таблицы разных стилей' }) + rb('ins.gal.chart', 'chart', 'Диаграмма', { big: true, menu: true, title: 'Графики и столбцы' }) + rb('ins.gal.numbers', 'hash', 'Числа', { big: true, menu: true, title: 'Ключевые числа, прогресс, «ключ — значение»' }) + rb('ins.gal.math', 'sigma', 'Уравнение', { big: true, menu: true, title: 'Формулы и живые числа' }))}
       ${group('Схемы', rb('ins.gal.schemes', 'cycle', 'Схемы', { big: true, menu: true, title: 'Цикл, воронка, пирамида, хронология…' }) + rb('ins.gal.cards', 'grid', 'Карточки', { big: true, menu: true, title: 'Карточки, «было — стало», панель' }))}
       ${group('Медиа', rb('ins.video', 'play', 'Видео', { big: true }) + rb('ins.model', 'layers', '3D-модель', { big: true }) + rb('ins.gal.live', 'sliders', 'Интерактив', { big: true, menu: true, title: 'Регуляторы, живой код, песочница, кнопки' }))}
-      ${group('Обучение', rb('ins.gal.learn', 'quiz', 'Тест', { big: true, menu: true, title: 'Вопросы с проверкой ответа и итог с баллами' }))}
+      ${group('Обучение', rb('ins.gal.learn', 'quiz', 'Тест', { big: true, menu: true, title: 'Вопросы с проверкой ответа, итог с баллами, карточки' }) + rb('ins.quiz.text', 'text', 'Из текста', { big: true, title: 'Тест из текста: вопросы и варианты — слайды теста и итог' }))}
       ${group('Все блоки', rb('insert.blocks', 'sparkle', 'Блоки', { big: true, menu: true, title: 'Все готовые блоки и ваши шаблоны' }))}
     </div>
     ${designPanelHtml()}
@@ -663,13 +677,49 @@ export function startStudio(deck: Deck, deckKey: string): void {
   }
 
   /** Текст диаграммы — в окне с живым превью в цветах слайда и шпаргалкой по записи */
+  /** Цвета и шрифты открытого слайда — для превью в окне с текстом (диаграмма, тест) */
+  function slideVars(): string {
+    const slide = view.stage.querySelector<HTMLElement>('.slide.on');
+    const cs = slide ? getComputedStyle(slide) : null;
+    return cs ? ['--bg', '--surf', '--alt', '--tx', '--tx2', '--mu', '--bd', '--bd2', '--ac', '--ach', '--acs', '--acb', '--on-ac', '--ac2', '--ac-g', '--font', '--font-head', '--hw', '--rk', '--ease']
+      .map((v) => [v, cs.getPropertyValue(v).trim()]).filter(([, x]) => x).map(([v, x]) => `${v}:${x}`).join(';') : '';
+  }
+
+  /** Тест из текста: вопросы и варианты — слайды теста (по вопросу на слайд) и итог после открытого слайда */
+  function quizFromText(): void {
+    const c = (s: string) => `<code>${esc(s)}</code>`;
+    const cheat = `${c('+ верный')} · ${c('- неверный')} · ${c('вариант :: пояснение')} · ${c('= ответ вводом')} · ${c('> пояснение после ответа')} · ${c('# Название теста')} · пустая строка — следующий вопрос · Moodle (Aiken): ${c('A. вариант')} и ${c('ANSWER: B')}`;
+    const preview = (code: string) => {
+      const p = parseQuizText(code);
+      const own = { slides: p.questions.map((q) => ({ body: q })) };
+      const quiz = getBlock('quiz');
+      const n = p.questions.length;
+      const head = `<div class="qt-head"><b>${n ? `${n} ${n % 10 === 1 && n % 100 !== 11 ? 'вопрос' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'вопроса' : 'вопросов'}${p.title ? ` · ${esc(p.title)}` : ''} и итог` : 'Вопросов пока нет'}</b>`
+        + `${p.errors.length ? `<ul class="qt-err">${p.errors.map((e) => `<li>${esc(e)}</li>`).join('')}</ul>` : ''}</div>`;
+      return head + p.questions.map((q, k) => `<div class="qt-q">${quiz?.render(q, { deck: own, index: k, slide: own.slides[k], uid: (x = 'u') => `${x}qt${k}`, block: () => '', mount: () => '' } as never) ?? ''}</div>`).join('');
+    };
+    openCodeDialog({
+      title: 'Тест из текста',
+      about: 'Вопросы через пустую строку; каждый станет слайдом, в конце — итог',
+      code: QUIZ_SAMPLE, theme: false, vars: slideVars(), cheat, okLabel: 'Добавить слайды',
+      render: preview,
+      apply: (code) => {
+        const p = parseQuizText(code);
+        const slides = quizSlides(p);
+        if (!slides.length) { ed.toast('Нет ни одного вопроса: вопрос, под ним варианты «+» и «-»', 3500, true); return; }
+        const at = index + 1;
+        if (ed.commit((d) => { d.slides.splice(at, 0, ...(slides as Deck['slides'])); }, { rebuild: true })) {
+          go(at);
+          ed.toast(`Добавлено слайдов: ${slides.length}${p.errors.length ? `. Вопросы с ошибками пропущены: ${p.errors.length}` : ''}`, 3500);
+        }
+      },
+    });
+  }
+
   function editDiagram(path: Path): void {
     const b = getAt(deck, path) as Block & { code?: string; kind?: string } | undefined;
     if (!b) return;
-    const slide = view.stage.querySelector<HTMLElement>('.slide.on');
-    const cs = slide ? getComputedStyle(slide) : null;
-    const vars = cs ? ['--bg', '--surf', '--alt', '--tx', '--tx2', '--mu', '--bd', '--bd2', '--ac', '--ach', '--acs', '--acb', '--on-ac', '--ac2', '--ac-g', '--font', '--font-head', '--hw', '--rk', '--ease']
-      .map((v) => [v, cs.getPropertyValue(v).trim()]).filter(([, x]) => x).map(([v, x]) => `${v}:${x}`).join(';') : '';
+    const vars = slideVars();
     const seq = (b.kind ?? 'sequence') === 'sequence';
     const c = (s: string) => `<code>${esc(s)}</code>`;
     const cheat = seq
@@ -1690,6 +1740,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   const linker = connectTool({ deck, editor: ed, stage: () => view.stage, index: () => index });
   const ends = lineEnds({ deck, editor: ed, stage: () => view.stage, index: () => index });
   cmds['obj.connect'] = { run: () => linker.start() };
+  cmds['ins.quiz.text'] = { run: quizFromText };
   cmds['tab.shape'] = { run: () => setTab('shape') };
   cmds['tab.anim'] = { run: () => { setTab('anim'); if (!lay.ribbon) toggleRibbon(true); } };
   cmds['tab.table'] = { run: () => setTab('table') };

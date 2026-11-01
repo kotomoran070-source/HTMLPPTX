@@ -79,3 +79,36 @@ test('переходы: вариант со своим переходом, ин�
 test('ключ ответов для заметок: буква и текст, несколько верных, ответ вводом', () => {
   expect(answerKey({ body: [ONE, MANY, INPUT] })).toBe('Ответ: B — Слиянием\nВерные ответы: A — Быстрая; C — Слиянием\nОтвет: 7 / семь');
 });
+
+test('тест из текста: варианты «+» и «-», пояснения, ответ вводом, Aiken; ошибки — с номером вопроса', async () => {
+  const { parseQuizText, quizSlides } = await import('../../src/components/quiz/parse');
+  const p = parseQuizText(`# Сортировки
+// комментарий
+1. Какая сортировка устойчивая?
+- Быстрая :: меняет порядок равных
++ Слиянием
+> Слияние берёт равные по порядку
+
+Сколько бит в double?
+= 64
+= шестьдесят четыре
+
+Столица Австралии?
+A. Сидней
+B) Канберра
+Ответ: Б
+
+Вопрос без верного
+- Раз
+- Два`);
+  expect(p.title).toBe('Сортировки');
+  expect(p.questions).toEqual([
+    { type: 'quiz', question: 'Какая сортировка устойчивая?', options: [{ text: 'Быстрая', note: 'меняет порядок равных' }, { text: 'Слиянием', correct: true }], note: 'Слияние берёт равные по порядку' },
+    { type: 'quiz', question: 'Сколько бит в double?', kind: 'input', answer: '64\nшестьдесят четыре' },
+    { type: 'quiz', question: 'Столица Австралии?', options: [{ text: 'Сидней' }, { text: 'Канберра', correct: true }] },
+  ]);
+  expect(p.errors).toEqual(['Вопрос 4: нет верного варианта — отметьте его «+»']);
+  const slides = quizSlides(p);
+  expect(slides.map((s) => s.label)).toEqual(['Вопрос 1', 'Вопрос 2', 'Вопрос 3', 'Итог теста']);
+  expect(slides[3]).toMatchObject({ title: 'Сортировки: итог', body: { type: 'score' } });
+});
