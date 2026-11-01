@@ -421,6 +421,74 @@ export const BLOCKS: Record<string, Schema> = {
       ],
     }],
   },
+  gantt: {
+    about: 'Сроки — номера периодов; «с 1,5 по 2,5» — с середины до середины.',
+    fields: [
+      { k: 'scale', label: 'Периоды', type: 'strings', item: 'Период' },
+      { k: 'today', label: '«Сегодня» — в периодах', type: 'number', min: 1, step: 0.5, placeholder: 'нет', hint: '3,5 — середина третьего. Не готовые к этому сроку задачи — красным' },
+      {
+        k: 'items', label: 'Задачи', type: 'rows', item: 'Задача',
+        make: () => ({ title: 'Задача', text: 'Исполнитель', from: 1, to: 2 }),
+        fields: [
+          { k: 'title', label: 'Название', type: 'text' },
+          { k: 'text', label: 'Исполнитель', type: 'text' },
+          { k: 'from', label: 'С периода', type: 'number', min: 1, step: 0.5 },
+          { k: 'to', label: 'По период', type: 'number', min: 1, step: 0.5 },
+          { k: 'done', label: 'Готово, %', type: 'number', min: 0, max: 100, step: 5 },
+          { k: 'milestone', label: 'Веха (ромб в периоде «С»)', type: 'bool' },
+          { k: 'section', label: 'Раздел: заголовок этапа', type: 'bool' },
+        ],
+      },
+    ],
+  },
+  risks: {
+    about: 'Уровень — по произведению вероятности и последствий: от зелёного к красному.',
+    fields: [
+      { k: 'size', label: 'Сетка', type: 'select', options: [['', '5 × 5'], ['4', '4 × 4'], ['3', '3 × 3']] },
+      { k: 'yAxis', label: 'Ось слева', type: 'text', placeholder: 'Вероятность' },
+      { k: 'xAxis', label: 'Ось снизу', type: 'text', placeholder: 'Последствия' },
+      {
+        k: 'items', label: 'Риски', type: 'rows', item: 'Риск',
+        make: () => ({ title: 'Риск', text: 'Мера', p: 3, i: 3 }),
+        fields: [
+          { k: 'title', label: 'Риск', type: 'text' },
+          { k: 'text', label: 'Мера', type: 'text' },
+          { k: 'p', label: 'Вероятность', type: 'number', min: 1, max: 5 },
+          { k: 'i', label: 'Последствия', type: 'number', min: 1, max: 5 },
+        ],
+      },
+    ],
+  },
+  fishbone: {
+    about: 'Кости — по очереди сверху и снизу. Причины — по строке.',
+    fields: [
+      { k: 'effect', label: 'Проблема (голова)', type: 'text', placeholder: 'Проблема' },
+      {
+        k: 'items', label: 'Категории', type: 'rows', item: 'Категория',
+        make: () => ({ title: 'Категория', text: 'Причина' }),
+        fields: [
+          { k: 'title', label: 'Категория', type: 'text' },
+          { k: 'text', label: 'Причины', type: 'textarea' },
+        ],
+      },
+    ],
+  },
+  decision: {
+    about: 'Итог — средняя оценка с весами, считается сам. Веса: 30/25/… или 3/2/1.',
+    fields: [
+      { k: 'options', label: 'Варианты', type: 'strings', item: 'Вариант' },
+      { k: 'scale', label: 'Наибольшая оценка', type: 'number', min: 1, max: 100, placeholder: '5' },
+      {
+        k: 'criteria', label: 'Критерии', type: 'rows', item: 'Критерий',
+        make: () => ({ title: 'Критерий', weight: 10, scores: [3, 3, 3] }),
+        fields: [
+          { k: 'title', label: 'Критерий', type: 'text' },
+          { k: 'weight', label: 'Вес', type: 'number', min: 0 },
+          { k: 'scores', label: 'Оценки вариантов по порядку', type: 'numbers', hint: 'Например 3 5 4' },
+        ],
+      },
+    ],
+  },
   pyramid: { about: 'Первый пункт — вершина.', fields: [points('Уровни', 'Уровень')] },
   numbers: { fields: [points('Пункты', 'Пункт')] },
   compare: {

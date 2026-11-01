@@ -32,5 +32,6 @@ import './control/control';
 import './sandbox/sandbox';
 import './schemes/schemes';
 import './schemes/figures';
+import './schemes/project';
 import './motion/motion';
 import './math/math';

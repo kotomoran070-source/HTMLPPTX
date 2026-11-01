@@ -327,7 +327,9 @@ export class TextEditor {
       if (s.isKey && !markup) {
         this.host.toast('Название не может быть пустым', 2500, true);
       } else {
-        const value = s.isKey ? markup : s.suffix ? `${markup.trimEnd()}${s.suffix}` : markup;
+        const text = s.isKey ? markup : s.suffix ? `${markup.trimEnd()}${s.suffix}` : markup;
+        // Было число и ввели число (оценка, вес, срок) — остаётся числом
+        const value = typeof getAt(this.host.deck(), s.path) === 'number' && /^-?\d+(\.\d+)?$/.test(text.trim()) ? Number(text.trim()) : text;
         ok = this.host.commit((d) => {
           if (textChanged) setAt(d, s.path, value);
           if (styleChanged && s.owner) {

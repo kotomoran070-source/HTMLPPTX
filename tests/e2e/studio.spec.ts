@@ -1932,3 +1932,43 @@ test('«Показ»: план доклада и время слайда (у в�
   await expect(cmd('show.progress')).toContainText('Прогресс: номер');
   expect(errors).toEqual([]);
 });
+
+test('проектные схемы из галереи «Схемы»: матрица решений — оценка правится на слайде, итог пересчитывается, число остаётся числом; в PowerPoint — текстом', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'projsch');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'deck.yaml');
+  fs.writeFileSync(file, 'title: Проект\nslides:\n  - template: canvas\n    free: []\n');
+  const block = () => (parse(fs.readFileSync(file, 'utf8')) as { slides: { free: Record<string, any>[] }[] }).slides[0].free[0];
+  try {
+    await page.goto('/?deck=projsch&studio#1');
+    await page.locator('.st-tabs [data-tab="insert"]').click();
+    await page.locator('.st-ribbon [data-cmd="ins.gal.schemes"]').click();
+    for (const name of ['Диаграмма Ганта', 'Матрица рисков', '«Рыбья кость»', 'Матрица решений']) await expect(page.locator('.st-lib-item').filter({ hasText: name })).toHaveCount(1);
+    await page.locator('.st-lib-item').filter({ hasText: 'Матрица решений' }).click();
+    await expect.poll(() => block()?.type).toBe('decision');
+    const slide = page.locator('#st-canvas .slide.on');
+    // Веса 35/30/20/15: 3,7 · 3,95 · 3,85 — половина округляется вверх
+    await expect(slide.locator('.dm-t > b')).toHaveText(['3,7', '4,0', '3,9']);
+    // «Свой сервер» по стоимости: 3 → 5 — итог 4,4, теперь он лучший
+    const score = slide.locator('.dm-s b').first();
+    await score.click();
+    await score.click();
+    await expect(score).toHaveAttribute('contenteditable', 'true');
+    await page.keyboard.press('ControlOrMeta+A');
+    await page.keyboard.type('5');
+    await page.keyboard.press('Escape');
+    await expect(slide.locator('.dm-t > b')).toHaveText(['4,4', '4,0', '3,9']);
+    await expect(slide.locator('.dm-opt.best')).toContainText('Свой сервер');
+    await expect.poll(() => block().criteria[0].scores).toEqual([5, 5, 4]);
+    await page.locator('[data-cmd="file.export"]').first().click();
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 90_000 }), page.locator('[data-x="pptx"]').click()]);
+    const zip = await (await import('jszip')).default.loadAsync(fs.readFileSync(await dl.path()));
+    const xml = await zip.file('ppt/slides/slide1.xml')!.async('string');
+    expect(xml).toContain('Независимость от поставщика');
+    expect(xml).toContain('4,4');
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

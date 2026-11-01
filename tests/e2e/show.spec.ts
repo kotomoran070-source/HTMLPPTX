@@ -230,7 +230,7 @@ test('прожектор: щелчок по блоку — он в светло�
 test('блоки-схемы: все рисуются без ошибок, вопрос раскрывается по щелчку', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=schemes#1');
-  const types = ['cycle', 'funnel', 'pyramid', 'numbers', 'compare', 'matrix', 'icons', 'stats', 'roadmap', 'ladder', 'orbit', 'venn', 'nested', 'gears', 'pillars', 'layers', 'diamonds', 'arc', 'mindmap', 'iceberg', 'faq'];
+  const types = ['cycle', 'funnel', 'pyramid', 'numbers', 'compare', 'matrix', 'icons', 'stats', 'roadmap', 'ladder', 'orbit', 'venn', 'nested', 'gears', 'pillars', 'layers', 'diamonds', 'arc', 'mindmap', 'iceberg', 'faq', 'gantt', 'risks', 'fishbone', 'decision'];
   for (const [k, type] of types.entries()) {
     await expect(page.locator('#ct')).toHaveText(`${k + 1} из ${types.length}`);
     const block = page.locator(`.slide.on [data-type="${type}"]`);
@@ -272,6 +272,42 @@ test('блоки-схемы: все рисуются без ошибок, воп
   await q.click();
   await expect(page.locator('.slide.on .fq-item.open')).toHaveCount(1);
   await expect(page.locator('.spot-frame')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('проектные схемы: Ганта — полосы по срокам и отставшие красным, риски — по клеткам и подсветка под мышью, «рыбья кость», итог матрицы решений', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=schemes#22');
+  const slide = page.locator('.slide.on');
+  // Шесть периодов: «с 1,5 по 3» — с середины января до конца марта; закупка не готова к «сегодня» (середина марта)
+  await expect(slide.locator('.gt-scale span')).toHaveCount(6);
+  const bar = (k: number) => slide.locator('.gt-row').nth(k).locator('.gt-bar');
+  await expect(bar(1)).toHaveAttribute('style', /left:8\.33%;width:41\.67%/);
+  await expect(bar(2)).toHaveClass(/late/);
+  await expect(bar(0)).toHaveClass(/full/);
+  await expect(slide.locator('.gt-ms')).toHaveCount(1);
+  await expect(slide.locator('.gt-sec')).toHaveText('Подготовка');
+  await expect(slide.locator('.gt-today')).toBeVisible();
+  // Риски: 4 × 5 — критический в клетке четвёртой строки снизу, пятом столбце; наведение на пункт списка — подсветка в матрице
+  await page.goto('/?deck=schemes#23');
+  await expect(slide.locator('.rk-cell')).toHaveCount(25);
+  await expect(slide.locator('.rk-cell').nth(9).locator('.rk-dot')).toHaveText('1');
+  await expect(slide.locator('.rk-li').first()).toHaveClass(/lv3/);
+  await expect(slide.locator('.rk-li').last()).toHaveClass(/lv0/);
+  await slide.locator('.rk-li').nth(1).hover();
+  await expect(slide.locator('.rk-dot[data-n="2"]')).toHaveClass(/hl/);
+  await expect(slide.locator('.rk-dot[data-n="1"]')).not.toHaveClass(/hl/);
+  // «Рыбья кость»: кость на категорию, сверху и снизу по очереди; причины — строками
+  await page.goto('/?deck=schemes#24');
+  await expect(slide.locator('.fb-bone')).toHaveCount(3);
+  await expect(slide.locator('.fb-cat.t')).toHaveCount(2);
+  await expect(slide.locator('.fb-causes').first().locator('li')).toHaveCount(2);
+  await expect(slide.locator('.fb-head')).toHaveText('Срыв сроков');
+  // Матрица решений: веса 3 : 1 — итоги 3,5 · 4,5 · 4,0, лучший — облако
+  await page.goto('/?deck=schemes#25');
+  await expect.poll(() => slide.locator('.dm-t > b').allTextContents()).toEqual(['3,5', '4,5', '4,0']);
+  await expect(slide.locator('.dm-opt.best')).toContainText('Облако');
+  await expect(slide.locator('.dm-s.best')).toHaveCount(2);
   expect(errors).toEqual([]);
 });
 

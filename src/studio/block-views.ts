@@ -20,6 +20,9 @@ export const VIEWS: { id: string; name: string; icon: string; group: 'Списк
   { id: 'pipeline', name: 'Шаги', icon: 'next', group: 'Схемы' },
   { id: 'timeline', name: 'Таймлайн', icon: 'dist-h', group: 'Схемы' },
   { id: 'roadmap', name: 'Дорожная карта', icon: 'trend', group: 'Схемы' },
+  { id: 'gantt', name: 'Диаграмма Ганта', icon: 'gantt', group: 'Схемы' },
+  { id: 'risks', name: 'Матрица рисков', icon: 'risk', group: 'Схемы' },
+  { id: 'fishbone', name: '«Рыбья кость»', icon: 'fishbone', group: 'Схемы' },
   { id: 'ladder', name: 'Лестница', icon: 'chart', group: 'Схемы' },
   { id: 'orbit', name: 'Орбиты', icon: 'globe', group: 'Схемы' },
   { id: 'cycle', name: 'Цикл', icon: 'cycle', group: 'Схемы' },
@@ -39,7 +42,7 @@ export const VIEWS: { id: string; name: string; icon: string; group: 'Списк
   { id: 'hub', name: 'Вокруг центра', icon: 'sensor', group: 'Схемы' },
 ];
 /** Виды с пунктами items: [{ title, text, … }] — переводятся друг в друга без потерь */
-export const ITEM_VIEWS = new Set(['timeline', 'roadmap', 'ladder', 'orbit', 'hub', 'cycle', 'funnel', 'pyramid', 'numbers', 'compare', 'matrix', 'venn', 'nested', 'gears', 'pillars', 'layers', 'diamonds', 'arc', 'mindmap', 'iceberg', 'icons', 'stats', 'faq']);
+export const ITEM_VIEWS = new Set(['timeline', 'roadmap', 'gantt', 'risks', 'fishbone', 'ladder', 'orbit', 'hub', 'cycle', 'funnel', 'pyramid', 'numbers', 'compare', 'matrix', 'venn', 'nested', 'gears', 'pillars', 'layers', 'diamonds', 'arc', 'mindmap', 'iceberg', 'icons', 'stats', 'faq']);
 
 type Obj = Record<string, unknown>;
 const str = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
@@ -71,7 +74,7 @@ export function itemsOf(b: Obj): Item[] {
       });
     case 'pipeline':
       return arr(b.steps).map((s) => { const o = s as Obj; return { ...extras(o), title: str(o.title), ...(o.sub ? { text: str(o.sub) } : {}) }; });
-    case 'timeline': case 'roadmap': case 'ladder': case 'orbit': case 'hub': case 'cycle': case 'funnel': case 'pyramid': case 'numbers': case 'compare': case 'matrix': case 'venn': case 'nested':
+    case 'timeline': case 'roadmap': case 'gantt': case 'risks': case 'fishbone': case 'ladder': case 'orbit': case 'hub': case 'cycle': case 'funnel': case 'pyramid': case 'numbers': case 'compare': case 'matrix': case 'venn': case 'nested':
     case 'gears': case 'pillars': case 'layers': case 'diamonds': case 'arc': case 'mindmap': case 'iceberg': case 'icons': case 'stats': case 'faq':
       return arr(b.items).map((s) => { const o = s as Obj; return { ...extras(o), title: str(o.title), ...(o.text ? { text: str(o.text) } : {}), ...(o.sub ? { sub: str(o.sub) } : {}) }; });
     case 'cards':
@@ -107,7 +110,7 @@ export function toView(b: Obj, view: string): Block {
     case 'pipeline':
       out = { type: 'pipeline', steps: items.map((i) => ({ ...rest(i), title: i.title, ...(i.text ? { sub: i.text } : {}) })) };
       break;
-    case 'timeline': case 'roadmap': case 'ladder': case 'orbit': case 'hub': case 'cycle': case 'funnel': case 'pyramid': case 'numbers': case 'compare': case 'matrix': case 'venn': case 'nested':
+    case 'timeline': case 'roadmap': case 'gantt': case 'risks': case 'fishbone': case 'ladder': case 'orbit': case 'hub': case 'cycle': case 'funnel': case 'pyramid': case 'numbers': case 'compare': case 'matrix': case 'venn': case 'nested':
     case 'gears': case 'pillars': case 'layers': case 'diamonds': case 'arc': case 'mindmap': case 'iceberg': case 'icons': case 'stats': case 'faq':
       out = { type: view, items: items.map((i) => ({ ...rest(i), title: i.title, ...(i.text ? { text: i.text } : {}) })) };
       break;

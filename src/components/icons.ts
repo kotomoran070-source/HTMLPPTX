@@ -151,6 +151,10 @@ const PATHS: Record<string, string> = {
   diamonds: '<path d="m6 7 4 5-4 5-4-5zM18 7l4 5-4 5-4-5zM12 7l4 5-4 5-4-5z"/>',
   arc: '<path d="M3.5 18a8.5 8.5 0 0 1 17 0"/><circle cx="5.2" cy="12.6" r="1.4"/><circle cx="12" cy="9.5" r="1.4"/><circle cx="18.8" cy="12.6" r="1.4"/>',
   iceberg: '<path d="M3 10h18"/><path d="m8 10 2.5-5 2 2 1.5-1 2 4M6 10l2 7 4 3 4-3 2-7"/>',
+  gantt: '<rect x="3" y="4.5" width="9" height="3.5" rx="1.2"/><rect x="8" y="10.25" width="12" height="3.5" rx="1.2"/><rect x="5" y="16" width="8" height="3.5" rx="1.2"/>',
+  risk: '<rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/><circle cx="18" cy="6" r="1.2"/>',
+  fishbone: '<path d="M2 12h15M6.5 12 4 6.5M11.5 12 9 6.5M6.5 12 4 17.5M11.5 12 9 17.5"/><rect x="17" y="9" width="4.5" height="6" rx="1.2"/>',
+  decide: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 9h18M10 4v16"/><path d="m13.2 14.2 1.8 1.8 3.4-3.8"/>',
   mindmap: '<rect x="9" y="10" width="6" height="4" rx="2"/><path d="M15 12c2 0 2-5 4-5M15 12c2 0 2 5 4 5M9 12c-2 0-2-5-4-5M9 12c-2 0-2 5-4 5"/>',
   faq: '<path d="M4 5h16v11H9l-5 4z"/><path d="M10 9a2 2 0 1 1 2.8 1.8c-.5.3-.8.7-.8 1.2M12 14h.01"/>',
   // Эффекты анимации в меню ленты

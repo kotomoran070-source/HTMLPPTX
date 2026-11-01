@@ -63,3 +63,15 @@ slides:
   - template: content
     title: Частые вопросы
     body: {type: faq, items: [{title: "Нужен ли интернет?", text: "Нет: презентация — один файл, всё внутри."}, {title: "Можно открыть в PowerPoint?", text: "Да, экспорт в PPTX сохраняет текст и картинки."}, {title: "Как показывать с телефона?", text: "Отсканируйте QR в окне показа — телефон станет пультом."}]}
+  - template: content
+    title: План работ
+    body: {type: gantt, scale: [Янв, Фев, Мар, Апр, Май, Июн], today: 3.5, items: [{title: "Подготовка", section: true}, {title: "Исследование", text: "Аналитики", from: 1, to: 1.5, done: 100}, {title: "Прототип", text: "Команда продукта", from: 1.5, to: 3, done: 70}, {title: "Закупка", text: "Снабжение", from: 1, to: 2.5, done: 60}, {title: "Пилот", from: 5, to: 6}, {title: "Запуск", from: 6, milestone: true}]}
+  - template: content
+    title: Риски проекта
+    body: {type: risks, items: [{title: "Срыв поставок", text: "Второй поставщик в резерве", p: 4, i: 5}, {title: "Нехватка инженеров", text: "Найм с марта", p: 3, i: 4}, {title: "Отказ пилотного клиента", text: "Два запасных", p: 2, i: 2}]}
+  - template: content
+    title: Почему срываются сроки
+    body: {type: fishbone, effect: "Срыв сроков", items: [{title: "Люди", text: "Нехватка инженеров\nНет владельца"}, {title: "Процессы", text: "Долгие согласования"}, {title: "Техника", text: "Старые серверы\nРучные тесты"}]}
+  - template: content
+    title: Где развернуть систему
+    body: {type: decision, options: [Свой сервер, Облако, Гибрид], criteria: [{title: "Стоимость", weight: 3, scores: [3, 5, 4]}, {title: "Безопасность", weight: 1, scores: [5, 3, 4]}]}
