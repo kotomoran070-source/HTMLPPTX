@@ -72,3 +72,20 @@ test('копии с соединителями: занятые имена — н
   // На другой слайд — имена свободны и остаются
   expect(relink([{ type: 'shape', id: 'a' }, { type: 'shape', id: 'b' }, { type: 'connector', from: 'a', to: 'b' }], new Set())).toHaveLength(3);
 });
+
+test('свободные концы: путь от точки до рамки; копия линии со свободным концом сдвигается вместе с копиями', () => {
+  const pt = { x: 600, y: 150, w: 0, h: 0 };
+  expect(connect(pt, A, 'straight').pts).toEqual([[600, 150], [300, 150]]);
+  expect(connect(A, pt).pts).toEqual([[300, 150], [600, 150]]);
+  const copies = relink([
+    { type: 'shape', id: 'a' },
+    { type: 'connector', from: 'a', end: [900, 200] },
+    { type: 'connector', start: [10, 20], end: [110, 20] },
+    { type: 'connector', from: 'z', end: [0, 0] },
+  ], new Set(['a']), [24, 24]);
+  expect(copies).toEqual([
+    { type: 'shape', id: 'a-2' },
+    { type: 'connector', from: 'a-2', end: [924, 224] },
+    { type: 'connector', start: [34, 44], end: [134, 44] },
+  ]);
+});

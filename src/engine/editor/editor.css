@@ -483,4 +483,6 @@ input[type="range"]:not(.slide *):not(.cg *):disabled { opacity: .45; cursor: de
 .edghost-o path { fill: none; stroke: var(--ac); stroke-width: 2; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke; }
 /* Соединитель: рамка без ручек — линия следует за объектами, которые соединяет */
 .edframe.tied i { display: none; }
-.edframe.on.free.tied { outline-style: dashed; }
+/* Выделенная линия — подсветкой самой линии и ручками на концах (studio/connect.ts), без рамки */
+.edframe.on.free.tied { outline: none; }
+body.editing .stage .free.ed-block-sel > .conn-box .conn-line { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--ac) 75%, transparent)); }

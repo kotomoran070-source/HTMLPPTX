@@ -1603,8 +1603,21 @@ body.studio input[type="number"]:not(.edsize input) { padding-right: 19px; }
 /* Срок полосы Ганта во время перетаскивания (gantt-drag) */
 .st-gt-tip { position: fixed; z-index: 60; translate: -50% -100%; padding: 5px 9px; border-radius: 7px; background: var(--tx); color: var(--bg); font: 600 12px/1.2 var(--font); white-space: nowrap; pointer-events: none; box-shadow: 0 6px 16px -8px rgba(15, 23, 42, .5); }
 /* Соединение объектов линией (connect.ts): объект под мышью и первый выбранный — с рамкой, до мыши — пунктир */
-body.st-connecting .stage .slide.on > .free { cursor: crosshair; }
+/* Рисование линии: по всему слайду — перекрестие */
+body.st-connecting .stage .slide.on, body.st-connecting .stage .slide.on * { cursor: crosshair !important; }
 body.st-connecting .stage .slide.on > .free.st-conn-over { outline: 2px dashed var(--ac); outline-offset: 4px; }
+/* Ручки концов выделенной линии: залитая — конец прицеплен к объекту, пустая — свободен */
+.st-lends { position: absolute; inset: 0; z-index: 9997; pointer-events: none; }
+.st-lend { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; box-sizing: border-box; border-radius: 50%; pointer-events: auto; cursor: move;
+  background: #fff; border: 3px solid var(--ac); box-shadow: 0 1px 5px rgba(15, 23, 42, .35); transition: transform .12s; }
+.st-lend::before { content: ""; position: absolute; inset: -8px; border-radius: 50%; }
+.st-lend.tied { background: var(--ac); border-color: #fff; box-shadow: 0 0 0 2px var(--ac), 0 1px 5px rgba(15, 23, 42, .35); }
+.st-lend:hover { transform: scale(1.25); }
+.st-lend.drag { pointer-events: none; transform: scale(1.25); }
+.conn-box.st-lend-drag { opacity: .35; }
+/* «Фигура» у линии-соединителя: только «Линия», «Контур», подпись и порядок */
+.st-rpanel[data-panel="shape"]:not(.st-line-mode) .conn-only, .st-rpanel[data-panel="shape"].st-line-mode .shape-only { display: none; }
+.st-rpanel span.shape-only { display: contents; }
 /* Точки на сторонах объекта: отпустили или щёлкнули на точке — линия держится этой стороны */
 .st-conn-pts { position: absolute; inset: 0; z-index: 9998; pointer-events: none; }
 .st-conn-pt { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; box-sizing: border-box; border-radius: 50%; pointer-events: auto; cursor: crosshair;

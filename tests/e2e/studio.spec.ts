@@ -2158,86 +2158,6 @@ test('диаграмма из текста: двойной щелчок — ок
   }
 });
 
-test('соединитель: два выделенных объекта — «Соединить линией»; линия идёт за объектом, удаляется вместе с ним, в PowerPoint — линией', async ({ page }) => {
-  const errors = watchErrors(page);
-  const dir = path.join(DECKS, 'connector');
-  fs.mkdirSync(dir, { recursive: true });
-  const file = path.join(dir, 'deck.yaml');
-  fs.writeFileSync(file, `title: С
-slides:
-  - template: canvas
-    free:
-      - { type: shape, kind: round, text: Клиент, place: { x: 120, y: 160, w: 240, h: 110 } }
-      - { type: shape, kind: round, text: Сервер, place: { x: 760, y: 360, w: 260, h: 120 } }
-      - { type: shape, kind: ellipse, text: База, place: { x: 820, y: 60, w: 200, h: 140 } }
-`);
-  const free = () => (parse(fs.readFileSync(file, 'utf8')) as { slides: { free?: Record<string, unknown>[] }[] }).slides[0].free ?? [];
-  try {
-    await page.goto('/?deck=connector&studio#1');
-    const obj = (t: string) => page.locator('#st-canvas .slide.on > .free').filter({ hasText: t });
-    await obj('Клиент').click();
-    await obj('Сервер').click({ modifiers: ['Shift'] });
-    await obj('Сервер').click({ button: 'right' });
-    await page.getByRole('menuitem', { name: 'Соединить линией' }).click();
-    // Объекты получили имена, линия — под ними и выделена
-    await expect.poll(() => free().map((b) => [b.type, b.id ?? b.from ?? '']))
-      .toEqual([['connector', 'obj-1'], ['shape', 'obj-1'], ['shape', 'obj-2'], ['shape', '']]);
-    expect(free()[0].to).toBe('obj-2');
-    await expect(page.locator('#st-crumbs')).toContainText('Соединитель');
-    const line = page.locator('#st-canvas .slide.on .conn-line');
-    const d0 = await line.getAttribute('d');
-    // Перетащили «Сервер» — линия перестроилась ещё до отпускания мыши
-    const b = (await obj('Сервер').boundingBox())!;
-    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(b.x + b.width / 2 - 150, b.y + b.height / 2 + 40, { steps: 6 });
-    await expect.poll(() => line.getAttribute('d')).not.toBe(d0);
-    await page.mouse.up();
-    // Щелчок по линии выделяет соединитель; сам он не двигается — тянуть его ничего не меняет
-    await page.keyboard.press('Escape');
-    const mid = await line.evaluate((p: SVGPathElement) => {
-      const q = p.getPointAtLength(p.getTotalLength() / 2).matrixTransform(p.getScreenCTM()!);
-      return { x: q.x, y: q.y };
-    });
-    const wrap = page.locator('#st-canvas .slide.on > .free:has(> .conn-box)');
-    const before = await wrap.getAttribute('style');
-    await page.mouse.move(mid.x, mid.y);
-    await page.mouse.down();
-    await page.mouse.move(mid.x + 80, mid.y + 60, { steps: 5 });
-    await page.mouse.up();
-    await expect(page.locator('#ed-frame.on.tied')).toHaveCount(1);
-    expect(await wrap.getAttribute('style')).toBe(before);
-    expect(free()[0].place).toBeUndefined();
-    // Кривая из галереи: два щелчка по объектам
-    await page.locator('.st-tabs [data-tab="insert"]').click();
-    await page.locator('.st-ribbon [data-cmd="ins.gal.shapes"]').filter({ visible: true }).first().click();
-    await page.locator('.st-lib').getByText('Кривой соединитель').click();
-    await expect(page.locator('body.st-connecting')).toHaveCount(1);
-    await obj('Клиент').click();
-    await obj('База').click();
-    await expect(page.locator('body.st-connecting')).toHaveCount(0);
-    await expect.poll(() => free().filter((x) => x.type === 'connector').map((x) => [x.from, x.to, x.route ?? ''])).toEqual([['obj-1', 'obj-2', ''], ['obj-1', 'obj-4', 'curve']]);
-    await expect(page.locator('#st-canvas .slide.on .conn-line')).toHaveCount(2);
-    // В PowerPoint — линиями со стрелкой на конце
-    await page.keyboard.press('Escape');
-    await page.locator('[data-cmd="file.export"]').click();
-    const [download] = await Promise.all([page.waitForEvent('download', { timeout: 150_000 }), page.locator('[data-x="pptx"]').click()]);
-    const { default: JSZip } = await import('jszip');
-    const zip = await JSZip.loadAsync(fs.readFileSync(await download.path()));
-    const xml = await zip.file('ppt/slides/slide1.xml')!.async('string');
-    expect(xml.match(/<a:custGeom>[\s\S]*?<a:tailEnd type="triangle"/g)).toHaveLength(2);
-    expect(xml).toContain('<a:cubicBezTo>');
-    // Удалили «Клиент» — обе его линии уходят вместе с ним
-    await page.keyboard.press('Escape');
-    await obj('Клиент').click();
-    await page.keyboard.press('Delete');
-    await expect.poll(() => free().map((x) => x.type)).toEqual(['shape', 'shape']);
-    expect(errors).toEqual([]);
-  } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
-  }
-});
-
 test('диаграмма: «Разобрать на фигуры» — узлы фигурами с текстом, стрелки соединителями с подписями; последовательность — стрелками и подписями', async ({ page }) => {
   const errors = watchErrors(page);
   const dir = path.join(DECKS, 'dgmexplode');
@@ -2287,61 +2207,142 @@ slides:
   }
 });
 
-test('соединитель с ленты: «Фигура → Соединить», точки на сторонах, протянуть от точки к точке; вкладка «Соединитель»', async ({ page }) => {
-  const errors = watchErrors(page);
-  const dir = path.join(DECKS, 'connribbon');
-  fs.mkdirSync(dir, { recursive: true });
-  const file = path.join(dir, 'deck.yaml');
-  fs.writeFileSync(file, `title: С
+/** Слайд с тремя фигурами для линий: Клиент, Сервер, База */
+const LINE_DECK = `title: С
 slides:
   - template: canvas
     free:
       - { type: shape, kind: round, text: Клиент, place: { x: 120, y: 160, w: 240, h: 110 } }
       - { type: shape, kind: round, text: Сервер, place: { x: 760, y: 400, w: 260, h: 120 } }
       - { type: shape, kind: ellipse, text: База, place: { x: 820, y: 60, w: 200, h: 140 } }
-`);
-  const conns = () => ((parse(fs.readFileSync(file, 'utf8')) as { slides: { free: Record<string, unknown>[] }[] }).slides[0].free).filter((b) => b.type === 'connector');
+`;
+
+test('стрелка-фигура: рисуется от фигуры к фигуре и цепляется; идёт за фигурой; конец перетаскивается на другую; после удаления фигуры остаётся; в PowerPoint — линией', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'arrows');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'deck.yaml');
+  fs.writeFileSync(file, LINE_DECK);
+  const lines = () => ((parse(fs.readFileSync(file, 'utf8')) as { slides: { free: Record<string, unknown>[] }[] }).slides[0].free).filter((b) => b.type === 'connector');
+  try {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await page.goto('/?deck=arrows&studio#1');
+    const obj = (t: string) => page.locator('#st-canvas .slide.on > .free').filter({ hasText: t });
+    const center = async (t: string) => { const b = (await obj(t).boundingBox())!; return [b.x + b.width / 2, b.y + b.height / 2]; };
+    // «Вставка → Фигуры → Стрелка»: протянуть от «Клиента» к «Серверу»
+    await page.locator('.st-tabs [data-tab="insert"]').click();
+    await page.locator('.st-ribbon [data-cmd="ins.gal.shapes"]').filter({ visible: true }).first().click();
+    await page.locator('.st-lib').getByText('Стрелка', { exact: true }).click();
+    const [ax, ay] = await center('Клиент');
+    const [bx, by] = await center('Сервер');
+    await page.mouse.move(ax, ay);
+    await page.mouse.down();
+    await page.mouse.move(bx, by, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(lines).toEqual([{ type: 'connector', from: 'obj-1', to: 'obj-2', route: 'straight' }]);
+    // Стрелка выделена: на «Фигуре» — её группы, на концах — ручки (прицеплены — залитые)
+    await expect(page.locator('.st-rpanel[data-panel="shape"]')).toHaveClass(/st-line-mode/);
+    await expect(page.locator('.st-lend.tied')).toHaveCount(2);
+    // Фигуру тянут — стрелка следом, ещё до отпускания
+    const line = page.locator('#st-canvas .slide.on .conn-line');
+    const d0 = await line.getAttribute('d');
+    await page.keyboard.press('Escape');
+    await page.mouse.move(bx, by);
+    await page.mouse.down();
+    await page.mouse.move(bx - 120, by + 30, { steps: 5 });
+    await expect.poll(() => line.getAttribute('d')).not.toBe(d0);
+    await page.mouse.up();
+    // Конец — на левую точку «Базы»
+    const mid = await line.evaluate((p: SVGPathElement) => { const q = p.getPointAtLength(p.getTotalLength() / 2).matrixTransform(p.getScreenCTM()!); return [q.x, q.y]; });
+    await page.mouse.click(mid[0], mid[1]);
+    const end = (await page.locator('.st-lend[data-end="1"]').boundingBox())!;
+    await page.mouse.move(end.x + end.width / 2, end.y + end.height / 2);
+    await page.mouse.down();
+    const [cx, cy] = await center('База');
+    await page.mouse.move(cx, cy, { steps: 6 });
+    const lp = (await page.locator('.st-conn-pt[data-side="left"]').boundingBox())!;
+    await page.mouse.move(lp.x + lp.width / 2, lp.y + lp.height / 2, { steps: 3 });
+    await page.mouse.up();
+    await expect.poll(() => lines()[0]).toEqual({ type: 'connector', from: 'obj-1', to: 'obj-4', toSide: 'left', route: 'straight' });
+    // Два выделенных объекта — «Соединить линией» из меню
+    await page.keyboard.press('Escape');
+    await obj('Клиент').click();
+    await obj('Сервер').click({ modifiers: ['Shift'] });
+    await obj('Сервер').click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Соединить линией' }).click();
+    await expect.poll(() => lines().length).toBe(2);
+    // В PowerPoint — линиями со стрелкой на конце
+    await page.keyboard.press('Escape');
+    await page.locator('[data-cmd="file.export"]').click();
+    const [download] = await Promise.all([page.waitForEvent('download', { timeout: 150_000 }), page.locator('[data-x="pptx"]').click()]);
+    const { default: JSZip } = await import('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(await download.path()));
+    const xml = await zip.file('ppt/slides/slide1.xml')!.async('string');
+    expect(xml.match(/<a:custGeom>[\s\S]*?<a:tailEnd type="triangle"/g)).toHaveLength(2);
+    // Удалили «Клиент» — стрелки остаются, их начало становится свободной точкой
+    await page.keyboard.press('Escape');
+    await obj('Клиент').click();
+    await page.keyboard.press('Delete');
+    await expect.poll(() => lines().map((l) => [!!l.from, Array.isArray(l.start), !!l.to])).toEqual([[false, true, true], [false, true, true]]);
+    await expect(page.locator('#st-canvas .slide.on .conn-line')).toHaveCount(2);
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('стрелка с ленты фигуры: «Соединить» и точка на стороне; вид, стрелки, контур и подпись — на «Фигуре»; свободная линия тянется целиком', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'arrowribbon');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'deck.yaml');
+  fs.writeFileSync(file, LINE_DECK);
+  const lines = () => ((parse(fs.readFileSync(file, 'utf8')) as { slides: { free: Record<string, unknown>[] }[] }).slides[0].free).filter((b) => b.type === 'connector');
   const rb = (cmd: string) => page.locator(`.st-ribbon [data-cmd="${cmd}"]`).filter({ visible: true });
   try {
     await page.setViewportSize({ width: 1600, height: 900 });
-    await page.goto('/?deck=connribbon&studio#1');
+    await page.goto('/?deck=arrowribbon&studio#1');
     const obj = (t: string) => page.locator('#st-canvas .slide.on > .free').filter({ hasText: t });
-    // Выделенная фигура — начало линии; щелчок по точке на стороне второй — линия держится этой стороны
+    // Выделенная фигура — начало; щелчок по точке на стороне второй — линия держится этой стороны
     await obj('Клиент').click();
     await rb('obj.connect.elbow').click();
-    await expect(page.locator('body.st-connecting')).toHaveCount(1);
     await obj('Сервер').hover();
     await page.locator('.st-conn-pt[data-side="left"]').last().click();
-    await expect.poll(conns).toEqual([{ type: 'connector', from: 'obj-1', to: 'obj-2', toSide: 'left' }]);
-    // Вкладка «Соединитель»: вид линии, стрелки, сторона начала
-    await expect(page.locator('.st-tabs [data-tab="connector"]')).toHaveAttribute('aria-selected', 'true');
+    await expect.poll(lines).toEqual([{ type: 'connector', from: 'obj-1', to: 'obj-2', toSide: 'left' }]);
+    // Оформление — на «Фигуре»: вид линии, стрелки, контур, подпись
+    await expect(page.locator('.st-tabs [data-tab="shape"]')).toHaveAttribute('aria-selected', 'true');
+    await expect(rb('shape.fill')).toHaveCount(0);
     await rb('conn.route.curve').click();
     await rb('conn.head.both').click();
-    await rb('conn.from').click();
-    await page.getByRole('menuitemradio', { name: 'Снизу' }).click();
-    await expect.poll(() => conns()[0]).toMatchObject({ route: 'curve', head: 'both', fromSide: 'bottom', toSide: 'left' });
     await expect(rb('conn.route.curve')).toHaveClass(/active/);
-    // Протянуть от верхней точки «Клиента» к левой точке «Базы»
+    await rb('shape.stroke').click();
+    await page.locator('.st-palette [data-w="4"]').click();
     await page.keyboard.press('Escape');
-    await obj('Клиент').click();
-    await rb('obj.connect.straight').click();
+    await rb('shape.text').click();
+    await page.keyboard.type('запрос');
     await page.keyboard.press('Escape');
-    await expect(page.locator('body.st-connecting')).toHaveCount(0);
+    await expect.poll(() => lines()[0]).toMatchObject({ route: 'curve', head: 'both', width: 4, text: 'запрос' });
+    // Свободная «Линия» в пустом месте — тянется целиком
+    await page.keyboard.press('Escape');
     await page.locator('.st-tabs [data-tab="insert"]').click();
     await page.locator('.st-ribbon [data-cmd="ins.gal.shapes"]').filter({ visible: true }).first().click();
-    await page.locator('.st-lib').getByText('Соединитель уступом').click();
-    await obj('Клиент').hover();
-    const a = (await page.locator('.st-conn-pt[data-side="top"]').first().boundingBox())!;
-    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+    await page.locator('.st-lib').getByText('Линия', { exact: true }).click();
+    const s = (await page.locator('#st-canvas .slide.on').boundingBox())!;
+    await page.mouse.move(s.x + s.width * 0.1, s.y + s.height * 0.85);
     await page.mouse.down();
-    await page.mouse.move(800, 260, { steps: 5 });
-    await obj('База').hover();
-    const b = (await page.locator('.st-conn-pt[data-side="left"]').last().boundingBox())!;
-    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 3 });
+    await page.mouse.move(s.x + s.width * 0.4, s.y + s.height * 0.85, { steps: 6 });
     await page.mouse.up();
-    await expect.poll(() => conns().length).toBe(2);
-    expect(conns()[1]).toEqual({ type: 'connector', from: 'obj-1', to: 'obj-4', fromSide: 'top', toSide: 'left' });
-    await expect(page.locator('#st-canvas .slide.on .conn-line')).toHaveCount(2);
+    await expect.poll(() => lines().length).toBe(2);
+    const free0 = lines().find((l) => Array.isArray(l.start))!;
+    expect(free0).toMatchObject({ route: 'straight', head: 'none' });
+    expect(free0.from ?? free0.to).toBeUndefined();
+    const ln = page.locator('#st-canvas .slide.on .conn-hit').last();
+    const mid = await ln.evaluate((p: SVGPathElement) => { const q = p.getPointAtLength(p.getTotalLength() / 2).matrixTransform(p.getScreenCTM()!); return [q.x, q.y]; });
+    await page.mouse.move(mid[0], mid[1]);
+    await page.mouse.down();
+    await page.mouse.move(mid[0], mid[1] - 100, { steps: 5 });
+    await page.mouse.up();
+    await expect.poll(() => (lines().find((l) => Array.isArray(l.start))!.start as number[])[1]).toBeLessThan((free0.start as number[])[1] - 100);
     expect(errors).toEqual([]);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

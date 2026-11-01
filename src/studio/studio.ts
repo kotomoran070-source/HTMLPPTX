@@ -59,7 +59,7 @@ import { LayersPane } from './layers';
 import { SlidesPanel } from './slides-panel';
 import { crumbs, type Crumb } from './structure';
 import { canUngroup, groupObjects, ungroup } from './ungroup';
-import { connectTool, pickedPair } from './connect';
+import { connectTool, lineEnds, pickedPair } from './connect';
 import { relink } from '../components/connector/links';
 import './studio.css';
 
@@ -1131,7 +1131,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       s.free = Array.isArray(s.free) ? s.free : [];
       from = s.free.length;
       // Имя объекта на слайде одно: копия рядом с оригиналом его не получает (кроме соединённых скопированной линией)
-      blocks = relink(blocks, new Set(s.free.map((x) => x.id)));
+      blocks = relink(blocks, new Set(s.free.map((x) => x.id)), [times * 24, times * 24]);
       s.free.push(...blocks);
     }, { rebuild: true })) return;
     ed.selectMany(i, blocks.map((_b, k) => from + k));
@@ -1427,9 +1427,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
   }
   function insertPreset(p: Preset): void {
     const i = index;
-    // Соединитель не ставится сам по себе: он связывает два объекта
+    // Линия и стрелка рисуются по слайду: концы цепляются к объектам, на которых начали и закончили
     const made = p.make();
-    if (made.type === 'connector') { linker.start({ route: made.route as never }); return; }
+    if (made.type === 'connector') { linker.start({ route: made.route as never, head: made.head as never }); return; }
     const n = (deck.slides[i].free ?? []).length;
     const shift = (n % 5) * 20;
     const block = { ...p.make(), place: { x: Math.round((W - p.w) / 2) + shift, y: Math.round((H - (p.h ?? 160)) / 2) + shift, w: p.w, ...(p.h ? { h: p.h } : {}) } };
@@ -1685,6 +1685,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   const grips = tableGrips({ deck, editor: ed, stage: () => view.stage });
   const gantt = ganttDrag({ deck, editor: ed, stage: () => view.stage });
   const linker = connectTool({ deck, editor: ed, stage: () => view.stage, index: () => index });
+  const ends = lineEnds({ deck, editor: ed, stage: () => view.stage, index: () => index });
   cmds['obj.connect'] = { run: () => linker.start() };
   // С вкладки объекта: выделенный объект — начало линии, остаётся щёлкнуть второй
   for (const r of ['elbow', 'straight', 'curve'] as const) cmds[`obj.connect.${r}`] = { run: () => linker.start({ route: r }, true), enabled: () => !!ed.selection?.free };
@@ -2113,7 +2114,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       // На «Анимации» лента остаётся: объекты выделяют, чтобы дать им эффект (вкладка объекта лишь появляется)
       if (!keepTab && tab !== 'anim') {
         if (next) setTab(next);
-        else if (tab === 'shape' || tab === 'table' || tab === 'image' || tab === 'video' || tab === 'text' || tab === 'connector') setTab('home');
+        else if (tab === 'shape' || tab === 'table' || tab === 'image' || tab === 'video' || tab === 'text') setTab('home');
       }
       ctxTab = next;
       ctxKey = key;
@@ -2134,6 +2135,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
     // «Галерея» на «Рисунке»: убрать и переставить кадры — у картинки с кадрами (место на ленте — остальным)
     const pic = ed.selection ? getAt(deck, ed.selection.block) as Block | undefined : undefined;
     const frames = Array.isArray(pic?.images) && pic.images.length > 0;
+    // Выделена линия-соединитель: на «Фигуре» — только её группы; ручки на её концах
+    document.querySelector('.st-rpanel[data-panel="shape"]')?.classList.toggle('st-line-mode', pic?.type === 'connector');
+    ends.sync();
     const imageTab = document.querySelector<HTMLElement>('.st-rpanel[data-panel="image"]');
     // Несколько картинок — «Собрать в галерею» вместо «Ещё кадры»
     const many = (ed.selection?.group.length ?? 0) > 1;

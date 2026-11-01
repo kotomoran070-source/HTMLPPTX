@@ -1,7 +1,8 @@
 /**
- * Соединитель: линия между двумя свободными объектами слайда по их именам (id), как в PowerPoint —
- * двигаете или растягиваете объект, линия идёт следом. Прямая, ломаная под прямыми углами или кривая,
- * стрелка на конце, на обоих или без неё, подпись посередине.
+ * Соединитель — линия или стрелка, концы которой цепляются к объектам слайда по их именам (id), как в
+ * PowerPoint: двигаете или растягиваете объект, линия идёт следом. Конец без объекта — свободная точка
+ * (start, end). Прямая, ломаная под прямыми углами или кривая, стрелка на конце, на обоих или без неё,
+ * подпись посередине.
  * Разметка считается по данным (миниатюры, печать), на слайде — уточняется по настоящим рамкам объектов
  * и пересчитывается, когда у них меняется место или размер (в том числе пока их тянут мышью)
  */
@@ -15,9 +16,12 @@ import { connect, pathD, SIDES, type Box, type Geo, type Route, type Side } from
 import './connector.css';
 
 export interface ConnectorProps extends Block {
-  /** Имена (id) соединённых объектов: от какого и к какому */
+  /** Имена (id) объектов, к которым прицеплены концы: начало и конец */
   from?: string;
   to?: string;
+  /** Свободные концы — точки слайда [x, y], если конец ни к чему не прицеплен */
+  start?: [number, number];
+  end?: [number, number];
   /** straight — прямая, elbow — ломаная (по умолчанию), curve — кривая */
   route?: Route;
   /** Стрелка: end — на конце (по умолчанию), both — на обоих, start — в начале, none — без */
@@ -64,10 +68,20 @@ function boxOf(slide: SlideData, id: unknown): Box | null {
 
 const isOval = (b: Block) => b.type === 'shape' && b.kind === 'ellipse';
 
-/** Геометрия по данным слайда; объекта нет — null (соединитель не рисуется) */
+/** Свободный конец: точка [x, y] в пикселях слайда */
+export function pointOf(v: unknown): [number, number] | null {
+  if (!Array.isArray(v) || v.length !== 2) return null;
+  const [x, y] = v.map(Number);
+  return Number.isFinite(x) && Number.isFinite(y) ? [Math.max(-1280, Math.min(2560, x)), Math.max(-720, Math.min(1440, y))] : null;
+}
+const dot = (pt: [number, number] | null): Box | null => (pt ? { x: pt[0], y: pt[1], w: 0, h: 0 } : null);
+/** Конец: прицеплен — рамка объекта (нет объекта — null), свободен — точка */
+const endOf = (slide: SlideData, id: unknown, pt: unknown): Box | null => (typeof id === 'string' && id ? boxOf(slide, id) : dot(pointOf(pt)));
+
+/** Геометрия по данным слайда; объекта или точки нет — null (соединитель не рисуется) */
 export function connectorGeo(p: ConnectorProps, slide: SlideData): Geo | null {
-  const a = boxOf(slide, p.from);
-  const b = boxOf(slide, p.to);
+  const a = endOf(slide, p.from, p.start);
+  const b = endOf(slide, p.to, p.end);
   return a && b ? connect(a, b, routeOf(p.route), 14, sidesOf(p.fromSide, p.toSide)) : null;
 }
 
@@ -93,7 +107,10 @@ defineBlock<ConnectorProps>('connector', {
     const oval = (id: unknown) => all.some((x) => (x as Block)?.id === id && isOval(x as Block));
     const ovals = (oval(p.from) ? 'a' : '') + (oval(p.to) ? 'b' : '');
     const attrs = ` data-from="${esc(String(p.from ?? ''))}" data-to="${esc(String(p.to ?? ''))}" data-route="${routeOf(p.route)}"${ovals ? ` data-oval="${ovals}"` : ''}`
-      + (sideOf(p.fromSide) || sideOf(p.toSide) ? ` data-sides="${sideOf(p.fromSide) ?? ''},${sideOf(p.toSide) ?? ''}"` : '');
+      + (sideOf(p.fromSide) || sideOf(p.toSide) ? ` data-sides="${sideOf(p.fromSide) ?? ''},${sideOf(p.toSide) ?? ''}"` : '')
+      // Свободные концы — точками: на слайде их не по чему уточнять
+      + (!p.from && pointOf(p.start) ? ` data-p1="${pointOf(p.start)!.join(',')}"` : '')
+      + (!p.to && pointOf(p.end) ? ` data-p2="${pointOf(p.end)!.join(',')}"` : '');
     const m = (k: 's' | 'e') => `<marker id="${id}${k}" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="${(10 / w) * 1.6 + 2.2}" markerHeight="${(10 / w) * 1.6 + 2.2}" markerUnits="strokeWidth" orient="auto-start-reverse"><path d="M0 0.8 9.5 5 0 9.2z"/></marker>`;
     const label = p.text ? `<span class="conn-l" style="left:${g ? r1(g.mid[0] - g.box.x) : 0}px;top:${g ? r1(g.mid[1] - g.box.y) : 0}px"${ea(p, 'text')}>${t(p.text)}</span>` : '';
     // Опорные точки — для выгрузки в PowerPoint родной линией (на слайде их уточняет reroute)
@@ -127,10 +144,6 @@ export function reroute(el: HTMLElement, slide: HTMLElement): void {
   const find = (id: string | undefined) => (id
     ? slide.querySelector<HTMLElement>(`:scope > .free[data-obj="${CSS.escape(id)}"]`) ?? slide.querySelector<HTMLElement>(`.grp-item[data-obj="${CSS.escape(id)}"]`)
     : null);
-  const a = find(el.dataset.from);
-  const b = find(el.dataset.to);
-  el.classList.toggle('conn-off', !a || !b);
-  if (!a || !b || !free) return;
   const ov = el.dataset.oval ?? '';
   // Место — по offset*, а не по getBoundingClientRect: анимация появления (transform) не сбивает линию
   const box = (f: HTMLElement, k: string): Box => {
@@ -139,8 +152,17 @@ export function reroute(el: HTMLElement, slide: HTMLElement): void {
     for (let e: HTMLElement | null = f; e && e !== slide; e = e.offsetParent as HTMLElement | null) { x += e.offsetLeft; y += e.offsetTop; }
     return { x, y, w: f.offsetWidth, h: f.offsetHeight, oval: ov.includes(k) };
   };
+  /** Конец: объект по имени или свободная точка из data-p1 / data-p2 */
+  const end = (id: string | undefined, pt: string | undefined, k: string): Box | null => {
+    if (id) { const f = find(id); return f ? box(f, k) : null; }
+    return dot(pointOf(pt?.split(',')));
+  };
+  const a = end(el.dataset.from, el.dataset.p1, 'a');
+  const b = end(el.dataset.to, el.dataset.p2, 'b');
+  el.classList.toggle('conn-off', !a || !b);
+  if (!a || !b || !free) return;
   const [s1, s2] = (el.dataset.sides ?? ',').split(',');
-  const g = connect(box(a, 'a'), box(b, 'b'), routeOf(el.dataset.route), 14, sidesOf(s1, s2));
+  const g = connect(a, b, routeOf(el.dataset.route), 14, sidesOf(s1, s2));
   const d = pathD(g);
   el.querySelectorAll('path.conn-hit, path.conn-line').forEach((p) => p.setAttribute('d', d));
   el.querySelector('svg.conn')?.setAttribute('viewBox', `0 0 ${r1(g.box.w)} ${r1(g.box.h)}`);
@@ -148,4 +170,19 @@ export function reroute(el: HTMLElement, slide: HTMLElement): void {
   if (l) { l.style.left = `${r1(g.mid[0] - g.box.x)}px`; l.style.top = `${r1(g.mid[1] - g.box.y)}px`; }
   el.dataset.geo = geoJson(g);
   Object.assign(free.style, { left: `${r1(g.box.x)}px`, top: `${r1(g.box.y)}px`, width: `${r1(g.box.w)}px`, height: `${r1(g.box.h)}px` });
+  // Студия переставляет ручки концов выделенной линии
+  el.dispatchEvent(new CustomEvent('connreroute', { bubbles: true }));
+}
+
+/** Концы линии на слайде (пиксели слайда): начало и конец пути */
+export function endsOf(el: HTMLElement): [[number, number], [number, number]] | null {
+  const free = el.parentElement;
+  let geo: { pts?: [number, number][] } = {};
+  try { geo = JSON.parse(el.dataset.geo ?? '{}'); } catch { return null; }
+  const pts = geo.pts;
+  if (!free || !Array.isArray(pts) || pts.length < 2) return null;
+  const x = free.offsetLeft;
+  const y = free.offsetTop;
+  const z = pts[pts.length - 1];
+  return [[x + pts[0][0], y + pts[0][1]], [x + z[0], y + z[1]]];
 }

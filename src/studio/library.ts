@@ -382,11 +382,9 @@ export const LIBRARY: Category[] = [
       { name: 'Круг', w: 180, h: 180, glyph: '<circle cx="24" cy="16" r="10.5"/>', make: () => ({ type: 'shape', kind: 'ellipse', fill: 'soft', stroke: 'accent', width: 2 }) },
       { name: 'Овал', w: 300, h: 180, glyph: '<ellipse cx="24" cy="16" rx="19" ry="10.5"/>', make: () => ({ type: 'shape', kind: 'ellipse', fill: 'soft', stroke: 'accent', width: 2 }) },
       ...presets('diamond', 'triangle', 'right-triangle', 'parallelogram', 'trapezoid', 'pentagon', 'hexagon', 'octagon', 'star', 'plus', 'heart', 'lightning', 'donut', 'cloud'),
-      { name: 'Линия', w: 400, h: 16, glyph: '<path class="ln" d="M6 16h36"/>', make: () => ({ type: 'shape', kind: 'line', stroke: 'accent', width: 3 }) },
-      { name: 'Стрелка', w: 260, h: 24, glyph: '<path class="ln" d="M6 16h34M33 10l7 6-7 6"/>', make: () => ({ type: 'shape', kind: 'arrow', stroke: 'accent', width: 3 }) },
-      // Соединители: студия ждёт щелчков по двум объектам (или соединяет два выделенных)
-      { name: 'Соединитель уступом', w: 1, glyph: '<rect x="3" y="5" width="12" height="9" rx="2"/><rect x="33" y="18" width="12" height="9" rx="2"/><path class="ln" d="M15 9.5h9v13h6M27.5 19.5l3 3-3 3"/>', make: () => ({ type: 'connector' }) },
-      { name: 'Кривой соединитель', w: 1, glyph: '<rect x="3" y="5" width="12" height="9" rx="2"/><rect x="33" y="18" width="12" height="9" rx="2"/><path class="ln" d="M15 9.5c11 0 6 13 15 13M27.5 19.5l3 3-3 3"/>', make: () => ({ type: 'connector', route: 'curve' }) },
+      // Линия и стрелка рисуются по слайду: начали или закончили на объекте — конец цепляется к нему
+      { name: 'Линия', w: 1, glyph: '<path class="ln" d="M6 16h36"/>', make: () => ({ type: 'connector', route: 'straight', head: 'none' }) },
+      { name: 'Стрелка', w: 1, glyph: '<path class="ln" d="M6 16h34M33 10l7 6-7 6"/>', make: () => ({ type: 'connector', route: 'straight' }) },
       ...presets('block-arrow', 'double-arrow', 'chevron', 'pointer', 'callout', 'cylinder', 'brace'),
     ],
   },

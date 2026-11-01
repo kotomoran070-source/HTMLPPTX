@@ -1,4 +1,5 @@
 import { icon } from '../../components/icons';
+import { endsOf } from '../../components/connector/connector';
 import { relink } from '../../components/connector/links';
 import { PRESET_KINDS, presetAdjust, presetHandles, refitPreset, type ShapeProps } from '../../components/shape/shape';
 import { adjOf } from '../../components/shape/kinds';
@@ -399,9 +400,22 @@ export class BlockEditor {
     });
   }
 
+  /** Концы линий на открытом слайде (по номеру объекта): удалённый объект оставляет их на месте */
+  private lineEnds(): Map<number, Ends> {
+    const out = new Map<number, Ends>();
+    this.host.stage().querySelectorAll<HTMLElement>('.slide.on > .free > .conn-box').forEach((el) => {
+      const p = readPath(el.parentElement!, 'data-free');
+      const e = endsOf(el);
+      if (p && e) out.set(Number(p[3]), e);
+    });
+    return out;
+  }
+
   remove(): void {
     const s = this.sel;
     if (!s || this.guardLocked()) return;
+    const lines = this.lineEnds();
+    const byItem = (list: unknown[]) => new Map([...lines].map(([k, e]) => [list[k], e] as const));
     if (this.isMulti) {
       const paths = this.members.map((m) => m.free!).sort((a, b) => Number(b[3]) - Number(a[3]));
       const i = Number(paths[0][1]);
@@ -409,8 +423,9 @@ export class BlockEditor {
       if (this.host.commit((d) => {
         const list = d.slides[i].free!;
         const gone = paths.map((p) => list[Number(p[3])]);
+        const ends = byItem(list);
         paths.forEach((p) => list.splice(Number(p[3]), 1));
-        dropTies(list, gone);
+        detachTies(list, gone, ends);
         if (!list.length) delete d.slides[i].free;
       }, { rebuild: true })) this.host.toast(`Удалено объектов: ${paths.length}. Вернуть — Ctrl+Z`, 2500);
       return;
@@ -421,11 +436,12 @@ export class BlockEditor {
     if (this.host.commit((d) => {
       const parent = getAt(d, target.slice(0, -1));
       const gone = getAt(d, target);
+      const sl = d.slides[Number(target[1])];
+      const ends = byItem(Array.isArray(sl?.free) ? sl.free : []);
       if (Array.isArray(parent) && typeof last === 'number') parent.splice(last, 1);
       else setAt(d, target, undefined);
       dropEmptyGroup(d, target);
-      const sl = d.slides[Number(target[1])];
-      if (Array.isArray(sl?.free)) dropTies(sl.free, [gone]);
+      if (Array.isArray(sl?.free)) detachTies(sl.free, [gone], ends);
       if (Array.isArray(sl?.free) && !sl.free.length) delete sl.free;
     }, { rebuild: true })) this.host.toast('Удалено. Вернуть — Ctrl+Z', 2500);
   }
@@ -496,15 +512,26 @@ export class BlockEditor {
       if (this.host.commit((d) => {
         const list = d.slides[i].free!;
         // Соединители копий — к копиям объектов
-        copies = relink(copies, new Set(list.map((x) => (x as { id?: unknown })?.id)));
+        copies = relink(copies, new Set(list.map((x) => (x as { id?: unknown })?.id)), [24, 24]);
         from = list.length;
         list.push(...(copies as never[]));
       }, { rebuild: true })) this.selectMany(i, copies.map((_c, k) => from + k));
       return;
     }
     const i = Number(s.free[1]);
-    // Соединитель без своих объектов не копируется: лёг бы поверх себя
-    if (this.isTied) return;
+    // Копия линии — свободная, рядом: прицепленная легла бы поверх оригинала
+    if (this.isTied) {
+      const box = s.el.querySelector<HTMLElement>(':scope > .conn-box');
+      const e = box ? endsOf(box) : null;
+      if (!e) return;
+      const line = clone(getAt(this.host.deck(), s.free)) as Record<string, unknown>;
+      for (const k of ['from', 'to', 'fromSide', 'toSide', 'locked', 'id']) delete line[k];
+      line.start = [e[0][0] + 24, e[0][1] + 24].map((v) => Math.round(v * 10) / 10);
+      line.end = [e[1][0] + 24, e[1][1] + 24].map((v) => Math.round(v * 10) / 10);
+      let at = 0;
+      if (this.host.commit((d) => { const l = d.slides[i].free!; at = l.length; l.push(line as never); }, { rebuild: true })) this.selectFree(i, at);
+      return;
+    }
     const copy = clone(getAt(this.host.deck(), s.free)) as { place?: Place; locked?: boolean; id?: unknown };
     delete copy.locked;
     delete copy.id;
@@ -569,7 +596,19 @@ export class BlockEditor {
   /** Стрелки: сдвиг на 1 px, с Shift — на 10 px. */
   nudge(dx: number, dy: number): void {
     const s = this.sel;
-    if (!s?.free || this.isTied || this.guardLocked()) return;
+    if (!s?.free || this.guardLocked()) return;
+    // Линия: сдвигаются её свободные концы, прицепленные остаются на объектах
+    if (this.isTied) {
+      const path = s.free;
+      const c = getAt(this.host.deck(), path) as Record<string, unknown>;
+      const keys = (['start', 'end'] as const).filter((k, n) => !c[n ? 'to' : 'from'] && Array.isArray(c[k]));
+      if (!keys.length) { this.host.toast('Линия прицеплена к объектам: тяните её концы', 2200); return; }
+      this.host.commit((d) => keys.forEach((k) => {
+        const pt = getAt(d, [...path, k]) as number[];
+        setAt(d, [...path, k], [Number(pt[0]) + dx, Number(pt[1]) + dy]);
+      }), { rebuild: true, merge: `nudge:${path.join('.')}` });
+      return;
+    }
     if (this.isMulti) {
       const paths = this.members.map((m) => m.free!).filter((p) => !isConnector(getAt(this.host.deck(), p)));
       this.host.commit((d) => paths.forEach((p) => {
@@ -689,7 +728,7 @@ export class BlockEditor {
       if (moved || Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < 4) return;
       moved = true;
       this.dragging = true;
-      this.host.toast('Соединитель следует за объектами: двигайте их', 2200);
+      this.host.toast('Линия прицеплена к объектам: тяните её концы', 2200);
     };
     const up = () => {
       removeEventListener('pointermove', move);
@@ -829,6 +868,11 @@ export class BlockEditor {
       return { m, pl, h: pl.h ?? this.measure(m.el).h! };
     });
     if (!items.length) return false;
+    // Выделенные линии: свободные концы едут вместе с объектами, прицепленные следуют за своими объектами
+    const lines = this.members.filter((m) => isConnector(getAt(deck, m.free!))).map((m) => {
+      const c = getAt(deck, m.free!) as Record<string, unknown>;
+      return { m, keys: (['start', 'end'] as const).filter((key, n) => !c[n ? 'to' : 'from'] && Array.isArray(c[key])) };
+    }).filter((l) => l.keys.length);
     const bx = Math.min(...items.map((it) => it.pl.x));
     const by = Math.min(...items.map((it) => it.pl.y));
     const bw = Math.max(...items.map((it) => it.pl.x + it.pl.w)) - bx;
@@ -852,6 +896,7 @@ export class BlockEditor {
         it.m.el.style.left = `${it.pl.x + ddx}px`;
         it.m.el.style.top = `${it.pl.y + ddy}px`;
       });
+      lines.forEach((l) => { l.m.el.style.translate = `${ddx}px ${ddy}px`; });
       this.position();
     };
     const up = () => {
@@ -859,6 +904,7 @@ export class BlockEditor {
       removeEventListener('pointerup', up);
       this.guides.innerHTML = '';
       const copying = copy.end();
+      lines.forEach((l) => { l.m.el.style.translate = ''; });
       if (!moved) return;
       setTimeout(() => { this.dragging = false; }, 0);
       if (copying) {
@@ -877,10 +923,16 @@ export class BlockEditor {
         }
         return;
       }
-      this.host.commit((d) => items.forEach((it) => {
-        const { h, ...rest } = { ...it.pl, x: it.pl.x + ddx, y: it.pl.y + ddy };
-        setAt(d, [...it.m.free!, 'place'], h ? { ...rest, h } : rest);
-      }), { rebuild: true });
+      this.host.commit((d) => {
+        items.forEach((it) => {
+          const { h, ...rest } = { ...it.pl, x: it.pl.x + ddx, y: it.pl.y + ddy };
+          setAt(d, [...it.m.free!, 'place'], h ? { ...rest, h } : rest);
+        });
+        lines.forEach((l) => l.keys.forEach((key) => {
+          const pt = getAt(d, [...l.m.free!, key]) as number[];
+          setAt(d, [...l.m.free!, key], [Number(pt[0]) + ddx, Number(pt[1]) + ddy]);
+        }));
+      }, { rebuild: true });
     };
     addEventListener('pointermove', move);
     addEventListener('pointerup', up);
@@ -1217,11 +1269,14 @@ function fitGroup(d: Deck, groupPath: Path, heights: number[]): void {
   g.place = { x: Math.round(gp.x + nx0 * sx), y: Math.round(gp.y + ny0 * sy), w: Math.round(nw * sx), h: Math.round(nh * sy) };
 }
 
-/** Из группы убрали последний объект — пустая группа уходит со слайда. */
 const isConnector = (v: unknown): boolean => (v as { type?: unknown } | undefined)?.type === 'connector';
+type Ends = [[number, number], [number, number]];
 
-/** Соединители, которые держались за удалённые объекты, уходят вместе с ними (иначе на слайде остаётся невидимая линия) */
-function dropTies(list: unknown[], gone: unknown[]): void {
+/**
+ * Линии, прицепленные к удалённым объектам, остаются (как в PowerPoint): их конец становится свободной
+ * точкой там, где был. Где конец неизвестен (линия не нарисована), линия уходит вместе с объектом
+ */
+function detachTies(list: unknown[], gone: unknown[], ends: Map<unknown, Ends>): void {
   // Имена удалённых объектов, в том числе внутри удалённых групп
   const ids = new Set<string>();
   const add = (g: unknown): void => {
@@ -1232,11 +1287,21 @@ function dropTies(list: unknown[], gone: unknown[]): void {
   gone.forEach(add);
   if (!ids.size) return;
   for (let k = list.length - 1; k >= 0; k--) {
-    const c = list[k] as { type?: unknown; from?: unknown; to?: unknown } | undefined;
-    if (isConnector(c) && (ids.has(String(c!.from)) || ids.has(String(c!.to)))) list.splice(k, 1);
+    const c = list[k] as Record<string, unknown> | undefined;
+    if (!isConnector(c)) continue;
+    const e = ends.get(c);
+    ([['from', 'fromSide', 'start'], ['to', 'toSide', 'end']] as const).forEach(([id, side, pt], n) => {
+      if (!c || !ids.has(String(c[id]))) return;
+      if (!e) { c.gone = true; return; }
+      delete c[id];
+      delete c[side];
+      c[pt] = e[n].map((v) => Math.round(v * 10) / 10);
+    });
+    if (c?.gone) list.splice(k, 1);
   }
 }
 
+/** Из группы убрали последний объект — пустая группа уходит со слайда. */
 function dropEmptyGroup(d: Deck, removed: Path): void {
   if (removed[removed.length - 2] !== 'items' || removed[2] !== 'free' || removed.length !== 6) return;
   const g = getAt(d, removed.slice(0, -2)) as { type?: string; items?: unknown[] } | undefined;
