@@ -2,6 +2,7 @@ import { defineBlock } from '../../engine/component';
 import { asArray, esc, num, styleAttr, t } from '../../engine/html';
 import { ea } from '../../engine/marks';
 import type { Block } from '../../types';
+import { polyline, trendOf, trendPath } from './trend';
 import './charts.css';
 
 interface LineChartProps extends Block {
@@ -15,7 +16,14 @@ interface LineChartProps extends Block {
   /** Границы оси Y (по умолчанию — по данным с запасом) */
   min?: number;
   max?: number;
+  /** false — ломаная через точки (для точных данных), по умолчанию плавная */
+  smooth?: boolean;
+  /** Тренд пунктиром: linear — прямая по наименьшим квадратам, 2–12 — скользящее среднее по стольким точкам */
+  trend?: 'linear' | number | string;
+  /** Прогноз по линейному тренду на столько шагов вперёд: зона прогноза затенена */
+  forecast?: number;
 }
+
 
 /** Плавная кривая через точки (Catmull-Rom → кубические Безье), без выбросов за данные. */
 function curve(pts: [number, number][]): string {
@@ -48,8 +56,10 @@ defineBlock<LineChartProps>('line-chart', {
   render(p, ctx) {
     const D = asArray(p.values).map(Number).filter((v) => Number.isFinite(v));
     if (D.length < 2) return `<div class="block-error">line-chart: нужно минимум два значения в values</div>`;
-    const lo = Math.min(...D);
-    const hi = Math.max(...D);
+    const tr = trendOf(D, p.trend, p.forecast);
+    const known = [...D, ...tr.line.filter((v): v is number => v !== null)];
+    const lo = Math.min(...known);
+    const hi = Math.max(...known);
     const pad = (hi - lo) * 0.14 || Math.abs(hi) * 0.1 || 1;
     const mn = p.min ?? lo - pad;
     const mx = p.max ?? hi + pad;
@@ -59,8 +69,12 @@ defineBlock<LineChartProps>('line-chart', {
     const x1 = 520;
     const top = 26;
     const bottom = 164;
-    const pts = D.map((v, k): [number, number] => [x0 + k * ((x1 - x0) / (D.length - 1)), bottom - ((v - mn) / (mx - mn)) * (bottom - top)]);
-    const line = curve(pts);
+    const total = D.length + tr.ahead;
+    const X = (k: number) => x0 + k * ((x1 - x0) / (total - 1));
+    const Y = (v: number) => bottom - ((v - mn) / (mx - mn)) * (bottom - top);
+    const pts = D.map((v, k): [number, number] => [X(k), Y(v)]);
+    const straight = p.smooth === false;
+    const line = straight ? polyline(pts) : curve(pts);
     const id = ctx.uid('lc');
     let grid = '';
     for (let k = 0; k < 4; k++) {
@@ -73,6 +87,19 @@ defineBlock<LineChartProps>('line-chart', {
     if (p.start) grid += `<text class="tx" x="${x0}" y="186"${ea(p, 'start')}>${esc(p.start)}</text>`;
     if (p.end) grid += `<text class="tx" x="${x1}" y="186" text-anchor="end"${ea(p, 'end')}>${esc(p.end)}</text>`;
     const [lx, ly] = pts[pts.length - 1];
+    // Прогноз: зона после последней точки затенена, в конце — ожидаемое значение
+    let extra = '';
+    if (tr.ahead) {
+      const fx = X(total - 1);
+      const fv = tr.line[total - 1]!;
+      extra += `<rect class="fz" x="${lx.toFixed(1)}" y="${top - 6}" width="${(fx - lx).toFixed(1)}" height="${bottom - top + 6}"/>`
+        + `<text class="tx fzt" x="${((lx + fx) / 2).toFixed(1)}" y="${bottom - 6}" text-anchor="middle">прогноз</text>`
+        + `<circle class="fp" cx="${fx.toFixed(1)}" cy="${Y(fv).toFixed(1)}" r="4"/>`
+        + `<text class="fpt" x="${fx.toFixed(1)}" y="${(Y(fv) - 10).toFixed(1)}" text-anchor="end">≈ ${fmt(fv, scale)}</text>`;
+    }
+    if (tr.line.length) extra += `<path class="tr" d="${trendPath(tr.line, X, Y)}"/>`;
+    // Ломаная — с точками: видно, где измерения
+    const dots = straight ? pts.slice(0, -1).map(([x, y], k) => `<circle class="pp" style="--k:${k}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3"/>`).join('') : '';
     const last = D[D.length - 1];
     const tag = `${fmt(last, scale)}${unit ? ` ${esc(unit)}` : ''}`;
     const tw = 12 + tag.length * 6.4;
@@ -81,8 +108,9 @@ defineBlock<LineChartProps>('line-chart', {
     return `<svg class="line-chart" viewBox="0 0 560 192"${styleAttr(p.style)} role="img" aria-label="График: последнее значение ${tag}">`
       + `<defs><linearGradient id="${id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--ac)" stop-opacity=".26"/><stop offset="1" stop-color="var(--ac)" stop-opacity="0"/></linearGradient></defs>`
       + grid
-      + `<path class="fd" d="${line}L${x1} ${bottom}L${x0} ${bottom}Z" fill="url(#${id})"/>`
-      + `<path class="dr" pathLength="1" d="${line}"/>`
+      + extra
+      + `<path class="fd" d="${line}L${lx.toFixed(1)} ${bottom}L${x0} ${bottom}Z" fill="url(#${id})"/>`
+      + `<path class="dr" pathLength="1" d="${line}"/>${dots}`
       + `<g class="lp"><circle class="halo" cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="9"/><circle class="pt" cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4.5"/>`
       + `<rect class="tag" x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" width="${tw.toFixed(1)}" height="20" rx="6"/><text class="tagt" x="${(tx + tw / 2).toFixed(1)}" y="${(ty + 14).toFixed(1)}" text-anchor="middle">${tag}</text></g>`
       + `</svg>`;

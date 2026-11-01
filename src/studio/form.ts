@@ -64,6 +64,8 @@ function fieldHtml(f: Field, data: unknown, p: Path): string {
         + `<button type="button" class="st-pbtn" data-act="pick-media" data-kind="${f.kind}" data-p="${P(p)}" title="Выбрать файл">${icon(f.kind === 'video' ? 'play' : 'layers')}<span>Файл…</span></button>`
         + (v ? `<button type="button" class="st-f-x" data-act="clear" data-p="${P(p)}" title="Убрать" aria-label="Убрать файл">${icon('close')}</button>` : '')
         + `</span>`, f.hint, true);
+    case 'points':
+      return row(f.label, `<textarea rows="5" data-t="points" data-p="${P(p)}" spellcheck="false"></textarea>`, f.hint ?? 'Точка — строка: x и y через пробел, третье число — размер', true);
     case 'numbers':
       return row(f.label, f.short ? `<input type="text" data-t="numbers" data-p="${P(p)}" spellcheck="false">` : `<textarea rows="2" data-t="numbers" data-p="${P(p)}" spellcheck="false"></textarea>`,
         f.hint ?? 'Через пробел, дробные — с точкой; формулы — через «;»', !f.short);
@@ -163,6 +165,8 @@ export function fillForm(root: HTMLElement, data: unknown, resolveUrl: (src: str
     if (as !== undefined && as !== '' && typeof getAt(data, p.slice(0, -1)) === 'string') v = p[p.length - 1] === as ? getAt(data, p.slice(0, -1)) : undefined;
     if (t === 'bool') {
       el.checked = v === undefined ? el.dataset.def === '1' : !!v;
+    } else if (t === 'points') {
+      el.value = Array.isArray(v) ? v.map((q) => (Array.isArray(q) ? q.join(' ') : q && typeof q === 'object' ? [(q as { x?: unknown }).x, (q as { y?: unknown }).y].join(' ') : '')).join('\n') : '';
     } else if (t === 'numbers') {
       // С формулами («=price*2») — через «;»: внутри формулы бывают запятые и пробелы
       el.value = Array.isArray(v) ? v.join(v.some((x) => typeof x === 'string') ? '; ' : ', ') : '';
@@ -269,6 +273,12 @@ export function onFieldChange(el: HTMLInputElement, e: FormEdit): boolean {
       const k = p[p.length - 1];
       if (Array.isArray(list)) list.forEach((it, j) => { if (j !== p[p.length - 2] && it && typeof it === 'object') delete (it as Record<string, unknown>)[k]; });
     });
+  } else if (t === 'points') {
+    // Строка — точка: «12 340» или «12; 340; 5»; дробные — с точкой или запятой (в паре через пробел или «;»)
+    const pts = raw.split('\n').map((l) => l.trim()).filter(Boolean)
+      .map((l) => l.split(/[\s;]+/).filter(Boolean).map((x) => Number(x.replace(',', '.'))));
+    if (pts.some((q) => q.length < 2 || q.length > 3 || q.some((x) => !Number.isFinite(x)))) return false;
+    e.commit((d) => write(d, p, pts.length ? pts : undefined, as));
   } else if (t === 'numbers') {
     const parts = raw.includes('=') ? raw.split(/[;\n]+/) : raw.split(/[\s;,]+/);
     const nums = parts.map((x) => x.trim()).filter(Boolean).map((x) => (x.startsWith('=') ? x : Number(x.replace(',', '.'))));

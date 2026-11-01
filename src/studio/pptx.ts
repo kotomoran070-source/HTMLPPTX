@@ -65,7 +65,22 @@ const INLINE = new Set(['inline', 'contents']);
 
 interface Rgba { hex: string; a: number }
 
+/** Холст на один пиксель: переводит в RGB цвета, которые браузер отдаёт как oklab(), oklch(), lab() */
+let probe: CanvasRenderingContext2D | null = null;
+function viaCanvas(c: string): string | null {
+  probe ??= Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true });
+  if (!probe) return null;
+  probe.clearRect(0, 0, 1, 1);
+  probe.fillStyle = '#00000000';
+  probe.fillStyle = c;
+  probe.fillRect(0, 0, 1, 1);
+  const [r, g, b, a] = probe.getImageData(0, 0, 1, 1).data;
+  return `rgba(${r},${g},${b},${a / 255})`;
+}
+
 function rgba(c: string): Rgba | null {
+  // Цвета смеси рядов (color-mix в oklab) браузер отдаёт как oklab(…): через холст
+  if (/^\s*(oklab|oklch|lab|lch)\(/.test(c)) { const v = viaCanvas(c); return v ? rgba(v) : null; }
   // color-mix() браузер отдаёт как color(srgb r g b / a) с долями от 0 до 1
   const s = /color\(srgb\s+([^)]+)\)/.exec(c);
   if (s) {
@@ -218,7 +233,7 @@ async function imageData(src: string): Promise<string | null> {
 }
 
 /** Свойства SVG, которые задаются стилями: копируются в атрибут style, чтобы картинка не зависела от страницы */
-const SVG_PROPS = ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray', 'stroke-dashoffset', 'stroke-linecap', 'stroke-linejoin',
+const SVG_PROPS = ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray', 'stroke-dashoffset', 'stroke-linecap', 'stroke-linejoin', 'paint-order',
   'opacity', 'font-size', 'font-family', 'font-weight', 'font-style', 'text-anchor', 'dominant-baseline', 'letter-spacing', 'stop-color', 'stop-opacity', 'visibility', 'display'];
 
 async function svgToPng(svg: SVGSVGElement, w: number, h: number): Promise<string | null> {
@@ -506,7 +521,8 @@ class Converter {
     if (type === 'html' && has3d(el)) return this.raster(el, b);
     if (type === 'bars' || type === 'line-chart') {
       if (this.chart(el, type, b)) return;
-      return this.raster(el, b);
+      // График с трендом и прогнозом — картинкой своего SVG (стили линий переносятся)
+      return tag === 'svg' ? this.svg(el as unknown as SVGSVGElement, b) : this.raster(el, b);
     }
     if (type === 'shape' && el.querySelector(':scope > .shape-bar, :scope .shape-bar')) return this.line(el, cs, k);
     if (type === 'shape' && el.dataset.prst) return this.presetShape(el, cs, b, op, k);
@@ -1248,6 +1264,8 @@ class Converter {
     if (p && sl) p = resolve(p, new Renderer(this.deck).slideVars(sl, si));
     const values = Array.isArray(p?.values) ? (p.values as unknown[]).map(Number).filter(Number.isFinite) : [];
     if (!p || values.length < 2) return false;
+    // Тренд и прогноз родная диаграмма PowerPoint из pptxgenjs не рисует — картинкой, как на слайде
+    if (type === 'line-chart' && (p.trend || p.forecast)) return false;
     const accent = rgba(getComputedColor(this.section, 'var(--ac)'))?.hex ?? '2563EB';
     const muted = rgba(getComputedColor(this.section, 'var(--mu)'))?.hex ?? '64748B';
     const labels = Array.isArray(p.labels) ? (p.labels as unknown[]).map(String) : values.map((_v, k) => String(k + 1));
@@ -1269,7 +1287,7 @@ class Converter {
     } else {
       const lab = values.map((_v, k) => (k === 0 ? String(p.start ?? '') : k === values.length - 1 ? String(p.end ?? '') : ''));
       this.slide.addChart(this.pptx.ChartType.line, [{ name: 'Значения', labels: lab, values }], {
-        ...common, lineSmooth: true, lineSize: 2, lineDataSymbol: 'none', chartColors: [accent],
+        ...common, lineSmooth: p.smooth !== false, lineSize: 2, lineDataSymbol: p.smooth === false ? 'circle' : 'none', lineDataSymbolSize: 5, chartColors: [accent],
       });
     }
     return true;

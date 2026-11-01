@@ -11,6 +11,16 @@
 .slide.on .line-chart .fd { animation: fd 1s 1.1s both; }
 .slide.on .line-chart .lp { transform-box: fill-box; animation: lp .5s 1.9s cubic-bezier(.34, 1.56, .64, 1) both; }
 @keyframes lp { from { opacity: 0; transform: scale(.6); } }
+/* Ломаная: точки измерений; тренд — пунктиром; прогноз — затенённая зона и ожидаемое значение */
+.line-chart .pp { fill: var(--surf); stroke: var(--ac); stroke-width: 2; }
+.line-chart .tr, .dg .ln-tr { fill: none; stroke: var(--tx2, var(--mu)); stroke-width: 1.8; stroke-dasharray: 6 5; stroke-linecap: round; opacity: .8; }
+.line-chart .fz, .dg .fz { fill: color-mix(in srgb, var(--alt) 70%, transparent); }
+.line-chart .fzt, .dg .fzt { font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; }
+.line-chart .fp { fill: var(--surf); stroke: var(--tx2, var(--mu)); stroke-width: 2; stroke-dasharray: 2 2; }
+.line-chart .fpt { fill: var(--tx2, var(--mu)); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.slide.on .line-chart .pp { transform-box: fill-box; transform-origin: center; animation: lp .4s cubic-bezier(.34, 1.56, .64, 1) both; animation-delay: calc(.4s + var(--k) * .12s); }
+.slide.on :is(.line-chart, .dg) .tr, .slide.on .dg .ln-tr { animation: fd .8s 1.6s both; }
+.slide.on :is(.line-chart, .dg) :is(.fz, .fzt, .fp, .fpt) { animation: fd .8s 1.9s both; }
 @keyframes dr { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 @keyframes fd { from { opacity: 0; } }
 

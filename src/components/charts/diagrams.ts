@@ -9,6 +9,7 @@ import { defineBlock } from '../../engine/component';
 import { asArray, esc, styleAttr, t } from '../../engine/html';
 import { ea } from '../../engine/marks';
 import type { Block } from '../../types';
+import { polyline, trendOf, trendPath } from './trend';
 import './diagrams.css';
 
 /** Цвет k-го ряда из n: от акцента ко второму цвету темы, каждый следующий светлее */
@@ -43,7 +44,7 @@ function seriesOf(p: { series?: unknown }): { name: string; values: number[] }[]
 }
 
 /** Легенда рядов над диаграммой (для двух рядов и больше) */
-function legend(p: Block, series: { name: string }[]): string {
+export function legend(p: Block, series: { name: string }[]): string {
   if (series.length < 2) return '';
   return `<div class="dg-leg">${series.map((s, k) =>
     `<span><i style="background:${seriesColor(k, series.length)}"></i><span${ea((p.series as unknown[])[k], 'name')}>${esc(s.name)}</span></span>`).join('')}</div>`;
@@ -271,6 +272,12 @@ interface LinesProps extends Block {
   unit?: string;
   min?: number;
   max?: number;
+  /** false — ломаные через точки, по умолчанию плавные */
+  smooth?: boolean;
+  /** Тренд каждого ряда пунктиром его цвета: linear или скользящее среднее по 2–12 точкам */
+  trend?: 'linear' | number | string;
+  /** Прогноз по линейному тренду на столько шагов вперёд */
+  forecast?: number;
 }
 
 /** Плавная кривая без горбов за пределами данных (как у line-chart) */
@@ -296,8 +303,11 @@ defineBlock<LinesProps>('lines', {
     const series = seriesOf(p).filter((s) => s.values.length >= 2);
     if (!series.length) return `<div class="block-error">lines: нужен ряд хотя бы из двух значений</div>`;
     const labels = strs(p.labels);
-    const m = Math.max(...series.map((s) => s.values.length));
-    const all = series.flatMap((s) => s.values);
+    const trends = series.map((s) => trendOf(s.values, p.trend, p.forecast));
+    const ahead = Math.max(0, ...trends.map((t) => t.ahead));
+    const n0 = Math.max(...series.map((s) => s.values.length));
+    const m = n0 + ahead;
+    const all = [...series.flatMap((s) => s.values), ...trends.flatMap((t) => t.line.filter((v): v is number => v !== null))];
     const max = p.max ?? niceMax(Math.max(...all));
     const min = p.min ?? 0;
     const top = 24;
@@ -308,6 +318,11 @@ defineBlock<LinesProps>('lines', {
     const Y = (v: number) => bottom - ((v - min) / (max - min || 1)) * (bottom - top);
     const id = ctx.uid('ln');
     const n = series.length;
+    const straight = p.smooth === false;
+    // Прогноз — затенённая зона после последней точки
+    let g0 = ahead ? `<rect class="fz" x="${X(n0 - 1).toFixed(1)}" y="${top - 6}" width="${(X(m - 1) - X(n0 - 1)).toFixed(1)}" height="${bottom - top + 6}"/>`
+      + `<text class="tx fzt" x="${((X(n0 - 1) + X(m - 1)) / 2).toFixed(1)}" y="${bottom - 6}" text-anchor="middle">прогноз</text>` : '';
+    trends.forEach((t, k) => { if (t.line.length) g0 += `<path class="ln-tr" d="${trendPath(t.line, X, Y)}" style="stroke:${seriesColor(k, n)}"/>`; });
     // Подписи концов линий не наезжают друг на друга
     const ends = series.map((s, k) => ({ k, y: Y(s.values[s.values.length - 1]) })).sort((a, b) => a.y - b.y);
     for (let i = 1; i < ends.length; i++) ends[i].y = Math.max(ends[i].y, ends[i - 1].y + 26);
@@ -315,10 +330,11 @@ defineBlock<LinesProps>('lines', {
     let g = '';
     series.forEach((s, k) => {
       const pts = s.values.map((v, i): [number, number] => [X(i), Y(v)]);
-      const d = smooth(pts);
+      const d = straight ? polyline(pts) : smooth(pts);
       const c = seriesColor(k, n);
       const [lx, ly] = pts[pts.length - 1];
       if (k === 0) g += `<path class="ln-a" d="${d}L${lx.toFixed(1)} ${bottom}L${x0} ${bottom}Z" fill="url(#${id})"/>`;
+      if (straight) g += pts.slice(0, -1).map(([x, y]) => `<circle class="ln-p" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" style="stroke:${c};--k:${k}"/>`).join('');
       g += `<path class="ln-l" pathLength="1" d="${d}" style="stroke:${c};--k:${k}"/>`
         + `<g class="ln-e" style="--k:${k}"><circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="5" style="stroke:${c}"/>`
         + `<text class="ln-t" x="${lx + 12}" y="${(endY.get(k)! - 2).toFixed(1)}">${fmtNum(s.values[s.values.length - 1])}${esc(p.unit ?? '')}</text>`
@@ -329,7 +345,7 @@ defineBlock<LinesProps>('lines', {
     for (let i = 0; i < m; i += step) if (labels[i]) xl += `<text class="tx" x="${X(i).toFixed(1)}" y="${bottom + 18}" text-anchor="middle"${ea(p.labels, i)}>${esc(labels[i])}</text>`;
     return `<div class="dg"${styleAttr(p.style)}>${legend(p, series)}<svg class="lines" viewBox="0 0 560 200" role="img" aria-label="Линии: ${esc(series.map((s) => s.name).join(', '))}">`
       + `<defs><linearGradient id="${id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--ac)" stop-opacity=".2"/><stop offset="1" stop-color="var(--ac)" stop-opacity="0"/></linearGradient></defs>`
-      + `${yGrid(min, max, x0, x1, top, bottom, p.unit)}${xl}${g}</svg></div>`;
+      + `${yGrid(min, max, x0, x1, top, bottom, p.unit)}${xl}${g0}${g}</svg></div>`;
   },
 });
 

@@ -36,7 +36,9 @@ export type Field =
   | { k: string; label: string; type: 'group'; fields: Field[] }
   /** Цвет фигуры: роли темы или свой #RRGGBB; none — без цвета */
   | { k: string; label: string; type: 'color'; none?: boolean }
-  /** Таблица: шапка header и строки rows (списки ячеек) — сеткой полей */
+  /** Точки [[x, y], [x, y, размер]…] — по строке на точку */
+  | { k: string; label: string; type: 'points'; hint?: string }
+    /** Таблица: шапка header и строки rows (списки ячеек) — сеткой полей */
   | { k: string; label: string; type: 'grid' };
 
 export interface Schema {
@@ -254,6 +256,9 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'scale', label: 'Делитель подписей оси', type: 'number', min: 1, placeholder: 'авто' },
       { k: 'min', label: 'Минимум оси', type: 'number', placeholder: 'авто' },
       { k: 'max', label: 'Максимум оси', type: 'number', placeholder: 'авто' },
+      { k: 'smooth', label: 'Плавная линия', type: 'bool', default: true, hint: 'Без галочки — ломаная с точками измерений' },
+      { k: 'trend', label: 'Тренд', type: 'select', options: [['', 'Нет'], ['linear', 'Линейный'], ['3', 'Скользящее среднее по 3'], ['5', 'Скользящее среднее по 5']] },
+      { k: 'forecast', label: 'Прогноз, шагов вперёд', type: 'number', min: 0, max: 24, placeholder: 'нет', hint: 'По линейному тренду' },
     ],
   },
   uptime: {
@@ -333,6 +338,28 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'unit', label: 'Единица', type: 'text' },
       { k: 'min', label: 'Минимум оси', type: 'number', placeholder: '0' },
       { k: 'max', label: 'Максимум оси', type: 'number', placeholder: 'авто' },
+      { k: 'smooth', label: 'Плавная линия', type: 'bool', default: true, hint: 'Без галочки — ломаная с точками измерений' },
+      { k: 'trend', label: 'Тренд', type: 'select', options: [['', 'Нет'], ['linear', 'Линейный'], ['3', 'Скользящее среднее по 3'], ['5', 'Скользящее среднее по 5']] },
+      { k: 'forecast', label: 'Прогноз, шагов вперёд', type: 'number', min: 0, max: 24, placeholder: 'нет', hint: 'По линейному тренду' },
+    ],
+  },
+  scatter: {
+    about: 'Точка — строка «x y»; третье число — размер пузырька.',
+    fields: [
+      { k: 'xLabel', label: 'Ось X', type: 'text', placeholder: 'Температура, °C' },
+      { k: 'yLabel', label: 'Ось Y', type: 'text', placeholder: 'Потребление, кВт' },
+      { k: 'points', label: 'Точки', type: 'points' },
+      {
+        k: 'series', label: 'Ряды (вместо точек выше)', type: 'rows', item: 'Ряд',
+        make: () => ({ name: 'Ряд', points: [[1, 2], [2, 3], [3, 5]] }),
+        fields: [{ k: 'name', label: 'Название', type: 'text' }, { k: 'points', label: 'Точки', type: 'points' }],
+      },
+      { k: 'trend', label: 'Линия тренда', type: 'select', options: [['', 'Нет'], ['linear', 'Линейная: уравнение и R²']] },
+      { k: 'equation', label: 'Уравнение и R² у тренда', type: 'bool', default: true },
+      { k: 'xMin', label: 'X от', type: 'number', placeholder: 'авто' },
+      { k: 'xMax', label: 'X до', type: 'number', placeholder: 'авто' },
+      { k: 'yMin', label: 'Y от', type: 'number', placeholder: 'авто' },
+      { k: 'yMax', label: 'Y до', type: 'number', placeholder: 'авто' },
     ],
   },
   shape: {

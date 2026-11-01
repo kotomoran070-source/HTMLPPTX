@@ -2055,3 +2055,53 @@ slides:
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('графики: точечная из галереи — точки правятся строками, тренд с уравнением; ломаная с точками, тренд и прогноз; в PowerPoint — ломаная родной диаграммой', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'charttrend');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'deck.yaml');
+  fs.writeFileSync(file, `title: Графики
+slides:
+  - template: canvas
+    free:
+      - {type: line-chart, values: [10, 12, 11, 15, 16, 18], smooth: false, place: {x: 64, y: 80, w: 560}}
+      - {type: line-chart, values: [10, 12, 11, 15, 16, 18], trend: linear, forecast: 2, place: {x: 660, y: 80, w: 560}}
+  - template: canvas
+    free: []
+`);
+  const free = (i: number) => (parse(fs.readFileSync(file, 'utf8')) as { slides: { free: Record<string, any>[] }[] }).slides[i].free;
+  try {
+    await page.goto('/?deck=charttrend&studio#1');
+    const slide = page.locator('#st-canvas .slide.on');
+    // Ломаная — с точками измерений (последняя — с подписью); тренд — пунктиром до прогноза
+    await expect(slide.locator('.line-chart').first().locator('.pp')).toHaveCount(5);
+    await expect(slide.locator('.line-chart').nth(1).locator('.tr')).toHaveCount(1);
+    await expect(slide.locator('.line-chart').nth(1).locator('.fpt')).toHaveText('≈ 21'); // 9,67 + 1,6 · 7 = 20,87
+    await page.locator('[data-cmd="file.export"]').first().click();
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 90_000 }), page.locator('[data-x="pptx"]').click()]);
+    const zip = await (await import('jszip')).default.loadAsync(fs.readFileSync(await dl.path()));
+    const charts = Object.keys(zip.files).filter((f) => /^ppt\/charts\/chart\d+\.xml$/.test(f));
+    // Ломаная — родной диаграммой без сглаживания; график с трендом — картинкой, как на слайде
+    expect(charts).toHaveLength(1);
+    expect(await zip.file(charts[0])!.async('string')).toContain('<c:smooth val="0"/>');
+    await page.keyboard.press('Escape');
+    // Точечная из галереи на пустой слайд: тренд с уравнением; точка, дописанная строкой в «Свойствах», — на диаграмме
+    await page.goto('/?deck=charttrend&studio#2');
+    await page.locator('.st-tabs [data-tab="insert"]').click();
+    await page.locator('.st-ribbon [data-cmd="ins.gal.chart"]').click();
+    await page.locator('.st-lib-item').filter({ hasText: 'Точечная диаграмма' }).click();
+    await expect.poll(() => free(1)[0]?.type).toBe('scatter');
+    await expect(slide.locator('.sc-p')).toHaveCount(12);
+    await expect(slide.locator('.sc-eq')).toContainText('R² = 0,99');
+    const ta = page.locator('#st-props textarea[data-t="points"]').first();
+    await ta.fill(`${await ta.inputValue()}\n25 210`);
+    await ta.blur();
+    await expect.poll(() => free(1)[0].points.at(-1)).toEqual([25, 210]);
+    await expect(slide.locator('.sc-p')).toHaveCount(13);
+    await expect(slide.locator('.sc-p').last().locator('title')).toHaveText('25; 210');
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
