@@ -60,6 +60,7 @@ import { SlidesPanel } from './slides-panel';
 import { crumbs, type Crumb } from './structure';
 import { canUngroup, groupObjects, ungroup } from './ungroup';
 import { connectTool, lineEnds, pickedPair } from './connect';
+import { quizEdit } from './quiz-edit';
 import { relink } from '../components/connector/links';
 import './studio.css';
 
@@ -161,6 +162,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Данные', rb('ins.gal.table', 'eq-cols', 'Таблица', { big: true, menu: true, title: 'Готовые таблицы разных стилей' }) + rb('ins.gal.chart', 'chart', 'Диаграмма', { big: true, menu: true, title: 'Графики и столбцы' }) + rb('ins.gal.numbers', 'hash', 'Числа', { big: true, menu: true, title: 'Ключевые числа, прогресс, «ключ — значение»' }) + rb('ins.gal.math', 'sigma', 'Уравнение', { big: true, menu: true, title: 'Формулы и живые числа' }))}
       ${group('Схемы', rb('ins.gal.schemes', 'cycle', 'Схемы', { big: true, menu: true, title: 'Цикл, воронка, пирамида, хронология…' }) + rb('ins.gal.cards', 'grid', 'Карточки', { big: true, menu: true, title: 'Карточки, «было — стало», панель' }))}
       ${group('Медиа', rb('ins.video', 'play', 'Видео', { big: true }) + rb('ins.model', 'layers', '3D-модель', { big: true }) + rb('ins.gal.live', 'sliders', 'Интерактив', { big: true, menu: true, title: 'Регуляторы, живой код, песочница, кнопки' }))}
+      ${group('Обучение', rb('ins.gal.learn', 'quiz', 'Тест', { big: true, menu: true, title: 'Вопросы с проверкой ответа и итог с баллами' }))}
       ${group('Все блоки', rb('insert.blocks', 'sparkle', 'Блоки', { big: true, menu: true, title: 'Все готовые блоки и ваши шаблоны' }))}
     </div>
     ${designPanelHtml()}
@@ -1684,6 +1686,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   Object.assign(cmds, contextCommands({ deck, editor: ed, stage: () => view.stage, run: (c) => run(c), refresh: () => queueState(), textTarget: (get) => { textOf = get; } }));
   const grips = tableGrips({ deck, editor: ed, stage: () => view.stage });
   const gantt = ganttDrag({ deck, editor: ed, stage: () => view.stage });
+  const quizzes = quizEdit({ deck, editor: ed, stage: () => view.stage });
   const linker = connectTool({ deck, editor: ed, stage: () => view.stage, index: () => index });
   const ends = lineEnds({ deck, editor: ed, stage: () => view.stage, index: () => index });
   cmds['obj.connect'] = { run: () => linker.start() };
@@ -1698,7 +1701,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   /** Галереи вкладки «Вставка»: только свои разделы библиотеки */
   const GALLERIES: Record<string, string[]> = {
     text: ['Текст'], shapes: ['Фигуры', 'Плашки'], table: ['Таблицы'], chart: ['Графики'], numbers: ['Числа'], math: ['Уравнения'],
-    schemes: ['Схемы'], cards: ['Карточки'], live: ['Интерактив'],
+    schemes: ['Схемы'], cards: ['Карточки'], live: ['Интерактив'], learn: ['Обучение'],
   };
   for (const [k, cats] of Object.entries(GALLERIES)) {
     cmds[`ins.gal.${k}`] = {
@@ -2151,6 +2154,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     aids?.redraw();
     grips.sync();
     gantt.sync();
+    quizzes.sync();
     code?.syncSelection();
     layers?.update();
     // Панель свойств — до доступности кнопок: её новые кнопки тоже получают «недоступно»

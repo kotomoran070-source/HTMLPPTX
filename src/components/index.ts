@@ -36,5 +36,6 @@ import './schemes/figures';
 import './schemes/project';
 import './diagram/diagram';
 import './connector/connector';
+import './quiz/quiz';
 import './motion/motion';
 import './math/math';

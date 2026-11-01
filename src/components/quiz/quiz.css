@@ -1,0 +1,113 @@
+/* Тест на слайде и итог (quiz.ts). Верно — зелёный, неверно — красный: смешаны с цветами темы, читаются в светлой и тёмной */
+.qz { --qz-ok: #16A34A; --qz-no: #DC2626; display: flex; flex-direction: column; gap: 14px; width: 100%; color: var(--tx); font: 400 20px/1.35 var(--font); }
+.qz .ic { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.qz-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.qz-tag { padding: 5px 11px; border-radius: 999px; background: var(--acs); color: var(--ach); font: 700 12.5px/1 var(--font); letter-spacing: .07em; text-transform: uppercase; }
+.qz-hint { color: var(--mu); font-size: 15px; font-weight: 600; }
+.qz-q { font: var(--hw, 800) 30px/1.2 var(--font-head, var(--font)); letter-spacing: -.01em; text-wrap: balance; }
+
+/* Варианты: строкой или плитками в два столбца */
+.qz-opts { display: flex; flex-direction: column; gap: 10px; }
+.qz.grid .qz-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.qz-o { position: relative; display: flex; align-items: center; gap: 14px; min-height: 58px; box-sizing: border-box; padding: 10px 18px 10px 11px; cursor: pointer;
+  border-radius: calc(14px * var(--rk, 1)); background: var(--surf); border: 1.5px solid var(--bd2); box-shadow: 0 6px 18px -14px rgba(15, 23, 42, .4);
+  transition: border-color .15s, background-color .15s, transform .15s, opacity .25s; }
+.qz.grid .qz-o { min-height: 76px; }
+.qz-o:focus-visible { outline: 2px solid var(--ac); outline-offset: 3px; }
+.qz-m { position: relative; flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--acs); color: var(--ach);
+  font: 800 15px/1 var(--font); transition: background-color .15s, color .15s; }
+.qz.multi .qz-m { border-radius: 10px; }
+.qz-m .ic { display: none; width: 19px; height: 19px; stroke-width: 3; }
+.qz-t { min-width: 0; }
+/* При показе: под мышью — приподнят; выбран — цветом акцента */
+body:not(.editing) .qz:not(.done) .qz-o:not(.tried):hover, body.st-previewing .qz:not(.done) .qz-o:not(.tried):hover { border-color: color-mix(in srgb, var(--ac) 55%, var(--bd2)); transform: translateY(-1px); }
+.qz-o.picked { border-color: var(--ac); background: color-mix(in srgb, var(--ac) 8%, var(--surf)); }
+.qz-o.picked .qz-m { background: var(--ac); color: var(--on-ac, #fff); }
+/* Неверный выбор прошлой попытки */
+.qz-o.tried { border-color: color-mix(in srgb, var(--qz-no) 55%, var(--bd2)); opacity: .6; cursor: not-allowed; }
+.qz-o.tried .qz-m { background: var(--qz-no); color: #fff; }
+.qz-o.tried .qz-m b, .qz.done .qz-o.ok .qz-m b, .qz.done .qz-o.picked:not(.ok) .qz-m b { display: none; }
+.qz-o.tried .qz-m .ic:last-child, .qz.done .qz-o.picked:not(.ok) .qz-m .ic:last-child { display: block; }
+/* Ответ: верные — зелёным, неверно выбранный — красным, остальные приглушены */
+.qz.done .qz-o { cursor: default; }
+.qz.done .qz-o.ok { border-color: var(--qz-ok); background: color-mix(in srgb, var(--qz-ok) 10%, var(--surf)); }
+.qz.done .qz-o.ok .qz-m { background: var(--qz-ok); color: #fff; }
+.qz.done .qz-o.ok .qz-m .ic:first-of-type { display: block; }
+.qz.done .qz-o.picked:not(.ok) { border-color: var(--qz-no); background: color-mix(in srgb, var(--qz-no) 9%, var(--surf)); }
+.qz.done .qz-o.picked:not(.ok) .qz-m { background: var(--qz-no); color: #fff; }
+.qz.done .qz-o:not(.ok):not(.picked) { opacity: .45; }
+.slide.on .qz.done.won .qz-o.ok.picked { animation: qz-pop .45s cubic-bezier(.34, 1.56, .64, 1); }
+.slide.on .qz.done.lost .qz-o.picked:not(.ok) { animation: qz-shake .42s ease; }
+
+/* Ответ вводом и «Проверить» */
+.qz-in { display: flex; gap: 10px; }
+.qz-field { flex: 1; min-width: 0; box-sizing: border-box; padding: 12px 16px; border-radius: calc(12px * var(--rk, 1)); border: 1.5px solid var(--bd2);
+  background: var(--surf); color: var(--tx); font: 600 22px/1.2 var(--font); }
+.qz-field::placeholder { color: var(--mu); font-weight: 500; }
+.qz-field:focus { outline: none; border-color: var(--ac); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 22%, transparent); }
+.qz.won .qz-field { border-color: var(--qz-ok); background: color-mix(in srgb, var(--qz-ok) 9%, var(--surf)); }
+.qz.lost .qz-field { border-color: var(--qz-no); background: color-mix(in srgb, var(--qz-no) 8%, var(--surf)); }
+.qz-acts { display: flex; }
+.qz-go { flex: none; padding: 12px 22px; border: 0; border-radius: calc(12px * var(--rk, 1)); background: var(--ac); color: var(--on-ac, #fff); font: 700 17px/1 var(--font); cursor: pointer; }
+.qz-go:hover { filter: brightness(1.07); }
+.qz.done .qz-go { display: none; }
+
+/* Отклик под вопросом */
+.qz-fb { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; min-height: 36px; font-size: 17px; line-height: 1.35; }
+.qz-fb:empty { display: none; }
+.qz-res { display: inline-flex; align-items: center; gap: 6px; padding: 6px 13px 6px 10px; border-radius: 999px; font-weight: 700; animation: qz-in .3s ease both; }
+.qz-res .ic { width: 17px; height: 17px; stroke-width: 3; }
+.qz-res.ok { background: color-mix(in srgb, var(--qz-ok) 15%, transparent); color: color-mix(in srgb, var(--qz-ok) 78%, var(--tx)); }
+.qz-res.no { background: color-mix(in srgb, var(--qz-no) 13%, transparent); color: color-mix(in srgb, var(--qz-no) 80%, var(--tx)); }
+.qz-note, .qz-ans { color: var(--tx2, var(--tx)); animation: qz-in .3s ease .08s both; }
+.qz-ans b { color: var(--tx); }
+.qz-redo { margin-left: auto; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border-radius: 50%; border: 1px solid var(--bd2);
+  background: var(--surf); color: var(--mu); cursor: pointer; opacity: .7; transition: opacity .15s, color .15s; }
+.qz-redo:hover { opacity: 1; color: var(--tx); }
+.qz-redo .ic { width: 15px; height: 15px; stroke-width: 2.2; }
+
+/* «Дальше: …» — переход по ответу; напоминание, если листают без ответа */
+.qz-next { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px 7px 15px; border: 0; border-radius: 999px; background: var(--ac); color: var(--on-ac, #fff);
+  font: 700 15px/1.2 var(--font); cursor: pointer; animation: qz-in .3s ease .12s both; }
+.qz-next .ic { width: 16px; height: 16px; stroke-width: 2.6; }
+.qz-next:hover { filter: brightness(1.07); }
+.qz-wait { padding: 6px 13px; border-radius: 999px; background: color-mix(in srgb, #F59E0B 18%, transparent); color: color-mix(in srgb, #B45309 85%, var(--tx)); font-weight: 700; animation: qz-in .25s ease both; }
+.qz.nudge .qz-opts, .qz.nudge .qz-in { animation: qz-shake .42s ease; }
+.qz.lock .qz-tag::after { content: " · обязательный"; }
+
+/* В правке: щелчок выделяет блок; верные варианты — с зелёной галочкой у буквы (видит только автор) */
+body.editing:not(.st-previewing) .qz-o, body.editing:not(.st-previewing) .qz-go { cursor: inherit; }
+body.editing:not(.st-previewing) :is(.qz-field, .qz-go, .qz-redo, .qs-reset) { pointer-events: none; }
+body.editing:not(.st-previewing) .qz-o.ok .qz-m { box-shadow: 0 0 0 2.5px var(--qz-ok); }
+body.editing:not(.st-previewing) .qz-o.ok .qz-m::after { content: ""; position: absolute; right: -5px; bottom: -4px; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--qz-ok) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5 9-10'/%3E%3C/svg%3E") center / 11px no-repeat; }
+
+/* ---------- итог ---------- */
+.qs { display: flex; align-items: center; gap: 44px; width: 100%; color: var(--tx); font: 400 18px/1.4 var(--font); }
+.qs-ring { position: relative; flex: none; width: 210px; aspect-ratio: 1; }
+.qs-ring svg { width: 100%; height: 100%; rotate: -90deg; overflow: visible; }
+.qs-track { fill: none; stroke: color-mix(in srgb, var(--bd2) 80%, transparent); stroke-width: 11; }
+.qs-arc { fill: none; stroke: var(--ac); stroke-width: 11; stroke-linecap: round; transition: stroke-dasharray .9s var(--ease, ease); }
+.qs[data-grade="hi"].full .qs-arc { stroke: var(--qz-ok, #16A34A); }
+.qs-pct { position: absolute; inset: 0; display: grid; place-items: center; font: 800 44px/1 var(--font-head, var(--font)); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.qs-txt { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
+.qs-title { color: var(--ach); font: 700 14px/1.2 var(--font); letter-spacing: .08em; text-transform: uppercase; }
+.qs-num { font: 800 40px/1.1 var(--font-head, var(--font)); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.qs-num .qs-unit, .qs-num span { font-weight: 700; }
+.qs-got { color: var(--ac); }
+.qs-sub { color: var(--tx2, var(--tx)); font-size: 18px; }
+.qs-lv { min-height: 1.35em; font: 700 22px/1.35 var(--font); }
+.qs.full .qs-lv { animation: qz-in .4s ease both; }
+.qs-reset { display: inline-flex; align-items: center; gap: 8px; margin-top: 6px; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--bd2);
+  background: var(--surf); color: var(--tx2, var(--tx)); font: 600 15px/1 var(--font); cursor: pointer; transition: color .15s, border-color .15s; }
+.qs-reset .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.qs-reset:hover { color: var(--tx); border-color: color-mix(in srgb, var(--ac) 50%, var(--bd2)); }
+.qs-reset.arm { color: #DC2626; border-color: #DC2626; }
+.qs { --qz-ok: #16A34A; }
+
+@keyframes qz-in { from { opacity: 0; translate: 0 4px; } }
+@keyframes qz-pop { 40% { scale: 1.035; } }
+@keyframes qz-shake { 20%, 60% { translate: -6px 0; } 40%, 80% { translate: 6px 0; } }
+.slide.on .qz-o { animation: qz-in .4s ease both; animation-delay: calc(.15s + var(--k) * .07s); }
+@media (prefers-reduced-motion: reduce) { .slide.on .qz-o, .qz-res, .qz-note, .qz-ans, .qs.full .qs-lv { animation: none !important; } .qs-arc { transition: none; } }
+@media print { .qz-redo, .qs-reset, .qz-go { display: none; } }

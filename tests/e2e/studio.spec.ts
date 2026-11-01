@@ -2344,3 +2344,54 @@ test('«Соединить линией»: выделение остаётся �
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('тест в студии: «Вставка → Тест», щелчок по букве — верный ответ, переход по ответу на скрытый слайд; в PowerPoint — ключ ответа в заметках и ссылки вариантов', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'quizstudio');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'deck.yaml');
+  fs.writeFileSync(file, `title: Т
+slides:
+  - template: canvas
+  - id: why
+    hidden: true
+    template: content
+    title: Разбор
+    body: { type: text, text: Разбор ошибки }
+`);
+  const quiz = () => ((parse(fs.readFileSync(file, 'utf8')) as { slides: { free?: Record<string, unknown>[] }[] }).slides[0].free ?? [])[0] ?? {};
+  try {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await page.goto('/?deck=quizstudio&studio#1');
+    await page.locator('.st-tabs [data-tab="insert"]').click();
+    await page.locator('.st-ribbon [data-cmd="ins.gal.learn"]').click();
+    await expect(page.locator('.st-lib .st-lib-item, .st-lib [data-k]').filter({ hasText: 'Итог теста' }).first()).toBeVisible();
+    await page.locator('.st-lib').getByText('Один верный ответ').click();
+    await expect.poll(() => quiz().type).toBe('quiz');
+    // Автор видит верный вариант; щелчок по букве A — верным становится A
+    const opts = page.locator('#st-canvas .slide.on .qz-o');
+    await expect(opts.nth(1)).toHaveClass(/ok/);
+    await opts.nth(0).locator('.qz-m').click();
+    await expect.poll(() => (quiz().options as { correct?: boolean }[]).map((o) => !!o.correct)).toEqual([true, false, false, false]);
+    // Shift+щелчок — ещё один верный: тест с несколькими ответами
+    await opts.nth(2).locator('.qz-m').click({ modifiers: ['Shift'] });
+    await expect.poll(() => (quiz().options as { correct?: boolean }[]).map((o) => !!o.correct)).toEqual([true, false, true, false]);
+    await expect(page.locator('#st-canvas .slide.on .qz')).toHaveClass(/multi/);
+    await opts.nth(2).locator('.qz-m').click();
+    // «Если неверно — перейти»: скрытый слайд разбора
+    await page.locator('select[data-t="go"][data-p*="wrong"]').selectOption({ label: '2 · Разбор (скрыт)' });
+    await expect.poll(() => quiz().wrong).toBe('slide:why');
+    await page.keyboard.press('Escape');
+    await page.locator('[data-cmd="file.export"]').click();
+    const [download] = await Promise.all([page.waitForEvent('download', { timeout: 150_000 }), page.locator('[data-x="pptx"]').click()]);
+    const { default: JSZip } = await import('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(await download.path()));
+    const notes = await zip.file('ppt/notesSlides/notesSlide1.xml')!.async('string');
+    expect(notes).toContain('Ответ: A — Быстрая сортировка');
+    // Три неверных варианта ведут на разбор — ссылками на слайд
+    expect((await zip.file('ppt/slides/slide1.xml')!.async('string')).match(/hlinkClick/g)).toHaveLength(3);
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

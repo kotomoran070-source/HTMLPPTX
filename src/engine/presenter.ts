@@ -4,6 +4,7 @@ import { frameAt, postPointer } from './frame-bridge';
 import { CAMERA, type CameraState } from '../components/media/model';
 import { MEDIA, type MediaState } from '../components/media/video';
 import { GAL, GAL_SET, type FrameState } from '../components/layout/frames';
+import { QUIZ, QUIZ_NEXT, QUIZ_NUDGE, QUIZ_SET, quizGate, quizStore, type QuizMsg } from '../components/quiz/state';
 import type { Deck } from '../types';
 import { accentTail, applyAccent, applyAccentFlow } from './accent';
 import { replaceContents } from './data';
@@ -127,6 +128,8 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   const cur = $('cur');
   applyAccent(deck.theme?.accent, accentTail(deck.theme));
   applyAccentFlow(deck.theme?.accentFlow);
+  // Ответы на тесты — те же, что в окне показа (запомнены в браузере), дальше — сообщениями
+  quizStore.persist(deckKey);
   const view = new DeckView(deck, cur);
   // У окна докладчика свой id (sessionStorage всплывающего окна копируется из основного)
   // Телефон-пульт (по QR из окна показа): то же окно докладчика, связь — через сервер показа
@@ -213,6 +216,11 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   });
   window.addEventListener(MEDIA, (e) => {
     if (mirror) sync.send({ type: 'media', ...(e as CustomEvent<MediaState>).detail }, toMain());
+  });
+  // Тест: ответили здесь — зрителям
+  window.addEventListener(QUIZ, (e) => {
+    const d = (e as CustomEvent<QuizMsg>).detail;
+    sync.send({ type: 'quiz', key: d.key, st: d.st }, toMain());
   });
   // Картинка с кадрами: перелистнули здесь — зрителям (как кнопки «показать / скрыть» — всегда)
   window.addEventListener(GAL, (e) => {
@@ -461,11 +469,23 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     $('nx').toggleAttribute('disabled', after < 0);
   }
 
-  function go(i: number): void {
-    const target = landOn(deck, i, index);
+  /** Переход по ответу теста или кнопке: «Назад» вернёт туда, откуда пришли */
+  let jump: { from: number; to: number } | null = null;
+  /** exact — ровно на этот слайд, даже скрытый (переход по ответу, кнопка на слайде) */
+  function go(i: number, exact = false): void {
+    const target = exact ? Math.max(0, Math.min(deck.slides.length - 1, i)) : landOn(deck, i, index);
     if (target === index) return;
+    if (jump && target !== jump.to) jump = null;
     render(target);
     sync.send({ type: 'goto', index: target }, toMain());
+  }
+  function jumpTo(action: string): boolean {
+    const to = actionTarget(action, deck, index);
+    if (!to || !('slide' in to)) return false;
+    const from = index;
+    go(to.slide, true);
+    if (index !== from) jump = { from, to: index };
+    return true;
   }
 
   /** Шаг формулы на слайде (dir — вперёд или назад): здесь и у зрителей; false — шагов нет, листать */
@@ -474,8 +494,20 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     sync.send({ type: 'step', index, steps: view.stepsAt(index) ?? 0 }, toMain());
     return true;
   }
-  const next = () => { if (!step(1)) go(index + 1); };
-  const prev = () => { if (!step(-1)) go(index - 1); };
+  /** Дальше: шаги слайда, потом тест (ветка ответа или напоминание ответить), потом листание */
+  const next = () => {
+    if (step(1)) return;
+    const g = quizGate(deck, index);
+    if (g.locked) { window.dispatchEvent(new CustomEvent(QUIZ_NUDGE)); return; }
+    if (g.go && jumpTo(g.go)) return;
+    go(index + 1);
+  };
+  const prev = () => {
+    if (step(-1)) return;
+    if (jump && jump.to === index) { const back = jump.from; jump = null; go(back, true); return; }
+    go(index - 1);
+  };
+  window.addEventListener(QUIZ_NEXT, () => next());
 
   function setBlack(v: boolean, send = true): void {
     black = v;
@@ -792,7 +824,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     if (!to) return;
     e.preventDefault();
     e.stopPropagation();
-    if ('slide' in to) go(to.slide);
+    if ('slide' in to) jumpTo(el.dataset.action!);
     else window.open(to.url, '_blank', 'noopener');
   });
   view.stage.addEventListener('slideria:code', (e) => {
@@ -824,6 +856,10 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     }
     if (m.type === 'frame') {
       if (!mainId || from === mainId) window.dispatchEvent(new CustomEvent<FrameState>(GAL_SET, { detail: { key: m.key, at: m.at } }));
+      return;
+    }
+    if (m.type === 'quiz') {
+      if (!mainId || from === mainId) window.dispatchEvent(new CustomEvent<QuizMsg>(QUIZ_SET, { detail: { key: m.key, st: m.st } }));
       return;
     }
     if (m.type === 'autoplay') {

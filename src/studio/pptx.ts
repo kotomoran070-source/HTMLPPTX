@@ -1,5 +1,6 @@
 import type PptxGenJS from 'pptxgenjs';
 import { reroute } from '../components/connector/connector';
+import { answerKey } from '../components/quiz/check';
 import { getAt, type Path } from '../engine/data';
 import { staticSlide } from '../engine/deck-view';
 import { setSlidesLook, slidesLookOwn } from '../engine/theme';
@@ -329,8 +330,11 @@ export async function exportPptx(deck: Deck, progress?: PptxProgress, quality: E
       const section = box.querySelector<HTMLElement>('.slide');
       const slide = pptx.addSlide();
       if (section) await new Converter(pptx, slide, section, deck, toPng).run();
-      const notes = deck.slides[i].notes;
-      if (typeof notes === 'string' && notes.trim()) slide.addNotes(notes);
+      // Ответы тестов — в заметки: в PowerPoint проверки ответа нет, докладчик видит ключ
+      const key = answerKey(deck.slides[i]);
+      const own = typeof deck.slides[i].notes === 'string' ? (deck.slides[i].notes as string).trim() : '';
+      const notes = [own, key].filter(Boolean).join('\n\n');
+      if (notes) slide.addNotes(notes);
       // Скрытый слайд — скрытый и в PowerPoint
       if (deck.slides[i].hidden === true) slide.hidden = true;
     }
@@ -481,10 +485,12 @@ class Converter {
     }
     // Кнопка с переходом или ссылкой: поверх объекта — прозрачная фигура с гиперссылкой,
     // щелчок по ней при показе в PowerPoint работает так же, как в браузере
-    if (el.dataset.action && el.classList.contains('free') && !this.inAction) {
+    // Вариант теста с переходом по ответу (data-go) — тоже ссылкой: ветвление работает и в PowerPoint
+    const act = el.dataset.action && el.classList.contains('free') ? el.dataset.action : el.dataset.go;
+    if (act && !this.inAction) {
       this.inAction = true;
       try { await this.walk(el, opacity, parentK); } finally { this.inAction = false; }
-      const to = actionTarget(el.dataset.action, this.deck, Number(this.section.dataset.index));
+      const to = actionTarget(act, this.deck, Number(this.section.dataset.index));
       const b = this.box(el);
       if (to) {
         this.slide.addShape(this.pptx.ShapeType.rect, {

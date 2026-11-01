@@ -1105,3 +1105,85 @@ test('прогресс у зрителей — сегменты по слайд�
   await expect(page.locator('#pgn')).toHaveText('2 / 3');
   expect(errors).toEqual([]);
 });
+
+test('тест на слайде: отвечает докладчик — ответ у зрителей; ветка по ответу, «Назад» к вопросу; обязательный вопрос не пролистать; ответы после перезагрузки на месте, «Пройти заново» стирает', async ({ page, context }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'quizshow');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'deck.yaml'), `title: Тест
+slides:
+  - template: content
+    title: Вопрос
+    body:
+      type: quiz
+      question: Что вернёт 0.1 + 0.2 === 0.3?
+      wrong: slide:why
+      options:
+        - { text: "true", note: Дроби в двоичном виде неточны }
+        - { text: "false", correct: true }
+  - id: why
+    hidden: true
+    template: content
+    title: Почему false
+    body: { type: text, text: Разбор }
+  - template: content
+    title: Обязательный
+    body: { type: quiz, lock: true, kind: input, question: Сколько бит в double?, answer: 64 }
+  - template: content
+    title: Итог
+    body: { type: score }
+`);
+  try {
+    await page.goto('/?deck=quizshow#1');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    const pres = await context.newPage();
+    await pres.goto('/?deck=quizshow&view=presenter');
+    await expect(pres.locator('#link.ok')).toHaveCount(1);
+    // Докладчик выбрал неверный — у зрителей тот же ответ, пояснение и переход в ветку
+    await pres.locator('#cur .slide.on .qz-o').nth(0).click();
+    const q = page.locator('.slide.on .qz');
+    await expect(q).toHaveClass(/done/);
+    await expect(q.locator('.qz-o.picked')).toHaveText('Atrue');
+    await expect(q.locator('.qz-note')).toHaveText('Дроби в двоичном виде неточны');
+    await expect(q.locator('.qz-next')).toContainText('Почему false');
+    // «Дальше» — на скрытый слайд разбора (в обоих окнах); «Назад» — к вопросу
+    await q.locator('.qz-next').click();
+    await expect(page).toHaveURL(/#2$/);
+    await expect(pres.locator('#cur .slide.on h2, #cur .slide.on .t-title').first()).toContainText('Почему false');
+    await page.keyboard.press('ArrowLeft');
+    await expect(page).toHaveURL(/#1$/);
+    await page.keyboard.press('ArrowRight');
+    await expect(page).toHaveURL(/#2$/);
+    await page.keyboard.press('ArrowRight');
+    await expect(page).toHaveURL(/#3$/);
+    // «Дальше только после ответа»: стрелка не листает, тест напоминает
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('.slide.on .qz-wait')).toHaveText('Сначала ответьте на вопрос');
+    await expect(page).toHaveURL(/#3$/);
+    await page.locator('.slide.on .qz-field').fill(' 64 ');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.slide.on .qz-res.ok')).toContainText('Верно');
+    await expect(pres.locator('#cur .slide.on .qz')).toHaveClass(/won/);
+    await page.keyboard.press('ArrowRight');
+    await expect(page).toHaveURL(/#4$/);
+    const score = page.locator('.slide.on .qs');
+    await expect(score.locator('.qs-num')).toHaveText('1 из 2 баллов');
+    await expect(score.locator('.qs-pct')).toHaveText('50 %');
+    // Перезагрузили — ответы на месте
+    await page.reload();
+    await expect(page.locator('.slide.on .qs-num')).toHaveText('1 из 2 баллов');
+    // «Пройти заново» — со второго щелчка; стирает и у докладчика
+    await expect(pres.locator('#link.ok')).toHaveCount(1);
+    await page.locator('.slide.on .qs-reset').click();
+    await expect(page.locator('.slide.on .qs-reset')).toHaveText('Стереть все ответы?');
+    await page.locator('.slide.on .qs-reset').click();
+    await expect(page.locator('.slide.on .qs-num')).toHaveText('0 из 2 баллов');
+    await expect(pres.locator('#cur .slide.on .qs-num')).toHaveText('0 из 2 баллов');
+    expect(await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('slideria-quiz:')).map((k) => localStorage.getItem(k)))).toEqual(['{}']);
+    await pres.close();
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

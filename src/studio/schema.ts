@@ -38,6 +38,8 @@ export type Field =
   | { k: string; label: string; type: 'color'; none?: boolean }
   /** Точки [[x, y], [x, y, размер]…] — по строке на точку */
   | { k: string; label: string; type: 'points'; hint?: string }
+  /** Переход к слайду (после ответа на тест): «slide:<id>», next, prev, first, last; слайду без id он даётся */
+  | { k: string; label: string; type: 'go'; hint?: string }
     /** Таблица: шапка header и строки rows (списки ячеек) — сеткой полей */
   | { k: string; label: string; type: 'grid' };
 
@@ -524,6 +526,45 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'kind', label: 'Вид', type: 'select', options: [['', 'Последовательность'], ['flow', 'Блок-схема'], ['state', 'Состояния']] },
       { k: 'code', label: 'Текст диаграммы', type: 'textarea', hint: 'Клиент -> Сервер: запрос · [Шаг] -> {Решение?}' },
       { k: 'dir', label: 'Раскладка схемы', type: 'select', options: [['', 'Как принято для вида'], ['down', 'Сверху вниз'], ['right', 'Слева направо']] },
+    ],
+  },
+  quiz: {
+    about: 'При показе щелчок по варианту — ответ. В правке щелчок по букве — верный.',
+    fields: [
+      { k: 'question', label: 'Вопрос', type: 'textarea' },
+      { k: 'kind', label: 'Как отвечают', type: 'select', options: [['', 'Выбором варианта'], ['input', 'Вводом ответа']] },
+      {
+        k: 'options', label: 'Варианты', type: 'rows', item: 'Вариант',
+        make: () => ({ text: 'Вариант' }),
+        fields: [
+          { k: 'text', label: 'Текст', type: 'text' },
+          { k: 'correct', label: 'Верный', type: 'bool' },
+          { k: 'note', label: 'Пояснение, если выбрали', type: 'text' },
+          { k: 'go', label: 'Затем перейти', type: 'go' },
+        ],
+      },
+      { k: 'answer', label: 'Верные ответы для ввода', type: 'textarea', hint: 'По строке на вариант: «7», «семь». Регистр и ё не важны' },
+      { k: 'note', label: 'Пояснение после ответа', type: 'textarea' },
+      { k: 'points', label: 'Баллы', type: 'number', min: 0, max: 100, placeholder: '1', hint: '0 — вопрос не в счёт' },
+      { k: 'tries', label: 'Попыток', type: 'number', min: 1, max: 9, placeholder: '1' },
+      { k: 'layout', label: 'Вид вариантов', type: 'select', options: [['', 'Списком'], ['grid', 'Плитками в два столбца']] },
+      { k: 'right', label: 'Если верно — перейти', type: 'go' },
+      { k: 'wrong', label: 'Если неверно — перейти', type: 'go' },
+      { k: 'lock', label: 'Дальше только после ответа', type: 'bool' },
+    ],
+  },
+  score: {
+    about: 'Баллы всех тестов презентации. «Пройти заново» стирает ответы.',
+    fields: [
+      { k: 'title', label: 'Заголовок', type: 'text', placeholder: 'Ваш результат' },
+      {
+        k: 'levels', label: 'Сообщения по результату', type: 'rows', item: 'Уровень',
+        make: () => ({ min: 50, text: 'Неплохо' }),
+        fields: [
+          { k: 'min', label: 'От, %', type: 'number', min: 0, max: 100 },
+          { k: 'text', label: 'Сообщение', type: 'text' },
+        ],
+      },
     ],
   },
   connector: {

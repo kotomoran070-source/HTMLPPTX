@@ -3,6 +3,8 @@ import { SHAPE_COLORS } from '../components/shape/shape';
 import { getAt, setAt, type Path } from '../engine/data';
 import { esc } from '../engine/html';
 import type { Field } from './schema';
+import { slideLabel } from '../engine/render';
+import type { SlideData } from '../types';
 
 /**
  * Форма свойств по схеме (schema.ts). Разметка строится один раз для предмета,
@@ -50,6 +52,13 @@ function fieldHtml(f: Field, data: unknown, p: Path): string {
     }
     case 'select':
       return row(f.label, `<select data-t="select" data-p="${P(p)}">${f.options.map(([val, l]) => `<option value="${esc(val)}">${esc(l)}</option>`).join('')}</select>`, f.hint);
+    case 'go': {
+      // Слайды презентации (данные формы — сама презентация); слайд без id получит его при выборе
+      const slides = ((data as { slides?: SlideData[] })?.slides ?? []);
+      const opts: [string, string][] = [['', 'Дальше по порядку'], ['next', 'Следующий слайд'], ['first', 'Первый слайд'], ['last', 'Последний слайд'],
+        ...slides.map((s, k): [string, string] => [s.id ? `slide:${s.id}` : `idx:${k}`, `${k + 1} · ${slideLabel(s, k).slice(0, 40)}${s.hidden ? ' (скрыт)' : ''}`])];
+      return row(f.label, `<select data-t="go" data-p="${P(p)}">${opts.map(([val, l]) => `<option value="${esc(val)}">${esc(l)}</option>`).join('')}</select>`, f.hint);
+    }
     case 'bool':
       return `<label class="st-p-check"><input type="checkbox" data-t="bool" data-p="${P(p)}" data-def="${f.default ? 1 : 0}"${f.only ? ' data-only' : ''}${f.hides ? ` data-hides="${esc(f.hides.join(' '))}"` : ''}><span>${esc(f.label)}</span></label>`;
     case 'icon':
@@ -147,6 +156,8 @@ export function formSig(fields: Field[], data: unknown, base: Path): string {
       return `${f.k}:${Array.isArray(v) ? v.map((r) => (Array.isArray(r) ? r.length : 0)).join('.') : ''}|${Array.isArray(h) ? h.length : 0}`;
     }
     if (f.type === 'group') return `${f.k}{${formSig(f.fields, data, [...base, f.k])}}`;
+    // Переход к слайду: список слайдов в поле — по слайдам презентации
+    if (f.type === 'go') return `${f.k}:${((data as { slides?: SlideData[] })?.slides ?? []).map((s, k) => `${s.id ?? ''}${s.hidden ? '!' : ''}${slideLabel(s, k)}`).join('|')}`;
     return '';
   }).join(';');
 }
@@ -247,6 +258,27 @@ export function onFieldChange(el: HTMLInputElement, e: FormEdit): boolean {
   const raw = el.value;
   const as = el.dataset.as || undefined;
   if (t === 'media' && el.readOnly) return false;
+  if (t === 'go') {
+    // Слайд без id: даём ему id, чтобы переход не сбился, если слайды переставят
+    e.commit((d) => {
+      let v = raw;
+      if (v.startsWith('idx:')) {
+        const slides = (d as { slides: SlideData[] }).slides;
+        const k = Number(v.slice(4));
+        const target = slides[k];
+        if (!target) return;
+        if (!target.id) {
+          const used = new Set(slides.map((x) => x.id));
+          let id = `slide-${k + 1}`;
+          for (let n = 2; used.has(id); n++) id = `slide-${k + 1}-${n}`;
+          target.id = id;
+        }
+        v = `slide:${target.id}`;
+      }
+      write(d, p, v || undefined, as);
+    });
+    return true;
+  }
   if (t === 'text' || t === 'select' || t === 'media') {
     const keep = el.hasAttribute('data-keep-empty');
     const v = t === 'text' ? raw.replace(/\s+$/, '') : raw;

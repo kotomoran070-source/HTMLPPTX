@@ -1,4 +1,5 @@
 import type { Timeline } from './autoplay';
+import type { QuizState } from '../components/quiz/check';
 import type { Deck } from '../types';
 import type { InkMsg } from './ink';
 import type { Theme } from './theme';
@@ -26,6 +27,8 @@ export type SyncMsg =
   | { type: 'autoplay'; on: boolean; tl?: Timeline | null }
   /** Кадр картинки с кадрами перелистнули в одном окне — другое повторяет (key — слайд и путь картинки) */
   | { type: 'frame'; key: string; at: number }
+  /** Ответ на тест (key — вопрос; '*' и null — стереть все) в одном окне — другое повторяет */
+  | { type: 'quiz'; key: string; st: QuizState | null }
   /** Заметки слайда, дописанные в окне докладчика; окно показа отвечает notes-ok с тем же id */
   | { type: 'notes'; id: string; index: number; slide?: string; notes: string }
   | { type: 'notes-ok'; id: string; saved: 'auto' | 'file' | 'memory' }

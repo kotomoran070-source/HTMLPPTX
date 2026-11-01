@@ -17,6 +17,7 @@ import { forwardCovered } from './frame-bridge';
 import { CAMERA_SET } from '../components/media/model';
 import { MEDIA_SET } from '../components/media/video';
 import { GAL, GAL_SET, type FrameState } from '../components/layout/frames';
+import { QUIZ, QUIZ_NEXT, QUIZ_NUDGE, QUIZ_SET, quizGate, quizStore, type QuizMsg } from '../components/quiz/state';
 import { printDeck, setupPrint } from './print';
 import { fullscreenOn, planScreens, popupOn, screensGranted } from './screens';
 import { Sync } from './sync';
@@ -79,6 +80,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
 
   const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
   const vp = $('vp');
+  // Ответы на тесты при показе запоминаются (до «Пройти заново»): до отрисовки — тесты сразу с ответами
+  quizStore.persist(deckKey);
   const view = new DeckView(deck, vp);
   const sync = new Sync(deckKey);
   // Пульт с телефона: окно показа слушает свою комнату и после перезагрузки
@@ -166,9 +169,13 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     });
   }
 
-  function go(i: number, push = true): void {
+  /** Переход по ответу теста или кнопке: откуда пришли — «Назад» вернёт туда, а не на соседний слайд */
+  let jump: { from: number; to: number } | null = null;
+  /** exact — ровно на этот слайд, даже скрытый (переход по ответу, кнопка на слайде), как ссылка в PowerPoint */
+  function go(i: number, push = true, exact = false): void {
     const at = Math.max(0, Math.min(count() - 1, i));
-    const next = skip() ? landOn(deck, at, view.index) : at;
+    const next = skip() && !exact ? landOn(deck, at, view.index) : at;
+    if (jump && next !== jump.to) jump = null;
     const changed = next !== index || view.index !== next;
     const back = next < index;
     index = next;
@@ -192,15 +199,34 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     }
   }
 
-  /** «Далее» и «Назад»: сначала шаги слайда (формула по шагам), потом листание */
+  /** Переход действием (slide:<id>, next…) — ровно туда, с возвратом по «Назад» */
+  function jumpTo(action: string): boolean {
+    const to = actionTarget(action, deck, index);
+    if (!to || !('slide' in to)) return false;
+    const from = index;
+    go(to.slide, true, true);
+    if (index !== from) jump = { from, to: index };
+    return true;
+  }
+  /** «Далее» и «Назад»: сначала шаги слайда (формула по шагам), потом листание; тест — по ветке ответа */
   function next(): void {
-    if (!editor?.active && view.stepFwd()) moved();
-    else go(index + 1);
+    if (!editor?.active && view.stepFwd()) { moved(); return; }
+    if (!editor?.active) {
+      const g = quizGate(deck, index);
+      // Вопрос «дальше только после ответа» без ответа — тест напоминает о себе
+      if (g.locked) { window.dispatchEvent(new CustomEvent(QUIZ_NUDGE)); return; }
+      if (g.go && jumpTo(g.go)) return;
+    }
+    go(index + 1);
   }
   function prev(): void {
-    if (!editor?.active && view.stepBack()) moved();
-    else go(index - 1);
+    if (!editor?.active && view.stepBack()) { moved(); return; }
+    // Пришли сюда по ответу — назад к вопросу
+    if (jump && jump.to === index) { const back = jump.from; jump = null; go(back, true, true); return; }
+    go(index - 1);
   }
+  // «Дальше: …» на тесте — как стрелка вперёд
+  addEventListener(QUIZ_NEXT, () => next());
 
   // --- автопоказ (autoplay.ts): листает сам, A — пауза; полоска прогресса плавно идёт к следующему слайду ---
   const pg = $('pg');
@@ -766,7 +792,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     if (!to) return;
     e.preventDefault();
     e.stopPropagation();
-    if ('slide' in to) go(to.slide);
+    if ('slide' in to) jumpTo(el.dataset.action!);
     else window.open(to.url, '_blank', 'noopener');
   });
   // Песочница: код правят здесь — докладчику
@@ -775,6 +801,11 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     const i = Number(el.closest<HTMLElement>('.slide')?.dataset.index);
     const { code, run } = (e as CustomEvent<{ code: string; run?: boolean }>).detail ?? {};
     if (Number.isInteger(i) && el.dataset.block && typeof code === 'string') sync.send({ type: 'code', index: i, block: el.dataset.block, code, ...(run ? { run } : {}) });
+  });
+  // Тест: здесь ответили — докладчику
+  addEventListener(QUIZ, (e) => {
+    const d = (e as CustomEvent<QuizMsg>).detail;
+    sync.send({ type: 'quiz', key: d.key, st: d.st });
   });
   // Картинка с кадрами: здесь перелистнули — докладчику
   addEventListener(GAL, (e) => {
@@ -787,7 +818,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     sync.send({ type: 'vars', index: d.index, vars: d.vars });
   });
   sync.on((m, from) => {
-    if (m.type === 'goto') go(m.index);
+    // Окно докладчика уже выбрало слайд (в том числе скрытый — по ответу на тест): ровно туда
+    if (m.type === 'goto') go(m.index, true, true);
     // Шаг формулы из окна докладчика или с телефона
     else if (m.type === 'step') {
       if (m.index === index) {
@@ -826,6 +858,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       window.dispatchEvent(new CustomEvent(MEDIA_SET, { detail }));
     } else if (m.type === 'frame') {
       window.dispatchEvent(new CustomEvent<FrameState>(GAL_SET, { detail: { key: m.key, at: m.at } }));
+    } else if (m.type === 'quiz') {
+      window.dispatchEvent(new CustomEvent<QuizMsg>(QUIZ_SET, { detail: { key: m.key, st: m.st } }));
     } else if (m.type === 'ink') {
       ink.apply(m.ink);
       if (m.ink.op === 'cursor') hover.move(m.ink.x, m.ink.y);
