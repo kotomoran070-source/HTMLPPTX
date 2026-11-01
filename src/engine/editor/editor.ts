@@ -1278,7 +1278,7 @@ export class Editor {
 
   // ---------------- всплывающее поле ----------------
 
-  private prompt(anchor: Element, o: { label: string; value: string; placeholder?: string; hint?: string; allowEmpty?: boolean; validate?: (v: string) => string | null }): Promise<string | null> {
+  prompt(anchor: Element, o: { label: string; value: string; placeholder?: string; hint?: string; allowEmpty?: boolean; validate?: (v: string) => string | null }): Promise<string | null> {
     this.closePop();
     return new Promise((resolve) => {
       this.pop.innerHTML = `<label>${esc(o.label)}<input type="text" value="${esc(o.value)}" placeholder="${esc(o.placeholder ?? '')}" spellcheck="false"></label>`

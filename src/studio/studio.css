@@ -1594,3 +1594,6 @@ body.studio input[type="number"]:not(.edsize input) { padding-right: 19px; }
 .st-vown input::-webkit-inner-spin-button, .st-vown input::-webkit-outer-spin-button { appearance: none; margin: 0; }
 .st-vnote { margin: 10px 0 0; font: 400 12px/1.4 var(--font); color: var(--mu); }
 
+
+/* Срок полосы Ганта во время перетаскивания (gantt-drag) */
+.st-gt-tip { position: fixed; z-index: 60; translate: -50% -100%; padding: 5px 9px; border-radius: 7px; background: var(--tx); color: var(--bg); font: 600 12px/1.2 var(--font); white-space: nowrap; pointer-events: none; box-shadow: 0 6px 16px -8px rgba(15, 23, 42, .5); }

@@ -2000,12 +2000,20 @@ slides:
     let b = (await bar.boundingBox())!;
     await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
     await expect(slide.locator('.ed-block-sel .gantt')).toHaveCount(1);
+    // Видно, что так можно: подсказка, ручки на краях полос, подсказка у полосы
+    await expect(page.locator('#ed-toast')).toContainText('Двойной щелчок');
+    expect(await bar.evaluate((e) => getComputedStyle(e, '::after').backgroundImage)).toContain('gradient');
+    await expect(bar).toHaveAttribute('title', /края — сроки/);
     // Середина: на полтора периода вправо — два периода «с 2,5 по 4,5» (с середины второго до середины четвёртого)
     const u = await col();
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
     await page.mouse.down();
     await page.mouse.move(b.x + b.width / 2 + u * 1.5, b.y + b.height / 2, { steps: 8 });
+    // Во время перетаскивания — срок словами
+    await expect(page.locator('.st-gt-tip')).toHaveText('сер. Фев — сер. Апр');
+    await page.screenshot({ path: path.join(dir, '..', 'gantt-drag.png') }).catch(() => {});
     await page.mouse.up();
+    await expect(page.locator('.st-gt-tip')).toBeHidden();
     await expect.poll(() => [items()[0].from, items()[0].to]).toEqual([2.5, 4.5]);
     // Правый край: ещё на период — «по 5,5»
     b = (await bar.boundingBox())!;
@@ -2023,6 +2031,15 @@ slides:
     await expect.poll(() => items()[1].from).toBe(3);
     await page.keyboard.press('ControlOrMeta+z');
     await expect.poll(() => items()[1].from).toBe(4);
+    // Двойной щелчок по полосе — «Готово, %»
+    b = (await bar.boundingBox())!;
+    await page.mouse.dblclick(b.x + b.width / 2, b.y + b.height / 2);
+    const input = page.locator('#ed-pop input');
+    await expect(input).toHaveValue('50');
+    await input.fill('80');
+    await input.press('Enter');
+    await expect.poll(() => items()[0].done).toBe(80);
+    await expect(bar.locator('em')).toHaveText('80 %');
     await expect(slide.locator('.ed-block-sel .gantt')).toHaveCount(1);
     expect(errors).toEqual([]);
   } finally {

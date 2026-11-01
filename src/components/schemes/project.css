@@ -42,7 +42,11 @@
 
 /* Правка: у выделенной диаграммы полосу тянут мышью — за середину сдвинуть, за край — изменить срок */
 body.editing .ed-block-sel .gt-bar, body.editing .ed-block-sel .gt-ms { cursor: grab; }
-body.editing .ed-block-sel .gt-bar::before, body.editing .ed-block-sel .gt-bar::after { content: ""; position: absolute; z-index: 1; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
+/* Ручки на краях: белая черта в тёмной обводке — видна и на заливке, и на светлой части полосы */
+body.editing .ed-block-sel .gt-bar::before, body.editing .ed-block-sel .gt-bar::after { content: ""; position: absolute; z-index: 1; top: 0; bottom: 0; width: 9px; cursor: ew-resize;
+  background: linear-gradient(#fff, #fff) center / 3px 12px no-repeat, linear-gradient(var(--ach), var(--ach)) center / 5px 14px no-repeat; opacity: .75; transition: opacity .15s; }
+body.editing .ed-block-sel .gt-bar > em { padding-right: 14px; }
+body.editing .ed-block-sel .gt-bar:hover::before, body.editing .ed-block-sel .gt-bar:hover::after { opacity: 1; }
 body.editing .ed-block-sel .gt-bar::before { left: 0; }
 body.editing .ed-block-sel .gt-bar::after { right: 0; }
 body.editing .ed-block-sel .gt-bar:hover { box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 35%, transparent); }

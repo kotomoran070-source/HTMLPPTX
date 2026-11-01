@@ -1648,7 +1648,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   let textOf: (() => TextTarget | null) | null = null;
   Object.assign(cmds, contextCommands({ deck, editor: ed, stage: () => view.stage, run: (c) => run(c), refresh: () => queueState(), textTarget: (get) => { textOf = get; } }));
   const grips = tableGrips({ deck, editor: ed, stage: () => view.stage });
-  ganttDrag({ deck, editor: ed, stage: () => view.stage });
+  const gantt = ganttDrag({ deck, editor: ed, stage: () => view.stage });
   cmds['tab.shape'] = { run: () => setTab('shape') };
   cmds['tab.anim'] = { run: () => { setTab('anim'); if (!lay.ribbon) toggleRibbon(true); } };
   cmds['tab.table'] = { run: () => setTab('table') };
@@ -2110,6 +2110,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     syncDesignTab(designHost);
     aids?.redraw();
     grips.sync();
+    gantt.sync();
     code?.syncSelection();
     layers?.update();
     // Панель свойств — до доступности кнопок: её новые кнопки тоже получают «недоступно»
