@@ -9,7 +9,7 @@ import { defineBlock } from '../../engine/component';
 import { asArray, esc, styleAttr, t } from '../../engine/html';
 import { ea } from '../../engine/marks';
 import type { Block } from '../../types';
-import { polyline, trendOf, trendPath } from './trend';
+import { axisBounds, delta, polyline, trendCaption, trendOf, trendPath } from './trend';
 import './diagrams.css';
 
 /** Цвет k-го ряда из n: от акцента ко второму цвету темы, каждый следующий светлее */
@@ -308,12 +308,14 @@ defineBlock<LinesProps>('lines', {
     const n0 = Math.max(...series.map((s) => s.values.length));
     const m = n0 + ahead;
     const all = [...series.flatMap((s) => s.values), ...trends.flatMap((t) => t.line.filter((v): v is number => v !== null))];
-    const max = p.max ?? niceMax(Math.max(...all));
-    const min = p.min ?? 0;
+    // Свои границы — только верные; ниже нуля ось уходит сама, если есть отрицательные значения
+    const low = Math.min(...all);
+    const [min, max] = axisBounds(p.min, p.max, low < 0 ? -niceMax(-low) : 0, niceMax(Math.max(...all)));
     const top = 24;
     const bottom = 178;
     const x0 = 44;
     const x1 = 470;
+    const inside = (y: number) => y >= top - 6 && y <= bottom + 1;
     const X = (i: number) => x0 + (i * (x1 - x0)) / (m - 1);
     const Y = (v: number) => bottom - ((v - min) / (max - min || 1)) * (bottom - top);
     const id = ctx.uid('ln');
@@ -322,7 +324,15 @@ defineBlock<LinesProps>('lines', {
     // Прогноз — затенённая зона после последней точки
     let g0 = ahead ? `<rect class="fz" x="${X(n0 - 1).toFixed(1)}" y="${top - 6}" width="${(X(m - 1) - X(n0 - 1)).toFixed(1)}" height="${bottom - top + 6}"/>`
       + `<text class="tx fzt" x="${((X(n0 - 1) + X(m - 1)) / 2).toFixed(1)}" y="${bottom - 6}" text-anchor="middle">прогноз</text>` : '';
-    trends.forEach((t, k) => { if (t.line.length) g0 += `<path class="ln-tr" d="${trendPath(t.line, X, Y)}" style="stroke:${seriesColor(k, n)}"/>`; });
+    trends.forEach((t, k) => {
+      const cap = trendCaption(series[k].values, p.trend, p.forecast).replace(/^пунктир — /, '');
+      if (t.line.length) g0 += `<path class="ln-tr" d="${trendPath(t.line, X, Y)}" style="stroke:${seriesColor(k, n)}" data-tip="${esc(`${series[k].name}: ${cap}`)}"/>`;
+    });
+    // Что значит пунктир и прогноз — подписью над графиком
+    const cap0 = trendCaption(series[0].values, p.trend, p.forecast);
+    const note = cap0 ? `<div class="dg-note"><i></i>${esc(cap0.startsWith('пунктир') ? cap0 : n > 1 ? 'пунктир — линейный тренд каждого ряда' : cap0)}${ahead ? ` · прогноз на ${ahead} шаг${ahead === 1 ? '' : ahead < 5 ? 'а' : 'ов'}` : ''}</div>` : '';
+    let hits = '';
+    let endsG = '';
     // Подписи концов линий не наезжают друг на друга
     const ends = series.map((s, k) => ({ k, y: Y(s.values[s.values.length - 1]) })).sort((a, b) => a.y - b.y);
     for (let i = 1; i < ends.length; i++) ends[i].y = Math.max(ends[i].y, ends[i - 1].y + 26);
@@ -335,17 +345,21 @@ defineBlock<LinesProps>('lines', {
       const [lx, ly] = pts[pts.length - 1];
       if (k === 0) g += `<path class="ln-a" d="${d}L${lx.toFixed(1)} ${bottom}L${x0} ${bottom}Z" fill="url(#${id})"/>`;
       if (straight) g += pts.slice(0, -1).map(([x, y]) => `<circle class="ln-p" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" style="stroke:${c};--k:${k}"/>`).join('');
-      g += `<path class="ln-l" pathLength="1" d="${d}" style="stroke:${c};--k:${k}"/>`
-        + `<g class="ln-e" style="--k:${k}"><circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="5" style="stroke:${c}"/>`
+      hits += pts.map(([x, y], i) => (inside(y) ? `<circle class="hit" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="10" data-tip="${esc(`${s.name}${labels[i] ? ` · ${labels[i]}` : ''}: ${fmtNum(s.values[i])}${p.unit ?? ''}${i ? ` · ${delta(s.values[i], s.values[i - 1])}` : ''}`)}"/>` : '')).join('');
+      g += `<path class="ln-l" pathLength="1" d="${d}" style="stroke:${c};--k:${k}"/>`;
+      // Конец линии за границей оси — без подписи
+      if (!inside(ly)) return;
+      endsG += `<g class="ln-e" style="--k:${k}"><circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="5" style="stroke:${c}"/>`
         + `<text class="ln-t" x="${lx + 12}" y="${(endY.get(k)! - 2).toFixed(1)}">${fmtNum(s.values[s.values.length - 1])}${esc(p.unit ?? '')}</text>`
         + `<text class="ln-n" x="${lx + 12}" y="${(endY.get(k)! + 11).toFixed(1)}"${ea((p.series as unknown[])[k], 'name')}>${esc(s.name)}</text></g>`;
     });
     const step = Math.ceil(m / 8);
     let xl = '';
     for (let i = 0; i < m; i += step) if (labels[i]) xl += `<text class="tx" x="${X(i).toFixed(1)}" y="${bottom + 18}" text-anchor="middle"${ea(p.labels, i)}>${esc(labels[i])}</text>`;
-    return `<div class="dg"${styleAttr(p.style)}>${legend(p, series)}<svg class="lines" viewBox="0 0 560 200" role="img" aria-label="Линии: ${esc(series.map((s) => s.name).join(', '))}">`
-      + `<defs><linearGradient id="${id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--ac)" stop-opacity=".2"/><stop offset="1" stop-color="var(--ac)" stop-opacity="0"/></linearGradient></defs>`
-      + `${yGrid(min, max, x0, x1, top, bottom, p.unit)}${xl}${g0}${g}</svg></div>`;
+    return `<div class="dg"${styleAttr(p.style)}>${legend(p, series)}${note}<svg class="lines" viewBox="0 0 560 200" role="img" aria-label="Линии: ${esc(series.map((s) => s.name).join(', '))}">`
+      + `<defs><linearGradient id="${id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--ac)" stop-opacity=".2"/><stop offset="1" stop-color="var(--ac)" stop-opacity="0"/></linearGradient>`
+      + `<clipPath id="${id}c"><rect x="${x0 - 6}" y="${top - 6}" width="${x1 - x0 + 12}" height="${bottom - top + 7}"/></clipPath></defs>`
+      + `${yGrid(min, max, x0, x1, top, bottom, p.unit)}${xl}<g clip-path="url(#${id}c)">${g0}${g}</g>${endsG}${hits}</svg></div>`;
   },
 });
 

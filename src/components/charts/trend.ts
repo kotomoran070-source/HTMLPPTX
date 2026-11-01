@@ -104,3 +104,29 @@ export function trendPath(line: (number | null)[], X: (i: number) => number, Y: 
   });
   return d;
 }
+
+/** Свои границы оси: только если обе числа и нижняя меньше верхней; иначе — по данным */
+export function axisBounds(min: unknown, max: unknown, autoMin: number, autoMax: number): [number, number] {
+  const num = (v: unknown) => (v === undefined || v === null || v === '' ? NaN : Number(v));
+  const a = Number.isFinite(num(min)) ? Number(min) : autoMin;
+  const b = Number.isFinite(num(max)) ? Number(max) : autoMax;
+  return b > a ? [a, b] : [autoMin, autoMax];
+}
+
+/** Что значит пунктир: «тренд: +10,9 за шаг · R² = 0,93» или «пунктир — среднее за 3 точки» */
+export function trendCaption(values: number[], trend: unknown, forecast: unknown): string {
+  const kind = trendKind(trend) ?? (Number(forecast) > 0 ? 'linear' : null);
+  if (!kind || values.length < 2) return '';
+  if (kind !== 'linear') return `пунктир — среднее за ${kind} ${kind < 5 ? 'точки' : 'точек'}`;
+  const f = linearFit(values.map((_v, i) => i), values);
+  if (!f) return '';
+  return `тренд: ${f.b >= 0 ? '+' : ''}${ruNum(f.b)} за шаг · R² = ${ruNum(Math.round(f.r2 * 100) / 100)}`;
+}
+
+/** Изменение к предыдущему значению: «+8 (+6,7 %)» */
+export function delta(v: number, prev: number | undefined): string {
+  if (prev === undefined) return '';
+  const d = v - prev;
+  const pct = prev !== 0 ? ` (${d >= 0 ? '+' : ''}${ruNum(Math.round((d / Math.abs(prev)) * 1000) / 10)} %)` : '';
+  return `${d >= 0 ? '+' : ''}${ruNum(d)}${pct}`;
+}

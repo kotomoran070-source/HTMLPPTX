@@ -2,7 +2,10 @@ import { defineBlock } from '../../engine/component';
 import { asArray, esc, num, styleAttr, t } from '../../engine/html';
 import { ea } from '../../engine/marks';
 import type { Block } from '../../types';
-import { polyline, trendOf, trendPath } from './trend';
+import { axisBounds, delta, polyline, trendCaption, trendOf, trendPath } from './trend';
+import { installChartTips } from './tip';
+
+installChartTips();
 import './charts.css';
 
 interface LineChartProps extends Block {
@@ -61,8 +64,8 @@ defineBlock<LineChartProps>('line-chart', {
     const lo = Math.min(...known);
     const hi = Math.max(...known);
     const pad = (hi - lo) * 0.14 || Math.abs(hi) * 0.1 || 1;
-    const mn = p.min ?? lo - pad;
-    const mx = p.max ?? hi + pad;
+    // Свои границы — только верные (нижняя меньше верхней); что за ними — обрезается по полю графика
+    const [mn, mx] = axisBounds(p.min, p.max, lo - pad, hi + pad);
     const scale = p.scale ?? (hi >= 10000 ? 1000 : 1);
     const unit = p.unit ?? (scale === 1000 ? 'тыс' : '');
     const x0 = 48;
@@ -97,7 +100,14 @@ defineBlock<LineChartProps>('line-chart', {
         + `<circle class="fp" cx="${fx.toFixed(1)}" cy="${Y(fv).toFixed(1)}" r="4"/>`
         + `<text class="fpt" x="${fx.toFixed(1)}" y="${(Y(fv) - 10).toFixed(1)}" text-anchor="end">≈ ${fmt(fv, scale)}</text>`;
     }
-    if (tr.line.length) extra += `<path class="tr" d="${trendPath(tr.line, X, Y)}"/>`;
+    const cap = trendCaption(D, p.trend, p.forecast);
+    if (tr.line.length) extra += `<path class="tr" d="${trendPath(tr.line, X, Y)}"${cap ? ` data-tip="${esc(cap.replace(/^пунктир — /, ''))}"` : ''}/>`;
+    // Что значит пунктир — над полем слева
+    const caption = cap ? `<text class="trc" x="${x0 + 2}" y="${top - 12}">${esc(cap)}</text>` : '';
+    // Значение под мышью: у каждой точки — невидимая область побольше
+    const u = unit ? ` ${unit}` : '';
+    const hits = pts.map(([x, y], k) => `<circle class="hit" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="11" data-tip="${esc(`${k + 1}-я из ${D.length}: ${fmt(D[k], scale)}${u}${k ? ` · ${delta(D[k], D[k - 1])}` : ''}`)}"/>`).join('')
+      + (tr.ahead ? `<circle class="hit" cx="${X(total - 1).toFixed(1)}" cy="${Y(tr.line[total - 1]!).toFixed(1)}" r="11" data-tip="${esc(`Прогноз через ${tr.ahead} шаг${tr.ahead === 1 ? '' : tr.ahead < 5 ? 'а' : 'ов'}: ≈ ${fmt(tr.line[total - 1]!, scale)}${u}`)}"/>` : '');
     // Ломаная — с точками: видно, где измерения
     const dots = straight ? pts.slice(0, -1).map(([x, y], k) => `<circle class="pp" style="--k:${k}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3"/>`).join('') : '';
     const last = D[D.length - 1];
@@ -107,13 +117,15 @@ defineBlock<LineChartProps>('line-chart', {
     const ty = ly - 30 < 2 ? ly + 12 : ly - 30;
     return `<svg class="line-chart" viewBox="0 0 560 192"${styleAttr(p.style)} role="img" aria-label="График: последнее значение ${tag}">`
       + `<defs><linearGradient id="${id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--ac)" stop-opacity=".26"/><stop offset="1" stop-color="var(--ac)" stop-opacity="0"/></linearGradient></defs>`
-      + grid
-      + extra
+      + `<clipPath id="${id}c"><rect x="${x0 - 6}" y="${top - 6}" width="${x1 - x0 + 12}" height="${bottom - top + 6}"/></clipPath>`
+      + grid + caption
+      + `<g clip-path="url(#${id}c)">${extra}`
       + `<path class="fd" d="${line}L${lx.toFixed(1)} ${bottom}L${x0} ${bottom}Z" fill="url(#${id})"/>`
-      + `<path class="dr" pathLength="1" d="${line}"/>${dots}`
-      + `<g class="lp"><circle class="halo" cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="9"/><circle class="pt" cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4.5"/>`
-      + `<rect class="tag" x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" width="${tw.toFixed(1)}" height="20" rx="6"/><text class="tagt" x="${(tx + tw / 2).toFixed(1)}" y="${(ty + 14).toFixed(1)}" text-anchor="middle">${tag}</text></g>`
-      + `</svg>`;
+      + `<path class="dr" pathLength="1" d="${line}"/>${dots}</g>`
+      // Последняя точка за границей оси — без подписи (обрезана вместе с линией)
+      + (ly < top - 6 || ly > bottom + 1 ? '' : `<g class="lp"><circle class="halo" cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="9"/><circle class="pt" cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4.5"/>`
+      + `<rect class="tag" x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" width="${tw.toFixed(1)}" height="20" rx="6"/><text class="tagt" x="${(tx + tw / 2).toFixed(1)}" y="${(ty + 14).toFixed(1)}" text-anchor="middle">${tag}</text></g>`)
+      + hits + `</svg>`;
   },
 });
 

@@ -14,7 +14,7 @@
 /* Ломаная: точки измерений; тренд — пунктиром; прогноз — затенённая зона и ожидаемое значение */
 .line-chart .pp { fill: var(--surf); stroke: var(--ac); stroke-width: 2; }
 .line-chart .tr, .dg .ln-tr { fill: none; stroke: var(--tx2, var(--mu)); stroke-width: 1.8; stroke-dasharray: 6 5; stroke-linecap: round; opacity: .8; }
-.line-chart .fz, .dg .fz { fill: color-mix(in srgb, var(--alt) 70%, transparent); }
+.line-chart .fz, .dg .fz { fill: color-mix(in srgb, var(--tx) 5%, transparent); stroke: color-mix(in srgb, var(--tx) 14%, transparent); stroke-dasharray: 3 4; }
 .line-chart .fzt, .dg .fzt { font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; }
 .line-chart .fp { fill: var(--surf); stroke: var(--tx2, var(--mu)); stroke-width: 2; stroke-dasharray: 2 2; }
 .line-chart .fpt { fill: var(--tx2, var(--mu)); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -38,3 +38,18 @@
 .bars em { position: absolute; bottom: -20px; left: 0; right: 0; text-align: center; font-size: 12px; font-style: normal; color: var(--mu); }
 .slide.on .bars div { animation: gr .8s var(--ease) both; animation-delay: calc(.5s + var(--k) * .12s); }
 @keyframes gr { from { transform: scaleY(0); } }
+
+/* Значения под мышью (tip.ts): у точек — невидимая область побольше, точка под мышью подсвечена */
+:is(.line-chart, .dg) .hit { fill: transparent; stroke: none; pointer-events: all; cursor: default; }
+:is(.line-chart, .dg) .hit.tip-on { fill: color-mix(in srgb, var(--ac) 18%, transparent); stroke: var(--ac); stroke-width: 1.5; }
+:is(.line-chart, .dg) :is(.tr, .ln-tr, .sc-tr) { pointer-events: stroke; }
+:is(.line-chart, .dg) :is(.tr, .ln-tr, .sc-tr).tip-on { stroke-width: 3; opacity: 1; }
+.dg .sc-p.tip-on { fill-opacity: 1; stroke: var(--tx); stroke-width: 2; }
+.ch-tip { position: fixed; z-index: 2147483000; max-width: 320px; padding: 6px 10px; border-radius: 8px; pointer-events: none;
+  background: var(--tx, #111827); color: var(--bg, #fff); font: 600 12.5px/1.35 var(--font, system-ui); font-variant-numeric: tabular-nums;
+  box-shadow: 0 8px 22px -10px rgba(15, 23, 42, .55); }
+/* Что значит пунктир: «тренд: +10,9 за шаг · R² = 0,93» */
+.line-chart .trc { fill: var(--tx2, var(--mu)); font-size: 10px; font-weight: 600; }
+.dg-note { display: flex; align-items: center; gap: 8px; margin: -2px 0 8px; font: 500 12.5px/1.3 var(--font); color: var(--tx2, var(--mu)); }
+.dg-note i { flex: none; width: 18px; height: 0; border-top: 2px dashed currentColor; }
+.dg .sc-out { font-size: 10px; fill: #DC2626; }

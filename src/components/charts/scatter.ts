@@ -8,7 +8,7 @@ import { esc, styleAttr } from '../../engine/html';
 import { ea } from '../../engine/marks';
 import type { Block } from '../../types';
 import { legend, seriesColor } from './diagrams';
-import { equation, linearFit, niceAxis, ruNum, trendKind } from './trend';
+import { axisBounds, equation, linearFit, niceAxis, ruNum, trendKind } from './trend';
 
 /** Точка: [x, y], [x, y, размер] или { x, y, size, label } */
 type RawPoint = unknown;
@@ -49,10 +49,9 @@ export function pointsOf(raw: unknown): Pt[] {
   }).filter((p): p is Pt => !!p);
 }
 
-const finite = (v: unknown) => (v === undefined || v === null || v === '' ? NaN : Number(v));
 
 defineBlock<ScatterProps>('scatter', {
-  render(p) {
+  render(p, ctx) {
     const own = Array.isArray(p.series) && p.series.length;
     const series = (own ? p.series! : [{ name: '', points: p.points }])
       .map((s, k) => ({ name: String(s?.name ?? `Ряд ${k + 1}`), pts: pointsOf(s?.points) }));
@@ -62,10 +61,11 @@ defineBlock<ScatterProps>('scatter', {
     const span = (vs: number[]) => { const lo = Math.min(...vs); const hi = Math.max(...vs); const d = (hi - lo) * 0.04; return [lo - d, hi + d] as const; };
     const ax = niceAxis(...span(all.map((q) => q.x)), 5);
     const ay = niceAxis(...span(all.map((q) => q.y)), 5);
-    const xMin = Number.isFinite(finite(p.xMin)) ? Number(p.xMin) : ax.min;
-    const xMax = Number.isFinite(finite(p.xMax)) ? Number(p.xMax) : ax.max;
-    const yMin = Number.isFinite(finite(p.yMin)) ? Number(p.yMin) : ay.min;
-    const yMax = Number.isFinite(finite(p.yMax)) ? Number(p.yMax) : ay.max;
+    // Свои границы — только верные («от» меньше «до»); точки за ними не рисуются, их число подписано
+    const [xMin, xMax] = axisBounds(p.xMin, p.xMax, ax.min, ax.max);
+    const [yMin, yMax] = axisBounds(p.yMin, p.yMax, ay.min, ay.max);
+    const within = (q: Pt) => q.x >= xMin && q.x <= xMax && q.y >= yMin && q.y <= yMax;
+    const hidden = all.filter((q) => !within(q)).length;
     const x0 = 52, x1 = 548, top = 22, bottom = 214;
     const X = (v: number) => x0 + ((v - xMin) / (xMax - xMin || 1)) * (x1 - x0);
     const Y = (v: number) => bottom - ((v - yMin) / (yMax - yMin || 1)) * (bottom - top);
@@ -97,8 +97,12 @@ defineBlock<ScatterProps>('scatter', {
     series.forEach((s, j) => {
       const c = seriesColor(j, n);
       for (const q of s.pts) {
-        const tip = `${s.name ? `${s.name}: ` : ''}${q.label ? `${q.label} — ` : ''}${ruNum(q.x)}; ${ruNum(q.y)}${q.size ? `; ${ruNum(q.size)}` : ''}`;
-        dots += `<circle class="sc-p" cx="${f(X(q.x))}" cy="${f(Y(q.y))}" r="${f(R(q))}" style="fill:${c};--k:${k++}"><title>${esc(tip)}</title></circle>`;
+        if (!within(q)) continue;
+        // Подсказка — с подписями осей: «Температура, °C: 12 · Потребление, кВт: 268»
+        const xl = p.xLabel ? `${p.xLabel}: ` : 'x = ';
+        const yl = p.yLabel ? `${p.yLabel}: ` : 'y = ';
+        const tip = `${s.name && own ? `${s.name} · ` : ''}${q.label ? `${q.label} · ` : ''}${xl}${ruNum(q.x)} · ${yl}${ruNum(q.y)}${q.size ? ` · размер ${ruNum(q.size)}` : ''}`;
+        dots += `<circle class="sc-p" cx="${f(X(q.x))}" cy="${f(Y(q.y))}" r="${f(R(q))}" style="fill:${c};--k:${k++}" data-tip="${esc(tip)}"/>`;
       }
     });
     // Тренд: прямая по точкам ряда на его отрезке x, уравнение и R² — у правого конца
@@ -116,15 +120,20 @@ defineBlock<ScatterProps>('scatter', {
         const c = seriesColor(j, n);
         const ya = fit.a + fit.b * a;
         const yb = fit.a + fit.b * b;
-        trend += `<line class="sc-tr" x1="${f(X(a))}" y1="${f(Y(ya))}" x2="${f(X(b))}" y2="${f(Y(yb))}" style="stroke:${c}"/>`;
+        if (b <= a) return;
+        const what = `${n > 1 ? `${s.name}: ` : ''}${equation(fit)} · R² = ${ruNum(Math.round(fit.r2 * 100) / 100)}`;
+        trend += `<line class="sc-tr" x1="${f(X(a))}" y1="${f(Y(ya))}" x2="${f(X(b))}" y2="${f(Y(yb))}" style="stroke:${c}" data-tip="${esc(`Тренд — ${what}`)}"/>`;
         if (p.equation !== false) {
           const name = n > 1 ? `${s.name}: ` : '';
           eqs += `<text class="sc-eq" x="${right ? x1 - 6 : x0 + 8}" y="${top + 12 + j * 16}" text-anchor="${right ? 'end' : 'start'}" style="fill:${c}">${esc(name + equation(fit))} · R² = ${ruNum(Math.round(fit.r2 * 100) / 100)}</text>`;
         }
       });
     }
+    const id = ctx.uid('sc');
+    const out = hidden ? `<text class="tx sc-out" x="${x0}" y="${bottom + 34}">${hidden} ${hidden % 10 === 1 && hidden % 100 !== 11 ? 'точка' : [2, 3, 4].includes(hidden % 10) && ![12, 13, 14].includes(hidden % 100) ? 'точки' : 'точек'} вне осей</text>` : '';
     return `<div class="dg sc"${styleAttr(p.style)}>${own ? legend(p, series) : ''}`
       + `<svg class="scatter" viewBox="0 0 560 254" role="img" aria-label="Точечная диаграмма${p.xLabel ? `: ${esc(p.xLabel)}` : ''}${p.yLabel ? ` и ${esc(p.yLabel)}` : ''}">`
-      + `${grid}${axes}${dots}${trend}${eqs}</svg></div>`;
+      + `<defs><clipPath id="${id}"><rect x="${x0 - 20}" y="${top - 20}" width="${x1 - x0 + 40}" height="${bottom - top + 40}"/></clipPath><clipPath id="${id}t"><rect x="${x0}" y="${top}" width="${x1 - x0}" height="${bottom - top}"/></clipPath></defs>`
+      + `${grid}${axes}${out}<g clip-path="url(#${id}t)">${trend}</g><g clip-path="url(#${id})">${dots}</g>${eqs}</svg></div>`;
   },
 });

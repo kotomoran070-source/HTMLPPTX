@@ -1,6 +1,6 @@
 // Тренды графиков: регрессия с R², скользящее среднее, прогноз, «круглые» оси, уравнение по-русски
 import { expect, test } from '@playwright/test';
-import { equation, linearFit, movingAverage, niceAxis, ruNum, trendKind, trendOf } from '../../src/components/charts/trend';
+import { axisBounds, delta, equation, linearFit, movingAverage, niceAxis, ruNum, trendCaption, trendKind, trendOf } from '../../src/components/charts/trend';
 
 test('линейная регрессия: точная прямая — R² = 1, шум — меньше; одинаковые x — нет прямой', () => {
   const f = linearFit([0, 1, 2, 3], [1, 3, 5, 7])!;
@@ -32,4 +32,16 @@ test('оси — круглыми делениями, уравнение и чи
   expect(equation({ a: -15.2, b: 2.1, r2: 1 })).toBe('y = 2,1x − 15,2');
   expect(equation({ a: 343.4, b: -5.734, r2: 1 })).toBe('y = −5,73x + 343');
   expect(ruNum(12345.6).replace(/\s/g, ' ')).toBe('12 346');
+});
+
+test('свои границы оси — только верные; подпись тренда и изменение к предыдущему значению', () => {
+  expect(axisBounds(0, 10, -20, 30)).toEqual([0, 10]);
+  expect(axisBounds(150, 100, 94, 255)).toEqual([94, 255]); // «от» больше «до» — по данным
+  expect(axisBounds('', 300, 94, 255)).toEqual([94, 300]);
+  expect(axisBounds(400, undefined, 94, 255)).toEqual([94, 255]); // нижняя выше верхней по данным
+  expect(trendCaption([10, 12, 14, 16], 'linear', 0)).toBe('тренд: +2 за шаг · R² = 1');
+  expect(trendCaption([1, 2, 3], 3, 0)).toBe('пунктир — среднее за 3 точки');
+  expect(trendCaption([1, 2, 3], '', 0)).toBe('');
+  expect(delta(15, 11)).toBe('+4 (+36,4 %)');
+  expect(delta(9, 12)).toBe('−3 (−25 %)');
 });

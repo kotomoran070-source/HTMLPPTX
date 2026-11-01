@@ -2078,6 +2078,11 @@ slides:
     await expect(slide.locator('.line-chart').first().locator('.pp')).toHaveCount(5);
     await expect(slide.locator('.line-chart').nth(1).locator('.tr')).toHaveCount(1);
     await expect(slide.locator('.line-chart').nth(1).locator('.fpt')).toHaveText('≈ 21'); // 9,67 + 1,6 · 7 = 20,87
+    // Что значит пунктир — подписано; значение точки — сразу под мышью, с изменением к предыдущей
+    await expect(slide.locator('.line-chart').nth(1).locator('.trc')).toHaveText('тренд: +1,6 за шаг · R² = 0,91');
+    await slide.locator('.line-chart').first().locator('.hit').nth(3).hover();
+    await expect(page.locator('.ch-tip')).toHaveText('4-я из 6: 15 · +4 (+36,4 %)');
+    await expect(page.locator('.ch-tip')).toBeVisible();
     await page.locator('[data-cmd="file.export"]').first().click();
     const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 90_000 }), page.locator('[data-x="pptx"]').click()]);
     const zip = await (await import('jszip')).default.loadAsync(fs.readFileSync(await dl.path()));
@@ -2099,7 +2104,21 @@ slides:
     await ta.blur();
     await expect.poll(() => free(1)[0].points.at(-1)).toEqual([25, 210]);
     await expect(slide.locator('.sc-p')).toHaveCount(13);
-    await expect(slide.locator('.sc-p').last().locator('title')).toHaveText('25; 210');
+    await slide.locator('.sc-p').last().hover();
+    await expect(page.locator('.ch-tip')).toHaveText('Температура, °C: 25 · Потребление, кВт: 210');
+    // Свои границы осей: точки за ними не рисуются, их число подписано; «от» больше «до» — границы по данным
+    const xmin = page.locator('#st-props input[data-p*="xMin"]');
+    const xmax = page.locator('#st-props input[data-p*="xMax"]');
+    await xmin.fill('0');
+    await xmin.press('Enter');
+    await xmax.fill('10');
+    await xmax.press('Enter');
+    await expect(slide.locator('.sc-p')).toHaveCount(4);
+    await expect(slide.locator('.sc-out')).toHaveText('9 точек вне осей');
+    await xmax.fill('-5');
+    await xmax.press('Enter');
+    await expect(slide.locator('.sc-p')).toHaveCount(13);
+    await expect(slide.locator('.sc-out')).toHaveCount(0);
     expect(errors).toEqual([]);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
