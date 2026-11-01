@@ -1973,7 +1973,7 @@ test('проектные схемы из галереи «Схемы»: матр
   }
 });
 
-test('диаграмма Ганта: у выделенной полосу тянут — середина сдвигает срок, край меняет конец, веха — по периодам; одним шагом отмены', async ({ page }) => {
+test('диаграмма Ганта: у выделенной полосу тянут — середина сдвигает срок, край меняет конец, веха — по периодам, «Сегодня» — тоже; одним шагом отмены', async ({ page }) => {
   const errors = watchErrors(page);
   const dir = path.join(DECKS, 'ganttdrag');
   fs.mkdirSync(dir, { recursive: true });
@@ -1984,6 +1984,7 @@ slides:
     free:
       - type: gantt
         scale: [Янв, Фев, Мар, Апр, Май, Июн]
+        today: 2
         place: {x: 64, y: 120, w: 1152}
         items:
           - {title: Прототип, from: 1, to: 2, done: 50}
@@ -2040,6 +2041,14 @@ slides:
     await input.press('Enter');
     await expect.poll(() => items()[0].done).toBe(80);
     await expect(bar.locator('em')).toHaveText('80 %');
+    // «Сегодня» — тоже мышью: на полтора периода вправо — середина третьего
+    const today = (await slide.locator('.gt-today span').boundingBox())!;
+    await page.mouse.move(today.x + today.width / 2, today.y + today.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(today.x + today.width / 2 + u * 1.5, today.y + today.height / 2, { steps: 8 });
+    await expect(page.locator('.st-gt-tip')).toHaveText('Сегодня: сер. Мар');
+    await page.mouse.up();
+    await expect.poll(() => (parse(fs.readFileSync(file, 'utf8')) as { slides: { free: { today: number }[] }[] }).slides[0].free[0].today).toBe(3.5);
     await expect(slide.locator('.ed-block-sel .gantt')).toHaveCount(1);
     expect(errors).toEqual([]);
   } finally {

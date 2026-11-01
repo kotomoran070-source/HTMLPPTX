@@ -1,4 +1,4 @@
-import { getAt } from '../engine/data';
+import { getAt, setAt } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
 import type { Deck } from '../types';
 
@@ -16,7 +16,7 @@ function when(v: number, labels: string[], end: boolean): string {
 
 /**
  * Полосы диаграммы Ганта — мышью на слайде: у выделенной диаграммы полосу тянут за середину — сдвинуть
- * срок, за край — начало или конец; веху — по периодам. Шаг — полпериода, запись — одним шагом отмены.
+ * срок, за край — начало или конец; веху — по периодам, «Сегодня» — по полупериодам. Шаг — полпериода, запись — одним шагом отмены.
  * Ручки на краях полос, подсказка при первых выделениях, во время перетаскивания — срок словами;
  * двойной щелчок по полосе — поле «Готово, %»
  */
@@ -28,18 +28,18 @@ export function ganttDrag(h: { deck: Deck; editor: Editor; stage(): HTMLElement 
   document.body.appendChild(tip);
   /** Полоса выделенной диаграммы под элементом и путь диаграммы */
   const hit = (t: Element | null) => {
-    const el = t?.closest?.<HTMLElement>('.gt-bar, .gt-ms');
+    const el = t?.closest?.<HTMLElement>('.gt-bar, .gt-ms, .gt-today');
     const box = el?.closest<HTMLElement>('[data-block]');
     const sel = h.editor.selection;
     if (!el || !box || !h.stage().contains(el) || h.editor.editingField) return null;
     if (!sel || sel.group.length > 1 || JSON.stringify(sel.block) !== box.dataset.block) return null;
-    const k = Number(el.dataset.gk);
+    const k = el.classList.contains('gt-today') ? -1 : Number(el.dataset.gk);
     return Number.isInteger(k) ? { el, path: sel.block, k } : null;
   };
   // Двойной щелчок по полосе — готовность задачи
   addEventListener('dblclick', (e) => {
     const t = hit(e.target as Element);
-    if (!t || t.el.classList.contains('gt-ms')) return;
+    if (!t || t.k < 0 || t.el.classList.contains('gt-ms')) return;
     e.preventDefault();
     e.stopPropagation();
     const item = getAt(h.deck, [...t.path, 'items', t.k]) as { done?: unknown } | undefined;
@@ -63,6 +63,7 @@ export function ganttDrag(h: { deck: Deck; editor: Editor; stage(): HTMLElement 
     const t = e.button === 0 ? hit(e.target as Element) : null;
     if (!t) return;
     const { el, path, k } = t;
+    if (k < 0) return dragToday(e, el, path);
     const labels = [...el.closest('.gantt')!.querySelectorAll('.gt-scale span')].map((x) => x.textContent?.trim() ?? '');
     const track = el.parentElement!;
     const n = Number(getComputedStyle(el.closest('.gantt')!).getPropertyValue('--n')) || 1;
@@ -127,6 +128,40 @@ export function ganttDrag(h: { deck: Deck; editor: Editor; stage(): HTMLElement 
     addEventListener('pointermove', move);
     addEventListener('pointerup', up);
   }, true);
+  /** «Сегодня» — по полупериодам; в данных — today в тех же периодах (3,5 — середина третьего) */
+  const dragToday = (e: PointerEvent, el: HTMLElement, path: (string | number)[]) => {
+    const cols = el.parentElement!;
+    const n = Number(getComputedStyle(el.closest('.gantt')!).getPropertyValue('--n')) || 1;
+    const box = cols.getBoundingClientRect();
+    const unit = box.width / n;
+    if (!(unit > 0)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const labels = [...el.closest('.gantt')!.querySelectorAll('.gt-scale span')].map((x) => x.textContent?.trim() ?? '');
+    const at0 = Math.round(((el.getBoundingClientRect().left + 1 - box.left) / unit) * 2) / 2;
+    let at = at0;
+    const x0 = e.clientX;
+    document.body.classList.add('st-gt-drag');
+    const move = (ev: PointerEvent) => {
+      at = Math.max(0, Math.min(n, Math.round((at0 + (ev.clientX - x0) / unit) * 2) / 2));
+      el.style.left = `${(at / n) * 100}%`;
+      tip.textContent = `Сегодня: ${Number.isInteger(at) ? `начало ${labels[at] ?? at + 1}` : when(at, labels, false)}`;
+      const b = el.getBoundingClientRect();
+      tip.hidden = false;
+      tip.style.left = `${b.left}px`;
+      tip.style.top = `${b.top - 14}px`;
+    };
+    const up = () => {
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', up);
+      document.body.classList.remove('st-gt-drag');
+      tip.hidden = true;
+      if (Math.abs(at - at0) < 1e-6) return;
+      h.editor.commit((d) => setAt(d, [...path, 'today'], at + 1), { rebuild: true });
+    };
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+  };
   let shown = '';
   return {
     sync() {
@@ -134,6 +169,7 @@ export function ganttDrag(h: { deck: Deck; editor: Editor; stage(): HTMLElement 
       const box = sel && sel.group.length === 1 ? h.stage().querySelector<HTMLElement>(`.slide.on [data-block="${CSS.escape(JSON.stringify(sel.block))}"]`) : null;
       if (!box || !(box.matches('.gantt') || box.querySelector('.gantt'))) { shown = ''; return; }
       box.querySelectorAll<HTMLElement>('.gt-bar, .gt-ms').forEach((b) => { b.title = b.classList.contains('gt-ms') ? 'Тяните, чтобы перенести веху' : HINT; });
+      box.querySelectorAll<HTMLElement>('.gt-today').forEach((b) => { b.title = 'Тяните, чтобы перенести «Сегодня»'; });
       // Подсказка — при первых трёх выделениях диаграммы (не на каждой перерисовке)
       const key = box.dataset.block ?? '';
       if (shown === key) return;

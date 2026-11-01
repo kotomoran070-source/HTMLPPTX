@@ -51,6 +51,10 @@ body.editing .ed-block-sel .gt-bar::before { left: 0; }
 body.editing .ed-block-sel .gt-bar::after { right: 0; }
 body.editing .ed-block-sel .gt-bar:hover { box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 35%, transparent); }
 body.st-gt-drag, body.st-gt-drag * { user-select: none; }
+/* «Сегодня» у выделенной диаграммы тоже тянется: полоса пошире для мыши, ярлык — тоже ручка */
+body.editing .ed-block-sel .gt-today { pointer-events: auto; cursor: ew-resize; }
+body.editing .ed-block-sel .gt-today::before { content: ""; position: absolute; top: 0; bottom: 0; left: -7px; width: 12px; }
+body.editing .ed-block-sel .gt-today span { cursor: ew-resize; box-shadow: 0 0 0 2px color-mix(in srgb, var(--late) 30%, transparent); }
 
 /* ---------- матрица рисков ---------- */
 .risks { --lv0: #16A34A; --lv1: #CA8A04; --lv2: #EA580C; --lv3: #DC2626;
