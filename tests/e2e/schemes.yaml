@@ -75,3 +75,12 @@ slides:
   - template: content
     title: Где развернуть систему
     body: {type: decision, options: [Свой сервер, Облако, Гибрид], criteria: [{title: "Стоимость", weight: 3, scores: [3, 5, 4]}, {title: "Безопасность", weight: 1, scores: [5, 3, 4]}]}
+  - template: content
+    title: Оплата
+    body: {type: diagram, code: "нумерация\nактёр Покупатель\nПокупатель -> Магазин: заказ\nМагазин -> Банк: списать\nБанк -> Банк: проверка\nБанк --> Магазин: успешно\nзаметка Банк: 3-D Secure\n== Итог ==\nМагазин --> Покупатель: чек"}
+  - template: content
+    title: Заявка
+    body: {type: diagram, kind: flow, code: "(Заявка) -> [Проверить] -> {Верно?}\nВерно? -> [Сохранить]: да\nВерно? -> [Уточнить]: нет\nУточнить --> Проверить"}
+  - template: content
+    title: Заказ
+    body: {type: diagram, kind: state, code: "[*] -> Новый\nНовый -> Оплачен: оплата\nОплачен -> [*]"}

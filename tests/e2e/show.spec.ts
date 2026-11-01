@@ -230,7 +230,7 @@ test('прожектор: щелчок по блоку — он в светло�
 test('блоки-схемы: все рисуются без ошибок, вопрос раскрывается по щелчку', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=schemes#1');
-  const types = ['cycle', 'funnel', 'pyramid', 'numbers', 'compare', 'matrix', 'icons', 'stats', 'roadmap', 'ladder', 'orbit', 'venn', 'nested', 'gears', 'pillars', 'layers', 'diamonds', 'arc', 'mindmap', 'iceberg', 'faq', 'gantt', 'risks', 'fishbone', 'decision'];
+  const types = ['cycle', 'funnel', 'pyramid', 'numbers', 'compare', 'matrix', 'icons', 'stats', 'roadmap', 'ladder', 'orbit', 'venn', 'nested', 'gears', 'pillars', 'layers', 'diamonds', 'arc', 'mindmap', 'iceberg', 'faq', 'gantt', 'risks', 'fishbone', 'decision', 'diagram', 'diagram', 'diagram'];
   for (const [k, type] of types.entries()) {
     await expect(page.locator('#ct')).toHaveText(`${k + 1} из ${types.length}`);
     const block = page.locator(`.slide.on [data-type="${type}"]`);
@@ -308,6 +308,44 @@ test('проектные схемы: Ганта — полосы по срока
   await expect.poll(() => slide.locator('.dm-t > b').allTextContents()).toEqual(['3,5', '4,5', '4,0']);
   await expect(slide.locator('.dm-opt.best')).toContainText('Облако');
   await expect(slide.locator('.dm-s.best')).toHaveCount(2);
+  expect(errors).toEqual([]);
+});
+
+test('диаграммы из текста: последовательность — участники, сообщения, ответы пунктиром, нумерация; схема — узлы по форме, подписи, подсветка связей', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=schemes#26');
+  const slide = page.locator('.slide.on');
+  await expect(slide.locator('.sq-p')).toHaveText(['Покупатель', 'Магазин', 'Банк']);
+  await expect(slide.locator('.sq-p.actor')).toHaveCount(1);
+  await expect(slide.locator('.sq-msg')).toHaveCount(4);
+  await expect(slide.locator('.sq-msg.dashed')).toHaveCount(2);
+  await expect(slide.locator('.sq-self')).toHaveCount(1);
+  await expect(slide.locator('.sq-num')).toHaveText(['1', '2', '3', '4', '5']);
+  await expect(slide.locator('.sq-note')).toHaveText('3-D Secure');
+  await expect(slide.locator('.sq-div')).toHaveText('Итог');
+  // Стрелка «Магазин → Банк» — от второй линии жизни до третьей
+  const life = await slide.locator('.sq-life').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().left));
+  const msg = (await slide.locator('.sq-msg').nth(1).boundingBox())!;
+  expect(Math.abs(msg.x - life[1])).toBeLessThan(3);
+  expect(Math.abs(msg.x + msg.width - life[2])).toBeLessThan(3);
+  await page.goto('/?deck=schemes#27');
+  await expect(slide.locator('.fl-n')).toHaveCount(5);
+  await expect(slide.locator('.fl-n.diamond')).toHaveText('Верно?');
+  await expect(slide.locator('.fl-l')).toHaveText(['да', 'нет']);
+  await expect(slide.locator('.fl-e.dashed')).toHaveCount(1);
+  // Узлы не налезают друг на друга
+  const boxes = await slide.locator('.fl-n').evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => [r.left, r.top, r.right, r.bottom]));
+  for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+    const [a, b] = [boxes[i], boxes[j]];
+    expect(a[2] <= b[0] || b[2] <= a[0] || a[3] <= b[1] || b[3] <= a[1]).toBe(true);
+  }
+  // Под мышью — узел и его связи, остальное бледнее
+  await slide.locator('.fl-n.diamond').hover();
+  await expect(slide.locator('.fl-e.hl')).toHaveCount(3);
+  await expect(slide.locator('.fl-n.hl')).toHaveCount(4);
+  await page.goto('/?deck=schemes#28');
+  await expect(slide.locator('.fl-n.dot')).toHaveCount(2);
+  await expect(slide.locator('.fl-l')).toHaveText('оплата');
   expect(errors).toEqual([]);
 });
 

@@ -2124,3 +2124,36 @@ slides:
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('диаграмма из текста: двойной щелчок — окно с живым превью; Ctrl+Enter записывает текст, Esc — без изменений', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'dgmedit');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'deck.yaml');
+  fs.writeFileSync(file, 'title: Д\nslides:\n  - template: canvas\n    free:\n      - {type: diagram, kind: flow, code: "[А] -> [Б]", place: {x: 200, y: 120, w: 700, h: 400}}\n');
+  const code = () => (parse(fs.readFileSync(file, 'utf8')) as { slides: { free: { code: string }[] }[] }).slides[0].free[0].code;
+  try {
+    await page.goto('/?deck=dgmedit&studio#1');
+    const d = page.locator('#st-canvas .slide.on [data-type="diagram"]');
+    await d.dblclick();
+    const src = page.locator('.st-cd-src');
+    await expect(src).toHaveValue('[А] -> [Б]');
+    await expect(page.locator('.st-cd-cheat')).toContainText('{Решение?}');
+    await src.press('ControlOrMeta+End');
+    await page.keyboard.type('\nБ -> {В?}');
+    // Превью — сразу, без записи в презентацию
+    await expect(page.locator('.st-cd-live .fl-n')).toHaveCount(3);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.st-cd')).toHaveCount(0);
+    expect(code()).toBe('[А] -> [Б]');
+    await d.dblclick();
+    await src.press('ControlOrMeta+End');
+    await page.keyboard.type('\nБ -> {В?}');
+    await page.keyboard.press('ControlOrMeta+Enter');
+    await expect.poll(code).toBe('[А] -> [Б]\nБ -> {В?}');
+    await expect(page.locator('#st-canvas .slide.on .fl-n.diamond')).toHaveText('В?');
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

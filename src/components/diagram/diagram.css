@@ -1,0 +1,78 @@
+/* Диаграммы из текста (diagram.ts): последовательность, блок-схема, состояния. Цвета — токены темы */
+.dgm-wrap { width: 100%; }
+/* Схема — по центру, размер букв — от её ширины (cqw) */
+.dgm-fit { width: 100%; margin: 0 auto; container-type: inline-size; }
+
+/* ---------- последовательность ---------- */
+.dgm-seq { position: relative; display: flex; flex-direction: column; font: 15px/1.35 var(--font); color: var(--tx); }
+.sq-heads { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); }
+.sq-p { justify-self: center; display: flex; align-items: center; gap: 8px; max-width: 92%; padding: 10px 16px; text-align: center; font-weight: 700; font-size: 16px;
+  border-radius: calc(12px * var(--rk, 1)); background: var(--surf); border: 1.5px solid color-mix(in srgb, var(--ac) 45%, var(--bd2));
+  box-shadow: 0 6px 16px -10px rgba(15, 23, 42, .35); }
+.sq-p.actor { background: var(--acs); }
+.sq-man { display: grid; place-items: center; width: 22px; height: 22px; color: var(--ac); font-style: normal; }
+.sq-man svg { width: 20px; height: 20px; }
+.sq-body { position: relative; display: flex; flex-direction: column; padding: 8px 0 20px; }
+.sq-life { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed color-mix(in srgb, var(--mu) 50%, transparent); translate: -1px 0; }
+.sq-row { position: relative; z-index: 1; display: flex; align-items: flex-end; min-height: 48px; padding-top: 6px; }
+.sq-msg { position: relative; display: flex; flex-direction: column; align-items: center; }
+.sq-lbl { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 10px 5px; text-align: center; font-size: 14.5px; color: var(--tx2, var(--tx)); }
+.sq-line { position: relative; display: block; width: 100%; height: 0; border-top: 2px solid var(--ac); }
+.sq-head { position: absolute; top: -6px; width: 10px; height: 10px; fill: var(--ac); }
+.sq-msg.r .sq-head { right: -1px; }
+.sq-msg.l .sq-head { left: -1px; rotate: 180deg; }
+/* Ответ — пунктиром и спокойнее */
+.sq-msg.dashed .sq-line { border-top-style: dashed; border-top-color: color-mix(in srgb, var(--tx2, var(--mu)) 75%, transparent); }
+.sq-msg.dashed .sq-head, .sq-self.dashed .sq-head { fill: color-mix(in srgb, var(--tx2, var(--mu)) 75%, transparent); }
+.sq-num { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--ac); color: var(--on-ac, #fff); font: 700 11.5px/1 var(--font); }
+/* Сообщение самому себе — петля справа от линии жизни */
+.sq-row.self { min-height: 54px; }
+.sq-self { position: relative; display: flex; align-items: center; gap: 6px; min-height: 40px; padding-left: 44px; }
+.sq-self .sq-lbl { padding: 0; }
+.sq-loop { position: absolute; left: 0; top: 4px; width: 34px; height: 26px; border: 2px solid var(--ac); border-left: 0; border-radius: 0 9px 9px 0; }
+.sq-loop .sq-head { left: -2px; top: auto; bottom: -6px; rotate: 180deg; }
+.sq-self.dashed .sq-loop { border-style: dashed; }
+.sq-note { position: relative; padding: 8px 12px; border-radius: calc(8px * var(--rk, 1)); text-align: center; font-size: 14px; color: var(--tx);
+  background: color-mix(in srgb, #FACC15 16%, var(--surf)); border: 1px solid color-mix(in srgb, #CA8A04 38%, transparent); }
+.sq-div { position: relative; z-index: 1; margin: 12px 0 4px; text-align: center; }
+.sq-div::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--bd2); }
+.sq-div span { position: relative; display: inline-block; padding: 4px 14px; border-radius: 999px; background: var(--surf); border: 1px solid var(--bd2);
+  font: 700 12px/1.2 var(--font); letter-spacing: .08em; text-transform: uppercase; color: var(--ach); }
+.slide.on .sq-p { animation: dg-pop .45s cubic-bezier(.34, 1.56, .64, 1) both; animation-delay: calc(.1s + var(--k) * .08s); }
+.slide.on .sq-life { transform-origin: top; animation: sq-grow .7s var(--ease) .3s both; }
+.slide.on :is(.sq-row, .sq-div) { animation: sq-in .45s var(--ease) both; animation-delay: calc(.55s + var(--k) * .2s); }
+@keyframes sq-grow { from { transform: scaleY(0); } }
+@keyframes sq-in { from { opacity: 0; translate: 0 6px; } }
+@keyframes dg-pop { from { opacity: 0; scale: .8; } }
+
+/* ---------- блок-схема и состояния ---------- */
+/* Размер букв — от ширины блока: диаграмма масштабируется целиком */
+.dgm-flow { position: relative; width: 100%; font: 600 calc(15 / var(--fw) * 100cqw)/1.3 var(--font); color: var(--tx); }
+.dgm-flow > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.fl-e { fill: none; stroke: color-mix(in srgb, var(--tx2, var(--mu)) 70%, transparent); stroke-width: 1.8; stroke-linejoin: round; transition: stroke .15s, opacity .15s; }
+.fl-e.dashed { stroke-dasharray: 6 5; }
+.dgm-flow marker path { fill: color-mix(in srgb, var(--tx2, var(--mu)) 80%, transparent); }
+.fl-n { position: absolute; z-index: 1; translate: -50% -50%; box-sizing: border-box; display: grid; place-items: center; padding: .45em .75em; text-align: center;
+  background: var(--surf); border: .12em solid color-mix(in srgb, var(--ac) 50%, var(--bd2)); border-radius: .4em; transition: opacity .15s, box-shadow .15s; }
+.fl-n.round { border-radius: 1.4em; background: var(--acs); }
+.state .fl-n.round { border-radius: .9em; background: var(--surf); }
+.fl-n.circle { border-radius: 50%; background: var(--acs); }
+/* Ромб и «данные» — многоугольником SVG за текстом */
+.fl-n:is(.diamond, .data) { background: none; border: 0; }
+.fl-sh { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.fl-sh polygon { fill: var(--surf); stroke: color-mix(in srgb, var(--ac) 50%, var(--bd2)); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.fl-n.diamond .fl-sh polygon { fill: color-mix(in srgb, var(--ac) 12%, var(--surf)); }
+.fl-n.dot { padding: 0; border: 0; border-radius: 50%; background: var(--tx); }
+.fl-n.dot[data-id="*end"] { background: var(--tx); box-shadow: 0 0 0 .18em var(--surf), 0 0 0 .3em var(--tx); scale: .8; }
+.fl-n span { position: relative; }
+.fl-l { position: absolute; z-index: 2; translate: -50% -50%; padding: .1em .5em; border-radius: .45em; white-space: nowrap; font-size: .82em; font-weight: 600;
+  color: var(--tx2, var(--tx)); background: var(--surf); border: 1px solid var(--bd); transition: opacity .15s; }
+/* Под мышью — узел и его связи, остальное бледнее */
+.dgm-flow.hl .fl-n:not(.hl), .dgm-flow.hl .fl-l:not(.hl) { opacity: .35; }
+.dgm-flow.hl .fl-e:not(.hl) { opacity: .25; }
+.dgm-flow .fl-e.hl { stroke: var(--ac); stroke-width: 2.6; }
+.dgm-flow .fl-n.hl:not(.diamond, .data) { box-shadow: 0 0 0 .2em color-mix(in srgb, var(--ac) 25%, transparent); }
+.dgm-flow .fl-n.hl .fl-sh polygon { stroke: var(--ac); stroke-width: 3; }
+.slide.on .fl-n { animation: dg-pop .45s cubic-bezier(.34, 1.56, .64, 1) both; animation-delay: calc(.15s + var(--k) * .12s); }
+.slide.on :is(.fl-e, .fl-l) { animation: fi .5s ease both; animation-delay: calc(.5s + var(--k) * .12s); }
+@media (prefers-reduced-motion: reduce) { .slide.on :is(.sq-p, .sq-life, .sq-row, .sq-div, .fl-n, .fl-e, .fl-l) { animation: none; } }

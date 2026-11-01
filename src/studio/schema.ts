@@ -516,6 +516,14 @@ export const BLOCKS: Record<string, Schema> = {
       },
     ],
   },
+  diagram: {
+    about: 'Двойной щелчок по диаграмме — текст с живым превью и подсказкой.',
+    fields: [
+      { k: 'kind', label: 'Вид', type: 'select', options: [['', 'Последовательность'], ['flow', 'Блок-схема'], ['state', 'Состояния']] },
+      { k: 'code', label: 'Текст диаграммы', type: 'textarea', hint: 'Клиент -> Сервер: запрос · [Шаг] -> {Решение?}' },
+      { k: 'dir', label: 'Раскладка схемы', type: 'select', options: [['', 'Как принято для вида'], ['down', 'Сверху вниз'], ['right', 'Слева направо']] },
+    ],
+  },
   pyramid: { about: 'Первый пункт — вершина.', fields: [points('Уровни', 'Уровень')] },
   numbers: { fields: [points('Пункты', 'Пункт')] },
   compare: {

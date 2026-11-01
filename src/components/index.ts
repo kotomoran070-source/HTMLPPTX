@@ -34,5 +34,6 @@ import './sandbox/sandbox';
 import './schemes/schemes';
 import './schemes/figures';
 import './schemes/project';
+import './diagram/diagram';
 import './motion/motion';
 import './math/math';

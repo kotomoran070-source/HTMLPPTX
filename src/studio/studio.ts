@@ -50,6 +50,7 @@ import { Inspector } from './inspector';
 import { onFontFile } from '../engine/editor/font-picker';
 import { closeLibrary, EMBED_SAMPLE, presetOf, SANDBOX_SAMPLE, showLibrary, type Preset } from './library';
 import { openCodeDialog } from './code-dialog';
+import { getBlock } from '../engine/component';
 import { closeMenu, showMenu, showPopover, type MenuEntry } from './menu';
 import { closeMathEditor, editMath } from './math-edit';
 import { loadMath } from '../components/math/math';
@@ -657,15 +658,39 @@ export function startStudio(deck: Deck, deckKey: string): void {
     ed.toast(ok ? done : `${done}, но заставку снять не удалось`, 2500, !ok);
   }
 
-  // Двойной щелчок по живой вставке — её код, по формуле — её запись
+  /** Текст диаграммы — в окне с живым превью в цветах слайда и шпаргалкой по записи */
+  function editDiagram(path: Path): void {
+    const b = getAt(deck, path) as Block & { code?: string; kind?: string } | undefined;
+    if (!b) return;
+    const slide = view.stage.querySelector<HTMLElement>('.slide.on');
+    const cs = slide ? getComputedStyle(slide) : null;
+    const vars = cs ? ['--bg', '--surf', '--alt', '--tx', '--tx2', '--mu', '--bd', '--bd2', '--ac', '--ach', '--acs', '--acb', '--on-ac', '--ac2', '--ac-g', '--font', '--font-head', '--hw', '--rk', '--ease']
+      .map((v) => [v, cs.getPropertyValue(v).trim()]).filter(([, x]) => x).map(([v, x]) => `${v}:${x}`).join(';') : '';
+    const seq = (b.kind ?? 'sequence') === 'sequence';
+    const c = (s: string) => `<code>${esc(s)}</code>`;
+    const cheat = seq
+      ? `${c('Клиент -> Сервер: запрос')} сообщение · ${c('-->')} ответ пунктиром · ${c('актёр Пользователь')} · ${c('заметка Сервер: текст')} · ${c('== Раздел ==')} · ${c('нумерация')}`
+      : `${c('[Шаг] -> {Решение?}')} · ${c('Решение? -> (Конец): да')} подпись · ${c('-->')} пунктир · формы: ${c('[ ]')} ${c('( )')} ${c('{ }')} ${c('(( ))')} ${c('[/ /]')}${b.kind === 'state' ? ` · ${c('[*]')} начало и конец` : ''} · ${c('направление: вправо')}`;
+    let uid = 0;
+    openCodeDialog({
+      title: seq ? 'Диаграмма последовательности' : b.kind === 'state' ? 'Схема состояний' : 'Блок-схема',
+      about: 'Строка — одно действие; диаграмма рисуется сама',
+      code: String(b.code ?? ''), theme: false, vars, cheat,
+      render: (code) => getBlock('diagram')?.render({ ...b, code, place: undefined, style: undefined }, { uid: (pre = 'u') => `${pre}cd${++uid}` } as never) ?? '',
+      apply: (next) => { if (next !== b.code) ed.commit((d) => setAt(d, [...path, 'code'], next), { rebuild: true }); },
+    });
+  }
+
+  // Двойной щелчок по живой вставке — её код, по формуле — её запись, по диаграмме — её текст
   view.stage.addEventListener('dblclick', (e) => {
-    const el = (e.target as Element).closest<HTMLElement>('.slide.on :is([data-type="embed"], [data-type="sandbox"], [data-type="math"])[data-block]');
+    const el = (e.target as Element).closest<HTMLElement>('.slide.on :is([data-type="embed"], [data-type="sandbox"], [data-type="math"], [data-type="diagram"])[data-block]');
     if (!el) return;
     e.preventDefault();
     e.stopPropagation();
     let path: Path;
     try { path = JSON.parse(el.dataset.block!) as Path; } catch { return; }
     if (el.dataset.type === 'math') editMath(ed, () => deck, () => view.stage, path);
+    else if (el.dataset.type === 'diagram') editDiagram(path);
     else void editEmbedCode(path);
   }, true);
 
