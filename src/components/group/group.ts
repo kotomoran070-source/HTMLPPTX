@@ -1,6 +1,6 @@
 import { defineBlock } from '../../engine/component';
-import { asArray, styleAttr } from '../../engine/html';
-import { angleOf, placeOf } from '../../engine/render';
+import { asArray, esc, styleAttr } from '../../engine/html';
+import { OBJ_ID, angleOf, placeOf } from '../../engine/render';
 import type { Block } from '../../types';
 import './group.css';
 
@@ -26,7 +26,9 @@ defineBlock<GroupProps>('group', {
       const pl = placeOf(b);
       const ang = angleOf(b);
       const css = `left:${pct(pl.x, bw)};top:${pct(pl.y, bh)};width:${pct(pl.w, bw)};${pl.h ? `height:${pct(pl.h, bh)};` : ''}${ang ? `rotate:${ang}deg;` : ''}`;
-      return `<div class="grp-item${pl.h ? '' : ' auto-h'}" style="${css}">${ctx.block(b)}</div>`;
+      // Имя объекта сохраняется и в группе: соединитель находит его и здесь
+      const obj = typeof b.id === 'string' && OBJ_ID.test(b.id) ? ` data-obj="${esc(b.id)}"` : '';
+      return `<div class="grp-item${pl.h ? '' : ' auto-h'}"${obj} style="${css}">${ctx.block(b)}</div>`;
     }).join('')}</div>`;
   },
 });

@@ -59,6 +59,8 @@ import { LayersPane } from './layers';
 import { SlidesPanel } from './slides-panel';
 import { crumbs, type Crumb } from './structure';
 import { canUngroup, groupObjects, ungroup } from './ungroup';
+import { connectTool, pickedPair } from './connect';
+import { relink } from '../components/connector/links';
 import './studio.css';
 
 interface Command {
@@ -965,6 +967,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       // Только если у объекта есть появление, которое переносится на другие
       ...(!multi() && selectedEntrance() ? [{ label: 'Сохранить появление как эффект…', icon: 'sparkle', run: () => askEffectName() }] : []),
       ...(multi() ? [
+        ...(pickedPair(deck, ed.selection) ? [{ label: 'Соединить линией', icon: 'connector', run: () => run('obj.connect') }] : []),
         { label: 'Сгруппировать', icon: 'group', hint: 'Ctrl+G', run: () => run('obj.group') },
         ...(cmds['image.frames.join']?.enabled?.() ? [{ label: 'Собрать в галерею', icon: 'frames', run: () => run('image.frames.join') }] : []),
         { label: 'Появляться по очереди', icon: 'sparkle', run: () => sequence() },
@@ -1076,16 +1079,15 @@ export function startStudio(deck: Deck, deckKey: string): void {
       return;
     }
     const i = index;
-    const blocks = (res.items as Block[]).map((b) => { delete b.locked; return b; });
+    let blocks = (res.items as Block[]).map((b) => { delete b.locked; return b; });
     let from = 0;
     if (!ed.commit((d) => {
       res.apply(d);
       const s = d.slides[i];
       s.free = Array.isArray(s.free) ? s.free : [];
       from = s.free.length;
-      // Имя объекта на слайде одно: копия рядом с оригиналом его не получает
-      const used = new Set(s.free.map((x) => x.id));
-      blocks.forEach((b) => { if (used.has(b.id)) delete b.id; });
+      // Имя объекта на слайде одно: копия рядом с оригиналом его не получает (кроме соединённых скопированной линией)
+      blocks = relink(blocks, new Set(s.free.map((x) => x.id)));
       s.free.push(...blocks);
     }, { rebuild: true })) return;
     ed.selectMany(i, blocks.map((_b, k) => from + k));
@@ -1112,7 +1114,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const times = (pasted.get(key) ?? 0) + (clip.slide === index ? 1 : 0);
     pasted.set(key, times);
     const i = index;
-    const blocks = clip.items.map((raw) => {
+    let blocks = clip.items.map((raw) => {
       const b = JSON.parse(JSON.stringify(raw)) as Block;
       // Копия закреплённого объекта вставляется откреплённой: её сразу можно двигать
       delete b.locked;
@@ -1126,9 +1128,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
       const s = d.slides[i];
       s.free = Array.isArray(s.free) ? s.free : [];
       from = s.free.length;
-      // Имя объекта на слайде одно: копия рядом с оригиналом его не получает
-      const used = new Set(s.free.map((x) => x.id));
-      blocks.forEach((b) => { if (used.has(b.id)) delete b.id; });
+      // Имя объекта на слайде одно: копия рядом с оригиналом его не получает (кроме соединённых скопированной линией)
+      blocks = relink(blocks, new Set(s.free.map((x) => x.id)));
       s.free.push(...blocks);
     }, { rebuild: true })) return;
     ed.selectMany(i, blocks.map((_b, k) => from + k));
@@ -1424,6 +1425,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
   }
   function insertPreset(p: Preset): void {
     const i = index;
+    // Соединитель не ставится сам по себе: он связывает два объекта
+    const made = p.make();
+    if (made.type === 'connector') { linker.start({ route: made.route as never }); return; }
     const n = (deck.slides[i].free ?? []).length;
     const shift = (n % 5) * 20;
     const block = { ...p.make(), place: { x: Math.round((W - p.w) / 2) + shift, y: Math.round((H - (p.h ?? 160)) / 2) + shift, w: p.w, ...(p.h ? { h: p.h } : {}) } };
@@ -1556,7 +1560,11 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'obj.dup': { run: () => ed.blockEditor.duplicate(), enabled: hasFree },
     'obj.del': { run: () => ed.blockEditor.remove(), enabled: () => !!ed.selection },
     'obj.group': {
-      run: () => { const sel = ed.selection; if (sel && sel.group.length > 1) groupObjects({ deck, stage: view.stage, editor: ed }, index, sel.group); },
+      run: () => {
+        // Соединители в группу не входят: они следуют за объектами и после группировки
+        const paths = ed.selection?.group.filter((p) => (getAt(deck, p) as Block | undefined)?.type !== 'connector') ?? [];
+        if (paths.length > 1) groupObjects({ deck, stage: view.stage, editor: ed }, index, paths);
+      },
       enabled: multi,
     },
     // Логотип презентации: файл картинки — в brand.logo (на всех слайдах с логотипом сразу)
@@ -1674,6 +1682,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
   Object.assign(cmds, contextCommands({ deck, editor: ed, stage: () => view.stage, run: (c) => run(c), refresh: () => queueState(), textTarget: (get) => { textOf = get; } }));
   const grips = tableGrips({ deck, editor: ed, stage: () => view.stage });
   const gantt = ganttDrag({ deck, editor: ed, stage: () => view.stage });
+  const linker = connectTool({ deck, editor: ed, stage: () => view.stage, index: () => index });
+  cmds['obj.connect'] = { run: () => linker.start() };
   cmds['tab.shape'] = { run: () => setTab('shape') };
   cmds['tab.anim'] = { run: () => { setTab('anim'); if (!lay.ribbon) toggleRibbon(true); } };
   cmds['tab.table'] = { run: () => setTab('table') };

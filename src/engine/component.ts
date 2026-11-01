@@ -33,6 +33,8 @@ export interface Component<P = any> {
   render(props: P, ctx: RenderCtx): string;
   /** Необязательная интерактивность: подсветка, параллакс и т.п. */
   mount?(el: HTMLElement, props: P, ctx: MountCtx): void | (() => void);
+  /** Место свободного объекта, если оно не задаётся полем place, а следует из других объектов (соединитель) */
+  place?(props: P, ctx: RenderCtx): { x: number; y: number; w: number; h: number };
 }
 
 export interface SlideTemplate<P = any> extends Component<P> {

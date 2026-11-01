@@ -159,7 +159,7 @@ export class Renderer {
     // Появления при открытии слайда по порядку — их номера студия показывает на вкладке «Анимация»
     const timed = timedOrder(list, (b) => FX.has(String(b.enter)) || !!ownOf(b));
     return list.map((b, i) => {
-      const pl = placeOf(b);
+      const pl = placeFor(b, ctx);
       const p = pathOf(b);
       const own = ownOf(b);
       const fx = FX.has(String(b.enter)) ? ` fx fx-${b.enter}` : own ? ' fx fx-own' : '';
@@ -389,6 +389,15 @@ export function angleOf(b: unknown): number {
   if (!Number.isFinite(a)) return 0;
   const n = Math.round((((a % 360) + 540) % 360 - 180) * 10) / 10;
   return n === -180 ? 180 : n;
+}
+
+/** Место свободного объекта: у соединителя — по объектам, которые он соединяет, у остальных — placeOf */
+function placeFor(b: Block, ctx: RenderCtx): Place {
+  const c = b && typeof b === 'object' ? getBlock(String(b.type)) : undefined;
+  if (c?.place) {
+    try { return c.place(b, ctx); } catch { /* ниже — как обычно */ }
+  }
+  return placeOf(b);
 }
 
 /** Координаты свободного объекта с проверкой и значениями по умолчанию. */

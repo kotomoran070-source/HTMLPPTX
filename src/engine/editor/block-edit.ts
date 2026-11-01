@@ -1,4 +1,5 @@
 import { icon } from '../../components/icons';
+import { relink } from '../../components/connector/links';
 import { PRESET_KINDS, presetAdjust, presetHandles, refitPreset, type ShapeProps } from '../../components/shape/shape';
 import { adjOf } from '../../components/shape/kinds';
 import { imageLookCss } from '../../components/layout/image-look';
@@ -40,7 +41,7 @@ const NAMES: Record<string, string> = {
   cycle: 'Цикл', funnel: 'Воронка', pyramid: 'Пирамида', numbers: 'Крупные номера', compare: 'Сравнение', matrix: 'Матрица 2×2',
   icons: 'Иконки с подписями', stats: 'Цифры', faq: 'Вопрос — ответ',
   roadmap: 'Дорожная карта', ladder: 'Лестница', orbit: 'Орбиты', venn: 'Диаграмма Венна', nested: 'Вложенные круги',
-  scatter: 'Точечная диаграмма', diagram: 'Диаграмма', gantt: 'Диаграмма Ганта', risks: 'Матрица рисков', fishbone: '«Рыбья кость»', decision: 'Матрица решений',
+  scatter: 'Точечная диаграмма', diagram: 'Диаграмма', connector: 'Соединитель', gantt: 'Диаграмма Ганта', risks: 'Матрица рисков', fishbone: '«Рыбья кость»', decision: 'Матрица решений',
   gears: 'Шестерни', pillars: 'Колонны', layers: 'Слои', diamonds: 'Ромбы', arc: 'Дуга', mindmap: 'Карта идей', iceberg: 'Айсберг',
   'link-card': 'Ссылка с QR', 'link-buttons': 'Кнопки-ссылки', 'link-plate': 'Контакты', 'space-sky': 'Звёздное небо',
 };
@@ -147,6 +148,11 @@ export class BlockEditor {
   /** Среди выделенных есть закреплённый объект: его не двигают, не тянут за ручки и не удаляют */
   get isLocked(): boolean {
     return this.members.some((m) => m.free && (getAt(this.host.deck(), m.free) as { locked?: unknown } | undefined)?.locked === true);
+  }
+
+  /** Выделен соединитель: его место — по объектам, которые он соединяет, сам он не двигается */
+  get isTied(): boolean {
+    return !this.isMulti && !!this.sel?.free && isConnector(getAt(this.host.deck(), this.sel.free));
   }
 
   /** Закреплён: подсказка вместо действия */
@@ -300,7 +306,7 @@ export class BlockEditor {
     const show = (k: string, v: boolean) => { (this.bar.querySelector(`[data-b="${k}"]`) as HTMLElement).hidden = !v; };
     show('parent', !s.free && !!parent);
     show('detach', !s.free);
-    show('dup', !!s.free);
+    show('dup', !!s.free && type !== 'connector');
     show('front', !!s.free);
     show('back', !!s.free);
     show('attach', !!s.free && content);
@@ -311,6 +317,8 @@ export class BlockEditor {
     this.frame.classList.toggle('multi', this.isMulti);
     // Закреплённый (выделен из области выделения): рамка без ручек
     this.frame.classList.toggle('locked', this.isLocked);
+    // Соединитель: рамка без ручек, линия идёт за своими объектами
+    this.frame.classList.toggle('tied', this.isTied);
     this.position();
   }
 
@@ -400,7 +408,9 @@ export class BlockEditor {
       this.clear();
       if (this.host.commit((d) => {
         const list = d.slides[i].free!;
+        const gone = paths.map((p) => list[Number(p[3])]);
         paths.forEach((p) => list.splice(Number(p[3]), 1));
+        dropTies(list, gone);
         if (!list.length) delete d.slides[i].free;
       }, { rebuild: true })) this.host.toast(`Удалено объектов: ${paths.length}. Вернуть — Ctrl+Z`, 2500);
       return;
@@ -410,10 +420,12 @@ export class BlockEditor {
     this.clear();
     if (this.host.commit((d) => {
       const parent = getAt(d, target.slice(0, -1));
+      const gone = getAt(d, target);
       if (Array.isArray(parent) && typeof last === 'number') parent.splice(last, 1);
       else setAt(d, target, undefined);
       dropEmptyGroup(d, target);
       const sl = d.slides[Number(target[1])];
+      if (Array.isArray(sl?.free)) dropTies(sl.free, [gone]);
       if (Array.isArray(sl?.free) && !sl.free.length) delete sl.free;
     }, { rebuild: true })) this.host.toast('Удалено. Вернуть — Ctrl+Z', 2500);
   }
@@ -473,10 +485,9 @@ export class BlockEditor {
     if (this.isMulti) {
       const paths = this.members.map((m) => m.free!);
       const i = Number(s.free[1]);
-      const copies = paths.map((p) => {
+      let copies = paths.map((p) => {
         const c = clone(getAt(this.host.deck(), p)) as { place?: Place; locked?: boolean; id?: unknown };
         delete c.locked;
-        delete c.id;
         const pl = placeOf(c);
         c.place = { ...pl, x: pl.x + 24, y: pl.y + 24 };
         return c;
@@ -484,12 +495,16 @@ export class BlockEditor {
       let from = 0;
       if (this.host.commit((d) => {
         const list = d.slides[i].free!;
+        // Соединители копий — к копиям объектов
+        copies = relink(copies, new Set(list.map((x) => (x as { id?: unknown })?.id)));
         from = list.length;
         list.push(...(copies as never[]));
       }, { rebuild: true })) this.selectMany(i, copies.map((_c, k) => from + k));
       return;
     }
     const i = Number(s.free[1]);
+    // Соединитель без своих объектов не копируется: лёг бы поверх себя
+    if (this.isTied) return;
     const copy = clone(getAt(this.host.deck(), s.free)) as { place?: Place; locked?: boolean; id?: unknown };
     delete copy.locked;
     delete copy.id;
@@ -554,9 +569,9 @@ export class BlockEditor {
   /** Стрелки: сдвиг на 1 px, с Shift — на 10 px. */
   nudge(dx: number, dy: number): void {
     const s = this.sel;
-    if (!s?.free || this.guardLocked()) return;
+    if (!s?.free || this.isTied || this.guardLocked()) return;
     if (this.isMulti) {
-      const paths = this.members.map((m) => m.free!);
+      const paths = this.members.map((m) => m.free!).filter((p) => !isConnector(getAt(this.host.deck(), p)));
       this.host.commit((d) => paths.forEach((p) => {
         const pl = placeOf(getAt(d, p));
         setAt(d, [...p, 'place'], { ...pl, x: pl.x + dx, y: pl.y + dy, ...(pl.h ? {} : { h: undefined }) });
@@ -599,7 +614,7 @@ export class BlockEditor {
     // Сдвиг кадра картинки (режим «Кадр» или Alt) — не перемещение объекта
     if (allowImagePan) return false;
     const s = this.sel;
-    if (s?.free && s.el.contains(target)) return this.isLocked ? false : this.dragFree(s, e);
+    if (s?.free && s.el.contains(target)) return this.isLocked ? false : this.isTied ? this.holdTied(e) : this.dragFree(s, e);
     // Свободный объект, ещё не выделенный: нажал и тянешь — сразу перемещение, без лишнего клика
     // Выделенный объект группы: двигается внутри неё
     if (this.groupChild?.contains(target)) return this.dragChild(this.sel!, e);
@@ -610,7 +625,7 @@ export class BlockEditor {
       this.host.clearOthers();
       this.select(freeEl);
       this.pressSelected = true;
-      return this.dragFree(this.sel!, e);
+      return this.isTied ? this.holdTied(e) : this.dragFree(this.sel!, e);
     }
     // Выделенный блок раскладки: потянул — он становится свободным и едет за мышью
     if (s && !s.free && s.el.contains(target)) return this.pullOut(e);
@@ -664,6 +679,26 @@ export class BlockEditor {
     const v = this.pressSelected;
     this.pressSelected = false;
     return v;
+  }
+
+  /** Соединитель тянут мышью: он не едет (его место — по объектам), отпускание не снимает выделение */
+  private holdTied(e: PointerEvent): boolean {
+    e.preventDefault();
+    let moved = false;
+    const move = (ev: PointerEvent) => {
+      if (moved || Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < 4) return;
+      moved = true;
+      this.dragging = true;
+      this.host.toast('Соединитель следует за объектами: двигайте их', 2200);
+    };
+    const up = () => {
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', up);
+      if (moved) setTimeout(() => { this.dragging = false; }, 0);
+    };
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+    return true;
   }
 
   private dragFree(s: Sel, e: PointerEvent): boolean {
@@ -788,10 +823,12 @@ export class BlockEditor {
   private groupDrag(e: PointerEvent): boolean {
     e.preventDefault();
     const deck = this.host.deck();
-    const items = this.members.map((m) => {
+    // Соединители не едут сами: они следуют за объектами
+    const items = this.members.filter((m) => !isConnector(getAt(deck, m.free!))).map((m) => {
       const pl = placeOf(getAt(deck, m.free!));
       return { m, pl, h: pl.h ?? this.measure(m.el).h! };
     });
+    if (!items.length) return false;
     const bx = Math.min(...items.map((it) => it.pl.x));
     const by = Math.min(...items.map((it) => it.pl.y));
     const bw = Math.max(...items.map((it) => it.pl.x + it.pl.w)) - bx;
@@ -1181,6 +1218,25 @@ function fitGroup(d: Deck, groupPath: Path, heights: number[]): void {
 }
 
 /** Из группы убрали последний объект — пустая группа уходит со слайда. */
+const isConnector = (v: unknown): boolean => (v as { type?: unknown } | undefined)?.type === 'connector';
+
+/** Соединители, которые держались за удалённые объекты, уходят вместе с ними (иначе на слайде остаётся невидимая линия) */
+function dropTies(list: unknown[], gone: unknown[]): void {
+  // Имена удалённых объектов, в том числе внутри удалённых групп
+  const ids = new Set<string>();
+  const add = (g: unknown): void => {
+    const o = g as { id?: unknown; items?: unknown } | undefined;
+    if (typeof o?.id === 'string' && o.id) ids.add(o.id);
+    if (Array.isArray(o?.items)) o.items.forEach(add);
+  };
+  gone.forEach(add);
+  if (!ids.size) return;
+  for (let k = list.length - 1; k >= 0; k--) {
+    const c = list[k] as { type?: unknown; from?: unknown; to?: unknown } | undefined;
+    if (isConnector(c) && (ids.has(String(c!.from)) || ids.has(String(c!.to)))) list.splice(k, 1);
+  }
+}
+
 function dropEmptyGroup(d: Deck, removed: Path): void {
   if (removed[removed.length - 2] !== 'items' || removed[2] !== 'free' || removed.length !== 6) return;
   const g = getAt(d, removed.slice(0, -2)) as { type?: string; items?: unknown[] } | undefined;

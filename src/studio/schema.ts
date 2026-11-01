@@ -524,6 +524,19 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'dir', label: 'Раскладка схемы', type: 'select', options: [['', 'Как принято для вида'], ['down', 'Сверху вниз'], ['right', 'Слева направо']] },
     ],
   },
+  connector: {
+    about: 'Линия следует за объектами, когда их двигают или растягивают.',
+    fields: [
+      { k: 'route', label: 'Вид линии', type: 'select', options: [['', 'Уступом'], ['straight', 'Прямая'], ['curve', 'Кривая']] },
+      { k: 'head', label: 'Стрелка', type: 'select', options: [['', 'На конце'], ['both', 'С обеих сторон'], ['start', 'В начале'], ['none', 'Без стрелки']] },
+      { k: 'text', label: 'Подпись', type: 'text' },
+      { k: 'color', label: 'Цвет', type: 'color' },
+      { k: 'width', label: 'Толщина, px', type: 'number', min: 0.5, max: 12, step: 0.5, placeholder: '2,5' },
+      { k: 'dash', label: 'Штрих', type: 'select', options: [['', 'Сплошной'], ['dash', 'Пунктир'], ['dot', 'Точки']] },
+      { k: 'from', label: 'От объекта', type: 'text', hint: 'Имя объекта (id); задаётся командой «Соединить»' },
+      { k: 'to', label: 'К объекту', type: 'text' },
+    ],
+  },
   pyramid: { about: 'Первый пункт — вершина.', fields: [points('Уровни', 'Уровень')] },
   numbers: { fields: [points('Пункты', 'Пункт')] },
   compare: {

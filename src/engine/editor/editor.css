@@ -481,3 +481,6 @@ input[type="range"]:not(.slide *):not(.cg *):disabled { opacity: .45; cursor: de
 .edghost-o { position: fixed; z-index: 13; display: none; overflow: visible; pointer-events: none; }
 .edghost-o.on { display: block; }
 .edghost-o path { fill: none; stroke: var(--ac); stroke-width: 2; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke; }
+/* Соединитель: рамка без ручек — линия следует за объектами, которые соединяет */
+.edframe.tied i { display: none; }
+.edframe.on.free.tied { outline-style: dashed; }

@@ -384,6 +384,9 @@ export const LIBRARY: Category[] = [
       ...presets('diamond', 'triangle', 'right-triangle', 'parallelogram', 'trapezoid', 'pentagon', 'hexagon', 'octagon', 'star', 'plus', 'heart', 'lightning', 'donut', 'cloud'),
       { name: 'Линия', w: 400, h: 16, glyph: '<path class="ln" d="M6 16h36"/>', make: () => ({ type: 'shape', kind: 'line', stroke: 'accent', width: 3 }) },
       { name: 'Стрелка', w: 260, h: 24, glyph: '<path class="ln" d="M6 16h34M33 10l7 6-7 6"/>', make: () => ({ type: 'shape', kind: 'arrow', stroke: 'accent', width: 3 }) },
+      // Соединители: студия ждёт щелчков по двум объектам (или соединяет два выделенных)
+      { name: 'Соединитель уступом', w: 1, glyph: '<rect x="3" y="5" width="12" height="9" rx="2"/><rect x="33" y="18" width="12" height="9" rx="2"/><path class="ln" d="M15 9.5h9v13h6M27.5 19.5l3 3-3 3"/>', make: () => ({ type: 'connector' }) },
+      { name: 'Кривой соединитель', w: 1, glyph: '<rect x="3" y="5" width="12" height="9" rx="2"/><rect x="33" y="18" width="12" height="9" rx="2"/><path class="ln" d="M15 9.5c11 0 6 13 15 13M27.5 19.5l3 3-3 3"/>', make: () => ({ type: 'connector', route: 'curve' }) },
       ...presets('block-arrow', 'double-arrow', 'chevron', 'pointer', 'callout', 'cylinder', 'brace'),
     ],
   },

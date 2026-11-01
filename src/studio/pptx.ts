@@ -1,4 +1,5 @@
 import type PptxGenJS from 'pptxgenjs';
+import { reroute } from '../components/connector/connector';
 import { getAt, type Path } from '../engine/data';
 import { staticSlide } from '../engine/deck-view';
 import { setSlidesLook, slidesLookOwn } from '../engine/theme';
@@ -525,6 +526,17 @@ class Converter {
       return tag === 'svg' ? this.svg(el as unknown as SVGSVGElement, b) : this.raster(el, b);
     }
     if (type === 'shape' && el.querySelector(':scope > .shape-bar, :scope .shape-bar')) return this.line(el, cs, k);
+    // Соединитель — линией PowerPoint по своим опорным точкам, подпись — надписью поверх
+    if (type === 'connector') {
+      // Путь — по настоящим рамкам объектов на отрисованном слайде (у текста высота по содержимому)
+      const sl = el.closest<HTMLElement>('.slide');
+      if (sl) reroute(el, sl);
+      if (el.classList.contains('conn-off')) return;
+      this.connector(el, this.box(el));
+      const l = el.querySelector<HTMLElement>(':scope > .conn-l');
+      if (l) await this.walk(l, op, k);
+      return;
+    }
     if (type === 'shape' && el.dataset.prst) return this.presetShape(el, cs, b, op, k);
     if (tag === 'img') return this.image(el as HTMLImageElement, b, cs);
     if (tag === 'svg') return this.svg(el as unknown as SVGSVGElement, b);
@@ -1190,6 +1202,37 @@ class Converter {
       // Свечение линии (box-fx.ts) — свечением PowerPoint
       shadow: this.effects(cs.filter, k, true) ?? undefined,
     });
+  }
+
+  /** Соединитель: опорные точки — из data-geo (connector.ts), уступ и прямая — отрезками, кривая — кривой Безье */
+  private connector(el: HTMLElement, b: Box): void {
+    let geo: { route?: string; pts?: [number, number][] } = {};
+    try { geo = JSON.parse(el.dataset.geo ?? '{}'); } catch { return; }
+    const pts = Array.isArray(geo.pts) ? geo.pts.filter((q) => Array.isArray(q) && q.every(Number.isFinite)) : [];
+    if (pts.length < 2 || !el.offsetWidth) return;
+    const line = el.querySelector<SVGPathElement>('path.conn-line');
+    if (!line) return;
+    const lcs = getComputedStyle(line);
+    const color = rgba(lcs.stroke) ?? { hex: '64748B', a: 1 };
+    const s = b.w / el.offsetWidth;
+    const at = ([x, y]: [number, number]) => ({ x: inch(x * s), y: inch(y * s) });
+    const points = geo.route === 'curve' && pts.length === 4
+      ? [at(pts[0]), { ...at(pts[3]), curve: { type: 'cubic' as const, x1: at(pts[1]).x, y1: at(pts[1]).y, x2: at(pts[2]).x, y2: at(pts[2]).y } }]
+      : pts.map(at);
+    const dashes = line.getAttribute('stroke-dasharray');
+    const w = parseFloat(lcs.strokeWidth) || 2.5;
+    const dash = !dashes ? 'solid' : parseFloat(dashes) <= w * 1.5 ? 'sysDot' : 'dash';
+    const head = w * s < 4 ? 'triangle" w="lg" len="lg' : 'triangle';
+    this.slide.addShape('custGeom' as never, {
+      ...this.pos(b), points,
+      line: {
+        color: color.hex, width: pt(w * s), dashType: dash,
+        ...(color.a < 1 ? { transparency: Math.round((1 - color.a) * 100) } : {}),
+        // Размер наконечника — как на слайде: у тонкой линии крупный (pptxgenjs вставляет тип в атрибут как есть)
+        beginArrowType: line.hasAttribute('marker-start') ? head : undefined,
+        endArrowType: line.hasAttribute('marker-end') ? head : undefined,
+      },
+    } as never);
   }
 
   // ---------------- таблицы ----------------

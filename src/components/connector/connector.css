@@ -1,0 +1,15 @@
+/* Соединитель (connector.ts): линия между объектами слайда. Рамка объекта — по пути, щелчок ловит только сама линия */
+.free:has(> .conn-box) { pointer-events: none; }
+.conn-box { position: relative; width: 100%; height: 100%; }
+.conn { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.conn-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; }
+.conn-line { fill: none; stroke: var(--cc); stroke-width: var(--cw); stroke-linecap: round; stroke-linejoin: round; transition: stroke .15s; }
+.conn marker path { fill: var(--cc); }
+.conn-l { position: absolute; translate: -50% -50%; max-width: 240px; padding: 3px 10px; border-radius: 999px; pointer-events: auto;
+  font: 600 14px/1.25 var(--font); color: var(--tx2, var(--tx)); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: var(--surf); border: 1px solid color-mix(in srgb, var(--cc) 40%, var(--bd)); }
+.conn-box.conn-off { display: none; }
+.slide.on .conn-line { animation: conn-draw .7s var(--ease) .25s both; }
+.slide.on .conn-l { animation: fi .4s ease .6s both; }
+@keyframes conn-draw { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .slide.on :is(.conn-line, .conn-l) { animation: none; } }
