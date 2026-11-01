@@ -88,7 +88,7 @@ export interface ContextHost {
   textTarget?(get: () => TextTarget | null): void;
 }
 
-export type ContextTab = 'shape' | 'table' | 'image' | 'video' | 'text';
+export type ContextTab = 'shape' | 'table' | 'image' | 'video' | 'text' | 'connector';
 
 /** Какая контекстная вкладка нужна для выделения (у группы — если все одного типа). */
 export function contextTab(deck: Deck, ed: Editor): ContextTab | null {
@@ -102,7 +102,7 @@ export function contextTab(deck: Deck, ed: Editor): ContextTab | null {
   if (t === 'tile') return paths.every((p) => !!(getAt(deck, p) as Block).image) ? 'image' : null;
   // Ролик — когда файл уже выбран
   if (t === 'video') return paths.length === 1 && !!(getAt(deck, paths[0]) as Block).src ? 'video' : null;
-  return t === 'shape' || t === 'table' || t === 'image' || t === 'text' ? t : null;
+  return t === 'shape' || t === 'table' || t === 'image' || t === 'text' || t === 'connector' ? t : null;
 }
 
 /** Блок подходит вкладке: «рисунок» — картинка или плитка с фото */
@@ -245,12 +245,20 @@ const rememberStyle = (id: string) => {
 };
 
 /** Вкладки и панели ленты (скрыты, пока нет подходящего выделения). */
+/** «Соединить» — на вкладках объектов: линия от выделенного объекта к другому (щелчок по нему или по точке на его стороне) */
+const CONNECT = group('Соединить', stack(
+  btn('obj.connect.elbow', 'connector', 'Уступом', { title: 'Соединитель уступом: щёлкните второй объект или точку на его стороне' }),
+  btn('obj.connect.straight', 'conn-straight', 'Прямая', { title: 'Прямой соединитель: щёлкните второй объект' }),
+  btn('obj.connect.curve', 'conn-curve', 'Кривая', { title: 'Кривой соединитель: щёлкните второй объект' }),
+));
+
 export function contextTabsHtml(): string {
   return `<button type="button" role="tab" data-tab="text" class="ctx" aria-selected="false" hidden>Надпись</button>`
     + `<button type="button" role="tab" data-tab="shape" class="ctx" aria-selected="false" hidden>Фигура</button>`
     + `<button type="button" role="tab" data-tab="table" class="ctx" aria-selected="false" hidden>Таблица</button>`
     + `<button type="button" role="tab" data-tab="image" class="ctx" aria-selected="false" hidden>Рисунок</button>`
-    + `<button type="button" role="tab" data-tab="video" class="ctx" aria-selected="false" hidden>Видео</button>`;
+    + `<button type="button" role="tab" data-tab="video" class="ctx" aria-selected="false" hidden>Видео</button>`
+    + `<button type="button" role="tab" data-tab="connector" class="ctx" aria-selected="false" hidden>Соединитель</button>`;
 }
 
 export function contextPanelsHtml(): string {
@@ -267,6 +275,7 @@ export function contextPanelsHtml(): string {
     ))}
   ${group('Эффекты', stack(btn('shape.shadow', 'shadow', 'Тень', { menu: true }), btn('shape.glow', 'glow', 'Свечение', { menu: true, title: 'Свечение по краю фигуры' }), btn('shape.radius', 'corner', 'Скругление', { menu: true }))
     + stack(btn('shape.rotate', 'rotate', 'Поворот', { menu: true }), btn('shape.opacity', 'opacity', 'Прозрачность', { menu: true })))}
+  ${CONNECT}
   ${ORDER}
 </div>
 <div class="st-rpanel" data-panel="table" hidden>
@@ -302,6 +311,7 @@ export function contextPanelsHtml(): string {
       btn('image.flip', '', 'По «Далее»', { chk: true, title: 'Переключать кадры кнопкой «Далее», как анимации' }))}</div>`)}
   ${group('Сброс', btn('image.reset', 'reset', 'Сбросить', { big: true, title: 'Убрать всё оформление рисунка' }))}
   ${group('Файл', btn('obj.picture', 'save', 'Сохранить', { big: true, title: 'Сохранить как PNG' }))}
+  ${CONNECT}
   ${ORDER}
 </div>
 <div class="st-rpanel" data-panel="video" hidden>
@@ -311,7 +321,17 @@ export function contextPanelsHtml(): string {
   ${group('Цветокоррекция', btn('video.grade', 'sliders', 'Цвет+', { big: true, title: 'Цветокоррекция ролика' }))}
   ${ORDER}
 </div>
-${textPanelHtml({ btn, group, row, stack, order: ORDER })}`;
+<div class="st-rpanel" data-panel="connector" hidden>
+  ${group('Линия', btn('conn.route.elbow', 'connector', 'Уступом', { big: true }) + btn('conn.route.straight', 'conn-straight', 'Прямая', { big: true }) + btn('conn.route.curve', 'conn-curve', 'Кривая', { big: true }))}
+  ${group('Стрелки', stack(
+    row(btn('conn.head.end', 'head-end', 'Стрелка на конце', { ico: true }), btn('conn.head.start', 'head-start', 'Стрелка в начале', { ico: true })),
+    row(btn('conn.head.both', 'head-both', 'Стрелки с обеих сторон', { ico: true }), btn('conn.head.none', 'head-none', 'Без стрелок', { ico: true })),
+  ))}
+  ${group('Оформление', btn('conn.color', 'outline', 'Цвет', { big: true, menu: true, swatch: 'cstroke', title: 'Цвет, толщина и штрих линии' }) + btn('conn.text', 'text-box', 'Подпись', { big: true, title: 'Подпись посередине линии' }))}
+  ${group('Стороны', stack(btn('conn.from', 'conn-sides', 'Начало', { menu: true, title: 'От какой стороны первого объекта' }), btn('conn.to', 'conn-sides', 'Конец', { menu: true, title: 'К какой стороне второго объекта' })))}
+  ${ORDER}
+</div>
+${textPanelHtml({ btn, group, row, stack, order: CONNECT + ORDER })}`;
 }
 
 /** Цвет из данных фигуры → CSS для образца на кнопке. */
@@ -380,6 +400,41 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     ed.commit((d) => paths.forEach((p) => setAt(d, [...p, key], clean(value))), { rebuild: true });
   };
   const isShape = () => targets('shape').length > 0;
+  /** Вкладка «Соединитель»: вид линии, стрелки, цвет, подпись, стороны */
+  const connectorCommands = (): Record<string, Command> => {
+    const isConn = () => targets('connector').length > 0;
+    const c = () => first('connector');
+    const out: Record<string, Command> = {};
+    for (const r of ['elbow', 'straight', 'curve'] as const) {
+      out[`conn.route.${r}`] = { run: () => setAll('connector', 'route', r === 'elbow' ? undefined : r), enabled: isConn, active: () => isConn() && (c()?.route ?? 'elbow') === r };
+    }
+    for (const hd of ['end', 'start', 'both', 'none'] as const) {
+      out[`conn.head.${hd}`] = { run: () => setAll('connector', 'head', hd === 'end' ? undefined : hd), enabled: isConn, active: () => isConn() && (c()?.head ?? 'end') === hd };
+    }
+    out['conn.color'] = { run: () => palette('conn.color', 'stroke', 'connector'), enabled: isConn };
+    // Подпись: нет — появляется «Подпись» и сразу в правке, есть — правка
+    out['conn.text'] = {
+      run: () => {
+        const p = targets('connector')[0];
+        if (!p) return;
+        if (!String(c()?.text ?? '').trim()) ed.commit((d) => setAt(d, [...p, 'text'], 'Подпись'), { rebuild: true });
+        const key = JSON.stringify(p);
+        requestAnimationFrame(() => {
+          const box = [...h.stage().querySelectorAll<HTMLElement>('.slide.on [data-block]')].find((x) => x.getAttribute('data-block') === key);
+          const label = box?.querySelector<HTMLElement>('.conn-l');
+          if (label) ed.editField(label, { keep: true, selectAll: true });
+        });
+      },
+      enabled: () => targets('connector').length === 1,
+    };
+    const SIDE_NAMES: [string, string][] = [['', 'По положению объектов'], ['top', 'Сверху'], ['right', 'Справа'], ['bottom', 'Снизу'], ['left', 'Слева']];
+    const sideMenu = (cmd: string, key: 'fromSide' | 'toSide') => showMenu(anchor(cmd), SIDE_NAMES.map(([v, label]) => ({
+      label, checked: (c()?.[key] ?? '') === v, run: () => setAll('connector', key, v || undefined),
+    })));
+    out['conn.from'] = { run: () => sideMenu('conn.from', 'fromSide'), enabled: isConn, active: () => isConn() && !!c()?.fromSide };
+    out['conn.to'] = { run: () => sideMenu('conn.to', 'toSide'), enabled: isConn, active: () => isConn() && !!c()?.toSide };
+    return out;
+  };
   const isTable = () => targets('table').length > 0;
   const isLine = (b: Block | null) => b?.kind === 'line' || b?.kind === 'arrow';
   /** Фигуры, у которых есть тело (не линии) */
@@ -398,12 +453,14 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   // ---------- фигура: цвета ----------
 
   /** Палитра, как в PowerPoint: цвета темы, постоянные цвета, «нет», другой цвет. У контура — ещё толщина и штрих. */
-  const palette = (cmd: string, key: 'fill' | 'stroke', type: 'shape' | 'image' = 'shape') => {
+  const palette = (cmd: string, key: 'fill' | 'stroke', type: 'shape' | 'image' | 'connector' = 'shape') => {
     const b = first(type);
-    const line = isLine(b);
+    // Соединитель — как линия: цвет (color), толщина и штрих
+    const conn = type === 'connector';
+    const line = conn || isLine(b);
     // У линии цвет хранится в stroke (или по старинке в fill)
-    const k = line ? 'stroke' : key;
-    const cur = line ? b?.stroke ?? b?.fill : b?.[key];
+    const k = conn ? 'color' : line ? 'stroke' : key;
+    const cur = conn ? b?.color : line ? b?.stroke ?? b?.fill : b?.[key];
     const sw = (v: string, css: string, name: string) =>
       `<button type="button" class="st-psw${cur === v ? ' on' : ''}" data-v="${esc(v)}" style="--c:${css}" title="${esc(name)}" aria-label="${esc(name)}"></button>`;
     const theme = themeRow(cur);
@@ -417,7 +474,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       ? `<div class="st-plabel">Градиенты</div><div class="st-pgrid st-grads${k === 'fill' ? '' : ' by8'}">${list.map((g) => `<button type="button" class="st-psw${curGrad && sameGradient(curGrad, g.g) ? ' on' : ''}" data-g="${g.id}" style="--c:${gradientCss(g.g)}" title="${esc(g.name)}" aria-label="${esc(g.name)}"></button>`).join('')}</div>
       <button type="button" class="st-pmore" data-v="grad-edit"><i style="background:${curGrad ? gradientCss(curGrad) : 'linear-gradient(135deg, #F97316, #2563EB)'}"></i><span>Настроить градиент…</span></button>`
       : '';
-    const width = Number(b?.width ?? (line ? 3 : 0));
+    const width = Number(b?.width ?? (conn ? 2.5 : line ? 3 : 0));
     const outline = key === 'stroke' || line;
     const html = `${line ? '' : `<button type="button" class="st-pnone${cur === 'none' || (key === 'stroke' && !width) ? ' on' : ''}" data-v="none">${icon('close')}<span>${key === 'fill' ? 'Без заливки' : 'Без контура'}</span></button>`}
       <div class="st-plabel">Цвета темы</div><div class="st-pgrid">${theme}</div>
@@ -440,7 +497,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
         const g = GRADIENTS.find((x) => x.id === el.dataset.g)!.g;
         return { run: () => apply((d, p) => { setAt(d, [...p, k], 'gradient'); setAt(d, [...p, gk], { ...g }); withWidth(d, p); }) };
       }
-      if (v === 'grad-edit') return { run: () => gradientEditor(cmd, curGrad ?? GRADIENTS[0].g, k) };
+      if (v === 'grad-edit' && k !== 'color') return { run: () => gradientEditor(cmd, curGrad ?? GRADIENTS[0].g, k) };
       if (v === 'custom') {
         return {
           run: () => {
@@ -466,6 +523,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     }, 'st-palette');
     // Наведение на цвет, градиент, толщину или штрих — примерка на самой фигуре (рисунке)
     const wide = (b: Block): Block => (k === 'stroke' && !isLine(b) && !Number(b.width) ? { ...b, width: 2 } : b);
+    if (conn) return;
     bindTry(pop, tryLook(type === 'image' ? IMAGE_KIND : SHAPE_KIND, targets(type)), (el) => {
       const v = el.dataset.v;
       if (el.dataset.g) {
@@ -1506,6 +1564,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   const cmds: Record<string, Command> = {
     'shape.fill': { run: () => palette('shape.fill', 'fill'), enabled: isBody },
     'shape.stroke': { run: () => palette('shape.stroke', 'stroke'), enabled: isShape },
+    ...connectorCommands(),
     // Фигуры PowerPoint: образцы — выделенная фигура в каждой форме, наведение примеряет форму на слайде
     'shape.kinds': {
       run: () => {
@@ -1782,12 +1841,16 @@ export function syncSwatches(deck: Deck, ed: Editor): void {
   if (b?.type === 'text') syncText(b, ed);
   const line = b?.kind === 'line' || b?.kind === 'arrow';
   document.querySelectorAll<HTMLElement>('.st-rb-sw').forEach((el) => {
-    const key = el.dataset.sw as 'fill' | 'stroke' | 'istroke' | 'tcolor';
+    const key = el.dataset.sw as 'fill' | 'stroke' | 'istroke' | 'tcolor' | 'cstroke';
     let css = 'transparent';
     if (key === 'tcolor') {
       const c = ((b?.styles as Record<string, TextStyle> | undefined)?.text ?? {}).color;
       const g = typeof c === 'string' && c.startsWith('g:') ? /--g:([^;]+)/.exec(textGradientCss(c) ?? '')?.[1] : null;
       el.style.background = b?.type === 'text' ? g ?? colorCss(c) ?? 'var(--tx)' : 'transparent';
+      return;
+    }
+    if (key === 'cstroke') {
+      el.style.background = b?.type === 'connector' ? swatchCss(b.color, 'var(--tx2, var(--mu))') : 'transparent';
       return;
     }
     if (key === 'istroke') {

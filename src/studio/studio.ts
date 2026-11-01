@@ -1686,6 +1686,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
   const gantt = ganttDrag({ deck, editor: ed, stage: () => view.stage });
   const linker = connectTool({ deck, editor: ed, stage: () => view.stage, index: () => index });
   cmds['obj.connect'] = { run: () => linker.start() };
+  // С вкладки объекта: выделенный объект — начало линии, остаётся щёлкнуть второй
+  for (const r of ['elbow', 'straight', 'curve'] as const) cmds[`obj.connect.${r}`] = { run: () => linker.start({ route: r }, true), enabled: () => !!ed.selection?.free };
   cmds['tab.shape'] = { run: () => setTab('shape') };
   cmds['tab.anim'] = { run: () => { setTab('anim'); if (!lay.ribbon) toggleRibbon(true); } };
   cmds['tab.table'] = { run: () => setTab('table') };
@@ -2111,7 +2113,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       // На «Анимации» лента остаётся: объекты выделяют, чтобы дать им эффект (вкладка объекта лишь появляется)
       if (!keepTab && tab !== 'anim') {
         if (next) setTab(next);
-        else if (tab === 'shape' || tab === 'table' || tab === 'image' || tab === 'video' || tab === 'text') setTab('home');
+        else if (tab === 'shape' || tab === 'table' || tab === 'image' || tab === 'video' || tab === 'text' || tab === 'connector') setTab('home');
       }
       ctxTab = next;
       ctxKey = key;

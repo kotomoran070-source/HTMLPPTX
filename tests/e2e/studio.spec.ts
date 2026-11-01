@@ -2286,3 +2286,64 @@ slides:
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('соединитель с ленты: «Фигура → Соединить», точки на сторонах, протянуть от точки к точке; вкладка «Соединитель»', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'connribbon');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'deck.yaml');
+  fs.writeFileSync(file, `title: С
+slides:
+  - template: canvas
+    free:
+      - { type: shape, kind: round, text: Клиент, place: { x: 120, y: 160, w: 240, h: 110 } }
+      - { type: shape, kind: round, text: Сервер, place: { x: 760, y: 400, w: 260, h: 120 } }
+      - { type: shape, kind: ellipse, text: База, place: { x: 820, y: 60, w: 200, h: 140 } }
+`);
+  const conns = () => ((parse(fs.readFileSync(file, 'utf8')) as { slides: { free: Record<string, unknown>[] }[] }).slides[0].free).filter((b) => b.type === 'connector');
+  const rb = (cmd: string) => page.locator(`.st-ribbon [data-cmd="${cmd}"]`).filter({ visible: true });
+  try {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await page.goto('/?deck=connribbon&studio#1');
+    const obj = (t: string) => page.locator('#st-canvas .slide.on > .free').filter({ hasText: t });
+    // Выделенная фигура — начало линии; щелчок по точке на стороне второй — линия держится этой стороны
+    await obj('Клиент').click();
+    await rb('obj.connect.elbow').click();
+    await expect(page.locator('body.st-connecting')).toHaveCount(1);
+    await obj('Сервер').hover();
+    await page.locator('.st-conn-pt[data-side="left"]').last().click();
+    await expect.poll(conns).toEqual([{ type: 'connector', from: 'obj-1', to: 'obj-2', toSide: 'left' }]);
+    // Вкладка «Соединитель»: вид линии, стрелки, сторона начала
+    await expect(page.locator('.st-tabs [data-tab="connector"]')).toHaveAttribute('aria-selected', 'true');
+    await rb('conn.route.curve').click();
+    await rb('conn.head.both').click();
+    await rb('conn.from').click();
+    await page.getByRole('menuitemradio', { name: 'Снизу' }).click();
+    await expect.poll(() => conns()[0]).toMatchObject({ route: 'curve', head: 'both', fromSide: 'bottom', toSide: 'left' });
+    await expect(rb('conn.route.curve')).toHaveClass(/active/);
+    // Протянуть от верхней точки «Клиента» к левой точке «Базы»
+    await page.keyboard.press('Escape');
+    await obj('Клиент').click();
+    await rb('obj.connect.straight').click();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('body.st-connecting')).toHaveCount(0);
+    await page.locator('.st-tabs [data-tab="insert"]').click();
+    await page.locator('.st-ribbon [data-cmd="ins.gal.shapes"]').filter({ visible: true }).first().click();
+    await page.locator('.st-lib').getByText('Соединитель уступом').click();
+    await obj('Клиент').hover();
+    const a = (await page.locator('.st-conn-pt[data-side="top"]').first().boundingBox())!;
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(800, 260, { steps: 5 });
+    await obj('База').hover();
+    const b = (await page.locator('.st-conn-pt[data-side="left"]').last().boundingBox())!;
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 3 });
+    await page.mouse.up();
+    await expect.poll(() => conns().length).toBe(2);
+    expect(conns()[1]).toEqual({ type: 'connector', from: 'obj-1', to: 'obj-4', fromSide: 'top', toSide: 'left' });
+    await expect(page.locator('#st-canvas .slide.on .conn-line')).toHaveCount(2);
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

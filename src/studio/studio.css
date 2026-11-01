@@ -1605,6 +1605,11 @@ body.studio input[type="number"]:not(.edsize input) { padding-right: 19px; }
 /* Соединение объектов линией (connect.ts): объект под мышью и первый выбранный — с рамкой, до мыши — пунктир */
 body.st-connecting .stage .slide.on > .free { cursor: crosshair; }
 body.st-connecting .stage .slide.on > .free.st-conn-over { outline: 2px dashed var(--ac); outline-offset: 4px; }
-body.st-connecting .stage .slide.on > .free.st-conn-from { outline: 2.5px solid var(--ac); outline-offset: 4px; }
+/* Точки на сторонах объекта: отпустили или щёлкнули на точке — линия держится этой стороны */
+.st-conn-pts { position: absolute; inset: 0; z-index: 9998; pointer-events: none; }
+.st-conn-pt { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; box-sizing: border-box; border-radius: 50%; pointer-events: auto; cursor: crosshair;
+  background: #fff; border: 3px solid var(--ac); box-shadow: 0 1px 5px rgba(15, 23, 42, .35); transition: transform .12s, background .12s; }
+.st-conn-pt::before { content: ""; position: absolute; inset: -9px; border-radius: 50%; }
+.st-conn-pt:hover, .st-conn-pt.on { background: var(--ac); transform: scale(1.3); }
 .st-conn-ghost { position: absolute; inset: 0; z-index: 9999; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .st-conn-ghost line { stroke: var(--ac); stroke-width: 2.5; stroke-dasharray: 7 6; stroke-linecap: round; }
