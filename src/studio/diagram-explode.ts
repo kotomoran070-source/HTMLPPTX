@@ -68,6 +68,21 @@ const withText = (b: Block, text: string, st: TextStyle, pad = 'padding:0'): Blo
   return b;
 };
 
+/** Насколько середина стрелки отходит в сторону от линии между узлами (в пикселях слайда, поперёк хода схемы) */
+function bend(p: SVGPathElement, at: number, across: boolean): number {
+  const svg = p.ownerSVGElement;
+  const m = p.getScreenCTM();
+  if (!svg || !m || !p.getTotalLength()) return 0;
+  const q = p.getPointAtLength(p.getTotalLength() / 2);
+  const c = new DOMPoint(q.x, q.y).matrixTransform(m);
+  // Экран → пиксели слайда: по ширине свободного объекта (у него свой масштаб на холсте)
+  const slide = svg.closest<HTMLElement>('.slide');
+  const r = slide?.getBoundingClientRect();
+  const k = r && slide!.offsetWidth ? slide!.offsetWidth / r.width : 1;
+  const v = across ? (c.y - (r?.top ?? 0)) * k : (c.x - (r?.left ?? 0)) * k;
+  return v - at;
+}
+
 function flowParts(flow: HTMLElement, kit: Kit, across: boolean): Block[] {
   const state = flow.classList.contains('state');
   const ids = new Map<string, string>();
@@ -120,7 +135,9 @@ function flowParts(flow: HTMLElement, kit: Kit, across: boolean): Block[] {
     const [ma, sa] = mid(a);
     const [mb, sb] = mid(b);
     if (ma > mb + 1) {
-      const out = (sa + sb) / 2 >= c0;
+      // В ту сторону, куда стрелка изогнута на схеме; прямая — в сторону от середины схемы
+      const lat = bend(p, (sa + sb) / 2, across);
+      const out = Math.abs(lat) > 2 ? lat > 0 : (sa + sb) / 2 >= c0;
       c.fromSide = c.toSide = across ? (out ? 'bottom' : 'top') : (out ? 'right' : 'left');
     }
     if (p.classList.contains('dashed')) c.dash = 'dash';
