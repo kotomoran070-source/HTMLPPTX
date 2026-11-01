@@ -17,6 +17,7 @@ import {
 } from './check';
 import { QUIZ_NEXT, QUIZ_NUDGE, quizStore } from './state';
 import './quiz.css';
+import './flashcards';
 
 export interface QuizProps extends Block, Omit<QuizData, 'type'> {}
 export interface ScoreProps extends Block {

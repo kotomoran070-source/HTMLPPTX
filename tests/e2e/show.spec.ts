@@ -1187,3 +1187,56 @@ slides:
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('карточки-перевёртыши: щелчок переворачивает (и у зрителей); стопка — «Знаю» и «Ещё раз», прогресс после перезагрузки на месте', async ({ page, context }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'cards');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'deck.yaml'), `title: Карточки
+slides:
+  - template: content
+    title: Сетка
+    body: { type: flashcards, items: [{ front: Осмос, back: Вода через мембрану }, { front: Митоз, back: Деление клетки }] }
+  - template: content
+    title: Стопка
+    body: { type: flashcards, mode: deck, items: [{ front: А, back: 1 }, { front: Б, back: 2 }, { front: В, back: 3 }] }
+`);
+  try {
+    await page.goto('/?deck=cards#1');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    const pres = await context.newPage();
+    await pres.goto('/?deck=cards&view=presenter');
+    await expect(pres.locator('#link.ok')).toHaveCount(1);
+    const card = page.locator('.slide.on .fc-card').nth(1);
+    await card.click();
+    await expect(card).toHaveClass(/flip/);
+    await expect(pres.locator('#cur .slide.on .fc-card').nth(1)).toHaveClass(/flip/);
+    await card.click();
+    await expect(card).not.toHaveClass(/flip/);
+    // Стопка: «Ещё раз» — карточка в конец, «Знаю» — выучена
+    await page.keyboard.press('ArrowRight');
+    const deck = page.locator('.slide.on .fc.deck');
+    await expect(deck.locator('.fc-card.cur .fc-t')).toHaveText('А');
+    await deck.locator('.fc-card.cur').click();
+    await expect(deck.locator('.fc-card.cur')).toHaveClass(/flip/);
+    await deck.locator('.fc-no').click();
+    await expect(deck.locator('.fc-card.cur .fc-t')).toHaveText('Б');
+    await expect(deck.locator('.fc-card.cur')).not.toHaveClass(/flip/);
+    await deck.locator('.fc-yes').click();
+    await deck.locator('.fc-yes').click();
+    await expect(deck.locator('.fc-card.cur .fc-t')).toHaveText('А');
+    await expect(deck.locator('.fc-count')).toHaveText('2 из 3 выучено');
+    await expect(pres.locator('#cur .slide.on .fc-count')).toHaveText('2 из 3 выучено');
+    await page.reload();
+    await expect(page.locator('.slide.on .fc-count')).toHaveText('2 из 3 выучено');
+    await page.locator('.slide.on .fc-yes').click();
+    await expect(page.locator('.slide.on .fc.deck')).toHaveClass(/over/);
+    await page.locator('.slide.on .fc-again').click();
+    await expect(page.locator('.slide.on .fc-count')).toHaveText('0 из 3 выучено');
+    await pres.close();
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

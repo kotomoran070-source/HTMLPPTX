@@ -197,15 +197,31 @@ export function levelOf(levels: Level[] | undefined, pct: number): string {
   return fit[0]?.text ?? '';
 }
 
-/** Ответы к тестам слайда — для заметок докладчика в PowerPoint (там проверки ответа нет) */
+/** Карточки-перевёртыши слайда: «термин — определение» (в PowerPoint видно только лицо) */
+function cardsIn(v: unknown, out: string[]): void {
+  if (Array.isArray(v)) { v.forEach((x) => cardsIn(x, out)); return; }
+  if (!v || typeof v !== 'object') return;
+  const b = v as { type?: unknown; items?: unknown };
+  if (b.type === 'flashcards' && Array.isArray(b.items)) {
+    for (const it of b.items as { front?: unknown; back?: unknown }[]) if (it && typeof it === 'object') out.push(`${String(it.front ?? '').trim()} — ${String(it.back ?? '').trim()}`);
+    return;
+  }
+  for (const x of Object.values(v)) if (x && typeof x === 'object') cardsIn(x, out);
+}
+
+/** Ответы к тестам слайда и обороты карточек — для заметок докладчика в PowerPoint (там проверки ответа нет) */
 export function answerKey(slide: unknown): string {
   const L = 'ABCDEFGHIJKL';
   const plain = (s: unknown) => String(s ?? '').replace(/\*\*|__|\{[^{}|]+\||\}/g, '').replace(/\s+/g, ' ').trim();
-  return quizzesIn(slide).map((q) => {
+  const lines = quizzesIn(slide).map((q) => {
     if (isInput(q)) return `Ответ: ${variants(q).join(' / ') || '—'}`;
     const right = rightOf(q).map((k) => `${L[k] ?? k + 1} — ${plain(optionsOf(q)[k]?.text)}`);
     return `${right.length > 1 ? 'Верные ответы' : 'Ответ'}: ${right.join('; ') || '—'}`;
-  }).join('\n');
+  });
+  const cards: string[] = [];
+  cardsIn(slide, cards);
+  if (cards.length) lines.push(`Карточки:\n${cards.join('\n')}`);
+  return lines.join('\n');
 }
 
 // ---------------- переходы по ответу ----------------

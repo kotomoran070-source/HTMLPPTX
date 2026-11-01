@@ -553,6 +553,22 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'lock', label: 'Дальше только после ответа', type: 'bool' },
     ],
   },
+  flashcards: {
+    about: 'При показе щелчок переворачивает карточку. В правке оборот — кнопкой ↻.',
+    fields: [
+      { k: 'mode', label: 'Вид', type: 'select', options: [['', 'Сеткой'], ['deck', 'Стопкой: «Знаю» и «Ещё раз»']] },
+      {
+        k: 'items', label: 'Карточки', type: 'rows', item: 'Карточка',
+        make: () => ({ front: 'Термин', back: 'Определение' }),
+        fields: [
+          { k: 'front', label: 'Лицо: термин', type: 'text' },
+          { k: 'back', label: 'Оборот: определение', type: 'textarea' },
+        ],
+      },
+      { k: 'label', label: 'Подпись на лице', type: 'text', placeholder: 'Термин' },
+      { k: 'cols', label: 'Столбцов в сетке', type: 'number', min: 1, max: 6, placeholder: 'сами' },
+    ],
+  },
   score: {
     about: 'Баллы всех тестов презентации. «Пройти заново» стирает ответы.',
     fields: [

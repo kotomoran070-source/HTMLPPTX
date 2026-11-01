@@ -1,0 +1,67 @@
+/* Карточки-перевёртыши (flashcards.ts): лицо — термин, оборот — определение; поворот в объёме */
+.fc { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 18px; width: 100%; color: var(--tx); font: 400 18px/1.4 var(--font); }
+.fc .ic { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.fc-card { position: relative; min-height: 168px; perspective: 1200px; cursor: pointer; outline: none; }
+.fc-card:focus-visible .fc-face { outline: 2px solid var(--ac); outline-offset: 3px; }
+.fc-in { position: relative; display: grid; min-height: inherit; height: 100%; transform-style: preserve-3d; transition: transform .6s cubic-bezier(.3, .7, .2, 1); }
+.fc-card.flip .fc-in { transform: rotateY(180deg); }
+.fc-face { grid-area: 1 / 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; box-sizing: border-box; padding: 22px 22px 26px;
+  text-align: center; border-radius: calc(16px * var(--rk, 1)); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.fc-front { background: var(--surf); border: 1.5px solid color-mix(in srgb, var(--ac) 28%, var(--bd2)); box-shadow: 0 12px 28px -20px rgba(15, 23, 42, .5); }
+.fc-back { transform: rotateY(180deg); background: color-mix(in srgb, var(--ac) 9%, var(--surf)); border: 1.5px solid color-mix(in srgb, var(--ac) 45%, var(--bd2)); }
+.fc-tag { color: var(--ach); font: 700 11.5px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; }
+.fc-t { font: var(--hw, 800) 24px/1.2 var(--font-head, var(--font)); letter-spacing: -.01em; text-wrap: balance; }
+.fc-d { color: var(--tx2, var(--tx)); font-size: 17px; line-height: 1.45; text-wrap: pretty; }
+/* Повернуть: при показе — под мышью (щелчок по карточке тоже поворачивает), в правке — всегда (править оборот) */
+.fc-turn { position: absolute; right: 10px; bottom: 10px; z-index: 2; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border-radius: 50%;
+  border: 1px solid var(--bd2); background: var(--surf); color: var(--mu); cursor: pointer; opacity: 0; transition: opacity .15s, color .15s; }
+.fc-turn .ic { width: 15px; height: 15px; }
+.fc-card:hover .fc-turn { opacity: .85; }
+.fc-turn:hover { color: var(--tx); }
+body.editing:not(.st-previewing) .fc-turn { opacity: .75; }
+body.editing:not(.st-previewing) .fc-card { cursor: inherit; }
+body:not(.editing) .fc-card:hover .fc-front, body.st-previewing .fc-card:hover .fc-front { border-color: color-mix(in srgb, var(--ac) 55%, var(--bd2)); }
+.slide.on .fc:not(.deck) .fc-card { animation: fc-in .45s ease both; animation-delay: calc(.1s + var(--k) * .06s); }
+
+/* ---------- стопкой по одной ---------- */
+.fc.deck { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.fc-stack { position: relative; display: grid; width: min(100%, 680px); }
+/* Под карточкой — край стопки */
+.fc-stack::before, .fc-stack::after { content: ""; grid-area: 1 / 1; border-radius: calc(16px * var(--rk, 1)); background: var(--surf); border: 1.5px solid var(--bd2); }
+.fc-stack::before { translate: 0 22px; scale: .9; opacity: .5; }
+.fc-stack::after { translate: 0 11px; scale: .95; opacity: .8; }
+.fc.deck { padding-bottom: 12px; }
+.fc.deck .fc-card { grid-area: 1 / 1; z-index: 1; min-height: 280px; visibility: hidden; opacity: 0; transition: opacity .3s, visibility .3s; }
+.fc.deck .fc-card.cur, .fc.deck:not(.ready) .fc-card:first-child { visibility: visible; opacity: 1; }
+.fc.deck .fc-t { font-size: 36px; }
+.fc.deck .fc-d { font-size: 22px; }
+.fc-end { grid-area: 1 / 1; z-index: 1; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 280px; border-radius: calc(16px * var(--rk, 1));
+  background: color-mix(in srgb, #16A34A 9%, var(--surf)); border: 1.5px solid color-mix(in srgb, #16A34A 45%, var(--bd2)); }
+.fc-end-t { font: 800 30px/1.2 var(--font-head, var(--font)); }
+.fc-end-n { color: var(--tx2, var(--tx)); font-size: 20px; }
+.fc.over .fc-end { display: flex; animation: fc-in .4s ease both; }
+.fc.over .fc-card { visibility: hidden; opacity: 0; }
+.fc-bar { display: flex; align-items: center; justify-content: center; gap: 18px; }
+.fc-bar button, .fc-again { display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; border-radius: 999px; font: 700 16px/1 var(--font); cursor: pointer; }
+.fc-no { border: 1.5px solid var(--bd2); background: var(--surf); color: var(--tx2, var(--tx)); }
+.fc-yes { border: 0; background: #16A34A; color: #fff; }
+.fc-again { margin-top: 6px; border: 1.5px solid var(--bd2); background: var(--surf); color: var(--tx); }
+.fc-bar button:hover, .fc-again:hover { filter: brightness(1.06); }
+.fc-count { min-width: 150px; color: var(--mu); font-size: 16px; text-align: center; }
+.fc-count b { color: var(--tx); }
+.fc.over .fc-bar { visibility: hidden; }
+.fc-prog { width: min(100%, 680px); height: 6px; overflow: hidden; border-radius: 3px; background: color-mix(in srgb, var(--bd2) 70%, transparent); }
+.fc-prog i { display: block; width: 0; height: 100%; border-radius: inherit; background: #16A34A; transition: width .4s var(--ease, ease); }
+body.editing:not(.st-previewing) :is(.fc-bar button, .fc-again) { pointer-events: none; }
+
+@keyframes fc-in { from { opacity: 0; translate: 0 8px; } }
+@media (prefers-reduced-motion: reduce) { .fc-in { transition: none; } .slide.on .fc .fc-card, .fc.over .fc-end { animation: none; } }
+/* PDF и печать: обе стороны карточки, стопка — сеткой */
+@media print {
+  .fc-in { transform: none !important; display: flex; flex-direction: column; gap: 6px; }
+  .fc-back { transform: none; }
+  .fc-face { backface-visibility: visible; }
+  .fc-turn, .fc-bar, .fc-prog, .fc-end, .fc-stack::before, .fc-stack::after { display: none !important; }
+  .fc.deck .fc-stack { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; width: 100%; }
+  .fc.deck .fc-card { grid-area: auto; visibility: visible; opacity: 1; min-height: 0; }
+}

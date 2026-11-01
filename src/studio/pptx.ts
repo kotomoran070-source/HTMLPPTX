@@ -500,6 +500,8 @@ class Converter {
       }
       return;
     }
+    // Скрытая сторона (оборот карточки-перевёртыша): в PowerPoint — только лицо, оборот — в заметках
+    if (el.dataset.pptxSkip !== undefined) return;
     const cs = getComputedStyle(el);
     if (cs.display === 'none' || cs.visibility === 'hidden') return;
     // Обёртка без своей рамки (display: contents — части разобранного шаблона): только её дети
