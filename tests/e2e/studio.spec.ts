@@ -2240,8 +2240,8 @@ test('стрелка-фигура: рисуется от фигуры к фиг�
     await page.mouse.move(bx, by, { steps: 8 });
     await page.mouse.up();
     await expect.poll(lines).toEqual([{ type: 'connector', from: 'obj-1', to: 'obj-2', route: 'straight' }]);
-    // Стрелка выделена: на «Фигуре» — её группы, на концах — ручки (прицеплены — залитые)
-    await expect(page.locator('.st-rpanel[data-panel="shape"]')).toHaveClass(/st-line-mode/);
+    // Стрелка выделена: своей вкладки на ленте нет, на концах — ручки (прицеплены — залитые)
+    await expect(page.locator('.st-tabs [data-tab="shape"]')).toBeHidden();
     await expect(page.locator('.st-lend.tied')).toHaveCount(2);
     // Фигуру тянут — стрелка следом, ещё до отпускания
     const line = page.locator('#st-canvas .slide.on .conn-line');
@@ -2291,37 +2291,34 @@ test('стрелка-фигура: рисуется от фигуры к фиг�
   }
 });
 
-test('стрелка с ленты фигуры: «Соединить» и точка на стороне; вид, стрелки, контур и подпись — на «Фигуре»; свободная линия тянется целиком', async ({ page }) => {
+test('«Соединить линией»: выделение остаётся на объектах, лента не меняется; вид линии — в свойствах; свободная линия тянется целиком', async ({ page }) => {
   const errors = watchErrors(page);
-  const dir = path.join(DECKS, 'arrowribbon');
+  const dir = path.join(DECKS, 'arrowmenu');
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, 'deck.yaml');
   fs.writeFileSync(file, LINE_DECK);
   const lines = () => ((parse(fs.readFileSync(file, 'utf8')) as { slides: { free: Record<string, unknown>[] }[] }).slides[0].free).filter((b) => b.type === 'connector');
-  const rb = (cmd: string) => page.locator(`.st-ribbon [data-cmd="${cmd}"]`).filter({ visible: true });
   try {
     await page.setViewportSize({ width: 1600, height: 900 });
-    await page.goto('/?deck=arrowribbon&studio#1');
+    await page.goto('/?deck=arrowmenu&studio#1');
     const obj = (t: string) => page.locator('#st-canvas .slide.on > .free').filter({ hasText: t });
-    // Выделенная фигура — начало; щелчок по точке на стороне второй — линия держится этой стороны
     await obj('Клиент').click();
-    await rb('obj.connect.elbow').click();
-    await obj('Сервер').hover();
-    await page.locator('.st-conn-pt[data-side="left"]').last().click();
-    await expect.poll(lines).toEqual([{ type: 'connector', from: 'obj-1', to: 'obj-2', toSide: 'left' }]);
-    // Оформление — на «Фигуре»: вид линии, стрелки, контур, подпись
+    await obj('Сервер').click({ modifiers: ['Shift'] });
+    await obj('Сервер').click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Соединить линией' }).click();
+    await expect.poll(lines).toEqual([{ type: 'connector', from: 'obj-1', to: 'obj-2' }]);
+    // Выделены по-прежнему обе фигуры, открыта их вкладка «Фигура»
+    await expect(page.locator('#st-crumbs')).toContainText('Выделено: 2');
     await expect(page.locator('.st-tabs [data-tab="shape"]')).toHaveAttribute('aria-selected', 'true');
-    await expect(rb('shape.fill')).toHaveCount(0);
-    await rb('conn.route.curve').click();
-    await rb('conn.head.both').click();
-    await expect(rb('conn.route.curve')).toHaveClass(/active/);
-    await rb('shape.stroke').click();
-    await page.locator('.st-palette [data-w="4"]').click();
+    await expect(page.locator('.st-lend')).toHaveCount(0);
+    // Щелчок по линии: вкладки у неё нет, вид — в свойствах
     await page.keyboard.press('Escape');
-    await rb('shape.text').click();
-    await page.keyboard.type('запрос');
-    await page.keyboard.press('Escape');
-    await expect.poll(() => lines()[0]).toMatchObject({ route: 'curve', head: 'both', width: 4, text: 'запрос' });
+    const line = page.locator('#st-canvas .slide.on .conn-hit');
+    const mid = await line.evaluate((p: SVGPathElement) => { const q = p.getPointAtLength(p.getTotalLength() / 2).matrixTransform(p.getScreenCTM()!); return [q.x, q.y]; });
+    await page.mouse.click(mid[0], mid[1]);
+    await expect(page.locator('.st-tabs [data-tab="shape"]')).toBeHidden();
+    await page.locator('select[data-p*="route"]').selectOption('curve');
+    await expect.poll(() => lines()[0].route).toBe('curve');
     // Свободная «Линия» в пустом месте — тянется целиком
     await page.keyboard.press('Escape');
     await page.locator('.st-tabs [data-tab="insert"]').click();
@@ -2335,12 +2332,11 @@ test('стрелка с ленты фигуры: «Соединить» и то�
     await expect.poll(() => lines().length).toBe(2);
     const free0 = lines().find((l) => Array.isArray(l.start))!;
     expect(free0).toMatchObject({ route: 'straight', head: 'none' });
-    expect(free0.from ?? free0.to).toBeUndefined();
     const ln = page.locator('#st-canvas .slide.on .conn-hit').last();
-    const mid = await ln.evaluate((p: SVGPathElement) => { const q = p.getPointAtLength(p.getTotalLength() / 2).matrixTransform(p.getScreenCTM()!); return [q.x, q.y]; });
-    await page.mouse.move(mid[0], mid[1]);
+    const m2 = await ln.evaluate((p: SVGPathElement) => { const q = p.getPointAtLength(p.getTotalLength() / 2).matrixTransform(p.getScreenCTM()!); return [q.x, q.y]; });
+    await page.mouse.move(m2[0], m2[1]);
     await page.mouse.down();
-    await page.mouse.move(mid[0], mid[1] - 100, { steps: 5 });
+    await page.mouse.move(m2[0], m2[1] - 100, { steps: 5 });
     await page.mouse.up();
     await expect.poll(() => (lines().find((l) => Array.isArray(l.start))!.start as number[])[1]).toBeLessThan((free0.start as number[])[1] - 100);
     expect(errors).toEqual([]);

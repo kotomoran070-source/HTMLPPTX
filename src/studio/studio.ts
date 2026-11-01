@@ -1687,8 +1687,6 @@ export function startStudio(deck: Deck, deckKey: string): void {
   const linker = connectTool({ deck, editor: ed, stage: () => view.stage, index: () => index });
   const ends = lineEnds({ deck, editor: ed, stage: () => view.stage, index: () => index });
   cmds['obj.connect'] = { run: () => linker.start() };
-  // С вкладки объекта: выделенный объект — начало линии, остаётся щёлкнуть второй
-  for (const r of ['elbow', 'straight', 'curve'] as const) cmds[`obj.connect.${r}`] = { run: () => linker.start({ route: r }, true), enabled: () => !!ed.selection?.free };
   cmds['tab.shape'] = { run: () => setTab('shape') };
   cmds['tab.anim'] = { run: () => { setTab('anim'); if (!lay.ribbon) toggleRibbon(true); } };
   cmds['tab.table'] = { run: () => setTab('table') };
@@ -2135,8 +2133,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     // «Галерея» на «Рисунке»: убрать и переставить кадры — у картинки с кадрами (место на ленте — остальным)
     const pic = ed.selection ? getAt(deck, ed.selection.block) as Block | undefined : undefined;
     const frames = Array.isArray(pic?.images) && pic.images.length > 0;
-    // Выделена линия-соединитель: на «Фигуре» — только её группы; ручки на её концах
-    document.querySelector('.st-rpanel[data-panel="shape"]')?.classList.toggle('st-line-mode', pic?.type === 'connector');
+    // Ручки на концах выделенной линии
     ends.sync();
     const imageTab = document.querySelector<HTMLElement>('.st-rpanel[data-panel="image"]');
     // Несколько картинок — «Собрать в галерею» вместо «Ещё кадры»

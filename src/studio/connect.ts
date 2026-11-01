@@ -63,7 +63,7 @@ function putEnd(c: Block, free: Block[], which: 0 | 1, e: End): void {
 }
 
 /** Новая линия слайда i от a к b: встаёт под нижним из прицепленных объектов (иначе — поверх всех) и выделяется */
-export function connectObjects(ed: Editor, i: number, a: End, b: End, proto: ConnectorProto = {}): boolean {
+export function connectObjects(ed: Editor, i: number, a: End, b: End, proto: ConnectorProto = {}, keep = false): boolean {
   let at = -1;
   const ok = ed.commit((d) => {
     const s = d.slides[i];
@@ -81,7 +81,9 @@ export function connectObjects(ed: Editor, i: number, a: End, b: End, proto: Con
     free.splice(at, 0, conn);
   }, { rebuild: true });
   if (!ok || at < 0) return false;
-  ed.selectFree(i, at);
+  // keep — выделение остаётся на соединённых объектах (линия встала перед ними: их номера сдвинулись)
+  if (keep && a.k !== undefined && b.k !== undefined) ed.selectMany(i, [a.k, b.k].map((k) => (k >= at ? k + 1 : k)));
+  else ed.selectFree(i, at);
   return true;
 }
 
@@ -236,7 +238,10 @@ export function connectTool(h: Host): { start(proto?: ConnectorProto, fromSelect
     cancel();
     // Уже выделены два объекта — соединяются сразу
     const pair = pickedPair(h.deck, h.editor.selection);
-    if (pair) { connectObjects(h.editor, h.index(), { k: pair[0] }, { k: pair[1] }, p); return; }
+    if (pair) {
+      if (connectObjects(h.editor, h.index(), { k: pair[0] }, { k: pair[1] }, p, true)) h.editor.toast('Соединено: линия идёт за объектами. Вид — в свойствах линии', 2600);
+      return;
+    }
     const sel = h.editor.selection;
     const one = fromSelection && sel?.free && sel.group.length <= 1 && !isConn(getAt(h.deck, sel.free))
       ? kit.slideEl()?.querySelector<HTMLElement>(`:scope > .free[data-free="${CSS.escape(JSON.stringify(sel.free))}"]`) ?? null
