@@ -40,6 +40,14 @@
 @keyframes gt-fill { from { clip-path: inset(0 100% 0 0); } }
 @keyframes gt-pop { from { scale: 0; } }
 
+/* Правка: у выделенной диаграммы полосу тянут мышью — за середину сдвинуть, за край — изменить срок */
+body.editing .ed-block-sel .gt-bar, body.editing .ed-block-sel .gt-ms { cursor: grab; }
+body.editing .ed-block-sel .gt-bar::before, body.editing .ed-block-sel .gt-bar::after { content: ""; position: absolute; z-index: 1; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
+body.editing .ed-block-sel .gt-bar::before { left: 0; }
+body.editing .ed-block-sel .gt-bar::after { right: 0; }
+body.editing .ed-block-sel .gt-bar:hover { box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 35%, transparent); }
+body.st-gt-drag, body.st-gt-drag * { user-select: none; }
+
 /* ---------- матрица рисков ---------- */
 .risks { --lv0: #16A34A; --lv1: #CA8A04; --lv2: #EA580C; --lv3: #DC2626;
   display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); align-items: center; gap: 40px; width: 100%; }

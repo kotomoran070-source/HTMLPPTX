@@ -32,6 +32,7 @@ import { numberSteppers } from './num-step';
 import { paintCells, parseGrid } from './table-cells';
 import { applyFormat, hasFormat, takeFormat, type Format } from './format-painter';
 import { tableGrips } from './table-grips';
+import { ganttDrag } from './gantt-drag';
 import { GRID_STEPS, ViewAids } from './view-aids';
 import { setupMarquee } from './marquee';
 import { canExplode, explodeSlide } from './explode';
@@ -1647,6 +1648,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   let textOf: (() => TextTarget | null) | null = null;
   Object.assign(cmds, contextCommands({ deck, editor: ed, stage: () => view.stage, run: (c) => run(c), refresh: () => queueState(), textTarget: (get) => { textOf = get; } }));
   const grips = tableGrips({ deck, editor: ed, stage: () => view.stage });
+  ganttDrag({ deck, editor: ed, stage: () => view.stage });
   cmds['tab.shape'] = { run: () => setTab('shape') };
   cmds['tab.anim'] = { run: () => { setTab('anim'); if (!lay.ribbon) toggleRibbon(true); } };
   cmds['tab.table'] = { run: () => setTab('table') };

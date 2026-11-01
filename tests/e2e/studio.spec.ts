@@ -1972,3 +1972,60 @@ test('проектные схемы из галереи «Схемы»: матр
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('диаграмма Ганта: у выделенной полосу тянут — середина сдвигает срок, край меняет конец, веха — по периодам; одним шагом отмены', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'ganttdrag');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'deck.yaml');
+  fs.writeFileSync(file, `title: Ганта
+slides:
+  - template: canvas
+    free:
+      - type: gantt
+        scale: [Янв, Фев, Мар, Апр, Май, Июн]
+        place: {x: 64, y: 120, w: 1152}
+        items:
+          - {title: Прототип, from: 1, to: 2, done: 50}
+          - {title: Запуск, from: 4, milestone: true}
+`);
+  const items = () => (parse(fs.readFileSync(file, 'utf8')) as { slides: { free: { items: Record<string, unknown>[] }[] }[] }).slides[0].free[0].items;
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/?deck=ganttdrag&studio#1');
+    const slide = page.locator('#st-canvas .slide.on');
+    const bar = slide.locator('.gt-bar').first();
+    const col = async () => ((await slide.locator('.gt-track').first().boundingBox())!.width) / 6;
+    // Первый щелчок выделяет диаграмму, полоса не двигается
+    let b = (await bar.boundingBox())!;
+    await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+    await expect(slide.locator('.ed-block-sel .gantt')).toHaveCount(1);
+    // Середина: на полтора периода вправо — два периода «с 2,5 по 4,5» (с середины второго до середины четвёртого)
+    const u = await col();
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.width / 2 + u * 1.5, b.y + b.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(() => [items()[0].from, items()[0].to]).toEqual([2.5, 4.5]);
+    // Правый край: ещё на период — «по 5,5»
+    b = (await bar.boundingBox())!;
+    await page.mouse.move(b.x + b.width - 3, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.width - 3 + u, b.y + b.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(() => [items()[0].from, items()[0].to]).toEqual([2.5, 5.5]);
+    // Веха — на период левее
+    const ms = (await slide.locator('.gt-ms').boundingBox())!;
+    await page.mouse.move(ms.x + ms.width / 2, ms.y + ms.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(ms.x + ms.width / 2 - u, ms.y + ms.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(() => items()[1].from).toBe(3);
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect.poll(() => items()[1].from).toBe(4);
+    await expect(slide.locator('.ed-block-sel .gantt')).toHaveCount(1);
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

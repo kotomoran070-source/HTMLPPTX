@@ -38,12 +38,12 @@ defineBlock<GanttProps>('gantt', {
       if (r.kind === 'section') return `<div class="gt-sec" style="--k:${r.k}">${title(m)}</div>`;
       const label = `<div class="gt-label">${title(m)}${text(m)}</div>`;
       if (r.kind === 'milestone') {
-        return `<div class="gt-row ms" style="--k:${r.k}">${label}<div class="gt-track"><svg class="gt-ms" style="left:${x(r.s)}%" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5 22.5 12 12 22.5 1.5 12z"/></svg></div></div>`;
+        return `<div class="gt-row ms" style="--k:${r.k}">${label}<div class="gt-track"><svg class="gt-ms" data-gk="${r.k}" style="left:${x(r.s)}%" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5 22.5 12 12 22.5 1.5 12z"/></svg></div></div>`;
       }
       const cls = r.done >= 100 ? ' full' : r.late ? ' late' : '';
       const pct = r.done > 0 ? `<em>${Math.round(r.done)} %</em>` : '';
       return `<div class="gt-row" style="--k:${r.k}">${label}<div class="gt-track">`
-        + `<div class="gt-bar${cls}" style="left:${x(r.s)}%;width:${round(((r.e - r.s) / n) * 100)}%"><i style="width:${r.done}%"></i>${pct}</div></div></div>`;
+        + `<div class="gt-bar${cls}" data-gk="${r.k}" style="left:${x(r.s)}%;width:${round(((r.e - r.s) / n) * 100)}%"><i style="width:${r.done}%"></i>${pct}</div></div></div>`;
     }).join('');
     const now = num(p.today);
     const today = Number.isFinite(now) && now >= 1 && now <= n + 1
