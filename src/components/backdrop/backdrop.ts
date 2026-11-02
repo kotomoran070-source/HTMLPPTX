@@ -800,6 +800,16 @@ defineBlock<BackdropProps>('backdrop', {
 
     const readColors = () => { pal = paletteOf(el, p.kind); };
 
+    // Размер холста — по ширине фона на экране. Мерить её на каждом кадре — лишний пересчёт раскладки страницы,
+    // если её успели поменять: меряем, когда размер мог измениться (окно, масштаб холста студии, сам фон),
+    // и для верности раз в секунду (масштаб на время перехода между слайдами)
+    let dirty = true;
+    let measured = 0;
+    const resized = () => { dirty = true; };
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(resized) : null;
+    ro?.observe(el);
+    if (ctx.stage.parentElement) ro?.observe(ctx.stage.parentElement);
+    addEventListener('resize', resized);
     const size = () => {
       if (!canvas) return;
       const r = el.getBoundingClientRect();
@@ -824,7 +834,11 @@ defineBlock<BackdropProps>('backdrop', {
         return;
       }
       last = now;
-      size();
+      if (dirty || now - measured > 1000) {
+        dirty = false;
+        measured = now;
+        size();
+      }
       feel();
       scene.draw(clockNow(), touch);
       if (!frozen()) raf = requestAnimationFrame(frame);
@@ -853,6 +867,7 @@ defineBlock<BackdropProps>('backdrop', {
         el.appendChild(canvas);
         el.classList.add('bd-live');
       }
+      dirty = true;
       last = 0;
       if (!raf) raf = requestAnimationFrame(frame);
     };
@@ -915,6 +930,8 @@ defineBlock<BackdropProps>('backdrop', {
     sync();
     return () => {
       mo.disconnect();
+      ro?.disconnect();
+      removeEventListener('resize', resized);
       offTheme();
       removeEventListener(ACCENT_EVENT, recolor);
       ctx.slide.removeEventListener('mousemove', onMove);
