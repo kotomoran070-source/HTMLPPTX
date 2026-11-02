@@ -39,7 +39,7 @@ let port = 0;
 const lan = lanGateway(() => port, DECKS, (...a) => log(...a));
 globalThis.__slideriaLan = (deck) => lan.open(deck);
 /**
- * «Экспорт» (plugins/decks.ts): сборка — отдельным служебным процессом Electron. Запуск самого Electron
+ * «Экспорт» (server/core.ts): сборка — отдельным служебным процессом Electron. Запуск самого Electron
  * в роли Node в установленной программе выключен (docs/PROTECTION.md), служебный процесс работает и без него
  */
 globalThis.__slideriaRun = (script, args, { cwd, env }) => new Promise((resolve) => {

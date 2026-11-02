@@ -97,6 +97,7 @@
       "desktop/**",
       "src/**",
       "plugins/**",
+    "server/**",
       "scripts/**",
       "templates/**"
     ],

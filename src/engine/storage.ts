@@ -30,7 +30,7 @@ export interface DeckStorage {
   readCheckpoint?(deckKey: string, id: string): Promise<{ deck: unknown }>;
 }
 
-/** Файлы проекта через API сервера разработки (plugins/decks.ts). */
+/** Файлы проекта через API сервера Slideria (server/http.ts). */
 export const projectStorage: DeckStorage = {
   save: saveToProject,
   uploadAsset,

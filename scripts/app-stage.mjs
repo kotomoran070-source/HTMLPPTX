@@ -13,7 +13,7 @@ import { transformSync } from 'esbuild';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Что входит в программу (кроме package.json и node_modules — их кладёт electron-builder) */
-export const OWN = ['LICENSE', 'index.html', 'vite.config.ts', 'tsconfig.json', 'desktop', 'src', 'plugins', 'scripts', 'templates'];
+export const OWN = ['LICENSE', 'index.html', 'vite.config.ts', 'tsconfig.json', 'desktop', 'src', 'plugins', 'server', 'scripts', 'templates'];
 /** Внутри app.asar: загрузчик программы. Его целостность проверяет сам Electron, остальное — он */
 export const PACKED = ['desktop'];
 const SKIP = /\.d\.m?ts$/;

@@ -1,11 +1,11 @@
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import net from 'node:net';
-import type { Connect } from 'vite';
 
 /**
  * Защита от подмены адреса (DNS rebinding). Чужой сайт может направить своё имя на 127.0.0.1, и браузер
  * пойдёт к этому серверу как к «своему»: запрос — с этого компьютера, Origin совпадает с Host. Отличает
  * его только заголовок Host — в нём имя чужого сайта. Свои страницы приходят по localhost или по
- * IP-адресу (127.0.0.1, адрес в сети — телефон-пульт); allowed — свои имена из server.allowedHosts.
+ * IP-адресу (127.0.0.1, адрес в сети — телефон-пульт); allowed — свои имена (у Vite — server.allowedHosts).
  * Так же проверяет и сам Vite, но его проверка стоит после обработчиков плагинов — поэтому здесь своя
  */
 export function hostAllowed(host: string | undefined, allowed: readonly string[] | true = []): boolean {
@@ -25,7 +25,7 @@ export function hostAllowed(host: string | undefined, allowed: readonly string[]
 }
 
 /** Обработчик: чужой Host — отказ раньше всех обработчиков сервера */
-export function hostGuard(allowed: () => readonly string[] | true | undefined): Connect.NextHandleFunction {
+export function hostGuard(allowed: () => readonly string[] | true | undefined): (req: IncomingMessage, res: ServerResponse, next: () => void) => void {
   return (req, res, next) => {
     if (hostAllowed(req.headers.host, allowed() ?? [])) return next();
     res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });

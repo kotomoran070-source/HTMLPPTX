@@ -1,6 +1,6 @@
 // Защита от подмены адреса (DNS rebinding): свои — localhost и IP-адреса, чужие имена — нет
 import { expect, test } from '@playwright/test';
-import { hostAllowed } from '../../plugins/host-guard';
+import { hostAllowed } from '../../server/host-guard';
 
 test('Host: localhost и IP-адреса — свои, имена чужих сайтов — нет', () => {
   for (const h of ['localhost:5173', 'LOCALHOST', 'app.localhost:47320', '127.0.0.1:47320', '192.168.1.20:5180', '[::1]:5173', '[fe80::1]', '10.0.0.5']) expect(hostAllowed(h)).toBe(true);

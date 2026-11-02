@@ -8,7 +8,7 @@ import { parse as parseHtml } from 'node-html-parser';
 import { pickSelector } from '../src/engine/live-slides';
 import { optimizeImages, type OptimizeReport } from './optimize';
 import { bindDeck, readDataUrl, toDataUrl, type BindReport } from './theme-bind';
-import { readYaml } from './decks';
+import { readYaml } from '../server/deck-files';
 import { deepEqual, merge3, type Conflict } from './merge3';
 import { unpackDeck } from '../src/engine/pack';
 import { mergeYaml } from './yaml-merge';

@@ -434,7 +434,9 @@ src/
   studio/library.ts    библиотека готовых блоков
   components/          компоненты и шаблоны слайдов
   styles/              токены темы, базовые стили, интерфейс, печать
-plugins/decks.ts       загрузка YAML, сборка, запись правок из yarn dev
+server/core.ts         сервер Slideria без Vite: презентации, запись со слиянием, точки, файлы, шрифты, импорт, экспорт
+server/http.ts         его HTTP: команды /__htmlpptx/*, пульт, лицензии, защита — обычный обработчик node:http
+plugins/decks.ts       обёртка для Vite: сервер Slideria в yarn dev и программе, deck.yaml модулем, сборка в один файл
 plugins/licenses.mjs   лицензии библиотек и шрифтов: в собранный файл, «Справка → Лицензии», проверка при сборке
 plugins/yaml-merge.ts  запись в deck.yaml с сохранением комментариев
 plugins/import.ts      импорт HTML-файла: трёхстороннее слияние (merge3.ts), картинки (assets.ts)
@@ -448,6 +450,8 @@ docs/HTML.md           правила своего HTML и промпт
 docs/CLAUDE-DESIGN.md  импорт из Claude Design и промпт
 docs/PERMISSIONS.md    разрешения программы: зачем каждое, что пока не работает
 docs/SIGNING.md        подпись приложения: сертификат, сборка, проверка
+docs/SERVER.md         сервер Slideria: ядро, команды, крючки, как подключить к любому серверу
+docs/PERF.md           замеры скорости по этапам
 docs/skills/           навык для Claude: deck.yaml по структуре Slideria
 ```
 

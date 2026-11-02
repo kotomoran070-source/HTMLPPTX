@@ -1,7 +1,7 @@
 import type { Deck } from '../../types';
 import { packDeck } from '../pack';
 
-/** id тега с данными презентации в собранном HTML (см. plugins/decks.ts) */
+/** id тега с данными презентации в собранном HTML (см. server/deck-files.ts) */
 export const DATA_ID = 'htmlpptx-deck';
 
 // ---------- собранный файл: сохранение копии HTML ----------
