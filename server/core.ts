@@ -300,20 +300,8 @@ export function createDecksCore(opts: CoreOptions) {
   function save(name: string, req: SaveRequest): SaveResult {
     assertDeck(name);
     if (!req.deck || typeof req.deck !== 'object') throw new Error('Нет данных презентации');
-    // Адреса файлов страницы (/presentations/имя/assets/x.png) → снова ./assets/x.png,
-    // встроенные картинки (data:) → файлы в assets/: в deck.yaml остаются только пути
     const prefix = urlOf(path.join(dir, name)) + '/';
-    const store = new AssetStore(path.join(dir, name));
-    const toPaths = (v: unknown): unknown => {
-      if (typeof v === 'string') {
-        if (v.startsWith('data:')) return store.pathFor(v) ?? v;
-        const rest = under(v, prefix);
-        return rest !== null ? './' + rest : v;
-      }
-      if (Array.isArray(v)) return v.map(toPaths);
-      if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, toPaths(x)]));
-      return v;
-    };
+    const { store, toPaths } = filesOf(name);
     const file = deckFile(name);
     const source = fs.readFileSync(file, 'utf8');
     let data = toPaths(req.deck);
@@ -327,18 +315,45 @@ export function createDecksCore(opts: CoreOptions) {
       data = m.result;
       if (m.changed) theirs = mapAssets(m.result, (v) => { const abs = path.resolve(dir, name, v); return fs.existsSync(abs) ? urlOf(abs) : v; });
     }
-    const next = mergeYaml(source, data);
-    store.flush();
-    if (next !== source) {
-      remember(file, next);
-      fs.writeFileSync(file, next);
-      emit('saved', { name, from: req.from ?? '' });
-    }
+    const next = writeDeck(name, source, data, store, req.from ?? '');
     // Записанное — так, как оно читается из файла: мелкие расхождения записи (перевод строки в конце CSS)
     // иначе выглядели бы чужими правками
     let saved: unknown = null;
     try { saved = next === source && disk ? disk : readYaml(file, next); } catch { /* сломанный файл */ }
     return { ok: true, changed: next !== source, ...(theirs !== undefined ? { deck: theirs } : {}), base: saved };
+  }
+
+  /**
+   * Пути к файлам для записи: адреса файлов страницы (/presentations/имя/assets/x.png) → снова ./assets/x.png,
+   * встроенные картинки (data:) → файлы в assets/: в deck.yaml остаются только пути
+   */
+  function filesOf(name: string): { store: AssetStore; toPaths: (v: unknown) => unknown } {
+    const prefix = urlOf(path.join(dir, name)) + '/';
+    const store = new AssetStore(path.join(dir, name));
+    const toPaths = (v: unknown): unknown => {
+      if (typeof v === 'string') {
+        if (v.startsWith('data:')) return store.pathFor(v) ?? v;
+        const rest = under(v, prefix);
+        return rest !== null ? './' + rest : v;
+      }
+      if (Array.isArray(v)) return v.map(toPaths);
+      if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, toPaths(x)]));
+      return v;
+    };
+    return { store, toPaths };
+  }
+
+  /** Данные → deck.yaml с сохранением комментариев и порядка; файл изменился — событие saved. Ответ — новый текст */
+  function writeDeck(name: string, source: string, data: unknown, store: AssetStore, from: string): string {
+    const file = deckFile(name);
+    const next = mergeYaml(source, data);
+    store.flush();
+    if (next !== source) {
+      remember(file, next);
+      fs.writeFileSync(file, next);
+      emit('saved', { name, from });
+    }
+    return next;
   }
 
   // ---------------- операции правки (агент, MCP, плагины) ----------------
@@ -364,11 +379,17 @@ export function createDecksCore(opts: CoreOptions) {
    */
   function apply(name: string, req: { ops: unknown; expect?: unknown; from?: string }): { changed: boolean; changes: string[]; outline: DeckOutline } {
     const file = deckFile(assertDeck(name));
-    const current = readYaml(file) as Deck;
+    // Чтение, правка и запись — без ожиданий между ними: другое окно не успеет записать посередине,
+    // поэтому слияние с файлом, как у окна студии, не нужно
+    const source = fs.readFileSync(file, 'utf8');
+    const current = readYaml(file, source) as Deck;
     if (!current || !Array.isArray(current.slides)) throw new Error('В deck.yaml нет списка слайдов');
     const r = applyOps(current, req.ops, { expect: req.expect });
-    const res = save(name, { deck: r.deck, base: current, from: req.from || 'agent' });
-    return { changed: res.changed, changes: r.changes, outline: outlineOf(readYaml(file) as Deck) };
+    const { store, toPaths } = filesOf(name);
+    const next = writeDeck(name, source, toPaths(r.deck), store, req.from || 'agent');
+    // Ревизии — по записанному, как его прочитает следующий outline
+    const after = next === source ? current : readYaml(file, next) as Deck;
+    return { changed: next !== source, changes: r.changes, outline: outlineOf(after) };
   }
 
   // ---------------- контрольные точки ----------------

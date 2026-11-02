@@ -95,6 +95,8 @@ test('все или ни одной: ошибка в третьей операц
   fail([{ op: 'object.add', slide: 1, object: { text: 'без вида' } }], 'object — данные объекта с type');
   fail([{ op: 'slide.remove', slide: 1 }, { op: 'slide.remove', slide: 1 }, { op: 'slide.remove', slide: 1 }], 'единственный слайд удалить нельзя');
   fail([], 'ops — список операций');
+  fail([{ op: 'slide.add', at: 9 }], 'Операция 1 (slide.add): at — число с 1 по 4');
+  fail([{ op: 'slide.set', slide: 1 }], 'Операция 1 (slide.set): set — поля, которые поменять');
   // Итог проверяется: имя объекта на слайде одно, место — числа
   fail([{ op: 'object.add', slide: 2, object: { type: 'text', id: 'box' } }], 'После операций: слайд 2, объект 3: имя «box» уже есть на этом слайде');
   fail([{ op: 'object.set', slide: 2, object: 1, set: { place: { x: 'сто' } } }], 'place.x — число');

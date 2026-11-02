@@ -96,8 +96,8 @@ export function mergePatch(target: unknown, patch: unknown): unknown {
   return out;
 }
 
-const needPatch = (v: unknown, what: string): Rec => {
-  if (!isRec(v) || !Object.keys(v).length) throw new OpError(`${what}: set — поля, которые поменять, например { title: "…" }`);
+const needPatch = (v: unknown): Rec => {
+  if (!isRec(v) || !Object.keys(v).length) throw new OpError('set — поля, которые поменять, например { title: "…" }');
   return v;
 };
 
@@ -150,7 +150,7 @@ export const OPS: Record<string, OpDef> = {
     summary: 'Поля самой презентации: название, язык, бренд, тема, шрифты',
     params: { set: 'поля (Merge Patch): { title: "…", theme: { preset: "midnight" } }; null — удалить поле' },
     run(d, a) {
-      const set = needPatch(a.set, 'set');
+      const set = needPatch(a.set);
       if ('slides' in set) throw new OpError('слайды правятся операциями slide.*');
       const next = mergePatch(d, set) as Deck;
       Object.keys(d).forEach((k) => { if (!(k in next)) delete (d as unknown as Rec)[k]; });
@@ -208,7 +208,7 @@ export const OPS: Record<string, OpDef> = {
     params: { slide: 'слайд', set: 'поля (Merge Patch): { title: "…", notes: "…" }; null — удалить; свободные объекты — операциями object.*' },
     run(d, a) {
       const i = slideIndex(d, a.slide);
-      const set = needPatch(a.set, 'set');
+      const set = needPatch(a.set);
       if ('free' in set) throw new OpError('свободные объекты правятся операциями object.*');
       d.slides[i] = mergePatch(d.slides[i], set) as SlideData;
       return `Правка слайда ${i + 1}`;
@@ -234,7 +234,7 @@ export const OPS: Record<string, OpDef> = {
     run(d, a) {
       const i = slideIndex(d, a.slide);
       const k = objectIndex(d.slides[i], a.object, i);
-      const set = needPatch(a.set, 'set');
+      const set = needPatch(a.set);
       const list = d.slides[i].free!;
       list[k] = mergePatch(list[k], set) as Block;
       const keys = Object.keys(set);
