@@ -23,7 +23,7 @@ export default defineConfig(({ command }) => ({
     __EDITABLE__: JSON.stringify(process.env.CLEAN !== '1'),
     // Библиотека 3D (≈1 МБ) попадает в файл, только если в презентации есть модель (вариант проигрывателя)
     __HAS_MODEL__: JSON.stringify(!player || process.env.PLAYER_MODEL === '1'),
-    // Набор формул (Temml, ≈160 КБ) — только если в презентации есть формулы
+    // Набор формул (Temml со шрифтами, ≈350 КБ) — только если в презентации есть формулы (вариант проигрывателя)
     __HAS_MATH__: JSON.stringify(!player || process.env.PLAYER_MATH === '1'),
     // Как называть папку с презентациями в подсказках
     __DECKS_DIR__: JSON.stringify(process.env.SLIDERIA_DECKS_LABEL || 'presentations/'),
