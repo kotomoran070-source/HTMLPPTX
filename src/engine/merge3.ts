@@ -9,7 +9,7 @@
 type Rec = Record<string, unknown>;
 
 /** Сравнение без учёта порядка полей */
-function canon(v: unknown): string {
+export function canon(v: unknown): string {
   if (Array.isArray(v)) return `[${v.map(canon).join(',')}]`;
   if (v && typeof v === 'object') {
     return `{${Object.keys(v as Rec).filter((k) => (v as Rec)[k] !== undefined).sort().map((k) => `${JSON.stringify(k)}:${canon((v as Rec)[k])}`).join(',')}}`;
@@ -25,10 +25,25 @@ const isRec = (v: unknown): v is Rec => !!v && typeof v === 'object' && !Array.i
 function fields(base: Rec, mine: Rec, theirs: Rec): Rec {
   const out: Rec = {};
   for (const k of new Set([...Object.keys(mine), ...Object.keys(theirs), ...Object.keys(base)])) {
-    const v = same(mine[k], base[k]) ? theirs[k] : mine[k];
+    let v = same(mine[k], base[k]) ? theirs[k] : mine[k];
+    // Свободные объекты слайда поменяли оба: если состав тот же — по объектам (агент поправил один, в студии
+    // двигают другой — обе правки остаются)
+    if (k === 'free' && v === mine[k] && !same(theirs[k], base[k])) v = objects(base[k], mine[k], theirs[k]) ?? v;
     if (v !== undefined) out[k] = v;
   }
   return out;
+}
+
+/**
+ * Объекты слайда по одному — только если состав не менялся ни в одной версии: столько же объектов, на тех же местах
+ * те же виды и имена. Иначе (добавили, удалили, переставили) — undefined: список целиком из mine, как раньше
+ */
+function objects(base: unknown, mine: unknown, theirs: unknown): unknown[] | undefined {
+  if (!Array.isArray(base) || !Array.isArray(mine) || !Array.isArray(theirs)) return undefined;
+  if (mine.length !== base.length || theirs.length !== base.length) return undefined;
+  const sameKind = (a: unknown, b: unknown) => isRec(a) && isRec(b) && a.type === b.type && a.id === b.id;
+  if (!base.every((b, i) => sameKind(b, mine[i]) && sameKind(b, theirs[i]))) return undefined;
+  return mine.map((m, i) => (same(m, base[i]) ? theirs[i] : same(theirs[i], base[i]) ? m : fields(base[i] as Rec, m as Rec, theirs[i] as Rec)));
 }
 
 /** Слайды: свои перестановки, добавления и удаления остаются, чужие правки в нетронутых слайдах — тоже */

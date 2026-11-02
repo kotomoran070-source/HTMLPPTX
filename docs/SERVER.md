@@ -36,6 +36,7 @@ http.createServer((req, res) => handle(req, res, () => { res.statusCode = 404; r
 | Что | Методы |
 |---|---|
 | Презентации | `names()`, `has(name)`, `list()` — с временем правки, `read(name, { urls })` — данные (с `urls` — пути к файлам адресами для страницы), `create(title, sample)` — из `templates/basic`, `trash(name)` — в `.trash`, не насовсем |
+| Операции правки | `outline(name, { slide? })` — краткое содержание для агента: слайды с ревизиями, объекты с номерами; `apply(name, { ops, expect?, from? })` — пакет операций, все или ни одной ([OPS.md](OPS.md)) |
 | Запись | `save(name, { deck, base, from })` — трёхстороннее слияние с файлом: из окна берётся только то, что оно поменяло само; чужие правки возвращаются окну; комментарии в YAML сохраняются |
 | Контрольные точки | `checkpoint(name)`, `checkpoints(name)`, `readCheckpoint(name, id)` — копии в `.checkpoints`, последние 30 |
 | Файлы презентации | `assets(name)`, `addAsset(name, fileName, data)` — тот же файл не повторяется, STL и STEP — в GLB, `writeAssetText` — код живой вставки, `trashAssets` |
@@ -98,6 +99,7 @@ http.createServer((req, res) => handle(req, res, () => { res.statusCode = 404; r
 | Команда | Что делает |
 |---|---|
 | `list`, `create`, `read`, `save`, `delete` | презентации |
+| `outline`, `apply` | операции правки для агента, MCP и плагинов ([OPS.md](OPS.md)) |
 | `checkpoint`, `checkpoints`, `checkpoint-read` | контрольные точки |
 | `asset`, `asset-text`, `assets-list`, `assets-trash` | файлы презентации |
 | `font-list`, `font-save`, `font-use` | библиотека шрифтов |

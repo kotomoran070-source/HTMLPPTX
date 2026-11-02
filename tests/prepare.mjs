@@ -20,6 +20,7 @@
 //   gal      — картинка с кадрами: листается стрелками и точками; по «Далее», а после кадров — объект по щелчку.
 //   auto     — автопоказ: слайд по секунде, объект по щелчку на втором, таймлайн на экране, без полоски прогресса.
 //   prog     — прогресс сегментами по слайдам и план доклада на 10 минут.
+//   agent    — правки агента (команды outline и apply) при открытой студии.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -452,5 +453,15 @@ slides:
     free: [{type: text, text: "Второй", place: {x: 80, y: 80, w: 600}}]
   - template: canvas
     free: [{type: text, text: "Третий", place: {x: 80, y: 80, w: 600}}]
+`);
+// agent — правки агента при открытой студии: текст для агента, фигура для человека
+fs.mkdirSync(path.join(dir, 'agent'), { recursive: true });
+fs.writeFileSync(path.join(dir, 'agent', 'deck.yaml'), `title: Агент
+slides:
+  - id: one
+    template: canvas
+    free:
+      - {type: text, text: "Текст для агента", place: {x: 80, y: 80, w: 600}}
+      - {type: shape, kind: round, fill: "#2563EB", place: {x: 640, y: 300, w: 200, h: 200}}
 `);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

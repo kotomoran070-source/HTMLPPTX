@@ -1,8 +1,33 @@
 import type { Deck } from '../../types';
 import { same } from '../merge3';
 
-/** Правка поля другим окном: slide < 0 — поле самой презентации */
-export interface Edit { slide: number; key: string; was: unknown; now: unknown }
+/**
+ * Правка поля другим окном (или агентом): slide < 0 — поле самой презентации; obj — поле свободного объекта
+ * слайда с этим номером (kind — его вид и имя: в шагах истории правка ложится только на тот же объект)
+ */
+export interface Edit { slide: number; key: string; was: unknown; now: unknown; obj?: number; kind?: string }
+
+type Rec = Record<string, unknown>;
+const isRec = (v: unknown): v is Rec => !!v && typeof v === 'object' && !Array.isArray(v);
+const kindOf = (o: Rec) => `${String(o.type)}|${typeof o.id === 'string' ? o.id : ''}`;
+
+/**
+ * Свободные объекты слайда поменяли, не меняя состава (столько же, те же виды и имена на тех же местах): правки —
+ * по полям объектов. Так отмена в студии откатывает свой сдвиг фигуры, но не чужой текст в соседнем объекте
+ */
+function objectEdits(a: unknown, b: unknown, slide: number): Edit[] | null {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return null;
+  const out: Edit[] = [];
+  for (let k = 0; k < a.length; k++) {
+    const x = a[k];
+    const y = b[k];
+    if (!isRec(x) || !isRec(y) || kindOf(x) !== kindOf(y)) return null;
+    for (const key of new Set([...Object.keys(x), ...Object.keys(y)])) {
+      if (!same(x[key], y[key])) out.push({ slide, key, obj: k, kind: kindOf(x), was: x[key], now: y[key] });
+    }
+  }
+  return out;
+}
 
 /** Какие поля поменяло другое окно (слайды — по номерам, если их число не менялось) */
 export function edits(was: Deck, now: Deck): Edit[] | null {
@@ -10,7 +35,10 @@ export function edits(was: Deck, now: Deck): Edit[] | null {
   const out: Edit[] = [];
   const diff = (a: Record<string, unknown>, b: Record<string, unknown>, slide: number) => {
     for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) {
-      if (key !== 'slides' && !same(a[key], b[key])) out.push({ slide, key, was: a[key], now: b[key] });
+      if (key === 'slides' || same(a[key], b[key])) continue;
+      const fine = key === 'free' && slide >= 0 ? objectEdits(a[key], b[key], slide) : null;
+      if (fine) out.push(...fine);
+      else out.push({ slide, key, was: a[key], now: b[key] });
     }
   };
   diff(was as unknown as Record<string, unknown>, now as unknown as Record<string, unknown>, -1);
@@ -206,7 +234,9 @@ export class History {
           touched = put(head, e) || touched;
         } else {
           const o = JSON.parse(slides[e.slide]) as Record<string, unknown>;
-          if (put(o, e)) { slides[e.slide] = this.intern(JSON.stringify(o)); touched = true; }
+          // Поле объекта: только если на этом месте в шаге — тот же объект (вид и имя)
+          const target = e.obj === undefined ? o : Array.isArray(o.free) && isRec(o.free[e.obj]) && kindOf(o.free[e.obj]) === e.kind ? o.free[e.obj] as Rec : null;
+          if (target && put(target, e)) { slides[e.slide] = this.intern(JSON.stringify(o)); touched = true; }
         }
       }
       return touched ? { head: head ? this.intern(JSON.stringify(head)) : s.head, slides } : s;

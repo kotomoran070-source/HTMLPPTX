@@ -21,6 +21,8 @@ import { importPptx } from '../plugins/pptx/index';
 import { stepToGlb, stlToGlb } from '../plugins/model-convert';
 import { compactImage } from '../plugins/optimize';
 import { mergeYaml } from '../plugins/yaml-merge';
+import { applyOps, outline as outlineOf, slideIndex, slideRev, type DeckOutline, type SlideRef } from '../src/engine/ops';
+import type { Deck, SlideData } from '../src/types';
 import { createPlayers, finishFile, variantOf } from './player';
 import { DATA_ID, MIME, dropGrades, escapeHtml, listDecks, mapAssets, mapStrings, readYaml, replaceTag, safeFileName, scriptJson, stamp } from './deck-files';
 
@@ -337,6 +339,36 @@ export function createDecksCore(opts: CoreOptions) {
     let saved: unknown = null;
     try { saved = next === source && disk ? disk : readYaml(file, next); } catch { /* сломанный файл */ }
     return { ok: true, changed: next !== source, ...(theirs !== undefined ? { deck: theirs } : {}), base: saved };
+  }
+
+  // ---------------- операции правки (агент, MCP, плагины) ----------------
+
+  /**
+   * Краткое содержание для агента (src/engine/ops.ts): слайды с ревизиями, блоки и объекты с номерами.
+   * slide — один слайд целиком: { n, id, rev, data } — данные как в deck.yaml
+   */
+  function outline(name: string, o: { slide?: SlideRef } = {}): DeckOutline | { n: number; id?: string; rev: string; data: SlideData } {
+    const deck = readYaml(deckFile(assertDeck(name))) as Deck;
+    if (!deck || !Array.isArray(deck.slides)) throw new Error('В deck.yaml нет списка слайдов');
+    if (o.slide === undefined) return outlineOf(deck);
+    let i: number;
+    try { i = slideIndex(deck, o.slide); } catch (e) { const m = (e as Error).message; throw new Error(m[0].toUpperCase() + m.slice(1)); }
+    const s = deck.slides[i];
+    return { n: i + 1, ...(typeof s.id === 'string' ? { id: s.id } : {}), rev: slideRev(s), data: s };
+  }
+
+  /**
+   * Пакет операций (src/engine/ops.ts): все или ни одной. expect — ревизии прочитанных слайдов: слайд с тех пор
+   * поменяли — отказ. Запись — как у окна студии (комментарии в YAML сохраняются, картинки data: — в assets/);
+   * открытые окна получают событие saved и подтягивают правку, как правку другого окна
+   */
+  function apply(name: string, req: { ops: unknown; expect?: unknown; from?: string }): { changed: boolean; changes: string[]; outline: DeckOutline } {
+    const file = deckFile(assertDeck(name));
+    const current = readYaml(file) as Deck;
+    if (!current || !Array.isArray(current.slides)) throw new Error('В deck.yaml нет списка слайдов');
+    const r = applyOps(current, req.ops, { expect: req.expect });
+    const res = save(name, { deck: r.deck, base: current, from: req.from || 'agent' });
+    return { changed: res.changed, changes: r.changes, outline: outlineOf(readYaml(file) as Deck) };
   }
 
   // ---------------- контрольные точки ----------------
@@ -664,6 +696,8 @@ export function createDecksCore(opts: CoreOptions) {
     isTrashing,
     list,
     read,
+    outline,
+    apply,
     create,
     trash,
     save,

@@ -185,6 +185,15 @@ async function route(core: DecksCore, o: HttpOptions, req: IncomingMessage, res:
   switch (cmd) {
     // Данные презентации, как их видит студия: пути к файлам — адресами этого сервера
     case 'read': return send(res, 200, core.read(name, { urls: true }));
+    // Операции правки для агента (src/engine/ops.ts): краткое содержание и пакет операций
+    case 'outline': {
+      const sl = q.get('slide');
+      return send(res, 200, core.outline(name, sl === null ? {} : { slide: /^\d+$/.test(sl) ? Number(sl) : sl }));
+    }
+    case 'apply': {
+      const body = (await json(req)) as { ops?: unknown; expect?: unknown } | null;
+      return send(res, 200, core.apply(name, { ops: body?.ops, expect: body?.expect, from: q.get('from') || 'agent' }));
+    }
     case 'save': {
       const body = (await json(req) ?? {}) as { deck?: unknown; base?: unknown };
       return send(res, 200, core.save(name, { deck: body.deck, base: body.base, from: q.get('from') ?? '' }));
