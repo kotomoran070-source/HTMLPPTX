@@ -144,7 +144,9 @@ export function initTheme(): void {
   // показ из студии со своим видом слайдов (look) — в нём, а не в теме интерфейса
   const q = new URLSearchParams(location.search).get('look');
   lookParam = q === 'light' || q === 'dark';
-  const s = __LOOK__ || (lookParam ? q : null) || stored();
+  // Вид, в котором файл экспортировали («Как на этом компьютере»): атрибут ставит экспорт (server/player.ts)
+  const fixed = root.getAttribute('data-slideria-look');
+  const s = (fixed === 'light' || fixed === 'dark' ? fixed : null) || (lookParam ? q : null) || stored();
   if (s) root.setAttribute('data-theme', s);
   tellApp();
   media.addEventListener('change', () => {

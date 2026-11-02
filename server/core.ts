@@ -9,7 +9,6 @@
  */
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { parse as parseYaml } from 'yaml';
@@ -22,7 +21,8 @@ import { importPptx } from '../plugins/pptx/index';
 import { stepToGlb, stlToGlb } from '../plugins/model-convert';
 import { compactImage } from '../plugins/optimize';
 import { mergeYaml } from '../plugins/yaml-merge';
-import { DATA_ID, MIME, dropGrades, escapeHtml, listDecks, mapAssets, mapStrings, readYaml, safeFileName, scriptJson, stamp } from './deck-files';
+import { createPlayers, finishFile, variantOf } from './player';
+import { DATA_ID, MIME, dropGrades, escapeHtml, listDecks, mapAssets, mapStrings, readYaml, replaceTag, safeFileName, scriptJson, stamp } from './deck-files';
 
 const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg']);
 /**
@@ -70,6 +70,8 @@ export interface CoreOptions {
   library?: string;
   /** Адрес файла для страниц; по умолчанию — от корня (/presentations/…) или /@fs/… вне его */
   urlOf?: (abs: string) => string;
+  /** Куда собирать недостающие варианты проигрывателя для экспорта; по умолчанию — node_modules/.cache/slideria-player */
+  playerCache?: string;
   hooks?: CoreHooks;
 }
 
@@ -109,7 +111,7 @@ export interface ExportOptions {
 
 export interface FileRef { url: string; path: string }
 
-/** Сборка экспорта не удалась: это сбой программы, а не неверный запрос (HTTP 500) */
+/** Сборка проигрывателя для экспорта не удалась: это сбой программы, а не неверный запрос (HTTP 500) */
 export class ExportError extends Error {}
 
 export type DecksCore = ReturnType<typeof createDecksCore>;
@@ -569,25 +571,29 @@ export function createDecksCore(opts: CoreOptions) {
   }
 
   // ---------------- экспорт ----------------
+  /** Варианты готового проигрывателя (server/player.ts): собранные заранее или в кэше */
+  const players = createPlayers({
+    root,
+    // Кэш — вне наблюдения сервера разработки: новые HTML-файлы в папке проекта перезагрузили бы открытую студию
+    cache: opts.playerCache ? path.resolve(opts.playerCache) : path.join(root, 'node_modules', '.cache', 'slideria-player'),
+    run: (script, args, x) => (hooks.run ?? nodeRunner)(script, args, x),
+  });
+
   /**
-   * «Экспорт»: сборка в один HTML-файл, та же, что yarn build, — отдельным процессом и во временную папку
-   * (наблюдение за файлами не видит промежуточных). В программе процесс запускает Electron (крючок run)
+   * «Экспорт» в один HTML-файл: готовый проигрыватель нужного варианта (правка или показ, 3D, формулы)
+   * и данные презентации со встроенными файлами. Варианта ещё нет (код программы поменялся) — он собирается
+   * один раз отдельным процессом (в программе — служебным процессом Electron, крючок run)
    */
   async function exportHtml(name: string, o: ExportOptions): Promise<Buffer> {
-    assertDeck(name);
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'htmlpptx-export-'));
-    const out = path.join(tmp, `${name}.html`);
-    const script = path.join(root, 'scripts/build.mjs');
-    const args = [name, `--out=${out}`,
-      ...(o.clean ? ['--clean'] : []), ...(o.compact ? ['--compact'] : []), ...(o.look ? [`--look=${o.look}`] : []), ...(o.motion ? ['--motion'] : [])];
-    const run = hooks.run ?? nodeRunner;
+    const yaml = fs.readFileSync(deckFile(assertDeck(name)), 'utf8');
+    let t;
     try {
-      const { code, stderr } = await run(script, args, { cwd: root, env: { ...process.env, BUILD_TMP: tmp } });
-      if (code || !fs.existsSync(out)) throw new ExportError((stderr || 'Сборка не удалась').trim().split('\n').slice(-3).join(' '));
-      return fs.readFileSync(out);
-    } finally {
-      fs.rmSync(tmp, { recursive: true, force: true });
+      t = await players.get(variantOf(yaml, !o.clean));
+    } catch (e) {
+      throw new ExportError((e as Error).message);
     }
+    const html = await fileHtml(t.html, name, { compact: o.compact });
+    return Buffer.from(finishFile(html, t, root, { look: o.look, motion: o.motion }));
   }
 
   /**
@@ -634,11 +640,14 @@ export function createDecksCore(opts: CoreOptions) {
       const ext = path.extname(abs).slice(1).toLowerCase();
       return `data:${MIME[ext] ?? 'application/octet-stream'};base64,${fs.readFileSync(abs).toString('base64')}`;
     });
+    // Теги страницы, а не такие же строки в коде проигрывателя; в тексте слайдов бывают «$$» — замены функциями
     let out = html;
-    if (deck?.title) out = out.replace(/<title>.*?<\/title>/, `<title>${escapeHtml(deck.title)}</title>`);
-    if (deck?.lang) out = out.replace(/<html lang="[^"]*">/, `<html lang="${escapeHtml(deck.lang)}">`);
+    if (deck?.title) out = replaceTag(out, /<title>.*?<\/title>/, () => `<title>${escapeHtml(deck.title!)}</title>`);
+    if (deck?.lang) out = replaceTag(out, /<html lang="[^"]*">/, () => `<html lang="${escapeHtml(deck.lang!)}">`);
+    // Имя презентации — проигрывателю: под ним он хранит своё (ответы теста, правки в копии файла)
+    out = replaceTag(out, /<head>/, () => `<head>\n<meta name="slideria-deck" content="${escapeHtml(name)}">`);
     const base = { name, deck };
-    return out.replace('<body>', `<body>\n<script type="application/json" id="${DATA_ID}">${scriptJson(packDeck(embedded))}</script>`
+    return replaceTag(out, /<body>/, () => `<body>\n<script type="application/json" id="${DATA_ID}">${scriptJson(packDeck(embedded))}</script>`
       + `\n<script type="application/json" id="${BASE_ID}">${scriptJson(base)}</script>`);
   }
 
@@ -676,5 +685,7 @@ export function createDecksCore(opts: CoreOptions) {
     bindTheme,
     exportHtml,
     fileHtml,
+    /** Собрать заранее варианты проигрывателя, которых ещё нет */
+    warmPlayers: () => players.warm(),
   };
 }

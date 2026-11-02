@@ -9,7 +9,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { stage, OWN, PACKED } from './app-stage.mjs';
+import { stage, BUILT, OWN, PACKED } from './app-stage.mjs';
 import { licenseProblems } from './licenses.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -39,9 +39,9 @@ const config = {
   files: ['package.json', { from: path.relative(root, STAGE), to: '.', filter: ['**/*'] }],
   asar: true,
   // В app.asar остаются загрузчик (desktop) и package.json; остальное — рядом, обычными файлами:
-  // сервер Vite и esbuild внутри программы читают их с диска
+  // сервер Vite и esbuild внутри программы читают их с диска, экспорт — готовый проигрыватель
   // (шаблоны — от папки проекта: файлы берутся из копии)
-  asarUnpack: ['node_modules/**', ...OWN.filter((x) => !PACKED.includes(x)).map((x) => `${path.relative(root, STAGE).split(path.sep).join('/')}/${x}${fs.statSync(path.join(STAGE, x)).isDirectory() ? '/**' : ''}`)],
+  asarUnpack: ['node_modules/**', ...[...OWN, ...BUILT].filter((x) => !PACKED.includes(x)).map((x) => `${path.relative(root, STAGE).split(path.sep).join('/')}/${x}${fs.statSync(path.join(STAGE, x)).isDirectory() ? '/**' : ''}`)],
   // Предохранители — из package.json; автотесту собранной программы нужен отладчик
   electronFuses: { ...pkg.build.electronFuses, ...(process.env.SLIDERIA_FUSES_TEST === '1' ? { enableNodeCliInspectArguments: true } : {}) },
 };

@@ -73,6 +73,19 @@ export function scriptJson(v: unknown): string {
   return JSON.stringify(v).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 }
 
+/**
+ * Заменить первый тег страницы, подходящий под tag, — вне <script> и <style>: в коде собранной страницы такие
+ * строки тоже встречаются («<body>», «<head>» в шаблонах). Замена — функцией: «$» в ней не служебный знак
+ */
+export function replaceTag(html: string, tag: RegExp, to: (m: string) => string): string {
+  const re = new RegExp(`<(script|style)\\b[^>]*>[\\s\\S]*?</\\1\\s*>|${tag.source}`, 'gi');
+  for (let m: RegExpExecArray | null; (m = re.exec(html));) {
+    if (m[1]) continue;
+    return html.slice(0, m.index) + to(m[0]) + html.slice(m.index + m[0].length);
+  }
+  return html;
+}
+
 export function escapeHtml(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 }

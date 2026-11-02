@@ -132,7 +132,7 @@ export function noticeText(pkgs, fonts = '') {
 }
 
 /** Шрифты комплекта (OFL), которые есть в собранном файле: их данные встречаются в нём как есть */
-function kitFontsIn(html, root) {
+export function kitFontsIn(html, root) {
   const dir = path.join(root, 'src', 'fonts');
   const files = [];
   const scan = (d) => { for (const n of fs.readdirSync(d, { withFileTypes: true })) { if (n.isDirectory()) scan(path.join(d, n.name)); else if (/\.woff2$/.test(n.name)) files.push(path.join(d, n.name)); } };
@@ -141,10 +141,25 @@ function kitFontsIn(html, root) {
 }
 
 /**
- * Модуль сборки: в собранный HTML — авторы и тексты лицензий всех библиотек, которые в нём оказались,
- * и лицензия шрифтов комплекта, если они есть. Блок <script type="text/plain">: на странице не виден
+ * В собранный HTML — авторы и тексты лицензий библиотек (pkgs) и лицензия шрифтов комплекта, которые в нём есть.
+ * Блок <script type="text/plain"> перед последним </body>: на странице не виден
  */
-export function licenseNotice(root) {
+export function noticeInto(html, pkgs, root) {
+  const kit = kitFontsIn(html, root);
+  const fonts = kit.length ? `${kit.join(', ')}\n\n${fs.readFileSync(path.join(root, 'src', 'fonts', 'OFL.txt'), 'utf8').trim()}` : '';
+  if (!pkgs.length && !fonts) return html;
+  const text = noticeText([...pkgs].sort((a, b) => a.name.localeCompare(b.name)), fonts).replace(/<\//g, '<\\/');
+  // Функцией: «$» в текстах лицензий — не служебный знак замены
+  return html.replace(/<\/body>(?![\s\S]*<\/body>)/, () => `<script type="text/plain" id="slideria-licenses">\n${text}</script>\n</body>`);
+}
+
+/**
+ * Модуль сборки: в собранный HTML — авторы и тексты лицензий всех библиотек, которые в нём оказались,
+ * и лицензия шрифтов комплекта, если они есть. manifest — сборка проигрывателя (server/player.ts): список
+ * библиотек пишется в этот файл, а блок лицензий вставляет экспорт — когда в файле уже есть данные презентации
+ * (шрифт комплекта может прийти и с ними)
+ */
+export function licenseNotice(root, { manifest } = {}) {
   const used = new Map();
   return [
     {
@@ -169,14 +184,14 @@ export function licenseNotice(root) {
       generateBundle(_, bundle) {
         const page = bundle['index.html'];
         if (!page || page.type !== 'asset') return;
-        const html = String(page.source);
         const bad = checkLicenses([...used.values()], { html: true });
         if (bad.length) this.error(`В собранный файл попадает библиотека с неподходящей лицензией: ${bad.map((p) => `${p.name} (${p.license})`).join(', ')}`);
-        const kit = kitFontsIn(html, root);
-        const fonts = kit.length ? `${kit.join(', ')}\n\n${fs.readFileSync(path.join(root, 'src', 'fonts', 'OFL.txt'), 'utf8').trim()}` : '';
-        if (!used.size && !fonts) return;
-        const text = noticeText([...used.values()].sort((a, b) => a.name.localeCompare(b.name)), fonts).replace(/<\//g, '<\\/');
-        page.source = html.replace(/<\/body>(?![\s\S]*<\/body>)/, `<script type="text/plain" id="slideria-licenses">\n${text}</script>\n</body>`);
+        if (manifest) {
+          // Путь к пакету на машине сборки в файл не нужен
+          fs.writeFileSync(manifest, JSON.stringify({ packages: [...used.values()].map(({ dir: _dir, ...p }) => p) }));
+          return;
+        }
+        page.source = noticeInto(String(page.source), [...used.values()], root);
       },
     },
   ];

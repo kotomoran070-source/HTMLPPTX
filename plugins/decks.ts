@@ -6,7 +6,8 @@
  *   перезагружаются; правка deck.yaml, которую записал сам сервер, страницу не перезагружает;
  * - данные для страниц: импорт *.yaml превращает YAML в модуль, пути ./assets/… — в импорты картинок,
  *   virtual:decks — список презентаций;
- * - yarn build имя: данные со встроенными файлами кладутся прямо в HTML (ядро, fileHtml).
+ * - сборка (scripts/build.mjs --player): готовый проигрыватель для экспорта — имя и данные презентации он берёт
+ *   из файла, в который его вложил экспорт (server/player.ts).
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -25,8 +26,11 @@ const RESOLVED = '\0' + VIRTUAL;
 export interface DecksOptions {
   /** Папка с презентациями */
   dir: string;
-  /** Собрать только эту презентацию (yarn build имя) */
-  only?: string;
+  /**
+   * Сборка готового проигрывателя (server/player.ts): одна страница на все презентации — имя и данные
+   * она берёт из файла, в который её вложил экспорт
+   */
+  player?: boolean;
   /** Общая библиотека шрифтов; по умолчанию — fonts/ в корне проекта */
   fonts?: string;
   /** Свои темы, шаблоны, эффекты и образы студии; по умолчанию — library/ в корне проекта */
@@ -85,6 +89,8 @@ export function decksPlugin(opts: DecksOptions): Plugin {
         root: c.root,
         fonts: opts.fonts,
         library: opts.library,
+        // Программа держит недостающие варианты проигрывателя у себя (её папка может быть только для чтения)
+        playerCache: process.env.SLIDERIA_PLAYER_CACHE || undefined,
         hooks: {
           release,
           run: (script, args, o) => (app.__slideriaRun ?? nodeRunner)(script, args, o),
@@ -154,18 +160,15 @@ export function decksPlugin(opts: DecksOptions): Plugin {
     load(id) {
       if (id !== RESOLVED) return null;
       const c = need();
-      const all = listDecks(dir);
-      if (opts.only) {
-        if (!all.includes(opts.only)) {
-          throw new Error(`Презентация «${opts.only}» не найдена. Есть: ${all.join(', ') || 'ни одной'}`);
-        }
+      if (opts.player) {
         // Данные лежат в HTML: так сохранённая из браузера копия несёт свои правки
         return `import { unpackDeck } from ${JSON.stringify(path.join(c.root, 'src/engine/pack.ts'))};\n`
           + `const el = document.getElementById(${JSON.stringify(DATA_ID)});\n`
-          + `export const decks = { ${JSON.stringify(opts.only)}: async () => unpackDeck(JSON.parse(el.textContent)) };\n`
-          + `export const fixed = ${JSON.stringify(opts.only)};\n`;
+          + `const name = document.querySelector('meta[name="slideria-deck"]')?.getAttribute('content') || 'deck';\n`
+          + `export const decks = { [name]: async () => unpackDeck(JSON.parse(el.textContent)) };\n`
+          + `export const fixed = name;\n`;
       }
-      const entries = all.map((n) => `  ${JSON.stringify(n)}: () => import(${JSON.stringify(c.urlOf(c.deckFile(n)))}).then((m) => m.default)`);
+      const entries = listDecks(dir).map((n) => `  ${JSON.stringify(n)}: () => import(${JSON.stringify(c.urlOf(c.deckFile(n)))}).then((m) => m.default)`);
       return `export const decks = {\n${entries.join(',\n')}\n};\nexport const fixed = null;\n`;
     },
 
@@ -196,12 +199,6 @@ export function decksPlugin(opts: DecksOptions): Plugin {
       const json = JSON.stringify(walked, null, 1).replace(/"__ASSET_(\d+)__"/g, (_, i) => `__asset${i}`);
       const head = imports.map((p, i) => `import __asset${i} from ${JSON.stringify(p)};`).join('\n');
       return { code: `${head}\nexport default ${json};\n`, map: null };
-    },
-
-    async transformIndexHtml(html) {
-      if (!opts.only) return html;
-      // Компактный файл (--compact): картинки заранее сжимаются в WebP, видео и модели — как есть
-      return need().fileHtml(html, opts.only, { compact: process.env.COMPACT === '1' });
     },
   };
 }

@@ -1,70 +1,33 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import { decksPlugin } from './plugins/decks';
 import { frameHostPlugin } from './plugins/frame-host';
 import { licenseNotice } from './plugins/licenses.mjs';
 
-// DECK=имя задаёт scripts/build.mjs: собирается одна презентация в один HTML-файл
-const only = process.env.DECK || undefined;
+// PLAYER=1 — сборка готового проигрывателя для экспорта (scripts/build.mjs --player, server/player.ts):
+// одна страница на все презентации, данные вкладывает экспорт. CLEAN, PLAYER_MODEL, PLAYER_MATH — вариант
+const player = process.env.PLAYER === '1';
 // Приложение Slideria (desktop/main.mjs) держит презентации в «Документы/Slideria», а кэш — у себя
 const decksDir = process.env.SLIDERIA_DECKS || 'presentations';
 const app = process.env.SLIDERIA_APP === '1';
 
-function usesModel(name: string): boolean {
-  return usesType(name, 'model');
-}
-
-function usesType(name: string, type: string): boolean {
-  try {
-    return new RegExp(`\\btype:\\s*['"]?${type}\\b`).test(fs.readFileSync(path.join(decksDir, name, 'deck.yaml'), 'utf8'));
-  } catch {
-    return true;
-  }
-}
-
-/**
- * Анимации и там, где в системе включено «Уменьшить движение» (yarn build --motion, «Как на этом компьютере»):
- * запросы стилей и кода к этой настройке отвечают «движение можно»
- */
-function keepMotion(): Plugin {
-  const fix = (s: string) => s
-    .replace(/\(\s*prefers-reduced-motion\s*:\s*reduce\s*\)/g, 'not all')
-    .replace(/\(\s*prefers-reduced-motion\s*:\s*no-preference\s*\)/g, 'all');
-  return {
-    name: 'slideria-keep-motion',
-    apply: 'build',
-    // После сборки стилей в один файл (vite:css-post) и до vite-plugin-singlefile: стили и код ещё отдельными файлами
-    enforce: 'post',
-    generateBundle(_, bundle) {
-      for (const f of Object.values(bundle)) {
-        if (f.type === 'chunk') f.code = fix(f.code);
-        else if (typeof f.source === 'string') f.source = fix(f.source);
-      }
-    },
-  };
-}
-
 export default defineConfig(({ command }) => ({
   plugins: [
-    decksPlugin({ dir: decksDir, only, fonts: process.env.SLIDERIA_FONTS, library: process.env.SLIDERIA_LIBRARY }),
+    decksPlugin({ dir: decksDir, player, fonts: process.env.SLIDERIA_FONTS, library: process.env.SLIDERIA_LIBRARY }),
     frameHostPlugin(),
-    ...(command === 'build' && process.env.MOTION === '1' ? [keepMotion()] : []),
-    ...(command === 'build' ? [viteSingleFile({ removeViteModuleLoader: true }), ...licenseNotice(process.cwd())] : []),
+    // Список библиотек варианта — рядом с ним (PLAYER_MANIFEST): блок лицензий вставляет экспорт
+    ...(command === 'build' ? [viteSingleFile({ removeViteModuleLoader: true }), ...licenseNotice(process.cwd(), { manifest: process.env.PLAYER_MANIFEST || undefined })] : []),
   ],
   // Сборка «для показа» (yarn build --clean): режим правки не попадает в файл
   define: {
     __EDITABLE__: JSON.stringify(process.env.CLEAN !== '1'),
-    // Библиотека 3D (≈1 МБ) попадает в файл, только если в презентации есть модель
-    __HAS_MODEL__: JSON.stringify(!only || usesModel(only)),
+    // Библиотека 3D (≈1 МБ) попадает в файл, только если в презентации есть модель (вариант проигрывателя)
+    __HAS_MODEL__: JSON.stringify(!player || process.env.PLAYER_MODEL === '1'),
     // Набор формул (Temml, ≈160 КБ) — только если в презентации есть формулы
-    __HAS_MATH__: JSON.stringify(!only || usesType(only, 'math')),
+    __HAS_MATH__: JSON.stringify(!player || process.env.PLAYER_MATH === '1'),
     // Как называть папку с презентациями в подсказках
     __DECKS_DIR__: JSON.stringify(process.env.SLIDERIA_DECKS_LABEL || 'presentations/'),
     __APP__: JSON.stringify(app),
-    // «Как на этом компьютере» — только у собранного файла (scripts/build.mjs --look / --motion)
-    __LOOK__: JSON.stringify(command === 'build' && (process.env.LOOK === 'light' || process.env.LOOK === 'dark') ? process.env.LOOK : ''),
   },
   // Документы «живых» вставок (компонент embed) — обычные файлы-ассеты
   assetsInclude: ['**/*.htm', '**/*.glb', '**/*.wad', '**/*.cube'],

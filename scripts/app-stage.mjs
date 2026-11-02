@@ -4,6 +4,9 @@
 // импортами и экспортами: сервер Vite внутри программы и «Экспорт» работают с ними так же, как с исходниками.
 // Отпечатки (SHA-256) кода, который лежит рядом с app.asar, записываются внутрь app.asar
 // (desktop/integrity.json): программа сверяет их при запуске и с изменённым кодом не запускается.
+// Там же — готовый проигрыватель для «Экспорта» в HTML, все варианты (player/, server/player.ts):
+// программа не собирает его на компьютере пользователя.
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,6 +19,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const OWN = ['LICENSE', 'index.html', 'vite.config.ts', 'tsconfig.json', 'desktop', 'src', 'plugins', 'server', 'scripts', 'templates'];
 /** Внутри app.asar: загрузчик программы. Его целостность проверяет сам Electron, остальное — он */
 export const PACKED = ['desktop'];
+/** Собирается при подготовке копии, а не копируется: готовый проигрыватель */
+export const BUILT = ['player'];
 const SKIP = /\.d\.m?ts$/;
 const LOADER = { '.ts': 'ts', '.mts': 'ts', '.mjs': 'js', '.js': 'js', '.cjs': 'js', '.css': 'css' };
 
@@ -46,7 +51,11 @@ function walk(dir, out = []) {
 
 /** Собрать копию в dest; ответ — сколько файлов сжато и сколько скопировано как есть */
 export function stage(dest) {
+  // Проигрыватель — из исходников (сборка Vite и так сжимает код), во все варианты
+  const players = path.join(dest, 'player');
   fs.rmSync(dest, { recursive: true, force: true });
+  const built = spawnSync(process.execPath, [path.join(root, 'scripts', 'build.mjs'), '--players', `--out=${players}`], { cwd: root, stdio: 'inherit' });
+  if (built.status !== 0) throw new Error('Проигрыватель для экспорта не собрался');
   let packed = 0;
   let copied = 0;
   const files = OWN.flatMap((x) => {
@@ -67,6 +76,9 @@ export function stage(dest) {
       packed++;
     }
     if (!PACKED.some((d) => rel === d || rel.startsWith(`${d}/`))) sums[rel] = createHash('sha256').update(fs.readFileSync(out)).digest('base64');
+  }
+  for (const f of walk(players)) {
+    sums[path.relative(dest, f).split(path.sep).join('/')] = createHash('sha256').update(fs.readFileSync(f)).digest('base64');
   }
   fs.writeFileSync(path.join(dest, 'desktop', 'integrity.json'), JSON.stringify({ files: sums }));
   return { packed, copied, checked: Object.keys(sums).length };

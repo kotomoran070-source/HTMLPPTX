@@ -130,8 +130,14 @@ async function startServer() {
     SLIDERIA_FONTS: path.join(DATA, 'fonts'),
     SLIDERIA_LIBRARY: path.join(DATA, 'library'),
     SLIDERIA_CACHE: path.join(DATA, 'vite-cache'),
-    // package.json и штамп сборки — в app.asar, а не рядом с кодом (страница лицензий)
-    ...(PACKED ? { SLIDERIA_PACKAGE: path.join(APP_DIR, 'package.json'), SLIDERIA_BUILD_STAMP: path.join(APP_DIR, 'desktop', 'build.json') } : {}),
+    // package.json и штамп сборки — в app.asar, а не рядом с кодом (страница лицензий).
+    // Проигрыватель для экспорта собран с программой (player/); вариант, которого там нет, собирается
+    // к данным программы: её папка может быть только для чтения (server/player.ts)
+    ...(PACKED ? {
+      SLIDERIA_PACKAGE: path.join(APP_DIR, 'package.json'),
+      SLIDERIA_BUILD_STAMP: path.join(APP_DIR, 'desktop', 'build.json'),
+      SLIDERIA_PLAYER_CACHE: path.join(DATA, 'player'),
+    } : {}),
   });
   // Плагины и сборка считают пути от корня проекта
   process.chdir(ROOT);

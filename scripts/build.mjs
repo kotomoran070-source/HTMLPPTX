@@ -3,87 +3,136 @@
 //   yarn build microclimate — одну
 //   --clean                — «для показа»: без режима правки, файл dist/<имя>.show.html
 //   --compact              — картинки сжаты в WebP (GIF — в анимированный WebP): файл в разы меньше
-//   --out=путь             — куда положить файл (одна презентация; так собирает кнопка «Экспорт» редактора)
+//   --out=путь             — куда положить файл (одна презентация)
 //   --look=light|dark      — файл открывается со светлыми или тёмными слайдами, а не как в системе зрителя
 //   --motion               — анимации, даже если в системе зрителя включено «Уменьшить движение»
 //                            (оба — галочка «Как на этом компьютере» в «Экспорте»)
+//
+// Файл — готовый проигрыватель и данные презентации (server/player.ts). Проигрыватель собирается один раз
+// на вариант и живёт в кэше, пока не поменялся код программы; поэтому первая сборка дольше следующих.
+// Те же режимы — у кнопки «Экспорт» студии (ядро сервера, server/core.ts).
+//
+// Сборка самого проигрывателя (Vite):
+//   --player=<вариант> --out=файл.html — один вариант: show|edit, -3d, -math (так его собирает экспорт)
+//   --players --out=папка             — все варианты и manifest.json: готовые для установщика (app-stage.mjs)
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
-import { build } from 'vite';
+import { build, createServer } from 'vite';
 
 const root = process.cwd();
-// Приложение Slideria держит презентации вне папки программы (SLIDERIA_DECKS)
-const presDir = process.env.SLIDERIA_DECKS ? path.resolve(process.env.SLIDERIA_DECKS) : path.join(root, 'presentations');
-const all = fs.existsSync(presDir)
-  ? fs.readdirSync(presDir, { withFileTypes: true })
-    .filter((d) => d.isDirectory() && !d.name.startsWith('_') && !d.name.startsWith('.'))
-    .filter((d) => fs.existsSync(path.join(presDir, d.name, 'deck.yaml')))
-    .map((d) => d.name)
-    .sort()
-  : [];
-
 const args = process.argv.slice(2);
-const wanted = args.filter((a) => !a.startsWith('-'));
-const clean = args.includes('--clean');
 const outArg = args.find((a) => a.startsWith('--out='))?.slice(6);
-// Временная папка сборки: для «Экспорта» — вне проекта, чтобы не будить наблюдение за файлами
-const tmpRoot = process.env.BUILD_TMP || null;
-const names = wanted.length ? wanted : all;
-const missing = names.filter((n) => !all.includes(n));
-if (missing.length) {
-  console.error(`Не найдены презентации: ${missing.join(', ')}. Есть: ${all.join(', ') || 'ни одной'}`);
-  process.exit(1);
-}
-if (!names.length) {
-  console.error('В папке presentations нет ни одной презентации. Создайте: yarn new имя');
-  process.exit(1);
-}
+const playerArg = args.find((a) => a.startsWith('--player='))?.slice(9);
 
-const dist = path.join(root, 'dist');
-// С --out папка dist не нужна: приложение может стоять там, куда писать нельзя
-if (!outArg) fs.mkdirSync(dist, { recursive: true });
+/** Варианты проигрывателя — как VARIANTS в server/player.ts */
+const VARIANTS = ['show', 'edit'].flatMap((m) => ['', '-3d'].flatMap((d) => ['', '-math'].map((f) => `${m}${d}${f}`)));
 
-if (outArg && names.length !== 1) {
-  console.error('--out работает для одной презентации: yarn build имя --out=файл.html');
-  process.exit(1);
-}
-if (clean) process.env.CLEAN = '1';
-const compact = args.includes('--compact');
-if (compact) process.env.COMPACT = '1';
-const look = args.find((a) => a.startsWith('--look='))?.slice(7);
-if (look && look !== 'light' && look !== 'dark') {
-  console.error(`--look: light или dark, а не «${look}»`);
-  process.exit(1);
-}
-process.env.LOOK = look ?? '';
-process.env.MOTION = args.includes('--motion') ? '1' : '';
-
-for (const name of names) {
-  const tmp = path.join(tmpRoot ?? dist, `.build-${name}-${process.pid}`);
-  process.env.DECK = name;
-  process.env.OUT_DIR = tmp;
+/** Собрать вариант проигрывателя в файл out; рядом — out без .html + .json: библиотеки для блока лицензий */
+async function buildPlayer(id, out) {
+  const m = /^(show|edit)(-3d)?(-math)?$/.exec(id);
+  if (!m) throw new Error(`Нет такого варианта проигрывателя: «${id}». Есть: ${VARIANTS.join(', ')}`);
+  // Временная папка — вне проекта: сборка во время работы студии не будит наблюдение за файлами
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `slideria-player-${id}-`));
+  Object.assign(process.env, {
+    // Сборку запускает сервер студии, а у него NODE_ENV=development: с ним Vite собрал бы код разработки
+    // (страница выбора презентаций и прочее, чего в файле быть не должно)
+    NODE_ENV: 'production',
+    PLAYER: '1',
+    CLEAN: m[1] === 'show' ? '1' : '',
+    PLAYER_MODEL: m[2] ? '1' : '',
+    PLAYER_MATH: m[3] ? '1' : '',
+    PLAYER_MANIFEST: out.replace(/\.html$/, '') + '.json',
+    OUT_DIR: tmp,
+  });
   try {
+    fs.mkdirSync(path.dirname(out), { recursive: true });
     await build({
       configFile: path.join(root, 'vite.config.ts'),
       logLevel: 'warn',
       // Приложение: конфиг читается без временного файла рядом с ним (папка программы может быть только для чтения)
       ...(process.env.SLIDERIA_APP === '1' ? { configLoader: 'runner' } : {}),
     });
-  } catch (e) {
+    // copyFile: временная папка может быть на другом диске
+    fs.copyFileSync(path.join(tmp, 'index.html'), out);
+  } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
-    console.error(`✗ ${name}: ${String(e?.message ?? e).replace(/^\[[\w-]+\]\s*/, '')}`);
-    process.exitCode = 1;
-    continue;
   }
-  const out = outArg ? path.resolve(outArg) : path.join(dist, `${name}${clean ? '.show' : ''}.html`);
-  fs.mkdirSync(path.dirname(out), { recursive: true });
-  // copyFile: временная папка может быть на другом диске
-  fs.copyFileSync(path.join(tmp, 'index.html'), out);
-  fs.rmSync(tmp, { recursive: true, force: true });
-  const kb = (fs.statSync(out).size / 1024).toFixed(0);
-  console.log(`✓ ${path.relative(root, out)}  ${kb} КБ${clean ? ' · для показа' : ''}${compact ? ' · компактный' : ''}`);
 }
 
-// «Экспорт» в приложении идёт служебным процессом Electron (desktop/main.mjs), а он сам не завершается:
-// выход — когда сообщения об ошибках дописаны
+const fail = (msg) => {
+  console.error(msg);
+  process.exitCode = 1;
+};
+const kb = (file) => `${(fs.statSync(file).size / 1024).toFixed(0)} КБ`;
+
+if (playerArg) {
+  if (!outArg) fail('--player: куда собрать — --out=файл.html');
+  else {
+    try {
+      await buildPlayer(playerArg, path.resolve(outArg));
+    } catch (e) {
+      fail(`✗ проигрыватель ${playerArg}: ${String(e?.message ?? e).replace(/^\[[\w-]+\]\s*/, '')}`);
+    }
+  }
+} else if (args.includes('--players')) {
+  const dir = path.resolve(outArg || path.join('dist', 'player'));
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(dir, { recursive: true });
+  try {
+    for (const id of VARIANTS) {
+      const out = path.join(dir, `${id}.html`);
+      await buildPlayer(id, out);
+      console.log(`✓ проигрыватель ${id}  ${kb(out)}`);
+    }
+    // Собраны вместе с программой: подходят к её коду, отпечаток исходников не нужен
+    fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify({ prebuilt: true, variants: VARIANTS }));
+  } catch (e) {
+    fail(`✗ проигрыватель: ${String(e?.message ?? e).replace(/^\[[\w-]+\]\s*/, '')}`);
+  }
+} else {
+  // Приложение Slideria держит презентации вне папки программы (SLIDERIA_DECKS)
+  const presDir = process.env.SLIDERIA_DECKS ? path.resolve(process.env.SLIDERIA_DECKS) : path.join(root, 'presentations');
+  const wanted = args.filter((a) => !a.startsWith('-'));
+  const clean = args.includes('--clean');
+  const compact = args.includes('--compact');
+  const look = args.find((a) => a.startsWith('--look='))?.slice(7);
+  const motion = args.includes('--motion');
+  // Ядро сервера — TypeScript: Vite загружает его как модуль, без сервера страниц и наблюдения за файлами
+  const server = await createServer({
+    configFile: false, root, logLevel: 'error', appType: 'custom',
+    server: { middlewareMode: true, hmr: false, watch: null }, optimizeDeps: { noDiscovery: true },
+  });
+  try {
+    const { createDecksCore } = await server.ssrLoadModule('/server/core.ts');
+    const core = createDecksCore({ dir: presDir, root });
+    const all = core.names();
+    const names = wanted.length ? wanted : all;
+    const missing = names.filter((n) => !all.includes(n));
+    if (missing.length) fail(`Не найдены презентации: ${missing.join(', ')}. Есть: ${all.join(', ') || 'ни одной'}`);
+    else if (!names.length) fail('В папке presentations нет ни одной презентации. Создайте: yarn new имя');
+    else if (outArg && names.length !== 1) fail('--out работает для одной презентации: yarn build имя --out=файл.html');
+    else if (look && look !== 'light' && look !== 'dark') fail(`--look: light или dark, а не «${look}»`);
+    else {
+      for (const name of names) {
+        // С --out папка dist не нужна: приложение может стоять там, куда писать нельзя
+        const out = outArg ? path.resolve(outArg) : path.join(root, 'dist', `${name}${clean ? '.show' : ''}.html`);
+        try {
+          const html = await core.exportHtml(name, { clean, compact, look, motion });
+          fs.mkdirSync(path.dirname(out), { recursive: true });
+          fs.writeFileSync(out, html);
+        } catch (e) {
+          fail(`✗ ${name}: ${String(e?.message ?? e).replace(/^\[[\w-]+\]\s*/, '')}`);
+          continue;
+        }
+        console.log(`✓ ${path.relative(root, out)}  ${kb(out)}${clean ? ' · для показа' : ''}${compact ? ' · компактный' : ''}`);
+      }
+    }
+  } finally {
+    await server.close();
+  }
+}
+
+// Сборка проигрывателя в приложении идёт служебным процессом Electron (desktop/main.mjs), а он сам
+// не завершается: выход — когда сообщения об ошибках дописаны
 if (process.parentPort) process.stderr.write('', () => process.exit(process.exitCode ?? 0));
