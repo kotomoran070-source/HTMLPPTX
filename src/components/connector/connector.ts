@@ -125,21 +125,43 @@ defineBlock<ConnectorProps>('connector', {
     // Уточнение по настоящим рамкам объектов и слежение за ними
     const slide = el.closest<HTMLElement>('.slide');
     if (!slide) return;
-    const run = () => reroute(el, slide);
-    let raf = 0;
-    const later = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; run(); }); };
-    run();
+    reroute(el, slide);
+    const later = () => queue(el, slide);
     // Место и размер объектов — в их style (редактор меняет его и пока тянут); высота текста — по содержимому
     const mo = new MutationObserver((list) => { if (list.some((m) => (m.target as Element).matches?.('.free') && !(m.target as Element).querySelector(':scope > .conn-box'))) later(); });
     mo.observe(slide, { subtree: true, attributes: true, attributeFilter: ['style'] });
     const ro = new ResizeObserver(later);
     slide.querySelectorAll<HTMLElement>(':scope > .free').forEach((f) => { if (!f.querySelector(':scope > .conn-box')) ro.observe(f); });
-    return () => { mo.disconnect(); ro.disconnect(); cancelAnimationFrame(raf); };
+    return () => { mo.disconnect(); ro.disconnect(); queued.delete(el); };
   },
 });
 
+/**
+ * Пересчёт линий — разом, раз за кадр: сначала замеры всех линий, потом все записи. По одной (замер, запись,
+ * замер следующей…) каждый замер после записи — пересчёт раскладки всей страницы, и так на каждую линию
+ */
+const queued = new Map<HTMLElement, HTMLElement>();
+let frame = 0;
+function queue(el: HTMLElement, slide: HTMLElement): void {
+  queued.set(el, slide);
+  if (!frame) frame = requestAnimationFrame(flush);
+}
+function flush(): void {
+  frame = 0;
+  const jobs = [...queued].filter(([el]) => el.isConnected);
+  queued.clear();
+  jobs.map(([el, slide]) => [el, lineOf(el, slide)] as const).forEach(([el, r]) => draw(el, r));
+}
+
 /** Пересчитать соединитель по настоящим рамкам его объектов на слайде */
 export function reroute(el: HTMLElement, slide: HTMLElement): void {
+  draw(el, lineOf(el, slide));
+}
+
+type Line = { g: Geo; free: HTMLElement } | null;
+
+/** Путь линии по настоящим рамкам объектов (только замеры, без записи) */
+function lineOf(el: HTMLElement, slide: HTMLElement): Line {
   const free = el.parentElement;
   const find = (id: string | undefined) => (id
     ? slide.querySelector<HTMLElement>(`:scope > .free[data-obj="${CSS.escape(id)}"]`) ?? slide.querySelector<HTMLElement>(`.grp-item[data-obj="${CSS.escape(id)}"]`)
@@ -159,17 +181,26 @@ export function reroute(el: HTMLElement, slide: HTMLElement): void {
   };
   const a = end(el.dataset.from, el.dataset.p1, 'a');
   const b = end(el.dataset.to, el.dataset.p2, 'b');
-  el.classList.toggle('conn-off', !a || !b);
-  if (!a || !b || !free) return;
+  if (!a || !b || !free) return null;
   const [s1, s2] = (el.dataset.sides ?? ',').split(',');
-  const g = connect(a, b, routeOf(el.dataset.route), 14, sidesOf(s1, s2));
+  return { g: connect(a, b, routeOf(el.dataset.route), 14, sidesOf(s1, s2)), free };
+}
+
+/** Записать путь; линия на том же месте (тянут другой объект слайда) — без записей и перерисовки */
+function draw(el: HTMLElement, r: Line): void {
+  el.classList.toggle('conn-off', !r);
+  if (!r) return;
+  const { g, free } = r;
+  const geo = geoJson(g);
+  const box = { left: `${r1(g.box.x)}px`, top: `${r1(g.box.y)}px`, width: `${r1(g.box.w)}px`, height: `${r1(g.box.h)}px` };
+  if (el.dataset.geo === geo && free.style.left === box.left && free.style.top === box.top && free.style.width === box.width && free.style.height === box.height) return;
   const d = pathD(g);
   el.querySelectorAll('path.conn-hit, path.conn-line').forEach((p) => p.setAttribute('d', d));
   el.querySelector('svg.conn')?.setAttribute('viewBox', `0 0 ${r1(g.box.w)} ${r1(g.box.h)}`);
   const l = el.querySelector<HTMLElement>('.conn-l');
   if (l) { l.style.left = `${r1(g.mid[0] - g.box.x)}px`; l.style.top = `${r1(g.mid[1] - g.box.y)}px`; }
-  el.dataset.geo = geoJson(g);
-  Object.assign(free.style, { left: `${r1(g.box.x)}px`, top: `${r1(g.box.y)}px`, width: `${r1(g.box.w)}px`, height: `${r1(g.box.h)}px` });
+  el.dataset.geo = geo;
+  Object.assign(free.style, box);
   // Студия переставляет ручки концов выделенной линии
   el.dispatchEvent(new CustomEvent('connreroute', { bubbles: true }));
 }

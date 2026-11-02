@@ -447,7 +447,8 @@ body.studio { background: var(--alt); }
 
 /* Путь к выделенному над слайдом */
 .st-view { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.st-crumbs { flex: none; display: flex; align-items: center; gap: 4px; height: 30px; padding: 0 14px; background: var(--alt); font: 500 12px var(--font); color: var(--tx2); overflow: hidden; white-space: nowrap; border-bottom: 1px solid color-mix(in srgb, var(--bd) 60%, transparent); }
+/* Путь меняется при наведении на каждый объект: contain — его раскладка сама по себе, без пересчёта всей студии */
+.st-crumbs { flex: none; display: flex; align-items: center; gap: 4px; height: 30px; padding: 0 14px; background: var(--alt); font: 500 12px var(--font); color: var(--tx2); overflow: hidden; white-space: nowrap; border-bottom: 1px solid color-mix(in srgb, var(--bd) 60%, transparent); contain: strict; }
 .st-crumbs i { font-style: normal; color: var(--bd2); }
 .st-crumbs button { border: 0; background: none; padding: 3px 6px; border-radius: 5px; font: inherit; color: var(--ach); cursor: pointer; }
 .st-crumbs button:hover { background: var(--acs); }

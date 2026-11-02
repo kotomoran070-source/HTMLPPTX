@@ -499,15 +499,31 @@ void main(){float a=va*k;if(dot>.5){float d=length(gl_PointCoord-.5);a*=smoothst
 
 type Rgb = [number, number, number];
 
-/** Цвет CSS (в т. ч. var(--ac)) → RGB 0..1, как он вычислен на этом элементе */
-function cssRgb(el: HTMLElement, css: string): Rgb {
-  const probe = document.createElement('i');
-  probe.style.cssText = `display:none;color:${css}`;
-  el.appendChild(probe);
-  const m = /rgba?\(([^)]+)\)/.exec(getComputedStyle(probe).color);
-  probe.remove();
+/** Цвет «rgb(…)» → RGB 0..1 */
+function rgbOf(color: string): Rgb {
+  const m = /rgba?\(([^)]+)\)/.exec(color);
   const [r, g, b] = (m?.[1] ?? '37,99,235').split(/[,\s/]+/).map(Number);
   return [r / 255, g / 255, b / 255];
+}
+
+/** Цвета темы, как они вычислены на элементе: акцент, фон и второй цвет (null — его нет) */
+export interface BackdropColors { ac: Rgb; bg: Rgb; ac2: Rgb | null }
+
+/**
+ * Цвета темы на элементе — пробниками, вставленными разом: один пересчёт стилей страницы на все цвета
+ * (по пробнику на цвет — пересчёт на каждый). Ленте плиток фонов они нужны один раз на все плитки
+ */
+export function backdropColors(el: HTMLElement): BackdropColors {
+  const probes = ['var(--ac)', 'var(--bg)', 'var(--ac2)'].map((css) => {
+    const probe = document.createElement('i');
+    probe.style.cssText = `display:none;color:${css}`;
+    el.appendChild(probe);
+    return probe;
+  });
+  const [ac, bg, two] = probes.map((x) => getComputedStyle(x).color);
+  const has2 = !!getComputedStyle(el).getPropertyValue('--ac2').trim();
+  probes.forEach((x) => x.remove());
+  return { ac: rgbOf(ac), bg: rgbOf(bg), ac2: has2 ? rgbOf(two) : null };
 }
 
 /** Второй цвет: акцент, сдвинутый по оттенку — полосы не одноцветные */
@@ -553,15 +569,14 @@ interface Scene {
 type Pal = () => { c1: Rgb; c2: Rgb; k: number };
 
 /** Цвета сцены — как они вычислены на элементе el (фон или сам слайд): акцент, второй цвет, сила */
-function paletteOf(el: HTMLElement, kind: BackdropKind): { c1: Rgb; c2: Rgb; k: number } {
-  const ac = cssRgb(el, 'var(--ac)');
-  const bg = cssRgb(el, 'var(--bg)');
+function paletteOf(el: HTMLElement, kind: BackdropKind, colors = backdropColors(el)): { c1: Rgb; c2: Rgb; k: number } {
+  const { ac, bg } = colors;
   const dark = bg[0] + bg[1] + bg[2] < 1.2;
   // На тёмном фоне — светлее и заметнее, на светлом — сдержаннее
   const lift = (c: Rgb, x: number): Rgb => [c[0] + (1 - c[0]) * x, c[1] + (1 - c[1]) * x, c[2] + (1 - c[2]) * x];
   const look = LOOK[kind] ?? LOOK.aurora;
   // Второй цвет — второй цвет темы (градиент акцента), без него — акцент со сдвигом оттенка
-  const two = getComputedStyle(el).getPropertyValue('--ac2').trim() ? cssRgb(el, 'var(--ac2)') : shiftHue(ac, kind === 'grid' ? -25 : 40);
+  const two = colors.ac2 ?? shiftHue(ac, kind === 'grid' ? -25 : 40);
   return { c1: dark ? lift(ac, 0.25) : ac, c2: dark ? lift(two, 0.15) : two, k: look.k[dark ? 1 : 0] };
 }
 
@@ -945,8 +960,8 @@ export function previewBackdrop(stage: HTMLElement, kind: BackdropKind | 'none' 
  * они иначе растаяли бы. Кадры запоминаются; без WebGL — null (у плитки остаётся статичный CSS)
  */
 const stills = new Map<string, string>();
-export function backdropStill(kind: BackdropKind, from: HTMLElement, w: number, h: number): string | null {
-  const pal = paletteOf(from, kind);
+export function backdropStill(kind: BackdropKind, from: HTMLElement, w: number, h: number, colors?: BackdropColors): string | null {
+  const pal = paletteOf(from, kind, colors);
   const key = `${kind}:${w}x${h}:${pal.c1.join()}:${pal.c2.join()}:${pal.k}`;
   const hit = stills.get(key);
   if (hit) return hit;

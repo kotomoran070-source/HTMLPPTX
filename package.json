@@ -30,6 +30,7 @@
     "test:e2e": "playwright test --project=e2e",
     "test:app": "playwright test --project=app",
     "test:perf": "playwright test --project=perf",
+    "perf": "node scripts/perf.mjs",
     "test:stage": "node scripts/test-stage.mjs"
   },
   "dependencies": {

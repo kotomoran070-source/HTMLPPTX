@@ -304,11 +304,12 @@ export function applyAccent(accent: unknown, accent2?: unknown, quiet = false, u
   // Страница — в читаемом варианте цвета (uiAccentTokens). Цвет презентации слишком светлый или тёмный для
   // интерфейса — у страницы читаемый вариант, а слайды, миниатюры и образцы — в настоящем цвете
   const face = ui ? uiAccentTokens(ui) : uiAccentTokens(a ?? DEFAULT_ACCENT, a2);
-  if (ui || JSON.stringify(face) !== JSON.stringify(deck)) {
-    el.textContent = themed(':root', face.light, face.dark) + `@layer slideria-deck{${themed(DECK_SCOPE, deck.light, deck.dark)}}`;
-  } else {
-    el.textContent = themed(':root', deck.light, deck.dark);
-  }
+  const css = ui || JSON.stringify(face) !== JSON.stringify(deck)
+    ? themed(':root', face.light, face.dark) + `@layer slideria-deck{${themed(DECK_SCOPE, deck.light, deck.dark)}}`
+    : themed(':root', deck.light, deck.dark);
+  // Тот же текст не записывается: новый лист стилей с правилом для :root — пересчёт стилей и раскладки всей
+  // страницы, а студия вызывает это после каждой правки
+  if (el.textContent !== css) el.textContent = css;
   // Свои цвета слайдов — после цветов презентации (и выше по точности селектора)
   const own = document.getElementById(SLIDE_ID);
   if (own && own !== document.head.lastElementChild) document.head.appendChild(own);

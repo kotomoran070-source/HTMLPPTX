@@ -33,16 +33,22 @@ function setMeta(deck: Deck): void {
 // Открытую презентацию удалили (в другом окне) — к списку презентаций
 import.meta.hot?.on('slideria:deck-removed', (d: { name: string }) => { if (name && d.name === name) location.href = './?all'; });
 
+// Метки времени для замеров (scripts/perf.mjs): от начала загрузки страницы
+const mark = (n: string) => performance.mark(`slideria:${n}`);
+
 async function boot(): Promise<void> {
+  mark('boot');
   if (!name || !decks[name]) {
     // Страница выбора есть только в yarn dev: собранный файл всегда открывает свою презентацию
     if (import.meta.env.DEV) {
       const { showPicker } = await import('./engine/picker');
       await showPicker(decks, !fixed);
+      mark('picker');
     }
     return;
   }
   const deck = await decks[name]();
+  mark('deck');
   const err = (deck as unknown as { __error?: string }).__error;
   if (err) {
     document.body.classList.add('picker-page');
@@ -62,12 +68,16 @@ async function boot(): Promise<void> {
     // Свои темы, шаблоны, эффекты и образы — с диска, до первой отрисовки ленты
     const [{ startStudio }, { loadUserLibrary }] = await Promise.all([import('./studio/studio'), import('./studio/user-library')]);
     await loadUserLibrary();
-    return startStudio(deck, name);
+    mark('studio-code');
+    startStudio(deck, name);
+    mark('studio');
+    return;
   }
   // Телефон-пульт по QR из окна показа — тот же режим докладчика (связь через сервер показа)
   if (params.get('view') === 'presenter' || params.has('remote')) startPresenter(deck, name);
   // В yarn dev правки пишутся в deck.yaml; в собранном файле — в копию HTML
   else startShow(deck, name, import.meta.env.DEV && !fixed);
+  mark('show');
 }
 
 boot().catch((e) => {

@@ -89,6 +89,12 @@ export class BlockEditor {
   readonly bar: HTMLElement;
   private frame: HTMLElement;
   private guides: HTMLElement;
+  /**
+   * На время одного перетаскивания: линии прилипания и рамка сцены. Другие объекты в это время не двигаются —
+   * мерить их на каждом шаге незачем (каждый замер после сдвига — лишний пересчёт раскладки всей страницы)
+   */
+  private gesture: { lines?: { v: number[]; h: number[] }; stage?: DOMRect } = {};
+  private guidesHtml = '';
   private dragging = false;
   /** Объект выделен нажатием мыши (перед click) */
   private pressSelected = false;
@@ -254,7 +260,7 @@ export class BlockEditor {
     this.group = [];
     this.bar.classList.remove('on');
     this.frame.classList.remove('on', 'free', 'multi');
-    this.guides.innerHTML = '';
+    this.endGesture();
     if (had) this.host.selected?.();
   }
 
@@ -326,6 +332,7 @@ export class BlockEditor {
   position(): void {
     const s = this.sel;
     if (!s) return;
+    // Сначала все замеры, потом все записи: замер после записи — ещё один пересчёт раскладки страницы
     const rects = this.members.map((m) => m.el.getBoundingClientRect());
     const x0 = Math.min(...rects.map((x) => x.left));
     const y0 = Math.min(...rects.map((x) => x.top));
@@ -335,10 +342,15 @@ export class BlockEditor {
     const ang = !this.isMulti && s.free ? angleOf(getAt(this.host.deck(), s.free)) : 0;
     const live = s.free && !this.isMulti ? parseFloat(s.el.style.rotate) : NaN;
     const a = Number.isFinite(live) ? live : ang;
-    if (a && !this.isMulti) {
-      const k = this.scale();
-      const fw = s.el.offsetWidth * k;
-      const fh = s.el.offsetHeight * k;
+    const turned = a && !this.isMulti ? { k: this.scale(), w: s.el.offsetWidth, h: s.el.offsetHeight } : null;
+    // Рамка поверх всей страницы: у объекта за краем слайда или прокрученного из вида она
+    // обрезается по холсту и не ложится на панели и ленту
+    const view = !turned ? this.viewRect() : null;
+    const w = this.bar.offsetWidth;
+    const h = this.bar.offsetHeight;
+    if (turned) {
+      const fw = turned.w * turned.k;
+      const fh = turned.h * turned.k;
       const cx = r.left + r.width / 2;
       const cy = r.top + r.height / 2;
       Object.assign(this.frame.style, { left: `${cx - fw / 2}px`, top: `${cy - fh / 2}px`, width: `${fw}px`, height: `${fh}px`, rotate: `${a}deg` });
@@ -350,13 +362,8 @@ export class BlockEditor {
     const fh = parseFloat(this.frame.style.height);
     this.frame.classList.toggle('slim-w', fw < 56);
     this.frame.classList.toggle('slim-h', fh < 56);
-    this.placeAdj();
-    // Рамка поверх всей страницы: у объекта за краем слайда или прокрученного из вида она
-    // обрезается по холсту и не ложится на панели и ленту
-    const view = !a || this.isMulti ? this.viewRect() : null;
     this.frame.style.clipPath = view ? `inset(${view.top - r.top}px ${r.left + r.width - view.right}px ${r.bottom - view.bottom}px ${view.left - r.left}px)` : '';
-    const w = this.bar.offsetWidth;
-    const h = this.bar.offsetHeight;
+    this.placeAdj();
     const below = r.bottom + 12;
     const top = below + h < innerHeight - 64 ? below : Math.max(60, r.top - h - 12);
     this.bar.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
@@ -742,6 +749,7 @@ export class BlockEditor {
 
   private dragFree(s: Sel, e: PointerEvent): boolean {
     e.preventDefault();
+    this.gesture = {};
     const start = placeOf(getAt(this.host.deck(), s.free!));
     const startH = start.h ?? this.measure(s.el).h!;
     const k = this.scale();
@@ -764,7 +772,7 @@ export class BlockEditor {
     const up = () => {
       removeEventListener('pointermove', move);
       removeEventListener('pointerup', up);
-      this.guides.innerHTML = '';
+      this.endGesture();
       const copying = copy.end();
       if (!moved) return;
       this.pressSelected = false;
@@ -861,6 +869,7 @@ export class BlockEditor {
   /** Перетаскивание нескольких объектов: общая рамка прилипает как один объект. */
   private groupDrag(e: PointerEvent): boolean {
     e.preventDefault();
+    this.gesture = {};
     const deck = this.host.deck();
     // Соединители не едут сами: они следуют за объектами
     const items = this.members.filter((m) => !isConnector(getAt(deck, m.free!))).map((m) => {
@@ -902,7 +911,7 @@ export class BlockEditor {
     const up = () => {
       removeEventListener('pointermove', move);
       removeEventListener('pointerup', up);
-      this.guides.innerHTML = '';
+      this.endGesture();
       const copying = copy.end();
       lines.forEach((l) => { l.m.el.style.translate = ''; });
       if (!moved) return;
@@ -948,6 +957,7 @@ export class BlockEditor {
     const s = this.sel!;
     e.preventDefault();
     e.stopPropagation();
+    this.gesture = {};
     const start = placeOf(getAt(this.host.deck(), s.free!));
     const measured = this.measure(s.el);
     const r0 = { x: start.x, y: start.y, w: start.w, h: start.h ?? measured.h! };
@@ -1031,7 +1041,7 @@ export class BlockEditor {
       removeEventListener('pointermove', move);
       removeEventListener('pointerup', up);
       cancelAnimationFrame(refit);
-      this.guides.innerHTML = '';
+      this.endGesture();
       const path = s.free!;
       const keepH = changedH || !!start.h;
       this.host.commit((d) => setAt(d, [...path, 'place'], keepH ? cur : { x: cur.x, y: cur.y, w: cur.w }), { rebuild: true });
@@ -1185,10 +1195,10 @@ export class BlockEditor {
 
   private snapMove(r: Place & { h: number }, off: boolean): Place & { h: number } {
     if (off) {
-      this.guides.innerHTML = '';
+      this.setGuides('');
       return r;
     }
-    const L = this.lines();
+    const L = (this.gesture.lines ??= this.lines());
     const sx = this.best([r.x, r.x + r.w / 2, r.x + r.w], L.v);
     const sy = this.best([r.y, r.y + r.h / 2, r.y + r.h], L.h);
     const out = { ...r, x: r.x + (sx?.d ?? 0), y: r.y + (sy?.d ?? 0) };
@@ -1198,10 +1208,10 @@ export class BlockEditor {
 
   private snapResize(r: Place & { h: number }, dir: Dir, off: boolean): Place & { h: number } {
     if (off) {
-      this.guides.innerHTML = '';
+      this.setGuides('');
       return r;
     }
-    const L = this.lines();
+    const L = (this.gesture.lines ??= this.lines());
     const out = { ...r };
     const gv: number[] = [];
     const gh: number[] = [];
@@ -1226,10 +1236,22 @@ export class BlockEditor {
   }
 
   private drawGuides(v: number[], h: number[]): void {
-    const sr = this.host.stage().getBoundingClientRect();
+    const sr = (this.gesture.stage ??= this.host.stage().getBoundingClientRect());
     const k = sr.width / W;
-    this.guides.innerHTML = v.map((x) => `<i class="gv" style="left:${sr.left + x * k}px;top:${sr.top}px;height:${sr.height}px"></i>`).join('')
-      + h.map((y) => `<i class="gh" style="top:${sr.top + y * k}px;left:${sr.left}px;width:${sr.width}px"></i>`).join('');
+    this.setGuides(v.map((x) => `<i class="gv" style="left:${sr.left + x * k}px;top:${sr.top}px;height:${sr.height}px"></i>`).join('')
+      + h.map((y) => `<i class="gh" style="top:${sr.top + y * k}px;left:${sr.left}px;width:${sr.width}px"></i>`).join(''));
+  }
+
+  /** Направляющие — только когда они изменились: на большей части пути они те же (или их нет) */
+  private setGuides(html: string): void {
+    if (html === this.guidesHtml) return;
+    this.guidesHtml = html;
+    this.guides.innerHTML = html;
+  }
+
+  private endGesture(): void {
+    this.gesture = {};
+    this.setGuides('');
   }
 }
 

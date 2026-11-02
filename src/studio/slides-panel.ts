@@ -105,17 +105,23 @@ export class SlidesPanel {
     this.update();
   }
 
-  /** Отметить текущий слайд и прокрутить к нему. */
+  /**
+   * Отметить текущий слайд и прокрутить к нему. Прокрутка — только когда текущий сменился: она замеряет
+   * всю страницу, а после правки на том же слайде (отпустили объект, отмена) лента и так на месте
+   */
   mark(): void {
     const cur = this.host.index();
+    const item = this.items[cur];
     this.items.forEach((el, i) => {
       const on = i === cur;
       el.classList.toggle('cur', on);
       el.setAttribute('aria-selected', String(on));
       el.tabIndex = on ? 0 : -1;
     });
-    this.items[cur]?.scrollIntoView({ block: 'nearest' });
+    if (item && item !== this.marked) item.scrollIntoView({ block: 'nearest' });
+    this.marked = item ?? null;
   }
+  private marked: HTMLElement | null = null;
 
   focus(): void {
     this.items[this.host.index()]?.focus({ preventScroll: true });

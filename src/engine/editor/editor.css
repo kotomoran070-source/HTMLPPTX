@@ -317,8 +317,10 @@ body.editing .stage .free.auto-h:empty, body.editing .stage .free > p:empty { mi
   background: #111827; color: #fff; font: 600 12px/1.2 system-ui, sans-serif; white-space: nowrap; pointer-events: none;
 }
 
-/* Направляющие при перетаскивании */
-.edguides i { position: fixed; z-index: 12; pointer-events: none; background: #EC4899; }
+/* Направляющие при перетаскивании. Слой — поверх окна и сам по себе (contain): линия появилась или пропала —
+   раскладка только этого слоя, а не всей страницы, в потоке которой он иначе стоит */
+.edguides { position: fixed; inset: 0; z-index: 12; pointer-events: none; contain: strict; }
+.edguides i { position: fixed; pointer-events: none; background: #EC4899; }
 .edguides .gv { width: 1px; }
 .edguides .gh { height: 1px; }
 

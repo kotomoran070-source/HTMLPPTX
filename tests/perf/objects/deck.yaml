@@ -1,0 +1,65 @@
+# Объекты для замеров отклика студии (scripts/perf.mjs), которых нет в шаблоне:
+# фигуры с соединителями, диаграммы из текста, графики свободными объектами
+title: Замеры — объекты
+lang: ru
+slides:
+  - id: links
+    template: canvas
+    label: Соединители
+    title: Фигуры с соединителями
+    free:
+      - {type: shape, id: n1, kind: round, fill: soft, text: Заявка, place: {x: 80, y: 150, w: 220, h: 96}}
+      - {type: shape, id: n2, kind: round, fill: soft, text: Проверка, place: {x: 420, y: 150, w: 220, h: 96}}
+      - {type: shape, id: n3, kind: ellipse, fill: soft, text: Данные верны?, place: {x: 760, y: 140, w: 240, h: 116}}
+      - {type: shape, id: n4, kind: round, fill: soft, text: Сохранить, place: {x: 1000, y: 380, w: 200, h: 96}}
+      - {type: shape, id: n5, kind: round, fill: soft, text: Уточнить, place: {x: 640, y: 400, w: 200, h: 96}}
+      - {type: shape, id: n6, kind: round, fill: soft, text: Письмо, place: {x: 300, y: 420, w: 200, h: 96}}
+      - {type: shape, id: n7, kind: pill, fill: gradient, text: Готово, place: {x: 80, y: 580, w: 200, h: 70}}
+      - {type: shape, id: n8, kind: pill, fill: gradient, text: Архив, place: {x: 980, y: 580, w: 200, h: 70}}
+      - {type: connector, from: n1, to: n2, text: подана}
+      - {type: connector, from: n2, to: n3}
+      - {type: connector, from: n3, to: n4, text: да}
+      - {type: connector, from: n3, to: n5, text: нет, dash: dash}
+      - {type: connector, from: n5, to: n2, route: curve}
+      - {type: connector, from: n5, to: n6}
+      - {type: connector, from: n6, to: n7, route: straight}
+      - {type: connector, from: n4, to: n8, route: straight, head: both}
+      - {type: connector, from: n1, to: n7, route: curve, color: accent2}
+  - id: diagrams
+    template: canvas
+    label: Диаграммы из текста
+    title: Диаграммы из текста
+    free:
+      - type: diagram
+        kind: flow
+        dir: right
+        code: |
+          (Заявка) -> [Проверить] -> {Данные верны?}
+          Данные верны? -> [Сохранить]: да
+          Данные верны? -> [Уточнить]: нет
+          Уточнить --> Проверить
+          Сохранить -> [Отправить письмо] -> ((Готово))
+        place: {x: 60, y: 130, w: 720, h: 360}
+      - type: diagram
+        code: |
+          актёр Пользователь
+          Пользователь -> Сервер: вход
+          Сервер -> База: запрос
+          База --> Сервер: строки
+          Сервер --> Пользователь: токен
+        place: {x: 820, y: 130, w: 420, h: 420}
+  - id: charts
+    template: canvas
+    label: Графики
+    title: Графики свободными объектами
+    free:
+      - type: lines
+        labels: [Янв, Фев, Мар, Апр, Май, Июн]
+        series:
+          - {name: Веб, values: [42, 44, 47, 46, 51, 55]}
+          - {name: Телефон, values: [18, 21, 25, 30, 33, 37]}
+        place: {x: 60, y: 140, w: 560, h: 380}
+      - type: donut
+        values: [1.42, 0.95, 0.61]
+        labels: [Сайт, Партнёры, Магазины]
+        place: {x: 700, y: 140, w: 480, h: 380}

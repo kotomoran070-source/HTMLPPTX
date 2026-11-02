@@ -4,7 +4,7 @@
  * свойств) и у темы («Дизайн» → «Фон анимации»).
  */
 import { icon } from '../components/icons';
-import { backdropStill, previewBackdrop } from '../components/backdrop/backdrop';
+import { backdropColors, backdropStill, previewBackdrop } from '../components/backdrop/backdrop';
 import { BACKDROPS, backdropName, isBackdrop, type BackdropKind } from '../engine/backdrops';
 import { esc } from '../engine/html';
 import { onSlidesLook, onThemeChange } from '../engine/theme';
@@ -87,28 +87,67 @@ const STILL_H = 135;
 
 /**
  * Плитки — настоящим кадром фона (та же сцена, что на слайде) на фоне открытого слайда и в его цветах.
- * Пока кадр не готов (или без WebGL) — статичный CSS того же вида. Кадры рисуются по нескольку за кадр
- * экрана: лента открывается сразу; нарисованные запоминаются
+ * Пока кадр не готов (или без WebGL) — статичный CSS того же вида. Рисуются только плитки на виду (и рядом):
+ * лента длинная, а каждый кадр — своя сцена WebGL; остальные — когда до них долистают. Нарисованные запоминаются
  */
+const filling = new WeakMap<HTMLElement, IntersectionObserver>();
+/** Кнопка мыши нажата (что-то тянут) */
+let pointerHeld = false;
+if (typeof addEventListener === 'function') {
+  addEventListener('pointerdown', () => { pointerHeld = true; }, true);
+  for (const t of ['pointerup', 'pointercancel', 'blur'] as const) addEventListener(t, () => { pointerHeld = false; }, true);
+}
 function fillStills(strip: HTMLElement, slide: HTMLElement | null): void {
+  filling.get(strip)?.disconnect();
+  filling.delete(strip);
   if (!slide) return;
   const bg = getComputedStyle(slide).getPropertyValue('--bg').trim();
   const tiles = [...strip.querySelectorAll<HTMLElement>('button > i')];
   if (bg) tiles.forEach((i) => { i.style.backgroundColor = bg; });
   const todo = tiles.filter((i) => isBackdrop(i.dataset.bd));
-  const step = () => {
-    if (!strip.isConnected) return;
-    const t0 = performance.now();
-    while (todo.length && performance.now() - t0 < 14) {
-      const i = todo.shift()!;
-      const url = backdropStill(i.dataset.bd as BackdropKind, slide, STILL_W, STILL_H);
+  if (!todo.length) return;
+  // Цвета слайда — один раз на всю ленту
+  const colors = backdropColors(slide);
+  const queue: HTMLElement[] = [];
+  let waiting = false;
+  // Кадры — в свободное время браузера: смена слайда и правка не ждут, пока нарисуются плитки
+  const later = () => {
+    waiting = true;
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(step, { timeout: 400 });
+    else requestAnimationFrame(() => step());
+  };
+  const step = (dl?: IdleDeadline) => {
+    waiting = false;
+    // Лента ушла со страницы или её уже заполняют заново (сменилась тема) — эта очередь больше не нужна
+    if (!strip.isConnected || filling.get(strip) !== io) return io.disconnect();
+    // Кадр плитки — 20–30 мс (своя сцена WebGL): пока объект тянут, он сделал бы кадр долгим — ждём отпускания
+    if (pointerHeld) {
+      waiting = true;
+      setTimeout(step, 150);
+      return;
+    }
+    // В простое — по одному, чтобы нажатие не ждало пачку
+    const until = dl && !dl.didTimeout ? 0 : performance.now() + 14;
+    do {
+      const i = queue.shift();
+      if (!i) break;
+      const url = backdropStill(i.dataset.bd as BackdropKind, slide, STILL_W, STILL_H, colors);
       if (!url) continue;
       i.className = 'bd-still';
       i.style.backgroundImage = `url("${url}")`;
-    }
-    if (todo.length) requestAnimationFrame(step);
+    } while (queue.length && performance.now() < until);
+    if (queue.length) later();
   };
-  step();
+  const io = new IntersectionObserver((list) => {
+    for (const e of list) {
+      if (!e.isIntersecting) continue;
+      io.unobserve(e.target);
+      queue.push(e.target as HTMLElement);
+    }
+    if (queue.length && !waiting) later();
+  }, { root: strip, rootMargin: '0px 50%' });
+  todo.forEach((i) => io.observe(i));
+  filling.set(strip, io);
 }
 
 // ---------------- прозрачность и скорость ----------------

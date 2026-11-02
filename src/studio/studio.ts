@@ -308,7 +308,35 @@ export function startStudio(deck: Deck, deckKey: string): void {
   /** Область выделения: создаётся ниже, но перерисовки слайдов уже её учитывают */
   let layers: LayersPane | null = null;
   let stateQueued = false;
+  // Нажатие на холсте (выделить и потянуть объект): лента и панель свойств обновляются, когда кнопку отпустили.
+  // Их перестройка — десятки миллисекунд: на нажатии она задерживала бы начало перетаскивания
+  let pressed = false;
+  let stateLater = false;
+  const release = () => {
+    if (!pressed) return;
+    pressed = false;
+    if (!stateLater) return;
+    stateLater = false;
+    // Отпускание обычно и само перерисовывает слайд (объект встал на место): панели — кадром позже,
+    // чтобы вся работа не собиралась в один долгий кадр
+    if (stateQueued) return;
+    stateQueued = true;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      stateQueued = false;
+      syncUi();
+    }));
+  };
+  canvas.addEventListener('pointerdown', (e) => { if (e.button === 0) pressed = true; }, true);
+  addEventListener('pointerup', release, true);
+  addEventListener('pointercancel', release, true);
+  addEventListener('blur', release);
+  // Отпустили за окном: следующее движение уже без кнопки
+  addEventListener('pointermove', (e) => { if (pressed && !e.buttons) release(); }, true);
   const queueState = () => {
+    if (pressed) {
+      stateLater = true;
+      return;
+    }
     if (stateQueued) return;
     stateQueued = true;
     requestAnimationFrame(() => {
@@ -2119,6 +2147,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     if (!sel || sel.group.length > 1) return null;
     return [...view.stage.querySelectorAll<HTMLElement>('.slide.on [data-block]')].find((x) => x.getAttribute('data-block') === JSON.stringify(sel.block)) ?? null;
   };
+  let crumbsHtml = '';
   function drawCrumbs(hover: Element | null = null): void {
     const box = $('st-crumbs');
     const multi = (ed.selection?.group.length ?? 0) > 1;
@@ -2126,11 +2155,14 @@ export function startStudio(deck: Deck, deckKey: string): void {
     crumbList = crumbs(target, `Слайд ${index + 1}`);
     if (!hover && multi) crumbList.push({ label: `Выделено: ${ed.selection!.group.length}` });
     box.classList.toggle('hover', !!hover);
-    box.innerHTML = crumbList.map((c, k) => {
+    const html = crumbList.map((c, k) => {
       const last = k === crumbList.length - 1;
       const btn = !hover && (c.el || c.field || k === 0) && !last;
       return (k ? '<i aria-hidden="true">›</i>' : '') + (btn ? `<button type="button" data-k="${k}">${esc(c.label)}</button>` : `<span${last ? ' class="cur"' : ''}>${esc(c.label)}</span>`);
     }).join('');
+    // Мышь переходит с элемента на элемент того же объекта (и пока его тянут) — путь тот же: без записи,
+    // иначе на каждое движение — пересчёт раскладки всей студии
+    if (html !== crumbsHtml) box.innerHTML = crumbsHtml = html;
   }
   $('st-crumbs').addEventListener('click', (e) => {
     const k = (e.target as Element).closest<HTMLElement>('[data-k]')?.dataset.k;
@@ -2148,7 +2180,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
     const what = ed.stepLabel(undo ? 'past' : 'future');
     b.title = `${undo ? 'Отменить' : 'Повторить'}${what ? `: ${what}` : ''} (${undo ? 'Ctrl+Z' : 'Ctrl+Y'})`;
   });
-  view.stage.addEventListener('mouseover', (e) => drawCrumbs((e.target as Element).closest('.slide') ? e.target as Element : null));
+  // Пока объект тянут (кнопка нажата), путь под мышью не нужен
+  view.stage.addEventListener('mouseover', (e) => { if (!e.buttons) drawCrumbs((e.target as Element).closest('.slide') ? e.target as Element : null); });
   view.stage.addEventListener('mouseleave', () => drawCrumbs());
 
   /** Контекстная вкладка ленты: появляется с выделением фигуры или таблицы и сразу открывается. */
