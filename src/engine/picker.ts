@@ -230,8 +230,12 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
 
   // Удалили в другом окне (или из студии): карточка уходит и здесь, без перезагрузки
   onServer('deck-removed', (d) => dropCard(d.name));
-  // Папку презентации положили или убрали руками — список заново
-  onServer('decks', () => location.reload());
+  // Папку презентации положили или убрали руками — список заново (если на этой странице он и правда другой:
+  // страница, открытая уже после этого, его показывает)
+  onServer('decks', (e) => {
+    const shown = new Set([...document.querySelectorAll<HTMLElement>('.pk-card[data-name]')].map((c) => c.dataset.name));
+    if (e.added.some((n) => !shown.has(n)) || e.removed.some((n) => shown.has(n))) location.reload();
+  });
 
   const newBtn = document.getElementById('pk-new');
   if (newBtn) newBtn.onclick = () => void create();
@@ -286,6 +290,11 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
       if (!leaving) console.error(e);
     }
   };
+  // deck.yaml поправили со стороны — карточка заново (название, слайды, миниатюра)
+  onServer('deck-changed', (d) => {
+    const card = document.querySelector<HTMLElement>(`.pk-card[data-name="${CSS.escape(d.name)}"]`);
+    if (card) void fill(card);
+  });
   // Миниатюры строятся по мере прокрутки: презентаций может быть много
   const cards = [...document.querySelectorAll<HTMLElement>('.pk-card[data-name]')];
   if ('IntersectionObserver' in window) {

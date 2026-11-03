@@ -12,8 +12,8 @@ export interface ServerEvents {
   'deck-saved': { name: string; from: string };
   /** Презентацию удалили в корзину */
   'deck-removed': { name: string };
-  /** deck.yaml поменяли со стороны (текстовый редактор, git) */
-  'deck-changed': { name: string };
+  /** deck.yaml поменяли со стороны (текстовый редактор, git); rev — версия файла теперь */
+  'deck-changed': { name: string; rev: string };
   /** Презентации появились или пропали (положили или удалили папку руками) */
   decks: { added: string[]; removed: string[] };
   /** Агенты на связи (server/integrations.ts) */

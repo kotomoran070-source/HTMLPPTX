@@ -4,6 +4,12 @@ import type { Page } from '@playwright/test';
 
 /** Временная копия презентаций (tests/prepare.mjs): тесты пишут сюда, а не в presentations/ */
 export const DECKS = path.resolve('.tmp', 'test-decks');
+/**
+ * Под тестами yarn dev (исходники страниц): тест может подключить модуль исходников прямо в странице
+ * (import('/src/…')). На сервере программы (SLIDERIA_SERVE, SLIDERIA_STAGE) студия собрана — исходников нет
+ */
+export const SOURCES = process.env.SLIDERIA_SERVE !== '1' && !process.env.SLIDERIA_STAGE;
+export const SOURCES_ONLY = 'подключает модули исходников в странице — их отдаёт только yarn dev';
 export const deckFile = (name: string) => path.join(DECKS, name, 'deck.yaml');
 export const readDeck = (name: string) => fs.readFileSync(deckFile(name), 'utf8');
 

@@ -2,6 +2,7 @@
  * Файлы презентаций на диске: папки, deck.yaml, пути к файлам внутри данных. Без сервера и без Vite —
  * этим пользуются ядро сервера (core.ts), импорт и сборка
  */
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseDocument } from 'yaml';
@@ -18,6 +19,12 @@ export const MIME: Record<string, string> = {
   // Файлы для живых вставок (embed.files): движок WebAssembly и данные к нему (DOOM — .wad)
   wasm: 'application/wasm', wad: 'application/octet-stream',
 };
+
+/**
+ * Версия deck.yaml — по его тексту. Страница помнит, какую версию открыла (заголовок X-Slideria-Rev у данных),
+ * а уведомление «файл поправили со стороны» несёт новую: совпали — страница уже показывает свежее
+ */
+export const deckRev = (text: string) => createHash('sha1').update(text).digest('base64url').slice(0, 12);
 
 /** id тега с данными презентации внутри собранного HTML */
 export const DATA_ID = 'htmlpptx-deck';

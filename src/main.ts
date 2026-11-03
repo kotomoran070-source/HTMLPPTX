@@ -4,7 +4,7 @@ import './styles/base.css';
 import './styles/ui.css';
 import './components';
 
-import { DeckMissing, embeddedDeck, fetchDeck, fetchNames, serverLoaders } from './engine/deck-source';
+import { DeckMissing, embeddedDeck, fetchDeck, fetchNames, loadedRev, serverLoaders } from './engine/deck-source';
 import { onServer } from './engine/events';
 import { esc } from './engine/html';
 import { loadMath, usesMath } from './components/math/math';
@@ -70,9 +70,10 @@ async function boot(): Promise<void> {
   const { name, deck } = open;
   mark('deck');
   if (__SERVED__) {
-    // Открытую презентацию удалили или поправили её файл со стороны (текстовый редактор, git) — заново
+    // Открытую презентацию удалили или поправили её файл со стороны (текстовый редактор, git) — заново.
+    // Страница, открытая уже после правки, показывает свежую версию: её не перезагружаем
     onServer('deck-removed', (d) => { if (d.name === name) location.href = './?all'; });
-    onServer('deck-changed', (d) => { if (d.name === name) location.reload(); });
+    onServer('deck-changed', (d) => { if (d.name === name && d.rev !== loadedRev(name)) location.reload(); });
   }
   const err = (deck as unknown as { __error?: string }).__error;
   if (err) {

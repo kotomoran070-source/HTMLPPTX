@@ -18,9 +18,14 @@ export const DECK_URL = '/__slideria/deck/';
 /** Презентации нет (удалили, опечатка в адресе) */
 export class DeckMissing extends Error {}
 
+/** Какую версию deck.yaml страница получила последней (заголовок X-Slideria-Rev) */
+const revs = new Map<string, string>();
+export const loadedRev = (name: string) => revs.get(name) ?? '';
+
 /** Данные презентации с сервера. Ошибка в deck.yaml — { __error: текст }: страница покажет её вместо слайдов */
 export async function fetchDeck(name: string): Promise<Deck> {
   const r = await fetch(DECK_URL + encodeURIComponent(name), { cache: 'no-store' });
+  revs.set(name, r.headers.get('X-Slideria-Rev') ?? '');
   const body = await r.json().catch(() => null) as { error?: string } | null;
   if (r.status === 404) throw new DeckMissing(body?.error ?? `Презентация «${name}» не найдена`);
   if (!r.ok) return { __error: body?.error ?? `Сервер ответил ${r.status}` } as unknown as Deck;

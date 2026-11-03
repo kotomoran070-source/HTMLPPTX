@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { parse } from 'yaml';
-import { api, DECKS, PNG, readDeck, waitFile, watchErrors } from './helpers';
+import { api, DECKS, PNG, readDeck, SOURCES, SOURCES_ONLY, waitFile, watchErrors } from './helpers';
 import { kitWoff2, sfnt } from '../fonts';
 
 test.use({ colorScheme: 'light' });
@@ -1012,6 +1012,7 @@ test('поиск по презентации: список совпадений 
 });
 
 test('разметка текста ↔ правка: пустые строки (промежутки), список, размер фрагмента — без потерь', async ({ page }) => {
+  test.skip(!SOURCES, SOURCES_ONLY);
   await page.goto('/?all');
   const res = await page.evaluate(async () => {
     const { t } = await import('/src/engine/html.ts');
@@ -1675,6 +1676,7 @@ test('примерка при наведении: цвет всего текст
 });
 
 test('галерея блоков: каждая заготовка помещается на слайд (превью и вставка не режутся его краем)', async ({ page }) => {
+  test.skip(!SOURCES, SOURCES_ONLY);
   const errors = watchErrors(page);
   await page.goto('/?deck=fx&studio#3');
   await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);

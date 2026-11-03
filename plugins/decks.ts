@@ -60,7 +60,7 @@ export function decksPlugin(opts: DecksOptions): Plugin {
       c.on('agents', (e) => events.send('agents', e));
       c.on('journal', (e) => events.send('journal', e));
       watch = watchDecks(c, {
-        changed: (name) => events.send('deck-changed', { name }),
+        changed: (name, rev) => events.send('deck-changed', { name, rev }),
         list: (e) => events.send('decks', e),
         error: (m) => s.config.logger.warn(`Слежение за папкой презентаций: ${m}`),
       });

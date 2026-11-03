@@ -153,7 +153,11 @@ test('уведомления: запись окна, правка файла с�
     expect(ev.got.filter((g) => g.type === 'deck-changed')).toEqual([]);
     // Правка deck.yaml текстовым редактором
     fs.writeFileSync(path.join(decks, 'check', 'deck.yaml'), fs.readFileSync(path.join(decks, 'check', 'deck.yaml'), 'utf8').replace('Новое', 'Руками'));
-    expect(await ev.wait('deck-changed')).toEqual({ name: 'check' });
+    const changed = await ev.wait('deck-changed') as { name: string; rev: string };
+    expect(changed.name).toBe('check');
+    // Версия в уведомлении — та же, что у данных, которые страница возьмёт теперь: открытая после правки
+    // страница по ней поймёт, что перезагружаться не нужно
+    expect((await get('/__slideria/deck/check')).headers.get('x-slideria-rev')).toBe(changed.rev);
     // Положили папку новой презентации
     fs.mkdirSync(path.join(decks, 'fresh'));
     fs.writeFileSync(path.join(decks, 'fresh', 'deck.yaml'), 'title: Свежая\nslides:\n  - title: Один\n');

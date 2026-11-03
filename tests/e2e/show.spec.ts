@@ -2,7 +2,7 @@
 import { expect, test } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { counter, DECKS, deckFile, nextTo, readDeck, watchErrors } from './helpers';
+import { counter, DECKS, deckFile, nextTo, readDeck, SOURCES, SOURCES_ONLY, watchErrors } from './helpers';
 
 test.use({ colorScheme: 'light' });
 
@@ -405,6 +405,7 @@ test('видео: пауза, перемотка и запуск в окне д�
 });
 
 test('пульт: часы показа общие с окном показа, наведение пальцем видно и на самом пульте, как у зрителей', async ({ page, context }) => {
+  test.skip(!SOURCES, SOURCES_ONLY);
   const errors = watchErrors(page);
   await page.goto('/?deck=mirror#1');
   await expect(page.locator('.slide.on')).toHaveCount(1);
@@ -467,6 +468,7 @@ test('небо «Космоса» и фон «Сеть» у зрителей и 
 });
 
 test('все анимированные фоны собираются: у каждого шейдер компилируется и сцена живая', async ({ page }) => {
+  test.skip(!SOURCES, SOURCES_ONLY);
   const errors = watchErrors(page);
   await page.goto('/?deck=tpl#1');
   await expect(page.locator('.slide.on')).toHaveCount(1);

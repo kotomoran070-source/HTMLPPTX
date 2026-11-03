@@ -175,7 +175,7 @@ export async function startServer(o: ServeOptions): Promise<Served> {
   core.on('agents', (e) => events.send('agents', e));
   core.on('journal', (e) => events.send('journal', e));
   watch = watchDecks(core, {
-    changed: (name) => events.send('deck-changed', { name }),
+    changed: (name, rev) => events.send('deck-changed', { name, rev }),
     list: (e) => events.send('decks', e),
     error: (m) => log(`Слежение за папкой презентаций: ${m}`),
   });

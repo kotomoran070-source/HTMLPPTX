@@ -16,6 +16,7 @@ import fs from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { hostGuard } from './host-guard';
+import { deckRev } from './deck-files';
 import { ExportError, type DecksCore } from './core';
 import { denyPage, isLocal, lanPass, remoteRelay } from '../plugins/remote-relay.mjs';
 import { electronFiles, licensesPage } from '../plugins/licenses.mjs';
@@ -156,6 +157,8 @@ function data(core: DecksCore): Handler {
     try { name = decodeURIComponent(u.slice(DECK_URL.length)); } catch { return send(res, 400, { error: 'Неверное имя' }); }
     if (!core.has(name)) return send(res, 404, { error: `Презентация «${name}» не найдена` });
     let deck: unknown;
+    // Версия файла: страница сверит с ней уведомление «файл поправили со стороны» (server/watch.ts)
+    try { res.setHeader('X-Slideria-Rev', deckRev(fs.readFileSync(core.deckFile(name), 'utf8'))); } catch { /* файл только что убрали */ }
     try { deck = core.read(name, { urls: true }); } catch (e) { return send(res, 422, { error: (e as Error).message }); }
     send(res, 200, deck);
   };

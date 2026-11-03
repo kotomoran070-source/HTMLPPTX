@@ -11,10 +11,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { DecksCore } from './core';
+import { deckRev } from './deck-files';
 
 export interface WatchHandlers {
-  /** deck.yaml презентации поменяли со стороны */
-  changed(name: string): void;
+  /** deck.yaml презентации поменяли со стороны; rev — версия файла теперь (deckRev) */
+  changed(name: string, rev: string): void;
   /** Презентации появились или пропали; removed — какие пропали */
   list(e: { added: string[]; removed: string[] }): void;
   /** Слежение не удалось (папку нельзя читать) — сервер работает и без него */
@@ -58,7 +59,7 @@ export function watchDecks(core: Pick<DecksCore, 'dir' | 'names' | 'deckFile' | 
     let text: string;
     try { text = fs.readFileSync(file, 'utf8'); } catch { return checkList(); }
     if (core.wrote(file) && core.ownWrite(file, text)) return;
-    on.changed(name);
+    on.changed(name, deckRev(text));
   }
 
   /** Папка презентации: появление и правка deck.yaml */
