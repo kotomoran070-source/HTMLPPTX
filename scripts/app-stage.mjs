@@ -67,7 +67,8 @@ export function stage(dest) {
     const rel = path.relative(root, f).split(path.sep).join('/');
     const out = path.join(dest, rel);
     fs.mkdirSync(path.dirname(out), { recursive: true });
-    const small = minify(f, fs.readFileSync(f, 'utf8'));
+    // Скрипты пользователя (templates/scripts) — как есть: их заголовок (// @name…) — описание скрипта
+    const small = rel.startsWith('templates/scripts/') ? null : minify(f, fs.readFileSync(f, 'utf8'));
     if (small === null) {
       fs.copyFileSync(f, out);
       copied++;

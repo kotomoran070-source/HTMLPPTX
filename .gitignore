@@ -30,5 +30,7 @@ desktop/build.json
 *.pfx
 *.p12
 
-# Отметка работающего сервера студии в папке презентаций (server/running.ts, для MCP)
-.slideria-server.json
+# Служебное интеграций в папке презентаций: сервер студии для MCP, что можно агентам, журнал правок
+# (server/running.ts, server/integrations.ts); скрипты пользователя — у каждого компьютера свои
+.slideria/
+presentations/scripts/

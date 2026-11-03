@@ -11,6 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { OPS } from '../src/engine/ops';
 import type { DecksCore } from './core';
+import { clientTitle } from './integrations';
 import { runningServer } from './running';
 
 /** Версии протокола, с которыми работаем: первая — новейшая */
@@ -58,11 +59,30 @@ const opsHelp = () => Object.entries(OPS)
 const INSTRUCTIONS = `Slideria: презентации — это данные (deck.yaml), а не вёрстка: тема даёт цвета, шрифты и фон.
 Как править: list_presentations → read_presentation (номера слайдов и объектов, ревизии rev) → edit_presentation
 пакетом операций с expect — ревизиями слайдов, которые правите. Слайд поменяли в студии — правка не применится:
-перечитайте. Поля слайдов и блоков — format_guide. Открытая студия показывает правки сразу.`;
+перечитайте. Поля слайдов и блоков — format_guide. Открытая студия показывает правки сразу, перед каждой правкой
+делается контрольная точка. Что можно агентам (смотреть; править и создавать; всё — и сохранять скрипты), решает
+пользователь в студии.
+Повторяющееся действие пользователь может запускать сам — save_script сохранит скрипт в его папку скриптов.`;
+
+/** Как часто агент напоминает студии о себе: «на связи» — 40 с без напоминаний */
+const HEARTBEAT_MS = 15_000;
 
 export function createMcp(o: McpOptions) {
   const { core } = o;
   const server = o.server ?? (() => runningServer(o.dir));
+  /** Кто мы для студии: имя клиента из рукопожатия (Claude Code, Cursor…); до него — просто «Агент» */
+  const agent = { id: Math.random().toString(36).slice(2, 12), name: 'Агент', version: undefined as string | undefined };
+  const by = () => ({ kind: 'agent' as const, id: agent.id, name: agent.name });
+  let beat: ReturnType<typeof setInterval> | null = null;
+
+  /** Сказать открытой студии, что мы на связи (студии нет — не страшно: правки пойдут в файлы) */
+  async function hello(op: 'hello' | 'bye' = 'hello'): Promise<void> {
+    const url = server();
+    if (!url) return;
+    try {
+      await fetch(`${url}/__htmlpptx/agent${op === 'bye' ? '?op=bye' : ''}`, { method: 'POST', body: JSON.stringify(agent), signal: AbortSignal.timeout(3000) });
+    } catch { /* студия закрылась */ }
+  }
 
   /** Правка через открытую студию; её нет (или не отвечает) — null, и правим файлы сами */
   async function viaStudio(cmd: string, body?: unknown): Promise<unknown | null> {
@@ -153,7 +173,7 @@ export function createMcp(o: McpOptions) {
       annotations: { destructiveHint: true },
       async run(a) {
         const name = deckName(a);
-        const body = { ops: a.ops, expect: a.expect };
+        const body = { ops: a.ops, expect: a.expect, by: by() };
         let r = await viaStudio(`apply?deck=${encodeURIComponent(name)}&from=mcp`, body) as Rec | null;
         const studio = !!r;
         try {
@@ -182,10 +202,10 @@ export function createMcp(o: McpOptions) {
       },
       async run(a) {
         const title = str(a, 'title', 'название презентации');
-        const via = await viaStudio(`create?title=${encodeURIComponent(title)}${a.sample ? '&sample=1' : ''}`);
+        const via = await viaStudio(`create?title=${encodeURIComponent(title)}${a.sample ? '&sample=1' : ''}`, { by: by() });
         if (via) return via;
         try {
-          return core.create(title, !!a.sample);
+          return core.create(title, !!a.sample, { by: by() });
         } catch (e) {
           throw new ToolError((e as Error).message);
         }
@@ -229,6 +249,33 @@ export function createMcp(o: McpOptions) {
       },
     },
     {
+      name: 'save_script',
+      title: 'Сохранить скрипт',
+      description: 'Скрипт для пользователя: повторяющееся действие, которое он сам запускает в студии («Инструменты → Интеграции → Скрипты» или Ctrl+K). '
+        + 'Один файл JavaScript: в начале комментарии // @name Название, // @description Что делает, // @param ключ: text|lines|number|bool|choice(a=Подпись, b=Подпись) = значение — Подпись поля; '
+        + 'дальше export default async function ({ deck, outline, apply, slide, selection, params, log }) { … }. '
+        + 'deck — данные презентации, outline() — краткое содержание, apply(ops) — те же операции, что у edit_presentation (без expect), '
+        + 'slide — номер текущего слайда, selection — номера выделенных объектов, params — значения полей. Сеть, файлы и страница студии скрипту недоступны. '
+        + 'Справка — docs/SCRIPTS.md. Нужно разрешение агентам «Всё».',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          file: { type: 'string', description: 'имя файла, например «оглавление.js»' },
+          code: { type: 'string', description: 'текст скрипта' },
+          replace: { type: 'boolean', description: 'заменить, если такой уже есть' },
+        },
+        required: ['file', 'code'],
+      },
+      async run(a) {
+        try {
+          const s = core.saveScript(str(a, 'file', 'имя файла скрипта'), str(a, 'code', 'текст скрипта'), { by: by(), replace: !!a.replace });
+          return { saved: s.file, name: s.name, params: s.params.map((p) => p.key), where: 'студия: «Инструменты → Интеграции → Скрипты», Ctrl+K' };
+        } catch (e) {
+          throw new ToolError((e as Error).message);
+        }
+      },
+    },
+    {
       name: 'format_guide',
       title: 'Формат презентации',
       description: 'Справка по данным презентации: шаблоны слайдов, блоки (графики, схемы, таблицы, формулы, медиа), свободные объекты холста, анимация. Прочитайте перед первой правкой.',
@@ -269,6 +316,12 @@ export function createMcp(o: McpOptions) {
       switch (msg.method) {
         case 'initialize': {
           const want = typeof p.protocolVersion === 'string' ? p.protocolVersion : '';
+          const ci = isRec(p.clientInfo) ? p.clientInfo : {};
+          if (typeof ci.name === 'string' && ci.name) agent.name = clientTitle(ci.name, typeof ci.title === 'string' ? ci.title : undefined).slice(0, 60);
+          if (typeof ci.version === 'string') agent.version = ci.version.slice(0, 30);
+          void hello();
+          beat ??= setInterval(() => void hello(), HEARTBEAT_MS);
+          beat.unref?.();
           result = {
             protocolVersion: PROTOCOLS.includes(want) ? want : PROTOCOLS[0],
             capabilities: { tools: { listChanged: false } },
@@ -292,7 +345,14 @@ export function createMcp(o: McpOptions) {
     }
   }
 
-  return { handle, tools: tools.map((t) => t.name) };
+  /** Клиент отключился: студии — «ушёл» */
+  async function close(): Promise<void> {
+    if (beat) clearInterval(beat);
+    beat = null;
+    await hello('bye');
+  }
+
+  return { handle, close, tools: tools.map((t) => t.name) };
 }
 
 class RpcError extends Error {
@@ -330,6 +390,7 @@ export function serveStdio(mcp: Mcp, input: NodeJS.ReadableStream, output: NodeJ
         buf = buf.slice(i + 1);
       }
     });
-    input.on('end', () => { one(buf); ended = true; finish(); });
+    // Вход закрыт: студии — «ушёл», потом — ответ, когда все ответы отправлены
+    input.on('end', () => { one(buf); void mcp.close().finally(() => { ended = true; finish(); }); });
   });
 }

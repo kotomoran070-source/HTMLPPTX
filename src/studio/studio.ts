@@ -2,6 +2,7 @@ import { icon } from '../components/icons';
 import { CommandPalette } from './palette';
 import { guessGap, rowOf } from '../engine/editor/rows';
 import { toolsCommands } from './tools';
+import { integrationsRibbon, startIntegrations } from './integrations';
 import { accentTail, applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, setUiAccent, slideAccent, uiAccent, uiSafeAccent } from '../engine/accent';
 import { applyThemeSwatches, themeMode } from '../engine/deck-theme';
 import { getAt, setAt, type Path } from '../engine/data';
@@ -198,6 +199,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       ${group('Шрифты', rb('tools.font', 'text', 'Заменить шрифт', { big: true, title: 'Один шрифт на другой во всей презентации' }))}
       ${group('Заметки', rb('tools.notes-clear', 'notes', 'Удалить заметки', { big: true, title: 'Заметки докладчика со всех слайдов' }))}
       ${group('Программа', rb('tools.licenses', 'shield', 'Лицензии', { big: true, title: 'Лицензии Slideria, её библиотек и шрифтов' }))}
+      ${group('Интеграции', integrationsRibbon(rb))}
     </div>
     <div class="st-rpanel" data-panel="view" hidden>
       ${group('Панели', rb('view.slides', 'grid', 'Слайды', { big: true, key: 'Ctrl+Shift+1', title: 'Список слайдов слева' }) + rb('view.props', 'sliders', 'Свойства', { big: true, key: 'Ctrl+Shift+2', title: 'Панель свойств справа' }) + rb('view.notes', 'notes', 'Заметки', { big: true, key: 'Ctrl+Shift+3' }) + rb('view.code', 'terminal', 'Код слайда', { big: true, key: 'Ctrl+`', title: 'Код слайда (YAML), стили (CSS) и анимации (HTML/JS)' }) + rb('view.layers', 'layers', 'Область выделения', { big: true, key: 'Alt+F10', title: 'Объекты слайда списком' }))}
@@ -1759,6 +1761,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
   Object.assign(cmds, designCommands(designHost));
   bindDesignStrip(designHost, cmds);
   Object.assign(cmds, toolsCommands({ deck, deckKey, editor: ed, go }));
+  // «Инструменты → Интеграции»: агенты, скрипты, плагины, журнал правок (integrations.ts)
+  const integrations = startIntegrations({ deck, deckKey, editor: ed, go, index: () => index });
+  Object.assign(cmds, integrations.commands);
   /** Что оформляет панель текста «Главной» без правки (context-tabs) */
   let textOf: (() => TextTarget | null) | null = null;
   Object.assign(cmds, contextCommands({ deck, editor: ed, stage: () => view.stage, run: (c) => run(c), refresh: () => queueState(), textTarget: (get) => { textOf = get; } }));
@@ -1817,6 +1822,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
       { id: 'obj.front', label: 'На передний план', path: 'Главная · Упорядочить', words: 'поверх всех порядок наверх', key: 'Ctrl+Shift+]', ico: icon('front'), run: () => run('obj.front'), enabled: single },
       { id: 'obj.back', label: 'На задний план', path: 'Главная · Упорядочить', words: 'под всеми порядок вниз', key: 'Ctrl+Shift+[', ico: icon('back'), run: () => run('obj.back'), enabled: single },
       { id: 'edit.replace', label: 'Заменить', path: 'Главная · Правка', words: 'найти и заменить текст', key: 'Ctrl+H', ico: icon('search'), run: () => find?.show(true), enabled: () => true },
+      // Скрипты пользователя и встроенные: «Скрипт: Оглавление»
+      ...integrations.palette(),
     ],
   }, $('st-pal'));
 

@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { parse as parseYaml } from 'yaml';
-import { merge3 } from '../src/engine/merge3';
+import { merge3, same } from '../src/engine/merge3';
 import { packDeck } from '../src/engine/pack';
 import { fontRights } from '../src/engine/font-license';
 import { AssetStore } from '../plugins/assets';
@@ -23,6 +23,7 @@ import { compactImage } from '../plugins/optimize';
 import { mergeYaml } from '../plugins/yaml-merge';
 import { applyOps, outline as outlineOf, slideIndex, slideRev, type DeckOutline, type SlideRef } from '../src/engine/ops';
 import type { Deck, SlideData } from '../src/types';
+import { createIntegrations, type AgentInfo, type By, type JournalEntry } from './integrations';
 import { createPlayers, finishFile, variantOf } from './player';
 import { DATA_ID, MIME, dropGrades, escapeHtml, listDecks, mapAssets, mapStrings, readYaml, replaceTag, safeFileName, scriptJson, stamp } from './deck-files';
 
@@ -81,6 +82,10 @@ export interface CoreOptions {
 export interface CoreEvents {
   saved: { name: string; from: string };
   removed: { name: string };
+  /** Агенты: подключился, замолчал, правил (server/integrations.ts) */
+  agents: AgentInfo[];
+  /** Правка агента или скрипта записана в журнал */
+  journal: JournalEntry;
 }
 
 export interface SaveRequest {
@@ -215,7 +220,10 @@ export function createDecksCore(opts: CoreOptions) {
    * Новая презентация со страницы выбора — то же, что yarn new: копия templates/basic.
    * Пустая — только титульный слайд; с примерами — весь шаблон. Папка — из названия латиницей.
    */
-  function create(rawTitle: string, sample: boolean): { name: string } {
+  function create(rawTitle: string, sample: boolean, o: { by?: unknown } = {}): { name: string } {
+    const by = byOf(o.by);
+    // Новая презентация ничего не трогает в существующих — можно и с «Править»
+    integrations.allow(by, 'edit');
     const title = rawTitle.replace(/\s+/g, ' ').trim().slice(0, 120) || 'Новая презентация';
     const base = slug(title) || 'deck';
     fs.mkdirSync(dir, { recursive: true });
@@ -238,6 +246,7 @@ export function createDecksCore(opts: CoreOptions) {
     }
     // Кавычки и обратная косая черта в названии не ломают YAML
     fs.writeFileSync(file, text.replaceAll('{{title}}', title.replace(/\\/g, '\\\\').replace(/"/g, '\\"')));
+    if (by) record(name, { by, changes: [{ label: 'Новая презентация', now: title }] });
     return { name };
   }
 
@@ -377,8 +386,10 @@ export function createDecksCore(opts: CoreOptions) {
    * поменяли — отказ. Запись — как у окна студии (комментарии в YAML сохраняются, картинки data: — в assets/);
    * открытые окна получают событие saved и подтягивают правку, как правку другого окна
    */
-  function apply(name: string, req: { ops: unknown; expect?: unknown; from?: string }): { changed: boolean; changes: string[]; outline: DeckOutline } {
+  function apply(name: string, req: { ops: unknown; expect?: unknown; from?: string; by?: By }): { changed: boolean; changes: string[]; outline: DeckOutline } {
     const file = deckFile(assertDeck(name));
+    const by = byOf(req.by);
+    integrations.allow(by, 'edit');
     // Чтение, правка и запись — без ожиданий между ними: другое окно не успеет записать посередине,
     // поэтому слияние с файлом, как у окна студии, не нужно
     const source = fs.readFileSync(file, 'utf8');
@@ -386,33 +397,78 @@ export function createDecksCore(opts: CoreOptions) {
     if (!current || !Array.isArray(current.slides)) throw new Error('В deck.yaml нет списка слайдов');
     const r = applyOps(current, req.ops, { expect: req.expect });
     const { store, toPaths } = filesOf(name);
+    // Перед правкой агента — точка: «Вернуть как было» в журнале и на подсказке студии
+    const point = by && !same(r.deck, current) ? checkpoint(name, { auto: true }).id : undefined;
     const next = writeDeck(name, source, toPaths(r.deck), store, req.from || 'agent');
+    // И после: «Вернуть» в студии откатывает только правку агента (слияние трёх версий), а не то, что поправили позже
+    if (by && next !== source) record(name, { by, changes: r.details, checkpoint: point, after: checkpoint(name, { auto: true }).id });
     // Ревизии — по записанному, как его прочитает следующий outline
     const after = next === source ? current : readYaml(file, next) as Deck;
     return { changed: next !== source, changes: r.changes, outline: outlineOf(after) };
   }
 
+  // ---------------- интеграции: агенты, журнал, скрипты (server/integrations.ts) ----------------
+  const integrations = createIntegrations({ dir, root, emit: (_t, e) => emit('agents', e) });
+
+  /** Кто правит — из запроса: только агент или скрипт, с именем */
+  function byOf(v: unknown): By | undefined {
+    if (!v || typeof v !== 'object') return undefined;
+    const b = v as Record<string, unknown>;
+    if ((b.kind !== 'agent' && b.kind !== 'script') || typeof b.name !== 'string' || !b.name.trim()) return undefined;
+    return { kind: b.kind, name: b.name.trim().slice(0, 60), ...(typeof b.id === 'string' ? { id: b.id.slice(0, 64) } : {}) };
+  }
+
+  /** Запись в журнал и событие окнам */
+  function record(name: string, e: { by: By; changes: JournalEntry['changes']; checkpoint?: string; after?: string }): JournalEntry {
+    const entry: JournalEntry = { t: new Date().toISOString(), deck: name, by: e.by, changes: e.changes, ...(e.checkpoint ? { checkpoint: e.checkpoint } : {}), ...(e.after ? { after: e.after } : {}) };
+    integrations.record(entry);
+    emit('journal', entry);
+    return entry;
+  }
+
+  /**
+   * Правка скрипта студии — в журнал (сама правка уже в окне студии и запишется его сохранением). Подписи —
+   * от операций скрипта; проверяются только виды полей
+   */
+  function recordScript(name: string, e: { name?: unknown; changes?: unknown; checkpoint?: unknown }): JournalEntry {
+    assertDeck(name);
+    if (typeof e?.name !== 'string' || !e.name.trim() || !Array.isArray(e.changes)) throw new Error('Журнал: имя скрипта и список правок');
+    const str = (v: unknown, n: number) => (typeof v === 'string' && v ? v.slice(0, n) : undefined);
+    const changes = e.changes.slice(0, 500).filter((c) => c && typeof c === 'object' && typeof (c as { label?: unknown }).label === 'string').map((c) => {
+      const x = c as Record<string, unknown>;
+      return { label: str(x.label, 200)!, ...(Number.isInteger(x.slide) ? { slide: x.slide as number } : {}), ...(str(x.was, 300) ? { was: str(x.was, 300) } : {}), ...(str(x.now, 300) ? { now: str(x.now, 300) } : {}) };
+    });
+    const cp = typeof e.checkpoint === 'string' && /^auto:[\d-]+$/.test(e.checkpoint) ? e.checkpoint : undefined;
+    return record(name, { by: { kind: 'script', name: e.name.trim().slice(0, 80) }, changes, checkpoint: cp });
+  }
+
   // ---------------- контрольные точки ----------------
-  // Копии deck.yaml в .checkpoints/<имя>/<время>.yaml, последние CHECKPOINTS. Та же, что последняя, не повторяется
-  const cpDir = (name: string) => path.join(dir, '.checkpoints', name);
-  const cpList = (name: string) => (fs.existsSync(cpDir(name)) ? fs.readdirSync(cpDir(name)) : [])
+  // Копии deck.yaml в .checkpoints/<имя>/<время>.yaml, последние CHECKPOINTS. Та же, что последняя, не повторяется.
+  // Автоматические (перед правкой агента, перед скриптом) — в .checkpoints/<имя>/auto, последние AUTO_POINTS:
+  // свой счёт, точки Ctrl+S они не вытесняют; id — «auto:<время>»
+  const AUTO_POINTS = 40;
+  const cpDir = (name: string, auto = false) => path.join(dir, '.checkpoints', name, ...(auto ? ['auto'] : []));
+  const cpList = (name: string, auto = false) => (fs.existsSync(cpDir(name, auto)) ? fs.readdirSync(cpDir(name, auto)) : [])
     .filter((f) => f.endsWith('.yaml') && CP_ID.test(f.slice(0, -5))).sort();
 
-  function checkpoint(name: string): { id: string; time: number; same: boolean } {
+  function checkpoint(name: string, o: { auto?: boolean } = {}): { id: string; time: number; same: boolean } {
     const text = fs.readFileSync(deckFile(assertDeck(name)), 'utf8');
-    const list = cpList(name);
+    const auto = !!o.auto;
+    const folder = cpDir(name, auto);
+    const list = cpList(name, auto);
     const last = list[list.length - 1];
-    if (last && fs.readFileSync(path.join(cpDir(name), last), 'utf8') === text) {
-      return { id: last.slice(0, -5), time: Math.round(fs.statSync(path.join(cpDir(name), last)).mtimeMs), same: true };
+    const idOf = (f: string) => (auto ? 'auto:' : '') + f.slice(0, -5);
+    if (last && fs.readFileSync(path.join(folder, last), 'utf8') === text) {
+      return { id: idOf(last), time: Math.round(fs.statSync(path.join(folder, last)).mtimeMs), same: true };
     }
     const d = new Date();
     const base = stamp(d);
     let id = base;
     for (let i = 2; list.includes(`${id}.yaml`); i++) id = `${base}-${i}`;
-    fs.mkdirSync(cpDir(name), { recursive: true });
-    fs.writeFileSync(path.join(cpDir(name), `${id}.yaml`), text);
-    for (const old of [...list, `${id}.yaml`].slice(0, -CHECKPOINTS)) fs.rmSync(path.join(cpDir(name), old), { force: true });
-    return { id, time: d.getTime(), same: false };
+    fs.mkdirSync(folder, { recursive: true });
+    fs.writeFileSync(path.join(folder, `${id}.yaml`), text);
+    for (const old of [...list, `${id}.yaml`].slice(0, -(auto ? AUTO_POINTS : CHECKPOINTS))) fs.rmSync(path.join(folder, old), { force: true });
+    return { id: idOf(`${id}.yaml`), time: d.getTime(), same: false };
   }
 
   /** Точки — новые первыми */
@@ -423,8 +479,10 @@ export function createDecksCore(opts: CoreOptions) {
 
   function readCheckpoint(name: string, id: string): { deck: unknown } {
     assertDeck(name);
-    if (!CP_ID.test(id) || !fs.existsSync(path.join(cpDir(name), `${id}.yaml`))) throw new Error('Контрольная точка не найдена');
-    return { deck: parseYaml(fs.readFileSync(path.join(cpDir(name), `${id}.yaml`), 'utf8')) };
+    const auto = typeof id === 'string' && id.startsWith('auto:');
+    const raw = auto ? id.slice(5) : id;
+    if (!CP_ID.test(raw) || !fs.existsSync(path.join(cpDir(name, auto), `${raw}.yaml`))) throw new Error('Контрольная точка не найдена');
+    return { deck: parseYaml(fs.readFileSync(path.join(cpDir(name, auto), `${raw}.yaml`), 'utf8')) };
   }
 
   // ---------------- файлы презентации ----------------
@@ -719,6 +777,24 @@ export function createDecksCore(opts: CoreOptions) {
     read,
     outline,
     apply,
+    /** Интеграции (server/integrations.ts, docs/INTEGRATIONS.md) */
+    agents: () => integrations.agents(),
+    agentHello: (a: { id: string; name: string; version?: string }) => integrations.hello(a),
+    agentBye: (id: string) => integrations.bye(id),
+    access: () => integrations.access(),
+    setAccess: (v: unknown) => integrations.setAccess(v),
+    journal: (name?: string, limit?: number) => integrations.journal(name ? assertDeck(name) : undefined, limit),
+    recordScript,
+    scripts: () => integrations.scripts(),
+    scriptCode: (id: string) => integrations.scriptCode(id),
+    saveScript: (file: string, code: string, o?: { by?: unknown; replace?: boolean }) => integrations.saveScript(file, code, { by: byOf(o?.by), replace: o?.replace }),
+    scriptsDir: integrations.scriptsDir,
+    /**
+     * Как запустить MCP этой папки (docs/MCP.md): Node и scripts/mcp.mjs. Программа (Electron) без Node —
+     * null: MCP в установленной программе — следующий шаг
+     */
+    mcpCommand: (): { command: string; args: string[] } | null => (process.versions.electron ? null
+      : { command: process.execPath, args: [path.join(root, 'scripts', 'mcp.mjs'), `--decks=${dir}`] }),
     create,
     trash,
     save,

@@ -11,6 +11,7 @@ server/http.ts        HTTP: защита адреса, пульт, «Лицен�
 server/player.ts      готовый проигрыватель для экспорта в HTML: варианты, кэш, сборка недостающего
 server/mcp.ts         MCP для агентов: инструменты и протокол без транспорта (docs/MCP.md)
 server/running.ts     какой сервер студии работает с папкой презентаций (для MCP)
+server/integrations.ts агенты на связи, что им можно, журнал правок, скрипты (docs/INTEGRATIONS.md)
 server/deck-files.ts  файлы презентаций: папки, deck.yaml, пути к файлам в данных
 server/host-guard.ts  защита от подмены адреса (DNS rebinding)
 ```
@@ -51,7 +52,8 @@ http.createServer((req, res) => handle(req, res, () => { res.statusCode = 404; r
 Ошибки — исключения с понятным текстом для человека; неудачная сборка экспорта — `ExportError`.
 
 **События** (`core.on(type, fn)`): `saved` — `{ name, from }`, записали презентацию (`from` — окно, которое
-записало); `removed` — `{ name }`, презентацию убрали в корзину. Хозяин рассылает их страницам.
+записало); `removed` — `{ name }`, презентацию убрали в корзину; `agents` — список агентов (подключился, замолчал,
+правил); `journal` — новая запись журнала правок. Хозяин рассылает их страницам.
 
 **Крючки хозяина** (`hooks`, все необязательны): `release(paths)` — отпустить наблюдение за папкой на время
 переноса в корзину (Windows не даёт переименовать папку под наблюдением), возвращает функцию «снова следить»;
@@ -102,6 +104,7 @@ http.createServer((req, res) => handle(req, res, () => { res.statusCode = 404; r
 |---|---|
 | `list`, `create`, `read`, `save`, `delete` | презентации |
 | `outline`, `apply` | операции правки для агента, MCP и плагинов ([OPS.md](OPS.md)) |
+| `integrations`, `integrations-set`, `agent`, `journal`, `journal-add`, `scripts`, `script-read`, `script-save` | интеграции: кто на связи, что можно агентам, журнал, скрипты ([INTEGRATIONS.md](INTEGRATIONS.md)) |
 | `checkpoint`, `checkpoints`, `checkpoint-read` | контрольные точки |
 | `asset`, `asset-text`, `assets-list`, `assets-trash` | файлы презентации |
 | `font-list`, `font-save`, `font-use` | библиотека шрифтов |

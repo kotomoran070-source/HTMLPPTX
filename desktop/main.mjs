@@ -212,6 +212,18 @@ const fileName = (s) => String(s || 'Презентация').replace(/[\\/:*?"<
  * готовит листы, как для печати, а PDF делает сам Electron: размер листа — слайд (@page), с фонами.
  * Тесты (SLIDERIA_SAVE_DIR) сохраняют без вопроса
  */
+/**
+ * «Интеграции → Скрипты → Открыть папку»: открыть можно только папку скриптов в папке презентаций
+ * (страница не откроет через это что угодно на диске)
+ */
+ipcMain.handle('slideria:open-path', async (e, p) => {
+  if (!ours(e.senderFrame?.url ?? '')) return false;
+  const scripts = path.join(DECKS, 'scripts');
+  if (typeof p !== 'string' || path.resolve(p) !== scripts) return false;
+  fs.mkdirSync(scripts, { recursive: true });
+  return (await shell.openPath(scripts)) === '';
+});
+
 ipcMain.handle('slideria:pdf', async (e, name) => {
   if (!ours(e.senderFrame?.url ?? '')) return null;
   const data = await e.sender.printToPDF({ printBackground: true, preferCSSPageSize: true, margins: { marginType: 'none' } });

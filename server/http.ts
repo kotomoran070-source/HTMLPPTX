@@ -167,7 +167,35 @@ async function route(core: DecksCore, o: HttpOptions, req: IncomingMessage, res:
       }));
     // Для страницы выбора: когда каждую презентацию меняли в последний раз
     case 'list': return send(res, 200, core.list());
-    case 'create': return send(res, 200, core.create(q.get('title') ?? '', q.get('sample') === '1'));
+    // С агентом (MCP) в теле — { by }: проверка, можно ли ему создавать
+    case 'create': {
+      const body = (await json(req)) as { by?: unknown } | null;
+      return send(res, 200, core.create(q.get('title') ?? '', q.get('sample') === '1', { by: body?.by }));
+    }
+    // Интеграции (server/integrations.ts): агенты, что им можно, журнал, скрипты
+    case 'integrations':
+      return send(res, 200, { access: core.access(), agents: core.agents(), mcp: core.mcpCommand(), scripts: core.scriptsDir });
+    case 'integrations-set': {
+      const body = (await json(req)) as { agents?: unknown } | null;
+      return send(res, 200, { access: core.setAccess(body?.agents) });
+    }
+    // Агент MCP подключился, напоминает о себе (раз в 15 с) или ушёл
+    case 'agent': {
+      const body = (await json(req)) as { id?: string; name?: string; version?: string } | null;
+      if (q.get('op') === 'bye') core.agentBye(String(body?.id ?? ''));
+      else core.agentHello({ id: String(body?.id ?? ''), name: String(body?.name ?? ''), version: body?.version });
+      return send(res, 200, { ok: true, access: core.access() });
+    }
+    case 'journal': {
+      const d = q.get('deck');
+      return send(res, 200, core.journal(d || undefined, Math.min(500, Number(q.get('limit')) || 200)));
+    }
+    case 'scripts': return send(res, 200, core.scripts());
+    case 'script-read': return send(res, 200, core.scriptCode(q.get('id') ?? ''));
+    case 'script-save': {
+      const body = (await json(req)) as { file?: string; code?: string; replace?: boolean; by?: unknown } | null;
+      return send(res, 200, core.saveScript(String(body?.file ?? ''), String(body?.code ?? ''), { by: body?.by, replace: !!body?.replace }));
+    }
     // Общая библиотека шрифтов — видна во всех презентациях
     case 'font-list': return send(res, 200, core.fonts());
     case 'font-save': return send(res, 200, await core.addFont(q.get('file') ?? '', await readBody(req)));
@@ -191,9 +219,11 @@ async function route(core: DecksCore, o: HttpOptions, req: IncomingMessage, res:
       return send(res, 200, core.outline(name, sl === null ? {} : { slide: /^\d+$/.test(sl) ? Number(sl) : sl }));
     }
     case 'apply': {
-      const body = (await json(req)) as { ops?: unknown; expect?: unknown } | null;
-      return send(res, 200, core.apply(name, { ops: body?.ops, expect: body?.expect, from: q.get('from') || 'agent' }));
+      const body = (await json(req)) as { ops?: unknown; expect?: unknown; by?: unknown } | null;
+      return send(res, 200, core.apply(name, { ops: body?.ops, expect: body?.expect, from: q.get('from') || 'agent', by: body?.by as never }));
     }
+    // Правка скрипта студии — в журнал (сама правка — в окне студии, запишется его сохранением)
+    case 'journal-add': return send(res, 200, core.recordScript(name, ((await json(req)) ?? {}) as never));
     case 'save': {
       const body = (await json(req) ?? {}) as { deck?: unknown; base?: unknown };
       return send(res, 200, core.save(name, { deck: body.deck, base: body.base, from: q.get('from') ?? '' }));

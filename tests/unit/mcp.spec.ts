@@ -58,7 +58,7 @@ test('рукопожатие и инструменты: описание пра�
   expect(client.getServerVersion()).toMatchObject({ name: 'slideria' });
   expect(client.getInstructions()).toContain('read_presentation');
   const { tools } = await client.listTools();
-  expect(tools.map((t) => t.name)).toEqual(['list_presentations', 'read_presentation', 'edit_presentation', 'create_presentation', 'export_html', 'format_guide']);
+  expect(tools.map((t) => t.name)).toEqual(['list_presentations', 'read_presentation', 'edit_presentation', 'create_presentation', 'export_html', 'save_script', 'format_guide']);
   const edit = tools.find((t) => t.name === 'edit_presentation')!;
   for (const op of ['deck.set', 'slide.add', 'object.set', 'text.replace']) expect(edit.description).toContain(op);
   expect(tools.find((t) => t.name === 'read_presentation')!.annotations?.readOnlyHint).toBe(true);
@@ -75,7 +75,7 @@ test('читать и править: ревизия, все или ни одн�
     expect: [{ slide: 1, rev }],
   });
   expect(r.error).toBe(false);
-  expect(r.data.changes).toEqual(['Правка объекта · слайд 1', 'Правка слайда 2']);
+  expect(r.data.changes).toEqual(['Правка объекта · слайд 1', 'Заметки · слайд 2']);
   expect((r.data.slides as { rev: string }[])[0].rev).not.toBe(rev);
   expect(r.data.studio).toBeUndefined();
   expect(fs.readFileSync(path.join(dir, 'talk', 'deck.yaml'), 'utf8')).toContain('Новый заголовок');
@@ -124,5 +124,42 @@ test('открыта студия — правка через её сервер,
   expect(r2.data.studio).toBeUndefined();
   expect(fs.readFileSync(path.join(dir, 'talk', 'deck.yaml'), 'utf8')).toContain('Без студии');
   leave();
-  expect(fs.existsSync(path.join(dir, '.slideria-server.json'))).toBe(false);
+  expect(fs.existsSync(path.join(dir, '.slideria', 'server.json'))).toBe(false);
+});
+
+test('доступы, журнал и скрипты: правка подписана именем клиента, «смотреть» — отказ, скрипт — только с «всё»', async () => {
+  const studio = createDecksCore({ dir, root: ROOT });
+  // Журнал: правки этого клиента (clientInfo slideria-test → «Тест»), было → стало, точки до и после
+  const log = studio.journal('talk');
+  expect(log.length).toBeGreaterThan(0);
+  const first = log[log.length - 1];
+  expect(first.by).toMatchObject({ kind: 'agent', name: 'Тест' });
+  expect(first.changes[0]).toEqual({ label: 'Правка объекта · слайд 1', slide: 1, was: 'Старый заголовок', now: 'Новый заголовок' });
+  expect(first.checkpoint).toMatch(/^auto:/);
+  expect(first.after).toMatch(/^auto:/);
+  expect((studio.readCheckpoint('talk', first.checkpoint!).deck as { slides: { free?: { text: string }[] }[] }).slides[0].free![0].text).toBe('Старый заголовок');
+  // Точки агента — отдельно от точек Ctrl+S
+  expect(studio.checkpoints('talk')).toEqual([]);
+
+  studio.setAccess('view');
+  const no = await call('edit_presentation', { presentation: 'talk', ops: [{ op: 'slide.set', slide: 2, set: { title: 'Нельзя' } }] });
+  expect(no.error).toBe(true);
+  expect(no.text).toContain('агентам разрешено только смотреть');
+  expect((await call('read_presentation', { presentation: 'talk' })).error).toBe(false);
+  studio.setAccess('edit');
+  const script = "// @name Пометить\n// @param word: text = \"ok\" — Слово\nexport default async ({ apply, params }) => apply({ op: 'slide.set', slide: 1, set: { notes: params.word } });\n";
+  expect((await call('save_script', { file: 'пометить.js', code: script })).text).toContain('разрешено править и создавать презентации, но не сохранять скрипты');
+  studio.setAccess('view');
+  expect((await call('create_presentation', { title: 'Нельзя' })).text).toContain('только смотреть');
+  studio.setAccess('all');
+  const saved = await call('save_script', { file: 'пометить.js', code: script });
+  expect(saved.error, saved.text).toBe(false);
+  expect(saved.data).toMatchObject({ saved: 'пометить.js', name: 'Пометить', params: ['word'] });
+  expect(studio.scripts().map((x) => x.id)).toContain('user:пометить.js');
+  expect(studio.scripts().find((x) => x.id === 'user:пометить.js')!.params).toEqual([{ key: 'word', type: 'text', label: 'Слово', value: 'ok' }]);
+  // Встроенные — тоже в списке, с полями
+  const toc = studio.scripts().find((x) => x.id === 'builtin:оглавление.js')!;
+  expect(toc).toMatchObject({ name: 'Оглавление', builtin: true });
+  expect(toc.params.map((p) => [p.key, p.type, p.value])).toEqual([['title', 'text', 'Содержание'], ['after', 'number', 1], ['hidden', 'bool', false]]);
+  studio.setAccess('edit');
 });

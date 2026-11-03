@@ -108,6 +108,9 @@ export function decksPlugin(opts: DecksOptions): Plugin {
       };
       // Другим окнам этой презентации — что файл записан; всем — что презентацию удалили (карточка убирается на месте)
       c.on('saved', (e) => s.ws.send({ type: 'custom', event: 'slideria:deck-saved', data: e }));
+      // Интеграции: агенты на связи и правки агентов и скриптов — панели «Интеграции» и подсказке на холсте
+      c.on('agents', (e) => s.ws.send({ type: 'custom', event: 'slideria:agents', data: e }));
+      c.on('journal', (e) => s.ws.send({ type: 'custom', event: 'slideria:journal', data: e }));
       c.on('removed', (e) => {
         invalidateList();
         s.ws.send({ type: 'custom', event: 'slideria:deck-removed', data: e });
@@ -125,6 +128,15 @@ export function decksPlugin(opts: DecksOptions): Plugin {
       s.watcher.add(dir);
       s.watcher.on('add', refresh);
       s.watcher.on('unlink', refresh);
+
+      // Песочница скриптов пользователя (src/studio/script-worker.ts): код — только свой и из blob: (сам скрипт),
+      // сеть закрыта — скрипт не отправит данные презентации наружу и не загрузит чужой код
+      s.middlewares.use((req, res, next) => {
+        if (/\/script-worker\.ts\?worker_file/.test(req.url ?? '')) {
+          res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self' blob:; connect-src 'none'");
+        }
+        next();
+      });
 
       // Первым: защита адреса, пульт, лицензии, команды проекта — всё в сервере Slideria
       s.middlewares.use(createHandler(c, {

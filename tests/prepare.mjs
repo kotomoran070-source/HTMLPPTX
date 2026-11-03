@@ -21,6 +21,7 @@
 //   auto     — автопоказ: слайд по секунде, объект по щелчку на втором, таймлайн на экране, без полоски прогресса.
 //   prog     — прогресс сегментами по слайдам и план доклада на 10 минут.
 //   agent    — правки агента (команды outline и apply) при открытой студии.
+//   integ    — «Инструменты → Интеграции»: агент на связи, «Вернуть», что можно агентам, скрипты.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -464,4 +465,6 @@ slides:
       - {type: text, text: "Текст для агента", place: {x: 80, y: 80, w: 600}}
       - {type: shape, kind: round, fill: "#2563EB", place: {x: 640, y: 300, w: 200, h: 200}}
 `);
+fs.mkdirSync(path.join(dir, 'integ'), { recursive: true });
+fs.writeFileSync(path.join(dir, 'integ', 'deck.yaml'), fs.readFileSync(path.join(dir, 'agent', 'deck.yaml'), 'utf8').replace('title: Агент', 'title: Интеграции'));
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

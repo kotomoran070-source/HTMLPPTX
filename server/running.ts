@@ -1,5 +1,5 @@
 /**
- * Какой сервер студии сейчас работает с папкой презентаций: файл .slideria-server.json в самой папке.
+ * Какой сервер студии сейчас работает с папкой презентаций: .slideria/server.json в самой папке.
  * По нему MCP (server/mcp.ts) отправляет правки через открытую студию: правка приходит в неё, как правка
  * другого окна, а не перезаписью файла со стороны (та перезагрузила бы страницу студии).
  */
@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 
-const FILE = '.slideria-server.json';
+const FILE = path.join('.slideria', 'server.json');
 
 interface Running { url: string; pid: number }
 
@@ -22,7 +22,7 @@ export function announce(dir: string, a: AddressInfo): () => void {
   const file = path.join(dir, FILE);
   const me: Running = { url: urlOf(a), pid: process.pid };
   try {
-    fs.mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, JSON.stringify(me));
   } catch { /* папка только для чтения — MCP будет писать в файлы сам */ }
   return () => {

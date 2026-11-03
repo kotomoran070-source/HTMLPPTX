@@ -214,6 +214,10 @@ const PATHS: Record<string, string> = {
   trend: '<path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
   handshake: '<path d="m3 12 4-4 4 2 3-2 7 5-4 4-3-2-2 2-4-3z"/><path d="m11 10-3 3"/>',
   doc: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h4"/>',
+  plug: '<path d="M9 3v5M15 3v5"/><path d="M6.5 8h11v3.5a5.5 5.5 0 0 1-11 0z"/><path d="M12 17v4"/>',
+  agent: '<path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>',
+  journal: '<path d="M4 6h16M4 12h10M4 18h7"/><circle cx="18" cy="16" r="3.2"/><path d="M18 14.6V16l1 .8"/>',
+  script: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M7 10l3 2-3 2M12.5 14H17"/>',
 };
 
 export function icon(name: string | undefined, cls = 'ic'): string {

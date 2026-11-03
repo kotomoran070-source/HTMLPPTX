@@ -16,6 +16,10 @@
  */
 import type { Block, Deck, SlideData } from '../types';
 import { canon } from './merge3';
+import { TRANSITIONS } from './transitions';
+
+/** Название перехода для журнала: push → «Сдвиг» */
+const trName = (v: unknown) => TRANSITIONS.find(([k]) => k === (v ?? ''))?.[1] ?? String(v);
 
 export type SlideRef = number | string;
 export type ObjectRef = number | string;
@@ -136,13 +140,22 @@ function replaceIn(v: unknown, find: string, to: string, text: boolean, count: {
 
 // ---------------- операции ----------------
 
+/** Правка для журнала: подпись, слайд (номер с 1 в ту минуту), было → стало — коротко, текстом */
+export interface Change { label: string; slide?: number; was?: string; now?: string }
+
+const change = (label: string, slide?: number, was?: string, now?: string): Change => ({
+  label, ...(slide !== undefined ? { slide } : {}), ...(was ? { was } : {}), ...(now ? { now } : {}),
+});
+/** Было → стало, если текст поменялся */
+const diffText = (label: string, slide: number | undefined, a: string | undefined, b: string | undefined): Change => (a !== b ? change(label, slide, a ?? '—', b ?? '—') : change(label, slide));
+
 interface OpDef {
   /** Что делает — для описания команд (MCP) и документации */
   summary: string;
   /** Поля операции: имя → описание */
   params: Record<string, string>;
-  /** Применить к черновику; ответ — подпись правки */
-  run(d: Deck, a: Rec): string;
+  /** Применить к черновику; ответ — что поменялось */
+  run(d: Deck, a: Rec): Change;
 }
 
 export const OPS: Record<string, OpDef> = {
@@ -152,10 +165,11 @@ export const OPS: Record<string, OpDef> = {
     run(d, a) {
       const set = needPatch(a.set);
       if ('slides' in set) throw new OpError('слайды правятся операциями slide.*');
+      const was = plain(d.title);
       const next = mergePatch(d, set) as Deck;
       Object.keys(d).forEach((k) => { if (!(k in next)) delete (d as unknown as Rec)[k]; });
       Object.assign(d, next);
-      return 'Настройки презентации';
+      return 'title' in set ? diffText('Название презентации', undefined, was, plain(d.title)) : change('Настройки презентации');
     },
   },
   'slide.add': {
@@ -167,7 +181,7 @@ export const OPS: Record<string, OpDef> = {
       const at = a.at === undefined ? d.slides.length : needPosition(a.at, d.slides.length + 1, 'at');
       if (typeof s.id !== 'string' || !s.id || d.slides.some((x) => x?.id === s.id)) s.id = freeSlideId(d, typeof s.id === 'string' ? s.id : 'slide');
       d.slides.splice(at, 0, s);
-      return `Новый слайд ${at + 1}`;
+      return change(`Новый слайд ${at + 1}`, at + 1, undefined, plain(s.label ?? s.title) ?? textOf(s));
     },
   },
   'slide.remove': {
@@ -176,8 +190,8 @@ export const OPS: Record<string, OpDef> = {
     run(d, a) {
       const i = slideIndex(d, a.slide);
       if (d.slides.length <= 1) throw new OpError('единственный слайд удалить нельзя');
-      d.slides.splice(i, 1);
-      return `Удалён слайд ${i + 1}`;
+      const [gone] = d.slides.splice(i, 1);
+      return change(`Удалён слайд ${i + 1}`, i + 1, plain(gone.label ?? gone.title) ?? `слайд ${i + 1}`);
     },
   },
   'slide.move': {
@@ -188,7 +202,7 @@ export const OPS: Record<string, OpDef> = {
       const to = needPosition(a.to, d.slides.length, 'to');
       const [s] = d.slides.splice(i, 1);
       d.slides.splice(to, 0, s);
-      return `Слайд ${i + 1} → ${to + 1}`;
+      return change(`Слайд ${i + 1} → ${to + 1}`, to + 1);
     },
   },
   'slide.duplicate': {
@@ -200,7 +214,7 @@ export const OPS: Record<string, OpDef> = {
       copy.id = freeSlideId(d, typeof copy.id === 'string' ? copy.id : 'slide');
       const at = a.at === undefined ? i + 1 : needPosition(a.at, d.slides.length + 1, 'at');
       d.slides.splice(at, 0, copy);
-      return `Копия слайда ${i + 1} → ${at + 1}`;
+      return change(`Копия слайда ${i + 1} → ${at + 1}`, at + 1);
     },
   },
   'slide.set': {
@@ -210,8 +224,18 @@ export const OPS: Record<string, OpDef> = {
       const i = slideIndex(d, a.slide);
       const set = needPatch(a.set);
       if ('free' in set) throw new OpError('свободные объекты правятся операциями object.*');
-      d.slides[i] = mergePatch(d.slides[i], set) as SlideData;
-      return `Правка слайда ${i + 1}`;
+      const old = d.slides[i];
+      d.slides[i] = mergePatch(old, set) as SlideData;
+      const now = d.slides[i];
+      if ('title' in set || 'label' in set) return diffText(`Заголовок · слайд ${i + 1}`, i + 1, plain(old.label ?? old.title), plain(now.label ?? now.title));
+      if ('notes' in set) return diffText(`Заметки · слайд ${i + 1}`, i + 1, plain(old.notes), plain(now.notes));
+      const keys = Object.keys(set);
+      const only = (...k: string[]) => keys.every((x) => k.includes(x));
+      if (only('transition', 'transitionMs', 'transitionDir')) return diffText(`Переход · слайд ${i + 1}`, i + 1, trName(old.transition), trName(now.transition));
+      if (only('hidden')) return change(`${now.hidden ? 'Скрыт' : 'Показан'} слайд ${i + 1}`, i + 1);
+      if (only('template')) return diffText(`Макет · слайд ${i + 1}`, i + 1, String(old.template ?? 'content'), String(now.template ?? 'content'));
+      if (only('body')) return change(`Блоки раскладки · слайд ${i + 1}`, i + 1);
+      return change(`Правка слайда ${i + 1}`, i + 1);
     },
   },
   'object.add': {
@@ -225,7 +249,7 @@ export const OPS: Record<string, OpDef> = {
       s.free = Array.isArray(s.free) ? s.free : [];
       const at = a.at === undefined ? s.free.length : needPosition(a.at, s.free.length + 1, 'at');
       s.free.splice(at, 0, o);
-      return `Новый объект · слайд ${i + 1}`;
+      return change(`Новый объект · слайд ${i + 1}`, i + 1, undefined, textOf(o) ?? o.type);
     },
   },
   'object.set': {
@@ -236,9 +260,11 @@ export const OPS: Record<string, OpDef> = {
       const k = objectIndex(d.slides[i], a.object, i);
       const set = needPatch(a.set);
       const list = d.slides[i].free!;
-      list[k] = mergePatch(list[k], set) as Block;
+      const old = list[k];
+      list[k] = mergePatch(old, set) as Block;
       const keys = Object.keys(set);
-      return `${keys.every((x) => x === 'place' || x === 'angle') ? 'Место объекта' : 'Правка объекта'} · слайд ${i + 1}`;
+      if (keys.every((x) => x === 'place' || x === 'angle')) return change(`Место объекта · слайд ${i + 1}`, i + 1);
+      return diffText(`Правка объекта · слайд ${i + 1}`, i + 1, textOf(old), textOf(list[k]));
     },
   },
   'object.remove': {
@@ -247,10 +273,10 @@ export const OPS: Record<string, OpDef> = {
     run(d, a) {
       const i = slideIndex(d, a.slide);
       const s = d.slides[i];
-      s.free!.splice(objectIndex(s, a.object, i), 1);
+      const [gone] = s.free!.splice(objectIndex(s, a.object, i), 1);
       // Пустой список в данных не нужен — как у студии
       if (!s.free!.length) delete s.free;
-      return `Удалён объект · слайд ${i + 1}`;
+      return change(`Удалён объект · слайд ${i + 1}`, i + 1, textOf(gone) ?? gone.type);
     },
   },
   'object.order': {
@@ -268,7 +294,7 @@ export const OPS: Record<string, OpDef> = {
       else throw new OpError(`to — "front", "back" или место с 1 по ${list.length}`);
       const [o] = list.splice(k, 1);
       list.splice(to, 0, o);
-      return `Порядок объектов · слайд ${i + 1}`;
+      return change(`Порядок объектов · слайд ${i + 1}`, i + 1);
     },
   },
   'text.replace': {
@@ -281,7 +307,7 @@ export const OPS: Record<string, OpDef> = {
       const only = a.slide === undefined ? -1 : slideIndex(d, a.slide);
       d.slides = d.slides.map((s, i) => (only < 0 || i === only ? replaceIn(s, a.find as string, a.replace as string, false, count) as SlideData : s));
       if (only < 0 && typeof d.title === 'string') d.title = replaceIn(d.title, a.find, a.replace, true, count) as string;
-      return `Замена текста: ${count.n}`;
+      return change(`Замена текста: ${count.n}`, only < 0 ? undefined : only + 1, a.find as string, (a.replace as string) || '(пусто)');
     },
   },
 };
@@ -339,6 +365,8 @@ export interface ApplyResult {
   deck: Deck;
   /** Подписи правок по порядку */
   changes: string[];
+  /** Они же подробно — для журнала: слайд, было → стало */
+  details: Change[];
 }
 
 /**
@@ -357,7 +385,7 @@ export function applyOps(deck: Deck, ops: unknown, o: { expect?: unknown } = {})
     }
   }
   const d = clone(deck);
-  const changes = ops.map((op, n) => {
+  const details = ops.map((op, n) => {
     const a = op as Rec;
     const def = isRec(a) && typeof a.op === 'string' ? OPS[a.op] : undefined;
     if (!def) throw new OpError(`Операция ${n + 1}: неизвестная${isRec(a) && a.op ? ` «${String(a.op)}»` : ''}. Есть: ${Object.keys(OPS).join(', ')}`);
@@ -368,7 +396,7 @@ export function applyOps(deck: Deck, ops: unknown, o: { expect?: unknown } = {})
     }
   });
   try { checkDeck(d, new Set(deck.slides.map(canon))); } catch (e) { throw new OpError(`После операций: ${(e as Error).message}`); }
-  return { deck: d, changes };
+  return { deck: d, changes: details.map((c) => c.label), details };
 }
 
 // ---------------- краткое содержание ----------------
