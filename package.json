@@ -31,6 +31,7 @@
     "test:app": "playwright test --project=app",
     "test:perf": "playwright test --project=perf",
     "perf": "node scripts/perf.mjs",
+    "mcp": "node scripts/mcp.mjs",
     "test:stage": "node scripts/test-stage.mjs"
   },
   "dependencies": {
@@ -62,6 +63,7 @@
     "yaml": "^2.9.1"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@playwright/test": "1.56.1",
     "@types/node": "^20",
     "electron": "44.5.1",
@@ -97,7 +99,7 @@
       "desktop/**",
       "src/**",
       "plugins/**",
-    "server/**",
+      "server/**",
       "scripts/**",
       "templates/**"
     ],

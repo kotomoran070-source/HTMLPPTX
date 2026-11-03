@@ -29,3 +29,6 @@ desktop/build.json
 # Сертификаты подписи (docs/SIGNING.md) — только вне репозитория
 *.pfx
 *.p12
+
+# Отметка работающего сервера студии в папке презентаций (server/running.ts, для MCP)
+.slideria-server.json

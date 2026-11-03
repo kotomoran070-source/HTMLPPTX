@@ -14,6 +14,7 @@ import path from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 import { createDecksCore, nodeRunner, type DecksCore, type Runner } from '../server/core';
 import { createHandler } from '../server/http';
+import { announce } from '../server/running';
 import { DATA_ID, listDecks, mapAssets, readYaml } from '../server/deck-files';
 import { checkFirewall, checkMessage } from './firewall.mjs';
 
@@ -136,6 +137,11 @@ export function decksPlugin(opts: DecksOptions): Plugin {
 
       // yarn dev --host: пульт с телефона — брандмауэр Windows только проверяется (без запроса администратора);
       // если что-то мешает, в терминале подсказка: yarn firewall
+      // MCP находит открытую студию по записи в папке презентаций и шлёт правки через неё (server/running.ts)
+      s.httpServer?.once('listening', () => {
+        const a = s.httpServer?.address();
+        if (a && typeof a === 'object') s.httpServer?.once('close', announce(dir, a));
+      });
       s.httpServer?.once('listening', () => {
         const a = s.httpServer?.address();
         const host = a && typeof a === 'object' ? a.address : '127.0.0.1';
