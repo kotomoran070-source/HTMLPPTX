@@ -25,6 +25,11 @@ export function allowed(req, decks, deck) {
   try { p = decodeURIComponent(p); } catch { return false; }
   if (p.includes('\\') || /\/\.\.?(\/|$)/.test(p)) return false;
   if (p.startsWith('/__htmlpptx/')) return false;
+  // Данные для страниц (server/http.ts): список презентаций — не телефону; одна — только та, что в показе
+  if (p === '/__slideria/decks') return false;
+  if (p.startsWith('/__slideria/deck/')) {
+    return !!deck && fold(p.slice('/__slideria/deck/'.length)) === fold(deck) && (req.method === 'GET' || req.method === 'HEAD');
+  }
   // Примеры, которые лежат в папке программы, телефону не нужны
   if (/^\/(@fs\/.*\/)?(presentations|templates)\//i.test(p) && !fold(p).startsWith(fold('/@fs/' + decks + '/'))) return false;
   // Файлы презентаций: только той, что показывают (deck.yaml, картинки, вставки)
@@ -95,7 +100,7 @@ export function lanGateway(target, decksDir, log) {
       req.pipe(up);
     });
     srv.requestTimeout = 0;
-    // Живое обновление Vite (WebSocket): соединение пересылается как есть
+    // WebSocket (уведомления — сервер их телефону не даёт, server/events.ts): соединение пересылается как есть
     srv.on('upgrade', (req, socket, head) => {
       if (!lanPass(req) || !allowed(req, decks, deck)) return socket.destroy();
       const up = net.connect(target(), '127.0.0.1', () => {

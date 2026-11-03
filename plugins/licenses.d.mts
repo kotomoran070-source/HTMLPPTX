@@ -12,4 +12,6 @@ export function licenseNotice(root: string, opts?: { manifest?: string }): Plugi
 export function kitFontsIn(html: string, root: string): string[];
 export function noticeInto(html: string, pkgs: Omit<PackageInfo, 'dir'>[], root: string): string;
 export function electronFiles(): { electron: string; chromium: string };
-export function licensesPage(root: string, chromiumUrl?: string): string;
+export const TOOLS: Set<string>;
+export function pagePackages(root: string): PackageInfo[];
+export function licensesPage(root: string, chromiumUrl?: string, bundled?: Omit<PackageInfo, 'dir'>[] | null): string;

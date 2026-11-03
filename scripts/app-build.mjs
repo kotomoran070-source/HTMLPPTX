@@ -1,5 +1,5 @@
 // yarn app:build — установщик приложения. Защита кода (docs/PROTECTION.md):
-//   код программы — сжатыми копиями, а не исходниками (scripts/app-stage.mjs);
+//   код программы — собранным и сжатым, без исходников и без Vite (scripts/app-stage.mjs);
 //   app.asar с загрузчиком программы, его целостность проверяет Electron (подпись .exe — docs/SIGNING.md);
 //   остальной код рядом с app.asar, загрузчик сверяет его с отпечатками и с изменённым не запускается;
 //   предохранители Electron (package.json → build.electronFuses): только app.asar, без запуска в роли Node и без отладчика.
@@ -39,7 +39,7 @@ const config = {
   files: ['package.json', { from: path.relative(root, STAGE), to: '.', filter: ['**/*'] }],
   asar: true,
   // В app.asar остаются загрузчик (desktop) и package.json; остальное — рядом, обычными файлами:
-  // сервер Vite и esbuild внутри программы читают их с диска, экспорт — готовый проигрыватель
+  // сервер (app/server.mjs) читает их с диска — студию, готовый проигрыватель, шаблоны, библиотеки node_modules
   // (шаблоны — от папки проекта: файлы берутся из копии)
   asarUnpack: ['node_modules/**', ...[...OWN, ...BUILT].filter((x) => !PACKED.includes(x)).map((x) => `${path.relative(root, STAGE).split(path.sep).join('/')}/${x}${fs.statSync(path.join(STAGE, x)).isDirectory() ? '/**' : ''}`)],
   // Предохранители — из package.json; автотесту собранной программы нужен отладчик

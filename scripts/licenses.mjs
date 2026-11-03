@@ -1,18 +1,19 @@
-// yarn licenses — лицензии библиотек, которые программа везёт с собой (без инструментов разработки).
+// yarn licenses — лицензии библиотек, которые программа везёт с собой (без инструментов разработки): сервера
+// (node_modules программы) и страниц (собраны внутрь студии и проигрывателя — там LGPL нельзя).
 // Лицензия вне разрешённого списка (plugins/licenses.mjs) — ошибка; yarn app:build проверяет то же самое.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkLicenses, prodPackages } from '../plugins/licenses.mjs';
+import { checkLicenses, pagePackages, prodPackages } from '../plugins/licenses.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Пусто — всё в порядке; иначе список «пакет: лицензия» */
 export function licenseProblems() {
-  return checkLicenses(prodPackages(root)).map((p) => `${p.name} ${p.version}: ${p.license}`);
+  return [...checkLicenses(prodPackages(root)), ...checkLicenses(pagePackages(root), { html: true })].map((p) => `${p.name} ${p.version}: ${p.license}`);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const pkgs = prodPackages(root);
+  const pkgs = [...prodPackages(root), ...pagePackages(root)];
   const by = new Map();
   for (const p of pkgs) by.set(p.license, [...(by.get(p.license) ?? []), p.name]);
   for (const [lic, names] of [...by].sort((a, b) => b[1].length - a[1].length)) console.log(`${lic.padEnd(28)} ${String(names.length).padStart(3)}  ${names.slice(0, 6).join(', ')}${names.length > 6 ? ' …' : ''}`);

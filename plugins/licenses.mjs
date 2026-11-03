@@ -1,6 +1,9 @@
 // Лицензии сторонних библиотек и шрифтов: что внутри собранного HTML и приложения и на каких условиях.
 //   licenseNotice()  — модуль сборки: в собранный файл — авторы и тексты лицензий того, что в него попало
-//   prodPackages()   — все библиотеки программы (окно «Справка → Лицензии» приложения, проверка при сборке)
+//                      (в сборку студии — список рядом с ней: страница «Лицензии» программы)
+//   prodPackages()   — библиотеки сервера: их программа везёт в node_modules (проверка при сборке)
+//   pagePackages()   — библиотеки страниц (студия, показ): в программе они внутри сборки студии, в yarn dev — из
+//                      node_modules (страница «Лицензии» в yarn dev, проверка лицензий)
 //   checkLicenses()  — лицензии вне разрешённого списка (scripts/licenses.mjs, yarn app:build)
 import fs from 'node:fs';
 import path from 'node:path';
@@ -112,6 +115,30 @@ export function prodPackages(root) {
   return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * Инструменты разработки: в программу и на страницы не попадают (сборка, тесты, типы, сама оболочка Electron —
+ * её лицензия на странице отдельно)
+ */
+export const TOOLS = new Set(['electron', 'electron-builder', 'typescript', '@playwright/test', '@types/node', '@modelcontextprotocol/sdk', 'vite', 'vite-plugin-singlefile']);
+
+/**
+ * Библиотеки страниц из node_modules: всё из devDependencies, кроме инструментов (TOOLS), со своими
+ * зависимостями. Страницы получают их собранными внутрь студии и проигрывателя
+ */
+export function pagePackages(root) {
+  const pj = JSON.parse(fs.readFileSync(packageFile(root), 'utf8'));
+  const seen = new Map();
+  const walk = (name, from) => {
+    const dir = findPackage(name, from);
+    if (!dir || seen.has(dir)) return;
+    const p = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+    seen.set(dir, readPackage(dir));
+    for (const d of Object.keys(p.dependencies ?? {})) walk(d, dir);
+  };
+  for (const d of Object.keys(pj.devDependencies ?? {})) if (!TOOLS.has(d)) walk(d, root);
+  return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
 /** Библиотеки с лицензией вне разрешённого списка; html — только то, что попадает в собранный файл (LGPL нельзя) */
 export function checkLicenses(pkgs, { html = false } = {}) {
   return pkgs.filter((p) => !spdxOk(p.license) && (html || !LGPL_OK.has(p.name)));
@@ -209,9 +236,11 @@ export function electronFiles() {
 
 /**
  * Страница «Лицензии» (кнопка на вкладке «Инструменты», «Справка → Лицензии» в приложении):
- * Slideria, Electron и Chromium, шрифты комплекта и все библиотеки с авторами
+ * Slideria, Electron и Chromium, шрифты комплекта и все библиотеки с авторами — сервера (node_modules) и
+ * страниц. bundled — библиотеки, собранные внутрь студии (программа: список от её сборки); не передан —
+ * библиотеки страниц из node_modules (yarn dev)
  */
-export function licensesPage(root, chromiumUrl) {
+export function licensesPage(root, chromiumUrl, bundled = null) {
   const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const read = (f) => { try { return fs.readFileSync(f, 'utf8').trim(); } catch { return ''; } };
   const pj = JSON.parse(read(packageFile(root)) || '{}');
@@ -219,7 +248,9 @@ export function licensesPage(root, chromiumUrl) {
   try { stamp = JSON.parse(read(stampFile(root))); } catch { /* из проекта */ }
   const { electron, chromium } = electronFiles();
   const item = (title, text) => `<details><summary>${esc(title)}</summary><pre>${esc(text)}</pre></details>`;
-  const pkgs = prodPackages(root);
+  const all = new Map();
+  for (const p of [...prodPackages(root), ...(bundled ?? pagePackages(root))]) all.set(`${p.name}@${p.version}`, p);
+  const pkgs = [...all.values()].sort((a, b) => a.name.localeCompare(b.name));
   return `<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slideria — лицензии</title>
 <style>:root{color-scheme:light;--bg:#fff;--tx:#1f2937;--mu:#e5e7eb;--code:#f3f4f6;--a:#4f46e5}@media (prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#0f1115;--tx:#e5e7eb;--mu:#2a2e37;--code:#181b22;--a:#a5b4fc}}html,body{background:var(--bg);color:var(--tx)}body{font:15px/1.5 system-ui,"Segoe UI",sans-serif;max-width:960px;margin:0 auto;padding:32px 20px}a{color:var(--a)}h1{font-size:24px;margin-top:0}h2{font-size:18px;margin-top:28px}
 details{border-top:1px solid var(--mu);padding:6px 0}summary{cursor:pointer}pre{white-space:pre-wrap;font:12px/1.45 ui-monospace,Consolas,monospace;background:var(--code);padding:12px;border-radius:8px}</style>

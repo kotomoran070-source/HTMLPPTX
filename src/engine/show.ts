@@ -60,7 +60,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   <div class="navside r">
     <button class="ibtn" id="ap" type="button" hidden></button>
     ${editable ? `<button class="ibtn" id="ed-btn" type="button" aria-pressed="false" aria-label="Режим правки (E)" title="Режим правки (E)">${icon('pencil')}</button>` : ''}
-    ${import.meta.env.DEV && devServer ? `<a class="ibtn" id="studio-btn" href="?deck=${encodeURIComponent(deckKey)}&amp;studio" aria-label="Открыть в редакторе (S)" title="Открыть в редакторе (S)">${icon('layers')}</a>` : ''}
+    ${__SERVED__ && devServer ? `<a class="ibtn" id="studio-btn" href="?deck=${encodeURIComponent(deckKey)}&amp;studio" aria-label="Открыть в редакторе (S)" title="Открыть в редакторе (S)">${icon('layers')}</a>` : ''}
     <button class="ibtn" id="ov" type="button" aria-label="Все слайды (O)" title="Все слайды (O)">${icon('grid')}</button>
     <button class="ibtn" id="pr" type="button" aria-label="Режим докладчика (P)" title="Режим докладчика (P)">${icon('presenter')}</button>
     <button class="ibtn" id="fs" type="button" aria-label="Во весь экран (F)" title="Во весь экран (F)">${icon('fullscreen')}</button>
@@ -68,10 +68,10 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
 </nav>
 <div class="ovbd" id="ovbd" role="dialog" aria-modal="true" aria-label="Все слайды">
   <div class="ovpanel">
-    <div class="ovhead"><b>Все слайды</b>${import.meta.env.DEV && devServer ? `<span class="ovtools-dev"><a class="btn ghost small" href="./?all" title="Все презентации">Все презентации</a>${deck.slides.some((x) => x.template === 'canvas') ? `<button class="btn ghost small" id="ovtheme" type="button" title="Привязать цвета к теме">Цвета → тема…</button>` : ''}<button class="btn ghost small" id="ovimp" type="button" title="Импорт HTML или PowerPoint (.pptx)">Импорт…</button></span>` : ''}<button class="ibtn small" id="ovx" type="button" aria-label="Закрыть">${icon('close')}</button></div>
+    <div class="ovhead"><b>Все слайды</b>${__SERVED__ && devServer ? `<span class="ovtools-dev"><a class="btn ghost small" href="./?all" title="Все презентации">Все презентации</a>${deck.slides.some((x) => x.template === 'canvas') ? `<button class="btn ghost small" id="ovtheme" type="button" title="Привязать цвета к теме">Цвета → тема…</button>` : ''}<button class="btn ghost small" id="ovimp" type="button" title="Импорт HTML или PowerPoint (.pptx)">Импорт…</button></span>` : ''}<button class="ibtn small" id="ovx" type="button" aria-label="Закрыть">${icon('close')}</button></div>
     <p class="mu ovedit-hint">Перетащите слайд, чтобы поменять порядок. Кнопки на миниатюре: дублировать и удалить. С клавиатуры: Alt + ← → переставить, Delete — удалить.</p>
     <div class="ovgrid" id="ovgrid"></div>
-    <p class="mu ovkeys">← → пробел — листать · Home/End — в начало/конец · номер + Enter — перейти · O — обзор · P — докладчик · R — пульт с телефона · F — весь экран · T — тема · B — чёрный экран · + − — крупнее / мельче, 0 — как было${editable ? ' · E — правка' : ''}${import.meta.env.DEV && devServer ? ' · S — в редактор' : ''}</p>
+    <p class="mu ovkeys">← → пробел — листать · Home/End — в начало/конец · номер + Enter — перейти · O — обзор · P — докладчик · R — пульт с телефона · F — весь экран · T — тема · B — чёрный экран · + − — крупнее / мельче, 0 — как было${editable ? ' · E — правка' : ''}${__SERVED__ && devServer ? ' · S — в редактор' : ''}</p>
   </div>
 </div>
 <div class="zoom-pill" id="zpill" aria-live="polite"></div>
@@ -468,7 +468,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     $('ed-btn').addEventListener('click', () => editor!.toggle());
   }
   // Перетащенный HTML-файл презентации — импорт правок в проект (только yarn dev)
-  if (import.meta.env.DEV && devServer) {
+  if (__SERVED__ && devServer) {
     void import('./import-ui').then((m) => {
       const ui = m.setupImport({ current: deckKey, beforeImport: () => editor?.settle() });
       $('ovimp').onclick = () => { ovHide(); ui.pick(); };

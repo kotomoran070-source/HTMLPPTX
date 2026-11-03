@@ -1,11 +1,13 @@
-// Код программы для установщика (yarn app:build): сжатые копии вместо исходников и список их отпечатков.
+// Код программы для установщика (yarn app:build): собранное и сжатое вместо исходников и список отпечатков.
 //   node scripts/app-stage.mjs [папка]   — собрать копию отдельно (по умолчанию .tmp/app-stage)
-// Каждый файл сжимается отдельно — без комментариев, отступов и понятных имён переменных, но с теми же
-// импортами и экспортами: сервер Vite внутри программы и «Экспорт» работают с ними так же, как с исходниками.
+// Исходников и Vite в программе нет (docs/SERVER.md):
+//   app/     — студия, собранная заранее, и сервер одним файлом (scripts/build.mjs --app);
+//   player/  — готовый проигрыватель для «Экспорта» в HTML, все варианты (server/player.ts);
+//   desktop/ — загрузчик программы (Electron), сжатый; рядом — то, что он берёт сам (вход для телефона);
+//   templates/, src/fonts/ — шаблон новой презентации и встроенные скрипты, шрифты комплекта (их лицензия
+//   в экспорте и на странице «Лицензии»).
 // Отпечатки (SHA-256) кода, который лежит рядом с app.asar, записываются внутрь app.asar
 // (desktop/integrity.json): программа сверяет их при запуске и с изменённым кодом не запускается.
-// Там же — готовый проигрыватель для «Экспорта» в HTML, все варианты (player/, server/player.ts):
-// программа не собирает его на компьютере пользователя.
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
@@ -15,19 +17,16 @@ import { transformSync } from 'esbuild';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-/** Что входит в программу (кроме package.json и node_modules — их кладёт electron-builder) */
-export const OWN = ['LICENSE', 'index.html', 'vite.config.ts', 'tsconfig.json', 'desktop', 'src', 'plugins', 'server', 'scripts', 'templates'];
+/** Что входит в программу как есть или сжатым (кроме package.json и node_modules — их кладёт electron-builder) */
+export const OWN = ['LICENSE', 'desktop', 'plugins/remote-relay.mjs', 'templates', 'src/fonts'];
 /** Внутри app.asar: загрузчик программы. Его целостность проверяет сам Electron, остальное — он */
 export const PACKED = ['desktop'];
-/** Собирается при подготовке копии, а не копируется: готовый проигрыватель */
-export const BUILT = ['player'];
+/** Собирается при подготовке копии, а не копируется: код программы и готовый проигрыватель */
+export const BUILT = ['app', 'player'];
 const SKIP = /\.d\.m?ts$/;
 const LOADER = { '.ts': 'ts', '.mts': 'ts', '.mjs': 'js', '.js': 'js', '.cjs': 'js', '.css': 'css' };
 
-/**
- * Сжатие одного файла. Только пробелы и имена: «синтаксическое» сжатие пишет true как !0, а Vite
- * разбирает параметры import.meta.glob как обычные значения. Тексты лицензий в коде (/*! … *\/) остаются
- */
+/** Сжатие одного файла: пробелы и имена. Тексты лицензий в коде (/*! … *\/) остаются */
 export function minify(file, code) {
   const ext = path.extname(file);
   const loader = LOADER[ext];
@@ -51,11 +50,13 @@ function walk(dir, out = []) {
 
 /** Собрать копию в dest; ответ — сколько файлов сжато и сколько скопировано как есть */
 export function stage(dest) {
-  // Проигрыватель — из исходников (сборка Vite и так сжимает код), во все варианты
+  // Проигрыватель и код программы — из исходников (сборка и так сжимает код)
   const players = path.join(dest, 'player');
   fs.rmSync(dest, { recursive: true, force: true });
   const built = spawnSync(process.execPath, [path.join(root, 'scripts', 'build.mjs'), '--players', `--out=${players}`], { cwd: root, stdio: 'inherit' });
   if (built.status !== 0) throw new Error('Проигрыватель для экспорта не собрался');
+  const code = spawnSync(process.execPath, [path.join(root, 'scripts', 'build.mjs'), '--app', `--out=${path.join(dest, 'app')}`, '--force'], { cwd: root, stdio: 'inherit' });
+  if (code.status !== 0) throw new Error('Код программы не собрался');
   let packed = 0;
   let copied = 0;
   const files = OWN.flatMap((x) => {
@@ -78,7 +79,7 @@ export function stage(dest) {
     }
     if (!PACKED.some((d) => rel === d || rel.startsWith(`${d}/`))) sums[rel] = createHash('sha256').update(fs.readFileSync(out)).digest('base64');
   }
-  for (const f of walk(players)) {
+  for (const f of BUILT.flatMap((d) => walk(path.join(dest, d)))) {
     sums[path.relative(dest, f).split(path.sep).join('/')] = createHash('sha256').update(fs.readFileSync(f)).digest('base64');
   }
   fs.writeFileSync(path.join(dest, 'desktop', 'integrity.json'), JSON.stringify({ files: sums }));

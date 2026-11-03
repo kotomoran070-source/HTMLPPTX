@@ -20,6 +20,7 @@ import { layoutRows, rowAnchors } from './rows';
 import { embeddable, loadLocalFonts, localFaces, localFamilies, localWeights, pickFaces } from '../local-fonts';
 import { merge3 } from '../merge3';
 import { WINDOW_ID } from './persist';
+import { onServer } from '../events';
 import { edits, History } from './history';
 import { browserInflate, fontRights } from '../font-license';
 import './editor.css';
@@ -187,8 +188,14 @@ export class Editor {
     this.mode = devServer ? 'project' : 'file';
     this.base = clone(host.deck);
     // Файл записало другое окно этой презентации (окно докладчика, вторая вкладка) — подтянуть его правки
-    import.meta.hot?.on('slideria:deck-saved', (d: { name: string; from: string }) => {
+    onServer('deck-saved', (d) => {
       if (this.mode !== 'project' || d.name !== this.host.deckKey || d.from === WINDOW_ID) return;
+      this.dirty = true;
+      void this.flush();
+    });
+    // Связь с сервером прерывалась (сервер перезапускали): чужие записи за это время могли пройти мимо — сверка
+    onServer('reconnected', () => {
+      if (this.mode !== 'project') return;
       this.dirty = true;
       void this.flush();
     });

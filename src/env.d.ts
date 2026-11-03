@@ -6,23 +6,11 @@ declare const __EDITABLE__: boolean;
 declare const __HAS_MODEL__: boolean;
 /** false — в собранной презентации нет формул: набор формул не нужен */
 declare const __HAS_MATH__: boolean;
-/** Папка с презентациями для подсказок: presentations/ или «Документы/Slideria» в приложении */
-declare const __DECKS_DIR__: string;
-/** Страница открыта в приложении Slideria (desktop/), а не через yarn dev */
-declare const __APP__: boolean;
-
-declare module 'virtual:decks' {
-  import type { Deck } from './types';
-  /** Загрузчики презентаций по имени папки в presentations/ */
-  export const decks: Record<string, () => Promise<Deck>>;
-  /** Имя презентации, если сборка сделана для одной (yarn build имя) */
-  export const fixed: string | null;
-}
-
-declare module '*.yaml' {
-  const data: unknown;
-  export default data;
-}
+/**
+ * Страница работает с сервером Slideria (yarn dev, программа, облако): презентации, студия, запись в deck.yaml.
+ * false — собранный файл презентации (готовый проигрыватель): всё своё у него внутри
+ */
+declare const __SERVED__: boolean;
 
 /** Полная сборка <model-viewer> вместе с three.js: подключается, только когда на слайде есть модель */
 declare module '@google/model-viewer/dist/model-viewer.min.js';

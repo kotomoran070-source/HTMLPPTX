@@ -9,11 +9,18 @@ import path from 'node:path';
 import { defineConfig } from '@playwright/test';
 
 const PORT = 5190;
-// SLIDERIA_STAGE=папка — сервер на сжатом коде программы (node scripts/app-stage.mjs), а не на исходниках:
-// так проверяется, что установщик работает так же. Пути — полные: «Экспорт» собирает из папки этого кода
+// Какой сервер под тестами:
+//   по умолчанию — yarn dev (Vite с исходниками страниц);
+//   SLIDERIA_SERVE=1 — сервер программы без Vite на собранной студии (scripts/serve.mjs, server/serve.ts);
+//   SLIDERIA_STAGE=папка — он же на коде из копии для установщика (node scripts/app-stage.mjs): так
+//   проверяется, что установщик работает так же. Пути — полные: «Экспорт» и шаблоны берутся из папки копии
 const stage = process.env.SLIDERIA_STAGE;
+const serve = process.env.SLIDERIA_SERVE === '1' || !!stage;
 const tmp = (p: string) => (stage ? path.resolve(p) : p);
 const channel = process.env.SLIDERIA_TEST_BROWSER || (process.platform === 'win32' ? 'msedge' : undefined);
+const server = stage
+  ? `node scripts/serve.mjs --port=${PORT} --root="${stage}" --code="${path.join(stage, 'app')}"`
+  : serve ? `node scripts/serve.mjs --port=${PORT}` : `npx vite --port ${PORT} --strictPort`;
 
 export default defineConfig({
   testDir: 'tests',
@@ -37,8 +44,9 @@ export default defineConfig({
     { name: 'perf', testDir: 'tests/perf', timeout: 300_000 },
   ],
   webServer: {
-    // Копия презентаций для тестов, затем сервер на ней: правки тестов не трогают presentations/
-    command: `node tests/prepare.mjs && npx vite ${stage ? `"${stage}" ` : ''}--port ${PORT} --strictPort`,
+    // Копия презентаций для тестов, затем сервер на ней: правки тестов не трогают presentations/.
+    // Код программы (.tmp/app) — заранее: его берут тесты программы (tests/app), если он поменялся
+    command: `node tests/prepare.mjs && node scripts/build.mjs --app && ${server}`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: false,
     timeout: 120_000,

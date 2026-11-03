@@ -4,7 +4,8 @@ import './styles/base.css';
 import './styles/ui.css';
 import './components';
 
-import { decks, fixed } from 'virtual:decks';
+import { DeckMissing, embeddedDeck, fetchDeck, fetchNames, serverLoaders } from './engine/deck-source';
+import { onServer } from './engine/events';
 import { esc } from './engine/html';
 import { loadMath, usesMath } from './components/math/math';
 import { startPresenter } from './engine/presenter';
@@ -17,9 +18,8 @@ initTheme();
 setupSelectMenus();
 
 const params = new URLSearchParams(location.search);
-const names = Object.keys(decks);
-// ?all — страница выбора, даже если презентация одна
-const name = fixed ?? params.get('deck') ?? (names.length === 1 && !params.has('all') ? names[0] : null);
+// Собранный файл: своя презентация из самого HTML. С сервером — та, что в адресе (?deck=…)
+const own = __SERVED__ ? null : embeddedDeck();
 
 function setMeta(deck: Deck): void {
   // Окно показа из студии подписано иначе, чем сама студия: в панели задач их не спутать.
@@ -30,25 +30,50 @@ function setMeta(deck: Deck): void {
   updateFavicon(deck.brand?.logo);
 }
 
-// Открытую презентацию удалили (в другом окне) — к списку презентаций
-import.meta.hot?.on('slideria:deck-removed', (d: { name: string }) => { if (name && d.name === name) location.href = './?all'; });
-
 // Метки времени для замеров (scripts/perf.mjs): от начала загрузки страницы
 const mark = (n: string) => performance.mark(`slideria:${n}`);
 
+/** Данные презентации с сервера; её нет (удалили, опечатка в адресе) — null */
+async function fromServer(name: string): Promise<Deck | null> {
+  try {
+    return await fetchDeck(name);
+  } catch (e) {
+    if (e instanceof DeckMissing) return null;
+    throw e;
+  }
+}
+
+/**
+ * Какую презентацию открыть: собранный файл — свою; с сервером — из адреса (?deck=…), а без него —
+ * единственную, если она одна (?all — всё равно страница выбора). Нечего открыть — страница выбора, null
+ */
+async function choose(): Promise<{ name: string; deck: Deck } | null> {
+  if (own) return { name: own.name, deck: await own.load() };
+  const asked = params.get('deck');
+  const deck = asked ? await fromServer(asked) : null;
+  if (asked && deck) return { name: asked, deck };
+  const names = await fetchNames();
+  if (!asked && names.length === 1 && !params.has('all')) {
+    const only = await fromServer(names[0]);
+    if (only) return { name: names[0], deck: only };
+  }
+  const { showPicker } = await import('./engine/picker');
+  await showPicker(serverLoaders(names), true);
+  mark('picker');
+  return null;
+}
+
 async function boot(): Promise<void> {
   mark('boot');
-  if (!name || !decks[name]) {
-    // Страница выбора есть только в yarn dev: собранный файл всегда открывает свою презентацию
-    if (import.meta.env.DEV) {
-      const { showPicker } = await import('./engine/picker');
-      await showPicker(decks, !fixed);
-      mark('picker');
-    }
-    return;
-  }
-  const deck = await decks[name]();
+  const open = await choose();
+  if (!open) return;
+  const { name, deck } = open;
   mark('deck');
+  if (__SERVED__) {
+    // Открытую презентацию удалили или поправили её файл со стороны (текстовый редактор, git) — заново
+    onServer('deck-removed', (d) => { if (d.name === name) location.href = './?all'; });
+    onServer('deck-changed', (d) => { if (d.name === name) location.reload(); });
+  }
   const err = (deck as unknown as { __error?: string }).__error;
   if (err) {
     document.body.classList.add('picker-page');
@@ -63,8 +88,8 @@ async function boot(): Promise<void> {
   setMeta(deck);
   // Формулы рисуются сразу, без мигания исходником: набор формул — до первой отрисовки
   if (usesMath(deck)) await loadMath().catch(() => null);
-  // Студия (редактор как в PowerPoint) есть только в yarn dev: в собранный файл её код не попадает
-  if (import.meta.env.DEV && !fixed && params.has('studio')) {
+  // Студия (редактор как в PowerPoint) — только с сервером: в собранный файл её код не попадает
+  if (__SERVED__ && params.has('studio')) {
     // Свои темы, шаблоны, эффекты и образы — с диска, до первой отрисовки ленты
     const [{ startStudio }, { loadUserLibrary }] = await Promise.all([import('./studio/studio'), import('./studio/user-library')]);
     await loadUserLibrary();
@@ -75,8 +100,8 @@ async function boot(): Promise<void> {
   }
   // Телефон-пульт по QR из окна показа — тот же режим докладчика (связь через сервер показа)
   if (params.get('view') === 'presenter' || params.has('remote')) startPresenter(deck, name);
-  // В yarn dev правки пишутся в deck.yaml; в собранном файле — в копию HTML
-  else startShow(deck, name, import.meta.env.DEV && !fixed);
+  // С сервером правки пишутся в deck.yaml; в собранном файле — в копию HTML
+  else startShow(deck, name, __SERVED__);
   mark('show');
 }
 

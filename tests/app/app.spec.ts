@@ -163,7 +163,7 @@ test('визуализатор в программе: микрофон и зву
 
 test('собранная программа: изменённый код не запускается', async () => {
   test.skip(!EXE, 'только для собранной программы (SLIDERIA_APP_EXE)');
-  const file = path.join(path.dirname(EXE!), 'resources', 'app.asar.unpacked', 'src', 'main.ts');
+  const file = path.join(path.dirname(EXE!), 'resources', 'app.asar.unpacked', 'app', 'server.mjs');
   const was = fs.readFileSync(file);
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-app-tamper-'));
   const env = { ...process.env, SLIDERIA_DOCS_DIR: path.join(tmp, 'docs'), SLIDERIA_USER_DATA: path.join(tmp, 'data') };
@@ -171,7 +171,7 @@ test('собранная программа: изменённый код не з
     fs.writeFileSync(file, Buffer.concat([was, Buffer.from('\nconsole.log(1);')]));
     const r = spawnSync(EXE!, sandbox, { env, timeout: 60_000, encoding: 'utf8' });
     expect(r.status).toBe(1);
-    expect(fs.readFileSync(path.join(tmp, 'data', 'slideria.log'), 'utf8')).toContain('Код программы изменён, запуск остановлен: src/main.ts');
+    expect(fs.readFileSync(path.join(tmp, 'data', 'slideria.log'), 'utf8')).toContain('Код программы изменён, запуск остановлен: app/server.mjs');
     // Сам Electron в роли Node не запускается: предохранитель выключен
     const node = spawnSync(EXE!, ['-e', 'console.log("node-mode")'], { env: { ...env, ELECTRON_RUN_AS_NODE: '1' }, timeout: 20_000, encoding: 'utf8' });
     expect(node.stdout ?? '').not.toContain('node-mode');

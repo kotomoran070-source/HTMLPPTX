@@ -1,3 +1,4 @@
+import { pageEnv } from './env';
 import { esc } from './html';
 import './import-ui.css';
 
@@ -166,7 +167,7 @@ function warningsHtml(w: string[]): string {
 }
 
 function summary(r: ImportResult): string {
-  const where = `${esc(__DECKS_DIR__)}${esc(r.name)}/deck.yaml`;
+  const where = `${esc(pageEnv().decks)}${esc(r.name)}/deck.yaml`;
   const files = files_(r.newAssets);
   if (r.mode === 'create') {
     const from = r.source === 'design' ? ' из экспорта Claude Design' : r.source === 'html' ? ' из HTML' : r.source === 'live' ? ', живыми слайдами' : '';
@@ -436,7 +437,7 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
         const r = await requestPptx(data, file.name, deck, true, adapt());
         if (my !== seq) return;
         last = r;
-        body.innerHTML = `<p>Будет создана новая презентация <code>${esc(__DECKS_DIR__)}${esc(r.name)}/deck.yaml</code> из PowerPoint: ${r.slides} слайдов.</p>`
+        body.innerHTML = `<p>Будет создана новая презентация <code>${esc(pageEnv().decks)}${esc(r.name)}/deck.yaml</code> из PowerPoint: ${r.slides} слайдов.</p>`
           + '<p class="mu">Каждый слайд — свободный холст: тексты, фигуры, картинки и таблицы стоят на своих местах и правятся в редакторе.</p>'
           + (r.assets ? list('Файлы в assets/', [`картинок: ${r.assets}`]) : '')
           + warningsHtml(r.warnings);

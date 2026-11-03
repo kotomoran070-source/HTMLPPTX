@@ -6,7 +6,11 @@
  *   1. защита от подмены адреса (DNS rebinding) — чужое имя сервера не доходит ни до одного обработчика;
  *   2. пульт с телефона — пересылка сообщений показа; из сети пускает только телефон с пропуском;
  *   3. страница «Лицензии» — только этому компьютеру;
- *   4. команды проекта /__htmlpptx/* — только POST, только этому компьютеру и только со страниц этого же сервера.
+ *   4. данные для страниц /__slideria/decks и /__slideria/deck/<имя> — только чтение (GET); список — только
+ *      этому компьютеру, одну презентацию — и телефону с пропуском (вход для телефона пропускает только ту,
+ *      что в показе: desktop/lan.mjs);
+ *   5. команды проекта /__htmlpptx/* — только POST, только этому компьютеру и только со страниц этого же сервера.
+ * Уведомления страницам (WebSocket) — server/events.ts: их подключает сам сервер, к событию upgrade.
  */
 import fs from 'node:fs';
 import type { AddressInfo } from 'node:net';
@@ -18,6 +22,14 @@ import { electronFiles, licensesPage } from '../plugins/licenses.mjs';
 
 /** Адрес страницы «Лицензии» */
 export const LICENSES = '/__slideria/licenses';
+/**
+ * Песочница скриптов пользователя (src/studio/script-worker.ts): код — только свой и из blob: (сам скрипт),
+ * сеть закрыта — скрипт не отправит данные презентации наружу и не загрузит чужой код
+ */
+export const WORKER_CSP = "default-src 'none'; script-src 'self' blob:; connect-src 'none'";
+/** Данные для страниц: список презентаций и одна презентация (src/engine/deck-source.ts) */
+export const DECKS_URL = '/__slideria/decks';
+export const DECK_URL = '/__slideria/deck/';
 /** Команды проекта */
 export const API = '/__htmlpptx/';
 const MAX_BODY = 60 * 1024 * 1024;
@@ -38,6 +50,11 @@ export interface HttpOptions {
   firewall?: () => Promise<string>;
   /** Куда сообщать об ошибках команд */
   log?: (message: string) => void;
+  /**
+   * Библиотеки, собранные внутрь студии (список пишет сборка студии, scripts/build.mjs --app): у программы
+   * их нет в node_modules, но на странице «Лицензии» они нужны
+   */
+  bundled?: () => { name: string; version: string; license: string; text: string }[];
 }
 
 export function readBody(req: IncomingMessage, max = MAX_BODY): Promise<Buffer> {
@@ -68,7 +85,7 @@ const json = async (req: IncomingMessage) => JSON.parse((await readBody(req)).to
 
 /** Все обработчики сервера одной цепочкой: что не своё — дальше (next) */
 export function createHandler(core: DecksCore, o: HttpOptions = {}): Handler {
-  const chain = [hostGuard(o.allowedHosts ?? (() => [])), relay(core, o), licenses(core), api(core, o)];
+  const chain = [hostGuard(o.allowedHosts ?? (() => [])), relay(core, o), licenses(core, o), data(core), api(core, o)];
   return (req, res, next) => {
     const step = (k: number): void => (k < chain.length ? chain[k](req, res, () => step(k + 1)) : next());
     step(0);
@@ -105,7 +122,7 @@ function relay(core: DecksCore, o: HttpOptions): Handler {
 }
 
 /** Страница «Лицензии» (вкладка «Инструменты», «Справка → Лицензии» в программе): только этому компьютеру */
-function licenses(core: DecksCore): Handler {
+function licenses(core: DecksCore, o: HttpOptions): Handler {
   return (req, res, next) => {
     const u = req.url?.split('?')[0];
     if (u !== LICENSES && u !== LICENSES + '/chromium') return next();
@@ -117,7 +134,30 @@ function licenses(core: DecksCore): Handler {
       return void fs.createReadStream(chromium).pipe(res);
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.end(licensesPage(core.root, LICENSES + '/chromium'));
+    res.end(licensesPage(core.root, LICENSES + '/chromium', o.bundled?.() ?? null));
+  };
+}
+
+/**
+ * Данные для страниц (только чтение). Пути к файлам в данных — адресами этого сервера (как их видит студия);
+ * ошибка в deck.yaml — 422 с текстом ошибки: страница покажет её вместо слайдов
+ */
+function data(core: DecksCore): Handler {
+  return (req, res, next) => {
+    const u = (req.url ?? '').split('?')[0];
+    if (u !== DECKS_URL && !u.startsWith(DECK_URL)) return next();
+    if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, { error: 'Только чтение' });
+    res.setHeader('Cache-Control', 'no-store');
+    if (u === DECKS_URL) {
+      if (!isLocal(req)) return send(res, 403, { error: 'Только с этого компьютера' });
+      return send(res, 200, core.list());
+    }
+    let name = '';
+    try { name = decodeURIComponent(u.slice(DECK_URL.length)); } catch { return send(res, 400, { error: 'Неверное имя' }); }
+    if (!core.has(name)) return send(res, 404, { error: `Презентация «${name}» не найдена` });
+    let deck: unknown;
+    try { deck = core.read(name, { urls: true }); } catch (e) { return send(res, 422, { error: (e as Error).message }); }
+    send(res, 200, deck);
   };
 }
 

@@ -119,6 +119,8 @@ test.describe('вход для телефона в приложении: вид�
   test('показ, движок и файлы нужной презентации — можно', () => {
     expect(ok('/?deck=demo&view=presenter')).toBe(true);
     expect(ok('/src/main.ts')).toBe(true);
+    expect(ok('/assets/index-DoPNeKfK.js')).toBe(true);       // собранная студия программы
+    expect(ok('/__slideria/deck/demo')).toBe(true);            // данные — только той, что в показе
     expect(ok(`/@fs/${decks}/demo/deck.yaml?import`)).toBe(true);
     expect(ok(`/@fs/${encodeURI(decks)}/demo/assets/photo.png`)).toBe(true);
     expect(ok('/__slideria/remote/send?room=abcdefgh', 'POST')).toBe(true);
@@ -132,11 +134,16 @@ test.describe('вход для телефона в приложении: вид�
     expect(ok('/__htmlpptx/save?deck=demo', 'POST')).toBe(false);
     expect(ok('/__htmlpptx/list', 'POST')).toBe(false);
     expect(ok('/__htmlpptx/list')).toBe(false);              // и чтение команд правки — тоже нет
+    expect(ok('/__slideria/deck/secret')).toBe(false);
+    expect(ok('/__slideria/deck/%2e%2e%2fsecret')).toBe(false);
+    expect(ok('/__slideria/decks')).toBe(false);               // список презентаций — только этому компьютеру
+    expect(ok('/__slideria/deck/demo', 'POST')).toBe(false);
     expect(ok('/presentations/lora/deck.yaml')).toBe(false);
     expect(ok('/src/main.ts', 'PUT')).toBe(false);
   });
 
   test('пока презентация не выбрана, её файлы закрыты', () => {
     expect(allowed(req(`/@fs/${decks}/demo/deck.yaml`), decks, '')).toBe(false);
+    expect(allowed(req('/__slideria/deck/demo'), decks, '')).toBe(false);
   });
 });

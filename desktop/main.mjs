@@ -1,8 +1,10 @@
-// Приложение Slideria: окно Electron поверх того же сервера, что и yarn dev.
-// Сервер Vite с плагинами проекта запускается прямо здесь, в главном процессе, — сохранение,
-// ассеты, шрифты, экспорт работают тем же кодом, что в браузере. Отличаются только папки:
+// Приложение Slideria: окно Electron поверх сервера Slideria (server/serve.ts) — без Vite. Студия собрана
+// заранее, сервер — одним файлом (scripts/build.mjs --app); сохранение, файлы, шрифты, экспорт — тем же ядром,
+// что и в yarn dev. Отличаются только папки:
 //   презентации — «Документы/Slideria» (при первом запуске там появляется презентация из шаблона),
-//   библиотека шрифтов и кэш Vite — папка данных приложения (%APPDATA%/Slideria).
+//   библиотека шрифтов и свои темы — папка данных приложения (%APPDATA%/Slideria).
+// Код программы: в установленной — app/ рядом с app.asar; при запуске из проекта (yarn app) — .tmp/app,
+// он собирается перед запуском, если код поменялся.
 // Установленная программа (docs/PROTECTION.md): этот загрузчик — в app.asar, его проверяет сам Electron;
 // сжатый код программы — рядом, в app.asar.unpacked, и перед запуском сверяется с отпечатками из app.asar.
 import { createHash } from 'node:crypto';
@@ -22,14 +24,16 @@ app.setName('Slideria');
 // Автотесты (tests/app) запускают приложение во временных папках, не трогая настоящие
 if (process.env.SLIDERIA_USER_DATA) app.setPath('userData', process.env.SLIDERIA_USER_DATA);
 const APP_DIR = app.getAppPath();
-// Код программы: в установленной — рядом с app.asar (Vite и esbuild читают обычные файлы), из проекта — сам проект
+// Код программы: в установленной — рядом с app.asar (обычными файлами), из проекта — сам проект
 const PACKED = APP_DIR.endsWith('.asar');
 const ROOT = PACKED ? `${APP_DIR}.unpacked` : APP_DIR;
+// Собранная студия и сервер одним файлом (scripts/build.mjs --app)
+const CODE = PACKED ? path.join(ROOT, 'app') : path.join(ROOT, '.tmp', 'app');
 const DATA = app.getPath('userData');
 const DECKS = process.env.SLIDERIA_DOCS_DIR || path.join(app.getPath('documents'), 'Slideria');
 const LOG = path.join(DATA, 'slideria.log');
 
-/** @type {import('vite').ViteDevServer | undefined} */
+/** Сервер Slideria (server/serve.ts): { url, port, close } */
 let server;
 /** @type {BrowserWindow | undefined} */
 let main;
@@ -37,12 +41,12 @@ let origin = '';
 let port = 0;
 // Пульт с телефона: вход в локальной сети открывается, когда в показе нажимают R (desktop/lan.mjs)
 const lan = lanGateway(() => port, DECKS, (...a) => log(...a));
-globalThis.__slideriaLan = (deck) => lan.open(deck);
 /**
- * «Экспорт» (server/core.ts): сборка — отдельным служебным процессом Electron. Запуск самого Electron
- * в роли Node в установленной программе выключен (docs/PROTECTION.md), служебный процесс работает и без него
+ * Сборка (код программы при запуске из проекта, недостающий вариант проигрывателя для «Экспорта») —
+ * отдельным служебным процессом Electron. Запуск самого Electron в роли Node в установленной программе
+ * выключен (docs/PROTECTION.md), служебный процесс работает и без него
  */
-globalThis.__slideriaRun = (script, args, { cwd, env }) => new Promise((resolve) => {
+const runNode = (script, args, { cwd, env }) => new Promise((resolve) => {
   let stderr = '';
   let code = null;
   let left = 2;
@@ -56,7 +60,6 @@ globalThis.__slideriaRun = (script, args, { cwd, env }) => new Promise((resolve)
   } else done();
   child.once('exit', (c) => { code = c; done(); });
 });
-if (process.platform === 'win32') globalThis.__slideriaFirewall = () => allowFirewall((...a) => log(...a));
 
 function log(...a) {
   const line = `[${new Date().toISOString()}] ${a.map(String).join(' ')}\n`;
@@ -112,48 +115,49 @@ function tampered() {
   }).map(([rel]) => rel);
 }
 
-/** Vite — из папки кода программы (не из app.asar): так он и esbuild работают с обычными файлами */
-async function loadVite() {
-  if (!PACKED) return import('vite');
-  const dir = path.join(ROOT, 'node_modules', 'vite');
-  const pj = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
-  const exp = pj.exports?.['.'];
-  const entry = (typeof exp === 'string' ? exp : exp?.import?.default ?? exp?.import ?? exp?.default) || pj.module || pj.main;
-  return import(pathToFileURL(path.join(dir, entry)).href);
+/**
+ * Запуск из проекта (yarn app): студия и сервер собираются заново, если код поменялся (scripts/build.mjs --app;
+ * не поменялся — доли секунды). Установленная программа везёт их готовыми
+ */
+async function ensureCode() {
+  if (PACKED) return;
+  const t0 = Date.now();
+  const r = await runNode(path.join(ROOT, 'scripts', 'build.mjs'), ['--app', `--out=${CODE}`], { cwd: ROOT, env: { ...process.env } });
+  if (r.code) throw new Error(`Код программы не собрался: ${r.stderr.trim().split('\n').slice(-3).join(' ')}`);
+  log('Код программы проверен:', `${Date.now() - t0} мс`);
 }
 
 async function startServer() {
-  Object.assign(process.env, {
-    SLIDERIA_APP: '1',
-    SLIDERIA_DECKS: DECKS,
-    SLIDERIA_DECKS_LABEL: 'Документы/Slideria/',
-    SLIDERIA_FONTS: path.join(DATA, 'fonts'),
-    SLIDERIA_LIBRARY: path.join(DATA, 'library'),
-    SLIDERIA_CACHE: path.join(DATA, 'vite-cache'),
-    // package.json и штамп сборки — в app.asar, а не рядом с кодом (страница лицензий).
-    // Проигрыватель для экспорта собран с программой (player/); вариант, которого там нет, собирается
-    // к данным программы: её папка может быть только для чтения (server/player.ts)
-    ...(PACKED ? {
+  // package.json и штамп сборки — в app.asar, а не рядом с кодом (страница лицензий)
+  if (PACKED) {
+    Object.assign(process.env, {
       SLIDERIA_PACKAGE: path.join(APP_DIR, 'package.json'),
       SLIDERIA_BUILD_STAMP: path.join(APP_DIR, 'desktop', 'build.json'),
-      SLIDERIA_PLAYER_CACHE: path.join(DATA, 'player'),
-    } : {}),
-  });
-  // Плагины и сборка считают пути от корня проекта
+    });
+  }
+  // Ядро считает пути сообщений от текущей папки
   process.chdir(ROOT);
-  const { createServer } = await loadVite();
-  server = await createServer({
-    configFile: path.join(ROOT, 'vite.config.ts'),
-    // Без временного файла рядом с конфигом: папка программы может быть только для чтения
-    configLoader: 'runner',
+  const { startServer: start } = await import(pathToFileURL(path.join(CODE, 'server.mjs')).href);
+  server = await start({
+    dir: DECKS,
     root: ROOT,
-    clearScreen: false,
-    server: { port: 47320, strictPort: false },
+    studio: path.join(CODE, 'studio'),
+    fonts: path.join(DATA, 'fonts'),
+    library: path.join(DATA, 'library'),
+    // Проигрыватель для экспорта собран с программой (player/); вариант, которого там нет, собирается
+    // к данным программы: её папка может быть только для чтения (server/player.ts)
+    ...(PACKED ? { playerCache: path.join(DATA, 'player') } : {}),
+    // Окно приложения — единственный клиент: сервер слушает только этот компьютер
+    host: '127.0.0.1',
+    port: 47320,
+    env: { app: true, decks: 'Документы/Slideria/' },
+    lan: (deck) => lan.open(deck),
+    ...(process.platform === 'win32' ? { firewall: () => allowFirewall((...a) => log(...a)) } : {}),
+    run: runNode,
+    log: (m) => log(m),
   });
-  await server.listen();
-  const a = server.httpServer?.address();
-  port = a && typeof a === 'object' ? a.port : 47320;
-  origin = `http://127.0.0.1:${port}`;
+  port = server.port;
+  origin = server.url;
   log('Сервер:', origin);
 }
 
@@ -461,6 +465,7 @@ app.whenReady().then(async () => {
   main = createWindow();
   try {
     ensureDecks();
+    await ensureCode();
     await startServer();
     await main?.loadURL(origin + '/?all');
   } catch (e) {

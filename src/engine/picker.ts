@@ -2,6 +2,8 @@ import { icon } from '../components/icons';
 import type { Deck } from '../types';
 import { accentTail, accentTokens, applyAccent, DEFAULT_ACCENT, HEX_RE, slideAccent } from './accent';
 import { brandMark, updateFavicon } from './brand';
+import { pageEnv } from './env';
+import { onServer } from './events';
 import { staticSlide } from './deck-view';
 import { esc } from './html';
 import { currentTheme, toggleTheme } from './theme';
@@ -50,7 +52,7 @@ async function remove(name: string, item: HTMLElement): Promise<void> {
   box.innerHTML = `<div class="imp pk-confirm" role="alertdialog" aria-modal="true" aria-labelledby="del-h" aria-describedby="del-d">
     <div class="pk-confirm-head"><span class="pk-confirm-icon">${icon('trash')}</span><h2 id="del-h">Удалить презентацию?</h2></div>
     <div class="pk-confirm-deck"><div class="pk-confirm-thumb"></div><div><b>${esc(title)}</b><span><code>${esc(name)}</code>${meta ? ` · ${esc(meta)}` : ''}</span></div></div>
-    <p class="pk-confirm-note" id="del-d">Папка переместится в <code>${esc(__DECKS_DIR__)}.trash/</code>. Передумаете — перенесите её обратно в <code>${esc(__DECKS_DIR__)}</code>.</p>
+    <p class="pk-confirm-note" id="del-d">Папка переместится в <code>${esc(pageEnv().decks)}.trash/</code>. Передумаете — перенесите её обратно в <code>${esc(pageEnv().decks)}</code>.</p>
     <div class="imp-actions"><button type="button" class="btn pk-neutral" data-a="cancel">Отмена</button><button type="button" class="btn pk-danger" data-a="ok">${icon('trash')}Удалить</button></div>
   </div>`;
   // Миниатюра первого слайда — та же, что на карточке
@@ -91,7 +93,7 @@ async function remove(name: string, item: HTMLElement): Promise<void> {
 
 /** Строка под заголовком: сколько презентаций и где они */
 const heroText = (n: number) => (n
-  ? `${n} ${plural(n, 'презентация', 'презентации', 'презентаций')} в папке <code>${esc(__DECKS_DIR__)}</code>. Откройте, чтобы показать или править.`
+  ? `${n} ${plural(n, 'презентация', 'презентации', 'презентаций')} в папке <code>${esc(pageEnv().decks)}</code>. Откройте, чтобы показать или править.`
   : 'Пока ни одной. Создайте новую или импортируйте HTML.');
 
 /** Карточка удалённой презентации — плавно убирается, число в заголовке — меньше */
@@ -201,7 +203,7 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
       <span>Пустая — с титульного слайда, или с примерами слайдов для старта.</span>
     </button>` : ''}
   </div>
-  <footer class="pk-foot">${__APP__
+  <footer class="pk-foot">${pageEnv().app
     // Приложение: без команд терминала и путей проекта — что можно сделать прямо здесь
     ? `<span>${icon('sparkle')} Импорт понимает PowerPoint (.pptx), презентации из Claude Design и из чата с Claude, а также свой HTML, где каждый слайд — <code>&lt;section class="slide"&gt;</code></span>
     <span>${icon('upload')} Готовую презентацию отправляйте одним HTML-файлом: «Экспорт» в редакторе. Откроется на любом компьютере без программы и интернета</span>${appBuild()}`
@@ -227,7 +229,9 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
   });
 
   // Удалили в другом окне (или из студии): карточка уходит и здесь, без перезагрузки
-  import.meta.hot?.on('slideria:deck-removed', (d: { name: string }) => dropCard(d.name));
+  onServer('deck-removed', (d) => dropCard(d.name));
+  // Папку презентации положили или убрали руками — список заново
+  onServer('decks', () => location.reload());
 
   const newBtn = document.getElementById('pk-new');
   if (newBtn) newBtn.onclick = () => void create();
@@ -242,7 +246,10 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
     document.getElementById('pk-import')!.onclick = ui.pick;
   }
 
-  // Данные презентаций: название, число слайдов, миниатюра первого слайда
+  // Данные презентаций: название, число слайдов, миниатюра первого слайда.
+  // Ушли со страницы, пока миниатюры догружались, — оборванные запросы не ошибка
+  let leaving = false;
+  addEventListener('beforeunload', () => { leaving = true; });
   const loaded = new Map<string, Deck>();
   const times = dev ? await mtimes() : {};
   const fill = async (card: HTMLElement) => {
@@ -276,7 +283,7 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
         if (own && sl && !sl.hasAttribute('data-accent')) sl.setAttribute('data-accent', own);
       }
     } catch (e) {
-      console.error(e);
+      if (!leaving) console.error(e);
     }
   };
   // Миниатюры строятся по мере прокрутки: презентаций может быть много

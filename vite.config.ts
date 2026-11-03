@@ -4,30 +4,34 @@ import { decksPlugin } from './plugins/decks';
 import { frameHostPlugin } from './plugins/frame-host';
 import { licenseNotice } from './plugins/licenses.mjs';
 
-// PLAYER=1 — сборка готового проигрывателя для экспорта (scripts/build.mjs --player, server/player.ts):
-// одна страница на все презентации, данные вкладывает экспорт. CLEAN, PLAYER_MODEL, PLAYER_MATH — вариант
+// Три режима:
+//   yarn dev       — исходники страниц и сервер Slideria внутри Vite (plugins/decks.ts);
+//   PLAYER=1       — готовый проигрыватель для экспорта (scripts/build.mjs --player, server/player.ts): один
+//                    HTML-файл, данные вкладывает экспорт. CLEAN, PLAYER_MODEL, PLAYER_MATH — вариант;
+//   STUDIO=1       — студия для программы без Vite (scripts/build.mjs --app, server/serve.ts): обычные файлы
+//                    с отпечатком в имени, части студии грузятся по мере надобности; список библиотек внутри —
+//                    в STUDIO_LICENSES (страница «Лицензии» программы)
 const player = process.env.PLAYER === '1';
-// Приложение Slideria (desktop/main.mjs) держит презентации в «Документы/Slideria», а кэш — у себя
+const studio = process.env.STUDIO === '1';
 const decksDir = process.env.SLIDERIA_DECKS || 'presentations';
-const app = process.env.SLIDERIA_APP === '1';
 
 export default defineConfig(({ command }) => ({
   plugins: [
-    decksPlugin({ dir: decksDir, player, fonts: process.env.SLIDERIA_FONTS, library: process.env.SLIDERIA_LIBRARY }),
+    decksPlugin({ dir: decksDir, fonts: process.env.SLIDERIA_FONTS, library: process.env.SLIDERIA_LIBRARY }),
     frameHostPlugin(),
+    ...(command === 'build' && !studio ? [viteSingleFile({ removeViteModuleLoader: true })] : []),
     // Список библиотек варианта — рядом с ним (PLAYER_MANIFEST): блок лицензий вставляет экспорт
-    ...(command === 'build' ? [viteSingleFile({ removeViteModuleLoader: true }), ...licenseNotice(process.cwd(), { manifest: process.env.PLAYER_MANIFEST || undefined })] : []),
+    ...(command === 'build' ? licenseNotice(process.cwd(), { manifest: (studio ? process.env.STUDIO_LICENSES : process.env.PLAYER_MANIFEST) || undefined }) : []),
   ],
-  // Сборка «для показа» (yarn build --clean): режим правки не попадает в файл
   define: {
+    // Сборка «для показа» (yarn build --clean): режим правки не попадает в файл
     __EDITABLE__: JSON.stringify(process.env.CLEAN !== '1'),
     // Библиотека 3D (≈1 МБ) попадает в файл, только если в презентации есть модель (вариант проигрывателя)
     __HAS_MODEL__: JSON.stringify(!player || process.env.PLAYER_MODEL === '1'),
     // Набор формул (Temml со шрифтами, ≈350 КБ) — только если в презентации есть формулы (вариант проигрывателя)
     __HAS_MATH__: JSON.stringify(!player || process.env.PLAYER_MATH === '1'),
-    // Как называть папку с презентациями в подсказках
-    __DECKS_DIR__: JSON.stringify(process.env.SLIDERIA_DECKS_LABEL || 'presentations/'),
-    __APP__: JSON.stringify(app),
+    // Страница с сервером Slideria (студия, страница выбора, запись в deck.yaml) — всё, кроме проигрывателя
+    __SERVED__: JSON.stringify(!player),
   },
   // Документы «живых» вставок (компонент embed) — обычные файлы-ассеты
   assetsInclude: ['**/*.htm', '**/*.glb', '**/*.wad', '**/*.cube'],
@@ -36,24 +40,30 @@ export default defineConfig(({ command }) => ({
   optimizeDeps: {
     include: ['pptxgenjs', 'html-to-image', 'jszip', 'yaml', 'codemirror', '@codemirror/lang-yaml', '@codemirror/lang-css', '@codemirror/lang-html', '@codemirror/theme-one-dark'],
   },
-  ...(process.env.SLIDERIA_CACHE ? { cacheDir: process.env.SLIDERIA_CACHE } : {}),
-  server: app
-    ? {
-      // Окно приложения — единственный клиент: сервер слушает только этот компьютер,
-      // а файлы презентаций и шрифтов лежат вне папки программы
-      open: false,
-      host: '127.0.0.1',
-      fs: { allow: ['.', decksDir, ...(process.env.SLIDERIA_FONTS ? [process.env.SLIDERIA_FONTS] : [])] },
-    }
-    : { open: true },
-  build: {
-    outDir: process.env.OUT_DIR || 'dist/.build',
-    emptyOutDir: true,
-    // Всё внутрь HTML: картинки, шрифты, видео — файл открывается без интернета.
-    // В yarn dev картинки остаются файлами: режим правки сохраняет их пути в deck.yaml
-    assetsInlineLimit: command === 'build' ? () => true : 0,
-    cssCodeSplit: false,
-    reportCompressedSize: false,
-    chunkSizeWarningLimit: 4096,
+  server: {
+    open: true,
+    // Сборки и временные файлы (код программы .tmp/app, тестовые копии, установщик) — не повод перезагружать страницы
+    watch: { ignored: ['**/.tmp/**', '**/dist/**', '**/dist-app/**'] },
+    // Презентации и библиотека шрифтов могут лежать вне папки проекта
+    fs: { allow: ['.', decksDir, ...(process.env.SLIDERIA_FONTS ? [process.env.SLIDERIA_FONTS] : [])] },
   },
+  // Песочница скриптов (src/studio/script-worker.ts) загружает скрипт пользователя как модуль
+  worker: { format: 'es' },
+  build: studio
+    ? {
+      outDir: process.env.OUT_DIR || 'dist/.studio',
+      emptyOutDir: true,
+      target: 'es2022',
+      reportCompressedSize: false,
+      chunkSizeWarningLimit: 4096,
+    }
+    : {
+      outDir: process.env.OUT_DIR || 'dist/.build',
+      emptyOutDir: true,
+      // Всё внутрь HTML: картинки, шрифты, видео — файл открывается без интернета
+      assetsInlineLimit: command === 'build' ? () => true : 0,
+      cssCodeSplit: false,
+      reportCompressedSize: false,
+      chunkSizeWarningLimit: 4096,
+    },
 }));

@@ -7,6 +7,7 @@ import { icon } from '../components/icons';
 import { replaceContents } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
 import { readCheckpoint } from '../engine/editor/persist';
+import { onServer } from '../engine/events';
 import { merge3 } from '../engine/merge3';
 import type { Change } from '../engine/ops';
 import type { Deck } from '../types';
@@ -238,8 +239,9 @@ export function startIntegrations(h: IntegrationsHost) {
   }
 
   // Сервер сообщает: агент подключился, замолчал или правил; агент или скрипт записал правку
-  import.meta.hot?.on('slideria:agents', (list: AgentInfo[]) => { agents = list; paintMini(); panel?.update(ctx, 'agents'); });
-  import.meta.hot?.on('slideria:journal', (e: JournalEntry) => {
+  onServer('agents', (list) => { agents = list as AgentInfo[]; paintMini(); panel?.update(ctx, 'agents'); });
+  onServer('journal', (x) => {
+    const e = x as JournalEntry;
     if (e.deck !== h.deckKey) return;
     if (e.by.kind === 'agent') {
       todayChanges += e.changes.length;
