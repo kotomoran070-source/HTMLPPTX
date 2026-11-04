@@ -402,6 +402,12 @@ body.studio { background: var(--alt); }
 .st-lib-item { display: flex; flex-direction: column; gap: 3px; padding: 3px 3px 5px; border: 1px solid transparent; border-radius: 9px; background: none; cursor: pointer; text-align: left; transition: border-color .12s, background .12s; }
 .st-lib-item:hover, .st-lib-item:focus-visible { border-color: var(--acb); background: var(--acs); outline: none; }
 .st-lib-prev { position: relative; width: 136px; max-width: 100%; height: 76px; margin: 0 auto; overflow: hidden; border-radius: 6px; background: var(--bg); border: 1px solid var(--bd); pointer-events: none; }
+/* Превью за краем галереи (разделы листаются вбок, панель — вниз) браузер не раскладывает, пока их не видно:
+   галерея блоков открывается без раскладки сотни мини-слайдов разом (library.ts, preview) */
+.st-lib .st-lib-prev { content-visibility: auto; contain-intrinsic-size: 136px 76px; }
+.st-lib-prev .thumb-stage { transition: opacity .15s ease-out; }
+.st-lib-prev .thumb-stage.st-lib-wait { opacity: 0; transition: none; }
+@media (prefers-reduced-motion: reduce) { .st-lib-prev .thumb-stage { transition: none; } }
 .st-lib-prev .thumb-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; background: none; }
 .st-lib-prev .slide { padding: 0; background: none !important; }
 .st-peek { position: fixed; z-index: 41; width: max-content; padding: 8px; border-radius: 14px; background: var(--surf); border: 1px solid var(--bd); box-shadow: 0 24px 60px -18px rgba(15, 23, 42, .35); pointer-events: none;

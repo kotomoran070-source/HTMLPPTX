@@ -98,3 +98,7 @@ body.picker-page {
   .pk-grid { grid-template-columns: 1fr; }
 }
 .pk-foot .pk-build { margin-top: 6px; font-size: 12px; opacity: .8; }
+/* Миниатюра проявляется, а не выпрыгивает; заготовка под ней — тот же фон */
+.pk-thumb > .pk-in { animation: pk-in .22s ease-out both; }
+@keyframes pk-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .pk-thumb > .pk-in { animation: none; } }

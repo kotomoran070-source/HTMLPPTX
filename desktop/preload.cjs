@@ -15,4 +15,6 @@ contextBridge.exposeInMainWorld('slideriaApp', {
   onSaved: (cb) => ipcRenderer.on('slideria:saved', (_e, info) => cb(info)),
   /** Открыть папку скриптов в Проводнике или Finder (другие пути программа не откроет) */
   openPath: (p) => ipcRenderer.invoke('slideria:open-path', p),
+  /** Страница нарисована (src/engine/boot.ts): программа убирает заставку */
+  ready: () => ipcRenderer.send('slideria:ready'),
 });

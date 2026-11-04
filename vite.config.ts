@@ -15,10 +15,15 @@ const player = process.env.PLAYER === '1';
 const studio = process.env.STUDIO === '1';
 const decksDir = process.env.SLIDERIA_DECKS || 'presentations';
 
+/** Каркас страницы и плавная смена страниц (index.html, src/engine/boot.ts) — только страницам с сервером */
+const noBoot = { name: 'slideria-no-boot', transformIndexHtml: { order: 'pre' as const, handler: (html: string) => html.replace(/<!--slideria-boot-->[\s\S]*?<!--\/slideria-boot-->\n?/g, '') } };
+
 export default defineConfig(({ command }) => ({
   plugins: [
     decksPlugin({ dir: decksDir, fonts: process.env.SLIDERIA_FONTS, library: process.env.SLIDERIA_LIBRARY }),
     frameHostPlugin(),
+    // Собранный файл презентации открывается сам по себе: каркас и смена страниц ему не нужны
+    ...(player ? [noBoot] : []),
     ...(command === 'build' && !studio ? [viteSingleFile({ removeViteModuleLoader: true })] : []),
     // Список библиотек варианта — рядом с ним (PLAYER_MANIFEST): блок лицензий вставляет экспорт
     ...(command === 'build' ? licenseNotice(process.cwd(), { manifest: (studio ? process.env.STUDIO_LICENSES : process.env.PLAYER_MANIFEST) || undefined }) : []),
@@ -54,6 +59,8 @@ export default defineConfig(({ command }) => ({
       outDir: process.env.OUT_DIR || 'dist/.studio',
       emptyOutDir: true,
       target: 'es2022',
+      // Какие файлы у частей студии: сервер подсказывает их браузеру заранее (server/serve.ts)
+      manifest: true,
       reportCompressedSize: false,
       chunkSizeWarningLimit: 4096,
     }

@@ -4,7 +4,8 @@ import './styles/base.css';
 import './styles/ui.css';
 import './components';
 
-import { DeckMissing, embeddedDeck, fetchDeck, fetchNames, loadedRev, serverLoaders } from './engine/deck-source';
+import { bootDone } from './engine/boot';
+import { DeckMissing, embeddedDeck, fetchDeck, fetchList, loadedRev, serverLoaders } from './engine/deck-source';
 import { onServer } from './engine/events';
 import { esc } from './engine/html';
 import { loadMath, usesMath } from './components/math/math';
@@ -52,13 +53,14 @@ async function choose(): Promise<{ name: string; deck: Deck } | null> {
   const asked = params.get('deck');
   const deck = asked ? await fromServer(asked) : null;
   if (asked && deck) return { name: asked, deck };
-  const names = await fetchNames();
+  const list = await fetchList();
+  const names = list.map((d) => d.name);
   if (!asked && names.length === 1 && !params.has('all')) {
     const only = await fromServer(names[0]);
     if (only) return { name: names[0], deck: only };
   }
   const { showPicker } = await import('./engine/picker');
-  await showPicker(serverLoaders(names), true);
+  await showPicker(serverLoaders(names), true, list);
   mark('picker');
   return null;
 }
@@ -66,7 +68,7 @@ async function choose(): Promise<{ name: string; deck: Deck } | null> {
 async function boot(): Promise<void> {
   mark('boot');
   const open = await choose();
-  if (!open) return;
+  if (!open) return bootDone();
   const { name, deck } = open;
   mark('deck');
   if (__SERVED__) {
@@ -80,11 +82,11 @@ async function boot(): Promise<void> {
     document.body.classList.add('picker-page');
     document.body.innerHTML = `<div class="picker"><h1>Ошибка в данных презентации</h1><pre class="yaml-error">${esc(err)}</pre>`
       + `<p class="mu">Исправьте файл и сохраните — страница обновится сама.</p></div>`;
-    return;
+    return bootDone();
   }
   if (!deck?.slides?.length) {
     document.body.innerHTML = `<div class="picker"><h1>${esc(name)}</h1><p>В deck.yaml нет слайдов (список slides пуст).</p></div>`;
-    return;
+    return bootDone();
   }
   setMeta(deck);
   // Формулы рисуются сразу, без мигания исходником: набор формул — до первой отрисовки
@@ -97,16 +99,18 @@ async function boot(): Promise<void> {
     mark('studio-code');
     startStudio(deck, name);
     mark('studio');
-    return;
+    return bootDone();
   }
   // Телефон-пульт по QR из окна показа — тот же режим докладчика (связь через сервер показа)
   if (params.get('view') === 'presenter' || params.has('remote')) startPresenter(deck, name);
   // С сервером правки пишутся в deck.yaml; в собранном файле — в копию HTML
   else startShow(deck, name, __SERVED__);
   mark('show');
+  bootDone();
 }
 
 boot().catch((e) => {
   console.error(e);
+  bootDone();
   document.body.innerHTML = `<div class="picker"><h1>Не удалось открыть презентацию</h1><pre>${esc(e?.message ?? e)}</pre></div>`;
 });

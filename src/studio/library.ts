@@ -1079,6 +1079,13 @@ const PREVIEW_H = 76;
 const PAD = 6;
 
 /** Миниатюра блока: рендер настоящим движком в отдельной сцене, вписанный в карточку по центру. */
+/**
+ * Размеры блоков в превью: блок, измеренный однажды, при следующем открытии галереи сразу на месте. По теме
+ * презентации (шрифты и отступы меняют размер блока)
+ */
+const sizes = new WeakMap<Preset, Map<string, [number, number]>>();
+const themeKey = (deck: Deck) => `${JSON.stringify(deck.theme ?? null)}|${deck.brand?.logo ?? ''}`;
+
 function preview(deck: Deck, p: Preset): HTMLElement {
   const box = document.createElement('div');
   box.className = 'st-lib-prev';
@@ -1091,14 +1098,38 @@ function preview(deck: Deck, p: Preset): HTMLElement {
   inner.style.height = `${H}px`;
   inner.innerHTML = new Renderer(tmp, deck.brand?.logo).slide(tmp.slides[0], 0, 'on static');
   box.appendChild(inner);
-  // Масштаб по настоящему размеру блока — после вставки в документ
-  requestAnimationFrame(() => {
-    const el = inner.querySelector<HTMLElement>('.free');
-    const w = el?.offsetWidth || w0;
-    const h = el?.offsetHeight || p.h || 200;
+  const tk = themeKey(deck);
+  const place = ([w, h]: [number, number]) => {
     const k = Math.min((PREVIEW_W - PAD * 2) / w, (PREVIEW_H - PAD * 2) / h, 0.6);
     inner.style.transform = `translate(${(PREVIEW_W - w * k) / 2}px, ${(PREVIEW_H - h * k) / 2}px) scale(${k})`;
-  });
+  };
+  const known = sizes.get(p)?.get(tk);
+  if (known) {
+    place(known);
+    return box;
+  }
+  // Масштаб по настоящему размеру блока — когда превью впервые на виду: плитки за краем галереи браузер не
+  // раскладывает (content-visibility в studio.css), галерея открывается без раскладки сотни блоков сразу
+  // До замера блок не виден (иначе мелькнул бы в полный размер), после — проявляется
+  inner.classList.add('st-lib-wait');
+  const measure = () => {
+    const el = inner.querySelector<HTMLElement>('.free');
+    const size: [number, number] = [el?.offsetWidth || w0, el?.offsetHeight || p.h || 200];
+    if (!sizes.has(p)) sizes.set(p, new Map());
+    sizes.get(p)!.set(tk, size);
+    place(size);
+    inner.classList.remove('st-lib-wait');
+  };
+  if ('oncontentvisibilityautostatechange' in box) {
+    const on = (e: Event) => {
+      if ((e as Event & { skipped?: boolean }).skipped) return;
+      box.removeEventListener('contentvisibilityautostatechange', on);
+      measure();
+    };
+    box.addEventListener('contentvisibilityautostatechange', on);
+  } else {
+    requestAnimationFrame(measure);
+  }
   return box;
 }
 

@@ -1008,6 +1008,17 @@ const STILL_DOTS: Partial<Record<BackdropKind, number>> = { particles: 2, stars:
 const STILL_AT: Partial<Record<BackdropKind, number>> = {};
 
 /**
+ * Кадры фонов этих слайдов — в запас (кэш stills), сразу и целиком: подготовка галереи тем в простое студии
+ * (design-tab.ts, themeWarmTasks). root должен быть в документе: цвета кадра — из его стилей
+ */
+export function warmStills(root: HTMLElement): void {
+  for (const el of root.querySelectorAll<HTMLElement>('.backdrop:not(.bd-live)')) {
+    const kind = BACKDROPS.find(([k]) => el.classList.contains(`bd-${k}`))?.[0];
+    if (kind) backdropStill(kind, el, 240, 135);
+  }
+}
+
+/**
  * Статичные слайды (миниатюры в студии, плитки тем): фон — кадром настоящей сцены вместо CSS.
  * Кадры рисуются по нескольку за кадр экрана и запоминаются; без WebGL остаётся CSS
  */

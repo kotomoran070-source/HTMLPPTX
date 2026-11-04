@@ -7,8 +7,92 @@
 <!-- Иконка вкладки ставится скриптом (логотип презентации); до этого — пустая, чтобы браузер не просил /favicon.ico -->
 <link rel="icon" href="data:,">
 <title>Презентация</title>
+<!--slideria-boot-->
+<style>
+/*
+ * Каркас страницы (src/engine/boot.ts): с первого кадра, пока строится настоящая страница, — её очертания
+ * в цветах темы и с размерами панелей, которые запомнила студия. Страница готова — каркас растворяется.
+ * Цвета — те же, что в src/styles/tokens.css
+ */
+#boot { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; color-scheme: light; --b-bg: #F8FAFC; --b-surf: #FDFEFF; --b-alt: #F3F4F6; --b-bd: #E5E7EB; --b-ph: #EAEDF2; background: var(--b-alt); transition: opacity .22s ease-out; }
+#boot.dark { color-scheme: dark; --b-bg: #0F172A; --b-surf: #162033; --b-alt: #0B1220; --b-bd: #263449; --b-ph: #1F2B40; }
+#boot.out { opacity: 0; }
+#boot i { display: block; background: var(--b-ph); border-radius: 6px; }
+#boot.b-studio { display: grid; grid-template-rows: 48px var(--rh, 113px) minmax(0, 1fr) 30px; }
+.b-top, .b-rib, .b-foot { background: var(--b-surf); border-bottom: 1px solid var(--b-bd); }
+.b-top { display: flex; align-items: center; gap: 14px; padding: 0 12px; }
+.b-top .b-logo { width: 32px; height: 32px; border-radius: 9px; }
+.b-tabs { display: flex; gap: 26px; margin-left: 30px; }
+.b-tabs i { width: 58px; height: 11px; }
+.b-r { margin-left: auto; display: flex; gap: 10px; }
+.b-r i { width: 30px; height: 30px; border-radius: 8px; }
+.b-r i.b-btn { width: 84px; }
+.b-rib { display: flex; gap: 18px; padding: 14px 12px; }
+.b-rib i { width: 120px; height: 72px; border-radius: 8px; opacity: .55; }
+.b-body { display: grid; grid-template-columns: var(--lw, 212px) minmax(0, 1fr) var(--rw, 292px); min-height: 0; }
+.b-left { background: var(--b-surf); border-right: 1px solid var(--b-bd); padding: 12px 10px 0 26px; overflow: hidden; }
+.b-left i { aspect-ratio: 16 / 9; margin-bottom: 16px; border-radius: 6px; }
+.b-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.b-canvas { flex: 1; min-height: 0; container-type: size; display: grid; place-items: center; }
+#boot .b-slide { width: min(calc(100cqw - 80px), calc((100cqh - 80px) * 16 / 9)); aspect-ratio: 16 / 9; background: var(--b-bg); border: 1px solid var(--b-bd); border-radius: 4px; box-shadow: 0 8px 24px rgba(15, 23, 42, .08); }
+.b-notes { height: var(--nh, 128px); background: var(--b-surf); border-top: 1px solid var(--b-bd); }
+.b-right { background: var(--b-surf); border-left: 1px solid var(--b-bd); padding: 22px 16px; }
+.b-right i { height: 12px; margin-bottom: 16px; }
+.b-foot { border-bottom: 0; border-top: 1px solid var(--b-bd); }
+#boot.b-picker { background: radial-gradient(var(--b-bd) 1px, transparent 1px) 0 0 / 26px 26px, var(--b-bg); }
+.b-pk { max-width: 1180px; margin: 0 auto; padding: 28px 32px; }
+.b-pk .b-mark { width: 34px; height: 34px; border-radius: 10px; }
+.b-pk .b-h1 { width: 320px; height: 44px; margin: 50px 0 14px; border-radius: 10px; }
+.b-pk .b-p { width: 460px; height: 14px; margin-bottom: 36px; }
+.b-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 22px; }
+.b-grid i { aspect-ratio: 16 / 13; border-radius: 16px; background: var(--b-surf); border: 1px solid var(--b-bd); }
+#boot.b-show { background: var(--b-alt); }
+</style>
+<!--/slideria-boot-->
 </head>
 <body>
+<!--slideria-boot-->
+<script>
+// Каркас страницы — до первого кадра (подробно — src/engine/boot.ts). Собранный файл презентации (у него
+// <meta name="slideria-deck">) и страницы без сервера каркас не рисуют
+(function () {
+  var html = document.documentElement;
+  var q = new URLSearchParams(location.search);
+  if (document.querySelector('meta[name="slideria-deck"]') || location.protocol === 'file:') return;
+  var get = function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  // Выбранная тема — сразу, а не после загрузки кода: иначе первый кадр был бы в теме системы
+  var t = get('htmlpptx-theme');
+  if (t === 'light' || t === 'dark') html.setAttribute('data-theme', t);
+  var dark = t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  var mode = q.has('studio') ? 'studio' : (!q.get('deck') || q.has('all')) ? 'picker' : 'show';
+  var el = document.createElement('div');
+  el.id = 'boot';
+  el.className = 'b-' + mode + (dark ? ' dark' : '');
+  el.setAttribute('aria-hidden', 'true');
+  var n = function (k, c) { var s = ''; for (var i = 0; i < c; i++) s += '<i></i>'; return '<div class="' + k + '">' + s + '</div>'; };
+  if (mode === 'studio') {
+    var lay = {};
+    try { lay = JSON.parse(get('htmlpptx-studio-layout') || '{}') || {}; } catch (e) { /* раскладки ещё нет */ }
+    var px = function (v, d, lo, hi) { v = Number(v); return Math.round(Math.max(lo, Math.min(hi, v > 0 ? v : d))) + 'px'; };
+    el.style.setProperty('--lw', lay.left === false ? '0px' : px(lay.lw, 212, 120, 380));
+    el.style.setProperty('--rw', lay.right === false ? '0px' : px(lay.rw, 292, 220, 520));
+    el.style.setProperty('--nh', get('htmlpptx-studio-notes') === '0' ? '0px' : px(lay.nh, 128, 64, 420));
+    if (lay.ribbon === false) el.style.setProperty('--rh', '0px');
+    el.innerHTML = '<div class="b-top"><i class="b-logo"></i><i style="width:150px;height:12px"></i><span class="b-tabs"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="b-r"><i></i><i></i><i class="b-btn"></i></span></div>'
+      + (lay.ribbon === false ? '<div></div>' : n('b-rib', 8))
+      + '<div class="b-body">' + (lay.left === false ? '<div></div>' : n('b-left', 9))
+      + '<div class="b-main"><div class="b-canvas"><i class="b-slide"></i></div><div class="b-notes"></div></div>'
+      + (lay.right === false ? '<div></div>' : '<div class="b-right"><i style="width:40%"></i><i style="width:70%;height:18px"></i><i></i><i style="width:85%"></i><i></i><i style="width:60%"></i></div>') + '</div>'
+      + '<div class="b-foot"></div>';
+  } else if (mode === 'picker') {
+    el.innerHTML = '<div class="b-pk"><i class="b-mark"></i><i class="b-h1"></i><i class="b-p"></i>' + n('b-grid', 3) + '</div>';
+  }
+  html.appendChild(el);
+  // Страница так и не сказала «готова» (ошибка до неё) — каркас всё равно уходит
+  setTimeout(function () { if (el.isConnected) { el.classList.add('out'); setTimeout(function () { el.remove(); }, 300); } }, 8000);
+})();
+</script>
+<!--/slideria-boot-->
 <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { app, BrowserWindow, Menu, desktopCapturer, dialog, ipcMain, nativeTheme, screen, session, shell, utilityProcess } from 'electron';
+import { app, BrowserWindow, Menu, WebContentsView, desktopCapturer, dialog, ipcMain, nativeTheme, screen, session, shell, utilityProcess } from 'electron';
 import { FIX_FLAG, allowFirewall, runFirewallFix } from './firewall.mjs';
 import { lanGateway } from './lan.mjs';
 
@@ -186,11 +186,25 @@ const PRELOAD = path.join(APP_DIR, 'desktop', 'preload.cjs');
 const WEB = { contextIsolation: true, sandbox: true, nodeIntegration: false, preload: PRELOAD, autoplayPolicy: 'no-user-gesture-required' };
 
 // Тема Slideria → заголовок окна Windows (тёмный или светлый). Цвет заголовка рисует система,
-// поэтому точного цвета темы здесь нет — только светлый или тёмный вариант
+// поэтому точного цвета темы здесь нет — только светлый или тёмный вариант. Выбор запоминается:
+// при следующем запуске заставка и фон окна сразу в этой теме, без вспышки другого цвета
+const UI = path.join(DATA, 'ui.json');
 ipcMain.on('slideria:theme', (e, mode) => {
   if (!ours(e.senderFrame?.url ?? '')) return;
-  if (mode === 'light' || mode === 'dark' || mode === 'system') nativeTheme.themeSource = mode;
+  if (mode !== 'light' && mode !== 'dark' && mode !== 'system') return;
+  nativeTheme.themeSource = mode;
+  try { fs.writeFileSync(UI, JSON.stringify({ theme: mode })); } catch { /* не страшно */ }
 });
+/** Тема с прошлого раза (до первой страницы): светлая, тёмная или как в системе */
+function savedTheme() {
+  try {
+    const t = JSON.parse(fs.readFileSync(UI, 'utf8')).theme;
+    if (t === 'light' || t === 'dark' || t === 'system') nativeTheme.themeSource = t;
+  } catch { /* первый запуск — как в системе */ }
+  return nativeTheme.shouldUseDarkColors;
+}
+/** Фон страниц Slideria (src/styles/tokens.css, --bg) — фон окна до первой страницы */
+const pageBg = (dark) => (dark ? '#0F172A' : '#F8FAFC');
 const ours = (url) => !!origin && (url === origin || url.startsWith(origin + '/'));
 
 /**
@@ -284,30 +298,67 @@ app.on('web-contents-created', (_e, wc) => {
   wc.on('did-create-window', (w) => guard(w));
 });
 
-const SPLASH = `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html><meta charset="utf-8">
-<style>html,body{margin:0;height:100%;display:grid;place-items:center;background:#0b0d12;color:#cbd5e1;font:15px system-ui,"Segoe UI",sans-serif}
-.s{display:flex;gap:12px;align-items:center}.d{width:14px;height:14px;border-radius:50%;border:2px solid #5B8DEF;border-top-color:transparent;animation:r .8s linear infinite}
-@keyframes r{to{transform:rotate(1turn)}}</style><div class="s"><div class="d"></div>Slideria запускается…</div>`)}`;
+/**
+ * Заставка — в цвет темы, со знаком Slideria. Лежит поверх окна отдельным слоем, пока под ней грузится
+ * первая страница, и растворяется, когда страница нарисована (src/engine/boot.ts → slideria:ready): ни белой
+ * вспышки, ни страницы, которая «догружается» на глазах. Знак появляется не сразу: при быстром запуске
+ * заставки почти не видно
+ */
+const GLYPH = '<path d="M20.5 3.5H8.25a4.25 4.25 0 0 0 0 8.5" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="20.5" cy="3.5" r="1.4" fill="currentColor"/><g opacity=".55"><path d="M8.25 12h7.5a4.25 4.25 0 0 1 0 8.5H3.5" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="3.5" cy="20.5" r="1.4" fill="currentColor"/></g>';
+const splashPage = (dark) => `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html><meta charset="utf-8">
+<style>html,body{margin:0;height:100%;background:transparent;overflow:hidden}
+.c{position:fixed;inset:0;display:grid;place-items:center;background:${pageBg(dark)};transition:opacity .22s ease-out}
+.c.out{opacity:0}
+.m{display:flex;flex-direction:column;align-items:center;gap:14px;opacity:0;animation:in .4s ease-out .15s forwards;font:600 15px system-ui,"Segoe UI",sans-serif;letter-spacing:.06em;color:${dark ? '#94A3B8' : '#6B7280'}}
+.t{width:56px;height:56px;border-radius:16px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,#5B8DEF,#1D4ED8);box-shadow:0 10px 30px rgba(37,99,235,.35)}
+.t svg{width:34px;height:34px}
+@keyframes in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.m{animation:none;opacity:1}.c{transition:none}}</style>
+<div class="c"><div class="m"><span class="t"><svg viewBox="0 0 24 24">${GLYPH}</svg></span>SLIDERIA</div></div>`)}`;
 
 function createWindow() {
   const st = loadState();
+  const dark = savedTheme();
   const win = new BrowserWindow({
     ...st,
     minWidth: 720,
     minHeight: 480,
     title: 'Slideria',
     icon: ICON,
-    backgroundColor: '#0b0d12',
+    backgroundColor: pageBg(dark),
     autoHideMenuBar: true,
     show: false,
     webPreferences: WEB,
   });
   if (st.maximized) win.maximize();
   guard(win);
-  win.once('ready-to-show', () => win.show());
   win.on('close', () => saveState(win));
   win.on('closed', () => { if (main === win) main = undefined; });
-  void win.loadURL(SPLASH);
+  // Заставка — слоем поверх окна; окно показывается, когда она нарисована
+  const splash = new WebContentsView({ webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false } });
+  splash.setBackgroundColor('#00000000');
+  win.contentView.addChildView(splash);
+  const fit = () => { const [w, h] = win.getContentSize(); splash.setBounds({ x: 0, y: 0, width: w, height: h }); };
+  fit();
+  win.on('resize', fit);
+  splash.webContents.once('did-finish-load', () => win.show());
+  void splash.webContents.loadURL(splashPage(dark));
+  let gone = false;
+  /** Страница нарисована — заставка растворяется и уходит */
+  const drop = () => {
+    if (gone || win.isDestroyed()) return;
+    gone = true;
+    win.off('resize', fit);
+    const remove = () => {
+      if (win.isDestroyed()) return;
+      win.contentView.removeChildView(splash);
+      if (!splash.webContents.isDestroyed()) splash.webContents.close();
+    };
+    splash.webContents.executeJavaScript("document.querySelector('.c').classList.add('out')").catch(() => {}).finally(() => setTimeout(remove, 260));
+  };
+  win.webContents.ipc.on('slideria:ready', drop);
+  // Страница так и не сказала «готова» (сбой до неё) — заставка всё равно уходит
+  win.webContents.on('did-finish-load', () => setTimeout(drop, 4000));
   return win;
 }
 

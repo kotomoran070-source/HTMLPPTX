@@ -197,9 +197,38 @@ export function createDecksCore(opts: CoreOptions) {
     return name;
   };
 
-  /** Для страницы выбора: когда каждую презентацию меняли в последний раз */
-  function list(): { name: string; mtime: number }[] {
-    return names().map((n) => ({ name: n, mtime: Math.round(fs.statSync(deckFile(n)).mtimeMs) }));
+  /**
+   * Сводка презентации для страницы выбора: название, число слайдов, откуда она (импорт), ошибка в файле.
+   * Разбор YAML — один раз на версию файла (время и размер): страница выбора спрашивает список часто
+   */
+  const summaries = new Map<string, { key: string; title?: string; slides: number; source?: string; error?: true }>();
+  function summary(n: string, st: fs.Stats) {
+    const key = `${st.mtimeMs}:${st.size}`;
+    const was = summaries.get(n);
+    if (was?.key === key) return was;
+    let s: { key: string; title?: string; slides: number; source?: string; error?: true };
+    try {
+      const d = readYaml(deckFile(n)) as { title?: unknown; slides?: unknown; source?: unknown };
+      s = {
+        key,
+        ...(typeof d?.title === 'string' && d.title.trim() ? { title: d.title } : {}),
+        slides: Array.isArray(d?.slides) ? d.slides.length : 0,
+        ...(typeof d?.source === 'string' && d.source ? { source: d.source } : {}),
+      };
+    } catch {
+      s = { key, slides: 0, error: true };
+    }
+    summaries.set(n, s);
+    return s;
+  }
+
+  /** Для страницы выбора: когда каждую презентацию меняли в последний раз, название и число слайдов */
+  function list(): { name: string; mtime: number; title?: string; slides: number; source?: string; error?: true }[] {
+    return names().map((n) => {
+      const st = fs.statSync(deckFile(n));
+      const { key: _key, ...s } = summary(n, st);
+      return { name: n, mtime: Math.round(st.mtimeMs), ...s };
+    });
   }
 
   /**

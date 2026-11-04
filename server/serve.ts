@@ -156,6 +156,43 @@ function notFound(res: http.ServerResponse): void {
 
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
+interface ManifestChunk { file: string; name?: string; imports?: string[]; css?: string[]; isEntry?: boolean }
+
+/**
+ * Подсказки браузеру, какой код понадобится странице (по манифесту сборки студии, .vite/manifest.json).
+ * Студии — сразу: её части грузятся вместе с основным кодом и данными, а не после них (без этого браузер
+ * узнаёт о них, только когда основной код уже выполнился). Странице выбора — студия про запас, без спешки:
+ * переход в редактор потом не ждёт загрузки
+ */
+export function codeHints(studio: string): { studio: string; picker: string } {
+  let m: Record<string, ManifestChunk>;
+  try { m = JSON.parse(fs.readFileSync(path.join(studio, '.vite', 'manifest.json'), 'utf8')) as Record<string, ManifestChunk>; } catch { return { studio: '', picker: '' }; }
+  const entry = Object.values(m).find((c) => c.isEntry);
+  const loaded = new Set(entry ? [entry.file, ...(entry.imports ?? []).map((k) => m[k]?.file)] : []);
+  const files = (keys: string[]) => {
+    const js = new Set<string>();
+    const css = new Set<string>();
+    const walk = (k: string) => {
+      const c = m[k];
+      if (!c || js.has(c.file)) return;
+      if (!loaded.has(c.file)) js.add(c.file);
+      for (const f of c.css ?? []) css.add(f);
+      for (const i of c.imports ?? []) walk(i);
+    };
+    keys.forEach(walk);
+    return { js: [...js], css: [...css].filter((f) => !(entry?.css ?? []).includes(f)) };
+  };
+  // Часть по имени исходника или, если сборка вынесла её в общий кусок, — по имени куска (studio)
+  const key = (src: string, name: string) => (m[src] ? src : Object.keys(m).find((k) => m[k].name === name && !m[k].isEntry) ?? src);
+  const st = files([key('src/studio/studio.ts', 'studio'), key('src/studio/user-library.ts', 'user-library')]);
+  const pk = files([key('src/engine/picker.ts', 'picker')]);
+  return {
+    studio: [...st.css.map((f) => `<link rel="stylesheet" href="/${f}">`), ...st.js.map((f) => `<link rel="modulepreload" href="/${f}">`)].join('\n'),
+    picker: [...pk.css.map((f) => `<link rel="stylesheet" href="/${f}">`), ...pk.js.map((f) => `<link rel="modulepreload" href="/${f}">`),
+      ...[...st.js, ...st.css].map((f) => `<link rel="prefetch" href="/${f}">`)].join('\n'),
+  };
+}
+
 export async function startServer(o: ServeOptions): Promise<Served> {
   const dir = path.resolve(o.dir);
   const root = path.resolve(o.root);
@@ -190,6 +227,12 @@ export async function startServer(o: ServeOptions): Promise<Served> {
   // Страница студии: настройки страниц и адрес для слайдов со звуком — прямо в ней
   const envMeta = `<meta name="slideria-env" content="${esc(JSON.stringify({ app: !!o.env?.app, decks: o.env?.decks ?? 'presentations/' }))}">`;
   const page = fs.readFileSync(index, 'utf8').replace(/<head>/i, (m) => `${m}\n${envMeta}\n${frames.meta()}`);
+  const hints = codeHints(studio);
+  /** Страница с подсказками: какой код ей понадобится (студии — сразу, странице выбора — студия про запас) */
+  const pageFor = (query: URLSearchParams) => {
+    const tags = query.has('studio') ? hints.studio : !query.get('deck') || query.has('all') ? hints.picker : '';
+    return tags ? page.replace(/<\/head>/i, (m) => `${tags}\n${m}`) : page;
+  };
 
   /** Адреса файлов — те же, что выдаёт ядро (core.urlOf): /@fs/<путь> или от корня программы */
   const allowed = [dir, ...(o.fonts ? [path.resolve(o.fonts)] : [path.join(root, 'fonts')])];
@@ -223,7 +266,7 @@ export async function startServer(o: ServeOptions): Promise<Served> {
       const url = (req.url ?? '/').split('?')[0];
       if (url === '/' || url === '/index.html') {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' });
-        return void res.end(req.method === 'HEAD' ? undefined : page);
+        return void res.end(req.method === 'HEAD' ? undefined : pageFor(new URL(req.url ?? '/', 'http://local').searchParams));
       }
       if (url.startsWith('/assets/')) {
         const file = inside(studio, url.slice(1));

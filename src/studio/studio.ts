@@ -42,7 +42,8 @@ import { blobToDataUrl } from '../engine/editor/persist';
 import { onLibraryError } from './user-library';
 import { addEffect, addTemplate, assetUrls, findEntrance, deckWithTemplate, listTemplates, pickCss, pickDefs, removeTemplate, replaceUrls, type Template } from './templates';
 import { animCommands, animPanelHtml, animTabHtml, bindDelayField, bindFxGallery, syncAnimTab, type AnimHost } from './anim-tab';
-import { bindDesignStrip, designCommands, designPanelHtml, designTabHtml, importThemeFiles, isThemeFile, syncDesignTab, type DesignHost } from './design-tab';
+import { bindDesignStrip, designCommands, designPanelHtml, designTabHtml, importThemeFiles, isThemeFile, syncDesignTab, themeWarmTasks, type DesignHost } from './design-tab';
+import { warmLater } from './warm';
 import { THEME_PRESETS } from './theme-presets';
 import { initRibbonSetup } from './ribbon-setup';
 import { pictureName, savePicture } from './save-picture';
@@ -1759,6 +1760,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
   bindFxGallery();
   const designHost: DesignHost = { deck, editor: ed, stage: () => view.stage, askName: (a, t, n, sg, save) => askName(a, t, n, sg, save) };
   Object.assign(cmds, designCommands(designHost));
+  // Галерея тем — в запас, пока студия простаивает: шрифты тем и кадры живых фонов плиток (design-tab.ts)
+  warmLater(themeWarmTasks());
   bindDesignStrip(designHost, cmds);
   Object.assign(cmds, toolsCommands({ deck, deckKey, editor: ed, go }));
   // «Инструменты → Интеграции»: агенты, скрипты, плагины, журнал правок (integrations.ts)

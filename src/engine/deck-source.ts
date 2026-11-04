@@ -33,11 +33,13 @@ export async function fetchDeck(name: string): Promise<Deck> {
   return body as Deck;
 }
 
-/** Имена презентаций на сервере */
-export async function fetchNames(): Promise<string[]> {
+/** Презентации на сервере: имя, когда правили, название, число слайдов (сводка — server/core.ts, list) */
+export interface DeckEntry { name: string; mtime: number; title?: string; slides?: number; source?: string; error?: true }
+
+export async function fetchList(): Promise<DeckEntry[]> {
   const r = await fetch(DECKS_URL, { cache: 'no-store' });
   if (!r.ok) throw new Error(`Список презентаций: сервер ответил ${r.status}`);
-  return ((await r.json()) as { name: string }[]).map((d) => d.name);
+  return (await r.json()) as DeckEntry[];
 }
 
 /** Загрузчики презентаций с сервера */

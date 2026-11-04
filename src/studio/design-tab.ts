@@ -21,7 +21,7 @@ import { logoColors } from './logo-colors';
 import { closeMenu, showPopover } from './menu';
 import { accentSwatch, openAccentGradient } from './accent-gradient';
 import { backdropStrip, bindBackdropStrip, bindTune, tuneHtml } from './backdrop-pick';
-import { previewBackdrop, stillBackdrops } from '../components/backdrop/backdrop';
+import { previewBackdrop, stillBackdrops, warmStills } from '../components/backdrop/backdrop';
 import { isBackdrop, TOUCH_BACKDROPS } from '../engine/backdrops';
 import { addMyTheme, captureTheme, downloadTheme, downloadThemes, listMyThemes, MY, parseThemeFiles, placeThemeImages, registerMyFonts, removeMyTheme, sameTheme, type MyTheme } from './my-themes';
 import { freeName } from './same';
@@ -198,6 +198,32 @@ const MARKS: [string, string][] = [['0.45', 'Знак 45 % плашки'], ['0.5
 
 /** Скругление углов: множитель и название */
 const RADII: [number, string][] = [[0, 'Прямые'], [0.5, 'Небольшие'], [1, 'Обычные'], [1.5, 'Мягкие'], [2, 'Круглые']];
+
+/**
+ * Подготовка галереи тем, пока студия простаивает (studio.ts → warm.ts): шрифты тем загружены, кадры живых
+ * фонов плиток нарисованы в запас. Без неё первое открытие «Все темы» дорисовывало фоны волнами около
+ * секунды (кадр сцены — WebGL и снимок в картинку на каждую плитку), а буквы меняли шрифт на глазах.
+ * Каждая задача — одна плитка: короткая, между ними браузер свободен
+ */
+export function themeWarmTasks(): (() => void)[] {
+  const tasks: (() => void)[] = [() => {
+    for (const n of Object.keys(THEME_FONTS)) void document.fonts.load(`600 40px "${n}"`).catch(() => []);
+  }];
+  for (const p of THEME_PRESETS) {
+    if (!isBackdrop(p.theme.backdrop)) continue;
+    tasks.push(() => {
+      // Та же плитка, что в галерее, — за краем экрана и только на время одного кадра фона
+      const host = document.createElement('div');
+      host.className = 'st-dz-shot';
+      host.setAttribute('aria-hidden', 'true');
+      host.style.cssText = 'position:fixed;left:-10000px;top:0;width:284px;visibility:hidden;pointer-events:none;contain:strict';
+      host.appendChild(staticSlide(specimenDeck(p.theme), 0, 284));
+      document.body.appendChild(host);
+      try { warmStills(host); } finally { host.remove(); }
+    });
+  }
+  return tasks;
+}
 
 export function designCommands(h: DesignHost): Record<string, Command> {
   const { deck, editor: ed } = h;

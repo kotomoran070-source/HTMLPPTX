@@ -11,6 +11,9 @@ import './picker.css';
 
 type Loaders = Record<string, () => Promise<Deck>>;
 
+/** Сводка презентации из списка сервера: карточка сразу с названием и числом слайдов, без «имени папки» */
+export interface DeckInfo { name: string; mtime: number; title?: string; slides?: number; source?: string; error?: true }
+
 function plural(n: number, one: string, few: string, many: string): string {
   const a = n % 10;
   const b = n % 100;
@@ -163,11 +166,17 @@ function accentVars(deck: Deck): string {
   return Object.entries(t).map(([k, v]) => `${k}:${v}`).join(';');
 }
 
+/** Строка под названием карточки: число слайдов и когда правили */
+const metaLine = (n: number, mtime?: number) => [`${n} ${plural(n, 'слайд', 'слайда', 'слайдов')}`, ...(mtime ? [ago(mtime)] : [])].map(esc).join(' · ');
+
 /**
  * Страница выбора презентации (yarn dev): карточки с первым слайдом, импорт HTML,
- * подсказка про новую презентацию, переключатель темы.
+ * подсказка про новую презентацию, переключатель темы. info — сводки из списка сервера: название и число
+ * слайдов видны сразу, догружаются только миниатюры. Готова (ответ), когда видимые миниатюры нарисованы
+ * (не дольше 0,8 с): так страница появляется целиком, без «выпрыгивающих» миниатюр
  */
-export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
+export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] = []): Promise<void> {
+  const about = new Map(info.map((d) => [d.name, d]));
   // Свой цвет интерфейса (если включён в студии); цвета презентаций — у их миниатюр
   applyAccent(null, null);
   const names = Object.keys(decks);
@@ -185,13 +194,13 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
     <p>${heroText(names.length)}</p>
   </section>
   <div class="pk-grid" id="pk-grid">
-    ${names.map((n) => `<div class="pk-item"><a class="pk-card" href="?deck=${encodeURIComponent(n)}" data-name="${esc(n)}">
-      <div class="pk-thumb"><div class="pk-ph"></div></div>
+    ${names.map((n) => { const d = about.get(n); return `<div class="pk-item"><a class="pk-card${d?.error ? ' pk-err' : ''}" href="?deck=${encodeURIComponent(n)}" data-name="${esc(n)}">
+      <div class="pk-thumb">${d?.error ? '<div class="pk-ph pk-bad">Ошибка в deck.yaml</div>' : '<div class="pk-ph"></div>'}</div>
       <div class="pk-info">
-        <b class="pk-title">${esc(n)}</b>
-        <span class="pk-meta"><code>${esc(n)}</code></span>
+        <b class="pk-title">${esc(d?.title || n)}</b>
+        <span class="pk-meta"><code>${esc(n)}</code>${d && !d.error ? `<span>${metaLine(d.slides ?? 0, d.mtime)}</span>` : ''}</span>${d?.source ? `<span class="pk-badge">${esc(d.source)}</span>` : ''}
       </div>
-    </a>${dev ? `<a class="pk-edit" href="?deck=${encodeURIComponent(n)}&amp;studio" title="Открыть в редакторе" aria-label="Открыть в редакторе ${esc(n)}">${icon('pencil')}<span>Редактор</span></a>` : ''}${dev ? `<button type="button" class="pk-del" data-del="${esc(n)}" title="Удалить презентацию" aria-label="Удалить презентацию ${esc(n)}">${icon('trash')}</button>` : ''}</div>`).join('')}
+    </a>${dev ? `<a class="pk-edit" href="?deck=${encodeURIComponent(n)}&amp;studio" title="Открыть в редакторе" aria-label="Открыть в редакторе ${esc(n)}">${icon('pencil')}<span>Редактор</span></a>` : ''}${dev ? `<button type="button" class="pk-del" data-del="${esc(n)}" title="Удалить презентацию" aria-label="Удалить презентацию ${esc(n)}">${icon('trash')}</button>` : ''}</div>`; }).join('')}
     ${dev ? `<button class="pk-card pk-action" id="pk-import" type="button">
       <span class="pk-icon">${icon('upload')}</span>
       <b>Импорт</b>
@@ -244,18 +253,20 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
     b.onclick = () => void remove(b.dataset.del!, b.closest<HTMLElement>('.pk-item')!);
   });
 
+  // Импорт — по готовности своего кода: миниатюры его не ждут
   if (dev) {
-    const m = await import('./import-ui');
-    const ui = m.setupImport();
-    document.getElementById('pk-import')!.onclick = ui.pick;
+    void import('./import-ui').then((m) => {
+      const ui = m.setupImport();
+      document.getElementById('pk-import')!.onclick = ui.pick;
+    });
   }
 
-  // Данные презентаций: название, число слайдов, миниатюра первого слайда.
+  // Миниатюры первых слайдов (название и число слайдов уже на месте — из списка сервера).
   // Ушли со страницы, пока миниатюры догружались, — оборванные запросы не ошибка
   let leaving = false;
   addEventListener('beforeunload', () => { leaving = true; });
   const loaded = new Map<string, Deck>();
-  const times = dev ? await mtimes() : {};
+  const times: Record<string, number> = info.length ? Object.fromEntries(info.map((d) => [d.name, d.mtime])) : dev ? await mtimes() : {};
   const fill = async (card: HTMLElement) => {
     const name = card.dataset.name!;
     try {
@@ -267,14 +278,15 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
         card.querySelector('.pk-thumb')!.innerHTML = `<div class="pk-ph pk-bad">Ошибка в deck.yaml</div>`;
         return;
       }
+      card.classList.remove('pk-err');
       loaded.set(name, deck);
       const n = deck.slides?.length ?? 0;
       const src = typeof (deck as { source?: unknown }).source === 'string' ? String((deck as { source?: unknown }).source) : '';
-      const bits = [`${n} ${plural(n, 'слайд', 'слайда', 'слайдов')}`];
-      if (times[name]) bits.push(ago(times[name]));
-      info.innerHTML = `<b class="pk-title">${esc(deck.title || name)}</b>`
-        + `<span class="pk-meta"><code>${esc(name)}</code><span>${bits.map(esc).join(' · ')}</span></span>`
+      const html = `<b class="pk-title">${esc(deck.title || name)}</b>`
+        + `<span class="pk-meta"><code>${esc(name)}</code><span>${metaLine(n, times[name])}</span></span>`
         + (src ? `<span class="pk-badge">${esc(src)}</span>` : '');
+      // То же, что уже показано из списка, — не трогаем (без лишней перерисовки)
+      if (info.innerHTML !== html) info.innerHTML = html;
       const thumb = card.querySelector<HTMLElement>('.pk-thumb')!;
       thumb.setAttribute('style', accentVars(deck));
       if (n) {
@@ -285,6 +297,10 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
         const own = slideAccent(deck.theme);
         const sl = thumb.querySelector('.slide');
         if (own && sl && !sl.hasAttribute('data-accent')) sl.setAttribute('data-accent', own);
+        // Миниатюра проявляется (pk-in), а не выпрыгивает
+        thumb.firstElementChild?.classList.add('pk-in');
+      } else {
+        thumb.innerHTML = '';
       }
     } catch (e) {
       if (!leaving) console.error(e);
@@ -295,18 +311,23 @@ export async function showPicker(decks: Loaders, dev: boolean): Promise<void> {
     const card = document.querySelector<HTMLElement>(`.pk-card[data-name="${CSS.escape(d.name)}"]`);
     if (card) void fill(card);
   });
-  // Миниатюры строятся по мере прокрутки: презентаций может быть много
+  // Видимые карточки — сразу (страница появится с ними), остальные — по мере прокрутки
   const cards = [...document.querySelectorAll<HTMLElement>('.pk-card[data-name]')];
+  const inView = (c: HTMLElement) => { const r = c.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight + 200; };
+  const first = cards.filter(inView);
+  const ready = Promise.all(first.map(fill));
+  const rest = cards.filter((c) => !first.includes(c));
   if ('IntersectionObserver' in window) {
     const io = new IntersectionObserver((entries) => entries.forEach((en) => {
       if (!en.isIntersecting) return;
       io.unobserve(en.target);
       void fill(en.target as HTMLElement);
     }), { rootMargin: '200px' });
-    cards.forEach((c) => io.observe(c));
+    rest.forEach((c) => io.observe(c));
   } else {
-    cards.forEach((c) => void fill(c));
+    rest.forEach((c) => void fill(c));
   }
+  await Promise.race([ready, new Promise((r) => setTimeout(r, 800))]);
 }
 
 /** Сборка программы: установленная — снимок кода на день сборки, новое из проекта появится с новой сборкой */
