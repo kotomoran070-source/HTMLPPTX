@@ -36,6 +36,18 @@ test('первый запуск: «Моя первая презентация»,
     // Заставка ушла, когда страница выбора готова: остаётся одно окно со страницей программы
     await expect.poll(() => app.windows().map((w) => w.url().slice(0, 5))).toEqual(['http:']);
     await expect(win.locator('#pk-where')).toContainText('Документы/Slideria');
+    // Свой заголовок окна: шапка страницы выбора перетаскивает окно, кнопки окна — высотой с неё (48 px)
+    const bar = () => win.evaluate(() => {
+      const o = (navigator as { windowControlsOverlay?: { visible: boolean; getTitlebarAreaRect(): DOMRect } }).windowControlsOverlay;
+      const el = document.querySelector('[data-titlebar]')!;
+      return {
+        frame: document.documentElement.classList.contains('app-frame'),
+        el: el.className,
+        drag: getComputedStyle(el).getPropertyValue('-webkit-app-region'),
+        h: o?.visible ? o.getTitlebarAreaRect().height : null,
+      };
+    });
+    await expect.poll(bar).toMatchObject({ frame: true, el: 'pk-top', drag: 'drag', h: 48 });
     expect(fs.existsSync(path.join(docs, 'moya-pervaya-prezentaciya', 'deck.yaml'))).toBe(true);
     // Подсказки внизу — без команд терминала; какая это сборка программы
     await expect(win.locator('.pk-foot')).not.toContainText('yarn');
@@ -68,6 +80,9 @@ test('первый запуск: «Моя первая презентация»,
     // «Экспорт → PDF» в приложении — файл PDF средствами Electron (а не окно печати), окно печати закрывается само
     await win.goto(win.url().replace(/\?all$/, '?deck=moya-pervaya-prezentaciya&studio'));
     await expect(win.locator('#st-canvas .slide')).not.toHaveCount(0);
+    // В студии заголовок окна — тонкая полоса над шапкой, шапка под ней не перетаскивает окно
+    await expect.poll(bar).toMatchObject({ frame: true, el: 'st-tbar', drag: 'drag', h: 36 });
+    expect(await win.evaluate(() => [document.querySelector('.studio-app')!.getBoundingClientRect().top, getComputedStyle(document.querySelector('.st-top')!).getPropertyValue('-webkit-app-region')])).toEqual([36, 'none']);
     // Окно с листами для PDF не появляется на экране
     await app.evaluate(({ app: a }) => {
       const g = globalThis as { shown?: number };
@@ -107,6 +122,9 @@ test('первый запуск: «Моя первая презентация»,
       return { w: w.getBounds().width, area: screen.getPrimaryDisplay().workArea.width };
     });
     expect(size.w).toBeGreaterThan(size.area * 0.7);
+    // …с системной рамкой: свой заголовок — только у главного окна
+    await expect(show.locator('.slide').first()).toBeAttached();
+    expect(await show.evaluate(() => [(window as { slideriaApp?: { frame?: boolean } }).slideriaApp?.frame, document.documentElement.classList.contains('app-frame')])).toEqual([false, false]);
     await show.close();
     // PowerPoint — скачиванием: сохраняется файлом
     await win.locator('[data-cmd="file.export"]').first().click();

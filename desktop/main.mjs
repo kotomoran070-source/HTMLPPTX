@@ -206,6 +206,33 @@ function savedTheme() {
 }
 /** Фон страниц Slideria (src/styles/tokens.css, --bg) — фон окна до первой страницы */
 const pageBg = (dark) => (dark ? '#0F172A' : '#F8FAFC');
+
+/**
+ * Свой заголовок окна: системной полосы с названием нет — её место занимает элемент страницы: на странице выбора
+ * её шапка, в студии — тонкая полоса над шапкой. Его пустые места перетаскивают окно. Кнопки окна рисует система
+ * поверх справа (на Mac — «светофор» слева), высотой и цветом этого элемента: страница сообщает их
+ * (slideria:titlebar), а где кнопки — узнаёт из Window Controls Overlay (src/engine/titlebar.ts).
+ * Только главное окно; окна показа, докладчика и печати — с системной рамкой
+ */
+const TITLE_H = 48;
+/** «Светофор» Mac — по середине полосы высотой h */
+const lights = (h) => ({ x: Math.round(h * 0.375), y: Math.round((h - 14) / 2) });
+const titleBar = (dark) => (process.platform === 'darwin'
+  ? { titleBarStyle: 'hidden', titleBarOverlay: true, trafficLightPosition: lights(TITLE_H) }
+  : { titleBarStyle: 'hidden', titleBarOverlay: { color: pageBg(dark), symbolColor: dark ? '#CBD5E1' : '#374151', height: TITLE_H } });
+const HEX = /^#[0-9a-f]{6}$/i;
+const framed = new WeakSet();
+ipcMain.on('slideria:frame', (e) => { e.returnValue = framed.has(e.sender); });
+ipcMain.on('slideria:titlebar', (e, c) => {
+  if (!framed.has(e.sender) || !ours(e.senderFrame?.url ?? '')) return;
+  const win = BrowserWindow.fromWebContents(e.sender);
+  const h = Math.round(Number(c?.height));
+  if (!win || !(h >= 28 && h <= 64)) return;
+  try {
+    if (process.platform === 'darwin') win.setWindowButtonPosition(lights(h));
+    else if (HEX.test(c?.color ?? '') && HEX.test(c?.symbol ?? '')) win.setTitleBarOverlay({ color: c.color, symbolColor: c.symbol, height: h });
+  } catch { /* окно без своего заголовка */ }
+});
 const ours = (url) => !!origin && (url === origin || url.startsWith(origin + '/'));
 
 /**
@@ -329,9 +356,11 @@ function createWindow() {
     icon: ICON,
     backgroundColor: pageBg(dark),
     autoHideMenuBar: true,
+    ...titleBar(dark),
     show: false,
     webPreferences: WEB,
   });
+  framed.add(win.webContents);
   if (st.maximized) win.maximize();
   guard(win);
   win.on('close', () => saveState(win));

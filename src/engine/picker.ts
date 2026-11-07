@@ -268,7 +268,7 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
   updateFavicon(undefined);
   document.body.innerHTML = `
 <div class="pk">
-  <header class="pk-top" id="pk-top"><div class="pk-bar pk-wide">
+  <header class="pk-top" id="pk-top" data-titlebar><div class="pk-bar pk-wide">
     <div class="pk-brand"><span class="pk-mark">${brandMark()}</span><span>Slideria</span></div>
     <label class="pk-search">${icon('search')}<input id="pk-q" type="search" placeholder="Найти презентацию" aria-label="Найти презентацию" autocomplete="off" spellcheck="false"><kbd>Ctrl K</kbd></label>
     <div class="pk-acts">
@@ -389,7 +389,7 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
         <div class="pk-eyebrow">Продолжить работу</div>
         <h1 class="pk-cont-title">${esc(recent.title)}</h1>
         <div class="pk-cont-meta">${esc(slidesText(recent.slides))}${recent.mtime ? ` · изменена ${esc(ago(recent.mtime))}` : ''}</div>
-        <div class="pk-cont-acts"><a class="pk-btn go" href="${studioHref(recent.name)}">Открыть</a><a class="pk-btn" href="${showHref(recent.name)}">${PLAY}<span>Показ</span></a></div>
+        <div class="pk-cont-acts"><a class="pk-btn go" href="${studioHref(recent.name)}">Открыть</a><a class="pk-btn" href="${showHref(recent.name)}" data-show="${esc(recent.name)}">${PLAY}<span>Показ</span></a></div>
         <div class="pk-film" aria-label="Слайды">${Array.from({ length: Math.min(FILM, Math.max(recent.slides, 1)) }, (_v, k) => `<a class="pk-film-s" href="${studioHref(recent.name)}#${k + 1}" title="Слайд ${k + 1}"><div class="pk-thumb"><div class="pk-ph"></div></div><small>${k + 1}</small></a>`).join('')}</div>
       </div>`;
     const d = loaded.get(recent.name);
@@ -462,7 +462,7 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
           <div class="pk-stack">${thumbSlot(it)}</div>
           <div class="pk-info"><b class="pk-title">${esc(it.title)}</b><span class="pk-meta"><span class="pk-when">${metaLine(it)}</span>${tag(it)}</span>${folder(it)}</div>
         </a>
-        <div class="pk-over"><a class="pk-play" href="${showHref(it.name)}" title="Показ с первого слайда">${PLAY}<span>Показ</span></a>${more(it.name)}</div>
+        <div class="pk-over"><a class="pk-play" href="${showHref(it.name)}" data-show="${esc(it.name)}" title="Показ с первого слайда">${PLAY}<span>Показ</span></a>${more(it.name)}</div>
       </div>`;
     if (st.view === 'grid') {
       if (st.sort === 'date' && st.dir > 0 && !searching) {
@@ -484,7 +484,7 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
           <div class="pk-stack" role="cell">${thumbSlot(it)}</div>
           <div class="pk-lt" role="cell"><a class="pk-title" href="${studioHref(it.name)}">${esc(it.title)}</a>${folder(it)}</div>
           <span class="num pk-n" role="cell">${it.slides}</span><span class="pk-date" role="cell">${it.mtime ? esc(ago(it.mtime)) : '—'}</span><span role="cell">${it.source ? tag(it) : '<span class="pk-none">—</span>'}</span>
-          <div class="pk-racts" role="cell"><a class="pk-rplay" href="${showHref(it.name)}">${PLAY}<span>Показ</span></a>${more(it.name)}</div>
+          <div class="pk-racts" role="cell"><a class="pk-rplay" href="${showHref(it.name)}" data-show="${esc(it.name)}">${PLAY}<span>Показ</span></a>${more(it.name)}</div>
         </div>`).join('')}</div>`;
     }
     const left = list.length - vis.length;
@@ -579,6 +579,16 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
     const row = t.closest<HTMLElement>('.pk-row');
     if (row && !t.closest('a, button')) location.href = studioHref(row.dataset.name!);
   });
+
+  // Программа: показ — своим окном, как из студии (главное окно — страница выбора и студия)
+  if (app) {
+    document.addEventListener('click', (e) => {
+      const a = (e.target as Element).closest<HTMLAnchorElement>('a[data-show]');
+      if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+      e.preventDefault();
+      window.open(a.href, `htmlpptx-show-${a.dataset.show}`);
+    });
+  }
 
   // Удалили в другом окне (или из студии): карточка уходит и здесь, без перезагрузки
   onServer('deck-removed', (d) => drop(d.name));

@@ -19,4 +19,10 @@ contextBridge.exposeInMainWorld('slideriaApp', {
   reveal: (name) => ipcRenderer.invoke('slideria:reveal', name),
   /** Страница нарисована (src/engine/boot.ts): программа убирает заставку */
   ready: () => ipcRenderer.send('slideria:ready'),
+  /** true — окно без системного заголовка, шапка страницы — заголовок (src/engine/titlebar.ts); окна показа — false */
+  frame: ipcRenderer.sendSync('slideria:frame'),
+  /** Mac — «светофор» слева; Windows и Linux — кнопки окна справа */
+  platform: process.platform,
+  /** Цвет кнопок окна под шапку: { color, symbol } — #rrggbb */
+  titleBar: (c) => ipcRenderer.send('slideria:titlebar', c),
 });

@@ -138,7 +138,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
   // Набор формул — заранее: галерея «Уравнения» и вставленная формула рисуются сразу
   void loadMath();
   document.body.classList.add('studio');
+  // В программе над шапкой — полоса заголовка окна (studio.css, engine/titlebar.ts); в браузере её нет
   document.body.innerHTML = `
+<div class="st-tbar" data-titlebar aria-hidden="true"></div>
 <div class="studio-app">
   <header class="st-top" data-ed-keep>
     <a class="st-home" href="./?all" title="Slideria — все презентации" aria-label="Все презентации">${brandMark()}</a>

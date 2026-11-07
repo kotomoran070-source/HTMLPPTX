@@ -4,6 +4,12 @@ body.studio { background: var(--alt); }
 :is(.st-top, .st-ribbon, .st-slides-add, .st-foot, .st-props, .st-menu, .st-lib) .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 :is(.st-top, .st-ribbon, .st-notes, .st-props) :is(input, select, textarea) { font: 13px var(--font); color: var(--tx); }
 
+/* Программа: над шапкой — тонкая полоса заголовка окна (кнопки окна справа, на Mac — слева); шапка — как в браузере */
+.st-tbar { display: none; }
+.app-frame body.studio { --tb-h: 36px; }
+.app-frame .st-tbar { display: block; position: fixed; inset: 0 0 auto; height: var(--tb-h); background: var(--surf); }
+.app-frame .studio-app { top: var(--tb-h); }
+
 /* Шапка */
 .st-top { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 12px; background: var(--surf); border-bottom: 1px solid var(--bd); }
 .st-home { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: var(--ac); background: var(--acs); }

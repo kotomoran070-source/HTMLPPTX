@@ -243,3 +243,13 @@ select[data-open] { border-color: var(--ac) !important; }
 
 /* Смена темы интерфейса растворением старой в новой (engine/motion.ts, themeFade) */
 :root.ui-vt::view-transition-old(root), :root.ui-vt::view-transition-new(root) { animation-duration: var(--ui-theme, 240ms); }
+
+/* ---------- Свой заголовок окна программы (engine/titlebar.ts, desktop/main.mjs) ----------
+   Шапка с data-titlebar перетаскивает окно пустыми местами; всё, что нажимается, — нажимается. Окна и меню
+   поверх шапки (диалоги, затемнение) окно не перетаскивают: иначе щелчок по ним уходил бы в перетаскивание.
+   --tb-left / --tb-right — место под кнопки окна (Mac — слева, Windows и Linux — справа) */
+:root { --tb-left: 0px; --tb-right: 0px; }
+.app-frame [data-titlebar] { -webkit-app-region: drag; user-select: none; }
+.app-frame [data-titlebar] :is(a, button, input, select, textarea, label, summary, [role], [tabindex], [data-cmd], [contenteditable]) { -webkit-app-region: no-drag; }
+.app-frame :is([role="dialog"], [role="alertdialog"], [role="menu"], .imp-bd, .st-cd-bd, .cg-back, .si-root, .st-menu, .pk-menu, .st-lib) { -webkit-app-region: no-drag; }
+.app-drag-strip { position: fixed; z-index: 2147483000; top: 0; left: var(--tb-left); right: var(--tb-right); height: 32px; -webkit-app-region: drag; }

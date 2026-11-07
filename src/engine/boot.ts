@@ -5,6 +5,8 @@
  * Вызывать один раз, когда страница нарисована целиком (студия построена, видимые миниатюры на месте);
  * повторные вызовы ничего не делают.
  */
+import { initTitlebar } from './titlebar';
+
 let done = false;
 
 export function bootDone(): void {
@@ -18,5 +20,7 @@ export function bootDone(): void {
       setTimeout(() => el.remove(), 300);
     });
   }
+  // Программа: шапка страницы — заголовок окна (engine/titlebar.ts)
+  initTitlebar();
   (window as { slideriaApp?: { ready?(): void } }).slideriaApp?.ready?.();
 }

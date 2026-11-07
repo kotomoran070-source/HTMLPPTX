@@ -49,6 +49,12 @@ html:has(> body.picker-page) { scroll-padding-top: 84px; }
 .pk-btn .pk-tri { color: var(--ac); }
 .pk-ibtn { width: 38px; padding: 0; justify-content: center; color: var(--ac); }
 
+/* Программа: шапка — заголовок окна высотой с кнопки окна (48 px); место под них — справа (Mac — слева) */
+.app-frame .pk-top { --tb-h: 48px; padding-left: var(--tb-left); padding-right: var(--tb-right); }
+.app-frame .pk-bar { min-height: 48px; padding-block: 5px; box-sizing: border-box; }
+.app-frame:not([data-platform="darwin"]) .pk-bar { padding-right: 14px; }
+.app-frame[data-platform="darwin"] .pk-bar { padding-left: 12px; }
+
 /* ---------- «Продолжить работу» ---------- */
 .pk-main { flex: 1; padding-block: 24px 48px; }
 .pk-cont { position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: clamp(24px, 2.6vw, 48px); align-items: center; padding: 22px 26px; padding-top: 32px;

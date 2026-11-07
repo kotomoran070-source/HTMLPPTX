@@ -56,6 +56,11 @@
 @media (max-width: 720px) { .b-pk .b-btn, .b-pk .b-btn2 { width: 44px; } .b-pk .b-tools { display: none; } }
 @media (max-width: 520px) { #boot .b-pk .b-search { visibility: hidden; } }
 #boot.b-show { background: var(--b-alt); }
+/* Программа: заголовок окна — шапка страницы выбора; в студии — тонкая полоса над шапкой (engine/titlebar.ts) */
+.app-frame #boot.b-studio { grid-template-rows: 36px 48px var(--rh, 113px) minmax(0, 1fr) 30px; }
+.b-tbar { background: var(--b-surf); }
+.app-frame #boot .b-pk { padding-top: 4px; }
+.app-frame #boot .b-pkbar { height: 48px; padding-left: var(--tb-left, 0px); padding-right: calc(var(--tb-right, 0px) - clamp(20px, 3.2vw, 64px) + 14px); }
 </style>
 <!--/slideria-boot-->
 </head>
@@ -74,6 +79,24 @@
   if (t === 'light' || t === 'dark') html.setAttribute('data-theme', t);
   var dark = t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
   var mode = q.has('studio') ? 'studio' : (!q.get('deck') || q.has('all')) ? 'picker' : 'show';
+  // Программа без системного заголовка: место, высота и цвет кнопок окна — сразу, чтобы ничего не прыгнуло
+  // (engine/titlebar.ts уточнит цвет по настоящей шапке)
+  var frame = window.slideriaApp && window.slideriaApp.frame;
+  if (frame) {
+    if (window.slideriaApp.titleBar) window.slideriaApp.titleBar({
+      color: mode === 'studio' ? (dark ? '#162033' : '#FDFEFF') : (dark ? '#0F172A' : '#F8FAFC'),
+      symbol: dark ? '#CBD5E1' : '#374151',
+      height: mode === 'studio' ? 36 : mode === 'picker' ? 48 : 32
+    });
+    html.classList.add('app-frame');
+    if (window.slideriaApp.platform) html.setAttribute('data-platform', window.slideriaApp.platform);
+    var wco = navigator.windowControlsOverlay;
+    if (wco && wco.visible) {
+      var r = wco.getTitlebarAreaRect();
+      html.style.setProperty('--tb-left', Math.round(r.x) + 'px');
+      html.style.setProperty('--tb-right', Math.max(0, Math.round(innerWidth - r.x - r.width)) + 'px');
+    }
+  }
   var el = document.createElement('div');
   el.id = 'boot';
   el.className = 'b-' + mode + (dark ? ' dark' : '');
@@ -87,7 +110,7 @@
     el.style.setProperty('--rw', lay.right === false ? '0px' : px(lay.rw, 292, 220, 520));
     el.style.setProperty('--nh', get('htmlpptx-studio-notes') === '0' ? '0px' : px(lay.nh, 128, 64, 420));
     if (lay.ribbon === false) el.style.setProperty('--rh', '0px');
-    el.innerHTML = '<div class="b-top"><i class="b-logo"></i><i style="width:150px;height:12px"></i><span class="b-tabs"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="b-r"><i></i><i></i><i class="b-btn"></i></span></div>'
+    el.innerHTML = (frame ? '<div class="b-tbar"></div>' : '') + '<div class="b-top"><i class="b-logo"></i><i style="width:150px;height:12px"></i><span class="b-tabs"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="b-r"><i></i><i></i><i class="b-btn"></i></span></div>'
       + (lay.ribbon === false ? '<div></div>' : n('b-rib', 8))
       + '<div class="b-body">' + (lay.left === false ? '<div></div>' : n('b-left', 9))
       + '<div class="b-main"><div class="b-canvas"><i class="b-slide"></i></div><div class="b-notes"></div></div>'
