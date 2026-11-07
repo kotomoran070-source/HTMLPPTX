@@ -30,7 +30,9 @@
 
 /* ---------- содержимое ---------- */
 .fp-main { min-width: 0; min-height: 0; overflow-y: auto; padding: 32px clamp(24px, 4vw, 56px) 48px; outline: none; scrollbar-width: thin; }
-.fp-sec { max-width: 1180px; animation: fp-sec var(--ui-in, 160ms) var(--ui-ease, ease-out) both; }
+.fp-sec { max-width: 1180px; }
+/* Появление — только когда открыли другой раздел */
+.fp-sec.in { animation: fp-sec var(--ui-in, 160ms) var(--ui-ease, ease-out) both; }
 @keyframes fp-sec { from { opacity: 0; } }
 .fp-head h2 { margin: 0 0 4px; font: 500 24px/1.2 "SL Display", var(--font); letter-spacing: -.02em; color: var(--tx); }
 .fp-head p { margin: 0 0 24px; color: var(--mu); }
@@ -56,15 +58,16 @@
 .fp-sw small, .fp-empty small { display: block; color: var(--mu); font-size: 12px; }
 
 /* Выбор из нескольких */
-.fp-seg { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border: 1px solid var(--bd); border-radius: 8px; background: var(--alt); }
-.fp-seg button { display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border: 0; border-radius: 6px; background: none; color: var(--mu); font-size: 12.5px; font-weight: 500; cursor: pointer; }
+/* Переключатель: невысокий, выбранное — светлая плашка с мягкой тенью, без обводки у края */
+.fp-seg { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px; border: 1px solid var(--bd); border-radius: 8px; background: var(--alt); }
+.fp-seg button { display: inline-flex; align-items: center; gap: 7px; height: 24px; padding: 0 11px; border: 0; border-radius: 6px; background: none; color: var(--mu); font-size: 12.5px; font-weight: 500; cursor: pointer; transition: background .15s, color .15s, box-shadow .15s; }
 .fp-seg button:hover:not(:disabled) { color: var(--tx2); }
-.fp-seg button[aria-checked="true"] { background: var(--surf); color: var(--tx); box-shadow: 0 1px 2px rgba(15, 23, 42, .1), 0 0 0 1px var(--bd); }
+.fp-seg button[aria-checked="true"] { background: var(--surf); color: var(--tx); box-shadow: 0 1px 3px rgba(15, 23, 42, .14); }
 .fp-seg button:disabled { opacity: .5; cursor: default; }
 /* «Свой цвет»: под надписью — палитра системы, открывается щелчком у самой кнопки */
-.fp-pick { position: relative; display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 6px; color: var(--mu); font-size: 12.5px; font-weight: 500; cursor: pointer; }
+.fp-pick { position: relative; display: inline-flex; align-items: center; gap: 7px; height: 24px; padding: 0 11px; border-radius: 6px; color: var(--mu); font-size: 12.5px; font-weight: 500; cursor: pointer; transition: background .15s, color .15s, box-shadow .15s; }
 .fp-pick:hover { color: var(--tx2); }
-.fp-pick[aria-checked="true"] { background: var(--surf); color: var(--tx); box-shadow: 0 1px 2px rgba(15, 23, 42, .1), 0 0 0 1px var(--bd); }
+.fp-pick[aria-checked="true"] { background: var(--surf); color: var(--tx); box-shadow: 0 1px 3px rgba(15, 23, 42, .14); }
 .fp-pick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
 .fp-pick:has(input:focus-visible) { outline: 2px solid var(--ac); outline-offset: 2px; }
 .fp-dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12); }
@@ -145,6 +148,9 @@
 .fp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 28px; padding: 18px; }
 
 :root[data-theme="dark"] :is(.fp-row small.fp-bad) { color: #FBBF24; }
+/* Тёмная тема: выбранное в переключателе — тень темнее, иначе плашка сливается */
+:root[data-theme="dark"] :is(.fp-seg button, .fp-pick)[aria-checked="true"] { box-shadow: 0 1px 3px rgba(0, 0, 0, .5); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) :is(.fp-seg button, .fp-pick)[aria-checked="true"] { box-shadow: 0 1px 3px rgba(0, 0, 0, .5); } }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .fp-row small.fp-bad { color: #FBBF24; } }
 
 /* Узкое окно: колонки — одна под другой, затем разделы — одними значками */
@@ -162,4 +168,4 @@
   .fp-i[aria-selected="true"]::before { left: -8px; }
   .fp-formats, .fp-grid { grid-template-columns: minmax(0, 1fr); }
 }
-@media (prefers-reduced-motion: reduce) { .fp, .fp-sec { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .fp, .fp-sec.in { animation: none; } }

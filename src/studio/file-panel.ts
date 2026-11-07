@@ -48,6 +48,8 @@ export interface FileHost {
   ui: {
     theme(): UiTheme;
     setTheme(t: UiTheme): void;
+    /** T — светлая ↔ тёмная, как в студии */
+    toggleTheme(): void;
     /** Цвет презентации и свой цвет интерфейса (null — как у презентации) */
     accent(): string;
     ownColor(): string | null;
@@ -62,7 +64,7 @@ export interface FileHost {
     lookLocked(): boolean;
   };
   licenses: { run(): void; enabled(): boolean };
-  /** «Slideria 1.4 · сборка от …» — пусто вне программы */
+  /** «Slideria 1.4 · сборка от …» (запуск из проекта — без сборки); пусто вне программы */
   build(): string;
   /** Раздел открылся или закрылся */
   toggled(open: boolean): void;
@@ -271,9 +273,11 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
         : section === 'export' ? exportHtml() : prefsHtml();
     // Пока считалось, выбрали другой раздел или закрыли
     if (n !== drawn || root.hidden) return;
-    const keep = main.dataset.sec === section ? main.scrollTop : 0;
+    // Тот же раздел перерисовывается на месте (выбор, тема, сохранение): без появления и с той же прокруткой
+    const same = main.dataset.sec === section;
+    const keep = same ? main.scrollTop : 0;
     const focusSel = focusMain ? '' : focusKey();
-    main.innerHTML = `<div class="fp-sec">${html}</div>`;
+    main.innerHTML = `<div class="fp-sec${same ? '' : ' in'}">${html}</div>`;
     main.dataset.sec = section;
     main.scrollTop = keep;
     if (section === 'info') {
@@ -330,6 +334,9 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     const b = t.closest<HTMLElement>('button, [data-go], a');
     if (!b || !root.contains(b)) return;
     const d = b.dataset;
+    if (b.getAttribute('role') === 'radio') {
+      b.closest('[role="radiogroup"]')?.querySelectorAll('[role="radio"]').forEach((r) => r.setAttribute('aria-checked', String(r === b)));
+    }
     if (d.fs) { section = d.fs as FileSection; void render(); return; }
     if (d.a === 'close') return close();
     if (d.a === 'licenses') return host.licenses.run();
@@ -357,8 +364,8 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
       return;
     }
     if (d.q) { host.exporter.setQuality(d.q as Quality); void render(); return; }
-    // Тема меняется растворением (themeFade): раздел перерисуется, когда она сменилась (onThemeChange ниже)
-    if (d.uitheme) { host.ui.setTheme(d.uitheme as UiTheme); setTimeout(() => { if (section === 'prefs') void render(); }, 400); return; }
+    // Тема меняется растворением (themeFade); раздел перерисуется, когда она сменилась (onThemeChange ниже)
+    if (d.uitheme) { host.ui.setTheme(d.uitheme as UiTheme); return; }
     if (d.color) { host.ui.setOwnColor(null); void render(); return; }
     if (d.look !== undefined) { host.ui.setLook((d.look || null) as Look); void render(); }
   });
@@ -405,6 +412,13 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
       e.preventDefault();
       e.stopPropagation();
       void ed.save().then(() => { if (section === 'versions') void render(); });
+      return;
+    }
+    const typing = (e.target as HTMLElement).closest('input, textarea, [contenteditable="true"]');
+    if (!mod && !e.altKey && !typing && (e.key.toLowerCase() === 't' || e.key.toLowerCase() === 'е')) {
+      e.preventDefault();
+      e.stopPropagation();
+      host.ui.toggleTheme();
       return;
     }
     const tab = (e.target as HTMLElement).closest<HTMLElement>('[data-fs]');

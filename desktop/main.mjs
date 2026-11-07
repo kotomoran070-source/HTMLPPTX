@@ -474,7 +474,7 @@ function buildMenu() {
         { label: 'Журнал работы', click: () => void shell.openPath(LOG) },
         // Та же страница, что у кнопки на вкладке «Инструменты»: окно программы (plugins/licenses.mjs)
         { label: 'Лицензии', click: () => void main?.webContents.executeJavaScript("window.open('/__slideria/licenses', '_blank')") },
-        { label: `Версия ${BUILD.version}${BUILD.date ? ` · сборка от ${BUILD.date}` : ' · из проекта'}`, enabled: false },
+        { label: `Версия ${BUILD.version}${BUILD.date ? ` · сборка от ${BUILD.date}` : ''}`, enabled: false },
       ],
     },
   ]));

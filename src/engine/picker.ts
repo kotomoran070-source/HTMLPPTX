@@ -711,5 +711,5 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
 function appBuild(): string {
   const b = (window as { slideriaApp?: { build?: { version?: string; date?: string; commit?: string } } }).slideriaApp?.build;
   if (!b) return '';
-  return `<span class="pk-build">Slideria ${esc(b.version ?? '')} · ${b.date ? `сборка от ${esc(b.date)}${b.commit ? ` (${esc(b.commit)})` : ''}` : 'запуск из проекта'}</span>`;
+  return `<span class="pk-build">Slideria ${esc(b.version ?? '')}${b.date ? ` · сборка от ${esc(b.date)}${b.commit ? ` (${esc(b.commit)})` : ''}` : ''}</span>`;
 }

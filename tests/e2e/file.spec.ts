@@ -85,5 +85,11 @@ test('«Файл»: экспорт — настройки по формату; �
   await expect.poll(() => page.evaluate(() => document.documentElement.getAttribute('data-theme'))).toBe(other);
   await expect(page.locator(`.fp [data-uitheme="${other}"]`)).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('.fp .rs-presets button')).toHaveCount(3);
+  // T — тема и в разделе, как в студии; выбор в «Теме» следует за ней
+  await page.locator('.fp [data-fs="prefs"]').focus();
+  await page.keyboard.press('t');
+  await expect.poll(() => page.evaluate(() => document.documentElement.getAttribute('data-theme'))).toBe(theme === 'dark' ? 'dark' : 'light');
+  await expect(page.locator(`.fp [data-uitheme="${other}"]`)).toHaveAttribute('aria-checked', 'false');
+  await expect(page.locator('.fp')).toBeVisible();
   expect(errors).toEqual([]);
 });

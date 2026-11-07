@@ -35,12 +35,14 @@ body.studio { background: var(--alt); }
 .st-title:hover { border-color: var(--bd); }
 .st-title:focus { outline: none; border-color: var(--ac); background: var(--bg); }
 .st-tabs { display: flex; gap: 2px; margin-left: 8px; align-self: stretch; }
-/* «Файл» (file-panel.ts): первым в строке вкладок — раздел на всё окно; открыт — кнопка темнее */
-.st-filebtn { flex: none; height: 30px; padding: 0 14px; border: 0; border-radius: 7px; background: var(--ac); color: #fff; font: 500 13px var(--font); cursor: pointer; transition: background .15s; }
-.st-filebtn:hover { background: color-mix(in srgb, #000 12%, var(--ac)); }
-.st-filebtn.on { background: color-mix(in srgb, #000 22%, var(--ac)); }
-.st-filebtn:focus-visible { outline: 2px solid var(--acb); outline-offset: 2px; }
-.st-filebtn + .st-tabs { margin-left: 6px; }
+/* «Файл» (file-panel.ts): первым в строке вкладок, как вкладка — только чуть заметнее и отделён чертой;
+   раздел открыт — подчёркнут, как выбранная вкладка */
+.st-filebtn { position: relative; flex: none; align-self: stretch; display: flex; align-items: center; margin: 0 6px -1px 0; padding: 0 14px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--tx2); font: 600 13px var(--font); cursor: pointer; transition: color .15s; }
+.st-filebtn::after { content: ""; position: absolute; right: -4px; top: 50%; width: 1px; height: 16px; translate: 0 -50%; background: var(--bd); }
+.st-filebtn:hover { color: var(--tx); }
+.st-filebtn.on { color: var(--ach); border-bottom-color: var(--ac); }
+.st-filebtn:focus-visible { outline: 2px solid var(--acb); outline-offset: -4px; border-radius: 6px; }
+.st-filebtn + .st-tabs { margin-left: 4px; }
 .st-tabs button { border: 0; background: none; padding: 0 14px; font: 600 13px var(--font); color: var(--mu); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .st-tabs button:hover { color: var(--tx); }
 .st-tabs button[aria-selected="true"] { color: var(--ach); border-bottom-color: var(--ac); }

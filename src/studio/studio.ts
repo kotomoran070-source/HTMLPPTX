@@ -1975,6 +1975,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     ui: {
       theme: () => { const t = document.documentElement.getAttribute('data-theme'); return t === 'light' || t === 'dark' ? t : 'system'; },
       setTheme: (t) => themeFade(() => (t === 'system' ? followSystemTheme() : setTheme(t))),
+      toggleTheme: () => themeFade(toggleTheme),
       accent: () => { const a = deck.theme?.accent; return typeof a === 'string' && HEX_RE.test(a) ? a : DEFAULT_ACCENT; },
       ownColor: () => (uiAccent() ? uiColor.value : null),
       previewColor: (c: string) => { setUiAccent(c); },
@@ -1992,7 +1993,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     licenses: { run: () => run('tools.licenses'), enabled: () => location.protocol.startsWith('http') },
     build: () => {
       const b = appApi?.build;
-      return b ? `Slideria ${b.version ?? ''} · ${b.date ? `сборка от ${b.date}` : 'запуск из проекта'}` : '';
+      return b ? `Slideria ${b.version ?? ''}${b.date ? ` · сборка от ${b.date}` : ''}` : '';
     },
     toggled: (open) => { fileBtn.classList.toggle('on', open); },
   }, document.querySelector<HTMLElement>('.studio-app')!, fileBtn);

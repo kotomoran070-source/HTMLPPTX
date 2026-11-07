@@ -55,7 +55,8 @@ test('первый запуск: «Моя первая презентация»,
     expect(fs.existsSync(path.join(docs, 'moya-pervaya-prezentaciya', 'deck.yaml'))).toBe(true);
     // Подсказки внизу — без команд терминала; какая это сборка программы
     await expect(win.locator('.pk-foot')).not.toContainText('yarn');
-    await expect(win.locator('.pk-build')).toContainText(EXE ? 'сборка от' : 'запуск из проекта');
+    await expect(win.locator('.pk-build')).toContainText(EXE ? 'сборка от' : 'Slideria');
+    await expect(win.locator('.pk-build')).not.toContainText('запуск');
     // «⋯ → Показать в папке» — папка этой презентации (Проводник в тесте подменён: окно не открывается)
     await app.evaluate(({ shell }) => {
       const g = globalThis as { revealed?: string };
