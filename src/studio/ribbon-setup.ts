@@ -5,6 +5,7 @@
  */
 import { icon } from '../components/icons';
 import './ribbon-setup.css';
+import { leave } from '../engine/motion';
 
 export interface RibbonHost {
   /** Открытая вкладка и переход на другую */
@@ -88,7 +89,7 @@ export function initRibbonSetup(host: RibbonHost): { open(anchor?: HTMLElement):
 
   let box: HTMLElement | null = null;
   const close = () => {
-    box?.remove();
+    if (box) leave(box);
     box = null;
     removeEventListener('keydown', onKey, true);
     removeEventListener('pointerdown', onOutside, true);

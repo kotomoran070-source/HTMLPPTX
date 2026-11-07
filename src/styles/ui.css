@@ -240,3 +240,6 @@ select[data-open] { border-color: var(--ac) !important; }
 /* Скрытый слайд в обзоре показа */
 .ovcard.is-hidden { opacity: .45; }
 .ovcard.is-hidden .ovnum { text-decoration: line-through; }
+
+/* Смена темы интерфейса растворением старой в новой (engine/motion.ts, themeFade) */
+:root.ui-vt::view-transition-old(root), :root.ui-vt::view-transition-new(root) { animation-duration: var(--ui-theme, 240ms); }

@@ -1,5 +1,6 @@
 import { icon } from '../components/icons';
 import { esc } from '../engine/html';
+import { leave, onPage } from '../engine/motion';
 
 export interface MenuItem {
   label: string;
@@ -77,9 +78,9 @@ function watchPreview(el: HTMLElement, items: MenuEntry[]): void {
   el.addEventListener('pointerover', (e) => set(at(e.target)));
   el.addEventListener('pointerleave', () => { if (!el.contains(document.activeElement)) set(null); });
   el.addEventListener('focusin', (e) => set(at(e.target)));
-  // Меню закрыли (выбор, Esc, щелчок мимо) — подсветка гаснет
+  // Меню закрыли (выбор, Esc, щелчок мимо) — подсветка гаснет; уходящее меню (призрак) — уже закрыто
   const mo = new MutationObserver(() => {
-    if (el.isConnected) return;
+    if (onPage(el)) return;
     set(null);
     mo.disconnect();
   });
@@ -124,12 +125,16 @@ function mount(at: { x: number; y: number } | HTMLElement, el: HTMLElement, acti
   }
   const w = el.offsetWidth;
   const h = el.offsetHeight;
+  const up = y + h > innerHeight - 8;
   el.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, x))}px`;
-  el.style.top = `${y + h > innerHeight - 8 ? Math.max(8, y - h - (anchor ? anchor.offsetHeight + 8 : 0)) : y}px`;
+  el.style.top = `${up ? Math.max(8, y - h - (anchor ? anchor.offsetHeight + 8 : 0)) : y}px`;
+  // Не поместилось под кнопкой — открылось над ней: появляется и уходит вверх (studio.css, .st-menu[data-up])
+  if (up) el.dataset.up = '';
 
   const buttons = () => [...el.querySelectorAll<HTMLButtonElement>('button:not([disabled])')];
   const close = () => {
-    el.remove();
+    // Гаснет призрак меню (engine/motion.ts): самого меню на странице уже нет
+    leave(el);
     anchor?.setAttribute('aria-expanded', 'false');
     removeEventListener('pointerdown', outside, true);
     removeEventListener('keydown', onKey, true);

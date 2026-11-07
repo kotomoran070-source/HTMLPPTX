@@ -153,12 +153,13 @@ body.editing .ednotes.on { display: flex; }
 
 /* Уведомления */
 .edtoast {
-  position: fixed; left: 50%; bottom: 76px; z-index: 15; transform: translate(-50%, 12px); opacity: 0; pointer-events: none;
+  position: fixed; left: 50%; bottom: 76px; z-index: 15; transform: translate(-50%, var(--ui-shift, 6px)) scale(var(--ui-scale, .98)); opacity: 0; pointer-events: none;
   max-width: min(640px, calc(100vw - 32px)); padding: 10px 16px; border-radius: 10px;
   background: #0F172A; color: #E6EBF3; font-size: 14px; line-height: 1.4; box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
-  transition: opacity .2s, transform .2s var(--ease);
+  /* Появляется за --ui-in, гаснет за --ui-out (styles/tokens.css) */
+  transition: opacity var(--ui-out, 110ms) ease-in, transform var(--ui-out, 110ms) ease-in;
 }
-.edtoast.on { opacity: 1; transform: translate(-50%, 0); }
+.edtoast.on { opacity: 1; transform: translate(-50%, 0); transition: opacity var(--ui-in, 160ms) var(--ui-ease, ease-out), transform var(--ui-in, 160ms) var(--ui-ease, ease-out); }
 .edtoast.err { background: #7F1D1D; }
 body.editing .ednotes.on ~ .edtoast { bottom: 226px; }
 

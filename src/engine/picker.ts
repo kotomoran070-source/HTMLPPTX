@@ -8,6 +8,7 @@ import { staticSlide } from './deck-view';
 import { esc } from './html';
 import { currentTheme, toggleTheme } from './theme';
 import './picker.css';
+import { themeFade } from './motion';
 
 type Loaders = Record<string, () => Promise<Deck>>;
 
@@ -229,12 +230,11 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
       if (d) c.querySelector<HTMLElement>('.pk-thumb')!.setAttribute('style', accentVars(d));
     });
   };
-  themeBtn.onclick = () => { toggleTheme(); retheme(); };
+  // Тема меняется растворением (engine/motion.ts)
+  const swap = () => themeFade(() => { toggleTheme(); retheme(); });
+  themeBtn.onclick = swap;
   addEventListener('keydown', (e) => {
-    if ((e.key === 't' || e.key === 'е') && !e.ctrlKey && !e.metaKey && !(e.target as Element).closest('input, textarea')) {
-      toggleTheme();
-      retheme();
-    }
+    if ((e.key === 't' || e.key === 'е') && !e.ctrlKey && !e.metaKey && !(e.target as Element).closest('input, textarea')) swap();
   });
 
   // Удалили в другом окне (или из студии): карточка уходит и здесь, без перезагрузки

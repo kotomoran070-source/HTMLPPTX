@@ -26,6 +26,7 @@ import { isBackdrop, TOUCH_BACKDROPS } from '../engine/backdrops';
 import { addMyTheme, captureTheme, downloadTheme, downloadThemes, listMyThemes, MY, parseThemeFiles, placeThemeImages, registerMyFonts, removeMyTheme, sameTheme, type MyTheme } from './my-themes';
 import { freeName } from './same';
 import { registerThemeFonts, SPECIMEN, THEME_FONTS, THEME_PRESETS, themeFont, themeFontWeights, type ThemePreset } from './theme-presets';
+import { onPage } from '../engine/motion';
 
 interface Command {
   run(): void;
@@ -314,7 +315,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     el.addEventListener('pointerleave', () => tryOn(null));
     // Панель закрылась (выбор, Esc, щелчок мимо) — примерка заканчивается
     new MutationObserver((_m, o) => {
-      if (!el.isConnected) { tryOn(null); o.disconnect(); }
+      if (!onPage(el)) { tryOn(null); o.disconnect(); }
     }).observe(document.body, { childList: true });
   };
 
@@ -766,7 +767,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
       else if (t?.dataset.mark !== undefined) tryMark(t.dataset.mark);
     });
     el.addEventListener('pointerleave', () => { tryPlate(null); tryCorner(); tryMark(); });
-    new MutationObserver((_m, o) => { if (!el.isConnected) { tryPlate(null); tryCorner(); tryMark(); o.disconnect(); } }).observe(document.body, { childList: true });
+    new MutationObserver((_m, o) => { if (!onPage(el)) { tryPlate(null); tryCorner(); tryMark(); o.disconnect(); } }).observe(document.body, { childList: true });
   };
 
   const cmds: Record<string, Command> = {

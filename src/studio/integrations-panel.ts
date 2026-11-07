@@ -5,6 +5,7 @@
 import { icon } from '../components/icons';
 import './integrations.css';
 import { agentLook, ago, api, defaults, edits, revertAgent, runScript, type AgentInfo, type IntegrationsCtx, type JournalEntry, type ScriptInfo, type ScriptParam, type Section } from './integrations';
+import { leave } from '../engine/motion';
 
 type Access = 'view' | 'edit' | 'all';
 interface Info { access: Access; agents: AgentInfo[]; mcp: { command: string; args: string[] } | null; scripts: string }
@@ -85,6 +86,8 @@ export function update(ctx: IntegrationsCtx, section: Section): void {
 
 function close(): void {
   if (!root) return;
+  // Панель прячется сразу, гаснет её копия (engine/motion.ts)
+  if (!root.hidden) leave(root, { copy: true, fade: true });
   root.hidden = true;
   document.body.classList.remove('si-open');
   syncRibbon();

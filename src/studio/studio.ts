@@ -44,6 +44,7 @@ import { addEffect, addTemplate, assetUrls, findEntrance, deckWithTemplate, list
 import { animCommands, animPanelHtml, animTabHtml, bindDelayField, bindFxGallery, syncAnimTab, type AnimHost } from './anim-tab';
 import { bindDesignStrip, designCommands, designPanelHtml, designTabHtml, importThemeFiles, isThemeFile, syncDesignTab, themeWarmTasks, type DesignHost } from './design-tab';
 import { warmLater } from './warm';
+import { inkTabs, themeFade, warmGhosts } from '../engine/motion';
 import { THEME_PRESETS } from './theme-presets';
 import { initRibbonSetup } from './ribbon-setup';
 import { pictureName, savePicture } from './save-picture';
@@ -1595,9 +1596,9 @@ export function startStudio(deck: Deck, deckKey: string): void {
       run: () => {
         const cur = document.documentElement.getAttribute('data-theme');
         showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="view.ui-theme"]')!, [
-          { label: 'Светлая', checked: cur === 'light', run: () => setTheme('light') },
-          { label: 'Тёмная', checked: cur === 'dark', run: () => setTheme('dark') },
-          { label: 'Как в системе', checked: cur !== 'light' && cur !== 'dark', run: followSystemTheme },
+          { label: 'Светлая', checked: cur === 'light', run: () => themeFade(() => setTheme('light')) },
+          { label: 'Тёмная', checked: cur === 'dark', run: () => themeFade(() => setTheme('dark')) },
+          { label: 'Как в системе', checked: cur !== 'light' && cur !== 'dark', run: () => themeFade(followSystemTheme) },
         ]);
       },
     },
@@ -1682,7 +1683,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
     'design.accent-reset': { run: () => ed.setAccent(null), enabled: () => !!deck.theme?.accent || !!deck.theme?.accent2 },
     'design.accent-flow': { run: () => ed.setAccentFlow(!deck.theme?.accentFlow), enabled: () => !!deck.theme?.accent2, active: () => !!deck.theme?.accentFlow },
     'edit.find': { run: () => find?.show() },
-    'design.theme': { run: () => toggleTheme() },
+    'design.theme': { run: () => themeFade(toggleTheme) },
     'show.start': { run: () => void openShow(0) },
     'show.hide': { run: () => toggleHidden(index), active: () => deck.slides[index]?.hidden === true },
     'show.current': { run: () => void openShow(index) },
@@ -1761,7 +1762,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
   const designHost: DesignHost = { deck, editor: ed, stage: () => view.stage, askName: (a, t, n, sg, save) => askName(a, t, n, sg, save) };
   Object.assign(cmds, designCommands(designHost));
   // Галерея тем — в запас, пока студия простаивает: шрифты тем и кадры живых фонов плиток (design-tab.ts)
-  warmLater(themeWarmTasks());
+  // Стили для ухода меню (engine/motion.ts) и шрифты с фонами тем — заранее, в свободное время
+  warmLater([warmGhosts, ...themeWarmTasks()]);
   bindDesignStrip(designHost, cmds);
   Object.assign(cmds, toolsCommands({ deck, deckKey, editor: ed, go }));
   // «Инструменты → Интеграции»: агенты, скрипты, плагины, журнал правок (integrations.ts)
@@ -1895,6 +1897,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
   }
   // Идёт правка текста (ячейка таблицы, надпись): вкладка переключается, а курсор остаётся в тексте —
   // «Главная» → «Текст» сразу применяется к нему, а не завершает правку
+  // Полоска под выбранной вкладкой — переезжает к новой (engine/motion.ts)
+  inkTabs(document.querySelector<HTMLElement>('.st-tabs')!);
   document.querySelector('.st-tabs')!.addEventListener('mousedown', (e) => {
     if ((document.activeElement as HTMLElement | null)?.isContentEditable && (e.target as Element).closest('[data-tab]')) e.preventDefault();
   });
@@ -1942,7 +1946,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
         : [{ label: 'Точек пока нет', disabled: true, run: () => {} }]),
     ]);
   });
-  $('st-theme').addEventListener('click', () => toggleTheme());
+  $('st-theme').addEventListener('click', () => themeFade(toggleTheme));
   const accent = $<HTMLInputElement>('st-accent');
   // Пока тянут палитру — только показ; правка и сохранение — когда отпустили
   accent.addEventListener('input', () => ed.previewAccent(accent.value));
@@ -2456,7 +2460,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
       PageUp: () => go(index - 1), ArrowUp: () => go(index - 1), ArrowLeft: () => go(index - 1),
       Home: () => go(0), End: () => go(count() - 1),
     };
-    const letters: Record<string, () => void> = { t: () => toggleTheme(), 'е': () => toggleTheme() };
+    const letters: Record<string, () => void> = { t: () => themeFade(toggleTheme), 'е': () => themeFade(toggleTheme) };
     const fn = nav[e.key] ?? letters[k];
     if (fn) {
       e.preventDefault();

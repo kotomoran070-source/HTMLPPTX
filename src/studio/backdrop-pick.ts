@@ -8,6 +8,7 @@ import { backdropColors, backdropStill, previewBackdrop } from '../components/ba
 import { BACKDROPS, backdropName, isBackdrop, type BackdropKind } from '../engine/backdrops';
 import { esc } from '../engine/html';
 import { onSlidesLook, onThemeChange } from '../engine/theme';
+import { onPage } from '../engine/motion';
 
 /**
  * Плитки: cur — выбранное значение ('' — по умолчанию). theme — фон темы для слайда:
@@ -75,7 +76,7 @@ export function bindBackdropStrip(root: HTMLElement, stage: () => HTMLElement, t
   fillStills(strip, stage().querySelector<HTMLElement>('.slide.on'));
   // Сменилась тема или вид слайдов — кадры в новых цветах; лента ушла со страницы — отписка
   const again = () => requestAnimationFrame(() => {
-    if (!strip.isConnected) return offs.forEach((f) => f());
+    if (!onPage(strip)) return offs.forEach((f) => f());
     fillStills(strip, stage().querySelector<HTMLElement>('.slide.on'));
   });
   const offs = [onThemeChange(again), onSlidesLook(again)];
@@ -119,7 +120,7 @@ function fillStills(strip: HTMLElement, slide: HTMLElement | null): void {
   const step = (dl?: IdleDeadline) => {
     waiting = false;
     // Лента ушла со страницы или её уже заполняют заново (сменилась тема) — эта очередь больше не нужна
-    if (!strip.isConnected || filling.get(strip) !== io) return io.disconnect();
+    if (!onPage(strip) || filling.get(strip) !== io) return io.disconnect();
     // Кадр плитки — 20–30 мс (своя сцена WebGL): пока объект тянут, он сделал бы кадр долгим — ждём отпускания
     if (pointerHeld) {
       waiting = true;

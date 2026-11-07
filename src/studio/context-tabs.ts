@@ -62,6 +62,7 @@ import { textGradientCss } from '../engine/gradients';
 import { angleOf } from '../engine/render';
 import { applyLook, LOOK_GROUPS, lookOn, textPanelHtml, textSampleHtml, TEXT_LOOKS } from './text-tab';
 import { cellAnchor, cellLists, cellOf, cellRange, cellSpan, colCount, dropCols, dropRows, expandRange, hasMerge, mergeRange, pruneCellData, rowLists, shiftMerges, sortRows, splitCell, splitRange, tableCells, type CellRange, type TableData as CellTable } from './table-cells';
+import { onPage } from '../engine/motion';
 
 /**
  * Контекстные вкладки ленты, как «Формат фигуры» и «Макет таблицы» в PowerPoint:
@@ -626,7 +627,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       saved = snap();
     });
     // Закрыли без выбора (Esc, щелчок мимо) — снимки как были
-    const mo = new MutationObserver(() => { if (!pop.isConnected) { mo.disconnect(); restore(); } });
+    const mo = new MutationObserver(() => { if (!onPage(pop)) { mo.disconnect(); restore(); } });
     mo.observe(document.body, { childList: true });
   };
   const put = putStyle;
@@ -664,7 +665,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     pop.addEventListener('focusin', (e) => show(e.target));
     pop.addEventListener('pointerleave', () => look.restore());
     pop.addEventListener('pointerdown', (e) => { if (opt(e.target)) look.forget(); });
-    const mo = new MutationObserver(() => { if (!pop.isConnected) { mo.disconnect(); look.restore(); } });
+    const mo = new MutationObserver(() => { if (!onPage(pop)) { mo.disconnect(); look.restore(); } });
     mo.observe(document.body, { childList: true });
   };
   /** Рисунок: оформление — на рамке .imgbox и самом снимке, образец — пейзаж */
@@ -729,7 +730,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       else ed.commit((d) => paths.forEach((p) => setAt(d, [...p, slider.key], v)), { rebuild: true, merge: `${kind.type}-${slider.key}` });
       look.forget();
     });
-    const mo = new MutationObserver(() => { if (!pop.isConnected) { mo.disconnect(); restore(); } });
+    const mo = new MutationObserver(() => { if (!onPage(pop)) { mo.disconnect(); restore(); } });
     mo.observe(document.body, { childList: true });
   };
   /** Одно поле: тень, скругление, прозрачность, паспарту, поворот (cls «f» — пять образцов в ряд) */

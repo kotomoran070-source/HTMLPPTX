@@ -1,6 +1,7 @@
 import { icon } from '../components/icons';
 import { withTheme } from '../components/html/html';
 import { esc } from '../engine/html';
+import { leave } from '../engine/motion';
 
 /**
  * Редактор кода живой вставки: слева HTML/CSS/JS, справа — он же в работе.
@@ -61,7 +62,8 @@ export function openCodeDialog(o: CodeDialog): void {
   const close = () => {
     clearTimeout(timer);
     removeEventListener('keydown', onKey, true);
-    box.remove();
+    // Окно гаснет, подложка растворяется (engine/motion.ts)
+    leave(box, { box: '.st-cd' });
   };
   const ok = () => {
     const code = src.value;

@@ -7,6 +7,7 @@ import { accentMid, DEFAULT_ACCENT, HEX_RE, previewAccent, type AccentStop } fro
 import { SHAPE_SWATCHES } from '../components/shape/shape';
 import { gradientPanel, type GradValue } from '../engine/editor/gradient-edit';
 import { showPopover } from './menu';
+import { onPage } from '../engine/motion';
 
 /** Готовые сочетания: акцент и второй цвет (null — ровный акцент), точки между, название */
 export const PALETTES: [string, string | null, string, AccentStop[]?][] = [
@@ -73,5 +74,5 @@ export function openAccentGradient(at: HTMLElement, cur: AccentColors, stage: ()
   }, { from: a, to: a2 ?? a, mid });
   const el = showPopover(at, `<div class="st-plabel">Градиент акцента</div>${panel.html}`, panel.pick, 'st-palette st-grad');
   panel.bind(el);
-  new MutationObserver((_m, o) => { if (!el.isConnected) { previewAccent(null); o.disconnect(); } }).observe(document.body, { childList: true });
+  new MutationObserver((_m, o) => { if (!onPage(el)) { previewAccent(null); o.disconnect(); } }).observe(document.body, { childList: true });
 }

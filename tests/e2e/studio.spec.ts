@@ -1445,8 +1445,11 @@ test('«Порядок»: строки перетаскиваются, выде�
   const rows = page.locator('.st-aorder-row');
   const list = () => rows.evaluateAll((rs) => rs.map((r) => `${r.querySelector('span')!.textContent!.split(' · ')[1]}:${(r as HTMLElement).dataset.kind}`).join(' '));
   const drag = async (from: number, to: number, after = false) => {
-    const bb = (await rows.nth(to).boundingBox())!;
-    await rows.nth(from).dragTo(rows.nth(to), { targetPosition: { x: bb.width / 2, y: after ? bb.height - 4 : 4 } });
+    // Список перерисовывается после каждой правки (сохранение, выделение): размеры строки — когда она на месте
+    let bb: { width: number; height: number } | null = null;
+    await expect.poll(async () => (bb = await rows.nth(to).boundingBox()) !== null).toBe(true);
+    const { width, height } = bb!;
+    await rows.nth(from).dragTo(rows.nth(to), { targetPosition: { x: width / 2, y: after ? height - 4 : 4 } });
   };
   // Две группы со своей нумерацией
   await expect(page.locator('.st-aorder-head')).toHaveText(['При открытии слайда', 'По щелчку']);

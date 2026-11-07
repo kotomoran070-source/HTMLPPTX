@@ -1668,3 +1668,43 @@ body.st-connecting .stage .slide.on > .free.st-conn-over { outline: 2px dashed v
 .st-int-toast span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .st-int-toast button { border: 0; background: rgba(255, 255, 255, .08); color: #93C5FD; font: 600 13px var(--font); padding: 5px 10px; border-radius: 8px; cursor: pointer; }
 .st-int-toast button:hover { background: rgba(255, 255, 255, .16); }
+
+/* ---------- Движение интерфейса (вариант «Мягко»: токены --ui-* в styles/tokens.css, engine/motion.ts) ---------- */
+/* Меню и всплывающие панели появляются от кнопки: проявляются, чуть съезжают и увеличиваются; открытое над кнопкой — снизу вверх */
+.st-menu, .st-lib, .rs { animation: ui-in var(--ui-in) var(--ui-ease) both; transform-origin: top left; }
+.rs { transform-origin: top right; }
+.st-menu[data-up] { animation-name: ui-in-up; transform-origin: bottom left; }
+@keyframes ui-in { from { opacity: 0; transform: translateY(calc(var(--ui-shift) * -1)) scale(var(--ui-scale)); } }
+@keyframes ui-in-up { from { opacity: 0; transform: translateY(var(--ui-shift)) scale(var(--ui-scale)); } }
+/* Плитки галереи блоков — волной: первые ряды чуть раньше */
+.st-lib .st-lib-grid > * { animation: ui-tile var(--ui-in) var(--ui-ease) both; }
+.st-lib .st-lib-grid > :nth-child(n+5) { animation-delay: calc(var(--ui-in) * .15); }
+.st-lib .st-lib-grid > :nth-child(n+9) { animation-delay: calc(var(--ui-in) * .3); }
+@keyframes ui-tile { from { opacity: 0; transform: translateY(calc(var(--ui-shift) * .6)); } }
+/* Окна на затемнении: затемнение проявляется, окно подъезжает снизу */
+.st-cd-bd, .cg-back { animation: ui-fade-in var(--ui-in) ease-out both; }
+.st-cd-bd > .st-cd, .cg-back > .cg { animation: ui-box-in var(--ui-in) var(--ui-ease) both; }
+@keyframes ui-fade-in { from { opacity: 0; } }
+@keyframes ui-box-in { from { transform: translateY(calc(var(--ui-shift) * 1.5)) scale(var(--ui-scale)); } }
+/* Лента: при смене вкладки панель проявляется со сдвигом; «Свойства» — выезжают сбоку */
+.st-rpanel:not([hidden]) { animation: ui-rib var(--ui-tab) var(--ui-ease) both; }
+@keyframes ui-rib { from { opacity: 0; transform: translateY(calc(var(--ui-shift) * .5)); } }
+.st-props:not([hidden]) { animation: ui-side var(--ui-in) var(--ui-ease) both; }
+@keyframes ui-side { from { opacity: 0; transform: translateX(var(--ui-shift)); } }
+/* Полоска под выбранной вкладкой переезжает к новой (inkTabs) */
+.st-tabs.inked { position: relative; }
+.st-tabs.inked button[aria-selected="true"] { border-bottom-color: transparent; }
+.st-ink { position: absolute; left: 0; bottom: -1px; height: 2px; width: 0; border-radius: 2px; background: var(--ac); pointer-events: none;
+  transition: transform var(--ui-tab) var(--ui-ease), width var(--ui-tab) var(--ui-ease), opacity var(--ui-out); }
+.st-ink.off, .ribbon-min .st-ink { opacity: 0; }
+/* Уход (призрак, engine/motion.ts leave): гаснет и чуть отъезжает туда, откуда появилось */
+.ui-leave { animation: ui-out var(--ui-out) ease-in forwards !important; pointer-events: none !important; }
+.ui-leave[data-up] { animation-name: ui-out-up !important; }
+.ui-leave.ui-dim { animation-name: ui-fade-out !important; }
+.ui-leave .ui-box { animation: ui-box-out var(--ui-out) ease-in forwards !important; }
+/* Внутри уходящего — ничего своего: появление частей окна не проигрывается заново */
+.ui-leave *:not(.ui-box) { animation: none !important; }
+@keyframes ui-out { to { opacity: 0; transform: translateY(calc(var(--ui-shift) * -.5)) scale(var(--ui-scale)); } }
+@keyframes ui-out-up { to { opacity: 0; transform: translateY(calc(var(--ui-shift) * .5)) scale(var(--ui-scale)); } }
+@keyframes ui-fade-out { to { opacity: 0; } }
+@keyframes ui-box-out { to { transform: translateY(calc(var(--ui-shift) * 1.5)) scale(var(--ui-scale)); } }

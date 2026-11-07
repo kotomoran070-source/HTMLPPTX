@@ -29,6 +29,16 @@
   /* Запасной шрифт для своих шрифтов презентации (--font внутри слайдов может быть своим) */
   --font-base: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --ease: cubic-bezier(.2, .7, .2, 1);
+  /* Движение интерфейса (вариант «Мягко»): меню, всплывающие панели и окна появляются за --ui-in со сдвигом
+     --ui-shift и лёгким увеличением от --ui-scale, гаснут за --ui-out; полоска вкладки — --ui-tab, смена темы
+     интерфейса — --ui-theme. «Уменьшить движение» в системе — всё сразу (ниже) */
+  --ui-in: 160ms;
+  --ui-out: 110ms;
+  --ui-ease: cubic-bezier(.2, .8, .2, 1);
+  --ui-shift: 6px;
+  --ui-scale: .98;
+  --ui-tab: 220ms;
+  --ui-theme: 240ms;
   /* Второй цвет акцента (theme.accent2) и акцентный градиент; без второго цвета — ровный акцент */
   --ac2: var(--ac);
   --ac-g: linear-gradient(135deg, var(--ac), var(--ac2));
@@ -124,4 +134,9 @@
     --shadow-md: 0 8px 24px rgba(0, 0, 0, .35);
     color-scheme: dark;
   }
+}
+
+/* «Уменьшить движение»: интерфейс без анимации — меню, окна, вкладки и тема меняются сразу */
+@media (prefers-reduced-motion: reduce) {
+  :root { --ui-in: 0ms; --ui-out: 0ms; --ui-tab: 0ms; --ui-theme: 0ms; --ui-shift: 0px; --ui-scale: 1; }
 }
