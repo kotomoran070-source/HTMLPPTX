@@ -269,13 +269,15 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
   document.body.innerHTML = `
 <div class="pk">
   <header class="pk-top" id="pk-top" data-titlebar><div class="pk-bar pk-wide">
-    <div class="pk-brand"><span class="pk-mark">${brandMark()}</span><span>Slideria</span></div>
-    <label class="pk-search">${icon('search')}<input id="pk-q" type="search" placeholder="Найти презентацию" aria-label="Найти презентацию" autocomplete="off" spellcheck="false"><kbd>Ctrl K</kbd></label>
-    <div class="pk-acts">
-      ${dev ? `<button class="pk-btn" id="pk-import" type="button" title="PowerPoint или HTML — или перетащите файл в окно">${icon('upload')}<span>Импорт</span></button>
-      <button class="pk-btn go" id="pk-new" type="button">${icon('plus')}<span>Создать</span></button>` : ''}
-      <button class="pk-btn pk-ibtn theme-btn" id="pk-theme" type="button" aria-label="Переключить тему (T)" title="Тема (T)">${icon('sun', 'ic sun')}${icon('moon', 'ic moon')}</button>
+    <div class="pk-lead">
+      <div class="pk-brand"><span class="pk-mark">${brandMark()}</span><span>Slideria</span></div>
+      <div class="pk-acts">
+        ${dev ? `<button class="pk-btn" id="pk-import" type="button" title="PowerPoint или HTML — или перетащите файл в окно">${icon('upload')}<span>Импорт</span></button>
+        <button class="pk-btn go" id="pk-new" type="button">${icon('plus')}<span>Создать</span></button>` : ''}
+        <button class="pk-btn pk-ibtn theme-btn" id="pk-theme" type="button" aria-label="Переключить тему (T)" title="Тема (T)">${icon('sun', 'ic sun')}${icon('moon', 'ic moon')}</button>
+      </div>
     </div>
+    <label class="pk-search">${icon('search')}<input id="pk-q" type="search" placeholder="Найти презентацию" aria-label="Найти презентацию" autocomplete="off" spellcheck="false"><kbd>Ctrl K</kbd></label>
   </div></header>
   <main class="pk-main pk-wide">
     <section class="pk-cont" id="pk-cont" hidden></section>

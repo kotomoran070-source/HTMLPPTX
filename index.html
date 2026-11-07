@@ -44,13 +44,13 @@
 .b-pk { max-width: 2200px; margin: 0 auto; padding: 14px clamp(20px, 3.2vw, 64px); box-sizing: border-box; }
 .b-pkbar { display: flex; align-items: center; gap: 16px; height: 40px; }
 .b-pk .b-mark { width: 32px; height: 32px; border-radius: 10px; flex: none; }
-#boot .b-pk .b-search { flex: 1; max-width: 520px; height: 40px; margin-inline: auto; border-radius: 999px; background: var(--b-surf); border: 1px solid var(--b-bd); }
-.b-pk .b-btn { width: 104px; height: 40px; border-radius: 999px; flex: none; }
-.b-pk .b-btn2 { width: 120px; height: 40px; border-radius: 999px; flex: none; opacity: .8; }
-#boot .b-cont { height: clamp(260px, 24vw, 460px); margin-top: 38px; border-radius: 24px; background: var(--b-surf); border: 1px solid var(--b-bd); }
+#boot .b-pk .b-search { flex: 1; max-width: 520px; height: 38px; margin-inline: auto; border-radius: 8px; background: var(--b-surf); border: 1px solid var(--b-bd); }
+.b-pk .b-btn { width: 104px; height: 38px; border-radius: 8px; flex: none; }
+.b-pk .b-btn2 { width: 120px; height: 38px; border-radius: 8px; flex: none; opacity: .8; }
+#boot .b-cont { height: clamp(260px, 24vw, 460px); margin-top: 38px; border-radius: 12px; background: var(--b-surf); border: 1px solid var(--b-bd); }
 .b-pkhead { display: flex; align-items: center; justify-content: space-between; margin: 40px 0 30px; }
 .b-pk .b-h1 { width: 200px; height: 26px; border-radius: 8px; }
-.b-pk .b-tools { width: 360px; height: 40px; border-radius: 999px; }
+.b-pk .b-tools { width: 360px; height: 36px; border-radius: 8px; }
 .b-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 34px 26px; }
 #boot .b-grid i { aspect-ratio: 16 / 9; border-radius: 12px; background: var(--b-surf); border: 1px solid var(--b-bd); }
 @media (max-width: 720px) { .b-pk .b-btn, .b-pk .b-btn2 { width: 44px; } .b-pk .b-tools { display: none; } }
@@ -59,8 +59,18 @@
 /* Программа: заголовок окна — шапка страницы выбора; в студии — тонкая полоса над шапкой (engine/titlebar.ts) */
 .app-frame #boot.b-studio { grid-template-rows: 36px 48px var(--rh, 113px) minmax(0, 1fr) 30px; }
 .b-tbar { background: var(--b-surf); }
-.app-frame #boot .b-pk { padding-top: 4px; }
-.app-frame #boot .b-pkbar { height: 48px; padding-left: var(--tb-left, 0px); padding-right: calc(var(--tb-right, 0px) - clamp(20px, 3.2vw, 64px) + 14px); }
+/* Страница выбора в программе: шапка во всю ширину окна — знак, кнопки слева, поиск по середине (engine/picker.css) */
+.b-pktb { height: 48px; display: grid; gap: 16px; align-items: center; padding: 0 14px 0 calc(var(--tb-left, 0px) + 14px); grid-template-columns: minmax(max-content, 1fr) minmax(0, 480px) minmax(max(0px, calc(var(--tb-right, 0px) - 14px)), 1fr); }
+.b-pktb span { display: flex; align-items: center; gap: 6px; }
+#boot .b-pktb i { height: 32px; border-radius: 8px; }
+#boot .b-pktb .b-mark { width: 28px; height: 28px; }
+#boot .b-pktb .b-name { width: 78px; height: 12px; margin: 0 28px 0 4px; }
+.b-pktb .b-btn { width: 96px; }
+.b-pktb .b-btn2 { width: 106px; opacity: .8; }
+.b-pktb .b-ib { width: 32px; }
+#boot .b-pktb .b-search { background: var(--b-surf); border: 1px solid var(--b-bd); }
+.app-frame #boot .b-pk { padding-top: 0; }
+.app-frame #boot .b-cont { margin-top: 25px; }
 </style>
 <!--/slideria-boot-->
 </head>
@@ -117,7 +127,9 @@
       + (lay.right === false ? '<div></div>' : '<div class="b-right"><i style="width:40%"></i><i style="width:70%;height:18px"></i><i></i><i style="width:85%"></i><i></i><i style="width:60%"></i></div>') + '</div>'
       + '<div class="b-foot"></div>';
   } else if (mode === 'picker') {
-    el.innerHTML = '<div class="b-pk"><div class="b-pkbar"><i class="b-mark"></i><i class="b-search"></i><i class="b-btn"></i><i class="b-btn2"></i></div>'
+    el.innerHTML = (frame
+      ? '<div class="b-pktb"><span><i class="b-mark"></i><i class="b-name"></i><i class="b-btn"></i><i class="b-btn2"></i><i class="b-ib"></i></span><i class="b-search"></i></div><div class="b-pk">'
+      : '<div class="b-pk"><div class="b-pkbar"><i class="b-mark"></i><i class="b-search"></i><i class="b-btn"></i><i class="b-btn2"></i></div>')
       + '<i class="b-cont"></i><div class="b-pkhead"><i class="b-h1"></i><i class="b-tools"></i></div>' + n('b-grid', 12) + '</div>';
   }
   html.appendChild(el);
