@@ -251,7 +251,7 @@ export function createMcp(o: McpOptions) {
     {
       name: 'save_script',
       title: 'Сохранить скрипт',
-      description: 'Скрипт для пользователя: повторяющееся действие, которое он сам запускает в студии («Инструменты → Интеграции → Скрипты» или Ctrl+K). '
+      description: 'Скрипт для пользователя: повторяющееся действие, которое он сам запускает в студии («Скрипты» на вкладке «Инструменты», «Файл → Интеграции → Скрипты» или Ctrl+K). '
         + 'Один файл JavaScript: в начале комментарии // @name Название, // @description Что делает, // @param ключ: text|lines|number|bool|choice(a=Подпись, b=Подпись) = значение — Подпись поля; '
         + 'дальше export default async function ({ deck, outline, apply, slide, selection, params, log }) { … }. '
         + 'deck — данные презентации, outline() — краткое содержание, apply(ops) — те же операции, что у edit_presentation (без expect), '
@@ -269,7 +269,7 @@ export function createMcp(o: McpOptions) {
       async run(a) {
         try {
           const s = core.saveScript(str(a, 'file', 'имя файла скрипта'), str(a, 'code', 'текст скрипта'), { by: by(), replace: !!a.replace });
-          return { saved: s.file, name: s.name, params: s.params.map((p) => p.key), where: 'студия: «Инструменты → Интеграции → Скрипты», Ctrl+K' };
+          return { saved: s.file, name: s.name, params: s.params.map((p) => p.key), where: 'студия: «Инструменты → Скрипты», «Файл → Интеграции → Скрипты», Ctrl+K' };
         } catch (e) {
           throw new ToolError((e as Error).message);
         }

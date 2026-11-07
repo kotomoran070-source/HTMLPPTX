@@ -1,5 +1,6 @@
-// «Инструменты → Интеграции»: плашка «кто на связи», правка агента с подсказкой и «Вернуть» (только его правка),
-// что можно агентам, скрипты из панели (одним шагом отмены), песочница без сети, скрипты в Ctrl+K, журнал
+// Интеграции: плашка «кто на связи» на ленте, правка агента с подсказкой и «Вернуть» (только его правка);
+// «Файл → Интеграции» — клиенты MCP, что можно агентам, журнал, скрипты (одним шагом отмены), песочница без сети;
+// скрипты в меню ленты и в Ctrl+K
 import { expect, test, type Page } from '@playwright/test';
 import { readDeck, watchErrors } from './helpers';
 
@@ -48,67 +49,91 @@ test('агент на связи и его правка: плашка на ле�
   expect(errors).toEqual([]);
 });
 
-test('панель: что можно агентам, журнал с «было → стало», скрипт одним шагом отмены, без сети', async ({ page }) => {
+test('«Файл → Интеграции»: клиенты (и ChatGPT), что можно агентам, журнал, скрипт одним шагом отмены, без сети', async ({ page }) => {
   test.setTimeout(120_000);
   const errors = watchErrors(page);
   await openTools(page);
-  await page.locator('.st-ribbon [data-cmd="int.agents"]').first().click();
-  const panel = page.locator('.si');
-  await expect(panel).toBeVisible();
-  await expect(panel.locator('.si-h h3')).toHaveText('Агенты');
-  // Строка подключения — с путём к MCP этой папки
-  await expect(panel.locator('.si-code pre')).toContainText('claude mcp add slideria --');
-  await expect(panel.locator('.si-code pre')).toContainText('scripts/mcp.mjs');
-  await panel.locator('[data-client="vscode"]').click();
-  await expect(panel.locator('.si-code pre')).toContainText('"servers"');
+  // Плашка «кто на связи» ведёт в «Файл → Интеграции → Агенты»
+  await page.locator('#st-int-mini').click();
+  const fp = page.locator('.fp');
+  await expect(fp).toBeVisible();
+  await expect(fp.locator('[data-fs="int"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(fp.locator('.ig-tab[data-sub="agents"]')).toHaveAttribute('aria-selected', 'true');
+  // Агент из прошлого теста — в «Подключены»; на связи — точка у «Интеграций»
+  await expect(fp.locator('.ig-who')).toContainText('Claude Code');
+  await expect(fp.locator('[data-fs="int"]')).toHaveClass(/live/);
+
+  // Строка подключения — с путём к MCP этой папки; у каждого клиента своя
+  const code = fp.locator('.ig-code pre');
+  await fp.locator('[data-client="claude-code"]').click();
+  await expect(code).toContainText('claude mcp add slideria --');
+  await expect(code).toContainText('scripts/mcp.mjs');
+  await fp.locator('[data-client="vscode"]').click();
+  await expect(code).toContainText('"servers"');
+  // ChatGPT: Codex — командой или в config.toml; про окно самого ChatGPT — подсказка
+  await fp.locator('[data-client="codex"]').click();
+  await expect(code).toContainText('codex mcp add slideria --');
+  await expect(fp.locator('.ig-callout')).toContainText('ChatGPT');
+  await fp.locator('[data-variant="1"]').click();
+  await expect(code).toContainText('[mcp_servers.slideria]');
+  await expect(code).toContainText('args = [');
 
   // «Смотреть» — правка агента отклоняется; снова «Править»
-  await panel.locator('[data-access="view"]').click();
-  await expect(panel.locator('[data-access="view"]')).toHaveAttribute('aria-checked', 'true');
+  await fp.locator('[data-access="view"]').click();
+  await expect(fp.locator('[data-access="view"]')).toHaveAttribute('aria-checked', 'true');
   const no = await post('apply?deck=integ', { ops: [{ op: 'slide.set', slide: 1, set: { notes: 'нельзя' } }], by: AGENT });
   expect(no.status).toBe(400);
   expect(no.data.error).toContain('только смотреть');
-  await panel.locator('[data-access="edit"]').click();
-  await expect(panel.locator('[data-access="edit"]')).toHaveAttribute('aria-checked', 'true');
+  await fp.locator('[data-access="edit"]').click();
+  await expect(fp.locator('[data-access="edit"]')).toHaveAttribute('aria-checked', 'true');
 
-  // Журнал: правки агента из прошлого теста — было → стало
-  await panel.locator('.si-ni[data-sec="log"]').click();
-  await expect(panel.locator('.si-entry').first()).toContainText('Claude Code');
-  await expect(panel.locator('.si-diff ins').first()).toHaveText('Правка агента');
+  // Журнал: правки агента из прошлого теста — было → стало; подразделы — и стрелками
+  await fp.locator('.ig-tab[data-sub="agents"]').focus();
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await expect(fp.locator('.ig-tab[data-sub="log"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(fp.locator('.ig-entry').first()).toContainText('Claude Code');
+  await expect(fp.locator('.ig-diff ins').first()).toHaveText('Правка агента');
 
-  // Скрипт с полем: «Один переход для всех слайдов» → Сдвиг
-  await panel.locator('.si-ni[data-sec="scripts"]').click();
-  const card = panel.locator('[data-script="builtin:переходы.js"]');
-  await card.locator('[data-run]').click();
-  await card.locator('select').selectOption('push');
-  await card.locator('[data-run]').click();
-  await expect(card.locator('.si-res')).toContainText('Готово: 1 правка');
+  // Скрипт с полем: «Один переход для всех слайдов» → Сдвиг. «Файл» закрывается — результат на слайдах
+  await fp.locator('.ig-tab[data-sub="scripts"]').click();
+  await fp.locator('[data-script="builtin:переходы.js"]').click();
+  await fp.locator('.ig-side select').selectOption('push');
+  await fp.locator('[data-run]').click();
+  await expect(fp).toBeHidden();
+  await expect(page.locator('#ed-toast')).toContainText('1 правка');
   await expect.poll(() => readDeck('integ')).toContain('transition: push');
-  await panel.locator('.si-ni[data-sec="log"]').click();
-  await expect(panel.locator('.si-entry').first()).toContainText('Один переход для всех слайдов');
-  await expect(panel.locator('.si-entry').first().locator('.si-diff ins')).toHaveText('Сдвиг');
+  // «Журнал правок» на ленте — туда же, в «Файл»: запись скрипта
+  await page.locator('.st-ribbon [data-cmd="int.log"]').click();
+  await expect(fp.locator('.ig-tab[data-sub="log"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(fp.locator('.ig-entry').first()).toContainText('Один переход для всех слайдов');
+  await expect(fp.locator('.ig-entry').first().locator('.ig-diff ins')).toHaveText('Сдвиг');
 
-  // Скрипт, который лезет в сеть, — понятный отказ, данные не тронуты
+  // Скрипт, который лезет в сеть, — понятный отказ прямо в разделе, данные не тронуты
   await post('script-save', { file: 'сеть.js', code: "// @name Сеть\nexport default async () => { await fetch('https://example.com'); }\n" });
-  await panel.locator('.si-ni[data-sec="scripts"]').click();
-  await panel.locator('[data-script="user:сеть.js"] [data-run]').click();
-  await expect(panel.locator('[data-script="user:сеть.js"] .si-res.err')).toContainText('Скрипту закрыты сеть');
+  await fp.locator('.ig-tab[data-sub="scripts"]').click();
+  await fp.locator('[data-script="user:сеть.js"]').click();
+  await fp.locator('[data-run]').click();
+  await expect(fp.locator('.ig-res.err')).toContainText('Скрипту закрыты сеть');
+  await expect(fp).toBeVisible();
 
-  // Esc закрывает панель; Ctrl+Z отменяет запуск скрипта целиком
+  // Esc закрывает «Файл»; Ctrl+Z отменяет запуск скрипта целиком
   await page.keyboard.press('Escape');
-  await expect(panel).toBeHidden();
+  await expect(fp).toBeHidden();
   await page.locator('#st-canvas').click({ position: { x: 5, y: 5 } });
   await page.keyboard.press('Control+z');
   await expect.poll(() => readDeck('integ')).not.toContain('transition: push');
   expect(errors).toEqual([]);
 });
 
-test('скрипты — в меню ленты и в Ctrl+K', async ({ page }) => {
+test('скрипты — в меню ленты и в Ctrl+K; «Все скрипты» — в «Файл → Интеграции»', async ({ page }) => {
   const errors = watchErrors(page);
   await openTools(page);
   await page.locator('.st-ribbon [data-cmd="int.scripts"]').first().click();
   await expect(page.locator('.st-menu')).toContainText('Оглавление');
-  await expect(page.locator('.st-menu')).toContainText('Все скрипты…');
+  await page.locator('.st-menu').getByText('Все скрипты и новый…').click();
+  await expect(page.locator('.fp .ig-tab[data-sub="scripts"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.fp .ig-sc[data-script="builtin:оглавление.js"]')).toBeVisible();
   await page.keyboard.press('Escape');
   await page.keyboard.press('Control+k');
   await page.keyboard.type('скрипт оглав');

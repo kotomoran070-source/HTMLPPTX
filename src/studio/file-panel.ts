@@ -5,6 +5,7 @@
  * - Экспорт — форматы карточками, справа — настройки выбранного и «Сохранить»;
  * - Версии — контрольные точки по дням, с первым слайдом каждой; «Вернуть» — одной правкой (Ctrl+Z — обратно);
  * - Параметры — лента (ribbon-setup.ts) и интерфейс: тема, цвет, вид слайдов, облегчённый режим;
+ * - Интеграции — агенты, скрипты, журнал правок, плагины, коннекторы (integrations-file.ts; точка — агент на связи);
  * - Лицензии (внизу, рядом со сборкой программы) — списком и текстом (engine/licenses-view.ts).
  *
  * Внизу — ещё «Все презентации» и сборка программы. Esc или «Назад» — обратно к слайдам.
@@ -22,7 +23,7 @@ import { onThemeChange } from '../engine/theme';
 import { collectSummary, fileSize, numText, removeFont, replaceFont, trashUnused, type Summary, type ToolsHost } from './tools';
 import './file-panel.css';
 
-export type FileSection = 'info' | 'export' | 'versions' | 'prefs' | 'licenses';
+export type FileSection = 'info' | 'export' | 'versions' | 'prefs' | 'int' | 'licenses';
 export type Quality = 'compact' | 'normal' | 'high';
 export type UiTheme = 'light' | 'dark' | 'system';
 type Look = 'light' | 'dark' | null;
@@ -66,6 +67,8 @@ export interface FileHost {
   };
   /** «Лицензии» — только со своим сервером (данные — с него) */
   licenses: { enabled(): boolean };
+  /** «Интеграции» — только со своим сервером; mount рисует раздел в el, live — агент на связи */
+  integrations: { enabled(): boolean; mount(el: HTMLElement): void; live(): boolean };
   /** «Slideria 1.4 · сборка от …» (запуск из проекта — без сборки); пусто вне программы */
   build(): string;
   /** Раздел открылся или закрылся */
@@ -78,6 +81,7 @@ const SECTIONS: [FileSection, string, string][] = [
   ['export', 'save', 'Экспорт'],
   ['versions', 'clock', 'Версии'],
   ['prefs', 'sliders', 'Параметры'],
+  ['int', 'agent', 'Интеграции'],
 ];
 /** Значки форматов — как у файлов: цвет и подпись */
 const BADGE: Record<string, [string, string]> = {
@@ -107,6 +111,8 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
   open(section?: FileSection): void;
   close(): void;
   isOpen(): boolean;
+  /** Открытый (или последний открытый) раздел */
+  section(): FileSection;
   /** Презентация или состояние сохранения поменялись — открытый раздел обновляется */
   sync(): void;
   /** Перерисовать открытый раздел сейчас (сделана точка) */
@@ -286,11 +292,15 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     main.setAttribute('aria-labelledby', `fp-t-${section}`);
     const lic = root.querySelector<HTMLButtonElement>('[data-fs="licenses"]')!;
     lic.disabled = !host.licenses.enabled();
+    const int = root.querySelector<HTMLButtonElement>('[data-fs="int"]')!;
+    int.disabled = !host.integrations.enabled();
+    int.classList.toggle('live', host.integrations.live());
     root.querySelector('.fp-build')!.textContent = host.build();
     const html = section === 'info' ? await infoHtml()
       : section === 'versions' ? await versionsHtml()
         : section === 'export' ? exportHtml()
-          : section === 'licenses' ? '<div class="fp-head"><h2>Лицензии</h2><p class="fp-lic-sum">&nbsp;</p></div><div class="fp-lic"></div>' : prefsHtml();
+          : section === 'licenses' ? '<div class="fp-head"><h2>Лицензии</h2><p class="fp-lic-sum">&nbsp;</p></div><div class="fp-lic"></div>'
+            : section === 'int' ? '<div class="fp-int"></div>' : prefsHtml();
     // Пока считалось, выбрали другой раздел или закрыли
     if (n !== drawn || root.hidden) return;
     // Тот же раздел перерисовывается на месте (выбор, тема, сохранение): без появления и с той же прокруткой
@@ -307,6 +317,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     if (section === 'prefs') host.ribbon.mount(main.querySelector<HTMLElement>('.fp-ribbon')!);
     if (section === 'versions') void fillVersions();
     if (section === 'licenses') void fillLicenses(n);
+    if (section === 'int') host.integrations.mount(main.querySelector<HTMLElement>('.fp-int')!);
     if (focusSel) main.querySelector<HTMLElement>(focusSel)?.focus({ preventScroll: true });
     else if (focusMain) main.focus({ preventScroll: true });
   }
@@ -465,7 +476,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     const tab = (e.target as HTMLElement).closest<HTMLElement>('[data-fs]');
     if (tab && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
       e.preventDefault();
-      const ids: FileSection[] = [...SECTIONS.map(([id]) => id), ...(host.licenses.enabled() ? ['licenses' as const] : [])];
+      const ids: FileSection[] = [...SECTIONS.map(([id]) => id).filter((id) => id !== 'int' || host.integrations.enabled()), ...(host.licenses.enabled() ? ['licenses' as const] : [])];
       const i = ids.indexOf(tab.dataset.fs as FileSection);
       const next = e.key === 'Home' ? 0 : e.key === 'End' ? ids.length - 1 : (i + (e.key === 'ArrowDown' ? 1 : -1) + ids.length) % ids.length;
       section = ids[next];
@@ -477,6 +488,14 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     }
     if (e.key !== 'Tab') e.stopPropagation();
   });
+  // Фокус потерялся (кнопку перерисовали или выключили) и ушёл на страницу — клавиши всё равно у «Файла»:
+  // Esc закрывает, Tab возвращает в раздел, до слайдов ничего не доходит
+  document.addEventListener('keydown', (e) => {
+    if (root.hidden || fading || (e.target !== document.body && e.target !== document.documentElement)) return;
+    e.stopPropagation();
+    if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+    if (e.key === 'Tab') { e.preventDefault(); root.querySelector<HTMLElement>(`[data-fs="${section}"]`)?.focus(); }
+  }, true);
   // Название в «Сведениях»: Enter — готово, Esc — как было
   root.addEventListener('keydown', (e) => {
     const t = e.target as HTMLInputElement;
@@ -491,6 +510,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     open,
     close,
     isOpen: () => !root.hidden && !fading,
+    section: () => section,
     sync() {
       if (root.hidden) return;
       // Правка из полосы заголовка (Отменить, название) — сведения и состояние сохранения обновляются

@@ -125,7 +125,7 @@ export function createIntegrations(o: IntegrationsOptions) {
     const a = access();
     if (a === 'all' || (need === 'edit' && a === 'edit')) return;
     const now = a === 'view' ? 'только смотреть' : 'править и создавать презентации, но не сохранять скрипты';
-    throw new Error(`В Slideria агентам разрешено ${now}. Поменять — в студии: «Инструменты → Интеграции → Агенты»`);
+    throw new Error(`В Slideria агентам разрешено ${now}. Поменять — в студии: «Файл → Интеграции → Агенты»`);
   }
 
   // ---------------- агенты на связи ----------------

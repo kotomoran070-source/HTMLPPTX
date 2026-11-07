@@ -1,7 +1,8 @@
 /**
- * «Инструменты → Интеграции» (docs/INTEGRATIONS.md): агенты по MCP, скрипты, плагины и журнал правок.
- * Здесь — то, что нужно сразу: команды ленты, плашка «кто на связи», подсказка о правке агента на холсте,
- * запуск скрипта и «Вернуть» правку агента. Большая панель (integrations-panel.ts) грузится при первом открытии.
+ * Интеграции (docs/INTEGRATIONS.md): агенты по MCP, скрипты, журнал правок, плагины. Здесь — то, что рядом со
+ * слайдами: группа на ленте «Инструменты» (плашка «кто на связи», меню «Скрипты», «Журнал правок»), подсказка
+ * о правке агента на холсте, запуск скрипта и «Вернуть» правку агента. Настройка и журнал — раздел
+ * «Файл → Интеграции» (integrations-file.ts), он грузится, когда его открыли впервые.
  */
 import { icon } from '../components/icons';
 import { replaceContents } from '../engine/data';
@@ -21,13 +22,15 @@ export interface IntegrationsHost {
   go(i: number): void;
   /** Номер текущего слайда, с 0 */
   index(): number;
+  /** Раздел «Файл → Интеграции»: открыть, закрыть «Файл», открыт ли «Файл» */
+  file: { open(): void; close(): void; shown(): boolean };
 }
 
 export interface AgentInfo { id: string; name: string; version?: string; since: number; seen: number; online: boolean; edits: number }
 export interface JournalEntry { t: string; deck: string; by: { kind: 'agent' | 'script'; id?: string; name: string }; changes: Change[]; checkpoint?: string; after?: string }
 export interface ScriptParam { key: string; type: 'text' | 'lines' | 'number' | 'bool' | 'choice'; label: string; value: unknown; options?: { value: string; label: string }[] }
 export interface ScriptInfo { id: string; name: string; description: string; params: ScriptParam[]; builtin: boolean; file: string }
-export type Section = 'agents' | 'scripts' | 'plugins' | 'log';
+export type Section = 'agents' | 'scripts' | 'log' | 'plugins' | 'connectors';
 
 interface Command { run(): void; enabled?(): boolean }
 
@@ -112,7 +115,9 @@ export async function runScript(h: IntegrationsHost, id: string, params?: Record
     // Одним шагом: Ctrl+Z отменяет весь запуск скрипта
     h.editor.commit((d) => replaceContents(d as unknown as Record<string, unknown>, result.deck as unknown as Record<string, unknown>), { rebuild: true });
     void api(`journal-add?deck=${encodeURIComponent(h.deckKey)}`, { name: info.name, changes: details }).catch(() => null);
-    h.editor.toast(`Скрипт «${info.name}»: ${edits(details.length)} · отменить — Ctrl+Z`, 3500);
+    // Что скрипт сказал через log() — в той же подсказке (раздел «Файл» после запуска закрывается)
+    const said = result.logs.length ? ` · ${result.logs.join(' · ').slice(0, 140)}` : '';
+    h.editor.toast(`Скрипт «${info.name}»: ${edits(details.length)}${said} · отменить — Ctrl+Z`, said ? 5000 : 3500);
   } else h.editor.toast(`Скрипт «${info.name}» ничего не поменял`, 2500);
   return { changes: details.length, logs: result.logs };
 }
@@ -135,25 +140,35 @@ export async function revertAgent(h: IntegrationsHost, e: JournalEntry): Promise
 
 // ---------------- лента, подсказка на холсте, Ctrl+K ----------------
 
-/** Группа «Интеграции» на вкладке «Инструменты» (studio.ts вставляет её в ленту) */
+/**
+ * Группа «Интеграции» на вкладке «Инструменты» (studio.ts вставляет её в ленту): плашка «кто на связи»
+ * (→ «Файл → Интеграции → Агенты»), меню «Скрипты» и «Журнал правок». Группа ужата — вместо плашки кнопка «Агенты»
+ */
 export function integrationsRibbon(rb: (cmd: string, ic: string, label: string, o?: { big?: boolean; menu?: boolean; title?: string }) => string): string {
-  return rb('int.agents', 'agent', 'Агенты', { big: true, title: 'Агенты по MCP — Claude и другие: кто подключён, что им можно, как подключить' })
-    + `<button type="button" class="st-int-mini" id="st-int-mini" data-cmd="int.agents" data-pal="skip" title="Агенты: кто на связи">`
+  return rb('int.agents', 'agent', 'Агенты', { big: true, title: 'Агенты по MCP — Claude, ChatGPT и другие: кто подключён, что им можно, как подключить' })
+      .replace('class="st-rb big"', 'class="st-rb big st-int-big"')
+    + `<button type="button" class="st-int-mini" id="st-int-mini" data-cmd="int.agents" data-pal="skip" title="Агенты: кто на связи, что им можно, как подключить — «Файл → Интеграции»">`
     + `<span class="st-int-av" id="st-int-av">${icon('agent')}</span><span class="st-int-t"><b id="st-int-name">Агентов пока нет</b><small id="st-int-sub">Подключить Claude или другой →</small></span></button>`
     + `<div class="st-rstack">${rb('int.scripts', 'script', 'Скрипты', { menu: true, title: 'Свои действия одним файлом: запустить, все скрипты' })}`
-    + `${rb('int.log', 'journal', 'Журнал правок', { title: 'Что поменяли агенты и скрипты: было → стало' })}`
-    + `${rb('int.plugins', 'plug', 'Плагины', { title: 'Свои блоки, команды и форматы' })}</div>`;
+    + `${rb('int.log', 'journal', 'Журнал правок', { title: 'Что поменяли агенты и скрипты: было → стало' })}</div>`;
 }
 
 export function startIntegrations(h: IntegrationsHost) {
   let agents: AgentInfo[] = [];
   let scripts: ScriptInfo[] = [];
   let todayChanges = 0;
-  let panel: typeof import('./integrations-panel') | null = null;
+  let panel: typeof import('./integrations-file') | null = null;
 
-  const open = async (section: Section, script?: string) => {
-    panel ??= await import('./integrations-panel');
-    panel.openPanel(ctx, section, script);
+  /** «Файл → Интеграции» на подразделе (и скрипте) */
+  const open = (section: Section, script?: string) => {
+    ctx.view.sub = section;
+    if (script) ctx.view.script = script;
+    h.file.open();
+  };
+  /** «Файл» нарисовал раздел — содержимое отсюда */
+  const mount = async (el: HTMLElement) => {
+    panel ??= await import('./integrations-file');
+    if (el.isConnected) panel.mount(el, ctx);
   };
 
   /** Плашка на ленте: кто на связи, сколько правок */
@@ -162,8 +177,10 @@ export function startIntegrations(h: IntegrationsHost) {
     const sub = document.getElementById('st-int-sub');
     const av = document.getElementById('st-int-av');
     const mini = document.getElementById('st-int-mini');
-    if (!name || !sub || !av || !mini) return;
     const on = agents.filter((a) => a.online);
+    // Агент на связи — точка у «Интеграций» в «Файле»
+    document.querySelector('.fp [data-fs="int"]')?.classList.toggle('live', on.length > 0);
+    if (!name || !sub || !av || !mini) return;
     const a = on[0] ?? agents[0];
     mini.classList.toggle('empty', !a);
     if (!a) {
@@ -214,7 +231,7 @@ export function startIntegrations(h: IntegrationsHost) {
     el.onclick = (ev) => {
       const a = (ev.target as HTMLElement).closest<HTMLElement>('[data-a]')?.dataset.a;
       if (a === 'undo') void revertAgent(h, e).catch((err) => h.editor.toast(`Не удалось вернуть: ${(err as Error).message}`, 4000, true));
-      if (a === 'log') void open('log');
+      if (a === 'log') open('log');
       if (a) el!.classList.remove('on');
     };
     const canvas = document.getElementById('st-canvas')?.getBoundingClientRect();
@@ -246,29 +263,32 @@ export function startIntegrations(h: IntegrationsHost) {
     if (e.by.kind === 'agent') {
       todayChanges += e.changes.length;
       paintCount();
-      // Панель открыта — подсказка не нужна: журнал обновится сам
-      if (!document.body.classList.contains('si-open')) agentToast(e);
+      // «Файл» открыт — подсказка не нужна: правка видна в «Интеграциях», журнал обновится сам
+      if (!h.file.shown()) agentToast(e);
     }
     panel?.update(ctx, 'log');
   });
 
   const runOrAsk = (s: ScriptInfo) => {
-    if (s.params.length) return void open('scripts', s.id);
+    if (s.params.length) return open('scripts', s.id);
     void runScript(h, s.id).catch((e) => h.editor.toast(`Скрипт «${s.name}»: ${(e as Error).message}`, 6000, true));
   };
 
-  const ctx = {
+  const ctx: IntegrationsCtx = {
     host: h,
     agents: () => agents,
     setAgents: (list: AgentInfo[]) => { agents = list; paintMini(); },
     scripts: () => scripts,
     setScripts: (list: ScriptInfo[]) => { scripts = list; },
+    recent: () => todayChanges,
+    view: { sub: 'agents', script: null },
+    close: () => h.file.close(),
   };
 
   const commands: Record<string, Command> = {
-    'int.agents': { run: () => void open('agents'), enabled: () => location.protocol.startsWith('http') },
-    'int.log': { run: () => void open('log'), enabled: () => location.protocol.startsWith('http') },
-    'int.plugins': { run: () => void open('plugins'), enabled: () => location.protocol.startsWith('http') },
+    'int.agents': { run: () => open('agents'), enabled: () => location.protocol.startsWith('http') },
+    'int.log': { run: () => open('log'), enabled: () => location.protocol.startsWith('http') },
+    'int.plugins': { run: () => open('plugins'), enabled: () => location.protocol.startsWith('http') },
     'int.scripts': {
       enabled: () => location.protocol.startsWith('http'),
       run: async () => {
@@ -279,24 +299,28 @@ export function startIntegrations(h: IntegrationsHost) {
           { head: 'Запустить' },
           ...scripts.map((s) => ({ label: s.name, sub: s.description || (s.builtin ? 'встроенный' : s.file), icon: 'script', run: () => runOrAsk(s) })),
           null,
-          { label: 'Все скрипты…', icon: 'list', run: () => void open('scripts') },
+          { label: 'Все скрипты и новый…', sub: '«Файл → Интеграции»', icon: 'list', run: () => open('scripts') },
         ]);
       },
     },
   };
 
-  /** Скрипты в Ctrl+K: «Скрипт: Оглавление» */
-  const palette = (): Entry[] => scripts.map((s) => ({
-    id: `script.${s.id}`, label: `Скрипт: ${s.name}`, path: 'Инструменты · Интеграции', words: `скрипт запустить ${s.description}`, key: '',
-    ico: icon('script'), run: () => runOrAsk(s), enabled: () => true,
-  }));
+  /** Скрипты в Ctrl+K: «Скрипт: Оглавление»; плагинов на ленте нет — их раздел тоже здесь */
+  const palette = (): Entry[] => [
+    ...scripts.map((s) => ({
+      id: `script.${s.id}`, label: `Скрипт: ${s.name}`, path: 'Инструменты · Интеграции', words: `скрипт запустить ${s.description}`, key: '',
+      ico: icon('script'), run: () => runOrAsk(s), enabled: () => true,
+    })),
+    { id: 'int.plugins', label: 'Плагины', path: 'Файл · Интеграции', words: 'расширения блоки команды форматы', key: '', ico: icon('plug'), run: () => open('plugins'), enabled: () => location.protocol.startsWith('http') },
+    { id: 'int.connectors', label: 'Коннекторы', path: 'Файл · Интеграции', words: 'данные сервисы облако таблицы', key: '', ico: icon('cloud'), run: () => open('connectors'), enabled: () => location.protocol.startsWith('http') },
+  ];
 
   // Не мешаем открытию студии: сведения — когда она уже готова (через пару секунд, в простое браузера);
   // агент, который правит, о себе сообщит и сам — событием
   const later = (window as unknown as { requestIdleCallback?: (f: () => void, o?: object) => void }).requestIdleCallback;
   if (location.protocol.startsWith('http')) setTimeout(() => (later ? later(() => void refresh(), { timeout: 3000 }) : void refresh()), 2500);
 
-  return { commands, palette, refresh };
+  return { commands, palette, refresh, mount, open, live: () => agents.some((a) => a.online) };
 }
 
 export type IntegrationsCtx = {
@@ -305,4 +329,10 @@ export type IntegrationsCtx = {
   setAgents(list: AgentInfo[]): void;
   scripts(): ScriptInfo[];
   setScripts(list: ScriptInfo[]): void;
+  /** Правки агентов в этой презентации за сутки */
+  recent(): number;
+  /** Что открыто в «Файл → Интеграции»: подраздел и выбранный скрипт */
+  view: { sub: Section; script: string | null };
+  /** Закрыть «Файл» (результат скрипта, переход к слайду) */
+  close(): void;
 };

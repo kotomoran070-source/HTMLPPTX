@@ -1633,7 +1633,9 @@ body.st-connecting .stage .slide.on > .free.st-conn-over { outline: 2px dashed v
 .st-conn-ghost { position: absolute; inset: 0; z-index: 9999; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .st-conn-ghost line { stroke: var(--ac); stroke-width: 2.5; stroke-dasharray: 7 6; stroke-linecap: round; }
 
-/* «Инструменты → Интеграции» (integrations.ts): плашка «кто на связи», число правок, подсказка о правке агента */
+/* «Инструменты → Интеграции» (integrations.ts): плашка «кто на связи», число правок, подсказка о правке агента.
+   Кнопка «Агенты» — только когда группа ужата и плашки нет */
+.st-rgroup:not(.min) .st-int-big { display: none; }
 .st-int-mini {
   display: flex; align-items: center; gap: 10px; padding: 7px 12px; margin: 0 6px; min-width: 216px; max-width: 280px;
   border-radius: 10px; background: var(--alt); border: 1px solid var(--bd); color: var(--tx); font: inherit; text-align: left; cursor: pointer;
@@ -1654,7 +1656,6 @@ body.st-connecting .stage .slide.on > .free.st-conn-over { outline: 2px dashed v
 .st-int-mini.empty small { color: var(--ac); font-weight: 600; }
 .st-rgroup.min .st-int-mini { display: none; }
 .st-int-cnt { font: 700 11px var(--font); font-style: normal; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--acs); color: var(--ac); }
-.st-ribbon .si-on { background: var(--acs); color: var(--ac); }
 .st-int-toast {
   position: fixed; bottom: 64px; left: 50%; transform: translate(-50%, 12px); z-index: 950; opacity: 0; pointer-events: none;
   display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 12px; max-width: min(720px, 90vw);

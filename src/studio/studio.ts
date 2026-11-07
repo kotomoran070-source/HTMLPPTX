@@ -1755,8 +1755,11 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   warmLater([warmGhosts, ...themeWarmTasks()]);
   bindDesignStrip(designHost, cmds);
   Object.assign(cmds, toolsCommands({ deck, deckKey, editor: ed, go, info: () => filePanel?.open('info'), licenses: () => filePanel?.open('licenses') }));
-  // «Инструменты → Интеграции»: агенты, скрипты, плагины, журнал правок (integrations.ts)
-  const integrations = startIntegrations({ deck, deckKey, editor: ed, go, index: () => index });
+  // Интеграции: группа на ленте «Инструменты» и раздел «Файл → Интеграции» (integrations.ts, integrations-file.ts)
+  const integrations = startIntegrations({
+    deck, deckKey, editor: ed, go, index: () => index,
+    file: { open: () => filePanel?.open('int'), close: () => filePanel?.close(), shown: () => !!filePanel?.isOpen() },
+  });
   Object.assign(cmds, integrations.commands);
   /** Что оформляет панель текста «Главной» без правки (context-tabs) */
   let textOf: (() => TextTarget | null) | null = null;
@@ -1991,6 +1994,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       lookLocked: () => !!themeMode(deck.theme),
     },
     licenses: { enabled: () => location.protocol.startsWith('http') },
+    integrations: { enabled: () => location.protocol.startsWith('http'), mount: (el) => void integrations.mount(el), live: () => integrations.live() },
     build: () => {
       const b = appApi?.build;
       return b ? `Slideria ${b.version ?? ''}${b.date ? ` · сборка от ${b.date}` : ''}` : '';
