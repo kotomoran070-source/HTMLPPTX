@@ -36,9 +36,11 @@ test('контрольная точка: Ctrl+S — копия на диске; 
   await page.keyboard.press('Control+z');
   await expect(title).toHaveValue('Сохранение');
   await expect.poll(() => readDeck('save')).toContain('title: Сохранение');
-  // Вернуть к точке из списка у «Сохранено»
+  // Вернуть к точке: щелчок по «Сохранено» — «Файл → Версии», последняя точка — первой
   await page.locator('#st-status').click();
-  await page.locator('.st-menu').getByText(/^Вернуть:/).first().click();
+  await page.locator('.fp-ver').first().hover();
+  await page.locator('.fp-ver [data-restore]').first().click();
+  await page.keyboard.press('Escape');
   await expect(title).toHaveValue('Т1');
   await expect.poll(() => readDeck('save')).toContain('title: Т1');
   expect(errors).toEqual([]);

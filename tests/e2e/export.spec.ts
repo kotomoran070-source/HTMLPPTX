@@ -4,7 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import JSZip from 'jszip';
 import { expect, test } from '@playwright/test';
-import { DECKS, counter, nextTo, readDeck, watchErrors } from './helpers';
+import { DECKS, counter, nextTo, readDeck, watchErrors, exportAs } from './helpers';
 
 const OUT = path.resolve('.tmp', 'test-export');
 
@@ -92,10 +92,9 @@ test('PowerPoint: файл PPTX со всеми слайдами и заметк
   await page.goto('/?deck=tpl&studio');
   await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
   const slides = (readDeck('tpl').match(/^ {2}- id: /gm) ?? []).length;
-  await page.locator('[data-cmd="file.export"]').click();
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 150_000 }),
-    page.locator('[data-x="pptx"]').click(),
+    exportAs(page, 'pptx'),
   ]);
   expect(download.suggestedFilename()).toBe('tpl.pptx');
   const file = path.join(OUT, 'tpl.pptx');

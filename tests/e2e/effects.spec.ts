@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parse } from 'yaml';
 import JSZip from 'jszip';
-import { DECKS, deckFile, watchErrors } from './helpers';
+import { DECKS, deckFile, watchErrors, exportAs } from './helpers';
 
 test('фигура и рисунок: тень и свечение с ленты, подкрутка в «Свойствах», готовая тень сбрасывает подкрутку, «×» убирает', async ({ page }) => {
   const errors = watchErrors(page);
@@ -274,8 +274,7 @@ slides:
     await expect.poll(() => free()[1].adj).toBeUndefined();
     await page.keyboard.press('Escape');
     // PowerPoint: звезда — родной фигурой с регулировкой
-    await page.locator('[data-cmd="file.export"]').first().click();
-    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 90_000 }), page.locator('[data-x="pptx"]').click()]);
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 90_000 }), exportAs(page, 'pptx')]);
     const zip = await JSZip.loadAsync(fs.readFileSync(await dl.path()));
     const xml = await zip.file('ppt/slides/slide1.xml')!.async('string');
     expect(xml).toMatch(/<a:prstGeom prst="star5"><a:avLst><a:gd name="adj" fmla="val \d+"\/><\/a:avLst>/);

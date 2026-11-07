@@ -93,8 +93,14 @@ test('первый запуск: «Моя первая презентация»,
       g.shown = 0;
       a.on('browser-window-created', (_e, w) => w.once('show', () => { g.shown = (g.shown ?? 0) + 1; }));
     });
-    await win.locator('[data-cmd="file.export"]').first().click();
-    await win.locator('[data-x="pdf"]').click();
+    // «Файл → Экспорт»: формат и «Сохранить»
+    const exportAs = async (kind: string) => {
+      await win.locator('#st-file').click();
+      await win.locator('.fp [data-fs="export"]').click();
+      await win.locator(`.fp [data-x="${kind}"]`).click();
+      await win.locator('.fp [data-a="export"]').click();
+    };
+    await exportAs('pdf');
     const pdf = path.join(saves, 'Моя первая презентация.pdf');
     await expect.poll(() => fs.existsSync(pdf), { timeout: 60_000 }).toBe(true);
     const head = fs.readFileSync(pdf);
@@ -131,8 +137,7 @@ test('первый запуск: «Моя первая презентация»,
     expect(await show.evaluate(() => [(window as { slideriaApp?: { frame?: boolean } }).slideriaApp?.frame, document.documentElement.classList.contains('app-frame')])).toEqual([false, false]);
     await show.close();
     // PowerPoint — скачиванием: сохраняется файлом
-    await win.locator('[data-cmd="file.export"]').first().click();
-    await win.locator('[data-x="pptx"]').click();
+    await exportAs('pptx');
     const pptx = path.join(saves, 'moya-pervaya-prezentaciya.pptx');
     await expect.poll(() => fs.existsSync(pptx) && fs.statSync(pptx).size > 50_000, { timeout: 150_000 }).toBe(true);
     await expect(win.locator('#ed-toast')).toContainText('Сохранено: saves/moya-pervaya-prezentaciya.pptx');

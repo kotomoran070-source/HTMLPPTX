@@ -506,12 +506,22 @@ export function createDecksCore(opts: CoreOptions) {
     return cpList(name).reverse().map((f) => ({ id: f.slice(0, -5), time: Math.round(fs.statSync(path.join(cpDir(name), f)).mtimeMs) }));
   }
 
+  /**
+   * Данные точки — как у открытой презентации (read с urls): пути к файлам (./assets/…) — адресами для страницы.
+   * Иначе после «Вернуть» и на миниатюре точки картинки искались бы от адреса студии
+   */
   function readCheckpoint(name: string, id: string): { deck: unknown } {
     assertDeck(name);
     const auto = typeof id === 'string' && id.startsWith('auto:');
     const raw = auto ? id.slice(5) : id;
     if (!CP_ID.test(raw) || !fs.existsSync(path.join(cpDir(name, auto), `${raw}.yaml`))) throw new Error('Контрольная точка не найдена');
-    return { deck: parseYaml(fs.readFileSync(path.join(cpDir(name, auto), `${raw}.yaml`), 'utf8')) };
+    const data = parseYaml(fs.readFileSync(path.join(cpDir(name, auto), `${raw}.yaml`), 'utf8'));
+    return {
+      deck: mapAssets(data, (v) => {
+        const abs = path.resolve(dir, name, v);
+        return fs.existsSync(abs) ? urlOf(abs) : v;
+      }),
+    };
   }
 
   // ---------------- файлы презентации ----------------

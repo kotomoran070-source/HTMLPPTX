@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import JSZip from 'jszip';
 import { parse } from 'yaml';
 import path from 'node:path';
-import { DECKS, deckFile, readDeck, watchErrors } from './helpers';
+import { DECKS, deckFile, readDeck, watchErrors, exportAs } from './helpers';
 
 test.use({ colorScheme: 'light' });
 
@@ -226,8 +226,7 @@ test('объединение ячеек; очищенная строка не с
   await page.locator('[data-cmd="table.col.left"]').click();
   await expect.poll(() => (table(5) as { merges?: number[][] }).merges).toEqual([[0, 1, 1, 2]]);
   // В PowerPoint — объединённой ячейкой (gridSpan), и обратно — объединением
-  await page.locator('[data-cmd="file.export"]').click();
-  const [download] = await Promise.all([page.waitForEvent('download', { timeout: 150_000 }), page.locator('[data-x="pptx"]').click()]);
+  const [download] = await Promise.all([page.waitForEvent('download', { timeout: 150_000 }), exportAs(page, 'pptx')]);
   const pptx = new Uint8Array(fs.readFileSync(await download.path()));
   const zip = await JSZip.loadAsync(pptx);
   expect(await zip.file('ppt/slides/slide5.xml')!.async('string')).toMatch(/<a:tc gridSpan="2"[^>]*>/);

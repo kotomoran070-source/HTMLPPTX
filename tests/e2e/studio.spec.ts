@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { parse } from 'yaml';
-import { api, DECKS, PNG, readDeck, SOURCES, SOURCES_ONLY, waitFile, watchErrors } from './helpers';
+import { api, DECKS, PNG, readDeck, SOURCES, SOURCES_ONLY, waitFile, watchErrors, exportAs } from './helpers';
 import { kitWoff2, sfnt } from '../fonts';
 
 test.use({ colorScheme: 'light' });
@@ -145,10 +145,10 @@ test('панель свойств без дублей ленты; кадр ка�
   await (await chooser).setFiles('src/fonts/Caveat.woff2');
   const fonts = () => /\nfonts:\n\s+- name: Caveat/.test(readDeck('tpl'));
   expect(await waitFile(fonts)).toBe(true);
-  // Шрифт добавлен, но нигде не задан — в «Сводке» его можно убрать
+  // Шрифт добавлен, но нигде не задан — в «Сводке» («Файл → Сведения») его можно убрать
   await page.locator('[data-tab="tools"]').first().click();
   await page.locator('[data-cmd="tools.summary"]').click();
-  await page.locator('.st-sumpop [data-unfont="Caveat"]').click();
+  await page.locator('.fp [data-unfont="Caveat"]').click();
   expect(await waitFile(() => !fonts())).toBe(true);
   expect(errors).toEqual([]);
 });
@@ -711,7 +711,9 @@ test('«Настроить ленту»: простая лента прячет 
   const errors = watchErrors(page);
   await page.goto('/?deck=tpl&studio#1');
   await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
-  await page.locator('.st-top-r [data-cmd="ui.ribbon"]').click();
+  // «Файл → Параметры»
+  await page.locator('#st-file').click();
+  await page.locator('.fp [data-fs="prefs"]').click();
   await page.locator('[data-preset="simple"]').click();
   await expect(page.locator('.st-tabs [data-tab="tools"]')).toBeHidden();
   await expect(page.locator('.st-rpanel[data-panel="home"] .st-rgroup[aria-label="Выровнять"]')).toBeHidden();
@@ -1966,8 +1968,7 @@ test('проектные схемы из галереи «Схемы»: матр
     await expect(slide.locator('.dm-t > b')).toHaveText(['4,4', '4,0', '3,9']);
     await expect(slide.locator('.dm-opt.best')).toContainText('Свой сервер');
     await expect.poll(() => block().criteria[0].scores).toEqual([5, 5, 4]);
-    await page.locator('[data-cmd="file.export"]').first().click();
-    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 90_000 }), page.locator('[data-x="pptx"]').click()]);
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 90_000 }), exportAs(page, 'pptx')]);
     const zip = await (await import('jszip')).default.loadAsync(fs.readFileSync(await dl.path()));
     const xml = await zip.file('ppt/slides/slide1.xml')!.async('string');
     expect(xml).toContain('Независимость от поставщика');
@@ -2088,8 +2089,7 @@ slides:
     await slide.locator('.line-chart').first().locator('.hit').nth(3).hover();
     await expect(page.locator('.ch-tip')).toHaveText('4-я из 6: 15 · +4 (+36,4 %)');
     await expect(page.locator('.ch-tip')).toBeVisible();
-    await page.locator('[data-cmd="file.export"]').first().click();
-    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 90_000 }), page.locator('[data-x="pptx"]').click()]);
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 90_000 }), exportAs(page, 'pptx')]);
     const zip = await (await import('jszip')).default.loadAsync(fs.readFileSync(await dl.path()));
     const charts = Object.keys(zip.files).filter((f) => /^ppt\/charts\/chart\d+\.xml$/.test(f));
     // Ломаная — родной диаграммой без сглаживания; график с трендом — картинкой, как на слайде
@@ -2278,8 +2278,7 @@ test('стрелка-фигура: рисуется от фигуры к фиг�
     await expect.poll(() => lines().length).toBe(2);
     // В PowerPoint — линиями со стрелкой на конце
     await page.keyboard.press('Escape');
-    await page.locator('[data-cmd="file.export"]').click();
-    const [download] = await Promise.all([page.waitForEvent('download', { timeout: 150_000 }), page.locator('[data-x="pptx"]').click()]);
+    const [download] = await Promise.all([page.waitForEvent('download', { timeout: 150_000 }), exportAs(page, 'pptx')]);
     const { default: JSZip } = await import('jszip');
     const zip = await JSZip.loadAsync(fs.readFileSync(await download.path()));
     const xml = await zip.file('ppt/slides/slide1.xml')!.async('string');
@@ -2387,8 +2386,7 @@ slides:
     await page.locator('select[data-t="go"][data-p*="wrong"]').selectOption({ label: '2 · Разбор (скрыт)' });
     await expect.poll(() => quiz().wrong).toBe('slide:why');
     await page.keyboard.press('Escape');
-    await page.locator('[data-cmd="file.export"]').click();
-    const [download] = await Promise.all([page.waitForEvent('download', { timeout: 150_000 }), page.locator('[data-x="pptx"]').click()]);
+    const [download] = await Promise.all([page.waitForEvent('download', { timeout: 150_000 }), exportAs(page, 'pptx')]);
     const { default: JSZip } = await import('jszip');
     const zip = await JSZip.loadAsync(fs.readFileSync(await download.path()));
     const notes = await zip.file('ppt/notesSlides/notesSlide1.xml')!.async('string');

@@ -4,6 +4,9 @@
 import { expect, test } from '@playwright/test';
 import { watchErrors } from './helpers';
 
+/** Меню миниатюры слайда (правая кнопка) */
+const openMenu = (page: import('@playwright/test').Page) => page.locator('.st-slides-list > *').first().click({ button: 'right' });
+
 /** Призраки уходящих меню и окон: элементы в body с закрытым теневым деревом */
 const ghosts = (page: import('@playwright/test').Page) => page.evaluate(() => [...document.body.children].filter((e) => e.matches('div[aria-hidden="true"][inert]') && !e.shadowRoot).length);
 
@@ -11,7 +14,7 @@ test('меню появляется от кнопки и гаснет призр
   const errors = watchErrors(page);
   await page.goto('/?deck=fx&studio');
   const menu = page.locator('.st-menu');
-  await page.locator('[data-cmd="file.export"]').first().click();
+  await openMenu(page);
   await expect(menu).toBeVisible();
   expect(await menu.evaluate((m) => getComputedStyle(m).animationName)).toBe('ui-in');
   // Призрак ловим в момент появления: сколько меню на странице было тогда (гаснет он быстро — под нагрузкой
@@ -29,9 +32,9 @@ test('меню появляется от кнопки и гаснет призр
   await expect.poll(() => page.evaluate(() => (window as unknown as { seen: number[] }).seen)).toEqual([0]);
   await expect.poll(() => ghosts(page), { timeout: 1000 }).toBe(0);
   // Открыть снова сразу после закрытия — одно меню
-  await page.locator('[data-cmd="file.export"]').first().click();
+  await openMenu(page);
   await page.keyboard.press('Escape');
-  await page.locator('[data-cmd="file.export"]').first().click();
+  await openMenu(page);
   await expect(menu).toHaveCount(1);
   expect(errors).toEqual([]);
 });
@@ -71,7 +74,7 @@ test('полоска под вкладкой переезжает к выбра�
 
   // «Уменьшить движение»: меню закрывается без призрака, полоска встаёт сразу
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.locator('[data-cmd="file.export"]').first().click();
+  await openMenu(page);
   await page.keyboard.press('Escape');
   expect(await ghosts(page)).toBe(0);
   await page.locator('.st-tabs [data-tab="view"]').click();

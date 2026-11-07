@@ -124,6 +124,10 @@ test('контрольные точки: та же, что последняя, �
   expect(list.data.map((x: { id: string }) => x.id)).toEqual([cp.data.id]);
   const back = await call(`checkpoint-read?deck=check&id=${cp.data.id}`);
   expect((back.data.deck as { title: string }).title).toBe('Проверка');
+  // Пути к файлам — адресами, как у открытой презентации (иначе после «Вернуть» картинки не находятся)
+  const cpJson = JSON.stringify(back.data.deck);
+  expect(cpJson).not.toContain('./assets/dot.png');
+  expect(cpJson).toContain(JSON.stringify(core.read('check', { urls: true })).match(/"[^"]*assets\/dot\.png"/)![0]);
   expect((await call('checkpoint-read?deck=check&id=../../etc')).status).toBe(400);
 });
 

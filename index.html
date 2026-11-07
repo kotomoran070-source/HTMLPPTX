@@ -27,6 +27,9 @@
 .b-r { margin-left: auto; display: flex; gap: 10px; }
 .b-r i { width: 30px; height: 30px; border-radius: 8px; }
 .b-r i.b-btn { width: 84px; }
+.b-r i.b-find { width: 260px; height: 30px; }
+#boot .b-file { width: 52px; height: 30px; border-radius: 7px; flex: none; }
+#boot .b-file + .b-tabs { margin-left: 10px; }
 .b-rib { display: flex; gap: 18px; padding: 14px 12px; }
 .b-rib i { width: 120px; height: 72px; border-radius: 8px; opacity: .55; }
 .b-body { display: grid; grid-template-columns: var(--lw, 212px) minmax(0, 1fr) var(--rw, 292px); min-height: 0; }
@@ -133,7 +136,7 @@
     el.style.setProperty('--rw', lay.right === false ? '0px' : px(lay.rw, 292, 220, 520));
     el.style.setProperty('--nh', get('htmlpptx-studio-notes') === '0' ? '0px' : px(lay.nh, 128, 64, 420));
     if (lay.ribbon === false) el.style.setProperty('--rh', '0px');
-    el.innerHTML = (frame ? '<div class="b-tbar"><i></i><i class="b-q" style="margin-left:14px"></i><i class="b-q"></i><i class="b-t"></i></div><div class="b-top"><span class="b-tabs" style="margin-left:6px">' : '<div class="b-top"><i class="b-logo"></i><i style="width:150px;height:12px"></i><span class="b-tabs">') + '<i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="b-r"><i></i><i></i><i class="b-btn"></i></span></div>'
+    el.innerHTML = (frame ? '<div class="b-tbar"><i></i><i class="b-q" style="margin-left:14px"></i><i class="b-q"></i><i class="b-t"></i></div><div class="b-top"><i class="b-file"></i><span class="b-tabs">' : '<div class="b-top"><i class="b-logo"></i><i style="width:150px;height:12px"></i><i class="b-file"></i><span class="b-tabs">') + '<i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="b-r"><i class="b-find"></i>' + (frame ? '' : '<i></i>') + '<i class="b-btn"></i></span></div>'
       + (lay.ribbon === false ? '<div></div>' : n('b-rib', 8))
       + '<div class="b-body">' + (lay.left === false ? '<div></div>' : n('b-left', 9))
       + '<div class="b-main"><div class="b-canvas"><i class="b-slide"></i></div><div class="b-notes"></div></div>'

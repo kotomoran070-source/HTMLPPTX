@@ -70,3 +70,11 @@ export async function waitFile(check: () => boolean, ms = 8000): Promise<boolean
   }
   return check();
 }
+
+/** Студия: «Файл → Экспорт» — выбрать формат и «Сохранить» */
+export async function exportAs(page: Page, kind: 'clean' | 'edit' | 'pptx' | 'pdf'): Promise<void> {
+  await page.locator('#st-file').click();
+  await page.locator('.fp [data-fs="export"]').click();
+  await page.locator(`.fp [data-x="${kind}"]`).click();
+  await page.locator('.fp [data-a="export"]').click();
+}

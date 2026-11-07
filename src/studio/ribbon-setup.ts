@@ -1,11 +1,10 @@
 /**
  * «Настроить ленту»: какие вкладки и группы кнопок видны, подписи у кнопок. Готовые наборы —
- * «Простая» (самое нужное) и «Полная» (всё), или своя. Скрытое остаётся в поиске команд (Ctrl+K).
- * Запоминается на этом компьютере. Изменения видны на ленте сразу — панель её не закрывает.
+ * «Простая» (самое нужное), «Полная» (всё), «Компактная» (только значки), или своя. Скрытое остаётся
+ * в поиске команд (Ctrl+K). Запоминается на этом компьютере. Рисуется в «Файл → Параметры» (file-panel.ts).
  */
 import { icon } from '../components/icons';
 import './ribbon-setup.css';
-import { leave } from '../engine/motion';
 
 export interface RibbonHost {
   /** Открытая вкладка и переход на другую */
@@ -62,8 +61,8 @@ function inventory(): { id: string; name: string; context: boolean; groups: stri
   });
 }
 
-/** Подключить настройку: применить сохранённое и вернуть «открыть панель» */
-export function initRibbonSetup(host: RibbonHost): { open(anchor?: HTMLElement): void; apply(): void } {
+/** Подключить настройку: применить сохранённое; mount — нарисовать настройку в «Файл → Параметры» */
+export function initRibbonSetup(host: RibbonHost): { mount(el: HTMLElement): void; apply(): void } {
   let prefs = load();
 
   const apply = () => {
@@ -88,18 +87,6 @@ export function initRibbonSetup(host: RibbonHost): { open(anchor?: HTMLElement):
   };
 
   let box: HTMLElement | null = null;
-  const close = () => {
-    if (box) leave(box);
-    box = null;
-    removeEventListener('keydown', onKey, true);
-    removeEventListener('pointerdown', onOutside, true);
-  };
-  const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
-  const onOutside = (e: PointerEvent) => {
-    const t = e.target as Element;
-    // Щелчки по ленте не закрывают панель: на ней видно, что получилось
-    if (box && !box.contains(t) && !t.closest('#st-ribbon, .st-tabs, [data-cmd="ui.ribbon"]')) close();
-  };
   const set = (p: Prefs) => {
     prefs = p;
     save(prefs);
@@ -108,16 +95,25 @@ export function initRibbonSetup(host: RibbonHost): { open(anchor?: HTMLElement):
   };
   let openTab = '';
 
+  /** Набор ленты схемой: сколько и каких кнопок */
+  const MINI: Record<string, string> = {
+    simple: '<i class="l"></i><i></i><i class="l"></i>',
+    full: '<i></i><i></i><i></i><i></i><i></i><i></i>',
+    compact: '<i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>',
+  };
+
   function draw(): void {
-    if (!box) return;
+    if (!box?.isConnected) return;
     const hide = new Set(prefs.hide);
     const preset = PRESETS.find(([, , , , p]) => same(p, prefs))?.[0] ?? 'own';
     const tabs = inventory();
-    box.innerHTML = `<header><b>Настроить ленту</b><button type="button" class="rs-x" data-a="close" aria-label="Закрыть" title="Закрыть (Esc)">${icon('close')}</button></header>
-  <div class="rs-presets">${PRESETS.map(([id, name, hint, title]) => `<button type="button" data-preset="${id}" class="${preset === id ? 'on' : ''}" title="${esc(title)}"><b>${name}</b><small>${esc(hint)}</small></button>`).join('')}</div>
+    // Фокус внутри настройки — вернуть на тот же элемент после перерисовки (клавиатура)
+    const focusKey = (document.activeElement as HTMLElement | null)?.closest?.('[data-preset],[data-o],[data-tab],[data-group],[data-open]');
+    const sel = focusKey ? ['preset', 'o', 'tab', 'group', 'open'].map((k) => (focusKey as HTMLElement).dataset[k] !== undefined ? `[data-${k}="${CSS.escape((focusKey as HTMLElement).dataset[k]!)}"]` : '').find(Boolean) : '';
+    box.innerHTML = `<div class="rs-presets" role="radiogroup" aria-label="Набор ленты">${PRESETS.map(([id, name, hint, title]) => `<button type="button" role="radio" aria-checked="${preset === id}" data-preset="${id}" class="${preset === id ? 'on' : ''}" title="${esc(title)}"><span class="rs-mini rs-mini-${id}" aria-hidden="true">${MINI[id]}</span><span class="rs-pn">${name}</span><small>${esc(hint)}</small></button>`).join('')}</div>
   <div class="rs-opts">
-    <label><input type="checkbox" data-o="icons"${prefs.icons ? ' checked' : ''}><span>Только значки</span></label>
-    <label><input type="checkbox" data-o="noLabels"${prefs.noLabels ? ' checked' : ''}><span>Без подписей групп</span></label>
+    <label><input type="checkbox" class="rs-sw" data-o="icons"${prefs.icons ? ' checked' : ''}><span>Только значки<small>Подписи — во всплывающих подсказках</small></span></label>
+    <label><input type="checkbox" class="rs-sw" data-o="noLabels"${prefs.noLabels ? ' checked' : ''}><span>Без подписей групп<small>Названия групп под кнопками скрыты</small></span></label>
   </div>
   <div class="rs-h">Вкладки и группы${preset === 'own' ? '<i>своя</i>' : ''}</div>
   <ul class="rs-tabs">${tabs.map((t, k) => {
@@ -127,39 +123,31 @@ export function initRibbonSetup(host: RibbonHost): { open(anchor?: HTMLElement):
     const sub = t.context && !tabs[k - 1]?.context ? `<li class="rs-sub">${icon('cursor')}Появляются с выделением</li>` : '';
     return `${sub}<li class="${off ? 'off' : ''}${openTab === t.id ? ' open' : ''}">
       <div class="rs-tab">${t.context ? '<i class="rs-gap"></i>' : `<input type="checkbox" data-tab="${t.id}"${off ? '' : ' checked'} aria-label="${esc(t.name)}">`}
-        <button type="button" class="rs-name" data-open="${t.id}"><span>${esc(t.name)}</span><i class="rs-meter" aria-hidden="true"><i style="width:${off || !t.groups.length ? 0 : Math.round((n / t.groups.length) * 100)}%"></i></i><small>${off ? 'скрыта' : `${n} из ${t.groups.length}`}</small><b class="rs-chev">${icon('next')}</b></button></div>
+        <button type="button" class="rs-name" data-open="${t.id}" aria-expanded="${openTab === t.id}"><span>${esc(t.name)}</span><i class="rs-meter" aria-hidden="true"><i style="width:${off || !t.groups.length ? 0 : Math.round((n / t.groups.length) * 100)}%"></i></i><small>${off ? 'скрыта' : `${n} из ${t.groups.length}`}</small><b class="rs-chev">${icon('next')}</b></button></div>
       <div class="rs-groups">${t.groups.map((g) => `<label><input type="checkbox" data-group="${esc(`${t.id}/${g}`)}"${hide.has(`${t.id}/${g}`) ? '' : ' checked'}${off ? ' disabled' : ''}><span>${esc(g)}</span></label>`).join('')}</div>
     </li>`;
   }).join('')}</ul>
   <p class="rs-note">${icon('search')}<span>Скрытое не пропадает: любую команду найдёт поиск — Ctrl+K</span></p>`;
+    if (sel) box.querySelector<HTMLElement>(sel)?.focus({ preventScroll: true });
   }
 
-  const open = (anchor?: HTMLElement) => {
-    if (box) { close(); return; }
-    box = document.createElement('div');
-    box.className = 'rs';
-    box.setAttribute('role', 'dialog');
-    box.setAttribute('aria-label', 'Настроить ленту');
-    document.body.appendChild(box);
-    const rib = document.getElementById('st-ribbon')?.getBoundingClientRect();
-    box.style.top = `${Math.round((rib?.bottom ?? anchor?.getBoundingClientRect().bottom ?? 120) + 8)}px`;
+  const mount = (el: HTMLElement) => {
+    box = el;
+    el.classList.add('rs');
+    // Вкладка, открытая на ленте, — раскрыта в списке: видно её группы
     openTab = host.tab();
     draw();
-    box.addEventListener('click', (e) => {
+    el.addEventListener('click', (e) => {
       const t = e.target as Element;
-      const a = t.closest<HTMLElement>('[data-a]')?.dataset.a;
-      if (a === 'close') { close(); return; }
       const pr = t.closest<HTMLElement>('[data-preset]')?.dataset.preset;
       if (pr) { set(structuredClone(PRESETS.find(([id]) => id === pr)![4])); return; }
       const op = t.closest<HTMLElement>('[data-open]')?.dataset.open;
       if (op) {
         openTab = openTab === op ? '' : op;
-        // Показать вкладку на ленте — видно, о каких кнопках речь (у вкладок по выделению — нет)
-        if (openTab && !CONTEXT.has(op) && !prefs.hide.includes(op)) host.setTab(op);
         draw();
       }
     });
-    box.addEventListener('change', (e) => {
+    el.addEventListener('change', (e) => {
       const inp = e.target as HTMLInputElement;
       const hide = new Set(prefs.hide);
       const key = inp.dataset.tab ?? inp.dataset.group;
@@ -171,10 +159,8 @@ export function initRibbonSetup(host: RibbonHost): { open(anchor?: HTMLElement):
       if (!inventory().some((t) => !t.context && !hide.has(t.id))) { inp.checked = true; return; }
       set({ ...prefs, hide: [...hide] });
     });
-    addEventListener('keydown', onKey, true);
-    addEventListener('pointerdown', onOutside, true);
   };
 
   apply();
-  return { open, apply };
+  return { mount, apply };
 }

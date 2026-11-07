@@ -7,7 +7,7 @@ import { accentTail, applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, setUi
 import { applyThemeSwatches, themeMode } from '../engine/deck-theme';
 import { getAt, setAt, type Path } from '../engine/data';
 import { DeckView, H, W } from '../engine/deck-view';
-import { clock, Editor, SLIDE_PRESETS } from '../engine/editor/editor';
+import { Editor, SLIDE_PRESETS } from '../engine/editor/editor';
 import type { TextTarget } from '../engine/editor/text-edit';
 import { esc } from '../engine/html';
 import { placeOf, slideLabel } from '../engine/render';
@@ -47,6 +47,8 @@ import { warmLater } from './warm';
 import { inkTabs, themeFade, warmGhosts } from '../engine/motion';
 import { THEME_PRESETS } from './theme-presets';
 import { initRibbonSetup } from './ribbon-setup';
+import { initFilePanel, type Quality } from './file-panel';
+import { staticSlide } from '../engine/deck-view';
 import { pictureName, savePicture } from './save-picture';
 import { contextCommands, tableMenu, contextPanelsHtml, contextTab, contextTabsHtml, syncSwatches, type ContextTab } from './context-tabs';
 import { Inspector } from './inspector';
@@ -141,6 +143,8 @@ export function startStudio(deck: Deck, deckKey: string): void {
   // В программе над шапкой — полоса заголовка окна (studio.css, engine/titlebar.ts): знак, «Отменить» и «Повторить»,
   // по середине — название и «Сохранено», справа — тема. В браузере полосы нет — всё это в шапке
   const framed = document.documentElement.classList.contains('app-frame');
+  /** Раздел «Файл» (file-panel.ts): создаётся, когда студия построена */
+  let filePanel: ReturnType<typeof initFilePanel> | undefined;
   const homeHtml = `<a class="st-home" href="./?all" title="Slideria — все презентации" aria-label="Все презентации">${brandMark()}</a>`;
   const titleHtml = '<input class="st-title" id="st-title" aria-label="Название презентации" spellcheck="false">';
   const statusHtml = '<button type="button" class="st-status" id="st-status" role="status" aria-live="polite"></button>';
@@ -156,6 +160,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
 <div class="studio-app">
   <header class="st-top" data-ed-keep>
     ${framed ? '' : homeHtml + titleHtml}
+    <button type="button" class="st-filebtn" id="st-file" aria-haspopup="dialog" aria-expanded="false" title="Сведения, экспорт, версии и параметры">Файл</button>
     <nav class="st-tabs" role="tablist" aria-label="Вкладки ленты">
       <button type="button" role="tab" data-tab="home" aria-selected="true">Главная</button>
       <button type="button" role="tab" data-tab="insert" aria-selected="false">Вставка</button>
@@ -170,8 +175,6 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     <div class="st-pal" id="st-pal" role="search"></div>
     <div class="st-top-r">
       ${framed ? '' : statusHtml}
-      <button class="btn ghost small st-export" type="button" data-cmd="file.export" title="Скачать один HTML-файл или PDF" aria-haspopup="true">${icon('save')}<span>Экспорт</span></button>
-<button class="ibtn small" type="button" data-cmd="ui.ribbon" aria-label="Настроить ленту" title="Настроить ленту">${icon('sliders')}</button>
       ${framed ? '' : themeHtml}
       <button class="btn primary small" type="button" data-cmd="show.current" title="Показ с текущего слайда (Shift+F5)">${icon('play')}<span>Показ</span></button>
     </div>
@@ -816,33 +819,6 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   const SAME_KEY = 'htmlpptx-export-same';
   let same = true;
   try { same = localStorage.getItem(SAME_KEY) !== '0'; } catch { /* нет доступа */ }
-  function exportMenu(): void {
-    const seg = QUALITIES.map(([k, t]) => `<button type="button" role="radio" data-q="${k}" aria-checked="${k === quality}">${esc(t)}</button>`).join('');
-    const hint = () => QUALITIES.find(([k]) => k === quality)![2];
-    const sameBox = `<label class="st-xsame" title="HTML: тот же вид слайдов и анимации на любом компьютере"><input type="checkbox"${same ? ' checked' : ''}>Как на этом компьютере</label>`;
-    const html = `<div class="st-xq"><span class="st-xq-l">Качество</span><div class="st-xq-seg" role="radiogroup" aria-label="Качество файла">${seg}</div><small class="st-xq-hint">${esc(hint())}</small>${sameBox}</div>`
-      + EXPORTS.map(([k, ic, t, d]) => `<button type="button" class="st-xopt" data-x="${k}">${icon(ic)}<span><b>${esc(t)}</b><small>${esc(d)}</small></span></button>`).join('');
-    const pop = showPopover(document.querySelector<HTMLElement>('.st-top [data-cmd="file.export"]')!, html, (b) => {
-      const q = b.dataset.q as ExportQuality | undefined;
-      if (q) {
-        return {
-          keep: true,
-          run: () => {
-            quality = q;
-            try { localStorage.setItem(QUALITY_KEY, q); } catch { /* нет доступа */ }
-            pop.querySelectorAll<HTMLElement>('[data-q]').forEach((x) => x.setAttribute('aria-checked', String(x.dataset.q === q)));
-            pop.querySelector('.st-xq-hint')!.textContent = hint();
-          },
-        };
-      }
-      const m = b.dataset.x;
-      return m ? { run: () => void runExport(m) } : null;
-    }, 'st-exportpop');
-    pop.querySelector<HTMLInputElement>('.st-xsame input')!.addEventListener('change', (e) => {
-      same = (e.target as HTMLInputElement).checked;
-      try { localStorage.setItem(SAME_KEY, same ? '1' : '0'); } catch { /* нет доступа */ }
-    });
-  }
   let exporting = false;
   const sizeText = (n: number) => (n >= 1048576 ? `${(n / 1048576).toFixed(1).replace('.', ',')} МБ` : `${Math.max(1, Math.round(n / 1024))} КБ`);
   function download(blob: Blob, name: string): void {
@@ -1736,7 +1712,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
         note: 'У таймера докладчика — сколько осталось и запас',
       }),
     },
-    'file.export': { run: () => exportMenu() },
+    'file.export': { run: () => filePanel?.open('export') },
     'model.snapshot': { run: () => void modelSnapshot(), enabled: () => ed.selection?.type === 'model' },
     'embed.code': { run: () => void editEmbedCode(), enabled: () => ed.selection?.type === 'embed' || ed.selection?.type === 'sandbox' },
     'embed.poster': { run: () => void embedPoster(ed.selection?.block), enabled: () => ed.selection?.type === 'embed' || ed.selection?.type === 'sandbox' },
@@ -1778,7 +1754,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   // Стили для ухода меню (engine/motion.ts) и шрифты с фонами тем — заранее, в свободное время
   warmLater([warmGhosts, ...themeWarmTasks()]);
   bindDesignStrip(designHost, cmds);
-  Object.assign(cmds, toolsCommands({ deck, deckKey, editor: ed, go }));
+  Object.assign(cmds, toolsCommands({ deck, deckKey, editor: ed, go, info: () => filePanel?.open('info') }));
   // «Инструменты → Интеграции»: агенты, скрипты, плагины, журнал правок (integrations.ts)
   const integrations = startIntegrations({ deck, deckKey, editor: ed, go, index: () => index });
   Object.assign(cmds, integrations.commands);
@@ -1900,12 +1876,12 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   }, { passive: false });
   // Своя лента: скрытые вкладки и группы, только значки (запоминается на компьютере)
   const ribbonSetup = initRibbonSetup({ tab: () => tab, setTab, fit: fitRibbon });
-  cmds['ui.ribbon'] = { run: () => ribbonSetup.open() };
+  cmds['ui.ribbon'] = { run: () => filePanel?.open('prefs') };
   for (const el of [document.querySelector('.st-tabs')!, $('st-ribbon')]) {
     el.addEventListener('contextmenu', (e) => {
       if ((e.target as Element).closest('input, textarea, select, [contenteditable]')) return;
       e.preventDefault();
-      ribbonSetup.open();
+      filePanel?.open('prefs');
     });
   }
   // Идёт правка текста (ячейка таблицы, надпись): вкладка переключается, а курсор остаётся в тексте —
@@ -1934,11 +1910,14 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
 
   // ---------------- шапка ----------------
   const title = $<HTMLInputElement>('st-title');
+  const rename = (v: string) => {
+    ed.commit((d) => { d.title = v; }, { rebuild: false, merge: 'title' });
+    document.title = `${v} — Slideria`;
+  };
   title.addEventListener('change', () => {
     const v = title.value.trim();
     if (!v) { title.value = deck.title; return; }
-    ed.commit((d) => { d.title = v; }, { rebuild: false, merge: 'title' });
-    document.title = `${v} — Slideria`;
+    rename(v);
   });
   title.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === 'Escape') {
@@ -1946,18 +1925,10 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       title.blur();
     }
   });
-  // «Сохранено»: ошибка — повторить; иначе контрольные точки (Ctrl+S) — вернуться к любой
-  $('st-status').addEventListener('click', async (e) => {
-    if (ed.retrySave() || ed.mode !== 'project') return;
-    const at = e.currentTarget as HTMLElement;
-    const list = await ed.checkpoints();
-    showMenu(at, [
-      { label: 'Сделать точку', hint: 'Ctrl+S', run: () => void ed.save() },
-      null,
-      ...(list.length
-        ? list.slice(0, 12).map((c) => ({ label: `Вернуть: ${clock(c.time)}`, run: () => void ed.restoreCheckpoint(c.id, clock(c.time)) }))
-        : [{ label: 'Точек пока нет', disabled: true, run: () => {} }]),
-    ]);
+  // «Сохранено»: ошибка — повторить; иначе — «Файл → Версии»: контрольные точки (Ctrl+S) и вернуться к любой
+  $('st-status').addEventListener('click', () => {
+    if (ed.retrySave()) return;
+    filePanel?.open('versions');
   });
   $('st-theme').addEventListener('click', () => themeFade(toggleTheme));
   const accent = $<HTMLInputElement>('st-accent');
@@ -1981,6 +1952,51 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     setUiAccent(uiColor.value);
     queueState();
   });
+
+  // ---------------- раздел «Файл» ----------------
+  const appApi = (window as { slideriaApp?: { reveal?(name: string): Promise<unknown>; build?: { version?: string; date?: string; commit?: string } } }).slideriaApp;
+  const fileBtn = $('st-file');
+  filePanel = initFilePanel({
+    tools: { deck, deckKey, editor: ed, go, info: () => filePanel?.open('info') },
+    rename,
+    cover: () => (deck.slides.length ? staticSlide(deck, 0) : null),
+    reveal: appApi?.reveal && ed.mode === 'project' ? () => void appApi.reveal!(deckKey) : undefined,
+    exporter: {
+      kinds: EXPORTS.map(([k, ic, t, d]) => [k, ic, t, d]),
+      qualities: QUALITIES,
+      quality: () => quality,
+      setQuality: (q: Quality) => { quality = q; try { localStorage.setItem(QUALITY_KEY, q); } catch { /* нет доступа */ } },
+      same: () => same,
+      setSame: (v: boolean) => { same = v; try { localStorage.setItem(SAME_KEY, v ? '1' : '0'); } catch { /* нет доступа */ } },
+      fileName: (m: string) => (m === 'pptx' ? `${deckKey}.pptx` : m === 'pdf' ? `${(deck.title || deckKey).replace(/[\\/:*?"<>|]/g, '')}.pdf` : `${deckKey}${m === 'clean' ? '' : '-edit'}.html`),
+      run: (m: string) => void runExport(m),
+    },
+    ribbon: { mount: (el) => ribbonSetup.mount(el) },
+    ui: {
+      theme: () => { const t = document.documentElement.getAttribute('data-theme'); return t === 'light' || t === 'dark' ? t : 'system'; },
+      setTheme: (t) => themeFade(() => (t === 'system' ? followSystemTheme() : setTheme(t))),
+      accent: () => { const a = deck.theme?.accent; return typeof a === 'string' && HEX_RE.test(a) ? a : DEFAULT_ACCENT; },
+      ownColor: () => (uiAccent() ? uiColor.value : null),
+      previewColor: (c: string) => { setUiAccent(c); },
+      setOwnColor: (c: string | null) => {
+        if (c) uiColor.value = uiSafeAccent(c, currentTheme()).toLowerCase();
+        setUiAccent(c ? uiColor.value : null);
+        queueState();
+      },
+      lite: () => lay.lite,
+      setLite: (v: boolean) => { if (lay.lite !== v) run('view.lite'); },
+      look: () => slidesLookOwn() ?? null,
+      setLook: (v) => chooseSlidesLook(v),
+      lookLocked: () => !!themeMode(deck.theme),
+    },
+    licenses: { run: () => run('tools.licenses'), enabled: () => location.protocol.startsWith('http') },
+    build: () => {
+      const b = appApi?.build;
+      return b ? `Slideria ${b.version ?? ''} · ${b.date ? `сборка от ${b.date}` : 'запуск из проекта'}` : '';
+    },
+    toggled: (open) => { fileBtn.classList.toggle('on', open); },
+  }, document.querySelector<HTMLElement>('.studio-app')!, fileBtn);
+  fileBtn.addEventListener('click', () => (filePanel!.isOpen() ? filePanel!.close() : filePanel!.open()));
   onThemeChange(() => { slides.update(); slides.repaintStills(); queueState(); });
   // Свой вид слайдов сменился: данные те же, слайды и миниатюры — заново
   onSlidesLook(() => {
@@ -2298,6 +2314,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     syncNotes();
     drawCrumbs();
     paintCells();
+    filePanel?.sync();
   }
 
   // ---------------- мышь на холсте ----------------
@@ -2405,7 +2422,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     }
     if (mod && (k === 's' || k === 'ы')) {
       e.preventDefault();
-      void ed.save();
+      void ed.save().then(() => filePanel?.refresh());
       return;
     }
     if (mod && (e.key === '`' || e.key === 'ё' || e.code === 'Backquote')) {

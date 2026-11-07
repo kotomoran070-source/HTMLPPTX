@@ -19,6 +19,8 @@ export interface ToolsHost {
   deckKey: string;
   editor: Editor;
   go(i: number): void;
+  /** Открыть «Файл → Сведения» */
+  info(): void;
 }
 
 interface Command { run(): void; enabled?(): boolean }
@@ -57,7 +59,8 @@ const words = (s: string) => (s.replace(/\{#[0-9a-f]{3,8}\|/gi, ' ').replace(/\]
 export function toolsCommands(h: ToolsHost): Record<string, Command> {
   const anchor = (cmd: string) => document.querySelector<HTMLElement>(`.st-ribbon [data-cmd="${cmd}"]`)!;
   return {
-    'tools.summary': { run: () => void summary(h, anchor('tools.summary')) },
+    // Сводка — в «Файл → Сведения»
+    'tools.summary': { run: () => h.info() },
     'tools.font': { run: () => replaceFont(h, anchor('tools.font')) },
     'tools.tidy': { run: () => tidy(h, anchor('tools.tidy')) },
     // Страницу отдаёт сервер студии (server/http.ts): у файла, открытого с диска, его нет — лицензии лежат в самом файле
@@ -68,7 +71,26 @@ export function toolsCommands(h: ToolsHost): Record<string, Command> {
 
 // ---------------- сводка ----------------
 
-async function summary(h: ToolsHost, at: HTMLElement): Promise<void> {
+/** Сводка презентации — для раздела «Файл → Сведения» (file-panel.ts) */
+export interface Summary {
+  slides: number;
+  slideWords: number;
+  noteWords: number;
+  /** Доклад по заметкам, минут */
+  minutes: number;
+  /** Слайдов с заметками */
+  withNotes: number;
+  /** Файлы презентации; null — список недоступен (файл открыт с диска) */
+  files: { path: string; size: number; slides: number[]; used: boolean }[] | null;
+  total: number;
+  heavy: { path: string; size: number; slides: number[] }[];
+  unused: { path: string; size: number }[];
+  fonts: { name: string; label: string; css: string; n: number; state: string }[];
+  /** Встроенные шрифты, которые нигде не заданы */
+  idle: { name: string; css: string }[];
+}
+
+export async function collectSummary(h: ToolsHost): Promise<Summary> {
   const { deck } = h;
   let slideWords = 0;
   let noteWords = 0;
@@ -83,7 +105,7 @@ async function summary(h: ToolsHost, at: HTMLElement): Promise<void> {
 
   // Файлы: размеры с сервера; используется ли — по ссылке в данных или внутри живой вставки
   const store = h.editor.files;
-  let files: { path: string; size: number; slides: number[]; used: boolean }[] | null = null;
+  let files: Summary['files'] = null;
   if (store.listAssets) {
     try {
       const list = await store.listAssets(h.deckKey);
@@ -113,54 +135,41 @@ async function summary(h: ToolsHost, at: HTMLElement): Promise<void> {
   const fonts = [...fontUses(deck)].map(([name, uses]) => {
     const own = embedded.filter((f) => f.name.trim() === name);
     const state = FONTS[name] ? 'общий' : own.length ? `встроен · ${size(own.reduce((a, f) => a + fileSize(f.src), 0))}` : '';
-    return { name, n: uses.length, state };
+    return { name, label: fontLabel(name), css: FONTS[name]?.css ?? fontStack(name), n: uses.length, state };
   });
   // Встроенные, но нигде не заданные (и не у заголовков темы): их можно убрать из презентации
-  const idle = [...new Set(embedded.map((f) => f.name.trim()))].filter((n) => n && !fonts.some((f) => f.name === n) && deck.theme?.head !== n);
-
-  const tile = (v: string, l: string) => `<div class="st-sum-t"><b>${v}</b><span>${l}</span></div>`;
-  const slideLink = (i: number) => `<button type="button" class="st-link" data-go="${i}">слайд ${i + 1}</button>`;
-  const html = `<h3 class="st-sum-h">Сводка презентации</h3>
-<div class="st-sum-tiles">
-  ${tile(num(deck.slides.length), plural(deck.slides.length, 'слайд', 'слайда', 'слайдов'))}
-  ${tile(num(slideWords), `${plural(slideWords, 'слово', 'слова', 'слов')} на слайдах`)}
-  ${tile(noteWords ? `≈ ${minutes} мин` : '—', noteWords ? 'доклад по заметкам' : 'заметок нет')}
-  ${tile(files ? size(total) : '—', 'файлы')}
-</div>
-${withNotes && withNotes < deck.slides.length ? `<p class="st-sum-note">Заметки есть у ${withNotes} из ${deck.slides.length} ${plural(deck.slides.length, 'слайда', 'слайдов', 'слайдов')}.</p>` : ''}
-${heavy.length ? `<h4>Самые тяжёлые файлы</h4><ul class="st-sum-list">${heavy.map((f) => `<li><span class="st-sum-n" title="${esc(f.path)}">${esc(f.path.replace(/^assets\//, ''))}</span><b>${size(f.size)}</b>${f.slides.length ? slideLink(f.slides[0]) : '<i>оформление</i>'}</li>`).join('')}</ul>` : ''}
-${fonts.length || idle.length ? `<h4>Шрифты</h4><ul class="st-sum-list">${fonts.map((f) => `<li><span class="st-sum-n" style="font-family:${esc(FONTS[f.name]?.css ?? fontStack(f.name))}">${esc(fontLabel(f.name))}</span>${f.state ? `<small>${esc(f.state)}</small>` : '<small class="warn" title="Шрифт не встроен: без него на компьютере текст будет другим">не встроен</small>'}<button type="button" class="st-link" data-font="${esc(f.name)}">заменить</button></li>`).join('')}${idle.map((n) => `<li><span class="st-sum-n" style="font-family:${esc(fontStack(n))}">${esc(n)}</span><small>не используется</small><button type="button" class="st-link" data-unfont="${esc(n)}" title="Убрать файл шрифта (в библиотеке он останется)">убрать</button></li>`).join('')}</ul>` : ''}
-${unused.length ? `<div class="st-sum-unused"><span>Не используются: ${unused.length} ${unused.length === 1 ? 'файл' : unused.length < 5 ? 'файла' : 'файлов'} · ${size(unused.reduce((a, f) => a + f.size, 0))}</span><button type="button" class="btn ghost small" data-trash title="${esc(unused.map((f) => f.path.replace(/^assets\//, '')).join('\n'))}">Убрать в корзину</button></div>` : ''}`;
-
-  showPopover(at, html, (b) => {
-    if (b.dataset.go) return { run: () => h.go(Number(b.dataset.go)) };
-    if (b.dataset.font !== undefined) return { run: () => replaceFont(h, at, b.dataset.font) };
-    const gone = b.dataset.unfont;
-    if (gone !== undefined) {
-      return {
-        run: () => {
-          h.editor.commit((d) => {
-            const list = (Array.isArray(d.fonts) ? d.fonts : []).filter((f) => f?.name?.trim() !== gone);
-            if (list.length) d.fonts = list;
-            else delete d.fonts;
-          }, { rebuild: true });
-          h.editor.toast(`Шрифт «${gone}» убран из презентации. Вернуть — Ctrl+Z`, 4000);
-        },
-      };
-    }
-    if (b.hasAttribute('data-trash')) {
-      return {
-        run: () => {
-          if (!confirm(`Убрать ${unused.length} неиспользуемых файлов в корзину проекта (папка .trash)? Их можно вернуть оттуда вручную.`)) return;
-          void store.trashAssets!(h.deckKey, unused.map((f) => f.path))
-            .then((r) => h.editor.toast(`Убрано в корзину: ${r.moved}`, 3000))
-            .catch((e: Error) => h.editor.toast(`Не удалось: ${e.message}`, 5000, true));
-        },
-      };
-    }
-    return null;
-  }, 'st-sumpop');
+  const idle = [...new Set(embedded.map((f) => f.name.trim()))]
+    .filter((n) => n && !fonts.some((f) => f.name === n) && deck.theme?.head !== n)
+    .map((n) => ({ name: n, css: fontStack(n) }));
+  return { slides: deck.slides.length, slideWords, noteWords, minutes, withNotes, files, total, heavy, unused, fonts, idle };
 }
+
+/** Убрать файл шрифта, который нигде не задан (Ctrl+Z — вернуть) */
+export function removeFont(h: ToolsHost, name: string): void {
+  h.editor.commit((d) => {
+    const list = (Array.isArray(d.fonts) ? d.fonts : []).filter((f) => f?.name?.trim() !== name);
+    if (list.length) d.fonts = list;
+    else delete d.fonts;
+  }, { rebuild: true });
+  h.editor.toast(`Шрифт «${name}» убран из презентации. Вернуть — Ctrl+Z`, 4000);
+}
+
+/** Неиспользуемые файлы — в корзину проекта (.trash): вернуть можно оттуда вручную */
+export async function trashUnused(h: ToolsHost, paths: string[]): Promise<boolean> {
+  if (!paths.length || !h.editor.files.trashAssets) return false;
+  if (!confirm(`Убрать ${paths.length} ${plural(paths.length, 'неиспользуемый файл', 'неиспользуемых файла', 'неиспользуемых файлов')} в корзину проекта (папка .trash)? Их можно вернуть оттуда вручную.`)) return false;
+  try {
+    const r = await h.editor.files.trashAssets(h.deckKey, paths);
+    h.editor.toast(`Убрано в корзину: ${r.moved}`, 3000);
+    return true;
+  } catch (e) {
+    h.editor.toast(`Не удалось: ${(e as Error).message}`, 5000, true);
+    return false;
+  }
+}
+
+export const fileSize = size;
+export const numText = num;
 
 // ---------------- привести в порядок ----------------
 
@@ -210,7 +219,7 @@ function clearNotes(h: ToolsHost): void {
 /** «Шрифт темы»: весь текст без своего шрифта — у презентации ещё не задан шрифт */
 const THEME = '#theme';
 
-function replaceFont(h: ToolsHost, at: HTMLElement, preset?: string): void {
+export function replaceFont(h: ToolsHost, at: HTMLElement, preset?: string): void {
   const uses = fontUses(h.deck);
   const themeFree = !h.deck.theme?.font;
   let from = preset && uses.has(preset) ? preset : themeFree ? THEME : [...uses.keys()][0];
