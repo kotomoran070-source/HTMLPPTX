@@ -61,8 +61,6 @@ export interface FileHost {
     setLook(v: Look): void;
     /** У презентации свой вид слайдов («Дизайн» → «Слайды») */
     lookLocked(): boolean;
-    /** Вид окна программы — проба для Windows (только в программе); выбор — программа откроется заново */
-    windowMode?: { current: string; set(m: string): void };
   };
   licenses: { run(): void; enabled(): boolean };
   /** «Slideria 1.4 · сборка от …» (запуск из проекта — без сборки); пусто вне программы */
@@ -252,10 +250,6 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
         <div class="fp-field">${sw(u.lite(), 'data-lite', 'Облегчённый режим', 'Для слабых компьютеров: анимации на слайде в редакторе остановлены')}</div>
       </div></section>
       <section><h3 class="fp-k">Лента</h3><div class="fp-ribbon"></div></section>
-      ${u.windowMode ? `<section><h3 class="fp-k">Окно (проба)</h3><div class="fp-card fp-grid">
-        <div class="fp-field" style="grid-column: 1 / -1">${seg('wmode', 'Вид окна', [['own', 'Свой'], ['overlay', 'Системные кнопки'], ['mica', 'Свой + Mica'], ['system', 'Системная рамка']], u.windowMode.current)}
-          <small>Временно, для проверки в Windows: в каком виде сворачивание и разворачивание идёт плавно. После выбора программа откроется заново</small></div>
-      </div></section>` : ''}
     </div>`;
   }
 
@@ -387,7 +381,6 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     if (d.uitheme) { host.ui.setTheme(d.uitheme as UiTheme); return; }
     if (d.color) { host.ui.setOwnColor(null); void render(); return; }
     if (d.look !== undefined) { host.ui.setLook((d.look || null) as Look); void render(); }
-    if (d.wmode) host.ui.windowMode?.set(d.wmode);
   });
   root.addEventListener('dblclick', (e) => {
     // Двойной щелчок по формату — сразу сохранить

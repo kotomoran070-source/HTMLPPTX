@@ -106,8 +106,8 @@
     html.classList.add('app-frame');
     if (app.platform) html.setAttribute('data-platform', app.platform);
     html.style.setProperty('--tb-h', tbh + 'px');
-    if (app.platform === 'darwin' || app.controls === 'system') {
-      if (app.titleBar) app.titleBar({ height: tbh, symbol: dark ? '#CBD5E1' : '#374151' });
+    if (app.platform === 'darwin') {
+      if (app.titleBar) app.titleBar({ height: tbh });
       var wco = navigator.windowControlsOverlay;
       if (wco && wco.visible) {
         var r = wco.getTitlebarAreaRect();
