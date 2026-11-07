@@ -1956,6 +1956,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   // ---------------- раздел «Файл» ----------------
   const appApi = (window as { slideriaApp?: { reveal?(name: string): Promise<unknown>; build?: { version?: string; date?: string; commit?: string } } }).slideriaApp;
   const fileBtn = $('st-file');
+  const winApi = (window as { slideriaApp?: { windowMode?(): { mode: string }; setWindowMode?(m: string): boolean } }).slideriaApp;
   filePanel = initFilePanel({
     tools: { deck, deckKey, editor: ed, go, info: () => filePanel?.open('info') },
     rename,
@@ -1989,6 +1990,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       look: () => slidesLookOwn() ?? null,
       setLook: (v) => chooseSlidesLook(v),
       lookLocked: () => !!themeMode(deck.theme),
+      windowMode: winApi?.windowMode ? { current: winApi.windowMode().mode, set: (m: string) => { winApi.setWindowMode?.(m); } } : undefined,
     },
     licenses: { run: () => run('tools.licenses'), enabled: () => location.protocol.startsWith('http') },
     build: () => {

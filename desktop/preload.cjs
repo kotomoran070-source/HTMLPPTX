@@ -23,7 +23,12 @@ contextBridge.exposeInMainWorld('slideriaApp', {
   frame: ipcRenderer.sendSync('slideria:frame'),
   /** Mac — системный «светофор» слева; Windows и Linux — кнопки окна рисует страница, справа */
   platform: process.platform,
-  /** Высота полосы заголовка: { height } — на Mac по ней ставится «светофор» */
+  /** Кнопки окна: 'own' — рисует страница, 'system' — система (Mac; вид окна «Системные кнопки»); null — рамка системная */
+  controls: ipcRenderer.sendSync('slideria:controls'),
+  /** Вид окна (проба): { mode, modes }; setWindowMode(m) — программа откроется заново в нём */
+  windowMode: () => ipcRenderer.sendSync('slideria:window-mode'),
+  setWindowMode: (m) => ipcRenderer.sendSync('slideria:window-mode', m),
+  /** Полоса заголовка: { height, symbol } — «светофор» Mac по высоте; системные кнопки — высотой и цветом значков */
   titleBar: (c) => ipcRenderer.send('slideria:titlebar', c),
   /** Кнопки окна страницы (Windows, Linux): 'min' | 'max' (развернуть или восстановить) | 'close' */
   control: (a) => ipcRenderer.send('slideria:window', a),

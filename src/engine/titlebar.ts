@@ -14,11 +14,14 @@ type Control = 'min' | 'max' | 'close';
 interface AppFrame {
   frame?: boolean;
   platform?: string;
-  titleBar?(c: { height: number }): void;
+  controls?: 'own' | 'system' | null;
+  titleBar?(c: { height: number; symbol?: string }): void;
   control?(a: Control): void;
   windowState?(): WinState | null;
   onWindowState?(cb: (s: WinState) => void): void;
 }
+import { onThemeChange } from './theme';
+
 interface Overlay extends EventTarget { visible: boolean; getTitlebarAreaRect(): DOMRect }
 
 const app = () => (window as { slideriaApp?: AppFrame }).slideriaApp;
@@ -46,13 +49,17 @@ export function initTitlebar(): void {
   const root = document.documentElement;
   root.classList.add('app-frame');
   if (api.platform) root.dataset.platform = api.platform;
-  const mac = api.platform === 'darwin';
+  // Кнопки окна рисует система: «светофор» Mac или системные кнопки поверх шапки (вид окна «Системные кнопки»)
+  const mac = api.platform === 'darwin' || api.controls === 'system';
 
   // Высота заголовка — у элемента с data-titlebar; на Mac по ней ставится «светофор»
   const bar = document.querySelector<HTMLElement>('[data-titlebar]');
   const height = (bar && Math.round(parseFloat(getComputedStyle(bar).getPropertyValue('--tb-h')))) || STRIP_H;
   root.style.setProperty('--tb-h', `${height}px`);
-  api.titleBar?.({ height });
+  // Системным кнопкам — высота шапки и цвет значков по теме
+  const report = () => api.titleBar?.({ height, symbol: getComputedStyle(root).getPropertyValue('--tx2').trim() });
+  report();
+  if (api.controls === 'system') onThemeChange(() => requestAnimationFrame(report));
 
   // Нет своего заголовка — полоса для перетаскивания
   if (!bar) {
