@@ -6,6 +6,9 @@
   animation: fp-in var(--ui-in, 160ms) var(--ui-ease, ease-out) both; }
 .fp[hidden] { display: none; }
 @keyframes fp-in { from { opacity: 0; transform: translateX(calc(-1 * var(--ui-shift, 6px))); } }
+/* Закрыли: гаснет на месте, щелчки уже проходят к студии */
+.fp.out { pointer-events: none; animation: fp-out var(--ui-out, 110ms) ease-in both; }
+@keyframes fp-out { to { opacity: 0; } }
 .fp .ic { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 .fp :where(button, input) { font: inherit; color: inherit; }
 .fp :focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
@@ -168,4 +171,4 @@
   .fp-i[aria-selected="true"]::before { left: -8px; }
   .fp-formats, .fp-grid { grid-template-columns: minmax(0, 1fr); }
 }
-@media (prefers-reduced-motion: reduce) { .fp, .fp-sec.in { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .fp, .fp.out, .fp-sec.in { animation: none; } }

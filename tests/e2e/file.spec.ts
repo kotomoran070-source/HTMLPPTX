@@ -29,6 +29,8 @@ test('«Файл»: разделы, клавиатура, Esc, сведения 
   await page.keyboard.press('Escape');
   await expect(fp).toBeHidden();
   await expect(page.locator('#st-file')).toBeFocused();
+  // …без рамки фокуса: раздел просто закрыли
+  expect(await page.locator('#st-file').evaluate((b) => b.matches(':focus-visible'))).toBe(false);
   await expect(page.locator('#st-file')).toHaveAttribute('aria-expanded', 'false');
 
   // Открывается на разделе, где закрыли. Название в «Сведениях» — то же, что в шапке, и в файле

@@ -106,8 +106,9 @@
     html.classList.add('app-frame');
     if (app.platform) html.setAttribute('data-platform', app.platform);
     html.style.setProperty('--tb-h', tbh + 'px');
+    // Фон окна — как у этой страницы в её теме (страница уточнит его сама, engine/titlebar.ts)
+    if (app.titleBar) app.titleBar({ height: tbh, bg: mode === 'studio' ? (dark ? '#0B1220' : '#F3F4F6') : (dark ? '#0F172A' : '#F8FAFC') });
     if (app.platform === 'darwin') {
-      if (app.titleBar) app.titleBar({ height: tbh });
       var wco = navigator.windowControlsOverlay;
       if (wco && wco.visible) {
         var r = wco.getTitlebarAreaRect();

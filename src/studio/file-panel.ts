@@ -16,7 +16,6 @@ import { staticSlide } from '../engine/deck-view';
 import { clock } from '../engine/editor/editor';
 import { plural } from '../engine/editor/font-picker';
 import { esc } from '../engine/html';
-import { leave } from '../engine/motion';
 import { onThemeChange } from '../engine/theme';
 import { collectSummary, fileSize, numText, removeFont, replaceFont, trashUnused, type Summary, type ToolsHost } from './tools';
 import './file-panel.css';
@@ -304,8 +303,18 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
 
   // ---------------- открыть и закрыть ----------------
 
+  /** Раздел гаснет на своём месте (не копией поверх окна — та сдвинулась бы на полосу заголовка) */
+  let fading = 0;
+  const stopFade = () => {
+    if (!fading) return;
+    clearTimeout(fading);
+    fading = 0;
+    root.classList.remove('out');
+  };
   const open = (s?: FileSection) => {
     if (s) section = s;
+    // Закрывали и тут же открыли снова — гаснуть перестаёт, остаётся открытым
+    if (fading) { stopFade(); root.hidden = true; }
     const was = !root.hidden;
     if (!was) {
       root.hidden = false;
@@ -318,13 +327,17 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     });
   };
   const close = () => {
-    if (root.hidden) return;
-    leave(root, { copy: true, fade: true });
-    root.hidden = true;
+    if (root.hidden || fading) return;
+    const ms = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-out')) || 0;
+    if (ms > 0) {
+      root.classList.add('out');
+      fading = window.setTimeout(() => { fading = 0; root.classList.remove('out'); root.hidden = true; }, ms + 20);
+    } else root.hidden = true;
     document.body.classList.remove('fp-open');
     button.setAttribute('aria-expanded', 'false');
     host.toggled(false);
-    button.focus({ preventScroll: true });
+    // Фокус — обратно на «Файл», но без рамки: раздел просто закрыли
+    button.focus({ preventScroll: true, focusVisible: false } as FocusOptions);
   };
 
   // ---------------- действия ----------------
@@ -449,7 +462,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
   return {
     open,
     close,
-    isOpen: () => !root.hidden,
+    isOpen: () => !root.hidden && !fading,
     sync() {
       if (root.hidden) return;
       // Правка из полосы заголовка (Отменить, название) — сведения и состояние сохранения обновляются

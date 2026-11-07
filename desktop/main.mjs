@@ -234,10 +234,19 @@ ipcMain.on('slideria:window', (e, a) => {
   else if (a === 'max') { if (win.isMaximized()) win.unmaximize(); else win.maximize(); }
   else if (a === 'close') win.close();
 });
+/** Фон страницы: #rrggbb или rgb(r, g, b) — непрозрачный */
+const BG = /^(#[0-9a-f]{6}|rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\))$/i;
+/**
+ * Страница сообщает высоту своей полосы заголовка (на Mac по ней ставится «светофор») и свой фон. Фон окна — как
+ * у страницы, в её теме: при разворачивании и восстановлении окна система показывает новую часть окна его фоном,
+ * пока страница не дорисовалась, — фон другой темы мелькал бы пятном
+ */
 ipcMain.on('slideria:titlebar', (e, c) => {
   const win = framedWin(e);
+  if (!win) return;
+  if (typeof c?.bg === 'string' && BG.test(c.bg)) win.setBackgroundColor(c.bg);
   const h = Math.round(Number(c?.height));
-  if (!win || process.platform !== 'darwin' || !(h >= 28 && h <= 64)) return;
+  if (process.platform !== 'darwin' || !(h >= 28 && h <= 64)) return;
   try { win.setWindowButtonPosition(lights(h)); } catch { /* окно без своего заголовка */ }
 });
 const ours = (url) => !!origin && (url === origin || url.startsWith(origin + '/'));

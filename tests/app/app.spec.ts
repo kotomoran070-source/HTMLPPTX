@@ -88,6 +88,16 @@ test('первый запуск: «Моя первая презентация»,
     // В студии заголовок окна — тонкая полоса над шапкой, шапка под ней не перетаскивает окно
     await expect.poll(bar).toMatchObject({ frame: true, el: 'st-tbar', drag: 'drag', wc: WC, wcH: WC.map(() => 40) });
     expect(await win.evaluate(() => [document.querySelector('.studio-app')!.getBoundingClientRect().top, getComputedStyle(document.querySelector('.st-top')!).getPropertyValue('-webkit-app-region')])).toEqual([40, 'none']);
+    // Фон окна — как у страницы и после смены темы: при разворачивании окна не мелькает чужой фон
+    const winBg = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBackgroundColor().toUpperCase());
+    const pageBg = () => win.evaluate(() => `#${getComputedStyle(document.body).backgroundColor.match(/\d+/g)!.slice(0, 3).map((v) => Number(v).toString(16).padStart(2, '0')).join('')}`.toUpperCase());
+    await expect.poll(winBg).toBe(await pageBg());
+    const bgBefore = await pageBg();
+    await win.locator('#st-theme').click();
+    await expect.poll(pageBg).not.toBe(bgBefore);
+    await expect.poll(winBg).toBe(await pageBg());
+    await win.locator('#st-theme').click();
+    await expect.poll(winBg).toBe(bgBefore);
     // Окно с листами для PDF не появляется на экране
     await app.evaluate(({ app: a }) => {
       const g = globalThis as { shown?: number };

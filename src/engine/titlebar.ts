@@ -14,11 +14,13 @@ type Control = 'min' | 'max' | 'close';
 interface AppFrame {
   frame?: boolean;
   platform?: string;
-  titleBar?(c: { height: number }): void;
+  titleBar?(c: { height: number; bg?: string }): void;
   control?(a: Control): void;
   windowState?(): WinState | null;
   onWindowState?(cb: (s: WinState) => void): void;
 }
+import { onThemeChange } from './theme';
+
 interface Overlay extends EventTarget { visible: boolean; getTitlebarAreaRect(): DOMRect }
 
 const app = () => (window as { slideriaApp?: AppFrame }).slideriaApp;
@@ -52,7 +54,10 @@ export function initTitlebar(): void {
   const bar = document.querySelector<HTMLElement>('[data-titlebar]');
   const height = (bar && Math.round(parseFloat(getComputedStyle(bar).getPropertyValue('--tb-h')))) || STRIP_H;
   root.style.setProperty('--tb-h', `${height}px`);
-  api.titleBar?.({ height });
+  // Фон окна — как у страницы, и после смены темы (desktop/main.mjs: иначе при разворачивании мелькает чужой фон)
+  const report = () => api.titleBar?.({ height, bg: getComputedStyle(document.body).backgroundColor });
+  report();
+  onThemeChange(() => requestAnimationFrame(report));
 
   // Нет своего заголовка — полоса для перетаскивания
   if (!bar) {
