@@ -253,3 +253,15 @@ select[data-open] { border-color: var(--ac) !important; }
 .app-frame [data-titlebar] :is(a, button, input, select, textarea, label, summary, [role], [tabindex], [data-cmd], [contenteditable]) { -webkit-app-region: no-drag; }
 .app-frame :is([role="dialog"], [role="alertdialog"], [role="menu"], .imp-bd, .st-cd-bd, .cg-back, .si-root, .st-menu, .pk-menu, .st-lib) { -webkit-app-region: no-drag; }
 .app-drag-strip { position: fixed; z-index: 2147483000; top: 0; left: var(--tb-left); right: var(--tb-right); height: 32px; -webkit-app-region: drag; }
+/* Кнопки окна (Windows, Linux) — свои: высотой с заголовок, цветом темы; «Закрыть» при наведении — красная,
+   как у системных. Окно не в фокусе — тише; во весь экран — их нет */
+.app-wc { position: fixed; z-index: 2147483001; top: 0; right: 0; display: flex; height: var(--tb-h, 32px); -webkit-app-region: no-drag; }
+.app-wc button { width: 46px; height: 100%; display: grid; place-items: center; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--tx2); cursor: default; transition: background-color .12s, color .12s; }
+.app-wc svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1; }
+.app-wc button:hover { background: color-mix(in srgb, var(--tx) 8%, transparent); color: var(--tx); }
+.app-wc button:active { background: color-mix(in srgb, var(--tx) 14%, transparent); }
+.app-wc [data-wc="close"]:hover { background: #C42B1C; color: #fff; }
+.app-wc [data-wc="close"]:active { background: #A32417; color: #fff; }
+.app-wc button:focus-visible { outline: 2px solid var(--ac); outline-offset: -2px; }
+.app-blur .app-wc button:not(:hover) { color: var(--mu); }
+.app-full .app-wc { display: none; }

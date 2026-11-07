@@ -209,29 +209,36 @@ const pageBg = (dark) => (dark ? '#0F172A' : '#F8FAFC');
 
 /**
  * Свой заголовок окна: системной полосы с названием нет — её место занимает элемент страницы: на странице выбора
- * её шапка, в студии — тонкая полоса над шапкой. Его пустые места перетаскивают окно. Кнопки окна рисует система
- * поверх справа (на Mac — «светофор» слева), высотой и цветом этого элемента: страница сообщает их
- * (slideria:titlebar), а где кнопки — узнаёт из Window Controls Overlay (src/engine/titlebar.ts).
+ * её шапка, в студии — тонкая полоса над шапкой. Его пустые места перетаскивают окно. Кнопки окна в Windows
+ * и Linux рисует сама страница (src/engine/titlebar.ts) — в цвет темы, вместе с ней; на Mac — системный
+ * «светофор» слева, по середине полосы (её высоту страница сообщает: slideria:titlebar).
  * Только главное окно; окна показа, докладчика и печати — с системной рамкой
  */
 const TITLE_H = 48;
 /** «Светофор» Mac — по середине полосы высотой h */
 const lights = (h) => ({ x: Math.round(h * 0.375), y: Math.round((h - 14) / 2) });
-const titleBar = (dark) => (process.platform === 'darwin'
+const titleBar = () => (process.platform === 'darwin'
   ? { titleBarStyle: 'hidden', titleBarOverlay: true, trafficLightPosition: lights(TITLE_H) }
-  : { titleBarStyle: 'hidden', titleBarOverlay: { color: pageBg(dark), symbolColor: dark ? '#CBD5E1' : '#374151', height: TITLE_H } });
-const HEX = /^#[0-9a-f]{6}$/i;
+  : { titleBarStyle: 'hidden' });
 const framed = new WeakSet();
+/** Окно со своим заголовком, если просит его страница программы */
+const framedWin = (e) => (framed.has(e.sender) && ours(e.senderFrame?.url ?? '') ? BrowserWindow.fromWebContents(e.sender) : null);
+/** { max, full } — развёрнуто, во весь экран: от этого зависят кнопки окна на странице */
+const winState = (win) => ({ max: win.isMaximized(), full: win.isFullScreen() });
 ipcMain.on('slideria:frame', (e) => { e.returnValue = framed.has(e.sender); });
+ipcMain.on('slideria:window-state', (e) => { const win = framedWin(e); e.returnValue = win ? winState(win) : null; });
+ipcMain.on('slideria:window', (e, a) => {
+  const win = framedWin(e);
+  if (!win) return;
+  if (a === 'min') win.minimize();
+  else if (a === 'max') { if (win.isMaximized()) win.unmaximize(); else win.maximize(); }
+  else if (a === 'close') win.close();
+});
 ipcMain.on('slideria:titlebar', (e, c) => {
-  if (!framed.has(e.sender) || !ours(e.senderFrame?.url ?? '')) return;
-  const win = BrowserWindow.fromWebContents(e.sender);
+  const win = framedWin(e);
   const h = Math.round(Number(c?.height));
-  if (!win || !(h >= 28 && h <= 64)) return;
-  try {
-    if (process.platform === 'darwin') win.setWindowButtonPosition(lights(h));
-    else if (HEX.test(c?.color ?? '') && HEX.test(c?.symbol ?? '')) win.setTitleBarOverlay({ color: c.color, symbolColor: c.symbol, height: h });
-  } catch { /* окно без своего заголовка */ }
+  if (!win || process.platform !== 'darwin' || !(h >= 28 && h <= 64)) return;
+  try { win.setWindowButtonPosition(lights(h)); } catch { /* окно без своего заголовка */ }
 });
 const ours = (url) => !!origin && (url === origin || url.startsWith(origin + '/'));
 
@@ -356,11 +363,14 @@ function createWindow() {
     icon: ICON,
     backgroundColor: pageBg(dark),
     autoHideMenuBar: true,
-    ...titleBar(dark),
+    ...titleBar(),
     show: false,
     webPreferences: WEB,
   });
   framed.add(win.webContents);
+  // Кнопки окна на странице: развернуть ↔ восстановить, во весь экран — без них
+  const state = () => { if (!win.isDestroyed()) win.webContents.send('slideria:window-state', winState(win)); };
+  for (const ev of ['maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen']) win.on(ev, state);
   if (st.maximized) win.maximize();
   guard(win);
   win.on('close', () => saveState(win));

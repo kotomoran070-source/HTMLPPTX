@@ -21,8 +21,13 @@ contextBridge.exposeInMainWorld('slideriaApp', {
   ready: () => ipcRenderer.send('slideria:ready'),
   /** true — окно без системного заголовка, шапка страницы — заголовок (src/engine/titlebar.ts); окна показа — false */
   frame: ipcRenderer.sendSync('slideria:frame'),
-  /** Mac — «светофор» слева; Windows и Linux — кнопки окна справа */
+  /** Mac — системный «светофор» слева; Windows и Linux — кнопки окна рисует страница, справа */
   platform: process.platform,
-  /** Цвет кнопок окна под шапку: { color, symbol } — #rrggbb */
+  /** Высота полосы заголовка: { height } — на Mac по ней ставится «светофор» */
   titleBar: (c) => ipcRenderer.send('slideria:titlebar', c),
+  /** Кнопки окна страницы (Windows, Linux): 'min' | 'max' (развернуть или восстановить) | 'close' */
+  control: (a) => ipcRenderer.send('slideria:window', a),
+  /** { max, full } — окно развёрнуто, во весь экран; onWindowState(cb) — при каждой смене */
+  windowState: () => ipcRenderer.sendSync('slideria:window-state'),
+  onWindowState: (cb) => ipcRenderer.on('slideria:window-state', (_e, s) => cb(s)),
 });

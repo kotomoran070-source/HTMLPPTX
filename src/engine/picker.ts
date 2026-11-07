@@ -277,7 +277,7 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
         <button class="pk-btn pk-ibtn theme-btn" id="pk-theme" type="button" aria-label="Переключить тему (T)" title="Тема (T)">${icon('sun', 'ic sun')}${icon('moon', 'ic moon')}</button>
       </div>
     </div>
-    <label class="pk-search">${icon('search')}<input id="pk-q" type="search" placeholder="Найти презентацию" aria-label="Найти презентацию" autocomplete="off" spellcheck="false"><kbd>Ctrl K</kbd></label>
+    <label class="pk-search">${icon('search')}<input id="pk-q" type="search" placeholder="Найти презентацию" aria-label="Найти презентацию" autocomplete="off" spellcheck="false"><kbd>Ctrl K</kbd><button class="pk-clear" id="pk-clear" type="button" aria-label="Очистить поиск" title="Очистить (Esc)" hidden>${icon('close')}</button></label>
   </div></header>
   <main class="pk-main pk-wide">
     <section class="pk-cont" id="pk-cont" hidden></section>
@@ -377,23 +377,82 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
     }), { rootMargin: '300px' })
     : null;
 
-  // ---------- «Продолжить работу»: последняя презентация крупно и лента её первых слайдов ----------
-  const FILM = 8;
+  // ---------- «Продолжить работу»: последняя презентация крупно и лента всех её слайдов ----------
+  /** Больше в ленте не рисуем: дальше — в редакторе */
+  const FILM_MAX = 300;
+  /** Презентация, чьи слайды в ленте; миниатюры рисуются, когда подъезжают к виду */
+  let filmDeck: Deck | null = null;
+  let filmIo: IntersectionObserver | null = null;
+  const filmThumb = (a: HTMLElement) => {
+    const k = Number(a.dataset.k);
+    if (!filmDeck?.slides?.[k] || a.dataset.done) return;
+    a.dataset.done = '1';
+    a.querySelector('.pk-thumb')!.replaceChildren(slideOf(filmDeck, k));
+  };
+  /** Лента листается вбок: колесом мыши (дошла до края — листается страница), стрелками по краям, тачпадом */
+  function filmSetup(wrap: HTMLElement): void {
+    const strip = wrap.querySelector<HTMLElement>('.pk-film')!;
+    const edges = () => {
+      const max = strip.scrollWidth - strip.clientWidth;
+      wrap.classList.toggle('can-l', strip.scrollLeft > 2);
+      wrap.classList.toggle('can-r', strip.scrollLeft < max - 2);
+    };
+    strip.addEventListener('scroll', edges, { passive: true });
+    if ('ResizeObserver' in window) new ResizeObserver(edges).observe(strip);
+    edges();
+    // Плавно и без потерь: следующий щелчок колеса продолжает от цели, а не от того места, где лента сейчас
+    let target = -1;
+    let settle = 0;
+    const go = (d: number) => {
+      const max = strip.scrollWidth - strip.clientWidth;
+      target = Math.max(0, Math.min(max, (target >= 0 ? target : strip.scrollLeft) + d));
+      strip.scrollTo({ left: target, behavior: 'smooth' });
+      clearTimeout(settle);
+      settle = window.setTimeout(() => { target = -1; }, 600);
+    };
+    strip.addEventListener('wheel', (e) => {
+      if (e.ctrlKey || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+      const max = strip.scrollWidth - strip.clientWidth;
+      const at = target >= 0 ? target : strip.scrollLeft;
+      if (max <= 0 || (e.deltaY < 0 && at <= 0) || (e.deltaY > 0 && at >= max - 1)) return;
+      e.preventDefault();
+      go(e.deltaY * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? strip.clientWidth : 1));
+    }, { passive: false });
+    wrap.addEventListener('click', (e) => {
+      const b = (e.target as Element).closest<HTMLElement>('[data-go]');
+      if (b) go(Number(b.dataset.go) * strip.clientWidth * 0.8);
+    });
+    filmIo?.disconnect();
+    const items = strip.querySelectorAll<HTMLElement>('.pk-film-s');
+    if (!('IntersectionObserver' in window)) { items.forEach((a) => { a.dataset.seen = '1'; filmThumb(a); }); return; }
+    filmIo = new IntersectionObserver((entries) => entries.forEach((en) => {
+      if (!en.isIntersecting) return;
+      const a = en.target as HTMLElement;
+      filmIo!.unobserve(a);
+      a.dataset.seen = '1';
+      filmThumb(a);
+    }), { root: strip, rootMargin: '0px 600px' });
+    items.forEach((a) => filmIo!.observe(a));
+  }
   function continueRender(): void {
     const recent = [...items].filter((x) => !x.error).sort((a, b) => b.mtime - a.mtime)[0];
     const show = !!recent && !st.q.trim();
     cont.hidden = !show;
     if (!show) return;
-    if (cont.dataset.name === recent.name && cont.childElementCount) return;
+    if (cont.dataset.name === recent.name && cont.dataset.n === String(recent.slides) && cont.childElementCount) return;
     cont.dataset.name = recent.name;
+    cont.dataset.n = String(recent.slides);
     cont.innerHTML = `<a class="pk-cont-stack pk-stack" href="${studioHref(recent.name)}" aria-label="Открыть «${esc(recent.title)}» в редакторе"><div class="pk-thumb" data-cont><div class="pk-ph"></div></div></a>
       <div class="pk-cont-info">
         <div class="pk-eyebrow">Продолжить работу</div>
         <h1 class="pk-cont-title">${esc(recent.title)}</h1>
         <div class="pk-cont-meta">${esc(slidesText(recent.slides))}${recent.mtime ? ` · изменена ${esc(ago(recent.mtime))}` : ''}</div>
         <div class="pk-cont-acts"><a class="pk-btn go" href="${studioHref(recent.name)}">Открыть</a><a class="pk-btn" href="${showHref(recent.name)}" data-show="${esc(recent.name)}">${PLAY}<span>Показ</span></a></div>
-        <div class="pk-film" aria-label="Слайды">${Array.from({ length: Math.min(FILM, Math.max(recent.slides, 1)) }, (_v, k) => `<a class="pk-film-s" href="${studioHref(recent.name)}#${k + 1}" title="Слайд ${k + 1}"><div class="pk-thumb"><div class="pk-ph"></div></div><small>${k + 1}</small></a>`).join('')}</div>
+        <div class="pk-film-wrap"><div class="pk-film" aria-label="Слайды">${Array.from({ length: Math.min(FILM_MAX, Math.max(recent.slides, 1)) }, (_v, k) => `<a class="pk-film-s" href="${studioHref(recent.name)}#${k + 1}" title="Слайд ${k + 1}" data-k="${k}"><div class="pk-thumb"><div class="pk-ph"></div></div><small>${k + 1}</small></a>`).join('')}</div>
+          <button class="pk-film-go" type="button" data-go="-1" tabindex="-1" aria-label="Предыдущие слайды">${icon('prev')}</button><button class="pk-film-go" type="button" data-go="1" tabindex="-1" aria-label="Следующие слайды">${icon('next')}</button></div>
       </div>`;
+    filmDeck = null;
+    filmSetup(cont.querySelector<HTMLElement>('.pk-film-wrap')!);
     const d = loaded.get(recent.name);
     if (d) continueFill(d);
     else void fill(recent.name);
@@ -405,7 +464,9 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
     if (big && deck.slides?.length) big.replaceChildren(slideOf(deck, 0));
     const meta = cont.querySelector('.pk-cont-title');
     if (meta && deck.title) meta.textContent = deck.title;
-    cont.querySelectorAll<HTMLElement>('.pk-film-s .pk-thumb').forEach((s, k) => { if (deck.slides?.[k]) s.replaceChildren(slideOf(deck, k)); });
+    // Лента: заново — уже показанные миниатюры, остальные — когда подъедут к виду
+    filmDeck = deck;
+    cont.querySelectorAll<HTMLElement>('.pk-film-s').forEach((a) => { delete a.dataset.done; if (a.dataset.seen) filmThumb(a); });
   }
 
   // ---------- что показано: поиск, порядок, порция ----------
@@ -517,8 +578,12 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
     // Поиск: Ctrl+K или «/»
     if (((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'л')) || (e.key === '/' && !typing)) { e.preventDefault(); q.focus(); q.select(); }
   });
-  q.addEventListener('input', () => { st.q = q.value; render(); });
-  q.addEventListener('keydown', (e) => { if (e.key === 'Escape' && q.value) { e.stopPropagation(); q.value = ''; st.q = ''; render(); } });
+  // Поиск: свой крестик вместо системного (тот — в цвет акцента и не на своём месте)
+  const clear = document.getElementById('pk-clear') as HTMLButtonElement;
+  const search = (v: string) => { st.q = v; clear.hidden = !v; render(); };
+  q.addEventListener('input', () => search(q.value));
+  q.addEventListener('keydown', (e) => { if (e.key === 'Escape' && q.value) { e.stopPropagation(); q.value = ''; search(''); } });
+  clear.addEventListener('click', (e) => { e.preventDefault(); q.value = ''; search(''); q.focus(); });
   document.getElementById('pk-sort')!.addEventListener('click', (e) => {
     const b = (e.target as Element).closest<HTMLElement>('button[data-v]');
     if (!b) return;

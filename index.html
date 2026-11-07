@@ -14,8 +14,8 @@
  * в цветах темы и с размерами панелей, которые запомнила студия. Страница готова — каркас растворяется.
  * Цвета — те же, что в src/styles/tokens.css
  */
-#boot { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; color-scheme: light; --b-bg: #F8FAFC; --b-surf: #FDFEFF; --b-alt: #F3F4F6; --b-bd: #E5E7EB; --b-ph: #EAEDF2; background: var(--b-alt); transition: opacity .22s ease-out; }
-#boot.dark { color-scheme: dark; --b-bg: #0F172A; --b-surf: #162033; --b-alt: #0B1220; --b-bd: #263449; --b-ph: #1F2B40; }
+#boot { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; color-scheme: light; --b-bg: #F8FAFC; --b-surf: #FDFEFF; --b-alt: #F3F4F6; --b-bd: #E5E7EB; --b-ph: #EAEDF2; --b-tx2: #374151; background: var(--b-alt); transition: opacity .22s ease-out; }
+#boot.dark { color-scheme: dark; --b-bg: #0F172A; --b-surf: #162033; --b-alt: #0B1220; --b-bd: #263449; --b-ph: #1F2B40; --b-tx2: #CBD5E1; }
 #boot.out { opacity: 0; }
 #boot i { display: block; background: var(--b-ph); border-radius: 6px; }
 #boot.b-studio { display: grid; grid-template-rows: 48px var(--rh, 113px) minmax(0, 1fr) 30px; }
@@ -70,6 +70,9 @@
 .b-pktb .b-ib { width: 32px; }
 #boot .b-pktb .b-search { background: var(--b-surf); border: 1px solid var(--b-bd); }
 .app-frame #boot .b-pk { padding-top: 0; }
+.b-wc { position: absolute; top: 0; right: 0; display: flex; height: var(--tb-h, 32px); color: var(--b-tx2); }
+.b-wc span { width: 46px; display: grid; place-items: center; }
+.b-wc svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1; }
 .app-frame #boot .b-cont { margin-top: 25px; }
 </style>
 <!--/slideria-boot-->
@@ -89,22 +92,29 @@
   if (t === 'light' || t === 'dark') html.setAttribute('data-theme', t);
   var dark = t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
   var mode = q.has('studio') ? 'studio' : (!q.get('deck') || q.has('all')) ? 'picker' : 'show';
-  // Программа без системного заголовка: место, высота и цвет кнопок окна — сразу, чтобы ничего не прыгнуло
-  // (engine/titlebar.ts уточнит цвет по настоящей шапке)
-  var frame = window.slideriaApp && window.slideriaApp.frame;
+  // Программа без системного заголовка: высота полосы и место под кнопки окна — сразу, чтобы ничего не прыгнуло;
+  // кнопки окна (Windows, Linux) каркас рисует те же, что потом страница (engine/titlebar.ts)
+  var app = window.slideriaApp, frame = app && app.frame, wc = '';
   if (frame) {
-    if (window.slideriaApp.titleBar) window.slideriaApp.titleBar({
-      color: mode === 'studio' ? (dark ? '#162033' : '#FDFEFF') : (dark ? '#0F172A' : '#F8FAFC'),
-      symbol: dark ? '#CBD5E1' : '#374151',
-      height: mode === 'studio' ? 36 : mode === 'picker' ? 48 : 32
-    });
+    var tbh = mode === 'studio' ? 36 : mode === 'picker' ? 48 : 32;
     html.classList.add('app-frame');
-    if (window.slideriaApp.platform) html.setAttribute('data-platform', window.slideriaApp.platform);
-    var wco = navigator.windowControlsOverlay;
-    if (wco && wco.visible) {
-      var r = wco.getTitlebarAreaRect();
-      html.style.setProperty('--tb-left', Math.round(r.x) + 'px');
-      html.style.setProperty('--tb-right', Math.max(0, Math.round(innerWidth - r.x - r.width)) + 'px');
+    if (app.platform) html.setAttribute('data-platform', app.platform);
+    html.style.setProperty('--tb-h', tbh + 'px');
+    if (app.platform === 'darwin') {
+      if (app.titleBar) app.titleBar({ height: tbh });
+      var wco = navigator.windowControlsOverlay;
+      if (wco && wco.visible) {
+        var r = wco.getTitlebarAreaRect();
+        html.style.setProperty('--tb-left', Math.round(r.x) + 'px');
+        html.style.setProperty('--tb-right', Math.max(0, Math.round(innerWidth - r.x - r.width)) + 'px');
+      }
+    } else {
+      var ws = (app.windowState && app.windowState()) || {};
+      html.style.setProperty('--tb-right', ws.full ? '0px' : '138px');
+      var g = function (d) { return '<span><svg viewBox="0 0 10 10">' + d + '</svg></span>'; };
+      if (!ws.full) wc = '<div class="b-wc">' + g('<path d="M0 5.5h10"/>')
+        + g(ws.max ? '<rect x=".5" y="2.5" width="7" height="7" rx="1.5"/><path d="M2.5 2.5V2A1.5 1.5 0 0 1 4 .5h4A1.5 1.5 0 0 1 9.5 2v4A1.5 1.5 0 0 1 8 7.5h-.5"/>' : '<rect x=".5" y=".5" width="9" height="9" rx="1.5"/>')
+        + g('<path d="M.5.5l9 9m0-9l-9 9"/>') + '</div>';
     }
   }
   var el = document.createElement('div');
@@ -132,6 +142,7 @@
       : '<div class="b-pk"><div class="b-pkbar"><i class="b-mark"></i><i class="b-search"></i><i class="b-btn"></i><i class="b-btn2"></i></div>')
       + '<i class="b-cont"></i><div class="b-pkhead"><i class="b-h1"></i><i class="b-tools"></i></div>' + n('b-grid', 12) + '</div>';
   }
+  el.insertAdjacentHTML('beforeend', wc);
   html.appendChild(el);
   // Страница так и не сказала «готова» (ошибка до неё) — каркас всё равно уходит
   setTimeout(function () { if (el.isConnected) { el.classList.add('out'); setTimeout(function () { el.remove(); }, 300); } }, 8000);

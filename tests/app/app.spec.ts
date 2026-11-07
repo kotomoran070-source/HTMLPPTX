@@ -36,18 +36,22 @@ test('первый запуск: «Моя первая презентация»,
     // Заставка ушла, когда страница выбора готова: остаётся одно окно со страницей программы
     await expect.poll(() => app.windows().map((w) => w.url().slice(0, 5))).toEqual(['http:']);
     await expect(win.locator('#pk-where')).toContainText('Документы/Slideria');
-    // Свой заголовок окна: шапка страницы выбора перетаскивает окно, кнопки окна — высотой с неё (48 px)
+    // Свой заголовок окна: шапка страницы выбора перетаскивает окно; кнопки окна (кроме Mac) рисует страница —
+    // высотой с шапку (48 px), без фокуса и перетаскивания
+    const WC = process.platform === 'darwin' ? [] : ['Свернуть', 'Развернуть', 'Закрыть'];
     const bar = () => win.evaluate(() => {
-      const o = (navigator as { windowControlsOverlay?: { visible: boolean; getTitlebarAreaRect(): DOMRect } }).windowControlsOverlay;
       const el = document.querySelector('[data-titlebar]')!;
+      const wc = [...document.querySelectorAll<HTMLElement>('.app-wc button')];
       return {
         frame: document.documentElement.classList.contains('app-frame'),
         el: el.className,
         drag: getComputedStyle(el).getPropertyValue('-webkit-app-region'),
-        h: o?.visible ? o.getTitlebarAreaRect().height : null,
+        wc: wc.map((b) => b.getAttribute('aria-label')),
+        wcH: wc.map((b) => Math.round(b.getBoundingClientRect().height)),
+        wcDrag: wc.map((b) => getComputedStyle(b).getPropertyValue('-webkit-app-region')),
       };
     });
-    await expect.poll(bar).toMatchObject({ frame: true, el: 'pk-top', drag: 'drag', h: 48 });
+    await expect.poll(bar).toMatchObject({ frame: true, el: 'pk-top', drag: 'drag', wc: WC, wcH: WC.map(() => 48), wcDrag: WC.map(() => 'no-drag') });
     expect(fs.existsSync(path.join(docs, 'moya-pervaya-prezentaciya', 'deck.yaml'))).toBe(true);
     // Подсказки внизу — без команд терминала; какая это сборка программы
     await expect(win.locator('.pk-foot')).not.toContainText('yarn');
@@ -81,7 +85,7 @@ test('первый запуск: «Моя первая презентация»,
     await win.goto(win.url().replace(/\?all$/, '?deck=moya-pervaya-prezentaciya&studio'));
     await expect(win.locator('#st-canvas .slide')).not.toHaveCount(0);
     // В студии заголовок окна — тонкая полоса над шапкой, шапка под ней не перетаскивает окно
-    await expect.poll(bar).toMatchObject({ frame: true, el: 'st-tbar', drag: 'drag', h: 36 });
+    await expect.poll(bar).toMatchObject({ frame: true, el: 'st-tbar', drag: 'drag', wc: WC, wcH: WC.map(() => 36) });
     expect(await win.evaluate(() => [document.querySelector('.studio-app')!.getBoundingClientRect().top, getComputedStyle(document.querySelector('.st-top')!).getPropertyValue('-webkit-app-region')])).toEqual([36, 'none']);
     // Окно с листами для PDF не появляется на экране
     await app.evaluate(({ app: a }) => {
