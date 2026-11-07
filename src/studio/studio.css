@@ -1686,11 +1686,11 @@ body.st-connecting .stage .slide.on > .free.st-conn-over { outline: 2px dashed v
 .st-cd-bd > .st-cd, .cg-back > .cg { animation: ui-box-in var(--ui-in) var(--ui-ease) both; }
 @keyframes ui-fade-in { from { opacity: 0; } }
 @keyframes ui-box-in { from { transform: translateY(calc(var(--ui-shift) * 1.5)) scale(var(--ui-scale)); } }
-/* Лента: при смене вкладки панель проявляется со сдвигом; «Свойства» — выезжают сбоку */
-.st-rpanel:not([hidden]) { animation: ui-rib var(--ui-tab) var(--ui-ease) both; }
-@keyframes ui-rib { from { opacity: 0; transform: translateY(calc(var(--ui-shift) * .5)); } }
-.st-props:not([hidden]) { animation: ui-side var(--ui-in) var(--ui-ease) both; }
-@keyframes ui-side { from { opacity: 0; transform: translateX(var(--ui-shift)); } }
+/* Лента: при смене вкладки панель проявляется; «Свойства» — тоже. Только прозрачностью, без сдвига: сдвинутая
+   кнопка выходит за обрезку панели, и фокус или прокрутка к ней прокручивали бы саму панель (а меню от такой
+   кнопки закрылось бы — его кнопка «уехала») */
+.st-rpanel:not([hidden]) { animation: ui-fade-in var(--ui-tab) ease-out both; }
+.st-props:not([hidden]) { animation: ui-fade-in var(--ui-in) ease-out both; }
 /* Полоска под выбранной вкладкой переезжает к новой (inkTabs) */
 .st-tabs.inked { position: relative; }
 .st-tabs.inked button[aria-selected="true"] { border-bottom-color: transparent; }

@@ -50,20 +50,22 @@ test('полоска под вкладкой переезжает к выбра�
   await expect(ink).toHaveCount(1);
   await expect.poll(() => under('home')).toBe(true);
   await page.locator('.st-tabs [data-tab="insert"]').click();
-  // В пути — ещё не под «Вставкой», потом — точно под ней
-  expect(await under('insert')).toBe(false);
+  // Переезжает (а не прыгает) и встаёт точно под «Вставку»
+  expect(await ink.evaluate((i) => getComputedStyle(i).transitionDuration)).toMatch(/^0\.22s/);
   await expect.poll(() => under('insert')).toBe(true);
   await expect(ink).not.toHaveClass(/off/);
 
   // Тема интерфейса: растворение через переход страницы, на время перехода — класс ui-vt
   const was = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
-  const seen = page.evaluate(() => new Promise<boolean>((done) => {
-    const mo = new MutationObserver(() => { if (document.documentElement.classList.contains('ui-vt')) { mo.disconnect(); done(true); } });
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    setTimeout(() => done(false), 2000);
-  }));
+  // Наблюдатель — до щелчка: класс держится всего ~240 мс
+  await page.evaluate(() => {
+    const w = window as unknown as { vt: boolean };
+    w.vt = false;
+    new MutationObserver(() => { if (document.documentElement.classList.contains('ui-vt')) w.vt = true; })
+      .observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+  });
   await page.locator('#st-theme').click();
-  expect(await seen).toBe(true);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { vt: boolean }).vt)).toBe(true);
   await expect.poll(() => page.evaluate(() => document.documentElement.getAttribute('data-theme'))).not.toBe(was);
   await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('ui-vt'))).toBe(false);
 
@@ -73,6 +75,7 @@ test('полоска под вкладкой переезжает к выбра�
   await page.keyboard.press('Escape');
   expect(await ghosts(page)).toBe(0);
   await page.locator('.st-tabs [data-tab="view"]').click();
-  await expect.poll(() => under('view'), { timeout: 100 }).toBe(true);
+  expect(await ink.evaluate((i) => getComputedStyle(i).transitionDuration)).toMatch(/^0s/);
+  await expect.poll(() => under('view')).toBe(true);
   expect(errors).toEqual([]);
 });
