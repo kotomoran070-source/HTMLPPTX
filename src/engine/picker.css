@@ -70,7 +70,10 @@ html:has(> body.picker-page) { scroll-padding-top: 84px; }
 /* Программа: шапка — заголовок окна (48 px). Знак с названием — у левого края окна, сразу за ним «Импорт»,
    «Создать» и тема; поиск — по середине окна; справа — кнопки окна (на Mac «светофор» — слева, перед знаком).
    Кнопки и поле ниже полосы на 16 px — при наведении не упираются в её края */
-.app-frame .pk-top { --tb-h: 48px; padding-left: var(--tb-left); }
+.app-frame .pk-top { --tb-h: 48px; position: fixed; left: 0; right: 0; padding-left: var(--tb-left); }
+/* Прокручивается только то, что под шапкой: полоса прокрутки не заходит в заголовок окна, к кнопкам окна */
+.app-frame .pk { position: fixed; inset: var(--tb-h, 48px) 0 0; min-height: 0; overflow-y: auto; scroll-padding-top: 24px;
+  scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--tx) 24%, transparent) transparent; }
 .app-frame .pk-bar { max-width: none; min-height: 48px; padding: 0 14px; display: grid; gap: 16px; grid-template-columns: minmax(max-content, 1fr) minmax(0, 480px) minmax(max(0px, calc(var(--tb-right) - 14px)), 1fr); }
 .app-frame[data-platform="darwin"] .pk-bar { padding-left: 8px; }
 .app-frame .pk-lead { display: flex; align-items: center; gap: 16px; }
@@ -112,6 +115,7 @@ html:has(> body.picker-page) { scroll-padding-top: 84px; }
 .pk-film-wrap.can-l .pk-film { -webkit-mask: linear-gradient(90deg, transparent, #000 48px); mask: linear-gradient(90deg, transparent, #000 48px); }
 .pk-film-wrap.can-l.can-r .pk-film { -webkit-mask: linear-gradient(90deg, transparent, #000 48px, #000 calc(100% - 64px), transparent); mask: linear-gradient(90deg, transparent, #000 48px, #000 calc(100% - 64px), transparent); }
 .pk-film-s { flex: none; width: 112px; display: block; text-decoration: none; color: var(--mu); }
+.pk-film-s .pk-thumb { contain: layout paint style; }
 .pk-film-go { position: absolute; top: 20px; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; cursor: pointer; color: var(--pk-float-tx); background: var(--pk-float); backdrop-filter: blur(10px) saturate(1.4);
   box-shadow: inset 0 0 0 1px var(--pk-float-ring), var(--pk-float-sh); opacity: 0; pointer-events: none; transition: opacity .18s, background .15s, box-shadow .15s; }
 .pk-film-go[data-go="-1"] { left: -6px; }

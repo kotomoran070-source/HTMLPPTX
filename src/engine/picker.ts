@@ -383,6 +383,20 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
   /** Презентация, чьи слайды в ленте; миниатюры рисуются, когда подъезжают к виду */
   let filmDeck: Deck | null = null;
   let filmIo: IntersectionObserver | null = null;
+  /** Миниатюры ленты рисуются по одной в свободное время — прокрутка не подтормаживает */
+  const filmQueue: HTMLElement[] = [];
+  let filmBusy = false;
+  const idle = (cb: (budget: () => number) => void) => ('requestIdleCallback' in window
+    ? requestIdleCallback((d) => cb(() => d.timeRemaining()), { timeout: 300 })
+    : setTimeout(() => { const end = performance.now() + 8; cb(() => end - performance.now()); }, 16));
+  const filmPump = (left: () => number) => {
+    do { const a = filmQueue.shift(); if (a?.isConnected) filmThumb(a); } while (filmQueue.length && left() > 4);
+    if (filmQueue.length) idle(filmPump); else filmBusy = false;
+  };
+  const filmLater = (a: HTMLElement) => {
+    filmQueue.push(a);
+    if (!filmBusy) { filmBusy = true; idle(filmPump); }
+  };
   const filmThumb = (a: HTMLElement) => {
     const k = Number(a.dataset.k);
     if (!filmDeck?.slides?.[k] || a.dataset.done) return;
@@ -430,8 +444,8 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
       const a = en.target as HTMLElement;
       filmIo!.unobserve(a);
       a.dataset.seen = '1';
-      filmThumb(a);
-    }), { root: strip, rootMargin: '0px 600px' });
+      filmLater(a);
+    }), { root: strip, rootMargin: '0px 360px' });
     items.forEach((a) => filmIo!.observe(a));
   }
   function continueRender(): void {
@@ -466,7 +480,7 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
     if (meta && deck.title) meta.textContent = deck.title;
     // Лента: заново — уже показанные миниатюры, остальные — когда подъедут к виду
     filmDeck = deck;
-    cont.querySelectorAll<HTMLElement>('.pk-film-s').forEach((a) => { delete a.dataset.done; if (a.dataset.seen) filmThumb(a); });
+    cont.querySelectorAll<HTMLElement>('.pk-film-s').forEach((a) => { delete a.dataset.done; if (a.dataset.seen) filmLater(a); });
   }
 
   // ---------- что показано: поиск, порядок, порция ----------
@@ -603,7 +617,9 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
   void document.fonts?.ready.then(pills);
   // Шапка с тенью, когда страница прокручена
   const top = document.getElementById('pk-top')!;
-  addEventListener('scroll', () => top.classList.toggle('scrolled', scrollY > 4), { passive: true });
+  // Прокручивается страница (браузер) или область под шапкой (программа, picker.css)
+  const pk = document.querySelector<HTMLElement>('.pk')!;
+  addEventListener('scroll', () => top.classList.toggle('scrolled', (scrollY || pk.scrollTop) > 4), { capture: true, passive: true });
 
   /** Удалённая презентация уходит со страницы: плавно, число в заголовке — меньше */
   const drop = (name: string) => {
