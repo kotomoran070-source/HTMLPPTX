@@ -21,12 +21,13 @@ interface Item { name: string; title: string; mtime: number; slides: number; sou
 type View = 'grid' | 'list';
 type Sort = 'date' | 'title' | 'slides';
 /** Сколько показывать сразу и сколько добавляет «Показать ещё»: страница не тянет сотню миниатюр разом */
-const PAGE: Record<View, number> = { grid: 16, list: 25 };
+const PAGE: Record<View, number> = { grid: 24, list: 30 };
 const KEY = 'slideria-picker';
 
 /** Значки, которых нет среди значков слайдов */
 const DOTS = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>';
 const FOLDER = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+const PLAY = '<svg class="ic pk-tri" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>';
 const SHARE = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg>';
 
 function plural(n: number, one: string, few: string, many: string): string {
@@ -162,13 +163,22 @@ function accentVars(deck: Deck): string {
   return Object.entries(t).map(([k, v]) => `${k}:${v}`).join(';');
 }
 
-/** Меню «⋯» у карточки и строки: открыть, показать, папка, удалить */
+/** Свечение под колодой — цветом акцента презентации */
+function glowOf(deck: Deck, alpha: number): string {
+  const a = deck.theme?.accent;
+  const hex = typeof a === 'string' && HEX_RE.test(a) ? a : DEFAULT_ACCENT;
+  const full = hex.length === 4 ? `#${[...hex.slice(1)].map((c) => c + c).join('')}` : hex.slice(0, 7);
+  const n = parseInt(full.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+/** Меню «⋯» у карточки и строки: папка, удаление */
 function itemMenu(btn: HTMLElement, items: { label: string; ic: string; danger?: boolean; a: string; run(): void }[]): void {
   document.querySelector('.pk-menu')?.remove();
   const menu = document.createElement('div');
   menu.className = 'pk-menu';
   menu.setAttribute('role', 'menu');
-  menu.innerHTML = items.map((it, k) => (it.danger ? '<hr>' : '') + `<button type="button" role="menuitem" data-k="${k}" data-a="${it.a}"${it.danger ? ' class="danger"' : ''}>${it.ic}<span>${esc(it.label)}</span></button>`).join('');
+  menu.innerHTML = items.map((it, k) => (it.danger && k ? '<hr>' : '') + `<button type="button" role="menuitem" data-k="${k}" data-a="${it.a}"${it.danger ? ' class="danger"' : ''}>${it.ic}<span>${esc(it.label)}</span></button>`).join('');
   document.body.append(menu);
   const r = btn.getBoundingClientRect();
   const up = r.bottom + 6 + menu.offsetHeight > innerHeight - 8;
@@ -182,10 +192,12 @@ function itemMenu(btn: HTMLElement, items: { label: string; ic: string; danger?:
     leave(menu);
     removeEventListener('pointerdown', outside, true);
     removeEventListener('keydown', onKey, true);
-    removeEventListener('scroll', close, true);
+    removeEventListener('scroll', onScroll, true);
     removeEventListener('resize', close);
   };
   const outside = (e: Event) => { if (!menu.contains(e.target as Node) && !btn.contains(e.target as Node)) close(); };
+  // Прокрутка закрывает меню, только если увела его кнопку (событие прокрутки, начатой до щелчка, приходит позже)
+  const onScroll = () => { const now = btn.getBoundingClientRect(); if (Math.abs(now.top - r.top) > 2 || Math.abs(now.left - r.left) > 2) close(); };
   const onKey = (e: KeyboardEvent) => {
     const list = [...menu.querySelectorAll<HTMLButtonElement>('button')];
     const i = list.indexOf(document.activeElement as HTMLButtonElement);
@@ -203,17 +215,32 @@ function itemMenu(btn: HTMLElement, items: { label: string; ic: string; danger?:
   });
   addEventListener('pointerdown', outside, true);
   addEventListener('keydown', onKey, true);
-  addEventListener('scroll', close, true);
+  addEventListener('scroll', onScroll, true);
   addEventListener('resize', close);
   menu.querySelector('button')?.focus({ preventScroll: true });
 }
 
+/** Группа по времени правки — для порядка «Недавние» */
+function bucket(ms: number): string {
+  if (!ms) return 'Ранее';
+  const now = new Date();
+  const day = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  if (ms >= day) return 'Сегодня';
+  if (ms >= day - 6 * 864e5) return 'На этой неделе';
+  if (ms >= day - 30 * 864e5) return 'В этом месяце';
+  return 'Ранее';
+}
+
+/** Переключатель с переезжающей подложкой (порядок, вид) */
+const segHtml = (id: string, label: string, opts: [string, string, string?][], icons = false) => `<div class="pk-seg${icons ? ' icons' : ''}" id="${id}" role="group" aria-label="${label}"><span class="pk-seg-pill" aria-hidden="true"></span>${opts.map(([v, t, ic]) => `<button type="button" data-v="${v}" title="${t}"${icons ? ` aria-label="${t}"` : ''}>${ic ?? ''}${icons ? '' : `<span>${t}</span>`}</button>`).join('')}</div>`;
+
 /**
- * Страница выбора презентации: шапка с поиском, импортом и новой презентацией; плитки с первым слайдом или
- * список (вид и порядок запоминаются); показывается порция, остальное — «Показать ещё». Щелчок — редактор,
- * при наведении — «Показ» и «Править», в «⋯» — папка и удаление. info — сводки из списка сервера: название и
- * число слайдов видны сразу, догружаются только миниатюры. Готова (ответ), когда видимые миниатюры нарисованы
- * (не дольше 0,8 с): так страница появляется целиком, без «выпрыгивающих» миниатюр
+ * Страница выбора презентации: шапка (поиск, импорт, создать, тема); «Продолжить работу» — последняя
+ * презентация крупно, с лентой её слайдов; библиотека — колоды по группам времени или список (вид и порядок
+ * запоминаются), показывается порция, остальное — «Показать ещё». Щелчок — редактор, на колоде — «Показ»,
+ * в «⋯» — папка и удаление. info — сводки из списка сервера: название и число слайдов видны сразу, догружаются
+ * только миниатюры. Готова (ответ), когда видимые миниатюры нарисованы (не дольше 0,8 с): страница появляется
+ * целиком, без «выпрыгивающих» миниатюр
  */
 export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] = []): Promise<void> {
   // Свой цвет интерфейса (если включён в студии); цвета презентаций — у их миниатюр
@@ -233,37 +260,35 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
   };
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ view: st.view, sort: st.sort })); } catch { /* приватный режим */ } };
   const app = pageEnv().app;
+  const reveal = appApi()?.reveal;
+  const hasMenu = dev || !!reveal;
 
   document.body.classList.add('picker-page');
   document.title = 'Презентации · Slideria';
   updateFavicon(undefined);
   document.body.innerHTML = `
 <div class="pk">
-  <header class="pk-top" id="pk-top"><div class="pk-bar">
+  <header class="pk-top" id="pk-top"><div class="pk-bar pk-wide">
     <div class="pk-brand"><span class="pk-mark">${brandMark()}</span><span>Slideria</span></div>
     <label class="pk-search">${icon('search')}<input id="pk-q" type="search" placeholder="Найти презентацию" aria-label="Найти презентацию" autocomplete="off" spellcheck="false"><kbd>Ctrl K</kbd></label>
     <div class="pk-acts">
       ${dev ? `<button class="pk-btn" id="pk-import" type="button" title="PowerPoint или HTML — или перетащите файл в окно">${icon('upload')}<span>Импорт</span></button>
-      <button class="pk-btn primary" id="pk-new" type="button">${icon('plus')}<span>Новая презентация</span></button>` : ''}
+      <button class="pk-btn go" id="pk-new" type="button">${icon('plus')}<span>Создать</span></button>` : ''}
       <button class="pk-btn pk-ibtn theme-btn" id="pk-theme" type="button" aria-label="Переключить тему (T)" title="Тема (T)">${icon('sun', 'ic sun')}${icon('moon', 'ic moon')}</button>
     </div>
   </div></header>
-  <main class="pk-main">
-    <section class="pk-hero">
-      <div><h1>Презентации</h1><p></p></div>
-      <div class="pk-tools">
-        <select class="pk-sel" id="pk-sort" aria-label="Порядок">
-          <option value="date">Сначала недавние</option><option value="title">По названию</option><option value="slides">По числу слайдов</option>
-        </select>
-        <div class="pk-seg" role="group" aria-label="Вид">
-          <button type="button" data-v="grid" title="Плитки">${icon('grid')}<span>Плитки</span></button>
-          <button type="button" data-v="list" title="Список">${icon('list')}<span>Список</span></button>
-        </div>
+  <main class="pk-main pk-wide">
+    <section class="pk-cont" id="pk-cont" hidden></section>
+    <section class="pk-lib-head" id="pk-lib-head">
+      <div><h2><span id="pk-lib-t">Библиотека</span> <span class="pk-count" id="pk-count"></span></h2><p class="pk-where" id="pk-where"></p></div>
+      <div class="pk-tools" id="pk-tools">
+        ${segHtml('pk-sort', 'Порядок', [['date', 'Недавние'], ['title', 'А–Я'], ['slides', 'Больше слайдов']])}
+        ${segHtml('pk-viewsw', 'Вид', [['grid', 'Плитки', icon('grid')], ['list', 'Список', icon('list')]], true)}
       </div>
     </section>
-    <div id="pk-view" class="pk-view"></div>
+    <div id="pk-view" class="pk-view pk-deal"></div>
   </main>
-  <footer class="pk-foot">${app
+  <footer class="pk-foot pk-wide">${app
     // Приложение: коротко и по-человечески — что можно сделать прямо здесь
     ? `<p>${icon('upload')}<span>Перетащите в окно презентацию PowerPoint или HTML-файл — например, из Claude Design или из чата с Claude. Slideria перенесёт слайды, тексты и картинки.</span></p>
     <p>${SHARE}<span>Чтобы поделиться, выберите в редакторе «Экспорт»: получится один файл, который откроется на любом компьютере — без программы и интернета.</span></p>${appBuild()}`
@@ -273,31 +298,48 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
 </div>`;
 
   const view = document.getElementById('pk-view')!;
-  const hero = document.querySelector<HTMLElement>('.pk-hero p')!;
+  const cont = document.getElementById('pk-cont')!;
   const q = document.getElementById('pk-q') as HTMLInputElement;
-  const sortSel = document.getElementById('pk-sort') as HTMLSelectElement;
+  // Первое появление — колоды «раздаются» по очереди; дальше (поиск, порядок) — сразу
+  setTimeout(() => view.classList.remove('pk-deal'), 900);
 
-  // ---------- миниатюры: первый слайд, рисуется один раз и переезжает между плитками и списком ----------
+  // ---------- миниатюры: первый слайд, рисуется один раз и переезжает между колодой и строкой списка ----------
   let leaving = false;
   addEventListener('beforeunload', () => { leaving = true; });
   const loaded = new Map<string, Deck>();
   const thumbs = new Map<string, HTMLElement>();
   const filling = new Map<string, Promise<void>>();
   const byName = (n: string) => items.find((x) => x.name === n);
-  /** Миниатюра — на своё место в карточке или строке (если она сейчас показана) */
+  const slideOf = (deck: Deck, k: number) => {
+    const t = staticSlide(deck, k);
+    t.setAttribute('style', `${t.getAttribute('style') ?? ''};${accentVars(deck)}`);
+    // Слайд — в цветах своей презентации (как слайд со своими цветами, см. accent.ts): так он верен и при
+    // своём цвете интерфейса, и в обеих темах
+    const own = slideAccent(deck.theme);
+    const sl = t.querySelector('.slide');
+    if (own && sl && !sl.hasAttribute('data-accent')) sl.setAttribute('data-accent', own);
+    // Миниатюра проявляется (pk-in), а не выпрыгивает
+    t.classList.add('pk-in');
+    return t;
+  };
+  /** Миниатюра и свечение — на своё место в колоде или строке (если она сейчас показана) */
   const place = (name: string) => {
-    const slot = view.querySelector<HTMLElement>(`.pk-thumb[data-for="${CSS.escape(name)}"]`);
     const it = byName(name);
-    if (!slot || !it) return;
+    if (!it) return;
+    const d = loaded.get(name);
+    view.querySelectorAll<HTMLElement>(`[data-name="${CSS.escape(name)}"]`).forEach((el) => { if (d) el.style.setProperty('--glow', glowOf(d, 0.55)); });
+    const slot = view.querySelector<HTMLElement>(`.pk-thumb[data-for="${CSS.escape(name)}"]`);
+    if (!slot) return;
     const t = thumbs.get(name);
     if (it.error) slot.innerHTML = '<div class="pk-ph pk-bad">Ошибка в файле</div>';
-    else if (t) { slot.replaceChildren(t); }
+    else if (t) slot.replaceChildren(t);
   };
   /** Название и число слайдов — из самой презентации (вдруг файл правили после списка) */
   const syncInfo = (it: Item) => {
-    view.querySelectorAll<HTMLElement>(`[data-name="${CSS.escape(it.name)}"] .pk-title`).forEach((t) => { if (t.textContent !== it.title) t.textContent = it.title; });
-    view.querySelectorAll<HTMLElement>(`[data-name="${CSS.escape(it.name)}"] .pk-when`).forEach((t) => { const s = metaLine(it); if (t.innerHTML !== s) t.innerHTML = s; });
-    view.querySelectorAll<HTMLElement>(`[data-name="${CSS.escape(it.name)}"] .pk-n`).forEach((t) => { if (t.textContent !== String(it.slides)) t.textContent = String(it.slides); });
+    const sel = `[data-name="${CSS.escape(it.name)}"]`;
+    view.querySelectorAll<HTMLElement>(`${sel} .pk-title`).forEach((t) => { if (t.textContent !== it.title) t.textContent = it.title; });
+    view.querySelectorAll<HTMLElement>(`${sel} .pk-when`).forEach((t) => { const s = metaLine(it); if (t.innerHTML !== s) t.innerHTML = s; });
+    view.querySelectorAll<HTMLElement>(`${sel} .pk-n`).forEach((t) => { if (t.textContent !== String(it.slides)) t.textContent = String(it.slides); });
   };
   const fill = (name: string, again = false): Promise<void> => {
     if (!again && filling.has(name)) return filling.get(name)!;
@@ -314,18 +356,10 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
         const src = (deck as { source?: unknown }).source;
         if (typeof src === 'string') it.source = src;
         syncInfo(it);
-        if (!it.slides) { thumbs.delete(name); place(name); return; }
-        const t = staticSlide(deck, 0);
-        t.setAttribute('style', `${t.getAttribute('style') ?? ''};${accentVars(deck)}`);
-        // Слайд карточки — в цветах своей презентации (как слайд со своими цветами, см. accent.ts):
-        // так он верен и при своём цвете интерфейса, и в обеих темах
-        const own = slideAccent(deck.theme);
-        const sl = t.querySelector('.slide');
-        if (own && sl && !sl.hasAttribute('data-accent')) sl.setAttribute('data-accent', own);
-        // Миниатюра проявляется (pk-in), а не выпрыгивает
-        t.classList.add('pk-in');
-        thumbs.set(name, t);
+        if (it.slides) thumbs.set(name, slideOf(deck, 0));
+        else thumbs.delete(name);
         place(name);
+        if (cont.dataset.name === name) continueFill(deck);
       } catch (e) {
         if (!leaving) console.error(e);
       }
@@ -341,6 +375,37 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
     }), { rootMargin: '300px' })
     : null;
 
+  // ---------- «Продолжить работу»: последняя презентация крупно и лента её первых слайдов ----------
+  const FILM = 8;
+  function continueRender(): void {
+    const recent = [...items].filter((x) => !x.error).sort((a, b) => b.mtime - a.mtime)[0];
+    const show = !!recent && !st.q.trim();
+    cont.hidden = !show;
+    if (!show) return;
+    if (cont.dataset.name === recent.name && cont.childElementCount) return;
+    cont.dataset.name = recent.name;
+    cont.innerHTML = `<a class="pk-cont-stack pk-stack" href="${studioHref(recent.name)}" aria-label="Открыть «${esc(recent.title)}» в редакторе"><div class="pk-thumb" data-cont><div class="pk-ph"></div></div></a>
+      <div class="pk-cont-info">
+        <div class="pk-eyebrow">Продолжить работу</div>
+        <h1 class="pk-cont-title">${esc(recent.title)}</h1>
+        <div class="pk-cont-meta">${esc(slidesText(recent.slides))}${recent.mtime ? ` · изменена ${esc(ago(recent.mtime))}` : ''}</div>
+        <div class="pk-cont-acts"><a class="pk-btn go" href="${studioHref(recent.name)}">Открыть</a><a class="pk-btn" href="${showHref(recent.name)}">${PLAY}<span>Показ</span></a></div>
+        <div class="pk-film" aria-label="Слайды">${Array.from({ length: Math.min(FILM, Math.max(recent.slides, 1)) }, (_v, k) => `<a class="pk-film-s" href="${studioHref(recent.name)}#${k + 1}" title="Слайд ${k + 1}"><div class="pk-thumb"><div class="pk-ph"></div></div><small>${k + 1}</small></a>`).join('')}</div>
+      </div>`;
+    const d = loaded.get(recent.name);
+    if (d) continueFill(d);
+    else void fill(recent.name);
+  }
+  function continueFill(deck: Deck): void {
+    cont.style.setProperty('--glow', glowOf(deck, 0.6));
+    cont.style.setProperty('--glow-soft', glowOf(deck, 0.2));
+    const big = cont.querySelector<HTMLElement>('[data-cont]');
+    if (big && deck.slides?.length) big.replaceChildren(slideOf(deck, 0));
+    const meta = cont.querySelector('.pk-cont-title');
+    if (meta && deck.title) meta.textContent = deck.title;
+    cont.querySelectorAll<HTMLElement>('.pk-film-s .pk-thumb').forEach((s, k) => { if (deck.slides?.[k]) s.replaceChildren(slideOf(deck, k)); });
+  }
+
   // ---------- что показано: поиск, порядок, порция ----------
   const shownList = () => {
     const needle = st.q.trim().toLocaleLowerCase('ru');
@@ -352,23 +417,34 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
     };
     return out.sort((a, b) => cmp[st.sort](a, b) * st.dir || a.name.localeCompare(b.name));
   };
-  const heroText = (found: number) => (items.length
-    ? (st.q.trim() ? `Найдено <b>${found}</b> из ${items.length}` : `<b>${items.length}</b> ${plural(items.length, 'презентация', 'презентации', 'презентаций')}`) + ` в папке «${esc(folderName())}»`
-    : 'Здесь появятся ваши презентации');
-  const thumbSlot = (it: Item, cls = '') => `<div class="pk-thumb${cls}" data-for="${esc(it.name)}">${it.error ? '<div class="pk-ph pk-bad">Ошибка в файле</div>' : '<div class="pk-ph"></div>'}</div>`;
-  const badge = (it: Item) => (it.source ? `<span class="pk-badge">${esc(it.source)}</span>` : '');
+  const thumbSlot = (it: Item) => `<div class="pk-thumb" data-for="${esc(it.name)}">${it.error ? '<div class="pk-ph pk-bad">Ошибка в файле</div>' : '<div class="pk-ph"></div>'}</div>`;
+  const tag = (it: Item) => (it.source ? `<span class="pk-tag">${esc(it.source)}</span>` : '');
+  const more = (n: string) => (hasMenu ? `<button type="button" class="pk-more" data-more="${esc(n)}" aria-label="Ещё" aria-haspopup="menu" aria-expanded="false">${DOTS}</button>` : '');
+  /** Переезжающая подложка переключателей — под выбранной кнопкой */
+  const pills = () => document.querySelectorAll<HTMLElement>('.pk-seg').forEach((s) => {
+    const on = s.querySelector<HTMLElement>('[aria-pressed="true"]');
+    const p = s.querySelector<HTMLElement>('.pk-seg-pill');
+    if (on && p) { p.style.width = `${on.offsetWidth}px`; p.style.transform = `translateX(${on.offsetLeft - 4}px)`; }
+  });
 
   function render(keepLimit = false): void {
     if (!keepLimit) st.limit = PAGE[st.view];
     const list = shownList();
-    hero.innerHTML = heroText(list.length);
-    document.querySelector<HTMLElement>('.pk-tools')!.hidden = !items.length;
-    document.querySelectorAll<HTMLElement>('.pk-seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === st.view)));
-    sortSel.value = st.sort;
+    const searching = !!st.q.trim();
+    continueRender();
+    document.getElementById('pk-lib-t')!.textContent = searching ? 'Найдено' : 'Библиотека';
+    document.getElementById('pk-count')!.textContent = searching ? `${list.length} из ${items.length}` : String(items.length);
+    document.getElementById('pk-where')!.innerHTML = items.length
+      ? `${items.length} ${plural(items.length, 'презентация', 'презентации', 'презентаций')} в папке «${esc(folderName())}»`
+      : `Здесь появятся ваши презентации — папка «${esc(folderName())}»`;
+    document.getElementById('pk-tools')!.hidden = !items.length;
+    document.querySelectorAll<HTMLElement>('#pk-sort button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === st.sort)));
+    document.querySelectorAll<HTMLElement>('#pk-viewsw button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === st.view)));
+    pills();
     io?.disconnect();
     if (!items.length) {
-      view.innerHTML = `<div class="pk-empty"><b>Пока нет ни одной презентации</b><span>Создайте новую или перетащите в окно файл PowerPoint или HTML.</span>${dev
-        ? `<div class="pk-acts"><button class="pk-btn" type="button" data-a="import">${icon('upload')}<span>Выбрать файл</span></button><button class="pk-btn primary" type="button" data-a="new">${icon('plus')}<span>Новая презентация</span></button></div>` : ''}</div>`;
+      view.innerHTML = `<div class="pk-empty"><div class="pk-stack pk-empty-stack"><div class="pk-thumb pk-empty-slide">${brandMark()}</div></div><b>Первая презентация — за минуту</b><span>Создайте новую — с нуля или с примерами слайдов, — или перетащите в окно файл PowerPoint или HTML.</span>${dev
+        ? `<div class="pk-acts"><button class="pk-btn" type="button" data-a="import">${icon('upload')}<span>Выбрать файл</span></button><button class="pk-btn go" type="button" data-a="new">${icon('plus')}<span>Создать презентацию</span></button></div>` : ''}</div>`;
       return;
     }
     if (!list.length) {
@@ -380,25 +456,36 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
     items.forEach((it) => count.set(it.title, (count.get(it.title) ?? 0) + 1));
     const folder = (it: Item) => ((count.get(it.title) ?? 0) > 1 ? `<span class="pk-folder" title="Папка в «${esc(folderName())}»">Папка: ${esc(it.name)}</span>` : '');
     const vis = list.slice(0, st.limit);
-    const more = (n: string) => `<button type="button" class="pk-more" data-more="${esc(n)}" aria-label="Ещё" aria-haspopup="menu" aria-expanded="false">${DOTS}</button>`;
-    if (st.view === 'grid') {
-      view.innerHTML = `<div class="pk-grid" id="pk-grid">${vis.map((it) => `<div class="pk-item" data-name="${esc(it.name)}">
+    let n = 0;
+    const deckCard = (it: Item) => `<div class="pk-item" data-name="${esc(it.name)}" style="--i:${Math.min(n++, 14)}">
         <a class="pk-card${it.error ? ' pk-err' : ''}" href="${studioHref(it.name)}" data-name="${esc(it.name)}" title="Открыть в редакторе">
-          ${thumbSlot(it)}
-          <div class="pk-info"><b class="pk-title">${esc(it.title)}</b><span class="pk-meta"><span class="pk-when">${metaLine(it)}</span>${badge(it)}</span>${folder(it)}</div>
+          <div class="pk-stack">${thumbSlot(it)}</div>
+          <div class="pk-info"><b class="pk-title">${esc(it.title)}</b><span class="pk-meta"><span class="pk-when">${metaLine(it)}</span>${tag(it)}</span>${folder(it)}</div>
         </a>
-        <div class="pk-hover"><a class="pk-pill" href="${showHref(it.name)}">${icon('play')}<span>Показ</span></a><a class="pk-pill ac" href="${studioHref(it.name)}">${icon('pencil')}<span>Править</span></a></div>
-        ${more(it.name)}
-      </div>`).join('')}</div>`;
+        <div class="pk-over"><a class="pk-play" href="${showHref(it.name)}" title="Показ с первого слайда">${PLAY}<span>Показ</span></a>${more(it.name)}</div>
+      </div>`;
+    if (st.view === 'grid') {
+      if (st.sort === 'date' && st.dir > 0 && !searching) {
+        const groups: { b: string; items: Item[] }[] = [];
+        for (const it of vis) {
+          const b = bucket(it.mtime);
+          if (groups.at(-1)?.b !== b) groups.push({ b, items: [] });
+          groups.at(-1)!.items.push(it);
+        }
+        view.innerHTML = groups.map((g) => `<section class="pk-group"><h3>${g.b}</h3><div class="pk-grid">${g.items.map(deckCard).join('')}</div></section>`).join('');
+      } else {
+        view.innerHTML = `<section class="pk-group"><div class="pk-grid">${vis.map(deckCard).join('')}</div></section>`;
+      }
     } else {
-      const arrow = (k: Sort) => `<span class="pk-arr">${st.sort === k ? (st.dir > 0 ? '↓' : '↑') : ''}</span>`;
-      view.innerHTML = `<div class="pk-table"><table>
-        <thead><tr><th data-k="title">Название ${arrow('title')}</th><th data-k="slides" class="num">Слайдов ${arrow('slides')}</th><th data-k="date">Изменена ${arrow('date')}</th><th>Источник</th><th><span class="pk-sr">Действия</span></th></tr></thead>
-        <tbody>${vis.map((it) => `<tr class="pk-row" data-name="${esc(it.name)}">
-          <td><div class="pk-rt">${thumbSlot(it, ' sm')}<div class="pk-rt-t"><a class="pk-title" href="${studioHref(it.name)}">${esc(it.title)}</a>${folder(it)}</div></div></td>
-          <td class="num pk-n">${it.slides}</td><td class="pk-date">${it.mtime ? esc(ago(it.mtime)) : '—'}</td><td>${it.source ? badge(it) : '<span class="pk-none">—</span>'}</td>
-          <td><div class="pk-racts"><a class="pk-rb" href="${showHref(it.name)}">${icon('play')}<span>Показ</span></a><a class="pk-rb" href="${studioHref(it.name)}">${icon('pencil')}<span>Править</span></a>${more(it.name)}</div></td>
-        </tr>`).join('')}</tbody></table></div>`;
+      const arrow = (k: Sort) => (st.sort === k ? ` ${st.dir > 0 ? '↓' : '↑'}` : '');
+      view.innerHTML = `<div class="pk-list" role="table" aria-label="Презентации">
+        <div class="pk-lrow pk-lhead" role="row"><span role="columnheader"><span class="pk-sr">Миниатюра</span></span><span role="columnheader" data-k="title"${st.sort === 'title' ? ' class="on"' : ''}>Название${arrow('title')}</span><span role="columnheader" data-k="slides" class="num${st.sort === 'slides' ? ' on' : ''}">Слайдов${arrow('slides')}</span><span role="columnheader" data-k="date"${st.sort === 'date' ? ' class="on"' : ''}>Изменена${arrow('date')}</span><span role="columnheader">Источник</span><span role="columnheader"><span class="pk-sr">Действия</span></span></div>
+        ${vis.map((it) => `<div class="pk-lrow pk-row" role="row" data-name="${esc(it.name)}" style="--i:${Math.min(n++, 20)}">
+          <div class="pk-stack" role="cell">${thumbSlot(it)}</div>
+          <div class="pk-lt" role="cell"><a class="pk-title" href="${studioHref(it.name)}">${esc(it.title)}</a>${folder(it)}</div>
+          <span class="num pk-n" role="cell">${it.slides}</span><span class="pk-date" role="cell">${it.mtime ? esc(ago(it.mtime)) : '—'}</span><span role="cell">${it.source ? tag(it) : '<span class="pk-none">—</span>'}</span>
+          <div class="pk-racts" role="cell"><a class="pk-rplay" href="${showHref(it.name)}">${PLAY}<span>Показ</span></a>${more(it.name)}</div>
+        </div>`).join('')}</div>`;
     }
     const left = list.length - vis.length;
     if (left > 0) view.insertAdjacentHTML('beforeend', `<div class="pk-morebar"><button class="pk-btn" type="button" id="pk-showmore">Показать ещё ${Math.min(left, PAGE[st.view])} <small>· всего ${list.length}</small></button></div>`);
@@ -413,11 +500,14 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
   }
 
   // ---------- действия ----------
-  const theme = () => {
+  const retheme = () => {
     // Миниатюры с акцентом презентации пересчитываются под новую тему
-    thumbs.forEach((t, n) => { const d = loaded.get(n); if (d) t.setAttribute('style', `${(t.getAttribute('style') ?? '').split(';').filter((s) => !s.trim().startsWith('--')).join(';')};${accentVars(d)}`); });
+    const fix = (t: HTMLElement, d: Deck) => t.setAttribute('style', `${(t.getAttribute('style') ?? '').split(';').filter((s) => s.trim() && !s.trim().startsWith('--')).join(';')};${accentVars(d)}`);
+    thumbs.forEach((t, nm) => { const d = loaded.get(nm); if (d) fix(t, d); });
+    const d = loaded.get(cont.dataset.name ?? '');
+    if (d) cont.querySelectorAll<HTMLElement>('.thumb').forEach((t) => fix(t, d));
   };
-  const swap = () => themeFade(() => { toggleTheme(); theme(); });
+  const swap = () => themeFade(() => { toggleTheme(); retheme(); });
   document.getElementById('pk-theme')!.onclick = swap;
   addEventListener('keydown', (e) => {
     const typing = (e.target as Element).closest('input, textarea, select');
@@ -427,14 +517,23 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
   });
   q.addEventListener('input', () => { st.q = q.value; render(); });
   q.addEventListener('keydown', (e) => { if (e.key === 'Escape' && q.value) { e.stopPropagation(); q.value = ''; st.q = ''; render(); } });
-  sortSel.addEventListener('change', () => { st.sort = sortSel.value as Sort; st.dir = 1; save(); render(); });
-  document.querySelector('.pk-seg')!.addEventListener('click', (e) => {
+  document.getElementById('pk-sort')!.addEventListener('click', (e) => {
+    const b = (e.target as Element).closest<HTMLElement>('button[data-v]');
+    if (!b) return;
+    st.sort = b.dataset.v as Sort;
+    st.dir = 1;
+    save();
+    render();
+  });
+  document.getElementById('pk-viewsw')!.addEventListener('click', (e) => {
     const b = (e.target as Element).closest<HTMLElement>('button[data-v]');
     if (!b || b.dataset.v === st.view) return;
     st.view = b.dataset.v as View;
     save();
     render();
   });
+  addEventListener('resize', pills);
+  void document.fonts?.ready.then(pills);
   // Шапка с тенью, когда страница прокручена
   const top = document.getElementById('pk-top')!;
   addEventListener('scroll', () => top.classList.toggle('scrolled', scrollY > 4), { passive: true });
@@ -445,6 +544,7 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
     if (i < 0) return;
     items.splice(i, 1);
     thumbs.delete(name);
+    if (cont.dataset.name === name) { cont.dataset.name = ''; cont.innerHTML = ''; }
     const el = view.querySelector<HTMLElement>(`[data-name="${CSS.escape(name)}"]`);
     if (!el) { render(true); return; }
     el.classList.add('pk-gone');
@@ -453,11 +553,8 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
   const openMenu = (btn: HTMLElement) => {
     const it = byName(btn.dataset.more!);
     if (!it) return;
-    const api = appApi();
     itemMenu(btn, [
-      { label: 'Править', ic: icon('pencil'), a: 'edit', run: () => { location.href = studioHref(it.name); } },
-      { label: 'Показ', ic: icon('play'), a: 'show', run: () => { location.href = showHref(it.name); } },
-      ...(api?.reveal ? [{ label: 'Показать в папке', ic: FOLDER, a: 'folder', run: () => { void api.reveal!(it.name); } }] : []),
+      ...(reveal ? [{ label: 'Показать в папке', ic: FOLDER, a: 'folder', run: () => { void reveal(it.name); } }] : []),
       ...(dev ? [{ label: 'Удалить…', ic: icon('trash'), a: 'del', danger: true, run: () => void remove(it, thumbs.get(it.name), () => drop(it.name)) }] : []),
     ]);
   };
@@ -469,7 +566,7 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
     const a = t.closest<HTMLElement>('[data-a]');
     if (a?.dataset.a === 'new') { void create(); return; }
     if (a?.dataset.a === 'import') { document.getElementById('pk-import')?.click(); return; }
-    const th = t.closest<HTMLElement>('th[data-k]');
+    const th = t.closest<HTMLElement>('.pk-lhead [data-k]');
     if (th) {
       const k = th.dataset.k as Sort;
       st.dir = st.sort === k ? -st.dir : 1;
@@ -489,7 +586,7 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
   // страница, открытая уже после этого, его показывает)
   onServer('decks', (e) => {
     const shown = new Set(items.map((x) => x.name));
-    if (e.added.some((n) => !shown.has(n)) || e.removed.some((n) => shown.has(n))) location.reload();
+    if (e.added.some((nm) => !shown.has(nm)) || e.removed.some((nm) => shown.has(nm))) location.reload();
   });
   // deck.yaml поправили со стороны — карточка заново (название, слайды, миниатюра)
   onServer('deck-changed', (d) => {
@@ -513,7 +610,8 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
   // Видимые миниатюры — до показа страницы (не дольше 0,8 с), остальные — по мере прокрутки
   const inView = (el: Element) => { const r = el.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight + 200; };
   const first = [...view.querySelectorAll<HTMLElement>('.pk-thumb[data-for]')].filter(inView).map((s) => s.dataset.for!);
-  await Promise.race([Promise.all(first.map((n) => fill(n))), new Promise((r) => setTimeout(r, 800))]);
+  if (cont.dataset.name) first.push(cont.dataset.name);
+  await Promise.race([Promise.all(first.map((nm) => fill(nm))), new Promise((r) => setTimeout(r, 800))]);
 }
 
 /** Сборка программы: установленная — снимок кода на день сборки, новое из проекта появится с новой сборкой */

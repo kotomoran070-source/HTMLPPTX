@@ -77,8 +77,8 @@ test('удаление со страницы выбора: карточка ух
   await page.goto('/?all');
   const card = page.locator(`.pk-card[data-name="${name}"]`);
   await expect(card).toBeVisible({ timeout: 15_000 });
-  // Сколько всего — по заголовку: на странице показана порция
-  const count = async () => Number(await page.locator('.pk-hero p b').textContent());
+  // Сколько всего — по заголовку библиотеки: на странице показана порция
+  const count = async () => Number(await page.locator('#pk-count').textContent());
   const before = await count();
   // Метка в окне: перезагрузка страницы её сотрёт
   await page.evaluate(() => { (window as { zzStay?: number }).zzStay = 1; });
@@ -90,7 +90,7 @@ test('удаление со страницы выбора: карточка ух
   await expect(card).toHaveCount(0, { timeout: 3000 });
   expect(Date.now() - t0).toBeLessThan(3000);
   await expect.poll(count).toBe(before - 1);
-  await expect(page.locator('.pk-hero p')).toContainText(`${before - 1} `);
+  await expect(page.locator('#pk-where')).toContainText(`${before - 1} `);
   expect(await page.evaluate(() => (window as { zzStay?: number }).zzStay)).toBe(1);
   expect(fs.existsSync(path.join(DECKS, name))).toBe(false);
   expect(fs.readdirSync(path.join(DECKS, '.trash')).some((d) => d.startsWith(`${name}-`))).toBe(true);

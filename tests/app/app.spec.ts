@@ -35,7 +35,7 @@ test('первый запуск: «Моя первая презентация»,
     await expect(win.locator('.pk-card[data-name="moya-pervaya-prezentaciya"]')).toBeVisible();
     // Заставка ушла, когда страница выбора готова: остаётся одно окно со страницей программы
     await expect.poll(() => app.windows().map((w) => w.url().slice(0, 5))).toEqual(['http:']);
-    await expect(win.locator('.pk-hero')).toContainText('Документы/Slideria');
+    await expect(win.locator('#pk-where')).toContainText('Документы/Slideria');
     expect(fs.existsSync(path.join(docs, 'moya-pervaya-prezentaciya', 'deck.yaml'))).toBe(true);
     // Подсказки внизу — без команд терминала; какая это сборка программы
     await expect(win.locator('.pk-foot')).not.toContainText('yarn');

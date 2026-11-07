@@ -39,21 +39,22 @@
 .b-right { background: var(--b-surf); border-left: 1px solid var(--b-bd); padding: 22px 16px; }
 .b-right i { height: 12px; margin-bottom: 16px; }
 .b-foot { border-bottom: 0; border-top: 1px solid var(--b-bd); }
-#boot.b-picker { background: radial-gradient(var(--b-bd) 1px, transparent 1.2px) 0 0 / 22px 22px, var(--b-bg); }
-.b-pk { max-width: 1180px; margin: 0 auto; padding: 12px 24px; box-sizing: border-box; }
-.b-pkbar { display: flex; align-items: center; gap: 14px; height: 38px; }
-.b-pk .b-mark { width: 30px; height: 30px; border-radius: 9px; flex: none; }
-#boot .b-pk .b-search { flex: 1; max-width: 460px; height: 38px; margin-inline: auto; border-radius: 10px; background: var(--b-surf); border: 1px solid var(--b-bd); }
-.b-pk .b-btn { width: 100px; height: 38px; border-radius: 10px; flex: none; }
-.b-pk .b-btn2 { width: 190px; height: 38px; border-radius: 10px; flex: none; opacity: .8; }
-.b-pkhead { display: flex; align-items: flex-end; justify-content: space-between; margin: 38px 0 18px; }
-.b-pk .b-h1 { width: 250px; height: 36px; border-radius: 9px; margin-bottom: 10px; }
-.b-pk .b-p { width: 300px; height: 13px; }
-.b-pk .b-tools { width: 300px; height: 34px; border-radius: 9px; }
-.b-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
-#boot .b-grid i { aspect-ratio: 25 / 22; border-radius: 14px; background: var(--b-surf); border: 1px solid var(--b-bd); }
-@media (max-width: 760px) { .b-pk .b-btn2 { width: 44px; } .b-pk .b-btn { width: 44px; } .b-pk .b-tools { display: none; } }
-@media (max-width: 520px) { .b-pk { padding: 12px 16px; } .b-pk .b-search { visibility: hidden; } }
+#boot.b-picker { background: radial-gradient(1200px 440px at 50% -140px, rgba(99, 102, 241, .10), transparent 70%), var(--b-bg); }
+#boot.b-picker.dark { background: radial-gradient(1200px 440px at 50% -140px, rgba(99, 102, 241, .22), transparent 70%), var(--b-bg); }
+.b-pk { max-width: 2200px; margin: 0 auto; padding: 14px clamp(20px, 3.2vw, 64px); box-sizing: border-box; }
+.b-pkbar { display: flex; align-items: center; gap: 16px; height: 40px; }
+.b-pk .b-mark { width: 32px; height: 32px; border-radius: 10px; flex: none; }
+#boot .b-pk .b-search { flex: 1; max-width: 520px; height: 40px; margin-inline: auto; border-radius: 999px; background: var(--b-surf); border: 1px solid var(--b-bd); }
+.b-pk .b-btn { width: 104px; height: 40px; border-radius: 999px; flex: none; }
+.b-pk .b-btn2 { width: 120px; height: 40px; border-radius: 999px; flex: none; opacity: .8; }
+#boot .b-cont { height: clamp(260px, 24vw, 460px); margin-top: 38px; border-radius: 24px; background: var(--b-surf); border: 1px solid var(--b-bd); }
+.b-pkhead { display: flex; align-items: center; justify-content: space-between; margin: 40px 0 30px; }
+.b-pk .b-h1 { width: 200px; height: 26px; border-radius: 8px; }
+.b-pk .b-tools { width: 360px; height: 40px; border-radius: 999px; }
+.b-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 34px 26px; }
+#boot .b-grid i { aspect-ratio: 16 / 9; border-radius: 12px; background: var(--b-surf); border: 1px solid var(--b-bd); }
+@media (max-width: 720px) { .b-pk .b-btn, .b-pk .b-btn2 { width: 44px; } .b-pk .b-tools { display: none; } }
+@media (max-width: 520px) { #boot .b-pk .b-search { visibility: hidden; } }
 #boot.b-show { background: var(--b-alt); }
 </style>
 <!--/slideria-boot-->
@@ -94,7 +95,7 @@
       + '<div class="b-foot"></div>';
   } else if (mode === 'picker') {
     el.innerHTML = '<div class="b-pk"><div class="b-pkbar"><i class="b-mark"></i><i class="b-search"></i><i class="b-btn"></i><i class="b-btn2"></i></div>'
-      + '<div class="b-pkhead"><div><i class="b-h1"></i><i class="b-p"></i></div><i class="b-tools"></i></div>' + n('b-grid', 8) + '</div>';
+      + '<i class="b-cont"></i><div class="b-pkhead"><i class="b-h1"></i><i class="b-tools"></i></div>' + n('b-grid', 12) + '</div>';
   }
   html.appendChild(el);
   // Страница так и не сказала «готова» (ошибка до неё) — каркас всё равно уходит

@@ -59,9 +59,12 @@ async function choose(): Promise<{ name: string; deck: Deck } | null> {
     const only = await fromServer(names[0]);
     if (only) return { name: names[0], deck: only };
   }
-  const { showPicker } = await import('./engine/picker');
-  await showPicker(serverLoaders(names), true, list);
-  mark('picker');
+  // Страница выбора — только с сервером: в собранный файл презентации её код (и шрифты) не попадает
+  if (__SERVED__) {
+    const { showPicker } = await import('./engine/picker');
+    await showPicker(serverLoaders(names), true, list);
+    mark('picker');
+  }
   return null;
 }
 
