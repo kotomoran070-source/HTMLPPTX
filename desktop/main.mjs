@@ -14,6 +14,7 @@ import { pathToFileURL } from 'node:url';
 import { app, BrowserWindow, Menu, WebContentsView, desktopCapturer, dialog, ipcMain, nativeTheme, screen, session, shell, utilityProcess } from 'electron';
 import { FIX_FLAG, allowFirewall, runFirewallFix } from './firewall.mjs';
 import { lanGateway } from './lan.mjs';
+import { splashPage } from './splash.mjs';
 
 // Экземпляр, запущенный кнопкой «Разрешить в брандмауэре» с правами администратора:
 // меняет правила и выходит, окно не открывает
@@ -299,22 +300,13 @@ app.on('web-contents-created', (_e, wc) => {
 });
 
 /**
- * Заставка — в цвет темы, со знаком Slideria. Лежит поверх окна отдельным слоем, пока под ней грузится
- * первая страница, и растворяется, когда страница нарисована (src/engine/boot.ts → slideria:ready): ни белой
- * вспышки, ни страницы, которая «догружается» на глазах. Знак появляется не сразу: при быстром запуске
- * заставки почти не видно
+ * Заставка «Колода» (desktop/splash.mjs) — слоем поверх окна, в цвет темы: ни белой вспышки, ни страницы, которая
+ * «догружается» на глазах. Полоска на ней идёт по шагам запуска (splashStep), а когда страница нарисована
+ * (src/engine/boot.ts → slideria:ready), слайды разлетаются и слой убирается
  */
-const GLYPH = '<path d="M20.5 3.5H8.25a4.25 4.25 0 0 0 0 8.5" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="20.5" cy="3.5" r="1.4" fill="currentColor"/><g opacity=".55"><path d="M8.25 12h7.5a4.25 4.25 0 0 1 0 8.5H3.5" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="3.5" cy="20.5" r="1.4" fill="currentColor"/></g>';
-const splashPage = (dark) => `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html><meta charset="utf-8">
-<style>html,body{margin:0;height:100%;background:transparent;overflow:hidden}
-.c{position:fixed;inset:0;display:grid;place-items:center;background:${pageBg(dark)};transition:opacity .22s ease-out}
-.c.out{opacity:0}
-.m{display:flex;flex-direction:column;align-items:center;gap:14px;opacity:0;animation:in .4s ease-out .15s forwards;font:600 15px system-ui,"Segoe UI",sans-serif;letter-spacing:.06em;color:${dark ? '#94A3B8' : '#6B7280'}}
-.t{width:56px;height:56px;border-radius:16px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,#5B8DEF,#1D4ED8);box-shadow:0 10px 30px rgba(37,99,235,.35)}
-.t svg{width:34px;height:34px}
-@keyframes in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.m{animation:none;opacity:1}.c{transition:none}}</style>
-<div class="c"><div class="m"><span class="t"><svg viewBox="0 0 24 24">${GLYPH}</svg></span>SLIDERIA</div></div>`)}`;
+const splashSteps = new WeakMap();
+/** Шаг запуска на заставке окна: p — доля пути, k — номер подписи (desktop/splash.mjs, NOTES) */
+const splashStep = (win, p, k) => splashSteps.get(win)?.(p, k);
 
 function createWindow() {
   const st = loadState();
@@ -344,7 +336,10 @@ function createWindow() {
   splash.webContents.once('did-finish-load', () => win.show());
   void splash.webContents.loadURL(splashPage(dark));
   let gone = false;
-  /** Страница нарисована — заставка растворяется и уходит */
+  splashSteps.set(win, (p, k) => {
+    if (!gone && !splash.webContents.isDestroyed()) splash.webContents.executeJavaScript(`step(${Number(p)},${Number(k)})`).catch(() => {});
+  });
+  /** Страница нарисована — слайды заставки разлетаются, слой убирается, когда они улетели */
   const drop = () => {
     if (gone || win.isDestroyed()) return;
     gone = true;
@@ -354,11 +349,15 @@ function createWindow() {
       win.contentView.removeChildView(splash);
       if (!splash.webContents.isDestroyed()) splash.webContents.close();
     };
-    splash.webContents.executeJavaScript("document.querySelector('.c').classList.add('out')").catch(() => {}).finally(() => setTimeout(remove, 260));
+    const left = splash.webContents.executeJavaScript('done()').catch(() => {});
+    void Promise.race([left, new Promise((r) => setTimeout(r, 1500))]).then(remove);
   };
   win.webContents.ipc.on('slideria:ready', drop);
-  // Страница так и не сказала «готова» (сбой до неё) — заставка всё равно уходит
-  win.webContents.on('did-finish-load', () => setTimeout(drop, 4000));
+  // Страница загружена — почти готово; так и не сказала «готова» (сбой до неё) — заставка всё равно уходит
+  win.webContents.on('did-finish-load', () => {
+    splashStep(win, 0.85, 3);
+    setTimeout(drop, 4000);
+  });
   return win;
 }
 
@@ -517,7 +516,9 @@ app.whenReady().then(async () => {
   try {
     ensureDecks();
     await ensureCode();
+    splashStep(main, 0.3, 1);
     await startServer();
+    splashStep(main, 0.55, 2);
     await main?.loadURL(origin + '/?all');
   } catch (e) {
     log('Ошибка запуска:', e?.stack ?? e);
