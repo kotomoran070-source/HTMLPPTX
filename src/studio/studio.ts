@@ -1754,7 +1754,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   // Стили для ухода меню (engine/motion.ts) и шрифты с фонами тем — заранее, в свободное время
   warmLater([warmGhosts, ...themeWarmTasks()]);
   bindDesignStrip(designHost, cmds);
-  Object.assign(cmds, toolsCommands({ deck, deckKey, editor: ed, go, info: () => filePanel?.open('info') }));
+  Object.assign(cmds, toolsCommands({ deck, deckKey, editor: ed, go, info: () => filePanel?.open('info'), licenses: () => filePanel?.open('licenses') }));
   // «Инструменты → Интеграции»: агенты, скрипты, плагины, журнал правок (integrations.ts)
   const integrations = startIntegrations({ deck, deckKey, editor: ed, go, index: () => index });
   Object.assign(cmds, integrations.commands);
@@ -1957,7 +1957,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   const appApi = (window as { slideriaApp?: { reveal?(name: string): Promise<unknown>; build?: { version?: string; date?: string; commit?: string } } }).slideriaApp;
   const fileBtn = $('st-file');
   filePanel = initFilePanel({
-    tools: { deck, deckKey, editor: ed, go, info: () => filePanel?.open('info') },
+    tools: { deck, deckKey, editor: ed, go, info: () => filePanel?.open('info'), licenses: () => filePanel?.open('licenses') },
     rename,
     cover: () => (deck.slides.length ? staticSlide(deck, 0) : null),
     reveal: appApi?.reveal && ed.mode === 'project' ? () => void appApi.reveal!(deckKey) : undefined,
@@ -1990,7 +1990,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       setLook: (v) => chooseSlidesLook(v),
       lookLocked: () => !!themeMode(deck.theme),
     },
-    licenses: { run: () => run('tools.licenses'), enabled: () => location.protocol.startsWith('http') },
+    licenses: { enabled: () => location.protocol.startsWith('http') },
     build: () => {
       const b = appApi?.build;
       return b ? `Slideria ${b.version ?? ''}${b.date ? ` · сборка от ${b.date}` : ''}` : '';
@@ -1998,6 +1998,8 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     toggled: (open) => { fileBtn.classList.toggle('on', open); },
   }, document.querySelector<HTMLElement>('.studio-app')!, fileBtn);
   fileBtn.addEventListener('click', () => (filePanel!.isOpen() ? filePanel!.close() : filePanel!.open()));
+  // «Справка → Лицензии» в программе (desktop/main.mjs) — сюда, в «Файл → Лицензии»
+  addEventListener('slideria:licenses', (e) => { e.preventDefault(); filePanel?.open('licenses'); });
   onThemeChange(() => { slides.update(); slides.repaintStills(); queueState(); });
   // Свой вид слайдов сменился: данные те же, слайды и миниатюры — заново
   onSlidesLook(() => {

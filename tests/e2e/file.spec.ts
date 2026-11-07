@@ -1,5 +1,5 @@
 // Раздел «Файл» студии (studio/file-panel.ts): открывается кнопкой «Файл» и щелчком по «Сохранено», закрывается
-// Esc; клавиши студии до слайдов не доходят; сведения, экспорт, версии и параметры
+// Esc; клавиши студии до слайдов не доходят; сведения, экспорт, версии, параметры и лицензии
 import { expect, test } from '@playwright/test';
 import { readDeck, waitFile, watchErrors } from './helpers';
 
@@ -93,5 +93,71 @@ test('«Файл»: экспорт — настройки по формату; �
   await expect.poll(() => page.evaluate(() => document.documentElement.getAttribute('data-theme'))).toBe(theme === 'dark' ? 'dark' : 'light');
   await expect(page.locator(`.fp [data-uitheme="${other}"]`)).toHaveAttribute('aria-checked', 'false');
   await expect(page.locator('.fp')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('«Файл → Лицензии»: список и текст, фильтр, поиск, клавиатура, узкое место; страница выбора — своя страница', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=tpl&studio#1');
+  await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
+  // «Инструменты» → «Лицензии» — раздел «Файла», не отдельное окно
+  await page.locator('[data-tab="tools"]').click();
+  await page.locator('.st-ribbon [data-cmd="tools.licenses"]').click();
+  await expect(page.locator('.fp [data-fs="licenses"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.fp-lic-sum')).toContainText(/\d+ компонент/);
+  // Сразу выбрана Slideria: её текст справа; Electron нет — нет и его лицензии (не программа)
+  await expect(page.locator('.lc-row[aria-selected="true"]')).toContainText('Slideria');
+  await expect(page.locator('.lc-name')).toHaveText('Slideria');
+  await expect(page.locator('.lc-text')).toContainText('Permission is hereby granted');
+  await expect(page.locator('.lc-row', { hasText: 'Electron' })).toHaveCount(0);
+  const all = await page.locator('.lc-row').count();
+  expect(all).toBeGreaterThan(40);
+  // Фильтр по лицензии: только OFL — шрифты, их текст
+  await page.locator('.lc-chip[data-f="ofl"]').click();
+  await expect(page.locator('.lc-row')).toHaveCount(1);
+  await page.locator('.lc-row').click();
+  await expect(page.locator('.lc-text')).toContainText('SIL OPEN FONT LICENSE');
+  await expect(page.locator('.lc-fonts span', { hasText: 'Unbounded' })).toHaveCount(1);
+  await page.locator('.lc-chip[data-f="all"]').click();
+  await expect(page.locator('.lc-row')).toHaveCount(all);
+  // Ctrl+K — поиск по лицензиям (не поиск команд студии), стрелка вниз — в список, Enter — выбрать
+  await page.keyboard.press('Control+k');
+  await expect(page.locator('.lc-q')).toBeFocused();
+  await page.keyboard.type('qrcode');
+  await expect(page.locator('.lc-row')).toHaveCount(1);
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.lc-name')).toHaveText('qrcode-generator');
+  // Esc в поиске — очистить (раздел остаётся открытым), стрелки — по строкам, текст следует за выбором
+  await page.locator('.lc-q').press('Escape');
+  await expect(page.locator('.lc-row')).toHaveCount(all);
+  await expect(page.locator('.fp')).toBeVisible();
+  await page.locator('.lc-row[aria-selected="true"]').focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('.lc-name')).not.toHaveText('qrcode-generator');
+  await expect(page.locator('.lc-row[aria-selected="true"]')).toBeFocused();
+  // Узкое окно: один список, текст — вместо него, Esc — обратно к списку, ещё Esc — к слайдам
+  await page.setViewportSize({ width: 760, height: 800 });
+  await expect(page.locator('.lc-pane')).toBeHidden();
+  await page.locator('.lc-row[data-id^="yaml@"]').click();
+  await expect(page.locator('.lc-side')).toBeHidden();
+  await expect(page.locator('.lc-name')).toHaveText('yaml');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.lc-side')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.fp')).toBeHidden();
+  // Открывается снова на той же записи
+  await page.locator('#st-file').click();
+  await page.locator('.fp [data-fs="licenses"]').click();
+  await expect(page.locator('.lc-row[aria-selected="true"]')).toContainText('yaml');
+  expect(errors).toEqual([]);
+
+  // Страница выбора («Справка → Лицензии» в программе): своя страница в том же окне, «Все презентации» — обратно
+  await page.goto('/?licenses');
+  await expect(page).toHaveTitle('Лицензии · Slideria');
+  await expect(page.locator('.lc-sum h1')).toContainText(/\d+ компонент/);
+  await expect(page.locator('.lc-text')).toContainText('Permission is hereby granted');
+  await page.locator('#lc-home').click();
+  await expect(page).toHaveURL(/\?all/);
   expect(errors).toEqual([]);
 });

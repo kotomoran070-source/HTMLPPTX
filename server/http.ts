@@ -123,9 +123,8 @@ function relay(core: DecksCore, o: HttpOptions): Handler {
 }
 
 /**
- * «Лицензии» (вкладка «Инструменты», «Справка → Лицензии» в программе) — страница программы `/?licenses`
- * (src/engine/licenses-page.ts): данные для неё — /data, лицензии Chromium — /chromium. Старый адрес страницы
- * ведёт на новую. Только этому компьютеру
+ * «Лицензии» — раздел «Файл → Лицензии» студии и страница `/?licenses` (src/engine/licenses-view.ts): данные для
+ * них — /data, лицензии Chromium — /chromium. Старый адрес страницы ведёт на новую. Только этому компьютеру
  */
 function licenses(core: DecksCore, o: HttpOptions): Handler {
   return (req, res, next) => {

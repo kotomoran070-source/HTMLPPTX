@@ -158,7 +158,8 @@ http.createServer((req, res) => handle(req, res, () => { res.statusCode = 404; r
    и IP-адреса, остальные — `allowedHosts`.
 2. **Пульт с телефона** (`/__slideria/remote/*`). Из сети пускает только телефон с пропуском (одноразовая
    ссылка из QR). В программе вход для телефона открывает `lan(deck)`, только к показываемой презентации.
-3. **«Лицензии»** — только этому компьютеру. Страница — `/?licenses` (`src/engine/licenses-page.ts`), данные для неё —
+3. **«Лицензии»** — только этому компьютеру. Раздел «Файл → Лицензии» студии и страница `/?licenses`
+   (`src/engine/licenses-view.ts`, `licenses-page.ts`) берут данные из
    `/__slideria/licenses/data` (`plugins/licenses.mjs` → `licensesData`: программа, шрифты, библиотеки сервера и
    студии одной записью на версию, с текстами), лицензии Chromium — `/__slideria/licenses/chromium`. Старый адрес
    `/__slideria/licenses` ведёт на страницу.

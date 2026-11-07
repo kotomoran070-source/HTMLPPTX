@@ -160,8 +160,8 @@
       : '<div class="b-pk"><div class="b-pkbar"><i class="b-mark"></i><i class="b-search"></i><i class="b-btn"></i><i class="b-btn2"></i></div>')
       + '<i class="b-cont"></i><div class="b-pkhead"><i class="b-h1"></i><i class="b-tools"></i></div>' + n('b-grid', 12) + '</div>';
   } else if (mode === 'licenses') {
-    el.innerHTML = (frame ? '<div class="b-pktb"><span><i class="b-mark"></i><i class="b-name"></i></span><i class="b-search"></i></div>'
-      : '<div class="b-pk"><div class="b-pkbar"><i class="b-mark"></i><i class="b-search"></i></div></div>')
+    el.innerHTML = (frame ? '<div class="b-pktb"><span><i class="b-mark"></i><i class="b-name"></i></span></div>'
+      : '<div class="b-pk"><div class="b-pkbar"><i class="b-mark"></i></div></div>')
       + '<div class="b-lc">' + n('b-lcside', 14) + '<div class="b-lcpane"><i></i><i style="width:30%"></i><i style="width:70%"></i><i></i></div></div>';
   }
   el.insertAdjacentHTML('beforeend', wc);

@@ -4,9 +4,10 @@
  * - Сведения — сводка презентации: числа, тяжёлые и лишние файлы, шрифты, название и папка;
  * - Экспорт — форматы карточками, справа — настройки выбранного и «Сохранить»;
  * - Версии — контрольные точки по дням, с первым слайдом каждой; «Вернуть» — одной правкой (Ctrl+Z — обратно);
- * - Параметры — лента (ribbon-setup.ts) и интерфейс: тема, цвет, вид слайдов, облегчённый режим.
+ * - Параметры — лента (ribbon-setup.ts) и интерфейс: тема, цвет, вид слайдов, облегчённый режим;
+ * - Лицензии (внизу, рядом со сборкой программы) — списком и текстом (engine/licenses-view.ts).
  *
- * Внизу — «Все презентации», «Лицензии» и сборка программы. Esc или «Назад» — обратно к слайдам.
+ * Внизу — ещё «Все презентации» и сборка программы. Esc или «Назад» — обратно к слайдам.
  * Кнопка «Файл» — в начале строки вкладок (studio.ts); туда же ведут «Экспорт» из поиска команд, «Сводка»,
  * «Настроить ленту» и щелчок по «Сохранено». Клавиши студии, пока раздел открыт, до слайдов не доходят.
  */
@@ -16,11 +17,12 @@ import { staticSlide } from '../engine/deck-view';
 import { clock } from '../engine/editor/editor';
 import { plural } from '../engine/editor/font-picker';
 import { esc } from '../engine/html';
+import { licensesSummary, loadLicenses, mountLicenses, newLicensesState } from '../engine/licenses-view';
 import { onThemeChange } from '../engine/theme';
 import { collectSummary, fileSize, numText, removeFont, replaceFont, trashUnused, type Summary, type ToolsHost } from './tools';
 import './file-panel.css';
 
-export type FileSection = 'info' | 'export' | 'versions' | 'prefs';
+export type FileSection = 'info' | 'export' | 'versions' | 'prefs' | 'licenses';
 export type Quality = 'compact' | 'normal' | 'high';
 export type UiTheme = 'light' | 'dark' | 'system';
 type Look = 'light' | 'dark' | null;
@@ -62,13 +64,15 @@ export interface FileHost {
     /** У презентации свой вид слайдов («Дизайн» → «Слайды») */
     lookLocked(): boolean;
   };
-  licenses: { run(): void; enabled(): boolean };
+  /** «Лицензии» — только со своим сервером (данные — с него) */
+  licenses: { enabled(): boolean };
   /** «Slideria 1.4 · сборка от …» (запуск из проекта — без сборки); пусто вне программы */
   build(): string;
   /** Раздел открылся или закрылся */
   toggled(open: boolean): void;
 }
 
+/** Разделы сверху; «Лицензии» — внизу, но стрелками до них тоже доходишь */
 const SECTIONS: [FileSection, string, string][] = [
   ['info', 'chart', 'Сведения'],
   ['export', 'save', 'Экспорт'],
@@ -125,7 +129,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     <div class="fp-tabs" role="tablist" aria-orientation="vertical" aria-label="Разделы">${SECTIONS.map(([id, ic, name]) => `<button type="button" role="tab" class="fp-i" id="fp-t-${id}" data-fs="${id}" aria-controls="fp-main" aria-selected="false" tabindex="-1">${icon(ic)}<span>${name}</span></button>`).join('')}</div>
     <div class="fp-hr"></div>
     <a class="fp-i" href="./?all">${icon('grid')}<span>Все презентации</span></a>
-    <button type="button" class="fp-i" data-a="licenses">${icon('shield')}<span>Лицензии</span></button>
+    <button type="button" class="fp-i" id="fp-t-licenses" data-fs="licenses" aria-controls="fp-main" aria-selected="false" tabindex="-1">${icon('shield')}<span>Лицензии</span></button>
     <div class="fp-build"></div>
   </nav>
   <main class="fp-main" id="fp-main" role="tabpanel" tabindex="-1"></main>`;
@@ -253,6 +257,22 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     </div>`;
   }
 
+  // Лицензии: данные — один раз за страницу; поиск, фильтр и выбор — те же, когда раздел открывают снова
+  const licState = newLicensesState();
+  let licView: { focusSearch(): void } | null = null;
+  async function fillLicenses(n: number): Promise<void> {
+    licView = null;
+    const box = main.querySelector<HTMLElement>('.fp-lic');
+    try {
+      const data = await loadLicenses();
+      if (n !== drawn || !box?.isConnected) return;
+      main.querySelector('.fp-lic-sum')!.textContent = licensesSummary(data).join(' · ');
+      licView = mountLicenses(box, data, licState);
+    } catch (e) {
+      if (box?.isConnected) box.innerHTML = `<p class="fp-lic-fail">Список лицензий не загрузился: ${esc((e as Error).message)}. Откройте раздел ещё раз.</p>`;
+    }
+  }
+
   // ---------------- рисование ----------------
 
   let drawn = 0;
@@ -264,12 +284,13 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
       t.tabIndex = on ? 0 : -1;
     });
     main.setAttribute('aria-labelledby', `fp-t-${section}`);
-    const lic = root.querySelector<HTMLButtonElement>('[data-a="licenses"]')!;
+    const lic = root.querySelector<HTMLButtonElement>('[data-fs="licenses"]')!;
     lic.disabled = !host.licenses.enabled();
     root.querySelector('.fp-build')!.textContent = host.build();
     const html = section === 'info' ? await infoHtml()
       : section === 'versions' ? await versionsHtml()
-        : section === 'export' ? exportHtml() : prefsHtml();
+        : section === 'export' ? exportHtml()
+          : section === 'licenses' ? '<div class="fp-head"><h2>Лицензии</h2><p class="fp-lic-sum">&nbsp;</p></div><div class="fp-lic"></div>' : prefsHtml();
     // Пока считалось, выбрали другой раздел или закрыли
     if (n !== drawn || root.hidden) return;
     // Тот же раздел перерисовывается на месте (выбор, тема, сохранение): без появления и с той же прокруткой
@@ -285,6 +306,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     }
     if (section === 'prefs') host.ribbon.mount(main.querySelector<HTMLElement>('.fp-ribbon')!);
     if (section === 'versions') void fillVersions();
+    if (section === 'licenses') void fillLicenses(n);
     if (focusSel) main.querySelector<HTMLElement>(focusSel)?.focus({ preventScroll: true });
     else if (focusMain) main.focus({ preventScroll: true });
   }
@@ -352,7 +374,6 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     }
     if (d.fs) { section = d.fs as FileSection; void render(); return; }
     if (d.a === 'close') return close();
-    if (d.a === 'licenses') return host.licenses.run();
     if (d.a === 'reveal') return host.reveal?.();
     if (d.a === 'export') {
       const mode = format;
@@ -427,7 +448,14 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
       void ed.save().then(() => { if (section === 'versions') void render(); });
       return;
     }
+    // Лицензии: Ctrl+K или «/» — поиск по ним
     const typing = (e.target as HTMLElement).closest('input, textarea, [contenteditable="true"]');
+    if (section === 'licenses' && licView && ((mod && 'kл'.includes(e.key.toLowerCase())) || (e.key === '/' && !typing))) {
+      e.preventDefault();
+      e.stopPropagation();
+      licView.focusSearch();
+      return;
+    }
     if (!mod && !e.altKey && !typing && (e.key.toLowerCase() === 't' || e.key.toLowerCase() === 'е')) {
       e.preventDefault();
       e.stopPropagation();
@@ -437,7 +465,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     const tab = (e.target as HTMLElement).closest<HTMLElement>('[data-fs]');
     if (tab && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
       e.preventDefault();
-      const ids = SECTIONS.map(([id]) => id);
+      const ids: FileSection[] = [...SECTIONS.map(([id]) => id), ...(host.licenses.enabled() ? ['licenses' as const] : [])];
       const i = ids.indexOf(tab.dataset.fs as FileSection);
       const next = e.key === 'Home' ? 0 : e.key === 'End' ? ids.length - 1 : (i + (e.key === 'ArrowDown' ? 1 : -1) + ids.length) % ids.length;
       section = ids[next];

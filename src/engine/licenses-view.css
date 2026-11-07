@@ -1,0 +1,102 @@
+/* Лицензии «списком и текстом» (engine/licenses-view.ts): раздел «Файл → Лицензии» и страница /?licenses.
+   Раскладка — по ширине самого блока (container queries): прокручиваются только список и текст */
+.lc-view {
+  --lc-display: "SL Display", var(--font, system-ui), sans-serif;
+  --lc-side: color-mix(in srgb, var(--surf) 50%, var(--bg));
+  --lc-code: #F1F4F9;
+  --lc-ctl-h: color-mix(in srgb, var(--tx) 5%, transparent);
+  /* Цвета семейств лицензий: точка в значке и фильтре */
+  --lc-mit: #2563EB; --lc-bsd: #0D9488; --lc-apache: #C2410C; --lc-isc: #7C3AED; --lc-lgpl: #BE185D; --lc-ofl: #15803D; --lc-other: #64748B;
+  container: lcv / inline-size;
+  min-height: 0; height: 100%; color: var(--tx);
+}
+:root[data-theme="dark"] .lc-view { --lc-code: #0B1324; --lc-mit: #60A5FA; --lc-bsd: #2DD4BF; --lc-apache: #FB923C; --lc-isc: #A78BFA; --lc-lgpl: #F472B6; --lc-ofl: #4ADE80; --lc-other: #94A3B8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lc-view { --lc-code: #0B1324; --lc-mit: #60A5FA; --lc-bsd: #2DD4BF; --lc-apache: #FB923C; --lc-isc: #A78BFA; --lc-lgpl: #F472B6; --lc-ofl: #4ADE80; --lc-other: #94A3B8; } }
+.lc-view .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.lc-view :where(button, input) { font: inherit; color: inherit; }
+.lc-view :focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+.lc-grid { height: 100%; min-height: 0; display: grid; grid-template-columns: clamp(290px, 30%, 420px) minmax(0, 1fr); }
+.lc-list, .lc-pane { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--tx) 24%, transparent) transparent; }
+
+/* ---------- слева: поиск, фильтр, список ---------- */
+.lc-side { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); border-right: 1px solid var(--bd); background: var(--lc-side); }
+.lc-head { padding: 14px 14px 12px; display: grid; gap: 10px; border-bottom: 1px solid var(--bd); }
+.lc-sum h1 { margin: 0; font: 400 17px/1.25 var(--lc-display); letter-spacing: -.01em; }
+.lc-sum p { margin: 2px 0 0; font-size: 12.5px; color: var(--mu); }
+.lc-search { position: relative; display: block; }
+.lc-search > .ic { position: absolute; left: 11px; top: 50%; translate: 0 -50%; color: var(--mu); pointer-events: none; }
+.lc-search input { width: 100%; box-sizing: border-box; height: 32px; padding: 0 34px 0 34px; border: 1px solid var(--bd); border-radius: 8px; background: var(--surf); font-size: 13px; outline: none; transition: border-color .15s, box-shadow .15s; }
+.lc-search input:hover { border-color: var(--bd2); }
+.lc-search input::placeholder { color: var(--mu); }
+.lc-search input:focus { border-color: var(--ac); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 16%, transparent); }
+.lc-search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }
+.lc-clear { position: absolute; right: 5px; top: 50%; translate: 0 -50%; width: 22px; height: 22px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--tx2); cursor: pointer; }
+.lc-clear[hidden] { display: none; }
+.lc-clear:hover { background: var(--lc-ctl-h); color: var(--tx); }
+.lc-clear .ic { width: 13px; height: 13px; stroke-width: 2.2; }
+.lc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.lc-chip { height: 26px; padding: 0 9px; display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; border: 1px solid var(--bd); background: var(--surf); color: var(--tx2); font-size: 12px; white-space: nowrap; cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
+.lc-chip:hover { border-color: var(--bd2); }
+.lc-chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.lc-chip small { color: var(--mu); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.lc-chip[aria-pressed="true"] { border-color: color-mix(in srgb, var(--c, var(--ac)) 60%, transparent); background: color-mix(in srgb, var(--c, var(--ac)) 12%, var(--surf)); color: var(--tx); }
+.lc-list { overflow-y: auto; padding: 6px 8px 18px; }
+.lc-grp { position: sticky; top: -6px; z-index: 1; display: flex; justify-content: space-between; padding: 12px 10px 6px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--mu); background: var(--lc-side); }
+.lc-row { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 7px 10px; border: 0; border-radius: 8px; background: none; color: var(--tx); text-align: left; cursor: pointer; }
+.lc-row:hover { background: var(--lc-ctl-h); }
+.lc-row[aria-selected="true"] { background: var(--acs); }
+.lc-row[aria-selected="true"] .lc-nm { color: var(--ac); }
+.lc-view .lc-row:focus-visible { outline-offset: -2px; }
+.lc-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; font-weight: 500; }
+.lc-ver { margin-left: 6px; font: 400 12px ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: var(--mu); font-variant-numeric: tabular-nums; }
+.lc-empty { padding: 30px 12px; text-align: center; color: var(--mu); font-size: 13px; }
+
+/* Значок лицензии: точка цвета семейства и название */
+.lc-view [data-f="mit"] { --c: var(--lc-mit); } .lc-view [data-f="bsd"] { --c: var(--lc-bsd); } .lc-view [data-f="apache"] { --c: var(--lc-apache); }
+.lc-view [data-f="isc"] { --c: var(--lc-isc); } .lc-view [data-f="lgpl"] { --c: var(--lc-lgpl); } .lc-view [data-f="ofl"] { --c: var(--lc-ofl); } .lc-view [data-f="other"] { --c: var(--lc-other); }
+.lc-pill { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 6px; font-size: 11.5px; font-weight: 500; white-space: nowrap;
+  color: color-mix(in srgb, var(--c) 82%, var(--tx)); background: color-mix(in srgb, var(--c) 11%, transparent); }
+.lc-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
+
+/* ---------- справа: текст лицензии ---------- */
+.lc-pane { min-width: 0; min-height: 0; overflow-y: auto; padding: clamp(18px, 3cqi, 36px) clamp(18px, 3.5cqi, 48px) 36px; }
+.lc-det { display: grid; align-items: start; }
+.lc-doc { min-width: 0; display: grid; align-content: start; gap: 16px; }
+.lc-back-row { display: none; }
+.lc-k { font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--mu); }
+.lc-name { margin: -8px 0 0; font: 500 clamp(19px, calc(1.2cqi + 8px), 24px)/1.2 var(--lc-display); letter-spacing: -.015em; text-wrap: balance; overflow-wrap: anywhere; }
+.lc-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; max-width: 860px; }
+.lc-meta .lc-ver { margin: 0; font-size: 13px; }
+.lc-btn { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; border: 1px solid var(--bd); border-radius: 8px; background: var(--surf); color: var(--tx); font-size: 13px; font-weight: 500; white-space: nowrap; text-decoration: none; cursor: pointer; transition: border-color .15s, background .15s; }
+.lc-btn:hover { border-color: var(--bd2); background: color-mix(in srgb, var(--tx) 4%, var(--surf)); }
+.lc-btn .ic { width: 15px; height: 15px; color: var(--ac); }
+.lc-copy { margin-left: auto; }
+.lc-about { margin: 0; max-width: 72ch; color: var(--tx2); }
+.lc-none { color: var(--mu); }
+.lc-fonts { display: flex; flex-wrap: wrap; gap: 6px; max-width: 860px; }
+.lc-fonts span { padding: 3px 9px; border-radius: 6px; background: var(--alt); font-size: 12.5px; color: var(--tx2); }
+.lc-text { margin: 0; max-width: 860px; padding: 18px 20px; border-radius: 10px; border: 1px solid var(--bd); background: var(--lc-code); color: var(--tx2);
+  font: 400 12.5px/1.65 ui-monospace, "SF Mono", Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.lc-aside { display: none; }
+.lc-aside h3 { margin: 0; font-size: 11.5px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--mu); }
+.lc-aside p { margin: 0; font-size: 13px; color: var(--tx2); }
+.lc-aside ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.lc-aside li button { padding: 0; border: 0; background: none; color: var(--ac); font-size: 13px; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+.lc-aside li button:hover { text-decoration: underline; }
+.lc-aside .lc-more { color: var(--mu); }
+/* Широко: текст — колонкой для чтения, рядом — где используется и что ещё под той же лицензией. Только когда
+   рядом с ним текст лицензии (80 знаков в строке) всё равно помещается без лишних переносов */
+@container lcv (min-width: 1480px) {
+  .lc-det { grid-template-columns: minmax(0, 860px) minmax(200px, 280px); gap: 36px; }
+  .lc-aside { position: sticky; top: 0; display: grid; gap: 12px; padding: 16px; border: 1px solid var(--bd); border-radius: 10px; background: var(--surf); }
+  .lc-aside p + h3, .lc-aside ul + h3 { margin-top: 6px; }
+}
+/* Узко: список во всю ширину, текст — вместо него, со «Все компоненты» (как NARROW в licenses-view.ts) */
+@container lcv (max-width: 699.98px) {
+  .lc-grid { grid-template-columns: minmax(0, 1fr); }
+  .lc-side { border-right: 0; }
+  .lc-pane { display: none; }
+  .lc-view.open .lc-side { display: none; }
+  .lc-view.open .lc-pane { display: block; }
+  .lc-back-row { display: block; }
+}

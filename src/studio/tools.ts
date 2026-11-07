@@ -21,6 +21,8 @@ export interface ToolsHost {
   go(i: number): void;
   /** Открыть «Файл → Сведения» */
   info(): void;
+  /** Открыть «Файл → Лицензии» */
+  licenses(): void;
 }
 
 interface Command { run(): void; enabled?(): boolean }
@@ -64,7 +66,7 @@ export function toolsCommands(h: ToolsHost): Record<string, Command> {
     'tools.font': { run: () => replaceFont(h, anchor('tools.font')) },
     'tools.tidy': { run: () => tidy(h, anchor('tools.tidy')) },
     // Страницу отдаёт сервер студии (server/http.ts): у файла, открытого с диска, его нет — лицензии лежат в самом файле
-    'tools.licenses': { run: () => window.open('/?licenses', 'slideria-licenses')?.focus(), enabled: () => location.protocol.startsWith('http') },
+    'tools.licenses': { run: () => h.licenses(), enabled: () => location.protocol.startsWith('http') },
     'tools.notes-clear': { run: () => clearNotes(h), enabled: () => h.deck.slides.some((s) => typeof s.notes === 'string' && s.notes.trim()) },
   };
 }

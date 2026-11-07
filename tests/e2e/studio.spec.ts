@@ -1235,55 +1235,6 @@ test('«Цвет+» у GIF: все кадры перекрашены, анима
   expect(errors).toEqual([]);
 });
 
-test('«Инструменты» → «Лицензии»: список и текст, фильтр, поиск, клавиатура, узкое окно', async ({ page, context }) => {
-  const errors = watchErrors(page);
-  await page.goto('/?deck=tpl&studio#1');
-  await page.locator('[data-tab="tools"]').click();
-  const [lic] = await Promise.all([context.waitForEvent('page'), page.locator('.st-ribbon [data-cmd="tools.licenses"]').click()]);
-  const licErrors = watchErrors(lic);
-  await expect(lic).toHaveTitle('Лицензии · Slideria');
-  // Сразу выбрана Slideria: её текст справа
-  await expect(lic.locator('.lc-row[aria-selected="true"]')).toContainText('Slideria');
-  await expect(lic.locator('.lc-name')).toHaveText('Slideria');
-  await expect(lic.locator('.lc-text')).toContainText('Permission is hereby granted');
-  // Electron нет — нет и его лицензии (страница из yarn dev)
-  await expect(lic.locator('.lc-row', { hasText: 'Electron' })).toHaveCount(0);
-  const all = await lic.locator('.lc-row').count();
-  expect(all).toBeGreaterThan(40);
-  // Фильтр по лицензии: только OFL — шрифты, их текст
-  await lic.locator('.lc-chip[data-f="ofl"]').click();
-  await expect(lic.locator('.lc-row')).toHaveCount(1);
-  await lic.locator('.lc-row').click();
-  await expect(lic.locator('.lc-text')).toContainText('SIL OPEN FONT LICENSE');
-  await expect(lic.locator('.lc-fonts span', { hasText: 'Unbounded' })).toHaveCount(1);
-  await lic.locator('.lc-chip[data-f="all"]').click();
-  await expect(lic.locator('.lc-row')).toHaveCount(all);
-  // Поиск (Ctrl+K), стрелка вниз — в список, стрелки — по строкам, текст следует за выбором
-  await lic.keyboard.press('Control+k');
-  await expect(lic.locator('#lc-q')).toBeFocused();
-  await lic.keyboard.type('qrcode');
-  await expect(lic.locator('.lc-row')).toHaveCount(1);
-  await lic.keyboard.press('ArrowDown');
-  await lic.keyboard.press('Enter');
-  await expect(lic.locator('.lc-name')).toHaveText('qrcode-generator');
-  await lic.locator('#lc-q').press('Escape');
-  await expect(lic.locator('.lc-row')).toHaveCount(all);
-  await lic.locator('.lc-row[aria-selected="true"]').focus();
-  await lic.keyboard.press('ArrowDown');
-  await expect(lic.locator('.lc-name')).not.toHaveText('qrcode-generator');
-  await expect(lic.locator('.lc-row[aria-selected="true"]')).toBeFocused();
-  // Узкое окно: один список, текст — вместо него, Esc — обратно
-  await lic.setViewportSize({ width: 600, height: 800 });
-  await expect(lic.locator('.lc-pane')).toBeHidden();
-  await lic.locator('.lc-row[data-id^="yaml@"]').click();
-  await expect(lic.locator('.lc-side')).toBeHidden();
-  await expect(lic.locator('.lc-name')).toHaveText('yaml');
-  await lic.keyboard.press('Escape');
-  await expect(lic.locator('.lc-side')).toBeVisible();
-  expect(licErrors).toEqual([]);
-  expect(errors).toEqual([]);
-});
-
 test('фигура: тень, скругление, поворот, прозрачность — плитками на образце, наведение примеряет на самой фигуре', async ({ page }) => {
   const errors = watchErrors(page);
   const before = readDeck('tpl');

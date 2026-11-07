@@ -113,15 +113,16 @@ test('первый запуск: «Моя первая презентация»,
     expect(await app.evaluate(() => (globalThis as { shown?: number }).shown)).toBe(0);
     // Редактор говорит, что PDF готов и где он
     await expect(win.locator('#ed-toast')).toContainText('PDF сохранён');
-    // «Справка → Лицензии» — окно программы с той же страницей, что у кнопки на вкладке «Инструменты»
-    const [lic] = await Promise.all([app.waitForEvent('window'), app.evaluate(({ Menu }) => {
+    // «Справка → Лицензии» в студии — раздел «Файл → Лицензии», как у кнопки на вкладке «Инструменты»: без нового окна
+    const lic = win;
+    const windows = app.windows().length;
+    await app.evaluate(({ Menu }) => {
       const help = Menu.getApplicationMenu()!.items.find((i) => i.label === 'Справка')!;
       help.submenu!.items.find((i) => i.label === 'Лицензии')!.click();
-    })]);
-    await expect(lic).toHaveTitle('Лицензии · Slideria');
-    // Окно со своим заголовком: шапка страницы и наши кнопки окна; Slideria, Electron, Chromium, шрифты, библиотеки
-    await expect(lic.locator('.lc .pk-top[data-titlebar]')).toBeVisible();
-    if (process.platform !== 'darwin') await expect(lic.locator('.app-wc [data-wc="close"]')).toBeVisible();
+    });
+    await expect(lic.locator('.fp [data-fs="licenses"]')).toHaveAttribute('aria-selected', 'true');
+    expect(app.windows().length).toBe(windows);
+    // Slideria, Electron, Chromium, шрифты, библиотеки
     await expect(lic.locator('.lc-text')).toContainText('Permission is hereby granted');
     for (const t of ['Electron', 'Chromium', 'Шрифты тем и формул', 'qrcode-generator']) await expect(lic.locator('.lc-row', { hasText: t }).first()).toBeVisible();
     await lic.locator('.lc-row', { hasText: 'Electron' }).click();
@@ -130,9 +131,8 @@ test('первый запуск: «Моя первая презентация»,
     await lic.locator('.lc-row', { hasText: 'Chromium' }).click();
     await expect(lic.locator('.lc-pane a[href="/__slideria/licenses/chromium"]')).toBeVisible();
     expect(await lic.evaluate(() => fetch('/__slideria/licenses/chromium').then((r) => r.status))).toBe(200);
-    // У страницы свой фон: тёмная подложка окна программы не просвечивает под тёмным текстом
-    expect(await lic.evaluate(() => getComputedStyle(document.body).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
-    await lic.close();
+    await lic.keyboard.press('Escape');
+    await expect(lic.locator('.fp')).toBeHidden();
     // Показ — крупным окном (80 % экрана), в заголовке без значка
     const [show] = await Promise.all([app.waitForEvent('window'), win.keyboard.press('F5')]);
     await expect(show).toHaveTitle(/^Показ — /);

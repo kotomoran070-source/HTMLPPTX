@@ -1,98 +1,25 @@
-/* Страница «Лицензии» (engine/licenses-page.ts): шапка — как у страницы выбора (picker.css), ниже — список
-   и текст выбранной лицензии. Окно целиком: прокручиваются только список и текст */
-body.lc-page {
-  --lc-side: color-mix(in srgb, var(--surf) 45%, var(--bg));
-  --lc-code: #F1F4F9;
-  /* Цвета семейств лицензий: точка в значке и фильтре */
-  --lc-mit: #2563EB; --lc-bsd: #0D9488; --lc-apache: #C2410C; --lc-isc: #7C3AED; --lc-lgpl: #BE185D; --lc-ofl: #15803D; --lc-other: #64748B;
-  overflow: hidden;
-}
-:root[data-theme="dark"] body.lc-page { --lc-code: #0B1324; --lc-mit: #60A5FA; --lc-bsd: #2DD4BF; --lc-apache: #FB923C; --lc-isc: #A78BFA; --lc-lgpl: #F472B6; --lc-ofl: #4ADE80; --lc-other: #94A3B8; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) body.lc-page { --lc-code: #0B1324; --lc-mit: #60A5FA; --lc-bsd: #2DD4BF; --lc-apache: #FB923C; --lc-isc: #A78BFA; --lc-lgpl: #F472B6; --lc-ofl: #4ADE80; --lc-other: #94A3B8; } }
-
+/* Страница «Лицензии» (engine/licenses-page.ts): шапка — как у страницы выбора (picker.css), ниже — лицензии
+   «списком и текстом» (licenses-view.css). Окно целиком: прокручиваются только список и текст */
+body.lc-page { overflow: hidden; }
 .pk.lc { height: 100vh; height: 100dvh; min-height: 0; }
 .app-frame .pk.lc { height: auto; overflow: hidden; }
 .lc .pk-top { border-bottom-color: var(--bd); }
 .lc-where { display: flex; align-items: center; gap: 12px; font-size: 13.5px; color: var(--tx2); white-space: nowrap; }
 .lc-where::before { content: ""; width: 1px; height: 18px; background: var(--pk-ctl-bd); }
-/* Программа: тема — справа, перед кнопками окна */
+.lc-gap { flex: 1; }
+.lc .pk-top .lc-acts { gap: 6px; }
+/* Программа: «Все презентации» и тема — справа, перед кнопками окна */
 .app-frame .lc .pk-bar { grid-template-columns: minmax(max-content, 1fr) minmax(0, 480px) minmax(max-content, 1fr); }
 .app-frame .lc .pk-top .lc-acts { justify-content: flex-end; padding-right: max(0px, calc(var(--tb-right) - 6px)); }
 .app-frame .lc .pk-top .lc-acts::before { display: none; }
-@media (max-width: 700px) { .lc-where { display: none; } }
-.lc .pk-btn { height: 32px; padding: 0 12px; gap: 7px; font-size: 13px; font-weight: 500; }
-.lc .pk-btn .ic { width: 15px; height: 15px; color: var(--ac); }
-.lc .ic { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; }
-.lc button { font-family: inherit; }
+.lc .pk-top .pk-btn { height: 32px; padding: 0 12px; gap: 7px; font-size: 13px; font-weight: 500; }
+.lc .pk-top .pk-ibtn { width: 32px; padding: 0; }
+.lc .pk-top .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+@media (max-width: 700px) { .lc-where { display: none; } #lc-home { width: 32px; padding: 0; justify-content: center; } #lc-home span { display: none; } }
 
-.lc-main { flex: 1; min-height: 0; display: grid; grid-template-columns: clamp(340px, 30vw, 440px) minmax(0, 1fr); }
+.lc-main { flex: 1; min-height: 0; }
 .app-frame .lc-main { height: 100%; }
-.lc-list, .lc-pane { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--tx) 24%, transparent) transparent; }
-
-/* ---------- слева: сводка, фильтр, список ---------- */
-.lc-side { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); border-right: 1px solid var(--bd); background: var(--lc-side); }
-.lc-head { padding: 18px 18px 14px; display: grid; gap: 12px; border-bottom: 1px solid var(--bd); }
-.lc-count { margin: 0; font: 400 17px/1.25 var(--pk-display); letter-spacing: -.01em; }
-.lc-build { margin: 2px 0 0; font-size: 12.5px; color: var(--mu); }
-.lc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.lc-chip { height: 28px; padding: 0 9px; display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; border: 1px solid var(--pk-ctl-bd); background: var(--pk-ctl); color: var(--tx2); font-size: 12.5px; white-space: nowrap; cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
-.lc-chip:hover { border-color: var(--pk-ctl-bdh); background: var(--pk-ctl-h); }
-.lc-chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
-.lc-chip small { color: var(--mu); font-size: 12px; font-variant-numeric: tabular-nums; }
-.lc-chip[aria-pressed="true"] { border-color: color-mix(in srgb, var(--c, var(--ac)) 60%, transparent); background: color-mix(in srgb, var(--c, var(--ac)) 12%, var(--surf)); color: var(--tx); }
-.lc-list { overflow-y: auto; padding: 6px 8px 18px; }
-.lc-grp { position: sticky; top: -6px; z-index: 1; display: flex; justify-content: space-between; padding: 12px 10px 6px; font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--mu); background: linear-gradient(var(--lc-side) 70%, transparent); }
-.lc-row { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 7px 10px; border: 0; border-radius: 8px; background: none; color: var(--tx); text-align: left; cursor: pointer; }
-.lc-row:hover { background: var(--pk-ctl-h); }
-.lc-row[aria-selected="true"] { background: var(--acs); }
-.lc-row[aria-selected="true"] .lc-nm { color: var(--ac); }
-.lc-row:focus-visible { outline: 2px solid var(--ac); outline-offset: -2px; }
-.lc-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; font-weight: 500; }
-.lc-ver { margin-left: 6px; font: 400 12px ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: var(--mu); font-variant-numeric: tabular-nums; }
-.lc-empty { padding: 30px 12px; text-align: center; color: var(--mu); font-size: 13px; }
-
-/* Значок лицензии: точка цвета семейства и название */
-[data-f="mit"] { --c: var(--lc-mit); } [data-f="bsd"] { --c: var(--lc-bsd); } [data-f="apache"] { --c: var(--lc-apache); }
-[data-f="isc"] { --c: var(--lc-isc); } [data-f="lgpl"] { --c: var(--lc-lgpl); } [data-f="ofl"] { --c: var(--lc-ofl); } [data-f="other"] { --c: var(--lc-other); }
-.lc-pill { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 6px; font-size: 11.5px; font-weight: 500; white-space: nowrap;
-  color: color-mix(in srgb, var(--c) 82%, var(--tx)); background: color-mix(in srgb, var(--c) 11%, transparent); }
-.lc-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
-
-/* ---------- справа: текст лицензии ---------- */
-.lc-pane { min-width: 0; overflow-y: auto; padding: clamp(20px, 3vw, 40px) clamp(20px, 4vw, 64px) 40px; }
-.lc-det { display: grid; align-items: start; }
-.lc-doc { min-width: 0; display: grid; align-content: start; gap: 18px; }
-.lc-doc > div:first-child:has(.lc-back) { display: none; }
-.lc-k { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--mu); }
-.lc-name { margin: -8px 0 0; font: 500 clamp(20px, calc(1.2vw + 8px), 26px)/1.2 var(--pk-display); letter-spacing: -.015em; text-wrap: balance; overflow-wrap: anywhere; }
-.lc-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; max-width: 860px; }
-.lc-meta .lc-ver { margin: 0; font-size: 13px; }
-.lc-copy { margin-left: auto; }
-.lc-about { margin: 0; max-width: 72ch; color: var(--tx2); }
-.lc-none { color: var(--mu); }
-.lc-fonts { display: flex; flex-wrap: wrap; gap: 6px; max-width: 860px; }
-.lc-fonts span { padding: 3px 9px; border-radius: 6px; background: var(--alt); font-size: 12.5px; color: var(--tx2); }
-.lc-text { margin: 0; max-width: 860px; padding: 18px 20px; border-radius: 10px; border: 1px solid var(--bd); background: var(--lc-code); color: var(--tx2);
-  font: 400 12.5px/1.65 ui-monospace, "SF Mono", Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
-.lc-aside { display: none; }
-.lc-aside h3 { margin: 0; font-size: 12px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; color: var(--mu); }
-.lc-aside p { margin: 0; font-size: 13px; color: var(--tx2); }
-.lc-aside ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
-.lc-aside li button { padding: 0; border: 0; background: none; color: var(--ac); font-size: 13px; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
-.lc-aside li button:hover { text-decoration: underline; }
-.lc-aside .lc-more { color: var(--mu); }
-/* Широкое окно: текст — колонкой для чтения, рядом — где используется и что ещё под той же лицензией */
-@media (min-width: 1500px) {
-  .lc-det { grid-template-columns: minmax(0, 860px) minmax(220px, 300px); gap: 40px; }
-  .lc-aside { position: sticky; top: 0; display: grid; gap: 12px; padding: 16px; border: 1px solid var(--bd); border-radius: 10px; background: var(--surf); }
-  .lc-aside p + h3, .lc-aside ul + h3 { margin-top: 6px; }
-}
-/* Узкое окно: список во всю ширину, текст — вместо него, со «Все компоненты» */
-@media (max-width: 760px) {
-  .lc-main { grid-template-columns: minmax(0, 1fr); }
-  .lc-side { border-right: 0; }
-  .lc-pane { display: none; }
-  .lc.open .lc-side { display: none; }
-  .lc.open .lc-pane { display: block; }
-  .lc-doc > div:first-child:has(.lc-back) { display: block; }
-}
+.lc-page .lc-view { --lc-display: var(--pk-display); }
+.lc-fail { padding: 40px clamp(20px, 4vw, 64px); }
+.lc-fail h2 { margin: 0 0 8px; font: 500 22px/1.2 var(--pk-display); }
+.lc-fail p { margin: 0; color: var(--mu); }

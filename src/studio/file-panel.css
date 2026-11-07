@@ -39,6 +39,11 @@
 @keyframes fp-sec { from { opacity: 0; } }
 .fp-head h2 { margin: 0 0 4px; font: 500 24px/1.2 "SL Display", var(--font); letter-spacing: -.02em; color: var(--tx); }
 .fp-head p { margin: 0 0 24px; color: var(--mu); }
+/* Лицензии: список и текст — на всю высоту раздела, прокручиваются сами (engine/licenses-view.css) */
+.fp-main[data-sec="licenses"] { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 24px; }
+.fp-main[data-sec="licenses"] > .fp-sec { flex: 1; min-height: 0; max-width: 1720px; display: flex; flex-direction: column; }
+.fp-lic { flex: 1; min-height: 0; border: 1px solid var(--bd); border-radius: 12px; overflow: hidden; background: var(--surf); }
+.fp-lic-fail { margin: 0; padding: 24px; color: var(--mu); }
 .fp-k { margin: 0 0 10px; font: 500 11px/1.2 var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--mu); }
 .fp-card { background: var(--surf); border: 1px solid var(--bd); border-radius: 10px; }
 .fp-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 14px; border: 1px solid var(--bd); border-radius: 8px; background: var(--surf); color: var(--tx); font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: background .15s, border-color .15s; }
