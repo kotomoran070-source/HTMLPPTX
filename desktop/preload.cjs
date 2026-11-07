@@ -23,7 +23,7 @@ contextBridge.exposeInMainWorld('slideriaApp', {
   frame: ipcRenderer.sendSync('slideria:frame'),
   /** Mac — системный «светофор» слева; Windows и Linux — кнопки окна рисует страница, справа */
   platform: process.platform,
-  /** Полоса заголовка и фон страницы: { height, bg } — «светофор» Mac по высоте, фон окна — как у страницы */
+  /** Высота полосы заголовка: { height } — на Mac по ней ставится «светофор» */
   titleBar: (c) => ipcRenderer.send('slideria:titlebar', c),
   /** Кнопки окна страницы (Windows, Linux): 'min' | 'max' (развернуть или восстановить) | 'close' */
   control: (a) => ipcRenderer.send('slideria:window', a),
