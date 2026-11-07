@@ -14,10 +14,19 @@ test('меню появляется от кнопки и гаснет призр
   await page.locator('[data-cmd="file.export"]').first().click();
   await expect(menu).toBeVisible();
   expect(await menu.evaluate((m) => getComputedStyle(m).animationName)).toBe('ui-in');
+  // Призрак ловим в момент появления: сколько меню на странице было тогда (гаснет он быстро — под нагрузкой
+  // отдельная проверка после Esc могла бы его уже не застать)
+  await page.evaluate(() => {
+    const w = window as unknown as { seen: number[] };
+    w.seen = [];
+    new MutationObserver((l) => {
+      for (const r of l) for (const n of r.addedNodes) if (n instanceof HTMLElement && n.matches('div[aria-hidden="true"][inert]')) w.seen.push(document.querySelectorAll('.st-menu').length);
+    }).observe(document.body, { childList: true });
+  });
   await page.keyboard.press('Escape');
-  // Меню уже убрано, а его призрак ещё гаснет — и ничего не перекрывает
-  await expect(menu).toHaveCount(0, { timeout: 50 });
-  expect(await ghosts(page)).toBe(1);
+  // Меню убрано сразу, а гаснет его призрак — и сам уходит
+  await expect(menu).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { seen: number[] }).seen)).toEqual([0]);
   await expect.poll(() => ghosts(page), { timeout: 1000 }).toBe(0);
   // Открыть снова сразу после закрытия — одно меню
   await page.locator('[data-cmd="file.export"]').first().click();
