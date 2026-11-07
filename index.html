@@ -57,8 +57,11 @@
 @media (max-width: 520px) { #boot .b-pk .b-search { visibility: hidden; } }
 #boot.b-show { background: var(--b-alt); }
 /* Программа: заголовок окна — шапка страницы выбора; в студии — тонкая полоса над шапкой (engine/titlebar.ts) */
-.app-frame #boot.b-studio { grid-template-rows: 36px 48px var(--rh, 113px) minmax(0, 1fr) 30px; }
-.b-tbar { background: var(--b-surf); }
+.app-frame #boot.b-studio { grid-template-rows: 40px 48px var(--rh, 113px) minmax(0, 1fr) 30px; }
+.b-tbar { position: relative; display: flex; align-items: center; gap: 8px; padding: 0 0 0 calc(10px + var(--tb-left, 0px)); background: var(--b-surf); }
+#boot .b-tbar i { width: 28px; height: 28px; border-radius: 8px; }
+#boot .b-tbar i.b-q { width: 20px; height: 20px; border-radius: 5px; opacity: .7; }
+#boot .b-tbar i.b-t { position: absolute; left: 50%; translate: -50% 0; width: 220px; height: 12px; }
 /* Страница выбора в программе: шапка во всю ширину окна — знак, кнопки слева, поиск по середине (engine/picker.css) */
 .b-pktb { height: 48px; display: grid; gap: 16px; align-items: center; padding: 0 14px 0 calc(var(--tb-left, 0px) + 14px); grid-template-columns: minmax(max-content, 1fr) minmax(0, 480px) minmax(max(0px, calc(var(--tb-right, 0px) - 14px)), 1fr); }
 .b-pktb span { display: flex; align-items: center; gap: 6px; }
@@ -96,7 +99,7 @@
   // кнопки окна (Windows, Linux) каркас рисует те же, что потом страница (engine/titlebar.ts)
   var app = window.slideriaApp, frame = app && app.frame, wc = '';
   if (frame) {
-    var tbh = mode === 'studio' ? 36 : mode === 'picker' ? 48 : 32;
+    var tbh = mode === 'studio' ? 40 : mode === 'picker' ? 48 : 32;
     html.classList.add('app-frame');
     if (app.platform) html.setAttribute('data-platform', app.platform);
     html.style.setProperty('--tb-h', tbh + 'px');
@@ -130,7 +133,7 @@
     el.style.setProperty('--rw', lay.right === false ? '0px' : px(lay.rw, 292, 220, 520));
     el.style.setProperty('--nh', get('htmlpptx-studio-notes') === '0' ? '0px' : px(lay.nh, 128, 64, 420));
     if (lay.ribbon === false) el.style.setProperty('--rh', '0px');
-    el.innerHTML = (frame ? '<div class="b-tbar"></div>' : '') + '<div class="b-top"><i class="b-logo"></i><i style="width:150px;height:12px"></i><span class="b-tabs"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="b-r"><i></i><i></i><i class="b-btn"></i></span></div>'
+    el.innerHTML = (frame ? '<div class="b-tbar"><i></i><i class="b-q" style="margin-left:14px"></i><i class="b-q"></i><i class="b-t"></i></div><div class="b-top"><span class="b-tabs" style="margin-left:6px">' : '<div class="b-top"><i class="b-logo"></i><i style="width:150px;height:12px"></i><span class="b-tabs">') + '<i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="b-r"><i></i><i></i><i class="b-btn"></i></span></div>'
       + (lay.ribbon === false ? '<div></div>' : n('b-rib', 8))
       + '<div class="b-body">' + (lay.left === false ? '<div></div>' : n('b-left', 9))
       + '<div class="b-main"><div class="b-canvas"><i class="b-slide"></i></div><div class="b-notes"></div></div>'

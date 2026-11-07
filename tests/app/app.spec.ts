@@ -85,8 +85,8 @@ test('первый запуск: «Моя первая презентация»,
     await win.goto(win.url().replace(/\?all$/, '?deck=moya-pervaya-prezentaciya&studio'));
     await expect(win.locator('#st-canvas .slide')).not.toHaveCount(0);
     // В студии заголовок окна — тонкая полоса над шапкой, шапка под ней не перетаскивает окно
-    await expect.poll(bar).toMatchObject({ frame: true, el: 'st-tbar', drag: 'drag', wc: WC, wcH: WC.map(() => 36) });
-    expect(await win.evaluate(() => [document.querySelector('.studio-app')!.getBoundingClientRect().top, getComputedStyle(document.querySelector('.st-top')!).getPropertyValue('-webkit-app-region')])).toEqual([36, 'none']);
+    await expect.poll(bar).toMatchObject({ frame: true, el: 'st-tbar', drag: 'drag', wc: WC, wcH: WC.map(() => 40) });
+    expect(await win.evaluate(() => [document.querySelector('.studio-app')!.getBoundingClientRect().top, getComputedStyle(document.querySelector('.st-top')!).getPropertyValue('-webkit-app-region')])).toEqual([40, 'none']);
     // Окно с листами для PDF не появляется на экране
     await app.evaluate(({ app: a }) => {
       const g = globalThis as { shown?: number };

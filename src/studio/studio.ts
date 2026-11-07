@@ -138,13 +138,24 @@ export function startStudio(deck: Deck, deckKey: string): void {
   // Набор формул — заранее: галерея «Уравнения» и вставленная формула рисуются сразу
   void loadMath();
   document.body.classList.add('studio');
-  // В программе над шапкой — полоса заголовка окна (studio.css, engine/titlebar.ts); в браузере её нет
+  // В программе над шапкой — полоса заголовка окна (studio.css, engine/titlebar.ts): знак, «Отменить» и «Повторить»,
+  // по середине — название и «Сохранено», справа — тема. В браузере полосы нет — всё это в шапке
+  const framed = document.documentElement.classList.contains('app-frame');
+  const homeHtml = `<a class="st-home" href="./?all" title="Slideria — все презентации" aria-label="Все презентации">${brandMark()}</a>`;
+  const titleHtml = '<input class="st-title" id="st-title" aria-label="Название презентации" spellcheck="false">';
+  const statusHtml = '<button type="button" class="st-status" id="st-status" role="status" aria-live="polite"></button>';
+  const themeHtml = `<button class="ibtn small theme-btn" id="st-theme" type="button" aria-label="Тема интерфейса" title="Тема интерфейса (T)">${icon('sun', 'ic sun')}${icon('moon', 'ic moon')}</button>`;
   document.body.innerHTML = `
-<div class="st-tbar" data-titlebar aria-hidden="true"></div>
+${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
+  ${homeHtml}<span class="st-tb-sep"></span>
+  <button type="button" class="st-qa" data-cmd="undo" aria-label="Отменить" title="Отменить (Ctrl+Z)">${icon('undo')}</button>
+  <button type="button" class="st-qa" data-cmd="redo" aria-label="Повторить" title="Повторить (Ctrl+Y)">${icon('redo')}</button>
+  <div class="st-tb-doc">${titleHtml}${statusHtml}</div>
+  <div class="st-tb-r">${themeHtml}</div>
+</div>` : ''}
 <div class="studio-app">
   <header class="st-top" data-ed-keep>
-    <a class="st-home" href="./?all" title="Slideria — все презентации" aria-label="Все презентации">${brandMark()}</a>
-    <input class="st-title" id="st-title" aria-label="Название презентации" spellcheck="false">
+    ${framed ? '' : homeHtml + titleHtml}
     <nav class="st-tabs" role="tablist" aria-label="Вкладки ленты">
       <button type="button" role="tab" data-tab="home" aria-selected="true">Главная</button>
       <button type="button" role="tab" data-tab="insert" aria-selected="false">Вставка</button>
@@ -158,10 +169,10 @@ export function startStudio(deck: Deck, deckKey: string): void {
     </nav>
     <div class="st-pal" id="st-pal" role="search"></div>
     <div class="st-top-r">
-      <button type="button" class="st-status" id="st-status" role="status" aria-live="polite"></button>
+      ${framed ? '' : statusHtml}
       <button class="btn ghost small st-export" type="button" data-cmd="file.export" title="Скачать один HTML-файл или PDF" aria-haspopup="true">${icon('save')}<span>Экспорт</span></button>
 <button class="ibtn small" type="button" data-cmd="ui.ribbon" aria-label="Настроить ленту" title="Настроить ленту">${icon('sliders')}</button>
-      <button class="ibtn small theme-btn" id="st-theme" type="button" aria-label="Тема интерфейса" title="Тема интерфейса (T)">${icon('sun', 'ic sun')}${icon('moon', 'ic moon')}</button>
+      ${framed ? '' : themeHtml}
       <button class="btn primary small" type="button" data-cmd="show.current" title="Показ с текущего слайда (Shift+F5)">${icon('play')}<span>Показ</span></button>
     </div>
   </header>
@@ -1843,7 +1854,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   }
 
   document.addEventListener('click', (e) => {
-    const b = (e.target as Element).closest<HTMLElement>('.st-top [data-cmd], .st-ribbon [data-cmd], .st-foot [data-cmd]');
+    const b = (e.target as Element).closest<HTMLElement>('.st-tbar [data-cmd], .st-top [data-cmd], .st-ribbon [data-cmd], .st-foot [data-cmd]');
     if (b) run(b.dataset.cmd!);
   });
 
@@ -2190,7 +2201,7 @@ export function startStudio(deck: Deck, deckKey: string): void {
   });
   // «Отменить» и «Повторить»: в подсказке — какое действие отменится или вернётся
   document.addEventListener('mouseover', (e) => {
-    const b = (e.target as Element).closest<HTMLElement>('.st-rb[data-cmd="undo"], .st-rb[data-cmd="redo"]');
+    const b = (e.target as Element).closest<HTMLElement>(':is(.st-rb, .st-qa)[data-cmd="undo"], :is(.st-rb, .st-qa)[data-cmd="redo"]');
     if (!b || b.contains(e.relatedTarget as Node)) return;
     const undo = b.dataset.cmd === 'undo';
     const what = ed.stepLabel(undo ? 'past' : 'future');
