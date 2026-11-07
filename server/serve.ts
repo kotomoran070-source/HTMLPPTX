@@ -156,7 +156,7 @@ function notFound(res: http.ServerResponse): void {
 
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
-interface ManifestChunk { file: string; name?: string; imports?: string[]; css?: string[]; isEntry?: boolean }
+interface ManifestChunk { file: string; name?: string; imports?: string[]; css?: string[]; assets?: string[]; isEntry?: boolean }
 
 /**
  * Подсказки браузеру, какой код понадобится странице (по манифесту сборки студии, .vite/manifest.json).
@@ -172,15 +172,17 @@ export function codeHints(studio: string): { studio: string; picker: string } {
   const files = (keys: string[]) => {
     const js = new Set<string>();
     const css = new Set<string>();
+    const fonts = new Set<string>();
     const walk = (k: string) => {
       const c = m[k];
       if (!c || js.has(c.file)) return;
       if (!loaded.has(c.file)) js.add(c.file);
       for (const f of c.css ?? []) css.add(f);
+      for (const f of c.assets ?? []) if (f.endsWith('.woff2')) fonts.add(f);
       for (const i of c.imports ?? []) walk(i);
     };
     keys.forEach(walk);
-    return { js: [...js], css: [...css].filter((f) => !(entry?.css ?? []).includes(f)) };
+    return { js: [...js], css: [...css].filter((f) => !(entry?.css ?? []).includes(f)), fonts: [...fonts] };
   };
   // Часть по имени исходника или, если сборка вынесла её в общий кусок, — по имени куска (studio)
   const key = (src: string, name: string) => (m[src] ? src : Object.keys(m).find((k) => m[k].name === name && !m[k].isEntry) ?? src);
@@ -188,7 +190,8 @@ export function codeHints(studio: string): { studio: string; picker: string } {
   const pk = files([key('src/engine/picker.ts', 'picker')]);
   return {
     studio: [...st.css.map((f) => `<link rel="stylesheet" href="/${f}">`), ...st.js.map((f) => `<link rel="modulepreload" href="/${f}">`)].join('\n'),
-    picker: [...pk.css.map((f) => `<link rel="stylesheet" href="/${f}">`), ...pk.js.map((f) => `<link rel="modulepreload" href="/${f}">`),
+    // Шрифты страницы выбора — сразу, вместе со стилями: название не рисуется запасным шрифтом
+    picker: [...pk.css.map((f) => `<link rel="stylesheet" href="/${f}">`), ...pk.fonts.map((f) => `<link rel="preload" as="font" type="font/woff2" href="/${f}" crossorigin>`), ...pk.js.map((f) => `<link rel="modulepreload" href="/${f}">`),
       ...[...st.js, ...st.css].map((f) => `<link rel="prefetch" href="/${f}">`)].join('\n'),
   };
 }

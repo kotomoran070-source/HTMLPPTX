@@ -232,7 +232,7 @@ function bucket(ms: number): string {
 }
 
 /** Переключатель с переезжающей подложкой (порядок, вид) */
-const segHtml = (id: string, label: string, opts: [string, string, string?][], icons = false) => `<div class="pk-seg${icons ? ' icons' : ''}" id="${id}" role="group" aria-label="${label}"><span class="pk-seg-pill" aria-hidden="true"></span>${opts.map(([v, t, ic]) => `<button type="button" data-v="${v}" title="${t}"${icons ? ` aria-label="${t}"` : ''}>${ic ?? ''}${icons ? '' : `<span>${t}</span>`}</button>`).join('')}</div>`;
+const segHtml = (id: string, label: string, opts: [string, string, string?][], icons = false) => `<div class="pk-seg${icons ? ' pk-icons' : ''}" id="${id}" role="group" aria-label="${label}"><span class="pk-seg-pill" aria-hidden="true"></span>${opts.map(([v, t, ic]) => `<button type="button" data-v="${v}" title="${t}"${icons ? ` aria-label="${t}"` : ''}>${ic ?? ''}${icons ? '' : `<span>${t}</span>`}</button>`).join('')}</div>`;
 
 /**
  * Страница выбора презентации: шапка (поиск, импорт, создать, тема); «Продолжить работу» — последняя
@@ -424,7 +424,7 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
   const pills = () => document.querySelectorAll<HTMLElement>('.pk-seg').forEach((s) => {
     const on = s.querySelector<HTMLElement>('[aria-pressed="true"]');
     const p = s.querySelector<HTMLElement>('.pk-seg-pill');
-    if (on && p) { p.style.width = `${on.offsetWidth}px`; p.style.transform = `translateX(${on.offsetLeft - 4}px)`; }
+    if (on && p) { p.style.width = `${on.offsetWidth}px`; p.style.transform = `translateX(${on.offsetLeft}px)`; }
   });
 
   function render(keepLimit = false): void {

@@ -14,12 +14,12 @@ const GLYPH = '<path class="p1" pathLength="1" d="M20.5 3.5H8.25a4.25 4.25 0 0 0
 /** Цвета темы: фон — как у страницы программы, чтобы под заставкой не было вспышки */
 const THEMES = {
   light: {
-    bg: '#F8FAFC', tx: '#0F172A', mu: '#64748B', track: 'rgba(15,23,42,.08)', dot: 'rgba(100,116,139,.18)',
+    bg: '#F8FAFC', tx: '#0F172A', mu: '#64748B', track: 'rgba(15,23,42,.08)',
     glow1: 'rgba(99,102,241,.20)', glow2: 'rgba(236,72,153,.10)', glow3: 'rgba(14,165,233,.12)',
     card: '#FFFFFF', cardBd: 'rgba(15,23,42,.08)', ink: '#0F172A', ink2: '#CBD5E1', shadow: 'rgba(30,41,99,.28)',
   },
   dark: {
-    bg: '#0F172A', tx: '#F1F5F9', mu: '#94A3B8', track: 'rgba(148,163,184,.16)', dot: 'rgba(148,163,184,.12)',
+    bg: '#0F172A', tx: '#F1F5F9', mu: '#94A3B8', track: 'rgba(148,163,184,.16)',
     glow1: 'rgba(99,102,241,.34)', glow2: 'rgba(236,72,153,.16)', glow3: 'rgba(14,165,233,.18)',
     card: '#172235', cardBd: 'rgba(148,163,184,.16)', ink: '#E2E8F0', ink2: '#334155', shadow: 'rgba(0,0,0,.55)',
   },
@@ -30,11 +30,9 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden}
 *{box-sizing:border-box}
 .c{position:fixed;inset:0;display:grid;place-items:center;background:${c.bg};color:${c.tx};
   font:600 clamp(9px,min(1.05vw,1.75vh),15px)/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--cy:46%}
-/* Фон: мягкое свечение трёх цветов и сетка точек, гаснущая к краям */
+/* Фон: мягкое свечение трёх цветов */
 .bg{position:absolute;inset:-10%;pointer-events:none;opacity:0;animation:fade .5s ease-out forwards;
   background:radial-gradient(38% 34% at 42% 40%,${c.glow1},transparent 70%),radial-gradient(30% 30% at 62% 52%,${c.glow2},transparent 70%),radial-gradient(34% 30% at 50% 66%,${c.glow3},transparent 70%)}
-.bg::after{content:"";position:absolute;inset:0;background:radial-gradient(${c.dot} 1px,transparent 1.3px) 0 0/22px 22px;
-  -webkit-mask:radial-gradient(closest-side at 50% 46%,#000,transparent);mask:radial-gradient(closest-side at 50% 46%,#000,transparent)}
 .m,.id{position:relative;display:grid;justify-items:center}
 .id{transition:transform .42s cubic-bezier(.2,.8,.2,1),opacity .26s ease-in}
 /* Колода: три слайда 16:9 веером, с глубиной */
