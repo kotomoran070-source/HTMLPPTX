@@ -21,11 +21,24 @@ export function quizEdit(h: { deck: Deck; editor: Editor; stage(): HTMLElement }
     if (!sel || sel.group.length > 1 || JSON.stringify(sel.block) !== box.dataset.block) return null;
     return { path: sel.block, k: Number(o.dataset.k) };
   };
+  // Нажатие на букву — не начало перетаскивания и не правка текста; отметка — при отпускании (click), как у кнопки:
+  // слайд перерисовывается уже после щелчка, а не под нажатой кнопкой мыши
+  let armed: { path: Path; k: number } | null = null;
   addEventListener('pointerdown', (e) => {
-    const t = e.button === 0 ? hit(e.target as Element) : null;
-    if (!t) return;
+    armed = e.button === 0 ? hit(e.target as Element) : null;
+    if (!armed) return;
     e.preventDefault();
     e.stopPropagation();
+  }, true);
+  addEventListener('click', (e) => {
+    const was = armed;
+    armed = null;
+    if (!was) return;
+    e.preventDefault();
+    e.stopPropagation();
+    // Отпустили над другой буквой или другим тестом — ничего
+    const t = hit(e.target as Element);
+    if (!t || t.k !== was.k || JSON.stringify(t.path) !== JSON.stringify(was.path)) return;
     h.editor.commit((d) => {
       const opts = getAt(d, [...t.path, 'options']) as Opt[] | undefined;
       if (!Array.isArray(opts) || !opts[t.k]) return;

@@ -6,10 +6,17 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { _electron as electron, expect, test } from '@playwright/test';
+import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 
 const EXE = process.env.SLIDERIA_APP_EXE;
 const sandbox = process.platform === 'linux' ? ['--no-sandbox'] : [];
+
+/** Окно программы со страницей своего сервера: первой может появиться заставка (отдельный слой поверх окна) */
+async function mainWindow(app: ElectronApplication): Promise<Page> {
+  let win: Page | undefined;
+  await expect.poll(() => (win = app.windows().find((w) => w.url().startsWith('http://127.'))) !== undefined, { timeout: 90_000 }).toBe(true);
+  return win!;
+}
 
 test('первый запуск: «Моя первая презентация», экспорт и вход для телефона', async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-app-test-'));
@@ -23,9 +30,11 @@ test('первый запуск: «Моя первая презентация»,
     timeout: 60_000,
   });
   try {
-    const win = await app.firstWindow();
+    const win = await mainWindow(app);
     await win.waitForURL(/\/\?all$/, { timeout: 90_000 });
     await expect(win.locator('.pk-card[data-name="moya-pervaya-prezentaciya"]')).toBeVisible();
+    // Заставка ушла, когда страница выбора готова: остаётся одно окно со страницей программы
+    await expect.poll(() => app.windows().map((w) => w.url().slice(0, 5))).toEqual(['http:']);
     await expect(win.locator('.pk-hero')).toContainText('Документы/Slideria');
     expect(fs.existsSync(path.join(docs, 'moya-pervaya-prezentaciya', 'deck.yaml'))).toBe(true);
     // Подсказки внизу — без команд терминала; какая это сборка программы
@@ -130,7 +139,7 @@ test('визуализатор в программе: микрофон и зву
     timeout: 60_000,
   });
   try {
-    const win = await app.firstWindow();
+    const win = await mainWindow(app);
     await win.waitForURL(/\/\?all$/, { timeout: 90_000 });
     // Вопросы программы записываются и запрещаются: окно не ждёт ответа
     await app.evaluate(({ dialog }) => {

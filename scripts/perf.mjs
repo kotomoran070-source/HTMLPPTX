@@ -104,8 +104,14 @@ async function launch(dirs) {
     env: { ...process.env, SLIDERIA_DOCS_DIR: dirs.docs, SLIDERIA_USER_DATA: dirs.data, SLIDERIA_SAVE_DIR: dirs.saves },
     timeout: 120_000,
   });
-  const win = await app.firstWindow();
+  // Первым может появиться слой заставки — время окна по нему; страница программы — окно своего сервера
+  await app.firstWindow();
   const tWin = performance.now() - t0;
+  let win;
+  while (!(win = app.windows().find((w) => w.url().startsWith('http://127.')))) {
+    if (performance.now() - t0 > 300_000) throw new Error('Окно программы не открыло страницу сервера');
+    await new Promise((r) => setTimeout(r, 20));
+  }
   await win.waitForURL(/\/\?all$/, { waitUntil: 'commit', timeout: 300_000 });
   const tServer = performance.now() - t0;
   await win.locator('.pk-card').first().waitFor({ timeout: 300_000 });
