@@ -19,7 +19,7 @@ import { hostGuard } from './host-guard';
 import { deckRev } from './deck-files';
 import { ExportError, type DecksCore } from './core';
 import { denyPage, isLocal, lanPass, remoteRelay } from '../plugins/remote-relay.mjs';
-import { electronFiles, licensesPage } from '../plugins/licenses.mjs';
+import { electronFiles, licensesData } from '../plugins/licenses.mjs';
 
 /** Адрес страницы «Лицензии» */
 export const LICENSES = '/__slideria/licenses';
@@ -122,20 +122,30 @@ function relay(core: DecksCore, o: HttpOptions): Handler {
   };
 }
 
-/** Страница «Лицензии» (вкладка «Инструменты», «Справка → Лицензии» в программе): только этому компьютеру */
+/**
+ * «Лицензии» (вкладка «Инструменты», «Справка → Лицензии» в программе) — страница программы `/?licenses`
+ * (src/engine/licenses-page.ts): данные для неё — /data, лицензии Chromium — /chromium. Старый адрес страницы
+ * ведёт на новую. Только этому компьютеру
+ */
 function licenses(core: DecksCore, o: HttpOptions): Handler {
   return (req, res, next) => {
     const u = req.url?.split('?')[0];
-    if (u !== LICENSES && u !== LICENSES + '/chromium') return next();
+    if (u !== LICENSES && !u?.startsWith(LICENSES + '/')) return next();
     if (!isLocal(req)) return send(res, 403, { error: 'Только с этого компьютера' });
-    const chromium = electronFiles().chromium;
-    if (u !== LICENSES) {
-      if (!chromium) return send(res, 404, { error: 'Нет файла' });
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      return void fs.createReadStream(chromium).pipe(res);
+    if (u === LICENSES) {
+      res.statusCode = 302;
+      res.setHeader('Location', '/?licenses');
+      return void res.end();
     }
+    if (u === LICENSES + '/data') {
+      res.setHeader('Cache-Control', 'no-store');
+      return send(res, 200, licensesData(core.root, electronFiles().chromium ? LICENSES + '/chromium' : '', o.bundled?.() ?? null));
+    }
+    if (u !== LICENSES + '/chromium') return send(res, 404, { error: 'Нет такого адреса' });
+    const chromium = electronFiles().chromium;
+    if (!chromium) return send(res, 404, { error: 'Нет файла' });
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.end(licensesPage(core.root, LICENSES + '/chromium', o.bundled?.() ?? null));
+    fs.createReadStream(chromium).pipe(res);
   };
 }
 

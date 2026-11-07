@@ -60,10 +60,15 @@ test('страница студии: настройки страниц и адр
   const worker = await get('/assets/script-worker-q-5w8WLP.js');
   expect(worker.headers.get('content-security-policy')).toBe("default-src 'none'; script-src 'self' blob:; connect-src 'none'");
   expect((await get('/assets/нет.js')).status).toBe(404);
-  // Лицензии: библиотеки сервера и те, что внутри собранной студии
-  const lic = await (await get('/__slideria/licenses')).text();
-  expect(lic).toContain('some-lib 1.2.3 — MIT');
-  expect(lic).toContain('yaml ');
+  // Лицензии: данные страницы — библиотеки сервера и те, что внутри собранной студии, с текстами; старый адрес
+  // страницы ведёт на новую
+  const lic = await (await get('/__slideria/licenses/data')).json() as { items: { name: string; license: string; text: string; where?: string[] }[] };
+  expect(lic.items[0]).toMatchObject({ name: 'Slideria', license: 'MIT' });
+  expect(lic.items).toContainEqual(expect.objectContaining({ name: 'some-lib', license: 'MIT', text: 'Текст some-lib', where: ['pg'] }));
+  expect(lic.items.find((p) => p.name === 'yaml')?.where).toContain('srv');
+  const old = await fetch(served.url + '/__slideria/licenses', { redirect: 'manual' });
+  expect(old.status).toBe(302);
+  expect(old.headers.get('location')).toBe('/?licenses');
 });
 
 test('данные для страниц: список, презентация с адресами файлов, файл по этому адресу; ошибка в YAML — текстом', async () => {

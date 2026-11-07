@@ -80,6 +80,18 @@
 .b-wc span { width: 46px; display: grid; place-items: center; }
 .b-wc svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1; }
 .app-frame #boot .b-cont { margin-top: 25px; }
+/* «Лицензии» (engine/licenses-page.css): шапка, слева сводка и список, справа текст */
+#boot.b-licenses { display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--b-bg); }
+.b-licenses > .b-pk { width: 100%; padding-block: 14px; }
+.b-lc { display: grid; grid-template-columns: clamp(340px, 30vw, 440px) minmax(0, 1fr); min-height: 0; border-top: 1px solid var(--b-bd); }
+.b-lcside { background: var(--b-surf); border-right: 1px solid var(--b-bd); padding: 22px 18px; }
+#boot .b-lcside i { height: 11px; margin: 0 0 22px; }
+#boot .b-lcside i:first-child { width: 150px; height: 16px; margin-bottom: 26px; }
+.b-lcpane { padding: clamp(20px, 3vw, 40px) clamp(20px, 4vw, 64px); }
+#boot .b-lcpane i { height: 12px; margin-bottom: 18px; max-width: 860px; }
+#boot .b-lcpane i:first-child { width: 220px; height: 22px; margin-bottom: 26px; }
+#boot .b-lcpane i:last-child { height: 50vh; border-radius: 10px; opacity: .6; }
+@media (max-width: 760px) { .b-lc { grid-template-columns: minmax(0, 1fr); } .b-lcpane { display: none; } }
 </style>
 <!--/slideria-boot-->
 </head>
@@ -97,12 +109,12 @@
   var t = get('htmlpptx-theme');
   if (t === 'light' || t === 'dark') html.setAttribute('data-theme', t);
   var dark = t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
-  var mode = q.has('studio') ? 'studio' : (!q.get('deck') || q.has('all')) ? 'picker' : 'show';
+  var mode = q.has('licenses') ? 'licenses' : q.has('studio') ? 'studio' : (!q.get('deck') || q.has('all')) ? 'picker' : 'show';
   // Программа без системного заголовка: высота полосы и место под кнопки окна — сразу, чтобы ничего не прыгнуло;
   // кнопки окна (Windows, Linux) каркас рисует те же, что потом страница (engine/titlebar.ts)
   var app = window.slideriaApp, frame = app && app.frame, wc = '';
   if (frame) {
-    var tbh = mode === 'studio' ? 40 : mode === 'picker' ? 48 : 32;
+    var tbh = mode === 'studio' ? 40 : mode === 'picker' || mode === 'licenses' ? 48 : 32;
     html.classList.add('app-frame');
     if (app.platform) html.setAttribute('data-platform', app.platform);
     html.style.setProperty('--tb-h', tbh + 'px');
@@ -147,6 +159,10 @@
       ? '<div class="b-pktb"><span><i class="b-mark"></i><i class="b-name"></i><i class="b-btn"></i><i class="b-btn2"></i><i class="b-ib"></i></span><i class="b-search"></i></div><div class="b-pk">'
       : '<div class="b-pk"><div class="b-pkbar"><i class="b-mark"></i><i class="b-search"></i><i class="b-btn"></i><i class="b-btn2"></i></div>')
       + '<i class="b-cont"></i><div class="b-pkhead"><i class="b-h1"></i><i class="b-tools"></i></div>' + n('b-grid', 12) + '</div>';
+  } else if (mode === 'licenses') {
+    el.innerHTML = (frame ? '<div class="b-pktb"><span><i class="b-mark"></i><i class="b-name"></i></span><i class="b-search"></i></div>'
+      : '<div class="b-pk"><div class="b-pkbar"><i class="b-mark"></i><i class="b-search"></i></div></div>')
+      + '<div class="b-lc">' + n('b-lcside', 14) + '<div class="b-lcpane"><i></i><i style="width:30%"></i><i style="width:70%"></i><i></i></div></div>';
   }
   el.insertAdjacentHTML('beforeend', wc);
   html.appendChild(el);

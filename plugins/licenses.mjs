@@ -234,31 +234,54 @@ export function electronFiles() {
   return { electron, chromium: fs.existsSync(chromium) ? chromium : '' };
 }
 
+/** Названия шрифтов комплекта по именам файлов: CormorantGaramond → «Cormorant Garamond» */
+const FONT_NAMES = { JetBrainsMono: 'JetBrains Mono', FiraMath: 'Fira Math' };
+function kitFontNames(root) {
+  const names = [];
+  const scan = (d) => {
+    let list = [];
+    try { list = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
+    for (const n of list) {
+      if (n.isDirectory()) scan(path.join(d, n.name));
+      else if (/\.woff2$/.test(n.name)) {
+        const base = path.basename(n.name, '.woff2');
+        names.push(FONT_NAMES[base] ?? base.replace(/([a-z])([A-Z])/g, '$1 $2'));
+      }
+    }
+  };
+  scan(path.join(root, 'src', 'fonts'));
+  return [...new Set(names)].sort((a, b) => a.localeCompare(b));
+}
+
 /**
- * Страница «Лицензии» (кнопка на вкладке «Инструменты», «Справка → Лицензии» в приложении):
- * Slideria, Electron и Chromium, шрифты комплекта и все библиотеки с авторами — сервера (node_modules) и
- * страниц. bundled — библиотеки, собранные внутрь студии (программа: список от её сборки); не передан —
- * библиотеки страниц из node_modules (yarn dev)
+ * Данные страницы «Лицензии» (src/engine/licenses-page.ts; кнопка на вкладке «Инструменты», «Справка → Лицензии»
+ * в программе): Slideria, Electron и Chromium, шрифты комплекта и все библиотеки с текстами лицензий — сервера
+ * (node_modules, where: 'srv') и страниц (where: 'pg'). bundled — библиотеки, собранные внутрь студии (программа:
+ * список от её сборки); не передан — библиотеки страниц из node_modules (yarn dev). Одна и та же библиотека
+ * и там, и там — одной записью
  */
-export function licensesPage(root, chromiumUrl, bundled = null) {
-  const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+export function licensesData(root, chromiumUrl, bundled = null) {
   const read = (f) => { try { return fs.readFileSync(f, 'utf8').trim(); } catch { return ''; } };
   const pj = JSON.parse(read(packageFile(root)) || '{}');
   let stamp = {};
   try { stamp = JSON.parse(read(stampFile(root))); } catch { /* из проекта */ }
   const { electron, chromium } = electronFiles();
-  const item = (title, text) => `<details><summary>${esc(title)}</summary><pre>${esc(text)}</pre></details>`;
-  const all = new Map();
-  for (const p of [...prodPackages(root), ...(bundled ?? pagePackages(root))]) all.set(`${p.name}@${p.version}`, p);
-  const pkgs = [...all.values()].sort((a, b) => a.name.localeCompare(b.name));
-  return `<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slideria — лицензии</title>
-<style>:root{color-scheme:light;--bg:#fff;--tx:#1f2937;--mu:#e5e7eb;--code:#f3f4f6;--a:#4f46e5}@media (prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#0f1115;--tx:#e5e7eb;--mu:#2a2e37;--code:#181b22;--a:#a5b4fc}}html,body{background:var(--bg);color:var(--tx)}body{font:15px/1.5 system-ui,"Segoe UI",sans-serif;max-width:960px;margin:0 auto;padding:32px 20px}a{color:var(--a)}h1{font-size:24px;margin-top:0}h2{font-size:18px;margin-top:28px}
-details{border-top:1px solid var(--mu);padding:6px 0}summary{cursor:pointer}pre{white-space:pre-wrap;font:12px/1.45 ui-monospace,Consolas,monospace;background:var(--code);padding:12px;border-radius:8px}</style>
-<h1>Slideria ${esc(pj.version ?? '')}${stamp.date ? ` · сборка от ${esc(stamp.date)}` : ''} — лицензии</h1>
-<h2>Программа</h2>${item('Slideria — MIT', read(path.join(root, 'LICENSE')))}
-${electron ? item('Electron — MIT', read(electron)) : ''}
-${chromium && chromiumUrl ? `<p>Chromium и его компоненты: <a href="${esc(chromiumUrl)}">лицензии Chromium</a></p>` : ''}
-<h2>Шрифты</h2>${item('Шрифты тем и формул — SIL Open Font License 1.1', read(path.join(root, 'src', 'fonts', 'OFL.txt')))}
-<h2>Библиотеки (${pkgs.length})</h2>${pkgs.map((p) => item(`${p.name} ${p.version} — ${p.license}`, p.text || 'Текст лицензии не найден')).join('\n')}
-</html>`;
+  const items = [{ id: 'slideria', kind: 'app', name: 'Slideria', version: pj.version ?? '', license: 'MIT', text: read(path.join(root, 'LICENSE')) }];
+  if (electron) items.push({ id: 'electron', kind: 'app', name: 'Electron', version: process.versions.electron ?? '', license: 'MIT', text: read(electron) });
+  if (chromium && chromiumUrl) items.push({ id: 'chromium', kind: 'app', name: 'Chromium', version: process.versions.chrome ?? '', license: '', text: '', link: chromiumUrl });
+  items.push({ id: 'fonts', kind: 'fonts', name: 'Шрифты тем и формул', version: '', license: 'OFL-1.1', text: read(path.join(root, 'src', 'fonts', 'OFL.txt')), fonts: kitFontNames(root) });
+  const libs = new Map();
+  const add = (list, where) => {
+    for (const p of list) {
+      const id = `${p.name}@${p.version}`;
+      const e = libs.get(id) ?? { id, kind: 'lib', name: p.name, version: p.version, license: p.license, text: p.text || '', where: [] };
+      if (!e.where.includes(where)) e.where.push(where);
+      if (!e.text && p.text) e.text = p.text;
+      libs.set(id, e);
+    }
+  };
+  add(prodPackages(root), 'srv');
+  add(bundled ?? pagePackages(root), 'pg');
+  items.push(...[...libs.values()].sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version, undefined, { numeric: true })));
+  return { version: pj.version ?? '', date: stamp.date ?? '', items };
 }

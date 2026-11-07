@@ -118,9 +118,17 @@ test('первый запуск: «Моя первая презентация»,
       const help = Menu.getApplicationMenu()!.items.find((i) => i.label === 'Справка')!;
       help.submenu!.items.find((i) => i.label === 'Лицензии')!.click();
     })]);
-    await expect(lic).toHaveTitle('Slideria — лицензии');
-    const licText = (await lic.locator('body').textContent()) ?? '';
-    for (const t of ['Slideria — MIT', 'Electron — MIT', 'SIL OPEN FONT LICENSE', 'qrcode-generator', 'лицензии Chromium']) expect(licText).toContain(t);
+    await expect(lic).toHaveTitle('Лицензии · Slideria');
+    // Окно со своим заголовком: шапка страницы и наши кнопки окна; Slideria, Electron, Chromium, шрифты, библиотеки
+    await expect(lic.locator('.lc .pk-top[data-titlebar]')).toBeVisible();
+    if (process.platform !== 'darwin') await expect(lic.locator('.app-wc [data-wc="close"]')).toBeVisible();
+    await expect(lic.locator('.lc-text')).toContainText('Permission is hereby granted');
+    for (const t of ['Electron', 'Chromium', 'Шрифты тем и формул', 'qrcode-generator']) await expect(lic.locator('.lc-row', { hasText: t }).first()).toBeVisible();
+    await lic.locator('.lc-row', { hasText: 'Electron' }).click();
+    await expect(lic.locator('.lc-name')).toHaveText('Electron');
+    await expect(lic.locator('.lc-text')).toContainText('Electron');
+    await lic.locator('.lc-row', { hasText: 'Chromium' }).click();
+    await expect(lic.locator('.lc-pane a[href="/__slideria/licenses/chromium"]')).toBeVisible();
     expect(await lic.evaluate(() => fetch('/__slideria/licenses/chromium').then((r) => r.status))).toBe(200);
     // У страницы свой фон: тёмная подложка окна программы не просвечивает под тёмным текстом
     expect(await lic.evaluate(() => getComputedStyle(document.body).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');

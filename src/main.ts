@@ -70,6 +70,12 @@ async function choose(): Promise<{ name: string; deck: Deck } | null> {
 
 async function boot(): Promise<void> {
   mark('boot');
+  // «Лицензии» (вкладка «Инструменты», «Справка → Лицензии» в программе) — своя страница, только с сервером
+  if (__SERVED__ && params.has('licenses')) {
+    const { showLicenses } = await import('./engine/licenses-page');
+    await showLicenses();
+    return bootDone();
+  }
   const open = await choose();
   if (!open) return bootDone();
   const { name, deck } = open;

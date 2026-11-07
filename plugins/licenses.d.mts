@@ -14,4 +14,15 @@ export function noticeInto(html: string, pkgs: Omit<PackageInfo, 'dir'>[], root:
 export function electronFiles(): { electron: string; chromium: string };
 export const TOOLS: Set<string>;
 export function pagePackages(root: string): PackageInfo[];
-export function licensesPage(root: string, chromiumUrl?: string, bundled?: Omit<PackageInfo, 'dir'>[] | null): string;
+/** Запись страницы «Лицензии»: программа (app), шрифты комплекта (fonts), библиотека (lib) */
+export interface LicenseItem {
+  id: string; kind: 'app' | 'fonts' | 'lib'; name: string; version: string; license: string; text: string;
+  /** Библиотека: сервер программы (srv) и/или студия и показ (pg) */
+  where?: ('srv' | 'pg')[];
+  /** Шрифты комплекта */
+  fonts?: string[];
+  /** Chromium: адрес страницы с его лицензиями */
+  link?: string;
+}
+export interface LicensesData { version: string; date: string; items: LicenseItem[] }
+export function licensesData(root: string, chromiumUrl?: string, bundled?: Omit<PackageInfo, 'dir'>[] | null): LicensesData;

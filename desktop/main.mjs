@@ -212,7 +212,7 @@ const pageBg = (dark) => (dark ? '#0F172A' : '#F8FAFC');
  * её шапка, в студии — тонкая полоса над шапкой. Его пустые места перетаскивают окно. Кнопки окна в Windows
  * и Linux рисует сама страница (src/engine/titlebar.ts) — в цвет темы, вместе с ней; на Mac — системный
  * «светофор» слева, по середине полосы (её высоту страница сообщает: slideria:titlebar).
- * Только главное окно; окна показа, докладчика и печати — с системной рамкой
+ * Главное окно и окно «Лицензии» (у его страницы та же шапка); окна показа, докладчика и печати — с системной рамкой
  */
 const TITLE_H = 48;
 /** «Светофор» Mac — по середине полосы высотой h */
@@ -225,6 +225,14 @@ const framed = new WeakSet();
 const framedWin = (e) => (framed.has(e.sender) && ours(e.senderFrame?.url ?? '') ? BrowserWindow.fromWebContents(e.sender) : null);
 /** { max, full } — развёрнуто, во весь экран: от этого зависят кнопки окна на странице */
 const winState = (win) => ({ max: win.isMaximized(), full: win.isFullScreen() });
+/** Окно со своим заголовком: страница рисует его сама и узнаёт, развёрнуто ли окно */
+function frame(win) {
+  framed.add(win.webContents);
+  const state = () => { if (!win.isDestroyed()) win.webContents.send('slideria:window-state', winState(win)); };
+  for (const ev of ['maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen']) win.on(ev, state);
+}
+/** Страница «Лицензии» (src/engine/licenses-page.ts) — окном со своим заголовком */
+const licensesUrl = (url) => { try { return ours(url) && new URL(url).searchParams.has('licenses'); } catch { return false; } };
 ipcMain.on('slideria:frame', (e) => { e.returnValue = framed.has(e.sender); });
 ipcMain.on('slideria:window-state', (e) => { const win = framedWin(e); e.returnValue = win ? winState(win) : null; });
 ipcMain.on('slideria:window', (e, a) => {
@@ -314,11 +322,23 @@ function openSize(from) {
   return { width, height, x: area.x + Math.round((area.width - width) / 2), y: area.y + Math.round((area.height - height) / 2) };
 }
 
+/** Окно для чтения («Лицензии»): до 1280 × 860, по центру экрана, где открыт редактор */
+function readSize(from) {
+  const area = screen.getDisplayMatching(from.getBounds()).workArea;
+  const width = Math.min(1280, Math.round(area.width * 0.8));
+  const height = Math.min(860, Math.round(area.height * 0.85));
+  return { width, height, x: area.x + Math.round((area.width - width) / 2), y: area.y + Math.round((area.height - height) / 2) };
+}
+
 /** Общие правила для всех окон: свои страницы открываются окнами (показ, заметки), чужие — в браузере */
 function guard(win) {
   win.webContents.setWindowOpenHandler(({ url, frameName }) => {
     if (ours(url)) {
       const base = { icon: ICON, autoHideMenuBar: true, backgroundColor: '#0b0d12', webPreferences: WEB };
+      // «Лицензии»: окно для чтения, не во весь экран; заголовок — шапка страницы, фон — её, без вспышки
+      if (licensesUrl(url)) {
+        return { action: 'allow', overrideBrowserWindowOptions: { ...base, ...titleBar(), ...readSize(win), minWidth: 720, minHeight: 480, title: 'Лицензии · Slideria', backgroundColor: pageBg(nativeTheme.shouldUseDarkColors) } };
+      }
       // «Экспорт → PDF»: листы готовятся в невидимом окне, оно закрывается само (src/engine/print.ts)
       if (frameName.startsWith('htmlpptx-print-')) {
         return { action: 'allow', overrideBrowserWindowOptions: { ...base, show: false, webPreferences: { ...WEB, backgroundThrottling: false } } };
@@ -340,7 +360,10 @@ function guard(win) {
 
 app.on('web-contents-created', (_e, wc) => {
   zoomKeys(wc);
-  wc.on('did-create-window', (w) => guard(w));
+  wc.on('did-create-window', (w, d) => {
+    guard(w);
+    if (licensesUrl(d.url)) frame(w);
+  });
 });
 
 /**
@@ -367,10 +390,8 @@ function createWindow() {
     show: false,
     webPreferences: WEB,
   });
-  framed.add(win.webContents);
   // Кнопки окна на странице: развернуть ↔ восстановить, во весь экран — без них
-  const state = () => { if (!win.isDestroyed()) win.webContents.send('slideria:window-state', winState(win)); };
-  for (const ev of ['maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen']) win.on(ev, state);
+  frame(win);
   if (st.maximized) win.maximize();
   guard(win);
   win.on('close', () => saveState(win));
@@ -472,8 +493,8 @@ function buildMenu() {
       label: 'Справка',
       submenu: [
         { label: 'Журнал работы', click: () => void shell.openPath(LOG) },
-        // Та же страница, что у кнопки на вкладке «Инструменты»: окно программы (plugins/licenses.mjs)
-        { label: 'Лицензии', click: () => void main?.webContents.executeJavaScript("window.open('/__slideria/licenses', '_blank')") },
+        // Та же страница, что у кнопки на вкладке «Инструменты»: окно программы со своим заголовком (src/engine/licenses-page.ts)
+        { label: 'Лицензии', click: () => void main?.webContents.executeJavaScript("window.open('/?licenses', 'slideria-licenses')?.focus()") },
         { label: `Версия ${BUILD.version}${BUILD.date ? ` · сборка от ${BUILD.date}` : ''}`, enabled: false },
       ],
     },
