@@ -77,16 +77,19 @@ test('удаление со страницы выбора: карточка ух
   await page.goto('/?all');
   const card = page.locator(`.pk-card[data-name="${name}"]`);
   await expect(card).toBeVisible({ timeout: 15_000 });
-  const count = () => page.locator('.pk-card[data-name]').count();
+  // Сколько всего — по заголовку: на странице показана порция
+  const count = async () => Number(await page.locator('.pk-hero p b').textContent());
   const before = await count();
   // Метка в окне: перезагрузка страницы её сотрёт
   await page.evaluate(() => { (window as { zzStay?: number }).zzStay = 1; });
-  await page.locator(`.pk-del[data-del="${name}"]`).click();
+  // «Удалить…» — в меню «⋯» карточки
+  await page.locator(`.pk-more[data-more="${name}"]`).click();
+  await page.locator('.pk-menu [data-a="del"]').click();
   const t0 = Date.now();
   await page.locator('.pk-confirm [data-a="ok"]').click();
   await expect(card).toHaveCount(0, { timeout: 3000 });
   expect(Date.now() - t0).toBeLessThan(3000);
-  expect(await count()).toBe(before - 1);
+  await expect.poll(count).toBe(before - 1);
   await expect(page.locator('.pk-hero p')).toContainText(`${before - 1} `);
   expect(await page.evaluate(() => (window as { zzStay?: number }).zzStay)).toBe(1);
   expect(fs.existsSync(path.join(DECKS, name))).toBe(false);

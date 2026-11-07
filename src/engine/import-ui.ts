@@ -1,4 +1,3 @@
-import { pageEnv } from './env';
 import { esc } from './html';
 import './import-ui.css';
 
@@ -166,35 +165,37 @@ function warningsHtml(w: string[]): string {
     + `${w.length > shown.length ? `<li>…и ещё ${w.length - shown.length}</li>` : ''}</ul></div>`;
 }
 
+/** «12 слайдов» */
+const slidesN = (n: number) => `${n} ${n % 10 === 1 && n % 100 !== 11 ? 'слайд' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'слайда' : 'слайдов'}`;
+
+/** Что произойдёт при импорте — по-человечески: без путей к файлам и служебных папок */
 function summary(r: ImportResult): string {
-  const where = `${esc(pageEnv().decks)}${esc(r.name)}/deck.yaml`;
   const files = files_(r.newAssets);
   if (r.mode === 'create') {
-    const from = r.source === 'design' ? ' из экспорта Claude Design' : r.source === 'html' ? ' из HTML' : r.source === 'live' ? ', живыми слайдами' : '';
-    return `<p>Будет создана новая презентация <code>${where}</code>${from}: ${r.slides} слайдов.</p>`
-      + (r.source === 'design' ? '<p class="mu">Элементы слайдов станут свободными объектами.</p>' : '')
-      + (r.source === 'html' ? '' : '')
-      + (files ? list('Файлы в assets/', [files]) : '')
+    const from = r.source === 'design' ? ' из Claude Design' : r.source === 'html' ? ' из HTML' : r.source === 'live' ? ', живыми слайдами' : '';
+    return `<p>Будет создана новая презентация${from}: ${slidesN(r.slides)}.</p>`
+      + (r.source === 'design' ? '<p class="mu">Элементы слайдов станут свободными объектами: их можно двигать и менять.</p>' : '')
+      + (files ? list('Картинки и файлы', [files]) : '')
       + (r.theme ? themeHtml(r.theme) : '')
       + warningsHtml(r.warnings);
   }
-  if (!r.changed) return `<p>Изменений нет: <code>${where}</code> уже содержит все правки из файла.</p>`;
-  let s = `<p>Правки из файла будут перенесены в <code>${where}</code>${r.mode === 'merge' ? '. Изменения в проекте после сборки сохранятся.' : '.'}</p>`;
+  if (!r.changed) return '<p>Изменений нет: в презентации уже есть все правки из этого файла.</p>';
+  let s = `<p>Правки из файла перенесутся в презентацию${r.mode === 'merge' ? '. То, что вы поменяли здесь после экспорта, сохранится.' : '.'}</p>`;
   if (r.mode === 'replace') {
     s += r.source === 'design'
       ? '<p class="imp-warn">Презентация с таким именем будет заменена. Чтобы сохранить обе, укажите другое имя.</p>'
-      : '<p class="imp-warn">Данные проекта будут полностью заменены данными файла.</p>';
+      : '<p class="imp-warn">Презентация будет полностью заменена содержимым файла.</p>';
   }
   s += list('Изменены', r.edited) + list('Добавлены', r.added) + list('Удалены', r.removed) + list('Также', r.other)
-    + (files ? list('Новые файлы', [files]) : '');
+    + (files ? list('Новые картинки и файлы', [files]) : '');
   if (r.conflicts.length) {
-    const why = { 'both-changed': '', 'deleted-in-file': ' — в файле удалено, в проекте изменено: оставлено', 'deleted-in-project': ' — в проекте удалено, в файле изменено: восстановлено' };
-    s += `<div class="imp-conf"><b>Изменено и в проекте, и в файле (будет взята версия файла):</b><ul>`
+    const why = { 'both-changed': '', 'deleted-in-file': ' — в файле удалено, а здесь изменено: оставлено', 'deleted-in-project': ' — здесь удалено, а в файле изменено: восстановлено' };
+    s += `<div class="imp-conf"><b>Изменено и здесь, и в файле — возьмём версию из файла:</b><ul>`
       + r.conflicts.map((c) => `<li>${esc(c.path)}${why[c.kind]}</li>`).join('') + `</ul></div>`;
   }
   if (r.theme) s += themeHtml(r.theme);
   s += warningsHtml(r.warnings ?? []);
-  s += '<p class="mu">Предыдущая версия сохранится в папке .backup.</p>';
+  s += '<p class="mu">Предыдущая версия сохранится в резервной копии.</p>';
   return s;
 }
 
@@ -225,7 +226,7 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
   addEventListener('dragenter', (e) => {
     if (!draggingFile(e) || busy) return;
     depth++;
-    zoneText.textContent = dragKind(e) === 'pptx' ? 'Отпустите файл PowerPoint, чтобы сделать из него презентацию' : 'Отпустите HTML-файл, чтобы импортировать правки в проект';
+    zoneText.textContent = dragKind(e) === 'pptx' ? 'Отпустите файл PowerPoint, чтобы сделать из него презентацию' : 'Отпустите HTML-файл, чтобы импортировать презентацию';
     zone.classList.add('on');
   });
   addEventListener('dragleave', (e) => {
@@ -437,7 +438,7 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
         const r = await requestPptx(data, file.name, deck, true, adapt());
         if (my !== seq) return;
         last = r;
-        body.innerHTML = `<p>Будет создана новая презентация <code>${esc(pageEnv().decks)}${esc(r.name)}/deck.yaml</code> из PowerPoint: ${r.slides} слайдов.</p>`
+        body.innerHTML = `<p>Будет создана новая презентация из PowerPoint: ${slidesN(r.slides)}.</p>`
           + '<p class="mu">Каждый слайд — свободный холст: тексты, фигуры, картинки и таблицы стоят на своих местах и правятся в редакторе.</p>'
           + (r.assets ? list('Файлы в assets/', [`картинок: ${r.assets}`]) : '')
           + warningsHtml(r.warnings);

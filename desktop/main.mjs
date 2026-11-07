@@ -243,6 +243,16 @@ ipcMain.handle('slideria:open-path', async (e, p) => {
   return (await shell.openPath(scripts)) === '';
 });
 
+// «Показать в папке» на странице выбора: только папка презентации внутри «Документы/Slideria», со своей страницы
+ipcMain.handle('slideria:reveal', (e, name) => {
+  if (!ours(e.senderFrame?.url ?? '')) return false;
+  if (typeof name !== 'string' || !name || name.startsWith('.') || /[\\/]/.test(name)) return false;
+  const file = path.resolve(DECKS, name, 'deck.yaml');
+  if (path.dirname(path.dirname(file)) !== path.resolve(DECKS) || !fs.existsSync(file)) return false;
+  shell.showItemInFolder(file);
+  return true;
+});
+
 ipcMain.handle('slideria:pdf', async (e, name) => {
   if (!ours(e.senderFrame?.url ?? '')) return null;
   const data = await e.sender.printToPDF({ printBackground: true, preferCSSPageSize: true, margins: { marginType: 'none' } });

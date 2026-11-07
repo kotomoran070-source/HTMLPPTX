@@ -40,6 +40,15 @@ test('первый запуск: «Моя первая презентация»,
     // Подсказки внизу — без команд терминала; какая это сборка программы
     await expect(win.locator('.pk-foot')).not.toContainText('yarn');
     await expect(win.locator('.pk-build')).toContainText(EXE ? 'сборка от' : 'запуск из проекта');
+    // «⋯ → Показать в папке» — папка этой презентации (Проводник в тесте подменён: окно не открывается)
+    await app.evaluate(({ shell }) => {
+      const g = globalThis as { revealed?: string };
+      shell.showItemInFolder = (p: string) => { g.revealed = p; };
+    });
+    await win.locator('.pk-more[data-more="moya-pervaya-prezentaciya"]').click();
+    await win.locator('.pk-menu [data-a="folder"]').click();
+    await expect.poll(() => app.evaluate(() => (globalThis as { revealed?: string }).revealed ?? '')).toMatch(/moya-pervaya-prezentaciya[\\/]deck\.yaml$/);
+    await expect(win.locator('.pk-menu')).toHaveCount(0);
     // Шрифты компьютера: своему серверу доступ дан без вопроса — список шрифтов в студии полный
     const fonts = await win.evaluate(async () => ({
       state: (await navigator.permissions.query({ name: 'local-fonts' as PermissionName })).state,
