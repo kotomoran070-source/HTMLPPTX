@@ -1,0 +1,26 @@
+/* Окно «Сохранить изменения?» при уходе из студии (leave-ask.ts) — в стиле окна удаления на странице выбора */
+.lv { width: min(480px, 100%); }
+.lv-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.lv .lv-head h2 { margin: 0; font-size: 19px; }
+.lv-icon { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; background: var(--acs); color: var(--ac); }
+.lv .ic { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.lv-deck { display: flex; align-items: center; gap: 14px; padding: 10px; border: 1px solid var(--bd); border-radius: 12px; background: var(--bg); }
+.lv-thumb { width: 120px; flex: none; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; border: 1px solid var(--bd); background: var(--alt); position: relative; }
+.lv-thumb .thumb { width: 100%; border-radius: 0; }
+.lv-deck b { display: block; font-size: 14px; line-height: 1.35; margin-bottom: 4px; overflow-wrap: anywhere; }
+.lv-deck span { display: block; font-size: 12.5px; color: var(--tx2); line-height: 1.45; }
+.lv-deck .lv-since { color: var(--mu); }
+.lv-opts { display: grid; gap: 8px; margin-top: 14px; font-size: 13px; color: var(--mu); line-height: 1.5; }
+.lv .lv-opts p { margin: 0; }
+.lv-opts b { color: var(--tx); font-weight: 600; }
+.lv .lv-err { margin: 12px 0 0; font-size: 13px; }
+.lv .lv-err[hidden] { display: none; }
+.lv .btn.lv-n { background: var(--surf); color: var(--tx2); border: 1px solid var(--bd2); }
+.lv .btn.lv-n:hover:not([disabled]) { background: var(--alt); }
+.lv .lv-cancel { margin-right: auto; }
+.lv kbd { font: 11px var(--font); border: 1px solid color-mix(in srgb, currentColor 40%, transparent); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; margin-left: 4px; }
+@media (max-width: 480px) {
+  .lv .imp-actions { flex-wrap: wrap; }
+  .lv .lv-cancel { margin-right: 0; }
+  .lv kbd { display: none; }
+}

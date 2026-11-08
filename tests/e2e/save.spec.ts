@@ -46,16 +46,75 @@ test('контрольная точка: Ctrl+S — копия на диске; 
   await page.keyboard.press('Escape');
   await expect(title).toHaveValue('Т1');
   await expect.poll(() => readDeck('save')).toContain('title: Т1');
-  // Поправили и закрыли презентацию (ушли к списку) — точка «когда закрыли»; в «Версиях» она — первой.
-  // Без правки её бы не было: файл такой же, как точка Т1
+  // Поправили и уходим к списку — «Сохранить изменения?»: правка с точки Т1 (Ctrl+S). Esc — остаёмся
   await rename('Т4');
-  await page.goto('/?all');
+  const ask = page.locator('.lv');
+  await page.locator('.st-home').click();
+  await expect(ask).toBeVisible();
+  await expect(ask).toContainText('Изменены настройки презентации');
+  await expect(ask).toContainText('С точки');
+  await expect(ask.locator('[data-a="save"]')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(ask).toHaveCount(0);
+  await expect(page).toHaveURL(/studio/);
+  // «Сохранить» (Enter) — точка «когда закрыли» с правкой, и к списку; в «Версиях» она — первой
+  await page.locator('.st-home').click();
+  await expect(ask).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\?all$/);
   const closed = () => fs.readdirSync(path.join(dir, 'session')).filter((f) => f.endsWith('.close.yaml'));
-  await expect.poll(() => closed().length).toBe(1);
+  expect(closed()).toHaveLength(1);
   expect(fs.readFileSync(path.join(dir, 'session', closed()[0]), 'utf8')).toContain('title: Т4');
   await page.goto('/?deck=save&studio#1');
   await page.locator('#st-status').click();
   await expect(page.locator('.fp-ver').first()).toContainText('Когда закрыли');
+  // Ничего не поменяли — к списку без вопроса
+  await page.keyboard.press('Escape');
+  await page.locator('.st-home').click();
+  await expect(page).toHaveURL(/\?all$/);
+  expect(errors).toEqual([]);
+});
+
+test('«Не сохранять» при уходе из студии: файл — как при открытии, отброшенное — в «Версиях» с «Вернуть»', async ({ page }) => {
+  const errors = watchErrors(page);
+  const original = readDeck('save');
+  await page.goto('/?deck=save&studio#1');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  const slides = await page.locator('.st-slides-list > *').count();
+  // Новый слайд (встаёт после первого) и название — правки записываются сами
+  await page.locator('#st-canvas').click({ position: { x: 4, y: 4 } });
+  await page.keyboard.press('Control+m');
+  await expect(page.locator('.st-slides-list > *')).toHaveCount(slides + 1);
+  await page.locator('#st-title').fill('Черновик');
+  await page.locator('#st-title').press('Enter');
+  await expect.poll(() => readDeck('save')).toContain('title: Черновик');
+  // «Файл → Все презентации» — вопрос: что поменялось и с какого времени
+  await page.locator('#st-file').click();
+  await page.locator('.fp a[href="./?all"]').click();
+  const ask = page.locator('.lv');
+  await expect(ask).toContainText('Добавлен слайд 2 · изменены настройки презентации');
+  await expect(ask.locator('.lv-thumb')).toContainText('Новый слайд');
+  await expect(ask).toContainText('С открытия в');
+  await ask.getByRole('button', { name: 'Не сохранять' }).click();
+  await expect(page).toHaveURL(/\?all$/);
+  expect(readDeck('save')).toBe(original);
+  // Передумали: «Версии» — «Не сохранено при выходе», «Вернуть» — правки снова на месте
+  await page.goto('/?deck=save&studio#1');
+  await expect(page.locator('.st-slides-list > *')).toHaveCount(slides);
+  await page.locator('#st-status').click();
+  const row = page.locator('.fp-ver').first();
+  await expect(row).toContainText('Не сохранено при выходе');
+  await row.hover();
+  await row.locator('[data-restore]').click();
+  await expect(page.locator('.st-slides-list > *')).toHaveCount(slides + 1);
+  await expect(page.locator('#st-title')).toHaveValue('Черновик');
+  await expect.poll(() => readDeck('save')).toContain('title: Черновик');
+  // И снова «Не сохранять» — презентация как была, для следующих тестов
+  await page.keyboard.press('Escape');
+  await page.locator('.st-home').click();
+  await page.locator('.lv [data-a="discard"]').click();
+  await expect(page).toHaveURL(/\?all$/);
+  expect(readDeck('save')).toBe(original);
   expect(errors).toEqual([]);
 });
 

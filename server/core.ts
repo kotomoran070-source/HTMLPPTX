@@ -39,24 +39,28 @@ const FONT_EXT = /\.(woff2?|ttf|otf)$/i;
 /**
  * Контрольные точки — копии deck.yaml в .checkpoints/<имя>/, имя файла — время (20261102-091530):
  *   <время>.yaml              — свои (Ctrl+S), последние CHECKPOINTS;
- *   session/<время>.open.yaml — когда презентацию открыли в студии, session/<время>.close.yaml — когда закрыли:
- *                               последние SESSION_POINTS;
+ *   session/<время>.open.yaml — когда презентацию открыли в студии, session/<время>.close.yaml — «Сохранить»
+ *                               при выходе из студии: последние SESSION_POINTS;
  *   auto/<время>.yaml         — до и после правки агента или скрипта: за AUTO_DAYS дней, но не меньше AUTO_MIN
- *                               и не больше AUTO_MAX — своим счётом, точки Ctrl+S они не вытесняют.
- * id — «<время>», «auto:<время>», «open:<время>», «close:<время>»
+ *                               и не больше AUTO_MAX — своим счётом, точки Ctrl+S они не вытесняют;
+ *   dropped/<время>.yaml      — «Не сохранять» при выходе: отброшенные правки (файл вернули к точке), за
+ *                               AUTO_DAYS дней, но не меньше DROP_MIN.
+ * id — «<время>», «auto:<время>», «open:<время>», «close:<время>», «drop:<время>»
  */
 const CHECKPOINTS = 30;
 const SESSION_POINTS = 30;
 const AUTO_DAYS = 30;
 const AUTO_MIN = 40;
 const AUTO_MAX = 400;
+const DROP_MIN = 10;
 const CP_ID = /^\d{8}-\d{6}(?:-\d+)?$/;
-export type PointKind = 'mine' | 'auto' | 'open' | 'close';
+export type PointKind = 'mine' | 'auto' | 'open' | 'close' | 'drop';
 const KINDS: Record<PointKind, { dir: string; ext: string; prefix: string }> = {
   mine: { dir: '', ext: '.yaml', prefix: '' },
   auto: { dir: 'auto', ext: '.yaml', prefix: 'auto:' },
   open: { dir: 'session', ext: '.open.yaml', prefix: 'open:' },
   close: { dir: 'session', ext: '.close.yaml', prefix: 'close:' },
+  drop: { dir: 'dropped', ext: '.yaml', prefix: 'drop:' },
 };
 /**
  * Порядок точек по имени: время, затем номер точки в ту же секунду (…-2, …-10) — числом, а не по буквам
@@ -541,7 +545,7 @@ export function createDecksCore(opts: CoreOptions) {
   const idOf = (kind: PointKind, s: string) => KINDS[kind].prefix + s;
   /** id точки → её файл; чужой или пропавшей — ошибка */
   function pointFile(name: string, id: string): string {
-    const m = /^(?:(auto|open|close):)?(.*)$/.exec(String(id));
+    const m = /^(?:(auto|open|close|drop):)?(.*)$/.exec(String(id));
     const kind = (m?.[1] ?? 'mine') as PointKind;
     const s = m?.[2] ?? '';
     const file = path.join(cpFolder(name, kind), s + KINDS[kind].ext);
@@ -581,7 +585,9 @@ export function createDecksCore(opts: CoreOptions) {
     const d = new Date();
     const base = stamp(d);
     let s = base;
-    for (let i = 2; fs.existsSync(path.join(folder, s + ext)); i++) s = `${base}-${i}`;
+    // Метка — общая на все виды: две точки в одну секунду (открыли и сразу «Не сохранять») — по порядку
+    const taken = (x: string) => (Object.keys(KINDS) as PointKind[]).some((k) => fs.existsSync(path.join(cpFolder(name, k), x + KINDS[k].ext)));
+    for (let i = 2; taken(s); i++) s = `${base}-${i}`;
     fs.mkdirSync(folder, { recursive: true });
     fs.writeFileSync(path.join(folder, s + ext), text);
     prune(name, kind);
@@ -592,11 +598,12 @@ export function createDecksCore(opts: CoreOptions) {
   function prune(name: string, kind: PointKind): void {
     const drop = (k: PointKind, files: string[]) => { for (const f of files) fs.rmSync(path.join(cpFolder(name, k), f), { force: true }); };
     if (kind === 'mine') return drop('mine', cpFiles(name, 'mine').slice(0, -CHECKPOINTS));
-    if (kind === 'auto') {
-      const list = cpFiles(name, 'auto');
+    if (kind === 'auto' || kind === 'drop') {
+      const list = cpFiles(name, kind);
       const old = Date.now() - AUTO_DAYS * 86_400_000;
-      const keep = new Set(list.filter((f, i) => i >= list.length - AUTO_MIN || stampTime(f) >= old).slice(-AUTO_MAX));
-      return drop('auto', list.filter((f) => !keep.has(f)));
+      const min = kind === 'auto' ? AUTO_MIN : DROP_MIN;
+      const keep = new Set(list.filter((f, i) => i >= list.length - min || stampTime(f) >= old).slice(-AUTO_MAX));
+      return drop(kind, list.filter((f) => !keep.has(f)));
     }
     // Открытия и закрытия — общим счётом
     const both = [...cpFiles(name, 'open').map((f) => ['open', f] as const), ...cpFiles(name, 'close').map((f) => ['close', f] as const)]
@@ -604,13 +611,30 @@ export function createDecksCore(opts: CoreOptions) {
     for (const [k, f] of both.slice(0, -SESSION_POINTS)) drop(k, [f]);
   }
 
-  /** Точки для «Версий»: свои и открытия-закрытия — новые первыми (точки агентов и скриптов — через журнал) */
+  /**
+   * «Не сохранять» при выходе из студии: файл — как в точке to (открытие или Ctrl+S), а отброшенное — точкой
+   * «Не сохранено при выходе»: передумали — «Вернуть» в «Версиях». Файл уже как в точке — ничего не меняется
+   */
+  function discard(name: string, to: string): { changed: boolean; dropped?: string } {
+    const file = deckFile(assertDeck(name));
+    const text = fs.readFileSync(pointFile(name, to), 'utf8');
+    if (fs.readFileSync(file, 'utf8') === text) return { changed: false };
+    const dropped = checkpoint(name, { kind: 'drop' }).id;
+    remember(file, text);
+    fs.writeFileSync(file, text);
+    emit('saved', { name, from: 'discard' });
+    return { changed: true, dropped };
+  }
+
+  /** Точки для «Версий»: свои, открытия-закрытия, отброшенные при выходе — новые первыми (агентов и скриптов — через журнал) */
   function checkpoints(name: string): { id: string; time: number; kind: PointKind }[] {
     assertDeck(name);
     adoptHistory(name);
-    return (['mine', 'open', 'close'] as PointKind[])
-      .flatMap((kind) => cpFiles(name, kind).map((f) => ({ id: idOf(kind, stampOf(f, kind)), time: Math.round(fs.statSync(path.join(cpFolder(name, kind), f)).mtimeMs), kind })))
-      .sort((a, b) => b.time - a.time || byStamp(b.id.replace(/^\w+:/, ''), a.id.replace(/^\w+:/, '')));
+    // Порядок — по метке в имени (время создания, в одну секунду — с номером по порядку)
+    return (['mine', 'open', 'close', 'drop'] as PointKind[])
+      .flatMap((kind) => cpFiles(name, kind).map((f) => ({ id: idOf(kind, stampOf(f, kind)), s: stampOf(f, kind), time: Math.round(fs.statSync(path.join(cpFolder(name, kind), f)).mtimeMs), kind })))
+      .sort((a, b) => byStamp(b.s, a.s) || b.time - a.time)
+      .map(({ id, time, kind }) => ({ id, time, kind }));
   }
 
   /**
@@ -958,6 +982,7 @@ export function createDecksCore(opts: CoreOptions) {
     checkpoint,
     checkpoints,
     readCheckpoint,
+    discard,
     assets,
     trashAssets,
     addAsset,

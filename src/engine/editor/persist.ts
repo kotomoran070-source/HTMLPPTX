@@ -104,8 +104,8 @@ export const WINDOW_ID = Math.random().toString(36).slice(2, 10);
  * Записать данные; base — версия, с которой окно начинало (тогда чужие правки в файле не затираются).
  * deck в ответе — итог с чужими правками, если они были
  */
-export function saveToProject(deckKey: string, deck: Deck, keepalive = false, base?: Deck, close = false): Promise<{ changed: boolean; deck?: Deck; base?: Deck }> {
-  return api(`/__htmlpptx/save?deck=${encodeURIComponent(deckKey)}&from=${WINDOW_ID}${close ? '&close=1' : ''}`, JSON.stringify({ deck, base }), 'application/json', keepalive);
+export function saveToProject(deckKey: string, deck: Deck, keepalive = false, base?: Deck): Promise<{ changed: boolean; deck?: Deck; base?: Deck }> {
+  return api(`/__htmlpptx/save?deck=${encodeURIComponent(deckKey)}&from=${WINDOW_ID}`, JSON.stringify({ deck, base }), 'application/json', keepalive);
 }
 
 /** Перезаписать файл живой вставки (assets/*.htm) по его адресу — правка кода в студии */
@@ -122,12 +122,16 @@ export function trashDeckAssets(deckKey: string, paths: string[]): Promise<{ mov
 }
 
 /**
- * Контрольные точки: копия deck.yaml сейчас (kind: своя — без него; auto — до и после скрипта; open и close —
- * когда студию открыли и закрыли; keepalive — переживёт закрытие окна), список (новые первыми), текст точки
+ * Контрольные точки: копия deck.yaml сейчас (kind: своя — без него; auto — до и после скрипта; open — когда
+ * студию открыли; close — «Сохранить» при выходе), список (новые первыми), текст точки; «Не сохранять» при
+ * выходе — файл как в точке to, отброшенное — точкой drop
  */
-export type PointKind = 'mine' | 'auto' | 'open' | 'close';
-export function makeCheckpoint(deckKey: string, kind?: Exclude<PointKind, 'mine'>, keepalive = false): Promise<{ id: string; time: number; same: boolean }> {
-  return api(`/__htmlpptx/checkpoint?deck=${encodeURIComponent(deckKey)}${kind ? `&kind=${kind}` : ''}`, '', 'text/plain', keepalive);
+export type PointKind = 'mine' | 'auto' | 'open' | 'close' | 'drop';
+export function makeCheckpoint(deckKey: string, kind?: Exclude<PointKind, 'mine' | 'drop'>): Promise<{ id: string; time: number; same: boolean }> {
+  return api(`/__htmlpptx/checkpoint?deck=${encodeURIComponent(deckKey)}${kind ? `&kind=${kind}` : ''}`, '', 'text/plain');
+}
+export function discardToPoint(deckKey: string, to: string): Promise<{ changed: boolean; dropped?: string }> {
+  return api(`/__htmlpptx/discard?deck=${encodeURIComponent(deckKey)}&to=${encodeURIComponent(to)}`, '', 'text/plain');
 }
 export function listCheckpoints(deckKey: string): Promise<{ id: string; time: number; kind: PointKind }[]> {
   return api(`/__htmlpptx/checkpoints?deck=${encodeURIComponent(deckKey)}`, '', 'text/plain');

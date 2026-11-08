@@ -19,9 +19,9 @@ import { applyDeckFonts, applyLibraryFonts, deckFonts } from '../fonts';
 import { layoutRows, rowAnchors } from './rows';
 import { embeddable, loadLocalFonts, localFaces, localFamilies, localWeights, pickFaces } from '../local-fonts';
 import { merge3 } from '../merge3';
-import { WINDOW_ID } from './persist';
+import { WINDOW_ID, type PointKind } from './persist';
 import { onServer } from '../events';
-import { edits, History } from './history';
+import { edits, History, type Snap } from './history';
 import { browserInflate, fontRights } from '../font-license';
 import './editor.css';
 import { initRangeFill } from './range-fill';
@@ -147,6 +147,13 @@ const readPath = (el: Element, attr: string): Path | null => {
  * порядок слайдов, отмена и повтор. В yarn dev правки сразу пишутся в deck.yaml,
  * в собранном файле — сохраняются копией HTML.
  */
+/** Для окна «Сохранить изменения?»: данные сейчас, что поменялось (History.compare) и с какой точки */
+export interface LeaveInfo {
+  deck: Deck;
+  diff: NonNullable<ReturnType<typeof History.compare>>;
+  since: { time: number; kind: 'open' | 'mine' };
+}
+
 export class Editor {
   active = false;
   /** Данные менялись с момента открытия (окну докладчика нужно их прислать) */
@@ -163,8 +170,15 @@ export class Editor {
 
   private dirty = false;
   private saving = false;
-  /** Программа закрывает окно: правки и точка «Закрытие» уже записаны (beforeClose) */
+  /** Из студии ушли (leave): правки записаны или отброшены — больше ничего не пишется */
   private closed = false;
+  /** С чем сравниваются правки при выходе: точка открытия или последний Ctrl+S — id, время, данные */
+  private baseline: { id: string; time: number; kind: 'open' | 'mine'; snap: Snap } | null = null;
+  /**
+   * Окно «Сохранить изменения?» (его даёт студия): act выполняет выбранное, ошибка — остаётся в окне;
+   * true — уходим, false — «Отмена». Окна нет — правки остаются без вопроса
+   */
+  askLeave?: (o: LeaveInfo, act: (a: 'save' | 'discard') => Promise<void>) => Promise<boolean>;
   private saveTimer = 0;
   private saveError = '';
 
@@ -256,14 +270,12 @@ export class Editor {
         this.toast('Слайд преобразован для правки. Отменить — Ctrl+Z', 4000);
       }
     });
-    // В программе окно закрывается только после ответа страницы: правки и точка записываются до остановки сервера
-    (window as { slideriaApp?: { onBeforeClose?(cb: () => Promise<void>): void } }).slideriaApp?.onBeforeClose?.(() => this.beforeClose());
+    // В программе окно закрывается только после ответа страницы: вопрос о правках, запись — до остановки сервера
+    (window as { slideriaApp?: { onBeforeClose?(cb: (attention: () => void) => Promise<boolean>): void } }).slideriaApp?.onBeforeClose?.((attention) => this.leave(attention));
     addEventListener('beforeunload', (e) => {
-      if (this.mode === 'project' && !this.closed) {
-        // Последняя попытка записать правки перед закрытием вкладки — и точка «когда закрыли» (после записи,
-        // тем же запросом); всё записано — только точка. Ничего не поменялось с последней точки — её нет
-        if (this.dirty || this.saving) this.storage.save(this.host.deckKey, this.host.deck, true, this.base, true).catch(() => {});
-        else void this.storage.checkpoint?.(this.host.deckKey, 'close', true).catch(() => {});
+      // Вкладка браузера: своего окна с вопросом здесь не показать — последняя попытка записать правки
+      if (this.mode === 'project' && !this.closed && (this.dirty || this.saving)) {
+        this.storage.save(this.host.deckKey, this.host.deck, true, this.base).catch(() => {});
       }
       if (this.mode === 'file' && this.dirty) {
         e.preventDefault();
@@ -623,6 +635,8 @@ export class Editor {
       await this.settle();
       if (this.saveError) return;
       const cp = await this.storage.checkpoint?.(this.host.deckKey).catch(() => null);
+      // При выходе правки сравниваются уже с этой точкой
+      if (cp) this.baseline = { id: cp.id, time: cp.time, kind: 'mine', snap: this.hist.snap(this.host.deck) };
       const at = clock(cp?.time ?? Date.now());
       this.hist.mark(this.hist.snap(this.host.deck), at);
       this.hist.save(this.hist.snap(this.host.deck));
@@ -663,12 +677,40 @@ export class Editor {
   }
 
   /** Дописать все правки в deck.yaml и дождаться записи (перед импортом файла). */
-  /** Окно программы закрывается: дописать правки и поставить точку «Закрытие» (нет изменений с прошлой точки — её нет) */
-  async beforeClose(): Promise<void> {
-    if (this.mode !== 'project') return;
+  /** Студию открыли: точка «Когда открыли» — с ней сравниваются правки при выходе */
+  async openPoint(): Promise<void> {
+    if (this.mode !== 'project' || !this.storage.checkpoint) return;
+    const snap = this.hist.snap(this.host.deck);
+    const cp = await this.storage.checkpoint(this.host.deckKey, 'open').catch(() => null);
+    if (cp && !this.baseline) this.baseline = { id: cp.id, time: cp.time, kind: 'open', snap };
+  }
+
+  /**
+   * Уход из студии: окно программы закрывают, выход из программы, «Все презентации». Правки с открытия или с Ctrl+S —
+   * вопрос «Сохранить изменения?»: «Сохранить» — точка «Когда закрыли», «Не сохранять» — файл как в той точке
+   * (отброшенное — точкой «Не сохранено при выходе»). false — остаёмся. attention — окно программы на первый план
+   */
+  async leave(attention?: () => void): Promise<boolean> {
+    if (this.mode !== 'project' || this.closed) return true;
     await this.settle();
-    await this.storage.checkpoint?.(this.host.deckKey, 'close').catch(() => null);
-    this.closed = !this.dirty && !this.saving;
+    const base = this.baseline;
+    const diff = base && History.compare(base.snap, this.hist.snap(this.host.deck));
+    if (!base || !diff || !this.askLeave) {
+      this.closed = true;
+      return true;
+    }
+    attention?.();
+    return this.askLeave({ deck: this.host.deck, diff, since: { time: base.time, kind: base.kind } }, async (a) => {
+      await this.settle();
+      this.closed = true;
+      try {
+        if (a === 'save') await this.storage.checkpoint?.(this.host.deckKey, 'close');
+        else await this.storage.discard?.(this.host.deckKey, base.id);
+      } catch (e) {
+        this.closed = false;
+        throw e;
+      }
+    });
   }
 
   async settle(): Promise<void> {
@@ -682,6 +724,7 @@ export class Editor {
 
   private async flush(announce = false): Promise<void> {
     clearTimeout(this.saveTimer);
+    if (this.closed) return;
     if (this.saving) {
       this.saveTimer = window.setTimeout(() => void this.flush(announce), 300);
       return;
@@ -791,7 +834,7 @@ export class Editor {
   }
 
   /** Контрольные точки презентации — новые первыми (пусто, если хранилище их не умеет) */
-  async checkpoints(): Promise<{ id: string; time: number; kind: 'mine' | 'auto' | 'open' | 'close' }[]> {
+  async checkpoints(): Promise<{ id: string; time: number; kind: PointKind }[]> {
     return (await this.storage.checkpoints?.(this.host.deckKey).catch(() => [])) ?? [];
   }
 

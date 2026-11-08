@@ -208,38 +208,60 @@ function savedTheme() {
 const pageBg = (dark) => (dark ? '#0F172A' : '#F8FAFC');
 
 /**
- * Перед закрытием окна страница дописывает своё: студия — правки последних долей секунды и точку «Закрытие»
- * (src/engine/editor/editor.ts, beforeClose). Запрос из beforeunload сюда не годится: окно закрывается, программа
- * выходит и останавливает сервер раньше, чем запрос до него доходит. Страница не ответила за 4 с — закрываем
+ * Перед закрытием окна страница говорит своё: студия спрашивает «Сохранить изменения?» и записывает выбранное
+ * (src/engine/editor/editor.ts, leave). Запрос из beforeunload сюда не годится: окно закрывается, программа выходит
+ * и останавливает сервер раньше, чем запрос до него доходит. Ответ true — закрыть, false — остаться («Отмена»).
+ * Страница не отозвалась за 4 с (зависла) — закрываем; отозвалась — ждём её ответа, сколько бы ни думал человек
  */
 const CLOSE_WAIT_MS = 4000;
 let closeSeq = 0;
 function beforeClose(win) {
   const wc = win.webContents;
-  if (wc.isDestroyed() || wc.isCrashed() || !ours(wc.getURL())) return Promise.resolve();
+  if (wc.isDestroyed() || wc.isCrashed() || !ours(wc.getURL())) return Promise.resolve(true);
   const id = ++closeSeq;
   return new Promise((done) => {
-    const finish = () => {
-      clearTimeout(timer);
-      ipcMain.removeListener('slideria:closed-ready', ready);
-      wc.removeListener('destroyed', finish);
-      done();
+    const mine = (e, n) => e.sender === wc && n === id;
+    const ack = (e, n) => { if (mine(e, n)) clearTimeout(timer); };
+    // Студия спрашивает — окно на первый план (его могли закрыть свёрнутым, с панели задач)
+    const asking = (e, n) => {
+      if (!mine(e, n) || win.isDestroyed()) return;
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
     };
-    const ready = (e, n) => { if (e.sender === wc && n === id) finish(); };
-    const timer = setTimeout(finish, CLOSE_WAIT_MS);
+    const ready = (e, n, ok) => { if (mine(e, n)) finish(ok !== false); };
+    const gone = () => finish(true);
+    const finish = (ok) => {
+      clearTimeout(timer);
+      ipcMain.removeListener('slideria:close-ack', ack);
+      ipcMain.removeListener('slideria:close-asking', asking);
+      ipcMain.removeListener('slideria:closed-ready', ready);
+      wc.removeListener('destroyed', gone);
+      wc.removeListener('render-process-gone', gone);
+      done(ok);
+    };
+    const timer = setTimeout(gone, CLOSE_WAIT_MS);
+    ipcMain.on('slideria:close-ack', ack);
+    ipcMain.on('slideria:close-asking', asking);
     ipcMain.on('slideria:closed-ready', ready);
-    wc.once('destroyed', finish);
+    wc.once('destroyed', gone);
+    wc.once('render-process-gone', gone);
     wc.send('slideria:before-close', id);
   });
 }
-/** Окна, которые уже дописали своё и закрываются по-настоящему */
+/** Окна, которые уже ответили «закрыть» и закрываются по-настоящему; окна, где сейчас идёт вопрос */
 const letClose = new WeakSet();
+const asking = new WeakSet();
 app.on('browser-window-created', (_e, win) => {
   win.on('close', (e) => {
     if (letClose.delete(win)) return;
     e.preventDefault();
-    void beforeClose(win).finally(() => {
-      if (win.isDestroyed()) return;
+    // Вопрос уже на экране — повторное «Закрыть» его не дублирует
+    if (asking.has(win)) return;
+    asking.add(win);
+    void beforeClose(win).then((ok) => {
+      asking.delete(win);
+      if (!ok || win.isDestroyed()) return;
       letClose.add(win);
       win.close();
     });
@@ -632,17 +654,29 @@ app.on('window-all-closed', () => {
 });
 
 let closing = false;
+let quitting = false;
 app.on('before-quit', (e) => {
   if (closing || !server) return;
   e.preventDefault();
-  closing = true;
-  // Выход (Cmd+Q, меню): сначала страницы дописывают своё, пока сервер работает, — потом сервер и выход
-  const wins = BrowserWindow.getAllWindows();
-  void Promise.all(wins.map((w) => beforeClose(w)))
-    .then(() => {
-      for (const w of wins) letClose.add(w);
-      lan.close();
-      return server.close();
-    })
-    .finally(() => app.quit());
+  if (quitting) return;
+  quitting = true;
+  // Выход (Cmd+Q, меню): окна по очереди спрашивают о правках, пока сервер работает, — потом сервер и выход.
+  // «Отмена» в одном из окон — выход отменён: окна, которые уже ответили, закрываются, остальные остаются
+  void (async () => {
+    const done = [];
+    for (const w of BrowserWindow.getAllWindows()) {
+      if (w.isDestroyed()) continue;
+      if (!(await beforeClose(w))) {
+        quitting = false;
+        for (const x of done) if (!x.isDestroyed()) { letClose.add(x); x.close(); }
+        return;
+      }
+      done.push(w);
+    }
+    for (const w of done) letClose.add(w);
+    closing = true;
+    lan.close();
+    await server.close().catch(() => {});
+    app.quit();
+  })();
 });

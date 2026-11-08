@@ -33,3 +33,20 @@ test('на месте объекта в шаге истории другой о�
   added.slides[0].free!.push({ type: 'text', text: 'Новый' });
   expect(edits(deck('Текст', 650), added)).toEqual([{ slide: 0, key: 'free', was: deck('Текст', 650).slides[0].free, now: added.slides[0].free }]);
 });
+
+test('что поменялось с открытия — для «Сохранить изменения?»: слайды по id, без id — по содержимому', () => {
+  const h = new History('t');
+  const s = (title: string, id?: string) => ({ template: 'title', title, ...(id ? { id } : {}) });
+  const base: Deck = { title: 'Доклад', slides: [s('Один'), s('Два'), s('Три')] };
+  const cmp = (d: Deck) => History.compare(h.snap(base), h.snap(d));
+  expect(cmp(base)).toBeNull();
+  // Вставили слайд в середину — остальные не «изменены»
+  expect(cmp({ ...base, slides: [s('Один'), s('Новый'), s('Два'), s('Три')] })).toEqual({ changed: [], added: [2], removed: 0, deck: false, order: false });
+  // Поправили второй и удалили третий, поменяли название презентации
+  expect(cmp({ title: 'Другой', slides: [s('Один'), s('Два!')] })).toEqual({ changed: [2], added: [], removed: 1, deck: true, order: false });
+  // Только переставили
+  expect(cmp({ ...base, slides: [s('Три'), s('Один'), s('Два')] })).toEqual({ changed: [], added: [], removed: 0, deck: false, order: true });
+  // По id: слайд с id переехал и поменялся — правка, а не «удалён и добавлен»
+  const ids: Deck = { title: 'Доклад', slides: [s('А', 'a'), s('Б', 'b')] };
+  expect(History.compare(h.snap(ids), h.snap({ ...ids, slides: [s('Б!', 'b'), s('А', 'a'), s('В', 'c')] }))).toEqual({ changed: [1], added: [3], removed: 0, deck: false, order: false });
+});

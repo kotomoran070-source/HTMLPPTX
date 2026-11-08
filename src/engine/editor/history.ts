@@ -185,6 +185,48 @@ export class History {
     return -1;
   }
 
+  /**
+   * Что поменялось от a к b по слайдам — для «Сохранить изменения?» при выходе. Слайды сопоставляются по id, без id —
+   * по одинаковому содержимому (вставили слайд в середину — остальные не «изменены»), оставшиеся — по порядку.
+   * changed и added — номера в b (с 1); null — ничего не поменялось
+   */
+  static compare(a: Snap, b: Snap): { changed: number[]; added: number[]; removed: number; deck: boolean; order: boolean } | null {
+    if (History.same(a, b)) return null;
+    const id = (s: string) => { const v = (JSON.parse(s) as { id?: unknown }).id; return typeof v === 'string' && v ? v : ''; };
+    const byId = new Map<string, number>();
+    a.slides.forEach((s, j) => { const k = id(s); if (k) byId.set(k, j); });
+    const used = new Set<number>();
+    const changed: number[] = [];
+    const added: number[] = [];
+    const rest: number[] = [];
+    b.slides.forEach((s, i) => {
+      const j = byId.get(id(s));
+      if (j === undefined || used.has(j)) return rest.push(i);
+      used.add(j);
+      if (a.slides[j] !== s) changed.push(i + 1);
+    });
+    // Без пары по id — такой же слайд где угодно; иначе — правка ближайшего по порядку слайда без id
+    const same = new Map<string, number[]>();
+    a.slides.forEach((s, j) => { if (!used.has(j)) same.set(s, [...(same.get(s) ?? []), j]); });
+    const loose: number[] = [];
+    for (const i of rest) {
+      const j = same.get(b.slides[i])?.shift();
+      if (j !== undefined) used.add(j);
+      else loose.push(i);
+    }
+    for (const i of loose) {
+      const j = id(b.slides[i]) ? undefined : a.slides.findIndex((s, k) => !used.has(k) && !id(s));
+      if (j !== undefined && j >= 0) {
+        used.add(j);
+        changed.push(i + 1);
+      } else added.push(i + 1);
+    }
+    changed.sort((x, y) => x - y);
+    const removed = a.slides.length - used.size;
+    const deck = a.head !== b.head;
+    return { changed, added, removed, deck, order: !changed.length && !added.length && !removed && !deck };
+  }
+
   /** Что изменилось от a к b — коротко, для подсказки у «Отменить» и «Повторить»: «Перемещение · слайд 9» */
   static describe(a: Snap, b: Snap): string {
     const n = a.slides.length;

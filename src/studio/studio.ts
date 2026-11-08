@@ -68,6 +68,7 @@ import { connectTool, lineEnds, pickedPair } from './connect';
 import { quizEdit } from './quiz-edit';
 import { parseQuizText, quizSlides } from '../components/quiz/parse';
 import { relink } from '../components/connector/links';
+import { askLeave } from './leave-ask';
 import './studio.css';
 
 interface Command {
@@ -405,9 +406,18 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     state: queueState,
   }, true, { studio: true, textDock: $('st-textdock') });
   const ed = editor;
-  // Точка «когда открыли»: файл до правок этого сеанса. Такой же, как последняя точка (закрыли и открыли снова), —
-  // новой нет (server/core.ts → checkpoint). «Когда закрыли» — при закрытии окна (Editor, beforeunload)
-  if (ed.mode === 'project') void ed.files.checkpoint?.(deckKey, 'open').catch(() => null);
+  // Точка «когда открыли»: файл до правок этого сеанса (такой же, как последняя точка, — новой нет: server/core.ts →
+  // checkpoint). С ней сравниваются правки при уходе из студии — окно «Сохранить изменения?» (Editor.leave)
+  if (ed.mode === 'project') void ed.openPoint();
+  ed.askLeave = askLeave;
+  // «Все презентации» (знак в шапке, «Файл», Ctrl+K) — тоже уход из студии: сначала вопрос о правках
+  const goHome = () => void ed.leave().then((ok) => { if (ok) location.href = './?all'; });
+  document.addEventListener('click', (e) => {
+    const a = (e.target as HTMLElement | null)?.closest?.('a[href="./?all"]');
+    if (!a || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    goHome();
+  }, true);
   onLibraryError((msg) => ed.toast(msg, 5000, true));
   // «Добавить шрифт из файла…» в каждом списке шрифтов: на «Дизайне», в панели текста, в «Заменить шрифт»
   onFontFile((f) => void ed.addFontFile(f));
@@ -1813,7 +1823,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     go,
     extra: () => [
       { id: 'design.theme', label: currentTheme() === 'dark' ? 'Светлая тема' : 'Тёмная тема', path: 'Верхняя строка', words: 'тема оформления ночная интерфейс', key: '', ico: icon('moon'), run: () => run('design.theme'), enabled: () => true },
-      { id: 'app.home', label: 'Все презентации', path: 'Верхняя строка', words: 'открыть список главная другая', key: '', ico: icon('grid'), run: () => { location.href = './?all'; }, enabled: () => true },
+      { id: 'app.home', label: 'Все презентации', path: 'Верхняя строка', words: 'открыть список главная другая', key: '', ico: icon('grid'), run: goHome, enabled: () => true },
       { id: 'design.accent', label: 'Акцентный цвет', path: 'Дизайн · Цвета', words: 'цвет презентации', key: '', ico: icon('fill'), run: pickColor('st-accent'), enabled: () => true },
       { id: 'design.gradient', label: 'Градиент акцента', path: 'Дизайн · Цвета', words: 'градиент второй цвет точки палитры', key: '', ico: icon('fill'), run: () => { reveal('design'); run('design.gradient'); }, enabled: () => true },
       { id: 'ui.color', label: 'Цвет интерфейса', path: 'Вид · Интерфейс', words: 'свой цвет программы', key: '', ico: icon('fill'), run: pickColor('st-uiac', 'view'), enabled: () => true },

@@ -241,7 +241,8 @@ export function createIntegrations(o: IntegrationsOptions) {
         try { out.push(JSON.parse(line) as JournalEntry); } catch { /* недописанная строка */ }
       }
     }
-    return out.sort((a, b) => b.t.localeCompare(a.t)).slice(0, limit);
+    // Новые первыми; записанные в ту же миллисекунду — тоже (в файле они идут по порядку записи)
+    return out.reverse().sort((a, b) => b.t.localeCompare(a.t)).slice(0, limit);
   }
 
   // ---------------- скрипты ----------------

@@ -188,6 +188,32 @@ test('точки «когда открыли» и «когда закрыли»,
   }
 });
 
+test('«Не сохранять» при выходе: файл — как в точке, отброшенное — точкой «Не сохранено при выходе»', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-drop-'));
+  try {
+    const dir = path.join(tmp, 'decks');
+    const file = path.join(dir, 'talk', 'deck.yaml');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    // Комментарий и порядок полей — как в файле: возврат пишет текст точки, а не пересобранные данные
+    const text = '# мой доклад\ntitle: Доклад\nslides:\n  - { title: Первый }\n';
+    fs.writeFileSync(file, text);
+    const core = createDecksCore({ dir, root: ROOT });
+    const open = core.checkpoint('talk', { kind: 'open' });
+    fs.writeFileSync(file, 'title: Черновик\nslides:\n  - title: Первый\n  - title: Лишний\n');
+    const d = core.discard('talk', open.id);
+    expect(d).toMatchObject({ changed: true, dropped: expect.stringMatching(/^drop:/) });
+    expect(fs.readFileSync(file, 'utf8')).toBe(text);
+    // В «Версиях» — первой; передумали — её данные на месте
+    expect(core.checkpoints('talk').map((p) => p.kind)).toEqual(['drop', 'open']);
+    expect((core.readCheckpoint('talk', d.dropped!).deck as { title: string }).title).toBe('Черновик');
+    // Уже как в точке — ничего не меняется; чужой или пропавшей точки нет — ошибка
+    expect(core.discard('talk', open.id)).toEqual({ changed: false });
+    expect(() => core.discard('talk', 'open:20200101-000000')).toThrow('Контрольная точка не найдена');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('журнал: старше 90 дней — прочь, когда файл разросся', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-jrn-'));
   try {

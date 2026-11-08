@@ -4,17 +4,23 @@
 //   build — какая это сборка программы (страница выбора показывает, от какого она числа).
 const { contextBridge, ipcRenderer } = require('electron');
 
-// Окно закрывается: программа ждёт, пока страница допишет своё (onBeforeClose), и только потом закрывает окно
+// Окно закрывают: программа ждёт ответа страницы (onBeforeClose) — студия спрашивает о правках и записывает их.
+// Страница жива — сразу «принято» (программа больше не торопит); ответ false — остаться («Отмена»)
 let beforeClose = null;
 ipcRenderer.on('slideria:before-close', async (_e, id) => {
+  ipcRenderer.send('slideria:close-ack', id);
+  let ok = true;
   try {
-    if (beforeClose) await beforeClose();
-  } catch { /* окно закрывается в любом случае */ }
-  ipcRenderer.send('slideria:closed-ready', id);
+    if (beforeClose) ok = (await beforeClose(() => ipcRenderer.send('slideria:close-asking', id))) !== false;
+  } catch { /* ошибка страницы — окно закрывается */ }
+  ipcRenderer.send('slideria:closed-ready', id, ok);
 });
 
 contextBridge.exposeInMainWorld('slideriaApp', {
-  /** cb() → Promise — перед закрытием окна (студия: записать правки и поставить точку «Закрытие») */
+  /**
+   * cb(attention) → Promise<boolean> — перед закрытием окна: студия спрашивает «Сохранить изменения?» (attention() —
+   * окно на первый план) и записывает выбранное; false — окно остаётся
+   */
   onBeforeClose: (cb) => { beforeClose = typeof cb === 'function' ? cb : null; },
   /** 'light' | 'dark' — выбранная тема; 'system' — тема следует за системой */
   theme: (mode) => ipcRenderer.send('slideria:theme', mode),

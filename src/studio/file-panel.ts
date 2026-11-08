@@ -18,6 +18,7 @@ import { icon } from '../components/icons';
 import type { Deck } from '../types';
 import { staticSlide } from '../engine/deck-view';
 import { clock } from '../engine/editor/editor';
+import type { PointKind } from '../engine/editor/persist';
 import { plural } from '../engine/editor/font-picker';
 import { esc } from '../engine/html';
 import { licensesSummary, loadLicenses, mountLicenses, newLicensesState } from '../engine/licenses-view';
@@ -206,14 +207,13 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     </div>`;
   }
 
-  type PointKind = 'mine' | 'auto' | 'open' | 'close';
-  /** Строка «Версий»: точка (своя, открытие, закрытие) или правки из журнала (сеанс агента, запуск скрипта) */
+  /** Строка «Версий»: точка (своя, открытие, закрытие, отброшенное при выходе) или правки из журнала (сеанс агента, запуск скрипта) */
   type Item = { kind: 'point'; id: string; time: number; point: PointKind } | { kind: 'edits'; key: string; time: number; end: number; by: JournalEntry['by']; list: JournalEntry[] };
   let points: { id: string; time: number; kind: PointKind }[] | null = null;
   /** Сеансы агентов и скрипты — по ключу строки: для «Вернуть» */
   const groups = new Map<string, Item & { kind: 'edits' }>();
   let vfilter: 'all' | 'points' | 'edits' = 'all';
-  const POINT_NAME: Record<PointKind, string> = { mine: 'Ваша точка', auto: 'Точка', open: 'Когда открыли', close: 'Когда закрыли' };
+  const POINT_NAME: Record<PointKind, string> = { mine: 'Ваша точка', auto: 'Точка', open: 'Когда открыли', close: 'Когда закрыли', drop: 'Не сохранено при выходе' };
   /** Перерыв дольше этого — новый сеанс агента */
   const SESSION_GAP = 30 * 60_000;
 
@@ -234,7 +234,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
   }
 
   async function versionsHtml(): Promise<string> {
-    const head = '<header class="fp-head"><h2>Версии</h2><p>Программа сохраняет сама. Точки — снимки, к которым можно вернуться: ваши (Ctrl+S), когда открыли и закрыли презентацию, а ещё каждая правка агентов и скриптов</p></header>';
+    const head = '<header class="fp-head"><h2>Версии</h2><p>Программа сохраняет сама. Точки — снимки, к которым можно вернуться: ваши (Ctrl+S), когда открыли и закрыли презентацию, что не сохранили при выходе, а ещё каждая правка агентов и скриптов</p></header>';
     if (ed.mode !== 'project') {
       return `${head}<div class="fp-card fp-empty">${icon('clock')}<div><span class="fp-sw-t">Версии — у презентаций из папки программы</span><small>Этот файл открыт с диска: сохранить правки в него — Ctrl+S</small></div></div>`;
     }
@@ -281,7 +281,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
       <div class="fp-card fp-now"><i class="fp-led ${esc(st.cls)}"></i><div><span class="fp-sw-t">${esc(st.cls === 'err' ? st.text : st.cls === 'ok' ? 'Всё сохранено' : st.text || 'Всё сохранено')}</span><small>${last ? `Последняя точка — ${dayOf(last.time).toLowerCase()} в ${clock(last.time)}` : 'Каждая правка сразу записывается в файл'}</small></div><button type="button" class="fp-btn go" data-a="point">${icon('save')}Сделать точку<kbd>Ctrl+S</kbd></button></div>
       ${both ? `<div>${seg('vf', 'Что показать', [['all', 'Всё'], ['points', 'Точки'], ['edits', 'Агенты и скрипты']], vfilter)}</div>` : ''}
       ${shown.length ? [...days].map(([day, list]) => `<section><h3 class="fp-k">${esc(day)}</h3><div class="fp-card">${list.map(row).join('')}</div></section>`).join('')
-        : `<div class="fp-card fp-empty">${icon('clock')}<div><span class="fp-sw-t">Точек пока нет</span><small>Первая появится, когда закроете презентацию; перед большими правками — Ctrl+S</small></div></div>`}
+        : `<div class="fp-card fp-empty">${icon('clock')}<div><span class="fp-sw-t">Точек пока нет</span><small>Первая появится, когда откроете презентацию снова; перед большими правками — Ctrl+S</small></div></div>`}
     </div>`;
   }
   /** Точка не меняется: её миниатюра и подпись читаются с диска один раз */

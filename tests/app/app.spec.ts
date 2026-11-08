@@ -215,14 +215,18 @@ test('визуализатор в программе: микрофон и зву
   }
 });
 
-// Правка за долю секунды до закрытия (автосохранение ещё не сработало) не теряется; точки «Открытие» и «Закрытие»
+// Закрыли окно или вышли из программы с правками — «Сохранить изменения?»: «Отмена» — окно остаётся; «Сохранить» —
+// правка (даже за долю секунды до закрытия) в файле и точка «Когда закрыли»; «Не сохранять» — файл как при открытии
 for (const how of ['кнопкой окна', 'выходом из программы'] as const) {
-  test(`закрытие ${how}: последняя правка записана, точки «Открытие» и «Закрытие»`, async () => {
+  test(`закрытие ${how}: вопрос о правках, «Отмена» — остаёмся, ${how === 'кнопкой окна' ? '«Сохранить»' : '«Не сохранять»'}`, async () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-app-close-'));
     const docs = path.join(tmp, 'docs');
     const name = 'moya-pervaya-prezentaciya';
-    const session = path.join(docs, '.checkpoints', name, 'session');
-    const points = (end: string) => (fs.existsSync(session) ? fs.readdirSync(session).filter((f) => f.endsWith(end)) : []);
+    const file = path.join(docs, name, 'deck.yaml');
+    const points = (dir: string, end: string) => {
+      const d = path.join(docs, '.checkpoints', name, dir);
+      return fs.existsSync(d) ? fs.readdirSync(d).filter((f) => f.endsWith(end)) : [];
+    };
     const app = await electron.launch({
       ...(EXE ? { executablePath: EXE, args: sandbox } : { args: ['.', ...sandbox] }),
       env: { ...process.env, SLIDERIA_DOCS_DIR: docs, SLIDERIA_USER_DATA: path.join(tmp, 'data') },
@@ -233,20 +237,40 @@ for (const how of ['кнопкой окна', 'выходом из програ�
       await win.waitForURL(/\/\?all$/, { timeout: 90_000 });
       await win.goto(win.url().replace(/\?all$/, `?deck=${name}&studio#1`));
       await expect(win.locator('#st-canvas .slide.on')).toBeVisible();
-      await expect.poll(() => points('.open.yaml').length).toBe(1);
+      await expect.poll(() => points('session', '.open.yaml').length).toBe(1);
+      const original = fs.readFileSync(file, 'utf8');
       const slides = await win.locator('.st-slides-list > *').count();
+      const close = () => (how === 'выходом из программы'
+        ? app.evaluate(({ app: a }) => a.quit())
+        // Кнопка окна на странице; на Mac — системная: закрываем окно из программы
+        : process.platform === 'darwin'
+          ? app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close())
+          : win.locator('.app-wc button[aria-label="Закрыть"]').click());
+      // Новый слайд — и сразу закрыть, не дожидаясь автосохранения
       await win.locator('#st-canvas').click({ position: { x: 4, y: 4 } });
       await win.keyboard.press('Control+m');
       await expect(win.locator('.st-slides-list > *')).toHaveCount(slides + 1);
+      await close();
+      const ask = win.locator('.lv');
+      await expect(ask).toContainText('Добавлен слайд 2');
+      // «Отмена» — окно и программа на месте, правка записана
+      await win.keyboard.press('Escape');
+      await expect(ask).toHaveCount(0);
+      await expect.poll(() => fs.readFileSync(file, 'utf8').match(/^ {2}- /gm)?.length).toBe(slides + 1);
+      expect(app.windows().filter((w) => w.url().startsWith('http'))).toHaveLength(1);
+      // Ещё раз — и ответ
       const gone = win.waitForEvent('close');
-      if (how === 'выходом из программы') await app.evaluate(({ app: a }) => a.quit());
-      // Кнопка окна на странице; на Mac — системная: закрываем окно из программы
-      else if (process.platform === 'darwin') await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close());
-      else await win.locator('.app-wc button[aria-label="Закрыть"]').click();
+      await close();
+      await ask.locator(how === 'кнопкой окна' ? '[data-a="save"]' : '[data-a="discard"]').click();
       await gone;
-      const deck = fs.readFileSync(path.join(docs, name, 'deck.yaml'), 'utf8');
-      expect(deck.match(/^ {2}- /gm)?.length).toBe(slides + 1);
-      expect(points('.close.yaml')).toHaveLength(1);
+      if (how === 'кнопкой окна') {
+        expect(fs.readFileSync(file, 'utf8').match(/^ {2}- /gm)?.length).toBe(slides + 1);
+        expect(points('session', '.close.yaml')).toHaveLength(1);
+      } else {
+        expect(fs.readFileSync(file, 'utf8')).toBe(original);
+        expect(points('dropped', '.yaml')).toHaveLength(1);
+        expect(points('session', '.close.yaml')).toHaveLength(0);
+      }
     } finally {
       await app.close().catch(() => {});
       fs.rmSync(tmp, { recursive: true, force: true });
