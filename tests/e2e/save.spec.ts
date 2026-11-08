@@ -21,8 +21,11 @@ test('контрольная точка: Ctrl+S — копия на диске; 
   await page.keyboard.press('Control+s');
   await expect(toast).toContainText('контрольная точка');
   const dir = path.join(DECKS, '.checkpoints', 'save');
-  expect(fs.readdirSync(dir).length).toBe(1);
-  expect(fs.readFileSync(path.join(dir, fs.readdirSync(dir)[0]), 'utf8')).toContain('title: Т1');
+  // Своя точка — в папке точек (рядом — точка «когда открыли», в session/)
+  const mine = fs.readdirSync(dir).filter((f) => f.endsWith('.yaml'));
+  expect(mine).toHaveLength(1);
+  expect(fs.readFileSync(path.join(dir, mine[0]), 'utf8')).toContain('title: Т1');
+  expect(fs.readdirSync(path.join(dir, 'session')).some((f) => f.endsWith('.open.yaml'))).toBe(true);
   await rename('Т2');
   await rename('Т3');
   // Зажатый Ctrl+Z: Т3 → Т2 → Т1 и стоп на точке
@@ -43,6 +46,16 @@ test('контрольная точка: Ctrl+S — копия на диске; 
   await page.keyboard.press('Escape');
   await expect(title).toHaveValue('Т1');
   await expect.poll(() => readDeck('save')).toContain('title: Т1');
+  // Поправили и закрыли презентацию (ушли к списку) — точка «когда закрыли»; в «Версиях» она — первой.
+  // Без правки её бы не было: файл такой же, как точка Т1
+  await rename('Т4');
+  await page.goto('/?all');
+  const closed = () => fs.readdirSync(path.join(dir, 'session')).filter((f) => f.endsWith('.close.yaml'));
+  await expect.poll(() => closed().length).toBe(1);
+  expect(fs.readFileSync(path.join(dir, 'session', closed()[0]), 'utf8')).toContain('title: Т4');
+  await page.goto('/?deck=save&studio#1');
+  await page.locator('#st-status').click();
+  await expect(page.locator('.fp-ver').first()).toContainText('Когда закрыли');
   expect(errors).toEqual([]);
 });
 

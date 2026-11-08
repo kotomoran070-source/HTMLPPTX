@@ -185,11 +185,17 @@ export function createIntegrations(o: IntegrationsOptions) {
   // ---------------- журнал ----------------
 
   const journalFile = (deck: string) => path.join(journalDir, `${deck}.jsonl`);
+  /** Журнал хранит JOURNAL_DAYS дней, но не больше JOURNAL_MAX записей; проверяется, когда файл перерос JOURNAL_TRIM */
+  const JOURNAL_DAYS = 90;
+  const JOURNAL_MAX = 2000;
+  const JOURNAL_TRIM = 256 * 1024;
 
   function record(e: JournalEntry): void {
     if (!e.changes.length) return;
     fs.mkdirSync(journalDir, { recursive: true });
-    fs.appendFileSync(journalFile(e.deck), JSON.stringify(e) + '\n');
+    const file = journalFile(e.deck);
+    fs.appendFileSync(file, JSON.stringify(e) + '\n');
+    try { if (fs.statSync(file).size > JOURNAL_TRIM) trim(file); } catch { /* не страшно: обрежется в следующий раз */ }
     if (e.by.kind === 'agent') {
       const a = e.by.id ? live.get(e.by.id) : undefined;
       if (a) a.edits += e.changes.length;
@@ -197,6 +203,30 @@ export function createIntegrations(o: IntegrationsOptions) {
       remember(e.by.name, (a?.edits ?? (k?.edits ?? 0) + e.changes.length));
       changed();
     }
+  }
+
+  /** Старше JOURNAL_DAYS и сверх JOURNAL_MAX — прочь; файл переписывается целиком через временный */
+  function trim(file: string): void {
+    const old = new Date(Date.now() - JOURNAL_DAYS * 86_400_000).toISOString();
+    const lines = fs.readFileSync(file, 'utf8').split('\n').filter((line) => {
+      if (!line) return false;
+      try { return (JSON.parse(line) as JournalEntry).t >= old; } catch { return false; }
+    }).slice(-JOURNAL_MAX);
+    fs.writeFileSync(`${file}.tmp`, lines.length ? lines.join('\n') + '\n' : '');
+    fs.renameSync(`${file}.tmp`, file);
+  }
+
+  /** Журнал презентации — в её корзину (to) и обратно, когда её вернули (from): уже есть свой — не трогается */
+  function takeJournal(deck: string, to: string): void {
+    const file = journalFile(deck);
+    if (!fs.existsSync(file)) return;
+    fs.mkdirSync(path.dirname(to), { recursive: true });
+    try { fs.renameSync(file, to); } catch { fs.copyFileSync(file, to); fs.rmSync(file, { force: true }); }
+  }
+  function adoptJournal(deck: string, from: string): void {
+    if (!fs.existsSync(from) || fs.existsSync(journalFile(deck))) return;
+    fs.mkdirSync(journalDir, { recursive: true });
+    try { fs.renameSync(from, journalFile(deck)); } catch { fs.copyFileSync(from, journalFile(deck)); }
   }
 
   /** Журнал: новые первыми; deck — одной презентации, без него — всех */
@@ -251,7 +281,7 @@ export function createIntegrations(o: IntegrationsOptions) {
   return {
     access, setAccess, allow,
     agents: list, hello, bye,
-    record, journal,
+    record, journal, takeJournal, adoptJournal,
     scripts, scriptCode, saveScript,
     scriptsDir,
     close: () => clearInterval(sweep),

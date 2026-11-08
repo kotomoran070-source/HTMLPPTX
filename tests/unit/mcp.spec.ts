@@ -134,7 +134,8 @@ test('доступы, журнал и скрипты: правка подпис�
   expect(log.length).toBeGreaterThan(0);
   const first = log[log.length - 1];
   expect(first.by).toMatchObject({ kind: 'agent', name: 'Тест' });
-  expect(first.changes[0]).toEqual({ label: 'Правка объекта · слайд 1', slide: 1, was: 'Старый заголовок', now: 'Новый заголовок' });
+  // Слайд — и номером, и id (по нему он найдётся после перестановок)
+  expect(first.changes[0]).toEqual({ label: 'Правка объекта · слайд 1', slide: 1, id: 'cover', was: 'Старый заголовок', now: 'Новый заголовок' });
   expect(first.checkpoint).toMatch(/^auto:/);
   expect(first.after).toMatch(/^auto:/);
   expect((studio.readCheckpoint('talk', first.checkpoint!).deck as { slides: { free?: { text: string }[] }[] }).slides[0].free![0].text).toBe('Старый заголовок');

@@ -27,6 +27,7 @@ export interface IntegrationsHost {
 }
 
 export interface AgentInfo { id: string; name: string; version?: string; since: number; seen: number; online: boolean; edits: number }
+/** Запись журнала; checkpoint и after — точки до и после правки (нет — уже не хранятся: «Вернуть» недоступно) */
 export interface JournalEntry { t: string; deck: string; by: { kind: 'agent' | 'script'; id?: string; name: string }; changes: Change[]; checkpoint?: string; after?: string }
 export interface ScriptParam { key: string; type: 'text' | 'lines' | 'number' | 'bool' | 'choice'; label: string; value: unknown; options?: { value: string; label: string }[] }
 export interface ScriptInfo { id: string; name: string; description: string; params: ScriptParam[]; builtin: boolean; file: string }
@@ -98,6 +99,9 @@ export async function runScript(h: IntegrationsHost, id: string, params?: Record
   if (!h.editor.active) h.editor.toggle(true);
   h.editor.finishText();
   const { info, code } = await api<{ info: ScriptInfo; code: string }>(`script-read?id=${encodeURIComponent(id)}`);
+  // Точка до скрипта — по ней «Вернуть» в журнале и «Версиях» (Ctrl+Z живёт только до закрытия окна)
+  await h.editor.settle();
+  const before = await h.editor.files.checkpoint?.(h.deckKey, 'auto').catch(() => null);
   const values = { ...defaults(info), ...(params ?? {}) };
   const sel = h.editor.selection?.group ?? [];
   const at = h.index();
@@ -114,7 +118,12 @@ export async function runScript(h: IntegrationsHost, id: string, params?: Record
   if (details.length && result.deck) {
     // Одним шагом: Ctrl+Z отменяет весь запуск скрипта
     h.editor.commit((d) => replaceContents(d as unknown as Record<string, unknown>, result.deck as unknown as Record<string, unknown>), { rebuild: true });
-    void api(`journal-add?deck=${encodeURIComponent(h.deckKey)}`, { name: info.name, changes: details }).catch(() => null);
+    // И точка после — когда правка записана; в журнал — с обеими точками
+    void (async () => {
+      await h.editor.settle();
+      const after = before ? await h.editor.files.checkpoint?.(h.deckKey, 'auto').catch(() => null) : null;
+      await api(`journal-add?deck=${encodeURIComponent(h.deckKey)}`, { name: info.name, changes: details, ...(before && after ? { checkpoint: before.id, after: after.id } : {}) });
+    })().catch(() => null);
     // Что скрипт сказал через log() — в той же подсказке (раздел «Файл» после запуска закрывается)
     const said = result.logs.length ? ` · ${result.logs.join(' · ').slice(0, 140)}` : '';
     h.editor.toast(`Скрипт «${info.name}»: ${edits(details.length)}${said} · отменить — Ctrl+Z`, said ? 5000 : 3500);
@@ -122,21 +131,40 @@ export async function runScript(h: IntegrationsHost, id: string, params?: Record
   return { changes: details.length, logs: result.logs };
 }
 
-// ---------------- «Вернуть» правку агента ----------------
+// ---------------- «Вернуть» правку агента или скрипта ----------------
 
 /**
- * Вернуть одну правку агента, не трогая того, что поправили после неё: слияние трёх версий — после правки
- * агента (база), до неё (своё) и сейчас (из файла и окна). Одним шагом отмены
+ * Где слайд правки сейчас (с 0): по id — и после перестановок; без id — номер на момент правки; слайда больше
+ * нет — -1
  */
-export async function revertAgent(h: IntegrationsHost, e: JournalEntry): Promise<void> {
-  if (!e.checkpoint || !e.after) throw new Error('У этой правки нет контрольных точек');
-  await h.editor.settle();
-  const [before, after] = await Promise.all([readCheckpoint(h.deckKey, e.checkpoint), readCheckpoint(h.deckKey, e.after)]);
-  const { result } = merge3(after.deck, before.deck, JSON.parse(JSON.stringify(h.deck)));
-  if (!h.editor.active) h.editor.toggle(true);
-  const done = h.editor.commit((d) => replaceContents(d as unknown as Record<string, unknown>, result as Record<string, unknown>), { rebuild: true });
-  h.editor.toast(done ? `Правка «${e.by.name}» возвращена · Ctrl+Z — снова как у агента` : 'Это уже как было до правки агента', 3500);
+export function slideOf(deck: Deck, c: Change): number {
+  if (c.id) return deck.slides.findIndex((s) => (s as { id?: unknown }).id === c.id);
+  return c.slide && c.slide <= deck.slides.length ? c.slide - 1 : -1;
 }
+
+/** У правки есть обе точки — её можно вернуть */
+export const canRevert = (e: JournalEntry) => !!(e.checkpoint && e.after);
+
+/**
+ * Вернуть правки (агента, скрипта; одну или сеанс агента), не трогая того, что поправили после них: для каждой,
+ * от новой к старой, — слияние трёх версий: после правки (база), до неё (своё) и сейчас. Одним шагом отмены
+ */
+export async function revertEntries(h: IntegrationsHost, list: JournalEntry[], label?: string): Promise<void> {
+  const todo = [...list].filter(canRevert).sort((a, b) => b.t.localeCompare(a.t));
+  if (!todo.length) throw new Error('У этих правок уже нет контрольных точек');
+  await h.editor.settle();
+  let cur: unknown = JSON.parse(JSON.stringify(h.deck));
+  for (const e of todo) {
+    const [before, after] = await Promise.all([readCheckpoint(h.deckKey, e.checkpoint!), readCheckpoint(h.deckKey, e.after!)]);
+    cur = merge3(after.deck, before.deck, cur).result;
+  }
+  if (!h.editor.active) h.editor.toggle(true);
+  const done = h.editor.commit((d) => replaceContents(d as unknown as Record<string, unknown>, cur as Record<string, unknown>), { rebuild: true });
+  const who = label ?? `«${todo[0].by.name}»`;
+  h.editor.toast(done ? `${todo.length > 1 ? 'Правки' : 'Правка'} ${who} ${todo.length > 1 ? 'возвращены' : 'возвращена'} · Ctrl+Z — снова как было` : 'Это уже как было до этих правок', 3500);
+}
+/** Вернуть одну правку агента или скрипта */
+export const revertAgent = (h: IntegrationsHost, e: JournalEntry) => revertEntries(h, [e]);
 
 // ---------------- лента, подсказка на холсте, Ctrl+K ----------------
 
@@ -320,7 +348,13 @@ export function startIntegrations(h: IntegrationsHost) {
   const later = (window as unknown as { requestIdleCallback?: (f: () => void, o?: object) => void }).requestIdleCallback;
   if (location.protocol.startsWith('http')) setTimeout(() => (later ? later(() => void refresh(), { timeout: 3000 }) : void refresh()), 2500);
 
-  return { commands, palette, refresh, mount, open, live: () => agents.some((a) => a.online) };
+  return {
+    commands, palette, refresh, mount, open,
+    live: () => agents.some((a) => a.online),
+    /** Журнал этой презентации и «Вернуть» правки — для «Файл → Версии» */
+    journal: () => api<JournalEntry[]>(`journal?deck=${encodeURIComponent(h.deckKey)}&limit=500`),
+    revert: (list: JournalEntry[], label: string) => revertEntries(h, list, label),
+  };
 }
 
 export type IntegrationsCtx = {

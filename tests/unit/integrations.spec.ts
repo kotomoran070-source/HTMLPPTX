@@ -38,7 +38,7 @@ export default async () => {};
   expect(clientTitle('my-agent', 'Мой агент')).toBe('Мой агент');
 });
 
-test('агенты, доступ, журнал скрипта, точки агента — отдельно и не больше сорока', () => {
+test('агенты, доступ, журнал скрипта, точки агента — отдельно от своих и у каждой правки', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-int-'));
   try {
     const dir = path.join(tmp, 'decks');
@@ -64,13 +64,28 @@ test('агенты, доступ, журнал скрипта, точки аге
     expect(core.journal('talk')[0]).toMatchObject({ by: { kind: 'script', name: 'Оглавление' } });
     expect(() => core.recordScript('talk', { name: '', changes: [] })).toThrow('имя скрипта');
 
-    // 45 правок агента подряд: точек агента — 40, точки Ctrl+S не тронуты
+    // 45 правок агента подряд: точка «после» одной — она же «до» следующей (46 файлов, а не 90), «Вернуть» есть
+    // у каждой — срок хранения по дням, а не 40 штук; точки Ctrl+S не тронуты
     core.checkpoint('talk');
     for (let i = 0; i < 45; i++) core.apply('talk', { ops: [{ op: 'slide.set', slide: 1, set: { notes: `n${i}` } }], by: { kind: 'agent', id: 'a', name: 'Cursor' } });
     expect(core.checkpoints('talk')).toHaveLength(1);
-    expect(fs.readdirSync(path.join(dir, '.checkpoints', 'talk', 'auto'))).toHaveLength(40);
-    expect(core.journal('talk').filter((x) => x.by.kind === 'agent')).toHaveLength(45);
-    expect(core.agents()[0]).toMatchObject({ name: 'Cursor', edits: 45 });
+    expect(fs.readdirSync(path.join(dir, '.checkpoints', 'talk', 'auto'))).toHaveLength(46);
+    const agentLog = core.journal('talk').filter((x) => x.by.kind === 'agent');
+    expect(agentLog).toHaveLength(45);
+    expect(agentLog.every((x) => x.checkpoint && x.after)).toBe(true);
+    // Точки уже нет (срок вышел) — у записи нет точек: «Вернуть» прячется, а не падает
+    const oldest = agentLog.at(-1)!;
+    fs.rmSync(path.join(dir, '.checkpoints', 'talk', 'auto', `${oldest.checkpoint!.slice(5)}.yaml`));
+    expect(core.journal('talk').filter((x) => x.by.kind === 'agent').at(-1)).not.toHaveProperty('checkpoint');
+    // Старые точки агента (старше 30 дней) уходят, но последние 40 остаются всегда
+    const auto = path.join(dir, '.checkpoints', 'talk', 'auto');
+    for (const f of fs.readdirSync(auto)) fs.rmSync(path.join(auto, f));
+    for (let i = 0; i < 60; i++) fs.writeFileSync(path.join(auto, `20240101-0000${String(i).padStart(2, '0')}.yaml`), `old ${i}`);
+    core.apply('talk', { ops: [{ op: 'slide.set', slide: 1, set: { notes: 'свежая' } }], by: { kind: 'agent', id: 'a', name: 'Cursor' } });
+    const left = fs.readdirSync(auto).sort();
+    expect(left).toHaveLength(40);
+    expect(left.at(-1)).not.toMatch(/^2024/);
+    expect(core.agents()[0]).toMatchObject({ name: 'Cursor', edits: 46 });
     // Чужие id точек не читаются
     expect(() => core.readCheckpoint('talk', 'auto:../x')).toThrow('не найдена');
   } finally {
@@ -115,4 +130,78 @@ test('встроенные скрипты и пример из docs/SCRIPTS.md �
   const ex = await runLikeWorker(example, tpl(), Object.fromEntries(parseScript(example, 'x', false, 'x.js').params.map((p) => [p.key, p.value])));
   expect(ex.logs[0]).toMatch(/^Номера — на \d+ слайдах$/);
   expect(ex.changes.length).toBeGreaterThan(5);
+});
+
+test('точки «когда открыли» и «когда закрыли», скрипт с точками, слайд по id, история уходит в корзину с презентацией', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-hist-'));
+  try {
+    const dir = path.join(tmp, 'decks');
+    fs.mkdirSync(path.join(dir, 'talk'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'talk', 'deck.yaml'), 'title: Доклад\nslides:\n  - id: intro\n    title: Первый\n  - title: Второй\n');
+    const core = createDecksCore({ dir, root: ROOT });
+    // Открыли — точка; закрыли, ничего не поменяв, — новой нет
+    const open = core.checkpoint('talk', { kind: 'open' });
+    expect(open).toMatchObject({ same: false, id: expect.stringMatching(/^open:/) });
+    expect(core.checkpoint('talk', { kind: 'close' })).toMatchObject({ same: true, id: open.id });
+    // Поправили и закрыли — точка «когда закрыли»; список «Версий» — с видами, новые первыми
+    fs.writeFileSync(path.join(dir, 'talk', 'deck.yaml'), 'title: Доклад 2\nslides:\n  - id: intro\n    title: Первый\n  - title: Второй\n');
+    const close = core.checkpoint('talk', { kind: 'close' });
+    expect(close).toMatchObject({ same: false, id: expect.stringMatching(/^close:/) });
+    expect(core.checkpoints('talk').map((p) => p.kind)).toEqual(['close', 'open']);
+    expect((core.readCheckpoint('talk', close.id).deck as { title: string }).title).toBe('Доклад 2');
+    // Такая же, как точка агента, — тоже не повторяется
+    const a = core.checkpoint('talk', { kind: 'auto' });
+    expect(a.same).toBe(false);
+    expect(core.checkpoint('talk', { kind: 'open' })).toMatchObject({ same: true });
+
+    // Правка агента по слайду с id — в журнале и id: слайд найдётся и после перестановок
+    const r = core.apply('talk', { ops: [{ op: 'slide.set', slide: 'intro', set: { notes: 'заметка' } }], by: { kind: 'agent', id: 'x', name: 'Claude Code' } });
+    expect(r.changed).toBe(true);
+    expect(core.journal('talk')[0].changes[0]).toMatchObject({ slide: 1, id: 'intro' });
+
+    // Скрипт с точками до и после — «Вернуть» у него есть; чужие точки не принимаются
+    const before = core.checkpoint('talk', { kind: 'auto' });
+    fs.writeFileSync(path.join(dir, 'talk', 'deck.yaml'), 'title: Доклад 3\nslides:\n  - id: intro\n    title: Первый\n');
+    const after = core.checkpoint('talk', { kind: 'auto' });
+    const s = core.recordScript('talk', { name: 'Оглавление', changes: [{ label: 'Новый слайд 2', slide: 2, id: 'toc' }], checkpoint: before.id, after: after.id });
+    expect(s).toMatchObject({ checkpoint: before.id, after: after.id, changes: [{ id: 'toc' }] });
+    expect(core.recordScript('talk', { name: 'Чужой', changes: [{ label: 'x' }], checkpoint: open.id, after: after.id })).not.toHaveProperty('checkpoint');
+
+    // В корзину — вместе с точками и журналом; новая презентация с тем же именем — с чистой историей
+    const { trashed } = await core.trash('talk');
+    const binned = path.join(tmp, trashed);
+    expect(fs.existsSync(path.join(binned, '.history', 'checkpoints', 'session'))).toBe(true);
+    expect(fs.existsSync(path.join(binned, '.history', 'journal.jsonl'))).toBe(true);
+    expect(fs.existsSync(path.join(dir, '.checkpoints', 'talk'))).toBe(false);
+    fs.mkdirSync(path.join(dir, 'talk'));
+    fs.writeFileSync(path.join(dir, 'talk', 'deck.yaml'), 'title: Другой\nslides:\n  - title: Один\n');
+    expect(core.checkpoints('talk')).toEqual([]);
+    expect(core.journal('talk')).toEqual([]);
+    // Вернули ту из корзины (перенесли папку обратно) — история на месте
+    fs.rmSync(path.join(dir, 'talk'), { recursive: true });
+    fs.renameSync(binned, path.join(dir, 'talk'));
+    expect(core.checkpoints('talk').map((p) => p.id)).toEqual([close.id, open.id]);
+    expect(core.journal('talk').map((e) => e.by.name)).toEqual(['Чужой', 'Оглавление', 'Claude Code']);
+    expect(fs.existsSync(path.join(dir, 'talk', '.history'))).toBe(false);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('журнал: старше 90 дней — прочь, когда файл разросся', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-jrn-'));
+  try {
+    const dir = path.join(tmp, 'decks');
+    fs.mkdirSync(path.join(dir, 'talk'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'talk', 'deck.yaml'), 'title: Доклад\nslides:\n  - title: Первый\n');
+    const core = createDecksCore({ dir, root: ROOT });
+    const file = path.join(dir, '.slideria', 'journal', 'talk.jsonl');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const old = { t: '2024-01-01T00:00:00.000Z', deck: 'talk', by: { kind: 'script', name: 'Старый' }, changes: [{ label: 'x'.repeat(200) }] };
+    fs.writeFileSync(file, Array.from({ length: 1500 }, () => JSON.stringify(old)).join('\n') + '\n');
+    core.recordScript('talk', { name: 'Свежий', changes: [{ label: 'Правка' }] });
+    expect(core.journal('talk').map((e) => e.by.name)).toEqual(['Свежий']);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 });

@@ -255,9 +255,11 @@ export class Editor {
       }
     });
     addEventListener('beforeunload', (e) => {
-      if (this.mode === 'project' && (this.dirty || this.saving)) {
-        // Последняя попытка записать правки перед закрытием вкладки
-        this.storage.save(this.host.deckKey, this.host.deck, true, this.base).catch(() => {});
+      if (this.mode === 'project') {
+        // Последняя попытка записать правки перед закрытием вкладки — и точка «когда закрыли» (после записи,
+        // тем же запросом); всё записано — только точка. Ничего не поменялось с последней точки — её нет
+        if (this.dirty || this.saving) this.storage.save(this.host.deckKey, this.host.deck, true, this.base, true).catch(() => {});
+        else void this.storage.checkpoint?.(this.host.deckKey, 'close', true).catch(() => {});
       }
       if (this.mode === 'file' && this.dirty) {
         e.preventDefault();
@@ -777,7 +779,7 @@ export class Editor {
   }
 
   /** Контрольные точки презентации — новые первыми (пусто, если хранилище их не умеет) */
-  async checkpoints(): Promise<{ id: string; time: number }[]> {
+  async checkpoints(): Promise<{ id: string; time: number; kind: 'mine' | 'auto' | 'open' | 'close' }[]> {
     return (await this.storage.checkpoints?.(this.host.deckKey).catch(() => [])) ?? [];
   }
 

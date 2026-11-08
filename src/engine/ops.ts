@@ -141,7 +141,8 @@ function replaceIn(v: unknown, find: string, to: string, text: boolean, count: {
 // ---------------- операции ----------------
 
 /** Правка для журнала: подпись, слайд (номер с 1 в ту минуту), было → стало — коротко, текстом */
-export interface Change { label: string; slide?: number; was?: string; now?: string }
+/** Правка для журнала: slide — номер слайда тогда, id — сам слайд (если у него есть id): по нему он находится и после перестановок */
+export interface Change { label: string; slide?: number; id?: string; was?: string; now?: string }
 
 const change = (label: string, slide?: number, was?: string, now?: string): Change => ({
   label, ...(slide !== undefined ? { slide } : {}), ...(was ? { was } : {}), ...(now ? { now } : {}),
@@ -390,7 +391,10 @@ export function applyOps(deck: Deck, ops: unknown, o: { expect?: unknown } = {})
     const def = isRec(a) && typeof a.op === 'string' ? OPS[a.op] : undefined;
     if (!def) throw new OpError(`Операция ${n + 1}: неизвестная${isRec(a) && a.op ? ` «${String(a.op)}»` : ''}. Есть: ${Object.keys(OPS).join(', ')}`);
     try {
-      return def.run(d, a);
+      const c = def.run(d, a);
+      // Слайд правки — и по id: номер после перестановок уже не тот (удалённого слайда нет — и id нет)
+      const sid = c.slide && a.op !== 'slide.remove' ? d.slides[c.slide - 1]?.id : undefined;
+      return typeof sid === 'string' && sid ? { ...c, id: sid } : c;
     } catch (e) {
       throw new OpError(`Операция ${n + 1} (${a.op}): ${(e as Error).message}`);
     }

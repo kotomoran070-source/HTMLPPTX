@@ -147,7 +147,19 @@
 .fp-ver time { font-weight: 500; font-variant-numeric: tabular-nums; }
 .fp-ver-th { display: block; width: 96px; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 4px; background: var(--alt); box-shadow: 0 0 0 1px var(--bd); }
 .fp-ver-th .thumb { width: 96px; border-radius: 0; }
+.fp-ver-x { display: grid; gap: 2px; min-width: 0; }
+.fp-ver-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx2); }
+.fp-ver-t.mine { color: var(--tx); font-weight: 500; }
+.fp-ver-t small { color: var(--mu); font-size: 12px; }
 .fp-ver-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--mu); font-size: 12.5px; }
+.fp-ver-n:empty { display: none; }
+/* Сеанс агента или скрипт: вместо миниатюры — знак того, кто правил */
+.fp-ver-who { display: grid; place-items: center; width: 96px; aspect-ratio: 16 / 9; border-radius: 4px; background: var(--alt); box-shadow: 0 0 0 1px var(--bd); }
+.fp-ver-who i { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: #fff; font: 700 12px var(--font); font-style: normal; }
+.fp-ver-who i.k { background: var(--surf); color: var(--tx2); box-shadow: 0 0 0 1px var(--bd); }
+.fp-ver-who i .ic { width: 15px; height: 15px; }
+.fp-ver-a { display: flex; align-items: center; gap: 6px; }
+.fp-ver-gone { color: var(--mu); font-size: 12px; white-space: nowrap; }
 .fp-ver .fp-btn { height: 30px; opacity: 0; transition: opacity .12s; }
 .fp-ver:is(:hover, :focus-within) .fp-btn { opacity: 1; }
 @media (hover: none) { .fp-ver .fp-btn { opacity: 1; } }

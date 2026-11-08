@@ -36,9 +36,51 @@ const MEDIA_EXT = new Set([...IMAGE_EXT, 'mp4', 'webm', 'glb', 'htm', 'woff2', '
 /** CAD и 3D-печать: при вставке превращаются в GLB (plugins/model-convert.ts) */
 const CAD_EXT = new Set(['stl', 'step', 'stp']);
 const FONT_EXT = /\.(woff2?|ttf|otf)$/i;
-/** Контрольные точки (Ctrl+S в студии): сколько хранить и как называются */
+/**
+ * Контрольные точки — копии deck.yaml в .checkpoints/<имя>/, имя файла — время (20261102-091530):
+ *   <время>.yaml              — свои (Ctrl+S), последние CHECKPOINTS;
+ *   session/<время>.open.yaml — когда презентацию открыли в студии, session/<время>.close.yaml — когда закрыли:
+ *                               последние SESSION_POINTS;
+ *   auto/<время>.yaml         — до и после правки агента или скрипта: за AUTO_DAYS дней, но не меньше AUTO_MIN
+ *                               и не больше AUTO_MAX — своим счётом, точки Ctrl+S они не вытесняют.
+ * id — «<время>», «auto:<время>», «open:<время>», «close:<время>»
+ */
 const CHECKPOINTS = 30;
+const SESSION_POINTS = 30;
+const AUTO_DAYS = 30;
+const AUTO_MIN = 40;
+const AUTO_MAX = 400;
 const CP_ID = /^\d{8}-\d{6}(?:-\d+)?$/;
+export type PointKind = 'mine' | 'auto' | 'open' | 'close';
+const KINDS: Record<PointKind, { dir: string; ext: string; prefix: string }> = {
+  mine: { dir: '', ext: '.yaml', prefix: '' },
+  auto: { dir: 'auto', ext: '.yaml', prefix: 'auto:' },
+  open: { dir: 'session', ext: '.open.yaml', prefix: 'open:' },
+  close: { dir: 'session', ext: '.close.yaml', prefix: 'close:' },
+};
+/**
+ * Порядок точек по имени: время, затем номер точки в ту же секунду (…-2, …-10) — числом, а не по буквам
+ * (иначе «-10» встала бы раньше «-2», и последней считалась бы не последняя)
+ */
+function byStamp(a: string, b: string): number {
+  const k = (s: string) => { const m = /^(\d{8}-\d{6})(?:-(\d+))?/.exec(s); return [m?.[1] ?? s, Number(m?.[2] ?? 1)] as const; };
+  const [x, i] = k(a);
+  const [y, j] = k(b);
+  return x < y ? -1 : x > y ? 1 : i - j;
+}
+/** Время точки по её имени (20261102-091530) */
+function stampTime(s: string): number {
+  const m = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/.exec(s);
+  return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime() : 0;
+}
+/** Перенести папку или файл (на другой диск — копией) */
+function move(from: string, to: string): void {
+  fs.mkdirSync(path.dirname(to), { recursive: true });
+  try { fs.renameSync(from, to); } catch {
+    fs.cpSync(from, to, { recursive: true });
+    fs.rmSync(from, { recursive: true, force: true });
+  }
+}
 /** Свои библиотеки студии: по файлу на запись (<вид>/<id>.json) — окна студии пишут каждое своё, не затирая чужие */
 const LIB_KINDS = ['themes', 'templates', 'effects', 'looks'];
 const LIB_ID = /^[\w-]{1,64}$/;
@@ -260,6 +302,11 @@ export function createDecksCore(opts: CoreOptions) {
     let name = base;
     for (let k = 2; taken.has(name); k++) name = `${base}-${k}`;
     const dst = path.join(dir, name);
+    // От прежней презентации с этим именем могли остаться точки и журнал (удалена до того, как история уходила
+    // в корзину вместе с ней) — новой они не достаются
+    const orphan = path.join(dir, '.trash', `${name}-history-${stamp()}`);
+    if (fs.existsSync(cpRoot(name))) move(cpRoot(name), path.join(orphan, 'checkpoints'));
+    integrations.takeJournal(name, path.join(orphan, 'journal.jsonl'));
     fs.cpSync(path.join(root, 'templates', 'basic'), dst, { recursive: true });
     const file = deckFile(name);
     let text = fs.readFileSync(file, 'utf8');
@@ -321,6 +368,12 @@ export function createDecksCore(opts: CoreOptions) {
       setTimeout(() => trashing.delete(name), 3000);
       restore?.();
     }
+    // История — вместе с презентацией: перенесут папку обратно — точки и журнал вернутся (adoptHistory);
+    // новая презентация с тем же именем начнёт с чистой историей
+    try {
+      if (fs.existsSync(cpRoot(name))) move(cpRoot(name), path.join(target, '.history', 'checkpoints'));
+      integrations.takeJournal(name, path.join(target, '.history', 'journal.jsonl'));
+    } catch { /* история не перенеслась — презентация всё равно в корзине */ }
     emit('removed', { name });
     return { trashed: path.relative(path.dirname(dir), target).split(path.sep).join('/') };
   }
@@ -427,10 +480,10 @@ export function createDecksCore(opts: CoreOptions) {
     const r = applyOps(current, req.ops, { expect: req.expect });
     const { store, toPaths } = filesOf(name);
     // Перед правкой агента — точка: «Вернуть как было» в журнале и на подсказке студии
-    const point = by && !same(r.deck, current) ? checkpoint(name, { auto: true }).id : undefined;
+    const point = by && !same(r.deck, current) ? checkpoint(name, { kind: 'auto' }).id : undefined;
     const next = writeDeck(name, source, toPaths(r.deck), store, req.from || 'agent');
     // И после: «Вернуть» в студии откатывает только правку агента (слияние трёх версий), а не то, что поправили позже
-    if (by && next !== source) record(name, { by, changes: r.details, checkpoint: point, after: checkpoint(name, { auto: true }).id });
+    if (by && next !== source) record(name, { by, changes: r.details, checkpoint: point, after: checkpoint(name, { kind: 'auto' }).id });
     // Ревизии — по записанному, как его прочитает следующий outline
     const after = next === source ? current : readYaml(file, next) as Deck;
     return { changed: next !== source, changes: r.changes, outline: outlineOf(after) };
@@ -459,51 +512,105 @@ export function createDecksCore(opts: CoreOptions) {
    * Правка скрипта студии — в журнал (сама правка уже в окне студии и запишется его сохранением). Подписи —
    * от операций скрипта; проверяются только виды полей
    */
-  function recordScript(name: string, e: { name?: unknown; changes?: unknown; checkpoint?: unknown }): JournalEntry {
+  function recordScript(name: string, e: { name?: unknown; changes?: unknown; checkpoint?: unknown; after?: unknown }): JournalEntry {
     assertDeck(name);
     if (typeof e?.name !== 'string' || !e.name.trim() || !Array.isArray(e.changes)) throw new Error('Журнал: имя скрипта и список правок');
     const str = (v: unknown, n: number) => (typeof v === 'string' && v ? v.slice(0, n) : undefined);
     const changes = e.changes.slice(0, 500).filter((c) => c && typeof c === 'object' && typeof (c as { label?: unknown }).label === 'string').map((c) => {
       const x = c as Record<string, unknown>;
-      return { label: str(x.label, 200)!, ...(Number.isInteger(x.slide) ? { slide: x.slide as number } : {}), ...(str(x.was, 300) ? { was: str(x.was, 300) } : {}), ...(str(x.now, 300) ? { now: str(x.now, 300) } : {}) };
+      return { label: str(x.label, 200)!, ...(Number.isInteger(x.slide) ? { slide: x.slide as number } : {}), ...(str(x.id, 64) ? { id: str(x.id, 64) } : {}), ...(str(x.was, 300) ? { was: str(x.was, 300) } : {}), ...(str(x.now, 300) ? { now: str(x.now, 300) } : {}) };
     });
-    const cp = typeof e.checkpoint === 'string' && /^auto:[\d-]+$/.test(e.checkpoint) ? e.checkpoint : undefined;
-    return record(name, { by: { kind: 'script', name: e.name.trim().slice(0, 80) }, changes, checkpoint: cp });
+    // Точки до и после скрипта — только свои (auto:…) и только существующие: по ним «Вернуть» в журнале
+    const point = (v: unknown) => (typeof v === 'string' && v.startsWith('auto:') && pointExists(name, v) ? v : undefined);
+    const cp = point(e.checkpoint);
+    const after = point(e.after);
+    return record(name, { by: { kind: 'script', name: e.name.trim().slice(0, 80) }, changes, ...(cp && after ? { checkpoint: cp, after } : {}) });
   }
 
-  // ---------------- контрольные точки ----------------
-  // Копии deck.yaml в .checkpoints/<имя>/<время>.yaml, последние CHECKPOINTS. Та же, что последняя, не повторяется.
-  // Автоматические (перед правкой агента, перед скриптом) — в .checkpoints/<имя>/auto, последние AUTO_POINTS:
-  // свой счёт, точки Ctrl+S они не вытесняют; id — «auto:<время>»
-  const AUTO_POINTS = 40;
-  const cpDir = (name: string, auto = false) => path.join(dir, '.checkpoints', name, ...(auto ? ['auto'] : []));
-  const cpList = (name: string, auto = false) => (fs.existsSync(cpDir(name, auto)) ? fs.readdirSync(cpDir(name, auto)) : [])
-    .filter((f) => f.endsWith('.yaml') && CP_ID.test(f.slice(0, -5))).sort();
+  // ---------------- контрольные точки (виды и сроки — KINDS вверху) ----------------
+  const cpRoot = (name: string) => path.join(dir, '.checkpoints', name);
+  const cpFolder = (name: string, kind: PointKind) => path.join(cpRoot(name), KINDS[kind].dir);
+  /** Файлы точек вида kind, старые первыми (имя — время) */
+  function cpFiles(name: string, kind: PointKind): string[] {
+    const { ext } = KINDS[kind];
+    const folder = cpFolder(name, kind);
+    if (!fs.existsSync(folder)) return [];
+    return fs.readdirSync(folder).filter((f) => f.endsWith(ext) && CP_ID.test(f.slice(0, -ext.length))).sort(byStamp);
+  }
+  const stampOf = (f: string, kind: PointKind) => f.slice(0, -KINDS[kind].ext.length);
+  const idOf = (kind: PointKind, s: string) => KINDS[kind].prefix + s;
+  /** id точки → её файл; чужой или пропавшей — ошибка */
+  function pointFile(name: string, id: string): string {
+    const m = /^(?:(auto|open|close):)?(.*)$/.exec(String(id));
+    const kind = (m?.[1] ?? 'mine') as PointKind;
+    const s = m?.[2] ?? '';
+    const file = path.join(cpFolder(name, kind), s + KINDS[kind].ext);
+    if (!CP_ID.test(s) || !fs.existsSync(file)) throw new Error('Контрольная точка не найдена');
+    return file;
+  }
+  const pointExists = (name: string, id: unknown) => { try { pointFile(name, String(id)); return true; } catch { return false; } };
 
-  function checkpoint(name: string, o: { auto?: boolean } = {}): { id: string; time: number; same: boolean } {
+  /**
+   * История презентации, которую вернули из корзины (папку перенесли обратно): точки и журнал лежат в её
+   * .history — на место. Новая презентация с именем, от которого остались чужие точки (до корзины истории),
+   * их не получает: они уходят в корзину
+   */
+  function adoptHistory(name: string): void {
+    const hist = path.join(dir, name, '.history');
+    if (!fs.existsSync(hist)) return;
+    const cps = path.join(hist, 'checkpoints');
+    if (fs.existsSync(cps) && !fs.existsSync(cpRoot(name))) move(cps, cpRoot(name));
+    integrations.adoptJournal(name, path.join(hist, 'journal.jsonl'));
+    fs.rmSync(hist, { recursive: true, force: true });
+  }
+
+  function checkpoint(name: string, o: { kind?: PointKind } = {}): { id: string; time: number; same: boolean } {
     const text = fs.readFileSync(deckFile(assertDeck(name)), 'utf8');
-    const auto = !!o.auto;
-    const folder = cpDir(name, auto);
-    const list = cpList(name, auto);
-    const last = list[list.length - 1];
-    const idOf = (f: string) => (auto ? 'auto:' : '') + f.slice(0, -5);
-    if (last && fs.readFileSync(path.join(folder, last), 'utf8') === text) {
-      return { id: idOf(last), time: Math.round(fs.statSync(path.join(folder, last)).mtimeMs), same: true };
+    adoptHistory(name);
+    const kind = o.kind ?? 'mine';
+    const { ext } = KINDS[kind];
+    const folder = cpFolder(name, kind);
+    // Та же, что последняя точка этого вида, не повторяется; точка открытия и закрытия — и та же, что последняя
+    // любого вида: открыли и закрыли, ничего не поменяв, — новой точки нет
+    const kinds: PointKind[] = kind === 'open' || kind === 'close' ? ['mine', 'auto', 'open', 'close'] : [kind];
+    for (const k of kinds) {
+      const last = cpFiles(name, k).at(-1);
+      const file = last && path.join(cpFolder(name, k), last);
+      if (file && fs.readFileSync(file, 'utf8') === text) return { id: idOf(k, stampOf(last, k)), time: Math.round(fs.statSync(file).mtimeMs), same: true };
     }
     const d = new Date();
     const base = stamp(d);
-    let id = base;
-    for (let i = 2; list.includes(`${id}.yaml`); i++) id = `${base}-${i}`;
+    let s = base;
+    for (let i = 2; fs.existsSync(path.join(folder, s + ext)); i++) s = `${base}-${i}`;
     fs.mkdirSync(folder, { recursive: true });
-    fs.writeFileSync(path.join(folder, `${id}.yaml`), text);
-    for (const old of [...list, `${id}.yaml`].slice(0, -(auto ? AUTO_POINTS : CHECKPOINTS))) fs.rmSync(path.join(folder, old), { force: true });
-    return { id: idOf(`${id}.yaml`), time: d.getTime(), same: false };
+    fs.writeFileSync(path.join(folder, s + ext), text);
+    prune(name, kind);
+    return { id: idOf(kind, s), time: d.getTime(), same: false };
   }
 
-  /** Точки — новые первыми */
-  function checkpoints(name: string): { id: string; time: number }[] {
+  /** Сроки хранения точек вида kind (KINDS вверху) */
+  function prune(name: string, kind: PointKind): void {
+    const drop = (k: PointKind, files: string[]) => { for (const f of files) fs.rmSync(path.join(cpFolder(name, k), f), { force: true }); };
+    if (kind === 'mine') return drop('mine', cpFiles(name, 'mine').slice(0, -CHECKPOINTS));
+    if (kind === 'auto') {
+      const list = cpFiles(name, 'auto');
+      const old = Date.now() - AUTO_DAYS * 86_400_000;
+      const keep = new Set(list.filter((f, i) => i >= list.length - AUTO_MIN || stampTime(f) >= old).slice(-AUTO_MAX));
+      return drop('auto', list.filter((f) => !keep.has(f)));
+    }
+    // Открытия и закрытия — общим счётом
+    const both = [...cpFiles(name, 'open').map((f) => ['open', f] as const), ...cpFiles(name, 'close').map((f) => ['close', f] as const)]
+      .sort((a, b) => byStamp(a[1], b[1]));
+    for (const [k, f] of both.slice(0, -SESSION_POINTS)) drop(k, [f]);
+  }
+
+  /** Точки для «Версий»: свои и открытия-закрытия — новые первыми (точки агентов и скриптов — через журнал) */
+  function checkpoints(name: string): { id: string; time: number; kind: PointKind }[] {
     assertDeck(name);
-    return cpList(name).reverse().map((f) => ({ id: f.slice(0, -5), time: Math.round(fs.statSync(path.join(cpDir(name), f)).mtimeMs) }));
+    adoptHistory(name);
+    return (['mine', 'open', 'close'] as PointKind[])
+      .flatMap((kind) => cpFiles(name, kind).map((f) => ({ id: idOf(kind, stampOf(f, kind)), time: Math.round(fs.statSync(path.join(cpFolder(name, kind), f)).mtimeMs), kind })))
+      .sort((a, b) => b.time - a.time || byStamp(b.id.replace(/^\w+:/, ''), a.id.replace(/^\w+:/, '')));
   }
 
   /**
@@ -512,16 +619,27 @@ export function createDecksCore(opts: CoreOptions) {
    */
   function readCheckpoint(name: string, id: string): { deck: unknown } {
     assertDeck(name);
-    const auto = typeof id === 'string' && id.startsWith('auto:');
-    const raw = auto ? id.slice(5) : id;
-    if (!CP_ID.test(raw) || !fs.existsSync(path.join(cpDir(name, auto), `${raw}.yaml`))) throw new Error('Контрольная точка не найдена');
-    const data = parseYaml(fs.readFileSync(path.join(cpDir(name, auto), `${raw}.yaml`), 'utf8'));
+    const data = parseYaml(fs.readFileSync(pointFile(name, id), 'utf8'));
     return {
       deck: mapAssets(data, (v) => {
         const abs = path.resolve(dir, name, v);
         return fs.existsSync(abs) ? urlOf(abs) : v;
       }),
     };
+  }
+
+  /**
+   * Журнал: у записей, чьих точек уже нет (истёк срок хранения), точки не показываются — и «Вернуть» у них
+   * нет, а не ошибка при нажатии
+   */
+  function journal(name?: string, limit?: number): JournalEntry[] {
+    if (name) adoptHistory(name);
+    return integrations.journal(name, limit).map((e) => {
+      if (!e.checkpoint && !e.after) return e;
+      if (pointExists(e.deck, e.checkpoint) && pointExists(e.deck, e.after)) return e;
+      const { checkpoint: _c, after: _a, ...rest } = e;
+      return rest;
+    });
   }
 
   // ---------------- файлы презентации ----------------
@@ -822,7 +940,7 @@ export function createDecksCore(opts: CoreOptions) {
     agentBye: (id: string) => integrations.bye(id),
     access: () => integrations.access(),
     setAccess: (v: unknown) => integrations.setAccess(v),
-    journal: (name?: string, limit?: number) => integrations.journal(name ? assertDeck(name) : undefined, limit),
+    journal: (name?: string, limit?: number) => journal(name ? assertDeck(name) : undefined, limit),
     recordScript,
     scripts: () => integrations.scripts(),
     scriptCode: (id: string) => integrations.scriptCode(id),

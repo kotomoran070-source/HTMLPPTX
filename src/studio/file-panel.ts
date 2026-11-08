@@ -3,7 +3,9 @@
  *
  * - Сведения — сводка презентации: числа, тяжёлые и лишние файлы, шрифты, название и папка;
  * - Экспорт — форматы карточками, справа — настройки выбранного и «Сохранить»;
- * - Версии — контрольные точки по дням, с первым слайдом каждой; «Вернуть» — одной правкой (Ctrl+Z — обратно);
+ * - Версии — история по дням: свои точки (Ctrl+S), «когда открыли» и «когда закрыли», сеансы агентов и запуски
+ *   скриптов (из журнала); «Вернуть» точку — вся презентация как в ней, сеанс агента или скрипт — только их правки
+ *   (то, что поправили после, остаётся); одной правкой, Ctrl+Z — обратно;
  * - Параметры — лента (ribbon-setup.ts) и интерфейс: тема, цвет, вид слайдов, облегчённый режим;
  * - Интеграции — агенты, скрипты, журнал правок, плагины, коннекторы (integrations-file.ts; точка — агент на связи);
  * - Лицензии (внизу, рядом со сборкой программы) — списком и текстом (engine/licenses-view.ts).
@@ -19,6 +21,7 @@ import { clock } from '../engine/editor/editor';
 import { plural } from '../engine/editor/font-picker';
 import { esc } from '../engine/html';
 import { licensesSummary, loadLicenses, mountLicenses, newLicensesState } from '../engine/licenses-view';
+import { agentLook, canRevert, edits, type JournalEntry } from './integrations';
 import { onThemeChange } from '../engine/theme';
 import { collectSummary, fileSize, numText, removeFont, replaceFont, trashUnused, type Summary, type ToolsHost } from './tools';
 import './file-panel.css';
@@ -67,6 +70,11 @@ export interface FileHost {
   };
   /** «Лицензии» — только со своим сервером (данные — с него) */
   licenses: { enabled(): boolean };
+  /**
+   * Правки агентов и скриптов этой презентации (журнал) — для «Версий»: журнал, «Вернуть» правки (только их,
+   * не трогая того, что поправили после) и «Журнал правок» в «Интеграциях»
+   */
+  history?: { journal(): Promise<JournalEntry[]>; revert(list: JournalEntry[], label: string): Promise<void>; log(): void };
   /** «Интеграции» — только со своим сервером; mount рисует раздел в el, live — агент на связи */
   integrations: { enabled(): boolean; mount(el: HTMLElement): void; live(): boolean };
   /** «Slideria 1.4 · сборка от …» (запуск из проекта — без сборки); пусто вне программы */
@@ -198,24 +206,82 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     </div>`;
   }
 
-  let points: { id: string; time: number }[] | null = null;
+  type PointKind = 'mine' | 'auto' | 'open' | 'close';
+  /** Строка «Версий»: точка (своя, открытие, закрытие) или правки из журнала (сеанс агента, запуск скрипта) */
+  type Item = { kind: 'point'; id: string; time: number; point: PointKind } | { kind: 'edits'; key: string; time: number; end: number; by: JournalEntry['by']; list: JournalEntry[] };
+  let points: { id: string; time: number; kind: PointKind }[] | null = null;
+  /** Сеансы агентов и скрипты — по ключу строки: для «Вернуть» */
+  const groups = new Map<string, Item & { kind: 'edits' }>();
+  let vfilter: 'all' | 'points' | 'edits' = 'all';
+  const POINT_NAME: Record<PointKind, string> = { mine: 'Ваша точка', auto: 'Точка', open: 'Когда открыли', close: 'Когда закрыли' };
+  /** Перерыв дольше этого — новый сеанс агента */
+  const SESSION_GAP = 30 * 60_000;
+
+  /** Правки журнала этой презентации → строки: подряд идущие правки одного агента — один сеанс, скрипт — запуск */
+  function editRows(journal: JournalEntry[]): (Item & { kind: 'edits' })[] {
+    const rows: (Item & { kind: 'edits' })[] = [];
+    for (const e of [...journal].sort((a, b) => a.t.localeCompare(b.t))) {
+      const t = Date.parse(e.t);
+      const prev = rows.at(-1);
+      if (prev && e.by.kind === 'agent' && prev.by.kind === 'agent' && prev.by.name === e.by.name && t - prev.end <= SESSION_GAP) {
+        prev.list.push(e);
+        prev.end = t;
+        continue;
+      }
+      rows.push({ kind: 'edits', key: `${e.by.kind}:${e.t}`, time: t, end: t, by: e.by, list: [e] });
+    }
+    return rows;
+  }
+
   async function versionsHtml(): Promise<string> {
-    const head = '<header class="fp-head"><h2>Версии</h2><p>Программа сохраняет сама. Точка — снимок, к которому можно вернуться</p></header>';
+    const head = '<header class="fp-head"><h2>Версии</h2><p>Программа сохраняет сама. Точки — снимки, к которым можно вернуться: ваши (Ctrl+S), когда открыли и закрыли презентацию, а ещё каждая правка агентов и скриптов</p></header>';
     if (ed.mode !== 'project') {
       return `${head}<div class="fp-card fp-empty">${icon('clock')}<div><span class="fp-sw-t">Версии — у презентаций из папки программы</span><small>Этот файл открыт с диска: сохранить правки в него — Ctrl+S</small></div></div>`;
     }
-    points = await ed.checkpoints();
+    const [pts, journal] = await Promise.all([ed.checkpoints(), host.history?.journal().catch(() => []) ?? Promise.resolve([])]);
+    points = pts;
     const st = ed.statusInfo;
     const last = points[0];
-    const days = new Map<string, { id: string; time: number }[]>();
-    for (const p of points.slice(0, 40)) {
-      const d = dayOf(p.time);
-      days.set(d, [...(days.get(d) ?? []), p]);
+    groups.clear();
+    const edited = editRows(journal);
+    for (const g of edited) groups.set(g.key, g);
+    const all: Item[] = [
+      ...points.map((p) => ({ kind: 'point' as const, id: p.id, time: p.time, point: p.kind })),
+      ...edited,
+    ].sort((a, b) => b.time - a.time);
+    const both = points.length > 0 && edited.length > 0;
+    const shown = all.filter((x) => vfilter === 'all' || !both || (vfilter === 'points' ? x.kind === 'point' : x.kind === 'edits')).slice(0, 60);
+    const days = new Map<string, Item[]>();
+    for (const x of shown) {
+      const d = dayOf(x.time);
+      days.set(d, [...(days.get(d) ?? []), x]);
     }
+    const row = (x: Item) => {
+      if (x.kind === 'point') {
+        const tip = 'Вернуть всю презентацию к этой точке. Ctrl+Z — обратно';
+        return `<div class="fp-ver" data-cp="${esc(x.id)}"><time>${clock(x.time)}</time><span class="fp-ver-th" data-th="${esc(x.id)}"></span>`
+          + `<span class="fp-ver-x"><span class="fp-ver-t${x.point === 'mine' ? ' mine' : ''}">${POINT_NAME[x.point]}</span><span class="fp-ver-n" data-n="${esc(x.id)}"></span></span>`
+          + `<button type="button" class="fp-btn" data-restore="${esc(x.id)}" data-time="${x.time}" title="${tip}">Вернуть</button></div>`;
+      }
+      const n = x.list.reduce((s, e) => s + e.changes.length, 0);
+      const labels = x.list.flatMap((e) => e.changes.map((c) => c.label));
+      const sub = labels.slice(0, 2).join(', ') + (labels.length > 2 ? ` и ещё ${labels.length - 2}` : '');
+      const script = x.by.kind === 'script';
+      const look = agentLook(x.by.name);
+      const ok = x.list.every(canRevert);
+      const when = x.end - x.time >= 60_000 ? `${clock(x.time)}–${clock(x.end)}` : clock(x.time);
+      return `<div class="fp-ver fp-ver-e" data-g="${esc(x.key)}"><time title="${esc(when)}">${clock(x.end)}</time>`
+        + `<span class="fp-ver-who">${script ? `<i class="k">${icon('script')}</i>` : `<i style="background:${look.bg}">${esc(look.initials)}</i>`}</span>`
+        + `<span class="fp-ver-x"><span class="fp-ver-t">${script ? `Скрипт «${esc(x.by.name)}»` : esc(x.by.name)} <small>${edits(n)}${when.includes('–') ? ` · ${when}` : ''}</small></span><span class="fp-ver-n">${esc(sub)}</span></span>`
+        + `<span class="fp-ver-a">${script ? '' : '<button type="button" class="fp-btn fp-ver-log" data-a="log">Журнал</button>'}${ok
+          ? `<button type="button" class="fp-btn" data-revert="${esc(x.key)}" title="Вернуть как было до ${script ? 'скрипта' : 'этих правок'} — то, что поправили после, останется. Ctrl+Z — обратно">Вернуть</button>`
+          : '<span class="fp-ver-gone" title="Точки этих правок уже не хранятся (старше 30 дней)">точек нет</span>'}</span></div>`;
+    };
     return `${head}<div class="fp-v-list">
       <div class="fp-card fp-now"><i class="fp-led ${esc(st.cls)}"></i><div><span class="fp-sw-t">${esc(st.cls === 'err' ? st.text : st.cls === 'ok' ? 'Всё сохранено' : st.text || 'Всё сохранено')}</span><small>${last ? `Последняя точка — ${dayOf(last.time).toLowerCase()} в ${clock(last.time)}` : 'Каждая правка сразу записывается в файл'}</small></div><button type="button" class="fp-btn go" data-a="point">${icon('save')}Сделать точку<kbd>Ctrl+S</kbd></button></div>
-      ${points.length ? [...days].map(([day, list]) => `<section><h3 class="fp-k">${esc(day)}</h3><div class="fp-card">${list.map((p) => `<div class="fp-ver" data-cp="${esc(p.id)}"><time>${clock(p.time)}</time><span class="fp-ver-th" data-th="${esc(p.id)}"></span><span class="fp-ver-n" data-n="${esc(p.id)}">Контрольная точка</span><button type="button" class="fp-btn" data-restore="${esc(p.id)}" data-time="${p.time}">Вернуть</button></div>`).join('')}</div></section>`).join('')
-        : `<div class="fp-card fp-empty">${icon('clock')}<div><span class="fp-sw-t">Точек пока нет</span><small>Сделайте первую перед большими правками — Ctrl+S</small></div></div>`}
+      ${both ? `<div>${seg('vf', 'Что показать', [['all', 'Всё'], ['points', 'Точки'], ['edits', 'Агенты и скрипты']], vfilter)}</div>` : ''}
+      ${shown.length ? [...days].map(([day, list]) => `<section><h3 class="fp-k">${esc(day)}</h3><div class="fp-card">${list.map(row).join('')}</div></section>`).join('')
+        : `<div class="fp-card fp-empty">${icon('clock')}<div><span class="fp-sw-t">Точек пока нет</span><small>Первая появится, когда закроете презентацию; перед большими правками — Ctrl+S</small></div></div>`}
     </div>`;
   }
   /** Точка не меняется: её миниатюра и подпись читаются с диска один раз */
@@ -224,22 +290,22 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
   async function fillVersions(): Promise<void> {
     const read = ed.files.readCheckpoint;
     if (!read || !points) return;
-    for (const p of points.slice(0, 40)) {
+    for (const th of [...main.querySelectorAll<HTMLElement>('[data-th]')]) {
       if (root.hidden || section !== 'versions') return;
-      const th = main.querySelector<HTMLElement>(`[data-th="${CSS.escape(p.id)}"]`);
-      if (!th || th.childElementCount) continue;
-      if (!seen.has(p.id)) {
+      const id = th.dataset.th!;
+      if (th.childElementCount) continue;
+      if (!seen.has(id)) {
         try {
-          const d = (await read(host.tools.deckKey, p.id)).deck as Deck;
-          seen.set(p.id, d && Array.isArray(d.slides) && d.slides.length
+          const d = (await read(host.tools.deckKey, id)).deck as Deck;
+          seen.set(id, d && Array.isArray(d.slides) && d.slides.length
             ? { thumb: staticSlide(d, 0, 96), label: `${d.title ? `${d.title} · ` : ''}${d.slides.length} ${plural(d.slides.length, 'слайд', 'слайда', 'слайдов')}` }
             : null);
-        } catch { seen.set(p.id, null); /* точку не прочитать — строка остаётся без миниатюры */ }
+        } catch { seen.set(id, null); /* точку не прочитать — строка остаётся без миниатюры */ }
       }
-      const got = seen.get(p.id);
+      const got = seen.get(id);
       if (!got || !th.isConnected) continue;
       th.replaceChildren(got.thumb.cloneNode(true));
-      const n = main.querySelector<HTMLElement>(`[data-n="${CSS.escape(p.id)}"]`);
+      const n = main.querySelector<HTMLElement>(`[data-n="${CSS.escape(id)}"]`);
       if (n) n.textContent = got.label;
     }
   }
@@ -325,7 +391,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
   function focusKey(): string {
     const a = document.activeElement as HTMLElement | null;
     if (!a || !main.contains(a)) return '';
-    for (const k of ['x', 'q', 'uitheme', 'color', 'look', 'a', 'restore', 'go', 'font', 'unfont']) {
+    for (const k of ['x', 'q', 'uitheme', 'color', 'look', 'a', 'restore', 'revert', 'vf', 'go', 'font', 'unfont']) {
       const v = a.dataset[k];
       if (v !== undefined) return `[data-${k}="${CSS.escape(v)}"]`;
     }
@@ -397,6 +463,15 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     if (d.go !== undefined) { close(); host.tools.go(Number(d.go)); return; }
     if (d.font !== undefined) return replaceFont(host.tools, b, d.font);
     if (d.unfont !== undefined) { removeFont(host.tools, d.unfont); return; }
+    if (d.vf) { vfilter = d.vf as typeof vfilter; void render(); return; }
+    if (d.a === 'log') { host.history?.log(); return; }
+    if (d.revert) {
+      const g = groups.get(d.revert);
+      if (!g || !host.history) return;
+      const who = g.by.kind === 'script' ? `скрипта «${g.by.name}»` : `«${g.by.name}»`;
+      void host.history.revert(g.list, who).then(() => render(), (err: Error) => host.tools.editor.toast(`Не удалось вернуть: ${err.message}`, 4000, true));
+      return;
+    }
     if (d.restore) {
       const time = Number(d.time);
       void ed.restoreCheckpoint(d.restore, `${dayOf(time) === 'Сегодня' ? '' : `${dayOf(time).toLowerCase()} `}${clock(time)}`).then(() => render());

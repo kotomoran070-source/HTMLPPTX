@@ -405,6 +405,9 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     state: queueState,
   }, true, { studio: true, textDock: $('st-textdock') });
   const ed = editor;
+  // Точка «когда открыли»: файл до правок этого сеанса. Такой же, как последняя точка (закрыли и открыли снова), —
+  // новой нет (server/core.ts → checkpoint). «Когда закрыли» — при закрытии окна (Editor, beforeunload)
+  if (ed.mode === 'project') void ed.files.checkpoint?.(deckKey, 'open').catch(() => null);
   onLibraryError((msg) => ed.toast(msg, 5000, true));
   // «Добавить шрифт из файла…» в каждом списке шрифтов: на «Дизайне», в панели текста, в «Заменить шрифт»
   onFontFile((f) => void ed.addFontFile(f));
@@ -1995,11 +1998,16 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     },
     licenses: { enabled: () => location.protocol.startsWith('http') },
     integrations: { enabled: () => location.protocol.startsWith('http'), mount: (el) => void integrations.mount(el), live: () => integrations.live() },
+    history: location.protocol.startsWith('http') ? { journal: integrations.journal, revert: integrations.revert, log: () => integrations.open('log') } : undefined,
     build: () => {
       const b = appApi?.build;
       return b ? `Slideria ${b.version ?? ''}${b.date ? ` · сборка от ${b.date}` : ''}` : '';
     },
-    toggled: (open) => { fileBtn.classList.toggle('on', open); },
+    toggled: (open) => {
+      fileBtn.classList.toggle('on', open);
+      // Подсказка о правке агента — на слайдах; в «Файле» то же видно в «Версиях» и журнале
+      if (open) document.getElementById('st-int-toast')?.classList.remove('on');
+    },
   }, document.querySelector<HTMLElement>('.studio-app')!, fileBtn);
   fileBtn.addEventListener('click', () => (filePanel!.isOpen() ? filePanel!.close() : filePanel!.open()));
   // «Справка → Лицензии» в программе (desktop/main.mjs) — сюда, в «Файл → Лицензии»

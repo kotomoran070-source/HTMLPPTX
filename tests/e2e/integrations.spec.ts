@@ -108,6 +108,12 @@ test('«Файл → Интеграции»: клиенты (и ChatGPT), что
   await expect(fp.locator('.ig-tab[data-sub="log"]')).toHaveAttribute('aria-selected', 'true');
   await expect(fp.locator('.ig-entry').first()).toContainText('Один переход для всех слайдов');
   await expect(fp.locator('.ig-entry').first().locator('.ig-diff ins')).toHaveText('Сдвиг');
+  // У скрипта теперь тоже «Вернуть» (точки до и после); в «Версиях» — и он, и сеанс агента
+  await expect(fp.locator('.ig-entry').first().getByRole('button', { name: 'Вернуть' })).toBeVisible();
+  await fp.locator('[data-fs="versions"]').click();
+  await expect(fp.locator('.fp-ver-e', { hasText: 'Скрипт «Один переход для всех слайдов»' })).toBeVisible();
+  await expect(fp.locator('.fp-ver-e', { hasText: 'Claude Code' }).first()).toBeVisible();
+  await fp.locator('[data-fs="int"]').click();
 
   // Скрипт, который лезет в сеть, — понятный отказ прямо в разделе, данные не тронуты
   await post('script-save', { file: 'сеть.js', code: "// @name Сеть\nexport default async () => { await fetch('https://example.com'); }\n" });
@@ -138,5 +144,34 @@ test('скрипты — в меню ленты и в Ctrl+K; «Все скри�
   await page.keyboard.press('Control+k');
   await page.keyboard.type('скрипт оглав');
   await expect(page.locator('#st-pal')).toContainText('Скрипт: Оглавление');
+  expect(errors).toEqual([]);
+});
+
+test('«Версии»: сеанс агента — одной строкой, «Вернуть» откатывает все его правки, своё остаётся', async ({ page }) => {
+  const errors = watchErrors(page);
+  await openTools(page);
+  // Своя правка — фигура на 10 px вправо (до агента)
+  // Фигура на первом слайде (x — 640, после первого теста — 650)
+  const was = Number(/x: (6\d0)/.exec(readDeck('integ'))![1]);
+  const x = was + 10;
+  await page.locator('#st-canvas .slide.on .free').nth(1).click();
+  await page.keyboard.press('Shift+ArrowRight');
+  await expect.poll(() => readDeck('integ')).toContain(`x: ${x}`);
+  // Агент правит дважды подряд — один сеанс
+  const by = { kind: 'agent', id: 'e2e-agent-2', name: 'Codex' };
+  expect((await post('apply?deck=integ&from=mcp', { ops: [{ op: 'object.set', slide: 1, object: 1, set: { text: 'Первая правка агента' } }], by })).status).toBe(200);
+  expect((await post('apply?deck=integ&from=mcp', { ops: [{ op: 'slide.set', slide: 1, set: { notes: 'Заметка агента' } }], by })).status).toBe(200);
+  await expect(page.locator('#st-canvas .slide.on')).toContainText('Первая правка агента');
+  await page.locator('#st-file').click();
+  await page.locator('.fp [data-fs="versions"]').click();
+  const row = page.locator('.fp-ver-e', { hasText: 'Codex' });
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText('2 правки');
+  await row.hover();
+  await row.locator('[data-revert]').click();
+  await expect.poll(() => readDeck('integ')).not.toContain('Первая правка агента');
+  expect(readDeck('integ')).not.toContain('Заметка агента');
+  expect(readDeck('integ')).toContain(`x: ${x}`);
+  await expect(page.locator('#ed-toast')).toContainText('возвращены');
   expect(errors).toEqual([]);
 });

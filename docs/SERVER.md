@@ -103,7 +103,7 @@ http.createServer((req, res) => handle(req, res, () => { res.statusCode = 404; r
 | Презентации | `names()`, `has(name)`, `list()` — с временем правки и сводкой (название, число слайдов, откуда импортирована, «файл не читается»; помнит её, пока файл не менялся), `read(name, { urls })` — данные (с `urls` — пути к файлам адресами для страницы), `create(title, sample)` — из `templates/basic`, `trash(name)` — в `.trash`, не насовсем |
 | Операции правки | `outline(name, { slide? })` — краткое содержание для агента: слайды с ревизиями, объекты с номерами; `apply(name, { ops, expect?, from? })` — пакет операций, все или ни одной ([OPS.md](OPS.md)) |
 | Запись | `save(name, { deck, base, from })` — трёхстороннее слияние с файлом: из окна берётся только то, что оно поменяло само; чужие правки возвращаются окну; комментарии в YAML сохраняются |
-| Контрольные точки | `checkpoint(name)`, `checkpoints(name)`, `readCheckpoint(name, id)` — копии в `.checkpoints`, последние 30 |
+| Контрольные точки | `checkpoint(name, { kind })`, `checkpoints(name)`, `readCheckpoint(name, id)` — копии в `.checkpoints`: свои (Ctrl+S, последние 30), `session/` — когда открыли и закрыли (30), `auto/` — до и после правки агента и скрипта (30 дней); виды и сроки — вверху `server/core.ts`. В корзину — вместе с презентацией (`.history` в её папке), вернули папку — вернулись на место |
 | Файлы презентации | `assets(name)`, `addAsset(name, fileName, data)` — тот же файл не повторяется, STL и STEP — в GLB, `writeAssetText` — код живой вставки, `trashAssets` |
 | Шрифты | `fonts()`, `addFont(fileName, data)`, `useFont(name, file)` — только разрешённые автором к встраиванию |
 | Своя библиотека | `library()`, `putLibrary(kind, id, value)`, `deleteLibrary(kind, id)` — темы, шаблоны, эффекты, образы |
@@ -174,7 +174,7 @@ http.createServer((req, res) => handle(req, res, () => { res.statusCode = 404; r
 | `list`, `create`, `read`, `save`, `delete` | презентации |
 | `outline`, `apply` | операции правки для агента, MCP и плагинов ([OPS.md](OPS.md)) |
 | `integrations`, `integrations-set`, `agent`, `journal`, `journal-add`, `scripts`, `script-read`, `script-save` | интеграции: кто на связи, что можно агентам, журнал, скрипты ([INTEGRATIONS.md](INTEGRATIONS.md)) |
-| `checkpoint`, `checkpoints`, `checkpoint-read` | контрольные точки |
+| `checkpoint`, `checkpoints`, `checkpoint-read` | контрольные точки: `checkpoint?kind=` — `auto` (до и после скрипта), `open`, `close` (студию открыли и закрыли); без него — своя (Ctrl+S). `save?close=1` — последняя запись перед закрытием и точка «когда закрыли» одним запросом |
 | `asset`, `asset-text`, `assets-list`, `assets-trash` | файлы презентации |
 | `font-list`, `font-save`, `font-use` | библиотека шрифтов |
 | `library`, `library-put`, `library-delete` | своя библиотека студии |

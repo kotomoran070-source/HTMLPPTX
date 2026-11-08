@@ -5,7 +5,7 @@
  */
 import { icon } from '../components/icons';
 import './integrations.css';
-import { agentLook, ago, api, defaults, edits, revertAgent, runScript, type AgentInfo, type IntegrationsCtx, type JournalEntry, type ScriptInfo, type ScriptParam, type Section } from './integrations';
+import { agentLook, ago, api, canRevert, defaults, edits, revertAgent, runScript, slideOf, type AgentInfo, type IntegrationsCtx, type JournalEntry, type ScriptInfo, type ScriptParam, type Section } from './integrations';
 
 type Access = 'view' | 'edit' | 'all';
 interface Info { access: Access; agents: AgentInfo[]; mcp: { command: string; args: string[] } | null; scripts: string }
@@ -291,11 +291,11 @@ function logHtml(): string {
   state.journal.forEach((e, k) => {
     const here = e.deck === h.deckKey;
     const key = `${e.t}|${e.by.name}`;
-    const canUndo = here && e.by.kind === 'agent' && e.checkpoint && e.after;
+    const canUndo = here && canRevert(e);
     // Длинный пакет (скрипт на все слайды) — первые три и «Ещё N»
     const long = e.changes.length > 5 && !expanded.has(key);
     const rows = (long ? e.changes.slice(0, 3) : e.changes).map((c) => `<div class="ig-row"><div><div class="ig-rl">${esc(c.label)}</div>${c.was || c.now ? `<div class="ig-diff">${c.was ? `<del>${esc(c.was)}</del>` : ''}${c.was && c.now ? '<span>→</span>' : ''}${c.now ? `<ins>${esc(c.now)}</ins>` : ''}</div>` : ''}</div>`
-      + `${c.slide && here ? `<button type="button" class="ig-sl" data-go="${c.slide}" title="Перейти к слайду">${icon('frame')}Слайд ${c.slide}</button>` : '<span></span>'}</div>`).join('');
+      + `${(() => { const at = here ? slideOf(h.deck, c) : -1; return at >= 0 ? `<button type="button" class="ig-sl" data-go="${at + 1}" title="Перейти к слайду">${icon('frame')}Слайд ${at + 1}</button>` : '<span></span>'; })()}</div>`).join('');
     const html = `<section class="fp-card ig-entry">
       <div class="ig-eh">${avatar(e.by.name, undefined, 's', e.by.kind === 'script')}<div class="ig-who2"><b>${esc(e.by.name)}</b><span class="ig-m">${e.by.kind === 'script' ? 'скрипт · ' : ''}${hm(Date.parse(e.t))}${here ? '' : ` · «${esc(e.deck)}»`} · ${edits(e.changes.length)}</span></div>
         ${canUndo ? `<button type="button" class="fp-btn" data-undo="${k}">${icon('undo')}Вернуть</button>` : ''}</div>

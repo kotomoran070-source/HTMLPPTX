@@ -278,12 +278,20 @@ async function route(core: DecksCore, o: HttpOptions, req: IncomingMessage, res:
     case 'journal-add': return send(res, 200, core.recordScript(name, ((await json(req)) ?? {}) as never));
     case 'save': {
       const body = (await json(req) ?? {}) as { deck?: unknown; base?: unknown };
-      return send(res, 200, core.save(name, { deck: body.deck, base: body.base, from: q.get('from') ?? '' }));
+      const r = core.save(name, { deck: body.deck, base: body.base, from: q.get('from') ?? '' });
+      // Последняя запись перед закрытием студии — и точка «когда закрыли» (одним запросом: точка — после записи)
+      if (q.get('close') === '1') core.checkpoint(name, { kind: 'close' });
+      return send(res, 200, r);
     }
     case 'delete': return send(res, 200, await core.trash(name));
     case 'assets-list': return send(res, 200, core.assets(name));
     case 'assets-trash': return send(res, 200, core.trashAssets(name, (await json(req)) ?? []));
-    case 'checkpoint': return send(res, 200, core.checkpoint(name));
+    // Точка: своя (Ctrl+S); kind=auto — до и после скрипта, open и close — когда студию открыли и закрыли
+    case 'checkpoint': {
+      const kind = q.get('kind') || undefined;
+      if (kind !== undefined && kind !== 'auto' && kind !== 'open' && kind !== 'close') throw new Error('Вид точки: auto, open или close');
+      return send(res, 200, core.checkpoint(name, { kind }));
+    }
     case 'checkpoints': return send(res, 200, core.checkpoints(name));
     case 'checkpoint-read': return send(res, 200, core.readCheckpoint(name, q.get('id') ?? ''));
     case 'font-use': return send(res, 200, await core.useFont(name, q.get('file') ?? ''));

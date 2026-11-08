@@ -1,5 +1,5 @@
 import type { Deck } from '../types';
-import { listCheckpoints, listDeckAssets, listLibraryFonts, makeCheckpoint, readCheckpoint, saveLibraryFont, saveToProject, trashDeckAssets, uploadAsset, useLibraryFont } from './editor/persist';
+import { listCheckpoints, listDeckAssets, listLibraryFonts, makeCheckpoint, readCheckpoint, saveLibraryFont, saveToProject, trashDeckAssets, uploadAsset, useLibraryFont, type PointKind } from './editor/persist';
 
 /**
  * Где хранятся презентации. Редактор и студия работают только через этот интерфейс:
@@ -11,7 +11,7 @@ export interface DeckStorage {
    * Записать данные презентации. keepalive — запрос переживёт закрытие вкладки; base — версия, с которой
    * окно начинало: правки других окон в файле не затираются, итог с ними — в ответе (deck)
    */
-  save(deckKey: string, deck: Deck, keepalive?: boolean, base?: Deck): Promise<{ deck?: Deck; base?: Deck } | unknown>;
+  save(deckKey: string, deck: Deck, keepalive?: boolean, base?: Deck, close?: boolean): Promise<{ deck?: Deck; base?: Deck } | unknown>;
   /** Сохранить картинку рядом с презентацией; url — адрес для данных слайда */
   uploadAsset(deckKey: string, file: Blob, name: string): Promise<{ url: string }>;
   /** Собрать один HTML-файл: clean — «для показа», без режима правки; compact — картинки сжаты */
@@ -24,9 +24,12 @@ export interface DeckStorage {
   /** Файлы презентации с размерами (сводка) и перенос неиспользуемых в корзину */
   listAssets?(deckKey: string): Promise<{ path: string; size: number }[]>;
   trashAssets?(deckKey: string, paths: string[]): Promise<{ moved: number }>;
-  /** Контрольные точки (Ctrl+S): копия сохранённого файла, список новых первыми, данные точки */
-  checkpoint?(deckKey: string): Promise<{ id: string; time: number; same: boolean }>;
-  checkpoints?(deckKey: string): Promise<{ id: string; time: number }[]>;
+  /**
+   * Контрольные точки: копия сохранённого файла (своя — Ctrl+S; auto — до и после скрипта; open и close — когда
+   * студию открыли и закрыли), список (свои и открытия-закрытия, новые первыми), данные точки
+   */
+  checkpoint?(deckKey: string, kind?: Exclude<PointKind, 'mine'>, keepalive?: boolean): Promise<{ id: string; time: number; same: boolean }>;
+  checkpoints?(deckKey: string): Promise<{ id: string; time: number; kind: PointKind }[]>;
   readCheckpoint?(deckKey: string, id: string): Promise<{ deck: unknown }>;
 }
 
