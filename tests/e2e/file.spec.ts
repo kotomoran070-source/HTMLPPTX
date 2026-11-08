@@ -1,7 +1,16 @@
 // Раздел «Файл» студии (studio/file-panel.ts): открывается кнопкой «Файл» и щелчком по «Сохранено», закрывается
 // Esc; клавиши студии до слайдов не доходят; сведения, экспорт, версии, параметры и лицензии
+import fs from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { readDeck, waitFile, watchErrors } from './helpers';
+import { deckFile, readDeck, waitFile, watchErrors } from './helpers';
+
+// «Вернуть» переписывает deck.yaml целиком: данные те же, но YAML — блочным стилем, а тесты студии ищут
+// объект по одной строке файла. Поэтому после теста файл презентации возвращается как был
+let restoreFile: { deck: string; text: string } | undefined;
+test.afterEach(() => {
+  if (restoreFile) fs.writeFileSync(deckFile(restoreFile.deck), restoreFile.text);
+  restoreFile = undefined;
+});
 
 test('«Файл»: разделы, клавиатура, Esc, сведения и название', async ({ page }) => {
   const errors = watchErrors(page);
@@ -46,6 +55,7 @@ test('«Файл»: разделы, клавиатура, Esc, сведения 
 
 test('«Файл»: экспорт — настройки по формату; версии — точка и «Вернуть»; параметры — тема', async ({ page }) => {
   const errors = watchErrors(page);
+  restoreFile = { deck: 'fx', text: readDeck('fx') };
   await page.goto('/?deck=fx&studio#1');
   await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
   // Экспорт: у HTML — «Как на этом компьютере», у PDF его нет; качество запоминается
@@ -78,6 +88,9 @@ test('«Файл»: экспорт — настройки по формату; �
   await page.locator('.fp-ver [data-restore]').first().click();
   await expect(page.locator('.st-slides-list > *')).toHaveCount(slides);
   await expect(page.locator('#ed-toast')).toContainText('Возвращено к точке');
+  // И в файле: дальше тест быстрый — без ожидания записи автосохранение пришло бы уже после того,
+  // как файл вернут в исходный вид, и лишний слайд остался бы в презентации для следующих тестов
+  await expect.poll(() => (readDeck('fx').match(/^ {2}- /gm) ?? []).length).toBe(slides);
 
   // Параметры: тема интерфейса — сразу
   await page.locator('.fp [data-fs="prefs"]').click();
