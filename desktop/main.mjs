@@ -208,6 +208,45 @@ function savedTheme() {
 const pageBg = (dark) => (dark ? '#0F172A' : '#F8FAFC');
 
 /**
+ * Перед закрытием окна страница дописывает своё: студия — правки последних долей секунды и точку «Закрытие»
+ * (src/engine/editor/editor.ts, beforeClose). Запрос из beforeunload сюда не годится: окно закрывается, программа
+ * выходит и останавливает сервер раньше, чем запрос до него доходит. Страница не ответила за 4 с — закрываем
+ */
+const CLOSE_WAIT_MS = 4000;
+let closeSeq = 0;
+function beforeClose(win) {
+  const wc = win.webContents;
+  if (wc.isDestroyed() || wc.isCrashed() || !ours(wc.getURL())) return Promise.resolve();
+  const id = ++closeSeq;
+  return new Promise((done) => {
+    const finish = () => {
+      clearTimeout(timer);
+      ipcMain.removeListener('slideria:closed-ready', ready);
+      wc.removeListener('destroyed', finish);
+      done();
+    };
+    const ready = (e, n) => { if (e.sender === wc && n === id) finish(); };
+    const timer = setTimeout(finish, CLOSE_WAIT_MS);
+    ipcMain.on('slideria:closed-ready', ready);
+    wc.once('destroyed', finish);
+    wc.send('slideria:before-close', id);
+  });
+}
+/** Окна, которые уже дописали своё и закрываются по-настоящему */
+const letClose = new WeakSet();
+app.on('browser-window-created', (_e, win) => {
+  win.on('close', (e) => {
+    if (letClose.delete(win)) return;
+    e.preventDefault();
+    void beforeClose(win).finally(() => {
+      if (win.isDestroyed()) return;
+      letClose.add(win);
+      win.close();
+    });
+  });
+});
+
+/**
  * Свой заголовок окна: системной полосы с названием нет — её место занимает элемент страницы: на странице выбора
  * её шапка, в студии — тонкая полоса над шапкой. Его пустые места перетаскивают окно. Кнопки окна в Windows
  * и Linux рисует сама страница (src/engine/titlebar.ts) — в цвет темы, вместе с ней; на Mac — системный
@@ -597,6 +636,13 @@ app.on('before-quit', (e) => {
   if (closing || !server) return;
   e.preventDefault();
   closing = true;
-  lan.close();
-  void server.close().finally(() => app.quit());
+  // Выход (Cmd+Q, меню): сначала страницы дописывают своё, пока сервер работает, — потом сервер и выход
+  const wins = BrowserWindow.getAllWindows();
+  void Promise.all(wins.map((w) => beforeClose(w)))
+    .then(() => {
+      for (const w of wins) letClose.add(w);
+      lan.close();
+      return server.close();
+    })
+    .finally(() => app.quit());
 });

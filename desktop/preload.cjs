@@ -4,7 +4,18 @@
 //   build — какая это сборка программы (страница выбора показывает, от какого она числа).
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Окно закрывается: программа ждёт, пока страница допишет своё (onBeforeClose), и только потом закрывает окно
+let beforeClose = null;
+ipcRenderer.on('slideria:before-close', async (_e, id) => {
+  try {
+    if (beforeClose) await beforeClose();
+  } catch { /* окно закрывается в любом случае */ }
+  ipcRenderer.send('slideria:closed-ready', id);
+});
+
 contextBridge.exposeInMainWorld('slideriaApp', {
+  /** cb() → Promise — перед закрытием окна (студия: записать правки и поставить точку «Закрытие») */
+  onBeforeClose: (cb) => { beforeClose = typeof cb === 'function' ? cb : null; },
   /** 'light' | 'dark' — выбранная тема; 'system' — тема следует за системой */
   theme: (mode) => ipcRenderer.send('slideria:theme', mode),
   /** Страница (уже с листами для печати) → PDF; ответ — путь к файлу или null, если не сохранили */

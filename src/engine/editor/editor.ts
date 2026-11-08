@@ -163,6 +163,8 @@ export class Editor {
 
   private dirty = false;
   private saving = false;
+  /** Программа закрывает окно: правки и точка «Закрытие» уже записаны (beforeClose) */
+  private closed = false;
   private saveTimer = 0;
   private saveError = '';
 
@@ -254,8 +256,10 @@ export class Editor {
         this.toast('Слайд преобразован для правки. Отменить — Ctrl+Z', 4000);
       }
     });
+    // В программе окно закрывается только после ответа страницы: правки и точка записываются до остановки сервера
+    (window as { slideriaApp?: { onBeforeClose?(cb: () => Promise<void>): void } }).slideriaApp?.onBeforeClose?.(() => this.beforeClose());
     addEventListener('beforeunload', (e) => {
-      if (this.mode === 'project') {
+      if (this.mode === 'project' && !this.closed) {
         // Последняя попытка записать правки перед закрытием вкладки — и точка «когда закрыли» (после записи,
         // тем же запросом); всё записано — только точка. Ничего не поменялось с последней точки — её нет
         if (this.dirty || this.saving) this.storage.save(this.host.deckKey, this.host.deck, true, this.base, true).catch(() => {});
@@ -659,6 +663,14 @@ export class Editor {
   }
 
   /** Дописать все правки в deck.yaml и дождаться записи (перед импортом файла). */
+  /** Окно программы закрывается: дописать правки и поставить точку «Закрытие» (нет изменений с прошлой точки — её нет) */
+  async beforeClose(): Promise<void> {
+    if (this.mode !== 'project') return;
+    await this.settle();
+    await this.storage.checkpoint?.(this.host.deckKey, 'close').catch(() => null);
+    this.closed = !this.dirty && !this.saving;
+  }
+
   async settle(): Promise<void> {
     this.text.finish(true);
     if (this.mode !== 'project') return;

@@ -174,7 +174,7 @@ http.createServer((req, res) => handle(req, res, () => { res.statusCode = 404; r
 | `list`, `create`, `read`, `save`, `delete` | презентации |
 | `outline`, `apply` | операции правки для агента, MCP и плагинов ([OPS.md](OPS.md)) |
 | `integrations`, `integrations-set`, `agent`, `journal`, `journal-add`, `scripts`, `script-read`, `script-save` | интеграции: кто на связи, что можно агентам, журнал, скрипты ([INTEGRATIONS.md](INTEGRATIONS.md)) |
-| `checkpoint`, `checkpoints`, `checkpoint-read` | контрольные точки: `checkpoint?kind=` — `auto` (до и после скрипта), `open`, `close` (студию открыли и закрыли); без него — своя (Ctrl+S). `save?close=1` — последняя запись перед закрытием и точка «когда закрыли» одним запросом |
+| `checkpoint`, `checkpoints`, `checkpoint-read` | контрольные точки: `checkpoint?kind=` — `auto` (до и после скрипта), `open`, `close` (студию открыли и закрыли); без него — своя (Ctrl+S). `save?close=1` — последняя запись перед закрытием вкладки и точка «когда закрыли» одним запросом (в программе окно ждёт ответа студии: `onBeforeClose` в `desktop/preload.cjs`) |
 | `asset`, `asset-text`, `assets-list`, `assets-trash` | файлы презентации |
 | `font-list`, `font-save`, `font-use` | библиотека шрифтов |
 | `library`, `library-put`, `library-delete` | своя библиотека студии |

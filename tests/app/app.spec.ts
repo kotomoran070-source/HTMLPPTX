@@ -215,6 +215,45 @@ test('визуализатор в программе: микрофон и зву
   }
 });
 
+// Правка за долю секунды до закрытия (автосохранение ещё не сработало) не теряется; точки «Открытие» и «Закрытие»
+for (const how of ['кнопкой окна', 'выходом из программы'] as const) {
+  test(`закрытие ${how}: последняя правка записана, точки «Открытие» и «Закрытие»`, async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-app-close-'));
+    const docs = path.join(tmp, 'docs');
+    const name = 'moya-pervaya-prezentaciya';
+    const session = path.join(docs, '.checkpoints', name, 'session');
+    const points = (end: string) => (fs.existsSync(session) ? fs.readdirSync(session).filter((f) => f.endsWith(end)) : []);
+    const app = await electron.launch({
+      ...(EXE ? { executablePath: EXE, args: sandbox } : { args: ['.', ...sandbox] }),
+      env: { ...process.env, SLIDERIA_DOCS_DIR: docs, SLIDERIA_USER_DATA: path.join(tmp, 'data') },
+      timeout: 60_000,
+    });
+    try {
+      const win = await mainWindow(app);
+      await win.waitForURL(/\/\?all$/, { timeout: 90_000 });
+      await win.goto(win.url().replace(/\?all$/, `?deck=${name}&studio#1`));
+      await expect(win.locator('#st-canvas .slide.on')).toBeVisible();
+      await expect.poll(() => points('.open.yaml').length).toBe(1);
+      const slides = await win.locator('.st-slides-list > *').count();
+      await win.locator('#st-canvas').click({ position: { x: 4, y: 4 } });
+      await win.keyboard.press('Control+m');
+      await expect(win.locator('.st-slides-list > *')).toHaveCount(slides + 1);
+      const gone = win.waitForEvent('close');
+      if (how === 'выходом из программы') await app.evaluate(({ app: a }) => a.quit());
+      // Кнопка окна на странице; на Mac — системная: закрываем окно из программы
+      else if (process.platform === 'darwin') await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close());
+      else await win.locator('.app-wc button[aria-label="Закрыть"]').click();
+      await gone;
+      const deck = fs.readFileSync(path.join(docs, name, 'deck.yaml'), 'utf8');
+      expect(deck.match(/^ {2}- /gm)?.length).toBe(slides + 1);
+      expect(points('.close.yaml')).toHaveLength(1);
+    } finally {
+      await app.close().catch(() => {});
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+}
+
 test('собранная программа: изменённый код не запускается', async () => {
   test.skip(!EXE, 'только для собранной программы (SLIDERIA_APP_EXE)');
   const file = path.join(path.dirname(EXE!), 'resources', 'app.asar.unpacked', 'app', 'server.mjs');
