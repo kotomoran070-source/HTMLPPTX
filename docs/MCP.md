@@ -87,7 +87,7 @@ server/connect.ts подключение в один щелчок (команд�
 
 | Клиент | Как подключается | Подключён ли |
 |---|---|---|
-| Claude Desktop | `mcpServers.slideria` в `claude_desktop_config.json` (macOS — `~/Library/Application Support/Claude`, Windows — `%APPDATA%\Claude` и папка версии из Microsoft Store, Linux — `~/.config/Claude`). Остальное в файле не трогается, прежний — копией `.bak` рядом; испорченный не перезаписывается | запись в файле |
+| Claude Desktop | `mcpServers.slideria` в `claude_desktop_config.json` (macOS — `~/Library/Application Support/Claude`, Linux — `~/.config/Claude`). На Windows какой файл читает Claude, зависит от версии — пишется во все, что есть: `%APPDATA%\Claude`, у новых версий из Microsoft Store — `%LOCALAPPDATA%\Claude-Data\claude_…`, и личная копия пакета `…\Packages\Claude_…\LocalCache\Roaming\Claude` — только если она уже есть (новая заслонила бы обычный файл со всеми серверами). Остальное в файле не трогается, прежний — копией `.bak` рядом; испорчен хоть один — не трогается ни один | запись во всех файлах (Claude при выходе может переписать свой без неё — тогда «не подключена») |
 | Claude Code | `claude mcp add --scope user slideria -- …` (прежняя запись — сначала `mcp remove`) | `~/.claude.json` |
 | Codex | `codex mcp add slideria -- …` | `[mcp_servers.slideria]` в `~/.codex/config.toml` |
 

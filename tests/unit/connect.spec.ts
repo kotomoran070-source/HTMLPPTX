@@ -57,16 +57,33 @@ test('Claude Desktop: испорченный файл настроек не пе
   } finally { h.done(); }
 });
 
-test('Claude Desktop на Windows: обычная папка и из Microsoft Store — подключается в обе', async () => {
+test('Claude Desktop на Windows: обычная папка, личная копия пакета Microsoft Store и Claude-Data — во все, что есть', async () => {
   const h = home();
   try {
     const env = { APPDATA: path.join(h.dir, 'Roaming'), LOCALAPPDATA: path.join(h.dir, 'Local') };
     const plain = path.join(env.APPDATA, 'Claude');
     const store = path.join(env.LOCALAPPDATA, 'Packages', 'Claude_pzs8sxrjxfjjc', 'LocalCache', 'Roaming', 'Claude');
-    for (const d of [plain, store]) fs.mkdirSync(d, { recursive: true });
+    const data = path.join(env.LOCALAPPDATA, 'Claude-Data', 'claude_pzs8sxrjxfjjc');
+    for (const d of [plain, store, data]) fs.mkdirSync(d, { recursive: true });
+    const cfg = (d: string) => path.join(d, 'claude_desktop_config.json');
     const c = createConnect({ home: h.dir, platform: 'win32', env, pathDirs: [] });
-    await c.connect('claude-desktop', { command: 'C:\\Users\\Анна\\AppData\\Local\\Programs\\Slideria\\Slideria.exe', args: ['--mcp'] });
-    for (const d of [plain, store]) expect(JSON.parse(fs.readFileSync(path.join(d, 'claude_desktop_config.json'), 'utf8')).mcpServers.slideria.args).toEqual(['--mcp']);
+    const cmd = { command: 'C:\\Users\\Анна\\AppData\\Local\\Programs\\Slideria\\Slideria.exe', args: ['--mcp'] };
+    await c.connect('claude-desktop', cmd);
+    for (const d of [plain, data]) expect(JSON.parse(fs.readFileSync(cfg(d), 'utf8')).mcpServers.slideria).toEqual(cmd);
+    // Личной копии пакета не было — и не появилось: она заслонила бы обычный файл со всеми серверами
+    expect(fs.existsSync(cfg(store))).toBe(false);
+
+    // Есть — правится и она; Claude переписал один из файлов без Slideria — «не подключена», подключить заново
+    fs.writeFileSync(cfg(store), JSON.stringify({ mcpServers: { files: { command: 'npx', args: [] } } }));
+    expect(state(c, 'claude-desktop').connected).toBe(false);
+    await c.connect('claude-desktop', cmd);
+    expect(JSON.parse(fs.readFileSync(cfg(store), 'utf8')).mcpServers).toEqual({ files: { command: 'npx', args: [] }, slideria: cmd });
+    expect(state(c, 'claude-desktop').connected).toBe(true);
+    // Испорчен один — не трогается ни один
+    fs.writeFileSync(cfg(data), '{');
+    const before = fs.readFileSync(cfg(plain), 'utf8');
+    await expect(c.disconnect('claude-desktop')).rejects.toThrow(/не читаются/);
+    expect(fs.readFileSync(cfg(plain), 'utf8')).toBe(before);
   } finally { h.done(); }
 });
 

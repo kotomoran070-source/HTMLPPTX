@@ -153,7 +153,7 @@ test('подключить в один щелчок: Claude Desktop — в ег�
   await expect(fp.locator('.ig-steps li').first()).toContainText('Нажмите «Подключить»');
   await link.getByRole('button', { name: 'Подключить к Claude Desktop' }).click();
   await expect(link).toContainText('Slideria подключена к Claude Desktop');
-  await expect(link).toContainText('Перезапустите Claude Desktop');
+  await expect(link).toContainText('Закройте Claude Desktop совсем');
   await expect(fp.locator('[data-client="claude-desktop"] .ig-on')).toBeVisible();
   const cfg = JSON.parse(fs.readFileSync(path.join(home, '.config', 'Claude', 'claude_desktop_config.json'), 'utf8'));
   expect(cfg.mcpServers.slideria.args.join(' ')).toContain('mcp.mjs');

@@ -35,7 +35,7 @@ const CLIENTS: Client[] = [
     auto: { after: 'Запустите claude в любой папке — Slideria уже в его списке (/mcp)', get: 'https://code.claude.com/docs/en/setup' } },
   { id: 'claude-desktop', name: 'Claude Desktop', mono: 'C', bg: CLAUDE, step: 'Вставьте в настройки и перезапустите Claude',
     variants: [{ label: 'Настройки', where: 'Claude → Настройки → Разработчик → Изменить конфигурацию; добавьте в mcpServers и перезапустите', snippet: jsonCfg('mcpServers') }],
-    auto: { after: 'Перезапустите Claude Desktop — Slideria появится в его инструментах', get: 'https://claude.ai/download' } },
+    auto: { after: 'Закройте Claude Desktop совсем (Quit; на Windows — у значка возле часов) и откройте снова: Slideria будет в его Settings → Desktop app → Extensions', get: 'https://claude.ai/download' } },
   { id: 'codex', name: 'ChatGPT · Codex', mono: 'AI', bg: 'linear-gradient(135deg,#475569,#0F172A)', step: 'Выполните — Codex в терминале, приложении и редакторе подключит Slideria сам',
     auto: { after: 'Запустите Codex — в терминале, приложении или редакторе: Slideria уже подключена', get: 'https://developers.openai.com/codex' },
     variants: [

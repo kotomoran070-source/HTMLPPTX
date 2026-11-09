@@ -39,20 +39,30 @@ export function createConnect(o: ConnectOptions = {}) {
 
   // ---------------- Claude Desktop ----------------
 
-  /** Папки настроек Claude Desktop, которые есть на компьютере (на Windows из Microsoft Store — своя) */
-  function desktopDirs(): string[] {
-    const dirs: string[] = [];
-    if (platform === 'darwin') dirs.push(path.join(home, 'Library', 'Application Support', 'Claude'));
+  /**
+   * Папки настроек Claude Desktop, которые есть на компьютере. На Windows их бывает несколько, и какую читает
+   * Claude, зависит от версии — пишем во все: обычная (%APPDATA%\Claude); из Microsoft Store — личная копия
+   * пакета (…\Packages\Claude_…\LocalCache\Roaming\Claude) и, у новых версий, %LOCALAPPDATA%\Claude-Data\claude_….
+   * create: false — файла там нет, и создавать его нельзя: личная копия пакета заслонила бы обычный файл
+   * со всеми серверами пользователя
+   */
+  function desktopDirs(): { dir: string; create: boolean }[] {
+    const dirs: { dir: string; create: boolean }[] = [];
+    const sub = (parent: string, re: RegExp, ...rest: string[]) => {
+      try { return fs.readdirSync(parent).filter((d) => re.test(d)).map((d) => path.join(parent, d, ...rest)); } catch { return []; }
+    };
+    if (platform === 'darwin') dirs.push({ dir: path.join(home, 'Library', 'Application Support', 'Claude'), create: true });
     else if (win) {
-      dirs.push(path.join(env.APPDATA || path.join(home, 'AppData', 'Roaming'), 'Claude'));
-      const pkgs = path.join(env.LOCALAPPDATA || path.join(home, 'AppData', 'Local'), 'Packages');
-      try {
-        for (const d of fs.readdirSync(pkgs)) if (/^Claude_/i.test(d)) dirs.push(path.join(pkgs, d, 'LocalCache', 'Roaming', 'Claude'));
-      } catch { /* нет папки пакетов */ }
-    } else dirs.push(path.join(env.XDG_CONFIG_HOME || path.join(home, '.config'), 'Claude'));
-    return dirs.filter((d) => fs.existsSync(d));
+      const local = env.LOCALAPPDATA || path.join(home, 'AppData', 'Local');
+      for (const dir of sub(path.join(local, 'Claude-Data'), /^claude_/i)) dirs.push({ dir, create: true });
+      dirs.push({ dir: path.join(env.APPDATA || path.join(home, 'AppData', 'Roaming'), 'Claude'), create: true });
+      for (const dir of sub(path.join(local, 'Packages'), /^Claude_/i, 'LocalCache', 'Roaming', 'Claude')) dirs.push({ dir, create: false });
+    } else dirs.push({ dir: path.join(env.XDG_CONFIG_HOME || path.join(home, '.config'), 'Claude'), create: true });
+    return dirs.filter((d) => fs.existsSync(d.dir));
   }
   const desktopFile = (dir: string) => path.join(dir, 'claude_desktop_config.json');
+  /** Файлы настроек, которые уже есть */
+  const desktopFiles = () => desktopDirs().map((d) => desktopFile(d.dir)).filter((f) => fs.existsSync(f));
 
   /** Настройки Claude Desktop; файла нет — пустые; испорчен — ошибка (перезаписывать нельзя) */
   function readDesktop(file: string): Record<string, unknown> {
@@ -70,8 +80,10 @@ export function createConnect(o: ConnectOptions = {}) {
   function writeDesktop(cmd: Cmd | null): void {
     const dirs = desktopDirs();
     if (!dirs.length) throw new Error('Claude Desktop не найден на этом компьютере: установите его с claude.ai/download и откройте один раз');
-    for (const dir of dirs) {
-      const file = desktopFile(dir);
+    // Сначала все файлы прочитать: испорченный где-то одном — не трогать ни одного
+    const targets = dirs.map((d) => desktopFile(d.dir)).filter((f, i) => dirs[i].create || fs.existsSync(f));
+    for (const file of targets) readDesktop(file);
+    for (const file of targets) {
       const cfg = readDesktop(file);
       const list = { ...servers(cfg) };
       if (cmd) list[NAME] = { command: cmd.command, args: cmd.args };
@@ -149,10 +161,12 @@ export function createConnect(o: ConnectOptions = {}) {
   function state(): ClientState[] {
     return CLIENT_IDS.map((id) => {
       if (id === 'claude-desktop') {
-        const dirs = desktopDirs();
-        let connected = false;
-        for (const d of dirs) { try { if (NAME in servers(readDesktop(desktopFile(d)))) connected = true; } catch { /* испорченный файл — не подключён */ } }
-        return { id, installed: dirs.length > 0, connected };
+        // Подключена — если Slideria во всех его файлах настроек: какой из них прочтёт Claude, заранее не узнать,
+        // а свой файл он при выходе может переписать без неё
+        const files = desktopFiles();
+        let connected = files.length > 0;
+        for (const f of files) { try { if (!(NAME in servers(readDesktop(f)))) connected = false; } catch { connected = false; } }
+        return { id, installed: desktopDirs().length > 0, connected };
       }
       if (id === 'claude-code') return { id, installed: !!findCli('claude'), connected: claudeCodeConnected() };
       return { id, installed: !!findCli('codex'), connected: codexConnected() };
