@@ -155,3 +155,33 @@ test('импорт HTML по правилам: пробный прогон на�
   expect(r.json.slides).toBeGreaterThan(2);
   expect(fs.readdirSync(DECKS).sort()).toEqual(before);
 });
+
+test('импорт HTML: «.slide .x» и класс секции оформляют свободные объекты, картинка заполняет рамку', async ({ page }) => {
+  const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  const html = `<!doctype html><html><head><style>
+    .slide { display:grid; color:var(--tx) } .slide .title { font-size:48px } .dark .title { color:rgb(255, 0, 0) }
+    .slide .photo { object-fit:cover; border-radius:16px }
+  </style></head><body>
+    <section class="slide dark" data-id="a" style="background:#0B1220">
+      <h1 class="title" style="position:absolute; left:64px; top:60px; width:900px">Заголовок</h1>
+      <img class="photo" src="${png}" style="position:absolute; left:64px; top:200px; width:194px; height:242px">
+    </section></body></html>`;
+  const name = 'zz-import-styles';
+  try {
+    const res = await fetch(`http://localhost:5190/__htmlpptx/import?deck=${name}&theme=0`, { method: 'POST', body: html });
+    expect(res.status).toBe(200);
+    await page.goto(`/?deck=${name}&show#1`);
+    const slide = page.locator('.slide.on');
+    await expect(slide).toHaveClass(/\bdark\b/);
+    const title = slide.locator('h1.title');
+    await expect(title).toHaveCSS('font-size', '48px');
+    await expect(title).toHaveCSS('color', 'rgb(255, 0, 0)');
+    const photo = slide.locator('img.photo');
+    await expect(photo).toHaveCSS('object-fit', 'cover');
+    // Размер картинки — её рамки (194×242 слайда), а не свой (1×1)
+    const box = await photo.evaluate((el) => [(el as HTMLElement).offsetWidth, (el as HTMLElement).offsetHeight]);
+    expect(box).toEqual([194, 242]);
+  } finally {
+    fs.rmSync(path.join(DECKS, name), { recursive: true, force: true });
+  }
+});

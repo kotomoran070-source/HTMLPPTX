@@ -1,6 +1,9 @@
 /* Готовая вёрстка (html) и «живые» вставки (embed) — обычно из импорта Claude Design */
 .html-block { position: relative; min-width: 0; }
 .html-inner { width: 100%; height: 100%; }
+/* Вёрстка из файла — как в файле: ширину абзаца задают её стили, а не ограничение абзацев движка (62ch).
+   Части разобранного встроенного шаблона (.tpl-part) — со своей типографикой */
+.html-inner p:where(:not(.tpl-part *)) { max-width: none; }
 .html-inner img.html-empty { visibility: hidden; }
 body.editing .stage .html-inner img.html-empty { visibility: visible; outline: 2px dashed var(--acb); outline-offset: -2px; background: var(--acs); }
 

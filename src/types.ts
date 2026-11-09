@@ -183,6 +183,8 @@ export interface SlideData {
   transitionMs?: number;
   /** Откуда идёт переход (Сдвиг, Наплыв, Открывание, Шторка): right, left, top, bottom */
   transitionDir?: string;
+  /** Свои классы слайда — класс секции импортированного HTML («dark»): по нему стили презентации оформляют слайд */
+  class?: string;
   /** Свои цвета слайда вместо цветов презентации: акцент, второй цвет градиента и точки между ними */
   theme?: { accent?: string; accent2?: string; accentMid?: { c: string; at: number }[] };
   /** Логотип в углу: у обычного слайда есть, пока не false; у холста — только с true */

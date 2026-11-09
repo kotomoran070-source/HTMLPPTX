@@ -4,6 +4,7 @@ import { parseDocument, type Document } from 'yaml';
 import { icon } from '../components/icons';
 import { blockName } from '../engine/editor/block-edit';
 import { esc } from '../engine/html';
+import { mapSelector, slideClasses } from '../engine/deck-css';
 import { TEMPLATES } from './schema';
 
 /**
@@ -259,15 +260,17 @@ export function cssRules(text: string, base = 0, out: CssRule[] = []): CssRule[]
   return out;
 }
 
-const STATE = new Set(['on', 'active', 'current', 'present', 'visible', 'show', 'shown', 'is-active']);
 /** Встроенные блоки и части шаблона стили презентации не получают (как в deck-css.ts) */
 const SHIELD = ':is([data-type]:not([data-type="html"]):not([data-type="embed"]):not([data-type="live"]), .tpl-part)';
 
-/** Селектор из CSS презентации → как он действует на холсте; null — не про объекты (:root, body) */
-function onCanvas(sel: string): string | null {
+/**
+ * Селектор из CSS презентации → как он действует на холсте (то же прочтение, что у стилей слайда, deck-css.ts);
+ * null — не про объекты (:root, body). classes — классы слайда (slide.class)
+ */
+function onCanvas(sel: string, classes: ReadonlySet<string>): string | null {
   if (/^(:root|html|body)(?![\w-])/i.test(sel)) return null;
-  const s = sel
-    .replace(/(?:section)?\.slide((?:\.[\w-]+)*)(?![\w-])/g, (_, rest: string) => `.slide-root${rest.split('.').filter((c) => c && !STATE.has(c)).map((c) => `.${c}`).join('')}`)
+  const m = mapSelector(sel, classes).sel;
+  const s = (m.includes('&') ? m.replace(/&/g, '.canvas-slide') : m)
     // Псевдоэлементы и состояния под курсором: правило всё равно про этот элемент
     .replace(/::?(before|after|first-line|first-letter|placeholder|marker|selection|backdrop|file-selector-button)\b(\([^)]*\))?/gi, '')
     .replace(/::[\w-]+(\([^)]*\))?/g, '')
@@ -280,7 +283,7 @@ function onCanvas(sel: string): string | null {
 /** Правила, которые задают вид элемента или того, что внутри него */
 export function rulesFor(rules: CssRule[], el: Element): CssRule[] {
   return rules.filter((r) => r.sel.split(',').some((part) => {
-    const s = onCanvas(part.trim());
+    const s = onCanvas(part.trim(), new Set(slideClasses(el.closest('.slide')?.className)));
     if (!s) return false;
     try {
       if (el.matches(s) && !el.closest(SHIELD)) return true;

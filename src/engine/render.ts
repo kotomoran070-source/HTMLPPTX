@@ -9,7 +9,7 @@ import { byItems, clickActs, EMPHASIS_IDS, ENTER_IDS, EXIT_IDS, tempoOf, timedOr
 import { asArray, esc } from './html';
 import { slideAccent } from './accent';
 import { backdropLook, slideBackdrop } from './backdrops';
-import { applyDeckCss, applyDeckDefs, applyScopedCss } from './deck-css';
+import { applyDeckCss, applyDeckDefs, applyScopedCss, slideClasses } from './deck-css';
 import { applyDeckTheme, hasOrigin, lookFor, themeMode, type SlideMode } from './deck-theme';
 import { recolorHtml } from './recolor';
 import { applyDeckFonts } from './fonts';
@@ -62,7 +62,8 @@ export class Renderer {
     // Пути нужны для режима правки: каждый элемент знает, какое значение он показывает
     indexPaths(deck);
     // Стили презентации (из импортированного HTML) — только внутри её слайдов-холстов
-    this.cssKey = applyDeckCss((deck as { css?: unknown }).css);
+    // Классы секций файла (slide.class: «dark») — у самих слайдов; «.dark .x» в стилях — про элементы такого слайда
+    this.cssKey = applyDeckCss((deck as { css?: unknown }).css, deck.slides.flatMap((s) => slideClasses(s.class)));
     applyDeckDefs((deck as { defs?: unknown }).defs);
     // Свои шрифты презентации и её шрифт по умолчанию
     this.fontKey = applyDeckFonts(deck.fonts, deck.theme?.font);
@@ -100,6 +101,9 @@ export class Renderer {
       if (tpl.mount) attrs = ctx.mount(tpl, slide);
     }
     if (extraClass) cls += ' ' + extraClass;
+    // Свои классы слайда (класс секции импортированного HTML: «dark»)
+    const mine = slideClasses(slide.class);
+    if (mine.length) cls += ' ' + mine.join(' ');
     // Слайд целиком из другой презентации (его вёрстка в своём пространстве стилей) — без стилей
     // этой: иначе её переменные и правила (:root, .slide) перекрасили бы чужую вёрстку
     const body = slide.body as { type?: unknown; ns?: unknown } | undefined;

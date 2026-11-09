@@ -11,6 +11,7 @@
  */
 import { parse, type HTMLElement as El, type Node } from 'node-html-parser';
 import { cleanTree, EFFECTS, firstText, hex, plain, styleOf, textOf } from './design-import';
+import { mapSelector, slideClasses, splitTop, statements } from '../src/engine/deck-css';
 
 type Deck = { title: string; lang?: string; source?: string; theme?: { accent?: string }; css?: string; defs?: string; slides: Record<string, unknown>[] };
 type Block = Record<string, unknown>;
@@ -124,13 +125,35 @@ function placeOf(el: El): Record<string, number> | null {
   // Пиксели; ноль можно без единиц (left: 0 — фон во весь слайд)
   const isPx = (v: string | undefined) => /px$/.test(v ?? '') || /^-?0*\.?0+$/.test((v ?? '').trim());
   if (st.position !== 'absolute' || !isPx(st.left) || !isPx(st.top)) return null;
-  const place: Record<string, number> = { x: num(st.left) ?? 0, y: num(st.top) ?? 0, w: /px$/.test(st.width ?? '') ? num(st.width)! : 400 };
-  if (/px$/.test(st.height ?? '')) place.h = num(st.height)!;
+  // Размер — из style или, у картинки и svg, из атрибутов width и height
+  const attr = (k: string) => (REPLACED.has(el.tagName) && /^\d+(\.\d+)?$/.test(el.getAttribute(k) ?? '') ? num(el.getAttribute(k)!) : undefined);
+  const place: Record<string, number> = { x: num(st.left) ?? 0, y: num(st.top) ?? 0, w: /px$/.test(st.width ?? '') ? num(st.width)! : attr('width') ?? 400 };
+  const h = /px$/.test(st.height ?? '') ? num(st.height) : attr('height');
+  if (h) place.h = h;
   for (const k of ['position', 'left', 'top', 'width', 'height', 'right', 'bottom']) delete st[k];
   const rest = Object.entries(st).map(([k, v]) => `${k}: ${v}`).join('; ');
   if (rest) el.setAttribute('style', rest);
   else el.removeAttribute('style');
   return place;
+}
+
+/** Элементы с собственным размером (картинка, svg, видео): в рамке объекта — во всю рамку, блоком */
+const REPLACED = new Set(['IMG', 'SVG', 'VIDEO', 'CANVAS', 'PICTURE']);
+
+/**
+ * Свободный объект в файле был ровно своего размера (position: absolute; width; height) — теперь его размер у
+ * рамки, а сам элемент её заполняет: иначе картинка встаёт в своём размере, а панель с фоном — по высоте текста.
+ * Абсолютное положение делало элемент блоком — картинке тоже блок (без зазора под строкой)
+ */
+function fillFrame(el: El, place: Record<string, number>): void {
+  const st = styleOf(el);
+  const add: string[] = [];
+  if (!st.width) add.push('width: 100%');
+  if (place.h && !st.height) add.push('height: 100%');
+  if (REPLACED.has(el.tagName) && !st.display) add.push('display: block');
+  if (!add.length) return;
+  const was = (el.getAttribute('style') ?? '').trim().replace(/;\s*$/, '');
+  el.setAttribute('style', [was, ...add].filter(Boolean).join('; '));
 }
 
 const num = (v: string | undefined) => {
@@ -222,6 +245,8 @@ export function fromSlidesHtml(source: string): SlidesHtmlResult {
   if (!sections.length) throw new Error('В файле нет слайдов: каждый слайд — <section class="slide">…</section>');
   const ids = new Set<string>();
   const sprites = collectSprites(doc, sections);
+  // Какие правила стилей что-то оформляют в файле — сверить с тем, что получится после импорта
+  const rules = css.trim() ? styleRules(css).filter((r) => matchesIn(doc, r.test, sections)) : [];
 
   sections.forEach((sec, i) => {
     const warn = (s: string) => warnings.push(`слайд ${i + 1}: ${s}`);
@@ -229,6 +254,9 @@ export function fromSlidesHtml(source: string): SlidesHtmlResult {
     while (ids.has(id)) id += '-2';
     ids.add(id);
     const slide: Record<string, unknown> = { id, template: 'canvas' };
+    // Класс секции («dark») — у слайда: стили «.dark .x», «.slide.dark .x» оформляют и свободные объекты
+    const own = slideClasses((sec.getAttribute('class') ?? '').split(/\s+/).filter((c) => c !== 'slide').join(' '));
+    if (own.length) slide.class = own.join(' ');
 
     const aside = sec.querySelectorAll('aside').find((a) => /\bnotes\b/.test(a.getAttribute('class') ?? ''));
     const notes = sec.getAttribute('data-notes') ?? aside?.text;
@@ -269,6 +297,7 @@ export function fromSlidesHtml(source: string): SlidesHtmlResult {
         // data-interactive: при показе вставка отвечает на мышь (и под другими объектами)
         if (child.hasAttribute('data-interactive')) block.interactive = true;
       } else {
+        fillFrame(child, place);
         block = htmlBlock(child, warn);
       }
       if (!block) continue;
@@ -301,6 +330,12 @@ export function fromSlidesHtml(source: string): SlidesHtmlResult {
   }).length;
   if (outside) warnings.push('содержимое вне <section class="slide"> пропущено');
 
+  const lost = rules.filter((r) => !appliesAfter(deck.slides, r.sel));
+  if (lost.length) {
+    const list = [...new Set(lost.map((r) => r.sel.trim()))];
+    warnings.push(`стили не нашли, к чему применяться после импорта (${list.length}): ${list.slice(0, 4).join(', ')}${list.length > 4 ? ' и др.' : ''} — оформление этих элементов может отличаться от файла`);
+  }
+
   // SVG-определения вне слайдов (символ логотипа, градиенты): один раз на всю презентацию
   const allHtml = JSON.stringify(deck.slides);
   const defs = spritesFor(allHtml.replace(/\\"/g, '"'), sprites);
@@ -310,6 +345,64 @@ export function fromSlidesHtml(source: string): SlidesHtmlResult {
   const { slides, ...head } = deck;
   return { deck: { ...head, slides }, warnings };
 }
+
+/**
+ * Правила стилей файла по одному селектору. test — селектор без того, что от вида не зависит (:hover,
+ * ::before): по нему сверяется, что правило оформляет. Селекторы по атрибутам, которые импорт забирает себе
+ * (data-enter, data-delay, data-x…), не сверяются: появление и положение — у движка
+ */
+function styleRules(css: string): { sel: string; test: string }[] {
+  const out: { sel: string; test: string }[] = [];
+  const walk = (text: string) => {
+    for (const st of statements(text.replace(/\/\*[\s\S]*?\*\//g, ''))) {
+      const brace = st.indexOf('{');
+      if (brace < 0) continue;
+      const head = st.slice(0, brace).trim();
+      if (/^@(media|supports|container|layer)\b/i.test(head)) { walk(st.slice(brace + 1, -1)); continue; }
+      if (head.startsWith('@')) continue;
+      for (const sel of splitTop(head, ',')) {
+        const test = bare(sel);
+        if (test && !/\[data-(enter|delay|x|y|w|h|id|notes|label|bg|interactive|poster)\b/i.test(sel)) out.push({ sel: sel.trim(), test });
+      }
+    }
+  };
+  walk(css);
+  return out;
+}
+
+/** Селектор без состояний под курсором и псевдоэлементов: правило всё равно про этот элемент */
+function bare(sel: string): string {
+  return sel.replace(/::?(before|after|first-line|first-letter|placeholder|marker|selection|backdrop|file-selector-button)\b(\([^)]*\))?/gi, '')
+    .replace(/:(hover|focus|focus-visible|focus-within|active|visited|target|checked|link)\b/gi, '').trim();
+}
+
+/** Правило находит в файле секцию-слайд или что-то внутри неё */
+function matchesIn(doc: El, sel: string, sections: El[]): boolean {
+  try {
+    return doc.querySelectorAll(sel).some((el) => sections.some((s) => isInside(el, s)));
+  } catch { return false; }
+}
+const isInside = (el: El, sec: El) => {
+  for (let p: El | null = el; p; p = p.parentNode as El | null) if (p === sec) return true;
+  return false;
+};
+
+/** Слайды после импорта так, как их рисует движок: слайд, корень вёрстки, рамки свободных объектов */
+function appliesAfter(slides: Record<string, unknown>[], sel: string): boolean {
+  if (!lastDom || lastDom.slides !== slides) {
+    const classes = new Set(slides.flatMap((s) => slideClasses(s.class)));
+    const inner = (b: unknown) => `<div class="html-block"><div class="html-inner">${(b as { html?: string })?.html ?? ''}</div></div>`;
+    const html = slides.map((s) => `<div class="slide canvas-slide on ${slideClasses(s.class).join(' ')}">${s.body ? `<div class="slide-body">${inner(s.body)}</div>` : ''}${((s.free as unknown[]) ?? []).map((b) => `<div class="free">${inner(b)}</div>`).join('')}</div>`).join('');
+    lastDom = { slides, classes, dom: parse(`<div>${html}</div>`) };
+  }
+  const { classes, dom } = lastDom;
+  const m = mapSelector(sel, classes);
+  const flat = (x: string) => (x.includes('&') ? x.replace(/&/g, '.canvas-slide') : `.canvas-slide ${x}`);
+  try {
+    return [m.sel, m.slide].some((x) => !!x && !!dom.querySelector(bare(flat(x))));
+  } catch { return true; }
+}
+let lastDom: { slides: unknown; classes: Set<string>; dom: El } | null = null;
 
 /** Убирает общий отступ и пустые строки, оставшиеся после чистки. */
 function dedent(css: string): string {
