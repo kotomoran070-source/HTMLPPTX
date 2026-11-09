@@ -40,6 +40,26 @@ test('свой блок: «Сохранить как шаблон…» → «Б�
   await expect(mine).toContainText('Подпись раздела');
 });
 
+test('запомненный вид студии — с линейкой, сеткой, направляющими, панелями — студия открывается', async ({ page }) => {
+  const errors = watchErrors(page);
+  // Линейка спрашивала выделенное раньше, чем студия была готова: запомненная включённой, она не давала открыть
+  // ни одну презентацию (вид студии общий)
+  const views = [
+    { ruler: true },
+    { ruler: true, grid: true, guides: true, layers: true, lite: true },
+    { left: false, right: false, ribbon: false, chat: true },
+  ];
+  for (const v of views) {
+    await page.goto('/?deck=tpl');
+    await page.evaluate((x) => localStorage.setItem('htmlpptx-studio-layout', JSON.stringify(x)), v);
+    await page.goto('/?deck=tpl&studio#3');
+    await expect(page.locator('#st-canvas .slide.on')).toBeVisible();
+    await expect(page.locator('body')).not.toContainText('Не удалось открыть');
+  }
+  await expect(page.locator('.st-ruler.h')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
 test('логотип: у холста включается галочкой, знак — в цветах темы', async ({ page }) => {
   const errors = watchErrors(page);
   // 5 — холст «Коротко о главном», логотипа в углу у него нет

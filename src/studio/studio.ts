@@ -2248,11 +2248,15 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
 
   // ---------------- путь к выделенному ----------------
   let crumbList: Crumb[] = [];
-  const selectedEl = (): HTMLElement | null => {
+  /**
+   * Выделенный блок раскладки на слайде. Объявление функции, а не const: линейка (ViewAids) спрашивает выделенное
+   * уже при создании — запомненная включённой, она иначе обращалась к нему до объявления, и студия не открывалась
+   */
+  function selectedEl(): HTMLElement | null {
     const sel = ed.selection;
     if (!sel || sel.group.length > 1) return null;
     return [...view.stage.querySelectorAll<HTMLElement>('.slide.on [data-block]')].find((x) => x.getAttribute('data-block') === JSON.stringify(sel.block)) ?? null;
-  };
+  }
   let crumbsHtml = '';
   function drawCrumbs(hover: Element | null = null): void {
     const box = $('st-crumbs');
