@@ -1,8 +1,11 @@
 // Интеграции: плашка «кто на связи» на ленте, правка агента с подсказкой и «Вернуть» (только его правка);
 // «Файл → Интеграции» — клиенты MCP, что можно агентам, журнал, скрипты (одним шагом отмены), песочница без сети;
 // скрипты в меню ленты и в Ctrl+K
+import fs from 'node:fs';
+import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { readDeck, watchErrors } from './helpers';
+import { cliCalls, fakeCli } from '../fake-clients';
 
 test.use({ colorScheme: 'light' });
 
@@ -66,7 +69,7 @@ test('«Файл → Интеграции»: клиенты (и ChatGPT), что
   // Строка подключения — с путём к MCP этой папки; у каждого клиента своя
   const code = fp.locator('.ig-code pre');
   await fp.locator('[data-client="claude-code"]').click();
-  await expect(code).toContainText('claude mcp add slideria --');
+  await expect(code).toContainText('claude mcp add --scope user slideria --');
   await expect(code).toContainText('scripts/mcp.mjs');
   await fp.locator('[data-client="vscode"]').click();
   await expect(code).toContainText('"servers"');
@@ -129,6 +132,50 @@ test('«Файл → Интеграции»: клиенты (и ChatGPT), что
   await page.locator('#st-canvas').click({ position: { x: 5, y: 5 } });
   await page.keyboard.press('Control+z');
   await expect.poll(() => readDeck('integ')).not.toContain('transition: push');
+  expect(errors).toEqual([]);
+});
+
+test('подключить в один щелчок: Claude Desktop — в его настройки, Claude Code — его командой, нет программы — «Скачать»', async ({ page }) => {
+  // Домашний каталог сервера тестов — подставной (SLIDERIA_CONNECT_HOME): Claude Desktop «открывали», Claude Code
+  // стоит (подставная программа), Codex — нет
+  const home = path.resolve('.tmp/test-home');
+  fs.rmSync(home, { recursive: true, force: true });
+  fs.mkdirSync(path.join(home, '.config', 'Claude'), { recursive: true });
+  fakeCli(home, 'claude');
+  const errors = watchErrors(page);
+  await openTools(page);
+  await page.locator('#st-int-mini').click();
+  const fp = page.locator('.fp');
+  const link = fp.locator('.ig-link');
+
+  await fp.locator('[data-client="claude-desktop"]').click();
+  await expect(link).toContainText('Claude Desktop есть на этом компьютере');
+  await expect(fp.locator('.ig-steps li').first()).toContainText('Нажмите «Подключить»');
+  await link.getByRole('button', { name: 'Подключить к Claude Desktop' }).click();
+  await expect(link).toContainText('Slideria подключена к Claude Desktop');
+  await expect(link).toContainText('Перезапустите Claude Desktop');
+  await expect(fp.locator('[data-client="claude-desktop"] .ig-on')).toBeVisible();
+  const cfg = JSON.parse(fs.readFileSync(path.join(home, '.config', 'Claude', 'claude_desktop_config.json'), 'utf8'));
+  expect(cfg.mcpServers.slideria.args.join(' ')).toContain('mcp.mjs');
+  // Вручную — та же команда, что прописалась
+  await expect(fp.locator('.ig-code pre')).toContainText('"slideria"');
+
+  await fp.locator('[data-client="claude-code"]').click();
+  await link.getByRole('button', { name: 'Подключить к Claude Code' }).click();
+  await expect(link).toContainText('Slideria подключена к Claude Code');
+  expect(cliCalls(home, 'claude').at(-1)?.slice(0, 6)).toEqual(['mcp', 'add', '--scope', 'user', 'slideria', '--']);
+  await link.getByRole('button', { name: 'Отключить' }).click();
+  await expect(link).toContainText('Claude Code есть на этом компьютере');
+  expect(cliCalls(home, 'claude').at(-1)).toEqual(['mcp', 'remove', '--scope', 'user', 'slideria']);
+
+  await fp.locator('[data-client="codex"]').click();
+  await expect(link).toContainText('Codex не найден на этом компьютере');
+  await expect(link.getByRole('link', { name: 'Скачать Codex' })).toHaveAttribute('href', /openai\.com/);
+  await expect(fp.locator('.ig-steps li').first()).toContainText('Установите Codex');
+  // У Cursor одного щелчка нет — только вручную
+  await fp.locator('[data-client="cursor"]').click();
+  await expect(link).toHaveCount(0);
+  await expect(fp.locator('.ig-code pre')).toContainText('"mcpServers"');
   expect(errors).toEqual([]);
 });
 

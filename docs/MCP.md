@@ -7,15 +7,26 @@ MCP (Model Context Protocol) — способ дать агенту (Claude Code
 
 ## Подключить
 
-Проще всего — из студии: «Файл → Интеграции → Агенты → Подключить агента» (или плашка «кто на связи» на вкладке «Инструменты»). Там строка для выбранного
-клиента (Claude Code, Claude Desktop, Cursor, VS Code, другой) уже с путями этого компьютера — «Скопировать».
+Проще всего — из студии: «Файл → Интеграции → Агенты → Подключить агента» (или плашка «кто на связи» на вкладке
+«Инструменты»). С подпиской Claude или ChatGPT ключ API не нужен.
 
-Сервер запускает сам клиент — вручную `yarn mcp` запускать не нужно. Нужен Node.js и папка проекта.
+- **В один щелчок** — Claude Desktop, Claude Code, Codex: программа найдена на компьютере — «Подключить к …»,
+  дальше перезапустить Claude Desktop (или запустить `claude`, Codex). Не найдена — «Скачать». Подключённым —
+  зелёная точка у вкладки клиента и «Отключить».
+- **Вручную** — строка для выбранного клиента (те же три, Cursor, VS Code, другой) уже с путями этого компьютера —
+  «Скопировать».
 
-**Claude Code** (в терминале):
+Сервер запускает сам клиент — вручную `yarn mcp` запускать не нужно.
+
+| Где Slideria | Команда, которую запускает клиент |
+|---|---|
+| Программа (установщик) | сама программа с ключом `--mcp`: `…/Slideria.exe --mcp`, `/Applications/Slideria.app/Contents/MacOS/Slideria --mcp`, AppImage — сам файл. Node не нужен |
+| Папка проекта | `node /путь/к/HTMLPPTX/scripts/mcp.mjs` (нужен Node.js) |
+
+**Claude Code** (в терминале; `--scope user` — для всех папок):
 
 ```bash
-claude mcp add slideria -- node /путь/к/HTMLPPTX/scripts/mcp.mjs
+claude mcp add --scope user slideria -- node /путь/к/HTMLPPTX/scripts/mcp.mjs
 ```
 
 **Claude Desktop** — «Настройки → Разработчик → Изменить конфигурацию» (`claude_desktop_config.json`):
@@ -29,7 +40,7 @@ claude mcp add slideria -- node /путь/к/HTMLPPTX/scripts/mcp.mjs
 ```
 
 Папка презентаций — `presentations/` проекта; другая — `--decks=папка` в конце команды (например, папка программы
-Slideria: `--decks=/Users/имя/Documents/Slideria`).
+Slideria: `--decks=/Users/имя/Documents/Slideria`). У программы с `--mcp` — её папка «Документы/Slideria».
 
 Дальше — обычной речью: «В презентации „Итоги квартала“ подставь компанию на титул, убери слайды-подсказки
 и добавь слайд с тремя цифрами».
@@ -64,15 +75,30 @@ Slideria: `--decks=/Users/имя/Documents/Slideria`).
 ## Как устроено
 
 ```
-scripts/mcp.mjs   запуск: stdin/stdout, папка презентаций; TypeScript сервера загружает Vite (без сервера страниц)
+scripts/mcp.mjs   запуск из папки проекта: stdin/stdout, папка презентаций; TypeScript сервера загружает Vite
+desktop/main.mjs  программа с --mcp: без окон и без второго экземпляра-окна, stdout — только протокол (журнал — в
+                  stderr); сервер MCP — из кода программы (startMcp в server/serve.ts)
 server/mcp.ts     инструменты и протокол (JSON-RPC 2.0) без транспорта: в облаке — тот же обработчик по HTTP
 server/running.ts какой сервер студии работает с папкой
+server/connect.ts подключение в один щелчок (команды agents-clients, agents-connect, agents-disconnect)
 ```
+
+**В один щелчок** (`server/connect.ts`):
+
+| Клиент | Как подключается | Подключён ли |
+|---|---|---|
+| Claude Desktop | `mcpServers.slideria` в `claude_desktop_config.json` (macOS — `~/Library/Application Support/Claude`, Windows — `%APPDATA%\Claude` и папка версии из Microsoft Store, Linux — `~/.config/Claude`). Остальное в файле не трогается, прежний — копией `.bak` рядом; испорченный не перезаписывается | запись в файле |
+| Claude Code | `claude mcp add --scope user slideria -- …` (прежняя запись — сначала `mcp remove`) | `~/.claude.json` |
+| Codex | `codex mcp add slideria -- …` | `[mcp_servers.slideria]` в `~/.codex/config.toml` |
+
+Программы `claude` и `codex` ищутся в PATH и там, куда их ставят установщики (`~/.local/bin`, npm, nvm, Volta, Bun,
+Homebrew): у программы, запущенной из Dock или меню «Пуск», PATH короче, чем в терминале. Тесты — в подставном
+домашнем каталоге (`SLIDERIA_CONNECT_HOME`) с подставными `claude` и `codex` (`tests/fake-clients.ts`); проверено
+и с настоящим Claude Code.
 
 Протокол — свой, без лишних библиотек (установщику не нужны express и прочее из официальной библиотеки MCP);
 что он говорит правильно, проверяет официальный клиент MCP в `tests/unit/mcp.spec.ts`. Проверено и вживую:
 Claude Code по задаче «подставь компанию, дату и докладчика на титул, удали три слайда-подсказки, добавь слайд
 с тремя цифрами» сам нашёл презентацию, прочитал справку и образец оформления и сделал всё одним пакетом за 24 с.
 
-Пока нет — [PLAN.md](PLAN.md): MCP в установленной программе (без Node), снимок слайда картинкой (агент видит
-результат), MCP для облака.
+Пока нет — [PLAN.md](PLAN.md): снимок слайда картинкой (агент видит результат), MCP для облака.

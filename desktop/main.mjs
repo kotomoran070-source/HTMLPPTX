@@ -19,6 +19,11 @@ import { splashPage } from './splash.mjs';
 // Экземпляр, запущенный кнопкой «Разрешить в брандмауэре» с правами администратора:
 // меняет правила и выходит, окно не открывает
 if (process.argv.includes(FIX_FLAG)) runFirewallFix();
+/**
+ * Агент (Claude Desktop, Claude Code, Codex…) запускает программу с ключом --mcp: окон нет, stdin и stdout —
+ * протокол MCP (server/mcp.ts, docs/MCP.md). Node не нужен: сервер MCP — в коде программы
+ */
+const MCP_MODE = process.argv.includes('--mcp');
 
 // Имя задаёт папку данных (%APPDATA%/Slideria) и в yarn app, и в установленной программе
 app.setName('Slideria');
@@ -65,11 +70,12 @@ const runNode = (script, args, { cwd, env }) => new Promise((resolve) => {
 function log(...a) {
   const line = `[${new Date().toISOString()}] ${a.map(String).join(' ')}\n`;
   try { fs.appendFileSync(LOG, line); } catch { /* нет доступа — не страшно */ }
-  process.stdout.write(line);
+  // В режиме MCP stdout — только для протокола
+  (MCP_MODE ? process.stderr : process.stdout).write(line);
 }
 
-// Второй запуск просто поднимает уже открытое окно
-if (!app.requestSingleInstanceLock()) app.quit();
+// Второй запуск просто поднимает уже открытое окно; MCP для агента работает рядом с открытой программой
+if (!MCP_MODE && !app.requestSingleInstanceLock()) app.quit();
 app.on('second-instance', () => {
   if (!main) return;
   if (main.isMinimized()) main.restore();
@@ -185,6 +191,9 @@ async function startServer() {
     run: runNode,
     log: (m) => log(m),
     agentKeys: claudeKey(),
+    // «Файл → Интеграции → Агенты»: агент запускает эту же программу с ключом --mcp (AppImage — сам файл:
+    // папка, куда он распакован, у каждого запуска своя)
+    mcp: { command: process.env.APPIMAGE || process.execPath, args: PACKED ? ['--mcp'] : [APP_DIR, '--mcp'] },
   });
   port = server.port;
   origin = server.url;
@@ -641,7 +650,31 @@ function permissions() {
   });
 }
 
+/** Режим MCP: проверка кода, как при обычном запуске, — и протокол по stdin/stdout, пока агент не закроет вход */
+async function runMcp() {
+  console.log = console.error;
+  console.info = console.error;
+  app.dock?.hide();
+  try {
+    const bad = tampered();
+    if (bad.length) {
+      log('Код программы изменён, MCP не запущен:', bad.slice(0, 10).join(', '));
+      return app.exit(1);
+    }
+    ensureDecks();
+    await ensureCode();
+    process.chdir(ROOT);
+    const { startMcp } = await import(pathToFileURL(path.join(CODE, 'server.mjs')).href);
+    await startMcp({ dir: DECKS, root: ROOT, version: app.getVersion(), input: process.stdin, output: process.stdout });
+  } catch (e) {
+    log('MCP:', e?.stack ?? e);
+    return app.exit(1);
+  }
+  app.exit(0);
+}
+
 app.whenReady().then(async () => {
+  if (MCP_MODE) return runMcp();
   fs.mkdirSync(DATA, { recursive: true });
   permissions();
   downloads();

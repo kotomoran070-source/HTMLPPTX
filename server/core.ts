@@ -122,6 +122,8 @@ export interface CoreOptions {
   /** Куда собирать недостающие варианты проигрывателя для экспорта; по умолчанию — node_modules/.cache/slideria-player */
   playerCache?: string;
   hooks?: CoreHooks;
+  /** Как агенту (Claude Desktop, Claude Code…) запустить MCP этой папки; программа — сама собой (`--mcp`) */
+  mcpCommand?: { command: string; args: string[] };
 }
 
 /** События для страниц: записали презентацию (from — окно, которое записало), удалили презентацию */
@@ -978,10 +980,10 @@ export function createDecksCore(opts: CoreOptions) {
     saveScript: (file: string, code: string, o?: { by?: unknown; replace?: boolean }) => integrations.saveScript(file, code, { by: byOf(o?.by), replace: o?.replace }),
     scriptsDir: integrations.scriptsDir,
     /**
-     * Как запустить MCP этой папки (docs/MCP.md): Node и scripts/mcp.mjs. Программа (Electron) без Node —
-     * null: MCP в установленной программе — следующий шаг
+     * Как запустить MCP этой папки (docs/MCP.md): программа — сама собой с ключом --mcp (desktop/main.mjs),
+     * при разработке — Node и scripts/mcp.mjs
      */
-    mcpCommand: (): { command: string; args: string[] } | null => (process.versions.electron ? null
+    mcpCommand: (): { command: string; args: string[] } | null => opts.mcpCommand ?? (process.versions.electron ? null
       : { command: process.execPath, args: [path.join(root, 'scripts', 'mcp.mjs'), `--decks=${dir}`] }),
     create,
     trash,

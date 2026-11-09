@@ -21,6 +21,7 @@ import { createEvents } from './events';
 import { startFrameHost } from './frame-host';
 import { WORKER_CSP, createHandler } from './http';
 import type { KeyStore } from './agent';
+import { createMcp, serveStdio } from './mcp';
 import { announce } from './running';
 import { watchDecks } from './watch';
 
@@ -66,6 +67,8 @@ export interface ServeOptions {
   log?: (message: string) => void;
   /** Ключ Claude для чата «Агент»: программа хранит его зашифрованным (desktop/main.mjs) */
   agentKeys?: KeyStore;
+  /** Как агенту запустить MCP этой папки: программа — сама собой с ключом --mcp */
+  mcp?: { command: string; args: string[] };
 }
 
 export interface Served {
@@ -199,6 +202,18 @@ export function codeHints(studio: string): { studio: string; picker: string } {
   };
 }
 
+/**
+ * MCP по stdin/stdout (server/mcp.ts) — программа сама MCP-сервер для Claude Desktop, Claude Code и других: они
+ * запускают её с ключом --mcp (desktop/main.mjs), Node не нужен. Открыта студия с той же папкой — правки идут через
+ * неё и сразу видны. Ответ — когда клиент закрыл вход
+ */
+export async function startMcp(o: { dir: string; root: string; version: string; input: NodeJS.ReadableStream; output: NodeJS.WritableStream }): Promise<void> {
+  const dir = path.resolve(o.dir);
+  const root = path.resolve(o.root);
+  const core = createDecksCore({ dir, root });
+  await serveStdio(createMcp({ core, dir, root, version: o.version }), o.input, o.output);
+}
+
 export async function startServer(o: ServeOptions): Promise<Served> {
   const dir = path.resolve(o.dir);
   const root = path.resolve(o.root);
@@ -209,7 +224,7 @@ export async function startServer(o: ServeOptions): Promise<Served> {
 
   let watch: ReturnType<typeof watchDecks> | null = null;
   const core = createDecksCore({
-    dir, root, fonts: o.fonts, library: o.library, playerCache: o.playerCache,
+    dir, root, fonts: o.fonts, library: o.library, playerCache: o.playerCache, mcpCommand: o.mcp,
     hooks: { release: (paths) => watch?.release(paths) ?? (() => {}), run: o.run },
   });
   const events = createEvents();

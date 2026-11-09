@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { startMockClaude } from '../mock-claude';
 
@@ -326,6 +326,58 @@ test('чат «Агент» в программе: ключ — зашифров
   } finally {
     await app.close().catch(() => {});
     await mock.close();
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('MCP из самой программы: «Подключить к Claude Desktop», агент запускает её с --mcp — без Node, правка видна в открытой студии', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-app-mcp-'));
+  const docs = path.join(tmp, 'docs');
+  // Claude Desktop «открывали» — в подставном домашнем каталоге
+  const home = path.join(tmp, 'home');
+  fs.mkdirSync(path.join(home, '.config', 'Claude'), { recursive: true });
+  const env = { ...process.env, SLIDERIA_DOCS_DIR: docs, SLIDERIA_USER_DATA: path.join(tmp, 'data'), SLIDERIA_CONNECT_HOME: home };
+  // Открытая студия: команда подключения в «Интеграциях» — эта же программа с ключом --mcp
+  const app = await electron.launch({ ...(EXE ? { executablePath: EXE, args: sandbox } : { args: ['.', ...sandbox] }), env, timeout: 60_000 });
+  try {
+    const win = await mainWindow(app);
+    await win.waitForURL(/\/\?all$/, { timeout: 90_000 });
+    const info = await win.evaluate(() => fetch('/__htmlpptx/integrations', { method: 'POST' }).then((r) => r.json()));
+    expect(info.mcp.args).toContain('--mcp');
+    // «Подключить к Claude Desktop» — в его настройках эта же команда
+    expect(await win.evaluate(() => fetch('/__htmlpptx/agents-connect?client=claude-desktop', { method: 'POST' }).then((r) => r.json()))).toMatchObject({ connected: true });
+    const cfg = JSON.parse(fs.readFileSync(path.join(home, '.config', 'Claude', 'claude_desktop_config.json'), 'utf8')).mcpServers.slideria as { command: string; args: string[] };
+    expect(cfg).toEqual(info.mcp);
+    await win.goto(win.url().replace(/\?all$/, '?deck=moya-pervaya-prezentaciya&studio#1'));
+    await expect(win.locator('#st-canvas .slide.on')).toBeVisible();
+
+    // Агент запускает команду из своих настроек — второй экземпляр программы, протокол по stdin/stdout
+    const child = spawn(cfg.command, [...cfg.args.filter((a) => a !== '--mcp'), ...sandbox, '--mcp'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+    let out = '';
+    child.stdout.setEncoding('utf8').on('data', (d) => { out += d; });
+    const exited = new Promise((done) => child.once('exit', done));
+    // stdout — только протокол: каждая строка — ответ JSON-RPC
+    const answers = () => out.split('\n').filter(Boolean).map((l) => JSON.parse(l) as { id: number; result?: { tools?: { name: string }[]; content?: { text: string }[] } });
+    const ask = async (id: number, method: string, params: unknown) => {
+      child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n');
+      await expect.poll(() => answers().find((a) => a.id === id), { timeout: 60_000 }).toBeTruthy();
+      return answers().find((a) => a.id === id)!.result!;
+    };
+    await ask(1, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'claude-ai', version: '1.0' } });
+    expect((await ask(2, 'tools/list', {})).tools!.map((t) => t.name)).toContain('edit_presentation');
+    expect((await ask(3, 'tools/call', { name: 'list_presentations', arguments: {} })).content![0].text).toContain('moya-pervaya-prezentaciya');
+    const r = await ask(4, 'tools/call', { name: 'edit_presentation', arguments: { presentation: 'moya-pervaya-prezentaciya', ops: [{ op: 'slide.set', slide: 1, set: { notes: 'Заметка от агента' } }] } });
+    expect(r.content![0].text).toContain('уже видна в открытой студии');
+    await expect(win.locator('#st-notes-text')).toHaveValue('Заметка от агента');
+    // Агент закрыл вход — программа в режиме MCP выходит
+    child.stdin.end();
+    await exited;
+    // Правка агента — точкой (Ctrl+S): иначе закрытие спросит «Сохранить изменения?»
+    await win.locator('#st-canvas').click({ position: { x: 4, y: 4 } });
+    await win.keyboard.press('Control+s');
+    await expect(win.locator('#ed-toast')).toContainText('Сохранено');
+  } finally {
+    await app.close().catch(() => {});
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });

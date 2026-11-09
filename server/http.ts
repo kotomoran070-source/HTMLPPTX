@@ -19,6 +19,7 @@ import { hostGuard } from './host-guard';
 import { deckRev } from './deck-files';
 import { ExportError, type DecksCore } from './core';
 import { createAgentChat, devKeys, type AgentChat, type KeyStore } from './agent';
+import { createConnect, type Connect } from './connect';
 import { denyPage, isLocal, lanPass, remoteRelay } from '../plugins/remote-relay.mjs';
 import { electronFiles, licensesData } from '../plugins/licenses.mjs';
 
@@ -180,9 +181,12 @@ function data(core: DecksCore): Handler {
 function api(core: DecksCore, o: HttpOptions): Handler {
   // Адрес Claude API — подставной сервер в тестах (SLIDERIA_ANTHROPIC_URL)
   const chat = createAgentChat({ core, keys: o.agentKeys ?? devKeys(), baseURL: process.env.SLIDERIA_ANTHROPIC_URL || undefined, log: o.log });
+  // Подключить агента в один щелчок; в тестах — к подставному домашнему каталогу (SLIDERIA_CONNECT_HOME)
+  const testHome = process.env.SLIDERIA_CONNECT_HOME;
+  const clients = createConnect(testHome ? { home: testHome, pathDirs: [] } : {});
   return (req, res, next) => {
     if (!req.url?.startsWith(API)) return next();
-    void route(core, o, chat, req, res).catch((e: Error) => {
+    void route(core, o, chat, clients, req, res).catch((e: Error) => {
       o.log?.(`[htmlpptx] ${e.message}`);
       if (!res.headersSent) send(res, e instanceof ExportError ? 500 : 400, { error: e.message });
       else res.end();
@@ -190,7 +194,7 @@ function api(core: DecksCore, o: HttpOptions): Handler {
   };
 }
 
-async function route(core: DecksCore, o: HttpOptions, chat: AgentChat, req: IncomingMessage, res: ServerResponse): Promise<void> {
+async function route(core: DecksCore, o: HttpOptions, chat: AgentChat, clients: Connect, req: IncomingMessage, res: ServerResponse): Promise<void> {
   // С других устройств сети (пульт) проект только смотрят — не правят
   if (!isLocal(req)) return send(res, 403, { error: 'Правка проекта — только с этого компьютера' });
   if (req.method !== 'POST') return send(res, 405, { error: 'Только POST' });
@@ -232,6 +236,10 @@ async function route(core: DecksCore, o: HttpOptions, chat: AgentChat, req: Inco
     // Интеграции (server/integrations.ts): агенты, что им можно, журнал, скрипты
     case 'integrations':
       return send(res, 200, { access: core.access(), agents: core.agents(), mcp: core.mcpCommand(), scripts: core.scriptsDir });
+    // Подключить агента в один щелчок (server/connect.ts): Claude Desktop, Claude Code, Codex
+    case 'agents-clients': return send(res, 200, { clients: clients.state() });
+    case 'agents-connect': return send(res, 200, await clients.connect(q.get('client'), core.mcpCommand()));
+    case 'agents-disconnect': return send(res, 200, await clients.disconnect(q.get('client')));
     case 'integrations-set': {
       const body = (await json(req)) as { agents?: unknown } | null;
       return send(res, 200, { access: core.setAccess(body?.agents) });

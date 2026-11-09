@@ -169,7 +169,7 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
         <p class="ac-note" id="ac-key-note">${icon('lock')}<span>${esc(note)} <a href="${KEYS_URL}" target="_blank" rel="noopener">Где взять ключ</a></span></p>
       </form>
       ${examplesHtml(true)}
-      <p class="ac-alt">${icon('plug')}<span>Есть подписка Claude? Подключите Claude Code или Claude Desktop: <button type="button" class="ac-link" data-a="int">Файл → Интеграции</button></span></p>
+      <p class="ac-alt">${icon('plug')}<span>Есть подписка Claude? Подключите Claude Desktop или Claude Code в один щелчок: <button type="button" class="ac-link" data-a="int">Файл → Интеграции</button></span></p>
     </div>`;
   }
 
