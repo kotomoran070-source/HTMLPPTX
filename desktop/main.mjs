@@ -14,6 +14,7 @@ import { pathToFileURL } from 'node:url';
 import { app, BrowserWindow, Menu, WebContentsView, desktopCapturer, dialog, ipcMain, nativeTheme, safeStorage, screen, session, shell, utilityProcess } from 'electron';
 import { FIX_FLAG, allowFirewall, runFirewallFix } from './firewall.mjs';
 import { lanGateway } from './lan.mjs';
+import { flush, mcpInput } from './mcp-input.mjs';
 import { splashPage } from './splash.mjs';
 
 // Экземпляр, запущенный кнопкой «Разрешить в брандмауэре» с правами администратора:
@@ -24,6 +25,11 @@ if (process.argv.includes(FIX_FLAG)) runFirewallFix();
  * протокол MCP (server/mcp.ts, docs/MCP.md). Node не нужен: сервер MCP — в коде программы
  */
 const MCP_MODE = process.argv.includes('--mcp');
+if (MCP_MODE) {
+  // Окна нет — видеокарта не нужна; кэш Chromium — свой: папку данных держит открытая программа
+  app.disableHardwareAcceleration();
+  app.setPath('sessionData', path.join(app.getPath('temp'), 'slideria-mcp'));
+}
 
 // Имя задаёт папку данных (%APPDATA%/Slideria) и в yarn app, и в установленной программе
 app.setName('Slideria');
@@ -665,7 +671,9 @@ async function runMcp() {
     await ensureCode();
     process.chdir(ROOT);
     const { startMcp } = await import(pathToFileURL(path.join(CODE, 'server.mjs')).href);
-    await startMcp({ dir: DECKS, root: ROOT, version: app.getVersion(), input: process.stdin, output: process.stdout });
+    // SLIDERIA_MCP_FD0=1 — вход как на Windows (с fd 0) и в другой системе: так это проверяют тесты программы
+    await startMcp({ dir: DECKS, root: ROOT, version: app.getVersion(), input: mcpInput(process.env.SLIDERIA_MCP_FD0 === '1' ? 'win32' : process.platform), output: process.stdout });
+    await flush();
   } catch (e) {
     log('MCP:', e?.stack ?? e);
     return app.exit(1);

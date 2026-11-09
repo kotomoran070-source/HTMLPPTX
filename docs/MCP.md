@@ -78,6 +78,8 @@ Slideria: `--decks=/Users/имя/Documents/Slideria`). У программы с 
 scripts/mcp.mjs   запуск из папки проекта: stdin/stdout, папка презентаций; TypeScript сервера загружает Vite
 desktop/main.mjs  программа с --mcp: без окон и без второго экземпляра-окна, stdout — только протокол (журнал — в
                   stderr); сервер MCP — из кода программы (startMcp в server/serve.ts)
+desktop/mcp-input.mjs  вход MCP программы: на Windows Electron подменяет process.stdin пустым, уже закрытым
+                  потоком — труба агента читается с fd 0 сокетом; перед выходом stdout дописывается
 server/mcp.ts     инструменты и протокол (JSON-RPC 2.0) без транспорта: в облаке — тот же обработчик по HTTP
 server/running.ts какой сервер студии работает с папкой
 server/connect.ts подключение в один щелчок (команды agents-clients, agents-connect, agents-disconnect)

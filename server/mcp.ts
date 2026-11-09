@@ -396,7 +396,16 @@ export function serveStdio(mcp: Mcp, input: NodeJS.ReadableStream, output: NodeJ
         buf = buf.slice(i + 1);
       }
     });
-    // Вход закрыт: студии — «ушёл», потом — ответ, когда все ответы отправлены
-    input.on('end', () => { one(buf); void mcp.close().finally(() => { ended = true; finish(); }); });
+    // Вход закрыт: студии — «ушёл», потом — ответ, когда все ответы отправлены. Оборванная труба (агента
+    // закрыли посреди сообщения) — только close, без end
+    let closed = false;
+    const end = () => {
+      if (closed) return;
+      closed = true;
+      one(buf);
+      void mcp.close().finally(() => { ended = true; finish(); });
+    };
+    input.on('end', end);
+    input.on('close', end);
   });
 }

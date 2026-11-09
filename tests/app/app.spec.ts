@@ -352,7 +352,8 @@ test('MCP из самой программы: «Подключить к Claude D
     await expect(win.locator('#st-canvas .slide.on')).toBeVisible();
 
     // Агент запускает команду из своих настроек — второй экземпляр программы, протокол по stdin/stdout
-    const child = spawn(cfg.command, [...cfg.args.filter((a) => a !== '--mcp'), ...sandbox, '--mcp'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+    // Вход — как на Windows, где Electron подменяет process.stdin закрытым потоком: с fd 0 (desktop/mcp-input.mjs)
+    const child = spawn(cfg.command, [...cfg.args.filter((a) => a !== '--mcp'), ...sandbox, '--mcp'], { env: { ...env, SLIDERIA_MCP_FD0: '1' }, stdio: ['pipe', 'pipe', 'pipe'] });
     let out = '';
     child.stdout.setEncoding('utf8').on('data', (d) => { out += d; });
     const exited = new Promise((done) => child.once('exit', done));
@@ -369,9 +370,9 @@ test('MCP из самой программы: «Подключить к Claude D
     const r = await ask(4, 'tools/call', { name: 'edit_presentation', arguments: { presentation: 'moya-pervaya-prezentaciya', ops: [{ op: 'slide.set', slide: 1, set: { notes: 'Заметка от агента' } }] } });
     expect(r.content![0].text).toContain('уже видна в открытой студии');
     await expect(win.locator('#st-notes-text')).toHaveValue('Заметка от агента');
-    // Агент закрыл вход — программа в режиме MCP выходит
+    // Агент закрыл вход — программа в режиме MCP выходит сама и без ошибки
     child.stdin.end();
-    await exited;
+    expect(await exited).toBe(0);
     // Правка агента — точкой (Ctrl+S): иначе закрытие спросит «Сохранить изменения?»
     await win.locator('#st-canvas').click({ position: { x: 4, y: 4 } });
     await win.keyboard.press('Control+s');
