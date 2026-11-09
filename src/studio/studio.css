@@ -328,6 +328,8 @@ body.studio { background: var(--alt); }
 .st-body > .st-slides { grid-column: 1; }
 .st-body > .st-main { grid-column: 3; }
 .st-body > .st-props { grid-column: 5; }
+/* Чат «Агент» — на месте «Свойств» (agent-chat.ts, его стили — agent-chat.css, грузятся вместе с ним) */
+.st-body > .st-chat { grid-column: 5; grid-row: 1; background: var(--surf); border-left: 1px solid var(--bd); min-height: 0; }
 /* Область анимации — своя колонка справа или слева от слайда (ширина — --apr / --apl, anim-tab) */
 .st-body > .st-apane { grid-column: 4; grid-row: 1; }
 .st-body > .st-apane.left { grid-column: 2; }

@@ -23,7 +23,7 @@ import { compactImage } from '../plugins/optimize';
 import { mergeYaml } from '../plugins/yaml-merge';
 import { applyOps, outline as outlineOf, slideIndex, slideRev, type DeckOutline, type SlideRef } from '../src/engine/ops';
 import type { Deck, SlideData } from '../src/types';
-import { createIntegrations, type AgentInfo, type By, type JournalEntry } from './integrations';
+import { chatsDir, createIntegrations, type AgentInfo, type By, type JournalEntry } from './integrations';
 import { createPlayers, finishFile, variantOf } from './player';
 import { DATA_ID, MIME, dropGrades, escapeHtml, listDecks, mapAssets, mapStrings, readYaml, replaceTag, safeFileName, scriptJson, stamp } from './deck-files';
 
@@ -310,6 +310,7 @@ export function createDecksCore(opts: CoreOptions) {
     // в корзину вместе с ней) — новой они не достаются
     const orphan = path.join(dir, '.trash', `${name}-history-${stamp()}`);
     if (fs.existsSync(cpRoot(name))) move(cpRoot(name), path.join(orphan, 'checkpoints'));
+    if (fs.existsSync(chatRoot(name))) move(chatRoot(name), path.join(orphan, 'chats'));
     integrations.takeJournal(name, path.join(orphan, 'journal.jsonl'));
     fs.cpSync(path.join(root, 'templates', 'basic'), dst, { recursive: true });
     const file = deckFile(name);
@@ -376,6 +377,7 @@ export function createDecksCore(opts: CoreOptions) {
     // новая презентация с тем же именем начнёт с чистой историей
     try {
       if (fs.existsSync(cpRoot(name))) move(cpRoot(name), path.join(target, '.history', 'checkpoints'));
+      if (fs.existsSync(chatRoot(name))) move(chatRoot(name), path.join(target, '.history', 'chats'));
       integrations.takeJournal(name, path.join(target, '.history', 'journal.jsonl'));
     } catch { /* история не перенеслась — презентация всё равно в корзине */ }
     emit('removed', { name });
@@ -472,10 +474,11 @@ export function createDecksCore(opts: CoreOptions) {
    * поменяли — отказ. Запись — как у окна студии (комментарии в YAML сохраняются, картинки data: — в assets/);
    * открытые окна получают событие saved и подтягивают правку, как правку другого окна
    */
-  function apply(name: string, req: { ops: unknown; expect?: unknown; from?: string; by?: By }): { changed: boolean; changes: string[]; outline: DeckOutline } {
+  function apply(name: string, req: { ops: unknown; expect?: unknown; from?: string; by?: By; own?: boolean }): { changed: boolean; changes: string[]; outline: DeckOutline; entry?: JournalEntry } {
     const file = deckFile(assertDeck(name));
     const by = byOf(req.by);
-    integrations.allow(by, 'edit');
+    // Чат «Агент» студии (own) — просьба самого пользователя: «что можно агентам» его не касается
+    if (!req.own) integrations.allow(by, 'edit');
     // Чтение, правка и запись — без ожиданий между ними: другое окно не успеет записать посередине,
     // поэтому слияние с файлом, как у окна студии, не нужно
     const source = fs.readFileSync(file, 'utf8');
@@ -487,10 +490,10 @@ export function createDecksCore(opts: CoreOptions) {
     const point = by && !same(r.deck, current) ? checkpoint(name, { kind: 'auto' }).id : undefined;
     const next = writeDeck(name, source, toPaths(r.deck), store, req.from || 'agent');
     // И после: «Вернуть» в студии откатывает только правку агента (слияние трёх версий), а не то, что поправили позже
-    if (by && next !== source) record(name, { by, changes: r.details, checkpoint: point, after: checkpoint(name, { kind: 'auto' }).id });
+    const entry = by && next !== source ? record(name, { by, changes: r.details, checkpoint: point, after: checkpoint(name, { kind: 'auto' }).id }) : undefined;
     // Ревизии — по записанному, как его прочитает следующий outline
     const after = next === source ? current : readYaml(file, next) as Deck;
-    return { changed: next !== source, changes: r.changes, outline: outlineOf(after) };
+    return { changed: next !== source, changes: r.changes, outline: outlineOf(after), ...(entry ? { entry } : {}) };
   }
 
   // ---------------- интеграции: агенты, журнал, скрипты (server/integrations.ts) ----------------
@@ -533,6 +536,8 @@ export function createDecksCore(opts: CoreOptions) {
 
   // ---------------- контрольные точки (виды и сроки — KINDS вверху) ----------------
   const cpRoot = (name: string) => path.join(dir, '.checkpoints', name);
+  /** Переписка чата «Агент» (server/agent.ts) — тоже история презентации */
+  const chatRoot = (name: string) => chatsDir(dir, name);
   const cpFolder = (name: string, kind: PointKind) => path.join(cpRoot(name), KINDS[kind].dir);
   /** Файлы точек вида kind, старые первыми (имя — время) */
   function cpFiles(name: string, kind: PointKind): string[] {
@@ -564,6 +569,8 @@ export function createDecksCore(opts: CoreOptions) {
     if (!fs.existsSync(hist)) return;
     const cps = path.join(hist, 'checkpoints');
     if (fs.existsSync(cps) && !fs.existsSync(cpRoot(name))) move(cps, cpRoot(name));
+    const chats = path.join(hist, 'chats');
+    if (fs.existsSync(chats) && !fs.existsSync(chatRoot(name))) move(chats, chatRoot(name));
     integrations.adoptJournal(name, path.join(hist, 'journal.jsonl'));
     fs.rmSync(hist, { recursive: true, force: true });
   }

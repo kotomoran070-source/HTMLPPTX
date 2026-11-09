@@ -52,6 +52,8 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       SLIDERIA_DECKS: tmp('.tmp/test-decks'), SLIDERIA_FONTS: tmp('.tmp/test-fonts'), SLIDERIA_LIBRARY: tmp('.tmp/test-library'), BROWSER: 'none',
+      // Чат «Агент»: подставной Claude (tests/mock-claude.ts, его поднимает tests/e2e/chat.spec.ts), ключ — только введённый в тесте
+      SLIDERIA_ANTHROPIC_URL: 'http://127.0.0.1:5191', ANTHROPIC_API_KEY: '',
       // package.json программы — не в папке сжатого кода, как и в установленной программе
       ...(stage ? { SLIDERIA_PACKAGE: path.resolve('package.json') } : {}),
     },

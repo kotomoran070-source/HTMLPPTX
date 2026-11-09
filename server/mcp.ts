@@ -52,9 +52,15 @@ const str = (a: Rec, k: string, what: string): string => {
 };
 
 /** Список операций для описания инструмента — из каталога, чтобы описание не расходилось с кодом */
-const opsHelp = () => Object.entries(OPS)
+export const opsHelp = () => Object.entries(OPS)
   .map(([name, d]) => `- ${name} { ${Object.keys(d.params).join(', ')} }: ${d.summary}. ${Object.entries(d.params).map(([k, v]) => `${k} — ${v}`).join('; ')}`)
   .join('\n');
+
+/** Справка по формату презентации для агентов (docs/skills/slideria-deck); нет файла — null */
+export function formatGuide(root: string): string | null {
+  const file = path.join(root, 'docs', 'skills', 'slideria-deck', 'SKILL.md');
+  return fs.existsSync(file) ? fs.readFileSync(file, 'utf8').replace(/^---[\s\S]*?---\s*/, '') : null;
+}
 
 const INSTRUCTIONS = `Slideria: презентации — это данные (deck.yaml), а не вёрстка: тема даёт цвета, шрифты и фон.
 Как править: list_presentations → read_presentation (номера слайдов и объектов, ревизии rev) → edit_presentation
@@ -282,9 +288,9 @@ export function createMcp(o: McpOptions) {
       inputSchema: { type: 'object', properties: {} },
       annotations: { readOnlyHint: true },
       async run() {
-        const file = path.join(o.root, 'docs', 'skills', 'slideria-deck', 'SKILL.md');
-        if (!fs.existsSync(file)) throw new ToolError('Справка не найдена в папке программы');
-        return fs.readFileSync(file, 'utf8').replace(/^---[\s\S]*?---\s*/, '');
+        const text = formatGuide(o.root);
+        if (!text) throw new ToolError('Справка не найдена в папке программы');
+        return text;
       },
     },
   ];

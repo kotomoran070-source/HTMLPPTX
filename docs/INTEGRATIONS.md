@@ -68,6 +68,7 @@ Ctrl+Z в студии правку агента не отменяет — он 
 .slideria/settings.json      что можно агентам
 .slideria/agents.json        агенты, которые подключались: имя, когда были, сколько правок
 .slideria/journal/<имя>.jsonl журнал правок презентации
+.slideria/chats/<имя>/        переписка чата «Агент» студии (docs/AGENT.md)
 .checkpoints/<имя>/          свои точки (Ctrl+S, последние 30)
 .checkpoints/<имя>/session/  «когда открыли» и «когда закрыли» (последние 30)
 .checkpoints/<имя>/dropped/  «не сохранено при выходе» (30 дней)

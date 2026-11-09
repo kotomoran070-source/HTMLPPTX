@@ -22,6 +22,7 @@
 //   prog     — прогресс сегментами по слайдам и план доклада на 10 минут.
 //   agent    — правки агента (команды outline и apply) при открытой студии.
 //   integ    — интеграции: агент на связи, «Вернуть», «Файл → Интеграции» — что можно агентам, скрипты.
+//   chat     — чат «Агент» на подставном Claude: два слайда с текстом.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -467,4 +468,18 @@ slides:
 `);
 fs.mkdirSync(path.join(dir, 'integ'), { recursive: true });
 fs.writeFileSync(path.join(dir, 'integ', 'deck.yaml'), fs.readFileSync(path.join(dir, 'agent', 'deck.yaml'), 'utf8').replace('title: Агент', 'title: Интеграции'));
+// chat — чат «Агент»: правки ответа одним шагом отмены, «Вернуть», картинки, переписка
+fs.mkdirSync(path.join(dir, 'chat'), { recursive: true });
+fs.writeFileSync(path.join(dir, 'chat', 'deck.yaml'), `title: Чат
+slides:
+  - id: first
+    template: canvas
+    free:
+      - {type: text, text: "Заголовок до агента", place: {x: 80, y: 80, w: 900}}
+      - {type: text, text: "Число 42", place: {x: 80, y: 300, w: 600}}
+  - id: second
+    template: canvas
+    free:
+      - {type: text, text: "Второй слайд", place: {x: 80, y: 80, w: 600}}
+`);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

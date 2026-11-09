@@ -27,6 +27,8 @@ test('свой блок: «Сохранить как шаблон…» → «Б�
   await page.mouse.click(b.x + b.width * 0.2, b.y + b.height / 2);
   await page.mouse.click(b.x + b.width * 0.2, b.y + b.height / 2, { button: 'right' });
   await page.locator('.st-menu').getByText('Сохранить как шаблон…').click();
+  // Поле названия получает фокус в следующем кадре — до него клавиши ушли бы холсту
+  await expect(page.locator('.st-tpl-pop input')).toBeFocused();
   await page.keyboard.press('Control+A');
   await page.keyboard.type('Подпись раздела');
   await page.keyboard.press('Enter');

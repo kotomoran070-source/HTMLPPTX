@@ -137,6 +137,9 @@ export async function runScript(h: IntegrationsHost, id: string, params?: Record
  * Где слайд правки сейчас (с 0): по id — и после перестановок; без id — номер на момент правки; слайда больше
  * нет — -1
  */
+/** Чат «Агент» студии в журнале (server/agent.ts, CHAT_AGENT) */
+export const CHAT_AGENT_ID = 'studio-chat';
+
 export function slideOf(deck: Deck, c: Change): number {
   if (c.id) return deck.slides.findIndex((s) => (s as { id?: unknown }).id === c.id);
   return c.slide && c.slide <= deck.slides.length ? c.slide - 1 : -1;
@@ -269,6 +272,9 @@ export function startIntegrations(h: IntegrationsHost) {
     toastTimer = window.setTimeout(() => el!.classList.remove('on'), 7000);
   }
 
+  /** Правка внешнего агента (MCP): чат «Агент» студии показывает свои правки сам, в своей панели */
+  const external = (e: JournalEntry) => e.by.kind === 'agent' && e.by.id !== CHAT_AGENT_ID;
+
   async function refresh(): Promise<void> {
     try {
       const info = await api<{ agents: AgentInfo[] }>('integrations');
@@ -277,7 +283,7 @@ export function startIntegrations(h: IntegrationsHost) {
       const log = await api<JournalEntry[]>(`journal?deck=${encodeURIComponent(h.deckKey)}&limit=200`);
       const day = Date.now() - 86_400_000;
       // На «Журнале правок» — правки агентов за сутки (скрипты запускали сами — о них знаете)
-      todayChanges = log.filter((e) => e.by.kind === 'agent' && Date.parse(e.t) > day).reduce((n, e) => n + e.changes.length, 0);
+      todayChanges = log.filter((e) => external(e) && Date.parse(e.t) > day).reduce((n, e) => n + e.changes.length, 0);
       paintCount();
       scripts = await api<ScriptInfo[]>('scripts');
     } catch { /* файл с диска — интеграций нет */ }
@@ -288,7 +294,7 @@ export function startIntegrations(h: IntegrationsHost) {
   onServer('journal', (x) => {
     const e = x as JournalEntry;
     if (e.deck !== h.deckKey) return;
-    if (e.by.kind === 'agent') {
+    if (external(e)) {
       todayChanges += e.changes.length;
       paintCount();
       // «Файл» открыт — подсказка не нужна: правка видна в «Интеграциях», журнал обновится сам

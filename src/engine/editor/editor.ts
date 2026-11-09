@@ -677,6 +677,20 @@ export class Editor {
   }
 
   /** Дописать все правки в deck.yaml и дождаться записи (перед импортом файла). */
+  /** Идёт ответ чата «Агент» этого окна (ключ ответа): его правки из файла — свои, одним шагом отмены */
+  private agentKey = '';
+  agentAnswer(key: string | null): void {
+    this.agentKey = key ?? '';
+    if (!key && this.lastMerge.startsWith('agent:')) this.lastMerge = '';
+  }
+
+  /** Подтянуть правки из файла сейчас и дождаться (чат «Агент»: правку записал сервер) */
+  async pull(): Promise<void> {
+    if (this.mode !== 'project' || this.closed) return;
+    this.dirty = true;
+    await this.settle();
+  }
+
   /** Студию открыли: точка «Когда открыли» — с ней сравниваются правки при выходе */
   async openPoint(): Promise<void> {
     if (this.mode !== 'project' || !this.storage.checkpoint) return;
@@ -747,7 +761,15 @@ export class Editor {
         const { result, changed } = merge3(sent, this.host.deck, res.deck);
         if (changed) {
           const theirs = edits(sent, res.deck);
-          if (theirs) this.hist.rebase(theirs, sent.slides.length);
+          if (this.agentKey) {
+            // Ответ чата «Агент» этого окна — правки как свои: весь ответ — один шаг отмены. Чужие правки (другое
+            // окно, внешний агент) в шаги вплетаются, чтобы Ctrl+Z их не трогал
+            if (this.lastMerge !== this.agentKey) this.hist.push(this.hist.snap(this.host.deck));
+            this.hist.future = [];
+            this.lastMerge = this.agentKey;
+            this.lastTime = Date.now();
+            this.touched = true;
+          } else if (theirs) this.hist.rebase(theirs, sent.slides.length);
           replaceContents(this.host.deck as unknown as Record<string, unknown>, result as Record<string, unknown>);
           this.host.refresh(true);
           this.hist.save(this.hist.snap(this.host.deck));

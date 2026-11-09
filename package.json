@@ -35,6 +35,7 @@
     "test:stage": "node scripts/test-stage.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
     "@xmldom/xmldom": "^0.9.12",
     "jszip": "^3.10.1",
     "node-html-parser": "^9.0.4",
@@ -98,7 +99,8 @@
       "templates/**",
       "src/fonts/**",
       "app/**",
-      "player/**"
+      "player/**",
+      "docs/skills/**"
     ],
     "win": {
       "target": "nsis",

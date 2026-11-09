@@ -18,6 +18,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { hostGuard } from './host-guard';
 import { deckRev } from './deck-files';
 import { ExportError, type DecksCore } from './core';
+import { createAgentChat, devKeys, type AgentChat, type KeyStore } from './agent';
 import { denyPage, isLocal, lanPass, remoteRelay } from '../plugins/remote-relay.mjs';
 import { electronFiles, licensesData } from '../plugins/licenses.mjs';
 
@@ -56,6 +57,8 @@ export interface HttpOptions {
    * их нет в node_modules, но на странице «Лицензии» они нужны
    */
   bundled?: () => { name: string; version: string; license: string; text: string }[];
+  /** Ключ Claude для чата «Агент» (server/agent.ts): программа хранит его зашифрованным; по умолчанию — ANTHROPIC_API_KEY или в памяти */
+  agentKeys?: KeyStore;
 }
 
 export function readBody(req: IncomingMessage, max = MAX_BODY): Promise<Buffer> {
@@ -175,9 +178,11 @@ function data(core: DecksCore): Handler {
 
 /** Команды проекта: /__htmlpptx/<команда>?deck=<имя>&… */
 function api(core: DecksCore, o: HttpOptions): Handler {
+  // Адрес Claude API — подставной сервер в тестах (SLIDERIA_ANTHROPIC_URL)
+  const chat = createAgentChat({ core, keys: o.agentKeys ?? devKeys(), baseURL: process.env.SLIDERIA_ANTHROPIC_URL || undefined, log: o.log });
   return (req, res, next) => {
     if (!req.url?.startsWith(API)) return next();
-    void route(core, o, req, res).catch((e: Error) => {
+    void route(core, o, chat, req, res).catch((e: Error) => {
       o.log?.(`[htmlpptx] ${e.message}`);
       if (!res.headersSent) send(res, e instanceof ExportError ? 500 : 400, { error: e.message });
       else res.end();
@@ -185,7 +190,7 @@ function api(core: DecksCore, o: HttpOptions): Handler {
   };
 }
 
-async function route(core: DecksCore, o: HttpOptions, req: IncomingMessage, res: ServerResponse): Promise<void> {
+async function route(core: DecksCore, o: HttpOptions, chat: AgentChat, req: IncomingMessage, res: ServerResponse): Promise<void> {
   // С других устройств сети (пульт) проект только смотрят — не правят
   if (!isLocal(req)) return send(res, 403, { error: 'Правка проекта — только с этого компьютера' });
   if (req.method !== 'POST') return send(res, 405, { error: 'Только POST' });
@@ -256,6 +261,10 @@ async function route(core: DecksCore, o: HttpOptions, req: IncomingMessage, res:
     case 'library': return send(res, 200, core.library());
     case 'library-put': return send(res, 200, core.putLibrary(q.get('kind') ?? '', q.get('id') ?? '', await json(req)));
     case 'library-delete': return send(res, 200, core.deleteLibrary(q.get('kind') ?? '', q.get('id') ?? ''));
+    // Чат «Агент» (server/agent.ts): подключён ли Claude, подключить ключ, отключить
+    case 'chat-status': return send(res, 200, chat.status());
+    case 'chat-connect': return send(res, 200, await chat.connect(((await json(req)) as { key?: unknown } | null)?.key));
+    case 'chat-disconnect': return send(res, 200, chat.disconnect());
     default: break;
   }
 
@@ -276,6 +285,25 @@ async function route(core: DecksCore, o: HttpOptions, req: IncomingMessage, res:
     }
     // Правка скрипта студии — в журнал (сама правка — в окне студии, запишется его сохранением)
     case 'journal-add': return send(res, 200, core.recordScript(name, ((await json(req)) ?? {}) as never));
+    // Сообщение агенту — ответ потоком событий (строка JSON на событие); закрыли запрос («Стоп») — агент останавливается
+    case 'chat-send': {
+      const body = ((await json(req)) ?? {}) as Record<string, unknown>;
+      const ac = new AbortController();
+      res.on('close', () => { if (!res.writableEnded) ac.abort(); });
+      res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('X-Accel-Buffering', 'no');
+      await chat.send(name, body, (e) => { if (!res.writableEnded) res.write(JSON.stringify(e) + '\n'); }, ac.signal);
+      return void res.end();
+    }
+    case 'chat-list': return send(res, 200, chat.list(name));
+    case 'chat-read': return send(res, 200, chat.read(name, q.get('id') ?? ''));
+    case 'chat-delete': return send(res, 200, chat.remove(name, q.get('id') ?? ''));
+    case 'chat-image': {
+      const im = chat.image(name, q.get('id') ?? '', q.get('file') ?? '');
+      res.writeHead(200, { 'Content-Type': im.type, 'Content-Length': im.data.length, 'Cache-Control': 'private, max-age=3600' });
+      return void res.end(im.data);
+    }
     case 'save': {
       const body = (await json(req) ?? {}) as { deck?: unknown; base?: unknown };
       return send(res, 200, core.save(name, { deck: body.deck, base: body.base, from: q.get('from') ?? '' }));

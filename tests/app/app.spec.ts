@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
+import { startMockClaude } from '../mock-claude';
 
 const EXE = process.env.SLIDERIA_APP_EXE;
 const sandbox = process.platform === 'linux' ? ['--no-sandbox'] : [];
@@ -277,6 +278,57 @@ for (const how of ['кнопкой окна', 'выходом из програ�
     }
   });
 }
+
+test('чат «Агент» в программе: ключ — зашифрованным в данных программы, после перезапуска Claude подключён', async () => {
+  const mock = await startMockClaude();
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-app-chat-'));
+  const data = path.join(tmp, 'data');
+  const env = { ...process.env, SLIDERIA_DOCS_DIR: path.join(tmp, 'docs'), SLIDERIA_USER_DATA: data, SLIDERIA_ANTHROPIC_URL: mock.url, ANTHROPIC_API_KEY: '' };
+  const launch = () => electron.launch({ ...(EXE ? { executablePath: EXE, args: sandbox } : { args: ['.', ...sandbox] }), env, timeout: 60_000 });
+  const studio = async (app: ElectronApplication) => {
+    const win = await mainWindow(app);
+    await win.waitForURL(/\/\?all$/, { timeout: 90_000 });
+    await win.goto(win.url().replace(/\?all$/, '?deck=moya-pervaya-prezentaciya&studio#1'));
+    await expect(win.locator('#st-canvas .slide.on')).toBeVisible();
+    // Панель агента программа помнит открытой с прошлого раза
+    if (await win.locator('#st-chat').isHidden()) await win.keyboard.press('Control+j');
+    await expect(win.locator('#st-chat')).toBeVisible();
+    return win;
+  };
+  let app = await launch();
+  try {
+    const win = await studio(app);
+    // Linux без хранилища паролей (как в тестах) — честная оговорка; в остальных системах — «в зашифрованном виде»
+    await expect(win.locator('.ac-key')).toContainText(process.platform === 'linux' ? 'зашифрованным' : 'в зашифрованном виде');
+    await win.locator('#ac-key-in').fill('sk-ant-test-app-12345');
+    await win.locator('.ac-key button[type=submit]').click();
+    await expect(win.locator('.ac-ta')).toBeEnabled();
+    const file = path.join(data, 'claude-key.bin');
+    expect(fs.existsSync(file)).toBe(true);
+    expect(fs.readFileSync(file).toString('latin1')).not.toContain('sk-ant-test-app');
+    // Страница ключа не видит: в ответе сервера его нет
+    expect(JSON.stringify(await win.evaluate(() => fetch('/__htmlpptx/chat-status', { method: 'POST' }).then((r) => r.json())))).not.toContain('sk-ant');
+    await app.close();
+    // Перезапуск — Claude подключён: запрос агенту уходит с тем же ключом
+    app = await launch();
+    const again = await studio(app);
+    await expect(again.locator('.ac-ta')).toBeEnabled();
+    mock.queue({ text: 'Привет из программы.' });
+    await again.locator('.ac-ta').fill('Привет');
+    await again.locator('.ac-ta').press('Enter');
+    await expect(again.locator('.ac-txt')).toHaveText('Привет из программы.');
+    expect(mock.lastAuth()).toBe('sk-ant-test-app-12345');
+    // «Отключить ключ Claude» — файла ключа нет
+    await again.locator('.ac-model').click();
+    await again.locator('.ac-menu [data-a="disconnect"]').click();
+    await expect(again.locator('.ac-key')).toBeVisible();
+    expect(fs.existsSync(file)).toBe(false);
+  } finally {
+    await app.close().catch(() => {});
+    await mock.close();
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
 
 test('собранная программа: изменённый код не запускается', async () => {
   test.skip(!EXE, 'только для собранной программы (SLIDERIA_APP_EXE)');

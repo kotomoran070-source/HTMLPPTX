@@ -19,6 +19,9 @@ const ACCESS: AgentAccess[] = ['view', 'edit', 'all'];
 /** Кто правил: агент (MCP), скрипт или человек в студии */
 export interface By { kind: 'agent' | 'script'; id?: string; name: string }
 
+/** Переписка чата «Агент» студии с этой презентацией (server/agent.ts): в .slideria, рядом с журналом */
+export const chatsDir = (dir: string, deck: string) => path.join(dir, '.slideria', 'chats', deck);
+
 export interface JournalEntry {
   /** Время, ISO */
   t: string;

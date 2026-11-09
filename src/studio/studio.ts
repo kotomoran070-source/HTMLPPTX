@@ -177,6 +177,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     <div class="st-top-r">
       ${framed ? '' : statusHtml}
       ${framed ? '' : themeHtml}
+      <button class="ibtn small st-agentbtn" type="button" data-cmd="agent.toggle" aria-label="Агент" aria-pressed="false" title="Агент: правит презентацию по вашей просьбе (Ctrl+J)">${icon('agent')}</button>
       <button class="btn primary small" type="button" data-cmd="show.current" title="Показ с текущего слайда (Shift+F5)">${icon('play')}<span>Показ</span></button>
     </div>
   </header>
@@ -254,12 +255,14 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     <section class="st-apane" id="st-apane" data-ed-keep hidden aria-label="Область анимации"></section>
     <div class="st-split v st-sa" id="st-sa" role="separator" aria-orientation="vertical" aria-label="Ширина области анимации" tabindex="0" title="Двойной щелчок — сбросить ширину" hidden></div>
     <aside class="st-props" id="st-props" aria-label="Свойства" data-ed-keep></aside>
+    <aside class="st-chat" id="st-chat" aria-label="Агент" data-ed-keep hidden></aside>
   </div>
   <footer class="st-foot" data-ed-keep>
     <span id="st-pos"></span>
     <span class="st-foot-r">
       <button type="button" class="st-fbtn" data-cmd="view.slides" title="Слайды слева (Ctrl+Shift+1)">${icon('grid')}<span>Слайды</span></button>
       <button type="button" class="st-fbtn" data-cmd="view.props" title="Свойства справа (Ctrl+Shift+2)">${icon('sliders')}<span>Свойства</span></button>
+      <button type="button" class="st-fbtn" data-cmd="agent.toggle" title="Агент справа (Ctrl+J)">${icon('agent')}<span>Агент</span></button>
       <button type="button" class="st-fbtn" data-cmd="view.code" title="Код слайда (Ctrl+\`)">${icon('terminal')}<span>Код</span></button>
       <button type="button" class="st-fbtn" data-cmd="view.notes" title="Заметки докладчика">${icon('notes')}<span>Заметки</span></button>
       <span class="st-zoom" role="group" aria-label="Масштаб">
@@ -1630,7 +1633,8 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       active: () => !!uiAccent(),
     },
     'view.slides': { run: () => togglePanel('left'), active: () => lay.left },
-    'view.props': { run: () => togglePanel('right'), active: () => lay.right },
+    'view.props': { run: () => togglePanel('right'), active: () => lay.right && !lay.chat },
+    'agent.toggle': { run: () => toggleChat(), active: () => lay.chat },
     'insert.image': { run: () => ed.addBlock('image') },
     'obj.front': { run: () => ed.blockEditor.reorder(1), enabled: single },
     'obj.back': { run: () => ed.blockEditor.reorder(-1), enabled: single },
@@ -1823,6 +1827,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     go,
     extra: () => [
       { id: 'design.theme', label: currentTheme() === 'dark' ? 'Светлая тема' : 'Тёмная тема', path: 'Верхняя строка', words: 'тема оформления ночная интерфейс', key: '', ico: icon('moon'), run: () => run('design.theme'), enabled: () => true },
+      { id: 'agent.toggle', label: 'Агент', path: 'Верхняя строка', words: 'чат claude ии ai нейросеть помощник попросить', key: 'Ctrl+J', ico: icon('agent'), run: () => toggleChat(), enabled: () => true },
       { id: 'app.home', label: 'Все презентации', path: 'Верхняя строка', words: 'открыть список главная другая', key: '', ico: icon('grid'), run: goHome, enabled: () => true },
       { id: 'design.accent', label: 'Акцентный цвет', path: 'Дизайн · Цвета', words: 'цвет презентации', key: '', ico: icon('fill'), run: pickColor('st-accent'), enabled: () => true },
       { id: 'design.gradient', label: 'Градиент акцента', path: 'Дизайн · Цвета', words: 'градиент второй цвет точки палитры', key: '', ico: icon('fill'), run: () => { reveal('design'); run('design.gradient'); }, enabled: () => true },
@@ -2035,24 +2040,28 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
 
   // ---------------- раскладка окна: панели тянутся, лента сворачивается ----------------
   const LAYOUT_KEY = 'htmlpptx-studio-layout';
-  const DEFAULTS = { lw: 212, rw: 292, nh: 128, cw: 44, ribbon: true, left: true, right: true, ruler: false, grid: false, guides: false, step: 40, layers: false, lite: false };
-  const LIMITS = { lw: [120, 380], rw: [220, 520], nh: [64, 420], cw: [22, 70] } as const;
+  const DEFAULTS = { lw: 212, rw: 292, nh: 128, cw: 44, chw: 384, ribbon: true, left: true, right: true, chat: false, ruler: false, grid: false, guides: false, step: 40, layers: false, lite: false };
+  const LIMITS = { lw: [120, 380], rw: [220, 520], nh: [64, 420], cw: [22, 70], chw: [300, 680] } as const;
   let lay = { ...DEFAULTS };
   try { lay = { ...lay, ...JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}') }; } catch { /* раскладки ещё нет */ }
   const app = document.querySelector<HTMLElement>('.studio-app')!;
   function applyLayout(save = true): void {
-    for (const k of ['lw', 'rw', 'nh', 'cw'] as const) lay[k] = Math.round(Math.max(LIMITS[k][0], Math.min(LIMITS[k][1], lay[k])));
+    for (const k of ['lw', 'rw', 'nh', 'cw', 'chw'] as const) lay[k] = Math.round(Math.max(LIMITS[k][0], Math.min(LIMITS[k][1], lay[k])));
+    // Справа — «Свойства» или чат «Агент» (у него своя ширина)
+    const right = lay.right || lay.chat;
     app.style.setProperty('--lw', `${lay.lw}px`);
-    app.style.setProperty('--rw', `${lay.rw}px`);
+    app.style.setProperty('--rw', `${lay.chat ? lay.chw : lay.rw}px`);
     app.style.setProperty('--nh', `${lay.nh}px`);
     app.style.setProperty('--cw', `${lay.cw}%`);
     app.classList.toggle('ribbon-min', !lay.ribbon);
     app.classList.toggle('no-left', !lay.left);
-    app.classList.toggle('no-right', !lay.right);
+    app.classList.toggle('no-right', !right);
     $('st-slides').hidden = !lay.left;
-    $('st-props').hidden = !lay.right;
+    $('st-props').hidden = !lay.right || lay.chat;
+    $('st-chat').hidden = !lay.chat;
     $('st-sl').hidden = !lay.left;
-    $('st-sr').hidden = !lay.right;
+    $('st-sr').hidden = !right;
+    $('st-sr').setAttribute('aria-label', lay.chat ? 'Ширина панели агента' : 'Ширина панели свойств');
     $('st-rt').setAttribute('aria-expanded', String(lay.ribbon));
     $('st-rt').title = lay.ribbon ? 'Свернуть ленту (Ctrl+F1)' : 'Развернуть ленту (Ctrl+F1)';
     applyLite();
@@ -2060,12 +2069,14 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     layout();
   }
   /** Граница панели: тянуть мышью, стрелки ±8 px, двойной клик — как было. */
-  function splitter(el: HTMLElement, key: 'lw' | 'rw' | 'nh' | 'cw', value: (e: PointerEvent) => number): void {
+  function splitter(el: HTMLElement, which: 'lw' | 'rw' | 'nh' | 'cw' | (() => 'rw' | 'chw'), value: (e: PointerEvent) => number): void {
+    const keyOf = () => (typeof which === 'function' ? which() : which);
     el.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
       e.preventDefault();
       el.setPointerCapture(e.pointerId);
       app.classList.add('resizing');
+      const key = keyOf();
       const move = (ev: PointerEvent) => { lay[key] = value(ev); applyLayout(false); };
       const up = () => {
         el.removeEventListener('pointermove', move);
@@ -2076,20 +2087,21 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       el.addEventListener('pointermove', move);
       el.addEventListener('pointerup', up);
     });
-    el.addEventListener('dblclick', () => { lay[key] = DEFAULTS[key]; applyLayout(); });
+    el.addEventListener('dblclick', () => { const key = keyOf(); lay[key] = DEFAULTS[key]; applyLayout(); });
     el.addEventListener('keydown', (e) => {
       const d = { ArrowLeft: -8, ArrowUp: -8, ArrowRight: 8, ArrowDown: 8 }[e.key];
       if (d === undefined) return;
       e.preventDefault();
       e.stopPropagation();
+      const key = keyOf();
       // Правая панель и заметки растут в обратную сторону
-      lay[key] += key === 'rw' || key === 'nh' ? -d : key === 'cw' ? d / 8 : d;
+      lay[key] += key === 'rw' || key === 'chw' || key === 'nh' ? -d : key === 'cw' ? d / 8 : d;
       applyLayout();
     });
   }
   const bodyRect = () => $('st-body').getBoundingClientRect();
   splitter($('st-sl'), 'lw', (e) => e.clientX - bodyRect().left);
-  splitter($('st-sr'), 'rw', (e) => bodyRect().right - e.clientX);
+  splitter($('st-sr'), () => (lay.chat ? 'chw' : 'rw'), (e) => bodyRect().right - e.clientX);
   splitter($('st-sn'), 'nh', (e) => document.querySelector('.st-main')!.getBoundingClientRect().bottom - e.clientY);
   splitter($('st-sc'), 'cw', (e) => {
     const r = document.querySelector('.st-work')!.getBoundingClientRect();
@@ -2098,10 +2110,36 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   const toggleRibbon = (on = !lay.ribbon) => { lay.ribbon = on; applyLayout(); };
   /** Скрыть или показать боковую панель: место отдаётся слайду */
   function togglePanel(side: 'left' | 'right', on = !lay[side]): void {
+    // Справа открыт чат — «Свойства» встают на его место
+    if (side === 'right' && lay.chat) {
+      lay.chat = false;
+      on = true;
+    }
     lay[side] = on;
     applyLayout();
     queueState();
   }
+
+  // ---------------- чат «Агент» (agent-chat.ts): справа, на месте «Свойств» ----------------
+  let chat: { sync(): void; focus(): void; busy(): boolean } | null = null;
+  let chatLoading: Promise<void> | null = null;
+  function loadChat(): Promise<void> {
+    chatLoading ??= import('./agent-chat').then(({ mountChat }) => {
+      chat = mountChat($('st-chat'), {
+        deck, deckKey, editor: ed, go, index: () => index,
+        file: { open: () => filePanel?.open('int'), close: () => filePanel?.close(), shown: () => !!filePanel?.isOpen() },
+        close: () => toggleChat(false),
+      });
+    });
+    return chatLoading;
+  }
+  function toggleChat(on = !lay.chat): void {
+    lay.chat = on;
+    applyLayout();
+    queueState();
+    if (on) void loadChat().then(() => chat?.focus());
+  }
+  if (lay.chat) void loadChat();
   $('st-rt').addEventListener('click', () => toggleRibbon());
 
   // ---------------- закрепление и область выделения ----------------
@@ -2311,6 +2349,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     layers?.update();
     // Панель свойств — до доступности кнопок: её новые кнопки тоже получают «недоступно»
     inspector.sync();
+    chat?.sync();
     document.querySelectorAll<HTMLButtonElement>('[data-cmd]').forEach((b) => {
       const c = cmds[b.dataset.cmd!];
       if (!c) return;
@@ -2422,6 +2461,11 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     if (mod && !e.altKey && !e.shiftKey && e.code === 'KeyK') {
       e.preventDefault();
       return palette.focus();
+    }
+    // Ctrl+J — чат «Агент» (и из его поля — закрыть)
+    if (mod && !e.altKey && !e.shiftKey && e.code === 'KeyJ') {
+      e.preventDefault();
+      return toggleChat();
     }
     // Ctrl+F — найти, Ctrl+H — найти и заменить по всей презентации (вместо поиска браузера);
     // Ctrl+Shift+F — сразу в коде (и из редактора кода: там Ctrl+F ищет в открытом коде)

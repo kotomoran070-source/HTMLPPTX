@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { app, BrowserWindow, Menu, WebContentsView, desktopCapturer, dialog, ipcMain, nativeTheme, screen, session, shell, utilityProcess } from 'electron';
+import { app, BrowserWindow, Menu, WebContentsView, desktopCapturer, dialog, ipcMain, nativeTheme, safeStorage, screen, session, shell, utilityProcess } from 'electron';
 import { FIX_FLAG, allowFirewall, runFirewallFix } from './firewall.mjs';
 import { lanGateway } from './lan.mjs';
 import { splashPage } from './splash.mjs';
@@ -128,6 +128,34 @@ async function ensureCode() {
   log('Код программы проверен:', `${Date.now() - t0} мс`);
 }
 
+/**
+ * Ключ Claude для чата «Агент» (server/agent.ts) — в данных программы, зашифрованным средствами системы (safeStorage:
+ * Связка ключей macOS, DPAPI Windows, хранилище паролей Linux). Страница его не видит: ключ нужен только серверу.
+ * Linux без хранилища паролей (нет GNOME Keyring или KWallet) — шифрование встроенным паролем Chromium: файл не
+ * читается как текст, но защита слабее — панель агента говорит об этом (secure: false)
+ */
+function claudeKey() {
+  const file = path.join(DATA, 'claude-key.bin');
+  const linuxBasic = () => process.platform === 'linux' && safeStorage.getSelectedStorageBackend() === 'basic_text';
+  const ready = () => {
+    if (!safeStorage.isEncryptionAvailable() && process.platform === 'linux') safeStorage.setUsePlainTextEncryption(true);
+    return safeStorage.isEncryptionAvailable();
+  };
+  return {
+    kind: 'app',
+    get secure() { return !linuxBasic(); },
+    get() {
+      try { return ready() ? safeStorage.decryptString(fs.readFileSync(file)) || null : null; } catch { return null; }
+    },
+    set(key) {
+      if (!ready()) throw new Error('Система не даёт зашифровать ключ — сохранить его нельзя');
+      fs.mkdirSync(DATA, { recursive: true });
+      fs.writeFileSync(file, safeStorage.encryptString(key));
+    },
+    clear() { fs.rmSync(file, { force: true }); },
+  };
+}
+
 async function startServer() {
   // package.json и штамп сборки — в app.asar, а не рядом с кодом (страница лицензий)
   if (PACKED) {
@@ -156,6 +184,7 @@ async function startServer() {
     ...(process.platform === 'win32' ? { firewall: () => allowFirewall((...a) => log(...a)) } : {}),
     run: runNode,
     log: (m) => log(m),
+    agentKeys: claudeKey(),
   });
   port = server.port;
   origin = server.url;

@@ -20,6 +20,7 @@ import { MIME } from './deck-files';
 import { createEvents } from './events';
 import { startFrameHost } from './frame-host';
 import { WORKER_CSP, createHandler } from './http';
+import type { KeyStore } from './agent';
 import { announce } from './running';
 import { watchDecks } from './watch';
 
@@ -63,6 +64,8 @@ export interface ServeOptions {
   firewall?: () => Promise<string>;
   run?: Runner;
   log?: (message: string) => void;
+  /** Ключ Claude для чата «Агент»: программа хранит его зашифрованным (desktop/main.mjs) */
+  agentKeys?: KeyStore;
 }
 
 export interface Served {
@@ -258,6 +261,7 @@ export async function startServer(o: ServeOptions): Promise<Served> {
     firewall: o.firewall,
     log,
     bundled: () => bundled ?? [],
+    agentKeys: o.agentKeys,
   });
 
   server = http.createServer((req, res) => {
