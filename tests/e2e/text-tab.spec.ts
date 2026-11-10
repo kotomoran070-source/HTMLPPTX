@@ -133,3 +133,71 @@ test('часть текста в фигуре: цвет, размер и шри�
   expect(now['Восьмог']).toEqual(rest);
   expect(errors).toEqual([]);
 });
+
+test('Ctrl+A на слайде — «Главная» → «Шрифт» оформляет весь текст выделенных объектов; «Заменить шрифт» — только на этом слайде', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'manytext');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'deck.yaml'), `title: Много текста
+slides:
+  - template: canvas
+    free:
+      - {type: text, text: "Заголовок", styles: {text: {size: 40, font: mono}}, place: {x: 80, y: 40, w: 700}}
+      - {type: shape, kind: round, text: "{#B7791F s:200|Цифра}\\n\\nПодпись", styles: {text: {size: 16}}, place: {x: 80, y: 200, w: 400, h: 200}}
+      - {type: text, text: "Сноска", place: {x: 600, y: 300, w: 400}}
+  - template: canvas
+    free:
+      - {type: text, text: "Другой слайд", styles: {text: {font: mono}}, place: {x: 80, y: 80, w: 600}}
+`);
+  try {
+    type Free = { text: string; styles?: { text?: Record<string, unknown> } };
+    const deck = () => parse(fs.readFileSync(deckFile('manytext'), 'utf8')) as { slides: { free: Free[] }[] };
+    await page.goto('/?deck=manytext&studio#1');
+    const s = (await page.locator('#st-canvas .slide.on').boundingBox())!;
+    await page.mouse.click(s.x + s.width - 20, s.y + s.height - 20);
+    await page.keyboard.press('Control+a');
+    await page.locator('.st-tabs [data-tab="home"]').click();
+    // Панель «Шрифт» работает с выделенным (а не ждёт правки текста)
+    await expect(page.locator('#ed-text')).toHaveClass(/st-target/);
+    await page.locator('#ed-text [data-t="font"]').click();
+    await page.locator('.fontpick-o', { hasText: 'С засечками' }).click();
+    expect(await waitFile(() => deck().slides[0].free.every((b) => b.styles?.text?.font === 'serif'))).toBe(true);
+    // Цвет — всему тексту, и части со своим цветом тоже; её размер остаётся
+    await page.locator('#ed-text [data-t="color"]').click();
+    await page.locator('#ed-colors [data-c="#7C3AED"]').click();
+    expect(await waitFile(() => deck().slides[0].free.every((b) => b.styles?.text?.color === '#7C3AED'))).toBe(true);
+    expect(deck().slides[0].free[1].text).toMatch(/^\{s:200\|Цифра\}/);
+    // «Больше» — пропорционально, размер числом — всему тексту поровну
+    await page.locator('#ed-text [data-t="size+"]').click();
+    expect(await waitFile(() => deck().slides[0].free[1].styles?.text?.size === 18 && deck().slides[0].free[0].styles?.text?.size === 42)).toBe(true);
+    expect(deck().slides[0].free[1].text).toMatch(/^\{s:200\|Цифра\}/);
+    await page.locator('#ed-text [data-t="size"]').fill('20');
+    await page.locator('#ed-text [data-t="size"]').press('Enter');
+    expect(await waitFile(() => deck().slides[0].free.every((b) => b.styles?.text?.size === 20))).toBe(true);
+    expect(deck().slides[0].free[1].text).toMatch(/^Цифра\n/);
+    // Второй слайд не тронут
+    expect(deck().slides[1].free[0].styles?.text?.font).toBe('mono');
+    // Ctrl+Z — одним шагом назад
+    await page.keyboard.press('Control+z');
+    expect(await waitFile(() => deck().slides[0].free[1].text.startsWith('{s:200|Цифра}'))).toBe(true);
+
+    // «Заменить шрифт» на втором слайде: первый слайд не меняется
+    await page.goto('/?deck=manytext&studio#1');
+    await page.keyboard.press('Control+z');
+    await page.goto('/?deck=manytext&studio#2');
+    await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+    await page.locator('.st-tabs [data-tab="tools"]').click();
+    await page.locator('[data-cmd="tools.font"]').first().click();
+    await page.locator('.st-frpop [data-fr="where"]').selectOption('slide');
+    await page.locator('.st-frpop [data-fr="from"]').selectOption('mono');
+    await page.locator('.st-frpop [data-fr="to"]').click();
+    await page.locator('.fontpick-o', { hasText: 'Округлый' }).click();
+    await expect(page.locator('.st-frpop [data-fr="hint"]')).toContainText('на слайде 2');
+    await page.locator('.st-frpop [data-fr="go"]').click();
+    expect(await waitFile(() => deck().slides[1].free[0].styles?.text?.font === 'rounded')).toBe(true);
+    expect(deck().slides[0].free.some((b) => b.styles?.text?.font === 'rounded')).toBe(false);
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

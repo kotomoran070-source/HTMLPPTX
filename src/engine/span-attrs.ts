@@ -90,3 +90,20 @@ export function spanCss(o: SpanAttrs): string {
 
 /** Токен разметки целиком: {оформление|текст}; группы — оформление и текст */
 export const SPAN_TOKEN = /\{([^{}|\n]+)\|([^{}]*)\}/g;
+
+/**
+ * Снять со всех кусков строки свойства keys (цвет, размер, шрифт): оформили объект целиком — его частям
+ * то же, как в PowerPoint. Кусок без оформления растворяется в тексте; \{…} — буквальный текст, не трогается
+ */
+export function dropSpanAttrs(text: string, keys: ('paint' | 'size' | 'font')[]): string {
+  return text.replace(SPAN_TOKEN, (m, a: string, inner: string, at: number) => {
+    if (at > 0 && text[at - 1] === '\\') return m;
+    const o = parseSpanAttrs(a);
+    if (!o) return m;
+    if (keys.includes('paint')) delete o.paint;
+    if (keys.includes('size')) delete o.size;
+    if (keys.includes('font')) delete o.font;
+    const out = formatSpanAttrs(o);
+    return out ? `{${out}|${inner}}` : inner;
+  });
+}

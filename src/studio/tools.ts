@@ -20,6 +20,8 @@ export interface ToolsHost {
   deckKey: string;
   editor: Editor;
   go(i: number): void;
+  /** Открытый слайд (с 0): «Заменить шрифт» — на нём или во всей презентации */
+  slide?(): number;
   /** Открыть «Файл → Сведения» */
   info(): void;
   /** Открыть «Файл → Лицензии» */
@@ -246,16 +248,23 @@ function clearNotes(h: ToolsHost): void {
 const THEME = '#theme';
 
 export function replaceFont(h: ToolsHost, at: HTMLElement, preset?: string): void {
-  const uses = fontUses(h.deck);
+  const all = fontUses(h.deck);
+  const here = h.slide?.() ?? -1;
+  // Где менять: во всей презентации или только на открытом слайде
+  let only: number | null = null;
+  const onSlide = (i: number) => new Map([...all].map(([k, u]) => [k, u.filter((x) => x.path[0] === 'slides' && x.path[1] === i)] as const).filter(([, u]) => u.length));
+  const usesNow = () => (only === null ? all : onSlide(only));
   const themeFree = !h.deck.theme?.font;
-  let from = preset && uses.has(preset) ? preset : themeFree ? THEME : [...uses.keys()][0];
+  let from = preset && all.has(preset) ? preset : themeFree ? THEME : [...all.keys()][0];
   // Шрифт всей презентации — только настоящий шрифт (не «Шрифт темы» и не общие «С засечками»…)
-  const forTheme = () => from === THEME || !!uses.get(from)?.some((u) => u.path[0] === 'theme');
+  const forTheme = () => from === THEME || !!usesNow().get(from)?.some((u) => u.path[0] === 'theme');
   let to: string | null = forTheme() ? null : '';
-  const opts = (themeFree ? `<option value="${THEME}"${from === THEME ? ' selected' : ''}>Шрифт темы — весь текст без своего шрифта</option>` : '')
-    + [...uses].map(([v, u]) => `<option value="${esc(v)}"${v === from ? ' selected' : ''}>${esc(fontLabel(v))} — ${u.length}</option>`).join('');
+  const options = () => (themeFree && only === null ? `<option value="${THEME}"${from === THEME ? ' selected' : ''}>Шрифт темы — весь текст без своего шрифта</option>` : '')
+    + [...usesNow()].map(([v, u]) => `<option value="${esc(v)}"${v === from ? ' selected' : ''}>${esc(fontLabel(v))} — ${u.length}</option>`).join('');
+  const slideFonts = here >= 0 ? onSlide(here).size : 0;
+  const where = here >= 0 ? `<label class="st-fr-row"><span>Где</span><select data-fr="where"><option value="all" selected>Во всей презентации</option><option value="slide"${slideFonts ? '' : ' disabled'}>На этом слайде (${here + 1})${slideFonts ? '' : ' — своих шрифтов нет'}</option></select></label>` : '';
   const html = `<h3 class="st-sum-h">Заменить шрифт</h3>
-<label class="st-fr-row"><span>Шрифт</span><select data-fr="from">${opts}</select></label>
+${where}<label class="st-fr-row"><span>Шрифт</span><select data-fr="from">${options()}</select></label>
 <div class="st-fr-row"><span>Заменить на</span><button type="button" class="edfont st-p-font" data-fr="to" aria-haspopup="listbox"><span>${to === null ? 'Выберите шрифт' : 'Шрифт темы'}</span></button></div>
 <p class="st-sum-note" data-fr="hint"></p>
 <div class="st-fr-btns"><button type="button" class="btn primary small" data-fr="go">Заменить</button></div>`;
@@ -273,28 +282,41 @@ export function replaceFont(h: ToolsHost, at: HTMLElement, preset?: string): voi
         }),
       };
     }
-    if (b.dataset.fr === 'go') return { run: () => void (to !== null && apply(h, from, to)) };
+    if (b.dataset.fr === 'go') return { run: () => void (to !== null && apply(h, from, to, only)) };
     return null;
   }, 'st-frpop');
   const toBtn = pop.querySelector<HTMLElement>('[data-fr="to"] span')!;
+  const fromSel = pop.querySelector<HTMLSelectElement>('[data-fr="from"]')!;
   const hint = () => {
-    const n = uses.get(from)?.length ?? 0;
+    const n = usesNow().get(from)?.length ?? 0;
     const bad = to === null || from === to;
     pop.querySelector('[data-fr="hint"]')!.textContent = to === null ? '' : from === to ? 'Выберите другой шрифт.'
       : from === THEME ? 'Сменится шрифт всего текста, у которого нет своего. Отменить — Ctrl+Z.'
-        : `Заменится в ${n} ${n === 1 ? 'месте' : 'местах'}. Отменить — Ctrl+Z.`;
+        : `Заменится в ${n} ${n === 1 ? 'месте' : 'местах'}${only !== null ? ` на слайде ${only + 1}` : ''}. Отменить — Ctrl+Z.`;
     pop.querySelector<HTMLButtonElement>('[data-fr="go"]')!.disabled = bad;
   };
-  pop.querySelector<HTMLSelectElement>('[data-fr="from"]')!.addEventListener('change', (e) => {
-    from = (e.target as HTMLSelectElement).value;
+  const fromChanged = () => {
     // Для шрифта всей презентации «Шрифт темы» и общие шрифты не подходят — выбор заново
     if (forTheme() && (to === '' || (to && FONTS[to]))) { to = null; toBtn.textContent = 'Выберите шрифт'; toBtn.style.fontFamily = ''; }
     hint();
+  };
+  fromSel.addEventListener('change', () => {
+    from = fromSel.value;
+    fromChanged();
+  });
+  pop.querySelector<HTMLSelectElement>('[data-fr="where"]')?.addEventListener('change', (e) => {
+    only = (e.target as HTMLSelectElement).value === 'slide' ? here : null;
+    // На слайде — только шрифты, что на нём есть («Шрифт темы» меняется для всей презентации)
+    if (!usesNow().has(from)) from = [...usesNow().keys()][0] ?? (themeFree ? THEME : from);
+    fromSel.innerHTML = options();
+    fromSel.value = from;
+    if (to === null && !forTheme()) { to = ''; toBtn.textContent = 'Шрифт темы'; }
+    fromChanged();
   });
   hint();
 }
 
-async function apply(h: ToolsHost, from: string, to: string): Promise<void> {
+async function apply(h: ToolsHost, from: string, to: string, only: number | null = null): Promise<void> {
   const ed = h.editor;
   if (from === THEME) {
     if (!to || !(await ed.ensureFont(to))) return;
@@ -302,7 +324,7 @@ async function apply(h: ToolsHost, from: string, to: string): Promise<void> {
     ed.toast(`Шрифт презентации — «${to}». Отменить — Ctrl+Z`, 4000);
     return;
   }
-  const uses = fontUses(h.deck).get(from) ?? [];
+  const uses = (fontUses(h.deck).get(from) ?? []).filter((u) => only === null || (u.path[0] === 'slides' && u.path[1] === only));
   if (!uses.length || from === to) return;
   // Шрифт библиотеки или компьютера — сначала копией в презентацию, с теми же начертаниями
   if (to && !FONTS[to]) {
@@ -327,6 +349,6 @@ async function apply(h: ToolsHost, from: string, to: string): Promise<void> {
       if (!d.fonts.length) delete d.fonts;
     }
   }, { rebuild: true });
-  ed.toast(`«${fontLabel(from)}» → «${to ? fontLabel(to) : 'Шрифт темы'}»: ${uses.length}. Отменить — Ctrl+Z`, 4000);
+  ed.toast(`«${fontLabel(from)}» → «${to ? fontLabel(to) : 'Шрифт темы'}»${only !== null ? ` на слайде ${only + 1}` : ''}: ${uses.length}. Отменить — Ctrl+Z`, 4000);
 }
 

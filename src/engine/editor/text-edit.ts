@@ -54,16 +54,18 @@ export interface TextHost {
 }
 
 /**
- * Оформление выделенного объекта без правки текста (таблица или её ячейки): панель «Главной» оформляет
- * весь их текст сразу, как в PowerPoint. Функции, а не значения: после записи слайд перерисован
+ * Оформление выделенного без правки текста (объекты слайда, таблица или её ячейки): панель «Главной»
+ * оформляет весь их текст сразу, как в PowerPoint. Функции, а не значения: после записи слайд перерисован
  */
 export interface TextTarget {
   /** Элементы с текстом: по ним — примерка и состояние кнопок */
   els(): HTMLElement[];
   /** Оформление первого из них */
   styles(): TextStyle;
-  /** Записать: undefined в patch — снять; null — сбросить всё оформление */
-  apply(patch: Partial<TextStyle> | null): void;
+  /** Записать: undefined в patch — снять; null — сбросить всё оформление. exact — размер введён числом (не «больше/меньше») */
+  apply(patch: Partial<TextStyle> | null, o?: { exact?: boolean }): void;
+  /** «Больше / меньше»: каждому полю от его размера (нет — всем от размера первого) */
+  step?(delta: number): void;
 }
 
 /** Без правки текста эти кнопки не работают: они — для выделенных слов или одного поля */
@@ -895,7 +897,7 @@ export class TextEditor {
         // Без правки: change приходит и по Enter, и при уходе из поля — записываем один раз
         if (size.value === this.sizeShown) return;
         this.sizeShown = size.value;
-        this.tg.apply({ size: v >= 6 && v <= 300 ? v : undefined });
+        this.tg.apply({ size: v >= 6 && v <= 300 ? v : undefined }, { exact: true });
         return;
       }
       // Выделена часть текста — размер только ей (пустое поле — без изменений)
@@ -1610,6 +1612,7 @@ export class TextEditor {
         break;
       }
       case 'size-': case 'size+': {
+        if (tg.step) { tg.step(cmd === 'size+' ? 2 : -2); break; }
         const cur = Number(st.size) || Math.round(parseFloat(getComputedStyle(els[0]).fontSize));
         tg.apply({ size: Math.max(6, Math.min(300, cur + (cmd === 'size+' ? 2 : -2))) });
         break;

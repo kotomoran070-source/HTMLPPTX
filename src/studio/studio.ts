@@ -9,6 +9,7 @@ import { getAt, setAt, type Path } from '../engine/data';
 import { DeckView, H, W } from '../engine/deck-view';
 import { Editor, SLIDE_PRESETS } from '../engine/editor/editor';
 import type { TextTarget } from '../engine/editor/text-edit';
+import { objectsText } from './objects-text';
 import { esc } from '../engine/html';
 import { placeOf, slideLabel } from '../engine/render';
 import { brandMark } from '../engine/brand';
@@ -216,7 +217,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     <div class="st-rpanel" data-panel="tools" hidden>
       ${group('Презентация', rb('tools.summary', 'chart', 'Сводка', { big: true, title: 'Сводка: слайды, время доклада, файлы и шрифты' }))}
       ${group('Оформление', rb('tools.tidy', 'sparkle', 'Привести в порядок', { big: true, title: 'Выровнять почти одинаковые размеры, отступы и цвета' }))}
-      ${group('Шрифты', rb('tools.font', 'text', 'Заменить шрифт', { big: true, title: 'Один шрифт на другой во всей презентации' }))}
+      ${group('Шрифты', rb('tools.font', 'text', 'Заменить шрифт', { big: true, title: 'Один шрифт на другой: во всей презентации или на этом слайде' }))}
       ${group('Заметки', rb('tools.notes-clear', 'notes', 'Удалить заметки', { big: true, title: 'Заметки докладчика со всех слайдов' }))}
       ${group('Программа', rb('tools.licenses', 'shield', 'Лицензии', { big: true, title: 'Лицензии Slideria, её библиотек и шрифтов' }))}
       ${group('Интеграции', integrationsRibbon(rb))}
@@ -1787,7 +1788,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   // Стили для ухода меню (engine/motion.ts) и шрифты с фонами тем — заранее, в свободное время
   warmLater([warmGhosts, ...themeWarmTasks()]);
   bindDesignStrip(designHost, cmds);
-  Object.assign(cmds, toolsCommands({ deck, deckKey, editor: ed, go, info: () => filePanel?.open('info'), licenses: () => filePanel?.open('licenses') }));
+  Object.assign(cmds, toolsCommands({ deck, deckKey, editor: ed, go, slide: () => index, info: () => filePanel?.open('info'), licenses: () => filePanel?.open('licenses') }));
   // Интеграции: группа на ленте «Инструменты» и раздел «Файл → Интеграции» (integrations.ts, integrations-file.ts)
   const integrations = startIntegrations({
     deck, deckKey, editor: ed, go, index: () => index,
@@ -1994,7 +1995,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   const appApi = (window as { slideriaApp?: { reveal?(name: string): Promise<unknown>; build?: { version?: string; date?: string; commit?: string } } }).slideriaApp;
   const fileBtn = $('st-file');
   filePanel = initFilePanel({
-    tools: { deck, deckKey, editor: ed, go, info: () => filePanel?.open('info'), licenses: () => filePanel?.open('licenses') },
+    tools: { deck, deckKey, editor: ed, go, slide: () => index, info: () => filePanel?.open('info'), licenses: () => filePanel?.open('licenses') },
     rename,
     cover: () => (deck.slides.length ? staticSlide(deck, 0) : null),
     reveal: appApi?.reveal && ed.mode === 'project' ? () => void appApi.reveal!(deckKey) : undefined,
@@ -2357,8 +2358,9 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       fitRibbon();
     }
     syncSwatches(deck, ed);
-    // «Главная» → «Текст» без правки текста — для выделенной таблицы или ячеек
-    ed.textTarget(textOf?.() ?? null);
+    // «Главная» → «Шрифт» без правки текста: выделенная таблица или её ячейки, иначе — весь текст выделенных объектов
+    const sel = ed.selection;
+    ed.textTarget(textOf?.() ?? (sel ? objectsText(ed, () => deck, () => view.stage, sel.group.length > 1 ? sel.group : [sel.block], () => queueState()) : null));
     syncAnimTab(animHost);
     syncDesignTab(designHost);
     aids?.redraw();

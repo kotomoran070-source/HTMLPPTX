@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { formatSpanAttrs, mergeSpanAttrs, parseSpanAttrs, spanCss } from '../../src/engine/span-attrs';
+import { dropSpanAttrs, formatSpanAttrs, mergeSpanAttrs, parseSpanAttrs, spanCss } from '../../src/engine/span-attrs';
 import { t } from '../../src/engine/html';
 import { escapeText, wrapColor } from '../../src/engine/editor/serialize';
 
@@ -48,4 +48,11 @@ test('правка → разметка: цвет поверх куска с р�
   // Цвет «как у всего текста» внутри цветного куска
   expect(wrapColor('#B7791F s:200', '{-c|слово}')).toBe('{-c s:200|слово}');
   expect(escapeText('{f:serif|x} и {#123456|y} и {mark|z} и {просто|текст}')).toBe('\\{f:serif|x} и \\{#123456|y} и \\{mark|z} и {просто|текст}');
+});
+
+test('оформили объект целиком — с частей текста снимается то же свойство, остальное остаётся', () => {
+  const s = '{#B7791F s:200 f:serif|**19 дней**} и {accent|акцент} и \\{#123456|буквально}';
+  expect(dropSpanAttrs(s, ['paint'])).toBe('{s:200 f:serif|**19 дней**} и акцент и \\{#123456|буквально}');
+  expect(dropSpanAttrs(s, ['size', 'font'])).toBe('{#B7791F|**19 дней**} и {accent|акцент} и \\{#123456|буквально}');
+  expect(dropSpanAttrs('{mark|важно} и {не цвет|текст}', ['paint', 'size', 'font'])).toBe('{mark|важно} и {не цвет|текст}');
 });
