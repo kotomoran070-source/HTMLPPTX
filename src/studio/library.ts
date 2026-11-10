@@ -17,6 +17,8 @@ export interface Preset {
   /** Значок вместо живой миниатюры (простые формы): SVG 48×32 */
   glyph?: string;
   make(): Block;
+  /** Содержимое только для миниатюры: короче, чтобы в маленькой плитке читалось (вставляется make) */
+  preview?(): Block;
 }
 
 export interface Category {
@@ -566,7 +568,7 @@ export const LIBRARY: Category[] = [
       },
       { name: 'Итог теста', w: 820, pw: 520, make: () => ({ type: 'score' }) },
       {
-        name: 'Карточки сеткой', w: 1040, pw: 560, make: () => ({
+        name: 'Карточки сеткой', w: 1040, pw: 720, make: () => ({
           type: 'flashcards', cols: 3, items: [
             { front: 'Инкапсуляция', back: 'Данные и методы вместе, внутреннее устройство скрыто' },
             { front: 'Наследование', back: 'Новый класс получает свойства существующего' },
@@ -807,11 +809,17 @@ export const LIBRARY: Category[] = [
       { name: 'Три карточки', w: 1040, pw: 640, make: () => ({ type: 'grid', columns: 3, items: [1, 2, 3].map((k) => card(`Пункт ${k}`, 'Короткое пояснение')) }) },
       { name: 'Было — стало', w: 820, pw: 460, make: () => ({ type: 'grid', columns: 2, items: [card('Было', 'Отчёт собирали вручную два дня'), card('Стало', 'Отчёт готов за минуту')] }) },
       {
-        name: 'Тарифы', w: 1080, pw: 760, make: () => ({
+        name: 'Тарифы', w: 1080, pw: 560, make: () => ({
           type: 'grid', columns: 3, align: 'stretch', items: [
             plan('Старт', '990 ₽', ['5 презентаций', 'Экспорт в PDF']),
             plan('Команда', '2 490 ₽', ['Без ограничений', 'Общие темы', 'Пульт с телефона'], true),
             plan('Компания', 'по запросу', ['Свой сервер', 'Поддержка 24/7']),
+          ],
+        }),
+        // В плитке — короче: «по запросу» не влезает в узкую карточку, длинные пункты мельчат
+        preview: () => ({
+          type: 'grid', columns: 3, align: 'stretch', items: [
+            plan('Старт', '990 ₽', ['PDF']), plan('Команда', '2 490 ₽', ['Всё'], true), plan('Бизнес', '9 900 ₽', ['Сервер']),
           ],
         }),
       },
@@ -1090,7 +1098,7 @@ function preview(deck: Deck, p: Preset): HTMLElement {
   const box = document.createElement('div');
   box.className = 'st-lib-prev';
   const w0 = p.pw ?? p.w;
-  const block = { ...p.make(), place: { x: 0, y: 0, w: w0, ...(p.h ? { h: p.h } : {}) } } as Block;
+  const block = { ...(p.preview ?? p.make)(), place: { x: 0, y: 0, w: w0, ...(p.h ? { h: p.h } : {}) } } as Block;
   const tmp: Deck = { ...panelDeck(deck), slides: [{ template: 'canvas', free: [block] }] };
   const inner = document.createElement('div');
   inner.className = 'thumb-stage canvas static';

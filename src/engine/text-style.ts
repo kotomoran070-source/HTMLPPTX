@@ -80,16 +80,20 @@ export interface TextShadow {
  * Готовые тени. Объёмная и ретро — в цвете акцента: меняются с темой. У градиентного и контурного
  * текста тень рисуется фильтром: text-shadow просвечивал бы сквозь буквы
  */
+/**
+ * Готовые тени — сдержанные: на мелком тексте (подпись, дата) густая тень и объём сливаются в пятно,
+ * поэтому расстояния в em небольшие, а мягкие тени — полупрозрачные
+ */
 export const TEXT_SHADOWS: Record<string, TextShadow> = {
-  soft: { name: 'Мягкая', kind: 'drop', color: '#0F172A', opacity: 0.35, blur: 0.14, dist: 0.04, angle: 90 },
-  lift: { name: 'Парящая', kind: 'drop', color: '#0F172A', opacity: 0.42, blur: 0.3, dist: 0.1, angle: 90 },
-  hard: { name: 'Чёткая', kind: 'drop', color: '#0F172A', opacity: 0.5, blur: 0, dist: 0.078, angle: 50 },
-  extrude: { name: 'Объёмная', kind: 'extrude', color: 'accent', opacity: 1, blur: 0, dist: 0.136, angle: 45 },
-  retro: { name: 'Ретро', kind: 'drop', color: 'accent', opacity: 1, blur: 0, dist: 0.085, angle: 45 },
+  soft: { name: 'Мягкая', kind: 'drop', color: '#0F172A', opacity: 0.26, blur: 0.12, dist: 0.035, angle: 90 },
+  lift: { name: 'Парящая', kind: 'drop', color: '#0F172A', opacity: 0.3, blur: 0.22, dist: 0.07, angle: 90 },
+  hard: { name: 'Чёткая', kind: 'drop', color: '#0F172A', opacity: 0.45, blur: 0, dist: 0.06, angle: 50 },
+  extrude: { name: 'Объёмная', kind: 'extrude', color: 'accent', opacity: 1, blur: 0, dist: 0.09, angle: 45 },
+  retro: { name: 'Ретро', kind: 'drop', color: 'accent', opacity: 1, blur: 0, dist: 0.06, angle: 45 },
 };
 
 /** Свечение по умолчанию: размер (em) и яркость */
-export const GLOW_SIZE = 0.34;
+export const GLOW_SIZE = 0.26;
 /** Плашка по умолчанию: скругление и поля по бокам, em */
 export const PLATE_RADIUS = 0.3;
 export const PLATE_PAD = 0.5;
@@ -294,8 +298,11 @@ function effectCss(s: TextStyle, grad: boolean): string[] {
   const width = Number.isFinite(w) && w > 0 ? Math.min(12, w) : hollow ? 2 : 0;
   if (width) {
     const c = fxColor(s.outlineColor) ?? (hollow ? colorCss(s.color) : null) ?? 'var(--ac)';
-    // Контур под заливкой (paint-order): буквы не худеют; без заливки — виден целиком
-    out.push(`-webkit-text-stroke:${hollow ? width : width * 2}px ${c}`, 'paint-order:stroke fill');
+    // Контур под заливкой (paint-order): буквы не худеют; без заливки — виден целиком. Толщина — заданная,
+    // но не больше доли буквы: у мелкого текста контур в 3 px слепляет буквы в кашу (не тоньше 1 px)
+    const px = hollow ? width : width * 2;
+    const cap = hollow ? 0.045 : 0.14;
+    out.push(`-webkit-text-stroke:max(1px, min(${px}px, ${cap}em)) ${c}`, 'paint-order:stroke fill');
   }
   if (hollow) out.push('color:transparent', '-webkit-text-fill-color:transparent');
   const shadows: string[] = [];
@@ -306,7 +313,8 @@ function effectCss(s: TextStyle, grad: boolean): string[] {
     const size = Number.isFinite(Number(s.glowSize)) && Number(s.glowSize) > 0 ? Math.min(2, Number(s.glowSize)) : GLOW_SIZE;
     const a = Number.isFinite(Number(s.glowOpacity)) && s.glowOpacity !== undefined ? Math.max(0.05, Math.min(1, Number(s.glowOpacity))) : 1;
     const k = size / GLOW_SIZE;
-    shadows.push(`0 0 ${em(0.03 * k)} ${alpha(glow, a)}`, `0 0 ${em(0.12 * k)} ${alpha(glow, a)}`, `0 0 ${em(size)} ${alpha(glow, a * 0.5)}`);
+    // Ядро у букв, ореол и мягкий край; ореол и край полупрозрачные — на светлом фоне свечение не мажет текст
+    shadows.push(`0 0 ${em(0.02 * k)} ${alpha(glow, a)}`, `0 0 ${em(0.09 * k)} ${alpha(glow, a * 0.75)}`, `0 0 ${em(size)} ${alpha(glow, a * 0.4)}`);
   }
   if (!shadows.length) return out;
   if (grad || hollow) {

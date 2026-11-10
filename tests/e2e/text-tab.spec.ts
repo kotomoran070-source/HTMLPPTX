@@ -48,7 +48,7 @@ test('«Надпись»: две надписи — стиль с примерк
   // Выбранный эффект — в «Свойствах» со своими ручками: размер свечения — у обеих, «×» убирает
   await expect(page.locator('#st-props .st-fx-card[data-fxk="glow"]')).toHaveCount(1);
   await page.locator('#st-props [data-fx="glowSize"]').fill('30');
-  expect(await waitFile(() => styles().every((s) => typeof s.glowSize === 'number' && (s.glowSize as number) > 0.34))).toBe(true);
+  expect(await waitFile(() => styles().every((s) => typeof s.glowSize === 'number' && (s.glowSize as number) > 0.26))).toBe(true);
   await page.locator('#st-props [data-fxoff="glow"]').click();
   expect(await waitFile(() => styles().every((s) => !s.glow && !s.glowSize))).toBe(true);
   await expect(page.locator('#st-props .st-fx')).toHaveCount(0);

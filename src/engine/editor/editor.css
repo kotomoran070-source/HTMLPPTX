@@ -415,7 +415,7 @@ body.ed-copying, body.ed-copying * { cursor: copy !important; }
 .edmenu .edlist button.on { border-color: var(--ac); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 25%, transparent); }
 .edlist span { display: flex; align-items: center; gap: 4px; width: 100%; height: 9px; }
 .edlist i { flex: none; min-width: 14px; font: 700 9.5px/1 var(--font); font-style: normal; color: var(--ac); text-align: left; }
-.edlist i.dotm { width: 4px; height: 4px; margin: 0 5px 0 3px; border-radius: 50%; background: var(--ac); }
+.edlist i.dotm { width: 4px; min-width: 0; height: 4px; margin: 0 5px 0 3px; border-radius: 50%; background: var(--ac); }
 .edlist i.dotm.sq { border-radius: 1px; }
 .edlist s { display: block; flex: 1; min-width: 16px; height: 3px; border-radius: 2px; background: var(--bd2); text-decoration: none; }
 .edlist-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 2px 4px 0; padding-top: 8px; border-top: 1px solid var(--bd); }

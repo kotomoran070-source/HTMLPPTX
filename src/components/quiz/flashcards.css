@@ -10,7 +10,8 @@
 .fc-front { background: var(--surf); border: 1.5px solid color-mix(in srgb, var(--ac) 28%, var(--bd2)); box-shadow: 0 12px 28px -20px rgba(15, 23, 42, .5); }
 .fc-back { transform: rotateY(180deg); background: color-mix(in srgb, var(--ac) 9%, var(--surf)); border: 1.5px solid color-mix(in srgb, var(--ac) 45%, var(--bd2)); }
 .fc-tag { color: var(--ach); font: 700 11.5px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; }
-.fc-t { font: var(--hw, 800) 24px/1.2 var(--font-head, var(--font)); letter-spacing: -.01em; text-wrap: balance; }
+/* Длинное слово в узкой карточке («Инкапсуляция») переносится по слогам, а не вылезает на соседнюю */
+.fc-t { font: var(--hw, 800) 24px/1.2 var(--font-head, var(--font)); letter-spacing: -.01em; text-wrap: balance; hyphens: auto; overflow-wrap: break-word; }
 .fc-d { color: var(--tx2, var(--tx)); font-size: 17px; line-height: 1.45; text-wrap: pretty; }
 /* Повернуть: при показе — под мышью (щелчок по карточке тоже поворачивает), в правке — всегда (править оборот) */
 .fc-turn { position: absolute; right: 10px; bottom: 10px; z-index: 2; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border-radius: 50%;
