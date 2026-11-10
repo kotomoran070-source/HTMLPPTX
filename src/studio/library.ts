@@ -43,9 +43,9 @@ const eyebrow = (text: string) => line(text, { size: 14, weight: 700, color: 'ac
 /** Список текстом: вид маркера — как в меню списка (check, num, dash…) */
 const bullets = (items: string[], list?: string, size?: number) => line(items.map((x) => `- ${x}`).join('\n'), { ...(list ? { list } : {}), ...(size ? { size } : {}) });
 /** Тариф: название, цена, что входит; выделенный — с рамкой акцента */
-const plan = (name: string, price: string, items: string[], top = false) => ({
+const plan = (name: string, price: string, items: string[], top = false, priceSize = 40) => ({
   type: 'card', ...(top ? { style: 'border:2px solid var(--ac);box-shadow:0 18px 40px color-mix(in srgb, var(--ac) 18%, transparent)' } : {}),
-  body: [eyebrow(top ? `${name} · выбор клиентов` : name), line(price, { size: 40, weight: 800 }), bullets(items, 'check', 17)],
+  body: [eyebrow(top ? `${name} · выбор клиентов` : name), line(price, { size: priceSize, weight: 800 }), bullets(items, 'check', 17)],
 });
 /**
  * Дизайнерский блок: вёрстка с классами kt-* (components/html/kit.css) в цветах темы. Тексты
@@ -819,7 +819,7 @@ export const LIBRARY: Category[] = [
         // В плитке — короче: «по запросу» не влезает в узкую карточку, длинные пункты мельчат
         preview: () => ({
           type: 'grid', columns: 3, align: 'stretch', items: [
-            plan('Старт', '990 ₽', ['PDF']), plan('Команда', '2 490 ₽', ['Всё'], true), plan('Бизнес', '9 900 ₽', ['Сервер']),
+            plan('Старт', '990 ₽', ['PDF'], false, 28), plan('Команда', '2 490 ₽', ['Всё'], true, 28), plan('Бизнес', '9 900 ₽', ['Сервер'], false, 28),
           ],
         }),
       },
