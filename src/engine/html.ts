@@ -1,4 +1,5 @@
 import { TEXT_GRADIENT_RE, textGradientCss } from './gradients';
+import { itemListCss, listToken } from './text-style';
 
 /** Цвета темы для {accent|…}: как в text-style.ts (здесь без импорта, чтобы html.ts не тянул зависимостей) */
 const THEME_CSS: Record<string, string> = {
@@ -82,6 +83,9 @@ function inline(line: string): string {
 }
 
 /** Текст из данных в HTML: экранирование, разметка, переносы строк и списки. */
+/** Строка-пункт списка: «- текст» или «-[вид] текст» (вид маркера у этой строки, text-style.ts listToken) */
+export const LIST_LINE = /^[-•](?:\[([^\]\n]+)\])?\s+(.*)$/;
+
 export function t(value: unknown): string {
   const src = String(value ?? '').trim().replace(/\r/g, '');
   if (!src) return '';
@@ -89,9 +93,12 @@ export function t(value: unknown): string {
   let prevBlock = true;
   const lines = src.split('\n');
   lines.forEach((line) => {
-    const li = /^[-•]\s+(.*)$/.exec(line);
+    const m = LIST_LINE.exec(line);
+    // Вид в скобках, которого нет, — не пункт, а обычная строка как есть
+    const li = m && (!m[1] || listToken(m[1])) ? m : null;
     if (li) {
-      out += `<span class="md-li">${inline(li[1])}</span>`;
+      const css = li[1] ? itemListCss(li[1]) : '';
+      out += `<span class="md-li"${li[1] ? ` data-li="${esc(li[1])}"` : ''}${css ? ` style="${esc(css)}"` : ''}>${inline(li[2])}</span>`;
       prevBlock = true;
     } else if (!line.trim()) {
       // Пустая строка — промежуток между абзацами: высотой в строку, у текста со своим отступом

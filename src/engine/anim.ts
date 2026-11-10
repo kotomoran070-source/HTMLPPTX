@@ -12,6 +12,7 @@
  * без щелчка — пункты один за другим. tempo: fast, slow, slower — длительность всех эффектов объекта.
  */
 import type { Block } from '../types';
+import { LIST_LINE } from './html';
 
 export type Pair = readonly [id: string, name: string];
 
@@ -53,7 +54,7 @@ export const tempoOf = (b: Block): number => TEMPO.find(([k]) => k && k === b.te
 /** Сколько пунктов у объекта для появления по пунктам: строки списка или пункты «- » в тексте */
 export function partsOf(b: Block): number {
   if (b.type === 'list') return Array.isArray(b.items) ? b.items.length : 0;
-  return typeof b.text === 'string' ? b.text.split('\n').filter((l) => /^[-•]\s+/.test(l)).length : 0;
+  return typeof b.text === 'string' ? b.text.split('\n').filter((l) => LIST_LINE.test(l)).length : 0;
 }
 /** Появление по пунктам действует: галочка и хотя бы два пункта */
 export const byItems = (b: Block): boolean => b.byItem === true && partsOf(b) > 1;

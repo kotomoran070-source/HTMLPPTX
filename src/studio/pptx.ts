@@ -288,14 +288,29 @@ export interface PptxProgress {
 function listMark(li: HTMLElement): string {
   const v = getComputedStyle(li).getPropertyValue('--li-mark').trim();
   if (!v) return '•';
-  // Содержимое маркера: строки в кавычках и счётчик пунктов (свой маркер «Шаг #:» — оба)
-  const n = [...(li.parentElement?.children ?? [])].filter((x) => x.classList.contains('md-li')).indexOf(li) + 1;
+  // Содержимое маркера: строки в кавычках и счётчик пунктов (свой маркер «Шаг #:» — оба). Номер — как на слайде:
+  // считаются только пункты того же вида нумерации (--li-inc), точка между ними номер не сбивает
+  const inc = getComputedStyle(li).getPropertyValue('--li-inc').trim();
+  const counts = (x: Element) => x.classList.contains('md-li') && getComputedStyle(x).getPropertyValue('--li-inc').trim() === inc;
+  const sibs = [...(li.parentElement?.children ?? [])];
+  const n = sibs.slice(0, sibs.indexOf(li) + 1).filter(counts).length || 1;
   let out = '';
-  for (const m of v.matchAll(/"([^"]*)"|'([^']*)'|counter\(\s*md-li\s*(?:,\s*([\w-]+))?\s*\)/g)) {
+  for (const m of v.matchAll(/"([^"]*)"|'([^']*)'|counter\(\s*md-li[\w-]*\s*(?:,\s*([\w-]+))?\s*\)/g)) {
     if (m[1] !== undefined || m[2] !== undefined) out += m[1] ?? m[2];
-    else out += m[3] === 'cyrillic-lower' ? 'абвгдежзиклмнопрстуфхцчшэюя'[(n - 1) % 27] : String(n);
+    else if (m[3] === 'cyrillic-lower') out += 'абвгдежзиклмнопрстуфхцчшэюя'[(n - 1) % 27];
+    else if (m[3] === 'upper-roman' || m[3] === 'lower-roman') out += m[3] === 'upper-roman' ? roman(n) : roman(n).toLowerCase();
+    else out += String(n);
   }
   return out || '•';
+}
+
+/** Римское число: 4 → IV */
+export function roman(n: number): string {
+  let out = '';
+  for (const [v, s] of [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']] as const) {
+    while (n >= v) { out += s; n -= v; }
+  }
+  return out;
 }
 
 export async function exportPptx(deck: Deck, progress?: PptxProgress, quality: ExportQuality = 'normal'): Promise<Blob> {

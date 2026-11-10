@@ -1940,6 +1940,34 @@ test('рамка выделения берёт надписи по их текс
   expect(errors).toEqual([]);
 });
 
+test('вид маркера — у строки под курсором: римские у одного пункта, точка у соседнего; «Свой» — обычным значком', async ({ page }) => {
+  const errors = watchErrors(page);
+  // Текст после прошлого теста: «Один / - Два / - Полтора / После / Три»
+  await page.goto('/?deck=lst&studio#1');
+  const body = page.locator('#st-canvas .slide.on > .free').nth(1);
+  await body.click();
+  await body.click();
+  const field = page.locator('#st-canvas .slide.on [contenteditable="true"]');
+  await expect(field.locator('.md-li')).toHaveCount(2);
+  await field.evaluate((el) => {
+    const it = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = it.nextNode(); n; n = it.nextNode()) if (n.textContent!.includes('Полтора')) { getSelection()!.collapse(n, 2); return; }
+  });
+  await page.locator('#ed-text [data-t="list-kind"]').click();
+  const menu = page.locator('.edmenu');
+  // Своего маркера нет — на «Свой» обычный значок, не звезда
+  await expect(menu.locator('.edown-prev svg')).toHaveCount(1);
+  await menu.locator('[data-v][title="Римские I."]').click();
+  await expect(field.locator('.md-li[data-li="roman"]')).toHaveText('Полтора');
+  // Свой счёт у каждого вида нумерации: римский пункт — первый, «I.»
+  expect(await field.locator('.md-li[data-li="roman"]').evaluate((li) => getComputedStyle(li, '::before').content)).toContain('upper-roman');
+  await expect(field.locator('.md-li:not([data-li])')).toHaveText('Два');
+  await page.keyboard.press('Escape');
+  const text = () => { const y = readDeck('lst'); return y.slice(y.indexOf('Один'), y.indexOf('Альфа')); };
+  expect(await waitFile(() => /- Два(\\n|\n\s*)-\[roman\] Полтора/.test(text()))).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('«Собрать в галерею»: две картинки слайда — кадрами одной, левая остаётся на месте, разной формы — целиком на размытом фоне; Ctrl+Z — как было', async ({ page }) => {
   const errors = watchErrors(page);
   const before = readDeck('gal');

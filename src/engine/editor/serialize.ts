@@ -4,6 +4,7 @@
  * Работает с тем, что создают браузеры при правке: b/strong, i/em, u, a, font, br, div/p.
  */
 import { TEXT_GRADIENT_RE } from '../gradients';
+import { listToken } from '../text-style';
 
 /** Символы разметки в обычном тексте экранируются, чтобы не стать оформлением. */
 export function escapeText(s: string): string {
@@ -23,6 +24,8 @@ export function escapeText(s: string): string {
 /** Метка пункта списка до финальной сборки строки */
 const LI = '\u0001';
 const GAP = '\u0002';
+/** Вид маркера строки — между этими метками сразу после LI */
+const TOK = '\u0003';
 
 const BLOCK = new Set(['DIV', 'P', 'LI', 'UL', 'OL', 'H1', 'H2', 'H3', 'H4', 'BLOCKQUOTE']);
 
@@ -65,7 +68,11 @@ function walk(node: Node): string {
   const tag = el.tagName;
   if (tag === 'BR') return '\n';
   // Символ нулевой ширины держит пустой пункт в правке — в текст не идёт
-  if (el.classList.contains('md-li')) return `\n${LI}${inner().replace(/\u200b/g, '').replace(/\n+/g, ' ').trim()}\n`;
+  // Свой вид маркера у пункта (data-li) — «-[вид] » в начале строки
+  if (el.classList.contains('md-li')) {
+    const tok = el.dataset.li && listToken(el.dataset.li) ? `${TOK}${el.dataset.li}${TOK}` : '';
+    return `\n${LI}${tok}${inner().replace(/\u200b/g, '').replace(/\n+/g, ' ').trim()}\n`;
+  }
   // Промежуток у списка (пустая строка рядом с пунктами) — остаётся пустой строкой
   if (el.classList.contains('md-gap')) {
     // Напечатали прямо в промежутке — это уже строка текста
@@ -105,7 +112,12 @@ export function toMarkup(el: HTMLElement): string {
     .replace(/^\n+|\n+$/g, '')
     .split('\n')
     // Обычная строка, похожая на пункт списка, остаётся обычной строкой; промежуток — пустой строкой
-    .map((line) => (line === GAP ? '' : line.startsWith(LI) ? `- ${line.slice(1)}` : line.replace(/^([-•])(\s)/, '\\$1$2')))
+    .map((line) => {
+      if (line === GAP) return '';
+      if (!line.startsWith(LI)) return line.replace(/^([-•])(\s|\[[^\]\n]+\]\s)/, '\\$1$2');
+      const m = new RegExp(`^${LI}(?:${TOK}([^${TOK}]*)${TOK})?([\\s\\S]*)$`).exec(line)!;
+      return m[1] ? `-[${m[1]}] ${m[2]}` : `- ${m[2]}`;
+    })
     .join('\n');
 }
 
@@ -115,8 +127,46 @@ export function toMarkup(el: HTMLElement): string {
  */
 export const SEL_A = '\uE000';
 export const SEL_B = '\uE001';
-const LI_RE = /^[-•]\s+/;
+/** Начало пункта: «- » или «-[вид] » */
+const LI_RE = /^[-•](?:\[[^\]\n]+\])?\s+/;
 const unmark = (l: string) => l.replace(/[\uE000\uE001]/g, '');
+
+/** Строки, которых касается выделение (метки SEL_A и SEL_B); меток нет — null */
+function touchedLines(lines: string[]): number[] | null {
+  let from = lines.findIndex((l) => l.includes(SEL_A));
+  let to = lines.findIndex((l) => l.includes(SEL_B));
+  if (from < 0 || to < 0) return null;
+  if (to < from) [from, to] = [to, from];
+  // Протянули до самого начала следующей строки — она не задета
+  if (to > from && lines[to].replace(LI_RE, '').startsWith(SEL_B)) to--;
+  const touched: number[] = [];
+  for (let k = from; k <= to; k++) if (unmark(lines[k]).trim() || from === to) touched.push(k);
+  return touched;
+}
+
+/** Строка без меток в начале: [метки, остальное] — метка перед «- » остаётся в начале текста строки */
+const splitLead = (l: string): [string, string] => {
+  const lead = /^[\uE000\uE001]*/.exec(l)![0];
+  return [lead, l.slice(lead.length)];
+};
+
+/**
+ * Вид маркера kind — строкам под выделением (меток нет — всем строкам); не пункты становятся пунктами.
+ * fieldKind — вид всего поля: у строк без своего вида. Если после этого все пункты одного вида, он становится
+ * видом поля (field), а свои виды у строк убираются; иначе field — null
+ */
+export function setListKindAt(markup: string, kind: string, fieldKind: string): { markup: string; field: string | null } {
+  const lines = markup.split('\n');
+  const touched = touchedLines(lines) ?? lines.map((_l, k) => k).filter((k) => unmark(lines[k]).trim());
+  for (const k of touched) {
+    const [lead, rest] = splitLead(lines[k]);
+    lines[k] = `-${kind === fieldKind ? '' : `[${kind}]`} ${lead}${rest.replace(LI_RE, '')}`;
+  }
+  const kindOf = (l: string) => /^[-•]\[([^\]\n]+)\]/.exec(unmark(l))?.[1] ?? fieldKind;
+  const items = lines.filter((l) => LI_RE.test(unmark(l)));
+  if (kind === fieldKind || !items.every((l) => kindOf(l) === kind)) return { markup: lines.join('\n'), field: null };
+  return { markup: lines.map((l) => (LI_RE.test(unmark(l)) ? l.replace(/^([-•])\[[^\]\n]+\]/, '$1') : l)).join('\n'), field: kind };
+}
 
 /**
  * Пункты списка — только у строк, которых касается выделение (с метками SEL_A и SEL_B), как в Word и PowerPoint:
@@ -124,21 +174,12 @@ const unmark = (l: string) => l.replace(/[\uE000\uE001]/g, '');
  */
 export function toggleListAt(markup: string): string {
   const lines = markup.split('\n');
-  let from = lines.findIndex((l) => l.includes(SEL_A));
-  let to = lines.findIndex((l) => l.includes(SEL_B));
-  if (from < 0 || to < 0) return toggleList(markup);
-  if (to < from) [from, to] = [to, from];
-  // Протянули до самого начала следующей строки — она не задета
-  if (to > from && lines[to].replace(LI_RE, '').startsWith(SEL_B)) to--;
-  const touched: number[] = [];
-  for (let k = from; k <= to; k++) if (unmark(lines[k]).trim() || from === to) touched.push(k);
+  const touched = touchedLines(lines);
+  if (!touched) return toggleList(markup);
   if (!touched.length) return markup;
   const all = touched.every((k) => LI_RE.test(unmark(lines[k])));
   for (const k of touched) {
-    const l = lines[k];
-    // Метка может стоять перед «- »: она остаётся в начале текста строки
-    const lead = /^[\uE000\uE001]*/.exec(l)![0];
-    const rest = l.slice(lead.length);
+    const [lead, rest] = splitLead(lines[k]);
     if (all) lines[k] = lead + rest.replace(LI_RE, '');
     else if (!LI_RE.test(rest)) lines[k] = `- ${lead}${rest}`;
   }
@@ -148,8 +189,8 @@ export function toggleListAt(markup: string): string {
 /** Переключает оформление всех строк как пунктов списка. */
 export function toggleList(markup: string): string {
   const lines = markup.split('\n').filter((l, i, a) => l.trim() || (i > 0 && i < a.length - 1));
-  const all = lines.length > 0 && lines.every((l) => /^[-•]\s+/.test(l) || !l.trim());
-  return lines.map((l) => (all ? l.replace(/^[-•]\s+/, '') : l.trim() && !/^[-•]\s+/.test(l) ? `- ${l}` : l)).join('\n');
+  const all = lines.length > 0 && lines.every((l) => LI_RE.test(l) || !l.trim());
+  return lines.map((l) => (all ? l.replace(LI_RE, '') : l.trim() && !LI_RE.test(l) ? `- ${l}` : l)).join('\n');
 }
 
 /** Текст без оформления: для «Сбросить оформление». */

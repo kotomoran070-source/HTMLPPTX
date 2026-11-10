@@ -7,7 +7,7 @@ import { esc, t } from '../html';
 import { GRADIENTS, gradColor, gradientMid, parseTextGradient, TEXT_GRADIENTS, textGradientCode, textGradientCss } from '../gradients';
 import { gradientPanel, type GradValue } from './gradient-edit';
 import { colorCss, customMarker, FONTS, LIST_MARKERS, listCss, markerImage, splitDecls, SWATCHES, textStyleCss, THEME_COLORS, type TextStyle } from '../text-style';
-import { plainMarkup, SEL_A, SEL_B, toggleList, toggleListAt, toMarkup } from './serialize';
+import { plainMarkup, SEL_A, SEL_B, setListKindAt, toggleList, toggleListAt, toMarkup } from './serialize';
 
 /** Что текстовому редактору нужно от основного редактора. */
 /** Курсор на первой (up) или последней строке поля; пустое поле — на обеих */
@@ -546,6 +546,65 @@ export class TextEditor {
     return true;
   }
 
+  /** Выделение в поле, запомненное при открытии меню списка: поле «Свой» и выбор картинки забирают фокус */
+  private listRange: Range | null = null;
+
+  /** Вид маркера всего поля: картинка «img:адрес», встроенный вид, свой символ или точка */
+  private fieldKind(): string {
+    const st = this.s?.styles;
+    const img = markerImage(st?.listImage);
+    if (img) return `img:${img}`;
+    return typeof st?.list === 'string' && (LIST_MARKERS[st.list] || customMarker(st.list)) ? st.list : 'dot';
+  }
+
+  /**
+   * Вид маркера — строкам под курсором или в выделении, как в Word: у одной строки может быть нумерация,
+   * у соседней — точка. Не пункты становятся пунктами. Все пункты одного вида — он становится видом всего поля
+   */
+  private applyKind(kind: string): void {
+    const s = this.s;
+    if (!s) return;
+    const kept = this.listRange && s.el.contains(this.listRange.startContainer) && s.el.contains(this.listRange.endContainer) ? this.listRange : null;
+    const range = this.fieldRange() ?? kept;
+    // Свой символ со скобкой у строки не записать («-[вид] ») — он становится видом всего поля
+    const whole = !range || kind.includes(']');
+    if (range && !whole) {
+      const [a, b] = textPoints(s.el, range);
+      insertAt(b, document.createTextNode(SEL_B));
+      insertAt(a, document.createTextNode(SEL_A));
+    }
+    // Всё поле — все строки пунктами этого вида, свои виды у строк убираются
+    const markup = toMarkup(s.el);
+    const res = whole ? { markup: setListKindAt(markup, kind, kind).markup, field: kind } : setListKindAt(markup, kind, this.fieldKind());
+    s.el.innerHTML = t(res.markup);
+    const field = res.field;
+    if (field !== null) {
+      if (field.startsWith('img:')) this.setStyle({ listImage: field.slice(4), list: undefined });
+      else this.setStyle({ list: field === 'dot' ? undefined : field, listImage: undefined });
+    }
+    const from = takeMark(s.el, SEL_A);
+    const to = takeMark(s.el, SEL_B);
+    this.listRange = null;
+    if (from && to) {
+      const r = document.createRange();
+      r.setStart(from[0], from[1]);
+      r.setEnd(to[0], to[1]);
+      this.listRange = r;
+      if (document.activeElement === s.el) getSelection()?.setBaseAndExtent(from[0], from[1], to[0], to[1]);
+    }
+    this.position();
+  }
+
+  /** Вид маркера у строк под выделением: один на всех — он, разные или не пункты — null */
+  private kindAtSelection(): string | null {
+    const s = this.s;
+    if (!s) return null;
+    const r = this.fieldRange() ?? this.listRange;
+    const items = [...s.el.querySelectorAll<HTMLElement>('.md-li')].filter((li) => !r || r.intersectsNode(li));
+    const kinds = new Set(items.map((li) => li.dataset.li || this.fieldKind()));
+    return items.length && kinds.size === 1 ? [...kinds][0] : null;
+  }
+
   /** Выделение (или курсор) в правимом поле; нет — null */
   private fieldRange(): Range | null {
     const s = this.s;
@@ -555,14 +614,6 @@ export class TextEditor {
     return s.el.contains(r.startContainer) && s.el.contains(r.endContainer) ? r : null;
   }
 
-  /** Касается ли выделение пункта списка: тогда выбор маркера меняет только вид, пункты не добавляет */
-  private selectionHasItem(): boolean {
-    const s = this.s;
-    const r = this.fieldRange();
-    if (!s) return false;
-    const items = [...s.el.querySelectorAll('.md-li')];
-    return r ? items.some((li) => r.intersectsNode(li)) : items.length > 0;
-  }
 
   private setStyle(patch: Partial<TextStyle>): void {
     const s = this.s;
@@ -1028,9 +1079,12 @@ export class TextEditor {
       this.menu.classList.remove('on');
       return;
     }
-    const own = customMarker(s.styles.list);
-    const img = markerImage(s.styles.listImage);
-    const cur = img || own ? '' : typeof s.styles.list === 'string' && LIST_MARKERS[s.styles.list] ? s.styles.list : 'dot';
+    // Меню — для строк под курсором: их вид отмечен; выделение запоминается (поле «Свой» заберёт фокус)
+    this.listRange = this.fieldRange()?.cloneRange() ?? null;
+    const at = this.kindAtSelection();
+    const img = at?.startsWith('img:') ? markerImage(at.slice(4)) : null;
+    const own = at && !img ? customMarker(at) : null;
+    const cur = at && LIST_MARKERS[at] ? at : '';
     const curColor = typeof s.styles.listColor === 'string' ? s.styles.listColor : '';
     this.menu.dataset.kind = 'list';
     // Образец: три строки с маркерами этого вида
@@ -1039,14 +1093,17 @@ export class TextEditor {
       if (k === 'num') return `<i>${n}.</i>`;
       if (k === 'paren') return `<i>${n})</i>`;
       if (k === 'alpha') return `<i>${'абв'[n - 1]})</i>`;
+      if (k === 'roman') return `<i>${['I', 'II', 'III'][n - 1]}.</i>`;
+      if (k === 'roman-lower') return `<i>${['i', 'ii', 'iii'][n - 1]}.</i>`;
       return `<i>${esc(LIST_MARKERS[k].sample)}</i>`;
     };
+    // Образец своего маркера у строк под курсором; своего нет — обычный значок
     const ownPreview = () => {
-      const st = this.s?.styles;
-      const im = markerImage(st?.listImage);
+      const k = this.kindAtSelection();
+      const im = k?.startsWith('img:') ? markerImage(k.slice(4)) : null;
       if (im) return `<img src="${esc(im)}" alt="">`;
-      const o = customMarker(st?.list);
-      return o ? esc(o.replace(/#/g, '1')) : '★';
+      const o = k && !im ? customMarker(k) : null;
+      return o ? esc(o.replace(/#/g, '1')) : icon('pencil');
     };
     const colors = [['', 'Акцент темы', 'var(--ac)'], ['text', 'Как текст', 'var(--tx)'], ['muted', 'Приглушённый', 'var(--mu)'], ['#DC2626', 'Красный', '#DC2626'], ['#EA580C', 'Оранжевый', '#EA580C'], ['#16A34A', 'Зелёный', '#16A34A'], ['#7C3AED', 'Фиолетовый', '#7C3AED']]
       .map(([v, t, css]) => `<button type="button" data-lc="${v}" title="${esc(t)}" class="${v === curColor ? 'on' : ''}" style="background:${css}"></button>`).join('');
@@ -1054,16 +1111,13 @@ export class TextEditor {
     this.menu.innerHTML = `<div class="edmenu-title">Вид списка</div><div class="edlist">${Object.entries(LIST_MARKERS).map(([k, m]) =>
       `<button type="button" data-v="${k}" class="${k === cur ? 'on' : ''}" title="${esc(m.name)}" aria-label="${esc(m.name)}">${[1, 2, 3].map((n) => `<span>${mark(k, n)}<s></s></span>`).join('')}</button>`).join('')}</div>
       <div class="edlist-foot">
-        <button type="button" class="edown-btn${custom ? ' on' : ''}" data-a="own" aria-expanded="${custom}" title="Свой маркер: символ, эмодзи, текст или картинка"><span class="edown-prev">${ownPreview()}</span>Свой<b class="st-caret"></b></button>
+        <button type="button" class="edown-btn${custom ? ' on' : ''}" data-a="own" aria-expanded="${custom}" title="Свой маркер: символ, эмодзи, текст или картинка"><span class="edown-prev${custom ? '' : ' ic'}">${ownPreview()}</span>Свой<b class="st-caret"></b></button>
         <button type="button" class="edlc-btn" data-a="color" title="Цвет маркера" aria-label="Цвет маркера" aria-expanded="false"><i style="background:${colorCss(curColor) ?? 'var(--ac)'}"></i></button>
       </div>
       <div class="edlc" hidden>${colors}<label title="Свой цвет"><input type="color" value="${/^#[0-9a-f]{6}$/i.test(curColor) ? curColor.toLowerCase() : '#2563eb'}"></label></div>
       <div class="edown"${custom ? '' : ' hidden'}>
         <div class="edown-row"><input type="text" maxlength="12" value="${esc(own ?? '')}" placeholder="Символ, эмодзи или Шаг #:" title="Символ, эмодзи или текст; # — номер пункта" spellcheck="false" aria-label="Свой маркер"><button type="button" data-a="img" title="Картинка-маркер: значок, логотип" aria-label="Картинка">${icon('image')}</button></div>
       </div>`;
-    // Ещё не список — сначала пункты
-    // Строки под курсором ещё не пункты — сначала пункты (у них, а не у всего поля)
-    const ensureList = () => { if (this.s && !this.selectionHasItem()) this.toggleList(); };
     const inp = this.menu.querySelector<HTMLInputElement>('.edown input')!;
     const pane = this.menu.querySelector<HTMLElement>('.edown')!;
     const ownBtn = this.menu.querySelector<HTMLElement>('.edown-btn')!;
@@ -1073,11 +1127,12 @@ export class TextEditor {
     const markOwn = () => {
       for (const b of this.menu.querySelectorAll<HTMLElement>('[data-v]')) b.classList.remove('on');
       ownBtn.classList.add('on');
-      ownBtn.querySelector('.edown-prev')!.innerHTML = ownPreview();
+      const prev = ownBtn.querySelector<HTMLElement>('.edown-prev')!;
+      prev.innerHTML = ownPreview();
+      prev.classList.toggle('ic', !!prev.querySelector('svg'));
     };
     const setOwn = (v: string) => {
-      ensureList();
-      this.setStyle({ list: v, listImage: undefined });
+      this.applyKind(v);
       markOwn();
     };
     this.menu.onmousedown = (e) => { if (!(e.target as Element).closest('input')) e.preventDefault(); };
@@ -1109,8 +1164,7 @@ export class TextEditor {
       if (a === 'img') { this.pickMarkerImage(markOwn); return; }
       const v = t.closest<HTMLElement>('[data-v]')?.dataset.v;
       if (!v) return;
-      ensureList();
-      this.setStyle({ list: v === 'dot' ? undefined : v, listImage: undefined });
+      this.applyKind(v);
       this.menu.classList.remove('on');
       this.s?.el.focus({ preventScroll: true });
     };
@@ -1171,8 +1225,7 @@ export class TextEditor {
         const stem = f.name.replace(/\.[^.]+$/, '').replace(/[^\p{L}\p{N}_-]+/gu, '-').slice(0, 32) || 'marker';
         const src = await this.host.storeAsset(blob, `${stem}-marker.png`);
         if (!this.s) return;
-        if (!this.selectionHasItem()) this.toggleList();
-        this.setStyle({ listImage: src, list: undefined });
+        this.applyKind(`img:${src}`);
         done();
       } catch {
         this.host.toast('Не удалось открыть картинку', 3000, true);

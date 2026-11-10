@@ -102,7 +102,7 @@ export function textOf(el: El): string {
   return el.childNodes.map(markup).join('')
     .replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/^\n+|\n+$/g, '')
     // Строка текста, похожая на пункт списка, остаётся обычной строкой
-    .split('\n').map((l) => l.replace(/^([-•])(\s)/, '\\$1$2')).join('\n');
+    .split('\n').map((l) => l.replace(/^([-•])(\s|\[[^\]\n]+\]\s)/, '\\$1$2')).join('\n');
 }
 
 /** Автоподгонка размера текста в Claude Design не используется: размер пишем прямо. */

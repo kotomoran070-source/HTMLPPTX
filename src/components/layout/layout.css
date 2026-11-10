@@ -27,10 +27,11 @@
 
 /* Разметка в тексте: списки и ссылки */
 /* Маркер — из оформления текста (styles.*.list и listColor, text-style.ts): символ, номер, свой текст или точка по умолчанию */
-.md-li { display: block; position: relative; padding-left: var(--li-pad, 1.1em); counter-increment: md-li; }
+/* Считаются только пункты своего вида (--li-inc: счётчик вида списка): точка между ними номер не сбивает */
+.md-li { display: block; position: relative; padding-left: var(--li-pad, 1.1em); counter-increment: var(--li-inc, none); }
 .md-li::before { content: var(--li-mark, ""); position: absolute; left: var(--li-left, .25em); top: var(--li-top, .62em); width: var(--li-w, .32em); height: var(--li-h, .32em);
   border-radius: var(--li-r, 50%); background: var(--li-bg, var(--li-c, var(--ac))); color: var(--li-c, var(--ac)); white-space: pre; font-weight: 700; font-variant-numeric: tabular-nums; }
-:has(> .md-li) { counter-reset: md-li; }
+:has(> .md-li) { counter-reset: md-li md-li-paren md-li-alpha md-li-roman md-li-rl; }
 .md-gap { display: block; height: var(--pgap, auto); }
 .md-a { color: var(--ach); text-decoration: underline; text-underline-offset: 2px; }
 

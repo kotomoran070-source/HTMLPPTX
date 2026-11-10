@@ -130,7 +130,8 @@ export const fxColor = (c: unknown): string | null => (typeof c === 'string' && 
 
 /**
  * Маркеры списка: подпись для меню и переменные для .md-li::before (layout.css).
- * Нумерация — счётчиком CSS: пункты нумеруются по порядку внутри текста
+ * Нумерация — счётчиком CSS: пункты нумеруются по порядку внутри текста; считаются только пункты своего вида
+ * (--li-inc — свой счётчик у каждого вида нумерации): точка между ними номер не сбивает, римские после «1. 2.» — с I
  */
 export const LIST_MARKERS: Record<string, { name: string; sample: string; css: string }> = {
   dot: { name: 'Точка', sample: '•', css: '' },
@@ -138,9 +139,11 @@ export const LIST_MARKERS: Record<string, { name: string; sample: string; css: s
   dash: { name: 'Тире', sample: '–', css: '--li-mark:"–";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0' },
   check: { name: 'Галочка', sample: '✓', css: '--li-mark:"✓";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-pad:1.3em' },
   arrow: { name: 'Стрелка', sample: '→', css: '--li-mark:"→";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-pad:1.35em' },
-  num: { name: 'Нумерация 1.', sample: '1.', css: '--li-mark:counter(md-li) ".";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-pad:1.7em;--li-left:0' },
-  paren: { name: 'Нумерация 1)', sample: '1)', css: '--li-mark:counter(md-li) ")";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-pad:1.7em;--li-left:0' },
-  alpha: { name: 'Буквы а)', sample: 'а)', css: '--li-mark:counter(md-li, cyrillic-lower) ")";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-pad:1.7em;--li-left:0' },
+  num: { name: 'Нумерация 1.', sample: '1.', css: '--li-mark:counter(md-li) ".";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-pad:1.7em;--li-left:0;--li-inc:md-li' },
+  paren: { name: 'Нумерация 1)', sample: '1)', css: '--li-mark:counter(md-li-paren) ")";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-pad:1.7em;--li-left:0;--li-inc:md-li-paren' },
+  alpha: { name: 'Буквы а)', sample: 'а)', css: '--li-mark:counter(md-li-alpha, cyrillic-lower) ")";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-pad:1.7em;--li-left:0;--li-inc:md-li-alpha' },
+  roman: { name: 'Римские I.', sample: 'I.', css: '--li-mark:counter(md-li-roman, upper-roman) ".";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-pad:2.1em;--li-left:0;--li-inc:md-li-roman' },
+  'roman-lower': { name: 'Римские i.', sample: 'i.', css: '--li-mark:counter(md-li-rl, lower-roman) ".";--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-pad:1.9em;--li-left:0;--li-inc:md-li-rl' },
 };
 
 /** Объявления CSS «имя:значение;…» по одному — точка с запятой внутри url("…") не делит */
@@ -173,11 +176,32 @@ export function listCss(list: unknown, color?: unknown, image?: unknown): string
     const content = own.split('#').map((x) => (x ? `"${x}"` : '')).join(' counter(md-li) ').trim();
     // Отступ текста — по длине маркера (эмодзи и номер шире буквы)
     const len = [...own.replace(/#/g, '00')].reduce((n, ch) => n + (/\p{Extended_Pictographic}/u.test(ch) ? 1.6 : 0.62), 0);
-    out.push(`--li-mark:${content};--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-left:0;--li-pad:${Math.max(1.3, Math.round((len + 0.45) * 100) / 100)}em`);
+    out.push(`--li-mark:${content};--li-w:auto;--li-h:auto;--li-bg:none;--li-top:0;--li-left:0;--li-pad:${Math.max(1.3, Math.round((len + 0.45) * 100) / 100)}em${own.includes('#') ? ';--li-inc:md-li' : ''}`);
   }
   const c = colorCss(color);
   if (c) out.push(`--li-c:${c}`);
   return out.join(';');
+}
+
+/**
+ * Вид маркера у одной строки — «-[вид] текст» в тексте поля: встроенный вид (num, roman…), свой символ или
+ * картинка «img:адрес». Без вида строка берёт вид всего поля (styles.*.list)
+ */
+export function listToken(v: unknown): boolean {
+  if (typeof v !== 'string' || !v || v.includes(']')) return false;
+  if (v.startsWith('img:')) return !!markerImage(v.slice(4));
+  return !!LIST_MARKERS[v] || !!customMarker(v);
+}
+
+/** Маркер по умолчанию (точка): им вид строки перекрывает вид всего поля, прежде чем задать свой */
+const LI_RESET = '--li-mark:"";--li-pad:1.1em;--li-left:.25em;--li-top:.62em;--li-w:.32em;--li-h:.32em;--li-r:50%;--li-bg:var(--li-c, var(--ac));--li-inc:none';
+
+/** Переменные маркера одной строки: сначала по умолчанию, поверх — её вид; не вид — пусто */
+export function itemListCss(token: unknown): string {
+  if (!listToken(token)) return '';
+  const t = token as string;
+  const own = t.startsWith('img:') ? listCss(undefined, undefined, t.slice(4)) : listCss(t);
+  return own ? `${LI_RESET};${own}` : LI_RESET;
 }
 
 export const FONTS: Record<string, { name: string; css: string }> = {
