@@ -43,7 +43,7 @@ const ACCENT_UI_MS = 160;
 /** Тяжёлый GIF попадает в собранный файл целиком: подсказка про видео, которое в разы легче */
 function gifNote(f: File): string | null {
   if (f.type !== 'image/gif' || f.size < 8 * 1024 * 1024) return null;
-  return `GIF добавлен, но весит ${Math.round(f.size / 1024 / 1024)} МБ. Тот же ролик в MP4 обычно в 5–10 раз легче — его можно вставить как видео.`;
+  return `GIF добавлен, но весит ${Math.round(f.size / 1024 / 1024)} МБ. В формате MP4 такой ролик обычно в 5–10 раз легче и вставляется как видео.`;
 }
 
 function mediaKind(f: File | undefined): MediaKind | null {
@@ -446,8 +446,8 @@ export class Editor {
       } catch { /* хранилище недоступно — просто покажем подсказку */ }
       if (!seen && !this.studio) {
         this.toast(this.mode === 'project'
-          ? 'Щёлкните текст, чтобы изменить его. Изменения сохраняются автоматически.'
-          : 'Щёлкните текст, чтобы изменить его. Чтобы не потерять изменения, нажмите «Сохранить».', 7000);
+          ? 'Для правки щёлкните текст. Изменения сохраняются автоматически.'
+          : 'Для правки щёлкните текст. Чтобы не потерять изменения, нажмите «Сохранить».', 7000);
       }
     } else {
       this.detach();
@@ -1665,7 +1665,7 @@ export class Editor {
       cyr = w('64px "slideria-font-check", monospace') !== w('64px monospace');
       document.fonts.delete(face);
     } catch {
-      return this.toast('Файл не похож на шрифт — браузер не смог его прочитать', 5000, true);
+      return this.toast('Не удалось прочитать файл: формат шрифта не распознан', 5000, true);
     }
     // Тот же файл уже подключён (добавили второй раз, под другим именем) — вторая запись не нужна
     const twin = deckFonts(this.host.deck.fonts).find((f) => f.src === url);

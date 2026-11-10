@@ -178,8 +178,8 @@ defineBlock<ModelProps>('model', {
         m.addEventListener('error', (e) => {
           if (!editing() || box.querySelector('.model3d-err')) return;
           const why = String((e as unknown as CustomEvent<{ sourceError?: unknown }>).detail?.sourceError ?? '');
-          const msg = /draco/i.test(why) ? 'Модель сжата Draco: для неё нужен интернет. Сожмите без Draco — например, glTF-Transform с --compress meshopt'
-            : /ktx2|basis/i.test(why) ? 'Текстуры в формате KTX2: для них нужен интернет. Сожмите текстуры в WebP'
+          const msg = /draco/i.test(why) ? 'Модель сжата Draco и требует подключения к интернету. Используйте сжатие без Draco — например, glTF-Transform с параметром --compress meshopt'
+            : /ktx2|basis/i.test(why) ? 'Текстуры в формате KTX2 требуют подключения к интернету. Преобразуйте текстуры в WebP'
               : 'Модель не открылась: файл повреждён или в неподдерживаемом формате';
           box.insertAdjacentHTML('beforeend', `<p class="model3d-err">${esc(msg)}</p>`);
         });

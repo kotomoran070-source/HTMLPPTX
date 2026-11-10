@@ -768,7 +768,7 @@ export function createDecksCore(opts: CoreOptions) {
     try { file = decodeURIComponent(file); } catch { /* уже раскодирован */ }
     if (!file || /[\\/]|\.\./.test(file) || !/\.html?$/i.test(file)) throw new Error('Перезаписать можно только файл живой вставки (.htm) этой презентации');
     const target = path.join(dir, name, 'assets', file);
-    if (!fs.existsSync(target)) throw new Error('Файла вставки нет — его переместили или удалили');
+    if (!fs.existsSync(target)) throw new Error('Файл вставки не найден: возможно, он перемещён или удалён');
     // Страница уже показывает новый код: перезагружать её из-за этого файла не нужно
     remember(target, text);
     fs.writeFileSync(target, text);

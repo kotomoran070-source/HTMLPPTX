@@ -78,7 +78,7 @@ export function extractContent(root: El, warn: (s: string) => void): { texts: st
     if (el.tagName === 'IMG') {
       const src = el.getAttribute('src') ?? '';
       if (/^https?:/i.test(src)) warn(`картинка по ссылке ${src.slice(0, 60)} — без интернета не покажется`);
-      else if (src && !src.startsWith('data:')) warn(`картинка «${src.slice(0, 60)}» не встроена в файл — замените её после импорта`);
+      else if (src && !src.startsWith('data:')) warn(`картинка «${src.slice(0, 60)}» не встроена в файл — замените картинку после импорта`);
       images.push(src ? { src } : {});
       el.removeAttribute('src');
       el.setAttribute('data-i', String(images.length - 1));

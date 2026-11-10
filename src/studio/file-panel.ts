@@ -97,6 +97,7 @@ const BADGE: Record<string, [string, string]> = {
   clean: ['HTML', '#2563EB'],
   edit: ['HTML', '#7C3AED'],
   pptx: ['PPTX', '#C2410C'],
+  pptx2007: ['PPTX', '#9A3412'],
   pdf: ['PDF', '#DC2626'],
 };
 const FORMAT_KEY = 'slideria-export-format';
@@ -236,7 +237,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
   async function versionsHtml(): Promise<string> {
     const head = '<header class="fp-head"><h2>Версии</h2><p>Программа сохраняет сама. Точки — снимки, к которым можно вернуться: ваши (Ctrl+S), когда открыли и закрыли презентацию, что не сохранили при выходе, а ещё каждая правка агентов и скриптов</p></header>';
     if (ed.mode !== 'project') {
-      return `${head}<div class="fp-card fp-empty">${icon('clock')}<div><span class="fp-sw-t">Версии — у презентаций из папки программы</span><small>Этот файл открыт с диска: сохранить правки в него — Ctrl+S</small></div></div>`;
+      return `${head}<div class="fp-card fp-empty">${icon('clock')}<div><span class="fp-sw-t">Версии — у презентаций из папки программы</span><small>Файл открыт с диска, изменения сохраняются в него по Ctrl+S</small></div></div>`;
     }
     const [pts, journal] = await Promise.all([ed.checkpoints(), host.history?.journal().catch(() => []) ?? Promise.resolve([])]);
     points = pts;

@@ -211,7 +211,7 @@ export function connectTool(h: Host): { start(proto?: ConnectorProto, fromSelect
     press = null;
     // Протянули — линия готова; щёлкнули — ждём второй щелчок
     if (dragging) finish(e);
-    else h.editor.toast('Теперь щёлкните конец линии: объект, точку на его стороне или пустое место', 3500);
+    else h.editor.toast('Теперь щёлкните конец линии: объект, точку на стороне объекта или пустое место', 3500);
   };
   const key = (e: KeyboardEvent) => {
     if (on && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancel(); }
@@ -254,7 +254,7 @@ export function connectTool(h: Host): { start(proto?: ConnectorProto, fromSelect
     if (one) {
       first = { end: { k: kit.indexOf(one) }, el: one, xy: kit.pointOf(one) };
       draw();
-      h.editor.toast('Щёлкните, куда идёт линия: объект, точку на его стороне или пустое место. Esc — отмена', 4000);
+      h.editor.toast('Щёлкните, куда идёт линия: объект, точку на стороне объекта или пустое место. Esc — отмена', 4000);
     } else h.editor.toast('Проведите линию по слайду: от объекта к объекту — концы прицепятся. Esc — отмена', 4000);
   }
 

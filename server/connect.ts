@@ -80,7 +80,7 @@ export function createConnect(o: ConnectOptions = {}) {
 
   function writeDesktop(cmd: Cmd | null): void {
     const dirs = desktopDirs();
-    if (!dirs.length) throw new Error('Claude Desktop не найден на этом компьютере: установите его с claude.ai/download и откройте один раз');
+    if (!dirs.length) throw new Error('Claude Desktop не найден на этом компьютере. Установите приложение с claude.ai/download и запустите хотя бы один раз');
     // Сначала все файлы прочитать: испорченный где-то одном — не трогать ни одного
     const targets = dirs.map((d) => desktopFile(d.dir)).filter((f, i) => dirs[i].create || fs.existsSync(f));
     for (const file of targets) readDesktop(file);

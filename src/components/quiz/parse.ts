@@ -78,7 +78,7 @@ export function parseQuizText(text: string): ParsedQuiz {
       quiz.answer = answers.join('\n');
     } else {
       if (options.length < 2) { errors.push(`${no}: нужно хотя бы два варианта`); return; }
-      if (!options.some((o) => o.correct)) { errors.push(`${no}: нет верного варианта — отметьте его «+»`); return; }
+      if (!options.some((o) => o.correct)) { errors.push(`${no}: не указан верный вариант — отметьте верный вариант знаком «+»`); return; }
       quiz.options = options;
     }
     if (notes.length) quiz.note = notes.join(' ');

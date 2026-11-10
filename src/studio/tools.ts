@@ -159,7 +159,7 @@ export function removeFont(h: ToolsHost, name: string): void {
 /** Неиспользуемые файлы — в корзину проекта (.trash): вернуть можно оттуда вручную */
 export async function trashUnused(h: ToolsHost, paths: string[]): Promise<boolean> {
   if (!paths.length || !h.editor.files.trashAssets) return false;
-  if (!confirm(`Убрать ${paths.length} ${plural(paths.length, 'неиспользуемый файл', 'неиспользуемых файла', 'неиспользуемых файлов')} в корзину проекта (папка .trash)? Их можно вернуть оттуда вручную.`)) return false;
+  if (!confirm(`Убрать ${paths.length} ${plural(paths.length, 'неиспользуемый файл', 'неиспользуемых файла', 'неиспользуемых файлов')} в корзину проекта (папка .trash)? Файлы можно восстановить из этой папки вручную.`)) return false;
   try {
     const r = await h.editor.files.trashAssets(h.deckKey, paths);
     h.editor.toast(`Убрано в корзину: ${r.moved}`, 3000);

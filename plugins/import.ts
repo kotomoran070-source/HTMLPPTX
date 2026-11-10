@@ -165,7 +165,7 @@ export async function importHtml(html: string, o: ImportOptions): Promise<Import
   if (!theirsRaw || typeof theirsRaw !== 'object') {
     // Самая первая версия движка собирала файл без данных для правки
     if (/id="?ovbd|htmlpptx/i.test(html)) {
-      throw new Error('Файл собран старой версией проекта: в нём ещё нет данных для импорта. Соберите презентацию заново (yarn build), правьте новый файл из dist/ — его можно будет импортировать.');
+      throw new Error('Файл собран старой версией проекта и не содержит данных для импорта. Соберите презентацию заново (yarn build) и импортируйте новый файл из dist/.');
     }
     throw new Error('Формат файла не распознан. Импортируются: файл, собранный этим проектом (yarn build → dist/<имя>.html), HTML-экспорт из Claude Design и свой HTML со слайдами <section class="slide"> (правила — docs/HTML.md).');
   }
@@ -340,7 +340,7 @@ export function report(r: ImportResult): string {
   else lines.push(`${r.dryRun ? 'Будет обновлена' : 'Обновлена'} ${where}${r.mode === 'merge' ? ' (слияние с исходной версией)' : ''}`);
   if (r.mode === 'replace' && r.changed) {
     lines.push(r.source === 'design'
-      ? '  Презентация уже есть: слайды из экспорта заменят её содержимое (правки, сделанные здесь, не сохранятся).'
+      ? '  Презентация уже существует: слайды из экспорта заменят текущее содержимое (правки, сделанные здесь, не сохранятся).'
       : '  В файле нет исходной версии проекта: данные из файла заменяют данные проекта.');
   }
   if (r.mode !== 'create') {

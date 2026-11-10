@@ -121,7 +121,7 @@ export const BLOCKS: Record<string, Schema> = {
   image: {
     fields: [
       { k: 'src', label: 'Картинка', type: 'image' },
-      { k: 'srcDark', label: 'Для тёмной темы', type: 'image', hint: 'Необязательно: без неё в обеих темах — основная' },
+      { k: 'srcDark', label: 'Для тёмной темы', type: 'image', hint: 'Необязательно. Если не задана, в обеих темах используется основная' },
       { k: 'caption', label: 'Подпись', type: 'text' },
       { k: 'alt', label: 'Описание для незрячих', type: 'text' },
       { k: 'height', label: 'Высота, px', type: 'number', min: 40, max: 720, placeholder: 'по картинке' },
@@ -143,7 +143,7 @@ export const BLOCKS: Record<string, Schema> = {
   tile: {
     fields: [
       { k: 'image', label: 'Фото', type: 'image', hint: 'Показывается поверх иллюстрации' },
-      { k: 'imageDark', label: 'Фото для тёмной темы', type: 'image', hint: 'Необязательно: без него в обеих темах — основное' },
+      { k: 'imageDark', label: 'Фото для тёмной темы', type: 'image', hint: 'Необязательно. Если не задано, в обеих темах используется основное' },
       { k: 'illustration', label: 'Иллюстрация', type: 'select', options: [['', 'Нет'], ['assembly', 'Комплекс в сборке'], ['endpoints', 'Оконечные устройства'], ['station', 'Базовая станция']] },
       { k: 'caption', label: 'Подпись', type: 'text' },
       ...frame,
@@ -584,7 +584,7 @@ export const BLOCKS: Record<string, Schema> = {
     ],
   },
   connector: {
-    about: 'Линия следует за объектами, когда их двигают или растягивают.',
+    about: 'Линия следует за объектами при перемещении и изменении размера.',
     fields: [
       { k: 'route', label: 'Вид линии', type: 'select', options: [['', 'Уступом'], ['straight', 'Прямая'], ['curve', 'Кривая']] },
       { k: 'head', label: 'Стрелка', type: 'select', options: [['', 'На конце'], ['both', 'С обеих сторон'], ['start', 'В начале'], ['none', 'Без стрелки']] },

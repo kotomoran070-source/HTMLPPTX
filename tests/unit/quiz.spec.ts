@@ -107,7 +107,7 @@ B) Канберра
     { type: 'quiz', question: 'Сколько бит в double?', kind: 'input', answer: '64\nшестьдесят четыре' },
     { type: 'quiz', question: 'Столица Австралии?', options: [{ text: 'Сидней' }, { text: 'Канберра', correct: true }] },
   ]);
-  expect(p.errors).toEqual(['Вопрос 4: нет верного варианта — отметьте его «+»']);
+  expect(p.errors).toEqual(['Вопрос 4: не указан верный вариант — отметьте верный вариант знаком «+»']);
   const slides = quizSlides(p);
   expect(slides.map((s) => s.label)).toEqual(['Вопрос 1', 'Вопрос 2', 'Вопрос 3', 'Итог теста']);
   expect(slides[3]).toMatchObject({ title: 'Сортировки: итог', body: { type: 'score' } });

@@ -87,11 +87,11 @@ const btn = (cmd: string, ic: string, label: string, o: { big?: boolean; menu?: 
 /** Подсказки к переходам, которые не понять по названию */
 const TR_HINT: Record<string, string> = {
   morph: 'Морф: одинаковые объекты (с тем же именем или текстом) перелетают на новое место',
-  uncover: 'Открывание: старый слайд уезжает, под ним — новый', split: 'Панорама: новый слайд раскрывается от середины к краям',
+  uncover: 'Открывание: текущий слайд уезжает, открывая следующий', split: 'Панорама: новый слайд раскрывается от середины к краям',
   clock: 'Часы: новый слайд открывается по кругу, как стрелка', flash: 'Вспышка: экран вспыхивает, на пике — новый слайд',
   cube: 'Куб: слайды — грани куба, он поворачивается', flip: 'Отражение: слайд переворачивается, как карточка',
   gallery: 'Галерея: слайды проходят вбок в глубине, как в галерее', switch: 'Взмах: слайды расходятся и меняются местами',
-  doors: 'Двери: слайд распахивается створками, за ним — новый', fall: 'Падение: слайд опрокидывается назад, под ним — новый',
+  doors: 'Двери: слайд распахивается створками, открывая следующий', fall: 'Падение: слайд опрокидывается назад, открывая следующий',
 };
 const trTile = ([v, l]: readonly [string, string]) =>
   `<button type="button" class="st-atile" data-cmd="tr.set.${v || 'default'}" title="${esc(TR_HINT[v] ?? l)}" aria-label="${esc(l)}"><i class="st-trv" data-v="${v || 'default'}"><b></b><b></b></i></button>`;
@@ -107,7 +107,7 @@ export function animTabHtml(): string {
 export function animPanelHtml(): string {
   return `<div class="st-rpanel" data-panel="anim" hidden>
   ${group('Слайд', btn('show.preview', 'play', 'Просмотр', { big: true, title: 'Проиграть анимацию слайда' })
-    + btn('anim.repeat', 'cycle', 'Повторять', { big: true, toggle: true, title: 'При показе появления слайда идут по кругу, пока его не перелистнут; автопоказ здесь ждёт «Далее»' }))}
+    + btn('anim.repeat', 'cycle', 'Повторять', { big: true, toggle: true, title: 'При показе появления слайда повторяются по кругу до перехода к следующему слайду; автопоказ здесь ждёт «Далее»' }))}
   ${group('Переход к слайду', `<div class="st-bdpick st-trpick">${railNav().join(`<div class="st-agallery st-fxgal st-trgal">${TRANSITIONS.map(trTile).join('')}</div>`)}</div>`
     + `<div class="st-rstack">${btn('tr.speed', 'reset', 'Длительность', { menu: true, title: 'Сколько длится переход' })}${btn('tr.dir', 'move', 'Направление', { menu: true, title: 'Откуда идёт переход' })}${btn('tr.all', 'layers', 'Ко всем слайдам', { title: 'Такой же переход у всех слайдов' })}</div>`, 'st-tr-label')}
   ${group('Анимация объекта', `<div class="st-bdpick st-fxpick">${railNav().join(`<div class="st-agallery st-fxgal">${EFFECTS.map(fxTile).join('')}</div>`)}</div>`

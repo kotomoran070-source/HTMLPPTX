@@ -972,7 +972,7 @@ export async function convertPptx(data: Buffer | Uint8Array, fileName = 'present
           const xfrm = kid(spPr, 'xfrm') ?? [...chain].reverse().map((c) => one(c, 'spPr', 'xfrm')).find(Boolean) ?? null;
           const box = at(xfrm);
           if (box && offSlide(box)) continue;
-          if (find(el, 'videoFile') || find(el, 'audioFile') || find(el, 'media')) warn('Видео и звук не переносятся — на их месте обложка; добавьте файл в студии');
+          if (find(el, 'videoFile') || find(el, 'audioFile') || find(el, 'media')) warn('Видео и звук не переносятся: вместо них вставлены обложки. Добавьте файлы в студии');
           const blipFill = kid(el, 'blipFill');
           const target = pkg.rel(part, attr(kid(blipFill, 'blip'), 'r:embed'));
           if (!box || !target) continue;

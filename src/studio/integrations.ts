@@ -176,9 +176,9 @@ export const revertAgent = (h: IntegrationsHost, e: JournalEntry) => revertEntri
  * (→ «Файл → Интеграции → Агенты»), меню «Скрипты» и «Журнал правок». Группа ужата — вместо плашки кнопка «Агенты»
  */
 export function integrationsRibbon(rb: (cmd: string, ic: string, label: string, o?: { big?: boolean; menu?: boolean; title?: string }) => string): string {
-  return rb('int.agents', 'agent', 'Агенты', { big: true, title: 'Агенты по MCP — Claude, ChatGPT и другие: кто подключён, что им можно, как подключить' })
+  return rb('int.agents', 'agent', 'Агенты', { big: true, title: 'Агенты по MCP — Claude, ChatGPT и другие: подключения, разрешения и настройка' })
       .replace('class="st-rb big"', 'class="st-rb big st-int-big"')
-    + `<button type="button" class="st-int-mini" id="st-int-mini" data-cmd="int.agents" data-pal="skip" title="Агенты: кто на связи, что им можно, как подключить — «Файл → Интеграции»">`
+    + `<button type="button" class="st-int-mini" id="st-int-mini" data-cmd="int.agents" data-pal="skip" title="Агенты: подключения, разрешения и настройка — «Файл → Интеграции»">`
     + `<span class="st-int-av" id="st-int-av">${icon('agent')}</span><span class="st-int-t"><b id="st-int-name">Агентов пока нет</b><small id="st-int-sub">Подключить Claude или другой →</small></span></button>`
     + `<div class="st-rstack">${rb('int.scripts', 'script', 'Скрипты', { menu: true, title: 'Свои действия одним файлом: запустить, все скрипты' })}`
     + `${rb('int.log', 'journal', 'Журнал правок', { title: 'Что поменяли агенты и скрипты: было → стало' })}</div>`;

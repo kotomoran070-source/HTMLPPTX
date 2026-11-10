@@ -939,7 +939,7 @@ test('код: ошибка — чертой на строке и по-русск
   // Опечатка в типе блока — предупреждение с подсказкой
   await code.fill(yaml.replace('type: text', 'type: txet'));
   await expect(page.locator('.cm-lintRange-warning')).toHaveCount(1);
-  await expect(status).toContainText('Нет блока «txet» — может, «text»?');
+  await expect(status).toContainText('Блок «txet» не найден — возможно, имелся в виду «text»');
   await code.fill(yaml);
   await expect(page.locator('.cm-lintRange')).toHaveCount(0);
 
@@ -1125,7 +1125,7 @@ test('шрифт, который автор не разрешил встраив
   const errors = watchErrors(page);
   const kit = path.resolve('src/fonts/Manrope.woff2');
   // Сервер: WOFF2 («только просмотр и печать», запрет) — ни в презентацию, ни в общую библиотеку; свободный — можно
-  for (const [fsType, why] of [[4, 'только для просмотра и печати'], [2, 'запретил его встраивать']] as const) {
+  for (const [fsType, why] of [[4, 'только для просмотра и печати'], [2, 'запрещает встраивание']] as const) {
     const bytes = [...kitWoff2(kit, fsType)];
     const a = await api(page, 'asset?deck=tpl&name=Restricted.woff2', bytes);
     expect(a.status).toBe(400);
@@ -1144,7 +1144,7 @@ test('шрифт, который автор не разрешил встраив
     dt.items.add(new File([new Uint8Array(bytes)], 'Locked.ttf', { type: 'font/ttf' }));
     for (const type of ['dragenter', 'dragover', 'drop']) el.dispatchEvent(new DragEvent(type, { dataTransfer: dt, bubbles: true, cancelable: true }));
   }, [...sfnt(2)]);
-  await expect(page.locator('#ed-toast.err')).toContainText('запретил его встраивать');
+  await expect(page.locator('#ed-toast.err')).toContainText('запрещает встраивание');
   expect(readDeck('tpl')).not.toContain('Locked');
   expect(errors.filter((e) => !e.includes('http 400'))).toEqual([]);
 });

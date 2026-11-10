@@ -34,7 +34,7 @@ export function parseCube(text: string): Lut {
     if (v.length >= 3 && v.slice(0, 3).every(Number.isFinite)) rows.push(v[0], v[1], v[2]);
   }
   if (!(size >= 2 && size <= 128)) throw new Error('в файле нет LUT_3D_SIZE');
-  if (rows.length !== size * size * size * 3) throw new Error(`ожидалось ${size ** 3} строк цвета, а их ${rows.length / 3}`);
+  if (rows.length !== size * size * size * 3) throw new Error(`ожидалось ${size ** 3} строк цвета, найдено ${rows.length / 3}`);
   const data = new Float32Array(size * size * size * 4);
   for (let i = 0, j = 0; i < rows.length; i += 3, j += 4) {
     data[j] = rows[i];

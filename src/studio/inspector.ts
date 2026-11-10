@@ -365,7 +365,7 @@ export class Inspector {
 <div class="st-p-col">${cmdBtn('obj.free', 'move', 'Извлечь из группы', 'primary')}${cmdBtn('obj.parent', 'up', 'Выделить группу')}</div>`)
           + sec('more', 'Дополнительно', formHtml([STYLE_FIELD], deck, sel.block)) + actions([['obj.del', 'trash', 'Удалить из группы', 'danger']]);
       }
-      return head + contentSec + fx + sec('layout', 'Раскладка', `<p class="st-p-note">Чтобы двигать блок и менять размер, сделайте его свободным.</p>
+      return head + contentSec + fx + sec('layout', 'Раскладка', `<p class="st-p-note">Перемещение и изменение размера доступны для свободных блоков.</p>
 <div class="st-p-col">${cmdBtn('obj.free', 'move', 'Сделать свободным', 'primary')}${sel.hasParent ? cmdBtn('obj.parent', 'up', 'Выделить внешний блок') : ''}</div>`)
         + extra + actions([['obj.ungroup', 'ungroup', 'Разгруппировать'], ['obj.del', 'trash', 'Удалить блок', 'danger']]);
     }

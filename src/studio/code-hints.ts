@@ -37,7 +37,7 @@ const YAML_RU: [RegExp, string][] = [
   [/must be sufficiently indented and end with a ([\]}])/, 'Не закрыта скобка $1'],
   [/Map keys must be unique/, 'Это поле уже есть выше'],
   [/Tabs are not allowed/, 'Отступ табуляцией — нужны пробелы'],
-  [/Plain value cannot start with reserved character (\S)/, 'Значение не может начинаться с «$1» — возьмите его в кавычки'],
+  [/Plain value cannot start with reserved character (\S)/, 'Значение не может начинаться с «$1» — заключите значение в кавычки'],
 ];
 const YAML_CODE_RU: Record<string, string> = {
   BAD_INDENT: 'Неверный отступ',
@@ -134,7 +134,7 @@ export function readSlideYaml(text: string, doc: Text): YamlRead {
       const ownerKey = isPair(owner) && isScalar(owner.key) ? owner.key.value : '';
       if (!isMap(map) || !['free', 'body', 'items'].includes(String(ownerKey))) return;
       const n = near(v, blocks);
-      problems.push({ ...span(doc, from, to), severity: 'warning', message: `Нет блока «${v}»${n ? ` — может, «${n}»?` : ''}: на слайде его не будет` });
+      problems.push({ ...span(doc, from, to), severity: 'warning', message: `Блок «${v}» не найден${n ? ` — возможно, имелся в виду «${n}»` : ''}; на слайде он не отобразится` });
     },
   });
   return { data: parsed.toJS(), problems };

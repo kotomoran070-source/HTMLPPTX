@@ -27,7 +27,7 @@ const ABOUT: Partial<Record<Family, string>> = {
   bsd: 'Свободная лицензия: можно использовать, менять и распространять, сохраняя упоминание авторов и этот текст.',
   apache: 'Свободная лицензия: можно использовать, менять и распространять, сохраняя этот текст и уведомления авторов; авторы дают и право на свои патенты.',
   isc: 'Свободная лицензия, по сути как MIT: можно использовать, менять и распространять, сохраняя упоминание авторов.',
-  lgpl: 'Библиотека работает в программе отдельным файлом и в экспортированные презентации не попадает: её можно заменить своей сборкой.',
+  lgpl: 'Библиотека работает в программе отдельным файлом и не входит в экспортированные презентации; допускается замена собственной сборкой.',
   ofl: 'Шрифты можно встраивать в презентации и распространять вместе с ними; продавать сами шрифты отдельно нельзя.',
 };
 const WHERE: Record<string, string> = { srv: 'Сервер программы', pg: 'Студия и показ' };
@@ -124,7 +124,7 @@ export function mountLicenses(el: HTMLElement, data: LicensesData, st: LicensesS
         <div><a class="lc-btn" href="${esc(e.link)}" target="_blank">${icon('link')}<span>Открыть лицензии Chromium</span></a></div>`
       : `${e.fonts?.length ? `<div class="lc-fonts">${e.fonts.map((f) => `<span>${esc(f)}</span>`).join('')}</div>` : ''}
         ${ABOUT[e.f] ? `<p class="lc-about">${ABOUT[e.f]}</p>` : ''}
-        ${e.text ? `<pre class="lc-text">${esc(e.text)}</pre>` : '<p class="lc-about lc-none">Текст лицензии в пакете не найден — только её название.</p>'}`;
+        ${e.text ? `<pre class="lc-text">${esc(e.text)}</pre>` : '<p class="lc-about lc-none">В пакете указано только название лицензии, полный текст отсутствует.</p>'}`;
     pane.innerHTML = `<article class="lc-det">
       <div class="lc-doc">
         <div class="lc-back-row"><button class="lc-btn lc-back" type="button" data-back>${icon('prev')}<span>Все компоненты</span></button></div>

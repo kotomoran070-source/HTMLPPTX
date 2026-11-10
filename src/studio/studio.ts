@@ -817,6 +817,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     ['clean', 'play', 'HTML для показа', 'Один файл для просмотра в браузере'],
     ['edit', 'pencil', 'HTML с правкой', 'Файл, в котором можно править текст'],
     ['pptx', 'layers', 'PowerPoint', 'PPTX: тексты, фигуры и таблицы правятся в PowerPoint'],
+    ['pptx2007', 'layers', 'PowerPoint 2007', 'Для PowerPoint 2007 и 2010: формулы — картинками'],
     ['pdf', 'notes', 'PDF', 'Один слайд на странице'],
   ];
   /** Качество файла: запоминается для следующих экспортов */
@@ -836,6 +837,9 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   let same = true;
   try { same = localStorage.getItem(SAME_KEY) !== '0'; } catch { /* нет доступа */ }
   let exporting = false;
+  /** Имя файла экспорта — как у папки презентации (и у yarn build): латиница открывается везде; PDF — по названию */
+  const exportName = (m: string) => (m === 'pptx' ? `${deckKey}.pptx` : m === 'pptx2007' ? `${deckKey}-2007.pptx`
+    : m === 'pdf' ? `${(deck.title || deckKey).replace(/[\\/:*?"<>|]/g, '')}.pdf` : `${deckKey}${m === 'clean' ? '' : '-edit'}.html`);
   const sizeText = (n: number) => (n >= 1048576 ? `${(n / 1048576).toFixed(1).replace('.', ',')} МБ` : `${Math.max(1, Math.round(n / 1024))} КБ`);
   function download(blob: Blob, name: string): void {
     const a = document.createElement('a');
@@ -873,12 +877,13 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     }
     exporting = true;
     ed.toast('Подготовка файла…', 60000);
-    if (mode === 'pptx') {
+    if (mode === 'pptx' || mode === 'pptx2007') {
       try {
         const { exportPptx } = await import('./pptx');
-        const blob = await exportPptx(deck, (i, n) => ed.toast(i < n ? `PowerPoint: слайд ${i + 1} из ${n}…` : 'PowerPoint: сохранение…', 60000), quality);
-        download(blob, `${deckKey}.pptx`);
-        ed.toast(`Файл готов: ${deckKey}.pptx, ${sizeText(blob.size)}`, 3000);
+        const blob = await exportPptx(deck, (i, n) => ed.toast(i < n ? `PowerPoint: слайд ${i + 1} из ${n}…` : 'PowerPoint: сохранение…', 60000), quality, mode === 'pptx2007');
+        const name = exportName(mode);
+        download(blob, name);
+        ed.toast(`Файл готов: ${name}, ${sizeText(blob.size)}`, 3000);
       } catch (e) {
         ed.toast(`Экспорт не удался: ${(e as Error).message}`, 6000, true);
       } finally {
@@ -2000,7 +2005,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       setQuality: (q: Quality) => { quality = q; try { localStorage.setItem(QUALITY_KEY, q); } catch { /* нет доступа */ } },
       same: () => same,
       setSame: (v: boolean) => { same = v; try { localStorage.setItem(SAME_KEY, v ? '1' : '0'); } catch { /* нет доступа */ } },
-      fileName: (m: string) => (m === 'pptx' ? `${deckKey}.pptx` : m === 'pdf' ? `${(deck.title || deckKey).replace(/[\\/:*?"<>|]/g, '')}.pdf` : `${deckKey}${m === 'clean' ? '' : '-edit'}.html`),
+      fileName: exportName,
       run: (m: string) => void runExport(m),
     },
     ribbon: { mount: (el) => ribbonSetup.mount(el) },

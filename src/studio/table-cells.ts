@@ -188,7 +188,7 @@ function numberOf(v: unknown): number | null {
  * вместе со строками. С объединёнными ячейками в строках — нельзя (ошибка)
  */
 export function sortRows(t: TableData, c: number, desc: boolean): string | null {
-  if (mergesOf(t).some(([r]) => r >= 0)) return 'Сначала разделите объединённые ячейки — с ними строки не переставить';
+  if (mergesOf(t).some(([r]) => r >= 0)) return 'Строки с объединёнными ячейками нельзя переставить. Сначала разделите ячейки';
   const n = t.rows.length - (t.total && t.rows.length > 1 ? 1 : 0);
   if (n < 2) return null;
   const idx = Array.from({ length: n }, (_, k) => k);

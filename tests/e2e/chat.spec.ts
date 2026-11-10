@@ -141,7 +141,7 @@ test('«Стоп» (Esc), ключ отозвали — «Подключить �
   await chat.locator('.ac-ta').fill('Что на картинке?');
   await chat.locator('.ac-ta').press('Enter');
   await expect(chat.locator('.ac-att figcaption')).toContainText('скрин.png');
-  await expect(chat.locator('.ac-err')).toContainText('Ключ Claude больше не подходит');
+  await expect(chat.locator('.ac-err')).toContainText('Ключ Claude недействителен');
   expect(JSON.stringify(mock.requests[0].messages.at(-1))).toContain(PNG);
   await expect(chat.locator('[data-a="rekey"]')).toBeVisible();
 

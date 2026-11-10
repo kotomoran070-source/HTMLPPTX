@@ -69,7 +69,7 @@ async function remove(it: Item, thumb: HTMLElement | undefined, done: () => void
   box.innerHTML = `<div class="imp pk-confirm" role="alertdialog" aria-modal="true" aria-labelledby="del-h" aria-describedby="del-d">
     <div class="pk-confirm-head"><span class="pk-confirm-icon">${icon('trash')}</span><h2 id="del-h">Удалить презентацию?</h2></div>
     <div class="pk-confirm-deck"><div class="pk-confirm-thumb"></div><div><b>${esc(it.title)}</b><span>${metaLine(it)}</span></div></div>
-    <p class="pk-confirm-note" id="del-d">Презентация переместится в корзину — папку «.trash» в «${esc(folderName())}». Передумаете — перенесите её папку обратно.</p>
+    <p class="pk-confirm-note" id="del-d">Презентация переместится в корзину — папку «.trash» в «${esc(folderName())}». Чтобы восстановить презентацию, верните её папку из корзины на прежнее место.</p>
     <div class="imp-body"></div>
     <div class="imp-actions"><button type="button" class="btn pk-neutral" data-a="cancel">Отмена</button><button type="button" class="btn pk-danger" data-a="ok">${icon('trash')}Удалить</button></div>
   </div>`;

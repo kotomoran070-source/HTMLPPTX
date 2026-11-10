@@ -609,7 +609,7 @@ export class BlockEditor {
       const path = s.free;
       const c = getAt(this.host.deck(), path) as Record<string, unknown>;
       const keys = (['start', 'end'] as const).filter((k, n) => !c[n ? 'to' : 'from'] && Array.isArray(c[k]));
-      if (!keys.length) { this.host.toast('Линия прицеплена к объектам: тяните её концы', 2200); return; }
+      if (!keys.length) { this.host.toast('Линия привязана к объектам — перетаскивайте концы линии', 2200); return; }
       this.host.commit((d) => keys.forEach((k) => {
         const pt = getAt(d, [...path, k]) as number[];
         setAt(d, [...path, k], [Number(pt[0]) + dx, Number(pt[1]) + dy]);
@@ -735,7 +735,7 @@ export class BlockEditor {
       if (moved || Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < 4) return;
       moved = true;
       this.dragging = true;
-      this.host.toast('Линия прицеплена к объектам: тяните её концы', 2200);
+      this.host.toast('Линия привязана к объектам — перетаскивайте концы линии', 2200);
     };
     const up = () => {
       removeEventListener('pointermove', move);

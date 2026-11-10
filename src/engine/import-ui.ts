@@ -174,7 +174,7 @@ function summary(r: ImportResult): string {
   if (r.mode === 'create') {
     const from = r.source === 'design' ? ' из Claude Design' : r.source === 'html' ? ' из HTML' : r.source === 'live' ? ', живыми слайдами' : '';
     return `<p>Будет создана новая презентация${from}: ${slidesN(r.slides)}.</p>`
-      + (r.source === 'design' ? '<p class="mu">Элементы слайдов станут свободными объектами: их можно двигать и менять.</p>' : '')
+      + (r.source === 'design' ? '<p class="mu">Элементы слайдов станут свободными объектами, которые можно перемещать и изменять.</p>' : '')
       + (files ? list('Картинки и файлы', [files]) : '')
       + (r.theme ? themeHtml(r.theme) : '')
       + warningsHtml(r.warnings);
@@ -226,7 +226,7 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
   addEventListener('dragenter', (e) => {
     if (!draggingFile(e) || busy) return;
     depth++;
-    zoneText.textContent = dragKind(e) === 'pptx' ? 'Отпустите файл PowerPoint, чтобы сделать из него презентацию' : 'Отпустите HTML-файл, чтобы импортировать презентацию';
+    zoneText.textContent = dragKind(e) === 'pptx' ? 'Отпустите файл, чтобы импортировать презентацию PowerPoint' : 'Отпустите HTML-файл, чтобы импортировать презентацию';
     zone.classList.add('on');
   });
   addEventListener('dragleave', (e) => {
@@ -331,7 +331,7 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
           : r.source === 'live'
             ? ''
             : snapped
-              ? '<p class="mu">Слайды сохранены в том виде, как их отрисовали скрипты файла.</p>'
+              ? '<p class="mu">Слайды сохранены в том виде, который сформировали скрипты файла.</p>'
               : '');
         if (nameRow.hidden) {
           nameRow.hidden = false;
@@ -536,7 +536,7 @@ export async function bindThemeDialog(deck: string, beforeWrite?: () => Promise<
   try {
     const r = await call(true);
     body.innerHTML = r.changed
-      ? '<p>Цвета, совпадающие с цветами темы, будут привязаны к ней.</p>'
+      ? '<p>Цвета, совпадающие с цветами темы, будут привязаны к теме.</p>'
         + themeHtml(r.theme) + '<p class="mu">Предыдущая версия сохранится в папке .backup.</p>'
       : '<p>Цвета уже привязаны к теме.</p>' + (Object.keys(r.theme.kept).length ? themeHtml(r.theme) : '');
     ok.disabled = !r.changed;

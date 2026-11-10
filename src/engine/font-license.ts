@@ -24,13 +24,13 @@ const UNKNOWN: FontRights = { ok: null, kind: 'unknown' };
 /** Права по значению fsType (спецификация OpenType, таблица OS/2) */
 export function rightsOf(fsType: number): FontRights {
   // Бит 9: встраивать можно только растровые копии — контуры, которые нужны странице, нельзя
-  if (fsType & 0x0200) return { ok: false, kind: 'bitmap', reason: 'автор шрифта разрешил встраивать только его растровые копии' };
+  if (fsType & 0x0200) return { ok: false, kind: 'bitmap', reason: 'лицензия шрифта разрешает встраивать только растровые копии' };
   const p = fsType & 0x000f;
   // Несколько битов сразу — действует самый свободный
   if (p === 0) return { ok: true, kind: 'installable' };
   if (p & 0x0008) return { ok: true, kind: 'editable' };
-  if (p & 0x0004) return { ok: false, kind: 'preview', reason: 'автор шрифта разрешил встраивать его только для просмотра и печати, а презентацию можно править' };
-  return { ok: false, kind: 'restricted', reason: 'автор шрифта запретил его встраивать' };
+  if (p & 0x0004) return { ok: false, kind: 'preview', reason: 'лицензия шрифта разрешает встраивание только для просмотра и печати, а презентация остаётся редактируемой' };
+  return { ok: false, kind: 'restricted', reason: 'лицензия шрифта запрещает встраивание' };
 }
 
 const u16 = (d: Uint8Array, at: number) => (d[at] << 8) | d[at + 1];

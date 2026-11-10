@@ -244,7 +244,7 @@ function connectHtml(info: Info | null): string {
   const cs = c.auto ? state.clients?.find((x) => x.id === c.id) : undefined;
   const steps = !cs ? ['Скопируйте — путь к Slideria на этом компьютере уже в строке', c.step]
     : cs.installed || cs.connected ? ['Нажмите «Подключить»', c.auto!.after]
-      : [`Установите ${c.auto!.app ?? c.name} и откройте его один раз`, 'Вернитесь сюда и нажмите «Подключить»'];
+      : [`Установите ${c.auto!.app ?? c.name} и запустите хотя бы один раз`, 'Вернитесь сюда и нажмите «Подключить»'];
   return `<div class="ig-clients" role="tablist" aria-label="Агент">${CLIENTS.map((x) => `<button type="button" class="ig-client" role="tab" data-client="${x.id}" aria-selected="${x.id === c.id}"><span class="ig-mono" style="background:${x.bg}">${esc(x.mono)}</span>${esc(x.name)}${state.clients?.find((s) => s.id === x.id)?.connected ? `<i class="ig-on" title="Подключено"></i>` : ''}</button>`).join('')}</div>
     ${cs ? linkHtml(c, cs) : ''}
     ${cs ? '<h3 class="fp-k ig-or">Или вручную</h3>' : ''}
@@ -269,8 +269,8 @@ function linkHtml(c: Client, cs: ClientState): string {
   const [cls, ic, title, sub, btn] = cs.connected
     ? ['ok', 'check', `Slideria подключена к ${name}`, c.auto!.after, `<button type="button" class="fp-btn" data-link="off"${busy ? ' disabled' : ''}>${busy ? 'Отключение…' : 'Отключить'}</button>`]
     : cs.installed
-      ? ['', 'plug', `${name} есть на этом компьютере`, 'Slideria пропишется в его настройках — с подпиской ключ API не нужен', `<button type="button" class="fp-btn go" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Подключение…' : `Подключить к ${esc(name)}`}</button>`]
-      : ['no', 'search', `${app} не найден на этом компьютере`, 'Установите и откройте его один раз — или подключите вручную ниже', `<a class="fp-btn" href="${c.auto!.get}" target="_blank" rel="noopener">Скачать ${esc(app)}</a>`];
+      ? ['', 'plug', `${name} есть на этом компьютере`, 'Slideria будет добавлена в настройки приложения; при наличии подписки ключ API не нужен', `<button type="button" class="fp-btn go" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Подключение…' : `Подключить к ${esc(name)}`}</button>`]
+      : ['no', 'search', `${app} не найден на этом компьютере`, 'Установите приложение и запустите хотя бы один раз — или подключите вручную ниже', `<a class="fp-btn" href="${c.auto!.get}" target="_blank" rel="noopener">Скачать ${esc(app)}</a>`];
   return `<div class="ig-link ${cls}" aria-live="polite"><span class="ig-link-i">${icon(ic)}</span><div><b>${esc(title)}</b><span>${esc(sub)}</span>${err ? `<span class="ig-link-err" role="alert">${esc(err)}</span>` : ''}</div>${btn}</div>`;
 }
 
@@ -372,11 +372,11 @@ const kind = (ic: string, n: string, p: string, eg: string) => `<div class="fp-c
 function pluginsHtml(): string {
   return `<section class="fp-card ig-hero"><span class="ig-hero-i">${icon('plug')}</span><div><h3>Плагины — следующий шаг</h3><p>Как скрипт, но пакетом: свои блоки на слайдах, кнопки на ленте и форматы. Установка — из папки и каталога, с разрешениями, как у расширений браузера. Правят теми же операциями, что агенты: каждая правка видна в журнале и отменяется.</p></div></section>
     <div class="ig-kinds">${kind('grid', 'Свой блок', 'Новый вид объекта или слайда: со своими полями в «Свойствах», в PowerPoint и PDF.', 'карта офисов, таймлайн из задач')}${kind('script', 'Команда', 'Кнопка на ленте или в Ctrl+K: действие над презентацией операциями правки.', '«Проверить фирменный стиль»')}${kind('cycle', 'Импорт и экспорт', 'Свой формат на входе или выходе: из таблицы, из базы знаний, в свою систему.', 'слайды из таблицы')}</div>
-    <div class="ig-callout">${icon('agent')}<span>Плагин со своим MCP-сервером подключается как агент — в «Агенты», а его команды появятся здесь.</span></div>`;
+    <div class="ig-callout">${icon('agent')}<span>Плагин с собственным MCP-сервером подключается как агент в разделе «Агенты», а команды плагина появятся здесь.</span></div>`;
 }
 function connectorsHtml(): string {
   return `<section class="fp-card ig-hero"><span class="ig-hero-i">${icon('cloud')}</span><div><h3>Коннекторы — вместе с облаком</h3><p>Данные из других сервисов прямо на слайдах: вход один раз, обновление по кнопке или перед показом, а в экспорт — снимок на момент сохранения.</p></div></section>
-    <div class="ig-kinds">${kind('database', 'Таблицы и базы', 'Цифры для графиков и таблиц — из таблицы или базы, всегда свежие.', 'выручка по месяцам')}${kind('users', 'Рабочие сервисы', 'Задачи, сделки, люди — карточками и списками на слайде.', 'статус проекта на планёрку')}${kind('link', 'Через агента', 'Агент по MCP умеет это уже сейчас: возьмёт данные и поправит слайды. Коннекторы сделают это без него.', '«возьми цифры из отчёта»')}</div>`;
+    <div class="ig-kinds">${kind('database', 'Таблицы и базы', 'Цифры для графиков и таблиц — из таблицы или базы, всегда свежие.', 'выручка по месяцам')}${kind('users', 'Рабочие сервисы', 'Задачи, сделки, люди — карточками и списками на слайде.', 'статус проекта на планёрку')}${kind('link', 'Через агента', 'Агент по MCP умеет это уже сейчас: возьмёт данные и поправит слайды. Коннекторы будут делать это без участия агента.', '«возьми цифры из отчёта»')}</div>`;
 }
 
 // ---------------- действия ----------------

@@ -262,7 +262,7 @@ export function createIntegrations(o: IntegrationsOptions) {
     const m = /^(builtin|user):(.+)$/.exec(id ?? '');
     if (!m || !SCRIPT_FILE.test(m[2])) throw new Error('Нет такого скрипта');
     const file = path.join(m[1] === 'builtin' ? builtinDir : scriptsDir, m[2]);
-    if (!fs.existsSync(file)) throw new Error(`Скрипт «${m[2]}» не найден — его удалили из папки?`);
+    if (!fs.existsSync(file)) throw new Error(`Скрипт «${m[2]}» не найден в папке скриптов`);
     const code = fs.readFileSync(file, 'utf8');
     return { info: parseScript(code, id, m[1] === 'builtin', m[2]), code };
   }

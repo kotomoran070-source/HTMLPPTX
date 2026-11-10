@@ -182,7 +182,7 @@ export class ImageEditor {
     q('dark').classList.toggle('on', hasDark);
     q('dark').title = hasDark
       ? 'Заменить вариант для тёмной темы'
-      : `Своя ${s.kind === 'logo' ? 'версия логотипа' : 'картинка'} для тёмной темы. Без неё в обеих темах — эта же`;
+      : `${s.kind === 'logo' ? 'Отдельная версия логотипа' : 'Отдельная картинка'} для тёмной темы. Если не задана, в обеих темах используется эта`;
     q('undark').hidden = !hasDark;
     q('remove').title = s.kind === 'logo' ? 'Убрать логотип со всех слайдов (Delete)' : 'Убрать картинку (Delete)';
     const zoom = this.bar.querySelector<HTMLInputElement>('[data-i="zoom"]')!;

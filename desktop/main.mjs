@@ -160,7 +160,7 @@ function claudeKey() {
       try { return ready() ? safeStorage.decryptString(fs.readFileSync(file)) || null : null; } catch { return null; }
     },
     set(key) {
-      if (!ready()) throw new Error('Система не даёт зашифровать ключ — сохранить его нельзя');
+      if (!ready()) throw new Error('Не удалось зашифровать ключ средствами системы, поэтому ключ не сохранён');
       fs.mkdirSync(DATA, { recursive: true });
       fs.writeFileSync(file, safeStorage.encryptString(key));
     },

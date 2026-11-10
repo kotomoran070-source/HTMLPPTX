@@ -124,6 +124,32 @@ test('PowerPoint: файл PPTX со всеми слайдами и заметк
   expect(xml).not.toMatch(/srgbClr val="01[7-9A-F][0-9A-F]{3}"/);
 });
 
+test('PowerPoint 2007: формулы картинками, без расширений новых версий; обычный PPTX — с уравнениями Office', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto('/?deck=math&studio#2');
+  await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
+  fs.mkdirSync(OUT, { recursive: true });
+  const parts = async (kind: 'pptx' | 'pptx2007', name: string) => {
+    const [download] = await Promise.all([page.waitForEvent('download', { timeout: 100_000 }), exportAs(page, kind)]);
+    expect(download.suggestedFilename()).toBe(name);
+    const file = path.join(OUT, name);
+    await download.saveAs(file);
+    await page.keyboard.press('Escape');
+    const zip = await JSZip.loadAsync(fs.readFileSync(file));
+    const xml = Object.keys(zip.files).filter((f) => /\.xml$/.test(f));
+    return { zip, all: (await Promise.all(xml.map((f) => zip.file(f)!.async('string')))).join('\n') };
+  };
+  const now = await parts('pptx', 'math.pptx');
+  expect(now.all).toContain('<a14:m>');
+  const old = await parts('pptx2007', 'math-2007.pptx');
+  // Те же слайды, формулы — картинками с подписью
+  const slides = (z: JSZip) => Object.keys(z.files).filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f)).length;
+  expect(slides(old.zip)).toBe(slides(now.zip));
+  expect(old.all).toMatch(/<p:pic>(?:(?!<\/p:pic>)[\s\S])*descr="Формула"/);
+  // Ничего из PowerPoint 2010 и новее
+  for (const s of ['mc:AlternateContent', '<a14:', '<p14:', '<p15:', '<thm15:', 'extLst>']) expect(old.all).not.toContain(s);
+});
+
 test('PowerPoint обратно: экспорт шаблона импортируется с теми же слайдами и текстами', async ({ page }) => {
   test.setTimeout(120_000);
   // Файл из предыдущего теста; если его запускали отдельно — его нет

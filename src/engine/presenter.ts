@@ -79,12 +79,12 @@ export function startPresenter(deck: Deck, deckKey: string): void {
         <button type="button" class="pd-btn" id="tgrid" title="Все слайды (G)" aria-label="Все слайды">${icon('grid')}</button>
         <button type="button" class="pd-btn" id="bk" aria-pressed="false" title="Чёрный экран у зрителей (B)" aria-label="Чёрный экран">${icon('screen-off')}</button>
         <button type="button" class="pd-btn" id="tauto" aria-pressed="false" title="Автопоказ (A): смена слайдов по времени. Повторно — пауза" aria-label="Автопоказ">${icon('autoplay')}</button>
-        ${new URLSearchParams(location.search).get('remote') ? `<button type="button" class="pd-btn" id="eco" aria-pressed="true" title="Экономный режим: анимация слайда остановлена, касание экрана её возобновляет" aria-label="Экономный режим">${icon('pause')}</button>` : ''}
+        ${new URLSearchParams(location.search).get('remote') ? `<button type="button" class="pd-btn" id="eco" aria-pressed="true" title="Экономный режим: анимация слайда приостановлена. Коснитесь экрана, чтобы продолжить" aria-label="Экономный режим">${icon('pause')}</button>` : ''}
         <span class="pd-mir">
           <button type="button" class="pd-btn pd-more" id="tmir" aria-pressed="true" aria-haspopup="menu" title="Показывать зрителям курсор и 3D (M). Удерживайте — настройки" aria-label="Мышь и 3D у зрителей">${icon('cursor')}</button>
           <span class="pd-menu" id="mirmenu" role="menu" hidden>
             <button type="button" role="menuitemcheckbox" data-mir="all">Мышь и 3D у зрителей<small>наведение, щелчки, поворот моделей, видео</small></button>
-            <button type="button" role="menuitemcheckbox" data-mir="arrow">Показывать курсор<small>без него наведение работает, стрелки не видно (K)</small></button>
+            <button type="button" role="menuitemcheckbox" data-mir="arrow">Показывать курсор<small>стрелка скрыта, наведение работает (K)</small></button>
           </span>
         </span>
         ${new URLSearchParams(location.search).get('remote') ? '' : `<button type="button" class="pd-btn" id="trmt" title="Пульт с телефона (R): QR-код для подключения виден только в окне докладчика" aria-label="Пульт с телефона">${icon('phone')}</button>`}

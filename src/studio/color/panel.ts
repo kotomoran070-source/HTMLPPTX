@@ -243,7 +243,7 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
       lut = parseCube(await (await fetch(g.lut)).text());
       gl.setLut(lut);
     } catch {
-      ed.toast(`LUT «${g.lutName ?? 'файл'}» не найден — коррекция без него`, 3500, true);
+      ed.toast(`LUT «${g.lutName ?? 'файл'}» не найден — коррекция применена без LUT`, 3500, true);
       delete g.lut;
     }
   }
@@ -282,7 +282,7 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
       <div class="cg-pane" data-pane="basic"><div class="cg-quick"><button type="button" class="cg-btn" data-a="auto" title="Подобрать экспозицию, баланс белого и контраст по картинке (A)">${icon('sparkle')}<span>Авто</span></button>
         <div class="cg-power" hidden><b></b><input type="range" min="0" max="100" step="1" data-pow aria-label="Сила образа"><output></output></div></div>${SLIDERS.map(([k, l, min, max, step, cls]) => `<label class="cg-sl${cls ? ` ${cls}` : ''}" data-k="${k}" title="Двойной щелчок — сбросить"><span>${l}</span><input type="range" min="${min}" max="${max}" step="${step}" data-k="${k}"><output></output></label>`).join('')}</div>
       <div class="cg-pane" data-pane="wheels" hidden><div class="cg-wheels">${WHEELS.map(([k, l]) => `<div class="cg-wheel" data-w="${k}"><div class="cg-wc"><canvas width="132" height="132"></canvas><i class="cg-puck"></i></div><b>${l}</b><input type="range" min="-1" max="1" step="0.01" data-m="${k}" title="Яркость: ${l.toLowerCase()}" aria-label="Яркость: ${l.toLowerCase()}"></div>`).join('')}</div><p class="cg-note">Тяните точку к цвету — оттенок в тенях, полутонах или светах. Двойной щелчок — сброс</p></div>
-      <div class="cg-pane" data-pane="curves" hidden><div class="cg-chans">${CHANNELS.map(([k, l, c]) => `<button type="button" data-ch="${k}" style="--c:${c}">${l}</button>`).join('')}</div><canvas class="cg-curve" width="320" height="320"></canvas><p class="cg-note">Щелчок — точка, тяните её. Двойной щелчок по точке — убрать</p></div>
+      <div class="cg-pane" data-pane="curves" hidden><div class="cg-chans">${CHANNELS.map(([k, l, c]) => `<button type="button" data-ch="${k}" style="--c:${c}">${l}</button>`).join('')}</div><canvas class="cg-curve" width="320" height="320"></canvas><p class="cg-note">Щелчок добавляет точку, перетаскивание перемещает её. Двойной щелчок удаляет точку</p></div>
       <div class="cg-pane" data-pane="hsl" hidden><div class="cg-bands">${BANDS.map((b) => `<button type="button" data-b="${b}" title="${BAND_NAMES[b][0]}" style="--c:${BAND_NAMES[b][1]}"><i></i></button>`).join('')}</div>
         <b class="cg-bandname"></b>${['Оттенок', 'Насыщенность', 'Яркость'].map((l, i) => `<label class="cg-sl" title="Двойной щелчок — сбросить"><span>${l}</span><input type="range" min="-100" max="100" step="1" data-h="${i}"><output></output></label>`).join('')}</div>
       <div class="cg-pane" data-pane="lut" hidden><button type="button" class="cg-btn wide" data-a="lut">${icon('upload')}<span>Загрузить .cube</span></button><p class="cg-lutname"></p>
@@ -907,7 +907,7 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
         b[imageKey(b)] = url;
         b.grade = grade;
       }, { rebuild: true });
-      ed.toast('Цвет применён. Исходный файл не изменён — «Сбросить» в панели вернёт его', 3500);
+      ed.toast('Цвет применён. Исходный файл не изменён — кнопка «Сбросить» в панели вернёт исходный вид', 3500);
       close();
     } catch (e) {
       ed.toast(`Не удалось применить цвет: ${(e as Error).message}`, 5000, true);

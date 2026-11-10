@@ -67,7 +67,7 @@ export async function openRemoteDialog(o: RemoteDialog): Promise<void> {
   };
   if (location.protocol === 'file:') {
     return help('Пульт работает через сервер показа',
-      `Запустите показ командой <code>yarn present ${esc(o.deckKey)}</code> — она соберёт презентацию и раздаст её в сети. Откроется показ; нажмите <b>R</b>, и здесь появится QR для телефона.`);
+      `Запустите показ командой <code>yarn present ${esc(o.deckKey)}</code> : презентация будет собрана и станет доступна в локальной сети. В открывшемся показе нажмите <b>R</b> — здесь появится QR-код для телефона.`);
   }
   let info: { urls?: string[]; localOnly?: boolean; app?: boolean; firewall?: boolean };
   try {
@@ -75,7 +75,7 @@ export async function openRemoteDialog(o: RemoteDialog): Promise<void> {
     if (!r.ok) throw new Error(String(r.status));
     info = await r.json();
   } catch {
-    return help('Сервер показа не отвечает', `Запустите показ командой <code>yarn present ${esc(o.deckKey)}</code> и откройте его заново.`);
+    return help('Сервер показа не отвечает', `Запустите показ командой <code>yarn present ${esc(o.deckKey)}</code> и снова откройте окно показа.`);
   }
   if (info.localOnly && info.app) {
     return help('Не удалось открыть доступ для телефона',
@@ -83,13 +83,13 @@ export async function openRemoteDialog(o: RemoteDialog): Promise<void> {
   }
   if (info.localOnly) {
     return help('Сервер виден только этому компьютеру',
-      `Перезапустите его так, чтобы телефон мог подключиться: <code>yarn dev --host</code> или <code>yarn present ${esc(o.deckKey)}</code>.`);
+      `Перезапустите сервер с доступом из локальной сети: <code>yarn dev --host</code> или <code>yarn present ${esc(o.deckKey)}</code>.`);
   }
   const urls = info.urls ?? [];
   if (!urls.length) return help('Компьютер не в сети', 'Подключитесь к Wi-Fi, в котором будет телефон, и нажмите R ещё раз.');
 
   const room = await o.room();
-  if (!room) return help('Окно показа не отвечает', 'Пульт подключается к окну показа: откройте его (или верните на экран) и нажмите кнопку ещё раз.');
+  if (!room) return help('Окно показа не отвечает', 'Для пульта нужно открытое окно показа. Откройте или разверните окно показа и нажмите кнопку ещё раз.');
   // Телефон открывает режим докладчика этого окна показа: живой слайд, заметки, указка, перо
   const next = `${location.pathname}?deck=${encodeURIComponent(o.deckKey)}&view=presenter&main=${encodeURIComponent(o.main)}&remote=${room}`;
   // Код одноразовый: по нему подключается один телефон и получает пропуск, дальше код не действует
@@ -156,7 +156,7 @@ export async function openRemoteDialog(o: RemoteDialog): Promise<void> {
       state = ((await r.json()) as { state?: string }).state ?? 'error';
     } catch { /* сервер не ответил */ }
     line.textContent = state === 'fixed' ? 'Готово: пульт разрешён в локальной сети. Откройте ссылку на телефоне ещё раз.'
-      : state === 'declined' ? 'Разрешение не дано. Без него телефон может не подключиться — нажмите R ещё раз, чтобы повторить.'
+      : state === 'declined' ? 'Разрешение не получено — телефон может не подключиться. Чтобы повторить запрос, нажмите R.'
       : 'Не удалось изменить правила брандмауэра — подробности в меню «Справка» → «Журнал работы».';
   });
   // Телефон на связи — окно остаётся: здесь же видно, кто подключён, и здесь его отключают

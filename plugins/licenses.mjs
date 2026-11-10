@@ -71,7 +71,7 @@ export function readPackage(dir) {
   }
   if (!text && TEMPLATES[license]) {
     const who = (typeof pj.author === 'string' ? pj.author : pj.author?.name) || `the ${pj.name} authors`;
-    text = `${TEMPLATES[license](who.replace(/\s*<[^>]*>|\s*\([^)]*\)/g, ''))}\n(Текст лицензии по стандартному шаблону: в пакете есть только её название и автор.)`;
+    text = `${TEMPLATES[license](who.replace(/\s*<[^>]*>|\s*\([^)]*\)/g, ''))}\n(Текст лицензии составлен по стандартному шаблону: в пакете указаны только название лицензии и автор.)`;
   }
   return { dir, name: pj.name, version: pj.version, license, text };
 }

@@ -341,7 +341,11 @@ export function roman(n: number): string {
   return out;
 }
 
-export async function exportPptx(deck: Deck, progress?: PptxProgress, quality: ExportQuality = 'normal'): Promise<Blob> {
+/**
+ * compat — файл для PowerPoint 2007 и 2010: формулы только картинками (без уравнений Office 2010 в mc:AlternateContent)
+ * и без расширений новых версий (extLst: p14, p15, thm15, цвет ссылок 2018)
+ */
+export async function exportPptx(deck: Deck, progress?: PptxProgress, quality: ExportQuality = 'normal', compat = false): Promise<Blob> {
   QUALITY = quality;
   MATHS = new Map();
   MARKS = new GradientMarks();
@@ -382,7 +386,7 @@ export async function exportPptx(deck: Deck, progress?: PptxProgress, quality: E
       if (deck.slides[i].hidden === true) slide.hidden = true;
     }
     progress?.(deck.slides.length, deck.slides.length);
-    return await repair(await pptx.write({ outputType: 'blob' }) as Blob);
+    return await repair(await pptx.write({ outputType: 'blob' }) as Blob, compat);
   } finally {
     host.remove();
     setSlidesLookFor(own);
@@ -1412,7 +1416,10 @@ function cornerRadius(r: number, w: number, h: number): number {
  *  - список мастеров заметок должен идти сразу за списком мастеров слайдов;
  *  - у абзаца одно свойство абзаца (a:pPr) — первым, а не перед каждым куском текста.
  */
-async function repair(blob: Blob): Promise<Blob> {
+/** Списки расширений новых версий PowerPoint: старые версии их и так пропускают, но в файле для них — ни одного */
+const EXT_LST = /<(p|a):extLst>[\s\S]*?<\/\1:extLst>/g;
+
+async function repair(blob: Blob, compat = false): Promise<Blob> {
   const { default: JSZip } = await import('jszip');
   const zip = await JSZip.loadAsync(blob);
   const pres = zip.file('ppt/presentation.xml');
@@ -1438,14 +1445,14 @@ async function repair(blob: Blob): Promise<Blob> {
       })}</a:p>`;
     });
     // Картинки формул → уравнения Office (картинка остаётся запасной внутри mc:Fallback)
-    const eq = MATHS.size ? fixed.replace(/<p:pic>((?:(?!<\/p:pic>)[\s\S])*)<\/p:pic>/g, (pic, inner: string) => {
+    const eq = MATHS.size && !compat ? fixed.replace(/<p:pic>((?:(?!<\/p:pic>)[\s\S])*)<\/p:pic>/g, (pic, inner: string) => {
       const key = /descr="(slideria-math-\d+)"/.exec(inner)?.[1];
       const m = key ? MATHS.get(key) : undefined;
       const id = /<p:cNvPr id="(\d+)"/.exec(inner)?.[1];
       const xfrm = /<a:xfrm\b[\s\S]*?<\/a:xfrm>/.exec(inner)?.[0];
       if (!m || !id || !xfrm) return pic;
       return equationShape(id, xfrm, m.omml, m.align, pic.replace(`descr="${key}"`, 'descr="Формула"'));
-    }) : fixed;
+    }) : fixed.replace(/descr="slideria-math-\d+"/g, 'descr="Формула"');
     // Цвета-метки → градиенты PowerPoint
     const done = MARKS.swap(adjFix(eq));
     if (done !== x) zip.file(name, done);
@@ -1465,6 +1472,7 @@ async function repair(blob: Blob): Promise<Blob> {
     let data: string | Uint8Array = await f.async(/\.(xml|rels)$/.test(f.name) ? 'string' : 'uint8array');
     // Фон слайда: PowerPoint всегда пишет список эффектов после заливки
     if (typeof data === 'string' && /^ppt\/slides\/slide\d+\.xml$/.test(f.name)) data = data.replace(/<\/p:bgPr>/g, (m) => '<a:effectLst/>' + m).replace(/<a:effectLst\/><a:effectLst\/>/g, '<a:effectLst/>');
+    if (compat && typeof data === 'string' && /\.xml$/.test(f.name)) data = data.replace(EXT_LST, '');
     out.file(f.name, data, { createFolders: false });
   }
   return out.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', compression: 'DEFLATE' });

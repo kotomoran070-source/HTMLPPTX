@@ -455,7 +455,7 @@ export function createAgentChat(o: AgentOptions) {
         return;
       }
       // Ввод инструмента оборвался на пределе длины — не выполнять его
-      if (msg.stop_reason === 'max_tokens') throw new Error('Правка вышла слишком большой для одного ответа — попросите сделать её по частям');
+      if (msg.stop_reason === 'max_tokens') throw new Error('Правка слишком велика для одного ответа — разбейте запрос на части');
       c.api.push({ role: 'assistant', content: msg.content });
       const results: Anthropic.ToolResultBlockParam[] = [];
       for (const u of uses) {
@@ -536,7 +536,7 @@ export type AgentChat = ReturnType<typeof createAgentChat>;
 
 /** Ошибка Claude API → понятный текст и вид (страница по нему предлагает, что делать) */
 function errorOf(e: unknown): { code: 'key' | 'rate' | 'busy' | 'net' | 'other'; message: string } {
-  if (e instanceof Anthropic.AuthenticationError) return { code: 'key', message: 'Ключ Claude больше не подходит — подключите его заново' };
+  if (e instanceof Anthropic.AuthenticationError) return { code: 'key', message: 'Ключ Claude недействителен — укажите новый ключ' };
   if (e instanceof Anthropic.PermissionDeniedError) return { code: 'key', message: 'У ключа нет доступа к этой модели — выберите другую или другой ключ' };
   if (e instanceof Anthropic.RateLimitError) return { code: 'rate', message: 'Слишком много запросов подряд — подождите минуту и повторите' };
   if (e instanceof Anthropic.InternalServerError) return { code: 'busy', message: 'Claude сейчас перегружен — повторите чуть позже' };
