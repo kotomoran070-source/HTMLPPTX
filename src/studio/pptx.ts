@@ -1413,7 +1413,7 @@ function cornerRadius(r: number, w: number, h: number): number {
 /**
  * Поправки к файлу pptxgenjs, без которых PowerPoint для компьютера файл не открывает
  * (просмотрщики и веб-версия прощают):
- *  - список мастеров заметок должен идти сразу за списком мастеров слайдов;
+ *  - список мастеров заметок должен идти сразу за списком мастеров слайдов, а у мастера заметок — своя тема;
  *  - у абзаца одно свойство абзаца (a:pPr) — первым, а не перед каждым куском текста.
  */
 /** Списки расширений новых версий PowerPoint: старые версии их и так пропускают, но в файле для них — ни одного */
@@ -1430,6 +1430,20 @@ async function repair(blob: Blob, compat = false): Promise<Blob> {
       x = x.replace(notes, '').replace('</p:sldMasterIdLst>', `</p:sldMasterIdLst>${notes}`);
       zip.file('ppt/presentation.xml', x);
     }
+  }
+  // У мастера заметок — своя тема, как в файлах самого PowerPoint: с общей темой мастера слайдов
+  // настольный PowerPoint файл не открывает («не может прочитать»), веб-версия прощает
+  let noteTheme = '';
+  const nmRels = 'ppt/notesMasters/_rels/notesMaster1.xml.rels';
+  const nm = await zip.file(nmRels)?.async('string');
+  const used = nm && /Target="\.\.\/theme\/(theme\d+\.xml)"/.exec(nm)?.[1];
+  const masterRels = await zip.file('ppt/slideMasters/_rels/slideMaster1.xml.rels')?.async('string');
+  if (nm && used && masterRels?.includes(`../theme/${used}`) && zip.file(`ppt/theme/${used}`)) {
+    let n = 2;
+    while (zip.file(`ppt/theme/theme${n}.xml`)) n++;
+    zip.file(`ppt/theme/theme${n}.xml`, await zip.file(`ppt/theme/${used}`)!.async('uint8array'));
+    zip.file(nmRels, nm.replace(`../theme/${used}`, `../theme/theme${n}.xml`));
+    noteTheme = `<Override PartName="/ppt/theme/theme${n}.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>`;
   }
   const pPr = /<a:pPr\b[^>]*?(?:\/>|>[\s\S]*?<\/a:pPr>)/g;
   for (const name of Object.keys(zip.files).filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n))) {
@@ -1465,7 +1479,8 @@ async function repair(blob: Blob, compat = false): Promise<Blob> {
   // Типы только для частей, которые есть в файле
   types = types
     .replace(/<Override PartName="\/([^"]+)"[^>]*\/>/g, (m, part: string) => (names.has(part) ? m : ''))
-    .replace('<Default Extension="jpg" ContentType="image/jpg"/>', '<Default Extension="jpg" ContentType="image/jpeg"/>');
+    .replace('<Default Extension="jpg" ContentType="image/jpg"/>', '<Default Extension="jpg" ContentType="image/jpeg"/>')
+    .replace('</Types>', `${noteTheme}</Types>`);
   out.file('[Content_Types].xml', types);
   for (const f of files) {
     if (f.name === '[Content_Types].xml') continue;

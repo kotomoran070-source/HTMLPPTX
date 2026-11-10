@@ -107,6 +107,13 @@ test('PowerPoint: файл PPTX со всеми слайдами и заметк
   expect(pptSlides.length).toBe(slides);
   // Заметки докладчика уходят в PowerPoint
   expect(names.some((f) => /^ppt\/notesSlides\//.test(f))).toBe(true);
+  // У мастера заметок — своя тема: с общей темой мастера слайдов настольный PowerPoint файл не открывает
+  const themeOf = async (rels: string) => /Target="\.\.\/theme\/(theme\d+\.xml)"/.exec(await zip.file(rels)!.async('string'))?.[1];
+  const noteTheme = await themeOf('ppt/notesMasters/_rels/notesMaster1.xml.rels');
+  expect(noteTheme).toBeTruthy();
+  expect(noteTheme).not.toBe(await themeOf('ppt/slideMasters/_rels/slideMaster1.xml.rels'));
+  expect(names).toContain(`ppt/theme/${noteTheme}`);
+  expect(await zip.file('[Content_Types].xml')!.async('string')).toContain(`PartName="/ppt/theme/${noteTheme}"`);
   // Картинки — в форматах любого PowerPoint с 2007-го: WebP шаблона уходит в PNG или JPEG (WebP открывают только новые версии)
   expect(names.filter((f) => /^ppt\/media\/.*\.(webp|avif)$/i.test(f))).toEqual([]);
   // Тексты — текстом, а не картинкой (слайд «Коротко о главном» другие тесты не правят)
