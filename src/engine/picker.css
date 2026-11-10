@@ -217,10 +217,14 @@ html:has(> body.picker-page) { scroll-padding-top: 84px; }
 /* ---------- миниатюры ---------- */
 .pk-thumb { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: var(--alt); }
 .pk-thumb .thumb { width: 100%; border-radius: 0; }
-.pk-ph { position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--surf) 70%, transparent) 50%, transparent 70%) 0 0 / 200% 100%, var(--alt); animation: pk-shimmer 1.4s linear infinite; }
+/* Блик заглушки — сдвигом слоя (transform): идёт на видеокарте, без пересчёта стилей и перерисовки в каждом кадре
+   (сдвиг фона перерисовывал каждую заглушку, даже за краем ленты) */
+.pk-ph { position: absolute; inset: 0; overflow: hidden; background: var(--alt); }
+.pk-ph::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 200%; background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--surf) 70%, transparent) 50%, transparent 70%); animation: pk-shimmer 1.4s linear infinite; will-change: transform; }
+.pk-bad::after { content: none; }
 .pk-bad { animation: none; display: grid; place-items: center; color: #DC2626; font-weight: 600; font-size: 13px; }
 .pk-row .pk-bad { font-size: 0; }
-@keyframes pk-shimmer { to { background-position: -200% 0, 0 0; } }
+@keyframes pk-shimmer { from { transform: translateX(-50%); } to { transform: translateX(50%); } }
 .pk-thumb > .pk-in { animation: pk-in .22s ease-out both; }
 @keyframes pk-in { from { opacity: 0; } }
 

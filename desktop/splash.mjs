@@ -118,31 +118,53 @@ const NOTES = ['Запуск Slideria…', 'Подготовка презент�
 const script = `
 (function(){
   var c=document.querySelector('.c'),bar=document.querySelector('.bar i'),note=document.querySelector('.n');
-  var shown=0,target=.12,next=.3,since=performance.now(),t0=performance.now(),leaving=null;
+  var shown=0,target=.12,next=.3,since=performance.now(),last=performance.now(),started=false,leaving=null;
   var NOTES=${JSON.stringify(NOTES)};
-  requestAnimationFrame(function(){c.classList.add('on')});
-  setTimeout(function(){if(!leaving)c.classList.add('long')},1000);
+  /** Вступление — когда окно уже на экране (desktop/main.mjs зовёт start после показа окна); на всякий случай — само */
+  window.start=function(){
+    if(started)return;
+    started=true;
+    requestAnimationFrame(function(){c.classList.add('on')});
+    setTimeout(function(){if(!leaving)c.classList.add('long')},1000);
+  };
+  setTimeout(window.start,400);
+  /** Полоска догоняет цель по времени, а не по кадрам: одинаково на 60 и на 144 Гц */
   (function frame(now){
+    var dt=Math.min(64,Math.max(0,now-last));last=now;
     var cap=target+(next-target)*.7*(1-Math.exp(-(now-since)/900));
-    shown+=(Math.max(cap,shown)-shown)*.12;
+    shown+=(Math.max(cap,shown)-shown)*(1-Math.exp(-dt/130));
     bar.style.setProperty('--p',shown.toFixed(4));
     if(!leaving)requestAnimationFrame(frame);
-  })(t0);
+  })(last);
   /** Шаг запуска: p — доля пути (0…1), k — номер подписи */
   window.step=function(p,k){if(p>target){target=p;next=Math.min(1,p+.25);since=performance.now()}if(k!=null&&NOTES[k])note.textContent=NOTES[k]};
-  /** Программа готова: веер дораскрывается (не дольше ~0,45 с от появления), слайды разлетаются; ответ — когда ушла */
+  /**
+   * Программа готова: вступление доигрывает, а не обрывается на середине (на быстром компьютере готово раньше, чем
+   * веер раскрылся), — оставшиеся движения ускоряются, но плавно (не больше чем в 2,5 раза); затем слайды разлетаются.
+   * Ответ — когда заставка ушла
+   */
   window.done=function(){
     if(leaving)return leaving;
+    window.start();
     leaving=new Promise(function(resolve){
-      var wait=Math.max(0,460-(performance.now()-t0));
+      var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+      // Движения вступления: конечные, ещё не доигравшие; блик по слайду (::after) — украшение, его не ждём
+      var intro=document.getAnimations().filter(function(a){
+        var t=a.effect&&a.effect.getComputedTiming&&a.effect.getComputedTiming();
+        return t&&t.iterations!==Infinity&&a.playState!=='finished'&&!(a.effect.pseudoElement);
+      });
+      var left=0;
+      intro.forEach(function(a){var t=a.effect.getComputedTiming();left=Math.max(left,(t.endTime||0)-(a.currentTime||0))});
+      var rate=left>320?Math.min(2.5,left/320):1;
+      if(rate>1)intro.forEach(function(a){try{a.updatePlaybackRate(rate)}catch(e){}});
       setTimeout(function(){
         bar.style.setProperty('--p','1');
         var r=c.getBoundingClientRect();
         c.style.setProperty('--rend',Math.ceil(Math.hypot(r.width/2,r.height*.54))+80+'px');
         c.classList.remove('long');
         c.classList.add('out');
-        setTimeout(resolve,matchMedia('(prefers-reduced-motion: reduce)').matches?60:600);
-      },wait);
+        setTimeout(resolve,reduce?60:600);
+      },reduce?0:Math.max(0,left/rate));
     });
     return leaving;
   };

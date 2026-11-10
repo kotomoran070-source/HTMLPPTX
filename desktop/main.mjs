@@ -492,6 +492,10 @@ function createWindow() {
   fit();
   win.on('resize', fit);
   splash.webContents.once('did-finish-load', () => win.show());
+  // Вступление заставки — когда окно уже на экране: первые кадры не уходят на появление окна
+  win.once('show', () => setTimeout(() => {
+    if (!splash.webContents.isDestroyed()) splash.webContents.executeJavaScript('start()').catch(() => {});
+  }, 30));
   void splash.webContents.loadURL(splashPage(dark));
   let gone = false;
   splashSteps.set(win, (p, k) => {
@@ -508,7 +512,8 @@ function createWindow() {
       if (!splash.webContents.isDestroyed()) splash.webContents.close();
     };
     const left = splash.webContents.executeJavaScript('done()').catch(() => {});
-    void Promise.race([left, new Promise((r) => setTimeout(r, 1500))]).then(remove);
+    // Вступление может доигрывать (до ~0,6 с) и уход (0,6 с): слой убирается, когда заставка ушла, — не позже 2,4 с
+    void Promise.race([left, new Promise((r) => setTimeout(r, 2400))]).then(remove);
   };
   win.webContents.ipc.on('slideria:ready', drop);
   // Страница загружена — почти готово; так и не сказала «готова» (сбой до неё) — заставка всё равно уходит
