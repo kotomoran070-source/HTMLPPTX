@@ -266,17 +266,24 @@ slides:
     const free = () => (parse(fs.readFileSync(deckFile('homefx'), 'utf8')) as { slides: { free: Free[] }[] }).slides[0].free;
     await page.goto('/?deck=homefx&studio#1');
     const fx = page.locator('#ed-text [data-t="fx"]');
-    const menu = page.locator('#ed-menu');
-    // Фигура выделена — эффект её тексту
-    await page.locator('#st-canvas .slide.on .shape-t').first().click();
+    const pop = page.locator('.st-fxpop');
+    const shapeText = page.locator('#st-canvas .slide.on .shape-t').first();
+    // Фигура выделена — то же окно вариантов, что у вкладок: все стили по разделам, сверху — эффекты
+    await shapeText.click();
     await page.locator('.st-tabs [data-tab="home"]').click();
     await fx.click();
-    await expect(menu.locator('.edfx-t.look')).toHaveCount(8);
-    await menu.locator('[data-fxk="glow"]').click();
-    await menu.locator('[data-fx]', { hasText: 'Акцент' }).first().click();
+    await expect(pop.locator('[data-fxi]')).toHaveCount(13);
+    await pop.locator('[data-fxv="glow"]').click();
+    // Наведение — примерка на тексте фигуры, уход — как было
+    const glow = pop.locator('[data-fxi]', { hasText: 'Акцент' }).first();
+    await glow.hover();
+    await expect.poll(() => shapeText.evaluate((e) => getComputedStyle(e).textShadow)).not.toBe('none');
+    await page.mouse.move(5, 890);
+    await expect.poll(() => shapeText.evaluate((e) => getComputedStyle(e).textShadow)).toBe('none');
+    await glow.click();
     expect(await waitFile(() => free()[1].styles?.text?.glow === 'accent')).toBe(true);
     expect(free()[0].styles?.text?.glow).toBeUndefined();
-    // Правка текста надписи — эффект всему полю, запись по завершении правки
+    // Правка текста надписи — эффект всему полю (примерка — на нём же), запись по завершении правки
     const title = page.locator('#st-canvas .slide.on [data-edit]').first();
     // По началу слов: середину короткой надписи закрывает ручка рамки выделения
     await title.click({ position: { x: 12, y: 8 } });
@@ -284,9 +291,12 @@ slides:
     await expect(title).toHaveAttribute('contenteditable', /true|plaintext-only/);
     await page.locator('.st-tabs [data-tab="home"]').click();
     await fx.click();
-    await menu.locator('[data-fxk="outline"]').click();
-    await menu.locator('[data-fx]', { hasText: '3 px' }).first().click();
+    await pop.locator('[data-fxv="outline"]').click();
+    await pop.locator('[data-fxi]', { hasText: '3 px' }).first().hover();
     await expect.poll(() => title.evaluate((e) => getComputedStyle(e).webkitTextStrokeWidth)).not.toBe('0px');
+    await pop.locator('[data-fxi]', { hasText: '3 px' }).first().click();
+    // Правка не прервалась окном
+    await expect(title).toHaveAttribute('contenteditable', /true|plaintext-only/);
     await page.keyboard.press('Escape');
     expect(await waitFile(() => free()[0].styles?.text?.outline === 3)).toBe(true);
     // Ctrl+A — готовый стиль всем: свечение у фигуры уходит (стиль — с чистого листа), цвет и начертание — стиля
@@ -295,7 +305,7 @@ slides:
     await page.keyboard.press('Control+a');
     await page.locator('.st-tabs [data-tab="home"]').click();
     await fx.click();
-    await menu.locator('.edfx-t.look[title="Акцент"]').click();
+    await pop.locator('[data-fxi][title="Акцент"]').click();
     expect(await waitFile(() => free().every((b) => b.styles?.text?.color === 'accent' && b.styles?.text?.weight === 700 && !b.styles?.text?.glow && !b.styles?.text?.outline))).toBe(true);
     expect(errors).toEqual([]);
   } finally {

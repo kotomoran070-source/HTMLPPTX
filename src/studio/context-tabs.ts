@@ -1459,6 +1459,47 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       it('dist.h', 'dist-h', 'Равные промежутки по ширине', n < 3), it('dist.v', 'dist-v', 'Равные промежутки по высоте', n < 3),
     ]);
   };
+  /**
+   * «Главная» → «Эффекты текста»: то же окно вариантов, что у вкладок, — разделы «Стили · Тень · Свечение ·
+   * Контур · Плашка» сверху; наведение — примерка на слайде (в правке — на поле), щелчок — записать
+   */
+  ed.textFx = (at, x) => {
+    type View = 'looks' | FxKind;
+    const VIEWS: [View, string][] = [['looks', 'Стили'], ['shadow', 'Тень'], ['glow', 'Свечение'], ['outline', 'Контур'], ['plate', 'Плашка']];
+    let view: View = 'looks';
+    let edits: ((st: TextStyle) => TextStyle)[] = [];
+    const body = () => {
+      const st = x.styles();
+      edits = [];
+      const tile = ([label, edit, on]: [string, (s: TextStyle) => TextStyle, boolean]) => {
+        edits.push(edit);
+        return `<button type="button" class="st-flt${on ? ' on' : ''}" data-fxi="${edits.length - 1}" title="${esc(label)}">${textSampleHtml(edit({ ...st }))}<span>${esc(label)}</span></button>`;
+      };
+      const sections: { title?: string; cls?: string; options: [string, (s: TextStyle) => TextStyle, boolean][] }[] = view === 'looks'
+        ? LOOK_GROUPS.map(([title, ids]) => ({ title, options: ids.map((id) => {
+          const l = TEXT_LOOKS.find((t) => t.id === id)!;
+          return [l.name, (s: TextStyle) => applyLook(s, l), lookOn(st, l)] as [string, (s: TextStyle) => TextStyle, boolean];
+        }) }))
+        : fxSections(view, st);
+      return `<div class="st-seg st-fxseg" role="tablist" aria-label="Эффекты текста">${VIEWS.map(([v, l]) => `<button type="button" role="tab" data-fxv="${v}" aria-selected="${v === view}">${l}</button>`).join('')}</div>`
+        + sections.map((sec) => `${sec.title ? `<h4>${esc(sec.title)}</h4>` : ''}<div class="st-flt-grid${sec.cls ? ` ${sec.cls}` : ''}">${sec.options.map(tile).join('')}</div>`).join('');
+    };
+    const pop = showPopover(at, `<div class="st-flt-pop">${body()}</div>`, (b) => {
+      const v = b.dataset.fxv as View | undefined;
+      if (v) return { keep: true, run: () => { x.tryOn(null); view = v; pop.querySelector('.st-flt-pop')!.innerHTML = body(); } };
+      const i = b.dataset.fxi;
+      if (i === undefined) return null;
+      return { run: () => x.apply(edits[Number(i)]) };
+    }, 'st-fltpop st-lkpop st-txpop st-fxpop');
+    // Щелчок в окне не уводит фокус из текста в правке
+    pop.addEventListener('mousedown', (e) => e.preventDefault());
+    const tileOf = (e: Event) => (e.target as Element).closest<HTMLElement>('[data-fxi]');
+    pop.addEventListener('pointerover', (e) => { const b = tileOf(e); if (b) x.tryOn(edits[Number(b.dataset.fxi)]); });
+    pop.addEventListener('pointerout', (e) => { if (tileOf(e) && !(e.relatedTarget as Element | null)?.closest?.('[data-fxi]')) x.tryOn(null); });
+    pop.addEventListener('pointerleave', () => x.tryOn(null));
+    const mo = new MutationObserver(() => { if (!onPage(pop)) { mo.disconnect(); x.tryOn(null); } });
+    mo.observe(document.body, { childList: true });
+  };
   const textCmds: Record<string, Command> = {
     'text.arrange': { run: arrangeMenu, enabled: freeAny },
     'text.styles': { run: allStyles, enabled: isText },

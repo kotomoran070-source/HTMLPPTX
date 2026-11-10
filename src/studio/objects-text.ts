@@ -7,7 +7,7 @@ import type { Editor } from '../engine/editor/editor';
 import { putStyle, type TextTarget } from '../engine/editor/text-edit';
 import { getAt, KEY, setAt, type Path } from '../engine/data';
 import { dropSpanAttrs } from '../engine/span-attrs';
-import type { TextStyle } from '../engine/text-style';
+import { textStyleCss, type TextStyle } from '../engine/text-style';
 
 interface Field {
   el: HTMLElement;
@@ -78,8 +78,27 @@ export function objectsText(ed: Editor, deck: () => unknown, stage: () => HTMLEl
       }
     }
   };
+  /** Вид полей до примерки */
+  let tried: { el: HTMLElement; style: string | null }[] = [];
   return {
     els: () => fieldsOf(stage(), blocks).map((f) => f.el),
+    tryOn: (fn) => {
+      tried.forEach(({ el, style }) => (style === null ? el.removeAttribute('style') : el.setAttribute('style', style)));
+      tried = [];
+      if (!fn) return;
+      for (const f of fieldsOf(stage(), blocks)) {
+        const cur = styleOf(f);
+        const style = f.el.getAttribute('style');
+        tried.push({ el: f.el, style });
+        // Эффекты, что есть сейчас, — сначала снять (новое их может не задавать), поверх — новое оформление поля
+        const reset = [
+          cur.shadow || cur.glow ? 'text-shadow:none' : '',
+          cur.outline || cur.hollow ? '-webkit-text-stroke:0;paint-order:normal' : '',
+          cur.plate ? 'background:none;padding:0;box-shadow:none' : '',
+        ].filter(Boolean).join(';');
+        f.el.setAttribute('style', [style, reset, textStyleCss(fn({ ...cur }))].filter(Boolean).join(';'));
+      }
+    },
     step: (delta) => {
       const fields = fieldsOf(stage(), blocks);
       if (!fields.length) return;

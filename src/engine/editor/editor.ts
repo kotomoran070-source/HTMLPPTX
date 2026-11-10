@@ -14,7 +14,7 @@ import { projectStorage, type DeckStorage } from '../storage';
 import {
   blobToDataUrl, buildHtml, canSaveFile, MAX_FILE, prepareImage, saveHtmlFile, suggestedFileName,
 } from './persist';
-import { TextEditor, type TextTarget } from './text-edit';
+import { TextEditor, type FxHost, type TextTarget } from './text-edit';
 import { applyDeckFonts, applyLibraryFonts, deckFonts } from '../fonts';
 import { layoutRows, rowAnchors } from './rows';
 import { embeddable, loadLocalFonts, localFaces, localFamilies, localWeights, pickFaces } from '../local-fonts';
@@ -171,6 +171,8 @@ export interface LeaveInfo {
 
 export class Editor {
   active = false;
+  /** Окно «Эффекты текста» на «Главной»: задаёт студия (то же, что у вкладок «Надпись» и «Фигура») */
+  textFx: ((anchor: HTMLElement, h: FxHost) => void) | null = null;
   /** Данные менялись с момента открытия (окну докладчика нужно их прислать) */
   touched = false;
   readonly mode: Mode;
@@ -258,6 +260,8 @@ export class Editor {
       themeFont: () => (typeof this.host.deck.theme?.font === 'string' ? this.host.deck.theme.font : ''),
       storeAsset: (b, n) => this.storeAsset(b, n),
       ownGradient: this.studio,
+      fxMenu: (a, h) => this.textFx?.(a, h),
+      hasFx: () => !!this.textFx,
     }, opts.textDock);
     this.image = new ImageEditor({
       deck, commit,

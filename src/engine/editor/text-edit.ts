@@ -9,7 +9,6 @@ import { gradientPanel, type GradValue } from './gradient-edit';
 import { colorCss, customMarker, FONTS, LIST_MARKERS, listCss, markerImage, splitDecls, SWATCHES, textStyleCss, THEME_COLORS, type TextStyle } from '../text-style';
 import { plainMarkup, SEL_A, SEL_B, setListKindAt, toggleList, toggleListAt, toMarkup } from './serialize';
 import { formatSpanAttrs, parseSpanAttrs, spanCss, type SpanAttrs } from '../span-attrs';
-import { applyLook, FX_NAMES, fxSections, type FxKind, lookOn, PINNED_LOOKS, TEXT_LOOKS } from '../text-looks';
 
 /** Что текстовому редактору нужно от основного редактора. */
 /** Курсор на первой (up) или последней строке поля; пустое поле — на обеих */
@@ -44,6 +43,9 @@ export interface TextHost {
   fonts?(): { name: string; lib: boolean; sys?: boolean }[];
   /** Шрифт и начертание — копией в презентацию, если их там ещё нет */
   ensureFont?(name: string, weight?: number): Promise<boolean>;
+  /** Окно «Эффекты текста» (студия); нет — кнопки на панели нет */
+  fxMenu?(anchor: HTMLElement, h: FxHost): void;
+  hasFx?(): boolean;
   /** Толщины, которые есть у шрифта (пусто — неизвестно) */
   fontWeights?(name: string): number[];
   /** Шрифт всей презентации (theme.font) */
@@ -69,6 +71,15 @@ export interface TextTarget {
   step?(delta: number): void;
   /** Новое оформление каждого поля по его прежнему (стили и эффекты текста); нет — patch по первому */
   edit?(fn: (st: TextStyle) => TextStyle): void;
+  /** Примерка без записи: оформление по прежнему на тексте; null — как было */
+  tryOn?(fn: ((st: TextStyle) => TextStyle) | null): void;
+}
+
+/** Что оформляет окно «Эффекты текста» (его рисует студия): оформление сейчас, запись и примерка */
+export interface FxHost {
+  styles(): TextStyle;
+  apply(edit: (st: TextStyle) => TextStyle): void;
+  tryOn(edit: ((st: TextStyle) => TextStyle) | null): void;
 }
 
 /** Без правки текста эти кнопки не работают: они — для выделенных слов или одного поля */
@@ -845,7 +856,7 @@ export class TextEditor {
       if (!b || !this.s) return;
       const cmd = b.dataset.t!;
       if (cmd !== 'color') this.colors.classList.remove('on');
-      if (cmd !== 'leading' && cmd !== 'spacing' && cmd !== 'list-kind' && cmd !== 'fx') this.menu.classList.remove('on');
+      if (cmd !== 'leading' && cmd !== 'spacing' && cmd !== 'list-kind') this.menu.classList.remove('on');
       switch (cmd) {
         case 'bold': case 'italic': case 'underline': this.format(cmd); break;
         case 'mark': this.markSelection(); break;
@@ -1464,56 +1475,47 @@ export class TextEditor {
   }
 
   /**
-   * «Эффекты текста» на «Главной»: готовые стили и тень, свечение, контур, плашка букв — те же варианты, что на
-   * вкладках «Надпись» и «Фигура» (text-looks.ts). В правке — всему полю, без правки — тексту выделенных объектов
+   * «Эффекты текста» на «Главной»: окно вариантов рисует студия (то же, что у вкладок «Надпись» и «Фигура»),
+   * панель отдаёт ему, что оформлять: в правке — поле, без правки — текст выделенных объектов
    */
-  private fxMenu(anchor: HTMLElement, view: 'main' | FxKind = 'main'): void {
-    if (view === 'main' && this.menu.classList.contains('on') && this.menu.dataset.kind === 'fx') {
-      this.menu.classList.remove('on');
+  private fxMenu(anchor: HTMLElement): void {
+    this.menu.classList.remove('on');
+    this.colors.classList.remove('on');
+    if (!this.s && !this.tg) return;
+    this.host.fxMenu?.(anchor, {
+      styles: () => (this.s ? { ...this.s.styles } : this.tg?.styles() ?? {}),
+      apply: (edit) => {
+        this.fxTry(null);
+        this.fxApply(edit);
+        this.s?.el.focus({ preventScroll: true });
+      },
+      tryOn: (edit) => this.fxTry(edit),
+    });
+  }
+
+  /** Примерка стиля или эффекта: в правке — на поле (его же кодом), без правки — на тексте выделенных; null — как было */
+  private fxUndo: (() => void) | null = null;
+  private fxTry(edit: ((st: TextStyle) => TextStyle) | null): void {
+    this.fxUndo?.();
+    this.fxUndo = null;
+    if (!edit) return;
+    const s = this.s;
+    if (s) {
+      const was = s.styles;
+      s.styles = edit({ ...was });
+      this.applyLive();
+      this.fxUndo = () => {
+        if (this.s !== s) return;
+        s.styles = was;
+        this.applyLive();
+      };
       return;
     }
-    const st = this.s ? { ...this.s.styles } : this.tg ? this.tg.styles() : null;
-    if (!st) return;
-    const sample = (x: TextStyle, size: number) => `<b style="${esc(textStyleCss({ ...x, size, width: undefined, align: undefined }))}">Аа</b>`;
-    const edits: ((x: TextStyle) => TextStyle)[] = [];
-    const tile = (label: string, edit: (x: TextStyle) => TextStyle, on: boolean, cls = '') => {
-      edits.push(edit);
-      return `<button type="button" class="edfx-t${cls}" data-fx="${edits.length - 1}" role="menuitemradio" aria-checked="${on}" title="${esc(label)}">`
-        + `<i>${sample(edit({ ...st }), 17)}</i><span>${esc(label)}</span></button>`;
-    };
-    let html: string;
-    if (view === 'main') {
-      const looks = PINNED_LOOKS.map((id) => TEXT_LOOKS.find((l) => l.id === id)!);
-      html = `<div class="edmenu-title">Стили текста</div><div class="edfx-grid">${looks.map((l) => tile(l.name, (x) => applyLook(x, l), lookOn(st, l), ' look')).join('')}</div>`
-        + `<div class="edfx-sep"></div>`
-        + (Object.keys(FX_NAMES) as FxKind[]).map((k) => `<button type="button" class="edfx-row${st[k] || (k === 'outline' && st.hollow) ? ' set' : ''}" data-fxk="${k}">`
-          + `${icon(k === 'plate' ? 'plate' : `text-${k}`)}<span>${FX_NAMES[k]}</span><b class="edfx-go">›</b></button>`).join('');
-    } else {
-      html = `<button type="button" class="edfx-back" data-back="1"><b>‹</b><span>${FX_NAMES[view]}</span></button>`
-        + fxSections(view, st).map((sec) => (sec.title ? `<div class="edmenu-title">${esc(sec.title)}</div>` : '')
-          + `<div class="edfx-grid ${sec.cls === 't3' ? 't2' : 'v'}">${sec.options.map(([label, edit, on]) => tile(label, edit, on)).join('')}</div>`).join('');
+    const tg = this.tg;
+    if (tg?.tryOn) {
+      tg.tryOn(edit);
+      this.fxUndo = () => tg.tryOn!(null);
     }
-    this.menu.dataset.kind = 'fx';
-    this.menu.innerHTML = html;
-    this.menu.onmousedown = (e) => e.preventDefault();
-    this.menu.onmouseover = null;
-    this.menu.onmouseleave = null;
-    this.menu.onclick = (e) => {
-      const t = e.target as Element;
-      const kind = t.closest<HTMLElement>('[data-fxk]')?.dataset.fxk as FxKind | undefined;
-      if (kind) return this.fxMenu(anchor, kind);
-      if (t.closest('[data-back]')) return this.fxMenu(anchor, 'main');
-      const i = t.closest<HTMLElement>('[data-fx]')?.dataset.fx;
-      if (i === undefined) return;
-      this.fxApply(edits[Number(i)]);
-      this.menu.classList.remove('on');
-      this.s?.el.focus({ preventScroll: true });
-    };
-    this.menu.classList.add('on');
-    const r = anchor.getBoundingClientRect();
-    const w = this.menu.offsetWidth;
-    this.menu.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left - 8))}px`;
-    this.menu.style.top = `${r.bottom + 6}px`;
   }
 
   /** Записать стиль или эффект: в правке — оформлению поля, без правки — каждому выделенному по его прежнему */
@@ -1577,6 +1579,7 @@ export class TextEditor {
       .forEach((b) => (b.hidden = s.isKey));
     const styleable = !!s.owner || !!s.styleAt;
     this.bar.querySelectorAll<HTMLElement>('[data-t="font"],.edsize,[data-t="color"],[data-t="fx"],[data-t="spacing"]').forEach((b) => (b.hidden = !styleable));
+    this.bar.querySelector<HTMLElement>('[data-t="fx"]')!.hidden ||= !this.host.hasFx?.();
     const lead = this.bar.querySelector<HTMLElement>('[data-t="leading"]');
     if (lead && !styleable) lead.hidden = true;
     (this.bar.querySelector('[data-t="delete"]') as HTMLElement).hidden = !s.block;
@@ -1668,6 +1671,7 @@ export class TextEditor {
     }
     this.bar.querySelectorAll<HTMLElement>('button[data-t], .edsize').forEach((b) => (b.hidden = false));
     this.bar.querySelectorAll<HTMLElement>(TARGET_OFF).forEach((b) => (b.hidden = true));
+    this.bar.querySelector<HTMLElement>('[data-t="fx"]')!.hidden = !this.host.hasFx?.();
     this.syncTarget();
   }
 
@@ -1678,7 +1682,6 @@ export class TextEditor {
     if (!els.length) return;
     const st = tg.styles();
     if (cmd !== 'color') this.colors.classList.remove('on');
-    if (cmd !== 'fx') this.menu.classList.remove('on');
     const all = (fn: (cs: CSSStyleDeclaration) => boolean) => els.every((x) => fn(getComputedStyle(x)));
     switch (cmd) {
       // Как в Word: всё уже жирное — снять, иначе — всем
