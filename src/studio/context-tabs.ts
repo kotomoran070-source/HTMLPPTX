@@ -60,7 +60,7 @@ import { fontNameOk, fontStack } from '../engine/fonts';
 import { colorCss, FONTS, SWATCHES, TEXT_SHADOWS, THEME_COLORS, type TextStyle } from '../engine/text-style';
 import { textGradientCss } from '../engine/gradients';
 import { angleOf } from '../engine/render';
-import { applyLook, LOOK_GROUPS, lookOn, textPanelHtml, textSampleHtml, TEXT_LOOKS } from './text-tab';
+import { applyLook, LOOK_GROUPS, lookOn, lookTile, PINNED_LOOKS, textPanelHtml, textSampleHtml, TEXT_LOOKS } from './text-tab';
 import { cellAnchor, cellLists, cellOf, cellRange, cellSpan, colCount, dropCols, dropRows, expandRange, hasMerge, mergeRange, pruneCellData, rowLists, shiftMerges, sortRows, splitCell, splitRange, tableCells, type CellRange, type TableData as CellTable } from './table-cells';
 import { onPage } from '../engine/motion';
 
@@ -97,6 +97,8 @@ export function contextTab(deck: Deck, ed: Editor): ContextTab | null {
   if (!sel) return null;
   const paths = sel.group.length > 1 ? sel.group : [sel.block];
   const types = new Set(paths.map((p) => (getAt(deck, p) as Block | undefined)?.type ?? ''));
+  // Надписи вместе с фигурами — «Надпись»: стили и эффекты текста ложатся на весь их текст
+  if (types.size === 2 && types.has('text') && types.has('shape') && paths.every((p) => ofType(getAt(deck, p) as Block, 'textish'))) return 'text';
   if (types.size !== 1) return null;
   const t = [...types][0];
   // Плитка с фото оформляется как рисунок
@@ -107,7 +109,10 @@ export function contextTab(deck: Deck, ed: Editor): ContextTab | null {
 }
 
 /** Блок подходит вкладке: «рисунок» — картинка или плитка с фото */
-const ofType = (b: Block | undefined, type: string) => (type === 'image' ? b?.type === 'image' || (b?.type === 'tile' && !!b.image) : b?.type === type);
+const ofType = (b: Block | undefined, type: string) => (type === 'image' ? b?.type === 'image' || (b?.type === 'tile' && !!b.image)
+  // Текст, которому дают стили и эффекты текста: надписи и фигуры (не линии) — у обоих оформление в styles.text
+  : type === 'textish' ? b?.type === 'text' || (b?.type === 'shape' && b.kind !== 'line' && b.kind !== 'arrow')
+    : b?.type === type);
 
 interface BtnOpts { big?: boolean; menu?: boolean; title?: string; swatch?: string; ico?: boolean; chk?: boolean }
 
@@ -267,7 +272,11 @@ export function contextPanelsHtml(): string {
       row(btn('shape.align.left', 'align-left', 'По левому краю', { ico: true }), btn('shape.align.center', 'align-center', 'По центру', { ico: true }), btn('shape.align.right', 'align-right', 'По правому краю', { ico: true })),
       row(btn('shape.valign.top', 'v-top', 'Сверху', { ico: true }), btn('shape.valign.middle', 'v-middle', 'Посередине по высоте', { ico: true }), btn('shape.valign.bottom', 'v-bottom', 'Снизу', { ico: true })),
     ].join('')}</div>`)}
-  ${group('Эффекты', stack(btn('shape.shadow', 'shadow', 'Тень', { menu: true }), btn('shape.glow', 'glow', 'Свечение', { menu: true, title: 'Свечение по краю фигуры' }), btn('shape.radius', 'corner', 'Скругление', { menu: true }))
+  ${group('Стили текста', `<div class="st-gallery x">${PINNED_LOOKS.slice(0, 4).map((id) => lookTile(TEXT_LOOKS.find((l) => l.id === id)!)).join('')}`
+    + `<button type="button" class="st-gmore" data-cmd="text.styles" title="Все стили текста" aria-label="Все стили текста" aria-haspopup="true"><b class="st-caret"></b></button></div>`)}
+  ${group('Эффекты текста', stack(btn('text.shadow', 'text-shadow', 'Тень', { menu: true, title: 'Тень букв' }), btn('text.glow', 'text-glow', 'Свечение', { menu: true, title: 'Свечение вокруг букв' }))
+    + stack(btn('text.outline', 'text-outline', 'Контур', { menu: true, title: 'Контур букв' }), btn('text.plate', 'plate', 'Плашка', { menu: true, title: 'Цветная плашка под текстом' })))}
+  ${group('Эффекты фигуры', stack(btn('shape.shadow', 'shadow', 'Тень', { menu: true }), btn('shape.glow', 'glow', 'Свечение', { menu: true, title: 'Свечение по краю фигуры' }), btn('shape.radius', 'corner', 'Скругление', { menu: true }))
     + stack(btn('shape.rotate', 'rotate', 'Поворот', { menu: true }), btn('shape.opacity', 'opacity', 'Прозрачность', { menu: true })))}
   ${ORDER}
 </div>
@@ -386,7 +395,11 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   const isLine = (b: Block | null) => b?.kind === 'line' || b?.kind === 'arrow';
   /** Фигуры, у которых есть тело (не линии) */
   const isBody = () => isShape() && !isLine(first('shape'));
-  const anchor = (cmd: string) => document.querySelector<HTMLElement>(`.st-ribbon [data-cmd="${cmd}"]`)!;
+  /** Кнопка команды на ленте: видимая (одна команда бывает на двух вкладках — стили текста у «Надписи» и «Фигуры») */
+  const anchor = (cmd: string) => {
+    const all = [...document.querySelectorAll<HTMLElement>(`.st-ribbon [data-cmd="${cmd}"]`)];
+    return all.find((x) => x.offsetParent !== null) ?? all[0]!;
+  };
   /** Цвета темы в палитре: наискось — у светлых и у тёмных слайдов, если они разные */
   const themeRow = (cur: unknown) => {
     const bg = themeSwatches(deck.theme, deck.origin, SHAPE_COLORS);
@@ -1276,16 +1289,19 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   };
 
   // ---------- надпись: оформление всего текста выделенных надписей (вкладка «Надпись», text-tab.ts) ----------
-  const isText = () => targets('text').length > 0;
+  /** Есть текст для стилей и эффектов: надписи, фигуры или надписи с фигурами */
+  const isText = () => targets('textish').length > 0;
   /** Только свободные надписи: поворот и место текста в рамке — у них */
-  const freeText = () => isText() && targets('text').every((p) => p[2] === 'free');
+  const freeText = () => { const tp = targets('text'); return tp.length > 0 && tp.every((p) => p[2] === 'free'); };
+  /** Свободные объекты с текстом (и надписи с фигурами): их выравнивают относительно друг друга или слайда */
+  const freeAny = () => { const tp = targets('textish'); return tp.length > 0 && tp.every((p) => p[2] === 'free'); };
   const tst = (b: Block | null | undefined): TextStyle => ((b?.styles as Record<string, TextStyle> | undefined)?.text ?? {});
   const tidy = (st: TextStyle): TextStyle => Object.fromEntries(Object.entries(st).filter(([, v]) => v !== undefined && v !== null && v !== '' && v !== false)) as TextStyle;
   /** Надпись с другим оформлением текста — для примерки и образцов */
   const withStyle = (b: Block, st: TextStyle): Block => ({ ...b, styles: { ...((b.styles as Record<string, unknown>) ?? {}), text: tidy(st) } });
   /** Оформление текста всех выделенных надписей: fn — новое по прежнему (у каждой — своё прежнее) */
   const editText = (fn: (st: TextStyle) => TextStyle, merge?: string) => {
-    const paths = targets('text');
+    const paths = targets('textish');
     if (!paths.length) return;
     ed.commit((d) => paths.forEach((p) => {
       const b = getAt(d, p) as Block;
@@ -1298,22 +1314,27 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     }), { rebuild: true, ...(merge ? { merge } : {}) });
   };
   const setTx = (patch: TextStyle) => editText((st) => ({ ...st, ...patch }));
-  const tx0 = () => tst(first('text'));
+  const tx0 = () => tst(first('textish'));
   /** Текст надписей на слайде (для примерки шрифта и вычисленного вида) */
-  const textEls = () => targets('text').flatMap((p) => [...h.stage().querySelectorAll<HTMLElement>(`.slide.on [data-block='${JSON.stringify(p)}']`)]);
+  const textEls = () => targets('textish').flatMap((p) => [...h.stage().querySelectorAll<HTMLElement>(`.slide.on [data-block='${JSON.stringify(p)}']`)]).map((root) => TEXT_KIND.el(root)!).filter(Boolean);
   const shown = () => { const el = textEls()[0]; return el ? getComputedStyle(el) : null; };
   /** Надпись: оформление — style самого текста, поворот — у рамки свободного объекта */
   const TEXT_KIND: LookKind = {
-    type: 'text',
-    el: (root) => root,
-    parts: (el) => (el.parentElement?.classList.contains('free') ? [el.parentElement] : []),
+    type: 'textish',
+    // У фигуры — её текст (.shape-t): рамку фигуры примерка текста не трогает
+    el: (root) => root.querySelector<HTMLElement>('.shape-t') ?? root,
+    parts: (el) => (!el.classList.contains('shape-t') && el.parentElement?.classList.contains('free') ? [el.parentElement] : []),
     apply: (el, b) => {
+      if (b.type === 'shape') {
+        put(el, blockEl('shape', b)?.querySelector('.shape-t')?.getAttribute('style') ?? null);
+        return;
+      }
       const n = blockEl('text', b);
       if (n) put(el, n.getAttribute('style'));
       const box = el.parentElement;
       if (box?.classList.contains('free')) box.style.rotate = angleOf(b) ? `${angleOf(b)}deg` : '';
     },
-    sample: (b) => textSampleHtml(tst(b), angleOf(b)),
+    sample: (b) => textSampleHtml(tst(b), b.type === 'text' ? angleOf(b) : 0),
   };
   /** Окно вариантов оформления текста: образец на каждом, наведение — примерка на всех выделенных */
   type TxOption = [label: string, edit: (st: TextStyle) => TextStyle, on: boolean];
@@ -1426,7 +1447,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       }
       return { run: () => editText(paint(v)) };
     }, 'st-palette');
-    bindTry(pop, tryLook(TEXT_KIND, targets('text')), (el) => {
+    bindTry(pop, tryLook(TEXT_KIND, targets('textish')), (el) => {
       const v = el.dataset.v;
       return v === undefined || v === 'custom' ? null : (b) => withStyle(b, paint(v)({ ...tst(b) }));
     });
@@ -1474,7 +1495,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     ]);
   };
   const textCmds: Record<string, Command> = {
-    'text.arrange': { run: arrangeMenu, enabled: freeText },
+    'text.arrange': { run: arrangeMenu, enabled: freeAny },
     'text.styles': { run: allStyles, enabled: isText },
     'text.font': { run: fontMenu, enabled: isText },
     'text.size.up': { run: () => sizeStep(1), enabled: isText },
@@ -1484,7 +1505,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     'text.underline': { run: () => setTx({ underline: !tx0().underline || undefined }), enabled: isText, active: () => isText() && !!tx0().underline },
     'text.upper': { run: () => setTx({ upper: !tx0().upper || undefined }), enabled: isText, active: () => isText() && !!tx0().upper },
     'text.color': { run: colorMenu, enabled: isText },
-    'text.clear': { run: () => editText(() => ({})), enabled: () => isText() && targets('text').some((p) => Object.keys(tst(getAt(deck, p) as Block)).length > 0) },
+    'text.clear': { run: () => editText(() => ({})), enabled: () => isText() && targets('textish').some((p) => Object.keys(tst(getAt(deck, p) as Block)).length > 0) },
     'text.leading': { run: () => stepMenu('text.leading', 'leading', [[undefined, 'Как в теме'], [1, '1,0'], [1.15, '1,15'], [1.3, '1,3'], [1.5, '1,5'], [2, '2,0']]), enabled: isText },
     'text.spacing': { run: () => stepMenu('text.spacing', 'spacing', [[-0.03, 'Сжатый'], [undefined, 'Обычный'], [0.04, 'Разреженный'], [0.1, 'Широкий'], [0.2, 'Очень широкий']]), enabled: isText },
     'text.shadow': { run: shadowMenu, enabled: isText, active: () => isText() && !!tx0().shadow },
@@ -1781,7 +1802,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
 export function syncSwatches(deck: Deck, ed: Editor): void {
   const sel = ed.selection;
   const b = sel ? (getAt(deck, sel.block) as Block | undefined) : undefined;
-  if (b?.type === 'text') syncText(b, ed);
+  if (b?.type === 'text' || b?.type === 'shape') syncText(b, ed);
   const line = b?.kind === 'line' || b?.kind === 'arrow';
   document.querySelectorAll<HTMLElement>('.st-rb-sw').forEach((el) => {
     const key = el.dataset.sw as 'fill' | 'stroke' | 'istroke' | 'tcolor';
@@ -1818,7 +1839,9 @@ function syncText(b: Block, ed: Editor): void {
   const size = document.querySelector<HTMLInputElement>('.st-ribbon [data-txsize]');
   if (size && document.activeElement !== size) {
     const path = ed.selection?.block;
-    const el = path ? document.querySelector<HTMLElement>(`.slide.on [data-block='${JSON.stringify(path)}']`) : null;
+    const root = path ? document.querySelector<HTMLElement>(`.slide.on [data-block='${JSON.stringify(path)}']`) : null;
+    // У фигуры — размер её текста
+    const el = root?.querySelector<HTMLElement>('.shape-t') ?? root;
     size.value = String(Number(st.size) || (el ? Math.round(parseFloat(getComputedStyle(el).fontSize)) : ''));
   }
 }

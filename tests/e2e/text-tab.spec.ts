@@ -40,7 +40,7 @@ test('«Надпись»: две надписи — стиль с примерк
   // Своё у каждой остаётся: размер первой
   expect(styles()[0].size).toBe(56);
   // Тень из меню — у обеих; Ctrl+Z — одним шагом назад
-  await page.locator('#st-ribbon [data-cmd="text.shadow"]').click();
+  await page.locator('.st-rpanel[data-panel="text"] [data-cmd="text.shadow"]').click();
   await page.locator('.st-lkpop [title="Ретро"]').click();
   expect(await waitFile(() => styles().every((s) => s.shadow === 'retro'))).toBe(true);
   await page.keyboard.press('Control+z');
@@ -196,6 +196,54 @@ slides:
     await page.locator('.st-frpop [data-fr="go"]').click();
     expect(await waitFile(() => deck().slides[1].free[0].styles?.text?.font === 'rounded')).toBe(true);
     expect(deck().slides[0].free.some((b) => b.styles?.text?.font === 'rounded')).toBe(false);
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('стили и эффекты текста у фигуры — на вкладке «Фигура»; надпись с фигурой — на «Надписи», обоим сразу', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'shapefx');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'deck.yaml'), `title: Текст фигуры
+slides:
+  - template: canvas
+    free:
+      - {type: text, text: "Заголовок", place: {x: 80, y: 40, w: 700}}
+      - {type: shape, kind: round, text: "Карточка", place: {x: 80, y: 220, w: 400, h: 200}}
+`);
+  try {
+    type Free = { styles?: { text?: Record<string, unknown> }; glow?: unknown };
+    const free = () => (parse(fs.readFileSync(deckFile('shapefx'), 'utf8')) as { slides: { free: Free[] }[] }).slides[0].free;
+    await page.goto('/?deck=shapefx&studio#1');
+    const shapeText = page.locator('#st-canvas .slide.on .shape-t').first();
+    await shapeText.click();
+    await expect(page.locator('.st-tabs [data-tab="shape"]')).toHaveAttribute('aria-selected', 'true');
+    const panel = page.locator('.st-rpanel[data-panel="shape"]');
+    // Свечение букв: примерка наведением — на тексте фигуры, щелчок — запись в styles.text (рамка фигуры — своя)
+    await panel.locator('[data-cmd="text.glow"]').click();
+    const accent = page.locator('.st-txpop button', { hasText: 'Акцент' }).first();
+    await accent.hover();
+    await expect.poll(() => shapeText.evaluate((e) => getComputedStyle(e).textShadow)).not.toBe('none');
+    await accent.click();
+    expect(await waitFile(() => free()[1].styles?.text?.glow === 'accent')).toBe(true);
+    expect(free()[1].glow).toBeUndefined();
+    await expect.poll(() => shapeText.evaluate((e) => getComputedStyle(e).textShadow)).not.toBe('none');
+    // Готовый стиль текста — с той же вкладки
+    await shapeText.click();
+    await panel.locator('[data-cmd="text.style.accent"]').click();
+    expect(await waitFile(() => free()[1].styles?.text?.color === 'accent' && free()[1].styles?.text?.weight === 700)).toBe(true);
+    // Надпись и фигура вместе — вкладка «Надпись»: тень обоим; поворот — только у надписей
+    const s = (await page.locator('#st-canvas .slide.on').boundingBox())!;
+    await page.mouse.click(s.x + s.width - 20, s.y + s.height - 20);
+    await page.keyboard.press('Control+a');
+    await expect(page.locator('.st-tabs [data-tab="text"]')).toHaveAttribute('aria-selected', 'true');
+    const tp = page.locator('.st-rpanel[data-panel="text"]');
+    await expect(tp.locator('[data-cmd="text.rotate"]')).toBeDisabled();
+    await tp.locator('[data-cmd="text.shadow"]').click();
+    await page.locator('.st-txpop button', { hasText: 'Мягкая' }).first().click();
+    expect(await waitFile(() => free().every((b) => b.styles?.text?.shadow === 'soft'))).toBe(true);
     expect(errors).toEqual([]);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
