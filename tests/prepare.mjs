@@ -24,6 +24,7 @@
 //   integ    — интеграции: агент на связи, «Вернуть», «Файл → Интеграции» — что можно агентам, скрипты.
 //   chat     — чат «Агент» на подставном Claude: два слайда с текстом.
 //   nslide   — новый слайд из надписей и «Разобрать на объекты» с надписями.
+//   lst      — рамка выделения по тексту надписей, список у строки под курсором, Enter в пункте.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -415,6 +416,16 @@ fs.writeFileSync(path.join(dir, 'nslide', 'deck.yaml'), `title: Новые сл�
 slides:
   - title: Первый
     body: {type: text, text: Абзац первого}
+`);
+// lst — рамка выделения по тексту надписей; список у строки под курсором, Enter в пункте — новый пункт
+fs.mkdirSync(path.join(dir, 'lst'), { recursive: true });
+fs.writeFileSync(path.join(dir, 'lst', 'deck.yaml'), `title: Списки
+slides:
+  - template: canvas
+    free:
+      - {type: text, text: "Заголовок", styles: {text: {size: 32, weight: 700}}, place: {x: 64, y: 48, w: 1096}}
+      - {type: text, text: "Один\\nДва\\nТри", place: {x: 64, y: 112, w: 1152}}
+      - {type: text, text: "- Альфа\\n- Бета", place: {x: 64, y: 300, w: 600}}
 `);
 // gal — картинка с кадрами: стрелки и точки (кадр строкой и с подписью), по «Далее» с объектом по щелчку после кадров;
 //   на третьем — две картинки, их собирают в галерею

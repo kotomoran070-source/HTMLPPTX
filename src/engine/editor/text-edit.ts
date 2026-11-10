@@ -7,7 +7,7 @@ import { esc, t } from '../html';
 import { GRADIENTS, gradColor, gradientMid, parseTextGradient, TEXT_GRADIENTS, textGradientCode, textGradientCss } from '../gradients';
 import { gradientPanel, type GradValue } from './gradient-edit';
 import { colorCss, customMarker, FONTS, LIST_MARKERS, listCss, markerImage, splitDecls, SWATCHES, textStyleCss, THEME_COLORS, type TextStyle } from '../text-style';
-import { plainMarkup, toggleList, toMarkup } from './serialize';
+import { plainMarkup, SEL_A, SEL_B, toggleList, toggleListAt, toMarkup } from './serialize';
 
 /** Что текстовому редактору нужно от основного редактора. */
 /** Курсор на первой (up) или последней строке поля; пустое поле — на обеих */
@@ -248,9 +248,10 @@ export class TextEditor {
         ev.preventDefault();
         this.finish(true);
       } else if (ev.key === 'Enter') {
-        // Как в PowerPoint: Enter — новая строка, а не конец правки (набранное после не теряется)
+        // Как в PowerPoint: Enter — новая строка, а не конец правки (набранное после не теряется);
+        // в пункте списка — новый пункт, на пустом пункте — конец списка
         ev.preventDefault();
-        document.execCommand('insertLineBreak');
+        if (!this.splitItem()) document.execCommand('insertLineBreak');
       } else if (ev.key === 'Escape') {
         // Esc — закончить правку и сохранить, как в PowerPoint; передумали — Ctrl+Z
         ev.preventDefault();
@@ -475,13 +476,92 @@ export class TextEditor {
     this.position();
   }
 
+  /**
+   * Пункты списка — у строк, которых касается выделение (у строки с курсором), как в Word и PowerPoint: у одной
+   * строки маркер можно убрать, не трогая остальные. Выделение после этого — на тех же словах.
+   * Курсора в поле нет — все строки
+   */
   private toggleList(): void {
     const s = this.s;
     if (!s) return;
-    s.el.innerHTML = t(toggleList(toMarkup(s.el)));
+    const range = this.fieldRange();
+    if (!range) {
+      s.el.innerHTML = t(toggleList(toMarkup(s.el)));
+      s.el.focus({ preventScroll: true });
+      placeCaret(s.el, undefined, true);
+      this.position();
+      return;
+    }
+    // Метки начала и конца выделения — в текст: по ним видно строки, а после отрисовки — куда вернуть выделение
+    const [a, b] = textPoints(s.el, range);
+    const markB = document.createTextNode(SEL_B);
+    const markA = document.createTextNode(SEL_A);
+    insertAt(b, markB);
+    insertAt(a, markA);
+    s.el.innerHTML = t(toggleListAt(toMarkup(s.el)));
     s.el.focus({ preventScroll: true });
-    placeCaret(s.el, undefined, true);
+    const from = takeMark(s.el, SEL_A);
+    const to = takeMark(s.el, SEL_B);
+    if (from && to) getSelection()?.setBaseAndExtent(from[0], from[1], to[0], to[1]);
+    else placeCaret(s.el, undefined, true);
     this.position();
+  }
+
+  /**
+   * Enter в пункте списка, как в Word: текст после курсора — новым пунктом следом (оформление слов сохраняется);
+   * пустой пункт перестаёт быть пунктом — список кончился. Курсор не в пункте — false
+   */
+  private splitItem(): boolean {
+    const s = this.s;
+    const r = this.fieldRange();
+    if (!s || !r) return false;
+    const at = r.startContainer.nodeType === Node.ELEMENT_NODE ? r.startContainer as Element : r.startContainer.parentElement;
+    const li = at?.closest<HTMLElement>('.md-li');
+    if (!li || !s.el.contains(li)) return false;
+    if (!r.collapsed) r.deleteContents();
+    const sel = getSelection();
+    const blank = (el: Element) => !(el.textContent ?? '').replace(/\u200b/g, '').trim();
+    if (blank(li)) {
+      const gap = document.createElement('span');
+      gap.className = 'md-gap';
+      gap.textContent = '\u200b';
+      li.replaceWith(gap);
+      sel?.collapse(gap.firstChild!, 1);
+    } else {
+      const tail = document.createRange();
+      tail.setStart(r.startContainer, r.startOffset);
+      tail.setEnd(li, li.childNodes.length);
+      const next = document.createElement('span');
+      next.className = 'md-li';
+      next.appendChild(tail.extractContents());
+      // Пустой пункт держит строку символом нулевой ширины: в него встаёт курсор (при записи он уходит)
+      if (blank(next)) next.textContent = '\u200b';
+      if (blank(li)) li.textContent = '\u200b';
+      li.after(next);
+      const first = document.createTreeWalker(next, NodeFilter.SHOW_TEXT).nextNode();
+      if (first) sel?.collapse(first, first.textContent === '\u200b' ? 1 : 0);
+    }
+    s.el.dispatchEvent(new Event('input', { bubbles: true }));
+    this.position();
+    return true;
+  }
+
+  /** Выделение (или курсор) в правимом поле; нет — null */
+  private fieldRange(): Range | null {
+    const s = this.s;
+    const sel = getSelection();
+    if (!s || !sel || !sel.rangeCount) return null;
+    const r = sel.getRangeAt(0);
+    return s.el.contains(r.startContainer) && s.el.contains(r.endContainer) ? r : null;
+  }
+
+  /** Касается ли выделение пункта списка: тогда выбор маркера меняет только вид, пункты не добавляет */
+  private selectionHasItem(): boolean {
+    const s = this.s;
+    const r = this.fieldRange();
+    if (!s) return false;
+    const items = [...s.el.querySelectorAll('.md-li')];
+    return r ? items.some((li) => r.intersectsNode(li)) : items.length > 0;
   }
 
   private setStyle(patch: Partial<TextStyle>): void {
@@ -982,7 +1062,8 @@ export class TextEditor {
         <div class="edown-row"><input type="text" maxlength="12" value="${esc(own ?? '')}" placeholder="Символ, эмодзи или Шаг #:" title="Символ, эмодзи или текст; # — номер пункта" spellcheck="false" aria-label="Свой маркер"><button type="button" data-a="img" title="Картинка-маркер: значок, логотип" aria-label="Картинка">${icon('image')}</button></div>
       </div>`;
     // Ещё не список — сначала пункты
-    const ensureList = () => { if (this.s && !this.s.el.querySelector('.md-li')) this.toggleList(); };
+    // Строки под курсором ещё не пункты — сначала пункты (у них, а не у всего поля)
+    const ensureList = () => { if (this.s && !this.selectionHasItem()) this.toggleList(); };
     const inp = this.menu.querySelector<HTMLInputElement>('.edown input')!;
     const pane = this.menu.querySelector<HTMLElement>('.edown')!;
     const ownBtn = this.menu.querySelector<HTMLElement>('.edown-btn')!;
@@ -1090,7 +1171,7 @@ export class TextEditor {
         const stem = f.name.replace(/\.[^.]+$/, '').replace(/[^\p{L}\p{N}_-]+/gu, '-').slice(0, 32) || 'marker';
         const src = await this.host.storeAsset(blob, `${stem}-marker.png`);
         if (!this.s) return;
-        if (!this.s.el.querySelector('.md-li')) this.toggleList();
+        if (!this.selectionHasItem()) this.toggleList();
         this.setStyle({ listImage: src, list: undefined });
         done();
       } catch {
@@ -1427,6 +1508,52 @@ function clean(st: TextStyle): TextStyle {
   if (st.plate) out.plate = st.plate;
   if (st.opacity !== undefined) out.opacity = st.opacity;
   return out;
+}
+
+/**
+ * Начало и конец выделения — в текстовых узлах поля: курсор между пунктами списка (в самом поле, а не в тексте)
+ * встаёт в начало следующего текста, конец — в конец предыдущего; так метка попадает в строку, а не между строками
+ */
+function textPoints(root: HTMLElement, r: Range): [[Node, number], [Node, number]] {
+  const texts: Text[] = [];
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let n = w.nextNode(); n; n = w.nextNode()) texts.push(n as Text);
+  const point = (node: Node, offset: number, forward: boolean): [Node, number] => {
+    if (node.nodeType === Node.TEXT_NODE || !texts.length) return [node, offset];
+    const p = document.createRange();
+    p.setStart(node, offset);
+    if (forward) {
+      const next = texts.find((x) => p.comparePoint(x, 0) >= 0);
+      if (next) return [next, 0];
+      const last = texts[texts.length - 1];
+      return [last, last.length];
+    }
+    const prev = [...texts].reverse().find((x) => p.comparePoint(x, x.length) <= 0);
+    return prev ? [prev, prev.length] : [texts[0], 0];
+  };
+  const a = point(r.startContainer, r.startOffset, true);
+  return [a, r.collapsed ? a : point(r.endContainer, r.endOffset, false)];
+}
+
+/** Вставить узел в точку [узел, смещение] (текстовый узел делится) */
+function insertAt([node, offset]: [Node, number], what: Node): void {
+  const r = document.createRange();
+  r.setStart(node, offset);
+  r.insertNode(what);
+}
+
+/** Найти метку в тексте поля, убрать её и вернуть её место */
+function takeMark(root: HTMLElement, ch: string): [Node, number] | null {
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let n = w.nextNode(); n; n = w.nextNode()) {
+    const v = n.textContent ?? '';
+    const i = v.indexOf(ch);
+    if (i >= 0) {
+      n.textContent = v.slice(0, i) + v.slice(i + ch.length);
+      return [n, i];
+    }
+  }
+  return null;
 }
 
 function placeCaret(el: HTMLElement, at?: { x: number; y: number }, end = false): void {

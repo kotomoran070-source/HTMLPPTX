@@ -1890,6 +1890,56 @@ test('правый щелчок по миниатюре — только мен�
   expect(errors).toEqual([]);
 });
 
+test('рамка выделения берёт надписи по их тексту, а не по широкому полю; список — у строки под курсором, Enter в пункте — новый пункт', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=lst&studio#1');
+  const objs = page.locator('#st-canvas .slide.on > .free');
+  await expect(objs).toHaveCount(3);
+  const slide = (await page.locator('#st-canvas .slide.on').boundingBox())!;
+  // Край рамки — сразу за самой широкой строкой заголовка и текста; поля надписей много шире
+  const ink = await objs.evaluateAll((els) => els.slice(0, 2).reduce((a, el) => {
+    const r = document.createRange();
+    r.selectNodeContents(el.querySelector('p')!);
+    const b = r.getBoundingClientRect();
+    return { r: Math.max(a.r, b.right), b: Math.max(a.b, b.bottom) };
+  }, { r: 0, b: 0 }));
+  expect(ink.r + 30).toBeLessThan((await objs.nth(0).boundingBox())!.x + (await objs.nth(0).boundingBox())!.width);
+  await page.mouse.move(slide.x + 15, slide.y + 15);
+  await page.mouse.down();
+  await page.mouse.move(ink.r + 30, ink.b + 10, { steps: 8 });
+  await page.mouse.up();
+  await expect(page.locator('#st-props')).toContainText('Выделено: 2');
+  await page.keyboard.press('Escape');
+
+  // Курсор в «Два» — «Список» ставит маркер только ей; ещё раз — снимает
+  const body = objs.nth(1);
+  await body.click();
+  await body.click();
+  const field = page.locator('#st-canvas .slide.on [contenteditable="true"]');
+  await expect(field).toHaveCount(1);
+  const caretIn = (word: string, end = false) => field.evaluate((el, [w, e]) => {
+    const it = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = it.nextNode(); n; n = it.nextNode()) if (n.textContent!.includes(w as string)) { getSelection()!.collapse(n, e ? n.textContent!.length : 1); return; }
+  }, [word, end] as const);
+  await caretIn('Два');
+  await page.locator('#ed-text [data-t="list"]').click();
+  await expect(field.locator('.md-li')).toHaveText(['Два']);
+  await page.locator('#ed-text [data-t="list"]').click();
+  await expect(field.locator('.md-li')).toHaveCount(0);
+  await page.locator('#ed-text [data-t="list"]').click();
+  // Enter в конце пункта — новый пункт; на пустом пункте — конец списка
+  await caretIn('Два', true);
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('Полтора');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('После');
+  await page.keyboard.press('Escape');
+  const text = () => { const y = readDeck('lst'); return y.slice(y.indexOf('Один'), y.indexOf('Альфа')); };
+  expect(await waitFile(() => /Один\\n- Два\\n- Полтора\\nПосле\\nТри|Один\n\s*- Два\n\s*- Полтора\n\s*После\n\s*Три/.test(text()))).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('«Собрать в галерею»: две картинки слайда — кадрами одной, левая остаётся на месте, разной формы — целиком на размытом фоне; Ctrl+Z — как было', async ({ page }) => {
   const errors = watchErrors(page);
   const before = readDeck('gal');

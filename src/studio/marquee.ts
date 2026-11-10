@@ -1,7 +1,36 @@
 /**
  * Выделение рамкой: тянуть мышью с пустого места слайда или с серого поля вокруг.
  * Выделяются свободные объекты, целиком попавшие в рамку; с Shift — добавляются к выделенным.
+ * У надписи в рамку должен попасть сам текст: её поле бывает много шире строк (заголовок во всю ширину слайда)
  */
+
+/** Текст надписи — абзац, список, заголовок прямо в объекте */
+const TEXT = ':scope > :is(p, ul, ol, h1, h2, h3, h4, blockquote)';
+
+/**
+ * Где на экране объект для рамки: у надписи — по её буквам (строки-пункты списка — блоки во всю ширину поля,
+ * поэтому по текстовым узлам, а не по всему содержимому), у остального — его рамка
+ */
+function area(el: HTMLElement): DOMRect {
+  const frame = el.getBoundingClientRect();
+  const text = el.querySelector<HTMLElement>(TEXT);
+  if (!text || el.children.length !== 1) return frame;
+  const range = document.createRange();
+  let [l, t, r, b] = [Infinity, Infinity, -Infinity, -Infinity];
+  const w = document.createTreeWalker(text, NodeFilter.SHOW_TEXT);
+  for (let n = w.nextNode(); n; n = w.nextNode()) {
+    if (!n.textContent?.replace(/\u200b/g, '').trim()) continue;
+    range.selectNodeContents(n);
+    for (const x of range.getClientRects()) {
+      if (!x.width || !x.height) continue;
+      l = Math.min(l, x.left);
+      t = Math.min(t, x.top);
+      r = Math.max(r, x.right);
+      b = Math.max(b, x.bottom);
+    }
+  }
+  return r > l && b > t ? new DOMRect(l, t, r - l, b - t) : frame;
+}
 
 interface MarqueeHost {
   canvas: HTMLElement;
@@ -64,7 +93,7 @@ export function setupMarquee(h: MarqueeHost): void {
       picked = [];
       // Закреплённые и скрытые на время правки рамкой не выделяются
       h.stage().querySelectorAll<HTMLElement>(':scope > .slide.on > [data-free]:not(.locked, .st-hidden)').forEach((el) => {
-        const r = el.getBoundingClientRect();
+        const r = area(el);
         const inside = r.width > 0 && r.left >= m.l && r.right <= m.r && r.top >= m.t && r.bottom <= m.b;
         el.classList.toggle('st-marquee-hit', inside);
         if (!inside) return;

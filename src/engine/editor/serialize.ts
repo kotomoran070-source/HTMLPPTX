@@ -64,7 +64,8 @@ function walk(node: Node): string {
   const inner = () => [...el.childNodes].map(walk).join('');
   const tag = el.tagName;
   if (tag === 'BR') return '\n';
-  if (el.classList.contains('md-li')) return `\n${LI}${inner().replace(/\n+/g, ' ').trim()}\n`;
+  // Символ нулевой ширины держит пустой пункт в правке — в текст не идёт
+  if (el.classList.contains('md-li')) return `\n${LI}${inner().replace(/\u200b/g, '').replace(/\n+/g, ' ').trim()}\n`;
   // Промежуток у списка (пустая строка рядом с пунктами) — остаётся пустой строкой
   if (el.classList.contains('md-gap')) {
     // Напечатали прямо в промежутке — это уже строка текста
@@ -106,6 +107,42 @@ export function toMarkup(el: HTMLElement): string {
     // Обычная строка, похожая на пункт списка, остаётся обычной строкой; промежуток — пустой строкой
     .map((line) => (line === GAP ? '' : line.startsWith(LI) ? `- ${line.slice(1)}` : line.replace(/^([-•])(\s)/, '\\$1$2')))
     .join('\n');
+}
+
+/**
+ * Метки начала и конца выделения в тексте (частная область Юникода): по ним после toMarkup видно, каких строк
+ * касается выделение, а после новой отрисовки — куда его вернуть
+ */
+export const SEL_A = '\uE000';
+export const SEL_B = '\uE001';
+const LI_RE = /^[-•]\s+/;
+const unmark = (l: string) => l.replace(/[\uE000\uE001]/g, '');
+
+/**
+ * Пункты списка — только у строк, которых касается выделение (с метками SEL_A и SEL_B), как в Word и PowerPoint:
+ * все они уже пункты — снять, иначе — сделать пунктами. Без меток — все строки (toggleList)
+ */
+export function toggleListAt(markup: string): string {
+  const lines = markup.split('\n');
+  let from = lines.findIndex((l) => l.includes(SEL_A));
+  let to = lines.findIndex((l) => l.includes(SEL_B));
+  if (from < 0 || to < 0) return toggleList(markup);
+  if (to < from) [from, to] = [to, from];
+  // Протянули до самого начала следующей строки — она не задета
+  if (to > from && lines[to].replace(LI_RE, '').startsWith(SEL_B)) to--;
+  const touched: number[] = [];
+  for (let k = from; k <= to; k++) if (unmark(lines[k]).trim() || from === to) touched.push(k);
+  if (!touched.length) return markup;
+  const all = touched.every((k) => LI_RE.test(unmark(lines[k])));
+  for (const k of touched) {
+    const l = lines[k];
+    // Метка может стоять перед «- »: она остаётся в начале текста строки
+    const lead = /^[\uE000\uE001]*/.exec(l)![0];
+    const rest = l.slice(lead.length);
+    if (all) lines[k] = lead + rest.replace(LI_RE, '');
+    else if (!LI_RE.test(rest)) lines[k] = `- ${lead}${rest}`;
+  }
+  return lines.join('\n');
 }
 
 /** Переключает оформление всех строк как пунктов списка. */
