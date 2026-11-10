@@ -333,6 +333,18 @@ function listMark(li: HTMLElement): string {
 }
 
 /** Римское число: 4 → IV */
+/** Сколько строк: середины прямоугольников текста ближе 4 px — одна строка */
+function rowCount(mids: number[]): number {
+  mids.sort((a, b) => a - b);
+  let count = 0;
+  let last = -Infinity;
+  for (const m of mids) {
+    if (m - last > 4) count++;
+    last = m;
+  }
+  return count;
+}
+
 export function roman(n: number): string {
   let out = '';
   for (const [v, s] of [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']] as const) {
@@ -997,17 +1009,10 @@ class Converter {
       r.selectNodeContents(n);
       for (const q of r.getClientRects()) if (q.width > 0.5) mids.push(q.top + q.height / 2);
     }
-    mids.sort((a, b) => a - b);
-    let count = 0;
-    let last = -Infinity;
-    for (const m of mids) {
-      if (m - last > 4) count++;
-      last = m;
-    }
-    return count;
+    return rowCount(mids);
   }
 
-  /** Кусок текста между блоками: надпись по прямоугольнику самого текста */
+  /** Кусок текста между блоками: надпись по прямоугольнику самого текста; в несколько строк — с переносом */
   private looseText(n: Text, cs: CSSStyleDeclaration, op: number, k: number): void {
     const r = document.createRange();
     r.selectNodeContents(n);
@@ -1016,10 +1021,25 @@ class Converter {
     const color = rgba(cs.color);
     let text = (n.textContent ?? '').replace(/\s+/g, ' ').trim();
     if (cs.textTransform === 'uppercase') text = text.toUpperCase();
+    const many = rowCount([...r.getClientRects()].filter((q) => q.width > 0.5).map((q) => q.top + q.height / 2)) > 1;
+    let w = rect.width + 6;
+    let lineSpacing: number | undefined;
+    if (many) {
+      // Ширина — до правого края блока (строки переносятся по нему), с запасом, как у надписей
+      let host = n.parentElement;
+      while (host && getComputedStyle(host).display === 'contents') host = host.parentElement;
+      const hcs = host ? getComputedStyle(host) : cs;
+      const right = (host?.getBoundingClientRect().right ?? rect.right) - (parseFloat(hcs.paddingRight) || 0) - (parseFloat(hcs.borderRightWidth) || 0);
+      w = Math.max(rect.width, right - rect.left) + Math.min(12, Math.max(3, rect.width * 0.04));
+      const lh = parseFloat(cs.lineHeight) * k;
+      if (Number.isFinite(lh) && lh > 0) lineSpacing = pt(lh);
+    }
+    const align = cs.textAlign === 'center' ? 'center' : cs.textAlign === 'right' || cs.textAlign === 'end' ? 'right' : cs.textAlign === 'justify' ? 'justify' : 'left';
     this.slide.addText(text, {
-      x: inch(rect.left - this.origin.left), y: inch(rect.top - this.origin.top), w: inch(rect.width + 6), h: inch(rect.height),
-      margin: 0, wrap: false, lang: LANG, fontSize: pt(parseFloat(cs.fontSize) * k), fontFace: fontFace(cs.fontFamily), bold: Number(cs.fontWeight) >= 600,
+      x: inch(rect.left - this.origin.left), y: inch(rect.top - this.origin.top), w: inch(w), h: inch(rect.height),
+      margin: 0, wrap: many, lang: LANG, fontSize: pt(parseFloat(cs.fontSize) * k), fontFace: fontFace(cs.fontFamily), bold: Number(cs.fontWeight) >= 600,
       color: color?.hex, transparency: color ? transparency(color.a * op) : undefined, valign: 'top', fit: 'none',
+      ...(many ? { align, lineSpacing } : {}),
     });
   }
 

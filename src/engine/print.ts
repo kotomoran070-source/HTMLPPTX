@@ -49,7 +49,7 @@ async function embeds(root: HTMLElement, deck: Deck): Promise<void> {
       if (!p || !hasEmbed(p)) return;
       const w = el.offsetWidth;
       const h = el.offsetHeight;
-      const snap = await snapshot(await embedHtml(p, false, el), { w, h });
+      const snap = await snapshot(await embedHtml(p, false, el), { w, h }, { still: true });
       if (!snap) return;
       const f = document.createElement('iframe');
       f.setAttribute('sandbox', 'allow-same-origin');

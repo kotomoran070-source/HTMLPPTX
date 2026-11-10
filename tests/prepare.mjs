@@ -240,6 +240,44 @@ slides:
           </script>
         place: {x: 40, y: 40, w: 600, h: 240}
 `);
+// pptxstill — PowerPoint: стоп-кадры живых вставок, которые рисуют только в кадрах анимации (requestAnimationFrame),
+// и текст карточки после пустой строки — с переносом
+fs.mkdirSync(path.join(dir, 'pptxstill'));
+fs.writeFileSync(path.join(dir, 'pptxstill', 'deck.yaml'), `title: Стоп-кадры
+slides:
+  - template: canvas
+    free:
+      - type: embed
+        code: |
+          <style>html,body{margin:0;height:100%}canvas{width:100%;height:100%;display:block}</style>
+          <canvas id="c" width="200" height="100"></canvas>
+          <script>
+            const g = c.getContext('2d');
+            const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+            function draw(t) { g.clearRect(0, 0, 200, 100); if (t > 0.3) { g.fillStyle = still ? '#00A000' : '#D00000'; g.fillRect(0, 0, 200, 100); } }
+            const t0 = performance.now();
+            function loop(now) { draw((now - t0) / 1000); if (!still) requestAnimationFrame(loop); }
+            if (still) draw(1); else requestAnimationFrame(loop);
+          </script>
+        place: {x: 40, y: 40, w: 400, h: 200}
+      - type: embed
+        code: |
+          <style>html,body{margin:0;height:100%}canvas{width:100%;height:100%;display:block}</style>
+          <canvas id="c" width="200" height="100"></canvas>
+          <script>
+            const g = c.getContext('2d');
+            const t0 = performance.now();
+            function loop(now) { g.clearRect(0, 0, 200, 100); if (now - t0 > 300) { g.fillStyle = '#0000D0'; g.fillRect(0, 0, 200, 100); } requestAnimationFrame(loop); }
+            requestAnimationFrame(loop);
+          </script>
+        place: {x: 600, y: 40, w: 400, h: 200}
+      - type: shape
+        kind: round
+        text: "{s:200|**19 дней**}\\n\\nВосьмого ноября Рентген открыл лучи, а через девятнадцать дней Нобель подписал завещание о премиях"
+        valign: top
+        styles: {text: {size: 17, align: left}}
+        place: {x: 40, y: 320, w: 420, h: 220}
+`);
 // tidy — копия карточки поверх такой же, кнопки на удалённый слайд и объект, скрытое без кнопки
 fs.mkdirSync(path.join(dir, 'tidy'));
 fs.writeFileSync(path.join(dir, 'tidy', 'deck.yaml'), `title: Порядок

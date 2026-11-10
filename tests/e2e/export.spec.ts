@@ -157,6 +157,51 @@ test('PowerPoint 2007: формулы картинками, без расшир�
   for (const s of ['mc:AlternateContent', '<a14:', '<p14:', '<p15:', '<thm15:', 'extLst>']) expect(old.all).not.toContain(s);
 });
 
+test('PowerPoint: стоп-кадр живой вставки — и у той, что рисует только в кадрах анимации; текст карточки после пустой строки переносится', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto('/?deck=pptxstill&studio');
+  await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
+  const [download] = await Promise.all([page.waitForEvent('download', { timeout: 100_000 }), exportAs(page, 'pptx')]);
+  const file = path.join(OUT, 'pptxstill.pptx');
+  fs.mkdirSync(OUT, { recursive: true });
+  await download.saveAs(file);
+  const zip = await JSZip.loadAsync(fs.readFileSync(file));
+  const xml = await zip.file('ppt/slides/slide1.xml')!.async('string');
+  const rels = await zip.file('ppt/slides/_rels/slide1.xml.rels')!.async('string');
+  const media = Object.fromEntries([...rels.matchAll(/Id="(rId\d+)"[^>]*Target="\.\.\/media\/([^"]+)"/g)].map((m) => [m[1], m[2]]));
+  // Снимки вставок (фон слайда — картинкой во всю ширину — не в счёт), слева направо
+  const pics = [...xml.matchAll(/<p:pic>[\s\S]*?<\/p:pic>/g)].map(([x]) => ({
+    x: Number(/<a:off x="(\d+)"/.exec(x)![1]), w: Number(/<a:ext cx="(\d+)"/.exec(x)![1]), file: media[/r:embed="(rId\d+)"/.exec(x)![1]],
+  })).filter((p) => p.w < 1280 * 9525 / 2).sort((a, b) => a.x - b.x);
+  expect(pics).toHaveLength(2);
+  const center = async (f: string) => {
+    const data = await zip.file(`ppt/media/${f}`)!.async('base64');
+    return page.evaluate(async ([b64, mime]) => {
+      const img = new Image();
+      img.src = `data:${mime};base64,${b64}`;
+      await img.decode();
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      const g = c.getContext('2d')!;
+      g.drawImage(img, 0, 0);
+      return [...g.getImageData(c.width >> 1, c.height >> 1, 1, 1).data];
+    }, [data, /\.png$/i.test(f) ? 'image/png' : 'image/jpeg'] as const);
+  };
+  const [still, moving] = await Promise.all(pics.map((p) => center(p.file)));
+  // Вставка, которая понимает «Уменьшить движение», — своим неподвижным кадром (зелёный)
+  expect(still[3]).toBeGreaterThan(200);
+  expect(still[1]).toBeGreaterThan(120);
+  expect(still[0]).toBeLessThan(80);
+  // Без него — кадром идущей анимации (синий появляется только после 0,3 с кадров), а не пустым первым кадром
+  expect(moving[3]).toBeGreaterThan(200);
+  expect(moving[2]).toBeGreaterThan(150);
+  expect(moving[0]).toBeLessThan(80);
+  // Текст карточки после пустой строки — надписью с переносом, а не одной длинной строкой
+  const sp = [...xml.matchAll(/<p:sp>[\s\S]*?<\/p:sp>/g)].map(([x]) => x).find((x) => x.includes('Восьмого ноября'));
+  expect(sp).toContain('wrap="square"');
+});
+
 test('PowerPoint обратно: экспорт шаблона импортируется с теми же слайдами и текстами', async ({ page }) => {
   test.setTimeout(120_000);
   // Файл из предыдущего теста; если его запускали отдельно — его нет

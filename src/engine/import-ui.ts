@@ -67,13 +67,33 @@ function needsSnapshot(html: string): boolean {
 }
 
 /**
+ * Скрытой рамке за краем экрана браузер отдаёт один кадр анимации (requestAnimationFrame) — на нулевой
+ * секунде, а дальше не вызывает: анимация на холсте так и остаётся пустой. Кадры — таймером, он работает
+ */
+const FRAMES = '<script>(function(){window.requestAnimationFrame=function(f){return setTimeout(function(){f(performance.now())},16)};'
+  + 'window.cancelAnimationFrame=function(i){clearTimeout(i)}})()<\/script>';
+
+/** Скрипт кадров — первым в документе: до скриптов файла, после <!doctype> (иначе режим совместимости) */
+function withFrames(html: string): string {
+  const at = /<head\b[^>]*>/i.exec(html) ?? /<html\b[^>]*>/i.exec(html) ?? /<!doctype[^>]*>/i.exec(html);
+  return at ? html.slice(0, at.index + at[0].length) + FRAMES + html.slice(at.index + at[0].length) : FRAMES + html;
+}
+
+/**
  * Открывает файл в изолированной рамке (только скрипты, без доступа к странице), ждёт,
  * пока скрипты нарисуют слайды, и возвращает получившуюся разметку. Холсты (canvas)
  * превращаются в картинки. null — не получилось (тогда импортируется исходный файл).
+ * still — стоп-кадр живой вставки: документ видит «Уменьшить движение» (и в CSS, и в matchMedia) и рисует
+ * кадр, который автор задумал для неподвижного вида
  */
-export function snapshot(html: string, size = { w: 1440, h: 900 }): Promise<string | null> {
+export function snapshot(html: string, size = { w: 1440, h: 900 }, o: { still?: boolean } = {}): Promise<string | null> {
   const token = Math.random().toString(36).slice(2);
-  const probe = `<script>(function(){function shot(){try{document.querySelectorAll('script').forEach(function(s){s.remove()});document.querySelectorAll('canvas').forEach(function(c){try{var i=document.createElement('img');i.src=c.toDataURL('image/png');i.setAttribute('style',c.getAttribute('style')||'');i.className=c.className;if(c.width)i.width=c.width;if(c.height)i.height=c.height;c.replaceWith(i)}catch(e){}});`
+  if (o.still) html = html.replace(/prefers-reduced-motion\s*:\s*reduce/gi, 'min-width: 0px').replace(/prefers-reduced-motion\s*:\s*no-preference/gi, 'max-width: 0px');
+  html = withFrames(html);
+  const probe = `<script>(function(){function shot(){try{document.querySelectorAll('script').forEach(function(s){s.remove()});document.querySelectorAll('canvas').forEach(function(c){try{var i=document.createElement('img');i.src=c.toDataURL('image/png');i.setAttribute('style',c.getAttribute('style')||'');i.className=c.className;if(c.width)i.width=c.width;if(c.height)i.height=c.height;`
+    // Правила CSS для canvas к картинке не относятся: её место и размер — как у холста на экране
+    + `var s=getComputedStyle(c);['display','position','top','right','bottom','left','width','height','margin-top','margin-right','margin-bottom','margin-left','transform','opacity','z-index','border-radius','filter','mix-blend-mode'].forEach(function(k){i.style.setProperty(k,s.getPropertyValue(k))});`
+    + `c.replaceWith(i)}catch(e){}});`
     + `parent.postMessage({htmlpptxSnapshot:${JSON.stringify(token)},html:'<!doctype html>'+document.documentElement.outerHTML},'*')}catch(e){parent.postMessage({htmlpptxSnapshot:${JSON.stringify(token)},html:null},'*')}}`
     + `if(document.readyState==='complete')setTimeout(shot,1500);else addEventListener('load',function(){setTimeout(shot,1500)})})()<\/script>`;
   const doc = /<\/body>/i.test(html) ? html.replace(/<\/body>(?![\s\S]*<\/body>)/i, `${probe}</body>`) : html + probe;

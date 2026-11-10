@@ -12,7 +12,7 @@ export async function embedShot(
   w: number, h: number, o: { light?: boolean; pixelRatio?: number; from?: Element | null } = {},
 ): Promise<string | null> {
   try {
-    const snap = await snapshot(await embedHtml(p, o.light, o.from), { w, h });
+    const snap = await snapshot(await embedHtml(p, o.light, o.from), { w, h }, { still: true });
     if (!snap) return null;
     const { toPng } = await import('html-to-image');
     const f = document.createElement('iframe');
