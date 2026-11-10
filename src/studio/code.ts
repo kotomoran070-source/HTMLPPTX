@@ -645,7 +645,7 @@ export class CodeView {
     const waiting = !!b?.src && typeof b.code !== 'string' && !this.texts.has(b.src);
     this.setReadOnly(!e || waiting);
     if (!e) this.setStatus('На этом слайде нет анимаций на HTML/JS. Анимации на CSS (@keyframes) — во вкладке «Стили · CSS»', '');
-    else if (waiting) this.setStatus('Загружаю код…', '');
+    else if (waiting) this.setStatus('Загрузка кода…', '');
     else this.setStatus(`Вставка ${e.label} · правки сразу на слайде`, '');
   }
 

@@ -224,14 +224,42 @@ async function packed(data: string, matte?: string): Promise<string> {
 }
 
 async function imageData(src: string): Promise<string | null> {
-  if (src.startsWith('data:')) return src;
-  try {
-    const r = await fetch(src);
-    if (!r.ok) return null;
-    return await blobToDataUrl(await r.blob());
-  } catch {
-    return null;
+  let data: string;
+  if (src.startsWith('data:')) data = src;
+  else {
+    try {
+      const r = await fetch(src);
+      if (!r.ok) return null;
+      data = await blobToDataUrl(await r.blob());
+    } catch {
+      return null;
+    }
   }
+  return classicImage(data);
+}
+
+/** Форматы, которые показывает любой PowerPoint начиная с 2007; WebP и AVIF — только новые версии Microsoft 365 */
+const CLASSIC = /^data:image\/(png|jpe?g|gif|bmp|tiff?)[;,]/i;
+
+/**
+ * Картинка в формате, который откроет и старый PowerPoint: WebP, AVIF и прочие — в PNG (есть прозрачность)
+ * или JPEG (фото в PNG вышло бы в разы тяжелее). Не открылась — как есть
+ */
+async function classicImage(data: string): Promise<string> {
+  if (CLASSIC.test(data) || !data.startsWith('data:image/') || data.startsWith('data:image/svg')) return data;
+  const img = new Image();
+  if (!await new Promise<boolean>((r) => { img.onload = () => r(true); img.onerror = () => r(false); img.src = data; })) return data;
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, img.naturalWidth);
+  c.height = Math.max(1, img.naturalHeight);
+  const g = c.getContext('2d', { willReadFrequently: true })!;
+  g.drawImage(img, 0, 0);
+  let opaque = true;
+  try {
+    const px = g.getImageData(0, 0, c.width, c.height).data;
+    for (let i = 3; i < px.length; i += 4 * 7) if (px[i] < 250) { opaque = false; break; }
+  } catch { return data; }
+  return opaque ? c.toDataURL('image/jpeg', 0.92) : c.toDataURL('image/png');
 }
 
 /** Свойства SVG, которые задаются стилями: копируются в атрибут style, чтобы картинка не зависела от страницы */

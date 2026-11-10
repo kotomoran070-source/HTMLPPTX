@@ -603,7 +603,7 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
     const btn = root.querySelector<HTMLButtonElement>('.ac-key button[type="submit"]');
     if (!input || !btn || !input.value.trim()) return input?.focus();
     btn.disabled = true;
-    btn.textContent = 'Проверяю…';
+    btn.textContent = 'Проверка…';
     void api<Status>('chat-connect', { key: input.value }).then((s) => {
       status = s;
       keyError = '';

@@ -267,9 +267,9 @@ function linkHtml(c: Client, cs: ClientState): string {
   const name = c.name;
   const app = c.auto!.app ?? name;
   const [cls, ic, title, sub, btn] = cs.connected
-    ? ['ok', 'check', `Slideria подключена к ${name}`, c.auto!.after, `<button type="button" class="fp-btn" data-link="off"${busy ? ' disabled' : ''}>${busy ? 'Отключаю…' : 'Отключить'}</button>`]
+    ? ['ok', 'check', `Slideria подключена к ${name}`, c.auto!.after, `<button type="button" class="fp-btn" data-link="off"${busy ? ' disabled' : ''}>${busy ? 'Отключение…' : 'Отключить'}</button>`]
     : cs.installed
-      ? ['', 'plug', `${name} есть на этом компьютере`, 'Slideria пропишется в его настройках — с подпиской ключ API не нужен', `<button type="button" class="fp-btn go" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Подключаю…' : `Подключить к ${esc(name)}`}</button>`]
+      ? ['', 'plug', `${name} есть на этом компьютере`, 'Slideria пропишется в его настройках — с подпиской ключ API не нужен', `<button type="button" class="fp-btn go" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Подключение…' : `Подключить к ${esc(name)}`}</button>`]
       : ['no', 'search', `${app} не найден на этом компьютере`, 'Установите и откройте его один раз — или подключите вручную ниже', `<a class="fp-btn" href="${c.auto!.get}" target="_blank" rel="noopener">Скачать ${esc(app)}</a>`];
   return `<div class="ig-link ${cls}" aria-live="polite"><span class="ig-link-i">${icon(ic)}</span><div><b>${esc(title)}</b><span>${esc(sub)}</span>${err ? `<span class="ig-link-err" role="alert">${esc(err)}</span>` : ''}</div>${btn}</div>`;
 }

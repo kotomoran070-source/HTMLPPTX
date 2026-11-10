@@ -41,7 +41,7 @@ export async function openRemoteDialog(o: RemoteDialog): Promise<void> {
   document.querySelector('.rmd-bd')?.remove();
   const box = document.createElement('div');
   box.className = 'rmd-bd';
-  box.innerHTML = `<div class="rmd" role="dialog" aria-modal="true" aria-label="Пульт с телефона"><button class="ibtn small rmd-x" type="button" aria-label="Закрыть">${icon('close')}</button><div class="rmd-body"><p class="mu">Подключаю пульт…</p></div></div>`;
+  box.innerHTML = `<div class="rmd" role="dialog" aria-modal="true" aria-label="Пульт с телефона"><button class="ibtn small rmd-x" type="button" aria-label="Закрыть">${icon('close')}</button><div class="rmd-body"><p class="mu">Подключение пульта…</p></div></div>`;
   document.body.append(box);
   const body = box.querySelector<HTMLElement>('.rmd-body')!;
   const close = () => {
@@ -107,7 +107,7 @@ export async function openRemoteDialog(o: RemoteDialog): Promise<void> {
   };
   body.innerHTML = `<h2>${icon('phone')} Пульт с телефона</h2>
     <div class="rmd-pair"><p class="mu">Наведите камеру телефона на код. Телефон должен быть в той же сети, что и этот компьютер.</p>${qrHtml(ticket)}</div>
-    <p class="rmd-state" role="status"><i></i><span>Жду телефон…</span></p>
+    <p class="rmd-state" role="status"><i></i><span>Ожидание телефона…</span></p>
     <div class="rmd-devs" hidden></div>
     ${info.firewall ? `<p class="rmd-fw"><button type="button" class="rmd-fw-btn">Телефон не открывает страницу? Разрешить в брандмауэре</button></p>` : ''}`;
 
@@ -157,7 +157,7 @@ export async function openRemoteDialog(o: RemoteDialog): Promise<void> {
     } catch { /* сервер не ответил */ }
     line.textContent = state === 'fixed' ? 'Готово: пульт разрешён в локальной сети. Откройте ссылку на телефоне ещё раз.'
       : state === 'declined' ? 'Разрешение не дано. Без него телефон может не подключиться — нажмите R ещё раз, чтобы повторить.'
-      : 'Не получилось изменить правила брандмауэра — подробности в меню «Справка» → «Журнал работы».';
+      : 'Не удалось изменить правила брандмауэра — подробности в меню «Справка» → «Журнал работы».';
   });
   // Телефон на связи — окно остаётся: здесь же видно, кто подключён, и здесь его отключают
   o.onPhone(() => { if (box.isConnected) void refresh(); });

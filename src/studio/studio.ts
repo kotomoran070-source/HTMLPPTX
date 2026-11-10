@@ -887,7 +887,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       return;
     }
     try {
-      if (quality === 'compact') ed.toast('Сжимаю картинки…', 60000);
+      if (quality === 'compact') ed.toast('Сжатие картинок…', 60000);
       const blob = await projectStorage.exportHtml(deckKey, mode === 'clean', quality === 'compact', same ? { look: slidesLook(), motion: true } : {});
       // Имя — как у папки презентации (и у yarn build): латиница открывается везде
       const name = `${deckKey}${mode === 'clean' ? '' : '-edit'}.html`;
@@ -1159,7 +1159,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
 
   /** Из другой презентации: файлы копируются, стили и определения — изолированно (cross-paste.ts) */
   async function pasteForeign(clip: Clip): Promise<void> {
-    ed.toast('Переношу из другой презентации…', 0);
+    ed.toast('Перенос из другой презентации…', 0);
     const upload = async (blob: Blob, name: string) => (ed.mode === 'project'
       ? (await projectStorage.uploadAsset(deckKey, blob, name)).url
       : await blobToDataUrl(blob));
@@ -1351,7 +1351,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       return slide.querySelector<HTMLElement>(sel.free ? `:scope > [data-free="${key}"]` : `[data-block="${key}"]`);
     }).filter((e): e is HTMLElement => !!e);
     if (!els.length) return;
-    ed.toast('Сохраняю рисунок…', 0);
+    ed.toast('Сохранение рисунка…', 0);
     try {
       const one = paths.length === 1 ? getAt(deck, paths[0]) : null;
       await savePicture(slide, els, pictureName(one));
@@ -1381,7 +1381,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       b.place = { ...pl, x: Math.round(pl.x - x0), y: Math.round(pl.y - y0) };
       return b;
     });
-    ed.toast('Сохраняю шаблон…', 0);
+    ed.toast('Сохранение шаблона…', 0);
     // Картинки и вставки — содержимым: шаблон работает и в другой презентации
     const assets: Record<string, string> = {};
     for (const url of assetUrls(items)) {
@@ -1434,7 +1434,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     const i = index;
     const map = new Map<string, string>();
     const entries = Object.entries(t.assets ?? {});
-    if (entries.length) ed.toast('Копирую файлы шаблона…', 0);
+    if (entries.length) ed.toast('Копирование файлов шаблона…', 0);
     for (const [url, data] of entries) {
       try {
         const blob = await (await fetch(data)).blob();

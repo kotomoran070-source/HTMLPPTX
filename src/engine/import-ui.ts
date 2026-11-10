@@ -256,7 +256,7 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
     box.className = 'imp-bd';
     box.innerHTML = `<div class="imp" role="dialog" aria-modal="true" aria-labelledby="imp-h">
       <h2 id="imp-h">Импорт «${esc(file.name)}»</h2>
-      <div class="imp-body"><p class="mu">Проверяю файл…</p></div>
+      <div class="imp-body"><p class="mu">Проверка файла…</p></div>
       <label class="imp-name" hidden>Презентация <input spellcheck="false" autocomplete="off"><small class="mu">новое имя — отдельная презентация</small></label>
       <fieldset class="imp-mode" hidden><legend>Слайды</legend>
         <label><input type="radio" name="imp-mode" value="edit" checked><span><b>Редактируемые</b><small>Текст и изображения можно править. Скрипты файла отключаются.</small></span></label>
@@ -370,7 +370,7 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
       try {
         await o.beforeImport?.();
         const r = await request({ html, raw, file: file.name, deck: nameIn.value.trim() || last.name, dry: false, theme: themeIn.checked, live: isLive() });
-        body.innerHTML = `<p class="imp-ok">${r.mode === 'create' ? 'Презентация создана' : 'Правки перенесены в проект'}. Открываю…</p>`;
+        body.innerHTML = `<p class="imp-ok">${r.mode === 'create' ? 'Презентация создана' : 'Правки перенесены в проект'}. Открытие…</p>`;
         const url = new URL(location.href);
         url.search = `?deck=${encodeURIComponent(r.name)}`;
         if (r.name !== o.current) url.hash = '';
@@ -397,7 +397,7 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
     box.className = 'imp-bd';
     box.innerHTML = `<div class="imp" role="dialog" aria-modal="true" aria-labelledby="imp-h">
       <h2 id="imp-h">Импорт «${esc(file.name)}»</h2>
-      <div class="imp-body"><p class="mu">Читаю презентацию PowerPoint…</p></div>
+      <div class="imp-body"><p class="mu">Чтение презентации PowerPoint…</p></div>
       <label class="imp-name" hidden>Презентация <input spellcheck="false" autocomplete="off"><small class="mu">имя папки: латиница, цифры, дефис</small></label>
       <fieldset class="imp-mode" hidden><legend>Оформление</legend>
         <label><input type="radio" name="imp-look" value="file" checked><span><b>Как в файле</b><small>Точная копия: цвета и шрифты не меняются.</small></span></label>
@@ -476,7 +476,7 @@ export function setupImport(o: ImportUiOptions = {}): { pick: () => void } {
       try {
         await o.beforeImport?.();
         const r = await requestPptx(data, file.name, nameIn.value.trim() || last.name, false, adapt());
-        body.innerHTML = '<p class="imp-ok">Презентация создана. Открываю…</p>';
+        body.innerHTML = '<p class="imp-ok">Презентация создана. Открытие…</p>';
         const url = new URL(location.href);
         url.search = `?deck=${encodeURIComponent(r.name)}`;
         url.hash = '';
@@ -514,7 +514,7 @@ export async function bindThemeDialog(deck: string, beforeWrite?: () => Promise<
   box.className = 'imp-bd';
   box.innerHTML = `<div class="imp" role="dialog" aria-modal="true" aria-labelledby="bt-h">
     <h2 id="bt-h">Привязать цвета к теме</h2>
-    <div class="imp-body"><p class="mu">Проверяю цвета…</p></div>
+    <div class="imp-body"><p class="mu">Проверка цветов…</p></div>
     <div class="imp-actions"><button type="button" class="btn ghost" data-a="cancel">Отмена</button><button type="button" class="btn primary" data-a="ok" disabled>Привязать</button></div>
   </div>`;
   document.body.append(box);
@@ -546,11 +546,11 @@ export async function bindThemeDialog(deck: string, beforeWrite?: () => Promise<
   }
   ok.onclick = async () => {
     ok.disabled = cancel.disabled = true;
-    ok.textContent = 'Привязываю…';
+    ok.textContent = 'Привязка цветов…';
     try {
       await beforeWrite?.();
       await call(false);
-      body.innerHTML = '<p class="imp-ok">Готово. Обновляю страницу…</p>';
+      body.innerHTML = '<p class="imp-ok">Готово. Страница обновляется…</p>';
       location.reload();
     } catch (e) {
       body.innerHTML = `<p class="imp-err">Не удалось: ${esc((e as Error).message)}</p>`;

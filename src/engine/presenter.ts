@@ -79,7 +79,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
         <button type="button" class="pd-btn" id="tgrid" title="Все слайды (G)" aria-label="Все слайды">${icon('grid')}</button>
         <button type="button" class="pd-btn" id="bk" aria-pressed="false" title="Чёрный экран у зрителей (B)" aria-label="Чёрный экран">${icon('screen-off')}</button>
         <button type="button" class="pd-btn" id="tauto" aria-pressed="false" title="Автопоказ (A): смена слайдов по времени. Повторно — пауза" aria-label="Автопоказ">${icon('autoplay')}</button>
-        ${new URLSearchParams(location.search).get('remote') ? `<button type="button" class="pd-btn" id="eco" aria-pressed="true" title="Экономный режим: слайд на паузе, касание — оживить" aria-label="Экономный режим">${icon('pause')}</button>` : ''}
+        ${new URLSearchParams(location.search).get('remote') ? `<button type="button" class="pd-btn" id="eco" aria-pressed="true" title="Экономный режим: анимация слайда остановлена, касание экрана её возобновляет" aria-label="Экономный режим">${icon('pause')}</button>` : ''}
         <span class="pd-mir">
           <button type="button" class="pd-btn pd-more" id="tmir" aria-pressed="true" aria-haspopup="menu" title="Показывать зрителям курсор и 3D (M). Удерживайте — настройки" aria-label="Мышь и 3D у зрителей">${icon('cursor')}</button>
           <span class="pd-menu" id="mirmenu" role="menu" hidden>
@@ -87,7 +87,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
             <button type="button" role="menuitemcheckbox" data-mir="arrow">Показывать курсор<small>без него наведение работает, стрелки не видно (K)</small></button>
           </span>
         </span>
-        ${new URLSearchParams(location.search).get('remote') ? '' : `<button type="button" class="pd-btn" id="trmt" title="Пульт с телефона (R): QR здесь, у докладчика — зал его не видит" aria-label="Пульт с телефона">${icon('phone')}</button>`}
+        ${new URLSearchParams(location.search).get('remote') ? '' : `<button type="button" class="pd-btn" id="trmt" title="Пульт с телефона (R): QR-код для подключения виден только в окне докладчика" aria-label="Пульт с телефона">${icon('phone')}</button>`}
       </div>
       <div class="pres-tl" id="ptl" hidden role="group" aria-label="Автопоказ: шаги слайда и сколько осталось">
         <span class="pres-tl-l">Автопоказ</span>
@@ -716,9 +716,9 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     if (i === index) $('notes').innerHTML = s.notes ? t(s.notes) : '<span class="mu">Заметок нет</span>';
     const m = { id: Math.random().toString(36).slice(2, 10), index: i, slide: typeof s.id === 'string' ? s.id : undefined, notes: notes.trim() ? notes : '' };
     pending.set(i, m);
-    jotStatus('Отправляю…');
+    jotStatus('Отправка…');
     flushNotes();
-    setTimeout(() => { if (pending.has(i)) jotStatus('Ждёт связи с окном показа — запись не потеряется', 'warn'); }, 1500);
+    setTimeout(() => { if (pending.has(i)) jotStatus('Ожидание связи с окном показа — изменения сохранятся', 'warn'); }, 1500);
   }
   // Заметки только для чтения; править — кнопкой ✎ или клавишей E. Ctrl+Enter, повторное нажатие
   // кнопки или уход фокуса — сохранить, Esc — отменить
@@ -909,7 +909,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
       // Записи, которые окно показа ещё не подтвердило, — ещё раз
       if (pending.size) flushNotes();
       lastState = Date.now();
-      $('link').textContent = 'Связь с окном показа есть';
+      $('link').textContent = 'Окно показа подключено';
       $('link').classList.add('ok');
       const same = m.index === index;
       if (!same) render(m.index);
@@ -976,13 +976,13 @@ function phoneLink(ok: boolean, retrying = false): void {
       el.id = 'plost';
       el.className = 'pres-lost';
       el.setAttribute('role', 'alert');
-      el.innerHTML = `<b>Связь с показом пропала</b><span class="pl-try">Пробуем подключиться снова…</span>
-        <ul><li>Телефон в той же Wi-Fi, что и компьютер?</li><li>Показ открыт, компьютер не уснул?</li></ul>
+      el.innerHTML = `<b>Связь с показом пропала</b><span class="pl-try">Повторное подключение…</span>
+        <ul><li>Телефон и компьютер — в одной сети Wi-Fi</li><li>Показ открыт, компьютер не в спящем режиме</li></ul>
         <button type="button" class="btn primary" id="plost-go">${icon('reset')} Подключиться сейчас</button>`;
       document.body.appendChild(el);
       el.querySelector('#plost-go')!.addEventListener('click', () => retryLink?.());
     }
-    if (retrying) el.querySelector('.pl-try')!.textContent = 'Подключаюсь…';
+    if (retrying) el.querySelector('.pl-try')!.textContent = 'Подключение…';
   };
   if (retrying || document.getElementById('plost')) show();
   else if (!lostTimer) lostTimer = window.setTimeout(show, 4000);

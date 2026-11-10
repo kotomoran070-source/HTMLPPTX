@@ -1874,7 +1874,7 @@ export class Editor {
   async insertEmbedFile(file: File, at?: { x: number; y: number }): Promise<void> {
     if (file.size > MAX_FILE) return this.toast('Файл больше 25 МБ', 4000, true);
     const i = this.host.index();
-    this.toast('Добавляю живую вставку…', 0);
+    this.toast('Добавление живой вставки…', 0);
     try {
       const html = await file.text();
       const blob = new Blob([html], { type: 'text/html' });
@@ -1896,7 +1896,7 @@ export class Editor {
       }, { rebuild: true });
       if (idx < 0) return;
       this.selectFree(i, idx);
-      this.toast('Живая вставка добавлена — снимаю заставку…', 0);
+      this.toast('Живая вставка добавлена, создаётся заставка…', 0);
       const ok = await this.embedPoster(['slides', i, 'free', idx]);
       this.toast(ok ? 'Живая вставка добавлена. Код — «Код вставки» в свойствах' : 'Живая вставка добавлена (заставку снять не удалось)', 3500);
     } catch (e) {
