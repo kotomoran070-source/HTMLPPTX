@@ -1862,6 +1862,34 @@ test('новый слайд — сразу надписи: заголовок с
   expect(errors).toEqual([]);
 });
 
+test('правый щелчок по миниатюре — только меню этого слайда, без перехода: команды — для него, миниатюра обведена', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=nslide&studio#1');
+  const thumbs = page.locator('.st-slides-list > *');
+  await expect(thumbs).toHaveCount(2);
+  const pos = page.locator('#st-pos');
+  await expect(pos).toContainText('Слайд 1 из 2');
+  await thumbs.nth(1).click({ button: 'right' });
+  await expect(page.locator('.st-menu')).toBeVisible();
+  await expect(pos).toContainText('Слайд 1 из 2');
+  await expect(thumbs.nth(1)).toHaveClass(/\bctx\b/);
+  await page.keyboard.press('Escape');
+  await expect(thumbs.nth(1)).not.toHaveClass(/\bctx\b/);
+  // «Копировать слайд» — второй, хотя открыт первый; «Вставить» у первого — копия после него
+  await thumbs.nth(1).click({ button: 'right' });
+  await page.locator('.st-menu button', { hasText: 'Копировать слайд' }).click();
+  await thumbs.nth(0).click({ button: 'right' });
+  await page.locator('.st-menu button', { hasText: 'Вставить' }).click();
+  await expect(thumbs).toHaveCount(3);
+  await expect(pos).toContainText('Слайд 2 из 3 · Новый слайд');
+  // «Удалить слайд» у третьего — удаляется он, открытый остаётся
+  await thumbs.nth(2).click({ button: 'right' });
+  await page.locator('.st-menu button', { hasText: 'Удалить слайд' }).click();
+  await expect(thumbs).toHaveCount(2);
+  await expect(pos).toContainText('Слайд 2 из 2 · Новый слайд');
+  expect(errors).toEqual([]);
+});
+
 test('«Собрать в галерею»: две картинки слайда — кадрами одной, левая остаётся на месте, разной формы — целиком на размытом фоне; Ctrl+Z — как было', async ({ page }) => {
   const errors = watchErrors(page);
   const before = readDeck('gal');

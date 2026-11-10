@@ -39,7 +39,8 @@ export function closeMenu(): void {
  * Всплывающее меню у точки или под кнопкой. Клавиатура: стрелки, Enter, Esc.
  * Закрывается кликом мимо, прокруткой и сменой размера окна.
  */
-export function showMenu(at: { x: number; y: number } | HTMLElement, rows: MenuRow[]): void {
+/** onClose — меню закрылось (выбран пункт, Esc, щелчок мимо): снять подсветку того, к чему оно открывалось */
+export function showMenu(at: { x: number; y: number } | HTMLElement, rows: MenuRow[], onClose?: () => void): void {
   const el = document.createElement('div');
   const items = rows.map((it) => (isHead(it) ? null : it));
   // Меню выбора без значков (угол, толщина): короткий список, отмеченное — галочкой и цветом
@@ -57,7 +58,7 @@ export function showMenu(at: { x: number; y: number } | HTMLElement, rows: MenuR
   mount(at, el, (b) => {
     const it = items[Number(b.dataset.k)];
     return it ? () => it.run() : null;
-  }, true);
+  }, true, onClose);
   if (items.some((it) => it?.preview)) watchPreview(el, items);
 }
 
@@ -106,7 +107,7 @@ export function showPopover(at: HTMLElement, html: string, pick: (b: HTMLButtonE
 
 type Action = (() => void) & { keep?: boolean };
 
-function mount(at: { x: number; y: number } | HTMLElement, el: HTMLElement, action: (b: HTMLButtonElement) => Action | null, arrows: boolean): void {
+function mount(at: { x: number; y: number } | HTMLElement, el: HTMLElement, action: (b: HTMLButtonElement) => Action | null, arrows: boolean, onClose?: () => void): void {
   closeMenu();
   el.dataset.edKeep = '';
   document.body.appendChild(el);
@@ -141,6 +142,7 @@ function mount(at: { x: number; y: number } | HTMLElement, el: HTMLElement, acti
     removeEventListener('resize', close);
     removeEventListener('scroll', onScroll, true);
     open = null;
+    onClose?.();
   };
   // Прокрутка страницы уводит якорь — меню закрывается; своя прокрутка (длинная галерея) — нет
   // Закрывается, если прокрутилось то, к чему меню прикреплено (иначе оно уехало бы от кнопки);

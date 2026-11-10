@@ -12,7 +12,8 @@ export interface SlidesHost {
   duplicate(i: number): void;
   remove(i: number): void;
   add(after: number, anchor: HTMLElement): void;
-  menu(i: number, at: { x: number; y: number }): void;
+  /** Меню слайда i (не обязательно текущего); onClose — меню закрылось */
+  menu(i: number, at: { x: number; y: number }, onClose?: () => void): void;
 }
 
 /** Всё, что влияет на вид любого слайда, кроме самих слайдов: тема, логотип, стили, символы. */
@@ -138,12 +139,15 @@ export class SlidesPanel {
       const i = this.at(e);
       if (i >= 0) h.go(i);
     });
+    // Правый щелчок — только меню этого слайда: на него не переходит. Пока меню открыто, миниатюра обведена —
+    // видно, к какому слайду команды
     this.list.addEventListener('contextmenu', (e) => {
       const i = this.at(e);
       if (i < 0) return;
       e.preventDefault();
-      h.go(i);
-      h.menu(i, { x: e.clientX, y: e.clientY });
+      const item = this.items[i];
+      item?.classList.add('ctx');
+      h.menu(i, { x: e.clientX, y: e.clientY }, () => item?.classList.remove('ctx'));
     });
     this.list.addEventListener('keydown', (e) => {
       const i = this.at(e);

@@ -433,7 +433,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     duplicate: (i) => ed.duplicateSlide(i),
     remove: (i) => ed.deleteSlide(i),
     add: (_after, anchor) => newSlideMenu(anchor),
-    menu: (i, at) => showMenu(at, slideMenu(i)),
+    menu: (i, at, onClose) => showMenu(at, slideMenu(i), onClose),
   });
 
   // ---------------- выделенный объект ----------------
@@ -998,14 +998,16 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     return [
       // Правый щелчок по части слайда с красивым появлением: его можно забрать себе
       ...(part ? [{ label: 'Сохранить появление как эффект…', icon: 'sparkle', run: () => askEffectName(part) }, null] : []),
-      { label: 'Копировать слайд', icon: 'copy', hint: 'Ctrl+C', run: () => copy(false) },
-      { label: 'Вставить', icon: 'paste', hint: 'Ctrl+V', disabled: !clip, run: () => clip && pasteClip(clip) },
+      // Меню открывают и у другого слайда (правым щелчком по миниатюре — без перехода): команды — для него.
+      // Вставка, разбор и открепление — на нём самом: сначала переход
+      { label: 'Копировать слайд', icon: 'copy', hint: 'Ctrl+C', run: () => copySlide(i) },
+      { label: 'Вставить', icon: 'paste', hint: 'Ctrl+V', disabled: !clip, run: () => { if (!clip) return; go(i); pasteClip(clip); } },
       null,
-      ...(i === index && canExplode(deck.slides[i]) ? [{ label: 'Разобрать на объекты', icon: 'ungroup', run: () => run('slide.explode') }, null] : []),
+      ...(canExplode(deck.slides[i]) ? [{ label: 'Разобрать на объекты', icon: 'ungroup', run: () => { go(i); run('slide.explode'); } }, null] : []),
       // Закреплённые объекты правым щелчком не достать: открепить их можно отсюда
-      ...(i === index && lockedOn(i).length ? [
-        { label: 'Открепить все объекты', icon: 'unlock', run: () => setLocked(lockedOn(i), false) },
-        { label: 'Область выделения', icon: 'layers', hint: 'Alt+F10', run: () => toggleLayers(true) },
+      ...(lockedOn(i).length ? [
+        { label: 'Открепить все объекты', icon: 'unlock', run: () => { go(i); setLocked(lockedOn(i), false); } },
+        { label: 'Область выделения', icon: 'layers', hint: 'Alt+F10', run: () => { go(i); toggleLayers(true); } },
         null,
       ] : []),
       { label: 'Новый слайд после этого', icon: 'slide-add', hint: 'Ctrl+M', run: () => ed.addSlide(i, 0) },
@@ -1122,6 +1124,15 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     const s = deck.slides[index];
     const items = [JSON.parse(JSON.stringify(s))];
     return { clip: putClip({ deck: deckKey, kind: 'slides', items, slide: index, ...carry(items) }), text: slideLabel(s, index) };
+  }
+
+  /** Слайд i — в буфер (меню слайда): не выделенный на текущем объект и не текущий слайд */
+  function copySlide(i: number): void {
+    const s = deck.slides[i];
+    if (!s) return;
+    const items = [JSON.parse(JSON.stringify(s))];
+    putClip({ deck: deckKey, kind: 'slides', items, slide: i, ...carry(items) });
+    ed.toast('Слайд скопирован', 1400);
   }
 
   function copy(cut: boolean, data?: DataTransfer | null): boolean {

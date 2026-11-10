@@ -394,6 +394,8 @@ body.studio { background: var(--alt); }
 .st-thumb:hover .st-tbox { border-color: var(--acb); }
 .st-thumb.cur .st-tbox { border-color: var(--ac); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 18%, transparent); }
 .st-thumb.cur .st-num { color: var(--ach); font-weight: 700; }
+/* Меню открыто правым щелчком у этого слайда (не текущего): к нему его команды */
+.st-thumb.ctx:not(.cur) .st-tbox { border-color: color-mix(in srgb, var(--ac) 55%, transparent); border-style: dashed; }
 .st-thumb.dragging { opacity: .45; }
 .st-thumb.drop-before::before, .st-thumb.drop-after::after { content: ""; position: absolute; left: 24px; right: 4px; height: 3px; border-radius: 2px; background: var(--ac); }
 .st-thumb.drop-before::before { top: -3px; }
