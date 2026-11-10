@@ -30,11 +30,11 @@ test('«Надпись»: две надписи — стиль с примерк
   await expect(page.locator('#st-canvas .slide.on .ed-block-sel')).toHaveCount(2);
   const p1 = page.locator('#st-canvas .slide.on [data-block] >> nth=1');
   // Наведение на плитку — примерка на слайде без записи, уход — как было
-  await page.locator('#st-ribbon [data-cmd="text.style.neon"]').hover();
+  await page.locator('.st-rpanel[data-panel="text"] [data-cmd="text.style.neon"]').hover();
   await expect.poll(() => p1.evaluate((el) => getComputedStyle(el).textShadow)).not.toBe('none');
   await page.mouse.move(700, 800);
   await expect.poll(() => p1.evaluate((el) => getComputedStyle(el).textShadow)).toBe('none');
-  await page.locator('#st-ribbon [data-cmd="text.style.neon"]').click();
+  await page.locator('.st-rpanel[data-panel="text"] [data-cmd="text.style.neon"]').click();
   await page.locator('#st-ribbon [data-cmd="text.italic"]').click();
   expect(await waitFile(() => styles().every((s) => s.glow === 'accent' && s.italic === true))).toBe(true);
   // Своё у каждой остаётся: размер первой
@@ -244,6 +244,59 @@ slides:
     await tp.locator('[data-cmd="text.shadow"]').click();
     await page.locator('.st-txpop button', { hasText: 'Мягкая' }).first().click();
     expect(await waitFile(() => free().every((b) => b.styles?.text?.shadow === 'soft'))).toBe(true);
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('«Главная» → «Эффекты текста»: стиль и эффект букв — выделенной фигуре, полю в правке и всем объектам по Ctrl+A', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'homefx');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'deck.yaml'), `title: Эффекты на Главной
+slides:
+  - template: canvas
+    free:
+      - {type: text, text: "Заголовок", place: {x: 80, y: 40, w: 700}}
+      - {type: shape, kind: round, text: "Карточка", place: {x: 80, y: 220, w: 400, h: 200}}
+`);
+  try {
+    type Free = { styles?: { text?: Record<string, unknown> } };
+    const free = () => (parse(fs.readFileSync(deckFile('homefx'), 'utf8')) as { slides: { free: Free[] }[] }).slides[0].free;
+    await page.goto('/?deck=homefx&studio#1');
+    const fx = page.locator('#ed-text [data-t="fx"]');
+    const menu = page.locator('#ed-menu');
+    // Фигура выделена — эффект её тексту
+    await page.locator('#st-canvas .slide.on .shape-t').first().click();
+    await page.locator('.st-tabs [data-tab="home"]').click();
+    await fx.click();
+    await expect(menu.locator('.edfx-t.look')).toHaveCount(8);
+    await menu.locator('[data-fxk="glow"]').click();
+    await menu.locator('[data-fx]', { hasText: 'Акцент' }).first().click();
+    expect(await waitFile(() => free()[1].styles?.text?.glow === 'accent')).toBe(true);
+    expect(free()[0].styles?.text?.glow).toBeUndefined();
+    // Правка текста надписи — эффект всему полю, запись по завершении правки
+    const title = page.locator('#st-canvas .slide.on [data-edit]').first();
+    // По началу слов: середину короткой надписи закрывает ручка рамки выделения
+    await title.click({ position: { x: 12, y: 8 } });
+    await title.click({ position: { x: 12, y: 8 } });
+    await expect(title).toHaveAttribute('contenteditable', /true|plaintext-only/);
+    await page.locator('.st-tabs [data-tab="home"]').click();
+    await fx.click();
+    await menu.locator('[data-fxk="outline"]').click();
+    await menu.locator('[data-fx]', { hasText: '3 px' }).first().click();
+    await expect.poll(() => title.evaluate((e) => getComputedStyle(e).webkitTextStrokeWidth)).not.toBe('0px');
+    await page.keyboard.press('Escape');
+    expect(await waitFile(() => free()[0].styles?.text?.outline === 3)).toBe(true);
+    // Ctrl+A — готовый стиль всем: свечение у фигуры уходит (стиль — с чистого листа), цвет и начертание — стиля
+    const s = (await page.locator('#st-canvas .slide.on').boundingBox())!;
+    await page.mouse.click(s.x + s.width - 20, s.y + s.height - 20);
+    await page.keyboard.press('Control+a');
+    await page.locator('.st-tabs [data-tab="home"]').click();
+    await fx.click();
+    await menu.locator('.edfx-t.look[title="Акцент"]').click();
+    expect(await waitFile(() => free().every((b) => b.styles?.text?.color === 'accent' && b.styles?.text?.weight === 700 && !b.styles?.text?.glow && !b.styles?.text?.outline))).toBe(true);
     expect(errors).toEqual([]);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

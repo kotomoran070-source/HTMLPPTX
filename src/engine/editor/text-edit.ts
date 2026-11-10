@@ -9,6 +9,7 @@ import { gradientPanel, type GradValue } from './gradient-edit';
 import { colorCss, customMarker, FONTS, LIST_MARKERS, listCss, markerImage, splitDecls, SWATCHES, textStyleCss, THEME_COLORS, type TextStyle } from '../text-style';
 import { plainMarkup, SEL_A, SEL_B, setListKindAt, toggleList, toggleListAt, toMarkup } from './serialize';
 import { formatSpanAttrs, parseSpanAttrs, spanCss, type SpanAttrs } from '../span-attrs';
+import { applyLook, FX_NAMES, fxSections, type FxKind, lookOn, PINNED_LOOKS, TEXT_LOOKS } from '../text-looks';
 
 /** Что текстовому редактору нужно от основного редактора. */
 /** Курсор на первой (up) или последней строке поля; пустое поле — на обеих */
@@ -66,6 +67,8 @@ export interface TextTarget {
   apply(patch: Partial<TextStyle> | null, o?: { exact?: boolean }): void;
   /** «Больше / меньше»: каждому полю от его размера (нет — всем от размера первого) */
   step?(delta: number): void;
+  /** Новое оформление каждого поля по его прежнему (стили и эффекты текста); нет — patch по первому */
+  edit?(fn: (st: TextStyle) => TextStyle): void;
 }
 
 /** Без правки текста эти кнопки не работают: они — для выделенных слов или одного поля */
@@ -140,6 +143,7 @@ export class TextEditor {
   </span>
   <i class="edsep"></i>
   <button type="button" data-t="color" class="edswatch" title="Цвет текста" aria-label="Цвет текста"><span></span></button>
+  <button type="button" data-t="fx" class="edfx" title="Эффекты текста: готовые стили, тень, свечение, контур, плашка" aria-label="Эффекты текста" aria-haspopup="true">${icon('text-glow')}<b class="st-caret"></b></button>
   <button type="button" data-t="bold" title="Жирный (Ctrl+B)" aria-label="Жирный"><b>B</b></button>
   <button type="button" data-t="italic" title="Курсив (Ctrl+I)" aria-label="Курсив"><i style="font-family:Georgia,serif">I</i></button>
   <button type="button" data-t="underline" title="Подчёркнутый (Ctrl+U)" aria-label="Подчёркнутый"><u>U</u></button>
@@ -841,7 +845,7 @@ export class TextEditor {
       if (!b || !this.s) return;
       const cmd = b.dataset.t!;
       if (cmd !== 'color') this.colors.classList.remove('on');
-      if (cmd !== 'leading' && cmd !== 'spacing' && cmd !== 'list-kind') this.menu.classList.remove('on');
+      if (cmd !== 'leading' && cmd !== 'spacing' && cmd !== 'list-kind' && cmd !== 'fx') this.menu.classList.remove('on');
       switch (cmd) {
         case 'bold': case 'italic': case 'underline': this.format(cmd); break;
         case 'mark': this.markSelection(); break;
@@ -864,6 +868,7 @@ export class TextEditor {
           break;
         }
         case 'color': this.toggleColors(b); break;
+        case 'fx': this.fxMenu(b); break;
         case 'font': {
           // Выделена часть текста — шрифт только ей (без примерки: она показала бы весь текст)
           const part = this.partRange();
@@ -1458,6 +1463,79 @@ export class TextEditor {
     this.menu.style.top = `${r.bottom + 6}px`;
   }
 
+  /**
+   * «Эффекты текста» на «Главной»: готовые стили и тень, свечение, контур, плашка букв — те же варианты, что на
+   * вкладках «Надпись» и «Фигура» (text-looks.ts). В правке — всему полю, без правки — тексту выделенных объектов
+   */
+  private fxMenu(anchor: HTMLElement, view: 'main' | FxKind = 'main'): void {
+    if (view === 'main' && this.menu.classList.contains('on') && this.menu.dataset.kind === 'fx') {
+      this.menu.classList.remove('on');
+      return;
+    }
+    const st = this.s ? { ...this.s.styles } : this.tg ? this.tg.styles() : null;
+    if (!st) return;
+    const sample = (x: TextStyle, size: number) => `<b style="${esc(textStyleCss({ ...x, size, width: undefined, align: undefined }))}">Аа</b>`;
+    const edits: ((x: TextStyle) => TextStyle)[] = [];
+    const tile = (label: string, edit: (x: TextStyle) => TextStyle, on: boolean, cls = '') => {
+      edits.push(edit);
+      return `<button type="button" class="edfx-t${cls}" data-fx="${edits.length - 1}" role="menuitemradio" aria-checked="${on}" title="${esc(label)}">`
+        + `<i>${sample(edit({ ...st }), 17)}</i><span>${esc(label)}</span></button>`;
+    };
+    let html: string;
+    if (view === 'main') {
+      const looks = PINNED_LOOKS.map((id) => TEXT_LOOKS.find((l) => l.id === id)!);
+      html = `<div class="edmenu-title">Стили текста</div><div class="edfx-grid">${looks.map((l) => tile(l.name, (x) => applyLook(x, l), lookOn(st, l), ' look')).join('')}</div>`
+        + `<div class="edfx-sep"></div>`
+        + (Object.keys(FX_NAMES) as FxKind[]).map((k) => `<button type="button" class="edfx-row${st[k] || (k === 'outline' && st.hollow) ? ' set' : ''}" data-fxk="${k}">`
+          + `${icon(k === 'plate' ? 'plate' : `text-${k}`)}<span>${FX_NAMES[k]}</span><b class="edfx-go">›</b></button>`).join('');
+    } else {
+      html = `<button type="button" class="edfx-back" data-back="1"><b>‹</b><span>${FX_NAMES[view]}</span></button>`
+        + fxSections(view, st).map((sec) => (sec.title ? `<div class="edmenu-title">${esc(sec.title)}</div>` : '')
+          + `<div class="edfx-grid ${sec.cls === 't3' ? 't2' : 'v'}">${sec.options.map(([label, edit, on]) => tile(label, edit, on)).join('')}</div>`).join('');
+    }
+    this.menu.dataset.kind = 'fx';
+    this.menu.innerHTML = html;
+    this.menu.onmousedown = (e) => e.preventDefault();
+    this.menu.onmouseover = null;
+    this.menu.onmouseleave = null;
+    this.menu.onclick = (e) => {
+      const t = e.target as Element;
+      const kind = t.closest<HTMLElement>('[data-fxk]')?.dataset.fxk as FxKind | undefined;
+      if (kind) return this.fxMenu(anchor, kind);
+      if (t.closest('[data-back]')) return this.fxMenu(anchor, 'main');
+      const i = t.closest<HTMLElement>('[data-fx]')?.dataset.fx;
+      if (i === undefined) return;
+      this.fxApply(edits[Number(i)]);
+      this.menu.classList.remove('on');
+      this.s?.el.focus({ preventScroll: true });
+    };
+    this.menu.classList.add('on');
+    const r = anchor.getBoundingClientRect();
+    const w = this.menu.offsetWidth;
+    this.menu.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left - 8))}px`;
+    this.menu.style.top = `${r.bottom + 6}px`;
+  }
+
+  /** Записать стиль или эффект: в правке — оформлению поля, без правки — каждому выделенному по его прежнему */
+  private fxApply(edit: (st: TextStyle) => TextStyle): void {
+    const diff = (was: TextStyle) => {
+      const next = edit({ ...was });
+      const patch: Partial<TextStyle> = {};
+      for (const k of new Set([...Object.keys(was), ...Object.keys(next)]) as Set<keyof TextStyle>) {
+        if (was[k] !== next[k]) (patch as Record<string, unknown>)[k] = next[k];
+      }
+      return patch;
+    };
+    if (this.s) {
+      this.setStyle(diff(this.s.styles));
+      return;
+    }
+    const tg = this.tg;
+    if (!tg) return;
+    if (tg.edit) tg.edit(edit);
+    else tg.apply(diff(tg.styles()));
+  }
+
   private toggleColors(anchor: HTMLElement): void {
     const on = !this.colors.classList.contains('on');
     // Выделенная часть текста запоминается: клик по палитре её не сбросит
@@ -1498,7 +1576,7 @@ export class TextEditor {
     this.bar.querySelectorAll<HTMLElement>('[data-t="bold"],[data-t="italic"],[data-t="underline"],[data-t="mark"],[data-t="link"],[data-t="reset"]')
       .forEach((b) => (b.hidden = s.isKey));
     const styleable = !!s.owner || !!s.styleAt;
-    this.bar.querySelectorAll<HTMLElement>('[data-t="font"],.edsize,[data-t="color"],[data-t="spacing"]').forEach((b) => (b.hidden = !styleable));
+    this.bar.querySelectorAll<HTMLElement>('[data-t="font"],.edsize,[data-t="color"],[data-t="fx"],[data-t="spacing"]').forEach((b) => (b.hidden = !styleable));
     const lead = this.bar.querySelector<HTMLElement>('[data-t="leading"]');
     if (lead && !styleable) lead.hidden = true;
     (this.bar.querySelector('[data-t="delete"]') as HTMLElement).hidden = !s.block;
@@ -1600,6 +1678,7 @@ export class TextEditor {
     if (!els.length) return;
     const st = tg.styles();
     if (cmd !== 'color') this.colors.classList.remove('on');
+    if (cmd !== 'fx') this.menu.classList.remove('on');
     const all = (fn: (cs: CSSStyleDeclaration) => boolean) => els.every((x) => fn(getComputedStyle(x)));
     switch (cmd) {
       // Как в Word: всё уже жирное — снять, иначе — всем
@@ -1618,6 +1697,7 @@ export class TextEditor {
         break;
       }
       case 'color': this.toggleColors(b); break;
+      case 'fx': this.fxMenu(b); break;
       case 'font':
         fontPicker().toggle(b, () => this.fontList(), st.font ?? '', (v) => tg.apply({ font: v || undefined }),
           (f) => tg.els().forEach((x) => tryFontOn(x, 'font-family', f ? (f.value ? f.css : '') : null)));

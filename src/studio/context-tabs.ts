@@ -57,10 +57,10 @@ import type { Block, Deck } from '../types';
 import { showMenu, showPopover, type MenuEntry } from './menu';
 import { fontItems, fontPicker, tryFontOn, type FontItem } from '../engine/editor/font-picker';
 import { fontNameOk, fontStack } from '../engine/fonts';
-import { colorCss, FONTS, SWATCHES, TEXT_SHADOWS, THEME_COLORS, type TextStyle } from '../engine/text-style';
+import { colorCss, FONTS, SWATCHES, THEME_COLORS, type TextStyle } from '../engine/text-style';
 import { textGradientCss } from '../engine/gradients';
 import { angleOf } from '../engine/render';
-import { applyLook, LOOK_GROUPS, lookOn, lookTile, PINNED_LOOKS, textPanelHtml, textSampleHtml, TEXT_LOOKS } from './text-tab';
+import { applyLook, fxSections, type FxKind, LOOK_GROUPS, lookOn, lookTile, PINNED_LOOKS, textPanelHtml, textSampleHtml, TEXT_LOOKS } from './text-tab';
 import { cellAnchor, cellLists, cellOf, cellRange, cellSpan, colCount, dropCols, dropRows, expandRange, hasMerge, mergeRange, pruneCellData, rowLists, shiftMerges, sortRows, splitCell, splitRange, tableCells, type CellRange, type TableData as CellTable } from './table-cells';
 import { onPage } from '../engine/motion';
 
@@ -272,7 +272,7 @@ export function contextPanelsHtml(): string {
       row(btn('shape.align.left', 'align-left', 'По левому краю', { ico: true }), btn('shape.align.center', 'align-center', 'По центру', { ico: true }), btn('shape.align.right', 'align-right', 'По правому краю', { ico: true })),
       row(btn('shape.valign.top', 'v-top', 'Сверху', { ico: true }), btn('shape.valign.middle', 'v-middle', 'Посередине по высоте', { ico: true }), btn('shape.valign.bottom', 'v-bottom', 'Снизу', { ico: true })),
     ].join('')}</div>`)}
-  ${group('Стили текста', `<div class="st-gallery x">${PINNED_LOOKS.slice(0, 4).map((id) => lookTile(TEXT_LOOKS.find((l) => l.id === id)!)).join('')}`
+  ${group('Стили текста', `<div class="st-gallery x x3">${PINNED_LOOKS.slice(0, 6).map((id) => lookTile(TEXT_LOOKS.find((l) => l.id === id)!)).join('')}`
     + `<button type="button" class="st-gmore" data-cmd="text.styles" title="Все стили текста" aria-label="Все стили текста" aria-haspopup="true"><b class="st-caret"></b></button></div>`)}
   ${group('Эффекты текста', stack(btn('text.shadow', 'text-shadow', 'Тень', { menu: true, title: 'Тень букв' }), btn('text.glow', 'text-glow', 'Свечение', { menu: true, title: 'Свечение вокруг букв' }))
     + stack(btn('text.outline', 'text-outline', 'Контур', { menu: true, title: 'Контур букв' }), btn('text.plate', 'plate', 'Плашка', { menu: true, title: 'Цветная плашка под текстом' })))}
@@ -1351,47 +1351,12 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     })), slider && { ...slider, fn: (b, v) => withStyle(b, slider.put({ ...tst(b) }, v)), write: (v) => editText((st) => slider.put(st, v), `text-${slider.key}`) }, cls, TEXT_KIND);
   };
   const set = (patch: TextStyle) => (st: TextStyle): TextStyle => ({ ...st, ...patch });
-  /** Цвета эффектов: цвета темы, светлый акцент, фон карточек и постоянные */
-  const FX_SWATCH: [string, string][] = [['accent', 'Акцент'], ['accent2', 'Тёмный акцент'], ['text', 'Цвет текста'], ['soft', 'Светлый акцент'], ['surface', 'Цвет фона'], ['#FFFFFF', 'Белый'], ['#111827', 'Чёрный'], ['#FDE047', 'Жёлтый'], ['#22D3EE', 'Голубой'], ['#F472B6', 'Розовый']];
-  const shadowMenu = () => {
-    const cur = tx0().shadow;
-    const tuned = shadowTuned(tx0());
-    // Готовая тень — с чистого листа: свои ручки («Свойства») сбрасываются
-    const fresh = Object.fromEntries(SHADOW_TUNE.map((k) => [k, undefined]));
-    txPopover('text.shadow', [{ options: [['Без тени', set({ shadow: undefined, ...fresh }), !cur], ...Object.entries(TEXT_SHADOWS).map(([k, v]): TxOption => [v.name, set({ shadow: k, ...fresh }), cur === k && !tuned])] }], undefined, 'st-txpop');
-  };
-  const glowMenu = () => {
-    const cur = tx0().glow;
-    txPopover('text.glow', [{ cls: 'f', options: [['Без свечения', set({ glow: undefined, glowSize: undefined, glowOpacity: undefined }), !cur], ...FX_SWATCH.filter(([v]) => v !== 'soft' && v !== 'surface').map(([v, l]): TxOption => [l, set({ glow: v }), cur === v])] }], undefined, 'st-txpop');
-  };
-  const outlineMenu = () => {
-    const st = tx0();
-    const w = Number(st.outline) || 0;
-    // Контур появляется вместе с цветом или видом: без толщины его не видно
-    const withW = (patch: TextStyle) => (x: TextStyle): TextStyle => ({ ...x, ...patch, outline: Number(x.outline) || 2 });
-    txPopover('text.outline', [
-      { title: 'Толщина', cls: 'f', options: [['Без контура', set({ outline: undefined, outlineColor: undefined, hollow: undefined }), !w && !st.hollow], ...[1, 2, 3, 5].map((n): TxOption => [`${n} px`, (x) => ({ ...x, outline: n }), w === n])] },
-      { title: 'Цвет', cls: 'f', options: FX_SWATCH.filter(([v]) => v !== 'soft').map(([v, l]): TxOption => [l, withW({ outlineColor: v }), !!w && (st.outlineColor ?? 'accent') === v]) },
-      { title: 'Буквы', cls: 't3', options: [['С заливкой', (x) => ({ ...x, hollow: undefined }), !st.hollow], ['Только контур', withW({ hollow: true }), !!st.hollow]] },
-    ], undefined, 'st-txpop');
-  };
-  const plateMenu = () => {
-    const st = tx0();
-    const cur = st.plate;
-    // Плашка подбирает цвет текста, а без плашки подобранный цвет уходит — текст не пропадает на фоне
-    const auto = new Set(['#FFFFFF', '#111827', 'accent2']);
-    const plate = (v: string | undefined, color?: string) => (x: TextStyle): TextStyle => ({ ...x, plate: v, color: color ?? (auto.has(String(x.color)) ? undefined : x.color), hollow: undefined, ...(v ? {} : { plateRadius: undefined, platePad: undefined }) });
-    txPopover('text.plate', [{ options: [
-      ['Без плашки', plate(undefined), !cur],
-      ['Акцент', plate('accent', '#FFFFFF'), cur === 'accent'],
-      ['Светлая', plate('soft', 'accent2'), cur === 'soft'],
-      ['Цвет фона', plate('surface'), cur === 'surface'],
-      ['Тёмная', plate('#111827', '#FFFFFF'), cur === '#111827'],
-      ['Жёлтая', plate('#FDE047', '#111827'), cur === '#FDE047'],
-      ['Красная', plate('#DC2626', '#FFFFFF'), cur === '#DC2626'],
-      ['Белая', plate('#FFFFFF', '#111827'), cur === '#FFFFFF'],
-    ] }], undefined, 'st-txpop');
-  };
+  // Тень, свечение, контур и плашка букв: те же варианты, что у кнопки «Эффекты текста» на «Главной» (text-tab.ts)
+  const fxMenu = (kind: FxKind) => txPopover(`text.${kind}`, fxSections(kind, tx0()), undefined, 'st-txpop');
+  const shadowMenu = () => fxMenu('shadow');
+  const glowMenu = () => fxMenu('glow');
+  const outlineMenu = () => fxMenu('outline');
+  const plateMenu = () => fxMenu('plate');
   const opacityMenu = () => {
     const cur = tx0().opacity;
     txPopover('text.opacity', [{ cls: 'f', options: CLEAR_STEPS.map(([v, l]): TxOption => [l, set({ opacity: v }), cur === v]) }],

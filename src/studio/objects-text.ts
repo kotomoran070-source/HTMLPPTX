@@ -92,6 +92,13 @@ export function objectsText(ed: Editor, deck: () => unknown, stage: () => HTMLEl
       const f = fieldsOf(stage(), blocks)[0];
       return f ? styleOf(f) : {};
     },
+    // Стиль или эффект текста — каждому полю по его прежнему (цвета частей текста остаются, как у «Надписи»)
+    edit: (fn) => {
+      const fields = fieldsOf(stage(), blocks);
+      if (!fields.length) return;
+      ed.commit((d) => write(fields, (st) => fn(st), d), { rebuild: true });
+      refresh?.();
+    },
     apply: (patch, o) => {
       const fields = fieldsOf(stage(), blocks);
       if (!fields.length) return;

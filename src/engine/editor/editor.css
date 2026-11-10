@@ -354,6 +354,29 @@ body.editing .stage .free.auto-h:empty, body.editing .stage .free > p:empty { mi
 .edmenu-exact input { width: 70px; height: 26px; padding: 0 6px; border: 1px solid var(--bd); border-radius: 6px; background: var(--bg); color: var(--tx); font: 500 12.5px var(--font); text-align: right; }
 .edmenu-exact input:focus { outline: none; border-color: var(--ac); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 18%, transparent); }
 .edmenu button.edmenu-reset { justify-content: center; margin-top: 4px; font-size: 12px; color: var(--tx2); }
+/* «Эффекты текста» на «Главной»: стили плитками «Аа», эффекты — строками с переходом к вариантам */
+.edmenu[data-kind="fx"] { width: 268px; }
+.edfx-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 0 4px 6px; }
+.edfx-grid.v { grid-template-columns: repeat(3, 1fr); }
+.edfx-grid.t2 { grid-template-columns: repeat(2, 1fr); }
+.edmenu button.edfx-t { display: grid; grid-template-rows: 30px auto; justify-items: center; gap: 2px; min-height: 0; padding: 4px 2px 5px; border: 1px solid var(--bd); border-radius: 8px; background: var(--bg); font-size: 10.5px; font-weight: 500; color: var(--tx2); text-align: center; }
+.edmenu button.edfx-t.look { grid-template-rows: 30px; }
+.edmenu button.edfx-t.look span { display: none; }
+.edmenu button.edfx-t i { display: grid; place-items: center; width: 100%; height: 30px; overflow: hidden; font-style: normal; }
+.edmenu button.edfx-t b { display: inline-block; line-height: 1; white-space: nowrap; color: var(--tx); }
+.edmenu button.edfx-t span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.edmenu button.edfx-t:hover { border-color: var(--acb); background: var(--bg); }
+.edmenu button.edfx-t[aria-checked="true"] { border-color: var(--ac); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 22%, transparent); color: var(--ach); }
+.edfx-sep { height: 1px; margin: 2px 6px 4px; background: var(--bd); }
+.edmenu button.edfx-row { justify-content: flex-start; }
+.edmenu button.edfx-row .ic { width: 17px; height: 17px; fill: none; stroke: var(--tx2); stroke-width: 1.8; }
+.edmenu button.edfx-row span { flex: 1; text-align: left; }
+.edmenu button.edfx-row.set span { color: var(--ach); font-weight: 650; }
+.edfx-go { color: var(--mu); font-weight: 400; }
+.edmenu button.edfx-back { justify-content: flex-start; gap: 8px; margin-bottom: 2px; font-weight: 650; }
+.edmenu button.edfx-back b { color: var(--mu); font-weight: 400; font-size: 16px; }
+.edtext .edfx { display: inline-flex; align-items: center; gap: 1px; }
+.edtext .edfx .st-caret { display: block; width: 0; height: 0; border: 3px solid transparent; border-top: 3.5px solid currentColor; border-bottom: 0; margin-top: 2px; }
 
 /* Копирование перетаскиванием с Ctrl: оригинал на старом месте, курсор «копирование» */
 body.ed-copying, body.ed-copying * { cursor: copy !important; }

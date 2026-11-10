@@ -85,6 +85,8 @@ body.studio { background: var(--alt); }
 .st-stile i { display: grid; place-items: center; width: 36px; height: 20px; box-sizing: border-box; border-radius: 5px; font: 700 10px var(--font); font-style: normal; }
 /* Стили текста («Надпись»): «Аа» в самом оформлении — цвет, градиент, тень, свечение, контур, плашка */
 .st-gallery.x { grid-template-columns: repeat(4, 46px) 14px; grid-template-rows: repeat(2, 30px); grid-auto-flow: column; }
+/* Стили текста на «Фигуре»: шесть — в три столбца, стрелка «все» — узкая, без пустого столбца */
+.st-gallery.x.x3 { grid-template-columns: repeat(3, 46px) 14px; }
 .st-xtile { overflow: hidden; }
 .st-xtile i { width: 40px; height: 24px; background: none; }
 .st-xtile b { display: block; font-size: 15px; line-height: 1; white-space: nowrap; color: var(--tx); }

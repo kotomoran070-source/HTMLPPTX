@@ -7,57 +7,9 @@
 import { esc } from '../engine/html';
 import { textStyleCss, type TextStyle } from '../engine/text-style';
 
-export interface TextLook {
-  id: string;
-  name: string;
-  props: TextStyle;
-}
-
-/**
- * Что задаёт стиль текста: цвет, начертание и эффекты. Шрифт, размер, выравнивание, интервалы
- * и прозрачность остаются свои — стиль меняет вид, а не вёрстку
- */
-export const LOOK_KEYS = ['color', 'weight', 'upper', 'spacing', 'shadow', 'glow', 'outline', 'outlineColor', 'hollow', 'plate'] as const;
-/** Ручки эффектов из «Свойств»: стиль начинает с чистого эффекта */
-export const TUNE_KEYS = ['shadowColor', 'shadowOpacity', 'shadowBlur', 'shadowDist', 'shadowAngle', 'glowSize', 'glowOpacity', 'plateRadius', 'platePad'] as const;
-
-/** Готовые стили: в цветах темы — меняются вместе с ней, светлой и тёмной */
-export const TEXT_LOOKS: TextLook[] = [
-  { id: 'plain', name: 'Обычный', props: {} },
-  { id: 'accent', name: 'Акцент', props: { color: 'accent', weight: 700 } },
-  { id: 'gradient', name: 'Градиент', props: { color: 'g:accent', weight: 800 } },
-  { id: 'soft', name: 'Мягкая тень', props: { weight: 700, shadow: 'soft' } },
-  { id: 'neon', name: 'Неон', props: { color: 'accent', weight: 700, glow: 'accent' } },
-  { id: 'outline', name: 'Контурный', props: { weight: 800, hollow: true, outline: 3, outlineColor: 'accent' } },
-  { id: 'extrude', name: 'Объёмный', props: { color: 'accent', weight: 800, shadow: 'extrude' } },
-  { id: 'plate', name: 'Плашка', props: { color: '#FFFFFF', weight: 700, plate: 'accent' } },
-  { id: 'eyebrow', name: 'Надзаголовок', props: { color: 'accent', weight: 700, upper: true, spacing: 0.14 } },
-  { id: 'lift', name: 'Парящий', props: { weight: 800, shadow: 'lift' } },
-  { id: 'retro', name: 'Ретро', props: { weight: 800, shadow: 'retro' } },
-  { id: 'sticker', name: 'Наклейка', props: { color: 'accent', weight: 800, outline: 4, outlineColor: 'surface', shadow: 'soft' } },
-  { id: 'marker', name: 'Подложка', props: { color: 'accent2', weight: 600, plate: 'soft' } },
-];
-
-/** На ленте — восемь ходовых, все — по стрелке */
-export const PINNED_LOOKS = ['plain', 'accent', 'gradient', 'soft', 'neon', 'outline', 'extrude', 'plate'];
-
-/** Разделы окна «Все стили текста» */
-export const LOOK_GROUPS: [string, string[]][] = [
-  ['Цвет и начертание', ['plain', 'accent', 'gradient', 'eyebrow', 'marker']],
-  ['Эффекты', ['soft', 'lift', 'extrude', 'retro', 'neon', 'outline', 'sticker', 'plate']],
-];
-
-/** Оформление с ключами стиля — только стиля look, остальное как было */
-export function applyLook(st: TextStyle, look: TextLook): TextStyle {
-  const out: TextStyle = { ...st };
-  for (const k of [...LOOK_KEYS, ...TUNE_KEYS]) delete out[k];
-  return { ...out, ...look.props };
-}
-
-/** Стиль совпадает с оформлением текста: эффекты, подкрученные в «Свойствах», — уже не этот стиль */
-export function lookOn(st: TextStyle, look: TextLook): boolean {
-  return LOOK_KEYS.every((k) => (st[k] ?? undefined) === (look.props[k] ?? undefined)) && TUNE_KEYS.every((k) => st[k] === undefined);
-}
+export { applyLook, FX_NAMES, FX_SWATCH, fxSections, LOOK_GROUPS, LOOK_KEYS, lookOn, PINNED_LOOKS, TEXT_LOOKS, TUNE_KEYS } from '../engine/text-looks';
+export type { FxKind, FxOption, FxSection, TextLook } from '../engine/text-looks';
+import { PINNED_LOOKS, TEXT_LOOKS, type TextLook } from '../engine/text-looks';
 
 /** «Аа» в оформлении st (и с поворотом надписи) — образец для окон с вариантами */
 export function textSampleHtml(st: TextStyle, angle = 0): string {
@@ -107,3 +59,4 @@ export function textPanelHtml({ btn, group, row, stack, order }: Ui): string {
   ${order}
 </div>`;
 }
+
