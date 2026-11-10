@@ -73,13 +73,17 @@ test('«Файл → Интеграции»: клиенты (и ChatGPT), что
   await expect(code).toContainText('scripts/mcp.mjs');
   await fp.locator('[data-client="vscode"]').click();
   await expect(code).toContainText('"servers"');
-  // ChatGPT: Codex — командой или в config.toml; про окно самого ChatGPT — подсказка
+  // ChatGPT · Codex: поля формы в ChatGPT, config.toml или командой; про чат ChatGPT в браузере — подсказка
   await fp.locator('[data-client="codex"]').click();
-  await expect(code).toContainText('codex mcp add slideria --');
-  await expect(fp.locator('.ig-callout')).toContainText('ChatGPT');
+  await expect(code).toContainText('Имя:        slideria');
+  await expect(code).toContainText('Аргументы:');
+  await expect(code).toContainText('scripts/mcp.mjs');
+  await expect(fp.locator('.ig-callout')).toContainText('~/.codex/config.toml');
   await fp.locator('[data-variant="1"]').click();
   await expect(code).toContainText('[mcp_servers.slideria]');
   await expect(code).toContainText('args = [');
+  await fp.locator('[data-variant="2"]').click();
+  await expect(code).toContainText('codex mcp add slideria --');
 
   // «Смотреть» — правка агента отклоняется; снова «Править»
   await fp.locator('[data-access="view"]').click();
@@ -135,7 +139,7 @@ test('«Файл → Интеграции»: клиенты (и ChatGPT), что
   expect(errors).toEqual([]);
 });
 
-test('подключить в один щелчок: Claude Desktop — в его настройки, Claude Code — его командой, нет программы — «Скачать»', async ({ page }) => {
+test('подключить в один щелчок: Claude Desktop — в его настройки, Claude Code — его командой, нет ChatGPT — «Скачать»', async ({ page }) => {
   // Домашний каталог сервера тестов — подставной (SLIDERIA_CONNECT_HOME): Claude Desktop «открывали», Claude Code
   // стоит (подставная программа), Codex — нет
   const home = path.resolve('.tmp/test-home');
@@ -168,10 +172,11 @@ test('подключить в один щелчок: Claude Desktop — в ег�
   await expect(link).toContainText('Claude Code есть на этом компьютере');
   expect(cliCalls(home, 'claude').at(-1)).toEqual(['mcp', 'remove', '--scope', 'user', 'slideria']);
 
+  // Codex теперь часть ChatGPT для компьютера: нет ни ChatGPT, ни ~/.codex, ни программы codex — «Скачать ChatGPT»
   await fp.locator('[data-client="codex"]').click();
-  await expect(link).toContainText('Codex не найден на этом компьютере');
-  await expect(link.getByRole('link', { name: 'Скачать Codex' })).toHaveAttribute('href', /openai\.com/);
-  await expect(fp.locator('.ig-steps li').first()).toContainText('Установите Codex');
+  await expect(link).toContainText('ChatGPT не найден на этом компьютере');
+  await expect(link.getByRole('link', { name: 'Скачать ChatGPT' })).toHaveAttribute('href', /openai\.com/);
+  await expect(fp.locator('.ig-steps li').first()).toContainText('Установите ChatGPT');
   // У Cursor одного щелчка нет — только вручную
   await fp.locator('[data-client="cursor"]').click();
   await expect(link).toHaveCount(0);

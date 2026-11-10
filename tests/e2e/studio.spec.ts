@@ -1825,6 +1825,43 @@ test('«Разобрать на объекты»: живой фон не зак�
   expect(errors).toEqual([]);
 });
 
+test('новый слайд — сразу надписи: заголовок с эффектом текста, имя слайда по заголовку; «Разобрать» — заголовок и абзац надписями', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=nslide&studio#1');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  await page.locator('#st-canvas').click({ position: { x: 4, y: 4 } });
+  await page.keyboard.press('Control+m');
+  await expect(page.locator('.st-slides-list > *')).toHaveCount(2);
+  const second = () => readDeck('nslide').split('\n  - ')[2] ?? '';
+  expect(await waitFile(() => second().includes('template: canvas') && second().includes('text: Новый слайд') && second().includes('text: Текст слайда'))).toBe(true);
+  // Имя слайда — его заголовок, как у обычного
+  await expect(page.locator('#st-pos')).toContainText('Новый слайд');
+  // Заголовок — надпись: к нему применим эффект текста
+  const title = page.locator('#st-canvas .slide.on > .free').filter({ hasText: 'Новый слайд' });
+  const b = (await title.boundingBox())!;
+  await page.mouse.click(b.x + 16, b.y + b.height / 2);
+  await page.locator('[data-tab="anim"]').first().click();
+  await expect(page.locator('[data-cmd="anim.textfx"]').first()).toBeEnabled();
+  await page.locator('[data-cmd="anim.textfx"]').first().click();
+  await page.locator('.st-menu button', { hasText: 'Неон' }).click();
+  expect(await waitFile(() => second().includes('textFx: neon'))).toBe(true);
+  await page.keyboard.press('Escape');
+
+  // Обычный слайд: «Разобрать на объекты» — заголовок и абзац надписями того же вида, не вёрсткой
+  await page.goto('/?deck=nslide&studio#1');
+  const before = await page.locator('#st-canvas .slide.on h2').evaluate((h) => { const cs = getComputedStyle(h); return { size: cs.fontSize, weight: cs.fontWeight, color: cs.color }; });
+  await page.locator('.st-slides-list > *').first().click({ button: 'right' });
+  await page.locator('.st-menu button', { hasText: 'Разобрать на объекты' }).click();
+  const first = () => readDeck('nslide').split('\n  - ')[1] ?? '';
+  expect(await waitFile(() => first().includes('template: canvas'))).toBe(true);
+  expect(first()).toMatch(/type: text\n\s+text: Первый/);
+  expect(first()).toMatch(/type: text\n\s+text: Абзац первого/);
+  expect(first()).not.toContain('tpl-part');
+  const head = page.locator('#st-canvas .slide.on > .free').filter({ hasText: 'Первый' }).locator('p');
+  await expect.poll(() => head.evaluate((h) => { const cs = getComputedStyle(h); return { size: cs.fontSize, weight: cs.fontWeight, color: cs.color }; })).toEqual(before);
+  expect(errors).toEqual([]);
+});
+
 test('«Собрать в галерею»: две картинки слайда — кадрами одной, левая остаётся на месте, разной формы — целиком на размытом фоне; Ctrl+Z — как было', async ({ page }) => {
   const errors = watchErrors(page);
   const before = readDeck('gal');

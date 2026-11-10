@@ -19,13 +19,15 @@ const q = (s: string) => (/^[\w./:=@\\-]+$/.test(s) ? s : `"${s.replace(/(["\\$`
 /** Строка TOML: буквальная ('C:\путь' — без экранирования), с кавычкой внутри — обычная */
 const toml = (s: string) => (s.includes("'") ? `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"` : `'${s}'`);
 const jsonCfg = (key: string, extra: Record<string, string> = {}) => (c: Cmd) => JSON.stringify({ [key]: { slideria: { ...extra, command: c.command, args: c.args } } }, null, 2);
+/** Поля формы «добавить сервер MCP» у клиента: имя, команда и аргументы — каждый своей строкой */
+const fields = (c: Cmd) => [`Имя:        slideria`, `Команда:    ${c.command}`, ...c.args.map((a, i) => `${i ? '            ' : 'Аргументы:  '}${a}`)].join('\n');
 const shell = (cli: string) => (c: Cmd) => `${cli} mcp add ${cli === 'claude' ? '--scope user ' : ''}slideria -- ${[c.command, ...c.args].map(q).join(' ')}`;
 
 interface Variant { label: string; where: string; snippet(c: Cmd): string }
 /**
  * Подключение в один щелчок (server/connect.ts): что сделать после, где скачать клиент
  */
-interface Auto { after: string; get: string }
+interface Auto { after: string; get: string; /** Что скачать, если клиента нет (у Codex — ChatGPT) */ app?: string }
 interface Client { id: string; name: string; mono: string; bg: string; step: string; variants: Variant[]; note?: string; auto?: Auto }
 const CLAUDE = agentLook('Claude').bg;
 /** Клиенты MCP: как выглядит подключение у каждого (без своих знаков — буквы на плашке) */
@@ -36,19 +38,20 @@ const CLIENTS: Client[] = [
   { id: 'claude-desktop', name: 'Claude Desktop', mono: 'C', bg: CLAUDE, step: 'Вставьте в настройки и перезапустите Claude',
     variants: [{ label: 'Настройки', where: 'Claude → Настройки → Разработчик → Изменить конфигурацию; добавьте в mcpServers и перезапустите', snippet: jsonCfg('mcpServers') }],
     auto: { after: 'Закройте Claude Desktop совсем (Quit; на Windows — у значка возле часов) и откройте снова: Slideria будет в его Settings → Desktop app → Extensions', get: 'https://claude.ai/download' } },
-  { id: 'codex', name: 'ChatGPT · Codex', mono: 'AI', bg: 'linear-gradient(135deg,#475569,#0F172A)', step: 'Выполните — Codex в терминале, приложении и редакторе подключит Slideria сам',
-    auto: { after: 'Запустите Codex — в терминале, приложении или редакторе: Slideria уже подключена', get: 'https://developers.openai.com/codex' },
+  { id: 'codex', name: 'ChatGPT · Codex', mono: 'AI', bg: 'linear-gradient(135deg,#475569,#0F172A)', step: 'Заполните поля в ChatGPT и перезапустите его',
+    auto: { after: 'Перезапустите ChatGPT (и Codex в терминале или редакторе, если открыт) — Slideria будет в списке его MCP-серверов', get: 'https://openai.com/chatgpt/download/', app: 'ChatGPT' },
     variants: [
-      { label: 'Команда', where: 'Codex от OpenAI — вход тем же аккаунтом ChatGPT. Выполните в терминале', snippet: shell('codex') },
-      { label: 'config.toml', where: 'Или добавьте в файл ~/.codex/config.toml', snippet: (c) => `[mcp_servers.slideria]\ncommand = ${toml(c.command)}\nargs = [${c.args.map(toml).join(', ')}]` },
+      { label: 'Поля', where: 'ChatGPT → Настройки → MCP-серверы → добавить сервер с запуском по команде (STDIO)', snippet: (c) => fields(c) },
+      { label: 'config.toml', where: 'Или добавьте в файл ~/.codex/config.toml — его читают ChatGPT и Codex в терминале и редакторе', snippet: (c) => `[mcp_servers.slideria]\ncommand = ${toml(c.command)}\nargs = [${c.args.map(toml).join(', ')}]` },
+      { label: 'Команда', where: 'Или выполните в терминале, если стоит Codex CLI', snippet: shell('codex') },
     ],
-    note: 'В окне самого ChatGPT свои коннекторы подключаются только по адресу в интернете (режим разработчика → коннекторы) — до Slideria на этом компьютере оно не дотянется. Это придёт вместе с облаком Slideria, а пока с вашим аккаунтом ChatGPT работает Codex.' },
+    note: 'Codex встроен в ChatGPT для компьютера: серверы MCP он берёт из файла ~/.codex/config.toml, общего с Codex в терминале и в редакторе. Обычный чат ChatGPT в браузере до Slideria на этом компьютере не дотянется.' },
   { id: 'cursor', name: 'Cursor', mono: 'CU', bg: 'linear-gradient(135deg,#334155,#0B1220)', step: 'Вставьте в настройки MCP',
     variants: [{ label: 'mcp.json', where: 'Cursor → Settings → MCP → Add new global MCP server (файл ~/.cursor/mcp.json)', snippet: jsonCfg('mcpServers') }] },
   { id: 'vscode', name: 'VS Code', mono: 'VS', bg: 'linear-gradient(135deg,#3B82F6,#1D4ED8)', step: 'Вставьте в mcp.json',
     variants: [{ label: 'mcp.json', where: 'Файл .vscode/mcp.json в папке проекта или «MCP: Add Server» в палитре команд', snippet: jsonCfg('servers', { type: 'stdio' }) }] },
   { id: 'other', name: 'Другой клиент', mono: '…', bg: 'linear-gradient(135deg,#94A3B8,#64748B)', step: 'Укажите команду в настройках клиента',
-    variants: [{ label: 'Команда', where: 'Любой клиент MCP с запуском по команде (stdio)', snippet: (c) => `Команда:   ${c.command}\nАргументы: ${c.args.join(' ')}\nПротокол:  MCP, stdin/stdout` }] },
+    variants: [{ label: 'Команда', where: 'Любой клиент MCP с запуском по команде (stdio)', snippet: (c) => `${fields(c)}\nПротокол:   MCP, stdin/stdout (STDIO)` }] },
 ];
 const CLIENT_KEY = 'slideria-mcp-client';
 
@@ -241,7 +244,7 @@ function connectHtml(info: Info | null): string {
   const cs = c.auto ? state.clients?.find((x) => x.id === c.id) : undefined;
   const steps = !cs ? ['Скопируйте — путь к Slideria на этом компьютере уже в строке', c.step]
     : cs.installed || cs.connected ? ['Нажмите «Подключить»', c.auto!.after]
-      : [`Установите ${c.name.replace('ChatGPT · ', '')} и откройте его один раз`, 'Вернитесь сюда и нажмите «Подключить»'];
+      : [`Установите ${c.auto!.app ?? c.name} и откройте его один раз`, 'Вернитесь сюда и нажмите «Подключить»'];
   return `<div class="ig-clients" role="tablist" aria-label="Агент">${CLIENTS.map((x) => `<button type="button" class="ig-client" role="tab" data-client="${x.id}" aria-selected="${x.id === c.id}"><span class="ig-mono" style="background:${x.bg}">${esc(x.mono)}</span>${esc(x.name)}${state.clients?.find((s) => s.id === x.id)?.connected ? `<i class="ig-on" title="Подключено"></i>` : ''}</button>`).join('')}</div>
     ${cs ? linkHtml(c, cs) : ''}
     ${cs ? '<h3 class="fp-k ig-or">Или вручную</h3>' : ''}
@@ -261,12 +264,13 @@ function connectHtml(info: Info | null): string {
 function linkHtml(c: Client, cs: ClientState): string {
   const busy = state.linking === c.id;
   const err = state.linkError[c.id];
-  const name = c.name.replace('ChatGPT · ', '');
+  const name = c.name;
+  const app = c.auto!.app ?? name;
   const [cls, ic, title, sub, btn] = cs.connected
     ? ['ok', 'check', `Slideria подключена к ${name}`, c.auto!.after, `<button type="button" class="fp-btn" data-link="off"${busy ? ' disabled' : ''}>${busy ? 'Отключаю…' : 'Отключить'}</button>`]
     : cs.installed
       ? ['', 'plug', `${name} есть на этом компьютере`, 'Slideria пропишется в его настройках — с подпиской ключ API не нужен', `<button type="button" class="fp-btn go" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Подключаю…' : `Подключить к ${esc(name)}`}</button>`]
-      : ['no', 'search', `${name} не найден на этом компьютере`, 'Установите и откройте его один раз — или подключите вручную ниже', `<a class="fp-btn" href="${c.auto!.get}" target="_blank" rel="noopener">Скачать ${esc(name)}</a>`];
+      : ['no', 'search', `${app} не найден на этом компьютере`, 'Установите и откройте его один раз — или подключите вручную ниже', `<a class="fp-btn" href="${c.auto!.get}" target="_blank" rel="noopener">Скачать ${esc(app)}</a>`];
   return `<div class="ig-link ${cls}" aria-live="polite"><span class="ig-link-i">${icon(ic)}</span><div><b>${esc(title)}</b><span>${esc(sub)}</span>${err ? `<span class="ig-link-err" role="alert">${esc(err)}</span>` : ''}</div>${btn}</div>`;
 }
 
@@ -280,7 +284,7 @@ async function link(on: boolean): Promise<void> {
   try {
     const r = await api<ClientState>(`agents-${on ? 'connect' : 'disconnect'}?client=${encodeURIComponent(id)}`);
     state.clients = (state.clients ?? []).map((x) => (x.id === r.id ? r : x));
-    const name = CLIENTS.find((x) => x.id === id)?.name.replace('ChatGPT · ', '') ?? '';
+    const name = CLIENTS.find((x) => x.id === id)?.name ?? '';
     ctx?.host.editor.toast(on ? `Slideria подключена к ${name}` : `Slideria отключена от ${name}`, 2500);
   } catch (e) {
     state.linkError[id] = (e as Error).message;

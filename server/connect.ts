@@ -4,7 +4,8 @@
  *   Claude Desktop — в его файл настроек (claude_desktop_config.json): прежний сохраняется копией рядом,
  *                    испорченный не перезаписывается. После — перезапустить Claude Desktop.
  *   Claude Code    — его командой: claude mcp add --scope user (для всех папок).
- *   Codex          — его командой: codex mcp add.
+ *   ChatGPT · Codex — в его файл ~/.codex/config.toml: его читают ChatGPT для компьютера (приложение Codex с июля 2026 —
+ *                    его часть), Codex в терминале и в редакторе. Своя программа codex для этого не нужна.
  * Программы ищутся там, куда их ставят установщики: PATH у программы, запущенной из Dock или меню «Пуск»,
  * короче, чем в терминале.
  */
@@ -20,7 +21,7 @@ type Cmd = { command: string; args: string[] };
 
 /** Имя сервера у клиентов */
 const NAME = 'slideria';
-const TITLE: Record<ClientId, string> = { 'claude-desktop': 'Claude Desktop', 'claude-code': 'Claude Code', codex: 'Codex' };
+const TITLE: Record<ClientId, string> = { 'claude-desktop': 'Claude Desktop', 'claude-code': 'Claude Code', codex: 'ChatGPT · Codex' };
 
 export interface ConnectOptions {
   /** Домашний каталог (тесты — временный); по умолчанию — пользователя */
@@ -95,7 +96,72 @@ export function createConnect(o: ConnectOptions = {}) {
     }
   }
 
-  // ---------------- Claude Code и Codex: их команды ----------------
+  // ---------------- ChatGPT · Codex: ~/.codex/config.toml ----------------
+
+  const codexHome = () => env.CODEX_HOME || path.join(home, '.codex');
+  const codexFile = () => path.join(codexHome(), 'config.toml');
+  /**
+   * ChatGPT или прежнее приложение Codex на компьютере: на macOS — в «Программах», на Windows — пакет Microsoft Store
+   * (OpenAI.…) или установка в Programs. Ещё признаки Codex — папка ~/.codex и программа codex
+   */
+  function codexApp(): boolean {
+    if (platform === 'darwin') {
+      const dirs = [...(o.home ? [] : ['/Applications']), path.join(home, 'Applications')];
+      return dirs.some((d) => ['ChatGPT.app', 'Codex.app'].some((a) => fs.existsSync(path.join(d, a))));
+    }
+    if (!win) return false;
+    const local = env.LOCALAPPDATA || path.join(home, 'AppData', 'Local');
+    let store = false;
+    try { store = fs.readdirSync(path.join(local, 'Packages')).some((d) => /^OpenAI\./i.test(d)); } catch { /* нет папки */ }
+    return store || ['ChatGPT', 'Codex'].some((a) => fs.existsSync(path.join(local, 'Programs', a)));
+  }
+
+  /** Строка TOML: буквальная ('C:\путь' — без экранирования), с кавычкой или переводом строки — обычная */
+  const tomlStr = (v: string) => (/['\r\n]/.test(v) ? JSON.stringify(v) : `'${v}'`);
+  const TABLE = /^\s*\[\[?\s*([^[\]]+?)\s*\]\]?\s*(#.*)?$/;
+  const keyOf = (k: string) => k.replace(/["'\s]/g, '');
+  /**
+   * Файл без Slideria: её таблица [mcp_servers.slideria] с подтаблицами ([…slideria.env]), строка slideria = {…}
+   * в таблице [mcp_servers] и ключи mcp_servers.slideria.… в начале файла. Остальное — как было
+   */
+  function withoutSlideria(text: string): { text: string; found: boolean } {
+    const ours = `mcp_servers.${NAME}`;
+    const out: string[] = [];
+    let table = '';
+    let skip = false;
+    let found = false;
+    for (const line of text.replace(/\r\n/g, '\n').split('\n')) {
+      const m = TABLE.exec(line);
+      if (m) {
+        table = keyOf(m[1]);
+        skip = table === ours || table.startsWith(`${ours}.`);
+      } else if (!skip) {
+        const key = keyOf(line.split('=')[0] ?? '');
+        const dotted = line.includes('=') && (table === 'mcp_servers' ? key === NAME || key.startsWith(`${NAME}.`) : !table && (key === ours || key.startsWith(`${ours}.`)));
+        if (dotted) { found = true; continue; }
+      }
+      if (skip) found = true;
+      else out.push(line);
+    }
+    return { text: out.join('\n'), found };
+  }
+  const codexConnected = () => {
+    try { return withoutSlideria(fs.readFileSync(codexFile(), 'utf8')).found; } catch { return false; }
+  };
+  /** Прописать (cmd) или убрать (null) Slideria; прежний файл — копией рядом */
+  function writeCodex(cmd: Cmd | null): void {
+    const file = codexFile();
+    const before = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+    const { text, found } = withoutSlideria(before);
+    if (!cmd && !found) return;
+    let next = text.replace(/\s+$/, '');
+    if (cmd) next += `${next ? '\n\n' : ''}[mcp_servers.${NAME}]\ncommand = ${tomlStr(cmd.command)}\nargs = [${cmd.args.map(tomlStr).join(', ')}]`;
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    if (before) fs.copyFileSync(file, `${file}.bak`);
+    fs.writeFileSync(file, next ? `${next}\n` : '');
+  }
+
+  // ---------------- Claude Code: его команда ----------------
 
   const pathVar = env.PATH ?? env.Path ?? '';
   /** Папки, куда программы ставят установщики (свои у каждого: родной, npm, nvm, Volta, Bun, Homebrew) */
@@ -150,11 +216,6 @@ export function createConnect(o: ConnectOptions = {}) {
       return !!cfg.mcpServers && NAME in cfg.mcpServers;
     } catch { return false; }
   };
-  const codexConnected = () => {
-    try {
-      return new RegExp(`^\\[mcp_servers\\.${NAME}\\]`, 'm').test(fs.readFileSync(path.join(env.CODEX_HOME || path.join(home, '.codex'), 'config.toml'), 'utf8'));
-    } catch { return false; }
-  };
 
   // ---------------- всё вместе ----------------
 
@@ -169,7 +230,7 @@ export function createConnect(o: ConnectOptions = {}) {
         return { id, installed: desktopDirs().length > 0, connected };
       }
       if (id === 'claude-code') return { id, installed: !!findCli('claude'), connected: claudeCodeConnected() };
-      return { id, installed: !!findCli('codex'), connected: codexConnected() };
+      return { id, installed: fs.existsSync(codexHome()) || codexApp() || !!findCli('codex'), connected: codexConnected() };
     });
   }
 
@@ -179,16 +240,15 @@ export function createConnect(o: ConnectOptions = {}) {
     const c = CLIENT_IDS.find((x) => x === id);
     if (!c) throw new Error('Нет такого клиента');
     if (!cmd) throw new Error('Подключение агентов здесь недоступно');
-    if (c === 'claude-desktop') {
-      writeDesktop(cmd);
-      return one(c);
+    if (c === 'claude-desktop') writeDesktop(cmd);
+    // Уже подключена (возможно, к другой копии программы) — её строки заменяются новыми
+    else if (c === 'codex') writeCodex(cmd);
+    else {
+      const cli = findCli('claude');
+      if (!cli) throw new Error(`${TITLE[c]} не найден на этом компьютере — установите его или подключите вручную командой ниже`);
+      await run(cli, ['mcp', 'remove', '--scope', 'user', NAME]).catch(() => '');
+      await run(cli, ['mcp', 'add', '--scope', 'user', NAME, '--', cmd.command, ...cmd.args]);
     }
-    const cli = findCli(c === 'claude-code' ? 'claude' : 'codex');
-    if (!cli) throw new Error(`${TITLE[c]} не найден на этом компьютере — установите его или подключите вручную командой ниже`);
-    const scope = c === 'claude-code' ? ['--scope', 'user'] : [];
-    // Уже подключён (возможно, к другой копии программы) — заново, с этой командой
-    await run(cli, ['mcp', 'remove', ...scope, NAME]).catch(() => '');
-    await run(cli, ['mcp', 'add', ...scope, NAME, '--', cmd.command, ...cmd.args]);
     return one(c);
   }
 
@@ -196,10 +256,11 @@ export function createConnect(o: ConnectOptions = {}) {
     const c = CLIENT_IDS.find((x) => x === id);
     if (!c) throw new Error('Нет такого клиента');
     if (c === 'claude-desktop') writeDesktop(null);
+    else if (c === 'codex') writeCodex(null);
     else {
-      const cli = findCli(c === 'claude-code' ? 'claude' : 'codex');
+      const cli = findCli('claude');
       if (!cli) throw new Error(`${TITLE[c]} не найден на этом компьютере`);
-      await run(cli, ['mcp', 'remove', ...(c === 'claude-code' ? ['--scope', 'user'] : []), NAME]);
+      await run(cli, ['mcp', 'remove', '--scope', 'user', NAME]);
     }
     return one(c);
   }

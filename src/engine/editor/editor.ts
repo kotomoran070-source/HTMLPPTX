@@ -1,5 +1,5 @@
 import { icon } from '../../components/icons';
-import type { Deck, SlideData } from '../../types';
+import type { Block, Deck, SlideData } from '../../types';
 import { accentTail, applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, previewAccent } from '../accent';
 import { applyThemeSwatches, hasThemeLook } from '../deck-theme';
 import { clone, getAt, replaceContents, setAt, type Path } from '../data';
@@ -116,19 +116,34 @@ interface Commit {
 const MERGE_MS = 1200;
 const AUTOSAVE_MS = 600;
 
-export const SLIDE_PRESETS: { name: string; make: () => SlideData }[] = [
-  { name: 'Заголовок и текст', make: () => ({ title: 'Новый слайд', body: { type: 'text', text: 'Текст слайда' } }) },
+/** Как пишутся заголовки темы (её переменные на слайде): насыщенность, регистр, межбуквенный интервал */
+export interface HeadLook { weight: number; upper: boolean; spacing: number }
+export const HEAD_LOOK: HeadLook = { weight: 700, upper: false, spacing: -0.01 };
+
+/** Заголовок нового слайда — надпись на месте заголовка обычного слайда, шрифтом и размером заголовков темы */
+const headline = (h: HeadLook): Block => ({
+  type: 'text', text: 'Новый слайд',
+  styles: { text: { size: 32, color: 'text', weight: h.weight, ...(h.upper ? { upper: true } : {}), ...(h.spacing ? { spacing: h.spacing } : {}) } },
+  // Справа — место под логотип в углу
+  place: { x: 64, y: 48, w: 1096 },
+});
+/** Где под заголовком начинается содержимое */
+const BODY_Y = 112;
+
+/**
+ * Новые слайды — холсты с обычными объектами: заголовок и текст сразу надписи (эффекты текста, анимации,
+ * перемещение), без «Разобрать на объекты». Логотип в углу — как у обычных слайдов
+ */
+export const SLIDE_PRESETS: { name: string; make: (h: HeadLook) => SlideData }[] = [
+  { name: 'Заголовок и текст', make: (h) => ({ template: 'canvas', logo: true, free: [headline(h), { type: 'text', text: 'Текст слайда', place: { x: 64, y: BODY_Y, w: 1152 } }] }) },
   {
     name: 'Три карточки',
-    make: () => ({
-      title: 'Новый слайд',
-      body: {
-        type: 'grid', columns: 3,
-        items: [1, 2, 3].map((k) => ({ type: 'card', title: `Пункт ${k}`, text: 'Короткое пояснение' })),
-      },
+    make: (h) => ({
+      template: 'canvas', logo: true,
+      free: [headline(h), ...[0, 1, 2].map((k) => ({ type: 'card', title: `Пункт ${k + 1}`, text: 'Короткое пояснение', place: { x: 64 + k * 392, y: BODY_Y, w: 368 } }))],
     }),
   },
-  { name: 'Картинка', make: () => ({ title: 'Новый слайд', body: { type: 'image', src: '', caption: 'Подпись', height: 520 } }) },
+  { name: 'Картинка', make: (h) => ({ template: 'canvas', logo: true, free: [headline(h), { type: 'image', src: '', caption: 'Подпись', place: { x: 64, y: BODY_Y, w: 1152, h: 540 } }] }) },
   // Для импортированных слайдов: фон как у соседнего, содержимое — «Вставить»
   { name: 'Пустой холст', make: () => ({ template: 'canvas', label: 'Новый слайд', free: [] }) },
 ];
@@ -2062,18 +2077,33 @@ export class Editor {
     }
   }
 
+  /** Заголовки темы на текущем слайде (--hw, --h-tt, --h-ls): по ним — заголовок нового слайда */
+  private headLook(): HeadLook {
+    const el = this.host.stage().querySelector<HTMLElement>(':scope > .slide.on') ?? this.host.stage();
+    const cs = getComputedStyle(el);
+    const w = parseInt(cs.getPropertyValue('--hw'), 10);
+    const ls = parseFloat(cs.getPropertyValue('--h-ls'));
+    return {
+      weight: w >= 100 && w <= 900 ? w : HEAD_LOOK.weight,
+      upper: cs.getPropertyValue('--h-tt').trim() === 'uppercase',
+      spacing: Number.isFinite(ls) && Math.abs(ls) <= 0.2 ? Math.round(ls * 1000) / 1000 : HEAD_LOOK.spacing,
+    };
+  }
+
   addSlide(after: number, preset = 0): void {
-    const s = (SLIDE_PRESETS[preset] ?? SLIDE_PRESETS[0]).make();
+    const s = (SLIDE_PRESETS[preset] ?? SLIDE_PRESETS[0]).make(this.headLook());
     s.id = this.uniqueId('slide');
     const near = this.host.deck.slides[after];
     if (s.template === 'canvas' && near?.template === 'canvas') {
-      // Фон соседнего слайда: цвет и фоновая вставка на весь слайд
+      // Фон соседнего слайда: цвет и фоновая вставка на весь слайд — под содержимым нового
       if (near.bg) s.bg = near.bg;
       const back = (Array.isArray(near.free) ? near.free : []).filter((b) => {
         const pl = (b as { place?: { x?: number; y?: number; w?: number; h?: number } }).place;
         return b.type === 'embed' && pl && !pl.x && !pl.y && pl.w === 1280 && pl.h === 720;
       });
-      s.free = clone(back).map((b) => ({ ...b, enter: undefined, delay: undefined }));
+      s.free = [...clone(back).map((b) => ({ ...b, enter: undefined, delay: undefined })), ...(Array.isArray(s.free) ? s.free : [])];
+      // У соседа логотипа в углу нет (холст из импорта, расставленный вручную) — и у нового нет
+      if (near.logo !== true) delete s.logo;
     }
     if (this.commit((d) => d.slides.splice(after + 1, 0, s))) this.host.go(after + 1);
   }

@@ -350,8 +350,24 @@ export function actionOf(v: unknown): string | null {
 }
 
 export function slideLabel(slide: SlideData, index: number): string {
-  const raw = slide.label ?? slide.title;
+  const raw = slide.label ?? slide.title ?? headlineOf(slide.free);
   return typeof raw === 'string' && raw.trim() ? plainText(raw) : `Слайд ${index + 1}`;
+}
+
+/**
+ * Имя холста без своего имени — его заголовок: самая крупная надпись (при равных — первая), первая строка.
+ * Так у нового слайда имя меняется вместе с заголовком, как у обычного
+ */
+function headlineOf(free: unknown): string | undefined {
+  if (!Array.isArray(free)) return undefined;
+  let best: { text: string; size: number } | undefined;
+  for (const b of free as Block[]) {
+    if (b?.type !== 'text' || typeof b.text !== 'string' || !b.text.trim()) continue;
+    const size = Number((b.styles as { text?: { size?: unknown } } | undefined)?.text?.size) || 0;
+    if (!best || size > best.size) best = { text: b.text, size };
+  }
+  const line = best?.text.split('\n').map((x) => x.trim()).find(Boolean);
+  return line && line.length > 80 ? `${line.slice(0, 79)}…` : line;
 }
 
 /** Текст без разметки для подписей: {цвет|слова} → слова, без ** __ * и ссылок */

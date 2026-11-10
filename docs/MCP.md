@@ -10,9 +10,9 @@ MCP (Model Context Protocol) — способ дать агенту (Claude Code
 Проще всего — из студии: «Файл → Интеграции → Агенты → Подключить агента» (или плашка «кто на связи» на вкладке
 «Инструменты»). С подпиской Claude или ChatGPT ключ API не нужен.
 
-- **В один щелчок** — Claude Desktop, Claude Code, Codex: программа найдена на компьютере — «Подключить к …»,
-  дальше перезапустить Claude Desktop (или запустить `claude`, Codex). Не найдена — «Скачать». Подключённым —
-  зелёная точка у вкладки клиента и «Отключить».
+- **В один щелчок** — Claude Desktop, Claude Code, ChatGPT · Codex: программа найдена на компьютере — «Подключить
+  к …», дальше перезапустить Claude Desktop или ChatGPT (или запустить `claude`, `codex`). Не найдена — «Скачать».
+  Подключённым — зелёная точка у вкладки клиента и «Отключить».
 - **Вручную** — строка для выбранного клиента (те же три, Cursor, VS Code, другой) уже с путями этого компьютера —
   «Скопировать».
 
@@ -91,11 +91,11 @@ server/connect.ts подключение в один щелчок (команд�
 |---|---|---|
 | Claude Desktop | `mcpServers.slideria` в `claude_desktop_config.json` (macOS — `~/Library/Application Support/Claude`, Linux — `~/.config/Claude`). На Windows какой файл читает Claude, зависит от версии — пишется во все, что есть: `%APPDATA%\Claude`, у новых версий из Microsoft Store — `%LOCALAPPDATA%\Claude-Data\claude_…`, и личная копия пакета `…\Packages\Claude_…\LocalCache\Roaming\Claude` — только если она уже есть (новая заслонила бы обычный файл со всеми серверами). Остальное в файле не трогается, прежний — копией `.bak` рядом; испорчен хоть один — не трогается ни один | запись во всех файлах (Claude при выходе может переписать свой без неё — тогда «не подключена») |
 | Claude Code | `claude mcp add --scope user slideria -- …` (прежняя запись — сначала `mcp remove`) | `~/.claude.json` |
-| Codex | `codex mcp add slideria -- …` | `[mcp_servers.slideria]` в `~/.codex/config.toml` |
+| ChatGPT · Codex | `[mcp_servers.slideria]` (`command`, `args`) прямо в `~/.codex/config.toml` (или `$CODEX_HOME/config.toml`): его читают ChatGPT для компьютера (приложение Codex с июля 2026 — его часть), Codex в терминале и в редакторе, так что своя программа `codex` не нужна. Прежняя запись Slideria (с подтаблицами, строкой в `[mcp_servers]`) заменяется, остальное в файле — как было, прежний — копией `.bak`. Путь Windows — буквальной строкой TOML. Найден — если есть ChatGPT (macOS — `ChatGPT.app` или `Codex.app` в «Программах», Windows — пакет Microsoft Store `OpenAI.…` или `Programs\ChatGPT`), папка `~/.codex` или программа `codex` | запись в `config.toml` |
 
-Программы `claude` и `codex` ищутся в PATH и там, куда их ставят установщики (`~/.local/bin`, npm, nvm, Volta, Bun,
+Программа `claude` ищется в PATH и там, куда её ставят установщики (`~/.local/bin`, npm, nvm, Volta, Bun,
 Homebrew): у программы, запущенной из Dock или меню «Пуск», PATH короче, чем в терминале. Тесты — в подставном
-домашнем каталоге (`SLIDERIA_CONNECT_HOME`) с подставными `claude` и `codex` (`tests/fake-clients.ts`); проверено
+домашнем каталоге (`SLIDERIA_CONNECT_HOME`) с подставным `claude` (`tests/fake-clients.ts`); проверено
 и с настоящим Claude Code.
 
 Протокол — свой, без лишних библиотек (установщику не нужны express и прочее из официальной библиотеки MCP);

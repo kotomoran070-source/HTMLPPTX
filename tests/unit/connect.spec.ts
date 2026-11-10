@@ -1,5 +1,6 @@
 // Подключение агента в один щелчок (server/connect.ts): Claude Desktop — файл настроек (чужое сохраняется,
-// копия рядом, испорченный не трогается), Claude Code и Codex — их командами (подставные программы)
+// копия рядом, испорченный не трогается), Claude Code — его командой (подставная программа), ChatGPT · Codex —
+// его файл ~/.codex/config.toml (чужое на месте, копия рядом)
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -87,7 +88,7 @@ test('Claude Desktop на Windows: обычная папка, личная ко�
   } finally { h.done(); }
 });
 
-test('Claude Code и Codex: их командой mcp add (заново, если уже был), отключение — mcp remove', async () => {
+test('Claude Code: его командой mcp add (заново, если уже был), отключение — mcp remove', async () => {
   const h = home();
   try {
     const c = createConnect({ home: h.dir, pathDirs: [] });
@@ -95,7 +96,6 @@ test('Claude Code и Codex: их командой mcp add (заново, есл�
     await expect(c.connect('claude-code', CMD)).rejects.toThrow(/Claude Code не найден/);
 
     fakeCli(h.dir, 'claude');
-    fakeCli(h.dir, 'codex');
     expect(state(c, 'claude-code')).toEqual({ id: 'claude-code', installed: true, connected: false });
     expect(await c.connect('claude-code', CMD)).toEqual({ id: 'claude-code', installed: true, connected: true });
     // Ещё раз — прежний убирается и ставится заново (программу могли переставить в другое место)
@@ -107,13 +107,70 @@ test('Claude Code и Codex: их командой mcp add (заново, есл�
       ['mcp', 'add', '--scope', 'user', 'slideria', '--', CMD.command, ...CMD.args],
     ]);
     expect(await c.disconnect('claude-code')).toEqual({ id: 'claude-code', installed: true, connected: false });
+  } finally { h.done(); }
+});
 
+test('ChatGPT · Codex: Slideria — в ~/.codex/config.toml без программы codex; чужие серверы и настройки на месте', async () => {
+  const h = home();
+  try {
+    const c = createConnect({ home: h.dir, platform: 'linux', env: {}, pathDirs: [] });
+    // Нет ни ChatGPT, ни ~/.codex, ни программы codex
+    expect(state(c, 'codex')).toEqual({ id: 'codex', installed: false, connected: false });
+    // Codex открывали (ChatGPT, терминал или редактор) — есть его папка
+    const file = path.join(h.dir, '.codex', 'config.toml');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    expect(state(c, 'codex')).toEqual({ id: 'codex', installed: true, connected: false });
+    // Файла ещё нет — создаётся
     expect(await c.connect('codex', CMD)).toEqual({ id: 'codex', installed: true, connected: true });
-    expect(fs.readFileSync(path.join(h.dir, '.codex', 'config.toml'), 'utf8')).toContain('[mcp_servers.slideria]');
-    expect(cliCalls(h.dir, 'codex').at(-1)).toEqual(['mcp', 'add', 'slideria', '--', CMD.command, ...CMD.args]);
+    expect(fs.readFileSync(file, 'utf8')).toBe(`[mcp_servers.slideria]\ncommand = '${CMD.command}'\nargs = ['--mcp']\n`);
+
+    // Свои настройки и серверы пользователя, прежняя Slideria с подтаблицей и строки Windows — прежняя заменяется, остальное на месте
+    const mine = ['model = "gpt-5"', '', '[mcp_servers.docs]', 'command = "npx"', 'args = ["-y", "docs-mcp"]', '', '[mcp_servers.slideria]', 'command = "/old/Slideria"', 'args = ["--mcp"]', '', '[mcp_servers.slideria.env]', 'A = "1"', '', '[profiles.fast]', 'model = "gpt-5-mini"'].join('\r\n');
+    fs.writeFileSync(file, mine);
+    const win = { command: "C:\\Users\\Анна\\AppData\\Local\\Programs\\Slideria\\Slideria.exe", args: ['--mcp', "O'Brien"] };
+    await c.connect('codex', win);
+    expect(fs.readFileSync(file, 'utf8')).toBe([
+      'model = "gpt-5"', '', '[mcp_servers.docs]', 'command = "npx"', 'args = ["-y", "docs-mcp"]', '', '[profiles.fast]', 'model = "gpt-5-mini"', '',
+      // Путь Windows — буквальной строкой (обратные косые как есть), с апострофом — обычной
+      "[mcp_servers.slideria]", "command = 'C:\\Users\\Анна\\AppData\\Local\\Programs\\Slideria\\Slideria.exe'", `args = ['--mcp', "O'Brien"]`, '',
+    ].join('\n'));
+    // Прежний файл — копией рядом
+    expect(fs.readFileSync(`${file}.bak`, 'utf8')).toBe(mine);
+
+    // Slideria строкой в [mcp_servers] — тоже прежняя (иначе ключ задан дважды и Codex не прочтёт файл)
+    fs.writeFileSync(file, '[mcp_servers]\nslideria = { command = "/old", args = [] }\ndocs = { command = "npx" }\n');
+    expect(state(c, 'codex').connected).toBe(true);
+    await c.connect('codex', CMD);
+    expect(fs.readFileSync(file, 'utf8')).toBe(`[mcp_servers]\ndocs = { command = "npx" }\n\n[mcp_servers.slideria]\ncommand = '${CMD.command}'\nargs = ['--mcp']\n`);
+
+    // Отключить — уходит только Slideria; ещё раз — ничего не меняется
     expect(await c.disconnect('codex')).toEqual({ id: 'codex', installed: true, connected: false });
-    // Отключить уже отключённый — ошибка программы понятным текстом
-    await expect(c.disconnect('codex')).rejects.toThrow(/No MCP server found/);
+    expect(fs.readFileSync(file, 'utf8')).toBe('[mcp_servers]\ndocs = { command = "npx" }\n');
+    expect(await c.disconnect('codex')).toEqual({ id: 'codex', installed: true, connected: false });
+  } finally { h.done(); }
+});
+
+test('ChatGPT · Codex: своя папка CODEX_HOME; ChatGPT на macOS и из Microsoft Store — «установлен»', async () => {
+  const h = home();
+  try {
+    const own = path.join(h.dir, 'codex-home');
+    fs.mkdirSync(own);
+    const c = createConnect({ home: h.dir, platform: 'linux', env: { CODEX_HOME: own }, pathDirs: [] });
+    expect(state(c, 'codex').installed).toBe(true);
+    await c.connect('codex', CMD);
+    expect(fs.readFileSync(path.join(own, 'config.toml'), 'utf8')).toContain('[mcp_servers.slideria]');
+    expect(fs.existsSync(path.join(h.dir, '.codex'))).toBe(false);
+
+    const mac = createConnect({ home: h.dir, platform: 'darwin', env: {}, pathDirs: [] });
+    expect(state(mac, 'codex').installed).toBe(false);
+    fs.mkdirSync(path.join(h.dir, 'Applications', 'ChatGPT.app'), { recursive: true });
+    expect(state(mac, 'codex').installed).toBe(true);
+
+    const local = path.join(h.dir, 'AppData', 'Local');
+    const pc = createConnect({ home: h.dir, platform: 'win32', env: { LOCALAPPDATA: local }, pathDirs: [] });
+    expect(state(pc, 'codex').installed).toBe(false);
+    fs.mkdirSync(path.join(local, 'Packages', 'OpenAI.ChatGPT-Desktop_2p2nqsd0c76g0'), { recursive: true });
+    expect(state(pc, 'codex').installed).toBe(true);
   } finally { h.done(); }
 });
 

@@ -1,13 +1,16 @@
 import { getAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
 import type { Block, Deck, SlideData } from '../types';
+import { THEME_COLORS, type TextStyle } from '../engine/text-style';
 import { deckWithEffect, findEntrance, type UserEffect } from './templates';
 
 /**
  * «Разобрать на объекты»: слайд встроенного шаблона (обложка, финал, космос, обычный) становится
  * холстом, а его части — свободными объектами на тех же местах, их можно двигать и масштабировать.
  *
- * Вид и анимации шаблона сохраняются: каждая часть — вёрстка с теми же классами, обёрнутая в
+ * Простой текст шаблона (заголовок, абзац, подзаголовок) становится надписью: её вид — шрифт, размер, цвет,
+ * насыщенность, регистр, интервалы — переносится в стили надписи, и к ней применимы эффекты текста.
+ * Остальное (градиентный текст, плашки, тени, части с картинками) — вёрстка с теми же классами, обёрнутая в
  * невидимый «слайд шаблона» (display: contents), поэтому его стили продолжают действовать.
  * Тексты остаются полями (правятся на слайде). Свой фон шаблона (у «Космоса») — фоном холста; фон темы и живой фон остаются как были, декор (кольца,
  * луч, звёздное небо) — вёрсткой во весь слайд под объектами. Появление по словам, которое
@@ -23,6 +26,15 @@ interface Host {
 const TEMPLATES = new Set(['content', 'cover', 'finale', 'space']);
 /** Части с логикой (ссылка → QR, кнопки): не делятся и становятся живыми блоками */
 const LIVE = '.sp-card, .sp-row, .sp-panel, .plate';
+
+/** Шрифт для сравнения: без кавычек и пробелов */
+const family = (f: string) => f.replace(/["']/g, '').replace(/\s*,\s*/g, ',').trim().toLowerCase();
+/** rgb(…) → #RRGGBB; полупрозрачный — undefined (в стиль надписи не переносится) */
+function hex(c: string): string | undefined {
+  const m = /^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/.exec(c);
+  if (!m || (m[4] !== undefined && Number(m[4]) < 1)) return undefined;
+  return `#${[m[1], m[2], m[3]].map((n) => Number(n).toString(16).padStart(2, '0')).join('').toUpperCase()}`;
+}
 
 export function canExplode(slide: SlideData | undefined): boolean {
   return !!slide && TEMPLATES.has(slide.template ?? 'content') && !slide.live;
@@ -117,6 +129,109 @@ export function explodeSlide(host: Host, index: number): boolean {
   const shared = new Map<string, string>();
   const look = data.template === 'finale' ? 'fin' : data.layout === 'orbit' ? 'orbit' : 'space';
   const copy = <T>(v: T): T | undefined => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
+  type Found = NonNullable<ReturnType<typeof findEntrance>>;
+  /** Появление по словам: слова уходят вместе с разметкой поля — появление переходит к объекту целиком */
+  const wordFx = (el: Element): Found | null => {
+    for (const f of [el, ...el.querySelectorAll('[data-edit]')].filter((x) => x.hasAttribute('data-edit'))) {
+      for (const child of f.children) {
+        const found = findEntrance(child as HTMLElement);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+  /**
+   * Появление объекта: слов; у надписи (классов шаблона у неё нет) — и своё; иначе — контейнера, из которого
+   * часть вынута (ряд кнопок). Одинаковое у нескольких частей — один общий эффект
+   */
+  const withEntrance = (b: Block, el: Element, plain: boolean): Block => {
+    const found = wordFx(el) ?? (plain ? findEntrance(el as HTMLElement, true) : null)
+      ?? (findEntrance(el as HTMLElement, true) ? null : inherited.get(el) ?? null);
+    if (!found) return b;
+    const key = `${found.keyframes.cssText}|${found.ms}|${found.ease}`;
+    let id = shared.get(key);
+    if (!id) {
+      id = `ufx-${Math.random().toString(36).slice(2, 9)}`;
+      shared.set(key, id);
+      effects.push({ id, name: 'Появление из шаблона', css: found.keyframes.cssText.replace(/^@(-webkit-)?keyframes\s+[^\s{]+/, `@keyframes ${id}`), ms: found.ms, ease: found.ease, created: Date.now() });
+    }
+    b.enter = id;
+    if (found.delay > 0) b.delay = Math.round(found.delay);
+    return b;
+  };
+  /**
+   * Простой текст шаблона — надписью: одно поле, без картинок и украшений (градиент букв, тень, плашка,
+   * значок перед текстом), шрифт — тот, что надпись получит и так. Иначе — null, часть станет вёрсткой
+   */
+  const asText = (outer: Element, box: { x: number; y: number; w: number; h: number }): Block | null => {
+    // Обёртка ровно вокруг поля (строка заголовка обычного слайда) без своей подложки — само поле; ширина —
+    // обёртки без её полей (заголовок в строке сжат по тексту, а правка его удлинит)
+    let el = outer;
+    while (!el.hasAttribute('data-edit') && el.children.length === 1 && !boxed(el) && (el.textContent ?? '').trim() === (el.children[0].textContent ?? '').trim()) el = el.children[0];
+    let place = box;
+    if (el !== outer) {
+      const ocs = getComputedStyle(outer);
+      place = rect(el);
+      // Поля обёртки — в пикселях вёрстки, а они и есть пиксели слайда (слайд свёрстан на 1280)
+      place.w = Math.max(place.w, box.x + box.w - (parseFloat(ocs.paddingRight) || 0) - place.x);
+    }
+    if (!el.hasAttribute('data-edit') || el.querySelector('[data-edit],[data-edit-img],[data-block],img,svg,canvas,video,iframe')) return null;
+    let path: Path;
+    try { path = JSON.parse(el.getAttribute('data-edit')!) as Path; } catch { return null; }
+    const v = getAt(deck, path);
+    if (typeof v !== 'string' && typeof v !== 'number') return null;
+    const cs = getComputedStyle(el);
+    const decorated = (pe: string) => !/^(none|normal|""|'')$/.test(getComputedStyle(el, pe).content);
+    if (boxed(el) || cs.textShadow !== 'none' || cs.backgroundClip === 'text' || /(^|\s)text/.test(cs.getPropertyValue('-webkit-background-clip'))
+      || /rgba\([^)]*,\s*0\)|transparent/.test(cs.getPropertyValue('-webkit-text-fill-color')) || decorated('::before') || decorated('::after')
+      || (cs.transform !== 'none' && !/^matrix\(1, 0, 0, 1,/.test(cs.transform))) return null;
+    const pr = probes();
+    const px = parseFloat(cs.fontSize);
+    if (!(px > 0)) return null;
+    // Крупный текст надписи пишется шрифтом заголовков и с поправкой размера темы (text-style.ts)
+    const head = px / pr.hScale >= 28;
+    const size = Math.round((head ? px / pr.hScale : px) * 10) / 10;
+    if (family(cs.fontFamily) !== (head ? pr.headFont : pr.bodyFont)) return null;
+    const st: TextStyle = { size };
+    const color = cs.color === pr.color ? null : pr.colors.get(cs.color) ?? hex(cs.color);
+    if (color === undefined) return null;
+    if (color) st.color = color;
+    const wt = parseInt(cs.fontWeight, 10);
+    if (wt && wt !== pr.weight) st.weight = wt;
+    if (cs.fontStyle === 'italic') st.italic = true;
+    if (cs.textTransform === 'uppercase') st.upper = true;
+    const ls = parseFloat(cs.letterSpacing);
+    if (Number.isFinite(ls) && Math.abs(ls / px) >= 0.001) st.spacing = Math.round((ls / px) * 1000) / 1000;
+    const lh = parseFloat(cs.lineHeight);
+    if (Number.isFinite(lh) && Math.abs(lh / px - pr.leading) > 0.02) st.leading = Math.round((lh / px) * 100) / 100;
+    if (cs.textAlign === 'center' || cs.textAlign === 'right' || cs.textAlign === 'justify') st.align = cs.textAlign;
+    // Высота — по тексту (правка дописывает строки); ширина — с запасом на округление, чтобы строки не переносились иначе
+    return { type: 'text', text: String(v), styles: { text: st }, place: { x: place.x, y: place.y, w: Math.min(1280 - place.x, Math.round(place.w + 4)) } };
+  };
+  /** Как на этом слайде выглядит обычная надпись и цвета темы — один раз за разбор */
+  let probed: { color: string; weight: number; leading: number; bodyFont: string; headFont: string; hScale: number; colors: Map<string, string> } | null = null;
+  const probes = () => {
+    if (probed) return probed;
+    const box = document.createElement('div');
+    box.className = 'free';
+    box.style.cssText = 'position:absolute;left:0;top:0;width:400px;visibility:hidden;pointer-events:none';
+    const names = Object.keys(THEME_COLORS);
+    box.innerHTML = `<p>x</p><p style="font-family:var(--font-head)">x</p>${names.map((n) => `<span style="color:${THEME_COLORS[n].css}">x</span>`).join('')}`;
+    slide.appendChild(box);
+    const [p, h, ...spans] = [...box.children].map((x) => getComputedStyle(x));
+    const colors = new Map<string, string>();
+    // Совпали два цвета темы — берётся первый по списку (акцент раньше текста)
+    spans.forEach((x, i) => { if (!colors.has(x.color)) colors.set(x.color, names[i]); });
+    const pxp = parseFloat(p.fontSize);
+    const lh = parseFloat(p.lineHeight);
+    probed = {
+      color: p.color, weight: parseInt(p.fontWeight, 10) || 400, leading: Number.isFinite(lh) && pxp ? lh / pxp : 1.5,
+      bodyFont: family(p.fontFamily), headFont: family(h.fontFamily),
+      hScale: parseFloat(getComputedStyle(slide).getPropertyValue('--h-scale')) || 1, colors,
+    };
+    box.remove();
+    return probed;
+  };
   const toBlock = (el: Element): Block | null => {
     const place = rect(el);
     // Ссылка с QR и кнопки — живыми блоками: адрес правится, QR строится заново
@@ -131,25 +246,17 @@ export function explodeSlide(host: Host, index: number): boolean {
       delete b.rows;
       return { ...b, place };
     }
+    const text = asText(el, place);
+    if (text) return withEntrance(text, el, true);
     const clone = el.cloneNode(true) as HTMLElement;
     const texts: unknown[] = [];
     const images: ({ src: string; srcDark?: string } | { brand: true })[] = [];
     // Поля текста → тексты вёрстки; их внутренняя разметка (слова заголовка) уходит
-    const origEdits = [el, ...el.querySelectorAll('[data-edit]')].filter((x) => x.hasAttribute('data-edit'));
     const cloneEdits = [clone, ...clone.querySelectorAll('[data-edit]')].filter((x) => x.hasAttribute('data-edit'));
-    let lost: { found: NonNullable<ReturnType<typeof findEntrance>>; delay: number } | null = null;
-    cloneEdits.forEach((c, i) => {
-      const orig = origEdits[i];
+    cloneEdits.forEach((c) => {
       let path: Path | null = null;
       try { path = JSON.parse(c.getAttribute('data-edit')!); } catch { /* нет пути */ }
       const v = path ? getAt(deck, path) : c.textContent;
-      // Появление слов пропадёт вместе с ними — забираем его для объекта целиком
-      if (orig && orig.children.length && !lost) {
-        for (const child of orig.children) {
-          const found = findEntrance(child as HTMLElement);
-          if (found) { lost = { found, delay: found.delay }; break; }
-        }
-      }
       c.setAttribute('data-t', String(texts.length));
       texts.push(typeof v === 'string' || typeof v === 'number' ? v : String(c.textContent ?? '').trim());
       c.innerHTML = '';
@@ -186,24 +293,8 @@ export function explodeSlide(host: Host, index: number): boolean {
     if (isLogo) b.keepRatio = true;
     if (texts.length) b.texts = texts;
     if (images.length) b.images = images;
-    // Появление контейнера, из которого часть вынута (ряд кнопок), — если своего нет
-    const own = findEntrance(el as HTMLElement, true);
-    const parent = inherited.get(el);
-    if (!lost && !own && parent) lost = { found: parent, delay: parent.delay };
-    if (lost) {
-      const { found, delay } = lost as { found: NonNullable<ReturnType<typeof findEntrance>>; delay: number };
-      // Одинаковое появление у нескольких частей — один общий эффект
-      const key = `${found.keyframes.cssText}|${found.ms}|${found.ease}`;
-      let id = shared.get(key);
-      if (!id) {
-        id = `ufx-${Math.random().toString(36).slice(2, 9)}`;
-        shared.set(key, id);
-        effects.push({ id, name: 'Появление из шаблона', css: found.keyframes.cssText.replace(/^@(-webkit-)?keyframes\s+[^\s{]+/, `@keyframes ${id}`), ms: found.ms, ease: found.ease, created: Date.now() });
-      }
-      b.enter = id;
-      if (delay > 0) b.delay = Math.round(delay);
-    }
-    return b;
+    // Своё появление вёрстка сохраняет классами шаблона; пропадает только появление слов и контейнера
+    return withEntrance(b, el, false);
   };
   const objects = parts.map(toBlock).filter((b): b is Block => !!b);
 

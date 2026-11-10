@@ -23,6 +23,7 @@
 //   agent    — правки агента (команды outline и apply) при открытой студии.
 //   integ    — интеграции: агент на связи, «Вернуть», «Файл → Интеграции» — что можно агентам, скрипты.
 //   chat     — чат «Агент» на подставном Claude: два слайда с текстом.
+//   nslide   — новый слайд из надписей и «Разобрать на объекты» с надписями.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -407,6 +408,13 @@ slides:
   - template: finale
     title: Спасибо
     backdrop: network
+`);
+// nslide — новый слайд сразу из надписей; «Разобрать» обычный слайд — заголовок и абзац надписями
+fs.mkdirSync(path.join(dir, 'nslide'), { recursive: true });
+fs.writeFileSync(path.join(dir, 'nslide', 'deck.yaml'), `title: Новые слайды
+slides:
+  - title: Первый
+    body: {type: text, text: Абзац первого}
 `);
 // gal — картинка с кадрами: стрелки и точки (кадр строкой и с подписью), по «Далее» с объектом по щелчку после кадров;
 //   на третьем — две картинки, их собирают в галерею
