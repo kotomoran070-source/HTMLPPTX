@@ -6,9 +6,10 @@
  */
 import type { Editor } from '../engine/editor/editor';
 import { fontItems, fontPicker, plural } from '../engine/editor/font-picker';
-import { getAt, type Path } from '../engine/data';
+import { getAt, setAt, type Path } from '../engine/data';
 import { deckFonts, fontNameOk, fontStack } from '../engine/fonts';
 import { FONTS } from '../engine/text-style';
+import { formatSpanAttrs, parseSpanAttrs } from '../engine/span-attrs';
 import type { Deck } from '../types';
 import { texts } from './find';
 import { showPopover } from './menu';
@@ -36,11 +37,34 @@ const WPM = 130;
 
 const fontLabel = (v: string) => FONTS[v]?.name ?? v;
 
-/** Где задан шрифт: шрифт презентации (theme.font) и оформление полей (styles.*.font) */
-function fontUses(deck: Deck): Map<string, { path: Path; weight?: number }[]> {
-  const out = new Map<string, { path: Path; weight?: number }[]>();
+/** Шрифт части текста: {f:Имя|…} внутри строки (span-attrs.ts) */
+const SPAN_HEAD = /\{([^{}|\n]+)\|/g;
+const spanFonts = (s: string) => new Set([...s.matchAll(SPAN_HEAD)].map((m) => parseSpanAttrs(m[1])?.font).filter((f): f is string => !!f));
+
+/** Шрифт частей строки from → to ('' — шрифт всего текста: часть без своего шрифта) */
+function swapSpanFont(s: string, from: string, to: string): string {
+  return s.replace(/\{([^{}|\n]+)\|([^{}]*)\}/g, (m, a: string, inner: string, at: number) => {
+    const o = at > 0 && s[at - 1] === '\\' ? null : parseSpanAttrs(a);
+    if (!o || o.font !== from) return m;
+    if (to) o.font = to;
+    else delete o.font;
+    const out = formatSpanAttrs(o);
+    return out ? `{${out}|${inner}}` : inner;
+  });
+}
+
+/** Где задан шрифт: шрифт презентации (theme.font), оформление полей (styles.*.font) и части текста ({f:…|…}) */
+function fontUses(deck: Deck): Map<string, { path: Path; weight?: number; text?: true }[]> {
+  const out = new Map<string, { path: Path; weight?: number; text?: true }[]>();
   const walk = (v: unknown, path: Path) => {
-    if (Array.isArray(v)) v.forEach((x, i) => walk(x, [...path, i]));
+    if (typeof v === 'string') {
+      if (!v.includes('f:')) return;
+      for (const f of spanFonts(v)) {
+        const list = out.get(f) ?? [];
+        list.push({ path, text: true });
+        out.set(f, list);
+      }
+    } else if (Array.isArray(v)) v.forEach((x, i) => walk(x, [...path, i]));
     else if (v && typeof v === 'object') {
       const o = v as Record<string, unknown>;
       for (const [k, x] of Object.entries(o)) {
@@ -287,6 +311,11 @@ async function apply(h: ToolsHost, from: string, to: string): Promise<void> {
   }
   ed.commit((d) => {
     for (const u of uses) {
+      if (u.text) {
+        const v = getAt(d, u.path);
+        if (typeof v === 'string') setAt(d, u.path, swapSpanFont(v, from, to));
+        continue;
+      }
       const owner = getAt(d, u.path.slice(0, -1)) as Record<string, unknown> | undefined;
       if (!owner) continue;
       if (to) owner.font = to;

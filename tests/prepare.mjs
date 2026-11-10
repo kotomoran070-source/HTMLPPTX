@@ -278,6 +278,19 @@ slides:
         styles: {text: {size: 17, align: left}}
         place: {x: 40, y: 320, w: 420, h: 220}
 `);
+// spanfmt — оформление части текста в фигуре: цвет, размер и шрифт только у выделенных слов
+fs.mkdirSync(path.join(dir, 'spanfmt'));
+fs.writeFileSync(path.join(dir, 'spanfmt', 'deck.yaml'), `title: Часть текста
+slides:
+  - template: canvas
+    free:
+      - type: shape
+        kind: round
+        text: "{#B7791F s:200|**19 дней**}\\n\\nВосьмого ноября Рентген открыл лучи"
+        valign: top
+        styles: {text: {size: 17, align: left}}
+        place: {x: 100, y: 100, w: 520, h: 240}
+`);
 // tidy — копия карточки поверх такой же, кнопки на удалённый слайд и объект, скрытое без кнопки
 fs.mkdirSync(path.join(dir, 'tidy'));
 fs.writeFileSync(path.join(dir, 'tidy', 'deck.yaml'), `title: Порядок

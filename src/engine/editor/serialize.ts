@@ -3,7 +3,7 @@
  * (**жирный**, *курсив*, __подчёркнутый__, [ссылка](url), {#цвет|текст}, {mark|маркер}, «- » для пунктов списка).
  * Работает с тем, что создают браузеры при правке: b/strong, i/em, u, a, font, br, div/p.
  */
-import { TEXT_GRADIENT_RE } from '../gradients';
+import { formatSpanAttrs, mergeSpanAttrs, parseSpanAttrs, SPAN_TOKEN, type SpanAttrs } from '../span-attrs';
 import { listToken } from '../text-style';
 
 /** Символы разметки в обычном тексте экранируются, чтобы не стать оформлением. */
@@ -13,9 +13,8 @@ export function escapeText(s: string): string {
   if (parts.length > 1) return parts.map((x, k) => (k % 2 ? x : escapeText(x))).join('');
   return s
     .replace(/\\/g, '\\\\')
-    .replace(/\{(?=(#[0-9a-f]{3,8}|accent2?|text2?|muted)\|)/gi, '\\{')
-    .replace(/\{(?=((#[0-9a-f]{3,8}|accent2?|text2?|muted) )?s:\d{2,3}\|)/gi, '\\{')
-    .replace(/\{(?=mark\|)/gi, '\\{')
+    // {…|…}, похожее на оформление ({#2563EB|…}, {s:80|…}, {f:Inter|…}, {mark|…}), — буквальным текстом
+    .replace(/\{(?=([^{}|\n]+)\|)/g, (m, a: string) => (/^mark$/i.test(a) || parseSpanAttrs(a) ? '\\{' : m))
     .replace(/\*/g, '\\*')
     .replace(/__/g, '\\_\\_')
     .replace(/\[([^\]]*)\]\(/g, '\\[$1\\](');
@@ -37,19 +36,47 @@ function wrap(mark: string, inner: string): string {
   return `${lead}${mark}${inner.trim()}${mark}${tail}`;
 }
 
-const COLORED = new RegExp(`(\\{(?:(?:#[0-9a-f]{3,8}|accent2?|text2?|muted) )?(?:#[0-9a-f]{3,8}|accent2?|text2?|muted|${TEXT_GRADIENT_RE}|s:\\d{2,3})\\|[^{}]*\\})`, 'i');
+/** Токен оформления (с -c и -f правки); группа — весь токен */
+const SPAN_SPLIT = /(\{[^{}|\n]+\|[^{}]*\})/;
 
-/** {цвет|…} вокруг текста; уже окрашенные внутри куски не вкладываются, а остаются своими. */
-export function wrapColor(color: string, s: string): string {
-  return s.split(COLORED).map((part, i) => {
-    if (i % 2 === 1 || !part.trim()) return part;
+/**
+ * Оформление части текста ({цвет s:размер f:шрифт|…}, span-attrs.ts) вокруг текста. Разметка не вкладывается:
+ * уже оформленные внутри куски получают общее оформление (их цвет и шрифт главнее, размеры перемножаются)
+ */
+export function wrapColor(attrs: string, s: string): string {
+  const outer = parseSpanAttrs(attrs, true);
+  if (!outer) return s;
+  return s.split(SPAN_SPLIT).map((part, i) => {
+    if (i % 2 === 1) {
+      const m = /^\{([^{}|\n]+)\|([^{}]*)\}$/.exec(part)!;
+      const inner = parseSpanAttrs(m[1], true);
+      return inner ? token(mergeSpanAttrs(outer, inner), m[2]) : part;
+    }
+    // Одни пробелы и знаки разметки (** вокруг вложенного куска) — без оформления
+    if (!part.replace(/\*\*|__|\*/g, '').trim()) return part;
     const lead = /^\s*/.exec(part)![0];
     const tail = /\s*$/.exec(part)![0];
-    return `${lead}{${color}|${part.trim()}}${tail}`;
+    return `${lead}${token(outer, part.trim())}${tail}`;
   }).join('');
 }
 
-/** Цвет части текста: наш span (data-c), <font color> после команды браузера или style. */
+const token = (o: SpanAttrs, inner: string) => {
+  const a = formatSpanAttrs(o, true);
+  return a ? `{${a}|${inner}}` : inner;
+};
+
+/** Метки правки (-c, -f) в готовой разметке не нужны: снаружи ничего не перекрывают */
+function finalSpans(line: string): string {
+  return line.replace(SPAN_TOKEN, (m, a: string, inner: string, at: number) => {
+    if (at > 0 && line[at - 1] === '\\') return m;
+    const o = parseSpanAttrs(a, true);
+    if (!o) return m;
+    const out = formatSpanAttrs(o);
+    return out ? `{${out}|${inner}}` : inner;
+  });
+}
+
+/** Оформление части текста: наш span (data-c), <font color> после команды браузера или style. */
 function colorOf(el: HTMLElement): string | null {
   const own = el.getAttribute('data-c');
   if (own) return own;
@@ -118,6 +145,7 @@ export function toMarkup(el: HTMLElement): string {
       const m = new RegExp(`^${LI}(?:${TOK}([^${TOK}]*)${TOK})?([\\s\\S]*)$`).exec(line)!;
       return m[1] ? `-[${m[1]}] ${m[2]}` : `- ${m[2]}`;
     })
+    .map(finalSpans)
     .join('\n');
 }
 

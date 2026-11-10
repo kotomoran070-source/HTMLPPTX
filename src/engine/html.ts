@@ -1,10 +1,5 @@
-import { TEXT_GRADIENT_RE, textGradientCss } from './gradients';
+import { formatSpanAttrs, parseSpanAttrs, spanCss } from './span-attrs';
 import { itemListCss, listToken } from './text-style';
-
-/** Цвета темы для {accent|…}: как в text-style.ts (здесь без импорта, чтобы html.ts не тянул зависимостей) */
-const THEME_CSS: Record<string, string> = {
-  accent: 'var(--ac)', accent2: 'var(--ach)', text: 'var(--tx)', text2: 'var(--tx2)', muted: 'var(--mu)',
-};
 
 const ESC: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 
@@ -41,7 +36,8 @@ const markHtml = (_: string, inner: string) => `<mark class="md-m">${inner}</mar
 
 /**
  * Разметка внутри строки: **жирный**, *курсив*, __подчёркнутый__, [ссылка](https://…),
- * {#2563EB|цветной} или {accent|цвет темы}, {s:80|мельче} (размер в % от абзаца), {mark|маркером}.
+ * {#2563EB|цветной} или {accent|цвет темы}, {s:80|мельче} (размер в % от абзаца), {f:Inter|шрифтом},
+ * {#2563EB s:120 f:Inter|всё сразу} (span-attrs.ts), {mark|маркером}.
  * Строки, начинающиеся с «- », — пункты списка. \* и подобные — буквальный символ.
  */
 function inline(line: string): string {
@@ -63,22 +59,15 @@ function inline(line: string): string {
     .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
     .replace(/__(.+?)__/g, '<u>$1</u>')
     .replace(/\*(.+?)\*/g, '<i>$1</i>')
-    // Размер части текста (в % от размера абзаца, как в PowerPoint): {s:80|текст}, с цветом — {#2563EB s:80|текст}
-    .replace(/\{(?:(#[0-9a-f]{3,8}|accent2?|text2?|muted) )?s:(\d{2,3})\|([^{}]*?)\}/gi, (_, c: string | undefined, n: string, inner: string) => {
-      const pct = Math.max(20, Math.min(400, Number(n)));
-      const color = c ? `;color:${THEME_CSS[c.toLowerCase()] ?? c}` : '';
-      return `<span class="md-c" data-c="${c ? `${c} ` : ''}s:${pct}" style="font-size:${pct / 100}em${color}">${inner}</span>`;
+    // Оформление части текста (span-attrs.ts): цвет или градиент, размер в % от абзаца (как в PowerPoint), шрифт —
+    // {#2563EB|…}, {accent|…}, {s:80|…}, {g:ocean|…}, {#2563EB s:120 f:Inter|…}
+    .replace(/\{([^{}|]+)\|([^{}]*?)\}/g, (m, a: string, inner: string) => {
+      const o = parseSpanAttrs(a);
+      if (!o) return m;
+      return `<span class="md-c${o.paint && o.paint.startsWith('g:') ? ' md-g' : ''}" data-c="${esc(formatSpanAttrs(o))}" style="${esc(spanCss(o))}">${inner}</span>`;
     })
-    // Цвет части текста: {#2563EB|текст} или {accent|текст}
-    .replace(/\{(#[0-9a-f]{3,8}|accent2?|text2?|muted)\|([^{}]*?)\}/gi, (_, c: string, inner: string) =>
-      `<span class="md-c" data-c="${c}" style="color:${THEME_CSS[c.toLowerCase()] ?? c}">${inner}</span>`)
     // Маркер второй раз: внутри него был цвет или размер — теперь это уже разметка
-    .replace(MARK, markHtml)
-    // Градиент части текста: {g:ocean|текст} или свои цвета {g:#F97316,#EC4899@40,accent2|текст}
-    .replace(new RegExp(`\\{(${TEXT_GRADIENT_RE})\\|([^{}]*?)\\}`, 'gi'), (m, c: string, inner: string) => {
-      const css = textGradientCss(c);
-      return css ? `<span class="md-c md-g" data-c="${c}" style="${css}">${inner}</span>` : m;
-    });
+    .replace(MARK, markHtml);
   return s.replace(/\u0000(\d+)\u0000/g, (_, i) => keep[Number(i)]);
 }
 

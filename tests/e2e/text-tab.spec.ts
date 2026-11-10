@@ -60,3 +60,76 @@ test('«Надпись»: две надписи — стиль с примерк
   await expect(page.locator('#ed-text')).not.toHaveClass(/idle/);
   expect(errors).toEqual([]);
 });
+
+test('часть текста в фигуре: цвет, размер и шрифт — только выделенным словам; цвет не сбрасывает их размер', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=spanfmt&studio#1');
+  const t = page.locator('#st-canvas .slide.on .shape-t').first();
+  // Первый щелчок выделяет фигуру, второй — правка текста
+  await t.click();
+  await t.click();
+  await expect(t).toHaveAttribute('contenteditable', /true|plaintext-only/);
+  // Оформление текста — на «Главной» (у фигуры открывается её вкладка)
+  await page.locator('.st-tabs [data-tab="home"]').click();
+  // Выделить «19 дней»
+  const pick = () => t.evaluate((el) => {
+    const b = el.querySelector('b')!;
+    const r = document.createRange();
+    r.selectNodeContents(b);
+    getSelection()!.removeAllRanges();
+    getSelection()!.addRange(r);
+  });
+  const look = () => t.evaluate((el) => {
+    const cs = (n: Node) => getComputedStyle(n.parentElement!);
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const out: Record<string, { size: number; color: string; font: string }> = {};
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const k = n.textContent!.trim().slice(0, 7);
+      if (k) out[k] = { size: parseFloat(cs(n).fontSize), color: cs(n).color, font: cs(n).fontFamily };
+    }
+    return out;
+  });
+  const before = await look();
+  expect(before['19 дней'].size).toBe(34);
+  const rest = before['Восьмог'];
+  await pick();
+  // Цвет: размер «19 дней» остаётся
+  await page.locator('#ed-text [data-t="color"]').click();
+  await page.locator('#ed-colors [data-c="#DC2626"]').click();
+  let now = await look();
+  expect(now['19 дней']).toMatchObject({ size: 34, color: 'rgb(220, 38, 38)' });
+  expect(now['Восьмог']).toEqual(rest);
+  // Размер из поля: только выделенным словам; в поле — их размер
+  await expect(page.locator('#ed-text [data-t="size"]')).toHaveValue('34');
+  await page.locator('#ed-text [data-t="size"]').fill('40');
+  await page.locator('#ed-text [data-t="size"]').press('Enter');
+  now = await look();
+  expect(Math.round(now['19 дней'].size)).toBe(40);
+  expect(now['19 дней'].color).toBe('rgb(220, 38, 38)');
+  expect(now['Восьмог']).toEqual(rest);
+  // Кнопка «больше» — тоже только им
+  await page.locator('#ed-text [data-t="size+"]').click();
+  now = await look();
+  expect(Math.round(now['19 дней'].size)).toBe(42);
+  expect(now['Восьмог'].size).toBe(rest.size);
+  // Шрифт: только выделенным словам
+  await page.locator('#ed-text [data-t="font"]').click();
+  await page.locator('.fontpick-o', { hasText: 'С засечками' }).click();
+  now = await look();
+  expect(now['19 дней'].font).toContain('Georgia');
+  expect(now['19 дней']).toMatchObject({ color: 'rgb(220, 38, 38)' });
+  expect(Math.round(now['19 дней'].size)).toBe(42);
+  expect(now['Восьмог']).toEqual(rest);
+  // В данных — один кусок со всем оформлением, остальной текст без своего
+  await page.keyboard.press('Escape');
+  const text = () => (parse(fs.readFileSync(deckFile('spanfmt'), 'utf8')) as { slides: { free: { text: string }[] }[] }).slides[0].free[0].text;
+  // 42 px из 17 — 247 %; жирный снаружи или внутри куска — одно и то же
+  expect(await waitFile(() => /^(\*\*\{#DC2626 s:247 f:serif\|19 дней\}\*\*|\{#DC2626 s:247 f:serif\|\*\*19 дней\*\*\})\n/.test(text()))).toBe(true);
+  expect(text()).toContain('\n\nВосьмого ноября Рентген открыл лучи');
+  // После сохранения — так же
+  now = await look();
+  expect(Math.round(now['19 дней'].size)).toBe(42);
+  expect(now['19 дней'].font).toContain('Georgia');
+  expect(now['Восьмог']).toEqual(rest);
+  expect(errors).toEqual([]);
+});

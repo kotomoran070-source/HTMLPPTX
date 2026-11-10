@@ -8,6 +8,7 @@ import { GRADIENTS, gradColor, gradientMid, parseTextGradient, TEXT_GRADIENTS, t
 import { gradientPanel, type GradValue } from './gradient-edit';
 import { colorCss, customMarker, FONTS, LIST_MARKERS, listCss, markerImage, splitDecls, SWATCHES, textStyleCss, THEME_COLORS, type TextStyle } from '../text-style';
 import { plainMarkup, SEL_A, SEL_B, setListKindAt, toggleList, toggleListAt, toMarkup } from './serialize';
+import { formatSpanAttrs, parseSpanAttrs, spanCss, type SpanAttrs } from '../span-attrs';
 
 /** Что текстовому редактору нужно от основного редактора. */
 /** Курсор на первой (up) или последней строке поля; пустое поле — на обеих */
@@ -109,6 +110,8 @@ export class TextEditor {
   private s: Session | null = null;
   /** Выделение, к которому применится цвет из палитры */
   private partial: Range | null = null;
+  /** Последняя выделенная часть текста (не весь текст): к ней — размер из поля */
+  private lastPart: Range | null = null;
   readonly bar: HTMLElement;
   private colors: HTMLElement;
   /** Выпадающий список интервалов (строк и букв) */
@@ -279,7 +282,11 @@ export class TextEditor {
       this.finish(true);
     }, 0);
     const onInput = () => this.position();
-    const onSel = () => this.syncButtons();
+    const onSel = () => {
+      // Выделенная часть — для поля размера: щелчок в него уводит выделение из текста
+      if (this.selectionInside()) this.lastPart = this.partRange();
+      this.syncButtons();
+    };
     el.addEventListener('keydown', onKey);
     el.addEventListener('paste', onPaste);
     el.addEventListener('blur', onBlur);
@@ -293,6 +300,7 @@ export class TextEditor {
     const styleAttr = el.getAttribute('style');
     const own = textStyleCss(stored);
     const baseStyle = !own ? styleAttr ?? '' : styleAttr?.endsWith(own) ? styleAttr.slice(0, -own.length).replace(/;$/, '') : null;
+    this.lastPart = null;
     this.s = {
       el, path, suffix, before: raw, baseline, html, styleAttr, baseStyle, owner, styleAt, field,
       styles, stylesBefore: JSON.stringify(styles), isKey, block: this.host.blockOf(path),
@@ -357,6 +365,12 @@ export class TextEditor {
     // закончена (запись посреди правки её прервала бы)
     const font = s.styles.font || this.host.themeFont?.() || '';
     if (ok && fontNameOk(font) && !FONTS[font] && stylesNow !== s.stylesBefore) void this.host.ensureFont?.(font, Number(s.styles.weight) || undefined);
+    // Шрифты частей текста ({f:…|…}), которых в тексте до правки не было
+    if (ok && textChanged) {
+      const fonts = (m: string) => new Set([...m.matchAll(/\{([^{}|\n]+)\|/g)].map((x) => parseSpanAttrs(x[1])?.font).filter((x): x is string => !!x && !FONTS[x] && fontNameOk(x)));
+      const was = fonts(s.baseline);
+      for (const f of fonts(markup)) if (!was.has(f)) void this.host.ensureFont?.(f);
+    }
   }
 
   // ---------------- команды ----------------
@@ -376,6 +390,57 @@ export class TextEditor {
       sel.removeAllRanges();
       sel.addRange(r);
     }
+  }
+
+  /** Выделена часть текста поля (не весь): оформление — только ей; иначе null */
+  private partRange(): Range | null {
+    const s = this.s;
+    const sel = getSelection();
+    if (!s || s.isKey || !sel || !sel.rangeCount || sel.isCollapsed || !this.selectionInside()) return null;
+    const r = sel.getRangeAt(0);
+    const bare = (x: string) => x.replace(/[\u200b\s]+/g, '');
+    const part = bare(r.toString());
+    return part && part !== bare(s.el.textContent ?? '') ? r.cloneRange() : null;
+  }
+
+  /** Выделен весь текст поля (Ctrl+A): значение — всему тексту, и кускам со своим тоже */
+  private allSelected(): boolean {
+    const s = this.s;
+    const sel = getSelection();
+    if (!s || !sel || !sel.rangeCount || sel.isCollapsed || !this.selectionInside()) return false;
+    const bare = (x: string) => x.replace(/[\u200b\s]+/g, '');
+    return !!bare(s.el.textContent ?? '') && bare(sel.getRangeAt(0).toString()) === bare(s.el.textContent ?? '');
+  }
+
+  /** Элемент, где начинается выделение */
+  private static startEl(r: Range): Element | null {
+    return r.startContainer.nodeType === Node.ELEMENT_NODE ? (r.startContainer as Element).childNodes[r.startOffset] as Element ?? r.startContainer as Element : r.startContainer.parentElement;
+  }
+
+  /** Размер текста в начале выделенной части, px */
+  private partSize(r: Range): number {
+    const at = TextEditor.startEl(r);
+    const el = at?.nodeType === Node.ELEMENT_NODE ? at : at?.parentElement;
+    return Math.round(parseFloat(getComputedStyle(el ?? this.s!.el).fontSize));
+  }
+
+  /** Шрифт выделенной части: свой у куска (f:…) — его имя, иначе null */
+  private partFont(r: Range): string | null {
+    const el = this.s?.el;
+    for (let p = TextEditor.startEl(r); p && p !== el && el?.contains(p); p = p.parentElement) {
+      if (p instanceof HTMLElement && p.matches('span.md-c')) {
+        const o = parseSpanAttrs(p.getAttribute('data-c') ?? '', true);
+        if (o?.font) return o.font;
+        if (o?.noFont) return null;
+      }
+    }
+    return null;
+  }
+
+  /** Размер всему полю; выделен весь текст — и кусков со своим размером больше нет */
+  private setSize(v: number | undefined): void {
+    if (this.allSelected()) this.dropSpans('size');
+    this.setStyle({ size: v });
   }
 
   private format(cmd: 'bold' | 'italic' | 'underline'): void {
@@ -673,7 +738,14 @@ export class TextEditor {
   }
 
   private setFont(v: string): void {
+    if (this.allSelected()) this.dropSpans('font');
     this.setStyle({ font: v || undefined });
+    this.s?.el.focus({ preventScroll: true });
+  }
+
+  /** Шрифт выделенной части текста */
+  private spanFont(part: Range, v: string): void {
+    this.spanSelection(part, 'font', v);
     this.s?.el.focus({ preventScroll: true });
   }
 
@@ -779,12 +851,24 @@ export class TextEditor {
           break;
         }
         case 'size-': case 'size+': {
+          const step = cmd === 'size+' ? 2 : -2;
+          const part = this.partRange();
+          if (part) {
+            this.spanSelection(part, 'size', Math.max(6, Math.min(300, this.partSize(part) + step)));
+            break;
+          }
           const cur = Number(this.s.styles.size) || Math.round(parseFloat(getComputedStyle(this.s.el).fontSize));
-          this.setStyle({ size: Math.max(6, Math.min(300, cur + (cmd === 'size+' ? 2 : -2))) });
+          this.setSize(Math.max(6, Math.min(300, cur + step)));
           break;
         }
         case 'color': this.toggleColors(b); break;
         case 'font': {
+          // Выделена часть текста — шрифт только ей (без примерки: она показала бы весь текст)
+          const part = this.partRange();
+          if (part) {
+            fontPicker().toggle(b, () => this.fontList(), this.partFont(part) ?? '', (v) => this.spanFont(part, v), () => {});
+            break;
+          }
           // Наведение на шрифт — текст поля сразу им; ушли или закрыли — как было
           const el = this.s.el;
           fontPicker().toggle(b, () => this.fontList(), this.s.styles.font ?? '', (v) => this.setFont(v),
@@ -814,7 +898,13 @@ export class TextEditor {
         this.tg.apply({ size: v >= 6 && v <= 300 ? v : undefined });
         return;
       }
-      this.setStyle({ size: v >= 6 && v <= 300 ? v : undefined });
+      // Выделена часть текста — размер только ей (пустое поле — без изменений)
+      const part = this.lastPart;
+      if (part && this.s && this.s.el.contains(part.startContainer)) {
+        if (v >= 6 && v <= 300) this.spanSelection(part, 'size', v);
+        return;
+      }
+      this.setSize(v >= 6 && v <= 300 ? v : undefined);
     });
     size.addEventListener('keydown', (e) => {
       e.stopPropagation();
@@ -862,8 +952,7 @@ export class TextEditor {
       // Градиент — только разметкой по тексту: без выделения — на весь текст поля
       // Без выделения градиент ложится на весь текст, а «Как в теме» снимает и цвета частей текста
       if ((c.startsWith('g:') || !c) && !this.partial && this.s) {
-        this.s.el.querySelectorAll('span.md-c, font[color]').forEach((x) => x.replaceWith(...x.childNodes));
-        this.s.el.normalize();
+        this.dropSpans('paint');
         if (c) this.partial = this.wholeRange();
         else this.syncButtons();
       }
@@ -943,42 +1032,127 @@ export class TextEditor {
 
   /**
    * Цвет выделенной части текста: {#DC2626|слово}. Без выделения — false (цвет всего поля).
-   * c: #RRGGBB, цвет темы (accent…) или '' — вернуть обычный цвет.
+   * c: #RRGGBB, цвет темы (accent…), градиент (g:…) или '' — вернуть обычный цвет.
+   * Размер и шрифт этих слов остаются
    */
   private colorSelection(c: string): boolean {
-    const s = this.s;
     const range = this.partial;
     this.partial = null;
-    if (!s || !range || s.isKey) return false;
+    if (!range) return false;
+    return this.spanSelection(range, 'paint', c);
+  }
+
+  /**
+   * Оформление выделенной части текста (span-attrs.ts): цвет, размер (px) или шрифт — только у неё,
+   * остальное оформление этих слов остаётся. value '' — как у всего текста (цвет и шрифт).
+   * Куски внутри выделения теряют только это свойство; кусок внутри оформленного — своё поверх его
+   */
+  private spanSelection(range: Range, key: 'paint' | 'size' | 'font', value: string | number): boolean {
+    const s = this.s;
+    if (!s || s.isKey) return false;
     s.el.focus({ preventScroll: true });
-    const sel = getSelection()!;
-    sel.removeAllRanges();
-    sel.addRange(range);
-    // Метка-цвет, по которой находим созданные браузером <font>, и превращаем их в наши span
-    const MARK = '#010203';
-    document.execCommand('foreColor', false, MARK);
-    s.el.querySelectorAll('font').forEach((f) => {
-      if ((f.getAttribute('color') ?? '').toLowerCase() !== MARK) return;
-      // Внутри выделения прежние цвета больше не действуют
-      f.querySelectorAll('font[color], span.md-c').forEach((x) => x.replaceWith(...x.childNodes));
-      if (!c) {
-        f.replaceWith(...f.childNodes);
-        return;
+    // Куски текста внутри выделения (граница на самом краю узла — не в счёт; символ-держатель пустой строки — тоже).
+    // Каждый — в свой span: команды браузера здесь не годятся (цвет браузера снимает прежние цвета под собой)
+    const texts: Text[] = [];
+    const walker = document.createTreeWalker(s.el, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode() as Text | null; n; n = walker.nextNode() as Text | null) {
+      if (!range.intersectsNode(n) || !n.data.replace(/\u200b/g, '') || n.parentElement?.closest('.md-gap')) continue;
+      if (n === range.endContainer && range.endOffset === 0) continue;
+      if (n === range.startContainer && range.startOffset >= n.length) continue;
+      texts.push(n);
+    }
+    if (!texts.length) return false;
+    const { startContainer: a, startOffset: ao, endContainer: z, endOffset: zo } = range;
+    const attrsOf = (x: Element) => parseSpanAttrs(x.getAttribute('data-c') ?? '', true) ?? {};
+    // Свойство у оформленного куска снаружи: выделенное перекрывает его своим
+    const outer = (n: Node, k: 'paint' | 'font') => {
+      for (let p = n.parentElement; p && p !== s.el; p = p.parentElement) {
+        if (p.matches('span.md-c') && attrsOf(p)[k] !== undefined) return true;
+        if (k === 'paint' && p.matches('font[color]')) return true;
       }
-      const span = document.createElement('span');
-      span.className = 'md-c';
-      span.setAttribute('data-c', c);
-      const grad = textGradientCss(c);
-      if (grad) {
-        span.classList.add('md-g');
-        span.setAttribute('style', grad);
-      } else span.style.color = colorCss(c) ?? c;
-      span.append(...f.childNodes);
-      f.replaceWith(span);
-    });
+      return false;
+    };
+    const made: HTMLElement[] = [];
+    for (let n of texts) {
+      if (n === z && zo < n.length) n.splitText(zo);
+      if (n === a && ao > 0) n = n.splitText(ao);
+      const o: SpanAttrs = {};
+      if (key === 'paint') {
+        if (value) o.paint = String(value);
+        else if (outer(n, 'paint')) o.noPaint = true;
+      } else if (key === 'font') {
+        if (value) o.font = String(value);
+        else if (outer(n, 'font')) o.noFont = true;
+      } else {
+        // Размер в px → % от текста вокруг (em внутри em); дробный — округлится в готовой разметке
+        const around = parseFloat(getComputedStyle(n.parentElement ?? s.el).fontSize) || 16;
+        o.size = Math.max(20, Math.min(400, Math.round((Number(value) / around) * 10000) / 100));
+      }
+      if (!formatSpanAttrs(o, true)) continue;
+      // Уже в своём куске, где весь текст — этот: оформление ему, а не новый кусок внутри
+      const own = n.parentElement;
+      const span = own && own !== s.el && own.matches('span.md-c') && own.childNodes.length === 1 ? own : document.createElement('span');
+      if (span !== own) {
+        n.replaceWith(span);
+        span.append(n);
+        this.setSpan(span, o);
+      } else {
+        const cur = attrsOf(span);
+        if (key === 'paint') { delete cur.paint; delete cur.noPaint; }
+        if (key === 'font') { delete cur.font; delete cur.noFont; }
+        // Размер своего куска заменяется: % — от текста вокруг него
+        if (key === 'size') {
+          const around = parseFloat(getComputedStyle(span.parentElement ?? s.el).fontSize) || 16;
+          o.size = Math.max(20, Math.min(400, Math.round((Number(value) / around) * 10000) / 100));
+          delete cur.size;
+        }
+        this.setSpan(span, { ...cur, ...o });
+      }
+      made.push(span);
+    }
     s.el.normalize();
+    // Выделение — снова на этих словах
+    const live = made.filter((x) => x.isConnected);
+    if (live.length) {
+      const r = document.createRange();
+      r.setStart(live[0], 0);
+      r.setEnd(live[live.length - 1], live[live.length - 1].childNodes.length);
+      const sel = getSelection()!;
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
     this.syncButtons();
+    this.position();
     return true;
+  }
+
+  /** Оформление куска в правке; без оформления кусок растворяется в тексте вокруг */
+  private setSpan(x: HTMLElement, o: SpanAttrs): void {
+    const a = formatSpanAttrs(o, true);
+    if (!a) {
+      x.replaceWith(...x.childNodes);
+      return;
+    }
+    x.className = o.paint?.startsWith('g:') ? 'md-c md-g' : 'md-c';
+    x.setAttribute('data-c', a);
+    // Цвет и шрифт «как у всего текста» внутри оформленного куска — значением поля
+    const cs = this.s ? getComputedStyle(this.s.el) : null;
+    x.setAttribute('style', [spanCss(o), o.noPaint && cs ? `color:${cs.color}` : '', o.noFont && cs ? `font-family:${cs.fontFamily}` : ''].filter(Boolean).join(';'));
+  }
+
+  /** Убрать у кусков поля одно свойство (цвет — и цвета браузера): остальное оформление кусков остаётся */
+  private dropSpans(key: 'paint' | 'size' | 'font'): void {
+    const el = this.s?.el;
+    if (!el) return;
+    if (key === 'paint') el.querySelectorAll('font[color]').forEach((x) => x.replaceWith(...x.childNodes));
+    el.querySelectorAll<HTMLElement>('span.md-c').forEach((x) => {
+      const o = parseSpanAttrs(x.getAttribute('data-c') ?? '', true) ?? {};
+      if (key === 'paint') { delete o.paint; delete o.noPaint; }
+      if (key === 'size') delete o.size;
+      if (key === 'font') { delete o.font; delete o.noFont; }
+      this.setSpan(x, o);
+    });
+    el.normalize();
   }
 
   /** Свой градиент: панель точек под готовыми градиентами */
@@ -1026,10 +1200,7 @@ export class TextEditor {
         return;
       }
       // Первый раз — кусок текста в градиент, как у готовых; дальше правятся эти же куски
-      if (whole) {
-        s.el.querySelectorAll('span.md-c, font[color]').forEach((x) => x.replaceWith(...x.childNodes));
-        s.el.normalize();
-      }
+      if (whole) this.dropSpans('paint');
       this.partial = whole ? this.wholeRange() : range;
       this.colorSelection(code);
       this.gradSpans = [...s.el.querySelectorAll<HTMLElement>('span.md-g')].filter((x) => x.getAttribute('data-c') === code);
@@ -1491,14 +1662,16 @@ export class TextEditor {
     const node = sel?.rangeCount ? sel.getRangeAt(0).commonAncestorContainer : null;
     q('mark')?.classList.toggle('on', !!node && this.selectionInside() && !!(node.nodeType === 1 ? node as Element : node.parentElement)?.closest('mark.md-m'));
     for (const a of ['left', 'center', 'right']) q(`align-${a}`)?.classList.toggle('on', s.styles.align === a);
+    // Выделена часть текста — размер и шрифт этой части
+    const part = this.partRange();
     const size = this.bar.querySelector<HTMLInputElement>('[data-t="size"]')!;
     if (document.activeElement !== size) {
-      size.value = s.styles.size ? String(s.styles.size) : '';
+      size.value = part ? String(this.partSize(part)) : s.styles.size ? String(s.styles.size) : '';
       size.placeholder = String(Math.round(parseFloat(getComputedStyle(s.el).fontSize)));
     }
     // Кнопка шрифта: название написано самим шрифтом
     const font = this.bar.querySelector<HTMLElement>('[data-t="font"] span')!;
-    const f = s.styles.font ?? '';
+    const f = (part && this.partFont(part)) ?? s.styles.font ?? '';
     font.textContent = !f ? 'Шрифт темы' : FONTS[f]?.name ?? f;
     font.style.fontFamily = !f ? '' : FONTS[f]?.css ?? (fontNameOk(f) ? fontStack(f) : '');
     this.syncWeights();
