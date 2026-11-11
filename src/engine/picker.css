@@ -126,6 +126,9 @@ html:has(> body.picker-page) { scroll-padding-top: 84px; }
 .pk-film-s .pk-thumb { border-radius: 5px; box-shadow: 0 0 0 1px var(--bd); transition: transform .18s var(--pk-ease), box-shadow .18s; }
 .pk-film-s:hover .pk-thumb { transform: translateY(-3px); box-shadow: 0 0 0 1.5px var(--ac), 0 10px 20px -12px rgba(11, 18, 34, .6); }
 .pk-film-s small { display: block; margin-top: 4px; font-size: 11.5px; }
+/* Пока лента или страница прокручивается, миниатюры не ловят курсор: иначе под неподвижной мышью одна за другой
+   приподнимаются и гаснут, и каждый кадр прокрутки перерисовывается (picker.ts, pk-scrolling) */
+.pk-scrolling :is(.pk-film-s, .pk-item, .pk-row, .pk-play, .pk-more) { pointer-events: none; }
 
 /* ---------- колода: слайд и два позади; при наведении — веером ---------- */
 .pk-stack { position: relative; aspect-ratio: 16 / 9; isolation: isolate; }
@@ -217,11 +220,12 @@ html:has(> body.picker-page) { scroll-padding-top: 84px; }
 /* ---------- миниатюры ---------- */
 .pk-thumb { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: var(--alt); }
 .pk-thumb .thumb { width: 100%; border-radius: 0; }
-/* Блик заглушки — сдвигом слоя (transform): идёт на видеокарте, без пересчёта стилей и перерисовки в каждом кадре
-   (сдвиг фона перерисовывал каждую заглушку, даже за краем ленты) */
+/* Блик заглушки — сдвигом слоя (transform), и только пока миниатюра грузится (data-load): заглушка за краем
+   ленты или ниже по странице стоит. Каждый кадр анимации заново раскладывает страницу по слоям — с десятками
+   миниатюр это заметная работа даже в простое */
 .pk-ph { position: absolute; inset: 0; overflow: hidden; background: var(--alt); }
-.pk-ph::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 200%; background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--surf) 70%, transparent) 50%, transparent 70%); animation: pk-shimmer 1.4s linear infinite; will-change: transform; }
-.pk-bad::after { content: none; }
+[data-load] > .pk-ph::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 200%; background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--surf) 70%, transparent) 50%, transparent 70%); animation: pk-shimmer 1.4s linear infinite; will-change: transform; }
+[data-load] > .pk-bad::after { content: none; }
 .pk-bad { animation: none; display: grid; place-items: center; color: #DC2626; font-weight: 600; font-size: 13px; }
 .pk-row .pk-bad { font-size: 0; }
 @keyframes pk-shimmer { from { transform: translateX(-50%); } to { transform: translateX(50%); } }

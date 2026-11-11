@@ -364,6 +364,9 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
         if (cont.dataset.name === name) continueFill(deck);
       } catch (e) {
         if (!leaving) console.error(e);
+        // Не загрузилась — заглушка больше не мерцает
+        view.querySelectorAll(`.pk-thumb[data-for="${CSS.escape(name)}"]`).forEach((s) => s.removeAttribute('data-load'));
+        if (cont.dataset.name === name) cont.querySelector('[data-cont]')?.removeAttribute('data-load');
       }
     })();
     filling.set(name, p);
@@ -373,6 +376,8 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
     ? new IntersectionObserver((entries) => entries.forEach((en) => {
       if (!en.isIntersecting) return;
       io!.unobserve(en.target);
+      // Заглушка мерцает, только пока миниатюра грузится (picker.css)
+      (en.target as HTMLElement).dataset.load = '';
       void fill((en.target as HTMLElement).dataset.for!);
     }), { rootMargin: '300px' })
     : null;
@@ -383,25 +388,45 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
   /** Презентация, чьи слайды в ленте; миниатюры рисуются, когда подъезжают к виду */
   let filmDeck: Deck | null = null;
   let filmIo: IntersectionObserver | null = null;
-  /** Миниатюры ленты рисуются по одной в свободное время — прокрутка не подтормаживает */
-  const filmQueue: HTMLElement[] = [];
+  /** Столько первых слайдов ленты рисуется заранее, пока страницу просто смотрят; дальние — по мере прокрутки */
+  const FILM_AHEAD = 60;
+  /**
+   * Миниатюры ленты рисуются в свободное время, по одной за кадр: слайд вставляется в коде, а считается и рисуется
+   * браузером уже после — несколько за раз давали один долгий кадр посреди прокрутки. Сначала те, что уже видны
+   * (filmSoon), потом — заранее, слева направо (filmAhead): к первой прокрутке лента уже готова
+   */
+  const filmSoon: HTMLElement[] = [];
+  const filmAhead: HTMLElement[] = [];
   let filmBusy = false;
-  const idle = (cb: (budget: () => number) => void) => ('requestIdleCallback' in window
-    ? requestIdleCallback((d) => cb(() => d.timeRemaining()), { timeout: 300 })
-    : setTimeout(() => { const end = performance.now() + 8; cb(() => end - performance.now()); }, 16));
-  const filmPump = (left: () => number) => {
-    do { const a = filmQueue.shift(); if (a?.isConnected) filmThumb(a); } while (filmQueue.length && left() > 4);
-    if (filmQueue.length) idle(filmPump); else filmBusy = false;
+  const idle = (cb: () => void) => ('requestIdleCallback' in window ? requestIdleCallback(cb, { timeout: 300 }) : setTimeout(cb, 16));
+  const filmPump = () => {
+    let a: HTMLElement | undefined;
+    do a = filmSoon.shift() ?? filmAhead.shift(); while (a && !(a.isConnected && filmThumb(a)));
+    if (filmSoon.length || filmAhead.length) idle(filmPump); else filmBusy = false;
   };
+  const filmKick = () => { if (!filmBusy) { filmBusy = true; idle(filmPump); } };
   const filmLater = (a: HTMLElement) => {
-    filmQueue.push(a);
-    if (!filmBusy) { filmBusy = true; idle(filmPump); }
+    a.querySelector<HTMLElement>('.pk-thumb')!.dataset.load = '';
+    filmSoon.push(a);
+    filmKick();
   };
-  const filmThumb = (a: HTMLElement) => {
+  /** Остальные первые слайды — заранее; после появления страницы, чтобы не мешать её «раздаче» */
+  let aheadTimer = 0;
+  const filmPrepare = () => {
+    clearTimeout(aheadTimer);
+    aheadTimer = window.setTimeout(() => {
+      filmAhead.length = 0;
+      cont.querySelectorAll<HTMLElement>('.pk-film-s:not([data-done])').forEach((a) => { if (Number(a.dataset.k) < FILM_AHEAD) filmAhead.push(a); });
+      filmKick();
+    }, 1000);
+  };
+  /** Нарисовать миниатюру ленты; false — нечего (уже есть или презентация ещё грузится) */
+  const filmThumb = (a: HTMLElement): boolean => {
     const k = Number(a.dataset.k);
-    if (!filmDeck?.slides?.[k] || a.dataset.done) return;
+    if (!filmDeck?.slides?.[k] || a.dataset.done) return false;
     a.dataset.done = '1';
     a.querySelector('.pk-thumb')!.replaceChildren(slideOf(filmDeck, k));
+    return true;
   };
   /** Лента листается вбок: колесом мыши (дошла до края — листается страница), стрелками по краям, тачпадом */
   function filmSetup(wrap: HTMLElement): void {
@@ -456,7 +481,7 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
     if (cont.dataset.name === recent.name && cont.dataset.n === String(recent.slides) && cont.childElementCount) return;
     cont.dataset.name = recent.name;
     cont.dataset.n = String(recent.slides);
-    cont.innerHTML = `<a class="pk-cont-stack pk-stack" href="${studioHref(recent.name)}" aria-label="Открыть «${esc(recent.title)}» в редакторе"><div class="pk-thumb" data-cont><div class="pk-ph"></div></div></a>
+    cont.innerHTML = `<a class="pk-cont-stack pk-stack" href="${studioHref(recent.name)}" aria-label="Открыть «${esc(recent.title)}» в редакторе"><div class="pk-thumb" data-cont data-load><div class="pk-ph"></div></div></a>
       <div class="pk-cont-info">
         <div class="pk-eyebrow">Продолжить работу</div>
         <h1 class="pk-cont-title">${esc(recent.title)}</h1>
@@ -478,9 +503,10 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
     if (big && deck.slides?.length) big.replaceChildren(slideOf(deck, 0));
     const meta = cont.querySelector('.pk-cont-title');
     if (meta && deck.title) meta.textContent = deck.title;
-    // Лента: заново — уже показанные миниатюры, остальные — когда подъедут к виду
+    // Лента: заново — уже показанные миниатюры, первые остальные — заранее, дальние — когда подъедут к виду
     filmDeck = deck;
     cont.querySelectorAll<HTMLElement>('.pk-film-s').forEach((a) => { delete a.dataset.done; if (a.dataset.seen) filmLater(a); });
+    filmPrepare();
   }
 
   // ---------- что показано: поиск, порядок, порция ----------
@@ -571,7 +597,7 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
       if (thumbs.has(it.name) || it.error) place(it.name);
       else {
         const slot = view.querySelector<HTMLElement>(`.pk-thumb[data-for="${CSS.escape(it.name)}"]`);
-        if (slot) { if (io) io.observe(slot); else void fill(it.name); }
+        if (slot) { if (io) io.observe(slot); else { slot.dataset.load = ''; void fill(it.name); } }
       }
     });
   }
@@ -619,7 +645,14 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
   const top = document.getElementById('pk-top')!;
   // Прокручивается страница (браузер) или область под шапкой (программа, picker.css)
   const pk = document.querySelector<HTMLElement>('.pk')!;
-  addEventListener('scroll', () => top.classList.toggle('scrolled', (scrollY || pk.scrollTop) > 4), { capture: true, passive: true });
+  // Пока что-то прокручивается (страница или лента), миниатюры не реагируют на курсор (picker.css, pk-scrolling)
+  let still = 0;
+  addEventListener('scroll', () => {
+    top.classList.toggle('scrolled', (scrollY || pk.scrollTop) > 4);
+    if (!pk.classList.contains('pk-scrolling')) pk.classList.add('pk-scrolling');
+    clearTimeout(still);
+    still = window.setTimeout(() => pk.classList.remove('pk-scrolling'), 160);
+  }, { capture: true, passive: true });
 
   /** Удалённая презентация уходит со страницы: плавно, число в заголовке — меньше */
   const drop = (name: string) => {

@@ -57,7 +57,7 @@ export function spaceCardHtml(l: FinaleLink | undefined, logo?: string): string 
   return l
     ? `<a class="sp-card" href="${esc(l.url)}" target="_blank" rel="noopener"${eurl(l, 'url')}>`
       + (l.qr !== false ? `<div class="sp-qrbox">${qrSvg(l.url, logo, `QR-код: ${l.url}`)}</div>` : '')
-      + `<div>${l.label ? `<small${ea(l, 'label')}>${t(l.label)}</small>` : ''}<b${ea(l, 'text')}>${t(linkText(l))}</b></div></a>`
+      + `<div>${l.label ? `<small${ea(l, 'label')}>${t(l.label)}</small>` : ''}<b class="sp-ct"${ea(l, 'text')}>${t(linkText(l))}</b></div></a>`
     : '';
 }
 

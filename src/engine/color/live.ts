@@ -120,7 +120,7 @@ function playerBar(video: HTMLVideoElement, canvas: HTMLCanvasElement): () => vo
   bar.innerHTML = `<div class="video-row"><button type="button" data-v="play" class="video-play" aria-label="Смотреть"></button><span class="video-time"></span><span class="video-sp"></span>`
     + `<button type="button" data-v="mute" aria-label="Звук"></button><button type="button" data-v="full" aria-label="Во весь экран">${FULL}</button>`
     + `<button type="button" data-v="more" aria-label="Ещё" aria-haspopup="true">${MORE}</button></div>`
-    + `<div class="video-seek" role="slider" aria-label="Перемотка" tabindex="0"><i></i></div>`
+    + `<div class="video-seek" role="slider" aria-label="Перемотка" tabindex="0"><i class="vs-k"></i></div>`
     + `<div class="video-menu" hidden></div>`;
   box.appendChild(bar);
   const play = bar.querySelector<HTMLElement>('[data-v="play"]')!;

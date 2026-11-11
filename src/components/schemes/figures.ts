@@ -90,7 +90,7 @@ defineBlock<CenterProps>('pillars', {
     const items = pts(p);
     const n = Math.max(1, items.length);
     const cols = items.map((m, k) =>
-      `<div class="pl-col" style="--k:${k};--mix:${mixOf(k, n)}%"><i class="pl-cap"></i><div class="pl-shaft"><em>${two(k)}</em>${title(m)}${text(m)}</div><i class="pl-foot"></i></div>`).join('');
+      `<div class="pl-col" style="--k:${k};--mix:${mixOf(k, n)}%"><i class="pl-cap"></i><div class="pl-shaft"><em class="pl-n">${two(k)}</em>${title(m)}${text(m)}</div><i class="pl-foot"></i></div>`).join('');
     return `<div class="pillars r"${style(p, `--n:${n}`)}>`
       // Крыша — треугольник SVG (не обрезка): в PowerPoint уходит картинкой как есть
       + `<div class="pl-roof"><svg viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polygon points="50,0 100,30 0,30"/><polygon class="pl-gable" points="50,6 88,27 12,27"/></svg>`
@@ -142,7 +142,7 @@ defineBlock<ItemsProps>('diamonds', {
       const note = `<div class="dm-note">${title(m)}${text(m)}</div>`;
       return `<div class="dm-it${k % 2 ? ' odd' : ''}" style="--k:${k};--mix:${mixOf(k, n)}%">`
         + `<div class="dm-slot">${k % 2 ? '' : note}</div>`
-        + `<div class="dm-shape"><i></i><span>${icon(iconFor(m, k))}</span></div>`
+        + `<div class="dm-shape"><i class="dm-bg"></i><span>${icon(iconFor(m, k))}</span></div>`
         + `<div class="dm-slot">${k % 2 ? note : ''}</div></div>`;
     }).join('')}</div>`;
   },
@@ -207,7 +207,7 @@ defineBlock<CenterProps>('mindmap', {
       const ex = r ? 668 : 332;
       const mx = (sx + ex) / 2;
       return `<div class="mm-br ${r ? 'r' : 'l'}" style="--k:${k};--mix:${mixOf(k, n)}%">`
-        + `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M${sx} ${round(cy)}C${mx} ${round(cy)} ${mx} ${round(y)} ${ex} ${round(y)}"/></svg>`
+        + `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path class="mm-ln" pathLength="1" d="M${sx} ${round(cy)}C${mx} ${round(cy)} ${mx} ${round(y)} ${ex} ${round(y)}"/></svg>`
         + `<div class="mm-card" style="top:${pc(y, H)}%">${title(m)}${text(m)}</div></div>`;
     }).join('');
     return `<div class="mindmap r"${style(p, `aspect-ratio:${round(W / H)} / 1;--ar:${round(W / H)};--n:${n}`)}>${branches}`
@@ -245,13 +245,13 @@ defineBlock<ItemsProps>('iceberg', {
     const lx = 660;
     // Верхушка — точка у её склона
     const top = items[0] ? `<div class="ib-br top" style="--k:0">`
-      + `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="M452 92H${lx - 12}"/><circle cx="452" cy="92" r="5"/></svg>`
+      + `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><path class="ib-ln" d="M452 92H${lx - 12}"/><circle class="ib-pt" cx="452" cy="92" r="5"/></svg>`
       + `<div class="ib-note" style="left:${pc(lx, W)}%;top:${pc(92, H)}%">${title(items[0])}${text(items[0])}</div></div>` : '';
     // Подводные — поровну по глубине от WL + 56 до H − 40; точка — у края льдины на своей глубине
     const deep = items.slice(1).map((m, j) => {
       const y = WL + 56 + ((j + 0.5) * (H - WL - 96)) / below;
       return `<div class="ib-n" style="--k:${j + 1};--dx:${round(((lx - 12 - (edgeX(y) - 26)) / (W - lx - 10)) * 100)}%">`
-        + `<i aria-hidden="true"></i><div class="ib-note">${title(m)}${text(m)}</div></div>`;
+        + `<i class="ib-lead" aria-hidden="true"></i><div class="ib-note">${title(m)}${text(m)}</div></div>`;
     }).join('');
     const notes = top + (deep ? `<div class="ib-deep" style="top:${pc(WL + 56, H)}%;bottom:${pc(40, H)}%">${deep}</div>` : '');
     const wave = (y: number) => {

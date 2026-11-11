@@ -15,8 +15,13 @@ export interface Point { title: string; text?: string; icon?: string; accent?: b
 export interface ItemsProps extends Block { items: Point[] }
 
 export const pts = (p: ItemsProps): Point[] => asArray(p.items).filter((x): x is Point => !!x && typeof x === 'object');
-export const title = (m: Point, tag = 'b') => `<${tag}${ea(m, 'title')}>${t(m.title ?? '')}</${tag}>`;
-export const text = (m: Point, tag = 'span') => (m.text ? `<${tag}${ea(m, 'text')}>${t(m.text)}</${tag}>` : '');
+/**
+ * Заголовок и текст пункта — со своими классами (sc-t, sc-x): правила «при наведении» обращаются к ним по классу.
+ * Правило вида «.x:hover b» заставляло браузер при любом наведении пересчитывать все b внутри элемента под курсором —
+ * на странице выбора это сотни элементов в миниатюрах ленты
+ */
+export const title = (m: Point, tag = 'b') => `<${tag} class="sc-t"${ea(m, 'title')}>${t(m.title ?? '')}</${tag}>`;
+export const text = (m: Point, tag = 'span') => (m.text ? `<${tag} class="sc-x"${ea(m, 'text')}>${t(m.text)}</${tag}>` : '');
 export const two = (k: number) => String(k + 1).padStart(2, '0');
 export const round = (v: number) => Math.round(v * 100) / 100;
 

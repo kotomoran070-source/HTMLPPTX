@@ -405,7 +405,7 @@ defineBlock<WaterfallProps>('waterfall', {
       // Пунктир — от края этой ступени к следующей, на уровне, где она закончилась
       const link = k < steps.length - 1 ? `<i class="wf-link" style="bottom:${pc(s.to)}%"></i>` : '';
       return `<div class="wf-c ${s.kind}" style="--k:${k}">`
-        + `<div class="wf-b" style="bottom:${pc(bottom)}%;height:max(2px, ${(Number(pc(top)) - Number(pc(bottom))).toFixed(2)}%)"><b>${sign(s)}${fmtNum(Math.abs(s.v))}${unit}</b></div>${link}</div>`;
+        + `<div class="wf-b" style="bottom:${pc(bottom)}%;height:max(2px, ${(Number(pc(top)) - Number(pc(bottom))).toFixed(2)}%)"><b class="wf-v">${sign(s)}${fmtNum(Math.abs(s.v))}${unit}</b></div>${link}</div>`;
     }).join('');
     const axis = steps.map((s) => `<span${s.edit}>${t(s.label)}</span>`).join('');
     return `<div class="waterfall"${styleAttr(`--n:${steps.length}`, p.height && `--h:${Math.max(80, Math.min(600, Number(p.height)))}px`, p.style)}>`

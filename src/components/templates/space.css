@@ -75,7 +75,7 @@
 .sp-gbt i { flex: 0 0 38px; height: 38px; display: grid; place-items: center; }
 .sp-gbt .ic { width: 18px; height: 18px; fill: none; stroke: #B9C4DD; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .sp-gbt span { max-width: 0; opacity: 0; white-space: nowrap; font-size: 13px; font-weight: 600; color: #DCE4F5; transition: max-width .35s var(--ease), opacity .25s, margin .35s; }
-.sp-gbt:hover span, .sp-gbt:focus-visible span { max-width: 160px; opacity: 1; margin-right: 12px; }
+.sp-gbt:hover .bt-l, .sp-gbt:focus-visible .bt-l { max-width: 160px; opacity: 1; margin-right: 12px; }
 
 /* Вариант «орбита» (layout: orbit): орбиты со спутниками вокруг стеклянного логотипа */
 .sp-sky.neb { background: radial-gradient(ellipse 90% 70% at 50% 45%, #081126 0%, #030712 70%, #010206 100%); }
@@ -108,7 +108,7 @@
   border: 1px solid rgba(255, 255, 255, .14); box-shadow: 0 16px 40px rgba(0, 0, 0, .45); text-align: left; }
 :is(.slide.on, .tpl-part) .sp-panel { animation: up 1s var(--ease) 2.3s both; }
 .sp-panel .sp-card { padding: 0 36px 0 0; background: none; border: 0; box-shadow: none; animation: none !important; }
-.sp-panel .sp-card:hover b { text-decoration: underline; }
+.sp-panel .sp-card:hover .sp-ct { text-decoration: underline; }
 .sp-panel .sp-qrbox { width: 78px; height: 78px; }
 .sp-panel .sp-card b { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; font-size: 21px; }
 .sp-sep { width: 1px; align-self: stretch; margin: 10px 0; background: rgba(255, 255, 255, .14); }

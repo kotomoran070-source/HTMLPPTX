@@ -288,7 +288,7 @@ body.editing:not(.st-previewing) .fq-a, .static .fq-a { grid-template-rows: 1fr;
 .ns-note { position: absolute; translate: 0 -50%; }
 .ns-note > p { margin: 0; max-width: none; font-size: 16px; line-height: 1.4; color: var(--tx2, var(--tx)); transition: color .2s; }
 .ns-c:hover > .ns-line { border-top-style: solid; border-top-color: var(--ac); }
-.ns-c:hover > .ns-note > p { color: var(--tx); }
+.ns-c:hover > .ns-note > .sc-x { color: var(--tx); }
 .slide.on .nested.target .ns-c { transform-origin: 50% 50%; }
 .slide.on .ns-c { transform-origin: 50% 100%; animation: ns-grow .7s cubic-bezier(.3, 1.2, .5, 1) both; animation-delay: calc(.1s + var(--k) * .14s); }
 @keyframes ns-grow { from { scale: 0; opacity: 0; } }

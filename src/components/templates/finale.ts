@@ -43,7 +43,7 @@ export function linkText(l: FinaleLink): string {
 
 /** Кнопка-иконка, у которой при наведении выезжает подпись. */
 export function button(b: FinaleButton, cls: string): string {
-  const inner = `<i>${icon(b.icon)}</i><span${ea(b, 'label')}>${t(b.label)}</span>`;
+  const inner = `<i>${icon(b.icon)}</i><span class="bt-l"${ea(b, 'label')}>${t(b.label)}</span>`;
   return b.url
     ? `<a class="${cls}" href="${esc(b.url)}" target="_blank" rel="noopener" aria-label="${esc(b.label)}"${eurl(b, 'url')}>${inner}</a>`
     : `<div class="${cls}" tabindex="0" aria-label="${esc(b.label)}"${eurl(b, 'url')}>${inner}</div>`;
@@ -56,7 +56,7 @@ export function plateHtml(s: { link?: FinaleLink; buttons?: FinaleButton[] }, lo
   const qr = l && l.qr !== false ? `<div class="qr">${qrSvg(l.url, logo, `QR-код: ${l.url}`)}</div>` : '';
   const primary = l
     ? `<a class="it primary" href="${esc(l.url)}" target="_blank" rel="noopener"${eurl(l, 'url')}><i>${icon('browser')}</i><div>`
-      + (l.label ? `<small${ea(l, 'label')}>${t(l.label)}</small>` : '') + `<b${ea(l, 'text')}>${t(linkText(l))}</b></div></a>`
+      + (l.label ? `<small${ea(l, 'label')}>${t(l.label)}</small>` : '') + `<b class="pr-t"${ea(l, 'text')}>${t(linkText(l))}</b></div></a>`
     : '';
   const bts = asArray(s.buttons).map((b) => button(b, 'bt neutral')).join('');
   return `<div class="plate${qr ? '' : ' noqr'}">${qr}<div class="pl">${primary}${bts ? `<div class="bts">${bts}</div>` : ''}</div></div>`;

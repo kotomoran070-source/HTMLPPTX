@@ -18,8 +18,8 @@
 .gr-note { position: absolute; left: 50%; translate: -50% 0; text-align: center; }
 .gr-note > p { margin: 0; max-width: none; font-size: clamp(10px, 1.6cqi, 15px); line-height: 1.4; color: var(--tx2, var(--mu)); transition: color .2s; }
 .gr-w:hover .gr-gear { fill: color-mix(in srgb, var(--vc) 78%, white); }
-.gr-w:hover .gr-t > b { color: var(--ach); }
-.gr-w:hover .gr-note > p { color: var(--tx); }
+.gr-w:hover .gr-t > .sc-t { color: var(--ach); }
+.gr-w:hover .gr-note > .sc-x { color: var(--tx); }
 .stage .slide.on:not(.static) .gr-gear { animation: gr-spin var(--dur) linear infinite var(--dir); }
 @keyframes gr-spin { to { rotate: 360deg; } }
 .slide.on .gr-w { animation: gr-in .7s cubic-bezier(.3, 1.3, .5, 1) both; animation-delay: calc(.1s + var(--k) * .14s); }
@@ -45,7 +45,7 @@
 .pl-shaft > b { font: var(--hw, 700) 19px/1.2 var(--font-head, var(--font)); color: var(--tx); }
 .pl-shaft > span { font-size: 14px; line-height: 1.4; color: var(--tx2, var(--mu)); }
 .pl-col:hover .pl-shaft { background: repeating-linear-gradient(90deg, transparent 0 14%, color-mix(in srgb, white 10%, transparent) 14% 16%), var(--vc); }
-.pl-col:hover .pl-shaft > :is(b, span, em) { color: var(--on-ac, #fff); opacity: 1; }
+.pl-col:hover .pl-shaft > :is(.sc-t, .sc-x, .pl-n) { color: var(--on-ac, #fff); opacity: 1; }
 .pl-step { display: block; height: 12px; margin: 0 2%; border-radius: 3px; background: color-mix(in srgb, var(--ac) 45%, var(--surf)); }
 .pl-step.s2 { margin: 4px 0 0; background: color-mix(in srgb, var(--ac) 28%, var(--surf)); }
 .slide.on .pl-col { transform-origin: bottom; animation: pl-up .6s cubic-bezier(.3, 1.2, .5, 1) both; animation-delay: calc(.25s + var(--k) * .12s); }
@@ -67,8 +67,9 @@
 .ly-note { position: absolute; translate: 0 -50%; pointer-events: auto; display: flex; flex-direction: column; gap: 2px; width: 50%; }
 .ly-note > b { font: var(--hw, 700) 19px/1.2 var(--font-head, var(--font)); color: var(--tx); transition: color .2s; }
 .ly-note > span { font-size: 14px; line-height: 1.4; color: var(--tx2, var(--mu)); }
-.ly-l:hover > * { translate: 0 -12px; }
-.ly-l:hover .ly-note > b { color: var(--ach); }
+/* Не «> *»: всеобщий потомок после :hover заставляет браузер пересчитывать всё внутри любого элемента под курсором — на всех страницах */
+.ly-l:hover > :is(.ly-plate, .ly-note) { translate: 0 -12px; }
+.ly-l:hover .ly-note > .sc-t { color: var(--ach); }
 .ly-l:hover .ly-line { stroke: var(--vc); stroke-dasharray: none; }
 .layers:has(.ly-l:hover) .ly-l:not(:hover) { opacity: .5; }
 .slide.on .ly-l { animation: ly-drop .6s cubic-bezier(.3, 1.3, .5, 1) both; animation-delay: calc(.1s + var(--up) * .13s); }
@@ -89,8 +90,8 @@
   transition: rotate .45s cubic-bezier(.3, 1.4, .5, 1), scale .3s; }
 .dm-shape > span { position: relative; width: 30%; color: var(--on-ac, #fff); }
 .dm-shape > span .ic { display: block; width: 100%; height: auto; aspect-ratio: 1; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.dm-it:hover .dm-shape > i { rotate: 135deg; scale: 1.07; }
-.dm-it:hover .dm-note > b { color: var(--ach); }
+.dm-it:hover .dm-shape > .dm-bg { rotate: 135deg; scale: 1.07; }
+.dm-it:hover .dm-note > .sc-t { color: var(--ach); }
 .slide.on .dm-shape { animation: dm-in .6s cubic-bezier(.3, 1.4, .5, 1) both; animation-delay: calc(.1s + var(--k) * .12s); }
 @keyframes dm-in { from { opacity: 0; scale: .2; rotate: -90deg; } }
 .slide.on .dm-note { animation: fi .5s ease both; animation-delay: calc(.45s + var(--k) * .12s); }
@@ -114,7 +115,7 @@
 .ar-l > b { font: var(--hw, 700) 19px/1.2 var(--font-head, var(--font)); color: var(--tx); transition: color .2s; }
 .ar-l > span { font-size: 14px; line-height: 1.35; color: var(--tx2, var(--mu)); }
 .ar-it:hover .ar-dot { scale: 1.2; }
-.ar-it:hover .ar-l > b { color: var(--ach); }
+.ar-it:hover .ar-l > .sc-t { color: var(--ach); }
 .stage .slide.on:not(.static) .ar-road { stroke-dasharray: 1; animation: ar-draw 1s cubic-bezier(.65, 0, .35, 1) both; }
 @keyframes ar-draw { from { stroke-dashoffset: 1; } }
 .slide.on .ar-dot { animation: fg-pop .5s cubic-bezier(.34, 1.56, .64, 1) both; animation-delay: calc(.35s + var(--k) * .16s); }
@@ -132,7 +133,7 @@
 .mm-br.l .mm-card { right: 66.8%; border-right: 4px solid var(--vc); text-align: right; }
 .mm-card > b { font: var(--hw, 700) 18px/1.2 var(--font-head, var(--font)); color: var(--tx); }
 .mm-card > span { font-size: 14px; line-height: 1.4; color: var(--tx2, var(--mu)); }
-.mm-br:hover path { stroke: var(--vc); stroke-width: 4; }
+.mm-br:hover .mm-ln { stroke: var(--vc); stroke-width: 4; }
 .mm-br:hover .mm-card { border-color: var(--vc); box-shadow: 0 16px 34px -14px color-mix(in srgb, var(--vc) 55%, transparent); }
 .mm-br.r:hover .mm-card { translate: 6px -50%; }
 .mm-br.l:hover .mm-card { translate: -6px -50%; }
@@ -175,12 +176,12 @@
 /* Линия к краю льдины: от середины подписи, длина — доля ширины столбца подписей; на конце — точка */
 .ib-n > i { position: absolute; top: 50%; right: calc(100% + 12% / 3.3); width: var(--dx); border-top: 1.5px dashed color-mix(in srgb, var(--ac) 55%, var(--bd)); transition: border-color .2s; }
 .ib-n > i::before { content: ""; position: absolute; left: -8px; top: -8px; width: 10px; height: 10px; border-radius: 50%; background: var(--ac); border: 3px solid var(--surf); transition: scale .2s; }
-.ib-n:hover > i { border-top-style: solid; border-top-color: var(--ac); }
-.ib-n:hover > i::before { scale: 1.5; }
-.ib-n:hover .ib-note > b { color: var(--ach); }
-.ib-br:hover path { stroke: var(--ac); stroke-dasharray: none; }
-.ib-br:hover circle { r: 8; }
-.ib-br:hover .ib-note > b { color: var(--ach); }
+.ib-n:hover > .ib-lead { border-top-style: solid; border-top-color: var(--ac); }
+.ib-n:hover > .ib-lead::before { scale: 1.5; }
+.ib-n:hover .ib-note > .sc-t { color: var(--ach); }
+.ib-br:hover .ib-ln { stroke: var(--ac); stroke-dasharray: none; }
+.ib-br:hover .ib-pt { r: 8; }
+.ib-br:hover .ib-note > .sc-t { color: var(--ach); }
 .slide.on .ib-berg { animation: ib-rise .9s cubic-bezier(.3, 1.2, .5, 1) both; }
 @keyframes ib-rise { from { opacity: 0; transform: translateY(40px); } }
 .slide.on :is(.ib-br, .ib-n) { animation: fi .5s ease both; animation-delay: calc(.6s + var(--k) * .14s); }
