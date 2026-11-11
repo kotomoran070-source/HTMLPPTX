@@ -6,6 +6,7 @@ import { pageEnv } from './env';
 import { onServer } from './events';
 import { staticSlide } from './deck-view';
 import { esc } from './html';
+import { wheelStrip } from './hscroll';
 import { currentTheme, toggleTheme } from './theme';
 import './picker.css';
 import { leave, themeFade } from './motion';
@@ -439,24 +440,8 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
     strip.addEventListener('scroll', edges, { passive: true });
     if ('ResizeObserver' in window) new ResizeObserver(edges).observe(strip);
     edges();
-    // Плавно и без потерь: следующий щелчок колеса продолжает от цели, а не от того места, где лента сейчас
-    let target = -1;
-    let settle = 0;
-    const go = (d: number) => {
-      const max = strip.scrollWidth - strip.clientWidth;
-      target = Math.max(0, Math.min(max, (target >= 0 ? target : strip.scrollLeft) + d));
-      strip.scrollTo({ left: target, behavior: 'smooth' });
-      clearTimeout(settle);
-      settle = window.setTimeout(() => { target = -1; }, 600);
-    };
-    strip.addEventListener('wheel', (e) => {
-      if (e.ctrlKey || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
-      const max = strip.scrollWidth - strip.clientWidth;
-      const at = target >= 0 ? target : strip.scrollLeft;
-      if (max <= 0 || (e.deltaY < 0 && at <= 0) || (e.deltaY > 0 && at >= max - 1)) return;
-      e.preventDefault();
-      go(e.deltaY * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? strip.clientWidth : 1));
-    }, { passive: false });
+    // Колесо листает ленту вбок — ровно, без остановки на каждом щелчке (engine/hscroll.ts)
+    const { go } = wheelStrip(strip);
     wrap.addEventListener('click', (e) => {
       const b = (e.target as Element).closest<HTMLElement>('[data-go]');
       if (b) go(Number(b.dataset.go) * strip.clientWidth * 0.8);
