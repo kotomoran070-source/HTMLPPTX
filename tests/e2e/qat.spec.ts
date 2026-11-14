@@ -115,7 +115,7 @@ test('панель быстрого доступа: «Другие команд�
   expect(errors).toEqual([]);
 });
 
-test('пипетка: в «▾» панели, без выделения — цвет копируется, у фигуры — заливка, в палитре цвета текста — тексту', async ({ page }) => {
+test('пипетка: в «▾» панели — значком; без выделения цвет копируется, у фигуры — заливка', async ({ page }) => {
   const errors = watchErrors(page);
   // Пипетка системы — подставная: «взяла» #12AB34
   await page.addInitScript(() => {
@@ -135,10 +135,6 @@ test('пипетка: в «▾» панели, без выделения — ц�
   await page.locator('#st-canvas .slide.on [data-type="shape"]').first().click({ position: { x: 10, y: 10 } });
   await pick.click();
   await expect.poll(() => readDeck('qatpick')).toContain('#12AB34');
-  // Палитра заливки — тоже с пипеткой
-  await page.locator('.st-ribbon [data-cmd="shape.fill"]').filter({ visible: true }).click();
-  await expect(page.locator('.st-pop .st-ppick')).toBeVisible();
-  await page.keyboard.press('Escape');
   // Ctrl+Z — заливка как была
   await page.keyboard.press('Control+z');
   await expect.poll(() => readDeck('qatpick')).not.toContain('#12AB34');

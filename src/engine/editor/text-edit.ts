@@ -1,5 +1,4 @@
 import { themeSwatches } from '../deck-theme';
-import { canPickColor, pickScreenColor } from '../eyedropper';
 import { deckFonts, fontNameOk, fontStack } from '../fonts';
 import { fontItems, fontPicker, weightName, weightNameEn, type FontItem, tryFontOn } from './font-picker';
 import { icon } from '../../components/icons';
@@ -179,7 +178,7 @@ export class TextEditor {
   <div class="edcolors-label">Градиент</div>
   <div class="edcolors-row">${TEXT_GRADIENTS.map((id) => GRADIENTS.find((g) => g.id === id)!).map((g) => `<button type="button" data-c="g:${g.id}" title="${esc(g.name)}" style="background:var(--g);${textGradientCss(`g:${g.id}`)}"></button>`).join('')}</div>
   ${host.ownGradient ? '<button type="button" class="edgrad-own" data-gown="1" aria-expanded="false"><i></i><span>Свой градиент…</span><b class="st-caret"></b></button><div class="edgrad-panel" hidden></div>' : ''}
-  <div class="edcolors-foot"><label><input type="color" data-c="custom"> Свой цвет</label>${canPickColor() ? `<button type="button" data-pick class="btn ghost small" title="Пипетка: цвет любой точки экрана — слайда, картинки, другой программы">${icon('pipette')}Пипетка</button>` : ''}<button type="button" data-c="" class="btn ghost small">Как в теме</button></div>
+  <div class="edcolors-foot"><label><input type="color" data-c="custom"> Свой цвет</label><button type="button" data-c="" class="btn ghost small">Как в теме</button></div>
 </div>`);
     this.bar = document.getElementById('ed-text')!;
     this.colors = document.getElementById('ed-colors')!;
@@ -954,10 +953,6 @@ export class TextEditor {
     this.colors.addEventListener('click', (e) => {
       this.tryColor(null);
       if ((e.target as Element).closest('[data-gown]')) return this.ownGradient();
-      if ((e.target as Element).closest('[data-pick]')) {
-        void pickScreenColor().then((c) => { if (c) this.applyColor(c); else this.s?.el.focus({ preventScroll: true }); });
-        return;
-      }
       const panel = (e.target as Element).closest('.edgrad-panel');
       if (panel) {
         // Готовый градиент из панели — применён, палитра закрывается
@@ -1054,8 +1049,8 @@ export class TextEditor {
   }
 
   /**
-   * Цвет текста, как из палитры: в правке — выделенным словам (без выделения — всему полю), без правки — выделенным
-   * объектам (надписи, ячейки таблицы). false — красить нечего
+   * Цвет текста, как из палитры (команда «Пипетка», studio/context-tabs.ts): в правке — выделенным словам (без
+   * выделения — всему полю), без правки — выделенным объектам (надписи, ячейки таблицы). false — красить нечего
    */
   applyColor(c: string): boolean {
     if (!this.s && !this.tg) return false;

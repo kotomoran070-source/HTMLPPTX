@@ -349,9 +349,6 @@ export function tableMenu(): MenuEntry[] {
   return tableMenuFn?.() ?? [];
 }
 
-/** «Пипетка» в палитрах: цвет любой точки экрана (engine/eyedropper.ts); где её нет — кнопки тоже нет */
-const pickBtn = () => (canPickColor() ? `<button type="button" class="st-pmore st-ppick" data-v="pick" title="Цвет любой точки экрана — слайда, картинки, другой программы">${icon('pipette')}<span>Пипетка</span></button>` : '');
-
 export function contextCommands(h: ContextHost): Record<string, Command> {
   const { deck, editor: ed } = h;
   /** Вкладка «Видео»: настройки плеера и цветокоррекция своего ролика */
@@ -441,7 +438,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const html = `${line ? '' : `<button type="button" class="st-pnone${cur === 'none' || (key === 'stroke' && !width) ? ' on' : ''}" data-v="none">${icon('close')}<span>${key === 'fill' ? 'Без заливки' : 'Без контура'}</span></button>`}
       <div class="st-plabel">Цвета темы</div><div class="st-pgrid">${theme}</div>
       <div class="st-plabel">Стандартные</div><div class="st-pgrid">${SHAPE_SWATCHES.map((c) => sw(c, c, c)).join('')}</div>
-      <button type="button" class="st-pmore" data-v="custom"><i style="background:conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)"></i><span>Другой цвет…</span></button>${pickBtn()}
+      <button type="button" class="st-pmore" data-v="custom"><i style="background:conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)"></i><span>Другой цвет…</span></button>
       ${grads}
       ${outline ? `<div class="st-plabel">Толщина</div><div class="st-pseg">${[1, 2, 3, 4, 6, 8].map((w) => `<button type="button" data-w="${w}" class="${width === w ? 'on' : ''}" title="${w} px"><i style="height:${Math.min(w, 6)}px"></i></button>`).join('')}</div>
       <div class="st-plabel">Штрих</div><div class="st-pseg">${([['', 'Сплошной'], ['dash', 'Пунктир'], ['dot', 'Точки']] as const).map(([v, l]) => `<button type="button" data-dash="${v}" class="${(b?.dash ?? '') === v ? 'on' : ''}" title="${l}"><i class="d-${v || 'solid'}"></i></button>`).join('')}</div>` : ''}`;
@@ -471,9 +468,6 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
           },
         };
       }
-      if (v === 'pick') {
-        return { run: () => void pickScreenColor().then((c) => { if (c) apply((d, p) => { setAt(d, [...p, k], c); setAt(d, [...p, gk], undefined); withWidth(d, p); }); }) };
-      }
       if (v === 'none') return { run: () => apply((d, p) => { setAt(d, [...p, k === 'stroke' ? 'width' : 'fill'], k === 'stroke' ? undefined : 'none'); if (k === 'fill') setAt(d, [...p, 'gradient'], undefined); }) };
       if (v) return { run: () => apply((d, p) => { setAt(d, [...p, k], v); setAt(d, [...p, gk], undefined); withWidth(d, p); }) };
       if (el.dataset.w) {
@@ -495,7 +489,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
         return g ? (b) => wide({ ...b, [k]: 'gradient', [gk]: { ...g } }) : null;
       }
       if (v === 'none') return (b) => (k === 'stroke' ? { ...b, width: undefined } : { ...b, fill: 'none', gradient: undefined });
-      if (v && v !== 'custom' && v !== 'grad-edit' && v !== 'pick') return (b) => wide({ ...b, [k]: v, [gk]: undefined });
+      if (v && v !== 'custom' && v !== 'grad-edit') return (b) => wide({ ...b, [k]: v, [gk]: undefined });
       if (el.dataset.w) return (b) => ({ ...b, width: Number(el.dataset.w) });
       if (el.dataset.dash !== undefined) return (b) => wide({ ...b, dash: el.dataset.dash || undefined });
       return null;
@@ -1076,7 +1070,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     const html = `<button type="button" class="st-pnone${cur ? '' : ' on'}" data-v="none">${icon('close')}<span>Как у таблицы</span></button>
       <div class="st-plabel">Цвета темы</div><div class="st-pgrid">${theme}</div>
       <div class="st-plabel">Стандартные</div><div class="st-pgrid">${SHAPE_SWATCHES.map((c) => sw(c, c, c)).join('')}</div>
-      <button type="button" class="st-pmore" data-v="custom"><i style="background:conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)"></i><span>Другой цвет…</span></button>${pickBtn()}`;
+      <button type="button" class="st-pmore" data-v="custom"><i style="background:conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)"></i><span>Другой цвет…</span></button>`;
     const pop = showPopover(anchor('table.fill'), html, (el) => {
       const v = el.dataset.v;
       if (v === 'custom') {
@@ -1090,14 +1084,13 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
           },
         };
       }
-      if (v === 'pick') return { run: () => void pickScreenColor().then((c) => { if (c) fillCells(c); }) };
       return v ? { run: () => fillCells(v === 'none' ? undefined : v) } : null;
     });
     // Наведение на цвет — выделенные ячейки на слайде уже в нём
     const at = span();
     bindTry(pop, tryLook(TABLE_KIND, targets('table').slice(0, 1)), (el) => {
       const v = el.dataset.v;
-      if (!v || v === 'custom' || v === 'pick') return null;
+      if (!v || v === 'custom') return null;
       return (b) => {
         const t = structuredClone(b) as unknown as TableData;
         paintCells(t, at, v === 'none' ? undefined : v);
@@ -1401,7 +1394,7 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
       <div class="st-plabel">Цвета темы</div><div class="st-pgrid">${Object.entries(THEME_COLORS).map(([v, c]) => sw(v, c.css, c.name)).join('')}</div>
       <div class="st-plabel">Стандартные</div><div class="st-pgrid">${SWATCHES.map((c) => sw(c, c, c)).join('')}</div>
       <div class="st-plabel">Градиент</div><div class="st-pgrid st-grads by8">${grads.map((g) => sw(`g:${g.id}`, gradientCss(g.g), g.name)).join('')}</div>
-      <button type="button" class="st-pmore" data-v="custom"><i style="background:conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)"></i><span>Другой цвет…</span></button>${pickBtn()}`;
+      <button type="button" class="st-pmore" data-v="custom"><i style="background:conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)"></i><span>Другой цвет…</span></button>`;
     // Градиент и контурные буквы не вместе: градиент заливает буквы
     const paint = (v: string) => (x: TextStyle): TextStyle => ({ ...x, color: v || undefined, ...(v.startsWith('g:') ? { hollow: undefined, plate: undefined } : {}) });
     const pop = showPopover(anchor('text.color'), html, (el) => {
@@ -1418,12 +1411,11 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
           },
         };
       }
-      if (v === 'pick') return { run: () => void pickScreenColor().then((c) => { if (c) editText(paint(c)); }) };
       return { run: () => editText(paint(v)) };
     }, 'st-palette');
     bindTry(pop, tryLook(TEXT_KIND, targets('textish')), (el) => {
       const v = el.dataset.v;
-      return v === undefined || v === 'custom' || v === 'pick' ? null : (b) => withStyle(b, paint(v)({ ...tst(b) }));
+      return v === undefined || v === 'custom' ? null : (b) => withStyle(b, paint(v)({ ...tst(b) }));
     });
   };
   const sizeNow = () => Number(tx0().size) || Math.round(parseFloat(shown()?.fontSize ?? '') || 24);

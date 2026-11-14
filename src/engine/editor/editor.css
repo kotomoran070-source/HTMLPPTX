@@ -240,9 +240,6 @@ body.editing .ovedit-hint { display: block; }
 .edcolors-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; font: 600 12px var(--font); color: var(--tx2); }
 .edcolors-foot label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .edcolors-foot input { width: 24px; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; }
-/* «Пипетка» — рядом со «Своим цветом», значком и словом */
-.edcolors-foot [data-pick] { display: inline-flex; align-items: center; gap: 5px; margin-right: auto; padding-inline: 8px; }
-.edcolors-foot [data-pick] .ic { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 /* Панель картинки */
 .edseg { display: inline-flex; background: var(--alt); border-radius: 9px; padding: 2px; }
