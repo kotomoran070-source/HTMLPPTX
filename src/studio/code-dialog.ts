@@ -2,11 +2,14 @@ import { icon } from '../components/icons';
 import { withTheme } from '../components/html/html';
 import { esc } from '../engine/html';
 import { leave } from '../engine/motion';
+import type { HtmlEditor } from './code-editor';
 
 /**
  * Редактор кода живой вставки: слева HTML/CSS/JS, справа — он же в работе.
  * Предпросмотр — та же изолированная рамка, что на слайде (только скрипты, без доступа к студии).
- * Ctrl+Enter — применить, Esc — закрыть, Tab — отступ.
+ * Код вставки — в редакторе кода, как «Код слайда» (code-editor.ts): подсветка, поиск и замена (Ctrl+F, Ctrl+H);
+ * текст для своего превью (диаграмма, тест из текста) — в простом поле.
+ * Ctrl+Enter — применить, Esc — закрыть (сначала — поиск, если открыт), Tab — отступ.
  */
 export interface CodeDialog {
   title: string;
@@ -46,33 +49,56 @@ export function openCodeDialog(o: CodeDialog): void {
   const frame = box.querySelector<HTMLIFrameElement>('iframe');
   const live = box.querySelector<HTMLElement>('.st-cd-live');
   src.value = o.code;
+  /** Редактор кода — когда загрузится; до того (и для текста своего превью) — простое поле */
+  let cm: HtmlEditor | null = null;
+  let closed = false;
+  const get = () => cm?.value() ?? src.value;
+  const set = (v: string) => { if (cm) cm.set(v); else src.value = v; };
 
   let timer = 0;
   const run = () => {
-    if (live && o.render) live.innerHTML = o.render(src.value);
-    else if (frame) frame.srcdoc = o.theme ? withTheme(src.value) : src.value;
+    if (live && o.render) live.innerHTML = o.render(get());
+    else if (frame) frame.srcdoc = o.theme ? withTheme(get()) : get();
   };
   run();
-  src.addEventListener('input', () => {
+  const changed = () => {
     clearTimeout(timer);
     // Своё превью — почти сразу: рисуется без рамки и скриптов
     timer = window.setTimeout(run, live ? 150 : 500);
-  });
+  };
+  src.addEventListener('input', changed);
+  if (!o.render) {
+    void import('./code-editor').then(({ htmlEditor }) => {
+      if (closed) return;
+      const host = document.createElement('div');
+      host.className = 'st-cd-cm';
+      src.replaceWith(host);
+      cm = htmlEditor(host, { doc: src.value, label: 'Код', change: changed, submit: () => ok() });
+      cm.focus();
+    });
+  }
 
   const close = () => {
+    closed = true;
     clearTimeout(timer);
     removeEventListener('keydown', onKey, true);
+    // Редактор — после того как окно погаснет
+    const ed = cm;
+    if (ed) setTimeout(() => ed.destroy(), 400);
     // Окно гаснет, подложка растворяется (engine/motion.ts)
     leave(box, { box: '.st-cd' });
   };
   const ok = () => {
-    const code = src.value;
+    if (closed) return;
+    const code = get();
     close();
     o.apply(code);
   };
-  const onKey = (e: KeyboardEvent) => {
-    // Клавиши студии (Delete, стрелки, Ctrl+Z) в окне не срабатывают
+  // Клавиши студии (Delete, стрелки, Ctrl+Z, Ctrl+F) в окне не срабатывают. Внутри окна клавиши сначала получает
+  // редактор кода (поиск, отступы, Esc — закрыть поиск), потом окно; вне окна — сразу окно
+  const keys = (e: KeyboardEvent) => {
     e.stopPropagation();
+    if (e.defaultPrevented) return;
     if (e.key === 'Escape') { e.preventDefault(); close(); }
     else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); ok(); }
     else if (e.key === 'Tab' && e.target === src && !e.ctrlKey && !e.altKey) {
@@ -80,6 +106,8 @@ export function openCodeDialog(o: CodeDialog): void {
       document.execCommand('insertText', false, '  ');
     }
   };
+  const onKey = (e: KeyboardEvent) => { if (!box.contains(e.target as Node)) keys(e); };
+  box.addEventListener('keydown', keys);
   addEventListener('keydown', onKey, true);
 
   const file = document.createElement('input');
@@ -88,7 +116,7 @@ export function openCodeDialog(o: CodeDialog): void {
   file.onchange = async () => {
     const f = file.files?.[0];
     if (!f) return;
-    src.value = await f.text();
+    set(await f.text());
     run();
   };
   box.addEventListener('click', (e) => {
@@ -97,7 +125,7 @@ export function openCodeDialog(o: CodeDialog): void {
     else if (a === 'cancel') close();
     else if (a === 'file') file.click();
     // Щелчок мимо окна закрывает его, только если код не меняли: правки случайно не теряются
-    else if (e.target === box && src.value === o.code) close();
+    else if (e.target === box && get() === o.code) close();
   });
   src.focus();
   src.setSelectionRange(0, 0);

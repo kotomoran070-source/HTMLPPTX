@@ -2580,7 +2580,7 @@ test('«Вставка → Из текста»: вопросы текстом �
     const src = page.locator('.st-cd-src');
     await src.fill('# Сортировки\nУстойчивая сортировка?\n- Быстрая\n+ Слиянием :: равные по порядку\n\nБит в double?\n= 64\n\nБез верного\n- Раз\n- Два');
     await expect(page.locator('.st-cd-live .qt-q')).toHaveCount(2);
-    await expect(page.locator('.st-cd-live .qt-err')).toContainText('Вопрос 3: нет верного варианта');
+    await expect(page.locator('.st-cd-live .qt-err')).toContainText('Вопрос 3: не указан верный вариант');
     await page.locator('.st-cd [data-a="ok"]').click();
     await expect.poll(() => slides().map((s) => s.label ?? '')).toEqual(['', 'Вопрос 1', 'Вопрос 2', 'Итог теста', 'Конец']);
     expect(slides()[1]).toMatchObject({ title: 'Сортировки', body: { type: 'quiz', options: [{ text: 'Быстрая' }, { text: 'Слиянием', correct: true, note: 'равные по порядку' }] } });

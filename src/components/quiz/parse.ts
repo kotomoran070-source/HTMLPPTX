@@ -13,7 +13,7 @@ import type { QuizData, QuizOption } from './check';
 export interface ParsedQuiz {
   title: string;
   questions: QuizData[];
-  /** «Вопрос 2: нет верного варианта» */
+  /** «Вопрос 2: не указан верный вариант — …» */
   errors: string[];
 }
 
