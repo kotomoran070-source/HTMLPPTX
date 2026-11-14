@@ -51,6 +51,8 @@ export interface FileHost {
     run(mode: string): void;
   };
   ribbon: { mount(el: HTMLElement): void };
+  /** Панель быстрого доступа (qat.ts) */
+  qat: { mount(el: HTMLElement): void };
   ui: {
     theme(): UiTheme;
     setTheme(t: UiTheme): void;
@@ -121,7 +123,8 @@ const dayOf = (t: number) => {
 };
 
 export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElement): {
-  open(section?: FileSection): void;
+  /** at — показать часть раздела: «qat» — настройку панели быстрого доступа в «Параметрах» */
+  open(section?: FileSection, at?: 'qat'): void;
   close(): void;
   isOpen(): boolean;
   /** Открытый (или последний открытый) раздел */
@@ -330,6 +333,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
         <div class="fp-field">${sw(u.lite(), 'data-lite', 'Облегчённый режим', 'Для слабых компьютеров: анимации на слайде в редакторе остановлены')}</div>
         <div class="fp-field">${sw(u.smooth(), 'data-smooth', 'Плавная прокрутка колесом', 'Ровная скорость без рывков на каждом щелчке колеса. Выключите, чтобы сравнить с обычной прокруткой')}</div>
       </div></section>
+      <section id="fp-qat-sec"><h3 class="fp-k">Панель быстрого доступа</h3><div class="fp-qat"></div></section>
       <section><h3 class="fp-k">Лента</h3><div class="fp-ribbon"></div></section>
     </div>`;
   }
@@ -385,7 +389,10 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
       const c = host.cover();
       if (c) main.querySelector('.fp-cover')?.append(c);
     }
-    if (section === 'prefs') host.ribbon.mount(main.querySelector<HTMLElement>('.fp-ribbon')!);
+    if (section === 'prefs') {
+      host.qat.mount(main.querySelector<HTMLElement>('.fp-qat')!);
+      host.ribbon.mount(main.querySelector<HTMLElement>('.fp-ribbon')!);
+    }
     if (section === 'versions') void fillVersions();
     if (section === 'licenses') void fillLicenses(n);
     if (section === 'int') host.integrations.mount(main.querySelector<HTMLElement>('.fp-int')!);
@@ -416,7 +423,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     fading = 0;
     root.classList.remove('out');
   };
-  const open = (s?: FileSection) => {
+  const open = (s?: FileSection, at?: 'qat') => {
     if (s) section = s;
     // Закрывали и тут же открыли снова — гаснуть перестаёт, остаётся открытым
     if (fading) { stopFade(); root.hidden = true; }
@@ -429,6 +436,11 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     }
     void render().then(() => {
       if (!was || !root.contains(document.activeElement)) root.querySelector<HTMLElement>(`[data-fs="${section}"]`)?.focus({ preventScroll: true });
+      // «Другие команды…» — сразу к настройке панели, поиск команд — в фокусе
+      if (at === 'qat' && section === 'prefs') {
+        main.querySelector('#fp-qat-sec')?.scrollIntoView({ block: 'start' });
+        main.querySelector<HTMLElement>('.fp-qat [data-qe="q"]')?.focus({ preventScroll: true });
+      }
     });
   };
   const close = () => {

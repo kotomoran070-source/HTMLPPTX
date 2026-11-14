@@ -1,6 +1,12 @@
 /* Студия: редактор презентации в духе PowerPoint. Цвета — токены темы интерфейса. */
 body.studio { background: var(--alt); }
-.studio-app { position: fixed; inset: 0; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.studio-app { position: fixed; inset: 0; display: grid; grid-template-rows: auto auto auto minmax(0, 1fr) auto; }
+/* Строки: шапка, лента, панель быстрого доступа под лентой (qat.ts — когда она там), рабочая область, строка состояния */
+.studio-app > .st-top { grid-row: 1; }
+.studio-app > .st-ribbon { grid-row: 2; }
+.studio-app > .st-qat-row { grid-row: 3; }
+.studio-app > .st-body { grid-row: 4; }
+.studio-app > .st-foot { grid-row: 5; }
 :is(.st-top, .st-ribbon, .st-slides-add, .st-foot, .st-props, .st-menu, .st-lib) .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 :is(.st-top, .st-ribbon, .st-notes, .st-props) :is(input, select, textarea) { font: 13px var(--font); color: var(--tx); }
 

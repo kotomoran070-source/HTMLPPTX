@@ -1,0 +1,60 @@
+/* Панель быстрого доступа (qat.ts): кнопки .st-qa — как «Отменить» в заголовке окна (studio.css) */
+.st-qat { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.st-qat-slot { display: contents; }
+.st-qa.txt { width: auto; padding: 0 8px; font: 500 12px var(--font); white-space: nowrap; }
+.st-qa.active, .st-qa[aria-pressed="true"] { background: var(--acs); color: var(--ach); }
+.st-qa[aria-expanded="true"] { background: color-mix(in srgb, var(--tx) 9%, transparent); color: var(--tx); }
+.st-qa.st-qat-more { width: 18px; color: var(--mu); }
+.st-qa.st-qat-more .ic { width: 13px; height: 13px; }
+
+/* В браузере — в строке вкладок, перед «Файлом»; отделена чертой */
+.st-top .st-qat { flex: none; margin-right: 2px; }
+.st-top .st-qat::after { content: ""; width: 1px; height: 16px; margin-left: 6px; background: var(--bd); }
+
+/* Под лентой — своя строка во всю ширину (место в сетке студии — studio.css) */
+.st-qat-row { display: flex; align-items: center; height: 32px; padding: 0 10px; background: var(--surf); border-bottom: 1px solid var(--bd); }
+.st-qat-row[hidden] { display: none; }
+/* Панель ушла под ленту: в заголовке окна у знака не остаётся черты-разделителя */
+.st-qat-below .st-tbar .st-tb-sep { display: none; }
+
+/* ---------- настройка в «Файл → Параметры» ---------- */
+.qe { display: grid; gap: 14px; }
+.qe-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.qe-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+@media (max-width: 900px) { .qe-cols { grid-template-columns: minmax(0, 1fr); } }
+.qe-card { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.qe-ch { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 8px 6px 14px; border-bottom: 1px solid var(--bd); }
+.qe-ch b { font-weight: 600; font-size: 13px; }
+.qe-ch small { margin-left: auto; padding-right: 6px; color: var(--mu); font-size: 12px; }
+.qe-q { position: relative; margin-left: auto; flex: 0 1 230px; min-width: 0; }
+.qe-q .ic { position: absolute; left: 9px; top: 50%; translate: 0 -50%; width: 14px; height: 14px; color: var(--mu); pointer-events: none; }
+.qe-q input { width: 100%; height: 30px; box-sizing: border-box; padding: 0 10px 0 29px; border: 1px solid var(--bd); border-radius: 7px; background: var(--bg); color: var(--tx); font: 13px var(--font); outline: none; }
+.qe-q input:focus { border-color: var(--ac); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 16%, transparent); }
+.qe-all, .qe-mine { list-style: none; margin: 0; padding: 4px; height: 340px; overflow: auto; overscroll-behavior: contain; }
+.qe-h { padding: 10px 10px 4px; font: 500 10.5px var(--font); letter-spacing: .08em; text-transform: uppercase; color: var(--mu); }
+.qe-all > li:first-child.qe-h { padding-top: 4px; }
+.qe .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.qe-ic { display: grid; place-items: center; width: 26px; height: 26px; flex: none; border-radius: 6px; background: var(--alt); color: var(--tx2); }
+.qe-l { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qe-l small { display: block; overflow: hidden; text-overflow: ellipsis; color: var(--mu); font-size: 11.5px; }
+.qe-row { width: 100%; display: flex; align-items: center; gap: 10px; padding: 4px 8px 4px 6px; border: 0; border-radius: 7px; background: none; color: var(--tx); font: 13px var(--font); text-align: left; cursor: pointer; }
+.qe-row kbd { font: 500 11px var(--font); color: var(--mu); }
+.qe-row .qe-add { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; color: var(--mu); opacity: 0; transition: opacity .12s; }
+.qe-row .qe-add .ic { width: 14px; height: 14px; }
+.qe-row:hover, .qe-row:focus-visible { background: color-mix(in srgb, var(--tx) 5%, transparent); outline: none; }
+.qe-row:hover .qe-add, .qe-row:focus-visible .qe-add { opacity: 1; background: var(--acs); color: var(--ach); }
+.qe-row.on { cursor: default; color: var(--tx2); }
+.qe-row.on .qe-add { opacity: 1; background: none; color: var(--ach); }
+.qe-row.on:hover { background: none; }
+.qe-mrow { position: relative; display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 2px; border-radius: 7px; background: var(--surf); transition: transform .15s var(--ui-ease, ease-out); }
+.qe-mrow:hover { background: color-mix(in srgb, var(--tx) 4%, var(--surf)); }
+.qe-mrow.drag { z-index: 1; transition: none; box-shadow: 0 8px 22px -10px rgba(15, 23, 42, .45), 0 0 0 1px var(--bd); cursor: grabbing; }
+.qe-grip { display: grid; place-items: center; width: 18px; height: 26px; color: var(--mu); cursor: grab; touch-action: none; }
+.qe-grip .ic { width: 14px; height: 14px; }
+.qe-b { display: grid; place-items: center; width: 26px; height: 26px; flex: none; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--tx2); cursor: pointer; opacity: .55; transition: opacity .12s, background .12s; }
+.qe-b .ic { width: 14px; height: 14px; }
+.qe-mrow:hover .qe-b, .qe-b:focus-visible { opacity: 1; }
+.qe-b:hover:not(:disabled) { background: color-mix(in srgb, var(--tx) 8%, transparent); color: var(--tx); }
+.qe-b:disabled { opacity: .2 !important; cursor: default; }
+.qe-x:hover:not(:disabled) { background: color-mix(in srgb, #DC2626 12%, transparent); color: #DC2626; }
+.qe-none { padding: 18px 14px; color: var(--mu); font-size: 12.5px; }

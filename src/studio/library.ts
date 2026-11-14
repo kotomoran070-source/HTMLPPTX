@@ -5,6 +5,7 @@ import { uiLook } from '../engine/deck-theme';
 import { esc } from '../engine/html';
 import { Renderer } from '../engine/render';
 import { wheelStrip } from '../engine/hscroll';
+import { anchorOf } from './menu';
 import type { Block, Deck } from '../types';
 import type { Template } from './templates';
 
@@ -1194,6 +1195,8 @@ export interface MineOpts {
 
 /** only — показать только эти разделы (галереи вкладки «Вставка»: «Таблица», «Диаграмма», «Схемы»…) */
 export function showLibrary(anchor: HTMLElement, deck: Deck, pick: (p: Preset) => void, mine?: MineOpts, only?: string[]): void {
+  // Вызвали с панели быстрого доступа — у её кнопки (menu.ts)
+  anchor = anchorOf(anchor);
   if (openEl) {
     const same = openEl.dataset.only === (only?.join('|') ?? '');
     closeLibrary();

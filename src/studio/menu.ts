@@ -31,6 +31,33 @@ const isHead = (it: MenuRow): it is MenuHead => !!it && 'head' in it;
 
 let open: { el: HTMLElement; close(): void } | null = null;
 
+/**
+ * Кнопка, которой только что вызвали команду не с ленты (панель быстрого доступа, qat.ts). Меню и панели команды
+ * ищут свою кнопку на ленте — а та может быть на закрытой вкладке; тогда они открываются у этой
+ */
+let invoker: { el: HTMLElement; at: number } | null = null;
+export function setInvoker(el: HTMLElement): void {
+  invoker = { el, at: performance.now() };
+}
+const fresh = (): HTMLElement | null => (invoker && performance.now() - invoker.at < 1500 && invoker.el.isConnected && invoker.el.offsetParent ? invoker.el : null);
+const cmdOf = (el: Element) => el.closest<HTMLElement>('[data-cmd]')?.dataset.cmd?.replace(/-menu$/, '');
+
+/** Где открыть меню у кнопки at: у только что нажатой кнопки той же команды, если at не видна или та же команда */
+export function anchorOf(at: HTMLElement): HTMLElement {
+  const inv = fresh();
+  if (!inv || inv === at) return at;
+  const cmd = cmdOf(at);
+  return !at.isConnected || !at.getClientRects().length || (cmd && cmd === cmdOf(inv)) ? inv : at;
+}
+
+/** Видимая кнопка команды: только что нажатая (панель быстрого доступа), иначе — на открытой вкладке ленты */
+export function cmdAnchor(cmd: string): HTMLElement | null {
+  const inv = fresh();
+  if (inv && cmdOf(inv) === cmd) return inv;
+  const all = [...document.querySelectorAll<HTMLElement>(`[data-cmd="${CSS.escape(cmd)}"]`)];
+  return all.find((b) => b.offsetParent) ?? all[0] ?? null;
+}
+
 export function closeMenu(): void {
   open?.close();
 }
@@ -116,6 +143,7 @@ function mount(at: { x: number; y: number } | HTMLElement, el: HTMLElement, acti
   let y: number;
   let anchor: HTMLElement | null = null;
   if (at instanceof HTMLElement) {
+    at = anchorOf(at);
     anchor = at;
     const r = at.getBoundingClientRect();
     x = r.left;

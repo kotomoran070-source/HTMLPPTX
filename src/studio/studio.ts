@@ -58,7 +58,8 @@ import { onFontFile } from '../engine/editor/font-picker';
 import { closeLibrary, EMBED_SAMPLE, presetOf, SANDBOX_SAMPLE, showLibrary, type Preset } from './library';
 import { openCodeDialog } from './code-dialog';
 import { getBlock } from '../engine/component';
-import { closeMenu, showMenu, showPopover, type MenuEntry } from './menu';
+import { closeMenu, cmdAnchor, showMenu, showPopover, type MenuEntry } from './menu';
+import { initQat } from './qat';
 import { closeMathEditor, editMath } from './math-edit';
 import { loadMath } from '../components/math/math';
 import { projectStorage } from '../engine/storage';
@@ -155,14 +156,13 @@ export function startStudio(deck: Deck, deckKey: string): void {
   document.body.innerHTML = `
 ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   ${homeHtml}<span class="st-tb-sep"></span>
-  <button type="button" class="st-qa" data-cmd="undo" aria-label="Отменить" title="Отменить (Ctrl+Z)">${icon('undo')}</button>
-  <button type="button" class="st-qa" data-cmd="redo" aria-label="Повторить" title="Повторить (Ctrl+Y)">${icon('redo')}</button>
+  <div class="st-qat-slot" id="st-qat-up"></div>
   <div class="st-tb-doc">${titleHtml}${statusHtml}</div>
   <div class="st-tb-r">${themeHtml}</div>
 </div>` : ''}
 <div class="studio-app">
   <header class="st-top" data-ed-keep>
-    ${framed ? '' : homeHtml + titleHtml}
+    ${framed ? '' : `${homeHtml}${titleHtml}<div class="st-qat-slot" id="st-qat-up"></div>`}
     <button type="button" class="st-filebtn" id="st-file" aria-haspopup="dialog" aria-expanded="false" title="Сведения, экспорт, версии и параметры">Файл</button>
     <nav class="st-tabs" role="tablist" aria-label="Вкладки ленты">
       <button type="button" role="tab" data-tab="home" aria-selected="true">Главная</button>
@@ -234,6 +234,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     </div>
     ${contextPanelsHtml()}
   </div>
+  <div class="st-qat-row" id="st-qat-down" hidden></div>
   <div class="st-body" id="st-body">
     <aside class="st-slides" id="st-slides" aria-label="Слайды"></aside>
     <div class="st-split v" id="st-sl" role="separator" aria-orientation="vertical" aria-label="Ширина ленты слайдов" tabindex="0" title="Двойной щелчок — сбросить ширину"></div>
@@ -1338,7 +1339,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
 
   // ---------------- библиотека блоков ----------------
   function openLibrary(): void {
-    const anchor = [...document.querySelectorAll<HTMLElement>('.st-ribbon [data-cmd="insert.blocks"]')].find((b) => b.offsetParent) ?? $('st-slides');
+    const anchor = cmdAnchor('insert.blocks') ?? $('st-slides');
     showLibrary(anchor, deck, insertPreset, {
       list: listTemplates(),
       pick: (t) => void insertTemplate(t),
@@ -1748,6 +1749,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       }),
     },
     'file.export': { run: () => filePanel?.open('export') },
+    'file.save': { run: () => void ed.save().then(() => filePanel?.refresh()) },
     'model.snapshot': { run: () => void modelSnapshot(), enabled: () => ed.selection?.type === 'model' },
     'embed.code': { run: () => void editEmbedCode(), enabled: () => ed.selection?.type === 'embed' || ed.selection?.type === 'sandbox' },
     'embed.poster': { run: () => void embedPoster(ed.selection?.block), enabled: () => ed.selection?.type === 'embed' || ed.selection?.type === 'sandbox' },
@@ -1822,7 +1824,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   for (const [k, cats] of Object.entries(GALLERIES)) {
     cmds[`ins.gal.${k}`] = {
       run: () => {
-        const anchor = [...document.querySelectorAll<HTMLElement>(`.st-ribbon [data-cmd="ins.gal.${k}"]`)].find((b) => b.offsetParent);
+        const anchor = cmdAnchor(`ins.gal.${k}`);
         if (anchor) showLibrary(anchor, deck, insertPreset, undefined, cats);
       },
     };
@@ -1843,7 +1845,13 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     count,
     slideLabel: (i) => slideLabel(deck.slides[i], i),
     go,
-    extra: () => [
+    extra: () => paletteExtra(),
+  }, $('st-pal'));
+  /** Свои записи поиска команд (нет на ленте или с понятным названием) — и для панели быстрого доступа */
+  function paletteExtra() {
+    return [
+      { id: 'file.save', label: 'Сохранить точку', path: 'Файл · Версии', words: 'сохранить контрольная точка версия', key: 'Ctrl+S', ico: icon('save'), run: () => run('file.save'), enabled: () => true },
+      { id: 'file.export', label: 'Экспорт', path: 'Файл', words: 'экспорт pdf powerpoint html файл сохранить как', key: '', ico: icon('upload'), run: () => run('file.export'), enabled: () => true },
       { id: 'design.theme', label: currentTheme() === 'dark' ? 'Светлая тема' : 'Тёмная тема', path: 'Верхняя строка', words: 'тема оформления ночная интерфейс', key: '', ico: icon('moon'), run: () => run('design.theme'), enabled: () => true },
       { id: 'agent.toggle', label: 'Агент', path: 'Верхняя строка', words: 'чат claude ии ai нейросеть помощник попросить', key: 'Ctrl+J', ico: icon('agent'), run: () => toggleChat(), enabled: () => true },
       { id: 'app.home', label: 'Все презентации', path: 'Верхняя строка', words: 'открыть список главная другая', key: '', ico: icon('grid'), run: goHome, enabled: () => true },
@@ -1857,8 +1865,8 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       { id: 'edit.replace', label: 'Заменить', path: 'Главная · Правка', words: 'найти и заменить текст', key: 'Ctrl+H', ico: icon('search'), run: () => find?.show(true), enabled: () => true },
       // Скрипты пользователя и встроенные: «Скрипт: Оглавление»
       ...integrations.palette(),
-    ],
-  }, $('st-pal'));
+    ];
+  }
 
   function run(cmd: string): void {
     // Команда во время просмотра: просмотр заканчивается, выделение возвращается
@@ -1869,7 +1877,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   }
 
   document.addEventListener('click', (e) => {
-    const b = (e.target as Element).closest<HTMLElement>('.st-tbar [data-cmd], .st-top [data-cmd], .st-ribbon [data-cmd], .st-foot [data-cmd]');
+    const b = (e.target as Element).closest<HTMLElement>('.st-tbar [data-cmd], .st-top [data-cmd], .st-ribbon [data-cmd], .st-qat [data-cmd], .st-foot [data-cmd]');
     if (b) run(b.dataset.cmd!);
   });
 
@@ -1916,11 +1924,28 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   // Своя лента: скрытые вкладки и группы, только значки (запоминается на компьютере)
   const ribbonSetup = initRibbonSetup({ tab: () => tab, setTab, fit: fitRibbon });
   cmds['ui.ribbon'] = { run: () => filePanel?.open('prefs') };
+  // Панель быстрого доступа (qat.ts): над лентой — в заголовке окна или рядом с «Файлом», или под лентой
+  const qat = initQat({
+    known: (c) => !!cmds[c],
+    extras: paletteExtra,
+    framed,
+    customize: () => filePanel?.open('prefs', 'qat'),
+    sync: () => queueState(),
+  }, { above: $('st-qat-up'), below: $('st-qat-down') });
+  // Правый щелчок по ленте и вкладкам: кнопку — на панель быстрого доступа или с неё, настроить ленту, свернуть
   for (const el of [document.querySelector('.st-tabs')!, $('st-ribbon')]) {
-    el.addEventListener('contextmenu', (e) => {
-      if ((e.target as Element).closest('input, textarea, select, [contenteditable]')) return;
+    el.addEventListener('contextmenu', (ev) => {
+      const e = ev as MouseEvent;
+      const t = e.target as Element;
+      if (t.closest('input, textarea, select, [contenteditable]')) return;
       e.preventDefault();
-      filePanel?.open('prefs');
+      const b = t.closest<HTMLElement>('.st-ribbon [data-cmd]:not([data-pal="skip"])');
+      showMenu({ x: e.clientX, y: e.clientY }, [
+        ...qat.menuFor(b && qat.can(b.dataset.cmd!) ? b.dataset.cmd! : null),
+        null,
+        { label: 'Настроить ленту…', icon: 'gear', run: () => filePanel?.open('prefs') },
+        { label: lay.ribbon ? 'Свернуть ленту' : 'Развернуть ленту', icon: lay.ribbon ? 'chev-up' : 'chev-down', hint: 'Ctrl+F1', run: () => toggleRibbon() },
+      ]);
     });
   }
   // Идёт правка текста (ячейка таблицы, надпись): вкладка переключается, а курсор остаётся в тексте —
@@ -2011,6 +2036,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       run: (m: string) => void runExport(m),
     },
     ribbon: { mount: (el) => ribbonSetup.mount(el) },
+    qat: { mount: (el) => qat.mount(el) },
     ui: {
       theme: () => { const t = document.documentElement.getAttribute('data-theme'); return t === 'light' || t === 'dark' ? t : 'system'; },
       setTheme: (t) => themeFade(() => (t === 'system' ? followSystemTheme() : setTheme(t))),
@@ -2384,6 +2410,8 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       b.classList.toggle('active', on);
       if (b.hasAttribute('aria-pressed')) b.setAttribute('aria-pressed', String(on));
     });
+    // Кнопки панели быстрого доступа со своими записями (не команды ленты)
+    qat.sync();
     const st = ed.statusInfo;
     const status = $('st-status');
     status.textContent = st.text;

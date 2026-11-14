@@ -51,6 +51,7 @@ const PATHS: Record<string, string> = {
   crop: '<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>',
   move: '<path d="M12 3v18M3 12h18"/><path d="m9 6 3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/>',
   up: '<path d="m6 11 6-6 6 6M12 5v14"/>',
+  down: '<path d="m6 13 6 6 6-6M12 19V5"/>',
   'chev-up': '<path d="m6 15 6-6 6 6"/>',
   leading: '<path d="M11 6h9M11 12h9M11 18h9"/><path d="M4 8l2.5-3L9 8M4 16l2.5 3L9 16M6.5 5v14"/>',
   tracking: '<path d="M4 13 7.5 4 11 13M5.3 10h4.4M13 4l3.5 9L20 4"/><path d="M4 19h16M6.5 16.5 4 19l2.5 2.5M17.5 16.5 20 19l-2.5 2.5"/>',

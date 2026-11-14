@@ -110,7 +110,8 @@ export class CommandPalette {
     const seen = new Set<string>();
     const add = (b: HTMLElement, path: string, tab: string) => {
       const cmd = b.dataset.cmd!;
-      if (seen.has(cmd) || cmd.startsWith('tab.') || b.dataset.pal === 'skip') return;
+      // Кнопки панели быстрого доступа — копии кнопок ленты: команда находится по ленте, с её вкладкой и группой
+      if (seen.has(cmd) || cmd.startsWith('tab.') || b.dataset.pal === 'skip' || b.closest('.st-qat')) return;
       seen.add(cmd);
       const title = b.getAttribute('title') ?? '';
       const key = /\(([^()]*(?:Ctrl|Alt|Shift|F\d)[^()]*)\)\s*$/.exec(title)?.[1] ?? '';
