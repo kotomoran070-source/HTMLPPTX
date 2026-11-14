@@ -1324,6 +1324,11 @@ export class Editor {
     this.text.target(t);
   }
 
+  /** Цвет текста, как из палитры (пипетка): в правке — выделенным словам или полю, иначе — выделенным надписям */
+  textColor(c: string): boolean {
+    return this.text.applyColor(c);
+  }
+
   /** Закончить правку текста (сохранить) */
   finishText(): void {
     this.text.finish(true);

@@ -50,7 +50,7 @@ const KEY = 'slideria.qat';
 /** С чего начинается панель */
 export const QAT_DEFAULT = ['undo', 'redo', 'show.current', 'format.painter'];
 /** Частые команды — галочками в меню «▾» */
-const POPULAR = ['undo', 'redo', 'show.current', 'show.start', 'format.painter', 'slide.new', 'edit.find', 'insert.image', 'file.save', 'file.export'];
+const POPULAR = ['undo', 'redo', 'show.current', 'show.start', 'format.painter', 'color.pick', 'slide.new', 'slide.dup', 'insert.text', 'insert.image', 'obj.group', 'edit.find', 'file.save', 'file.export'];
 /** Подписи на панели и в её меню — полнее, чем короткие на ленте («С начала» → «Показ с начала») */
 /** Значки на панели, где у ленты они читаются иначе: показ с текущего — ▷ (как у кнопки «Показ»), с начала — ↺ */
 const ICON: Record<string, string> = { 'show.current': 'play', 'show.start': 'reset' };
@@ -58,6 +58,8 @@ const LABEL: Record<string, string> = {
   'show.current': 'Показ с текущего слайда',
   'show.start': 'Показ с начала',
   'slide.new': 'Новый слайд',
+  'slide.dup': 'Дублировать слайд',
+  'insert.text': 'Вставить надпись',
   'insert.image': 'Вставить картинку',
 };
 
@@ -140,7 +142,8 @@ export function initQat(host: QatHost, slots: { above: HTMLElement; below: HTMLE
 
   const button = (it: QatItem) => {
     const tip = it.label + (it.key ? ` (${it.key})` : '');
-    const cmd = host.known(it.id) && !it.run ? ` data-cmd="${esc(it.id)}"` : ` data-qat="${esc(it.id)}"`;
+    // Команда с обработчиком — общим путём (доступность, «вкл.», меню у кнопки); своя запись без него — своим run
+    const cmd = host.known(it.id) ? ` data-cmd="${esc(it.id)}"` : ` data-qat="${esc(it.id)}"`;
     const face = it.ico ? it.ico : `<span class="st-qa-t">${esc(it.label)}</span>`;
     return `<button type="button" class="st-qa${it.ico ? '' : ' txt'}"${cmd} title="${esc(tip)}" aria-label="${esc(it.label)}"`
       + `${it.menu ? ' aria-haspopup="menu" aria-expanded="false"' : ''}${it.toggle ? ' aria-pressed="false"' : ''}>${face}</button>`;
@@ -258,7 +261,7 @@ export function initQat(host: QatHost, slots: { above: HTMLElement; below: HTMLE
     </div>
     <div class="qe-cols">
       <div class="fp-card qe-card">
-        <div class="qe-ch"><b>Все команды</b><label class="qe-q">${icon('search')}<input type="search" data-qe="q" placeholder="Найти команду" aria-label="Найти команду" autocomplete="off" spellcheck="false" value="${esc(query)}"></label></div>
+        <div class="qe-ch"><b>Все команды</b><label class="qe-q">${icon('search')}<input type="search" data-qe="q" placeholder="Найти команду" aria-label="Найти команду" autocomplete="off" spellcheck="false" value="${esc(query)}"><button type="button" class="qe-clear" data-qe="clear" aria-label="Очистить поиск" title="Очистить (Esc)"${query ? '' : ' hidden'}>${icon('close')}</button></label></div>
         <ul class="qe-all" aria-label="Все команды">${all || `<li class="qe-none">Нет команды «${esc(query.trim())}»</li>`}</ul>
       </div>
       <div class="fp-card qe-card">
@@ -286,6 +289,15 @@ export function initQat(host: QatHost, slots: { above: HTMLElement; below: HTMLE
     el2.classList.add('qe');
     refreshItems();
     draw();
+    // Esc в поиске — сначала очистить поиск, а не закрыть «Файл»
+    el2.addEventListener('keydown', (e) => {
+      const t = e.target as HTMLInputElement;
+      if (e.key !== 'Escape' || t.dataset.qe !== 'q' || !query) return;
+      e.preventDefault();
+      e.stopPropagation();
+      query = '';
+      draw();
+    });
     el2.addEventListener('input', (e) => {
       const t = e.target as HTMLInputElement;
       if (t.dataset.qe !== 'q') return;
@@ -296,6 +308,13 @@ export function initQat(host: QatHost, slots: { above: HTMLElement; below: HTMLE
       const b = (e.target as Element).closest<HTMLElement>('[data-qe]');
       if (!b || b instanceof HTMLInputElement) return;
       const [op, id] = (b.dataset.qe ?? '').split(/:(.*)/s);
+      if (op === 'clear') {
+        e.preventDefault();
+        query = '';
+        draw();
+        el2.querySelector<HTMLInputElement>('[data-qe="q"]')?.focus();
+        return;
+      }
       const at = prefs.cmds.indexOf(id);
       if (op === 'add' && !has(id)) set({ ...prefs, cmds: [...prefs.cmds, id] });
       else if (op === 'del') set({ ...prefs, cmds: prefs.cmds.filter((x) => x !== id) });

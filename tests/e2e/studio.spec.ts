@@ -1047,7 +1047,7 @@ test('разметка текста ↔ правка: пустые строки 
   for (const [a, b] of res) expect(b).toBe(a);
 });
 
-test('Delete: выделен объект — удаляется он, а не слайд (и после щелчка по миниатюре); ничего не выделено — слайд', async ({ page }) => {
+test('Delete: выделен объект — удаляется он, а не слайд (и после щелчка по миниатюре); на пустом месте слайда — ничего; в ленте слайдов — слайд', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=math&studio#3');
   await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
@@ -1063,9 +1063,22 @@ test('Delete: выделен объект — удаляется он, а не �
   await page.keyboard.press('Control+z');
   await expect(obj).toHaveCount(1);
   await expect.poll(() => readDeck('math')).toContain('text: Конец');
-  // Пустое место слайда — выделения нет: Delete удаляет слайд, Ctrl+Z возвращает
+  // Пустое место слайда — выделения нет: работали на слайде, Delete и Backspace слайд не удаляют
   const s = (await page.locator('#st-canvas .slide.on').boundingBox())!;
   await page.mouse.click(s.x + s.width - 20, s.y + s.height - 20);
+  await page.keyboard.press('Delete');
+  await page.keyboard.press('Backspace');
+  await page.waitForTimeout(200);
+  await expect(thumbs).toHaveCount(n);
+  // Щёлкнули миниатюру — работают в ленте слайдов: Delete удаляет слайд, Ctrl+Z возвращает
+  await thumbs.nth(2).click();
+  await page.keyboard.press('Delete');
+  await expect(thumbs).toHaveCount(n - 1);
+  await page.keyboard.press('Control+z');
+  await expect(thumbs).toHaveCount(n);
+  // Щелчок по ленте команд место не меняет: после миниатюры и вкладки «Вид» Delete — всё ещё слайду
+  await thumbs.nth(2).click();
+  await page.locator('.st-tabs [data-tab="view"]').click();
   await page.keyboard.press('Delete');
   await expect(thumbs).toHaveCount(n - 1);
   await page.keyboard.press('Control+z');

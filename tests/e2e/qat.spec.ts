@@ -1,6 +1,21 @@
 // Панель быстрого доступа (studio/qat.ts): свои кнопки любых команд — рядом с «Файлом» или под лентой
+import fs from 'node:fs';
+import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { watchErrors } from './helpers';
+import { DECKS, readDeck, watchErrors } from './helpers';
+
+// Своя презентация для пипетки: общие тестовые не меняются
+const PICK = path.join(DECKS, 'qatpick');
+test.beforeAll(() => {
+  fs.mkdirSync(PICK, { recursive: true });
+  fs.writeFileSync(path.join(PICK, 'deck.yaml'), `title: Пипетка
+slides:
+  - template: canvas
+    free:
+      - {type: shape, kind: round, fill: surface, place: {x: 120, y: 120, w: 420, h: 260}}
+`);
+});
+test.afterAll(() => fs.rmSync(PICK, { recursive: true, force: true }));
 
 const cmds = (page: Page) => page.locator('.st-qat [data-cmd], .st-qat [data-qat]').evaluateAll((bs) => bs.map((b) => (b as HTMLElement).dataset.cmd ?? (b as HTMLElement).dataset.qat));
 const menu = (page: Page, text: string) => page.locator('.st-menu').getByText(text, { exact: true }).click();
@@ -52,7 +67,19 @@ test('панель быстрого доступа: «Другие команд�
   // Настройка — в «Файл → Параметры», поиск команд — в фокусе
   const q = page.locator('.fp-qat [data-qe="q"]');
   await expect(q).toBeFocused();
+  // Свой крестик: появляется с текстом, очищает поиск (Esc — тоже)
+  const clear = page.locator('.fp-qat .qe-clear');
+  await expect(clear).toBeHidden();
   await q.fill('блоки');
+  await expect(clear).toBeVisible();
+  await clear.click();
+  await expect(page.locator('.fp-qat [data-qe="q"]')).toHaveValue('');
+  await expect(page.locator('.fp-qat [data-qe="q"]')).toBeFocused();
+  await page.locator('.fp-qat [data-qe="q"]').fill('блоки');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.fp-qat [data-qe="q"]')).toHaveValue('');
+  await expect(page.locator('.fp')).toBeVisible();
+  await page.locator('.fp-qat [data-qe="q"]').fill('блоки');
   await page.locator('.fp-qat [data-qe="add:insert.blocks"]').click();
   await expect(page.locator('.fp-qat .qe-mrow')).toHaveCount(5);
   // Порядок: «Блоки» — на одну выше
@@ -85,5 +112,35 @@ test('панель быстрого доступа: «Другие команд�
   await page.locator('.fp-qat [data-qe="reset"]').click();
   await expect(page.locator('#st-qat-down')).toBeHidden();
   expect(await cmds(page)).toEqual(['undo', 'redo', 'show.current', 'format.painter']);
+  expect(errors).toEqual([]);
+});
+
+test('пипетка: в «▾» панели, без выделения — цвет копируется, у фигуры — заливка, в палитре цвета текста — тексту', async ({ page }) => {
+  const errors = watchErrors(page);
+  // Пипетка системы — подставная: «взяла» #12AB34
+  await page.addInitScript(() => {
+    (window as unknown as { EyeDropper: unknown }).EyeDropper = class { open() { return Promise.resolve({ sRGBHex: '#12ab34' }); } };
+  });
+  await page.goto('/?deck=qatpick&studio#1');
+  await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
+  await page.locator('.st-qat-more').click();
+  await menu(page, 'Пипетка');
+  const pick = page.locator('.st-qat [data-cmd="color.pick"]');
+  await expect(pick).toBeVisible();
+  // Ничего не выделено — цвет копируется
+  await page.locator('#st-canvas').click({ position: { x: 5, y: 5 } });
+  await pick.click();
+  await expect(page.locator('#ed-toast')).toContainText('#12AB34');
+  // Фигура — заливка
+  await page.locator('#st-canvas .slide.on [data-type="shape"]').first().click({ position: { x: 10, y: 10 } });
+  await pick.click();
+  await expect.poll(() => readDeck('qatpick')).toContain('#12AB34');
+  // Палитра заливки — тоже с пипеткой
+  await page.locator('.st-ribbon [data-cmd="shape.fill"]').filter({ visible: true }).click();
+  await expect(page.locator('.st-pop .st-ppick')).toBeVisible();
+  await page.keyboard.press('Escape');
+  // Ctrl+Z — заливка как была
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => readDeck('qatpick')).not.toContain('#12AB34');
   expect(errors).toEqual([]);
 });

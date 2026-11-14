@@ -1,4 +1,5 @@
 import { themeSwatches } from '../deck-theme';
+import { canPickColor, pickScreenColor } from '../eyedropper';
 import { deckFonts, fontNameOk, fontStack } from '../fonts';
 import { fontItems, fontPicker, weightName, weightNameEn, type FontItem, tryFontOn } from './font-picker';
 import { icon } from '../../components/icons';
@@ -178,7 +179,7 @@ export class TextEditor {
   <div class="edcolors-label">Градиент</div>
   <div class="edcolors-row">${TEXT_GRADIENTS.map((id) => GRADIENTS.find((g) => g.id === id)!).map((g) => `<button type="button" data-c="g:${g.id}" title="${esc(g.name)}" style="background:var(--g);${textGradientCss(`g:${g.id}`)}"></button>`).join('')}</div>
   ${host.ownGradient ? '<button type="button" class="edgrad-own" data-gown="1" aria-expanded="false"><i></i><span>Свой градиент…</span><b class="st-caret"></b></button><div class="edgrad-panel" hidden></div>' : ''}
-  <div class="edcolors-foot"><label><input type="color" data-c="custom"> Свой цвет</label><button type="button" data-c="" class="btn ghost small">Как в теме</button></div>
+  <div class="edcolors-foot"><label><input type="color" data-c="custom"> Свой цвет</label>${canPickColor() ? `<button type="button" data-pick class="btn ghost small" title="Пипетка: цвет любой точки экрана — слайда, картинки, другой программы">${icon('pipette')}Пипетка</button>` : ''}<button type="button" data-c="" class="btn ghost small">Как в теме</button></div>
 </div>`);
     this.bar = document.getElementById('ed-text')!;
     this.colors = document.getElementById('ed-colors')!;
@@ -953,6 +954,10 @@ export class TextEditor {
     this.colors.addEventListener('click', (e) => {
       this.tryColor(null);
       if ((e.target as Element).closest('[data-gown]')) return this.ownGradient();
+      if ((e.target as Element).closest('[data-pick]')) {
+        void pickScreenColor().then((c) => { if (c) this.applyColor(c); else this.s?.el.focus({ preventScroll: true }); });
+        return;
+      }
       const panel = (e.target as Element).closest('.edgrad-panel');
       if (panel) {
         // Готовый градиент из панели — применён, палитра закрывается
@@ -1046,6 +1051,22 @@ export class TextEditor {
     else if (c) el.style.color = colorCss(c) ?? c;
     else el.style.removeProperty('color');
     this.tryUndo = () => { if (was === null) el.removeAttribute('style'); else el.setAttribute('style', was); };
+  }
+
+  /**
+   * Цвет текста, как из палитры: в правке — выделенным словам (без выделения — всему полю), без правки — выделенным
+   * объектам (надписи, ячейки таблицы). false — красить нечего
+   */
+  applyColor(c: string): boolean {
+    if (!this.s && !this.tg) return false;
+    this.colors.classList.remove('on');
+    if (!this.s && this.tg) {
+      this.tg.apply({ color: c });
+      return true;
+    }
+    if (!this.colorSelection(c)) this.setStyle({ color: c });
+    this.s?.el.focus({ preventScroll: true });
+    return true;
   }
 
   /**
@@ -1543,7 +1564,7 @@ export class TextEditor {
     // Выделенная часть текста запоминается: клик по палитре её не сбросит
     const sel = getSelection();
     this.partial = on && this.s && !this.s.isKey && this.selectionInside() && sel && !sel.isCollapsed ? sel.getRangeAt(0).cloneRange() : null;
-    this.colors.querySelector<HTMLElement>('.edcolors-foot button')!.textContent = this.partial ? 'Как у всего текста' : 'Как в теме';
+    this.colors.querySelector<HTMLElement>('.edcolors-foot button[data-c=""]')!.textContent = this.partial ? 'Как у всего текста' : 'Как в теме';
     // Свой градиент настраивается на одном тексте — в правке
     const gown = this.colors.querySelector<HTMLElement>('[data-gown]');
     if (gown) gown.style.display = this.s ? '' : 'none';

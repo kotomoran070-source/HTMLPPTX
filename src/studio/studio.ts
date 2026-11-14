@@ -60,6 +60,7 @@ import { openCodeDialog } from './code-dialog';
 import { getBlock } from '../engine/component';
 import { closeMenu, cmdAnchor, showMenu, showPopover, type MenuEntry } from './menu';
 import { initQat } from './qat';
+import { canPickColor } from '../engine/eyedropper';
 import { closeMathEditor, editMath } from './math-edit';
 import { loadMath } from '../components/math/math';
 import { projectStorage } from '../engine/storage';
@@ -1851,6 +1852,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   function paletteExtra() {
     return [
       { id: 'file.save', label: 'Сохранить точку', path: 'Файл · Версии', words: 'сохранить контрольная точка версия', key: 'Ctrl+S', ico: icon('save'), run: () => run('file.save'), enabled: () => true },
+      { id: 'color.pick', label: 'Пипетка', path: 'Главная · Текст', words: 'пипетка цвет с экрана взять цвет eyedropper', key: '', ico: icon('pipette'), run: () => run('color.pick'), enabled: canPickColor },
       { id: 'file.export', label: 'Экспорт', path: 'Файл', words: 'экспорт pdf powerpoint html файл сохранить как', key: '', ico: icon('upload'), run: () => run('file.export'), enabled: () => true },
       { id: 'design.theme', label: currentTheme() === 'dark' ? 'Светлая тема' : 'Тёмная тема', path: 'Верхняя строка', words: 'тема оформления ночная интерфейс', key: '', ico: icon('moon'), run: () => run('design.theme'), enabled: () => true },
       { id: 'agent.toggle', label: 'Агент', path: 'Верхняя строка', words: 'чат claude ии ai нейросеть помощник попросить', key: 'Ctrl+J', ico: icon('agent'), run: () => toggleChat(), enabled: () => true },
@@ -1875,6 +1877,20 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     if (!c || (c.enabled && !c.enabled())) return;
     c.run();
   }
+
+  /**
+   * Где работали последним: в ленте слайдов слева (Delete удаляет слайд) или на слайде и в панелях рядом.
+   * Щелчки по ленте команд, меню и «Файлу» место не меняют — как в PowerPoint
+   */
+  let pane: 'slides' | 'slide' = 'slide';
+  const paneOf = (t: EventTarget | null) => {
+    const el = t as Element | null;
+    if (!el?.closest) return;
+    if (el.closest('#st-slides')) pane = 'slides';
+    else if (el.closest('#st-body')) pane = 'slide';
+  };
+  document.addEventListener('pointerdown', (e) => paneOf(e.target), true);
+  document.addEventListener('focusin', (e) => paneOf(e.target));
 
   document.addEventListener('click', (e) => {
     const b = (e.target as Element).closest<HTMLElement>('.st-tbar [data-cmd], .st-top [data-cmd], .st-ribbon [data-cmd], .st-qat [data-cmd], .st-foot [data-cmd]');
@@ -2577,12 +2593,14 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       return run(e.altKey ? 'show.presenter' : e.shiftKey ? 'show.current' : 'show.start');
     }
     if (typing) return;
-    if (ed.handleKey(e)) return;
-    // Delete без выделения на слайде — удаляет сам слайд (выделенный объект удаляет редактор выше)
-    if (e.key === 'Delete' && !mod && !e.altKey && !e.shiftKey && count() > 1) {
+    // Как в PowerPoint: Delete удаляет слайд, только если работали в ленте слайдов слева (щёлкнули миниатюру).
+    // Работали на самом слайде — Delete удаляет выделенное (редактор ниже), без выделения — ничего
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !mod && !e.altKey && !e.shiftKey && pane === 'slides') {
       e.preventDefault();
-      return ed.deleteSlide(index);
+      if (count() > 1) ed.deleteSlide(index);
+      return;
     }
+    if (ed.handleKey(e)) return;
     if (mod && (k === 'g' || k === 'п')) {
       e.preventDefault();
       return run(e.shiftKey ? 'obj.ungroup' : 'obj.group');
