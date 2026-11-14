@@ -21,9 +21,9 @@ interface AidsHost {
 
 const RULER = 20;
 export const GRID_STEPS = [20, 40, 80];
-/** Свой шаг сетки (меню «Шаг сетки» → «Свой шаг»): мельче 5 px сетка сливается, крупнее 360 — уже не сетка */
+/** Свой шаг сетки (меню «Шаг сетки» → «Свой шаг»): мельче 5 px сетка сливается, крупнее 100 — уже не помогает выравнивать */
 export const GRID_MIN = 5;
-export const GRID_MAX = 360;
+export const GRID_MAX = 100;
 
 export class ViewAids {
   private rh: HTMLCanvasElement;

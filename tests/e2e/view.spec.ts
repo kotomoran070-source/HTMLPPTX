@@ -63,17 +63,17 @@ test('«Шаг сетки»: готовые значения и свой — в�
   await expect(field).toBeFocused();
   await field.press('Enter');
   await expect.poll(gs).toBeCloseTo(26, 0);
-  // Больше допустимого — ближайшее (360)
+  // Больше допустимого — ближайшее (100)
   await step.click();
   await field.fill('9000');
   await field.press('Enter');
-  await expect.poll(gs).toBeCloseTo(360, 0);
+  await expect.poll(gs).toBeCloseTo(100, 0);
   // Запоминается
   await page.reload();
   await page.locator('#st-canvas .slide.on').waitFor();
   await page.locator('.st-tabs [data-tab="view"]').click();
   await step.click();
-  await expect(field).toHaveValue('360');
+  await expect(field).toHaveValue('100');
   await page.locator('.st-menu button', { hasText: '20 px' }).click();
   await expect.poll(gs).toBeCloseTo(20, 0);
   expect(errors).toEqual([]);
