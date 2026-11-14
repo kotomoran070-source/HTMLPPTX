@@ -36,3 +36,45 @@ test('«Вид слайдов» отдельно от темы интерфей�
   await page.evaluate(() => localStorage.removeItem('htmlpptx-theme'));
   expect(errors).toEqual([]);
 });
+
+test('«Шаг сетки»: готовые значения и свой — вписать и Enter; вне границ — ближайшее; запоминается', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=tpl&studio#2');
+  await page.locator('#st-canvas .slide.on').waitFor();
+  await page.locator('.st-tabs [data-tab="view"]').click();
+  const step = page.locator('.st-ribbon [data-cmd="view.grid-step"]');
+  const gs = () => page.locator('.st-grid').evaluate((g) => Number.parseFloat((g as HTMLElement).style.getPropertyValue('--gs')) / g.getBoundingClientRect().width * 1280);
+  await step.click();
+  const field = page.locator('.st-menu .st-menu-field input');
+  await expect(field).toHaveValue('40');
+  // Своё число: Enter — сетка включается с ним, меню закрывается
+  await field.fill('25');
+  await field.press('Enter');
+  await expect(page.locator('.st-menu')).toHaveCount(0);
+  await expect(page.locator('.st-grid')).toBeVisible();
+  await expect.poll(gs).toBeCloseTo(25, 0);
+  // Готовых значений с ним нет — ни одно не отмечено; стрелка ↓ в поле — шаг, а не следующий пункт
+  await step.click();
+  await expect(page.locator('.st-menu [aria-checked="true"]')).toHaveCount(0);
+  await expect(field).toHaveValue('25');
+  await field.focus();
+  await field.press('ArrowUp');
+  await expect(field).toHaveValue('26');
+  await expect(field).toBeFocused();
+  await field.press('Enter');
+  await expect.poll(gs).toBeCloseTo(26, 0);
+  // Больше допустимого — ближайшее (360)
+  await step.click();
+  await field.fill('9000');
+  await field.press('Enter');
+  await expect.poll(gs).toBeCloseTo(360, 0);
+  // Запоминается
+  await page.reload();
+  await page.locator('#st-canvas .slide.on').waitFor();
+  await page.locator('.st-tabs [data-tab="view"]').click();
+  await step.click();
+  await expect(field).toHaveValue('360');
+  await page.locator('.st-menu button', { hasText: '20 px' }).click();
+  await expect.poll(gs).toBeCloseTo(20, 0);
+  expect(errors).toEqual([]);
+});

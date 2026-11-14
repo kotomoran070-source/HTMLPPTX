@@ -36,7 +36,7 @@ import { paintCells, parseGrid } from './table-cells';
 import { applyFormat, hasFormat, takeFormat, type Format } from './format-painter';
 import { tableGrips } from './table-grips';
 import { ganttDrag } from './gantt-drag';
-import { GRID_STEPS, ViewAids } from './view-aids';
+import { GRID_MAX, GRID_MIN, GRID_STEPS, ViewAids } from './view-aids';
 import { setupMarquee } from './marquee';
 import { canExplode, explodeSlide } from './explode';
 import { blockName, setSnapLines } from '../engine/editor/block-edit';
@@ -1609,13 +1609,21 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     'view.lite': { run: () => { lay.lite = !lay.lite; applyLayout(); queueState(); ed.toast(lay.lite ? 'Облегчённый режим включён: анимации на слайде остановлены' : 'Облегчённый режим выключен', 2500); }, active: () => lay.lite },
     'view.guides-reset': { run: () => { aids!.resetGuides(); if (!lay.guides) toggleAid('guides', true); } },
     'view.grid-step': {
-      run: () => showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="view.grid-step"]')!, GRID_STEPS.map((st, k) => ({
-        label: `${st} px`,
-        // Мельче шаг — гуще сетка на значке
-        icon: `grid-${GRID_STEPS.length - k}`,
-        checked: lay.step === st,
-        run: () => { lay.step = st; aids!.state.step = st; aids!.apply(); applyLayout(); if (!lay.grid) toggleAid('grid', true); },
-      }))),
+      run: () => {
+        const setStep = (st: number) => { lay.step = st; aids!.state.step = st; aids!.apply(); applyLayout(); if (!lay.grid) toggleAid('grid', true); };
+        showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="view.grid-step"]')!, [
+          ...GRID_STEPS.map((st, k) => ({
+            label: `${st} px`,
+            // Мельче шаг — гуще сетка на значке
+            icon: `grid-${GRID_STEPS.length - k}`,
+            checked: lay.step === st,
+            run: () => setStep(st),
+          })),
+          null,
+          // Своё число: вписать и Enter (или стрелками) — сетка сразу с ним
+          { field: 'Свой шаг', value: aids!.state.step, min: GRID_MIN, max: GRID_MAX, unit: 'px', set: setStep },
+        ]);
+      },
     },
     'view.ui-theme': {
       run: () => {
@@ -2243,7 +2251,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     canvas, paper, stage: () => view.stage, deckKey,
     selected: () => selectedEl(),
     changed: () => { lay.guides = aids!.state.guides; applyLayout(); queueState(); },
-  }, { ruler: lay.ruler, grid: lay.grid, guides: lay.guides, step: GRID_STEPS.includes(lay.step) ? lay.step : 40 });
+  }, { ruler: lay.ruler, grid: lay.grid, guides: lay.guides, step: Number.isInteger(lay.step) && lay.step >= GRID_MIN && lay.step <= GRID_MAX ? lay.step : 40 });
   setSnapLines(() => aids!.snapLines());
 
   // ---------------- выделение рамкой ----------------

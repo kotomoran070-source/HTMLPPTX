@@ -26,8 +26,14 @@ export interface MenuItem {
 export type MenuEntry = MenuItem | null;
 /** Заголовок группы пунктов */
 export interface MenuHead { head: string }
-type MenuRow = MenuEntry | MenuHead;
+/**
+ * Своё число в меню выбора (шаг сетки): поле под готовыми значениями. Enter — применить и закрыть, стрелки ↑↓ —
+ * шаг, изменение стрелками у поля — сразу; число вне min…max становится ближайшим допустимым
+ */
+export interface MenuField { field: string; value: number; min: number; max: number; unit?: string; set(n: number): void }
+type MenuRow = MenuEntry | MenuHead | MenuField;
 const isHead = (it: MenuRow): it is MenuHead => !!it && 'head' in it;
+const isField = (it: MenuRow): it is MenuField => !!it && 'field' in it;
 
 let open: { el: HTMLElement; close(): void } | null = null;
 
@@ -69,7 +75,7 @@ export function closeMenu(): void {
 /** onClose — меню закрылось (выбран пункт, Esc, щелчок мимо): снять подсветку того, к чему оно открывалось */
 export function showMenu(at: { x: number; y: number } | HTMLElement, rows: MenuRow[], onClose?: () => void): void {
   const el = document.createElement('div');
-  const items = rows.map((it) => (isHead(it) ? null : it));
+  const items = rows.map((it) => (isHead(it) || isField(it) ? null : it));
   // Меню выбора без значков (угол, толщина): короткий список, отмеченное — галочкой и цветом
   const plain = !items.some((it) => it && (it.icon || it.swatch));
   el.className = `st-menu${plain ? ' plain' : ''}`;
@@ -77,6 +83,11 @@ export function showMenu(at: { x: number; y: number } | HTMLElement, rows: MenuR
   el.innerHTML = rows.map((it, k) => {
     if (it === null) return '<i class="st-menu-sep" role="separator"></i>';
     if (isHead(it)) return `<div class="st-menu-h" role="presentation">${esc(it.head)}</div>`;
+    if (isField(it)) {
+      return `<label class="st-menu-field">${plain ? '' : '<i class="ic"></i>'}<span>${esc(it.field)}</span>`
+        + `<input type="number" data-f="${k}" min="${it.min}" max="${it.max}" step="1" value="${it.value}" aria-label="${esc(it.field)}">`
+        + `${it.unit ? `<small>${esc(it.unit)}</small>` : ''}</label>`;
+    }
     const cls = [it.danger ? 'danger' : '', it.cls ?? ''].filter(Boolean).join(' ');
     const text = it.sub ? `<span class="st-mi-t"><b>${esc(it.label)}</b><small>${esc(it.sub)}</small></span>` : `<span>${esc(it.label)}</span>`;
     return `<button type="button" role="${it.checked === undefined ? 'menuitem' : 'menuitemradio'}" data-k="${k}"${it.disabled ? ' disabled' : ''}${it.checked === undefined ? '' : ` aria-checked="${it.checked}"`}${cls ? ` class="${cls}"` : ''}>`
@@ -87,6 +98,23 @@ export function showMenu(at: { x: number; y: number } | HTMLElement, rows: MenuR
     return it ? () => it.run() : null;
   }, true, onClose);
   if (items.some((it) => it?.preview)) watchPreview(el, items);
+  el.querySelectorAll<HTMLInputElement>('input[data-f]').forEach((inp) => {
+    const f = rows[Number(inp.dataset.f)] as MenuField;
+    const apply = () => {
+      const n = Math.round(Number(inp.value));
+      if (!inp.value.trim() || !Number.isFinite(n)) { inp.value = String(f.value); return; }
+      const v = Math.max(f.min, Math.min(f.max, n));
+      inp.value = String(v);
+      if (v !== f.value) { f.value = v; f.set(v); }
+    };
+    inp.addEventListener('change', apply);
+    inp.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      apply();
+      closeMenu();
+    });
+  });
 }
 
 /** Предпросмотр пунктов: включается наведением и фокусом, гаснет при уходе и закрытии меню */
@@ -189,6 +217,9 @@ function mount(at: { x: number; y: number } | HTMLElement, el: HTMLElement, acti
   const onKey = (e: KeyboardEvent) => {
     const list = buttons();
     const i = list.indexOf(document.activeElement as HTMLButtonElement);
+    // Своё число в меню (MenuField): стрелки и Home/End — полю; ↓ из него не уводит, Tab — к пунктам
+    const typing = document.activeElement instanceof HTMLInputElement && el.contains(document.activeElement);
+    if (typing && e.key !== 'Escape' && e.key !== 'Tab') return;
     if (e.key === 'Escape') close();
     else if (e.key === 'Tab' && arrows) close();
     else if (!arrows && e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
