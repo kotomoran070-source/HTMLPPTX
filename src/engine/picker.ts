@@ -6,7 +6,7 @@ import { pageEnv } from './env';
 import { onServer } from './events';
 import { staticSlide } from './deck-view';
 import { esc } from './html';
-import { wheelStrip } from './hscroll';
+import { smoothWheel, wheelStrip } from './hscroll';
 import { currentTheme, toggleTheme } from './theme';
 import './picker.css';
 import { leave, themeFade } from './motion';
@@ -625,6 +625,8 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
     render();
   });
   addEventListener('resize', pills);
+  // Колесо мыши — своей плавной прокруткой (выключается в студии: «Файл → Параметры»)
+  smoothWheel();
   void document.fonts?.ready.then(pills);
   // Шапка с тенью, когда страница прокручена
   const top = document.getElementById('pk-top')!;

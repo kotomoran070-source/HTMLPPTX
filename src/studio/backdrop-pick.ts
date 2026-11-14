@@ -9,6 +9,7 @@ import { BACKDROPS, backdropName, isBackdrop, type BackdropKind } from '../engin
 import { esc } from '../engine/html';
 import { onSlidesLook, onThemeChange } from '../engine/theme';
 import { onPage } from '../engine/motion';
+import { wheelStrip } from '../engine/hscroll';
 
 /**
  * Плитки: cur — выбранное значение ('' — по умолчанию). theme — фон темы для слайда:
@@ -43,14 +44,11 @@ export function bindRail(root: HTMLElement, strip: HTMLElement): void {
     root.querySelector(':scope > [data-nav="1"]')?.classList.toggle('off', strip.scrollLeft > strip.scrollWidth - strip.clientWidth - 4);
   };
   strip.addEventListener('scroll', ends, { passive: true });
-  strip.addEventListener('wheel', (e) => {
-    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
-    e.preventDefault();
-    strip.scrollLeft += e.deltaY;
-  }, { passive: false });
+  // Колесо листает ровно, к краю плитки (engine/hscroll.ts), а не прыжком на 100 px за щелчок
+  const { go } = wheelStrip(strip);
   root.querySelectorAll<HTMLElement>(':scope > [data-nav]').forEach((b) => b.addEventListener('click', (e) => {
     e.stopPropagation();
-    strip.scrollBy({ left: Number(b.dataset.nav) * strip.clientWidth * 0.8, behavior: 'smooth' });
+    go(Number(b.dataset.nav) * strip.clientWidth * 0.8);
   }));
   // Выбранная плитка — на виду
   const cur = strip.querySelector<HTMLElement>('[aria-checked="true"], .on');

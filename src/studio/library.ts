@@ -4,6 +4,7 @@ import { H, W } from '../engine/deck-view';
 import { uiLook } from '../engine/deck-theme';
 import { esc } from '../engine/html';
 import { Renderer } from '../engine/render';
+import { wheelStrip } from '../engine/hscroll';
 import type { Block, Deck } from '../types';
 import type { Template } from './templates';
 
@@ -1232,17 +1233,12 @@ export function showLibrary(anchor: HTMLElement, deck: Deck, pick: (p: Preset) =
       rail.querySelector('[data-nav="1"]')?.classList.toggle('off', grid.scrollLeft > grid.scrollWidth - grid.clientWidth - 4);
     };
     grid.addEventListener('scroll', ends, { passive: true });
-    // Колёсико над разделом листает его вбок; на краю — дальше листается сама библиотека
-    grid.addEventListener('wheel', (e) => {
-      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
-      const max = grid.scrollWidth - grid.clientWidth;
-      if ((e.deltaY > 0 && grid.scrollLeft >= max - 2) || (e.deltaY < 0 && grid.scrollLeft <= 2)) return;
-      e.preventDefault();
-      grid.scrollBy({ left: Math.sign(e.deltaY) * grid.clientWidth / (grid.classList.contains('compact') ? 7 : 4) * 2, behavior: 'smooth' });
-    }, { passive: false });
+    // Колёсико над разделом листает его вбок, щелчок — на два столбца, ровно (engine/hscroll.ts); на краю — дальше
+    // листается сама библиотека
+    const { go } = wheelStrip(grid, { step: () => grid.clientWidth / (grid.classList.contains('compact') ? 7 : 4) * 2 });
     rail.querySelectorAll<HTMLElement>('[data-nav]').forEach((b) => b.addEventListener('click', (e) => {
       e.stopPropagation();
-      grid.scrollBy({ left: Number(b.dataset.nav) * grid.clientWidth, behavior: 'smooth' });
+      go(Number(b.dataset.nav) * grid.clientWidth);
     }));
     requestAnimationFrame(ends);
   });

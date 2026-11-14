@@ -23,6 +23,7 @@ import { gifFirstFrame, gradeGif, isGif } from './gif';
 import { addMyLook, listMyLooks, removeMyLook } from './my-looks';
 import { autoGrade, BANDS, brandStops, compact, curveTable as tableOf, isNeutral, LOOKS, scaleGrade, type Band, type CurvePoint, type Grade, type Wheel } from '../../engine/color/grade';
 import './color.css';
+import { wheelStrip } from '../../engine/hscroll';
 
 export interface ColorHost {
   deck: Deck;
@@ -1040,11 +1041,7 @@ export async function openColor(h: ColorHost, path: Path): Promise<void> {
   };
   // Ряд образов листается колесом мыши вбок
   const strip = $<HTMLElement>('.cg-looks');
-  strip.addEventListener('wheel', (e) => {
-    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
-    e.preventDefault();
-    strip.scrollLeft += e.deltaY;
-  }, { passive: false });
+  wheelStrip(strip);
   // ---------- кадр ролика ----------
   const time = back.querySelector<HTMLInputElement>('.cg-time input');
   const clock = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;

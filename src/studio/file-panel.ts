@@ -64,6 +64,9 @@ export interface FileHost {
     setOwnColor(c: string | null): void;
     lite(): boolean;
     setLite(v: boolean): void;
+    /** Своя плавная прокрутка колесом (engine/hscroll.ts) */
+    smooth(): boolean;
+    setSmooth(v: boolean): void;
     look(): Look;
     setLook(v: Look): void;
     /** У презентации свой вид слайдов («Дизайн» → «Слайды») */
@@ -325,6 +328,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
         </div></div>
         <div class="fp-field"><span>Вид слайдов в редакторе</span>${seg('look', 'Вид слайдов', [['', 'Как интерфейс'], ['light', 'Светлые'], ['dark', 'Тёмные']], u.look() ?? '', locked)}${locked ? '<small>У этой презентации свой вид: «Дизайн» → «Слайды»</small>' : ''}</div>
         <div class="fp-field">${sw(u.lite(), 'data-lite', 'Облегчённый режим', 'Для слабых компьютеров: анимации на слайде в редакторе остановлены')}</div>
+        <div class="fp-field">${sw(u.smooth(), 'data-smooth', 'Плавная прокрутка колесом', 'Ровная скорость без рывков на каждом щелчке колеса. Выключите, чтобы сравнить с обычной прокруткой')}</div>
       </div></section>
       <section><h3 class="fp-k">Лента</h3><div class="fp-ribbon"></div></section>
     </div>`;
@@ -398,6 +402,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     }
     if (a.hasAttribute('data-same')) return '[data-same]';
     if (a.hasAttribute('data-lite')) return '[data-lite]';
+    if (a.hasAttribute('data-smooth')) return '[data-smooth]';
     return a.id ? `#${CSS.escape(a.id)}` : '';
   }
 
@@ -515,6 +520,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     }
     if (t.hasAttribute('data-same')) host.exporter.setSame(t.checked);
     else if (t.hasAttribute('data-lite')) host.ui.setLite(t.checked);
+    else if (t.hasAttribute('data-smooth')) host.ui.setSmooth(t.checked);
     else if (t.id === 'fp-name') {
       const v = t.value.trim();
       if (v) host.rename(v);

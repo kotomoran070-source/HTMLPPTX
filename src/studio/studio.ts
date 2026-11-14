@@ -5,6 +5,7 @@ import { toolsCommands } from './tools';
 import { integrationsRibbon, startIntegrations } from './integrations';
 import { accentTail, applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, setUiAccent, slideAccent, uiAccent, uiSafeAccent } from '../engine/accent';
 import { applyThemeSwatches, themeMode } from '../engine/deck-theme';
+import { smoothWheel, smoothWheelOn, setSmoothWheel, stripWheel } from '../engine/hscroll';
 import { getAt, setAt, type Path } from '../engine/data';
 import { DeckView, H, W } from '../engine/deck-view';
 import { Editor, SLIDE_PRESETS } from '../engine/editor/editor';
@@ -1908,10 +1909,10 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   // Колесо мыши листает вбок ужатые галереи ленты (темы «Дизайна», стили таблицы)
   $('st-ribbon').addEventListener('wheel', (e) => {
     const strip = (e.target as Element).closest<HTMLElement>('[data-shrink]');
-    if (!strip || strip.scrollWidth <= strip.clientWidth || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
-    e.preventDefault();
-    strip.scrollLeft += e.deltaY;
+    if (strip) stripWheel(strip, e);
   }, { passive: false });
+  // Колесо мыши везде — своей плавной прокруткой (выключается в «Файл → Параметры»)
+  smoothWheel();
   // Своя лента: скрытые вкладки и группы, только значки (запоминается на компьютере)
   const ribbonSetup = initRibbonSetup({ tab: () => tab, setTab, fit: fitRibbon });
   cmds['ui.ribbon'] = { run: () => filePanel?.open('prefs') };
@@ -2024,6 +2025,8 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       },
       lite: () => lay.lite,
       setLite: (v: boolean) => { if (lay.lite !== v) run('view.lite'); },
+      smooth: smoothWheelOn,
+      setSmooth: setSmoothWheel,
       look: () => slidesLookOwn() ?? null,
       setLook: (v) => chooseSlidesLook(v),
       lookLocked: () => !!themeMode(deck.theme),
