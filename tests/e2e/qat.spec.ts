@@ -40,9 +40,10 @@ test('панель быстрого доступа: правый щелчок п
   await page.mouse.click(redo.x + redo.width / 2, redo.y + redo.height / 2, { button: 'right' });
   await menu(page, 'Удалить с панели быстрого доступа');
   expect(await cmds(page)).toEqual(['undo', 'show.current', 'format.painter', 'edit.find']);
-  // «▾»: частые команды галочками
+  // «▾»: частые команды галочками («Найти» — на панели, но в «▾» её нет: она и так под Ctrl+F)
   await page.locator('.st-qat-more').click();
-  await expect(page.locator('.st-menu [aria-checked="true"]')).toHaveCount(4);
+  await expect(page.locator('.st-menu [aria-checked="true"]')).toHaveCount(3);
+  for (const t of ['Найти', 'Новый слайд', 'Дублировать слайд', 'Сгруппировать']) await expect(page.locator('.st-menu').getByText(t, { exact: true })).toHaveCount(0);
   await menu(page, 'Показ с начала');
   expect(await cmds(page)).toContain('show.start');
   // Под лентой — своя строка

@@ -49,8 +49,11 @@ interface Prefs { cmds: string[]; below: boolean }
 const KEY = 'slideria.qat';
 /** С чего начинается панель */
 export const QAT_DEFAULT = ['undo', 'redo', 'show.current', 'format.painter'];
-/** Частые команды — галочками в меню «▾» */
-const POPULAR = ['undo', 'redo', 'show.current', 'show.start', 'format.painter', 'color.pick', 'slide.new', 'slide.dup', 'insert.text', 'insert.image', 'obj.group', 'edit.find', 'file.save', 'file.export'];
+/**
+ * Частые команды — галочками в меню «▾». Без того, что и так под рукой горячей клавишей (новый слайд, дублировать,
+ * сгруппировать, найти): они — в «Других командах»
+ */
+const POPULAR = ['undo', 'redo', 'show.current', 'show.start', 'format.painter', 'color.pick', 'insert.text', 'insert.image', 'file.save', 'file.export'];
 /** Подписи на панели и в её меню — полнее, чем короткие на ленте («С начала» → «Показ с начала») */
 /** Значки на панели, где у ленты они читаются иначе: показ с текущего — ▷ (как у кнопки «Показ»), с начала — ↺ */
 const ICON: Record<string, string> = { 'show.current': 'play', 'show.start': 'reset' };
