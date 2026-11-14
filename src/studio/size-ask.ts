@@ -1,7 +1,8 @@
-// «Вид» → «Размер слайда»: при сужении (16:9 → 4:3) содержимое части слайдов шире нового размера — спросить, что
-// делать. Два варианта карточками с превью слайда, каким он станет: «Уместить» (композиция слайда уменьшается целиком)
-// и «Сохранить размер» (объекты к краям своего размера — могут наложиться). Enter — «Уместить», Esc — отмена.
-// Остальные слайды переставляются сами (slide-resize.ts)
+// «Вид» → «Размер слайда»: что делать с композицией слайдов — вопрос с превью слайда, каким он станет при каждом
+// варианте. Сужение (16:9 → 4:3), содержимое части слайдов шире нового размера: «Уместить» (композиция уменьшается
+// целиком) или «Сохранить размер» (объекты к краям своего размера — могут наложиться). Расширение (4:3 → 16:9,
+// 16:9 → 21:9): «Увеличить» (композиция растёт, насколько позволяет высота) или «Расставить по ширине». Enter — первый
+// вариант, Esc — отмена. Остальные слайды переставляются сами (slide-resize.ts)
 import { icon } from '../components/icons';
 import { staticSlide } from '../engine/deck-view';
 import { plural } from '../engine/editor/font-picker';
@@ -17,25 +18,41 @@ import './size-ask.css';
 /** «3», «3 и 5», «3, 5 и 7» */
 const list = (n: number[]) => (n.length > 1 ? `${n.slice(0, -1).join(', ')} и ${n.at(-1)}` : String(n[0]));
 
-export function askFit(deck: Deck, size: SlideSize, tight: number[]): Promise<'fit' | 'keep' | null> {
+/** Тексты окна: сужение — «Уместить», расширение — «Увеличить» */
+const TEXT = {
+  shrink: {
+    title: (size: string) => `Объекты не помещаются в ${size}`,
+    what: (w: number) => `содержимое шире нового слайда (${w} px)`,
+    fit: ['Уместить', 'Уменьшить содержимое этих слайдов целиком — расположение сохранится'],
+    keep: ['Сохранить размер', 'Объекты своего размера встанут к краям — могут наложиться'],
+  },
+  grow: {
+    title: (size: string) => `Увеличить содержимое под ${size}?`,
+    what: (w: number) => `композицию можно увеличить: слайд стал шире (${w} px)`,
+    fit: ['Увеличить', 'Содержимое этих слайдов крупнее целиком — насколько позволяет высота слайда'],
+    keep: ['Расставить по ширине', 'Объекты своего размера встанут по краям и центру'],
+  },
+};
+
+export function askFit(deck: Deck, size: SlideSize, slides: number[], mode: 'shrink' | 'grow' = 'shrink'): Promise<'fit' | 'keep' | null> {
   return new Promise((resolve) => {
     const before = document.activeElement as HTMLElement | null;
     const w = SLIDE_SIZES[size];
-    const where = tight.length === 1 ? `На слайде ${tight[0]}` : `На ${tight.length} ${plural(tight.length, 'слайде', 'слайдах', 'слайдах')} (${list(tight.slice(0, 5))}${tight.length > 5 ? ' и других' : ''})`;
-    const what = `содержимое шире нового слайда (${w} px)`;
+    const t = TEXT[mode];
+    const where = slides.length === 1 ? `На слайде ${slides[0]}` : `На ${slides.length} ${plural(slides.length, 'слайде', 'слайдах', 'слайдах')} (${list(slides.slice(0, 5))}${slides.length > 5 ? ' и других' : ''})`;
     const box = document.createElement('div');
     box.className = 'imp-bd';
     box.innerHTML = `<div class="imp lv sz" role="dialog" aria-modal="true" aria-labelledby="sz-h" aria-describedby="sz-d">
-  <div class="lv-head"><span class="lv-icon">${icon('slide-size')}</span><h2 id="sz-h">Объекты не помещаются в ${esc(size)}</h2></div>
-  <p class="sz-note" id="sz-d">${esc(where)} ${esc(what)}. Остальные слайды перестроятся сами: что у края — останется у края, что по центру — по центру.</p>
+  <div class="lv-head"><span class="lv-icon">${icon('slide-size')}</span><h2 id="sz-h">${esc(t.title(size))}</h2></div>
+  <p class="sz-note" id="sz-d">${esc(where)} ${esc(t.what(w))}. Остальные слайды перестроятся сами: что у края — останется у края, что по центру — по центру.</p>
   <div class="sz-opts">
-    <button type="button" class="sz-opt" data-a="fit"><span class="sz-th"></span><b>Уместить<kbd>Enter</kbd></b><small>Уменьшить содержимое этих слайдов целиком — расположение сохранится</small></button>
-    <button type="button" class="sz-opt" data-a="keep"><span class="sz-th"></span><b>Сохранить размер</b><small>Объекты своего размера встанут к краям — могут наложиться</small></button>
+    <button type="button" class="sz-opt" data-a="fit"><span class="sz-th"></span><b>${esc(t.fit[0])}<kbd>Enter</kbd></b><small>${esc(t.fit[1])}</small></button>
+    <button type="button" class="sz-opt" data-a="keep"><span class="sz-th"></span><b>${esc(t.keep[0])}</b><small>${esc(t.keep[1])}</small></button>
   </div>
   <div class="imp-actions"><button type="button" class="btn lv-n lv-cancel" data-a="cancel">Отмена</button></div>
 </div>`;
     // Превью: первый такой слайд — каким он станет при каждом варианте
-    const at = tight[0] - 1;
+    const at = slides[0] - 1;
     box.querySelectorAll<HTMLElement>('.sz-opt').forEach((b) => {
       const copy = JSON.parse(JSON.stringify(deck)) as Deck;
       resizeDeck(copy, size, { fit: b.dataset.a === 'fit' });

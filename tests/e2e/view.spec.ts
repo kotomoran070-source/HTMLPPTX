@@ -99,7 +99,7 @@ test('«Шаг сетки»: готовые значения и свой — в�
   expect(errors).toEqual([]);
 });
 
-test('«Размер слайда»: 4:3 — вопрос с превью, Enter — «Уместить»; холст 4:3; Ctrl+Z — как было; 21:9 — без вопроса; PPTX своего размера', async ({ page }) => {
+test('«Размер слайда»: 4:3 — «Уместить», обратно в 16:9 — «Увеличить» (как было); Ctrl+Z; 21:9 — «Расставить по ширине»; PPTX своего размера', async ({ page }) => {
   test.setTimeout(120_000);
   const errors = watchErrors(page);
   await page.goto('/?deck=sizes&studio#1');
@@ -109,6 +109,7 @@ test('«Размер слайда»: 4:3 — вопрос с превью, Enter
   expect(await ratio()).toBeCloseTo(16 / 9, 1);
   await page.locator('.st-tabs [data-tab="view"]').click();
   const size = page.locator('.st-ribbon [data-cmd="view.size"]');
+  const pick = async (label: string) => { await size.click(); await page.locator('.st-menu button', { hasText: label }).click(); };
   await size.click();
   await expect(page.locator('.st-menu [aria-checked="true"]')).toContainText('Широкий 16:9');
   await page.locator('.st-menu button', { hasText: 'Стандартный 4:3' }).click();
@@ -125,20 +126,32 @@ test('«Размер слайда»: 4:3 — вопрос с превью, Enter
   // Композиция слайда 1 уменьшена целиком, заголовок слайда 2 — сузился вместе со слайдом
   expect(readDeck('sizes')).toContain('place: {x: 60, y: 180, w: 525, h: 300}');
   expect(readDeck('sizes')).toContain('w: 800');
-  // Ctrl+Z — снова 16:9 и прежние места, на том же слайде
+  // Обратно в 16:9 — «Увеличить?»: Enter — композиция как была
+  await pick('Широкий 16:9');
+  await expect(ask).toContainText('Увеличить содержимое под 16:9?');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#ed-toast')).toContainText('Размер слайда — Широкий 16:9 · увеличено слайдов: 1');
+  await expect.poll(() => readDeck('sizes')).not.toMatch(/size:/);
+  expect(readDeck('sizes')).toContain('place: {x: 80, y: 120, w: 700, h: 400}');
+  expect(readDeck('sizes')).toContain('w: 1120');
+  await expect.poll(ratio).toBeCloseTo(16 / 9, 1);
+  // Ctrl+Z — снова 4:3, на том же слайде
   await page.locator('#st-canvas').click({ position: { x: 4, y: 4 } });
   await page.keyboard.press('Control+z');
   await expect(page.locator('#ed-toast')).toContainText('Отменено: размер слайда');
-  await expect.poll(() => readDeck('sizes')).not.toMatch(/size:/);
-  await expect.poll(ratio).toBeCloseTo(16 / 9, 1);
+  await expect.poll(() => readDeck('sizes')).toMatch(/size: ["']?4:3/);
+  await expect.poll(ratio).toBeCloseTo(4 / 3, 1);
   await expect(page).toHaveURL(/#1$/);
-  // Шире — без вопроса: заголовок тянется до 1520
-  await size.click();
-  await page.locator('.st-menu button', { hasText: 'Сверхширокий 21:9' }).click();
-  await expect(ask).toHaveCount(0);
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => readDeck('sizes')).not.toMatch(/size:/);
+  // 21:9 — «Расставить по ширине»: заголовок тянется до 1520, картинка остаётся у края
+  await pick('Сверхширокий 21:9');
+  await expect(ask).toContainText('Увеличить содержимое под 21:9?');
+  await ask.locator('.sz-opt[data-a="keep"]').click();
   await expect.poll(() => readDeck('sizes')).toMatch(/size: ["']?21:9/);
   await expect.poll(ratio).toBeCloseTo(21 / 9, 1);
   expect(readDeck('sizes')).toContain('w: 1520');
+  expect(readDeck('sizes')).toContain('place: {x: 80, y: 120, w: 700, h: 400}');
   // PowerPoint — слайд 17,5 × 7,5 дюйма
   const [download] = await Promise.all([page.waitForEvent('download', { timeout: 100_000 }), exportAs(page, 'pptx')]);
   const zip = await JSZip.loadAsync(fs.readFileSync(await download.path()));
