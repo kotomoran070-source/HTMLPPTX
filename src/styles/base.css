@@ -1,4 +1,4 @@
-/* Каркас: сцена 1280×720, слайды, типографика и общие элементы (карточки, чипы). */
+/* Каркас: сцена W×720 (W — ширина слайда презентации, --sw: 1280, у 4:3 — 960, у 21:9 — 1680), слайды, типографика и общие элементы (карточки, чипы). */
 *, *::before, *::after { box-sizing: border-box; }
 
 html { height: 100%; }
@@ -17,7 +17,7 @@ body {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 1280px;
+  width: var(--sw, 1280px);
   height: 720px;
   transform-origin: center;
   overflow: hidden;
@@ -424,7 +424,7 @@ p { margin: 0 0 10px; max-width: 62ch; color: var(--tx2); }
 .slide.canvas-slide > .corner-logo { z-index: 9000; }
 .slide.canvas-slide > .slide-body { position: absolute; inset: 0; display: flex; flex-direction: column; margin: 0; }
 .slide.canvas-slide > .slide-body > * { flex: 1 1 auto; min-height: 0; }
-/* Корень вёрстки слайда из своего HTML: 1280×720 с обычными полями слайда */
+/* Корень вёрстки слайда из своего HTML: весь слайд (W×720) с обычными полями слайда */
 .slide-root { box-sizing: border-box; width: 100%; height: 100%; padding: 48px 64px; overflow: hidden; }
 
 /* Градиент части текста {g:ocean|…}: фон по буквам; на каждой строке — целиком */

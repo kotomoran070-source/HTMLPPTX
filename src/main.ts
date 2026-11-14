@@ -11,6 +11,7 @@ import { esc } from './engine/html';
 import { loadMath, usesMath } from './components/math/math';
 import { startPresenter } from './engine/presenter';
 import { shotDeck } from './engine/print';
+import { widthOf } from './engine/slide-size';
 import { startShow, updateFavicon } from './engine/show';
 import { setupSelectMenus } from './engine/select-menu';
 import { initTheme } from './engine/theme';
@@ -105,7 +106,7 @@ async function boot(): Promise<void> {
   const shot = params.get('shot');
   if (shot) {
     const w = Number(params.get('w'));
-    await shotDeck(deck, shot.split(',').map((n) => Number(n) - 1), w >= 160 && w <= 3840 ? w : 1280);
+    await shotDeck(deck, shot.split(',').map((n) => Number(n) - 1), w >= 160 && w <= 3840 ? w : widthOf(deck));
     return bootDone();
   }
   // Студия (редактор как в PowerPoint) — только с сервером: в собранный файл её код не попадает

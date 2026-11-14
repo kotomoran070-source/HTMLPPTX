@@ -2,7 +2,7 @@
 .pres .pres-main { grid-template-columns: minmax(0, var(--pw, 64%)) 14px minmax(220px, 1fr); gap: 0; }
 .pres .pres-cur { gap: 10px; }
 /* Слайд занимает ровно свою высоту по ширине колонки: панель инструментов сразу под ним */
-.pres .pres-vp { flex: 0 1 auto; width: 100%; aspect-ratio: 16 / 9; max-height: calc(100% - 90px); }
+.pres .pres-vp { flex: 0 1 auto; width: 100%; aspect-ratio: var(--sar, 16 / 9); max-height: calc(100% - 90px); }
 .pres .pres-side { display: grid; grid-template-rows: minmax(0, var(--nh, 40%)) 14px minmax(0, 1fr); gap: 0; min-height: 0; }
 .pres-nextbox, .pres-notesbox { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .pres .pres-next { flex: 1; min-height: 0; overflow: hidden; align-items: flex-start; }
@@ -123,7 +123,7 @@
   .pres .pres-main { display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
   .pres-cur { flex: none; }
   .pres-cur > .pres-label { display: none; }
-  .pres .pres-vp { flex: none; aspect-ratio: 16 / 9; max-height: none; width: var(--ph, 100%); margin-inline: auto; }
+  .pres .pres-vp { flex: none; aspect-ratio: var(--sar, 16 / 9); max-height: none; width: var(--ph, 100%); margin-inline: auto; }
   /* Граница под слайдом: тянут вверх — слайд меньше, заметок больше */
   .pres .pres-split.v { display: block; flex: none; height: 22px; margin: -10px 0; cursor: row-resize; }
   .pres .pres-split.v::after { left: 50%; top: 9px; width: 44px; height: 4px; transform: translateX(-50%); opacity: .7; }
@@ -158,7 +158,7 @@
   .pres .pres-main, .pres .pres-cur { display: contents; }
   .pres-cur > .pres-label, .pres .pres-split, .pres .pres-side, .pres .pres-tl { display: none; }
   .pres .pres-vp { grid-column: 1; grid-row: 1 / -1; align-self: center; justify-self: center; margin: 0; flex: none; max-height: none;
-    width: min(100%, calc((100dvh - 16px - env(safe-area-inset-bottom)) * 16 / 9)); aspect-ratio: 16 / 9; }
+    width: min(100%, calc((100dvh - 16px - env(safe-area-inset-bottom)) * var(--sark, 1.7778))); aspect-ratio: var(--sar, 16 / 9); }
   /* Таймер — только время */
   .pres .pres-top { grid-column: 2; grid-row: 2; justify-content: center; }
   .pres .pres-title, .pres .pres-right, .pres .pres-timer .ibtn, .pres .pres-plan { display: none; }

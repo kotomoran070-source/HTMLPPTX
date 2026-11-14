@@ -3,6 +3,7 @@ import type { Block, Deck } from '../types';
 import type { Path } from './data';
 import { getAt } from './data';
 import { staticSlide } from './deck-view';
+import { SLIDE_H, widthOf } from './slide-size';
 
 /**
  * Печать и «Сохранить как PDF»: отдельная страница на каждый слайд, слайд в конечном виде.
@@ -11,10 +12,21 @@ import { staticSlide } from './deck-view';
 let deckEl: HTMLElement | null = null;
 
 /** Копия слайдов: все, кроме скрытых (печать), или только перечисленные (снимок для агента) — шириной width */
-function build(deck: Deck, only?: number[], width = 1280): HTMLElement {
+function build(deck: Deck, only?: number[], width = widthOf(deck)): HTMLElement {
   deckEl?.remove();
   const root = document.createElement('div');
   root.className = 'print-deck';
+  // Размер слайда этой презентации: страница печати и PDF — такого же размера
+  const sw = widthOf(deck);
+  root.style.setProperty('--sw', `${sw}px`);
+  root.style.setProperty('--sar', `${sw} / ${SLIDE_H}`);
+  let page = document.getElementById('print-page-size');
+  if (!page) {
+    page = document.createElement('style');
+    page.id = 'print-page-size';
+    document.head.append(page);
+  }
+  page.textContent = `@page { size: ${sw}px ${SLIDE_H}px; margin: 0; } @media print { html, body { width: ${sw}px; } }`;
   // Скрытый слайд в PDF не попадает
   const list = only ?? deck.slides.flatMap((s, i) => (s.hidden === true ? [] : [i]));
   for (const i of list) {
@@ -105,7 +117,7 @@ export async function printDeck(deck: Deck): Promise<void> {
 
 /**
  * Снимок для агента (MCP view_slides, server/shot.ts): ?shot=3,5 — эти слайды (номера с 1) в конечном виде, как
- * при печати, по одному на экране шириной w (?w=, по умолчанию 1280). Снимающий ждёт data-shot="ready" у <html>
+ * при печати, по одному на экране шириной w (?w=, по умолчанию — ширина слайда). Снимающий ждёт data-shot="ready" у <html>
  * и показывает слайды по очереди: slideriaShot.show(k) — k-й из перечисленных, ответ — когда он нарисован
  */
 export async function shotDeck(deck: Deck, list: number[], width: number): Promise<void> {

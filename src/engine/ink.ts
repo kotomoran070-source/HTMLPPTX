@@ -1,7 +1,8 @@
 /**
- * Указка, перо и маркер: слой поверх сцены (координаты слайда 1280×720, масштабируется вместе с ним).
+ * Указка, перо и маркер: слой поверх сцены (координаты слайда W×720, масштабируется вместе с ним).
  * Рисует докладчик в своём окне, окно показа повторяет по сообщениям синхронизации.
  */
+import { H, W } from './deck-view';
 import './ink.css';
 
 export interface StrokeStyle {
@@ -60,7 +61,7 @@ export class Ink {
   constructor(private stage: HTMLElement) {
     this.layer = document.createElement('div');
     this.layer.className = 'ink';
-    this.layer.innerHTML = `<svg viewBox="0 0 1280 720" preserveAspectRatio="none"><g class="ink-marks"></g><g class="ink-lines"></g><g class="ink-trail"></g></svg><div class="ink-dot"><i></i></div><div class="ink-cur" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 3l14 8.2-6.3 1.5L10 19z"/></svg></div>`;
+    this.layer.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><g class="ink-marks"></g><g class="ink-lines"></g><g class="ink-trail"></g></svg><div class="ink-dot"><i></i></div><div class="ink-cur" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 3l14 8.2-6.3 1.5L10 19z"/></svg></div>`;
     this.svg = this.layer.querySelector('svg')!;
     this.marks = this.svg.querySelector('.ink-marks')!;
     this.lines = this.svg.querySelector('.ink-lines')!;
@@ -74,6 +75,8 @@ export class Ink {
   }
 
   apply(m: InkMsg): void {
+    // Размер слайда поменяли (4:3, 21:9) — штрихи в его пикселях
+    if (this.svg.viewBox.baseVal?.width !== W) this.svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     if (m.op === 'cursor' && m.hide) {
       this.apply({ op: 'cursor-off' });
     } else if (m.op === 'cursor') {
@@ -210,7 +213,7 @@ export class Ink {
   /** Точка экрана → координаты слайда. */
   toSlide(e: PointerEvent): { x: number; y: number } {
     const r = this.stage.getBoundingClientRect();
-    return { x: ((e.clientX - r.left) / r.width) * 1280, y: ((e.clientY - r.top) / r.height) * 720 };
+    return { x: ((e.clientX - r.left) / r.width) * W, y: ((e.clientY - r.top) / r.height) * H };
   }
 }
 
@@ -225,7 +228,7 @@ export function inkInput(area: HTMLElement, ink: Ink, tool: () => InkTool, style
   let stroke: string | null = null;
   let raf = 0;
   let pending: PointerEvent | null = null;
-  const inside = (p: { x: number; y: number }) => p.x >= 0 && p.y >= 0 && p.x <= 1280 && p.y <= 720;
+  const inside = (p: { x: number; y: number }) => p.x >= 0 && p.y >= 0 && p.x <= W && p.y <= H;
 
   area.addEventListener('pointerdown', (e) => {
     const t = tool();

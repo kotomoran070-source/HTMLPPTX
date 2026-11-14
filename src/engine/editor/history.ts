@@ -128,6 +128,9 @@ function slideAction(a: Record<string, unknown>, b: Record<string, unknown>): st
   return 'Правка';
 }
 
+/** Пропорция слайда снимка (deck.size; без неё — 16:9) */
+const sizeOf = (s: Snap): string => { const v = (JSON.parse(s.head) as { size?: unknown }).size; return typeof v === 'string' ? v : '16:9'; };
+
 export class History {
   past: Snap[] = [];
   future: Snap[] = [];
@@ -180,6 +183,8 @@ export class History {
 
   /** Слайд, который отличается между шагами (для перехода к нему после отмены); -1 — только общее */
   static changedSlide(a: Snap, b: Snap): number {
+    // Сменился размер слайда — правка всей презентации: остаёмся на своём слайде
+    if (sizeOf(a) !== sizeOf(b)) return -1;
     const n = Math.max(a.slides.length, b.slides.length);
     for (let i = 0; i < n; i++) if (a.slides[i] !== b.slides[i]) return i;
     return -1;
@@ -237,6 +242,7 @@ export class History {
         ? (m - n > 1 ? `Добавлены слайды (${m - n})` : `Добавлен слайд ${at + 1}`)
         : (n - m > 1 ? `Удалены слайды (${n - m})` : `Удалён слайд ${at + 1}`);
     }
+    if (sizeOf(a) !== sizeOf(b)) return `Размер слайда ${sizeOf(b)}`;
     const changed = a.slides.map((s, i) => (s === b.slides[i] ? -1 : i)).filter((i) => i >= 0);
     if (!changed.length) {
       const keys = diffKeys(JSON.parse(a.head), JSON.parse(b.head));

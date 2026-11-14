@@ -5,10 +5,28 @@ import { enterFx } from './enter-fx';
 import { morph as morphTo, unmorph } from './morph';
 import { getAt, type Path } from './data';
 import { Renderer } from './render';
+import { SLIDE_H, SLIDE_SIZES, widthOf } from './slide-size';
 import { applySteps, stepTotal } from './steps';
 
-export const W = 1280;
-export const H = 720;
+export { SLIDE_SIZES, widthOf, type SlideSize } from './slide-size';
+export const H = SLIDE_H;
+/**
+ * Ширина слайда открытой презентации: её ставит DeckView (setSlideWidth), остальной код (редактор, линейки,
+ * указка) читает её отсюда — привязка «живая», после смены размера все видят новую
+ */
+export let W: number = SLIDE_SIZES['16:9'];
+/**
+ * Ширина открытой презентации — коду и стилям страницы: --sw (сцена, миниатюры, печать), --sar — пропорция для
+ * aspect-ratio, --sark — она же числом (окно докладчика, рамки под слайд)
+ */
+export function setSlideWidth(w: number): void {
+  W = w;
+  if (typeof document === 'undefined') return;
+  const st = document.documentElement.style;
+  st.setProperty('--sw', `${w}px`);
+  st.setProperty('--sar', `${w} / ${SLIDE_H}`);
+  st.setProperty('--sark', String(+(w / SLIDE_H).toFixed(4)));
+}
 
 /** Прожектор: раскладки (выделяется то, что в них) и украшения — не выделяются */
 const SPOT_LAYOUT = new Set(['grid', 'stack', 'spacer']);
@@ -17,7 +35,7 @@ const SPOT_LINE = new Set(['text', 'note', 'chips']);
 
 export const reducedMotion = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** Все слайды колоды на одной сцене 1280×720; показывается слайд с классом .on */
+/** Все слайды колоды на одной сцене W×720 (W — по размеру презентации); показывается слайд с классом .on */
 export class DeckView {
   readonly stage: HTMLElement;
   slides: HTMLElement[] = [];
@@ -227,6 +245,7 @@ export class DeckView {
 
   /** Перерисовывает все слайды из данных, оставаясь на текущем слайде. */
   build(deck: Deck): void {
+    setSlideWidth(widthOf(deck));
     this.cleanups.forEach((c) => c?.());
     const r = new Renderer(deck, deck.brand?.logo, this.vars);
     this.r = r;
@@ -577,7 +596,8 @@ function deckSignature(deck: Deck): string {
 const thumbObserver = typeof ResizeObserver === 'function'
   ? new ResizeObserver((entries) => entries.forEach((e) => {
     const inner = e.target.firstElementChild as HTMLElement | null;
-    if (inner) inner.style.transform = `scale(${(e.target as HTMLElement).clientWidth / W})`;
+    // Ширина слайда — своя у каждой миниатюры (страница выбора: презентации разных размеров)
+    if (inner) inner.style.transform = `scale(${(e.target as HTMLElement).clientWidth / (Number(inner.dataset.sw) || W)})`;
   }))
   : null;
 
@@ -588,11 +608,16 @@ const thumbObserver = typeof ResizeObserver === 'function'
 export function staticSlide(deck: Deck, index: number, width?: number): HTMLElement {
   const box = document.createElement('div');
   box.className = 'thumb';
-  box.style.aspectRatio = `${W} / ${H}`;
+  const sw = widthOf(deck);
+  box.style.aspectRatio = `${sw} / ${H}`;
+  // Не 16:9 — пометка для рамок постоянной пропорции (карточка на странице выбора): 4:3 встаёт по высоте
+  if (sw !== SLIDE_SIZES['16:9']) box.dataset.size = String(deck.size);
   if (width) box.style.width = `${width}px`;
   const inner = document.createElement('div');
   inner.className = 'thumb-stage canvas static';
-  inner.style.transform = `scale(${(width ?? 220) / W})`;
+  inner.dataset.sw = String(sw);
+  inner.style.setProperty('--sw', `${sw}px`);
+  inner.style.transform = `scale(${(width ?? 220) / sw})`;
   const slide = deck.slides[index];
   if (slide) inner.innerHTML = new Renderer(deck, deck.brand?.logo).slide(slide, index, 'on static');
   // SMIL-анимации CSS не останавливает: убираем их из статичной копии

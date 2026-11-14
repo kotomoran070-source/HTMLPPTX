@@ -817,7 +817,8 @@ defineBlock<BackdropProps>('backdrop', {
       const dpr = Math.min(window.devicePixelRatio || 1, 2) * (lite ? 0.6 : 1) * (LOOK[p.kind]?.scale ?? 1);
       // Больше 1920 точек по ширине глаз не заметит, а видеокарта — да
       const w = Math.max(64, Math.min(1920, Math.round(r.width * dpr)));
-      const h = Math.round((w * 720) / 1280);
+      // Пропорция кадра — как у самого фона (слайд 16:9, 4:3 или 21:9)
+      const h = Math.round(r.width > 0 && r.height > 0 ? (w * r.height) / r.width : (w * 720) / 1280);
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w;
         canvas.height = h;

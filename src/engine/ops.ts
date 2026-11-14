@@ -16,6 +16,8 @@
  */
 import type { Block, Deck, SlideData } from '../types';
 import { canon } from './merge3';
+import { isSlideSize, resizeDeck } from './slide-resize';
+import { SLIDE_H, widthOf } from './slide-size';
 import { TRANSITIONS } from './transitions';
 
 /** Название перехода для журнала: push → «Сдвиг» */
@@ -229,11 +231,31 @@ export const OPS: Record<string, OpDef> = {
     run(d, a) {
       const set = needPatch(a.set);
       if ('slides' in set) throw new OpError('слайды правятся операциями slide.*');
+      // Размер слайда — с перестановкой объектов, как deck.size
+      if ('size' in set) {
+        const size = set.size ?? '16:9';
+        if (!isSlideSize(size)) throw new OpError('size — "16:9", "4:3" или "21:9"');
+        resizeDeck(d, size);
+        const { size: _s, ...rest } = set;
+        if (!Object.keys(rest).length) return change(`Размер слайда: ${size}`);
+        return OPS['deck.set'].run(d, { ...a, set: rest });
+      }
       const was = plain(d.title);
       const next = mergePatch(d, set) as Deck;
       Object.keys(d).forEach((k) => { if (!(k in next)) delete (d as unknown as Rec)[k]; });
       Object.assign(d, next);
       return 'title' in set ? diffText('Название презентации', undefined, was, plain(d.title)) : change('Настройки презентации');
+    },
+  },
+  'deck.size': {
+    summary: 'Размер слайда: 16:9 (1280×720), 4:3 (960×720 — старые проекторы) или 21:9 (1680×720 — широкие экраны). '
+      + 'Высота та же, раскладки перестраиваются сами, свободные объекты остаются у своего края или по центру, на всю ширину — растягиваются',
+    params: { size: '"16:9", "4:3" или "21:9"', fit: 'true — при сужении слайды, содержимое которых шире нового размера, уменьшить целиком (места, размеры, шрифты); иначе объекты встают к краям своего размера и могут наложиться' },
+    run(d, a) {
+      if (!isSlideSize(a.size)) throw new OpError('size — "16:9", "4:3" или "21:9"');
+      const r = resizeDeck(d, a.size, { fit: a.fit === true });
+      const tail = [r.moved ? `передвинуто объектов ${r.moved}` : '', r.scaled.length ? `уменьшено слайдов ${r.scaled.length}` : '', r.outside ? `за краем ${r.outside}` : ''].filter(Boolean).join(', ');
+      return change(`Размер слайда: ${a.size}${tail ? ` (${tail})` : ''}`);
     },
   },
   'slide.add': {
@@ -387,6 +409,7 @@ const OBJ_NAME = /^[\w-]+$/;
 export function checkDeck(d: unknown, keep: Set<string> = new Set()): void {
   if (!isRec(d)) throw new OpError('данные презентации — объект');
   if (d.title !== undefined && typeof d.title !== 'string') throw new OpError('title — текст');
+  if (d.size !== undefined && !isSlideSize(d.size)) throw new OpError('size — "16:9", "4:3" или "21:9"');
   if (!Array.isArray(d.slides) || !d.slides.length) throw new OpError('в презентации должен быть хотя бы один слайд');
   const ids = new Set<string>();
   // Повторы id слайдов — только у новых и поправленных
@@ -509,6 +532,8 @@ export interface DeckOutline {
   title: string;
   lang?: string;
   theme?: string;
+  /** Размер слайда: пропорция и пиксели (place объектов — в них) */
+  canvas: { size: string; w: number; h: number };
   slides: SlideOutline[];
 }
 
@@ -519,6 +544,7 @@ export function outline(d: Deck): DeckOutline {
     title: typeof d.title === 'string' ? d.title : '',
     ...(typeof d.lang === 'string' ? { lang: d.lang } : {}),
     ...(typeof preset === 'string' ? { theme: preset } : {}),
+    canvas: { size: isSlideSize(d.size) ? d.size : '16:9', w: widthOf(d), h: SLIDE_H },
     slides: d.slides.map((s, i) => slideOutline(s, i)),
   };
 }

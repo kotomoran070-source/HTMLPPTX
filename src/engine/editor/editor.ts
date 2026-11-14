@@ -1,3 +1,4 @@
+import { W } from '../deck-view';
 import { icon } from '../../components/icons';
 import type { Block, Deck, SlideData } from '../../types';
 import { accentTail, applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, previewAccent } from '../accent';
@@ -1739,9 +1740,9 @@ export class Editor {
         h = Math.round(dims.h * k);
       }
     }
-    const cx = at?.x ?? 640;
+    const cx = at?.x ?? W / 2;
     const cy = at?.y ?? 360;
-    const place = { x: Math.round(Math.max(0, Math.min(1280 - w, cx - w / 2))), y: Math.round(Math.max(0, Math.min(720 - h, cy - h / 2))), w, h };
+    const place = { x: Math.round(Math.max(0, Math.min(W - w, cx - w / 2))), y: Math.round(Math.max(0, Math.min(720 - h, cy - h / 2))), w, h };
     let idx = -1;
     this.commit((d) => {
       const sl = d.slides[i];
@@ -1855,9 +1856,9 @@ export class Editor {
       const k = Math.min(1, 640 / dims.w, 400 / dims.h);
       const w = Math.max(40, Math.round(dims.w * k));
       const h = Math.max(40, Math.round(dims.h * k));
-      const cx = at?.x ?? 640;
+      const cx = at?.x ?? W / 2;
       const cy = at?.y ?? 360;
-      const place = { x: Math.round(Math.max(0, Math.min(1280 - w, cx - w / 2))), y: Math.round(Math.max(0, Math.min(720 - h, cy - h / 2))), w, h };
+      const place = { x: Math.round(Math.max(0, Math.min(W - w, cx - w / 2))), y: Math.round(Math.max(0, Math.min(720 - h, cy - h / 2))), w, h };
       let idx = -1;
       // Открыт первый кадр (а не тот, что открывали у прежней картинки на этом месте)
       const free = this.host.deck.slides[i]?.free;
@@ -1893,9 +1894,9 @@ export class Editor {
         : await blobToDataUrl(blob);
       const w = 640;
       const h = 360;
-      const cx = at?.x ?? 640;
+      const cx = at?.x ?? W / 2;
       const cy = at?.y ?? 360;
-      const place = { x: Math.round(Math.max(0, Math.min(1280 - w, cx - w / 2))), y: Math.round(Math.max(0, Math.min(720 - h, cy - h / 2))), w, h };
+      const place = { x: Math.round(Math.max(0, Math.min(W - w, cx - w / 2))), y: Math.round(Math.max(0, Math.min(720 - h, cy - h / 2))), w, h };
       let idx = -1;
       this.commit((d) => {
         const sl = d.slides[i];
@@ -1939,10 +1940,10 @@ export class Editor {
     return true;
   }
 
-  /** Точка экрана → координаты слайда 1280×720. */
+  /** Точка экрана → координаты слайда (W×720, W — ширина слайда презентации). */
   toSlide(clientX: number, clientY: number): { x: number; y: number } {
     const r = this.host.stage().getBoundingClientRect();
-    return { x: ((clientX - r.left) / r.width) * 1280, y: ((clientY - r.top) / r.height) * 720 };
+    return { x: ((clientX - r.left) / r.width) * W, y: ((clientY - r.top) / r.height) * 720 };
   }
 
   private dropTarget(e: DragEvent): Element | null {
@@ -2108,7 +2109,7 @@ export class Editor {
       if (near.bg) s.bg = near.bg;
       const back = (Array.isArray(near.free) ? near.free : []).filter((b) => {
         const pl = (b as { place?: { x?: number; y?: number; w?: number; h?: number } }).place;
-        return b.type === 'embed' && pl && !pl.x && !pl.y && pl.w === 1280 && pl.h === 720;
+        return b.type === 'embed' && pl && !pl.x && !pl.y && pl.w === W && pl.h === 720;
       });
       s.free = [...clone(back).map((b) => ({ ...b, enter: undefined, delay: undefined })), ...(Array.isArray(s.free) ? s.free : [])];
       // У соседа логотипа в углу нет (холст из импорта, расставленный вручную) — и у нового нет

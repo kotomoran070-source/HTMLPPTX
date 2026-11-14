@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
+import { SLIDE_H, widthOf } from '../src/engine/slide-size';
 import type { DecksCore } from './core';
 import { MIME } from './deck-files';
 
@@ -33,8 +34,8 @@ export type Shooter = (r: ShotRequest) => Promise<Buffer[]>;
 export interface ShotOptions {
   /** Слайды — номера с 1 */
   slides: number[];
-  /** Ширина картинки; высота — 16:9 */
-  width: number;
+  /** Ширина картинки; без неё — ширина слайда (один к одному). Высота — по пропорции презентации */
+  width?: number;
   /** Вид слайдов, если тема презентации меняется вместе с темой интерфейса */
   look?: 'light' | 'dark';
 }
@@ -85,9 +86,12 @@ export function createShots(core: DecksCore, shooter: Shooter) {
     const id = randomBytes(8).toString('hex');
     pages.set(id, html);
     try {
-      const q = new URLSearchParams({ shot: o.slides.join(','), w: String(o.width), ...(o.look ? { look: o.look } : {}) });
-      const height = Math.round((o.width * 9) / 16);
-      const shots = await shooter({ url: `${root}/p/${id}?${q}`, count: o.slides.length, width: o.width, height });
+      // Пропорция слайда — из презентации: 16:9, 4:3 или 21:9
+      const sw = widthOf(core.read(name) as { size?: unknown });
+      const width = o.width ?? sw;
+      const q = new URLSearchParams({ shot: o.slides.join(','), w: String(width), ...(o.look ? { look: o.look } : {}) });
+      const height = Math.round((width * SLIDE_H) / sw);
+      const shots = await shooter({ url: `${root}/p/${id}?${q}`, count: o.slides.length, width, height });
       if (shots.length !== o.slides.length) throw new Error('Снимок слайдов не удался: браузер вернул не все картинки');
       return shots;
     } finally {

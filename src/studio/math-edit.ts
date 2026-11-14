@@ -3,6 +3,7 @@
  * перерисовывается на лету. Кнопки вставляют заготовки (дробь, степень, корень, сумма…)
  * простой записью или LaTeX — смотря как написана формула. Esc, Ctrl+Enter или щелчок мимо — готово.
  */
+import { W } from '../engine/deck-view';
 import { icon } from '../components/icons';
 import { sample, yRange, type PlotProps } from '../components/charts/plot';
 import { getAt, setAt, type Path } from '../engine/data';
@@ -187,7 +188,7 @@ export function editMath(ed: Editor, deck: () => Deck, stage: () => HTMLElement,
     const top = path[2] === 'free' ? path.slice(0, 4) : null;
     const pl = (top ? getAt(deck(), [...top, 'place']) : null) as { x?: number; y?: number; w?: number } | null;
     const r = blockEl()?.closest<HTMLElement>('.free, [data-block]')?.getBoundingClientRect();
-    const k = r ? (stage().querySelector<HTMLElement>('.slide.on')?.getBoundingClientRect().width ?? 1280) / 1280 : 1;
+    const k = r ? (stage().querySelector<HTMLElement>('.slide.on')?.getBoundingClientRect().width ?? W) / W : 1;
     const fx = Number(pl?.x ?? 80);
     const fy = Number(pl?.y ?? 80);
     const fw = Number(pl?.w ?? 560);

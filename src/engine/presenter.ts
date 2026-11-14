@@ -8,7 +8,7 @@ import { QUIZ, QUIZ_NEXT, QUIZ_NUDGE, QUIZ_SET, quizGate, quizStore, type QuizMs
 import type { Deck } from '../types';
 import { accentTail, applyAccent, applyAccentFlow } from './accent';
 import { replaceContents } from './data';
-import { DeckView, staticSlide } from './deck-view';
+import { DeckView, H, W, staticSlide } from './deck-view';
 import { esc, t } from './html';
 import { actionTarget, slideLabel } from './render';
 import { Ink, inkInput, type InkMsg, type InkTool, type StrokeStyle } from './ink';
@@ -161,7 +161,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   const touchAt = (e: PointerEvent) => {
     if (e.pointerType === 'mouse' || tool !== 'none') return;
     const p = ink.toSlide(e);
-    if (p.x < 0 || p.y < 0 || p.x > 1280 || p.y > 720) return;
+    if (p.x < 0 || p.y < 0 || p.x > W || p.y > H) return;
     clearTimeout(touchOff);
     touchHover.move(p.x, p.y);
   };
@@ -208,7 +208,7 @@ export function startPresenter(deck: Deck, deckKey: string): void {
     // После смены слайда у зрителей: новый слайд уже на месте
     ptrTimer = window.setTimeout(() => {
       const p = ptrAt;
-      if (p && mirror && tool === 'none' && p.x >= 0 && p.y >= 0 && p.x <= 1280 && p.y <= 720) sendInk({ op: 'cursor', ...p, hide: !arrow });
+      if (p && mirror && tool === 'none' && p.x >= 0 && p.y >= 0 && p.x <= W && p.y <= H) sendInk({ op: 'cursor', ...p, hide: !arrow });
     }, 120);
   };
   window.addEventListener(CAMERA, (e) => {

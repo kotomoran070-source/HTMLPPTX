@@ -63,8 +63,9 @@ test('«Как на этом компьютере»: вид слайдов ав�
   const r = await fetch('http://localhost:5190/__htmlpptx/export?deck=auto&mode=clean&look=dark&motion=1', { method: 'POST' });
   const html = await r.text();
   expect(r.ok).toBe(true);
-  // Стили и код не спрашивают систему про «Уменьшить движение»
-  expect(html).not.toContain('prefers-reduced-motion');
+  // Стили и код не спрашивают систему про «Уменьшить движение»: запросов (в скобках, как в CSS и matchMedia) нет.
+  // Само слово остаётся в коде стоп-кадров вставок (import-ui.ts, still) — это замена текста, а не запрос
+  expect(html).not.toMatch(/\(\s*prefers-reduced-motion/);
   const file = path.join(OUT, 'auto-same.html');
   fs.mkdirSync(OUT, { recursive: true });
   fs.writeFileSync(file, html);

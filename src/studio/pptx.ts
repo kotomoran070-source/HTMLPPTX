@@ -3,6 +3,7 @@ import { reroute } from '../components/connector/connector';
 import { answerKey } from '../components/quiz/check';
 import { getAt, type Path } from '../engine/data';
 import { staticSlide } from '../engine/deck-view';
+import { SLIDE_H, widthOf } from '../engine/slide-size';
 import { setSlidesLook, slidesLookOwn } from '../engine/theme';
 import type { Block, Deck } from '../types';
 import { fitHtml, hasEmbed } from '../components/html/html';
@@ -16,7 +17,8 @@ import { GradientMarks, gradFillXml, parseCssGradient, type CssGradient } from '
 
 /**
  * Экспорт в PowerPoint. Каждый слайд рисуется вне экрана в натуральную величину (1280×720 —
- * это широкий слайд PowerPoint 13,33″ × 7,5″, 96 px на дюйм), вёрстка обходится и становится
+ * это широкий слайд PowerPoint 13,33″ × 7,5″, 96 px на дюйм; 4:3 — 960×720, стандартный 10″ × 7,5″;
+ * 21:9 — 1680×720, 17,5″ × 7,5″), вёрстка обходится и становится
  * родными объектами: подложки — фигурами, тексты — надписями с оформлением, таблицы — таблицами,
  * графики — диаграммами, картинки — картинками, заметки — заметками докладчика.
  * Картинкой уходит только то, что так не передать: схемы, живые вставки, узорные фоны.
@@ -26,6 +28,8 @@ type Slide = PptxGenJS.Slide;
 type Pptx = PptxGenJS;
 
 const PX = 96;
+/** Ширина слайда экспортируемой презентации (1280; 4:3 — 960, 21:9 — 1680), высота — всегда 720 */
+let SW = 1280;
 /** Язык текста: иначе PowerPoint проверяет русский текст как английский и подчёркивает каждое слово */
 let LANG = 'ru-RU';
 // Без своего округления: pptxgenjs сам переводит дюймы в EMU (1 px = 9525 EMU) и пункты в сотые
@@ -363,7 +367,14 @@ export async function exportPptx(deck: Deck, progress?: PptxProgress, quality: E
   MARKS = new GradientMarks();
   const [{ default: Pptx }, { toPng }] = await Promise.all([import('pptxgenjs'), import('html-to-image')]);
   const pptx: Pptx = new Pptx();
-  pptx.layout = 'LAYOUT_WIDE';
+  // Размер слайда — как у презентации: 16:9 — «Широкоэкранный» PowerPoint (13,333 × 7,5 дюйма), 4:3 — «Стандартный»
+  // (10 × 7,5), 21:9 — свой (17,5 × 7,5)
+  SW = widthOf(deck);
+  if (SW === 1280) pptx.layout = 'LAYOUT_WIDE';
+  else {
+    pptx.defineLayout({ name: `SLIDERIA_${SW}`, width: SW / PX, height: SLIDE_H / PX });
+    pptx.layout = `SLIDERIA_${SW}`;
+  }
   pptx.title = deck.title ?? '';
   const lang = String((deck as { lang?: unknown }).lang ?? 'ru');
   LANG = lang.includes('-') ? lang : lang === 'en' ? 'en-US' : `${lang}-${lang.toUpperCase()}`;
@@ -374,14 +385,14 @@ export async function exportPptx(deck: Deck, progress?: PptxProgress, quality: E
   root.setAttribute('data-theme', 'light');
   const own = setSlidesLookFor(null);
   const host = document.createElement('div');
-  host.style.cssText = 'position:fixed;left:-20000px;top:0;width:1280px;height:720px;overflow:hidden;pointer-events:none';
+  host.style.cssText = `position:fixed;left:-20000px;top:0;width:${SW}px;height:${SLIDE_H}px;overflow:hidden;pointer-events:none`;
   document.body.appendChild(host);
 
   try {
     for (let i = 0; i < deck.slides.length; i++) {
       progress?.(i, deck.slides.length);
-      const box = staticSlide(deck, i, 1280);
-      // Без рамки миниатюры: иначе слайд ужимается до 1278 px и всё в файле на 0,16 % меньше
+      const box = staticSlide(deck, i, SW);
+      // Без рамки миниатюры: иначе слайд ужимается на 2 px и всё в файле на 0,16 % меньше
       box.style.border = '0';
       box.style.borderRadius = '0';
       host.replaceChildren(box);
@@ -488,7 +499,7 @@ class Converter {
     this.slide.background = { color: bg?.hex ?? 'FFFFFF' };
     this.bgHex = bg?.hex ?? 'FFFFFF';
     // Узорный фон (точки, градиенты) — картинкой под всем остальным
-    if (cs.backgroundImage !== 'none') await this.backgroundPicture(this.section, { x: 0, y: 0, w: 1280, h: 720 });
+    if (cs.backgroundImage !== 'none') await this.backgroundPicture(this.section, { x: 0, y: 0, w: SW, h: SLIDE_H });
     for (const c of this.section.children) await this.walk(c as HTMLElement, 1, 1);
   }
 
@@ -575,7 +586,7 @@ class Converter {
     if (op < 0.03) return;
     const k = this.unit(el, parentK);
     const b = this.box(el);
-    if (b.x > 1280 || b.y > 720 || b.x + b.w < 0 || b.y + b.h < 0) return;
+    if (b.x > SW || b.y > SLIDE_H || b.x + b.w < 0 || b.y + b.h < 0) return;
     const type = el.dataset.type;
     const tag = el.tagName.toLowerCase();
 

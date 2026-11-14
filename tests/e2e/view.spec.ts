@@ -1,6 +1,26 @@
-// «Вид» → «Интерфейс»: тема программы и вид слайдов в редакторе — отдельно
+// «Вид» → «Интерфейс»: тема программы и вид слайдов в редакторе — отдельно; шаг сетки; размер слайда (4:3, 21:9)
+import fs from 'node:fs';
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { watchErrors } from './helpers';
+import JSZip from 'jszip';
+import { DECKS, exportAs, readDeck, watchErrors } from './helpers';
+
+// Своя презентация для размера слайда: общие тестовые не меняются. Слайд 1 тесный (картинка и подписи на всю ширину)
+const SIZES = path.join(DECKS, 'sizes');
+test.beforeAll(() => {
+  fs.mkdirSync(SIZES, { recursive: true });
+  fs.writeFileSync(path.join(SIZES, 'deck.yaml'), `title: Размеры
+slides:
+  - template: canvas
+    free:
+      - {type: shape, id: photo, kind: rect, fill: accent, place: {x: 80, y: 120, w: 700, h: 400}}
+      - {type: text, id: notes, text: Подписи справа, place: {x: 860, y: 120, w: 380}}
+  - template: canvas
+    free:
+      - {type: text, id: title, text: Заголовок на всю ширину, place: {x: 80, y: 60, w: 1120}}
+`);
+});
+test.afterAll(() => fs.rmSync(SIZES, { recursive: true, force: true }));
 
 test('«Вид слайдов» отдельно от темы интерфейса: светлые слайды в тёмной программе, T меняет только программу', async ({ page }) => {
   const errors = watchErrors(page);
@@ -76,5 +96,52 @@ test('«Шаг сетки»: готовые значения и свой — в�
   await expect(field).toHaveValue('100');
   await page.locator('.st-menu button', { hasText: '20 px' }).click();
   await expect.poll(gs).toBeCloseTo(20, 0);
+  expect(errors).toEqual([]);
+});
+
+test('«Размер слайда»: 4:3 — вопрос с превью, Enter — «Уместить»; холст 4:3; Ctrl+Z — как было; 21:9 — без вопроса; PPTX своего размера', async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = watchErrors(page);
+  await page.goto('/?deck=sizes&studio#1');
+  const stage = page.locator('#st-canvas .stage');
+  await page.locator('#st-canvas .slide.on').waitFor();
+  const ratio = async () => { const b = (await stage.boundingBox())!; return b.width / b.height; };
+  expect(await ratio()).toBeCloseTo(16 / 9, 1);
+  await page.locator('.st-tabs [data-tab="view"]').click();
+  const size = page.locator('.st-ribbon [data-cmd="view.size"]');
+  await size.click();
+  await expect(page.locator('.st-menu [aria-checked="true"]')).toContainText('Широкий 16:9');
+  await page.locator('.st-menu button', { hasText: 'Стандартный 4:3' }).click();
+  // Слайд 1 тесный — вопрос с двумя превью; Enter — «Уместить»
+  const ask = page.locator('.sz');
+  await expect(ask).toBeVisible();
+  await expect(ask).toContainText('На слайде 1 содержимое шире нового слайда (960 px)');
+  await expect(ask.locator('.sz-opt .thumb')).toHaveCount(2);
+  await page.keyboard.press('Enter');
+  await expect(ask).toHaveCount(0);
+  await expect(page.locator('#ed-toast')).toContainText('Размер слайда — Стандартный 4:3 · уменьшено слайдов: 1');
+  await expect.poll(() => readDeck('sizes')).toMatch(/size: ["']?4:3/);
+  await expect.poll(ratio).toBeCloseTo(4 / 3, 1);
+  // Композиция слайда 1 уменьшена целиком, заголовок слайда 2 — сузился вместе со слайдом
+  expect(readDeck('sizes')).toContain('place: {x: 60, y: 180, w: 525, h: 300}');
+  expect(readDeck('sizes')).toContain('w: 800');
+  // Ctrl+Z — снова 16:9 и прежние места, на том же слайде
+  await page.locator('#st-canvas').click({ position: { x: 4, y: 4 } });
+  await page.keyboard.press('Control+z');
+  await expect(page.locator('#ed-toast')).toContainText('Отменено: размер слайда');
+  await expect.poll(() => readDeck('sizes')).not.toMatch(/size:/);
+  await expect.poll(ratio).toBeCloseTo(16 / 9, 1);
+  await expect(page).toHaveURL(/#1$/);
+  // Шире — без вопроса: заголовок тянется до 1520
+  await size.click();
+  await page.locator('.st-menu button', { hasText: 'Сверхширокий 21:9' }).click();
+  await expect(ask).toHaveCount(0);
+  await expect.poll(() => readDeck('sizes')).toMatch(/size: ["']?21:9/);
+  await expect.poll(ratio).toBeCloseTo(21 / 9, 1);
+  expect(readDeck('sizes')).toContain('w: 1520');
+  // PowerPoint — слайд 17,5 × 7,5 дюйма
+  const [download] = await Promise.all([page.waitForEvent('download', { timeout: 100_000 }), exportAs(page, 'pptx')]);
+  const zip = await JSZip.loadAsync(fs.readFileSync(await download.path()));
+  expect(await zip.file('ppt/presentation.xml')!.async('string')).toMatch(/<p:sldSz cx="16002000" cy="6858000"/);
   expect(errors).toEqual([]);
 });

@@ -202,6 +202,12 @@ test('картинки слайдов: PNG 1280×720 с подписью, сво
   expect(Math.max(...channels.map((c) => c.stdev))).toBeGreaterThan(3);
   const small = await client.callTool({ name: 'view_slides', arguments: { presentation: 'talk', slides: 2, width: 640 } }) as { content: { data?: string }[] };
   expect(pngSize(small.content[1].data!)).toEqual([640, 360]);
+  // Слайд 4:3 (операция агента deck.size) — картинка один к одному: 960×720; размер — в кратком содержании
+  expect((await call('edit_presentation', { presentation: 'talk', ops: [{ op: 'deck.size', size: '4:3' }] })).error).toBe(false);
+  expect((await call('read_presentation', { presentation: 'talk' })).data.canvas).toEqual({ size: '4:3', w: 960, h: 720 });
+  const narrow = await client.callTool({ name: 'view_slides', arguments: { presentation: 'talk', slides: 1 } }) as { content: { data?: string }[] };
+  expect(pngSize(narrow.content[1].data!)).toEqual([960, 720]);
+  expect((await call('edit_presentation', { presentation: 'talk', ops: [{ op: 'deck.size', size: '16:9' }] })).error).toBe(false);
   expect((await call('view_slides', { presentation: 'talk', slides: 9 })).text).toBe('Нет слайда 9: слайды — с 1 по 2');
   expect((await call('view_slides', { presentation: 'talk', slides: [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1] })).text).toBe('slides — от 1 до 10 слайдов');
 });

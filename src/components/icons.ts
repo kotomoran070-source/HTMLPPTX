@@ -223,6 +223,11 @@ const PATHS: Record<string, string> = {
   send: '<path d="M12 19V5M6 11l6-6 6 6"/>',
   stop: '<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"/>',
   slide: '<rect x="3" y="5" width="18" height="13" rx="2"/><path d="M8 21h8"/>',
+  // Размер слайда («Вид» → «Размер слайда»): рамка со стрелкой ширины; пропорции — рамками в меню
+  'slide-size': '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 12h10M9 10l-2 2 2 2M15 10l2 2-2 2"/>',
+  'ratio-16-9': '<rect x="2" y="6.4" width="20" height="11.2" rx="2"/>',
+  'ratio-4-3': '<rect x="4" y="6" width="16" height="12" rx="2"/>',
+  'ratio-21-9': '<rect x="1" y="7.3" width="22" height="9.4" rx="2"/>',
   key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16.5 6.5 19 9M14 9l2 2"/>',
   'chev-down': '<path d="m6 9 6 6 6-6"/>',
   journal: '<path d="M4 6h16M4 12h10M4 18h7"/><circle cx="18" cy="16" r="3.2"/><path d="M18 14.6V16l1 .8"/>',

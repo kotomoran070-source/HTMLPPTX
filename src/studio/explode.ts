@@ -1,3 +1,4 @@
+import { W } from '../engine/deck-view';
 import { getAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
 import type { Block, Deck, SlideData } from '../types';
@@ -55,7 +56,7 @@ export function explodeSlide(host: Host, index: number): boolean {
   const slide = stage.querySelector<HTMLElement>(':scope > .slide.on');
   if (!canExplode(data) || !slide) return false;
   const sr = slide.getBoundingClientRect();
-  const k = 1280 / sr.width;
+  const k = W / sr.width;
   const rect = (el: Element) => {
     const r = el.getBoundingClientRect();
     const f = (n: number) => Math.round(n * 10) / 10;
@@ -172,7 +173,7 @@ export function explodeSlide(host: Host, index: number): boolean {
     if (el !== outer) {
       const ocs = getComputedStyle(outer);
       place = rect(el);
-      // Поля обёртки — в пикселях вёрстки, а они и есть пиксели слайда (слайд свёрстан на 1280)
+      // Поля обёртки — в пикселях вёрстки, а они и есть пиксели слайда (слайд свёрстан на свою ширину W)
       place.w = Math.max(place.w, box.x + box.w - (parseFloat(ocs.paddingRight) || 0) - place.x);
     }
     if (!el.hasAttribute('data-edit') || el.querySelector('[data-edit],[data-edit-img],[data-block],img,svg,canvas,video,iframe')) return null;
@@ -206,7 +207,7 @@ export function explodeSlide(host: Host, index: number): boolean {
     if (Number.isFinite(lh) && Math.abs(lh / px - pr.leading) > 0.02) st.leading = Math.round((lh / px) * 100) / 100;
     if (cs.textAlign === 'center' || cs.textAlign === 'right' || cs.textAlign === 'justify') st.align = cs.textAlign;
     // Высота — по тексту (правка дописывает строки); ширина — с запасом на округление, чтобы строки не переносились иначе
-    return { type: 'text', text: String(v), styles: { text: st }, place: { x: place.x, y: place.y, w: Math.min(1280 - place.x, Math.round(place.w + 4)) } };
+    return { type: 'text', text: String(v), styles: { text: st }, place: { x: place.x, y: place.y, w: Math.min(W - place.x, Math.round(place.w + 4)) } };
   };
   /** Как на этом слайде выглядит обычная надпись и цвета темы — один раз за разбор */
   let probed: { color: string; weight: number; leading: number; bodyFont: string; headFont: string; hScale: number; colors: Map<string, string> } | null = null;

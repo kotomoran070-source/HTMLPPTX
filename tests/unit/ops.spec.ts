@@ -87,7 +87,7 @@ test('все или ни одной: ошибка в третьей операц
   fail([{ op: 'slide.set', slide: 1, set: { title: 'x' } }, { op: 'slide.set', slide: 2, set: { title: 'y' } }, { op: 'object.set', slide: 2, object: 7, set: { text: 'z' } }],
     'Операция 3 (object.set): нет объекта 7 на слайде 2: объекты — с 1 по 2');
   expect(JSON.stringify(d)).toBe(before);
-  fail([{ op: 'slide.zoom' }], /Операция 1: неизвестная «slide.zoom». Есть: deck.set, slide.add/);
+  fail([{ op: 'slide.zoom' }], /Операция 1: неизвестная «slide.zoom». Есть: deck.set, deck.size, slide.add/);
   fail([{ op: 'slide.set', slide: 9, set: { title: 'x' } }], 'нет слайда 9: слайды — с 1 по 3');
   fail([{ op: 'slide.set', slide: 'nope', set: { title: 'x' } }], 'нет слайда с id «nope»');
   fail([{ op: 'object.set', slide: 2, object: 'ghost', set: { text: 'x' } }], 'на слайде 2 нет объекта с именем «ghost»');

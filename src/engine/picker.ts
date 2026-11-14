@@ -81,7 +81,7 @@ async function remove(it: Item, thumb: HTMLElement | undefined, done: () => void
   await import('./import-ui.css');
   // Копия миниатюры не знает своего размера: масштаб под ширину окна
   const stage = holder.querySelector<HTMLElement>('.thumb-stage');
-  if (stage) stage.style.transform = `scale(${holder.clientWidth / 1280})`;
+  if (stage) stage.style.transform = `scale(${(stage.parentElement?.clientWidth ?? holder.clientWidth) / (Number(stage.dataset.sw) || 1280)})`;
   const ok = box.querySelector<HTMLButtonElement>('[data-a="ok"]')!;
   const cancel = box.querySelector<HTMLButtonElement>('[data-a="cancel"]')!;
   const close = () => { leave(box, { box: '.imp' }); removeEventListener('keydown', onKey, true); };

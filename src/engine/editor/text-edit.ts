@@ -1,3 +1,4 @@
+import { W } from '../deck-view';
 import { themeSwatches } from '../deck-theme';
 import { deckFonts, fontNameOk, fontStack } from '../fonts';
 import { fontItems, fontPicker, weightName, weightNameEn, type FontItem, tryFontOn } from './font-picker';
@@ -1630,10 +1631,10 @@ export class TextEditor {
       if (!s) return;
       e.preventDefault();
       h.setPointerCapture(e.pointerId);
-      const k = this.host.stage().getBoundingClientRect().width / 1280;
+      const k = this.host.stage().getBoundingClientRect().width / W;
       const left = s.el.getBoundingClientRect().left;
       const move = (ev: PointerEvent) => {
-        const w = Math.round(Math.max(60, Math.min(1280, (ev.clientX - left) / k)));
+        const w = Math.round(Math.max(60, Math.min(W, (ev.clientX - left) / k)));
         s.styles.width = w;
         s.el.style.maxWidth = `${w}px`;
         this.position();

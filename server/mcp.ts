@@ -235,7 +235,7 @@ export function createMcp(o: McpOptions) {
       title: 'Картинки слайдов',
       description: 'Как слайды выглядят на самом деле: картинки PNG в конечном виде (все шаги показа открыты, анимации доиграны). '
         + 'Смотрите после правки: текст не вылезает и не обрезан, объекты не наложились, всё читается и выровнено. '
-        + `slides — номер с 1 или id, или список (до ${SHOT_MAX}). width — ширина картинки: по умолчанию 1280 (слайд 1280×720 один к одному); `
+        + `slides — номер с 1 или id, или список (до ${SHOT_MAX}). width — ширина картинки: по умолчанию — ширина слайда (один к одному: 1280×720, у 4:3 — 960×720, у 21:9 — 1680×720); `
         + 'для обзора многих слайдов хватит 480–640. Перед каждой картинкой — подпись: номер, id, rev и заголовок.',
       inputSchema: {
         type: 'object',
@@ -255,8 +255,8 @@ export function createMcp(o: McpOptions) {
         const name = deckName(a);
         const refs = Array.isArray(a.slides) ? a.slides : [a.slides];
         if (!refs.length || refs.length > SHOT_MAX) throw new ToolError(`slides — от 1 до ${SHOT_MAX} слайдов`);
-        const width = a.width === undefined ? 1280 : Number(a.width);
-        if (!Number.isInteger(width) || width < 320 || width > 1920) throw new ToolError('width — целое число от 320 до 1920');
+        const width = a.width === undefined ? undefined : Number(a.width);
+        if (width !== undefined && (!Number.isInteger(width) || width < 320 || width > 1920)) throw new ToolError('width — целое число от 320 до 1920');
         if (a.look !== undefined && a.look !== 'light' && a.look !== 'dark') throw new ToolError('look: "light" или "dark"');
         let ol: DeckOutline;
         try { ol = core.outline(name) as DeckOutline; } catch (e) { throw new ToolError((e as Error).message); }
@@ -268,7 +268,7 @@ export function createMcp(o: McpOptions) {
         if (!shots) throw new ToolError('Картинки слайдов в этом запуске недоступны: нет браузера. Подключите агента к программе Slideria («Файл → Интеграции → Агенты»)');
         let png: Buffer[];
         try {
-          png = await shots.shoot(name, { slides: list.map((s) => s.n), width, ...(a.look ? { look: a.look as 'light' | 'dark' } : {}) });
+          png = await shots.shoot(name, { slides: list.map((s) => s.n), ...(width ? { width } : {}), ...(a.look ? { look: a.look as 'light' | 'dark' } : {}) });
         } catch (e) {
           throw new ToolError((e as Error).message);
         }

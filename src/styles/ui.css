@@ -104,9 +104,13 @@ body.fs .progress-top { opacity: .7; }
 .ovkeys { margin: 16px 0 0; max-width: none; font-size: 12px; }
 @media (max-width: 760px) { .ovgrid { grid-template-columns: repeat(2, 1fr); } }
 
-/* Миниатюра: слайд 1280×720, уменьшенный трансформацией */
+/* Миниатюра: слайд W×720 (--sw — своя у миниатюры, deck-view.ts staticSlide), уменьшенный трансформацией */
 .thumb { position: relative; overflow: hidden; border-radius: 8px; border: 1px solid var(--bd); }
-.thumb-stage { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; transform-origin: 0 0; pointer-events: none; }
+.thumb-stage { position: absolute; left: 0; top: 0; width: var(--sw, 1280px); height: 720px; transform-origin: 0 0; pointer-events: none; }
+/* Слайд не 16:9 (deck.size) в рамке 16:9 (карточка на странице выбора, «Сохранить изменения?», «Версии», чат):
+   4:3 — по высоте рамки с полями по бокам, 21:9 — по ширине с полями сверху и снизу, а не обрезан */
+:is(.pk-thumb, .pk-confirm-thumb, .lv-thumb, .ac-th, .fp-ver-th):has(> .thumb[data-size]) { display: grid; place-items: center; }
+:is(.pk-thumb, .pk-confirm-thumb, .lv-thumb, .ac-th, .fp-ver-th) > .thumb[data-size="4:3"] { width: auto !important; height: 100% !important; }
 
 /* Окно докладчика */
 body.presenter { overflow: hidden; background: var(--alt); }
@@ -211,19 +215,19 @@ select[data-open] { border-color: var(--ac) !important; }
   * { scrollbar-width: auto; scrollbar-color: color-mix(in srgb, var(--mu) 45%, transparent) transparent; }
 }
 
-/* Печать и «Сохранить как PDF»: страница 16:9 без полей (браузер не добавляет дату и адрес),
-   на каждой странице один слайд в конечном виде — копия из print.ts */
+/* Печать и «Сохранить как PDF»: страница размером со слайд без полей (браузер не добавляет дату и адрес),
+   на каждой странице один слайд в конечном виде — копия из print.ts (у 4:3 и 21:9 размер страницы ставит она же) */
 @page { size: 1280px 720px; margin: 0; }
-.print-deck { position: fixed; left: -20000px; top: 0; width: 1280px; pointer-events: none; }
+.print-deck { position: fixed; left: -20000px; top: 0; width: var(--sw, 1280px); pointer-events: none; }
 @media print {
-  html, body { width: 1280px; height: auto; margin: 0; overflow: visible; background: none; }
+  html, body { width: var(--sw, 1280px); height: auto; margin: 0; overflow: visible; background: none; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   *, *::before, *::after { transition: none !important; }
   /* Определения SVG презентации (логотип #lg, градиенты) остаются: без них не рисуются ссылки на них */
   body > :not(.print-deck):not([id^="htmlpptx-defs-"]) { display: none !important; }
   .print-deck { position: static; left: auto; }
   /* contain: иначе свечения и кольца одного слайда заставляют Chrome уменьшить все страницы */
-  .print-page { position: relative; width: 1280px; height: 720px; overflow: hidden; contain: strict; break-after: page; page-break-after: always; break-inside: avoid; }
+  .print-page { position: relative; width: var(--sw, 1280px); height: 720px; overflow: hidden; contain: strict; break-after: page; page-break-after: always; break-inside: avoid; }
   .print-page:last-child { break-after: auto; page-break-after: auto; }
   .print-page > .thumb { border: 0; border-radius: 0; }
   .print-page .thumb-stage { transform: none !important; }
@@ -232,8 +236,8 @@ select[data-open] { border-color: var(--ac) !important; }
 html.shot, html.shot body { margin: 0; overflow: hidden; background: #000; }
 html.shot *, html.shot *::before, html.shot *::after { transition: none !important; }
 html.shot body > :not(.print-deck):not([id^="htmlpptx-defs-"]) { display: none !important; }
-html.shot .print-deck { left: 0; }
-html.shot .print-page { position: relative; overflow: hidden; contain: strict; aspect-ratio: 16 / 9; }
+html.shot .print-deck { left: 0; width: 100%; }
+html.shot .print-page { position: relative; overflow: hidden; contain: strict; aspect-ratio: var(--sar, 16 / 9); }
 html.shot .print-page[hidden] { display: none; }
 html.shot .print-page > .thumb { border: 0; border-radius: 0; }
 

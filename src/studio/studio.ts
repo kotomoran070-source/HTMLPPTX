@@ -8,6 +8,8 @@ import { applyThemeSwatches, themeMode } from '../engine/deck-theme';
 import { smoothWheel, smoothWheelOn, setSmoothWheel, stripWheel } from '../engine/hscroll';
 import { getAt, setAt, type Path } from '../engine/data';
 import { DeckView, H, W } from '../engine/deck-view';
+import { isSlideSize, resizeDeck, tightSlides, type ResizeReport } from '../engine/slide-resize';
+import type { SlideSize } from '../engine/slide-size';
 import { Editor, SLIDE_PRESETS } from '../engine/editor/editor';
 import type { TextTarget } from '../engine/editor/text-edit';
 import { objectsText } from './objects-text';
@@ -84,6 +86,12 @@ interface Command {
 /** Шаг между появлениями объектов «по очереди», мс */
 export const STEP = 300;
 const ZOOMS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.25, 1.5, 2];
+/** «Вид» → «Размер слайда»: пропорция, название, пиксели и для чего */
+const SIZE_CHOICES: [SlideSize, string, string][] = [
+  ['16:9', 'Широкий 16:9', '1280 × 720 · обычные экраны и проекторы'],
+  ['4:3', 'Стандартный 4:3', '960 × 720 · старые проекторы'],
+  ['21:9', 'Сверхширокий 21:9', '1680 × 720 · широкие экраны и сцены'],
+];
 const PAD = 40;
 const NOTES_KEY = 'htmlpptx-studio-notes';
 
@@ -226,6 +234,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     </div>
     <div class="st-rpanel" data-panel="view" hidden>
       ${group('Панели', rb('view.slides', 'grid', 'Слайды', { big: true, key: 'Ctrl+Shift+1', title: 'Список слайдов слева' }) + rb('view.props', 'sliders', 'Свойства', { big: true, key: 'Ctrl+Shift+2', title: 'Панель свойств справа' }) + rb('view.notes', 'notes', 'Заметки', { big: true, key: 'Ctrl+Shift+3' }) + rb('view.code', 'terminal', 'Код слайда', { big: true, key: 'Ctrl+`', title: 'Код слайда (YAML), стили (CSS) и анимации (HTML/JS)' }) + rb('view.layers', 'layers', 'Область выделения', { big: true, key: 'Alt+F10', title: 'Объекты слайда списком' }))}
+      ${group('Слайд', rb('view.size', 'slide-size', 'Размер слайда', { big: true, menu: true, title: 'Пропорции слайда: широкий 16:9, стандартный 4:3 (старые проекторы) или сверхширокий 21:9' }))}
       ${group('Показать', `<div class="st-rstack">${chk('view.ruler', 'Линейка', 'Линейки сверху и слева')}${chk('view.grid', 'Сетка', 'Сетка и привязка к ней (Shift+F9)')}${chk('view.guides', 'Направляющие', 'Направляющие и привязка к ним (Alt+F9)')}</div><div class="st-rstack">${rb('view.grid-step', 'grid', 'Шаг сетки', { menu: true })}${rb('view.guides-reset', 'reset', 'Сбросить направляющие', { title: 'Оставить по одной направляющей по центру' })}</div>`)}
       ${group('Скорость', rb('view.lite', 'leaf', 'Облегчённый режим', { big: true, toggle: true, title: 'Для слабых компьютеров: анимации на слайде в редакторе остановлены. На показ не влияет' }))}
       ${group('Масштаб', rb('view.fit', 'fullscreen', 'Вписать', { big: true }) + `<div class="st-rstack">${rb('view.zoom-in', 'plus', 'Крупнее')}${rb('view.zoom-out', 'minus', 'Мельче')}</div>`)}
@@ -304,6 +313,32 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   let index = hashIndex();
   view.show(index);
 
+  // ---------------- размер слайда («Вид» → «Размер слайда») ----------------
+  /**
+   * Другие пропорции слайда: высота та же, ширина — своя (slide-size.ts); объекты встают по краям и центру
+   * (slide-resize.ts). Содержимое слайда шире нового размера — вопрос «Уместить или оставить» с превью (size-ask.ts). Одним Ctrl+Z
+   */
+  async function setSlideSize(size: SlideSize): Promise<void> {
+    const cur = isSlideSize(deck.size) ? deck.size : '16:9';
+    if (cur === size) return;
+    const tight = tightSlides(deck, size);
+    let fit = false;
+    if (tight.length) {
+      const { askFit } = await import('./size-ask');
+      const a = await askFit(deck, size, tight);
+      if (!a) return;
+      fit = a === 'fit';
+    }
+    ed.finishText();
+    let r: ResizeReport | null = null;
+    ed.commit((d) => { r = resizeDeck(d as Deck, size, { fit }); }, { rebuild: true });
+    const done = r as ResizeReport | null;
+    const name = SIZE_CHOICES.find(([s]) => s === size)![1];
+    const parts = [done?.scaled.length ? `уменьшено слайдов: ${done.scaled.length}` : '', done?.outside ? `за краем объектов: ${done.outside}` : ''].filter(Boolean);
+    ed.toast(`Размер слайда — ${name}${parts.length ? ` · ${parts.join(' · ')}` : ''} · Ctrl+Z — как было`, 3500);
+    queueState();
+  }
+
   // ---------------- масштаб ----------------
   let aids: ViewAids | null = null;
   let zoom: number | 'fit' = 'fit';
@@ -311,7 +346,10 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   function fitScale(): number {
     return Math.max(0.1, Math.min((canvas.clientWidth - PAD * 2) / W, (canvas.clientHeight - PAD * 2) / H));
   }
+  /** Ширина слайда, под которую разложен холст: сменился размер слайда (команда, Ctrl+Z) — разложить заново */
+  let laidW = W;
   function layout(): void {
+    if (laidW !== W) { aids?.resized(laidW, W); laidW = W; }
     scale = zoom === 'fit' ? fitScale() : zoom;
     paper.style.width = `${Math.round(W * scale)}px`;
     paper.style.height = `${Math.round(H * scale)}px`;
@@ -399,6 +437,8 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
         view.update(deck);
         if (index > count() - 1) index = count() - 1;
         view.show(index);
+        // Другой размер слайда (4:3, 21:9) — холст, линейки и направляющие под него
+        if (laidW !== W) layout();
       }
       applyAccent(deck.theme?.accent, accentTail(deck.theme));
       applyAccentFlow(deck.theme?.accentFlow);
@@ -1608,6 +1648,14 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     'view.guides': { run: () => toggleAid('guides'), active: () => lay.guides },
     'view.lite': { run: () => { lay.lite = !lay.lite; applyLayout(); queueState(); ed.toast(lay.lite ? 'Облегчённый режим включён: анимации на слайде остановлены' : 'Облегчённый режим выключен', 2500); }, active: () => lay.lite },
     'view.guides-reset': { run: () => { aids!.resetGuides(); if (!lay.guides) toggleAid('guides', true); } },
+    'view.size': {
+      run: () => {
+        const cur = isSlideSize(deck.size) ? deck.size : '16:9';
+        showMenu(document.querySelector<HTMLElement>('.st-ribbon [data-cmd="view.size"]')!, SIZE_CHOICES.map(([size, label, sub]) => ({
+          label, sub, icon: `ratio-${size.replace(':', '-')}`, checked: cur === size, run: () => void setSlideSize(size),
+        })));
+      },
+    },
     'view.grid-step': {
       run: () => {
         const setStep = (st: number) => { lay.step = st; aids!.state.step = st; aids!.apply(); applyLayout(); if (!lay.grid) toggleAid('grid', true); };
