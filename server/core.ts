@@ -21,7 +21,7 @@ import { importPptx } from '../plugins/pptx/index';
 import { stepToGlb, stlToGlb } from '../plugins/model-convert';
 import { compactImage } from '../plugins/optimize';
 import { mergeYaml } from '../plugins/yaml-merge';
-import { applyOps, outline as outlineOf, slideIndex, slideRev, type DeckOutline, type SlideRef } from '../src/engine/ops';
+import { applyOps, findText, outline as outlineOf, slideIndex, slideRev, type DeckOutline, type SlideRef, type TextHit } from '../src/engine/ops';
 import type { Deck, SlideData } from '../src/types';
 import { chatsDir, createIntegrations, type AgentInfo, type By, type JournalEntry } from './integrations';
 import { createPlayers, finishFile, variantOf } from './player';
@@ -162,6 +162,8 @@ export interface ExportOptions {
   /** «Как на этом компьютере»: вид слайдов автора и анимации при «Уменьшить движение» у зрителя */
   look?: 'light' | 'dark';
   motion: boolean;
+  /** Файлы — ссылками (адрес по пути на диске), а не внутри HTML: снимок слайда для агента (server/shot.ts) */
+  link?: (abs: string) => string;
 }
 
 export interface FileRef { url: string; path: string }
@@ -498,6 +500,57 @@ export function createDecksCore(opts: CoreOptions) {
     return { changed: next !== source, changes: r.changes, outline: outlineOf(after), ...(entry ? { entry } : {}) };
   }
 
+  /**
+   * Отменить правки агента (MCP undo_edit) — как «Вернуть» в студии (revertEntries, src/studio/integrations.ts): для
+   * каждой, от новой к старой, слияние трёх версий — после правки (база), до неё и сейчас: то, что поправили позже,
+   * остаётся. edits — время правок (t из журнала, edit в ответе apply); без них — последняя не отменённая правка
+   * этого агента. Отмена — тоже правка агента: точки до и после, запись в журнал (undid — что отменено)
+   */
+  function revert(name: string, req: { edits?: unknown; from?: string; by?: By }): { changed: boolean; changes: string[]; outline: DeckOutline; entry?: JournalEntry } {
+    const file = deckFile(assertDeck(name));
+    const by = byOf(req.by);
+    integrations.allow(by, 'edit');
+    const log = journal(name, 1000);
+    let todo: JournalEntry[];
+    if (req.edits === undefined) {
+      // Отменённые — от новых к старым: отмену саму отменили (вернули правку) — её правки снова в силе
+      const undone = new Set<string>();
+      for (const e of log) if (!undone.has(e.t)) e.undid?.forEach((t) => undone.add(t));
+      const last = by?.id ? log.find((e) => e.by.kind === by.kind && e.by.id === by.id && !e.undid && !undone.has(e.t)) : undefined;
+      if (!last) throw new Error('Отменять нечего: в этом подключении агент ещё не правил эту презентацию (или всё уже отменено). Правку другого подключения — по её edit');
+      todo = [last];
+    } else {
+      if (!Array.isArray(req.edits) || !req.edits.length || !req.edits.every((x) => typeof x === 'string')) throw new Error('edits — список правок: edit из ответа edit_presentation');
+      todo = (req.edits as string[]).map((t) => {
+        const e = log.find((x) => x.t === t);
+        if (!e) throw new Error(`Правки ${t} нет в журнале этой презентации`);
+        return e;
+      });
+    }
+    if (todo.some((e) => !e.checkpoint || !e.after)) throw new Error('У этой правки уже нет контрольных точек (истёк срок хранения): отменить её нельзя');
+    const source = fs.readFileSync(file, 'utf8');
+    const current = readYaml(file, source) as Deck;
+    const point = (id: string) => parseYaml(fs.readFileSync(pointFile(name, id), 'utf8')) as unknown;
+    let result: unknown = current;
+    for (const e of [...todo].sort((a, b) => b.t.localeCompare(a.t))) result = merge3(point(e.after!), point(e.checkpoint!), result).result;
+    if (same(result, current)) return { changed: false, changes: [], outline: outlineOf(current) };
+    const { store, toPaths } = filesOf(name);
+    const before = checkpoint(name, { kind: 'auto' }).id;
+    const next = writeDeck(name, source, toPaths(result), store, req.from || 'agent');
+    const changes = todo.flatMap((e) => e.changes.map((c) => ({ ...c, label: `Отмена: ${c.label}`, ...(c.was || c.now ? { was: c.now, now: c.was } : {}) })));
+    const entry = by && next !== source ? record(name, { by, changes, checkpoint: before, after: checkpoint(name, { kind: 'auto' }).id, undid: todo.map((e) => e.t) }) : undefined;
+    const after = next === source ? current : readYaml(file, next) as Deck;
+    return { changed: next !== source, changes: changes.map((c) => c.label), outline: outlineOf(after), ...(entry ? { entry } : {}) };
+  }
+
+  /** Поиск текста в презентации (MCP find_text): там же, где его меняет text.replace */
+  function find(name: string, query: unknown, o: { slide?: SlideRef } = {}): { hits: TextHit[]; total: number } {
+    if (typeof query !== 'string' || !query.trim()) throw new Error('query — что найти');
+    const deck = readYaml(deckFile(assertDeck(name))) as Deck;
+    if (!deck || !Array.isArray(deck.slides)) throw new Error('В deck.yaml нет списка слайдов');
+    try { return findText(deck, query, o); } catch (e) { const m = (e as Error).message; throw new Error(m[0].toUpperCase() + m.slice(1)); }
+  }
+
   // ---------------- интеграции: агенты, журнал, скрипты (server/integrations.ts) ----------------
   const integrations = createIntegrations({ dir, root, emit: (_t, e) => emit('agents', e) });
 
@@ -510,8 +563,8 @@ export function createDecksCore(opts: CoreOptions) {
   }
 
   /** Запись в журнал и событие окнам */
-  function record(name: string, e: { by: By; changes: JournalEntry['changes']; checkpoint?: string; after?: string }): JournalEntry {
-    const entry: JournalEntry = { t: new Date().toISOString(), deck: name, by: e.by, changes: e.changes, ...(e.checkpoint ? { checkpoint: e.checkpoint } : {}), ...(e.after ? { after: e.after } : {}) };
+  function record(name: string, e: { by: By; changes: JournalEntry['changes']; checkpoint?: string; after?: string; undid?: string[] }): JournalEntry {
+    const entry: JournalEntry = { t: new Date().toISOString(), deck: name, by: e.by, changes: e.changes, ...(e.checkpoint ? { checkpoint: e.checkpoint } : {}), ...(e.after ? { after: e.after } : {}), ...(e.undid ? { undid: e.undid } : {}) };
     integrations.record(entry);
     emit('journal', entry);
     return entry;
@@ -893,7 +946,7 @@ export function createDecksCore(opts: CoreOptions) {
     } catch (e) {
       throw new ExportError((e as Error).message);
     }
-    const html = await fileHtml(t.html, name, { compact: o.compact });
+    const html = await fileHtml(t.html, name, { compact: o.compact, link: o.link });
     return Buffer.from(finishFile(html, t, root, { look: o.look, motion: o.motion }));
   }
 
@@ -903,7 +956,7 @@ export function createDecksCore(opts: CoreOptions) {
    * Рядом — исходная версия данных (с путями к файлам): по ней yarn merge-html сольёт правки из файла с проектом.
    * compact — картинки заранее сжимаются в WebP, видео и модели — как есть
    */
-  async function fileHtml(html: string, name: string, o: { compact?: boolean } = {}): Promise<string> {
+  async function fileHtml(html: string, name: string, o: { compact?: boolean; link?: (abs: string) => string } = {}): Promise<string> {
     const file = deckFile(assertDeck(name));
     // Цветокоррекция (grade у картинки) нужна только для правки в студии: исходники и LUT в файл не едут
     const deck = dropGrades(readYaml(file)) as { title?: string; lang?: string };
@@ -936,6 +989,7 @@ export function createDecksCore(opts: CoreOptions) {
         console.warn(`Файл не найден: ${v} (из ${path.relative(process.cwd(), file)})`);
         return v;
       }
+      if (o.link) return o.link(abs);
       const small = packed.get(abs);
       if (small) return `data:${small.mime};base64,${small.data.toString('base64')}`;
       const ext = path.extname(abs).slice(1).toLowerCase();
@@ -967,6 +1021,10 @@ export function createDecksCore(opts: CoreOptions) {
     read,
     outline,
     apply,
+    revert,
+    find,
+    /** Агенту можно это? Нет — ошибка с тем, что разрешено (файл от агента — MCP add_media) */
+    allow: (by: unknown, need: 'edit' | 'all') => integrations.allow(byOf(by), need),
     /** Интеграции (server/integrations.ts, docs/INTEGRATIONS.md) */
     agents: () => integrations.agents(),
     agentHello: (a: { id: string; name: string; version?: string }) => integrations.hello(a),

@@ -138,6 +138,69 @@ function replaceIn(v: unknown, find: string, to: string, text: boolean, count: {
   return v;
 }
 
+/** Найденный текст (findText): где он — адресами операций — и кусок вокруг */
+export interface TextHit {
+  /** Слайд — номер с 1; нет — название презентации */
+  slide?: number;
+  id?: string;
+  rev?: string;
+  /** Свободный объект — номер с 1 (как в outline) и имя */
+  object?: number;
+  name?: string;
+  /** Блок раскладки (body) — номер с 1 */
+  block?: number;
+  /** Поле внутри слайда, объекта или блока: title, notes, items[2].text, rows[1][0] */
+  field: string;
+  text: string;
+}
+
+/** Для сравнения: без регистра, ё = е */
+const fold = (s: string) => s.toLocaleLowerCase('ru').replace(/ё/g, 'е');
+
+/**
+ * Поиск текста там же, где его меняет text.replace: заголовки, тексты, пункты, ячейки, заметки — без учёта регистра
+ * (ё = е). Ответ — места по порядку слайдов (не больше limit) и сколько их всего
+ */
+export function findText(d: Deck, query: string, o: { slide?: SlideRef; limit?: number } = {}): { hits: TextHit[]; total: number } {
+  const q = fold(query.trim());
+  if (!q) throw new OpError('query — непустой текст');
+  const limit = o.limit ?? 100;
+  const hits: TextHit[] = [];
+  let total = 0;
+  const snip = (s: string, at: number) => {
+    const from = Math.max(0, at - 40);
+    const to = Math.min(s.length, at + q.length + 40);
+    return `${from ? '…' : ''}${s.slice(from, to).replace(/\s+/g, ' ')}${to < s.length ? '…' : ''}`;
+  };
+  const hit = (s: string, where: Omit<TextHit, 'text'>) => {
+    const f = fold(s);
+    for (let at = f.indexOf(q); at >= 0; at = f.indexOf(q, at + q.length)) {
+      total++;
+      if (hits.length < limit) hits.push({ ...where, text: snip(s, at) });
+    }
+  };
+  // Как replaceIn: строка — текст, если её поле из TEXT (в списке — по полю списка)
+  const walk = (v: unknown, field: string, text: boolean, where: Omit<TextHit, 'text' | 'field'>) => {
+    if (typeof v === 'string') { if (text) hit(v, { ...where, field }); return; }
+    if (Array.isArray(v)) { v.forEach((x, k) => walk(x, `${field}[${k}]`, text, where)); return; }
+    if (isRec(v)) for (const [k, x] of Object.entries(v)) walk(x, field ? `${field}.${k}` : k, TEXT.has(k), where);
+  };
+  const only = o.slide === undefined ? -1 : slideIndex(d, o.slide);
+  if (only < 0 && typeof d.title === 'string') hit(d.title, { field: 'title' });
+  d.slides.forEach((s, i) => {
+    if ((only >= 0 && i !== only) || !isRec(s)) return;
+    const at = { slide: i + 1, ...(typeof s.id === 'string' ? { id: s.id } : {}), rev: slideRev(s) };
+    for (const [k, v] of Object.entries(s)) {
+      if (k === 'free' && Array.isArray(v)) {
+        v.forEach((b, n) => walk(b, '', false, { ...at, object: n + 1, ...(isRec(b) && typeof b.id === 'string' ? { name: b.id } : {}) }));
+      } else if (k === 'body') {
+        (Array.isArray(v) ? v : [v]).forEach((b, n) => walk(b, '', false, { ...at, block: n + 1 }));
+      } else walk(v, k, TEXT.has(k), at);
+    }
+  });
+  return { hits, total };
+}
+
 // ---------------- операции ----------------
 
 /** Правка для журнала: подпись, слайд (номер с 1 в ту минуту), было → стало — коротко, текстом */

@@ -367,6 +367,11 @@ test('MCP из самой программы: «Подключить к Claude D
     await ask(1, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'claude-ai', version: '1.0' } });
     expect((await ask(2, 'tools/list', {})).tools!.map((t) => t.name)).toContain('edit_presentation');
     expect((await ask(3, 'tools/call', { name: 'list_presentations', arguments: {} })).content![0].text).toContain('moya-pervaya-prezentaciya');
+    // Картинка слайда — невидимым окном программы (desktop/shot.mjs); окно закрылось — программа не выходит
+    const shot = (await ask(5, 'tools/call', { name: 'view_slides', arguments: { presentation: 'moya-pervaya-prezentaciya', slides: 1, width: 640 } })) as unknown as { content: { type: string; data?: string }[] };
+    expect(shot.content.map((c) => c.type), JSON.stringify(shot.content[0])).toEqual(['text', 'image']);
+    const png = Buffer.from(shot.content[1].data!, 'base64');
+    expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([640, 360]);
     const r = await ask(4, 'tools/call', { name: 'edit_presentation', arguments: { presentation: 'moya-pervaya-prezentaciya', ops: [{ op: 'slide.set', slide: 1, set: { notes: 'Заметка от агента' } }] } });
     expect(r.content![0].text).toContain('уже видна в открытой студии');
     await expect(win.locator('#st-notes-text')).toHaveValue('Заметка от агента');

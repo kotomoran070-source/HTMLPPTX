@@ -9,10 +9,12 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { OPS } from '../src/engine/ops';
+import { imageSize } from '../plugins/optimize';
+import { OPS, type DeckOutline } from '../src/engine/ops';
 import type { DecksCore } from './core';
 import { clientTitle } from './integrations';
 import { runningServer } from './running';
+import { createShots, type Shooter } from './shot';
 
 /** Версии протокола, с которыми работаем: первая — новейшая */
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
@@ -34,6 +36,8 @@ export interface McpOptions {
   downloads?: string;
   /** Адрес сервера студии (тесты); по умолчанию — из записи в папке */
   server?: () => string | null;
+  /** Невидимый браузер для картинок слайдов (view_slides, server/shot.ts); нет — инструмент объясняет, как быть */
+  shoot?: Shooter;
 }
 
 interface Tool {
@@ -44,6 +48,22 @@ interface Tool {
   annotations?: Rec;
   run(a: Rec): Promise<unknown>;
 }
+
+/** Ответ инструмента готовыми частями (текст и картинки), а не JSON одной строкой */
+class Content {
+  constructor(public items: Rec[]) {}
+}
+
+/** Сколько слайдов снимать за раз: картинки дороги для агента */
+const SHOT_MAX = 10;
+/** Файл с диска или по ссылке — не больше (видео тоже) */
+const MEDIA_MAX = 200 << 20;
+/** Тип файла по ответу сервера, если в ссылке нет расширения */
+const MEDIA_TYPES: Record<string, string> = {
+  'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/avif': 'avif', 'image/svg+xml': 'svg',
+  'video/mp4': 'mp4', 'video/webm': 'webm', 'model/gltf-binary': 'glb', 'model/stl': 'stl', 'model/step': 'step',
+};
+const MEDIA_KIND: Record<string, string> = { mp4: 'video', webm: 'video', glb: 'model', stl: 'model', step: 'model', stp: 'model' };
 
 const str = (a: Rec, k: string, what: string): string => {
   const v = a[k];
@@ -65,7 +85,10 @@ export function formatGuide(root: string): string | null {
 const INSTRUCTIONS = `Slideria: презентации — это данные (deck.yaml), а не вёрстка: тема даёт цвета, шрифты и фон.
 Как править: list_presentations → read_presentation (номера слайдов и объектов, ревизии rev) → edit_presentation
 пакетом операций с expect — ревизиями слайдов, которые правите. Слайд поменяли в студии — правка не применится:
-перечитайте. Поля слайдов и блоков — format_guide. Открытая студия показывает правки сразу, перед каждой правкой
+перечитайте. Поля слайдов и блоков — format_guide. Где встречается текст — find_text.
+После правки посмотрите на результат — view_slides (картинки слайдов): текст не вылезает, ничего не наложилось.
+Не то — undo_edit отменит вашу правку, не трогая того, что поправили после. Картинки и видео — add_media
+(файл с диска или ссылка), а не data: в данных. Открытая студия показывает правки сразу, перед каждой правкой
 делается контрольная точка. Что можно агентам (смотреть; править и создавать; всё — и сохранять скрипты), решает
 пользователь в студии.
 Повторяющееся действие пользователь может запускать сам — save_script сохранит скрипт в его папку скриптов.`;
@@ -80,6 +103,7 @@ export function createMcp(o: McpOptions) {
   const agent = { id: Math.random().toString(36).slice(2, 12), name: 'Агент', version: undefined as string | undefined };
   const by = () => ({ kind: 'agent' as const, id: agent.id, name: agent.name });
   let beat: ReturnType<typeof setInterval> | null = null;
+  const shots = o.shoot ? createShots(core, o.shoot) : null;
 
   /** Сказать открытой студии, что мы на связи (студии нет — не страшно: правки пойдут в файлы) */
   async function hello(op: 'hello' | 'bye' = 'hello'): Promise<void> {
@@ -105,11 +129,39 @@ export function createMcp(o: McpOptions) {
     return data;
   }
 
+  /** Слайды из ответа apply и revert: номер, id, новая ревизия, заголовок — продолжать без перечитывания */
+  const revs = (r: Rec) => ((r.outline as { slides?: { n: number; id?: string; rev: string; title?: string }[] })?.slides ?? [])
+    .map((s) => ({ n: s.n, ...(s.id ? { id: s.id } : {}), rev: s.rev, ...(s.title ? { title: s.title } : {}) }));
+  const editOf = (r: Rec) => (r.entry as { t?: string } | undefined)?.t;
+
   const deckName = (a: Rec) => {
     const name = str(a, 'presentation', 'имя презентации из list_presentations');
     if (!core.has(name)) throw new ToolError(`Нет презентации «${name}». Есть: ${core.names().join(', ') || 'ни одной'}`);
     return name;
   };
+
+  /** Файл по ссылке: имя — из адреса (нет расширения — по типу из ответа), не больше MEDIA_MAX */
+  async function download(url: string): Promise<{ data: Buffer; name: string }> {
+    let u: URL;
+    try { u = new URL(url); } catch { throw new ToolError('url — ссылка вида https://…'); }
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new ToolError('url — ссылка http или https');
+    let r: Response;
+    try {
+      r = await fetch(u, { redirect: 'follow', signal: AbortSignal.timeout(60_000), headers: { 'user-agent': 'Slideria' } });
+    } catch (e) {
+      throw new ToolError(`Не удалось скачать ${u.href}: ${(e as Error).message}`);
+    }
+    if (!r.ok) throw new ToolError(`Не удалось скачать ${u.href}: ответ ${r.status}`);
+    if (Number(r.headers.get('content-length')) > MEDIA_MAX) throw new ToolError(`Файл больше ${MEDIA_MAX >> 20} МБ`);
+    const data = Buffer.from(await r.arrayBuffer());
+    if (data.length > MEDIA_MAX) throw new ToolError(`Файл больше ${MEDIA_MAX >> 20} МБ`);
+    let base = decodeURIComponent(path.posix.basename(u.pathname)) || 'file';
+    const mime = (r.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
+    if (mime.startsWith('text/html')) throw new ToolError(`По ссылке — страница, а не файл: ${u.href}`);
+    const ext = MEDIA_TYPES[mime];
+    if (ext && path.extname(base).slice(1).toLowerCase() !== ext && !(ext === 'jpg' && /\.jpe?g$/i.test(base))) base = `${base.replace(/\.[^.]*$/, '')}.${ext}`;
+    return { data, name: base };
+  }
 
   const tools: Tool[] = [
     {
@@ -153,12 +205,87 @@ export function createMcp(o: McpOptions) {
       },
     },
     {
+      name: 'find_text',
+      title: 'Поиск по тексту',
+      description: 'Где в презентации встречается текст: заголовки, тексты, пункты, ячейки таблиц, заметки — без учёта регистра (ё = е). '
+        + 'Ответ — места с адресами для правки: слайд (slide — номер, id, rev), свободный объект (object — номер, name — имя) или блок '
+        + 'раскладки (block), поле (field: title, items[2].text…) и кусок текста; total — сколько всего. Заменить везде — операция text.replace.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          presentation: { type: 'string', description: 'имя презентации' },
+          query: { type: 'string', description: 'что найти' },
+          slide: { type: ['integer', 'string'], description: 'только на этом слайде: номер с 1 или id' },
+        },
+        required: ['presentation', 'query'],
+      },
+      annotations: { readOnlyHint: true },
+      async run(a) {
+        const name = deckName(a);
+        try {
+          const r = core.find(name, a.query, a.slide === undefined ? {} : { slide: a.slide as number | string });
+          return { total: r.total, hits: r.hits, ...(r.total > r.hits.length ? { note: `показаны первые ${r.hits.length}: уточните запрос или slide` } : {}) };
+        } catch (e) {
+          throw new ToolError((e as Error).message);
+        }
+      },
+    },
+    {
+      name: 'view_slides',
+      title: 'Картинки слайдов',
+      description: 'Как слайды выглядят на самом деле: картинки PNG в конечном виде (все шаги показа открыты, анимации доиграны). '
+        + 'Смотрите после правки: текст не вылезает и не обрезан, объекты не наложились, всё читается и выровнено. '
+        + `slides — номер с 1 или id, или список (до ${SHOT_MAX}). width — ширина картинки: по умолчанию 1280 (слайд 1280×720 один к одному); `
+        + 'для обзора многих слайдов хватит 480–640. Перед каждой картинкой — подпись: номер, id, rev и заголовок.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          presentation: { type: 'string', description: 'имя презентации' },
+          slides: {
+            type: ['integer', 'string', 'array'], items: { type: ['integer', 'string'] }, maxItems: SHOT_MAX,
+            description: 'слайд (номер с 1 или id) или список слайдов',
+          },
+          width: { type: 'integer', minimum: 320, maximum: 1920, description: 'ширина картинки в пикселях' },
+          look: { type: 'string', enum: ['light', 'dark'], description: 'вид слайдов, если тема презентации следует теме интерфейса (по умолчанию — светлый)' },
+        },
+        required: ['presentation', 'slides'],
+      },
+      annotations: { readOnlyHint: true },
+      async run(a) {
+        const name = deckName(a);
+        const refs = Array.isArray(a.slides) ? a.slides : [a.slides];
+        if (!refs.length || refs.length > SHOT_MAX) throw new ToolError(`slides — от 1 до ${SHOT_MAX} слайдов`);
+        const width = a.width === undefined ? 1280 : Number(a.width);
+        if (!Number.isInteger(width) || width < 320 || width > 1920) throw new ToolError('width — целое число от 320 до 1920');
+        if (a.look !== undefined && a.look !== 'light' && a.look !== 'dark') throw new ToolError('look: "light" или "dark"');
+        let ol: DeckOutline;
+        try { ol = core.outline(name) as DeckOutline; } catch (e) { throw new ToolError((e as Error).message); }
+        const list = refs.map((ref) => {
+          const s = typeof ref === 'number' ? ol.slides[ref - 1] : ol.slides.find((x) => x.id === ref);
+          if (!s) throw new ToolError(typeof ref === 'number' ? `Нет слайда ${ref}: слайды — с 1 по ${ol.slides.length}` : `Нет слайда с id «${String(ref)}»`);
+          return s;
+        });
+        if (!shots) throw new ToolError('Картинки слайдов в этом запуске недоступны: нет браузера. Подключите агента к программе Slideria («Файл → Интеграции → Агенты»)');
+        let png: Buffer[];
+        try {
+          png = await shots.shoot(name, { slides: list.map((s) => s.n), width, ...(a.look ? { look: a.look as 'light' | 'dark' } : {}) });
+        } catch (e) {
+          throw new ToolError((e as Error).message);
+        }
+        return new Content(list.flatMap((s, k) => [
+          { type: 'text', text: `Слайд ${s.n}${s.id ? ` (id ${s.id})` : ''} · rev ${s.rev}${s.title ? ` · ${s.title}` : ''}${s.hidden ? ' · скрыт в показе' : ''}` },
+          { type: 'image', data: png[k].toString('base64'), mimeType: 'image/png' },
+        ]));
+      },
+    },
+    {
       name: 'edit_presentation',
       title: 'Правка презентации',
       description: 'Правка пакетом операций: все или ни одной. Адреса: слайд — номер с 1 или id; объект — номер с 1 из objects слайда или его имя (name). '
         + 'Номера — после предыдущих операций того же пакета. В expect — { slide, rev } каждого слайда, который правите, из read_presentation: '
         + 'если его с тех пор поменяли, правка не применится — перечитайте. Поля set — JSON Merge Patch: объекты сливаются по полям, null удаляет поле, '
-        + 'списки заменяются целиком. Поля слайдов и объектов — format_guide. Ответ — подписи правок и новые ревизии слайдов.\nОперации:\n' + opsHelp(),
+        + 'списки заменяются целиком. Поля слайдов и объектов — format_guide. Ответ — подписи правок, edit (для undo_edit) и новые ревизии слайдов. '
+        + 'После правки проверьте вид — view_slides.\nОперации:\n' + opsHelp(),
       inputSchema: {
         type: 'object',
         properties: {
@@ -188,10 +315,95 @@ export function createMcp(o: McpOptions) {
           throw new ToolError((e as Error).message);
         }
         // Содержание целиком агенту не нужно после каждой правки: подписи и новые ревизии — продолжать без
-        // перечитывания; подробности слайда — read_presentation
-        const slides = ((r.outline as { slides?: { n: number; id?: string; rev: string; title?: string }[] })?.slides ?? [])
-          .map((s) => ({ n: s.n, ...(s.id ? { id: s.id } : {}), rev: s.rev, ...(s.title ? { title: s.title } : {}) }));
-        return { changed: r.changed, changes: r.changes, slides, ...(studio ? { studio: 'правка уже видна в открытой студии' } : {}) };
+        // перечитывания; подробности слайда — read_presentation. edit — чем отменить эту правку (undo_edit)
+        const edit = editOf(r);
+        return { changed: r.changed, changes: r.changes, ...(edit ? { edit } : {}), slides: revs(r), ...(studio ? { studio: 'правка уже видна в открытой студии' } : {}) };
+      },
+    },
+    {
+      name: 'undo_edit',
+      title: 'Отменить правку',
+      description: 'Отменить свою правку. Без edit — последнюю ещё не отменённую правку этого подключения (вызвать ещё раз — предыдущую); '
+        + 'с edit — ту, что указана (edit из ответа edit_presentation). Отменяется только эта правка: то, что пользователь или '
+        + 'другие поправили позже, остаётся. Отмена — тоже правка: у неё свой edit. Ответ — что отменено и новые ревизии слайдов.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          presentation: { type: 'string', description: 'имя презентации' },
+          edit: { type: 'string', description: 'какую правку отменить: edit из ответа edit_presentation' },
+        },
+        required: ['presentation'],
+      },
+      annotations: { destructiveHint: true },
+      async run(a) {
+        const name = deckName(a);
+        const body = { edits: a.edit === undefined ? undefined : [str(a, 'edit', 'edit из ответа edit_presentation')], by: by() };
+        let r = await viaStudio(`revert?deck=${encodeURIComponent(name)}&from=mcp`, body) as Rec | null;
+        const studio = !!r;
+        try {
+          r ??= core.revert(name, { ...body, from: 'mcp' }) as unknown as Rec;
+        } catch (e) {
+          throw new ToolError((e as Error).message);
+        }
+        if (!r.changed) return { changed: false, note: 'Уже как было до этой правки: менять нечего', slides: revs(r) };
+        const edit = editOf(r);
+        return { changed: true, undone: r.changes, ...(edit ? { edit } : {}), slides: revs(r), ...(studio ? { studio: 'отмена уже видна в открытой студии' } : {}) };
+      },
+    },
+    {
+      name: 'add_media',
+      title: 'Добавить картинку или видео',
+      description: 'Картинка, видео или 3D-модель — в папку презентации (assets/): с диска этого компьютера (file — полный путь) или по ссылке '
+        + '(url, http или https). Ответ — src для объекта и размеры картинки; дальше edit_presentation: '
+        + '{ "op": "object.add", "slide": 2, "object": { "type": "image", "src": "./assets/фото.jpg", "place": { "x": 80, "y": 120, "w": 560, "h": 420 } } } '
+        + '(видео — type: video, модель — type: model). Так дешевле, чем передавать картинку текстом data:. Тот же файл второй раз не копируется. '
+        + 'PNG, JPG, GIF, WebP, AVIF, SVG, MP4, WebM, GLB; STL и STEP становятся GLB.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          presentation: { type: 'string', description: 'имя презентации' },
+          file: { type: 'string', description: 'полный путь к файлу на этом компьютере' },
+          url: { type: 'string', description: 'ссылка на файл (http или https)' },
+          name: { type: 'string', description: 'имя файла в презентации (по умолчанию — как у исходного)' },
+        },
+        required: ['presentation'],
+      },
+      annotations: { destructiveHint: false, openWorldHint: true },
+      async run(a) {
+        const name = deckName(a);
+        if ((a.file === undefined) === (a.url === undefined)) throw new ToolError('Нужно одно из двух: file (путь на диске) или url (ссылка)');
+        try { core.allow(by(), 'edit'); } catch (e) { throw new ToolError((e as Error).message); }
+        let data: Buffer;
+        let fileName: string;
+        if (a.file !== undefined) {
+          const file = str(a, 'file', 'полный путь к файлу');
+          if (!path.isAbsolute(file)) throw new ToolError('file — полный путь к файлу');
+          let st: fs.Stats;
+          try { st = fs.statSync(file); } catch { throw new ToolError(`Файла нет: ${file}`); }
+          if (!st.isFile()) throw new ToolError(`Это не файл: ${file}`);
+          if (st.size > MEDIA_MAX) throw new ToolError(`Файл больше ${MEDIA_MAX >> 20} МБ`);
+          data = fs.readFileSync(file);
+          fileName = path.basename(file);
+        } else {
+          const got = await download(str(a, 'url', 'ссылка на файл'));
+          data = got.data;
+          fileName = got.name;
+        }
+        if (a.name !== undefined) {
+          const want = str(a, 'name', 'имя файла');
+          // Без расширения — то же, что у исходного
+          fileName = path.extname(want) ? want : `${want}${path.extname(fileName)}`;
+        }
+        let ref: { path: string };
+        try {
+          ref = await core.addAsset(name, fileName, data);
+        } catch (e) {
+          throw new ToolError((e as Error).message);
+        }
+        const ext = path.extname(ref.path).slice(1).toLowerCase();
+        const type = MEDIA_KIND[ext] ?? (/^(png|jpe?g|gif|webp|avif|svg)$/.test(ext) ? 'image' : 'file');
+        const size = type === 'image' ? await imageSize(data) : null;
+        return { src: ref.path, type, ...(size ? { width: size.width, height: size.height } : {}), bytes: data.length };
       },
     },
     {
@@ -301,6 +513,7 @@ export function createMcp(o: McpOptions) {
     if (!t) throw new RpcError(-32602, `Нет инструмента «${String(p.name)}»`);
     try {
       const out = await t.run(isRec(p.arguments) ? p.arguments : {});
+      if (out instanceof Content) return { content: out.items };
       return { content: [{ type: 'text', text: typeof out === 'string' ? out : JSON.stringify(out) }] };
     } catch (e) {
       // Ошибка правки или неверные поля — агенту, чтобы он поправил запрос

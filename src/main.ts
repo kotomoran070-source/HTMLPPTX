@@ -10,6 +10,7 @@ import { onServer } from './engine/events';
 import { esc } from './engine/html';
 import { loadMath, usesMath } from './components/math/math';
 import { startPresenter } from './engine/presenter';
+import { shotDeck } from './engine/print';
 import { startShow, updateFavicon } from './engine/show';
 import { setupSelectMenus } from './engine/select-menu';
 import { initTheme } from './engine/theme';
@@ -100,6 +101,13 @@ async function boot(): Promise<void> {
   setMeta(deck);
   // Формулы рисуются сразу, без мигания исходником: набор формул — до первой отрисовки
   if (usesMath(deck)) await loadMath().catch(() => null);
+  // Снимок слайдов для агента (MCP view_slides): ?shot=3,5 — без показа, только эти слайды
+  const shot = params.get('shot');
+  if (shot) {
+    const w = Number(params.get('w'));
+    await shotDeck(deck, shot.split(',').map((n) => Number(n) - 1), w >= 160 && w <= 3840 ? w : 1280);
+    return bootDone();
+  }
   // Студия (редактор как в PowerPoint) — только с сервером: в собранный файл её код не попадает
   if (__SERVED__ && params.has('studio')) {
     // Свои темы, шаблоны, эффекты и образы — с диска, до первой отрисовки ленты

@@ -104,3 +104,17 @@ export async function compactImage(input: Buffer, ext: string): Promise<{ mime: 
     return null;
   }
 }
+
+/** Размер картинки в пикселях (PNG, JPG, GIF, WebP, AVIF, SVG); не картинка или не читается — null */
+export async function imageSize(input: Buffer): Promise<{ width: number; height: number } | null> {
+  try {
+    const { default: sharp } = await import('sharp');
+    const meta = await sharp(input).metadata();
+    if (!meta.width || !meta.height) return null;
+    // Снимок с телефона «лёжа» хранится повёрнутым: на слайде он стоит как задумано
+    const turned = (meta.orientation ?? 1) >= 5;
+    return turned ? { width: meta.height, height: meta.width } : { width: meta.width, height: meta.height };
+  } catch {
+    return null;
+  }
+}

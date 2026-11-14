@@ -10,18 +10,19 @@ import { staticSlide } from './deck-view';
  */
 let deckEl: HTMLElement | null = null;
 
-function build(deck: Deck): HTMLElement {
+/** Копия слайдов: все, кроме скрытых (печать), или только перечисленные (снимок для агента) — шириной width */
+function build(deck: Deck, only?: number[], width = 1280): HTMLElement {
   deckEl?.remove();
   const root = document.createElement('div');
   root.className = 'print-deck';
-  deck.slides.forEach((s, i) => {
-    // Скрытый слайд в PDF не попадает
-    if (s.hidden === true) return;
+  // Скрытый слайд в PDF не попадает
+  const list = only ?? deck.slides.flatMap((s, i) => (s.hidden === true ? [] : [i]));
+  for (const i of list) {
     const page = document.createElement('div');
     page.className = 'print-page';
-    page.appendChild(staticSlide(deck, i, 1280));
+    page.appendChild(staticSlide(deck, i, width));
     root.appendChild(page);
-  });
+  }
   document.body.appendChild(root);
   // Бесконечные анимации снимаются, остальные доматываются до конца
   for (const a of root.getAnimations({ subtree: true })) {
@@ -100,6 +101,35 @@ export async function printDeck(deck: Deck): Promise<void> {
   tellOpener({ kind: 'pdf', open: true });
   window.addEventListener('afterprint', () => tellOpener({ kind: 'pdf', done: true }), { once: true });
   window.print();
+}
+
+/**
+ * Снимок для агента (MCP view_slides, server/shot.ts): ?shot=3,5 — эти слайды (номера с 1) в конечном виде, как
+ * при печати, по одному на экране шириной w (?w=, по умолчанию 1280). Снимающий ждёт data-shot="ready" у <html>
+ * и показывает слайды по очереди: slideriaShot.show(k) — k-й из перечисленных, ответ — когда он нарисован
+ */
+export async function shotDeck(deck: Deck, list: number[], width: number): Promise<void> {
+  const html = document.documentElement;
+  html.classList.add('shot');
+  try {
+    const root = build(deck, list.filter((i) => i >= 0 && i < deck.slides.length), width);
+    await ready(root, deck);
+    const pages = [...root.children] as HTMLElement[];
+    const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    (window as { slideriaShot?: unknown }).slideriaShot = {
+      count: pages.length,
+      async show(k: number) {
+        pages.forEach((p, n) => { p.hidden = n !== k; });
+        await frame();
+        return true;
+      },
+    };
+    pages.forEach((p, n) => { p.hidden = n !== 0; });
+    await frame();
+    html.dataset.shot = 'ready';
+  } catch (e) {
+    html.dataset.shot = `error: ${(e as Error).message}`;
+  }
 }
 
 /** Сообщение окну редактора об экспорте (оно показывает, что файл готов) */

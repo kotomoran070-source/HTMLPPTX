@@ -228,6 +228,14 @@ select[data-open] { border-color: var(--ac) !important; }
   .print-page > .thumb { border: 0; border-radius: 0; }
   .print-page .thumb-stage { transform: none !important; }
 }
+/* Снимок слайда для агента (print.ts, shotDeck): та же копия, слайд на весь экран — по одному */
+html.shot, html.shot body { margin: 0; overflow: hidden; background: #000; }
+html.shot *, html.shot *::before, html.shot *::after { transition: none !important; }
+html.shot body > :not(.print-deck):not([id^="htmlpptx-defs-"]) { display: none !important; }
+html.shot .print-deck { left: 0; }
+html.shot .print-page { position: relative; overflow: hidden; contain: strict; aspect-ratio: 16 / 9; }
+html.shot .print-page[hidden] { display: none; }
+html.shot .print-page > .thumb { border: 0; border-radius: 0; }
 
 /* Подсказка показа: второй экран, разрешения */
 .show-note { position: fixed; left: 50%; bottom: 84px; z-index: 30; display: flex; align-items: center; gap: 12px; max-width: min(640px, calc(100vw - 32px)); padding: 12px 12px 12px 18px; border-radius: 12px; background: var(--surf); color: var(--tx); border: 1px solid var(--bd); box-shadow: 0 12px 32px rgba(15, 23, 42, .22); font-size: 14px; line-height: 1.45; opacity: 0; pointer-events: none; transform: translate(-50%, 8px); transition: opacity .2s, transform .2s; }

@@ -31,6 +31,8 @@ export interface JournalEntry {
   /** Контрольные точки перед правкой и после неё: «Вернуть» откатывает только эту правку */
   checkpoint?: string;
   after?: string;
+  /** Отмена правок агента (MCP undo_edit): время (t) отменённых правок */
+  undid?: string[];
 }
 
 export interface AgentInfo {

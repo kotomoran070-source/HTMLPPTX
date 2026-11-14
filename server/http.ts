@@ -291,6 +291,11 @@ async function route(core: DecksCore, o: HttpOptions, chat: AgentChat, clients: 
       const body = (await json(req)) as { ops?: unknown; expect?: unknown; by?: unknown } | null;
       return send(res, 200, core.apply(name, { ops: body?.ops, expect: body?.expect, from: q.get('from') || 'agent', by: body?.by as never }));
     }
+    // Отмена правки агента (MCP undo_edit): открытые окна подтягивают её, как правку другого окна
+    case 'revert': {
+      const body = (await json(req)) as { edits?: unknown; by?: unknown } | null;
+      return send(res, 200, core.revert(name, { edits: body?.edits, from: q.get('from') || 'agent', by: body?.by as never }));
+    }
     // Правка скрипта студии — в журнал (сама правка — в окне студии, запишется его сохранением)
     case 'journal-add': return send(res, 200, core.recordScript(name, ((await json(req)) ?? {}) as never));
     // Сообщение агенту — ответ потоком событий (строка JSON на событие); закрыли запрос («Стоп») — агент останавливается

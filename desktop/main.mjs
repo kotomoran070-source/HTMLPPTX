@@ -15,6 +15,7 @@ import { app, BrowserWindow, Menu, WebContentsView, desktopCapturer, dialog, ipc
 import { FIX_FLAG, allowFirewall, runFirewallFix } from './firewall.mjs';
 import { lanGateway } from './lan.mjs';
 import { flush, mcpInput } from './mcp-input.mjs';
+import { shootPages } from './shot.mjs';
 import { splashPage } from './splash.mjs';
 
 // Экземпляр, запущенный кнопкой «Разрешить в брандмауэре» с правами администратора:
@@ -677,7 +678,15 @@ async function runMcp() {
     process.chdir(ROOT);
     const { startMcp } = await import(pathToFileURL(path.join(CODE, 'server.mjs')).href);
     // SLIDERIA_MCP_FD0=1 — вход как на Windows (с fd 0) и в другой системе: так это проверяют тесты программы
-    await startMcp({ dir: DECKS, root: ROOT, version: app.getVersion(), input: mcpInput(process.env.SLIDERIA_MCP_FD0 === '1' ? 'win32' : process.platform), output: process.stdout });
+    await startMcp({
+      dir: DECKS, root: ROOT, version: app.getVersion(),
+      input: mcpInput(process.env.SLIDERIA_MCP_FD0 === '1' ? 'win32' : process.platform), output: process.stdout,
+      // Картинки слайдов (view_slides) — невидимым окном (desktop/shot.mjs)
+      shoot: shootPages,
+      // Недостающий вариант проигрывателя (экспорт, картинки слайдов) — как у окна: служебным процессом, к данным
+      run: runNode,
+      ...(PACKED ? { playerCache: path.join(DATA, 'player') } : {}),
+    });
     await flush();
   } catch (e) {
     log('MCP:', e?.stack ?? e);
@@ -725,6 +734,8 @@ app.on('activate', () => {
 });
 
 app.on('window-all-closed', () => {
+  // Режим MCP живёт без окон: закрылось окно снимка слайдов — это не выход
+  if (MCP_MODE) return;
   if (process.platform !== 'darwin') app.quit();
 });
 

@@ -23,6 +23,7 @@ import { WORKER_CSP, createHandler } from './http';
 import type { KeyStore } from './agent';
 import { createMcp, serveStdio } from './mcp';
 import { announce } from './running';
+import type { Shooter } from './shot';
 import { watchDecks } from './watch';
 
 /** Код и стили студии, кроме того, что знает MIME презентаций */
@@ -207,11 +208,18 @@ export function codeHints(studio: string): { studio: string; picker: string } {
  * запускают её с ключом --mcp (desktop/main.mjs), Node не нужен. Открыта студия с той же папкой — правки идут через
  * неё и сразу видны. Ответ — когда клиент закрыл вход
  */
-export async function startMcp(o: { dir: string; root: string; version: string; input: NodeJS.ReadableStream; output: NodeJS.WritableStream }): Promise<void> {
+export async function startMcp(o: {
+  dir: string; root: string; version: string; input: NodeJS.ReadableStream; output: NodeJS.WritableStream;
+  /** Картинки слайдов (view_slides) — невидимым окном программы */
+  shoot?: Shooter;
+  /** Недостающий вариант проигрывателя (экспорт, картинки слайдов): куда и чем собирать — как у окна программы */
+  playerCache?: string;
+  run?: Runner;
+}): Promise<void> {
   const dir = path.resolve(o.dir);
   const root = path.resolve(o.root);
-  const core = createDecksCore({ dir, root });
-  await serveStdio(createMcp({ core, dir, root, version: o.version }), o.input, o.output);
+  const core = createDecksCore({ dir, root, playerCache: o.playerCache, hooks: o.run ? { run: o.run } : undefined });
+  await serveStdio(createMcp({ core, dir, root, version: o.version, shoot: o.shoot }), o.input, o.output);
 }
 
 export async function startServer(o: ServeOptions): Promise<Served> {
