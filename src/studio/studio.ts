@@ -8,7 +8,7 @@ import { applyThemeSwatches, themeMode } from '../engine/deck-theme';
 import { smoothWheel, smoothWheelOn, setSmoothWheel, stripWheel } from '../engine/hscroll';
 import { getAt, setAt, type Path } from '../engine/data';
 import { DeckView, H, W } from '../engine/deck-view';
-import { isSlideSize, resizeDeck, roomySlides, tightSlides, type ResizeReport } from '../engine/slide-resize';
+import { fitChoices, isSlideSize, resizeDeck, type ResizeReport } from '../engine/slide-resize';
 import { SLIDE_SIZES as SIZE_W, widthOf, type SlideSize } from '../engine/slide-size';
 import { Editor, SLIDE_PRESETS } from '../engine/editor/editor';
 import type { TextTarget } from '../engine/editor/text-edit';
@@ -321,15 +321,16 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   async function setSlideSize(size: SlideSize): Promise<void> {
     const cur = isSlideSize(deck.size) ? deck.size : '16:9';
     if (cur === size) return;
-    // Сужение — тесные слайды «Уместить?», расширение — просторные холсты «Увеличить?»; нет таких — без вопроса
+    // Слайды, где «вписать целиком» и «по краям» дают разное (сужение — тесные, расширение — холсты со своей
+    // композицией): вопрос — для всех сразу или для каждого; нет таких — без вопроса
     const grow = SIZE_W[size] > widthOf(deck);
-    const which = grow ? roomySlides(deck, size) : tightSlides(deck, size);
-    let fit = false;
+    const which = fitChoices(deck, size);
+    let fit: boolean | number[] = false;
     if (which.length) {
       const { askFit } = await import('./size-ask');
       const a = await askFit(deck, size, which, grow ? 'grow' : 'shrink');
-      if (!a) return;
-      fit = a === 'fit';
+      if (a === null) return;
+      fit = a;
     }
     ed.finishText();
     let r: ResizeReport | null = null;

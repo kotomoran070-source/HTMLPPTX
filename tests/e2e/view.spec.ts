@@ -18,6 +18,10 @@ slides:
   - template: canvas
     free:
       - {type: text, id: title, text: Заголовок на всю ширину, place: {x: 80, y: 60, w: 1120}}
+  - template: canvas
+    free:
+      - {type: shape, id: left, kind: rect, place: {x: 80, y: 200, w: 520, h: 200}}
+      - {type: shape, id: right, kind: rect, place: {x: 680, y: 200, w: 520, h: 200}}
 `);
 });
 test.afterAll(() => fs.rmSync(SIZES, { recursive: true, force: true }));
@@ -113,24 +117,31 @@ test('«Размер слайда»: 4:3 — «Уместить», обратн�
   await size.click();
   await expect(page.locator('.st-menu [aria-checked="true"]')).toContainText('Широкий 16:9');
   await page.locator('.st-menu button', { hasText: 'Стандартный 4:3' }).click();
-  // Слайд 1 тесный — вопрос с двумя превью; Enter — «Уместить»
+  // Слайды 1 и 3 тесные — вопрос с двумя превью; для каждого слайда: слайд 3 — «Как есть», «Применить»
   const ask = page.locator('.sz');
   await expect(ask).toBeVisible();
-  await expect(ask).toContainText('На слайде 1 содержимое шире нового слайда (960 px)');
+  await expect(ask).toContainText('На 2 слайдах (1 и 3) содержимое шире нового слайда (960 px)');
   await expect(ask.locator('.sz-opt .thumb')).toHaveCount(2);
-  await page.keyboard.press('Enter');
+  await ask.locator('.sz-more').click();
+  await expect(ask.locator('.sz-item')).toHaveCount(2);
+  await expect(ask.locator('.sz-item .thumb')).toHaveCount(2);
+  await ask.locator('.sz-item[data-n="3"] [data-v="keep"]').click();
+  await expect(ask.locator('.sz-item[data-n="3"] [data-v="keep"]')).toHaveAttribute('aria-pressed', 'true');
+  await ask.locator('.sz-apply').click();
   await expect(ask).toHaveCount(0);
   await expect(page.locator('#ed-toast')).toContainText('Размер слайда — Стандартный 4:3 · уменьшено слайдов: 1');
+  // Слайд 3 — как есть: правый прямоугольник у правого края своего размера
+  await expect.poll(() => readDeck('sizes')).toContain('place: {x: 360, y: 200, w: 520, h: 200}');
   await expect.poll(() => readDeck('sizes')).toMatch(/size: ["']?4:3/);
   await expect.poll(ratio).toBeCloseTo(4 / 3, 1);
   // Композиция слайда 1 уменьшена целиком, заголовок слайда 2 — сузился вместе со слайдом
   expect(readDeck('sizes')).toContain('place: {x: 60, y: 180, w: 525, h: 300}');
   expect(readDeck('sizes')).toContain('w: 800');
-  // Обратно в 16:9 — «Увеличить?»: Enter — композиция как была
+  // Обратно в 16:9 — Enter, «Увеличить» для всех: композиция слайда 1 — как была
   await pick('Широкий 16:9');
-  await expect(ask).toContainText('Увеличить содержимое под 16:9?');
+  await expect(ask).toContainText('Как разместить содержимое в 16:9?');
   await page.keyboard.press('Enter');
-  await expect(page.locator('#ed-toast')).toContainText('Размер слайда — Широкий 16:9 · увеличено слайдов: 1');
+  await expect(page.locator('#ed-toast')).toContainText('Размер слайда — Широкий 16:9 · увеличено слайдов: 2');
   await expect.poll(() => readDeck('sizes')).not.toMatch(/size:/);
   expect(readDeck('sizes')).toContain('place: {x: 80, y: 120, w: 700, h: 400}');
   expect(readDeck('sizes')).toContain('w: 1120');
@@ -146,7 +157,7 @@ test('«Размер слайда»: 4:3 — «Уместить», обратн�
   await expect.poll(() => readDeck('sizes')).not.toMatch(/size:/);
   // 21:9 — «Расставить по ширине»: заголовок тянется до 1520, картинка остаётся у края
   await pick('Сверхширокий 21:9');
-  await expect(ask).toContainText('Увеличить содержимое под 21:9?');
+  await expect(ask).toContainText('Как разместить содержимое в 21:9?');
   await ask.locator('.sz-opt[data-a="keep"]').click();
   await expect.poll(() => readDeck('sizes')).toMatch(/size: ["']?21:9/);
   await expect.poll(ratio).toBeCloseTo(21 / 9, 1);

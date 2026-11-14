@@ -3,7 +3,7 @@
 // Операции агентов deck.size и deck.set { size }, размер в кратком содержании
 import { expect, test } from '@playwright/test';
 import { applyOps, outline } from '../../src/engine/ops';
-import { resizeDeck, roomySlides, tightSlides } from '../../src/engine/slide-resize';
+import { fitChoices, resizeDeck } from '../../src/engine/slide-resize';
 import { widthOf } from '../../src/engine/slide-size';
 import type { Block, Deck } from '../../src/types';
 
@@ -58,8 +58,7 @@ test('уже (4:3): тесный слайд — вопрос; «Уместить
     [obj('photo', 80, 700, { place: { x: 80, y: 120, w: 700, h: 400 } }), obj('notes', 860, 380, { type: 'text', place: { x: 860, y: 120, w: 380 }, styles: { text: { size: 20 } } })],
     [obj('card', 440, 400)],
   );
-  expect(tightSlides(tight(), '4:3')).toEqual([1]);
-  expect(tightSlides(tight(), '21:9')).toEqual([]);
+  expect(fitChoices(tight(), '4:3')).toEqual([1]);
 
   const fit = tight();
   const r = resizeDeck(fit, '4:3', { fit: true });
@@ -86,7 +85,7 @@ test('туда и обратно: «Уместить» в 4:3, «Увеличи�
   resizeDeck(d, '4:3', { fit: true });
   expect(at(d, 0, 'bg')).toEqual({ x: 0, y: 0, w: 960, h: 720 });
   expect(at(d, 0, 'photo')).toEqual({ x: 60, y: 180, w: 525, h: 300 });
-  expect(roomySlides(d, '16:9')).toEqual([1]);
+  expect(fitChoices(d, '16:9')).toEqual([1]);
   const r = resizeDeck(d, '16:9', { fit: true });
   expect(r.scaled).toEqual([1]);
   expect(at(d, 0, 'bg')).toEqual({ x: 0, y: 0, w: 1280, h: 720 });
@@ -96,22 +95,36 @@ test('туда и обратно: «Уместить» в 4:3, «Увеличи�
   expect(d.size).toBeUndefined();
 });
 
-test('«Увеличить» при расширении: не больше, чем растёт ширина, и в высоте слайда; только растянутое и слайд с раскладкой — без вопроса', () => {
+test('«Увеличить» при расширении: композиция целая — крупнее, насколько позволяет высота, или целиком на месте; растянутое и раскладка — по краям', () => {
   const d = deckOf([obj('card', 100, 1000, { place: { x: 100, y: 100, w: 1000, h: 400 } })], [obj('hug', 40, 1200, { place: { x: 40, y: 20, w: 1200, h: 680 } })]);
   (d.slides as unknown as Record<string, unknown>[]).push({ template: 'content', title: 'Раскладка', body: [{ type: 'text', text: 'Абзац' }], free: [obj('mark', 600, 80)] });
-  // Слайд 2 — только растянутое на всю ширину (тянется), у слайда 3 — раскладка
-  expect(roomySlides(d, '21:9')).toEqual([1]);
-  expect(roomySlides(d, '4:3')).toEqual([]);
+  // Вопрос — только о слайде 1: слайд 2 — одно растянутое (тянется), у слайда 3 — раскладка
+  expect(fitChoices(d, '21:9')).toEqual([1]);
   resizeDeck(d, '21:9', { fit: true });
   // Ширина растёт в 1680 / 1280 = 1,3125 раза, высота позволяет больше — 1,3125, от центра к центру
   const k = 1680 / 1280;
   expect(at(d, 0, 'card')).toEqual({ x: Math.round(840 + (100 - 640) * k), y: Math.round(360 + (100 - 360) * k), w: Math.round(1000 * k), h: Math.round(400 * k) });
-  // Не вписанные — расставлены по ширине: слайд 2 тянется с полями, отметка над раскладкой — по центру
   expect(at(d, 1, 'hug')).toMatchObject({ x: 40, w: 1600 });
   expect(at(d, 2, 'mark').x).toBe(800);
-  // Во всю высоту — увеличивать некуда; небольшое содержимое по центру — места и так хватает: просто по ширине
-  expect(roomySlides(deckOf([obj('tall', 100, 1000, { place: { x: 100, y: 10, w: 1000, h: 700 } })]), '21:9')).toEqual([]);
-  expect(roomySlides(deckOf([obj('small', 340, 600, { place: { x: 340, y: 100, w: 600, h: 400 } })]), '21:9')).toEqual([]);
+  // Во всю высоту — вырасти некуда: композиция целиком по центру, а «По ширине» оставила бы её у левого края
+  const tall = () => deckOf([obj('a', 100, 600, { place: { x: 100, y: 10, w: 600, h: 700 } }), obj('b', 760, 420, { place: { x: 760, y: 10, w: 420, h: 300 } })]);
+  expect(fitChoices(tall(), '21:9')).toEqual([1]);
+  const t = tall();
+  resizeDeck(t, '21:9', { fit: true });
+  expect([at(t, 0, 'a').x, at(t, 0, 'b').x, at(t, 0, 'a').w]).toEqual([300, 960, 600]);
+  const spread = tall();
+  resizeDeck(spread, '21:9');
+  expect([at(spread, 0, 'a').x, at(spread, 0, 'b').x]).toEqual([100, 1160]);
+  // Небольшое по центру — одинаково при любом выборе: без вопроса
+  expect(fitChoices(deckOf([obj('small', 340, 600, { place: { x: 340, y: 100, w: 600, h: 400 } })]), '21:9')).toEqual([]);
+  // Выбор по слайдам: вписать только перечисленные
+  const two = deckOf([obj('p', 80, 700, { place: { x: 80, y: 120, w: 700, h: 400 } }), obj('q', 860, 380, { place: { x: 860, y: 120, w: 380, h: 100 } })],
+    [obj('p', 80, 700, { place: { x: 80, y: 120, w: 700, h: 400 } }), obj('q', 860, 380, { place: { x: 860, y: 120, w: 380, h: 100 } })]);
+  expect(fitChoices(two, '4:3')).toEqual([1, 2]);
+  const r = resizeDeck(two, '4:3', { fit: [2] });
+  expect(r.scaled).toEqual([2]);
+  expect(at(two, 0, 'p')).toMatchObject({ x: 80, w: 700 });
+  expect(at(two, 1, 'p')).toMatchObject({ x: 60, w: 525 });
 });
 
 test('операции агентов: deck.size с fit и deck.set { size } переставляют объекты; размер — в кратком содержании', () => {

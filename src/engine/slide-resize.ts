@@ -9,8 +9,8 @@
  * - наложенные друг на друга (значок на картинке) — вместе, по общей рамке.
  * fit — вписать композицию в новый размер целиком (места, размеры и шрифты, к центру слайда):
  * - сужение (16:9 → 4:3), содержимое слайда шире нового — «Уместить», как «Обеспечить размещение» в PowerPoint;
- * - расширение (4:3 → 16:9, 16:9 → 21:9) — «Увеличить»: композиция холста растёт, насколько позволяет высота
- *   (уменьшенная при сужении — возвращается к прежнему размеру).
+ * - расширение (4:3 → 16:9, 16:9 → 21:9) — «Увеличить»: композиция холста остаётся целой — растёт, насколько
+ *   позволяет высота (уменьшенная при сужении — возвращается к прежнему размеру), или встаёт целиком.
  * Фон на весь слайд при этом просто тянется по ширине. Объекты, которые и раньше были за краем (про запас), не
  * трогаются. Чистые функции над данными — годятся и студии, и операциям агентов (ops.ts)
  */
@@ -69,13 +69,7 @@ function tight(s: SlideData, from: number, to: number): boolean {
   return r - l > to;
 }
 
-/** Слайды, содержимое которых шире нового размера (только при сужении) — вопрос «Уместить?» */
-export function tightSlides(d: Deck, size: SlideSize): number[] {
-  const from = widthOf(d);
-  const to = SLIDE_SIZES[size];
-  if (to >= from) return [];
-  return d.slides.flatMap((s, i) => (tight(s, from, to) ? [i + 1] : []));
-}
+
 
 /** Шрифты частей объекта (styles.<часть>.size) и объектов внутри группы — в k раз */
 function scaleFonts(b: Rec, k: number): void {
@@ -117,40 +111,62 @@ function scaleSlide(s: SlideData, k: number, from: number, to: number): void {
   }
 }
 
-/**
- * Во сколько раз можно увеличить композицию холста при расширении: не больше, чем растёт ширина, и так, чтобы она
- * осталась в высоте слайда. Слайд с раскладкой, пустой и только с растянутыми на всю ширину (заголовок
- * с полями, полоса — они просто тянутся) — 1
- */
-function growK(s: SlideData, from: number, to: number): number {
-  if (to <= from || hasLayout(s)) return 1;
-  const items = (Array.isArray(s.free) ? s.free : []).filter(isRec).map(itemOf)
-    .filter((it): it is Item => !!it && inside(it, from) && !covers(it.pl, from));
-  const parts = items.filter((it) => !spans(it, from));
-  if (!parts.length) return 1;
-  // Композиция занимает почти всю ширину (как та, что при сужении уменьшилась бы: шире from² / to) — увеличить;
-  // небольшому содержимому места хватает и так: оно просто встанет по ширине
-  const cw = Math.max(...parts.map((it) => it.x + it.w)) - Math.min(...parts.map((it) => it.x));
-  if (cw < (from * from) / to - 1) return 1;
-  const cy = SLIDE_H / 2;
-  const y0 = Math.min(...items.map((it) => it.y));
-  const y1 = Math.max(...items.map((it) => it.y + it.h));
-  let k = to / from;
-  // В высоте слайда: от центра до края
-  if (y0 < cy) k = Math.min(k, cy / (cy - y0));
-  if (y1 > cy) k = Math.min(k, cy / (y1 - cy));
-  // Расширение не уменьшает: композиция и так во всю высоту — просто по ширине
-  return Math.max(1, k);
-}
-
-/** Увеличивать меньше чем на 10 % — незачем (шрифты почти те же): просто расставить по ширине */
+/** Увеличивать меньше чем на 10 % — незачем (шрифты почти те же): композиция просто встаёт целиком */
 const GROW_MIN = 1.1;
 
-/** Слайды, композицию которых можно заметно увеличить (только при расширении) — вопрос «Увеличить?» */
-export function roomySlides(d: Deck, size: SlideSize): number[] {
-  const from = widthOf(d);
-  const to = SLIDE_SIZES[size];
-  return d.slides.flatMap((s, i) => (s && growK(s, from, to) >= GROW_MIN ? [i + 1] : []));
+/**
+ * Расширение, «Увеличить»: композиция холста остаётся целой — ничего не разъезжается. Композиция во всю ширину растёт:
+ * не больше, чем ширина слайда, и так, чтобы осталась в его высоте (уменьшенная при сужении — к прежнему размеру);
+ * не может вырасти хотя бы на 10 % или она небольшая — встаёт целиком: во всю ширину и по центру — по центру, у края
+ * — у края. Ответ — во сколько раз увеличить (k) или на сколько сдвинуть (dx); слайд с раскладкой, пустой и только
+ * с растянутым на всю ширину — null (объекты встают по краям, растянутое тянется)
+ */
+function growPlan(s: SlideData, from: number, to: number): { k: number; dx: number } | null {
+  if (to <= from || hasLayout(s)) return null;
+  const items = (Array.isArray(s.free) ? s.free : []).filter(isRec).map(itemOf)
+    .filter((it): it is Item => !!it && inside(it, from) && !covers(it.pl, from));
+  // Пусто или только растянутое на всю ширину (заголовок с полями, полоса) — оно просто тянется
+  if (!items.some((it) => !spans(it, from))) return null;
+  const x0 = Math.min(...items.map((it) => it.x));
+  const x1 = Math.max(...items.map((it) => it.x + it.w));
+  const y0 = Math.min(...items.map((it) => it.y));
+  const y1 = Math.max(...items.map((it) => it.y + it.h));
+  // Во всю ширину — шире from² / to: такая при сужении уменьшилась бы
+  const wide = x1 - x0 >= (from * from) / to - 1;
+  if (wide) {
+    const cy = SLIDE_H / 2;
+    let k = to / from;
+    if (y0 < cy) k = Math.min(k, cy / (cy - y0));
+    if (y1 > cy) k = Math.min(k, cy / (y1 - cy));
+    if (k >= GROW_MIN) return { k, dx: 0 };
+  }
+  const d = to - from;
+  const left = x0;
+  const right = from - x1;
+  const c = (x0 + x1) / 2;
+  if (wide || Math.abs(c - from / 2) <= from * 0.05) return { k: 1, dx: d / 2 };
+  if (left <= from * 0.2 && left <= right) return { k: 1, dx: 0 };
+  if (right <= from * 0.2 && right < left) return { k: 1, dx: d };
+  return { k: 1, dx: (c * to) / from - c };
+}
+
+/** Композиция целиком на dx: объекты (кроме тех, что за краем про запас), свободные концы соединителей; фон — по ширине */
+function shiftSlide(s: SlideData, dx: number, from: number, to: number): number {
+  let moved = 0;
+  for (const b of Array.isArray(s.free) ? s.free : []) {
+    if (!isRec(b)) continue;
+    for (const key of ['start', 'end']) {
+      const p = b[key];
+      if (Array.isArray(p) && num(p[0]) !== undefined) b[key] = [Math.round((p[0] as number) + dx), p[1]];
+    }
+    const pl = b.place;
+    if (!isRec(pl) || num(pl.x) === undefined) continue;
+    if (covers(pl, from)) { pl.x = 0; pl.w = to; moved++; continue; }
+    if (!inside(boxOf(pl), from)) continue;
+    const nx = Math.round((pl.x as number) + dx);
+    if (nx !== pl.x) { pl.x = nx; moved++; }
+  }
+  return moved;
 }
 
 /** Объект слайда с рамкой */
@@ -194,11 +210,24 @@ function clusters(items: Item[]): Item[][] {
 }
 
 /**
- * Поменять размер слайдов презентации на месте (d меняется). fit — вписать целиком: при сужении слайды, содержимое
- * которых шире нового размера, уменьшаются; при расширении композиции холстов увеличиваются, насколько позволяет
- * высота. Без fit — объекты встают по краям и центру своего размера. Тот же размер — ничего
+ * Слайды, у которых «вписать целиком» и «по краям» дают разное — о них вопрос (при сужении — тесные, при расширении —
+ * холсты со своей композицией). Остальные встают одинаково при любом выборе
  */
-export function resizeDeck(d: Deck, size: SlideSize, o: { fit?: boolean } = {}): ResizeReport {
+export function fitChoices(d: Deck, size: SlideSize): number[] {
+  const a = JSON.parse(JSON.stringify(d)) as Deck;
+  const b = JSON.parse(JSON.stringify(d)) as Deck;
+  resizeDeck(a, size, { fit: true });
+  resizeDeck(b, size, { fit: false });
+  return a.slides.flatMap((s, i) => (JSON.stringify(s) !== JSON.stringify(b.slides[i]) ? [i + 1] : []));
+}
+
+/**
+ * Поменять размер слайдов презентации на месте (d меняется). fit — вписать целиком (true — все слайды, список —
+ * эти, номера с 1): при сужении тесные слайды уменьшаются; при расширении композиция холста остаётся целой — растёт,
+ * насколько позволяет высота, или встаёт целиком. Без fit — объекты встают по краям и центру своего размера.
+ * Тот же размер — ничего
+ */
+export function resizeDeck(d: Deck, size: SlideSize, o: { fit?: boolean | number[] } = {}): ResizeReport {
   const from = widthOf(d);
   const to = SLIDE_SIZES[size];
   const report: ResizeReport = { moved: 0, scaled: [], outside: 0, slides: [] };
@@ -207,12 +236,25 @@ export function resizeDeck(d: Deck, size: SlideSize, o: { fit?: boolean } = {}):
   if (from === to) return report;
   d.slides.forEach((s, i) => {
     if (!s) return;
-    // Вписать целиком: тесный при сужении — уменьшить, просторный холст при расширении — увеличить
-    const k = !o.fit ? 1 : to < from ? (tight(s, from, to) ? to / from : 1) : growK(s, from, to);
-    if (k !== 1 && (k < 1 || k >= GROW_MIN)) {
-      scaleSlide(s, k, from, to);
+    // Вписать целиком: тесный при сужении — уменьшить; холст при расширении — целиком крупнее или сдвинуть
+    const fit = o.fit === true || (Array.isArray(o.fit) && o.fit.includes(i + 1));
+    if (fit && to < from && tight(s, from, to)) {
+      scaleSlide(s, to / from, from, to);
       report.scaled.push(i + 1);
       report.slides.push(i + 1);
+      return;
+    }
+    const plan = fit ? growPlan(s, from, to) : null;
+    if (plan && plan.k > 1) {
+      scaleSlide(s, plan.k, from, to);
+      report.scaled.push(i + 1);
+      report.slides.push(i + 1);
+      return;
+    }
+    if (plan) {
+      const n = shiftSlide(s, plan.dx, from, to);
+      report.moved += n;
+      if (n) report.slides.push(i + 1);
       return;
     }
     let touched = false;

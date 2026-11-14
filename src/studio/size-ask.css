@@ -11,3 +11,27 @@
 .sz-opt small { font-size: 12.5px; color: var(--mu); line-height: 1.4; }
 .sz-opt kbd { margin-left: auto; font: 11px var(--font); color: var(--mu); border: 1px solid var(--bd2); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; }
 @media (max-width: 480px) { .sz-opts { grid-template-columns: 1fr; } }
+/* Выбор для каждого слайда: миниатюры сеткой, у каждой — переключатель из двух вариантов */
+.sz { max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
+.sz.wide { width: min(720px, 100%); }
+/* Раскрыт выбор по слайдам — большие карточки уступают место сетке */
+.sz.wide .sz-opts { display: none; }
+.sz-each:not([hidden]) { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.sz-allrow { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 13px; color: var(--tx2); }
+.sz-allrow .sz-seg { width: 220px; }
+.sz-more { display: flex; align-items: center; gap: 6px; margin: 12px 0 0; padding: 6px 8px; border: 0; border-radius: 8px; background: none; color: var(--tx2); font: 500 13px var(--font); cursor: pointer; }
+.sz-more:hover { background: var(--alt); color: var(--tx); }
+.sz-more:focus-visible { outline: 2px solid var(--ac); outline-offset: 1px; }
+.sz-more .ic { width: 16px; height: 16px; transition: transform .15s; }
+.sz-more[aria-expanded="true"] .ic { transform: rotate(180deg); }
+.sz-each[hidden] { display: none; }
+.sz-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; min-height: 0; max-height: calc(100vh - 330px); overflow: auto; margin-top: 10px; padding: 2px; }
+.sz-item { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--bd); border-radius: 10px; background: var(--bg); }
+.sz-item .sz-th { margin: 0; }
+.sz-n { font-size: 12px; color: var(--mu); }
+.sz-seg { display: grid; grid-template-columns: 1fr 1fr; padding: 2px; border-radius: 8px; background: var(--alt); }
+.sz-seg button { padding: 4px 4px; border: 0; border-radius: 6px; background: none; color: var(--tx2); font: 500 12px var(--font); cursor: pointer; white-space: nowrap; }
+.sz-seg button:hover { color: var(--tx); }
+.sz-seg button[aria-pressed="true"] { background: var(--surf); color: var(--ac); box-shadow: 0 1px 2px rgba(15, 23, 42, .12); }
+.sz-seg button:focus-visible { outline: 2px solid var(--ac); outline-offset: -2px; }
+.sz .sz-apply[hidden] { display: none; }
