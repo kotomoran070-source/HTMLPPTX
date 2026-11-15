@@ -40,7 +40,7 @@
     "jszip": "^3.10.1",
     "node-html-parser": "^9.0.4",
     "occt-import-js": "^0.0.23",
-    "sharp": "^0.35.4",
+    "sharp": "^0.35.5",
     "yaml": "^2.9.1"
   },
   "devDependencies": {
@@ -59,7 +59,7 @@
     "@playwright/test": "1.56.1",
     "@types/node": "^20",
     "codemirror": "^6.0.2",
-    "electron": "44.5.1",
+    "electron": "44.9.1",
     "electron-builder": "26.15.3",
     "gifenc": "1.0.3",
     "html-to-image": "^1.11.13",
