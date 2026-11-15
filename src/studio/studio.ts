@@ -446,7 +446,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       applyAccent(deck.theme?.accent, accentTail(deck.theme));
       applyAccentFlow(deck.theme?.accentFlow);
       updateFavicon(deck.brand?.logo);
-      slides.update();
+      slides.update(rebuild ? view.renderer : undefined);
       code?.update();
       // Скрытые на время правки остаются скрытыми после перерисовки — без мигания
       layers?.apply();

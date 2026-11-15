@@ -18,9 +18,13 @@ for (const [label, slides, kb, steps] of [['155 слайдов по ~3 КБ, 100
     const ts = [];
     for (let k = 0; k < 3; k++) { const a = performance.now(); h.write(snap); ts.push(Math.round(performance.now() - a)); }
     const a = performance.now(); History.key(snap); const tKey = performance.now() - a;
-    const stored = (sessionStorage.getItem('htmlpptx-history:zz-audit') || '').length;
-    let kept = 0; try { kept = JSON.parse(sessionStorage.getItem('htmlpptx-history:zz-audit')).past.length; } catch {}
-    sessionStorage.removeItem('htmlpptx-history:zz-audit');
+    // Что лежит в хранилище: все записи этой истории; сколько шагов прочитается после перезагрузки вкладки
+    const keys = Object.keys(sessionStorage).filter((k) => k.startsWith('htmlpptx-history:zz-audit'));
+    const stored = keys.reduce((n, k) => n + sessionStorage.getItem(k).length, 0);
+    const again = new History('zz-audit');
+    again.load(snap);
+    const kept = again.past.length;
+    keys.forEach((k) => sessionStorage.removeItem(k));
     return { 'снимок всей презентации, мс': Math.round(tSnap), 'запись истории, мс (3 раза)': ts, 'отпечаток (hash), мс': Math.round(tKey), 'записано, МБ символов': +(stored / 1e6).toFixed(1), 'шагов уцелело': kept };
   }, [slides, kb, steps]);
   console.log(label, '→', JSON.stringify(r));

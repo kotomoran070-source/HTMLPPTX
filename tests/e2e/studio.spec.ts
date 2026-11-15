@@ -32,6 +32,9 @@ test('свой блок: «Сохранить как шаблон…» → «Б�
   await page.keyboard.press('Control+A');
   await page.keyboard.type('Подпись раздела');
   await page.keyboard.press('Enter');
+  // Шаблон сохраняется не мгновенно (картинка для галереи, запись в библиотеку): «Блоки», открытые раньше,
+  // его ещё не покажут — ждём подсказку «сохранён»
+  await expect(page.locator('#ed-toast')).toContainText('сохранён');
   await page.keyboard.press('Escape');
   await page.locator('[data-cmd="insert.blocks"]').first().click();
   const mine = page.locator('.st-lib-mine');

@@ -42,15 +42,18 @@ export class SlidesPanel {
     this.bind();
   }
 
-  /** Сверить миниатюры с данными: перерисовать изменившиеся, добавить и убрать лишние. */
-  update(): void {
+  /**
+   * Сверить миниатюры с данными: перерисовать изменившиеся, добавить и убрать лишние.
+   * shared — отрисовщик холста после той же правки (DeckView.renderer): второго обхода презентации не нужно
+   */
+  update(shared?: ReturnType<typeof thumbRenderer>): void {
     const deck = this.host.deck();
     const all = deckSignature(deck);
     const full = all !== this.deckSig;
     this.deckSig = all;
     const n = deck.slides.length;
     // Один отрисовщик на все миниатюры этого прохода (создаётся, если хоть одна перерисовывается)
-    let r: ReturnType<typeof thumbRenderer> | undefined;
+    let r = shared;
     for (let i = 0; i < n; i++) {
       const sig = JSON.stringify(deck.slides[i]);
       let item = this.items[i];

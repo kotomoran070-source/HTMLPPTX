@@ -309,6 +309,16 @@ export class History {
   }
 
   // ---------------- между перезагрузками вкладки ----------------
+  //
+  // История вкладки лежит в sessionStorage по частям: каждая строка (слайд или «шапка» презентации) — своей
+  // записью и один раз, а указатель говорит, из каких строк состоит каждый шаг (шаги — разницей с предыдущим).
+  // Правка дописывает только новые строки и короткий указатель. Раньше вся история писалась одной записью
+  // заново на каждую правку: на 155 слайдах и 500 шагах — 35–48 мс, на слайдах по 60 КБ — 0,2–0,3 с заминки
+  // через 0,8 с после правки (docs/PERF.md).
+
+  /** Строка → номер её записи в хранилище */
+  private stored = new Map<string, number>();
+  private nextId = 0;
 
   /** Сохранить историю вкладки (с задержкой); cur — данные сейчас */
   save(cur: Snap): void {
@@ -316,40 +326,125 @@ export class History {
     this.saveTimer = window.setTimeout(() => this.write(cur), 800);
   }
 
-  private write(cur: Snap): void {
-    const strings: string[] = [];
-    const index = new Map<string, number>();
-    const id = (s: string) => {
-      let k = index.get(s);
-      if (k === undefined) { k = strings.length; strings.push(s); index.set(s, k); }
-      return k;
-    };
-    const pack = (list: Snap[]) => list.map((s) => [id(s.head), ...s.slides.map(id)]);
-    const curText = `${cur.head}\u0000${cur.slides.join('\u0000')}`;
+  /** Записи хранилища этой истории, кроме указателя: «ключ:номер» */
+  private strayKeys(store: Storage): string[] {
+    const prefix = `${KEY}${this.deckKey}:`;
+    const out: string[] = [];
+    for (let k = 0; k < store.length; k++) {
+      const key = store.key(k);
+      if (key?.startsWith(prefix) && /^\d+$/.test(key.slice(prefix.length))) out.push(key);
+    }
+    return out;
+  }
+
+  /** Убрать историю из хранилища целиком */
+  private drop(store: Storage): void {
+    try {
+      store.removeItem(KEY + this.deckKey);
+      this.strayKeys(store).forEach((k) => store.removeItem(k));
+    } catch { /* нет доступа */ }
+    this.stored.clear();
+  }
+
+  /** Записать историю сейчас (save — то же с задержкой) */
+  write(cur: Snap): void {
+    let store: Storage;
+    try { store = sessionStorage; } catch { return; }
+    const base = KEY + this.deckKey;
+    const curKey = History.key(cur);
     // Не влезает в хранилище — отбрасываем самые старые шаги
     for (let keep = this.past.length; keep >= 0; keep = keep > 8 ? Math.floor(keep / 2) : keep - 1) {
-      strings.length = 0;
-      index.clear();
-      const data = { v: 1, cur: hash(curText), past: pack(this.past.slice(this.past.length - keep)), future: pack(this.future), strings, marks: [...this.marks] };
+      const past = this.past.slice(this.past.length - keep);
+      const need = new Set<string>();
+      for (const snap of [...past, ...this.future]) { need.add(snap.head); for (const x of snap.slides) need.add(x); }
       try {
-        sessionStorage.setItem(KEY + this.deckKey, JSON.stringify(data));
+        // Сначала лишнее (освобождает место), потом новое
+        for (const [text, n] of this.stored) {
+          if (need.has(text)) continue;
+          store.removeItem(`${base}:${n}`);
+          this.stored.delete(text);
+        }
+        for (const text of need) {
+          if (this.stored.has(text)) continue;
+          const n = this.nextId++;
+          store.setItem(`${base}:${n}`, text);
+          this.stored.set(text, n);
+        }
+        store.setItem(base, JSON.stringify({ v: 2, cur: curKey, n: this.nextId, past: this.pack(past), future: this.pack(this.future), marks: [...this.marks] }));
         return;
       } catch { /* переполнено — меньше шагов */ }
     }
-    try { sessionStorage.removeItem(KEY + this.deckKey); } catch { /* нет хранилища */ }
+    this.drop(store);
+  }
+
+  /**
+   * Шаги — номерами строк: первый целиком [шапка, слайды…], следующие — разницей с предыдущим
+   * { d: [место, строка, …] } (место −1 — шапка), если число слайдов то же; иначе снова целиком
+   */
+  private pack(list: Snap[]): (number[] | { d: number[] })[] {
+    const id = (x: string) => this.stored.get(x)!;
+    let prev: Snap | null = null;
+    return list.map((snap) => {
+      const was = prev;
+      prev = snap;
+      if (!was || was.slides.length !== snap.slides.length) return [id(snap.head), ...snap.slides.map(id)];
+      const d: number[] = [];
+      if (was.head !== snap.head) d.push(-1, id(snap.head));
+      snap.slides.forEach((x, i) => { if (x !== was.slides[i]) d.push(i, id(x)); });
+      return { d };
+    });
   }
 
   /** Восстановить историю вкладки, если она от этих же данных */
   load(cur: Snap): void {
+    let store: Storage;
+    try { store = sessionStorage; } catch { return; }
+    const base = KEY + this.deckKey;
     try {
-      const raw = sessionStorage.getItem(KEY + this.deckKey);
-      if (!raw) return;
-      const data = JSON.parse(raw) as { v: number; cur: string; past: number[][]; future: number[][]; strings: string[]; marks?: [string, string][] };
-      if (data.v !== 1 || data.cur !== hash(`${cur.head}\u0000${cur.slides.join('\u0000')}`)) return;
-      const unpack = (list: number[][]) => list.map(([h, ...sl]) => ({ head: this.intern(data.strings[h]), slides: sl.map((k) => this.intern(data.strings[k])) }));
-      this.past = unpack(data.past);
-      this.future = unpack(data.future);
+      const raw = store.getItem(base);
+      const data = raw ? JSON.parse(raw) as { v: number; cur: string; n: number; past: (number[] | { d: number[] })[]; future: (number[] | { d: number[] })[]; marks?: [string, string][] } : null;
+      if (!data || data.v !== 2 || data.cur !== History.key(cur)) throw new Error('не та история');
+      const texts = new Map<number, string>();
+      const text = (n: number) => {
+        let x = texts.get(n);
+        if (x === undefined) {
+          const got = store.getItem(`${base}:${n}`);
+          if (got === null) throw new Error('нет строки');
+          x = this.intern(got);
+          texts.set(n, x);
+        }
+        return x;
+      };
+      const unpack = (list: (number[] | { d: number[] })[]) => {
+        let prev: Snap | null = null;
+        return list.map((e) => {
+          let snap: Snap;
+          if (Array.isArray(e)) snap = { head: text(e[0]), slides: e.slice(1).map(text) };
+          else {
+            if (!prev) throw new Error('разница без начала');
+            snap = { head: prev.head, slides: prev.slides.slice() };
+            for (let k = 0; k + 1 < e.d.length; k += 2) {
+              if (e.d[k] < 0) snap.head = text(e.d[k + 1]);
+              else snap.slides[e.d[k]] = text(e.d[k + 1]);
+            }
+          }
+          prev = snap;
+          return snap;
+        });
+      };
+      const past = unpack(data.past);
+      const future = unpack(data.future);
+      this.past = past;
+      this.future = future;
       this.marks = new Map(data.marks ?? []);
-    } catch { /* повреждено или нет доступа — история с нуля */ }
+      this.stored = new Map([...texts].map(([n, x]) => [x, n]));
+      this.nextId = Number(data.n) || 0;
+      // Строки, на которые указатель не ссылается (запись оборвалась), — убрать
+      const prefix = `${base}:`;
+      for (const key of this.strayKeys(store)) if (!texts.has(Number(key.slice(prefix.length)))) store.removeItem(key);
+    } catch {
+      // Нет истории, она от других данных, старого вида или повреждена — с нуля, место в хранилище освобождается
+      this.drop(store);
+    }
   }
 }
