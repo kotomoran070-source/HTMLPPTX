@@ -25,7 +25,7 @@ import { applyOps, findText, outline as outlineOf, slideIndex, slideRev, type De
 import type { Deck, SlideData } from '../src/types';
 import { chatsDir, createIntegrations, type AgentInfo, type By, type JournalEntry } from './integrations';
 import { createPlayers, finishFile, variantOf } from './player';
-import { DATA_ID, MIME, dropGrades, escapeHtml, listDecks, mapAssets, mapStrings, readYaml, replaceTag, safeFileName, scriptJson, stamp } from './deck-files';
+import { DATA_ID, MIME, createYamlCache, dropGrades, escapeHtml, listDecks, mapAssets, mapStrings, readYaml as parseDeckFile, replaceTag, safeFileName, scriptJson, stamp } from './deck-files';
 
 const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg']);
 /**
@@ -241,6 +241,9 @@ export function createDecksCore(opts: CoreOptions) {
 
   // ---------------- презентации ----------------
   const deckFile = (n: string) => path.join(dir, n, 'deck.yaml');
+  /** Разобранные deck.yaml: один разбор на версию файла — чтение, запись и агенты берут готовое (deck-files.ts) */
+  const yamlCache = createYamlCache();
+  const readYaml = (file: string, source?: string): unknown => yamlCache.read(file, source);
   const names = () => listDecks(dir);
   const assertDeck = (name: string | null | undefined): string => {
     if (!name || !names().includes(name)) throw new Error(`Презентация «${name}» не найдена`);
@@ -258,7 +261,8 @@ export function createDecksCore(opts: CoreOptions) {
     if (was?.key === key) return was;
     let s: { key: string; title?: string; slides: number; source?: string; error?: true };
     try {
-      const d = readYaml(deckFile(n)) as { title?: unknown; slides?: unknown; source?: unknown };
+      // Мимо памяти разборов: список обходит все презентации и вытеснил бы из неё открытую
+      const d = parseDeckFile(deckFile(n)) as { title?: unknown; slides?: unknown; source?: unknown };
       s = {
         key,
         ...(typeof d?.title === 'string' && d.title.trim() ? { title: d.title } : {}),
@@ -447,7 +451,8 @@ export function createDecksCore(opts: CoreOptions) {
   /** Данные → deck.yaml с сохранением комментариев и порядка; файл изменился — событие saved. Ответ — новый текст */
   function writeDeck(name: string, source: string, data: unknown, store: AssetStore, from: string): string {
     const file = deckFile(name);
-    const next = mergeYaml(source, data);
+    // Документ этого текста сервер уже разбирал (прошлая запись, чтение) — правки переносятся в него
+    const next = mergeYaml(source, data, yamlCache.take(file, source));
     store.flush();
     if (next !== source) {
       remember(file, next);

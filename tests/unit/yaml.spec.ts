@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 import { parse } from 'yaml';
 import { mergeYaml } from '../../plugins/yaml-merge';
 import { slug } from '../../plugins/import';
+import { createYamlCache } from '../../server/deck-files';
 
 const SOURCE = `# Комментарий в начале файла
 title: Старое название
@@ -61,4 +62,27 @@ test('имя папки из названия — латиницей', () => {
   expect(slug('  Щука & Ёжик!  ')).toBe('schuka-ezhik');
   expect(slug('Hello World')).toBe('hello-world');
   expect(slug('!!!')).toBe('');
+});
+
+test('память разборов: один разбор на версию файла, запись берёт готовый документ и даёт тот же текст', () => {
+  const cache = createYamlCache();
+  const a = cache.read('deck.yaml', SOURCE) as { title: string; slides: { title: string }[] };
+  expect(a.title).toBe('Старое название');
+  // Копия: правка данных не портит запомненное
+  a.title = 'испорчено';
+  expect((cache.read('deck.yaml', SOURCE) as { title: string }).title).toBe('Старое название');
+  // Документ отдаётся записи один раз (она его меняет); итог — как при разборе заново
+  const doc = cache.take('deck.yaml', SOURCE);
+  expect(doc).toBeTruthy();
+  expect(cache.take('deck.yaml', SOURCE)).toBeUndefined();
+  const data = { ...(parse(SOURCE) as object), title: 'Новое' };
+  const next = mergeYaml(SOURCE, data, doc);
+  expect(next).toBe(mergeYaml(SOURCE, data));
+  expect(next).toContain('# Комментарий в начале файла');
+  // Данные прежнего текста — прежние; другой текст — другой разбор
+  expect((cache.read('deck.yaml', SOURCE) as { title: string }).title).toBe('Старое название');
+  expect((cache.read('deck.yaml', next) as { title: string }).title).toBe('Новое');
+  expect(cache.take('deck.yaml', SOURCE)).toBeUndefined();
+  // Ошибка в файле — понятным текстом, как у чтения
+  expect(() => cache.read('deck.yaml', 'title: [1, 2')).toThrow(/Ошибка в deck\.yaml/);
 });

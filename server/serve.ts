@@ -38,6 +38,8 @@ const mimeOf = (file: string) => {
 };
 const WORKER_FILE = /^\/assets\/script-worker-[\w-]+\.js$/;
 
+import { HOST_FLAG, hostMain } from './host';
+
 export interface Package { name: string; version: string; license: string; text: string }
 
 export interface ServeOptions {
@@ -338,3 +340,6 @@ export async function startServer(o: ServeOptions): Promise<Served> {
     },
   };
 }
+
+// Программа запускает сервер служебным процессом Electron (server/host.ts, desktop/main.mjs)
+if (process.argv.includes(HOST_FLAG)) hostMain(startServer);

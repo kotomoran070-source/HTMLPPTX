@@ -63,7 +63,7 @@ async function buildPlayer(id, out) {
 }
 
 /** Что входит в код программы: поменялось что-то из этого — сборка --app нужна заново */
-const APP_SOURCES = ['src', 'server', 'plugins', 'index.html', 'vite.config.ts', 'tsconfig.json', 'package.json', 'yarn.lock', 'scripts/build.mjs'];
+const APP_SOURCES = ['src', 'server', 'plugins', 'desktop/lan.mjs', 'index.html', 'vite.config.ts', 'tsconfig.json', 'package.json', 'yarn.lock', 'scripts/build.mjs'];
 
 function codeHash() {
   const h = createHash('sha256');

@@ -92,9 +92,13 @@ function merge(doc: Document, node: unknown, value: Json): Node {
   return doc.createNode(value) as Node;
 }
 
-/** Возвращает новый текст deck.yaml: старый файл с перенесёнными изменениями. */
-export function mergeYaml(source: string, value: unknown): string {
-  const doc = parseDocument(source);
+/**
+ * Возвращает новый текст deck.yaml: старый файл с перенесёнными изменениями. parsed — уже разобранный документ
+ * этого же текста (сервер помнит его с прошлой записи, server/deck-files.ts): он меняется на месте, второй
+ * разбор файла не нужен
+ */
+export function mergeYaml(source: string, value: unknown, parsed?: Document): string {
+  const doc = parsed ?? parseDocument(source);
   if (doc.errors.length) throw new Error(`deck.yaml содержит ошибку, сохранение отменено: ${doc.errors[0].message}`);
   doc.contents = merge(doc, doc.contents, value as Json) as typeof doc.contents;
   // doubleQuotedAsJSON: "строка\nстрока" остаётся в одну строку с \n, как была

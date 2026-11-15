@@ -13,7 +13,6 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { app, BrowserWindow, Menu, WebContentsView, desktopCapturer, dialog, ipcMain, nativeTheme, safeStorage, screen, session, shell, utilityProcess } from 'electron';
 import { FIX_FLAG, allowFirewall, runFirewallFix } from './firewall.mjs';
-import { lanGateway } from './lan.mjs';
 import { flush, mcpInput } from './mcp-input.mjs';
 import { shootPages } from './shot.mjs';
 import { splashPage } from './splash.mjs';
@@ -52,8 +51,6 @@ let server;
 let main;
 let origin = '';
 let port = 0;
-// Пульт с телефона: вход в локальной сети открывается, когда в показе нажимают R (desktop/lan.mjs)
-const lan = lanGateway(() => port, DECKS, (...a) => log(...a));
 /**
  * Сборка (код программы при запуске из проекта, недостающий вариант проигрывателя для «Экспорта») —
  * отдельным служебным процессом Electron. Запуск самого Electron в роли Node в установленной программе
@@ -157,6 +154,8 @@ function claudeKey() {
   return {
     kind: 'app',
     get secure() { return !linuxBasic(); },
+    /** Можно ли сохранить ключ: сервер — в другом процессе и узнаёт это при запуске */
+    canStore: () => ready(),
     get() {
       try { return ready() ? safeStorage.decryptString(fs.readFileSync(file)) || null : null; } catch { return null; }
     },
@@ -169,18 +168,23 @@ function claudeKey() {
   };
 }
 
+/** Ключ запуска сервера служебным процессом — как HOST_FLAG в server/host.ts */
+const HOST_FLAG = '--slideria-server';
+
+/**
+ * Сервер — отдельным служебным процессом (server/host.ts): запись файлов и разбор YAML не держат главный процесс,
+ * а через него идёт ввод в окна. Вход для телефона (desktop/lan.mjs) открывает сам сервер. Что умеет только главный
+ * процесс, сервер просит сообщениями: брандмауэр, сборка служебным процессом, запись ключа Claude.
+ * Ответ — { url, port, close }
+ */
 async function startServer() {
-  // package.json и штамп сборки — в app.asar, а не рядом с кодом (страница лицензий)
-  if (PACKED) {
-    Object.assign(process.env, {
-      SLIDERIA_PACKAGE: path.join(APP_DIR, 'package.json'),
-      SLIDERIA_BUILD_STAMP: path.join(APP_DIR, 'desktop', 'build.json'),
-    });
-  }
-  // Ядро считает пути сообщений от текущей папки
-  process.chdir(ROOT);
-  const { startServer: start } = await import(pathToFileURL(path.join(CODE, 'server.mjs')).href);
-  server = await start({
+  const keys = claudeKey();
+  const env = {
+    ...process.env,
+    // package.json и штамп сборки — в app.asar, а не рядом с кодом (страница лицензий)
+    ...(PACKED ? { SLIDERIA_PACKAGE: path.join(APP_DIR, 'package.json'), SLIDERIA_BUILD_STAMP: path.join(APP_DIR, 'desktop', 'build.json') } : {}),
+  };
+  const options = {
     dir: DECKS,
     root: ROOT,
     studio: path.join(CODE, 'studio'),
@@ -193,15 +197,70 @@ async function startServer() {
     host: '127.0.0.1',
     port: 47320,
     env: { app: true, decks: 'Документы/Slideria/' },
-    lan: (deck) => lan.open(deck),
-    ...(process.platform === 'win32' ? { firewall: () => allowFirewall((...a) => log(...a)) } : {}),
-    run: runNode,
-    log: (m) => log(m),
-    agentKeys: claudeKey(),
+    lan: true,
+    firewall: process.platform === 'win32',
     // «Файл → Интеграции → Агенты»: агент запускает эту же программу с ключом --mcp (AppImage — сам файл:
     // папка, куда он распакован, у каждого запуска своя)
     mcp: { command: process.env.APPIMAGE || process.execPath, args: PACKED ? ['--mcp'] : [APP_DIR, '--mcp'] },
+  };
+  const calls = {
+    firewall: () => allowFirewall((...a) => log(...a)),
+    run: (script, args, o) => runNode(script, args, o),
+  };
+  let child = null;
+  let stopping = false;
+  let restarts = 0;
+  const spawn = () => new Promise((resolve, reject) => {
+    // Ядро считает пути сообщений от текущей папки
+    const c = utilityProcess.fork(path.join(CODE, 'server.mjs'), [HOST_FLAG], { cwd: ROOT, env, stdio: 'pipe', serviceName: 'Slideria — сервер' });
+    child = c;
+    let up = false;
+    const out = (d) => { for (const line of String(d).split('\n')) if (line.trim()) log(line); };
+    c.stdout?.on('data', out);
+    c.stderr?.on('data', out);
+    c.on('message', (m) => {
+      if (m.type === 'ready') {
+        up = true;
+        resolve({ url: m.url, port: m.port });
+      } else if (m.type === 'failed') reject(new Error(m.error));
+      else if (m.type === 'log') log(m.text);
+      else if (m.type === 'key') {
+        try { m.value === null ? keys.clear() : keys.set(m.value); } catch (e) { log('Ключ Claude:', e?.message ?? e); }
+      } else if (m.type === 'call') {
+        Promise.resolve().then(() => calls[m.name](...m.args))
+          .then((value) => c.postMessage({ type: 'reply', id: m.id, value }), (e) => c.postMessage({ type: 'reply', id: m.id, error: String(e?.message ?? e) }));
+      }
+    });
+    c.once('exit', (code) => {
+      if (child === c) child = null;
+      if (stopping) return;
+      if (!up) return reject(new Error(`Сервер не запустился (код ${code})`));
+      // Сервер упал посреди работы: поднять заново на том же порту — страницы переподключатся сами и сверят правки
+      log('Сервер остановился, код', code);
+      if (++restarts > 3) return;
+      options.port = port || options.port;
+      spawn().then(() => log('Сервер перезапущен'), (e) => log('Сервер не перезапустился:', e?.message ?? e));
+    });
+    c.once('spawn', () => {
+      let secure = true;
+      let canStore = false;
+      try { canStore = keys.canStore(); secure = keys.secure; } catch { /* хранилище недоступно */ }
+      c.postMessage({ type: 'start', options, key: { value: keys.get(), secure, canStore } });
+    });
   });
+  const up = await spawn();
+  server = {
+    ...up,
+    close: () => new Promise((resolve) => {
+      stopping = true;
+      const c = child;
+      if (!c) return resolve();
+      // Не ответил за 3 с — снять: выход программы не должен висеть
+      const kill = setTimeout(() => c.kill(), 3000);
+      c.once('exit', () => { clearTimeout(kill); resolve(); });
+      c.postMessage({ type: 'close' });
+    }),
+  };
   port = server.port;
   origin = server.url;
   log('Сервер:', origin);
@@ -761,7 +820,6 @@ app.on('before-quit', (e) => {
     }
     for (const w of done) letClose.add(w);
     closing = true;
-    lan.close();
     await server.close().catch(() => {});
     app.quit();
   })();

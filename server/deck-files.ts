@@ -5,7 +5,7 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseDocument } from 'yaml';
+import { parseDocument, type Document } from 'yaml';
 
 /** Строки в deck.yaml, похожие на путь к файлу рядом с презентацией, — это картинки, видео, шрифты… */
 export const ASSET_RE = /^\.{1,2}\/[^\s]+\.(png|jpe?g|gif|webp|avif|svg|mp4|webm|mp3|glb|woff2?|ttf|otf|pdf|htm|wasm|wad|cube)$/i;
@@ -39,15 +39,58 @@ export function listDecks(dir: string): string[] {
     .sort();
 }
 
-/** Читает deck.yaml с понятной ошибкой: файл, строка, столбец. */
-export function readYaml(file: string, source = fs.readFileSync(file, 'utf8')): unknown {
+/** Разбирает deck.yaml с понятной ошибкой: файл, строка, столбец. Документ — с комментариями и видом записи */
+export function parseDeck(file: string, source: string): Document {
   const doc = parseDocument(source, { prettyErrors: true });
   if (doc.errors.length) {
     const e = doc.errors[0];
     const where = e.linePos?.[0] ? `:${e.linePos[0].line}:${e.linePos[0].col}` : '';
     throw new Error(`Ошибка в ${path.relative(process.cwd(), file)}${where}\n${e.message}`);
   }
-  return doc.toJS();
+  return doc;
+}
+
+/** Читает deck.yaml с понятной ошибкой: файл, строка, столбец. */
+export function readYaml(file: string, source = fs.readFileSync(file, 'utf8')): unknown {
+  return parseDeck(file, source).toJS();
+}
+
+/**
+ * Разобранные файлы презентаций — в памяти сервера. Разбор YAML — самое долгое в записи: на шаблоне из 31 слайда
+ * 45–67 мс, на 155 слайдах — 230–260 мс, а запись разбирала файл трижды (что на диске, для переноса правок,
+ * что получилось). Теперь разбор один на версию файла: текст совпал с запомненным — берутся готовые данные.
+ * Сверка — по самому тексту, а не по времени файла: правка со стороны не пройдёт мимо.
+ */
+export function createYamlCache(limit = 6) {
+  /** Файл → текст, его данные и документ (документ — пока его не забрала запись: она его меняет) */
+  const files = new Map<string, { text: string; js: unknown; doc: Document | null }>();
+  const entry = (file: string, source: string) => {
+    const key = path.resolve(file);
+    let e = files.get(key);
+    if (!e || e.text !== source) {
+      const doc = parseDeck(file, source);
+      e = { text: source, js: doc.toJS(), doc };
+    }
+    // Недавние — в конце; самые давние уходят
+    files.delete(key);
+    files.set(key, e);
+    while (files.size > limit) files.delete(files.keys().next().value as string);
+    return e;
+  };
+  return {
+    /** Данные файла (копия: её можно менять) */
+    read(file: string, source = fs.readFileSync(file, 'utf8')): unknown {
+      return structuredClone(entry(file, source).js);
+    },
+    /** Документ этого текста для записи правок (mergeYaml), если он разобран и ещё не отдан */
+    take(file: string, source: string): Document | undefined {
+      const e = files.get(path.resolve(file));
+      if (!e || e.text !== source || !e.doc) return undefined;
+      const doc = e.doc;
+      e.doc = null;
+      return doc;
+    },
+  };
 }
 
 /** Обходит данные и заменяет строки-пути к файлам через fn. */
