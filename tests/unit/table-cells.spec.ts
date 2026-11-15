@@ -1,7 +1,8 @@
 // Оформление текста ячеек таблицы идёт вместе с ячейками: вставка, удаление, сортировка, шапка
 import { expect, test } from '@playwright/test';
 import { cellLists, dropCols, dropRows, pruneCellData, rowLists, sortRows, type TableData } from '../../src/studio/table-cells';
-import { putStyle } from '../../src/engine/editor/text-edit';
+// Не из text-edit.ts: тот тянет за собой страницу (document), а тест идёт без браузера
+import { putStyle } from '../../src/engine/editor/put-style';
 
 const table = (): TableData => ({
   header: ['Город', 'Люди'],

@@ -1,0 +1,60 @@
+# Проверки Slideria.
+#   На каждый push и pull request — типы и unit-тесты (пара минут): поломка видна сразу.
+#   Каждую ночь и по кнопке «Run workflow» — сквозные тесты в браузере и тесты программы Electron (долгие).
+name: Проверки
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: checks-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  quick:
+    name: Типы и unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: yarn
+      # Самой программе Electron эти проверки не нужны — её файл не качаем
+      - run: yarn install --frozen-lockfile
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - name: Типы
+        run: npx tsc --noEmit -p .
+      - name: Unit-тесты
+        run: npx playwright test --project=unit
+
+  full:
+    name: Сквозные тесты и программа
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: yarn
+      - run: yarn install --frozen-lockfile
+      - run: npx playwright install --with-deps chromium
+      - name: Сквозные тесты (e2e)
+        run: npx playwright test --project=e2e
+      - name: Программа Electron
+        run: xvfb-run -a npx playwright test --project=app
+      - name: Снимки и трассы упавших тестов
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: .tmp/test-results
+          retention-days: 7
