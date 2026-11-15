@@ -7,12 +7,16 @@
 //            с соединителями, диаграммы из текста, графика; растягивание схемы; отпускание; отмена; листание.
 //            На каждое — нажатие (выделить), кадр во время перетаскивания, работа браузера на шаг, долгие кадры,
 //            самый долгий кадр после отпускания и отмены. Перед каждым — страница успокоилась (нет долгих кадров);
+//   save   — что происходит после правки: объект сдвинули и отпустили, мышь продолжает двигаться. Через 0,6 с идёт
+//            автосохранение — самая долгая пауза между движениями мыши, дошедшими до окна, сколько стоял главный
+//            процесс программы и сколько шёл запрос сохранения. На шаблоне и на большой презентации
+//            (шаблон BIG_K раз подряд); у большой — ещё и открытие студии (сценарий open);
 //   export — HTML, PowerPoint, PDF: время и вес файла.
 // Каждый сценарий — несколько прогонов (--runs), в таблице медиана и разброс. Итог — в .tmp/perf/ (JSON и таблица)
 // и сравнение с базовой линией той же машины: числа разных компьютеров между собой не сравнивают.
 // Параметры:
 //   --runs N       прогонов (по умолчанию 5)
-//   --only a,b     только эти сценарии: start, open, edit, export
+//   --only a,b     только эти сценарии: start, open, edit, save, export
 //   --cpu K        замедлить страницу в K раз (как слабый ноутбук); запуск программы не замедляется
 //   --dpr K        масштаб экрана (2 — как экран высокой чёткости)
 //   --label текст  подпись замера (например, этап)
@@ -40,7 +44,7 @@ const opt = (name, def) => {
 };
 const flag = (name) => argv.includes(`--${name}`);
 const RUNS = Math.max(1, Math.round(Number(opt('runs', 5))) || 5);
-const ONLY = new Set(String(opt('only', 'start,open,edit,export')).split(',').map((s) => s.trim()));
+const ONLY = new Set(String(opt('only', 'start,open,edit,save,export')).split(',').map((s) => s.trim()));
 const CPU = Math.max(1, Number(opt('cpu', 1)) || 1);
 const DPR = Number(opt('dpr', 0)) || 0;
 const LABEL = String(opt('label', ''));
@@ -86,6 +90,9 @@ const pct = (a, p) => {
 
 const MAIN = 'moya-pervaya-prezentaciya';
 const OBJ = 'perf-objects';
+/** Большая презентация: шаблон BIG_K раз подряд — то, что растёт с числом слайдов (открытие, сохранение) */
+const BIG = 'perf-big';
+const BIG_K = 5;
 const sandbox = process.platform === 'linux' ? ['--no-sandbox'] : [];
 const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-perf-'));
 let dirN = 0;
@@ -160,7 +167,7 @@ async function openStudio(win, cdp, deck) {
       tick();
     });
     po.disconnect();
-    return { code: mk('studio-code'), studio: mk('studio'), ready: end(), longs: longs.filter((e) => e.duration > 50).length };
+    return { code: mk('studio-code'), studio: mk('studio'), ready: end(), longs: longs.filter((e) => e.duration > 50).length, longest: longs.reduce((m, e) => Math.max(m, e.duration), 0) };
   });
   cdp.off('Network.loadingFinished', fin);
   await cdp.send('Network.disable');
@@ -446,13 +453,91 @@ async function flipCase(win, cdp) {
 async function exportCase(win, saves, mode, ext, toast) {
   for (const f of fs.readdirSync(saves)) fs.rmSync(path.join(saves, f), { force: true, recursive: true });
   await win.evaluate(() => { const t = document.getElementById('ed-toast'); if (t) t.textContent = ''; });
-  await win.locator('[data-cmd="file.export"]').first().click();
+  // «Файл → Экспорт»: выбрать формат, затем «Сохранить» (как tests/e2e/helpers.ts → exportAs)
+  await win.locator('#st-file').click();
+  await win.locator('.fp [data-fs="export"]').click();
+  await win.locator(`.fp [data-x="${mode}"]`).click();
   const t0 = performance.now();
-  await win.locator(`[data-x="${mode}"]`).click();
+  await win.locator('.fp [data-a="export"]').click();
   await win.waitForFunction((s) => document.getElementById('ed-toast')?.textContent?.includes(s), toast, { timeout: 600_000, polling: 50 });
   const t = performance.now() - t0;
   const file = fs.readdirSync(saves).find((f) => f.endsWith(ext));
+  // «Файл» мог остаться открытым — следующему действию нужна студия
+  if (await win.locator('.fp').isVisible().catch(() => false)) await win.keyboard.press('Escape');
   return { t, size: file ? fs.statSync(path.join(saves, file)).size : NaN };
+}
+
+// ---------------- после правки ----------------
+
+/** Большая презентация в папке документов: слайды шаблона BIG_K раз подряд, id — с номером повтора */
+function makeBig(docs) {
+  const dst = path.join(docs, BIG);
+  if (fs.existsSync(dst)) return;
+  fs.cpSync(path.join(docs, MAIN), dst, { recursive: true });
+  const d = YAML.parse(fs.readFileSync(path.join(dst, 'deck.yaml'), 'utf8'));
+  const base = d.slides;
+  d.slides = [];
+  for (let r = 0; r < BIG_K; r++) for (const s of base) d.slides.push({ ...structuredClone(s), ...(s.id ? { id: r ? `${s.id}-${r}` : s.id } : {}) });
+  d.title = `Большая (${d.slides.length} слайдов)`;
+  fs.writeFileSync(path.join(dst, 'deck.yaml'), YAML.stringify(d));
+}
+
+/** Сколько длится замер после правки: автосохранение — через 0,6 с после неё, запись — до секунды на большой презентации */
+const SAVE_WATCH = 2500;
+
+/**
+ * После правки: объект сдвинули и отпустили, мышь продолжает двигаться по слайду. Меряем, что видит человек,
+ * когда идёт автосохранение: самую долгую паузу между движениями мыши, дошедшими до страницы, задержку цикла
+ * событий главного процесса программы (он же передаёт ввод окну) и время запроса сохранения
+ */
+async function saveCase(app, win, key, name) {
+  await gotoSlide(win, 0);
+  const obj = win.locator('#st-canvas .slide.on [data-free]').first();
+  await obj.waitFor();
+  const b = await obj.boundingBox();
+  const x0 = b.x + b.width / 2;
+  const y0 = b.y + b.height / 2;
+  // Главный процесс: таймер раз в 5 мс — насколько он опоздал
+  await app.evaluate(() => {
+    const g = globalThis;
+    clearInterval(g.__perfLagTimer);
+    g.__perfLag = 0;
+    let last = performance.now();
+    g.__perfLagTimer = setInterval(() => { const n = performance.now(); g.__perfLag = Math.max(g.__perfLag, n - last - 5); last = n; }, 5);
+  });
+  await win.evaluate(() => {
+    const w = window;
+    w.__perfMoves = [];
+    w.__perfSaves = [];
+    if (w.__perfSaveWatch) return;
+    w.__perfSaveWatch = true;
+    addEventListener('pointermove', () => w.__perfMoves.push(performance.now()), true);
+    new PerformanceObserver((l) => { for (const e of l.getEntries()) if (e.name.includes('/__htmlpptx/save')) w.__perfSaves.push(e.duration); }).observe({ type: 'resource' });
+  });
+  await settle(win);
+  await win.mouse.move(x0, y0);
+  await win.mouse.down();
+  await win.mouse.move(x0 + 12, y0 + 5, { steps: 3 });
+  await win.mouse.up();
+  await win.evaluate(() => { window.__perfMoves = []; });
+  await app.evaluate(() => { globalThis.__perfLag = 0; });
+  const t0 = performance.now();
+  for (let k = 0; performance.now() - t0 < SAVE_WATCH; k++) {
+    await win.mouse.move(x0 + 60 * Math.sin(k / 9), y0 + 160 + 30 * Math.cos(k / 7));
+    await new Promise((r) => setTimeout(r, 8));
+  }
+  const { moves, saves } = await win.evaluate(() => ({ moves: window.__perfMoves, saves: window.__perfSaves }));
+  const lag = await app.evaluate(() => { clearInterval(globalThis.__perfLagTimer); return globalThis.__perfLag; });
+  const gaps = moves.slice(1).map((v, k) => v - moves[k]);
+  if (!saves.length) notes.push(`«${name}»: за ${SAVE_WATCH} мс автосохранения не было — замер недействителен`);
+  const g = `После правки: ${name}`;
+  put(`save.${key}.gap`, g, 'ввод: самая долгая пауза', 'ms', gaps.length ? Math.max(...gaps) : NaN);
+  put(`save.${key}.main`, g, 'главный процесс стоял', 'ms', lag);
+  put(`save.${key}.req`, g, 'запрос сохранения', 'ms', saves.length ? Math.max(...saves) : NaN);
+  // Как было — и дождаться записи отмены: следующий замер начинает с сохранённого
+  await win.keyboard.press('Control+z');
+  await win.waitForTimeout(1500);
+  await settle(win);
 }
 
 // ---------------- прогоны ----------------
@@ -469,6 +554,7 @@ async function run(n, shared) {
     }
     await first.app.close();
     fs.cpSync(path.join(root, 'tests', 'perf', 'objects'), path.join(dirs.docs, OBJ), { recursive: true });
+    makeBig(dirs.docs);
   }
   if (n < 0) return dirs;
   const { app, win, t } = await launch(dirs);
@@ -498,6 +584,7 @@ async function run(n, shared) {
       for (const c of EDITS.filter((e) => e.deck === MAIN)) await guard(c.name, () => editCase(win, cdp, c));
       await guard('листать', () => flipCase(win, cdp));
     }
+    if (ONLY.has('save')) await guard('после правки', () => saveCase(app, win, 'main', `шаблон, ${T.slides.length} слайд`));
     if (ONLY.has('export')) {
       const g = 'Экспорт';
       for (const [mode, ext, toast, name] of [['clean', '.html', 'Сохранено', 'HTML'], ['pptx', '.pptx', 'Сохранено', 'PowerPoint'], ['pdf', '.pdf', 'PDF сохранён', 'PDF']]) {
@@ -507,6 +594,17 @@ async function run(n, shared) {
           put(`export.${mode}.size`, 'Вес файла', name, 'B', r.size);
         });
       }
+    }
+    if (ONLY.has('open') || ONLY.has('save')) {
+      const n = T.slides.length * BIG_K;
+      const ob = await openStudio(win, cdp, BIG);
+      if (ONLY.has('open')) {
+        const g = `Студия: открыть большую (${n} слайдов)`;
+        put('open.big.studio', g, 'построена', 'ms', ob.studio);
+        put('open.big.ready', g, 'готова к работе', 'ms', ob.ready);
+        put('open.big.long', g, 'самый долгий кадр', 'ms', ob.longest);
+      }
+      if (ONLY.has('save')) await guard('после правки, большая', () => saveCase(app, win, 'big', `большая, ${n} слайдов`));
     }
     if (ONLY.has('edit')) {
       await openStudio(win, cdp, OBJ);
