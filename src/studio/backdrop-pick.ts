@@ -72,13 +72,24 @@ export function bindBackdropStrip(root: HTMLElement, stage: () => HTMLElement, t
   strip.addEventListener('pointerleave', () => previewBackdrop(stage(), null));
   strip.addEventListener('click', () => previewBackdrop(stage(), null));
   fillStills(strip, stage().querySelector<HTMLElement>('.slide.on'));
-  // Сменилась тема или вид слайдов — кадры в новых цветах; лента ушла со страницы — отписка
+  // Сменилась тема или вид слайдов — кадры в новых цветах
   const again = () => requestAnimationFrame(() => {
-    if (!onPage(strip)) return offs.forEach((f) => f());
-    fillStills(strip, stage().querySelector<HTMLElement>('.slide.on'));
+    if (onPage(strip)) fillStills(strip, stage().querySelector<HTMLElement>('.slide.on'));
   });
   const offs = [onThemeChange(again), onSlidesLook(again)];
+  // Ленты, которых уже нет на странице, — отписать. Панель свойств строится заново при каждом переходе к слайду,
+  // снятии выделения и правке, и каждый раз здесь новая лента. Раньше отписка была только в самом обработчике —
+  // то есть при смене темы, которой в обычной работе нет: подписки копились и держали в памяти старые панели,
+  // а через них старые слайды (+530 узлов за круг правки, docs/AUDIT.md)
+  for (const b of bound) {
+    if (onPage(b.strip)) continue;
+    b.offs.forEach((f) => f());
+    bound.delete(b);
+  }
+  bound.add({ strip, offs });
 }
+/** Ленты с подпиской на смену темы и вида слайдов */
+const bound = new Set<{ strip: HTMLElement; offs: (() => void)[] }>();
 
 /** Кадр плитки, точек: 16:9, с запасом под экраны с высокой плотностью */
 const STILL_W = 240;
