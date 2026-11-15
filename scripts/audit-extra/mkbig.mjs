@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+import YAML from 'yaml';
+const k = Number(process.argv[2] || 5);
+const src = '.tmp/test-decks/tpl';
+const dst = `.tmp/test-decks/zzbig${k}`;
+fs.rmSync(dst, { recursive: true, force: true });
+fs.cpSync(src, dst, { recursive: true });
+const d = YAML.parse(fs.readFileSync(`${src}/deck.yaml`, 'utf8'));
+const base = d.slides;
+d.slides = [];
+for (let r = 0; r < k; r++) for (const s of base) d.slides.push({ ...structuredClone(s), ...(s.id ? { id: `${s.id}${r ? '-' + r : ''}` } : {}) });
+d.title = `Большая ×${k}`;
+fs.writeFileSync(`${dst}/deck.yaml`, YAML.stringify(d));
+console.log(dst, d.slides.length, 'слайдов', fs.statSync(`${dst}/deck.yaml`).size, 'байт yaml', JSON.stringify(d).length, 'json');
