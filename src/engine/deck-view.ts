@@ -4,7 +4,7 @@ import { textFx } from './text-fx';
 import { enterFx } from './enter-fx';
 import { morph as morphTo, unmorph } from './morph';
 import { getAt, type Path } from './data';
-import { Renderer } from './render';
+import { Renderer, carryBlock, keptBlocks } from './render';
 import { SLIDE_H, SLIDE_SIZES, widthOf } from './slide-size';
 import { applySteps, stepTotal } from './steps';
 
@@ -279,18 +279,74 @@ export class DeckView {
       if (sig === this.sigs[i]) return;
       r ??= new Renderer(deck, deck.brand?.logo, this.vars);
       this.r = r;
-      this.cleanups[i]?.();
       const tmp = document.createElement('div');
       tmp.innerHTML = r.slide(s, i);
       const el = tmp.firstElementChild as HTMLElement;
       DeckView.order(el);
       if (i === this.current) el.classList.add('on');
-      this.slides[i].replaceWith(el);
-      this.slides[i] = el;
-      this.cleanups[i] = r.activate(el, this.base());
+      if (!this.updateInPlace(i, el, r)) {
+        this.cleanups[i]?.();
+        this.slides[i].replaceWith(el);
+        this.slides[i] = el;
+        this.cleanups[i] = r.activate(el, this.base());
+      }
       this.sigs[i] = sig;
       this.reapplySteps(i);
     });
+  }
+
+  /**
+   * Перерисовать слайд, не создавая заново его тяжёлые блоки (фон WebGL, видео, 3D-модель, вставки, песочница),
+   * если их данные и разметка не поменялись: сдвинули подпись — видео рядом не перезапускается, модель не грузится
+   * заново (на слайде с 3D правка стоила 2 с работы браузера, docs/PERF.md). Элемент слайда остаётся тем же (блоки
+   * помнят его: «слайд открыт», мышь над слайдом), меняется содержимое; оставленные блоки переставляются в новую
+   * разметку без отцепления от страницы (moveBefore) — рамка вставки не перезагружается, видео не встаёт.
+   * false — так нельзя (нечего оставлять, у самого слайда поменялись атрибуты, браузер без moveBefore):
+   * слайд заменяется целиком, как раньше
+   */
+  private updateInPlace(i: number, fresh: HTMLElement, r: Renderer): boolean {
+    const slide = this.slides[i];
+    const move = (Element.prototype as { moveBefore?: unknown }).moveBefore;
+    if (!slide || typeof move !== 'function' || !slide.isConnected) return false;
+    // Сам слайд — тот же: цвета, тема, вид, переход, свой mount шаблона. Иначе блоки увидели бы другой слайд
+    const attrs = (e: HTMLElement) => [...e.attributes].filter((a) => a.name !== 'data-mount').map((a) => `${a.name}=${a.name === 'class' ? [...e.classList].filter((c) => !RUNTIME_CLASS.has(c)).sort().join(' ') : a.value}`).sort().join('\n');
+    if (slide.hasAttribute('data-mount') || fresh.hasAttribute('data-mount') || attrs(slide) !== attrs(fresh)) return false;
+    // Пары «блок на слайде — такой же блок в новой разметке»
+    const old = keptBlocks(slide);
+    if (!old.length) return false;
+    const pairs: [was: HTMLElement, now: HTMLElement][] = [];
+    for (const now of fresh.querySelectorAll<HTMLElement>('[data-mount]')) {
+      const sig = r.keepSig(now);
+      const k = sig ? old.findIndex((o) => o.sig === sig) : -1;
+      if (k < 0) continue;
+      pairs.push([old[k].el, now]);
+      old.splice(k, 1);
+    }
+    if (!pairs.length) return false;
+    // Вложенный в оставленный блок переедет вместе с ним
+    const top = pairs.filter(([was]) => !pairs.some(([w]) => w !== was && w.contains(was)));
+    // Уборка старого слайда — без оставленных блоков; их уборка переходит к новой
+    const carried = pairs.map(([was]) => carryBlock(was, true));
+    this.cleanups[i]?.();
+    pairs.forEach(([was]) => carryBlock(was, false));
+    // Новое содержимое — следом за старым, оставленные блоки — на места своих двойников, старое — убрать.
+    // Всё за один проход, без кадра между шагами
+    const gone = [...slide.childNodes];
+    slide.append(...fresh.childNodes);
+    for (const [was, now] of top) {
+      (now.parentNode as unknown as { moveBefore(node: Node, before: Node | null): void }).moveBefore(was, now);
+      now.remove();
+    }
+    // Оставленный блок мог быть прямым ребёнком слайда (фон) — он уже на новом месте
+    const keep = new Set<Node>(top.map(([was]) => was));
+    gone.forEach((n) => { if (!keep.has(n)) n.remove(); });
+    DeckView.order(slide);
+    const mountedNow = r.activate(slide, this.base());
+    this.cleanups[i] = () => {
+      mountedNow();
+      carried.forEach((c) => c?.());
+    };
+    return true;
   }
 
   get index(): number {
@@ -576,6 +632,9 @@ export class DeckView {
     if (on) this.smoothTimer = window.setTimeout(() => this.stage.classList.remove('zoom-anim'), 320);
   }
 }
+
+/** Классы, которые слайд получает по ходу показа и правки: при сверке «тот же ли слайд» не в счёт */
+const RUNTIME_CLASS = new Set(['on', 'out', 'morph-in', 'morph-ghost', 'morph-layer']);
 
 /** «Крупнее»: что не считается содержимым слайда */
 const CONTENT_SKIP = '.backdrop, .canvas-bg, .corner-logo, .spot-frame, script, style, template, [aria-hidden="true"]:not(svg)';

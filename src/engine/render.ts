@@ -45,6 +45,42 @@ interface PendingMount {
 }
 
 /**
+ * Тяжёлые блоки: их создание заново видно и стоит дорого — контекст WebGL и шейдеры (фон), загрузка модели (3D),
+ * перезапуск видео, перезагрузка документа во вставке и песочнице. При перерисовке слайда такой блок с теми же
+ * данными остаётся тем же элементом (DeckView.update), остальные блоки дешёвые — их проще создать заново
+ */
+const KEEP_TYPES = new Set(['backdrop', 'video', 'model', 'embed', 'sandbox', 'live']);
+
+/** Смонтированный тяжёлый блок: чем убрать и по чему узнать «тот же» при перерисовке слайда */
+interface Mounted {
+  cleanup: (() => void) | null;
+  /** Вид, данные и разметка блока, какими они пришли из отрисовки (до mount) */
+  sig: string;
+  /** Блок переезжает в перерисованный слайд: уборка старого слайда его не трогает */
+  skip?: boolean;
+}
+const mounted = new WeakMap<HTMLElement, Mounted>();
+
+/** Разметка блока без того, что меняется от отрисовки к отрисовке само: номер монтирования, порядок появления */
+const stableHtml = (el: HTMLElement) => el.outerHTML.replace(/ data-mount="m\d+"/g, '').replace(/--i: ?\d+;? ?/g, '');
+
+/** Блоки слайда, которые можно оставить при перерисовке: элемент и его отпечаток */
+export function keptBlocks(root: HTMLElement): { el: HTMLElement; sig: string }[] {
+  return [...root.querySelectorAll<HTMLElement>('[data-mount]')].flatMap((el) => {
+    const m = mounted.get(el);
+    return m ? [{ el, sig: m.sig }] : [];
+  });
+}
+
+/** Блок переехал в перерисованный слайд — старая уборка его пропускает (skip), новая — убирает */
+export function carryBlock(el: HTMLElement, skip: boolean): (() => void) | null {
+  const m = mounted.get(el);
+  if (!m) return null;
+  m.skip = skip;
+  return () => { if (!m.skip) m.cleanup?.(); };
+}
+
+/**
  * Превращает данные слайдов в разметку. Один Renderer — одна вставка в DOM:
  * он запоминает, каким компонентам нужен mount(), и вызывает их в activate().
  */
@@ -217,14 +253,32 @@ export class Renderer {
       const m = this.mounts.get(el.dataset.mount!);
       if (!m?.component.mount) return;
       const slide = el.closest<HTMLElement>('.slide') ?? root;
+      // Отпечаток — до mount: тот меняет разметку (холст, рамка вставки)
+      const sig = this.keepSig(el);
       try {
         const c = m.component.mount(el, m.props, { ...base, slide });
-        if (typeof c === 'function') cleanups.push(c);
+        const cleanup = typeof c === 'function' ? c : null;
+        if (sig) {
+          const rec: Mounted = { cleanup, sig };
+          mounted.set(el, rec);
+          cleanups.push(() => { if (!rec.skip) rec.cleanup?.(); });
+        } else if (cleanup) cleanups.push(cleanup);
       } catch (e) {
         console.error('Ошибка mount()', e);
       }
     });
     return () => cleanups.forEach((c) => c());
+  }
+
+  /**
+   * Отпечаток тяжёлого блока этой отрисовки: вид, данные и разметка. Совпал с отпечатком блока на слайде —
+   * блок тот же, его можно не создавать заново. '' — блок не из тяжёлых (или без mount)
+   */
+  keepSig(el: HTMLElement): string {
+    const m = this.mounts.get(el.dataset.mount ?? '');
+    const type = (m?.props as { type?: unknown } | undefined)?.type;
+    if (!m?.component.mount || typeof type !== 'string' || !KEEP_TYPES.has(type)) return '';
+    return `${type}\n${JSON.stringify(m.props)}\n${stableHtml(el)}`;
   }
 
   /** Переменные слайда: начальные значения его ползунков, поверх — то, что выставили при показе */

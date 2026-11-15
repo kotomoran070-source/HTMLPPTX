@@ -185,3 +185,52 @@ test('импорт HTML: «.slide .x» и класс секции оформля
     fs.rmSync(path.join(DECKS, name), { recursive: true, force: true });
   }
 });
+
+test('правка рядом не создаёт заново видео, 3D-модель, фон и вставку: слайд обновляется на месте', async ({ page }) => {
+  const errors = watchErrors(page);
+  const before = readDeck('tpl');
+  /** Пометить тяжёлые элементы открытого слайда; ответ — какие с прошлого раза те же */
+  const mark = () => page.evaluate(() => {
+    const s = document.querySelector<HTMLElement>('#st-canvas .slide.on')!;
+    const out: Record<string, boolean> = {};
+    for (const sel of ['video', 'model-viewer', '.backdrop', 'iframe']) {
+      const el = s.querySelector(sel) as (Element & { zzSame?: boolean }) | null;
+      if (!el) continue;
+      out[sel] = el.zzSame === true;
+      el.zzSame = true;
+    }
+    return out;
+  });
+  /** Сдвинуть первый объект слайда мышью — правка с перерисовкой слайда */
+  const nudge = async () => {
+    const b = (await page.locator('#st-canvas .slide.on [data-free]').first().boundingBox())!;
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.width / 2 + 14, b.y + b.height / 2 + 6, { steps: 4 });
+    await page.mouse.up();
+  };
+  // Слайд «Медиа»: видео, 3D-модель и живой фон; сдвигаем картинку
+  await page.goto('/?deck=tpl&studio#20');
+  await expect(page.locator('#st-canvas .slide.on model-viewer')).toHaveCount(1);
+  await expect(page.locator('#st-canvas .slide.on .backdrop canvas')).toHaveCount(1);
+  expect(await mark()).toEqual({ video: false, 'model-viewer': false, '.backdrop': false });
+  await nudge();
+  expect(await waitFile(() => readDeck('tpl') !== before)).toBe(true);
+  expect(await mark()).toEqual({ video: true, 'model-viewer': true, '.backdrop': true });
+  // Отмена — тоже на месте, и фон по-прежнему живой (его холст на слайде)
+  await page.keyboard.press('Control+z');
+  expect(await waitFile(() => readDeck('tpl') === before)).toBe(true);
+  expect(await mark()).toEqual({ video: true, 'model-viewer': true, '.backdrop': true });
+  await expect(page.locator('#st-canvas .slide.on .backdrop canvas')).toHaveCount(1);
+  // Слайд с живой вставкой: её документ не перезагружается
+  await page.locator('#st-canvas').click({ position: { x: 4, y: 4 } });
+  await page.evaluate(() => { location.hash = '#22'; });
+  await expect(page.locator('#st-canvas .slide.on iframe')).toHaveCount(1);
+  expect((await mark()).iframe).toBe(false);
+  await nudge();
+  expect(await waitFile(() => readDeck('tpl') !== before)).toBe(true);
+  expect((await mark()).iframe).toBe(true);
+  await page.keyboard.press('Control+z');
+  expect(await waitFile(() => readDeck('tpl') === before)).toBe(true);
+  expect(errors).toEqual([]);
+});
