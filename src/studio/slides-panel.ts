@@ -1,6 +1,6 @@
 import { icon } from '../components/icons';
 import { stillBackdrops } from '../components/backdrop/backdrop';
-import { staticSlide } from '../engine/deck-view';
+import { staticSlide, thumbRenderer } from '../engine/deck-view';
 import { slideLabel } from '../engine/render';
 import type { Deck } from '../types';
 
@@ -49,6 +49,8 @@ export class SlidesPanel {
     const full = all !== this.deckSig;
     this.deckSig = all;
     const n = deck.slides.length;
+    // Один отрисовщик на все миниатюры этого прохода (создаётся, если хоть одна перерисовывается)
+    let r: ReturnType<typeof thumbRenderer> | undefined;
     for (let i = 0; i < n; i++) {
       const sig = JSON.stringify(deck.slides[i]);
       let item = this.items[i];
@@ -65,7 +67,7 @@ export class SlidesPanel {
       }
       if (full || this.sigs[i] !== sig) {
         const box = item.querySelector('.st-tbox')!;
-        box.replaceChildren(staticSlide(deck, i));
+        box.replaceChildren(staticSlide(deck, i, undefined, r ??= thumbRenderer(deck)));
         stillBackdrops(box as HTMLElement);
         this.sigs[i] = sig;
       }

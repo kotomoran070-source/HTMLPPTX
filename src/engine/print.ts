@@ -2,7 +2,7 @@ import { embedHtml, fitHtml, hasEmbed } from '../components/html/html';
 import type { Block, Deck } from '../types';
 import type { Path } from './data';
 import { getAt } from './data';
-import { staticSlide } from './deck-view';
+import { staticSlide, thumbRenderer } from './deck-view';
 import { SLIDE_H, widthOf } from './slide-size';
 
 /**
@@ -29,10 +29,11 @@ function build(deck: Deck, only?: number[], width = widthOf(deck)): HTMLElement 
   page.textContent = `@page { size: ${sw}px ${SLIDE_H}px; margin: 0; } @media print { html, body { width: ${sw}px; } }`;
   // Скрытый слайд в PDF не попадает
   const list = only ?? deck.slides.flatMap((s, i) => (s.hidden === true ? [] : [i]));
+  const r = thumbRenderer(deck);
   for (const i of list) {
     const page = document.createElement('div');
     page.className = 'print-page';
-    page.appendChild(staticSlide(deck, i, width));
+    page.appendChild(staticSlide(deck, i, width, r));
     root.appendChild(page);
   }
   document.body.appendChild(root);

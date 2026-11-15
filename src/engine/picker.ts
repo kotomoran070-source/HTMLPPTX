@@ -4,7 +4,7 @@ import { accentTail, accentTokens, applyAccent, DEFAULT_ACCENT, HEX_RE, slideAcc
 import { brandMark, updateFavicon } from './brand';
 import { pageEnv } from './env';
 import { onServer } from './events';
-import { staticSlide } from './deck-view';
+import { staticSlide, thumbRenderer } from './deck-view';
 import { esc } from './html';
 import { smoothWheel, wheelStrip } from './hscroll';
 import { currentTheme, toggleTheme } from './theme';
@@ -313,8 +313,11 @@ export async function showPicker(decks: Loaders, dev: boolean, info: DeckInfo[] 
   const thumbs = new Map<string, HTMLElement>();
   const filling = new Map<string, Promise<void>>();
   const byName = (n: string) => items.find((x) => x.name === n);
+  // Слайды ленты рисуются по одному в свободное время — отрисовщик у презентации один на все (её данные здесь не меняют)
+  const renderers = new WeakMap<Deck, ReturnType<typeof thumbRenderer>>();
+  const rendererOf = (deck: Deck) => renderers.get(deck) ?? (renderers.set(deck, thumbRenderer(deck)), renderers.get(deck)!);
   const slideOf = (deck: Deck, k: number) => {
-    const t = staticSlide(deck, k);
+    const t = staticSlide(deck, k, undefined, rendererOf(deck));
     t.setAttribute('style', `${t.getAttribute('style') ?? ''};${accentVars(deck)}`);
     // Слайд — в цветах своей презентации (как слайд со своими цветами, см. accent.ts): так он верен и при
     // своём цвете интерфейса, и в обеих темах

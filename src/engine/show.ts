@@ -3,7 +3,7 @@ import { isHidden, landOn, stepVisible, visiblePos } from './hidden';
 import type { Deck } from '../types';
 import { accentTail, applyAccent, applyAccentFlow } from './accent';
 import { updateFavicon } from './brand';
-import { DeckView, reducedMotion, staticSlide } from './deck-view';
+import { DeckView, reducedMotion, staticSlide, thumbRenderer } from './deck-view';
 import { Editor, SLIDE_PRESETS } from './editor/editor';
 import { canSaveFile } from './editor/persist';
 import { esc } from './html';
@@ -336,11 +336,12 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
 
   function buildOverview(): void {
     ovgrid.innerHTML = '';
+    const r = thumbRenderer(deck);
     ovCards = deck.slides.map((s, i) => {
       const card = document.createElement('button');
       card.type = 'button';
       card.className = `ovcard${isHidden(deck, i) ? ' is-hidden' : ''}`;
-      card.appendChild(staticSlide(deck, i));
+      card.appendChild(staticSlide(deck, i, undefined, r));
       card.insertAdjacentHTML('beforeend', `<span class="ovmeta"><span class="ovnum">${i + 1}</span><span class="ovttl">${esc(slideLabel(s, i))}</span></span>`
         + `<span class="ovtools"><span data-a="dup" title="Дублировать слайд" role="button" aria-label="Дублировать слайд">${icon('copy')}</span>`
         + `<span data-a="del" class="danger" title="Удалить слайд" role="button" aria-label="Удалить слайд">${icon('trash')}</span></span>`);

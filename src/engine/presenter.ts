@@ -8,7 +8,7 @@ import { QUIZ, QUIZ_NEXT, QUIZ_NUDGE, QUIZ_SET, quizGate, quizStore, type QuizMs
 import type { Deck } from '../types';
 import { accentTail, applyAccent, applyAccentFlow } from './accent';
 import { replaceContents } from './data';
-import { DeckView, H, W, staticSlide } from './deck-view';
+import { DeckView, H, W, staticSlide, thumbRenderer } from './deck-view';
 import { esc, t } from './html';
 import { actionTarget, slideLabel } from './render';
 import { Ink, inkInput, type InkMsg, type InkTool, type StrokeStyle } from './ink';
@@ -385,11 +385,12 @@ export function startPresenter(deck: Deck, deckKey: string): void {
   function openGrid(): void {
     const list = $('pglist');
     list.innerHTML = '';
+    const r = thumbRenderer(deck);
     deck.slides.forEach((sl, i) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'pres-grid-item' + (i === index ? ' cur' : '');
-      b.appendChild(staticSlide(deck, i));
+      b.appendChild(staticSlide(deck, i, undefined, r));
       b.insertAdjacentHTML('beforeend', `<span><b>${i + 1}</b>${esc(slideLabel(sl, i))}</span>`);
       b.onclick = () => { closeGrid(); go(i); };
       list.appendChild(b);

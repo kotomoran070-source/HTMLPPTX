@@ -602,10 +602,17 @@ const thumbObserver = typeof ResizeObserver === 'function'
   : null;
 
 /**
- * Статичная копия слайда (для миниатюр и превью). Без width миниатюра тянется
- * по ширине контейнера и сама подгоняет масштаб.
+ * Отрисовщик для пачки миниатюр одной презентации. Создание обходит всю презентацию (пути для правки, стили,
+ * тема), поэтому лента из N миниатюр со своим отрисовщиком на каждую — это N обходов: на 155 слайдах полсекунды
+ * при открытии студии (docs/AUDIT.md). Один на пачку — один обход. Годится, пока данные не меняли
  */
-export function staticSlide(deck: Deck, index: number, width?: number): HTMLElement {
+export const thumbRenderer = (deck: Deck): Renderer => new Renderer(deck, deck.brand?.logo);
+
+/**
+ * Статичная копия слайда (для миниатюр и превью). Без width миниатюра тянется
+ * по ширине контейнера и сама подгоняет масштаб. r — общий отрисовщик пачки миниатюр (thumbRenderer)
+ */
+export function staticSlide(deck: Deck, index: number, width?: number, r: Renderer = thumbRenderer(deck)): HTMLElement {
   const box = document.createElement('div');
   box.className = 'thumb';
   const sw = widthOf(deck);
@@ -619,7 +626,7 @@ export function staticSlide(deck: Deck, index: number, width?: number): HTMLElem
   inner.style.setProperty('--sw', `${sw}px`);
   inner.style.transform = `scale(${(width ?? 220) / sw})`;
   const slide = deck.slides[index];
-  if (slide) inner.innerHTML = new Renderer(deck, deck.brand?.logo).slide(slide, index, 'on static');
+  if (slide) inner.innerHTML = r.slide(slide, index, 'on static');
   // SMIL-анимации CSS не останавливает: убираем их из статичной копии
   inner.querySelectorAll('animateMotion').forEach((a) => a.parentElement?.remove());
   inner.querySelectorAll('animate, animateTransform').forEach((a) => a.remove());
