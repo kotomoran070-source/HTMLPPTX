@@ -571,6 +571,9 @@ async function run(n, shared) {
     const cdp = await win.context().newCDPSession(win);
     await cdp.send('Performance.enable');
     if (CPU > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: CPU });
+    // Страница выбора подкачивает код студии про запас. Замер открытия — когда она с этим закончила: человек
+    // щёлкает по презентации не в первую же секунду, а щелчок замера приходится на середину подкачки
+    await win.waitForLoadState('networkidle').catch(() => {});
     const o1 = await openStudio(win, cdp, MAIN);
     if (ONLY.has('open')) {
       const g = `Студия: открыть (${T.slides.length} слайд)`;
