@@ -25,7 +25,7 @@ import { applyOps, findText, outline as outlineOf, slideIndex, slideRev, type De
 import type { Deck, SlideData } from '../src/types';
 import { chatsDir, createIntegrations, type AgentInfo, type By, type JournalEntry } from './integrations';
 import { createPlayers, finishFile, variantOf } from './player';
-import { DATA_ID, MIME, createYamlCache, dropGrades, escapeHtml, listDecks, mapAssets, mapStrings, readYaml as parseDeckFile, replaceTag, safeFileName, scriptJson, stamp } from './deck-files';
+import { DATA_ID, MIME, createYamlCache, dropGrades, escapeHtml, listDecks, mapAssets, mapStrings, replaceTag, safeFileName, scriptJson, stamp } from './deck-files';
 
 const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg']);
 /**
@@ -254,15 +254,40 @@ export function createDecksCore(opts: CoreOptions) {
    * Сводка презентации для страницы выбора: название, число слайдов, откуда она (импорт), ошибка в файле.
    * Разбор YAML — один раз на версию файла (время и размер): страница выбора спрашивает список часто
    */
-  const summaries = new Map<string, { key: string; title?: string; slides: number; source?: string; error?: true }>();
+  type Summary = { key: string; title?: string; slides: number; source?: string; error?: true };
+  const summaries = new Map<string, Summary>();
+  /**
+   * Сводки переживают перезапуск (.slideria/summaries.json): иначе каждый запуск программы разбирал бы YAML всех
+   * презентаций, прежде чем показать страницу выбора, — 0,4 с на шаблоне и одной большой презентации, с десятками
+   * презентаций — секунды. Файл поменялся (время или размер) — его сводка считается заново
+   */
+  const summariesFile = path.join(dir, '.slideria', 'summaries.json');
+  try {
+    const saved = JSON.parse(fs.readFileSync(summariesFile, 'utf8')) as Record<string, Summary>;
+    for (const [n, v] of Object.entries(saved)) if (v && typeof v.key === 'string' && typeof v.slides === 'number') summaries.set(n, v);
+  } catch { /* сводок ещё нет или файл повреждён — посчитаются */ }
+  let summariesTimer: ReturnType<typeof setTimeout> | null = null;
+  const saveSummaries = () => {
+    if (summariesTimer) return;
+    summariesTimer = setTimeout(() => {
+      summariesTimer = null;
+      // Только существующие презентации: удалённые и переименованные из файла уходят
+      const live = new Set(names());
+      for (const n of summaries.keys()) if (!live.has(n)) summaries.delete(n);
+      fs.promises.mkdir(path.dirname(summariesFile), { recursive: true })
+        .then(() => fs.promises.writeFile(summariesFile, JSON.stringify(Object.fromEntries(summaries))))
+        .catch(() => { /* папка только для чтения — сводки посчитаются при следующем запуске */ });
+    }, 500);
+    summariesTimer.unref?.();
+  };
   function summary(n: string, st: fs.Stats) {
     const key = `${st.mtimeMs}:${st.size}`;
     const was = summaries.get(n);
     if (was?.key === key) return was;
-    let s: { key: string; title?: string; slides: number; source?: string; error?: true };
+    let s: Summary;
     try {
-      // Мимо памяти разборов: список обходит все презентации и вытеснил бы из неё открытую
-      const d = parseDeckFile(deckFile(n)) as { title?: unknown; slides?: unknown; source?: unknown };
+      // Через память разборов: страница выбора следом читает эти же презентации (миниатюры), студия — открытую
+      const d = yamlCache.peek(deckFile(n)) as { title?: unknown; slides?: unknown; source?: unknown };
       s = {
         key,
         ...(typeof d?.title === 'string' && d.title.trim() ? { title: d.title } : {}),
@@ -273,6 +298,7 @@ export function createDecksCore(opts: CoreOptions) {
       s = { key, slides: 0, error: true };
     }
     summaries.set(n, s);
+    saveSummaries();
     return s;
   }
 

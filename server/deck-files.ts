@@ -61,7 +61,7 @@ export function readYaml(file: string, source = fs.readFileSync(file, 'utf8')): 
  * что получилось). Теперь разбор один на версию файла: текст совпал с запомненным — берутся готовые данные.
  * Сверка — по самому тексту, а не по времени файла: правка со стороны не пройдёт мимо.
  */
-export function createYamlCache(limit = 6) {
+export function createYamlCache(limit = 24) {
   /** Файл → текст, его данные и документ (документ — пока его не забрала запись: она его меняет) */
   const files = new Map<string, { text: string; js: unknown; doc: Document | null }>();
   const entry = (file: string, source: string) => {
@@ -78,6 +78,10 @@ export function createYamlCache(limit = 6) {
     return e;
   };
   return {
+    /** Данные файла только для чтения (без копии): сводка для страницы выбора */
+    peek(file: string, source = fs.readFileSync(file, 'utf8')): unknown {
+      return entry(file, source).js;
+    },
     /** Данные файла (копия: её можно менять) */
     read(file: string, source = fs.readFileSync(file, 'utf8')): unknown {
       return structuredClone(entry(file, source).js);

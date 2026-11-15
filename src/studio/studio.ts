@@ -1609,13 +1609,17 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   // ---------------- код ----------------
   let code: CodeView | null = null;
   let codeOpen = false;
+  let codeLoading: Promise<void> | null = null;
   async function toggleCode(force?: boolean, focus = true): Promise<void> {
     codeOpen = force ?? !codeOpen;
     const box = $('st-code');
     if (codeOpen && !code) {
-      // Редактор кода тяжёлый: загружается при первом открытии
-      const m = await import('./code');
-      code = new m.CodeView(box, { deck: () => deck, index: () => index, editor: () => ed, stage: () => view.stage, deckKey });
+      // Редактор кода тяжёлый: загружается при первом открытии. Второй вызов, пока он грузится (поиск по коду
+      // нашёл совпадение ещё раз), ждёт ту же загрузку, а не создаёт второй редактор
+      codeLoading ??= import('./code').then((m) => {
+        code = new m.CodeView(box, { deck: () => deck, index: () => index, editor: () => ed, stage: () => view.stage, deckKey });
+      });
+      await codeLoading;
     }
     box.hidden = !codeOpen;
     $('st-sc').hidden = !codeOpen;
@@ -2574,7 +2578,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     deck: () => deck, editor: () => ed, index: () => index, go, stage: () => view.stage,
     showNotes: () => { if (!notesOpen) setNotes(true); },
     showCode: (mode, from, to) => {
-      if (codeOpen) return code!.showMatch(mode, from, to);
+      if (codeOpen && code) return code.showMatch(mode, from, to);
       void toggleCode(true, false).then(() => code!.showMatch(mode, from, to));
     },
   }, document.querySelector<HTMLElement>('.st-view')!);

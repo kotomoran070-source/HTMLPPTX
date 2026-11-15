@@ -17,7 +17,7 @@ import { currentTheme, onThemeChange } from '../engine/theme';
 import type { Deck, SlideData } from '../types';
 import { codeHints, cssProblems, readSlideYaml } from './code-hints';
 import { codeSearch, reopenSearch } from './code-search';
-import { slideYaml } from './find';
+import { slideYaml } from './slide-yaml';
 import { collectNodes, cssRules, highlightField, rulesFor, setHighlight, treeHtml, treeToggleIcon, YamlRanges, type CssRule, type TreeNode } from './code-tree';
 
 type Mode = 'slide' | 'css' | 'anim';

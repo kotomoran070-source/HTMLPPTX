@@ -555,6 +555,9 @@ async function run(n, shared) {
     await first.app.close();
     fs.cpSync(path.join(root, 'tests', 'perf', 'objects'), path.join(dirs.docs, OBJ), { recursive: true });
     makeBig(dirs.docs);
+    // Презентации только что появились в папке: запуск, который видит их впервые (сводки для страницы выбора
+    // считаются один раз и запоминаются), — не «обычный»
+    await (await launch(dirs)).app.close();
   }
   if (n < 0) return dirs;
   const { app, win, t } = await launch(dirs);

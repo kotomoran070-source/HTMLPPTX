@@ -11,7 +11,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import Anthropic from '@anthropic-ai/sdk';
+import type Anthropic from '@anthropic-ai/sdk';
 import type { DecksCore } from './core';
 import { chatsDir, type JournalEntry } from './integrations';
 import { formatGuide, opsHelp } from './mcp';
@@ -175,12 +175,22 @@ export interface AgentOptions {
   log?: (m: string) => void;
 }
 
+/**
+ * SDK Claude грузится при первом обращении к Claude, а не при запуске сервера: его загрузка — 80–100 мс из
+ * 170–250 мс запуска кода сервера (docs/PERF.md), а чат «Агент» нужен не всем и не сразу
+ */
+let sdk: typeof Anthropic | null = null;
+const loadSdk = async (): Promise<typeof Anthropic> => (sdk ??= (await import('@anthropic-ai/sdk')).default);
+type SdkError = 'AuthenticationError' | 'PermissionDeniedError' | 'APIConnectionError' | 'APIUserAbortError' | 'APIError' | 'RateLimitError' | 'InternalServerError';
+/** Ошибка — такого вида из SDK (до первого обращения к Claude SDK не загружен, и таких ошибок ещё не было) */
+const isSdk = (e: unknown, name: SdkError): boolean => !!sdk && e instanceof sdk[name];
+
 export function createAgentChat(o: AgentOptions) {
   const { core, keys } = o;
   const baseURL = o.baseURL || 'https://api.anthropic.com';
   /** Презентации, где агент сейчас отвечает: второй ответ параллельно — нет */
   const running = new Set<string>();
-  const client = (apiKey: string) => new Anthropic({ apiKey, authToken: null, baseURL, maxRetries: o.maxRetries ?? 2, timeout: 10 * 60_000 });
+  const client = async (apiKey: string) => new (await loadSdk())({ apiKey, authToken: null, baseURL, maxRetries: o.maxRetries ?? 2, timeout: 10 * 60_000 });
 
   // ---------------- ключ ----------------
 
@@ -198,10 +208,10 @@ export function createAgentChat(o: AgentOptions) {
     const key = typeof raw === 'string' ? raw.trim() : '';
     if (!/^sk-ant-[\w-]{8,}$/.test(key)) throw new Error('Это не похоже на ключ Claude API: он начинается с «sk-ant-»');
     try {
-      await client(key).models.list({ limit: 1 });
+      await (await client(key)).models.list({ limit: 1 });
     } catch (e) {
-      if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) throw new Error('Ключ не подошёл: проверьте, что он скопирован целиком и не отозван');
-      if (e instanceof Anthropic.APIConnectionError) throw new Error('Нет связи с Claude — проверьте интернет и попробуйте ещё раз');
+      if (isSdk(e, 'AuthenticationError') || isSdk(e, 'PermissionDeniedError')) throw new Error('Ключ не подошёл: проверьте, что он скопирован целиком и не отозван');
+      if (isSdk(e, 'APIConnectionError')) throw new Error('Нет связи с Claude — проверьте интернет и попробуйте ещё раз');
       throw new Error(`Claude не принял ключ: ${(e as Error).message}`);
     }
     keys.set(key);
@@ -392,7 +402,7 @@ export function createAgentChat(o: AgentOptions) {
 
   /** Модель ↔ инструменты, пока модель не ответит текстом (или «Стоп», отказ, предел шагов) */
   async function loop(c: ChatFile, answer: Extract<ChatItem, { role: 'assistant' }>, key: string, model: string, emit: (e: AgentEvent) => void, signal: AbortSignal): Promise<void> {
-    const api = client(key);
+    const api = await client(key);
     let jsonRetries = 0;
     let stepNo = 0;
     for (let round = 0; ; round++) {
@@ -429,12 +439,12 @@ export function createAgentChat(o: AgentOptions) {
         msg = await stream.finalMessage();
         jsonRetries = 0;
       } catch (e) {
-        if (signal.aborted || e instanceof Anthropic.APIUserAbortError) {
+        if (signal.aborted || isSdk(e, 'APIUserAbortError')) {
           answer.stop = 'stopped';
           return;
         }
         // Ввод инструмента не разобрался как JSON — тот же шаг ещё раз (не больше двух раз подряд)
-        if (e instanceof Anthropic.APIError || jsonRetries++ >= 2) throw e;
+        if (isSdk(e, 'APIError') || jsonRetries++ >= 2) throw e;
         continue;
       }
       if (msg.stop_reason === 'refusal') {
@@ -536,11 +546,11 @@ export type AgentChat = ReturnType<typeof createAgentChat>;
 
 /** Ошибка Claude API → понятный текст и вид (страница по нему предлагает, что делать) */
 function errorOf(e: unknown): { code: 'key' | 'rate' | 'busy' | 'net' | 'other'; message: string } {
-  if (e instanceof Anthropic.AuthenticationError) return { code: 'key', message: 'Ключ Claude недействителен — укажите новый ключ' };
-  if (e instanceof Anthropic.PermissionDeniedError) return { code: 'key', message: 'У ключа нет доступа к этой модели — выберите другую или другой ключ' };
-  if (e instanceof Anthropic.RateLimitError) return { code: 'rate', message: 'Слишком много запросов подряд — подождите минуту и повторите' };
-  if (e instanceof Anthropic.InternalServerError) return { code: 'busy', message: 'Claude сейчас перегружен — повторите чуть позже' };
-  if (e instanceof Anthropic.APIConnectionError) return { code: 'net', message: 'Нет связи с Claude — проверьте интернет' };
-  if (e instanceof Anthropic.APIError) return { code: 'other', message: `Claude: ${e.message}` };
+  if (isSdk(e, 'AuthenticationError')) return { code: 'key', message: 'Ключ Claude недействителен — укажите новый ключ' };
+  if (isSdk(e, 'PermissionDeniedError')) return { code: 'key', message: 'У ключа нет доступа к этой модели — выберите другую или другой ключ' };
+  if (isSdk(e, 'RateLimitError')) return { code: 'rate', message: 'Слишком много запросов подряд — подождите минуту и повторите' };
+  if (isSdk(e, 'InternalServerError')) return { code: 'busy', message: 'Claude сейчас перегружен — повторите чуть позже' };
+  if (isSdk(e, 'APIConnectionError')) return { code: 'net', message: 'Нет связи с Claude — проверьте интернет' };
+  if (isSdk(e, 'APIError')) return { code: 'other', message: `Claude: ${(e as Error).message}` };
   return { code: 'other', message: (e as Error)?.message ?? String(e) };
 }

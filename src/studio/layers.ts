@@ -3,7 +3,7 @@ import type { Editor } from '../engine/editor/editor';
 import { blockName } from '../engine/editor/block-edit';
 import { esc } from '../engine/html';
 import type { Block, Deck } from '../types';
-import { snippet } from './code-tree';
+import { snippet } from './snippet';
 
 /**
  * Область выделения (как в PowerPoint): свободные объекты слайда списком, сверху — передний план.

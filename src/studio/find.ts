@@ -7,7 +7,6 @@
  * Пока поле поиска в фокусе, под ним — список всех совпадений: щелчок ведёт к нужному месту.
  * «Заменить все» — одна правка: Ctrl+Z откатывает всё.
  */
-import { stringify } from 'yaml';
 import { icon } from '../components/icons';
 import { getAt, setAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
@@ -26,10 +25,12 @@ export interface FindHost {
   showCode(mode: 'slide' | 'css', from: number, to: number): void;
 }
 
-/** Код слайда — ровно как во вкладке «Код»: позиции совпадений в нём те же */
-export function slideYaml(s: SlideData | undefined): string {
-  return s ? stringify(s, { lineWidth: 0 }) : '';
-}
+/**
+ * Код слайда (slide-yaml.ts) — по требованию: библиотека yaml нужна только поиску по коду и вкладке «Код»,
+ * а поиск по тексту открыт всегда — с ней студия при каждом открытии грузила бы лишние ~95 КБ
+ */
+let slideYaml: ((s: SlideData | undefined) => string) | null = null;
+const loadSlideYaml = async (): Promise<void> => { slideYaml ??= (await import('./slide-yaml')).slideYaml; };
 
 /** Поля, где не текст для зрителя: адреса, цвета, код, оформление, служебное */
 const SKIP = new Set([
@@ -88,7 +89,9 @@ export function texts(deck: Deck, notes: boolean): { path: Path; slide: number; 
 
 /** Код презентации для поиска: YAML каждого слайда, затем стили */
 export function codes(deck: Deck): { path: Path; slide: number; kind: 'slide' | 'css'; text: string }[] {
-  const out: { path: Path; slide: number; kind: 'slide' | 'css'; text: string }[] = deck.slides.map((s, i) => ({ path: ['slides', i], slide: i, kind: 'slide' as const, text: slideYaml(s) }));
+  const yaml = slideYaml;
+  // Код слайдов — когда загружен его разбор (loadSlideYaml); до того — только стили
+  const out: { path: Path; slide: number; kind: 'slide' | 'css'; text: string }[] = yaml ? deck.slides.map((s, i) => ({ path: ['slides', i], slide: i, kind: 'slide' as const, text: yaml(s) })) : [];
   const css = (deck as { css?: unknown }).css;
   if (typeof css === 'string' && css) out.push({ path: ['css'], slide: -1, kind: 'css', text: css });
   return out;
@@ -221,6 +224,14 @@ export class FindBar {
     this.el.classList.toggle('code', on);
     this.el.querySelector('[data-fa="code"]')!.setAttribute('aria-pressed', String(on));
     this.q.placeholder = on ? 'Найти в коде презентации' : 'Найти в презентации';
+    // Первый поиск по коду: разбор кода слайдов подгружается, поиск повторяется с ним
+    if (on && !slideYaml) {
+      void loadSlideYaml().then(() => {
+        if (!this.opts.code) return;
+        this.search();
+        this.jump(this.nearest(), true);
+      });
+    }
     if (!rerun) return;
     this.search();
     this.jump(this.nearest(), true);

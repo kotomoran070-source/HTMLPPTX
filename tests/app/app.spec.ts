@@ -165,7 +165,14 @@ test('первый запуск: «Моя первая презентация»,
         const pair = await fetch(`${lan}/__slideria/remote/pair?t=${ticket}`, { redirect: 'manual' });
         expect(pair.status).toBe(302);
         const cookie = (pair.headers.get('set-cookie') ?? '').split(';')[0];
-        expect((await fetch(`${lan}/?deck=moya-pervaya-prezentaciya`, { headers: { cookie } })).status).toBe(200);
+        const page = await fetch(`${lan}/?deck=moya-pervaya-prezentaciya`, { headers: { cookie } });
+        expect(page.status).toBe(200);
+        // Код показа телефону — сжатым (по сети это втрое меньше), окну программы — как есть
+        const code = /\/assets\/index-[\w-]+\.js/.exec(await page.text())![0];
+        const packed = await fetch(`${lan}${code}`, { headers: { cookie, 'accept-encoding': 'gzip' } });
+        expect([packed.status, packed.headers.get('content-encoding')]).toEqual([200, 'gzip']);
+        expect((await packed.text()).length).toBeGreaterThan(300_000);
+        expect(await win.evaluate(async (u) => (await fetch(u)).headers.get('content-encoding'), code)).toBeNull();
         expect((await fetch(`${lan}/__htmlpptx/list`, { method: 'POST', headers: { cookie } })).status).toBe(403);
       }
     }

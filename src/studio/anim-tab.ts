@@ -8,7 +8,7 @@ import { TEXT_FX, TEXT_FX_NAMES, textFxPreview, type TextFx } from '../engine/te
 import { TR_DIR_DEFAULT, TR_DIRS, trDir, TRANSITIONS } from '../engine/transitions';
 import type { Block, Deck } from '../types';
 import { bindRail, railNav } from './backdrop-pick';
-import { snippet } from './code-tree';
+import { snippet } from './snippet';
 import { showMenu, showPopover, type MenuHead, type MenuItem } from './menu';
 import { deckWithEffect, listEffects, removeEffect, type UserEffect } from './templates';
 

@@ -15,6 +15,8 @@ import fs from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
+import zlib from 'node:zlib';
+import { isLocal } from '../plugins/remote-relay.mjs';
 import { createDecksCore, type DecksCore, type Runner } from './core';
 import { MIME } from './deck-files';
 import { createEvents } from './events';
@@ -155,6 +157,28 @@ function sendFile(req: http.IncomingMessage, res: http.ServerResponse, file: str
   const stream = fs.createReadStream(file, { start, end });
   stream.on('error', () => res.destroy());
   stream.pipe(res);
+}
+
+/**
+ * Код и стили студии — сжатыми, но только не этому компьютеру (телефон-пульт в сети, дальше — облако): по сети
+ * 2 МБ кода показа превращаются в 0,6 МБ, а окну программы сжатие не нужно — оно лишь заняло бы процессор.
+ * Файлы с отпечатком в имени не меняются — сжатое запоминается
+ */
+const gzipped = new Map<string, Buffer>();
+const GZIP_TYPES = /^(text\/|application\/(javascript|json)|image\/svg)/;
+function sendPacked(req: http.IncomingMessage, res: http.ServerResponse, file: string, headers: Record<string, string>): boolean {
+  if (isLocal(req) || req.headers.range || !/\bgzip\b/.test(String(req.headers['accept-encoding'] ?? '')) || !GZIP_TYPES.test(mimeOf(file))) return false;
+  let body = gzipped.get(file);
+  if (!body) {
+    try { body = zlib.gzipSync(fs.readFileSync(file)); } catch { return false; }
+    gzipped.set(file, body);
+  }
+  res.writeHead(200, {
+    'Content-Type': mimeOf(file), 'Content-Encoding': 'gzip', 'Content-Length': body.length, Vary: 'Accept-Encoding',
+    'Cache-Control': 'public, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff', ...headers,
+  });
+  res.end(req.method === 'HEAD' ? undefined : body);
+  return true;
 }
 
 function notFound(res: http.ServerResponse): void {
@@ -303,7 +327,9 @@ export async function startServer(o: ServeOptions): Promise<Served> {
       if (url.startsWith('/assets/')) {
         const file = inside(studio, url.slice(1));
         if (!file) return notFound(res);
-        return sendFile(req, res, file, { forever: true, headers: WORKER_FILE.test(url) ? { 'Content-Security-Policy': WORKER_CSP } : {} });
+        const headers: Record<string, string> = WORKER_FILE.test(url) ? { 'Content-Security-Policy': WORKER_CSP } : {};
+        if (sendPacked(req, res, file, headers)) return;
+        return sendFile(req, res, file, { forever: true, headers });
       }
       const own = deckFile(url);
       if (own) return sendFile(req, res, own);
