@@ -564,6 +564,11 @@ interface Touch { x: number; y: number; on: number; cx: number; cy: number; age:
 
 interface Scene {
   draw(t: number, m: Touch): void;
+  /**
+   * Сделать сцену текущей в контексте: её программа, буфер и атрибут. Живому фону не нужно — у него контекст
+   * свой, и сцена в нём одна; кадры плиток рисуются разными сценами в одном общем контексте
+   */
+  bind(): void;
 }
 
 type Pal = () => { c1: Rgb; c2: Rgb; k: number };
@@ -592,6 +597,7 @@ function makeScene(gl: WebGLRenderingContext, kind: BackdropKind, colors: Pal, l
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   let count = 0;
+  const attr = gl.getAttribLocation(prog, pts ? 's' : 'p');
   if (pts) {
     count = pts.count[lite ? 0 : 1];
     const seeds = new Float32Array(count * 3);
@@ -618,6 +624,14 @@ function makeScene(gl: WebGLRenderingContext, kind: BackdropKind, colors: Pal, l
   const uK = u('k');
   const uPx = u('px');
   return {
+    bind() {
+      gl.useProgram(prog);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.enableVertexAttribArray(attr);
+      gl.vertexAttribPointer(attr, pts ? 3 : 2, gl.FLOAT, false, 0, 0);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    },
     draw(t) {
       const { c1, c2, k } = colors();
       gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
@@ -659,6 +673,14 @@ function networkScene(gl: WebGLRenderingContext, colors: Pal, lite: boolean, px?
   const lines = new Float32Array((n * n + n + RING) * 6);
   const dots = new Float32Array((n + 1) * 3);
   return {
+    bind() {
+      gl.useProgram(prog);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.enableVertexAttribArray(a);
+      gl.vertexAttribPointer(a, 3, gl.FLOAT, false, 0, 0);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    },
     draw(t, touch) {
       const { c1, c2, k } = colors();
       const W = gl.drawingBufferWidth;
@@ -978,29 +1000,53 @@ export function previewBackdrop(stage: HTMLElement, kind: BackdropKind | 'none' 
  * они иначе растаяли бы. Кадры запоминаются; без WebGL — null (у плитки остаётся статичный CSS)
  */
 const stills = new Map<string, string>();
+/**
+ * Холст и контекст WebGL для кадров — один на все: свой контекст на каждый кадр стоил 40–140 мс при открытии
+ * студии (docs/AUDIT.md), а браузер держит не больше ~16 контекстов сразу. Сцены (шейдеры) запоминаются по виду
+ * и размеру кадра; цвета сцена берёт из pal в момент рисования
+ */
+let stillGl: { canvas: HTMLCanvasElement; gl: WebGLRenderingContext; scenes: Map<string, Scene | null>; pal: { c1: Rgb; c2: Rgb; k: number } } | null = null;
+function stillContext(): NonNullable<typeof stillGl> | null {
+  if (stillGl && !stillGl.gl.isContextLost()) return stillGl;
+  const canvas = document.createElement('canvas');
+  const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: true, preserveDrawingBuffer: true });
+  if (!gl) return null;
+  const made = { canvas, gl, scenes: new Map<string, Scene | null>(), pal: { c1: [0, 0, 0] as Rgb, c2: [0, 0, 0] as Rgb, k: 1 } };
+  // Браузер забрал контекст (их слишком много) — следующий кадр создаст новый
+  canvas.addEventListener('webglcontextlost', () => { if (stillGl === made) stillGl = null; });
+  stillGl = made;
+  return made;
+}
 export function backdropStill(kind: BackdropKind, from: HTMLElement, w: number, h: number, colors?: BackdropColors): string | null {
   const pal = paletteOf(from, kind, colors);
   const key = `${kind}:${w}x${h}:${pal.c1.join()}:${pal.c2.join()}:${pal.k}`;
   const hit = stills.get(key);
   if (hit) return hit;
-  const canvas = document.createElement('canvas');
+  const g = stillContext();
+  if (!g) return null;
   // Линии WebGL — в одну точку: у «Сети» кадр меньше, при растяжке в плитку линии толще
   const thin = kind === 'network' ? 0.6 : 1;
-  canvas.width = Math.round(w * thin);
-  canvas.height = Math.round(h * thin);
-  h = canvas.height;
-  const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: true, preserveDrawingBuffer: true });
-  if (!gl) return null;
-  try {
-    const scene = makeScene(gl, kind, () => pal, true, Math.max(h / 720, STILL_PX * (STILL_DOTS[kind] ?? 1) * (h / 135)));
-    if (!scene) return null;
-    scene.draw(STILL_AT[kind] ?? 9, { x: 0.5, y: 0.5, on: 0, cx: 0.5, cy: 0.5, age: 99, s: 0 });
-    const url = canvas.toDataURL('image/png');
-    stills.set(key, url);
-    return url;
-  } finally {
-    gl.getExtension('WEBGL_lose_context')?.loseContext();
+  const cw = Math.round(w * thin);
+  const ch = Math.round(h * thin);
+  if (g.canvas.width !== cw || g.canvas.height !== ch) {
+    g.canvas.width = cw;
+    g.canvas.height = ch;
   }
+  const sceneKey = `${kind}:${cw}x${ch}`;
+  let scene = g.scenes.get(sceneKey);
+  if (scene === undefined) {
+    scene = makeScene(g.gl, kind, () => g.pal, true, Math.max(ch / 720, STILL_PX * (STILL_DOTS[kind] ?? 1) * (ch / 135)));
+    g.scenes.set(sceneKey, scene);
+  }
+  if (!scene) return null;
+  g.pal = pal;
+  scene.bind();
+  scene.draw(STILL_AT[kind] ?? 9, { x: 0.5, y: 0.5, on: 0, cx: 0.5, cy: 0.5, age: 99, s: 0 });
+  // Контекст потерян посреди рисования — кадр пустой: не запоминать
+  if (g.gl.isContextLost()) return null;
+  const url = g.canvas.toDataURL('image/png');
+  stills.set(key, url);
+  return url;
 }
 /** Масштаб точек в кадре плитки высотой 135 точек; у фонов из мелких точек — ещё крупнее */
 const STILL_PX = 0.42;
@@ -1021,22 +1067,52 @@ export function warmStills(root: HTMLElement): void {
 
 /**
  * Статичные слайды (миниатюры в студии, плитки тем): фон — кадром настоящей сцены вместо CSS.
- * Кадры рисуются по нескольку за кадр экрана и запоминаются; без WebGL остаётся CSS
+ * Кадры рисуются по нескольку за кадр экрана и запоминаются; без WebGL остаётся CSS.
+ * later — начать со следующего кадра экрана: замер цветов (getComputedStyle) сразу после правки страницы заставляет
+ * браузер пересчитать её стили целиком и тут же, а в начале кадра этот пересчёт и так предстоит
  */
-export function stillBackdrops(root: HTMLElement, again = false): void {
+const stillQueue: HTMLElement[] = [];
+let stillFrame = 0;
+function pumpStills(): void {
+  stillFrame = 0;
+  const t0 = performance.now();
+  while (stillQueue.length && performance.now() - t0 < 12) {
+    const el = stillQueue.shift()!;
+    const kind = el.isConnected ? BACKDROPS.find(([k]) => el.classList.contains(`bd-${k}`))?.[0] : undefined;
+    const url = kind ? backdropStill(kind, el, 240, 135) : null;
+    if (!url) continue;
+    el.classList.add('bd-still');
+    const image = `url("${url}")`;
+    // Тем же значением не пишем: запись всё равно пересчитывает стили
+    if (el.style.backgroundImage !== image) el.style.backgroundImage = image;
+  }
+  if (stillQueue.length) stillFrame = requestAnimationFrame(pumpStills);
+}
+export function stillBackdrops(root: HTMLElement, again = false, later = false): void {
   // again — заново (сменилась тема: цвета кадров уже другие)
-  const todo = [...root.querySelectorAll<HTMLElement>(again ? '.backdrop:not(.bd-live)' : '.backdrop:not(.bd-live):not(.bd-still)')];
-  const step = () => {
-    const t0 = performance.now();
-    while (todo.length && performance.now() - t0 < 12) {
-      const el = todo.shift()!;
-      const kind = el.isConnected ? BACKDROPS.find(([k]) => el.classList.contains(`bd-${k}`))?.[0] : undefined;
-      const url = kind ? backdropStill(kind, el, 240, 135) : null;
-      if (!url) continue;
+  stillQueue.push(...root.querySelectorAll<HTMLElement>(again ? '.backdrop:not(.bd-live)' : '.backdrop:not(.bd-live):not(.bd-still)'));
+  if (!stillQueue.length || stillFrame) return;
+  if (later) stillFrame = requestAnimationFrame(pumpStills);
+  else pumpStills();
+}
+
+/**
+ * Миниатюру перерисовывают: кадры её фонов — сразу на новые фоны того же вида (без замера цветов), сверка —
+ * в следующем кадре экрана. Вызвать до замены содержимого; ответ — функция «после замены»
+ */
+export function keepStills(root: HTMLElement): () => void {
+  const was = new Map<string, string>();
+  for (const el of root.querySelectorAll<HTMLElement>('.backdrop.bd-still')) {
+    const kind = BACKDROPS.find(([k]) => el.classList.contains(`bd-${k}`))?.[0];
+    if (kind && el.style.backgroundImage) was.set(kind, el.style.backgroundImage);
+  }
+  return () => {
+    for (const el of root.querySelectorAll<HTMLElement>('.backdrop:not(.bd-live)')) {
+      const image = was.get(BACKDROPS.find(([k]) => el.classList.contains(`bd-${k}`))?.[0] ?? '');
+      if (!image) continue;
       el.classList.add('bd-still');
-      el.style.backgroundImage = `url("${url}")`;
+      el.style.backgroundImage = image;
     }
-    if (todo.length) requestAnimationFrame(step);
+    stillBackdrops(root, true, true);
   };
-  step();
 }

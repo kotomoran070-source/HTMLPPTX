@@ -111,13 +111,19 @@ function fillStills(strip: HTMLElement, slide: HTMLElement | null): void {
   filling.get(strip)?.disconnect();
   filling.delete(strip);
   if (!slide) return;
-  const bg = getComputedStyle(slide).getPropertyValue('--bg').trim();
   const tiles = [...strip.querySelectorAll<HTMLElement>('button > i')];
-  if (bg) tiles.forEach((i) => { i.style.backgroundColor = bg; });
+  // Фон плиток — цвет слайда. Читается в начале следующего кадра: сразу после перестройки панели чтение стилей
+  // заставило бы браузер пересчитать их для всей страницы (на переход к слайду — лишние миллисекунды, на
+  // больших презентациях — десятки)
+  requestAnimationFrame(() => {
+    if (!onPage(strip) || !slide.isConnected) return;
+    const bg = getComputedStyle(slide).getPropertyValue('--bg').trim();
+    if (bg) tiles.forEach((i) => { if (i.style.backgroundColor !== bg) i.style.backgroundColor = bg; });
+  });
   const todo = tiles.filter((i) => isBackdrop(i.dataset.bd));
   if (!todo.length) return;
-  // Цвета слайда — один раз на всю ленту
-  const colors = backdropColors(slide);
+  // Цвета слайда — один раз на всю ленту и только когда дойдёт до рисования (в простое браузера)
+  let colors: ReturnType<typeof backdropColors> | null = null;
   const queue: HTMLElement[] = [];
   let waiting = false;
   // Кадры — в свободное время браузера: смена слайда и правка не ждут, пока нарисуются плитки
@@ -129,7 +135,8 @@ function fillStills(strip: HTMLElement, slide: HTMLElement | null): void {
   const step = (dl?: IdleDeadline) => {
     waiting = false;
     // Лента ушла со страницы или её уже заполняют заново (сменилась тема) — эта очередь больше не нужна
-    if (!onPage(strip) || filling.get(strip) !== io) return io.disconnect();
+    // …или слайда, с которого брать цвета, уже нет на странице
+    if (!onPage(strip) || filling.get(strip) !== io || !slide.isConnected) return io.disconnect();
     // Кадр плитки — 20–30 мс (своя сцена WebGL): пока объект тянут, он сделал бы кадр долгим — ждём отпускания
     if (pointerHeld) {
       waiting = true;
@@ -141,7 +148,7 @@ function fillStills(strip: HTMLElement, slide: HTMLElement | null): void {
     do {
       const i = queue.shift();
       if (!i) break;
-      const url = backdropStill(i.dataset.bd as BackdropKind, slide, STILL_W, STILL_H, colors);
+      const url = backdropStill(i.dataset.bd as BackdropKind, slide, STILL_W, STILL_H, colors ??= backdropColors(slide));
       if (!url) continue;
       i.className = 'bd-still';
       i.style.backgroundImage = `url("${url}")`;

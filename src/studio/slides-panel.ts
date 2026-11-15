@@ -1,5 +1,5 @@
 import { icon } from '../components/icons';
-import { stillBackdrops } from '../components/backdrop/backdrop';
+import { keepStills, stillBackdrops } from '../components/backdrop/backdrop';
 import { staticSlide, thumbRenderer } from '../engine/deck-view';
 import { slideLabel } from '../engine/render';
 import type { Deck } from '../types';
@@ -70,8 +70,10 @@ export class SlidesPanel {
       }
       if (full || this.sigs[i] !== sig) {
         const box = item.querySelector('.st-tbox')!;
+        // Кадры живых фонов прежней миниатюры — новой сразу; замер цветов и сверка — в следующем кадре экрана
+        const stills = keepStills(box as HTMLElement);
         box.replaceChildren(staticSlide(deck, i, undefined, r ??= thumbRenderer(deck)));
-        stillBackdrops(box as HTMLElement);
+        stills();
         this.sigs[i] = sig;
       }
       item.setAttribute('aria-label', `Слайд ${i + 1}: ${slideLabel(deck.slides[i], i)}`);
