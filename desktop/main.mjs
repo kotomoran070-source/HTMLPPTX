@@ -572,8 +572,8 @@ function createWindow() {
       if (!splash.webContents.isDestroyed()) splash.webContents.close();
     };
     const left = splash.webContents.executeJavaScript('done()').catch(() => {});
-    // Вступление может доигрывать (до ~0,6 с) и уход (0,6 с): слой убирается, когда заставка ушла, — не позже 2,4 с
-    void Promise.race([left, new Promise((r) => setTimeout(r, 2400))]).then(remove);
+    // Заставка держится не меньше 1,5 с от начала и уходит 0,6 с: слой убирается, когда она ушла, — не позже 3 с
+    void Promise.race([left, new Promise((r) => setTimeout(r, 3000))]).then(remove);
   };
   win.webContents.ipc.on('slideria:ready', drop);
   // Страница загружена — почти готово; так и не сказала «готова» (сбой до неё) — заставка всё равно уходит

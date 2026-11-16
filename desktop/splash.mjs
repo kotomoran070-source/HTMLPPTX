@@ -4,8 +4,9 @@
  * названием идёт по настоящим шагам запуска (step), запуск дольше секунды — подпись, что сейчас происходит.
  * Уходя (done), слайды разлетаются, а заставка раскрывается кругом от знака — под ней уже готовая страница.
  *
- * Ничего не грузит: всё нарисовано стилями, страница — data:-адрес. Запуск не задерживает: веер раскрывается
- * за ~0,45 с; программа готова раньше — заставка дожидается только конца веера.
+ * Ничего не грузит: всё нарисовано стилями, страница — data:-адрес. Вступление всегда идёт в своём темпе (~1,25 с,
+ * до последнего столбика) и держится не меньше MIN_SHOW: на быстром компьютере программа готова раньше, но заставка
+ * не ускоряется и не обрывается — это первое, что видно от программы.
  * «Уменьшить движение» в системе — просто появляется и растворяется.
  */
 
@@ -112,18 +113,26 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden}
 
 const BARS = [['46%', '#93C5FD', '#3B82F6', '.30s'], ['72%', '#A5B4FC', '#6366F1', '.36s'], ['58%', '#C4B5FD', '#8B5CF6', '.42s'], ['88%', '#F9A8D4', '#EC4899', '.48s'], ['66%', '#93C5FD', '#2563EB', '.54s']];
 
+/**
+ * Сколько заставка видна самое малое, мс: вступление (последний столбик вырастает к ~1,25 с) и миг, чтобы увидеть
+ * собранную колоду. Уход — ещё 0,6 с
+ */
+const MIN_SHOW = 1500;
+
 /** Подписи шагов — только если запуск дольше секунды */
 const NOTES = ['Запуск Slideria…', 'Подготовка презентаций…', 'Открытие студии…', 'Почти готово…'];
 
 const script = `
 (function(){
   var c=document.querySelector('.c'),bar=document.querySelector('.bar i'),note=document.querySelector('.n');
-  var shown=0,target=.12,next=.3,since=performance.now(),last=performance.now(),started=false,leaving=null;
+  var shown=0,target=.12,next=.3,since=performance.now(),last=performance.now(),started=false,startedAt=0,leaving=null;
+  var MIN_SHOW=${MIN_SHOW};
   var NOTES=${JSON.stringify(NOTES)};
   /** Вступление — когда окно уже на экране (desktop/main.mjs зовёт start после показа окна); на всякий случай — само */
   window.start=function(){
     if(started)return;
     started=true;
+    startedAt=performance.now();
     requestAnimationFrame(function(){c.classList.add('on')});
     setTimeout(function(){if(!leaving)c.classList.add('long')},1000);
   };
@@ -139,9 +148,8 @@ const script = `
   /** Шаг запуска: p — доля пути (0…1), k — номер подписи */
   window.step=function(p,k){if(p>target){target=p;next=Math.min(1,p+.25);since=performance.now()}if(k!=null&&NOTES[k])note.textContent=NOTES[k]};
   /**
-   * Программа готова: вступление доигрывает, а не обрывается на середине (на быстром компьютере готово раньше, чем
-   * веер раскрылся), — оставшиеся движения ускоряются, но плавно (не больше чем в 2,5 раза); затем слайды разлетаются.
-   * Ответ — когда заставка ушла
+   * Программа готова: вступление доигрывает в своём темпе (на быстром компьютере готово раньше, чем веер раскрылся),
+   * заставка держится не меньше MIN_SHOW от начала, затем слайды разлетаются. Ответ — когда заставка ушла
    */
   window.done=function(){
     if(leaving)return leaving;
@@ -155,8 +163,8 @@ const script = `
       });
       var left=0;
       intro.forEach(function(a){var t=a.effect.getComputedTiming();left=Math.max(left,(t.endTime||0)-(a.currentTime||0))});
-      var rate=left>320?Math.min(2.5,left/320):1;
-      if(rate>1)intro.forEach(function(a){try{a.updatePlaybackRate(rate)}catch(e){}});
+      // Вступление только началось (класс on — со следующего кадра): его движения ещё не созданы
+      left=Math.max(left,MIN_SHOW-(performance.now()-startedAt));
       setTimeout(function(){
         bar.style.setProperty('--p','1');
         var r=c.getBoundingClientRect();
@@ -164,7 +172,7 @@ const script = `
         c.classList.remove('long');
         c.classList.add('out');
         setTimeout(resolve,reduce?60:600);
-      },reduce?0:Math.max(0,left/rate));
+      },reduce?0:Math.max(0,left));
     });
     return leaving;
   };
