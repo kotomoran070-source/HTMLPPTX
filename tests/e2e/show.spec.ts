@@ -998,6 +998,47 @@ test('автопоказ: листает сам после анимаций, ш�
   expect(errors).toEqual([]);
 });
 
+test('автопоказ: A — пауза как в видео: слайд и вставка замирают, отсчёт продолжает с того же места; листание на паузе — слайд играет', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=autofz&autoplay#1');
+  const at = async () => (await counter(page))[0];
+  const shape = page.locator('.slide.on [style*="fz-spin"]').first();
+  const angle = () => shape.evaluate((e) => getComputedStyle(e).rotate);
+  const doc = page.frameLocator('.slide.on iframe');
+  const frames = async () => Number(await doc.locator('#n').textContent());
+  const time = async () => Number(await doc.locator('#t').textContent());
+  await expect.poll(frames).toBeGreaterThan(5);
+  // Отсчёт до следующего слайда идёт (3 с) — ставим на паузу посередине
+  await page.waitForTimeout(1600);
+  await page.keyboard.press('a');
+  await expect(page.locator('.stage.frozen')).toHaveCount(1);
+  const a1 = await angle();
+  const [n1, t1] = [await frames(), await time()];
+  await page.waitForTimeout(3500);
+  // Стоит всё: слайд не сменился, фигура не повернулась, вставка не нарисовала ни кадра
+  expect(await at()).toBe(1);
+  expect(await angle()).toBe(a1);
+  expect(await frames()).toBeLessThanOrEqual(n1 + 1);
+  // Дальше — с того же места: время вставки без скачка на паузу, фигура крутится, слайд — через оставшееся время
+  const go = Date.now();
+  await page.keyboard.press('a');
+  await expect(page.locator('.stage.frozen')).toHaveCount(0);
+  await expect.poll(frames).toBeGreaterThan(n1 + 2);
+  expect((await time()) - t1).toBeLessThan(1500);
+  await expect.poll(angle).not.toBe(a1);
+  await expect.poll(at, { timeout: 5000 }).toBe(2);
+  // Отсчёт не начался заново: 3 с с начала ушли бы дольше
+  expect(Date.now() - go).toBeLessThan(2600);
+  // Пауза и листание руками: новый слайд не замирает, автопоказ остаётся на паузе
+  await page.keyboard.press('a');
+  await expect(page.locator('.stage.frozen')).toHaveCount(1);
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(at).toBe(3);
+  await expect(page.locator('.stage.frozen')).toHaveCount(0);
+  await expect(page.locator('#ap')).toHaveAttribute('title', /дальше/);
+  expect(errors).toEqual([]);
+});
+
 test('автопоказ: своё время слайда; повтор — появления по кругу, автопоказ ждёт «Далее», листание повтор снимает', async ({ page }) => {
   const errors = watchErrors(page);
   const dir = path.join(DECKS, 'autorep');

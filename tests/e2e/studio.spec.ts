@@ -698,7 +698,7 @@ test('свои библиотеки переезжают из браузера �
 test('живой фон не перехватывает мышь: логотип разобранного титула выделяется и растёт целиком', async ({ page }) => {
   const errors = watchErrors(page);
   // Титул шаблоном cover с живым фоном — последний слайд (см. tests/prepare.mjs)
-  await page.goto('/?deck=design&studio#32');
+  await page.goto('/?deck=design&studio#35');
   await expect(page.locator('#st-canvas .slide.on')).toHaveCount(1);
   const before = readDeck('design');
   // У темы свой фон («Сияние»): после разбора он остаётся фоном темы, а не своим фоном холста поверх живого фона

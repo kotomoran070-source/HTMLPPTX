@@ -101,7 +101,8 @@ defineBlock<ModelProps>('model', {
       settle.forEach(clearTimeout);
       if (sendNow) settle = [150, 400, 800, 1400].map((ms) => window.setTimeout(sendNow!, ms));
     };
-    const frozen = () => ctx.stage.classList.contains('paused');
+    // Пауза сцены: экономный режим пульта или пауза автопоказа — модель не крутится
+    const frozen = () => ctx.stage.classList.contains('paused') || ctx.stage.classList.contains('frozen');
     const on = () => {
       clearTimeout(timer);
       if (mv) return;

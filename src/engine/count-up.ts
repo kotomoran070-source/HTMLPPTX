@@ -5,6 +5,8 @@
  * (младшие крутятся дольше). Только при показе и в «Просмотре»: в правке текст не трогается.
  * Конец отсчёта — ровно исходный текст; остановка возвращает разметку как была.
  */
+import { sceneNow } from './show-clock';
+
 const NUM = /[-−]?\d{1,3}(?:[   ,]\d{3})+(?:[.,]\d+)?|[-−]?\d+(?:[.,]\d+)?/g;
 const MS = 1400;
 
@@ -63,9 +65,11 @@ export function countUp(slide: HTMLElement | undefined): () => void {
     for (const node of found) drums.push(odometer(node, delay));
   }
   if (!parts.length) return () => drums.forEach((f) => f());
-  const t0 = performance.now();
+  // Время сцены: на паузе автопоказа числа стоят и потом добегают с того же значения
+  const t0 = sceneNow();
   let raf = 0;
-  const draw = (now: number) => {
+  const draw = (frame: number) => {
+    const now = sceneNow(frame);
     let running = false;
     parts.forEach((p, i) => {
       const k = Math.min(1, Math.max(0, (now - t0 - delays[i] - 120) / MS));
@@ -82,7 +86,7 @@ export function countUp(slide: HTMLElement | undefined): () => void {
     });
     if (running) raf = requestAnimationFrame(draw);
   };
-  draw(t0);
+  draw(performance.now());
   raf = requestAnimationFrame(draw);
   return () => {
     cancelAnimationFrame(raf);

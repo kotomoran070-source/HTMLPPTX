@@ -4,6 +4,8 @@
  * его копия (data-text для слоёв глитча и блика) — это делается здесь, только при показе и в «Просмотре»,
  * как у «Числа набегает»: в правке текст не трогается. Остановка возвращает разметку как была.
  */
+import { sceneNow } from './show-clock';
+
 export const TEXT_FX = ['glitch', 'neon', 'shine', 'wave', 'type', 'scramble', 'liquid'] as const;
 export type TextFx = typeof TEXT_FX[number];
 
@@ -88,12 +90,14 @@ function run(objs: HTMLElement[], wait?: number): () => void {
       const html = el.innerHTML;
       const chars = split(el);
       undo.push(() => { if (el.isConnected) el.innerHTML = html; });
-      if (fx === 'type') ticks.push(typing(chars, performance.now() + delay));
-      else if (fx === 'scramble') ticks.push(scrambling(chars, performance.now() + delay));
+      if (fx === 'type') ticks.push(typing(chars, sceneNow() + delay));
+      else if (fx === 'scramble') ticks.push(scrambling(chars, sceneNow() + delay));
     }
   }
   if (ticks.length) {
-    const loop = (now: number) => {
+    // Время сцены: на паузе автопоказа машинка и расшифровка стоят и потом продолжают с той же буквы
+    const loop = (frame: number) => {
+      const now = sceneNow(frame);
       for (let k = ticks.length - 1; k >= 0; k--) if (!ticks[k](now)) ticks.splice(k, 1);
       if (ticks.length) raf = requestAnimationFrame(loop);
     };

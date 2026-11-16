@@ -293,6 +293,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   }
   /** Слайд или шаг сменились: второму окну — что видно, автопоказу — отсчёт заново */
   function moved(): void {
+    // Листали на паузе — новый слайд играет как обычно; автопоказ остаётся на паузе
+    view.setFrozen(false);
     broadcast();
     if (!auto.on) pg.style.transition = '';
     void auto.schedule();
@@ -317,9 +319,18 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       if (!ovOpen() && !editor?.active && !black) view.replay(i, false);
     }
   }
+  /**
+   * Пауза автопоказа — как в видео: слайд замирает на месте (deck-view setFrozen), «дальше» — продолжает
+   * с того же кадра. Автопоказ дошёл до конца сам — слайд не замирает
+   */
+  function setAuto(on: boolean): void {
+    if (on) view.setFrozen(false);
+    auto.toggle(on);
+    if (!on) view.setFrozen(true);
+  }
   /** A: пауза или дальше — со значком посреди экрана (на весь экран панели не видно) */
   function toggleAuto(): void {
-    auto.toggle();
+    setAuto(!auto.on);
     const f = $('apf');
     f.innerHTML = icon(auto.on ? 'play' : 'pause');
     f.classList.remove('on');
@@ -831,7 +842,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     else if (m.type === 'spot') { if (m.index === index) view.spot(m.key); }
     // Автопоказ из окна докладчика или с телефона (зрители значка не видят)
     else if (m.type === 'autoplay') {
-      if (m.on !== auto.on) auto.toggle(m.on);
+      if (m.on !== auto.on) setAuto(m.on);
       else sync.send({ type: 'autoplay', on: auto.on, tl: auto.now() }, from);
     }
     else if (m.type === 'zoom') bigStep(m.step, false);

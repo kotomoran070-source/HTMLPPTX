@@ -75,9 +75,13 @@ body.editing .ed-block-sel .gt-today span { cursor: ew-resize; box-shadow: 0 0 0
 .rk-ty span, .rk-tx span { display: grid; place-items: center; text-align: center; font: 600 12px/1 var(--font); color: var(--mu); }
 .rk-grid { grid-area: 2 / 2; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); grid-template-rows: repeat(var(--n), minmax(0, 1fr)); gap: 5px; aspect-ratio: 1.2; }
 .rk-cell { display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: 4px; padding: 4px; min-height: 0; border-radius: calc(8px * var(--rk, 1));
-  background: color-mix(in srgb, var(--lv) var(--mx), var(--surf)); border: 1px solid color-mix(in srgb, var(--lv) 32%, transparent); }
-.rk-dot { display: grid; place-items: center; text-align: center; width: 28px; height: 28px; border-radius: 50%; background: var(--lv); color: #fff; font: 700 13px/1 var(--font); font-style: normal;
+  background: color-mix(in srgb, var(--lv) var(--mx), var(--surf)); border: 1px solid color-mix(in srgb, var(--lv) 32%, transparent);
+  container-type: size; }
+/* Кружок — по клетке (cqmin — от её места без отступов): на маленькой матрице он не вываливается за край */
+.rk-dot { display: grid; place-items: center; text-align: center; width: min(28px, 96cqmin); height: min(28px, 96cqmin); border-radius: 50%; background: var(--lv); color: #fff;
+  font: 700 min(13px, 46cqmin)/1 var(--font); font-style: normal;
   box-shadow: 0 0 0 2px var(--surf), 0 3px 8px -2px rgba(15, 23, 42, .4); transition: scale .15s, box-shadow .15s; }
+.rk-cell.m .rk-dot { --d2: min(24px, 96cqh, calc(50cqw - 2px)); width: var(--d2); height: var(--d2); font-size: min(12px, 22cqw); }
 .rk-list { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .rk-li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 12px; transition: background-color .15s; }
 .rk-li > i { display: grid; place-items: center; text-align: center; width: 30px; height: 30px; border-radius: 50%; background: var(--lv); color: #fff; font: 700 13px/1 var(--font); font-style: normal; }

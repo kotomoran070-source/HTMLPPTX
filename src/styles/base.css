@@ -511,8 +511,9 @@ body.editing .slide.on > .free.act { cursor: inherit; translate: none; filter: n
   animation: var(--fx, fx-rise) calc(var(--fx-ms, .38s) * var(--fx-k, 1)) var(--fx-ease, cubic-bezier(.2, .7, .2, 1)) calc(var(--fx-d, 0ms) + var(--i) * 280ms * var(--fx-k, 1)) both;
 }
 .stage .slide.on[data-tr]:not([data-tr="none"]):not(.static) > .free.by-item.fx-items :is(li, .md-li) { animation-delay: calc(var(--fx-d, 0ms) + var(--tr-ms, 600ms) + var(--i) * 280ms * var(--fx-k, 1)); }
-/* Сцена на паузе (экономный режим пульта): анимации замирают там, где были */
-.stage.paused *, .stage.paused *::before, .stage.paused *::after { animation-play-state: paused !important; }
+/* Сцена на паузе (экономный режим пульта, пауза автопоказа): анимации замирают там, где были */
+.stage.paused *, .stage.paused *::before, .stage.paused *::after,
+.stage.frozen *, .stage.frozen *::before, .stage.frozen *::after { animation-play-state: paused !important; }
 /* Проиграть анимацию по кнопке (play:<id>): выделение (emphasis) или заново появление объекта */
 .stage .slide.on:not(.static) > .free.trig-play.trig-play { animation: var(--emph, var(--fx, fx-pop)) calc(var(--emph-ms, var(--fx-ms, .5s)) * var(--fx-k, 1)) var(--emph-ease, cubic-bezier(.2, .7, .2, 1)) 0ms both; }
 .free[data-emph="pulse"] { --emph: emph-pulse; --emph-ms: .6s; --emph-ease: ease-in-out; }

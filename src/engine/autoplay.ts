@@ -94,22 +94,40 @@ export class Autoplay {
   private run = 0;
   /** Таймлайн, который сейчас показан, и когда пошёл его отрезок */
   private tl: (Timeline & { t0: number }) | null = null;
+  /** Идёт отсчёт до следующего шага или слайда (анимации доиграли) */
+  private ticking: Omit<Rest, 'ms' | 'tl'> | null = null;
+  /** Пауза посреди отсчёта: сколько осталось — после неё отсчёт не начинается заново */
+  private rest: Rest | null = null;
 
   constructor(private h: AutoplayHost) {}
 
   toggle(on = !this.on): void {
     this.on = on;
     this.used ||= on;
-    if (on) void this.schedule();
-    else {
+    if (on) {
+      // Пауза — как в видео: шаг досчитывает оставшееся время, полоски идут с того же места
+      const r = this.rest;
+      this.rest = null;
+      if (r) this.resume(r);
+      else void this.schedule();
+    } else {
       clearTimeout(this.timer);
       this.run++;
       this.h.bar.freeze();
       // Таймлайн замирает там, где был
       const t = this.now();
+      if (this.ticking && t) this.rest = { ...this.ticking, ms: t.ms, tl: t };
+      this.ticking = null;
       if (t) this.show({ ...t, to: t.from, ms: 0, paused: true });
     }
     this.h.changed(on);
+  }
+
+  private resume(r: Rest): void {
+    const run = ++this.run;
+    if (r.grow) this.h.bar.grow(r.ms);
+    this.show(r.tl);
+    this.arm(run, r.ms, r.last, r.loop, r.grow);
   }
 
   /** Таймлайн сейчас: где полоса и сколько её отрезку ещё идти (новому окну докладчика, паузе) */
@@ -130,6 +148,8 @@ export class Autoplay {
   async schedule(): Promise<void> {
     clearTimeout(this.timer);
     const run = ++this.run;
+    this.rest = null;
+    this.ticking = null;
     if (!this.on) {
       // Листали руками на паузе: замерший таймлайн — про прежний шаг
       if (this.tl) this.show(null);
@@ -150,10 +170,18 @@ export class Autoplay {
     const last = !left && this.h.atEnd();
     // Полоска прогресса плавно идёт к следующему слайду (с таймлайном на экране — стоит);
     // на последнем без «по кругу» идти некуда
-    if (!left && !(last && !loop) && !timeline) this.h.bar.grow(seg.ms);
+    const grow = !left && !(last && !loop) && !timeline;
+    if (grow) this.h.bar.grow(seg.ms);
     this.show({ ticks: p.ticks, total: p.total, ...seg });
+    this.arm(run, seg.ms, last, !!loop, grow);
+  }
+
+  /** Через ms — следующий шаг или слайд (последний: по кругу — первый, иначе автопоказ закончился) */
+  private arm(run: number, ms: number, last: boolean, loop: boolean, grow: boolean): void {
+    this.ticking = { last, loop, grow };
     this.timer = window.setTimeout(() => {
       if (run !== this.run) return;
+      this.ticking = null;
       if (this.h.blocked()) return void this.schedule();
       if (!last) this.h.next();
       else if (loop) this.h.first();
@@ -161,6 +189,9 @@ export class Autoplay {
         this.toggle(false);
         this.show(null);
       }
-    }, seg.ms);
+    }, ms);
   }
 }
+
+/** Отсчёт, прерванный паузой: сколько ему осталось и куда он ведёт */
+interface Rest { ms: number; tl: Timeline; last: boolean; loop: boolean; grow: boolean }

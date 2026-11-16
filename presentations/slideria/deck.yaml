@@ -161,7 +161,7 @@ slides:
       - type: grid
         columns: 4
         items:
-          - {type: stat, value: "31", label: вид блока, note: от текста до 3D-модели}
+          - {type: stat, value: "81", label: тип блоков, note: от текста до 3D-модели}
           - {type: stat, value: "7", label: эффектов появления, note: плюс свои из импорта}
           - {type: stat, value: "6", label: переходов между слайдами, note: от сдвига до размытия}
           - {type: stat, value: "1", label: файл для показа, note: работает без интернета}
@@ -424,7 +424,7 @@ slides:
         enter: left
         delay: 500
       - type: text
-        text: "**2 · Стиль**\n31 блок, темы и анимации — дизайн уже готов"
+        text: "**2 · Стиль**\n81 тип блоков, темы и анимации — дизайн уже готов"
         styles: {text: {size: 19, color: text2, leading: 1.45}}
         place: {x: 66, y: 420, w: 480}
         enter: left

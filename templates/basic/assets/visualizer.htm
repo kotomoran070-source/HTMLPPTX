@@ -84,19 +84,29 @@ const grad = (x0, y0, x1, y1) => { const g = x.createLinearGradient(x0, y0, x1, 
 // Неоновое кольцо: лучи по спектру, сердце дышит басами, кольцо поворачивается от громкости
 function neon() {
   const cx = w / 2, cy = h / 2, s = Math.min(w, h), R = s * (0.22 + bass * 0.04), n = BARS * 2;
+  // Тёмный ореол под кольцом: цвета темы часто совпадают с картинкой под визуализатором — без него кольцо теряется
+  const halo = x.createRadialGradient(cx, cy, R * 0.5, cx, cy, R * 1.9);
+  halo.addColorStop(0, 'rgb(2 6 23 / .5)'); halo.addColorStop(1, 'rgb(2 6 23 / 0)');
+  x.shadowBlur = 0; x.fillStyle = halo;
+  x.beginPath(); x.arc(cx, cy, R * 1.9, 0, Math.PI * 2); x.fill();
   const core = x.createRadialGradient(cx, cy, 0, cx, cy, R);
   core.addColorStop(0, 'rgb(255 255 255 / 0)'); core.addColorStop(1, B);
   x.globalAlpha = 0.15 + bass * 0.35; x.fillStyle = core;
   x.beginPath(); x.arc(cx, cy, R, 0, Math.PI * 2); x.fill();
   x.globalAlpha = 1; x.shadowBlur = 20;
-  x.strokeStyle = A; x.lineWidth = Math.max(1.5, s * 0.005);
+  x.strokeStyle = A; x.lineWidth = Math.max(2.5, s * 0.009);
   x.beginPath(); x.arc(cx, cy, R * 0.92, 0, Math.PI * 2); x.stroke();
+  // Светлая середина линии — как у неоновой трубки
+  x.shadowBlur = 0; x.strokeStyle = lighter(B.startsWith('#') ? B : A, 0.6); x.lineWidth = Math.max(1, s * 0.003);
+  x.beginPath(); x.arc(cx, cy, R * 0.92, 0, Math.PI * 2); x.stroke();
+  x.shadowBlur = 20;
   const g = x.createConicGradient(spin, cx, cy);
   g.addColorStop(0, A); g.addColorStop(0.5, B); g.addColorStop(1, A);
   x.strokeStyle = g; x.lineCap = 'round'; x.lineWidth = Math.max(2, Math.PI * R / n * 0.9);
   x.beginPath();
   for (let k = 0; k < n; k++) {
-    const a = spin - Math.PI / 2 + k / n * Math.PI * 2, v = at((k / n + 0.5) % 1), len = 0.01 + v * s * 0.22;
+    // В тишине лучи — короткие засечки по кругу: видно, что это визуализатор, а не просто кольцо
+    const a = spin - Math.PI / 2 + k / n * Math.PI * 2, v = at((k / n + 0.5) % 1), len = s * 0.018 + v * s * 0.22;
     x.moveTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R);
     x.lineTo(cx + Math.cos(a) * (R + len), cy + Math.sin(a) * (R + len));
   }

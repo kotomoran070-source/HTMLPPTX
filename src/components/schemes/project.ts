@@ -75,8 +75,10 @@ defineBlock<RisksProps>('risks', {
     for (let row = 0; row < n; row++) {
       const pv = n - row;
       for (let iv = 1; iv <= n; iv++) {
-        const dots = at.map((a, k) => (a.p === pv && a.i === iv ? `<i class="rk-dot" data-n="${k + 1}" style="--k:${k}">${k + 1}</i>` : '')).join('');
-        cells.push(`<div class="rk-cell lv${riskLevel(pv, iv, n)}" style="--d:${row + iv}">${dots}</div>`);
+        const here = at.flatMap((a, k) => (a.p === pv && a.i === iv ? [k] : []));
+        const dots = here.map((k) => `<i class="rk-dot" data-n="${k + 1}" style="--k:${k}">${k + 1}</i>`).join('');
+        // Несколько рисков в одной клетке — кружки мельче, чтобы уместились рядом
+        cells.push(`<div class="rk-cell lv${riskLevel(pv, iv, n)}${here.length > 1 ? ' m' : ''}" style="--d:${row + iv}">${dots}</div>`);
       }
     }
     const ticks = (k: number) => `<span>${k}</span>`;

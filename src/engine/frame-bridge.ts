@@ -5,8 +5,23 @@
  * мыши в этой точке. Так курсор докладчика у зрителей расталкивает частицы и жмёт кнопки вставки.
  */
 
+/**
+ * Пауза автопоказа (сообщение slideriaFreeze): кадры (requestAnimationFrame) и performance.now() документа
+ * стоят и потом идут дальше без скачка, CSS-анимации и ролики замирают — вставка продолжает с того же кадра.
+ * Подменяется до скриптов документа: скрипт встаёт сразу после <head>
+ */
+const FREEZE = `var W=window,R=W.requestAnimationFrame.bind(W),C=W.cancelAnimationFrame.bind(W),P=performance.now.bind(performance),fz=0,at=0,lost=0,q=[],ids=0,map={},an=[],md=[];`
+  + `performance.now=function(){return(fz?at:P())-lost};`
+  + `function go(id,cb){map[id]=R(function(t){delete map[id];if(fz){q.push([id,cb]);return}cb(t-lost)})}`
+  + `W.requestAnimationFrame=function(cb){var id=++ids;if(fz)q.push([id,cb]);else go(id,cb);return id};`
+  + `W.cancelAnimationFrame=function(id){if(map[id]){C(map[id]);delete map[id]}for(var i=q.length-1;i>=0;i--)if(q[i][0]===id)q.splice(i,1)};`
+  + `function frz(on){if(!on===!fz)return;if(on){fz=1;at=P();an=document.getAnimations?document.getAnimations().filter(function(a){return a.playState==='running'}):[];an.forEach(function(a){a.pause()});`
+  + `md=[].filter.call(document.querySelectorAll('video,audio'),function(m){return!m.paused});md.forEach(function(m){m.pause()})}`
+  + `else{lost+=P()-at;fz=0;an.forEach(function(a){if(a.playState==='paused')a.play()});md.forEach(function(m){var p=m.play();if(p&&p.catch)p.catch(function(){})});var w=q;q=[];w.forEach(function(x){go(x[0],x[1])})}}`
+  + `addEventListener('message',function(e){var d=e.data;if(e.source===parent&&d&&typeof d.slideriaFreeze==='boolean')frz(d.slideriaFreeze)});`;
+
 /** Скрипт внутри документа: принимает сообщения только от страницы, в которую встроен */
-const SCRIPT = `<script>(function(){addEventListener('message',function(e){var d=e.data;if(e.source!==parent||!d||typeof d.slideriaPtr!=='string')return;var t=d.slideriaPtr,x=+d.x||0,y=+d.y||0,b=+d.b||0;`
+const SCRIPT = `<script>(function(){${FREEZE}addEventListener('message',function(e){var d=e.data;if(e.source!==parent||!d||typeof d.slideriaPtr!=='string')return;var t=d.slideriaPtr,x=+d.x||0,y=+d.y||0,b=+d.b||0;`
   + `function f(el,type,P,o){try{el.dispatchEvent(new (P&&window.PointerEvent?PointerEvent:MouseEvent)(type,Object.assign({clientX:x,clientY:y,buttons:b,pointerId:1,pointerType:'mouse',isPrimary:true,view:window},o)))}catch(_){}}`
   + `if(t==='leave'){f(window,'pointerleave',1,{});f(document.documentElement,'pointerleave',1,{});f(document.documentElement,'mouseleave',0,{});f(document.documentElement,'mouseout',0,{bubbles:true});return}`
   + `var el=document.elementFromPoint(x,y)||document.body||document.documentElement,o={bubbles:true,cancelable:true,composed:true};`
@@ -14,8 +29,9 @@ const SCRIPT = `<script>(function(){addEventListener('message',function(e){var d
   + `else if(t==='down'){f(el,'pointerdown',1,Object.assign({button:0,buttons:1},o));f(el,'mousedown',0,Object.assign({button:0,buttons:1},o))}`
   + `else if(t==='up'){f(el,'pointerup',1,Object.assign({button:0,buttons:0},o));f(el,'mouseup',0,Object.assign({button:0,buttons:0},o));f(el,'click',0,Object.assign({button:0,buttons:0},o))}`
   + `});`
-  // Пульс: документ рисуется (кадры идут) — страница видит, что вставка не застыла
-  + `var n=0;function k(){if(++n%20===0)try{parent.postMessage({slideriaAlive:1},'*')}catch(_){}requestAnimationFrame(k)}requestAnimationFrame(k)})()</script>`;
+  // Пульс: документ рисуется (кадры идут) — страница видит, что вставка не застыла. На настоящих кадрах (R):
+  // пауза автопоказа — не зависание, перезагружать вставку не за что
+  + `var n=0;function k(){if(++n%20===0)try{parent.postMessage({slideriaAlive:1},'*')}catch(_){}R(k)}R(k)})()</script>`;
 
 /** Сообщение-пульс из рамки (см. SCRIPT) */
 export const isAlive = (e: MessageEvent, frame: HTMLIFrameElement | null): boolean => !!frame && e.source === frame.contentWindow && e.data?.slideriaAlive === 1;

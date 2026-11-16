@@ -13,6 +13,33 @@ export function showTime(): number {
 }
 
 /**
+ * Пауза автопоказа (A) — как в видео: время сцены стоит, потом идёт дальше с того же места.
+ * По нему считают живые фоны, эффекты текста и «Число набегает» — после паузы они не прыгают вперёд.
+ * Только в этом окне: у остальных окон своя сцена.
+ */
+let lost = 0;
+let since = 0;
+
+export function freezeScene(on: boolean): void {
+  const t = performance.now();
+  if (on && !since) since = t;
+  else if (!on && since) {
+    lost += t - since;
+    since = 0;
+  }
+}
+
+/** Сколько мс сцена стояла на паузе (с текущей паузой) */
+export function scenePaused(): number {
+  return lost + (since ? performance.now() - since : 0);
+}
+
+/** Время сцены, мс: как performance.now() (или метка кадра t), но без пауз; на паузе — не меняется */
+export function sceneNow(t = performance.now()): number {
+  return (since || t) - lost;
+}
+
+/**
  * Окно показа прислало своё время. Задержка связи его только запаздывает, поэтому из ответов
  * берётся самый «поздний» (быстрее всех дошедший). Окно показа перезагрузили и отсчёт пошёл
  * заново — его время сильно меньше нашего, оно принимается сразу

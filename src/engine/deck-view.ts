@@ -1,5 +1,6 @@
 import type { Block, Deck } from '../types';
 import { countUp } from './count-up';
+import { freezeScene } from './show-clock';
 import { textFx } from './text-fx';
 import { enterFx } from './enter-fx';
 import { morph as morphTo, unmorph } from './morph';
@@ -85,8 +86,43 @@ export class DeckView {
     this.stage.querySelectorAll<SVGSVGElement>('svg').forEach((s) => {
       if (s.parentElement?.closest('svg')) return;
       if (on) s.pauseAnimations?.();
-      else s.unpauseAnimations?.();
+      else if (!this.frozen) s.unpauseAnimations?.();
     });
+  }
+
+  /**
+   * Пауза автопоказа (A) — как в видео: всё на слайде замирает на месте и потом продолжает с того же кадра.
+   * CSS-анимации стоят по классу frozen (base.css), переходы и анимации из кода — своей паузой, SVG и ролики —
+   * своими средствами; живые фоны, 3D-модель, эффекты текста и «Число набегает» — по времени сцены (show-clock)
+   * и классу; живые вставки и песочница — сообщением в документ (frame-bridge)
+   */
+  private frozen: { anims: Animation[]; media: HTMLMediaElement[] } | null = null;
+  get isFrozen(): boolean {
+    return !!this.frozen;
+  }
+  setFrozen(on: boolean): void {
+    if (this.isFrozen === on) return;
+    freezeScene(on);
+    if (on) {
+      // CSS-анимациями управляет класс: пауза из кода отняла бы их у него (и у экономного режима)
+      const anims = this.stage.getAnimations({ subtree: true }).filter((a) => !(a instanceof CSSAnimation) && a.playState === 'running');
+      anims.forEach((a) => a.pause());
+      const media = [...this.stage.querySelectorAll<HTMLMediaElement>('video, audio')].filter((m) => !m.paused);
+      media.forEach((m) => m.pause());
+      this.frozen = { anims, media };
+    } else {
+      const f = this.frozen!;
+      this.frozen = null;
+      f.anims.forEach((a) => { if (a.playState === 'paused') a.play(); });
+      f.media.forEach((m) => { if (m.isConnected) void m.play().catch(() => {}); });
+    }
+    this.stage.classList.toggle('frozen', on);
+    this.stage.querySelectorAll<SVGSVGElement>('svg').forEach((s) => {
+      if (s.parentElement?.closest('svg')) return;
+      if (on) s.pauseAnimations?.();
+      else if (!this.paused) s.unpauseAnimations?.();
+    });
+    this.stage.querySelectorAll('iframe').forEach((f) => f.contentWindow?.postMessage({ slideriaFreeze: on }, '*'));
   }
 
   /** Код песочницы пришёл из другого окна показа: редактор и результат — те же */

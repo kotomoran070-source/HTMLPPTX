@@ -515,6 +515,32 @@ slides:
     free:
       - {type: text, text: "Третий", place: {x: 80, y: 80, w: 600}}
 `);
+// autofz — пауза автопоказа как в видео: фигура крутится без конца, вставка считает свои кадры и время
+fs.mkdirSync(path.join(dir, 'autofz'), { recursive: true });
+fs.writeFileSync(path.join(dir, 'autofz', 'deck.yaml'), `title: Пауза
+autoplay: {after: 3}
+css: |
+  @keyframes fz-spin { to { rotate: 360deg; } }
+slides:
+  - template: canvas
+    free:
+      - {type: shape, kind: round, fill: "#2563EB", style: "animation: fz-spin 4s linear infinite", place: {x: 80, y: 80, w: 200, h: 200}}
+      - type: embed
+        code: |-
+          <b id="n">0</b> <i id="t">0</i>
+          <script>
+            const t0 = performance.now(); let k = 0;
+            function f(now) { n.textContent = ++k; t.textContent = Math.round(now - t0); requestAnimationFrame(f); }
+            requestAnimationFrame(f);
+          </script>
+        place: {x: 400, y: 80, w: 400, h: 200}
+  - template: canvas
+    free:
+      - {type: text, text: "Второй", place: {x: 80, y: 80, w: 600}}
+  - template: canvas
+    free:
+      - {type: text, text: "Третий", place: {x: 80, y: 80, w: 600}}
+`);
 // prog — прогресс у зрителей ячейками по слайдам, план доклада — 10 минут
 fs.mkdirSync(path.join(dir, 'prog'), { recursive: true });
 fs.writeFileSync(path.join(dir, 'prog', 'deck.yaml'), `title: Прогресс

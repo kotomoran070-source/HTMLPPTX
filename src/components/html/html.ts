@@ -423,7 +423,8 @@ defineBlock<EmbedProps>('embed', {
     addEventListener('message', onAlive);
     const watch = window.setInterval(() => {
       const f = frame;
-      if (!f?.classList.contains('on') || document.visibilityState !== 'visible' || !ctx.slide.classList.contains('on') || ctx.stage.classList.contains('paused')) return;
+      if (!f?.classList.contains('on') || document.visibilityState !== 'visible' || !ctx.slide.classList.contains('on')
+        || ctx.stage.classList.contains('paused') || ctx.stage.classList.contains('frozen')) return;
       if (!armed || performance.now() - alive < 3000 || kicks >= 3) return;
       kicks++;
       alive = performance.now();

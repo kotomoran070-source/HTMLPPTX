@@ -207,7 +207,7 @@ test('визуализатор в программе: микрофон и зву
       dialog.showMessageBox = (async (...a: unknown[]) => { g.asked!.push((a.at(-1) as { message: string }).message); return { response: 1, checkboxChecked: false }; }) as typeof dialog.showMessageBox;
     });
     // Слайд «Галерея и звук» стартового шаблона
-    await win.goto(win.url().replace(/\?all$/, '?deck=moya-pervaya-prezentaciya#22'));
+    await win.goto(win.url().replace(/\?all$/, '?deck=moya-pervaya-prezentaciya#25'));
     const frame = win.locator('.slide.on .embed-frame');
     const viz = win.frameLocator('.slide.on .embed-frame');
     // Вставка загрузилась, слайд доиграл появление

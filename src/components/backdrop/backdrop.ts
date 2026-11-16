@@ -1,6 +1,6 @@
 import { ACCENT_EVENT } from '../../engine/accent';
 import { defineBlock, getBlock } from '../../engine/component';
-import { showTime } from '../../engine/show-clock';
+import { scenePaused, showTime } from '../../engine/show-clock';
 import { onThemeChange } from '../../engine/theme';
 import type { Block } from '../../types';
 import './backdrop.css';
@@ -780,8 +780,8 @@ defineBlock<BackdropProps>('backdrop', {
   mount(el, p, ctx) {
     const lite = document.body.classList.contains('presenter');
     const still = ctx.reducedMotion;
-    // Пауза сцены (экономный режим пульта, облегчённый режим редактора): один кадр — и стоп
-    const frozen = () => still || ctx.stage.classList.contains('paused');
+    // Пауза сцены (экономный режим пульта, облегчённый режим редактора, пауза автопоказа): один кадр — и стоп
+    const frozen = () => still || ctx.stage.classList.contains('paused') || ctx.stage.classList.contains('frozen');
     let canvas: HTMLCanvasElement | null = null;
     let gl: WebGLRenderingContext | null = null;
     let scene: Scene | null = null;
@@ -792,7 +792,8 @@ defineBlock<BackdropProps>('backdrop', {
     // в студии) меняет ход с этого мгновения — без скачка
     let anchor = { at: 0, clock: 0, speed: NaN };
     const clockNow = () => {
-      const now = showTime() / 1000;
+      // Пауза автопоказа время фона не двигает: после неё он продолжает с того же кадра
+      const now = (showTime() - scenePaused()) / 1000;
       const speed = Number(el.dataset.speed) || 1;
       if (speed !== anchor.speed) {
         anchor = { at: now, clock: Number.isNaN(anchor.speed) ? now * speed : anchor.clock + (now - anchor.at) * anchor.speed, speed };
