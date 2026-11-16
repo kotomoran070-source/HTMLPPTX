@@ -14,7 +14,7 @@ type Cmd = { command: string; args: string[] };
  * Клиент на этом компьютере (server/connect.ts): стоит ли и подключена ли к нему Slideria; via — расширением
  * Claude Desktop; pending — окно установки расширения открыто; hint — что сделать самому
  */
-interface ClientState { id: string; installed: boolean; connected: boolean; via?: 'extension'; pending?: boolean; hint?: string }
+interface ClientState { id: string; installed: boolean; connected: boolean; via?: 'extension'; pending?: boolean; hint?: string; install?: 'open' | 'drag' }
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 /** Аргумент командной строки: в кавычках, если в нём пробелы и прочее */
@@ -38,6 +38,8 @@ interface Auto {
   /** Подключена расширением — где она теперь; записью в файле настроек — что сделать (у Claude Desktop) */
   done?: string;
   config?: string;
+  /** Расширение ставят, перетащив файл в Claude Desktop (Windows): шаги вместо after */
+  drag?: [string, string];
 }
 interface Client { id: string; name: string; mono: string; bg: string; step: string; variants: Variant[]; note?: string; auto?: Auto }
 const CLAUDE = agentLook('Claude').bg;
@@ -49,6 +51,7 @@ const CLIENTS: Client[] = [
   { id: 'claude-desktop', name: 'Claude Desktop', mono: 'C', bg: CLAUDE, step: 'Вставьте в настройки и перезапустите Claude',
     variants: [{ label: 'Настройки', where: 'Claude → Настройки → Разработчик → Изменить конфигурацию; добавьте в mcpServers и перезапустите', snippet: jsonCfg('mcpServers') }],
     auto: { after: 'В окне Claude Desktop нажмите «Install» — Slideria появится в его Settings → Desktop app → Extensions, перезапуск не нужен',
+      drag: ['Нажмите «Подключить» — файл расширения Slideria.mcpb откроется в папке', 'Перетащите его в окно Claude Desktop и нажмите «Install» — Slideria появится в его Settings → Desktop app → Extensions, перезапуск не нужен'],
       done: 'Расширение Claude Desktop: Settings → Desktop app → Extensions — там же его выключают и удаляют',
       config: 'Закройте Claude Desktop совсем (Quit; на Windows — у значка возле часов) и откройте снова: Slideria будет в его Settings → Desktop app → Developer',
       get: 'https://claude.ai/download' } },
@@ -105,8 +108,8 @@ const state = {
   linkError: {} as Record<string, string>,
   /** Что сделать самому после «Подключить» или «Отключить» (server/connect.ts hint) */
   linkHint: {} as Record<string, string>,
-  /** Окно установки расширения открыто: до какого времени ждать, что его подтвердят */
-  waiting: {} as Record<string, number>,
+  /** Расширение ждёт установки: до какого времени ждать и как его ставят (окно установки или файл в папке) */
+  waiting: {} as Record<string, { until: number; how: 'open' | 'drag' }>,
 };
 /** Сколько ждать подтверждения установки и как часто спрашивать сервер */
 const WAIT_MS = 5 * 60_000;
@@ -265,7 +268,7 @@ function connectHtml(info: Info | null): string {
   const snippet = v.snippet(info.mcp);
   const cs = c.auto ? state.clients?.find((x) => x.id === c.id) : undefined;
   const steps = !cs ? ['Скопируйте — путь к Slideria на этом компьютере уже в строке', c.step]
-    : cs.installed || cs.connected ? [c.auto!.done ? 'Нажмите «Подключить» — откроется окно установки в Claude Desktop' : 'Нажмите «Подключить»', c.auto!.after]
+    : cs.installed || cs.connected ? (cs.install === 'drag' && c.auto!.drag ? c.auto!.drag : [cs.install ? 'Нажмите «Подключить» — откроется окно установки в Claude Desktop' : 'Нажмите «Подключить»', c.auto!.after])
       : [`Установите ${c.auto!.app ?? c.name} и запустите хотя бы один раз`, 'Вернитесь сюда и нажмите «Подключить»'];
   return `<div class="ig-clients" role="tablist" aria-label="Агент">${CLIENTS.map((x) => `<button type="button" class="ig-client" role="tab" data-client="${x.id}" aria-selected="${x.id === c.id}"><span class="ig-mono" style="background:${x.bg}">${esc(x.mono)}</span>${esc(x.name)}${state.clients?.find((s) => s.id === x.id)?.connected ? `<i class="ig-on" title="Подключено"></i>` : ''}</button>`).join('')}</div>
     ${cs ? linkHtml(c, cs) : ''}
@@ -294,9 +297,11 @@ function linkHtml(c: Client, cs: ClientState): string {
     ? ['ok', 'check', `Slideria подключена к ${name}`, (cs.via === 'extension' ? a.done : a.config) ?? a.after, `<button type="button" class="fp-btn" data-link="off"${busy ? ' disabled' : ''}>${busy ? 'Отключение…' : 'Отключить'}</button>`]
     : state.waiting[c.id]
       // Окно установки расширения открыто — статус обновится сам (watch); окно потерялось — открыть снова
-      ? ['wait', 'clock', `Подтвердите установку в ${name}`, 'В окне Claude Desktop нажмите «Install». Окно не появилось или закрыто — откройте его ещё раз', `<button type="button" class="fp-btn" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Открытие…' : 'Открыть ещё раз'}</button>`]
+      ? (state.waiting[c.id].how === 'drag'
+        ? ['wait', 'clock', `Установите расширение в ${name}`, 'Перетащите Slideria.mcpb в окно Claude Desktop — или в нём: Settings → Desktop app → Extensions → Advanced settings → Install Extension…', `<button type="button" class="fp-btn" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Открытие…' : 'Показать файл'}</button>`]
+        : ['wait', 'clock', `Подтвердите установку в ${name}`, 'В окне Claude Desktop нажмите «Install». Окно не появилось или закрыто — откройте его ещё раз', `<button type="button" class="fp-btn" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Открытие…' : 'Открыть ещё раз'}</button>`])
       : cs.installed
-        ? ['', 'plug', `${name} есть на этом компьютере`, `${a.done ? 'Откроется окно установки расширения в Claude Desktop' : 'Slideria будет добавлена в настройки приложения'}; при наличии подписки ключ API не нужен`, `<button type="button" class="fp-btn go" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Подключение…' : `Подключить к ${esc(name)}`}</button>`]
+        ? ['', 'plug', `${name} есть на этом компьютере`, `${cs.install === 'drag' ? 'Файл расширения откроется в папке — его перетаскивают в Claude Desktop' : cs.install ? 'Откроется окно установки расширения в Claude Desktop' : 'Slideria будет добавлена в настройки приложения'}; при наличии подписки ключ API не нужен`, `<button type="button" class="fp-btn go" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Подключение…' : `Подключить к ${esc(name)}`}</button>`]
         : ['no', 'search', `${app} не найден на этом компьютере`, 'Установите приложение и запустите хотя бы один раз — или подключите вручную ниже', `<a class="fp-btn" href="${a.get}" target="_blank" rel="noopener">Скачать ${esc(app)}</a>`];
   return `<div class="ig-link ${cls}" aria-live="polite"><span class="ig-link-i">${icon(ic)}</span><div><b>${esc(title)}</b>${hint ? `<span class="ig-link-hint">${esc(hint)}</span>` : `<span>${esc(sub)}</span>`}${err ? `<span class="ig-link-err" role="alert">${esc(err)}</span>` : ''}</div>${btn}</div>`;
 }
@@ -316,7 +321,7 @@ async function link(on: boolean): Promise<void> {
     const name = CLIENTS.find((x) => x.id === id)?.name ?? '';
     // Окно установки открыто — «подключена» скажет watch, когда установку подтвердят; расширение после
     // «Отключить» остаётся (удаляют его в самом Claude Desktop) — подсказка в карточке вместо «отключена»
-    if (on && r.pending) state.waiting[id] = Date.now() + WAIT_MS;
+    if (on && r.pending) state.waiting[id] = { until: Date.now() + WAIT_MS, how: r.install ?? 'open' };
     else if (on || !r.connected) {
       delete state.waiting[id];
       ctx?.host.editor.toast(on ? `Slideria подключена к ${name}` : `Slideria отключена от ${name}`, 2500);
@@ -340,7 +345,7 @@ function watch(): void {
     await loadClients();
     poll = 0;
     let changed = false;
-    for (const [id, until] of Object.entries(state.waiting)) {
+    for (const [id, { until }] of Object.entries(state.waiting)) {
       const done = state.clients?.find((x) => x.id === id)?.connected;
       if (!done && Date.now() < until) continue;
       delete state.waiting[id];

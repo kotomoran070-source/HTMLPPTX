@@ -155,13 +155,16 @@ test('подключить в один щелчок: Claude Desktop — расш
 
   await fp.locator('[data-client="claude-desktop"]').click();
   await expect(link).toContainText('Claude Desktop есть на этом компьютере');
-  await expect(link).toContainText('Откроется окно установки расширения');
-  await expect(fp.locator('.ig-steps li').first()).toContainText('Нажмите «Подключить»');
-  // «Подключить» — пакет расширения с путём к этой Slideria открывается (в тестах — записью, какой файл открыли);
-  // пока установку не подтвердили — ждём, файл настроек Claude Desktop не трогается
+  // Не macOS — файл расширения показывается в папке, его перетаскивают в Claude Desktop
+  await expect(link).toContainText('Файл расширения откроется в папке');
+  await expect(fp.locator('.ig-steps li').first()).toContainText('Slideria.mcpb откроется в папке');
+  await expect(fp.locator('.ig-steps li').nth(1)).toContainText('Перетащите его в окно Claude Desktop');
+  // «Подключить» — пакет расширения с путём к этой Slideria (в тестах — записью, какой файл показали);
+  // пока его не установили — ждём, файл настроек Claude Desktop не трогается
   await link.getByRole('button', { name: 'Подключить к Claude Desktop' }).click();
-  await expect(link).toContainText('Подтвердите установку в Claude Desktop');
-  await expect(link.getByRole('button', { name: 'Открыть ещё раз' })).toBeVisible();
+  await expect(link).toContainText('Установите расширение в Claude Desktop');
+  await expect(link).toContainText('Install Extension…');
+  await expect(link.getByRole('button', { name: 'Показать файл' })).toBeVisible();
   const opened = fs.readFileSync(path.join(home, 'opened-mcpb.txt'), 'utf8');
   expect(opened).toMatch(/\.mcpb$/);
   const zip = await JSZip.loadAsync(fs.readFileSync(opened));

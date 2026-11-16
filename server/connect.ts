@@ -1,9 +1,11 @@
 /**
  * Подключить агента в один щелчок («Файл → Интеграции → Агенты», docs/MCP.md): MCP этой папки прописывается в
  * клиента, который уже стоит на компьютере, — с подпиской Claude или ChatGPT ключ API не нужен.
- *   Claude Desktop — расширением (.mcpb, buildBundle): Slideria собирает пакет с путём к себе и открывает его,
- *                    Claude Desktop показывает своё окно установки; дальше Slideria — в его Settings → Desktop app → Extensions,
- *                    без правки настроек и перезапуска. Без пакета (нет шаблона, файл не открылся) — как раньше,
+ *   Claude Desktop — расширением (.mcpb, buildBundle): Slideria собирает пакет с путём к себе; на macOS открывает
+ *                    его — Claude Desktop показывает своё окно установки; на Windows показывает файл в Проводнике —
+ *                    его перетаскивают в окно Claude Desktop (открытый через систему, он доходит до Claude коротким
+ *                    именем SLIDER~1.MCP, и Claude не узнаёт расширение). Дальше Slideria — в его Settings → Desktop
+ *                    app → Extensions, без правки настроек и перезапуска. Без пакета (не собрался, не показался) — как раньше,
  *                    в его файл настроек (claude_desktop_config.json): прежний — копией рядом, испорченный не
  *                    перезаписывается; после — перезапустить Claude Desktop.
  *   Claude Code    — его командой: claude mcp add --scope user (для всех папок).
@@ -28,6 +30,9 @@ export interface ClientState {
   via?: 'extension';
   /** Claude Desktop: окно установки расширения открыто — ждём, пока пользователь нажмёт «Установить» */
   pending?: boolean;
+  /** Claude Desktop: как ставится расширение — open: Slideria открывает окно установки сама; drag: файл в папке,
+   *  его перетаскивают в Claude Desktop */
+  install?: 'open' | 'drag';
   /** Что сделать самому (отключить расширение можно только в Claude Desktop) */
   hint?: string;
 }
@@ -104,18 +109,22 @@ export async function buildBundle(cmd: Cmd, o: BundleOptions): Promise<string> {
   return out;
 }
 
-/** Открыть файл программой, которая его открывает (пакет .mcpb — Claude Desktop) */
-function openFile(file: string, platform: NodeJS.Platform): Promise<void> {
-  // Windows: explorer.exe открывает файл тем, с чем он связан (код ответа у него всегда 1 — не ошибка)
+/**
+ * Пакет .mcpb: open — открыть программой, которая его открывает (macOS — Claude Desktop); reveal — показать в папке
+ * выделенным (Windows — Проводник), чтобы перетащить в Claude Desktop
+ */
+function openFile(file: string, how: 'open' | 'reveal', platform: NodeJS.Platform): Promise<void> {
   if (platform === 'win32') {
+    // /select,"путь" — explorer разбирает строку сам (кавычки только вокруг пути); код ответа у него всегда 1
     return new Promise((resolve, reject) => {
-      const p = spawn('explorer.exe', [file], { detached: true, stdio: 'ignore', windowsHide: true });
+      const p = spawn('explorer.exe', [`/select,"${file}"`], { detached: true, stdio: 'ignore', windowsHide: true, windowsVerbatimArguments: true });
       p.on('error', reject);
       p.on('spawn', () => { p.unref(); resolve(); });
     });
   }
+  const [cmd, args] = platform === 'darwin' ? ['open', how === 'reveal' ? ['-R', file] : [file]] : ['xdg-open', [how === 'reveal' ? path.dirname(file) : file]];
   return new Promise((resolve, reject) => {
-    execFile(platform === 'darwin' ? 'open' : 'xdg-open', [file], { timeout: 15_000 }, (err) => (err ? reject(err) : resolve()));
+    execFile(cmd, args, { timeout: 15_000 }, (err) => (err ? reject(err) : resolve()));
   });
 }
 
@@ -132,8 +141,8 @@ export interface ConnectOptions {
   pathDirs?: string[];
   /** Claude Desktop — расширением (.mcpb): из чего собрать пакет; нет — в файл настроек, как раньше */
   bundle?: BundleOptions;
-  /** Открыть пакет (тесты — подставное); по умолчанию — программой системы */
-  open?: (file: string) => Promise<void>;
+  /** Открыть пакет или показать его в папке (тесты — подставное); по умолчанию — средствами системы */
+  open?: (file: string, how: 'open' | 'reveal') => Promise<void>;
 }
 
 export function createConnect(o: ConnectOptions = {}) {
@@ -350,6 +359,9 @@ export function createConnect(o: ConnectOptions = {}) {
 
   // ---------------- всё вместе ----------------
 
+  // Как ставится расширение: окно установки само — только на macOS (Claude Desktop там принимает открытый файл)
+  const install: { install?: 'open' | 'drag' } = o.bundle ? { install: platform === 'darwin' ? 'open' : 'drag' } : {};
+
   function state(): ClientState[] {
     return CLIENT_IDS.map((id) => {
       if (id === 'claude-desktop') {
@@ -363,9 +375,9 @@ export function createConnect(o: ConnectOptions = {}) {
           if (files.some((f) => { try { return NAME in servers(readDesktop(f)); } catch { return false; } })) {
             try { writeDesktop(null); } catch { /* испорченный файл не трогаем */ }
           }
-          return { id, installed: true, connected: true, via: 'extension' };
+          return { id, installed: true, connected: true, via: 'extension', ...install };
         }
-        return { id, installed: desktopDirs().length > 0, connected };
+        return { id, installed: desktopDirs().length > 0, connected, ...install };
       }
       if (id === 'claude-code') return { id, installed: !!findCli('claude'), connected: claudeCodeConnected() };
       return { id, installed: fs.existsSync(codexHome()) || codexApp() || !!findCli('codex'), connected: codexConnected() };
@@ -384,15 +396,22 @@ export function createConnect(o: ConnectOptions = {}) {
         return one(c);
       }
       if (!desktopDirs().length) throw new Error('Claude Desktop не найден на этом компьютере. Установите приложение с claude.ai/download и запустите хотя бы один раз');
-      // Пакет с путём к этой программе — открыть: окно установки покажет сам Claude Desktop. Уже стоит —
-      // то же окно обновит его (другой путь к программе, новая версия)
+      // Пакет с путём к этой программе: на macOS — открыть (окно установки покажет сам Claude Desktop), не открылся
+      // или Windows — показать в папке, его перетаскивают в Claude Desktop. Уже стоит — то же окно обновит его
+      // (другой путь к программе, новая версия)
+      const show = o.open ?? ((f: string, how: 'open' | 'reveal') => openFile(f, how, platform));
       try {
-        await (o.open ?? ((f: string) => openFile(f, platform)))(await buildBundle(cmd, { platform, ...o.bundle }));
-        return { ...one(c), pending: !desktopExtension() };
+        const file = await buildBundle(cmd, { platform, ...o.bundle });
+        let how: 'open' | 'drag' = 'drag';
+        if (install.install === 'open') {
+          try { await show(file, 'open'); how = 'open'; } catch { /* нет программы для .mcpb — показать файл */ }
+        }
+        if (how === 'drag') await show(file, 'reveal');
+        return { ...one(c), install: how, pending: !desktopExtension() };
       } catch {
-        // Пакет не открылся (старый Claude Desktop, расширения запрещены) — как раньше, в файл настроек
+        // Пакет не собрался или не показался — как раньше, в файл настроек
         writeDesktop(cmd);
-        return { ...one(c), hint: 'Окно установки расширения не открылось, поэтому Slideria добавлена в файл настроек Claude Desktop. Закройте его совсем (Quit) и откройте снова' };
+        return { ...one(c), hint: 'Расширение установить не удалось, поэтому Slideria добавлена в файл настроек Claude Desktop. Закройте его совсем (Quit) и откройте снова' };
       }
     }
     // Уже подключена (возможно, к другой копии программы) — её строки заменяются новыми
