@@ -69,6 +69,13 @@ export function closeMenu(): void {
 }
 
 /**
+ * Кнопка, чьё меню только что закрыли нажатием на неё же: следующий за нажатием щелчок открыл бы его снова.
+ * Как в PowerPoint — второй щелчок по кнопке меню закрывает его
+ */
+let shut: { el: HTMLElement; at: number } | null = null;
+const SHUT_MS = 800;
+
+/**
  * Всплывающее меню у точки или под кнопкой. Клавиатура: стрелки, Enter, Esc.
  * Закрывается кликом мимо, прокруткой и сменой размера окна.
  */
@@ -93,10 +100,10 @@ export function showMenu(at: { x: number; y: number } | HTMLElement, rows: MenuR
     return `<button type="button" role="${it.checked === undefined ? 'menuitem' : 'menuitemradio'}" data-k="${k}"${it.disabled ? ' disabled' : ''}${it.checked === undefined ? '' : ` aria-checked="${it.checked}"`}${cls ? ` class="${cls}"` : ''}>`
       + `${it.swatch ? `<i class="st-sw" style="background:${it.swatch}"></i>` : it.icon ? icon(it.icon) : plain ? '' : '<i class="ic"></i>'}${text}${it.checked ? icon('check') : ''}${it.hint ? `<kbd>${esc(it.hint)}</kbd>` : ''}</button>`;
   }).join('');
-  mount(at, el, (b) => {
+  if (!mount(at, el, (b) => {
     const it = items[Number(b.dataset.k)];
     return it ? () => it.run() : null;
-  }, true, onClose);
+  }, true, onClose)) return;
   if (items.some((it) => it?.preview)) watchPreview(el, items);
   el.querySelectorAll<HTMLInputElement>('input[data-f]').forEach((inp) => {
     const f = rows[Number(inp.dataset.f)] as MenuField;
@@ -162,7 +169,13 @@ export function showPopover(at: HTMLElement, html: string, pick: (b: HTMLButtonE
 
 type Action = (() => void) & { keep?: boolean };
 
-function mount(at: { x: number; y: number } | HTMLElement, el: HTMLElement, action: (b: HTMLButtonElement) => Action | null, arrows: boolean, onClose?: () => void): void {
+/** false — не открылось: это щелчок, который закрыл меню той же кнопки */
+function mount(at: { x: number; y: number } | HTMLElement, el: HTMLElement, action: (b: HTMLButtonElement) => Action | null, arrows: boolean, onClose?: () => void): boolean {
+  if (at instanceof HTMLElement && shut) {
+    const was = shut;
+    shut = null;
+    if (was.el === anchorOf(at) && performance.now() - was.at < SHUT_MS) return false;
+  }
   closeMenu();
   el.dataset.edKeep = '';
   document.body.appendChild(el);
@@ -212,7 +225,10 @@ function mount(at: { x: number; y: number } | HTMLElement, el: HTMLElement, acti
     // Список выбора шрифта открывается поверх панели (замена шрифта) — щелчок по нему её не закрывает
     if ((e.target as Element).closest?.('.fontpick')) return;
     // Стрелки числового поля (num-step) — часть окошка, не щелчок мимо
-    if (!el.contains(e.target as Node) && e.target !== anchor && !anchor?.contains(e.target as Node) && !(e.target as Element).closest?.('.st-numstep')) close();
+    if (el.contains(e.target as Node) || (e.target as Element).closest?.('.st-numstep')) return;
+    // Нажатие на саму кнопку меню — закрыть; щелчок, который за ним последует, меню снова не откроет
+    if (anchor && (e.target === anchor || anchor.contains(e.target as Node))) shut = { el: anchor, at: performance.now() };
+    close();
   };
   const onKey = (e: KeyboardEvent) => {
     const list = buttons();
@@ -248,4 +264,5 @@ function mount(at: { x: number; y: number } | HTMLElement, el: HTMLElement, acti
   addEventListener('scroll', onScroll, true);
   open = { el, close };
   (el.querySelector<HTMLButtonElement>("button[aria-checked=\"true\"]:not([disabled]), button.on") ?? buttons()[0])?.focus({ preventScroll: true });
+  return true;
 }
