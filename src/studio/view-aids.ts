@@ -34,6 +34,8 @@ export class ViewAids {
   private tip: HTMLElement;
   private lines: { v: number[]; h: number[] } = { v: [W / 2], h: [H / 2] };
   private queued = false;
+  /** Разметка слоя направляющих: та же — слой не пересобирается (render идёт на каждое движение мыши с линейкой) */
+  private drawn = '';
 
   constructor(private host: AidsHost, public state: AidsState) {
     const view = host.canvas.parentElement!;
@@ -137,8 +139,15 @@ export class ViewAids {
   private render(): void {
     const k = this.scale();
     this.grid.style.setProperty('--gs', `${this.state.step * k}px`);
-    this.layer.innerHTML = (['v', 'h'] as const).flatMap((axis) => this.lines[axis].map((at, i) =>
+    const html = (['v', 'h'] as const).flatMap((axis) => this.lines[axis].map((at, i) =>
       `<i class="st-guide ${axis}" data-g="${axis}" data-i="${i}" style="${axis === 'v' ? 'left' : 'top'}:${at * k}px" title="${Math.round(at)}. Чтобы удалить, перетащите за край слайда"></i>`)).join('');
+    if (html !== this.drawn) {
+      // Направляющая, которую сейчас тянут, — не из списка: пересборка слоя её не убирает
+      const moving = this.layer.querySelector('.st-guide.moving');
+      this.layer.innerHTML = html;
+      if (moving) this.layer.appendChild(moving);
+      this.drawn = html;
+    }
     if (this.state.ruler) this.drawRulers(k);
   }
 

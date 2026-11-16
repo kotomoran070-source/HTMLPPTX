@@ -1,4 +1,4 @@
-// «Вид» → «Интерфейс»: тема программы и вид слайдов в редакторе — отдельно; шаг сетки; размер слайда (4:3, 21:9)
+// «Вид» → «Интерфейс»: тема программы и вид слайдов в редакторе — отдельно; шаг сетки; направляющие; размер слайда (4:3, 21:9)
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
@@ -58,6 +58,38 @@ test('«Вид слайдов» отдельно от темы интерфей�
   await expect(page.locator('#st-canvas .slide.on')).not.toHaveAttribute('data-mode');
   await expect.poll(bg).toBe('#0F172A');
   await page.evaluate(() => localStorage.removeItem('htmlpptx-theme'));
+  expect(errors).toEqual([]);
+});
+
+test('направляющие при включённой линейке: полоска видна, пока её тянут — и новую из линейки, и уже стоящую', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=tpl');
+  await page.evaluate(() => {
+    localStorage.setItem('htmlpptx-studio-layout', JSON.stringify({ ruler: true, guides: true }));
+    for (const k of Object.keys(localStorage)) if (k.startsWith('htmlpptx-guides-')) localStorage.removeItem(k);
+  });
+  await page.goto('/?deck=tpl&studio#2');
+  await page.locator('#st-canvas .slide.on').waitFor();
+  const fixed = page.locator('.st-guides .st-guide:not(.moving)');
+  const moving = page.locator('.st-guides .st-guide.moving');
+  await expect(fixed).toHaveCount(2);
+  // Из верхней линейки — вниз: на каждое движение мыши линейка перерисовывается, полоска остаётся
+  const rh = (await page.locator('.st-ruler.h').boundingBox())!;
+  await page.mouse.move(rh.x + rh.width / 2, rh.y + 10);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i++) await page.mouse.move(rh.x + rh.width / 2, rh.y + 10 + i * 30);
+  await expect(moving).toBeVisible();
+  await page.mouse.up();
+  await expect(moving).toHaveCount(0);
+  await expect(fixed).toHaveCount(3);
+  // Уже стоящую (вертикальную по центру) — вправо
+  const g = (await page.locator('.st-guide.v').first().boundingBox())!;
+  await page.mouse.move(g.x + g.width / 2, g.y + 120);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i++) await page.mouse.move(g.x + g.width / 2 + i * 15, g.y + 120);
+  await expect(moving).toBeVisible();
+  await page.mouse.up();
+  await expect(fixed).toHaveCount(3);
   expect(errors).toEqual([]);
 });
 
