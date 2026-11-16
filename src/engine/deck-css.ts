@@ -10,6 +10,8 @@
  *     положением, размером, видимостью и анимацией слайда движок управляет сам;
  *   @keyframes, @font-face, @property — остаются на верхнем уровне.
  */
+import { cleanHtml } from './sanitize';
+
 const ID = 'htmlpptx-deck-css';
 const TOP = /^@(-webkit-)?(keyframes|font-face|property|counter-style|font-feature-values)\b/i;
 
@@ -348,10 +350,12 @@ export function applyDeckDefs(defs: unknown): void {
   if (typeof defs !== 'string' || !defs.trim()) return;
   const id = `htmlpptx-defs-${cssKey(defs)}`;
   if (document.getElementById(id)) return;
+  // Только определения: через общий фильтр (без скриптов, обработчиков и опасных адресов), без вставок HTML
+  // и только сам <svg> — то, что вырвалось из него закрывающими тегами (</defs></svg><a …>), на страницу не идёт
   const tpl = document.createElement('template');
-  tpl.innerHTML = `<svg id="${id}" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden"><defs>${defs}</defs></svg>`;
-  // Только определения: без скриптов и обработчиков
-  tpl.content.querySelectorAll('script, foreignObject').forEach((x) => x.remove());
-  tpl.content.querySelectorAll('*').forEach((el) => [...el.attributes].forEach((a) => /^on/i.test(a.name) && el.removeAttribute(a.name)));
-  document.body.appendChild(tpl.content);
+  tpl.innerHTML = cleanHtml(`<svg id="${id}" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden"><defs>${defs}</defs></svg>`);
+  const svg = tpl.content.querySelector(`svg#${id}`);
+  if (!svg) return;
+  svg.querySelectorAll('foreignObject').forEach((x) => x.remove());
+  document.body.appendChild(svg);
 }

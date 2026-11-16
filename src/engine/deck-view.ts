@@ -252,8 +252,15 @@ export class DeckView {
     this.deck = deck;
     // Слой указки и другие вложения сцены не относятся к слайдам: сохраняем их
     const extras = [...this.stage.children].filter((el) => !el.classList.contains('slide'));
-    this.stage.innerHTML = deck.slides.map((s, i) => r.slide(s, i)).join('');
-    extras.forEach((el) => this.stage.appendChild(el));
+    // Каждый слайд — свой разбор: незакрытая разметка одного слайда (<plaintext> во вставленной вёрстке)
+    // иначе «съедала» все следующие — в данных их два, на странице один
+    const box = document.createElement('div');
+    const els = deck.slides.map((s, i) => {
+      box.innerHTML = r.slide(s, i);
+      const el = box.firstElementChild;
+      return el instanceof HTMLElement && el.classList.contains('slide') ? el : Object.assign(document.createElement('section'), { className: 'slide' });
+    });
+    this.stage.replaceChildren(...els, ...extras);
     this.slides = [...this.stage.querySelectorAll<HTMLElement>(':scope > .slide')];
     this.slides.forEach(DeckView.order);
     this.cleanups = this.slides.map((el) => r.activate(el, this.base()));

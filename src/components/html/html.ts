@@ -4,6 +4,7 @@ import { icon } from '../icons';
 import { defineBlock } from '../../engine/component';
 import { isAlive, withPointerBridge } from '../../engine/frame-bridge';
 import { NS_RE } from '../../engine/deck-css';
+import { cleanBox, cleanHtml } from '../../engine/sanitize';
 import { onThemeChange, slideTheme } from '../../engine/theme';
 import { esc, t } from '../../engine/html';
 import { tintCss } from '../templates/content';
@@ -30,27 +31,20 @@ interface HtmlProps extends Block {
   scale?: number;
 }
 
-const UNSAFE_ATTR = /^on|^srcdoc$|^formaction$/i;
-
-/** Разбор без исполнения: <template> не запускает скрипты и не грузит картинки. */
-function fragment(html: string): DocumentFragment {
-  const tpl = document.createElement('template');
-  tpl.innerHTML = html;
-  const f = tpl.content;
-  f.querySelectorAll('script,iframe,object,embed,link,meta,base,form').forEach((x) => x.remove());
-  f.querySelectorAll('*').forEach((el) => {
-    for (const a of [...el.attributes]) {
-      if (UNSAFE_ATTR.test(a.name) || (/^(href|src|xlink:href)$/i.test(a.name) && /^\s*javascript:/i.test(a.value))) el.removeAttribute(a.name);
-    }
-  });
-  return f;
+/**
+ * Разбор без исполнения и без лишнего: элемент инертного документа (картинки не грузятся), разметка — через
+ * общий фильтр (engine/sanitize.ts: без скриптов, обработчиков, опасных адресов и того, что меняется при
+ * повторном разборе)
+ */
+function fragment(html: string): HTMLElement {
+  return cleanBox(html);
 }
 
 /**
  * SVG-определения (градиенты, узоры, фильтры) получают свои id в каждой копии слайда:
  * миниатюры и превью с теми же id иначе перехватывают ссылки url(#…) живого слайда.
  */
-function uniqueDefs(f: DocumentFragment, suffix: string): void {
+function uniqueDefs(f: ParentNode, suffix: string): void {
   const ids = new Set([...f.querySelectorAll('[id]')].map((el) => el.id).filter(Boolean));
   if (!ids.size) return;
   const all = [...f.querySelectorAll('*')];
@@ -249,11 +243,10 @@ defineBlock<HtmlProps>('html', {
       }
     });
     uniqueDefs(f, ctx.uid('d'));
-    const box = document.createElement('div');
-    box.append(f);
     // Вёрстка из другой презентации: свои стили (deck.scoped[ns]), чужие её не задевают
     const ns = typeof p.ns === 'string' && NS_RE.test(p.ns) ? ` xp-scoped ${p.ns}` : '';
-    return `<div class="html-block${ns}"><div class="html-inner" style="zoom:${scale}">${box.innerHTML}</div></div>`;
+    // Ещё раз через фильтр — уже с текстами и картинками: на слайд идёт строка, которая разбирается в проверенное
+    return `<div class="html-block${ns}"><div class="html-inner" style="zoom:${scale}">${cleanHtml(f.innerHTML)}</div></div>`;
   },
 });
 

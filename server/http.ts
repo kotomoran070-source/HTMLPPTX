@@ -30,6 +30,13 @@ export const LICENSES = '/__slideria/licenses';
  * сеть закрыта — скрипт не отправит данные презентации наружу и не загрузит чужой код
  */
 export const WORKER_CSP = "default-src 'none'; script-src 'self' blob:; connect-src 'none'";
+/**
+ * Файлы презентации, которые браузер открыл бы как страницу (HTML, SVG, XML): они лежат на адресе программы,
+ * и их скрипт получил бы всё её API (правка, файлы, интеграции). Отдаются в песочнице: без скриптов и со своим
+ * пустым источником. Картинки SVG в <img>, видео и шрифты этого не замечают — заголовок действует только на страницу
+ */
+export const DECK_ACTIVE_FILE = /\.(x?html?|svgz?|xml|xslt?|mht(ml)?)$/i;
+export const DECK_FILE_CSP = 'sandbox';
 /** Данные для страниц: список презентаций и одна презентация (src/engine/deck-source.ts) */
 export const DECKS_URL = '/__slideria/decks';
 export const DECK_URL = '/__slideria/deck/';

@@ -21,7 +21,7 @@ import { createDecksCore, type DecksCore, type Runner } from './core';
 import { MIME } from './deck-files';
 import { createEvents } from './events';
 import { startFrameHost } from './frame-host';
-import { WORKER_CSP, createHandler } from './http';
+import { DECK_ACTIVE_FILE, DECK_FILE_CSP, WORKER_CSP, createHandler } from './http';
 import type { KeyStore } from './agent';
 import { createMcp, serveStdio } from './mcp';
 import { announce } from './running';
@@ -332,7 +332,7 @@ export async function startServer(o: ServeOptions): Promise<Served> {
         return sendFile(req, res, file, { forever: true, headers });
       }
       const own = deckFile(url);
-      if (own) return sendFile(req, res, own);
+      if (own) return sendFile(req, res, own, DECK_ACTIVE_FILE.test(own) ? { headers: { 'Content-Security-Policy': DECK_FILE_CSP } } : {});
       // Прочие файлы сборки студии (то, что лежит рядом с index.html)
       const file = inside(studio, url.slice(1));
       if (file && fs.existsSync(file)) return sendFile(req, res, file);
