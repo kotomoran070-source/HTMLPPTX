@@ -14,6 +14,7 @@ import { safeUrl } from '../html';
 import { formatSpanAttrs, spanCss, type SpanAttrs } from '../span-attrs';
 import { toMarkup } from './serialize';
 
+/** Режим вставки текста; «Рисунок» — только у вставки на слайд (paste-options.ts) */
 export type PasteMode = 'theme' | 'source' | 'text';
 
 export interface PasteOpts {
@@ -35,7 +36,7 @@ const BLOCK = new Set(['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'UL
 const HEADING_SIZE: Record<string, number> = { H1: 160, H2: 140, H3: 120 };
 
 /** Свойство из style="…": последнее объявление */
-function prop(style: string, name: string): string | null {
+export function prop(style: string, name: string): string | null {
   const re = new RegExp(`(?:^|;)\\s*${name}\\s*:\\s*([^;]+)`, 'gi');
   let m: RegExpExecArray | null;
   let out: string | null = null;
@@ -60,7 +61,7 @@ const NAMED: Record<string, string> = { black: '#000000', white: '#ffffff', red:
   maroon: '#800000', purple: '#800080', teal: '#008080', gray: '#808080', grey: '#808080', orange: '#ffa500', yellow: '#ffff00' };
 
 /** Цвет CSS → #rrggbb; полупрозрачный и непонятный — null */
-function hexOf(v: string): string | null {
+export function hexOf(v: string): string | null {
   const c = v.trim().toLowerCase();
   if (NAMED[c]) return NAMED[c];
   let m = /^#([0-9a-f]{3})$/.exec(c);
@@ -74,11 +75,11 @@ function hexOf(v: string): string | null {
   return '#' + [r[1], r[2], r[3]].map((x) => Math.min(255, Number(x)).toString(16).padStart(2, '0')).join('');
 }
 
-const lum = (hex: string) => {
+export const lum = (hex: string) => {
   const ch = [1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16) / 255).map((x) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4));
   return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
 };
-const contrast = (a: number, b: number) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+export const contrast = (a: number, b: number) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 /** Фоны слайдов: светлый и тёмный (tokens.css) */
 const LIGHT_BG = lum('#ffffff');
 const DARK_BG = lum('#0f172a');
@@ -88,7 +89,7 @@ const DARK_BG = lum('#0f172a');
  * цвет текста темы (нет своего); цвет, который читается на светлом и на тёмном слайде, — как есть;
  * яркий, но не читаемый на одном из фонов, — акцент темы
  */
-function paintOf(css: string | undefined): string | undefined {
+export function paintOf(css: string | undefined): string | undefined {
   if (!css) return undefined;
   const hex = hexOf(css);
   if (!hex) return undefined;
@@ -117,9 +118,36 @@ function fontOf(css: string | undefined, o: PasteOpts): string | undefined {
   return own;
 }
 
+/**
+ * Стили документа из буфера: Word и Excel держат оформление в <style> (p.MsoNormal, h1, td, .xl65), а не у
+ * элементов. Простые правила — тег, класс, тег.класс — складываются со style элемента: сначала теги, потом
+ * классы, тег.класс, своё style последним (prop берёт последнее объявление)
+ */
+export function styleOf(doc: Document): (el: Element) => string {
+  const rules: { tag?: string; cls?: string; rank: number; decls: string }[] = [];
+  for (const st of doc.querySelectorAll('style')) {
+    const css = (st.textContent ?? '').replace(/<!--|-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      for (const sel of m[1].split(',')) {
+        const r = /^\s*([a-z][a-z0-9]*)?(?:\.([\w-]+))?\s*$/i.exec(sel);
+        if (!r || (!r[1] && !r[2])) continue;
+        rules.push({ tag: r[1]?.toUpperCase(), cls: r[2], rank: r[1] && r[2] ? 2 : r[2] ? 1 : 0, decls: m[2].trim() });
+      }
+    }
+  }
+  if (!rules.length) return (el) => el.getAttribute('style') ?? '';
+  rules.sort((a, b) => a.rank - b.rank);
+  return (el) => {
+    const tag = el.tagName.toUpperCase();
+    const own = rules.filter((r) => (!r.tag || r.tag === tag) && (!r.cls || el.classList.contains(r.cls))).map((r) => r.decls);
+    return [...own, el.getAttribute('style') ?? ''].filter(Boolean).join(';');
+  };
+}
+
 /** Разбор HTML буфера в строки с кусками текста и их оформлением */
 function parse(html: string): { lines: Line[]; base: number } {
   const doc = new DOMParser().parseFromString(html, 'text/html');
+  const css = styleOf(doc);
   const word = /urn:schemas-microsoft-com:office|class=["']?Mso/i.test(html);
   // Основной размер Word — в стилях документа (p.MsoNormal); у сайтов браузер вписывает размеры в style
   const wordBase = word ? sizePx(/MsoNormal[^{]*\{[^}]*font-size:\s*([\d.]+pt)/i.exec(html)?.[1] ?? '11pt', undefined) : undefined;
@@ -147,7 +175,7 @@ function parse(html: string): { lines: Line[]; base: number } {
     const el = node as HTMLElement;
     const tag = el.tagName.toUpperCase();
     if (SKIP.has(tag) || el.hidden) return;
-    const style = el.getAttribute('style') ?? '';
+    const style = css(el);
     if (/display\s*:\s*none|visibility\s*:\s*hidden/i.test(style)) return;
     if (tag === 'BR') return end(true);
     // Word: значок пункта списка — отдельный кусок «mso-list:Ignore»; по нему видно нумерацию
@@ -157,8 +185,10 @@ function parse(html: string): { lines: Line[]; base: number } {
     }
     const s: Style = { ...st };
     const weight = prop(style, 'font-weight');
-    if (tag === 'B' || tag === 'STRONG' || /^H[1-6]$/.test(tag)) s.b = true;
+    if (tag === 'B' || tag === 'STRONG') s.b = true;
     if (weight) s.b = /bold|[6-9]00/.test(weight);
+    // Заголовок — жирным и при «теме»: у Word он часто обычной насыщенности и отличается только размером
+    if (/^H[1-6]$/.test(tag)) s.b = true;
     const fstyle = prop(style, 'font-style');
     if (tag === 'I' || tag === 'EM') s.i = true;
     if (fstyle) s.i = /italic|oblique/.test(fstyle);

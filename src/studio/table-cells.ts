@@ -9,6 +9,9 @@
 import { getAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
 import type { Deck } from '../types';
+import { parseGrid } from '../engine/editor/paste-table';
+
+export { parseGrid };
 
 /** Диапазон ячеек: r = -1 — шапка */
 export interface CellRange { table: string; r0: number; r1: number; c0: number; c1: number }
@@ -333,31 +336,6 @@ export function dropCols(t: TableData, c0: number, c1: number): void {
   t.rows.forEach((r) => r.splice(c0, n));
   for (const list of [t.widths, t.align, t.columns, ...cellLists(t)]) if (Array.isArray(list)) list.splice(c0, n);
   shiftMerges(t, 1, c0, -n);
-}
-
-/** Текст из буфера → ячейки: табуляции и строки, как копирует Excel (с кавычками у многострочных) */
-export function parseGrid(text: string): string[][] {
-  const s = text.replace(/\r\n?/g, '\n').replace(/\n$/, '');
-  const rows: string[][] = [[]];
-  let cell = '';
-  for (let i = 0; i < s.length; i++) {
-    const ch = s[i];
-    if (ch === '"' && cell === '') {
-      // Ячейка в кавычках: внутри могут быть переносы и табуляции, "" — сама кавычка
-      let j = i + 1;
-      let v = '';
-      for (; j < s.length; j++) {
-        if (s[j] === '"' && s[j + 1] === '"') { v += '"'; j++; } else if (s[j] === '"') break;
-        else v += s[j];
-      }
-      if (j < s.length && (s[j + 1] === undefined || s[j + 1] === '\t' || s[j + 1] === '\n')) { cell = v; i = j; continue; }
-    }
-    if (ch === '\t') { rows[rows.length - 1].push(cell); cell = ''; }
-    else if (ch === '\n') { rows[rows.length - 1].push(cell); cell = ''; rows.push([]); }
-    else cell += ch;
-  }
-  rows[rows.length - 1].push(cell);
-  return rows;
 }
 
 /** Ячейки → текст для буфера: табуляции и строки; ячейка с переносом — в кавычках */

@@ -1,7 +1,8 @@
 /**
  * «Параметры вставки», как в PowerPoint: после вставки оформленного текста у него — маленькая кнопка; щелчок или
- * Ctrl (нажать и отпустить) открывает строку из трёх значков: «Использовать тему», «Сохранить исходное
- * форматирование», «Только текст» (paste-html.ts). Кнопка уходит, как только сделали что-то другое: щёлкнули
+ * Ctrl (нажать и отпустить) открывает строку значков: «Использовать тему», «Сохранить исходное форматирование»,
+ * «Рисунок» (если в буфере была и картинка — Excel, Word кладут её вместе с текстом), «Только текст»
+ * (paste-html.ts, paste-table.ts). Кнопка уходит, как только сделали что-то другое: щёлкнули
  * мимо, начали печатать, прокрутили вставку из виду. Выбор не запоминается — следующая вставка снова с темой.
  * Одна на страницу; ничего не знает о студии — общая для студии и правки в показе.
  */
@@ -9,9 +10,13 @@ import { icon } from '../../components/icons';
 import { esc } from '../html';
 import type { PasteMode } from './paste-html';
 
-const MODES: [PasteMode, string, string][] = [
+/** Режим вставки: текстовые и «Рисунок» */
+export type PasteChoice = PasteMode | 'picture';
+
+const MODES: [PasteChoice, string, string][] = [
   ['theme', 'brush', 'Использовать тему'],
   ['source', 'paste', 'Сохранить исходное форматирование'],
+  ['picture', 'image', 'Рисунок'],
   ['text', 'text', 'Только текст'],
 ];
 
@@ -23,11 +28,11 @@ export function hidePasteOptions(): void {
 
 /**
  * Кнопка у вставленного: at — где он сейчас (правый нижний угол; null — его уже нет, кнопка уходит);
- * apply — вставить заново в другом режиме
+ * apply — вставить заново в другом режиме; modes — какие режимы есть у этой вставки (по умолчанию три текстовых)
  */
-export function showPasteOptions(at: () => DOMRect | null, apply: (mode: PasteMode) => void): void {
+export function showPasteOptions(at: () => DOMRect | null, apply: (mode: PasteChoice) => void, modes: PasteChoice[] = ['theme', 'source', 'text']): void {
   hidePasteOptions();
-  let mode: PasteMode = 'theme';
+  let mode: PasteChoice = 'theme';
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'ed-po';
@@ -74,7 +79,7 @@ export function showPasteOptions(at: () => DOMRect | null, apply: (mode: PasteMo
     pop.dataset.edKeep = '';
     pop.setAttribute('role', 'menu');
     pop.setAttribute('aria-label', 'Параметры вставки');
-    pop.innerHTML = `<div class="ed-po-h">Параметры вставки</div><div class="ed-po-row">${MODES.map(([m, ic, label]) =>
+    pop.innerHTML = `<div class="ed-po-h">Параметры вставки</div><div class="ed-po-row">${MODES.filter(([m]) => modes.includes(m)).map(([m, ic, label]) =>
       `<button type="button" class="ed-po-m" role="menuitemradio" data-m="${m}" aria-checked="${m === mode}" title="${esc(label)}" aria-label="${esc(label)}">${icon(ic)}</button>`).join('')}</div>`;
     document.body.appendChild(pop);
     btn.setAttribute('aria-expanded', 'true');
@@ -83,7 +88,7 @@ export function showPasteOptions(at: () => DOMRect | null, apply: (mode: PasteMo
     pop.addEventListener('click', (e) => {
       const b = (e.target as Element).closest<HTMLButtonElement>('[data-m]');
       if (!b) return;
-      const m = b.dataset.m as PasteMode;
+      const m = b.dataset.m as PasteChoice;
       close();
       if (m !== mode) {
         mode = m;

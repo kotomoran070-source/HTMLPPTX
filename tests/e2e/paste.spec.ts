@@ -1,5 +1,6 @@
-// Вставка оформленного текста (engine/editor/paste-html.ts) и «Параметры вставки» (paste-options.ts): на слайд —
-// надписью, внутрь набранного текста — в него; «Использовать тему», «Сохранить исходное форматирование»,
+// Вставка оформленного текста (engine/editor/paste-html.ts) и таблиц (paste-table.ts), «Параметры вставки»
+// (paste-options.ts): на слайд — надписью или таблицей, внутрь набранного текста — в него; «Использовать тему»,
+// «Сохранить исходное форматирование», «Рисунок» (картинка, которую Excel и Word кладут в буфер вместе с текстом),
 // «Только текст»; другой режим и Ctrl+Z — одним шагом
 import fs from 'node:fs';
 import path from 'node:path';
@@ -32,17 +33,37 @@ const WORD = '<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><sty
   + '<p class=MsoListParagraph style=\'mso-list:l0 level1 lfo1\'><span style=\'mso-list:Ignore\'>1.&nbsp;</span>Первый</p>'
   + '<p class=MsoListParagraph style=\'mso-list:l0 level1 lfo1\'><span style=\'mso-list:Ignore\'>2.&nbsp;</span>Второй</p></body></html>';
 
-const paste = (page: Page, html: string, text: string, into?: string) => page.evaluate(([h, t, sel]) => {
+/** Как копия диапазона Excel: оформление — классами в <style>, переносы в ячейке — <br>, ширины — <col> */
+const EXCEL = `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><style><!--
+td {color:black; font-size:11.0pt; font-weight:400; text-align:general;}
+.xl65 {color:white; font-weight:700; text-align:center; background:#4472C4; mso-pattern:#4472C4 none;}
+.xl66 {text-align:center;}
+.xl67 {color:#C65911; font-weight:700; text-align:center; background:#FCE4D6;}
+--></style></head><body><table border=0 cellpadding=0 cellspacing=0><col width=180><col width=120 span=2>
+<tr><td class=xl65>Время</td><td class=xl65>Температура<br style='mso-data-placement:same-cell;'>(°C)</td><td class=xl65>Влажность</td></tr>
+<tr><td class=xl66>2026-04-15 06:00</td><td class=xl66>15</td><td class=xl66>42</td></tr>
+<tr><td class=xl66>2026-04-18 10:00</td><td class=xl67>32</td><td class=xl66>48</td></tr></table></body></html>`;
+const EXCEL_TEXT = 'Время\t"Температура\n(°C)"\tВлажность\n2026-04-15 06:00\t15\t42\n2026-04-18 10:00\t32\t48\n';
+
+/** Вставка, как из буфера: HTML, текст и (как кладут Excel и Word) картинка */
+const paste = (page: Page, html: string, text: string, into?: string, image = false) => page.evaluate(async ([h, t, sel, img]) => {
   const dt = new DataTransfer();
-  dt.setData('text/html', h);
-  dt.setData('text/plain', t);
+  if (h) dt.setData('text/html', h);
+  if (t) dt.setData('text/plain', t);
+  if (img) {
+    const c = Object.assign(document.createElement('canvas'), { width: 300, height: 90 });
+    c.getContext('2d')!.fillRect(0, 0, 300, 90);
+    const blob = await new Promise<Blob>((r) => c.toBlob((b) => r(b!), 'image/png'));
+    dt.items.add(new File([blob], 'image.png', { type: 'image/png' }));
+  }
   const target = sel ? document.querySelector(sel)! : document;
   target.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
-}, [html, text, into ?? ''] as const);
-/** Текст вставленной надписи (вторая на слайде) */
+}, [html, text, into ?? '', image] as const);
+const modes = (page: Page) => page.locator('.ed-po-m').evaluateAll((bs) => bs.map((b) => (b as HTMLElement).dataset.m));
+/** Вставленный объект (второй на слайде: первый записан в одну строку) */
 const pasted = () => {
   const y = readDeck('pastefmt');
-  const at = y.indexOf('- type: text');
+  const at = y.indexOf('- type: ');
   return at < 0 ? '' : y.slice(at);
 };
 
@@ -122,4 +143,62 @@ test('внутрь набранного текста: тема, другой р�
   await page.keyboard.press('Escape');
   expect(await waitFile(() => readDeck('pastefmt').includes('Начало очень **важного** {#dc2626|текста} конец'))).toBe(true);
   expect(errors).toEqual([]);
+});
+
+test('таблица из Excel — таблицей, а не картинкой: тема, исходное (заливки, цвета), рисунок, только текст', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?deck=pastefmt&studio');
+  const slide = page.locator('#st-canvas .slide.on');
+  await expect(slide.locator('[data-free]')).toHaveCount(1);
+  await paste(page, EXCEL, EXCEL_TEXT, undefined, true);
+  await expect(slide.locator('table')).toHaveCount(1);
+  expect(await waitFile(() => pasted().startsWith('- type: table'))).toBe(true);
+  // Тема: шапка с переносом, жирный «32», ширины столбцов; без заливок и цветов
+  const theme = pasted();
+  expect(theme).toMatch(/header:\n\s+- Время\n\s+- \|-\n\s+Температура\n\s+\(°C\)/);
+  expect(theme).toContain('weight: 700');
+  expect(theme).toMatch(/widths:\n\s+- 180\n\s+- 120\n\s+- 120/);
+  expect(theme).not.toMatch(/fills|color:/i);
+  await page.locator('.ed-po').click();
+  expect(await modes(page)).toEqual(['theme', 'source', 'picture', 'text']);
+  // Исходное: шапка — синяя с белым текстом, «32» — на персиковой заливке своим цветом; белая «по умолчанию» — нет
+  await page.locator('.ed-po-m[data-m="source"]').click();
+  expect(await waitFile(() => pasted().includes('headFills'))).toBe(true);
+  const src = pasted();
+  expect(src).toMatch(/headFills:(\n\s+- "#4472c4"){3}/);
+  expect(src).toMatch(/fills:\n\s+- - null[\s\S]*- "#fce4d6"/);
+  expect(src).toContain('color: "#ffffff"');
+  expect(src).toContain('color: "#c65911"');
+  expect(src).toContain('align: center');
+  // Рисунок — картинка из буфера, на месте таблицы
+  await page.locator('.ed-po').click();
+  await page.locator('.ed-po-m[data-m="picture"]').click();
+  expect(await waitFile(() => pasted().startsWith('- type: image'))).toBe(true);
+  await expect(slide.locator('[data-free] img')).toHaveCount(1);
+  // Только текст — строки, ячейки через широкий пробел
+  await page.locator('.ed-po').click();
+  await page.locator('.ed-po-m[data-m="text"]').click();
+  expect(await waitFile(() => pasted().includes('2026-04-15 06:00\u200315\u200342'))).toBe(true);
+  // Всё это — один шаг отмены
+  await page.locator('#st-canvas').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('Control+z');
+  await expect(slide.locator('[data-free]')).toHaveCount(1);
+  expect(errors).toEqual([]);
+});
+
+test('текст из Word вместе с картинкой — текстом («Рисунок» — в параметрах); просто картинка — картинкой', async ({ page }) => {
+  await page.goto('/?deck=pastefmt&studio');
+  const slide = page.locator('#st-canvas .slide.on');
+  await expect(slide.locator('[data-free]')).toHaveCount(1);
+  await paste(page, WORD, 'Заголовок Word', undefined, true);
+  expect(await waitFile(() => pasted().includes('**Заголовок Word**'))).toBe(true);
+  await page.locator('.ed-po').click();
+  expect(await modes(page)).toEqual(['theme', 'source', 'picture', 'text']);
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await page.locator('#st-canvas').click({ position: { x: 5, y: 5 } });
+  // «Копировать картинку» в браузере: в HTML только <img> — вставляется картинка, без параметров
+  await paste(page, '<img src="https://example.com/a.png">', '', undefined, true);
+  await expect(slide.locator('[data-free] img')).toHaveCount(1);
+  await expect(page.locator('.ed-po')).toHaveCount(0);
 });

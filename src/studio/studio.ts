@@ -34,7 +34,7 @@ import type { CodeView } from './code';
 import type { ExportQuality } from './pptx';
 import { FindBar } from './find';
 import { numberSteppers } from './num-step';
-import { paintCells, parseGrid } from './table-cells';
+import { paintCells } from './table-cells';
 import { applyFormat, hasFormat, takeFormat, type Format } from './format-painter';
 import { tableGrips } from './table-grips';
 import { ganttDrag } from './gantt-drag';
@@ -44,7 +44,8 @@ import { canExplode, explodeSlide } from './explode';
 import { blockName, setSnapLines } from '../engine/editor/block-edit';
 import { blobToDataUrl } from '../engine/editor/persist';
 import { pasteMarkup, type PasteMode } from '../engine/editor/paste-html';
-import { showPasteOptions } from '../engine/editor/paste-options';
+import { showPasteOptions, type PasteChoice } from '../engine/editor/paste-options';
+import { gridOf, pasteTable, tableText } from '../engine/editor/paste-table';
 import { onLibraryError } from './user-library';
 import { addEffect, addTemplate, assetUrls, findEntrance, deckWithTemplate, listTemplates, pickCss, pickDefs, removeTemplate, replaceUrls, type Template } from './templates';
 import { animCommands, animPanelHtml, animTabHtml, bindDelayField, bindFxGallery, syncAnimTab, type AnimHost } from './anim-tab';
@@ -1291,59 +1292,70 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     ed.selectMany(i, blocks.map((_b, k) => from + k));
   }
 
-  /** Ячейки из Excel или таблицы PowerPoint (табуляции, несколько строк): строки ячеек; не таблица — пусто */
-  const gridOf = (text: string): string[][] => {
-    const grid = text.includes('\t') ? parseGrid(text.replace(/\n+$/, '')) : [];
-    return grid.length > 1 && grid[0].length > 1 ? grid : [];
-  };
-
   /**
-   * Оформленный текст из Word, браузера, почты — надписью «Использовать тему» (структура: жирный, списки, ссылки;
-   * цвета и шрифты — темы), у неё — «Параметры вставки». Другой режим — та же надпись заново, одним шагом отмены
+   * Текст и таблицы из других программ (Word, Excel, Google Таблицы, браузер, почта): таблица — таблицей, текст —
+   * надписью «Использовать тему» (структура сохраняется, цвета и шрифты — темы); у вставленного — «Параметры
+   * вставки». Excel и Word кладут в буфер вместе с текстом и картинку: она — режим «Рисунок», а не вставка по
+   * умолчанию. Другой режим — тот же объект заново, одним шагом отмены. false — текста нет (скопирована картинка)
    */
-  function pasteRich(html: string, plain: string): void {
+  function pasteOuter(html: string, plain: string, images: File[]): boolean {
     const fontOk = (n: string) => (Array.isArray(deck.fonts) ? deck.fonts : []).some((f) => f.name === n);
+    const table = pasteTable(html, plain, 'theme');
     const markup = (m: PasteMode) => pasteMarkup(html, plain, m, { fontOk });
-    const first = markup('theme');
-    if (!first.trim()) return pasteText(plain);
+    const first = table ? null : markup('theme');
+    if (!table && !first?.trim()) return false;
+    const tablePlace = { x: 80, y: 140, w: 1120 };
+    const textPlace = table ? tablePlace : { x: 340, y: 300, w: 600 };
+    let pic: Promise<Block> | null = null;
+    // Рисунок — та картинка, что положила в буфер сама программа: в размер слайда, файлом в презентацию
+    const picture = () => (pic ??= (async () => {
+      const f = images[0];
+      const bmp = await createImageBitmap(f);
+      const k = Math.min(1, tablePlace.w / bmp.width, 560 / bmp.height);
+      const place = { x: tablePlace.x, y: tablePlace.y, w: Math.round(bmp.width * k), h: Math.round(bmp.height * k) };
+      bmp.close();
+      const src = ed.mode === 'project' ? (await projectStorage.uploadAsset(deckKey, f, f.name || 'paste.png')).url : await blobToDataUrl(f);
+      return { type: 'image', src, place } as Block;
+    })());
+    const blockOf = (m: PasteChoice): Block | Promise<Block> => {
+      if (m === 'picture') return picture();
+      if (table) return (m === 'text' ? { type: 'text', text: tableText(table), place: { ...textPlace } } : { ...pasteTable(html, plain, m)!, place: { ...tablePlace } }) as Block;
+      return { type: 'text', text: m === 'theme' ? first! : markup(m), place: { ...textPlace } } as Block;
+    };
+    const modes: PasteChoice[] = ['theme'];
+    // «Исходное» — когда есть что сохранять: оформленный текст или таблица с оформлением (HTML)
+    if (!table || /<table[\s>]/i.test(html)) modes.push('source');
+    if (images.length) modes.push('picture');
+    modes.push('text');
     const i = index;
     const merge = `paste:${Date.now()}`;
     let at = -1;
+    const firstBlock = blockOf('theme') as Block;
     if (!ed.commit((d) => {
       const s = d.slides[i];
       s.free = Array.isArray(s.free) ? s.free : [];
-      s.free.push({ type: 'text', text: first, place: { x: 340, y: 300, w: 600 } });
+      s.free.push(firstBlock);
       at = s.free.length - 1;
-    }, { rebuild: true, merge, hold: true })) return;
+    }, { rebuild: true, merge, hold: true })) return true;
     ed.selectFree(i, at);
     const path = ['slides', i, 'free', at];
     showPasteOptions(() => (index === i ? freeEl(path)?.getBoundingClientRect() ?? null : null), (m) => {
-      const text = markup(m);
-      if (ed.commit((d) => {
-        const b = d.slides[i]?.free?.[at] as { text?: string } | undefined;
-        if (b) b.text = text;
-      }, { rebuild: true, merge, hold: true })) ed.selectFree(i, at);
-    });
+      void Promise.resolve(blockOf(m)).then((b) => {
+        if (ed.commit((d) => {
+          const list = d.slides[i]?.free;
+          if (Array.isArray(list) && list[at]) list[at] = b;
+        }, { rebuild: true, merge, hold: true })) ed.selectFree(i, at);
+      }, (err: Error) => ed.toast(`Не удалось вставить рисунок: ${err.message}`, 5000, true));
+    }, modes);
+    return true;
   }
 
+  /** Простой текст (Блокнот, терминал) — надписью как есть */
   function pasteText(text: string): void {
     const t = text.replace(/\r/g, '').trim().slice(0, 5000);
     if (!t) return;
     const i = index;
     let at = -1;
-    // Ячейки из Excel или таблицы PowerPoint (табуляции, несколько строк) — таблицей, первая строка — шапка
-    const grid = gridOf(text);
-    if (grid.length) {
-      const n = Math.max(...grid.map((r) => r.length));
-      const fit = (r: string[]) => [...r, ...Array.from({ length: n - r.length }, () => '')];
-      if (ed.commit((d) => {
-        const s = d.slides[i];
-        s.free = Array.isArray(s.free) ? s.free : [];
-        s.free.push({ type: 'table', header: fit(grid[0]), rows: grid.slice(1).map(fit), place: { x: 80, y: 140, w: 1120 } });
-        at = s.free.length - 1;
-      }, { rebuild: true })) ed.selectFree(i, at);
-      return;
-    }
     if (ed.commit((d) => {
       const s = d.slides[i];
       s.free = Array.isArray(s.free) ? s.free : [];
@@ -1368,19 +1380,23 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       e.preventDefault();
       return pasteClip(clip);
     }
-    // Несколько картинок — одна картинка с кадрами
     const images = [...data.files].filter((f) => f.type.startsWith('image/'));
+    const text = data.getData('text/plain');
+    const html = data.getData('text/html');
+    // Текст и таблицы — раньше картинки: Excel и Word кладут её в буфер вместе с ними (она — «Рисунок» в параметрах)
+    if ((html.trim() || gridOf(text).length) && pasteOuter(html, text, images)) {
+      e.preventDefault();
+      return;
+    }
+    // Несколько картинок — одна картинка с кадрами
     if (images.length) {
       e.preventDefault();
       void ed.insertImageFile(images);
       return;
     }
-    const text = data.getData('text/plain');
-    const html = data.getData('text/html');
-    if (text.trim() || html.trim()) {
+    if (text.trim()) {
       e.preventDefault();
-      if (html.trim() && !gridOf(text).length) pasteRich(html, text);
-      else pasteText(text);
+      pasteText(text);
     }
   });
   // Картинка, брошенная мимо слайда (на серое поле), тоже встаёт на слайд

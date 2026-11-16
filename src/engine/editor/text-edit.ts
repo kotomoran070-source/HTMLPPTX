@@ -373,7 +373,8 @@ export class TextEditor {
       return r;
     };
     showPasteOptions(() => (this.s?.el === el && el.isConnected ? span().getBoundingClientRect() : null), (mode) => {
-      if (this.s?.el !== el) return;
+      // Рисунка внутри текста нет: этого значка у вставки в текст и не показывают
+      if (this.s?.el !== el || mode === 'picture') return;
       el.focus({ preventScroll: true });
       const r = span();
       getSelection()?.setBaseAndExtent(r.startContainer, r.startOffset, r.endContainer, r.endOffset);
