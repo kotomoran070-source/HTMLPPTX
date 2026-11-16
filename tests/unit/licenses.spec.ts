@@ -1,6 +1,8 @@
 // Лицензии библиотек: у всех, что программа везёт с собой, — из разрешённого списка
 import { expect, test } from '@playwright/test';
+import fs from 'node:fs';
 import { checkLicenses, noticeText, pagePackages, prodPackages, spdxOk } from '../../plugins/licenses.mjs';
+import { chromiumCredits } from '../../server/http';
 
 test('выражения SPDX: «или» — хватит одной подходящей, «и» — нужны все', () => {
   expect(spdxOk('MIT')).toBe(true);
@@ -36,4 +38,27 @@ test('все библиотеки программы — со свободной
   const t = noticeText([{ dir: '', name: 'a', version: '1', license: 'MIT', text: 'X' }, { dir: '', name: 'b', version: '2', license: 'MIT', text: 'X' }]);
   expect(t.match(/^X$/gm)).toHaveLength(1);
   expect(t).toContain('== a 1 — MIT, b 2 — MIT ==');
+});
+
+test('лицензии Chromium: свои стили вместо chrome://, текст читается в тёмной теме, лицензия — по щелчку и с клавиатуры', async ({ page }) => {
+  const file = 'node_modules/electron/dist/LICENSES.chromium.html';
+  test.skip(!fs.existsSync(file), 'Electron не установлен');
+  const html = chromiumCredits(fs.readFileSync(file, 'utf8'));
+  expect(html).not.toContain('chrome://');
+  expect(html).toContain('<title>Лицензии Chromium</title>');
+  expect(html).not.toContain('<input type="checkbox" hidden>');
+  // Окно программы — с тёмным фоном (desktop/main.mjs): страница красит фон сама, текст светлый
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.setContent(html, { waitUntil: 'domcontentloaded' });
+  const look = await page.evaluate(() => ({ bg: getComputedStyle(document.body).backgroundColor, tx: getComputedStyle(document.body).color }));
+  expect(look).toEqual({ bg: 'rgb(15, 23, 42)', tx: 'rgb(230, 235, 243)' });
+  const products = await page.locator('.product').count();
+  expect(products).toBeGreaterThan(500);
+  await expect(page.locator('.license:visible')).toHaveCount(0);
+  await page.locator('.product .show').first().click();
+  await page.locator('.product .show input').nth(1).focus();
+  await page.keyboard.press('Space');
+  await expect(page.locator('.license:visible')).toHaveCount(2);
+  await page.locator('.show-all').click();
+  await expect(page.locator('.license:visible')).toHaveCount(products);
 });

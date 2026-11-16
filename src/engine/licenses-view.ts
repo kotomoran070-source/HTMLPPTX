@@ -23,12 +23,12 @@ const FAMILIES: Family[] = ['mit', 'bsd', 'apache', 'isc', 'lgpl', 'ofl', 'other
 const FAM: Record<Family, string> = { mit: 'MIT', bsd: 'BSD', apache: 'Apache', isc: 'ISC', lgpl: 'LGPL', ofl: 'OFL', other: 'Другие' };
 /** Что разрешает лицензия — одной фразой (точные условия — в тексте ниже неё) */
 const ABOUT: Partial<Record<Family, string>> = {
-  mit: 'Свободная лицензия: библиотеку можно использовать, менять и распространять, в том числе в платных программах, сохраняя упоминание авторов и этот текст.',
-  bsd: 'Свободная лицензия: можно использовать, менять и распространять, сохраняя упоминание авторов и этот текст.',
-  apache: 'Свободная лицензия: можно использовать, менять и распространять, сохраняя этот текст и уведомления авторов; авторы дают и право на свои патенты.',
-  isc: 'Свободная лицензия, по сути как MIT: можно использовать, менять и распространять, сохраняя упоминание авторов.',
-  lgpl: 'Библиотека работает в программе отдельным файлом и не входит в экспортированные презентации; допускается замена собственной сборкой.',
-  ofl: 'Шрифты можно встраивать в презентации и распространять вместе с ними; продавать сами шрифты отдельно нельзя.',
+  mit: 'Разрешает использовать, изменять и распространять библиотеку, в том числе в коммерческих продуктах, при сохранении уведомления об авторских правах и текста лицензии.',
+  bsd: 'Разрешает использовать, изменять и распространять библиотеку при сохранении уведомления об авторских правах, условий лицензии и отказа от гарантий.',
+  apache: 'Разрешает использовать, изменять и распространять библиотеку при сохранении текста лицензии и уведомлений авторов. Включает лицензию на патенты авторов.',
+  isc: 'Разрешает использовать, изменять и распространять библиотеку при сохранении уведомления об авторских правах и текста лицензии.',
+  lgpl: 'Библиотека поставляется с программой отдельным файлом и может быть заменена другой сборкой. В экспортированные презентации не входит.',
+  ofl: 'Разрешает встраивать шрифты в документы и распространять вместе с ними. Продажа шрифтов отдельно от документов не допускается.',
 };
 const WHERE: Record<string, string> = { srv: 'Сервер программы', pg: 'Студия и показ' };
 const GROUPS: [string, Item['kind']][] = [['Программа', 'app'], ['Шрифты', 'fonts'], ['Библиотеки', 'lib']];
@@ -40,7 +40,7 @@ const SAME = 8;
 const family = (l: string): Family => (/^\(?MIT\b/.test(l) ? 'mit' : /^\(?BSD/.test(l) ? 'bsd' : /^\(?Apache/.test(l) ? 'apache' : /^\(?ISC\b/.test(l) ? 'isc'
   : /LGPL/.test(l) ? 'lgpl' : /OFL/.test(l) ? 'ofl' : 'other');
 /** «(MIT OR GPL-3.0-or-later)» → «MIT или GPL-3.0+» */
-const short = (l: string) => (l ? l.replace(/^\((.*)\)$/, '$1').replace(/ OR /g, ' или ').replace(/ AND /g, ' и ').replace(/-or-later/g, '+').replace(/-Clause/g, '') : 'много лицензий');
+const short = (l: string) => (l ? l.replace(/^\((.*)\)$/, '$1').replace(/ OR /g, ' или ').replace(/ AND /g, ' и ').replace(/-or-later/g, '+').replace(/-Clause/g, '') : 'разные лицензии');
 const where = (e: Item) => (e.kind === 'app' ? 'Программа' : e.kind === 'fonts' ? 'Темы и формулы' : (e.where ?? []).map((w) => WHERE[w] ?? w).join(' · '));
 const plural = (n: number, one: string, few: string, many: string) => {
   const d = n % 10, h = n % 100;
@@ -120,11 +120,11 @@ export function mountLicenses(el: HTMLElement, data: LicensesData, st: LicensesS
     if (!e) { pane.innerHTML = ''; return; }
     const same = e.kind === 'lib' ? items.filter((x) => x !== e && x.kind === 'lib' && x.f === e.f) : [];
     const body = e.link
-      ? `<p class="lc-about">Движок, на котором работает окно программы. В нём сотни компонентов со своими лицензиями — они собраны на отдельной странице.</p>
+      ? `<p class="lc-about">Браузерный движок, на котором работает окно программы. Включает компоненты с собственными лицензиями; их тексты собраны на отдельной странице.</p>
         <div><a class="lc-btn" href="${esc(e.link)}" target="_blank">${icon('link')}<span>Открыть лицензии Chromium</span></a></div>`
       : `${e.fonts?.length ? `<div class="lc-fonts">${e.fonts.map((f) => `<span>${esc(f)}</span>`).join('')}</div>` : ''}
         ${ABOUT[e.f] ? `<p class="lc-about">${ABOUT[e.f]}</p>` : ''}
-        ${e.text ? `<pre class="lc-text">${esc(e.text)}</pre>` : '<p class="lc-about lc-none">В пакете указано только название лицензии, полный текст отсутствует.</p>'}`;
+        ${e.text ? `<pre class="lc-text">${esc(e.text)}</pre>` : '<p class="lc-about lc-none">Полный текст лицензии в пакете отсутствует.</p>'}`;
     pane.innerHTML = `<article class="lc-det">
       <div class="lc-doc">
         <div class="lc-back-row"><button class="lc-btn lc-back" type="button" data-back>${icon('prev')}<span>Все компоненты</span></button></div>

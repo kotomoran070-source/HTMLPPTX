@@ -154,9 +154,60 @@ function licenses(core: DecksCore, o: HttpOptions): Handler {
     if (u !== LICENSES + '/chromium') return send(res, 404, { error: 'Нет такого адреса' });
     const chromium = electronFiles().chromium;
     if (!chromium) return send(res, 404, { error: 'Нет файла' });
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    fs.createReadStream(chromium).pipe(res);
+    fs.readFile(chromium, 'utf8', (err, html) => {
+      if (err) return send(res, 500, { error: err.message });
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      // Скриптов на странице нет и не нужно: 20 МБ чужой разметки не исполняют ничего
+      res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
+      res.end(chromiumCredits(html));
+    });
   };
+}
+
+/** Страница лицензий Chromium: цвета программы, светлая и тёмная тема (по теме программы — nativeTheme) */
+const CREDITS_CSS = `
+:root { color-scheme: light dark; --bg: #F8FAFC; --surf: #FDFEFF; --tx: #111827; --tx2: #374151; --mu: #6B7280; --bd: #E5E7EB; --ac: #2563EB; --code: #F1F4F9; }
+@media (prefers-color-scheme: dark) { :root { --bg: #0F172A; --surf: #162033; --tx: #E6EBF3; --tx2: #CBD5E1; --mu: #94A3B8; --bd: #263449; --ac: #60A5FA; --code: #0B1324; } }
+html { background: var(--bg); }
+body { box-sizing: border-box; max-width: 980px; margin: 0 auto; padding: 32px 32px 56px; background: var(--bg); color: var(--tx); font: 14px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; }
+a { color: var(--ac); text-decoration: none; }
+.page-title { display: inline-block; margin: 0 0 6px; font-size: 24px; font-weight: 600; letter-spacing: -.01em; }
+#print-link { display: none; }
+.open-sourced { margin: 0 0 22px; color: var(--mu); }
+.show { position: relative; color: var(--ac); font-size: 13px; white-space: nowrap; cursor: pointer; user-select: none; border-radius: 4px; }
+.show input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
+.show:has(input:focus-visible) { outline: 2px solid var(--ac); outline-offset: 2px; }
+.show::after { content: "Показать лицензию"; }
+.show:has(input:checked)::after { content: "Скрыть лицензию"; }
+.show-all { float: right; margin-top: 4px; padding: 5px 12px; border: 1px solid var(--bd); border-radius: 8px; background: var(--surf); color: var(--tx2); }
+.show-all::after { content: "Развернуть все"; }
+.show-all:has(input:checked)::after { content: "Свернуть все"; }
+.show-all:hover { border-color: var(--mu); }
+.product { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; padding: 10px 0; border-top: 1px solid var(--bd); }
+.product .title { flex: 1 1 260px; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.product .homepage { font-size: 13px; }
+.license { display: none; flex-basis: 100%; }
+.product:has(> .show input:checked) > .license, body:has(.show-all input:checked) .license { display: block; }
+body:has(.show-all input:checked) .product > .show { display: none; }
+.license pre { margin: 8px 0 4px; padding: 12px 14px; border: 1px solid var(--bd); border-radius: 8px; background: var(--code); color: var(--tx2); font: 12px/1.55 ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+`;
+
+/**
+ * Лицензии Chromium — файл из поставки Electron (LICENSES.chromium.html). Стили он берёт из chrome://credits,
+ * которых в программе нет: без них — чёрный текст на тёмном фоне окна и все ~780 лицензий раскрыты разом.
+ * Здесь — свои стили, заголовок по-русски, лицензия раскрывается по щелчку или пробелом (флажок без hidden —
+ * в него можно попасть с клавиатуры), без скриптов
+ */
+export function chromiumCredits(html: string): string {
+  return html
+    .replace(/<link rel="stylesheet" href="chrome:\/\/[^"]*">\s*/g, '')
+    .replace('</head>', `<style>${CREDITS_CSS}</style>\n</head>`)
+    .replace('<html>', '<html lang="ru">')
+    .replace('<title>Credits</title>', '<title>Лицензии Chromium</title>')
+    .replace('<span class="page-title">Credits</span>', '<h1 class="page-title">Лицензии Chromium</h1>')
+    .replace(/<div class="open-sourced">[\s\S]*?<\/div>/, '<div class="open-sourced">Chromium — браузерный движок, на котором работает окно программы. Ниже — его компоненты и их лицензии. Исходный код Chromium опубликован на <a href="https://source.chromium.org/chromium">source.chromium.org</a>.</div>')
+    .replaceAll(' tabindex="0">\n<input type="checkbox" hidden>', '>\n<input type="checkbox">')
+    .replaceAll('>homepage</a>', '>Сайт</a>');
 }
 
 /**

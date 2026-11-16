@@ -131,7 +131,12 @@ test('первый запуск: «Моя первая презентация»,
     await expect(lic.locator('.lc-text')).toContainText('Electron');
     await lic.locator('.lc-row', { hasText: 'Chromium' }).click();
     await expect(lic.locator('.lc-pane a[href="/__slideria/licenses/chromium"]')).toBeVisible();
-    expect(await lic.evaluate(() => fetch('/__slideria/licenses/chromium').then((r) => r.status))).toBe(200);
+    // Лицензии Chromium — со своими стилями (без них в окне программы чёрный текст на тёмном фоне), без скриптов
+    const credits = await lic.evaluate(() => fetch('/__slideria/licenses/chromium').then(async (r) => ({ status: r.status, csp: r.headers.get('content-security-policy'), html: await r.text() })));
+    expect(credits.status).toBe(200);
+    expect(credits.csp).toContain("default-src 'none'");
+    expect(credits.html).toContain('<title>Лицензии Chromium</title>');
+    expect(credits.html).not.toContain('chrome://');
     await lic.keyboard.press('Escape');
     await expect(lic.locator('.fp')).toBeHidden();
     // Показ — крупным окном (80 % экрана), в заголовке без значка

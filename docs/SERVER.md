@@ -177,7 +177,9 @@ http.createServer((req, res) => handle(req, res, () => { res.statusCode = 404; r
 3. **«Лицензии»** — только этому компьютеру. Раздел «Файл → Лицензии» студии и страница `/?licenses`
    (`src/engine/licenses-view.ts`, `licenses-page.ts`) берут данные из
    `/__slideria/licenses/data` (`plugins/licenses.mjs` → `licensesData`: программа, шрифты, библиотеки сервера и
-   студии одной записью на версию, с текстами), лицензии Chromium — `/__slideria/licenses/chromium`. Старый адрес
+   студии одной записью на версию, с текстами), лицензии Chromium — `/__slideria/licenses/chromium` (файл из поставки
+   Electron; его стили — из `chrome://credits`, которых в программе нет, поэтому `chromiumCredits` отдаёт его со
+   своими: цвета программы, светлая и тёмная тема, лицензия раскрывается по щелчку, без скриптов). Старый адрес
    `/__slideria/licenses` ведёт на страницу.
 4. **Данные для страниц** (только `GET`): `/__slideria/decks` — список (только этому компьютеру),
    `/__slideria/deck/<имя>` — презентация с адресами файлов этого сервера; ошибка в `deck.yaml` — 422 с текстом,

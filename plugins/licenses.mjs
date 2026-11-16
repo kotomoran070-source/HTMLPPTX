@@ -84,7 +84,7 @@ export function readPackage(dir, root = process.cwd()) {
     if (pdir) text = licenseTexts(pdir);
   }
   if (!text && TEMPLATES[license]) {
-    text = `${TEMPLATES[license](who())}\n(Текст лицензии составлен по стандартному шаблону: в пакете указаны только название лицензии и автор.)`;
+    text = `${TEMPLATES[license](who())}\n(Стандартный текст лицензии: пакет указывает только её название и автора.)`;
   }
   // «LGPL-3.0-or-later» и «Apache-2.0 AND LGPL-3.0-or-later»: без текстов LGPL и GPL в пакете — свои
   if (/\bLGPL-3\.0/.test(license) && !LGPL3_TEXT.test(text)) text = [text, lgpl3(who(), root)].filter(Boolean).join('\n\n');
@@ -163,7 +163,7 @@ export function checkLicenses(pkgs, { html = false } = {}) {
 export function noticeText(pkgs, fonts = '') {
   const groups = new Map();
   for (const p of pkgs) {
-    const key = p.text || `Лицензия ${p.license} (текст в пакете не найден)`;
+    const key = p.text || `Лицензия ${p.license}. Полный текст в пакете отсутствует.`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(`${p.name} ${p.version} — ${p.license}`);
   }
