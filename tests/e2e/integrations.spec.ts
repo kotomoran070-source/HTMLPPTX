@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import JSZip from 'jszip';
 import { readDeck, watchErrors } from './helpers';
 import { cliCalls, fakeCli } from '../fake-clients';
 
@@ -139,7 +140,7 @@ test('«Файл → Интеграции»: клиенты (и ChatGPT), что
   expect(errors).toEqual([]);
 });
 
-test('подключить в один щелчок: Claude Desktop — в его настройки, Claude Code — его командой, нет ChatGPT — «Скачать»', async ({ page }) => {
+test('подключить в один щелчок: Claude Desktop — расширением, Claude Code — его командой, нет ChatGPT — «Скачать»', async ({ page }) => {
   // Домашний каталог сервера тестов — подставной (SLIDERIA_CONNECT_HOME): Claude Desktop «открывали», Claude Code
   // стоит (подставная программа), Codex — нет
   const home = path.resolve('.tmp/test-home');
@@ -154,14 +155,29 @@ test('подключить в один щелчок: Claude Desktop — в ег�
 
   await fp.locator('[data-client="claude-desktop"]').click();
   await expect(link).toContainText('Claude Desktop есть на этом компьютере');
+  await expect(link).toContainText('Откроется окно установки расширения');
   await expect(fp.locator('.ig-steps li').first()).toContainText('Нажмите «Подключить»');
+  // «Подключить» — пакет расширения с путём к этой Slideria открывается (в тестах — записью, какой файл открыли);
+  // пока установку не подтвердили — ждём, файл настроек Claude Desktop не трогается
   await link.getByRole('button', { name: 'Подключить к Claude Desktop' }).click();
+  await expect(link).toContainText('Подтвердите установку в Claude Desktop');
+  await expect(link.getByRole('button', { name: 'Открыть ещё раз' })).toBeVisible();
+  const opened = fs.readFileSync(path.join(home, 'opened-mcpb.txt'), 'utf8');
+  expect(opened).toMatch(/\.mcpb$/);
+  const zip = await JSZip.loadAsync(fs.readFileSync(opened));
+  expect(JSON.parse(await zip.file('manifest.json')!.async('string'))).toMatchObject({ name: 'slideria', server: { type: 'node' } });
+  expect(JSON.parse(await zip.file('server/target.json')!.async('string')).args.join(' ')).toContain('mcp.mjs');
+  expect(fs.existsSync(path.join(home, '.config', 'Claude', 'claude_desktop_config.json'))).toBe(false);
+  // Claude Desktop установил расширение — статус обновляется сам
+  fs.writeFileSync(path.join(home, '.config', 'Claude', 'extensions-installations.json'), JSON.stringify({ extensions: { 'local.mcpb.slideria.slideria': { manifest: { name: 'slideria' } } } }));
   await expect(link).toContainText('Slideria подключена к Claude Desktop');
-  await expect(link).toContainText('Закройте Claude Desktop совсем');
+  await expect(link).toContainText('Settings → Desktop app → Extensions');
   await expect(fp.locator('[data-client="claude-desktop"] .ig-on')).toBeVisible();
-  const cfg = JSON.parse(fs.readFileSync(path.join(home, '.config', 'Claude', 'claude_desktop_config.json'), 'utf8'));
-  expect(cfg.mcpServers.slideria.args.join(' ')).toContain('mcp.mjs');
-  // Вручную — та же команда, что прописалась
+  // Расширение удаляют в самом Claude Desktop — «Отключить» говорит, где
+  await link.getByRole('button', { name: 'Отключить' }).click();
+  await expect(link.locator('.ig-link-hint')).toContainText('Extensions → Slideria → Uninstall');
+  await expect(link).toContainText('Slideria подключена к Claude Desktop');
+  // Вручную — та же команда
   await expect(fp.locator('.ig-code pre')).toContainText('"slideria"');
 
   await fp.locator('[data-client="claude-code"]').click();

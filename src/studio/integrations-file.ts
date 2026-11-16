@@ -10,8 +10,11 @@ import { agentLook, ago, api, canRevert, defaults, edits, revertAgent, runScript
 type Access = 'view' | 'edit' | 'all';
 interface Info { access: Access; agents: AgentInfo[]; mcp: { command: string; args: string[] } | null; scripts: string }
 type Cmd = { command: string; args: string[] };
-/** Клиент на этом компьютере (server/connect.ts): стоит ли и подключена ли к нему Slideria */
-interface ClientState { id: string; installed: boolean; connected: boolean }
+/**
+ * Клиент на этом компьютере (server/connect.ts): стоит ли и подключена ли к нему Slideria; via — расширением
+ * Claude Desktop; pending — окно установки расширения открыто; hint — что сделать самому
+ */
+interface ClientState { id: string; installed: boolean; connected: boolean; via?: 'extension'; pending?: boolean; hint?: string }
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 /** Аргумент командной строки: в кавычках, если в нём пробелы и прочее */
@@ -27,7 +30,15 @@ interface Variant { label: string; where: string; snippet(c: Cmd): string }
 /**
  * Подключение в один щелчок (server/connect.ts): что сделать после, где скачать клиент
  */
-interface Auto { after: string; get: string; /** Что скачать, если клиента нет (у Codex — ChatGPT) */ app?: string }
+interface Auto {
+  after: string;
+  get: string;
+  /** Что скачать, если клиента нет (у Codex — ChatGPT) */
+  app?: string;
+  /** Подключена расширением — где она теперь; записью в файле настроек — что сделать (у Claude Desktop) */
+  done?: string;
+  config?: string;
+}
 interface Client { id: string; name: string; mono: string; bg: string; step: string; variants: Variant[]; note?: string; auto?: Auto }
 const CLAUDE = agentLook('Claude').bg;
 /** Клиенты MCP: как выглядит подключение у каждого (без своих знаков — буквы на плашке) */
@@ -37,7 +48,10 @@ const CLIENTS: Client[] = [
     auto: { after: 'Запустите claude в любой папке — Slideria уже в его списке (/mcp)', get: 'https://code.claude.com/docs/en/setup' } },
   { id: 'claude-desktop', name: 'Claude Desktop', mono: 'C', bg: CLAUDE, step: 'Вставьте в настройки и перезапустите Claude',
     variants: [{ label: 'Настройки', where: 'Claude → Настройки → Разработчик → Изменить конфигурацию; добавьте в mcpServers и перезапустите', snippet: jsonCfg('mcpServers') }],
-    auto: { after: 'Закройте Claude Desktop совсем (Quit; на Windows — у значка возле часов) и откройте снова: Slideria будет в его Settings → Desktop app → Extensions', get: 'https://claude.ai/download' } },
+    auto: { after: 'В окне Claude Desktop нажмите «Install» — Slideria появится в его Settings → Desktop app → Extensions, перезапуск не нужен',
+      done: 'Расширение Claude Desktop: Settings → Desktop app → Extensions — там же его выключают и удаляют',
+      config: 'Закройте Claude Desktop совсем (Quit; на Windows — у значка возле часов) и откройте снова: Slideria будет в его Settings → Desktop app → Developer',
+      get: 'https://claude.ai/download' } },
   { id: 'codex', name: 'ChatGPT · Codex', mono: 'AI', bg: 'linear-gradient(135deg,#475569,#0F172A)', step: 'Заполните поля в ChatGPT и перезапустите его',
     auto: { after: 'Перезапустите ChatGPT (и Codex в терминале или редакторе, если открыт) — Slideria будет в списке его MCP-серверов', get: 'https://openai.com/chatgpt/download/', app: 'ChatGPT' },
     variants: [
@@ -89,7 +103,15 @@ const state = {
   clients: null as ClientState[] | null,
   linking: '',
   linkError: {} as Record<string, string>,
+  /** Что сделать самому после «Подключить» или «Отключить» (server/connect.ts hint) */
+  linkHint: {} as Record<string, string>,
+  /** Окно установки расширения открыто: до какого времени ждать, что его подтвердят */
+  waiting: {} as Record<string, number>,
 };
+/** Сколько ждать подтверждения установки и как часто спрашивать сервер */
+const WAIT_MS = 5 * 60_000;
+const POLL_MS = 2000;
+let poll = 0;
 /** Значения полей скриптов, пока раздел открыт */
 const values = new Map<string, Record<string, unknown>>();
 /** Развёрнутые длинные пакеты журнала */
@@ -108,7 +130,7 @@ export function mount(el: HTMLElement, c: IntegrationsCtx): void {
     el.addEventListener('keydown', onKey);
   }
   render();
-  void load();
+  void load().then(watch);
 }
 
 /** Сервер сообщил новое: раздел открыт — обновить то, что видно */
@@ -243,7 +265,7 @@ function connectHtml(info: Info | null): string {
   const snippet = v.snippet(info.mcp);
   const cs = c.auto ? state.clients?.find((x) => x.id === c.id) : undefined;
   const steps = !cs ? ['Скопируйте — путь к Slideria на этом компьютере уже в строке', c.step]
-    : cs.installed || cs.connected ? ['Нажмите «Подключить»', c.auto!.after]
+    : cs.installed || cs.connected ? [c.auto!.done ? 'Нажмите «Подключить» — откроется окно установки в Claude Desktop' : 'Нажмите «Подключить»', c.auto!.after]
       : [`Установите ${c.auto!.app ?? c.name} и запустите хотя бы один раз`, 'Вернитесь сюда и нажмите «Подключить»'];
   return `<div class="ig-clients" role="tablist" aria-label="Агент">${CLIENTS.map((x) => `<button type="button" class="ig-client" role="tab" data-client="${x.id}" aria-selected="${x.id === c.id}"><span class="ig-mono" style="background:${x.bg}">${esc(x.mono)}</span>${esc(x.name)}${state.clients?.find((s) => s.id === x.id)?.connected ? `<i class="ig-on" title="Подключено"></i>` : ''}</button>`).join('')}</div>
     ${cs ? linkHtml(c, cs) : ''}
@@ -266,12 +288,17 @@ function linkHtml(c: Client, cs: ClientState): string {
   const err = state.linkError[c.id];
   const name = c.name;
   const app = c.auto!.app ?? name;
+  const a = c.auto!;
+  const hint = state.linkHint[c.id];
   const [cls, ic, title, sub, btn] = cs.connected
-    ? ['ok', 'check', `Slideria подключена к ${name}`, c.auto!.after, `<button type="button" class="fp-btn" data-link="off"${busy ? ' disabled' : ''}>${busy ? 'Отключение…' : 'Отключить'}</button>`]
-    : cs.installed
-      ? ['', 'plug', `${name} есть на этом компьютере`, 'Slideria будет добавлена в настройки приложения; при наличии подписки ключ API не нужен', `<button type="button" class="fp-btn go" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Подключение…' : `Подключить к ${esc(name)}`}</button>`]
-      : ['no', 'search', `${app} не найден на этом компьютере`, 'Установите приложение и запустите хотя бы один раз — или подключите вручную ниже', `<a class="fp-btn" href="${c.auto!.get}" target="_blank" rel="noopener">Скачать ${esc(app)}</a>`];
-  return `<div class="ig-link ${cls}" aria-live="polite"><span class="ig-link-i">${icon(ic)}</span><div><b>${esc(title)}</b><span>${esc(sub)}</span>${err ? `<span class="ig-link-err" role="alert">${esc(err)}</span>` : ''}</div>${btn}</div>`;
+    ? ['ok', 'check', `Slideria подключена к ${name}`, (cs.via === 'extension' ? a.done : a.config) ?? a.after, `<button type="button" class="fp-btn" data-link="off"${busy ? ' disabled' : ''}>${busy ? 'Отключение…' : 'Отключить'}</button>`]
+    : state.waiting[c.id]
+      // Окно установки расширения открыто — статус обновится сам (watch); окно потерялось — открыть снова
+      ? ['wait', 'clock', `Подтвердите установку в ${name}`, 'В окне Claude Desktop нажмите «Install». Окно не появилось или закрыто — откройте его ещё раз', `<button type="button" class="fp-btn" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Открытие…' : 'Открыть ещё раз'}</button>`]
+      : cs.installed
+        ? ['', 'plug', `${name} есть на этом компьютере`, `${a.done ? 'Откроется окно установки расширения в Claude Desktop' : 'Slideria будет добавлена в настройки приложения'}; при наличии подписки ключ API не нужен`, `<button type="button" class="fp-btn go" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Подключение…' : `Подключить к ${esc(name)}`}</button>`]
+        : ['no', 'search', `${app} не найден на этом компьютере`, 'Установите приложение и запустите хотя бы один раз — или подключите вручную ниже', `<a class="fp-btn" href="${a.get}" target="_blank" rel="noopener">Скачать ${esc(app)}</a>`];
+  return `<div class="ig-link ${cls}" aria-live="polite"><span class="ig-link-i">${icon(ic)}</span><div><b>${esc(title)}</b>${hint ? `<span class="ig-link-hint">${esc(hint)}</span>` : `<span>${esc(sub)}</span>`}${err ? `<span class="ig-link-err" role="alert">${esc(err)}</span>` : ''}</div>${btn}</div>`;
 }
 
 /** «Подключить» и «Отключить» */
@@ -280,17 +307,50 @@ async function link(on: boolean): Promise<void> {
   if (state.linking) return;
   state.linking = id;
   delete state.linkError[id];
+  delete state.linkHint[id];
   render();
   try {
     const r = await api<ClientState>(`agents-${on ? 'connect' : 'disconnect'}?client=${encodeURIComponent(id)}`);
     state.clients = (state.clients ?? []).map((x) => (x.id === r.id ? r : x));
+    if (r.hint) state.linkHint[id] = r.hint;
     const name = CLIENTS.find((x) => x.id === id)?.name ?? '';
-    ctx?.host.editor.toast(on ? `Slideria подключена к ${name}` : `Slideria отключена от ${name}`, 2500);
+    // Окно установки открыто — «подключена» скажет watch, когда установку подтвердят; расширение после
+    // «Отключить» остаётся (удаляют его в самом Claude Desktop) — подсказка в карточке вместо «отключена»
+    if (on && r.pending) state.waiting[id] = Date.now() + WAIT_MS;
+    else if (on || !r.connected) {
+      delete state.waiting[id];
+      ctx?.host.editor.toast(on ? `Slideria подключена к ${name}` : `Slideria отключена от ${name}`, 2500);
+    }
   } catch (e) {
     state.linkError[id] = (e as Error).message;
   }
   state.linking = '';
   if (root?.isConnected) render();
+  watch();
+}
+
+/**
+ * Пока открыто окно установки расширения — спрашивать сервер, не установлено ли (Claude Desktop не сообщает);
+ * установили — «подключена», не дождались — снова «Подключить». Раздел закрыли — опрос до следующего открытия
+ */
+function watch(): void {
+  if (poll || !Object.keys(state.waiting).length) return;
+  poll = window.setTimeout(async () => {
+    if (!root?.isConnected) { poll = 0; return; }
+    await loadClients();
+    poll = 0;
+    let changed = false;
+    for (const [id, until] of Object.entries(state.waiting)) {
+      const done = state.clients?.find((x) => x.id === id)?.connected;
+      if (!done && Date.now() < until) continue;
+      delete state.waiting[id];
+      changed = true;
+      if (done) ctx?.host.editor.toast(`Slideria подключена к ${CLIENTS.find((x) => x.id === id)?.name ?? ''}`, 2500);
+    }
+    // Перерисовка — только когда есть что показать: иначе сбивала бы выделение в тексте раздела
+    if (changed && root?.isConnected) render();
+    watch();
+  }, POLL_MS);
 }
 
 function field(sid: string, p: ScriptParam, v: unknown): string {
@@ -406,6 +466,7 @@ function onClick(e: MouseEvent): void {
   if (d.client) {
     state.client = d.client;
     state.variant = 0;
+    state.linkHint = {};
     try { localStorage.setItem(CLIENT_KEY, d.client); } catch { /* нет доступа */ }
     render();
     if (CLIENTS.find((x) => x.id === d.client)?.auto) void loadClients().then(() => { if (root?.isConnected) render(); });

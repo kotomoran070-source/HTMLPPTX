@@ -1,23 +1,123 @@
 /**
  * Подключить агента в один щелчок («Файл → Интеграции → Агенты», docs/MCP.md): MCP этой папки прописывается в
  * клиента, который уже стоит на компьютере, — с подпиской Claude или ChatGPT ключ API не нужен.
- *   Claude Desktop — в его файл настроек (claude_desktop_config.json): прежний сохраняется копией рядом,
- *                    испорченный не перезаписывается. После — перезапустить Claude Desktop.
+ *   Claude Desktop — расширением (.mcpb, buildBundle): Slideria собирает пакет с путём к себе и открывает его,
+ *                    Claude Desktop показывает своё окно установки; дальше Slideria — в его Settings → Desktop app → Extensions,
+ *                    без правки настроек и перезапуска. Без пакета (нет шаблона, файл не открылся) — как раньше,
+ *                    в его файл настроек (claude_desktop_config.json): прежний — копией рядом, испорченный не
+ *                    перезаписывается; после — перезапустить Claude Desktop.
  *   Claude Code    — его командой: claude mcp add --scope user (для всех папок).
  *   ChatGPT · Codex — в его файл ~/.codex/config.toml: его читают ChatGPT для компьютера (приложение Codex с июля 2026 —
  *                    его часть), Codex в терминале и в редакторе. Своя программа codex для этого не нужна.
  * Программы ищутся там, куда их ставят установщики: PATH у программы, запущенной из Dock или меню «Пуск»,
  * короче, чем в терминале.
  */
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import JSZip from 'jszip';
 
 export type ClientId = 'claude-desktop' | 'claude-code' | 'codex';
 export const CLIENT_IDS: ClientId[] = ['claude-desktop', 'claude-code', 'codex'];
-export interface ClientState { id: ClientId; installed: boolean; connected: boolean }
+export interface ClientState {
+  id: ClientId;
+  installed: boolean;
+  connected: boolean;
+  /** Claude Desktop: Slideria — его расширение (а не запись в файле настроек) */
+  via?: 'extension';
+  /** Claude Desktop: окно установки расширения открыто — ждём, пока пользователь нажмёт «Установить» */
+  pending?: boolean;
+  /** Что сделать самому (отключить расширение можно только в Claude Desktop) */
+  hint?: string;
+}
 type Cmd = { command: string; args: string[] };
+
+/**
+ * Инструменты MCP — для окна установки расширения (у Claude Desktop — список под названием). Сверяется с самим
+ * сервером MCP в тестах (tests/unit/connect.spec.ts): новый инструмент — строка и здесь
+ */
+export const MCP_TOOLS: { name: string; description: string }[] = [
+  { name: 'list_presentations', description: 'Презентации' },
+  { name: 'read_presentation', description: 'Содержание презентации' },
+  { name: 'find_text', description: 'Поиск по тексту' },
+  { name: 'view_slides', description: 'Картинки слайдов' },
+  { name: 'edit_presentation', description: 'Правка презентации' },
+  { name: 'undo_edit', description: 'Отменить правку' },
+  { name: 'add_media', description: 'Добавить картинку или видео' },
+  { name: 'create_presentation', description: 'Новая презентация' },
+  { name: 'export_html', description: 'Экспорт в HTML' },
+  { name: 'save_script', description: 'Сохранить скрипт' },
+  { name: 'format_guide', description: 'Формат презентации' },
+];
+
+export interface BundleOptions {
+  /** Папка программы: в ней templates/mcpb (запуск и значок) */
+  root: string;
+  version: string;
+  /** Куда положить пакет; по умолчанию — во временную папку */
+  out?: string;
+  platform?: NodeJS.Platform;
+}
+
+/**
+ * Пакет расширения Claude Desktop (.mcpb, манифест 0.3 — github.com/modelcontextprotocol/mcpb): zip с manifest.json,
+ * значком и запуском (templates/mcpb/launch.cjs). Claude Desktop запускает launch.cjs своим Node.js, тот —
+ * Slideria по команде cmd (target.json): путь к программе на этом компьютере, поэтому пакет собирается здесь же.
+ * Ответ — путь к файлу
+ */
+export async function buildBundle(cmd: Cmd, o: BundleOptions): Promise<string> {
+  const tpl = path.join(o.root, 'templates', 'mcpb');
+  const platform = o.platform ?? process.platform;
+  const manifest = {
+    manifest_version: '0.3',
+    name: NAME,
+    display_name: 'Slideria',
+    version: /^\d+\.\d+\.\d+/.test(o.version) ? o.version : '0.0.0',
+    description: 'Презентации Slideria на этом компьютере: читать, править и создавать слайды',
+    long_description: 'Агент читает и правит презентации Slideria, смотрит слайды картинками, ищет текст, добавляет картинки и видео, сохраняет HTML. Открытая студия показывает правки сразу. Что можно агентам — смотреть, править или всё — решает пользователь в Slideria: «Файл → Интеграции».',
+    author: { name: 'Slideria' },
+    icon: 'icon.png',
+    license: 'MIT',
+    keywords: ['presentations', 'slides', 'slideria'],
+    server: {
+      type: 'node',
+      entry_point: 'server/launch.cjs',
+      mcp_config: { command: 'node', args: ['${__dirname}/server/launch.cjs'], env: {} },
+    },
+    tools: MCP_TOOLS,
+    tools_generated: false,
+    compatibility: {
+      platforms: [platform === 'darwin' || platform === 'win32' || platform === 'linux' ? platform : 'win32'],
+      runtimes: { node: '>=16.0.0' },
+    },
+  };
+  const zip = new JSZip();
+  zip.file('manifest.json', `${JSON.stringify(manifest, null, 2)}\n`);
+  zip.file('icon.png', fs.readFileSync(path.join(tpl, 'icon.png')));
+  zip.file('server/launch.cjs', fs.readFileSync(path.join(tpl, 'launch.cjs')));
+  zip.file('server/target.json', `${JSON.stringify({ command: cmd.command, args: cmd.args }, null, 2)}\n`);
+  const data = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 9 } });
+  const out = o.out ?? path.join(os.tmpdir(), 'Slideria', 'Slideria.mcpb');
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, data);
+  return out;
+}
+
+/** Открыть файл программой, которая его открывает (пакет .mcpb — Claude Desktop) */
+function openFile(file: string, platform: NodeJS.Platform): Promise<void> {
+  // Windows: explorer.exe открывает файл тем, с чем он связан (код ответа у него всегда 1 — не ошибка)
+  if (platform === 'win32') {
+    return new Promise((resolve, reject) => {
+      const p = spawn('explorer.exe', [file], { detached: true, stdio: 'ignore', windowsHide: true });
+      p.on('error', reject);
+      p.on('spawn', () => { p.unref(); resolve(); });
+    });
+  }
+  return new Promise((resolve, reject) => {
+    execFile(platform === 'darwin' ? 'open' : 'xdg-open', [file], { timeout: 15_000 }, (err) => (err ? reject(err) : resolve()));
+  });
+}
 
 /** Имя сервера у клиентов */
 const NAME = 'slideria';
@@ -30,6 +130,10 @@ export interface ConnectOptions {
   env?: NodeJS.ProcessEnv;
   /** Где ещё искать программы, кроме папок в домашнем каталоге; по умолчанию — PATH и системные (тесты — []) */
   pathDirs?: string[];
+  /** Claude Desktop — расширением (.mcpb): из чего собрать пакет; нет — в файл настроек, как раньше */
+  bundle?: BundleOptions;
+  /** Открыть пакет (тесты — подставное); по умолчанию — программой системы */
+  open?: (file: string) => Promise<void>;
 }
 
 export function createConnect(o: ConnectOptions = {}) {
@@ -62,6 +166,33 @@ export function createConnect(o: ConnectOptions = {}) {
     return dirs.filter((d) => fs.existsSync(d.dir));
   }
   const desktopFile = (dir: string) => path.join(dir, 'claude_desktop_config.json');
+
+  /**
+   * Установлено ли расширение Slideria. Где Claude Desktop держит расширения, не описано: по тому, что видно на
+   * компьютерах, — список extensions-installations.json и папка «Claude Extensions» рядом с файлом настроек.
+   * Расширение узнаётся по имени из манифеста (slideria) или по имени записи
+   */
+  function desktopExtension(): boolean {
+    const ours = (k: string) => /(^|[^a-z0-9])slideria($|[^a-z0-9])/i.test(k);
+    for (const { dir } of desktopDirs()) {
+      try {
+        const list = (JSON.parse(fs.readFileSync(path.join(dir, 'extensions-installations.json'), 'utf8')) as { extensions?: Record<string, unknown> }).extensions ?? {};
+        for (const [k, v] of Object.entries(list)) {
+          const m = (v as { manifest?: { name?: unknown } } | null)?.manifest;
+          if (m?.name === NAME || ours(k)) return true;
+        }
+      } catch { /* списка нет */ }
+      try {
+        const ext = path.join(dir, 'Claude Extensions');
+        for (const d of fs.readdirSync(ext)) {
+          let name: unknown;
+          try { name = (JSON.parse(fs.readFileSync(path.join(ext, d, 'manifest.json'), 'utf8')) as { name?: unknown }).name; } catch { /* без манифеста */ }
+          if (name === NAME || (name === undefined && ours(d))) return true;
+        }
+      } catch { /* папки нет */ }
+    }
+    return false;
+  }
   /** Файлы настроек, которые уже есть */
   const desktopFiles = () => desktopDirs().map((d) => desktopFile(d.dir)).filter((f) => fs.existsSync(f));
 
@@ -227,6 +358,13 @@ export function createConnect(o: ConnectOptions = {}) {
         const files = desktopFiles();
         let connected = files.length > 0;
         for (const f of files) { try { if (!(NAME in servers(readDesktop(f)))) connected = false; } catch { connected = false; } }
+        if (desktopExtension()) {
+          // Перешли на расширение: прежняя запись в настройках дала бы второй такой же сервер — убрать
+          if (files.some((f) => { try { return NAME in servers(readDesktop(f)); } catch { return false; } })) {
+            try { writeDesktop(null); } catch { /* испорченный файл не трогаем */ }
+          }
+          return { id, installed: true, connected: true, via: 'extension' };
+        }
         return { id, installed: desktopDirs().length > 0, connected };
       }
       if (id === 'claude-code') return { id, installed: !!findCli('claude'), connected: claudeCodeConnected() };
@@ -240,7 +378,23 @@ export function createConnect(o: ConnectOptions = {}) {
     const c = CLIENT_IDS.find((x) => x === id);
     if (!c) throw new Error('Нет такого клиента');
     if (!cmd) throw new Error('Подключение агентов здесь недоступно');
-    if (c === 'claude-desktop') writeDesktop(cmd);
+    if (c === 'claude-desktop') {
+      if (!o.bundle) {
+        writeDesktop(cmd);
+        return one(c);
+      }
+      if (!desktopDirs().length) throw new Error('Claude Desktop не найден на этом компьютере. Установите приложение с claude.ai/download и запустите хотя бы один раз');
+      // Пакет с путём к этой программе — открыть: окно установки покажет сам Claude Desktop. Уже стоит —
+      // то же окно обновит его (другой путь к программе, новая версия)
+      try {
+        await (o.open ?? ((f: string) => openFile(f, platform)))(await buildBundle(cmd, { platform, ...o.bundle }));
+        return { ...one(c), pending: !desktopExtension() };
+      } catch {
+        // Пакет не открылся (старый Claude Desktop, расширения запрещены) — как раньше, в файл настроек
+        writeDesktop(cmd);
+        return { ...one(c), hint: 'Окно установки расширения не открылось, поэтому Slideria добавлена в файл настроек Claude Desktop. Закройте его совсем (Quit) и откройте снова' };
+      }
+    }
     // Уже подключена (возможно, к другой копии программы) — её строки заменяются новыми
     else if (c === 'codex') writeCodex(cmd);
     else {
@@ -255,8 +409,13 @@ export function createConnect(o: ConnectOptions = {}) {
   async function disconnect(id: unknown): Promise<ClientState> {
     const c = CLIENT_IDS.find((x) => x === id);
     if (!c) throw new Error('Нет такого клиента');
-    if (c === 'claude-desktop') writeDesktop(null);
-    else if (c === 'codex') writeCodex(null);
+    if (c === 'claude-desktop') {
+      writeDesktop(null);
+      // Расширение удаляет только сам Claude Desktop
+      if (desktopExtension()) return { ...one(c), hint: 'Расширение удаляется в самом Claude Desktop: Settings → Desktop app → Extensions → Slideria → Uninstall' };
+      return one(c);
+    }
+    if (c === 'codex') writeCodex(null);
     else {
       const cli = findCli('claude');
       if (!cli) throw new Error(`${TITLE[c]} не найден на этом компьютере`);

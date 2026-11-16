@@ -11,7 +11,9 @@ MCP (Model Context Protocol) — способ дать агенту (Claude Code
 «Инструменты»). С подпиской Claude или ChatGPT ключ API не нужен.
 
 - **В один щелчок** — Claude Desktop, Claude Code, ChatGPT · Codex: программа найдена на компьютере — «Подключить
-  к …», дальше перезапустить Claude Desktop или ChatGPT (или запустить `claude`, `codex`). Не найдена — «Скачать».
+  к …». Claude Desktop — расширением: открывается его окно установки, «Install» — и Slideria в его Settings →
+  Desktop app → Extensions, без перезапуска; карточка ждёт подтверждения («Открыть ещё раз», если окно потерялось).
+  ChatGPT — перезапустить (Claude Code и Codex — просто запустить `claude`, `codex`). Не найдена — «Скачать».
   Подключённым — зелёная точка у вкладки клиента и «Отключить».
 - **Вручную** — строка для выбранного клиента (те же три, Cursor, VS Code, другой) уже с путями этого компьютера —
   «Скопировать».
@@ -104,14 +106,16 @@ server/shot.ts    картинки слайдов: страница проигр
                   рисует себя в память (desktop/shot.mjs), из папки проекта — Playwright (scripts/mcp.mjs; нет его
                   браузера — Chrome или Edge компьютера)
 server/running.ts какой сервер студии работает с папкой
-server/connect.ts подключение в один щелчок (команды agents-clients, agents-connect, agents-disconnect)
+server/connect.ts подключение в один щелчок (команды agents-clients, agents-connect, agents-disconnect);
+                  пакет расширения Claude Desktop (.mcpb) — шаблон templates/mcpb
 ```
 
 **В один щелчок** (`server/connect.ts`):
 
 | Клиент | Как подключается | Подключён ли |
 |---|---|---|
-| Claude Desktop | `mcpServers.slideria` в `claude_desktop_config.json` (macOS — `~/Library/Application Support/Claude`, Linux — `~/.config/Claude`). На Windows какой файл читает Claude, зависит от версии — пишется во все, что есть: `%APPDATA%\Claude`, у новых версий из Microsoft Store — `%LOCALAPPDATA%\Claude-Data\claude_…`, и личная копия пакета `…\Packages\Claude_…\LocalCache\Roaming\Claude` — только если она уже есть (новая заслонила бы обычный файл со всеми серверами). Остальное в файле не трогается, прежний — копией `.bak` рядом; испорчен хоть один — не трогается ни один | запись во всех файлах (Claude при выходе может переписать свой без неё — тогда «не подключена») |
+| Claude Desktop | Расширением (`.mcpb`, манифест 0.3 — [modelcontextprotocol/mcpb](https://github.com/modelcontextprotocol/mcpb)): Slideria собирает пакет — `manifest.json` (название, описание, значок, список инструментов `MCP_TOOLS` — сверяется с самим сервером MCP в тестах), `server/launch.cjs` и `server/target.json` с командой этой Slideria — и открывает его (`Slideria.mcpb` во временной папке; Windows — `explorer.exe`, macOS — `open`). Окно установки показывает Claude Desktop; запускает расширение он своим Node.js: `launch.cjs` запускает Slideria по команде из `target.json` (без `ELECTRON_RUN_AS_NODE` и `NODE_OPTIONS` — Node у Claude Desktop может быть самим Electron), нет программы по этому пути — понятная ошибка в журнале Claude. Повторное «Подключить» открывает тот же пакет — Claude Desktop обновит расширение (другой путь, новая версия). Пакет не открылся (старый Claude Desktop, расширения запрещены политикой) — как раньше, запись в файле настроек, ниже. «Отключить» убирает запись из файла настроек; расширение удаляют в самом Claude Desktop (Settings → Desktop app → Extensions → Slideria → Uninstall) — карточка так и говорит. Шаблон — `templates/mcpb` (вне `app.asar`) | список `extensions-installations.json` или папка `Claude Extensions` рядом с файлом настроек — запись с именем `slideria` (где Claude Desktop держит расширения, не описано — так видно на компьютерах); расширение есть — прежняя запись в файле настроек убирается, иначе был бы второй такой же сервер. Пока окно установки открыто, «Интеграции» спрашивают каждые 2 с, до 5 минут |
+| Claude Desktop, запасной путь | `mcpServers.slideria` в `claude_desktop_config.json` (macOS — `~/Library/Application Support/Claude`, Linux — `~/.config/Claude`). На Windows какой файл читает Claude, зависит от версии — пишется во все, что есть: `%APPDATA%\Claude`, у новых версий из Microsoft Store — `%LOCALAPPDATA%\Claude-Data\claude_…`, и личная копия пакета `…\Packages\Claude_…\LocalCache\Roaming\Claude` — только если она уже есть (новая заслонила бы обычный файл со всеми серверами). Остальное в файле не трогается, прежний — копией `.bak` рядом; испорчен хоть один — не трогается ни один | запись во всех файлах (Claude при выходе может переписать свой без неё — тогда «не подключена») |
 | Claude Code | `claude mcp add --scope user slideria -- …` (прежняя запись — сначала `mcp remove`) | `~/.claude.json` |
 | ChatGPT · Codex | `[mcp_servers.slideria]` (`command`, `args`) прямо в `~/.codex/config.toml` (или `$CODEX_HOME/config.toml`): его читают ChatGPT для компьютера (приложение Codex с июля 2026 — его часть), Codex в терминале и в редакторе, так что своя программа `codex` не нужна. Прежняя запись Slideria (с подтаблицами, строкой в `[mcp_servers]`) заменяется, остальное в файле — как было, прежний — копией `.bak`. Путь Windows — буквальной строкой TOML. Найден — если есть ChatGPT (macOS — `ChatGPT.app` или `Codex.app` в «Программах», Windows — пакет Microsoft Store `OpenAI.…` или `Programs\ChatGPT`), папка `~/.codex` или программа `codex` | запись в `config.toml` |
 

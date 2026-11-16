@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
+import JSZip from 'jszip';
 import { startMockClaude } from '../mock-claude';
 
 const EXE = process.env.SLIDERIA_APP_EXE;
@@ -361,14 +362,17 @@ test('MCP из самой программы: «Подключить к Claude D
     await win.waitForURL(/\/\?all$/, { timeout: 90_000 });
     const info = await win.evaluate(() => fetch('/__htmlpptx/integrations', { method: 'POST' }).then((r) => r.json()));
     expect(info.mcp.args).toContain('--mcp');
-    // «Подключить к Claude Desktop» — в его настройках эта же команда
-    expect(await win.evaluate(() => fetch('/__htmlpptx/agents-connect?client=claude-desktop', { method: 'POST' }).then((r) => r.json()))).toMatchObject({ connected: true });
-    const cfg = JSON.parse(fs.readFileSync(path.join(home, '.config', 'Claude', 'claude_desktop_config.json'), 'utf8')).mcpServers.slideria as { command: string; args: string[] };
+    // «Подключить к Claude Desktop» — пакет расширения (.mcpb) с этой же командой открывается для установки
+    expect(await win.evaluate(() => fetch('/__htmlpptx/agents-connect?client=claude-desktop', { method: 'POST' }).then((r) => r.json()))).toMatchObject({ pending: true });
+    const zip = await JSZip.loadAsync(fs.readFileSync(fs.readFileSync(path.join(home, 'opened-mcpb.txt'), 'utf8')));
+    expect(zip.file('server/launch.cjs')).toBeTruthy();
+    expect(zip.file('icon.png')).toBeTruthy();
+    const cfg = JSON.parse(await zip.file('server/target.json')!.async('string')) as { command: string; args: string[] };
     expect(cfg).toEqual(info.mcp);
     await win.goto(win.url().replace(/\?all$/, '?deck=moya-pervaya-prezentaciya&studio#1'));
     await expect(win.locator('#st-canvas .slide.on')).toBeVisible();
 
-    // Агент запускает команду из своих настроек — второй экземпляр программы, протокол по stdin/stdout
+    // Агент запускает команду из пакета (launch.cjs — её же) — второй экземпляр программы, протокол по stdin/stdout
     // Вход — как на Windows, где Electron подменяет process.stdin закрытым потоком: с fd 0 (desktop/mcp-input.mjs)
     const child = spawn(cfg.command, [...cfg.args.filter((a) => a !== '--mcp'), ...sandbox, '--mcp'], { env: { ...env, SLIDERIA_MCP_FD0: '1' }, stdio: ['pipe', 'pipe', 'pipe'] });
     let out = '';

@@ -1,14 +1,22 @@
-// Подключение агента в один щелчок (server/connect.ts): Claude Desktop — файл настроек (чужое сохраняется,
-// копия рядом, испорченный не трогается), Claude Code — его командой (подставная программа), ChatGPT · Codex —
-// его файл ~/.codex/config.toml (чужое на месте, копия рядом)
+// Подключение агента в один щелчок (server/connect.ts): Claude Desktop — расширением (.mcpb: пакет, окно установки,
+// установленное узнаётся, прежняя запись в настройках убирается) или файлом настроек (чужое сохраняется, копия
+// рядом, испорченный не трогается), Claude Code — его командой (подставная программа), ChatGPT · Codex — его файл
+// ~/.codex/config.toml (чужое на месте, копия рядом)
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { createConnect } from '../../server/connect';
+import { fileURLToPath } from 'node:url';
+import JSZip from 'jszip';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { buildBundle, createConnect, MCP_TOOLS } from '../../server/connect';
+import { createDecksCore } from '../../server/core';
+import { createMcp } from '../../server/mcp';
 import { cliCalls, fakeCli } from '../fake-clients';
 
 const CMD = { command: '/Applications/Slideria.app/Contents/MacOS/Slideria', args: ['--mcp'] };
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 function home() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-connect-'));
@@ -178,4 +186,108 @@ test('чужой клиент и место без команды запуска
   const c = createConnect({ home: os.tmpdir(), pathDirs: [] });
   await expect(c.connect('cursor', CMD)).rejects.toThrow('Нет такого клиента');
   await expect(c.connect('claude-code', null)).rejects.toThrow(/недоступно/);
+});
+
+/** Пакет .mcpb: файлы и манифест */
+async function unpack(file: string) {
+  const zip = await JSZip.loadAsync(fs.readFileSync(file));
+  const names = Object.keys(zip.files).filter((n) => !zip.files[n].dir).sort();
+  const manifest = JSON.parse(await zip.file('manifest.json')!.async('string'));
+  const target = JSON.parse(await zip.file('server/target.json')!.async('string'));
+  return { zip, names, manifest, target };
+}
+
+test('Claude Desktop расширением: пакет .mcpb открывается, ждём установки; установлено — подключено, прежняя запись убрана', async () => {
+  const h = home();
+  try {
+    const opened: string[] = [];
+    const c = createConnect({ home: h.dir, platform: 'darwin', env: {}, pathDirs: [], bundle: { root: ROOT, version: '1.2.3', out: path.join(h.dir, 'Slideria.mcpb') }, open: async (f) => { opened.push(f); } });
+    await expect(c.connect('claude-desktop', CMD)).rejects.toThrow(/Claude Desktop не найден/);
+    const dir = path.join(h.dir, 'Library', 'Application Support', 'Claude');
+    fs.mkdirSync(dir, { recursive: true });
+    // Прежнее подключение — записью в настройках
+    const cfg = path.join(dir, 'claude_desktop_config.json');
+    fs.writeFileSync(cfg, JSON.stringify({ mcpServers: { files: { command: 'npx', args: [] }, slideria: { command: 'old', args: [] } } }));
+    // Подключить — открыть пакет; установки ещё нет
+    expect(await c.connect('claude-desktop', CMD)).toMatchObject({ id: 'claude-desktop', installed: true, pending: true });
+    expect(opened).toEqual([path.join(h.dir, 'Slideria.mcpb')]);
+    const b = await unpack(opened[0]);
+    expect(b.names).toEqual(['icon.png', 'manifest.json', 'server/launch.cjs', 'server/target.json']);
+    expect(b.manifest).toMatchObject({
+      manifest_version: '0.3', name: 'slideria', display_name: 'Slideria', version: '1.2.3', icon: 'icon.png', author: { name: 'Slideria' },
+      server: { type: 'node', entry_point: 'server/launch.cjs', mcp_config: { command: 'node', args: ['${__dirname}/server/launch.cjs'] } },
+      compatibility: { platforms: ['darwin'] },
+    });
+    expect(b.target).toEqual(CMD);
+    // Установили в Claude Desktop — подключено расширением; запись в настройках (второй такой же сервер) — убрана
+    fs.writeFileSync(path.join(dir, 'extensions-installations.json'), JSON.stringify({ extensions: { 'local.mcpb.slideria.slideria': { manifest: { name: 'slideria', version: '1.2.3' } } } }));
+    expect(state(c, 'claude-desktop')).toEqual({ id: 'claude-desktop', installed: true, connected: true, via: 'extension' });
+    expect(JSON.parse(fs.readFileSync(cfg, 'utf8')).mcpServers).toEqual({ files: { command: 'npx', args: [] } });
+    // Отключить — расширение удаляют в самом Claude Desktop
+    expect(await c.disconnect('claude-desktop')).toMatchObject({ connected: true, hint: expect.stringContaining('Extensions → Slideria → Uninstall') });
+  } finally {
+    h.done();
+  }
+});
+
+test('Claude Desktop: расширение узнаётся и по папке «Claude Extensions»; пакет не открылся — запись в настройках', async () => {
+  const h = home();
+  try {
+    const dir = path.join(h.dir, 'AppData', 'Roaming', 'Claude');
+    fs.mkdirSync(path.join(dir, 'Claude Extensions', 'ant.dir.slideria'), { recursive: true });
+    const c = createConnect({ home: h.dir, platform: 'win32', env: {}, pathDirs: [], bundle: { root: ROOT, version: '0.1.0', out: path.join(h.dir, 'x.mcpb') }, open: async () => { throw new Error('нет программы для .mcpb'); } });
+    // Папка без манифеста — по имени; с чужим манифестом — нет
+    expect(state(c, 'claude-desktop')).toMatchObject({ connected: true, via: 'extension' });
+    fs.writeFileSync(path.join(dir, 'Claude Extensions', 'ant.dir.slideria', 'manifest.json'), JSON.stringify({ name: 'other' }));
+    expect(state(c, 'claude-desktop')).toMatchObject({ connected: false });
+    fs.rmSync(path.join(dir, 'Claude Extensions'), { recursive: true });
+    // Пакет не открылся (старый Claude Desktop) — как раньше: в файл настроек и перезапустить
+    expect(await c.connect('claude-desktop', CMD)).toMatchObject({ connected: true, hint: expect.stringContaining('добавлена в файл настроек') });
+    expect(JSON.parse(fs.readFileSync(path.join(dir, 'claude_desktop_config.json'), 'utf8')).mcpServers.slideria).toEqual(CMD);
+  } finally {
+    h.done();
+  }
+});
+
+test('пакет .mcpb: инструменты в манифесте — те же, что у сервера MCP; запуск из пакета поднимает MCP Slideria', async () => {
+  test.setTimeout(120_000);
+  const h = home();
+  try {
+    const dir = path.join(h.dir, 'decks');
+    fs.mkdirSync(path.join(dir, 'talk'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'talk', 'deck.yaml'), 'title: Доклад\nslides:\n  - title: Первый\n');
+    // Список в манифесте (окно установки) — как у самого сервера, с теми же названиями
+    const core = createDecksCore({ dir, root: ROOT });
+    const mcp = createMcp({ core, dir, root: ROOT, version: '0' });
+    const listed = await mcp.handle({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) as { result: { tools: { name: string; title: string }[] } };
+    expect(MCP_TOOLS).toEqual(listed.result.tools.map((t) => ({ name: t.name, description: t.title })));
+    mcp.close();
+    // Пакет с командой этой папки (как в yarn dev); распаковать — как это делает Claude Desktop
+    const file = await buildBundle({ command: process.execPath, args: [path.join(ROOT, 'scripts', 'mcp.mjs'), `--decks=${dir}`] }, { root: ROOT, version: '0.1.0', out: path.join(h.dir, 'p.mcpb') });
+    const ext = path.join(h.dir, 'ext');
+    const { zip, names } = await unpack(file);
+    for (const n of names) {
+      fs.mkdirSync(path.dirname(path.join(ext, n)), { recursive: true });
+      fs.writeFileSync(path.join(ext, n), await zip.file(n)!.async('nodebuffer'));
+    }
+    // Claude Desktop запускает «node ${__dirname}/server/launch.cjs»; его Node может быть Electron в режиме Node
+    const client = new Client({ name: 'claude-ai', version: '1.0' });
+    await client.connect(new StdioClientTransport({ command: process.execPath, args: [path.join(ext, 'server', 'launch.cjs')], stderr: 'pipe', env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } as Record<string, string> }));
+    const tools = await client.listTools();
+    expect(tools.tools.map((t) => t.name)).toEqual(MCP_TOOLS.map((t) => t.name));
+    const r = await client.callTool({ name: 'list_presentations', arguments: {} }) as { content: { text: string }[] };
+    expect(r.content[0].text).toContain('talk');
+    await client.close();
+    // Slideria запускается без ELECTRON_RUN_AS_NODE: иначе программа Electron стала бы просто Node
+    fs.writeFileSync(path.join(ext, 'server', 'target.json'), JSON.stringify({ command: process.execPath, args: ['-e', 'process.stdout.write(String(process.env.ELECTRON_RUN_AS_NODE ?? "нет"))'] }));
+    const { execFileSync } = await import('node:child_process');
+    expect(execFileSync(process.execPath, [path.join(ext, 'server', 'launch.cjs')], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } }).toString()).toBe('нет');
+    // Программы нет по пути из пакета — понятная ошибка
+    fs.writeFileSync(path.join(ext, 'server', 'target.json'), JSON.stringify({ command: path.join(h.dir, 'нет', 'Slideria'), args: ['--mcp'] }));
+    let err = '';
+    try { execFileSync(process.execPath, [path.join(ext, 'server', 'launch.cjs')], { stdio: 'pipe' }); } catch (e) { err = String((e as { stderr: Buffer }).stderr); }
+    expect(err).toContain('Slideria не найдена');
+  } finally {
+    h.done();
+  }
 });

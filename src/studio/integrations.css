@@ -94,7 +94,10 @@
 .ig-link-i .ic { width: 19px; height: 19px; }
 .ig-link b { display: block; font-weight: 500; }
 .ig-link span:not(.ig-link-i) { display: block; margin-top: 2px; color: var(--mu); font-size: 12.5px; }
-.ig-link .ig-link-err { color: #DC2626; }
+/* span. — сильнее общего правила подписей (.ig-link span:not(...)) */
+.ig-link span.ig-link-err { color: #DC2626; }
+.ig-link span.ig-link-hint { color: var(--tx); }
+.ig-link.wait { border-color: color-mix(in srgb, var(--ac) 35%, var(--bd)); }
 .ig-link .fp-btn:disabled { opacity: .7; cursor: progress; }
 .ig-link a.fp-btn { text-decoration: none; }
 .ig-link.ok { border-color: color-mix(in srgb, var(--ig-ok) 30%, var(--bd)); background: linear-gradient(135deg, color-mix(in srgb, var(--ig-ok) 8%, var(--surf)), var(--surf) 70%); }

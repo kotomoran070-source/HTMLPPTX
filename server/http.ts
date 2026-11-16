@@ -13,6 +13,7 @@
  * Уведомления страницам (WebSocket) — server/events.ts: их подключает сам сервер, к событию upgrade.
  */
 import fs from 'node:fs';
+import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { hostGuard } from './host-guard';
@@ -242,13 +243,24 @@ function data(core: DecksCore): Handler {
   };
 }
 
+/** Версия программы: в установленной — из её package.json внутри app.asar (SLIDERIA_PACKAGE, desktop/main.mjs) */
+function appVersion(root: string): string {
+  try {
+    return String((JSON.parse(fs.readFileSync(process.env.SLIDERIA_PACKAGE || path.join(root, 'package.json'), 'utf8')) as { version?: unknown }).version ?? '0.0.0');
+  } catch { return '0.0.0'; }
+}
+
 /** Команды проекта: /__htmlpptx/<команда>?deck=<имя>&… */
 function api(core: DecksCore, o: HttpOptions): Handler {
   // Адрес Claude API — подставной сервер в тестах (SLIDERIA_ANTHROPIC_URL)
   const chat = createAgentChat({ core, keys: o.agentKeys ?? devKeys(), baseURL: process.env.SLIDERIA_ANTHROPIC_URL || undefined, log: o.log });
-  // Подключить агента в один щелчок; в тестах — к подставному домашнему каталогу (SLIDERIA_CONNECT_HOME)
+  // Подключить агента в один щелчок; в тестах — к подставному домашнему каталогу (SLIDERIA_CONNECT_HOME), а пакет
+  // расширения Claude Desktop не открывается — путь к нему пишется в opened-mcpb.txt там же
   const testHome = process.env.SLIDERIA_CONNECT_HOME;
-  const clients = createConnect(testHome ? { home: testHome, pathDirs: [] } : {});
+  const bundle = { root: core.root, version: appVersion(core.root), ...(testHome ? { out: path.join(testHome, 'Slideria.mcpb') } : {}) };
+  const clients = createConnect(testHome
+    ? { home: testHome, pathDirs: [], bundle, open: async (f) => fs.writeFileSync(path.join(testHome, 'opened-mcpb.txt'), f) }
+    : { bundle });
   return (req, res, next) => {
     if (!req.url?.startsWith(API)) return next();
     void route(core, o, chat, clients, req, res).catch((e: Error) => {
