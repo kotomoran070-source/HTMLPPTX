@@ -212,7 +212,7 @@ export function chromiumCredits(html: string): string {
     .replace('<html>', '<html lang="ru">')
     .replace('<title>Credits</title>', '<title>Лицензии Chromium</title>')
     .replace('<span class="page-title">Credits</span>', '<h1 class="page-title">Лицензии Chromium</h1>')
-    .replace(/<div class="open-sourced">[\s\S]*?<\/div>/, '<div class="open-sourced">Chromium — браузерный движок, на котором работает окно программы. Ниже — его компоненты и их лицензии. Исходный код Chromium опубликован на <a href="https://source.chromium.org/chromium">source.chromium.org</a>.</div>')
+    .replace(/<div class="open-sourced">[\s\S]*?<\/div>/, '<div class="open-sourced">Slideria создана на основе проекта Chromium с открытым исходным кодом. Исходный код Chromium доступен на <a href="https://source.chromium.org/chromium">source.chromium.org</a>.</div>')
     .replaceAll(' tabindex="0">\n<input type="checkbox" hidden>', '>\n<input type="checkbox">')
     .replaceAll('>homepage</a>', '>Сайт</a>');
 }

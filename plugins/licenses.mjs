@@ -56,7 +56,7 @@ const TEMPLATES = {
 function lgpl3(who, root) {
   const read = (f) => { try { return fs.readFileSync(path.join(root, 'licenses', f), 'utf8').trim(); } catch { return ''; } };
   return [
-    `GNU Lesser General Public License, version 3 or later — ${who}.\nSource code of libvips and the libraries it is built with: https://github.com/libvips/libvips, https://github.com/lovell/sharp-libvips. The library is shipped as a separate file and can be replaced with another build.`,
+    `GNU Lesser General Public License, version 3 or later — ${who}.\nSource code: https://github.com/libvips/libvips, https://github.com/lovell/sharp-libvips.`,
     read('LGPL-3.0.txt'),
     read('GPL-3.0.txt'),
   ].filter(Boolean).join('\n\n');
@@ -84,7 +84,7 @@ export function readPackage(dir, root = process.cwd()) {
     if (pdir) text = licenseTexts(pdir);
   }
   if (!text && TEMPLATES[license]) {
-    text = `${TEMPLATES[license](who())}\n(Стандартный текст лицензии: пакет указывает только её название и автора.)`;
+    text = TEMPLATES[license](who());
   }
   // «LGPL-3.0-or-later» и «Apache-2.0 AND LGPL-3.0-or-later»: без текстов LGPL и GPL в пакете — свои
   if (/\bLGPL-3\.0/.test(license) && !LGPL3_TEXT.test(text)) text = [text, lgpl3(who(), root)].filter(Boolean).join('\n\n');
@@ -163,7 +163,7 @@ export function checkLicenses(pkgs, { html = false } = {}) {
 export function noticeText(pkgs, fonts = '') {
   const groups = new Map();
   for (const p of pkgs) {
-    const key = p.text || `Лицензия ${p.license}. Полный текст в пакете отсутствует.`;
+    const key = p.text || `Лицензия ${p.license}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(`${p.name} ${p.version} — ${p.license}`);
   }
