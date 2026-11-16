@@ -111,7 +111,7 @@ export function mountLicenses(el: HTMLElement, data: LicensesData, st: LicensesS
     if (!e) { pane.innerHTML = ''; return; }
     const same = e.kind === 'lib' ? items.filter((x) => x !== e && x.kind === 'lib' && x.f === e.f) : [];
     const body = e.link
-      ? `<p class="lc-about">Slideria создана на основе проекта Chromium с открытым исходным кодом.</p>
+      ? `<p class="lc-about">Тексты лицензий компонентов Chromium приведены на отдельной странице.</p>
         <div><a class="lc-btn" href="${esc(e.link)}" target="_blank">${icon('link')}<span>Открыть лицензии Chromium</span></a></div>`
       : `${e.fonts?.length ? `<div class="lc-fonts">${e.fonts.map((f) => `<span>${esc(f)}</span>`).join('')}</div>` : ''}
         ${e.text ? `<pre class="lc-text">${esc(e.text)}</pre>` : '<p class="lc-about lc-none">Текст лицензии отсутствует в пакете.</p>'}`;
