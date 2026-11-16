@@ -40,6 +40,34 @@ export default async () => {};
   expect(clientTitle('local-agent-mode-slideria')).toBe('Локальный агент');
 });
 
+test('правки считаются по имени агента: два сеанса одного агента не затирают счёт друг друга', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-int-'));
+  try {
+    const dir = path.join(tmp, 'decks');
+    fs.mkdirSync(path.join(dir, 'talk'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'talk', 'deck.yaml'), 'title: Доклад\nslides:\n  - title: Первый\n');
+    const core = createDecksCore({ dir, root: ROOT });
+    const edit = (id: string, notes: string) => core.apply('talk', { ops: [{ op: 'slide.set', slide: 1, set: { notes } }], by: { kind: 'agent', id, name: 'Claude Code' } });
+    // Два окна Claude Code (или дубль после переподключения) — два сеанса с одним именем
+    core.agentHello({ id: 'a', name: 'Claude Code' });
+    core.agentHello({ id: 'b', name: 'Claude Code' });
+    edit('a', '1');
+    edit('a', '2');
+    edit('b', '3');
+    edit('a', '4');
+    expect(core.agents().filter((x) => x.online).map((x) => x.edits)).toEqual([4, 4]);
+    // Сеансы ушли и пришли снова — счёт тот же, новые правки к нему прибавляются
+    core.agentBye('a');
+    core.agentBye('b');
+    expect(core.agents()).toMatchObject([{ name: 'Claude Code', online: false, edits: 4 }]);
+    core.agentHello({ id: 'c', name: 'Claude Code' });
+    edit('c', '5');
+    expect(core.agents()).toMatchObject([{ id: 'c', online: true, edits: 5 }]);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('агент под прежним именем клиента — под нынешним: в списке «был» с его правками и в журнале', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-int-'));
   try {

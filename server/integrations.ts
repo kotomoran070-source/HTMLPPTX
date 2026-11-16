@@ -140,7 +140,9 @@ export function createIntegrations(o: IntegrationsOptions) {
 
   // ---------------- агенты на связи ----------------
 
-  interface Known { name: string; version?: string; since: number; seen: number; edits: number }
+  /** Сеанс на связи. Правок у сеанса нет: они считаются по имени агента (agents.json) — два сеанса одного агента
+   *  (два окна, дубль после переподключения) иначе затирали бы счёт друг друга */
+  interface Known { name: string; version?: string; since: number; seen: number }
   const live = new Map<string, Known>();
   /** Подключавшиеся агенты; записанные под прежним именем клиента — под нынешним (clientTitle), с их правками */
   const known = () => {
@@ -160,9 +162,10 @@ export function createIntegrations(o: IntegrationsOptions) {
 
   function list(): AgentInfo[] {
     const now = Date.now();
-    const out: AgentInfo[] = [...live].map(([id, a]) => ({ id, ...a, online: now - a.seen < ONLINE_MS }));
+    const all = known();
+    const out: AgentInfo[] = [...live].map(([id, a]) => ({ id, ...a, online: now - a.seen < ONLINE_MS, edits: all[a.name]?.edits ?? 0 }));
     // Подключались раньше — по имени: «Cursor, был вчера»
-    for (const [name, k] of Object.entries(known())) {
+    for (const [name, k] of Object.entries(all)) {
       if (!out.some((a) => a.name === name)) out.push({ id: `known:${name}`, name, since: k.seen, seen: k.seen, online: false, edits: k.edits });
     }
     return out.sort((a, b) => Number(b.online) - Number(a.online) || b.seen - a.seen).slice(0, 8);
@@ -175,10 +178,10 @@ export function createIntegrations(o: IntegrationsOptions) {
     if (typeof a?.id !== 'string' || !a.id || typeof a.name !== 'string') throw new Error('Агент: id и name');
     const was = live.get(a.id);
     const now = Date.now();
-    const edits = was?.edits ?? known()[a.name]?.edits ?? 0;
-    live.set(a.id, { name: a.name.slice(0, 60), version: a.version?.slice(0, 30), since: was?.since ?? now, seen: now, edits });
+    const name = a.name.slice(0, 60);
+    live.set(a.id, { name, version: a.version?.slice(0, 30), since: was?.since ?? now, seen: now });
     if (!was || now - was.seen > ONLINE_MS) {
-      remember(a.name, edits);
+      remember(name);
       changed();
     }
   }
@@ -186,14 +189,15 @@ export function createIntegrations(o: IntegrationsOptions) {
   function bye(id: string): void {
     const a = live.get(id);
     if (!a) return;
-    remember(a.name, a.edits);
+    remember(a.name);
     live.delete(id);
     changed();
   }
 
-  function remember(name: string, edits: number): void {
+  /** Агент был сейчас; added — его новые правки (прибавляются к счёту по имени, а не переписывают его) */
+  function remember(name: string, added = 0): void {
     const all = known();
-    all[name] = { name, seen: Date.now(), edits };
+    all[name] = { name, seen: Date.now(), edits: (all[name]?.edits ?? 0) + added };
     writeJson(agentsFile, all);
   }
 
@@ -221,10 +225,7 @@ export function createIntegrations(o: IntegrationsOptions) {
     fs.appendFileSync(file, JSON.stringify(e) + '\n');
     try { if (fs.statSync(file).size > JOURNAL_TRIM) trim(file); } catch { /* не страшно: обрежется в следующий раз */ }
     if (e.by.kind === 'agent') {
-      const a = e.by.id ? live.get(e.by.id) : undefined;
-      if (a) a.edits += e.changes.length;
-      const k = known()[e.by.name];
-      remember(e.by.name, (a?.edits ?? (k?.edits ?? 0) + e.changes.length));
+      remember(e.by.name, e.changes.length);
       changed();
     }
   }
