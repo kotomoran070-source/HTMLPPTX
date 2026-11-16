@@ -1,7 +1,7 @@
 // MCP (server/mcp.ts, scripts/mcp.mjs) глазами настоящего клиента — официальной библиотеки MCP: рукопожатие,
 // инструменты, правка с ревизиями, ошибки агенту, экспорт; открытая студия (server/running.ts) — правки через её
 // сервер, событие окнам; студия закрылась — правки в файлы. Картинки слайдов, поиск, файлы с диска и по ссылке,
-// отмена своей правки
+// отмена своей правки; защита от указаний в чужой презентации (ссылки во внутреннюю сеть, скрытые папки, перезапись)
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
@@ -14,6 +14,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { createDecksCore } from '../../server/core';
 import { createHandler } from '../../server/http';
+import { privateAddress } from '../../server/mcp';
 import { announce, runningServer } from '../../server/running';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -51,7 +52,8 @@ test.beforeAll(async () => {
   fs.mkdirSync(path.join(dir, 'talk'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'talk', 'deck.yaml'), DECK);
   client = new Client({ name: 'slideria-test', version: '1.0.0' });
-  await client.connect(new StdioClientTransport({ command: process.execPath, args: [path.join(ROOT, 'scripts', 'mcp.mjs'), `--decks=${dir}`], cwd: tmp, stderr: 'pipe', env: { ...process.env } as Record<string, string> }));
+  // Свой сервер картинок теста — на 127.0.0.1: такие ссылки MCP разрешает только тестам
+  await client.connect(new StdioClientTransport({ command: process.execPath, args: [path.join(ROOT, 'scripts', 'mcp.mjs'), `--decks=${dir}`], cwd: tmp, stderr: 'pipe', env: { ...process.env, SLIDERIA_MCP_LOCAL_URLS: '1' } as Record<string, string> }));
 });
 
 test.afterAll(async () => {
@@ -104,6 +106,18 @@ test('новая презентация, справка по формату, э�
   expect(x.data).toEqual({ path: out, size: fs.statSync(out).size });
   expect(fs.readFileSync(out, 'utf8')).toContain('<meta name="slideria-deck" content="talk">');
   expect((await call('export_html', { presentation: 'talk', path: 'talk.html' })).text).toBe('path — полный путь к файлу .html');
+  // Файл с таким именем не перезаписывается: рядом «имя (2).html»
+  fs.writeFileSync(out, 'чужой файл');
+  const again = await call('export_html', { presentation: 'talk', path: out });
+  expect(again.data.path).toBe(path.join(tmp, 'out', 'talk (2).html'));
+  expect(fs.readFileSync(out, 'utf8')).toBe('чужой файл');
+  // В скрытые папки не пишет
+  expect((await call('export_html', { presentation: 'talk', path: path.join(tmp, '.hidden', 'talk.html') })).text).toContain('скрытые и системные папки');
+  // …и через папку-ссылку на скрытую
+  fs.mkdirSync(path.join(tmp, '.hidden2'));
+  fs.symlinkSync(path.join(tmp, '.hidden2'), path.join(tmp, 'open'));
+  expect((await call('export_html', { presentation: 'talk', path: path.join(tmp, 'open', 'sub', 'talk.html') })).text).toContain('скрытые и системные папки');
+  expect(fs.existsSync(path.join(tmp, '.hidden2', 'sub'))).toBe(false);
 });
 
 test('открыта студия — правка через её сервер, окна получают событие; студия закрылась — снова в файлы', async () => {
@@ -244,6 +258,46 @@ test('файл в презентацию: с диска и по ссылке —
   studio.setAccess('view');
   expect((await call('add_media', { presentation: 'talk', file })).text).toContain('только смотреть');
   studio.setAccess('edit');
+});
+
+test('указания из чужой презентации: ссылки на этот компьютер и во внутреннюю сеть, скрытые папки — отказ', async () => {
+  expect(['127.0.0.1', '10.1.2.3', '172.16.0.1', '192.168.1.1', '169.254.169.254', '100.64.0.1', '0.0.0.0', '::1', 'fd00::1', 'fe80::1', '::ffff:127.0.0.1', '::ffff:7f00:1', '[::1]']
+    .filter((ip) => !privateAddress(ip))).toEqual([]);
+  expect(['93.184.216.34', '8.8.8.8', '2606:4700::1111'].filter((ip) => privateAddress(ip))).toEqual([]);
+  // MCP без тестового разрешения — как у пользователя
+  const env = { ...process.env } as Record<string, string>;
+  delete env.SLIDERIA_MCP_LOCAL_URLS;
+  const strict = new Client({ name: 'slideria-test-strict', version: '1.0.0' });
+  await strict.connect(new StdioClientTransport({ command: process.execPath, args: [path.join(ROOT, 'scripts', 'mcp.mjs'), `--decks=${dir}`], cwd: tmp, stderr: 'pipe', env }));
+  const ask = async (args: Record<string, unknown>) => {
+    const r = await strict.callTool({ name: 'add_media', arguments: { presentation: 'talk', ...args } }) as { content: { text: string }[]; isError?: boolean };
+    return { error: !!r.isError, text: r.content[0]?.text ?? '' };
+  };
+  let hits = 0;
+  const png = await sharp({ create: { width: 4, height: 4, channels: 3, background: '#000' } }).png().toBuffer();
+  const site = http.createServer((_req, res) => { hits++; res.writeHead(200, { 'content-type': 'image/png' }).end(png); });
+  await new Promise<void>((r) => site.listen(0, '127.0.0.1', () => r()));
+  const port = (site.address() as AddressInfo).port;
+  try {
+    // Имя, адрес, адрес в другой записи (2130706433 = 127.0.0.1), IPv6 — ни один запрос до сервера не доходит
+    for (const url of [`http://localhost:${port}/pic`, `http://127.0.0.1:${port}/pic`, `http://2130706433:${port}/pic`, `http://[::1]:${port}/pic`]) {
+      const r = await ask({ url });
+      expect(r.error, url).toBe(true);
+      expect(r.text, url).toContain('ссылка ведёт на этот компьютер или во внутреннюю сеть');
+    }
+    expect(hits).toBe(0);
+    // Файлы из скрытых папок — ни напрямую, ни через ссылку на них
+    const secret = path.join(tmp, '.secret');
+    fs.mkdirSync(secret, { recursive: true });
+    fs.writeFileSync(path.join(secret, 'key.png'), png);
+    expect((await ask({ file: path.join(secret, 'key.png') })).text).toContain('Из скрытых и системных папок файлы не берутся');
+    fs.symlinkSync(path.join(secret, 'key.png'), path.join(tmp, 'link.png'));
+    expect((await ask({ file: path.join(tmp, 'link.png') })).text).toContain('Из скрытых и системных папок файлы не берутся');
+    expect(fs.existsSync(path.join(dir, 'talk', 'assets', 'key.png')) || fs.existsSync(path.join(dir, 'talk', 'assets', 'link.png'))).toBe(false);
+  } finally {
+    site.close();
+    await strict.close();
+  }
 });
 
 test('отмена своей правки: последняя, потом предыдущая; правка пользователя после — остаётся; отмена отмены — по edit', async () => {

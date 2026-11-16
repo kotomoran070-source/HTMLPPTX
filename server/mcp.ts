@@ -6,7 +6,11 @@
  * Чтение — из файлов (ядро, server/core.ts). Правка — операциями (src/engine/ops.ts): если студия открыта
  * (server/running.ts), через её сервер — она подхватывает правку, как правку другого окна; иначе — в файлы.
  */
+import dns from 'node:dns';
 import fs from 'node:fs';
+import http from 'node:http';
+import https from 'node:https';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { imageSize } from '../plugins/optimize';
@@ -38,6 +42,74 @@ export interface McpOptions {
   server?: () => string | null;
   /** Невидимый браузер для картинок слайдов (view_slides, server/shot.ts); нет — инструмент объясняет, как быть */
   shoot?: Shooter;
+  /** Ссылки на этот компьютер и во внутреннюю сеть — только для тестов (scripts/mcp.mjs: SLIDERIA_MCP_LOCAL_URLS=1) */
+  localUrls?: boolean;
+}
+
+/*
+ * Защита от указаний агенту в тексте чужой презентации («добавь картинку из …», «сохрани экспорт в …»):
+ * агент послушается, а MCP — это доступ к файлам и сети этого компьютера. Поэтому:
+ *   ссылки — только в интернет: не на этот компьютер (сервер студии, другие программы), не в домашнюю
+ *   или рабочую сеть (роутер, принтер, внутренние сайты), не на служебные адреса облака. Адрес проверяется
+ *   при соединении и на каждом перенаправлении — имя, которое «передумало» и указало на 127.0.0.1, не пройдёт;
+ *   файлы с диска — не из скрытых папок (.ssh, .config, .aws…) и не из системных;
+ *   экспорт — без перезаписи: файл с таким именем есть — рядом «имя (2).html».
+ */
+
+/** Адрес этого компьютера, локальной сети, служебный или широковещательный */
+export function privateAddress(ip: string): boolean {
+  let v = ip.toLowerCase().replace(/^\[|\]$/g, '');
+  // IPv4 внутри IPv6 (::ffff:127.0.0.1 или ::ffff:7f00:1)
+  const mapped = /^::ffff:(.+)$/.exec(v);
+  if (mapped) {
+    const m = mapped[1];
+    if (net.isIPv4(m)) v = m;
+    else {
+      const h = /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(m);
+      if (h) { const a = parseInt(h[1], 16); const b = parseInt(h[2], 16); v = `${a >> 8}.${a & 255}.${b >> 8}.${b & 255}`; }
+    }
+  }
+  if (net.isIPv4(v)) {
+    const [a, b] = v.split('.').map(Number);
+    return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254)
+      || (a === 172 && b >= 16 && b <= 31) || (a === 192 && (b === 168 || b === 0)) || (a === 198 && (b === 18 || b === 19));
+  }
+  if (net.isIPv6(v)) return v === '::' || v === '::1' || /^f[cd]/.test(v) || /^fe[89ab]/.test(v) || v.startsWith('ff') || v.startsWith('64:ff9b:');
+  return true;
+}
+
+/** Разрешение имени с проверкой: соединение пойдёт ровно на проверенный адрес (подмена DNS между проверкой и запросом не пройдёт) */
+const publicLookup = ((host: string, opts: dns.LookupOptions, cb: (err: Error | null, address: string | dns.LookupAddress[], family?: number) => void) => {
+  dns.lookup(host, { ...opts, all: true }, (err, list) => {
+    if (err) return cb(err, '');
+    const bad = (list as dns.LookupAddress[]).find((x) => privateAddress(x.address));
+    if (bad) return cb(Object.assign(new Error(`ссылка ведёт на этот компьютер или во внутреннюю сеть (${bad.address})`), { code: 'EPRIVATE' }), '');
+    const all = list as dns.LookupAddress[];
+    if (opts.all) cb(null, all);
+    else cb(null, all[0].address, all[0].family);
+  });
+}) as unknown as net.LookupFunction;
+
+/** Скрытая или системная папка: туда инструменты MCP не читают и не пишут */
+export function hiddenPath(file: string): boolean {
+  const abs = path.resolve(file);
+  if (abs.split(/[\\/]+/).some((p) => p.startsWith('.') && p !== '.' && p !== '..')) return true;
+  const sys = process.platform === 'win32'
+    ? [process.env.SystemRoot ?? 'C:\\Windows'].map((d) => d.toLowerCase())
+    : ['/etc', '/proc', '/sys', '/dev', '/boot', '/private/etc'];
+  const low = process.platform === 'win32' ? abs.toLowerCase() : abs;
+  return sys.some((d) => low === d || low.startsWith(d + path.sep));
+}
+
+/** Настоящий путь ещё не созданного файла: папки-ссылки по пути раскрыты (ссылка на ~/.ssh не обойдёт hiddenPath) */
+function realTarget(file: string): string {
+  let dir = path.dirname(path.resolve(file));
+  const rest = [path.basename(file)];
+  while (!fs.existsSync(dir) && path.dirname(dir) !== dir) {
+    rest.unshift(path.basename(dir));
+    dir = path.dirname(dir);
+  }
+  try { return path.join(fs.realpathSync(dir), ...rest); } catch { return path.resolve(file); }
 }
 
 interface Tool {
@@ -140,23 +212,60 @@ export function createMcp(o: McpOptions) {
     return name;
   };
 
-  /** Файл по ссылке: имя — из адреса (нет расширения — по типу из ответа), не больше MEDIA_MAX */
+  /** Один запрос без перенаправлений: тело целиком, не больше MEDIA_MAX, к сроку deadline */
+  function fetchOnce(u: URL, deadline: number): Promise<{ status: number; headers: http.IncomingHttpHeaders; data: Buffer }> {
+    return new Promise((resolve, reject) => {
+      const mod = u.protocol === 'https:' ? https : http;
+      const req = mod.get(u, { headers: { 'user-agent': 'Slideria' }, ...(o.localUrls ? {} : { lookup: publicLookup }) }, (res) => {
+        const status = res.statusCode ?? 0;
+        if (status >= 300 && status < 400) { res.resume(); return resolve({ status, headers: res.headers, data: Buffer.alloc(0) }); }
+        if (Number(res.headers['content-length']) > MEDIA_MAX) { req.destroy(); return reject(new Error(`файл больше ${MEDIA_MAX >> 20} МБ`)); }
+        const parts: Buffer[] = [];
+        let size = 0;
+        res.on('data', (c: Buffer) => {
+          size += c.length;
+          if (size > MEDIA_MAX) { req.destroy(); reject(new Error(`файл больше ${MEDIA_MAX >> 20} МБ`)); return; }
+          parts.push(c);
+        });
+        res.on('end', () => resolve({ status, headers: res.headers, data: Buffer.concat(parts) }));
+        res.on('error', reject);
+      });
+      req.setTimeout(Math.max(1, deadline - Date.now()), () => req.destroy(new Error('нет ответа за минуту')));
+      req.on('error', reject);
+    });
+  }
+
+  /**
+   * Файл по ссылке: имя — из адреса (нет расширения — по типу из ответа), не больше MEDIA_MAX. Только интернет:
+   * адрес проверяется при соединении (publicLookup) и на каждом перенаправлении
+   */
   async function download(url: string): Promise<{ data: Buffer; name: string }> {
     let u: URL;
     try { u = new URL(url); } catch { throw new ToolError('url — ссылка вида https://…'); }
     if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new ToolError('url — ссылка http или https');
-    let r: Response;
-    try {
-      r = await fetch(u, { redirect: 'follow', signal: AbortSignal.timeout(60_000), headers: { 'user-agent': 'Slideria' } });
-    } catch (e) {
-      throw new ToolError(`Не удалось скачать ${u.href}: ${(e as Error).message}`);
+    const deadline = Date.now() + 60_000;
+    let got: { status: number; headers: http.IncomingHttpHeaders; data: Buffer } | null = null;
+    for (let hop = 0; hop <= 5; hop++) {
+      if (!o.localUrls && net.isIP(u.hostname.replace(/^\[|\]$/g, '')) && privateAddress(u.hostname)) {
+        throw new ToolError(`Не удалось скачать ${u.href}: ссылка ведёт на этот компьютер или во внутреннюю сеть`);
+      }
+      try {
+        got = await fetchOnce(u, deadline);
+      } catch (e) {
+        throw new ToolError(`Не удалось скачать ${u.href}: ${(e as Error).message}`);
+      }
+      const to = got.status >= 300 && got.status < 400 ? got.headers.location : undefined;
+      if (!to) break;
+      const next = new URL(to, u);
+      if (next.protocol !== 'http:' && next.protocol !== 'https:') throw new ToolError(`Не удалось скачать ${u.href}: перенаправление не на http или https`);
+      u = next;
+      got = null;
     }
-    if (!r.ok) throw new ToolError(`Не удалось скачать ${u.href}: ответ ${r.status}`);
-    if (Number(r.headers.get('content-length')) > MEDIA_MAX) throw new ToolError(`Файл больше ${MEDIA_MAX >> 20} МБ`);
-    const data = Buffer.from(await r.arrayBuffer());
-    if (data.length > MEDIA_MAX) throw new ToolError(`Файл больше ${MEDIA_MAX >> 20} МБ`);
+    if (!got) throw new ToolError(`Не удалось скачать ${url}: слишком много перенаправлений`);
+    if (got.status < 200 || got.status >= 300) throw new ToolError(`Не удалось скачать ${u.href}: ответ ${got.status}`);
+    const data = got.data;
     let base = decodeURIComponent(path.posix.basename(u.pathname)) || 'file';
-    const mime = (r.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
+    const mime = String(got.headers['content-type'] ?? '').split(';')[0].trim().toLowerCase();
     if (mime.startsWith('text/html')) throw new ToolError(`По ссылке — страница, а не файл: ${u.href}`);
     const ext = MEDIA_TYPES[mime];
     if (ext && path.extname(base).slice(1).toLowerCase() !== ext && !(ext === 'jpg' && /\.jpe?g$/i.test(base))) base = `${base.replace(/\.[^.]*$/, '')}.${ext}`;
@@ -362,8 +471,8 @@ export function createMcp(o: McpOptions) {
         type: 'object',
         properties: {
           presentation: { type: 'string', description: 'имя презентации' },
-          file: { type: 'string', description: 'полный путь к файлу на этом компьютере' },
-          url: { type: 'string', description: 'ссылка на файл (http или https)' },
+          file: { type: 'string', description: 'полный путь к файлу на этом компьютере (не из скрытых папок вроде .ssh и не из системных)' },
+          url: { type: 'string', description: 'ссылка на файл в интернете (http или https; не на этот компьютер и не во внутреннюю сеть)' },
           name: { type: 'string', description: 'имя файла в презентации (по умолчанию — как у исходного)' },
         },
         required: ['presentation'],
@@ -378,11 +487,14 @@ export function createMcp(o: McpOptions) {
         if (a.file !== undefined) {
           const file = str(a, 'file', 'полный путь к файлу');
           if (!path.isAbsolute(file)) throw new ToolError('file — полный путь к файлу');
+          let real: string;
           let st: fs.Stats;
-          try { st = fs.statSync(file); } catch { throw new ToolError(`Файла нет: ${file}`); }
+          try { real = fs.realpathSync(file); st = fs.statSync(real); } catch { throw new ToolError(`Файла нет: ${file}`); }
+          // Ссылка-ярлык в скрытую папку — тоже скрытая: проверяется настоящий путь
+          if (hiddenPath(real)) throw new ToolError(`Из скрытых и системных папок файлы не берутся: ${file}`);
           if (!st.isFile()) throw new ToolError(`Это не файл: ${file}`);
           if (st.size > MEDIA_MAX) throw new ToolError(`Файл больше ${MEDIA_MAX >> 20} МБ`);
-          data = fs.readFileSync(file);
+          data = fs.readFileSync(real);
           fileName = path.basename(file);
         } else {
           const got = await download(str(a, 'url', 'ссылка на файл'));
@@ -440,7 +552,7 @@ export function createMcp(o: McpOptions) {
           presentation: { type: 'string', description: 'имя презентации' },
           mode: { type: 'string', enum: ['show', 'edit'] },
           compact: { type: 'boolean' },
-          path: { type: 'string', description: 'полный путь к файлу .html' },
+          path: { type: 'string', description: 'полный путь к файлу .html (не в скрытой и не в системной папке); файл с таким именем не перезаписывается — рядом «имя (2).html», ответ — настоящий путь' },
         },
         required: ['presentation'],
       },
@@ -451,6 +563,7 @@ export function createMcp(o: McpOptions) {
         if (a.path !== undefined) {
           out = str(a, 'path', 'полный путь к файлу .html');
           if (!path.isAbsolute(out) || !/\.html?$/i.test(out)) throw new ToolError('path — полный путь к файлу .html');
+          if (hiddenPath(out) || hiddenPath(realTarget(out))) throw new ToolError(`В скрытые и системные папки экспорт не пишется: ${out}`);
         } else {
           const dl = o.downloads ?? path.join(os.homedir(), 'Downloads');
           out = path.join(fs.existsSync(dl) ? dl : os.homedir(), `${name}${a.mode === 'edit' ? '' : '.show'}.html`);
@@ -462,7 +575,19 @@ export function createMcp(o: McpOptions) {
           throw new ToolError((e as Error).message);
         }
         fs.mkdirSync(path.dirname(out), { recursive: true });
-        fs.writeFileSync(out, html);
+        // Без перезаписи: файл с таким именем есть — рядом «имя (2).html», «имя (3).html»…
+        const ext = path.extname(out);
+        const stem = out.slice(0, -ext.length);
+        for (let k = 1; ; k++) {
+          const at = k === 1 ? out : `${stem} (${k})${ext}`;
+          try {
+            fs.writeFileSync(at, html, { flag: 'wx' });
+            out = at;
+            break;
+          } catch (e) {
+            if ((e as NodeJS.ErrnoException).code !== 'EEXIST' || k >= 100) throw new ToolError(`Не удалось записать ${at}: ${(e as Error).message}`);
+          }
+        }
         return { path: out, size: html.length };
       },
     },

@@ -58,6 +58,7 @@ async function shoot({ url, count, width, height }) {
 const { createDecksCore } = await vite.ssrLoadModule('/server/core.ts');
 const { createMcp, serveStdio } = await vite.ssrLoadModule('/server/mcp.ts');
 const core = createDecksCore({ dir, root });
-await serveStdio(createMcp({ core, dir, root, version, shoot }), process.stdin, process.stdout);
+// Ссылки на этот компьютер и во внутреннюю сеть — только тестам (tests/unit/mcp.spec.ts: свой сервер картинок)
+await serveStdio(createMcp({ core, dir, root, version, shoot, localUrls: process.env.SLIDERIA_MCP_LOCAL_URLS === '1' }), process.stdin, process.stdout);
 await (await browser?.catch(() => null))?.close();
 await vite.close();
