@@ -210,7 +210,7 @@ test('правка рядом не создаёт заново видео, 3D-м
     await page.mouse.up();
   };
   // Слайд «Медиа»: видео, 3D-модель и живой фон; сдвигаем картинку
-  await page.goto('/?deck=tpl&studio#20');
+  await page.goto('/?deck=tpl&studio#23');
   await expect(page.locator('#st-canvas .slide.on model-viewer')).toHaveCount(1);
   await expect(page.locator('#st-canvas .slide.on .backdrop canvas')).toHaveCount(1);
   expect(await mark()).toEqual({ video: false, 'model-viewer': false, '.backdrop': false });
@@ -224,7 +224,7 @@ test('правка рядом не создаёт заново видео, 3D-м
   await expect(page.locator('#st-canvas .slide.on .backdrop canvas')).toHaveCount(1);
   // Слайд с живой вставкой: её документ не перезагружается
   await page.locator('#st-canvas').click({ position: { x: 4, y: 4 } });
-  await page.evaluate(() => { location.hash = '#22'; });
+  await page.evaluate(() => { location.hash = '#25'; });
   await expect(page.locator('#st-canvas .slide.on iframe')).toHaveCount(1);
   expect((await mark()).iframe).toBe(false);
   await nudge();

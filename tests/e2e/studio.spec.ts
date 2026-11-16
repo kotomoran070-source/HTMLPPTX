@@ -18,7 +18,7 @@ test('студия открывается, слайды и свойства на
 });
 
 test('свой блок: «Сохранить как шаблон…» → «Блоки» → «Мои шаблоны»', async ({ page }) => {
-  await page.goto('/?deck=tpl&studio#23');
+  await page.goto('/?deck=tpl&studio#26');
   await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
   // Первый свободный объект на видимом слайде
   const obj = page.locator('#st-canvas .free').filter({ hasText: 'Свои блоки', visible: true }).first();
@@ -79,7 +79,7 @@ test('логотип: у холста включается галочкой, з�
 
 test('«Эффект текста»: выбор пишет textFx, «Просмотр» играет буквами, после него текст в правке целый', async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto('/?deck=tpl&studio#19');
+  await page.goto('/?deck=tpl&studio#22');
   const tile = page.locator('#st-canvas .slide.on > .free').filter({ hasText: 'Неон' }).first();
   const b = (await tile.boundingBox())!;
   await page.mouse.click(b.x + 16, b.y + 16);
@@ -97,7 +97,7 @@ test('«Эффект текста»: выбор пишет textFx, «Просм�
 
 test('«Эффект текста»: при наведении примеряется каждый эффект, а не только машинка и расшифровка', async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto('/?deck=tpl&studio#19');
+  await page.goto('/?deck=tpl&studio#22');
   const tile = page.locator('#st-canvas .slide.on > .free').filter({ hasText: 'Неон' }).first();
   const b = (await tile.boundingBox())!;
   await page.mouse.click(b.x + 16, b.y + 16);
@@ -136,7 +136,7 @@ test('«Эффект текста»: при наведении примеряе�
 
 test('панель свойств без дублей ленты; кадр картинки числами; шрифт из файла — из списка шрифтов, лишний — «убрать» в «Сводке»', async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto('/?deck=tpl&studio#20');
+  await page.goto('/?deck=tpl&studio#23');
   const props = page.locator('#st-props');
   await expect(props.locator('h3', { hasText: 'Оформление' })).toHaveCount(1);
   await expect(props.locator('summary', { hasText: 'Презентация' })).toHaveCount(1);
@@ -192,7 +192,7 @@ test('логотип: размер знака в плашке — отдельн
 });
 
 test('меню «Цвет» картинки заканчивается над «Настройкой»', async ({ page }) => {
-  await page.goto('/?deck=tpl&studio#21');
+  await page.goto('/?deck=tpl&studio#24');
   await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
   const img = page.locator('#st-canvas .slide img').filter({ visible: true }).nth(1);
   await img.click();
@@ -1092,8 +1092,8 @@ test('Delete: выделен объект — удаляется он, а не �
 test('смена вида блока: панель не мигает, выделение остаётся на блоке, Ctrl+Z — как было', async ({ page }) => {
   const errors = watchErrors(page);
   const before = readDeck('tpl');
-  await page.goto('/?deck=tpl&studio#10');
-  const block = page.locator(`#st-canvas .slide.on [data-block='["slides",9,"free",3]']`);
+  await page.goto('/?deck=tpl&studio#11');
+  const block = page.locator(`#st-canvas .slide.on [data-block='["slides",10,"free",3]']`);
   await block.click();
   await expect(page.locator('[data-view="cycle"]')).toHaveAttribute('aria-checked', 'true');
   // Кадры, в которых плиток «Вида» нет: раньше выделение снималось на кадр и панель мигала свойствами слайда
@@ -1118,8 +1118,8 @@ test('смена вида блока: панель не мигает, выдел
 
 test('превью вида при наведении: схема в настоящую ширину, подписи за рамкой блока не обрезаны', async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto('/?deck=tpl&studio#10');
-  await page.locator(`#st-canvas .slide.on [data-block='["slides",9,"free",3]']`).click();
+  await page.goto('/?deck=tpl&studio#11');
+  await page.locator(`#st-canvas .slide.on [data-block='["slides",10,"free",3]']`).click();
   for (const v of ['arc', 'orbit', 'cycle']) {
     if (v === 'cycle') await page.locator('[data-view="list"]').click();
     await page.locator(`[data-view="${v}"]`).hover();

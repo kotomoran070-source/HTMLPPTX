@@ -189,8 +189,8 @@ test('морф: пары перелетают, после перехода — �
 
 test('эффекты текста: при показе буквы по отдельности (волна, машинка, расшифровка), у глитча — копия текста; уйти со слайда — текст как был', async ({ page }) => {
   const errors = watchErrors(page);
-  // 19 — «Текст, который оживает»: по объекту на каждый эффект
-  await page.goto('/?deck=tpl#19');
+  // 22 — «Текст, который оживает»: по объекту на каждый эффект
+  await page.goto('/?deck=tpl#22');
   const slide = page.locator('.slide.on');
   await expect(slide.locator('.free[data-tfx]')).toHaveCount(7);
   const wave = slide.locator('.free[data-tfx="wave"]');
@@ -200,7 +200,7 @@ test('эффекты текста: при показе буквы по отде�
   await expect(slide.locator('.free[data-tfx="type"] .tfx-off')).toHaveCount(0);
   await expect(slide.locator('.free[data-tfx="scramble"]')).toHaveText('ДОСТУП ОТКРЫТ');
   await page.keyboard.press('PageDown');
-  await expect(page.locator('#ct')).toHaveText(/^20 из/);
+  await expect(page.locator('#ct')).toHaveText(/^23 из/);
   await expect(page.locator('.slide .tfx-c, .slide [data-text]')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
