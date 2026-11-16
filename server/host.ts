@@ -5,7 +5,8 @@
  *
  * Запуск — этим же файлом кода (server.mjs) с ключом HOST_FLAG: desktop/main.mjs → utilityProcess.fork.
  * Вход для телефона (desktop/lan.mjs) — здесь же: пропуска телефонов знает сервер (plugins/remote-relay.mjs).
- * Что умеет только главный процесс — брандмауэр, служебный процесс сборки, хранилище ключа, — остаётся в нём;
+ * Что умеет только главный процесс — брандмауэр, служебный процесс сборки, хранилище ключа, показ файла в папке, —
+ * остаётся в нём;
  * сервер зовёт это сообщениями:
  *   главный → сервер: start { options, key }, reply { id, value | error }, close
  *   сервер → главный: ready { url, port }, failed { error }, call { id, name, args }, log { text }, key { value }
@@ -22,7 +23,7 @@ export const HOST_FLAG = '--slideria-server';
 export interface HostKey { value: string | null; secure: boolean; canStore: boolean }
 
 /** Настройки сервера, как их можно переслать: вместо функций — признаки (lan — открывать вход для телефона, firewall — брандмауэр у главного процесса) */
-export type HostOptions = Omit<ServeOptions, 'lan' | 'firewall' | 'run' | 'log' | 'agentKeys'> & { lan?: boolean; firewall?: boolean };
+export type HostOptions = Omit<ServeOptions, 'lan' | 'firewall' | 'run' | 'log' | 'agentKeys' | 'show'> & { lan?: boolean; firewall?: boolean };
 
 export type ToHost =
   | { type: 'start'; options: HostOptions; key: HostKey }
@@ -32,7 +33,7 @@ export type ToHost =
 export type FromHost =
   | { type: 'ready'; url: string; port: number }
   | { type: 'failed'; error: string }
-  | { type: 'call'; id: number; name: 'firewall' | 'run'; args: unknown[] }
+  | { type: 'call'; id: number; name: 'firewall' | 'run' | 'show'; args: unknown[] }
   | { type: 'log'; text: string }
   | { type: 'key'; value: string | null };
 
@@ -50,7 +51,7 @@ export function hostMain(start: (o: ServeOptions) => Promise<Served>): void {
   let seq = 0;
   const waiting = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
   /** Позвать главный процесс и дождаться ответа */
-  const call = <T>(name: 'firewall' | 'run', ...args: unknown[]) => new Promise<T>((resolve, reject) => {
+  const call = <T>(name: 'firewall' | 'run' | 'show', ...args: unknown[]) => new Promise<T>((resolve, reject) => {
     const id = ++seq;
     waiting.set(id, { resolve: resolve as (v: unknown) => void, reject });
     port.postMessage({ type: 'call', id, name, args });
@@ -100,6 +101,9 @@ export function hostMain(start: (o: ServeOptions) => Promise<Served>): void {
       ...(firewall ? { firewall: () => call<string>('firewall') } : {}),
       run,
       log,
+      // Пакет расширения Claude Desktop — открыть или показать в папке средствами Electron (shell): окно
+      // Проводника, запущенное отсюда, могло остаться скрытым
+      show: (file: string, how: 'open' | 'reveal') => call<void>('show', file, how),
       agentKeys: keys(m.key),
     }).then((s) => {
       served = s;

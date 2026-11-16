@@ -74,6 +74,8 @@ export interface ServeOptions {
   agentKeys?: KeyStore;
   /** Как агенту запустить MCP этой папки: программа — сама собой с ключом --mcp */
   mcp?: { command: string; args: string[] };
+  /** Программа: открыть файл или показать его в папке (пакет расширения Claude Desktop, server/connect.ts) */
+  show?: (file: string, how: 'open' | 'reveal') => Promise<void>;
 }
 
 export interface Served {
@@ -311,6 +313,7 @@ export async function startServer(o: ServeOptions): Promise<Served> {
     log,
     bundled: () => bundled ?? [],
     agentKeys: o.agentKeys,
+    show: o.show,
   });
 
   server = http.createServer((req, res) => {

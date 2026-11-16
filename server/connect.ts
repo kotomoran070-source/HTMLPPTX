@@ -117,7 +117,8 @@ function openFile(file: string, how: 'open' | 'reveal', platform: NodeJS.Platfor
   if (platform === 'win32') {
     // /select,"путь" — explorer разбирает строку сам (кавычки только вокруг пути); код ответа у него всегда 1
     return new Promise((resolve, reject) => {
-      const p = spawn('explorer.exe', [`/select,"${file}"`], { detached: true, stdio: 'ignore', windowsHide: true, windowsVerbatimArguments: true });
+      // Без windowsHide: его «скрыть окно» Проводник применяет к самой папке — она открывается невидимой
+      const p = spawn('explorer.exe', [`/select,"${file}"`], { detached: true, stdio: 'ignore', windowsVerbatimArguments: true });
       p.on('error', reject);
       p.on('spawn', () => { p.unref(); resolve(); });
     });

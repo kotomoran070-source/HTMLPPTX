@@ -75,6 +75,8 @@ export interface HttpOptions {
   bundled?: () => { name: string; version: string; license: string; text: string }[];
   /** Ключ Claude для чата «Агент» (server/agent.ts): программа хранит его зашифрованным; по умолчанию — ANTHROPIC_API_KEY или в памяти */
   agentKeys?: KeyStore;
+  /** Программа: открыть файл или показать его в папке (Electron shell); по умолчанию — командами системы */
+  show?: (file: string, how: 'open' | 'reveal') => Promise<void>;
 }
 
 export function readBody(req: IncomingMessage, max = MAX_BODY): Promise<Buffer> {
@@ -260,7 +262,7 @@ function api(core: DecksCore, o: HttpOptions): Handler {
   const bundle = { root: core.root, version: appVersion(core.root), ...(testHome ? { out: path.join(testHome, 'Slideria.mcpb') } : {}) };
   const clients = createConnect(testHome
     ? { home: testHome, pathDirs: [], bundle, open: async (f) => fs.writeFileSync(path.join(testHome, 'opened-mcpb.txt'), f) }
-    : { bundle });
+    : { bundle, ...(o.show ? { open: o.show } : {}) });
   return (req, res, next) => {
     if (!req.url?.startsWith(API)) return next();
     void route(core, o, chat, clients, req, res).catch((e: Error) => {

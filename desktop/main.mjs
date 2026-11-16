@@ -9,6 +9,7 @@
 // сжатый код программы — рядом, в app.asar.unpacked, и перед запуском сверяется с отпечатками из app.asar.
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { app, BrowserWindow, Menu, WebContentsView, dialog, ipcMain, nativeTheme, safeStorage, screen, session, shell, utilityProcess, webContents } from 'electron';
@@ -206,6 +207,15 @@ async function startServer() {
   const calls = {
     firewall: () => allowFirewall((...a) => log(...a)),
     run: (script, args, o) => runNode(script, args, o),
+    // «Подключить к Claude Desktop»: пакет расширения (server/connect.ts) — только он, из временной папки
+    show: async (file, how) => {
+      const f = path.resolve(String(file));
+      const same = (a, b) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
+      if (path.extname(f) !== '.mcpb' || !same(path.dirname(f), path.join(os.tmpdir(), 'Slideria'))) throw new Error('Не пакет расширения');
+      if (how !== 'open') return void shell.showItemInFolder(f);
+      const err = await shell.openPath(f);
+      if (err) throw new Error(err);
+    },
   };
   let child = null;
   let stopping = false;
