@@ -46,6 +46,8 @@ function fieldHtml(f: Field, data: unknown, p: Path): string {
       return row(f.label, `<textarea rows="3" data-t="text" data-p="${P(p)}" placeholder="${esc(f.placeholder ?? '')}"></textarea>`, f.hint, true);
     case 'number':
       return row(f.label, `<input type="number" data-t="number" data-p="${P(p)}"${f.fromOne ? ' data-one' : ''}${f.min !== undefined ? ` min="${f.min}"` : ''}${f.max !== undefined ? ` max="${f.max}"` : ''} step="${f.step ?? 1}" placeholder="${esc(f.placeholder ?? '')}">`, f.hint);
+    case 'clear':
+      return row(f.label, `<span class="st-f-pos st-f-clear"><input type="range" min="0" max="90" step="5" data-t="clear" data-p="${P(p)}" aria-label="${esc(f.label)}"><output></output></span>`, f.hint, true);
     case 'framepos': {
       const axis = (a: 'x' | 'y', l: string, ends: string) => `<span class="st-f-pos"><span>${l}</span><input type="range" min="0" max="100" step="1" data-t="framepos" data-axis="${a}" data-p="${P(p)}" title="${ends}" aria-label="${esc(f.label)}: ${l}"><output data-pos-out="${a}"></output></span>`;
       return row(f.label, `<span class="st-f-posbox">${axis('x', 'По горизонтали', '0 — левый край, 100 — правый')}${axis('y', 'По вертикали', '0 — верх, 100 — низ')}</span>`, f.hint, true);
@@ -201,6 +203,12 @@ export function fillForm(root: HTMLElement, data: unknown, resolveUrl: (src: str
       el.value = String(n);
       const out = el.parentElement?.querySelector('output');
       if (out) out.textContent = `${Math.round(n)}%`;
+    } else if (t === 'clear') {
+      const op = Number(v);
+      const n = Number.isFinite(op) && op > 0 && op < 1 ? Math.round((1 - op) * 100) : 0;
+      el.value = String(n);
+      const out = el.parentElement?.querySelector('output');
+      if (out) out.textContent = `${n} %`;
     } else if (t === 'colorhex') {
       if (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)) el.value = v.toLowerCase();
     } else {
@@ -290,6 +298,10 @@ export function onFieldChange(el: HTMLInputElement, e: FormEdit): boolean {
     const x = val('x');
     const y = val('y');
     e.commit((d) => write(d, p, x === 50 && y === 50 ? undefined : `${x}% ${y}%`, as));
+  } else if (t === 'clear') {
+    // Ползунок — прозрачность, в данных — плотность; сплошная — поле не нужно
+    const clear = Math.max(0, Math.min(90, Math.round(Number(raw) || 0)));
+    e.commit((d) => write(d, p, clear ? Math.round((100 - clear)) / 100 : undefined, as));
   } else if (t === 'number') {
     const s = raw.trim().replace(',', '.');
     if (s && !Number.isFinite(Number(s))) return false;

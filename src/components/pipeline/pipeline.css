@@ -17,3 +17,31 @@
   8%, 84% { background: var(--ac); color: var(--on-ac); border-color: var(--ac); }
   94%, 100% { background: var(--alt); color: var(--mu); border-color: var(--bd2); }
 }
+
+/* Столбцом: номер слева, подписи справа — для длинных подписей; линия идёт от номера вниз к следующему */
+.pipe-column { display: flex; flex-direction: column; gap: 14px; }
+.pipe-column .st { display: grid; grid-template-columns: 34px minmax(0, 1fr); column-gap: 14px; align-items: start; text-align: left; padding-top: 0; }
+.pipe-column .st i { grid-row: span 2; margin: 0; }
+.pipe-column .st b { padding-top: 6px; }
+.pipe-column .st span { grid-column: 2; }
+.pipe-column .st::before { display: block; top: 34px; bottom: -14px; left: 16px; width: 2px; height: auto; }
+.pipe-column .st:last-child::before { display: none; }
+
+/* Стрелками: шаги — стрелки-шевроны встык, подсвечивается вся стрелка, номер — над названием */
+.pipe-arrows { display: flex; gap: 0; }
+.pipe-arrows .st {
+  flex: 1 1 0; min-width: 0; margin-left: -10px; padding: 14px 20px 14px 32px; text-align: left;
+  background: var(--alt); color: var(--tx);
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%, 18px 50%);
+  animation: act-arrow var(--cycle, 6s) infinite;
+  animation-delay: calc(var(--k) * var(--step, 1s));
+}
+.pipe-arrows .st:first-child { margin-left: 0; padding-left: 20px; clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%); }
+.pipe-arrows .st::before { display: none; }
+.pipe-arrows .st i { display: block; width: auto; height: auto; margin: 0 0 2px; border: 0; background: none; color: inherit; font-size: 13px; opacity: .75; animation: none; }
+.pipe-arrows .st span { color: inherit; opacity: .78; }
+@keyframes act-arrow {
+  0%, 4% { background: var(--alt); color: var(--tx); }
+  8%, 84% { background: var(--ac); color: var(--on-ac); }
+  94%, 100% { background: var(--alt); color: var(--tx); }
+}

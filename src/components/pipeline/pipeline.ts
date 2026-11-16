@@ -9,16 +9,19 @@ interface PipelineProps extends Block {
   steps: Step[];
   /** Секунд на один шаг подсветки */
   stepSeconds?: number;
+  /** Вид: в ряд (по умолчанию), column — столбцом (для длинных подписей), arrows — стрелками */
+  layout?: 'column' | 'arrows';
 }
 
-/** Пайплайн: шаги по очереди подсвечиваются по кругу. */
+/** Пайплайн: шаги по очереди подсвечиваются по кругу — в ряд, столбцом или стрелками. */
 defineBlock<PipelineProps>('pipeline', {
   render(p) {
     const steps = asArray(p.steps);
     const sec = p.stepSeconds ?? 1;
     const total = Math.max(steps.length + 2, 6) * sec;
+    const lay = p.layout === 'column' || p.layout === 'arrows' ? p.layout : '';
     const items = steps.map((s, k) =>
       `<div class="st" style="--k:${k}"><i>${k + 1}</i><b${ea(s, 'title')}>${t(s.title)}</b>${s.sub ? `<span${ea(s, 'sub')}>${t(s.sub)}</span>` : ''}</div>`);
-    return `<div class="pipe r"${styleAttr(`grid-template-columns:repeat(${steps.length},1fr)`, `--step:${sec}s`, `--cycle:${total}s`, p.style)}>${items.join('')}</div>`;
+    return `<div class="pipe r${lay ? ` pipe-${lay}` : ''}"${styleAttr(lay === 'column' ? '' : `grid-template-columns:repeat(${steps.length},1fr)`, `--step:${sec}s`, `--cycle:${total}s`, p.style)}>${items.join('')}</div>`;
   },
 });

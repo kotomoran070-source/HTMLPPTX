@@ -4,9 +4,14 @@
  * Новый компонент получает редактор свойств, если описать его здесь.
  */
 import { PRESET_KINDS } from '../components/shape/kinds';
+import { GRADIENTS } from '../engine/gradients';
 
 
-export type Field =
+export type Field = FieldKind & {
+  /** Поле только у подходящих блоков (переливание — у вёрстки с переливающейся карточкой); без него — у всех */
+  when?: (b: Record<string, unknown>) => boolean;
+};
+type FieldKind =
   | { k: string; label: string; type: 'text' | 'textarea' | 'url'; placeholder?: string; hint?: string }
   /** fromOne — номер (строки, столбца): в поле с единицы, в данных — с нуля */
   | { k: string; label: string; type: 'number'; min?: number; max?: number; step?: number; placeholder?: string; hint?: string; fromOne?: boolean }
@@ -36,6 +41,11 @@ export type Field =
   | { k: string; label: string; type: 'group'; fields: Field[] }
   /** Цвет фигуры: роли темы или свой #RRGGBB; none — без цвета */
   | { k: string; label: string; type: 'color'; none?: boolean }
+  /**
+   * Прозрачность — ползунок, как у фона слайда: 0 % — сплошная, 90 % — почти растворилась. Пишется плотность
+   * 0,1–1, как в CSS (поле — fillOpacity, bgOpacity); 0 % убирает поле
+   */
+  | { k: string; label: string; type: 'clear'; hint?: string }
   /** Точки [[x, y], [x, y, размер]…] — по строке на точку */
   | { k: string; label: string; type: 'points'; hint?: string }
   /** Переход к слайду (после ответа на тест): «slide:<id>», next, prev, first, last; слайду без id он даётся */
@@ -50,6 +60,11 @@ export interface Schema {
 }
 
 const FIT: [string, string][] = [['', 'Заполнить (обрезать края)'], ['contain', 'Целиком']];
+
+/** Вёрстка с переливающейся карточкой набора (kit.css: kt-glow, kt-glass) */
+const flowing = (b: Record<string, unknown>) => typeof b.html === 'string' && /\bkt-(glow|glass)\b/.test(b.html);
+/** Цвета переливания — готовые градиенты, у которых оба конца яркие (бледные «Мягкий» и «Туман» не переливаются) */
+const FLOWS: [string, string][] = GRADIENTS.filter((g) => !['duo', 'glow', 'soft', 'mist'].includes(g.id)).map((g) => [g.id, g.name]);
 const ALIGN: [string, string][] = [['', 'Растянуть'], ['start', 'По верху'], ['center', 'По центру'], ['end', 'По низу']];
 
 const frame: Field[] = [
@@ -153,6 +168,9 @@ export const BLOCKS: Record<string, Schema> = {
     fields: [
       { k: 'title', label: 'Заголовок', type: 'text' },
       { k: 'text', label: 'Текст', type: 'textarea' },
+      { k: 'fill', label: 'Заливка', type: 'color', none: true },
+      { k: 'fillOpacity', label: 'Прозрачность заливки', type: 'clear' },
+      { k: 'reveal', label: 'Раскрывать по щелчку', type: 'bool' },
     ],
   },
   panel: {
@@ -240,6 +258,7 @@ export const BLOCKS: Record<string, Schema> = {
   },
   pipeline: {
     fields: [
+      { k: 'layout', label: 'Вид', type: 'select', options: [['', 'В ряд'], ['column', 'Столбцом'], ['arrows', 'Стрелками']] },
       { k: 'stepSeconds', label: 'Секунд на шаг', type: 'number', min: 0.3, max: 10, step: 0.1, placeholder: '1' },
       {
         k: 'steps', label: 'Шаги', type: 'rows', item: 'Шаг',
@@ -704,6 +723,9 @@ export const BLOCKS: Record<string, Schema> = {
     fields: [
       { k: 'texts', label: 'Тексты', type: 'strings', item: 'Текст' },
       { k: 'scale', label: 'Масштаб вёрстки', type: 'number', min: 0.1, max: 4, step: 0.05, placeholder: '1' },
+      // Переливающиеся карточки набора («Карточка со свечением», «Стеклянная карточка»): цвета и скорость
+      { k: 'flow', label: 'Цвета переливания', type: 'select', options: [['', 'Цвета темы'], ...FLOWS], when: flowing },
+      { k: 'flowSpeed', label: 'Скорость переливания', type: 'number', min: 0.25, max: 3, step: 0.25, placeholder: '1', hint: '1 — обычная, 2 — вдвое быстрее, 0,5 — вдвое медленнее', when: flowing },
     ],
   },
   sandbox: {

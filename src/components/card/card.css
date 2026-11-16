@@ -25,3 +25,15 @@
 @keyframes kn { from { left: 0; } to { left: var(--p); } }
 
 .chips { margin: 0; }
+
+/* Раскрывается по щелчку (reveal): как «Вопрос — ответ» — «+» у заголовка, текст и блоки раскрываются плавно */
+.card-reveal .cr-q { display: flex; align-items: center; gap: 14px; cursor: pointer; outline: none; }
+.card-reveal .cr-q h3 { flex: 1; margin: 0; }
+.card-reveal .cr-a { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .4s var(--ease); }
+.card-reveal .cr-a > div { overflow: hidden; }
+.card-reveal .cr-a > div > :first-child { margin-top: 12px; }
+.card-reveal.open .cr-a { grid-template-rows: 1fr; }
+.card-reveal.open .fq-plus { transform: rotate(135deg); background: var(--ac); }
+.card-reveal.open .fq-plus::before, .card-reveal.open .fq-plus::after { background: var(--on-ac, #fff); }
+/* В правке, миниатюрах и PDF раскрыта: её правят и печатают */
+body.editing:not(.st-previewing) .card-reveal .cr-a, .static .card-reveal .cr-a { grid-template-rows: 1fr; }

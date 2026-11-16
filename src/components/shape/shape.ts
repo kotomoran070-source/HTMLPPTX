@@ -79,8 +79,8 @@ export function shapeFill(c: unknown): string | null {
   return c === 'gradient' ? SHAPE_GRADIENT.css : shapeColor(c);
 }
 
-/** Цвет текста поверх заливки: светлый на тёмном и наоборот. */
-function onColor(fill: unknown): string {
+/** Цвет текста поверх заливки: светлый на тёмном и наоборот (и у своей заливки карточки, card.ts). */
+export function onColor(fill: unknown): string {
   if (fill === 'gradient') return SHAPE_GRADIENT.on;
   if (typeof fill === 'string' && SHAPE_COLORS[fill]) return SHAPE_COLORS[fill].on;
   if (typeof fill === 'string' && HEX.test(fill)) {

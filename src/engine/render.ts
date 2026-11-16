@@ -345,8 +345,9 @@ export class Renderer {
     let html = safe(() => c.render(b, ctx), `компоненте «${b.type}»`);
     // Корень блока знает свой путь: режим правки выделяет, открепляет и удаляет блоки
     const attrs = (c.mount ? ctx.mount(c, b) : '') + (p ? ` data-block="${esc(JSON.stringify(p))}" data-type="${esc(b.type)}"` : '')
-      // Пересчёт подменяет разметку на месте; вёрстку (html) так обновлять можно, остальное с mount — нет
-      + (calc && (!c.mount || b.type === 'html') ? ' data-calc' : '');
+      // Пересчёт подменяет разметку на месте; вёрстку (html) и карточку (её щелчок «раскрыть» — на корне, корень
+      // остаётся) так обновлять можно, остальное с mount — нет
+      + (calc && (!c.mount || b.type === 'html' || b.type === 'card') ? ' data-calc' : '');
     if (attrs) html = html.replace(/^(\s*)<([a-z0-9-]+)/i, `$1<$2${attrs}`);
     return html;
   }

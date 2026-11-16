@@ -598,6 +598,8 @@ class Converter {
     if (type === 'embed' && await this.embed(el, b)) return;
     // Вёрстка с объёмной сценой (CSS 3D): фигурами её не передать — картинкой, как на экране
     if (type === 'html' && has3d(el)) return this.raster(el, b);
+    // Шаги стрелками: форму стрелки (clip-path) фигурами по вёрстке не передать — картинкой, как на экране
+    if (type === 'pipeline' && el.classList.contains('pipe-arrows')) return this.raster(el, b);
     if (type === 'bars' || type === 'line-chart') {
       if (this.chart(el, type, b)) return;
       // График с трендом и прогнозом — картинкой своего SVG (стили линий переносятся)

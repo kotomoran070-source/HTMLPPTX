@@ -1,23 +1,59 @@
 import { defineBlock } from '../../engine/component';
+import { bindDisclosure } from '../../engine/disclosure';
 import { asArray, styleAttr, t } from '../../engine/html';
 import { chips, ea, ekey, tx } from '../../engine/marks';
 import type { Block, ChipData } from '../../types';
+import { onColor, shapeColor } from '../shape/shape';
 import './card.css';
 
 interface CardProps extends Block {
   title?: string;
   text?: string;
   body?: Block | Block[];
+  /** Своя заливка: цвет темы (surface, alt, soft, accent, text, muted…), #RRGGBB или none; без неё — вид карточек темы */
+  fill?: string;
+  /** Плотность заливки 0,1–1 (в студии — «Прозрачность»: 0 % — сплошная); текст остаётся чётким */
+  fillOpacity?: number;
+  /** При показе видно только заголовок с «+», щелчок раскрывает остальное — как «Вопрос — ответ» */
+  reveal?: boolean;
 }
 
-/** Карточка: заголовок, текст и любые блоки внутри. */
+/**
+ * Своя заливка карточки поверх вида карточек темы: цвет и прозрачность. На тёмной заливке текст карточки и блоков
+ * в ней — светлым (--tx, --tx2, --mu), как у фигуры; на светлой и прозрачной — как в теме
+ */
+function cardFill(p: CardProps): string {
+  const color = shapeColor(p.fill);
+  const op = Number(p.fillOpacity);
+  const clear = Number.isFinite(op) && op >= 0.1 && op < 1 ? Math.round(op * 100) : 0;
+  if (!color && !clear) return '';
+  const base = color ?? 'var(--card-bg, var(--surf))';
+  const out = [`background:${clear ? `color-mix(in srgb, ${base} ${clear}%, transparent)` : base}`];
+  const on = color ? onColor(p.fill) : 'var(--tx)';
+  // Светлая заливка «Светлый акцент» даёт тексту цвет акцента — у карточки с блоками внутри текст остаётся своим
+  if (on !== 'var(--tx)' && on !== 'var(--ach)') out.push(`color:${on}`, `--tx:${on}`, `--tx2:color-mix(in srgb, ${on} 84%, transparent)`, `--mu:color-mix(in srgb, ${on} 70%, transparent)`);
+  return out.join(';');
+}
+
+/**
+ * Карточка: заголовок, текст и любые блоки внутри. С reveal (и заголовком) при показе раскрывается по щелчку
+ * по заголовку; в правке, миниатюрах и PDF раскрыта
+ */
 defineBlock<CardProps>('card', {
   render(p, ctx) {
-    return `<div class="card r"${styleAttr(p.style)}>`
+    const rest = (p.text ? `<p${ea(p, 'text')}>${t(p.text)}</p>` : '') + ctx.block(p.body);
+    if (p.reveal && p.title) {
+      return `<div class="card r card-reveal"${styleAttr(cardFill(p), p.style)}>`
+        + `<div class="cr-q" data-nospot role="button" tabindex="0" aria-expanded="false"><h3${ea(p, 'title')}>${t(p.title)}</h3><i class="fq-plus" aria-hidden="true"></i></div>`
+        + `<div class="cr-a"><div>${rest}</div></div></div>`;
+    }
+    return `<div class="card r"${styleAttr(cardFill(p), p.style)}>`
       + (p.title ? `<h3${ea(p, 'title')}>${t(p.title)}</h3>` : '')
-      + (p.text ? `<p${ea(p, 'text')}>${t(p.text)}</p>` : '')
-      + ctx.block(p.body)
+      + rest
       + `</div>`;
+  },
+  mount(el) {
+    return el.classList.contains('card-reveal') ? bindDisclosure(el, '.cr-q', '.card-reveal') : undefined;
   },
 });
 

@@ -153,9 +153,9 @@ export class Inspector {
       const el = e.target as HTMLInputElement;
       if (ownFx(el)) return;
       // Ползунок видимой части: число рядом обновляется, пока тянут; запись — по change
-      if (el.dataset.t === 'framepos') {
+      if (el.dataset.t === 'framepos' || el.dataset.t === 'clear') {
         const out = el.parentElement?.querySelector('output');
-        if (out) out.textContent = `${el.value}%`;
+        if (out) out.textContent = el.dataset.t === 'clear' ? `${el.value} %` : `${el.value}%`;
         return;
       }
       // Цвет меняется сразу, пока тянут ползунок палитры
@@ -281,7 +281,8 @@ export class Inspector {
     }
     if (sel) {
       const skip = skipped(sel.type, !!sel.free);
-      this.fields = [...(BLOCKS[sel.type]?.fields ?? []).filter((f) => !skip.has(f.k)), STYLE_FIELD];
+      const blk = (getAt(deck, sel.block) ?? {}) as Record<string, unknown>;
+      this.fields = [...(BLOCKS[sel.type]?.fields ?? []).filter((f) => !skip.has(f.k) && (!f.when || f.when(blk))), STYLE_FIELD];
       this.base = sel.block;
     } else {
       this.fields = TEMPLATES[deck.slides[i]?.template ?? 'content']?.fields ?? [];
@@ -345,7 +346,8 @@ export class Inspector {
     // мышью — «Кадр» на панели над картинкой. У видео кадр — на вкладке «Видео»
     const FRAME = schema?.fields.some((f) => f.k === 'zoom') ? ['fit', 'zoom', 'position'] : [];
     const b = getAt(deck, sel.block) as Block | undefined;
-    const all = (schema?.fields ?? []).filter((f) => !skip.has(f.k) && !(f.type === 'rows' && f.hideEmpty && !(Array.isArray(b?.[f.k]) && (b[f.k] as unknown[]).length)));
+    const all = (schema?.fields ?? []).filter((f) => !skip.has(f.k) && (!f.when || f.when((b ?? {}) as Record<string, unknown>))
+      && !(f.type === 'rows' && f.hideEmpty && !(Array.isArray(b?.[f.k]) && (b[f.k] as unknown[]).length)));
     const own = all.filter((f) => !FRAME.includes(f.k));
     const frame = all.filter((f) => FRAME.includes(f.k));
     const ribbonNote = ribbon ? hintBtn(`tab.${ribbon.tab}`, 'layers', `${sel.type === 'video' ? 'Плеер' : 'Стиль'} — вкладка «${ribbon.name}»`) : '';

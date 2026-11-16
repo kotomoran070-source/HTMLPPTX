@@ -4,6 +4,7 @@
  * вопрос — ответ, диаграмма Венна, вложенные круги. У каждой своя анимация появления; в миниатюрах и PDF — конечный вид.
  */
 import { defineBlock } from '../../engine/component';
+import { bindDisclosure } from '../../engine/disclosure';
 import { asArray, styleAttr, t } from '../../engine/html';
 import { ea } from '../../engine/marks';
 import type { Block } from '../../types';
@@ -222,24 +223,7 @@ defineBlock<ItemsProps>('faq', {
       + `<div class="fq-a"><div>${text(m, 'p')}</div></div></div>`).join('')}</div>`;
   },
   mount(el) {
-    const toggle = (q: HTMLElement) => {
-      if (document.body.classList.contains('editing') && !document.body.classList.contains('st-previewing')) return;
-      const item = q.closest('.fq-item');
-      const open = !item?.classList.contains('open');
-      item?.classList.toggle('open', open);
-      q.setAttribute('aria-expanded', String(open));
-    };
-    const onClick = (e: Event) => {
-      const q = (e.target as Element).closest<HTMLElement>('.fq-q');
-      if (q && el.contains(q)) toggle(q);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      const q = (e.target as Element).closest<HTMLElement>('.fq-q');
-      if (q && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(q); }
-    };
-    el.addEventListener('click', onClick);
-    el.addEventListener('keydown', onKey);
-    return () => { el.removeEventListener('click', onClick); el.removeEventListener('keydown', onKey); };
+    return bindDisclosure(el, '.fq-q', '.fq-item');
   },
 });
 

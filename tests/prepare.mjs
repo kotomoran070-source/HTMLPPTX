@@ -25,6 +25,8 @@
 //   chat     — чат «Агент» на подставном Claude: два слайда с текстом.
 //   nslide   — новый слайд из надписей и «Разобрать на объекты» с надписями.
 //   lst      — рамка выделения по тексту надписей, список у строки под курсором, Enter в пункте.
+//   cards    — карточки: своя заливка, прозрачность, раскрытие по щелчку; шаги в ряд, столбцом и стрелками;
+//              переливающиеся карточки с цветами и скоростью.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -551,5 +553,32 @@ slides:
     template: canvas
     free:
       - {type: text, text: "Второй слайд", place: {x: 80, y: 80, w: 600}}
+`);
+// cards — карточки (заливка, прозрачность, раскрытие), шаги трёх видов, переливание вёрстки
+fs.mkdirSync(path.join(dir, 'cards'), { recursive: true });
+fs.writeFileSync(path.join(dir, 'cards', 'deck.yaml'), `title: Карточки и шаги
+slides:
+  - id: cards
+    template: canvas
+    free:
+      - {type: card, title: Обычная, text: Вид карточек темы, place: {x: 60, y: 60, w: 270}}
+      - {type: card, title: Акцент, text: "Заливка — акцент, текст светлый", fill: accent, place: {x: 350, y: 60, w: 270}}
+      - {type: card, title: Полупрозрачная, text: "Карточка темы, прозрачность 50 %", fillOpacity: 0.5, place: {x: 640, y: 60, w: 270}}
+      - {type: card, title: Своя тёмная, text: "#0F172A, прозрачность 20 %", fill: "#0F172A", fillOpacity: 0.8, place: {x: 930, y: 60, w: 290}}
+      - {type: card, title: "Раскрывается по щелчку", text: "Этот текст виден после щелчка по заголовку.", reveal: true, place: {x: 60, y: 300, w: 420}}
+      - {type: card, title: "Светлый акцент", text: "fill: soft", fill: soft, place: {x: 520, y: 300, w: 300}}
+  - id: steps
+    template: canvas
+    free:
+      - {type: pipeline, steps: [{title: Заявка, sub: онлайн}, {title: Согласование, sub: 1 день}, {title: Работа, sub: по плану}, {title: Сдача, sub: акт и отчёт}], place: {x: 60, y: 40, w: 760}}
+      - {type: pipeline, layout: arrows, steps: [{title: Заявка, sub: онлайн}, {title: Согласование, sub: 1 день}, {title: Работа, sub: по плану}, {title: Сдача, sub: акт и отчёт}], place: {x: 60, y: 200, w: 760}}
+      - {type: pipeline, layout: column, steps: [{title: Заявка, sub: "Клиент оставляет заявку на сайте или по телефону"}, {title: Согласование, sub: "Менеджер уточняет детали в течение дня"}, {title: Работа, sub: "Команда выполняет работы по плану"}, {title: Сдача, sub: "Акт и отчёт"}], place: {x: 860, y: 40, w: 380}}
+  - id: flow
+    template: canvas
+    free:
+      - {type: html, html: '<div class="kt-glow"><div><div data-t="0" class="kt-eyebrow"></div><div data-t="1" style="font-size:28px;font-weight:700;line-height:1.2"></div><div data-t="2" style="font-size:17px;line-height:1.45;color:var(--tx2)"></div></div></div>', texts: [Главное, Цвета темы, Как было], place: {x: 60, y: 80, w: 360, h: 230}}
+      - {type: html, flow: sunset, flowSpeed: 2, html: '<div class="kt-glow"><div><div data-t="0" class="kt-eyebrow"></div><div data-t="1" style="font-size:28px;font-weight:700;line-height:1.2"></div><div data-t="2" style="font-size:17px;line-height:1.45;color:var(--tx2)"></div></div></div>', texts: [Главное, Закат ×2, flow и flowSpeed], place: {x: 460, y: 80, w: 360, h: 230}}
+      - {type: html, flow: ocean, html: '<div class="kt-glass"><i class="kt-blob a"></i><i class="kt-blob b"></i><div class="kt-pane"><div data-t="0" class="kt-eyebrow"></div><div data-t="1" style="font-size:28px;font-weight:700"></div></div></div>', texts: [Новое, Стекло «Океан»], place: {x: 860, y: 60, w: 380, h: 280}}
+      - {type: html, html: '<div class="plain"><b data-t="0"></b></div>', texts: [Простая вёрстка], place: {x: 60, y: 420, w: 360, h: 80}}
 `);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));
