@@ -1,4 +1,4 @@
-// Правка и сохранение: текст на месте → deck.yaml, картинки → assets/, новая презентация, корзина, импорт HTML
+// Правка и сохранение: текст на месте → deck.yaml, картинки → assets/, новая презентация, корзина, импорт HTML; равные промежутки
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
@@ -233,4 +233,49 @@ test('правка рядом не создаёт заново видео, 3D-м
   await page.keyboard.press('Control+z');
   expect(await waitFile(() => readDeck('tpl') === before)).toBe(true);
   expect(errors).toEqual([]);
+});
+
+test('равные промежутки: третья фигура прилипает к промежутку соседей, стрелки в обоих; с Alt — нет', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'spacing');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'deck.yaml'), `title: Промежутки
+slides:
+  - template: canvas
+    free:
+      - {type: shape, id: a, kind: rect, fill: accent, place: {x: 80, y: 220, w: 300, h: 260}}
+      - {type: shape, id: b, kind: rect, fill: accent, place: {x: 460, y: 220, w: 300, h: 260}}
+      - {type: shape, id: c, kind: rect, fill: accent, place: {x: 880, y: 260, w: 300, h: 260}}
+`);
+  try {
+    await page.goto('/?deck=spacing&studio');
+    const slide = page.locator('#st-canvas .slide.on');
+    await expect(slide.locator('[data-free]')).toHaveCount(3);
+    const k = (await slide.boundingBox())!.width / 1280;
+    const c = slide.locator('[data-free]').nth(2);
+    await c.click();
+    // Тянем c влево на 37 px слайда: промежуток b–c 83 — в пределах 6 px от 80 (a–b)
+    const drag = async (alt: boolean) => {
+      const bb = (await c.boundingBox())!;
+      await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
+      await page.mouse.down();
+      if (alt) await page.keyboard.down('Alt');
+      for (let i = 1; i <= 8; i++) await page.mouse.move(bb.x + bb.width / 2 - (37 * k * i) / 8, bb.y + bb.height / 2);
+    };
+    await drag(true);
+    await expect(page.locator('.edguides .gsp')).toHaveCount(0);
+    await page.mouse.up();
+    await page.keyboard.up('Alt');
+    expect(await waitFile(() => /id: c[^\n]*x: 843/.test(readDeck('spacing')))).toBe(true);
+    await page.keyboard.press('Control+Z');
+    expect(await waitFile(() => /id: c[^\n]*x: 880/.test(readDeck('spacing')))).toBe(true);
+    await drag(false);
+    await expect(page.locator('.edguides .gsp.x')).toHaveCount(2);
+    await page.mouse.up();
+    await expect(page.locator('.edguides .gsp')).toHaveCount(0);
+    expect(await waitFile(() => /id: c[^\n]*x: 840/.test(readDeck('spacing')))).toBe(true);
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

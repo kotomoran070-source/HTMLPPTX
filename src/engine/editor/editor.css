@@ -324,6 +324,15 @@ body.editing .stage .free.auto-h:empty, body.editing .stage .free > p:empty { mi
 .edguides i { position: fixed; pointer-events: none; background: #EC4899; }
 .edguides .gv { width: 1px; }
 .edguides .gh { height: 1px; }
+/* Равный промежуток (spacing.ts): стрелка в обе стороны, тем же цветом */
+.edguides .gsp { background: linear-gradient(#EC4899, #EC4899) center / 100% 1px no-repeat; }
+.edguides .gsp.x { height: 9px; margin-top: -4.5px; }
+.edguides .gsp.y { width: 9px; margin-left: -4.5px; background-size: 1px 100%; }
+.edguides .gsp::before, .edguides .gsp::after { content: ""; position: absolute; width: 0; height: 0; border: 4.5px solid transparent; }
+.edguides .gsp.x::before { left: 0; top: 0; border-left-width: 0; border-right: 6px solid #EC4899; }
+.edguides .gsp.x::after { right: 0; top: 0; border-right-width: 0; border-left: 6px solid #EC4899; }
+.edguides .gsp.y::before { top: 0; left: 0; border-top-width: 0; border-bottom: 6px solid #EC4899; }
+.edguides .gsp.y::after { bottom: 0; left: 0; border-bottom-width: 0; border-top: 6px solid #EC4899; }
 
 /* Панель блока */
 .edblock {

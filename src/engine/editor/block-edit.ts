@@ -10,6 +10,7 @@ import { H, W } from '../deck-view';
 import { esc } from '../html';
 import { angleOf, placeOf, type Place } from '../render';
 import { ContentFit, minSize } from './fit';
+import { equalGaps, spacingSnap, type Box, type Gap } from './spacing';
 
 /**
  * Сохраняет ли объект пропорции при изменении размера (углы рамки, поля «Ширина / Высота»).
@@ -93,7 +94,7 @@ export class BlockEditor {
    * На время одного перетаскивания: линии прилипания и рамка сцены. Другие объекты в это время не двигаются —
    * мерить их на каждом шаге незачем (каждый замер после сдвига — лишний пересчёт раскладки всей страницы)
    */
-  private gesture: { lines?: { v: number[]; h: number[] }; stage?: DOMRect } = {};
+  private gesture: { lines?: { v: number[]; h: number[] }; others?: (Box & { line: boolean })[]; stage?: DOMRect } = {};
   private guidesHtml = '';
   private dragging = false;
   /** Объект выделен нажатием мыши (перед click) */
@@ -1163,22 +1164,31 @@ export class BlockEditor {
 
   // ---------------- прилипание ----------------
 
-  /** Линии, к которым прилипают края: края и центр слайда, поля, другие свободные объекты. */
-  private lines(): { v: number[]; h: number[] } {
-    const extra = extraLines();
-    const v = [0, 64, W / 2, W - 64, W, ...extra.v];
-    const h = [0, 48, H / 2, H - 48, H, ...extra.h];
+  /** Другие свободные объекты слайда (не тянутые) — прямоугольниками; line — соединительная линия */
+  private others(): (Box & { line: boolean })[] {
     const s = this.sel;
     const list = this.slide().free ?? [];
     const own = new Set(this.members.filter((m) => m.free).map((m) => Number(m.free![3])));
+    const out: (Box & { line: boolean })[] = [];
     list.forEach((b, i) => {
       if (s?.free && own.has(i)) return;
       const p = placeOf(b);
       const el = this.host.stage().querySelector(`.slide.on [data-free='${JSON.stringify(['slides', this.slideIndex(), 'free', i])}']`) as HTMLElement | null;
       const ph = p.h ?? (el ? this.measure(el).h! : 0);
-      v.push(p.x, p.x + p.w / 2, p.x + p.w);
-      h.push(p.y, p.y + ph / 2, p.y + ph);
+      out.push({ x: p.x, y: p.y, w: p.w, h: ph, line: isConnector(b) });
     });
+    return out;
+  }
+
+  /** Линии, к которым прилипают края: края и центр слайда, поля, другие свободные объекты. */
+  private lines(): { v: number[]; h: number[] } {
+    const extra = extraLines();
+    const v = [0, 64, W / 2, W - 64, W, ...extra.v];
+    const h = [0, 48, H / 2, H - 48, H, ...extra.h];
+    for (const o of (this.gesture.others ??= this.others())) {
+      v.push(o.x, o.x + o.w / 2, o.x + o.w);
+      h.push(o.y, o.y + o.h / 2, o.y + o.h);
+    }
     return { v, h };
   }
 
@@ -1199,10 +1209,19 @@ export class BlockEditor {
       return r;
     }
     const L = (this.gesture.lines ??= this.lines());
+    // Равные промежутки — среди фигур, надписей, картинок; соединительные линии промежутков не задают
+    const boxes = (this.gesture.others ??= this.others()).filter((o) => !o.line);
     const sx = this.best([r.x, r.x + r.w / 2, r.x + r.w], L.v);
     const sy = this.best([r.y, r.y + r.h / 2, r.y + r.h], L.h);
-    const out = { ...r, x: r.x + (sx?.d ?? 0), y: r.y + (sy?.d ?? 0) };
-    this.drawGuides(sx ? [sx.at] : [], sy ? [sy.at] : []);
+    // Ближе то, к чему прилипнуть: край или равный промежуток. Линия края — только если объект на ней
+    const pick = (edge: { d: number; at: number } | null, gap: { d: number } | null) => {
+      const d = gap && (!edge || Math.abs(gap.d) < Math.abs(edge.d)) ? gap.d : edge?.d ?? 0;
+      return { d, line: edge && Math.abs(edge.d - d) < 0.5 ? [edge.at] : [] };
+    };
+    const px = pick(sx, spacingSnap(r, boxes, 'x', SNAP));
+    const py = pick(sy, spacingSnap(r, boxes, 'y', SNAP));
+    const out = { ...r, x: r.x + px.d, y: r.y + py.d };
+    this.drawGuides(px.line, py.line, [...equalGaps(out, boxes, 'x'), ...equalGaps(out, boxes, 'y')]);
     return out;
   }
 
@@ -1235,11 +1254,16 @@ export class BlockEditor {
     return out;
   }
 
-  private drawGuides(v: number[], h: number[]): void {
+  private drawGuides(v: number[], h: number[], gaps: Gap[] = []): void {
     const sr = (this.gesture.stage ??= this.host.stage().getBoundingClientRect());
     const k = sr.width / W;
+    // Стрелка равного промежутка: от края до края соседей, поперёк — по середине их общей части
+    const gap = (g: Gap) => (g.axis === 'x'
+      ? `<i class="gsp x" style="left:${sr.left + g.from * k}px;top:${sr.top + g.at * k}px;width:${(g.to - g.from) * k}px"></i>`
+      : `<i class="gsp y" style="top:${sr.top + g.from * k}px;left:${sr.left + g.at * k}px;height:${(g.to - g.from) * k}px"></i>`);
     this.setGuides(v.map((x) => `<i class="gv" style="left:${sr.left + x * k}px;top:${sr.top}px;height:${sr.height}px"></i>`).join('')
-      + h.map((y) => `<i class="gh" style="top:${sr.top + y * k}px;left:${sr.left}px;width:${sr.width}px"></i>`).join(''));
+      + h.map((y) => `<i class="gh" style="top:${sr.top + y * k}px;left:${sr.left}px;width:${sr.width}px"></i>`).join('')
+      + gaps.map(gap).join(''));
   }
 
   /** Направляющие — только когда они изменились: на большей части пути они те же (или их нет) */
