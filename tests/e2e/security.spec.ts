@@ -1,6 +1,6 @@
 // Безопасность чужой презентации: разметка HTML-блока и SVG-определений (engine/sanitize.ts) не исполняет ничего
 // ни в показе, ни в студии — ни сама (mXSS, обработчики), ни по щелчку (javascript: в адресах, SVG-анимация адреса);
-// незакрытая разметка одного слайда не «съедает» следующие (engine/deck-view.ts, build)
+// незакрытая разметка одного слайда не «съедает» следующие (engine/deck-view.ts, build); политика CSP страниц (PAGE_CSP)
 import { expect, test, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -109,4 +109,27 @@ test('файлы презентации на адресе программы: HT
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('страницы студии и показа: политика CSP; внутри чужой страницы студия не открывается, внутри своей — да', async ({ page, baseURL }) => {
+  const r = await page.goto('/?deck=tpl&studio');
+  const csp = r?.headers()['content-security-policy'] ?? '';
+  for (const d of ["object-src 'none'", "base-uri 'none'", "form-action 'self'", "frame-ancestors 'self'"]) expect(csp).toContain(d);
+  await expect(page.locator('#st-canvas .slide').first()).toBeAttached();
+  // Тот же сервер под другим именем — другой адрес (чужая страница): рамка со студией не открывается
+  const own = new URL(baseURL!);
+  const other = `${own.protocol}//127.0.0.1:${own.port}`;
+  const frameIn = async (host: string) => {
+    await page.goto(`${host}/?deck=tpl`);
+    await page.evaluate((u) => new Promise<void>((done) => {
+      const f = Object.assign(document.createElement('iframe'), { src: u, id: 'zz-frame' });
+      f.addEventListener('load', () => done());
+      document.body.appendChild(f);
+    }), `${own.origin}/?deck=tpl&studio`);
+    return page.frameLocator('#zz-frame').locator('#st-canvas');
+  };
+  await expect(await frameIn(own.origin)).toBeAttached();
+  const blocked = await frameIn(other);
+  await page.waitForTimeout(1000);
+  await expect(blocked).toHaveCount(0);
 });

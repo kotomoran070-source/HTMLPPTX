@@ -21,7 +21,7 @@ import { createDecksCore, type DecksCore, type Runner } from './core';
 import { MIME } from './deck-files';
 import { createEvents } from './events';
 import { startFrameHost } from './frame-host';
-import { DECK_ACTIVE_FILE, DECK_FILE_CSP, WORKER_CSP, createHandler } from './http';
+import { DECK_ACTIVE_FILE, DECK_FILE_CSP, PAGE_CSP, WORKER_CSP, createHandler } from './http';
 import type { KeyStore } from './agent';
 import { createMcp, serveStdio } from './mcp';
 import { announce } from './running';
@@ -321,7 +321,7 @@ export async function startServer(o: ServeOptions): Promise<Served> {
       }
       const url = (req.url ?? '/').split('?')[0];
       if (url === '/' || url === '/index.html') {
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' });
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': PAGE_CSP });
         return void res.end(req.method === 'HEAD' ? undefined : pageFor(new URL(req.url ?? '/', 'http://local').searchParams));
       }
       if (url.startsWith('/assets/')) {

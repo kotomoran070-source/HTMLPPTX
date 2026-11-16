@@ -37,6 +37,13 @@ export const WORKER_CSP = "default-src 'none'; script-src 'self' blob:; connect-
  */
 export const DECK_ACTIVE_FILE = /\.(x?html?|svgz?|xml|xslt?|mht(ml)?)$/i;
 export const DECK_FILE_CSP = 'sandbox';
+/**
+ * Страницы студии и показа (index.html). Скрипты не ограничены — их запускают встраивания и песочницы,
+ * а рамки srcdoc и blob: наследуют эту политику. Закрыто то, что не нужно самой программе и могло бы пригодиться
+ * чужой вёрстке: плагины (<object>, <embed>), подмена адресов через <base>, отправка форм на чужие сайты,
+ * показ студии внутри чужой страницы (её API — на этом компьютере, щелчки по ней подставили бы чужие)
+ */
+export const PAGE_CSP = "object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'";
 /** Данные для страниц: список презентаций и одна презентация (src/engine/deck-source.ts) */
 export const DECKS_URL = '/__slideria/decks';
 export const DECK_URL = '/__slideria/deck/';

@@ -9,7 +9,7 @@ import path from 'node:path';
 import type { Plugin } from 'vite';
 import { createDecksCore, type DecksCore } from '../server/core';
 import { createEvents } from '../server/events';
-import { DECK_ACTIVE_FILE, DECK_FILE_CSP, WORKER_CSP, createHandler } from '../server/http';
+import { DECK_ACTIVE_FILE, DECK_FILE_CSP, PAGE_CSP, WORKER_CSP, createHandler } from '../server/http';
 import { announce } from '../server/running';
 import { watchDecks } from '../server/watch';
 import { checkFirewall, checkMessage } from './firewall.mjs';
@@ -71,6 +71,12 @@ export function decksPlugin(opts: DecksOptions): Plugin {
       // Песочница скриптов пользователя (src/studio/script-worker.ts): как у программы (server/serve.ts)
       s.middlewares.use((req, res, next) => {
         if (/\/script-worker\.ts\?worker_file/.test(req.url ?? '')) res.setHeader('Content-Security-Policy', WORKER_CSP);
+        next();
+      });
+      // Страницы студии и показа — со своей политикой, как у программы (server/http.ts, PAGE_CSP)
+      s.middlewares.use((req, res, next) => {
+        const p = (req.url ?? '').split('?')[0];
+        if (p === '/' || p === '/index.html') res.setHeader('Content-Security-Policy', PAGE_CSP);
         next();
       });
       // Страницы из папки презентаций (HTML, SVG, XML) — в песочнице, как у программы (server/http.ts)
