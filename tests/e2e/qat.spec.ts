@@ -40,12 +40,14 @@ test('панель быстрого доступа: правый щелчок п
   await page.mouse.click(redo.x + redo.width / 2, redo.y + redo.height / 2, { button: 'right' });
   await menu(page, 'Удалить с панели быстрого доступа');
   expect(await cmds(page)).toEqual(['undo', 'show.current', 'format.painter', 'edit.find']);
-  // «▾» закрывается вторым щелчком по нему же, третий открывает снова
+  // «▾» закрывается вторым щелчком по нему же, третий открывает снова; открыто — стрелка вверх, как у «Свернуть ленту»
   await page.locator('.st-qat-more').click();
   await expect(page.locator('.st-qat-more')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('.st-qat-more .ic')).toHaveCSS('transform', /^matrix\(-1, /);
   await page.locator('.st-qat-more').click();
   await expect(page.locator('.st-qat-more')).toHaveAttribute('aria-expanded', 'false');
   await expect(page.locator('.st-menu')).toHaveCount(0);
+  await expect(page.locator('.st-qat-more .ic')).toHaveCSS('transform', 'none');
   // «▾»: частые команды галочками («Найти» — на панели, но в «▾» её нет: она и так под Ctrl+F)
   await page.locator('.st-qat-more').click();
   await expect(page.locator('.st-menu [aria-checked="true"]')).toHaveCount(3);

@@ -4,8 +4,13 @@
 .st-qa.txt { width: auto; padding: 0 8px; font: 500 12px var(--font); white-space: nowrap; }
 .st-qa.active, .st-qa[aria-pressed="true"] { background: var(--acs); color: var(--ach); }
 .st-qa[aria-expanded="true"] { background: color-mix(in srgb, var(--tx) 9%, transparent); color: var(--tx); }
-.st-qa.st-qat-more { width: 18px; color: var(--mu); }
-.st-qa.st-qat-more .ic { width: 13px; height: 13px; }
+/* «▾» — та же стрелка, что «Свернуть ленту» у вкладок (studio.css, .st-ribbon-toggle), только меньше:
+   тот же цвет и наведение, меню открыто — стрелка повёрнута вверх */
+.st-qa.st-qat-more { width: 22px; color: var(--mu); }
+.st-qa.st-qat-more .ic { width: 13px; height: 13px; stroke-width: 2.2; transition: transform .2s; }
+.st-qa.st-qat-more:hover:not(:disabled) { background: var(--acs); color: var(--ach); }
+.st-qa.st-qat-more[aria-expanded="true"] { background: none; color: var(--mu); }
+.st-qa.st-qat-more[aria-expanded="true"] .ic { transform: rotate(180deg); }
 
 /* В браузере — в строке вкладок, перед «Файлом»; отделена чертой */
 .st-top .st-qat { flex: none; margin-right: 2px; }
