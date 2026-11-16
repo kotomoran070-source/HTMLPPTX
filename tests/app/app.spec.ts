@@ -216,7 +216,12 @@ test('визуализатор в программе: микрофон и зву
       await win.mouse.click(box.x + r.x * k, box.y + r.y * k);
       await expect(viz.locator(`#${id}`)).toHaveAttribute('title', /^Нет доступа к звуку/);
     }
-    expect(await app.evaluate(() => (globalThis as { asked?: string[] }).asked)).toEqual(['Слайд просит доступ к микрофону', 'Слайд просит звук компьютера']);
+    // Звук компьютера отдаёт только Windows; на других системах — отказ без вопроса (и без изображения экрана)
+    expect(await app.evaluate(() => (globalThis as { asked?: string[] }).asked)).toEqual(
+      process.platform === 'win32' ? ['Слайд просит доступ к микрофону', 'Слайд просит звук компьютера'] : ['Слайд просит доступ к микрофону'],
+    );
+    // Отказ — это отказ: проверка разрешения смотрит на ответ, а не на то, что спрашивали
+    expect(await viz.locator('body').evaluate(() => navigator.permissions.query({ name: 'microphone' as PermissionName }).then((s) => s.state))).not.toBe('granted');
   } finally {
     await app.close();
     fs.rmSync(tmp, { recursive: true, force: true });

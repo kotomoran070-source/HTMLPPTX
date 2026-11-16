@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { app, BrowserWindow, Menu, WebContentsView, desktopCapturer, dialog, ipcMain, nativeTheme, safeStorage, screen, session, shell, utilityProcess } from 'electron';
+import { app, BrowserWindow, Menu, WebContentsView, dialog, ipcMain, nativeTheme, safeStorage, screen, session, shell, utilityProcess, webContents } from 'electron';
 import { FIX_FLAG, allowFirewall, runFirewallFix } from './firewall.mjs';
 import { flush, mcpInput } from './mcp-input.mjs';
 import { shootPages } from './shot.mjs';
@@ -675,44 +675,60 @@ function downloads() {
  * Камера, местоположение, уведомления, USB и прочее — запрещены.
  */
 const ALLOWED = new Set(['clipboard-read', 'clipboard-sanitized-write', 'fullscreen', 'window-management', 'fileSystem', 'pointerLock', 'keyboardLock', 'mediaKeySystem']);
+/** Вопросы — по одному на презентацию за запуск: разрешение одной не переходит на другую (чужую) */
 const asked = new Map();
-async function askOnce(key, message, detail) {
+/** Ответы, которые уже есть: проверка разрешения (синхронная) смотрит на ответ, а не на то, что спрашивали */
+const answered = new Map();
+async function askOnce([kind, message, detail], deck) {
+  const key = `${kind}:${deck}`;
   if (!asked.has(key)) {
     const win = BrowserWindow.getFocusedWindow() ?? main;
-    asked.set(key, dialog.showMessageBox(win, { type: 'question', buttons: ['Разрешить', 'Запретить'], defaultId: 0, cancelId: 1, message, detail })
-      .then((r) => { log('Разрешение', key, r.response === 0 ? 'дано' : 'не дано'); return r.response === 0; }));
+    asked.set(key, dialog.showMessageBox(win, { type: 'question', buttons: ['Разрешить', 'Запретить'], defaultId: 0, cancelId: 1, message, detail: deck ? `Презентация «${deck}». ${detail}` : detail })
+      .then((r) => {
+        const ok = r.response === 0;
+        answered.set(key, ok);
+        log('Разрешение', key, ok ? 'дано' : 'не дано');
+        return ok;
+      }));
   }
   return asked.get(key);
 }
-const MIC = ['mic', 'Слайд просит доступ к микрофону', 'Живой слайд или вставка хочет слышать микрофон — например, аудиовизуализатор. Разрешение действует до закрытия программы.'];
-const SYS = ['sys', 'Слайд просит звук компьютера', 'Живой слайд или вставка хочет слышать звук, который играет на компьютере, — например, аудиовизуализатор под музыку. Разрешение действует до закрытия программы.'];
+const MIC = ['mic', 'Слайд просит доступ к микрофону', 'Живой слайд или вставка хочет слышать микрофон — например, аудиовизуализатор. Разрешение действует для этой презентации до закрытия программы.'];
+const SYS = ['sys', 'Слайд просит звук компьютера', 'Живой слайд или вставка хочет слышать звук, который играет на компьютере, — например, аудиовизуализатор под музыку. Изображение экрана слайд не получает. Разрешение действует для этой презентации до закрытия программы.'];
+/** Презентация окна, из которого просят: ?deck=… в адресе страницы */
+function deckOf(wc) {
+  try { return new URL(wc?.getURL?.() ?? '').searchParams.get('deck') ?? ''; } catch { return ''; }
+}
 
 function permissions() {
   const ours = (o) => !!origin && typeof o === 'string' && o.replace(/\/$/, '') === origin;
   const audioOnly = (types) => Array.isArray(types) && types.length > 0 && types.every((t) => t === 'audio');
-  session.defaultSession.setPermissionCheckHandler((_wc, permission, requestingOrigin, details) => {
+  session.defaultSession.setPermissionCheckHandler((wc, permission, requestingOrigin, details) => {
     if (permission === 'local-fonts') return ours(requestingOrigin);
-    if (permission === 'media') return details?.mediaType !== 'video' && asked.has(MIC[0]);
+    if (permission === 'media') return details?.mediaType !== 'video' && answered.get(`${MIC[0]}:${deckOf(wc)}`) === true;
     return ALLOWED.has(permission);
   });
-  session.defaultSession.setPermissionRequestHandler((_wc, permission, done, details) => {
+  session.defaultSession.setPermissionRequestHandler((wc, permission, done, details) => {
     if (permission === 'local-fonts') return done(ours(new URL(details.requestingUrl).origin));
     // Только звук: камере в программе делать нечего. Захват экрана (getDisplayMedia) приходит без типов —
     // пропускаем к обработчику ниже, вопрос задаёт он
     if (permission === 'media') {
       const types = details.mediaTypes ?? [];
       if (!types.length) return done(true);
-      return audioOnly(types) ? void askOnce(...MIC).then(done) : done(false);
+      return audioOnly(types) ? void askOnce(MIC, deckOf(wc)).then(done) : done(false);
     }
     done(ALLOWED.has(permission));
   });
-  // «Звук вкладки или экрана» из слайда: в программе — звук всего компьютера (Windows умеет отдавать его напрямую)
-  session.defaultSession.setDisplayMediaRequestHandler((_req, callback) => {
+  // «Звук вкладки или экрана» из слайда — звук всего компьютера. Отдать его умеет только Windows; изображение —
+  // не экрана, а самого окна, из которого просят (без видео браузер звук не даёт): другие программы слайд не видит.
+  // На других системах звука компьютера нет — отказ сразу, без вопроса и без экрана
+  session.defaultSession.setDisplayMediaRequestHandler((req, callback) => {
     void (async () => {
       try {
-        if (!await askOnce(...SYS)) return callback({});
-        const [src] = await desktopCapturer.getSources({ types: ['screen'] });
-        callback(process.platform === 'win32' ? { video: src, audio: 'loopback' } : { video: src });
+        if (process.platform !== 'win32' || !req.frame) return callback({});
+        const wc = webContents.fromFrame(req.frame) ?? null;
+        if (!await askOnce(SYS, deckOf(wc))) return callback({});
+        callback({ video: req.frame, audio: 'loopback' });
       } catch (e) {
         log('Захват звука:', e?.message ?? e);
         callback({});
