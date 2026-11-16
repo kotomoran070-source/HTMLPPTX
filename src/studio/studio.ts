@@ -43,6 +43,8 @@ import { setupMarquee } from './marquee';
 import { canExplode, explodeSlide } from './explode';
 import { blockName, setSnapLines } from '../engine/editor/block-edit';
 import { blobToDataUrl } from '../engine/editor/persist';
+import { pasteMarkup, type PasteMode } from '../engine/editor/paste-html';
+import { showPasteOptions } from '../engine/editor/paste-options';
 import { onLibraryError } from './user-library';
 import { addEffect, addTemplate, assetUrls, findEntrance, deckWithTemplate, listTemplates, pickCss, pickDefs, removeTemplate, replaceUrls, type Template } from './templates';
 import { animCommands, animPanelHtml, animTabHtml, bindDelayField, bindFxGallery, syncAnimTab, type AnimHost } from './anim-tab';
@@ -1289,14 +1291,49 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     ed.selectMany(i, blocks.map((_b, k) => from + k));
   }
 
+  /** Ячейки из Excel или таблицы PowerPoint (табуляции, несколько строк): строки ячеек; не таблица — пусто */
+  const gridOf = (text: string): string[][] => {
+    const grid = text.includes('\t') ? parseGrid(text.replace(/\n+$/, '')) : [];
+    return grid.length > 1 && grid[0].length > 1 ? grid : [];
+  };
+
+  /**
+   * Оформленный текст из Word, браузера, почты — надписью «Использовать тему» (структура: жирный, списки, ссылки;
+   * цвета и шрифты — темы), у неё — «Параметры вставки». Другой режим — та же надпись заново, одним шагом отмены
+   */
+  function pasteRich(html: string, plain: string): void {
+    const fontOk = (n: string) => (Array.isArray(deck.fonts) ? deck.fonts : []).some((f) => f.name === n);
+    const markup = (m: PasteMode) => pasteMarkup(html, plain, m, { fontOk });
+    const first = markup('theme');
+    if (!first.trim()) return pasteText(plain);
+    const i = index;
+    const merge = `paste:${Date.now()}`;
+    let at = -1;
+    if (!ed.commit((d) => {
+      const s = d.slides[i];
+      s.free = Array.isArray(s.free) ? s.free : [];
+      s.free.push({ type: 'text', text: first, place: { x: 340, y: 300, w: 600 } });
+      at = s.free.length - 1;
+    }, { rebuild: true, merge, hold: true })) return;
+    ed.selectFree(i, at);
+    const path = ['slides', i, 'free', at];
+    showPasteOptions(() => (index === i ? freeEl(path)?.getBoundingClientRect() ?? null : null), (m) => {
+      const text = markup(m);
+      if (ed.commit((d) => {
+        const b = d.slides[i]?.free?.[at] as { text?: string } | undefined;
+        if (b) b.text = text;
+      }, { rebuild: true, merge, hold: true })) ed.selectFree(i, at);
+    });
+  }
+
   function pasteText(text: string): void {
     const t = text.replace(/\r/g, '').trim().slice(0, 5000);
     if (!t) return;
     const i = index;
     let at = -1;
     // Ячейки из Excel или таблицы PowerPoint (табуляции, несколько строк) — таблицей, первая строка — шапка
-    const grid = text.includes('\t') ? parseGrid(text.replace(/\n+$/, '')) : [];
-    if (grid.length > 1 && grid[0].length > 1) {
+    const grid = gridOf(text);
+    if (grid.length) {
       const n = Math.max(...grid.map((r) => r.length));
       const fit = (r: string[]) => [...r, ...Array.from({ length: n - r.length }, () => '')];
       if (ed.commit((d) => {
@@ -1339,9 +1376,11 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       return;
     }
     const text = data.getData('text/plain');
-    if (text.trim()) {
+    const html = data.getData('text/html');
+    if (text.trim() || html.trim()) {
       e.preventDefault();
-      pasteText(text);
+      if (html.trim() && !gridOf(text).length) pasteRich(html, text);
+      else pasteText(text);
     }
   });
   // Картинка, брошенная мимо слайда (на серое поле), тоже встаёт на слайд

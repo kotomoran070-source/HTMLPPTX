@@ -11,6 +11,8 @@ import { gradientPanel, type GradValue } from './gradient-edit';
 import { colorCss, customMarker, FONTS, LIST_MARKERS, listCss, markerImage, splitDecls, SWATCHES, textStyleCss, THEME_COLORS, type TextStyle } from '../text-style';
 import { plainMarkup, SEL_A, SEL_B, setListKindAt, toggleList, toggleListAt, toMarkup } from './serialize';
 import { formatSpanAttrs, parseSpanAttrs, spanCss, type SpanAttrs } from '../span-attrs';
+import { pasteHtml, type PasteMode } from './paste-html';
+import { hidePasteOptions, showPasteOptions } from './paste-options';
 
 /** Что текстовому редактору нужно от основного редактора. */
 /** Курсор на первой (up) или последней строке поля; пустое поле — на обеих */
@@ -287,9 +289,16 @@ export class TextEditor {
       }
     };
     const onPaste = (ev: ClipboardEvent) => {
-      // Вставка всегда простым текстом: чужие стили не попадают в презентацию
+      // Чужие стили в презентацию не попадают: оформленный текст — через paste-html.ts (структура и тема),
+      // поле-ключ и ячейка таблицы — простым текстом
       ev.preventDefault();
-      document.execCommand('insertText', false, ev.clipboardData?.getData('text/plain') ?? '');
+      const plain = ev.clipboardData?.getData('text/plain') ?? '';
+      const html = ev.clipboardData?.getData('text/html') ?? '';
+      if (!html.trim() || this.s?.isKey || el.matches('td, th')) {
+        document.execCommand('insertText', false, plain);
+        return;
+      }
+      this.pasteRich(el, html, plain);
     };
     const onBlur = () => setTimeout(() => {
       if (this.s?.el !== el) return;
@@ -297,7 +306,8 @@ export class TextEditor {
       // Фокус ушёл в панель, палитру или всплывающее поле — правка продолжается
       // Меню правого щелчка студии (.st-menu) — тоже: «Вставить» вернётся в этот текст
       // Фокус уже снова в тексте (палитра вернула его после цвета) — тоже
-      if (a && (el.contains(a) || this.bar.contains(a) || this.colors.contains(a) || this.menu.contains(a) || a.closest('.edpop, .st-menu'))) return;
+      // «Параметры вставки» (.ed-po-pop) — тоже: выбор вернёт фокус в текст
+      if (a && (el.contains(a) || this.bar.contains(a) || this.colors.contains(a) || this.menu.contains(a) || a.closest('.edpop, .st-menu, .ed-po-pop'))) return;
       this.finish(true);
     }, 0);
     const onInput = () => this.position();
@@ -336,9 +346,48 @@ export class TextEditor {
   }
 
   /** Завершает правку: сохраняет (commit) или возвращает как было. */
+  /**
+   * Вставка оформленного текста внутрь набранного: как «Использовать тему», рядом — «Параметры вставки».
+   * Вставка — командой браузера: Ctrl+Z в тексте её отменяет. Другой режим — та же вставка заново на том же месте
+   * (место — по числу знаков от начала поля: узлы после вставки уже другие)
+   */
+  private pasteRich(el: HTMLElement, html: string, plain: string): void {
+    const sel = getSelection();
+    if (!sel?.rangeCount) return;
+    const opts = { fontOk: (n: string) => !!this.host.fonts?.().some((f) => f.name === n && !f.lib && !f.sys) };
+    const insert = (mode: PasteMode) => (mode === 'text'
+      ? document.execCommand('insertText', false, plain.replace(/\r/g, ''))
+      : document.execCommand('insertHTML', false, pasteHtml(html, plain, mode, opts)));
+    const r0 = sel.getRangeAt(0);
+    const start = charsBefore(el, r0.startContainer, r0.startOffset);
+    insert('theme');
+    const caret = () => { const r = getSelection()?.getRangeAt(0); return r ? charsBefore(el, r.endContainer, r.endOffset) : start; };
+    let end = caret();
+    this.position();
+    const span = () => {
+      const r = document.createRange();
+      const [a, ao] = pointAtChars(el, start);
+      const [b, bo] = pointAtChars(el, end);
+      r.setStart(a, ao);
+      r.setEnd(b, bo);
+      return r;
+    };
+    showPasteOptions(() => (this.s?.el === el && el.isConnected ? span().getBoundingClientRect() : null), (mode) => {
+      if (this.s?.el !== el) return;
+      el.focus({ preventScroll: true });
+      const r = span();
+      getSelection()?.setBaseAndExtent(r.startContainer, r.startOffset, r.endContainer, r.endOffset);
+      insert(mode);
+      end = caret();
+      this.position();
+    });
+  }
+
   finish(save: boolean): void {
     const s = this.s;
     if (!s) return;
+    // Правка текста кончилась — «Параметры вставки» внутри него больше не нужны
+    hidePasteOptions();
     this.s = null;
     s.off();
     this.hideBar();
@@ -1842,6 +1891,27 @@ function textPoints(root: HTMLElement, r: Range): [[Node, number], [Node, number
   };
   const a = point(r.startContainer, r.startOffset, true);
   return [a, r.collapsed ? a : point(r.endContainer, r.endOffset, false)];
+}
+
+/** Сколько знаков текста поля до точки (узел, смещение) */
+function charsBefore(root: HTMLElement, node: Node, offset: number): number {
+  const r = document.createRange();
+  r.selectNodeContents(root);
+  r.setEnd(node, offset);
+  return r.toString().length;
+}
+
+/** Точка в тексте поля после n знаков: для выделения вставки, когда её узлы уже другие */
+function pointAtChars(root: HTMLElement, n: number): [Node, number] {
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let left = n;
+  let last: Text | null = null;
+  for (let t = w.nextNode() as Text | null; t; t = w.nextNode() as Text | null) {
+    if (left <= t.length) return [t, left];
+    left -= t.length;
+    last = t;
+  }
+  return last ? [last, last.length] : [root, root.childNodes.length];
 }
 
 /** Вставить узел в точку [узел, смещение] (текстовый узел делится) */
