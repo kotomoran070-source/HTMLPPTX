@@ -45,7 +45,7 @@ interface LookSlider {
   fn?(b: Block, v: unknown): Block;
   write?(v: unknown): void;
 }
-import { BOX_GLOW, boxFxCss, SHADOW_TUNE } from '../engine/box-fx';
+import { BOX_GLOW, boxFxCss, FLOW_COLORS, FLOW_KEYS, GLASS_KEYS, SHADOW_TUNE } from '../engine/box-fx';
 import { applyImageLook, applyShapeLook, blockEl, imageEl, putStyle, shapeEl } from './look-apply';
 import { B_GLOW_COLORS } from './fx-panel';
 import { getAt, setAt, type Path } from '../engine/data';
@@ -278,7 +278,8 @@ export function contextPanelsHtml(): string {
   ${group('Эффекты текста', stack(btn('text.shadow', 'text-shadow', 'Тень', { menu: true, title: 'Тень букв' }), btn('text.glow', 'text-glow', 'Свечение', { menu: true, title: 'Свечение вокруг букв' }))
     + stack(btn('text.outline', 'text-outline', 'Контур', { menu: true, title: 'Контур букв' }), btn('text.plate', 'plate', 'Плашка', { menu: true, title: 'Цветная плашка под текстом' })))}
   ${group('Эффекты фигуры', stack(btn('shape.shadow', 'shadow', 'Тень', { menu: true }), btn('shape.glow', 'glow', 'Свечение', { menu: true, title: 'Свечение по краю фигуры' }), btn('shape.radius', 'corner', 'Скругление', { menu: true }))
-    + stack(btn('shape.rotate', 'rotate', 'Поворот', { menu: true }), btn('shape.opacity', 'opacity', 'Прозрачность', { menu: true })))}
+    + stack(btn('shape.rotate', 'rotate', 'Поворот', { menu: true }), btn('shape.opacity', 'opacity', 'Прозрачность', { menu: true }))
+    + stack(btn('shape.flow', 'fx-light', 'Бегущий свет', { menu: true, title: 'По краю фигуры бежит свет' }), btn('shape.glass', 'fx-glass', 'Стекло', { menu: true, title: 'Матовое стекло: то, что под фигурой, размыто' })))}
   ${ORDER}
 </div>
 <div class="st-rpanel" data-panel="table" hidden>
@@ -758,9 +759,10 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
    * Тень и свечение с ленты — готовые варианты; подкрутка — в «Свойствах» (fx-panel.ts). Готовая тень и «Без …»
    * начинают с чистого листа (своя подкрутка сбрасывается), другой цвет свечения — с прежними размером и яркостью
    */
-  const fxGallery = (cmd: string, key: 'shadow' | 'glow', options: [unknown, string][], kind: LookKind, cls?: string) => {
+  const fxGallery = (cmd: string, key: 'shadow' | 'glow' | 'flow' | 'glass', options: [unknown, string][], kind: LookKind, cls?: string) => {
     const cur = first(kind.type)?.[key];
-    const tune: readonly string[] = key === 'shadow' ? SHADOW_TUNE : ['glowSize', 'glowOpacity'];
+    // Подкрутка эффекта: готовая тень начинает с чистого листа, у остальных ручки остаются — уходят вместе с эффектом
+    const tune: readonly string[] = key === 'shadow' ? SHADOW_TUNE : key === 'glow' ? ['glowSize', 'glowOpacity'] : (key === 'flow' ? FLOW_KEYS : GLASS_KEYS).slice(1);
     const patchOf = (v: unknown) => ({ [key]: v, ...(key === 'shadow' || v === undefined ? Object.fromEntries(tune.map((k) => [k, undefined])) : {}) });
     lookPopover(anchor(cmd), [{ cls, options: options.map(([v, label]): LookOption => ({
       label, patch: patchOf(v), on: cur === v && (key !== 'shadow' || v === undefined || !shadowTuned(first(kind.type))),
@@ -769,6 +771,11 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
   };
   /** Цвета свечения — те же, что в «Свойствах» */
   const GLOWS: [unknown, string][] = [[undefined, 'Без свечения'], ...B_GLOW_COLORS];
+  /** Бегущий свет — цвета темы и готовые градиенты, как в «Свойствах»; стекло — есть или нет */
+  const FLOWS: [unknown, string][] = [[undefined, 'Без света'], ...FLOW_COLORS];
+  const GLASSES: [unknown, string][] = [[undefined, 'Без стекла'], [true, 'Матовое стекло']];
+  /** Свет и стекло — у прямоугольника, скруглённого, капсулы и овала: у фигур PowerPoint их нет */
+  const isPlain = () => isBody() && targets('shape').every((p) => !PRESET_KINDS[(getAt(deck, p) as Block).kind as string]);
   /** Все стили рисунка: рамка и тень, растворение и сколько снимка тает */
   const stylesGallery = () => {
     const b0 = first('image');
@@ -1571,6 +1578,8 @@ export function contextCommands(h: ContextHost): Record<string, Command> {
     },
     'shape.shadow': { run: () => fxGallery('shape.shadow', 'shadow', [[undefined, 'Без тени'], ...Object.entries(IMAGE_SHADOWS).map(([v, s]) => [v, s.name] as [string, string])], SHAPE_KIND), enabled: isBody, active: () => isBody() && !!first('shape')?.shadow },
     'shape.glow': { run: () => fxGallery('shape.glow', 'glow', GLOWS, SHAPE_KIND, 'f'), enabled: isShape, active: () => isShape() && !!first('shape')?.glow },
+    'shape.flow': { run: () => fxGallery('shape.flow', 'flow', FLOWS, SHAPE_KIND, 'f'), enabled: isPlain, active: () => isPlain() && !!first('shape')?.flow },
+    'shape.glass': { run: () => fxGallery('shape.glass', 'glass', GLASSES, SHAPE_KIND, 'f'), enabled: isPlain, active: () => isPlain() && first('shape')?.glass === true },
     'shape.radius': {
       run: () => lookGallery('shape.radius', 'radius', [[0, 'Без скругления'], [8, 'Малое'], [undefined, 'Обычное'], [24, 'Большое'], [40, 'Очень большое']],
         { label: 'Своё, px', min: 0, max: 120, unit: ' px', get: (v) => (Number.isFinite(Number(v)) && v !== undefined ? Number(v) : first('shape')?.kind === 'rect' ? 0 : 16), set: (n) => n }, 'f', SHAPE_KIND),

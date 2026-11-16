@@ -2,7 +2,7 @@ import { defineBlock } from '../../engine/component';
 import { styleAttr, t } from '../../engine/html';
 import { GRADIENTS, gradColor, gradientCss, gradientOn, isGradient, type ShapeGradient } from '../../engine/gradients';
 import { ea } from '../../engine/marks';
-import { BOX_SHADOWS, boxFxCss, dropFxCss, type BoxFx } from '../../engine/box-fx';
+import { BOX_SHADOWS, boxFxCss, dropFxCss, flowColors, flowOf, glassOf, type BoxFx, type ShapeFx } from '../../engine/box-fx';
 import type { Block } from '../../types';
 import { adjText, boundsOf, PRESET_KINDS, presetGeometry } from './kinds';
 import './shape.css';
@@ -91,7 +91,7 @@ export function onColor(fill: unknown): string {
   return 'var(--tx)';
 }
 
-export interface ShapeProps extends Block, Omit<BoxFx, 'shadow'> {
+export interface ShapeProps extends Block, Omit<BoxFx, 'shadow'>, ShapeFx {
   /**
    * rect — прямоугольник, round — скруглённый, pill — капсула, ellipse — круг/овал, line — линия, arrow — стрелка;
    * фигуры PowerPoint — ключи PRESET_KINDS: diamond, triangle, star, block-arrow, callout, cylinder…
@@ -160,23 +160,40 @@ function shapeHtml(p: ShapeProps): string {
     return `<div class="shape shape-line${dash ? ` shape-${dash}` : ''}${lg ? ' shape-lg' : ''}"${styleAttr(`--c:${color};--w:${w}px`, lg && `--sg:${gradientCss({ from: lg.from, to: lg.to, angle: 90 })}`, rot, opacity, glow && `filter:${glow}`, p.style)} aria-hidden="true"><i class="shape-bar"></i>`
       + (kind === 'arrow' ? `<i class="shape-head" style="--h:${head}px"></i>` : '') + `</div>`;
   }
-  const fill = p.fill === 'gradient' ? gradientCss(p.gradient) : shapeFill(p.fill) ?? 'var(--acs)';
+  // Стекло без своей заливки — цвета карточки (светлый акцент сквозь стекло выглядел бы грязно)
+  const glass = p.glass === true && !PRESET_KINDS[kind];
+  const own = p.fill ?? (glass ? 'surface' : undefined);
+  const fill = own === 'gradient' ? gradientCss(p.gradient) : shapeFill(own) ?? 'var(--acs)';
   if (PRESET_KINDS[kind]) return presetShape(p, kind, fill, w, sg, dash, [rot, opacity]);
+  const flow = flowColors(p.flow);
   const stroke = w && !sg ? shapeColor(p.stroke) ?? 'var(--acb)' : '';
-  // Градиентный контур — кольцом поверх краёв (рамка CSS градиентом не красится)
-  const ring = w && sg ? `--sg:${gradientCss(p.strokeGradient)};--sw:${w}px` : '';
-  const fx = boxFxCss(p);
+  // Градиентный контур — кольцом поверх краёв (рамка CSS градиентом не красится); у бегущего света края — свои
+  const ring = w && sg && !flow ? `--sg:${gradientCss(p.strokeGradient)};--sw:${w}px` : '';
   const radius = kind === 'ellipse' ? '50%' : kind === 'pill' ? '9999px' : kind === 'rect' ? `${Number(p.radius) || 0}px` : `${Number.isFinite(Number(p.radius)) ? Number(p.radius) : 16}px`;
+  // Матовое стекло: заливка полупрозрачная (градиент — как есть), то, что под фигурой, размыто; светлый край и мягкая
+  // тень — если своих нет
+  const gl = glass ? glassOf(p) : null;
+  const bg = gl && !fill.includes('gradient(') ? `color-mix(in srgb, ${fill} ${Math.round(gl.opacity * 100)}%, transparent)` : fill;
+  const own3 = boxFxCss(p);
+  const fl = flow ? flowOf(p) : null;
+  const fx = own3 || (fl ? `0 18px 50px color-mix(in srgb, ${flow![0]} 22%, transparent)` : gl ? '0 24px 60px rgba(2, 6, 23, .16)' : '');
+  const pl = (p as { place?: { w?: unknown; h?: unknown } }).place;
+  const side = Math.max(Number(pl?.w) || 0, Number(pl?.h) || 0);
   const css = [
-    `background:${fill}`, `border-radius:${radius}`, `color:${p.fill === 'gradient' ? gradientOn(p.gradient) : onColor(p.fill ?? 'soft')}`,
-    stroke ? `border:${w}px ${dash ? (dash === 'dot' ? 'dotted' : 'dashed') : 'solid'} ${stroke}` : '',
+    `background:${bg}`, `border-radius:${radius}`, `color:${own === 'gradient' ? gradientOn(p.gradient) : onColor(own ?? 'soft')}`,
+    stroke ? `border:${w}px ${dash ? (dash === 'dot' ? 'dotted' : 'dashed') : 'solid'} ${stroke}` : gl && !w ? 'border:1px solid color-mix(in srgb, #fff 55%, transparent)' : '',
     fx ? `box-shadow:${fx}` : '',
+    gl ? `backdrop-filter:blur(${gl.blur}px) saturate(1.4);-webkit-backdrop-filter:blur(${gl.blur}px) saturate(1.4)` : '',
+    // Бегущий свет: цвета, толщина края, скорость; заливка — слоем поверх света (--fl-fill), скругление — на край меньше;
+    // поворачивается квадрат света со стороной в полтора большего размера фигуры
+    fl ? [`--fl-a:${flow![0]}`, `--fl-b:${flow![1]}`, `--fl-w:${fl.width}px`, `--fl-fill:${bg}`, fl.speed !== 1 ? `--fl-speed:${fl.speed}` : '',
+      `--fl-r:${radius.endsWith('%') || radius === '9999px' ? radius : `max(0px, calc(${radius} - ${fl.width}px))`}`, side ? `--fl-d:${Math.round(side * 1.5)}px` : ''].filter(Boolean).join(';') : '',
     ring, rot, opacity,
   ].filter(Boolean).join(';');
   const v = p.valign === 'top' || p.valign === 'bottom' ? ` v-${p.valign}` : '';
   // Градиент акцента (от акцента ко второму цвету) переливается вместе с темой (theme.accentFlow)
-  const duo = p.fill === 'gradient' && isGradient(p.gradient) && p.gradient.from === 'accent' && p.gradient.to === 'accent2';
-  return `<div class="shape shape-${kind}${v}${ring ? ' shape-gs' : ''}${duo ? ' shape-duo' : ''}"${styleAttr(css, p.style)}>`
+  const duo = own === 'gradient' && isGradient(p.gradient) && p.gradient.from === 'accent' && p.gradient.to === 'accent2';
+  return `<div class="shape shape-${kind}${v}${ring ? ' shape-gs' : ''}${duo ? ' shape-duo' : ''}${fl ? ' shape-flow' : ''}${gl ? ' shape-glass' : ''}"${styleAttr(css, p.style)}>`
     + (p.text ? `<div class="shape-t"${ea(p, 'text')}>${t(p.text)}</div>` : '')
     + `</div>`;
 }

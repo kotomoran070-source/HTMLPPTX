@@ -26,7 +26,7 @@
 //   nslide   — новый слайд из надписей и «Разобрать на объекты» с надписями.
 //   lst      — рамка выделения по тексту надписей, список у строки под курсором, Enter в пункте.
 //   cards    — карточки: своя заливка, прозрачность, раскрытие по щелчку; шаги в ряд, столбцом и стрелками;
-//              переливающиеся карточки с цветами и скоростью.
+//              эффекты фигуры «Бегущий свет» и «Матовое стекло».
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -554,7 +554,7 @@ slides:
     free:
       - {type: text, text: "Второй слайд", place: {x: 80, y: 80, w: 600}}
 `);
-// cards — карточки (заливка, прозрачность, раскрытие), шаги трёх видов, переливание вёрстки
+// cards — карточки (заливка, прозрачность, раскрытие), шаги трёх видов, бегущий свет и стекло у фигур
 fs.mkdirSync(path.join(dir, 'cards'), { recursive: true });
 fs.writeFileSync(path.join(dir, 'cards', 'deck.yaml'), `title: Карточки и шаги
 slides:
@@ -576,9 +576,10 @@ slides:
   - id: flow
     template: canvas
     free:
-      - {type: html, html: '<div class="kt-glow"><div><div data-t="0" class="kt-eyebrow"></div><div data-t="1" style="font-size:28px;font-weight:700;line-height:1.2"></div><div data-t="2" style="font-size:17px;line-height:1.45;color:var(--tx2)"></div></div></div>', texts: [Главное, Цвета темы, Как было], place: {x: 60, y: 80, w: 360, h: 230}}
-      - {type: html, flow: sunset, flowSpeed: 2, html: '<div class="kt-glow"><div><div data-t="0" class="kt-eyebrow"></div><div data-t="1" style="font-size:28px;font-weight:700;line-height:1.2"></div><div data-t="2" style="font-size:17px;line-height:1.45;color:var(--tx2)"></div></div></div>', texts: [Главное, Закат ×2, flow и flowSpeed], place: {x: 460, y: 80, w: 360, h: 230}}
-      - {type: html, flow: ocean, html: '<div class="kt-glass"><i class="kt-blob a"></i><i class="kt-blob b"></i><div class="kt-pane"><div data-t="0" class="kt-eyebrow"></div><div data-t="1" style="font-size:28px;font-weight:700"></div></div></div>', texts: [Новое, Стекло «Океан»], place: {x: 860, y: 60, w: 380, h: 280}}
-      - {type: html, html: '<div class="plain"><b data-t="0"></b></div>', texts: [Простая вёрстка], place: {x: 60, y: 420, w: 360, h: 80}}
+      - {type: shape, kind: round, fill: surface, flow: theme, text: Цвета темы, place: {x: 60, y: 80, w: 360, h: 230}}
+      - {type: shape, kind: round, fill: surface, flow: sunset, flowSpeed: 2, flowWidth: 5, text: Закат, place: {x: 460, y: 80, w: 360, h: 230}}
+      - {type: shape, kind: ellipse, fill: accent, place: {x: 880, y: 60, w: 200, h: 200}}
+      - {type: shape, kind: round, glass: true, glassBlur: 30, text: Стекло, place: {x: 900, y: 120, w: 320, h: 200}}
+      - {type: shape, kind: star, fill: accent, place: {x: 60, y: 420, w: 160, h: 160}}
 `);
 console.log('Тестовые презентации:', fs.readdirSync(dir).join(', '));

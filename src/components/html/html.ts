@@ -7,7 +7,6 @@ import { NS_RE } from '../../engine/deck-css';
 import { cleanBox, cleanHtml } from '../../engine/sanitize';
 import { onThemeChange, slideTheme } from '../../engine/theme';
 import { esc, t } from '../../engine/html';
-import { GRADIENTS, gradColor } from '../../engine/gradients';
 import { tintCss } from '../templates/content';
 import { fieldStyle, frameCss, pathOf, type ImageFrame } from '../../engine/marks';
 import type { Block } from '../../types';
@@ -30,19 +29,6 @@ interface HtmlProps extends Block {
   ns?: string;
   images?: (ImageFrame & { src?: string; srcDark?: string; brand?: boolean })[];
   scale?: number;
-  /** Переливающиеся карточки набора (kit.css: kt-glow, kt-glass): цвета — id готового градиента (gradients.ts) */
-  flow?: string;
-  /** …и скорость переливания: 0,25–3, 1 — обычная */
-  flowSpeed?: number;
-}
-
-/** Цвета и скорость переливания — переменными корня вёрстки (kit.css берёт их вместо цветов темы) */
-function flowCss(p: HtmlProps): string {
-  const g = typeof p.flow === 'string' ? GRADIENTS.find((x) => x.id === p.flow) : undefined;
-  const sp = Number(p.flowSpeed);
-  const out = g ? [`--kt-a:${gradColor(g.g.from)}`, `--kt-b:${gradColor(g.g.to)}`] : [];
-  if (Number.isFinite(sp) && sp >= 0.25 && sp <= 3 && sp !== 1) out.push(`--kt-speed:${sp}`);
-  return out.length ? ` style="${esc(out.join(';'))}"` : '';
 }
 
 /**
@@ -260,7 +246,7 @@ defineBlock<HtmlProps>('html', {
     // Вёрстка из другой презентации: свои стили (deck.scoped[ns]), чужие её не задевают
     const ns = typeof p.ns === 'string' && NS_RE.test(p.ns) ? ` xp-scoped ${p.ns}` : '';
     // Ещё раз через фильтр — уже с текстами и картинками: на слайд идёт строка, которая разбирается в проверенное
-    return `<div class="html-block${ns}"${flowCss(p)}><div class="html-inner" style="zoom:${scale}">${cleanHtml(f.innerHTML)}</div></div>`;
+    return `<div class="html-block${ns}"><div class="html-inner" style="zoom:${scale}">${cleanHtml(f.innerHTML)}</div></div>`;
   },
 });
 

@@ -4,14 +4,9 @@
  * Новый компонент получает редактор свойств, если описать его здесь.
  */
 import { PRESET_KINDS } from '../components/shape/kinds';
-import { GRADIENTS } from '../engine/gradients';
 
 
-export type Field = FieldKind & {
-  /** Поле только у подходящих блоков (переливание — у вёрстки с переливающейся карточкой); без него — у всех */
-  when?: (b: Record<string, unknown>) => boolean;
-};
-type FieldKind =
+export type Field =
   | { k: string; label: string; type: 'text' | 'textarea' | 'url'; placeholder?: string; hint?: string }
   /** fromOne — номер (строки, столбца): в поле с единицы, в данных — с нуля */
   | { k: string; label: string; type: 'number'; min?: number; max?: number; step?: number; placeholder?: string; hint?: string; fromOne?: boolean }
@@ -60,11 +55,6 @@ export interface Schema {
 }
 
 const FIT: [string, string][] = [['', 'Заполнить (обрезать края)'], ['contain', 'Целиком']];
-
-/** Вёрстка с переливающейся карточкой набора (kit.css: kt-glow, kt-glass) */
-const flowing = (b: Record<string, unknown>) => typeof b.html === 'string' && /\bkt-(glow|glass)\b/.test(b.html);
-/** Цвета переливания — готовые градиенты, у которых оба конца яркие (бледные «Мягкий» и «Туман» не переливаются) */
-const FLOWS: [string, string][] = GRADIENTS.filter((g) => !['duo', 'glow', 'soft', 'mist'].includes(g.id)).map((g) => [g.id, g.name]);
 const ALIGN: [string, string][] = [['', 'Растянуть'], ['start', 'По верху'], ['center', 'По центру'], ['end', 'По низу']];
 
 const frame: Field[] = [
@@ -723,9 +713,6 @@ export const BLOCKS: Record<string, Schema> = {
     fields: [
       { k: 'texts', label: 'Тексты', type: 'strings', item: 'Текст' },
       { k: 'scale', label: 'Масштаб вёрстки', type: 'number', min: 0.1, max: 4, step: 0.05, placeholder: '1' },
-      // Переливающиеся карточки набора («Карточка со свечением», «Стеклянная карточка»): цвета и скорость
-      { k: 'flow', label: 'Цвета переливания', type: 'select', options: [['', 'Цвета темы'], ...FLOWS], when: flowing },
-      { k: 'flowSpeed', label: 'Скорость переливания', type: 'number', min: 0.25, max: 3, step: 0.25, placeholder: '1', hint: '1 — обычная, 2 — вдвое быстрее, 0,5 — вдвое медленнее', when: flowing },
     ],
   },
   sandbox: {

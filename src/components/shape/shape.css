@@ -24,3 +24,11 @@
 .shape-p > :is(.shape-f, .shape-o) { position: absolute; pointer-events: none; -webkit-mask: var(--m) 0 0 / 100% 100% no-repeat; mask: var(--m) 0 0 / 100% 100% no-repeat; }
 .shape-p > .shape-f { background: linear-gradient(var(--sh, transparent), var(--sh, transparent)), var(--sf); }
 .shape-p > .shape-t { position: relative; }
+
+/* Бегущий свет (flow): по краю бежит свет. Под заливкой поворачивается квадрат с коническим градиентом (поворот —
+   без перерисовки кадра), заливка — слоем поверх него, на толщину края меньше; текст — над ними */
+.shape-flow::before { content: ""; position: absolute; left: 50%; top: 50%; width: var(--fl-d, 160%); aspect-ratio: 1; translate: -50% -50%; background: conic-gradient(from 0deg, var(--bd) 0 40%, var(--fl-a) 65%, var(--fl-b) 85%, var(--bd) 100%); pointer-events: none; }
+.slide.on .shape-flow::before { animation: shape-flow calc(5s / var(--fl-speed, 1)) linear infinite; }
+@keyframes shape-flow { to { rotate: 1turn; } }
+.shape-flow::after { content: ""; position: absolute; inset: var(--fl-w); border-radius: var(--fl-r); background: var(--fl-fill); pointer-events: none; }
+.shape-flow > .shape-t { position: relative; z-index: 1; }

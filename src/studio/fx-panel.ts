@@ -8,7 +8,8 @@
  * у фигуры и рисунка — в пикселях слайда.
  */
 import { icon } from '../components/icons';
-import { BOX_GLOW, boxFxColor, boxGlowOf, boxShadowOf, SHADOW_TUNE } from '../engine/box-fx';
+import { BOX_GLOW, boxFxColor, boxGlowOf, boxShadowOf, FLOW_COLORS, FLOW_DEF, FLOW_KEYS, flowColors, flowSwatch, GLASS_DEF, GLASS_KEYS, SHADOW_TUNE } from '../engine/box-fx';
+import { PRESET_KINDS } from '../components/shape/kinds';
 import { getBlock } from '../engine/component';
 import { getAt, setAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
@@ -33,8 +34,8 @@ interface Knob {
   min: number;
   max: number;
   step: number;
-  /** em — размер в пикселях текста, px — пиксели как есть, pct — доля 0–1 в процентах, per — проценты как есть, deg — градусы */
-  unit: 'em' | 'px' | 'pct' | 'per' | 'deg';
+  /** em — размер в пикселях текста, px — пиксели как есть, pct — доля 0–1 в процентах, per — проценты как есть, deg — градусы, x — во сколько раз */
+  unit: 'em' | 'px' | 'pct' | 'per' | 'deg' | 'x';
   /** Значение, когда своего нет */
   def(st: Rec): number;
 }
@@ -44,8 +45,8 @@ interface Card {
   id: string;
   icon: string;
   title: string;
-  /** Цвета: поле, варианты, выбранный; set — что пишет выбор (по умолчанию — само поле) */
-  colors?: { key: string; list: [string, string][]; cur: unknown; set?(v: string): Rec };
+  /** Цвета: поле, варианты, выбранный; set — что пишет выбор (по умолчанию — само поле); css — образец варианта */
+  colors?: { key: string; list: [string, string][]; cur: unknown; set?(v: string): Rec; css?(v: string): string };
   knobs: Knob[];
   /** Выбор из нескольких: штрих контура, сторона растворения; v — значение, cls — образец */
   seg?: { key: string; list: [v: string, cls: string, label: string][]; cur: string };
@@ -130,6 +131,14 @@ const B_GLOW_KNOBS: Knob[] = [
 const widthKnob = (def: number): Knob => ({ key: 'width', label: 'Толщина', min: 1, max: 24, step: 1, unit: 'px', def: (b) => Number(b.width) || def });
 const MAT_KNOBS: Knob[] = [{ key: 'mat', label: 'Ширина', min: 2, max: 80, step: 1, unit: 'px', def: (b) => Number(b.mat) || 12 }];
 const FADE_KNOBS: Knob[] = [{ key: 'fadeSize', label: 'Растворяется', min: 10, max: 90, step: 1, unit: 'per', def: () => 50 }];
+const FLOW_KNOBS: Knob[] = [
+  { key: 'flowSpeed', label: 'Скорость', min: 0.25, max: 3, step: 0.25, unit: 'x', def: () => 1 },
+  { key: 'flowWidth', label: 'Толщина', min: 1, max: 12, step: 1, unit: 'px', def: () => FLOW_DEF.width },
+];
+const GLASS_KNOBS: Knob[] = [
+  { key: 'glassBlur', label: 'Размытие', min: 0, max: 60, step: 1, unit: 'px', def: () => GLASS_DEF.blur },
+  { key: 'glassOpacity', label: 'Плотность', min: 10, max: 90, step: 1, unit: 'pct', def: () => GLASS_DEF.opacity },
+];
 
 const B_SHADOW_COLORS: [string, string][] = [['#0F172A', 'Тёмная'], ['#000000', 'Чёрная'], ['accent', 'Акцент'], ['accent-dark', 'Тёмный акцент'], ['#FFFFFF', 'Белая']];
 export const B_GLOW_COLORS: [string, string][] = [['accent', 'Акцент'], ['#FFFFFF', 'Белое'], ['#FDE047', 'Жёлтое'], ['#FB923C', 'Оранжевое'], ['#F472B6', 'Розовое'], ['#A78BFA', 'Сиреневое'], ['#22D3EE', 'Голубое'], ['#A3E635', 'Салатовое']];
@@ -166,6 +175,15 @@ function boxCards(b: Rec, kind: 'shape' | 'image'): Card[] {
       off: (x) => without(x, ['width', 'dash', 'stroke', 'strokeGradient']),
     });
   }
+  // Бегущий свет и матовое стекло — у прямоугольника, скруглённого, капсулы и овала (не у фигур PowerPoint)
+  const plain = kind === 'shape' && !line && !PRESET_KINDS[String(b.kind ?? '')];
+  if (plain && flowColors(b.flow)) {
+    out.push({
+      id: 'flow', icon: 'fx-light', title: 'Бегущий свет', knobs: FLOW_KNOBS,
+      colors: { key: 'flow', list: FLOW_COLORS, cur: b.flow, css: flowSwatch }, off: (x) => without(x, FLOW_KEYS),
+    });
+  }
+  if (plain && b.glass === true) out.push({ id: 'glass', icon: 'fx-glass', title: 'Матовое стекло', knobs: GLASS_KNOBS, off: (x) => without(x, GLASS_KEYS) });
   if (kind === 'image' && Number(b.mat) > 0) {
     out.push({
       id: 'mat', icon: 'mat', title: 'Паспарту', knobs: MAT_KNOBS,
@@ -233,7 +251,7 @@ function cardHtml(c: Card, kind: Kind): string {
   const head = `<header>${icon(c.icon)}<b>${esc(c.title)}</b>`
     + (c.off ? `<button type="button" class="st-fx-off" data-fxoff="${c.id}" title="Убрать: ${name}" aria-label="Убрать: ${name}">${icon('close')}</button>` : '') + '</header>';
   const colors = c.colors ? `<div class="st-fx-sw" role="group" aria-label="Цвет">${c.colors.list.map(([v, n]) =>
-    `<button type="button" data-fxc="${c.colors!.key}" data-v="${esc(v)}" style="--c:${colorCss(kind, v)}" title="${esc(n)}" aria-label="${esc(n)}"></button>`).join('')}`
+    `<button type="button" data-fxc="${c.colors!.key}" data-v="${esc(v)}" style="--c:${c.colors!.css?.(v) ?? colorCss(kind, v)}" title="${esc(n)}" aria-label="${esc(n)}"></button>`).join('')}`
     + `<label class="st-fx-own" title="Свой цвет"><input type="color" data-fxown="${c.colors.key}" aria-label="Свой цвет"></label></div>` : '';
   const seg = c.seg ? `<div class="st-pseg st-fx-seg" role="group">${c.seg.list.map(([v, cls, l]) =>
     `<button type="button" data-fxseg="${c.seg!.key}" data-v="${esc(v)}" title="${esc(l)}" aria-label="${esc(l)}"><i class="${cls}"></i></button>`).join('')}</div>` : '';
@@ -263,7 +281,7 @@ function sizeOf(host: FxHost, paths: Path[]): number {
 const toSlider = (k: Knob, v: number, size: number) => (k.unit === 'em' ? v * size : k.unit === 'pct' ? v * 100 : k.unit === 'deg' ? ((v % 360) + 360) % 360 : v);
 const fromSlider = (k: Knob, v: number, size: number) => (k.unit === 'em' ? Math.round((v / size) * 1000) / 1000 : k.unit === 'pct' ? v / 100 : v);
 // Размеры — целыми пикселями (доли пикселя тут ничего не дают), толщина контура букв — с половинками
-const shown = (k: Knob, v: number) => (k.unit === 'pct' || k.unit === 'per' ? `${Math.round(v)} %` : k.unit === 'deg' ? `${Math.round(v)}°`
+const shown = (k: Knob, v: number) => (k.unit === 'x' ? `${String(v).replace('.', ',')}×` : k.unit === 'pct' || k.unit === 'per' ? `${Math.round(v)} %` : k.unit === 'deg' ? `${Math.round(v)}°`
   : k.unit === 'em' || k.step >= 1 ? `${Math.round(v)} px` : `${String(Math.round(v * 10) / 10).replace('.', ',')} px`);
 const HEX6 = /^#[0-9a-f]{6}$/i;
 

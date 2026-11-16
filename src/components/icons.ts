@@ -93,6 +93,9 @@ const PATHS: Record<string, string> = {
   outline: '<rect x="4" y="4" width="16" height="16" rx="3" stroke-dasharray="3 2"/>',
   weight: '<path d="M4 6h16" stroke-width="1"/><path d="M4 11h16" stroke-width="2"/><path d="M4 17h16" stroke-width="3.4"/>',
   shadow: '<rect x="4" y="4" width="12" height="12" rx="2"/><path d="M8 20h10a2 2 0 0 0 2-2V8" opacity=".55"/>',
+  // Бегущий свет: по краю фигуры бежит яркая полоса; матовое стекло — стекло поверх цветного пятна
+  'fx-light': '<rect x="3.5" y="6" width="17" height="12" rx="3" opacity=".45"/><path d="M13.5 6h4a3 3 0 0 1 3 3v2.5" stroke-width="2.6"/><path d="M3.5 12.5V15a3 3 0 0 0 3 3h3" stroke-width="2.6" opacity=".7"/>',
+  'fx-glass': '<circle cx="8.5" cy="8.5" r="4.5" opacity=".5"/><rect x="6" y="7.5" width="14" height="11" rx="3"/><path d="M9.5 12.5l3-3M9.5 16l6-6" opacity=".55"/>',
   glow: '<rect x="7.5" y="7.5" width="9" height="9" rx="2"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4" opacity=".6"/>',
   corner: '<path d="M4 20v-8a8 8 0 0 1 8-8h8"/>',
   rotate: '<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/>',

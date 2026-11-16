@@ -1,4 +1,4 @@
-import { BOX_FX_KEYS } from '../engine/box-fx';
+import { BOX_FX_KEYS, SHAPE_FX_KEYS } from '../engine/box-fx';
 import type { Path } from '../engine/data';
 import { getAt } from '../engine/data';
 import type { TextStyle } from '../engine/text-style';
@@ -12,7 +12,7 @@ import type { Block, Deck } from '../types';
 
 /** Свойства оформления по типам блоков */
 const LOOK: Record<string, string[]> = {
-  shape: ['fill', 'gradient', 'stroke', 'strokeGradient', 'width', 'dash', 'radius', ...BOX_FX_KEYS, 'opacity', 'valign'],
+  shape: ['fill', 'gradient', 'stroke', 'strokeGradient', 'width', 'dash', 'radius', ...BOX_FX_KEYS, ...SHAPE_FX_KEYS, 'opacity', 'valign'],
   table: ['variant', 'labels', 'total', 'density', 'size', 'head'],
   text: ['size'],
   image: ['fit', 'stroke', 'width', 'dash', 'radius', ...BOX_FX_KEYS, 'mat', 'matColor', 'opacity', 'fade', 'fadeSize', 'filter', 'bright', 'contrast', 'saturate'],

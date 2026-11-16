@@ -402,16 +402,28 @@ export const LIBRARY: Category[] = [
       { name: 'Метка', w: 200, h: 44, make: () => ({ type: 'shape', kind: 'pill', fill: 'soft', stroke: 'accent', width: 1, text: 'метка', styles: { text: { size: 15 } } }) },
       { name: 'Зона пунктиром', w: 420, h: 240, make: () => ({ type: 'shape', fill: 'none', stroke: 'border', width: 2, dash: 'dash', radius: 20 }) },
       {
-        name: 'Стеклянная карточка', w: 560, h: 340, pw: 360, make: () => kit(
-          `<div class="kt-glass"><i class="kt-blob a"></i><i class="kt-blob b"></i><div class="kt-pane">${T(0, '', 'kt-eyebrow')}${T(1, `${HEAD};font-size:32px;font-weight:700;line-height:1.15`)}${T(2, 'font-size:18px;line-height:1.45;color:var(--tx2)')}</div></div>`,
-          ['Новое', 'Карточка из матового стекла', 'Цветные пятна под ней плавают в цветах темы.'],
-        ),
+        // Фигура «Матовое стекло» над двумя цветными кругами: всё — обычные фигуры, стекло и цвета — в «Свойствах»
+        name: 'Стеклянная карточка', w: 560, h: 340, make: () => ({
+          type: 'group', base: { w: 560, h: 340 }, items: [
+            { type: 'shape', kind: 'ellipse', fill: 'gradient', gradient: { from: 'accent-light', to: 'accent', type: 'radial' }, place: { x: 0, y: -14, w: 224, h: 224 } },
+            { type: 'shape', kind: 'ellipse', fill: 'gradient', gradient: { from: 'accent2', to: 'accent', angle: 135 }, place: { x: 358, y: 166, w: 190, h: 190 } },
+            { type: 'shape', kind: 'round', glass: true, radius: 26, place: { x: 39, y: 31, w: 482, h: 278 } },
+            { ...eyebrow('Новое'), place: { x: 77, y: 96, w: 406 } },
+            { ...line('Матовое стекло', { size: 32, weight: 700 }), place: { x: 77, y: 124, w: 406 } },
+            { ...line('Под стеклом — фигуры: их можно двигать и перекрашивать.', { size: 18, color: 'text2' }), place: { x: 77, y: 188, w: 406 } },
+          ],
+        }),
       },
       {
-        name: 'Карточка со свечением', w: 440, h: 250, pw: 340, make: () => kit(
-          `<div class="kt-glow"><div>${T(0, '', 'kt-eyebrow')}${T(1, `${HEAD};font-size:28px;font-weight:700;line-height:1.2`)}${T(2, 'font-size:17px;line-height:1.45;color:var(--tx2)')}</div></div>`,
-          ['Главное', 'По рамке бежит свет', 'Выделит одну карточку среди остальных.'],
-        ),
+        // Фигура с эффектом «Бегущий свет»: цвета, скорость и толщина края — в «Свойствах»
+        name: 'Карточка со свечением', w: 440, h: 250, make: () => ({
+          type: 'group', base: { w: 440, h: 250 }, items: [
+            { type: 'shape', kind: 'round', fill: 'surface', radius: 22, flow: 'theme', place: { x: 0, y: 0, w: 440, h: 250 } },
+            { ...eyebrow('Главное'), place: { x: 34, y: 58, w: 372 } },
+            { ...line('По рамке бежит свет', { size: 28, weight: 700 }), place: { x: 34, y: 86, w: 372 } },
+            { ...line('Выделит одну карточку среди остальных.', { size: 17, color: 'text2' }), place: { x: 34, y: 142, w: 372 } },
+          ],
+        }),
       },
       { name: 'Бейдж «в эфире»', w: 280, pw: 220, make: () => kit(`<div class="kt-live"><span class="kt-dot"></span>${T(0, '', '', 'span')}</div>`, ['Сейчас в работе']) },
       {

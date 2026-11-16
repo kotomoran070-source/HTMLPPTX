@@ -3,7 +3,7 @@
  * (лёгкая, заметная, глубокая) и подкрутка поверх неё: цвет, плотность, размытие, расстояние, направление.
  * Свечение — мягкий ореол цвета по краю: цвет, размер, яркость. Размеры — в пикселях слайда.
  */
-import { GRADIENT_ROLES } from './gradients';
+import { GRADIENT_ROLES, GRADIENTS, gradColor } from './gradients';
 
 export interface BoxFx {
   /** Тень: sm — лёгкая, md — заметная, lg — глубокая (true — заметная) */
@@ -108,3 +108,55 @@ export const boxFxCss = (p: BoxFx): string => layers(p, false).join(', ');
 
 /** filter у фигуры по контуру (ромб, звезда, линия): тень и свечение повторяют форму */
 export const dropFxCss = (p: BoxFx): string => layers(p, true).map((l) => `drop-shadow(${l})`).join(' ');
+
+// ---------------- бегущий свет и матовое стекло (только у фигуры) ----------------
+
+/**
+ * Эффекты фигуры сверх PowerPoint: «Бегущий свет» — по краю бежит свет (цвета темы, готовый градиент или свой
+ * цвет), «Матовое стекло» — полупрозрачная заливка размывает то, что под фигурой. Прямоугольник, скруглённый,
+ * капсула, овал; у фигур PowerPoint и линий их нет
+ */
+export interface ShapeFx {
+  /** Бегущий свет: theme — цвета темы, id готового градиента (gradients.ts) или #RRGGBB */
+  flow?: string;
+  /** Скорость света, 0,25–3 (1 — круг за 5 с) */
+  flowSpeed?: number;
+  /** Толщина светящегося края, px */
+  flowWidth?: number;
+  /** Матовое стекло */
+  glass?: boolean;
+  /** Размытие под стеклом, px */
+  glassBlur?: number;
+  /** Плотность заливки стекла, 0,1–0,9 */
+  glassOpacity?: number;
+}
+
+export const FLOW_KEYS = ['flow', 'flowSpeed', 'flowWidth'] as const;
+export const GLASS_KEYS = ['glass', 'glassBlur', 'glassOpacity'] as const;
+export const SHAPE_FX_KEYS = [...FLOW_KEYS, ...GLASS_KEYS] as const;
+/** По умолчанию: толщина края, px; размытие, px; плотность стекла */
+export const FLOW_DEF = { width: 3 };
+export const GLASS_DEF = { blur: 22, opacity: 0.6 };
+
+/** Цвета света: цвета темы и яркие готовые градиенты (бледные «Мягкий» и «Туман» не светятся) */
+export const FLOW_COLORS: [string, string][] = [['theme', 'Цвета темы'],
+  ...GRADIENTS.filter((g) => !['duo', 'glow', 'soft', 'mist'].includes(g.id)).map((g): [string, string] => [g.id, g.name])];
+
+/** Два цвета бегущего света; не свет — null */
+export function flowColors(v: unknown): [string, string] | null {
+  if (v === 'theme') return ['var(--ac)', 'var(--ac2)'];
+  if (typeof v !== 'string') return null;
+  if (HEX.test(v)) return [v, v];
+  const g = GRADIENTS.find((x) => x.id === v);
+  return g ? [gradColor(g.g.from), gradColor(g.g.to)] : null;
+}
+
+/** Образец цвета света для ленты и «Свойств»: полоса от первого цвета ко второму */
+export const flowSwatch = (v: string): string => {
+  const c = flowColors(v);
+  return c ? `linear-gradient(135deg, ${c[0]}, ${c[1]})` : 'var(--ac)';
+};
+
+/** Числа эффектов в пределах; без своих — по умолчанию */
+export const flowOf = (p: ShapeFx) => ({ speed: num(p.flowSpeed, 1, 0.25, 3), width: num(p.flowWidth, FLOW_DEF.width, 1, 12) });
+export const glassOf = (p: ShapeFx) => ({ blur: num(p.glassBlur, GLASS_DEF.blur, 0, 60), opacity: num(p.glassOpacity, GLASS_DEF.opacity, 0.1, 0.9) });

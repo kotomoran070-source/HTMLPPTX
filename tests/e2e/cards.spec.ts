@@ -107,34 +107,54 @@ test('шаги: в ряд, столбцом и стрелками — вид в 
   expect(errors).toEqual([]);
 });
 
-test('переливающиеся карточки: свои цвета и скорость; поля — только у них', async ({ page }) => {
+test('эффекты фигуры: бегущий свет и матовое стекло — на слайде, в «Свойствах» и на ленте; у фигур PowerPoint их нет', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?deck=cards#3');
-  const block = (n: number) => page.locator('.slide.on > .free .html-block').nth(n);
-  await expect(block(1)).toBeVisible();
-  // Цвета темы — без своих переменных; «Закат» ×2 — цвета градиента и вдвое быстрее
-  expect(await block(0).evaluate((el) => el.style.getPropertyValue('--kt-a'))).toBe('');
-  const own = await block(1).evaluate((el) => {
-    const glow = el.querySelector('.kt-glow')!;
-    return { a: el.style.getPropertyValue('--kt-a'), dur: getComputedStyle(glow, '::before').animationDuration, bg: getComputedStyle(glow, '::before').backgroundImage };
+  const shape = (n: number) => page.locator('.slide.on > .free .shape').nth(n);
+  await expect(shape(1)).toBeVisible();
+  // Свет: под заливкой поворачивается конический градиент; цвета темы и «Закат» вдвое быстрее с краем 5 px
+  const light = (n: number) => shape(n).evaluate((el) => {
+    const before = getComputedStyle(el, '::before');
+    const after = getComputedStyle(el, '::after');
+    return { cls: el.className, bg: before.backgroundImage, anim: before.animationName, dur: before.animationDuration, inset: after.top };
   });
-  expect(own.a).toBe('#F97316');
-  expect(own.dur).toBe('2.5s');
-  expect(own.bg).toContain('rgb(249, 115, 22)');
-  // Стекло «Океан»: пятна — цветами градиента
-  expect(await block(2).locator('.kt-blob.a').evaluate((el) => getComputedStyle(el).backgroundImage)).toContain('rgb(6, 182, 212)');
+  const theme = await light(0);
+  expect(theme.cls).toContain('shape-flow');
+  expect(theme.anim).toBe('shape-flow');
+  expect(theme.dur).toBe('5s');
+  const sunset = await light(1);
+  expect(sunset.bg).toContain('rgb(249, 115, 22)');
+  expect(sunset.dur).toBe('2.5s');
+  expect(sunset.inset).toBe('5px');
+  // Стекло: полупрозрачная заливка, под ней размыто
+  const glass = await shape(3).evaluate((el) => ({ bg: getComputedStyle(el).backgroundColor, blur: getComputedStyle(el).backdropFilter }));
+  expect(glass.bg).toMatch(/\/ 0\.6\)|, 0\.6\)/);
+  expect(glass.blur).toContain('blur(30px)');
 
-  // «Свойства»: у переливающейся карточки — цвета и скорость, у простой вёрстки — нет
+  // «Свойства»: карточка «Бегущий свет» с цветами и ручками; ползунок скорости пишет flowSpeed, «×» убирает эффект
   await page.goto('/?deck=cards&studio#3');
   const free = (n: number) => page.locator('#st-canvas .slide.on > .free').nth(n);
-  await free(0).click({ position: { x: 20, y: 20 } });
-  const props = page.locator('.st-props');
-  await expect(props.getByText('Цвета переливания')).toBeVisible();
-  await props.locator('select[data-t="select"]').last().selectOption('forest');
-  await expect.poll(() => readDeck('cards')).toMatch(/flow: forest/);
-  await free(3).click({ position: { x: 20, y: 20 } });
-  await expect(props.getByText('Масштаб вёрстки')).toBeVisible();
-  await expect(props.getByText('Цвета переливания')).toHaveCount(0);
+  const shapeLine = (t: string) => readDeck('cards').split('\n').find((l) => l.includes(`text: ${t}`)) ?? '';
+  await free(0).click({ position: { x: 30, y: 30 } });
+  const card = page.locator('.st-fx-card[data-fxk="flow"]');
+  await expect(card).toBeVisible();
+  await card.locator('[data-fxc="flow"][data-v="forest"]').click();
+  await expect.poll(() => shapeLine('Цвета темы')).toContain('flow: forest');
+  await card.locator('input[data-fx="flowSpeed"]').evaluate((el: HTMLInputElement) => { el.value = '1.5'; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); });
+  await expect.poll(() => shapeLine('Цвета темы')).toContain('flowSpeed: 1.5');
+  await card.locator('[data-fxoff="flow"]').click();
+  await expect.poll(() => shapeLine('Цвета темы')).not.toContain('flow');
+  // Стекло — своя карточка с размытием и плотностью
+  await free(3).click();
+  await expect(page.locator('.st-fx-card[data-fxk="glass"] input[data-fx="glassBlur"]')).toBeVisible();
+  // Лента «Фигура»: «Стекло» включает эффект у выделенной фигуры
+  await free(1).click({ position: { x: 30, y: 30 } });
+  await page.locator('[data-cmd="shape.glass"]').first().click();
+  await page.locator('.st-flt-pop .st-flt[title="Матовое стекло"]').click();
+  await expect.poll(() => shapeLine('Закат')).toContain('glass: true');
+  // У звезды (фигура PowerPoint) света и стекла нет
+  await free(4).click();
+  await expect(page.locator('[data-cmd="shape.flow"]').first()).toBeDisabled();
   expect(errors).toEqual([]);
 });
 
@@ -156,4 +176,10 @@ test('PowerPoint: прозрачная заливка карточки — ро�
   const two = await slide(2);
   expect(two).toContain('Согласование');
   expect((two.match(/<p:pic>/g) ?? []).length).toBe(1);
+  // Эффекты фигуры: стекло — заливкой с прозрачностью 40 %, у света — мягкая тень; обе — фигурами с текстом
+  const three = await slide(3);
+  expect(three).toMatch(/<a:alpha val="60000"\/>/);
+  expect(three).toContain('<a:outerShdw');
+  expect(three).toContain('Закат');
+  expect(three).toContain('Стекло');
 });
