@@ -93,6 +93,7 @@
     ],
     "files": [
       "LICENSE",
+      "licenses/**",
       "package.json",
       "desktop/**",
       "plugins/remote-relay.mjs",

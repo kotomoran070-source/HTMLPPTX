@@ -24,6 +24,14 @@ test('все библиотеки программы — со свободной
   expect(checkLicenses(page, { html: true }).map((p) => `${p.name}: ${p.license}`)).toEqual([]);
   // Без текста лицензии упоминание авторов не передать
   expect([...server, ...page].filter((p) => !p.text).map((p) => p.name)).toEqual([]);
+  // LGPL-3.0 (libvips): сам текст LGPL и GPL, а не ссылка — в пакетах их нет
+  const lgpl3 = server.filter((p) => /LGPL-3\.0/.test(p.license));
+  expect(lgpl3.length).toBeGreaterThan(0);
+  for (const p of lgpl3) {
+    expect(p.text, p.name).toContain('GNU LESSER GENERAL PUBLIC LICENSE\n                       Version 3, 29 June 2007');
+    expect(p.text, p.name).toContain('GNU GENERAL PUBLIC LICENSE\n                       Version 3, 29 June 2007');
+    expect(p.text, p.name).toContain('END OF TERMS AND CONDITIONS');
+  }
   // Одинаковые тексты — один раз
   const t = noticeText([{ dir: '', name: 'a', version: '1', license: 'MIT', text: 'X' }, { dir: '', name: 'b', version: '2', license: 'MIT', text: 'X' }]);
   expect(t.match(/^X$/gm)).toHaveLength(1);

@@ -5,7 +5,8 @@
 //   player/  — готовый проигрыватель для «Экспорта» в HTML, все варианты (server/player.ts);
 //   desktop/ — загрузчик программы (Electron), сжатый; рядом — то, что он берёт сам (вход для телефона);
 //   templates/, src/fonts/ — шаблон новой презентации и встроенные скрипты, шрифты комплекта (их лицензия
-//   в экспорте и на странице «Лицензии»).
+//   в экспорте и на странице «Лицензии»);
+//   licenses/ — полные тексты LGPL-3.0 и GPL-3.0 для libvips (sharp): в её пакетах их нет (plugins/licenses.mjs).
 // Отпечатки (SHA-256) кода, который лежит рядом с app.asar, записываются внутрь app.asar
 // (desktop/integrity.json): программа сверяет их при запуске и с изменённым кодом не запускается.
 import { spawnSync } from 'node:child_process';
@@ -18,7 +19,7 @@ import { transformSync } from 'esbuild';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Что входит в программу как есть или сжатым (кроме package.json и node_modules — их кладёт electron-builder) */
-export const OWN = ['LICENSE', 'desktop', 'plugins/remote-relay.mjs', 'templates', 'src/fonts'];
+export const OWN = ['LICENSE', 'licenses', 'desktop', 'plugins/remote-relay.mjs', 'templates', 'src/fonts'];
 /** Внутри app.asar: загрузчик программы. Его целостность проверяет сам Electron, остальное — он */
 export const PACKED = ['desktop'];
 /** Собирается при подготовке копии, а не копируется: код программы и готовый проигрыватель */

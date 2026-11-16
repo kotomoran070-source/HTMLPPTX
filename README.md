@@ -493,6 +493,7 @@ src/studio/integrations*.ts интеграции: группа на ленте, 
 templates/scripts/     встроенные скрипты
 plugins/decks.ts       yarn dev: сервер Slideria внутри Vite (те же данные, уведомления и слежение, что у программы)
 plugins/licenses.mjs   лицензии библиотек и шрифтов: в собранный файл, «Справка → Лицензии», проверка при сборке
+licenses/              полные тексты LGPL-3.0 и GPL-3.0 для libvips (sharp): в её пакетах их нет, программа везёт свои
 plugins/yaml-merge.ts  запись в deck.yaml с сохранением комментариев
 plugins/import.ts      импорт HTML-файла: трёхстороннее слияние (merge3.ts), картинки (assets.ts)
 plugins/design-import.ts  разбор экспорта Claude Design
