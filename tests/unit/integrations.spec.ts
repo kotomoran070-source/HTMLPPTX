@@ -36,6 +36,28 @@ export default async () => {};
   expect(parseScript('export default () => {}', 'user:x.js', false, 'x.js').name).toBe('x');
   expect(clientTitle('claude-code')).toBe('Claude Code');
   expect(clientTitle('my-agent', 'Мой агент')).toBe('Мой агент');
+  // Агентский режим настольного приложения: агент в нём может быть любой — общее имя
+  expect(clientTitle('local-agent-mode-slideria')).toBe('Локальный агент');
+});
+
+test('агент под прежним именем клиента — под нынешним: в списке «был» с его правками и в журнале', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-int-'));
+  try {
+    const dir = path.join(tmp, 'decks');
+    fs.mkdirSync(path.join(dir, 'talk'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'talk', 'deck.yaml'), 'title: Доклад\nslides:\n  - title: Первый\n');
+    const core = createDecksCore({ dir, root: ROOT });
+    // Записано прежней версией: имя клиента как есть
+    core.apply('talk', { ops: [{ op: 'slide.set', slide: 1, set: { notes: 'а' } }], by: { kind: 'agent', id: 'x', name: 'local-agent-mode-slideria' } });
+    const file = path.join(dir, '.slideria', 'agents.json');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ 'local-agent-mode-slideria': { name: 'local-agent-mode-slideria', seen: 1000, edits: 112 }, 'Локальный агент': { name: 'Локальный агент', seen: 2000, edits: 3 } }));
+    expect(core.agents()).toMatchObject([{ name: 'Локальный агент', online: false, edits: 115, seen: 2000 }]);
+    expect(Object.keys(JSON.parse(fs.readFileSync(file, 'utf8')))).toEqual(['Локальный агент']);
+    expect(core.journal('talk').find((e) => e.by.kind === 'agent')?.by.name).toBe('Локальный агент');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 });
 
 test('агенты, доступ, журнал скрипта, точки агента — отдельно от своих и у каждой правки', () => {

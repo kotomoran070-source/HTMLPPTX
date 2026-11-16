@@ -387,12 +387,13 @@ export function createConnect(o: ConnectOptions = {}) {
 
   const one = (id: ClientId) => state().find((s) => s.id === id)!;
 
-  async function connect(id: unknown, cmd: Cmd | null): Promise<ClientState> {
+  /** via — config: Claude Desktop записью в файл настроек, а не расширением (второй способ, «Интеграции») */
+  async function connect(id: unknown, cmd: Cmd | null, via?: unknown): Promise<ClientState> {
     const c = CLIENT_IDS.find((x) => x === id);
     if (!c) throw new Error('Нет такого клиента');
     if (!cmd) throw new Error('Подключение агентов здесь недоступно');
     if (c === 'claude-desktop') {
-      if (!o.bundle) {
+      if (!o.bundle || via === 'config') {
         writeDesktop(cmd);
         return one(c);
       }
@@ -412,7 +413,7 @@ export function createConnect(o: ConnectOptions = {}) {
       } catch {
         // Пакет не собрался или не показался — как раньше, в файл настроек
         writeDesktop(cmd);
-        return { ...one(c), hint: 'Расширение установить не удалось, поэтому Slideria добавлена в файл настроек Claude Desktop. Закройте его совсем (Quit) и откройте снова' };
+        return { ...one(c), hint: 'Не удалось подготовить расширение. Slideria добавлена в файл настроек — требуется перезапуск приложения: Quit, затем повторный запуск' };
       }
     }
     // Уже подключена (возможно, к другой копии программы) — её строки заменяются новыми
@@ -432,7 +433,7 @@ export function createConnect(o: ConnectOptions = {}) {
     if (c === 'claude-desktop') {
       writeDesktop(null);
       // Расширение удаляет только сам Claude Desktop
-      if (desktopExtension()) return { ...one(c), hint: 'Расширение удаляется в самом Claude Desktop: Settings → Desktop app → Extensions → Slideria → Uninstall' };
+      if (desktopExtension()) return { ...one(c), hint: 'Расширение удаляется в приложении: Settings → Desktop app → Extensions → Slideria → Uninstall' };
       return one(c);
     }
     if (c === 'codex') writeCodex(null);

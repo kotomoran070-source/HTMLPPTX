@@ -12,6 +12,7 @@ import { onServer } from '../engine/events';
 import { merge3 } from '../engine/merge3';
 import type { Change } from '../engine/ops';
 import type { Deck } from '../types';
+import { LOGOS } from './brand-logos';
 import { showMenu } from './menu';
 import type { Entry } from './palette';
 
@@ -48,10 +49,16 @@ export async function api<T>(cmd: string, body?: unknown): Promise<T> {
   return data;
 }
 
-/** Цвет знака агента по имени: Claude — свой, остальные — по букве, но всегда одинаково */
-export function agentLook(name: string): { bg: string; initials: string } {
+/** Цвет знака агента по имени: Claude, Claude Code, Cursor — со своим знаком (brand-logos.ts), локальный агент —
+ *  с общим значком, остальные — буквы по имени, цвет всегда одинаковый */
+export function agentLook(name: string): { bg: string; initials: string; logo?: string } {
   const n = name.toLowerCase();
-  if (n.startsWith('claude')) return { bg: 'linear-gradient(135deg,#D97757,#C2410C)', initials: 'C' };
+  const claude = 'linear-gradient(135deg,#D97757,#C2410C)';
+  if (n === 'claude code') return { bg: claude, initials: 'C', logo: LOGOS.claudeCode };
+  if (n.startsWith('claude')) return { bg: claude, initials: 'C', logo: LOGOS.claude };
+  if (n === 'cursor') return { bg: 'linear-gradient(135deg,#334155,#0B1220)', initials: 'CU', logo: LOGOS.cursor };
+  // Агентский режим приложения (server/integrations.ts clientTitle): агент любой — общий значок
+  if (n === 'локальный агент') return { bg: 'linear-gradient(135deg,#64748B,#334155)', initials: 'ЛА', logo: icon('agent', 'ic lg') };
   const hues = [210, 262, 162, 24, 330, 190, 45];
   let h = 0;
   for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
@@ -60,6 +67,9 @@ export function agentLook(name: string): { bg: string; initials: string } {
   const initials = (words.length > 1 ? words[0][0] + words[1][0] : name.slice(0, 2)).toUpperCase();
   return { bg: `linear-gradient(135deg,hsl(${hue} 55% 52%),hsl(${hue} 60% 36%))`, initials };
 }
+
+/** Содержимое знака агента: его знак или буквы (разметка) */
+export const agentMark = (look: { initials: string; logo?: string }): string => look.logo ?? look.initials.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 /** «2 мин назад», «вчера в 18:40», «12.10 в 9:05» */
 export function ago(ms: number): string {
@@ -222,7 +232,7 @@ export function startIntegrations(h: IntegrationsHost) {
       return;
     }
     const look = agentLook(a.name);
-    av.textContent = look.initials;
+    av.innerHTML = agentMark(look);
     av.style.background = look.bg;
     av.classList.toggle('on', a.online);
     name.textContent = a.online ? `${a.name} на связи${on.length > 1 ? ` и ещё ${on.length - 1}` : ''}` : `${a.name} — не на связи`;

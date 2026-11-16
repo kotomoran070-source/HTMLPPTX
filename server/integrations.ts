@@ -60,7 +60,12 @@ const CLIENTS: Record<string, string> = {
   'claude-code': 'Claude Code', 'claude-ai': 'Claude', 'claude desktop': 'Claude', cursor: 'Cursor', 'cursor-vscode': 'Cursor',
   'visual studio code': 'VS Code', vscode: 'VS Code', windsurf: 'Windsurf', zed: 'Zed', 'slideria-test': 'Тест',
 };
-export const clientTitle = (name: string, title?: string) => CLIENTS[name.toLowerCase()] ?? (title || name);
+export const clientTitle = (name: string, title?: string) => {
+  const n = name.toLowerCase();
+  // Агентский режим настольного приложения (local-agent-mode-<сервер>): в нём может работать любой агент
+  if (n.startsWith('local-agent-mode')) return 'Локальный агент';
+  return CLIENTS[n] ?? (title || name);
+};
 
 /** Заголовок скрипта: // @name, // @description, // @param ключ: вид = значение — подпись */
 export function parseScript(code: string, id: string, builtin: boolean, file: string): ScriptInfo {
@@ -137,7 +142,21 @@ export function createIntegrations(o: IntegrationsOptions) {
 
   interface Known { name: string; version?: string; since: number; seen: number; edits: number }
   const live = new Map<string, Known>();
-  const known = () => readJson<Record<string, { name: string; seen: number; edits: number }>>(agentsFile, {});
+  /** Подключавшиеся агенты; записанные под прежним именем клиента — под нынешним (clientTitle), с их правками */
+  const known = () => {
+    const all = readJson<Record<string, { name: string; seen: number; edits: number }>>(agentsFile, {});
+    let moved = false;
+    for (const [name, k] of Object.entries(all)) {
+      const now = clientTitle(name);
+      if (now === name) continue;
+      const to = all[now];
+      all[now] = { name: now, seen: Math.max(k.seen, to?.seen ?? 0), edits: k.edits + (to?.edits ?? 0) };
+      delete all[name];
+      moved = true;
+    }
+    if (moved) writeJson(agentsFile, all);
+    return all;
+  };
 
   function list(): AgentInfo[] {
     const now = Date.now();
@@ -243,7 +262,12 @@ export function createIntegrations(o: IntegrationsOptions) {
       try { text = fs.readFileSync(f, 'utf8'); } catch { continue; }
       for (const line of text.split('\n')) {
         if (!line) continue;
-        try { out.push(JSON.parse(line) as JournalEntry); } catch { /* недописанная строка */ }
+        try {
+          const e = JSON.parse(line) as JournalEntry;
+          // Агент под прежним именем клиента — под нынешним, как в списке агентов
+          if (e.by?.kind === 'agent') e.by.name = clientTitle(e.by.name);
+          out.push(e);
+        } catch { /* недописанная строка */ }
       }
     }
     // Новые первыми; записанные в ту же миллисекунду — тоже (в файле они идут по порядку записи)

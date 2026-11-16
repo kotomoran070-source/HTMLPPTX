@@ -317,7 +317,7 @@ async function route(core: DecksCore, o: HttpOptions, chat: AgentChat, clients: 
       return send(res, 200, { access: core.access(), agents: core.agents(), mcp: core.mcpCommand(), scripts: core.scriptsDir });
     // Подключить агента в один щелчок (server/connect.ts): Claude Desktop, Claude Code, Codex
     case 'agents-clients': return send(res, 200, { clients: clients.state() });
-    case 'agents-connect': return send(res, 200, await clients.connect(q.get('client'), core.mcpCommand()));
+    case 'agents-connect': return send(res, 200, await clients.connect(q.get('client'), core.mcpCommand(), q.get('via')));
     case 'agents-disconnect': return send(res, 200, await clients.disconnect(q.get('client')));
     case 'integrations-set': {
       const body = (await json(req)) as { agents?: unknown } | null;

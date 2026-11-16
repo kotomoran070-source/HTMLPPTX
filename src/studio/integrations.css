@@ -47,6 +47,9 @@
 .ig-av.off i { display: block; background: var(--bd2); }
 .ig-av.k { background: var(--alt); color: var(--tx2); border: 1px solid var(--bd); }
 .ig-av.k .ic { width: 15px; height: 15px; }
+/* Знак программы (brand-logos.ts) вместо букв */
+.ig-av .lg { width: 21px; height: 21px; }
+.ig-av.s .lg { width: 15px; height: 15px; }
 .ig-live { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 14px; align-items: center; padding: 14px; margin: 0 -4px 8px; border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--ig-ok) 28%, var(--bd)); background: linear-gradient(135deg, color-mix(in srgb, var(--ig-ok) 9%, var(--surf)), var(--surf) 70%); }
 .ig-live > .ig-av { grid-row: span 2; }
@@ -98,6 +101,9 @@
 .ig-link span.ig-link-err { color: #DC2626; }
 .ig-link span.ig-link-hint { color: var(--tx); }
 .ig-link.wait { border-color: color-mix(in srgb, var(--ac) 35%, var(--bd)); }
+/* Второй способ подключения — ссылкой под пояснением */
+.ig-link .ig-link-alt { display: block; margin-top: 6px; }
+.ig-link .ig-link-alt:disabled { opacity: .6; cursor: progress; }
 .ig-link .fp-btn:disabled { opacity: .7; cursor: progress; }
 .ig-link a.fp-btn { text-decoration: none; }
 .ig-link.ok { border-color: color-mix(in srgb, var(--ig-ok) 30%, var(--bd)); background: linear-gradient(135deg, color-mix(in srgb, var(--ig-ok) 8%, var(--surf)), var(--surf) 70%); }
@@ -106,6 +112,7 @@
 @container ig (max-width: 560px) { .ig-link { grid-template-columns: 38px minmax(0, 1fr); } .ig-link > .fp-btn { grid-column: 1 / -1; } }
 .ig-connect > .ig-or { margin: 2px 0 -4px; }
 .ig-mono { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; color: #fff; font-size: 9.5px; font-weight: 700; letter-spacing: -.02em; }
+.ig-mono .lg { width: 13px; height: 13px; }
 .ig-code { overflow: hidden; border-radius: 10px; background: var(--ig-code); color: var(--ig-code-tx); }
 .ig-code-h { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 10px 8px 14px; border-bottom: 1px solid rgba(148, 163, 184, .16); color: var(--ig-code-mu); font-size: 12px; }
 .ig-code-h > span:first-child { flex: 1 1 260px; min-width: 0; }

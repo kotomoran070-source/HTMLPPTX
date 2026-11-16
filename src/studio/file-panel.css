@@ -158,6 +158,7 @@
 .fp-ver-who i { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: #fff; font: 700 12px var(--font); font-style: normal; }
 .fp-ver-who i.k { background: var(--surf); color: var(--tx2); box-shadow: 0 0 0 1px var(--bd); }
 .fp-ver-who i .ic { width: 15px; height: 15px; }
+.fp-ver-who i .lg { width: 15px; height: 15px; }
 .fp-ver-a { display: flex; align-items: center; gap: 6px; }
 .fp-ver-gone { color: var(--mu); font-size: 12px; white-space: nowrap; }
 .fp-ver .fp-btn { height: 30px; opacity: 0; transition: opacity .12s; }

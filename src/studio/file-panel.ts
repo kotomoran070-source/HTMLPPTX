@@ -22,7 +22,7 @@ import type { PointKind } from '../engine/editor/persist';
 import { plural } from '../engine/editor/font-picker';
 import { esc } from '../engine/html';
 import { licensesSummary, loadLicenses, mountLicenses, newLicensesState } from '../engine/licenses-view';
-import { agentLook, canRevert, edits, type JournalEntry } from './integrations';
+import { agentLook, agentMark, canRevert, edits, type JournalEntry } from './integrations';
 import { onThemeChange } from '../engine/theme';
 import { collectSummary, fileSize, numText, removeFont, replaceFont, trashUnused, type Summary, type ToolsHost } from './tools';
 import './file-panel.css';
@@ -278,7 +278,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
       const ok = x.list.every(canRevert);
       const when = x.end - x.time >= 60_000 ? `${clock(x.time)}–${clock(x.end)}` : clock(x.time);
       return `<div class="fp-ver fp-ver-e" data-g="${esc(x.key)}"><time title="${esc(when)}">${clock(x.end)}</time>`
-        + `<span class="fp-ver-who">${script ? `<i class="k">${icon('script')}</i>` : `<i style="background:${look.bg}">${esc(look.initials)}</i>`}</span>`
+        + `<span class="fp-ver-who">${script ? `<i class="k">${icon('script')}</i>` : `<i style="background:${look.bg}">${agentMark(look)}</i>`}</span>`
         + `<span class="fp-ver-x"><span class="fp-ver-t">${script ? `Скрипт «${esc(x.by.name)}»` : esc(x.by.name)} <small>${edits(n)}${when.includes('–') ? ` · ${when}` : ''}</small></span><span class="fp-ver-n">${esc(sub)}</span></span>`
         + `<span class="fp-ver-a">${script ? '' : '<button type="button" class="fp-btn fp-ver-log" data-a="log">Журнал</button>'}${ok
           ? `<button type="button" class="fp-btn" data-revert="${esc(x.key)}" title="Вернуть как было до ${script ? 'скрипта' : 'этих правок'} — то, что поправили после, останется. Ctrl+Z — обратно">Вернуть</button>`

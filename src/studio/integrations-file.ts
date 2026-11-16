@@ -5,7 +5,8 @@
  */
 import { icon } from '../components/icons';
 import './integrations.css';
-import { agentLook, ago, api, canRevert, defaults, edits, revertAgent, runScript, slideOf, type AgentInfo, type IntegrationsCtx, type JournalEntry, type ScriptInfo, type ScriptParam, type Section } from './integrations';
+import { LOGOS } from './brand-logos';
+import { agentLook, agentMark, ago, api, canRevert, defaults, edits, revertAgent, runScript, slideOf, type AgentInfo, type IntegrationsCtx, type JournalEntry, type ScriptInfo, type ScriptParam, type Section } from './integrations';
 
 type Access = 'view' | 'edit' | 'all';
 interface Info { access: Access; agents: AgentInfo[]; mcp: { command: string; args: string[] } | null; scripts: string }
@@ -38,22 +39,23 @@ interface Auto {
   /** Подключена расширением — где она теперь; записью в файле настроек — что сделать (у Claude Desktop) */
   done?: string;
   config?: string;
-  /** Расширение ставят, перетащив файл в Claude Desktop (Windows): шаги вместо after */
+  /** Расширение ставят, переместив файл в Claude Desktop (Windows): шаги вместо after */
   drag?: [string, string];
 }
-interface Client { id: string; name: string; mono: string; bg: string; step: string; variants: Variant[]; note?: string; auto?: Auto }
+/** logo — знак программы (brand-logos.ts); нет — буквы mono */
+interface Client { id: string; name: string; mono: string; logo?: string; bg: string; step: string; variants: Variant[]; note?: string; auto?: Auto }
 const CLAUDE = agentLook('Claude').bg;
 /** Клиенты MCP: как выглядит подключение у каждого (без своих знаков — буквы на плашке) */
 const CLIENTS: Client[] = [
-  { id: 'claude-code', name: 'Claude Code', mono: 'C', bg: CLAUDE, step: 'Выполните в терминале',
+  { id: 'claude-code', name: 'Claude Code', mono: 'C', logo: LOGOS.claudeCode, bg: CLAUDE, step: 'Выполните в терминале',
     variants: [{ label: 'Команда', where: 'Выполните в терминале — для всех папок', snippet: shell('claude') }],
     auto: { after: 'Запустите claude в любой папке — Slideria уже в его списке (/mcp)', get: 'https://code.claude.com/docs/en/setup' } },
-  { id: 'claude-desktop', name: 'Claude Desktop', mono: 'C', bg: CLAUDE, step: 'Вставьте в настройки и перезапустите Claude',
+  { id: 'claude-desktop', name: 'Claude Desktop', mono: 'C', logo: LOGOS.claude, bg: CLAUDE, step: 'Вставьте в настройки и перезапустите Claude',
     variants: [{ label: 'Настройки', where: 'Claude → Настройки → Разработчик → Изменить конфигурацию; добавьте в mcpServers и перезапустите', snippet: jsonCfg('mcpServers') }],
-    auto: { after: 'В окне Claude Desktop нажмите «Install» — Slideria появится в его Settings → Desktop app → Extensions, перезапуск не нужен',
-      drag: ['Нажмите «Подключить» — файл расширения Slideria.mcpb откроется в папке', 'Перетащите его в окно Claude Desktop и нажмите «Install» — Slideria появится в его Settings → Desktop app → Extensions, перезапуск не нужен'],
-      done: 'Расширение Claude Desktop: Settings → Desktop app → Extensions — там же его выключают и удаляют',
-      config: 'Закройте Claude Desktop совсем (Quit; на Windows — у значка возле часов) и откройте снова: Slideria будет в его Settings → Desktop app → Developer',
+    auto: { after: 'Нажмите «Install» в окне установки. Перезапуск не требуется',
+      drag: ['Нажмите «Подключить» — откроется папка с файлом Slideria.mcpb', 'Переместите файл в окно приложения и нажмите «Install». Перезапуск не требуется'],
+      done: 'Расширение установлено. Управление — Settings → Desktop app → Extensions',
+      config: 'Требуется перезапуск приложения: Quit, затем повторный запуск',
       get: 'https://claude.ai/download' } },
   { id: 'codex', name: 'ChatGPT · Codex', mono: 'AI', bg: 'linear-gradient(135deg,#475569,#0F172A)', step: 'Заполните поля в ChatGPT и перезапустите его',
     auto: { after: 'Перезапустите ChatGPT (и Codex в терминале или редакторе, если открыт) — Slideria будет в списке его MCP-серверов', get: 'https://openai.com/chatgpt/download/', app: 'ChatGPT' },
@@ -63,7 +65,7 @@ const CLIENTS: Client[] = [
       { label: 'Команда', where: 'Или выполните в терминале, если стоит Codex CLI', snippet: shell('codex') },
     ],
     note: 'Codex встроен в ChatGPT для компьютера: серверы MCP он берёт из файла ~/.codex/config.toml, общего с Codex в терминале и в редакторе. Обычный чат ChatGPT в браузере до Slideria на этом компьютере не дотянется.' },
-  { id: 'cursor', name: 'Cursor', mono: 'CU', bg: 'linear-gradient(135deg,#334155,#0B1220)', step: 'Вставьте в настройки MCP',
+  { id: 'cursor', name: 'Cursor', mono: 'CU', logo: LOGOS.cursor, bg: 'linear-gradient(135deg,#334155,#0B1220)', step: 'Вставьте в настройки MCP',
     variants: [{ label: 'mcp.json', where: 'Cursor → Settings → MCP → Add new global MCP server (файл ~/.cursor/mcp.json)', snippet: jsonCfg('mcpServers') }] },
   { id: 'vscode', name: 'VS Code', mono: 'VS', bg: 'linear-gradient(135deg,#3B82F6,#1D4ED8)', step: 'Вставьте в mcp.json',
     variants: [{ label: 'mcp.json', where: 'Файл .vscode/mcp.json в папке проекта или «MCP: Add Server» в палитре команд', snippet: jsonCfg('servers', { type: 'stdio' }) }] },
@@ -219,7 +221,7 @@ function focusKey(): string {
 function avatar(name: string, online?: boolean, size = '', script = false): string {
   if (script) return `<span class="ig-av k ${size}">${icon('script')}</span>`;
   const l = agentLook(name);
-  return `<span class="ig-av ${size}${online === undefined ? '' : online ? ' on' : ' off'}" style="background:${l.bg}">${esc(l.initials)}<i></i></span>`;
+  return `<span class="ig-av ${size}${online === undefined ? '' : online ? ' on' : ' off'}" style="background:${l.bg}">${agentMark(l)}<i></i></span>`;
 }
 const hm = (ms: number) => new Date(ms).toLocaleTimeString('ru-RU', { hour: 'numeric', minute: '2-digit' });
 const plural = (n: number, one: string, few: string, many: string) => {
@@ -268,9 +270,9 @@ function connectHtml(info: Info | null): string {
   const snippet = v.snippet(info.mcp);
   const cs = c.auto ? state.clients?.find((x) => x.id === c.id) : undefined;
   const steps = !cs ? ['Скопируйте — путь к Slideria на этом компьютере уже в строке', c.step]
-    : cs.installed || cs.connected ? (cs.install === 'drag' && c.auto!.drag ? c.auto!.drag : [cs.install ? 'Нажмите «Подключить» — откроется окно установки в Claude Desktop' : 'Нажмите «Подключить»', c.auto!.after])
+    : cs.installed || cs.connected ? (cs.install === 'drag' && c.auto!.drag ? c.auto!.drag : [cs.install ? 'Нажмите «Подключить» — откроется окно установки' : 'Нажмите «Подключить»', c.auto!.after])
       : [`Установите ${c.auto!.app ?? c.name} и запустите хотя бы один раз`, 'Вернитесь сюда и нажмите «Подключить»'];
-  return `<div class="ig-clients" role="tablist" aria-label="Агент">${CLIENTS.map((x) => `<button type="button" class="ig-client" role="tab" data-client="${x.id}" aria-selected="${x.id === c.id}"><span class="ig-mono" style="background:${x.bg}">${esc(x.mono)}</span>${esc(x.name)}${state.clients?.find((s) => s.id === x.id)?.connected ? `<i class="ig-on" title="Подключено"></i>` : ''}</button>`).join('')}</div>
+  return `<div class="ig-clients" role="tablist" aria-label="Агент">${CLIENTS.map((x) => `<button type="button" class="ig-client" role="tab" data-client="${x.id}" aria-selected="${x.id === c.id}"><span class="ig-mono" style="background:${x.bg}">${x.logo ?? esc(x.mono)}</span>${esc(x.name)}${state.clients?.find((s) => s.id === x.id)?.connected ? `<i class="ig-on" title="Подключено"></i>` : ''}</button>`).join('')}</div>
     ${cs ? linkHtml(c, cs) : ''}
     ${cs ? '<h3 class="fp-k ig-or">Или вручную</h3>' : ''}
     <div class="ig-code">
@@ -298,16 +300,21 @@ function linkHtml(c: Client, cs: ClientState): string {
     : state.waiting[c.id]
       // Окно установки расширения открыто — статус обновится сам (watch); окно потерялось — открыть снова
       ? (state.waiting[c.id].how === 'drag'
-        ? ['wait', 'clock', `Установите расширение в ${name}`, 'Перетащите Slideria.mcpb в окно Claude Desktop — или в нём: Settings → Desktop app → Extensions → Advanced settings → Install Extension…', `<button type="button" class="fp-btn" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Открытие…' : 'Показать файл'}</button>`]
-        : ['wait', 'clock', `Подтвердите установку в ${name}`, 'В окне Claude Desktop нажмите «Install». Окно не появилось или закрыто — откройте его ещё раз', `<button type="button" class="fp-btn" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Открытие…' : 'Открыть ещё раз'}</button>`])
+        ? ['wait', 'clock', `Установка расширения в ${name}`, 'Переместите файл Slideria.mcpb в окно приложения. Другой способ: Settings → Desktop app → Extensions → Advanced settings → Install Extension…', `<button type="button" class="fp-btn" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Открытие…' : 'Показать файл'}</button>`]
+        : ['wait', 'clock', `Установка расширения в ${name}`, 'Нажмите «Install» в окне установки. Если окно закрыто, откройте его снова', `<button type="button" class="fp-btn" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Открытие…' : 'Открыть снова'}</button>`])
       : cs.installed
-        ? ['', 'plug', `${name} есть на этом компьютере`, `${cs.install === 'drag' ? 'Файл расширения откроется в папке — его перетаскивают в Claude Desktop' : cs.install ? 'Откроется окно установки расширения в Claude Desktop' : 'Slideria будет добавлена в настройки приложения'}; при наличии подписки ключ API не нужен`, `<button type="button" class="fp-btn go" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Подключение…' : `Подключить к ${esc(name)}`}</button>`]
+        ? ['', 'plug', `${name} есть на этом компьютере`, cs.install === 'drag' ? 'Откроется папка с файлом расширения. С подпиской ключ API не требуется'
+          : cs.install ? 'Откроется окно установки расширения. С подпиской ключ API не требуется'
+            : 'Slideria будет добавлена в настройки приложения; при наличии подписки ключ API не нужен', `<button type="button" class="fp-btn go" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Подключение…' : `Подключить к ${esc(name)}`}</button>`]
         : ['no', 'search', `${app} не найден на этом компьютере`, 'Установите приложение и запустите хотя бы один раз — или подключите вручную ниже', `<a class="fp-btn" href="${a.get}" target="_blank" rel="noopener">Скачать ${esc(app)}</a>`];
-  return `<div class="ig-link ${cls}" aria-live="polite"><span class="ig-link-i">${icon(ic)}</span><div><b>${esc(title)}</b>${hint ? `<span class="ig-link-hint">${esc(hint)}</span>` : `<span>${esc(sub)}</span>`}${err ? `<span class="ig-link-err" role="alert">${esc(err)}</span>` : ''}</div>${btn}</div>`;
+  // Второй способ (Claude Desktop): запись в файл настроек — если расширение не ставится
+  const alt = cs.install && a.config && !cs.connected && cs.installed ? `<button type="button" class="fp-link ig-link-alt" data-link="config"${busy ? ' disabled' : ''}>Подключить через файл настроек</button>` : '';
+  return `<div class="ig-link ${cls}" aria-live="polite"><span class="ig-link-i">${icon(ic)}</span><div><b>${esc(title)}</b>${hint ? `<span class="ig-link-hint">${esc(hint)}</span>` : `<span>${esc(sub)}</span>`}${alt}${err ? `<span class="ig-link-err" role="alert">${esc(err)}</span>` : ''}</div>${btn}</div>`;
 }
 
-/** «Подключить» и «Отключить» */
-async function link(on: boolean): Promise<void> {
+/** «Подключить», «Отключить» и «Подключить через файл настроек» (config — Claude Desktop без расширения) */
+async function link(mode: 'on' | 'off' | 'config'): Promise<void> {
+  const on = mode !== 'off';
   const id = state.client;
   if (state.linking) return;
   state.linking = id;
@@ -315,7 +322,7 @@ async function link(on: boolean): Promise<void> {
   delete state.linkHint[id];
   render();
   try {
-    const r = await api<ClientState>(`agents-${on ? 'connect' : 'disconnect'}?client=${encodeURIComponent(id)}`);
+    const r = await api<ClientState>(`agents-${on ? 'connect' : 'disconnect'}?client=${encodeURIComponent(id)}${mode === 'config' ? '&via=config' : ''}`);
     state.clients = (state.clients ?? []).map((x) => (x.id === r.id ? r : x));
     if (r.hint) state.linkHint[id] = r.hint;
     const name = CLIENTS.find((x) => x.id === id)?.name ?? '';
@@ -477,7 +484,7 @@ function onClick(e: MouseEvent): void {
     if (CLIENTS.find((x) => x.id === d.client)?.auto) void loadClients().then(() => { if (root?.isConnected) render(); });
     return;
   }
-  if (d.link) return void link(d.link === 'on');
+  if (d.link) return void link(d.link as 'on' | 'off' | 'config');
   if (d.variant) { state.variant = Number(d.variant); return render(); }
   if (d.access) {
     void api<{ access: Access }>('integrations-set', { agents: d.access }).then((r) => {

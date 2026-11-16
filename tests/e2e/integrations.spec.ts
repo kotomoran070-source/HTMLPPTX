@@ -155,14 +155,18 @@ test('подключить в один щелчок: Claude Desktop — расш
 
   await fp.locator('[data-client="claude-desktop"]').click();
   await expect(link).toContainText('Claude Desktop есть на этом компьютере');
-  // Не macOS — файл расширения показывается в папке, его перетаскивают в Claude Desktop
-  await expect(link).toContainText('Файл расширения откроется в папке');
-  await expect(fp.locator('.ig-steps li').first()).toContainText('Slideria.mcpb откроется в папке');
-  await expect(fp.locator('.ig-steps li').nth(1)).toContainText('Перетащите его в окно Claude Desktop');
+  // Знаки программ на вкладках; у ChatGPT · Codex и VS Code — буквы
+  await expect(fp.locator('[data-client="claude-desktop"] .ig-mono svg.lg')).toBeVisible();
+  await expect(fp.locator('[data-client="cursor"] .ig-mono svg.lg')).toBeVisible();
+  await expect(fp.locator('[data-client="codex"] .ig-mono')).toHaveText('AI');
+  // Не macOS — файл расширения показывается в папке, его перемещают в окно приложения
+  await expect(link).toContainText('Откроется папка с файлом расширения');
+  await expect(fp.locator('.ig-steps li').first()).toContainText('откроется папка с файлом Slideria.mcpb');
+  await expect(fp.locator('.ig-steps li').nth(1)).toContainText('Переместите файл в окно приложения');
   // «Подключить» — пакет расширения с путём к этой Slideria (в тестах — записью, какой файл показали);
   // пока его не установили — ждём, файл настроек Claude Desktop не трогается
   await link.getByRole('button', { name: 'Подключить к Claude Desktop' }).click();
-  await expect(link).toContainText('Установите расширение в Claude Desktop');
+  await expect(link).toContainText('Установка расширения в Claude Desktop');
   await expect(link).toContainText('Install Extension…');
   await expect(link.getByRole('button', { name: 'Показать файл' })).toBeVisible();
   const opened = fs.readFileSync(path.join(home, 'opened-mcpb.txt'), 'utf8');
@@ -170,13 +174,23 @@ test('подключить в один щелчок: Claude Desktop — расш
   const zip = await JSZip.loadAsync(fs.readFileSync(opened));
   expect(JSON.parse(await zip.file('manifest.json')!.async('string'))).toMatchObject({ name: 'slideria', server: { type: 'node' } });
   expect(JSON.parse(await zip.file('server/target.json')!.async('string')).args.join(' ')).toContain('mcp.mjs');
-  expect(fs.existsSync(path.join(home, '.config', 'Claude', 'claude_desktop_config.json'))).toBe(false);
-  // Claude Desktop установил расширение — статус обновляется сам
-  fs.writeFileSync(path.join(home, '.config', 'Claude', 'extensions-installations.json'), JSON.stringify({ extensions: { 'local.mcpb.slideria.slideria': { manifest: { name: 'slideria' } } } }));
+  const cfgFile = path.join(home, '.config', 'Claude', 'claude_desktop_config.json');
+  expect(fs.existsSync(cfgFile)).toBe(false);
+  // Второй способ — запись в файл настроек, с перезапуском приложения
+  await link.getByRole('button', { name: 'Подключить через файл настроек' }).click();
   await expect(link).toContainText('Slideria подключена к Claude Desktop');
+  await expect(link).toContainText('Требуется перезапуск приложения');
+  await expect(link.getByRole('button', { name: 'Подключить через файл настроек' })).toHaveCount(0);
+  expect(JSON.parse(fs.readFileSync(cfgFile, 'utf8')).mcpServers.slideria.args.join(' ')).toContain('mcp.mjs');
+  // Расширение всё же установили — оно главное, запись в настройках убирается (иначе два одинаковых сервера)
+  fs.writeFileSync(path.join(home, '.config', 'Claude', 'extensions-installations.json'), JSON.stringify({ extensions: { 'local.mcpb.slideria.slideria': { manifest: { name: 'slideria' } } } }));
+  await fp.locator('[data-client="claude-code"]').click();
+  await fp.locator('[data-client="claude-desktop"]').click();
+  await expect(link).toContainText('Расширение установлено');
   await expect(link).toContainText('Settings → Desktop app → Extensions');
   await expect(fp.locator('[data-client="claude-desktop"] .ig-on')).toBeVisible();
-  // Расширение удаляют в самом Claude Desktop — «Отключить» говорит, где
+  expect(JSON.parse(fs.readFileSync(cfgFile, 'utf8')).mcpServers.slideria).toBeUndefined();
+  // Расширение удаляют в самом приложении — «Отключить» говорит, где
   await link.getByRole('button', { name: 'Отключить' }).click();
   await expect(link.locator('.ig-link-hint')).toContainText('Extensions → Slideria → Uninstall');
   await expect(link).toContainText('Slideria подключена к Claude Desktop');

@@ -1673,6 +1673,7 @@ body.st-connecting .stage .slide.on > .free.st-conn-over { outline: 2px dashed v
 }
 .st-int-mini:not(.empty) .st-int-av { color: #fff; }
 .st-int-av .ic { width: 18px; height: 18px; }
+.st-int-av .lg { width: 17px; height: 17px; }
 .st-int-av.on::after { content: ''; position: absolute; right: -3px; bottom: -3px; width: 11px; height: 11px; border-radius: 50%; background: #16A34A; border: 2px solid var(--alt); }
 .st-int-t { display: grid; min-width: 0; }
 .st-int-t b, .st-int-t small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
