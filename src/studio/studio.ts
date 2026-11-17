@@ -95,7 +95,8 @@ const SIZE_CHOICES: [SlideSize, string, string][] = [
   ['4:3', 'Стандартный 4:3', '960 × 720 · старые проекторы'],
   ['21:9', 'Сверхширокий 21:9', '1680 × 720 · широкие экраны и сцены'],
 ];
-const PAD = 40;
+/** Поле вокруг вписанного слайда (как padding у .st-canvas): у «Островов» холст без рамки — поле небольшое */
+const PAD = 28;
 const NOTES_KEY = 'htmlpptx-studio-notes';
 
 const readPath = (el: Element, attr: string): Path | null => {

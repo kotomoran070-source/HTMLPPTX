@@ -101,7 +101,7 @@ body.studio {
 @media (max-width: 900px) { .st-tbar #st-status.ok { display: none; } }
 
 /* Шапка */
-.st-top { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 2px; }
+.st-top { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 2px; }
 /* Знак — как на странице выбора: фирменная плитка, цвета постоянные (не акцент) */
 .st-home { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 10px; color: #fff; background: linear-gradient(145deg, #7AA7F7, #2F6BEA 52%, #1D4ED8);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 6px 16px -6px rgba(37, 99, 235, .7); transition: box-shadow .15s; }
@@ -608,7 +608,7 @@ body.studio {
 /* Путь к выделенному над слайдом */
 .st-view { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 /* Путь меняется при наведении на каждый объект: contain — его раскладка сама по себе, без пересчёта всей студии */
-.st-crumbs { flex: none; display: flex; align-items: center; height: 32px; padding: 0 4px 2px; font: 500 12px var(--font); color: var(--tx2); overflow: hidden; white-space: nowrap; contain: strict; }
+.st-crumbs { flex: none; display: flex; align-items: center; height: 30px; padding: 0 4px 2px; font: 500 12px var(--font); color: var(--tx2); overflow: hidden; white-space: nowrap; contain: strict; }
 /* Путь — одной «пилюлей» на подложке: у звеньев общий фон, скруглены края первого и последнего
    (своя обёртка вокруг пути сломала бы contain: размер полосы не зависит от текста) */
 .st-crumbs > * { display: flex; align-items: center; height: 26px; background: var(--chip); }
@@ -635,7 +635,7 @@ body.studio {
 body.editing .stage .st-peek { outline: 2px dashed var(--ac) !important; outline-offset: 3px; background-color: color-mix(in srgb, var(--ac) 8%, transparent); }
 
 /* Холст */
-.st-canvas { flex: 1; min-height: 0; overflow: auto; display: flex; padding: 40px; }
+.st-canvas { flex: 1; min-height: 0; overflow: auto; display: flex; padding: 28px; }
 .st-work.with-code .st-canvas { padding: 24px; }
 .st-canvas.fit { overflow: hidden; }
 .st-paper { position: relative; margin: auto; flex: none; }
@@ -660,7 +660,7 @@ body.studio .edblock { display: none !important; }
 .st-notes textarea:focus { outline: none; border-color: var(--ac); background: var(--bg); }
 
 /* Строка состояния */
-.st-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 34px; padding: 0 2px 0 6px; font-size: 12px; color: var(--mu); }
+.st-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 32px; padding: 0 2px 0 6px; font-size: 12px; color: var(--mu); }
 .st-foot > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-foot-r, .st-zoom, .st-ftog { display: flex; align-items: center; gap: 2px; }
 .st-foot-r { gap: 10px; }
