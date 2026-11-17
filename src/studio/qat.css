@@ -17,7 +17,7 @@
 .st-top .st-qat::after { content: ""; width: 1px; height: 16px; margin-left: 6px; background: var(--bd); }
 
 /* Под лентой — своя строка во всю ширину (место в сетке студии — studio.css) */
-.st-qat-row { display: flex; align-items: center; height: 32px; padding: 0 10px; background: var(--surf); border-bottom: 1px solid var(--bd); }
+.st-qat-row { display: flex; align-items: center; height: 32px; margin: -4px 0 6px; padding: 0 6px; }
 .st-qat-row[hidden] { display: none; }
 /* Панель ушла под ленту: в заголовке окна у знака не остаётся черты-разделителя */
 .st-qat-below .st-tbar .st-tb-sep { display: none; }

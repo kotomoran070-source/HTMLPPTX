@@ -1,5 +1,5 @@
 /* Чат «Агент» — панель справа (agent-chat.ts), по согласованному макету */
-.st-chat { position: relative; display: flex; flex-direction: column; min-height: 0; background: var(--surf); border-left: 1px solid var(--bd); color: var(--tx); font: 13.5px/1.5 var(--font); }
+.st-chat { position: relative; display: flex; flex-direction: column; min-height: 0; overflow: hidden; margin-left: var(--isl-gap, 0px); border: 1px solid var(--isl-bd, transparent); border-radius: var(--isl-r, 0px); background: var(--isl, var(--surf)); box-shadow: var(--isl-sh, none); color: var(--tx); font: 13.5px/1.5 var(--font); }
 .st-chat .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 .st-chat button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 .st-chat button:disabled { cursor: default; }

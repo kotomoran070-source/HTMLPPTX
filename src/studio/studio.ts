@@ -174,7 +174,8 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
 </div>` : ''}
 <div class="studio-app">
   <header class="st-top" data-ed-keep>
-    ${framed ? '' : `${homeHtml}${titleHtml}<div class="st-qat-slot" id="st-qat-up"></div>`}
+    ${framed ? '' : `${homeHtml}<div class="st-doc">${titleHtml}${statusHtml}</div><div class="st-qat-slot" id="st-qat-up"></div>`}
+    <div class="st-tabbar">
     <button type="button" class="st-filebtn" id="st-file" aria-haspopup="dialog" aria-expanded="false" title="Сведения, экспорт, версии и параметры">Файл</button>
     <nav class="st-tabs" role="tablist" aria-label="Вкладки ленты">
       <button type="button" role="tab" data-tab="home" aria-selected="true">Главная</button>
@@ -187,11 +188,11 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       ${contextTabsHtml()}
       <button type="button" class="st-ribbon-toggle" id="st-rt" title="Свернуть ленту (Ctrl+F1)" aria-label="Свернуть ленту" aria-expanded="true">${icon('chev-up')}</button>
     </nav>
+    </div>
     <div class="st-pal" id="st-pal" role="search"></div>
     <div class="st-top-r">
-      ${framed ? '' : statusHtml}
       ${framed ? '' : themeHtml}
-      <button class="ibtn small st-agentbtn" type="button" data-cmd="agent.toggle" aria-label="Агент" aria-pressed="false" title="Агент: правит презентацию по вашей просьбе (Ctrl+J)">${icon('agent')}</button>
+      <button class="st-agentbtn" type="button" data-cmd="agent.toggle" aria-label="Агент" aria-pressed="false" title="Агент: правит презентацию по вашей просьбе (Ctrl+J)">${icon('agent')}<span>Агент</span></button>
       <button class="btn primary small" type="button" data-cmd="show.current" title="Показ с текущего слайда (Shift+F5)">${icon('play')}<span>Показ</span></button>
     </div>
   </header>
@@ -276,11 +277,13 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   <footer class="st-foot" data-ed-keep>
     <span id="st-pos"></span>
     <span class="st-foot-r">
+      <span class="st-ftog" role="group" aria-label="Панели">
       <button type="button" class="st-fbtn" data-cmd="view.slides" title="Слайды слева (Ctrl+Shift+1)">${icon('grid')}<span>Слайды</span></button>
       <button type="button" class="st-fbtn" data-cmd="view.props" title="Свойства справа (Ctrl+Shift+2)">${icon('sliders')}<span>Свойства</span></button>
       <button type="button" class="st-fbtn" data-cmd="agent.toggle" title="Агент справа (Ctrl+J)">${icon('agent')}<span>Агент</span></button>
       <button type="button" class="st-fbtn" data-cmd="view.code" title="Код слайда (Ctrl+\`)">${icon('terminal')}<span>Код</span></button>
       <button type="button" class="st-fbtn" data-cmd="view.notes" title="Заметки докладчика">${icon('notes')}<span>Заметки</span></button>
+      </span>
       <span class="st-zoom" role="group" aria-label="Масштаб">
         <button type="button" class="st-fbtn" data-cmd="view.zoom-out" title="Уменьшить (Ctrl + колесо)" aria-label="Уменьшить">${icon('minus')}</button>
         <button type="button" class="st-fbtn st-zoom-val" id="st-zoom" data-cmd="view.zoom-menu" title="Масштаб" aria-haspopup="menu"></button>
