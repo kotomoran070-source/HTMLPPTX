@@ -1,9 +1,12 @@
 /**
- * Чат «Агент» студии ([docs/AGENT.md](../docs/AGENT.md)): Claude по ключу пользователя правит открытую презентацию
+ * Чат «Агент» студии ([docs/AGENT.md](../docs/AGENT.md)): модель по ключу пользователя правит открытую презентацию
  * теми же операциями, что агенты по MCP (src/engine/ops.ts) — с журналом, точками до и после и «Вернуть».
+ * Сервисы — Claude (своим SDK) и любые с API, совместимым с OpenAI: ChatGPT, DeepSeek, Qwen, OpenRouter, Ollama,
+ * свой адрес (server/agent-llm.ts).
  *
- * Ключ — только здесь, на сервере: в программе он зашифрован (safeStorage, desktop/main.mjs), при разработке — из
- * ANTHROPIC_API_KEY или в памяти до перезапуска. Страница студии ключа не видит.
+ * Ключи — только здесь, на сервере, у каждого сервиса свой: в программе они зашифрованы (safeStorage,
+ * desktop/main.mjs), при разработке — в памяти до перезапуска (Claude — ещё из ANTHROPIC_API_KEY). Страница студии
+ * ключей не видит.
  * Переписка — для каждой презентации в .slideria/chats/<имя>/: <id>.json и картинки рядом, в папке <id>/. В файл
  * презентации и в экспорт не попадает; уходит в корзину вместе с презентацией (server/core.ts).
  *
@@ -15,8 +18,9 @@ import type Anthropic from '@anthropic-ai/sdk';
 import type { DecksCore } from './core';
 import { chatsDir, type JournalEntry } from './integrations';
 import { formatGuide, opsHelp } from './mcp';
+import { LlmError, PRESETS, apiBase, listModels, openaiTurn, pickModel, presetOf, type Model, type Preset, type ProviderId } from './agent-llm';
 
-/** Модели в шапке чата: первая — по умолчанию */
+/** Модели Claude в шапке чата: первая — по умолчанию (у остальных сервисов список — у самого сервиса) */
 export const AGENT_MODELS = [
   { id: 'claude-opus-5-5', name: 'Claude Opus 5.5', note: 'Лучше всех понимает оформление' },
   { id: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5', note: 'Быстрее и дешевле' },
@@ -26,7 +30,10 @@ export const AGENT_MODELS = [
 /** Кто правит — в журнале и «Версиях» */
 export const CHAT_AGENT = { kind: 'agent' as const, id: 'studio-chat', name: 'Агент' };
 
-/** Где хранится ключ: app — зашифрован программой; env — переменная ANTHROPIC_API_KEY; memory — до перезапуска сервера */
+/**
+ * Где хранятся ключи: app — зашифрованы программой; env — ключ Claude из ANTHROPIC_API_KEY; memory — до перезапуска
+ * сервера. Значение — одной строкой: настройки сервисов (AgentConf) в JSON; старая строка-ключ — ключ Claude
+ */
 export interface KeyStore {
   readonly kind: 'app' | 'env' | 'memory';
   /** false — система хранит ключ без надёжного шифрования (Linux без хранилища паролей) */
@@ -46,6 +53,23 @@ export function devKeys(): KeyStore {
     set: (k) => { memory = k; },
     clear: () => { memory = null; },
   };
+}
+
+/** Настройки сервиса: ключ, адрес (Ollama, свой), модель по умолчанию, список моделей, кто из них не видит картинки */
+export interface ProviderConf { key?: string; url?: string; model?: string; models?: Model[]; noImages?: string[] }
+export interface AgentConf { active?: ProviderId; providers: Partial<Record<ProviderId, ProviderConf>> }
+
+/** Настройки из хранилища; строка не JSON — ключ Claude из прошлых версий (и ANTHROPIC_API_KEY) */
+export function parseConf(raw: string | null): AgentConf {
+  const t = raw?.trim();
+  if (!t) return { providers: {} };
+  if (!t.startsWith('{')) return { active: 'claude', providers: { claude: { key: t } } };
+  try {
+    const j = JSON.parse(t) as Partial<AgentConf>;
+    return { active: presetOf(j.active)?.id, providers: j.providers && typeof j.providers === 'object' ? j.providers : {} };
+  } catch {
+    return { providers: {} };
+  }
 }
 
 /** Картинка в сообщении: из студии — base64; в переписке — файлом рядом */
@@ -77,7 +101,7 @@ export type AgentEvent =
   | { type: 'text'; delta: string }
   | { type: 'edit'; entry: JournalEntry; slides: number[] }
   | { type: 'done'; stop: Stop; ms: number }
-  | { type: 'error'; code: 'key' | 'rate' | 'busy' | 'net' | 'other'; message: string };
+  | { type: 'error'; code: 'key' | 'rate' | 'busy' | 'net' | 'images' | 'other'; message: string };
 
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 const MAX_IMAGE = 5 * 1024 * 1024;
@@ -170,6 +194,8 @@ export interface AgentOptions {
   keys: KeyStore;
   /** Адрес Claude API (тесты — подставной сервер); по умолчанию — api.anthropic.com */
   baseURL?: string;
+  /** Адрес сервисов OpenAI вместо их своих (тесты — подставной сервер); Ollama и свой адрес — как задали */
+  openaiURL?: string;
   /** Повторы запроса при сбое сети или перегрузке (SDK) — тесты без них */
   maxRetries?: number;
   log?: (m: string) => void;
@@ -192,20 +218,54 @@ export function createAgentChat(o: AgentOptions) {
   const running = new Set<string>();
   const client = async (apiKey: string) => new (await loadSdk())({ apiKey, authToken: null, baseURL, maxRetries: o.maxRetries ?? 2, timeout: 10 * 60_000 });
 
-  // ---------------- ключ ----------------
+  // ---------------- сервисы и ключи ----------------
+
+  const conf = () => parseConf(keys.get());
+  /** Записать настройки; ни одного сервиса — хранилище пустое */
+  function save(c: AgentConf): void {
+    if (!Object.keys(c.providers).length) keys.clear();
+    else keys.set(JSON.stringify(c));
+  }
+  /** Сервис настроен: есть ключ (если он нужен), адрес и модель (свой адрес) */
+  function ready(c: AgentConf, p: Preset): boolean {
+    const v = c.providers[p.id];
+    if (!v) return false;
+    if (p.key === 'required' && !v.key) return false;
+    return !p.userModel || !!(v.url && v.model);
+  }
+  /** Адрес API сервиса: в тестах — подставной (кроме тех, где адрес задают сами) */
+  const baseOf = (p: Preset, url?: string) => (o.openaiURL && !p.userUrl ? o.openaiURL : apiBase(p, url));
+  /** Модели сервиса для шапки: Claude — свои; остальные — как ответил сервис, с тем, что узнали о картинках */
+  function modelsOf(c: AgentConf, p: Preset): Model[] {
+    if (p.id === 'claude') return AGENT_MODELS.map((m) => ({ ...m, images: true }));
+    const v = c.providers[p.id] ?? {};
+    const list = v.models?.length ? v.models : v.model ? [{ id: v.model, name: v.model }] : [];
+    const no = new Set(v.noImages ?? []);
+    return list.map((m) => (no.has(m.id) ? { ...m, images: false } : { ...m }));
+  }
 
   function status() {
+    const c = conf();
+    const p = presetOf(c.active);
+    const active = p && ready(c, p) ? p : null;
     return {
-      connected: !!keys.get(),
+      connected: !!active,
+      provider: active?.id ?? null,
       store: keys.kind,
       secure: keys.secure !== false,
-      models: AGENT_MODELS.map((m) => ({ ...m })),
+      models: active ? modelsOf(c, active) : [],
+      model: active ? (active.id === 'claude' ? AGENT_MODELS[0].id : c.providers[active.id]?.model) : undefined,
+      providers: PRESETS.map((x) => ({
+        id: x.id, name: x.name, badge: x.badge, vendor: x.vendor, key: x.key, keyHint: x.keyHint, keysUrl: x.keysUrl, help: x.help,
+        ok: x.ok, no: x.no, about: x.about, userUrl: !!x.userUrl, userModel: !!x.userModel,
+        url: c.providers[x.id]?.url ?? x.url, model: c.providers[x.id]?.model,
+        saved: ready(c, x),
+      })),
     };
   }
 
-  /** Подключить ключ: сначала проверить у Claude (список моделей — бесплатно), потом сохранить */
-  async function connect(raw: unknown): Promise<ReturnType<typeof status>> {
-    const key = typeof raw === 'string' ? raw.trim() : '';
+  /** Проверить ключ у Claude (список моделей — бесплатно) */
+  async function checkClaude(key: string): Promise<void> {
     if (!/^sk-ant-[\w-]{8,}$/.test(key)) throw new Error('Это не ключ Claude API: ключ начинается с «sk-ant-»');
     try {
       await (await client(key)).models.list({ limit: 1 });
@@ -214,13 +274,80 @@ export function createAgentChat(o: AgentOptions) {
       if (isSdk(e, 'APIConnectionError')) throw new Error('Нет связи с Claude — проверьте интернет и попробуйте ещё раз');
       throw new Error(`Claude не принял ключ: ${(e as Error).message}`);
     }
-    keys.set(key);
+  }
+
+  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+
+  /**
+   * Подключить сервис: проверить ключ (список моделей — бесплатно), запомнить его настройки и сделать текущим.
+   * Ключ не передан — сохранённый раньше: так переключаются между сервисами, не вводя ключ заново.
+   * Старый вид запроса — { key } — ключ Claude
+   */
+  async function connect(body: unknown): Promise<ReturnType<typeof status>> {
+    const b = (typeof body === 'string' ? { key: body } : body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+    const p = presetOf(b.provider ?? 'claude');
+    if (!p) throw new Error('Нет такого сервиса');
+    const c = conf();
+    const prev = c.providers[p.id] ?? {};
+    const key = str(b.key) || prev.key || '';
+    const url = p.userUrl ? str(b.url) || prev.url || p.url : undefined;
+    if (p.key === 'required' && !key) throw new Error(p.id === 'claude' ? 'Это не ключ Claude API: ключ начинается с «sk-ant-»' : 'Вставьте ключ');
+    if (key && /\s/.test(key)) throw new Error('В ключе не должно быть пробелов — скопируйте его заново');
+    let models: Model[] | undefined;
+    let model: string | undefined;
+    if (p.id === 'claude') await checkClaude(key);
+    else {
+      if (p.userUrl && !url) throw new Error('Укажите адрес API');
+      try {
+        models = await listModels(p, baseOf(p, url), key || undefined);
+      } catch (e) {
+        // Свой сервис может не отдавать список моделей — тогда хватит названной
+        if (!(p.userModel && e instanceof LlmError && e.code === 'other')) throw new Error((e as Error).message);
+        models = [];
+      }
+      if (p.userModel) {
+        model = str(b.model) || prev.model;
+        if (!model) throw new Error('Укажите модель');
+        if (!models.some((m) => m.id === model)) models.unshift({ id: model, name: model });
+      } else {
+        if (!models.length) throw new Error(p.id === 'ollama' ? 'В Ollama нет моделей: скачайте, например, «ollama pull qwen3»' : `${p.name}: нет моделей, которые умеют вызывать инструменты`);
+        model = str(b.model) && models.some((m) => m.id === str(b.model)) ? str(b.model) : pickModel(p, models);
+      }
+    }
+    c.providers[p.id] = { ...(key ? { key } : {}), ...(url ? { url } : {}), ...(model ? { model } : {}), ...(models ? { models } : {}), ...(prev.noImages?.length ? { noImages: prev.noImages } : {}) };
+    c.active = p.id;
+    save(c);
     return status();
   }
 
-  function disconnect(): ReturnType<typeof status> {
-    keys.clear();
+  /** Модели по адресу, ещё не подключая: Ollama — что установлено на этом компьютере */
+  async function probe(body: unknown): Promise<{ models: Model[]; model?: string }> {
+    const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+    const p = presetOf(b.provider);
+    if (!p || p.proto !== 'openai') throw new Error('Нет такого сервиса');
+    const key = str(b.key) || conf().providers[p.id]?.key || undefined;
+    const models = await listModels(p, baseOf(p, p.userUrl ? str(b.url) || p.url : undefined), key);
+    return { models, model: pickModel(p, models) };
+  }
+
+  /** Отключить сервис (по умолчанию — текущий): его ключ и настройки удаляются */
+  function disconnect(body?: unknown): ReturnType<typeof status> {
+    const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+    const c = conf();
+    const id = presetOf(b.provider)?.id ?? c.active;
+    if (id) delete c.providers[id];
+    if (!id || c.active === id) delete c.active;
+    save(c);
     return status();
+  }
+
+  /** Модель не приняла картинки — запомнить: скрепка у неё больше не предлагается */
+  function noImages(id: ProviderId, model: string): void {
+    const c = conf();
+    const v = c.providers[id];
+    if (!v) return;
+    v.noImages = [...new Set([...(v.noImages ?? []), model])];
+    try { save(c); } catch { /* не записалось — узнаем снова в следующий раз */ }
   }
 
   // ---------------- переписка ----------------
@@ -348,12 +475,16 @@ export function createAgentChat(o: AgentOptions) {
    */
   async function send(deck: string, req: { chat?: unknown; text?: unknown; images?: unknown; slide?: unknown; model?: unknown }, emit: (e: AgentEvent) => void, signal: AbortSignal): Promise<void> {
     if (!core.has(deck)) throw new Error(`Презентация «${deck}» не найдена`);
-    const key = keys.get();
-    if (!key) throw new Error('Сначала подключите Claude');
+    const cf = conf();
+    const p = presetOf(cf.active);
+    if (!p || !ready(cf, p)) throw new Error('Сначала подключите модель');
     const text = typeof req.text === 'string' ? req.text.trim() : '';
     if (!text && !Array.isArray(req.images)) throw new Error('Пустое сообщение');
     if (text.length > 20_000) throw new Error('Сообщение слишком длинное');
-    const model = AGENT_MODELS.find((m) => m.id === req.model)?.id ?? AGENT_MODELS[0].id;
+    const models = modelsOf(cf, p);
+    const model = models.find((m) => m.id === req.model)?.id ?? (p.id === 'claude' ? AGENT_MODELS[0].id : cf.providers[p.id]?.model ?? models[0]?.id);
+    if (!model) throw new Error('Выберите модель');
+    const svc: Svc = { p, key: cf.providers[p.id]?.key ?? '', url: cf.providers[p.id]?.url, images: models.find((m) => m.id === model)?.images !== false };
     if (running.has(deck)) throw new Error('Агент уже отвечает в этой презентации');
     running.add(deck);
     const t0 = Date.now();
@@ -382,9 +513,10 @@ export function createAgentChat(o: AgentOptions) {
         ],
       });
       c.model = model;
-      await loop(c, answer, key, model, emit, signal);
+      await loop(c, answer, svc, model, emit, signal);
     } catch (e) {
       answer.stop = 'error';
+      if (e instanceof LlmError && e.code === 'images') noImages(p.id, model);
       const err = errorOf(e);
       answer.error = err.message;
       emit({ type: 'error', ...err });
@@ -400,9 +532,46 @@ export function createAgentChat(o: AgentOptions) {
     }
   }
 
+  /**
+   * Один ход модели: ответ в формате Claude (текст, мысли, вызовы инструментов) и почему остановилась. Текст —
+   * странице по мере написания; начало правки — шагом «Готовлю правку…»
+   */
+  async function turn(svc: Svc, model: string, c: ChatFile, answer: Extract<ChatItem, { role: 'assistant' }>, emit: (e: AgentEvent) => void, signal: AbortSignal): Promise<{ content: Anthropic.ContentBlockParam[]; stop: string }> {
+    // Перед ответом текстом — абзац между кусками ответа на разных шагах
+    let first = true;
+    const onText = (delta: string) => {
+      const d = first && answer.text && !answer.text.endsWith('\n') ? `\n\n${delta}` : delta;
+      first = false;
+      answer.text += d;
+      emit({ type: 'text', delta: d });
+    };
+    const onTool = (id: string, name: string) => { if (name === 'edit_presentation') emit({ type: 'step', key: id, text: 'Готовлю правку…', state: 'run' }); };
+    if (svc.p.proto === 'openai') {
+      return openaiTurn({
+        p: svc.p, base: baseOf(svc.p, svc.url), key: svc.key || undefined, model, system: SYSTEM, tools: TOOLS, messages: apiMessages(c),
+        images: svc.images, signal, retries: o.maxRetries, onText, onThink: () => emit({ type: 'think' }), onTool,
+      });
+    }
+    const stream = (await client(svc.key)).messages.stream({
+      model,
+      max_tokens: 32_000,
+      system: SYSTEM,
+      tools: TOOLS,
+      messages: apiMessages(c),
+      cache_control: { type: 'ephemeral' },
+    }, { signal });
+    stream.on('text', onText);
+    stream.on('streamEvent', (ev) => {
+      if (ev.type !== 'content_block_start') return;
+      if (ev.content_block.type === 'thinking' || ev.content_block.type === 'redacted_thinking') emit({ type: 'think' });
+      else if (ev.content_block.type === 'tool_use') onTool(ev.content_block.id, ev.content_block.name);
+    });
+    const msg = await stream.finalMessage();
+    return { content: msg.content, stop: msg.stop_reason ?? 'end_turn' };
+  }
+
   /** Модель ↔ инструменты, пока модель не ответит текстом (или «Стоп», отказ, предел шагов) */
-  async function loop(c: ChatFile, answer: Extract<ChatItem, { role: 'assistant' }>, key: string, model: string, emit: (e: AgentEvent) => void, signal: AbortSignal): Promise<void> {
-    const api = await client(key);
+  async function loop(c: ChatFile, answer: Extract<ChatItem, { role: 'assistant' }>, svc: Svc, model: string, emit: (e: AgentEvent) => void, signal: AbortSignal): Promise<void> {
     let jsonRetries = 0;
     let stepNo = 0;
     for (let round = 0; ; round++) {
@@ -413,30 +582,9 @@ export function createAgentChat(o: AgentOptions) {
         emit({ type: 'text', delta: note });
         return;
       }
-      const stream = api.messages.stream({
-        model,
-        max_tokens: 32_000,
-        system: SYSTEM,
-        tools: TOOLS,
-        messages: apiMessages(c),
-        cache_control: { type: 'ephemeral' },
-      }, { signal });
-      // Перед ответом текстом — абзац между кусками ответа на разных шагах
-      let first = true;
-      stream.on('text', (delta) => {
-        const d = first && answer.text && !answer.text.endsWith('\n') ? `\n\n${delta}` : delta;
-        first = false;
-        answer.text += d;
-        emit({ type: 'text', delta: d });
-      });
-      stream.on('streamEvent', (ev) => {
-        if (ev.type !== 'content_block_start') return;
-        if (ev.content_block.type === 'thinking' || ev.content_block.type === 'redacted_thinking') emit({ type: 'think' });
-        else if (ev.content_block.type === 'tool_use' && ev.content_block.name === 'edit_presentation') emit({ type: 'step', key: ev.content_block.id, text: 'Готовлю правку…', state: 'run' });
-      });
-      let msg: Anthropic.Message;
+      let msg: { content: Anthropic.ContentBlockParam[]; stop: string };
       try {
-        msg = await stream.finalMessage();
+        msg = await turn(svc, model, c, answer, emit, signal);
         jsonRetries = 0;
       } catch (e) {
         if (signal.aborted || isSdk(e, 'APIUserAbortError')) {
@@ -444,28 +592,29 @@ export function createAgentChat(o: AgentOptions) {
           return;
         }
         // Ввод инструмента не разобрался как JSON — тот же шаг ещё раз (не больше двух раз подряд)
-        if (isSdk(e, 'APIError') || jsonRetries++ >= 2) throw e;
+        const json = e instanceof LlmError ? e.code === 'json' : !isSdk(e, 'APIError') && !(e instanceof LlmError);
+        if (!json || jsonRetries++ >= 2) throw e;
         continue;
       }
-      if (msg.stop_reason === 'refusal') {
+      if (msg.stop === 'refusal') {
         answer.stop = 'refusal';
-        const note = (answer.text ? '\n\n' : '') + 'Claude отказался выполнять эту просьбу.';
+        const note = (answer.text ? '\n\n' : '') + 'Модель отказалась выполнять эту просьбу.';
         answer.text += note;
         emit({ type: 'text', delta: note });
         return;
       }
-      const uses = msg.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
-      if (msg.stop_reason === 'pause_turn') {
+      const uses = msg.content.filter((b): b is Anthropic.ToolUseBlockParam => b.type === 'tool_use');
+      if (msg.stop === 'pause_turn') {
         c.api.push({ role: 'assistant', content: msg.content });
         continue;
       }
       if (!uses.length) {
         c.api.push({ role: 'assistant', content: msg.content });
-        if (msg.stop_reason === 'max_tokens') answer.stop = 'max';
+        if (msg.stop === 'max_tokens') answer.stop = 'max';
         return;
       }
       // Ввод инструмента оборвался на пределе длины — не выполнять его
-      if (msg.stop_reason === 'max_tokens') throw new Error('Правка слишком велика для одного ответа — разбейте запрос на части');
+      if (msg.stop === 'max_tokens') throw new Error('Правка слишком велика для одного ответа — разбейте запрос на части');
       c.api.push({ role: 'assistant', content: msg.content });
       const results: Anthropic.ToolResultBlockParam[] = [];
       for (const u of uses) {
@@ -495,7 +644,7 @@ export function createAgentChat(o: AgentOptions) {
   }
 
   /** Инструмент → { step: подпись шага, result: ответ агенту } */
-  async function runTool(c: ChatFile, u: Anthropic.ToolUseBlock, progress: (t: string) => void, edited: (entry: JournalEntry, slides: number[]) => void): Promise<{ step: string; result: unknown }> {
+  async function runTool(c: ChatFile, u: Anthropic.ToolUseBlockParam, progress: (t: string) => void, edited: (entry: JournalEntry, slides: number[]) => void): Promise<{ step: string; result: unknown }> {
     const a = (u.input && typeof u.input === 'object' ? u.input : {}) as Record<string, unknown>;
     switch (u.name) {
       case 'read_presentation': {
@@ -539,13 +688,17 @@ export function createAgentChat(o: AgentOptions) {
     }
   }
 
-  return { status, connect, disconnect, list, read, remove, image, send, running: (deck: string) => running.has(deck) };
+  return { status, connect, probe, disconnect, list, read, remove, image, send, running: (deck: string) => running.has(deck) };
 }
+
+/** Текущий сервис ответа: пресет, ключ, адрес, видит ли модель картинки */
+interface Svc { p: Preset; key: string; url?: string; images: boolean }
 
 export type AgentChat = ReturnType<typeof createAgentChat>;
 
-/** Ошибка Claude API → понятный текст и вид (страница по нему предлагает, что делать) */
-function errorOf(e: unknown): { code: 'key' | 'rate' | 'busy' | 'net' | 'other'; message: string } {
+/** Ошибка сервиса → понятный текст и вид (страница по нему предлагает, что делать) */
+function errorOf(e: unknown): { code: 'key' | 'rate' | 'busy' | 'net' | 'images' | 'other'; message: string } {
+  if (e instanceof LlmError) return { code: e.code === 'tools' || e.code === 'json' ? 'other' : e.code, message: e.message };
   if (isSdk(e, 'AuthenticationError')) return { code: 'key', message: 'Ключ Claude недействителен — укажите новый ключ' };
   if (isSdk(e, 'PermissionDeniedError')) return { code: 'key', message: 'У ключа нет доступа к этой модели — выберите другую или другой ключ' };
   if (isSdk(e, 'RateLimitError')) return { code: 'rate', message: 'Слишком много запросов подряд — подождите минуту и повторите' };

@@ -190,3 +190,30 @@
 .ac-rec .ac-btn { height: 26px; flex: none; }
 .ac-rec .vw { color: var(--tx2); }
 @media (prefers-reduced-motion: reduce) { .ac-rec .vdot { animation: none; } }
+
+/* Сервисы (макет «Подключите модель»): кнопки пресетов, особенности строкой, поля по сервису */
+.ac-model[hidden] { display: none; }
+.ac-model > span { max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+.ac-pvs { display: flex; flex-wrap: wrap; gap: 6px; }
+.ac-pv { position: relative; display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px !important; border: 1px solid var(--bd) !important; border-radius: 14px; background: var(--surf) !important; color: var(--tx2) !important; font-size: 12.5px !important; font-weight: 500; }
+.ac-pv:hover { border-color: var(--bd2) !important; color: var(--tx) !important; }
+.ac-pv.on { border-color: var(--ac) !important; background: var(--acs) !important; color: var(--ac) !important; }
+.ac-pv .bd { padding: 1px 5px; border-radius: 6px; background: color-mix(in srgb, #16A34A 14%, var(--surf)); color: #15803D; font-size: 10.5px; font-weight: 600; }
+:root[data-theme="dark"] .ac-pv .bd { color: #4ADE80; }
+.ac-pv .sv { position: absolute; top: -2px; right: -2px; width: 8px; height: 8px; border-radius: 50%; background: #16A34A; box-shadow: 0 0 0 2px var(--bg); }
+.ac-feat { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; color: var(--tx2); font-size: 12px; }
+.ac-feat span { display: inline-flex; align-items: center; gap: 4px; }
+.ac-feat .ic { width: 13px; height: 13px; color: #16A34A; }
+.ac-feat .no .ic { color: #B45309; }
+.ac-f { display: grid; gap: 4px; }
+.ac-f > span { color: var(--mu); font-size: 12px; }
+.ac-f input, .ac-f select { height: 32px; box-sizing: border-box; border: 1px solid var(--bd2); border-radius: 8px; background: var(--surf); padding: 0 10px; color: var(--tx); font: 12.5px ui-monospace, Menlo, Consolas, monospace; min-width: 0; }
+.ac-f input:focus, .ac-f select:focus { outline: none; border-color: var(--ac); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 16%, transparent); }
+.ac-probe { margin: -4px 0 0; color: var(--mu); font-size: 12px; }
+.ac-probe:empty { display: none; }
+.ac-probe .bad { color: #B45309; }
+.ac-back { align-self: flex-start; font-size: 12.5px !important; }
+.ac-mfind { display: block; width: 100%; box-sizing: border-box; height: 30px; margin: 0 0 4px; border: 1px solid var(--bd2); border-radius: 7px; background: var(--surf); padding: 0 9px; color: var(--tx); font: inherit; font-size: 12.5px; }
+.ac-mfind:focus { outline: none; border-color: var(--ac); }
+.ac-mlist { max-height: 320px; overflow-y: auto; overscroll-behavior: contain; }
+.ac-menu [hidden] { display: none; }

@@ -19,7 +19,7 @@ import type { Served, ServeOptions } from './serve';
 /** Ключ запуска: процесс — сервер программы */
 export const HOST_FLAG = '--slideria-server';
 
-/** Ключ Claude: значение и можно ли его сохранить — шифрует и хранит главный процесс (safeStorage) */
+/** Ключи сервисов чата «Агент» (одной строкой JSON): значение и можно ли их сохранить — шифрует и хранит главный процесс (safeStorage) */
 export interface HostKey { value: string | null; secure: boolean; canStore: boolean }
 
 /** Настройки сервера, как их можно переслать: вместо функций — признаки (lan — открывать вход для телефона, firewall — брандмауэр у главного процесса) */
@@ -57,7 +57,7 @@ export function hostMain(start: (o: ServeOptions) => Promise<Served>): void {
     port.postMessage({ type: 'call', id, name, args });
   });
 
-  /** Ключ — в памяти сервера (он и ходит с ним к Claude); запись и удаление — сообщением главному процессу */
+  /** Ключи — в памяти сервера (он и ходит с ними к сервисам); запись и удаление — сообщением главному процессу */
   const keys = (k: HostKey): KeyStore => {
     let value = k.value;
     return {

@@ -36,7 +36,9 @@ test('подключение: панель на месте «Свойств», �
   await expect(page.locator('#st-props')).toBeHidden();
   await expect(page.locator('.st-foot [data-cmd="agent.toggle"]')).toHaveClass(/active/);
   await expect(chat.locator('.ac-ta')).toBeDisabled();
-  await expect(chat.locator('.ac-key')).toContainText('Подключите Claude');
+  await expect(chat.locator('.ac-key')).toContainText('Подключите модель');
+  // Без подключения модели в шапке нет
+  await expect(chat.locator('.ac-model')).toBeHidden();
   await chat.locator('#ac-key-in').fill('sk-ant-wrong-12345678');
   await chat.locator('.ac-key button[type=submit]').click();
   await expect(chat.locator('.ac-kerr')).toContainText('Ключ не принят');

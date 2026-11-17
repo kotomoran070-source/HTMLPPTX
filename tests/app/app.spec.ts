@@ -342,7 +342,7 @@ for (const how of ['кнопкой окна', 'выходом из програ�
   });
 }
 
-test('чат «Агент» в программе: ключ — зашифрованным в данных программы, после перезапуска Claude подключён', async () => {
+test('чат «Агент» в программе: ключи — зашифрованными в данных программы, после перезапуска Claude подключён', async () => {
   const mock = await startMockClaude();
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-app-chat-'));
   const data = path.join(tmp, 'data');
@@ -366,11 +366,12 @@ test('чат «Агент» в программе: ключ — зашифров
     await win.locator('#ac-key-in').fill('sk-ant-test-app-12345');
     await win.locator('.ac-key button[type=submit]').click();
     await expect(win.locator('.ac-ta')).toBeEnabled();
-    const file = path.join(data, 'claude-key.bin');
+    // Ключи всех сервисов — одним файлом, зашифрованным
+    const file = path.join(data, 'agent-keys.bin');
     expect(fs.existsSync(file)).toBe(true);
     expect(fs.readFileSync(file).toString('latin1')).not.toContain('sk-ant-test-app');
     // Страница ключа не видит: в ответе сервера его нет
-    expect(JSON.stringify(await win.evaluate(() => fetch('/__htmlpptx/chat-status', { method: 'POST' }).then((r) => r.json())))).not.toContain('sk-ant');
+    expect(JSON.stringify(await win.evaluate(() => fetch('/__htmlpptx/chat-status', { method: 'POST' }).then((r) => r.json())))).not.toContain('sk-ant-test-app');
     await app.close();
     // Перезапуск — Claude подключён: запрос агенту уходит с тем же ключом
     app = await launch();
@@ -386,6 +387,41 @@ test('чат «Агент» в программе: ключ — зашифров
     await again.locator('.ac-menu [data-a="disconnect"]').click();
     await expect(again.locator('.ac-key')).toBeVisible();
     expect(fs.existsSync(file)).toBe(false);
+  } finally {
+    await app.close().catch(() => {});
+    await mock.close();
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('чат «Агент» в программе: ключ Claude прошлой версии (claude-key.bin) — подключён, при записи переносится в agent-keys.bin', async () => {
+  const mock = await startMockClaude();
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-app-legacy-'));
+  const data = path.join(tmp, 'data');
+  const env = { ...process.env, SLIDERIA_DOCS_DIR: path.join(tmp, 'docs'), SLIDERIA_USER_DATA: data, SLIDERIA_ANTHROPIC_URL: mock.url, ANTHROPIC_API_KEY: '' };
+  const launch = () => electron.launch({ ...(EXE ? { executablePath: EXE, args: sandbox } : { args: ['.', ...sandbox] }), env, timeout: 60_000 });
+  let app = await launch();
+  try {
+    // Файл, как его записала прошлая версия: ключ строкой, зашифрован системой
+    const enc = await app.evaluate(({ safeStorage }) => {
+      if (!safeStorage.isEncryptionAvailable()) safeStorage.setUsePlainTextEncryption(true);
+      return safeStorage.encryptString('sk-ant-test-legacy-123').toString('base64');
+    });
+    await app.close();
+    fs.writeFileSync(path.join(data, 'claude-key.bin'), Buffer.from(enc, 'base64'));
+    app = await launch();
+    const win = await mainWindow(app);
+    await win.waitForURL(/\/\?all$/, { timeout: 90_000 });
+    const st = await win.evaluate(() => fetch('/__htmlpptx/chat-status', { method: 'POST' }).then((r) => r.json()));
+    expect(st).toMatchObject({ connected: true, provider: 'claude' });
+    // Подключили ещё сервис — настройки записаны новым файлом, старый удалён, ключ Claude на месте
+    const other = await win.evaluate((url) => fetch('/__htmlpptx/chat-connect', { method: 'POST', body: JSON.stringify({ provider: 'custom', url, key: 'sk-ant-test-other', model: 'm' }) }).then((r) => r.json()), `${mock.url}/v1`);
+    expect(other).toMatchObject({ provider: 'custom' });
+    expect(fs.existsSync(path.join(data, 'claude-key.bin'))).toBe(false);
+    expect(fs.existsSync(path.join(data, 'agent-keys.bin'))).toBe(true);
+    const back = await win.evaluate(() => fetch('/__htmlpptx/chat-connect', { method: 'POST', body: JSON.stringify({ provider: 'claude' }) }).then((r) => r.json()));
+    expect(back).toMatchObject({ connected: true, provider: 'claude' });
+    expect(mock.lastAuth()).toBe('sk-ant-test-legacy-123');
   } finally {
     await app.close().catch(() => {});
     await mock.close();

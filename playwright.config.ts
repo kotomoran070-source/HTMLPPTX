@@ -58,6 +58,8 @@ export default defineConfig({
       SLIDERIA_DECKS: tmp('.tmp/test-decks'), SLIDERIA_FONTS: tmp('.tmp/test-fonts'), SLIDERIA_LIBRARY: tmp('.tmp/test-library'), BROWSER: 'none',
       // Чат «Агент»: подставной Claude (tests/mock-claude.ts, его поднимает tests/e2e/chat.spec.ts), ключ — только введённый в тесте
       SLIDERIA_ANTHROPIC_URL: 'http://127.0.0.1:5191', ANTHROPIC_API_KEY: '',
+      // Сервисы, совместимые с OpenAI (ChatGPT, DeepSeek, Qwen, OpenRouter): подставной (tests/mock-openai.ts, его поднимает tests/e2e/agent-providers.spec.ts)
+      SLIDERIA_OPENAI_URL: 'http://127.0.0.1:5194/v1',
       // Подключение в один щелчок: Claude Desktop, Claude Code и Codex — в подставном домашнем каталоге, не в своём
       SLIDERIA_CONNECT_HOME: path.resolve('.tmp/test-home'),
       // Голосовой ввод: своя папка модели, образец архива с подставного сервера, распознавание — подставной текст

@@ -260,8 +260,8 @@ function appVersion(root: string): string {
 
 /** Команды проекта: /__htmlpptx/<команда>?deck=<имя>&… */
 function api(core: DecksCore, o: HttpOptions): Handler {
-  // Адрес Claude API — подставной сервер в тестах (SLIDERIA_ANTHROPIC_URL)
-  const chat = createAgentChat({ core, keys: o.agentKeys ?? devKeys(), baseURL: process.env.SLIDERIA_ANTHROPIC_URL || undefined, log: o.log });
+  // Адреса Claude API и сервисов OpenAI — подставные серверы в тестах (SLIDERIA_ANTHROPIC_URL, SLIDERIA_OPENAI_URL)
+  const chat = createAgentChat({ core, keys: o.agentKeys ?? devKeys(), baseURL: process.env.SLIDERIA_ANTHROPIC_URL || undefined, openaiURL: process.env.SLIDERIA_OPENAI_URL || undefined, log: o.log });
   // Подключить агента в один щелчок; в тестах — к подставному домашнему каталогу (SLIDERIA_CONNECT_HOME), а пакет
   // расширения Claude Desktop не открывается — путь к нему пишется в opened-mcpb.txt там же
   const testHome = process.env.SLIDERIA_CONNECT_HOME;
@@ -362,10 +362,12 @@ async function route(core: DecksCore, o: HttpOptions, chat: AgentChat, clients: 
     case 'library': return send(res, 200, core.library());
     case 'library-put': return send(res, 200, core.putLibrary(q.get('kind') ?? '', q.get('id') ?? '', await json(req)));
     case 'library-delete': return send(res, 200, core.deleteLibrary(q.get('kind') ?? '', q.get('id') ?? ''));
-    // Чат «Агент» (server/agent.ts): подключён ли Claude, подключить ключ, отключить
+    // Чат «Агент» (server/agent.ts): сервисы и ключи; подключить { provider, key, url, model }, модели по адресу
+    // (Ollama), отключить { provider }
     case 'chat-status': return send(res, 200, chat.status());
-    case 'chat-connect': return send(res, 200, await chat.connect(((await json(req)) as { key?: unknown } | null)?.key));
-    case 'chat-disconnect': return send(res, 200, chat.disconnect());
+    case 'chat-connect': return send(res, 200, await chat.connect(await json(req)));
+    case 'chat-probe': return send(res, 200, await chat.probe(await json(req)));
+    case 'chat-disconnect': return send(res, 200, chat.disconnect(await json(req)));
     // Голосовой ввод (server/voice.ts): есть ли модель, скачать, взять из файла, остановить загрузку, удалить, распознать
     case 'voice-status': return send(res, 200, voice.status());
     case 'voice-install': return send(res, 200, voice.install());

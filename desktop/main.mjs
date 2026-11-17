@@ -140,13 +140,15 @@ async function ensureCode() {
 }
 
 /**
- * Ключ Claude для чата «Агент» (server/agent.ts) — в данных программы, зашифрованным средствами системы (safeStorage:
- * Связка ключей macOS, DPAPI Windows, хранилище паролей Linux). Страница его не видит: ключ нужен только серверу.
- * Linux без хранилища паролей (нет GNOME Keyring или KWallet) — шифрование встроенным паролем Chromium: файл не
- * читается как текст, но защита слабее — панель агента говорит об этом (secure: false)
+ * Ключи сервисов для чата «Агент» (server/agent.ts: у каждого сервиса свой, одной строкой JSON) — в данных программы,
+ * зашифрованными средствами системы (safeStorage: Связка ключей macOS, DPAPI Windows, хранилище паролей Linux).
+ * Страница их не видит: ключи нужны только серверу. Linux без хранилища паролей (нет GNOME Keyring или KWallet) —
+ * шифрование встроенным паролем Chromium: файл не читается как текст, но защита слабее — панель агента говорит об
+ * этом (secure: false). Ключ Claude прошлых версий (claude-key.bin) читается, пока не записали новые настройки
  */
-function claudeKey() {
-  const file = path.join(DATA, 'claude-key.bin');
+function agentKeys() {
+  const file = path.join(DATA, 'agent-keys.bin');
+  const legacy = path.join(DATA, 'claude-key.bin');
   const linuxBasic = () => process.platform === 'linux' && safeStorage.getSelectedStorageBackend() === 'basic_text';
   const ready = () => {
     if (!safeStorage.isEncryptionAvailable() && process.platform === 'linux') safeStorage.setUsePlainTextEncryption(true);
@@ -158,14 +160,22 @@ function claudeKey() {
     /** Можно ли сохранить ключ: сервер — в другом процессе и узнаёт это при запуске */
     canStore: () => ready(),
     get() {
-      try { return ready() ? safeStorage.decryptString(fs.readFileSync(file)) || null : null; } catch { return null; }
+      try {
+        if (!ready()) return null;
+        const f = fs.existsSync(file) ? file : fs.existsSync(legacy) ? legacy : null;
+        return f ? safeStorage.decryptString(fs.readFileSync(f)) || null : null;
+      } catch { return null; }
     },
-    set(key) {
+    set(value) {
       if (!ready()) throw new Error('Не удалось зашифровать ключ средствами системы, поэтому ключ не сохранён');
       fs.mkdirSync(DATA, { recursive: true });
-      fs.writeFileSync(file, safeStorage.encryptString(key));
+      fs.writeFileSync(file, safeStorage.encryptString(value));
+      fs.rmSync(legacy, { force: true });
     },
-    clear() { fs.rmSync(file, { force: true }); },
+    clear() {
+      fs.rmSync(file, { force: true });
+      fs.rmSync(legacy, { force: true });
+    },
   };
 }
 
@@ -179,7 +189,7 @@ const HOST_FLAG = '--slideria-server';
  * Ответ — { url, port, close }
  */
 async function startServer() {
-  const keys = claudeKey();
+  const keys = agentKeys();
   const env = {
     ...process.env,
     // package.json и штамп сборки — в app.asar, а не рядом с кодом (страница лицензий)
@@ -237,7 +247,7 @@ async function startServer() {
       } else if (m.type === 'failed') reject(new Error(m.error));
       else if (m.type === 'log') log(m.text);
       else if (m.type === 'key') {
-        try { m.value === null ? keys.clear() : keys.set(m.value); } catch (e) { log('Ключ Claude:', e?.message ?? e); }
+        try { m.value === null ? keys.clear() : keys.set(m.value); } catch (e) { log('Ключи чата «Агент»:', e?.message ?? e); }
       } else if (m.type === 'call') {
         Promise.resolve().then(() => calls[m.name](...m.args))
           .then((value) => c.postMessage({ type: 'reply', id: m.id, value }), (e) => c.postMessage({ type: 'reply', id: m.id, error: String(e?.message ?? e) }));

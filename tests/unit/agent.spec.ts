@@ -38,7 +38,7 @@ test('ключ: проверка у Claude, не тот — понятный о�
   const s = setup();
   try {
     expect(s.chat.status()).toMatchObject({ connected: false, store: 'memory' });
-    await expect(s.chat.send('talk', { text: 'привет' }, () => {}, new AbortController().signal)).rejects.toThrow('Сначала подключите Claude');
+    await expect(s.chat.send('talk', { text: 'привет' }, () => {}, new AbortController().signal)).rejects.toThrow('Сначала подключите модель');
     await expect(s.chat.connect('abc')).rejects.toThrow('начинается с «sk-ant-»');
     await expect(s.chat.connect('sk-ant-wrong-0123456789')).rejects.toThrow('Ключ не принят');
     expect(await s.chat.connect(KEY)).toMatchObject({ connected: true });

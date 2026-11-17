@@ -1,5 +1,6 @@
-// Чат «Агент» — панель справа, на месте «Свойств» (✦ в шапке, «Агент» в строке состояния, Ctrl+J): Claude правит
-// открытую презентацию по просьбе (server/agent.ts, docs/AGENT.md). Пишешь задачу, прикладываешь картинки (скрепка,
+// Чат «Агент» — панель справа, на месте «Свойств» (✦ в шапке, «Агент» в строке состояния, Ctrl+J): модель правит
+// открытую презентацию по просьбе (server/agent.ts, docs/AGENT.md). Сервис — на выбор: Claude, ChatGPT, DeepSeek, Qwen,
+// OpenRouter, Ollama на этом компьютере или свой адрес; ключ у каждого свой. Пишешь задачу, прикладываешь картинки (скрепка,
 // Ctrl+V, перетаскивание), открытый слайд уходит в контекст (плашка «Слайд 5», её можно убрать). Видны шаги агента
 // и ответ по мере написания, «Стоп» (Esc). Под ответом — карточка правки: «Показать» и «Вернуть»; Ctrl+Z отменяет
 // весь ответ одним шагом (Editor.agentAnswer). Разговоры — у каждой презентации свои, под значком часов.
@@ -18,8 +19,14 @@ export interface ChatHost extends IntegrationsHost {
   close(): void;
 }
 
-interface Model { id: string; name: string; note: string }
-interface Status { connected: boolean; store: 'app' | 'env' | 'memory'; secure: boolean; models: Model[] }
+interface Model { id: string; name: string; note?: string; images?: boolean }
+/** Сервис (пресет server/agent-llm.ts): что показать на экране подключения */
+interface Provider {
+  id: string; name: string; badge?: string; vendor: string; key: 'required' | 'optional' | 'none'; keyHint: string;
+  keysUrl?: string; help?: { text: string; url: string }; ok: string[]; no: string[]; about?: string;
+  userUrl: boolean; userModel: boolean; url: string; model?: string; saved: boolean;
+}
+interface Status { connected: boolean; provider: string | null; store: 'app' | 'env' | 'memory'; secure: boolean; models: Model[]; model?: string; providers: Provider[] }
 interface ImageRef { file: string; name: string; type: string; size: number; url?: string }
 interface Step { key?: string; text: string; state: 'run' | 'ok' | 'err' }
 type Stop = 'end' | 'stopped' | 'refusal' | 'max' | 'error';
@@ -39,13 +46,16 @@ type AgentEvent =
   | { type: 'edit'; entry: JournalEntry; slides: number[] }
   | { type: 'done'; stop: Stop; ms: number }
   | { type: 'error'; code: string; message: string };
+/** Модели в меню — с поиском, когда их больше стольких (OpenRouter — сотни) */
+const MANY_MODELS = 12;
 
 const TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
 const MAX_IMAGE = 5 * 1024 * 1024;
 const MAX_IMAGES = 6;
-const MODEL_KEY = 'slideria-agent-model';
+/** Выбранная модель — у каждого сервиса своя (у Claude — и под старым именем) */
+const modelKey = (provider: string) => (provider === 'claude' ? 'slideria-agent-model' : `slideria-agent-model:${provider}`);
+const PROVIDER_KEY = 'slideria-agent-provider';
 const chatKey = (deck: string) => `slideria-agent-chat:${deck}`;
-const KEYS_URL = 'https://platform.claude.com/settings/keys';
 const EXAMPLES: [string, string][] = [
   ['image', 'Сделай слайд из этого скриншота'],
   ['slide', 'Сократи текст на этом слайде вдвое'],
@@ -78,7 +88,12 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
   let status: Status | null = null;
   let chatId = store.get(chatKey(h.deckKey));
   let items: Item[] = [];
-  let model = store.get(MODEL_KEY) ?? 'claude-opus-5-5';
+  let model = '';
+  /** Экран подключения: какой сервис выбран; setup — показан, хотя модель подключена («Сменить сервис…») */
+  let pick = store.get(PROVIDER_KEY) ?? 'claude';
+  let setup = false;
+  /** Модели Ollama по адресу — в списке выбора до подключения */
+  let probed: { url: string; models: Model[]; model?: string; error?: string } | null = null;
   let pending: Pending[] = [];
   let withSlide = true;
   let view: 'chat' | 'history' = 'chat';
@@ -94,7 +109,7 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
   root.innerHTML = `
 <div class="ac-h">
   <span class="ac-t">${icon('agent')}Агент</span>
-  <button type="button" class="ac-model" aria-haspopup="menu" aria-expanded="false" title="Модель Claude"></button>
+  <button type="button" class="ac-model" aria-haspopup="menu" aria-expanded="false" title="Модель"></button>
   <span class="ac-sp"></span>
   <button type="button" class="ac-ib" data-a="new" title="Новый разговор" aria-label="Новый разговор">${icon('plus')}</button>
   <button type="button" class="ac-ib" data-a="history" title="Прошлые разговоры" aria-label="Прошлые разговоры" aria-pressed="false">${icon('clock')}</button>
@@ -125,24 +140,35 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
   const modelBtn = $<HTMLButtonElement>('.ac-model');
   const file = $<HTMLInputElement>('.ac-file');
   const mic = $<HTMLButtonElement>('.ac-mic');
+  /** Значение поля на экране подключения */
+  const val = (sel: string) => root.querySelector<HTMLInputElement | HTMLSelectElement>(sel)?.value.trim() ?? '';
 
   // ---------------- отрисовка ----------------
 
-  const modelName = () => status?.models.find((m) => m.id === model)?.name ?? 'Claude';
+  const curModel = () => status?.models.find((m) => m.id === model);
+  const modelName = () => curModel()?.name ?? model;
+  const provider = () => status?.providers.find((p) => p.id === status?.provider);
+  /** Модель видит картинки: не знаем — да (откажется — сервер запомнит, скрепка уйдёт) */
+  const seesImages = () => curModel()?.images !== false;
+  /** Модель выбрана и подключена; экран подключения не открыт */
+  const live = () => !!status?.connected && !setup;
   function paintHead(): void {
-    modelBtn.innerHTML = `${esc(modelName())}${icon('chev-down')}`;
-    modelBtn.hidden = !status?.connected;
+    modelBtn.innerHTML = `<span>${esc(modelName())}</span>${icon('chev-down')}`;
+    modelBtn.title = `Модель${provider() ? ` · ${provider()!.name}` : ''}`;
+    modelBtn.hidden = !live();
     $('[data-a="history"]').setAttribute('aria-pressed', String(view === 'history'));
-    for (const a of ['new', 'history']) ($(`[data-a="${a}"]`) as HTMLButtonElement).hidden = !status?.connected;
+    for (const a of ['new', 'history']) ($(`[data-a="${a}"]`) as HTMLButtonElement).hidden = !live();
   }
 
   function paintComposer(): void {
-    const ready = !!status?.connected;
+    const ready = live();
     ta.disabled = !ready;
     // Пока диктуют, текст в поле пишет распознавание
     ta.readOnly = voiceBusy;
-    ta.placeholder = ready ? 'Напишите задачу…' : 'Сначала подключите Claude';
-    ($('[data-a="attach"]') as HTMLButtonElement).disabled = !ready || voiceBusy;
+    ta.placeholder = ready ? 'Напишите задачу…' : 'Сначала подключите модель';
+    const attach = $<HTMLButtonElement>('[data-a="attach"]');
+    attach.disabled = !ready || voiceBusy || !seesImages();
+    attach.title = seesImages() ? 'Картинка: PNG, JPG, WebP, GIF — или перетащите, или Ctrl+V' : `«${modelName()}» не видит картинки — выберите другую модель в шапке панели`;
     mic.disabled = !ready && !voiceBusy;
     const ctx = $('.ac-ctx');
     ctx.hidden = !ready || !withSlide;
@@ -165,25 +191,90 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
     }
   }
 
+  /** Экран подключения (макет «Подключите модель»): сервис кнопкой, его особенности строкой, поля — по сервису */
   function setupHtml(): string {
+    const list = status?.providers ?? [];
+    const p = list.find((x) => x.id === pick) ?? list[0];
+    if (!p) return '';
     const where = status?.store === 'memory'
-      ? 'Режим разработки: ключ хранится до перезапуска сервера (или задайте переменную ANTHROPIC_API_KEY).'
+      ? 'Режим разработки: ключ хранится до перезапуска сервера (ключ Claude можно задать переменной ANTHROPIC_API_KEY).'
       : status?.secure === false
         ? 'В системе нет хранилища паролей (GNOME Keyring или KWallet): ключ хранится на этом компьютере зашифрованным, но слабее обычного.'
         : 'Ключ хранится на этом компьютере в зашифрованном виде.';
-    const note = `${where} Содержимое презентации уходит в Anthropic, только когда вы пишете агенту.`;
+    const goes = p.vendor ? `Содержимое презентации уходит в ${p.vendor}, только когда вы пишете агенту.` : 'Содержимое презентации уходит на указанный адрес, только когда вы пишете агенту.';
+    const note = p.key === 'none'
+      ? `Ключ не нужен. Содержимое презентации не уходит с компьютера: модель работает здесь же, в ${p.name}.${p.help ? ` <a href="${esc(p.help.url)}" target="_blank" rel="noopener">${esc(p.help.text)}</a>` : ''}`
+      : `${esc(`${where} ${goes}`)}${p.keysUrl ? ` <a href="${esc(p.keysUrl)}" target="_blank" rel="noopener">Где взять ключ</a>` : ''}`;
+    const chips = list.map((x) => `<button type="button" role="radio" class="ac-pv${x.id === p.id ? ' on' : ''}" aria-checked="${x.id === p.id}" data-prov="${esc(x.id)}"${x.saved ? ' title="Уже подключали: настройки сохранены"' : ''}>${esc(x.name)}${x.id === 'custom' ? '…' : ''}${x.badge ? `<span class="bd">${esc(x.badge)}</span>` : ''}${x.saved ? '<i class="sv" aria-label="настройки сохранены"></i>' : ''}</button>`).join('');
+    const feat = p.about
+      ? `<p class="ac-feat">${esc(p.about)}</p>`
+      : `<p class="ac-feat">${p.ok.map((t) => `<span>${icon('check')}${esc(t)}</span>`).join('')}${p.no.map((t) => `<span class="no">${icon('close')}${esc(t)}</span>`).join('')}</p>`;
+    const keyIn = (label = '') => `<input id="ac-key-in" type="password" autocomplete="off" spellcheck="false" placeholder="${esc(p.saved && p.key !== 'none' ? 'Ключ сохранён — можно не вводить' : p.keyHint)}" aria-describedby="ac-key-note"${label ? ` aria-label="${label}"` : ''}>`;
+    const go = '<button type="submit" class="ac-btn p">Подключить</button>';
+    let fields: string;
+    if (p.userUrl && !p.userModel) {
+      // Ollama: адрес и модель из установленных на этом компьютере
+      const pr = probed && probed.url === p.url ? probed : null;
+      fields = `<label class="ac-f"><span>Адрес</span><input id="ac-url-in" type="url" spellcheck="false" value="${esc(p.url)}"></label>
+        <label class="ac-f"><span>Модель</span><select id="ac-model-in">${modelOptions(pr, p)}</select></label>
+        <p class="ac-probe"${pr?.error ? ' role="alert"' : ''}>${probeText(pr)}</p><div>${go}</div>`;
+    } else if (p.userModel) {
+      fields = `<label class="ac-f"><span>Адрес API</span><input id="ac-url-in" type="url" spellcheck="false" placeholder="https://…/v1" value="${esc(p.url)}"></label>
+        <label class="ac-f"><span>Ключ</span>${keyIn()}</label>
+        <label class="ac-f"><span>Модель</span><input id="ac-model-in" spellcheck="false" placeholder="название модели" value="${esc(p.model ?? '')}"></label><div>${go}</div>`;
+    } else fields = `<div class="ac-in">${keyIn(`Ключ ${p.name}`)}${go}</div>`;
     return `<div class="ac-empty">
       <div class="ac-hero"><span class="bi">${icon('agent')}</span><h3>Агент правит презентацию по вашей просьбе</h3>
         <p>Пишите задачу, прикладывайте картинки. Каждую правку видно на слайде, её можно вернуть.</p></div>
       <form class="ac-key">
-        <label class="l" for="ac-key-in">${icon('key')}Подключите Claude</label>
-        <div class="ac-in"><input id="ac-key-in" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…" aria-describedby="ac-key-note"><button type="submit" class="ac-btn p">Подключить</button></div>
+        <span class="l">${icon('key')}Подключите модель</span>
+        <div class="ac-pvs" role="radiogroup" aria-label="Сервис">${chips}</div>
+        ${feat}${fields}
         ${keyError ? `<p class="ac-kerr" role="alert">${esc(keyError)}</p>` : ''}
-        <p class="ac-note" id="ac-key-note">${icon('lock')}<span>${esc(note)} <a href="${KEYS_URL}" target="_blank" rel="noopener">Где взять ключ</a></span></p>
+        <p class="ac-note" id="ac-key-note">${icon('lock')}<span>${note}</span></p>
+        ${status?.connected ? `<button type="button" class="ac-link ac-back" data-a="back">Вернуться к разговору — ${esc(provider()?.name ?? '')}</button>` : ''}
       </form>
-      ${examplesHtml(true)}
-      <p class="ac-alt">${icon('plug')}<span>Есть подписка Claude? Подключите Claude Desktop или Claude Code в один щелчок: <button type="button" class="ac-link" data-a="int">Файл → Интеграции</button></span></p>
+      ${status?.connected ? '' : examplesHtml(true)}
+      <p class="ac-alt">${icon('plug')}<span>Есть подписка Claude или ChatGPT? Подключите Claude Desktop, Claude Code или Codex в один щелчок: <button type="button" class="ac-link" data-a="int">Файл → Интеграции</button></span></p>
     </div>`;
+  }
+
+  /** Модели Ollama в списке выбора: что установлено по адресу */
+  function modelOptions(pr: typeof probed, p: Provider): string {
+    if (!pr?.models.length) return `<option value="${esc(p.model ?? '')}">${esc(pr ? '—' : 'Проверяю адрес…')}</option>`;
+    const cur = status?.provider === p.id ? model : p.model && pr.models.some((m) => m.id === p.model) ? p.model : pr.model;
+    return pr.models.map((m) => `<option value="${esc(m.id)}"${m.id === cur ? ' selected' : ''}>${esc(m.name)}</option>`).join('');
+  }
+  function probeText(pr: typeof probed): string {
+    if (!pr) return '';
+    if (pr.error) return `<span class="bad">${esc(pr.error)}</span>`;
+    return pr.models.length ? `Установлено моделей: ${pr.models.length}` : '<span class="bad">В Ollama нет моделей: скачайте, например, «ollama pull qwen3»</span>';
+  }
+
+  /** Модели по адресу Ollama — список выбора обновляется на месте (поле адреса не теряет фокус) */
+  let probeSeq = 0;
+  let probeTimer = 0;
+  function probe(delay = 0): void {
+    clearTimeout(probeTimer);
+    probeTimer = window.setTimeout(() => {
+      const url = val('#ac-url-in');
+      if (!url) return;
+      const n = ++probeSeq;
+      void api<{ models: Model[]; model?: string }>('chat-probe', { provider: 'ollama', url }).then(
+        (r) => ({ url, models: r.models, model: r.model }),
+        (e) => ({ url, models: [] as Model[], error: (e as Error).message }),
+      ).then((pr: NonNullable<typeof probed>) => {
+        if (n !== probeSeq) return;
+        probed = pr;
+        const sel = root.querySelector<HTMLSelectElement>('#ac-model-in');
+        const line = root.querySelector<HTMLElement>('.ac-probe');
+        const p = status?.providers.find((x) => x.id === 'ollama');
+        if (!sel || !line || !p || pick !== 'ollama') return;
+        sel.innerHTML = modelOptions(pr, { ...p, url });
+        line.innerHTML = probeText(pr);
+        if (pr.error) line.setAttribute('role', 'alert'); else line.removeAttribute('role');
+      });
+    }, delay);
   }
 
   function examplesHtml(off = false): string {
@@ -249,8 +340,9 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
       body.innerHTML = '<div class="ac-wait"><i class="ac-spin"></i></div>';
       return;
     }
-    if (!status.connected) {
+    if (!status.connected || setup) {
       body.innerHTML = setupHtml();
+      if (pick === 'ollama') probe();
       return;
     }
     if (view === 'history') {
@@ -327,8 +419,15 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
   // ---------------- данные ----------------
 
   async function loadStatus(): Promise<void> {
-    try { status = await api<Status>('chat-status'); } catch { status = { connected: false, store: 'memory', secure: true, models: [] }; }
-    if (status.models.length && !status.models.some((m) => m.id === model)) model = status.models[0].id;
+    try { status = await api<Status>('chat-status'); } catch { status = { connected: false, provider: null, store: 'memory', secure: true, models: [], providers: [] }; }
+    adopt();
+  }
+  /** Сервис и модель из ответа сервера: модель — выбранная раньше у этого сервиса, иначе по умолчанию */
+  function adopt(): void {
+    if (!status) return;
+    if (status.provider) pick = status.provider;
+    const saved = status.provider ? store.get(modelKey(status.provider)) : null;
+    model = status.models.some((m) => m.id === saved) ? saved! : status.model ?? status.models[0]?.id ?? '';
   }
 
   async function openChat(id: string | null): Promise<void> {
@@ -448,7 +547,8 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
         it.stop = 'error';
         it.error = e.message;
         it.code = e.code;
-        if (e.code === 'key') void loadStatus().then(paintHead);
+        // Ключ отозван — шапка без модели; модель не видит картинки — сервер это запомнил, скрепки у неё нет
+        if (e.code === 'key' || e.code === 'images') void loadStatus().then(() => { paintHead(); paintComposer(); });
         break;
       case 'done':
         if (it.stop !== 'error') it.stop = e.stop;
@@ -468,6 +568,7 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
     let warn = '';
     for (const f of files) {
       if (pending.length >= MAX_IMAGES) { warn = `Не больше ${MAX_IMAGES} картинок в сообщении`; break; }
+      if (!seesImages()) { warn = `«${modelName()}» не видит картинки — выберите другую модель в шапке панели`; break; }
       if (!TYPES.includes(f.type)) { warn = 'Агенту — картинки PNG, JPG, WebP или GIF'; continue; }
       if (f.size > MAX_IMAGE) { warn = `«${f.name}» больше 5 МБ`; continue; }
       const data = await new Promise<string>((ok, fail) => {
@@ -500,19 +601,30 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
 
   // ---------------- меню модели ----------------
 
+  /** Подпись модели в меню: своя у Claude, у остальных — видит ли картинки */
+  const modelNote = (m: Model) => m.note ?? (m.images === false ? 'не видит картинки' : m.images ? 'видит картинки' : '');
+
   function openMenu(): void {
     if (!status) return;
-    menu.innerHTML = `${status.models.map((m) => `<button type="button" role="menuitemradio" aria-checked="${m.id === model}" data-model="${esc(m.id)}"><span class="mk">${m.id === model ? icon('check') : ''}</span><span><b>${esc(m.name)}</b><span>${esc(m.note)}</span></span></button>`).join('')}
-      <hr>${status.store === 'env'
-    ? '<p class="ac-mnote">Ключ — из переменной ANTHROPIC_API_KEY</p>'
-    : `<button type="button" role="menuitem" data-a="disconnect"><span class="mk">${icon('key')}</span><span><b>Отключить ключ Claude</b><span>${status.store === 'app' ? 'Ключ удалится с этого компьютера' : 'Ключ забудется'}</span></span></button>`}`;
+    const p = provider();
+    const many = status.models.length > MANY_MODELS;
+    const env = status.store === 'env' && status.provider === 'claude';
+    const off = p?.key === 'none' ? `Отключить ${p.name}` : `Отключить ключ ${p?.name ?? ''}`;
+    const offNote = p?.key === 'none' ? 'Адрес и модель забудутся' : status.store === 'app' ? 'Ключ удалится с этого компьютера' : 'Ключ забудется';
+    menu.innerHTML = `${many ? '<input class="ac-mfind" type="text" spellcheck="false" placeholder="Найти модель" aria-label="Найти модель">' : ''}
+      <div class="ac-mlist">${status.models.map((m) => `<button type="button" role="menuitemradio" aria-checked="${m.id === model}" data-model="${esc(m.id)}" data-q="${esc(`${m.id} ${m.name}`.toLowerCase())}"><span class="mk">${m.id === model ? icon('check') : ''}</span><span><b>${esc(m.name)}</b>${modelNote(m) ? `<span>${esc(modelNote(m))}</span>` : ''}</span></button>`).join('')}</div>
+      <hr><button type="button" role="menuitem" data-a="switch"><span class="mk">${icon('plug')}</span><span><b>Сменить сервис…</b><span>Claude, ChatGPT, DeepSeek, Ollama и другие</span></span></button>
+      ${env ? '<p class="ac-mnote">Ключ Claude — из переменной ANTHROPIC_API_KEY</p>'
+    : `<button type="button" role="menuitem" data-a="disconnect"><span class="mk">${icon('key')}</span><span><b>${esc(off)}</b><span>${offNote}</span></span></button>`}`;
     const b = modelBtn.getBoundingClientRect();
     const r = root.getBoundingClientRect();
     menu.style.left = `${b.left - r.left}px`;
     menu.style.top = `${b.bottom - r.top + 4}px`;
     menu.hidden = false;
     modelBtn.setAttribute('aria-expanded', 'true');
-    menu.querySelector<HTMLElement>('[aria-checked="true"], button')?.focus();
+    const cur = menu.querySelector<HTMLElement>('[aria-checked="true"]');
+    cur?.scrollIntoView({ block: 'nearest' });
+    (many ? menu.querySelector<HTMLElement>('.ac-mfind') : cur ?? menu.querySelector<HTMLElement>('button'))?.focus();
   }
   function closeMenu(focus = false): void {
     if (menu.hidden) return;
@@ -530,10 +642,19 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
 
   root.addEventListener('click', (e) => {
     const t = e.target as HTMLElement;
-    const el = t.closest<HTMLElement>('[data-a], [data-sug], [data-chat], [data-del], [data-model], [data-rm]');
+    const el = t.closest<HTMLElement>('[data-a], [data-sug], [data-chat], [data-del], [data-model], [data-rm], [data-prov]');
     if (!t.closest('.ac-menu') && !t.closest('.ac-model')) closeMenu();
     if (t.closest('.ac-model')) return menu.hidden ? openMenu() : closeMenu();
     if (!el) return;
+    // Сервис на экране подключения
+    if (el.dataset.prov && el.matches('.ac-pv')) {
+      pick = el.dataset.prov;
+      store.set(PROVIDER_KEY, pick);
+      keyError = '';
+      paintBody();
+      root.querySelector<HTMLElement>(`.ac-pv[data-prov="${CSS.escape(pick)}"]`)?.focus();
+      return;
+    }
     if (el.dataset.sug) {
       ta.value = el.dataset.sug;
       fit();
@@ -543,9 +664,11 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
     }
     if (el.dataset.model) {
       model = el.dataset.model;
-      store.set(MODEL_KEY, model);
+      if (status?.provider) store.set(modelKey(status.provider), model);
       closeMenu(true);
       paintHead();
+      // Скрепка — по модели: видит ли она картинки
+      paintComposer();
       return;
     }
     if (el.dataset.rm) {
@@ -589,9 +712,24 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
         return ta.focus();
       case 'int': return h.file.open();
       case 'rekey':
-        status = status ? { ...status, connected: false } : status;
+        // Ключ отозван — экран подключения с этим же сервисом
+        setup = true;
+        pick = status?.provider ?? pick;
         keyError = '';
         return paint();
+      case 'switch':
+        closeMenu();
+        setup = true;
+        keyError = '';
+        paint();
+        root.querySelector<HTMLElement>('.ac-pv.on')?.focus();
+        return;
+      case 'back':
+        setup = false;
+        keyError = '';
+        paint();
+        ta.focus();
+        return;
       case 'retry': {
         const last = [...items].reverse().find((x): x is UserItem => x.role === 'user');
         if (!last || run) return;
@@ -600,7 +738,7 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
       }
       case 'disconnect':
         closeMenu();
-        void api<Status>('chat-disconnect').then((s) => { status = s; paint(); });
+        void api<Status>('chat-disconnect', { provider: status?.provider }).then((s) => { status = s; setup = false; adopt(); paint(); });
         return;
       case 'steps': {
         const list = el.nextElementSibling as HTMLElement;
@@ -627,23 +765,45 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
   });
 
   // Ключ: «Подключить» — проверка у Claude, ошибка — под полем
+  // «Подключить»: проверка у сервиса (ключ, адрес, модели), ошибка — под полями, введённое остаётся
   root.addEventListener('submit', (e) => {
     e.preventDefault();
-    const input = root.querySelector<HTMLInputElement>('#ac-key-in');
+    const p = status?.providers.find((x) => x.id === pick);
     const btn = root.querySelector<HTMLButtonElement>('.ac-key button[type="submit"]');
-    if (!input || !btn || !input.value.trim()) return input?.focus();
+    if (!p || !btn) return;
+    const key = val('#ac-key-in');
+    if (p.key === 'required' && !key && !p.saved) return root.querySelector<HTMLInputElement>('#ac-key-in')?.focus();
+    const body = { provider: p.id, ...(key ? { key } : {}), ...(p.userUrl ? { url: val('#ac-url-in') } : {}), ...(p.userUrl && val('#ac-model-in') ? { model: val('#ac-model-in') } : {}) };
     btn.disabled = true;
     btn.textContent = 'Проверка…';
-    void api<Status>('chat-connect', { key: input.value }).then((s) => {
+    void api<Status>('chat-connect', body).then((s) => {
       status = s;
+      setup = false;
       keyError = '';
+      store.set(PROVIDER_KEY, p.id);
+      if (body.model) store.set(modelKey(p.id), body.model);
+      adopt();
       paint();
       ta.focus();
     }, (err) => {
       keyError = (err as Error).message;
+      const keep = { url: val('#ac-url-in'), model: val('#ac-model-in') };
       paintBody();
-      root.querySelector<HTMLInputElement>('#ac-key-in')?.focus();
+      const url = root.querySelector<HTMLInputElement>('#ac-url-in');
+      if (url && keep.url) url.value = keep.url;
+      const m = root.querySelector<HTMLInputElement>('input#ac-model-in');
+      if (m && keep.model) m.value = keep.model;
+      root.querySelector<HTMLInputElement>(p.key === 'none' ? '#ac-url-in' : '#ac-key-in')?.focus();
     });
+  });
+  // Адрес Ollama поменяли — модели по новому адресу
+  root.addEventListener('input', (e) => {
+    const t = e.target as HTMLElement;
+    if (t.id === 'ac-url-in' && pick === 'ollama') probe(400);
+    if (t.classList.contains('ac-mfind')) {
+      const q = (t as HTMLInputElement).value.trim().toLowerCase();
+      for (const b of menu.querySelectorAll<HTMLElement>('[data-q]')) b.hidden = !!q && !b.dataset.q!.includes(q);
+    }
   });
 
   ta.addEventListener('input', () => { fit(); paintComposer(); });
@@ -673,9 +833,15 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
     if (run) { e.preventDefault(); e.stopPropagation(); stop(); }
   });
   menu.addEventListener('keydown', (e) => {
+    // Поиск модели: Enter — первая подходящая
+    if (e.key === 'Enter' && (e.target as HTMLElement).classList.contains('ac-mfind')) {
+      e.preventDefault();
+      menu.querySelector<HTMLElement>('[data-model]:not([hidden])')?.click();
+      return;
+    }
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
     e.preventDefault();
-    const list = [...menu.querySelectorAll<HTMLElement>('button')];
+    const list = [...menu.querySelectorAll<HTMLElement>('button:not([hidden])')];
     const i = list.indexOf(document.activeElement as HTMLElement);
     list[(i + (e.key === 'ArrowDown' ? 1 : -1) + list.length) % list.length]?.focus();
   });
