@@ -410,7 +410,7 @@ export const LIBRARY: Category[] = [
             { type: 'shape', kind: 'round', glass: true, radius: 26, place: { x: 39, y: 31, w: 482, h: 278 } },
             { ...eyebrow('Новое'), place: { x: 77, y: 96, w: 406 } },
             { ...line('Матовое стекло', { size: 32, weight: 700 }), place: { x: 77, y: 124, w: 406 } },
-            { ...line('Под стеклом — фигуры: их можно двигать и перекрашивать.', { size: 18, color: 'text2' }), place: { x: 77, y: 188, w: 406 } },
+            { ...line('Под стеклом — фигуры, которые можно двигать и перекрашивать.', { size: 18, color: 'text2' }), place: { x: 77, y: 188, w: 406 } },
           ],
         }),
       },

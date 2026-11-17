@@ -410,7 +410,7 @@ export function checkDeck(d: unknown, keep: Set<string> = new Set()): void {
   if (!isRec(d)) throw new OpError('данные презентации — объект');
   if (d.title !== undefined && typeof d.title !== 'string') throw new OpError('title — текст');
   if (d.size !== undefined && !isSlideSize(d.size)) throw new OpError('size — "16:9", "4:3" или "21:9"');
-  if (!Array.isArray(d.slides) || !d.slides.length) throw new OpError('в презентации должен быть хотя бы один слайд');
+  if (!Array.isArray(d.slides) || !d.slides.length) throw new OpError('в презентации должен быть минимум один слайд');
   const ids = new Set<string>();
   // Повторы id слайдов — только у новых и поправленных
   const fresh = d.slides.map((s) => !keep.has(canon(s)));

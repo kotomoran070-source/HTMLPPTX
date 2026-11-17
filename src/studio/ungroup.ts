@@ -91,7 +91,7 @@ export function ungroup(host: Host, slide: number, sel: { block: Path; free: Pat
   if (!root || !blk) return false;
   if (blk.type === 'group' && sel.free) return splitGroup(host, slide, sel.free, blk);
   if (!canUngroup(blk.type, root)) {
-    editor.toast('Этот блок не разгруппировывается: он рисуется целиком (график, схема, картинка)', 3500);
+    editor.toast('Этот блок не разгруппировывается: рисуется целиком (график, схема, картинка)', 3500);
     return false;
   }
   const textColor = palette(stage, THEME_COLORS);

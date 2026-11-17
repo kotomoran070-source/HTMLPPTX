@@ -206,11 +206,11 @@ export function createAgentChat(o: AgentOptions) {
   /** Подключить ключ: сначала проверить у Claude (список моделей — бесплатно), потом сохранить */
   async function connect(raw: unknown): Promise<ReturnType<typeof status>> {
     const key = typeof raw === 'string' ? raw.trim() : '';
-    if (!/^sk-ant-[\w-]{8,}$/.test(key)) throw new Error('Это не похоже на ключ Claude API: он начинается с «sk-ant-»');
+    if (!/^sk-ant-[\w-]{8,}$/.test(key)) throw new Error('Это не ключ Claude API: ключ начинается с «sk-ant-»');
     try {
       await (await client(key)).models.list({ limit: 1 });
     } catch (e) {
-      if (isSdk(e, 'AuthenticationError') || isSdk(e, 'PermissionDeniedError')) throw new Error('Ключ не подошёл: проверьте, что он скопирован целиком и не отозван');
+      if (isSdk(e, 'AuthenticationError') || isSdk(e, 'PermissionDeniedError')) throw new Error('Ключ не принят: проверьте, что ключ скопирован целиком и не отозван');
       if (isSdk(e, 'APIConnectionError')) throw new Error('Нет связи с Claude — проверьте интернет и попробуйте ещё раз');
       throw new Error(`Claude не принял ключ: ${(e as Error).message}`);
     }

@@ -337,7 +337,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     const unsaved = hasThemeLook(deck.theme) && !cur.startsWith(MY) && !THEME_PRESETS.some((p) => p.id === cur);
     const html = `<div class="st-dz-sec"><b>Мои темы</b><span>`
       + (mine.length > 1 ? `<button type="button" class="st-link" data-my="pack" title="Все свои темы одним файлом — перенести на другой компьютер">Все в файл</button>` : '')
-      + `<button type="button" class="st-link" data-my="load" title="Можно выбрать несколько файлов или перетащить их сюда">Из файлов…</button></span></div>`
+      + `<button type="button" class="st-link" data-my="load" title="Один или несколько файлов: выбор или перемещение сюда">Из файлов…</button></span></div>`
       + `<div class="st-dz-gal" role="listbox" aria-label="Мои темы">`
       + `<button type="button" class="st-dz-add${unsaved ? ' hint' : ''}" data-my="save">${icon('plus')}<b>Сохранить текущую</b><small>${unsaved ? 'Оформление презентации — темой для других презентаций' : 'Цвета, шрифты, фон, карточки и углы этой презентации'}</small></button>`
       + `${mine.map((m) => tile(asPreset(m), true)).join('')}</div>`
@@ -471,7 +471,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     if (one) await applyPreset(asPreset(one));
     const list = (l: MyTheme[]) => l.map((t) => `«${t.name}»`).join(', ');
     const parts = [
-      added.length > 1 ? `Добавлено тем: ${added.length} — ${list(added)}. Они в «Все темы» → «Мои темы»` : added.length ? `Тема ${list(added)} добавлена в «Мои темы»${one ? ' и применена' : ''}` : '',
+      added.length > 1 ? `Добавлено тем: ${added.length} — ${list(added)} — в «Все темы» → «Мои темы»` : added.length ? `Тема ${list(added)} добавлена в «Мои темы»${one ? ' и применена' : ''}` : '',
       known.length ? `${known.length > 1 ? 'Уже есть в «Моих темах»' : 'Такая тема уже есть в «Моих темах»'}: ${list(known)}${one ? ' — применена' : ''}` : '',
       bad.length ? `Не загрузилось — ${bad.join('; ')}` : '',
     ].filter(Boolean);

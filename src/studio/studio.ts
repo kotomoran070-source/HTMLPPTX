@@ -232,13 +232,13 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       ${group('Оформление', rb('tools.tidy', 'sparkle', 'Привести в порядок', { big: true, title: 'Выровнять почти одинаковые размеры, отступы и цвета' }))}
       ${group('Шрифты', rb('tools.font', 'text', 'Заменить шрифт', { big: true, title: 'Один шрифт на другой: во всей презентации или на этом слайде' }))}
       ${group('Заметки', rb('tools.notes-clear', 'notes', 'Удалить заметки', { big: true, title: 'Заметки докладчика со всех слайдов' }))}
-      ${group('Программа', rb('tools.licenses', 'shield', 'Лицензии', { big: true, title: 'Лицензии Slideria, её библиотек и шрифтов' }))}
+      ${group('Программа', rb('tools.licenses', 'shield', 'Лицензии', { big: true, title: 'Лицензии Slideria, библиотек и шрифтов' }))}
       ${group('Интеграции', integrationsRibbon(rb))}
     </div>
     <div class="st-rpanel" data-panel="view" hidden>
       ${group('Панели', rb('view.slides', 'grid', 'Слайды', { big: true, key: 'Ctrl+Shift+1', title: 'Список слайдов слева' }) + rb('view.props', 'sliders', 'Свойства', { big: true, key: 'Ctrl+Shift+2', title: 'Панель свойств справа' }) + rb('view.notes', 'notes', 'Заметки', { big: true, key: 'Ctrl+Shift+3' }) + rb('view.code', 'terminal', 'Код слайда', { big: true, key: 'Ctrl+`', title: 'Код слайда (YAML), стили (CSS) и анимации (HTML/JS)' }) + rb('view.layers', 'layers', 'Область выделения', { big: true, key: 'Alt+F10', title: 'Объекты слайда списком' }))}
       ${group('Слайд', rb('view.size', 'slide-size', 'Размер слайда', { big: true, menu: true, title: 'Пропорции слайда: широкий 16:9, стандартный 4:3 (старые проекторы) или сверхширокий 21:9' }))}
-      ${group('Показать', `<div class="st-rstack">${chk('view.ruler', 'Линейка', 'Линейки сверху и слева')}${chk('view.grid', 'Сетка', 'Сетка и привязка к ней (Shift+F9)')}${chk('view.guides', 'Направляющие', 'Направляющие и привязка к ним (Alt+F9)')}</div><div class="st-rstack">${rb('view.grid-step', 'grid', 'Шаг сетки', { menu: true })}${rb('view.guides-reset', 'reset', 'Сбросить направляющие', { title: 'Оставить по одной направляющей по центру' })}</div>`)}
+      ${group('Показать', `<div class="st-rstack">${chk('view.ruler', 'Линейка', 'Линейки сверху и слева')}${chk('view.grid', 'Сетка', 'Сетка с привязкой (Shift+F9)')}${chk('view.guides', 'Направляющие', 'Направляющие с привязкой (Alt+F9)')}</div><div class="st-rstack">${rb('view.grid-step', 'grid', 'Шаг сетки', { menu: true })}${rb('view.guides-reset', 'reset', 'Сбросить направляющие', { title: 'Оставить по одной направляющей по центру' })}</div>`)}
       ${group('Скорость', rb('view.lite', 'leaf', 'Облегчённый режим', { big: true, toggle: true, title: 'Для слабых компьютеров: анимации на слайде в редакторе остановлены. На показ не влияет' }))}
       ${group('Масштаб', rb('view.fit', 'fullscreen', 'Вписать', { big: true }) + `<div class="st-rstack">${rb('view.zoom-in', 'plus', 'Крупнее')}${rb('view.zoom-out', 'minus', 'Мельче')}</div>`)}
       ${group('Интерфейс', rb('ui.ribbon', 'sliders', 'Настроить ленту', { big: true, title: 'Какие вкладки и кнопки видны' })
@@ -517,7 +517,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   /** Закреплённые объекты не выравниваются и не раздвигаются */
   const lockedSel = () => {
     if (!ed.blockEditor.isLocked) return false;
-    ed.toast('Среди выделенных есть закреплённый объект — сначала открепите его', 2600);
+    ed.toast('Среди выделенных есть закреплённый объект — сначала требуется открепить объект', 2600);
     return true;
   };
 
@@ -820,7 +820,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       apply: (code) => {
         const p = parseQuizText(code);
         const slides = quizSlides(p);
-        if (!slides.length) { ed.toast('Нет ни одного вопроса: вопрос, под ним варианты «+» и «-»', 3500, true); return; }
+        if (!slides.length) { ed.toast('Вопросов нет. Формат: строка вопроса, следом варианты с «+» и «-»', 3500, true); return; }
         const at = index + 1;
         if (ed.commit((d) => { d.slides.splice(at, 0, ...(slides as Deck['slides'])); }, { rebuild: true })) {
           go(at);

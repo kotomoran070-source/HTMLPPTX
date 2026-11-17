@@ -558,7 +558,7 @@ export function createDecksCore(opts: CoreOptions) {
         return e;
       });
     }
-    if (todo.some((e) => !e.checkpoint || !e.after)) throw new Error('У этой правки уже нет контрольных точек (истёк срок хранения): отменить её нельзя');
+    if (todo.some((e) => !e.checkpoint || !e.after)) throw new Error('Отмена невозможна: контрольных точек этой правки уже нет (истёк срок хранения)');
     const source = fs.readFileSync(file, 'utf8');
     const current = readYaml(file, source) as Deck;
     const point = (id: string) => parseYaml(fs.readFileSync(pointFile(name, id), 'utf8')) as unknown;
@@ -852,7 +852,7 @@ export function createDecksCore(opts: CoreOptions) {
     try { file = decodeURIComponent(file); } catch { /* уже раскодирован */ }
     if (!file || /[\\/]|\.\./.test(file) || !/\.html?$/i.test(file)) throw new Error('Перезаписать можно только файл живой вставки (.htm) этой презентации');
     const target = path.join(dir, name, 'assets', file);
-    if (!fs.existsSync(target)) throw new Error('Файл вставки не найден: возможно, он перемещён или удалён');
+    if (!fs.existsSync(target)) throw new Error('Файл вставки не найден: перемещён или удалён');
     // Страница уже показывает новый код: перезагружать её из-за этого файла не нужно
     remember(target, text);
     fs.writeFileSync(target, text);

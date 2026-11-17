@@ -118,7 +118,7 @@ export async function runScript(h: IntegrationsHost, id: string, params?: Record
   const selection = sel.filter((p) => p[0] === 'slides' && p[1] === at && p[2] === 'free').map((p) => Number(p[3]) + 1);
   const worker = new Worker(new URL('./script-worker.ts', import.meta.url), { type: 'module', name: `Скрипт: ${info.name}` });
   const result = await new Promise<{ ok: boolean; deck?: Deck; details?: Change[]; logs: string[]; error?: string }>((done) => {
-    const timer = setTimeout(() => { worker.terminate(); done({ ok: false, error: `Скрипт работал дольше ${RUN_MS / 1000} с — остановлен`, logs: [] }); }, RUN_MS);
+    const timer = setTimeout(() => { worker.terminate(); done({ ok: false, error: `Скрипт остановлен: выполнение дольше ${RUN_MS / 1000} с`, logs: [] }); }, RUN_MS);
     worker.onmessage = (e) => { clearTimeout(timer); worker.terminate(); done(e.data); };
     worker.onerror = (e) => { clearTimeout(timer); worker.terminate(); done({ ok: false, error: e.message || 'Скрипт не запустился', logs: [] }); };
     worker.postMessage({ code, deck: JSON.parse(JSON.stringify(h.deck)), params: values, slide: at + 1, selection });
@@ -137,7 +137,7 @@ export async function runScript(h: IntegrationsHost, id: string, params?: Record
     // Что скрипт сказал через log() — в той же подсказке (раздел «Файл» после запуска закрывается)
     const said = result.logs.length ? ` · ${result.logs.join(' · ').slice(0, 140)}` : '';
     h.editor.toast(`Скрипт «${info.name}»: ${edits(details.length)}${said} · отменить — Ctrl+Z`, said ? 5000 : 3500);
-  } else h.editor.toast(`Скрипт «${info.name}» ничего не поменял`, 2500);
+  } else h.editor.toast(`Скрипт «${info.name}»: изменений нет`, 2500);
   return { changes: details.length, logs: result.logs };
 }
 
@@ -174,7 +174,7 @@ export async function revertEntries(h: IntegrationsHost, list: JournalEntry[], l
   if (!h.editor.active) h.editor.toggle(true);
   const done = h.editor.commit((d) => replaceContents(d as unknown as Record<string, unknown>, cur as Record<string, unknown>), { rebuild: true });
   const who = label ?? `«${todo[0].by.name}»`;
-  h.editor.toast(done ? `${todo.length > 1 ? 'Правки' : 'Правка'} ${who} ${todo.length > 1 ? 'возвращены' : 'возвращена'} · Ctrl+Z — снова как было` : 'Это уже как было до этих правок', 3500);
+  h.editor.toast(done ? `${todo.length > 1 ? 'Правки' : 'Правка'} ${who} ${todo.length > 1 ? 'возвращены' : 'возвращена'} · Ctrl+Z — снова как было` : 'Презентация уже в состоянии до этих правок', 3500);
 }
 /** Вернуть одну правку агента или скрипта */
 export const revertAgent = (h: IntegrationsHost, e: JournalEntry) => revertEntries(h, [e]);
@@ -228,7 +228,7 @@ export function startIntegrations(h: IntegrationsHost) {
       av.innerHTML = icon('agent');
       av.removeAttribute('style');
       name.textContent = 'Агентов пока нет';
-      sub.textContent = 'Подключить Claude или другой →';
+      sub.textContent = 'Подключить агента →';
       return;
     }
     const look = agentLook(a.name);
@@ -236,7 +236,7 @@ export function startIntegrations(h: IntegrationsHost) {
     av.style.background = look.bg;
     av.classList.toggle('on', a.online);
     name.textContent = a.online ? `${a.name} на связи${on.length > 1 ? ` и ещё ${on.length - 1}` : ''}` : `${a.name} — не на связи`;
-    sub.textContent = a.online ? `${edits(a.edits)} · ${a.edits ? 'последняя ' : 'с '}${ago(a.edits ? a.seen : a.since)}` : `был ${ago(a.seen)}`;
+    sub.textContent = a.online ? `${edits(a.edits)} · ${a.edits ? 'последняя ' : 'с '}${ago(a.edits ? a.seen : a.since)}` : `последний раз на связи ${ago(a.seen)}`;
   }
 
   /** Число правок за сутки на «Журнале правок» */

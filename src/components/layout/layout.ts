@@ -123,7 +123,7 @@ defineBlock<ImageProps>('image', {
     const img = p.src
       ? `<div class="imgfit"${look.wrap ? ` style="${esc(look.wrap)}"` : ''}><div class="imgbox${look.cls}${bf.cls}"${box ? ` style="${esc(box)}"` : ''}${eimg(p, 'src')}><img${themedSrc(p.src, p.srcDark)} alt="${esc(p.alt ?? p.caption ?? '')}" style="${frameCss(p)}${look.img ? `;${look.img}` : ''}"></div></div>`
       // Пустое место под картинку — той же формы, что будет картинка (скругление, круг, овал)
-      : `<div class="image-empty"${eimg(p, 'src')}${p.radius !== undefined ? ` style="${look.box.split(';').filter((d) => d.startsWith('border-radius')).join(';')}${p.radius === 'circle' ? ';aspect-ratio:1;min-height:0;padding:0;flex:none;height:100%;margin:0 auto' : ''}"` : ''}>${p.radius === 'circle' ? 'Фото' : 'Перетащите изображение сюда'}</div>`;
+      : `<div class="image-empty"${eimg(p, 'src')}${p.radius !== undefined ? ` style="${look.box.split(';').filter((d) => d.startsWith('border-radius')).join(';')}${p.radius === 'circle' ? ';aspect-ratio:1;min-height:0;padding:0;flex:none;height:100%;margin:0 auto' : ''}"` : ''}>${p.radius === 'circle' ? 'Фото' : 'Переместите изображение сюда'}</div>`;
     const cap = p.caption ? `<figcaption class="mu"${ea(p, 'caption')}>${t(p.caption)}</figcaption>` : '';
     const h = Number(p.height);
     const cam = p.src && (p.camera === 'in' || p.camera === 'out' || p.camera === 'pan') ? ` cam-${p.camera}` : '';

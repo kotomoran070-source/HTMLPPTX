@@ -49,7 +49,7 @@ const CLAUDE = agentLook('Claude').bg;
 const CLIENTS: Client[] = [
   { id: 'claude-code', name: 'Claude Code', mono: 'C', logo: LOGOS.claudeCode, bg: CLAUDE, step: 'Выполните в терминале',
     variants: [{ label: 'Команда', where: 'Выполните в терминале — для всех папок', snippet: shell('claude') }],
-    auto: { after: 'Запустите claude в любой папке — Slideria уже в его списке (/mcp)', get: 'https://code.claude.com/docs/en/setup' } },
+    auto: { after: 'Запустите claude в любой папке: Slideria — в списке /mcp', get: 'https://code.claude.com/docs/en/setup' } },
   { id: 'claude-desktop', name: 'Claude Desktop', mono: 'C', logo: LOGOS.claude, bg: CLAUDE, step: 'Вставьте в настройки и перезапустите Claude',
     variants: [{ label: 'Настройки', where: 'Claude → Настройки → Разработчик → Изменить конфигурацию; добавьте в mcpServers и перезапустите', snippet: jsonCfg('mcpServers') }],
     auto: { after: 'Нажмите «Install» в окне установки. Перезапуск не требуется',
@@ -57,14 +57,14 @@ const CLIENTS: Client[] = [
       done: 'Расширение установлено. Управление — Settings → Desktop app → Extensions',
       config: 'Требуется перезапуск приложения: Quit, затем повторный запуск',
       get: 'https://claude.ai/download' } },
-  { id: 'codex', name: 'ChatGPT · Codex', mono: 'AI', bg: 'linear-gradient(135deg,#475569,#0F172A)', step: 'Заполните поля в ChatGPT и перезапустите его',
-    auto: { after: 'Перезапустите ChatGPT (и Codex в терминале или редакторе, если открыт) — Slideria будет в списке его MCP-серверов', get: 'https://openai.com/chatgpt/download/', app: 'ChatGPT' },
+  { id: 'codex', name: 'ChatGPT · Codex', mono: 'AI', bg: 'linear-gradient(135deg,#475569,#0F172A)', step: 'Заполните поля в ChatGPT, затем перезапустите приложение',
+    auto: { after: 'Перезапустите ChatGPT и открытый Codex в терминале или редакторе — Slideria появится в списке MCP-серверов', get: 'https://openai.com/chatgpt/download/', app: 'ChatGPT' },
     variants: [
       { label: 'Поля', where: 'ChatGPT → Настройки → MCP-серверы → добавить сервер с запуском по команде (STDIO)', snippet: (c) => fields(c) },
-      { label: 'config.toml', where: 'Или добавьте в файл ~/.codex/config.toml — его читают ChatGPT и Codex в терминале и редакторе', snippet: (c) => `[mcp_servers.slideria]\ncommand = ${toml(c.command)}\nargs = [${c.args.map(toml).join(', ')}]` },
-      { label: 'Команда', where: 'Или выполните в терминале, если стоит Codex CLI', snippet: shell('codex') },
+      { label: 'config.toml', where: 'Или добавьте в файл ~/.codex/config.toml — общий для ChatGPT и Codex в терминале и редакторе', snippet: (c) => `[mcp_servers.slideria]\ncommand = ${toml(c.command)}\nargs = [${c.args.map(toml).join(', ')}]` },
+      { label: 'Команда', where: 'Или выполните в терминале (требуется Codex CLI)', snippet: shell('codex') },
     ],
-    note: 'Codex встроен в ChatGPT для компьютера: серверы MCP он берёт из файла ~/.codex/config.toml, общего с Codex в терминале и в редакторе. Обычный чат ChatGPT в браузере до Slideria на этом компьютере не дотянется.' },
+    note: 'Codex встроен в ChatGPT для компьютера и берёт серверы MCP из файла ~/.codex/config.toml — общего с Codex в терминале и редакторе. ChatGPT в браузере к Slideria на этом компьютере не подключается.' },
   { id: 'cursor', name: 'Cursor', mono: 'CU', logo: LOGOS.cursor, bg: 'linear-gradient(135deg,#334155,#0B1220)', step: 'Вставьте в настройки MCP',
     variants: [{ label: 'mcp.json', where: 'Cursor → Settings → MCP → Add new global MCP server (файл ~/.cursor/mcp.json)', snippet: jsonCfg('mcpServers') }] },
   { id: 'vscode', name: 'VS Code', mono: 'VS', bg: 'linear-gradient(135deg,#3B82F6,#1D4ED8)', step: 'Вставьте в mcp.json',
@@ -74,7 +74,7 @@ const CLIENTS: Client[] = [
 ];
 const CLIENT_KEY = 'slideria-mcp-client';
 
-const ASK = ['Подставь компанию и дату на титул', 'Сделай слайды из этих заметок', 'Переведи презентацию на английский', 'Сократи текст на слайдах 3–5', 'Напиши скрипт, который нумерует слайды'];
+const ASK = ['Подставьте компанию и дату на титул', 'Сделайте слайды из этих заметок', 'Переведите презентацию на английский', 'Сократите текст на слайдах 3–5', 'Напишите скрипт для нумерации слайдов'];
 const ACCESS: { id: Access; icon: string; name: string; sub: string }[] = [
   { id: 'view', icon: 'eye', name: 'Смотреть', sub: 'Читать презентации и сохранять в PDF, PowerPoint, HTML' },
   { id: 'edit', icon: 'pencil', name: 'Править', sub: 'И менять слайды, создавать новые презентации' },
@@ -246,7 +246,7 @@ function agentsHtml(): string {
         ${a.version ? `<div><b>${esc(a.version)}</b><span>версия</span></div>` : ''}</div>
     </div>`;
   };
-  const row = (a: AgentInfo) => `<div class="ig-ag">${avatar(a.name, false, 's')}<div><div class="ig-n">${esc(a.name)}</div><div class="ig-m">был ${ago(a.seen)}${a.version ? ` · ${esc(a.version)}` : ''}</div></div><div class="ig-m">${edits(a.edits)}</div></div>`;
+  const row = (a: AgentInfo) => `<div class="ig-ag">${avatar(a.name, false, 's')}<div><div class="ig-n">${esc(a.name)}</div><div class="ig-m">последний раз на связи ${ago(a.seen)}${a.version ? ` · ${esc(a.version)}` : ''}</div></div><div class="ig-m">${edits(a.edits)}</div></div>`;
   const who = agents.length ? on.map(live).join('') + off.map(row).join('')
     : `<div class="ig-none">${icon('agent')}<div><b>Пока никто не подключался</b><span>Подключите агента ниже — он появится здесь, а его правки — в журнале.</span></div></div>`;
   const access = info?.access ?? 'edit';
@@ -271,7 +271,7 @@ function connectHtml(info: Info | null): string {
   const cs = c.auto ? state.clients?.find((x) => x.id === c.id) : undefined;
   const steps = !cs ? ['Скопируйте — путь к Slideria на этом компьютере уже в строке', c.step]
     : cs.installed || cs.connected ? (cs.install === 'drag' && c.auto!.drag ? c.auto!.drag : [cs.install ? 'Нажмите «Подключить» — откроется окно установки' : 'Нажмите «Подключить»', c.auto!.after])
-      : [`Установите ${c.auto!.app ?? c.name} и запустите хотя бы один раз`, 'Вернитесь сюда и нажмите «Подключить»'];
+      : [`Установите и запустите ${c.auto!.app ?? c.name}`, 'Затем нажмите «Подключить»'];
   return `<div class="ig-clients" role="tablist" aria-label="Агент">${CLIENTS.map((x) => `<button type="button" class="ig-client" role="tab" data-client="${x.id}" aria-selected="${x.id === c.id}"><span class="ig-mono" style="background:${x.bg}">${x.logo ?? esc(x.mono)}</span>${esc(x.name)}${state.clients?.find((s) => s.id === x.id)?.connected ? `<i class="ig-on" title="Подключено"></i>` : ''}</button>`).join('')}</div>
     ${cs ? linkHtml(c, cs) : ''}
     ${cs ? '<h3 class="fp-k ig-or">Или вручную</h3>' : ''}
@@ -282,7 +282,7 @@ function connectHtml(info: Info | null): string {
       <pre>${esc(snippet)}</pre>
     </div>
     ${c.note ? `<div class="ig-callout">${icon('cloud')}<span>${esc(c.note)}</span></div>` : ''}
-    <ol class="ig-steps">${[...steps, 'Попросите агента о чём-нибудь — он появится в «Подключены»'].map((t, i) => `<li><b>${i + 1}</b><span>${esc(t)}</span></li>`).join('')}</ol>
+    <ol class="ig-steps">${[...steps, 'Агент появится в списке «Подключены» после первого запроса к Slideria'].map((t, i) => `<li><b>${i + 1}</b><span>${esc(t)}</span></li>`).join('')}</ol>
     <h3 class="fp-k ig-mt">Можно попросить</h3>
     <div class="ig-asks">${ASK.map((t) => `<button type="button" class="ig-ask" data-copy="${esc(t)}" title="Скопировать">${icon('copy')}${esc(t)}</button>`).join('')}</div>`;
 }
@@ -301,12 +301,12 @@ function linkHtml(c: Client, cs: ClientState): string {
       // Окно установки расширения открыто — статус обновится сам (watch); окно потерялось — открыть снова
       ? (state.waiting[c.id].how === 'drag'
         ? ['wait', 'clock', `Установка расширения в ${name}`, 'Переместите файл Slideria.mcpb в окно приложения. Другой способ: Settings → Desktop app → Extensions → Advanced settings → Install Extension…', `<button type="button" class="fp-btn" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Открытие…' : 'Показать файл'}</button>`]
-        : ['wait', 'clock', `Установка расширения в ${name}`, 'Нажмите «Install» в окне установки. Если окно закрыто, откройте его снова', `<button type="button" class="fp-btn" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Открытие…' : 'Открыть снова'}</button>`])
+        : ['wait', 'clock', `Установка расширения в ${name}`, 'Нажмите «Install» в окне установки. Закрытое окно — кнопка «Открыть снова»', `<button type="button" class="fp-btn" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Открытие…' : 'Открыть снова'}</button>`])
       : cs.installed
         ? ['', 'plug', `${name} есть на этом компьютере`, cs.install === 'drag' ? 'Откроется папка с файлом расширения. С подпиской ключ API не требуется'
           : cs.install ? 'Откроется окно установки расширения. С подпиской ключ API не требуется'
             : 'Slideria будет добавлена в настройки приложения; при наличии подписки ключ API не нужен', `<button type="button" class="fp-btn go" data-link="on"${busy ? ' disabled' : ''}>${busy ? 'Подключение…' : `Подключить к ${esc(name)}`}</button>`]
-        : ['no', 'search', `${app} не найден на этом компьютере`, 'Установите приложение и запустите хотя бы один раз — или подключите вручную ниже', `<a class="fp-btn" href="${a.get}" target="_blank" rel="noopener">Скачать ${esc(app)}</a>`];
+        : ['no', 'search', `${app} не найден на этом компьютере`, 'Требуется установка и запуск приложения. Другой способ — подключение вручную ниже', `<a class="fp-btn" href="${a.get}" target="_blank" rel="noopener">Скачать ${esc(app)}</a>`];
   // Второй способ (Claude Desktop): запись в файл настроек — если расширение не ставится
   const alt = cs.install && a.config && !cs.connected && cs.installed ? `<button type="button" class="fp-link ig-link-alt" data-link="config"${busy ? ' disabled' : ''}>Подключить через файл настроек</button>` : '';
   return `<div class="ig-link ${cls}" aria-live="polite"><span class="ig-link-i">${icon(ic)}</span><div><b>${esc(title)}</b>${hint ? `<span class="ig-link-hint">${esc(hint)}</span>` : `<span>${esc(sub)}</span>`}${alt}${err ? `<span class="ig-link-err" role="alert">${esc(err)}</span>` : ''}</div>${btn}</div>`;
@@ -415,7 +415,7 @@ function dayLabel(ms: number): string {
 function logHtml(): string {
   const h = ctx!.host;
   const scope = `<div class="fp-seg" role="radiogroup" aria-label="Чьи правки">${[['deck', 'Эта презентация'], ['all', 'Все презентации']].map(([id, n]) => `<button type="button" role="radio" data-scope="${id}" aria-checked="${state.scope === id}">${n}</button>`).join('')}</div>`;
-  const bar = `<div class="ig-lbar">${scope}<span class="ig-m">«Вернуть» откатывает одну правку агента и не трогает того, что поправили после неё.</span></div>`;
+  const bar = `<div class="ig-lbar">${scope}<span class="ig-m">«Вернуть» отменяет одну правку агента; более поздние правки сохраняются.</span></div>`;
   if (!state.journal.length) {
     return `${bar}<div class="fp-card ig-empty">${icon('journal')}<div><b>Пока пусто</b><span>Здесь появятся правки агентов и скриптов — с тем, что было и что стало.</span></div></div>`;
   }
@@ -448,7 +448,7 @@ function pluginsHtml(): string {
 }
 function connectorsHtml(): string {
   return `<section class="fp-card ig-hero"><span class="ig-hero-i">${icon('cloud')}</span><div><h3>Коннекторы — вместе с облаком</h3><p>Данные из других сервисов прямо на слайдах: вход один раз, обновление по кнопке или перед показом, а в экспорт — снимок на момент сохранения.</p></div></section>
-    <div class="ig-kinds">${kind('database', 'Таблицы и базы', 'Цифры для графиков и таблиц — из таблицы или базы, всегда свежие.', 'выручка по месяцам')}${kind('users', 'Рабочие сервисы', 'Задачи, сделки, люди — карточками и списками на слайде.', 'статус проекта на планёрку')}${kind('link', 'Через агента', 'Агент по MCP умеет это уже сейчас: возьмёт данные и поправит слайды. Коннекторы будут делать это без участия агента.', '«возьми цифры из отчёта»')}</div>`;
+    <div class="ig-kinds">${kind('database', 'Таблицы и базы', 'Цифры для графиков и таблиц — из таблицы или базы, всегда свежие.', 'выручка по месяцам')}${kind('users', 'Рабочие сервисы', 'Задачи, сделки, люди — карточками и списками на слайде.', 'статус проекта на планёрку')}${kind('link', 'Через агента', 'Уже сейчас — через агента по MCP: данные из сервиса и правка слайдов. Коннекторы — то же без участия агента.', '«возьмите цифры из отчёта»')}</div>`;
 }
 
 // ---------------- действия ----------------
@@ -545,7 +545,7 @@ async function run(id: string): Promise<void> {
   try {
     const r = await runScript(c.host, id, values.get(id));
     const logs = r.logs.length ? ` · ${r.logs.join(' · ')}` : '';
-    state.results[id] = r.changes ? `Готово: ${edits(r.changes)} · отменить — Ctrl+Z${logs}` : `Ничего не поменялось${logs}`;
+    state.results[id] = r.changes ? `Готово: ${edits(r.changes)} · отменить — Ctrl+Z${logs}` : `Изменений нет${logs}`;
     void loadJournal();
     // Поменял — «Файл» закрывается: результат на слайдах, итог — в подсказке студии
     if (r.changes) { state.busy = ''; c.close(); return; }

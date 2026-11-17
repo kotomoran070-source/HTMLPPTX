@@ -221,7 +221,7 @@ export function createConnect(o: ConnectOptions = {}) {
 
   function writeDesktop(cmd: Cmd | null): void {
     const dirs = desktopDirs();
-    if (!dirs.length) throw new Error('Claude Desktop не найден на этом компьютере. Установите приложение с claude.ai/download и запустите хотя бы один раз');
+    if (!dirs.length) throw new Error('Claude Desktop не найден на этом компьютере. Требуется установка (claude.ai/download) и запуск приложения');
     // Сначала все файлы прочитать: испорченный где-то одном — не трогать ни одного
     const targets = dirs.map((d) => desktopFile(d.dir)).filter((f, i) => dirs[i].create || fs.existsSync(f));
     for (const file of targets) readDesktop(file);
@@ -397,7 +397,7 @@ export function createConnect(o: ConnectOptions = {}) {
         writeDesktop(cmd);
         return one(c);
       }
-      if (!desktopDirs().length) throw new Error('Claude Desktop не найден на этом компьютере. Установите приложение с claude.ai/download и запустите хотя бы один раз');
+      if (!desktopDirs().length) throw new Error('Claude Desktop не найден на этом компьютере. Требуется установка (claude.ai/download) и запуск приложения');
       // Пакет с путём к этой программе: на macOS — открыть (окно установки покажет сам Claude Desktop), не открылся
       // или Windows — показать в папке, его перетаскивают в Claude Desktop. Уже стоит — то же окно обновит его
       // (другой путь к программе, новая версия)
@@ -420,7 +420,7 @@ export function createConnect(o: ConnectOptions = {}) {
     else if (c === 'codex') writeCodex(cmd);
     else {
       const cli = findCli('claude');
-      if (!cli) throw new Error(`${TITLE[c]} не найден на этом компьютере — установите его или подключите вручную командой ниже`);
+      if (!cli) throw new Error(`${TITLE[c]} не найден на этом компьютере. Другой способ — подключение вручную командой ниже`);
       await run(cli, ['mcp', 'remove', '--scope', 'user', NAME]).catch(() => '');
       await run(cli, ['mcp', 'add', '--scope', 'user', NAME, '--', cmd.command, ...cmd.args]);
     }

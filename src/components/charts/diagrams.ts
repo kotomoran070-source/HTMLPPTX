@@ -217,7 +217,7 @@ function yGrid(min: number, max: number, x0: number, x1: number, top: number, bo
 defineBlock<ColumnsProps>('columns', {
   render(p) {
     const series = seriesOf(p);
-    if (!series.length) return `<div class="block-error">columns: нужен хотя бы один ряд в series</div>`;
+    if (!series.length) return `<div class="block-error">columns: нужен минимум один ряд в series</div>`;
     const labels = strs(p.labels);
     const m = Math.max(labels.length, ...series.map((s) => s.values.length));
     const top = 24;
@@ -301,7 +301,7 @@ function smooth(pts: [number, number][]): string {
 defineBlock<LinesProps>('lines', {
   render(p, ctx) {
     const series = seriesOf(p).filter((s) => s.values.length >= 2);
-    if (!series.length) return `<div class="block-error">lines: нужен ряд хотя бы из двух значений</div>`;
+    if (!series.length) return `<div class="block-error">lines: нужен ряд минимум из двух значений</div>`;
     const labels = strs(p.labels);
     const trends = series.map((s) => trendOf(s.values, p.trend, p.forecast));
     const ahead = Math.max(0, ...trends.map((t) => t.ahead));

@@ -603,7 +603,7 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'dash', label: 'Штрих', type: 'select', options: [['', 'Сплошной'], ['dash', 'Пунктир'], ['dot', 'Точки']] },
       { k: 'fromSide', label: 'Начало — сторона', type: 'select', options: SIDE_OPTS },
       { k: 'toSide', label: 'Конец — сторона', type: 'select', options: SIDE_OPTS },
-      { k: 'from', label: 'От объекта', type: 'text', hint: 'Имя объекта (id): конец тянут на объект — оно ставится само' },
+      { k: 'from', label: 'От объекта', type: 'text', hint: 'Имя объекта (id): ставится само, когда конец перемещают на объект' },
       { k: 'to', label: 'К объекту', type: 'text' },
     ],
   },

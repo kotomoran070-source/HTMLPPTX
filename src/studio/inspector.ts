@@ -801,7 +801,7 @@ ${fxHtml(this.host.deck(), fxTargets(this.host.deck(), this.host.editor()))}
       if (verb === 'show:' && target.hidden !== true && Number(path[3]) !== k) { target.hidden = true; hid = true; }
       setAt(d, [...path, 'action'], `${verb}${target.id}`);
     }, { rebuild: true });
-    if (hid) ed.toast('Объект скрыт до щелчка — в редакторе он полупрозрачный', 3000);
+    if (hid) ed.toast('Объект скрыт до щелчка — в редакторе показан полупрозрачным', 3000);
   }
 
   private onChange(el: HTMLInputElement): void {

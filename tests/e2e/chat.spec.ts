@@ -39,7 +39,7 @@ test('подключение: панель на месте «Свойств», �
   await expect(chat.locator('.ac-key')).toContainText('Подключите Claude');
   await chat.locator('#ac-key-in').fill('sk-ant-wrong-12345678');
   await chat.locator('.ac-key button[type=submit]').click();
-  await expect(chat.locator('.ac-kerr')).toContainText('Ключ не подошёл');
+  await expect(chat.locator('.ac-kerr')).toContainText('Ключ не принят');
   await chat.locator('#ac-key-in').fill('sk-ant-test-12345678');
   await chat.locator('.ac-key button[type=submit]').click();
   await expect(chat.locator('.ac-ta')).toBeEnabled();

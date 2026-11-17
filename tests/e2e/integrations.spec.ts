@@ -209,7 +209,7 @@ test('подключить в один щелчок: Claude Desktop — расш
   await fp.locator('[data-client="codex"]').click();
   await expect(link).toContainText('ChatGPT не найден на этом компьютере');
   await expect(link.getByRole('link', { name: 'Скачать ChatGPT' })).toHaveAttribute('href', /openai\.com/);
-  await expect(fp.locator('.ig-steps li').first()).toContainText('Установите ChatGPT');
+  await expect(fp.locator('.ig-steps li').first()).toContainText('Установите и запустите ChatGPT');
   // У Cursor одного щелчка нет — только вручную
   await fp.locator('[data-client="cursor"]').click();
   await expect(link).toHaveCount(0);
