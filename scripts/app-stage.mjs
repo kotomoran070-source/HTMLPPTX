@@ -6,7 +6,8 @@
 //   desktop/ — загрузчик программы (Electron), сжатый; рядом — то, что он берёт сам (вход для телефона);
 //   templates/, src/fonts/ — шаблон новой презентации и встроенные скрипты, шрифты комплекта (их лицензия
 //   в экспорте и на странице «Лицензии»);
-//   licenses/ — полные тексты LGPL-3.0 и GPL-3.0 для libvips (sharp): в её пакетах их нет (plugins/licenses.mjs).
+//   licenses/ — полные тексты LGPL-3.0 и GPL-3.0 для libvips (sharp) и Apache-2.0 для движка распознавания речи
+//   (sherpa-onnx): в их пакетах текстов нет (plugins/licenses.mjs).
 // Отпечатки (SHA-256) кода, который лежит рядом с app.asar, записываются внутрь app.asar
 // (desktop/integrity.json): программа сверяет их при запуске и с изменённым кодом не запускается.
 import { spawnSync } from 'node:child_process';

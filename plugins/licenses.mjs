@@ -62,6 +62,12 @@ function lgpl3(who, root) {
   ].filter(Boolean).join('\n\n');
 }
 const LGPL3_TEXT = /GNU LESSER GENERAL PUBLIC LICENSE\s+Version 3/;
+/**
+ * Apache-2.0 без файла лицензии в пакете (движок распознавания речи sherpa-onnx): полный текст — из licenses/
+ * проекта, как и LGPL; внутри пакета движка под систему — ещё ONNX Runtime (Microsoft, MIT) без своего текста
+ */
+const apache2 = (root) => { try { return fs.readFileSync(path.join(root, 'licenses', 'Apache-2.0.txt'), 'utf8').trim(); } catch { return ''; } };
+const EMBEDDED = [[/^sherpa-onnx-(win|linux|darwin)-/, () => `ONNX Runtime (inside this package):\n\n${TEMPLATES.MIT('Microsoft Corporation')}`]];
 /** Сборки под конкретную систему: текст лицензии — у основного пакета проекта */
 const PARENT = [[/^@esbuild\//, 'esbuild'], [/^@rollup\/rollup-/, 'rollup'], [/^@napi-rs\/lzma-/, '@napi-rs/lzma']];
 
@@ -86,6 +92,8 @@ export function readPackage(dir, root = process.cwd()) {
   if (!text && TEMPLATES[license]) {
     text = TEMPLATES[license](who());
   }
+  if (!text && license === 'Apache-2.0') text = apache2(root);
+  for (const [re, add] of EMBEDDED) if (re.test(pj.name)) text = [text, add()].filter(Boolean).join('\n\n');
   // «LGPL-3.0-or-later» и «Apache-2.0 AND LGPL-3.0-or-later»: без текстов LGPL и GPL в пакете — свои
   if (/\bLGPL-3\.0/.test(license) && !LGPL3_TEXT.test(text)) text = [text, lgpl3(who(), root)].filter(Boolean).join('\n\n');
   return { dir, name: pj.name, version: pj.version, license, text };

@@ -21,6 +21,7 @@ import { deckRev } from './deck-files';
 import { ExportError, type DecksCore } from './core';
 import { createAgentChat, devKeys, type AgentChat, type KeyStore } from './agent';
 import { createConnect, type Connect } from './connect';
+import { createVoice, type Voice, type VoiceModel } from './voice';
 import { denyPage, isLocal, lanPass, remoteRelay } from '../plugins/remote-relay.mjs';
 import { electronFiles, licensesData } from '../plugins/licenses.mjs';
 
@@ -77,6 +78,11 @@ export interface HttpOptions {
   agentKeys?: KeyStore;
   /** Программа: открыть файл или показать его в папке (Electron shell); по умолчанию — командами системы */
   show?: (file: string, how: 'open' | 'reveal') => Promise<void>;
+  /**
+   * Голосовой ввод (server/voice.ts): куда скачивается модель распознавания речи. Программа — в свои данные;
+   * по умолчанию — node_modules/.cache/slideria-voice; SLIDERIA_VOICE_DIR — для тестов
+   */
+  voice?: string;
 }
 
 export function readBody(req: IncomingMessage, max = MAX_BODY): Promise<Buffer> {
@@ -263,9 +269,17 @@ function api(core: DecksCore, o: HttpOptions): Handler {
   const clients = createConnect(testHome
     ? { home: testHome, pathDirs: [], bundle, open: async (f) => fs.writeFileSync(path.join(testHome, 'opened-mcpb.txt'), f) }
     : { bundle, ...(o.show ? { open: o.show } : {}) });
+  // Голосовой ввод. В тестах — своя папка, архив модели с подставного сервера (SLIDERIA_VOICE_MODEL: { url, sha256,
+  // size }) и распознавание без модели: любая запись — текст из SLIDERIA_VOICE_STUB
+  const voice = createVoice({
+    dir: process.env.SLIDERIA_VOICE_DIR || o.voice || path.join(core.root, 'node_modules', '.cache', 'slideria-voice'),
+    model: process.env.SLIDERIA_VOICE_MODEL ? JSON.parse(process.env.SLIDERIA_VOICE_MODEL) as VoiceModel : undefined,
+    stub: process.env.SLIDERIA_VOICE_STUB || undefined,
+    log: o.log,
+  });
   return (req, res, next) => {
     if (!req.url?.startsWith(API)) return next();
-    void route(core, o, chat, clients, req, res).catch((e: Error) => {
+    void route(core, o, chat, clients, voice, req, res).catch((e: Error) => {
       o.log?.(`[htmlpptx] ${e.message}`);
       if (!res.headersSent) send(res, e instanceof ExportError ? 500 : 400, { error: e.message });
       else res.end();
@@ -273,7 +287,7 @@ function api(core: DecksCore, o: HttpOptions): Handler {
   };
 }
 
-async function route(core: DecksCore, o: HttpOptions, chat: AgentChat, clients: Connect, req: IncomingMessage, res: ServerResponse): Promise<void> {
+async function route(core: DecksCore, o: HttpOptions, chat: AgentChat, clients: Connect, voice: Voice, req: IncomingMessage, res: ServerResponse): Promise<void> {
   // С других устройств сети (пульт) проект только смотрят — не правят
   if (!isLocal(req)) return send(res, 403, { error: 'Правка проекта — только с этого компьютера' });
   if (req.method !== 'POST') return send(res, 405, { error: 'Только POST' });
@@ -352,6 +366,16 @@ async function route(core: DecksCore, o: HttpOptions, chat: AgentChat, clients: 
     case 'chat-status': return send(res, 200, chat.status());
     case 'chat-connect': return send(res, 200, await chat.connect(((await json(req)) as { key?: unknown } | null)?.key));
     case 'chat-disconnect': return send(res, 200, chat.disconnect());
+    // Голосовой ввод (server/voice.ts): есть ли модель, скачать, взять из файла, остановить загрузку, распознать
+    case 'voice-status': return send(res, 200, voice.status());
+    case 'voice-install': return send(res, 200, voice.install());
+    case 'voice-install-file': return send(res, 200, await voice.installFile(req));
+    case 'voice-cancel': return send(res, 200, voice.cancel());
+    case 'voice-load':
+      voice.load();
+      return send(res, 200, { ok: true });
+    // Запись: 16 бит, 16 кГц, моно; кусок — до ~25 с (студия режет длинную запись на паузах)
+    case 'voice-recognize': return send(res, 200, { text: await voice.recognize(await readBody(req, 4 * 1024 * 1024)) });
     default: break;
   }
 

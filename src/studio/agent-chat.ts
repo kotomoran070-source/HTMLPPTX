@@ -3,11 +3,13 @@
 // Ctrl+V, перетаскивание), открытый слайд уходит в контекст (плашка «Слайд 5», её можно убрать). Видны шаги агента
 // и ответ по мере написания, «Стоп» (Esc). Под ответом — карточка правки: «Показать» и «Вернуть»; Ctrl+Z отменяет
 // весь ответ одним шагом (Editor.agentAnswer). Разговоры — у каждой презентации свои, под значком часов.
+// Микрофон — «Диктовать»: речь распознаётся на этом компьютере и встаёт в поле (agent-voice.ts).
 import { icon } from '../components/icons';
 import { staticSlide } from '../engine/deck-view';
 import { clock } from '../engine/editor/editor';
 import { plural } from '../engine/editor/font-picker';
 import { esc } from '../engine/html';
+import type { mountVoice } from './agent-voice';
 import { api, canRevert, revertEntries, slideOf, type IntegrationsHost, type JournalEntry } from './integrations';
 import './agent-chat.css';
 
@@ -84,6 +86,10 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
   let keyError = '';
   /** Картинки прошлых сообщений: файл разговора → адрес blob: */
   const images = new Map<string, string>();
+  /** Голосовой ввод — с первого нажатия на микрофон; voiceBusy — идёт запись или распознавание */
+  let voice: ReturnType<typeof mountVoice> | null = null;
+  let voiceLoading: Promise<ReturnType<typeof mountVoice>> | null = null;
+  let voiceBusy = false;
 
   root.innerHTML = `
 <div class="ac-h">
@@ -95,11 +101,14 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
   <button type="button" class="ac-ib" data-a="close" title="Закрыть (Ctrl+J)" aria-label="Закрыть">${icon('close')}</button>
 </div>
 <div class="ac-body" role="log" aria-label="Разговор с агентом"></div>
+<div class="ac-vcard" role="region" aria-label="Голосовой ввод" hidden></div>
 <div class="ac-comp">
+  <div class="ac-rec" aria-live="polite" hidden></div>
   <div class="ac-chips"></div>
   <textarea class="ac-ta" rows="1" aria-label="Задача для агента"></textarea>
   <div class="ac-row">
     <button type="button" class="ac-ib" data-a="attach" title="Картинка: PNG, JPG, WebP, GIF — или перетащите, или Ctrl+V" aria-label="Приложить картинку">${icon('clip')}</button>
+    <button type="button" class="ac-ib ac-mic" data-a="mic" title="Диктовать" aria-label="Диктовать" aria-pressed="false">${icon('mic')}</button>
     <span class="ac-ctx" hidden></span>
     <span class="ac-sp"></span>
     <button type="button" class="ac-send" data-a="send" aria-label="Отправить"></button>
@@ -115,6 +124,7 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
   const menu = $('.ac-menu');
   const modelBtn = $<HTMLButtonElement>('.ac-model');
   const file = $<HTMLInputElement>('.ac-file');
+  const mic = $<HTMLButtonElement>('.ac-mic');
 
   // ---------------- отрисовка ----------------
 
@@ -129,8 +139,11 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
   function paintComposer(): void {
     const ready = !!status?.connected;
     ta.disabled = !ready;
+    // Пока диктуют, текст в поле пишет распознавание
+    ta.readOnly = voiceBusy;
     ta.placeholder = ready ? 'Напишите задачу…' : 'Сначала подключите Claude';
-    ($('[data-a="attach"]') as HTMLButtonElement).disabled = !ready;
+    ($('[data-a="attach"]') as HTMLButtonElement).disabled = !ready || voiceBusy;
+    mic.disabled = !ready && !voiceBusy;
     const ctx = $('.ac-ctx');
     ctx.hidden = !ready || !withSlide;
     ctx.innerHTML = `${icon('slide')}<span>Слайд ${h.index() + 1}</span><button type="button" data-a="noslide" title="Не прикладывать слайд" aria-label="Не прикладывать слайд">${icon('close')}</button>`;
@@ -148,7 +161,7 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
       send.className = 'ac-send';
       send.title = 'Отправить (Enter)';
       send.setAttribute('aria-label', 'Отправить');
-      send.disabled = !ready || (!ta.value.trim() && !pending.length);
+      send.disabled = !ready || voiceBusy || (!ta.value.trim() && !pending.length);
     }
   }
 
@@ -339,6 +352,7 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
 
   async function submit(): Promise<void> {
     if (run) return stop();
+    if (voiceBusy) return;
     const text = ta.value.trim();
     if (!status?.connected || (!text && !pending.length)) return;
     const slide = withSlide ? h.index() + 1 : undefined;
@@ -469,6 +483,21 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
     ta.focus();
   }
 
+  // ---------------- голос ----------------
+
+  function loadVoice(): Promise<ReturnType<typeof mountVoice>> {
+    voiceLoading ??= import('./agent-voice').then(({ mountVoice }) => {
+      voice = mountVoice({
+        ta, card: $('.ac-vcard'), strip: $('.ac-rec'), button: mic,
+        changed: () => { fit(); paintComposer(); },
+        busy: (on) => { voiceBusy = on; paintComposer(); },
+        toast: (t, ms, err) => h.editor.toast(t, ms, err),
+      });
+      return voice;
+    });
+    return voiceLoading;
+  }
+
   // ---------------- меню модели ----------------
 
   function openMenu(): void {
@@ -553,6 +582,7 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
         return paint();
       case 'send': return void submit();
       case 'attach': return file.click();
+      case 'mic': return void loadVoice().then((v) => v.toggle());
       case 'noslide':
         withSlide = false;
         paintComposer();
@@ -620,6 +650,8 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
   ta.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
+      // Диктуют — Enter заканчивает запись: текст встаёт в поле, но не отправляется
+      if (voice?.active()) return void voice.finish();
       void submit();
     }
   });
@@ -637,6 +669,7 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
   root.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (!menu.hidden) { e.preventDefault(); e.stopPropagation(); return closeMenu(true); }
+    if (voice?.active()) { e.preventDefault(); e.stopPropagation(); return voice.cancel(); }
     if (run) { e.preventDefault(); e.stopPropagation(); stop(); }
   });
   menu.addEventListener('keydown', (e) => {
@@ -677,5 +710,7 @@ export function mountChat(root: HTMLElement, h: ChatHost) {
     focus(): void { if (status?.connected) ta.focus(); else root.querySelector<HTMLInputElement>('#ac-key-in')?.focus(); },
     /** Идёт ответ — панель не закрывается молча */
     busy: () => !!run,
+    /** Панель закрыли: запись — остановить, микрофон — выключить */
+    hide(): void { voice?.hide(); },
   };
 }

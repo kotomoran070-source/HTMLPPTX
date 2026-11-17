@@ -5,6 +5,8 @@
 //   perf — скорость студии и показа (yarn test:perf), только по запросу.
 // Браузер: на Windows — установленный Microsoft Edge (качать ничего не нужно),
 // в остальных системах — Chromium Playwright (npx playwright install chromium).
+import { createHash } from 'node:crypto';
+import fs from 'node:fs';
 import path from 'node:path';
 import { defineConfig } from '@playwright/test';
 
@@ -18,6 +20,8 @@ const stage = process.env.SLIDERIA_STAGE;
 const serve = process.env.SLIDERIA_SERVE === '1' || !!stage;
 const tmp = (p: string) => (stage ? path.resolve(p) : p);
 const channel = process.env.SLIDERIA_TEST_BROWSER || (process.platform === 'win32' ? 'msedge' : undefined);
+// Голосовой ввод: образец архива модели (tests/e2e/voice.spec.ts отдаёт его с порта 5193)
+const voiceArchive = fs.readFileSync(path.resolve('tests/fixtures/voice-model.tar.bz2'));
 const server = stage
   ? `node scripts/serve.mjs --port=${PORT} --root="${stage}" --code="${path.join(stage, 'app')}"`
   : serve ? `node scripts/serve.mjs --port=${PORT}` : `npx vite --port ${PORT} --strictPort`;
@@ -56,6 +60,10 @@ export default defineConfig({
       SLIDERIA_ANTHROPIC_URL: 'http://127.0.0.1:5191', ANTHROPIC_API_KEY: '',
       // Подключение в один щелчок: Claude Desktop, Claude Code и Codex — в подставном домашнем каталоге, не в своём
       SLIDERIA_CONNECT_HOME: path.resolve('.tmp/test-home'),
+      // Голосовой ввод: своя папка модели, образец архива с подставного сервера, распознавание — подставной текст
+      SLIDERIA_VOICE_DIR: path.resolve('.tmp/test-voice'),
+      SLIDERIA_VOICE_MODEL: JSON.stringify({ url: 'http://127.0.0.1:5193/voice-model.tar.bz2', sha256: createHash('sha256').update(voiceArchive).digest('hex'), size: voiceArchive.length }),
+      SLIDERIA_VOICE_STUB: 'Добавь слайд с итогами',
       // package.json программы — не в папке сжатого кода, как и в установленной программе
       ...(stage ? { SLIDERIA_PACKAGE: path.resolve('package.json') } : {}),
     },

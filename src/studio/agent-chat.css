@@ -159,3 +159,34 @@
 .ac-menu button span span { display: block; color: var(--mu); font-size: 12px; }
 .ac-menu hr { border: 0; border-top: 1px solid var(--bd); margin: 4px 0; }
 .ac-mnote { margin: 0; padding: 6px 10px; color: var(--mu); font-size: 12px; }
+
+/* Голосовой ввод (agent-voice.ts): «Диктовать», карточка загрузки модели над полем, полоса записи в поле */
+.ac-mic.on { background: #DC2626 !important; color: #fff !important; }
+.ac-mic.on:hover { background: #B91C1C !important; }
+.ac-vcard { flex: none; margin: 6px 12px 0; border: 1px solid var(--bd); border-radius: 12px; background: var(--bg); padding: 10px 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; }
+.ac-vcard[hidden] { display: none; }
+.ac-vcard .vh { display: flex; align-items: center; gap: 9px; }
+.ac-vcard .vh b { flex: 1; min-width: 0; font-weight: 600; font-size: 13px; }
+.ac-vcard .bi { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--acs); color: var(--ac); flex: none; }
+.ac-vcard .bi.ok { background: color-mix(in srgb, #16A34A 14%, var(--surf)); color: #16A34A; }
+.ac-vcard p { margin: 0; color: var(--tx2); line-height: 1.45; }
+.ac-vcard .vnote { color: var(--mu); font-size: 12px; }
+.ac-vcard .vlink { color: var(--ac); font-weight: 500; text-decoration: none; }
+.ac-vcard .vlink:hover { text-decoration: underline; }
+.ac-vcard .va { display: flex; flex-wrap: wrap; gap: 6px; }
+.ac-vcard .vbar { height: 6px; border-radius: 3px; background: var(--alt); overflow: hidden; }
+.ac-vcard .vbar i { display: block; height: 100%; border-radius: 3px; background: var(--ac); transition: width .3s; }
+.ac-vcard .vrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--tx2); font-variant-numeric: tabular-nums; }
+.ac-rec { display: flex; flex-direction: column; gap: 1px; margin: 0 0 8px; padding: 3px 3px 5px 9px; border-radius: 9px; background: color-mix(in srgb, #DC2626 7%, var(--surf)); border: 1px solid color-mix(in srgb, #DC2626 22%, var(--bd)); font-size: 12.5px; }
+.ac-rec .vln { display: flex; align-items: center; gap: 8px; min-height: 26px; }
+.ac-rec[hidden] { display: none; }
+.ac-rec .vdot { width: 9px; height: 9px; border-radius: 50%; background: #DC2626; flex: none; animation: ac-rec 1.2s ease-in-out infinite; }
+@keyframes ac-rec { 50% { opacity: .3; } }
+.ac-rec .vt { min-width: 32px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--tx); }
+.ac-rec .vlv { display: inline-flex; align-items: center; gap: 2px; height: 16px; flex: none; }
+.ac-rec .vlv i { width: 3px; height: 16px; border-radius: 2px; background: #DC2626; transform: scaleY(.15); }
+.ac-rec .vnt { display: flex; align-items: center; gap: 4px; color: var(--mu); font-size: 11.5px; }
+.ac-rec .vnt .ic { width: 12px; height: 12px; }
+.ac-rec .ac-btn { height: 26px; flex: none; }
+.ac-rec .vw { color: var(--tx2); }
+@media (prefers-reduced-motion: reduce) { .ac-rec .vdot { animation: none; } }

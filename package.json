@@ -41,6 +41,8 @@
     "node-html-parser": "^9.0.4",
     "occt-import-js": "^0.0.23",
     "sharp": "^0.35.5",
+    "sherpa-onnx-node": "2.0.1",
+    "unbzip2-stream": "1.4.3",
     "yaml": "^2.9.1"
   },
   "devDependencies": {
@@ -121,7 +123,10 @@
       "shortcutName": "Slideria"
     },
     "mac": {
-      "icon": "desktop/icon.png"
+      "icon": "desktop/icon.png",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Микрофон нужен для голосового ввода в чате «Агент» и для слайдов, которые слышат звук."
+      }
     },
     "linux": {
       "target": "AppImage",

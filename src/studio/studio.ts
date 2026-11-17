@@ -2293,6 +2293,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     // Справа открыт чат — «Свойства» встают на его место
     if (side === 'right' && lay.chat) {
       lay.chat = false;
+      chat?.hide();
       on = true;
     }
     lay[side] = on;
@@ -2301,7 +2302,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   }
 
   // ---------------- чат «Агент» (agent-chat.ts): справа, на месте «Свойств» ----------------
-  let chat: { sync(): void; focus(): void; busy(): boolean } | null = null;
+  let chat: { sync(): void; focus(): void; busy(): boolean; hide(): void } | null = null;
   let chatLoading: Promise<void> | null = null;
   function loadChat(): Promise<void> {
     chatLoading ??= import('./agent-chat').then(({ mountChat }) => {
@@ -2318,6 +2319,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     applyLayout();
     queueState();
     if (on) void loadChat().then(() => chat?.focus());
+    else chat?.hide();
   }
   if (lay.chat) void loadChat();
   $('st-rt').addEventListener('click', () => toggleRibbon());

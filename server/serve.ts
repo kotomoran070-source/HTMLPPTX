@@ -76,6 +76,8 @@ export interface ServeOptions {
   mcp?: { command: string; args: string[] };
   /** Программа: открыть файл или показать его в папке (пакет расширения Claude Desktop, server/connect.ts) */
   show?: (file: string, how: 'open' | 'reveal') => Promise<void>;
+  /** Куда скачивается модель распознавания речи для голосового ввода (server/voice.ts) */
+  voice?: string;
 }
 
 export interface Served {
@@ -314,6 +316,7 @@ export async function startServer(o: ServeOptions): Promise<Served> {
     bundled: () => bundled ?? [],
     agentKeys: o.agentKeys,
     show: o.show,
+    voice: o.voice,
   });
 
   server = http.createServer((req, res) => {

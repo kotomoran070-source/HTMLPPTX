@@ -191,6 +191,8 @@ async function startServer() {
     studio: path.join(CODE, 'studio'),
     fonts: path.join(DATA, 'fonts'),
     library: path.join(DATA, 'library'),
+    // Модель распознавания речи (голосовой ввод) — скачивается при первом нажатии на микрофон (server/voice.ts)
+    voice: path.join(DATA, 'voice'),
     // Проигрыватель для экспорта собран с программой (player/); вариант, которого там нет, собирается
     // к данным программы: её папка может быть только для чтения (server/player.ts)
     ...(PACKED ? { playerCache: path.join(DATA, 'player') } : {}),
@@ -681,7 +683,8 @@ function downloads() {
 /**
  * Разрешения страниц (таблица с объяснениями — docs/PERMISSIONS.md). Только то, чем пользуется программа:
  * буфер обмена, полный экран, второй монитор, сохранение файла, шрифты компьютера (только своим страницам).
- * Микрофон и звук компьютера просят живые слайды и вставки (аудиовизуализаторы) — один вопрос за запуск.
+ * Микрофон и звук компьютера просят живые слайды и вставки (аудиовизуализаторы) — один вопрос за запуск;
+ * голосовому вводу самой студии микрофон даётся без вопроса.
  * Камера, местоположение, уведомления, USB и прочее — запрещены.
  */
 const ALLOWED = new Set(['clipboard-read', 'clipboard-sanitized-write', 'fullscreen', 'window-management', 'fileSystem', 'pointerLock', 'keyboardLock', 'mediaKeySystem']);
@@ -713,9 +716,17 @@ function deckOf(wc) {
 function permissions() {
   const ours = (o) => !!origin && typeof o === 'string' && o.replace(/\/$/, '') === origin;
   const audioOnly = (types) => Array.isArray(types) && types.length > 0 && types.every((t) => t === 'audio');
+  // Голосовой ввод чата «Агент» — сама студия (главный кадр её страницы), а не слайд: запись начинается нажатием
+  // на микрофон и видна всё время, пока идёт, — без отдельного вопроса. Слайды и вставки спрашивают, как раньше
+  const studioMic = (details) => {
+    try {
+      const u = new URL(details?.requestingUrl ?? '');
+      return details?.isMainFrame === true && ours(u.origin) && u.searchParams.has('studio');
+    } catch { return false; }
+  };
   session.defaultSession.setPermissionCheckHandler((wc, permission, requestingOrigin, details) => {
     if (permission === 'local-fonts') return ours(requestingOrigin);
-    if (permission === 'media') return details?.mediaType !== 'video' && answered.get(`${MIC[0]}:${deckOf(wc)}`) === true;
+    if (permission === 'media') return details?.mediaType !== 'video' && (studioMic(details) || answered.get(`${MIC[0]}:${deckOf(wc)}`) === true);
     return ALLOWED.has(permission);
   });
   session.defaultSession.setPermissionRequestHandler((wc, permission, done, details) => {
@@ -725,7 +736,8 @@ function permissions() {
     if (permission === 'media') {
       const types = details.mediaTypes ?? [];
       if (!types.length) return done(true);
-      return audioOnly(types) ? void askOnce(MIC, deckOf(wc)).then(done) : done(false);
+      if (!audioOnly(types)) return done(false);
+      return studioMic(details) ? done(true) : void askOnce(MIC, deckOf(wc)).then(done);
     }
     done(ALLOWED.has(permission));
   });

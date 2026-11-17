@@ -234,6 +234,51 @@ test('визуализатор в программе: микрофон и зву
   }
 });
 
+// Голосовой ввод в программе (server/voice.ts): микрофон самой студии — без вопроса (запись начинается нажатием
+// и видна полосой), движок распознавания грузится в служебном процессе сервера. Модель уже скачана для yarn dev
+// (node_modules/.cache/slideria-voice) — ещё и настоящее распознавание записи
+test('голосовой ввод в программе: микрофон студии без вопроса, распознавание в процессе сервера', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-app-voice-'));
+  const data = path.join(tmp, 'data');
+  const dev = path.resolve('node_modules/.cache/slideria-voice/gigaam-v3');
+  const real = fs.existsSync(path.join(dev, 'ready.json')) && fs.existsSync(path.join(dev, 'example.wav'));
+  if (real) {
+    // Модель — ссылками на файлы, без копирования 225 МБ
+    fs.mkdirSync(path.join(data, 'voice', 'gigaam-v3'), { recursive: true });
+    for (const f of fs.readdirSync(dev)) fs.symlinkSync(path.join(dev, f), path.join(data, 'voice', 'gigaam-v3', f));
+  }
+  const fake = ['--use-fake-device-for-media-stream'];
+  const app = await electron.launch({
+    ...(EXE ? { executablePath: EXE, args: [...sandbox, ...fake] } : { args: ['.', ...sandbox, ...fake] }),
+    env: { ...process.env, SLIDERIA_DOCS_DIR: path.join(tmp, 'docs'), SLIDERIA_USER_DATA: data },
+    timeout: 60_000,
+  });
+  try {
+    const win = await mainWindow(app);
+    await win.waitForURL(/\/\?all$/, { timeout: 90_000 });
+    await app.evaluate(({ dialog }) => {
+      const g = globalThis as { asked?: string[] };
+      g.asked = [];
+      dialog.showMessageBox = (async (...a: unknown[]) => { g.asked!.push((a.at(-1) as { message: string }).message); return { response: 1, checkboxChecked: false }; }) as typeof dialog.showMessageBox;
+    });
+    await win.goto(win.url().replace(/\?all$/, '?deck=moya-pervaya-prezentaciya&studio'));
+    await expect(win.locator('#st-canvas .slide.on')).toBeVisible();
+    const mic = await win.evaluate(() => navigator.mediaDevices.getUserMedia({ audio: true }).then((s) => { s.getTracks().forEach((t) => t.stop()); return 'ok'; }, (e: Error) => e.name));
+    expect(mic).toBe('ok');
+    expect(await app.evaluate(() => (globalThis as { asked?: string[] }).asked)).toEqual([]);
+    const status = await win.evaluate(() => fetch('/__htmlpptx/voice-status', { method: 'POST' }).then((r) => r.json()));
+    expect(status).toMatchObject({ engine: true, state: real ? 'ready' : 'none', loaded: false });
+    if (real) {
+      const pcm = fs.readFileSync(path.join(dev, 'example.wav')).subarray(44).toString('base64');
+      const text = await win.evaluate((b64) => fetch('/__htmlpptx/voice-recognize', { method: 'POST', body: Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)) }).then((r) => r.json()).then((j) => j.text ?? j.error), pcm);
+      expect(text).toContain('лукоморья дуб зелёный');
+    }
+  } finally {
+    await app.close();
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 // Закрыли окно или вышли из программы с правками — «Сохранить изменения?»: «Отмена» — окно остаётся; «Сохранить» —
 // правка (даже за долю секунды до закрытия) в файле и точка «Когда закрыли»; «Не сохранять» — файл как при открытии
 for (const how of ['кнопкой окна', 'выходом из программы'] as const) {
