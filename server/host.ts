@@ -23,7 +23,7 @@ export const HOST_FLAG = '--slideria-server';
 export interface HostKey { value: string | null; secure: boolean; canStore: boolean }
 
 /** Настройки сервера, как их можно переслать: вместо функций — признаки (lan — открывать вход для телефона, firewall — брандмауэр у главного процесса) */
-export type HostOptions = Omit<ServeOptions, 'lan' | 'firewall' | 'run' | 'log' | 'agentKeys' | 'show'> & { lan?: boolean; firewall?: boolean };
+export type HostOptions = Omit<ServeOptions, 'lan' | 'firewall' | 'run' | 'log' | 'agentKeys' | 'show' | 'shoot'> & { lan?: boolean; firewall?: boolean };
 
 export type ToHost =
   | { type: 'start'; options: HostOptions; key: HostKey }
@@ -33,7 +33,7 @@ export type ToHost =
 export type FromHost =
   | { type: 'ready'; url: string; port: number }
   | { type: 'failed'; error: string }
-  | { type: 'call'; id: number; name: 'firewall' | 'run' | 'show'; args: unknown[] }
+  | { type: 'call'; id: number; name: 'firewall' | 'run' | 'show' | 'shoot'; args: unknown[] }
   | { type: 'log'; text: string }
   | { type: 'key'; value: string | null };
 
@@ -51,7 +51,7 @@ export function hostMain(start: (o: ServeOptions) => Promise<Served>): void {
   let seq = 0;
   const waiting = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
   /** Позвать главный процесс и дождаться ответа */
-  const call = <T>(name: 'firewall' | 'run' | 'show', ...args: unknown[]) => new Promise<T>((resolve, reject) => {
+  const call = <T>(name: 'firewall' | 'run' | 'show' | 'shoot', ...args: unknown[]) => new Promise<T>((resolve, reject) => {
     const id = ++seq;
     waiting.set(id, { resolve: resolve as (v: unknown) => void, reject });
     port.postMessage({ type: 'call', id, name, args });
@@ -104,6 +104,8 @@ export function hostMain(start: (o: ServeOptions) => Promise<Served>): void {
       // Пакет расширения Claude Desktop — открыть или показать в папке средствами Electron (shell): окно
       // Проводника, запущенное отсюда, могло остаться скрытым
       show: (file: string, how: 'open' | 'reveal') => call<void>('show', file, how),
+      // Картинки слайдов для чата «Агент» — скрытым окном Electron в главном процессе (desktop/shot.mjs)
+      shoot: (r) => call<Uint8Array[]>('shoot', r).then((list) => list.map((b) => Buffer.from(b))),
       agentKeys: keys(m.key),
     }).then((s) => {
       served = s;

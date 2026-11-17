@@ -342,7 +342,7 @@ for (const how of ['кнопкой окна', 'выходом из програ�
   });
 }
 
-test('чат «Агент» в программе: ключи — зашифрованными в данных программы, после перезапуска Claude подключён', async () => {
+test('чат «Агент» в программе: ключи — зашифрованными в данных программы, после перезапуска Claude подключён и видит слайд', async () => {
   const mock = await startMockClaude();
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-app-chat-'));
   const data = path.join(tmp, 'data');
@@ -377,11 +377,16 @@ test('чат «Агент» в программе: ключи — зашифро
     app = await launch();
     const again = await studio(app);
     await expect(again.locator('.ac-ta')).toBeEnabled();
-    mock.queue({ text: 'Привет из программы.' });
+    mock.queue({ tool: { name: 'view_slides', input: { slides: 1 } } }, { text: 'Привет из программы.' });
     await again.locator('.ac-ta').fill('Привет');
     await again.locator('.ac-ta').press('Enter');
-    await expect(again.locator('.ac-txt')).toHaveText('Привет из программы.');
+    await expect(again.locator('.ac-txt')).toHaveText('Привет из программы.', { timeout: 30_000 });
     expect(mock.lastAuth()).toBe('sk-ant-test-app-12345');
+    // Картинку слайда сервер программы попросил у главного процесса — скрытым окном Electron
+    const res = (mock.requests.at(-1)!.messages.at(-1)!.content as { content: { type: string; source?: { data: string } }[] }[])[0].content;
+    const png = Buffer.from(res[1].source!.data, 'base64');
+    expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([960, 540]);
+    expect(png.length).toBeGreaterThan(5000);
     // «Отключить ключ Claude» — файла ключа нет
     await again.locator('.ac-model').click();
     await again.locator('.ac-menu [data-a="disconnect"]').click();

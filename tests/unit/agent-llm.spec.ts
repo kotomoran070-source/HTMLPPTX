@@ -1,6 +1,7 @@
 // Чат «Агент» на сервисах, совместимых с OpenAI (server/agent-llm.ts, server/agent.ts), — на подставном сервисе
 // (tests/mock-openai.ts): пресеты и ключи у каждого свои, переключение без повторного ввода, ответ с правкой через
-// инструменты, перевод истории, картинки и модели без инструментов — понятным текстом; ключ Claude прошлых версий
+// инструменты, перевод истории, картинки и модели без инструментов — понятным текстом; взгляд на слайд картинкой;
+// ключ Claude прошлых версий
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -29,13 +30,16 @@ function memoryKeys(): KeyStore & { raw: () => string | null } {
   return { kind: 'app', get: () => v, set: (x) => { v = x; }, clear: () => { v = null; }, raw: () => v };
 }
 
-function setup(keys: KeyStore = memoryKeys()) {
+/** Снимок без браузера: вместо слайдов — одна и та же картинка */
+const shoot = async (r: { count: number }) => Array.from({ length: r.count }, () => Buffer.from(PNG, 'base64'));
+
+function setup(keys: KeyStore = memoryKeys(), o: { shoot?: typeof shoot } = {}) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-llm-'));
   const dir = path.join(tmp, 'decks');
   fs.mkdirSync(path.join(dir, 'talk'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'talk', 'deck.yaml'), 'title: Доклад\nslides:\n  - id: intro\n    title: Старый заголовок\n');
   const core = createDecksCore({ dir, root: ROOT });
-  const chat = createAgentChat({ core, keys, baseURL: claude.url, openaiURL: oa.url, maxRetries: 0 });
+  const chat = createAgentChat({ core, keys, baseURL: claude.url, openaiURL: oa.url, maxRetries: 0, shoot: o.shoot });
   return { dir, core, chat, keys, done: () => fs.rmSync(tmp, { recursive: true, force: true }) };
 }
 
@@ -218,4 +222,44 @@ test('ключ Claude прошлых версий и ANTHROPIC_API_KEY — ка�
   const p = PRESETS.find((x) => x.id === 'openai')!;
   expect(pickModel(p, [{ id: 'gpt-4o', name: '' }, { id: 'gpt-5.1-codex', name: '' }, { id: 'gpt-5', name: '' }])).toBe('gpt-5');
   expect(pickModel(p, [{ id: 'gpt-5.1-mini', name: '' }, { id: 'gpt-5.1', name: '' }])).toBe('gpt-5.1');
+});
+
+test('взгляд на слайд через OpenAI: картинки — сообщением после ответа инструмента; модель их не видит — шаг ещё раз без них', async () => {
+  const s = setup(memoryKeys(), { shoot });
+  try {
+    await s.chat.connect({ provider: 'deepseek', key: 'sk-test-deepseek' });
+    oa.requests.length = 0;
+    oa.queue({ tool: { name: 'view_slides', input: { slides: 1 } } }, { text: 'Вижу заголовок.' });
+    await ask(s.chat, { text: 'Как выглядит слайд?', model: 'deepseek-chat' });
+    expect(oa.requests[0].tools!.map((t) => t.function.name)).toContain('view_slides');
+    const msgs = oa.requests[1].messages;
+    const tool = msgs.find((m) => m.role === 'tool')!;
+    expect(tool.content).toMatch(/^Слайд 1 \(id intro\) · rev \w{8} · Старый заголовок\n\[картинки — в следующем сообщении/);
+    const after = msgs[msgs.indexOf(tool) + 1];
+    expect(after.role).toBe('user');
+    expect(after.content).toEqual([
+      { type: 'text', text: expect.stringMatching(/^Слайд 1 \(id intro\)/) },
+      { type: 'image_url', image_url: { url: `data:image/png;base64,${PNG}` } },
+    ]);
+
+    // Сервис отказал в картинке, а пользователь их не присылал: модель запоминается как «не видит картинки»,
+    // шаг повторяется с пометкой вместо картинки и без инструмента — ответ не обрывается ошибкой
+    oa.requests.length = 0;
+    oa.queue(
+      { tool: { name: 'view_slides', input: { slides: 1 } } },
+      { error: { status: 400, message: 'unknown variant `image_url`, expected `text`' } },
+      { text: 'Картинки этой модели недоступны, слайд прочитан по данным.' },
+    );
+    const ev = await ask(s.chat, { text: 'Посмотри ещё раз', model: 'deepseek-chat' });
+    expect(ev.find((e) => e.type === 'error')).toBeUndefined();
+    expect(ev.at(-1)).toMatchObject({ type: 'done', stop: 'end' });
+    expect(oa.requests).toHaveLength(3);
+    const retry = oa.requests[2];
+    expect(JSON.stringify(retry.messages)).not.toContain('image_url');
+    expect(JSON.stringify(retry.messages)).toContain('модель не видит картинки');
+    expect(retry.tools!.map((t) => t.function.name)).not.toContain('view_slides');
+    expect(s.chat.status().models.find((m) => m.id === 'deepseek-chat')).toMatchObject({ images: false });
+  } finally {
+    s.done();
+  }
 });

@@ -106,8 +106,8 @@ server/mcp.ts     инструменты и протокол (JSON-RPC 2.0) бе
 server/shot.ts    картинки слайдов: страница проигрывателя в режиме снимка (?shot=3,5, src/engine/print.ts) — слайды
                   в конечном виде, как при печати; файлы презентации — с маленького сервера на 127.0.0.1 (случайный
                   порт и ключ), а не внутри HTML. Браузер — снаружи: в программе — невидимое окно Electron, которое
-                  рисует себя в память (desktop/shot.mjs), из папки проекта — Playwright (scripts/mcp.mjs; нет его
-                  браузера — Chrome или Edge компьютера)
+                  рисует себя в память (desktop/shot.mjs), из папки проекта — Playwright (scripts/pw-shot.mjs; нет
+                  его браузера — Chrome или Edge компьютера). Тем же снимком смотрит на слайд чат «Агент» (AGENT.md)
 server/running.ts какой сервер студии работает с папкой
 server/connect.ts подключение в один щелчок (команды agents-clients, agents-connect, agents-disconnect);
                   пакет расширения Claude Desktop (.mcpb) — шаблон templates/mcpb

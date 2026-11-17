@@ -8,6 +8,7 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { closePlaywrightShoot, playwrightShoot } from './pw-shot.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const arg = (k) => process.argv.find((a) => a.startsWith(`--${k}=`))?.slice(k.length + 3);
@@ -30,8 +31,10 @@ const server = await startServer({
   host: arg('host') || '127.0.0.1',
   port: Number(arg('port') || 5190),
   env: { app: false, decks: process.env.SLIDERIA_DECKS_LABEL || 'presentations/' },
+  // Чат «Агент» смотрит на слайд картинкой — невидимым Chromium
+  shoot: playwrightShoot,
 });
 console.log(`Slideria: ${server.url}`);
-const stop = () => void server.close().then(() => process.exit(0));
+const stop = () => void server.close().then(closePlaywrightShoot).then(() => process.exit(0));
 process.on('SIGINT', stop);
 process.on('SIGTERM', stop);

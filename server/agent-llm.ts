@@ -183,7 +183,7 @@ export type OaMessage =
   | { role: 'tool'; tool_call_id: string; content: string };
 
 const resultText = (c: Anthropic.ToolResultBlockParam['content']): string =>
-  typeof c === 'string' ? c : (c ?? []).map((b) => (b.type === 'text' ? b.text : '')).join('\n');
+  typeof c === 'string' ? c : (c ?? []).flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('\n');
 
 /** История разговора для сервиса OpenAI; images = false — картинки не отправляются (модель их не видит) */
 export function toOpenAI(system: string, messages: Anthropic.MessageParam[], images: boolean): OaMessage[] {
@@ -199,15 +199,28 @@ export function toOpenAI(system: string, messages: Anthropic.MessageParam[], ima
       out.push({ role: 'assistant', content: text || null, ...(calls.length ? { tool_calls: calls } : {}) });
       continue;
     }
-    // Ответы инструментов — отдельными сообщениями role: tool, потом остальное от пользователя
-    for (const b of m.content) {
-      if (b.type === 'tool_result') out.push({ role: 'tool', tool_call_id: b.tool_use_id, content: (b.is_error ? 'Ошибка: ' : '') + resultText(b.content) });
-    }
+    const image = (b: Anthropic.ImageBlockParam): OaPart | null => (b.source.type !== 'base64' ? null
+      : images ? { type: 'image_url', image_url: { url: `data:${b.source.media_type};base64,${b.source.data}` } }
+        : { type: 'text', text: '[картинка не отправлена: модель не видит картинки]' });
+    // Ответы инструментов — отдельными сообщениями role: tool, потом остальное от пользователя. Картинки в ответе
+    // инструмента (view_slides) role: tool не принимает — они уходят в сообщение пользователя, с подписями
     const parts: OaPart[] = [];
     for (const b of m.content) {
+      if (b.type !== 'tool_result') continue;
+      const list = typeof b.content === 'string' ? [] : b.content ?? [];
+      const pics = list.some((x) => x.type === 'image');
+      out.push({ role: 'tool', tool_call_id: b.tool_use_id, content: (b.is_error ? 'Ошибка: ' : '') + resultText(b.content) + (pics ? '\n[картинки — в следующем сообщении, с теми же подписями]' : '') });
+      if (!pics) continue;
+      for (const x of list) {
+        const p = x.type === 'text' ? { type: 'text' as const, text: x.text } : x.type === 'image' ? image(x) : null;
+        if (p) parts.push(p);
+      }
+    }
+    for (const b of m.content) {
       if (b.type === 'text') parts.push({ type: 'text', text: b.text });
-      else if (b.type === 'image' && b.source.type === 'base64') {
-        parts.push(images ? { type: 'image_url', image_url: { url: `data:${b.source.media_type};base64,${b.source.data}` } } : { type: 'text', text: '[картинка не отправлена: модель не видит картинки]' });
+      else if (b.type === 'image') {
+        const p = image(b);
+        if (p) parts.push(p);
       }
     }
     if (!parts.length) continue;

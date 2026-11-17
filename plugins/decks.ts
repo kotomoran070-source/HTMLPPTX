@@ -13,6 +13,7 @@ import { DECK_ACTIVE_FILE, DECK_FILE_CSP, PAGE_CSP, WORKER_CSP, createHandler } 
 import { announce } from '../server/running';
 import { watchDecks } from '../server/watch';
 import { checkFirewall, checkMessage } from './firewall.mjs';
+import { closePlaywrightShoot, playwrightShoot } from '../scripts/pw-shot.mjs';
 
 export { DATA_ID, listDecks, readYaml } from '../server/deck-files';
 export { LICENSES } from '../server/http';
@@ -96,7 +97,10 @@ export function decksPlugin(opts: DecksOptions): Plugin {
         allowedHosts: () => s.config.server.allowedHosts,
         address: () => s.httpServer?.address(),
         log: (m) => s.config.logger.error(m, { timestamp: true }),
+        // Чат «Агент» смотрит на слайд картинкой — невидимым Chromium (в программе — скрытым окном Electron)
+        shoot: playwrightShoot,
       }));
+      s.httpServer?.once('close', () => { void closePlaywrightShoot(); });
 
       // MCP находит открытую студию по записи в папке презентаций и шлёт правки через неё (server/running.ts)
       s.httpServer?.once('listening', () => {

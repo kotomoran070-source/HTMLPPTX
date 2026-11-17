@@ -78,6 +78,8 @@ export interface ServeOptions {
   show?: (file: string, how: 'open' | 'reveal') => Promise<void>;
   /** Куда скачивается модель распознавания речи для голосового ввода (server/voice.ts) */
   voice?: string;
+  /** Невидимый браузер для картинок слайдов: чат «Агент» смотрит, как вышло (программа — скрытое окно Electron) */
+  shoot?: Shooter;
 }
 
 export interface Served {
@@ -317,6 +319,7 @@ export async function startServer(o: ServeOptions): Promise<Served> {
     agentKeys: o.agentKeys,
     show: o.show,
     voice: o.voice,
+    shoot: o.shoot,
   });
 
   server = http.createServer((req, res) => {

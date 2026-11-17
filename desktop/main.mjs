@@ -185,7 +185,8 @@ const HOST_FLAG = '--slideria-server';
 /**
  * Сервер — отдельным служебным процессом (server/host.ts): запись файлов и разбор YAML не держат главный процесс,
  * а через него идёт ввод в окна. Вход для телефона (desktop/lan.mjs) открывает сам сервер. Что умеет только главный
- * процесс, сервер просит сообщениями: брандмауэр, сборка служебным процессом, запись ключа Claude.
+ * процесс, сервер просит сообщениями: брандмауэр, сборка служебным процессом, запись ключей чата «Агент», снимки
+ * слайдов для него (скрытым окном).
  * Ответ — { url, port, close }
  */
 async function startServer() {
@@ -218,6 +219,8 @@ async function startServer() {
   };
   const calls = {
     firewall: () => allowFirewall((...a) => log(...a)),
+    // Чат «Агент» смотрит на слайд картинкой (server/agent.ts → server/shot.ts) — скрытым окном, как у MCP
+    shoot: (r) => shootPages(r),
     run: (script, args, o) => runNode(script, args, o),
     // «Подключить к Claude Desktop»: пакет расширения (server/connect.ts) — только он, из временной папки
     show: async (file, how) => {

@@ -1,5 +1,5 @@
 // Чат «Агент» (server/agent.ts) на подставном Claude (tests/mock-claude.ts): ключ, ответ с правкой и журналом,
-// поток событий, «Стоп», ошибки, картинки, переписка и корзина
+// поток событий, «Стоп», ошибки, картинки, взгляд на слайд (view_slides), переписка и корзина
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 import { createDecksCore } from '../../server/core';
 import { createAgentChat, devKeys, type AgentEvent } from '../../server/agent';
+import type { ShotRequest, Shooter } from '../../server/shot';
 import { startMockClaude, type MockClaude } from '../mock-claude';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -17,13 +18,23 @@ let mock: MockClaude;
 test.beforeAll(async () => { mock = await startMockClaude(); });
 test.afterAll(async () => { await mock.close(); });
 
-function setup() {
+/** Снимок без браузера: вместо слайдов — одна и та же картинка, запросы записываются */
+function fakeShooter(fail?: string): Shooter & { calls: ShotRequest[] } {
+  const calls: ShotRequest[] = [];
+  return Object.assign(async (r: ShotRequest) => {
+    calls.push(r);
+    if (fail) throw new Error(fail);
+    return Array.from({ length: r.count }, () => Buffer.from(PNG, 'base64'));
+  }, { calls });
+}
+
+function setup(shoot?: Shooter) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-agent-'));
   const dir = path.join(tmp, 'decks');
   fs.mkdirSync(path.join(dir, 'talk'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'talk', 'deck.yaml'), 'title: Доклад\nslides:\n  - id: intro\n    title: Старый заголовок\n  - title: Второй\n');
   const core = createDecksCore({ dir, root: ROOT });
-  const chat = createAgentChat({ core, keys: devKeys(), baseURL: mock.url, maxRetries: 0 });
+  const chat = createAgentChat({ core, keys: devKeys(), baseURL: mock.url, maxRetries: 0, shoot });
   return { tmp, dir, core, chat, done: () => fs.rmSync(tmp, { recursive: true, force: true }) };
 }
 
@@ -161,5 +172,85 @@ test('картинка из сообщения: агенту — картинк�
     expect(() => s.chat.read('talk', id)).toThrow('Нет такого разговора');
   } finally {
     s.done();
+  }
+});
+
+test('взгляд на слайд: после правки агент смотрит картинкой; в следующем ответе прошлые снимки — пометкой', async () => {
+  const shoot = fakeShooter();
+  const s = setup(shoot);
+  try {
+    await s.chat.connect(KEY);
+    mock.requests.length = 0;
+    mock.queue(
+      { tool: { name: 'edit_presentation', input: { ops: [{ op: 'slide.set', slide: 1, set: { title: 'Новый заголовок' } }] } } },
+      { tool: { name: 'view_slides', input: { slides: [1, 'intro'] } } },
+      { tool: { name: 'view_slides', input: { slides: 7 } } },
+      { text: 'Посмотрел: всё на месте.' },
+    );
+    const ev = await ask(s.chat, { text: 'Поменяй заголовок' });
+    expect(ev.at(-1)).toMatchObject({ type: 'done', stop: 'end' });
+    const steps = ev.filter((e) => e.type === 'step').map((e) => (e as { text: string }).text);
+    expect(steps).toContain('Смотрю слайды 1, intro');
+    expect(steps).toContain('Посмотрел слайды 1, 1');
+    expect(steps).toContain('Нет слайда 7: слайды — с 1 по 2');
+
+    // Инструмент и правило — в запросе; снимок — слайды по номерам, ширина 960, пропорция слайда
+    const [r1, , r3, r4] = mock.requests;
+    expect(r1.tools!.map((t) => t.name)).toEqual(['read_presentation', 'edit_presentation', 'format_guide', 'use_attachment', 'view_slides']);
+    expect(JSON.stringify(r1.system)).toContain('view_slides');
+    expect(shoot.calls).toHaveLength(1);
+    expect(shoot.calls[0]).toMatchObject({ count: 2, width: 960, height: 540 });
+    expect(new URL(shoot.calls[0].url).searchParams.get('shot')).toBe('1,1');
+
+    // Ответ инструмента — подпись и картинка по каждому слайду; ошибка — текстом
+    const res = (r3.messages.at(-1)!.content as { type: string; content: { type: string; text?: string; source?: { data: string } }[] }[])[0];
+    expect(res.content.map((b) => b.type)).toEqual(['text', 'image', 'text', 'image']);
+    expect(res.content[0].text).toMatch(/^Слайд 1 \(id intro\) · rev \w{8} · Новый заголовок$/);
+    expect(res.content[1].source!.data).toBe(PNG);
+    expect(JSON.stringify(r4.messages.at(-1))).toContain('"is_error":true');
+
+    // Картинки — файлами рядом с перепиской, в истории — ссылкой
+    const id = (ev[0] as { id: string }).id;
+    const files = fs.readdirSync(path.join(s.dir, '.slideria', 'chats', 'talk', id));
+    expect(files.filter((f) => /^v\w+-\d\.png$/.test(f))).toHaveLength(2);
+    const stored = fs.readFileSync(path.join(s.dir, '.slideria', 'chats', 'talk', `${id}.json`), 'utf8');
+    expect(stored).toContain('view:v');
+    expect(stored).not.toContain(PNG);
+    expect(s.chat.read('talk', id).view.at(-1)).toMatchObject({ steps: expect.arrayContaining([{ text: 'Посмотрел слайды 1, 1', state: 'ok' }]) });
+
+    // Следующий ответ: старые снимки — пометкой (не платить за устаревшие картинки в каждом запросе)
+    mock.requests.length = 0;
+    mock.queue({ text: 'Да.' });
+    await ask(s.chat, { text: 'Всё хорошо?', chat: id });
+    const next = JSON.stringify(mock.requests[0].messages);
+    expect(next).not.toContain(PNG);
+    expect(next).toContain('картинка слайда — была раньше');
+  } finally {
+    s.done();
+  }
+});
+
+test('взгляд на слайд: браузер не запустился — ошибкой агенту; без браузера инструмента нет', async () => {
+  const s = setup(fakeShooter('Не удалось запустить браузер'));
+  try {
+    await s.chat.connect(KEY);
+    mock.requests.length = 0;
+    mock.queue({ tool: { name: 'view_slides', input: { slides: 1 } } }, { text: 'Не получилось посмотреть.' });
+    const ev = await ask(s.chat, { text: 'Как выглядит?' });
+    expect(ev.filter((e) => e.type === 'step').at(-1)).toMatchObject({ text: 'Не удалось запустить браузер', state: 'err' });
+    expect(ev.at(-1)).toMatchObject({ type: 'done', stop: 'end' });
+  } finally {
+    s.done();
+  }
+  const bare = setup();
+  try {
+    await bare.chat.connect(KEY);
+    mock.requests.length = 0;
+    mock.queue({ text: 'Привет.' });
+    await ask(bare.chat, { text: 'Привет' });
+    expect(mock.requests[0].tools!.map((t) => t.name)).not.toContain('view_slides');
+    expect(JSON.stringify(mock.requests[0].system)).not.toContain('view_slides');
+  } finally {
+    bare.done();
   }
 });

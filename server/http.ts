@@ -22,6 +22,7 @@ import { ExportError, type DecksCore } from './core';
 import { createAgentChat, devKeys, type AgentChat, type KeyStore } from './agent';
 import { createConnect, type Connect } from './connect';
 import { createVoice, type Voice, type VoiceModel } from './voice';
+import type { Shooter } from './shot';
 import { denyPage, isLocal, lanPass, remoteRelay } from '../plugins/remote-relay.mjs';
 import { electronFiles, licensesData } from '../plugins/licenses.mjs';
 
@@ -83,6 +84,8 @@ export interface HttpOptions {
    * по умолчанию — node_modules/.cache/slideria-voice; SLIDERIA_VOICE_DIR — для тестов
    */
   voice?: string;
+  /** Невидимый браузер для картинок слайдов (server/shot.ts): чат «Агент» смотрит, как вышло. Нет — агент не смотрит */
+  shoot?: Shooter;
 }
 
 export function readBody(req: IncomingMessage, max = MAX_BODY): Promise<Buffer> {
@@ -261,7 +264,7 @@ function appVersion(root: string): string {
 /** Команды проекта: /__htmlpptx/<команда>?deck=<имя>&… */
 function api(core: DecksCore, o: HttpOptions): Handler {
   // Адреса Claude API и сервисов OpenAI — подставные серверы в тестах (SLIDERIA_ANTHROPIC_URL, SLIDERIA_OPENAI_URL)
-  const chat = createAgentChat({ core, keys: o.agentKeys ?? devKeys(), baseURL: process.env.SLIDERIA_ANTHROPIC_URL || undefined, openaiURL: process.env.SLIDERIA_OPENAI_URL || undefined, log: o.log });
+  const chat = createAgentChat({ core, keys: o.agentKeys ?? devKeys(), baseURL: process.env.SLIDERIA_ANTHROPIC_URL || undefined, openaiURL: process.env.SLIDERIA_OPENAI_URL || undefined, shoot: o.shoot, log: o.log });
   // Подключить агента в один щелчок; в тестах — к подставному домашнему каталогу (SLIDERIA_CONNECT_HOME), а пакет
   // расширения Claude Desktop не открывается — путь к нему пишется в opened-mcpb.txt там же
   const testHome = process.env.SLIDERIA_CONNECT_HOME;

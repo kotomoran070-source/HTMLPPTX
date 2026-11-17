@@ -113,6 +113,30 @@ test('ответ с правками: шаги и текст, карточка, 
   expect(errors).toEqual([]);
 });
 
+test('агент смотрит на слайд: настоящая картинка слайда уходит модели, шаг «Посмотрел слайд 1»', async ({ page }) => {
+  const errors = watchErrors(page);
+  await open(page);
+  await page.keyboard.press('Control+j');
+  const chat = page.locator('#st-chat');
+  await chat.locator('[data-a="new"]').click();
+  mock.requests.length = 0;
+  mock.queue({ tool: { name: 'view_slides', input: { slides: 1 } } }, { text: 'Слайд выглядит ровно.' });
+  await chat.locator('.ac-ta').fill('Как выглядит слайд?');
+  await chat.locator('.ac-ta').press('Enter');
+  await expect(chat.locator('.ac-txt').last()).toHaveText('Слайд выглядит ровно.', { timeout: 30_000 });
+  await chat.locator('.ac-sum').last().click();
+  await expect(chat.locator('.ac-slist').last()).toContainText('Посмотрел слайд 1');
+  expect(mock.requests[0].tools!.map((t) => t.name)).toContain('view_slides');
+  // Снимок сделал невидимый браузер сервера: PNG 960×540, на нём нарисован слайд (не пустой)
+  const res = (mock.requests[1].messages.at(-1)!.content as { content: { type: string; text?: string; source?: { data: string } }[] }[])[0].content;
+  expect(res[0].text).toMatch(/^Слайд 1 .*· rev \w{8}/);
+  const png = Buffer.from(res[1].source!.data, 'base64');
+  expect(png.subarray(1, 4).toString()).toBe('PNG');
+  expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([960, 540]);
+  expect(png.length).toBeGreaterThan(5000);
+  expect(errors).toEqual([]);
+});
+
 test('«Стоп» (Esc), ключ отозвали — «Подключить заново», картинка из Ctrl+V, прошлые разговоры', async ({ page }) => {
   const errors = watchErrors(page);
   await open(page);

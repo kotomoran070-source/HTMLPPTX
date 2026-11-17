@@ -15,9 +15,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type Anthropic from '@anthropic-ai/sdk';
+import type { DeckOutline } from '../src/engine/ops';
 import type { DecksCore } from './core';
 import { chatsDir, type JournalEntry } from './integrations';
 import { formatGuide, opsHelp } from './mcp';
+import { createShots, type Shooter } from './shot';
 import { LlmError, PRESETS, apiBase, listModels, openaiTurn, pickModel, presetOf, type Model, type Preset, type ProviderId } from './agent-llm';
 
 /** Модели Claude в шапке чата: первая — по умолчанию (у остальных сервисов список — у самого сервиса) */
@@ -110,6 +112,10 @@ const MAX_IMAGES = 6;
 const MAX_ROUNDS = 40;
 /** Данные открытого слайда в сообщении — до такого размера; больше — агент читает сам */
 const SLIDE_CONTEXT = 24_000;
+/** Картинки слайдов за один вызов view_slides и их ширина по умолчанию: 960 — читается мелкий текст, а картинка
+ * стоит модели втрое меньше, чем 1280 */
+const VIEW_MAX = 4;
+const VIEW_WIDTH = 960;
 
 const SYSTEM = `Ты — агент в студии Slideria: правишь презентацию, которая открыта у пользователя, по его просьбе. Пиши по-русски, коротко и по делу.
 
@@ -124,6 +130,10 @@ const SYSTEM = `Ты — агент в студии Slideria: правишь п�
 - Правка не прошла (слайд поменяли) — перечитай слайд и повтори.
 - После правок — одна-две фразы: что поменял (для чисел и коротких текстов — было → стало). Без заголовков и длинных списков.
 - Вопрос без просьбы что-то поменять — просто ответь, ничего не правя.`;
+
+/** Модель видит картинки и есть браузер для снимков — она ещё и смотрит, как вышло */
+const SEE = `
+- После правки, которая меняет вид слайда (тексты, размеры, расположение, новые объекты, оформление), посмотри на результат — view_slides — и поправь, если текст вылезает или обрезан, объекты наложились или что-то не читается. Заметки и правку пары слов можно не смотреть.`;
 
 const TOOLS: Anthropic.Tool[] = [
   {
@@ -177,6 +187,22 @@ const TOOLS: Anthropic.Tool[] = [
   },
 ];
 
+const VIEW_TOOL: Anthropic.Tool = {
+  name: 'view_slides',
+  description: 'Как слайды выглядят на самом деле: картинки в конечном виде (все шаги показа открыты, анимации доиграны). '
+    + 'Смотри после правки, которая меняет вид: текст не вылезает и не обрезан, объекты не наложились, всё читается и выровнено. '
+    + `Нашёл огрех — поправь и посмотри снова. slides — номер с 1 или id, или список (до ${VIEW_MAX}). Перед каждой картинкой — подпись: номер, id, rev и заголовок.`,
+  input_schema: {
+    type: 'object',
+    properties: {
+      slides: { type: ['integer', 'string', 'array'], items: { type: ['integer', 'string'] }, maxItems: VIEW_MAX, description: 'слайд (номер с 1 или id) или список слайдов' },
+      width: { type: 'integer', minimum: 480, maximum: 1280, description: `ширина картинки, по умолчанию ${VIEW_WIDTH}` },
+    },
+    required: ['slides'],
+    additionalProperties: false,
+  },
+};
+
 /** Ошибка инструмента: текст уходит агенту (is_error), разговор продолжается */
 class ToolError extends Error {}
 
@@ -196,6 +222,8 @@ export interface AgentOptions {
   baseURL?: string;
   /** Адрес сервисов OpenAI вместо их своих (тесты — подставной сервер); Ollama и свой адрес — как задали */
   openaiURL?: string;
+  /** Невидимый браузер для картинок слайдов (server/shot.ts): агент смотрит, как вышло. Нет — не смотрит */
+  shoot?: Shooter;
   /** Повторы запроса при сбое сети или перегрузке (SDK) — тесты без них */
   maxRetries?: number;
   log?: (m: string) => void;
@@ -217,6 +245,7 @@ export function createAgentChat(o: AgentOptions) {
   /** Презентации, где агент сейчас отвечает: второй ответ параллельно — нет */
   const running = new Set<string>();
   const client = async (apiKey: string) => new (await loadSdk())({ apiKey, authToken: null, baseURL, maxRetries: o.maxRetries ?? 2, timeout: 10 * 60_000 });
+  const shots = o.shoot ? createShots(core, o.shoot) : null;
 
   // ---------------- сервисы и ключи ----------------
 
@@ -409,17 +438,63 @@ export function createAgentChat(o: AgentOptions) {
     return { type: ext === 'jpg' ? 'image/jpeg' : `image/${ext}`, data: fs.readFileSync(p) };
   }
 
-  /** История для Claude: картинки из файлов */
-  function apiMessages(c: ChatFile): Anthropic.MessageParam[] {
+  /**
+   * История для модели: картинки — из файлов рядом с разговором. Снимки слайдов (view_slides) — только текущего
+   * ответа (сообщения с номера from): прошлые уже устарели, а платить за них в каждом запросе незачем
+   */
+  function apiMessages(c: ChatFile, from = c.api.length): Anthropic.MessageParam[] {
     const dir = path.join(folder(c.deck), c.id);
-    return c.api.map((m) => (typeof m.content === 'string' ? m : {
+    type Img = Anthropic.ImageBlockParam;
+    const load = (b: Img, k: number): Anthropic.TextBlockParam | Img | null => {
+      if (b.source.type !== 'base64') return b;
+      const ref = b.source.data;
+      const view = ref.startsWith('view:');
+      if (!view && !ref.startsWith('file:')) return b;
+      if (view && k < from) return { type: 'text', text: '[картинка слайда — была раньше; нужна снова — view_slides]' };
+      const p = path.join(dir, ref.slice(5));
+      return fs.existsSync(p) ? { ...b, source: { ...b.source, data: fs.readFileSync(p).toString('base64') } } : null;
+    };
+    return c.api.map((m, k) => (typeof m.content === 'string' ? m : {
       ...m,
       content: m.content.map((b) => {
-        if (b.type !== 'image' || b.source.type !== 'base64' || !b.source.data.startsWith('file:')) return b;
-        const p = path.join(dir, b.source.data.slice(5));
-        return { ...b, source: { ...b.source, data: fs.existsSync(p) ? fs.readFileSync(p).toString('base64') : '' } };
-      }).filter((b) => b.type !== 'image' || b.source.type !== 'base64' || b.source.data),
+        if (b.type === 'image') return load(b, k);
+        if (b.type === 'tool_result' && Array.isArray(b.content)) {
+          return { ...b, content: b.content.map((x) => (x.type === 'image' ? load(x, k) : x)).filter((x): x is NonNullable<typeof x> => !!x) as typeof b.content };
+        }
+        return b;
+      }).filter((b): b is NonNullable<typeof b> => !!b),
     } as Anthropic.MessageParam));
+  }
+
+  /** Снимки слайдов → файлы рядом с разговором; в истории — ссылкой «view:<файл>» */
+  async function viewSlides(c: ChatFile, a: Record<string, unknown>): Promise<{ step: string; blocks: Anthropic.ToolResultBlockParam['content'] }> {
+    if (!shots) throw new ToolError('Картинки слайдов здесь недоступны');
+    const refs = Array.isArray(a.slides) ? a.slides : [a.slides];
+    if (!refs.length || refs.length > VIEW_MAX) throw new ToolError(`slides — от 1 до ${VIEW_MAX} слайдов`);
+    const width = a.width === undefined ? VIEW_WIDTH : Number(a.width);
+    if (!Number.isInteger(width) || width < 480 || width > 1280) throw new ToolError('width — целое число от 480 до 1280');
+    let ol: DeckOutline;
+    try { ol = core.outline(c.deck) as DeckOutline; } catch (e) { throw new ToolError((e as Error).message); }
+    const list = refs.map((ref) => {
+      const sl = typeof ref === 'number' ? ol.slides[ref - 1] : ol.slides.find((x) => x.id === ref);
+      if (!sl) throw new ToolError(typeof ref === 'number' ? `Нет слайда ${ref}: слайды — с 1 по ${ol.slides.length}` : `Нет слайда с id «${String(ref)}»`);
+      return sl;
+    });
+    let png: Buffer[];
+    try { png = await shots.shoot(c.deck, { slides: list.map((x) => x.n), width }); } catch (e) { throw new ToolError((e as Error).message); }
+    const dir = path.join(folder(c.deck), c.id);
+    fs.mkdirSync(dir, { recursive: true });
+    const stamp = Date.now().toString(36);
+    const blocks: Anthropic.ToolResultBlockParam['content'] = list.flatMap((sl, k) => {
+      const file = `v${stamp}-${k + 1}.png`;
+      fs.writeFileSync(path.join(dir, file), png[k]);
+      return [
+        { type: 'text' as const, text: `Слайд ${sl.n}${sl.id ? ` (id ${sl.id})` : ''} · rev ${sl.rev}${sl.title ? ` · ${sl.title}` : ''}${sl.hidden ? ' · скрыт в показе' : ''}` },
+        { type: 'image' as const, source: { type: 'base64' as const, media_type: 'image/png' as const, data: `view:${file}` } },
+      ];
+    });
+    const nums = list.map((x) => x.n);
+    return { step: nums.length === 1 ? `Посмотрел слайд ${nums[0]}` : `Посмотрел слайды ${nums.join(', ')}`, blocks };
   }
 
   // ---------------- ответ ----------------
@@ -536,7 +611,7 @@ export function createAgentChat(o: AgentOptions) {
    * Один ход модели: ответ в формате Claude (текст, мысли, вызовы инструментов) и почему остановилась. Текст —
    * странице по мере написания; начало правки — шагом «Готовлю правку…»
    */
-  async function turn(svc: Svc, model: string, c: ChatFile, answer: Extract<ChatItem, { role: 'assistant' }>, emit: (e: AgentEvent) => void, signal: AbortSignal): Promise<{ content: Anthropic.ContentBlockParam[]; stop: string }> {
+  async function turn(svc: Svc, model: string, c: ChatFile, from: number, answer: Extract<ChatItem, { role: 'assistant' }>, emit: (e: AgentEvent) => void, signal: AbortSignal): Promise<{ content: Anthropic.ContentBlockParam[]; stop: string }> {
     // Перед ответом текстом — абзац между кусками ответа на разных шагах
     let first = true;
     const onText = (delta: string) => {
@@ -546,18 +621,22 @@ export function createAgentChat(o: AgentOptions) {
       emit({ type: 'text', delta: d });
     };
     const onTool = (id: string, name: string) => { if (name === 'edit_presentation') emit({ type: 'step', key: id, text: 'Готовлю правку…', state: 'run' }); };
+    // Смотреть на слайды — если модель видит картинки и есть чем снимать
+    const see = !!shots && svc.images;
+    const system = see ? SYSTEM + SEE : SYSTEM;
+    const tools = see ? [...TOOLS, VIEW_TOOL] : TOOLS;
     if (svc.p.proto === 'openai') {
       return openaiTurn({
-        p: svc.p, base: baseOf(svc.p, svc.url), key: svc.key || undefined, model, system: SYSTEM, tools: TOOLS, messages: apiMessages(c),
+        p: svc.p, base: baseOf(svc.p, svc.url), key: svc.key || undefined, model, system, tools, messages: apiMessages(c, from),
         images: svc.images, signal, retries: o.maxRetries, onText, onThink: () => emit({ type: 'think' }), onTool,
       });
     }
     const stream = (await client(svc.key)).messages.stream({
       model,
       max_tokens: 32_000,
-      system: SYSTEM,
-      tools: TOOLS,
-      messages: apiMessages(c),
+      system,
+      tools,
+      messages: apiMessages(c, from),
       cache_control: { type: 'ephemeral' },
     }, { signal });
     stream.on('text', onText);
@@ -570,9 +649,14 @@ export function createAgentChat(o: AgentOptions) {
     return { content: msg.content, stop: msg.stop_reason ?? 'end_turn' };
   }
 
+  const userImages = (m: Anthropic.MessageParam | undefined) => !!m && typeof m.content !== 'string' && m.content.some((b) => b.type === 'image');
+  const viewed = (m: Anthropic.MessageParam) => typeof m.content !== 'string' && m.content.some((b) => b.type === 'tool_result' && Array.isArray(b.content) && b.content.some((x) => x.type === 'image'));
+
   /** Модель ↔ инструменты, пока модель не ответит текстом (или «Стоп», отказ, предел шагов) */
   async function loop(c: ChatFile, answer: Extract<ChatItem, { role: 'assistant' }>, svc: Svc, model: string, emit: (e: AgentEvent) => void, signal: AbortSignal): Promise<void> {
     let jsonRetries = 0;
+    // Сообщение пользователя этого ответа: снимки слайдов с него — в силе, прежние — пометкой
+    const from = c.api.length - 1;
     let stepNo = 0;
     for (let round = 0; ; round++) {
       if (round >= MAX_ROUNDS) {
@@ -584,12 +668,19 @@ export function createAgentChat(o: AgentOptions) {
       }
       let msg: { content: Anthropic.ContentBlockParam[]; stop: string };
       try {
-        msg = await turn(svc, model, c, answer, emit, signal);
+        msg = await turn(svc, model, c, from, answer, emit, signal);
         jsonRetries = 0;
       } catch (e) {
         if (signal.aborted || isSdk(e, 'APIUserAbortError')) {
           answer.stop = 'stopped';
           return;
+        }
+        // Модель посмотрела на слайд, а картинки, оказывается, не видит (заранее сервис не сказал): запомнить и
+        // повторить шаг без картинок — пользователь их не присылал, обрывать ответ ошибкой о картинках незачем
+        if (e instanceof LlmError && e.code === 'images' && svc.images && !userImages(c.api[from]) && c.api.slice(from + 1).some(viewed)) {
+          noImages(svc.p.id, model);
+          svc.images = false;
+          continue;
         }
         // Ввод инструмента не разобрался как JSON — тот же шаг ещё раз (не больше двух раз подряд)
         const json = e instanceof LlmError ? e.code === 'json' : !isSdk(e, 'APIError') && !(e instanceof LlmError);
@@ -626,7 +717,7 @@ export function createAgentChat(o: AgentOptions) {
           });
           answer.steps.push({ text: out.step, state: 'ok' });
           emit({ type: 'step', key: stepKey, text: out.step, state: 'ok' });
-          results.push({ type: 'tool_result', tool_use_id: u.id, content: typeof out.result === 'string' ? out.result : JSON.stringify(out.result) });
+          results.push({ type: 'tool_result', tool_use_id: u.id, content: out.blocks ?? (typeof out.result === 'string' ? out.result : JSON.stringify(out.result)) });
         } catch (e) {
           const m = (e as Error).message;
           const step = u.name === 'edit_presentation' ? `Правка не прошла: ${m}` : m;
@@ -644,7 +735,7 @@ export function createAgentChat(o: AgentOptions) {
   }
 
   /** Инструмент → { step: подпись шага, result: ответ агенту } */
-  async function runTool(c: ChatFile, u: Anthropic.ToolUseBlockParam, progress: (t: string) => void, edited: (entry: JournalEntry, slides: number[]) => void): Promise<{ step: string; result: unknown }> {
+  async function runTool(c: ChatFile, u: Anthropic.ToolUseBlockParam, progress: (t: string) => void, edited: (entry: JournalEntry, slides: number[]) => void): Promise<{ step: string; result?: unknown; blocks?: Anthropic.ToolResultBlockParam['content'] }> {
     const a = (u.input && typeof u.input === 'object' ? u.input : {}) as Record<string, unknown>;
     switch (u.name) {
       case 'read_presentation': {
@@ -677,6 +768,11 @@ export function createAgentChat(o: AgentOptions) {
         const g = formatGuide(core.root);
         if (!g) throw new ToolError('Справка не найдена в папке программы');
         return { step: 'Посмотрел справку по формату', result: g };
+      }
+      case 'view_slides': {
+        const refs = Array.isArray(a.slides) ? a.slides : [a.slides];
+        progress(refs.length === 1 ? `Смотрю слайд ${String(refs[0])}` : `Смотрю слайды ${refs.map(String).join(', ')}`);
+        return viewSlides(c, a);
       }
       case 'use_attachment': {
         progress('Добавляю картинку в файлы презентации');
