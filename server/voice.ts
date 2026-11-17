@@ -68,6 +68,8 @@ export interface Voice {
   load(): void;
   /** Запись: 16-битные отсчёты, 16 кГц, моно → текст */
   recognize(pcm: Buffer): Promise<string>;
+  /** «Удалить модель» (Файл → Параметры): загрузка останавливается, модель выгружается из памяти, файлы — с диска */
+  remove(): Promise<VoiceStatus>;
   /** Закрыть потоки (выход сервера, тесты) */
   close(): Promise<void>;
 }
@@ -291,7 +293,17 @@ export function createVoice(o: {
     await Promise.all(ws.map((w) => w.terminate()));
   }
 
-  return { status, install, installFile, cancel, load, recognize, close };
+  async function remove(): Promise<VoiceStatus> {
+    // Остановленная загрузка — не ошибка; потоки завершаются до удаления: модель в памяти держит свой файл открытым
+    cancelled = true;
+    await close();
+    failed = '';
+    for (const p of [home, tmp, part]) fs.rmSync(p, { recursive: true, force: true });
+    log('модель удалена');
+    return status();
+  }
+
+  return { status, install, installFile, cancel, load, recognize, remove, close };
 }
 
 /**

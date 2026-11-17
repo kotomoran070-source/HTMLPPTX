@@ -56,6 +56,9 @@
 .fp-btn.go .ic { color: currentColor; }
 .fp-btn.go:hover { background: color-mix(in srgb, #000 12%, var(--ac)); }
 .fp-btn kbd { margin-left: 4px; padding: 0 5px; border: 1px solid rgba(255, 255, 255, .35); border-radius: 4px; font: 500 10.5px var(--font); opacity: .85; }
+.fp-btn.del { border-color: transparent; background: #DC2626; color: #fff; }
+.fp-btn.del .ic { color: currentColor; }
+.fp-btn.del:hover { background: #B91C1C; }
 .fp-link { padding: 0; border: 0; background: none; color: var(--ach); font-size: 12.5px; font-weight: 500; white-space: nowrap; cursor: pointer; }
 .fp-link:hover { text-decoration: underline; }
 
@@ -169,6 +172,10 @@
 
 /* ---------- Параметры ---------- */
 .fp-prefs { display: grid; gap: 28px; max-width: 900px; }
+/* Голосовой ввод: модель распознавания речи; подтверждение удаления — в той же строке, текст переносится */
+.fp-voice .fp-row { padding: 6px 0; }
+.fp-voice .fp-btn { height: 30px; }
+.fp-voice .fp-ask .fp-n { white-space: normal; }
 .fp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 28px; padding: 18px; }
 
 :root[data-theme="dark"] :is(.fp-row small.fp-bad) { color: #FBBF24; }

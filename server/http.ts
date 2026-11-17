@@ -366,11 +366,12 @@ async function route(core: DecksCore, o: HttpOptions, chat: AgentChat, clients: 
     case 'chat-status': return send(res, 200, chat.status());
     case 'chat-connect': return send(res, 200, await chat.connect(((await json(req)) as { key?: unknown } | null)?.key));
     case 'chat-disconnect': return send(res, 200, chat.disconnect());
-    // Голосовой ввод (server/voice.ts): есть ли модель, скачать, взять из файла, остановить загрузку, распознать
+    // Голосовой ввод (server/voice.ts): есть ли модель, скачать, взять из файла, остановить загрузку, удалить, распознать
     case 'voice-status': return send(res, 200, voice.status());
     case 'voice-install': return send(res, 200, voice.install());
     case 'voice-install-file': return send(res, 200, await voice.installFile(req));
     case 'voice-cancel': return send(res, 200, voice.cancel());
+    case 'voice-remove': return send(res, 200, await voice.remove());
     case 'voice-load':
       voice.load();
       return send(res, 200, { ok: true });

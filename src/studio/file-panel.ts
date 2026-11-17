@@ -6,7 +6,8 @@
  * - Версии — история по дням: свои точки (Ctrl+S), «когда открыли» и «когда закрыли», сеансы агентов и запуски
  *   скриптов (из журнала); «Вернуть» точку — вся презентация как в ней, сеанс агента или скрипт — только их правки
  *   (то, что поправили после, остаётся); одной правкой, Ctrl+Z — обратно;
- * - Параметры — лента (ribbon-setup.ts) и интерфейс: тема, цвет, вид слайдов, облегчённый режим;
+ * - Параметры — лента (ribbon-setup.ts) и интерфейс: тема, цвет, вид слайдов, облегчённый режим; модель распознавания
+ *   речи для голосового ввода — «Удалить модель»;
  * - Интеграции — агенты, скрипты, журнал правок, плагины, коннекторы (integrations-file.ts; точка — агент на связи);
  * - Лицензии (внизу, рядом со сборкой программы) — списком и текстом (engine/licenses-view.ts).
  *
@@ -319,6 +320,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
 
   function prefsHtml(): string {
     const u = host.ui;
+    voiceAsk = false;
     const own = u.ownColor();
     const locked = u.lookLocked();
     return `<header class="fp-head"><h2>Параметры</h2><p>Как выглядит студия на этом компьютере. На презентацию не влияет</p></header>
@@ -333,9 +335,44 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
         <div class="fp-field">${sw(u.lite(), 'data-lite', 'Облегчённый режим', 'Для слабых компьютеров: анимации на слайде в редакторе остановлены')}</div>
         <div class="fp-field">${sw(u.smooth(), 'data-smooth', 'Плавная прокрутка колесом', 'Ровная скорость без рывков на каждом щелчке колеса. Выключите, чтобы сравнить с обычной прокруткой')}</div>
       </div></section>
+      <section class="fp-voice-sec"><h3 class="fp-k">Голосовой ввод</h3><div class="fp-card fp-list fp-voice">${voiceRow(voice, voiceAsk)}</div></section>
       <section id="fp-qat-sec"><h3 class="fp-k">Панель быстрого доступа</h3><div class="fp-qat"></div></section>
       <section><h3 class="fp-k">Лента</h3><div class="fp-ribbon"></div></section>
     </div>`;
+  }
+
+  // Голосовой ввод (server/voice.ts): модель распознавания речи — установлена ли и сколько занимает, «Удалить модель»
+  interface VoiceInfo { state: 'none' | 'download' | 'ready' | 'error'; got: number; total: number; unpacked: number }
+  let voice: VoiceInfo | null = null;
+  /** Удаление ждёт подтверждения в строке */
+  let voiceAsk = false;
+  const mbs = (n: number) => `${Math.round(n / 1048576)} МБ`;
+  function voiceRow(v: VoiceInfo | null, ask: boolean): string {
+    const name = (text: string) => `${icon('mic')}<span class="fp-n">${text}</span>`;
+    if (!v) return `<div class="fp-row">${name('Модель распознавания речи')}</div>`;
+    const part = v.state !== 'ready' && v.state !== 'download' && v.got > 0;
+    if (ask) {
+      return `<div class="fp-row fp-ask">${name(part ? 'Удалить скачанное? Загрузка модели начнётся заново' : `Удалить модель? Для голосового ввода понадобится скачать модель заново (${mbs(v.total)})`)}
+        <button type="button" class="fp-btn" data-voice="keep">Отмена</button><button type="button" class="fp-btn del" data-voice="remove">${icon('trash')}Удалить</button></div>`;
+    }
+    const del = (label: string) => `<button type="button" class="fp-btn" data-voice="ask">${icon('trash')}${label}</button>`;
+    if (v.state === 'ready') return `<div class="fp-row">${name('Модель распознавания речи')}<small>GigaAM v3 · ${mbs(v.unpacked)} на диске</small>${del('Удалить модель')}</div>`;
+    if (v.state === 'download') return `<div class="fp-row">${name('Модель распознавания речи')}<small>загружается: ${mbs(v.got)} из ${mbs(v.total)}</small></div>`;
+    if (part) return `<div class="fp-row">${name('Модель распознавания речи')}<small>скачано ${mbs(v.got)} из ${mbs(v.total)} — загрузка продолжится</small>${del('Удалить скачанное')}</div>`;
+    return `<div class="fp-row">${name('Модель распознавания речи не установлена')}<small>скачивается при первом нажатии на микрофон в чате «Агент»</small></div>`;
+  }
+  async function fillVoice(n: number): Promise<void> {
+    let v: VoiceInfo | null = null;
+    try {
+      const r = await fetch('/__htmlpptx/voice-status', { method: 'POST' });
+      if (r.ok) v = await r.json() as VoiceInfo;
+    } catch { /* нет сервера */ }
+    const sec = main.querySelector<HTMLElement>('.fp-voice-sec');
+    if (n !== drawn || !sec) return;
+    voice = v;
+    // Без сервера студии (собранный файл) голосового ввода нет
+    sec.hidden = !v;
+    main.querySelector('.fp-voice')!.innerHTML = voiceRow(voice, voiceAsk);
   }
 
   // Лицензии: данные — один раз за страницу; поиск, фильтр и выбор — те же, когда раздел открывают снова
@@ -392,6 +429,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     if (section === 'prefs') {
       host.qat.mount(main.querySelector<HTMLElement>('.fp-qat')!);
       host.ribbon.mount(main.querySelector<HTMLElement>('.fp-ribbon')!);
+      void fillVoice(n);
     }
     if (section === 'versions') void fillVersions();
     if (section === 'licenses') void fillLicenses(n);
@@ -403,7 +441,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
   function focusKey(): string {
     const a = document.activeElement as HTMLElement | null;
     if (!a || !main.contains(a)) return '';
-    for (const k of ['x', 'q', 'uitheme', 'color', 'look', 'a', 'restore', 'revert', 'vf', 'go', 'font', 'unfont']) {
+    for (const k of ['x', 'q', 'uitheme', 'color', 'look', 'a', 'restore', 'revert', 'vf', 'go', 'font', 'unfont', 'voice']) {
       const v = a.dataset[k];
       if (v !== undefined) return `[data-${k}="${CSS.escape(v)}"]`;
     }
@@ -502,6 +540,25 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
       return;
     }
     if (d.q) { host.exporter.setQuality(d.q as Quality); void render(); return; }
+    if (d.voice) {
+      const box = main.querySelector<HTMLElement>('.fp-voice');
+      if (!box) return;
+      if (d.voice === 'remove') {
+        voiceAsk = false;
+        b.setAttribute('disabled', '');
+        void fetch('/__htmlpptx/voice-remove', { method: 'POST' })
+          .then((r) => (r.ok ? '' : r.json().then((j: { error?: string }) => j.error ?? `ошибка ${r.status}`, () => `ошибка ${r.status}`)), () => 'нет связи с сервером студии')
+          .then((err) => {
+            ed.toast(err ? `Модель не удалена: ${err}` : 'Модель распознавания речи удалена', err ? 4000 : 2600, !!err);
+            return fillVoice(drawn);
+          });
+        return;
+      }
+      voiceAsk = d.voice === 'ask';
+      box.innerHTML = voiceRow(voice, voiceAsk);
+      box.querySelector<HTMLElement>(voiceAsk ? '[data-voice="keep"]' : '[data-voice="ask"]')?.focus();
+      return;
+    }
     // Тема меняется растворением (themeFade); раздел перерисуется, когда она сменилась (onThemeChange ниже)
     if (d.uitheme) { host.ui.setTheme(d.uitheme as UiTheme); return; }
     if (d.color) { host.ui.setOwnColor(null); void render(); return; }

@@ -1,6 +1,7 @@
 // Голосовой ввод в чате «Агент» (src/studio/agent-voice.ts, server/voice.ts): модели нет — карточка «Скачать»,
 // загрузка с ходом, «Начать запись», полоса записи с таймером, Enter — текст в поле (не отправляется), Esc — без
-// текста, закрыли панель — микрофон выключается. Микрофон — поддельный (Chromium), модель — образец
+// текста, закрыли панель — микрофон выключается; «Файл → Параметры» → «Удалить модель». Микрофон — поддельный
+// (Chromium), модель — образец
 // tests/fixtures/voice-model.tar.bz2 с подставного сервера (порт 5193), распознавание — подставной текст
 // (SLIDERIA_VOICE_STUB): адреса и текст — у сервера тестов в playwright.config.ts
 import fs from 'node:fs';
@@ -106,5 +107,42 @@ test('«Диктовать»: модель — скачать, запись с �
   await expect(strip).toBeHidden();
   await expect(mic).not.toHaveClass(/\bon\b/);
   await expect(ta).toHaveValue('Сделай слайд: Добавь слайд с итогами');
+  expect(errors).toEqual([]);
+});
+
+test('«Файл → Параметры» → «Удалить модель»: подтверждение в строке, модель — с диска, микрофон снова предлагает скачать', async ({ page }) => {
+  const errors = watchErrors(page);
+  const api = (cmd: string) => fetch(`http://localhost:5190/__htmlpptx/${cmd}`, { method: 'POST' }).then((r) => r.json() as Promise<{ state: string }>);
+  // Модель — как после первого теста; запущен отдельно — поставить
+  if ((await api('voice-status')).state !== 'ready') {
+    await api('voice-install');
+    await expect.poll(async () => (await api('voice-status')).state, { timeout: 20_000 }).toBe('ready');
+  }
+  expect((await fetch('http://localhost:5190/__htmlpptx/chat-connect', { method: 'POST', body: JSON.stringify({ key: 'sk-ant-test-12345678' }) })).status).toBe(200);
+  await page.goto('/?deck=chat&studio#1');
+  await expect(page.locator('#st-canvas .slide.on')).toContainText('Заголовок до агента');
+  await page.locator('#st-file').click();
+  await page.locator('.fp [data-fs="prefs"]').click();
+  const row = page.locator('.fp-voice');
+  await expect(row).toContainText('Модель распознавания речи');
+  await expect(row).toContainText('на диске');
+  // «Отмена» — ничего не удаляется
+  await row.locator('[data-voice="ask"]').click();
+  await expect(row).toContainText('Удалить модель? Для голосового ввода понадобится скачать модель заново');
+  await expect(row.locator('[data-voice="keep"]')).toBeFocused();
+  await row.locator('[data-voice="keep"]').click();
+  expect((await api('voice-status')).state).toBe('ready');
+  // «Удалить»
+  await row.locator('[data-voice="ask"]').click();
+  await row.locator('[data-voice="remove"]').click();
+  await expect(page.locator('#ed-toast')).toContainText('Модель распознавания речи удалена');
+  await expect(row).toContainText('Модель распознавания речи не установлена');
+  expect((await api('voice-status')).state).toBe('none');
+  expect(fs.existsSync(path.resolve('.tmp/test-voice/gigaam-v3'))).toBe(false);
+  // Микрофон в чате — снова карточка «Скачать»
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Control+j');
+  await page.locator('#st-chat .ac-mic').click();
+  await expect(page.locator('#st-chat .ac-vcard [data-v="get"]')).toBeVisible();
   expect(errors).toEqual([]);
 });

@@ -156,6 +156,31 @@ test('архив вручную («Указать файл…»): не тот р
   }
 });
 
+test('«Удалить модель»: загрузка останавливается, на диске ничего не остаётся', async () => {
+  const dir = tmp();
+  const srv = await archiveServer();
+  const v = createVoice({ dir, model: model(srv.url) });
+  try {
+    v.install();
+    expect((await settle(v)).state).toBe('ready');
+    expect(await v.remove()).toMatchObject({ state: 'none', got: 0, loaded: false });
+    expect(fs.readdirSync(dir)).toEqual([]);
+    // Посреди загрузки — тоже: без ошибки, скачанное удалено
+    const slow = await archiveServer({ hold: 30_000 });
+    const w = createVoice({ dir, model: model(slow.url) });
+    w.install();
+    await expect.poll(() => w.status().got, { timeout: 10_000 }).toBe(30_000);
+    expect(await w.remove()).toMatchObject({ state: 'none', got: 0 });
+    expect(w.status().error).toBeUndefined();
+    expect(fs.readdirSync(dir)).toEqual([]);
+    await slow.close();
+  } finally {
+    await v.close();
+    await srv.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('распознавание: без модели — понятный отказ; короткий щелчок — пусто; подставной текст тестов', async () => {
   const dir = tmp();
   const none = createVoice({ dir, model: model('http://127.0.0.1:9/none') });
