@@ -45,6 +45,8 @@ export interface AgentInfo {
   online: boolean;
   /** Правок за всё время */
   edits: number;
+  /** Живых сеансов агента (два окна, два терминала); только у того, кто на связи */
+  sessions?: number;
 }
 
 export interface ScriptParam { key: string; type: 'text' | 'lines' | 'number' | 'bool' | 'choice'; label: string; value: unknown; options?: { value: string; label: string }[] }
@@ -160,13 +162,31 @@ export function createIntegrations(o: IntegrationsOptions) {
     return all;
   };
 
+  /**
+   * Агенты — строкой на агента (по имени): сеансы одного агента — два окна или дубль после переподключения,
+   * когда прежний сеанс ушёл без «пока», — одна строка. На связи, если жив хоть один сеанс (sessions — сколько);
+   * «на связи с» — от самого раннего из живых, версия — у самого свежего
+   */
   function list(): AgentInfo[] {
     const now = Date.now();
     const all = known();
-    const out: AgentInfo[] = [...live].map(([id, a]) => ({ id, ...a, online: now - a.seen < ONLINE_MS, edits: all[a.name]?.edits ?? 0 }));
-    // Подключались раньше — по имени: «Cursor, был вчера»
+    const groups = new Map<string, [string, Known][]>();
+    for (const [id, a] of live) groups.set(a.name, [...(groups.get(a.name) ?? []), [id, a]]);
+    const out: AgentInfo[] = [];
+    for (const [name, ss] of groups) {
+      const on = ss.filter(([, a]) => now - a.seen < ONLINE_MS).sort((x, y) => y[1].seen - x[1].seen);
+      const edits = all[name]?.edits ?? 0;
+      if (on.length) {
+        const [id, fresh] = on[0];
+        out.push({ id, name, version: fresh.version, since: Math.min(...on.map(([, a]) => a.since)), seen: fresh.seen, online: true, edits, sessions: on.length });
+      } else {
+        const seen = Math.max(all[name]?.seen ?? 0, ...ss.map(([, a]) => a.seen));
+        out.push({ id: `known:${name}`, name, version: ss.sort((x, y) => y[1].seen - x[1].seen)[0][1].version, since: seen, seen, online: false, edits });
+      }
+    }
+    // Подключались раньше — по имени: «Cursor, последний раз на связи вчера»
     for (const [name, k] of Object.entries(all)) {
-      if (!out.some((a) => a.name === name)) out.push({ id: `known:${name}`, name, since: k.seen, seen: k.seen, online: false, edits: k.edits });
+      if (!groups.has(name)) out.push({ id: `known:${name}`, name, since: k.seen, seen: k.seen, online: false, edits: k.edits });
     }
     return out.sort((a, b) => Number(b.online) - Number(a.online) || b.seen - a.seen).slice(0, 8);
   }
@@ -194,19 +214,29 @@ export function createIntegrations(o: IntegrationsOptions) {
     changed();
   }
 
-  /** Агент был сейчас; added — его новые правки (прибавляются к счёту по имени, а не переписывают его) */
-  function remember(name: string, added = 0): void {
+  /** Агент давал о себе знать (seen; по умолчанию — сейчас); added — новые правки (прибавляются к счёту по имени) */
+  function remember(name: string, added = 0, seen = Date.now()): void {
     const all = known();
-    all[name] = { name, seen: Date.now(), edits: (all[name]?.edits ?? 0) + added };
+    all[name] = { name, seen: Math.max(all[name]?.seen ?? 0, seen), edits: (all[name]?.edits ?? 0) + added };
     writeJson(agentsFile, all);
   }
 
-  /** Замолчавшие дольше срока — «не на связи» (страницам — один раз) */
-  let wasOnline = new Set<string>();
+  /**
+   * Замолчавшие дольше срока — «не на связи» (страницам — один раз, и когда меняется число живых сеансов).
+   * Сеанс, ушедший без «пока» (приложение закрыли, компьютер уснул), — из памяти: его время — в записи агента
+   */
+  const onlineKey = () => list().filter((a) => a.online).map((a) => `${a.name}:${a.sessions}`).sort().join('|');
+  let wasOnline = '';
   const sweep = setInterval(() => {
-    const now = new Set(list().filter((a) => a.online).map((a) => a.id));
-    if (now.size !== wasOnline.size || [...now].some((id) => !wasOnline.has(id))) changed();
-    wasOnline = now;
+    const now = Date.now();
+    for (const [id, a] of live) {
+      if (now - a.seen < ONLINE_MS) continue;
+      remember(a.name, 0, a.seen);
+      live.delete(id);
+    }
+    const key = onlineKey();
+    if (key !== wasOnline) changed();
+    wasOnline = key;
   }, 10_000);
   sweep.unref?.();
 

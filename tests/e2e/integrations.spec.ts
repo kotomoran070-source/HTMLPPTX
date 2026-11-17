@@ -30,6 +30,12 @@ test('агент на связи и его правка: плашка на ле�
   await expect(mini).toContainText('Агентов пока нет');
   await post('agent', { id: AGENT.id, name: AGENT.name, version: '2.1' });
   await expect(mini).toContainText('Claude Code на связи');
+  // Второй сеанс того же агента (второе окно): строка одна — «2 сеанса»; сеанс ушёл — пометка пропадает
+  await post('agent', { id: `${AGENT.id}-2`, name: AGENT.name });
+  await expect(mini).toContainText('2 сеанса');
+  await expect(mini).not.toContainText('и ещё');
+  await post('agent?op=bye', { id: `${AGENT.id}-2` });
+  await expect(mini).not.toContainText('сеанс');
 
   // Своя правка в студии — фигуру на 10 px вправо
   await page.locator('#st-canvas .slide.on .free').nth(1).click();

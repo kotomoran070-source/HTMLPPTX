@@ -27,7 +27,8 @@ export interface IntegrationsHost {
   file: { open(): void; close(): void; shown(): boolean };
 }
 
-export interface AgentInfo { id: string; name: string; version?: string; since: number; seen: number; online: boolean; edits: number }
+/** Агент — строкой на агента; sessions — живых сеансов (два окна, два терминала), только у того, кто на связи */
+export interface AgentInfo { id: string; name: string; version?: string; since: number; seen: number; online: boolean; edits: number; sessions?: number }
 /** Запись журнала; checkpoint и after — точки до и после правки (нет — уже не хранятся: «Вернуть» недоступно) */
 export interface JournalEntry { t: string; deck: string; by: { kind: 'agent' | 'script'; id?: string; name: string }; changes: Change[]; checkpoint?: string; after?: string }
 export interface ScriptParam { key: string; type: 'text' | 'lines' | 'number' | 'bool' | 'choice'; label: string; value: unknown; options?: { value: string; label: string }[] }
@@ -93,6 +94,8 @@ const plural = (n: number, one: string, few: string, many: string) => {
   return m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many;
 };
 export const edits = (n: number) => `${n} ${plural(n, 'правка', 'правки', 'правок')}`;
+/** «2 сеанса» — у агента на связи больше одного сеанса; иначе пусто */
+export const sessionsOf = (a: AgentInfo) => ((a.sessions ?? 0) > 1 ? `${a.sessions} ${plural(a.sessions!, 'сеанс', 'сеанса', 'сеансов')}` : '');
 
 // ---------------- скрипты ----------------
 
@@ -236,7 +239,8 @@ export function startIntegrations(h: IntegrationsHost) {
     av.style.background = look.bg;
     av.classList.toggle('on', a.online);
     name.textContent = a.online ? `${a.name} на связи${on.length > 1 ? ` и ещё ${on.length - 1}` : ''}` : `${a.name} — не на связи`;
-    sub.textContent = a.online ? `${edits(a.edits)} · ${a.edits ? 'последняя ' : 'с '}${ago(a.edits ? a.seen : a.since)}` : `последний раз на связи ${ago(a.seen)}`;
+    const many = sessionsOf(a);
+    sub.textContent = a.online ? `${many ? `${many} · ` : ''}${edits(a.edits)} · ${a.edits ? 'последняя ' : 'с '}${ago(a.edits ? a.seen : a.since)}` : `последний раз на связи ${ago(a.seen)}`;
   }
 
   /** Число правок за сутки на «Журнале правок» */

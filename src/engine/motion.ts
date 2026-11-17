@@ -126,5 +126,7 @@ export function themeFade(apply: () => void): void {
     return;
   }
   root.classList.add('ui-vt');
-  doc.startViewTransition(apply).finished.finally(() => root.classList.remove('ui-vt'));
+  // Класс — прочь при любом исходе; сбой смены темы не оставляет висящего отказа
+  const done = () => root.classList.remove('ui-vt');
+  doc.startViewTransition(apply).finished.then(done, done);
 }

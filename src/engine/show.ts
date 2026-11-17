@@ -498,7 +498,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
 
   // --- полноэкранный режим ---
   function toggleFullscreen(): void {
-    if (document.fullscreenElement) document.exitFullscreen?.();
+    // Выйти из полного экрана браузер может отказать (уже вышли сами) — не ошибка
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
     else document.documentElement.requestFullscreen?.().catch(() => {});
   }
   document.addEventListener('fullscreenchange', () => {

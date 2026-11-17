@@ -6,7 +6,7 @@
 import { icon } from '../components/icons';
 import './integrations.css';
 import { LOGOS } from './brand-logos';
-import { agentLook, agentMark, ago, api, canRevert, defaults, edits, revertAgent, runScript, slideOf, type AgentInfo, type IntegrationsCtx, type JournalEntry, type ScriptInfo, type ScriptParam, type Section } from './integrations';
+import { agentLook, agentMark, ago, api, canRevert, defaults, edits, revertAgent, runScript, sessionsOf, slideOf, type AgentInfo, type IntegrationsCtx, type JournalEntry, type ScriptInfo, type ScriptParam, type Section } from './integrations';
 
 type Access = 'view' | 'edit' | 'all';
 interface Info { access: Access; agents: AgentInfo[]; mcp: { command: string; args: string[] } | null; scripts: string }
@@ -239,8 +239,8 @@ function agentsHtml(): string {
   const live = (a: AgentInfo) => {
     const last = lastEdit(a.name);
     return `<div class="ig-live">${avatar(a.name, true)}
-      <div class="ig-live-n">${esc(a.name)}<span class="ig-pill">на связи с ${hm(a.since)}</span></div>
-      <button type="button" class="fp-btn" data-sub="log">${icon('journal')}Его правки</button>
+      <div class="ig-live-n">${esc(a.name)}<span class="ig-pill">на связи с ${hm(a.since)}</span>${sessionsOf(a) ? `<span class="ig-pill n">${sessionsOf(a)}</span>` : ''}</div>
+      <button type="button" class="fp-btn" data-sub="log">${icon('journal')}Правки агента</button>
       <div class="ig-stats"><div><b>${a.edits}</b><span>${plural(a.edits, 'правка', 'правки', 'правок')}</span></div>
         ${last ? `<div><b>${hm(Date.parse(last.t))}</b><span>последняя правка</span></div>` : ''}
         ${a.version ? `<div><b>${esc(a.version)}</b><span>версия</span></div>` : ''}</div>

@@ -176,7 +176,7 @@ defineBlock<HtmlProps>('html', {
       if (!ctx.slide.classList.contains('on')) return;
       const go = () => { fitWords(el); fitBlock(el); };
       if (document.fonts?.status === 'loaded') go();
-      else document.fonts?.ready.then(go);
+      else void document.fonts?.ready.then(go);
     };
     const mo = new MutationObserver(run);
     mo.observe(ctx.slide, { attributes: true, attributeFilter: ['class'] });

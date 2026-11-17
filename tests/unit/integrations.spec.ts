@@ -40,7 +40,7 @@ export default async () => {};
   expect(clientTitle('local-agent-mode-slideria')).toBe('Локальный агент');
 });
 
-test('правки считаются по имени агента: два сеанса одного агента не затирают счёт друг друга', () => {
+test('правки считаются по имени агента, сеансы одного агента — одной строкой (и после ухода без «пока»)', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-int-'));
   try {
     const dir = path.join(tmp, 'decks');
@@ -55,14 +55,29 @@ test('правки считаются по имени агента: два се�
     edit('a', '2');
     edit('b', '3');
     edit('a', '4');
-    expect(core.agents().filter((x) => x.online).map((x) => x.edits)).toEqual([4, 4]);
+    // Одна строка на агента: два живых сеанса — «2 сеанса», а не две строки
+    expect(core.agents()).toMatchObject([{ name: 'Claude Code', online: true, edits: 4, sessions: 2 }]);
+    expect(core.agents()).toHaveLength(1);
     // Сеансы ушли и пришли снова — счёт тот же, новые правки к нему прибавляются
     core.agentBye('a');
     core.agentBye('b');
     expect(core.agents()).toMatchObject([{ name: 'Claude Code', online: false, edits: 4 }]);
+    expect(core.agents()[0]).not.toHaveProperty('sessions');
     core.agentHello({ id: 'c', name: 'Claude Code' });
     edit('c', '5');
-    expect(core.agents()).toMatchObject([{ id: 'c', online: true, edits: 5 }]);
+    expect(core.agents()).toMatchObject([{ id: 'c', online: true, edits: 5, sessions: 1 }]);
+    // Сеанс ушёл без «пока» (приложение закрыли, компьютер уснул), через минуту — новый сеанс того же агента:
+    // строка одна, на связи, без зависшего «не на связи» рядом
+    const real = Date.now;
+    try {
+      Date.now = () => real() + 60_000;
+      expect(core.agents()).toMatchObject([{ name: 'Claude Code', online: false, edits: 5 }]);
+      core.agentHello({ id: 'd', name: 'Claude Code' });
+      expect(core.agents()).toHaveLength(1);
+      expect(core.agents()).toMatchObject([{ id: 'd', online: true, edits: 5, sessions: 1 }]);
+    } finally {
+      Date.now = real;
+    }
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

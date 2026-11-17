@@ -1134,7 +1134,7 @@ export class Editor {
     if (target.closest('a[href]')) {
       e.preventDefault();
       const link = target.closest('[data-edit-url]');
-      if (link) this.editUrl(link);
+      if (link) void this.editUrl(link);
       return;
     }
     // Остальное — выделение блока: удалить, сделать свободным

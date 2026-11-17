@@ -2766,5 +2766,5 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   history.replaceState(null, '', `#${index + 1}`);
   syncUi();
   requestAnimationFrame(layout);
-  document.fonts?.ready.then(() => layout());
+  void document.fonts?.ready.then(() => layout());
 }
