@@ -168,6 +168,29 @@
 .ig-side .fp-btn.go { height: 40px; font-size: 14px; }
 .ig-side .fp-btn.go:disabled { opacity: .7; cursor: progress; }
 .ig-hint { display: flex; gap: 8px; color: var(--mu); font-size: 12px; }
+/* «Удалить скрипт…» — тихая кнопка под «Запустить», только у своих скриптов */
+.ig-del { justify-self: start; display: inline-flex; align-items: center; gap: 7px; margin-top: 2px; padding: 6px 8px; border: 0; border-radius: 8px; background: none; color: #DC2626; font: 500 13px var(--font); cursor: pointer; }
+.ig-del .ic { width: 15px; height: 15px; }
+.ig-del:hover { background: color-mix(in srgb, #DC2626 10%, transparent); }
+:root[data-theme="dark"] .ig-del { color: #F87171; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ig-del { color: #F87171; } }
+/* Окно «Удалить скрипт?» — как окно удаления презентации: красный только на действии */
+.ig-dlg { width: min(440px, 100%); }
+.ig-dlg-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.ig-dlg .ig-dlg-head h2 { margin: 0; font-size: 19px; }
+.ig-dlg-icon { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; color: #DC2626; background: color-mix(in srgb, #DC2626 10%, var(--surf)); border: 1px solid color-mix(in srgb, #DC2626 25%, var(--surf)); }
+.ig-dlg .ic { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ig-dlg-item { display: flex; align-items: center; gap: 12px; padding: 10px; border: 1px solid var(--bd); border-radius: 12px; background: var(--bg); }
+.ig-dlg-item b { display: block; font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
+.ig-dlg-item span:not(.ig-si) { font-size: 12.5px; color: var(--mu); }
+.ig-dlg .ig-dlg-note { margin: 14px 0 0; font-size: 13px; color: var(--mu); line-height: 1.55; }
+.ig-dlg .imp-err { margin: 12px 0 0; font-size: 13px; }
+.ig-dlg .imp-err[hidden] { display: none; }
+.ig-dlg .btn.ig-dlg-n { background: var(--surf); color: var(--tx2); border: 1px solid var(--bd2); }
+.ig-dlg .btn.ig-dlg-n:hover:not([disabled]) { background: var(--alt); }
+.ig-dlg .btn.ig-dlg-ok { background: #DC2626; color: #fff; border: 0; }
+.ig-dlg .btn.ig-dlg-ok:hover:not([disabled]) { background: #B91C1C; }
+.ig-dlg .btn.ig-dlg-ok:focus-visible { outline-color: #DC2626; }
 .ig-hint .ic { width: 15px; height: 15px; margin-top: 1px; }
 .ig-res { padding: 10px 12px; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--ig-ok) 25%, var(--bd)); background: color-mix(in srgb, var(--ig-ok) 10%, var(--surf)); color: var(--tx2); font-size: 12.5px; overflow-wrap: anywhere; }
 .ig-res.err { border-color: color-mix(in srgb, #DC2626 30%, var(--bd)); background: color-mix(in srgb, #DC2626 9%, var(--surf)); }

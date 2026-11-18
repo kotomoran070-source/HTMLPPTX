@@ -353,6 +353,7 @@ async function route(core: DecksCore, o: HttpOptions, chat: AgentChat, clients: 
     }
     case 'scripts': return send(res, 200, core.scripts());
     case 'script-read': return send(res, 200, core.scriptCode(q.get('id') ?? ''));
+    case 'script-delete': return send(res, 200, core.deleteScript(q.get('id') ?? ''));
     case 'script-save': {
       const body = (await json(req)) as { file?: string; code?: string; replace?: boolean; by?: unknown } | null;
       return send(res, 200, core.saveScript(String(body?.file ?? ''), String(body?.code ?? ''), { by: body?.by, replace: !!body?.replace }));

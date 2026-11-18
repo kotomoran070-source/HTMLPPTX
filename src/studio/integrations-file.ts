@@ -4,6 +4,8 @@
  * и подсказка о правке агента (integrations.ts). Грузится, когда раздел открыли впервые.
  */
 import { icon } from '../components/icons';
+import { leave as fadeOut } from '../engine/motion';
+import '../engine/import-ui.css';
 import './integrations.css';
 import { LOGOS } from './brand-logos';
 import { agentLook, agentMark, ago, api, canRevert, defaults, edits, revertAgent, runScript, sessionsOf, slideOf, type AgentInfo, type IntegrationsCtx, type JournalEntry, type ScriptInfo, type ScriptParam, type Section } from './integrations';
@@ -390,6 +392,7 @@ function scriptsHtml(): string {
       ${res ? `<div class="ig-res${res.startsWith('!') ? ' err' : ''}">${esc(res.replace(/^!/, ''))}</div>` : ''}
       <button type="button" class="fp-btn go" data-run="${esc(s.id)}"${state.busy === s.id ? ' disabled' : ''}>${icon('play')}${state.busy === s.id ? 'Выполняется…' : 'Запустить'}</button>
       <div class="ig-hint">${icon('undo')}<span>«Файл» закроется — результат сразу на слайдах. Весь запуск — один шаг Ctrl+Z, запись — в журнале.</span></div>
+      ${s.builtin ? '' : `<button type="button" class="ig-del" data-a="del-script">${icon('trash')}Удалить скрипт…</button>`}
     </aside>` : '';
   const openDir = (window as unknown as { slideriaApp?: { openPath?: unknown } }).slideriaApp?.openPath;
   return `<div class="ig-sx">
@@ -505,6 +508,7 @@ function onClick(e: MouseEvent): void {
   }
   if (d.run) return void run(d.run);
   if (d.a === 'new-script') return void newScript();
+  if (d.a === 'del-script') return askDeleteScript();
   if (d.a === 'open-dir') void (window as unknown as { slideriaApp: { openPath(p: string): Promise<void> } }).slideriaApp.openPath(state.info?.scripts ?? '');
 }
 
@@ -557,6 +561,63 @@ async function run(id: string): Promise<void> {
   render();
   // Кнопка на время запуска выключалась — фокус к ней обратно (Esc, Tab — дальше с неё)
   root.querySelector<HTMLElement>('[data-run]')?.focus({ preventScroll: true });
+}
+
+/**
+ * Удалить свой скрипт — после вопроса, как презентацию на странице выбора: файл уходит в корзину проекта
+ * (.trash рядом с презентациями), его можно вернуть. Встроенные скрипты не удаляются
+ */
+function askDeleteScript(): void {
+  const c = ctx!;
+  const s = c.scripts().find((x) => x.id === c.view.script);
+  if (!s || s.builtin) return;
+  const before = document.activeElement as HTMLElement | null;
+  const box = document.createElement('div');
+  box.className = 'imp-bd';
+  box.innerHTML = `<div class="imp ig-dlg" role="alertdialog" aria-modal="true" aria-labelledby="ig-dlg-h" aria-describedby="ig-dlg-d">
+    <div class="ig-dlg-head"><span class="ig-dlg-icon">${icon('trash')}</span><h2 id="ig-dlg-h">Удалить скрипт?</h2></div>
+    <div class="ig-dlg-item"><span class="ig-si">${icon('script')}</span><div><b>${esc(s.name)}</b><span>${esc(s.file)}</span></div></div>
+    <p class="ig-dlg-note" id="ig-dlg-d">Файл переместится в корзину — папку «.trash» рядом с презентациями. Чтобы вернуть скрипт, перенесите файл обратно в папку скриптов.</p>
+    <p class="imp-err" role="alert" hidden></p>
+    <div class="imp-actions"><button type="button" class="btn ig-dlg-n" data-k="cancel">Отмена</button><button type="button" class="btn ig-dlg-ok" data-k="ok">${icon('trash')}Удалить</button></div>
+  </div>`;
+  document.body.append(box);
+  const ok = box.querySelector<HTMLButtonElement>('[data-k="ok"]')!;
+  const cancel = box.querySelector<HTMLButtonElement>('[data-k="cancel"]')!;
+  const err = box.querySelector<HTMLElement>('.imp-err')!;
+  const close = () => {
+    removeEventListener('keydown', onKey, true);
+    fadeOut(box, { box: '.imp' });
+    before?.focus?.();
+  };
+  // Клавиши студии и «Файла» до окна не доходят: Esc — отмена, Tab — по двум кнопкам
+  const onKey = (e: KeyboardEvent) => {
+    e.stopPropagation();
+    if (e.key === 'Escape') { e.preventDefault(); if (!ok.disabled) close(); }
+    if (e.key === 'Tab') { e.preventDefault(); (document.activeElement === ok ? cancel : ok).focus(); }
+  };
+  addEventListener('keydown', onKey, true);
+  box.addEventListener('mousedown', (e) => { if (e.target === box && !ok.disabled) close(); });
+  cancel.onclick = close;
+  ok.onclick = async () => {
+    ok.disabled = cancel.disabled = true;
+    err.hidden = true;
+    try {
+      await api(`script-delete?id=${encodeURIComponent(s.id)}`);
+      c.setScripts(await api<ScriptInfo[]>('scripts'));
+      c.view.script = null;
+      delete state.results[s.id];
+      values.delete(s.id);
+      close();
+      c.host.editor.toast(`Скрипт «${s.name}» — в корзине`, 2600);
+      if (root?.isConnected) render();
+    } catch (e) {
+      err.textContent = `Не удалось удалить: ${(e as Error).message}`;
+      err.hidden = false;
+      ok.disabled = cancel.disabled = false;
+    }
+  };
+  cancel.focus();
 }
 
 async function newScript(): Promise<void> {

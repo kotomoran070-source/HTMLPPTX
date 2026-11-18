@@ -155,12 +155,22 @@ export function uiSafeAccent(c: string, mode: 'light' | 'dark'): string {
   return mode === 'dark' ? fitLuminance(c, UI_LO_DARK, UI_HI, darkShown) : fitLuminance(c, 0, UI_HI);
 }
 
+/**
+ * Текст на акценте интерфейса: белый или тёмный. Светлые оттенки (бирюза, жёлтый, оранжевый, зелёный, голубой)
+ * uiSafeAccent подтягивает ровно к контрасту 3 с белым — на кнопках это читается плохо, тёмный текст даёт 6,3.
+ * Синий, индиго и фиолетовый — от 3,5 и выше, на них остаётся белый
+ */
+const onAccentUi = (ac: string) => (contrast(ac, '#FFFFFF') >= 3.4 ? '#FFFFFF' : '#0B1020');
+
 /** Токены акцента для самой страницы (лента, кнопки, панели): как accentTokens, но читаемые в обеих темах */
 export function uiAccentTokens(accent: string, accent2?: string | AccentTail | null): { light: Record<string, string>; dark: Record<string, string> } {
   const tail = tailOf(accent2);
   const side = (mode: 'light' | 'dark') => {
     const fit = (c: string) => uiSafeAccent(c, mode);
-    return accentTokens(fit(accent), { to: tail.to && fit(tail.to), mid: tail.mid.map((m) => ({ c: fit(m.c), at: m.at })) })[mode];
+    const t = accentTokens(fit(accent), { to: tail.to && fit(tail.to), mid: tail.mid.map((m) => ({ c: fit(m.c), at: m.at })) })[mode];
+    // Текст на акценте (кнопки «Показ», «Сохранить», нажатые плашки): белый на светлом акценте не читается
+    t['--on-ac'] = onAccentUi(t['--ac']);
+    return t;
   };
   return { light: side('light'), dark: side('dark') };
 }
@@ -293,6 +303,9 @@ export function applyAccent(accent: unknown, accent2?: unknown, quiet = false, u
     return;
   }
   const deck = accentTokens(a ?? DEFAULT_ACCENT, a2);
+  // Слайдам текст на акценте — как прежде, белый (у темы презентации — свой, слоем выше): иначе
+  // они взяли бы его у интерфейса и поменялись бы показ и экспорт
+  deck.light['--on-ac'] = deck.dark['--on-ac'] = '#FFFFFF';
   if (!el) {
     el = document.createElement('style');
     el.id = ID;

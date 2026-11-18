@@ -24,6 +24,8 @@
 .fp-i .ic { color: var(--mu); }
 .fp-i:hover:not(:disabled) { background: color-mix(in srgb, var(--tx) 5%, transparent); color: var(--tx); }
 .fp-i[aria-selected="true"] { background: var(--acs); color: var(--ach); font-weight: 500; }
+/* Выбранный раздел под мышью — свой фон, чуть плотнее: общее наведение весомее и снимало его */
+.fp-i[aria-selected="true"]:hover:not(:disabled) { background: color-mix(in srgb, var(--ac) 10%, var(--acs)); color: var(--ach); }
 .fp-i[aria-selected="true"] .ic { color: var(--ac); }
 .fp-i[aria-selected="true"]::before { content: ""; position: absolute; left: -10px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--ac); }
 .fp-i:disabled { opacity: .45; cursor: default; }
@@ -65,7 +67,7 @@
 .fp-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 14px; border: 1px solid var(--bd); border-radius: 8px; background: var(--surf); color: var(--tx); font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: background .15s, border-color .15s; }
 .fp-btn:hover { border-color: var(--bd2); background: color-mix(in srgb, var(--tx) 4%, var(--surf)); }
 .fp-btn .ic { width: 15px; height: 15px; color: var(--ac); }
-.fp-btn.go { border-color: transparent; background: var(--ac); color: #fff; }
+.fp-btn.go { border-color: transparent; background: var(--ac); color: var(--on-ac, #fff); }
 .fp-btn.go .ic { color: currentColor; }
 .fp-btn.go:hover { background: color-mix(in srgb, #000 12%, var(--ac)); }
 .fp-btn kbd { margin-left: 4px; padding: 0 5px; border: 1px solid rgba(255, 255, 255, .35); border-radius: 4px; font: 500 10.5px var(--font); opacity: .85; }

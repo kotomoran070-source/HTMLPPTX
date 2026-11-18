@@ -10,6 +10,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { stamp } from './deck-files';
 import type { Change } from '../src/engine/ops';
 
 /** Что можно агентам: смотреть (читать и экспорт), править (и создавать новые презентации), всё (и сохранять скрипты) */
@@ -339,11 +340,26 @@ export function createIntegrations(o: IntegrationsOptions) {
     return parseScript(code, `user:${name}`, false, name);
   }
 
+  /**
+   * Удалить свой скрипт: файл не стирается, а уходит в корзину проекта (.trash/scripts-<время>/) — вернуть можно,
+   * перенеся его обратно в папку скриптов. Встроенные скрипты не удаляются
+   */
+  function deleteScript(id: string): { trashed: string } {
+    const m = /^user:(.+)$/.exec(id ?? '');
+    if (!m || !SCRIPT_FILE.test(m[1])) throw new Error('Удалить можно только свой скрипт');
+    const file = path.join(scriptsDir, m[1]);
+    if (!fs.existsSync(file)) throw new Error(`Скрипт «${m[1]}» не найден в папке скриптов`);
+    const to = path.join(o.dir, '.trash', `scripts-${stamp()}`);
+    fs.mkdirSync(to, { recursive: true });
+    fs.renameSync(file, path.join(to, m[1]));
+    return { trashed: path.relative(o.dir, path.join(to, m[1])).split(path.sep).join('/') };
+  }
+
   return {
     access, setAccess, allow,
     agents: list, hello, bye,
     record, journal, takeJournal, adoptJournal,
-    scripts, scriptCode, saveScript,
+    scripts, scriptCode, saveScript, deleteScript,
     scriptsDir,
     close: () => clearInterval(sweep),
   };

@@ -70,7 +70,7 @@
 .ac-btn:hover:not(:disabled) { background: var(--alt) !important; color: var(--tx) !important; }
 .ac-btn.q { border-color: transparent !important; background: none !important; color: var(--mu) !important; }
 .ac-btn.q:hover:not(:disabled) { background: var(--alt) !important; }
-.ac-btn.p { background: var(--ac) !important; border-color: var(--ac) !important; color: #fff !important; }
+.ac-btn.p { background: var(--ac) !important; border-color: var(--ac) !important; color: var(--on-ac, #fff) !important; }
 /* Наведение — тот же акцент темнее: --ach в тёмной теме светлый, и белый текст на нём не читался */
 .ac-btn.p:hover:not(:disabled) { background: color-mix(in srgb, var(--ac) 84%, #000) !important; border-color: color-mix(in srgb, var(--ac) 84%, #000) !important; }
 .ac-btn:disabled { opacity: .6; }
@@ -131,7 +131,7 @@
 .ac-ctx button .ic { width: 11px; height: 11px; }
 .ac-ctx button:hover { background: var(--bd); color: var(--tx) !important; }
 .ac-ctx[hidden], .ac-chips[hidden] { display: none; }
-.ac-send { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--ac) !important; color: #fff !important; flex: none; }
+.ac-send { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--ac) !important; color: var(--on-ac, #fff) !important; flex: none; }
 .ac-send:disabled { background: var(--alt) !important; color: var(--mu) !important; }
 .ac-send.stop .ic { width: 15px; height: 15px; }
 .ac-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 8px; }

@@ -1067,6 +1067,7 @@ export function createDecksCore(opts: CoreOptions) {
     scripts: () => integrations.scripts(),
     scriptCode: (id: string) => integrations.scriptCode(id),
     saveScript: (file: string, code: string, o?: { by?: unknown; replace?: boolean }) => integrations.saveScript(file, code, { by: byOf(o?.by), replace: o?.replace }),
+    deleteScript: (id: string) => integrations.deleteScript(id),
     scriptsDir: integrations.scriptsDir,
     /**
      * Как запустить MCP этой папки (docs/MCP.md): программа — сама собой с ключом --mcp (desktop/main.mjs),

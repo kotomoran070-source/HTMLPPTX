@@ -441,8 +441,12 @@ body.studio { scrollbar-color: var(--scroll) transparent; }
 .st-rb.big:hover:not(:disabled) > .ic { background: color-mix(in srgb, var(--ac) 22%, transparent); }
 .st-rb.big.active { background: none; border-color: transparent; }
 .st-rb.big.active > .ic { background: var(--ac); color: var(--on-ac, #fff); box-shadow: 0 4px 10px -3px color-mix(in srgb, var(--ac) 60%, transparent); }
+/* Нажатая под мышью — та же залитая плашка, чуть темнее: правило наведения выше весомее и превращало её в обычную */
+.st-rb.big.active:hover:not(:disabled) > .ic { background: color-mix(in srgb, var(--ac) 86%, #000); }
 .st-rb:hover:not(:disabled) { background: var(--acs); color: var(--ach); }
 .st-rb.active { background: var(--acs); border-color: var(--acb); color: var(--ach); }
+/* Нажатая под мышью — плотнее обычной под мышью, рамка остаётся */
+.st-rb.active:not(.big, .st-chk):hover:not(:disabled) { background: color-mix(in srgb, var(--ac) 14%, var(--acs)); }
 .st-rb:disabled { opacity: .38; cursor: default; }
 .st-rb:disabled .ic { color: inherit; }
 .st-rstack { display: flex; flex-direction: column; gap: 2px; }
@@ -738,8 +742,8 @@ body.studio .edblock { display: none !important; }
 .st-pbtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; padding: 0 12px; border: 1px solid var(--bd); border-radius: 6px; background: var(--surf); font: 600 12.5px var(--font); color: var(--tx2); cursor: pointer; }
 .st-p-row .st-pbtn { flex: 1; }
 .st-pbtn:hover { border-color: var(--acb); background: var(--acs); color: var(--ach); }
-.st-pbtn.primary { background: var(--ac); border-color: var(--ac); color: #fff; }
-.st-pbtn.primary:hover { --dk: color-mix(in srgb, var(--ac) 86%, #000); background: var(--dk); border-color: var(--dk); color: #fff; }
+.st-pbtn.primary { background: var(--ac); border-color: var(--ac); color: var(--on-ac, #fff); }
+.st-pbtn.primary:hover { --dk: color-mix(in srgb, var(--ac) 86%, #000); background: var(--dk); border-color: var(--dk); color: var(--on-ac, #fff); }
 .st-pbtn.danger { color: #DC2626; }
 .st-pbtn.danger:hover { border-color: #FCA5A5; background: #FEF2F2; color: #B91C1C; }
 :root[data-theme="dark"] .st-pbtn.danger { color: #F87171; }

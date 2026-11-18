@@ -207,8 +207,8 @@ html:has(> body.picker-page) { scroll-padding-top: 84px; }
 .pk-play { position: absolute; right: 10px; bottom: 10px; height: 32px; padding: 0 12px 0 10px; border-radius: 8px; display: inline-flex; align-items: center; gap: 7px; font-weight: 650; font-size: 13px; text-decoration: none;
   color: var(--pk-float-tx); background: var(--pk-float); backdrop-filter: blur(10px) saturate(1.4); box-shadow: inset 0 0 0 1px var(--pk-float-ring), var(--pk-float-sh); opacity: 0; transform: translateY(6px) scale(.96); transition: opacity .2s, transform .25s var(--pk-ease), background .15s; }
 .pk-play .pk-tri { color: var(--pk-float-tri); transition: color .15s; }
-.pk-play:hover { background: var(--ac); color: #fff; box-shadow: inset 0 0 0 1px transparent, var(--pk-float-sh); }
-.pk-play:hover .pk-tri { color: #fff; }
+.pk-play:hover { background: var(--ac); color: var(--on-ac, #fff); box-shadow: inset 0 0 0 1px transparent, var(--pk-float-sh); }
+.pk-play:hover .pk-tri { color: var(--on-ac, #fff); }
 .pk-more { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 8px; border: 0; padding: 0; display: grid; place-items: center; cursor: pointer; color: var(--pk-float-tx); background: var(--pk-float); backdrop-filter: blur(10px) saturate(1.4);
   box-shadow: inset 0 0 0 1px var(--pk-float-ring), var(--pk-float-sh); opacity: 0; transition: opacity .2s, background .15s, box-shadow .15s; }
 .pk-over .pk-more:is(:hover, [aria-expanded="true"]) { background: var(--pk-float-h); box-shadow: inset 0 0 0 1px var(--pk-float-ringh), var(--pk-float-sh); }

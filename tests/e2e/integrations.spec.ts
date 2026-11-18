@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import JSZip from 'jszip';
-import { readDeck, watchErrors } from './helpers';
+import { DECKS, readDeck, watchErrors } from './helpers';
 import { cliCalls, fakeCli } from '../fake-clients';
 
 test.use({ colorScheme: 'light' });
@@ -235,6 +235,42 @@ test('скрипты — в меню ленты и в Ctrl+K; «Все скри�
   await page.keyboard.press('Control+k');
   await page.keyboard.type('скрипт оглав');
   await expect(page.locator('#st-pal')).toContainText('Скрипт: Оглавление');
+  expect(errors).toEqual([]);
+});
+
+test('свой скрипт удаляется после вопроса — файл в корзине проекта; у встроенных кнопки нет; Esc — отмена', async ({ page }) => {
+  const errors = watchErrors(page);
+  const file = 'zz удалить.js';
+  const own = path.join(DECKS, 'scripts', file);
+  const code = '// @name Удаляемый скрипт\n// @description Для теста удаления\nexport default async function ({ log }) { log(\'ок\'); }\n';
+  expect((await post('script-save', { file, code, replace: true })).status).toBe(200);
+  await openTools(page);
+  await page.locator('.st-ribbon [data-cmd="int.scripts"]').first().click();
+  await page.locator('.st-menu').getByText('Все скрипты и новый…').click();
+  const fp = page.locator('.fp');
+  // Встроенный — без «Удалить»
+  await fp.locator('.ig-sc[data-script="builtin:оглавление.js"]').click();
+  await expect(fp.locator('.ig-del')).toHaveCount(0);
+  await fp.locator(`.ig-sc[data-script="user:${file}"]`).click();
+  await fp.locator('.ig-del').click();
+  const dlg = page.locator('.ig-dlg');
+  await expect(dlg).toContainText('Удалить скрипт?');
+  await expect(dlg).toContainText('Удаляемый скрипт');
+  // Esc — окно закрывается, «Файл» остаётся открытым, файл на месте
+  await page.keyboard.press('Escape');
+  await expect(dlg).toHaveCount(0);
+  await expect(fp).toBeVisible();
+  expect(fs.existsSync(own)).toBe(true);
+  await fp.locator('.ig-del').click();
+  await page.locator('.ig-dlg [data-k="ok"]').click();
+  await expect(page.locator('.ig-dlg')).toHaveCount(0);
+  await expect(fp.locator(`.ig-sc[data-script="user:${file}"]`)).toHaveCount(0);
+  await expect(page.locator('.edtoast')).toContainText('в корзине');
+  expect(fs.existsSync(own)).toBe(false);
+  const trash = fs.readdirSync(path.join(DECKS, '.trash')).filter((d) => d.startsWith('scripts-'));
+  expect(trash.some((d) => fs.existsSync(path.join(DECKS, '.trash', d, file)))).toBe(true);
+  // Встроенный сервер не удаляет
+  expect((await post(`script-delete?id=${encodeURIComponent('builtin:оглавление.js')}`)).status).toBe(400);
   expect(errors).toEqual([]);
 });
 
