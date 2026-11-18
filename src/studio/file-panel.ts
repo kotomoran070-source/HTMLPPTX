@@ -466,8 +466,13 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     main.dataset.sec = section;
     main.scrollTop = keep;
     if (section === 'info') {
-      const c = host.cover();
-      if (c) main.querySelector('.fp-cover')?.append(c);
+      // Обложка — копия первого слайда: рисуется следующим кадром, раздел появляется без неё не дольше кадра
+      const box = main.querySelector('.fp-cover');
+      requestAnimationFrame(() => {
+        if (n !== drawn || !box?.isConnected) return;
+        const c = host.cover();
+        if (c) box.append(c);
+      });
     }
     if (section === 'prefs') {
       host.qat.mount(main.querySelector<HTMLElement>('.fp-qat')!);

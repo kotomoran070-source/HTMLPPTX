@@ -397,7 +397,7 @@ function scriptsHtml(): string {
       ${side}
     </div>
     <section class="fp-card ig-how"><span class="ig-hi">${icon('agent')}</span>
-      <div><b>Скрипт может написать агент</b><span class="ig-m">«Напиши скрипт для Slideria, который…» — он сохранит его сюда (нужно разрешение «Всё»). Свои — файлы .js в папке</span>${dir ? `<code>${esc(dir)}</code>` : ''}</div>
+      <div><b>Скрипт может написать агент</b><span class="ig-m">Достаточно попросить: «Напиши скрипт для Slideria, который…» — скрипт появится в этом списке, если у агента разрешение «Всё». Свои скрипты — файлы .js в папке</span>${dir ? `<code>${esc(dir)}</code>` : ''}</div>
       <div class="ig-acts"><button type="button" class="fp-btn" data-a="new-script">${icon('plus')}Новый скрипт</button>${openDir ? `<button type="button" class="fp-btn" data-a="open-dir">${icon('frame')}Открыть папку</button>` : `<button type="button" class="fp-btn" data-copy="${esc(dir)}">${icon('copy')}<span>Путь к папке</span></button>`}</div>
     </section>`;
 }

@@ -29,6 +29,7 @@ body.studio {
   --chip: rgba(255, 255, 255, .72);
   --hov: rgba(15, 23, 42, .06);
   --scroll: rgba(15, 23, 42, .22);
+  --scroll-h: rgba(15, 23, 42, .38);
   --slide-sh: 0 0 0 1px rgba(15, 23, 42, .05), 0 2px 4px rgba(15, 23, 42, .04), 0 30px 70px -24px color-mix(in srgb, var(--ach) 42%, transparent);
   background: radial-gradient(900px 520px at 78% -12%, var(--st-glow), transparent 62%),
     radial-gradient(760px 480px at -6% 104%, var(--st-glow2), transparent 60%), var(--st-ground);
@@ -50,6 +51,7 @@ body.studio {
   --chip: rgba(255, 255, 255, .05);
   --hov: rgba(255, 255, 255, .07);
   --scroll: rgba(255, 255, 255, .2);
+  --scroll-h: rgba(255, 255, 255, .34);
   --slide-sh: 0 0 0 1px rgba(255, 255, 255, .06), 0 2px 4px rgba(0, 0, 0, .3), 0 30px 80px -26px color-mix(in srgb, var(--ac) 45%, transparent);
 }
 @media (prefers-color-scheme: dark) {
@@ -70,14 +72,28 @@ body.studio {
     --chip: rgba(255, 255, 255, .05);
     --hov: rgba(255, 255, 255, .07);
     --scroll: rgba(255, 255, 255, .2);
-      --slide-sh: 0 0 0 1px rgba(255, 255, 255, .06), 0 2px 4px rgba(0, 0, 0, .3), 0 30px 80px -26px color-mix(in srgb, var(--ac) 45%, transparent);
+    --scroll-h: rgba(255, 255, 255, .34);
+    --slide-sh: 0 0 0 1px rgba(255, 255, 255, .06), 0 2px 4px rgba(0, 0, 0, .3), 0 30px 80px -26px color-mix(in srgb, var(--ac) 45%, transparent);
   }
 }
 /* Слайды — своим шрифтом: шрифт презентации (.slide[data-fonts], тема) задан сильнее и остаётся как есть */
 :where(body.studio) .slide { --font: var(--font-base); font-family: var(--font); }
 /* Полосы прокрутки — тонкие и в тон подложки: серые системные в скруглённом острове выглядят чужими */
 body.studio { scrollbar-color: var(--scroll) transparent; }
-:is(.st-slides, .st-props, .st-apane-body, .st-canvas, .st-notes textarea, .ac-body) { scrollbar-width: thin; }
+:where(.st-slides, .st-props, .st-apane-body, .st-canvas, .st-notes textarea, .ac-body) { scrollbar-width: thin; }
+/* У скруглённых островов полоса — без стрелок и с отступом сверху и снизу: системная во всю высоту упиралась
+   стрелками в скругления и срезалась ими. Свои правила полосы браузер берёт, только если у элемента нет
+   scrollbar-width и scrollbar-color (Firefox — по-прежнему тонкая системная) */
+@supports selector(::-webkit-scrollbar) {
+  :is(.st-slides, .st-props, .st-apane-body, .ac-body) { scrollbar-width: auto; scrollbar-color: auto; }
+  :is(.st-slides, .st-props, .st-apane-body, .ac-body)::-webkit-scrollbar { width: 10px; height: 10px; background: transparent; }
+  :is(.st-slides, .st-props, .st-apane-body, .ac-body)::-webkit-scrollbar-button { display: none; }
+  :is(.st-slides, .st-props, .st-apane-body, .ac-body)::-webkit-scrollbar-track { background: transparent; margin-block: 14px; }
+  /* Ползунок — 6 px, с просветом 2 px от края острова (прозрачная рамка); прокрутка с ним стоит как с системной (замер) */
+  :is(.st-slides, .st-props, .st-apane-body, .ac-body)::-webkit-scrollbar-thumb { min-height: 36px; border: 2px solid transparent; border-radius: 5px; background: var(--scroll) padding-box; }
+  :is(.st-slides, .st-props, .st-apane-body, .ac-body)::-webkit-scrollbar-thumb:hover { background-color: var(--scroll-h); }
+  :is(.st-slides, .st-props, .st-apane-body, .ac-body)::-webkit-scrollbar-corner { background: transparent; }
+}
 .studio-app { position: fixed; inset: 0; display: grid; grid-template-rows: auto auto auto minmax(0, 1fr) auto; padding: 0 12px; }
 /* Строки: шапка, лента, панель быстрого доступа под лентой (qat.ts — когда она там), рабочая область, строка состояния */
 .studio-app > .st-top { grid-row: 1; }
@@ -506,7 +522,7 @@ body.studio { scrollbar-color: var(--scroll) transparent; }
 .st-slides-plus .ic { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .st-slides-plus:hover { background: var(--acs); color: var(--ach); }
 .st-slides-plus:focus-visible { outline: 2px solid var(--acb); outline-offset: 1px; }
-.st-thumb { position: relative; display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 4px; padding: 4px 4px 4px 0; border-radius: 8px; cursor: pointer; }
+.st-thumb { position: relative; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; padding: 4px 4px 4px 0; border-radius: 8px; cursor: pointer; }
 .st-thumb:focus-visible { outline: none; }
 .st-thumb:focus-visible .st-tbox { outline: 2px solid var(--ac); outline-offset: 5px; }
 .st-num { font-size: 12px; color: var(--mu); text-align: right; padding-top: 2px; font-variant-numeric: tabular-nums; }
@@ -533,10 +549,10 @@ body.studio { scrollbar-color: var(--scroll) transparent; }
 /* Меню открыто правым щелчком у этого слайда (не текущего): к нему его команды */
 .st-thumb.ctx:not(.cur) .st-tbox { outline: 2px dashed color-mix(in srgb, var(--ac) 55%, transparent); outline-offset: 2px; }
 .st-thumb.dragging { opacity: .45; }
-.st-thumb.drop-before::before, .st-thumb.drop-after::after { content: ""; position: absolute; left: 24px; right: 4px; height: 3px; border-radius: 2px; background: var(--ac); }
+.st-thumb.drop-before::before, .st-thumb.drop-after::after { content: ""; position: absolute; left: 32px; right: 4px; height: 3px; border-radius: 2px; background: var(--ac); }
 .st-thumb.drop-before::before { top: -3px; }
 .st-thumb.drop-after::after { bottom: -3px; }
-.st-slides-add { display: flex; align-items: center; justify-content: center; gap: 6px; width: calc(100% - 28px); margin: 14px 0 0 28px; padding: 8px; border: 1px dashed var(--bd2); border-radius: 9px; background: none; color: var(--mu); font: 600 12.5px var(--font); cursor: pointer; }
+.st-slides-add { display: flex; align-items: center; justify-content: center; gap: 6px; width: calc(100% - 32px); margin: 14px 0 0 32px; padding: 8px; border: 1px dashed var(--bd2); border-radius: 9px; background: none; color: var(--mu); font: 600 12.5px var(--font); cursor: pointer; }
 .st-slides-add:hover { border-color: var(--ac); color: var(--ach); background: var(--acs); }
 
 /* Рабочая область: код слева (если открыт), слайд справа */

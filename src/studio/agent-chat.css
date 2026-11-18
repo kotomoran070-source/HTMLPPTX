@@ -71,7 +71,8 @@
 .ac-btn.q { border-color: transparent !important; background: none !important; color: var(--mu) !important; }
 .ac-btn.q:hover:not(:disabled) { background: var(--alt) !important; }
 .ac-btn.p { background: var(--ac) !important; border-color: var(--ac) !important; color: #fff !important; }
-.ac-btn.p:hover:not(:disabled) { background: var(--ach) !important; }
+/* Наведение — тот же акцент темнее: --ach в тёмной теме светлый, и белый текст на нём не читался */
+.ac-btn.p:hover:not(:disabled) { background: color-mix(in srgb, var(--ac) 84%, #000) !important; border-color: color-mix(in srgb, var(--ac) 84%, #000) !important; }
 .ac-btn:disabled { opacity: .6; }
 .ac-done { font-size: 12px; color: var(--mu); padding: 0 4px; }
 

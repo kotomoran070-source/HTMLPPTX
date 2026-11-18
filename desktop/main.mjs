@@ -532,6 +532,29 @@ function guard(win) {
     e.preventDefault();
     if (/^https?:|^mailto:/i.test(url)) void shell.openExternal(url);
   });
+  watchPage(win.webContents);
+}
+
+/**
+ * Зависание и ошибки страницы — в журнал (slideria.log): на чужом компьютере иначе не узнать, где окно
+ * перестало отвечать и что было перед этим. Ошибок — не больше 50 за запуск окна, чтобы цикл не раздул журнал
+ */
+function watchPage(wc) {
+  let stuck = 0;
+  let errors = 0;
+  wc.on('unresponsive', () => { stuck = Date.now(); log('Окно не отвечает:', wc.getURL()); });
+  wc.on('responsive', () => {
+    if (stuck) log('Окно снова отвечает, через', `${((Date.now() - stuck) / 1000).toFixed(1)} с`);
+    stuck = 0;
+  });
+  // Electron 35+: одно событие с полями; старые версии — отдельными аргументами (уровень 3 — ошибка)
+  wc.on('console-message', (e, level, message, line, source) => {
+    const lvl = e?.level ?? level;
+    if ((lvl !== 'error' && lvl !== 3) || ++errors > 50) return;
+    const src = e?.sourceId ?? source;
+    log('Ошибка страницы:', e?.message ?? message, src ? `(${src}:${e?.lineNumber ?? line})` : '');
+  });
+  wc.on('render-process-gone', (_e, d) => log('Страница остановилась:', d?.reason, d?.exitCode ?? ''));
 }
 
 app.on('web-contents-created', (_e, wc) => {
@@ -810,6 +833,8 @@ app.whenReady().then(async () => {
   fs.mkdirSync(DATA, { recursive: true });
   permissions();
   downloads();
+  // Упал служебный процесс (видеокарта, сеть, сервер) — тоже в журнал: окно при этом может замереть
+  app.on('child-process-gone', (_e, d) => log('Процесс программы остановился:', d?.type, d?.reason, d?.name ?? ''));
   log('Сборка:', BUILD.date ? `${BUILD.version} от ${BUILD.date} (${BUILD.commit})` : 'из проекта');
   const bad = tampered();
   if (bad.length) {
