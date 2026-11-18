@@ -136,7 +136,8 @@ export async function collectSummary(h: ToolsHost): Promise<Summary> {
   let files: Summary['files'] = null;
   if (store.listAssets) {
     try {
-      const list = await store.listAssets(h.deckKey);
+      // Сервер занят (сохранение, экспорт) — сводка без файлов, а не ожидание без конца
+      const list = await Promise.race([store.listAssets(h.deckKey), new Promise<never>((_, no) => { setTimeout(() => no(new Error('timeout')), 5000); })]);
       const json = JSON.stringify(deck);
       const inSlide = deck.slides.map((s) => JSON.stringify(s));
       const has = (hay: string, p: string) => hay.includes(p) || hay.includes(encodeURI(p));
@@ -144,7 +145,7 @@ export async function collectSummary(h: ToolsHost): Promise<Summary> {
       let inner = '';
       for (const f of list.filter((x) => /\.(html?|js|css|json)$/i.test(x.path) && has(json, x.path))) {
         const url = new RegExp(`[^"\\s]*${f.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).exec(json)?.[0];
-        if (url) inner += await fetch(url).then((r) => (r.ok ? r.text() : '')).catch(() => '');
+        if (url) inner += await fetch(url, { signal: AbortSignal.timeout(3000) }).then((r) => (r.ok ? r.text() : '')).catch(() => '');
       }
       files = list.map((f) => ({
         ...f,

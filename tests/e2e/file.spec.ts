@@ -53,6 +53,34 @@ test('«Файл»: разделы, клавиатура, Esc, сведения 
   expect(errors).toEqual([]);
 });
 
+test('«Файл» не ждёт сервер: раздел сразу в фокусе, Esc закрывает, сведения дорисовываются после ответа', async ({ page }) => {
+  const errors = watchErrors(page);
+  // Сервер занят: список файлов презентации не отвечает, пока тест не отпустит
+  let release!: () => void;
+  const gate = new Promise<void>((r) => { release = r; });
+  await page.route('**/__htmlpptx/assets-list*', async (route) => { await gate; await route.continue(); });
+  await page.goto('/?deck=tpl&studio#1');
+  await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
+  const slides = await page.locator('.st-slides-list > *').count();
+  const fp = page.locator('.fp');
+  await page.locator('#st-file').click();
+  // Раздел — в фокусе сразу и не пустой: сводка ещё считается
+  await expect(page.locator('.fp [data-fs="info"]')).toBeFocused();
+  await expect(page.locator('.fp-wait')).toBeVisible();
+  // Фокус ушёл на «Файл» в шапке — Esc всё равно закрывает, Delete до слайдов не доходит
+  await page.locator('#st-file').focus();
+  await page.keyboard.press('Delete');
+  await page.keyboard.press('Escape');
+  await expect(fp).toBeHidden();
+  await expect(page.locator('.st-slides-list > *')).toHaveCount(slides);
+  // Открыли снова, сервер ответил — сводка на месте
+  await page.locator('#st-file').click();
+  release();
+  await expect(page.locator('.fp-tile b').first()).toHaveText(String(slides));
+  await expect(page.locator('.fp-wait')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
 test('«Файл»: экспорт — настройки по формату; версии — точка и «Вернуть»; параметры — тема', async ({ page }) => {
   const errors = watchErrors(page);
   restoreFile = { deck: 'fx', text: readDeck('fx') };
@@ -100,6 +128,14 @@ test('«Файл»: экспорт — настройки по формату; �
   await expect.poll(() => page.evaluate(() => document.documentElement.getAttribute('data-theme'))).toBe(other);
   await expect(page.locator(`.fp [data-uitheme="${other}"]`)).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('.fp .rs-presets button')).toHaveCount(3);
+  // О программе — карточкой в «Параметрах» (в браузере сборки нет); строки сборки внизу разделов больше нет.
+  // «Лицензии» из карточки — в свой раздел
+  await expect(page.locator('.fp-about')).toContainText('Slideria');
+  await expect(page.locator('.fp-about')).toContainText('Открыта в браузере');
+  await expect(page.locator('.fp-build')).toHaveCount(0);
+  await page.locator('.fp-about [data-fs="licenses"]').click();
+  await expect(page.locator('.fp #fp-t-licenses')).toHaveAttribute('aria-selected', 'true');
+  await page.locator('.fp [data-fs="prefs"]').click();
   // T — тема и в разделе, как в студии; выбор в «Теме» следует за ней
   await page.locator('.fp [data-fs="prefs"]').focus();
   await page.keyboard.press('t');

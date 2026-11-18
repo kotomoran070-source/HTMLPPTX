@@ -22,6 +22,7 @@ import { clock } from '../engine/editor/editor';
 import type { PointKind } from '../engine/editor/persist';
 import { plural } from '../engine/editor/font-picker';
 import { esc } from '../engine/html';
+import { brandMark } from '../engine/brand';
 import { licensesSummary, loadLicenses, mountLicenses, newLicensesState } from '../engine/licenses-view';
 import { agentLook, agentMark, canRevert, edits, type JournalEntry } from './integrations';
 import { onThemeChange } from '../engine/theme';
@@ -85,7 +86,8 @@ export interface FileHost {
   /** «Интеграции» — только со своим сервером; mount рисует раздел в el, live — агент на связи */
   integrations: { enabled(): boolean; mount(el: HTMLElement): void; live(): boolean };
   /** «Slideria 1.4 · сборка от …» (запуск из проекта — без сборки); пусто вне программы */
-  build(): string;
+  /** Сборка программы (в браузере — null) */
+  build(): { version?: string; date?: string; commit?: string } | null;
   /** Раздел открылся или закрылся */
   toggled(open: boolean): void;
 }
@@ -123,6 +125,11 @@ const dayOf = (t: number) => {
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', ...(d.getFullYear() !== today.getFullYear() ? { year: 'numeric' } : {}) });
 };
 
+/** Ответ сервера — не дольше ms: зависший запрос не держит раздел пустым */
+function within<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([p, new Promise<never>((_, no) => { setTimeout(() => no(new Error('сервер не ответил')), ms); })]);
+}
+
 export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElement): {
   /** at — показать часть раздела: «qat» — настройку панели быстрого доступа в «Параметрах» */
   open(section?: FileSection, at?: 'qat'): void;
@@ -153,7 +160,6 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     <div class="fp-hr"></div>
     <a class="fp-i" href="./?all">${icon('grid')}<span>Все презентации</span></a>
     <button type="button" class="fp-i" id="fp-t-licenses" data-fs="licenses" aria-controls="fp-main" aria-selected="false" tabindex="-1">${icon('shield')}<span>Лицензии</span></button>
-    <div class="fp-build"></div>
   </nav>
   <main class="fp-main" id="fp-main" role="tabpanel" tabindex="-1"></main>`;
   app.append(root);
@@ -162,9 +168,30 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
   // ---------------- разделы ----------------
 
   let summary: Summary | null = null;
+  /** Сводка, досчитанная после того, как раздел нарисовали без неё, или её ошибка — для следующей отрисовки */
+  let fresh: Summary | null = null;
+  let failed: Error | null = null;
   async function infoHtml(): Promise<string> {
-    // Сводка — каждый раз заново: презентация могла поменяться (файлы — запрос к серверу)
-    const s = summary = await collectSummary(host.tools);
+    if (failed) {
+      const e = failed;
+      failed = null;
+      throw e;
+    }
+    // Сводка — каждый раз заново: презентация могла поменяться. Файлы — запрос к серверу: если он не ответил
+    // за долю секунды (занят сохранением или экспортом), раздел рисуется сразу, сводка дорисовывается следом.
+    // Раньше раздел ждал ответа пустым, и Esc не работал — фокус ещё не перешёл в него
+    let s = fresh;
+    fresh = null;
+    if (!s) {
+      const job = collectSummary(host.tools);
+      s = await Promise.race([job, new Promise<null>((r) => { setTimeout(() => r(null), 600); })]);
+      if (!s) {
+        void job.then((v) => { fresh = v; }, (e: Error) => { failed = e; })
+          .then(() => { if (!root.hidden && section === 'info') void render(); });
+        return '<header class="fp-head"><h2>Сведения</h2><p>Что внутри презентации и где она лежит</p></header><p class="fp-wait">Сведения собираются…</p>';
+      }
+    }
+    summary = s;
     const d = deck();
     const tile = (v: string, l: string) => `<div class="fp-card fp-tile"><b>${v}</b><span>${l}</span></div>`;
     const slideLink = (i: number) => `<button type="button" class="fp-link" data-go="${i}">слайд ${i + 1}</button>`;
@@ -246,7 +273,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     if (ed.mode !== 'project') {
       return `${head}<div class="fp-card fp-empty">${icon('clock')}<div><span class="fp-sw-t">Версии — у презентаций из папки программы</span><small>Файл открыт с диска, изменения сохраняются в него по Ctrl+S</small></div></div>`;
     }
-    const [pts, journal] = await Promise.all([ed.checkpoints(), host.history?.journal().catch(() => []) ?? Promise.resolve([])]);
+    const [pts, journal] = await within(Promise.all([ed.checkpoints(), host.history?.journal().catch(() => []) ?? Promise.resolve([])]), 8000);
     points = pts;
     const st = ed.statusInfo;
     const last = points[0];
@@ -338,7 +365,17 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
       <section class="fp-voice-sec"><h3 class="fp-k">Голосовой ввод</h3><div class="fp-card fp-list fp-voice">${voiceRow(voice, voiceAsk)}</div></section>
       <section id="fp-qat-sec"><h3 class="fp-k">Панель быстрого доступа</h3><div class="fp-qat"></div></section>
       <section><h3 class="fp-k">Лента</h3><div class="fp-ribbon"></div></section>
+      <section><h3 class="fp-k">О программе</h3>${aboutHtml()}</section>
     </div>`;
+  }
+
+  /** О программе: знак, версия и сборка (установленная программа — снимок кода на день сборки), «Лицензии» */
+  function aboutHtml(): string {
+    const b = host.build();
+    const built = b?.date ? `Сборка от ${esc(b.date)}${b.commit ? ` · ${esc(b.commit)}` : ''}` : b ? 'Запущена из проекта — код всегда свежий' : 'Открыта в браузере';
+    return `<div class="fp-card fp-about"><span class="fp-about-mark">${brandMark()}</span>
+      <div class="fp-about-t"><b>Slideria</b><span>${b?.version ? `Версия ${esc(b.version)}` : 'Презентации как данные'}</span><small>${built}</small></div>
+      <button type="button" class="fp-btn" data-fs="licenses">${icon('shield')}Лицензии</button></div>`;
   }
 
   // Голосовой ввод (server/voice.ts): модель распознавания речи — установлена ли и сколько занимает, «Удалить модель»
@@ -407,12 +444,18 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     const int = root.querySelector<HTMLButtonElement>('[data-fs="int"]')!;
     int.disabled = !host.integrations.enabled();
     int.classList.toggle('live', host.integrations.live());
-    root.querySelector('.fp-build')!.textContent = host.build();
-    const html = section === 'info' ? await infoHtml()
-      : section === 'versions' ? await versionsHtml()
-        : section === 'export' ? exportHtml()
-          : section === 'licenses' ? '<div class="fp-head"><h2>Лицензии</h2><p class="fp-lic-sum">&nbsp;</p></div><div class="fp-lic"></div>'
-            : section === 'int' ? '<div class="fp-int"></div>' : prefsHtml();
+    let html: string;
+    try {
+      html = section === 'info' ? await infoHtml()
+        : section === 'versions' ? await versionsHtml()
+          : section === 'export' ? exportHtml()
+            : section === 'licenses' ? '<div class="fp-head"><h2>Лицензии</h2><p class="fp-lic-sum">&nbsp;</p></div><div class="fp-lic"></div>'
+              : section === 'int' ? '<div class="fp-int"></div>' : prefsHtml();
+    } catch (e) {
+      // Раздел не собрался (сервер не ответил, ошибка в данных) — сказать об этом, а не оставить пустое место
+      const name = SECTIONS.find(([id]) => id === section)?.[2] ?? 'Раздел';
+      html = `<header class="fp-head"><h2>${esc(name)}</h2></header><div class="fp-card fp-fail"><p>Раздел не открылся: ${esc((e as Error)?.message || String(e))}</p><button type="button" class="fp-btn" data-a="retry">Повторить</button></div>`;
+    }
     // Пока считалось, выбрали другой раздел или закрыли
     if (n !== drawn || root.hidden) return;
     // Тот же раздел перерисовывается на месте (выбор, тема, сохранение): без появления и с той же прокруткой
@@ -471,6 +514,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
       document.body.classList.add('fp-open');
       button.setAttribute('aria-expanded', 'true');
       host.toggled(true);
+      root.querySelector<HTMLElement>(`[data-fs="${section}"]`)?.focus({ preventScroll: true });
     }
     void render().then(() => {
       if (!was || !root.contains(document.activeElement)) root.querySelector<HTMLElement>(`[data-fs="${section}"]`)?.focus({ preventScroll: true });
@@ -507,6 +551,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     }
     if (d.fs) { section = d.fs as FileSection; void render(); return; }
     if (d.a === 'close') return close();
+    if (d.a === 'retry') { void render(); return; }
     if (d.a === 'reveal') return host.reveal?.();
     if (d.a === 'export') {
       const mode = format;
@@ -639,10 +684,12 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     }
     if (e.key !== 'Tab') e.stopPropagation();
   });
-  // Фокус потерялся (кнопку перерисовали или выключили) и ушёл на страницу — клавиши всё равно у «Файла»:
-  // Esc закрывает, Tab возвращает в раздел, до слайдов ничего не доходит
+  // Фокус вне раздела (потерялся при перерисовке, остался на «Файле» в шапке) — клавиши всё равно у «Файла»:
+  // Esc закрывает, Tab возвращает в раздел, до слайдов ничего не доходит. Поля ввода вне раздела (название
+  // в полосе заголовка программы) работают как обычно
   document.addEventListener('keydown', (e) => {
-    if (root.hidden || fading || (e.target !== document.body && e.target !== document.documentElement)) return;
+    const t = e.target as HTMLElement;
+    if (root.hidden || fading || root.contains(t) || t.closest?.('input, textarea, select, [contenteditable="true"]')) return;
     e.stopPropagation();
     if (e.key === 'Escape') { e.preventDefault(); close(); return; }
     if (e.key === 'Tab') { e.preventDefault(); root.querySelector<HTMLElement>(`[data-fs="${section}"]`)?.focus(); }

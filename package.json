@@ -1,6 +1,6 @@
 {
   "name": "slideria",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Slideria — движок HTML-презентаций: презентация как данные, библиотека компонентов, сборка в один HTML-файл",
   "type": "module",
@@ -120,7 +120,8 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "Slideria"
+      "shortcutName": "Slideria",
+    "uninstallDisplayName": "Slideria"
     },
     "mac": {
       "icon": "desktop/icon.png",

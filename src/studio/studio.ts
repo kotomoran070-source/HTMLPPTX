@@ -2198,10 +2198,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     licenses: { enabled: () => location.protocol.startsWith('http') },
     integrations: { enabled: () => location.protocol.startsWith('http'), mount: (el) => void integrations.mount(el), live: () => integrations.live() },
     history: location.protocol.startsWith('http') ? { journal: integrations.journal, revert: integrations.revert, log: () => integrations.open('log') } : undefined,
-    build: () => {
-      const b = appApi?.build;
-      return b ? `Slideria ${b.version ?? ''}${b.date ? ` · сборка от ${b.date}` : ''}` : '';
-    },
+    build: () => appApi?.build ?? null,
     toggled: (open) => {
       fileBtn.classList.toggle('on', open);
       // Подсказка о правке агента — на слайдах; в «Файле» то же видно в «Версиях» и журнале

@@ -89,7 +89,7 @@ yarn app:build
 ### Шаг 4. Проверить
 
 ```powershell
-Get-AuthenticodeSignature "dist-app\Slideria Setup 0.1.0.exe" | Format-List Status, StatusMessage, SignerCertificate, TimeStamperCertificate
+Get-AuthenticodeSignature "dist-app\Slideria Setup 1.0.0.exe" | Format-List Status, StatusMessage, SignerCertificate, TimeStamperCertificate
 ```
 
 | Status | Что значит |
