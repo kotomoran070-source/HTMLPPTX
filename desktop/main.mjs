@@ -620,7 +620,7 @@ function createWindow() {
       if (!splash.webContents.isDestroyed()) splash.webContents.close();
     };
     const left = splash.webContents.executeJavaScript('done()').catch(() => {});
-    // Заставка держится не меньше 1 с от начала и уходит 0,34 с: слой убирается, когда она ушла, — не позже 3 с
+    // Заставка держится не меньше 1,5 с от начала и уходит 0,5 с: слой убирается, когда она ушла, — не позже 3 с
     void Promise.race([left, new Promise((r) => setTimeout(r, 3000))]).then(remove);
   };
   win.webContents.ipc.on('slideria:ready', drop);
