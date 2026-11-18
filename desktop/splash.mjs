@@ -118,12 +118,14 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden}
 .w{margin-top:1.1em;display:flex;font-size:2.1em;font-weight:650;letter-spacing:-.02em}
 .w span{display:inline-block}
 .on .w span{animation:rise .4s cubic-bezier(.2,.8,.2,1) calc(.2s + var(--i) * .022s) both}
-.bar{position:relative;margin-top:1.15em;width:9.5em;height:3px;border-radius:2px;background:${c.track};overflow:hidden}
+/* Без overflow:hidden: подпись висит под полоской и обрезалась бы ею; заливку обрезает сама заливка (i) */
+.bar{position:relative;margin-top:1.15em;width:9.5em;height:3px;border-radius:2px;background:${c.track}}
 .on .bar{animation:show .3s ease-out .3s both}
 /* Полоска: длина — от шагов запуска; цвет бежит сдвигом полосы вдвое длиннее, а не перерисовкой */
 .bar i{position:absolute;inset:0;overflow:hidden;transform-origin:left;transform:scaleX(var(--p,0));border-radius:inherit}
 .bar b{position:absolute;inset:0 auto 0 0;width:400%;background:linear-gradient(90deg,#818CF8,#2563EB,#EC4899) 0 0/50% 100%;animation:shim 1.6s linear infinite}
-.n{position:absolute;top:calc(100% + 1em);left:50%;transform:translateX(-50%);white-space:nowrap;font-size:.95em;font-weight:500;color:${c.mu};opacity:0;transition:opacity .25s}
+/* Подпись — свой слой, нарисованный заранее (.001, как части вступления): проявляется без перерисовки */
+.n{position:absolute;top:calc(100% + 1em);left:50%;transform:translateX(-50%);white-space:nowrap;font-size:.95em;font-weight:500;color:${c.mu};opacity:.001;transition:opacity .25s;will-change:opacity}
 .long .n{opacity:1}
 /* Уход: слайды разлетаются, знак чуть приближается и гаснет, заставка растворяется */
 .out .s1{animation:s1out .46s cubic-bezier(.5,0,.2,1) forwards,hide .34s ease-in .1s forwards}
