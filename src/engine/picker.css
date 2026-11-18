@@ -1,27 +1,43 @@
 /* Страница выбора: шапка (поиск, импорт, создать, тема) → «Продолжить работу» (последняя презентация с лентой
    слайдов) → библиотека: колоды по группам времени или список → подсказки. Во всю ширину окна: на широком
-   экране — больше колод в ряд. Шрифты — из программы (Unbounded — заголовки, Onest — остальное) */
+   экране — больше колод в ряд.
+   Облик — как у студии («Острова»): тонированная подложка с отливами в цвет акцента, «Продолжить работу» и список —
+   острова, кнопки и поле — светлые плашки на подложке. Шрифт — Onest, как в студии (Unbounded — только у
+   страницы лицензий, --pk-display) */
 @font-face { font-family: "SL Display"; src: url("../fonts/Unbounded.woff2") format("woff2"); font-weight: 200 900; font-display: block; }
 @font-face { font-family: "SL Text"; src: url("../fonts/Onest.woff2") format("woff2"); font-weight: 100 900; font-display: block; }
 body.picker-page {
   --pk-display: "SL Display", system-ui, sans-serif;
   --pk-text: "SL Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --pk-back1: #E2E7F1; --pk-back2: #D3DAE8; --pk-top: rgba(99, 102, 241, .10);
-  --pk-shadow: 0 1px 2px rgba(11, 18, 34, .06), 0 10px 30px -14px rgba(11, 18, 34, .22);
+  --pk-back1: #E2E7F1; --pk-back2: #D3DAE8;
   --pk-ease: cubic-bezier(.2, .8, .2, 1);
-  /* Кнопки, поле поиска, переключатели: фон, обводка, они же при наведении; выбранное в переключателе */
-  --pk-ctl: var(--surf); --pk-ctl-bd: var(--bd); --pk-ctl-h: color-mix(in srgb, var(--tx) 4%, var(--surf)); --pk-ctl-bdh: var(--bd2);
-  --pk-seg: color-mix(in srgb, var(--alt) 85%, transparent); --pk-pill: var(--surf); --pk-pill-bd: var(--bd);
+  /* Подложка, острова (фон, кромка, тень), линии между строками, строка под мышью — те же, что у студии */
+  --pk-ground: #ECEFF5; --pk-glow: color-mix(in srgb, var(--ac) 17%, #fff); --pk-glow2: #E9E2FF;
+  --pk-isl: #FCFDFE; --pk-isl-bd: rgba(255, 255, 255, .9); --pk-isl-sh: 0 1px 2px rgba(16, 24, 40, .04), 0 12px 30px -16px rgba(16, 24, 40, .14);
+  --pk-line: rgba(15, 23, 42, .06); --pk-hov: rgba(15, 23, 42, .045);
+  /* Кнопки, поле поиска, переключатели — плашки: фон, кромка, тень, фон при наведении */
+  --pk-chip: rgba(255, 255, 255, .55); --pk-chip-bd: rgba(255, 255, 255, .8); --pk-chip-on: #fff; --pk-chip-sh: 0 1px 2px rgba(15, 23, 42, .08), 0 4px 12px rgba(15, 23, 42, .06);
+  /* Обводка подсказки Ctrl K и рамка поля при наведении */
+  --pk-ctl-bd: var(--bd); --pk-ctl-bdh: var(--bd2);
   /* «Показ» и «⋯» поверх слайда на колоде: светлое стекло в светлой теме, тёмное — в тёмной */
   --pk-float: rgba(255, 255, 255, .86); --pk-float-tx: var(--tx); --pk-float-tri: var(--ac); --pk-float-ring: rgba(15, 23, 42, .1); --pk-float-sh: 0 6px 16px -8px rgba(15, 23, 42, .4);
   --pk-float-h: #fff; --pk-float-ringh: rgba(15, 23, 42, .24);
-  background: radial-gradient(1200px 440px at 50% -140px, var(--pk-top), transparent 70%), var(--bg);
+  background: radial-gradient(900px 520px at 78% -12%, var(--pk-glow), transparent 62%),
+    radial-gradient(760px 480px at -6% 104%, var(--pk-glow2), transparent 60%), var(--pk-ground);
   color: var(--tx); font: 400 14.5px/1.45 var(--pk-text); letter-spacing: -.005em;
 }
-:root[data-theme="dark"] body.picker-page { --pk-back1: #1B2539; --pk-back2: #212D45; --pk-top: rgba(99, 102, 241, .22); --pk-shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 14px 34px -16px rgba(0, 0, 0, .8);
-  --pk-ctl: rgba(148, 163, 184, .08); --pk-ctl-bd: rgba(148, 163, 184, .22); --pk-ctl-h: rgba(148, 163, 184, .15); --pk-ctl-bdh: rgba(148, 163, 184, .38); --pk-seg: rgba(148, 163, 184, .05); --pk-pill: rgba(148, 163, 184, .18); --pk-pill-bd: rgba(148, 163, 184, .3); --pk-float: rgba(11, 18, 34, .66); --pk-float-tx: #fff; --pk-float-tri: #fff; --pk-float-ring: rgba(255, 255, 255, .18); --pk-float-sh: 0 6px 16px -6px rgba(0, 0, 0, .55); --pk-float-h: rgba(15, 23, 42, .92); --pk-float-ringh: rgba(255, 255, 255, .5); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) body.picker-page { --pk-back1: #1B2539; --pk-back2: #212D45; --pk-top: rgba(99, 102, 241, .22); --pk-shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 14px 34px -16px rgba(0, 0, 0, .8);
-  --pk-ctl: rgba(148, 163, 184, .08); --pk-ctl-bd: rgba(148, 163, 184, .22); --pk-ctl-h: rgba(148, 163, 184, .15); --pk-ctl-bdh: rgba(148, 163, 184, .38); --pk-seg: rgba(148, 163, 184, .05); --pk-pill: rgba(148, 163, 184, .18); --pk-pill-bd: rgba(148, 163, 184, .3); --pk-float: rgba(11, 18, 34, .66); --pk-float-tx: #fff; --pk-float-tri: #fff; --pk-float-ring: rgba(255, 255, 255, .18); --pk-float-sh: 0 6px 16px -6px rgba(0, 0, 0, .55); --pk-float-h: rgba(15, 23, 42, .92); --pk-float-ringh: rgba(255, 255, 255, .5); } }
+:root[data-theme="dark"] body.picker-page { --pk-back1: #1B2539; --pk-back2: #212D45;
+  --pk-ground: #0A101D; --pk-glow: color-mix(in srgb, var(--ac) 22%, transparent); --pk-glow2: rgba(139, 92, 246, .17);
+  --pk-isl: #121B2C; --pk-isl-bd: rgba(255, 255, 255, .06); --pk-isl-sh: inset 0 1px 0 rgba(255, 255, 255, .04), 0 14px 32px -18px rgba(0, 0, 0, .7);
+  --pk-line: rgba(255, 255, 255, .06); --pk-hov: rgba(255, 255, 255, .05);
+  --pk-chip: rgba(255, 255, 255, .04); --pk-chip-bd: rgba(255, 255, 255, .06); --pk-chip-on: #1E2A44; --pk-chip-sh: 0 1px 2px rgba(0, 0, 0, .3);
+  --pk-ctl-bd: rgba(148, 163, 184, .22); --pk-ctl-bdh: rgba(148, 163, 184, .38); --pk-float: rgba(11, 18, 34, .66); --pk-float-tx: #fff; --pk-float-tri: #fff; --pk-float-ring: rgba(255, 255, 255, .18); --pk-float-sh: 0 6px 16px -6px rgba(0, 0, 0, .55); --pk-float-h: rgba(15, 23, 42, .92); --pk-float-ringh: rgba(255, 255, 255, .5); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) body.picker-page { --pk-back1: #1B2539; --pk-back2: #212D45;
+  --pk-ground: #0A101D; --pk-glow: color-mix(in srgb, var(--ac) 22%, transparent); --pk-glow2: rgba(139, 92, 246, .17);
+  --pk-isl: #121B2C; --pk-isl-bd: rgba(255, 255, 255, .06); --pk-isl-sh: inset 0 1px 0 rgba(255, 255, 255, .04), 0 14px 32px -18px rgba(0, 0, 0, .7);
+  --pk-line: rgba(255, 255, 255, .06); --pk-hov: rgba(255, 255, 255, .05);
+  --pk-chip: rgba(255, 255, 255, .04); --pk-chip-bd: rgba(255, 255, 255, .06); --pk-chip-on: #1E2A44; --pk-chip-sh: 0 1px 2px rgba(0, 0, 0, .3);
+  --pk-ctl-bd: rgba(148, 163, 184, .22); --pk-ctl-bdh: rgba(148, 163, 184, .38); --pk-float: rgba(11, 18, 34, .66); --pk-float-tx: #fff; --pk-float-tri: #fff; --pk-float-ring: rgba(255, 255, 255, .18); --pk-float-sh: 0 6px 16px -6px rgba(0, 0, 0, .55); --pk-float-h: rgba(15, 23, 42, .92); --pk-float-ringh: rgba(255, 255, 255, .5); } }
 .pk { min-height: 100vh; display: flex; flex-direction: column; }
 /* Прокрутка к карточке (фокус, поиск) — не под липкую шапку */
 html:has(> body.picker-page) { scroll-padding-top: 84px; }
@@ -34,10 +50,17 @@ html:has(> body.picker-page) { scroll-padding-top: 84px; }
 .pk-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 
 /* ---------- шапка ---------- */
-.pk-top { position: sticky; top: 0; z-index: 10; backdrop-filter: blur(14px) saturate(1.3); background: color-mix(in srgb, var(--bg) 72%, transparent); border-bottom: 1px solid transparent; transition: border-color .25s; }
-.pk-top.scrolled { border-bottom-color: var(--bd); }
+.pk-top { position: sticky; top: 0; z-index: 10; }
+/* Линия под шапкой, когда страница прокручена, — отдельной полоской, проявляется прозрачностью: переход цвета
+   рамки перерисовывал всю шапку с плашками на каждом кадре (вдвое дороже прокрутка) */
+.pk-top::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--pk-line); opacity: 0; transition: opacity .25s; pointer-events: none; }
+.pk-top.scrolled::after { opacity: 1; }
+/* Шапка — прямо на подложке (отливы видны и за ней); стекло — только когда под неё уходит страница */
+.pk-top.scrolled { backdrop-filter: blur(14px) saturate(1.3); background: color-mix(in srgb, var(--pk-ground) 78%, transparent); }
+/* В программе шапка неподвижна и страница под неё не уходит: стекло не нужно */
+.app-frame .pk-top.scrolled { backdrop-filter: none; background: none; }
 .pk-bar { display: flex; align-items: center; gap: 16px; padding-block: 14px; }
-.pk-brand { display: flex; align-items: center; gap: 11px; flex: none; font: 600 16px var(--pk-display); letter-spacing: -.01em; color: var(--tx); }
+.pk-brand { display: flex; align-items: center; gap: 11px; flex: none; font: 700 16px var(--pk-text); letter-spacing: -.02em; color: var(--tx); }
 /* Знак — в цвете темы интерфейса (как в студии): светлее акцента → акцент → темнее второго цвета */
 .pk-mark { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; color: var(--on-ac, #fff);
   background: linear-gradient(135deg, color-mix(in srgb, var(--ac) 70%, #fff), var(--ac) 45%, color-mix(in srgb, var(--ac2, var(--ac)) 85%, #000));
@@ -45,25 +68,26 @@ html:has(> body.picker-page) { scroll-padding-top: 84px; }
 .pk-mark .brand-mark { width: 20px; height: 20px; }
 .pk-search { flex: 1; max-width: 520px; margin-inline: auto; position: relative; display: block; }
 .pk-search > .ic { position: absolute; left: 14px; top: 50%; translate: 0 -50%; color: var(--mu); pointer-events: none; }
-.pk-search input { width: 100%; box-sizing: border-box; height: 38px; padding: 0 70px 0 40px; border: 1px solid var(--pk-ctl-bd); border-radius: 8px; background: var(--pk-ctl); color: var(--tx); font-size: 14.5px; outline: none; transition: border-color .15s, box-shadow .15s, background .15s; }
-.pk-search input:hover { border-color: var(--pk-ctl-bdh); }
+.pk-search input { width: 100%; box-sizing: border-box; height: 38px; padding: 0 70px 0 40px; border: 1px solid var(--pk-chip-bd); border-radius: 8px; background: var(--pk-chip); box-shadow: var(--pk-chip-sh); color: var(--tx); font-size: 14.5px; outline: none; }
+.pk-search input:hover { background: var(--pk-chip-on); }
 .pk-search input::placeholder { color: var(--mu); }
-.pk-search input:focus { border-color: var(--ac); background: var(--surf); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ac) 16%, transparent); }
+.pk-search input:focus { border-color: var(--ac); background: var(--pk-chip-on); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ac) 16%, transparent); }
 .pk-search kbd { position: absolute; right: 12px; top: 50%; translate: 0 -50%; font: 600 11px var(--pk-text); color: var(--mu); border: 1px solid var(--pk-ctl-bd); border-radius: 6px; padding: 2px 6px; pointer-events: none; transition: opacity .15s; }
 .pk-search input:focus + kbd, .pk-search input:not(:placeholder-shown) + kbd { opacity: 0; }
 .pk-search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }
 .pk-clear { position: absolute; right: 7px; top: 50%; translate: 0 -50%; width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--tx2); cursor: pointer; transition: background .15s, color .15s; }
 .pk-clear[hidden] { display: none; }
 .pk-clear .ic { width: 14px; height: 14px; stroke-width: 2.2; }
-.pk-clear:hover { background: var(--pk-ctl-h); color: var(--tx); }
+.pk-clear:hover { background: var(--pk-hov); color: var(--tx); }
 .pk-search input:not(:placeholder-shown) { padding-right: 38px; }
 .pk-acts { display: flex; align-items: center; gap: 8px; flex: none; }
-.pk-btn { height: 38px; padding: 0 15px; border-radius: 8px; border: 1px solid var(--pk-ctl-bd); background: var(--pk-ctl); color: var(--tx); display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14.5px; text-decoration: none; cursor: pointer; white-space: nowrap; transition: border-color .15s, background .15s, transform .15s, box-shadow .15s; }
-.pk-btn:not(.go):hover { border-color: var(--pk-ctl-bdh); background: var(--pk-ctl-h); }
+.pk-btn { height: 38px; padding: 0 15px; border-radius: 8px; border: 1px solid var(--pk-chip-bd); background: var(--pk-chip); box-shadow: var(--pk-chip-sh); color: var(--tx); display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14.5px; text-decoration: none; cursor: pointer; white-space: nowrap; }
+.pk-btn:not(.go):hover { background: var(--pk-chip-on); }
 .pk :is(.pk-btn, .pk-play, .pk-rplay, .pk-seg button) > span { text-box: trim-both cap alphabetic; }
 .pk-btn small { color: var(--mu); font-weight: 500; font-size: 13px; }
-.pk-btn.go { color: #fff; border-color: transparent; background: linear-gradient(135deg, #4F8BFA, #2563EB 55%, #1D4ED8); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 8px 20px -8px rgba(37, 99, 235, .8); }
-.pk-btn.go:hover { transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 12px 26px -10px rgba(37, 99, 235, .9); }
+/* «Создать» и «Открыть» — в цвете интерфейса, как «Показ» в студии; при наведении — темнее */
+.pk-btn.go { color: var(--on-ac, #fff); border-color: transparent; background: linear-gradient(180deg, color-mix(in srgb, var(--ac) 82%, #fff), var(--ac)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), 0 6px 16px -4px color-mix(in srgb, var(--ac) 55%, transparent); }
+.pk-btn.go:hover { background: linear-gradient(180deg, var(--ac), color-mix(in srgb, var(--ac) 85%, #000)); }
 .pk-btn .pk-tri { color: var(--ac); }
 .pk-ibtn { width: 38px; padding: 0; justify-content: center; color: var(--ac); }
 
@@ -84,7 +108,7 @@ html:has(> body.picker-page) { scroll-padding-top: 84px; }
 .app-frame .pk-mark { width: 28px; height: 28px; border-radius: 8px; }
 .app-frame .pk-mark .brand-mark { width: 18px; height: 18px; }
 .app-frame .pk-top .pk-acts { order: 0; gap: 6px; }
-.app-frame .pk-top .pk-acts::before { content: ""; width: 1px; height: 18px; margin-right: 10px; background: var(--pk-ctl-bd); }
+.app-frame .pk-top .pk-acts::before { content: ""; width: 1px; height: 18px; margin-right: 10px; background: color-mix(in srgb, var(--tx) 12%, transparent); }
 .app-frame .pk-top .pk-btn { height: 32px; padding: 0 12px; gap: 7px; font-size: 13.5px; }
 .app-frame .pk-top .pk-btn .ic { width: 16px; height: 16px; }
 .app-frame .pk-top .pk-ibtn { width: 32px; padding: 0; }
@@ -99,14 +123,14 @@ html:has(> body.picker-page) { scroll-padding-top: 84px; }
 /* ---------- «Продолжить работу» ---------- */
 .pk-main { flex: 1; padding-block: 24px 48px; }
 .pk-cont { position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: clamp(24px, 2.6vw, 48px); align-items: center; padding: 22px 26px; padding-top: 32px;
-  border: 1px solid var(--bd); border-radius: 12px; background: linear-gradient(180deg, color-mix(in srgb, var(--surf) 92%, transparent), color-mix(in srgb, var(--surf) 70%, transparent)); box-shadow: var(--pk-shadow); }
+  border: 1px solid var(--pk-isl-bd); border-radius: 22px; background: var(--pk-isl); box-shadow: var(--pk-isl-sh); }
 .pk-cont[hidden] { display: none; }
-.pk-cont::before { content: ""; position: absolute; inset: -50% 45% 10% -25%; background: radial-gradient(closest-side, var(--glow-soft, rgba(124, 58, 237, .2)), transparent); pointer-events: none; }
+.pk-cont::before { content: ""; position: absolute; inset: -50% 45% 10% -25%; background: radial-gradient(closest-side, var(--glow-soft, rgba(124, 58, 237, .2)), transparent); opacity: .55; pointer-events: none; }
 .pk-cont-stack { display: block; }
 .pk-cont-info { position: relative; min-width: 0; }
 .pk-eyebrow { font: 600 11.5px var(--pk-text); letter-spacing: .12em; text-transform: uppercase; color: var(--ac); display: flex; align-items: center; gap: 8px; }
 .pk-eyebrow::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ac) 20%, transparent); }
-.pk-cont-title { margin: 8px 0 6px; font: 600 clamp(20px, 1.7vw, 28px)/1.15 var(--pk-display); letter-spacing: -.025em; text-wrap: balance; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pk-cont-title { margin: 8px 0 6px; font: 700 clamp(22px, 1.9vw, 30px)/1.15 var(--pk-text); letter-spacing: -.03em; text-wrap: balance; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .pk-cont-meta { color: var(--mu); font-size: 14px; }
 .pk-cont-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 /* Лента всех слайдов: один ряд, листается вбок; у края, за которым есть ещё, — затухание и стрелка (при наведении).
@@ -126,7 +150,7 @@ html:has(> body.picker-page) { scroll-padding-top: 84px; }
 .pk-film-go .ic { width: 16px; height: 16px; }
 .pk-film-wrap.can-l:hover .pk-film-go[data-go="-1"], .pk-film-wrap.can-r:hover .pk-film-go[data-go="1"] { opacity: 1; pointer-events: auto; }
 .pk-film-go:hover { background: var(--pk-float-h); box-shadow: inset 0 0 0 1px var(--pk-float-ringh), var(--pk-float-sh); }
-.pk-film-s .pk-thumb { border-radius: 5px; box-shadow: 0 0 0 1px var(--bd); transition: transform .18s var(--pk-ease), box-shadow .18s; }
+.pk-film-s .pk-thumb { border-radius: 7px; box-shadow: 0 0 0 1px var(--bd); transition: transform .18s var(--pk-ease), box-shadow .18s; }
 .pk-film-s:hover .pk-thumb { transform: translateY(-3px); box-shadow: 0 0 0 1.5px var(--ac), 0 10px 20px -12px rgba(11, 18, 34, .6); }
 .pk-film-s small { display: block; margin-top: 4px; font-size: 11.5px; }
 /* Пока лента или страница прокручивается, миниатюры не ловят курсор: иначе под неподвижной мышью одна за другой
@@ -142,25 +166,25 @@ html:has(> body.picker-page) { scroll-padding-top: 84px; }
 .pk-item:hover .pk-stack::before, .pk-item:focus-within .pk-stack::before, .pk-cont .pk-stack::before { transform: translate(-14px, -9px) rotate(-4.5deg) scale(.95); }
 .pk-item:hover .pk-stack::after, .pk-item:focus-within .pk-stack::after, .pk-cont .pk-stack::after { transform: translate(16px, -12px) rotate(4deg) scale(.9); }
 .pk-item:hover .pk-stack > .pk-thumb, .pk-item:focus-within .pk-stack > .pk-thumb { transform: translateY(-4px); box-shadow: 0 0 0 1px var(--bd2), 0 22px 40px -18px var(--glow, rgba(37, 99, 235, .55)); }
-.pk-cont .pk-stack > .pk-thumb { border-radius: 10px; box-shadow: 0 0 0 1px var(--bd), 0 30px 60px -24px var(--glow, rgba(37, 99, 235, .55)); }
-.pk-cont .pk-stack::before, .pk-cont .pk-stack::after { border-radius: 10px; }
+.pk-cont .pk-stack > .pk-thumb { border-radius: 12px; box-shadow: 0 0 0 1px var(--bd), 0 30px 60px -24px var(--glow, rgba(37, 99, 235, .55)); }
+.pk-cont .pk-stack::before, .pk-cont .pk-stack::after { border-radius: 12px; }
 .pk-cont-stack:hover > .pk-thumb { transform: translateY(-3px); }
 
 /* ---------- библиотека ---------- */
 .pk-lib-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; margin: 34px 0 4px; }
 .pk-cont[hidden] + .pk-lib-head { margin-top: 8px; }
-.pk-lib-head h2 { margin: 0; font: 600 22px var(--pk-display); letter-spacing: -.02em; display: flex; align-items: baseline; gap: 10px; }
+.pk-lib-head h2 { margin: 0; font: 700 24px var(--pk-text); letter-spacing: -.03em; display: flex; align-items: baseline; gap: 10px; }
 .pk-count { font: 600 14px var(--pk-text); color: var(--mu); font-variant-numeric: tabular-nums; }
 .pk-where { margin: 4px 0 0; color: var(--mu); font-size: 13px; }
 .pk-tools { margin-left: auto; display: flex; gap: 10px; align-items: center; }
 .pk-tools[hidden] { display: none; }
-.pk-seg { position: relative; display: flex; padding: 3px; border-radius: 8px; background: var(--pk-seg); border: 1px solid var(--pk-ctl-bd); }
+.pk-seg { position: relative; display: flex; padding: 3px; border-radius: 8px; background: var(--pk-chip); border: 1px solid var(--pk-chip-bd); }
 .pk-seg button { position: relative; z-index: 1; height: 28px; padding: 0 12px; border: 0; border-radius: 6px; background: none; color: var(--mu); font-weight: 600; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: color .2s; }
 .pk-seg button:hover { color: var(--tx2); }
 .pk-seg button[aria-pressed="true"] { color: var(--tx); }
 .pk-seg.pk-icons button { width: 30px; padding: 0; justify-content: center; }
 .pk-seg.pk-icons .ic { width: 16px; height: 16px; }
-.pk-seg-pill { position: absolute; z-index: 0; top: 3px; bottom: 3px; left: 0; width: 0; border-radius: 6px; background: var(--pk-pill); box-shadow: 0 1px 2px rgba(11, 18, 34, .1), 0 0 0 1px var(--pk-pill-bd); transition: transform .26s var(--pk-ease), width .26s var(--pk-ease); }
+.pk-seg-pill { position: absolute; z-index: 0; top: 3px; bottom: 3px; left: 0; width: 0; border-radius: 6px; background: var(--pk-chip-on); box-shadow: var(--pk-chip-sh); transition: transform .26s var(--pk-ease), width .26s var(--pk-ease); }
 .pk-group { margin-top: 26px; }
 .pk-group h3 { margin: 0 0 16px; display: flex; align-items: center; gap: 14px; font: 600 11.5px var(--pk-text); letter-spacing: .14em; text-transform: uppercase; color: var(--mu); }
 .pk-group h3::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--bd), transparent); }
@@ -193,14 +217,19 @@ html:has(> body.picker-page) { scroll-padding-top: 84px; }
 @media (hover: none) { .pk-play, .pk-more { opacity: 1; transform: none; } }
 
 /* ---------- список ---------- */
-.pk-list { margin-top: 20px; border: 1px solid var(--bd); border-radius: 12px; background: color-mix(in srgb, var(--surf) 94%, transparent); box-shadow: var(--pk-shadow); overflow: hidden; }
-.pk-lrow { display: grid; grid-template-columns: 96px minmax(0, 1fr) 90px 170px 130px 150px; align-items: center; gap: 18px; padding: 10px 18px; border-top: 1px solid var(--bd); }
-.pk-lrow:first-child { border-top: 0; }
-.pk-lhead { padding-block: 11px; font: 600 11.5px var(--pk-text); letter-spacing: .1em; text-transform: uppercase; color: var(--mu); background: color-mix(in srgb, var(--alt) 55%, transparent); }
+.pk-list { margin-top: 20px; padding: 4px 8px 8px; border: 1px solid var(--pk-isl-bd); border-radius: 20px; background: var(--pk-isl); box-shadow: var(--pk-isl-sh); overflow: hidden; }
+.pk-lrow { position: relative; display: grid; grid-template-columns: 96px minmax(0, 1fr) 90px 170px 130px 150px; align-items: center; gap: 18px; padding: 10px 18px; border-radius: 12px; }
+/* Линия между строками — отдельной полоской, не рамкой: верхняя рамка у скруглённой строки рисуется кривой,
+   и каждое наведение заново растеризует такие кривые во всех строках рядом (+60 % к наведению по списку) */
+.pk-lrow + .pk-lrow::before { content: ""; position: absolute; left: 14px; right: 14px; top: 0; height: 1px; background: var(--pk-line); pointer-events: none; }
+.pk-lhead { padding-block: 11px; font: 600 11.5px var(--pk-text); letter-spacing: .1em; text-transform: uppercase; color: var(--mu); }
 .pk-lhead [data-k] { cursor: pointer; user-select: none; }
 .pk-lhead [data-k]:hover, .pk-lhead .on { color: var(--tx); }
-.pk-row { cursor: pointer; transition: background .15s, opacity .26s; }
-.pk-row:hover { background: color-mix(in srgb, var(--acs) 55%, transparent); }
+/* Подсветка под мышью — сразу: плавный переход фона перерисовывал строку с миниатюрой на каждом кадре */
+.pk-row { cursor: pointer; transition: opacity .26s; }
+.pk-row:hover { background: var(--pk-hov); }
+/* Строка под мышью — плашкой без линий сверху и снизу */
+.pk-row:hover::before, .pk-row:hover + .pk-row::before { visibility: hidden; }
 .pk-row .pk-stack { width: 96px; }
 .pk-row .pk-stack > .pk-thumb, .pk-row .pk-stack::before { border-radius: 7px; }
 .pk-row .pk-stack::before { transform: translate(0, -4px) scale(.92); }
@@ -213,11 +242,11 @@ html:has(> body.picker-page) { scroll-padding-top: 84px; }
 .pk-none { color: var(--mu); }
 .pk-racts { display: flex; justify-content: flex-end; gap: 6px; opacity: 0; transition: opacity .15s; }
 .pk-row:hover .pk-racts, .pk-row:focus-within .pk-racts { opacity: 1; }
-.pk-rplay { height: 30px; padding: 0 11px 0 9px; border-radius: 8px; border: 1px solid var(--pk-ctl-bd); background: var(--pk-ctl); color: var(--tx); display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; text-decoration: none; }
+.pk-rplay { height: 30px; padding: 0 11px 0 9px; border-radius: 8px; border: 1px solid var(--pk-chip-bd); background: var(--pk-chip); box-shadow: var(--pk-chip-sh); color: var(--tx); display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; text-decoration: none; }
 .pk-rplay .pk-tri { color: var(--ac); width: 12px; height: 12px; }
 .pk-rplay:hover { border-color: var(--ac); color: var(--ac); }
-.pk-racts .pk-more { position: static; opacity: 1; width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--pk-ctl-bd); background: var(--pk-ctl); color: var(--tx); backdrop-filter: none; box-shadow: none; }
-.pk-racts .pk-more:is(:hover, [aria-expanded="true"]) { border-color: var(--pk-ctl-bdh); background: var(--pk-ctl-h); }
+.pk-racts .pk-more { position: static; opacity: 1; width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--pk-chip-bd); background: var(--pk-chip); color: var(--tx); backdrop-filter: none; box-shadow: var(--pk-chip-sh); }
+.pk-racts .pk-more:is(:hover, [aria-expanded="true"]) { background: var(--pk-chip-on); }
 @media (hover: none) { .pk-racts { opacity: 1; } }
 
 /* ---------- миниатюры ---------- */
@@ -260,7 +289,7 @@ html:has(> body.picker-page) { scroll-padding-top: 84px; }
 @keyframes ui-box-out { to { transform: translateY(calc(var(--ui-shift, 6px) * 1.5)) scale(var(--ui-scale, .98)); } }
 .pk-morebar { display: flex; justify-content: center; margin-top: 34px; }
 .pk-empty { margin-top: 26px; display: grid; justify-items: center; gap: 10px; padding: 60px 16px; text-align: center; color: var(--mu); border: 1.5px dashed var(--bd2); border-radius: 12px; }
-.pk-empty b { font: 600 20px var(--pk-display); color: var(--tx); letter-spacing: -.02em; }
+.pk-empty b { font: 700 21px var(--pk-text); color: var(--tx); letter-spacing: -.03em; }
 .pk-empty .pk-acts { margin-top: 8px; }
 .pk-empty-stack { width: 220px; margin-bottom: 14px; }
 .pk-empty .pk-stack::before { transform: translate(-14px, -9px) rotate(-4.5deg) scale(.95); }
@@ -269,7 +298,7 @@ html:has(> body.picker-page) { scroll-padding-top: 84px; }
 .pk-empty-slide .brand-mark { width: 54px; height: 54px; }
 
 /* ---------- подсказки ---------- */
-.pk-foot { display: flex; flex-wrap: wrap; gap: 14px 56px; padding-block: 22px 34px; border-top: 1px solid var(--bd); color: var(--mu); font-size: 13.5px; line-height: 1.6; }
+.pk-foot { display: flex; flex-wrap: wrap; gap: 14px 56px; padding-block: 22px 34px; border-top: 1px solid var(--pk-line); color: var(--mu); font-size: 13.5px; line-height: 1.6; }
 .pk-foot p { margin: 0; flex: 0 1 600px; display: flex; gap: 10px; align-items: flex-start; }
 .pk-foot p .ic { margin-top: 1px; color: var(--ac); }
 .pk-foot .pk-build { flex-basis: 100%; font-size: 12px; opacity: .75; }

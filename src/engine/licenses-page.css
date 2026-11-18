@@ -3,7 +3,7 @@
 body.lc-page { overflow: hidden; }
 .pk.lc { height: 100vh; height: 100dvh; min-height: 0; }
 .app-frame .pk.lc { height: auto; overflow: hidden; }
-.lc .pk-top { border-bottom-color: var(--bd); }
+.lc .pk-top::after { opacity: 1; background: var(--bd); }
 .lc-where { display: flex; align-items: center; gap: 12px; font-size: 13.5px; color: var(--tx2); white-space: nowrap; }
 .lc-where::before { content: ""; width: 1px; height: 18px; background: var(--pk-ctl-bd); }
 .lc-gap { flex: 1; }

@@ -142,19 +142,12 @@ body.studio { scrollbar-color: var(--scroll) transparent; }
 .st-tabs button:focus-visible { outline: 2px solid var(--acb); outline-offset: -2px; }
 .st-top-r { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .st-tabbar + .st-pal { margin-left: 0; }
-/* «Агент» — фиолетовая кнопка с надписью (цвет агента, как в чате); открыт — плотнее */
-.st-agentbtn { display: inline-flex; align-items: center; gap: 7px; flex: none; height: 34px; padding: 0 12px; border: 1px solid rgba(124, 58, 237, .18); border-radius: 10px; background: rgba(245, 243, 255, .9); color: #6D28D9; font: 600 13px var(--font); cursor: pointer; }
+/* «Агент» — кнопка с надписью в цвете темы: светлая подложка акцента и его кромка; открыт — плотнее.
+   Подложка смешана с фоном острова — так же читается и в светлой, и в тёмной теме */
+.st-agentbtn { display: inline-flex; align-items: center; gap: 7px; flex: none; height: 34px; padding: 0 12px; border: 1px solid color-mix(in srgb, var(--ac) 22%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--ac) 7%, var(--isl)); color: var(--ach); font: 600 13px var(--font); cursor: pointer; }
 .st-agentbtn .ic { width: 15px; height: 15px; }
-.st-agentbtn:hover { border-color: rgba(124, 58, 237, .36); background: #F1ECFF; }
-.st-agentbtn[aria-pressed="true"] { border-color: rgba(124, 58, 237, .45); background: #EDE6FF; }
-:root[data-theme="dark"] .st-agentbtn { border-color: rgba(167, 139, 250, .3); background: rgba(124, 58, 237, .14); color: #C4B5FD; }
-:root[data-theme="dark"] .st-agentbtn:hover { border-color: rgba(167, 139, 250, .5); background: rgba(124, 58, 237, .22); }
-:root[data-theme="dark"] .st-agentbtn[aria-pressed="true"] { border-color: rgba(167, 139, 250, .6); background: rgba(124, 58, 237, .28); }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .st-agentbtn { border-color: rgba(167, 139, 250, .3); background: rgba(124, 58, 237, .14); color: #C4B5FD; }
-  :root:not([data-theme="light"]) .st-agentbtn:hover { border-color: rgba(167, 139, 250, .5); background: rgba(124, 58, 237, .22); }
-  :root:not([data-theme="light"]) .st-agentbtn[aria-pressed="true"] { border-color: rgba(167, 139, 250, .6); background: rgba(124, 58, 237, .28); }
-}
+.st-agentbtn:hover { border-color: color-mix(in srgb, var(--ac) 40%, transparent); background: color-mix(in srgb, var(--ac) 11%, var(--isl)); }
+.st-agentbtn[aria-pressed="true"] { border-color: color-mix(in srgb, var(--ac) 50%, transparent); background: color-mix(in srgb, var(--ac) 16%, var(--isl)); }
 /* «Показ» — объёмная акцентная кнопка */
 .st-top-r > .btn.primary { height: 34px; padding: 0 16px 0 13px; border: 0; border-radius: 10px; font-size: 13.5px; background: linear-gradient(180deg, color-mix(in srgb, var(--ac) 82%, #fff), var(--ac)); box-shadow: 0 6px 16px -4px color-mix(in srgb, var(--ac) 55%, transparent), inset 0 1px 0 rgba(255, 255, 255, .25); }
 .st-top-r > .btn.primary:hover { background: linear-gradient(180deg, var(--ac), color-mix(in srgb, var(--ac) 85%, #000)); }
@@ -427,11 +420,9 @@ body.studio { scrollbar-color: var(--scroll) transparent; }
 .st-rb.big .ic { width: 22px; height: 22px; stroke-width: 1.6; color: var(--ac); }
 .st-rb.big > .ic { box-sizing: content-box; padding: 8px; border-radius: 11px; background: color-mix(in srgb, var(--ac) 11%, transparent); }
 /* Блоки — фиолетовая плитка: готовое содержимое, как и агент */
-.st-rb.big[data-cmd="insert.blocks"] > .ic { color: #7C3AED; background: rgba(124, 58, 237, .11); }
 /* Большая кнопка отвечает плашкой значка, как и нажатая: подложка ещё и под всей кнопкой давала рамку в рамке */
 .st-rb.big:hover:not(:disabled) { background: none; color: var(--ach); }
 .st-rb.big:hover:not(:disabled) > .ic { background: color-mix(in srgb, var(--ac) 22%, transparent); }
-.st-rb.big[data-cmd="insert.blocks"]:hover:not(:disabled) > .ic { background: rgba(124, 58, 237, .2); }
 .st-rb.big.active { background: none; border-color: transparent; }
 .st-rb.big.active > .ic { background: var(--ac); color: var(--on-ac, #fff); box-shadow: 0 4px 10px -3px color-mix(in srgb, var(--ac) 60%, transparent); }
 .st-rb:hover:not(:disabled) { background: var(--acs); color: var(--ach); }
