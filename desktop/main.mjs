@@ -565,7 +565,7 @@ app.on('web-contents-created', (_e, wc) => {
 /**
  * Заставка «Колода» (desktop/splash.mjs) — слоем поверх окна, в цвет темы: ни белой вспышки, ни страницы, которая
  * «догружается» на глазах. Полоска на ней идёт по шагам запуска (splashStep), а когда страница нарисована
- * (src/engine/boot.ts → slideria:ready), слайды разлетаются и слой убирается
+ * (src/engine/boot.ts → slideria:ready), заставка растворяется и слой убирается
  */
 const splashSteps = new WeakMap();
 /** Шаг запуска на заставке окна: p — доля пути, k — номер подписи (desktop/splash.mjs, NOTES) */
@@ -620,7 +620,7 @@ function createWindow() {
       if (!splash.webContents.isDestroyed()) splash.webContents.close();
     };
     const left = splash.webContents.executeJavaScript('done()').catch(() => {});
-    // Заставка держится не меньше 1,5 с от начала и уходит 0,6 с: слой убирается, когда она ушла, — не позже 3 с
+    // Заставка держится не меньше 1 с от начала и уходит 0,34 с: слой убирается, когда она ушла, — не позже 3 с
     void Promise.race([left, new Promise((r) => setTimeout(r, 3000))]).then(remove);
   };
   win.webContents.ipc.on('slideria:ready', drop);

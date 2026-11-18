@@ -116,7 +116,7 @@ export function inkTabs(tabs: HTMLElement): void {
   place();
 }
 
-type ViewTransitionDoc = Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
+type ViewTransitionDoc = Document & { startViewTransition?: (cb: () => void) => { ready: Promise<void>; finished: Promise<void> } };
 
 /** Сменить тему интерфейса растворением: старая картинка гаснет над новой за --ui-theme */
 export function themeFade(apply: () => void): void {
@@ -128,5 +128,9 @@ export function themeFade(apply: () => void): void {
   root.classList.add('ui-vt');
   // Класс — прочь при любом исходе; сбой смены темы не оставляет висящего отказа
   const done = () => root.classList.remove('ui-vt');
-  doc.startViewTransition(apply).finished.then(done, done);
+  const vt = doc.startViewTransition(apply);
+  // Смену пропустили (следующая началась раньше, окно скрыли): ready отклоняется AbortError — это не сбой,
+  // сама смена применилась; без обработки отказ уходил в журнал как ошибка страницы
+  vt.ready.catch(() => {});
+  vt.finished.then(done, done);
 }

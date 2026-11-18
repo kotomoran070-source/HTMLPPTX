@@ -281,7 +281,6 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       <span class="st-ftog" role="group" aria-label="Панели">
       <button type="button" class="st-fbtn" data-cmd="view.slides" title="Слайды слева (Ctrl+Shift+1)">${icon('grid')}<span>Слайды</span></button>
       <button type="button" class="st-fbtn" data-cmd="view.props" title="Свойства справа (Ctrl+Shift+2)">${icon('sliders')}<span>Свойства</span></button>
-      <button type="button" class="st-fbtn" data-cmd="agent.toggle" title="Агент справа (Ctrl+J)">${icon('agent')}<span>Агент</span></button>
       <button type="button" class="st-fbtn" data-cmd="view.code" title="Код слайда (Ctrl+\`)">${icon('terminal')}<span>Код</span></button>
       <button type="button" class="st-fbtn" data-cmd="view.notes" title="Заметки докладчика">${icon('notes')}<span>Заметки</span></button>
       </span>

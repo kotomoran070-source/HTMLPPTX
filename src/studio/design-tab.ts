@@ -186,8 +186,9 @@ function dropUnusedThemeFonts(d: Deck): void {
 
 /** Применение с плавной сменой вида (View Transitions), если она есть и движение не отключено */
 function smoothly(fn: () => void): void {
-  const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
-  if (doc.startViewTransition && !reducedMotion()) doc.startViewTransition(fn);
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => { ready: Promise<void> } };
+  // Пропущенная смена (следующая началась раньше) отклоняет ready — это не сбой, оформление применилось
+  if (doc.startViewTransition && !reducedMotion()) doc.startViewTransition(fn).ready.catch(() => {});
   else fn();
 }
 

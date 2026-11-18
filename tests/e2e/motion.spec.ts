@@ -71,6 +71,10 @@ test('полоска под вкладкой переезжает к выбра�
   await expect.poll(() => page.evaluate(() => (window as unknown as { vt: boolean }).vt)).toBe(true);
   await expect.poll(() => page.evaluate(() => document.documentElement.getAttribute('data-theme'))).not.toBe(was);
   await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('ui-vt'))).toBe(false);
+  // Тема несколько раз подряд: следующая смена пропускает предыдущую — это не ошибка страницы (watchErrors)
+  await page.locator('#st-canvas').click({ position: { x: 4, y: 4 } });
+  for (let i = 0; i < 4; i++) await page.keyboard.press('t');
+  await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('ui-vt'))).toBe(false);
 
   // «Уменьшить движение»: меню закрывается без призрака, полоска встаёт сразу
   await page.emulateMedia({ reducedMotion: 'reduce' });

@@ -34,7 +34,9 @@ test('подключение: панель на месте «Свойств», �
   const chat = page.locator('#st-chat');
   await expect(chat).toBeVisible();
   await expect(page.locator('#st-props')).toBeHidden();
-  await expect(page.locator('.st-foot [data-cmd="agent.toggle"]')).toHaveClass(/active/);
+  // «Агент» — только в шапке: нажат, пока чат открыт; в строке состояния его нет
+  await expect(page.locator('.st-top .st-agentbtn')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.st-foot [data-cmd="agent.toggle"]')).toHaveCount(0);
   await expect(chat.locator('.ac-ta')).toBeDisabled();
   await expect(chat.locator('.ac-key')).toContainText('Подключите модель');
   // Без подключения модели в шапке нет
