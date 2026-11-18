@@ -26,6 +26,8 @@ body.studio {
   --pill-sh: 0 1px 2px rgba(15, 23, 42, .08), 0 4px 12px rgba(15, 23, 42, .06);
   --field: #F4F6FA;
   --chip: rgba(255, 255, 255, .72);
+  --hov: rgba(15, 23, 42, .06);
+  --scroll: rgba(15, 23, 42, .22);
   --slide-sh: 0 0 0 1px rgba(15, 23, 42, .05), 0 2px 4px rgba(15, 23, 42, .04), 0 30px 70px -24px color-mix(in srgb, var(--ach) 42%, transparent);
   background: radial-gradient(900px 520px at 78% -12%, var(--st-glow), transparent 62%),
     radial-gradient(760px 480px at -6% 104%, var(--st-glow2), transparent 60%), var(--st-ground);
@@ -45,6 +47,8 @@ body.studio {
   --pill-sh: 0 1px 2px rgba(0, 0, 0, .3);
   --field: #0E1626;
   --chip: rgba(255, 255, 255, .05);
+  --hov: rgba(255, 255, 255, .07);
+  --scroll: rgba(255, 255, 255, .2);
   --slide-sh: 0 0 0 1px rgba(255, 255, 255, .06), 0 2px 4px rgba(0, 0, 0, .3), 0 30px 80px -26px color-mix(in srgb, var(--ac) 45%, transparent);
 }
 @media (prefers-color-scheme: dark) {
@@ -63,11 +67,16 @@ body.studio {
     --pill-sh: 0 1px 2px rgba(0, 0, 0, .3);
     --field: #0E1626;
     --chip: rgba(255, 255, 255, .05);
+    --hov: rgba(255, 255, 255, .07);
+    --scroll: rgba(255, 255, 255, .2);
       --slide-sh: 0 0 0 1px rgba(255, 255, 255, .06), 0 2px 4px rgba(0, 0, 0, .3), 0 30px 80px -26px color-mix(in srgb, var(--ac) 45%, transparent);
   }
 }
 /* Слайды — своим шрифтом: шрифт презентации (.slide[data-fonts], тема) задан сильнее и остаётся как есть */
 :where(body.studio) .slide { --font: var(--font-base); font-family: var(--font); }
+/* Полосы прокрутки — тонкие и в тон подложки: серые системные в скруглённом острове выглядят чужими */
+body.studio { scrollbar-color: var(--scroll) transparent; }
+:is(.st-slides, .st-props, .st-apane-body, .st-canvas, .st-notes textarea, .ac-body) { scrollbar-width: thin; }
 .studio-app { position: fixed; inset: 0; display: grid; grid-template-rows: auto auto auto minmax(0, 1fr) auto; padding: 0 12px; }
 /* Строки: шапка, лента, панель быстрого доступа под лентой (qat.ts — когда она там), рабочая область, строка состояния */
 .studio-app > .st-top { grid-row: 1; }
@@ -102,11 +111,11 @@ body.studio {
 
 /* Шапка */
 .st-top { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 2px; }
-/* Знак — как на странице выбора: фирменная плитка, цвета постоянные (не акцент) */
-.st-home { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 10px; color: #fff; background: linear-gradient(145deg, #7AA7F7, #2F6BEA 52%, #1D4ED8);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 6px 16px -6px rgba(37, 99, 235, .7); transition: box-shadow .15s; }
+/* Знак — плитка в цветах презентации (акцент и второй цвет): студия в её тоне с первого взгляда */
+.st-home { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 10px; color: var(--on-ac, #fff); background: var(--ac-g);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 6px 16px -6px color-mix(in srgb, var(--ac) 70%, transparent); transition: box-shadow .15s, filter .15s; }
 .st-home .ic, .st-home .brand-mark { width: 18px; height: 18px; }
-.st-home:hover { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 8px 20px -6px rgba(37, 99, 235, .85); }
+.st-home:hover { filter: brightness(1.08); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 8px 20px -6px color-mix(in srgb, var(--ac) 85%, transparent); }
 /* Название и «Сохранено» под ним (в программе они — в полосе заголовка окна) */
 .st-doc { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
 .st-title { width: 240px; min-width: 80px; font-weight: 500 !important; font-size: 14px !important; padding: 5px 8px; border: 1px solid transparent; border-radius: 6px; background: none; text-overflow: ellipsis; }
@@ -120,11 +129,13 @@ body.studio {
 /* «Файл» (file-panel.ts): как вкладка — только чуть заметнее; раздел открыт — плашкой, как выбранная вкладка */
 .st-filebtn { position: relative; flex: none; display: flex; align-items: center; height: 30px; margin: 0 9px 0 0; padding: 0 13px; border: 0; border-radius: 9px; background: none; color: var(--tx); font: 600 13.5px var(--font); cursor: pointer; transition: color .15s, background .15s; }
 .st-filebtn::after { content: ""; position: absolute; right: -5px; top: 50%; width: 1px; height: 16px; translate: 0 -50%; background: var(--bd2); opacity: .8; }
-.st-filebtn:hover { background: color-mix(in srgb, var(--pill-on) 60%, transparent); }
+.st-filebtn:hover:not(.on) { background: var(--hov); }
 .st-filebtn.on { color: var(--ach); background: var(--pill-on); box-shadow: var(--pill-sh); }
 .st-filebtn:focus-visible { outline: 2px solid var(--acb); outline-offset: -2px; }
 .st-tabs button { position: relative; z-index: 1; border: 0; border-radius: 9px; background: none; padding: 0 13px; font: 540 13.5px var(--font); color: var(--tx2); white-space: nowrap; cursor: pointer; transition: color .15s, background .15s; }
 .st-tabs button:hover { color: var(--tx); }
+.st-tabs button:hover:not([aria-selected="true"]) { background: var(--hov); }
+.ribbon-min .st-tabs button[aria-selected="true"]:hover { background: var(--hov); }
 .st-tabs button[aria-selected="true"] { color: var(--ach); background: var(--pill-on); box-shadow: var(--pill-sh); }
 .st-tabs button:focus-visible { outline: 2px solid var(--acb); outline-offset: -2px; }
 .st-top-r { margin-left: auto; display: flex; align-items: center; gap: 8px; }
@@ -147,7 +158,7 @@ body.studio {
 .st-top-r > .btn.primary:hover { background: linear-gradient(180deg, var(--ac), color-mix(in srgb, var(--ac) 85%, #000)); }
 /* Тема — простая кнопка-значок, без рамки */
 .st-top-r > .theme-btn { width: 34px; height: 34px; border: 0; border-radius: 10px; background: none; box-shadow: none; color: var(--tx2); }
-.st-top-r > .theme-btn:hover { background: var(--pill); color: var(--tx); }
+.st-top-r > .theme-btn:hover { background: var(--hov); color: var(--tx); }
 .st-top-r .btn .ic { width: 14px; height: 14px; }
 .st-status { border: 0; background: none; font: 12px var(--font); color: var(--mu); white-space: nowrap; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
 /* Щелчок — контрольные точки (Ctrl+S) */
@@ -415,9 +426,9 @@ body.studio {
 .st-rb.big > .ic { box-sizing: content-box; padding: 8px; border-radius: 11px; background: color-mix(in srgb, var(--ac) 11%, transparent); transition: background .12s, color .12s, box-shadow .12s; }
 /* Блоки — фиолетовая плитка: готовое содержимое, как и агент */
 .st-rb.big[data-cmd="insert.blocks"] > .ic { color: #7C3AED; background: rgba(124, 58, 237, .11); }
-.st-rb.big:hover:not(:disabled) { background: none; color: var(--ach); }
-.st-rb.big:hover:not(:disabled) > .ic { background: color-mix(in srgb, var(--ac) 18%, transparent); }
-.st-rb.big[data-cmd="insert.blocks"]:hover:not(:disabled) > .ic { background: rgba(124, 58, 237, .18); }
+.st-rb.big:hover:not(:disabled) { background: color-mix(in srgb, var(--acs) 75%, transparent); color: var(--ach); }
+.st-rb.big:hover:not(:disabled) > .ic { background: color-mix(in srgb, var(--ac) 20%, transparent); }
+.st-rb.big[data-cmd="insert.blocks"]:hover:not(:disabled) > .ic { background: rgba(124, 58, 237, .2); }
 .st-rb.big.active { background: none; border-color: transparent; }
 .st-rb.big.active > .ic { background: var(--ac); color: var(--on-ac, #fff); box-shadow: 0 4px 10px -3px color-mix(in srgb, var(--ac) 60%, transparent); }
 .st-rb:hover:not(:disabled) { background: var(--acs); color: var(--ach); }
@@ -479,7 +490,7 @@ body.studio {
 /* Свёрнутая лента: остаются вкладки, клик по вкладке — развернуть */
 /* Сворачивание ленты: своя кнопка, без отступов и линии вкладок */
 .st-tabs .st-ribbon-toggle { align-self: center; flex: none; margin: 0 0 0 2px; padding: 0; width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--mu); cursor: pointer; transition: background .15s, color .15s; }
-.st-tabs .st-ribbon-toggle:hover { background: color-mix(in srgb, var(--pill-on) 60%, transparent); color: var(--ach); }
+.st-tabs .st-ribbon-toggle:hover { background: var(--hov); color: var(--tx); }
 .st-tabs .st-ribbon-toggle:focus-visible { outline: 2px solid var(--ac); outline-offset: 1px; }
 .st-ribbon-toggle .ic { width: 16px !important; height: 16px !important; stroke-width: 2.2 !important; transition: transform .2s; }
 .ribbon-min .st-ribbon-toggle .ic { transform: rotate(180deg); }
@@ -490,6 +501,17 @@ body.studio {
 /* Миниатюры */
 .st-slides { overflow-y: auto; margin-right: var(--isl-gap); padding: 12px 10px 16px 4px; border: 1px solid var(--isl-bd); border-radius: var(--isl-r); background: var(--isl2); box-shadow: var(--isl-sh); }
 .st-slides-list { display: flex; flex-direction: column; gap: 8px; }
+/* Заголовок ленты: «Слайды», их число и «+». Липкий: при прокрутке остаётся сверху, фон острова под ним
+   закрывает уезжающие миниатюры; поля — до краёв острова (у .st-slides свои отступы) */
+.st-slides-head { position: sticky; top: -12px; z-index: 3; display: flex; align-items: center; gap: 6px; margin: -12px -10px 10px -4px; padding: 12px 10px 8px 16px; background: var(--isl2); }
+/* Миниатюры уходят под заголовок, растворяясь, а не обрезаясь чертой */
+.st-slides-head::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 10px; background: linear-gradient(var(--isl2), transparent); pointer-events: none; }
+.st-slides-head b { font: 600 13.5px var(--font); letter-spacing: -.005em; color: var(--tx); }
+.st-slides-n { font: 500 12px var(--font); color: var(--mu); font-variant-numeric: tabular-nums; }
+.st-slides-plus { display: grid; place-items: center; flex: none; width: 26px; height: 26px; margin-left: auto; padding: 0; border: 0; border-radius: 8px; background: var(--hov); color: var(--tx2); cursor: pointer; transition: background .12s, color .12s; }
+.st-slides-plus .ic { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.st-slides-plus:hover { background: var(--acs); color: var(--ach); }
+.st-slides-plus:focus-visible { outline: 2px solid var(--acb); outline-offset: 1px; }
 .st-thumb { position: relative; display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 4px; padding: 4px 4px 4px 0; border-radius: 8px; cursor: pointer; }
 .st-thumb:focus-visible { outline: none; }
 .st-thumb:focus-visible .st-tbox { outline: 2px solid var(--ac); outline-offset: 5px; }
@@ -501,7 +523,7 @@ body.studio {
 /* Записи с показа (из окна докладчика) — вместо точки карандаш акцентного цвета */
 .st-thumb.has-jots .st-num::after { content: "✎"; width: auto; height: auto; border-radius: 0; background: none; opacity: 1; color: var(--ac); font-size: 13px; font-weight: 600; line-height: 1; margin: 4px 0 0 auto; }
 /* Миниатюра — скруглённая, с тонкой обводкой тенью; у текущей — кольцо акцента с просветом и свечение */
-.st-tbox { border-radius: 9px; overflow: hidden; background: var(--bg); box-shadow: 0 0 0 1px color-mix(in srgb, var(--tx) 9%, transparent), 0 2px 6px rgba(15, 23, 42, .06); transition: box-shadow .15s; }
+.st-tbox { isolation: isolate; border-radius: 9px; overflow: hidden; background: var(--bg); box-shadow: 0 0 0 1px color-mix(in srgb, var(--tx) 9%, transparent), 0 2px 6px rgba(15, 23, 42, .06); transition: box-shadow .15s; }
 .st-tbox .thumb { width: 100%; }
 /*
  * В каждой миниатюре — живой слайд, а их по одной на слайд: тысячи элементов. Прокрученные за край
@@ -511,7 +533,7 @@ body.studio {
 .st-tbox > .thumb, .st-dz-shot > .thumb { content-visibility: auto; contain-intrinsic-size: auto 120px; }
 /* Сколько совпадений поиска на слайде */
 .st-thumb[data-hits]:not(.drop-after)::after { content: attr(data-hits); position: absolute; top: 9px; right: 9px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: #FDE68A; color: #713F12; font: 700 11px/18px var(--font); text-align: center; box-shadow: 0 1px 3px rgb(0 0 0 / .25); pointer-events: none; }
-.st-thumb:hover .st-tbox { box-shadow: 0 0 0 1px var(--acb), 0 2px 6px rgba(15, 23, 42, .06); }
+.st-thumb:hover .st-tbox { box-shadow: 0 0 0 2px var(--acb), 0 2px 6px rgba(15, 23, 42, .06); }
 .st-thumb.cur .st-tbox { box-shadow: 0 0 0 2px var(--isl2), 0 0 0 4px var(--ac), 0 8px 20px -6px color-mix(in srgb, var(--ac) 45%, transparent); }
 .st-thumb.cur .st-num { color: var(--ach); font-weight: 700; }
 /* Меню открыто правым щелчком у этого слайда (не текущего): к нему его команды */
@@ -668,7 +690,8 @@ body.studio .edblock { display: none !important; }
 .st-ftog { padding: 2px; border: 1px solid var(--pill-bd); border-radius: 9px; background: var(--pill); }
 .st-fbtn { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px; border: 0; border-radius: 7px; background: none; font: 500 12px var(--font); color: var(--tx2); cursor: pointer; transition: background .12s, color .12s; }
 .st-fbtn .ic { width: 14px; height: 14px; }
-.st-fbtn:hover { background: color-mix(in srgb, var(--pill-on) 60%, transparent); color: var(--tx); }
+.st-fbtn:hover { background: var(--hov); color: var(--tx); }
+.st-fbtn.active:hover { background: var(--pill-on); color: var(--ach); }
 .st-fbtn.active { color: var(--ach); background: var(--pill-on); box-shadow: var(--pill-sh); }
 .st-zoom-val { min-width: 48px; justify-content: center; font-variant-numeric: tabular-nums; }
 
@@ -840,18 +863,16 @@ button.st-g-n { position: relative; }
 .st-anim-sep { padding: 6px 10px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--mu); background: var(--alt); border-bottom: 1px solid var(--bd); }
 
 /* Фон холста */
-.st-bgs { flex: 1; min-width: 0; display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, auto); grid-auto-columns: calc((100% - 16px) / 3); gap: 8px; padding: 5px; scroll-padding-inline: 5px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; overscroll-behavior-x: contain; }
+.st-bgs { flex: 1; min-width: 0; display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, auto); grid-auto-columns: calc((100% - 12px) / 3); gap: 6px; padding: 3px 2px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; overscroll-behavior-x: contain; }
 .st-bgs::-webkit-scrollbar { display: none; }
 .st-bgs > * { scroll-snap-align: start; }
-.st-bgs button, .st-bg-own { display: flex; flex-direction: column; align-items: stretch; gap: 5px; padding: 0; border: 0; border-radius: 9px; background: none; font: 500 11.5px var(--font); color: var(--tx2); cursor: pointer; text-align: center; }
-.st-bgs i, .st-bg-own i { display: block; height: 36px; border-radius: 9px; outline: 1px solid color-mix(in srgb, var(--tx) 9%, transparent); outline-offset: -1px; transition: box-shadow .15s; }
+.st-bgs button, .st-bg-own { display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 4px; border: 1px solid var(--bd); border-radius: 8px; background: var(--surf); font: 500 11px var(--font); color: var(--tx2); cursor: pointer; text-align: center; }
+.st-bgs i, .st-bg-own i { display: block; height: 30px; border-radius: 5px; border: 1px solid var(--bd); }
 /* Фон темы — уменьшенным, как на миниатюре слайда: узор во всю плитку, а не его кусок */
 .st-bgs i.st-bg-theme { position: relative; overflow: hidden; }
 .st-bgs i.st-bg-theme b { position: absolute; left: 0; top: 0; width: 250%; height: 250%; transform: scale(.4); transform-origin: 0 0; }
-.st-bgs button:hover, .st-bg-own:hover { color: var(--ach); }
-.st-bgs button:focus-visible { outline: 2px solid var(--acb); outline-offset: 2px; }
-.st-bgs button[aria-checked="true"], .st-bg-own.on { color: var(--ach); }
-.st-bgs button[aria-checked="true"] > i, .st-bg-own.on > i { box-shadow: 0 0 0 2px var(--isl), 0 0 0 4px var(--ac); }
+.st-bgs button:hover, .st-bg-own:hover { border-color: var(--acb); }
+.st-bgs button[aria-checked="true"], .st-bg-own.on { border-color: var(--ac); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 22%, transparent); color: var(--ach); }
 .st-bg-own { position: relative; }
 .st-bg-own input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .st-p-note code { font-size: 11px; overflow-wrap: anywhere; }
@@ -1072,16 +1093,13 @@ body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
 .st-bds { grid-template-columns: repeat(4, 1fr); }
 /* Лента анимированных фонов: две строки, листается вбок, по краям — стрелки; плитка 16:9 */
 .st-bdpick { position: relative; display: flex; align-items: center; min-width: 0; }
-.st-bdstrip { flex: 1; min-width: 0; display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, auto); grid-auto-columns: calc((100% - 16px) / 3); gap: 8px; overflow-x: auto; padding: 5px; scroll-padding-inline: 5px; scroll-snap-type: x proximity; scrollbar-width: none; overscroll-behavior-x: contain; }
+.st-bdstrip { flex: 1; min-width: 0; display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, auto); grid-auto-columns: calc((100% - 12px) / 3); gap: 6px; overflow-x: auto; padding: 3px 2px 4px; scroll-snap-type: x proximity; scrollbar-width: none; overscroll-behavior-x: contain; }
 .st-bdstrip::-webkit-scrollbar { display: none; }
-/* Как плитки фона: превью без рамки, у выбранного — кольцо акцента с просветом */
-.st-bdstrip button { display: flex; flex-direction: column; gap: 5px; padding: 0; border: 0; border-radius: 9px; background: none; color: var(--tx2); font: 500 11.5px var(--font); text-align: center; cursor: pointer; scroll-snap-align: start; }
+.st-bdstrip button { display: flex; flex-direction: column; gap: 4px; padding: 3px; border: 1px solid var(--bd); border-radius: 9px; background: var(--surf); color: var(--tx2); font: 500 11px var(--font); text-align: center; cursor: pointer; scroll-snap-align: start; }
 .st-bdstrip button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.st-bdstrip button:hover { color: var(--ach); }
-.st-bdstrip button:focus-visible { outline: 2px solid var(--acb); outline-offset: 2px; }
-.st-bdstrip button[aria-checked="true"] { color: var(--ach); }
-.st-bdstrip i { position: relative; display: block; aspect-ratio: 16 / 9; border-radius: 9px; outline: 1px solid color-mix(in srgb, var(--tx) 9%, transparent); outline-offset: -1px; background-color: var(--bg); overflow: hidden; transition: box-shadow .15s; }
-.st-bdstrip button[aria-checked="true"] > i { box-shadow: 0 0 0 2px var(--isl), 0 0 0 4px var(--ac); }
+.st-bdstrip button:hover { border-color: var(--acb); }
+.st-bdstrip button[aria-checked="true"] { border-color: var(--ac); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ac) 22%, transparent); color: var(--ach); }
+.st-bdstrip i { position: relative; display: block; aspect-ratio: 16 / 9; border-radius: 6px; border: 1px solid var(--bd); background-color: var(--bg); overflow: hidden; }
 .st-bdstrip i.backdrop { inset: auto; z-index: auto; background-color: var(--bg); }
 .st-bdstrip i.bd-still { background: center / cover no-repeat; }
 .st-bdnav { position: absolute; top: calc(50% - 22px); z-index: 1; width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: 1px solid var(--bd); border-radius: 50%; background: var(--surf); color: var(--tx2); box-shadow: 0 2px 6px rgba(2, 6, 23, .15); cursor: pointer; transition: opacity .15s; }
@@ -1090,7 +1108,7 @@ body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
 .st-bdnav.off { opacity: 0; pointer-events: none; }
 .st-bdnav .ic { width: 14px; height: 14px; }
 .st-bdpop { width: 560px; padding: 10px 14px 12px; }
-.st-bdpop .st-bdstrip { grid-auto-columns: calc((100% - 24px) / 4); }
+.st-bdpop .st-bdstrip { grid-auto-columns: calc((100% - 18px) / 4); }
 /* Заметность и скорость фона: компактные ползунки под лентой */
 .st-tune { display: grid; gap: 2px; margin-top: 6px; }
 .st-tune label { display: grid; grid-template-columns: 78px 1fr 40px; align-items: center; gap: 8px; font: 500 12px var(--font); color: var(--tx2); }
@@ -1503,7 +1521,7 @@ body.st-marqueeing, body.st-marqueeing * { user-select: none !important; cursor:
 .st-pal { position: relative; flex: 0 1000 220px; min-width: 36px; margin-left: auto; }
 .st-top-r { flex-shrink: 0; }
 .st-pal-field { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px 0 11px; border: 1px solid var(--pill-bd); border-radius: 10px; background: var(--pill); color: var(--mu); cursor: text; transition: border-color .15s, background .15s; }
-.st-pal-field:hover { border-color: var(--bd); }
+.st-pal-field:hover { border-color: var(--bd2); background: color-mix(in srgb, var(--isl) 70%, transparent); }
 .st-pal.on .st-pal-field { border-color: var(--ac); background: var(--isl); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 18%, transparent); }
 .st-pal-field .ic { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 .st-pal-q { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--tx); font: 13px var(--font); }

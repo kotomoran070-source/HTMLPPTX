@@ -29,16 +29,21 @@ function deckSignature(deck: Deck): string {
  */
 export class SlidesPanel {
   private list: HTMLElement;
+  private count: HTMLElement;
   private items: HTMLElement[] = [];
   private sigs: string[] = [];
   private deckSig = '';
   private dragFrom = -1;
 
   constructor(root: HTMLElement, private host: SlidesHost) {
-    root.innerHTML = `<div class="st-slides-list" role="listbox" aria-label="Слайды" aria-orientation="vertical"></div>
+    // Заголовок с числом слайдов и «+» — над лентой и при прокрутке остаётся на месте (studio.css, .st-slides-head)
+    root.innerHTML = `<div class="st-slides-head"><b>Слайды</b><span class="st-slides-n"></span>`
+      + `<button type="button" class="st-slides-plus" title="Новый слайд (Ctrl+M)" aria-label="Новый слайд">${icon('plus')}</button></div>
+<div class="st-slides-list" role="listbox" aria-label="Слайды" aria-orientation="vertical"></div>
 <button type="button" class="st-slides-add" title="Новый слайд (Ctrl+M)">${icon('plus')}<span>Новый слайд</span></button>`;
     this.list = root.querySelector('.st-slides-list')!;
-    root.querySelector<HTMLElement>('.st-slides-add')!.onclick = (e) => host.add(host.index(), e.currentTarget as HTMLElement);
+    this.count = root.querySelector('.st-slides-n')!;
+    for (const b of root.querySelectorAll<HTMLElement>('.st-slides-add, .st-slides-plus')) b.onclick = () => host.add(host.index(), b);
     this.bind();
   }
 
@@ -98,6 +103,8 @@ export class SlidesPanel {
       item.classList.toggle('has-jots', jots);
     }
     this.items.splice(n).forEach((el) => el.remove());
+    // Та же запись в текст — всё равно пересчёт стилей: пишется только новое число
+    if (this.count.textContent !== String(n)) this.count.textContent = String(n);
     this.sigs.length = n;
     this.mark();
   }
