@@ -428,8 +428,9 @@ body.studio { scrollbar-color: var(--scroll) transparent; }
 .st-rb.big > .ic { box-sizing: content-box; padding: 8px; border-radius: 11px; background: color-mix(in srgb, var(--ac) 11%, transparent); }
 /* Блоки — фиолетовая плитка: готовое содержимое, как и агент */
 .st-rb.big[data-cmd="insert.blocks"] > .ic { color: #7C3AED; background: rgba(124, 58, 237, .11); }
-.st-rb.big:hover:not(:disabled) { background: color-mix(in srgb, var(--acs) 75%, transparent); color: var(--ach); }
-.st-rb.big:hover:not(:disabled) > .ic { background: color-mix(in srgb, var(--ac) 20%, transparent); }
+/* Большая кнопка отвечает плашкой значка, как и нажатая: подложка ещё и под всей кнопкой давала рамку в рамке */
+.st-rb.big:hover:not(:disabled) { background: none; color: var(--ach); }
+.st-rb.big:hover:not(:disabled) > .ic { background: color-mix(in srgb, var(--ac) 22%, transparent); }
 .st-rb.big[data-cmd="insert.blocks"]:hover:not(:disabled) > .ic { background: rgba(124, 58, 237, .2); }
 .st-rb.big.active { background: none; border-color: transparent; }
 .st-rb.big.active > .ic { background: var(--ac); color: var(--on-ac, #fff); box-shadow: 0 4px 10px -3px color-mix(in srgb, var(--ac) 60%, transparent); }
@@ -636,8 +637,9 @@ body.studio { scrollbar-color: var(--scroll) transparent; }
 /* Путь — одной «пилюлей» на подложке: у звеньев общий фон, скруглены края первого и последнего
    (своя обёртка вокруг пути сломала бы contain: размер полосы не зависит от текста) */
 .st-crumbs > * { display: flex; align-items: center; height: 26px; background: var(--chip); }
-.st-crumbs > :first-child { padding-left: 5px; border-radius: 13px 0 0 13px; }
-.st-crumbs > :last-child { padding-right: 5px; border-radius: 0 13px 13px 0; }
+/* Крайние части — с отступом от скругления: их padding заменяет собственный (0 6px), а не добавляется к нему */
+.st-crumbs > :first-child { padding-left: 11px; border-radius: 13px 0 0 13px; }
+.st-crumbs > :last-child { padding-right: 11px; border-radius: 0 13px 13px 0; }
 .st-crumbs > :only-child { border-radius: 13px; }
 .st-crumbs i { font-style: normal; color: var(--bd2); }
 .st-crumbs button { border: 0; padding: 0 6px; font: inherit; color: var(--ach); cursor: pointer; }
@@ -730,7 +732,7 @@ body.studio .edblock { display: none !important; }
 .st-p-row .st-pbtn { flex: 1; }
 .st-pbtn:hover { border-color: var(--acb); background: var(--acs); color: var(--ach); }
 .st-pbtn.primary { background: var(--ac); border-color: var(--ac); color: #fff; }
-.st-pbtn.primary:hover { background: var(--ach); border-color: var(--ach); color: #fff; }
+.st-pbtn.primary:hover { --dk: color-mix(in srgb, var(--ac) 86%, #000); background: var(--dk); border-color: var(--dk); color: #fff; }
 .st-pbtn.danger { color: #DC2626; }
 .st-pbtn.danger:hover { border-color: #FCA5A5; background: #FEF2F2; color: #B91C1C; }
 :root[data-theme="dark"] .st-pbtn.danger { color: #F87171; }

@@ -32,11 +32,8 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px s
 .btn { display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; padding: 8px 16px; cursor: pointer; transition: background .2s, border-color .2s; }
 .btn .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .btn.primary { background: var(--ac-g); color: #fff; border: 0; }
-.btn.primary:hover { background: var(--ach); }
-:root[data-theme="dark"] .btn.primary:hover { color: #0F172A; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .btn.primary:hover { color: #0F172A; }
-}
+/* Наведение — тот же градиент чуть темнее: --ach в тёмной теме светлый, и кнопка превращалась в другую */
+.btn.primary:hover { background: linear-gradient(rgba(0, 0, 0, .14), rgba(0, 0, 0, .14)), var(--ac-g); }
 .btn.ghost { background: transparent; color: var(--ach); border: 1px solid var(--acb); }
 .btn.ghost:hover, .btn.ghost.active { background: var(--acs); }
 .btn[disabled] { opacity: .4; cursor: default; }

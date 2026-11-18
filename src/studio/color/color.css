@@ -15,8 +15,7 @@
 .cg-btn:hover { border-color: var(--acb); background: var(--acs); color: var(--ach); }
 .cg-btn.on { border-color: var(--acb); background: var(--acs); color: var(--ach); }
 .cg-btn.primary { background: var(--ac); border-color: var(--ac); color: var(--on-ac, #fff); font-weight: 700; }
-.cg-btn.primary:hover { color: var(--on-ac, #fff); background: var(--ach); border-color: var(--ach); }
-.cg-btn.primary:hover { filter: brightness(1.08); }
+.cg-btn.primary:hover { --dk: color-mix(in srgb, var(--ac) 86%, #000); color: var(--on-ac, #fff); background: var(--dk); border-color: var(--dk); }
 .cg-btn.wide { width: 100%; justify-content: center; height: 38px; }
 .cg-x { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--cg-mu); cursor: pointer; }
 .cg-x:hover { background: var(--alt); color: var(--cg-tx); }
