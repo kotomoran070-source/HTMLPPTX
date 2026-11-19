@@ -226,6 +226,8 @@ const PATHS: Record<string, string> = {
   send: '<path d="M12 19V5M6 11l6-6 6 6"/>',
   stop: '<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"/>',
   // «Диктовать» в чате «Агент» и загрузка модели распознавания речи
+  music: '<path d="M9 18V5.5l11-2V16"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+  record: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.5" fill="currentColor"/>',
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>',
   download: '<path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
   slide: '<rect x="3" y="5" width="18" height="13" rx="2"/><path d="M8 21h8"/>',

@@ -4,6 +4,9 @@
  * не ждём. Шаги слайда (объекты по щелчку, кадры по «Далее», формула по шагам) — через короткую паузу,
  * сам слайд — через deck.autoplay.after секунд (или свои slide.after). Слайд с повтором (slide.repeat) показ не листает:
  * шаги открываются, а дальше — по «Далее».
+ *
+ * По музыке (engine/music.ts, autoplay.music): где время шага или слайда записано, часы — сам трек: переход ждёт,
+ * пока трек дойдёт до своей секунды, — без таймера от прошлого перехода, поэтому за минуту ничего не уползает.
  */
 
 /** Пауза между шагами слайда */
@@ -62,7 +65,18 @@ export interface AutoplayHost {
   changed(on: boolean): void;
   /** Таймлайн слайда изменился; null — убрать (листали руками на паузе, автопоказ закончился) */
   timeline(t: Timeline | null): void;
+  /**
+   * По музыке: секунда трека, когда наступает следующий шаг или слайд (cue), и отрезок слайда в треке для таймлайна
+   * (from — его начало, to — следующий слайд, ticks — шаги). null — время не записано: обычный таймер
+   */
+  music?(): MusicCue | null;
+  /** Где трек сейчас, с; null — не играет (ждёт щелчка зрителя, грузится) */
+  musicNow?(): number | null;
+  /** Автопоказ дошёл до конца сам */
+  ended?(): void;
 }
+
+export interface MusicCue { cue: number; from: number; to: number; ticks: number[] }
 
 /** Слайд досказал: конечные анимации внутри него доиграли, ролик без повтора — тоже */
 export async function settled(slide: HTMLElement): Promise<void> {
@@ -94,8 +108,8 @@ export class Autoplay {
   private run = 0;
   /** Таймлайн, который сейчас показан, и когда пошёл его отрезок */
   private tl: (Timeline & { t0: number }) | null = null;
-  /** Идёт отсчёт до следующего шага или слайда (анимации доиграли) */
-  private ticking: Omit<Rest, 'ms' | 'tl'> | null = null;
+  /** Идёт отсчёт до следующего шага или слайда (анимации доиграли); music — ждём секунду трека */
+  private ticking: (Omit<Rest, 'ms' | 'tl'> & { music?: boolean }) | null = null;
   /** Пауза посреди отсчёта: сколько осталось — после неё отсчёт не начинается заново */
   private rest: Rest | null = null;
 
@@ -114,9 +128,9 @@ export class Autoplay {
       clearTimeout(this.timer);
       this.run++;
       this.h.bar.freeze();
-      // Таймлайн замирает там, где был
+      // Таймлайн замирает там, где был. По музыке остаток не помним: трек сам стоит на месте и продолжит оттуда
       const t = this.now();
-      if (this.ticking && t) this.rest = { ...this.ticking, ms: t.ms, tl: t };
+      if (this.ticking && !this.ticking.music && t) this.rest = { ...this.ticking, ms: t.ms, tl: t };
       this.ticking = null;
       if (t) this.show({ ...t, to: t.from, ms: 0, paused: true });
     }
@@ -158,6 +172,8 @@ export class Autoplay {
     this.h.bar.reset();
     const { after, loop, timeline } = this.h.options();
     const left = this.h.stepsLeft();
+    const mus = this.h.music?.();
+    if (mus) return this.byMusic(run, mus, !left && this.h.atEnd(), !!loop, !left && !timeline);
     const p = plan(this.h.stepsTotal(), Math.max(1, Number(after) || AFTER_S) * 1000);
     const seg = p.seg(this.h.stepsTotal() - left);
     // Пока доигрывают анимации — таймлайн стоит у своей чёрточки
@@ -179,17 +195,54 @@ export class Autoplay {
   /** Через ms — следующий шаг или слайд (последний: по кругу — первый, иначе автопоказ закончился) */
   private arm(run: number, ms: number, last: boolean, loop: boolean, grow: boolean): void {
     this.ticking = { last, loop, grow };
-    this.timer = window.setTimeout(() => {
+    this.timer = window.setTimeout(() => this.fire(run, last, loop), ms);
+  }
+
+  private fire(run: number, last: boolean, loop: boolean): void {
+    if (run !== this.run) return;
+    const music = !!this.ticking?.music;
+    this.ticking = null;
+    // Обзор, правка, чёрный экран: по музыке — проверить ещё раз чуть позже (трек уже прошёл свою секунду,
+    // и новый отсчёт сработал бы сразу же), по таймеру — отсчёт заново
+    if (this.h.blocked()) {
+      if (music) this.timer = window.setTimeout(() => void this.schedule(), 200);
+      else void this.schedule();
+      return;
+    }
+    if (!last) this.h.next();
+    else if (loop) this.h.first();
+    else {
+      this.toggle(false);
+      this.show(null);
+      this.h.ended?.();
+    }
+  }
+
+  /**
+   * По музыке: ждать, пока трек дойдёт до cue. Последние доли секунды — короткими шагами: смена попадает в удар
+   * с точностью до нескольких миллисекунд. Трек не играет (ждёт щелчка зрителя, грузится) — ждём его
+   */
+  private byMusic(run: number, m: MusicCue, last: boolean, loop: boolean, growOk: boolean): void {
+    const len = Math.max(0.001, m.to - m.from);
+    const pos = (t: number) => Math.max(0, Math.min(1, (t - m.from) / len));
+    const now0 = this.h.musicNow?.() ?? m.from;
+    const ms = Math.max(0, Math.round((m.cue - now0) * 1000));
+    const grow = growOk && !(last && !loop);
+    if (grow) this.h.bar.grow(ms);
+    this.show({ ticks: m.ticks.map(pos), total: Math.round(len * 1000), from: pos(now0), to: pos(m.cue), ms });
+    this.ticking = { last, loop, grow, music: true };
+    const tick = () => {
       if (run !== this.run) return;
-      this.ticking = null;
-      if (this.h.blocked()) return void this.schedule();
-      if (!last) this.h.next();
-      else if (loop) this.h.first();
-      else {
-        this.toggle(false);
-        this.show(null);
+      const now = this.h.musicNow?.() ?? null;
+      if (now === null) {
+        this.timer = window.setTimeout(tick, 100);
+        return;
       }
-    }, ms);
+      const rest = m.cue - now;
+      if (rest > 0.004) this.timer = window.setTimeout(tick, Math.min(200, Math.max(1, rest * 1000 - 2)));
+      else this.fire(run, last, loop);
+    };
+    tick();
   }
 }
 

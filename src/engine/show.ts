@@ -9,6 +9,7 @@ import { canSaveFile } from './editor/persist';
 import { esc } from './html';
 import { actionTarget, slideLabel } from './render';
 import { Autoplay, REPEAT_PAUSE_MS, runFill, settled, type Timeline } from './autoplay';
+import { cueOf, drivenByMusic, musicOf, ShowMusic, trackStart } from './music';
 import { progressMode } from './plan';
 import { Ink } from './ink';
 import { RemoteHover } from './remote-hover';
@@ -84,6 +85,10 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   quizStore.persist(deckKey);
   const view = new DeckView(deck, vp);
   const sync = new Sync(deckKey);
+  // Музыка показа (music.ts): звучит только в окне показа — у докладчика и на телефоне её нет
+  const m0 = musicOf(deck);
+  const music = m0 ? new ShowMusic(m0) : null;
+  const byMusic = () => !!music && drivenByMusic(deck);
   // Пульт с телефона: окно показа слушает свою комнату и после перезагрузки
   const phones: (() => void)[] = [];
   // Комната пульта: создаётся по первой просьбе (кнопка здесь или в окне докладчика), окно начинает её слушать
@@ -264,6 +269,11 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       moved();
     },
     blocked: () => ovOpen() || !!editor?.active || black,
+    // По музыке: когда следующий шаг или слайд — секундой трека (не записано — обычный таймер)
+    music: () => (byMusic() ? musicCue() : null),
+    musicNow: () => (music?.playing ? music.time() : null),
+    // Дошли до конца — музыка затухает
+    ended: () => music?.stop(),
     bar,
     changed: (on) => {
       const b = $('ap');
@@ -283,6 +293,61 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       }
     },
   });
+  /** Следующий слайд показа (скрытые пропускаются); -1 — это последний */
+  const nextSlide = () => (skip() ? stepVisible(deck, index, 1) : index < count() - 1 ? index + 1 : -1);
+  /** Конец показа в треке: записанный end, иначе — конец файла */
+  const musicEnd = (): number | undefined => {
+    const e = deck.music?.end;
+    if (typeof e === 'number' && Number.isFinite(e)) return e;
+    const d = music?.el.duration;
+    return d !== undefined && Number.isFinite(d) ? d : undefined;
+  };
+  /** Следующий шаг или слайд по треку и отрезок слайда для таймлайна; не записано — null */
+  function musicCue(): { cue: number; from: number; to: number; ticks: number[] } | null {
+    const total = view.stepsTotal();
+    const left = view.stepsLeft();
+    const k = total - left;
+    const nx = nextSlide();
+    const slideEnd = nx >= 0 ? cueOf(deck, nx, 0) : musicEnd();
+    const cue = left ? cueOf(deck, index, k + 1) : slideEnd;
+    if (cue === undefined) return null;
+    const from = cueOf(deck, index, 0) ?? music!.time();
+    const ticks = Array.from({ length: total }, (_, j) => cueOf(deck, index, j + 1)).filter((t): t is number => t !== undefined);
+    return { cue, from, to: Math.max(slideEnd ?? cue, cue), ticks };
+  }
+  /**
+   * Слайд или шаг сменили руками (или из окна докладчика): трек — к записанной секунде этого места, чтобы следующий
+   * переход снова пришёлся в удар. Переход самого автопоказа уже в нужной секунде — его не трогаем (без щелчка звука)
+   */
+  function syncMusic(): void {
+    if (!music || !byMusic() || rehearsing) return;
+    const k = view.stepsTotal() - view.stepsLeft();
+    const first = skip() ? stepVisible(deck, -1, 1) : 0;
+    const want = cueOf(deck, index, k) ?? (k === 0 && index === first ? trackStart(deck.music!) : undefined);
+    if (want !== undefined && Math.abs(music.time() - want) > 0.25) music.seek(want);
+  }
+  /** Автопоказ пошёл или встал — музыка с ним (A, кнопка, окно докладчика, телефон) */
+  function musicFollow(on: boolean): void {
+    if (!music) return;
+    music.driven = byMusic();
+    if (!on) return music.pause();
+    if (music.playing) return;
+    syncMusic();
+    void music.play().then((r) => {
+      if (r === 'blocked' && music.blocked) showNote('Музыка включится по первому нажатию', 'Включить', () => void music.play());
+    });
+  }
+  /** Идёт «Записать время» (rehearse.ts): трек ведёт запись, а не записанные раньше секунды */
+  let rehearsing = false;
+  if (music) {
+    music.driven = byMusic();
+    // Звук пошёл после щелчка зрителя — автопоказ пересчитывает, сколько ждать
+    music.onPlaying = () => {
+      hideNote();
+      if (auto.on) void auto.schedule();
+    };
+  }
+
   /** Таймлайн на экране (autoplay.timeline): тонкая полоса внизу, просветы — шаги слайда; без текста */
   function screenLine(t: Timeline | null): void {
     const line = $('apl');
@@ -297,6 +362,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     view.setFrozen(false);
     broadcast();
     if (!auto.on) pg.style.transition = '';
+    syncMusic();
     void auto.schedule();
     void repeatLoop();
   }
@@ -325,6 +391,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
    */
   function setAuto(on: boolean): void {
     if (on) view.setFrozen(false);
+    musicFollow(on);
     auto.toggle(on);
     if (!on) view.setFrozen(true);
   }
@@ -467,6 +534,11 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
           }
         }
         updateFavicon(deck.brand?.logo);
+        const mu = musicOf(deck);
+        if (music && mu) {
+          music.update(mu);
+          music.driven = byMusic();
+        }
         broadcastDeck();
       },
       relayout: () => {
@@ -905,5 +977,50 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   index = -1;
   go(fromHash(), false);
   // Автопоказ: кнопка «Автопоказ» в студии (?autoplay) или «Сразу при открытии» у презентации
-  if (new URLSearchParams(location.search).has('autoplay') || deck.autoplay?.start) auto.toggle(true);
+  const params = new URLSearchParams(location.search);
+  if (music && params.has('rehearse')) {
+    // «Записать время» из студии: показ с начала, окно записи поверх. Адрес — уже без него: перезагрузка
+    // (файл сохранили) открывает обычный показ
+    rehearsing = true;
+    const u = new URL(location.href);
+    u.searchParams.delete('rehearse');
+    history.replaceState(history.state, '', u);
+    const first = () => (skip() ? stepVisible(deck, -1, 1) : 0);
+    void import('./rehearse').then((r) => r.startRehearse({
+      deck,
+      deckKey,
+      music,
+      canSave: __SERVED__ && devServer,
+      where: () => ({ ...(skip() ? visiblePos(deck, index) : { pos: index + 1, total: count() }), index, step: view.stepsTotal() - view.stepsLeft(), steps: view.stepsTotal() }),
+      advance: () => {
+        if (view.stepFwd()) {
+          moved();
+          return 'step';
+        }
+        const nx = nextSlide();
+        if (nx < 0) return 'end';
+        go(nx);
+        return 'slide';
+      },
+      back: () => prev(),
+      restart: () => {
+        go(first());
+        view.startSteps(index, false);
+        moved();
+      },
+      close: () => {
+        rehearsing = false;
+        // Окно открыла студия — закрываем; открыли адресом — остаётся обычный показ
+        if (window.opener) window.close();
+      },
+    }));
+  } else if (params.has('autoplay') || deck.autoplay?.start) {
+    musicFollow(true);
+    auto.toggle(true);
+  } else if (music && !byMusic()) {
+    // Музыка фоном: с начала показа, слайды листают руками
+    void music.play(trackStart(deck.music!)).then((r) => {
+      if (r === 'blocked' && music.blocked) showNote('Музыка включится по первому нажатию', 'Включить', () => void music.play());
+    });
+  }
 }

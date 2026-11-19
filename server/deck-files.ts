@@ -8,11 +8,11 @@ import path from 'node:path';
 import { parseDocument, type Document } from 'yaml';
 
 /** Строки в deck.yaml, похожие на путь к файлу рядом с презентацией, — это картинки, видео, шрифты… */
-export const ASSET_RE = /^\.{1,2}\/[^\s]+\.(png|jpe?g|gif|webp|avif|svg|mp4|webm|mp3|glb|woff2?|ttf|otf|pdf|htm|wasm|wad|cube)$/i;
+export const ASSET_RE = /^\.{1,2}\/[^\s]+\.(png|jpe?g|gif|webp|avif|svg|mp4|webm|mp3|m4a|ogg|wav|glb|woff2?|ttf|otf|pdf|htm|wasm|wad|cube)$/i;
 
 export const MIME: Record<string, string> = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
-  avif: 'image/avif', svg: 'image/svg+xml', mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg', glb: 'model/gltf-binary',
+  avif: 'image/avif', svg: 'image/svg+xml', mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg', m4a: 'audio/mp4', ogg: 'audio/ogg', wav: 'audio/wav', glb: 'model/gltf-binary',
   woff: 'font/woff', woff2: 'font/woff2', ttf: 'font/ttf', otf: 'font/otf', pdf: 'application/pdf',
   // Документы «живых» вставок (embed): .htm, чтобы сервер разработки не принимал их за страницы приложения
   htm: 'text/html',

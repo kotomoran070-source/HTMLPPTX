@@ -1,0 +1,21 @@
+/* «Записать время»: окно записи внизу, поверх показа — слайды над ним видно */
+.rh { position: fixed; left: 50%; bottom: 76px; z-index: 70; width: min(640px, calc(100vw - 32px)); box-sizing: border-box; transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 12px; border-radius: 18px; border: 1px solid var(--bd);
+  background: var(--surf); color: var(--tx); font: 14px/1.4 var(--font); box-shadow: 0 24px 60px -20px rgba(2, 6, 23, .55);
+  --rh-bar: color-mix(in srgb, var(--mu) 45%, transparent); --rh-played: color-mix(in srgb, var(--ac) 55%, transparent); --rh-mark: var(--ac); --rh-head: var(--tx); }
+.rh-head { display: flex; align-items: center; gap: 14px; }
+.rh-head b { font-size: 15px; }
+.rh-clock { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.rh-clock .ic { width: 16px; height: 16px; color: var(--ac); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.rh-where { margin-left: auto; color: var(--mu); font-variant-numeric: tabular-nums; }
+.rh-wave canvas { display: block; width: 100%; height: 44px; }
+.rh-hint { margin: 0; color: var(--mu); font-size: 13px; }
+.rh-err { color: #DC2626; }
+.rh-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 13px; }
+.rh-snap { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.rh-snap input { accent-color: var(--ac); }
+.rh-bpm { display: inline-flex; align-items: center; gap: 6px; color: var(--mu); }
+.rh-bpm input { width: 56px; height: 26px; padding: 0 6px; box-sizing: border-box; border: 1px solid var(--bd); border-radius: 6px; background: var(--bg); color: var(--tx); font: inherit; text-align: right; }
+.rh-gap { flex: 1; }
+/* Во время записи панель показа не мешает — листают пробелом */
+body.rehearsing .navbar { opacity: .35; }

@@ -134,8 +134,9 @@ const MEDIA_MAX = 200 << 20;
 const MEDIA_TYPES: Record<string, string> = {
   'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/avif': 'avif', 'image/svg+xml': 'svg',
   'video/mp4': 'mp4', 'video/webm': 'webm', 'model/gltf-binary': 'glb', 'model/stl': 'stl', 'model/step': 'step',
+  'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/ogg': 'ogg', 'audio/wav': 'wav', 'audio/x-wav': 'wav',
 };
-const MEDIA_KIND: Record<string, string> = { mp4: 'video', webm: 'video', glb: 'model', stl: 'model', step: 'model', stp: 'model' };
+const MEDIA_KIND: Record<string, string> = { mp4: 'video', webm: 'video', glb: 'model', stl: 'model', step: 'model', stp: 'model', mp3: 'audio', m4a: 'audio', ogg: 'audio', wav: 'audio' };
 
 const str = (a: Rec, k: string, what: string): string => {
   const v = a[k];
@@ -465,8 +466,9 @@ export function createMcp(o: McpOptions) {
       description: 'Картинка, видео или 3D-модель — в папку презентации (assets/): с диска этого компьютера (file — полный путь) или по ссылке '
         + '(url, http или https). Ответ — src для объекта и размеры картинки; дальше edit_presentation: '
         + '{ "op": "object.add", "slide": 2, "object": { "type": "image", "src": "./assets/фото.jpg", "place": { "x": 80, "y": 120, "w": 560, "h": 420 } } } '
-        + '(видео — type: video, модель — type: model). Так дешевле, чем передавать картинку текстом data:. Тот же файл второй раз не копируется. '
-        + 'PNG, JPG, GIF, WebP, AVIF, SVG, MP4, WebM, GLB; STL и STEP становятся GLB.',
+        + '(видео — type: video, модель — type: model). Музыка показа — не объект: src в music у презентации '
+        + '{ "op": "deck.set", "set": { "music": { "src": "./assets/трек.mp3" } } }. Так дешевле, чем передавать картинку текстом data:. '
+        + 'Тот же файл второй раз не копируется. PNG, JPG, GIF, WebP, AVIF, SVG, MP4, WebM, GLB, MP3, M4A, OGG, WAV; STL и STEP становятся GLB.',
       inputSchema: {
         type: 'object',
         properties: {

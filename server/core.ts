@@ -32,7 +32,7 @@ const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg']);
  * Кроме картинок в assets/ можно положить видео, 3D-модели и документы живых вставок (.htm):
  * их переносит копирование слайда или объекта в другую презентацию
  */
-const MEDIA_EXT = new Set([...IMAGE_EXT, 'mp4', 'webm', 'glb', 'htm', 'woff2', 'woff', 'ttf', 'otf', 'wasm', 'wad', 'cube']);
+const MEDIA_EXT = new Set([...IMAGE_EXT, 'mp4', 'webm', 'mp3', 'm4a', 'ogg', 'wav', 'glb', 'htm', 'woff2', 'woff', 'ttf', 'otf', 'wasm', 'wad', 'cube']);
 /** CAD и 3D-печать: при вставке превращаются в GLB (plugins/model-convert.ts) */
 const CAD_EXT = new Set(['stl', 'step', 'stp']);
 const FONT_EXT = /\.(woff2?|ttf|otf)$/i;
@@ -831,7 +831,7 @@ export function createDecksCore(opts: CoreOptions) {
     const safe = safeFileName(fileName);
     const ext = path.extname(safe).slice(1);
     const cad = CAD_EXT.has(ext.toLowerCase());
-    if (!MEDIA_EXT.has(ext.toLowerCase()) && !cad) throw new Error('Поддерживаются изображения (PNG, JPG, GIF, WebP, AVIF, SVG), видео (MP4, WebM), 3D-модели (GLB, STL, STEP) живые вставки (HTM, WASM, WAD), шрифты (WOFF2, WOFF, TTF, OTF) и LUT (.cube)');
+    if (!MEDIA_EXT.has(ext.toLowerCase()) && !cad) throw new Error('Поддерживаются изображения (PNG, JPG, GIF, WebP, AVIF, SVG), видео (MP4, WebM), музыку (MP3, M4A, OGG, WAV), 3D-модели (GLB, STL, STEP) живые вставки (HTM, WASM, WAD), шрифты (WOFF2, WOFF, TTF, OTF) и LUT (.cube)');
     if (!input.length) throw new Error('Пустой файл');
     if (FONT_EXT.test(safe)) await mayEmbed(input);
     if (cad) {

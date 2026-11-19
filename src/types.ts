@@ -50,7 +50,13 @@ export interface Deck {
    * loop — по кругу, start — презентация открывается автопоказом (стенд, файл посмотреть),
    * timeline — таймлайн слайда тонкой полосой внизу экрана (рассказывать без окна докладчика)
    */
-  autoplay?: { after?: number; loop?: boolean; start?: boolean; timeline?: boolean };
+  autoplay?: { after?: number; loop?: boolean; start?: boolean; timeline?: boolean; music?: boolean };
+  /**
+   * Музыка показа (engine/music.ts): один трек через все слайды, как «Воспроизводить в фоне» в PowerPoint.
+   * start — с какой секунды трека играть, volume — 0…1, fadeOut — затухание, с; end — секунда трека, где показ
+   * кончается (записывается «Записать время»). С autoplay.music автопоказ листает по времени трека: slide.at, slide.steps
+   */
+  music?: { src: string; start?: number; volume?: number; fadeOut?: number; end?: number };
   /** Прогресс у зрителей: без поля — линия сверху, segments — ячейка на слайд, number — номер в углу, false — ничего */
   progress?: false | 'segments' | 'number';
   /** План доклада, минуты: окно докладчика показывает, где вы должны быть по времени, сколько осталось и запас */
@@ -175,6 +181,9 @@ export interface SlideData {
   hidden?: boolean;
   /** Автопоказ: свои секунды у этого слайда вместо deck.autoplay.after */
   after?: number;
+  /** По музыке (deck.music, autoplay.music): секунда трека, когда появляется слайд, и когда открываются его шаги по щелчку */
+  at?: number;
+  steps?: number[];
   /** Повтор: при показе появления слайда идут по кругу, пока его не перелистнут; автопоказ здесь ждёт «Далее» */
   repeat?: boolean;
   /** Название в обзоре слайдов, если отличается от заголовка */

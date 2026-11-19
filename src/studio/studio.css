@@ -1329,6 +1329,10 @@ body.st-painting .st-paper .stage, body.st-painting .st-paper .stage * {
 .st-rfield input { width: 60px; height: 24px; padding: 0 6px; border: 1px solid var(--bd); border-radius: 6px; background: var(--bg); color: var(--tx); font: 500 12.5px var(--font); text-align: right; }
 .st-rfield input:focus { outline: none; border-color: var(--ac); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 18%, transparent); }
 .st-rfield input:disabled { opacity: .45; }
+/* Громкость музыки — ползунок с процентами */
+.st-rfield input[type="range"] { width: 74px; height: 18px; padding: 0; border: 0; background: none; accent-color: var(--ac); }
+.st-rfield input[type="range"]:focus { box-shadow: none; }
+.st-mus-vol output { min-width: 34px; font-variant-numeric: tabular-nums; color: var(--mu); }
 .st-rgroup.min .st-rfield > span:first-child { display: none; }
 
 /* Порядок появления: всплывающий список */

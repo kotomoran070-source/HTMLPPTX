@@ -63,6 +63,7 @@ import { onFontFile } from '../engine/editor/font-picker';
 import { closeLibrary, EMBED_SAMPLE, presetOf, SANDBOX_SAMPLE, showLibrary, type Preset } from './library';
 import { openCodeDialog } from './code-dialog';
 import { getBlock } from '../engine/component';
+import { musicFieldsHtml, setupMusic } from './music-tab';
 import { closeMenu, cmdAnchor, showMenu, showPopover, type MenuEntry } from './menu';
 import { initQat } from './qat';
 import { canPickColor } from '../engine/eyedropper';
@@ -223,6 +224,10 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       ${group('Показ', rb('show.start', 'play', 'С начала', { big: true, key: 'F5' }) + rb('show.current', 'next', 'С текущего слайда', { big: true, key: 'Shift+F5' })
         + rb('show.presenter', 'presenter', 'Режим докладчика', { big: true, key: 'Alt+F5', title: 'Показ на втором экране, заметки — на вашем' })
         + rb('show.auto', 'autoplay', 'Автопоказ', { big: true, title: 'Показ со сменой слайдов по времени (A — пауза)' }))}
+      ${group('Музыка', rb('show.music', 'music', 'Музыка', { big: true, menu: true, title: 'Музыка на весь показ: выбрать файл, прослушать, убрать' })
+        + musicFieldsHtml()
+        + `<div class="st-rstack">${rb('show.music.record', 'record', 'Записать время', { title: 'Отстучать переходы под музыку: пробел или → на удар' })}`
+        + `${chk('show.music.drive', 'Листать по музыке', 'Автопоказ меняет слайды по записанному времени трека')}</div>`)}
       ${group('Время', `<div class="st-rstack">${rb('show.auto.after', 'clock', 'Слайд 5 с', { menu: true, title: 'Время показа слайда при автопоказе' })}`
         + `${rb('show.plan', 'stopwatch', 'Без плана', { menu: true, title: 'План по времени для таймера докладчика' })}</div>`
         + `<div class="st-rstack">${chk('show.auto.loop', 'По кругу', 'После последнего слайда — снова с первого')}${chk('show.auto.start', 'Сразу при открытии', 'Запускать автопоказ при открытии')}</div>`)}
@@ -652,12 +657,14 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   $('st-shield').addEventListener('click', endPreview);
 
   // ---------------- показ ----------------
-  async function openShow(from: number, present = false, autoplay = false): Promise<void> {
+  async function openShow(from: number, present = false, autoplay = false, rehearse = false): Promise<void> {
     await ed.settle();
     const u = new URL(location.href);
     u.searchParams.delete('studio');
     if (present) u.searchParams.set('present', '');
     if (autoplay) u.searchParams.set('autoplay', '');
+    // «Записать время»: показ с начала под музыку, окно записи поверх (engine/rehearse.ts)
+    if (rehearse) u.searchParams.set('rehearse', '');
     // Свой вид слайдов студии — и у показа (у зрителей в своём окне — их тема)
     const own = themeMode(deck.theme) ? null : slidesLookOwn();
     if (own) u.searchParams.set('look', own);
@@ -1697,7 +1704,10 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   const multi = () => (ed.selection?.group.length ?? 0) > 1;
   const single = () => hasFree() && !multi();
   const content = () => (deck.slides[index]?.template ?? 'content') === 'content';
+  // «Показ» → «Музыка»: трек показа и запись времени (music-tab.ts)
+  const music = setupMusic({ deck: () => deck, deckKey, editor: ed, anchor: (c) => shown(c), rehearse: () => void openShow(0, false, false, true) });
   const cmds: Record<string, Command> = {
+    ...music.cmds,
     undo: { run: () => ed.undo(), enabled: () => ed.canUndo },
     redo: { run: () => ed.redo(), enabled: () => ed.canRedo },
     'slide.new': { run: () => newSlideMenu(document.querySelector<HTMLElement>('[data-cmd="slide.new"]')!) },
@@ -2558,6 +2568,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     setRibbonButton('show.auto.after', ownAfter ? `Этот слайд ${ownAfter} с` : `Слайд ${deck.autoplay?.after ?? AFTER_S} с`);
     // «План» сверху, «20 мин ▾» под ним; «Без плана» — одной строкой
     setRibbonButton('show.plan', deck.plan ? `План ${deck.plan} мин` : 'Без плана', undefined, 2);
+    music.sync();
     const pm = PROGRESS.find(([v]) => v === deck.progress) ?? PROGRESS[0];
     setRibbonButton('show.progress', `Прогресс: ${pm[1].toLowerCase()}`, pm[3]);
     const a = deck.theme?.accent;
