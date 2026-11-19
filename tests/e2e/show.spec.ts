@@ -1283,3 +1283,14 @@ slides:
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('снимок для агента (?shot=): акцент презентации, как в показе', async ({ page }) => {
+  await page.goto('/?deck=slideria#1');
+  await expect(page.locator('.slide.on')).toBeVisible();
+  const inShow = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--ac').trim());
+  await page.goto('/?deck=slideria&shot=1');
+  await expect(page.locator('html')).toHaveAttribute('data-shot', 'ready');
+  const inShot = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--ac').trim());
+  expect(inShot.toUpperCase()).toBe('#6366F1');
+  expect(inShot).toBe(inShow);
+});

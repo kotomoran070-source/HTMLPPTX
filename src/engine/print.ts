@@ -2,6 +2,7 @@ import { embedHtml, fitHtml, hasEmbed } from '../components/html/html';
 import type { Block, Deck } from '../types';
 import type { Path } from './data';
 import { getAt } from './data';
+import { accentTail, applyAccent, applyAccentFlow } from './accent';
 import { staticSlide, thumbRenderer } from './deck-view';
 import { SLIDE_H, widthOf } from './slide-size';
 
@@ -124,6 +125,10 @@ export async function printDeck(deck: Deck): Promise<void> {
 export async function shotDeck(deck: Deck, list: number[], width: number): Promise<void> {
   const html = document.documentElement;
   html.classList.add('shot');
+  // Акцент презентации — как в показе (show.ts): снимок идёт мимо показа, и без этого слайды выходили
+  // синими по умолчанию — агент видел не те цвета, что у зрителей
+  applyAccent(deck.theme?.accent, accentTail(deck.theme), true);
+  applyAccentFlow(deck.theme?.accentFlow);
   try {
     const root = build(deck, list.filter((i) => i >= 0 && i < deck.slides.length), width);
     await ready(root, deck);
