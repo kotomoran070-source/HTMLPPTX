@@ -34,3 +34,6 @@ desktop/build.json
 # (server/running.ts, server/integrations.ts); скрипты пользователя — у каждого компьютера свои
 .slideria/
 presentations/scripts/
+
+# Трек эдита «Slideria v2» — у каждого свой файл, в репозиторий не кладётся
+presentations/slideria-v2/assets/gloria.m4a
