@@ -253,6 +253,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
       updateChrome();
     },
   };
+  /** Шаг или слайд сменил сам автопоказ — трек не перематывать (syncMusic) */
+  let autoMove = false;
   const auto = new Autoplay({
     slide: () => view.slides[index] ?? null,
     stepsTotal: () => view.stepsTotal(),
@@ -261,7 +263,14 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     // Своё время слайда — вместо общего
     options: () => ({ ...deck.autoplay, after: deck.slides[index]?.after ?? deck.autoplay?.after }),
     hold: () => deck.slides[index]?.repeat === true,
-    next,
+    next: () => {
+      autoMove = true;
+      try {
+        next();
+      } finally {
+        autoMove = false;
+      }
+    },
     // По кругу: первый слайд — с начала, а не «вернулись назад» (шаги не открыты)
     first: () => {
       go(0);
@@ -317,10 +326,12 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   }
   /**
    * Слайд или шаг сменили руками (или из окна докладчика): трек — к записанной секунде этого места, чтобы следующий
-   * переход снова пришёлся в удар. Переход самого автопоказа уже в нужной секунде — его не трогаем (без щелчка звука)
+   * переход снова пришёлся в удар. Переход самого автопоказа не трогаем: трек и есть его часы. Сверять с отметкой
+   * нельзя — долгая сборка слайда (картинки, сборка мусора) сдвигает эту проверку на десятые секунды, и трек
+   * прыгал назад, к отметке слайда, — слышный скачок
    */
   function syncMusic(): void {
-    if (!music || !byMusic() || rehearsing) return;
+    if (!music || !byMusic() || rehearsing || autoMove) return;
     const k = view.stepsTotal() - view.stepsLeft();
     const first = skip() ? stepVisible(deck, -1, 1) : 0;
     const want = cueOf(deck, index, k) ?? (k === 0 && index === first ? trackStart(deck.music!) : undefined);

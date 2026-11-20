@@ -102,6 +102,42 @@ test('пауза A и листание руками: трек стоит вме�
   await expect.poll(() => audioTime(page)).toBeCloseTo(1.0, 1);
 });
 
+test('долгая сборка слайда при переходе автопоказа: трек не прыгает назад к отметке слайда', async ({ page }) => {
+  writeDeck('music:\n  src: ./assets/beat.wav\nautoplay:\n  music: true\n  start: true\n');
+  // Каждая перемотка трека: откуда и куда
+  await page.addInitScript(() => {
+    const d = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'currentTime')!;
+    const w = window as unknown as { seeks: [number, number][] };
+    w.seeks = [];
+    Object.defineProperty(HTMLMediaElement.prototype, 'currentTime', {
+      configurable: true,
+      get() { return d.get!.call(this); },
+      set(v: number) {
+        w.seeks.push([d.get!.call(this), v]);
+        d.set!.call(this, v);
+      },
+    });
+  });
+  await page.goto(`/?deck=${NAME}#1`);
+  await expect(page.locator('audio.show-music')).toHaveCount(1);
+  // Второй слайд собирается полсекунды (картинки, сборка мусора) — счётчик слайдов пишется посреди перехода
+  await page.evaluate(() => {
+    const ct = document.getElementById('ct')!;
+    const d = Object.getOwnPropertyDescriptor(Node.prototype, 'textContent')!;
+    Object.defineProperty(ct, 'textContent', {
+      get() { return d.get!.call(this); },
+      set(v: string) {
+        if (v.startsWith('2 ')) for (const t = performance.now(); performance.now() - t < 500;) { /* занято */ }
+        d.set!.call(this, v);
+      },
+    });
+  });
+  await unlock(page);
+  await expect(page.locator('#ct')).toHaveText('3 из 3', { timeout: 8000 });
+  const seeks = await page.evaluate(() => (window as unknown as { seeks: [number, number][] }).seeks);
+  expect(seeks.filter(([from, to]) => to < from - 0.05)).toEqual([]);
+});
+
 test('музыка фоном (без «Листать по музыке»): играет с начала трека, слайды — руками', async ({ page }) => {
   writeDeck('music:\n  src: ./assets/beat.wav\n  start: 0.5\n  volume: 0.4\n');
   await page.goto(`/?deck=${NAME}#1`);
