@@ -1,5 +1,6 @@
-# «Slideria v2» — эдит под SXYGX «Gloria» (первая минута, точка на 1:04.01).
-# Время слайдов (at, steps) — секунды трека по его сетке: 180 уд/мин от 0,01 с, удар — 1/3 с, такт — 2,667 с.
+# «Slideria v2» — аниме-эдит под SXYGX «Gloria» (первая минута, точка — 1:04.01).
+# Время слайдов (at, steps) — секунды трека по его сетке: 180 уд/мин от 0,01 с, доля — 1/3 с, бочка в дропе — 2/3 с.
+# Всё, что движется (css, style у объектов), начинается с появлением слайда, поэтому толчки встают в удар.
 # Трек не хранится в репозитории: положите файл в assets/gloria.m4a. Doom, 3D и картинки — из презентаций memes и slideria.
 title: Slideria v2
 lang: ru
@@ -8,44 +9,247 @@ theme:
   accent2: "#EC4899"
   accentFlow: true
   mode: dark
+  font: Onest
+  head: Unbounded
   dark:
     bg: "#05060A"
     tx: "#F5F3FF"
     surf: "#11121A"
+fonts:
+  - name: Unbounded
+    src: ./assets/Unbounded.woff2
+    from: theme
+  - name: Onest
+    src: ./assets/Onest.woff2
+    from: theme
 progress: false
 effects:
+  ufx-slam:
+    name: Удар
+    ms: 300
+    ease: cubic-bezier(.2, .7, .2, 1)
+  ufx-whip:
+    name: Рывок справа
+    ms: 260
+    ease: cubic-bezier(.2, .8, .2, 1)
+  ufx-whipl:
+    name: Рывок слева
+    ms: 260
+    ease: cubic-bezier(.2, .8, .2, 1)
+  ufx-drop:
+    name: Падение
+    ms: 280
+    ease: cubic-bezier(.2, .8, .2, 1)
+  ufx-flash:
+    name: Вспышка
+    ms: 170
+    ease: ease-out
   ufx-dot:
     name: Точка-штамп
-    ms: 280
-    ease: cubic-bezier(.2, .7, .2, 1)
+    ms: 420
+    ease: linear
   ufx-ring:
-    name: Кольцо от точки
+    name: Кольцо
     ms: 800
-    ease: cubic-bezier(.1, .6, .3, 1)
+    ease: cubic-bezier(.08, .75, .3, 1)
 css: |
-  /* Знак Slideria на первом слайде: плитка с росчерком и свечением */
-  @keyframes v2-float { 50% { transform: translateY(-8px); } }
-  .v2-mark { width: 132px; height: 132px; border-radius: 36px; background: var(--ac-g); display: grid; place-items: center; color: #fff;
-    box-shadow: 0 0 0 10px color-mix(in srgb, var(--bg) 100%, transparent), 0 26px 70px -10px color-mix(in srgb, var(--ac) 80%, transparent); animation: v2-float 4s ease-in-out infinite; }
-  .v2-mark svg { width: 84px; height: 84px; }
-  /* Микрофон агента: полоски голоса */
-  @keyframes v2-vu { 0%, 100% { transform: scaleY(.25); } 50% { transform: scaleY(1); } }
-  .v2-mic { display: flex; align-items: center; gap: 8px; height: 100%; }
-  .v2-mic i { width: 12px; height: 56px; border-radius: 6px; background: var(--ac-g); transform-origin: center; animation: v2-vu .667s ease-in-out infinite; }
-  .v2-mic i:nth-child(2) { animation-delay: -.11s; } .v2-mic i:nth-child(3) { animation-delay: -.22s; } .v2-mic i:nth-child(4) { animation-delay: -.33s; }
-  .v2-mic i:nth-child(5) { animation-delay: -.44s; } .v2-mic i:nth-child(6) { animation-delay: -.55s; } .v2-mic i:nth-child(7) { animation-delay: -.6s; }
-  /* Телефон-пульт */
-  .v2-phone { position: relative; width: 100%; height: 100%; box-sizing: border-box; border-radius: 44px; padding: 26px 20px; background: #0B0C12;
-    border: 2px solid color-mix(in srgb, var(--ac) 50%, transparent); box-shadow: 0 30px 80px -20px color-mix(in srgb, var(--ac) 60%, transparent);
-    display: grid; grid-template-rows: auto 1fr auto; gap: 16px; font: 600 18px/1.2 var(--font); color: #E2E8F0; }
-  .v2-phone b { color: #94A3B8; font-weight: 600; text-align: center; }
-  .v2-ps { display: block; border-radius: 18px; background: var(--ac-g); }
-  .v2-phone .v2-pn, .v2-phone .v2-pf { display: grid; place-items: center; height: 70px; border-radius: 20px; }
-  .v2-pn { position: absolute; left: 20px; bottom: 26px; width: 34%; background: #1E2030; }
-  .v2-pf { position: absolute; right: 20px; bottom: 26px; width: 54%; background: var(--ac); color: #fff; }
-  /* Финал: точка штампом в удар и кольцо от неё */
-  @keyframes ufx-dot { from { transform: scale(1.5); } }
-  @keyframes ufx-ring { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(5); } }
+  /* «Slideria v2» под «Gloria»: монтаж аниме-эдита. Всё, что движется, начинается с появлением слайда — слайд
+     появляется ровно в удар, поэтому толчки на каждую бочку (2/3 с) сами встают в сетку трека */
+
+  /* ── Движение надписей и картинок: style у объекта ── */
+  @keyframes v3-punch { from { scale: 1.45; } }
+  @keyframes v3-punch-s { from { scale: 1.15; } }
+  @keyframes v3-kick { from { scale: 1.055; } to { scale: 1; } }
+  @keyframes v3-shake { 0% { translate: 16px -9px; } 14% { translate: -14px 7px; } 28% { translate: 10px 10px; } 42% { translate: -9px -7px; } 58% { translate: 6px 4px; } 76% { translate: -3px -2px; } 100% { translate: 0 0; } }
+  @keyframes v3-jit { 0% { translate: 2px -1px; } 25% { translate: -2px 1px; } 50% { translate: 1px 2px; } 75% { translate: -1px -2px; } }
+  @keyframes v3-rgb { 0% { text-shadow: -5px 0 rgba(255, 0, 90, .8), 5px 0 rgba(0, 229, 255, .8); } 50% { text-shadow: 4px 2px rgba(255, 0, 90, .8), -4px -2px rgba(0, 229, 255, .8); } }
+  @keyframes v3-rgbhit { from { text-shadow: -22px 0 rgba(255, 0, 90, .95), 22px 0 rgba(0, 229, 255, .95); } to { text-shadow: 0 0 rgba(255, 0, 90, 0), 0 0 rgba(0, 229, 255, 0); } }
+  @keyframes v3-push { to { scale: 1.12; } }
+  @keyframes v3-pull { from { scale: 1.12; } }
+  @keyframes v3-drift { from { translate: -24px 0; } to { translate: 24px 0; } }
+  @keyframes v3-tilt { from { transform: perspective(1200px) rotateY(-14deg) rotateX(4deg); } to { transform: perspective(1200px) rotateY(14deg) rotateX(-4deg); } }
+  @keyframes v3-fadeout { to { opacity: .28; scale: .96; } }
+  @keyframes v3-press { 0%, 100% { scale: 1; } 12% { scale: .9; } }
+
+  /* ── Свои эффекты появления (deck.effects): enter: ufx-… ── */
+  @keyframes ufx-slam { from { opacity: 0; transform: scale(1.9); } 55% { opacity: 1; transform: scale(.94); } to { opacity: 1; transform: scale(1); } }
+  @keyframes ufx-whip { from { opacity: 0; transform: translateX(220px) skewX(-28deg); } 60% { opacity: 1; transform: translateX(-10px) skewX(4deg); } to { opacity: 1; transform: none; } }
+  @keyframes ufx-whipl { from { opacity: 0; transform: translateX(-220px) skewX(28deg); } 60% { opacity: 1; transform: translateX(10px) skewX(-4deg); } to { opacity: 1; transform: none; } }
+  @keyframes ufx-drop { from { opacity: 0; transform: translateY(-140px) scale(1.2); } 60% { opacity: 1; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes ufx-flash { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes ufx-dot { from { transform: scale(4.2); } 45% { transform: scale(.78); } 75% { transform: scale(1.08); } to { transform: scale(1); } }
+  @keyframes ufx-ring { from { opacity: 1; transform: scale(.6); } to { opacity: 0; transform: scale(7); } }
+
+  /* ── Слои поверх и под слайдом (html-блоки во весь слайд) ── */
+  .v3-o { position: relative; width: 1280px; height: 720px; overflow: hidden; pointer-events: none; }
+  .v3-o > * { position: absolute; }
+
+  /* Плёнка: зерно скачет кадрами, строки развёртки, виньетка */
+  @keyframes v3-grain { 0% { transform: translate(0, 0); } 20% { transform: translate(-37px, 21px); } 40% { transform: translate(24px, -33px); } 60% { transform: translate(-15px, -12px); } 80% { transform: translate(31px, 27px); } }
+  .v3-grain { inset: -80px; opacity: .1; background-size: 180px 180px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1.4 -.2'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  .slide.on .v3-grain { animation: v3-grain .4s steps(1) infinite; }
+  .v3-scan { inset: 0; background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .13) 0 1px, transparent 1px 4px); }
+  .v3-vig { inset: 0; background: radial-gradient(ellipse 75% 70% at 50% 50%, transparent 55%, rgba(0, 0, 0, .62) 100%); }
+
+  /* Вспышки: белая, цветом темы, негатив (инвертирует всё под собой на пару кадров), в белое к концу слайда */
+  @keyframes v3-fl { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes v3-wo { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes v3-inv { 0% { opacity: 1; } 100% { opacity: 0; } }
+  .v3-fl { inset: 0; background: #fff; opacity: 0; }
+  .v3-fl.ac { background: linear-gradient(120deg, var(--ac), var(--ac2)); }
+  .slide.on .v3-fl { animation: v3-fl .16s ease-out forwards; }
+  .slide.on .v3-fl.soft { animation: v3-fl-soft .2s ease-out forwards; }
+  .slide.on .v3-fl.ac { animation: v3-fl-soft .24s ease-out forwards; }
+  @keyframes v3-fl-soft { from { opacity: .5; } to { opacity: 0; } }
+  .slide.on .v3-fl.wo { animation: v3-wo .34s ease-in forwards; }
+  .v3-inv { inset: 0; -webkit-backdrop-filter: invert(1) hue-rotate(180deg); backdrop-filter: invert(1) hue-rotate(180deg); opacity: 0; }
+  .slide.on .v3-inv { animation: v3-inv .1s steps(1, end) forwards; }
+
+  /* Ударная волна: кольцо расходится от точки удара */
+  @keyframes v3-ring { from { opacity: 1; transform: scale(.15); } to { opacity: 0; transform: scale(6.5); } }
+  .v3-ring { left: 50%; top: 50%; width: 220px; height: 220px; margin: -110px 0 0 -110px; border-radius: 50%; border: 7px solid #fff; opacity: 0;
+    box-shadow: 0 0 40px color-mix(in srgb, var(--ac) 80%, transparent), inset 0 0 30px color-mix(in srgb, var(--ac2) 60%, transparent); }
+  .v3-ring.ac { border-color: var(--ac2); }
+  .slide.on .v3-ring { animation: v3-ring .7s cubic-bezier(.08, .75, .3, 1) forwards; }
+
+  /* Линии концентрации (аниме): дрожат кадрами, середина пустая */
+  @keyframes v3-spd-in { from { opacity: 0; transform: scale(1.5); } to { opacity: var(--o, .55); transform: scale(1); } }
+  @keyframes v3-spd-out { to { opacity: 0; } }
+  @keyframes v3-spd-j { 0% { rotate: 0deg; } 50% { rotate: 1.7deg; } }
+  .v3-spd { left: 50%; top: 50%; width: 2400px; height: 2400px; margin: -1200px 0 0 -1200px; opacity: 0;
+    background:
+      repeating-conic-gradient(from 3deg, transparent 0deg 4.1deg, var(--c, #fff) 4.1deg 4.5deg, transparent 4.5deg 9.7deg),
+      repeating-conic-gradient(from 0deg, transparent 0deg 2.3deg, var(--c, #fff) 2.3deg 2.5deg, transparent 2.5deg 6.1deg);
+    -webkit-mask-image: radial-gradient(circle, transparent 0 var(--hole, 15%), #000 var(--edge, 34%));
+    mask-image: radial-gradient(circle, transparent 0 var(--hole, 15%), #000 var(--edge, 34%)); }
+  .slide.on .v3-spd { animation: v3-spd-in .22s ease-out forwards, v3-spd-j .1s steps(1) infinite; }
+  .slide.on .v3-spd.brief { animation: v3-spd-in .14s ease-out forwards, v3-spd-j .1s steps(1) infinite, v3-spd-out .5s .45s ease-in forwards; }
+
+  /* Свечение цветом темы — вздрагивает на каждую бочку */
+  @keyframes v3-pulse { from { opacity: 1; transform: scale(1.08); } to { opacity: .2; transform: scale(1); } }
+  .v3-glow { inset: -10%; background: radial-gradient(ellipse 55% 50% at var(--gx, 50%) var(--gy, 55%), color-mix(in srgb, var(--ac) 55%, transparent), transparent 70%); opacity: .2; }
+  .slide.on .v3-glow { animation: v3-pulse .6667s cubic-bezier(.2, .8, .3, 1) infinite; }
+
+  /* Огромная контурная надпись на фоне — едет */
+  @keyframes v3-bgt { from { transform: translateX(var(--from, 0)); } to { transform: translateX(var(--to, -240px)); } }
+  .v3-bgt { left: 0; top: var(--y, 120px); white-space: nowrap; font: 900 var(--s, 360px)/.8 var(--font-head); letter-spacing: -.04em;
+    color: transparent; -webkit-text-stroke: 2px color-mix(in srgb, var(--tx) 14%, transparent); }
+  .slide.on .v3-bgt { animation: v3-bgt var(--d, 4s) linear forwards; }
+
+  /* Подписи-«телеметрия» в углах кадра */
+  .v3-hud { font: 700 15px/1 var(--font); letter-spacing: .28em; text-transform: uppercase; color: color-mix(in srgb, var(--tx) 70%, transparent); }
+  .v3-hud b { color: var(--ac2); font-weight: 800; }
+  .v3-hud.tl { left: 40px; top: 34px; } .v3-hud.tr { right: 40px; top: 34px; text-align: right; }
+  .v3-hud.bl { left: 40px; bottom: 32px; } .v3-hud.br { right: 40px; bottom: 32px; text-align: right; }
+  .v3-corner { width: 34px; height: 34px; border: 0 solid color-mix(in srgb, var(--tx) 55%, transparent); }
+  .v3-corner.a { left: 24px; top: 24px; border-width: 2px 0 0 2px; } .v3-corner.b { right: 24px; top: 24px; border-width: 2px 2px 0 0; }
+  .v3-corner.c { left: 24px; bottom: 24px; border-width: 0 0 2px 2px; } .v3-corner.d { right: 24px; bottom: 24px; border-width: 0 2px 2px 0; }
+  @keyframes v3-blink { 50% { opacity: 0; } }
+  .v3-rec { display: inline-block; width: 9px; height: 9px; margin-right: 8px; border-radius: 50%; background: #FF2A55; vertical-align: 1px; }
+  .slide.on .v3-rec { animation: v3-blink .6667s steps(1) infinite; }
+
+  /* Кинорамка: чёрные поля сверху и снизу */
+  @keyframes v3-lb-t { from { transform: translateY(-100%); } }
+  @keyframes v3-lb-b { from { transform: translateY(100%); } }
+  @keyframes v3-lb-thump { 0% { scale: 1 1.6; } 100% { scale: 1 1; } }
+  .v3-lb { left: 0; right: 0; height: 92px; background: #000; }
+  .v3-lb.t { top: 0; transform-origin: top; } .v3-lb.b { bottom: 0; transform-origin: bottom; }
+  .slide.on .v3-lb.t.in { animation: v3-lb-t .5s cubic-bezier(.2, .8, .2, 1) both; }
+  .slide.on .v3-lb.b.in { animation: v3-lb-b .5s cubic-bezier(.2, .8, .2, 1) both; }
+  .slide.on .v3-lb.thump { animation: v3-lb-thump .35s cubic-bezier(.2, .8, .2, 1); }
+  .v3-credit { left: 0; right: 0; bottom: 34px; text-align: center; font: 800 18px/1 var(--font); letter-spacing: .5em; color: #fff; opacity: 0; }
+  @keyframes v3-credit { from { opacity: 0; letter-spacing: .9em; } to { opacity: .85; letter-spacing: .5em; } }
+  .slide.on .v3-credit { animation: v3-credit 1.2s .7s cubic-bezier(.2, .8, .2, 1) forwards; }
+
+  /* Затемнение в тишине перед тяжёлым басом */
+  @keyframes v3-dim { to { opacity: .78; } }
+  .v3-dim { inset: 0; background: #000; opacity: 0; }
+  .slide.on .v3-dim { animation: v3-dim 1.4s 1.05s ease-in forwards; }
+
+  /* Знак Slideria: плитка с росчерком */
+  .v3-mark { width: 100%; height: 100%; border-radius: 27%; background: linear-gradient(135deg, var(--ac), var(--ac2)); display: grid; place-items: center; color: #fff;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, .18) inset, 0 30px 90px -10px color-mix(in srgb, var(--ac) 85%, transparent), 0 0 120px color-mix(in srgb, var(--ac2) 45%, transparent); }
+  .v3-mark svg { width: 64%; height: 64%; }
+
+  /* Голос: полоски микрофона на бочку */
+  @keyframes v3-vu { 0% { transform: scaleY(1); } 100% { transform: scaleY(.22); } }
+  .v3-mic { display: flex; align-items: center; gap: 9px; height: 100%; }
+  .v3-mic i { flex: 1; height: 100%; border-radius: 99px; background: linear-gradient(180deg, var(--ac2), var(--ac)); transform-origin: center; transform: scaleY(.25); }
+  .slide.on .v3-mic i { animation: v3-vu .3333s cubic-bezier(.2, .8, .3, 1) infinite; }
+  .slide.on .v3-mic i:nth-child(2n) { animation-duration: .6667s; }
+  .slide.on .v3-mic i:nth-child(3n) { animation-delay: .1667s; }
+
+  /* Кадр игры: вспышка выстрела на каждую бочку */
+  @keyframes v3-muzzle { 0% { opacity: .9; } 18% { opacity: .15; } 100% { opacity: 0; } }
+  .v3-muzzle { inset: 0; background: radial-gradient(ellipse 45% 55% at 52% 78%, rgba(255, 196, 80, .95), rgba(255, 80, 20, .35) 45%, transparent 75%); opacity: 0; }
+  .slide.on .v3-muzzle { animation: v3-muzzle .6667s ease-out infinite; }
+
+  /* Режим докладчика: окно и телефон-пульт */
+  .v3-pv { inset: 0; display: grid; grid-template-columns: 1fr 300px; grid-template-rows: auto 1fr auto; gap: 18px; padding: 22px; box-sizing: border-box;
+    background: #0B0C12; border: 1.5px solid color-mix(in srgb, var(--ac) 45%, transparent); border-radius: 22px; color: #E2E8F0; font: 600 17px/1.3 var(--font);
+    box-shadow: 0 40px 100px -30px color-mix(in srgb, var(--ac) 70%, transparent); }
+  .v3-pv > header { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; color: #94A3B8; font-size: 15px; letter-spacing: .14em; text-transform: uppercase; }
+  .v3-pv > header b { color: #fff; font: 800 30px/1 var(--font); letter-spacing: 0; font-variant-numeric: tabular-nums; }
+  .v3-pv .now { border-radius: 14px; background: linear-gradient(135deg, var(--ac), var(--ac2)); position: relative; overflow: hidden; }
+  .v3-pv .now::after { content: ''; position: absolute; left: 8%; top: 14%; width: 46%; height: 12%; border-radius: 8px; background: rgba(255, 255, 255, .85); box-shadow: 0 70px 0 -6px rgba(255, 255, 255, .45), 0 120px 0 -6px rgba(255, 255, 255, .45); }
+  .v3-pv aside { display: grid; grid-template-rows: 150px 1fr; gap: 14px; }
+  .v3-pv .next { border-radius: 12px; background: #1E2030; border: 1px solid #2A2D40; position: relative; }
+  .v3-pv .next::after { content: 'Следующий'; position: absolute; left: 12px; bottom: 10px; color: #94A3B8; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; }
+  .v3-pv .notes { border-radius: 12px; background: #141623; padding: 14px; color: #CBD5E1; font-size: 15px; line-height: 1.45; }
+  .v3-pv footer { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: #1E2030; overflow: hidden; }
+  .v3-pv footer i { display: block; width: 62%; height: 100%; background: linear-gradient(90deg, var(--ac), var(--ac2)); }
+  .v3-phone { inset: 0; box-sizing: border-box; border-radius: 46px; padding: 26px 20px; background: #07080D; border: 3px solid #2A2D40;
+    box-shadow: 0 0 0 8px #000, 0 40px 90px -20px color-mix(in srgb, var(--ac2) 60%, transparent); display: grid; grid-template-rows: auto 1fr 84px; gap: 16px;
+    color: #E2E8F0; font: 700 17px/1.2 var(--font); }
+  .v3-phone b { text-align: center; color: #94A3B8; font-weight: 700; letter-spacing: .08em; }
+  .v3-phone s { display: block; border-radius: 18px; background: linear-gradient(160deg, var(--ac), var(--ac2)); text-decoration: none; }
+  .v3-phone u { display: grid; place-items: center; border-radius: 22px; background: var(--ac); color: #fff; text-decoration: none; font-size: 24px; font-weight: 800; }
+  .slide.on .v3-phone u { animation: v3-press .6667s cubic-bezier(.2, .8, .3, 1) infinite; }
+
+  /* Код: строки кода цветами редактора */
+  .v3-code { inset: 0; box-sizing: border-box; padding: 26px 30px; border-radius: 20px; background: #0D0F17; border: 1px solid #23263A;
+    font: 500 19px/1.62 ui-monospace, 'JetBrains Mono', Consolas, monospace; color: #C9D1E6; white-space: pre; overflow: hidden; }
+  .v3-code .k { color: #C084FC; } .v3-code .f { color: #60A5FA; } .v3-code .s { color: #34D399; } .v3-code .n { color: #FBBF24; } .v3-code .c { color: #64748B; }
+
+  /* Плёнка финала: кадры едут влево */
+  @keyframes v3-film { from { transform: translateX(0); } to { transform: translateX(-1380px); } }
+  .v3-film { left: 0; top: 50%; height: 300px; margin-top: -150px; display: flex; gap: 0; width: 4200px; }
+  .slide.on .v3-film { animation: v3-film 2.6667s linear forwards; }
+  .v3-film > i { flex: none; width: 460px; height: 300px; box-sizing: border-box; padding: 34px 14px; background: #0A0A0F; position: relative;
+    border-left: 2px solid #000; }
+  .v3-film > i::before, .v3-film > i::after { content: ''; position: absolute; left: 0; right: 0; height: 18px;
+    background: repeating-linear-gradient(90deg, transparent 0 14px, #2C2C36 14px 32px, transparent 32px 46px); }
+  .v3-film > i::before { top: 8px; } .v3-film > i::after { bottom: 8px; }
+  .v3-film img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 4px; filter: saturate(1.15) contrast(1.05); }
+
+  /* Свечение без пульса — во вступлении бочки ещё нет */
+  .slide.on .v3-glow.still { animation: none; opacity: .5; }
+  /* Кадр игры отдаёт на каждый выстрел */
+  @keyframes v3-recoil { 0% { translate: 0 14px; scale: 1.025; } 30% { translate: 0 -3px; scale: 1; } 100% { translate: 0 0; scale: 1; } }
+  /* Столбцы трейлера: вырастают за треть секунды */
+  @keyframes v3-col { from { transform: scaleY(0); } }
+  .v3-cols { left: 70px; right: 70px; top: 110px; bottom: 70px; display: flex; align-items: flex-end; gap: 16px; }
+  .v3-cols i { flex: 1; border-radius: 12px 12px 4px 4px; background: linear-gradient(180deg, var(--ac2), var(--ac)); transform-origin: bottom; opacity: .85; }
+  .slide.on .v3-cols i { animation: v3-col .3s cubic-bezier(.2, .8, .2, 1) backwards; }
+  /* Плёнка финала — фоном: бесцветная, приглушённая */
+  .v3-film img { filter: grayscale(1) contrast(1.1) brightness(.9); }
+  /* Перфорация плёнки бежит по полям кинорамки */
+  @keyframes v3-perf { to { background-position: -184px 0; } }
+  .v3-lb.film::after { content: ''; position: absolute; left: 0; right: 0; height: 20px; top: 10px;
+    background: repeating-linear-gradient(90deg, transparent 0 22px, #262631 22px 56px, transparent 56px 92px); border-radius: 3px; }
+  .slide.on .v3-lb.film::after { animation: v3-perf .6667s linear infinite; }
+  .v3-lb.b.film::after { top: auto; bottom: 10px; }
+
+  /* Быстрая диаграмма агента: столбцы встают за треть секунды */
+  .v3-qb { position: absolute; left: 0; right: 0; top: 40px; bottom: 44px; display: flex; align-items: flex-end; gap: 24px; }
+  .v3-qb i { flex: 1; height: var(--h); position: relative; border-radius: 16px 16px 4px 4px; background: linear-gradient(180deg, var(--ac2), var(--ac)); transform-origin: bottom;
+    box-shadow: 0 0 40px color-mix(in srgb, var(--ac) 45%, transparent); }
+  .slide.on .v3-qb i { animation: v3-col .34s cubic-bezier(.2, .8, .2, 1) backwards; }
+  .v3-qb b { position: absolute; top: -36px; left: 0; right: 0; text-align: center; font: 800 24px/1 var(--font); color: var(--tx); }
+  .v3-qb em { position: absolute; bottom: -36px; left: 0; right: 0; text-align: center; font: 700 18px/1 var(--font); font-style: normal; color: color-mix(in srgb, var(--tx) 60%, transparent); }
+  /* Точка после удара дышит на бочку */
+  @keyframes v3-beat { from { scale: 1.14; } to { scale: 1; } }
 music:
   src: ./assets/gloria.m4a
   volume: 1
@@ -54,182 +258,443 @@ music:
 autoplay:
   music: true
 slides:
-  - id: hero
+  - id: open
+    template: canvas
+    label: Тишина
+    bg: var(--bg)
+    backdrop: stars
+    backdropOpacity: 0.55
+    transition: none
+    at: 0.01
+    logo: false
+    free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow still" style="--gx:50%;--gy:50%"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+      - type: shape
+        kind: line
+        stroke: gradient
+        strokeGradient:
+          from: accent
+          to: accent2
+          angle: 0
+        width: 2
+        place:
+          x: 440
+          y: 352
+          w: 400
+          h: 2
+        enter: draw
+        delay: 120
+      - type: text
+        text: SXYGX — GLORIA
+        styles:
+          text:
+            size: 22
+            weight: 800
+            leading: 1.2
+            spacing: 0.6
+            color: text2
+            align: center
+        place:
+          x: 0
+          y: 380
+          w: 1280
+        enter: fade
+        delay: 300
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-corner a"></i><i class="v3-corner b"></i><i class="v3-corner c"></i><i class="v3-corner d"></i><b class="v3-hud tl"><i class="v3-rec"></i>REC</b><b class="v3-hud br">SLIDERIA · V2</b></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: mark
     template: canvas
     label: Знак
     bg: var(--bg)
     backdrop: stars
     backdropOpacity: 0.55
     transition: none
-    at: 0.01
-    steps:
-      - 1.343
+    at: 1.343
     logo: false
     free:
-      - id: c1
-        type: shape
-        kind: rect
-        radius: 18
-        fill: gradient
-        gradient:
-          from: "#4338CA"
-          to: "#DB2777"
-          angle: 135
-        shadow: lg
-        place:
-          x: 300
-          y: 200
-          w: 360
-          h: 203
-        angle: -11
-        enter: rise
-        click: true
-        clickWith: false
-      - id: c3
-        type: shape
-        kind: rect
-        radius: 18
-        fill: gradient
-        gradient:
-          from: "#6366F1"
-          to: "#F59E0B"
-          angle: 160
-        shadow: lg
-        place:
-          x: 620
-          y: 200
-          w: 360
-          h: 203
-        angle: 11
-        enter: rise
-        click: true
-        clickWith: true
-      - id: c2
-        type: shape
-        kind: rect
-        radius: 18
-        fill: gradient
-        gradient:
-          from: "#1E1B4B"
-          to: "#312E81"
-          angle: 160
-        shadow: lg
-        place:
-          x: 460
-          y: 164
-          w: 360
-          h: 203
-        angle: 0
-        enter: rise
-        click: true
-        clickWith: true
-        stroke: accent
-        width: 1.5
       - type: html
-        html: <div class="v2-mark"><svg viewBox="0 0 24 24"><path d="M20.5 3.5H8.25a4.25 4.25 0 0 0 0 8.5" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="20.5" cy="3.5" r="1.4" fill="currentColor"/><g opacity=".55"><path d="M8.25 12h7.5a4.25 4.25 0 0 1 0 8.5H3.5" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="3.5" cy="20.5" r="1.4" fill="currentColor"/></g></svg></div>
+        html: <div class="v3-o"><i class="v3-glow still" style="--gx:50%;--gy:42%"></i><i class="v3-spd brief" style="--c:rgba(255,255,255,.9);--o:0.45;--hole:9%;--edge:30%;left:640px;top:290px;"></i></div>
         place:
-          x: 574
-          y: 200
-          w: 132
-          h: 132
-        enter: scale
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+      - type: html
+        html: <div class="v3-mark"><svg viewBox="0 0 24 24"><path d="M20.5 3.5H8.25a4.25 4.25 0 0 0 0 8.5" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="20.5" cy="3.5" r="1.4" fill="currentColor"/><g opacity=".55"><path d="M8.25 12h7.5a4.25 4.25 0 0 1 0 8.5H3.5" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="3.5" cy="20.5" r="1.4" fill="currentColor"/></g></svg></div>
+        place:
+          x: 525
+          y: 175
+          w: 230
+          h: 230
+        enter: ufx-slam
       - type: text
-        text: Slideria
+        text: SLIDERIA
         styles:
           text:
-            size: 72
-            weight: 800
-            spacing: -0.02
+            size: 64
+            weight: 900
+            leading: 0.92
+            spacing: 0.34
             color: text
             align: center
         place:
-          x: 340
-          y: 470
-          w: 600
-        enter: rise
-        delay: 400
-  - id: w1
+          x: 0
+          y: 450
+          w: 1280
+        enter: letters
+        delay: 333
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-corner a"></i><i class="v3-corner b"></i><i class="v3-corner c"></i><i class="v3-corner d"></i><b class="v3-hud tl"><i class="v3-rec"></i>REC</b><b class="v3-hud br">SLIDERIA · V2</b><i class="v3-ring" style="left:640px;top:290px;"></i><i class="v3-ring ac" style="left:640px;top:290px;animation-delay:0.333s;"></i><i class="v3-fl"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: kin
     template: canvas
-    label: Презентации
+    label: Презентации, которые живут
     bg: var(--bg)
     transition: none
     at: 2.677
     steps:
-      - 4.01
+      - 3.677
+      - 4.677
     logo: false
     free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow still" style="--gx:50%;--gy:55%"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: text
-        text: Презентации
+        text: ПРЕЗЕНТАЦИИ
         textFx: scramble
+        styles:
+          text:
+            size: 104
+            weight: 900
+            leading: 0.92
+            spacing: -0.035
+            color: text
+            align: center
+        place:
+          x: 0
+          y: 90
+          w: 1280
+        enter: ufx-slam
+      - type: text
+        text: КОТОРЫЕ
+        styles:
+          text:
+            size: 104
+            weight: 900
+            leading: 0.92
+            spacing: -0.035
+            color: text
+            align: center
+        place:
+          x: 0
+          y: 205
+          w: 1280
+        enter: ufx-whip
+        click: true
+        style: "-webkit-text-stroke: 3px #FFFFFF; -webkit-text-fill-color: transparent"
+      - type: text
+        text: "{g:duo|ЖИВУТ}"
+        styles:
+          text:
+            size: 205
+            weight: 900
+            leading: 0.86
+            spacing: -0.035
+            color: text
+            align: center
+        place:
+          x: 0
+          y: 345
+          w: 1280
+        enter: ufx-slam
+        click: true
+      - type: shape
+        kind: rect
+        fill: "#FFFFFF"
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+        click: true
+        clickWith: true
+        enter: ufx-flash
+        locked: true
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-corner a"></i><i class="v3-corner b"></i><i class="v3-corner c"></i><i class="v3-corner d"></i><b class="v3-hud tl"><i class="v3-rec"></i>REC</b></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: t-chart
+    template: canvas
+    label: ГРАФИКИ
+    bg: "#000000"
+    transition: none
+    at: 5.343
+    logo: false
+    free:
+      - type: html
+        html: <div class="v3-o"><div class="v3-cols"><i style="height:18%;animation-delay:0.000s"></i><i style="height:26%;animation-delay:0.016s"></i><i style="height:22%;animation-delay:0.032s"></i><i style="height:38%;animation-delay:0.048s"></i><i style="height:47%;animation-delay:0.064s"></i><i style="height:41%;animation-delay:0.080s"></i><i style="height:63%;animation-delay:0.096s"></i><i style="height:72%;animation-delay:0.112s"></i><i style="height:68%;animation-delay:0.128s"></i><i style="height:86%;animation-delay:0.144s"></i><i style="height:94%;animation-delay:0.160s"></i><i style="height:100%;animation-delay:0.176s"></i></div></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+      - type: shape
+        kind: rect
+        fill: "#000000"
+        style: "opacity: 0.3"
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+        locked: true
+      - type: text
+        text: ГРАФИКИ
+        styles:
+          text:
+            size: 168
+            weight: 900
+            leading: 0.86
+            spacing: -0.05
+            color: text
+            align: center
+        place:
+          x: 0
+          y: 250
+          w: 1280
+        style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-rgb .14s steps(1) infinite"
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-fl soft"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: t-3d
+    template: canvas
+    label: 3D
+    bg: "#000000"
+    transition: none
+    at: 6.01
+    logo: false
+    free:
+      - type: image
+        src: ../slideria/assets/slideria-3d.png
+        fit: contain
+        place:
+          x: 140
+          y: 40
+          w: 1000
+          h: 640
+        style: "animation: v3-pull .34s cubic-bezier(.2, .7, .3, 1) both"
+      - type: shape
+        kind: rect
+        fill: "#000000"
+        style: "opacity: 0.2"
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+        locked: true
+      - type: text
+        text: 3D
+        styles:
+          text:
+            size: 300
+            weight: 900
+            leading: 0.86
+            spacing: -0.05
+            color: text
+            align: center
+        place:
+          x: 0
+          y: 170
+          w: 1280
+        style: "font-size: 360px; animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-rgb .14s steps(1) infinite"
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-inv"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: t-game
+    template: canvas
+    label: ИГРЫ
+    bg: "#000000"
+    transition: none
+    at: 6.343
+    logo: false
+    free:
+      - type: image
+        src: ../memes/assets/embed-doom.webp
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+      - type: shape
+        kind: rect
+        fill: "#000000"
+        style: "opacity: 0.35"
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+        locked: true
+      - type: text
+        text: ИГРЫ
+        styles:
+          text:
+            size: 210
+            weight: 900
+            leading: 0.86
+            spacing: -0.05
+            color: text
+            align: center
+        place:
+          x: 0
+          y: 240
+          w: 1280
+        style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-rgb .14s steps(1) infinite"
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: t-code
+    template: canvas
+    label: КОД
+    bg: "#000000"
+    transition: none
+    at: 6.677
+    logo: false
+    free:
+      - type: html
+        html: |-
+          <div class="v3-code"><span class="c">// роза: 8 лепестков, прямо на слайде</span>
+          <span class="k">const</span> c = canvas.<span class="f">getContext</span>(<span class="s">'2d'</span>);
+          <span class="k">const</span> petals = <span class="n">8</span>, R = <span class="n">300</span>;
+          <span class="k">for</span> (<span class="k">let</span> a = <span class="n">0</span>; a &lt; <span class="f">Math</span>.PI * <span class="n">2</span>; a += <span class="n">.004</span>) {
+            <span class="k">const</span> r = R * <span class="f">Math</span>.<span class="f">cos</span>(petals * a);
+            c.<span class="f">lineTo</span>(r * <span class="f">Math</span>.<span class="f">cos</span>(a), r * <span class="f">Math</span>.<span class="f">sin</span>(a));
+          }
+          c.strokeStyle = <span class="s">'#EC4899'</span>; c.<span class="f">stroke</span>();</div>
+        place:
+          x: 60
+          y: 60
+          w: 1160
+          h: 600
+        locked: true
+      - type: shape
+        kind: rect
+        fill: "#000000"
+        style: "opacity: 0.35"
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+        locked: true
+      - type: text
+        text: КОД
+        styles:
+          text:
+            size: 300
+            weight: 900
+            leading: 0.86
+            spacing: -0.05
+            color: text
+            align: center
+        place:
+          x: 0
+          y: 180
+          w: 1280
+        style: "font-size: 320px; animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-rgb .14s steps(1) infinite"
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-inv"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: t-fx
+    template: canvas
+    label: ЭФФЕКТЫ
+    bg: "#000000"
+    transition: none
+    at: 7.677
+    logo: false
+    free:
+      - type: image
+        src: ../memes/assets/embed-getsuga3d.webp
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+        filter: punch
+      - type: shape
+        kind: rect
+        fill: "#000000"
+        style: "opacity: 0.3"
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+        locked: true
+      - type: text
+        text: ЭФФЕКТЫ
         styles:
           text:
             size: 150
             weight: 900
-            leading: 0.95
-            spacing: -0.045
+            leading: 0.86
+            spacing: -0.05
             color: text
             align: center
         place:
           x: 0
-          y: 200
+          y: 270
           w: 1280
-        enter: rise
-      - type: text
-        text: которые {g:duo|живут}
-        styles:
-          text:
-            size: 64
-            weight: 800
-            spacing: -0.02
-            color: text
-            align: center
+        style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-rgb .14s steps(1) infinite"
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-fl soft"></i></div>
         place:
           x: 0
-          y: 400
+          y: 0
           w: 1280
-        enter: rise
-        click: true
-  - id: w2
-    template: canvas
-    label: Данные и кино
-    bg: var(--bg)
-    transition: none
-    at: 5.343
-    steps:
-      - 6.677
-    logo: false
-    free:
-      - type: text
-        text: Слайды — как {g:duo|данные}.
-        textFx: type
-        styles:
-          text:
-            size: 78
-            weight: 800
-            spacing: -0.02
-            color: text
-            align: center
-        place:
-          x: 0
-          y: 230
-          w: 1280
-        enter: rise
-      - type: text
-        text: Показ — как {g:sunset|кино}.
-        styles:
-          text:
-            size: 78
-            weight: 800
-            spacing: -0.02
-            color: text
-            align: center
-        place:
-          x: 0
-          y: 360
-          w: 1280
-        enter: rise
-        click: true
-  - id: v2
+        locked: true
+  - id: title
     template: canvas
     label: Slideria v2
     bg: var(--bg)
@@ -238,267 +703,859 @@ slides:
     transition: none
     at: 8.01
     steps:
+      - 9.01
       - 9.343
     logo: false
     free:
-      - type: text
-        text: Slideria v2
-        textFx: neon
-        styles:
-          text:
-            size: 168
-            weight: 900
-            leading: 0.95
-            spacing: -0.045
-            color: accent
-            align: center
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow still" style="--gx:50%;--gy:50%"></i></div>
         place:
           x: 0
-          y: 230
+          y: 0
           w: 1280
-        enter: scale
+        locked: true
       - type: text
-        text: ♪ SXYGX — GLORIA
+        text: SLIDERIA
         styles:
           text:
-            size: 26
-            weight: 700
-            spacing: 0.3
-            color: muted
+            size: 172
+            weight: 900
+            leading: 0.86
+            spacing: -0.05
+            color: text
             align: center
         place:
           x: 0
-          y: 600
+          y: 170
+          w: 1280
+        enter: ufx-slam
+        style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-jit .1s steps(1) 1.333s infinite"
+      - type: text
+        text: "{g:duo|v2}"
+        styles:
+          text:
+            size: 300
+            weight: 900
+            leading: 0.8
+            spacing: -0.035
+            color: text
+        place:
+          x: 790
+          y: 320
+          w: 460
+        angle: -8
+        enter: ufx-slam
+        click: true
+        style: "animation: v3-jit .1s steps(1) 0.333s infinite"
+      - type: shape
+        kind: ellipse
+        fill: none
+        stroke: "#FFFFFF"
+        width: 5
+        place:
+          x: 900
+          y: 370
+          w: 200
+          h: 200
+        click: true
+        clickWith: true
+        enter: ufx-ring
+      - type: shape
+        kind: rect
+        fill: "#FFFFFF"
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+        click: true
+        clickWith: true
+        enter: ufx-flash
+        locked: true
+      - type: html
+        html: <div class="v3-o"><i class="v3-spd" style="--o:.4;--hole:22%;--edge:46%"></i></div>
+        place:
+          x: 0
+          y: 0
           w: 1280
         enter: fade
         click: true
-  - id: all
-    template: canvas
-    label: Место, где можно всё
-    bg: var(--bg)
-    backdrop: grid
-    backdropOpacity: 0.8
-    transition: flash
-    transitionMs: 260
-    at: 10.677
-    logo: false
-    free:
+        locked: true
       - type: text
-        text: МЕСТО, ГДЕ МОЖНО
+        text: ♪  SXYGX — GLORIA
         styles:
           text:
-            size: 40
+            size: 22
             weight: 800
-            spacing: 0.32
+            leading: 1.2
+            spacing: 0.5
             color: text2
-            align: center
+        place:
+          x: 80
+          y: 600
+          w: 700
+        enter: fade
+        click: true
+        clickWith: true
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-corner a"></i><i class="v3-corner b"></i><i class="v3-corner c"></i><i class="v3-corner d"></i><i class="v3-fl wo" style="animation-delay:2.3333s"></i></div>
         place:
           x: 0
-          y: 150
+          y: 0
           w: 1280
-        enter: fade
+        locked: true
+  - id: place
+    template: canvas
+    label: Место, где можно
+    bg: var(--bg)
+    backdrop: grid
+    backdropOpacity: 0.85
+    backdropSpeed: 2.5
+    transition: none
+    at: 10.677
+    steps:
+      - 11.343
+    logo: false
+    free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:50%;--gy:45%"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+      - type: text
+        text: МЕСТО,
+        styles:
+          text:
+            size: 160
+            weight: 900
+            leading: 0.92
+            spacing: -0.035
+            color: text
+        place:
+          x: 90
+          y: 120
+          w: 1150
+        enter: ufx-slam
+        style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-shake .3s linear 0s, v3-rgbhit .4s ease-out 0s both"
+      - type: text
+        text: ГДЕ МОЖНО
+        styles:
+          text:
+            size: 118
+            weight: 900
+            leading: 0.92
+            spacing: -0.035
+            color: text
+        place:
+          x: 94
+          y: 310
+          w: 1150
+        enter: ufx-whip
+        click: true
+        style: "-webkit-text-stroke: 3.5px #FFFFFF; -webkit-text-fill-color: transparent"
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-ring" style="left:300px;top:220px;"></i><i class="v3-fl"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: all
+    template: canvas
+    label: Всё
+    bg: var(--bg)
+    backdrop: halftone
+    backdropOpacity: 0.55
+    transition: none
+    at: 12.01
+    logo: false
+    free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:50%;--gy:55%"></i><i class="v3-spd" style="--c:rgba(255,255,255,.9);--o:0.55;--hole:13%;--edge:30%;left:640px;top:300px;"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: text
         text: "{g:duo|ВСЁ}"
         textFx: glitch
         styles:
           text:
-            size: 260
+            size: 300
             weight: 900
-            leading: 0.95
-            spacing: -0.045
+            leading: 0.86
+            spacing: -0.05
             color: text
             align: center
         place:
           x: 0
-          y: 250
+          y: 40
           w: 1280
-        enter: scale
-  - id: glitch
+        enter: ufx-slam
+        style: "font-size: 500px; animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-shake .3s linear 0.667s"
+      - type: marquee
+        items:
+          - ЭФФЕКТЫ
+          - ГРАФИКИ
+          - СХЕМЫ
+          - 3D
+          - ИГРЫ
+          - КОД
+          - ТЕСТЫ
+          - ТЕМЫ
+          - АГЕНТ
+        variant: outline
+        speed: fast
+        size: 44
+        place:
+          x: 0
+          y: 590
+          w: 1280
+        enter: fade
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-ring" style="left:640px;top:300px;"></i><i class="v3-ring ac" style="left:640px;top:300px;animation-delay:0.6667s;"></i><i class="v3-inv"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: fx-glitch
     template: canvas
-    label: Глитч
+    label: ГЛИТЧ
     bg: var(--bg)
+    backdrop: dither
+    backdropOpacity: 0.9
+    theme:
+      accent: "#22D3EE"
+      accent2: "#F43F5E"
     transition: none
     at: 13.343
     logo: false
     free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:50%;--gy:55%"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: text
         text: ГЛИТЧ
         textFx: glitch
         styles:
           text:
-            size: 230
+            size: 250
             weight: 900
-            leading: 0.95
-            spacing: -0.045
-            color: accent2
+            leading: 0.86
+            spacing: -0.05
+            color: text
             align: center
         place:
           x: 0
-          y: 230
+          y: 220
           w: 1280
-  - id: neon
+        enter: ufx-slam
+        style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards"
+      - type: html
+        html: '<div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ЭФФЕКТЫ ТЕКСТА</b><b class="v3-hud tr"><b>01</b> / 04</b><b class="v3-hud bl">textFx: glitch</b><i class="v3-inv"></i></div>'
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: fx-neon
     template: canvas
-    label: Неон
+    label: НЕОН
     bg: var(--bg)
-    backdrop: rays
-    backdropOpacity: 0.5
+    backdrop: retrosun
+    backdropOpacity: 0.9
+    theme:
+      accent: "#C026D3"
+      accent2: "#F472B6"
     transition: none
-    at: 14.677
+    at: 14.01
     logo: false
     free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:50%;--gy:55%"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: text
         text: НЕОН
         textFx: neon
         styles:
           text:
-            size: 230
+            size: 250
             weight: 900
-            leading: 0.95
-            spacing: -0.045
+            leading: 0.86
+            spacing: -0.05
             color: accent
             align: center
         place:
           x: 0
-          y: 230
+          y: 220
           w: 1280
-  - id: wave
+        enter: ufx-slam
+        style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards"
+      - type: html
+        html: '<div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ЭФФЕКТЫ ТЕКСТА</b><b class="v3-hud tr"><b>02</b> / 04</b><b class="v3-hud bl">textFx: neon</b><i class="v3-fl soft"></i></div>'
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: fx-wave
     template: canvas
-    label: Волна
+    label: ВОЛНА
     bg: var(--bg)
     backdrop: waves
-    backdropOpacity: 0.6
+    backdropOpacity: 0.9
+    theme:
+      accent: "#14B8A6"
+      accent2: "#3B82F6"
     transition: none
-    at: 16.01
+    at: 14.677
     logo: false
     free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:50%;--gy:55%"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: text
         text: ВОЛНА
         textFx: wave
         styles:
           text:
-            size: 230
+            size: 215
             weight: 900
-            leading: 0.95
-            spacing: -0.045
+            leading: 0.86
+            spacing: -0.05
             color: text
             align: center
         place:
           x: 0
-          y: 230
+          y: 220
           w: 1280
-  - id: count
+        enter: ufx-slam
+        style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards"
+      - type: html
+        html: '<div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ЭФФЕКТЫ ТЕКСТА</b><b class="v3-hud tr"><b>03</b> / 04</b><b class="v3-hud bl">textFx: wave</b></div>'
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: fx-liquid
     template: canvas
-    label: Число набегает
+    label: ЖИДКОСТЬ
     bg: var(--bg)
+    backdrop: caustics
+    backdropOpacity: 0.9
+    theme:
+      accent: "#F59E0B"
+      accent2: "#EF4444"
     transition: none
-    at: 17.343
+    at: 15.343
     logo: false
     free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:50%;--gy:55%"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+      - type: text
+        text: ЖИДКОСТЬ
+        textFx: liquid
+        styles:
+          text:
+            size: 148
+            weight: 900
+            leading: 0.86
+            spacing: -0.05
+            color: text
+            align: center
+        place:
+          x: 0
+          y: 220
+          w: 1280
+        enter: ufx-slam
+        style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards"
+      - type: html
+        html: '<div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ЭФФЕКТЫ ТЕКСТА</b><b class="v3-hud tr"><b>04</b> / 04</b><b class="v3-hud bl">textFx: liquid</b><i class="v3-inv"></i></div>'
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: dash
+    template: canvas
+    label: Инфографика
+    bg: var(--bg)
+    transition: none
+    at: 16.01
+    logo: false
+    free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:50%;--gy:55%"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+      - type: shape
+        kind: rect
+        radius: 24
+        fill: surface
+        stroke: line
+        width: 1
+        shadow: lg
+        place:
+          x: 40
+          y: 80
+          w: 590
+          h: 290
+        enter: ufx-slam
+        locked: true
+      - type: text
+        text: ВЫРУЧКА
+        styles:
+          text:
+            size: 16
+            weight: 800
+            leading: 1.2
+            spacing: 0.3
+            color: text2
+        place:
+          x: 70
+          y: 102
+          w: 300
+        enter: fade
+      - type: line-chart
+        values:
+          - 12
+          - 18
+          - 15
+          - 26
+          - 31
+          - 28
+          - 44
+          - 52
+          - 49
+          - 66
+          - 74
+          - 92
+        start: янв
+        end: дек
+        place:
+          x: 66
+          y: 130
+          w: 540
+          h: 220
+      - type: shape
+        kind: rect
+        radius: 24
+        fill: surface
+        stroke: line
+        width: 1
+        shadow: lg
+        place:
+          x: 650
+          y: 80
+          w: 590
+          h: 290
+        enter: ufx-slam
+        delay: 667
+        locked: true
+      - type: text
+        text: ПО КВАРТАЛАМ
+        styles:
+          text:
+            size: 16
+            weight: 800
+            leading: 1.2
+            spacing: 0.3
+            color: text2
+        place:
+          x: 680
+          y: 102
+          w: 300
+        enter: fade
+        delay: 667
+      - type: bars
+        values:
+          - 42
+          - 58
+          - 51
+          - 86
+        labels:
+          - I
+          - II
+          - III
+          - IV
+        height: 190
+        place:
+          x: 680
+          y: 130
+          w: 530
+        enter: fade
+        delay: 667
+      - type: shape
+        kind: rect
+        radius: 24
+        fill: surface
+        stroke: line
+        width: 1
+        shadow: lg
+        place:
+          x: 40
+          y: 390
+          w: 590
+          h: 290
+        enter: ufx-slam
+        delay: 1333
+        locked: true
+      - type: text
+        text: КАНАЛЫ
+        styles:
+          text:
+            size: 16
+            weight: 800
+            leading: 1.2
+            spacing: 0.3
+            color: text2
+        place:
+          x: 70
+          y: 412
+          w: 300
+        enter: fade
+        delay: 1333
+      - type: donut
+        values:
+          - 46
+          - 31
+          - 23
+        labels:
+          - Сайт
+          - Партнёры
+          - Магазины
+        center: 100 %
+        place:
+          x: 70
+          y: 440
+          w: 530
+          h: 220
+        enter: fade
+        delay: 1333
+      - type: shape
+        kind: rect
+        radius: 24
+        fill: surface
+        stroke: line
+        width: 1
+        shadow: lg
+        place:
+          x: 650
+          y: 390
+          w: 590
+          h: 290
+        enter: ufx-slam
+        delay: 2000
+        locked: true
       - type: text
         text: "81"
         count: odometer
         styles:
           text:
-            size: 300
+            size: 170
             weight: 900
-            leading: 0.95
-            spacing: -0.045
+            leading: 0.92
+            spacing: -0.035
             color: accent
-            align: center
         place:
-          x: 0
-          y: 120
-          w: 1280
+          x: 680
+          y: 412
+          w: 280
+        enter: ufx-slam
+        delay: 2000
       - type: text
-        text: ТИП БЛОКОВ
+        text: |-
+          тип блоков —
+          графики, схемы,
+          таблицы, тесты
         styles:
           text:
-            size: 40
-            weight: 800
-            spacing: 0.32
+            size: 26
+            weight: 700
+            leading: 1.25
+            spacing: 0
             color: text2
-            align: center
+        place:
+          x: 950
+          y: 450
+          w: 260
+        enter: fade
+        delay: 2000
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ИНФОГРАФИКА · <b>ЖИВЫЕ БЛОКИ</b></b><i class="v3-fl ac"></i></div>
         place:
           x: 0
-          y: 470
+          y: 0
           w: 1280
-        enter: fade
-  - id: chart
+        locked: true
+  - id: grade-1
     template: canvas
-    label: Графики
-    bg: var(--bg)
+    label: "Цвет: ОРИГИНАЛ"
+    bg: "#000000"
     transition: none
     at: 18.677
     logo: false
     free:
+      - type: image
+        src: ../memes/assets/embed-getsuga3d.webp
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+        style: "animation: v3-pull .5s cubic-bezier(.2, .7, .3, 1) both"
+      - type: shape
+        kind: rect
+        fill: none
+        style: "background: linear-gradient(0deg, rgba(0, 0, 0, .9), transparent)"
+        place:
+          x: 0
+          y: 400
+          w: 1280
+          h: 320
+        locked: true
       - type: text
-        text: Графики
+        text: ЦВЕТОКОРРЕКЦИЯ · ФИЛЬТРЫ КАК LUT
         styles:
           text:
-            size: 54
+            size: 18
             weight: 800
-            spacing: -0.02
-            color: text
+            leading: 1.2
+            spacing: 0.3
+            color: "#FFFFFF"
         place:
           x: 80
-          y: 60
-          w: 600
-        enter: fade
-      - type: line-chart
-        values:
-          - 120
-          - 180
-          - 170
-          - 260
-          - 310
-          - 290
-          - 420
-          - 480
-          - 470
-          - 610
-          - 680
-          - 760
-        start: январь
-        end: декабрь
-        scale: 1
+          y: 500
+          w: 900
+      - type: text
+        text: ОРИГИНАЛ
+        styles:
+          text:
+            size: 120
+            weight: 900
+            leading: 0.92
+            spacing: -0.035
+            color: "#FFFFFF"
         place:
-          x: 80
-          y: 150
-          w: 1120
-          h: 500
-  - id: scheme
+          x: 74
+          y: 530
+          w: 1100
+        enter: ufx-whip
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tr"><b>01</b> / 04</b><i class="v3-fl soft"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: grade-2
     template: canvas
-    label: Схемы
-    bg: var(--bg)
+    label: "Цвет: ДУОТОН"
+    bg: "#000000"
+    transition: none
+    at: 19.343
+    logo: false
+    free:
+      - type: image
+        src: ../memes/assets/embed-getsuga3d.webp
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+        filter: duo
+        style: "animation: v3-pull .5s cubic-bezier(.2, .7, .3, 1) both"
+      - type: shape
+        kind: rect
+        fill: none
+        style: "background: linear-gradient(0deg, rgba(0, 0, 0, .9), transparent)"
+        place:
+          x: 0
+          y: 400
+          w: 1280
+          h: 320
+        locked: true
+      - type: text
+        text: ЦВЕТОКОРРЕКЦИЯ · ФИЛЬТРЫ КАК LUT
+        styles:
+          text:
+            size: 18
+            weight: 800
+            leading: 1.2
+            spacing: 0.3
+            color: "#FFFFFF"
+        place:
+          x: 80
+          y: 500
+          w: 900
+      - type: text
+        text: ДУОТОН
+        styles:
+          text:
+            size: 120
+            weight: 900
+            leading: 0.92
+            spacing: -0.035
+            color: "#FFFFFF"
+        place:
+          x: 74
+          y: 530
+          w: 1100
+        enter: ufx-whip
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tr"><b>02</b> / 04</b></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: grade-3
+    template: canvas
+    label: "Цвет: КИНО"
+    bg: "#000000"
     transition: none
     at: 20.01
     logo: false
     free:
+      - type: image
+        src: ../memes/assets/embed-getsuga3d.webp
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+        filter: cinema
+        style: "animation: v3-pull .5s cubic-bezier(.2, .7, .3, 1) both"
+      - type: shape
+        kind: rect
+        fill: none
+        style: "background: linear-gradient(0deg, rgba(0, 0, 0, .9), transparent)"
+        place:
+          x: 0
+          y: 400
+          w: 1280
+          h: 320
+        locked: true
       - type: text
-        text: Схемы
+        text: ЦВЕТОКОРРЕКЦИЯ · ФИЛЬТРЫ КАК LUT
         styles:
           text:
-            size: 54
+            size: 18
             weight: 800
-            spacing: -0.02
-            color: text
+            leading: 1.2
+            spacing: 0.3
+            color: "#FFFFFF"
         place:
           x: 80
-          y: 60
-          w: 600
-        enter: fade
-      - type: cycle
-        center: Slideria
-        items:
-          - title: Данные
-          - title: Студия
-          - title: Показ
-          - title: Экспорт
+          y: 500
+          w: 900
+      - type: text
+        text: КИНО
+        styles:
+          text:
+            size: 120
+            weight: 900
+            leading: 0.92
+            spacing: -0.035
+            color: "#FFFFFF"
         place:
-          x: 290
-          y: 140
-          w: 700
-          h: 540
+          x: 74
+          y: 530
+          w: 1100
+        enter: ufx-whip
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tr"><b>03</b> / 04</b></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: grade-4
+    template: canvas
+    label: "Цвет: НУАР"
+    bg: "#000000"
+    transition: none
+    at: 20.677
+    logo: false
+    free:
+      - type: image
+        src: ../memes/assets/embed-getsuga3d.webp
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+        filter: noir
+        style: "animation: v3-pull .5s cubic-bezier(.2, .7, .3, 1) both"
+      - type: shape
+        kind: rect
+        fill: none
+        style: "background: linear-gradient(0deg, rgba(0, 0, 0, .9), transparent)"
+        place:
+          x: 0
+          y: 400
+          w: 1280
+          h: 320
+        locked: true
+      - type: text
+        text: ЦВЕТОКОРРЕКЦИЯ · ФИЛЬТРЫ КАК LUT
+        styles:
+          text:
+            size: 18
+            weight: 800
+            leading: 1.2
+            spacing: 0.3
+            color: "#FFFFFF"
+        place:
+          x: 80
+          y: 500
+          w: 900
+      - type: text
+        text: НУАР
+        styles:
+          text:
+            size: 120
+            weight: 900
+            leading: 0.92
+            spacing: -0.035
+            color: "#FFFFFF"
+        place:
+          x: 74
+          y: 530
+          w: 1100
+        enter: ufx-whip
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tr"><b>04</b> / 04</b></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
   - id: three
     template: canvas
     label: Три удара
@@ -511,46 +1568,95 @@ slides:
     logo: false
     free:
       - type: text
-        text: Графики.
+        text: ГРАФИКИ.
         styles:
           text:
-            size: 120
+            size: 150
             weight: 900
-            spacing: -0.04
+            leading: 0.92
+            spacing: -0.035
             color: text
         place:
-          x: 120
-          y: 120
+          x: 100
+          y: 70
           w: 1100
-        enter: right
+        enter: ufx-whip
+        style: "animation: v3-rgbhit .4s ease-out 0s both"
       - type: text
-        text: Схемы.
+        text: СХЕМЫ.
         styles:
           text:
-            size: 120
+            size: 150
             weight: 900
-            spacing: -0.04
-            color: accent
+            leading: 0.92
+            spacing: -0.035
+            color: text
         place:
-          x: 120
-          y: 270
+          x: 100
+          y: 245
           w: 1100
-        enter: right
+        enter: ufx-whip
         click: true
+        style: "-webkit-text-stroke: 3.5px #FFFFFF; -webkit-text-fill-color: transparent"
+      - type: shape
+        kind: rect
+        fill: "#FFFFFF"
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+        click: true
+        clickWith: true
+        enter: ufx-flash
+        locked: true
       - type: text
-        text: "{g:duo|Эффекты.}"
+        text: "{g:duo|ЭФФЕКТЫ.}"
         styles:
           text:
-            size: 120
+            size: 150
             weight: 900
-            spacing: -0.04
+            leading: 0.92
+            spacing: -0.035
             color: text
         place:
-          x: 120
+          x: 100
           y: 420
           w: 1100
-        enter: right
+        enter: ufx-slam
         click: true
+      - type: shape
+        kind: rect
+        fill: "#FFFFFF"
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+        click: true
+        clickWith: true
+        enter: ufx-flash
+        locked: true
+      - type: shape
+        kind: ellipse
+        fill: none
+        stroke: "#FFFFFF"
+        width: 5
+        place:
+          x: 530
+          y: 390
+          w: 220
+          h: 220
+        click: true
+        clickWith: true
+        enter: ufx-ring
+      - type: html
+        html: <div class="v3-o"><i class="v3-dim"></i><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-fl"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
   - id: f169
     template: canvas
     label: 16:9
@@ -559,68 +1665,99 @@ slides:
     at: 24.01
     logo: false
     free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow still" style="--gx:50%;--gy:55%"></i><b class="v3-bgt" style="--y:150px;--s:420px;--from:60px;--to:-260px;--d:3.6s">16:9</b></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: text
-        text: ЛЮБОЙ ФОРМАТ
-        id: fmt-t
+        text: ЛЮБОЙ ФОРМАТ СЛАЙДА
+        id: fm-k
         styles:
           text:
-            size: 26
+            size: 20
             weight: 800
-            spacing: 0.32
+            leading: 1.2
+            spacing: 0.3
             color: text2
             align: center
         place:
           x: 0
           y: 40
           w: 1280
+        enter: fade
       - id: scr
         type: shape
         kind: rect
-        radius: 22
+        radius: 24
         fill: gradient
         gradient:
           from: accent
           to: accent2
           angle: 135
         shadow: lg
+        glow: accent
+        glowSize: 30
+        glowOpacity: 0.6
         angle: 0
         place:
           x: 256
           y: 164
           w: 768
           h: 432
-        enter: scale
+        enter: ufx-slam
+        style: "animation: v3-tilt 2.6667s ease-in-out infinite alternate"
       - type: text
         text: 16:9
         id: scr-l
         styles:
           text:
-            size: 120
+            size: 130
             weight: 900
-            spacing: -0.03
+            leading: 0.92
+            spacing: -0.035
             color: "#FFFFFF"
             align: center
         place:
           x: 256
-          y: 306
+          y: 315
           w: 768
+        enter: ufx-slam
+        style: "animation: v3-punch-s .3s cubic-bezier(.12, .9, .25, 1) backwards"
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tr">1280 × 720</b><i class="v3-fl ac"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
   - id: f43
     template: canvas
     label: 4:3
     bg: var(--bg)
     transition: morph
-    transitionMs: 420
+    transitionMs: 360
     at: 25.343
     logo: false
     free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow still" style="--gx:50%;--gy:55%"></i><b class="v3-bgt" style="--y:150px;--s:420px;--from:60px;--to:-260px;--d:3.6s">4:3</b></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: text
-        text: ЛЮБОЙ ФОРМАТ
-        id: fmt-t
+        text: ЛЮБОЙ ФОРМАТ СЛАЙДА
+        id: fm-k
         styles:
           text:
-            size: 26
+            size: 20
             weight: 800
-            spacing: 0.32
+            leading: 1.2
+            spacing: 0.3
             color: text2
             align: center
         place:
@@ -630,50 +1767,71 @@ slides:
       - id: scr
         type: shape
         kind: rect
-        radius: 22
+        radius: 24
         fill: gradient
         gradient:
           from: accent
           to: accent2
           angle: 135
         shadow: lg
+        glow: accent
+        glowSize: 30
+        glowOpacity: 0.6
         angle: 180
         place:
           x: 352
           y: 164
           w: 576
           h: 432
+        style: "animation: v3-tilt 2.6667s ease-in-out infinite alternate"
       - type: text
         text: 4:3
         id: scr-l
         styles:
           text:
-            size: 120
+            size: 130
             weight: 900
-            spacing: -0.03
+            leading: 0.92
+            spacing: -0.035
             color: "#FFFFFF"
             align: center
         place:
           x: 352
-          y: 306
+          y: 315
           w: 576
+        style: "animation: v3-punch-s .3s cubic-bezier(.12, .9, .25, 1) backwards"
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tr">960 × 720</b><i class="v3-ring" style="left:640px;top:380px;width:260px;height:260px;margin:-130px 0 0 -130px;"></i><i class="v3-fl soft"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
   - id: f219
     template: canvas
     label: 21:9
     bg: var(--bg)
     transition: morph
-    transitionMs: 420
+    transitionMs: 360
     at: 28.01
     logo: false
     free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow still" style="--gx:50%;--gy:55%"></i><b class="v3-bgt" style="--y:150px;--s:420px;--from:60px;--to:-260px;--d:3.6s">21:9</b></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: text
-        text: ЛЮБОЙ ФОРМАТ
-        id: fmt-t
+        text: ЛЮБОЙ ФОРМАТ СЛАЙДА
+        id: fm-k
         styles:
           text:
-            size: 26
+            size: 20
             weight: 800
-            spacing: 0.32
+            leading: 1.2
+            spacing: 0.3
             color: text2
             align: center
         place:
@@ -683,50 +1841,71 @@ slides:
       - id: scr
         type: shape
         kind: rect
-        radius: 22
+        radius: 24
         fill: gradient
         gradient:
           from: accent
           to: accent2
           angle: 135
         shadow: lg
+        glow: accent
+        glowSize: 30
+        glowOpacity: 0.6
         angle: 360
         place:
           x: 136
           y: 164
           w: 1008
           h: 432
+        style: "animation: v3-tilt 2.6667s ease-in-out infinite alternate"
       - type: text
         text: 21:9
         id: scr-l
         styles:
           text:
-            size: 120
+            size: 130
             weight: 900
-            spacing: -0.03
+            leading: 0.92
+            spacing: -0.035
             color: "#FFFFFF"
             align: center
         place:
           x: 136
-          y: 306
+          y: 315
           w: 1008
-  - id: ffull
+        style: "animation: v3-punch-s .3s cubic-bezier(.12, .9, .25, 1) backwards"
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tr">1680 × 720</b><i class="v3-ring" style="left:640px;top:380px;width:260px;height:260px;margin:-130px 0 0 -130px;"></i><i class="v3-fl soft"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: go
     template: canvas
-    label: Поехали
+    label: ПОЕХАЛИ
     bg: var(--bg)
     transition: morph
-    transitionMs: 520
+    transitionMs: 380
     at: 30.677
     logo: false
     free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow still" style="--gx:50%;--gy:55%"></i><b class="v3-bgt" style="--y:150px;--s:420px;--from:60px;--to:-260px;--d:1.3333s">GO GO GO</b></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: text
-        text: ЛЮБОЙ ФОРМАТ
-        id: fmt-t
+        text: ЛЮБОЙ ФОРМАТ СЛАЙДА
+        id: fm-k
         styles:
           text:
-            size: 26
+            size: 20
             weight: 800
-            spacing: 0.32
+            leading: 1.2
+            spacing: 0.3
             color: text2
             align: center
         place:
@@ -743,501 +1922,450 @@ slides:
           to: accent2
           angle: 135
         shadow: lg
+        glow: accent
+        glowSize: 30
+        glowOpacity: 0.6
         angle: 360
         place:
-          x: 0
-          y: 20
-          w: 1280
-          h: 720
+          x: -20
+          y: 0
+          w: 1320
+          h: 760
+        style: "animation: v3-jit .1s steps(1) 0.8s infinite"
       - type: text
-        text: Поехали
+        text: ПОЕХАЛИ
         id: scr-l
         styles:
           text:
-            size: 140
+            size: 150
             weight: 900
-            spacing: -0.03
+            leading: 0.92
+            spacing: -0.035
             color: "#FFFFFF"
             align: center
         place:
+          x: -20
+          y: 305
+          w: 1320
+        style: "animation: v3-jit .1s steps(1) 0.6s infinite"
+      - type: html
+        html: <div class="v3-o"><i class="v3-spd" style="--o:.5;--hole:18%;--edge:40%"></i></div>
+        place:
           x: 0
-          y: 293
+          y: 0
           w: 1280
+        locked: true
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tr"></b><i class="v3-ring" style="left:640px;top:380px;width:260px;height:260px;margin:-130px 0 0 -130px;"></i><i class="v3-fl soft"></i><i class="v3-fl wo" style="animation-delay:1s"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
   - id: spring
     template: canvas
     label: Весна
     bg: var(--bg)
     backdrop: petals
-    backdropOpacity: 0.9
+    backdropOpacity: 1
     theme:
       accent: "#22C55E"
       accent2: "#F472B6"
-    transition: flash
-    transitionMs: 260
+    transition: none
     at: 32.01
     logo: false
     free:
-      - type: text
-        text: ТЕМЫ — КАК ВРЕМЕНА ГОДА
-        id: ss-k
-        styles:
-          text:
-            size: 22
-            weight: 800
-            spacing: 0.3
-            color: text2
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:30%;--gy:50%"></i></div>
         place:
-          x: 80
-          y: 70
-          w: 800
-        enter: fade
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: text
-        text: Весна
-        id: ss-n
+        text: ВЕСНА
         styles:
           text:
             size: 150
             weight: 900
-            spacing: -0.045
+            leading: 0.92
+            spacing: -0.035
             color: accent
         place:
-          x: 70
-          y: 120
+          x: 60
+          y: 230
           w: 760
-        enter: rise
-      - id: ss-c
-        type: shape
-        kind: rect
-        radius: 26
-        fill: gradient
-        gradient:
-          from: accent
-          to: accent2
-          angle: 135
-        shadow: lg
-        place:
-          x: 780
-          y: 140
-          w: 420
-          h: 440
-        enter: scale
-      - id: ss-b
-        type: bars
-        values:
-          - 40
-          - 55
-          - 62
-          - 78
-        labels:
-          - I
-          - II
-          - III
-          - IV
-        max: 100
-        height: 260
-        place:
-          x: 820
-          y: 220
-          w: 340
+        enter: ufx-whip
+        style: "font-style: italic; animation: v3-punch-s .3s cubic-bezier(.12, .9, .25, 1) backwards, v3-kick .6667s cubic-bezier(.2, .8, .3, 1) 0.6667s infinite"
       - type: text
-        text: Свежо
-        id: ss-s
-        styles:
-          text:
-            size: 30
-            weight: 800
-            spacing: -0.02
-            color: "#FFFFFF"
-        place:
-          x: 820
-          y: 510
-          w: 340
-      - type: text
-        text: Одна кнопка — и вся презентация в новых цветах, с живым фоном.
+        text: |-
+          Одна кнопка — и вся презентация
+          в новых цветах, с живым фоном
         id: ss-d
         styles:
           text:
             size: 26
-            weight: 600
-            leading: 1.35
-            spacing: -0.02
+            weight: 700
+            leading: 1.3
+            spacing: 0
             color: text2
         place:
-          x: 80
-          y: 360
-          w: 620
+          x: 70
+          y: 440
+          w: 640
         enter: fade
+      - id: ss-ring
+        type: ring
+        text: ВЕСНА • ЛЕТО • ОСЕНЬ • ЗИМА
+        spin: none
+        angle: -0
+        place:
+          x: 800
+          y: 150
+          w: 420
+          h: 420
+        enter: ufx-slam
+      - type: text
+        text: +18°
+        styles:
+          text:
+            size: 72
+            weight: 900
+            leading: 0.92
+            spacing: -0.035
+            color: "#FFFFFF"
+            align: center
+        place:
+          x: 860
+          y: 318
+          w: 300
+        enter: ufx-drop
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ТЕМЫ — КАК ВРЕМЕНА ГОДА</b><b class="v3-hud tr"><b>01</b> / 04</b><i class="v3-ring" style="left:1010px;top:360px;width:300px;height:300px;margin:-150px 0 0 -150px;"></i><i class="v3-ring ac" style="left:640px;top:360px;animation-delay:0.12s;"></i><i class="v3-fl"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
   - id: summer
     template: canvas
     label: Лето
     bg: var(--bg)
     backdrop: rays
-    backdropOpacity: 0.9
+    backdropOpacity: 1
     theme:
       accent: "#F59E0B"
       accent2: "#EF4444"
     transition: morph
-    transitionMs: 520
-    at: 34.677
+    transitionMs: 300
+    at: 33.343
     logo: false
     free:
-      - type: text
-        text: ТЕМЫ — КАК ВРЕМЕНА ГОДА
-        id: ss-k
-        styles:
-          text:
-            size: 22
-            weight: 800
-            spacing: 0.3
-            color: text2
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:30%;--gy:50%"></i></div>
         place:
-          x: 80
-          y: 70
-          w: 800
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: text
-        text: Лето
-        id: ss-n
+        text: ЛЕТО
         styles:
           text:
             size: 150
             weight: 900
-            spacing: -0.045
+            leading: 0.92
+            spacing: -0.035
             color: accent
         place:
-          x: 70
-          y: 120
+          x: 60
+          y: 230
           w: 760
-      - id: ss-c
-        type: shape
-        kind: rect
-        radius: 26
-        fill: gradient
-        gradient:
-          from: accent
-          to: accent2
-          angle: 135
-        shadow: lg
-        place:
-          x: 780
-          y: 140
-          w: 420
-          h: 440
-      - id: ss-b
-        type: bars
-        values:
-          - 62
-          - 80
-          - 92
-          - 88
-        labels:
-          - I
-          - II
-          - III
-          - IV
-        max: 100
-        height: 260
-        place:
-          x: 820
-          y: 220
-          w: 340
+        enter: ufx-whip
+        style: "font-style: italic; animation: v3-punch-s .3s cubic-bezier(.12, .9, .25, 1) backwards, v3-kick .6667s cubic-bezier(.2, .8, .3, 1) 0.6667s infinite"
       - type: text
-        text: Жарко
-        id: ss-s
-        styles:
-          text:
-            size: 30
-            weight: 800
-            spacing: -0.02
-            color: "#FFFFFF"
-        place:
-          x: 820
-          y: 510
-          w: 340
-      - type: text
-        text: Одна кнопка — и вся презентация в новых цветах, с живым фоном.
+        text: |-
+          Одна кнопка — и вся презентация
+          в новых цветах, с живым фоном
         id: ss-d
         styles:
           text:
             size: 26
-            weight: 600
-            leading: 1.35
-            spacing: -0.02
+            weight: 700
+            leading: 1.3
+            spacing: 0
             color: text2
         place:
-          x: 80
-          y: 360
-          w: 620
+          x: 70
+          y: 440
+          w: 640
+      - id: ss-ring
+        type: ring
+        text: ВЕСНА • ЛЕТО • ОСЕНЬ • ЗИМА
+        spin: none
+        angle: -90
+        place:
+          x: 800
+          y: 150
+          w: 420
+          h: 420
+      - type: text
+        text: +31°
+        styles:
+          text:
+            size: 72
+            weight: 900
+            leading: 0.92
+            spacing: -0.035
+            color: "#FFFFFF"
+            align: center
+        place:
+          x: 860
+          y: 318
+          w: 300
+        enter: ufx-drop
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ТЕМЫ — КАК ВРЕМЕНА ГОДА</b><b class="v3-hud tr"><b>02</b> / 04</b><i class="v3-fl soft"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
   - id: autumn
     template: canvas
     label: Осень
     bg: var(--bg)
     backdrop: leaves
-    backdropOpacity: 0.9
+    backdropOpacity: 1
     theme:
       accent: "#EA580C"
-      accent2: "#A16207"
+      accent2: "#B45309"
     transition: morph
-    transitionMs: 520
-    at: 37.343
+    transitionMs: 300
+    at: 34.677
     logo: false
     free:
-      - type: text
-        text: ТЕМЫ — КАК ВРЕМЕНА ГОДА
-        id: ss-k
-        styles:
-          text:
-            size: 22
-            weight: 800
-            spacing: 0.3
-            color: text2
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:30%;--gy:50%"></i></div>
         place:
-          x: 80
-          y: 70
-          w: 800
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: text
-        text: Осень
-        id: ss-n
+        text: ОСЕНЬ
         styles:
           text:
             size: 150
             weight: 900
-            spacing: -0.045
+            leading: 0.92
+            spacing: -0.035
             color: accent
         place:
-          x: 70
-          y: 120
+          x: 60
+          y: 230
           w: 760
-      - id: ss-c
-        type: shape
-        kind: rect
-        radius: 26
-        fill: gradient
-        gradient:
-          from: accent
-          to: accent2
-          angle: 135
-        shadow: lg
-        place:
-          x: 780
-          y: 140
-          w: 420
-          h: 440
-      - id: ss-b
-        type: bars
-        values:
-          - 70
-          - 58
-          - 66
-          - 50
-        labels:
-          - I
-          - II
-          - III
-          - IV
-        max: 100
-        height: 260
-        place:
-          x: 820
-          y: 220
-          w: 340
+        enter: ufx-whip
+        style: "font-style: italic; animation: v3-punch-s .3s cubic-bezier(.12, .9, .25, 1) backwards, v3-kick .6667s cubic-bezier(.2, .8, .3, 1) 0.6667s infinite"
       - type: text
-        text: Уютно
-        id: ss-s
-        styles:
-          text:
-            size: 30
-            weight: 800
-            spacing: -0.02
-            color: "#FFFFFF"
-        place:
-          x: 820
-          y: 510
-          w: 340
-      - type: text
-        text: Одна кнопка — и вся презентация в новых цветах, с живым фоном.
+        text: |-
+          Одна кнопка — и вся презентация
+          в новых цветах, с живым фоном
         id: ss-d
         styles:
           text:
             size: 26
-            weight: 600
-            leading: 1.35
-            spacing: -0.02
+            weight: 700
+            leading: 1.3
+            spacing: 0
             color: text2
         place:
-          x: 80
-          y: 360
-          w: 620
+          x: 70
+          y: 440
+          w: 640
+      - id: ss-ring
+        type: ring
+        text: ВЕСНА • ЛЕТО • ОСЕНЬ • ЗИМА
+        spin: none
+        angle: -180
+        place:
+          x: 800
+          y: 150
+          w: 420
+          h: 420
+      - type: text
+        text: +9°
+        styles:
+          text:
+            size: 72
+            weight: 900
+            leading: 0.92
+            spacing: -0.035
+            color: "#FFFFFF"
+            align: center
+        place:
+          x: 860
+          y: 318
+          w: 300
+        enter: ufx-drop
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ТЕМЫ — КАК ВРЕМЕНА ГОДА</b><b class="v3-hud tr"><b>03</b> / 04</b><i class="v3-fl soft"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
   - id: winter
     template: canvas
     label: Зима
     bg: var(--bg)
     backdrop: snow
-    backdropOpacity: 0.9
+    backdropOpacity: 1
     theme:
       accent: "#38BDF8"
       accent2: "#A5B4FC"
     transition: morph
-    transitionMs: 520
-    at: 40.01
+    transitionMs: 300
+    at: 36.01
     logo: false
     free:
-      - type: text
-        text: ТЕМЫ — КАК ВРЕМЕНА ГОДА
-        id: ss-k
-        styles:
-          text:
-            size: 22
-            weight: 800
-            spacing: 0.3
-            color: text2
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:30%;--gy:50%"></i></div>
         place:
-          x: 80
-          y: 70
-          w: 800
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: text
-        text: Зима
-        id: ss-n
+        text: ЗИМА
         styles:
           text:
             size: 150
             weight: 900
-            spacing: -0.045
+            leading: 0.92
+            spacing: -0.035
             color: accent
         place:
-          x: 70
-          y: 120
+          x: 60
+          y: 230
           w: 760
-      - id: ss-c
+        enter: ufx-whip
+        style: "font-style: italic; animation: v3-punch-s .3s cubic-bezier(.12, .9, .25, 1) backwards, v3-kick .6667s cubic-bezier(.2, .8, .3, 1) 0.6667s infinite"
+      - type: text
+        text: |-
+          Одна кнопка — и вся презентация
+          в новых цветах, с живым фоном
+        id: ss-d
+        styles:
+          text:
+            size: 26
+            weight: 700
+            leading: 1.3
+            spacing: 0
+            color: text2
+        place:
+          x: 70
+          y: 440
+          w: 640
+      - id: ss-ring
+        type: ring
+        text: ВЕСНА • ЛЕТО • ОСЕНЬ • ЗИМА
+        spin: none
+        angle: -270
+        place:
+          x: 800
+          y: 150
+          w: 420
+          h: 420
+      - type: text
+        text: −12°
+        styles:
+          text:
+            size: 72
+            weight: 900
+            leading: 0.92
+            spacing: -0.035
+            color: "#FFFFFF"
+            align: center
+        place:
+          x: 860
+          y: 318
+          w: 300
+        enter: ufx-drop
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ТЕМЫ — КАК ВРЕМЕНА ГОДА</b><b class="v3-hud tr"><b>04</b> / 04</b><i class="v3-fl soft"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: agent
+    template: canvas
+    label: Агент
+    bg: var(--bg)
+    transition: none
+    at: 37.343
+    steps:
+      - 38.01
+    logo: false
+    free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:30%;--gy:55%"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+      - type: html
+        html: <div class="v3-mic"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        place:
+          x: 80
+          y: 120
+          w: 520
+          h: 84
+        enter: fade
+        id: ag-mic
+      - id: ag-u
         type: shape
         kind: rect
-        radius: 26
+        radius: 28
+        fill: surface
+        stroke: accent
+        width: 2
+        text: «Сделай из таблицы диаграмму»
+        styles:
+          text:
+            size: 25
+            weight: 800
+        place:
+          x: 80
+          y: 240
+          w: 600
+          h: 120
+        enter: words
+      - id: ag-a
+        type: shape
+        kind: rect
+        radius: 28
         fill: gradient
         gradient:
           from: accent
           to: accent2
           angle: 135
-        shadow: lg
-        place:
-          x: 780
-          y: 140
-          w: 420
-          h: 440
-      - id: ss-b
-        type: bars
-        values:
-          - 48
-          - 64
-          - 72
-          - 96
-        labels:
-          - I
-          - II
-          - III
-          - IV
-        max: 100
-        height: 260
-        place:
-          x: 820
-          y: 220
-          w: 340
-      - type: text
-        text: Чисто
-        id: ss-s
+        text: Готово — диаграмма на слайде
         styles:
           text:
-            size: 30
+            size: 23
             weight: 800
-            spacing: -0.02
             color: "#FFFFFF"
         place:
-          x: 820
-          y: 510
-          w: 340
-      - type: text
-        text: Одна кнопка — и вся презентация в новых цветах, с живым фоном.
-        id: ss-d
-        styles:
-          text:
-            size: 26
-            weight: 600
-            leading: 1.35
-            spacing: -0.02
-            color: text2
-        place:
           x: 80
-          y: 360
-          w: 620
-  - id: agent
-    template: canvas
-    label: Агент
-    bg: var(--bg)
-    transition: flash
-    transitionMs: 260
-    at: 42.677
-    steps:
-      - 44.01
-    logo: false
-    free:
-      - type: text
-        text: АГЕНТ · ГОЛОСОМ
-        id: ag-k
-        styles:
-          text:
-            size: 22
-            weight: 800
-            spacing: 0.3
-            color: text2
-        place:
-          x: 80
-          y: 70
+          y: 390
           w: 600
-        enter: fade
-      - id: ag-mic
-        type: html
-        html: <div class="v2-mic"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-        place:
-          x: 80
-          y: 130
-          w: 200
-          h: 60
-        enter: fade
-      - id: ag-u
-        type: shape
-        kind: rect
-        radius: 22
-        fill: accent
-        text: «Сделай из таблицы диаграмму»
-        styles:
-          text:
-            size: 26
-            weight: 700
-        place:
-          x: 80
-          y: 210
-          w: 560
-          h: 110
-        enter: right
-      - id: ag-a
-        type: shape
-        kind: rect
-        radius: 22
-        fill: surface
-        stroke: line
-        width: 1
-        text: "Готово: диаграмма на слайде, сверено по снимку."
-        styles:
-          text:
-            size: 24
-            color: text
-        place:
-          x: 80
-          y: 350
-          w: 560
-          h: 110
-        enter: rise
+          h: 100
+        enter: ufx-whip
         click: true
-      - id: ag-tab
-        type: table
+      - type: table
         variant: accent
         density: roomy
         header:
@@ -1253,423 +2381,1013 @@ slides:
           - - IV
             - "86"
         place:
-          x: 720
-          y: 160
-          w: 480
-        enter: fade
+          x: 740
+          y: 150
+          w: 460
+        enter: ufx-slam
+        delay: 150
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">АГЕНТ · <b>ГОЛОСОМ</b></b><b class="v3-hud tr"><i class="v3-rec"></i>СЛУШАЕТ</b><i class="v3-fl ac"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
   - id: agent2
     template: canvas
     label: Агент — диаграмма
     bg: var(--bg)
     transition: morph
-    transitionMs: 480
-    at: 45.343
+    transitionMs: 300
+    at: 38.677
     steps:
-      - 46.677
+      - 39.343
     logo: false
     free:
-      - type: text
-        text: АГЕНТ · ГОЛОСОМ
-        id: ag-k
-        styles:
-          text:
-            size: 22
-            weight: 800
-            spacing: 0.3
-            color: text2
-        place:
-          x: 80
-          y: 70
-          w: 600
-      - id: ag-mic
-        type: html
-        html: <div class="v2-mic"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-        place:
-          x: 80
-          y: 130
-          w: 200
-          h: 60
-      - id: ag-u
-        type: shape
-        kind: rect
-        radius: 22
-        fill: accent
-        text: «Сделай из таблицы диаграмму»
-        styles:
-          text:
-            size: 26
-            weight: 700
-        place:
-          x: 80
-          y: 210
-          w: 560
-          h: 110
-      - id: ag-a
-        type: shape
-        kind: rect
-        radius: 22
-        fill: surface
-        stroke: line
-        width: 1
-        text: "Готово: диаграмма на слайде, сверено по снимку."
-        styles:
-          text:
-            size: 24
-            color: text
-        place:
-          x: 80
-          y: 350
-          w: 560
-          h: 110
-      - id: ag-ch
-        type: bars
-        values:
-          - 42
-          - 58
-          - 51
-          - 86
-        labels:
-          - I
-          - II
-          - III
-          - IV
-        height: 330
-        place:
-          x: 720
-          y: 170
-          w: 480
-      - type: shape
-        kind: pill
-        fill: soft
-        stroke: accent
-        width: 1.5
-        text: ✓ Проверено по снимку слайда
-        styles:
-          text:
-            size: 20
-            color: accent
-        place:
-          x: 80
-          y: 500
-          w: 420
-          h: 56
-        enter: pop
-        click: true
-  - id: doom
-    template: canvas
-    label: DOOM
-    bg: "#000000"
-    transition: zoom
-    transitionMs: 320
-    at: 48.01
-    logo: false
-    free:
-      - type: image
-        src: ../memes/assets/embed-doom.webp
-        camera: in
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:72%;--gy:55%"></i></div>
         place:
           x: 0
           y: 0
           w: 1280
+        locked: true
+      - type: html
+        html: <div class="v3-mic"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        place:
+          x: 80
+          y: 120
+          w: 520
+          h: 84
+        id: ag-mic
+      - id: ag-u
+        type: shape
+        kind: rect
+        radius: 28
+        fill: surface
+        stroke: accent
+        width: 2
+        text: «Сделай из таблицы диаграмму»
+        styles:
+          text:
+            size: 25
+            weight: 800
+        place:
+          x: 80
+          y: 240
+          w: 600
+          h: 120
+      - id: ag-a
+        type: shape
+        kind: rect
+        radius: 28
+        fill: gradient
+        gradient:
+          from: accent
+          to: accent2
+          angle: 135
+        text: Готово — диаграмма на слайде
+        styles:
+          text:
+            size: 23
+            weight: 800
+            color: "#FFFFFF"
+        place:
+          x: 80
+          y: 390
+          w: 600
+          h: 100
+      - type: html
+        html: <div class="v3-o" style="width:100%;height:100%"><div class="v3-qb"><i style="--h:49%;animation-delay:0.00s"><b>42</b><em>I</em></i><i style="--h:67%;animation-delay:0.06s"><b>58</b><em>II</em></i><i style="--h:59%;animation-delay:0.12s"><b>51</b><em>III</em></i><i style="--h:100%;animation-delay:0.18s"><b>86</b><em>IV</em></i></div></div>
+        place:
+          x: 740
+          y: 120
+          w: 460
+          h: 420
+      - type: shape
+        kind: pill
+        fill: soft
+        stroke: accent
+        width: 2
+        text: ✓  Сверено по снимку слайда
+        styles:
+          text:
+            size: 22
+            weight: 800
+            color: accent
+        place:
+          x: 80
+          y: 520
+          w: 460
+          h: 64
+        enter: ufx-slam
+        click: true
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">АГЕНТ · <b>ГОЛОСОМ</b></b><b class="v3-hud tr">ГОТОВО</b><i class="v3-ring" style="left:970px;top:330px;width:240px;height:240px;margin:-120px 0 0 -120px;"></i><i class="v3-fl soft"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: doom
+    template: canvas
+    label: DOOM
+    bg: "#000000"
+    transition: none
+    at: 40.01
+    logo: false
+    free:
+      - type: image
+        src: ../memes/assets/embed-doom.webp
+        place:
+          x: -20
+          y: -20
+          w: 1320
+          h: 760
+        camera: in
+        style: "animation: v3-recoil .6667s cubic-bezier(.2, .8, .3, 1) infinite"
+      - type: shape
+        kind: rect
+        fill: none
+        style: "background: linear-gradient(90deg, rgba(0, 0, 0, .85), transparent)"
+        place:
+          x: 0
+          y: 0
+          w: 860
           h: 720
+        locked: true
       - type: text
-        text: Даже {g:sunset|DOOM}.
+        text: "{g:fire|DOOM}"
         textFx: glitch
         styles:
           text:
-            size: 120
+            size: 300
             weight: 900
-            spacing: -0.03
-            color: "#FFFFFF"
+            leading: 0.82
+            spacing: -0.035
+            color: text
         place:
-          x: 70
+          x: 50
           y: 40
           w: 1000
-        enter: left
+        enter: ufx-slam
+        style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards"
       - type: text
-        text: живой — прямо на слайде
+        text: игра — прямо на слайде
         styles:
           text:
-            size: 32
+            size: 44
             weight: 800
-            spacing: -0.02
+            leading: 0.92
+            spacing: -0.01
             color: "#FFFFFF"
         place:
-          x: 76
-          y: 190
+          x: 66
+          y: 330
           w: 800
-        enter: fade
-  - id: model
+        enter: ufx-whipl
+        delay: 333
+      - type: html
+        html: <div class="v3-o"><i class="v3-muzzle"></i><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud bl">ЖИВАЯ ВСТАВКА · <b>WEBASSEMBLY</b></b><i class="v3-inv"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: robot
     template: canvas
     label: 3D
     bg: var(--bg)
-    backdrop: orbits
-    backdropOpacity: 0.6
+    backdrop: spectrum
+    backdropOpacity: 0.9
     transition: none
-    at: 50.677
+    at: 42.677
     logo: false
     free:
-      - type: model
-        src: ../slideria/assets/slideria-3d.glb
-        poster: ../slideria/assets/slideria-3d.png
-        orbit: -28deg 68deg
-        place:
-          x: 340
-          y: 60
-          w: 600
-          h: 560
-        enter: scale
-      - type: text
-        text: 3D — прямо на слайде
-        styles:
-          text:
-            size: 40
-            weight: 800
-            spacing: -0.02
-            color: text2
-            align: center
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:68%;--gy:60%"></i></div>
         place:
           x: 0
-          y: 630
+          y: 0
           w: 1280
-        enter: fade
+        locked: true
+      - type: text
+        text: 3D
+        styles:
+          text:
+            size: 300
+            weight: 900
+            leading: 0.8
+            spacing: -0.035
+            color: text
+        place:
+          x: 70
+          y: 90
+          w: 600
+        enter: ufx-slam
+        style: "-webkit-text-stroke: 4px #FFFFFF; -webkit-text-fill-color: transparent; animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-kick .6667s cubic-bezier(.2, .8, .3, 1) 0.6667s infinite"
+      - type: text
+        text: |-
+          модели —
+          и они {g:duo|двигаются}
+        styles:
+          text:
+            size: 64
+            weight: 900
+            leading: 1.02
+            spacing: -0.035
+            color: text
+        place:
+          x: 76
+          y: 360
+          w: 600
+        enter: ufx-whipl
+        delay: 120
+      - type: model
+        src: ../memes/assets/robot.glb
+        poster: ../memes/assets/robot-dance.webp
+        animation: Dance
+        orbit: -12deg 80deg
+        controls: false
+        place:
+          x: 660
+          y: 30
+          w: 580
+          h: 680
+        enter: ufx-slam
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">3D-МОДЕЛИ · <b>GLB, STL, STEP</b></b><i class="v3-ring" style="left:950px;top:380px;width:300px;height:300px;margin:-150px 0 0 -150px;"></i><i class="v3-fl ac"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
   - id: gallery
     template: canvas
     label: Галерея
     bg: var(--bg)
     transition: none
-    at: 53.343
+    at: 45.343
     steps:
-      - 54.01
-      - 54.677
+      - 46.01
+      - 46.677
+      - 47.343
     logo: false
     free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:50%;--gy:55%"></i><b class="v3-bgt" style="--y:160px;--s:360px;--from:80px;--to:-320px;--d:3s">ГАЛЕРЕЯ</b></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+      - type: image
+        src: ../memes/assets/embed-getsuga3d.webp
+        images:
+          - ../memes/assets/embed-anime.webp
+          - ../slideria/assets/studio.webp
+          - ../slideria/assets/art-dusk.svg
+        flip: click
+        radius: 20
+        glow: accent
+        glowSize: 36
+        glowOpacity: 0.7
+        stroke: "#FFFFFF"
+        width: 2
+        place:
+          x: 200
+          y: 92
+          w: 880
+          h: 495
+        enter: ufx-slam
+        style: "animation: v3-kick .6667s cubic-bezier(.2, .8, .3, 1) 0.6667s infinite"
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">КАДРЫ В ОДНОЙ РАМКЕ</b><b class="v3-hud bl">ЛИСТАЮТСЯ НА УДАР</b><b class="v3-hud br"><b>4</b> КАДРА</b><i class="v3-fl soft"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: th-midnight
+    template: canvas
+    label: "Тема: ПОЛНОЧЬ"
+    bg: "#05060A"
+    backdrop: aurora
+    backdropOpacity: 0.85
+    theme:
+      accent: "#7C3AED"
+      accent2: "#EC4899"
+    transition: none
+    at: 48.01
+    logo: false
+    free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:70%;--gy:45%"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: text
-        text: КАДРЫ В ОДНОЙ РАМКЕ
-        id: gl-k
+        text: |-
+          Одна кнопка —
+          другая {g:duo|тема}
+        id: th-t
+        styles:
+          text:
+            size: 64
+            weight: 900
+            leading: 1.08
+            spacing: -0.035
+            color: "#F5F3FF"
+        place:
+          x: 80
+          y: 170
+          w: 660
+        enter: ufx-whipl
+      - type: text
+        text: "ТЕМА: ПОЛНОЧЬ"
         styles:
           text:
             size: 22
             weight: 800
+            leading: 0.92
             spacing: 0.3
-            color: text2
+            color: "#A1A1B5"
         place:
-          x: 80
-          y: 60
+          x: 84
+          y: 400
           w: 600
-        enter: fade
-      - id: gl-i
-        type: image
-        src: ../slideria/assets/art-dusk.svg
-        radius: 24
+        enter: ufx-whipl
+      - id: th-c
+        type: shape
+        kind: rect
+        radius: 28
+        fill: gradient
+        gradient:
+          from: "#7C3AED"
+          to: "#EC4899"
+          angle: 135
         shadow: lg
-        images:
-          - ../slideria/assets/art-bloom.svg
-          - ../slideria/assets/art-waves.svg
-        flip: click
         place:
-          x: 80
+          x: 760
           y: 110
-          w: 700
-          h: 525
-        enter: scale
+          w: 440
+          h: 500
+        enter: ufx-slam
+        style: "animation: v3-kick .6667s cubic-bezier(.2, .8, .3, 1) 0.6667s infinite"
+      - type: html
+        html: <div class="v3-o" style="width:100%;height:100%"><div class="v3-qb" style="--tx:#FFFFFF"><i style="--h:49%;animation-delay:0.00s;background:rgba(255,255,255,.88)"><b>42</b><em>I</em></i><i style="--h:67%;animation-delay:0.05s;background:rgba(255,255,255,.88)"><b>58</b><em>II</em></i><i style="--h:59%;animation-delay:0.10s;background:rgba(255,255,255,.88)"><b>51</b><em>III</em></i><i style="--h:100%;animation-delay:0.15s;background:rgba(255,255,255,.88)"><b>86</b><em>IV</em></i></div></div>
+        place:
+          x: 810
+          y: 150
+          w: 340
+          h: 320
+        id: th-b
       - type: text
-        text: |-
-          Листайте
-          на удар
-        id: gl-t
+        text: +48 %
+        id: th-s
         styles:
           text:
-            size: 52
+            size: 64
             weight: 900
-            leading: 1.05
-            spacing: -0.03
-            color: text
+            leading: 0.92
+            spacing: -0.035
+            color: "#FFFFFF"
         place:
-          x: 820
-          y: 260
-          w: 430
-  - id: retheme
+          x: 800
+          y: 500
+          w: 360
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ДИЗАЙН · <b>ТЕМЫ</b></b><b class="v3-hud tr"><b>01</b> / 04</b><i class="v3-fl soft"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: th-paper
     template: canvas
-    label: Смена темы
-    bg: "#F8FAFC"
+    label: "Тема: БУМАГА"
+    bg: "#F4F1EA"
+    backdrop: topo
+    backdropOpacity: 0.5
     theme:
       accent: "#0EA5E9"
       accent2: "#F59E0B"
     transition: morph
-    transitionMs: 420
-    at: 55.343
+    transitionMs: 240
+    at: 48.677
     logo: false
     free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:70%;--gy:45%"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: text
-        text: КАДРЫ В ОДНОЙ РАМКЕ
-        id: gl-k
+        text: |-
+          Одна кнопка —
+          другая {g:duo|тема}
+        id: th-t
+        styles:
+          text:
+            size: 64
+            weight: 900
+            leading: 1.08
+            spacing: -0.035
+            color: "#111827"
+        place:
+          x: 80
+          y: 170
+          w: 660
+      - type: text
+        text: "ТЕМА: БУМАГА"
         styles:
           text:
             size: 22
             weight: 800
+            leading: 0.92
             spacing: 0.3
-            color: "#475569"
+            color: "#57534E"
         place:
-          x: 80
-          y: 60
+          x: 84
+          y: 400
           w: 600
-      - id: gl-i
-        type: image
-        src: ../slideria/assets/art-waves.svg
-        radius: 24
+        enter: ufx-whipl
+      - id: th-c
+        type: shape
+        kind: rect
+        radius: 28
+        fill: gradient
+        gradient:
+          from: "#0EA5E9"
+          to: "#F59E0B"
+          angle: 135
         shadow: lg
         place:
-          x: 80
+          x: 760
           y: 110
-          w: 700
-          h: 525
+          w: 440
+          h: 500
+        style: "animation: v3-kick .6667s cubic-bezier(.2, .8, .3, 1) 0.6667s infinite"
+      - type: html
+        html: <div class="v3-o" style="width:100%;height:100%"><div class="v3-qb" style="--tx:#FFFFFF"><i style="--h:49%;animation-delay:0.00s;background:rgba(255,255,255,.88)"><b>42</b><em>I</em></i><i style="--h:67%;animation-delay:0.05s;background:rgba(255,255,255,.88)"><b>58</b><em>II</em></i><i style="--h:59%;animation-delay:0.10s;background:rgba(255,255,255,.88)"><b>51</b><em>III</em></i><i style="--h:100%;animation-delay:0.15s;background:rgba(255,255,255,.88)"><b>86</b><em>IV</em></i></div></div>
+        place:
+          x: 810
+          y: 150
+          w: 340
+          h: 320
+        id: th-b
       - type: text
-        text: |-
-          Одна кнопка —
-          другая тема
-        id: gl-t
+        text: +48 %
+        id: th-s
         styles:
           text:
-            size: 52
+            size: 64
             weight: 900
-            leading: 1.05
-            spacing: -0.03
-            color: "#0F172A"
+            leading: 0.92
+            spacing: -0.035
+            color: "#FFFFFF"
         place:
-          x: 820
-          y: 260
-          w: 430
+          x: 800
+          y: 500
+          w: 360
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><b class="v3-hud tl">ДИЗАЙН · <b>ТЕМЫ</b></b><b class="v3-hud tr"><b>02</b> / 04</b></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: th-neon
+    template: canvas
+    label: "Тема: НЕОН"
+    bg: "#02110A"
+    backdrop: hex
+    backdropOpacity: 0.85
+    theme:
+      accent: "#22C55E"
+      accent2: "#A3E635"
+    transition: morph
+    transitionMs: 240
+    at: 49.343
+    logo: false
+    free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:70%;--gy:45%"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+      - type: text
+        text: |-
+          Одна кнопка —
+          другая {g:duo|тема}
+        id: th-t
+        styles:
+          text:
+            size: 64
+            weight: 900
+            leading: 1.08
+            spacing: -0.035
+            color: "#ECFDF5"
+        place:
+          x: 80
+          y: 170
+          w: 660
+      - type: text
+        text: "ТЕМА: НЕОН"
+        styles:
+          text:
+            size: 22
+            weight: 800
+            leading: 0.92
+            spacing: 0.3
+            color: "#86EFAC"
+        place:
+          x: 84
+          y: 400
+          w: 600
+        enter: ufx-whipl
+      - id: th-c
+        type: shape
+        kind: rect
+        radius: 28
+        fill: gradient
+        gradient:
+          from: "#22C55E"
+          to: "#A3E635"
+          angle: 135
+        shadow: lg
+        place:
+          x: 760
+          y: 110
+          w: 440
+          h: 500
+        style: "animation: v3-kick .6667s cubic-bezier(.2, .8, .3, 1) 0.6667s infinite"
+      - type: html
+        html: <div class="v3-o" style="width:100%;height:100%"><div class="v3-qb" style="--tx:#FFFFFF"><i style="--h:49%;animation-delay:0.00s;background:rgba(255,255,255,.88)"><b>42</b><em>I</em></i><i style="--h:67%;animation-delay:0.05s;background:rgba(255,255,255,.88)"><b>58</b><em>II</em></i><i style="--h:59%;animation-delay:0.10s;background:rgba(255,255,255,.88)"><b>51</b><em>III</em></i><i style="--h:100%;animation-delay:0.15s;background:rgba(255,255,255,.88)"><b>86</b><em>IV</em></i></div></div>
+        place:
+          x: 810
+          y: 150
+          w: 340
+          h: 320
+        id: th-b
+      - type: text
+        text: +48 %
+        id: th-s
+        styles:
+          text:
+            size: 64
+            weight: 900
+            leading: 0.92
+            spacing: -0.035
+            color: "#FFFFFF"
+        place:
+          x: 800
+          y: 500
+          w: 360
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ДИЗАЙН · <b>ТЕМЫ</b></b><b class="v3-hud tr"><b>03</b> / 04</b></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: th-sunset
+    template: canvas
+    label: "Тема: ЗАКАТ"
+    bg: "#1C0A12"
+    backdrop: retrosun
+    backdropOpacity: 0.85
+    theme:
+      accent: "#F97316"
+      accent2: "#F43F5E"
+    transition: morph
+    transitionMs: 240
+    at: 50.01
+    logo: false
+    free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:70%;--gy:45%"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+      - type: text
+        text: |-
+          Одна кнопка —
+          другая {g:duo|тема}
+        id: th-t
+        styles:
+          text:
+            size: 64
+            weight: 900
+            leading: 1.08
+            spacing: -0.035
+            color: "#FFF1F2"
+        place:
+          x: 80
+          y: 170
+          w: 660
+      - type: text
+        text: "ТЕМА: ЗАКАТ"
+        styles:
+          text:
+            size: 22
+            weight: 800
+            leading: 0.92
+            spacing: 0.3
+            color: "#FDA4AF"
+        place:
+          x: 84
+          y: 400
+          w: 600
+        enter: ufx-whipl
+      - id: th-c
+        type: shape
+        kind: rect
+        radius: 28
+        fill: gradient
+        gradient:
+          from: "#F97316"
+          to: "#F43F5E"
+          angle: 135
+        shadow: lg
+        place:
+          x: 760
+          y: 110
+          w: 440
+          h: 500
+        style: "animation: v3-kick .6667s cubic-bezier(.2, .8, .3, 1) 0.6667s infinite"
+      - type: html
+        html: <div class="v3-o" style="width:100%;height:100%"><div class="v3-qb" style="--tx:#FFFFFF"><i style="--h:49%;animation-delay:0.00s;background:rgba(255,255,255,.88)"><b>42</b><em>I</em></i><i style="--h:67%;animation-delay:0.05s;background:rgba(255,255,255,.88)"><b>58</b><em>II</em></i><i style="--h:59%;animation-delay:0.10s;background:rgba(255,255,255,.88)"><b>51</b><em>III</em></i><i style="--h:100%;animation-delay:0.15s;background:rgba(255,255,255,.88)"><b>86</b><em>IV</em></i></div></div>
+        place:
+          x: 810
+          y: 150
+          w: 340
+          h: 320
+        id: th-b
+      - type: text
+        text: +48 %
+        id: th-s
+        styles:
+          text:
+            size: 64
+            weight: 900
+            leading: 0.92
+            spacing: -0.035
+            color: "#FFFFFF"
+        place:
+          x: 800
+          y: 500
+          w: 360
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ДИЗАЙН · <b>ТЕМЫ</b></b><b class="v3-hud tr"><b>04</b> / 04</b></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
   - id: present
     template: canvas
     label: Показ
     bg: var(--bg)
     transition: none
-    at: 56.01
+    at: 50.677
     steps:
-      - 56.677
-      - 57.343
-      - 58.01
+      - 51.343
+      - 52.01
     logo: false
     free:
-      - type: text
-        text: ПОКАЗ
-        styles:
-          text:
-            size: 22
-            weight: 800
-            spacing: 0.3
-            color: text2
-        place:
-          x: 80
-          y: 70
-          w: 600
-        enter: fade
       - type: html
-        html: <div class="v2-phone"><b>Слайд 7 из 32</b><i class="v2-ps"></i><span class="v2-pn">Назад</span><span class="v2-pf">Далее</span></div>
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:72%;--gy:55%"></i></div>
         place:
-          x: 900
-          y: 90
-          w: 280
-          h: 560
-        enter: rise
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+      - type: html
+        html: <div class="v3-o" style="width:100%;height:100%"><div class="v3-pv"><header><span>Режим докладчика</span><b>00:51</b></header><div class="now"></div><aside><div class="next"></div><div class="notes">Показать смену темы. Пульт — телефон, «Далее» на удар.</div></aside><footer><i></i></footer></div></div>
+        place:
+          x: 660
+          y: 100
+          w: 540
+          h: 370
+        enter: ufx-slam
+      - type: html
+        html: <div class="v3-o" style="width:100%;height:100%"><div class="v3-phone"><b>Слайд 39 из 45</b><s></s><u>Далее</u></div></div>
+        place:
+          x: 1020
+          y: 260
+          w: 210
+          h: 420
+        enter: ufx-drop
+        delay: 120
+        angle: 8
       - type: text
-        text: Режим докладчика
+        text: |-
+          РЕЖИМ
+          ДОКЛАДЧИКА
         styles:
           text:
-            size: 64
+            size: 54
             weight: 900
-            spacing: -0.03
+            leading: 1
+            spacing: -0.035
+            color: text
+        place:
+          x: 70
+          y: 110
+          w: 580
+        enter: ufx-whipl
+      - type: text
+        text: |-
+          ПУЛЬТ
+          С ТЕЛЕФОНА
+        styles:
+          text:
+            size: 54
+            weight: 900
+            leading: 1
+            spacing: -0.035
+            color: accent2
+        place:
+          x: 70
+          y: 270
+          w: 580
+        enter: ufx-whipl
+        click: true
+      - type: text
+        text: |-
+          {g:duo|АВТОПОКАЗ}
+          ПОД МУЗЫКУ ♪
+        styles:
+          text:
+            size: 54
+            weight: 900
+            leading: 1
+            spacing: -0.035
+            color: text
+        place:
+          x: 70
+          y: 430
+          w: 600
+        enter: ufx-slam
+        click: true
+      - type: shape
+        kind: rect
+        fill: "#FFFFFF"
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+        click: true
+        clickWith: true
+        enter: ufx-flash
+        locked: true
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ПОКАЗ</b><b class="v3-hud tr"><i class="v3-rec"></i>В ЭФИРЕ</b><i class="v3-fl ac"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: quiz
+    template: canvas
+    label: Тест
+    bg: var(--bg)
+    transition: none
+    at: 53.343
+    steps:
+      - 54.01
+    logo: false
+    free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:30%;--gy:55%"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+      - type: text
+        text: |-
+          Что откроется
+          без интернета?
+        styles:
+          text:
+            size: 76
+            weight: 900
+            leading: 1
+            spacing: -0.035
             color: text
         place:
           x: 80
-          y: 170
-          w: 760
-        enter: right
-        click: true
-      - type: text
-        text: Пульт с телефона
+          y: 70
+          w: 1000
+        enter: ufx-whipl
+      - type: shape
+        kind: rect
+        radius: 22
+        fill: surface
+        stroke: line
+        width: 1.5
+        text: "**A**   Только PowerPoint"
         styles:
           text:
-            size: 64
-            weight: 900
-            spacing: -0.03
-            color: accent
+            size: 30
+            weight: 700
+            align: left
         place:
           x: 80
           y: 290
           w: 760
-        enter: right
-        click: true
-      - type: text
-        text: "{g:duo|Автопоказ под музыку}"
+          h: 92
+        enter: ufx-whipl
+        delay: 80
+      - type: shape
+        kind: rect
+        radius: 22
+        fill: surface
+        stroke: line
+        width: 1.5
+        text: "**B**   HTML-файл Slideria"
         styles:
           text:
-            size: 64
-            weight: 900
-            spacing: -0.03
-            color: text
+            size: 30
+            weight: 700
+            align: left
         place:
           x: 80
-          y: 410
-          w: 800
-        enter: right
+          y: 400
+          w: 760
+          h: 92
+        enter: ufx-whipl
+        delay: 160
+      - type: shape
+        kind: rect
+        radius: 22
+        fill: surface
+        stroke: line
+        width: 1.5
+        text: "**C**   Ничего"
+        styles:
+          text:
+            size: 30
+            weight: 700
+            align: left
+        place:
+          x: 80
+          y: 510
+          w: 760
+          h: 92
+        enter: ufx-whipl
+        delay: 240
+      - type: shape
+        kind: rect
+        radius: 22
+        fill: "#16A34A"
+        text: "**B**   HTML-файл Slideria   ✓"
+        styles:
+          text:
+            size: 30
+            weight: 800
+            align: left
+            color: "#FFFFFF"
+        shadow: lg
+        place:
+          x: 80
+          y: 400
+          w: 760
+          h: 92
         click: true
-  - id: quiz
+        enter: ufx-slam
+      - type: text
+        text: "+1"
+        styles:
+          text:
+            size: 150
+            weight: 900
+            leading: 0.92
+            spacing: -0.035
+            color: "#22C55E"
+        place:
+          x: 900
+          y: 360
+          w: 300
+        enter: ufx-drop
+        click: true
+        clickWith: true
+      - type: shape
+        kind: rect
+        fill: "#22C55E"
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+        click: true
+        clickWith: true
+        enter: ufx-flash
+        locked: true
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ОБУЧЕНИЕ · <b>ТЕСТЫ НА СЛАЙДЕ</b></b></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: cards
     template: canvas
-    label: Тесты
+    label: Карточки
     bg: var(--bg)
     transition: none
-    at: 58.677
+    at: 54.677
+    steps:
+      - 55.343
     logo: false
     free:
-      - type: text
-        text: Тесты на слайде
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:50%;--gy:55%"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+      - type: shape
+        kind: rect
+        radius: 30
+        fill: surface
+        stroke: accent
+        width: 2
+        shadow: lg
+        text: |-
+          Что такое
+          **морф?**
         styles:
           text:
-            size: 54
+            size: 72
             weight: 800
-            spacing: -0.02
-            color: text
         place:
-          x: 80
-          y: 60
-          w: 900
-        enter: fade
-      - type: quiz
-        question: Что откроется без интернета?
-        options:
-          - text: Только PowerPoint
-          - text: HTML-файл Slideria
-            correct: true
-          - text: Ничего
-        layout: grid
+          x: 330
+          y: 130
+          w: 620
+          h: 420
+        enter: ufx-slam
+      - type: shape
+        kind: rect
+        radius: 30
+        fill: gradient
+        gradient:
+          from: accent
+          to: accent2
+          angle: 135
+        shadow: lg
+        text: |-
+          Переход, где объекты
+          **перелетают**
+          на новые места
+        styles:
+          text:
+            size: 46
+            weight: 700
+            color: "#FFFFFF"
         place:
-          x: 80
-          y: 160
-          w: 1120
-        enter: rise
+          x: 330
+          y: 130
+          w: 620
+          h: 420
+        click: true
+        enter: swivel
+        tempo: fast
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ОБУЧЕНИЕ · <b>КАРТОЧКИ-ПЕРЕВЁРТЫШИ</b></b><b class="v3-hud br">ЩЕЛЧОК — ПЕРЕВЕРНУТЬ</b></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
   - id: code
     template: canvas
     label: Код
     bg: var(--bg)
     transition: none
-    at: 60.01
+    at: 56.01
+    steps:
+      - 57.343
     logo: false
     free:
-      - type: text
-        text: Код прямо на слайде
-        styles:
-          text:
-            size: 54
-            weight: 800
-            spacing: -0.02
-            color: text
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:70%;--gy:55%"></i></div>
         place:
-          x: 80
-          y: 40
-          w: 900
-        enter: fade
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: sandbox
         title: rose.html
         theme: true
@@ -1704,115 +3422,347 @@ slides:
             console.log('Лепестков:', petals);
           </script>
         place:
-          x: 80
-          y: 130
-          w: 1120
-          h: 540
+          x: 60
+          y: 90
+          w: 1160
+          h: 570
+        enter: ufx-slam
+      - type: shape
+        kind: pill
+        fill: gradient
+        gradient:
+          from: accent
+          to: accent2
+          angle: 135
+        text: правится прямо при показе
+        styles:
+          text:
+            size: 24
+            weight: 800
+            color: "#FFFFFF"
+        shadow: lg
+        place:
+          x: 820
+          y: 600
+          w: 400
+          h: 64
+        angle: -3
+        click: true
+        enter: ufx-drop
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">КОД · <b>ПРЯМО НА СЛАЙДЕ</b></b><i class="v3-fl soft"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
   - id: files
     template: canvas
     label: Один файл
     bg: var(--bg)
     transition: none
+    at: 58.677
+    steps:
+      - 59.343
+      - 60.01
+      - 60.677
+    logo: false
+    free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:30%;--gy:55%"></i><i class="v3-spd" style="--c:rgba(255,255,255,.9);--o:0.3;--hole:18%;--edge:40%;left:330px;top:330px;"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+      - type: image
+        src: ../memes/assets/embed-anime.webp
+        fit: cover
+        stroke: "#FFFFFF"
+        width: 5
+        angle: -4
+        shadow: lg
+        place:
+          x: 70
+          y: 90
+          w: 520
+          h: 453
+        enter: ufx-slam
+      - type: text
+        text: |-
+          ОДИН
+          {g:duo|ФАЙЛ.}
+        styles:
+          text:
+            size: 122
+            weight: 900
+            leading: 0.95
+            spacing: -0.035
+            color: text
+        place:
+          x: 640
+          y: 110
+          w: 620
+        enter: ufx-whip
+        delay: 100
+      - type: shape
+        kind: pill
+        fill: surface
+        stroke: accent
+        width: 2
+        text: HTML
+        styles:
+          text:
+            size: 24
+            weight: 800
+        place:
+          x: 640
+          y: 420
+          w: 150
+          h: 72
+        click: true
+        enter: ufx-slam
+      - type: shape
+        kind: pill
+        fill: surface
+        stroke: accent
+        width: 2
+        text: PowerPoint
+        styles:
+          text:
+            size: 24
+            weight: 800
+        place:
+          x: 806
+          y: 420
+          w: 250
+          h: 72
+        click: true
+        enter: ufx-slam
+      - type: shape
+        kind: pill
+        fill: surface
+        stroke: accent
+        width: 2
+        text: PDF
+        styles:
+          text:
+            size: 24
+            weight: 800
+        place:
+          x: 1072
+          y: 420
+          w: 130
+          h: 72
+        click: true
+        enter: ufx-slam
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ЭКСПОРТ · <b>ОДИН ФАЙЛ</b></b><b class="v3-hud bl">ИМПОРТ ИЗ POWERPOINT — ТОЖЕ</b><i class="v3-inv"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+  - id: cinema
+    template: canvas
+    label: Показ — как кино
+    bg: "#0E0E16"
+    transition: none
     at: 61.343
     steps:
       - 62.01
+      - 62.677
+      - 63.343
     logo: false
     free:
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow still" style="--gx:50%;--gy:50%"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: text
-        text: Один файл.
+        text: Показ
         styles:
           text:
             size: 150
             weight: 900
-            leading: 0.95
-            spacing: -0.045
-            color: text
-            align: center
+            leading: 1
+            spacing: -0.04
+            color: "#FFFFFF"
+            align: left
         place:
-          x: 0
-          y: 170
-          w: 1280
-        enter: scale
+          x: 240
+          y: 200
+          w: 625
+        enter: ufx-slam
+        style: "animation: v3-rgbhit .4s ease-out 0s both"
       - type: text
-        text: HTML · PowerPoint · PDF
+        text: —
         styles:
           text:
-            size: 44
-            weight: 800
-            spacing: 0.06
-            color: accent
-            align: center
-        place:
-          x: 0
-          y: 400
-          w: 1280
-        enter: rise
-        click: true
-  - id: name
-    template: canvas
-    label: Slideria
-    bg: var(--bg)
-    backdrop: aurora
-    backdropOpacity: 0.6
-    transition: zoom
-    transitionMs: 300
-    at: 62.677
-    logo: false
-    free:
-      - type: text
-        text: Slideria
-        styles:
-          text:
-            size: 210
+            size: 150
             weight: 900
-            leading: 0.95
-            spacing: -0.045
-            color: text
-            align: center
+            leading: 1
+            spacing: -0.04
+            color: "#FFFFFF"
+            align: left
+        place:
+          x: 854
+          y: 200
+          w: 219
+        enter: ufx-whip
+        click: true
+      - type: text
+        text: как
+        styles:
+          text:
+            size: 150
+            weight: 900
+            leading: 1
+            spacing: -0.04
+            color: "#FFFFFF"
+            align: left
+        place:
+          x: 218
+          y: 370
+          w: 379
+        enter: ufx-whipl
+        click: true
+      - type: text
+        text: кино
+        styles:
+          text:
+            size: 150
+            weight: 900
+            leading: 1
+            spacing: -0.04
+            color: "#FFFFFF"
+            align: left
+        place:
+          x: 587
+          y: 370
+          w: 507
+        enter: ufx-slam
+        click: true
+      - type: shape
+        kind: rect
+        fill: "#FFFFFF"
         place:
           x: 0
-          y: 220
+          y: 0
           w: 1280
-        enter: scale
+          h: 720
+        click: true
+        clickWith: true
+        enter: ufx-flash
+        locked: true
+      - type: html
+        html: <div class="v3-o"><i class="v3-lb t in film"></i><i class="v3-lb b in film"></i><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
   - id: dot
     template: canvas
     label: Точка
-    bg: var(--bg)
-    backdrop: aurora
-    backdropOpacity: 0.6
+    bg: "#0E0E16"
     transition: none
     at: 64.01
     logo: false
     free:
-      - type: text
-        text: Slideria
-        styles:
-          text:
-            size: 210
-            weight: 900
-            leading: 0.95
-            spacing: -0.045
-            color: text
-            align: center
+      - type: html
+        html: <div class="v3-o"><i class="v3-glow still" style="--gx:86.0%;--gy:65.3%"></i><i class="v3-spd brief" style="--c:rgba(255,255,255,.9);--o:0.6;--hole:6%;--edge:26%;left:1101px;top:470px;"></i></div>
         place:
           x: 0
-          y: 220
+          y: 0
           w: 1280
+        locked: true
+      - type: text
+        text: Показ
+        styles:
+          text:
+            size: 150
+            weight: 900
+            leading: 1
+            spacing: -0.04
+            color: "#FFFFFF"
+            align: left
+        place:
+          x: 240
+          y: 200
+          w: 625
+        style: "animation: v3-shake .3s linear 0s, v3-rgbhit .4s ease-out 0s both"
+      - type: text
+        text: —
+        styles:
+          text:
+            size: 150
+            weight: 900
+            leading: 1
+            spacing: -0.04
+            color: "#FFFFFF"
+            align: left
+        place:
+          x: 854
+          y: 200
+          w: 219
+        style: "animation: v3-shake .3s linear 0s, v3-rgbhit .4s ease-out 0s both"
+      - type: text
+        text: как
+        styles:
+          text:
+            size: 150
+            weight: 900
+            leading: 1
+            spacing: -0.04
+            color: "#FFFFFF"
+            align: left
+        place:
+          x: 218
+          y: 370
+          w: 379
+        style: "animation: v3-shake .3s linear 0s, v3-rgbhit .4s ease-out 0s both"
+      - type: text
+        text: кино
+        styles:
+          text:
+            size: 150
+            weight: 900
+            leading: 1
+            spacing: -0.04
+            color: "#FFFFFF"
+            align: left
+        place:
+          x: 587
+          y: 370
+          w: 507
+        style: "animation: v3-shake .3s linear 0s, v3-rgbhit .4s ease-out 0s both"
       - type: shape
         kind: ellipse
         fill: none
-        stroke: gradient
-        strokeGradient:
-          from: accent
-          to: accent2
-          angle: 135
-        width: 2
+        stroke: "#FFFFFF"
+        width: 3
         place:
-          x: 1010
-          y: 375
-          w: 44
-          h: 44
+          x: 1068
+          y: 437
+          w: 66
+          h: 66
         enter: ufx-ring
+      - type: shape
+        kind: ellipse
+        fill: none
+        stroke: accent2
+        width: 3
+        place:
+          x: 1068
+          y: 437
+          w: 66
+          h: 66
+        enter: ufx-ring
+        delay: 140
       - type: shape
         kind: ellipse
         fill: gradient
@@ -1820,25 +3770,20 @@ slides:
           from: accent
           to: accent2
           angle: 135
-        shadow: lg
+        glow: accent2
+        glowSize: 46
+        glowOpacity: 1
         place:
-          x: 1010
-          y: 375
-          w: 44
-          h: 44
+          x: 1068
+          y: 437
+          w: 66
+          h: 66
         enter: ufx-dot
-      - type: text
-        text: презентации, которые живут
-        styles:
-          text:
-            size: 30
-            weight: 700
-            spacing: 0.04
-            color: text2
-            align: center
+        style: "animation: v3-beat .6667s cubic-bezier(.2, .8, .3, 1) .6667s infinite"
+      - type: html
+        html: <div class="v3-o"><i class="v3-lb t thump film"></i><i class="v3-lb b thump film"></i><b class="v3-credit">SLIDERIA&nbsp;&nbsp;V2</b><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-ring" style="left:1101px;top:470px;width:180px;height:180px;margin:-90px 0 0 -90px;"></i><i class="v3-fl"></i></div>
         place:
           x: 0
-          y: 500
+          y: 0
           w: 1280
-        enter: fade
-        delay: 500
+        locked: true
