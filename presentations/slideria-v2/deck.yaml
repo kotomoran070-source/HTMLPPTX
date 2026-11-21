@@ -398,6 +398,10 @@ css: |
   .slide.on .v4-rays { animation: v4-rays .5s linear; }
   @keyframes v4-rays { 0% { opacity: 1; transform: scale(.3); animation-timing-function: cubic-bezier(.15, .7, .4, 1); } 40% { opacity: 1; transform: scale(1.35); animation-timing-function: cubic-bezier(.5, 0, 1, .6); } to { opacity: 0; transform: scale(2.6); } }
 
+  .th-winter { --tx: #E8F1FF; --tx2: #C2D3EC; --mu: #8BA0BF; --bg: #081426; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Onest', var(--font-base); --font-head: 'Unbounded', var(--font-base); }
+  .th-sakura { --tx: #3A1624; --tx2: #5C2E3E; --mu: #9A6B7B; --bg: #FFF6F8; --surf: #FFFFFF; --alt: color-mix(in srgb, #E0517A 8%, #FFFFFF); --bd: color-mix(in srgb, #E0517A 18%, #FFFFFF); --bd2: color-mix(in srgb, #E0517A 28%, #FFFFFF); --font: 'Nunito', var(--font-base); --font-head: 'Nunito', var(--font-base); }
+  .th-autumn { --tx: #F6EADB; --tx2: #E2CDB6; --mu: #B39678; --bg: #1A110B; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Literata', var(--font-base); --font-head: 'Literata', var(--font-base); }
+  .th-party { --tx: #2A1316; --tx2: #4D2C30; --mu: #8C6A6D; --bg: #FFFAF3; --surf: #FFFFFF; --alt: color-mix(in srgb, #EF3E6B 8%, #FFFFFF); --bd: color-mix(in srgb, #EF3E6B 18%, #FFFFFF); --bd2: color-mix(in srgb, #EF3E6B 28%, #FFFFFF); --font: 'Montserrat', var(--font-base); --font-head: 'Montserrat', var(--font-base); }
   @keyframes ufx-flashs { from { opacity: .45; } to { opacity: 0; } }
   @keyframes ufx-late { 0%, 55% { opacity: 0; letter-spacing: .9em; } to { opacity: .85; } }
 music:
@@ -1261,7 +1265,7 @@ slides:
           y: 590
           w: 700
       - type: text
-        text: "**01** / 05"
+        text: "**01** / 04"
         styles:
           text:
             size: 18
@@ -1288,7 +1292,7 @@ slides:
       accent: "#06B6D4"
       accent2: "#8B5CF6"
     transition: none
-    at: 6.01
+    at: 6.343
     logo: false
     free:
       - type: html
@@ -1336,7 +1340,7 @@ slides:
           y: 590
           w: 700
       - type: text
-        text: "**02** / 05"
+        text: "**02** / 04"
         styles:
           text:
             size: 18
@@ -1355,88 +1359,6 @@ slides:
           y: 0
           w: 1280
         locked: true
-  - id: t-game
-    template: canvas
-    label: ИГРЫ
-    bg: "#05050A"
-    theme:
-      accent: "#F97316"
-      accent2: "#EF4444"
-    transition: none
-    at: 6.343
-    logo: false
-    free:
-      - type: html
-        html: <div class="v3-o"><i class="v4-bloom" style="--y:46%;--s:1150px"></i></div>
-        place:
-          x: 0
-          y: 0
-          w: 1280
-        style: "left: 0"
-        locked: true
-      - type: image
-        src: ../memes/assets/embed-doom.webp
-        radius: 22
-        stroke: "#FFFFFF"
-        width: 2
-        shadow: lg
-        glow: accent
-        glowSize: 40
-        glowOpacity: 0.6
-        angle: -3
-        place:
-          x: 560
-          y: 80
-          w: 660
-          h: 400
-        style: "animation: v3-pull 0.5s cubic-bezier(.2, .7, .3, 1) both"
-      - type: text
-        text: ИГРЫ
-        styles:
-          text:
-            size: 92
-            weight: 900
-            leading: 0.9
-            spacing: -0.035
-            color: "#FFFFFF"
-        place:
-          x: 62
-          y: 476
-          w: 1180
-        style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-rgbhit .4s ease-out 0s both"
-      - type: text
-        text: DOOM 1993 — прямо на слайде
-        styles:
-          text:
-            size: 20
-            weight: 800
-            leading: 1.2
-            spacing: 0.3
-            color: text2
-        place:
-          x: 66
-          y: 590
-          w: 700
-      - type: text
-        text: "**03** / 05"
-        styles:
-          text:
-            size: 18
-            weight: 800
-            leading: 1.2
-            spacing: 0.3
-            color: accent2
-        place:
-          x: 66
-          y: 60
-          w: 300
-      - type: html
-        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i></div>
-        place:
-          x: 0
-          y: 0
-          w: 1280
-        locked: true
   - id: t-code
     template: canvas
     label: КОД
@@ -1445,7 +1367,7 @@ slides:
       accent: "#22C55E"
       accent2: "#06B6D4"
     transition: none
-    at: 6.677
+    at: 7.343
     logo: false
     free:
       - type: html
@@ -1501,7 +1423,7 @@ slides:
           y: 590
           w: 700
       - type: text
-        text: "**04** / 05"
+        text: "**03** / 04"
         styles:
           text:
             size: 18
@@ -1528,7 +1450,7 @@ slides:
       accent: "#EC4899"
       accent2: "#F43F5E"
     transition: none
-    at: 7.677
+    at: 8.343
     logo: false
     free:
       - type: html
@@ -1584,7 +1506,7 @@ slides:
           y: 590
           w: 700
       - type: text
-        text: "**05** / 05"
+        text: "**04** / 04"
         styles:
           text:
             size: 18
@@ -1608,10 +1530,10 @@ slides:
     label: Студия
     bg: var(--bg)
     transition: none
-    at: 8.01
+    at: 9.01
     steps:
-      - 9.01
       - 9.343
+      - 9.677
       - 10.01
       - 10.343
     logo: false
@@ -1752,7 +1674,7 @@ slides:
         click: true
         enter: ufx-drop
       - type: html
-        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-fl wo" style="animation-delay:2.3333s"></i></div>
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-fl wo" style="animation-delay:1.3333s"></i></div>
         place:
           x: 0
           y: 0
@@ -2658,7 +2580,7 @@ slides:
     label: "Цвет: КИНО"
     bg: "#000000"
     transition: none
-    at: 19.343
+    at: 20.01
     logo: false
     free:
       - type: image
@@ -2733,7 +2655,7 @@ slides:
     label: "Цвет: НУАР"
     bg: "#000000"
     transition: none
-    at: 20.01
+    at: 20.343
     logo: false
     free:
       - type: image
@@ -3011,19 +2933,17 @@ slides:
           w: 1280
         enter: fade
       - id: scr
-        type: shape
-        kind: rect
+        type: image
+        src: ./assets/vista.webp
+        fit: cover
         radius: 24
-        fill: gradient
-        gradient:
-          from: accent
-          to: accent2
-          angle: 135
+        stroke: "#FFFFFF"
+        width: 2
         shadow: lg
         glow: accent
-        glowSize: 30
-        glowOpacity: 0.6
-        angle: 0
+        glowSize: 36
+        glowOpacity: 0.55
+        angle: -2
         place:
           x: 256
           y: 164
@@ -3031,25 +2951,32 @@ slides:
           h: 432
         enter: ufx-slam
         style: "animation: v3-tilt 2.6667s ease-in-out infinite alternate"
-      - type: text
-        text: 16:9
-        id: scr-l
+      - id: fm-b
+        type: shape
+        kind: pill
+        fill: surface
+        glass: true
+        glassBlur: 14
+        glassOpacity: 0.28
+        stroke: "#FFFFFF"
+        width: 1
+        text: "**16:9**  ·  ШИРОКИЙ"
         styles:
           text:
-            size: 100
-            weight: 900
-            leading: 0.92
-            spacing: -0.035
+            size: 22
+            weight: 600
             color: "#FFFFFF"
-            align: center
+        angle: -2
         place:
-          x: 256
-          y: 330
-          w: 768
-        enter: ufx-slam
+          x: 280
+          y: 518
+          w: 290
+          h: 54
+        enter: fade
+        delay: 150
         style: "animation: v3-punch-s .3s cubic-bezier(.12, .9, .25, 1) backwards"
       - type: html
-        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tr">1280 × 720</b><i class="v3-fl ac"></i></div>
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-fl ac"></i></div>
         place:
           x: 0
           y: 0
@@ -3087,43 +3014,47 @@ slides:
           y: 40
           w: 1280
       - id: scr
-        type: shape
-        kind: rect
+        type: image
+        src: ./assets/vista.webp
+        fit: cover
         radius: 24
-        fill: gradient
-        gradient:
-          from: accent
-          to: accent2
-          angle: 135
+        stroke: "#FFFFFF"
+        width: 2
         shadow: lg
         glow: accent
-        glowSize: 30
-        glowOpacity: 0.6
-        angle: 180
+        glowSize: 36
+        glowOpacity: 0.55
+        angle: 2
         place:
           x: 352
           y: 164
           w: 576
           h: 432
         style: "animation: v3-tilt 2.6667s ease-in-out infinite alternate"
-      - type: text
-        text: 4:3
-        id: scr-l
+      - id: fm-b
+        type: shape
+        kind: pill
+        fill: surface
+        glass: true
+        glassBlur: 14
+        glassOpacity: 0.28
+        stroke: "#FFFFFF"
+        width: 1
+        text: "**4:3**  ·  КЛАССИКА"
         styles:
           text:
-            size: 100
-            weight: 900
-            leading: 0.92
-            spacing: -0.035
+            size: 22
+            weight: 600
             color: "#FFFFFF"
-            align: center
+        angle: 2
         place:
-          x: 352
-          y: 330
-          w: 576
+          x: 376
+          y: 518
+          w: 290
+          h: 54
         style: "animation: v3-punch-s .3s cubic-bezier(.12, .9, .25, 1) backwards"
       - type: html
-        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tr">960 × 720</b><i class="v3-ring" style="left:640px;top:380px;width:260px;height:260px;margin:-130px 0 0 -130px;"></i><i class="v3-fl soft"></i></div>
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-fl soft"></i></div>
         place:
           x: 0
           y: 0
@@ -3161,43 +3092,47 @@ slides:
           y: 40
           w: 1280
       - id: scr
-        type: shape
-        kind: rect
+        type: image
+        src: ./assets/vista.webp
+        fit: cover
         radius: 24
-        fill: gradient
-        gradient:
-          from: accent
-          to: accent2
-          angle: 135
+        stroke: "#FFFFFF"
+        width: 2
         shadow: lg
         glow: accent
-        glowSize: 30
-        glowOpacity: 0.6
-        angle: 360
+        glowSize: 36
+        glowOpacity: 0.55
+        angle: -1.5
         place:
           x: 136
           y: 164
           w: 1008
           h: 432
         style: "animation: v3-tilt 2.6667s ease-in-out infinite alternate"
-      - type: text
-        text: 21:9
-        id: scr-l
+      - id: fm-b
+        type: shape
+        kind: pill
+        fill: surface
+        glass: true
+        glassBlur: 14
+        glassOpacity: 0.28
+        stroke: "#FFFFFF"
+        width: 1
+        text: "**21:9**  ·  КИНО"
         styles:
           text:
-            size: 100
-            weight: 900
-            leading: 0.92
-            spacing: -0.035
+            size: 22
+            weight: 600
             color: "#FFFFFF"
-            align: center
+        angle: -1.5
         place:
-          x: 136
-          y: 330
-          w: 1008
+          x: 160
+          y: 518
+          w: 290
+          h: 54
         style: "animation: v3-punch-s .3s cubic-bezier(.12, .9, .25, 1) backwards"
       - type: html
-        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tr">1680 × 720</b><i class="v3-ring" style="left:640px;top:380px;width:260px;height:260px;margin:-130px 0 0 -130px;"></i><i class="v3-fl soft"></i></div>
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-fl soft"></i></div>
         place:
           x: 0
           y: 0
@@ -3235,19 +3170,15 @@ slides:
           y: 40
           w: 1280
       - id: scr
-        type: shape
-        kind: rect
+        type: image
+        src: ./assets/vista.webp
+        fit: cover
         radius: 0
-        fill: gradient
-        gradient:
-          from: accent
-          to: accent2
-          angle: 135
         shadow: lg
         glow: accent
-        glowSize: 30
-        glowOpacity: 0.6
-        angle: 360
+        glowSize: 36
+        glowOpacity: 0.55
+        angle: 0
         place:
           x: -20
           y: 0
@@ -3266,9 +3197,10 @@ slides:
             color: "#FFFFFF"
             align: center
         place:
-          x: -20
+          x: 0
           y: 316
-          w: 1320
+          w: 1280
+        enter: ufx-slam
         style: "animation: v3-jit .1s steps(1) 0.6s infinite"
       - type: html
         html: <div class="v3-o"><i class="v3-spd" style="--o:.5;--hole:18%;--edge:40%"></i></div>
@@ -3278,7 +3210,7 @@ slides:
           w: 1280
         locked: true
       - type: html
-        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tr"></b><i class="v3-ring" style="left:640px;top:380px;width:260px;height:260px;margin:-130px 0 0 -130px;"></i><i class="v3-fl soft"></i><i class="v3-fl wo" style="animation-delay:1s"></i></div>
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-fl soft"></i><i class="v3-fl wo" style="animation-delay:1s"></i></div>
         place:
           x: 0
           y: 0
@@ -3294,6 +3226,7 @@ slides:
     theme:
       accent: "#1D6FD6"
       accent2: "#7DD3FC"
+    class: th-winter
     transition: none
     at: 32.01
     logo: false
@@ -3371,7 +3304,7 @@ slides:
         enter: ufx-slam
         locked: true
       - type: text
-        text: Выручка, 2026
+        text: Цели квартала
         id: th-h
         styles:
           text:
@@ -3386,31 +3319,20 @@ slides:
           y: 150
           w: 340
         enter: fade
-      - type: html
-        html: <div class="v3-o" style="width:100%;height:100%"><div class="v3-qb" style="--tx:#E8F1FF"><i style="--h:49%;animation-delay:0.10s"><b style="font-family:Unbounded">42</b><em>I</em></i><i style="--h:67%;animation-delay:0.16s"><b style="font-family:Unbounded">58</b><em>II</em></i><i style="--h:59%;animation-delay:0.22s"><b style="font-family:Unbounded">51</b><em>III</em></i><i style="--h:100%;animation-delay:0.28s"><b style="font-family:Unbounded">86</b><em>IV</em></i></div></div>
+      - type: rings
+        values:
+          - 92
+          - 74
+          - 58
+        labels:
+          - Продажи
+          - Новые клиенты
+          - Удержание
         place:
-          x: 830
+          x: 822
           y: 200
-          w: 330
-          h: 290
-        locked: true
-      - type: text
-        text: +48 %
-        id: th-s
-        styles:
-          text:
-            size: 56
-            weight: 700
-            leading: 0.92
-            spacing: -0.02
-            color: "#1D6FD6"
-            font: Unbounded
-        place:
-          x: 830
-          y: 516
-          w: 340
-        enter: fade
-        delay: 200
+          w: 346
+          h: 390
       - type: html
         html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-vig"></i><i class="v3-fl"></i></div>
         place:
@@ -3428,8 +3350,8 @@ slides:
     theme:
       accent: "#E0517A"
       accent2: "#F6A5BE"
-    transition: morph
-    transitionMs: 320
+    class: th-sakura
+    transition: none
     at: 33.343
     logo: false
     free:
@@ -3501,7 +3423,7 @@ slides:
           h: 500
         locked: true
       - type: text
-        text: Выручка, 2026
+        text: Выручка по каналам
         id: th-h
         styles:
           text:
@@ -3516,31 +3438,23 @@ slides:
           y: 150
           w: 340
         enter: fade
-      - type: html
-        html: <div class="v3-o" style="width:100%;height:100%"><div class="v3-qb" style="--tx:#3A1624"><i style="--h:49%;animation-delay:0.10s"><b style="font-family:Nunito">42</b><em>I</em></i><i style="--h:67%;animation-delay:0.16s"><b style="font-family:Nunito">58</b><em>II</em></i><i style="--h:59%;animation-delay:0.22s"><b style="font-family:Nunito">51</b><em>III</em></i><i style="--h:100%;animation-delay:0.28s"><b style="font-family:Nunito">86</b><em>IV</em></i></div></div>
+      - type: donut
+        values:
+          - 46
+          - 31
+          - 23
+        labels:
+          - Сайт
+          - Партнёры
+          - Магазины
+        center: 3,4
+        sub: млн ₽ за год
+        legend: bottom
         place:
-          x: 830
+          x: 822
           y: 200
-          w: 330
-          h: 290
-        locked: true
-      - type: text
-        text: +48 %
-        id: th-s
-        styles:
-          text:
-            size: 56
-            weight: 900
-            leading: 0.92
-            spacing: -0.02
-            color: "#E0517A"
-            font: Nunito
-        place:
-          x: 830
-          y: 516
-          w: 340
-        enter: fade
-        delay: 200
+          w: 346
+          h: 390
       - type: html
         html: <div class="v3-o"><i class="v3-fl soft"></i></div>
         place:
@@ -3558,8 +3472,8 @@ slides:
     theme:
       accent: "#E25A1C"
       accent2: "#E89B1C"
-    transition: morph
-    transitionMs: 320
+    class: th-autumn
+    transition: none
     at: 34.677
     logo: false
     free:
@@ -3632,47 +3546,15 @@ slides:
           w: 410
           h: 500
         locked: true
-      - type: text
-        text: Выручка, 2026
-        id: th-h
-        styles:
-          text:
-            size: 26
-            weight: 700
-            leading: 0.92
-            spacing: -0.01
-            color: "#F6EADB"
-            font: Literata
+      - type: quote
+        text: Хорошая презентация отвечает на вопрос раньше, чем его зададут.
+        author: Правило Slideria
+        role: из шаблона «Осень»
         place:
-          x: 830
+          x: 822
           y: 150
-          w: 340
-        enter: fade
-      - type: html
-        html: <div class="v3-o" style="width:100%;height:100%"><div class="v3-qb" style="--tx:#F6EADB"><i style="--h:49%;animation-delay:0.10s"><b style="font-family:Literata">42</b><em>I</em></i><i style="--h:67%;animation-delay:0.16s"><b style="font-family:Literata">58</b><em>II</em></i><i style="--h:59%;animation-delay:0.22s"><b style="font-family:Literata">51</b><em>III</em></i><i style="--h:100%;animation-delay:0.28s"><b style="font-family:Literata">86</b><em>IV</em></i></div></div>
-        place:
-          x: 830
-          y: 200
-          w: 330
-          h: 290
-        locked: true
-      - type: text
-        text: +48 %
-        id: th-s
-        styles:
-          text:
-            size: 56
-            weight: 700
-            leading: 0.92
-            spacing: -0.02
-            color: "#E25A1C"
-            font: Literata
-        place:
-          x: 830
-          y: 516
-          w: 340
-        enter: fade
-        delay: 200
+          w: 346
+          h: 430
       - type: html
         html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-vig"></i><i class="v3-fl soft"></i></div>
         place:
@@ -3690,8 +3572,8 @@ slides:
     theme:
       accent: "#EF3E6B"
       accent2: "#FBBF24"
-    transition: morph
-    transitionMs: 320
+    class: th-party
+    transition: none
     at: 36.01
     logo: false
     free:
@@ -3763,7 +3645,7 @@ slides:
           h: 500
         locked: true
       - type: text
-        text: Выручка, 2026
+        text: План года
         id: th-h
         styles:
           text:
@@ -3778,31 +3660,16 @@ slides:
           y: 150
           w: 340
         enter: fade
-      - type: html
-        html: <div class="v3-o" style="width:100%;height:100%"><div class="v3-qb" style="--tx:#2A1316"><i style="--h:49%;animation-delay:0.10s"><b style="font-family:Montserrat">42</b><em>I</em></i><i style="--h:67%;animation-delay:0.16s"><b style="font-family:Montserrat">58</b><em>II</em></i><i style="--h:59%;animation-delay:0.22s"><b style="font-family:Montserrat">51</b><em>III</em></i><i style="--h:100%;animation-delay:0.28s"><b style="font-family:Montserrat">86</b><em>IV</em></i></div></div>
+      - type: gauge
+        value: 78
+        unit: " %"
+        label: выполнено, цель — 85 %
+        target: 85
         place:
-          x: 830
+          x: 822
           y: 200
-          w: 330
-          h: 290
-        locked: true
-      - type: text
-        text: +48 %
-        id: th-s
-        styles:
-          text:
-            size: 56
-            weight: 900
-            leading: 0.92
-            spacing: -0.02
-            color: "#EF3E6B"
-            font: Montserrat
-        place:
-          x: 830
-          y: 516
-          w: 340
-        enter: fade
-        delay: 200
+          w: 346
+          h: 390
       - type: html
         html: <div class="v3-o"><i class="v3-fl soft"></i></div>
         place:
