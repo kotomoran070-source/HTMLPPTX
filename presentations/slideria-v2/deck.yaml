@@ -650,126 +650,28 @@ css: |
   @keyframes v7-bgb { 0%, 19.9% { opacity: 0; } 20% { opacity: 1; transform: translateX(60px); } 59.9% { opacity: 1; transform: translateX(-180px); } 60%, to { opacity: 0; } }
   @keyframes v7-bgc { 0%, 59.9% { opacity: 0; } 60% { opacity: 1; transform: translateX(140px); } 93% { opacity: 1; } to { opacity: 0; transform: none; } }
 
-  /* ════════ Финал «Показ — как кино.»: кинетическая типографика. Кадры камеры, встряска и размытие движения —
-     в генераторе (по замеру слов); здесь — вёрстка финальной карточки и появления. Удары: слова 0; 0,667; 1,333;
-     2,0 с, точка — 2,667 с (1:04.01) ════════ */
-  .v9 { position: relative; width: 1280px; height: 720px; overflow: hidden; background: #050507; isolation: isolate; }
-  /* Свет в глубине — едва заметный, чтобы кадр не был плоским чёрным; к карточке чуть разгорается */
-  .v9-glow { position: absolute; left: -10%; top: -20%; width: 120%; height: 140%; opacity: .6;
-    background: radial-gradient(ellipse 38% 42% at 34% 52%, rgba(91, 33, 182, .3), transparent 70%), radial-gradient(ellipse 24% 28% at 76% 60%, rgba(219, 39, 119, .14), transparent 70%); }
-  .slide.on .v9-glow { animation: v9-glow 6s cubic-bezier(.3, 0, .3, 1) both; }
-  @keyframes v9-glow { from { transform: translateX(6%) scale(1.15); opacity: .6; } 44.4% { opacity: .65; } 52% { opacity: 1; } to { transform: none; opacity: 1; } }
-  .v9-sh { position: absolute; inset: 0; overflow: hidden; }
-  .slide.on .v9-sh { animation: v9-shk 6s linear both, v9-mb 6s linear both; }
-  .v9-cam { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; transform-origin: 0 0; }
-  .slide.on .v9-cam { animation: v9-cam 6s both; }
-  /* Финальная вёрстка: по левому краю, плотно; тире — линия (прочерчивается), точка — круг цвета акцента */
-  .v9-l { position: absolute; left: 96px; margin: 0; white-space: nowrap; font: 900 150px/1 var(--font-head); letter-spacing: -.045em; color: #FFFFFF; }
-  .v9-l.a { top: 206px; } .v9-l.b { top: 350px; }
+  /* ════════ Финал «Показ — как кино.» по референсу: плёнка — видео на весь слайд; здесь фраза. Слова встают в свои
+     удары (0; 0,667; 1,333; 2,0 с) — проявляются из размытия снизу; точка — в 2,667 с (1:04.01), со вспышкой света ════════ */
+  .v9 { position: relative; width: 1280px; height: 720px; }
+  .v9-under { display: block; width: 1280px; height: 720px; background: radial-gradient(ellipse 34% 46% at 52% 57%, #44166E 0%, #200A38 40%, #050308 100%), #040307; }
+  .slide.on .v9 { animation: v9-drift 6s cubic-bezier(.3, 0, .3, 1) both; transform-origin: 90px 330px; }
+  @keyframes v9-drift { from { transform: scale(.985); } to { transform: scale(1.015); } }
+  .v9-l { position: absolute; left: 88px; margin: 0; white-space: nowrap; font: 700 112px/1 var(--font-head); letter-spacing: -.025em; color: #F4EDE3; }
+  .v9-l.a { top: 222px; } .v9-l.b { top: 330px; }
   .v9-l b { display: inline-block; font-weight: inherit; opacity: 0; }
-  .v9-l .w0 { --d: 0s; } .v9-l .w2 { --d: 1.3333s; } .v9-l .w3 { --d: 2s; }
-  .v9-dash { display: inline-block; width: .6em; height: .13em; margin-left: .26em; vertical-align: .3em; background: #FFFFFF; transform: scaleX(0); transform-origin: 0 50%; }
-  .v9-dot { display: inline-block; width: .2em; height: .2em; margin-left: .07em; border-radius: 50%; background: #EC4899; opacity: 0; box-shadow: 0 0 .3em rgba(236, 72, 153, .65); }
-  /* Слово — в свой удар, сразу целиком: цветной сдвиг краёв сходится, лёгкий откат масштаба */
-  .slide.on .v9-l b { animation: v9-hit .34s cubic-bezier(.2, .8, .2, 1) var(--d) forwards; }
-  @keyframes v9-hit {
-    0% { opacity: 1; transform: scale(1.08); text-shadow: -14px 0 rgba(255, 30, 100, .9), 14px 0 rgba(30, 220, 255, .9); }
-    100% { opacity: 1; transform: none; text-shadow: 0 0 rgba(255, 30, 100, 0), 0 0 rgba(30, 220, 255, 0); }
-  }
-  /* Тире прочерчивается, пока камера летит к нему; точка штампуется в удар */
-  .slide.on .v9-dash { animation: v9-draw .16s cubic-bezier(.7, 0, .2, 1) .5067s forwards; }
-  @keyframes v9-draw { to { transform: none; } }
-  .slide.on .v9-dot { animation: v9-dot .3s cubic-bezier(.2, .9, .2, 1) 2.6667s forwards; }
-  @keyframes v9-dot { 0% { opacity: 1; transform: scale(3.5); } 100% { opacity: 1; transform: none; } }
-  /* Кадр-негатив в удар точки — два кадра (оттенки сохраняются: розовая точка не становится зелёной) */
-  .v9-inv { position: absolute; inset: 0; -webkit-backdrop-filter: invert(1) hue-rotate(180deg); backdrop-filter: invert(1) hue-rotate(180deg); opacity: 0; pointer-events: none; }
-  .slide.on .v9-inv { animation: v9-inv .08s steps(1, end) 2.6667s; }
-  @keyframes v9-inv { from, to { opacity: 1; } }
-  /* Карточка: линейки прочерчиваются, подписи проявляются по очереди — уже после отъезда камеры */
-  .v9-meta { position: absolute; inset: 0; color: rgba(245, 243, 255, .72); font: 600 13px/1 var(--font); letter-spacing: .32em; }
-  .v9-meta > * { position: absolute; opacity: 0; }
-  .v9-tl { left: 96px; top: 56px; display: flex; align-items: center; gap: 12px; color: #FFFFFF; font: 800 15px/1 var(--font-head); letter-spacing: .4em; }
-  .v9-tl svg { width: 22px; height: 22px; }
-  .v9-tr { right: 96px; top: 62px; margin-right: -.32em; }
-  .v9-bl { left: 96px; bottom: 58px; }
-  .v9-br { right: 96px; bottom: 58px; margin-right: -.32em; }
-  .v9-rule { left: 96px; right: 96px; height: 1px; background: rgba(255, 255, 255, .26); transform: scaleX(0); transform-origin: 0 50%; opacity: 1; }
-  .v9-rule.t { top: 96px; } .v9-rule.b { bottom: 96px; }
-  .slide.on .v9-rule { animation: v9-rule .9s cubic-bezier(.16, 1, .3, 1) 2.82s forwards; }
-  .slide.on .v9-rule.b { animation-delay: 2.9s; }
-  @keyframes v9-rule { to { transform: none; } }
-  .slide.on .v9-meta > :not(.v9-rule) { animation: v9-meta .8s cubic-bezier(.16, 1, .3, 1) var(--md, 3.05s) forwards; }
-  .v9-tr { --md: 3.12s; } .v9-bl { --md: 3.2s; } .v9-br { --md: 3.28s; }
-  @keyframes v9-meta { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-
-  /* Финал: кадры камеры, встряска и размытие — по замеру слов (fin9.json) */
-  @keyframes v9-cam {
-    0.000% { transform: translate(-295.3px, -253.3px) scale(2.1827); animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
-    3.667% { transform: translate(-52.8px, -94.3px) scale(1.6168); animation-timing-function: cubic-bezier(.25, .6, .35, 1); }
-    8.445% { transform: translate(-87.5px, -117.0px) scale(1.6977); animation-timing-function: cubic-bezier(.8, 0, .2, 1); }
-    11.112% { transform: translate(-890.2px, -152.5px) scale(1.8109); animation-timing-function: cubic-bezier(.25, .6, .35, 1); }
-    19.555% { transform: translate(-958.5px, -175.4px) scale(1.8917); animation-timing-function: cubic-bezier(.8, 0, .2, 1); }
-    22.222% { transform: translate(51.8px, -487.4px) scale(1.9940); animation-timing-function: cubic-bezier(.25, .6, .35, 1); }
-    30.667% { transform: translate(22.4px, -529.8px) scale(2.0937); animation-timing-function: cubic-bezier(.8, 0, .2, 1); }
-    33.333% { transform: translate(-850.5px, -415.8px) scale(1.8255); animation-timing-function: cubic-bezier(.25, .6, .35, 1); }
-    41.778% { transform: translate(-910.1px, -446.9px) scale(1.8985); animation-timing-function: cubic-bezier(.6, 0, 1, .6); }
-    44.445% { transform: translate(-1029.4px, -508.9px) scale(2.0445); animation-timing-function: cubic-bezier(.08, .9, .12, 1); }
-    57.778% { transform: translate(0.0px, 0.0px) scale(1); animation-timing-function: cubic-bezier(.3, 0, .3, 1); }
-    100.000% { transform: translate(-21.1px, -12.4px) scale(1.035); animation-timing-function: linear; }
-  }
-  @keyframes v9-shk {
-    0.000% { translate: 0 0; }
-    0.033% { translate: 10.0px -6.0px; }
-    0.583% { translate: -7.5px 4.5px; }
-    1.133% { translate: 5.0px -3.0px; }
-    1.683% { translate: -2.5px 1.5px; }
-    2.233% { translate: 0 0; }
-    11.095% { translate: 0 0; }
-    11.112% { translate: 7.0px -4.2px; }
-    11.662% { translate: -5.3px 3.1px; }
-    12.212% { translate: 3.5px -2.1px; }
-    12.762% { translate: -1.8px 1.1px; }
-    13.312% { translate: 0 0; }
-    22.205% { translate: 0 0; }
-    22.222% { translate: 7.0px -4.2px; }
-    22.772% { translate: -5.3px 3.1px; }
-    23.322% { translate: 3.5px -2.1px; }
-    23.872% { translate: -1.8px 1.1px; }
-    24.422% { translate: 0 0; }
-    33.317% { translate: 0 0; }
-    33.333% { translate: 7.0px -4.2px; }
-    33.883% { translate: -5.3px 3.1px; }
-    34.433% { translate: 3.5px -2.1px; }
-    34.983% { translate: -1.8px 1.1px; }
-    35.533% { translate: 0 0; }
-    44.428% { translate: 0 0; }
-    44.445% { translate: 18.0px -10.8px; }
-    44.995% { translate: -15.8px 9.4px; }
-    45.545% { translate: 13.5px -8.1px; }
-    46.095% { translate: -11.3px 6.8px; }
-    46.645% { translate: 9.0px -5.4px; }
-    47.195% { translate: -6.8px 4.0px; }
-    47.745% { translate: 4.5px -2.7px; }
-    48.295% { translate: -2.3px 1.3px; }
-    48.845% { translate: 0 0; }
-    100.000% { translate: 0 0; }
-  }
-  @keyframes v9-mb {
-    0.000% { filter: blur(10px); }
-    2.667% { filter: blur(0px); }
-    8.445% { filter: blur(0px); }
-    9.945% { filter: blur(7px); }
-    11.112% { filter: blur(0px); }
-    19.555% { filter: blur(0px); }
-    21.055% { filter: blur(7px); }
-    22.222% { filter: blur(0px); }
-    30.667% { filter: blur(0px); }
-    32.167% { filter: blur(7px); }
-    33.333% { filter: blur(0px); }
-    44.445% { filter: blur(0px); }
-    45.612% { filter: blur(6px); }
-    49.778% { filter: blur(0px); }
-    100.000% { filter: blur(0px); }
+  .v9-l .w0 { --d: 0s; } .v9-l .w1 { --d: .6667s; } .v9-l .w2 { --d: 1.3333s; } .v9-l .w3 { --d: 2s; }
+  .slide.on .v9-l b { animation: v9-in .7s cubic-bezier(.16, 1, .3, 1) var(--d) forwards; }
+  @keyframes v9-in { from { opacity: 0; transform: translateY(.14em); filter: blur(10px); } to { opacity: 1; transform: none; filter: none; } }
+  /* Тире прочерчивается слева направо */
+  .v9-l .w1 { transform-origin: 0 50%; }
+  .slide.on .v9-l .w1 { animation-name: v9-dash; }
+  @keyframes v9-dash { from { opacity: 0; transform: scaleX(0); } 30% { opacity: 1; } to { opacity: 1; transform: none; } }
+  /* Точка: встаёт в удар со вспышкой и остаётся светиться */
+  .v9-l .w4 { margin-left: .03em; transform-origin: 50% 80%; text-shadow: 0 0 .12em rgba(255, 236, 214, .75), 0 0 .4em rgba(236, 160, 255, .45); }
+  .slide.on .v9-l .w4 { animation: v9-dot .9s cubic-bezier(.16, 1, .3, 1) 2.6667s forwards; }
+  @keyframes v9-dot {
+    0% { opacity: 1; transform: scale(1.9); text-shadow: 0 0 .3em #FFFFFF, 0 0 1.2em rgba(255, 214, 255, .9); }
+    100% { opacity: 1; transform: none; text-shadow: 0 0 .12em rgba(255, 236, 214, .75), 0 0 .4em rgba(236, 160, 255, .45); }
   }
 
   .th-winter { --tx: #E8F1FF; --tx2: #C2D3EC; --mu: #8BA0BF; --bg: #081426; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Onest', var(--font-base); --font-head: 'Unbounded', var(--font-base); }
@@ -4957,20 +4859,35 @@ slides:
   - id: cinema
     template: canvas
     label: Показ — как кино.
-    bg: "#050507"
+    bg: "#07040C"
     transition: none
     at: 61.343
     logo: false
     free:
       - type: html
-        html: <div class="v9"><i class="v9-glow"></i><div class="v9-sh"><div class="v9-cam"><p class="v9-l a"><b class="w0">ПОКАЗ</b><i class="v9-dash"></i></p><p class="v9-l b"><b class="w2">КАК</b> <b class="w3">КИНО</b><i class="v9-dot"></i></p></div></div><div class="v9-meta"><div class="v9-tl"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 3.5H8.25a4.25 4.25 0 0 0 0 8.5" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="20.5" cy="3.5" r="1.4" fill="currentColor"/><g opacity=".55"><path d="M8.25 12h7.5a4.25 4.25 0 0 1 0 8.5H3.5" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="3.5" cy="20.5" r="1.4" fill="currentColor"/></g></svg><span>SLIDERIA</span></div><div class="v9-tr">СТУДИЯ ЖИВЫХ ПРЕЗЕНТАЦИЙ</div><i class="v9-rule t"></i><i class="v9-rule b"></i><div class="v9-bl">ПРЕЗЕНТАЦИИ, КОТОРЫЕ ЖИВУТ</div><div class="v9-br">2026</div></div><i class="v9-inv"></i></div>
+        html: <i class="v9-under"></i>
         place:
           x: 0
           y: 0
           w: 1280
         locked: true
+      - type: video
+        src: ./assets/fin-film.mp4
+        poster: ./assets/fin-film-poster.webp
+        autoplay: true
+        muted: true
+        loop: false
+        controls: false
+        fit: cover
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+        style: "--rk: 0"
+        locked: true
       - type: html
-        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-vig"></i></div>
+        html: <div class="v9"><p class="v9-l a"><b class="w0">Показ</b> <b class="w1">—</b></p><p class="v9-l b"><b class="w2">как</b> <b class="w3">кино</b><b class="w4">.</b></p></div>
         place:
           x: 0
           y: 0
