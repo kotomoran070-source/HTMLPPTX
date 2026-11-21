@@ -602,13 +602,17 @@ body.editing .slide.on > .free.act { cursor: inherit; translate: none; filter: n
   89% { transform: translate(-6px, 0); clip-path: inset(4% 0 82% 0); }
 }
 .free[data-tfx="shine"] [data-text]::before { content: none; }
+/* Полоса блика — белая сердцевина с краями в цвет акцента и свечением вокруг освещённых букв: так она видна
+   и на белом тексте тёмной темы. Первый проход — когда объект уже появился (задержка объекта), дальше раз в 3 с */
 .free[data-tfx="shine"] [data-text]::after {
   color: transparent; -webkit-text-fill-color: transparent;
-  background: linear-gradient(105deg, transparent 42%, color-mix(in srgb, #fff 85%, var(--ac)) 50%, transparent 58%) 0 0 / 300% 100% no-repeat;
+  background: linear-gradient(105deg, transparent 44%, color-mix(in srgb, var(--ac) 75%, #fff) 48%, #fff 50%, color-mix(in srgb, var(--ac) 75%, #fff) 52%, transparent 56%) 100% 0 / 250% 100% no-repeat;
   -webkit-background-clip: text; background-clip: text;
-  --tfx-anim: tfx-shine 3.2s ease-in-out infinite; animation: var(--tfx-anim);
+  filter: drop-shadow(0 0 .12em color-mix(in srgb, var(--ac) 80%, #fff));
+  --tfx-anim: tfx-shine 3s linear infinite; animation: var(--tfx-anim); animation-delay: calc(var(--fx-d, 0ms) + .25s);
 }
-@keyframes tfx-shine { 0% { background-position: 100% 0; } 65%, 100% { background-position: 0 0; } }
+/* Полоса узкая и в покое целиком за краями текста; проход — ровным ходом, чтобы он читался по буквам */
+@keyframes tfx-shine { 0% { background-position: 100% 0; } 45%, 100% { background-position: 0 0; } }
 .free[data-tfx="wave"] .tfx-c { position: relative; --tfx-anim: tfx-wave 1.8s ease-in-out calc(var(--i) * 70ms - 5s) infinite; animation: var(--tfx-anim); }
 @keyframes tfx-wave { 0%, 60%, 100% { top: 0; } 30% { top: -.24em; } }
 .tfx-c.tfx-off { visibility: hidden; }

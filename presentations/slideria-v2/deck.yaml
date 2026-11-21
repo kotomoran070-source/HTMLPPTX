@@ -576,16 +576,27 @@ css: |
   /* ════════ «Любой формат слайда»: одна карточка на весь отрезок 24.010–30.677 (6,667 с) ════════ */
   .v7-fm { position: relative; width: 100%; height: 432px; }
   .v7-tilt, .v7-punch { position: absolute; inset: 0; }
-  .v7-tilt { transform: perspective(1200px) rotateY(0deg) rotateX(0deg); }
+  .v7-tilt { transform: perspective(1000px) translateZ(0) rotateY(0deg) rotateX(0deg) rotateZ(0deg); }
   .slide.on .v7-tilt { animation: v7-tilt 6.6667s both; }
+  /* Медленный маятник: качание на 8 долей (2,67 с), каждое следующее — короче; камера всё время чуть наезжает
+     (translateZ к нулю), лёгкий крен — «кинокадр». К 92 % — ровно в плоскости: дальше раскрытие на весь экран */
   @keyframes v7-tilt {
-    0% { transform: perspective(1200px) rotateY(-14deg) rotateX(4deg); animation-timing-function: ease-in-out; }
-    20% { transform: perspective(1200px) rotateY(14deg) rotateX(-4deg); animation-timing-function: ease-in-out; }
-    40% { transform: perspective(1200px) rotateY(-14deg) rotateX(4deg); animation-timing-function: ease-in-out; }
-    60% { transform: perspective(1200px) rotateY(14deg) rotateX(-4deg); animation-timing-function: ease-in-out; }
-    80% { transform: perspective(1200px) rotateY(-9deg) rotateX(3deg); animation-timing-function: ease-in-out; }
-    to { transform: perspective(1200px) rotateY(0deg) rotateX(0deg); }
+    0% { transform: perspective(1000px) translateZ(-80px) rotateY(-18deg) rotateX(7deg) rotateZ(-1.2deg); animation-timing-function: cubic-bezier(.37, 0, .63, 1); }
+    40% { transform: perspective(1000px) translateZ(-50px) rotateY(16deg) rotateX(-5deg) rotateZ(1deg); animation-timing-function: cubic-bezier(.37, 0, .63, 1); }
+    78% { transform: perspective(1000px) translateZ(-20px) rotateY(-10deg) rotateX(4deg) rotateZ(-.6deg); animation-timing-function: cubic-bezier(.37, 0, .63, 1); }
+    92%, to { transform: perspective(1000px) translateZ(0) rotateY(0deg) rotateX(0deg) rotateZ(0deg); }
   }
+  /* Блик по стеклу карточки — ходит в такт наклону (в обратную сторону) и гаснет к раскрытию */
+  .v7-gl { position: absolute; top: 0; bottom: 0; left: 30%; width: 40%; pointer-events: none; opacity: 0; will-change: transform;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .1) 30%, rgba(255, 255, 255, .28) 50%, rgba(255, 255, 255, .1) 70%, transparent); }
+  .slide.on .v7-gl { animation: v7-gl 6.6667s both; }
+  @keyframes v7-gl {
+    0% { transform: translateX(110%) skewX(-14deg); opacity: .9; animation-timing-function: cubic-bezier(.37, 0, .63, 1); }
+    40% { transform: translateX(-110%) skewX(-14deg); opacity: .9; animation-timing-function: cubic-bezier(.37, 0, .63, 1); }
+    78% { transform: translateX(70%) skewX(-14deg); opacity: .75; animation-timing-function: cubic-bezier(.37, 0, .63, 1); }
+    90%, to { transform: translateX(0) skewX(-14deg); opacity: 0; }
+  }
+
   /* Толчок в удар смены формата */
   .slide.on .v7-punch { animation: v7-punch 6.6667s linear both; }
   @keyframes v7-punch {
@@ -2882,7 +2893,7 @@ slides:
           w: 1280
         enter: fade
       - type: html
-        html: <div class="v7-fm"><div class="v7-tilt"><i class="v7-glow"></i><div class="v7-punch"><div class="v7-card"><img data-i="0"><b class="v7-bd a"><s>16:9</s>  ·  ШИРОКИЙ</b><b class="v7-bd b"><s>4:3</s>  ·  КЛАССИКА</b><b class="v7-bd c"><s>21:9</s>  ·  КИНО</b></div></div></div></div>
+        html: <div class="v7-fm"><div class="v7-tilt"><i class="v7-glow"></i><div class="v7-punch"><div class="v7-card"><img data-i="0"><i class="v7-gl"></i><b class="v7-bd a"><s>16:9</s>  ·  ШИРОКИЙ</b><b class="v7-bd b"><s>4:3</s>  ·  КЛАССИКА</b><b class="v7-bd c"><s>21:9</s>  ·  КИНО</b></div></div></div></div>
         place:
           x: 136
           y: 164

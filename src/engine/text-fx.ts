@@ -111,19 +111,20 @@ function run(objs: HTMLElement[], wait?: number): () => void {
 
 const LIQUID = 'sl-liquid';
 /**
- * Фильтр «Жидкости» — один на документ: шум медленно меняет частоту (SMIL), смещение небольшое,
- * в пикселях слайда — колышется одинаково при любом масштабе показа
+ * Фильтр «Жидкости» — один на документ: шум меняет частоту (SMIL) — рябь бежит по буквам за пару секунд,
+ * смещение в пикселях слайда — колышется одинаково при любом масштабе показа
  */
 function liquidFilter(): void {
   if (document.getElementById(LIQUID)) return;
   const box = document.createElement('div');
   box.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">`
-    + `<filter id="${LIQUID}" x="-3%" y="-10%" width="106%" height="120%" color-interpolation-filters="sRGB">`
-    + '<feTurbulence type="fractalNoise" baseFrequency="0.004 0.035" numOctaves="1" seed="7">'
-    + '<animate attributeName="baseFrequency" dur="7s" values="0.004 0.035;0.006 0.026;0.003 0.042;0.004 0.035" repeatCount="indefinite"/>'
-    // Только по горизонтали (зелёный — середина): строки текста плывут, буквы не крошатся
-    + '</feTurbulence><feColorMatrix values="1 0 0 0 0  0 0 0 0 .5  0 0 0 0 0  0 0 0 0 1" result="n"/>'
-    + '<feDisplacementMap in="SourceGraphic" in2="n" scale="12" xChannelSelector="R" yChannelSelector="G"/></filter></svg>';
+    + `<filter id="${LIQUID}" x="-5%" y="-15%" width="110%" height="130%" color-interpolation-filters="sRGB">`
+    + '<feTurbulence type="fractalNoise" baseFrequency="0.007 0.018" numOctaves="1" seed="7">'
+    + '<animate attributeName="baseFrequency" dur="3.6s" values="0.007 0.018;0.010 0.013;0.005 0.024;0.007 0.018" repeatCount="indefinite"/>'
+    // В основном по горизонтали — строки букв плывут, как отражение; по вертикали — втрое слабее (зелёный
+    // сжат к середине): буквы колышутся, но не крошатся
+    + '</feTurbulence><feColorMatrix values="1 0 0 0 0  0 .3 0 0 .35  0 0 0 0 0  0 0 0 0 1" result="n"/>'
+    + '<feDisplacementMap in="SourceGraphic" in2="n" scale="22" xChannelSelector="R" yChannelSelector="G"/></filter></svg>';
   document.body.append(box.firstElementChild!);
 }
 
