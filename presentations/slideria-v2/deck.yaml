@@ -1889,7 +1889,14 @@ slides:
         click: true
         style: "-webkit-text-stroke: 3.5px #FFFFFF; -webkit-text-fill-color: transparent"
       - type: html
-        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-ring" style="left:300px;top:220px;"></i><i class="v3-fl"></i></div>
+        html: <div class="v3-o"><i class="v5-glow a"></i><i class="v5-streak" style="--y:232px;--x:360px"></i><i class="v5-streak" style="--y:356px;--x:420px;--d:.667s"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i></div>
         place:
           x: 0
           y: 0
@@ -3827,7 +3834,7 @@ slides:
         delay: 120
       - type: model
         src: ../memes/assets/robot.glb
-        poster: ../memes/assets/robot-dance.webp
+        poster: ./assets/robot-poster.webp
         animation: Dance
         orbit: -12deg 80deg
         controls: false
