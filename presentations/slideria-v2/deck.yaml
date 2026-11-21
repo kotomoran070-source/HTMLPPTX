@@ -310,10 +310,10 @@ css: |
   /* Имя сводится по трекингу из размытия */
   @keyframes v4-track { from { letter-spacing: 1.15em; opacity: 0; filter: blur(10px); } to { letter-spacing: .42em; opacity: 1; filter: blur(0); } }
   .v4-word { width: 100%; text-align: center; white-space: nowrap; font: 700 50px/1 var(--font-head); color: #fff; letter-spacing: .42em; text-indent: .42em; }
-  .slide.on .v4-word { animation: v4-track 1.1s .82s cubic-bezier(.16, 1, .3, 1) both; }
+  .slide.on .v4-word { animation: v4-track .9s .46s cubic-bezier(.16, 1, .3, 1) both; }
   .v4-sub { width: 100%; text-align: center; font: 600 15px/1 var(--font); letter-spacing: .6em; text-indent: .6em; color: color-mix(in srgb, var(--tx) 55%, transparent); }
   @keyframes v4-fadeup { from { opacity: 0; transform: translateY(12px); } }
-  .slide.on .v4-sub { animation: v4-fadeup .8s 1.05s cubic-bezier(.16, 1, .3, 1) both; }
+  .slide.on .v4-sub { animation: v4-fadeup .6s .62s cubic-bezier(.16, 1, .3, 1) both; }
 
   /* Эхо: контурные копии слова за ним */
   .v4-echo { position: relative; width: 100%; height: 100%; }
@@ -650,6 +650,92 @@ css: |
   @keyframes v7-bgb { 0%, 19.9% { opacity: 0; } 20% { opacity: 1; transform: translateX(60px); } 59.9% { opacity: 1; transform: translateX(-180px); } 60%, to { opacity: 0; } }
   @keyframes v7-bgc { 0%, 59.9% { opacity: 0; } 60% { opacity: 1; transform: translateX(140px); } 93% { opacity: 1; } to { opacity: 0; transform: none; } }
 
+  /* ════════ Финал «Показ — как кино.»: премьера. Свет, лучи, боке и зерно — во вставке (cinema.js); здесь слова,
+     лучи сквозь буквы, точка и её блик. Удары: 0; 0,667; 1,333; 2,0 с — слова, 2,667 с (1:04.01) — точка ════════ */
+  .v8-t { position: relative; width: 1280px; height: 720px; }
+  .v8-cam, .v8-rays, .v8-m { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; }
+  /* Камера: медленный наезд на фразу и толчок на каждый удар — на точку сильнее */
+  .v8-cam { transform-origin: 640px 362px; }
+  .slide.on .v8-cam { animation: v8-push 6s cubic-bezier(.3, 0, .3, 1) both, v8-kick 6s linear both; }
+  @keyframes v8-push { from { transform: scale(.97); } to { transform: scale(1.04); } }
+  @keyframes v8-kick {
+    0% { scale: 1.03; animation-timing-function: cubic-bezier(.2, .8, .2, 1); } 6% { scale: 1; }
+    11.1% { scale: 1; } 11.12% { scale: 1.02; animation-timing-function: cubic-bezier(.2, .8, .2, 1); } 17% { scale: 1; }
+    22.21% { scale: 1; } 22.23% { scale: 1.02; animation-timing-function: cubic-bezier(.2, .8, .2, 1); } 28% { scale: 1; }
+    33.32% { scale: 1; } 33.34% { scale: 1.025; animation-timing-function: cubic-bezier(.2, .8, .2, 1); } 39% { scale: 1; }
+    44.43% { scale: 1; } 44.45% { scale: 1.05; animation-timing-function: cubic-bezier(.16, 1, .3, 1); } 56%, 100% { scale: 1; }
+  }
+  .v8-l { position: absolute; left: 0; width: 1280px; margin: 0; text-align: center; white-space: nowrap;
+    font: 900 128px/1 var(--font-head); letter-spacing: -.04em; color: #FFFFFF; }
+  .v8-l.a { top: 224px; } .v8-l.b { top: 368px; }
+  .v8-l span { display: inline-block; opacity: 0; }
+  /* Слова — хром: светлый верх, тёмная «линия горизонта» внизу букв; блик проходит после точки, слева направо */
+  .v8-m span { color: transparent; -webkit-text-fill-color: transparent;
+    background-image: linear-gradient(105deg, transparent 42%, rgba(255, 255, 255, .95) 50%, transparent 58%),
+      linear-gradient(180deg, #FFFFFF 8%, #F3EEFF 40%, #BDB2DD 60%, #8F82B8 72%, #E9DEFF 100%);
+    background-size: 300% 100%, 100% 100%; background-position: 100% 0, 0 0; background-repeat: no-repeat;
+    -webkit-background-clip: text; background-clip: text; }
+  /* Появление — наводка фокуса: из размытия и крупнее, с цветным краем объектива, резко в удар */
+  .slide.on .v8-m span { animation: v8-in .55s cubic-bezier(.16, 1, .3, 1) var(--d) both, v8-sheen .9s cubic-bezier(.45, 0, .2, 1) var(--sd, 99s) both; }
+  @keyframes v8-in {
+    0% { opacity: 0; transform: scale(1.45); filter: blur(20px) drop-shadow(-16px 0 0 rgba(255, 40, 150, .9)) drop-shadow(16px 0 0 rgba(40, 210, 255, .9)); }
+    35% { opacity: 1; }
+    100% { opacity: 1; transform: none; filter: none; }
+  }
+  @keyframes v8-sheen { from { background-position: 100% 0, 0 0; } to { background-position: 0 0, 0 0; } }
+  /* Лучи сквозь буквы — готовые картинки (по слову), каждая проявляется в свой удар */
+  .v8-rw { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; opacity: 0; }
+  .v8-rw img { position: absolute; display: block; max-width: none; }
+  .slide.on .v8-rw { animation: v8-on .3s ease-out var(--d) both; }
+  @keyframes v8-on { to { opacity: 1; } }
+  .v8-rays { transform-origin: 640px 362px; }
+  .slide.on .v8-rays { animation: v8-rays 6s linear both; }
+  @keyframes v8-rays {
+    0% { opacity: 1; animation-timing-function: cubic-bezier(.2, .8, .3, 1); } 9% { opacity: .45; }
+    11.1% { opacity: .45; } 11.12% { opacity: 1; animation-timing-function: cubic-bezier(.2, .8, .3, 1); } 20% { opacity: .45; }
+    22.21% { opacity: .45; } 22.23% { opacity: 1; animation-timing-function: cubic-bezier(.2, .8, .3, 1); } 31% { opacity: .45; }
+    33.32% { opacity: .45; } 33.34% { opacity: 1; animation-timing-function: cubic-bezier(.2, .8, .3, 1); } 42% { opacity: .45; }
+    /* Точка: лучи вспыхивают и остаются ярче (без растяжения — ближние копии не съезжают с букв) */
+    44.43% { opacity: .45; } 44.45% { opacity: 1; animation-timing-function: cubic-bezier(.1, .7, .3, 1); }
+    100% { opacity: .62; }
+  }
+  /* Точка: падает сверху со следом, сжимается о строку и пружинит (низ — на строке) */
+  .slide.on .v8-m .w4 { animation: none; }
+  .v8-m .w4 { position: relative; left: 24px; opacity: 1; background: none; }
+  .v8-m .w4 b { position: relative; display: inline-block; font: inherit; transform-origin: 50% 80%; opacity: 0;
+    color: transparent; -webkit-text-fill-color: transparent; background: linear-gradient(180deg, #FFFFFF, #F3E8FF); -webkit-background-clip: text; background-clip: text; }
+  .slide.on .v8-m .w4 b { animation: v8-fall .26s cubic-bezier(.55, 0, 1, .45) 2.4067s both, v8-squash .55s linear 2.6667s forwards; }
+  @keyframes v8-fall { 0% { opacity: 1; translate: 0 -540px; scale: .72 1.5; } 100% { opacity: 1; translate: 0 0; scale: .8 1.3; } }
+  @keyframes v8-squash { 0% { opacity: 1; scale: 1.55 .58; } 20% { scale: .84 1.16; } 42% { scale: 1.07 .94; } 64% { scale: .98 1.02; } 100% { opacity: 1; scale: 1 1; } }
+  .v8-m .w4 b::before { content: ''; position: absolute; left: 50%; bottom: 22%; width: .1em; height: 3.6em; margin-left: -.05em; border-radius: 99px;
+    background: linear-gradient(to top, rgba(255, 255, 255, .9), rgba(216, 180, 254, 0)); opacity: 0; transform-origin: 50% 100%; }
+  .slide.on .v8-m .w4 b::before { animation: v8-trail .26s linear 2.4067s both; }
+  @keyframes v8-trail { 0% { opacity: 0; transform: scaleY(.3); } 25% { opacity: .9; } 92% { opacity: .9; transform: none; } 100% { opacity: 0; } }
+  /* Блик точки: свечение, анаморфная полоса через весь кадр, тонкая нить и звезда — вспыхивают в удар и тают */
+  .v8-m .w4 i { position: absolute; left: 50%; top: 74.6%; translate: -50% -50%; pointer-events: none; opacity: 0; }
+  .v8-fg { width: 520px; height: 520px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 255, 255, .75), rgba(244, 114, 182, .42) 22%, rgba(124, 58, 237, .16) 55%, transparent); }
+  .v8-fh { width: 2600px; height: 26px; background: radial-gradient(closest-side, rgba(186, 230, 253, .9), rgba(125, 211, 252, .35) 40%, transparent); }
+  .v8-fc { width: 1700px; height: 3px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .95) 45%, #FFFFFF 50%, rgba(255, 255, 255, .95) 55%, transparent); }
+  .v8-fs { width: 320px; height: 320px;
+    background: linear-gradient(45deg, transparent 49.5%, rgba(255, 255, 255, .85) 50%, transparent 50.5%), linear-gradient(-45deg, transparent 49.5%, rgba(255, 255, 255, .85) 50%, transparent 50.5%);
+    -webkit-mask-image: radial-gradient(closest-side, #000, transparent); mask-image: radial-gradient(closest-side, #000, transparent); }
+  .slide.on .v8-fg { animation: v8-fg 3.2s cubic-bezier(.1, .8, .3, 1) 2.6667s both; }
+  .slide.on .v8-fh { animation: v8-fh 3.2s cubic-bezier(.1, .8, .3, 1) 2.6667s both; }
+  .slide.on .v8-fc { animation: v8-fc 3.2s cubic-bezier(.1, .8, .3, 1) 2.6667s both; }
+  .slide.on .v8-fs { animation: v8-fs 3.2s cubic-bezier(.1, .8, .3, 1) 2.6667s both; }
+  @keyframes v8-fg { 0% { opacity: 0; scale: .2; } 5% { opacity: 1; scale: 1.15; } 100% { opacity: .4; scale: .9; } }
+  @keyframes v8-fh { 0% { opacity: 0; scale: .15 1; } 5% { opacity: 1; scale: 1 1; } 100% { opacity: .35; scale: .75 .6; } }
+  @keyframes v8-fc { 0% { opacity: 0; scale: .1 1; } 4% { opacity: 1; scale: 1 1; } 100% { opacity: .5; scale: .6 1; } }
+  @keyframes v8-fs { 0% { opacity: 0; scale: .3; rotate: -10deg; } 6% { opacity: 1; scale: 1.1; } 100% { opacity: .3; scale: .6; rotate: 14deg; } }
+  /* Подпись: знак и имя проявляются после удара, разряжаясь */
+  .v8-b { position: absolute; left: 0; top: 548px; width: 1280px; display: flex; align-items: center; justify-content: center; gap: 20px; color: #F1ECFA; opacity: 0; }
+  .v8-b svg { width: 34px; height: 34px; color: #FFFFFF; }
+  .v8-b span { font: 800 22px/1 var(--font-head); letter-spacing: .5em; margin-right: -.5em; }
+  .slide.on .v8-b { animation: v8-brand 1.6s cubic-bezier(.16, 1, .3, 1) 3.25s both; }
+  .slide.on .v8-b span { animation: v8-track 1.8s cubic-bezier(.16, 1, .3, 1) 3.25s both; }
+  @keyframes v8-brand { from { opacity: 0; filter: blur(8px); } to { opacity: 1; filter: none; } }
+  @keyframes v8-track { from { letter-spacing: 1.1em; margin-right: -1.1em; } }
+
   .th-winter { --tx: #E8F1FF; --tx2: #C2D3EC; --mu: #8BA0BF; --bg: #081426; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Onest', var(--font-base); --font-head: 'Unbounded', var(--font-base); }
   .th-sakura { --tx: #3A1624; --tx2: #5C2E3E; --mu: #9A6B7B; --bg: #FFF6F8; --surf: #FFFFFF; --alt: color-mix(in srgb, #E0517A 8%, #FFFFFF); --bd: color-mix(in srgb, #E0517A 18%, #FFFFFF); --bd2: color-mix(in srgb, #E0517A 28%, #FFFFFF); --font: 'Nunito', var(--font-base); --font-head: 'Nunito', var(--font-base); }
   .th-autumn { --tx: #F6EADB; --tx2: #E2CDB6; --mu: #B39678; --bg: #1A110B; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Literata', var(--font-base); --font-head: 'Literata', var(--font-base); }
@@ -835,6 +921,8 @@ slides:
             }
           }
           const BLUR = 0.16;
+          // Сход частиц в знак: начало и длительность, с
+          const FA0 = 0.08, FA1 = 0.47;
 
           loop((t) => {
             g.lineCap = 'round';
@@ -887,22 +975,24 @@ slides:
               return;
             }
 
-            // ── Знак: удар в 0 с — вспышка, диск разлетается сферой, к 0,8 с частицы сходятся в S ──
+            // ── Знак: удар в 0 с — вспышка, диск разлетается сферой, к 0,55 с частицы сходятся в S, к 0,62 с знак целый ──
+            // (слайд — 1,33 с: знак должен простоять собранным хотя бы полсекунды, и с запасом, если кадры пропускаются)
             const flash = Math.max(0, 1 - t / 0.32);
             sky(t, 0);
             glow(CX, CY, 340, '255,255,255', 0.85 * flash * flash);
             glow(CX, CY, 560, '168,85,247', 0.12 + 0.4 * flash);
-            const u = clamp((t - 0.14) / 0.62);
+            const u = clamp((t - FA0) / FA1);
             for (let i = 0; i < N; i++) {
               const p = P[i];
               const [x, y] = pos(i, t);
               const [x0, y0] = pos(i, t - 0.035);
-              const a = (u < 1 ? 0.95 : 0.7 * Math.max(0.15, 1 - (t - 0.76) / 0.6)) + 0.4 * flash;
+              // Сошлись — гаснут совсем: сквозь знак не просвечивает сетка точек
+              const a = (u < 1 ? 0.95 : 0.95 * Math.max(0, 1 - (t - FA0 - FA1) / 0.28)) + 0.4 * flash;
               seg(u > 0.85 ? 0 : p.c, a, p.w * (1 + (1 - ease(u)) * 0.5), x0, y0, x, y);
             }
             flush();
             // Знак проявляется из частиц: градиентный штрих со свечением, по нему проходит блик
-            const m = clamp((t - 0.7) / 0.35);
+            const m = clamp((t - 0.42) / 0.2);
             if (m > 0) {
               g.globalCompositeOperation = 'source-over';
               g.save();
@@ -919,15 +1009,16 @@ slides:
               g.shadowBlur = 40 * SX();
               g.strokeStyle = lg;
               g.stroke(S1);
-              g.globalAlpha = m * 0.6;
-              g.stroke(S2);
-              g.globalAlpha = m;
               g.fillStyle = '#fff';
               g.beginPath(); g.arc(20.5, 3.5, 1.4, 0, 7); g.fill();
-              g.globalAlpha = m * 0.6;
-              g.beginPath(); g.arc(3.5, 20.5, 1.4, 0, 7); g.fill();
+              // Второй штрих — полупрозрачный целиком, как в знаке (группа .55): точка на конце — скруглённый конец того же
+              // штриха, а не отдельный круг поверх (иначе на конце двойная плотность — серый «колпачок»)
+              g.globalAlpha = m * 0.55;
+              g.lineCap = 'round';
+              g.stroke(S2);
+              g.lineCap = 'butt';
               // Блик бежит по штриху
-              const sw = clamp((t - 0.95) / 0.5);
+              const sw = clamp((t - 0.6) / 0.45);
               if (sw > 0 && sw < 1) {
                 g.globalCompositeOperation = 'lighter';
                 g.shadowBlur = 0;
@@ -940,6 +1031,7 @@ slides:
                 g.strokeStyle = sgr;
                 g.lineWidth = 3.2;
                 g.stroke(S1);
+                g.lineCap = 'round';
                 g.stroke(S2);
               }
               g.restore();
@@ -985,7 +1077,7 @@ slides:
             // Разлёт объёмом, а не кольцом: у каждой частицы своя скорость и наклон вверх-вниз
             const bx = x0 + Math.cos(a) * b, by = y0 + (Math.sin(a) * 0.55 + p.el) * b;
             const tg = TG[i];
-            const e = ease(clamp((tt - 0.14) / 0.62));
+            const e = ease(clamp((tt - FA0) / FA1));
             const px = bx + (tg[0] - bx) * e, py = by + (tg[1] - by) * e;
             // Второй удар (0,333 с): короткий толчок от центра
             const h = tt > 0.333 ? Math.exp(-(tt - 0.333) * 9) * Math.min(1, (tt - 0.333) / 0.04) : 0;
@@ -1177,6 +1269,8 @@ slides:
             }
           }
           const BLUR = 0.16;
+          // Сход частиц в знак: начало и длительность, с
+          const FA0 = 0.08, FA1 = 0.47;
 
           loop((t) => {
             g.lineCap = 'round';
@@ -1229,22 +1323,24 @@ slides:
               return;
             }
 
-            // ── Знак: удар в 0 с — вспышка, диск разлетается сферой, к 0,8 с частицы сходятся в S ──
+            // ── Знак: удар в 0 с — вспышка, диск разлетается сферой, к 0,55 с частицы сходятся в S, к 0,62 с знак целый ──
+            // (слайд — 1,33 с: знак должен простоять собранным хотя бы полсекунды, и с запасом, если кадры пропускаются)
             const flash = Math.max(0, 1 - t / 0.32);
             sky(t, 0);
             glow(CX, CY, 340, '255,255,255', 0.85 * flash * flash);
             glow(CX, CY, 560, '168,85,247', 0.12 + 0.4 * flash);
-            const u = clamp((t - 0.14) / 0.62);
+            const u = clamp((t - FA0) / FA1);
             for (let i = 0; i < N; i++) {
               const p = P[i];
               const [x, y] = pos(i, t);
               const [x0, y0] = pos(i, t - 0.035);
-              const a = (u < 1 ? 0.95 : 0.7 * Math.max(0.15, 1 - (t - 0.76) / 0.6)) + 0.4 * flash;
+              // Сошлись — гаснут совсем: сквозь знак не просвечивает сетка точек
+              const a = (u < 1 ? 0.95 : 0.95 * Math.max(0, 1 - (t - FA0 - FA1) / 0.28)) + 0.4 * flash;
               seg(u > 0.85 ? 0 : p.c, a, p.w * (1 + (1 - ease(u)) * 0.5), x0, y0, x, y);
             }
             flush();
             // Знак проявляется из частиц: градиентный штрих со свечением, по нему проходит блик
-            const m = clamp((t - 0.7) / 0.35);
+            const m = clamp((t - 0.42) / 0.2);
             if (m > 0) {
               g.globalCompositeOperation = 'source-over';
               g.save();
@@ -1261,15 +1357,16 @@ slides:
               g.shadowBlur = 40 * SX();
               g.strokeStyle = lg;
               g.stroke(S1);
-              g.globalAlpha = m * 0.6;
-              g.stroke(S2);
-              g.globalAlpha = m;
               g.fillStyle = '#fff';
               g.beginPath(); g.arc(20.5, 3.5, 1.4, 0, 7); g.fill();
-              g.globalAlpha = m * 0.6;
-              g.beginPath(); g.arc(3.5, 20.5, 1.4, 0, 7); g.fill();
+              // Второй штрих — полупрозрачный целиком, как в знаке (группа .55): точка на конце — скруглённый конец того же
+              // штриха, а не отдельный круг поверх (иначе на конце двойная плотность — серый «колпачок»)
+              g.globalAlpha = m * 0.55;
+              g.lineCap = 'round';
+              g.stroke(S2);
+              g.lineCap = 'butt';
               // Блик бежит по штриху
-              const sw = clamp((t - 0.95) / 0.5);
+              const sw = clamp((t - 0.6) / 0.45);
               if (sw > 0 && sw < 1) {
                 g.globalCompositeOperation = 'lighter';
                 g.shadowBlur = 0;
@@ -1282,6 +1379,7 @@ slides:
                 g.strokeStyle = sgr;
                 g.lineWidth = 3.2;
                 g.stroke(S1);
+                g.lineCap = 'round';
                 g.stroke(S2);
               }
               g.restore();
@@ -1327,7 +1425,7 @@ slides:
             // Разлёт объёмом, а не кольцом: у каждой частицы своя скорость и наклон вверх-вниз
             const bx = x0 + Math.cos(a) * b, by = y0 + (Math.sin(a) * 0.55 + p.el) * b;
             const tg = TG[i];
-            const e = ease(clamp((tt - 0.14) / 0.62));
+            const e = ease(clamp((tt - FA0) / FA1));
             const px = bx + (tg[0] - bx) * e, py = by + (tg[1] - by) * e;
             // Второй удар (0,333 с): короткий толчок от центра
             const h = tt > 0.333 ? Math.exp(-(tt - 0.333) * 9) * Math.min(1, (tt - 0.333) / 0.04) : 0;
@@ -4823,20 +4921,15 @@ slides:
   - id: cinema
     template: canvas
     label: Показ — как кино.
-    bg: "#06060B"
+    bg: "#000000"
     transition: none
     at: 61.343
-    steps:
-      - 62.01
-      - 62.677
-      - 63.343
-      - 64.01
     logo: false
     free:
       - type: embed
         code: |
           <!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;overflow:hidden;background:#05050A}canvas{display:block;width:100%;height:100%}</style></head><body><canvas id="c"></canvas><script>
-          window.DOT = { x: 990, y: 459 };
+          window.PC = { x: 640, y: 362 };
           // Общая обвязка сцен: холст во всю вставку, координаты слайда 1280×720, часы — с появления слайда
           // (performance.now во вставке считает от её создания, а вставка создаётся, когда слайд показан)
           const cv = document.getElementById('c');
@@ -4879,58 +4972,120 @@ slides:
             requestAnimationFrame(step);
           }
 
-          // Финал: сверху бьёт луч проектора — лучи и пыль в воздухе, свет вздрагивает на каждое слово (0; 0,667; 1,333; 2,0 с).
-          // Точка падает сверху и ставится ровно в 1:04.01 (2,667 с): сжимается о строку и пружинит, кадр вздрагивает
-          // светом, сквозь точку — анаморфный блик и тонкие лучи-звезда, пыль рядом вспыхивает и отлетает.
-          // Потом проектор гаснет с подрагиванием — остаются слова и светящаяся точка
-          const D = window.DOT || { x: 990, y: 459 };
-          const DR = 16;
+          // Финал «Показ — как кино.»: свет бьёт из-за слов — объёмные лучи по кругу (два рисунка вращаются навстречу),
+          // мягкие пятна боке в глубине, пыль в луче, зерно плёнки и виньетка. Свет вздрагивает на каждое слово
+          // (0; 0,667; 1,333; 2,0 с), в 2,667 с (1:04.01) встаёт точка — лучи вспыхивают и раздвигаются, кадр вздрагивает
+          // светом; дальше свет медленно дышит. Сами слова, точка и её блик — на слайде (html), здесь только свет
+          const PC = window.PC || { x: 640, y: 362 };
           const WORDS = [0, 0.6667, 1.3333, 2.0];
           const HIT = 2.6667;
-          const FALL = 0.26;
-          const SRC = [640, -150];
-          const FAN = 0.6;
-          const r0 = rng(4242);
-          // Рисунок лучей: сумма волн по углу — один и тот же для света и для пыли в нём
-          const RAY = Array.from({ length: 5 }, () => [7 + r0() * 40, r0() * 6.28, 0.3 + r0() * 0.7]);
-          function ray(th, t) {
-            const e = clamp(1 - Math.abs(th) / FAN);
-            let v = 0, n = 0;
-            for (const [f, ph, w] of RAY) { v += w * (0.5 + 0.5 * Math.sin(th * f + ph + t * 0.25 * (f > 25 ? 1 : -1))); n += w; }
-            return Math.min(1, e * 2.2) * (0.25 + 0.75 * Math.pow(v / n, 2.2));
-          }
-          // Лучи рисуются один раз в четверть размера: при растяжении на кадр они размываются сами, без фильтра
-          // (размытие при запуске сцены задерживало бы саму смену слайда)
-          function fan(t) {
+          const r0 = rng(808);
+          // Сцена — мягкий свет без чётких краёв: холсту хватает обычного разрешения (вдвое меньше работы на кадр)
+          DPR = 1;
+          fit();
+
+          // Рисунок лучей — полный круг: сумма волн по углу (частоты целые — круг смыкается без шва), к краю гаснет.
+          // Рисуется один раз в малом размере: растянутый на кадр, он размыт сам, без фильтра
+          function fan(seed, col) {
+            const r = rng(seed);
+            const W = Array.from({ length: 6 }, () => [3 + Math.floor(r() * 38), r() * 6.28, 0.3 + r() * 0.7]);
             const c = document.createElement('canvas');
-            c.width = 320; c.height = 180;
+            c.width = c.height = 360;
             const o = c.getContext('2d');
-            o.scale(0.25, 0.25);
-            const L = 1100, n = 150;
+            const R = 180, n = 420;
             for (let i = 0; i < n; i++) {
-              const a0 = -FAN + (2 * FAN * i) / n, a1 = a0 + (2 * FAN) / n + 0.004;
-              o.fillStyle = `rgba(214,204,254,${0.5 * ray(a0, t)})`;
+              const a0 = (i / n) * Math.PI * 2, a1 = a0 + (Math.PI * 2) / n + 0.004;
+              let v = 0, s = 0;
+              for (const [f, ph, w] of W) { v += w * (0.5 + 0.5 * Math.sin(a0 * f + ph)); s += w; }
+              o.fillStyle = `rgba(${col},${Math.pow(v / s, 2.6).toFixed(3)})`;
               o.beginPath();
-              o.moveTo(SRC[0], SRC[1]);
-              o.lineTo(SRC[0] + Math.sin(a0) * L, SRC[1] + Math.cos(a0) * L);
-              o.lineTo(SRC[0] + Math.sin(a1) * L, SRC[1] + Math.cos(a1) * L);
+              o.moveTo(R, R);
+              o.lineTo(R + Math.cos(a0) * R * 1.5, R + Math.sin(a0) * R * 1.5);
+              o.lineTo(R + Math.cos(a1) * R * 1.5, R + Math.sin(a1) * R * 1.5);
               o.closePath();
               o.fill();
             }
-            // Свет слабеет к низу кадра — одной заливкой поверх всех лучей
             o.globalCompositeOperation = 'destination-in';
-            const gr = o.createLinearGradient(0, SRC[1], 0, SRC[1] + L);
+            const gr = o.createRadialGradient(R, R, 0, R, R, R);
             gr.addColorStop(0, 'rgba(0,0,0,1)');
-            gr.addColorStop(0.45, 'rgba(0,0,0,.45)');
+            gr.addColorStop(0.2, 'rgba(0,0,0,.85)');
+            gr.addColorStop(0.55, 'rgba(0,0,0,.32)');
             gr.addColorStop(1, 'rgba(0,0,0,0)');
             o.fillStyle = gr;
-            o.fillRect(0, 0, 1280, 720);
+            o.fillRect(0, 0, 360, 360);
             return c;
           }
-          // Два рисунка лучей, медленно перетекают друг в друга — свет «живёт»
-          const FA = fan(0), FB = fan(9);
-          const DUST = Array.from({ length: 300 }, () => ({ x: r0() * 1280, y: r0() * 720, s: 0.7 + r0() * 1.9, vx: (r0() - 0.5) * 10, vy: -3 - r0() * 9, ph: r0() * 6.28 }));
-          const SPK = [0.785, 2.356, 3.927, 5.498];
+          const FA = fan(11, '214,196,255'), FB = fan(29, '244,140,200');
+
+          // Пятно боке: ровный диск с чуть более ярким краем и мягкой кромкой — как у объектива не в фокусе
+          function disc(col) {
+            const c = document.createElement('canvas');
+            c.width = c.height = 128;
+            const o = c.getContext('2d');
+            const gr = o.createRadialGradient(64, 64, 0, 64, 64, 64);
+            gr.addColorStop(0, `rgba(${col},.42)`);
+            gr.addColorStop(0.78, `rgba(${col},.5)`);
+            gr.addColorStop(0.9, `rgba(${col},.75)`);
+            gr.addColorStop(1, `rgba(${col},0)`);
+            o.fillStyle = gr;
+            o.fillRect(0, 0, 128, 128);
+            return c;
+          }
+          const DISC = [disc('196,181,253'), disc('244,114,182'), disc('125,211,252')];
+          const BOKEH = Array.from({ length: 24 }, () => {
+            const z = r0();
+            return { x: r0() * 1280, y: 100 + r0() * 520, r: 14 + z * z * 62, a: 0.05 + r0() * 0.11, c: r0() < 0.45 ? 0 : r0() < 0.7 ? 1 : 2, vx: (r0() - 0.5) * 6, vy: -2 - r0() * 5, ph: r0() * 6.28 };
+          });
+          const DUST = Array.from({ length: 220 }, () => ({ x: r0() * 1280, y: r0() * 720, s: 0.6 + r0() * 1.6, vx: (r0() - 0.5) * 8, vy: -2 - r0() * 7, ph: r0() * 6.28 }));
+
+          // Фон и виньетка — заранее, каждый кадр только накладываются
+          const BG = document.createElement('canvas');
+          BG.width = 640; BG.height = 360;
+          {
+            const o = BG.getContext('2d');
+            const gr = o.createRadialGradient(PC.x / 2, PC.y / 2, 0, PC.x / 2, PC.y / 2, 420);
+            gr.addColorStop(0, '#160C2C');
+            gr.addColorStop(0.45, '#07040F');
+            gr.addColorStop(1, '#000000');
+            o.fillStyle = gr;
+            o.fillRect(0, 0, 640, 360);
+          }
+          const VIG = document.createElement('canvas');
+          VIG.width = 640; VIG.height = 360;
+          {
+            const o = VIG.getContext('2d');
+            const gr = o.createRadialGradient(320, 180, 120, 320, 180, 400);
+            gr.addColorStop(0, 'rgba(0,0,0,0)');
+            gr.addColorStop(1, 'rgba(0,0,0,.72)');
+            o.fillStyle = gr;
+            o.fillRect(0, 0, 640, 360);
+          }
+          // Зерно плёнки: три кадра шума, сменяются 24 раза в секунду
+          const GRAIN = [1, 2, 3].map((k) => {
+            const c = document.createElement('canvas');
+            c.width = 320; c.height = 180;
+            const o = c.getContext('2d');
+            const im = o.createImageData(320, 180);
+            const rr = rng(97 * k);
+            for (let i = 0; i < im.data.length; i += 4) { const v = rr() * 255; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; }
+            o.putImageData(im, 0, 0);
+            return c;
+          });
+
+          // Свет за словами — три пятна одной заготовкой (каждый кадр — одно наложение вместо трёх градиентов)
+          const BL = document.createElement('canvas');
+          BL.width = 320; BL.height = 320;
+          {
+            const o = BL.getContext('2d');
+            o.globalCompositeOperation = 'lighter';
+            for (const [r, c, a] of [[160, '91,33,182', 0.2], [82, '219,39,119', 0.12], [35, '255,240,250', 0.05]]) {
+              const gr = o.createRadialGradient(160, 160, 0, 160, 160, r);
+              gr.addColorStop(0, `rgba(${c},${a})`);
+              gr.addColorStop(1, `rgba(${c},0)`);
+              o.fillStyle = gr;
+              o.fillRect(0, 0, 320, 320);
+            }
+          }
 
           function soft(x, y, r, c, a) {
             if (a <= 0.003) return;
@@ -4940,124 +5095,74 @@ slides:
             g.fillStyle = gr;
             g.fillRect(x - r, y - r, r * 2, r * 2);
           }
-          // Тонкий луч-игла из центра точки: от белого к прозрачному
-          function spike(x, y, ang, len, w, a) {
-            if (a <= 0.01) return;
-            const ex = x + Math.cos(ang) * len, ey = y + Math.sin(ang) * len;
-            const nx = -Math.sin(ang) * w, ny = Math.cos(ang) * w;
-            const gr = g.createLinearGradient(x, y, ex, ey);
-            gr.addColorStop(0, `rgba(255,255,255,${a})`);
-            gr.addColorStop(0.35, `rgba(233,213,255,${a * 0.45})`);
-            gr.addColorStop(1, 'rgba(216,180,254,0)');
-            g.fillStyle = gr;
-            g.beginPath();
-            g.moveTo(x + nx, y + ny);
-            g.lineTo(ex, ey);
-            g.lineTo(x - nx, y - ny);
-            g.closePath();
-            g.fill();
-          }
 
           loop((t) => {
             const s = t - HIT;
-            g.globalCompositeOperation = 'source-over';
-            const bg = g.createRadialGradient(640, 360, 0, 640, 360, 820);
-            bg.addColorStop(0, '#15102A');
-            bg.addColorStop(1, '#05050A');
-            g.fillStyle = bg;
-            g.fillRect(0, 0, 1280, 720);
-            g.globalCompositeOperation = 'lighter';
-            // Проектор: мерцание 24 раза в секунду, вздрагивает на слово; после точки гаснет с подрагиванием
-            const flick = 0.9 + rng(Math.floor(t * 24) * 31 + 5)() * 0.1;
             let kick = 0;
-            for (const w of WORDS) if (t >= w) kick = Math.max(kick, Math.exp(-(t - w) * 5));
-            let off = 1;
-            if (s > 0.9) {
-              const q = (s - 0.9) / 1.1;
-              off = q >= 1 ? 0 : (1 - q) * (q > 0.25 && q < 0.33 ? 0.35 : q > 0.5 && q < 0.55 ? 0.5 : 1);
-            }
-            const beam = (0.55 + 0.45 * kick) * flick * off;
-            const mix = 0.5 + 0.5 * Math.sin(t * 0.8);
-            g.globalAlpha = beam * (1 - mix);
-            g.drawImage(FA, 0, 0, 1280, 720);
-            g.globalAlpha = beam * mix;
-            g.drawImage(FB, 0, 0, 1280, 720);
+            for (const w of WORDS) if (t >= w) kick = Math.max(kick, Math.exp(-(t - w) * 4.5));
+            const hit = s >= 0 ? Math.exp(-s * 2.4) : 0;
+            const after = s >= 0 ? 1 - Math.exp(-s * 2) : 0;
+            // Свет: набирает силу к концу фразы, вздрагивает на слова, вспыхивает на точке и остаётся ярче
+            const L = 0.42 + 0.18 * clamp(t / HIT) + 0.4 * kick + 1.3 * hit + 0.22 * after + 0.04 * Math.sin(t * 2.1);
+
+            g.globalCompositeOperation = 'source-over';
+            g.drawImage(BG, 0, 0, 1280, 720);
+            g.globalCompositeOperation = 'lighter';
+            // Свет за словами
+            g.globalAlpha = Math.min(1, L);
+            g.drawImage(BL, PC.x - 640, PC.y - 640, 1280, 1280);
+            if (L > 1) { g.globalAlpha = L - 1; g.drawImage(BL, PC.x - 640, PC.y - 640, 1280, 1280); }
             g.globalAlpha = 1;
-            // Источник света над кадром — его край виден у верхней кромки
-            soft(SRC[0], 0, 260, '221,214,254', 0.32 * beam);
-            // Удар точки: короткая вспышка всего кадра
-            if (s >= 0) {
-              g.fillStyle = `rgba(196,181,253,${0.2 * Math.exp(-s * 10)})`;
-              g.fillRect(0, 0, 1280, 720);
+            soft(PC.x, PC.y, 140, '255,240,250', 0.3 * hit);
+            // Лучи: два рисунка вращаются навстречу; на точке раздвигаются
+            const zoom = 1 + 0.22 * after + 0.06 * kick;
+            g.save();
+            g.translate(PC.x, PC.y);
+            g.scale(1, 0.8);
+            g.rotate(t * 0.045);
+            g.globalAlpha = Math.min(1, 0.5 * L);
+            g.drawImage(FA, -880 * zoom, -880 * zoom, 1760 * zoom, 1760 * zoom);
+            g.rotate(-t * 0.1 + 0.7);
+            g.globalAlpha = Math.min(1, 0.34 * L);
+            g.drawImage(FB, -820 * zoom, -820 * zoom, 1640 * zoom, 1640 * zoom);
+            g.restore();
+            g.globalAlpha = 1;
+            // Боке: медленно плывёт и чуть разлетается от центра — камера едет вперёд
+            const dolly = 1 + 0.018 * t + 0.05 * after;
+            for (const b of BOKEH) {
+              const x = PC.x + (b.x + b.vx * t - PC.x) * dolly, y = PC.y + (b.y + b.vy * t - PC.y) * dolly;
+              const rr = b.r * dolly;
+              g.globalAlpha = b.a * (0.6 + 0.4 * Math.min(1.6, L)) * (0.8 + 0.2 * Math.sin(t * 1.3 + b.ph));
+              g.drawImage(DISC[b.c], x - rr, y - rr, rr * 2, rr * 2);
             }
-            // Пыль: светится там, где луч; после удара — у точки вспыхивает и отлетает от неё
-            const push = s > 0 ? 1 - Math.exp(-s * 6) : 0;
-            const dl = s > 0 ? 0.35 + 0.65 * Math.exp(-s * 1.8) : 0;
+            g.globalAlpha = 1;
+            // Пыль: ярче у света; на точке отлетает от центра
+            const push = s > 0 ? 1 - Math.exp(-s * 5) : 0;
             const dp = new Path2D(), dh = new Path2D();
             for (const p of DUST) {
               let x = (((p.x + p.vx * t) % 1280) + 1280) % 1280, y = (((p.y + p.vy * t) % 720) + 720) % 720;
-              const ex = x - D.x, ey = y - D.y, dd = Math.hypot(ex, ey) || 1;
-              if (push) { const m = 80 * Math.exp(-dd / 220) * push; x += (ex / dd) * m; y += (ey / dd) * m; }
-              const th = Math.atan2(x - SRC[0], y - SRC[1]);
-              const lit = ray(th, t) * (0.25 + 0.75 * clamp(1 - y / 900)) * beam + dl * Math.exp(-dd / 170);
-              const tw = 0.6 + 0.4 * Math.sin(t * 2 + p.ph);
-              const v = lit * tw;
-              if (v < 0.08) continue;
-              (v > 0.45 ? dh : dp).rect(x, y, p.s, p.s);
+              const ex = x - PC.x, ey = y - PC.y, dd = Math.hypot(ex, ey) || 1;
+              if (push) { const m = 90 * Math.exp(-dd / 300) * push; x += (ex / dd) * m; y += (ey / dd) * m; }
+              const v = (0.6 + 0.4 * Math.sin(t * 2 + p.ph)) * Math.exp(-dd / 520) * Math.min(1.8, L);
+              if (v < 0.1) continue;
+              (v > 0.5 ? dh : dp).rect(x, y, p.s, p.s);
             }
-            g.fillStyle = 'rgba(255,255,255,.4)';
+            g.fillStyle = 'rgba(240,232,255,.45)';
             g.fill(dp);
             g.fillStyle = 'rgba(255,255,255,.95)';
             g.fill(dh);
-            // Падение точки: ускоряется, за ней — светящийся след
-            if (s < 0 && s > -FALL) {
-              const u = 1 - -s / FALL;
-              const y = -40 + (D.y + 40) * u * u;
-              const tail = Math.min(y + 40, 60 + 380 * u);
-              const gr = g.createLinearGradient(D.x, y - tail, D.x, y);
-              gr.addColorStop(0, 'rgba(216,180,254,0)');
-              gr.addColorStop(1, 'rgba(255,255,255,.85)');
-              g.fillStyle = gr;
-              g.beginPath();
-              g.moveTo(D.x - 1, y - tail);
-              g.lineTo(D.x + 1, y - tail);
-              g.lineTo(D.x + DR * 0.8, y);
-              g.lineTo(D.x - DR * 0.8, y);
-              g.closePath();
-              g.fill();
-              soft(D.x, y, 70, '236,72,153', 0.45);
-              g.fillStyle = '#FFFFFF';
-              g.beginPath(); g.ellipse(D.x, y, DR * 0.82, DR * 1.25, 0, 0, 7); g.fill();
-              return;
+            // Точка встала: короткая вспышка всего кадра
+            if (s >= 0) {
+              g.fillStyle = `rgba(196,181,253,${0.22 * Math.exp(-s * 9)})`;
+              g.fillRect(0, 0, 1280, 720);
             }
-            if (s < 0) return;
-            // ── Точка поставлена ──
-            const fade = Math.exp(-s * 2.2);
-            const rest = 0.16 + 0.05 * Math.sin(s * 2.4);
-            soft(D.x, D.y, 460, '124,58,237', 0.4 * fade + 0.1 + rest * 0.3);
-            soft(D.x, D.y, 170, '236,72,153', 0.6 * fade + 0.16 + rest * 0.5);
-            soft(D.x, D.y, 56, '255,255,255', 0.8 * fade + rest);
-            // Анаморфный блик: раскрывается за 0,12 с, тает до тонкой нити
-            const open = easeOut(clamp(s / 0.12));
-            g.save();
-            g.translate(D.x, D.y);
-            g.scale(1, 0.011);
-            soft(0, 0, 1250 * (0.35 + 0.65 * open), '125,211,252', 0.8 * fade + 0.12);
-            g.restore();
-            g.save();
-            g.translate(D.x, D.y);
-            g.scale(1, 0.0035);
-            soft(0, 0, 820 * (0.35 + 0.65 * open), '255,255,255', 0.95 * fade + 0.15);
-            g.restore();
-            // Звезда: четыре тонкие иглы по диагоналям, медленно поворачиваются
-            const rot = s * 0.12;
-            for (const a of SPK) spike(D.x, D.y, a + rot, (70 + 110 * open) * (0.55 + 0.45 * fade), 1.6, 0.85 * fade + 0.12);
-            // Сама точка: сжимается о строку и пружинит (низ остаётся на строке); потом её закрывает настоящая точка шрифта
-            const k = Math.exp(-s * 16) * Math.cos(s * 38);
-            const rx = DR * (1 + 0.42 * k), ry = DR * (1 - 0.36 * k);
+            // Зерно и виньетка
+            g.globalAlpha = 0.05;
+            const f = Math.floor(t * 24);
+            g.drawImage(GRAIN[f % 3], -((f * 37) % 40), -((f * 23) % 30), 1320, 750);
+            g.globalAlpha = 1;
             g.globalCompositeOperation = 'source-over';
-            g.fillStyle = '#FFFFFF';
-            g.beginPath(); g.ellipse(D.x, D.y + DR - ry, rx, ry, 0, 0, 7); g.fill();
+            g.drawImage(VIG, 0, 0, 1280, 720);
           });
           </script></body></html>
         place:
@@ -5073,104 +5178,21 @@ slides:
           y: 0
           w: 1280
         locked: true
-      - type: text
-        text: Показ
-        styles:
-          text:
-            size: 116
-            weight: 900
-            leading: 1
-            spacing: -0.04
-            color: "#FFFFFF"
-            align: left
-        place:
-          x: 333
-          y: 236
-          w: 492
-        enter: ufx-slam
-      - type: text
-        text: —
-        styles:
-          text:
-            size: 116
-            weight: 900
-            leading: 1
-            spacing: -0.04
-            color: "#FFFFFF"
-            align: left
-        place:
-          x: 809
-          y: 236
-          w: 178
-        enter: ufx-whip
-        click: true
-      - type: text
-        text: как
-        styles:
-          text:
-            size: 116
-            weight: 900
-            leading: 1
-            spacing: -0.04
-            color: "#FFFFFF"
-            align: left
-        place:
-          x: 300
-          y: 372
-          w: 302
-        enter: ufx-whipl
-        click: true
-      - type: text
-        text: кино
-        styles:
-          text:
-            size: 116
-            weight: 900
-            leading: 1
-            spacing: -0.04
-            color: "#FFFFFF"
-            align: left
-        place:
-          x: 585
-          y: 372
-          w: 401
-        enter: ufx-slam
-        click: true
-      - type: text
-        text: .
-        styles:
-          text:
-            size: 116
-            weight: 900
-            leading: 1
-            spacing: -0.04
-            color: "#FFFFFF"
-            align: left
-        place:
-          x: 971
-          y: 372
-          w: 39
-        enter: ufx-dot
-        click: true
-      - type: text
-        text: SLIDERIA
-        styles:
-          text:
-            size: 18
-            weight: 800
-            leading: 0.92
-            spacing: 0.5
-            color: "#FFFFFF"
-            align: center
+      - type: html
+        html: <div class="v8-t"><div class="v8-cam"><div class="v8-rays"><div class="v8-rw" style="--d:0s"><img data-i="0" style="left:215px;top:204px;width:635px;height:141px"></div><div class="v8-rw" style="--d:.6667s"><img data-i="1" style="left:830px;top:253px;width:244px;height:56px"></div><div class="v8-rw" style="--d:1.3333s"><img data-i="2" style="left:167px;top:398px;width:396px;height:121px"></div><div class="v8-rw" style="--d:2s"><img data-i="3" style="left:566px;top:398px;width:511px;height:121px"></div><div class="v8-rw" style="--d:2.6667s"><img data-i="4" style="left:1007px;top:442px;width:147px;height:74px"></div></div><div class="v8-m"><p class="v8-l a"><span class="w0" style="--d:0s;--sd:2.72s">Показ</span> <span class="w1" style="--d:.6667s;--sd:2.86s">—</span></p><p class="v8-l b"><span class="w2" style="--d:1.3333s;--sd:2.7s">как</span> <span class="w3" style="--d:2s;--sd:2.82s">кино</span><span class="w4"><b>.</b><i class="v8-fg"></i><i class="v8-fh"></i><i class="v8-fc"></i><i class="v8-fs"></i></span></p></div></div><div class="v8-b"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 3.5H8.25a4.25 4.25 0 0 0 0 8.5" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="20.5" cy="3.5" r="1.4" fill="currentColor"/><g opacity=".55"><path d="M8.25 12h7.5a4.25 4.25 0 0 1 0 8.5H3.5" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="3.5" cy="20.5" r="1.4" fill="currentColor"/></g></svg><span>SLIDERIA</span></div></div>
         place:
           x: 0
-          y: 662
+          y: 0
           w: 1280
-        enter: ufx-late
-        click: true
-        clickWith: true
+        images:
+          - src: ./assets/fin-ray-0.webp
+          - src: ./assets/fin-ray-1.webp
+          - src: ./assets/fin-ray-2.webp
+          - src: ./assets/fin-ray-3.webp
+          - src: ./assets/fin-ray-4.webp
+        locked: true
       - type: html
-        html: <div class="v3-o"><i class="v3-lb t in film"></i><i class="v3-lb b in film"></i><i class="v3-grain"></i><i class="v3-vig"></i></div>
+        html: <div class="v3-o"><i class="v3-lb t in"></i><i class="v3-lb b in"></i></div>
         place:
           x: 0
           y: 0
