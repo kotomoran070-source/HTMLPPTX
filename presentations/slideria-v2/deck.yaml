@@ -1,7 +1,7 @@
 # «Slideria v2» — аниме-эдит под SXYGX «Gloria» (первая минута, точка — 1:04.01).
 # Время слайдов (at, steps) — секунды трека по его сетке: 180 уд/мин от 0,01 с, доля — 1/3 с, бочка в дропе — 2/3 с.
 # Всё, что движется (css, style у объектов), начинается с появлением слайда, поэтому толчки встают в удар.
-# Трек не хранится в репозитории: положите файл в assets/gloria.m4a. Doom, 3D и картинки — из презентаций memes и slideria.
+# Трек не хранится в репозитории: положите файл в assets/gloria.m4a. Картинки и 3D-модель — в assets этой же папки.
 title: Slideria v2
 lang: ru
 theme:
@@ -1479,7 +1479,7 @@ slides:
         style: "left: 0"
         locked: true
       - type: image
-        src: ../slideria/assets/slideria-3d.png
+        src: ./assets/slideria-3d.png
         fit: contain
         place:
           x: 520
@@ -1637,7 +1637,7 @@ slides:
         style: "left: 0"
         locked: true
       - type: image
-        src: ../memes/assets/embed-getsuga3d.webp
+        src: ./assets/embed-getsuga3d.webp
         radius: 22
         stroke: "#FFFFFF"
         width: 2
@@ -1728,7 +1728,7 @@ slides:
           w: 900
           h: 562
         images:
-          - src: ../slideria/assets/studio.webp
+          - src: ./assets/studio.webp
       - type: text
         text: Студия
         styles:
@@ -1909,14 +1909,14 @@ slides:
           y: 0
           w: 1280
         images:
-          - src: ../memes/assets/embed-getsuga3d.webp
-          - src: ../slideria/assets/film-poster.png
+          - src: ./assets/embed-getsuga3d.webp
+          - src: ./assets/film-poster.png
           - src: ./assets/vista.webp
-          - src: ../slideria/assets/art-waves.svg
-          - src: ../memes/assets/embed-doom.webp
-          - src: ../slideria/assets/art-dusk.svg
-          - src: ../slideria/assets/embed-motion.webp
-          - src: ../slideria/assets/art-bloom.svg
+          - src: ./assets/art-waves.svg
+          - src: ./assets/embed-doom.webp
+          - src: ./assets/art-dusk.svg
+          - src: ./assets/embed-motion.webp
+          - src: ./assets/art-bloom.svg
         locked: true
       - type: text
         text: ЭФФЕКТЫ · ГРАФИКИ · СХЕМЫ · 3D · ИГРЫ · КОД · ТЕСТЫ · ТЕМЫ · АГЕНТ
@@ -2492,7 +2492,7 @@ slides:
     logo: false
     free:
       - type: image
-        src: ../memes/assets/embed-getsuga3d.webp
+        src: ./assets/embed-getsuga3d.webp
         place:
           x: 0
           y: 0
@@ -2500,7 +2500,7 @@ slides:
           h: 720
         style: "animation: v3-pull 0.6s cubic-bezier(.2, .7, .3, 1) both"
       - type: image
-        src: ../memes/assets/embed-getsuga3d.webp
+        src: ./assets/embed-getsuga3d.webp
         place:
           x: 0
           y: 0
@@ -2568,14 +2568,14 @@ slides:
     logo: false
     free:
       - type: image
-        src: ../memes/assets/embed-getsuga3d.webp
+        src: ./assets/embed-getsuga3d.webp
         place:
           x: 0
           y: 0
           w: 1280
           h: 720
       - type: image
-        src: ../memes/assets/embed-getsuga3d.webp
+        src: ./assets/embed-getsuga3d.webp
         place:
           x: 0
           y: 0
@@ -2643,14 +2643,14 @@ slides:
     logo: false
     free:
       - type: image
-        src: ../memes/assets/embed-getsuga3d.webp
+        src: ./assets/embed-getsuga3d.webp
         place:
           x: 0
           y: 0
           w: 1280
           h: 720
       - type: image
-        src: ../memes/assets/embed-getsuga3d.webp
+        src: ./assets/embed-getsuga3d.webp
         place:
           x: 0
           y: 0
@@ -3739,7 +3739,7 @@ slides:
         delay: 200
         style: "animation: v3-press .6667s cubic-bezier(.2, .8, .3, 1) infinite"
       - type: image
-        src: ../memes/assets/embed-doom.webp
+        src: ./assets/embed-doom.webp
         radius: 18
         stroke: "#FFFFFF"
         width: 2
@@ -3821,7 +3821,7 @@ slides:
         enter: ufx-whipl
         delay: 120
       - type: model
-        src: ../memes/assets/robot.glb
+        src: ./assets/robot.glb
         poster: ./assets/robot-poster.webp
         animation: Dance
         orbit: -12deg 80deg
@@ -3859,11 +3859,11 @@ slides:
           w: 1280
         locked: true
       - type: image
-        src: ../memes/assets/embed-getsuga3d.webp
+        src: ./assets/embed-getsuga3d.webp
         images:
-          - ../memes/assets/embed-anime.webp
-          - ../slideria/assets/studio.webp
-          - ../slideria/assets/art-dusk.svg
+          - ./assets/embed-anime.webp
+          - ./assets/studio.webp
+          - ./assets/art-dusk.svg
         flip: click
         radius: 20
         glow: accent
@@ -3935,7 +3935,7 @@ slides:
         enter: fade
       - id: mf-0
         type: image
-        src: ../slideria/assets/art-dusk.svg
+        src: ./assets/art-dusk.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -3948,7 +3948,7 @@ slides:
         delay: 0
       - id: mf-1
         type: image
-        src: ../memes/assets/embed-getsuga3d.webp
+        src: ./assets/embed-getsuga3d.webp
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -3961,7 +3961,7 @@ slides:
         delay: 50
       - id: mf-2
         type: image
-        src: ../slideria/assets/studio.webp
+        src: ./assets/studio.webp
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -3974,7 +3974,7 @@ slides:
         delay: 100
       - id: mf-3
         type: image
-        src: ../slideria/assets/art-bloom.svg
+        src: ./assets/art-bloom.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -3987,7 +3987,7 @@ slides:
         delay: 150
       - id: mf-4
         type: image
-        src: ../memes/assets/embed-anime.webp
+        src: ./assets/embed-anime.webp
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4000,7 +4000,7 @@ slides:
         delay: 200
       - id: mf-5
         type: image
-        src: ../slideria/assets/art-waves.svg
+        src: ./assets/art-waves.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4068,7 +4068,7 @@ slides:
           w: 440
       - id: mf-0
         type: image
-        src: ../slideria/assets/art-dusk.svg
+        src: ./assets/art-dusk.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4080,7 +4080,7 @@ slides:
         angle: -40
       - id: mf-1
         type: image
-        src: ../memes/assets/embed-getsuga3d.webp
+        src: ./assets/embed-getsuga3d.webp
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4092,7 +4092,7 @@ slides:
         angle: -24
       - id: mf-2
         type: image
-        src: ../slideria/assets/studio.webp
+        src: ./assets/studio.webp
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4104,7 +4104,7 @@ slides:
         angle: -8
       - id: mf-3
         type: image
-        src: ../slideria/assets/art-bloom.svg
+        src: ./assets/art-bloom.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4116,7 +4116,7 @@ slides:
         angle: 8
       - id: mf-4
         type: image
-        src: ../memes/assets/embed-anime.webp
+        src: ./assets/embed-anime.webp
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4128,7 +4128,7 @@ slides:
         angle: 24
       - id: mf-5
         type: image
-        src: ../slideria/assets/art-waves.svg
+        src: ./assets/art-waves.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4195,7 +4195,7 @@ slides:
           w: 440
       - id: mf-0
         type: image
-        src: ../slideria/assets/art-dusk.svg
+        src: ./assets/art-dusk.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4206,7 +4206,7 @@ slides:
           h: 420
       - id: mf-1
         type: image
-        src: ../memes/assets/embed-getsuga3d.webp
+        src: ./assets/embed-getsuga3d.webp
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4217,7 +4217,7 @@ slides:
           h: 90
       - id: mf-2
         type: image
-        src: ../slideria/assets/studio.webp
+        src: ./assets/studio.webp
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4228,7 +4228,7 @@ slides:
           h: 90
       - id: mf-3
         type: image
-        src: ../slideria/assets/art-bloom.svg
+        src: ./assets/art-bloom.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4239,7 +4239,7 @@ slides:
           h: 90
       - id: mf-4
         type: image
-        src: ../memes/assets/embed-anime.webp
+        src: ./assets/embed-anime.webp
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4250,7 +4250,7 @@ slides:
           h: 90
       - id: mf-5
         type: image
-        src: ../slideria/assets/art-waves.svg
+        src: ./assets/art-waves.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4316,7 +4316,7 @@ slides:
           w: 440
       - id: mf-0
         type: image
-        src: ../slideria/assets/art-dusk.svg
+        src: ./assets/art-dusk.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4328,7 +4328,7 @@ slides:
         angle: -10
       - id: mf-1
         type: image
-        src: ../memes/assets/embed-getsuga3d.webp
+        src: ./assets/embed-getsuga3d.webp
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4340,7 +4340,7 @@ slides:
         angle: 8
       - id: mf-2
         type: image
-        src: ../slideria/assets/studio.webp
+        src: ./assets/studio.webp
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4352,7 +4352,7 @@ slides:
         angle: -6
       - id: mf-3
         type: image
-        src: ../slideria/assets/art-bloom.svg
+        src: ./assets/art-bloom.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4364,7 +4364,7 @@ slides:
         angle: 12
       - id: mf-4
         type: image
-        src: ../memes/assets/embed-anime.webp
+        src: ./assets/embed-anime.webp
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4376,7 +4376,7 @@ slides:
         angle: -8
       - id: mf-5
         type: image
-        src: ../slideria/assets/art-waves.svg
+        src: ./assets/art-waves.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -4829,7 +4829,7 @@ slides:
           w: 1280
         locked: true
       - type: image
-        src: ../memes/assets/embed-anime.webp
+        src: ./assets/embed-anime.webp
         fit: cover
         stroke: "#FFFFFF"
         width: 5
