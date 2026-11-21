@@ -61,6 +61,14 @@ effects:
     name: Кольцо
     ms: 800
     ease: cubic-bezier(.08, .75, .3, 1)
+  ufx-dot:
+    name: Точка в удар
+    ms: 460
+    ease: linear
+  ufx-late:
+    name: Проявление после паузы
+    ms: 1600
+    ease: ease-out
 css: |
   /* «Slideria v2» под «Gloria»: монтаж аниме-эдита. Всё, что движется, начинается с появлением слайда — слайд
      появляется ровно в удар, поэтому толчки на каждую бочку (2/3 с) сами встают в сетку трека */
@@ -86,7 +94,7 @@ css: |
   @keyframes ufx-whipl { from { opacity: 0; transform: translateX(-220px) skewX(28deg); } 60% { opacity: 1; transform: translateX(10px) skewX(-4deg); } to { opacity: 1; transform: none; } }
   @keyframes ufx-drop { from { opacity: 0; transform: translateY(-140px) scale(1.2); } 60% { opacity: 1; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   @keyframes ufx-flash { from { opacity: 1; } to { opacity: 0; } }
-  @keyframes ufx-dot { from { transform: scale(4.2); } 45% { transform: scale(.78); } 75% { transform: scale(1.08); } to { transform: scale(1); } }
+  @keyframes ufx-dot { 0%, 68% { opacity: 0; } to { opacity: 1; } }
   @keyframes ufx-ring { from { opacity: 1; transform: scale(.6); } to { opacity: 0; transform: scale(7); } }
 
   /* ── Слои поверх и под слайдом (html-блоки во весь слайд) ── */
@@ -298,10 +306,10 @@ css: |
   /* Имя сводится по трекингу из размытия */
   @keyframes v4-track { from { letter-spacing: 1.15em; opacity: 0; filter: blur(10px); } to { letter-spacing: .42em; opacity: 1; filter: blur(0); } }
   .v4-word { width: 100%; text-align: center; white-space: nowrap; font: 700 50px/1 var(--font-head); color: #fff; letter-spacing: .42em; text-indent: .42em; }
-  .slide.on .v4-word { animation: v4-track 1.2s .333s cubic-bezier(.16, 1, .3, 1) both; }
+  .slide.on .v4-word { animation: v4-track 1.1s .82s cubic-bezier(.16, 1, .3, 1) both; }
   .v4-sub { width: 100%; text-align: center; font: 600 15px/1 var(--font); letter-spacing: .6em; text-indent: .6em; color: color-mix(in srgb, var(--tx) 55%, transparent); }
   @keyframes v4-fadeup { from { opacity: 0; transform: translateY(12px); } }
-  .slide.on .v4-sub { animation: v4-fadeup .8s .7s cubic-bezier(.16, 1, .3, 1) both; }
+  .slide.on .v4-sub { animation: v4-fadeup .8s 1.05s cubic-bezier(.16, 1, .3, 1) both; }
 
   /* Эхо: контурные копии слова за ним */
   .v4-echo { position: relative; width: 100%; height: 100%; }
@@ -360,7 +368,38 @@ css: |
   .v4-fall .leaf { height: calc(var(--s) * .62); border-radius: 0 85% 0 85%; background: linear-gradient(135deg, #FBBF24, #EA580C 55%, #9A3412); }
   .v4-fall .conf { height: calc(var(--s) * .42); border-radius: 2px; background: var(--c); }
 
+  /* Удар на слайде знака: белый жар из центра — виден с первого кадра, пока проявляется сцена на холсте */
+  .v4-burst { left: 0; top: 0; width: 1280px; height: 720px; opacity: 0; background: radial-gradient(ellipse 46% 62% at 50% 42%, #FFFFFF 0%, #FFF5FD 14%, #F0ABFC 30%, rgba(168, 85, 247, .78) 48%, rgba(40, 12, 80, .92) 72%, #05040A 100%); }
+  .slide.on .v4-burst { animation: v4-burst .22s cubic-bezier(.3, 0, .6, 1); }
+  @keyframes v4-burst { 0%, 20% { opacity: 1; } to { opacity: 0; } }
+  /* Заслонка цвета сцены: рамка вставки в первые доли секунды ещё пустая (светлая), пока холст не нарисовал кадр */
+  .v4-cover { left: 0; top: 0; width: 1280px; height: 720px; opacity: 0; background: var(--cv, #06060B); }
+  .slide.on .v4-cover { animation: v4-cover .46s linear; }
+  @keyframes v4-cover { 0%, 74% { opacity: 1; } to { opacity: 0; } }
+  /* Кадры-импакты «ВСЁ»: белый с чёрными линиями, затем негатив — с первого кадра слайда и на второй удар */
+  .v4-imp { left: 0; top: 0; width: 1280px; height: 720px; opacity: 0; }
+  .v4-imp svg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+  .v4-imp.w { background: #F4F0FF; }
+  .v4-imp.w path { fill: #0A0714; }
+  .v4-imp.k { background: #07050D; }
+  .v4-imp.k path { fill: #FFFFFF; }
+  .slide.on .v4-imp.a { animation: v4-imp-on .07s linear; }
+  /* Негатив держится три кадра «на двойках» — линии меняются, как у холста, и закрывают его проявление */
+  .slide.on .v4-imp.b1 { animation: v4-imp-on .085s .07s linear; }
+  .slide.on .v4-imp.b2 { animation: v4-imp-on .085s .155s linear; }
+  .slide.on .v4-imp.b3 { animation: v4-imp-k .2s .24s linear; }
+  .slide.on .v4-imp.c { animation: v4-imp-on .06s .667s linear; }
+  .slide.on .v4-imp.d { animation: v4-imp-on .06s .727s linear; }
+  @keyframes v4-imp-on { from, to { opacity: 1; } }
+  @keyframes v4-imp-k { 0%, 45% { opacity: 1; } to { opacity: 0; } }
+  /* Удар знака: иглы света разлетаются из центра (рисунок — свой SVG), передают движение частицам холста */
+  .v4-rays { left: 0; top: 0; width: 1280px; height: 720px; opacity: 0; transform-origin: 640px 300px; }
+  .v4-rays svg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+  .slide.on .v4-rays { animation: v4-rays .5s linear; }
+  @keyframes v4-rays { 0% { opacity: 1; transform: scale(.3); animation-timing-function: cubic-bezier(.15, .7, .4, 1); } 40% { opacity: 1; transform: scale(1.35); animation-timing-function: cubic-bezier(.5, 0, 1, .6); } to { opacity: 0; transform: scale(2.6); } }
+
   @keyframes ufx-flashs { from { opacity: .45; } to { opacity: 0; } }
+  @keyframes ufx-late { 0%, 55% { opacity: 0; letter-spacing: .9em; } to { opacity: .85; } }
 music:
   src: ./assets/gloria.m4a
   volume: 1
@@ -371,18 +410,338 @@ autoplay:
 slides:
   - id: open
     template: canvas
-    label: Свет
+    label: Диск частиц
     bg: "#030308"
     transition: none
     at: 0.01
     logo: false
     free:
-      - type: html
-        html: <div class="v3-o"><i class="v4-bloom" style="--y:42%;--s:1200px;opacity:.55"></i><i class="v4-dust"></i><i class="v4-flare grow" style="--y:300px"></i></div>
+      - type: embed
+        code: |
+          <!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;overflow:hidden;background:#05050A}canvas{display:block;width:100%;height:100%}</style></head><body><canvas id="c"></canvas><script>
+
+          // Общая обвязка сцен: холст во всю вставку, координаты слайда 1280×720, часы — с появления слайда
+          // (performance.now во вставке считает от её создания, а вставка создаётся, когда слайд показан)
+          const cv = document.getElementById('c');
+          const g = cv.getContext('2d');
+          let DPR = Math.min(2, (window.devicePixelRatio || 1) * 1.5);
+          function fit() {
+            cv.width = Math.round(cv.clientWidth * DPR);
+            cv.height = Math.round(cv.clientHeight * DPR);
+          }
+          addEventListener('resize', fit);
+          fit();
+          const SX = () => cv.width / 1280;
+          const SY = () => cv.height / 720;
+          // Псевдослучайные числа с зерном: одинаковые кадр за кадром
+          function rng(seed) {
+            let s = seed >>> 0 || 1;
+            return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+          }
+          const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+          const ease = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
+          const easeOut = (u) => 1 - Math.pow(1 - u, 3);
+          // Кадры идут медленнее 35 в секунду (слабая видеокарта или её нет) — холст в обычном разрешении:
+          // иначе смена слайда ждёт отрисовки и опаздывает от удара
+          function loop(draw) {
+            const gaps = [];
+            let last = 0;
+            const step = (now) => {
+              if (last && DPR > 1) {
+                gaps.push(now - last);
+                if (gaps.length > 8) {
+                  gaps.shift();
+                  if ([...gaps].sort((a, b) => a - b)[4] > 28) { DPR = 1; fit(); }
+                }
+              }
+              last = now;
+              g.setTransform(SX(), 0, 0, SY(), 0, 0);
+              draw(performance.now() / 1000);
+              requestAnimationFrame(step);
+            };
+            requestAnimationFrame(step);
+          }
+
+          // Вступление: чёрная дыра из частиц в цветах Slideria. Диск вращается (ближе к центру — быстрее), дальняя
+          // сторона диска изогнута светом над тенью, нижняя — под ней; левая сторона ярче — летит к зрителю.
+          // На слайде знака (FORGE) — удар: вспышка, диск разлетается во все стороны и сходится в знак S
+          const FORGE = typeof window.FORGE !== 'undefined' && window.FORGE;
+          const CX = 640, CY = FORGE ? 300 : 352;
+          const r0 = rng(20260501);
+          const N = 2000;
+          const RIN = 122, ROUT = 640, HOLE = 98, TILT = 0.085;
+          // Камера чуть завалена — кадр живее, чем строго горизонтальный диск
+          const ROLL = -0.09;
+          // Цвет по радиусу: у тени — почти белый, дальше розовый, сиреневый, фиолетовый; редкие голубые искры
+          const PAL = ['255,244,250', '251,207,232', '244,114,182', '192,132,252', '139,92,246', '109,40,217', '103,232,249'];
+          const P = Array.from({ length: N }, () => {
+            const r = RIN + (ROUT - RIN) * Math.pow(r0(), 1.7);
+            const u = (r - RIN) / (ROUT - RIN);
+            const c = r0() < 0.05 ? 6 : u < 0.05 ? 0 : u < 0.13 ? 1 : u < 0.28 ? 2 : u < 0.5 ? 3 : u < 0.75 ? 4 : 5;
+            return { r, a: r0() * Math.PI * 2, c, w: 0.7 + r0() * (u < 0.3 ? 1.6 : 1.1), ph: r0() * 6.28, v: 250 + Math.pow(r0(), 0.6) * 1500, el: (r0() - 0.5) * 1.3 };
+          });
+          // Звёзды позади — свет у тени огибает её (сдвиг от центра, как у гравитационной линзы)
+          const STARS = Array.from({ length: 280 }, () => ({ x: r0() * 1280, y: r0() * 720, s: 0.5 + r0() * 1.4, ph: r0() * 6.28, b: 0.25 + r0() * 0.6 }));
+
+          const omega = (r) => 1.5 * Math.pow(RIN / r, 1.25);
+          function at(p, t) {
+            const a = p.a + t * omega(p.r);
+            const r = p.r * (1 + 0.012 * Math.sin(t * 1.3 + p.ph));
+            return [CX + Math.cos(a) * r, CY + Math.sin(a) * r * TILT, a];
+          }
+          // Изображение дальней стороны над тенью (верх) и нижней стороны под ней — по кругу, а не по эллипсу диска
+          function lensed(p, t) {
+            const a = (((p.a + t * omega(p.r)) % 6.2832) + 6.2832) % 6.2832;
+            const rl = HOLE + 4 + (p.r - RIN) * 0.42;
+            return [CX + Math.cos(a) * rl, CY + Math.sin(a) * rl * (a > Math.PI ? 1 : 0.8), a];
+          }
+
+          // Частицы рисуются пачками — одна линия на цвет, яркость и толщину: сотни вызовов вместо тысяч
+          const B = new Map();
+          function seg(c, a, w, x0, y0, x1, y1) {
+            if (a <= 0.03) return;
+            const q = Math.min(5, Math.max(1, Math.round(a * 5)));
+            const k = c * 100 + q * 10 + (w > 1.35 ? 2 : 1);
+            let path = B.get(k);
+            if (!path) B.set(k, path = new Path2D());
+            path.moveTo(x0, y0);
+            path.lineTo(x1 + 0.01, y1);
+          }
+          function flush() {
+            for (const [k, path] of B) {
+              g.strokeStyle = `rgba(${PAL[Math.floor(k / 100)]},${(Math.floor(k / 10) % 10) / 5})`;
+              g.lineWidth = k % 10 === 2 ? 1.9 : 1.1;
+              g.stroke(path);
+            }
+            B.clear();
+          }
+          function glow(x, y, r, c, a) {
+            if (a <= 0) return;
+            const gr = g.createRadialGradient(x, y, 0, x, y, r);
+            gr.addColorStop(0, `rgba(${c},${a})`);
+            gr.addColorStop(1, `rgba(${c},0)`);
+            g.fillStyle = gr;
+            g.fillRect(x - r, y - r, r * 2, r * 2);
+          }
+          // Сияние диска — размытое один раз заранее; каждый кадр только накладывается
+          // (Только на первом слайде: размытие дорогое, а на слайде знака подсветка диска не нужна — переход не ждёт подготовки)
+          const GLOW = document.createElement('canvas');
+          GLOW.width = 640; GLOW.height = 360;
+          if (!FORGE) {
+            const o = GLOW.getContext('2d');
+            o.scale(0.5, 0.5);
+            o.globalCompositeOperation = 'lighter';
+            o.filter = 'blur(30px)';
+            for (const [rad, lw, c] of [[170, 30, '251,207,232,.55'], [300, 70, '192,132,252,.3'], [480, 120, '109,40,217,.2']]) {
+              o.strokeStyle = `rgba(${c})`;
+              o.lineWidth = lw;
+              o.beginPath(); o.ellipse(CX, CY, rad, rad * TILT, 0, 0, 7); o.stroke();
+            }
+            o.filter = 'blur(12px)';
+            o.strokeStyle = 'rgba(255,228,245,.5)';
+            o.lineWidth = 8;
+            o.beginPath(); o.arc(CX, CY, HOLE + 9, 0, 7); o.stroke();
+            // Дуга над тенью — изогнутый свет дальней стороны диска
+            o.filter = 'blur(26px)';
+            o.strokeStyle = 'rgba(244,114,182,.35)';
+            o.lineWidth = 60;
+            o.beginPath(); o.arc(CX, CY, HOLE + 48, Math.PI * 1.08, Math.PI * 1.92); o.stroke();
+          }
+          // Ближняя сторона диска поверх тени — сплошной светящейся полосой, частицы дают ей фактуру
+          const FRONT = document.createElement('canvas');
+          FRONT.width = 640; FRONT.height = 360;
+          if (!FORGE) {
+            const o = FRONT.getContext('2d');
+            o.scale(0.5, 0.5);
+            o.globalCompositeOperation = 'lighter';
+            for (const [rad, lw, c, bl] of [[140, 16, '255,236,248,.55', 6], [230, 34, '244,114,182,.35', 12], [380, 60, '167,139,250,.22', 20]]) {
+              o.filter = `blur(${bl}px)`;
+              o.strokeStyle = `rgba(${c})`;
+              o.lineWidth = lw;
+              o.beginPath(); o.ellipse(CX, CY, rad, rad * TILT, 0, 0.05, Math.PI - 0.05); o.stroke();
+            }
+          }
+          function sky(t, k) {
+            g.globalCompositeOperation = 'source-over';
+            const bg = g.createRadialGradient(CX, CY, 0, CX, CY, 900);
+            bg.addColorStop(0, '#1A0F33');
+            bg.addColorStop(0.4, '#0A0716');
+            bg.addColorStop(1, '#020205');
+            g.fillStyle = bg;
+            g.fillRect(0, 0, 1280, 720);
+            g.globalCompositeOperation = 'lighter';
+            for (const s of STARS) {
+              const dx = s.x - CX, dy = s.y - CY, d = Math.hypot(dx, dy) || 1;
+              const m = k * (110 * 110) / d;
+              const tw = 0.6 + 0.4 * Math.sin(t * 2.2 + s.ph);
+              g.fillStyle = `rgba(226,220,255,${s.b * tw})`;
+              g.fillRect(s.x + (dx / d) * m, s.y + (dy / d) * m, s.s, s.s);
+            }
+          }
+          const BLUR = 0.16;
+
+          loop((t) => {
+            g.lineCap = 'round';
+            if (!FORGE) {
+              sky(t, 1);
+              g.save();
+              g.translate(CX, CY); g.rotate(ROLL); g.translate(-CX, -CY);
+              g.drawImage(GLOW, 0, 0, 1280, 720);
+              glow(CX, CY, 560, '124,58,237', 0.1);
+              // Дальняя половина диска и её изображение над тенью
+              for (const p of P) {
+                const [x, y, a] = at(p, t);
+                const dop = Math.max(0.35, 1 - 0.65 * Math.cos(a));
+                if (Math.sin(a) < 0) {
+                  const [x0, y0] = at(p, t - BLUR);
+                  seg(p.c, 0.62 * dop, p.w, x0, y0, x, y);
+                }
+                if (p.r < 400) {
+                  const [lx, ly, la] = lensed(p, t);
+                  const [lx0, ly0, la0] = lensed(p, t - BLUR);
+                  if (Math.abs(la - la0) < 1) seg(p.c, (la > Math.PI ? 0.95 : 0.4) * dop * (1 - (p.r - RIN) / 290), p.w * 0.9, lx0, ly0, lx, ly);
+                }
+              }
+              flush();
+              // Тень: чёрный круг с мягким краем, перекрывает всё за ним
+              g.globalCompositeOperation = 'source-over';
+              const sg = g.createRadialGradient(CX, CY, HOLE - 4, CX, CY, HOLE + 5);
+              sg.addColorStop(0, 'rgba(0,0,0,1)');
+              sg.addColorStop(1, 'rgba(0,0,0,0)');
+              g.fillStyle = sg;
+              g.beginPath(); g.arc(CX, CY, HOLE + 5, 0, 7); g.fill();
+              g.globalCompositeOperation = 'lighter';
+              g.drawImage(FRONT, 0, 0, 1280, 720);
+              // Ближняя половина диска — поверх тени
+              for (const p of P) {
+                const [x, y, a] = at(p, t);
+                if (Math.sin(a) < 0) continue;
+                const [x0, y0] = at(p, t - BLUR);
+                const dop = Math.max(0.35, 1 - 0.65 * Math.cos(a));
+                seg(p.c, 0.85 * dop, p.w, x0, y0, x, y);
+              }
+              flush();
+              // Тонкий анаморфный блик по плоскости диска
+              g.save();
+              g.translate(CX - 120, CY);
+              g.scale(1, 0.006);
+              glow(0, 0, 900, '165,243,252', 0.35);
+              g.restore();
+              g.restore();
+              return;
+            }
+
+            // ── Знак: удар в 0 с — вспышка, диск разлетается сферой, к 0,8 с частицы сходятся в S ──
+            const flash = Math.max(0, 1 - t / 0.32);
+            sky(t, 0);
+            glow(CX, CY, 340, '255,255,255', 0.85 * flash * flash);
+            glow(CX, CY, 560, '168,85,247', 0.12 + 0.4 * flash);
+            const u = clamp((t - 0.14) / 0.62);
+            for (let i = 0; i < N; i++) {
+              const p = P[i];
+              const [x, y] = pos(i, t);
+              const [x0, y0] = pos(i, t - 0.035);
+              const a = (u < 1 ? 0.95 : 0.7 * Math.max(0.15, 1 - (t - 0.76) / 0.6)) + 0.4 * flash;
+              seg(u > 0.85 ? 0 : p.c, a, p.w * (1 + (1 - ease(u)) * 0.5), x0, y0, x, y);
+            }
+            flush();
+            // Знак проявляется из частиц: градиентный штрих со свечением, по нему проходит блик
+            const m = clamp((t - 0.7) / 0.35);
+            if (m > 0) {
+              g.globalCompositeOperation = 'source-over';
+              g.save();
+              g.translate(CX - 145, CY - 145);
+              g.scale(290 / 24, 290 / 24);
+              g.lineWidth = 2.8;
+              g.lineCap = 'butt';
+              const lg = g.createLinearGradient(0, 0, 24, 24);
+              lg.addColorStop(0, '#C4B5FD');
+              lg.addColorStop(0.5, '#FFFFFF');
+              lg.addColorStop(1, '#F9A8D4');
+              g.globalAlpha = m;
+              g.shadowColor = 'rgba(236,72,153,.9)';
+              g.shadowBlur = 40 * SX();
+              g.strokeStyle = lg;
+              g.stroke(S1);
+              g.globalAlpha = m * 0.6;
+              g.stroke(S2);
+              g.globalAlpha = m;
+              g.fillStyle = '#fff';
+              g.beginPath(); g.arc(20.5, 3.5, 1.4, 0, 7); g.fill();
+              g.globalAlpha = m * 0.6;
+              g.beginPath(); g.arc(3.5, 20.5, 1.4, 0, 7); g.fill();
+              // Блик бежит по штриху
+              const sw = clamp((t - 0.95) / 0.5);
+              if (sw > 0 && sw < 1) {
+                g.globalCompositeOperation = 'lighter';
+                g.shadowBlur = 0;
+                const bx = -6 + sw * 36;
+                const sgr = g.createLinearGradient(bx - 4, 0, bx + 4, 24);
+                sgr.addColorStop(0, 'rgba(255,255,255,0)');
+                sgr.addColorStop(0.5, 'rgba(255,255,255,.95)');
+                sgr.addColorStop(1, 'rgba(255,255,255,0)');
+                g.globalAlpha = 1;
+                g.strokeStyle = sgr;
+                g.lineWidth = 3.2;
+                g.stroke(S1);
+                g.stroke(S2);
+              }
+              g.restore();
+            }
+          });
+
+          // Знак S: два полукольца с точками на концах (как в логотипе), ширина — 290 px
+          const S1 = new Path2D('M20.5 3.5H8.25a4.25 4.25 0 0 0 0 8.5');
+          const S2 = new Path2D('M8.25 12h7.5a4.25 4.25 0 0 1 0 8.5H3.5');
+          // Цели частиц — точки знака; частица идёт к точке в своём же направлении от центра, поэтому пути не перекрещиваются
+          const TG = new Array(N);
+          if (FORGE) {
+            const off = document.createElement('canvas');
+            off.width = off.height = 290;
+            const o = off.getContext('2d');
+            o.scale(290 / 24, 290 / 24);
+            o.lineWidth = 2.8;
+            o.strokeStyle = '#fff';
+            o.fillStyle = '#fff';
+            o.stroke(S1);
+            o.stroke(S2);
+            o.beginPath(); o.arc(20.5, 3.5, 1.4, 0, 7); o.fill();
+            o.beginPath(); o.arc(3.5, 20.5, 1.4, 0, 7); o.fill();
+            const d = o.getImageData(0, 0, 290, 290).data;
+            const T = [];
+            for (let y = 0; y < 290; y += 3) for (let x = 0; x < 290; x += 3) if (d[(y * 290 + x) * 4 + 3] > 128) T.push([CX - 145 + x, CY - 145 + y]);
+            T.sort((p, q) => Math.atan2(p[1] - CY, p[0] - CX) - Math.atan2(q[1] - CY, q[0] - CX));
+            const idx = P.map((_, i) => i).sort((i, j) => dir(i) - dir(j));
+            idx.forEach((i, k) => { TG[i] = T[Math.floor((k * T.length) / N)]; });
+          }
+          // Направление разлёта — угол частицы на диске в момент удара
+          function dir(i) {
+            const a = P[i].a + 3 * omega(P[i].r);
+            return Math.atan2(Math.sin(a), Math.cos(a));
+          }
+          function pos(i, tt) {
+            const p = P[i];
+            const [xa, ya, a] = at(p, 3);
+            const cr = Math.cos(ROLL), sr = Math.sin(ROLL);
+            const x0 = CX + (xa - CX) * cr - (ya - CY) * sr, y0 = CY + (xa - CX) * sr + (ya - CY) * cr;
+            const k = 4.2;
+            const b = ((1 - Math.exp(-k * Math.max(0, tt))) / k) * p.v;
+            // Разлёт объёмом, а не кольцом: у каждой частицы своя скорость и наклон вверх-вниз
+            const bx = x0 + Math.cos(a) * b, by = y0 + (Math.sin(a) * 0.55 + p.el) * b;
+            const tg = TG[i];
+            const e = ease(clamp((tt - 0.14) / 0.62));
+            const px = bx + (tg[0] - bx) * e, py = by + (tg[1] - by) * e;
+            // Второй удар (0,333 с): короткий толчок от центра
+            const h = tt > 0.333 ? Math.exp(-(tt - 0.333) * 9) * Math.min(1, (tt - 0.333) / 0.04) : 0;
+            const qx = px - CX, qy = py - CY, ql = Math.hypot(qx, qy) || 1;
+            return [px + (qx / ql) * 22 * h, py + (qy / ql) * 22 * h];
+          }
+          </script></body></html>
         place:
           x: 0
           y: 0
           w: 1280
+          h: 720
         locked: true
       - type: html
         html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-vig"></i></div>
@@ -399,34 +758,354 @@ slides:
     at: 1.343
     logo: false
     free:
-      - type: html
-        html: <div class="v3-o"><i class="v4-bloom" style="--y:42%;--s:1100px"></i><i class="v4-dust"></i><i class="v4-flare hit" style="--y:300px"></i></div>
+      - type: embed
+        code: |
+          <!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;overflow:hidden;background:#05050A}canvas{display:block;width:100%;height:100%}</style></head><body><canvas id="c"></canvas><script>
+          window.FORGE = true;
+          // Общая обвязка сцен: холст во всю вставку, координаты слайда 1280×720, часы — с появления слайда
+          // (performance.now во вставке считает от её создания, а вставка создаётся, когда слайд показан)
+          const cv = document.getElementById('c');
+          const g = cv.getContext('2d');
+          let DPR = Math.min(2, (window.devicePixelRatio || 1) * 1.5);
+          function fit() {
+            cv.width = Math.round(cv.clientWidth * DPR);
+            cv.height = Math.round(cv.clientHeight * DPR);
+          }
+          addEventListener('resize', fit);
+          fit();
+          const SX = () => cv.width / 1280;
+          const SY = () => cv.height / 720;
+          // Псевдослучайные числа с зерном: одинаковые кадр за кадром
+          function rng(seed) {
+            let s = seed >>> 0 || 1;
+            return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+          }
+          const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+          const ease = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
+          const easeOut = (u) => 1 - Math.pow(1 - u, 3);
+          // Кадры идут медленнее 35 в секунду (слабая видеокарта или её нет) — холст в обычном разрешении:
+          // иначе смена слайда ждёт отрисовки и опаздывает от удара
+          function loop(draw) {
+            const gaps = [];
+            let last = 0;
+            const step = (now) => {
+              if (last && DPR > 1) {
+                gaps.push(now - last);
+                if (gaps.length > 8) {
+                  gaps.shift();
+                  if ([...gaps].sort((a, b) => a - b)[4] > 28) { DPR = 1; fit(); }
+                }
+              }
+              last = now;
+              g.setTransform(SX(), 0, 0, SY(), 0, 0);
+              draw(performance.now() / 1000);
+              requestAnimationFrame(step);
+            };
+            requestAnimationFrame(step);
+          }
+
+          // Вступление: чёрная дыра из частиц в цветах Slideria. Диск вращается (ближе к центру — быстрее), дальняя
+          // сторона диска изогнута светом над тенью, нижняя — под ней; левая сторона ярче — летит к зрителю.
+          // На слайде знака (FORGE) — удар: вспышка, диск разлетается во все стороны и сходится в знак S
+          const FORGE = typeof window.FORGE !== 'undefined' && window.FORGE;
+          const CX = 640, CY = FORGE ? 300 : 352;
+          const r0 = rng(20260501);
+          const N = 2000;
+          const RIN = 122, ROUT = 640, HOLE = 98, TILT = 0.085;
+          // Камера чуть завалена — кадр живее, чем строго горизонтальный диск
+          const ROLL = -0.09;
+          // Цвет по радиусу: у тени — почти белый, дальше розовый, сиреневый, фиолетовый; редкие голубые искры
+          const PAL = ['255,244,250', '251,207,232', '244,114,182', '192,132,252', '139,92,246', '109,40,217', '103,232,249'];
+          const P = Array.from({ length: N }, () => {
+            const r = RIN + (ROUT - RIN) * Math.pow(r0(), 1.7);
+            const u = (r - RIN) / (ROUT - RIN);
+            const c = r0() < 0.05 ? 6 : u < 0.05 ? 0 : u < 0.13 ? 1 : u < 0.28 ? 2 : u < 0.5 ? 3 : u < 0.75 ? 4 : 5;
+            return { r, a: r0() * Math.PI * 2, c, w: 0.7 + r0() * (u < 0.3 ? 1.6 : 1.1), ph: r0() * 6.28, v: 250 + Math.pow(r0(), 0.6) * 1500, el: (r0() - 0.5) * 1.3 };
+          });
+          // Звёзды позади — свет у тени огибает её (сдвиг от центра, как у гравитационной линзы)
+          const STARS = Array.from({ length: 280 }, () => ({ x: r0() * 1280, y: r0() * 720, s: 0.5 + r0() * 1.4, ph: r0() * 6.28, b: 0.25 + r0() * 0.6 }));
+
+          const omega = (r) => 1.5 * Math.pow(RIN / r, 1.25);
+          function at(p, t) {
+            const a = p.a + t * omega(p.r);
+            const r = p.r * (1 + 0.012 * Math.sin(t * 1.3 + p.ph));
+            return [CX + Math.cos(a) * r, CY + Math.sin(a) * r * TILT, a];
+          }
+          // Изображение дальней стороны над тенью (верх) и нижней стороны под ней — по кругу, а не по эллипсу диска
+          function lensed(p, t) {
+            const a = (((p.a + t * omega(p.r)) % 6.2832) + 6.2832) % 6.2832;
+            const rl = HOLE + 4 + (p.r - RIN) * 0.42;
+            return [CX + Math.cos(a) * rl, CY + Math.sin(a) * rl * (a > Math.PI ? 1 : 0.8), a];
+          }
+
+          // Частицы рисуются пачками — одна линия на цвет, яркость и толщину: сотни вызовов вместо тысяч
+          const B = new Map();
+          function seg(c, a, w, x0, y0, x1, y1) {
+            if (a <= 0.03) return;
+            const q = Math.min(5, Math.max(1, Math.round(a * 5)));
+            const k = c * 100 + q * 10 + (w > 1.35 ? 2 : 1);
+            let path = B.get(k);
+            if (!path) B.set(k, path = new Path2D());
+            path.moveTo(x0, y0);
+            path.lineTo(x1 + 0.01, y1);
+          }
+          function flush() {
+            for (const [k, path] of B) {
+              g.strokeStyle = `rgba(${PAL[Math.floor(k / 100)]},${(Math.floor(k / 10) % 10) / 5})`;
+              g.lineWidth = k % 10 === 2 ? 1.9 : 1.1;
+              g.stroke(path);
+            }
+            B.clear();
+          }
+          function glow(x, y, r, c, a) {
+            if (a <= 0) return;
+            const gr = g.createRadialGradient(x, y, 0, x, y, r);
+            gr.addColorStop(0, `rgba(${c},${a})`);
+            gr.addColorStop(1, `rgba(${c},0)`);
+            g.fillStyle = gr;
+            g.fillRect(x - r, y - r, r * 2, r * 2);
+          }
+          // Сияние диска — размытое один раз заранее; каждый кадр только накладывается
+          // (Только на первом слайде: размытие дорогое, а на слайде знака подсветка диска не нужна — переход не ждёт подготовки)
+          const GLOW = document.createElement('canvas');
+          GLOW.width = 640; GLOW.height = 360;
+          if (!FORGE) {
+            const o = GLOW.getContext('2d');
+            o.scale(0.5, 0.5);
+            o.globalCompositeOperation = 'lighter';
+            o.filter = 'blur(30px)';
+            for (const [rad, lw, c] of [[170, 30, '251,207,232,.55'], [300, 70, '192,132,252,.3'], [480, 120, '109,40,217,.2']]) {
+              o.strokeStyle = `rgba(${c})`;
+              o.lineWidth = lw;
+              o.beginPath(); o.ellipse(CX, CY, rad, rad * TILT, 0, 0, 7); o.stroke();
+            }
+            o.filter = 'blur(12px)';
+            o.strokeStyle = 'rgba(255,228,245,.5)';
+            o.lineWidth = 8;
+            o.beginPath(); o.arc(CX, CY, HOLE + 9, 0, 7); o.stroke();
+            // Дуга над тенью — изогнутый свет дальней стороны диска
+            o.filter = 'blur(26px)';
+            o.strokeStyle = 'rgba(244,114,182,.35)';
+            o.lineWidth = 60;
+            o.beginPath(); o.arc(CX, CY, HOLE + 48, Math.PI * 1.08, Math.PI * 1.92); o.stroke();
+          }
+          // Ближняя сторона диска поверх тени — сплошной светящейся полосой, частицы дают ей фактуру
+          const FRONT = document.createElement('canvas');
+          FRONT.width = 640; FRONT.height = 360;
+          if (!FORGE) {
+            const o = FRONT.getContext('2d');
+            o.scale(0.5, 0.5);
+            o.globalCompositeOperation = 'lighter';
+            for (const [rad, lw, c, bl] of [[140, 16, '255,236,248,.55', 6], [230, 34, '244,114,182,.35', 12], [380, 60, '167,139,250,.22', 20]]) {
+              o.filter = `blur(${bl}px)`;
+              o.strokeStyle = `rgba(${c})`;
+              o.lineWidth = lw;
+              o.beginPath(); o.ellipse(CX, CY, rad, rad * TILT, 0, 0.05, Math.PI - 0.05); o.stroke();
+            }
+          }
+          function sky(t, k) {
+            g.globalCompositeOperation = 'source-over';
+            const bg = g.createRadialGradient(CX, CY, 0, CX, CY, 900);
+            bg.addColorStop(0, '#1A0F33');
+            bg.addColorStop(0.4, '#0A0716');
+            bg.addColorStop(1, '#020205');
+            g.fillStyle = bg;
+            g.fillRect(0, 0, 1280, 720);
+            g.globalCompositeOperation = 'lighter';
+            for (const s of STARS) {
+              const dx = s.x - CX, dy = s.y - CY, d = Math.hypot(dx, dy) || 1;
+              const m = k * (110 * 110) / d;
+              const tw = 0.6 + 0.4 * Math.sin(t * 2.2 + s.ph);
+              g.fillStyle = `rgba(226,220,255,${s.b * tw})`;
+              g.fillRect(s.x + (dx / d) * m, s.y + (dy / d) * m, s.s, s.s);
+            }
+          }
+          const BLUR = 0.16;
+
+          loop((t) => {
+            g.lineCap = 'round';
+            if (!FORGE) {
+              sky(t, 1);
+              g.save();
+              g.translate(CX, CY); g.rotate(ROLL); g.translate(-CX, -CY);
+              g.drawImage(GLOW, 0, 0, 1280, 720);
+              glow(CX, CY, 560, '124,58,237', 0.1);
+              // Дальняя половина диска и её изображение над тенью
+              for (const p of P) {
+                const [x, y, a] = at(p, t);
+                const dop = Math.max(0.35, 1 - 0.65 * Math.cos(a));
+                if (Math.sin(a) < 0) {
+                  const [x0, y0] = at(p, t - BLUR);
+                  seg(p.c, 0.62 * dop, p.w, x0, y0, x, y);
+                }
+                if (p.r < 400) {
+                  const [lx, ly, la] = lensed(p, t);
+                  const [lx0, ly0, la0] = lensed(p, t - BLUR);
+                  if (Math.abs(la - la0) < 1) seg(p.c, (la > Math.PI ? 0.95 : 0.4) * dop * (1 - (p.r - RIN) / 290), p.w * 0.9, lx0, ly0, lx, ly);
+                }
+              }
+              flush();
+              // Тень: чёрный круг с мягким краем, перекрывает всё за ним
+              g.globalCompositeOperation = 'source-over';
+              const sg = g.createRadialGradient(CX, CY, HOLE - 4, CX, CY, HOLE + 5);
+              sg.addColorStop(0, 'rgba(0,0,0,1)');
+              sg.addColorStop(1, 'rgba(0,0,0,0)');
+              g.fillStyle = sg;
+              g.beginPath(); g.arc(CX, CY, HOLE + 5, 0, 7); g.fill();
+              g.globalCompositeOperation = 'lighter';
+              g.drawImage(FRONT, 0, 0, 1280, 720);
+              // Ближняя половина диска — поверх тени
+              for (const p of P) {
+                const [x, y, a] = at(p, t);
+                if (Math.sin(a) < 0) continue;
+                const [x0, y0] = at(p, t - BLUR);
+                const dop = Math.max(0.35, 1 - 0.65 * Math.cos(a));
+                seg(p.c, 0.85 * dop, p.w, x0, y0, x, y);
+              }
+              flush();
+              // Тонкий анаморфный блик по плоскости диска
+              g.save();
+              g.translate(CX - 120, CY);
+              g.scale(1, 0.006);
+              glow(0, 0, 900, '165,243,252', 0.35);
+              g.restore();
+              g.restore();
+              return;
+            }
+
+            // ── Знак: удар в 0 с — вспышка, диск разлетается сферой, к 0,8 с частицы сходятся в S ──
+            const flash = Math.max(0, 1 - t / 0.32);
+            sky(t, 0);
+            glow(CX, CY, 340, '255,255,255', 0.85 * flash * flash);
+            glow(CX, CY, 560, '168,85,247', 0.12 + 0.4 * flash);
+            const u = clamp((t - 0.14) / 0.62);
+            for (let i = 0; i < N; i++) {
+              const p = P[i];
+              const [x, y] = pos(i, t);
+              const [x0, y0] = pos(i, t - 0.035);
+              const a = (u < 1 ? 0.95 : 0.7 * Math.max(0.15, 1 - (t - 0.76) / 0.6)) + 0.4 * flash;
+              seg(u > 0.85 ? 0 : p.c, a, p.w * (1 + (1 - ease(u)) * 0.5), x0, y0, x, y);
+            }
+            flush();
+            // Знак проявляется из частиц: градиентный штрих со свечением, по нему проходит блик
+            const m = clamp((t - 0.7) / 0.35);
+            if (m > 0) {
+              g.globalCompositeOperation = 'source-over';
+              g.save();
+              g.translate(CX - 145, CY - 145);
+              g.scale(290 / 24, 290 / 24);
+              g.lineWidth = 2.8;
+              g.lineCap = 'butt';
+              const lg = g.createLinearGradient(0, 0, 24, 24);
+              lg.addColorStop(0, '#C4B5FD');
+              lg.addColorStop(0.5, '#FFFFFF');
+              lg.addColorStop(1, '#F9A8D4');
+              g.globalAlpha = m;
+              g.shadowColor = 'rgba(236,72,153,.9)';
+              g.shadowBlur = 40 * SX();
+              g.strokeStyle = lg;
+              g.stroke(S1);
+              g.globalAlpha = m * 0.6;
+              g.stroke(S2);
+              g.globalAlpha = m;
+              g.fillStyle = '#fff';
+              g.beginPath(); g.arc(20.5, 3.5, 1.4, 0, 7); g.fill();
+              g.globalAlpha = m * 0.6;
+              g.beginPath(); g.arc(3.5, 20.5, 1.4, 0, 7); g.fill();
+              // Блик бежит по штриху
+              const sw = clamp((t - 0.95) / 0.5);
+              if (sw > 0 && sw < 1) {
+                g.globalCompositeOperation = 'lighter';
+                g.shadowBlur = 0;
+                const bx = -6 + sw * 36;
+                const sgr = g.createLinearGradient(bx - 4, 0, bx + 4, 24);
+                sgr.addColorStop(0, 'rgba(255,255,255,0)');
+                sgr.addColorStop(0.5, 'rgba(255,255,255,.95)');
+                sgr.addColorStop(1, 'rgba(255,255,255,0)');
+                g.globalAlpha = 1;
+                g.strokeStyle = sgr;
+                g.lineWidth = 3.2;
+                g.stroke(S1);
+                g.stroke(S2);
+              }
+              g.restore();
+            }
+          });
+
+          // Знак S: два полукольца с точками на концах (как в логотипе), ширина — 290 px
+          const S1 = new Path2D('M20.5 3.5H8.25a4.25 4.25 0 0 0 0 8.5');
+          const S2 = new Path2D('M8.25 12h7.5a4.25 4.25 0 0 1 0 8.5H3.5');
+          // Цели частиц — точки знака; частица идёт к точке в своём же направлении от центра, поэтому пути не перекрещиваются
+          const TG = new Array(N);
+          if (FORGE) {
+            const off = document.createElement('canvas');
+            off.width = off.height = 290;
+            const o = off.getContext('2d');
+            o.scale(290 / 24, 290 / 24);
+            o.lineWidth = 2.8;
+            o.strokeStyle = '#fff';
+            o.fillStyle = '#fff';
+            o.stroke(S1);
+            o.stroke(S2);
+            o.beginPath(); o.arc(20.5, 3.5, 1.4, 0, 7); o.fill();
+            o.beginPath(); o.arc(3.5, 20.5, 1.4, 0, 7); o.fill();
+            const d = o.getImageData(0, 0, 290, 290).data;
+            const T = [];
+            for (let y = 0; y < 290; y += 3) for (let x = 0; x < 290; x += 3) if (d[(y * 290 + x) * 4 + 3] > 128) T.push([CX - 145 + x, CY - 145 + y]);
+            T.sort((p, q) => Math.atan2(p[1] - CY, p[0] - CX) - Math.atan2(q[1] - CY, q[0] - CX));
+            const idx = P.map((_, i) => i).sort((i, j) => dir(i) - dir(j));
+            idx.forEach((i, k) => { TG[i] = T[Math.floor((k * T.length) / N)]; });
+          }
+          // Направление разлёта — угол частицы на диске в момент удара
+          function dir(i) {
+            const a = P[i].a + 3 * omega(P[i].r);
+            return Math.atan2(Math.sin(a), Math.cos(a));
+          }
+          function pos(i, tt) {
+            const p = P[i];
+            const [xa, ya, a] = at(p, 3);
+            const cr = Math.cos(ROLL), sr = Math.sin(ROLL);
+            const x0 = CX + (xa - CX) * cr - (ya - CY) * sr, y0 = CY + (xa - CX) * sr + (ya - CY) * cr;
+            const k = 4.2;
+            const b = ((1 - Math.exp(-k * Math.max(0, tt))) / k) * p.v;
+            // Разлёт объёмом, а не кольцом: у каждой частицы своя скорость и наклон вверх-вниз
+            const bx = x0 + Math.cos(a) * b, by = y0 + (Math.sin(a) * 0.55 + p.el) * b;
+            const tg = TG[i];
+            const e = ease(clamp((tt - 0.14) / 0.62));
+            const px = bx + (tg[0] - bx) * e, py = by + (tg[1] - by) * e;
+            // Второй удар (0,333 с): короткий толчок от центра
+            const h = tt > 0.333 ? Math.exp(-(tt - 0.333) * 9) * Math.min(1, (tt - 0.333) / 0.04) : 0;
+            const qx = px - CX, qy = py - CY, ql = Math.hypot(qx, qy) || 1;
+            return [px + (qx / ql) * 22 * h, py + (qy / ql) * 22 * h];
+          }
+          </script></body></html>
         place:
           x: 0
           y: 0
           w: 1280
+          h: 720
         locked: true
-      - type: html
-        html: <div class="v4-logo"><div class="v3-mark"><svg viewBox="0 0 24 24"><path d="M20.5 3.5H8.25a4.25 4.25 0 0 0 0 8.5" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="20.5" cy="3.5" r="1.4" fill="currentColor"/><g opacity=".55"><path d="M8.25 12h7.5a4.25 4.25 0 0 1 0 8.5H3.5" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="3.5" cy="20.5" r="1.4" fill="currentColor"/></g></svg></div></div>
-        place:
-          x: 540
-          y: 200
-          w: 200
-          h: 200
       - type: html
         html: <div class="v4-word">SLIDERIA</div>
         place:
           x: 0
-          y: 470
+          y: 492
           w: 1280
           h: 60
       - type: html
         html: <div class="v4-sub">СТУДИЯ ЖИВЫХ ПРЕЗЕНТАЦИЙ</div>
         place:
           x: 0
-          y: 560
+          y: 580
           w: 1280
           h: 20
+      - type: html
+        html: '<div class="v3-o"><i class="v4-cover" style="--cv: radial-gradient(circle at 50% 42%, #2A1650, #0A0716 45%, #020205)"></i><i class="v4-burst"></i><div class="v4-rays"><svg viewBox="0 0 1280 720"><defs><radialGradient id="v4rg" gradientUnits="userSpaceOnUse" cx="640" cy="300" r="620"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".35" stop-color="#F5D0FE"/><stop offset=".7" stop-color="#F472B6" stop-opacity=".7"/><stop offset="1" stop-color="#A855F7" stop-opacity="0"/></radialGradient></defs><path fill="url(#v4rg)" d="M639.4 324.3L641.7 412.9L641.3 324.2ZM664.9 244.9L693.3 171.1L661.2 243.6ZM700.2 244.8L885.1 69.6L698.6 243.5ZM694.7 291.1L1055.5 222.9L694.2 288.7ZM729.3 279.0L858.1 241.6L727.5 273.6ZM701.9 289.5L907.9 247.2L701.2 286.3ZM564.0 274.6L458.1 243.6L562.7 277.9ZM643.2 328.3L692.4 640.7L645.5 328.0ZM705.7 280.0L819.7 235.4L702.9 273.8ZM672.2 333.1L816.2 463.6L675.8 330.0ZM703.8 340.4L921.0 463.9L707.1 335.9ZM607.7 327.9L372.5 557.8L611.3 330.9ZM644.3 328.6L667.7 414.8L649.2 327.7ZM609.4 239.8L524.7 101.4L602.5 242.9ZM615.6 236.3L542.1 74.6L609.9 238.2ZM590.2 304.7L440.4 329.5L591.2 309.9ZM549.6 299.3L298.1 301.9L549.6 301.7ZM666.2 242.0L765.1 -9.3L661.3 240.4ZM668.8 325.7L814.9 426.7L674.1 319.8ZM584.6 323.0L366.4 430.0L587.6 328.2ZM688.7 351.2L788.5 443.7L693.2 347.5ZM551.7 277.4L176.1 190.6L550.7 280.7ZM623.0 245.8L571.6 106.0L619.2 246.9ZM601.8 290.0L512.4 271.2L601.0 292.6ZM717.5 304.7L913.6 305.5L717.6 298.5ZM613.8 319.4L521.6 397.8L616.3 321.8ZM658.9 261.3L692.1 187.3L657.1 260.6ZM671.7 299.2L886.8 280.7L671.4 295.9ZM579.1 273.7L391.1 204.5L576.7 278.7ZM649.5 342.9L712.9 530.3L657.0 341.0ZM645.9 337.8L682.9 489.9L651.0 336.9ZM675.0 300.5L852.8 297.9L674.9 298.8ZM654.2 320.7L746.8 422.5L659.0 317.4ZM632.7 349.1L619.4 582.4L640.1 349.6ZM622.3 285.8L539.2 226.6L620.8 287.4ZM632.7 369.9L621.1 629.0L639.2 370.2ZM654.4 341.8L738.4 556.0L657.3 340.9ZM730.0 282.4L861.9 246.7L727.7 274.9ZM698.1 300.9L887.2 295.3L698.1 296.9ZM667.0 321.9L871.2 464.6L669.9 318.6ZM728.3 297.5L1070.8 273.5L727.9 291.6ZM671.9 237.6L705.0 157.7L666.0 235.5ZM598.5 256.7L492.3 163.8L592.9 261.6ZM659.2 347.8L710.1 466.3L660.9 347.2ZM679.5 344.8L950.3 629.1L682.6 342.4ZM667.1 313.2L1011.8 455.9L668.7 310.2ZM667.0 329.2L869.2 521.2L670.5 326.3ZM701.3 262.3L835.5 172.2L698.8 259.2ZM684.8 271.1L861.0 150.7L683.4 269.4ZM576.6 305.2L269.4 337.5L576.9 307.6ZM609.5 300.4L366.7 332.0L610.4 306.7ZM587.9 282.4L494.0 254.3L587.0 284.7ZM665.5 274.2L747.6 181.5L663.0 272.4ZM576.7 351.6L495.7 424.2L580.0 354.6ZM655.9 327.9L817.3 544.7L661.9 324.4ZM579.5 275.0L427.9 218.9L578.0 278.2ZM668.2 285.1L735.8 235.3L663.7 279.8ZM692.6 340.2L1000.7 560.0L695.1 337.4ZM719.0 295.8L836.0 287.3L718.8 294.0ZM593.4 307.6L418.7 354.5L595.6 314.8ZM611.3 351.7L535.8 516.4L617.7 354.2ZM617.3 277.9L551.0 222.4L614.7 280.3ZM658.7 286.5L732.4 205.7L652.5 281.7ZM645.9 264.2L671.8 -138.5L639.3 263.8ZM614.6 351.3L486.9 666.1L621.5 353.6ZM651.2 367.7L683.8 515.2L656.2 366.9ZM648.5 263.5L686.7 -62.8L641.0 262.7ZM554.6 306.3L425.3 317.9L554.8 308.0ZM587.8 263.5L462.8 188.6L583.9 268.4ZM630.8 348.8L588.0 710.7L636.7 349.4ZM712.5 273.4L799.3 238.0L711.2 270.6ZM701.3 330.1L818.1 380.7L703.4 326.4ZM619.0 267.3L546.3 181.3L612.6 271.4ZM616.5 319.9L456.8 492.7L621.8 324.0ZM558.7 299.0L378.7 306.5L558.9 305.1ZM557.0 319.8L49.5 455.0L558.3 323.5ZM643.4 268.8L661.9 -90.9L640.1 268.6ZM691.2 280.4L879.2 200.8L689.9 277.7ZM611.7 292.5L497.0 279.4L610.5 299.1ZM616.4 307.7L539.6 346.5L619.4 312.9ZM683.6 295.8L1112.0 228.0L682.7 291.0ZM578.2 289.5L221.3 237.7L577.8 292.0ZM708.4 333.0L947.2 430.7L711.8 326.7ZM586.2 266.4L315.6 113.2L583.5 270.1ZM698.3 253.0L773.0 181.2L692.6 247.9ZM645.8 331.5L679.9 470.6L648.8 331.0ZM562.8 286.5L468.0 275.5L562.0 291.4ZM627.1 269.8L436.8 -56.0L620.2 272.9ZM626.7 370.9L603.3 523.1L629.9 371.3ZM641.2 248.5L634.0 149.9L634.8 248.7ZM589.7 269.8L443.8 188.8L588.0 272.3ZM584.1 311.9L475.9 338.3L584.7 314.1ZM594.3 272.4L185.4 42.5L592.6 274.8ZM615.3 295.8L461.2 290.8L614.9 301.7ZM593.6 255.2L465.0 143.4L589.9 258.5ZM656.9 339.7L691.2 409.4L659.8 338.6ZM602.5 294.2L66.7 253.0L601.9 299.6ZM592.3 294.1L237.8 261.9L592.0 296.8ZM670.0 317.3L896.0 423.0L672.7 312.8ZM645.7 320.0L734.5 516.2L651.0 318.2ZM713.7 287.4L886.7 250.5L712.7 283.2ZM627.0 231.7L578.8 4.2L624.8 232.0ZM616.6 338.3L438.9 685.8L622.2 340.6ZM567.4 266.4L372.4 188.9L564.5 272.0ZM645.3 277.9L649.6 199.4L638.9 277.4ZM565.7 292.5L454.5 287.8L565.2 297.7ZM662.4 315.2L740.2 357.1L664.9 311.7ZM610.1 276.4L509.0 213.3L606.0 281.3ZM608.0 315.7L534.2 359.7L610.3 319.1ZM630.1 344.0L620.4 428.0L636.3 344.8ZM616.0 292.5L375.3 261.7L614.6 300.3ZM638.1 330.2L643.7 546.8L642.8 330.2ZM629.2 278.0L338.8 -128.9L622.5 281.8ZM646.3 327.5L681.2 451.7L648.5 327.1ZM659.5 315.5L735.8 364.6L662.0 312.5ZM604.1 279.0L333.7 129.8L603.0 280.5ZM650.5 355.4L678.6 448.0L658.0 353.9ZM690.1 301.2L875.3 294.0L690.0 296.2ZM630.8 322.3L602.9 417.4L634.8 323.3ZM549.6 316.5L160.1 408.3L551.7 323.8ZM603.1 366.7L522.0 520.5L605.1 367.6ZM623.0 265.0L578.6 185.6L620.1 266.2ZM638.1 280.7L613.3 163.0L634.5 281.3ZM637.7 335.3L644.5 414.4L645.1 335.1ZM629.0 347.2L618.2 445.6L636.7 348.1ZM654.2 357.4L679.6 436.5L658.8 356.3ZM695.6 306.9L816.0 309.6L696.1 299.2ZM685.7 271.2L889.5 119.2L680.9 266.0ZM618.2 329.4L522.3 487.0L623.2 331.9ZM594.9 343.2L492.6 449.8L597.9 345.5ZM627.9 273.6L558.9 156.6L623.4 275.7ZM570.9 310.9L463.2 330.5L571.3 312.8ZM678.3 307.4L974.4 337.5L679.2 301.2ZM650.1 280.8L678.7 186.7L643.6 279.1ZM619.0 254.2L507.1 39.1L615.2 255.8ZM673.5 235.4L726.3 128.5L671.9 234.7ZM627.1 319.8L549.8 489.8L633.0 322.0ZM698.1 270.9L970.9 127.5L697.0 269.1ZM615.6 237.4L562.8 122.0L610.8 239.1ZM663.8 355.5L701.7 426.7L669.2 353.4ZM699.0 263.0L780.2 205.3L695.9 259.3ZM621.2 341.5L542.4 532.5L623.6 342.3ZM711.3 252.9L1041.7 14.5L707.5 248.5ZM688.8 250.4L811.3 117.1L686.1 248.4ZM587.5 259.7L368.8 115.6L582.6 265.6ZM665.6 364.4L709.5 467.0L667.7 363.7ZM703.0 339.3L791.6 385.3L706.8 333.8ZM673.0 332.9L739.6 383.8L678.7 327.4ZM665.9 284.4L839.1 158.8L662.8 281.0ZM645.0 335.7L664.8 442.0L647.4 335.4Z"/></svg></div></div>'
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: html
         html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-vig"></i></div>
         place:
@@ -1140,15 +1819,174 @@ slides:
   - id: all
     template: canvas
     label: Всё
-    bg: var(--bg)
-    backdrop: halftone
-    backdropOpacity: 0.55
+    bg: "#05040A"
     transition: none
     at: 12.01
     logo: false
     free:
+      - type: embed
+        code: |
+          <!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;overflow:hidden;background:#05050A}canvas{display:block;width:100%;height:100%}</style></head><body><canvas id="c"></canvas><script>
+
+          // Общая обвязка сцен: холст во всю вставку, координаты слайда 1280×720, часы — с появления слайда
+          // (performance.now во вставке считает от её создания, а вставка создаётся, когда слайд показан)
+          const cv = document.getElementById('c');
+          const g = cv.getContext('2d');
+          let DPR = Math.min(2, (window.devicePixelRatio || 1) * 1.5);
+          function fit() {
+            cv.width = Math.round(cv.clientWidth * DPR);
+            cv.height = Math.round(cv.clientHeight * DPR);
+          }
+          addEventListener('resize', fit);
+          fit();
+          const SX = () => cv.width / 1280;
+          const SY = () => cv.height / 720;
+          // Псевдослучайные числа с зерном: одинаковые кадр за кадром
+          function rng(seed) {
+            let s = seed >>> 0 || 1;
+            return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+          }
+          const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+          const ease = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
+          const easeOut = (u) => 1 - Math.pow(1 - u, 3);
+          // Кадры идут медленнее 35 в секунду (слабая видеокарта или её нет) — холст в обычном разрешении:
+          // иначе смена слайда ждёт отрисовки и опаздывает от удара
+          function loop(draw) {
+            const gaps = [];
+            let last = 0;
+            const step = (now) => {
+              if (last && DPR > 1) {
+                gaps.push(now - last);
+                if (gaps.length > 8) {
+                  gaps.shift();
+                  if ([...gaps].sort((a, b) => a - b)[4] > 28) { DPR = 1; fit(); }
+                }
+              }
+              last = now;
+              g.setTransform(SX(), 0, 0, SY(), 0, 0);
+              draw(performance.now() / 1000);
+              requestAnimationFrame(step);
+            };
+            requestAnimationFrame(step);
+          }
+
+          // «ВСЁ»: камера несётся вперёд. Линии концентрации — тонкие клинья к центру, рисунок меняется 12 раз
+          // в секунду (как в аниме «на двойках»), у края ярче, к центру гаснут; звёзды-штрихи летят из центра.
+          // На удар (0 и 0,667 с) — встряска, линии подходят к слову и расходятся цветным расколом, вспыхивает сияние.
+          // Сами кадры-импакты (белый, затем негатив) рисует слой поверх — он виден с первого кадра слайда
+          const CX = 640, CY = 330;
+          const HITS = [0, 0.6667];
+          const FAR = 1500;
+          const r0 = rng(77);
+          const WARP = Array.from({ length: 220 }, () => ({ a: r0() * 6.2832, ph: r0(), sp: 0.7 + r0() * 0.9, w: 0.8 + r0() * 1.6, c: r0() < 0.22 ? 1 : r0() < 0.3 ? 2 : 0 }));
+          const WCOL = ['255,255,255', '125,211,252', '244,114,182'];
+          const LC = document.createElement('canvas');
+          let LF = -1;
+
+          function lines(o, f, close, dx, dy, col, alpha) {
+            const r = rng(1000 + f * 7919);
+            const path = new Path2D();
+            for (let i = 0; i < 260; i++) {
+              const a = r() * 6.2832;
+              // Внутренний конец — неровный, как у рисованных линий; на удар линии подходят ближе
+              const rin = (215 + r() * 330) * (1 - 0.32 * close);
+              const half = 0.0018 + r() * r() * 0.02;
+              path.moveTo(CX + dx + Math.cos(a) * rin * 1.32, CY + dy + Math.sin(a) * rin * 0.8);
+              path.lineTo(CX + dx + Math.cos(a - half) * FAR, CY + dy + Math.sin(a - half) * FAR);
+              path.lineTo(CX + dx + Math.cos(a + half) * FAR, CY + dy + Math.sin(a + half) * FAR);
+              path.closePath();
+            }
+            // Одна заливка радиальным градиентом: у края линия яркая, к центру тает
+            const gr = o.createRadialGradient(CX, CY, 170, CX, CY, 780);
+            gr.addColorStop(0, `rgba(${col},0)`);
+            gr.addColorStop(0.3, `rgba(${col},${alpha * 0.35})`);
+            gr.addColorStop(1, `rgba(${col},${alpha})`);
+            o.fillStyle = gr;
+            o.fill(path);
+          }
+          function soft(x, y, r, c, a) {
+            if (a <= 0) return;
+            const gr = g.createRadialGradient(x, y, 0, x, y, r);
+            gr.addColorStop(0, `rgba(${c},${a})`);
+            gr.addColorStop(1, `rgba(${c},0)`);
+            g.fillStyle = gr;
+            g.fillRect(x - r, y - r, r * 2, r * 2);
+          }
+
+          loop((t) => {
+            let since = 9;
+            for (const h of HITS) if (t >= h) since = t - h;
+            const kick = Math.exp(-since * 7);
+            // Встряска камеры: резкий сдвиг на удар, гаснет за 0,2 с
+            const sh = rng(Math.floor(t * 60) + 5);
+            const jx = (sh() - 0.5) * 26 * kick, jy = (sh() - 0.5) * 18 * kick;
+            g.translate(jx, jy);
+            g.globalCompositeOperation = 'source-over';
+            const bg = g.createRadialGradient(CX, CY, 0, CX, CY, 820);
+            bg.addColorStop(0, '#3A1868');
+            bg.addColorStop(0.35, '#170A2C');
+            bg.addColorStop(1, '#040309');
+            g.fillStyle = bg;
+            g.fillRect(-40, -40, 1360, 800);
+            g.globalCompositeOperation = 'lighter';
+            // Сияние за словом — вспыхивает на удар
+            soft(CX, CY, 620, '124,58,237', 0.22 + 0.35 * kick);
+            soft(CX, CY, 300, '236,72,153', 0.16 + 0.45 * kick);
+            // Звёзды-штрихи: из центра наружу с ускорением, на удар — длиннее и ярче
+            const paths = WCOL.map(() => new Path2D());
+            for (const p of WARP) {
+              const z = (t * 0.85 * p.sp + p.ph) % 1;
+              const d = 60 + Math.pow(z, 2.2) * 1000;
+              const len = 6 + z * z * (90 + 260 * kick);
+              const ca = Math.cos(p.a), sa = Math.sin(p.a);
+              paths[p.c].moveTo(CX + ca * d * 1.3, CY + sa * d * 0.8);
+              paths[p.c].lineTo(CX + ca * (d + len) * 1.3, CY + sa * (d + len) * 0.8);
+            }
+            g.lineCap = 'round';
+            paths.forEach((path, i) => {
+              g.strokeStyle = `rgba(${WCOL[i]},${0.55 + 0.4 * kick})`;
+              g.lineWidth = 1.6;
+              g.stroke(path);
+            });
+            // Линии концентрации: после удара — цветной раскол (голубой и розовый расходятся), потом одна белая.
+            // Рисунок меняется 12 раз в секунду — между сменами кадр берётся готовым (рисовать клинья дорого)
+            const f = Math.floor(t * 12);
+            if (f !== LF || LC.width !== cv.width) {
+              LF = f;
+              LC.width = cv.width; LC.height = cv.height;
+              const o = LC.getContext('2d');
+              o.setTransform(SX(), 0, 0, SY(), 0, 0);
+              o.globalCompositeOperation = 'lighter';
+              const tf = f / 12;
+              let sf = 9;
+              for (const h of HITS) if (tf >= h) sf = tf - h;
+              const close = Math.exp(-sf * 4);
+              const split = 14 * Math.exp(-sf * 7);
+              if (split > 0.5) {
+                lines(o, f, close, -split, 0, '103,232,249', 0.55);
+                lines(o, f, close, split, 0, '244,114,182', 0.55);
+              }
+              lines(o, f, close, 0, 0, '255,255,255', 0.5 + 0.35 * close);
+            }
+            g.setTransform(1, 0, 0, 1, jx * SX(), jy * SY());
+            g.drawImage(LC, 0, 0);
+            g.setTransform(SX(), 0, 0, SY(), jx * SX(), jy * SY());
+            // Анаморфный блик через центр на удар
+            g.save();
+            g.translate(CX, CY);
+            g.scale(1, 0.01);
+            soft(0, 0, 1000, '186,230,253', 0.75 * kick);
+            g.restore();
+          });
+          </script></body></html>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+        locked: true
       - type: html
-        html: <div class="v3-o"><i class="v3-glow" style="--gx:50%;--gy:55%"></i><i class="v3-spd" style="--c:rgba(255,255,255,.9);--o:0.55;--hole:13%;--edge:30%;left:640px;top:300px;"></i></div>
+        html: <div class="v3-o"><div class="v4-imp w a"><svg viewBox="0 0 1280 720"><path d="M659 523L735 1827L727 1827ZM517 -5L309 -1133L320 -1136ZM872 437L1841 1229L1825 1249ZM416 495L-297 1501L-325 1478ZM323 484L-521 1280L-540 1257ZM1002 554L1692 1400L1685 1406ZM556 474L147 1747L139 1744ZM253 608L-304 1496L-349 1458ZM854 303L2105 8L2112 39ZM926 365L2112 619L2108 638ZM522 673L368 1805L300 1791ZM599 171L395 -1150L425 -1155ZM299 232L-718 -306L-710 -324ZM430 367L-800 752L-804 737ZM1127 397L2106 649L2100 676ZM523 706L366 1805L358 1803ZM1049 394L2094 699L2090 713ZM593 76L465 -1160L481 -1162ZM798 597L1153 1740L1142 1743ZM1097 456L2006 949L2003 956ZM624 547L588 1829L557 1828ZM378 673L28 1699L-9 1682ZM759 223L1464 -923L1488 -907ZM830 520L1436 1601L1398 1625ZM1091 258L2087 -64L2094 -40ZM330 180L-537 -600L-529 -610ZM498 491L-53 1660L-86 1642ZM180 368L-842 559L-850 503ZM412 283L-787 -131L-769 -184ZM614 164L487 -1162L507 -1164ZM820 380L2003 956L2000 962ZM116 154L-677 -388L-667 -406ZM980 227L1966 -371L1997 -310ZM427 424L-564 1225L-584 1197ZM457 442L-407 1405L-422 1390ZM263 328L-860 336L-860 296ZM609 580L546 1827L512 1825ZM404 58L-83 -984L-32 -1011ZM636 472L639 1830L593 1829ZM326 265L-781 -149L-778 -159ZM789 202L1477 -915L1533 -875ZM726 194L1138 -1085L1214 -1056ZM697 554L882 1810L851 1815ZM918 520L1641 1447L1630 1457ZM996 155L1803 -617L1811 -608ZM829 373L2053 832L2034 883ZM881 508L1593 1488L1588 1492ZM390 278L-779 -155L-776 -165ZM513 464L-86 1643L-125 1620ZM367 350L-848 518L-851 492ZM1149 294L2129 146L2131 164ZM774 179L1347 -993L1352 -990ZM384 106L-229 -893L-201 -912ZM692 -29L757 -1165L785 -1163ZM420 35L15 -1034L28 -1039ZM31 307L-857 240L-857 233ZM435 -4L100 -1069L132 -1081ZM1127 373L2130 499L2118 589ZM1001 245L2035 -221L2040 -208ZM156 354L-854 461L-856 439ZM133 408L-811 710L-816 690ZM298 128L-445 -706L-424 -727ZM1074 379L2117 594L2112 617ZM716 198L1104 -1096L1166 -1075ZM850 284L2046 -191L2052 -175ZM949 317L2135 212L2137 236ZM306 167L-532 -606L-524 -616ZM24 406L-827 644L-832 618ZM1042 214L1979 -346L2008 -285ZM162 497L-658 1082L-663 1074ZM93 252L-824 4L-815 -33ZM579 663L483 1822L467 1820ZM766 117L1142 -1083L1150 -1081ZM1120 85L1773 -653L1802 -619ZM464 64L67 -1056L96 -1068ZM412 253L-673 -395L-670 -401ZM294 527L-429 1382L-479 1329ZM923 173L1741 -689L1752 -677ZM667 132L760 -1165L768 -1165ZM768 520L1220 1713L1189 1726ZM451 7L109 -1073L169 -1094ZM772 514L1244 1703L1228 1710ZM805 398L1891 1157L1874 1182ZM1175 532L1919 1114L1907 1134ZM896 72L1409 -958L1416 -954ZM485 -11L231 -1113L253 -1119ZM328 367L-831 625L-834 606ZM470 607L124 1739L111 1733ZM620 93L535 -1166L595 -1169ZM579 462L246 1777L226 1772ZM1044 227L2007 -287L2039 -212ZM558 142L222 -1111L288 -1128ZM1094 371L2127 528L2121 571ZM35 248L-827 15L-822 -7ZM260 112L-458 -692L-443 -708ZM852 30L1211 -1057L1254 -1039ZM689 108L838 -1157L844 -1156ZM283 206L-664 -412L-660 -418ZM97 263L-831 36L-829 24ZM268 144L-542 -594L-489 -657ZM386 491L-383 1427L-407 1404ZM1194 244L2086 -69L2100 -15ZM387 468L-464 1346L-488 1319ZM375 527L-304 1496L-309 1492ZM556 449L51 1709L45 1707ZM438 453L-412 1399L-426 1385ZM130 556L-567 1221L-574 1211ZM229 477L-647 1100L-659 1081ZM934 344L2137 431L2135 457ZM395 300L-832 40L-830 30ZM859 470L1673 1417L1668 1423ZM1078 395L2101 669L2093 701ZM193 117L-549 -584L-532 -606ZM916 269L2039 -212L2061 -150ZM598 689L549 1827L520 1825ZM789 612L1119 1752L1078 1765ZM713 111L929 -1142L943 -1139ZM642 22L631 -1170L662 -1170ZM266 433L-721 961L-731 938ZM257 488L-592 1186L-610 1159ZM295 211L-682 -379L-647 -440ZM37 283L-850 159L-845 116ZM841 364L2090 714L2082 743ZM423 334L-859 391L-859 372ZM708 537L960 1795L910 1805ZM1202 496L2007 947L1967 1029ZM1020 436L2018 923L1987 990ZM402 362L-823 663L-826 646ZM987 141L1737 -693L1776 -650ZM584 490L332 1798L320 1795ZM916 158L1682 -749L1690 -741ZM525 702L371 1806L358 1803ZM195 214L-746 -244L-731 -277ZM1043 162L1864 -537L1888 -502ZM1054 360L2133 475L2125 540ZM463 111L-31 -1011L-12 -1021ZM821 186L1535 -874L1568 -848ZM485 432L-369 1440L-380 1430ZM1168 514L1953 1056L1929 1096ZM1082 314L2134 200L2139 277ZM660 197L762 -1165L791 -1162ZM177 106L-536 -602L-529 -610ZM319 372L-820 673L-832 620ZM1242 219L2070 -122L2079 -94ZM304 278L-819 -19L-809 -58ZM835 191L1586 -834L1636 -792ZM793 671L1048 1773L1018 1782ZM103 298L-854 198L-852 171ZM279 377L-826 649L-829 635ZM349 335L-859 383L-860 358ZM743 124L1070 -1107L1081 -1104ZM326 43L-197 -915L-181 -925ZM546 186L79 -1061L95 -1068ZM802 61L1140 -1084L1168 -1074ZM970 312L2132 174L2135 211ZM780 573L1142 1744L1129 1748ZM1130 372L2126 534L2125 543ZM855 115L1410 -957L1424 -949ZM206 137L-589 -529L-552 -581ZM445 236L-554 -577L-511 -632ZM670 -34L690 -1169L739 -1167ZM802 592L1174 1732L1159 1737ZM278 606L-284 1512L-303 1497ZM842 100L1340 -997L1347 -993ZM415 343L-851 494L-856 442ZM774 219L1501 -899L1551 -862ZM480 154L-90 -981L-83 -985ZM1111 476L1984 995L1968 1027ZM865 230L1842 -567L1858 -545ZM1224 264L2113 45L2116 63ZM55 406L-825 652L-828 639ZM415 124L-217 -901L-159 -939ZM220 109L-497 -648L-490 -657ZM527 57L264 -1122L284 -1127ZM975 330L2140 321L2140 337ZM742 52L961 -1135L967 -1134ZM1057 287L2118 75L2120 86ZM1120 402L2099 680L2093 702ZM448 145L-175 -929L-138 -953ZM192 570L-475 1334L-496 1310ZM885 167L1643 -785L1658 -771ZM361 282L-806 -70L-801 -87ZM780 1L1011 -1123L1019 -1121ZM980 205L1910 -468L1936 -426ZM170 253L-815 -37L-801 -87ZM639 568L644 1830L627 1830ZM78 349L-856 436L-859 389ZM801 497L1409 1618L1386 1632ZM359 437L-625 1136L-638 1115ZM326 420L-702 1000L-729 943ZM243 421L-762 864L-765 854ZM1132 524L1902 1140L1893 1155ZM930 144L1657 -773L1685 -746ZM423 411L-635 1121L-640 1112ZM534 74L269 -1124L278 -1126ZM181 110L-544 -591L-530 -608ZM894 459L1805 1274L1779 1307ZM171 534L-565 1224L-592 1185ZM182 216L-756 -220L-738 -262ZM315 467L-588 1192L-595 1181ZM854 266L1985 -333L1988 -328ZM596 457L333 1798L325 1796ZM581 544L399 1810L391 1809ZM706 -44L776 -1164L822 -1159ZM352 289L-827 17L-815 -36ZM434 376L-762 864L-772 836ZM942 279L2083 -78L2088 -61ZM310 507L-458 1352L-510 1293ZM308 510L-473 1336L-486 1321ZM129 169L-700 -345L-684 -376ZM321 607L-215 1562L-225 1556ZM893 574L1449 1593L1426 1607ZM854 298L2093 -43L2099 -20ZM213 335L-859 371L-860 349ZM274 66L-348 -799L-302 -837ZM1053 372L2120 571L2119 582ZM411 208L-487 -660L-482 -665ZM1130 247L2083 -80L2086 -70ZM588 464L304 1792L289 1788ZM656 -24L672 -1170L689 -1169ZM256 606L-325 1478L-330 1474ZM311 391L-792 776L-797 761ZM853 63L1284 -1025L1300 -1017ZM693 81L817 -1159L849 -1155ZM497 72L154 -1089L169 -1094ZM856 366L2087 724L2083 738ZM329 29L-177 -928L-134 -955ZM1095 272L2107 18L2109 25ZM439 400L-657 1083L-661 1076ZM967 629L1483 1571L1455 1589Z"/></svg></div><div class="v4-imp k b1"><svg viewBox="0 0 1280 720"><path d="M661 547L731 1827L724 1828ZM304 517L-452 1358L-476 1332ZM399 206L-510 -633L-493 -653ZM469 502L-127 1619L-139 1612ZM244 259L-803 -79L-794 -109ZM775 150L1256 -1038L1265 -1033ZM248 458L-675 1051L-684 1034ZM846 561L1368 1641L1335 1659ZM1078 206L1988 -328L2011 -279ZM803 246L1777 -648L1795 -627ZM1167 361L2134 464L2132 483ZM513 471L-64 1655L-92 1639ZM1001 93L1648 -781L1667 -764ZM81 317L-859 291L-858 258ZM950 331L2140 327L2140 347ZM1033 212L1981 -342L1986 -333ZM459 455L-349 1458L-354 1454ZM363 324L-859 281L-859 271ZM333 273L-801 -87L-787 -133ZM211 275L-835 58L-818 -22ZM1030 359L2134 468L2123 554ZM487 -20L247 -1118L265 -1122ZM157 423L-787 793L-791 779ZM664 497L779 1824L756 1826ZM883 422L1918 1115L1908 1132ZM1258 292L2129 153L2134 201ZM832 654L1182 1729L1111 1754ZM517 90L185 -1099L203 -1105ZM75 218L-791 -119L-781 -152ZM532 497L117 1736L67 1716ZM962 349L2133 470L2132 485ZM669 553L773 1824L741 1827ZM905 593L1431 1605L1414 1615ZM812 161L1425 -948L1433 -943ZM1118 257L2093 -43L2096 -29ZM874 147L1542 -868L1576 -842ZM346 296L-835 57L-832 41ZM987 271L2083 -79L2087 -67ZM1065 255L2078 -97L2084 -77ZM411 573L-99 1635L-108 1630ZM830 520L1423 1609L1414 1615ZM522 428L-218 1561L-271 1522ZM819 202L1607 -817L1612 -812ZM588 509L414 1813L348 1801ZM367 284L-807 -64L-805 -72ZM1194 474L2026 905L2012 937ZM327 275L-804 -76L-798 -98ZM826 611L1207 1719L1189 1726ZM831 584L1267 1693L1258 1697ZM106 184L-733 -275L-723 -297ZM1209 172L2003 -297L2005 -291ZM325 305L-848 143L-846 126ZM518 150L69 -1057L75 -1060ZM787 116L1210 -1057L1219 -1054ZM994 441L1977 1010L1969 1026ZM608 -49L549 -1167L576 -1169ZM823 118L1328 -1003L1341 -996ZM479 620L201 1764L121 1737ZM753 682L942 1799L914 1805ZM356 453L-572 1213L-586 1194ZM208 182L-669 -403L-664 -411ZM848 496L1572 1506L1523 1542ZM825 186L1550 -863L1568 -848ZM754 502L1225 1711L1174 1732ZM735 635L936 1800L898 1808ZM820 449L1663 1427L1645 1443ZM792 -35L970 -1133L1041 -1115ZM1148 331L2140 313L2140 357ZM443 485L-248 1539L-298 1500ZM680 189L876 -1151L919 -1144ZM696 446L1082 1763L1044 1774ZM1155 323L2140 292L2140 301ZM1230 335L2140 328L2139 371ZM159 538L-578 1205L-584 1197ZM572 103L364 -1144L384 -1148ZM526 210L-112 -968L-102 -973ZM354 84L-227 -894L-220 -899ZM735 456L1271 1691L1254 1699ZM305 379L-817 686L-820 674ZM831 239L1803 -617L1837 -574ZM512 480L-21 1677L-78 1647ZM722 591L950 1798L892 1809ZM1016 524L1787 1297L1775 1310ZM1094 354L2135 450L2133 472ZM463 203L-331 -814L-324 -819ZM265 160L-575 -550L-547 -587ZM847 316L2130 157L2132 177ZM945 153L1721 -710L1729 -702ZM903 143L1611 -813L1615 -810ZM163 399L-811 710L-827 645ZM969 428L1988 988L1982 1000ZM1152 160L1948 -404L1962 -378ZM1167 310L2136 224L2138 252ZM842 367L2078 758L2076 764ZM787 430L1643 1445L1632 1455ZM744 588L1009 1784L985 1790ZM744 122L1067 -1108L1081 -1104ZM709 8L820 -1159L844 -1156ZM595 111L439 -1156L473 -1161ZM437 306L-833 48L-831 39ZM849 239L1839 -572L1880 -513ZM538 585L290 1789L283 1787ZM490 598L187 1760L131 1741ZM366 420L-674 1053L-682 1038ZM772 185L1361 -986L1370 -981ZM312 266L-789 -125L-787 -131ZM711 634L875 1812L829 1818ZM626 587L621 1830L558 1828ZM1085 479L1957 1048L1948 1065ZM873 171L1617 -808L1660 -770ZM826 233L1769 -658L1781 -644ZM562 479L202 1765L169 1754ZM890 653L1296 1679L1259 1697ZM1167 272L2109 29L2122 99ZM560 54L375 -1146L387 -1148ZM685 118L802 -1161L862 -1153ZM648 52L653 -1170L679 -1170ZM1038 474L1931 1094L1927 1100ZM556 474L153 1749L128 1740ZM852 243L1867 -532L1894 -493ZM372 242L-699 -346L-660 -418ZM1038 291L2120 89L2122 95ZM310 497L-508 1296L-513 1289ZM1252 370L2132 484L2130 501ZM388 95L-191 -919L-161 -938ZM1018 354L2132 483L2131 491ZM1039 309L2133 185L2136 215ZM195 217L-753 -227L-733 -273ZM568 614L416 1813L407 1812ZM601 648L534 1826L522 1825ZM418 407L-651 1093L-672 1057ZM723 497L1083 1763L1069 1767ZM931 392L2058 819L2053 832ZM78 339L-859 377L-860 362ZM452 436L-448 1363L-464 1345ZM928 128L1619 -806L1624 -802ZM913 362L2116 598L2108 636ZM450 669L168 1754L148 1747ZM953 344L2137 428L2134 460ZM760 108L1097 -1099L1120 -1091ZM508 21L245 -1117L283 -1127ZM1050 577L1709 1382L1699 1393ZM969 265L2065 -139L2067 -133ZM502 195L-163 -937L-139 -952ZM994 550L1702 1389L1671 1420ZM512 472L-70 1651L-92 1639ZM145 565L-529 1269L-553 1239ZM276 261L-796 -104L-787 -131ZM821 264L1916 -458L1936 -426ZM588 577L474 1821L429 1815ZM832 551L1344 1655L1335 1659ZM888 411L1975 1015L1946 1067ZM312 574L-280 1515L-333 1472ZM355 583L-190 1580L-219 1560ZM778 75L1104 -1097L1112 -1094ZM278 401L-784 801L-789 786ZM143 389L-830 628L-834 606ZM1061 441L2016 926L2014 933ZM367 283L-805 -74L-803 -81ZM47 327L-860 331L-860 303ZM1042 386L2105 651L2097 686ZM1017 529L1782 1302L1761 1326ZM247 356L-847 524L-854 464ZM680 182L876 -1151L886 -1150ZM555 188L120 -1077L131 -1081ZM446 406L-612 1156L-632 1125ZM353 245L-709 -326L-704 -336ZM104 145L-667 -405L-659 -420ZM1229 298L2133 189L2135 205ZM783 482L1394 1627L1374 1638ZM552 131L224 -1111L280 -1126ZM1089 438L2045 855L2021 916ZM355 421L-683 1037L-692 1021ZM1147 262L2103 -1L2106 14ZM755 18L943 -1139L990 -1129ZM666 576L748 1826L724 1828ZM201 244L-797 -100L-778 -159ZM747 141L1116 -1093L1138 -1085ZM655 196L728 -1167L761 -1165ZM1016 507L1827 1247L1822 1253ZM1250 341L2140 355L2138 397ZM823 515L1437 1601L1386 1631ZM540 -8L357 -1143L392 -1149ZM522 222L-198 -914L-173 -931ZM121 144L-662 -414L-640 -452ZM1184 517L1951 1059L1937 1083ZM1111 217L2032 -229L2036 -218ZM887 308L2122 97L2125 119ZM492 576L151 1748L101 1730ZM791 614L1114 1753L1086 1762ZM1220 190L2032 -228L2035 -221ZM537 618L328 1797L315 1794ZM56 409L-822 664L-826 649ZM783 182L1396 -966L1401 -963ZM225 232L-760 -207L-755 -221ZM1099 341L2139 384L2139 394ZM562 163L200 -1104L263 -1122ZM985 378L2107 643L2098 682ZM1176 354L2137 432L2136 445ZM927 37L1387 -971L1424 -949ZM935 426L1967 1029L1953 1056ZM315 47L-222 -898L-215 -903ZM874 283L2052 -175L2075 -108ZM697 203L1008 -1124L1065 -1108ZM1070 527L1843 1225L1831 1242ZM466 410L-547 1247L-559 1232ZM410 308L-845 119L-838 73ZM534 572L258 1780L251 1779ZM854 96L1337 -998L1396 -966ZM1082 129L1828 -586L1853 -552ZM439 365L-799 752L-805 734ZM821 659L1132 1747L1096 1759ZM1107 146L1896 -490L1900 -484ZM693 126L868 -1153L880 -1151ZM1158 512L1953 1056L1922 1109ZM808 255L1839 -571L1854 -552ZM292 74L-336 -809L-292 -845ZM436 -4L112 -1074L125 -1079ZM378 393L-754 885L-756 878ZM279 616L-259 1531L-284 1512ZM1066 414L2069 786L2063 804ZM169 466L-711 982L-718 968ZM490 574L121 1737L108 1733ZM794 497L1393 1627L1348 1652ZM1191 207L2040 -208L2054 -170ZM1160 184L1999 -305L2004 -294ZM547 630L366 1805L357 1803ZM397 120L-226 -895L-218 -901ZM1259 263L2116 63L2117 69ZM239 550L-457 1353L-487 1319Z"/></svg></div><div class="v4-imp k b2"><svg viewBox="0 0 1280 720"><path d="M664 618L720 1828L713 1828ZM227 562L-449 1362L-472 1337ZM892 511L1609 1475L1604 1479ZM612 492L495 1823L470 1820ZM1073 338L2140 338L2137 417ZM1126 90L1797 -625L1809 -610ZM726 -22L851 -1155L868 -1153ZM342 197L-572 -554L-565 -563ZM813 109L1262 -1035L1304 -1015ZM237 396L-804 738L-813 702ZM729 557L998 1787L978 1791ZM807 454L1591 1490L1584 1496ZM683 -8L752 -1166L758 -1165ZM489 192L-215 -902L-156 -942ZM1126 105L1828 -586L1837 -574ZM841 197L1645 -784L1656 -773ZM501 465L-149 1606L-158 1600ZM770 178L1306 -1014L1355 -989ZM386 212L-556 -576L-542 -594ZM865 265L1992 -319L1995 -314ZM471 613L141 1745L114 1735ZM1015 111L1707 -724L1735 -695ZM572 642L470 1820L417 1813ZM212 404L-801 745L-804 737ZM29 382L-845 544L-846 535ZM962 499L1789 1294L1758 1331ZM781 38L1037 -1117L1088 -1102ZM458 444L-399 1412L-405 1406ZM304 274L-811 -49L-802 -84ZM988 376L2111 622L2101 672ZM804 204L1562 -853L1571 -846ZM781 653L1049 1773L998 1787ZM957 130L1658 -772L1702 -730ZM939 587L1533 1535L1474 1577ZM582 140L360 -1144L378 -1147ZM983 208L1928 -439L1938 -421ZM443 533L-101 1634L-139 1612ZM766 129L1161 -1077L1186 -1067ZM1220 477L2031 892L2017 926ZM447 107L-60 -996L-53 -1000ZM836 427L1814 1264L1791 1292ZM1150 285L2122 99L2126 127ZM692 78L817 -1159L833 -1158ZM539 109L218 -1109L260 -1121ZM11 341L-859 384L-860 362ZM1068 486L1927 1101L1923 1107ZM667 -34L695 -1169L722 -1168ZM913 448L1865 1196L1860 1202ZM613 206L439 -1156L451 -1158ZM735 218L1300 -1017L1347 -993ZM748 16L924 -1143L967 -1134ZM295 182L-587 -532L-583 -539ZM739 110L1006 -1125L1064 -1109ZM1237 234L2088 -60L2091 -50ZM623 590L586 1829L574 1829ZM423 385L-739 921L-752 889ZM677 483L877 1811L840 1817ZM991 582L1609 1475L1603 1480ZM952 397L2056 826L2050 842ZM875 508L1602 1481L1552 1521ZM1030 247L2052 -175L2056 -165ZM564 107L332 -1138L342 -1140ZM485 497L-92 1639L-100 1635ZM338 596L-195 1576L-225 1555ZM1123 422L2073 772L2069 785ZM111 201L-766 -192L-735 -270ZM477 502L-96 1637L-118 1624ZM167 126L-584 -537L-580 -543ZM371 158L-409 -742L-373 -776ZM1017 50L1583 -836L1594 -828ZM750 572L1059 1770L1017 1782ZM805 554L1264 1694L1241 1704ZM334 206L-621 -482L-590 -528ZM1089 222L2030 -233L2037 -217ZM867 32L1262 -1035L1275 -1029ZM1148 176L1979 -346L1984 -336ZM89 395L-829 632L-835 603ZM813 389L1965 1033L1930 1095ZM273 241L-759 -211L-746 -243ZM1031 346L2137 428L2136 438ZM699 500L955 1797L945 1799ZM492 505L-37 1668L-47 1663ZM896 596L1401 1622L1390 1629ZM730 115L1000 -1126L1015 -1122ZM1100 412L2080 750L2078 756ZM511 661L298 1790L291 1789ZM326 303L-847 132L-844 114ZM452 253L-607 -504L-596 -520ZM715 597L925 1803L856 1814ZM1045 285L2114 52L2116 62ZM54 371L-848 522L-852 485ZM168 227L-773 -173L-771 -180ZM873 214L1781 -643L1818 -598ZM385 244L-674 -393L-667 -407ZM358 -8L-63 -995L-11 -1021ZM167 530L-587 1193L-594 1182ZM869 187L1657 -773L1712 -720ZM402 578L-109 1630L-116 1626ZM535 454L-31 1671L-61 1656ZM573 477L267 1783L221 1770ZM282 342L-857 418L-858 411ZM580 604L468 1820L415 1813ZM1025 418L2048 847L2039 871ZM310 170L-545 -590L-519 -622ZM314 522L-432 1379L-440 1371ZM1103 469L1993 978L1976 1011ZM505 -2L274 -1125L289 -1128ZM683 170L842 -1156L917 -1144ZM579 494L333 1798L285 1787ZM788 233L1659 -771L1665 -766ZM894 565L1464 1583L1459 1587ZM1120 495L1948 1064L1943 1073ZM813 257L1846 -562L1895 -491ZM1009 406L2063 805L2057 822ZM1037 519L1831 1242L1809 1270ZM259 359L-845 541L-851 494ZM493 177L-123 -961L-106 -971ZM919 437L1911 1127L1906 1135ZM826 268L1950 -400L1955 -392ZM220 503L-581 1202L-619 1145ZM221 213L-730 -281L-713 -317ZM524 445L-130 1618L-151 1605ZM441 389L-706 992L-712 979ZM208 174L-654 -429L-645 -445ZM1007 300L2122 97L2130 159ZM944 77L1513 -890L1530 -877ZM616 119L524 -1166L547 -1167ZM846 173L1555 -858L1593 -828ZM170 430L-769 845L-782 807ZM779 573L1149 1741L1115 1753ZM900 382L2066 797L2064 803ZM1216 273L2119 80L2121 93ZM426 313L-849 149L-845 116ZM595 537L471 1820L415 1813ZM432 358L-822 666L-826 647ZM152 487L-678 1046L-691 1021ZM441 282L-754 -224L-751 -231ZM936 467L1851 1215L1815 1263ZM733 156L1096 -1099L1105 -1096ZM665 458L845 1816L782 1823ZM92 233L-801 -87L-799 -95ZM402 41L-37 -1008L-22 -1016ZM318 471L-571 1215L-580 1203ZM750 56L965 -1134L1023 -1120ZM1065 116L1771 -655L1817 -599ZM577 -31L456 -1159L506 -1164ZM958 273L2073 -112L2082 -84ZM432 164L-278 -856L-257 -872ZM617 698L588 1829L580 1829ZM361 218L-625 -476L-594 -522ZM459 665L188 1760L158 1750ZM477 477L-193 1578L-199 1574ZM350 529L-340 1465L-366 1443ZM1232 247L2100 -14L2102 -5ZM650 539L728 1827L636 1830ZM701 477L1012 1783L997 1787ZM842 26L1187 -1067L1213 -1056ZM646 -27L627 -1170L684 -1169ZM364 500L-409 1402L-414 1397ZM767 505L1254 1698L1232 1708ZM835 206L1671 -760L1679 -752ZM1080 70L1710 -721L1718 -713ZM813 203L1573 -844L1614 -811ZM222 93L-462 -688L-450 -701ZM503 504L-2 1686L-13 1680ZM847 404L1938 1082L1926 1103ZM583 500L376 1807L306 1792ZM993 495L1832 1240L1821 1254ZM647 466L705 1829L664 1830ZM652 182L696 -1169L734 -1167ZM240 436L-730 942L-740 917ZM605 493L450 1818L441 1817ZM930 90L1502 -897L1549 -863ZM608 180L416 -1153L474 -1161ZM787 438L1598 1484L1593 1488ZM468 249L-555 -577L-531 -607ZM538 675L380 1807L372 1806ZM868 423L1892 1156L1876 1180ZM859 384L2037 876L2020 919ZM587 659L509 1824L482 1822ZM227 475L-657 1084L-660 1078ZM1184 381L2124 547L2121 568ZM59 294L-853 185L-852 171ZM1050 121L1781 -644L1797 -625ZM523 25L290 -1129L310 -1133ZM241 202L-689 -365L-684 -376ZM565 528L316 1795L296 1790ZM239 489L-605 1167L-627 1133ZM940 318L2136 217L2138 244ZM154 307L-856 218L-855 209ZM322 419L-714 976L-730 940ZM1038 43L1594 -828L1614 -810ZM642 487L662 1830L646 1830ZM936 462L1868 1192L1829 1245ZM1016 505L1840 1231L1820 1255ZM783 633L1070 1767L1031 1778ZM53 347L-858 407L-859 392ZM1154 206L2031 -232L2035 -220ZM496 436L-304 1496L-321 1482ZM1064 607L1672 1419L1647 1442ZM29 252L-830 33L-826 11ZM666 132L743 -1166L773 -1164ZM979 288L2109 26L2110 33ZM853 192L1650 -779L1679 -752ZM769 103L1087 -1102L1169 -1074ZM634 459L614 1830L582 1829ZM698 587L846 1816L840 1817ZM969 344L2137 418L2135 448ZM847 558L1366 1643L1360 1646ZM953 108L1596 -826L1633 -794ZM730 50L918 -1144L939 -1140ZM476 567L74 1719L47 1708ZM639 174L624 -1170L646 -1170ZM239 131L-524 -616L-517 -625ZM421 405L-649 1096L-684 1035ZM192 303L-853 183L-852 177ZM555 92L296 -1130L345 -1141ZM958 198L1855 -550L1900 -483ZM1000 172L1845 -564L1863 -539ZM997 640L1507 1554L1490 1566ZM969 507L1770 1317L1752 1337ZM247 622L-303 1496L-312 1489ZM661 179L755 -1166L772 -1164ZM342 536L-336 1469L-360 1448ZM400 20L-9 -1022L13 -1033ZM381 223L-603 -510L-598 -517ZM808 447L1635 1452L1619 1467ZM565 156L245 -1117L275 -1125ZM307 95L-340 -805L-331 -813ZM1001 419L2033 885L2025 905Z"/></svg></div><div class="v4-imp k b3"><svg viewBox="0 0 1280 720"><path d="M665 642L725 1828L701 1829ZM1073 411L2075 765L2072 777ZM390 129L-267 -865L-259 -871ZM650 480L732 1827L668 1830ZM880 553L1466 1582L1450 1592ZM261 199L-667 -407L-662 -416ZM906 198L1784 -640L1817 -600ZM468 395L-620 1145L-641 1111ZM689 192L948 -1138L965 -1134ZM506 519L63 1714L31 1701ZM957 261L2045 -195L2059 -156ZM632 170L585 -1169L603 -1170ZM898 392L2039 872L2030 894ZM479 -29L237 -1115L255 -1120ZM912 134L1578 -840L1634 -793ZM101 300L-854 201L-853 183ZM355 45L-156 -941L-118 -964ZM174 126L-579 -544L-572 -554ZM1227 231L2075 -106L2094 -40ZM150 562L-539 1257L-543 1252ZM1123 462L2012 937L2002 959ZM585 628L481 1822L463 1820ZM912 171L1706 -725L1729 -701ZM289 291L-837 68L-833 49ZM299 165L-534 -604L-529 -610ZM424 338L-857 430L-858 412ZM465 157L-154 -943L-139 -952ZM465 258L-601 -512L-594 -523ZM383 290L-815 -33L-810 -54ZM348 186L-533 -604L-514 -628ZM767 106L1123 -1090L1131 -1087ZM854 185L1634 -793L1643 -786ZM1095 553L1811 1268L1800 1281ZM148 140L-626 -474L-623 -479ZM444 643L115 1735L98 1729ZM592 572L480 1821L444 1817ZM421 230L-564 -565L-552 -580ZM815 399L1910 1128L1887 1164ZM679 88L781 -1163L795 -1162ZM118 425L-795 767L-797 760ZM320 430L-687 1030L-699 1006ZM168 296L-850 160L-848 141ZM373 439L-599 1176L-610 1160ZM792 203L1508 -893L1536 -873ZM915 549L1554 1519L1545 1527ZM1028 486L1898 1147L1879 1176ZM929 611L1436 1602L1430 1605ZM585 -14L489 -1162L503 -1164ZM277 212L-687 -370L-677 -388ZM1080 164L1910 -469L1916 -458ZM618 205L471 -1160L489 -1162ZM525 599L293 1789L237 1775ZM756 197L1332 -1001L1346 -993ZM1044 341L2139 389L2138 410ZM467 186L-249 -878L-236 -888ZM519 198L-93 -979L-86 -983ZM322 563L-312 1489L-322 1481ZM156 497L-662 1076L-665 1069ZM374 611L-89 1641L-125 1620ZM865 381L2050 841L2043 861ZM992 426L2010 941L2006 950ZM653 476L729 1827L714 1828ZM977 639L1481 1572L1451 1592ZM569 -36L457 -1159L475 -1161ZM478 525L-21 1676L-49 1663ZM490 24L207 -1106L219 -1110ZM122 302L-855 207L-853 185ZM953 535L1665 1425L1652 1437ZM893 384L2061 811L2045 854ZM694 497L950 1798L902 1807ZM984 121L1684 -747L1714 -717ZM953 213L1903 -479L1929 -437ZM790 -12L1011 -1123L1038 -1116ZM212 410L-787 793L-800 749ZM907 111L1515 -888L1546 -865ZM1175 356L2136 437L2134 460ZM609 -23L545 -1167L576 -1169ZM288 527L-454 1356L-469 1340ZM614 580L579 1829L515 1825ZM578 155L316 -1135L338 -1139ZM890 114L1495 -903L1505 -895ZM365 531L-304 1496L-331 1473ZM788 534L1255 1698L1237 1706ZM501 -41L303 -1132L314 -1134ZM788 203L1498 -900L1511 -891ZM826 577L1281 1686L1243 1703ZM843 358L2107 643L2100 675ZM938 644L1395 1626L1381 1634ZM384 562L-179 1587L-206 1569ZM793 443L1597 1485L1592 1489ZM256 118L-480 -668L-456 -694ZM674 132L780 -1163L808 -1161ZM872 154L1575 -843L1581 -838ZM907 436L1909 1130L1880 1174ZM761 512L1203 1720L1196 1723ZM788 55L1103 -1097L1109 -1095ZM895 215L1821 -595L1862 -540ZM47 281L-849 145L-844 114ZM170 287L-844 109L-842 100ZM735 573L999 1786L969 1794ZM885 350L2128 520L2126 533ZM381 218L-589 -530L-570 -556ZM1172 281L2118 77L2127 129ZM488 164L-120 -963L-54 -1000ZM1043 136L1807 -612L1820 -596ZM648 678L680 1829L645 1830ZM215 264L-820 -16L-807 -64ZM480 244L-485 -662L-478 -670ZM342 567L-253 1535L-286 1510ZM731 515L1093 1760L1047 1774ZM976 209L1915 -460L1945 -410ZM442 512L-184 1583L-189 1580ZM412 350L-844 549L-846 532ZM1195 513L1960 1042L1957 1049ZM299 237L-730 -281L-728 -286ZM877 377L2077 761L2056 825ZM391 154L-354 -793L-318 -824ZM386 409L-674 1053L-713 978ZM766 44L1022 -1120L1029 -1119ZM890 227L1875 -521L1885 -507ZM302 240L-744 -247L-724 -295ZM756 64L1006 -1125L1042 -1115ZM707 65L861 -1154L876 -1151ZM1002 507L1810 1269L1804 1276ZM217 474L-666 1069L-670 1061ZM715 172L1049 -1113L1058 -1111ZM456 162L-205 -909L-177 -928ZM1187 234L2079 -94L2082 -84ZM903 68L1406 -960L1434 -943ZM751 462L1324 1665L1317 1669ZM169 135L-607 -503L-592 -525ZM837 240L1836 -575L1845 -564ZM1114 348L2137 418L2136 434ZM912 138L1607 -816L1623 -803ZM866 67L1322 -1006L1347 -993ZM182 104L-527 -613L-522 -618ZM590 -50L517 -1165L524 -1165ZM931 372L2104 656L2092 705ZM582 64L419 -1154L464 -1160ZM1210 423L2091 711L2086 728ZM200 346L-857 425L-858 414ZM820 624L1166 1735L1155 1739ZM950 162L1744 -686L1773 -653ZM106 337L-859 385L-860 338ZM366 354L-843 553L-846 532ZM812 656L1103 1757L1089 1761ZM880 507L1597 1485L1588 1492ZM373 -10L-16 -1019L6 -1030ZM510 69L183 -1099L229 -1113ZM334 533L-367 1442L-374 1436ZM550 220L-44 -1005L-17 -1018ZM684 64L772 -1164L807 -1161ZM901 364L2108 640L2104 656ZM435 328L-860 307L-860 293ZM1064 433L2035 880L2030 894ZM439 358L-822 667L-824 655ZM612 665L585 1829L543 1827ZM1268 283L2127 134L2130 157ZM405 648L49 1709L6 1689ZM837 394L1971 1022L1952 1057ZM953 589L1529 1538L1523 1543ZM704 205L1053 -1112L1119 -1092ZM1160 301L2132 178L2135 207ZM285 233L-730 -281L-724 -295ZM305 291L-840 83L-827 15ZM489 214L-295 -843L-286 -850ZM749 483L1249 1701L1222 1712ZM233 120L-525 -614L-480 -668ZM375 614L-88 1642L-106 1631ZM1000 266L2074 -112L2086 -69ZM367 -3L-40 -1007L-14 -1020ZM481 144L-52 -1001L-44 -1005ZM502 199L-187 -921L-144 -949ZM942 311L2130 159L2134 197ZM1017 214L1969 -365L1985 -334ZM1189 463L2035 881L2031 892ZM1016 34L1537 -872L1572 -846ZM984 73L1567 -849L1600 -823ZM920 605L1443 1597L1413 1615ZM1062 307L2133 190L2134 196ZM368 272L-776 -164L-774 -170ZM261 36L-309 -832L-260 -870ZM82 446L-778 818L-781 811ZM404 172L-372 -777L-364 -785ZM648 210L695 -1169L708 -1168ZM431 412L-614 1153L-629 1130ZM613 162L483 -1162L502 -1164ZM721 574L959 1796L911 1805ZM940 168L1738 -692L1779 -646ZM510 704L349 1802L312 1794ZM1134 185L1987 -329L1994 -316ZM1129 433L2059 817L2054 831ZM880 110L1451 -932L1484 -910ZM249 295L-847 131L-841 95ZM1102 244L2068 -129L2079 -93ZM329 182L-547 -586L-535 -603ZM1102 503L1924 1105L1907 1132ZM346 240L-703 -339L-697 -350ZM737 179L1155 -1079L1208 -1058ZM313 247L-745 -245L-742 -252ZM525 172L6 -1029L71 -1058ZM806 441L1661 1429L1639 1449ZM492 220L-329 -815L-291 -846ZM911 203L1812 -606L1842 -568ZM502 420L-362 1446L-402 1409ZM696 454L1054 1772L1023 1780ZM739 128L1058 -1111L1081 -1104ZM903 239L1934 -428L1951 -399ZM323 158L-482 -666L-471 -678ZM824 584L1264 1694L1222 1713ZM1068 113L1781 -644L1801 -620ZM331 584L-228 1553L-273 1520ZM444 -10L132 -1081L159 -1091ZM969 159L1777 -648L1782 -643ZM823 201L1617 -808L1623 -803ZM456 424L-502 1302L-509 1294ZM628 204L547 -1167L564 -1168ZM348 112L-324 -819L-286 -850ZM1111 429L2059 815L2054 832ZM651 -54L644 -1170L686 -1169ZM738 163L1108 -1095L1173 -1072ZM454 520L-123 1621L-129 1618ZM646 710L667 1830L641 1830ZM668 117L741 -1167L782 -1163ZM878 257L1974 -355L1983 -338ZM414 345L-851 493L-852 486ZM657 -39L677 -1170L685 -1169ZM440 424L-540 1256L-548 1246ZM807 598L1195 1724L1147 1742ZM561 530L304 1792L272 1784Z"/></svg></div><div class="v4-imp w c"><svg viewBox="0 0 1280 720"><path d="M662 570L732 1827L716 1828ZM971 393L2080 751L2064 802ZM887 473L1742 1347L1710 1381ZM520 504L88 1725L36 1703ZM507 89L160 -1091L170 -1094ZM69 310L-858 249L-857 241ZM444 301L-822 -7L-810 -53ZM905 311L2129 148L2130 158ZM885 213L1814 -603L1823 -592ZM622 -16L576 -1169L610 -1170ZM633 38L614 -1170L624 -1170ZM882 265L2009 -284L2012 -276ZM766 461L1402 1622L1380 1635ZM205 233L-773 -173L-761 -207ZM1183 258L2105 8L2106 15ZM419 263L-705 -334L-700 -345ZM432 15L57 -1052L110 -1073ZM536 669L383 1808L349 1802ZM1134 112L1843 -566L1860 -542ZM1016 328L2139 283L2140 350ZM724 76L929 -1142L937 -1140ZM1106 531L1863 1198L1859 1204ZM982 408L2050 842L2036 879ZM412 682L94 1727L89 1725ZM747 652L944 1799L928 1802ZM377 522L-312 1489L-326 1477ZM1011 422L2029 895L2026 903ZM964 231L1976 -352L1980 -344ZM151 238L-796 -104L-791 -121ZM876 203L1754 -675L1768 -658ZM1077 266L2097 -28L2100 -14ZM1093 116L1819 -598L1828 -586ZM478 402L-564 1224L-573 1213ZM576 564L419 1814L369 1805ZM363 278L-805 -73L-781 -150ZM740 557L1033 1778L1021 1781ZM825 -28L1074 -1106L1101 -1098ZM653 459L740 1827L720 1828ZM523 221L-184 -923L-178 -927ZM1089 563L1782 1302L1776 1309ZM171 369L-845 538L-847 528ZM1105 105L1795 -628L1827 -587ZM25 335L-860 355L-860 346ZM99 508L-663 1073L-692 1020ZM829 639L1168 1734L1152 1740ZM1152 480L1995 973L1985 994ZM899 278L2053 -172L2073 -113ZM777 168L1323 -1006L1331 -1001ZM867 357L2114 608L2109 633ZM378 101L-232 -891L-200 -913ZM864 206L1725 -706L1768 -659ZM721 538L994 1788L974 1792ZM533 -46L364 -1144L409 -1152ZM1030 49L1591 -830L1620 -806ZM381 361L-830 629L-835 605ZM842 310L2118 74L2121 91ZM837 299L2092 -46L2094 -40ZM187 177L-690 -364L-652 -432ZM281 333L-860 359L-860 344ZM555 449L48 1708L42 1706ZM504 58L189 -1101L220 -1110ZM540 219L-88 -981L-72 -990ZM388 2L-26 -1014L37 -1044ZM299 225L-700 -344L-695 -353ZM275 335L-858 399L-860 329ZM605 463L416 1813L397 1810ZM1012 288L2113 49L2115 58ZM261 281L-828 24L-827 15ZM677 211L885 -1150L943 -1139ZM870 494L1623 1463L1598 1484ZM828 212L1679 -752L1683 -748ZM566 44L398 -1150L419 -1154ZM756 544L1122 1750L1096 1759ZM1117 157L1917 -457L1937 -424ZM647 155L674 -1170L682 -1169ZM654 -53L663 -1170L682 -1169ZM1101 187L1971 -361L1979 -346ZM134 365L-850 505L-851 498ZM830 516L1432 1604L1426 1607ZM168 123L-579 -544L-570 -556ZM1051 260L2075 -107L2092 -45ZM623 661L612 1830L573 1828ZM882 487L1673 1417L1657 1433ZM900 266L2027 -240L2035 -221ZM185 438L-753 888L-762 863ZM286 334L-860 366L-860 348ZM105 339L-859 392L-860 347ZM300 396L-787 791L-790 783ZM1056 302L2130 159L2132 174ZM425 187L-385 -765L-359 -789ZM715 504L1033 1778L1008 1784ZM918 513L1678 1413L1631 1456ZM1216 233L2083 -78L2088 -62ZM417 279L-765 -195L-759 -212ZM427 157L-286 -850L-228 -893ZM377 200L-525 -614L-520 -622ZM792 140L1292 -1021L1299 -1017ZM857 295L2087 -63L2089 -56ZM1190 170L1988 -328L1997 -309ZM290 397L-787 794L-794 771ZM112 478L-715 973L-728 945ZM419 211L-489 -657L-473 -675ZM750 684L926 1802L908 1806ZM438 343L-849 508L-853 472ZM451 497L-203 1571L-219 1560ZM575 90L384 -1148L407 -1152ZM997 409L2054 831L2046 854ZM947 457L1881 1173L1876 1180ZM810 470L1536 1533L1526 1540ZM778 590L1104 1756L1096 1759ZM263 41L-292 -845L-287 -849ZM174 218L-756 -219L-753 -226ZM657 -38L655 -1170L710 -1168ZM982 328L2140 308L2140 323ZM774 514L1256 1698L1241 1704ZM523 442L-162 1598L-171 1592ZM550 2L369 -1145L421 -1154ZM273 452L-671 1059L-680 1043ZM878 617L1317 1668L1310 1672ZM238 495L-598 1177L-603 1170ZM452 271L-698 -348L-691 -362ZM69 496L-704 996L-720 962ZM620 200L492 -1163L513 -1165ZM80 243L-817 -25L-808 -61ZM1110 533L1868 1191L1855 1209ZM1194 246L2094 -40L2097 -26ZM956 198L1872 -526L1876 -519ZM488 182L-163 -937L-146 -947ZM395 79L-144 -949L-102 -973ZM661 540L748 1826L717 1828ZM1177 250L2092 -48L2102 -6ZM910 497L1694 1397L1684 1407ZM93 239L-811 -50L-801 -86ZM810 393L1921 1111L1917 1117ZM613 8L545 -1167L584 -1169ZM1094 419L2075 765L2058 818ZM708 480L1055 1771L1020 1781ZM686 643L782 1823L762 1825ZM1065 231L2038 -214L2040 -208ZM389 203L-522 -619L-499 -646ZM417 132L-208 -908L-201 -912ZM286 65L-329 -815L-277 -857ZM308 420L-727 947L-733 933ZM414 475L-381 1429L-397 1413ZM589 193L304 -1132L315 -1134ZM709 195L1054 -1112L1109 -1095ZM431 259L-672 -397L-669 -402ZM445 264L-677 -389L-663 -413ZM325 557L-321 1482L-330 1474ZM1150 419L2083 739L2081 748ZM194 245L-792 -118L-789 -125ZM210 329L-860 330L-860 323ZM982 366L2121 570L2114 606ZM1044 113L1749 -680L1777 -648ZM224 106L-486 -661L-478 -670ZM543 135L186 -1100L233 -1114ZM1089 173L1936 -425L1940 -418ZM502 623L259 1781L199 1764ZM176 353L-854 465L-856 439ZM243 515L-547 1247L-551 1242ZM552 455L60 1713L37 1703ZM1165 401L2105 653L2103 660ZM477 250L-535 -603L-517 -624ZM557 31L381 -1148L404 -1151ZM863 236L1854 -551L1888 -503ZM869 301L2108 20L2111 36ZM335 358L-842 562L-843 554ZM868 418L1912 1125L1902 1140ZM1062 455L2002 959L1973 1017ZM364 521L-336 1469L-357 1451ZM1132 234L2060 -152L2075 -107ZM97 406L-814 699L-828 637ZM699 645L843 1816L773 1824ZM748 672L940 1800L902 1807ZM384 257L-722 -299L-713 -318ZM523 134L99 -1069L164 -1093ZM992 546L1715 1376L1675 1415ZM90 182L-738 -262L-723 -295ZM973 90L1597 -825L1614 -811ZM801 139L1296 -1019L1349 -992ZM904 529L1584 1495L1577 1501ZM729 81L942 -1139L975 -1132ZM313 45L-227 -894L-207 -908ZM261 495L-575 1210L-585 1196ZM443 206L-414 -737L-389 -762ZM1002 198L1915 -460L1936 -425ZM296 506L-487 1320L-526 1274ZM781 -34L968 -1134L1000 -1126ZM804 638L1114 1753L1089 1761ZM836 308L2109 26L2121 91ZM283 421L-742 914L-746 905ZM259 364L-840 577L-847 526ZM956 405L2046 854L2026 903ZM627 518L608 1830L548 1827ZM260 481L-608 1162L-619 1145ZM362 443L-604 1168L-609 1161ZM563 469L175 1756L149 1747ZM368 29L-90 -980L-71 -991ZM79 415L-814 700L-816 691ZM609 506L522 1825L435 1816ZM694 589L832 1818L821 1819ZM1123 372L2125 541L2124 549ZM229 90L-448 -703L-433 -718ZM743 193L1256 -1038L1272 -1030ZM472 147L-117 -965L-55 -999ZM514 437L-228 1554L-241 1544ZM1131 526L1896 1151L1889 1160ZM764 551L1130 1748L1114 1753ZM566 591L415 1813L359 1803ZM741 644L950 1798L904 1807ZM368 260L-746 -245L-735 -270ZM659 470L795 1822L732 1827ZM921 112L1544 -867L1580 -839ZM881 381L2062 808L2053 833ZM22 262L-841 94L-830 31ZM697 69L817 -1160L860 -1154ZM461 145L-129 -958L-111 -969ZM432 389L-718 968L-721 961ZM360 217L-622 -481L-596 -520ZM1218 225L2074 -110L2079 -92ZM619 148L525 -1166L541 -1167ZM420 420L-600 1173L-609 1161ZM737 114L1029 -1119L1040 -1116ZM443 276L-740 -257L-713 -317ZM748 493L1207 1719L1192 1725ZM845 62L1266 -1033L1276 -1029ZM978 178L1833 -579L1856 -549ZM440 526L-118 1624L-179 1587ZM59 270L-843 106L-833 48ZM261 142L-538 -598L-503 -642Z"/></svg></div><div class="v4-imp k d"><svg viewBox="0 0 1280 720"><path d="M663 594L727 1828L714 1828ZM588 190L298 -1131L320 -1135ZM389 168L-392 -759L-384 -766ZM568 500L271 1784L265 1782ZM895 123L1532 -876L1540 -870ZM758 550L1114 1753L1092 1760ZM420 131L-203 -911L-188 -921ZM777 16L1015 -1122L1030 -1118ZM999 57L1563 -853L1589 -832ZM243 151L-576 -549L-554 -578ZM210 363L-847 530L-850 501ZM383 293L-825 8L-813 -44ZM245 384L-820 673L-825 653ZM351 191L-538 -598L-532 -607ZM972 237L1997 -309L2006 -290ZM730 622L922 1803L908 1806ZM1050 352L2134 460L2134 466ZM1043 414L2060 814L2057 821ZM634 612L631 1830L611 1830ZM335 373L-821 671L-822 665ZM195 255L-806 -69L-803 -79ZM95 354L-853 477L-858 403ZM525 213L-140 -951L-120 -963ZM244 548L-463 1346L-478 1330ZM431 509L-222 1558L-232 1551ZM624 209L509 -1164L527 -1166ZM851 269L1987 -331L1997 -309ZM826 482L1547 1525L1515 1549ZM227 257L-807 -64L-792 -115ZM315 382L-808 720L-813 702ZM1124 142L1899 -486L1906 -475ZM313 263L-784 -142L-779 -156ZM423 180L-360 -788L-336 -809ZM539 61L295 -1130L317 -1135ZM987 567L1641 1447L1632 1455ZM277 240L-762 -203L-733 -275ZM1101 454L2013 933L2009 942ZM144 284L-844 110L-842 97ZM370 526L-291 1506L-347 1460ZM863 222L1810 -608L1816 -601ZM797 -9L1027 -1119L1065 -1109ZM131 464L-728 946L-743 910ZM985 563L1645 1443L1636 1451ZM182 212L-751 -232L-731 -280ZM846 145L1475 -916L1484 -910ZM1110 484L1962 1039L1956 1050ZM508 436L-262 1528L-268 1524ZM120 407L-816 692L-819 677ZM958 149L1722 -709L1747 -683ZM618 128L536 -1166L543 -1167ZM846 111L1371 -980L1393 -967ZM961 199L1879 -516L1888 -502ZM664 26L707 -1168L718 -1168ZM973 202L1901 -483L1912 -465ZM1008 70L1614 -811L1620 -806ZM701 458L1079 1764L1029 1779ZM1012 480L1908 1131L1869 1190ZM978 81L1566 -850L1621 -805ZM732 -7L867 -1153L902 -1147ZM708 638L865 1813L815 1820ZM839 92L1297 -1018L1337 -998ZM816 620L1174 1732L1140 1744ZM184 319L-860 300L-858 246ZM1083 262L2089 -59L2098 -21ZM671 199L847 -1156L853 -1155ZM106 514L-662 1075L-668 1065ZM971 612L1512 1551L1505 1555ZM884 395L2024 908L2002 958ZM785 628L1091 1761L1039 1776ZM164 333L-860 353L-860 336ZM308 279L-818 -24L-810 -55ZM217 406L-797 760L-800 751ZM172 545L-550 1244L-560 1230ZM174 470L-701 1001L-708 988ZM784 -44L966 -1134L994 -1128ZM961 22L1430 -945L1455 -929ZM817 639L1142 1744L1119 1752ZM710 120L912 -1145L959 -1136ZM883 154L1577 -841L1632 -795ZM474 608L145 1746L112 1734ZM148 150L-659 -420L-627 -473ZM586 458L278 1786L255 1780ZM767 434L1544 1527L1528 1539ZM996 83L1619 -806L1633 -794ZM651 491L734 1827L676 1830ZM453 421L-514 1289L-543 1253ZM1065 344L2138 408L2137 420ZM929 355L2125 541L2124 547ZM985 488L1848 1220L1826 1249ZM826 -5L1113 -1093L1121 -1091ZM513 443L-192 1578L-220 1559ZM508 450L-177 1588L-203 1571ZM846 265L1968 -368L1975 -353ZM881 398L2009 943L1990 983ZM898 583L1459 1587L1402 1622ZM880 335L2139 373L2138 400ZM834 162L1466 -922L1535 -874ZM853 498L1565 1511L1541 1529ZM933 513L1707 1384L1664 1426ZM274 560L-393 1418L-407 1404ZM1096 261L2086 -69L2104 2ZM1196 205L2043 -200L2049 -185ZM823 462L1613 1472L1595 1486ZM131 240L-802 -82L-798 -97ZM894 148L1605 -818L1611 -813ZM1009 164L1835 -576L1855 -550ZM829 227L1751 -677L1761 -667ZM934 254L2012 -275L2024 -248ZM743 626L976 1792L921 1804ZM101 257L-830 30L-818 -21ZM205 520L-574 1211L-581 1202ZM773 161L1282 -1026L1291 -1021ZM342 664L-42 1666L-104 1632ZM1216 386L2123 557L2119 578ZM517 234L-300 -839L-263 -868ZM1079 162L1900 -485L1915 -460ZM571 214L123 -1078L141 -1085ZM652 103L676 -1170L697 -1169ZM994 396L2074 768L2072 777ZM871 235L1877 -518L1883 -509ZM142 183L-714 -315L-702 -340ZM958 156L1740 -690L1764 -663ZM1020 460L1948 1064L1945 1070ZM1139 456L2035 881L2015 930ZM391 293L-819 -20L-814 -38ZM910 220L1881 -513L1886 -505ZM799 130L1261 -1036L1319 -1007ZM670 11L717 -1168L734 -1167ZM1100 432L2056 826L2042 862ZM759 688L940 1800L930 1802ZM227 320L-859 287L-858 255ZM1101 421L2068 790L2063 804ZM1024 377L2111 623L2109 634ZM523 181L-22 -1016L12 -1032ZM937 467L1836 1236L1832 1241ZM685 641L778 1824L765 1825ZM464 425L-468 1341L-489 1317ZM855 566L1370 1641L1359 1647ZM1049 67L1664 -766L1676 -755ZM402 408L-678 1047L-682 1039ZM425 235L-588 -532L-558 -572ZM936 609L1454 1590L1448 1594ZM970 215L1935 -426L1944 -411ZM990 445L1961 1041L1956 1050ZM514 555L160 1751L154 1749ZM621 449L505 1824L486 1822ZM671 158L789 -1163L819 -1159ZM262 131L-502 -643L-484 -664ZM759 143L1160 -1077L1201 -1061ZM730 212L1255 -1038L1283 -1025ZM1107 185L1967 -370L1982 -340ZM1151 165L1960 -383L1969 -365ZM438 -19L137 -1083L151 -1088ZM130 489L-682 1040L-704 996ZM430 389L-710 983L-728 945ZM923 283L2083 -80L2090 -56ZM293 573L-337 1468L-349 1458ZM100 283L-846 125L-843 104ZM448 384L-712 979L-725 952ZM539 570L272 1784L264 1782ZM247 173L-617 -489L-607 -504ZM1194 235L2076 -103L2090 -56ZM594 53L479 -1161L499 -1163ZM489 160L-90 -980L-48 -1003ZM865 446L1786 1298L1780 1305ZM406 306L-843 104L-836 63ZM425 454L-431 1380L-461 1349ZM347 205L-595 -521L-582 -540ZM828 507L1458 1588L1449 1593ZM130 205L-757 -217L-745 -247ZM732 477L1174 1732L1167 1734ZM1065 46L1645 -783L1650 -779ZM920 375L2091 708L2088 722ZM19 391L-839 581L-843 556ZM349 557L-273 1520L-286 1510ZM805 468L1524 1541L1516 1547ZM480 18L190 -1101L199 -1104ZM428 562L-74 1649L-99 1635ZM1006 275L2095 -34L2098 -24ZM417 291L-802 -83L-797 -99ZM598 468L382 1808L348 1801ZM240 497L-590 1189L-602 1171ZM142 152L-673 -396L-632 -465ZM814 466L1563 1513L1556 1518ZM449 117L-89 -981L-64 -994ZM634 197L570 -1168L627 -1170ZM844 127L1390 -969L1450 -932ZM192 139L-598 -517L-578 -546ZM805 398L1897 1148L1865 1195ZM622 122L544 -1167L580 -1169ZM1177 187L2012 -277L2014 -271ZM501 180L-108 -970L-78 -987ZM347 72L-213 -904L-208 -907ZM493 145L-22 -1016L3 -1028ZM623 611L598 1829L572 1828ZM712 211L1154 -1079L1160 -1077ZM1145 99L1823 -592L1851 -555ZM524 525L173 1756L93 1727ZM1164 129L1899 -485L1915 -460ZM496 67L163 -1092L174 -1096ZM252 547L-447 1364L-480 1328ZM321 484L-523 1277L-541 1255ZM512 597L234 1774L210 1767ZM796 189L1463 -924L1487 -908ZM691 685L789 1823L752 1826ZM571 454L173 1756L148 1747ZM369 69L-174 -930L-145 -948ZM924 462L1836 1235L1821 1255ZM568 71L371 -1146L411 -1152ZM152 252L-817 -28L-804 -75ZM461 125L-68 -992L-57 -998ZM589 527L416 1813L394 1810ZM756 125L1094 -1100L1156 -1079ZM345 650L-84 1644L-100 1635ZM859 308L2113 48L2124 114ZM501 223L-317 -825L-263 -868ZM423 -6L91 -1066L97 -1068ZM793 492L1396 1626L1370 1640ZM632 94L589 -1169L629 -1170ZM61 208L-783 -145L-770 -181ZM112 488L-696 1013L-715 973ZM312 511L-463 1346L-473 1336ZM586 515L393 1809L367 1805ZM1179 259L2104 2L2108 21ZM248 433L-724 953L-746 904ZM533 96L236 -1115L245 -1117ZM303 308L-852 175L-851 164ZM974 360L2127 528L2120 577ZM1119 495L1953 1056L1936 1085ZM865 101L1402 -962L1411 -957Z"/></svg></div></div>
         place:
           x: 0
           y: 0
@@ -1191,7 +2029,7 @@ slides:
           w: 1280
         enter: fade
       - type: html
-        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-ring" style="left:640px;top:300px;"></i><i class="v3-ring ac" style="left:640px;top:300px;animation-delay:0.6667s;"></i><i class="v3-inv"></i></div>
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-vig"></i></div>
         place:
           x: 0
           y: 0
@@ -4470,18 +5308,252 @@ slides:
         locked: true
   - id: cinema
     template: canvas
-    label: Показ — как кино
-    bg: "#0B0B12"
+    label: Показ — как кино.
+    bg: "#06060B"
     transition: none
     at: 61.343
     steps:
       - 62.01
       - 62.677
       - 63.343
+      - 64.01
     logo: false
     free:
+      - type: embed
+        code: |
+          <!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;overflow:hidden;background:#05050A}canvas{display:block;width:100%;height:100%}</style></head><body><canvas id="c"></canvas><script>
+          window.DOT = { x: 990, y: 459 };
+          // Общая обвязка сцен: холст во всю вставку, координаты слайда 1280×720, часы — с появления слайда
+          // (performance.now во вставке считает от её создания, а вставка создаётся, когда слайд показан)
+          const cv = document.getElementById('c');
+          const g = cv.getContext('2d');
+          let DPR = Math.min(2, (window.devicePixelRatio || 1) * 1.5);
+          function fit() {
+            cv.width = Math.round(cv.clientWidth * DPR);
+            cv.height = Math.round(cv.clientHeight * DPR);
+          }
+          addEventListener('resize', fit);
+          fit();
+          const SX = () => cv.width / 1280;
+          const SY = () => cv.height / 720;
+          // Псевдослучайные числа с зерном: одинаковые кадр за кадром
+          function rng(seed) {
+            let s = seed >>> 0 || 1;
+            return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+          }
+          const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+          const ease = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
+          const easeOut = (u) => 1 - Math.pow(1 - u, 3);
+          // Кадры идут медленнее 35 в секунду (слабая видеокарта или её нет) — холст в обычном разрешении:
+          // иначе смена слайда ждёт отрисовки и опаздывает от удара
+          function loop(draw) {
+            const gaps = [];
+            let last = 0;
+            const step = (now) => {
+              if (last && DPR > 1) {
+                gaps.push(now - last);
+                if (gaps.length > 8) {
+                  gaps.shift();
+                  if ([...gaps].sort((a, b) => a - b)[4] > 28) { DPR = 1; fit(); }
+                }
+              }
+              last = now;
+              g.setTransform(SX(), 0, 0, SY(), 0, 0);
+              draw(performance.now() / 1000);
+              requestAnimationFrame(step);
+            };
+            requestAnimationFrame(step);
+          }
+
+          // Финал: сверху бьёт луч проектора — лучи и пыль в воздухе, свет вздрагивает на каждое слово (0; 0,667; 1,333; 2,0 с).
+          // Точка падает сверху и ставится ровно в 1:04.01 (2,667 с): сжимается о строку и пружинит, кадр вздрагивает
+          // светом, сквозь точку — анаморфный блик и тонкие лучи-звезда, пыль рядом вспыхивает и отлетает.
+          // Потом проектор гаснет с подрагиванием — остаются слова и светящаяся точка
+          const D = window.DOT || { x: 990, y: 459 };
+          const DR = 16;
+          const WORDS = [0, 0.6667, 1.3333, 2.0];
+          const HIT = 2.6667;
+          const FALL = 0.26;
+          const SRC = [640, -150];
+          const FAN = 0.6;
+          const r0 = rng(4242);
+          // Рисунок лучей: сумма волн по углу — один и тот же для света и для пыли в нём
+          const RAY = Array.from({ length: 5 }, () => [7 + r0() * 40, r0() * 6.28, 0.3 + r0() * 0.7]);
+          function ray(th, t) {
+            const e = clamp(1 - Math.abs(th) / FAN);
+            let v = 0, n = 0;
+            for (const [f, ph, w] of RAY) { v += w * (0.5 + 0.5 * Math.sin(th * f + ph + t * 0.25 * (f > 25 ? 1 : -1))); n += w; }
+            return Math.min(1, e * 2.2) * (0.25 + 0.75 * Math.pow(v / n, 2.2));
+          }
+          // Лучи рисуются один раз в четверть размера: при растяжении на кадр они размываются сами, без фильтра
+          // (размытие при запуске сцены задерживало бы саму смену слайда)
+          function fan(t) {
+            const c = document.createElement('canvas');
+            c.width = 320; c.height = 180;
+            const o = c.getContext('2d');
+            o.scale(0.25, 0.25);
+            const L = 1100, n = 150;
+            for (let i = 0; i < n; i++) {
+              const a0 = -FAN + (2 * FAN * i) / n, a1 = a0 + (2 * FAN) / n + 0.004;
+              o.fillStyle = `rgba(214,204,254,${0.5 * ray(a0, t)})`;
+              o.beginPath();
+              o.moveTo(SRC[0], SRC[1]);
+              o.lineTo(SRC[0] + Math.sin(a0) * L, SRC[1] + Math.cos(a0) * L);
+              o.lineTo(SRC[0] + Math.sin(a1) * L, SRC[1] + Math.cos(a1) * L);
+              o.closePath();
+              o.fill();
+            }
+            // Свет слабеет к низу кадра — одной заливкой поверх всех лучей
+            o.globalCompositeOperation = 'destination-in';
+            const gr = o.createLinearGradient(0, SRC[1], 0, SRC[1] + L);
+            gr.addColorStop(0, 'rgba(0,0,0,1)');
+            gr.addColorStop(0.45, 'rgba(0,0,0,.45)');
+            gr.addColorStop(1, 'rgba(0,0,0,0)');
+            o.fillStyle = gr;
+            o.fillRect(0, 0, 1280, 720);
+            return c;
+          }
+          // Два рисунка лучей, медленно перетекают друг в друга — свет «живёт»
+          const FA = fan(0), FB = fan(9);
+          const DUST = Array.from({ length: 300 }, () => ({ x: r0() * 1280, y: r0() * 720, s: 0.7 + r0() * 1.9, vx: (r0() - 0.5) * 10, vy: -3 - r0() * 9, ph: r0() * 6.28 }));
+          const SPK = [0.785, 2.356, 3.927, 5.498];
+
+          function soft(x, y, r, c, a) {
+            if (a <= 0.003) return;
+            const gr = g.createRadialGradient(x, y, 0, x, y, r);
+            gr.addColorStop(0, `rgba(${c},${Math.min(1, a)})`);
+            gr.addColorStop(1, `rgba(${c},0)`);
+            g.fillStyle = gr;
+            g.fillRect(x - r, y - r, r * 2, r * 2);
+          }
+          // Тонкий луч-игла из центра точки: от белого к прозрачному
+          function spike(x, y, ang, len, w, a) {
+            if (a <= 0.01) return;
+            const ex = x + Math.cos(ang) * len, ey = y + Math.sin(ang) * len;
+            const nx = -Math.sin(ang) * w, ny = Math.cos(ang) * w;
+            const gr = g.createLinearGradient(x, y, ex, ey);
+            gr.addColorStop(0, `rgba(255,255,255,${a})`);
+            gr.addColorStop(0.35, `rgba(233,213,255,${a * 0.45})`);
+            gr.addColorStop(1, 'rgba(216,180,254,0)');
+            g.fillStyle = gr;
+            g.beginPath();
+            g.moveTo(x + nx, y + ny);
+            g.lineTo(ex, ey);
+            g.lineTo(x - nx, y - ny);
+            g.closePath();
+            g.fill();
+          }
+
+          loop((t) => {
+            const s = t - HIT;
+            g.globalCompositeOperation = 'source-over';
+            const bg = g.createRadialGradient(640, 360, 0, 640, 360, 820);
+            bg.addColorStop(0, '#15102A');
+            bg.addColorStop(1, '#05050A');
+            g.fillStyle = bg;
+            g.fillRect(0, 0, 1280, 720);
+            g.globalCompositeOperation = 'lighter';
+            // Проектор: мерцание 24 раза в секунду, вздрагивает на слово; после точки гаснет с подрагиванием
+            const flick = 0.9 + rng(Math.floor(t * 24) * 31 + 5)() * 0.1;
+            let kick = 0;
+            for (const w of WORDS) if (t >= w) kick = Math.max(kick, Math.exp(-(t - w) * 5));
+            let off = 1;
+            if (s > 0.9) {
+              const q = (s - 0.9) / 1.1;
+              off = q >= 1 ? 0 : (1 - q) * (q > 0.25 && q < 0.33 ? 0.35 : q > 0.5 && q < 0.55 ? 0.5 : 1);
+            }
+            const beam = (0.55 + 0.45 * kick) * flick * off;
+            const mix = 0.5 + 0.5 * Math.sin(t * 0.8);
+            g.globalAlpha = beam * (1 - mix);
+            g.drawImage(FA, 0, 0, 1280, 720);
+            g.globalAlpha = beam * mix;
+            g.drawImage(FB, 0, 0, 1280, 720);
+            g.globalAlpha = 1;
+            // Источник света над кадром — его край виден у верхней кромки
+            soft(SRC[0], 0, 260, '221,214,254', 0.32 * beam);
+            // Удар точки: короткая вспышка всего кадра
+            if (s >= 0) {
+              g.fillStyle = `rgba(196,181,253,${0.2 * Math.exp(-s * 10)})`;
+              g.fillRect(0, 0, 1280, 720);
+            }
+            // Пыль: светится там, где луч; после удара — у точки вспыхивает и отлетает от неё
+            const push = s > 0 ? 1 - Math.exp(-s * 6) : 0;
+            const dl = s > 0 ? 0.35 + 0.65 * Math.exp(-s * 1.8) : 0;
+            const dp = new Path2D(), dh = new Path2D();
+            for (const p of DUST) {
+              let x = (((p.x + p.vx * t) % 1280) + 1280) % 1280, y = (((p.y + p.vy * t) % 720) + 720) % 720;
+              const ex = x - D.x, ey = y - D.y, dd = Math.hypot(ex, ey) || 1;
+              if (push) { const m = 80 * Math.exp(-dd / 220) * push; x += (ex / dd) * m; y += (ey / dd) * m; }
+              const th = Math.atan2(x - SRC[0], y - SRC[1]);
+              const lit = ray(th, t) * (0.25 + 0.75 * clamp(1 - y / 900)) * beam + dl * Math.exp(-dd / 170);
+              const tw = 0.6 + 0.4 * Math.sin(t * 2 + p.ph);
+              const v = lit * tw;
+              if (v < 0.08) continue;
+              (v > 0.45 ? dh : dp).rect(x, y, p.s, p.s);
+            }
+            g.fillStyle = 'rgba(255,255,255,.4)';
+            g.fill(dp);
+            g.fillStyle = 'rgba(255,255,255,.95)';
+            g.fill(dh);
+            // Падение точки: ускоряется, за ней — светящийся след
+            if (s < 0 && s > -FALL) {
+              const u = 1 - -s / FALL;
+              const y = -40 + (D.y + 40) * u * u;
+              const tail = Math.min(y + 40, 60 + 380 * u);
+              const gr = g.createLinearGradient(D.x, y - tail, D.x, y);
+              gr.addColorStop(0, 'rgba(216,180,254,0)');
+              gr.addColorStop(1, 'rgba(255,255,255,.85)');
+              g.fillStyle = gr;
+              g.beginPath();
+              g.moveTo(D.x - 1, y - tail);
+              g.lineTo(D.x + 1, y - tail);
+              g.lineTo(D.x + DR * 0.8, y);
+              g.lineTo(D.x - DR * 0.8, y);
+              g.closePath();
+              g.fill();
+              soft(D.x, y, 70, '236,72,153', 0.45);
+              g.fillStyle = '#FFFFFF';
+              g.beginPath(); g.ellipse(D.x, y, DR * 0.82, DR * 1.25, 0, 0, 7); g.fill();
+              return;
+            }
+            if (s < 0) return;
+            // ── Точка поставлена ──
+            const fade = Math.exp(-s * 2.2);
+            const rest = 0.16 + 0.05 * Math.sin(s * 2.4);
+            soft(D.x, D.y, 460, '124,58,237', 0.4 * fade + 0.1 + rest * 0.3);
+            soft(D.x, D.y, 170, '236,72,153', 0.6 * fade + 0.16 + rest * 0.5);
+            soft(D.x, D.y, 56, '255,255,255', 0.8 * fade + rest);
+            // Анаморфный блик: раскрывается за 0,12 с, тает до тонкой нити
+            const open = easeOut(clamp(s / 0.12));
+            g.save();
+            g.translate(D.x, D.y);
+            g.scale(1, 0.011);
+            soft(0, 0, 1250 * (0.35 + 0.65 * open), '125,211,252', 0.8 * fade + 0.12);
+            g.restore();
+            g.save();
+            g.translate(D.x, D.y);
+            g.scale(1, 0.0035);
+            soft(0, 0, 820 * (0.35 + 0.65 * open), '255,255,255', 0.95 * fade + 0.15);
+            g.restore();
+            // Звезда: четыре тонкие иглы по диагоналям, медленно поворачиваются
+            const rot = s * 0.12;
+            for (const a of SPK) spike(D.x, D.y, a + rot, (70 + 110 * open) * (0.55 + 0.45 * fade), 1.6, 0.85 * fade + 0.12);
+            // Сама точка: сжимается о строку и пружинит (низ остаётся на строке); потом её закрывает настоящая точка шрифта
+            const k = Math.exp(-s * 16) * Math.cos(s * 38);
+            const rx = DR * (1 + 0.42 * k), ry = DR * (1 - 0.36 * k);
+            g.globalCompositeOperation = 'source-over';
+            g.fillStyle = '#FFFFFF';
+            g.beginPath(); g.ellipse(D.x, D.y + DR - ry, rx, ry, 0, 0, 7); g.fill();
+          });
+          </script></body></html>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+          h: 720
+        locked: true
       - type: html
-        html: <div class="v3-o"><i class="v4-bloom" style="--y:52%;--s:1300px;opacity:.7"></i><i class="v4-dust"></i></div>
+        html: <div class="v3-o"><i class="v4-cover"></i></div>
         place:
           x: 0
           y: 0
@@ -4550,100 +5622,6 @@ slides:
           w: 401
         enter: ufx-slam
         click: true
-      - type: shape
-        kind: rect
-        fill: "#FFFFFF"
-        place:
-          x: 0
-          y: 0
-          w: 1280
-          h: 720
-        click: true
-        clickWith: true
-        enter: ufx-flashs
-        locked: true
-      - type: html
-        html: <div class="v3-o"><i class="v3-lb t in film"></i><i class="v3-lb b in film"></i><i class="v3-grain"></i><i class="v3-vig"></i></div>
-        place:
-          x: 0
-          y: 0
-          w: 1280
-        locked: true
-  - id: dot
-    template: canvas
-    label: Точка
-    bg: "#0B0B12"
-    transition: none
-    at: 64.01
-    logo: false
-    free:
-      - type: html
-        html: <div class="v3-o"><i class="v4-bloom" style="--y:52%;--s:1300px;opacity:.7"></i><i class="v4-dust"></i><i class="v4-glint" style="--x:966px;--y:459px"></i><i class="v4-streak" style="--x:966px;--y:459px"></i></div>
-        place:
-          x: 0
-          y: 0
-          w: 1280
-        locked: true
-      - type: text
-        text: Показ
-        styles:
-          text:
-            size: 116
-            weight: 900
-            leading: 1
-            spacing: -0.04
-            color: "#FFFFFF"
-            align: left
-        place:
-          x: 333
-          y: 236
-          w: 492
-        style: "transform-origin: 307px 124px; animation: v4-impact .55s cubic-bezier(.2, .8, .2, 1), v4-push 3s .55s cubic-bezier(.3, 0, .2, 1) forwards"
-      - type: text
-        text: —
-        styles:
-          text:
-            size: 116
-            weight: 900
-            leading: 1
-            spacing: -0.04
-            color: "#FFFFFF"
-            align: left
-        place:
-          x: 809
-          y: 236
-          w: 178
-        style: "transform-origin: -169px 124px; animation: v4-impact .55s cubic-bezier(.2, .8, .2, 1), v4-push 3s .55s cubic-bezier(.3, 0, .2, 1) forwards"
-      - type: text
-        text: как
-        styles:
-          text:
-            size: 116
-            weight: 900
-            leading: 1
-            spacing: -0.04
-            color: "#FFFFFF"
-            align: left
-        place:
-          x: 300
-          y: 372
-          w: 302
-        style: "transform-origin: 340px -12px; animation: v4-impact .55s cubic-bezier(.2, .8, .2, 1), v4-push 3s .55s cubic-bezier(.3, 0, .2, 1) forwards"
-      - type: text
-        text: кино
-        styles:
-          text:
-            size: 116
-            weight: 900
-            leading: 1
-            spacing: -0.04
-            color: "#FFFFFF"
-            align: left
-        place:
-          x: 585
-          y: 372
-          w: 401
-        style: "transform-origin: 55px -12px; animation: v4-impact .55s cubic-bezier(.2, .8, .2, 1), v4-push 3s .55s cubic-bezier(.3, 0, .2, 1) forwards"
       - type: text
         text: .
         styles:
@@ -4652,22 +5630,33 @@ slides:
             weight: 900
             leading: 1
             spacing: -0.04
-            color: "#F472B6"
+            color: "#FFFFFF"
             align: left
         place:
-          x: 947
+          x: 971
           y: 372
-          w: 73
-        style: "transform-origin: 19px 87px; text-shadow: 0 0 24px rgba(244, 114, 182, .9), 0 0 70px rgba(124, 58, 237, .7); animation: v4-dot .6s cubic-bezier(.2, .8, .2, 1) both, v4-push 3s .6s cubic-bezier(.3, 0, .2, 1) forwards"
-      - type: html
-        html: <div class="v3-o"><i class="v4-expose" style="--x:75.5%;--y:63.7%"></i></div>
+          w: 39
+        enter: ufx-dot
+        click: true
+      - type: text
+        text: SLIDERIA
+        styles:
+          text:
+            size: 18
+            weight: 800
+            leading: 0.92
+            spacing: 0.5
+            color: "#FFFFFF"
+            align: center
         place:
           x: 0
-          y: 0
+          y: 662
           w: 1280
-        locked: true
+        enter: ufx-late
+        click: true
+        clickWith: true
       - type: html
-        html: <div class="v3-o"><i class="v3-lb t thump film"></i><i class="v3-lb b thump film"></i><b class="v3-credit">SLIDERIA</b><i class="v3-grain"></i><i class="v3-vig"></i></div>
+        html: <div class="v3-o"><i class="v3-lb t in film"></i><i class="v3-lb b in film"></i><i class="v3-grain"></i><i class="v3-vig"></i></div>
         place:
           x: 0
           y: 0
