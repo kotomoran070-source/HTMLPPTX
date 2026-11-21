@@ -168,9 +168,12 @@ test('морф: пары перелетают, после перехода — �
   await page.goto('/?deck=morph#1');
   await expect(page.locator('#ct')).toHaveText('1 из 2');
   await page.keyboard.press('ArrowRight');
-  // Во время перехода: снимок старого слайда и летящие копии двух пар; настоящие объекты ждут под ними
-  await expect(page.locator('.morph-layer .morph-fly')).toHaveCount(4);
+  // Во время перехода: снимок старого слайда и летящие копии трёх пар; настоящие объекты ждут под ними
+  await expect(page.locator('.morph-layer .morph-fly')).toHaveCount(6);
   await expect(page.locator('.morph-ghost')).toHaveCount(1);
+  // Плавность — своя у слайда (--tr-ease в стилях презентации): резкий старт под ритм
+  const eases = await page.locator('.morph-layer .morph-fly').evaluateAll((els) => els.map((el) => el.getAnimations()[0]?.effect?.getTiming().easing));
+  expect(new Set(eases)).toEqual(new Set(['cubic-bezier(0.16, 1, 0.3, 1)']));
   // Поворот фигуры не растворяется, а играет в полёте: у копий он в transform
   const turns = await page.locator('.morph-layer .morph-fly').evaluateAll((els) => els.map((el) => el.getAnimations()
     .flatMap((a) => (a.effect as KeyframeEffect).getKeyframes().map((k) => String(k.transform ?? ''))).join(' ')));
@@ -180,9 +183,11 @@ test('морф: пары перелетают, после перехода — �
   const box = page.locator('.slide.on [data-obj="box"]');
   await expect(box).toBeVisible();
   expect(await box.evaluate((el) => el.style.visibility)).toBe('');
+  // Прилетевшая картинка сразу видна: своё появление после полёта не играет (не пропадает и не проявляется заново)
+  expect(await page.locator('.slide.on [data-obj="pic"] .r').evaluate((el) => [getComputedStyle(el).animationName, getComputedStyle(el).opacity])).toEqual(['none', '1']);
   // Назад — тоже морф
   await page.keyboard.press('ArrowLeft');
-  await expect(page.locator('.morph-layer .morph-fly')).toHaveCount(4);
+  await expect(page.locator('.morph-layer .morph-fly')).toHaveCount(6);
   await expect(page.locator('.morph-layer, .morph-ghost')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

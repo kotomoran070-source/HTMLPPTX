@@ -78,6 +78,9 @@ body {
 .stage > .morph-layer::before, .stage > .morph-layer::after { display: none !important; }
 .morph-ghost *, .morph-fly, .morph-fly * { animation: none !important; transition: none !important; }
 .morph-fly { transform-origin: 0 0; will-change: transform, opacity; }
+/* Прилетевший морфом объект уже на месте: своё появление (.r внутри блока) не играет — иначе после полёта
+   он пропадает и проявляется заново */
+.slide.on > .free[data-morphed] .r { animation: none; }
 .stage .slide.on[data-tr="fade"] { animation: tr-fade var(--tr-ms, 600ms) ease both; }
 .stage[data-tr="fade"] > .slide.out { animation: tr-fade-out var(--tr-ms, 600ms) ease both; }
 .stage .slide.on[data-tr="push"] { animation: tr-push-in var(--tr-ms, 600ms) cubic-bezier(.65, 0, .35, 1) both; }

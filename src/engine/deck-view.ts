@@ -3,7 +3,7 @@ import { countUp } from './count-up';
 import { freezeScene } from './show-clock';
 import { textFx } from './text-fx';
 import { enterFx } from './enter-fx';
-import { morph as morphTo, unmorph } from './morph';
+import { morph as morphTo, morphEase, unmorph } from './morph';
 import { getAt, type Path } from './data';
 import { Renderer, carryBlock, keptBlocks } from './render';
 import { SLIDE_H, SLIDE_SIZES, widthOf } from './slide-size';
@@ -529,7 +529,7 @@ export class DeckView {
     if (tr === 'morph') {
       // Пришедший морфом слайд своё появление не играет и после перехода (иначе по концу полёта он дёргается)
       next.classList.add('morph-in');
-      this.endMorph = morphTo(this.stage, prev, next, ms);
+      this.endMorph = morphTo(this.stage, prev, next, ms, morphEase(own));
     } else if (tr === 'doors') this.endMorph = doors(this.stage, prev);
     this.outTimer = window.setTimeout(() => this.endOut(), ms + 60);
   }

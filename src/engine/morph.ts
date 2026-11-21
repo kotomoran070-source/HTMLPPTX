@@ -74,12 +74,24 @@ function anchor(el: HTMLElement): [number, number] {
   return [ax, ay];
 }
 
+/** Плавность морфа по умолчанию — разгон и торможение, как в PowerPoint */
+export const MORPH_EASE = 'cubic-bezier(.65, 0, .35, 1)';
+const EASE_RE = /^(linear|ease(-in|-out|-in-out)?|cubic-bezier\(\s*-?[\d.]+\s*(,\s*-?[\d.]+\s*){3}\))$/;
+
+/**
+ * Плавность морфа у слайда: переменная --tr-ease в стилях презентации (класс слайда), иначе — по умолчанию.
+ * Под ритм музыки — резкий старт (cubic-bezier(.16, 1, .3, 1)): основное движение приходится на сам удар
+ */
+export function morphEase(slide: HTMLElement): string {
+  const v = getComputedStyle(slide).getPropertyValue('--tr-ease').trim();
+  return EASE_RE.test(v) ? v : MORPH_EASE;
+}
+
 /** Запустить морф от prev к next внутри stage; возвращает завершение (убрать слои, показать объекты) */
-export function morph(stage: HTMLElement, prev: HTMLElement, next: HTMLElement, ms: number): () => void {
+export function morph(stage: HTMLElement, prev: HTMLElement, next: HTMLElement, ms: number, ease = MORPH_EASE): () => void {
   const a = objects(prev);
   const b = objects(next);
   const pairs = [...a].filter(([k]) => b.has(k)).map(([k, el]) => ({ from: el, to: b.get(k)!, fb: box(el), tb: box(b.get(k)!) }));
-  const ease = 'cubic-bezier(.65, 0, .35, 1)';
 
   // Снимок старого слайда без перелетающих объектов — растворяется поверх нового
   const ghost = still(prev);

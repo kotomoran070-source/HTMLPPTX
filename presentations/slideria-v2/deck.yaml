@@ -555,6 +555,24 @@ css: |
   .slide.on .v5-par .v5p-cols i { animation: v5-col .55s cubic-bezier(.3, 1.3, .5, 1) calc(.3s + var(--k) * .05s) both; }
   @keyframes v5-col { from { transform: scaleY(0); } }
 
+  /* Морф под ритм: резкий старт — основное движение приходится на сам удар, дальше мягкое торможение */
+  .snap { --tr-ease: cubic-bezier(.16, 1, .3, 1); }
+  /* Свечение за кадром формата — неподвижное, рисуется один раз */
+  .v5-fglow { left: calc(640px - var(--w) / 2 - 50px); top: calc(380px - var(--h) / 2 - 50px); width: calc(var(--w) + 100px); height: calc(var(--h) + 100px);
+    border-radius: 80px; background: radial-gradient(closest-side, rgba(168, 85, 247, .5), rgba(236, 72, 153, .18) 60%, transparent); filter: blur(24px); }
+
+  /* «Место, где можно»: слово из семи горизонтальных срезов — каждый съезжается со своей стороны, с лёгким
+     размытием в движении; под срезами — целое слово (проявляется в конце, чтобы стыки не оставляли швов) */
+  .v6-slit { position: relative; height: 128px; }
+  .v6-slit b { position: absolute; left: 0; top: 0; white-space: nowrap; font: 800 112px/1.12 'Unbounded', var(--font-base); letter-spacing: -.02em; color: #F4F0FF;
+    clip-path: inset(calc(var(--k) * 100% / 7) 0 calc((6 - var(--k)) * 100% / 7) 0); }
+  .v6-slit.b b { font-size: 86px; color: transparent; -webkit-text-stroke: 3px #F4F0FF; }
+  .v6-slit .v6-ghost { clip-path: none; opacity: 0; }
+  .slide.on .v6-slit b { animation: v6-slit .46s cubic-bezier(.16, 1, .3, 1) calc(var(--d, 0s) + var(--k) * 22ms) both; }
+  .slide.on .v6-slit .v6-ghost { animation: v6-whole .01s linear calc(var(--d, 0s) + .5s) both; }
+  @keyframes v6-slit { from { opacity: 0; transform: translateX(calc(var(--s) * 220px)); filter: blur(5px); } 35% { opacity: 1; } to { opacity: 1; transform: none; filter: none; } }
+  @keyframes v6-whole { to { opacity: 1; } }
+
   .th-winter { --tx: #E8F1FF; --tx2: #C2D3EC; --mu: #8BA0BF; --bg: #081426; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Onest', var(--font-base); --font-head: 'Unbounded', var(--font-base); }
   .th-sakura { --tx: #3A1624; --tx2: #5C2E3E; --mu: #9A6B7B; --bg: #FFF6F8; --surf: #FFFFFF; --alt: color-mix(in srgb, #E0517A 8%, #FFFFFF); --bd: color-mix(in srgb, #E0517A 18%, #FFFFFF); --bd2: color-mix(in srgb, #E0517A 28%, #FFFFFF); --font: 'Nunito', var(--font-base); --font-head: 'Nunito', var(--font-base); }
   .th-autumn { --tx: #F6EADB; --tx2: #E2CDB6; --mu: #B39678; --bg: #1A110B; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Literata', var(--font-base); --font-head: 'Literata', var(--font-base); }
@@ -1846,8 +1864,6 @@ slides:
     backdropSpeed: 2.5
     transition: none
     at: 10.677
-    steps:
-      - 11.343
     logo: false
     free:
       - type: html
@@ -1857,43 +1873,19 @@ slides:
           y: 0
           w: 1280
         locked: true
-      - type: text
-        text: МЕСТО,
-        styles:
-          text:
-            size: 112
-            weight: 900
-            leading: 0.92
-            spacing: -0.035
-            color: text
+      - type: html
+        html: <div class="v6-slit a"><b style="--k:0;--s:1">МЕСТО,</b><b style="--k:1;--s:-1">МЕСТО,</b><b style="--k:2;--s:1">МЕСТО,</b><b style="--k:3;--s:-1">МЕСТО,</b><b style="--k:4;--s:1">МЕСТО,</b><b style="--k:5;--s:-1">МЕСТО,</b><b style="--k:6;--s:1">МЕСТО,</b><b class="v6-ghost">МЕСТО,</b></div>
+        place:
+          x: 92
+          y: 160
+          w: 1150
+        locked: true
+      - type: html
+        html: <div class="v6-slit b" style="--d:0.667s"><b style="--k:0;--s:1">ГДЕ МОЖНО</b><b style="--k:1;--s:-1">ГДЕ МОЖНО</b><b style="--k:2;--s:1">ГДЕ МОЖНО</b><b style="--k:3;--s:-1">ГДЕ МОЖНО</b><b style="--k:4;--s:1">ГДЕ МОЖНО</b><b style="--k:5;--s:-1">ГДЕ МОЖНО</b><b style="--k:6;--s:1">ГДЕ МОЖНО</b><b class="v6-ghost">ГДЕ МОЖНО</b></div>
         place:
           x: 96
-          y: 170
+          y: 300
           w: 1150
-        enter: ufx-slam
-        style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-shake .3s linear 0s, v3-rgbhit .4s ease-out 0s both"
-      - type: text
-        text: ГДЕ МОЖНО
-        styles:
-          text:
-            size: 86
-            weight: 900
-            leading: 0.92
-            spacing: -0.035
-            color: text
-        place:
-          x: 100
-          y: 310
-          w: 1150
-        enter: ufx-whip
-        click: true
-        style: "-webkit-text-stroke: 3.5px #FFFFFF; -webkit-text-fill-color: transparent"
-      - type: html
-        html: <div class="v3-o"><i class="v5-glow a"></i><i class="v5-streak" style="--y:232px;--x:360px"></i><i class="v5-streak" style="--y:356px;--x:420px;--d:.667s"></i></div>
-        place:
-          x: 0
-          y: 0
-          w: 1280
         locked: true
       - type: html
         html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i></div>
@@ -2816,6 +2808,13 @@ slides:
           y: 40
           w: 1280
         enter: fade
+      - type: html
+        html: <div class="v3-o"><i class="v5-fglow" style="--w:768px;--h:432px"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - id: scr
         type: image
         src: ./assets/vista.webp
@@ -2823,10 +2822,6 @@ slides:
         radius: 24
         stroke: "#FFFFFF"
         width: 2
-        shadow: lg
-        glow: accent
-        glowSize: 36
-        glowOpacity: 0.55
         angle: -2
         place:
           x: 256
@@ -2834,14 +2829,10 @@ slides:
           w: 768
           h: 432
         enter: ufx-slam
-        style: "animation: v3-tilt 2.6667s ease-in-out infinite alternate"
       - id: fm-b
         type: shape
         kind: pill
-        fill: surface
-        glass: true
-        glassBlur: 14
-        glassOpacity: 0.28
+        fill: "#140E26"
         stroke: "#FFFFFF"
         width: 1
         text: "**16:9**  ·  ШИРОКИЙ"
@@ -2870,8 +2861,9 @@ slides:
     template: canvas
     label: 4:3
     bg: var(--bg)
+    class: snap
     transition: morph
-    transitionMs: 360
+    transitionMs: 420
     at: 25.343
     logo: false
     free:
@@ -2897,6 +2889,13 @@ slides:
           x: 0
           y: 40
           w: 1280
+      - type: html
+        html: <div class="v3-o"><i class="v5-fglow" style="--w:576px;--h:432px"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - id: scr
         type: image
         src: ./assets/vista.webp
@@ -2904,24 +2903,16 @@ slides:
         radius: 24
         stroke: "#FFFFFF"
         width: 2
-        shadow: lg
-        glow: accent
-        glowSize: 36
-        glowOpacity: 0.55
         angle: 2
         place:
           x: 352
           y: 164
           w: 576
           h: 432
-        style: "animation: v3-tilt 2.6667s ease-in-out infinite alternate"
       - id: fm-b
         type: shape
         kind: pill
-        fill: surface
-        glass: true
-        glassBlur: 14
-        glassOpacity: 0.28
+        fill: "#140E26"
         stroke: "#FFFFFF"
         width: 1
         text: "**4:3**  ·  КЛАССИКА"
@@ -2948,8 +2939,9 @@ slides:
     template: canvas
     label: 21:9
     bg: var(--bg)
+    class: snap
     transition: morph
-    transitionMs: 360
+    transitionMs: 420
     at: 28.01
     logo: false
     free:
@@ -2975,6 +2967,13 @@ slides:
           x: 0
           y: 40
           w: 1280
+      - type: html
+        html: <div class="v3-o"><i class="v5-fglow" style="--w:1008px;--h:432px"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - id: scr
         type: image
         src: ./assets/vista.webp
@@ -2982,24 +2981,16 @@ slides:
         radius: 24
         stroke: "#FFFFFF"
         width: 2
-        shadow: lg
-        glow: accent
-        glowSize: 36
-        glowOpacity: 0.55
         angle: -1.5
         place:
           x: 136
           y: 164
           w: 1008
           h: 432
-        style: "animation: v3-tilt 2.6667s ease-in-out infinite alternate"
       - id: fm-b
         type: shape
         kind: pill
-        fill: surface
-        glass: true
-        glassBlur: 14
-        glassOpacity: 0.28
+        fill: "#140E26"
         stroke: "#FFFFFF"
         width: 1
         text: "**21:9**  ·  КИНО"
@@ -3026,8 +3017,9 @@ slides:
     template: canvas
     label: ТЕМЫ
     bg: var(--bg)
+    class: snap
     transition: morph
-    transitionMs: 380
+    transitionMs: 440
     at: 30.677
     logo: false
     free:
@@ -3058,10 +3050,6 @@ slides:
         src: ./assets/vista.webp
         fit: cover
         radius: 0
-        shadow: lg
-        glow: accent
-        glowSize: 36
-        glowOpacity: 0.55
         angle: 0
         place:
           x: -20
@@ -4034,8 +4022,9 @@ slides:
     template: canvas
     label: Морф 2
     bg: var(--bg)
+    class: snap
     transition: morph
-    transitionMs: 380
+    transitionMs: 440
     at: 48.677
     logo: false
     free:
@@ -4160,8 +4149,9 @@ slides:
     template: canvas
     label: Морф 3
     bg: var(--bg)
+    class: snap
     transition: morph
-    transitionMs: 380
+    transitionMs: 440
     at: 49.343
     logo: false
     free:
@@ -4280,8 +4270,9 @@ slides:
     template: canvas
     label: Морф 4
     bg: var(--bg)
+    class: snap
     transition: morph
-    transitionMs: 380
+    transitionMs: 440
     at: 50.01
     logo: false
     free:
