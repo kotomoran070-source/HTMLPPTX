@@ -573,6 +573,72 @@ css: |
   @keyframes v6-slit { from { opacity: 0; transform: translateX(calc(var(--s) * 220px)); filter: blur(5px); } 35% { opacity: 1; } to { opacity: 1; transform: none; filter: none; } }
   @keyframes v6-whole { to { opacity: 1; } }
 
+  /* ════════ «Любой формат слайда»: одна карточка на весь отрезок 24.010–30.677 (6,667 с) ════════ */
+  .v7-fm { position: relative; width: 100%; height: 432px; }
+  .v7-tilt, .v7-punch { position: absolute; inset: 0; }
+  .v7-tilt { transform: perspective(1200px) rotateY(0deg) rotateX(0deg); }
+  .slide.on .v7-tilt { animation: v7-tilt 6.6667s both; }
+  @keyframes v7-tilt {
+    0% { transform: perspective(1200px) rotateY(-14deg) rotateX(4deg); animation-timing-function: ease-in-out; }
+    20% { transform: perspective(1200px) rotateY(14deg) rotateX(-4deg); animation-timing-function: ease-in-out; }
+    40% { transform: perspective(1200px) rotateY(-14deg) rotateX(4deg); animation-timing-function: ease-in-out; }
+    60% { transform: perspective(1200px) rotateY(14deg) rotateX(-4deg); animation-timing-function: ease-in-out; }
+    80% { transform: perspective(1200px) rotateY(-9deg) rotateX(3deg); animation-timing-function: ease-in-out; }
+    to { transform: perspective(1200px) rotateY(0deg) rotateX(0deg); }
+  }
+  /* Толчок в удар смены формата */
+  .slide.on .v7-punch { animation: v7-punch 6.6667s linear both; }
+  @keyframes v7-punch {
+    0%, 19.9% { transform: none; }
+    20% { transform: scale(1.045); animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
+    24%, 59.9% { transform: none; }
+    60% { transform: scale(1.045); animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
+    64%, to { transform: none; }
+  }
+  /* Карточка: ширина меняется в удар с резким стартом, высота и центр — те же; картинка перекадрируется */
+  .v7-card { position: absolute; top: 0; left: 50%; width: 100%; height: 100%; transform: translateX(-50%); box-sizing: border-box;
+    border: 2px solid #FFFFFF; border-radius: 24px; overflow: hidden; background: #0B0816; }
+  .v7-card img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .slide.on .v7-card { animation: v7-w 6.6667s both; }
+  @keyframes v7-w {
+    0%, 20% { width: 768px; animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+    27%, 60% { width: 576px; animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+    67%, 92% { width: 100%; height: 100%; top: 0; border-radius: 24px; border-color: #FFFFFF; animation-timing-function: cubic-bezier(.32, 0, .67, 0); }
+    /* Раскрытие на весь экран с ускорением — в склейку с «ТЕМАМИ» (их кадр — та же картинка на весь экран) */
+    to { width: 1320px; height: 760px; top: -184px; border-radius: 0; border-color: rgba(255, 255, 255, 0); }
+  }
+  /* Свечение за карточкой — размытое пятно, тянется вместе с ней (масштабом, без перерисовки размытия) */
+  /* Ровно по карточке: наружу свечение расходится размытием (рамку блока размытие не раздвигает — блок не ужимается) */
+  .v7-glow { position: absolute; inset: 0; border-radius: 60px; background: radial-gradient(closest-side, rgba(168, 85, 247, .62), rgba(236, 72, 153, .24) 62%, transparent); filter: blur(34px); }
+  .slide.on .v7-glow { animation: v7-gw 6.6667s both; }
+  @keyframes v7-gw {
+    0%, 20% { transform: scaleX(.7619); animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+    27%, 60% { transform: scaleX(.5714); animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+    67%, 93% { transform: none; opacity: 1; }
+    to { opacity: 0; }
+  }
+  /* Подпись формата: старая уходит вверх, новая встаёт снизу — в тот же удар */
+  .v7-bd { position: absolute; left: 24px; bottom: 24px; padding: 14px 24px; border-radius: 99px; background: #140E26; border: 1px solid #FFFFFF;
+    color: #FFFFFF; font: 600 22px/1 'Onest', var(--font-base); white-space: pre; }
+  .v7-bd s { text-decoration: none; font-weight: 800; }
+  .v7-bd.a, .v7-bd.b { opacity: 0; }
+  .slide.on .v7-bd.a { animation: v7-ba 6.6667s linear both; }
+  .slide.on .v7-bd.b { animation: v7-bb 6.6667s linear both; }
+  .slide.on .v7-bd.c { animation: v7-bc 6.6667s linear both; }
+  @keyframes v7-ba { 0%, 19.6% { opacity: 1; transform: none; } 22.5%, to { opacity: 0; transform: translateY(-16px); } }
+  @keyframes v7-bb { 0%, 20% { opacity: 0; transform: translateY(16px); } 23%, 59.6% { opacity: 1; transform: none; } 62.5%, to { opacity: 0; transform: translateY(-16px); } }
+  @keyframes v7-bc { 0%, 60% { opacity: 0; transform: translateY(16px); } 63%, 93% { opacity: 1; transform: none; } 96%, to { opacity: 0; } }
+  /* Огромная контурная надпись формата позади — плывёт и сменяется в удар */
+  .v7-bg { left: 0; top: 150px; white-space: nowrap; font: 900 420px/.8 var(--font-head); letter-spacing: -.04em; color: transparent;
+    -webkit-text-stroke: 2px color-mix(in srgb, var(--tx) 14%, transparent); opacity: 0; }
+  .v7-bg.c { opacity: 1; }
+  .slide.on .v7-bg.a { animation: v7-bga 6.6667s linear both; }
+  .slide.on .v7-bg.b { animation: v7-bgb 6.6667s linear both; }
+  .slide.on .v7-bg.c { animation: v7-bgc 6.6667s linear both; }
+  @keyframes v7-bga { 0% { opacity: 1; transform: translateX(60px); } 19.9% { opacity: 1; transform: translateX(-60px); } 20%, to { opacity: 0; } }
+  @keyframes v7-bgb { 0%, 19.9% { opacity: 0; } 20% { opacity: 1; transform: translateX(60px); } 59.9% { opacity: 1; transform: translateX(-180px); } 60%, to { opacity: 0; } }
+  @keyframes v7-bgc { 0%, 59.9% { opacity: 0; } 60% { opacity: 1; transform: translateX(140px); } 93% { opacity: 1; } to { opacity: 0; transform: none; } }
+
   .th-winter { --tx: #E8F1FF; --tx2: #C2D3EC; --mu: #8BA0BF; --bg: #081426; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Onest', var(--font-base); --font-head: 'Unbounded', var(--font-base); }
   .th-sakura { --tx: #3A1624; --tx2: #5C2E3E; --mu: #9A6B7B; --bg: #FFF6F8; --surf: #FFFFFF; --alt: color-mix(in srgb, #E0517A 8%, #FFFFFF); --bd: color-mix(in srgb, #E0517A 18%, #FFFFFF); --bd2: color-mix(in srgb, #E0517A 28%, #FFFFFF); --font: 'Nunito', var(--font-base); --font-head: 'Nunito', var(--font-base); }
   .th-autumn { --tx: #F6EADB; --tx2: #E2CDB6; --mu: #B39678; --bg: #1A110B; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Literata', var(--font-base); --font-head: 'Literata', var(--font-base); }
@@ -2777,16 +2843,23 @@ slides:
           y: 0
           w: 1280
         locked: true
-  - id: f169
+  - id: formats
     template: canvas
-    label: 16:9
+    label: Любой формат слайда
     bg: var(--bg)
     transition: none
     at: 24.01
     logo: false
     free:
       - type: html
-        html: <div class="v3-o"><i class="v3-glow still" style="--gx:50%;--gy:55%"></i><b class="v3-bgt" style="--y:150px;--s:420px;--from:60px;--to:-260px;--d:3.6s">16:9</b></div>
+        html: <div class="v3-o"><i class="v3-glow still" style="--gx:50%;--gy:55%"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
+      - type: html
+        html: <div class="v3-o"><b class="v7-bg a">16:9</b><b class="v7-bg b">4:3</b><b class="v7-bg c">21:9</b></div>
         place:
           x: 0
           y: 0
@@ -2809,205 +2882,18 @@ slides:
           w: 1280
         enter: fade
       - type: html
-        html: <div class="v3-o"><i class="v5-fglow" style="--w:768px;--h:432px"></i></div>
-        place:
-          x: 0
-          y: 0
-          w: 1280
-        locked: true
-      - id: scr
-        type: image
-        src: ./assets/vista.webp
-        fit: cover
-        radius: 24
-        stroke: "#FFFFFF"
-        width: 2
-        angle: -2
-        place:
-          x: 256
-          y: 164
-          w: 768
-          h: 432
-        enter: ufx-slam
-      - id: fm-b
-        type: shape
-        kind: pill
-        fill: "#140E26"
-        stroke: "#FFFFFF"
-        width: 1
-        text: "**16:9**  ·  ШИРОКИЙ"
-        styles:
-          text:
-            size: 22
-            weight: 600
-            color: "#FFFFFF"
-        angle: -2
-        place:
-          x: 280
-          y: 518
-          w: 290
-          h: 54
-        enter: fade
-        delay: 150
-        style: "animation: v3-punch-s .3s cubic-bezier(.12, .9, .25, 1) backwards"
-      - type: html
-        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-fl ac"></i></div>
-        place:
-          x: 0
-          y: 0
-          w: 1280
-        locked: true
-  - id: f43
-    template: canvas
-    label: 4:3
-    bg: var(--bg)
-    class: snap
-    transition: morph
-    transitionMs: 420
-    at: 25.343
-    logo: false
-    free:
-      - type: html
-        html: <div class="v3-o"><i class="v3-glow still" style="--gx:50%;--gy:55%"></i><b class="v3-bgt" style="--y:150px;--s:420px;--from:60px;--to:-260px;--d:3.6s">4:3</b></div>
-        place:
-          x: 0
-          y: 0
-          w: 1280
-        locked: true
-      - type: text
-        text: ЛЮБОЙ ФОРМАТ СЛАЙДА
-        id: fm-k
-        styles:
-          text:
-            size: 20
-            weight: 800
-            leading: 1.2
-            spacing: 0.3
-            color: text2
-            align: center
-        place:
-          x: 0
-          y: 40
-          w: 1280
-      - type: html
-        html: <div class="v3-o"><i class="v5-fglow" style="--w:576px;--h:432px"></i></div>
-        place:
-          x: 0
-          y: 0
-          w: 1280
-        locked: true
-      - id: scr
-        type: image
-        src: ./assets/vista.webp
-        fit: cover
-        radius: 24
-        stroke: "#FFFFFF"
-        width: 2
-        angle: 2
-        place:
-          x: 352
-          y: 164
-          w: 576
-          h: 432
-      - id: fm-b
-        type: shape
-        kind: pill
-        fill: "#140E26"
-        stroke: "#FFFFFF"
-        width: 1
-        text: "**4:3**  ·  КЛАССИКА"
-        styles:
-          text:
-            size: 22
-            weight: 600
-            color: "#FFFFFF"
-        angle: 2
-        place:
-          x: 376
-          y: 518
-          w: 290
-          h: 54
-        style: "animation: v3-punch-s .3s cubic-bezier(.12, .9, .25, 1) backwards"
-      - type: html
-        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-fl soft"></i></div>
-        place:
-          x: 0
-          y: 0
-          w: 1280
-        locked: true
-  - id: f219
-    template: canvas
-    label: 21:9
-    bg: var(--bg)
-    class: snap
-    transition: morph
-    transitionMs: 420
-    at: 28.01
-    logo: false
-    free:
-      - type: html
-        html: <div class="v3-o"><i class="v3-glow still" style="--gx:50%;--gy:55%"></i><b class="v3-bgt" style="--y:150px;--s:420px;--from:60px;--to:-260px;--d:3.6s">21:9</b></div>
-        place:
-          x: 0
-          y: 0
-          w: 1280
-        locked: true
-      - type: text
-        text: ЛЮБОЙ ФОРМАТ СЛАЙДА
-        id: fm-k
-        styles:
-          text:
-            size: 20
-            weight: 800
-            leading: 1.2
-            spacing: 0.3
-            color: text2
-            align: center
-        place:
-          x: 0
-          y: 40
-          w: 1280
-      - type: html
-        html: <div class="v3-o"><i class="v5-fglow" style="--w:1008px;--h:432px"></i></div>
-        place:
-          x: 0
-          y: 0
-          w: 1280
-        locked: true
-      - id: scr
-        type: image
-        src: ./assets/vista.webp
-        fit: cover
-        radius: 24
-        stroke: "#FFFFFF"
-        width: 2
-        angle: -1.5
+        html: <div class="v7-fm"><div class="v7-tilt"><i class="v7-glow"></i><div class="v7-punch"><div class="v7-card"><img data-i="0"><b class="v7-bd a"><s>16:9</s>  ·  ШИРОКИЙ</b><b class="v7-bd b"><s>4:3</s>  ·  КЛАССИКА</b><b class="v7-bd c"><s>21:9</s>  ·  КИНО</b></div></div></div></div>
         place:
           x: 136
           y: 164
           w: 1008
-          h: 432
-      - id: fm-b
-        type: shape
-        kind: pill
-        fill: "#140E26"
-        stroke: "#FFFFFF"
-        width: 1
-        text: "**21:9**  ·  КИНО"
-        styles:
-          text:
-            size: 22
-            weight: 600
-            color: "#FFFFFF"
-        angle: -1.5
-        place:
-          x: 160
-          y: 518
-          w: 290
-          h: 54
-        style: "animation: v3-punch-s .3s cubic-bezier(.12, .9, .25, 1) backwards"
+        images:
+          - src: ./assets/vista.webp
+        enter: ufx-slam
+        id: scr
+        locked: true
       - type: html
-        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-fl soft"></i></div>
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-fl ac"></i></div>
         place:
           x: 0
           y: 0
@@ -3017,9 +2903,7 @@ slides:
     template: canvas
     label: ТЕМЫ
     bg: var(--bg)
-    class: snap
-    transition: morph
-    transitionMs: 440
+    transition: none
     at: 30.677
     logo: false
     free:
