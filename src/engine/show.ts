@@ -24,6 +24,7 @@ import { fullscreenOn, planScreens, popupOn, screensGranted } from './screens';
 import { Sync } from './sync';
 import { currentTheme, onThemeChange, setTheme, toggleTheme } from './theme';
 import { themeMode } from './deck-theme';
+import { warmDeckFonts } from './fonts';
 
 const NAV_H = 56;
 
@@ -987,6 +988,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   applyAccentFlow(deck.theme?.accentFlow);
   index = -1;
   go(fromHash(), false);
+  // Шрифты презентации — заранее, когда первый слайд уже на экране (его картинки и шрифты грузятся первыми)
+  setTimeout(() => warmDeckFonts(deck.fonts), 400);
   // Автопоказ: кнопка «Автопоказ» в студии (?autoplay) или «Сразу при открытии» у презентации
   const params = new URLSearchParams(location.search);
   if (music && params.has('rehearse')) {

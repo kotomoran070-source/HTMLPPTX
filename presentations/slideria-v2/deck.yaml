@@ -687,11 +687,13 @@ css: |
   .v4-fall i.nr { top: calc(var(--s) * -1.3); filter: blur(var(--b)); will-change: transform; }
   /* Крупный снег — мягкий круг градиентом вместо размытия: так же «не в фокусе», без пересчёта фильтра */
   .v4-fall .snow.nr { filter: none; background: radial-gradient(ellipse closest-side, rgba(255, 255, 255, .85), rgba(255, 255, 255, .32) 50%, rgba(255, 255, 255, 0)); }
+  /* «3D»: подпись в углу — на одной линии с текстом слайда, а не впритык к краю */
+  .v6-robot .v3-hud.tl { left: 80px; top: 52px; }
 
   .th-winter { --tx: #E8F1FF; --tx2: #C2D3EC; --mu: #8BA0BF; --bg: #081426; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Onest', var(--font-base); --font-head: 'Unbounded', var(--font-base); }
-  .th-sakura { --tx: #3A1624; --tx2: #5C2E3E; --mu: #9A6B7B; --bg: #FFF6F8; --surf: #FFFFFF; --alt: color-mix(in srgb, #E0517A 8%, #FFFFFF); --bd: color-mix(in srgb, #E0517A 18%, #FFFFFF); --bd2: color-mix(in srgb, #E0517A 28%, #FFFFFF); --font: 'Nunito', var(--font-base); --font-head: 'Nunito', var(--font-base); }
-  .th-autumn { --tx: #F6EADB; --tx2: #E2CDB6; --mu: #B39678; --bg: #1A110B; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Literata', var(--font-base); --font-head: 'Literata', var(--font-base); }
   .th-party { --tx: #2A1316; --tx2: #4D2C30; --mu: #8C6A6D; --bg: #FFFAF3; --surf: #FFFFFF; --alt: color-mix(in srgb, #EF3E6B 8%, #FFFFFF); --bd: color-mix(in srgb, #EF3E6B 18%, #FFFFFF); --bd2: color-mix(in srgb, #EF3E6B 28%, #FFFFFF); --font: 'Montserrat', var(--font-base); --font-head: 'Montserrat', var(--font-base); }
+  .th-autumn { --tx: #F6EADB; --tx2: #E2CDB6; --mu: #B39678; --bg: #1A110B; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Literata', var(--font-base); --font-head: 'Literata', var(--font-base); }
+  .th-sakura { --tx: #3A1624; --tx2: #5C2E3E; --mu: #9A6B7B; --bg: #FFF6F8; --surf: #FFFFFF; --alt: color-mix(in srgb, #E0517A 8%, #FFFFFF); --bd: color-mix(in srgb, #E0517A 18%, #FFFFFF); --bd2: color-mix(in srgb, #E0517A 28%, #FFFFFF); --font: 'Nunito', var(--font-base); --font-head: 'Nunito', var(--font-base); }
   @keyframes ufx-flashs { from { opacity: .45; } to { opacity: 0; } }
   @keyframes ufx-late { 0%, 55% { opacity: 0; letter-spacing: .9em; } to { opacity: .85; } }
 music:
@@ -3135,23 +3137,23 @@ slides:
           y: 0
           w: 1280
         locked: true
-  - id: th-sakura
+  - id: th-party
     template: canvas
-    label: "Тема: Сакура"
-    bg: "#FFF6F8"
-    backdrop: petals
+    label: "Тема: Праздник"
+    bg: "#FFFAF3"
+    backdrop: confetti
     backdropOpacity: 1
     backdropSpeed: 1.3
     theme:
-      accent: "#E0517A"
-      accent2: "#F6A5BE"
-    class: th-sakura
+      accent: "#EF3E6B"
+      accent2: "#FBBF24"
+    class: th-party
     transition: none
     at: 33.343
     logo: false
     free:
       - type: html
-        html: <div class="v3-o"><div class="v4-fall"><i class="petal" style="--x:38.6%;--s:11px;--t:8.04s;--dl:-6.04s;--dx:-107px;--rot:13deg;--c:#FBBF24;opacity:0.34"></i><i class="petal" style="--x:77.2%;--s:9px;--t:9.50s;--dl:-2.42s;--dx:-69px;--rot:82deg;--c:#22C55E;opacity:0.39"></i><i class="petal" style="--x:60.0%;--s:12px;--t:11.69s;--dl:-7.43s;--dx:-108px;--rot:51deg;--c:#EF3E6B;opacity:0.31"></i><i class="petal" style="--x:63.4%;--s:14px;--t:8.04s;--dl:-5.18s;--dx:-54px;--rot:-80deg;--c:#FBBF24;opacity:0.32"></i><i class="petal" style="--x:5.3%;--s:11px;--t:8.99s;--dl:-3.38s;--dx:-55px;--rot:-294deg;--c:#3B82F6;opacity:0.28"></i><i class="petal" style="--x:84.0%;--s:9px;--t:9.02s;--dl:-2.74s;--dx:-95px;--rot:-273deg;--c:#FBBF24;opacity:0.27"></i><i class="petal" style="--x:57.8%;--s:13px;--t:9.19s;--dl:-7.21s;--dx:-64px;--rot:-6deg;--c:#A855F7;opacity:0.37"></i><i class="petal" style="--x:73.6%;--s:14px;--t:10.42s;--dl:-6.04s;--dx:-54px;--rot:336deg;--c:#FBBF24;opacity:0.37"></i><i class="petal" style="--x:30.8%;--s:14px;--t:11.97s;--dl:-10.76s;--dx:-44px;--rot:161deg;--c:#22C55E;opacity:0.27"></i><i class="petal" style="--x:18.6%;--s:14px;--t:8.20s;--dl:-5.60s;--dx:-104px;--rot:59deg;--c:#A855F7;opacity:0.41"></i><i class="petal" style="--x:51.5%;--s:12px;--t:8.53s;--dl:-5.91s;--dx:-43px;--rot:131deg;--c:#EF3E6B;opacity:0.40"></i><i class="petal" style="--x:68.0%;--s:12px;--t:10.53s;--dl:-2.30s;--dx:-158px;--rot:94deg;--c:#22C55E;opacity:0.42"></i><i class="petal" style="--x:65.3%;--s:15px;--t:9.20s;--dl:-2.83s;--dx:-43px;--rot:176deg;--c:#A855F7;opacity:0.42"></i><i class="petal" style="--x:24.2%;--s:11px;--t:9.85s;--dl:-4.26s;--dx:-115px;--rot:-326deg;--c:#22C55E;opacity:0.29"></i><i class="petal" style="--x:30.6%;--s:12px;--t:10.90s;--dl:-4.61s;--dx:-141px;--rot:-131deg;--c:#FBBF24;opacity:0.27"></i><i class="petal" style="--x:63.5%;--s:11px;--t:7.37s;--dl:-4.00s;--dx:-84px;--rot:-49deg;--c:#3B82F6;opacity:0.34"></i><i class="petal" style="--x:83.2%;--s:15px;--t:11.49s;--dl:-7.45s;--dx:-153px;--rot:-69deg;--c:#3B82F6;opacity:0.34"></i><i class="petal" style="--x:84.1%;--s:8px;--t:7.26s;--dl:-1.74s;--dx:-74px;--rot:120deg;--c:#FBBF24;opacity:0.26"></i><i class="petal" style="--x:30.7%;--s:12px;--t:8.36s;--dl:-6.32s;--dx:-57px;--rot:-350deg;--c:#A855F7;opacity:0.40"></i><i class="petal" style="--x:7.3%;--s:8px;--t:11.56s;--dl:-0.45s;--dx:-132px;--rot:348deg;--c:#22C55E;opacity:0.44"></i><i class="petal" style="--x:70.8%;--s:25px;--t:4.61s;--dl:-0.04s;--dx:-165px;--rot:-278deg;--c:#3B82F6;opacity:0.93"></i><i class="petal" style="--x:40.5%;--s:24px;--t:6.50s;--dl:-4.39s;--dx:-78px;--rot:95deg;--c:#EF3E6B;opacity:0.68"></i><i class="petal" style="--x:72.2%;--s:15px;--t:7.22s;--dl:-6.42s;--dx:-260px;--rot:-245deg;--c:#FBBF24;opacity:0.83"></i><i class="petal" style="--x:98.5%;--s:19px;--t:6.29s;--dl:-3.47s;--dx:-144px;--rot:116deg;--c:#EF3E6B;opacity:0.76"></i><i class="petal" style="--x:33.6%;--s:28px;--t:4.18s;--dl:-2.27s;--dx:-97px;--rot:-267deg;--c:#22C55E;opacity:0.93"></i><i class="petal" style="--x:81.9%;--s:19px;--t:5.53s;--dl:-1.17s;--dx:-63px;--rot:-312deg;--c:#3B82F6;opacity:0.79"></i><i class="petal" style="--x:2.1%;--s:27px;--t:5.24s;--dl:-3.77s;--dx:-86px;--rot:281deg;--c:#3B82F6;opacity:0.92"></i><i class="petal" style="--x:67.6%;--s:19px;--t:6.23s;--dl:-0.01s;--dx:-228px;--rot:-272deg;--c:#EF3E6B;opacity:0.67"></i><i class="petal" style="--x:22.2%;--s:18px;--t:3.73s;--dl:-2.44s;--dx:-163px;--rot:-184deg;--c:#FBBF24;opacity:0.60"></i><i class="petal" style="--x:86.3%;--s:15px;--t:6.36s;--dl:-1.77s;--dx:-210px;--rot:34deg;--c:#22C55E;opacity:0.86"></i><i class="petal" style="--x:87.9%;--s:26px;--t:5.87s;--dl:-2.39s;--dx:-141px;--rot:-102deg;--c:#A855F7;opacity:0.80"></i><i class="petal" style="--x:96.1%;--s:27px;--t:6.46s;--dl:-4.61s;--dx:-247px;--rot:49deg;--c:#3B82F6;opacity:0.66"></i><i class="petal" style="--x:44.2%;--s:24px;--t:7.08s;--dl:-5.30s;--dx:-96px;--rot:138deg;--c:#3B82F6;opacity:0.77"></i><i class="petal" style="--x:56.1%;--s:13px;--t:3.52s;--dl:-1.94s;--dx:-119px;--rot:308deg;--c:#EF3E6B;opacity:0.89"></i><i class="petal" style="--x:86.1%;--s:27px;--t:7.31s;--dl:-6.71s;--dx:-193px;--rot:-320deg;--c:#3B82F6;opacity:0.80"></i><i class="petal" style="--x:41.2%;--s:13px;--t:4.95s;--dl:-1.50s;--dx:-200px;--rot:-94deg;--c:#FBBF24;opacity:0.59"></i><i class="petal" style="--x:41.7%;--s:25px;--t:5.06s;--dl:-4.15s;--dx:-62px;--rot:-322deg;--c:#22C55E;opacity:0.73"></i><i class="petal" style="--x:11.7%;--s:18px;--t:5.79s;--dl:-0.26s;--dx:-187px;--rot:-161deg;--c:#3B82F6;opacity:0.61"></i><i class="petal" style="--x:55.9%;--s:15px;--t:4.24s;--dl:-1.79s;--dx:-254px;--rot:145deg;--c:#FBBF24;opacity:0.95"></i><i class="petal" style="--x:19.6%;--s:12px;--t:5.25s;--dl:-1.15s;--dx:-122px;--rot:88deg;--c:#3B82F6;opacity:0.73"></i><i class="petal" style="--x:10.8%;--s:24px;--t:3.63s;--dl:-2.48s;--dx:-248px;--rot:129deg;--c:#22C55E;opacity:0.59"></i><i class="petal" style="--x:16.5%;--s:18px;--t:7.26s;--dl:-2.37s;--dx:-72px;--rot:-215deg;--c:#EF3E6B;opacity:0.66"></i><i class="petal" style="--x:15.3%;--s:20px;--t:4.12s;--dl:-2.59s;--dx:-162px;--rot:-268deg;--c:#A855F7;opacity:0.99"></i><i class="petal" style="--x:69.1%;--s:14px;--t:6.20s;--dl:-2.39s;--dx:-205px;--rot:-39deg;--c:#FBBF24;opacity:0.97"></i><i class="petal" style="--x:64.2%;--s:23px;--t:4.10s;--dl:-3.33s;--dx:-141px;--rot:254deg;--c:#22C55E;opacity:0.91"></i><i class="petal" style="--x:66.6%;--s:24px;--t:3.51s;--dl:-2.92s;--dx:-129px;--rot:-71deg;--c:#3B82F6;opacity:0.98"></i><i class="petal" style="--x:56.0%;--s:12px;--t:4.94s;--dl:-2.54s;--dx:-167px;--rot:-7deg;--c:#FBBF24;opacity:0.56"></i><i class="petal" style="--x:53.0%;--s:14px;--t:4.12s;--dl:-0.10s;--dx:-160px;--rot:194deg;--c:#22C55E;opacity:0.63"></i><i class="petal" style="--x:74.2%;--s:25px;--t:6.73s;--dl:-2.60s;--dx:-231px;--rot:293deg;--c:#FBBF24;opacity:0.85"></i><i class="petal" style="--x:10.0%;--s:12px;--t:5.00s;--dl:-2.88s;--dx:-66px;--rot:127deg;--c:#FBBF24;opacity:0.59"></i><i class="petal" style="--x:96.8%;--s:26px;--t:3.53s;--dl:-2.89s;--dx:-68px;--rot:320deg;--c:#3B82F6;opacity:0.86"></i><i class="petal" style="--x:35.8%;--s:20px;--t:5.71s;--dl:-3.00s;--dx:-184px;--rot:10deg;--c:#22C55E;opacity:0.58"></i><i class="petal" style="--x:34.0%;--s:26px;--t:6.07s;--dl:-0.09s;--dx:-161px;--rot:-331deg;--c:#3B82F6;opacity:0.88"></i><i class="petal" style="--x:21.6%;--s:13px;--t:7.42s;--dl:-3.31s;--dx:-101px;--rot:125deg;--c:#3B82F6;opacity:0.55"></i></div></div>
+        html: <div class="v3-o"><div class="v4-fall"><i class="conf" style="--x:38.6%;--s:11px;--t:8.04s;--dl:-6.04s;--dx:-107px;--rot:13deg;--c:#FBBF24;opacity:0.34"></i><i class="conf" style="--x:77.2%;--s:9px;--t:9.50s;--dl:-2.42s;--dx:-69px;--rot:82deg;--c:#22C55E;opacity:0.39"></i><i class="conf" style="--x:60.0%;--s:12px;--t:11.69s;--dl:-7.43s;--dx:-108px;--rot:51deg;--c:#EF3E6B;opacity:0.31"></i><i class="conf" style="--x:63.4%;--s:14px;--t:8.04s;--dl:-5.18s;--dx:-54px;--rot:-80deg;--c:#FBBF24;opacity:0.32"></i><i class="conf" style="--x:5.3%;--s:11px;--t:8.99s;--dl:-3.38s;--dx:-55px;--rot:-294deg;--c:#3B82F6;opacity:0.28"></i><i class="conf" style="--x:84.0%;--s:9px;--t:9.02s;--dl:-2.74s;--dx:-95px;--rot:-273deg;--c:#FBBF24;opacity:0.27"></i><i class="conf" style="--x:57.8%;--s:13px;--t:9.19s;--dl:-7.21s;--dx:-64px;--rot:-6deg;--c:#A855F7;opacity:0.37"></i><i class="conf" style="--x:73.6%;--s:14px;--t:10.42s;--dl:-6.04s;--dx:-54px;--rot:336deg;--c:#FBBF24;opacity:0.37"></i><i class="conf" style="--x:30.8%;--s:14px;--t:11.97s;--dl:-10.76s;--dx:-44px;--rot:161deg;--c:#22C55E;opacity:0.27"></i><i class="conf" style="--x:18.6%;--s:14px;--t:8.20s;--dl:-5.60s;--dx:-104px;--rot:59deg;--c:#A855F7;opacity:0.41"></i><i class="conf" style="--x:51.5%;--s:12px;--t:8.53s;--dl:-5.91s;--dx:-43px;--rot:131deg;--c:#EF3E6B;opacity:0.40"></i><i class="conf" style="--x:68.0%;--s:12px;--t:10.53s;--dl:-2.30s;--dx:-158px;--rot:94deg;--c:#22C55E;opacity:0.42"></i><i class="conf" style="--x:65.3%;--s:15px;--t:9.20s;--dl:-2.83s;--dx:-43px;--rot:176deg;--c:#A855F7;opacity:0.42"></i><i class="conf" style="--x:24.2%;--s:11px;--t:9.85s;--dl:-4.26s;--dx:-115px;--rot:-326deg;--c:#22C55E;opacity:0.29"></i><i class="conf" style="--x:30.6%;--s:12px;--t:10.90s;--dl:-4.61s;--dx:-141px;--rot:-131deg;--c:#FBBF24;opacity:0.27"></i><i class="conf" style="--x:63.5%;--s:11px;--t:7.37s;--dl:-4.00s;--dx:-84px;--rot:-49deg;--c:#3B82F6;opacity:0.34"></i><i class="conf" style="--x:83.2%;--s:15px;--t:11.49s;--dl:-7.45s;--dx:-153px;--rot:-69deg;--c:#3B82F6;opacity:0.34"></i><i class="conf" style="--x:84.1%;--s:8px;--t:7.26s;--dl:-1.74s;--dx:-74px;--rot:120deg;--c:#FBBF24;opacity:0.26"></i><i class="conf" style="--x:30.7%;--s:12px;--t:8.36s;--dl:-6.32s;--dx:-57px;--rot:-350deg;--c:#A855F7;opacity:0.40"></i><i class="conf" style="--x:7.3%;--s:8px;--t:11.56s;--dl:-0.45s;--dx:-132px;--rot:348deg;--c:#22C55E;opacity:0.44"></i><i class="conf" style="--x:70.8%;--s:25px;--t:4.61s;--dl:-0.04s;--dx:-165px;--rot:-278deg;--c:#3B82F6;opacity:0.93"></i><i class="conf" style="--x:40.5%;--s:24px;--t:6.50s;--dl:-4.39s;--dx:-78px;--rot:95deg;--c:#EF3E6B;opacity:0.68"></i><i class="conf" style="--x:72.2%;--s:15px;--t:7.22s;--dl:-6.42s;--dx:-260px;--rot:-245deg;--c:#FBBF24;opacity:0.83"></i><i class="conf" style="--x:98.5%;--s:19px;--t:6.29s;--dl:-3.47s;--dx:-144px;--rot:116deg;--c:#EF3E6B;opacity:0.76"></i><i class="conf" style="--x:33.6%;--s:28px;--t:4.18s;--dl:-2.27s;--dx:-97px;--rot:-267deg;--c:#22C55E;opacity:0.93"></i><i class="conf" style="--x:81.9%;--s:19px;--t:5.53s;--dl:-1.17s;--dx:-63px;--rot:-312deg;--c:#3B82F6;opacity:0.79"></i><i class="conf" style="--x:2.1%;--s:27px;--t:5.24s;--dl:-3.77s;--dx:-86px;--rot:281deg;--c:#3B82F6;opacity:0.92"></i><i class="conf" style="--x:67.6%;--s:19px;--t:6.23s;--dl:-0.01s;--dx:-228px;--rot:-272deg;--c:#EF3E6B;opacity:0.67"></i><i class="conf" style="--x:22.2%;--s:18px;--t:3.73s;--dl:-2.44s;--dx:-163px;--rot:-184deg;--c:#FBBF24;opacity:0.60"></i><i class="conf" style="--x:86.3%;--s:15px;--t:6.36s;--dl:-1.77s;--dx:-210px;--rot:34deg;--c:#22C55E;opacity:0.86"></i><i class="conf" style="--x:87.9%;--s:26px;--t:5.87s;--dl:-2.39s;--dx:-141px;--rot:-102deg;--c:#A855F7;opacity:0.80"></i><i class="conf" style="--x:96.1%;--s:27px;--t:6.46s;--dl:-4.61s;--dx:-247px;--rot:49deg;--c:#3B82F6;opacity:0.66"></i><i class="conf" style="--x:44.2%;--s:24px;--t:7.08s;--dl:-5.30s;--dx:-96px;--rot:138deg;--c:#3B82F6;opacity:0.77"></i><i class="conf" style="--x:56.1%;--s:13px;--t:3.52s;--dl:-1.94s;--dx:-119px;--rot:308deg;--c:#EF3E6B;opacity:0.89"></i><i class="conf" style="--x:86.1%;--s:27px;--t:7.31s;--dl:-6.71s;--dx:-193px;--rot:-320deg;--c:#3B82F6;opacity:0.80"></i><i class="conf" style="--x:41.2%;--s:13px;--t:4.95s;--dl:-1.50s;--dx:-200px;--rot:-94deg;--c:#FBBF24;opacity:0.59"></i><i class="conf" style="--x:41.7%;--s:25px;--t:5.06s;--dl:-4.15s;--dx:-62px;--rot:-322deg;--c:#22C55E;opacity:0.73"></i><i class="conf" style="--x:11.7%;--s:18px;--t:5.79s;--dl:-0.26s;--dx:-187px;--rot:-161deg;--c:#3B82F6;opacity:0.61"></i><i class="conf" style="--x:55.9%;--s:15px;--t:4.24s;--dl:-1.79s;--dx:-254px;--rot:145deg;--c:#FBBF24;opacity:0.95"></i><i class="conf" style="--x:19.6%;--s:12px;--t:5.25s;--dl:-1.15s;--dx:-122px;--rot:88deg;--c:#3B82F6;opacity:0.73"></i><i class="conf" style="--x:10.8%;--s:24px;--t:3.63s;--dl:-2.48s;--dx:-248px;--rot:129deg;--c:#22C55E;opacity:0.59"></i><i class="conf" style="--x:16.5%;--s:18px;--t:7.26s;--dl:-2.37s;--dx:-72px;--rot:-215deg;--c:#EF3E6B;opacity:0.66"></i><i class="conf" style="--x:15.3%;--s:20px;--t:4.12s;--dl:-2.59s;--dx:-162px;--rot:-268deg;--c:#A855F7;opacity:0.99"></i><i class="conf" style="--x:69.1%;--s:14px;--t:6.20s;--dl:-2.39s;--dx:-205px;--rot:-39deg;--c:#FBBF24;opacity:0.97"></i><i class="conf" style="--x:64.2%;--s:23px;--t:4.10s;--dl:-3.33s;--dx:-141px;--rot:254deg;--c:#22C55E;opacity:0.91"></i><i class="conf" style="--x:66.6%;--s:24px;--t:3.51s;--dl:-2.92s;--dx:-129px;--rot:-71deg;--c:#3B82F6;opacity:0.98"></i><i class="conf" style="--x:56.0%;--s:12px;--t:4.94s;--dl:-2.54s;--dx:-167px;--rot:-7deg;--c:#FBBF24;opacity:0.56"></i><i class="conf" style="--x:53.0%;--s:14px;--t:4.12s;--dl:-0.10s;--dx:-160px;--rot:194deg;--c:#22C55E;opacity:0.63"></i><i class="conf" style="--x:74.2%;--s:25px;--t:6.73s;--dl:-2.60s;--dx:-231px;--rot:293deg;--c:#FBBF24;opacity:0.85"></i><i class="conf" style="--x:10.0%;--s:12px;--t:5.00s;--dl:-2.88s;--dx:-66px;--rot:127deg;--c:#FBBF24;opacity:0.59"></i><i class="conf" style="--x:96.8%;--s:26px;--t:3.53s;--dl:-2.89s;--dx:-68px;--rot:320deg;--c:#3B82F6;opacity:0.86"></i><i class="conf" style="--x:35.8%;--s:20px;--t:5.71s;--dl:-3.00s;--dx:-184px;--rot:10deg;--c:#22C55E;opacity:0.58"></i><i class="conf" style="--x:34.0%;--s:26px;--t:6.07s;--dl:-0.09s;--dx:-161px;--rot:-331deg;--c:#3B82F6;opacity:0.88"></i><i class="conf" style="--x:21.6%;--s:13px;--t:7.42s;--dl:-3.31s;--dx:-101px;--rot:125deg;--c:#3B82F6;opacity:0.55"></i></div></div>
         place:
           x: 0
           y: 0
@@ -3166,13 +3168,13 @@ slides:
             weight: 800
             leading: 1.2
             spacing: 0.3
-            color: "#9A6B7B"
+            color: "#8C6A6D"
         place:
           x: 72
           y: 70
           w: 500
       - type: text
-        text: Сакура
+        text: Праздник
         id: th-n
         styles:
           text:
@@ -3180,8 +3182,8 @@ slides:
             weight: 900
             leading: 1
             spacing: -0.03
-            color: "#E0517A"
-            font: Nunito
+            color: "#EF3E6B"
+            font: Montserrat
         place:
           x: 68
           y: 220
@@ -3189,7 +3191,7 @@ slides:
         enter: ufx-whipl
         style: "animation: v3-punch-s .3s cubic-bezier(.12, .9, .25, 1) backwards"
       - type: text
-        text: Nunito · лепестки · мягкие карточки
+        text: Montserrat · конфетти · объёмные карточки
         id: th-f
         styles:
           text:
@@ -3197,7 +3199,7 @@ slides:
             weight: 600
             leading: 1.3
             spacing: 0
-            color: "#5C2E3E"
+            color: "#4D2C30"
             font: Onest
         place:
           x: 72
@@ -3206,14 +3208,14 @@ slides:
         enter: fade
         delay: 120
       - type: html
-        html: <div class="v5c v5-sak"><div class="v5s-top v5up"><span class="v5s-pill">II квартал</span><span>4 этапа</span></div><div class="v5s-t v5up" style="--i:1">Весенний запуск</div><div class="v5s-pr v5up" style="--i:2"><s><i></i></s><b>68 %</b></div><ol><li class="v5up v5s-done" style="--i:3"><i></i><div><b>Идея и исследование</b><span>март</span></div></li><li class="v5up v5s-done" style="--i:4"><i></i><div><b>Дизайн и прототип</b><span>апрель</span></div></li><li class="v5up v5s-now" style="--i:5"><i></i><div><b>Бета для команды</b><span>май · сейчас</span></div></li><li class="v5up " style="--i:6"><i></i><div><b>Большой релиз</b><span>июнь</span></div></li></ol><div class="v5s-team v5up" style="--i:7"><s style="--c:#F6A5BE">АК</s><s style="--c:#E0517A">МЛ</s><s style="--c:#F9A8C0">ДС</s><span>и ещё трое в команде</span></div></div>
+        html: <div class="v5c v5-par"><div class="v5p-tt"><div class="v5p-tk">ИТОГИ ГОДА</div><b class="v5p-ty">2026</b><div class="v5p-ts">вечеринка команды · пятница, 19:00</div></div><div class="v5p-cut"></div><div class="v5p-bt"><div class="v5p-st v5up" style="--i:2"><div><b>1 240</b><span>слайдов</span></div><div><b>86</b><span>показов</span></div><div><b>+48 %</b><span>зрителей</span></div></div><div class="v5p-cols"><i style="--h:38%;--k:0"></i><i style="--h:52%;--k:1"></i><i style="--h:47%;--k:2"></i><i style="--h:66%;--k:3"></i><i style="--h:74%;--k:4"></i><i class="v5p-hl" data-v="312" style="--h:100%;--k:5"></i></div><div class="v5p-cx"><span>июл</span><span>авг</span><span>сен</span><span>окт</span><span>ноя</span><span>дек</span></div></div><div class="v5p-bc"></div></div>
         place:
           x: 790
           y: 110
           w: 410
         locked: true
       - type: html
-        html: <div class="v3-o"><div class="v4-fall v5-front"><i class="petal nr" style="--x:44.2%;--s:67px;--t:5.20s;--dl:-1.07s;--dx:-83px;--rot:99deg;--c:#EF3E6B;--b:9px;opacity:0.52"></i><i class="petal nr" style="--x:2.1%;--s:95px;--t:4.82s;--dl:-1.18s;--dx:-86px;--rot:74deg;--c:#EF3E6B;--b:8px;opacity:0.54"></i><i class="petal nr" style="--x:51.7%;--s:89px;--t:4.75s;--dl:-4.57s;--dx:-100px;--rot:231deg;--c:#A855F7;--b:8px;opacity:0.42"></i><i class="petal nr" style="--x:12.6%;--s:101px;--t:3.60s;--dl:-0.87s;--dx:-101px;--rot:-76deg;--c:#3B82F6;--b:8px;opacity:0.46"></i><i class="petal nr" style="--x:4.9%;--s:125px;--t:4.21s;--dl:-3.08s;--dx:-89px;--rot:113deg;--c:#A855F7;--b:7px;opacity:0.40"></i></div></div>
+        html: <div class="v3-o"><div class="v4-fall v5-front"><i class="conf nr" style="--x:44.2%;--s:67px;--t:5.20s;--dl:-1.07s;--dx:-83px;--rot:99deg;--c:#EF3E6B;--b:9px;opacity:0.52"></i><i class="conf nr" style="--x:2.1%;--s:95px;--t:4.82s;--dl:-1.18s;--dx:-86px;--rot:74deg;--c:#EF3E6B;--b:8px;opacity:0.54"></i><i class="conf nr" style="--x:51.7%;--s:89px;--t:4.75s;--dl:-4.57s;--dx:-100px;--rot:231deg;--c:#A855F7;--b:8px;opacity:0.42"></i><i class="conf nr" style="--x:12.6%;--s:101px;--t:3.60s;--dl:-0.87s;--dx:-101px;--rot:-76deg;--c:#3B82F6;--b:8px;opacity:0.46"></i><i class="conf nr" style="--x:4.9%;--s:125px;--t:4.21s;--dl:-3.08s;--dx:-89px;--rot:113deg;--c:#A855F7;--b:7px;opacity:0.40"></i></div></div>
         place:
           x: 0
           y: 0
@@ -3303,7 +3305,7 @@ slides:
           y: 110
           w: 410
         images:
-          - src: ./assets/vista.webp
+          - src: ./assets/vista-card.webp
         locked: true
       - type: html
         html: <div class="v3-o"><div class="v4-fall v5-front"><i class="leaf nr" style="--x:64.6%;--s:75px;--t:3.87s;--dl:-3.78s;--dx:157px;--rot:-200deg;--c:#EF3E6B;--b:8px;opacity:0.45"></i><i class="leaf nr" style="--x:70.9%;--s:40px;--t:4.28s;--dl:-3.35s;--dx:135px;--rot:-218deg;--c:#EF3E6B;--b:7px;opacity:0.49"></i><i class="leaf nr" style="--x:24.7%;--s:84px;--t:4.39s;--dl:-2.98s;--dx:93px;--rot:159deg;--c:#3B82F6;--b:6px;opacity:0.40"></i><i class="leaf nr" style="--x:11.6%;--s:44px;--t:4.04s;--dl:-2.28s;--dx:100px;--rot:68deg;--c:#EF3E6B;--b:9px;opacity:0.37"></i><i class="leaf nr" style="--x:76.4%;--s:87px;--t:4.35s;--dl:-4.04s;--dx:95px;--rot:178deg;--c:#3B82F6;--b:6px;opacity:0.38"></i></div></div>
@@ -3319,23 +3321,23 @@ slides:
           y: 0
           w: 1280
         locked: true
-  - id: th-party
+  - id: th-sakura
     template: canvas
-    label: "Тема: Праздник"
-    bg: "#FFFAF3"
-    backdrop: confetti
+    label: "Тема: Сакура"
+    bg: "#FFF6F8"
+    backdrop: petals
     backdropOpacity: 1
     backdropSpeed: 1.3
     theme:
-      accent: "#EF3E6B"
-      accent2: "#FBBF24"
-    class: th-party
+      accent: "#E0517A"
+      accent2: "#F6A5BE"
+    class: th-sakura
     transition: none
     at: 34.677
     logo: false
     free:
       - type: html
-        html: <div class="v3-o"><div class="v4-fall"><i class="conf" style="--x:20.4%;--s:10px;--t:7.84s;--dl:-6.52s;--dx:-65px;--rot:-210deg;--c:#22C55E;opacity:0.29"></i><i class="conf" style="--x:84.2%;--s:9px;--t:10.50s;--dl:-2.87s;--dx:-107px;--rot:-125deg;--c:#FBBF24;opacity:0.27"></i><i class="conf" style="--x:76.9%;--s:7px;--t:9.95s;--dl:-1.09s;--dx:-120px;--rot:-229deg;--c:#FBBF24;opacity:0.41"></i><i class="conf" style="--x:87.7%;--s:15px;--t:11.52s;--dl:-11.06s;--dx:-130px;--rot:246deg;--c:#3B82F6;opacity:0.28"></i><i class="conf" style="--x:47.5%;--s:14px;--t:10.39s;--dl:-1.61s;--dx:-117px;--rot:-148deg;--c:#FBBF24;opacity:0.42"></i><i class="conf" style="--x:8.0%;--s:9px;--t:8.72s;--dl:-1.63s;--dx:-102px;--rot:167deg;--c:#EF3E6B;opacity:0.31"></i><i class="conf" style="--x:17.1%;--s:15px;--t:9.40s;--dl:-8.44s;--dx:-144px;--rot:347deg;--c:#FBBF24;opacity:0.29"></i><i class="conf" style="--x:25.5%;--s:12px;--t:7.82s;--dl:-3.83s;--dx:-98px;--rot:-204deg;--c:#FBBF24;opacity:0.28"></i><i class="conf" style="--x:43.8%;--s:7px;--t:8.73s;--dl:-6.71s;--dx:-106px;--rot:-306deg;--c:#3B82F6;opacity:0.41"></i><i class="conf" style="--x:70.6%;--s:9px;--t:8.40s;--dl:-5.78s;--dx:-41px;--rot:-40deg;--c:#EF3E6B;opacity:0.41"></i><i class="conf" style="--x:72.7%;--s:11px;--t:11.49s;--dl:-6.24s;--dx:-138px;--rot:151deg;--c:#3B82F6;opacity:0.31"></i><i class="conf" style="--x:84.5%;--s:8px;--t:7.31s;--dl:-7.03s;--dx:-124px;--rot:139deg;--c:#A855F7;opacity:0.45"></i><i class="conf" style="--x:31.8%;--s:12px;--t:8.52s;--dl:-8.42s;--dx:-78px;--rot:237deg;--c:#3B82F6;opacity:0.44"></i><i class="conf" style="--x:36.4%;--s:7px;--t:7.48s;--dl:-3.68s;--dx:-66px;--rot:-182deg;--c:#3B82F6;opacity:0.44"></i><i class="conf" style="--x:51.7%;--s:9px;--t:8.37s;--dl:-0.32s;--dx:-45px;--rot:-69deg;--c:#A855F7;opacity:0.35"></i><i class="conf" style="--x:32.7%;--s:14px;--t:11.04s;--dl:-3.94s;--dx:-138px;--rot:-296deg;--c:#FBBF24;opacity:0.33"></i><i class="conf" style="--x:35.2%;--s:12px;--t:10.15s;--dl:-1.81s;--dx:-115px;--rot:-162deg;--c:#A855F7;opacity:0.41"></i><i class="conf" style="--x:95.9%;--s:10px;--t:9.97s;--dl:-1.84s;--dx:-93px;--rot:1deg;--c:#A855F7;opacity:0.33"></i><i class="conf" style="--x:23.9%;--s:12px;--t:11.45s;--dl:-9.48s;--dx:-100px;--rot:-85deg;--c:#EF3E6B;opacity:0.41"></i><i class="conf" style="--x:37.6%;--s:15px;--t:10.54s;--dl:-8.38s;--dx:-158px;--rot:-231deg;--c:#FBBF24;opacity:0.32"></i><i class="conf" style="--x:84.2%;--s:22px;--t:5.38s;--dl:-3.50s;--dx:-228px;--rot:81deg;--c:#FBBF24;opacity:0.82"></i><i class="conf" style="--x:67.0%;--s:14px;--t:6.12s;--dl:-4.49s;--dx:-94px;--rot:102deg;--c:#3B82F6;opacity:0.66"></i><i class="conf" style="--x:31.1%;--s:15px;--t:6.65s;--dl:-5.64s;--dx:-105px;--rot:151deg;--c:#A855F7;opacity:0.80"></i><i class="conf" style="--x:93.5%;--s:18px;--t:5.49s;--dl:-0.60s;--dx:-186px;--rot:230deg;--c:#3B82F6;opacity:0.93"></i><i class="conf" style="--x:82.0%;--s:18px;--t:5.29s;--dl:-4.60s;--dx:-123px;--rot:-256deg;--c:#22C55E;opacity:0.62"></i><i class="conf" style="--x:76.9%;--s:25px;--t:3.82s;--dl:-1.96s;--dx:-103px;--rot:285deg;--c:#3B82F6;opacity:0.75"></i><i class="conf" style="--x:91.4%;--s:21px;--t:4.98s;--dl:-4.45s;--dx:-207px;--rot:-268deg;--c:#EF3E6B;opacity:0.94"></i><i class="conf" style="--x:96.0%;--s:26px;--t:7.42s;--dl:-6.53s;--dx:-202px;--rot:231deg;--c:#EF3E6B;opacity:0.65"></i><i class="conf" style="--x:34.2%;--s:26px;--t:5.42s;--dl:-2.91s;--dx:-192px;--rot:150deg;--c:#22C55E;opacity:0.94"></i><i class="conf" style="--x:45.3%;--s:27px;--t:4.66s;--dl:-2.39s;--dx:-191px;--rot:-311deg;--c:#22C55E;opacity:0.86"></i><i class="conf" style="--x:7.4%;--s:22px;--t:7.33s;--dl:-6.41s;--dx:-109px;--rot:-282deg;--c:#EF3E6B;opacity:0.75"></i><i class="conf" style="--x:49.9%;--s:14px;--t:6.95s;--dl:-4.02s;--dx:-61px;--rot:14deg;--c:#FBBF24;opacity:0.80"></i><i class="conf" style="--x:15.3%;--s:28px;--t:6.29s;--dl:-4.51s;--dx:-184px;--rot:-177deg;--c:#22C55E;opacity:0.93"></i><i class="conf" style="--x:84.9%;--s:13px;--t:6.50s;--dl:-3.94s;--dx:-211px;--rot:-68deg;--c:#22C55E;opacity:0.99"></i><i class="conf" style="--x:41.0%;--s:23px;--t:3.54s;--dl:-3.47s;--dx:-237px;--rot:349deg;--c:#A855F7;opacity:0.61"></i><i class="conf" style="--x:30.4%;--s:25px;--t:3.95s;--dl:-3.60s;--dx:-189px;--rot:-344deg;--c:#3B82F6;opacity:0.94"></i><i class="conf" style="--x:81.5%;--s:13px;--t:6.58s;--dl:-0.94s;--dx:-150px;--rot:249deg;--c:#A855F7;opacity:0.98"></i><i class="conf" style="--x:57.7%;--s:22px;--t:3.84s;--dl:-2.97s;--dx:-126px;--rot:-242deg;--c:#22C55E;opacity:0.84"></i><i class="conf" style="--x:38.2%;--s:21px;--t:5.11s;--dl:-0.53s;--dx:-90px;--rot:18deg;--c:#3B82F6;opacity:0.98"></i><i class="conf" style="--x:61.9%;--s:24px;--t:3.98s;--dl:-0.30s;--dx:-206px;--rot:-123deg;--c:#EF3E6B;opacity:0.70"></i><i class="conf" style="--x:76.0%;--s:19px;--t:5.35s;--dl:-4.30s;--dx:-241px;--rot:283deg;--c:#FBBF24;opacity:0.86"></i><i class="conf" style="--x:94.0%;--s:22px;--t:5.02s;--dl:-1.73s;--dx:-215px;--rot:241deg;--c:#3B82F6;opacity:0.59"></i><i class="conf" style="--x:32.0%;--s:17px;--t:6.93s;--dl:-0.03s;--dx:-73px;--rot:230deg;--c:#FBBF24;opacity:0.60"></i><i class="conf" style="--x:93.6%;--s:24px;--t:3.50s;--dl:-2.36s;--dx:-181px;--rot:-204deg;--c:#22C55E;opacity:0.84"></i><i class="conf" style="--x:3.6%;--s:22px;--t:7.00s;--dl:-2.90s;--dx:-252px;--rot:-9deg;--c:#22C55E;opacity:0.77"></i><i class="conf" style="--x:16.7%;--s:13px;--t:5.38s;--dl:-1.68s;--dx:-215px;--rot:-94deg;--c:#22C55E;opacity:0.55"></i><i class="conf" style="--x:78.7%;--s:16px;--t:4.47s;--dl:-1.42s;--dx:-211px;--rot:-28deg;--c:#22C55E;opacity:0.67"></i><i class="conf" style="--x:81.2%;--s:19px;--t:4.64s;--dl:-0.19s;--dx:-229px;--rot:245deg;--c:#3B82F6;opacity:0.87"></i><i class="conf" style="--x:18.1%;--s:27px;--t:5.10s;--dl:-2.32s;--dx:-139px;--rot:21deg;--c:#EF3E6B;opacity:0.74"></i><i class="conf" style="--x:26.3%;--s:25px;--t:6.73s;--dl:-3.46s;--dx:-241px;--rot:319deg;--c:#22C55E;opacity:0.76"></i><i class="conf" style="--x:61.4%;--s:12px;--t:7.40s;--dl:-4.60s;--dx:-238px;--rot:65deg;--c:#3B82F6;opacity:0.75"></i><i class="conf" style="--x:60.0%;--s:23px;--t:6.41s;--dl:-0.19s;--dx:-220px;--rot:-141deg;--c:#3B82F6;opacity:0.68"></i><i class="conf" style="--x:25.1%;--s:28px;--t:6.58s;--dl:-6.07s;--dx:-77px;--rot:-14deg;--c:#A855F7;opacity:0.81"></i><i class="conf" style="--x:42.7%;--s:23px;--t:6.55s;--dl:-5.01s;--dx:-167px;--rot:-148deg;--c:#3B82F6;opacity:0.86"></i></div></div>
+        html: <div class="v3-o"><div class="v4-fall"><i class="petal" style="--x:20.4%;--s:10px;--t:7.84s;--dl:-6.52s;--dx:-65px;--rot:-210deg;--c:#22C55E;opacity:0.29"></i><i class="petal" style="--x:84.2%;--s:9px;--t:10.50s;--dl:-2.87s;--dx:-107px;--rot:-125deg;--c:#FBBF24;opacity:0.27"></i><i class="petal" style="--x:76.9%;--s:7px;--t:9.95s;--dl:-1.09s;--dx:-120px;--rot:-229deg;--c:#FBBF24;opacity:0.41"></i><i class="petal" style="--x:87.7%;--s:15px;--t:11.52s;--dl:-11.06s;--dx:-130px;--rot:246deg;--c:#3B82F6;opacity:0.28"></i><i class="petal" style="--x:47.5%;--s:14px;--t:10.39s;--dl:-1.61s;--dx:-117px;--rot:-148deg;--c:#FBBF24;opacity:0.42"></i><i class="petal" style="--x:8.0%;--s:9px;--t:8.72s;--dl:-1.63s;--dx:-102px;--rot:167deg;--c:#EF3E6B;opacity:0.31"></i><i class="petal" style="--x:17.1%;--s:15px;--t:9.40s;--dl:-8.44s;--dx:-144px;--rot:347deg;--c:#FBBF24;opacity:0.29"></i><i class="petal" style="--x:25.5%;--s:12px;--t:7.82s;--dl:-3.83s;--dx:-98px;--rot:-204deg;--c:#FBBF24;opacity:0.28"></i><i class="petal" style="--x:43.8%;--s:7px;--t:8.73s;--dl:-6.71s;--dx:-106px;--rot:-306deg;--c:#3B82F6;opacity:0.41"></i><i class="petal" style="--x:70.6%;--s:9px;--t:8.40s;--dl:-5.78s;--dx:-41px;--rot:-40deg;--c:#EF3E6B;opacity:0.41"></i><i class="petal" style="--x:72.7%;--s:11px;--t:11.49s;--dl:-6.24s;--dx:-138px;--rot:151deg;--c:#3B82F6;opacity:0.31"></i><i class="petal" style="--x:84.5%;--s:8px;--t:7.31s;--dl:-7.03s;--dx:-124px;--rot:139deg;--c:#A855F7;opacity:0.45"></i><i class="petal" style="--x:31.8%;--s:12px;--t:8.52s;--dl:-8.42s;--dx:-78px;--rot:237deg;--c:#3B82F6;opacity:0.44"></i><i class="petal" style="--x:36.4%;--s:7px;--t:7.48s;--dl:-3.68s;--dx:-66px;--rot:-182deg;--c:#3B82F6;opacity:0.44"></i><i class="petal" style="--x:51.7%;--s:9px;--t:8.37s;--dl:-0.32s;--dx:-45px;--rot:-69deg;--c:#A855F7;opacity:0.35"></i><i class="petal" style="--x:32.7%;--s:14px;--t:11.04s;--dl:-3.94s;--dx:-138px;--rot:-296deg;--c:#FBBF24;opacity:0.33"></i><i class="petal" style="--x:35.2%;--s:12px;--t:10.15s;--dl:-1.81s;--dx:-115px;--rot:-162deg;--c:#A855F7;opacity:0.41"></i><i class="petal" style="--x:95.9%;--s:10px;--t:9.97s;--dl:-1.84s;--dx:-93px;--rot:1deg;--c:#A855F7;opacity:0.33"></i><i class="petal" style="--x:23.9%;--s:12px;--t:11.45s;--dl:-9.48s;--dx:-100px;--rot:-85deg;--c:#EF3E6B;opacity:0.41"></i><i class="petal" style="--x:37.6%;--s:15px;--t:10.54s;--dl:-8.38s;--dx:-158px;--rot:-231deg;--c:#FBBF24;opacity:0.32"></i><i class="petal" style="--x:84.2%;--s:22px;--t:5.38s;--dl:-3.50s;--dx:-228px;--rot:81deg;--c:#FBBF24;opacity:0.82"></i><i class="petal" style="--x:67.0%;--s:14px;--t:6.12s;--dl:-4.49s;--dx:-94px;--rot:102deg;--c:#3B82F6;opacity:0.66"></i><i class="petal" style="--x:31.1%;--s:15px;--t:6.65s;--dl:-5.64s;--dx:-105px;--rot:151deg;--c:#A855F7;opacity:0.80"></i><i class="petal" style="--x:93.5%;--s:18px;--t:5.49s;--dl:-0.60s;--dx:-186px;--rot:230deg;--c:#3B82F6;opacity:0.93"></i><i class="petal" style="--x:82.0%;--s:18px;--t:5.29s;--dl:-4.60s;--dx:-123px;--rot:-256deg;--c:#22C55E;opacity:0.62"></i><i class="petal" style="--x:76.9%;--s:25px;--t:3.82s;--dl:-1.96s;--dx:-103px;--rot:285deg;--c:#3B82F6;opacity:0.75"></i><i class="petal" style="--x:91.4%;--s:21px;--t:4.98s;--dl:-4.45s;--dx:-207px;--rot:-268deg;--c:#EF3E6B;opacity:0.94"></i><i class="petal" style="--x:96.0%;--s:26px;--t:7.42s;--dl:-6.53s;--dx:-202px;--rot:231deg;--c:#EF3E6B;opacity:0.65"></i><i class="petal" style="--x:34.2%;--s:26px;--t:5.42s;--dl:-2.91s;--dx:-192px;--rot:150deg;--c:#22C55E;opacity:0.94"></i><i class="petal" style="--x:45.3%;--s:27px;--t:4.66s;--dl:-2.39s;--dx:-191px;--rot:-311deg;--c:#22C55E;opacity:0.86"></i><i class="petal" style="--x:7.4%;--s:22px;--t:7.33s;--dl:-6.41s;--dx:-109px;--rot:-282deg;--c:#EF3E6B;opacity:0.75"></i><i class="petal" style="--x:49.9%;--s:14px;--t:6.95s;--dl:-4.02s;--dx:-61px;--rot:14deg;--c:#FBBF24;opacity:0.80"></i><i class="petal" style="--x:15.3%;--s:28px;--t:6.29s;--dl:-4.51s;--dx:-184px;--rot:-177deg;--c:#22C55E;opacity:0.93"></i><i class="petal" style="--x:84.9%;--s:13px;--t:6.50s;--dl:-3.94s;--dx:-211px;--rot:-68deg;--c:#22C55E;opacity:0.99"></i><i class="petal" style="--x:41.0%;--s:23px;--t:3.54s;--dl:-3.47s;--dx:-237px;--rot:349deg;--c:#A855F7;opacity:0.61"></i><i class="petal" style="--x:30.4%;--s:25px;--t:3.95s;--dl:-3.60s;--dx:-189px;--rot:-344deg;--c:#3B82F6;opacity:0.94"></i><i class="petal" style="--x:81.5%;--s:13px;--t:6.58s;--dl:-0.94s;--dx:-150px;--rot:249deg;--c:#A855F7;opacity:0.98"></i><i class="petal" style="--x:57.7%;--s:22px;--t:3.84s;--dl:-2.97s;--dx:-126px;--rot:-242deg;--c:#22C55E;opacity:0.84"></i><i class="petal" style="--x:38.2%;--s:21px;--t:5.11s;--dl:-0.53s;--dx:-90px;--rot:18deg;--c:#3B82F6;opacity:0.98"></i><i class="petal" style="--x:61.9%;--s:24px;--t:3.98s;--dl:-0.30s;--dx:-206px;--rot:-123deg;--c:#EF3E6B;opacity:0.70"></i><i class="petal" style="--x:76.0%;--s:19px;--t:5.35s;--dl:-4.30s;--dx:-241px;--rot:283deg;--c:#FBBF24;opacity:0.86"></i><i class="petal" style="--x:94.0%;--s:22px;--t:5.02s;--dl:-1.73s;--dx:-215px;--rot:241deg;--c:#3B82F6;opacity:0.59"></i><i class="petal" style="--x:32.0%;--s:17px;--t:6.93s;--dl:-0.03s;--dx:-73px;--rot:230deg;--c:#FBBF24;opacity:0.60"></i><i class="petal" style="--x:93.6%;--s:24px;--t:3.50s;--dl:-2.36s;--dx:-181px;--rot:-204deg;--c:#22C55E;opacity:0.84"></i><i class="petal" style="--x:3.6%;--s:22px;--t:7.00s;--dl:-2.90s;--dx:-252px;--rot:-9deg;--c:#22C55E;opacity:0.77"></i><i class="petal" style="--x:16.7%;--s:13px;--t:5.38s;--dl:-1.68s;--dx:-215px;--rot:-94deg;--c:#22C55E;opacity:0.55"></i><i class="petal" style="--x:78.7%;--s:16px;--t:4.47s;--dl:-1.42s;--dx:-211px;--rot:-28deg;--c:#22C55E;opacity:0.67"></i><i class="petal" style="--x:81.2%;--s:19px;--t:4.64s;--dl:-0.19s;--dx:-229px;--rot:245deg;--c:#3B82F6;opacity:0.87"></i><i class="petal" style="--x:18.1%;--s:27px;--t:5.10s;--dl:-2.32s;--dx:-139px;--rot:21deg;--c:#EF3E6B;opacity:0.74"></i><i class="petal" style="--x:26.3%;--s:25px;--t:6.73s;--dl:-3.46s;--dx:-241px;--rot:319deg;--c:#22C55E;opacity:0.76"></i><i class="petal" style="--x:61.4%;--s:12px;--t:7.40s;--dl:-4.60s;--dx:-238px;--rot:65deg;--c:#3B82F6;opacity:0.75"></i><i class="petal" style="--x:60.0%;--s:23px;--t:6.41s;--dl:-0.19s;--dx:-220px;--rot:-141deg;--c:#3B82F6;opacity:0.68"></i><i class="petal" style="--x:25.1%;--s:28px;--t:6.58s;--dl:-6.07s;--dx:-77px;--rot:-14deg;--c:#A855F7;opacity:0.81"></i><i class="petal" style="--x:42.7%;--s:23px;--t:6.55s;--dl:-5.01s;--dx:-167px;--rot:-148deg;--c:#3B82F6;opacity:0.86"></i></div></div>
         place:
           x: 0
           y: 0
@@ -3350,13 +3352,13 @@ slides:
             weight: 800
             leading: 1.2
             spacing: 0.3
-            color: "#8C6A6D"
+            color: "#9A6B7B"
         place:
           x: 72
           y: 70
           w: 500
       - type: text
-        text: Праздник
+        text: Сакура
         id: th-n
         styles:
           text:
@@ -3364,8 +3366,8 @@ slides:
             weight: 900
             leading: 1
             spacing: -0.03
-            color: "#EF3E6B"
-            font: Montserrat
+            color: "#E0517A"
+            font: Nunito
         place:
           x: 68
           y: 220
@@ -3373,7 +3375,7 @@ slides:
         enter: ufx-whipl
         style: "animation: v3-punch-s .3s cubic-bezier(.12, .9, .25, 1) backwards"
       - type: text
-        text: Montserrat · конфетти · объёмные карточки
+        text: Nunito · лепестки · мягкие карточки
         id: th-f
         styles:
           text:
@@ -3381,7 +3383,7 @@ slides:
             weight: 600
             leading: 1.3
             spacing: 0
-            color: "#4D2C30"
+            color: "#5C2E3E"
             font: Onest
         place:
           x: 72
@@ -3390,14 +3392,14 @@ slides:
         enter: fade
         delay: 120
       - type: html
-        html: <div class="v5c v5-par"><div class="v5p-tt"><div class="v5p-tk">ИТОГИ ГОДА</div><b class="v5p-ty">2026</b><div class="v5p-ts">вечеринка команды · пятница, 19:00</div></div><div class="v5p-cut"></div><div class="v5p-bt"><div class="v5p-st v5up" style="--i:2"><div><b>1 240</b><span>слайдов</span></div><div><b>86</b><span>показов</span></div><div><b>+48 %</b><span>зрителей</span></div></div><div class="v5p-cols"><i style="--h:38%;--k:0"></i><i style="--h:52%;--k:1"></i><i style="--h:47%;--k:2"></i><i style="--h:66%;--k:3"></i><i style="--h:74%;--k:4"></i><i class="v5p-hl" data-v="312" style="--h:100%;--k:5"></i></div><div class="v5p-cx"><span>июл</span><span>авг</span><span>сен</span><span>окт</span><span>ноя</span><span>дек</span></div></div><div class="v5p-bc"></div></div>
+        html: <div class="v5c v5-sak"><div class="v5s-top v5up"><span class="v5s-pill">II квартал</span><span>4 этапа</span></div><div class="v5s-t v5up" style="--i:1">Весенний запуск</div><div class="v5s-pr v5up" style="--i:2"><s><i></i></s><b>68 %</b></div><ol><li class="v5up v5s-done" style="--i:3"><i></i><div><b>Идея и исследование</b><span>март</span></div></li><li class="v5up v5s-done" style="--i:4"><i></i><div><b>Дизайн и прототип</b><span>апрель</span></div></li><li class="v5up v5s-now" style="--i:5"><i></i><div><b>Бета для команды</b><span>май · сейчас</span></div></li><li class="v5up " style="--i:6"><i></i><div><b>Большой релиз</b><span>июнь</span></div></li></ol><div class="v5s-team v5up" style="--i:7"><s style="--c:#F6A5BE">АК</s><s style="--c:#E0517A">МЛ</s><s style="--c:#F9A8C0">ДС</s><span>и ещё трое в команде</span></div></div>
         place:
           x: 790
           y: 110
           w: 410
         locked: true
       - type: html
-        html: <div class="v3-o"><div class="v4-fall v5-front"><i class="conf nr" style="--x:90.6%;--s:64px;--t:5.34s;--dl:-1.19s;--dx:-138px;--rot:124deg;--c:#A855F7;--b:6px;opacity:0.39"></i><i class="conf nr" style="--x:74.5%;--s:56px;--t:3.56s;--dl:-2.34s;--dx:-110px;--rot:-245deg;--c:#3B82F6;--b:10px;opacity:0.40"></i><i class="conf nr" style="--x:51.6%;--s:67px;--t:3.54s;--dl:-1.49s;--dx:-154px;--rot:12deg;--c:#EF3E6B;--b:7px;opacity:0.52"></i><i class="conf nr" style="--x:50.8%;--s:57px;--t:4.92s;--dl:-4.30s;--dx:-81px;--rot:-125deg;--c:#22C55E;--b:7px;opacity:0.42"></i><i class="conf nr" style="--x:36.0%;--s:93px;--t:5.29s;--dl:-1.08s;--dx:-139px;--rot:192deg;--c:#EF3E6B;--b:9px;opacity:0.42"></i></div></div>
+        html: <div class="v3-o"><div class="v4-fall v5-front"><i class="petal nr" style="--x:90.6%;--s:64px;--t:5.34s;--dl:-1.19s;--dx:-138px;--rot:124deg;--c:#A855F7;--b:6px;opacity:0.39"></i><i class="petal nr" style="--x:74.5%;--s:56px;--t:3.56s;--dl:-2.34s;--dx:-110px;--rot:-245deg;--c:#3B82F6;--b:10px;opacity:0.40"></i><i class="petal nr" style="--x:51.6%;--s:67px;--t:3.54s;--dl:-1.49s;--dx:-154px;--rot:12deg;--c:#EF3E6B;--b:7px;opacity:0.52"></i><i class="petal nr" style="--x:50.8%;--s:57px;--t:4.92s;--dl:-4.30s;--dx:-81px;--rot:-125deg;--c:#22C55E;--b:7px;opacity:0.42"></i><i class="petal nr" style="--x:36.0%;--s:93px;--t:5.29s;--dl:-1.08s;--dx:-139px;--rot:192deg;--c:#EF3E6B;--b:9px;opacity:0.42"></i></div></div>
         place:
           x: 0
           y: 0
@@ -3736,6 +3738,7 @@ slides:
     bg: var(--bg)
     backdrop: spectrum
     backdropOpacity: 0.9
+    class: v6-robot
     transition: none
     at: 42.677
     logo: false
@@ -3751,14 +3754,14 @@ slides:
         text: 3D
         styles:
           text:
-            size: 210
+            size: 180
             weight: 900
             leading: 0.8
             spacing: -0.035
             color: text
         place:
-          x: 76
-          y: 130
+          x: 78
+          y: 160
           w: 600
         enter: ufx-slam
         style: "-webkit-text-stroke: 4px #FFFFFF; -webkit-text-fill-color: transparent; animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-kick .6667s cubic-bezier(.2, .8, .3, 1) 0.6667s infinite"
@@ -3768,7 +3771,7 @@ slides:
           и они {g:duo|двигаются}
         styles:
           text:
-            size: 48
+            size: 42
             weight: 900
             leading: 1.05
             spacing: -0.035

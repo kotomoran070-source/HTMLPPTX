@@ -50,6 +50,18 @@ export function deckFonts(fonts: unknown): DeckFont[] {
   return fonts.filter((f): f is DeckFont => !!f && fontNameOk((f as DeckFont).name) && typeof (f as DeckFont).src === 'string' && !!(f as DeckFont).src);
 }
 
+/**
+ * Загружает шрифты презентации заранее. Браузер берёт файл шрифта, только когда текст им уже нужен: надпись
+ * слайда с новым шрифтом появлялась на 0,1–0,2 с позже самого слайда — в показе под музыку это мимо удара
+ */
+export function warmDeckFonts(fonts: unknown): void {
+  if (!document.fonts?.load) return;
+  for (const f of deckFonts(fonts)) {
+    const weight = Number(f.weight) >= 100 && Number(f.weight) <= 900 ? Math.round(Number(f.weight)) : 400;
+    document.fonts.load(`${f.style === 'italic' ? 'italic ' : ''}${weight} 1em "${f.name.trim()}"`).catch(() => { /* файла нет — останется запасной шрифт */ });
+  }
+}
+
 /** Шрифты общей библиотеки — для предпросмотра в списках (сами презентации берут свои копии) */
 export function applyLibraryFonts(list: { name: string; url: string }[]): void {
   const id = 'htmlpptx-font-library';
