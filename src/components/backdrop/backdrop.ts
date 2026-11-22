@@ -868,29 +868,33 @@ defineBlock<BackdropProps>('backdrop', {
       if (!frozen()) raf = requestAnimationFrame(frame);
     };
 
-    const start = () => {
+    /** Холст, контекст и сцена (шейдеры собираются здесь — десятки мс); false — видеокарта недоступна */
+    const ensure = () => {
       clearTimeout(offTimer);
-      if (!scene) {
-        canvas = document.createElement('canvas');
-        gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false, powerPreference: 'low-power' });
-        if (!gl) {
-          canvas = null;
-          return;
-        }
-        readColors();
-        scene = makeScene(gl, p.kind, () => pal, lite);
-        if (!scene) {
-          canvas = null;
-          gl = null;
-          return;
-        }
-        canvas.addEventListener('webglcontextlost', (e) => {
-          e.preventDefault();
-          stop(true);
-        });
-        el.appendChild(canvas);
-        el.classList.add('bd-live');
+      if (scene) return true;
+      canvas = document.createElement('canvas');
+      gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false, powerPreference: 'low-power' });
+      if (!gl) {
+        canvas = null;
+        return false;
       }
+      readColors();
+      scene = makeScene(gl, p.kind, () => pal, lite);
+      if (!scene) {
+        canvas = null;
+        gl = null;
+        return false;
+      }
+      canvas.addEventListener('webglcontextlost', (e) => {
+        e.preventDefault();
+        stop(true);
+      });
+      el.appendChild(canvas);
+      el.classList.add('bd-live');
+      return true;
+    };
+    const start = () => {
+      if (!ensure()) return;
       dirty = true;
       last = 0;
       if (!raf) raf = requestAnimationFrame(frame);
@@ -916,7 +920,13 @@ defineBlock<BackdropProps>('backdrop', {
 
     // Слой другого вида (светлый при тёмных слайдах) спрятан — его сцена не рисуется
     const shown = () => !p.only || getComputedStyle(el).display !== 'none';
-    const sync = () => (ctx.slide.classList.contains('on') && shown() ? start() : stop());
+    // Слайд следующий в показе (класс soon) — сцена собирается заранее, без кадров: в склейку она уже готова
+    const sync = () => {
+      const cls = ctx.slide.classList;
+      if (cls.contains('on') && shown()) start();
+      else if (cls.contains('soon') && shown()) ensure();
+      else stop();
+    };
     const recolor = () => {
       if (!scene) return;
       readColors();

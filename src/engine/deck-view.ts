@@ -408,6 +408,14 @@ export class DeckView {
   transitions = true;
   private outTimer = 0;
 
+  /**
+   * Следующий слайд показа (класс soon): его живой фон собирает сцену заранее — контекст и шейдеры видеокарты
+   * занимают десятки мс, в саму смену слайда это запинка. -1 — готовить нечего
+   */
+  prepare(i: number): void {
+    this.slides.forEach((s, k) => { if (s.classList.contains('soon') !== (k === i)) s.classList.toggle('soon', k === i); });
+  }
+
   show(i: number): void {
     if (i === this.current) return;
     const prev = this.slides[this.current];

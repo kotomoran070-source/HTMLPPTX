@@ -178,6 +178,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   /** Переход по ответу теста или кнопке: откуда пришли — «Назад» вернёт туда, а не на соседний слайд */
   let jump: { from: number; to: number } | null = null;
   /** exact — ровно на этот слайд, даже скрытый (переход по ответу, кнопка на слайде), как ссылка в PowerPoint */
+  let prepTimer = 0;
   function go(i: number, push = true, exact = false): void {
     const at = Math.max(0, Math.min(count() - 1, i));
     const next = skip() && !exact ? landOn(deck, at, view.index) : at;
@@ -186,6 +187,9 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     const back = next < index;
     index = next;
     view.show(index);
+    // Фон следующего слайда — заранее, когда этот уже на экране (не в саму склейку)
+    clearTimeout(prepTimer);
+    prepTimer = window.setTimeout(() => view.prepare(nextSlide()), 250);
     // Формула по шагам: вперёд — с первого шага, назад — уже целиком (как в PowerPoint); в правке — целиком
     if (changed) view.startSteps(index, back || !!editor?.active);
     updateChrome();
