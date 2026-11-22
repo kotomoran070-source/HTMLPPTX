@@ -1496,48 +1496,63 @@ slides:
     logo: false
     free:
       - type: html
-        html: <div class="v3-o"><i class="v4-bloom" style="--y:46%;--s:1150px"></i></div>
+        html: <div class="v3-o"><i class="v4-bloom" style="--y:40%;--s:1050px"></i></div>
         place:
           x: 0
           y: 0
           w: 1280
         style: "left: 0"
         locked: true
+      - type: text
+        text: "**01** / 04"
+        styles:
+          text:
+            size: 16
+            weight: 800
+            leading: 1.2
+            spacing: 0.3
+            color: accent2
+            align: center
+        place:
+          x: 0
+          y: 40
+          w: 1280
       - type: shape
         kind: rect
         radius: 22
         fill: surface
         stroke: line
         width: 1
-        angle: -3
+        angle: -2
         place:
-          x: 560
-          y: 80
-          w: 660
-          h: 400
+          x: 320
+          y: 74
+          w: 640
+          h: 360
         locked: true
       - type: html
-        html: <div class="v3-o" style="width:100%;height:100%"><div class="v3-cols" style="left:40px;right:40px;top:40px;bottom:40px"><i style="height:18%;animation-delay:0.000s"></i><i style="height:26%;animation-delay:0.016s"></i><i style="height:22%;animation-delay:0.032s"></i><i style="height:38%;animation-delay:0.048s"></i><i style="height:47%;animation-delay:0.064s"></i><i style="height:41%;animation-delay:0.080s"></i><i style="height:63%;animation-delay:0.096s"></i><i style="height:72%;animation-delay:0.112s"></i><i style="height:68%;animation-delay:0.128s"></i><i style="height:86%;animation-delay:0.144s"></i><i style="height:94%;animation-delay:0.160s"></i><i style="height:100%;animation-delay:0.176s"></i></div></div>
+        html: <div class="v3-o" style="width:100%;height:100%"><div class="v3-cols" style="left:40px;right:40px;top:36px;bottom:36px"><i style="height:18%;animation-delay:0.000s"></i><i style="height:26%;animation-delay:0.016s"></i><i style="height:22%;animation-delay:0.032s"></i><i style="height:38%;animation-delay:0.048s"></i><i style="height:47%;animation-delay:0.064s"></i><i style="height:41%;animation-delay:0.080s"></i><i style="height:63%;animation-delay:0.096s"></i><i style="height:72%;animation-delay:0.112s"></i><i style="height:68%;animation-delay:0.128s"></i><i style="height:86%;animation-delay:0.144s"></i><i style="height:94%;animation-delay:0.160s"></i><i style="height:100%;animation-delay:0.176s"></i></div></div>
         place:
-          x: 560
-          y: 80
-          w: 660
-          h: 400
-        angle: -3
+          x: 320
+          y: 74
+          w: 640
+          h: 360
+        angle: -2
         locked: true
       - type: text
         text: ГРАФИКИ
         styles:
           text:
-            size: 92
+            size: 104
             weight: 900
             leading: 0.9
             spacing: -0.035
             color: "#FFFFFF"
+            align: center
         place:
-          x: 62
-          y: 476
-          w: 1180
+          x: 0
+          y: 466
+          w: 1280
         style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-rgbhit .4s ease-out 0s both"
       - type: text
         text: живые диаграммы — растут при показе
@@ -1548,23 +1563,11 @@ slides:
             leading: 1.2
             spacing: 0.3
             color: text2
+            align: center
         place:
-          x: 66
-          y: 590
-          w: 700
-      - type: text
-        text: "**01** / 04"
-        styles:
-          text:
-            size: 18
-            weight: 800
-            leading: 1.2
-            spacing: 0.3
-            color: accent2
-        place:
-          x: 66
-          y: 60
-          w: 300
+          x: 0
+          y: 584
+          w: 1280
       - type: html
         html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-fl soft"></i></div>
         place:
@@ -1584,35 +1587,50 @@ slides:
     logo: false
     free:
       - type: html
-        html: <div class="v3-o"><i class="v4-bloom" style="--y:46%;--s:1150px"></i></div>
+        html: <div class="v3-o"><i class="v4-bloom" style="--y:40%;--s:1050px"></i></div>
         place:
           x: 0
           y: 0
           w: 1280
         style: "left: 0"
         locked: true
+      - type: text
+        text: "**02** / 04"
+        styles:
+          text:
+            size: 16
+            weight: 800
+            leading: 1.2
+            spacing: 0.3
+            color: accent2
+            align: center
+        place:
+          x: 0
+          y: 40
+          w: 1280
       - type: image
         src: ./assets/slideria-3d.png
         fit: contain
         place:
-          x: 520
+          x: 330
           y: 40
-          w: 760
-          h: 470
+          w: 620
+          h: 440
         style: "animation: v3-pull 0.5s cubic-bezier(.2, .7, .3, 1) both"
       - type: text
         text: 3D
         styles:
           text:
-            size: 92
+            size: 104
             weight: 900
             leading: 0.9
             spacing: -0.035
             color: "#FFFFFF"
+            align: center
         place:
-          x: 62
-          y: 476
-          w: 1180
+          x: 0
+          y: 466
+          w: 1280
         style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-rgbhit .4s ease-out 0s both"
       - type: text
         text: модели GLB, STL, STEP — крутятся мышью
@@ -1623,23 +1641,11 @@ slides:
             leading: 1.2
             spacing: 0.3
             color: text2
+            align: center
         place:
-          x: 66
-          y: 590
-          w: 700
-      - type: text
-        text: "**02** / 04"
-        styles:
-          text:
-            size: 18
-            weight: 800
-            leading: 1.2
-            spacing: 0.3
-            color: accent2
-        place:
-          x: 66
-          y: 60
-          w: 300
+          x: 0
+          y: 584
+          w: 1280
       - type: html
         html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-inv"></i></div>
         place:
@@ -1659,13 +1665,27 @@ slides:
     logo: false
     free:
       - type: html
-        html: <div class="v3-o"><i class="v4-bloom" style="--y:46%;--s:1150px"></i></div>
+        html: <div class="v3-o"><i class="v4-bloom" style="--y:40%;--s:1050px"></i></div>
         place:
           x: 0
           y: 0
           w: 1280
         style: "left: 0"
         locked: true
+      - type: text
+        text: "**03** / 04"
+        styles:
+          text:
+            size: 16
+            weight: 800
+            leading: 1.2
+            spacing: 0.3
+            color: accent2
+            align: center
+        place:
+          x: 0
+          y: 40
+          w: 1280
       - type: html
         html: |-
           <div class="v3-code"><span class="c">// роза: 8 лепестков, прямо на слайде</span>
@@ -1677,25 +1697,25 @@ slides:
           }
           c.strokeStyle = <span class="s">'#EC4899'</span>; c.<span class="f">stroke</span>();</div>
         place:
-          x: 560
-          y: 80
-          w: 660
-          h: 400
-        angle: -3
+          x: 320
+          y: 100
+          w: 640
+        angle: -2
         locked: true
       - type: text
         text: КОД
         styles:
           text:
-            size: 92
+            size: 104
             weight: 900
             leading: 0.9
             spacing: -0.035
             color: "#FFFFFF"
+            align: center
         place:
-          x: 62
-          y: 476
-          w: 1180
+          x: 0
+          y: 466
+          w: 1280
         style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-rgbhit .4s ease-out 0s both"
       - type: text
         text: "песочница: правите — и сразу видно"
@@ -1706,23 +1726,11 @@ slides:
             leading: 1.2
             spacing: 0.3
             color: text2
+            align: center
         place:
-          x: 66
-          y: 590
-          w: 700
-      - type: text
-        text: "**03** / 04"
-        styles:
-          text:
-            size: 18
-            weight: 800
-            leading: 1.2
-            spacing: 0.3
-            color: accent2
-        place:
-          x: 66
-          y: 60
-          w: 300
+          x: 0
+          y: 584
+          w: 1280
       - type: html
         html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-inv"></i></div>
         place:
@@ -1742,15 +1750,29 @@ slides:
     logo: false
     free:
       - type: html
-        html: <div class="v3-o"><i class="v4-bloom" style="--y:46%;--s:1150px"></i></div>
+        html: <div class="v3-o"><i class="v4-bloom" style="--y:40%;--s:1050px"></i></div>
         place:
           x: 0
           y: 0
           w: 1280
         style: "left: 0"
         locked: true
+      - type: text
+        text: "**04** / 04"
+        styles:
+          text:
+            size: 16
+            weight: 800
+            leading: 1.2
+            spacing: 0.3
+            color: accent2
+            align: center
+        place:
+          x: 0
+          y: 40
+          w: 1280
       - type: image
-        src: ./assets/embed-getsuga3d.webp
+        src: ./assets/fx-burst.webp
         radius: 22
         stroke: "#FFFFFF"
         width: 2
@@ -1758,27 +1780,28 @@ slides:
         glow: accent
         glowSize: 40
         glowOpacity: 0.6
-        angle: -3
+        angle: -2
         place:
-          x: 560
-          y: 80
-          w: 660
-          h: 400
-        filter: punch
+          x: 320
+          y: 74
+          w: 640
+          h: 360
+        fit: cover
         style: "animation: v3-pull 0.5s cubic-bezier(.2, .7, .3, 1) both"
       - type: text
         text: ЭФФЕКТЫ
         styles:
           text:
-            size: 92
+            size: 104
             weight: 900
             leading: 0.9
             spacing: -0.035
             color: "#FFFFFF"
+            align: center
         place:
-          x: 62
-          y: 476
-          w: 1180
+          x: 0
+          y: 466
+          w: 1280
         style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-rgbhit .4s ease-out 0s both"
       - type: text
         text: свет, частицы, глитч — без видеоредактора
@@ -1789,23 +1812,11 @@ slides:
             leading: 1.2
             spacing: 0.3
             color: text2
+            align: center
         place:
-          x: 66
-          y: 590
-          w: 700
-      - type: text
-        text: "**04** / 04"
-        styles:
-          text:
-            size: 18
-            weight: 800
-            leading: 1.2
-            spacing: 0.3
-            color: accent2
-        place:
-          x: 66
-          y: 60
-          w: 300
+          x: 0
+          y: 584
+          w: 1280
       - type: html
         html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><i class="v3-fl soft"></i></div>
         place:
