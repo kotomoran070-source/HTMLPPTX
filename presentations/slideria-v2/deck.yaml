@@ -689,14 +689,12 @@ css: |
   .v4-fall .snow.nr { filter: none; background: radial-gradient(ellipse closest-side, rgba(255, 255, 255, .85), rgba(255, 255, 255, .32) 50%, rgba(255, 255, 255, 0)); }
   /* «3D»: левая колонка ближе к центру кадра (взгляд — в центре), подпись в углу — на одной линии с ней */
   .v6-robot .v3-hud.tl { left: 150px; top: 52px; }
-  /* «Зима» поярче: холодный свет за названием и за карточкой, сверху — светлее, как зимнее небо */
+  /* «Зима» поярче: насыщенный синий фон, сверху светлее — как зимнее небо; мягкий холодный свет только за карточкой */
   .v6-frost { position: absolute; inset: 0; background:
-    radial-gradient(ellipse 40% 48% at 24% 44%, rgba(72, 145, 255, .32), transparent 70%),
-    radial-gradient(ellipse 34% 46% at 78% 46%, rgba(125, 211, 252, .2), transparent 70%),
-    linear-gradient(180deg, rgba(150, 200, 255, .1), transparent 60%); }
-  .th-winter [data-obj="th-n"] { text-shadow: 0 0 46px rgba(59, 139, 245, .45); }
+    radial-gradient(ellipse 34% 46% at 78% 46%, rgba(125, 211, 252, .16), transparent 70%),
+    linear-gradient(180deg, rgba(80, 150, 255, .22), transparent 70%); }
 
-  .th-winter { --tx: #E8F1FF; --tx2: #D3E2F5; --mu: #A3B8D6; --bg: #0D2245; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Onest', var(--font-base); --font-head: 'Unbounded', var(--font-base); }
+  .th-winter { --tx: #E8F1FF; --tx2: #D6E5FA; --mu: #A9C0E4; --bg: #0A2A70; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Onest', var(--font-base); --font-head: 'Unbounded', var(--font-base); }
   .th-party { --tx: #2A1316; --tx2: #4D2C30; --mu: #8C6A6D; --bg: #FFFAF3; --surf: #FFFFFF; --alt: color-mix(in srgb, #EF3E6B 8%, #FFFFFF); --bd: color-mix(in srgb, #EF3E6B 18%, #FFFFFF); --bd2: color-mix(in srgb, #EF3E6B 28%, #FFFFFF); --font: 'Montserrat', var(--font-base); --font-head: 'Montserrat', var(--font-base); }
   .th-autumn { --tx: #F6EADB; --tx2: #E2CDB6; --mu: #B39678; --bg: #1A110B; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Literata', var(--font-base); --font-head: 'Literata', var(--font-base); }
   .th-sakura { --tx: #3A1624; --tx2: #5C2E3E; --mu: #9A6B7B; --bg: #FFF6F8; --surf: #FFFFFF; --alt: color-mix(in srgb, #E0517A 8%, #FFFFFF); --bd: color-mix(in srgb, #E0517A 18%, #FFFFFF); --bd2: color-mix(in srgb, #E0517A 28%, #FFFFFF); --font: 'Nunito', var(--font-base); --font-head: 'Nunito', var(--font-base); }
@@ -3055,12 +3053,12 @@ slides:
   - id: th-winter
     template: canvas
     label: "Тема: Зима"
-    bg: "#0D2245"
+    bg: "#0A2A70"
     backdrop: snow
     backdropOpacity: 1
     backdropSpeed: 1.3
     theme:
-      accent: "#3B8BF5"
+      accent: "#4A95FF"
       accent2: "#7DD3FC"
     class: th-winter
     transition: none
@@ -3090,7 +3088,7 @@ slides:
             weight: 800
             leading: 1.2
             spacing: 0.3
-            color: "#A3B8D6"
+            color: "#A9C0E4"
         place:
           x: 72
           y: 70
@@ -3104,7 +3102,7 @@ slides:
             weight: 700
             leading: 1
             spacing: -0.03
-            color: "#3B8BF5"
+            color: "#4A95FF"
             font: Unbounded
         place:
           x: 68
@@ -3121,7 +3119,7 @@ slides:
             weight: 600
             leading: 1.3
             spacing: 0
-            color: "#D3E2F5"
+            color: "#D6E5FA"
             font: Onest
         place:
           x: 72
