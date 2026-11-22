@@ -448,6 +448,8 @@ css: |
   .slide.on .v5-streak { animation: v5-streak .55s cubic-bezier(.15, .8, .3, 1) var(--d, 0s) both; }
   @keyframes v5-streak { from { opacity: 0; transform: scaleX(.02); } 6% { opacity: 1; } 35% { opacity: 1; } to { opacity: 0; transform: scaleX(1.2); } }
   @keyframes v5-dim { to { opacity: .26; } }
+  /* Затемнение перед дропом: «Три удара» длятся 4 доли (1,33 с) — гаснут за последнюю, тихую долю */
+  .slide.on .v3-dim { animation: v3-dim .33s 1s ease-in forwards; }
   @keyframes ufx-kin { from { opacity: 0; transform: translateX(-46px) scale(1.14); filter: blur(12px); } 55% { opacity: 1; filter: blur(0); } to { opacity: 1; transform: none; filter: none; } }
 
   /* ════════ Карточки тем: свой образец слайда у каждой ════════ */
@@ -573,59 +575,61 @@ css: |
   @keyframes v6-slit { from { opacity: 0; transform: translateX(calc(var(--s) * 220px)); filter: blur(5px); } 35% { opacity: 1; } to { opacity: 1; transform: none; filter: none; } }
   @keyframes v6-whole { to { opacity: 1; } }
 
-  /* ════════ «Любой формат слайда»: одна карточка на весь отрезок 24.010–30.677 (6,667 с) ════════ */
+  /* ════════ «Любой формат слайда»: одна карточка на весь отрезок 22.677–30.677 (8 с) — от дропа (бас, доля 68) до
+     раскрытия в «ТЕМЫ» (доля 92). Три равные фазы по 8 долей: 16:9 → 4:3 (бас, доля 76 — 33,3 %) → 21:9 (бас, доля 84 —
+     66,7 %); раскрытие — с 92 % ════════ */
   .v7-fm { position: relative; width: 100%; height: 432px; }
   .v7-tilt, .v7-punch { position: absolute; inset: 0; }
   .v7-tilt { transform: perspective(1000px) translateZ(0) rotateY(0deg) rotateX(0deg) rotateZ(0deg); }
-  .slide.on .v7-tilt { animation: v7-tilt 6.6667s both; }
-  /* Медленный маятник: качание на 8 долей (2,67 с), каждое следующее — короче; камера всё время чуть наезжает
-     (translateZ к нулю), лёгкий крен — «кинокадр». К 92 % — ровно в плоскости: дальше раскрытие на весь экран */
+  .slide.on .v7-tilt { animation: v7-tilt 8s both; }
+  /* Медленный маятник: качание на фазу (8 долей), каждое следующее — короче; камера всё время чуть наезжает
+     (translateZ к нулю), лёгкий крен — «кинокадр». К 90 % — ровно в плоскости: дальше раскрытие на весь экран */
   @keyframes v7-tilt {
     0% { transform: perspective(1000px) translateZ(-80px) rotateY(-18deg) rotateX(7deg) rotateZ(-1.2deg); animation-timing-function: cubic-bezier(.37, 0, .63, 1); }
-    40% { transform: perspective(1000px) translateZ(-50px) rotateY(16deg) rotateX(-5deg) rotateZ(1deg); animation-timing-function: cubic-bezier(.37, 0, .63, 1); }
-    78% { transform: perspective(1000px) translateZ(-20px) rotateY(-10deg) rotateX(4deg) rotateZ(-.6deg); animation-timing-function: cubic-bezier(.37, 0, .63, 1); }
-    92%, to { transform: perspective(1000px) translateZ(0) rotateY(0deg) rotateX(0deg) rotateZ(0deg); }
+    33.333% { transform: perspective(1000px) translateZ(-55px) rotateY(16deg) rotateX(-5deg) rotateZ(1deg); animation-timing-function: cubic-bezier(.37, 0, .63, 1); }
+    66.667% { transform: perspective(1000px) translateZ(-25px) rotateY(-10deg) rotateX(4deg) rotateZ(-.6deg); animation-timing-function: cubic-bezier(.37, 0, .63, 1); }
+    90%, to { transform: perspective(1000px) translateZ(0) rotateY(0deg) rotateX(0deg) rotateZ(0deg); }
   }
   /* Блик по стеклу карточки — ходит в такт наклону (в обратную сторону) и гаснет к раскрытию */
   .v7-gl { position: absolute; top: 0; bottom: 0; left: 30%; width: 40%; pointer-events: none; opacity: 0; will-change: transform;
     background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .1) 30%, rgba(255, 255, 255, .28) 50%, rgba(255, 255, 255, .1) 70%, transparent); }
-  .slide.on .v7-gl { animation: v7-gl 6.6667s both; }
+  .slide.on .v7-gl { animation: v7-gl 8s both; }
   @keyframes v7-gl {
     0% { transform: translateX(110%) skewX(-14deg); opacity: .9; animation-timing-function: cubic-bezier(.37, 0, .63, 1); }
-    40% { transform: translateX(-110%) skewX(-14deg); opacity: .9; animation-timing-function: cubic-bezier(.37, 0, .63, 1); }
-    78% { transform: translateX(70%) skewX(-14deg); opacity: .75; animation-timing-function: cubic-bezier(.37, 0, .63, 1); }
-    90%, to { transform: translateX(0) skewX(-14deg); opacity: 0; }
+    33.333% { transform: translateX(-110%) skewX(-14deg); opacity: .9; animation-timing-function: cubic-bezier(.37, 0, .63, 1); }
+    66.667% { transform: translateX(70%) skewX(-14deg); opacity: .75; animation-timing-function: cubic-bezier(.37, 0, .63, 1); }
+    88%, to { transform: translateX(0) skewX(-14deg); opacity: 0; }
   }
 
-  /* Толчок в удар смены формата */
-  .slide.on .v7-punch { animation: v7-punch 6.6667s linear both; }
+  /* Толчок в удар смены формата (бас) */
+  .slide.on .v7-punch { animation: v7-punch 8s linear both; }
   @keyframes v7-punch {
-    0%, 19.9% { transform: none; }
-    20% { transform: scale(1.045); animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
-    24%, 59.9% { transform: none; }
-    60% { transform: scale(1.045); animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
-    64%, to { transform: none; }
+    0%, 33.3% { transform: none; }
+    33.333% { transform: scale(1.045); animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
+    36.7%, 66.6% { transform: none; }
+    66.667% { transform: scale(1.045); animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
+    70%, to { transform: none; }
   }
   /* Карточка: ширина меняется в удар с резким стартом, высота и центр — те же; картинка перекадрируется */
   .v7-card { position: absolute; top: 0; left: 50%; width: 100%; height: 100%; transform: translateX(-50%); box-sizing: border-box;
     border: 2px solid #FFFFFF; border-radius: 24px; overflow: hidden; background: #0B0816; }
   .v7-card img { display: block; width: 100%; height: 100%; object-fit: cover; }
-  .slide.on .v7-card { animation: v7-w 6.6667s both; }
+  .slide.on .v7-card { animation: v7-w 8s both; }
   @keyframes v7-w {
-    0%, 20% { width: 768px; animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
-    27%, 60% { width: 576px; animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
-    67%, 92% { width: 100%; height: 100%; top: 0; border-radius: 24px; border-color: #FFFFFF; animation-timing-function: cubic-bezier(.32, 0, .67, 0); }
+    0%, 33.333% { width: 768px; animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+    39.2%, 66.667% { width: 576px; animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+    72.5%, 92% { width: 100%; height: 100%; top: 0; border-radius: 24px; border-color: #FFFFFF; animation-timing-function: cubic-bezier(.32, 0, .67, 0); }
     /* Раскрытие на весь экран с ускорением — в склейку с «ТЕМАМИ» (их кадр — та же картинка на весь экран) */
     to { width: 1320px; height: 760px; top: -184px; border-radius: 0; border-color: rgba(255, 255, 255, 0); }
   }
   /* Свечение за карточкой — размытое пятно, тянется вместе с ней (масштабом, без перерисовки размытия) */
   /* Ровно по карточке: наружу свечение расходится размытием (рамку блока размытие не раздвигает — блок не ужимается) */
   .v7-glow { position: absolute; inset: 0; border-radius: 60px; background: radial-gradient(closest-side, rgba(168, 85, 247, .62), rgba(236, 72, 153, .24) 62%, transparent); filter: blur(34px); }
-  .slide.on .v7-glow { animation: v7-gw 6.6667s both; }
+  .slide.on .v7-glow { animation: v7-gw 8s both; }
   @keyframes v7-gw {
-    0%, 20% { transform: scaleX(.7619); animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
-    27%, 60% { transform: scaleX(.5714); animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
-    67%, 93% { transform: none; opacity: 1; }
+    0%, 33.333% { transform: scaleX(.7619); animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+    39.2%, 66.667% { transform: scaleX(.5714); animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+    72.5%, 93% { transform: none; opacity: 1; }
     to { opacity: 0; }
   }
   /* Подпись формата: старая уходит вверх, новая встаёт снизу — в тот же удар */
@@ -633,22 +637,22 @@ css: |
     color: #FFFFFF; font: 600 22px/1 'Onest', var(--font-base); white-space: pre; }
   .v7-bd s { text-decoration: none; font-weight: 800; }
   .v7-bd.a, .v7-bd.b { opacity: 0; }
-  .slide.on .v7-bd.a { animation: v7-ba 6.6667s linear both; }
-  .slide.on .v7-bd.b { animation: v7-bb 6.6667s linear both; }
-  .slide.on .v7-bd.c { animation: v7-bc 6.6667s linear both; }
-  @keyframes v7-ba { 0%, 19.6% { opacity: 1; transform: none; } 22.5%, to { opacity: 0; transform: translateY(-16px); } }
-  @keyframes v7-bb { 0%, 20% { opacity: 0; transform: translateY(16px); } 23%, 59.6% { opacity: 1; transform: none; } 62.5%, to { opacity: 0; transform: translateY(-16px); } }
-  @keyframes v7-bc { 0%, 60% { opacity: 0; transform: translateY(16px); } 63%, 93% { opacity: 1; transform: none; } 96%, to { opacity: 0; } }
+  .slide.on .v7-bd.a { animation: v7-ba 8s linear both; }
+  .slide.on .v7-bd.b { animation: v7-bb 8s linear both; }
+  .slide.on .v7-bd.c { animation: v7-bc 8s linear both; }
+  @keyframes v7-ba { 0%, 33% { opacity: 1; transform: none; } 35.5%, to { opacity: 0; transform: translateY(-16px); } }
+  @keyframes v7-bb { 0%, 33.333% { opacity: 0; transform: translateY(16px); } 35.8%, 66.3% { opacity: 1; transform: none; } 68.8%, to { opacity: 0; transform: translateY(-16px); } }
+  @keyframes v7-bc { 0%, 66.667% { opacity: 0; transform: translateY(16px); } 69.2%, 93% { opacity: 1; transform: none; } 95.5%, to { opacity: 0; } }
   /* Огромная контурная надпись формата позади — плывёт и сменяется в удар */
   .v7-bg { left: 0; top: 150px; white-space: nowrap; font: 900 420px/.8 var(--font-head); letter-spacing: -.04em; color: transparent;
     -webkit-text-stroke: 2px color-mix(in srgb, var(--tx) 14%, transparent); opacity: 0; }
   .v7-bg.c { opacity: 1; }
-  .slide.on .v7-bg.a { animation: v7-bga 6.6667s linear both; }
-  .slide.on .v7-bg.b { animation: v7-bgb 6.6667s linear both; }
-  .slide.on .v7-bg.c { animation: v7-bgc 6.6667s linear both; }
-  @keyframes v7-bga { 0% { opacity: 1; transform: translateX(60px); } 19.9% { opacity: 1; transform: translateX(-60px); } 20%, to { opacity: 0; } }
-  @keyframes v7-bgb { 0%, 19.9% { opacity: 0; } 20% { opacity: 1; transform: translateX(60px); } 59.9% { opacity: 1; transform: translateX(-180px); } 60%, to { opacity: 0; } }
-  @keyframes v7-bgc { 0%, 59.9% { opacity: 0; } 60% { opacity: 1; transform: translateX(140px); } 93% { opacity: 1; } to { opacity: 0; transform: none; } }
+  .slide.on .v7-bg.a { animation: v7-bga 8s linear both; }
+  .slide.on .v7-bg.b { animation: v7-bgb 8s linear both; }
+  .slide.on .v7-bg.c { animation: v7-bgc 8s linear both; }
+  @keyframes v7-bga { 0% { opacity: 1; transform: translateX(60px); } 33.25% { opacity: 1; transform: translateX(-80px); } 33.333%, to { opacity: 0; } }
+  @keyframes v7-bgb { 0%, 33.25% { opacity: 0; } 33.333% { opacity: 1; transform: translateX(60px); } 66.58% { opacity: 1; transform: translateX(-180px); } 66.667%, to { opacity: 0; } }
+  @keyframes v7-bgc { 0%, 66.58% { opacity: 0; } 66.667% { opacity: 1; transform: translateX(140px); } 93% { opacity: 1; } to { opacity: 0; transform: none; } }
 
   /* ════════ Финал «Показ — как кино.» по референсу: плёнка — видео на весь слайд; здесь фраза. Слова встают в свои
      удары (0; 0,667; 1,333; 2,0 с) — проявляются из размытия снизу; точка — в 2,667 с (1:04.01), со вспышкой света ════════ */
@@ -1543,7 +1547,7 @@ slides:
         text: ГРАФИКИ
         styles:
           text:
-            size: 104
+            size: 88
             weight: 900
             leading: 0.9
             spacing: -0.035
@@ -1551,7 +1555,7 @@ slides:
             align: center
         place:
           x: 0
-          y: 466
+          y: 476
           w: 1280
         style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-rgbhit .4s ease-out 0s both"
       - type: text
@@ -1621,7 +1625,7 @@ slides:
         text: 3D
         styles:
           text:
-            size: 104
+            size: 88
             weight: 900
             leading: 0.9
             spacing: -0.035
@@ -1629,7 +1633,7 @@ slides:
             align: center
         place:
           x: 0
-          y: 466
+          y: 476
           w: 1280
         style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-rgbhit .4s ease-out 0s both"
       - type: text
@@ -1706,7 +1710,7 @@ slides:
         text: КОД
         styles:
           text:
-            size: 104
+            size: 88
             weight: 900
             leading: 0.9
             spacing: -0.035
@@ -1714,7 +1718,7 @@ slides:
             align: center
         place:
           x: 0
-          y: 466
+          y: 476
           w: 1280
         style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-rgbhit .4s ease-out 0s both"
       - type: text
@@ -1792,7 +1796,7 @@ slides:
         text: ЭФФЕКТЫ
         styles:
           text:
-            size: 104
+            size: 88
             weight: 900
             leading: 0.9
             spacing: -0.035
@@ -1800,7 +1804,7 @@ slides:
             align: center
         place:
           x: 0
-          y: 466
+          y: 476
           w: 1280
         style: "animation: v3-punch .34s cubic-bezier(.12, .9, .25, 1) backwards, v3-rgbhit .4s ease-out 0s both"
       - type: text
@@ -2906,7 +2910,7 @@ slides:
     label: Любой формат слайда
     bg: var(--bg)
     transition: none
-    at: 24.01
+    at: 22.677
     logo: false
     free:
       - type: html

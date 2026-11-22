@@ -10,24 +10,31 @@
   волна-полумесяц, разлом земли, разрез кадра. Модель приходит файлом презентации (embed.files: hero.glb);
   поза и взмах собираются кодом (IK рук и ног, клинок, пальцы) — анимаций в файле нет.
   Запуск при открытии слайда, щелчок — ещё раз (со звуком). three.js — © three.js authors, MIT.
+  Шрифты надписи — Unbounded (© The Unbounded Project Authors) и Noto Serif JP (© Google), SIL OFL 1.1.
 -->
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #050306; cursor: pointer; user-select: none; }
   #stage, #ui { position: absolute; inset: 0; }
   #stage canvas { display: block; width: 100%; height: 100%; }
   #ui { pointer-events: none; }
-  .call { position: absolute; white-space: nowrap; font-style: italic; font-weight: 900; color: #fff;
-    font-family: "Arial Black", "Segoe UI Black", Impact, "Helvetica Neue", system-ui, sans-serif; }
-  #c1 { left: 5.5%; top: 12%; font-size: min(6.8vw, 84px); letter-spacing: .05em; -webkit-text-stroke: 3px #000; paint-order: stroke fill; text-shadow: 5px 5px 0 #000; transition: text-shadow .5s; }
-  body.charge #c1 { text-shadow: 5px 5px 0 #000, 0 0 22px rgba(255, 20, 50, .85); transition: text-shadow .9s; }
-  body.col #c1 { -webkit-text-stroke-width: 2px; text-shadow: 0 0 14px rgba(255, 30, 60, .9), 0 0 44px rgba(255, 0, 40, .55); }
-  #c1 span { display: inline-block; opacity: 0; transform: translateY(35%) skewX(-12deg) scale(1.5); filter: blur(8px); transition: opacity .16s, transform .3s cubic-bezier(.2, 1.6, .4, 1), filter .22s; }
-  #c1 span.on { opacity: 1; transform: skewX(-12deg); filter: none; }
-  #c2 { left: 50%; top: 52%; font-size: min(14.5vw, 186px); letter-spacing: .01em; opacity: 0; transform: translate(-50%, -50%); -webkit-text-stroke: 7px #000; paint-order: stroke fill;
-    text-shadow: 7px 7px 0 #b0001c, 13px 13px 0 #000, 0 0 70px rgba(255, 20, 50, .85); }
-  #kj { position: absolute; left: 33%; top: 44%; transform: translateX(-50%); opacity: 0; white-space: nowrap;
-    font: 900 min(4.4vw, 54px)/1 "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif JP", "MS Mincho", serif; letter-spacing: .32em;
-    color: #ff2a4a; text-shadow: 0 0 18px rgba(255, 20, 50, .8), 0 0 50px rgba(255, 0, 40, .45); }
+  /* Надпись удара — один собранный блок в левом верхнем углу (над небом во всех планах): слева столбец иероглифов,
+     справа «GETSUGA» мелкой разрядкой и «TENSHOU» крупно, под ним — черта. Размеры — в долях кадра 1280×720 (--u).
+     Пока мир манга (бумага), буквы — тушью, на заряде краснеют, с цветом мира — белые. Шрифты — только буквы
+     надписи: Unbounded и Noto Serif JP (обе — SIL OFL 1.1) */
+  @font-face { font-family: GsLat; font-weight: 200 900; src: url(data:font/woff2;base64,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) format('woff2'); }
+  @font-face { font-family: GsKj; font-weight: 900; src: url(data:font/woff2;base64,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) format('woff2'); }
+  #ttl { --u: min(calc(100vw / 1280), calc(100vh / 720)); position: absolute; left: calc(var(--u) * 78); top: calc(var(--u) * 108);
+    display: flex; align-items: stretch; gap: calc(var(--u) * 20); color: #0C0A0D; }
+  #kj { writing-mode: vertical-rl; font: 900 calc(var(--u) * 31)/1 GsKj, "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif JP", serif;
+    letter-spacing: .12em; color: #E11D48; clip-path: inset(0 0 100% 0); }
+  #rule { width: calc(var(--u) * 1.5); background: linear-gradient(#E11D48, rgba(225, 29, 72, .1)); transform: scaleY(0); transform-origin: top; }
+  #lat { display: flex; flex-direction: column; align-items: flex-start; }
+  #c1 { font: 500 calc(var(--u) * 24)/1 GsLat, "Segoe UI", system-ui, sans-serif; letter-spacing: .44em; margin-top: calc(var(--u) * 2); white-space: nowrap; }
+  #c1 span { display: inline-block; opacity: 0; }
+  #c2 { font: 800 calc(var(--u) * 76)/1 GsLat, "Segoe UI Black", system-ui, sans-serif; letter-spacing: -.015em; margin-top: calc(var(--u) * 16);
+    white-space: nowrap; opacity: 0; transform-origin: 0 60%; }
+  #ul { align-self: stretch; height: calc(var(--u) * 3); margin-top: calc(var(--u) * 18); border-radius: 2px;
+    background: linear-gradient(90deg, #E11D48, #FB7185 55%, rgba(251, 113, 133, 0)); transform: scaleX(0); transform-origin: left; }
   .bar { position: absolute; left: 0; right: 0; height: 10.5%; background: #000; transform: scaleY(0); }
   #bt { top: 0; transform-origin: top; } #bb { bottom: 0; transform-origin: bottom; }
   #hint { position: absolute; right: 16px; bottom: 12px; font: 600 13px system-ui, sans-serif; color: #fff; opacity: 0; transition: opacity .6s; }
@@ -37,9 +44,7 @@
 <body>
 <div id="stage"></div>
 <div id="ui">
-  <div class="call" id="c1"></div>
-  <div class="call" id="c2">TENSHOU!!</div>
-  <div id="kj">月牙天衝</div>
+  <div id="ttl"><div id="kj">月牙天衝</div><i id="rule"></i><div id="lat"><div id="c1"></div><div id="c2">TENSHOU</div><i id="ul"></i></div></div>
   <div class="bar" id="bt"></div><div class="bar" id="bb"></div>
   <div id="hint">щелчок — ещё раз</div>
   <div id="load"></div>
@@ -5209,24 +5214,44 @@ void main() {
 
   /* ---- Надписи и кадр ---- */
   const c1 = document.getElementById('c1'), c2 = document.getElementById('c2'), kj = document.getElementById('kj');
+  const ttl = document.getElementById('ttl'), rule = document.getElementById('rule'), ul = document.getElementById('ul');
   const barT = document.getElementById('bt'), barB = document.getElementById('bb'), hint = document.getElementById('hint'), ui = document.getElementById('ui');
-  c1.innerHTML = 'GETSUGA…'.split('').map((ch) => '<span>' + ch + '</span>').join('');
+  c1.innerHTML = 'GETSUGA'.split('').map((ch) => '<span>' + ch + '</span>').join('');
   const spans = c1.querySelectorAll('span');
+  // Запись в стиль только при смене значения: каждая запись, даже тем же значением, пересчитывает стили
+  const put = (el, k, v) => { if (el.style[k] !== v) el.style[k] = v; };
+  const ink = (a, b, k) => 'rgb(' + a.map((x, i) => Math.round(lerp(x, b[i], k))).join(',') + ')';
   function dom(t) {
-    const col = ran && t >= TL.wipe0;
-    document.body.classList.toggle('col', col);
-    document.body.classList.toggle('charge', ran && t >= TL.charge0 + 200 && !col);
-    for (let i = 0; i < spans.length; i++) spans[i].classList.toggle('on', ran && t >= 250 + i * 90);
-    if (!ran || t < TL.rel) c2.style.opacity = '0';
-    else {
-      const k = sat((t - TL.rel) / 380), s = lerp(3.4, 1, eBack(k)), wob = Math.exp(-(t - TL.rel) / 500) * Math.sin(t * 0.06) * 3;
-      const m = eOut(sat((t - TL.rel - 320) / 380));
-      c2.style.opacity = String(sat((t - TL.rel) / 60));
-      c2.style.left = lerp(50, 33, m).toFixed(2) + '%';
-      c2.style.top = lerp(52, 31, m).toFixed(2) + '%';
-      c2.style.transform = 'translate(-50%,-50%) rotate(' + (-7 + wob).toFixed(2) + 'deg) skewX(-10deg) scale(' + (s * lerp(1, 0.5, m)).toFixed(3) + ')';
+    const on = ran && t >= 0;
+    // Цвет букв: тушь на бумаге манги → кармин на заряде → белый, когда мир наливается цветом
+    const red = on ? eOut(span(t, TL.charge0, TL.slash0)) : 0, white = on ? eOut(span(t, TL.wipe0, TL.wipe1)) : 0;
+    put(ttl, 'color', white > 0 ? ink([200, 16, 46], [255, 255, 255], white) : ink([12, 10, 13], [200, 16, 46], red));
+    // GETSUGA — шёпотом, по букве: проявляются из размытия и чуть поднимаются
+    for (let i = 0; i < spans.length; i++) {
+      const k = on ? eOut(span(t, 320 + i * 80, 320 + i * 80 + 420)) : 0;
+      put(spans[i], 'opacity', k.toFixed(3));
+      put(spans[i], 'transform', k < 1 ? 'translateY(' + ((1 - k) * 0.35).toFixed(3) + 'em)' : '');
+      put(spans[i], 'filter', k < 1 ? 'blur(' + ((1 - k) * 6).toFixed(2) + 'px)' : '');
     }
-    kj.style.opacity = ran ? String(sat((t - TL.set) / 900) * 0.7) : '0';
+    // На заряде под словом проступает красное свечение; гаснет после удара
+    const glow1 = on ? red * (1 - span(t, TL.rel, TL.set)) : 0;
+    put(c1, 'textShadow', glow1 > 0.01 ? '0 0 ' + (14 * glow1).toFixed(1) + 'px rgba(255,30,70,' + (0.7 * glow1).toFixed(2) + ')' : '');
+    // TENSHOU — в удар, на своём месте: буквы сходятся из разрядки, размытие уходит, вспышка свечения
+    if (!on || t < TL.rel) { put(c2, 'opacity', '0'); }
+    else {
+      const k = sat((t - TL.rel) / 260), e = 1 - Math.pow(1 - k, 4), fl = Math.exp(-(t - TL.rel) / 320);
+      put(c2, 'opacity', sat((t - TL.rel) / 50).toFixed(3));
+      put(c2, 'letterSpacing', lerp(0.22, -0.015, e).toFixed(4) + 'em');
+      put(c2, 'transform', k < 1 ? 'scale(' + lerp(1.14, 1, e).toFixed(4) + ')' : '');
+      put(c2, 'filter', k < 1 ? 'blur(' + ((1 - e) * 12).toFixed(2) + 'px)' : '');
+      put(c2, 'textShadow', '0 0 ' + (18 + 40 * fl).toFixed(1) + 'px rgba(255,40,80,' + (0.38 + 0.5 * fl).toFixed(2) + ')');
+    }
+    // Черта под словом и столбец иероглифов дорисовываются следом за ударом
+    put(ul, 'transform', 'scaleX(' + (on ? eOut(span(t, TL.rel + 120, TL.rel + 720)) : 0).toFixed(4) + ')');
+    const kk = on ? eOut(span(t, TL.rel + 160, TL.rel + 600)) : 0;
+    put(kj, 'clipPath', 'inset(0 0 ' + ((1 - kk) * 100).toFixed(2) + '% 0)');
+    put(kj, 'textShadow', kk > 0 ? '0 0 16px rgba(255,30,70,.5)' : '');
+    put(rule, 'transform', 'scaleY(' + kk.toFixed(4) + ')');
     hint.style.opacity = ran && t > TL.set + 1200 ? '0.55' : '0';
     const bk = !ran || t < 0 ? 0 : t < TL.set ? eOut(sat(t / 450)) : 1 - eOut(sat((t - TL.set) / 700));
     barT.style.transform = barB.style.transform = 'scaleY(' + bk.toFixed(3) + ')';
