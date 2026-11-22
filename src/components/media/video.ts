@@ -144,7 +144,8 @@ defineBlock<VideoProps>('video', {
         if (presenter()) video.muted = true;
         if (o.autoplay && !editing()) {
           auto = true;
-          video.currentTime = 0;
+          // Уже на первом кадре (подготовлен заранее) — без перемотки: она задерживает запуск
+          if (video.currentTime !== 0) video.currentTime = 0;
           // Браузер не дал запустить со звуком: остаётся кнопка плеера, и её запуск — уже действие докладчика
           void video.play().catch(() => { auto = false; });
         }
@@ -179,7 +180,18 @@ defineBlock<VideoProps>('video', {
         ungradeNow();
       }, 400);
     };
-    const sync = () => (ctx.slide.classList.contains('on') ? on() : off());
+    // Следующий слайд показа (класс soon): ролик грузится целиком и встаёт на первый кадр — в склейку он запускается
+    // сразу, а не через десятые доли секунды загрузки (в показе под музыку — мимо удара)
+    const ready = () => {
+      if (!video || !o.autoplay || editing()) return;
+      if (video.preload !== 'auto') video.preload = 'auto';
+      if (video.currentTime !== 0) video.currentTime = 0;
+    };
+    const sync = () => {
+      if (ctx.slide.classList.contains('on')) return on();
+      off();
+      if (ctx.slide.classList.contains('soon')) ready();
+    };
     const mo = new MutationObserver(sync);
     mo.observe(ctx.slide, { attributes: true, attributeFilter: ['class'] });
     sync();
