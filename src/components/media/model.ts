@@ -103,9 +103,17 @@ defineBlock<ModelProps>('model', {
     };
     // Пауза сцены: экономный режим пульта или пауза автопоказа — модель не крутится
     const frozen = () => ctx.stage.classList.contains('paused') || ctx.stage.classList.contains('frozen');
+    type Playable = HTMLElement & { play?: () => void; pause?: () => void };
     const on = () => {
       clearTimeout(timer);
-      if (mv) return;
+      if (mv) {
+        // Вернулись, пока модель не выгружена: снова крутится и играет, как была
+        if (!frozen()) {
+          if (p.rotate === true && !ctx.reducedMotion) mv.setAttribute('auto-rotate', '');
+          if (p.animation && !ctx.reducedMotion) (mv as Playable).play?.();
+        }
+        return;
+      }
       void loadViewer().then(() => {
         if (mv || !ctx.slide.classList.contains('on')) return;
         const m = document.createElement('model-viewer');
@@ -213,6 +221,10 @@ defineBlock<ModelProps>('model', {
     // Ушли со слайда — модель выгружается: видеокарта свободна для других слайдов
     const off = () => {
       clearTimeout(timer);
+      // Сразу на паузу: иначе модель рисует ещё несколько кадров, пока сама не заметит, что скрыта, — и они
+      // приходятся на появление следующего слайда (в показе под музыку — смена позже удара)
+      mv?.removeAttribute('auto-rotate');
+      (mv as Playable | null)?.pause?.();
       timer = window.setTimeout(() => {
         mv?.remove();
         mv = null;
@@ -231,7 +243,7 @@ defineBlock<ModelProps>('model', {
       const f = frozen();
       if (f === wasFrozen) return;
       wasFrozen = f;
-      const v = mv as (HTMLElement & { play?: () => void; pause?: () => void }) | null;
+      const v = mv as Playable | null;
       if (!v) return;
       if (f) {
         v.removeAttribute('auto-rotate');
