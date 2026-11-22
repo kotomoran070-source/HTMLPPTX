@@ -3214,7 +3214,7 @@ slides:
       accent2: "#E89B1C"
     class: th-autumn
     transition: none
-    at: 34.677
+    at: 34.01
     logo: false
     free:
       - type: html
@@ -3300,7 +3300,7 @@ slides:
       accent2: "#FBBF24"
     class: th-party
     transition: none
-    at: 36.01
+    at: 34.677
     logo: false
     free:
       - type: html
@@ -3377,9 +3377,7 @@ slides:
     label: Агент
     bg: var(--bg)
     transition: none
-    at: 37.343
-    steps:
-      - 38.01
+    at: 36.677
     logo: false
     free:
       - type: html
@@ -3419,29 +3417,6 @@ slides:
           w: 600
           h: 120
         enter: words
-      - id: ag-a
-        type: shape
-        kind: rect
-        radius: 28
-        fill: gradient
-        gradient:
-          from: accent
-          to: accent2
-          angle: 135
-        shadow: lg
-        text: Готово — диаграмма на слайде
-        styles:
-          text:
-            size: 23
-            weight: 800
-            color: "#FFFFFF"
-        place:
-          x: 80
-          y: 390
-          w: 600
-          h: 100
-        enter: ufx-whip
-        click: true
       - type: shape
         kind: rect
         radius: 26
@@ -3491,7 +3466,7 @@ slides:
     bg: var(--bg)
     transition: morph
     transitionMs: 300
-    at: 38.677
+    at: 37.343
     steps:
       - 39.343
     logo: false
