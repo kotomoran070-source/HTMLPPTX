@@ -342,6 +342,12 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     const want = cueOf(deck, index, k) ?? (k === 0 && index === first ? trackStart(deck.music!) : undefined);
     if (want !== undefined && Math.abs(music.time() - want) > 0.25) music.seek(want);
   }
+  /** Трек стоит в начале первого слайда, шаги не открыты — показ под музыку начинается с самого начала */
+  function atShowStart(): boolean {
+    const first = skip() ? stepVisible(deck, -1, 1) : 0;
+    if (!music || index !== first || view.stepsTotal() !== view.stepsLeft()) return false;
+    return Math.abs(music.time() - (cueOf(deck, index, 0) ?? trackStart(deck.music!))) < 0.05;
+  }
   /** Автопоказ пошёл или встал — музыка с ним (A, кнопка, окно докладчика, телефон) */
   function musicFollow(on: boolean): void {
     if (!music) return;
@@ -349,6 +355,9 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     if (!on) return music.pause();
     if (music.playing) return;
     syncMusic();
+    // Первый слайд открыт заранее, и его ролик и появления отыграли, пока показ ждал запуска, — с началом трека
+    // слайд тоже с начала: иначе первый удар придётся на застывший кадр
+    if (byMusic() && !rehearsing && atShowStart()) view.replay(index, false);
     void music.play().then((r) => {
       if (r === 'blocked' && music.blocked) showNote('Музыка включится по первому нажатию', 'Включить', () => void music.play());
     });

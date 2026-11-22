@@ -187,13 +187,23 @@ defineBlock<VideoProps>('video', {
       if (video.preload !== 'auto') video.preload = 'auto';
       if (video.currentTime !== 0) video.currentTime = 0;
     };
-    const sync = () => {
-      if (ctx.slide.classList.contains('on')) return on();
+    // Запуск с начала — только когда слайд открылся. Открытый слайд меняет и другие классы (снимается «soon», когда
+    // готовится уже следующий), и без этой проверки ролик через четверть секунды после склейки начинался заново
+    let shown = false;
+    const sync = (recs?: MutationRecord[]) => {
+      if (ctx.slide.classList.contains('on')) {
+        // Повтор появления (replay) снимает и тут же ставит «on» — записи приходят пачкой, и это тоже открытие
+        const reopened = !!recs?.some((r) => !` ${r.oldValue ?? ''} `.includes(' on '));
+        if (!shown || reopened) on();
+        shown = true;
+        return;
+      }
+      shown = false;
       off();
       if (ctx.slide.classList.contains('soon')) ready();
     };
     const mo = new MutationObserver(sync);
-    mo.observe(ctx.slide, { attributes: true, attributeFilter: ['class'] });
+    mo.observe(ctx.slide, { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
     sync();
     // Докладчик запустил, остановил или перемотал ролик на текущем слайде — зрителям то же самое
     // (снимок следующего слайда в окне докладчика не в счёт)
