@@ -680,6 +680,8 @@ css: |
   .v6-frost { position: absolute; inset: 0; background:
     radial-gradient(ellipse 34% 46% at 78% 46%, rgba(125, 211, 252, .16), transparent 70%),
     linear-gradient(180deg, rgba(80, 150, 255, .22), transparent 70%); }
+  /* «ТЕМЫ» на живом хроме: мягкая тень под словом — блики хрома светлые, белое слово на них терялось */
+  .v8-shade { inset: 0; background: radial-gradient(ellipse 40% 26% at 50% 50%, rgba(14, 5, 34, .62), rgba(14, 5, 34, .28) 55%, transparent 80%); }
 
   .th-winter { --tx: #E8F1FF; --tx2: #D6E5FA; --mu: #A9C0E4; --bg: #0A2A70; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Onest', var(--font-base); --font-head: 'Unbounded', var(--font-base); }
   .th-party { --tx: #2A1316; --tx2: #4D2C30; --mu: #8C6A6D; --bg: #FFFAF3; --surf: #FFFFFF; --alt: color-mix(in srgb, #EF3E6B 8%, #FFFFFF); --bd: color-mix(in srgb, #EF3E6B 18%, #FFFFFF); --bd2: color-mix(in srgb, #EF3E6B 28%, #FFFFFF); --font: 'Montserrat', var(--font-base); --font-head: 'Montserrat', var(--font-base); }
@@ -2330,7 +2332,7 @@ slides:
           y: 164
           w: 1008
         images:
-          - src: ./assets/vista.webp
+          - src: ./assets/liquid-chrome.avif
         enter: ufx-slam
         id: scr
         locked: true
@@ -2373,7 +2375,7 @@ slides:
           w: 1280
       - id: scr
         type: image
-        src: ./assets/vista.webp
+        src: ./assets/liquid-chrome.avif
         fit: cover
         radius: 0
         angle: 0
@@ -2383,6 +2385,13 @@ slides:
           w: 1320
           h: 760
         style: "animation: v3-jit .1s steps(1) 0.8s infinite"
+      - type: html
+        html: <div class="v3-o"><i class="v8-shade"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: text
         text: ТЕМЫ
         id: scr-l
