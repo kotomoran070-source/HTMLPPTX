@@ -220,13 +220,48 @@ css: |
   .v3-pv .notes { border-radius: 12px; background: #141623; padding: 14px; color: #CBD5E1; font-size: 15px; line-height: 1.45; }
   .v3-pv footer { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: #1E2030; overflow: hidden; }
   .v3-pv footer i { display: block; width: 62%; height: 100%; background: linear-gradient(90deg, var(--ac), var(--ac2)); }
-  .v3-phone { inset: 0; box-sizing: border-box; border-radius: 46px; padding: 26px 20px; background: #07080D; border: 3px solid #2A2D40;
-    box-shadow: 0 0 0 8px #000, 0 40px 90px -20px color-mix(in srgb, var(--ac2) 60%, transparent); display: grid; grid-template-rows: auto 1fr 84px; gap: 16px;
-    color: #E2E8F0; font: 700 17px/1.2 var(--font); }
-  .v3-phone b { text-align: center; color: #94A3B8; font-weight: 700; letter-spacing: .08em; }
-  .v3-phone s { display: block; border-radius: 18px; background: linear-gradient(160deg, var(--ac), var(--ac2)); text-decoration: none; }
-  .v3-phone u { display: grid; place-items: center; border-radius: 22px; background: var(--ac); color: #fff; text-decoration: none; font-size: 24px; font-weight: 800; }
-  .slide.on .v3-phone u { animation: v3-press .6667s cubic-bezier(.2, .8, .3, 1) infinite; }
+  /* Телефон — режим докладчика с телефона в миниатюре, как настоящий в тёмной теме, но без мелких кнопок: таймер и часы,
+     слайд, панель инструментов, «Далее», заметки, внизу «Назад», счёт и большая «Далее» — она бьёт в такт */
+  /* Тень телефона — за рамкой объекта: без этого её обрезало бы прямоугольником */
+  .v3-o.v9-ph { overflow: visible; }
+  .v3-phone { inset: 0; box-sizing: border-box; padding: 7px; border-radius: 36px; background: #05060A; border: 1.5px solid #30344A;
+    box-shadow: 0 34px 80px -20px color-mix(in srgb, var(--ac2) 60%, transparent); }
+  .v9-scr { position: relative; height: 100%; box-sizing: border-box; border-radius: 29px; background: #0B1222; padding: 24px 11px 12px;
+    display: flex; flex-direction: column; gap: 8px; color: #CBD5E1; font: 600 10px/1.2 'Onest', var(--font-base); overflow: hidden; }
+  .v9-scr::before { content: ''; position: absolute; left: 50%; top: 7px; width: 52px; height: 12px; margin-left: -26px; border-radius: 7px; background: #000; }
+  .v9-top { display: flex; align-items: center; gap: 6px; flex: none; }
+  .v9-top b { margin-right: 2px; color: #fff; font: 800 22px/1 'Onest', var(--font-base); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+  .v9-top i { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; border: 1px solid #26304A; background: #141C2E; }
+  .v9-top span { margin-left: auto; color: #CBD5E1; font: 700 12px/1 'Onest', var(--font-base); font-variant-numeric: tabular-nums; }
+  .v9-scr svg { width: 14px; height: 14px; fill: none; stroke: #CBD5E1; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .v9-top svg { width: 10px; height: 10px; stroke: #A78BFA; stroke-width: 2.6; }
+  .v9-sl { position: relative; flex: none; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; background: #141C2E; }
+  .v9-sl img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .v9-bar { display: flex; align-items: center; justify-content: space-around; flex: none; height: 28px; padding: 0 4px; border-radius: 14px; border: 1px solid #26304A; background: #141C2E; }
+  .v9-bar hr { width: 1px; height: 12px; margin: 0; border: 0; background: #26304A; }
+  .v9-bar .v9-act { display: grid; place-items: center; width: 26px; height: 20px; border-radius: 7px; border: 1.2px solid #8B5CF6; background: rgba(139, 92, 246, .22); }
+  .v9-bar .v9-act svg { stroke: #C4B5FD; }
+  .v9-nx { flex: none; margin: 2px 0 0; color: #CBD5E1; font: 600 11px/1.2 'Onest', var(--font-base); }
+  .v9-nx em, .v9-lb { margin-right: 6px; color: #94A3B8; font: 800 9px/1.2 'Onest', var(--font-base); font-style: normal; letter-spacing: .14em; }
+  .v9-lb { flex: none; margin: 0; }
+  .v9-nt { flex: 1; padding: 9px 10px; border-radius: 10px; border: 1px solid #26304A; background: #141C2E; color: #CBD5E1; font: 500 10.5px/1.45 'Onest', var(--font-base); }
+  .v9-ft { display: flex; align-items: center; gap: 6px; flex: none; height: 56px; margin-top: 2px; }
+  .v9-ft u { display: grid; place-items: center; width: 30px; height: 44px; box-sizing: border-box; border-radius: 13px; border: 1.5px solid #7C3AED; color: #C4B5FD; text-decoration: none; font: 700 18px/1 'Onest', var(--font-base); }
+  .v9-ft span { color: #fff; font: 800 11px/1 'Onest', var(--font-base); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .v9-go { position: relative; flex: 1; align-self: stretch; display: grid; margin: 0; }
+  .v9-go s { position: relative; display: grid; place-items: center; border-radius: 16px; background: linear-gradient(115deg, #8B5CF6, #EC4899);
+    color: #fff; text-decoration: none; white-space: nowrap; font: 800 17px/1 'Onest', var(--font-base); }
+  /* Свечение под кнопкой и круг от нажатия — отдельными слоями: анимируются только прозрачность и масштаб */
+  .v9-go::before { content: ''; position: absolute; inset: 6px 4px 0; border-radius: 16px; background: linear-gradient(115deg, #8B5CF6, #EC4899); filter: blur(12px); opacity: .35; }
+  .v9-go s::after { content: ''; position: absolute; inset: 0; border-radius: inherit; border: 2px solid #F9A8D4; opacity: 0; }
+  /* Слайд — 2 с, удар — 1/3 с. На каждый удар кнопка подскакивает и растёт; на 154 и 156 (шаги слайда) — нажатие:
+     сжатие, отскок крупнее и круг. Первый удар пропущен — телефон в этот момент только падает в кадр */
+  .slide.on .v9-go s { animation: v9-beat 2s linear both; }
+  .slide.on .v9-go::before { animation: v9-glow 2s linear both; }
+  .slide.on .v9-go s::after { animation: v9-ring 2s linear both; }
+  @keyframes v9-beat { 0% { transform: none; } 16.67% { transform: none; animation-timing-function: cubic-bezier(.2, .9, .3, 1); } 18.47% { transform: translateY(-3px) scale(1.12); animation-timing-function: ease-out; } 29.67% { transform: none; } 33.33% { transform: none; animation-timing-function: ease-in; } 34.53% { transform: scale(.88); animation-timing-function: cubic-bezier(.2, .9, .3, 1.2); } 37.33% { transform: translateY(-5px) scale(1.2); animation-timing-function: ease-out; } 47.33% { transform: none; } 50.00% { transform: none; animation-timing-function: cubic-bezier(.2, .9, .3, 1); } 51.80% { transform: translateY(-3px) scale(1.12); animation-timing-function: ease-out; } 63.00% { transform: none; } 66.67% { transform: none; animation-timing-function: ease-in; } 67.87% { transform: scale(.88); animation-timing-function: cubic-bezier(.2, .9, .3, 1.2); } 70.67% { transform: translateY(-5px) scale(1.2); animation-timing-function: ease-out; } 80.67% { transform: none; } 83.33% { transform: none; animation-timing-function: cubic-bezier(.2, .9, .3, 1); } 85.13% { transform: translateY(-3px) scale(1.12); animation-timing-function: ease-out; } 96.33% { transform: none; } }
+  @keyframes v9-glow { 0% { opacity: .35; } 16.67% { opacity: .35; animation-timing-function: cubic-bezier(.2, .9, .3, 1); } 18.47% { opacity: 0.75; animation-timing-function: ease-out; } 30.67% { opacity: .35; } 33.33% { opacity: .35; animation-timing-function: cubic-bezier(.2, .9, .3, 1); } 37.33% { opacity: 1; animation-timing-function: ease-out; } 47.33% { opacity: .35; } 50.00% { opacity: .35; animation-timing-function: cubic-bezier(.2, .9, .3, 1); } 51.80% { opacity: 0.75; animation-timing-function: ease-out; } 64.00% { opacity: .35; } 66.67% { opacity: .35; animation-timing-function: cubic-bezier(.2, .9, .3, 1); } 70.67% { opacity: 1; animation-timing-function: ease-out; } 80.67% { opacity: .35; } 83.33% { opacity: .35; animation-timing-function: cubic-bezier(.2, .9, .3, 1); } 85.13% { opacity: 0.75; animation-timing-function: ease-out; } 97.33% { opacity: .35; } }
+  @keyframes v9-ring { 0% { opacity: 0; } 34.53% { opacity: 0; transform: none; animation-timing-function: ease-out; } 35.53% { opacity: .9; transform: none; animation-timing-function: ease-out; } 48.33% { opacity: 0; transform: scale(1.32, 1.6); } 67.87% { opacity: 0; transform: none; animation-timing-function: ease-out; } 68.87% { opacity: .9; transform: none; animation-timing-function: ease-out; } 81.67% { opacity: 0; transform: scale(1.32, 1.6); } }
 
   /* Код: строки кода цветами редактора */
   .v3-code { inset: 0; box-sizing: border-box; padding: 26px 30px; border-radius: 20px; background: #0D0F17; border: 1px solid #23263A;
@@ -3329,7 +3364,7 @@ slides:
         delay: 150
       - id: mf-4
         type: image
-        src: ./assets/bh-intro-poster.webp
+        src: ./assets/art-hole.svg
         place:
           x: 780
           y: 350
@@ -3470,7 +3505,7 @@ slides:
         shadow: lg
       - id: mf-4
         type: image
-        src: ./assets/bh-intro-poster.webp
+        src: ./assets/art-hole.svg
         place:
           x: 996
           y: 612
@@ -3598,7 +3633,7 @@ slides:
         shadow: lg
       - id: mf-4
         type: image
-        src: ./assets/bh-intro-poster.webp
+        src: ./assets/art-hole.svg
         place:
           x: 1030
           y: 430
@@ -3718,11 +3753,15 @@ slides:
         type: image
         src: ./assets/embed-getsuga3d.webp
         place:
-          x: 877
-          y: 171
-          w: 300
-          h: 150
-        radius: 12
+          x: 1320
+          y: 540
+          w: 196
+          h: 136
+        angle: 10
+        radius: 14
+        stroke: "#6D5BA8"
+        width: 1.5
+        shadow: lg
       - id: mf-2
         type: image
         src: ./assets/embed-motion.webp
@@ -3751,17 +3790,13 @@ slides:
         shadow: lg
       - id: mf-4
         type: image
-        src: ./assets/bh-intro-poster.webp
+        src: ./assets/art-hole.svg
         place:
-          x: 1320
-          y: 540
-          w: 196
-          h: 136
-        angle: 10
-        radius: 14
-        stroke: "#6D5BA8"
-        width: 1.5
-        shadow: lg
+          x: 877
+          y: 171
+          w: 300
+          h: 150
+        radius: 12
       - id: mf-5
         type: image
         src: ./assets/art-tide.svg
@@ -3860,18 +3895,8 @@ slides:
           h: 370
         images:
           - src: ./assets/art-peaks.svg
-          - src: ./assets/embed-getsuga3d.webp
+          - src: ./assets/art-hole.svg
         enter: appear
-      - type: html
-        html: <div class="v3-o" style="width:100%;height:100%"><div class="v3-phone"><b>Слайд 39 из 45</b><s></s><u>Далее</u></div></div>
-        place:
-          x: 1020
-          y: 260
-          w: 210
-          h: 420
-        enter: ufx-drop
-        delay: 120
-        angle: 8
       - type: text
         text: |-
           РЕЖИМ
@@ -3941,6 +3966,18 @@ slides:
           y: 0
           w: 1280
         locked: true
+      - type: html
+        html: <div class="v3-o v9-ph" style="width:100%;height:100%"><div class="v3-phone"><div class="v9-scr"><div class="v9-top"><b>00:51</b><i><svg viewBox="0 0 24 24"><path d="M9 7v10M15 7v10"/></svg></i><span>21:14</span></div><div class="v9-sl"><img data-i="0"></div><div class="v9-bar"><svg viewBox="0 0 24 24"><circle cx="7" cy="17" r="2.5"/><path d="M9 15l10-10M5 13l-1-1M11 21l-1-1"/></svg><svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/></svg><svg viewBox="0 0 24 24"><path d="M8 19l-4-4 9-9 6 6-7 7zM11 19h9"/></svg><hr><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg><i class="v9-act"><svg viewBox="0 0 24 24"><path d="M6 4l13 6-5.5 2L11 18z"/></svg></i></div><p class="v9-nx"><em>ДАЛЕЕ</em>Чёрная дыра</p><p class="v9-lb">ЗАМЕТКИ</p><div class="v9-nt">Пульт в руке. «Далее» — на удар.</div><div class="v9-ft"><u>‹</u><span>39 / 45</span><p class="v9-go"><s>Далее ›</s></p></div></div></div></div>
+        place:
+          x: 1052
+          y: 289
+          w: 200
+          h: 410
+        images:
+          - src: ./assets/art-peaks.svg
+        enter: ufx-drop
+        delay: 120
+        angle: 7
   - id: quiz
     template: canvas
     label: Тест

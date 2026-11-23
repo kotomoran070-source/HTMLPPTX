@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <defs>
+    <radialGradient id="a" cx=".14" cy=".16" r=".7"><stop offset="0" stop-color="#EC4899"/><stop offset="1" stop-color="#EC4899" stop-opacity="0"/></radialGradient>
+    <radialGradient id="b" cx=".9" cy=".2" r=".6"><stop offset="0" stop-color="#7C3AED"/><stop offset="1" stop-color="#7C3AED" stop-opacity="0"/></radialGradient>
+    <radialGradient id="c" cx=".55" cy="1.05" r=".65"><stop offset="0" stop-color="#FB923C" stop-opacity=".85"/><stop offset="1" stop-color="#FB923C" stop-opacity="0"/></radialGradient>
+    <radialGradient id="halo" cx=".5" cy=".5" r=".5"><stop offset=".35" stop-color="#FBCFE8" stop-opacity=".6"/><stop offset=".7" stop-color="#C084FC" stop-opacity=".2"/><stop offset="1" stop-color="#C084FC" stop-opacity="0"/></radialGradient>
+    <!-- Свет диска: слева ярче (вещество летит к зрителю) -->
+    <linearGradient id="d1" gradientUnits="userSpaceOnUse" x1="30" y1="0" x2="770" y2="0"><stop offset="0" stop-color="#C084FC"/><stop offset="1" stop-color="#6D28D9"/></linearGradient>
+    <linearGradient id="d2" gradientUnits="userSpaceOnUse" x1="100" y1="0" x2="700" y2="0"><stop offset="0" stop-color="#FBCFE8"/><stop offset=".5" stop-color="#F472B6"/><stop offset="1" stop-color="#BE185D"/></linearGradient>
+    <linearGradient id="d3" gradientUnits="userSpaceOnUse" x1="170" y1="0" x2="630" y2="0"><stop offset="0" stop-color="#FFFBEB"/><stop offset=".5" stop-color="#FDBA74"/><stop offset="1" stop-color="#F472B6"/></linearGradient>
+    <!-- Кольцо линзы: сверху толще и светлее -->
+    <linearGradient id="lens" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF7ED"/><stop offset=".45" stop-color="#FDBA74"/><stop offset=".75" stop-color="#F472B6"/><stop offset="1" stop-color="#A855F7"/></linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="#15122E"/>
+  <rect width="800" height="600" fill="url(#a)"/><rect width="800" height="600" fill="url(#b)"/><rect width="800" height="600" fill="url(#c)"/>
+  <g fill="#fff"><circle cx="70" cy="70" r="1.7" opacity=".8"/><circle cx="214" cy="40" r="1.2" opacity=".6"/><circle cx="602" cy="56" r="1.6" opacity=".75"/><circle cx="742" cy="148" r="1.2" opacity=".6"/><circle cx="98" cy="470" r="1.3" opacity=".55"/><circle cx="716" cy="500" r="1.5" opacity=".6"/><circle cx="300" cy="560" r="1" opacity=".45"/><circle cx="540" cy="110" r="1" opacity=".5"/></g>
+  <path d="M664 92l3 10 10 3-10 3-3 10-3-10-10-3 10-3z" fill="#FDE68A" opacity=".9"/>
+  <path d="M132 176l2 7 7 2-7 2-2 7-2-7-7-2 7-2z" fill="#FBCFE8" opacity=".85"/>
+  <circle cx="400" cy="296" r="270" fill="url(#halo)"/>
+  <g transform="rotate(-7 400 300)">
+    <!-- Задняя половина диска — за тенью -->
+    <!-- Целые кольца: нижнюю часть потом закроет передняя половина, шва на стыке нет -->
+    <path d="M30 300a370 66 0 1 1 740 0a370 66 0 1 1-740 0zM100 300a300 48 0 1 0 600 0a300 48 0 1 0-600 0z" fill="url(#d1)" fill-rule="evenodd"/>
+    <path d="M100 300a300 48 0 1 1 600 0a300 48 0 1 1-600 0zM170 300a230 32 0 1 0 460 0a230 32 0 1 0-460 0z" fill="url(#d2)" fill-rule="evenodd"/>
+    <path d="M170 300a230 32 0 1 1 460 0a230 32 0 1 1-460 0zM250 300a150 18 0 1 0 300 0a150 18 0 1 0-300 0z" fill="url(#d3)" fill-rule="evenodd"/>
+    <!-- Кольцо линзы: дальняя сторона диска, загнутая светом вокруг тени -->
+    <path d="M400 138a150 150 0 1 1 0 300a150 150 0 1 1 0-300zM400 186a114 114 0 1 0 0 228a114 114 0 1 0 0-228z" fill="url(#lens)" fill-rule="evenodd"/>
+    <!-- Тень и фотонное кольцо -->
+    <circle cx="400" cy="300" r="112" fill="#0A0716"/>
+    <circle cx="400" cy="300" r="114" fill="none" stroke="#fff" stroke-width="3" opacity=".85"/>
+    <!-- Передняя половина — поверх тени -->
+    <path d="M30 300A370 66 0 0 0 770 300L700 300A300 48 0 0 1 100 300z" fill="url(#d1)"/>
+    <path d="M100 300A300 48 0 0 0 700 300L630 300A230 32 0 0 1 170 300z" fill="url(#d2)"/>
+    <path d="M170 300A230 32 0 0 0 630 300L550 300A150 18 0 0 1 250 300z" fill="url(#d3)"/>
+    <!-- Светлые прожилки по диску -->
+    <g fill="none" stroke="#fff" stroke-linecap="round">
+      <path d="M140 300A260 40 0 0 0 660 300" stroke-width="2.4" opacity=".55"/>
+      <path d="M212 300A188 24 0 0 0 588 300" stroke-width="2" opacity=".6"/>
+      <path d="M66 300A334 57 0 0 0 734 300" stroke-width="1.6" opacity=".35"/>
+    </g>
+  </g>
+</svg>
