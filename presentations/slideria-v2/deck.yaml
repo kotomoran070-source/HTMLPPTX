@@ -768,9 +768,9 @@ css: |
   .slide.on .v10-ch .bar.hi { animation: v10-grow .42s cubic-bezier(.2, .9, .3, 1) var(--d) both, v10-hot .6667s ease-out calc(var(--d) + .6667s) infinite; }
   .slide.on .v10-ch .val { animation: v10-val .3s cubic-bezier(.2, .9, .3, 1) calc(var(--d) + .22s) both; }
   .slide.on .v10-ch .dot { animation: v10-dot .3s cubic-bezier(.2, .9, .3, 1.4) var(--d) both; }
-  .slide.on .v10-ch .ln polyline { animation: v10-line 1.7533s linear both; }
-  .slide.on .v10-ch .fl { animation: v10-fl .45s ease-out 1.63s forwards; }
-  .slide.on .v10-ch .rg { animation: v10-rg .7s cubic-bezier(.1, .7, .3, 1) 1.66s forwards; }
+  .slide.on .v10-ch .ln polyline { animation: v10-line 2.42s linear both; }
+  .slide.on .v10-ch .fl { animation: v10-fl .45s ease-out 2.3s forwards; }
+  .slide.on .v10-ch .rg { animation: v10-rg .7s cubic-bezier(.1, .7, .3, 1) 2.33s forwards; }
   @keyframes v10-grow { from { transform: scaleY(0); } 72% { transform: scaleY(1.07); } to { transform: scaleY(1); } }
   @keyframes v10-val { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
   @keyframes v10-dot { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: none; } }
@@ -944,24 +944,20 @@ css: |
   .th-party { --tx: #2A1316; --tx2: #4D2C30; --mu: #8C6A6D; --bg: #FFFAF3; --surf: #FFFFFF; --alt: color-mix(in srgb, #EF3E6B 8%, #FFFFFF); --bd: color-mix(in srgb, #EF3E6B 18%, #FFFFFF); --bd2: color-mix(in srgb, #EF3E6B 28%, #FFFFFF); --font: 'Montserrat', var(--font-base); --font-head: 'Montserrat', var(--font-base); }
   .th-autumn { --tx: #F6EADB; --tx2: #E2CDB6; --mu: #B39678; --bg: #1A110B; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Literata', var(--font-base); --font-head: 'Literata', var(--font-base); }
   .th-sakura { --tx: #3A1624; --tx2: #5C2E3E; --mu: #9A6B7B; --bg: #FFF6F8; --surf: #FFFFFF; --alt: color-mix(in srgb, #E0517A 8%, #FFFFFF); --bd: color-mix(in srgb, #E0517A 18%, #FFFFFF); --bd2: color-mix(in srgb, #E0517A 28%, #FFFFFF); --font: 'Nunito', var(--font-base); --font-head: 'Nunito', var(--font-base); }
-  @keyframes v14-cam { 0% { transform: translate(0.0px, -0.1px) scale(0.4813); } 11.00% { transform: translate(0.0px, -0.1px) scale(0.4813); animation-timing-function: cubic-bezier(.7, 0, .2, 1); } 21.80% { transform: translate(-27.9px, 0.3px) scale(1.2512); } 31.00% { transform: translate(-27.9px, 0.3px) scale(1.2512); animation-timing-function: cubic-bezier(.7, 0, .2, 1); } 41.80% { transform: translate(1.0px, -365.9px) scale(1.4438); } 51.00% { transform: translate(1.0px, -365.9px) scale(1.4438); animation-timing-function: cubic-bezier(.7, 0, .2, 1); } 61.80% { transform: translate(-131.7px, -250.8px) scale(1.0588); } 71.00% { transform: translate(-131.7px, -250.8px) scale(1.0588); animation-timing-function: cubic-bezier(.7, 0, .2, 1); } 81.80% { transform: translate(-1541.0px, -365.9px) scale(1.4438); } 100% { transform: translate(-1541.0px, -365.9px) scale(1.4438); } }
-  @keyframes v14-t0 { 0%, 19.40% { opacity: 0; transform: translateY(14px) scale(.9); } 23.60% { opacity: 1; transform: none; } 38.80% { opacity: 1; transform: none; } 40.00%, 100% { opacity: 0; } }
-  @keyframes v14-t1 { 0%, 39.40% { opacity: 0; transform: translateY(14px) scale(.9); } 43.60% { opacity: 1; transform: none; } 58.80% { opacity: 1; transform: none; } 60.00%, 100% { opacity: 0; } }
-  @keyframes v14-t2 { 0%, 59.40% { opacity: 0; transform: translateY(14px) scale(.9); } 63.60% { opacity: 1; transform: none; } 78.80% { opacity: 1; transform: none; } 80.00%, 100% { opacity: 0; } }
-  @keyframes v14-t3 { 0%, 79.40% { opacity: 0; transform: translateY(14px) scale(.9); } 83.60% { opacity: 1; transform: none; } 100% { opacity: 1; transform: none; } }
-  @keyframes v13-w0 { 0.00% { opacity: 1; transform: scale(1.16); } 4.00% { transform: none; } 12.49% { opacity: 1; } 12.50%, 100% { opacity: 0; } }
-  @keyframes v13-c0 { 0.00% { background-color: var(--ac); color: #05060A; } 12.49% { background-color: var(--ac); color: #05060A; } 12.50%, 100% { background-color: transparent; color: var(--tx2); } }
-  @keyframes v13-w1 { 0%, 12.49% { opacity: 0; } 12.50% { opacity: 1; transform: scale(1.16); } 16.50% { transform: none; } 24.99% { opacity: 1; } 25.00%, 100% { opacity: 0; } }
-  @keyframes v13-c1 { 0%, 12.49% { background-color: transparent; color: var(--tx2); } 12.50% { background-color: var(--ac); color: #05060A; } 24.99% { background-color: var(--ac); color: #05060A; } 25.00%, 100% { background-color: transparent; color: var(--tx2); } }
-  @keyframes v13-w2 { 0%, 24.99% { opacity: 0; } 25.00% { opacity: 1; transform: scale(1.16); } 29.00% { transform: none; } 37.49% { opacity: 1; } 37.50%, 100% { opacity: 0; } }
-  @keyframes v13-c2 { 0%, 24.99% { background-color: transparent; color: var(--tx2); } 25.00% { background-color: var(--ac); color: #05060A; } 37.49% { background-color: var(--ac); color: #05060A; } 37.50%, 100% { background-color: transparent; color: var(--tx2); } }
-  @keyframes v13-w3 { 0%, 37.49% { opacity: 0; } 37.50% { opacity: 1; transform: scale(1.16); } 41.50% { transform: none; } 49.99% { opacity: 1; } 50.00%, 100% { opacity: 0; } }
-  @keyframes v13-c3 { 0%, 37.49% { background-color: transparent; color: var(--tx2); } 37.50% { background-color: var(--ac); color: #05060A; } 49.99% { background-color: var(--ac); color: #05060A; } 50.00%, 100% { background-color: transparent; color: var(--tx2); } }
-  @keyframes v13-w4 { 0%, 49.99% { opacity: 0; } 50.00% { opacity: 1; transform: scale(1.16); } 54.00% { transform: none; } 62.49% { opacity: 1; } 62.50%, 100% { opacity: 0; } }
-  @keyframes v13-c4 { 0%, 49.99% { background-color: transparent; color: var(--tx2); } 50.00% { background-color: var(--ac); color: #05060A; } 62.49% { background-color: var(--ac); color: #05060A; } 62.50%, 100% { background-color: transparent; color: var(--tx2); } }
-  @keyframes v13-w5 { 0%, 62.49% { opacity: 0; } 62.50% { opacity: 1; transform: scale(1.16); } 66.50% { transform: none; } 100% { opacity: 1; } }
-  @keyframes v13-c5 { 0%, 62.49% { background-color: transparent; color: var(--tx2); } 62.50% { background-color: var(--ac); color: #05060A; } 100% { background-color: var(--ac); color: #05060A; } }
-  @keyframes v10-line { 0%, 24.0% { stroke-dashoffset: 1; } 62.0% { stroke-dashoffset: 0.717; } 81.0% { stroke-dashoffset: 0.454; } 100.0% { stroke-dashoffset: 0.000; } }
+  @keyframes v14-cam { 0% { transform: translate(0.0px, -0.1px) scale(0.4813); } 11.00% { transform: translate(0.0px, -0.1px) scale(0.4813); animation-timing-function: cubic-bezier(.7, 0, .2, 1); } 21.80% { transform: translate(-27.9px, 0.3px) scale(1.2512); } 51.00% { transform: translate(-44.4px, -9.3px) scale(1.3013); animation-timing-function: cubic-bezier(.7, 0, .2, 1); } 61.80% { transform: translate(-131.7px, -250.8px) scale(1.0588); } 100% { transform: translate(-152.3px, -270.4px) scale(1.1011); } }
+  @keyframes v14-t0 { 0%, 19.40% { opacity: 0; transform: translateY(14px) scale(.9); } 23.60% { opacity: 1; transform: none; } 49.80% { opacity: 1; transform: none; } 52.80%, 100% { opacity: 0; } }
+  @keyframes v14-t1 { 0%, 59.40% { opacity: 0; transform: translateY(14px) scale(.9); } 63.60% { opacity: 1; transform: none; } 100% { opacity: 1; transform: none; } }
+  @keyframes v13-w0 { 0.00% { opacity: 1; transform: scale(1.16); } 4.00% { transform: none; } 16.66% { opacity: 1; } 16.67%, 100% { opacity: 0; } }
+  @keyframes v13-c0 { 0.00% { background-color: var(--ac); color: #05060A; } 16.66% { background-color: var(--ac); color: #05060A; } 16.67%, 100% { background-color: transparent; color: var(--tx2); } }
+  @keyframes v13-w1 { 0%, 16.66% { opacity: 0; } 16.67% { opacity: 1; transform: scale(1.16); } 20.67% { transform: none; } 33.32% { opacity: 1; } 33.33%, 100% { opacity: 0; } }
+  @keyframes v13-c1 { 0%, 16.66% { background-color: transparent; color: var(--tx2); } 16.67% { background-color: var(--ac); color: #05060A; } 33.32% { background-color: var(--ac); color: #05060A; } 33.33%, 100% { background-color: transparent; color: var(--tx2); } }
+  @keyframes v13-w2 { 0%, 33.32% { opacity: 0; } 33.33% { opacity: 1; transform: scale(1.16); } 37.33% { transform: none; } 49.99% { opacity: 1; } 50.00%, 100% { opacity: 0; } }
+  @keyframes v13-c2 { 0%, 33.32% { background-color: transparent; color: var(--tx2); } 33.33% { background-color: var(--ac); color: #05060A; } 49.99% { background-color: var(--ac); color: #05060A; } 50.00%, 100% { background-color: transparent; color: var(--tx2); } }
+  @keyframes v13-w3 { 0%, 49.99% { opacity: 0; } 50.00% { opacity: 1; transform: scale(1.16); } 54.00% { transform: none; } 66.66% { opacity: 1; } 66.67%, 100% { opacity: 0; } }
+  @keyframes v13-c3 { 0%, 49.99% { background-color: transparent; color: var(--tx2); } 50.00% { background-color: var(--ac); color: #05060A; } 66.66% { background-color: var(--ac); color: #05060A; } 66.67%, 100% { background-color: transparent; color: var(--tx2); } }
+  @keyframes v13-w4 { 0%, 66.66% { opacity: 0; } 66.67% { opacity: 1; transform: scale(1.16); } 70.67% { transform: none; } 100% { opacity: 1; } }
+  @keyframes v13-c4 { 0%, 66.66% { background-color: transparent; color: var(--tx2); } 66.67% { background-color: var(--ac); color: #05060A; } 100% { background-color: var(--ac); color: #05060A; } }
+  @keyframes v10-line { 0%, 17.4% { stroke-dashoffset: 1; } 44.9% { stroke-dashoffset: 0.717; } 72.5% { stroke-dashoffset: 0.454; } 100.0% { stroke-dashoffset: 0.000; } }
   @keyframes v11-m0 { from { left: 30px; top: 96px; width: 440px; height: 56px; border-radius: 12px; } to { left: 60px; top: 248px; width: 80px; height: 132px; border-radius: 14px 14px 4px 4px; } }
   @keyframes v11-m1 { from { left: 30px; top: 160px; width: 440px; height: 56px; border-radius: 12px; } to { left: 160px; top: 198px; width: 80px; height: 182px; border-radius: 14px 14px 4px 4px; } }
   @keyframes v11-m2 { from { left: 30px; top: 224px; width: 440px; height: 56px; border-radius: 12px; } to { left: 260px; top: 220px; width: 80px; height: 160px; border-radius: 14px 14px 4px 4px; } }
@@ -1506,7 +1502,7 @@ slides:
           w: 1280
         locked: true
       - type: html
-        html: '<div class="v3-o" style="width:100%;height:100%"><div class="v14-vp"><img data-i="0" style="animation: v14-cam 1.6667s linear both"></div><b class="v14-tag" style="left:330px;top:214px;animation: v14-t0 1.6667s linear both">Лента — как в PowerPoint</b><b class="v14-tag" style="left:24px;top:380px;animation: v14-t1 1.6667s linear both">Слайды</b><b class="v14-tag" style="left:24px;top:380px;animation: v14-t2 1.6667s linear both">Правка прямо на слайде</b><b class="v14-tag" style="left:520px;top:380px;animation: v14-t3 1.6667s linear both">Свойства</b></div>'
+        html: '<div class="v3-o" style="width:100%;height:100%"><div class="v14-vp"><img data-i="0" style="animation: v14-cam 1.6667s linear both"></div><b class="v14-tag" style="left:330px;top:214px;animation: v14-t0 1.6667s linear both">Лента — как в PowerPoint</b><b class="v14-tag" style="left:24px;top:380px;animation: v14-t1 1.6667s linear both">Правка прямо на слайде</b></div>'
         place:
           x: 470
           y: 120
@@ -1675,7 +1671,7 @@ slides:
           x: 0
           y: 250
           w: 1280
-        style: "animation: v13-w0 2.6667s linear both"
+        style: "animation: v13-w0 2.0000s linear both"
       - type: text
         text: НЕОН
         textFx: neon
@@ -1691,7 +1687,7 @@ slides:
           x: 0
           y: 250
           w: 1280
-        style: "animation: v13-w1 2.6667s linear both"
+        style: "animation: v13-w1 2.0000s linear both"
       - type: text
         text: ВОЛНА
         textFx: wave
@@ -1707,7 +1703,7 @@ slides:
           x: 0
           y: 250
           w: 1280
-        style: "animation: v13-w2 2.6667s linear both"
+        style: "animation: v13-w2 2.0000s linear both"
       - type: text
         text: ЖИДКОСТЬ
         textFx: liquid
@@ -1723,23 +1719,7 @@ slides:
           x: 0
           y: 250
           w: 1280
-        style: "animation: v13-w3 2.6667s linear both"
-      - type: text
-        text: БЛИК
-        textFx: shine
-        styles:
-          text:
-            size: 150
-            weight: 900
-            leading: 1
-            spacing: -0.035
-            color: text
-            align: center
-        place:
-          x: 0
-          y: 250
-          w: 1280
-        style: "animation: v13-w4 2.6667s linear both"
+        style: "animation: v13-w3 2.0000s linear both"
       - type: text
         text: "{g:sunset|ГРАДИЕНТ}"
         styles:
@@ -1754,9 +1734,9 @@ slides:
           x: 0
           y: 250
           w: 1280
-        style: "animation: v13-w5 2.6667s linear both"
+        style: "animation: v13-w4 2.0000s linear both"
       - type: html
-        html: '<div class="v13-row"><b style="animation: v13-c0 2.6667s linear both">ГЛИТЧ</b><b style="animation: v13-c1 2.6667s linear both">НЕОН</b><b style="animation: v13-c2 2.6667s linear both">ВОЛНА</b><b style="animation: v13-c3 2.6667s linear both">ЖИДКОСТЬ</b><b style="animation: v13-c4 2.6667s linear both">БЛИК</b><b style="animation: v13-c5 2.6667s linear both">ГРАДИЕНТ</b></div>'
+        html: '<div class="v13-row"><b style="animation: v13-c0 2.0000s linear both">ГЛИТЧ</b><b style="animation: v13-c1 2.0000s linear both">НЕОН</b><b style="animation: v13-c2 2.0000s linear both">ВОЛНА</b><b style="animation: v13-c3 2.0000s linear both">ЖИДКОСТЬ</b><b style="animation: v13-c4 2.0000s linear both">ГРАДИЕНТ</b></div>'
         place:
           x: 0
           y: 560
@@ -1774,7 +1754,7 @@ slides:
     label: Инфографика
     bg: var(--bg)
     transition: none
-    at: 16.01
+    at: 15.343
     logo: false
     free:
       - type: html
@@ -1813,7 +1793,7 @@ slides:
           y: 186
           w: 440
         enter: ufx-slam
-        delay: 230
+        delay: 667
       - type: text
         text: |-
           в IV квартале —
@@ -1830,9 +1810,9 @@ slides:
           y: 330
           w: 400
         enter: fade
-        delay: 1600
+        delay: 2000
       - type: html
-        html: <div class="v3-o" style="width:100%;height:100%"><div class="v10-ch"><i class="gl" style="bottom:155px"></i><i class="gl" style="bottom:250px"></i><i class="gl" style="bottom:345px"></i><i class="gl" style="bottom:440px"></i><i class="base"></i><svg class="ln" viewBox="0 0 760 520"><polyline points="95,407 285,323 475,354 665,80" pathLength="1"/></svg><i class="bar" style="--x:30px;--h:53px;--d:0.0000s"></i><b class="val" style="--x:30px;--h:53px;--d:0.0000s">+12 %</b><em class="ax" style="--x:30px;--h:53px;--d:0.0000s">I</em><i class="dot" style="--x:95px;--y:407px;--d:0.4200s"></i><i class="bar" style="--x:220px;--h:137px;--d:0.6667s"></i><b class="val" style="--x:220px;--h:137px;--d:0.6667s">+31 %</b><em class="ax" style="--x:220px;--h:137px;--d:0.6667s">II</em><i class="dot" style="--x:285px;--y:323px;--d:1.0867s"></i><i class="bar" style="--x:410px;--h:106px;--d:1.0000s"></i><b class="val" style="--x:410px;--h:106px;--d:1.0000s">+24 %</b><em class="ax" style="--x:410px;--h:106px;--d:1.0000s">III</em><i class="dot" style="--x:475px;--y:354px;--d:1.4200s"></i><i class="bar hi" style="--x:600px;--h:380px;--d:1.3333s"></i><b class="val hi" style="--x:600px;--h:380px;--d:1.3333s">+86 %</b><em class="ax" style="--x:600px;--h:380px;--d:1.3333s">IV</em><i class="dot hi" style="--x:665px;--y:80px;--d:1.7533s"></i><i class="fl" style="--x:600px;--h:380px"></i><i class="rg" style="--x:665px;--y:80px"></i></div></div>
+        html: <div class="v3-o" style="width:100%;height:100%"><div class="v10-ch"><i class="gl" style="bottom:155px"></i><i class="gl" style="bottom:250px"></i><i class="gl" style="bottom:345px"></i><i class="gl" style="bottom:440px"></i><i class="base"></i><svg class="ln" viewBox="0 0 760 520"><polyline points="95,407 285,323 475,354 665,80" pathLength="1"/></svg><i class="bar" style="--x:30px;--h:53px;--d:0.0000s"></i><b class="val" style="--x:30px;--h:53px;--d:0.0000s">+12 %</b><em class="ax" style="--x:30px;--h:53px;--d:0.0000s">I</em><i class="dot" style="--x:95px;--y:407px;--d:0.4200s"></i><i class="bar" style="--x:220px;--h:137px;--d:0.6667s"></i><b class="val" style="--x:220px;--h:137px;--d:0.6667s">+31 %</b><em class="ax" style="--x:220px;--h:137px;--d:0.6667s">II</em><i class="dot" style="--x:285px;--y:323px;--d:1.0867s"></i><i class="bar" style="--x:410px;--h:106px;--d:1.3333s"></i><b class="val" style="--x:410px;--h:106px;--d:1.3333s">+24 %</b><em class="ax" style="--x:410px;--h:106px;--d:1.3333s">III</em><i class="dot" style="--x:475px;--y:354px;--d:1.7533s"></i><i class="bar hi" style="--x:600px;--h:380px;--d:2.0000s"></i><b class="val hi" style="--x:600px;--h:380px;--d:2.0000s">+86 %</b><em class="ax" style="--x:600px;--h:380px;--d:2.0000s">IV</em><i class="dot hi" style="--x:665px;--y:80px;--d:2.4200s"></i><i class="fl" style="--x:600px;--h:380px"></i><i class="rg" style="--x:665px;--y:80px"></i></div></div>
         place:
           x: 470
           y: 110
