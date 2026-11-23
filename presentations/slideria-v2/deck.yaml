@@ -734,6 +734,104 @@ css: |
   .v3-pv .pic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   .v3-pv .next.pic::after { z-index: 1; text-shadow: 0 1px 6px rgba(0, 0, 0, .85); }
   @keyframes v8-ghost { from { opacity: 0; } }
+
+  /* ── Инфографика: один график на весь слайд (столбцы на бочку, линия по вершинам, четвёртый — героем) ── */
+  .v10-ch { position: absolute; inset: 0; }
+  .v10-ch .gl { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255, 255, 255, .07); }
+  .v10-ch .base { position: absolute; left: 0; right: 0; bottom: 60px; height: 2px; background: rgba(255, 255, 255, .22); }
+  .v10-ch .bar { position: absolute; left: var(--x); bottom: 60px; width: 130px; height: var(--h); border-radius: 18px 18px 6px 6px;
+    background: linear-gradient(180deg, #6D4FC4, #2E1F5E); transform-origin: 50% 100%; transform: scaleY(0); }
+  .v10-ch .bar.hi { background: linear-gradient(180deg, var(--ac2), var(--ac)); box-shadow: 0 0 70px -4px color-mix(in srgb, var(--ac2) 75%, transparent); }
+  .v10-ch .val { position: absolute; left: calc(var(--x) - 40px); width: 210px; white-space: nowrap; bottom: calc(76px + var(--h)); text-align: center; font: 800 28px/1 var(--font-head); color: color-mix(in srgb, var(--tx) 80%, transparent); opacity: 0; }
+  .v10-ch .val.hi { bottom: calc(80px + var(--h)); font-size: 36px; color: #fff; text-shadow: 0 0 24px color-mix(in srgb, var(--ac2) 80%, transparent); }
+  .v10-ch .ax { position: absolute; left: var(--x); width: 130px; bottom: 20px; text-align: center; font: 800 20px/1 var(--font-head); font-style: normal; letter-spacing: .12em; color: color-mix(in srgb, var(--tx) 50%, transparent); }
+  .v10-ch .ln { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .v10-ch .ln polyline { fill: none; stroke: rgba(255, 255, 255, .75); stroke-width: 2.5; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; }
+  .v10-ch .dot { position: absolute; left: var(--x); top: var(--y); width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: #fff; opacity: 0; }
+  .v10-ch .dot.hi { box-shadow: 0 0 0 6px color-mix(in srgb, var(--ac2) 45%, transparent); }
+  .v10-ch .fl { position: absolute; left: var(--x); bottom: 60px; width: 130px; height: var(--h); border-radius: 18px 18px 6px 6px; background: #fff; opacity: 0; }
+  .v10-ch .rg { position: absolute; left: var(--x); top: var(--y); width: 240px; height: 240px; margin: -120px 0 0 -120px; border-radius: 50%; border: 3px solid #fff; opacity: 0; }
+  .slide.on .v10-ch .bar { animation: v10-grow .42s cubic-bezier(.2, .9, .3, 1) var(--d) both; }
+  .slide.on .v10-ch .bar.hi { animation: v10-grow .42s cubic-bezier(.2, .9, .3, 1) var(--d) both, v10-hot .6667s ease-out calc(var(--d) + .6667s) infinite; }
+  .slide.on .v10-ch .val { animation: v10-val .3s cubic-bezier(.2, .9, .3, 1) calc(var(--d) + .22s) both; }
+  .slide.on .v10-ch .dot { animation: v10-dot .3s cubic-bezier(.2, .9, .3, 1.4) var(--d) both; }
+  .slide.on .v10-ch .ln polyline { animation: v10-line 1.7533s linear both; }
+  .slide.on .v10-ch .fl { animation: v10-fl .45s ease-out 1.63s forwards; }
+  .slide.on .v10-ch .rg { animation: v10-rg .7s cubic-bezier(.1, .7, .3, 1) 1.66s forwards; }
+  @keyframes v10-grow { from { transform: scaleY(0); } 72% { transform: scaleY(1.07); } to { transform: scaleY(1); } }
+  @keyframes v10-val { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+  @keyframes v10-dot { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: none; } }
+  @keyframes v10-fl { from { opacity: .85; } to { opacity: 0; } }
+  @keyframes v10-rg { from { opacity: .9; transform: scale(.2); } to { opacity: 0; transform: scale(1.4); } }
+  @keyframes v10-hot { from { filter: brightness(1.35); } to { filter: none; } }
+
+  /* ── Агент голосом: волна (wave.css), фраза по словам, строки таблицы перелетают в столбцы ── */
+  .v11-mic { position: absolute; inset: 0; display: flex; align-items: center; gap: 22px; padding: 0 26px; box-sizing: border-box; border-radius: 26px;
+    background: color-mix(in srgb, var(--surf) 80%, transparent); border: 1px solid color-mix(in srgb, var(--ac) 40%, transparent); }
+  .v11-dot { flex: none; width: 18px; height: 18px; border-radius: 50%; background: #F43F5E; box-shadow: 0 0 0 6px rgba(244, 63, 94, .22); }
+  .v11-wave { flex: 1; height: 70px; display: flex; align-items: center; gap: 6px; }
+  .v11-wave i { flex: 1; height: 100%; border-radius: 99px; background: linear-gradient(180deg, var(--ac2), var(--ac)); transform: scaleY(.12); }
+  .v11-say { position: absolute; inset: 0; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; align-content: center; gap: 0 12px; padding: 0 34px;
+    border-radius: 28px; border: 1.5px solid var(--ac); background: color-mix(in srgb, var(--surf) 85%, transparent); font: 800 30px/1.25 var(--font-head); color: var(--tx); }
+  .v11-say span { position: relative; opacity: 0; }
+  /* Курсор — за последним появившимся словом: у каждого слова свой, горит до следующего слова; у последнего мигает */
+  .v11-say span::after { content: ''; position: absolute; right: -9px; top: 4px; bottom: 2px; width: 3px; background: var(--ac2); opacity: 0; }
+  .slide.on .v11-say span { animation: v11-word .22s cubic-bezier(.2, .9, .3, 1) var(--d) both; }
+  .slide.on .v11-say span::after { animation: v11-cur .3333s steps(1) var(--d) 1; }
+  .slide.on .v11-say span:last-child::after { animation: v11-caret .3333s steps(1) var(--d) 3; }
+  @keyframes v11-word { from { opacity: 0; filter: blur(8px); transform: translateY(10px); } to { opacity: 1; filter: none; transform: none; } }
+  @keyframes v11-cur { 0%, 100% { opacity: 1; } }
+  @keyframes v11-caret { 0% { opacity: 1; } 50% { opacity: 0; } }
+  .v11-tb { position: absolute; inset: 0; font: 700 24px/1 var(--font); color: var(--tx); }
+  .v11-h { position: absolute; left: 30px; top: 30px; width: 440px; height: 52px; box-sizing: border-box; padding: 0 22px; display: flex; align-items: center; justify-content: space-between;
+    border-radius: 12px; background: linear-gradient(90deg, var(--ac), var(--ac2)); color: #fff; font: 800 15px/1 var(--font); letter-spacing: .12em; text-transform: uppercase; }
+  .v11-base { position: absolute; left: 30px; right: 30px; top: 380px; height: 2px; background: rgba(255, 255, 255, .25); opacity: 0; }
+  .v11-r { position: absolute; left: 30px; top: var(--y0); width: 440px; height: 56px; box-sizing: border-box; padding: 0 22px; display: flex; align-items: center; justify-content: space-between; border-radius: 12px; }
+  .v11-r .bg, .v11-r .gr { position: absolute; inset: 0; border-radius: inherit; }
+  .v11-r .bg { background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .1); }
+  .v11-r .gr { background: linear-gradient(180deg, var(--ac2), var(--ac)); opacity: 0; }
+  .v11-r span { position: relative; }
+  .v11-r b, .v11-r em { position: absolute; left: -20px; right: -20px; text-align: center; opacity: 0; font-style: normal; }
+  .v11-r b { top: -36px; font: 800 24px/1 var(--font-head); }
+  .v11-r em { bottom: -32px; font: 700 18px/1 var(--font); color: color-mix(in srgb, var(--tx) 60%, transparent); }
+  .slide.on .v11-r { animation: v11-m0 .45s cubic-bezier(.65, 0, .25, 1) var(--d) both; }
+  .slide.on .v11-r .bg { animation: v11-out .25s ease-out var(--d) both; }
+  .slide.on .v11-r .gr { animation: v11-in .3s ease-out calc(var(--d) + .1s) both; }
+  .slide.on .v11-r span { animation: v11-out .12s ease-out var(--d) both; }
+  .slide.on .v11-r b, .slide.on .v11-r em { animation: v11-in .25s ease-out calc(var(--d) + .4s) both; }
+  .slide.on .v11-h { animation: v11-out .2s ease-out 1.3333s both; }
+  .slide.on .v11-base { animation: v11-in .3s ease-out 1.6s both; }
+  @keyframes v11-out { to { opacity: 0; } }
+  @keyframes v11-in { from { opacity: 0; } to { opacity: 1; } }
+  /* Состояние в углу: «Слушает» → на бочке 2 с «Готово» */
+  .v11-s1, .v11-s2 { display: inline-block; }
+  .v11-s2 { position: absolute; right: 0; top: 0; opacity: 0; }
+  .slide.on .v11-s1 { animation: v11-out .15s linear 2s both; }
+  .slide.on .v11-s2 { animation: v11-in .15s linear 2s both; }
+
+  /* ── Карточки-перевёртыши: веер из трёх, переворот домино на доли ── */
+  .v12-c { position: absolute; left: var(--x); top: 380px; width: 330px; height: 410px; margin: -205px 0 0 -165px; perspective: 1400px;
+    transform: translateY(var(--dy)) rotate(var(--a)); }
+  .v12-in { position: absolute; inset: 0; transform-style: preserve-3d; }
+  .v12-in > div { position: absolute; inset: 0; box-sizing: border-box; border-radius: 28px; backface-visibility: hidden; display: flex; flex-direction: column; padding: 30px 28px; }
+  .v12-in .f { background: linear-gradient(160deg, #1B1530, #0F0C1C); border: 2px solid color-mix(in srgb, var(--ac) 70%, transparent);
+    box-shadow: 0 30px 70px -24px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(255, 255, 255, .08); }
+  .v12-in .b { transform: rotateY(180deg); background: linear-gradient(150deg, var(--ac), var(--ac2)); box-shadow: 0 30px 80px -20px color-mix(in srgb, var(--ac2) 60%, transparent); justify-content: center; }
+  .v12-in small { font: 800 15px/1 var(--font); letter-spacing: .2em; text-transform: uppercase; color: color-mix(in srgb, var(--tx) 55%, transparent); }
+  .v12-in .b small { color: rgba(255, 255, 255, .75); position: absolute; top: 30px; left: 28px; }
+  .v12-in .f b { margin: auto 0; font: 800 40px/1.05 var(--font-head); letter-spacing: -.03em; color: var(--tx); }
+  .v12-in .f b i { font-style: normal; color: var(--ac2); }
+  .v12-in .f em { font: 700 15px/1 var(--font); font-style: normal; color: color-mix(in srgb, var(--tx) 45%, transparent); }
+  .v12-in .b b { font: 800 31px/1.14 var(--font-head); letter-spacing: -.02em; color: #fff; }
+  .slide.on .v12-c { animation: v12-fan .42s cubic-bezier(.2, .9, .3, 1) var(--e) both; }
+  .slide.on .v12-in { animation: v12-flip .42s cubic-bezier(.45, 0, .2, 1) var(--d) both; }
+  @keyframes v12-fan { from { opacity: 0; transform: translate(calc(640px - var(--x)), 60px) rotate(0deg) scale(.85); } to { opacity: 1; transform: translateY(var(--dy)) rotate(var(--a)); } }
+  @keyframes v12-flip { from { transform: none; } 50% { transform: rotateY(90deg) scale(1.08); } to { transform: rotateY(180deg); } }
+
+  /* ── Эффекты текста: ряд названий под словом, текущее подсвечено (ключевые кадры — из генератора) ── */
+  .v13-row { display: flex; justify-content: center; gap: 14px; }
+  .v13-row b { padding: 12px 24px; border-radius: 99px; border: 1.5px solid color-mix(in srgb, var(--ac) 55%, transparent); color: var(--tx2);
+    font: 800 18px/1 var(--font); letter-spacing: .14em; }
   /* Визуализатор «жидкость» (eqgen.py): три слоя по спектру трека на отрезке «Любой формат слайда», 8 с */
   @keyframes v8-ls1 { 0% { scale: 1.180; } 1.50% { scale: 1.172; } 2.50% { scale: 1.102; } 3.50% { scale: .958; } 5% { scale: .832; } 6.50% { scale: .768; } 8.50% { scale: .728; } 10% { scale: .752; } 11.50% { scale: .734; } 12% { scale: .764; } 14% { scale: .726; } 16.50% { scale: .709; } 29.50% { scale: .700; } 30% { scale: .820; } 31.50% { scale: .762; } 33.50% { scale: .725; } 34% { scale: 1.180; } 34.50% { scale: 1.180; } 35% { scale: 1.152; } 35.50% { scale: 1.180; } 37% { scale: .999; } 37.50% { scale: 1.052; } 38% { scale: 1.009; } 38.50% { scale: 1.020; } 39% { scale: .996; } 40% { scale: 1.010; } 40.50% { scale: .948; } 41% { scale: .972; } 41.50% { scale: .957; } 42.50% { scale: 1.025; } 44.50% { scale: .965; } 46% { scale: .965; } 46.50% { scale: .912; } 47% { scale: .889; } 47.50% { scale: .923; } 49.50% { scale: .899; } 50.50% { scale: .972; } 51% { scale: .978; } 52.50% { scale: .865; } 54% { scale: .881; } 55% { scale: .834; } 56% { scale: .854; } 58% { scale: .805; } 59% { scale: .821; } 61% { scale: .751; } 63.50% { scale: .717; } 66.50% { scale: .704; } 67% { scale: .906; } 67.50% { scale: 1.180; } 68% { scale: 1.175; } 68.50% { scale: 1.141; } 69% { scale: 1.143; } 70% { scale: 1.010; } 70.50% { scale: 1.009; } 71.50% { scale: .901; } 73% { scale: .923; } 74% { scale: .850; } 74.50% { scale: .841; } 75% { scale: .876; } 75.50% { scale: .863; } 76% { scale: .884; } 77% { scale: .882; } 78.50% { scale: .843; } 79% { scale: .858; } 80% { scale: .813; } 81.50% { scale: .800; } 82.50% { scale: .812; } 83.50% { scale: .797; } 84% { scale: .835; } 85% { scale: .835; } 86.50% { scale: .775; } 87% { scale: .766; } 87.50% { scale: .782; } 90% { scale: .727; } 96% { scale: .702; } 96.50% { scale: .859; } 98% { scale: .781; } 100% { scale: .733; } }
   @keyframes v8-lr1 { 0% { border-radius: 39% 40% 34% 66% / 65% 39% 51% 36%; } 1% { border-radius: 37% 43% 35% 66% / 64% 41% 53% 37%; } 2% { border-radius: 37% 46% 37% 64% / 62% 43% 55% 40%; } 3% { border-radius: 39% 48% 41% 60% / 58% 47% 56% 44%; } 4% { border-radius: 43% 50% 45% 56% / 54% 49% 54% 47%; } 5% { border-radius: 46% 51% 47% 54% / 52% 50% 53% 49%; } 6% { border-radius: 47% 51% 49% 52% / 51% 50% 52% 50%; } 7% { border-radius: 49% 51% 49% 51% / 50% 51% 52% 50%; } 8% { border-radius: 49% 51% 50% 51% / 50% 51% 51% 50%; } 9% { border-radius: 50% 51% 50% 50% / 50% 51% 51% 50%; } 10% { border-radius: 49% 51% 50% 51% / 50% 51% 52% 51%; } 11% { border-radius: 50% 51% 50% 50% / 50% 51% 51% 51%; } 12% { border-radius: 50% 52% 51% 50% / 49% 52% 52% 52%; } 13% { border-radius: 50% 51% 51% 50% / 49% 51% 51% 51%; } 14% { border-radius: 50% 51% 51% 50% / 49% 51% 51% 51%; } 15% { border-radius: 50% 51% 50% 50% / 50% 51% 50% 51%; } 16% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 17% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 18% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 19% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 20% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 21% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 22% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 23% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 24% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 25% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 26% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 27% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 28% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 29% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 30% { border-radius: 48% 46% 51% 48% / 49% 47% 46% 47%; } 31% { border-radius: 48% 48% 50% 49% / 50% 48% 48% 48%; } 32% { border-radius: 49% 48% 50% 50% / 50% 48% 49% 48%; } 33% { border-radius: 49% 49% 50% 50% / 50% 49% 49% 49%; } 34% { border-radius: 34% 34% 44% 50% / 56% 34% 42% 34%; } 35% { border-radius: 35% 36% 42% 52% / 57% 35% 45% 35%; } 36% { border-radius: 36% 38% 41% 54% / 59% 37% 47% 37%; } 37% { border-radius: 41% 43% 43% 54% / 57% 41% 50% 42%; } 38% { border-radius: 41% 43% 41% 56% / 58% 42% 52% 43%; } 39% { border-radius: 43% 45% 41% 56% / 59% 43% 53% 44%; } 40% { border-radius: 44% 46% 40% 58% / 60% 44% 55% 46%; } 41% { border-radius: 47% 48% 41% 58% / 59% 46% 56% 48%; } 42% { border-radius: 48% 50% 40% 59% / 60% 47% 57% 49%; } 43% { border-radius: 50% 51% 40% 60% / 60% 49% 59% 51%; } 44% { border-radius: 52% 53% 41% 59% / 59% 50% 59% 52%; } 45% { border-radius: 53% 54% 42% 59% / 58% 52% 58% 54%; } 46% { border-radius: 55% 55% 43% 59% / 58% 53% 59% 55%; } 47% { border-radius: 55% 55% 45% 56% / 55% 53% 56% 54%; } 48% { border-radius: 56% 56% 46% 56% / 55% 54% 57% 56%; } 49% { border-radius: 56% 56% 47% 56% / 54% 55% 56% 56%; } 50% { border-radius: 58% 57% 47% 56% / 54% 57% 56% 57%; } 51% { border-radius: 59% 59% 48% 56% / 53% 59% 57% 59%; } 52% { border-radius: 56% 57% 49% 54% / 52% 56% 54% 57%; } 53% { border-radius: 55% 56% 50% 52% / 51% 56% 53% 56%; } 54% { border-radius: 55% 56% 51% 52% / 50% 56% 52% 56%; } 55% { border-radius: 53% 54% 51% 51% / 49% 54% 51% 54%; } 56% { border-radius: 53% 54% 52% 50% / 48% 55% 50% 54%; } 57% { border-radius: 51% 53% 52% 49% / 48% 54% 49% 53%; } 58% { border-radius: 50% 52% 52% 49% / 48% 53% 49% 52%; } 59% { border-radius: 50% 51% 53% 48% / 47% 53% 48% 51%; } 60% { border-radius: 49% 51% 52% 49% / 48% 51% 48% 50%; } 61% { border-radius: 49% 50% 52% 49% / 49% 51% 49% 50%; } 62% { border-radius: 49% 50% 51% 49% / 49% 50% 49% 50%; } 63% { border-radius: 49% 50% 51% 49% / 49% 50% 49% 50%; } 64% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 65% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 66% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 67% { border-radius: 43% 44% 56% 43% / 43% 46% 43% 44%; } 68% { border-radius: 35% 36% 63% 34% / 36% 39% 36% 35%; } 69% { border-radius: 37% 36% 60% 36% / 38% 38% 38% 35%; } 70% { border-radius: 42% 40% 56% 41% / 42% 41% 43% 40%; } 71% { border-radius: 45% 42% 54% 43% / 45% 42% 46% 42%; } 72% { border-radius: 47% 44% 52% 45% / 47% 44% 47% 44%; } 73% { border-radius: 48% 43% 51% 45% / 47% 43% 48% 44%; } 74% { border-radius: 50% 46% 50% 47% / 49% 45% 50% 46%; } 75% { border-radius: 51% 45% 49% 48% / 49% 44% 51% 46%; } 76% { border-radius: 52% 46% 48% 48% / 50% 45% 52% 47%; } 77% { border-radius: 53% 47% 48% 49% / 51% 45% 53% 48%; } 78% { border-radius: 54% 48% 47% 50% / 51% 47% 53% 49%; } 79% { border-radius: 54% 49% 47% 51% / 52% 47% 54% 50%; } 80% { border-radius: 53% 50% 47% 51% / 52% 48% 53% 51%; } 81% { border-radius: 54% 50% 47% 52% / 52% 49% 53% 51%; } 82% { border-radius: 54% 51% 47% 52% / 53% 50% 53% 52%; } 83% { border-radius: 53% 51% 47% 52% / 53% 50% 53% 52%; } 84% { border-radius: 54% 53% 46% 53% / 54% 51% 54% 54%; } 85% { border-radius: 54% 53% 46% 54% / 54% 52% 54% 54%; } 86% { border-radius: 52% 52% 47% 53% / 53% 52% 53% 53%; } 87% { border-radius: 51% 52% 48% 52% / 52% 51% 52% 52%; } 88% { border-radius: 51% 52% 48% 52% / 52% 52% 52% 52%; } 89% { border-radius: 50% 51% 49% 51% / 51% 51% 51% 51%; } 90% { border-radius: 50% 51% 49% 51% / 51% 51% 50% 51%; } 91% { border-radius: 50% 51% 50% 51% / 50% 51% 50% 50%; } 92% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 93% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 94% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 95% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 96% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 97% { border-radius: 46% 52% 51% 52% / 51% 53% 47% 50%; } 98% { border-radius: 47% 51% 51% 51% / 50% 52% 48% 49%; } 99% { border-radius: 48% 50% 51% 50% / 50% 51% 49% 49%; } 100% { border-radius: 49% 50% 51% 50% / 50% 50% 49% 49%; } }
@@ -747,11 +845,57 @@ css: |
   @keyframes v8-lr3 { 0% { border-radius: 51% 65% 35% 65% / 62% 50% 36% 63%; } 1% { border-radius: 53% 66% 34% 66% / 60% 53% 37% 65%; } 2% { border-radius: 55% 64% 36% 64% / 56% 56% 39% 64%; } 3% { border-radius: 55% 60% 39% 60% / 53% 56% 43% 61%; } 4% { border-radius: 54% 56% 43% 56% / 51% 55% 46% 57%; } 5% { border-radius: 53% 53% 46% 53% / 50% 54% 48% 54%; } 6% { border-radius: 52% 52% 48% 52% / 49% 53% 49% 53%; } 7% { border-radius: 52% 51% 49% 51% / 49% 52% 50% 51%; } 8% { border-radius: 51% 50% 49% 50% / 49% 51% 50% 51%; } 9% { border-radius: 51% 50% 50% 50% / 49% 51% 50% 51%; } 10% { border-radius: 52% 50% 50% 50% / 49% 52% 50% 51%; } 11% { border-radius: 51% 49% 50% 49% / 49% 51% 50% 50%; } 12% { border-radius: 52% 49% 50% 49% / 48% 52% 51% 50%; } 13% { border-radius: 51% 49% 50% 49% / 49% 51% 51% 50%; } 14% { border-radius: 51% 49% 50% 49% / 49% 50% 51% 50%; } 15% { border-radius: 50% 49% 50% 49% / 49% 50% 50% 50%; } 16% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 17% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 18% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 19% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 20% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 21% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 22% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 23% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 24% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 25% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 26% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 27% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 28% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 29% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 30% { border-radius: 46% 54% 50% 54% / 54% 48% 52% 49%; } 31% { border-radius: 48% 53% 50% 53% / 53% 49% 51% 50%; } 32% { border-radius: 48% 52% 49% 52% / 52% 50% 50% 50%; } 33% { border-radius: 49% 51% 49% 51% / 51% 50% 50% 50%; } 34% { border-radius: 34% 64% 40% 64% / 62% 56% 51% 58%; } 35% { border-radius: 36% 61% 39% 62% / 59% 58% 49% 60%; } 36% { border-radius: 37% 58% 38% 59% / 57% 60% 47% 61%; } 37% { border-radius: 42% 54% 41% 55% / 53% 58% 47% 59%; } 38% { border-radius: 43% 52% 40% 53% / 51% 59% 46% 60%; } 39% { border-radius: 44% 50% 40% 51% / 49% 60% 45% 60%; } 40% { border-radius: 45% 48% 40% 49% / 48% 60% 44% 60%; } 41% { border-radius: 47% 46% 41% 47% / 46% 59% 43% 59%; } 42% { border-radius: 48% 44% 41% 45% / 44% 59% 42% 59%; } 43% { border-radius: 49% 42% 41% 43% / 43% 59% 41% 59%; } 44% { border-radius: 50% 42% 43% 42% / 42% 57% 41% 57%; } 45% { border-radius: 52% 42% 45% 42% / 42% 55% 42% 55%; } 46% { border-radius: 53% 41% 46% 41% / 41% 54% 41% 54%; } 47% { border-radius: 53% 44% 48% 44% / 44% 51% 44% 52%; } 48% { border-radius: 54% 43% 49% 43% / 43% 50% 43% 51%; } 49% { border-radius: 55% 44% 50% 44% / 44% 49% 43% 50%; } 50% { border-radius: 56% 44% 52% 44% / 43% 47% 43% 49%; } 51% { border-radius: 58% 45% 54% 44% / 43% 45% 42% 47%; } 52% { border-radius: 56% 47% 54% 47% / 46% 45% 44% 47%; } 53% { border-radius: 55% 49% 54% 48% / 47% 45% 46% 46%; } 54% { border-radius: 56% 50% 55% 49% / 48% 45% 46% 45%; } 55% { border-radius: 54% 51% 54% 50% / 49% 46% 47% 46%; } 56% { border-radius: 55% 52% 55% 51% / 50% 45% 48% 45%; } 57% { border-radius: 54% 53% 54% 52% / 51% 46% 48% 46%; } 58% { border-radius: 53% 53% 54% 52% / 51% 47% 49% 46%; } 59% { border-radius: 53% 54% 54% 53% / 52% 47% 49% 46%; } 60% { border-radius: 52% 53% 53% 52% / 52% 48% 50% 47%; } 61% { border-radius: 51% 52% 51% 52% / 51% 49% 50% 48%; } 62% { border-radius: 51% 51% 51% 51% / 51% 50% 50% 49%; } 63% { border-radius: 50% 51% 50% 51% / 51% 50% 50% 50%; } 64% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 65% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 66% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 67% { border-radius: 49% 53% 50% 54% / 56% 53% 55% 50%; } 68% { border-radius: 45% 53% 48% 56% / 62% 60% 63% 52%; } 69% { border-radius: 44% 50% 46% 53% / 60% 62% 63% 55%; } 70% { border-radius: 44% 48% 45% 50% / 55% 59% 60% 55%; } 71% { border-radius: 45% 46% 45% 48% / 53% 58% 58% 55%; } 72% { border-radius: 45% 46% 45% 47% / 51% 57% 57% 55%; } 73% { border-radius: 44% 44% 44% 45% / 50% 57% 57% 56%; } 74% { border-radius: 45% 46% 45% 46% / 49% 55% 55% 55%; } 75% { border-radius: 44% 44% 44% 45% / 48% 55% 56% 56%; } 76% { border-radius: 44% 44% 44% 44% / 47% 55% 56% 56%; } 77% { border-radius: 44% 44% 44% 44% / 46% 54% 55% 56%; } 78% { border-radius: 45% 45% 45% 45% / 46% 52% 54% 55%; } 79% { border-radius: 45% 46% 45% 45% / 45% 51% 54% 55%; } 80% { border-radius: 47% 47% 47% 47% / 46% 50% 52% 53%; } 81% { border-radius: 47% 48% 47% 47% / 46% 50% 52% 53%; } 82% { border-radius: 47% 49% 48% 48% / 47% 49% 52% 52%; } 83% { border-radius: 48% 49% 48% 49% / 47% 48% 51% 51%; } 84% { border-radius: 48% 50% 49% 49% / 46% 47% 51% 51%; } 85% { border-radius: 48% 51% 49% 50% / 46% 46% 50% 50%; } 86% { border-radius: 49% 51% 50% 51% / 48% 47% 50% 50%; } 87% { border-radius: 50% 51% 50% 51% / 49% 48% 50% 49%; } 88% { border-radius: 50% 52% 51% 51% / 49% 48% 49% 49%; } 89% { border-radius: 50% 51% 51% 51% / 50% 49% 49% 49%; } 90% { border-radius: 50% 51% 51% 51% / 50% 49% 50% 49%; } 91% { border-radius: 50% 51% 50% 51% / 50% 49% 50% 50%; } 92% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 93% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 94% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 95% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 96% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 97% { border-radius: 54% 51% 54% 53% / 54% 50% 46% 46%; } 98% { border-radius: 53% 50% 52% 51% / 53% 51% 47% 48%; } 99% { border-radius: 52% 50% 51% 50% / 52% 51% 48% 49%; } 100% { border-radius: 51% 50% 51% 50% / 51% 51% 49% 49%; } }
   @keyframes v8-lt3 { 0% { rotate: 10deg; } 1.50% { rotate: 40deg; } 3% { rotate: 65deg; } 4.50% { rotate: 78deg; } 6% { rotate: 85deg; } 15% { rotate: 100deg; } 29.50% { rotate: 101deg; } 31% { rotate: 107deg; } 33.50% { rotate: 112deg; } 35.50% { rotate: 152deg; } 36.50% { rotate: 168deg; } 40% { rotate: 214deg; } 44% { rotate: 263deg; } 46% { rotate: 285deg; } 49.50% { rotate: 316deg; } 51.50% { rotate: 337deg; } 54% { rotate: 356deg; } 56.50% { rotate: 372deg; } 60% { rotate: 389deg; } 62.50% { rotate: 393deg; } 66.50% { rotate: 395deg; } 67% { rotate: 399deg; } 69.50% { rotate: 446deg; } 71% { rotate: 465deg; } 73.50% { rotate: 486deg; } 79.50% { rotate: 527deg; } 85.50% { rotate: 556deg; } 88% { rotate: 564deg; } 91% { rotate: 568deg; } 96% { rotate: 569deg; } 97.50% { rotate: 577deg; } 100% { rotate: 583deg; } }
   .slide.on .v8-liq i:nth-child(3) { animation: v8-ls3 8s linear both, v8-lr3 8s linear both, v8-lt3 8s linear both; }
+  /* Волна голоса «Агента» (agentwave.py): спектр трека на отрезке слайда, 3,33 с */
+  @keyframes v11-w0 { 0% { transform: scaleY(0.20); } 1% { transform: scaleY(0.86); } 2% { transform: scaleY(1.00); } 3% { transform: scaleY(0.75); } 5% { transform: scaleY(0.45); } 8% { transform: scaleY(0.24); } 13% { transform: scaleY(0.16); } 20% { transform: scaleY(0.15); } 21% { transform: scaleY(0.86); } 22% { transform: scaleY(1.00); } 23% { transform: scaleY(0.75); } 25% { transform: scaleY(0.45); } 26% { transform: scaleY(0.55); } 27% { transform: scaleY(0.43); } 29% { transform: scaleY(0.28); } 32% { transform: scaleY(0.18); } 40% { transform: scaleY(0.13); } 41% { transform: scaleY(0.49); } 42% { transform: scaleY(1.00); } 43% { transform: scaleY(0.94); } 44% { transform: scaleY(0.71); } 46% { transform: scaleY(0.41); } 47% { transform: scaleY(0.31); } 48% { transform: scaleY(0.31); } 50% { transform: scaleY(0.20); } 52% { transform: scaleY(0.54); } 53% { transform: scaleY(0.52); } 57% { transform: scaleY(0.21); } 59% { transform: scaleY(0.15); } 60% { transform: scaleY(0.14); } 62% { transform: scaleY(0.23); } 67% { transform: scaleY(0.15); } 74% { transform: scaleY(0.13); } 80% { transform: scaleY(0.13); } 82% { transform: scaleY(0.23); } 88% { transform: scaleY(0.13); } 100% { transform: scaleY(0.15); } }
+  .slide.on .v11-wave i:nth-child(14), .slide.on .v11-wave i:nth-child(15) { animation: v11-w0 3.3333s linear both; }
+  @keyframes v11-w1 { 0% { transform: scaleY(0.33); } 1% { transform: scaleY(1.00); } 3% { transform: scaleY(0.59); } 5% { transform: scaleY(0.36); } 7% { transform: scaleY(0.29); } 10% { transform: scaleY(0.31); } 12% { transform: scaleY(0.22); } 13% { transform: scaleY(0.32); } 14% { transform: scaleY(0.26); } 15% { transform: scaleY(0.31); } 17% { transform: scaleY(0.28); } 19% { transform: scaleY(0.37); } 20% { transform: scaleY(0.47); } 21% { transform: scaleY(1.00); } 23% { transform: scaleY(0.59); } 25% { transform: scaleY(0.36); } 28% { transform: scaleY(0.24); } 30% { transform: scaleY(0.27); } 32% { transform: scaleY(0.20); } 33% { transform: scaleY(0.20); } 34% { transform: scaleY(0.32); } 40% { transform: scaleY(0.40); } 41% { transform: scaleY(0.84); } 42% { transform: scaleY(0.90); } 43% { transform: scaleY(0.68); } 45% { transform: scaleY(0.41); } 47% { transform: scaleY(0.25); } 49% { transform: scaleY(0.18); } 50% { transform: scaleY(0.25); } 51% { transform: scaleY(0.46); } 52% { transform: scaleY(0.47); } 53% { transform: scaleY(0.37); } 56% { transform: scaleY(0.21); } 59% { transform: scaleY(0.14); } 62% { transform: scaleY(0.21); } 67% { transform: scaleY(0.14); } 79% { transform: scaleY(0.12); } 80% { transform: scaleY(0.14); } 81% { transform: scaleY(0.23); } 87% { transform: scaleY(0.14); } 100% { transform: scaleY(0.14); } }
+  .slide.on .v11-wave i:nth-child(13), .slide.on .v11-wave i:nth-child(16) { animation: v11-w1 3.3333s linear both; }
+  @keyframes v11-w2 { 0% { transform: scaleY(0.49); } 1% { transform: scaleY(1.00); } 2% { transform: scaleY(0.75); } 4% { transform: scaleY(0.47); } 7% { transform: scaleY(0.25); } 11% { transform: scaleY(0.16); } 13% { transform: scaleY(0.26); } 19% { transform: scaleY(0.14); } 20% { transform: scaleY(0.42); } 21% { transform: scaleY(1.00); } 22% { transform: scaleY(0.75); } 24% { transform: scaleY(0.47); } 25% { transform: scaleY(0.37); } 26% { transform: scaleY(0.30); } 27% { transform: scaleY(0.44); } 29% { transform: scaleY(0.29); } 31% { transform: scaleY(0.23); } 32% { transform: scaleY(0.45); } 36% { transform: scaleY(0.23); } 38% { transform: scaleY(0.24); } 40% { transform: scaleY(0.31); } 41% { transform: scaleY(0.75); } 42% { transform: scaleY(0.57); } 44% { transform: scaleY(0.55); } 45% { transform: scaleY(0.49); } 46% { transform: scaleY(0.37); } 49% { transform: scaleY(0.25); } 54% { transform: scaleY(0.17); } 60% { transform: scaleY(0.13); } 61% { transform: scaleY(0.20); } 76% { transform: scaleY(0.13); } 79% { transform: scaleY(0.15); } 81% { transform: scaleY(0.23); } 88% { transform: scaleY(0.13); } 100% { transform: scaleY(0.16); } }
+  .slide.on .v11-wave i:nth-child(12), .slide.on .v11-wave i:nth-child(17) { animation: v11-w2 3.3333s linear both; }
+  @keyframes v11-w3 { 0% { transform: scaleY(0.45); } 1% { transform: scaleY(0.96); } 2% { transform: scaleY(0.86); } 5% { transform: scaleY(0.42); } 8% { transform: scaleY(0.24); } 10% { transform: scaleY(0.19); } 11% { transform: scaleY(0.32); } 12% { transform: scaleY(0.77); } 13% { transform: scaleY(0.59); } 14% { transform: scaleY(0.68); } 15% { transform: scaleY(0.52); } 16% { transform: scaleY(0.53); } 19% { transform: scaleY(0.75); } 20% { transform: scaleY(0.71); } 21% { transform: scaleY(1.00); } 24% { transform: scaleY(0.51); } 25% { transform: scaleY(0.40); } 26% { transform: scaleY(0.32); } 27% { transform: scaleY(0.43); } 30% { transform: scaleY(0.24); } 31% { transform: scaleY(0.33); } 32% { transform: scaleY(0.57); } 34% { transform: scaleY(0.49); } 35% { transform: scaleY(0.38); } 38% { transform: scaleY(0.44); } 40% { transform: scaleY(0.62); } 41% { transform: scaleY(1.00); } 42% { transform: scaleY(0.91); } 43% { transform: scaleY(0.69); } 44% { transform: scaleY(0.53); } 46% { transform: scaleY(0.56); } 48% { transform: scaleY(0.32); } 50% { transform: scaleY(0.20); } 51% { transform: scaleY(0.32); } 52% { transform: scaleY(0.36); } 54% { transform: scaleY(0.35); } 56% { transform: scaleY(0.20); } 59% { transform: scaleY(0.13); } 60% { transform: scaleY(0.14); } 61% { transform: scaleY(0.23); } 65% { transform: scaleY(0.15); } 73% { transform: scaleY(0.13); } 79% { transform: scaleY(0.15); } 81% { transform: scaleY(0.22); } 89% { transform: scaleY(0.13); } 92% { transform: scaleY(0.17); } 98% { transform: scaleY(0.13); } 100% { transform: scaleY(0.16); } }
+  .slide.on .v11-wave i:nth-child(11), .slide.on .v11-wave i:nth-child(18) { animation: v11-w3 3.3333s linear both; }
+  @keyframes v11-w4 { 0% { transform: scaleY(0.44); } 1% { transform: scaleY(1.00); } 2% { transform: scaleY(0.75); } 3% { transform: scaleY(0.58); } 5% { transform: scaleY(0.36); } 6% { transform: scaleY(0.50); } 8% { transform: scaleY(0.32); } 10% { transform: scaleY(0.41); } 11% { transform: scaleY(0.85); } 12% { transform: scaleY(0.64); } 14% { transform: scaleY(0.68); } 16% { transform: scaleY(0.41); } 18% { transform: scaleY(0.57); } 20% { transform: scaleY(0.36); } 21% { transform: scaleY(1.00); } 22% { transform: scaleY(0.75); } 23% { transform: scaleY(0.58); } 25% { transform: scaleY(0.36); } 26% { transform: scaleY(0.73); } 27% { transform: scaleY(0.87); } 28% { transform: scaleY(0.68); } 29% { transform: scaleY(0.59); } 32% { transform: scaleY(0.62); } 33% { transform: scaleY(0.48); } 34% { transform: scaleY(0.53); } 35% { transform: scaleY(0.71); } 37% { transform: scaleY(0.68); } 38% { transform: scaleY(0.52); } 40% { transform: scaleY(0.33); } 41% { transform: scaleY(0.67); } 42% { transform: scaleY(0.60); } 44% { transform: scaleY(0.37); } 46% { transform: scaleY(0.24); } 48% { transform: scaleY(0.17); } 49% { transform: scaleY(0.24); } 50% { transform: scaleY(0.20); } 52% { transform: scaleY(0.27); } 54% { transform: scaleY(0.18); } 58% { transform: scaleY(0.13); } 60% { transform: scaleY(0.12); } 61% { transform: scaleY(0.19); } 75% { transform: scaleY(0.13); } 76% { transform: scaleY(0.22); } 80% { transform: scaleY(0.15); } 81% { transform: scaleY(0.23); } 86% { transform: scaleY(0.14); } 90% { transform: scaleY(0.14); } 91% { transform: scaleY(0.19); } 100% { transform: scaleY(0.13); } }
+  .slide.on .v11-wave i:nth-child(10), .slide.on .v11-wave i:nth-child(19) { animation: v11-w4 3.3333s linear both; }
+  @keyframes v11-w5 { 0% { transform: scaleY(0.59); } 1% { transform: scaleY(0.77); } 3% { transform: scaleY(0.45); } 5% { transform: scaleY(0.29); } 6% { transform: scaleY(0.71); } 7% { transform: scaleY(0.57); } 8% { transform: scaleY(0.55); } 10% { transform: scaleY(0.66); } 11% { transform: scaleY(0.82); } 12% { transform: scaleY(0.63); } 13% { transform: scaleY(0.50); } 14% { transform: scaleY(0.54); } 15% { transform: scaleY(0.67); } 16% { transform: scaleY(0.73); } 18% { transform: scaleY(0.44); } 19% { transform: scaleY(0.39); } 20% { transform: scaleY(0.59); } 21% { transform: scaleY(0.74); } 23% { transform: scaleY(0.44); } 25% { transform: scaleY(0.29); } 26% { transform: scaleY(0.91); } 27% { transform: scaleY(1.00); } 28% { transform: scaleY(1.00); } 29% { transform: scaleY(0.87); } 30% { transform: scaleY(0.66); } 31% { transform: scaleY(0.56); } 34% { transform: scaleY(0.66); } 36% { transform: scaleY(0.40); } 37% { transform: scaleY(0.50); } 38% { transform: scaleY(0.39); } 41% { transform: scaleY(0.44); } 43% { transform: scaleY(0.29); } 45% { transform: scaleY(0.21); } 46% { transform: scaleY(0.52); } 48% { transform: scaleY(0.30); } 50% { transform: scaleY(0.25); } 52% { transform: scaleY(0.39); } 53% { transform: scaleY(0.29); } 55% { transform: scaleY(0.18); } 56% { transform: scaleY(0.27); } 60% { transform: scaleY(0.15); } 73% { transform: scaleY(0.15); } 77% { transform: scaleY(0.23); } 79% { transform: scaleY(0.17); } 81% { transform: scaleY(0.21); } 85% { transform: scaleY(0.14); } 86% { transform: scaleY(0.18); } 100% { transform: scaleY(0.16); } }
+  .slide.on .v11-wave i:nth-child(9), .slide.on .v11-wave i:nth-child(20) { animation: v11-w5 3.3333s linear both; }
+  @keyframes v11-w6 { 0% { transform: scaleY(0.17); } 1% { transform: scaleY(0.34); } 5% { transform: scaleY(0.18); } 6% { transform: scaleY(0.32); } 7% { transform: scaleY(0.26); } 8% { transform: scaleY(0.32); } 10% { transform: scaleY(0.24); } 11% { transform: scaleY(0.82); } 12% { transform: scaleY(0.87); } 13% { transform: scaleY(0.66); } 14% { transform: scaleY(0.71); } 15% { transform: scaleY(0.55); } 18% { transform: scaleY(0.46); } 20% { transform: scaleY(0.30); } 21% { transform: scaleY(0.38); } 25% { transform: scaleY(0.19); } 26% { transform: scaleY(0.59); } 27% { transform: scaleY(0.47); } 28% { transform: scaleY(0.54); } 30% { transform: scaleY(0.34); } 31% { transform: scaleY(1.00); } 32% { transform: scaleY(1.00); } 33% { transform: scaleY(0.75); } 34% { transform: scaleY(0.58); } 35% { transform: scaleY(0.68); } 36% { transform: scaleY(0.62); } 37% { transform: scaleY(0.48); } 39% { transform: scaleY(0.73); } 40% { transform: scaleY(0.75); } 42% { transform: scaleY(0.45); } 45% { transform: scaleY(0.24); } 46% { transform: scaleY(0.47); } 48% { transform: scaleY(0.32); } 49% { transform: scaleY(0.35); } 51% { transform: scaleY(0.23); } 52% { transform: scaleY(0.27); } 53% { transform: scaleY(0.22); } 55% { transform: scaleY(0.31); } 57% { transform: scaleY(0.28); } 58% { transform: scaleY(0.20); } 64% { transform: scaleY(0.14); } 71% { transform: scaleY(0.21); } 75% { transform: scaleY(0.17); } 77% { transform: scaleY(0.22); } 85% { transform: scaleY(0.13); } 86% { transform: scaleY(0.17); } 90% { transform: scaleY(0.14); } 92% { transform: scaleY(0.23); } 100% { transform: scaleY(0.16); } }
+  .slide.on .v11-wave i:nth-child(8), .slide.on .v11-wave i:nth-child(21) { animation: v11-w6 3.3333s linear both; }
+  @keyframes v11-w7 { 0% { transform: scaleY(0.70); } 2% { transform: scaleY(0.42); } 4% { transform: scaleY(0.28); } 6% { transform: scaleY(0.38); } 9% { transform: scaleY(0.22); } 10% { transform: scaleY(0.39); } 11% { transform: scaleY(0.91); } 12% { transform: scaleY(1.00); } 13% { transform: scaleY(1.00); } 14% { transform: scaleY(0.75); } 16% { transform: scaleY(0.45); } 17% { transform: scaleY(0.57); } 19% { transform: scaleY(0.38); } 20% { transform: scaleY(0.37); } 24% { transform: scaleY(0.19); } 25% { transform: scaleY(0.20); } 26% { transform: scaleY(0.67); } 27% { transform: scaleY(0.52); } 29% { transform: scaleY(0.33); } 31% { transform: scaleY(0.67); } 33% { transform: scaleY(0.72); } 35% { transform: scaleY(0.53); } 39% { transform: scaleY(0.30); } 40% { transform: scaleY(0.62); } 42% { transform: scaleY(0.38); } 44% { transform: scaleY(0.26); } 45% { transform: scaleY(0.38); } 46% { transform: scaleY(0.73); } 47% { transform: scaleY(0.53); } 48% { transform: scaleY(0.58); } 50% { transform: scaleY(0.32); } 51% { transform: scaleY(0.55); } 52% { transform: scaleY(0.40); } 54% { transform: scaleY(0.25); } 55% { transform: scaleY(0.21); } 56% { transform: scaleY(0.26); } 59% { transform: scaleY(0.14); } 69% { transform: scaleY(0.14); } 71% { transform: scaleY(0.19); } 75% { transform: scaleY(0.14); } 76% { transform: scaleY(0.20); } 78% { transform: scaleY(0.23); } 85% { transform: scaleY(0.14); } 90% { transform: scaleY(0.13); } 91% { transform: scaleY(0.20); } 93% { transform: scaleY(0.21); } 100% { transform: scaleY(0.15); } }
+  .slide.on .v11-wave i:nth-child(7), .slide.on .v11-wave i:nth-child(22) { animation: v11-w7 3.3333s linear both; }
+  @keyframes v11-w8 { 0% { transform: scaleY(0.37); } 4% { transform: scaleY(0.19); } 9% { transform: scaleY(0.17); } 10% { transform: scaleY(0.35); } 11% { transform: scaleY(0.75); } 12% { transform: scaleY(1.00); } 13% { transform: scaleY(0.89); } 14% { transform: scaleY(0.67); } 15% { transform: scaleY(0.71); } 16% { transform: scaleY(0.96); } 17% { transform: scaleY(0.97); } 18% { transform: scaleY(0.91); } 19% { transform: scaleY(0.69); } 20% { transform: scaleY(0.78); } 22% { transform: scaleY(0.46); } 24% { transform: scaleY(0.30); } 26% { transform: scaleY(0.71); } 27% { transform: scaleY(0.73); } 28% { transform: scaleY(0.60); } 29% { transform: scaleY(0.58); } 30% { transform: scaleY(0.51); } 31% { transform: scaleY(0.90); } 32% { transform: scaleY(1.00); } 33% { transform: scaleY(0.81); } 34% { transform: scaleY(0.85); } 35% { transform: scaleY(0.65); } 37% { transform: scaleY(0.40); } 39% { transform: scaleY(0.57); } 40% { transform: scaleY(0.54); } 42% { transform: scaleY(0.34); } 45% { transform: scaleY(0.20); } 46% { transform: scaleY(0.51); } 47% { transform: scaleY(0.38); } 48% { transform: scaleY(0.49); } 49% { transform: scaleY(0.45); } 51% { transform: scaleY(0.65); } 53% { transform: scaleY(0.34); } 54% { transform: scaleY(0.32); } 56% { transform: scaleY(0.20); } 60% { transform: scaleY(0.15); } 75% { transform: scaleY(0.15); } 76% { transform: scaleY(0.21); } 85% { transform: scaleY(0.13); } 90% { transform: scaleY(0.13); } 92% { transform: scaleY(0.21); } 100% { transform: scaleY(0.19); } }
+  .slide.on .v11-wave i:nth-child(6), .slide.on .v11-wave i:nth-child(23) { animation: v11-w8 3.3333s linear both; }
+  @keyframes v11-w9 { 0% { transform: scaleY(0.30); } 4% { transform: scaleY(0.17); } 6% { transform: scaleY(0.48); } 8% { transform: scaleY(0.31); } 10% { transform: scaleY(0.25); } 11% { transform: scaleY(0.94); } 13% { transform: scaleY(1.00); } 16% { transform: scaleY(0.63); } 17% { transform: scaleY(0.63); } 19% { transform: scaleY(0.52); } 20% { transform: scaleY(0.60); } 22% { transform: scaleY(0.37); } 24% { transform: scaleY(0.25); } 25% { transform: scaleY(0.51); } 27% { transform: scaleY(0.69); } 28% { transform: scaleY(0.89); } 29% { transform: scaleY(0.82); } 30% { transform: scaleY(0.68); } 31% { transform: scaleY(0.83); } 33% { transform: scaleY(0.93); } 35% { transform: scaleY(0.65); } 36% { transform: scaleY(0.58); } 38% { transform: scaleY(0.56); } 39% { transform: scaleY(0.64); } 44% { transform: scaleY(0.26); } 46% { transform: scaleY(0.53); } 47% { transform: scaleY(0.40); } 48% { transform: scaleY(0.32); } 49% { transform: scaleY(0.33); } 50% { transform: scaleY(0.26); } 51% { transform: scaleY(0.57); } 53% { transform: scaleY(0.30); } 55% { transform: scaleY(0.19); } 56% { transform: scaleY(0.22); } 59% { transform: scaleY(0.16); } 74% { transform: scaleY(0.12); } 76% { transform: scaleY(0.20); } 84% { transform: scaleY(0.13); } 90% { transform: scaleY(0.14); } 93% { transform: scaleY(0.23); } 100% { transform: scaleY(0.18); } }
+  .slide.on .v11-wave i:nth-child(5), .slide.on .v11-wave i:nth-child(24) { animation: v11-w9 3.3333s linear both; }
+  @keyframes v11-w10 { 0% { transform: scaleY(1.00); } 1% { transform: scaleY(0.75); } 2% { transform: scaleY(0.57); } 4% { transform: scaleY(0.36); } 5% { transform: scaleY(0.35); } 6% { transform: scaleY(0.63); } 8% { transform: scaleY(0.38); } 10% { transform: scaleY(0.26); } 11% { transform: scaleY(1.00); } 12% { transform: scaleY(0.99); } 13% { transform: scaleY(0.75); } 14% { transform: scaleY(0.78); } 15% { transform: scaleY(0.60); } 18% { transform: scaleY(0.62); } 19% { transform: scaleY(0.76); } 21% { transform: scaleY(0.48); } 24% { transform: scaleY(0.25); } 25% { transform: scaleY(0.48); } 26% { transform: scaleY(0.88); } 28% { transform: scaleY(0.51); } 30% { transform: scaleY(0.32); } 31% { transform: scaleY(0.96); } 33% { transform: scaleY(0.62); } 36% { transform: scaleY(0.34); } 37% { transform: scaleY(0.34); } 40% { transform: scaleY(0.20); } 41% { transform: scaleY(0.84); } 42% { transform: scaleY(0.64); } 44% { transform: scaleY(0.39); } 45% { transform: scaleY(0.47); } 46% { transform: scaleY(0.67); } 47% { transform: scaleY(0.51); } 48% { transform: scaleY(0.49); } 49% { transform: scaleY(0.61); } 50% { transform: scaleY(0.44); } 51% { transform: scaleY(0.65); } 52% { transform: scaleY(0.46); } 54% { transform: scaleY(0.25); } 55% { transform: scaleY(0.20); } 56% { transform: scaleY(0.27); } 59% { transform: scaleY(0.15); } 61% { transform: scaleY(0.22); } 65% { transform: scaleY(0.15); } 73% { transform: scaleY(0.14); } 76% { transform: scaleY(0.23); } 84% { transform: scaleY(0.14); } 86% { transform: scaleY(0.19); } 90% { transform: scaleY(0.14); } 91% { transform: scaleY(0.22); } 100% { transform: scaleY(0.15); } }
+  .slide.on .v11-wave i:nth-child(4), .slide.on .v11-wave i:nth-child(25) { animation: v11-w10 3.3333s linear both; }
+  @keyframes v11-w11 { 0% { transform: scaleY(0.49); } 2% { transform: scaleY(0.31); } 5% { transform: scaleY(0.19); } 6% { transform: scaleY(0.43); } 10% { transform: scaleY(0.22); } 11% { transform: scaleY(0.97); } 12% { transform: scaleY(0.87); } 13% { transform: scaleY(0.66); } 14% { transform: scaleY(0.51); } 15% { transform: scaleY(0.46); } 16% { transform: scaleY(0.50); } 18% { transform: scaleY(0.37); } 20% { transform: scaleY(0.42); } 22% { transform: scaleY(0.28); } 24% { transform: scaleY(0.20); } 25% { transform: scaleY(0.23); } 26% { transform: scaleY(0.90); } 27% { transform: scaleY(0.68); } 28% { transform: scaleY(0.53); } 29% { transform: scaleY(0.41); } 30% { transform: scaleY(0.40); } 31% { transform: scaleY(1.00); } 33% { transform: scaleY(0.61); } 35% { transform: scaleY(0.37); } 37% { transform: scaleY(0.25); } 40% { transform: scaleY(0.17); } 41% { transform: scaleY(0.62); } 42% { transform: scaleY(0.48); } 44% { transform: scaleY(0.30); } 46% { transform: scaleY(0.61); } 47% { transform: scaleY(0.45); } 48% { transform: scaleY(0.47); } 50% { transform: scaleY(0.39); } 51% { transform: scaleY(0.65); } 52% { transform: scaleY(0.46); } 53% { transform: scaleY(0.33); } 58% { transform: scaleY(0.15); } 74% { transform: scaleY(0.15); } 76% { transform: scaleY(0.23); } 84% { transform: scaleY(0.13); } 90% { transform: scaleY(0.14); } 91% { transform: scaleY(0.21); } 100% { transform: scaleY(0.15); } }
+  .slide.on .v11-wave i:nth-child(3), .slide.on .v11-wave i:nth-child(26) { animation: v11-w11 3.3333s linear both; }
+  @keyframes v11-w12 { 0% { transform: scaleY(0.27); } 5% { transform: scaleY(0.15); } 6% { transform: scaleY(0.31); } 9% { transform: scaleY(0.19); } 10% { transform: scaleY(0.28); } 11% { transform: scaleY(0.96); } 12% { transform: scaleY(0.88); } 14% { transform: scaleY(0.51); } 16% { transform: scaleY(0.32); } 24% { transform: scaleY(0.16); } 25% { transform: scaleY(0.34); } 26% { transform: scaleY(0.99); } 27% { transform: scaleY(0.75); } 28% { transform: scaleY(0.57); } 29% { transform: scaleY(0.45); } 30% { transform: scaleY(0.38); } 31% { transform: scaleY(1.00); } 32% { transform: scaleY(0.90); } 33% { transform: scaleY(0.68); } 35% { transform: scaleY(0.41); } 37% { transform: scaleY(0.27); } 40% { transform: scaleY(0.18); } 41% { transform: scaleY(0.78); } 42% { transform: scaleY(0.60); } 44% { transform: scaleY(0.37); } 45% { transform: scaleY(0.34); } 46% { transform: scaleY(0.51); } 49% { transform: scaleY(0.38); } 50% { transform: scaleY(0.40); } 51% { transform: scaleY(0.61); } 52% { transform: scaleY(0.44); } 53% { transform: scaleY(0.32); } 58% { transform: scaleY(0.14); } 60% { transform: scaleY(0.14); } 61% { transform: scaleY(0.19); } 65% { transform: scaleY(0.14); } 74% { transform: scaleY(0.14); } 76% { transform: scaleY(0.23); } 81% { transform: scaleY(0.14); } 89% { transform: scaleY(0.13); } 90% { transform: scaleY(0.15); } 91% { transform: scaleY(0.23); } 95% { transform: scaleY(0.15); } 100% { transform: scaleY(0.13); } }
+  .slide.on .v11-wave i:nth-child(2), .slide.on .v11-wave i:nth-child(27) { animation: v11-w12 3.3333s linear both; }
+  @keyframes v11-w13 { 0% { transform: scaleY(0.21); } 8% { transform: scaleY(0.13); } 10% { transform: scaleY(0.18); } 11% { transform: scaleY(1.00); } 12% { transform: scaleY(0.87); } 14% { transform: scaleY(0.51); } 15% { transform: scaleY(0.40); } 17% { transform: scaleY(0.33); } 21% { transform: scaleY(0.31); } 24% { transform: scaleY(0.19); } 25% { transform: scaleY(0.37); } 26% { transform: scaleY(0.93); } 27% { transform: scaleY(0.70); } 28% { transform: scaleY(0.54); } 30% { transform: scaleY(0.34); } 31% { transform: scaleY(0.99); } 33% { transform: scaleY(0.63); } 35% { transform: scaleY(0.39); } 37% { transform: scaleY(0.26); } 39% { transform: scaleY(0.19); } 40% { transform: scaleY(0.29); } 41% { transform: scaleY(0.91); } 42% { transform: scaleY(0.69); } 43% { transform: scaleY(0.53); } 45% { transform: scaleY(0.34); } 46% { transform: scaleY(0.49); } 48% { transform: scaleY(0.31); } 50% { transform: scaleY(0.36); } 51% { transform: scaleY(0.65); } 52% { transform: scaleY(0.46); } 54% { transform: scaleY(0.25); } 55% { transform: scaleY(0.21); } 56% { transform: scaleY(0.25); } 58% { transform: scaleY(0.16); } 60% { transform: scaleY(0.15); } 61% { transform: scaleY(0.21); } 65% { transform: scaleY(0.15); } 74% { transform: scaleY(0.15); } 76% { transform: scaleY(0.22); } 81% { transform: scaleY(0.14); } 89% { transform: scaleY(0.12); } 90% { transform: scaleY(0.14); } 91% { transform: scaleY(0.23); } 95% { transform: scaleY(0.15); } 100% { transform: scaleY(0.14); } }
+  .slide.on .v11-wave i:nth-child(1), .slide.on .v11-wave i:nth-child(28) { animation: v11-w13 3.3333s linear both; }
 
   .th-winter { --tx: #E8F1FF; --tx2: #D6E5FA; --mu: #A9C0E4; --bg: #0A2A70; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Onest', var(--font-base); --font-head: 'Unbounded', var(--font-base); }
   .th-party { --tx: #2A1316; --tx2: #4D2C30; --mu: #8C6A6D; --bg: #FFFAF3; --surf: #FFFFFF; --alt: color-mix(in srgb, #EF3E6B 8%, #FFFFFF); --bd: color-mix(in srgb, #EF3E6B 18%, #FFFFFF); --bd2: color-mix(in srgb, #EF3E6B 28%, #FFFFFF); --font: 'Montserrat', var(--font-base); --font-head: 'Montserrat', var(--font-base); }
   .th-autumn { --tx: #F6EADB; --tx2: #E2CDB6; --mu: #B39678; --bg: #1A110B; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Literata', var(--font-base); --font-head: 'Literata', var(--font-base); }
   .th-sakura { --tx: #3A1624; --tx2: #5C2E3E; --mu: #9A6B7B; --bg: #FFF6F8; --surf: #FFFFFF; --alt: color-mix(in srgb, #E0517A 8%, #FFFFFF); --bd: color-mix(in srgb, #E0517A 18%, #FFFFFF); --bd2: color-mix(in srgb, #E0517A 28%, #FFFFFF); --font: 'Nunito', var(--font-base); --font-head: 'Nunito', var(--font-base); }
+  @keyframes v13-w0 { 0.00% { opacity: 1; transform: scale(1.16); } 4.00% { transform: none; } 12.49% { opacity: 1; } 12.50%, 100% { opacity: 0; } }
+  @keyframes v13-c0 { 0.00% { background-color: var(--ac); color: #05060A; } 12.49% { background-color: var(--ac); color: #05060A; } 12.50%, 100% { background-color: transparent; color: var(--tx2); } }
+  @keyframes v13-w1 { 0%, 12.49% { opacity: 0; } 12.50% { opacity: 1; transform: scale(1.16); } 16.50% { transform: none; } 24.99% { opacity: 1; } 25.00%, 100% { opacity: 0; } }
+  @keyframes v13-c1 { 0%, 12.49% { background-color: transparent; color: var(--tx2); } 12.50% { background-color: var(--ac); color: #05060A; } 24.99% { background-color: var(--ac); color: #05060A; } 25.00%, 100% { background-color: transparent; color: var(--tx2); } }
+  @keyframes v13-w2 { 0%, 24.99% { opacity: 0; } 25.00% { opacity: 1; transform: scale(1.16); } 29.00% { transform: none; } 37.49% { opacity: 1; } 37.50%, 100% { opacity: 0; } }
+  @keyframes v13-c2 { 0%, 24.99% { background-color: transparent; color: var(--tx2); } 25.00% { background-color: var(--ac); color: #05060A; } 37.49% { background-color: var(--ac); color: #05060A; } 37.50%, 100% { background-color: transparent; color: var(--tx2); } }
+  @keyframes v13-w3 { 0%, 37.49% { opacity: 0; } 37.50% { opacity: 1; transform: scale(1.16); } 41.50% { transform: none; } 49.99% { opacity: 1; } 50.00%, 100% { opacity: 0; } }
+  @keyframes v13-c3 { 0%, 37.49% { background-color: transparent; color: var(--tx2); } 37.50% { background-color: var(--ac); color: #05060A; } 49.99% { background-color: var(--ac); color: #05060A; } 50.00%, 100% { background-color: transparent; color: var(--tx2); } }
+  @keyframes v13-w4 { 0%, 49.99% { opacity: 0; } 50.00% { opacity: 1; transform: scale(1.16); } 54.00% { transform: none; } 62.49% { opacity: 1; } 62.50%, 100% { opacity: 0; } }
+  @keyframes v13-c4 { 0%, 49.99% { background-color: transparent; color: var(--tx2); } 50.00% { background-color: var(--ac); color: #05060A; } 62.49% { background-color: var(--ac); color: #05060A; } 62.50%, 100% { background-color: transparent; color: var(--tx2); } }
+  @keyframes v13-w5 { 0%, 62.49% { opacity: 0; } 62.50% { opacity: 1; transform: scale(1.16); } 66.50% { transform: none; } 100% { opacity: 1; } }
+  @keyframes v13-c5 { 0%, 62.49% { background-color: transparent; color: var(--tx2); } 62.50% { background-color: var(--ac); color: #05060A; } 100% { background-color: var(--ac); color: #05060A; } }
+  @keyframes v10-line { 0%, 24.0% { stroke-dashoffset: 1; } 62.0% { stroke-dashoffset: 0.717; } 81.0% { stroke-dashoffset: 0.454; } 100.0% { stroke-dashoffset: 0.000; } }
+  @keyframes v11-m0 { from { left: 30px; top: 96px; width: 440px; height: 56px; border-radius: 12px; } to { left: 60px; top: 248px; width: 80px; height: 132px; border-radius: 14px 14px 4px 4px; } }
+  @keyframes v11-m1 { from { left: 30px; top: 160px; width: 440px; height: 56px; border-radius: 12px; } to { left: 160px; top: 198px; width: 80px; height: 182px; border-radius: 14px 14px 4px 4px; } }
+  @keyframes v11-m2 { from { left: 30px; top: 224px; width: 440px; height: 56px; border-radius: 12px; } to { left: 260px; top: 220px; width: 80px; height: 160px; border-radius: 14px 14px 4px 4px; } }
+  @keyframes v11-m3 { from { left: 30px; top: 288px; width: 440px; height: 56px; border-radius: 12px; } to { left: 360px; top: 110px; width: 80px; height: 270px; border-radius: 14px 14px 4px 4px; } }
   @keyframes ufx-flashs { from { opacity: .45; } to { opacity: 0; } }
   @keyframes ufx-late { 0%, 55% { opacity: 0; letter-spacing: .9em; } to { opacity: .85; } }
 music:
@@ -1534,298 +1678,110 @@ slides:
           y: 0
           w: 1280
         locked: true
-      - type: shape
-        kind: rect
-        radius: 22
-        fill: surface
-        stroke: line
-        width: 1
-        flow: theme
-        flowSpeed: 0.8
-        flowWidth: 2
-        place:
-          x: 40
-          y: 96
-          w: 590
-          h: 170
-        enter: ufx-slam
-        locked: true
       - type: text
         text: ГЛИТЧ
         textFx: glitch
         styles:
           text:
-            size: 62
+            size: 150
             weight: 900
-            leading: 0.92
+            leading: 1
             spacing: -0.035
             color: text
             align: center
         place:
-          x: 40
-          y: 136
-          w: 590
-        enter: ufx-slam
-      - type: text
-        text: "textFx: glitch"
-        styles:
-          text:
-            size: 13
-            weight: 800
-            leading: 1.2
-            spacing: 0.3
-            color: text2
-        place:
-          x: 66
-          y: 228
-          w: 400
-        enter: fade
-      - type: shape
-        kind: rect
-        radius: 22
-        fill: surface
-        stroke: line
-        width: 1
-        flow: theme
-        flowSpeed: 0.8
-        flowWidth: 2
-        place:
-          x: 650
-          y: 96
-          w: 590
-          h: 170
-        enter: ufx-slam
-        delay: 333
-        locked: true
+          x: 0
+          y: 250
+          w: 1280
+        style: "animation: v13-w0 2.6667s linear both"
       - type: text
         text: НЕОН
         textFx: neon
         styles:
           text:
-            size: 62
+            size: 150
             weight: 900
-            leading: 0.92
+            leading: 1
             spacing: -0.035
             color: accent
             align: center
         place:
-          x: 650
-          y: 136
-          w: 590
-        enter: ufx-slam
-        delay: 333
-      - type: text
-        text: "textFx: neon"
-        styles:
-          text:
-            size: 13
-            weight: 800
-            leading: 1.2
-            spacing: 0.3
-            color: text2
-        place:
-          x: 676
-          y: 228
-          w: 400
-        enter: fade
-        delay: 333
-      - type: shape
-        kind: rect
-        radius: 22
-        fill: surface
-        stroke: line
-        width: 1
-        flow: theme
-        flowSpeed: 0.8
-        flowWidth: 2
-        place:
-          x: 40
-          y: 286
-          w: 590
-          h: 170
-        enter: ufx-slam
-        delay: 666
-        locked: true
+          x: 0
+          y: 250
+          w: 1280
+        style: "animation: v13-w1 2.6667s linear both"
       - type: text
         text: ВОЛНА
         textFx: wave
         styles:
           text:
-            size: 62
+            size: 150
             weight: 900
-            leading: 0.92
+            leading: 1
             spacing: -0.035
             color: text
             align: center
         place:
-          x: 40
-          y: 326
-          w: 590
-        enter: ufx-slam
-        delay: 666
-      - type: text
-        text: "textFx: wave"
-        styles:
-          text:
-            size: 13
-            weight: 800
-            leading: 1.2
-            spacing: 0.3
-            color: text2
-        place:
-          x: 66
-          y: 418
-          w: 400
-        enter: fade
-        delay: 666
-      - type: shape
-        kind: rect
-        radius: 22
-        fill: surface
-        stroke: line
-        width: 1
-        flow: theme
-        flowSpeed: 0.8
-        flowWidth: 2
-        place:
-          x: 650
-          y: 286
-          w: 590
-          h: 170
-        enter: ufx-slam
-        delay: 999
-        locked: true
+          x: 0
+          y: 250
+          w: 1280
+        style: "animation: v13-w2 2.6667s linear both"
       - type: text
         text: ЖИДКОСТЬ
         textFx: liquid
         styles:
           text:
-            size: 62
+            size: 150
             weight: 900
-            leading: 0.92
+            leading: 1
             spacing: -0.035
             color: text
             align: center
         place:
-          x: 650
-          y: 326
-          w: 590
-        enter: ufx-slam
-        delay: 999
-      - type: text
-        text: "textFx: liquid"
-        styles:
-          text:
-            size: 13
-            weight: 800
-            leading: 1.2
-            spacing: 0.3
-            color: text2
-        place:
-          x: 676
-          y: 418
-          w: 400
-        enter: fade
-        delay: 999
-      - type: shape
-        kind: rect
-        radius: 22
-        fill: surface
-        stroke: line
-        width: 1
-        flow: theme
-        flowSpeed: 0.8
-        flowWidth: 2
-        place:
-          x: 40
-          y: 476
-          w: 590
-          h: 170
-        enter: ufx-slam
-        delay: 1332
-        locked: true
+          x: 0
+          y: 250
+          w: 1280
+        style: "animation: v13-w3 2.6667s linear both"
       - type: text
         text: БЛИК
         textFx: shine
         styles:
           text:
-            size: 62
+            size: 150
             weight: 900
-            leading: 0.92
+            leading: 1
             spacing: -0.035
             color: text
             align: center
         place:
-          x: 40
-          y: 516
-          w: 590
-        enter: ufx-slam
-        delay: 1332
-      - type: text
-        text: "textFx: shine"
-        styles:
-          text:
-            size: 13
-            weight: 800
-            leading: 1.2
-            spacing: 0.3
-            color: text2
-        place:
-          x: 66
-          y: 608
-          w: 400
-        enter: fade
-        delay: 1332
-      - type: shape
-        kind: rect
-        radius: 22
-        fill: surface
-        stroke: line
-        width: 1
-        flow: theme
-        flowSpeed: 0.8
-        flowWidth: 2
-        place:
-          x: 650
-          y: 476
-          w: 590
-          h: 170
-        enter: ufx-slam
-        delay: 1665
-        locked: true
+          x: 0
+          y: 250
+          w: 1280
+        style: "animation: v13-w4 2.6667s linear both"
       - type: text
         text: "{g:sunset|ГРАДИЕНТ}"
         styles:
           text:
-            size: 62
+            size: 150
             weight: 900
-            leading: 0.92
+            leading: 1
             spacing: -0.035
             color: text
             align: center
         place:
-          x: 650
-          y: 516
-          w: 590
-        enter: ufx-slam
-        delay: 1665
-      - type: text
-        text: градиент в тексте
-        styles:
-          text:
-            size: 13
-            weight: 800
-            leading: 1.2
-            spacing: 0.3
-            color: text2
-        place:
-          x: 676
-          y: 608
-          w: 400
-        enter: fade
-        delay: 1665
+          x: 0
+          y: 250
+          w: 1280
+        style: "animation: v13-w5 2.6667s linear both"
       - type: html
-        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ЭФФЕКТЫ ТЕКСТА · <b>ЖИВЫЕ</b></b><i class="v3-fl soft"></i></div>
+        html: '<div class="v13-row"><b style="animation: v13-c0 2.6667s linear both">ГЛИТЧ</b><b style="animation: v13-c1 2.6667s linear both">НЕОН</b><b style="animation: v13-c2 2.6667s linear both">ВОЛНА</b><b style="animation: v13-c3 2.6667s linear both">ЖИДКОСТЬ</b><b style="animation: v13-c4 2.6667s linear both">БЛИК</b><b style="animation: v13-c5 2.6667s linear both">ГРАДИЕНТ</b></div>'
+        place:
+          x: 0
+          y: 560
+          w: 1280
+        locked: true
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ЭФФЕКТЫ ТЕКСТА · <b>ЖИВЫЕ</b></b><b class="v3-hud tr">ОДНИМ ЩЕЛЧКОМ</b><i class="v3-fl soft"></i></div>
         place:
           x: 0
           y: 0
@@ -1840,31 +1796,14 @@ slides:
     logo: false
     free:
       - type: html
-        html: <div class="v3-o"><i class="v3-glow" style="--gx:50%;--gy:55%"></i></div>
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:70%;--gy:40%"></i></div>
         place:
           x: 0
           y: 0
           w: 1280
         locked: true
-      - type: shape
-        kind: rect
-        radius: 24
-        fill: surface
-        stroke: line
-        width: 1
-        shadow: lg
-        flow: theme
-        flowSpeed: 0.6
-        flowWidth: 2
-        place:
-          x: 40
-          y: 80
-          w: 590
-          h: 290
-        enter: ufx-slam
-        locked: true
       - type: text
-        text: ВЫРУЧКА
+        text: РОСТ ВЫРУЧКИ · ПО КВАРТАЛАМ
         styles:
           text:
             size: 16
@@ -1873,184 +1812,65 @@ slides:
             spacing: 0.3
             color: text2
         place:
-          x: 70
-          y: 102
-          w: 300
+          x: 80
+          y: 160
+          w: 520
         enter: fade
-      - type: line-chart
-        values:
-          - 12
-          - 18
-          - 15
-          - 26
-          - 31
-          - 28
-          - 44
-          - 52
-          - 49
-          - 66
-          - 74
-          - 92
-        start: янв
-        end: дек
-        place:
-          x: 66
-          y: 130
-          w: 540
-          h: 220
-      - type: shape
-        kind: rect
-        radius: 24
-        fill: surface
-        stroke: line
-        width: 1
-        shadow: lg
-        flow: theme
-        flowSpeed: 0.6
-        flowWidth: 2
-        place:
-          x: 650
-          y: 80
-          w: 590
-          h: 290
-        enter: ufx-slam
-        delay: 667
-        locked: true
       - type: text
-        text: ПО КВАРТАЛАМ
+        text: "{g:duo|+86 %}"
+        count: true
         styles:
           text:
-            size: 16
-            weight: 800
-            leading: 1.2
-            spacing: 0.3
-            color: text2
-        place:
-          x: 680
-          y: 102
-          w: 300
-        enter: fade
-        delay: 667
-      - type: bars
-        values:
-          - 42
-          - 58
-          - 51
-          - 86
-        labels:
-          - I
-          - II
-          - III
-          - IV
-        height: 190
-        place:
-          x: 680
-          y: 130
-          w: 530
-        enter: fade
-        delay: 667
-      - type: shape
-        kind: rect
-        radius: 24
-        fill: surface
-        stroke: line
-        width: 1
-        shadow: lg
-        flow: theme
-        flowSpeed: 0.6
-        flowWidth: 2
-        place:
-          x: 40
-          y: 390
-          w: 590
-          h: 290
-        enter: ufx-slam
-        delay: 1333
-        locked: true
-      - type: text
-        text: КАНАЛЫ
-        styles:
-          text:
-            size: 16
-            weight: 800
-            leading: 1.2
-            spacing: 0.3
-            color: text2
-        place:
-          x: 70
-          y: 412
-          w: 300
-        enter: fade
-        delay: 1333
-      - type: donut
-        values:
-          - 46
-          - 31
-          - 23
-        labels:
-          - Сайт
-          - Партнёры
-          - Магазины
-        center: 100 %
-        place:
-          x: 70
-          y: 440
-          w: 530
-          h: 220
-        enter: fade
-        delay: 1333
-      - type: shape
-        kind: rect
-        radius: 24
-        fill: surface
-        stroke: line
-        width: 1
-        shadow: lg
-        flow: theme
-        flowSpeed: 0.6
-        flowWidth: 2
-        place:
-          x: 650
-          y: 390
-          w: 590
-          h: 290
-        enter: ufx-slam
-        delay: 2000
-        locked: true
-      - type: text
-        text: "81"
-        count: odometer
-        styles:
-          text:
-            size: 170
+            size: 112
             weight: 900
-            leading: 0.92
+            leading: 1
             spacing: -0.035
-            color: accent
+            color: text
         place:
-          x: 680
-          y: 412
-          w: 280
+          x: 72
+          y: 186
+          w: 440
         enter: ufx-slam
-        delay: 2000
+        delay: 230
       - type: text
         text: |-
-          тип блоков —
-          графики, схемы,
-          таблицы, тесты
+          в IV квартале —
+          рекорд года
         styles:
           text:
-            size: 26
+            size: 30
             weight: 700
             leading: 1.25
-            spacing: 0
+            spacing: -0.01
             color: text2
         place:
-          x: 950
-          y: 450
-          w: 260
+          x: 80
+          y: 330
+          w: 400
         enter: fade
-        delay: 2000
+        delay: 1600
+      - type: html
+        html: <div class="v3-o" style="width:100%;height:100%"><div class="v10-ch"><i class="gl" style="bottom:155px"></i><i class="gl" style="bottom:250px"></i><i class="gl" style="bottom:345px"></i><i class="gl" style="bottom:440px"></i><i class="base"></i><svg class="ln" viewBox="0 0 760 520"><polyline points="95,407 285,323 475,354 665,80" pathLength="1"/></svg><i class="bar" style="--x:30px;--h:53px;--d:0.0000s"></i><b class="val" style="--x:30px;--h:53px;--d:0.0000s">+12 %</b><em class="ax" style="--x:30px;--h:53px;--d:0.0000s">I</em><i class="dot" style="--x:95px;--y:407px;--d:0.4200s"></i><i class="bar" style="--x:220px;--h:137px;--d:0.6667s"></i><b class="val" style="--x:220px;--h:137px;--d:0.6667s">+31 %</b><em class="ax" style="--x:220px;--h:137px;--d:0.6667s">II</em><i class="dot" style="--x:285px;--y:323px;--d:1.0867s"></i><i class="bar" style="--x:410px;--h:106px;--d:1.0000s"></i><b class="val" style="--x:410px;--h:106px;--d:1.0000s">+24 %</b><em class="ax" style="--x:410px;--h:106px;--d:1.0000s">III</em><i class="dot" style="--x:475px;--y:354px;--d:1.4200s"></i><i class="bar hi" style="--x:600px;--h:380px;--d:1.3333s"></i><b class="val hi" style="--x:600px;--h:380px;--d:1.3333s">+86 %</b><em class="ax" style="--x:600px;--h:380px;--d:1.3333s">IV</em><i class="dot hi" style="--x:665px;--y:80px;--d:1.7533s"></i><i class="fl" style="--x:600px;--h:380px"></i><i class="rg" style="--x:665px;--y:80px"></i></div></div>
+        place:
+          x: 470
+          y: 110
+          w: 760
+          h: 520
+        locked: true
+      - type: text
+        text: 81 ТИП БЛОКОВ · ГРАФИКИ, СХЕМЫ, ТАБЛИЦЫ, ТЕСТЫ
+        styles:
+          text:
+            size: 13
+            weight: 800
+            leading: 1.2
+            spacing: 0.3
+            color: text2
+        place:
+          x: 80
+          y: 610
+          w: 620
+        enter: fade
       - type: html
         html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ИНФОГРАФИКА · <b>ЖИВЫЕ БЛОКИ</b></b><i class="v3-fl ac"></i></div>
         place:
@@ -2860,6 +2680,8 @@ slides:
     bg: var(--bg)
     transition: none
     at: 36.677
+    steps:
+      - 39.343
     logo: false
     free:
       - type: html
@@ -2870,126 +2692,23 @@ slides:
           w: 1280
         locked: true
       - type: html
-        html: <div class="v3-mic"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        html: <div class="v3-o" style="width:100%;height:100%"><div class="v11-mic"><i class="v11-dot"></i><div class="v11-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div>
         place:
           x: 80
-          y: 120
-          w: 520
-          h: 84
+          y: 130
+          w: 600
+          h: 110
         enter: fade
-        id: ag-mic
-      - id: ag-u
-        type: shape
-        kind: rect
-        radius: 28
-        fill: surface
-        stroke: accent
-        width: 1
-        flow: theme
-        flowSpeed: 1.2
-        flowWidth: 2
-        text: «Сделай из таблицы диаграмму»
-        styles:
-          text:
-            size: 25
-            weight: 800
+        locked: true
+      - type: html
+        html: <div class="v3-o" style="width:100%;height:100%"><div class="v11-say"><span style="--d:0.000s">«Сделай</span> <span style="--d:0.333s">из</span> <span style="--d:0.667s">таблицы</span> <span style="--d:1.000s">диаграмму»</span></div></div>
         place:
           x: 80
-          y: 240
+          y: 270
           w: 600
           h: 120
-        enter: words
+        locked: true
       - type: shape
-        kind: rect
-        radius: 26
-        fill: surface
-        glass: true
-        glassOpacity: 0.4
-        stroke: line
-        width: 1
-        place:
-          x: 720
-          y: 120
-          w: 500
-          h: 440
-        enter: ufx-slam
-        locked: true
-      - type: table
-        variant: accent
-        density: roomy
-        header:
-          - Квартал
-          - Выручка
-        rows:
-          - - I
-            - "42"
-          - - II
-            - "58"
-          - - III
-            - "51"
-          - - IV
-            - "86"
-        place:
-          x: 750
-          y: 160
-          w: 440
-        enter: fade
-        delay: 150
-      - type: html
-        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">АГЕНТ · <b>ГОЛОСОМ</b></b><b class="v3-hud tr"><i class="v3-rec"></i>СЛУШАЕТ</b><i class="v3-fl ac"></i></div>
-        place:
-          x: 0
-          y: 0
-          w: 1280
-        locked: true
-  - id: agent2
-    template: canvas
-    label: Агент — диаграмма
-    bg: var(--bg)
-    transition: morph
-    transitionMs: 300
-    at: 37.343
-    steps:
-      - 39.343
-    logo: false
-    free:
-      - type: html
-        html: <div class="v3-o"><i class="v3-glow" style="--gx:72%;--gy:55%"></i></div>
-        place:
-          x: 0
-          y: 0
-          w: 1280
-        locked: true
-      - type: html
-        html: <div class="v3-mic"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-        place:
-          x: 80
-          y: 120
-          w: 520
-          h: 84
-        id: ag-mic
-      - id: ag-u
-        type: shape
-        kind: rect
-        radius: 28
-        fill: surface
-        stroke: accent
-        width: 1
-        flow: theme
-        flowSpeed: 1.2
-        flowWidth: 2
-        text: «Сделай из таблицы диаграмму»
-        styles:
-          text:
-            size: 25
-            weight: 800
-        place:
-          x: 80
-          y: 240
-          w: 600
-          h: 120
-      - id: ag-a
-        type: shape
         kind: rect
         radius: 28
         fill: gradient
@@ -3001,35 +2720,16 @@ slides:
         text: Готово — диаграмма на слайде
         styles:
           text:
-            size: 23
+            size: 25
             weight: 800
             color: "#FFFFFF"
         place:
           x: 80
-          y: 390
+          y: 420
           w: 600
-          h: 100
-      - type: shape
-        kind: rect
-        radius: 26
-        fill: surface
-        glass: true
-        glassOpacity: 0.4
-        stroke: line
-        width: 1
-        place:
-          x: 720
-          y: 120
-          w: 500
-          h: 440
-        locked: true
-      - type: html
-        html: <div class="v3-o" style="width:100%;height:100%"><div class="v3-qb"><i style="--h:49%;animation-delay:0.00s"><b>42</b><em>I</em></i><i style="--h:67%;animation-delay:0.06s"><b>58</b><em>II</em></i><i style="--h:59%;animation-delay:0.12s"><b>51</b><em>III</em></i><i style="--h:100%;animation-delay:0.18s"><b>86</b><em>IV</em></i></div></div>
-        place:
-          x: 760
-          y: 140
-          w: 420
-          h: 390
+          h: 96
+        enter: ufx-slam
+        delay: 2000
       - type: shape
         kind: pill
         fill: soft
@@ -3043,13 +2743,36 @@ slides:
             color: accent
         place:
           x: 80
-          y: 520
+          y: 548
           w: 460
           h: 64
         enter: ufx-slam
         click: true
+      - type: shape
+        kind: rect
+        radius: 26
+        fill: surface
+        glass: true
+        glassOpacity: 0.4
+        stroke: line
+        width: 1
+        place:
+          x: 720
+          y: 120
+          w: 500
+          h: 440
+        enter: ufx-slam
+        locked: true
       - type: html
-        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">АГЕНТ · <b>ГОЛОСОМ</b></b><b class="v3-hud tr">ГОТОВО</b><i class="v3-fl soft"></i></div>
+        html: <div class="v3-o" style="width:100%;height:100%"><div class="v11-tb"><div class="v11-h"><span>Квартал</span><span>Выручка</span></div><i class="v11-base"></i><div class="v11-r" style="--d:1.333s;--y0:96px;animation-name:v11-m0"><i class="bg"></i><i class="gr"></i><span>I</span><span>42</span><b>42</b><em>I</em></div><div class="v11-r" style="--d:1.403s;--y0:160px;animation-name:v11-m1"><i class="bg"></i><i class="gr"></i><span>II</span><span>58</span><b>58</b><em>II</em></div><div class="v11-r" style="--d:1.473s;--y0:224px;animation-name:v11-m2"><i class="bg"></i><i class="gr"></i><span>III</span><span>51</span><b>51</b><em>III</em></div><div class="v11-r" style="--d:1.543s;--y0:288px;animation-name:v11-m3"><i class="bg"></i><i class="gr"></i><span>IV</span><span>86</span><b>86</b><em>IV</em></div></div></div>
+        place:
+          x: 720
+          y: 120
+          w: 500
+          h: 440
+        locked: true
+      - type: html
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">АГЕНТ · <b>ГОЛОСОМ</b></b><b class="v3-hud tr"><span class="v11-s1"><i class="v3-rec"></i>СЛУШАЕТ</span><span class="v11-s2">ГОТОВО</span></b><i class="v3-fl ac"></i></div>
         place:
           x: 0
           y: 0
@@ -4198,8 +3921,6 @@ slides:
     bg: var(--bg)
     transition: none
     at: 55.343
-    steps:
-      - 56.01
     logo: false
     free:
       - type: html
@@ -4209,55 +3930,13 @@ slides:
           y: 0
           w: 1280
         locked: true
-      - type: shape
-        kind: rect
-        radius: 30
-        fill: surface
-        stroke: accent
-        width: 2
-        flow: theme
-        flowSpeed: 1
-        flowWidth: 3
-        shadow: lg
-        text: |-
-          Что такое
-          **морф?**
-        styles:
-          text:
-            size: 72
-            weight: 800
+      - type: html
+        html: <div class="v3-o"><div class="v12-c" style="--x:330px;--dy:24px;--a:-8deg;--d:0.6667s;--e:0.00s"><div class="v12-in"><div class="f"><small>01 / 03</small><b>Морф<i>?</i></b><em>щелчок — ответ</em></div><div class="b"><small>Морф</small><b>объекты перелетают сами</b></div></div></div><div class="v12-c" style="--x:640px;--dy:0px;--a:0deg;--d:1s;--e:0.05s"><div class="v12-in"><div class="f"><small>02 / 03</small><b>Дуотон<i>?</i></b><em>щелчок — ответ</em></div><div class="b"><small>Дуотон</small><b>два цвета вместо всех</b></div></div></div><div class="v12-c" style="--x:950px;--dy:24px;--a:8deg;--d:1.3333s;--e:0.10s"><div class="v12-in"><div class="f"><small>03 / 03</small><b>Автопоказ<i>?</i></b><em>щелчок — ответ</em></div><div class="b"><small>Автопоказ</small><b>листается под музыку</b></div></div></div></div>
         place:
-          x: 330
-          y: 130
-          w: 620
-          h: 420
-        enter: ufx-slam
-      - type: shape
-        kind: rect
-        radius: 30
-        fill: gradient
-        gradient:
-          from: accent
-          to: accent2
-          angle: 135
-        shadow: lg
-        text: |-
-          Переход, где объекты
-          **перелетают**
-          на новые места
-        styles:
-          text:
-            size: 46
-            weight: 700
-            color: "#FFFFFF"
-        place:
-          x: 330
-          y: 130
-          w: 620
-          h: 420
-        click: true
-        enter: swivel
-        tempo: fast
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: html
         html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">ОБУЧЕНИЕ · <b>КАРТОЧКИ-ПЕРЕВЁРТЫШИ</b></b><b class="v3-hud br">ЩЕЛЧОК — ПЕРЕВЕРНУТЬ</b></div>
         place:
