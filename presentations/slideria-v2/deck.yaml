@@ -698,6 +698,7 @@ css: |
   .v3-pv .now.pic::after { display: none; }
   .v3-pv .pic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   .v3-pv .next.pic::after { z-index: 1; text-shadow: 0 1px 6px rgba(0, 0, 0, .85); }
+  @keyframes v8-ghost { from { opacity: 0; } }
   /* Визуализатор «жидкость» (eqgen.py): три слоя по спектру трека на отрезке «Любой формат слайда», 8 с */
   @keyframes v8-ls1 { 0% { scale: 1.180; } 1.50% { scale: 1.172; } 2.50% { scale: 1.102; } 3.50% { scale: .958; } 5% { scale: .832; } 6.50% { scale: .768; } 8.50% { scale: .728; } 10% { scale: .752; } 11.50% { scale: .734; } 12% { scale: .764; } 14% { scale: .726; } 16.50% { scale: .709; } 29.50% { scale: .700; } 30% { scale: .820; } 31.50% { scale: .762; } 33.50% { scale: .725; } 34% { scale: 1.180; } 34.50% { scale: 1.180; } 35% { scale: 1.152; } 35.50% { scale: 1.180; } 37% { scale: .999; } 37.50% { scale: 1.052; } 38% { scale: 1.009; } 38.50% { scale: 1.020; } 39% { scale: .996; } 40% { scale: 1.010; } 40.50% { scale: .948; } 41% { scale: .972; } 41.50% { scale: .957; } 42.50% { scale: 1.025; } 44.50% { scale: .965; } 46% { scale: .965; } 46.50% { scale: .912; } 47% { scale: .889; } 47.50% { scale: .923; } 49.50% { scale: .899; } 50.50% { scale: .972; } 51% { scale: .978; } 52.50% { scale: .865; } 54% { scale: .881; } 55% { scale: .834; } 56% { scale: .854; } 58% { scale: .805; } 59% { scale: .821; } 61% { scale: .751; } 63.50% { scale: .717; } 66.50% { scale: .704; } 67% { scale: .906; } 67.50% { scale: 1.180; } 68% { scale: 1.175; } 68.50% { scale: 1.141; } 69% { scale: 1.143; } 70% { scale: 1.010; } 70.50% { scale: 1.009; } 71.50% { scale: .901; } 73% { scale: .923; } 74% { scale: .850; } 74.50% { scale: .841; } 75% { scale: .876; } 75.50% { scale: .863; } 76% { scale: .884; } 77% { scale: .882; } 78.50% { scale: .843; } 79% { scale: .858; } 80% { scale: .813; } 81.50% { scale: .800; } 82.50% { scale: .812; } 83.50% { scale: .797; } 84% { scale: .835; } 85% { scale: .835; } 86.50% { scale: .775; } 87% { scale: .766; } 87.50% { scale: .782; } 90% { scale: .727; } 96% { scale: .702; } 96.50% { scale: .859; } 98% { scale: .781; } 100% { scale: .733; } }
   @keyframes v8-lr1 { 0% { border-radius: 39% 40% 34% 66% / 65% 39% 51% 36%; } 1% { border-radius: 37% 43% 35% 66% / 64% 41% 53% 37%; } 2% { border-radius: 37% 46% 37% 64% / 62% 43% 55% 40%; } 3% { border-radius: 39% 48% 41% 60% / 58% 47% 56% 44%; } 4% { border-radius: 43% 50% 45% 56% / 54% 49% 54% 47%; } 5% { border-radius: 46% 51% 47% 54% / 52% 50% 53% 49%; } 6% { border-radius: 47% 51% 49% 52% / 51% 50% 52% 50%; } 7% { border-radius: 49% 51% 49% 51% / 50% 51% 52% 50%; } 8% { border-radius: 49% 51% 50% 51% / 50% 51% 51% 50%; } 9% { border-radius: 50% 51% 50% 50% / 50% 51% 51% 50%; } 10% { border-radius: 49% 51% 50% 51% / 50% 51% 52% 51%; } 11% { border-radius: 50% 51% 50% 50% / 50% 51% 51% 51%; } 12% { border-radius: 50% 52% 51% 50% / 49% 52% 52% 52%; } 13% { border-radius: 50% 51% 51% 50% / 49% 51% 51% 51%; } 14% { border-radius: 50% 51% 51% 50% / 49% 51% 51% 51%; } 15% { border-radius: 50% 51% 50% 50% / 50% 51% 50% 51%; } 16% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 17% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 18% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 19% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 20% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 21% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 22% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 23% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 24% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 25% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 26% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 27% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 28% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 29% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 30% { border-radius: 48% 46% 51% 48% / 49% 47% 46% 47%; } 31% { border-radius: 48% 48% 50% 49% / 50% 48% 48% 48%; } 32% { border-radius: 49% 48% 50% 50% / 50% 48% 49% 48%; } 33% { border-radius: 49% 49% 50% 50% / 50% 49% 49% 49%; } 34% { border-radius: 34% 34% 44% 50% / 56% 34% 42% 34%; } 35% { border-radius: 35% 36% 42% 52% / 57% 35% 45% 35%; } 36% { border-radius: 36% 38% 41% 54% / 59% 37% 47% 37%; } 37% { border-radius: 41% 43% 43% 54% / 57% 41% 50% 42%; } 38% { border-radius: 41% 43% 41% 56% / 58% 42% 52% 43%; } 39% { border-radius: 43% 45% 41% 56% / 59% 43% 53% 44%; } 40% { border-radius: 44% 46% 40% 58% / 60% 44% 55% 46%; } 41% { border-radius: 47% 48% 41% 58% / 59% 46% 56% 48%; } 42% { border-radius: 48% 50% 40% 59% / 60% 47% 57% 49%; } 43% { border-radius: 50% 51% 40% 60% / 60% 49% 59% 51%; } 44% { border-radius: 52% 53% 41% 59% / 59% 50% 59% 52%; } 45% { border-radius: 53% 54% 42% 59% / 58% 52% 58% 54%; } 46% { border-radius: 55% 55% 43% 59% / 58% 53% 59% 55%; } 47% { border-radius: 55% 55% 45% 56% / 55% 53% 56% 54%; } 48% { border-radius: 56% 56% 46% 56% / 55% 54% 57% 56%; } 49% { border-radius: 56% 56% 47% 56% / 54% 55% 56% 56%; } 50% { border-radius: 58% 57% 47% 56% / 54% 57% 56% 57%; } 51% { border-radius: 59% 59% 48% 56% / 53% 59% 57% 59%; } 52% { border-radius: 56% 57% 49% 54% / 52% 56% 54% 57%; } 53% { border-radius: 55% 56% 50% 52% / 51% 56% 53% 56%; } 54% { border-radius: 55% 56% 51% 52% / 50% 56% 52% 56%; } 55% { border-radius: 53% 54% 51% 51% / 49% 54% 51% 54%; } 56% { border-radius: 53% 54% 52% 50% / 48% 55% 50% 54%; } 57% { border-radius: 51% 53% 52% 49% / 48% 54% 49% 53%; } 58% { border-radius: 50% 52% 52% 49% / 48% 53% 49% 52%; } 59% { border-radius: 50% 51% 53% 48% / 47% 53% 48% 51%; } 60% { border-radius: 49% 51% 52% 49% / 48% 51% 48% 50%; } 61% { border-radius: 49% 50% 52% 49% / 49% 51% 49% 50%; } 62% { border-radius: 49% 50% 51% 49% / 49% 50% 49% 50%; } 63% { border-radius: 49% 50% 51% 49% / 49% 50% 49% 50%; } 64% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 65% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 66% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 67% { border-radius: 43% 44% 56% 43% / 43% 46% 43% 44%; } 68% { border-radius: 35% 36% 63% 34% / 36% 39% 36% 35%; } 69% { border-radius: 37% 36% 60% 36% / 38% 38% 38% 35%; } 70% { border-radius: 42% 40% 56% 41% / 42% 41% 43% 40%; } 71% { border-radius: 45% 42% 54% 43% / 45% 42% 46% 42%; } 72% { border-radius: 47% 44% 52% 45% / 47% 44% 47% 44%; } 73% { border-radius: 48% 43% 51% 45% / 47% 43% 48% 44%; } 74% { border-radius: 50% 46% 50% 47% / 49% 45% 50% 46%; } 75% { border-radius: 51% 45% 49% 48% / 49% 44% 51% 46%; } 76% { border-radius: 52% 46% 48% 48% / 50% 45% 52% 47%; } 77% { border-radius: 53% 47% 48% 49% / 51% 45% 53% 48%; } 78% { border-radius: 54% 48% 47% 50% / 51% 47% 53% 49%; } 79% { border-radius: 54% 49% 47% 51% / 52% 47% 54% 50%; } 80% { border-radius: 53% 50% 47% 51% / 52% 48% 53% 51%; } 81% { border-radius: 54% 50% 47% 52% / 52% 49% 53% 51%; } 82% { border-radius: 54% 51% 47% 52% / 53% 50% 53% 52%; } 83% { border-radius: 53% 51% 47% 52% / 53% 50% 53% 52%; } 84% { border-radius: 54% 53% 46% 53% / 54% 51% 54% 54%; } 85% { border-radius: 54% 53% 46% 54% / 54% 52% 54% 54%; } 86% { border-radius: 52% 52% 47% 53% / 53% 52% 53% 53%; } 87% { border-radius: 51% 52% 48% 52% / 52% 51% 52% 52%; } 88% { border-radius: 51% 52% 48% 52% / 52% 52% 52% 52%; } 89% { border-radius: 50% 51% 49% 51% / 51% 51% 51% 51%; } 90% { border-radius: 50% 51% 49% 51% / 51% 51% 50% 51%; } 91% { border-radius: 50% 51% 50% 51% / 50% 51% 50% 50%; } 92% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 93% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 94% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 95% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 96% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 97% { border-radius: 46% 52% 51% 52% / 51% 53% 47% 50%; } 98% { border-radius: 47% 51% 51% 51% / 50% 52% 48% 49%; } 99% { border-radius: 48% 50% 51% 50% / 50% 51% 49% 49%; } 100% { border-radius: 49% 50% 51% 50% / 50% 50% 49% 49%; } }
@@ -3410,9 +3411,8 @@ slides:
     template: canvas
     label: "Морф: обложка"
     bg: var(--bg)
-    class: snap
     transition: morph
-    transitionMs: 440
+    transitionMs: 620
     at: 48.677
     logo: false
     free:
@@ -3545,9 +3545,8 @@ slides:
     template: canvas
     label: "Морф: вертикальный кадр"
     bg: var(--bg)
-    class: snap
     transition: morph
-    transitionMs: 440
+    transitionMs: 620
     at: 49.343
     logo: false
     free:
@@ -3690,9 +3689,8 @@ slides:
     template: canvas
     label: "Морф: в следующий слайд"
     bg: var(--bg)
-    class: snap
     transition: morph
-    transitionMs: 440
+    transitionMs: 620
     at: 50.01
     logo: false
     free:
@@ -3715,7 +3713,7 @@ slides:
           y: 100
           w: 540
           h: 370
-        enter: fade
+        style: "animation: v8-ghost .45s ease-out .12s both"
       - id: mf-1
         type: image
         src: ./assets/embed-getsuga3d.webp
