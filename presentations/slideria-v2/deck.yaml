@@ -353,16 +353,30 @@ css: |
   .v4-echo b.m { -webkit-text-stroke: 0; background: linear-gradient(90deg, var(--ac), var(--ac2)); -webkit-background-clip: text; background-clip: text;
     filter: drop-shadow(0 0 40px color-mix(in srgb, var(--ac) 55%, transparent)); }
 
-  /* Студия в ракурсе: окно поворачивается к зрителю */
+  /* Студия в ракурсе (тёмная тема): окно поворачивается к зрителю; за ним — цветные подсветки, по краю — светящаяся
+     обводка, по стеклу — блик */
   @keyframes v4-orbit { from { transform: rotateX(24deg) rotateY(-30deg) rotateZ(5deg) scale(.8) translateY(50px); } to { transform: rotateX(7deg) rotateY(-12deg) rotateZ(1deg) scale(1); } }
   .v4-stage { position: relative; width: 100%; height: 100%; perspective: 1700px; }
-  .v4-shot { position: absolute; left: 50%; top: 50%; width: 900px; height: 562px; margin: -281px 0 0 -450px; border-radius: 18px; overflow: hidden; transform-style: preserve-3d;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, .12), 0 70px 140px -30px rgba(0, 0, 0, .85), 0 0 120px color-mix(in srgb, var(--ac) 32%, transparent); }
+  .v4-shot { position: absolute; left: 50%; top: 50%; width: 900px; height: 562px; margin: -281px 0 0 -450px; border-radius: 18px; transform-style: preserve-3d; }
   .slide.on .v4-shot { animation: v4-orbit 2.6667s cubic-bezier(.33, 0, .2, 1) both; }
-  .v4-shot img { display: block; width: 100%; height: 100%; object-fit: cover; }
-  .v4-shot::after { content: ''; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, .28) 48%, transparent 60%);
-    background-size: 260% 100%; background-position: 140% 0; }
-  .slide.on .v4-shot::after { animation: v4-sheen 1.6s .4s cubic-bezier(.3, .6, .2, 1) both; }
+  .v4-shot img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 18px; box-shadow: 0 70px 140px -30px rgba(0, 0, 0, .85); }
+  /* Обводка и свечение — отдельным слоем: проявляется прозрачностью, тень не перерисовывается */
+  .v4-shot::before { content: ''; position: absolute; inset: 0; border-radius: 18px; opacity: 0;
+    box-shadow: 0 0 0 1.5px rgba(196, 181, 253, .75), 0 0 60px 6px rgba(124, 58, 237, .5), 0 0 150px 30px rgba(236, 72, 153, .22); }
+  .slide.on .v4-shot::before { animation: v4-edge .6s ease-out .15s both; }
+  @keyframes v4-edge { from { opacity: 0; } to { opacity: 1; } }
+  .v4-shot .sh { position: absolute; inset: 0; border-radius: 18px; background-size: 260% 100%; background-position: 140% 0;
+    background-image: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, .14) 47%, rgba(196, 181, 253, .22) 50%, transparent 60%); }
+  .slide.on .v4-shot .sh { animation: v4-sheen 1.6s .4s cubic-bezier(.3, .6, .2, 1) both; }
+  /* Цветные подсветки за окном: фиолетовая снизу слева, розовая сверху справа, голубая снизу */
+  .v4-sg { border-radius: 50%; filter: blur(80px); opacity: 0; }
+  .v4-sg.a { left: 330px; top: 420px; width: 560px; height: 340px; background: #7C3AED; }
+  .v4-sg.b { left: 880px; top: 30px; width: 480px; height: 340px; background: #EC4899; }
+  .v4-sg.c { left: 720px; top: 560px; width: 460px; height: 220px; background: #22D3EE; }
+  .slide.on .v4-sg { animation: v4-sg .9s ease-out .1s both; }
+  .slide.on .v4-sg.b { animation-delay: .25s; }
+  .slide.on .v4-sg.c { animation-delay: .4s; }
+  @keyframes v4-sg { from { opacity: 0; } to { opacity: .5; } }
 
   /* Сравнение «до / после»: разделитель */
   @keyframes v4-split { from { clip-path: inset(0 0 0 100%); } to { clip-path: inset(0 0 0 50%); } }
@@ -846,13 +860,6 @@ css: |
   .v13-row b { padding: 12px 24px; border-radius: 99px; border: 1.5px solid color-mix(in srgb, var(--ac) 55%, transparent); color: var(--tx2);
     font: 800 18px/1 var(--font); letter-spacing: .14em; }
 
-  /* ── Студия: тёмный снимок в окне, камера наезжает на части программы на доли (ключевые кадры — из генератора) ── */
-  .v14-vp { position: absolute; inset: 0; overflow: hidden; border-radius: 18px; background: #0B0F1C;
-    box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--ac) 55%, transparent), 0 40px 90px -30px color-mix(in srgb, var(--ac) 55%, transparent); }
-  .v14-vp img { position: absolute; left: 0; top: 0; width: 1600px; height: 1000px; transform-origin: 0 0; }
-  .v14-tag { position: absolute; padding: 14px 26px; border-radius: 99px; background: linear-gradient(135deg, var(--ac), var(--ac2)); color: #fff; white-space: nowrap;
-    font: 800 22px/1 var(--font); box-shadow: 0 18px 40px -12px rgba(0, 0, 0, .7); opacity: 0; }
-
   /* ── «Место, где можно»: невидимая копия слова даёт ширину — слова второй строки встают рядом ── */
   .v6-slit .v6-sz { display: block; visibility: hidden; white-space: nowrap; font: 800 112px/1.12 'Unbounded', var(--font-base); letter-spacing: -.02em; }
   .v6-slit.b .v6-sz { font-size: 86px; }
@@ -944,9 +951,6 @@ css: |
   .th-party { --tx: #2A1316; --tx2: #4D2C30; --mu: #8C6A6D; --bg: #FFFAF3; --surf: #FFFFFF; --alt: color-mix(in srgb, #EF3E6B 8%, #FFFFFF); --bd: color-mix(in srgb, #EF3E6B 18%, #FFFFFF); --bd2: color-mix(in srgb, #EF3E6B 28%, #FFFFFF); --font: 'Montserrat', var(--font-base); --font-head: 'Montserrat', var(--font-base); }
   .th-autumn { --tx: #F6EADB; --tx2: #E2CDB6; --mu: #B39678; --bg: #1A110B; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Literata', var(--font-base); --font-head: 'Literata', var(--font-base); }
   .th-sakura { --tx: #3A1624; --tx2: #5C2E3E; --mu: #9A6B7B; --bg: #FFF6F8; --surf: #FFFFFF; --alt: color-mix(in srgb, #E0517A 8%, #FFFFFF); --bd: color-mix(in srgb, #E0517A 18%, #FFFFFF); --bd2: color-mix(in srgb, #E0517A 28%, #FFFFFF); --font: 'Nunito', var(--font-base); --font-head: 'Nunito', var(--font-base); }
-  @keyframes v14-cam { 0% { transform: translate(0.0px, -0.1px) scale(0.4813); } 11.00% { transform: translate(0.0px, -0.1px) scale(0.4813); animation-timing-function: cubic-bezier(.7, 0, .2, 1); } 21.80% { transform: translate(-27.9px, 0.3px) scale(1.2512); } 51.00% { transform: translate(-44.4px, -9.3px) scale(1.3013); animation-timing-function: cubic-bezier(.7, 0, .2, 1); } 61.80% { transform: translate(-131.7px, -250.8px) scale(1.0588); } 100% { transform: translate(-152.3px, -270.4px) scale(1.1011); } }
-  @keyframes v14-t0 { 0%, 19.40% { opacity: 0; transform: translateY(14px) scale(.9); } 23.60% { opacity: 1; transform: none; } 49.80% { opacity: 1; transform: none; } 52.80%, 100% { opacity: 0; } }
-  @keyframes v14-t1 { 0%, 59.40% { opacity: 0; transform: translateY(14px) scale(.9); } 63.60% { opacity: 1; transform: none; } 100% { opacity: 1; transform: none; } }
   @keyframes v13-w0 { 0.00% { opacity: 1; transform: scale(1.16); } 4.00% { transform: none; } 16.66% { opacity: 1; } 16.67%, 100% { opacity: 0; } }
   @keyframes v13-c0 { 0.00% { background-color: var(--ac); color: #05060A; } 16.66% { background-color: var(--ac); color: #05060A; } 16.67%, 100% { background-color: transparent; color: var(--tx2); } }
   @keyframes v13-w1 { 0%, 16.66% { opacity: 0; } 16.67% { opacity: 1; transform: scale(1.16); } 20.67% { transform: none; } 33.32% { opacity: 1; } 33.33%, 100% { opacity: 0; } }
@@ -1495,22 +1499,21 @@ slides:
     logo: false
     free:
       - type: html
-        html: <div class="v3-o"><i class="v4-bloom" style="--y:52%;--s:1300px"></i><i class="v4-dust"></i></div>
+        html: <div class="v3-o"><i class="v4-bloom" style="--y:52%;--s:1300px"></i><i class="v4-dust"></i><i class="v4-sg a"></i><i class="v4-sg b"></i><i class="v4-sg c"></i></div>
         place:
           x: 0
           y: 0
           w: 1280
         locked: true
       - type: html
-        html: '<div class="v3-o" style="width:100%;height:100%"><div class="v14-vp"><img data-i="0" style="animation: v14-cam 1.6667s linear both"></div><b class="v14-tag" style="left:330px;top:214px;animation: v14-t0 1.6667s linear both">Лента — как в PowerPoint</b><b class="v14-tag" style="left:24px;top:380px;animation: v14-t1 1.6667s linear both">Правка прямо на слайде</b></div>'
+        html: <div class="v4-stage"><div class="v4-shot"><img data-i="0"><i class="sh"></i></div></div>
         place:
-          x: 470
-          y: 120
-          w: 770
-          h: 481
+          x: 390
+          y: 90
+          w: 900
+          h: 562
         images:
           - src: ./assets/studio-dark.webp
-        enter: ufx-slam
         locked: true
       - type: text
         text: Студия
@@ -1523,8 +1526,8 @@ slides:
             color: text
         place:
           x: 60
-          y: 200
-          w: 420
+          y: 160
+          w: 520
         enter: ufx-whipl
       - type: text
         text: |-
@@ -1539,12 +1542,78 @@ slides:
             color: text2
         place:
           x: 64
-          y: 300
-          w: 400
+          y: 260
+          w: 460
         enter: fade
         delay: 200
+      - type: shape
+        kind: pill
+        fill: gradient
+        gradient:
+          from: accent
+          to: accent2
+          angle: 135
+        shadow: lg
+        text: Лента — как в PowerPoint
+        styles:
+          text:
+            size: 20
+            weight: 800
+            color: "#FFFFFF"
+        place:
+          x: 610
+          y: 110
+          w: 352
+          h: 52
+        angle: -2
+        enter: ufx-drop
+        delay: 333
+      - type: shape
+        kind: pill
+        fill: gradient
+        gradient:
+          from: accent
+          to: accent2
+          angle: 135
+        shadow: lg
+        text: Слайды
+        styles:
+          text:
+            size: 20
+            weight: 800
+            color: "#FFFFFF"
+        place:
+          x: 384
+          y: 330
+          w: 136
+          h: 52
+        angle: 3
+        enter: ufx-drop
+        delay: 667
+      - type: shape
+        kind: pill
+        fill: gradient
+        gradient:
+          from: accent
+          to: accent2
+          angle: 135
+        shadow: lg
+        text: Свойства
+        styles:
+          text:
+            size: 20
+            weight: 800
+            color: "#FFFFFF"
+        place:
+          x: 1080
+          y: 260
+          w: 160
+          h: 52
+        angle: -3
+        enter: ufx-drop
+        delay: 1000
       - type: html
-        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i></div>
+        html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-vig"></i></div>
         place:
           x: 0
           y: 0
@@ -2136,7 +2205,7 @@ slides:
         locked: true
   - id: formats
     template: canvas
-    label: Любой формат слайда
+    label: Любой формат и код слайда
     bg: var(--bg)
     transition: none
     at: 22.677
@@ -2157,7 +2226,7 @@ slides:
           w: 1280
         locked: true
       - type: text
-        text: ЛЮБОЙ ФОРМАТ СЛАЙДА
+        text: ЛЮБОЙ ФОРМАТ И КОД СЛАЙДА
         id: fm-k
         styles:
           text:
@@ -2206,7 +2275,7 @@ slides:
           w: 1280
         locked: true
       - type: text
-        text: ЛЮБОЙ ФОРМАТ СЛАЙДА
+        text: ЛЮБОЙ ФОРМАТ И КОД СЛАЙДА
         id: fm-k
         styles:
           text:
