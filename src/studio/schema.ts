@@ -743,6 +743,8 @@ export const BLOCKS: Record<string, Schema> = {
       { k: 'controls', label: 'Вращать мышью при показе', type: 'bool', default: true },
       { k: 'exposure', label: 'Яркость', type: 'number', min: 0.2, max: 3, step: 0.1, placeholder: '1' },
       { k: 'orbit', label: 'Ракурс', type: 'text', placeholder: '0deg 75deg', hint: 'Поворот и наклон камеры в градусах' },
+      // Как «Масштаб» у картинки: 1 — как есть
+      { k: 'zoom', label: 'Масштаб', type: 'number', min: 0.3, max: 3, step: 0.05, placeholder: '1', hint: '1 — как подобрано; 0,8 — модель дальше и мельче: движения не выходят за рамку' },
       { k: 'animation', label: 'Анимация', type: 'text', placeholder: 'нет', hint: 'Имя анимации из файла модели, например Dance' },
       { k: 'caption', label: 'Подпись', type: 'text' },
     ],

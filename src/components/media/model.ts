@@ -3,6 +3,7 @@ import { esc, styleAttr, t } from '../../engine/html';
 import { ea } from '../../engine/marks';
 import type { Block } from '../../types';
 import { icon } from '../icons';
+import { modelCamera } from './model-orbit';
 import './media.css';
 
 interface ModelProps extends Block {
@@ -18,6 +19,8 @@ interface ModelProps extends Block {
   exposure?: number;
   /** Начальный ракурс: поворот и наклон камеры, например "-30deg 70deg" (как camera-orbit у model-viewer) */
   orbit?: string;
+  /** Масштаб в рамке, 0.3–3 (по умолчанию 1): меньше — камера дальше, модель мельче, движения не уходят за рамку */
+  zoom?: number;
   /** Анимация из файла модели, например Dance (true — первая по списку); играет по кругу */
   animation?: string | boolean;
   caption?: string;
@@ -80,7 +83,8 @@ defineBlock<ModelProps>('model', {
     const key = `${ctx.slide.dataset.index ?? ''}:${el.closest('[data-block]')?.getAttribute('data-block') ?? ''}`;
     let mv: HTMLElement | null = null;
     let timer = 0;
-    const orbit0 = typeof p.orbit === 'string' && /^-?\d+(\.\d+)?deg\s+-?\d+(\.\d+)?deg(\s+(auto|\d+(\.\d+)?%))?$/.test(p.orbit.trim()) ? p.orbit.trim() : 'auto auto auto';
+    // Ракурс и масштаб в рамке: расстояние — % от подобранного библиотекой (масштаб 0,8 — на четверть дальше)
+    const { orbit: orbit0, dist } = modelCamera(p.orbit, p.zoom);
     // Кнопка «Исходный вид»: появляется, когда модель повернули или приблизили
     let home: HTMLButtonElement | null = null;
     let flip = false;
@@ -125,16 +129,15 @@ defineBlock<ModelProps>('model', {
         const controls = p.controls !== false && !editing();
         if (controls) m.setAttribute('camera-controls', '');
         // Приблизить и отдалить — колесом или щипком. Без предела model-viewer не отпускает камеру
-        // дальше исходного вида: разрешаем примерно в 2,5 раза дальше (и дальше заданного в orbit)
-        if (!controls) m.setAttribute('disable-zoom', '');
-        else {
-          const r = Number(/(\d+(?:\.\d+)?)%$/.exec(orbit0)?.[1]) || 100;
-          m.setAttribute('max-camera-orbit', `auto auto ${Math.round(Math.max(250, r * 1.5))}%`);
-        }
+        // дальше исходного вида: разрешаем примерно в 2,5 раза дальше (и дальше заданного ракурсом и масштабом).
+        // Без вращения мышью предел — сам исходный вид: иначе камеру не пустило бы дальше подобранного
+        if (!controls) {
+          m.setAttribute('disable-zoom', '');
+          if (dist > 100) m.setAttribute('max-camera-orbit', `auto auto ${dist}%`);
+        } else m.setAttribute('max-camera-orbit', `auto auto ${Math.round(Math.max(250, dist * 1.5))}%`);
         m.setAttribute('interaction-prompt', 'none');
         m.setAttribute('shadow-intensity', '0.8');
         m.setAttribute('environment-image', 'neutral');
-        // Ракурс: только углы в градусах (и необязательное расстояние) — без произвольных строк
         if (orbit0 !== 'auto auto auto') m.setAttribute('camera-orbit', orbit0);
         const ex = Number(p.exposure);
         if (ex >= 0.2 && ex <= 3) m.setAttribute('exposure', String(ex));

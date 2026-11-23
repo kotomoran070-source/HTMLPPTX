@@ -342,8 +342,9 @@ export class Inspector {
     const ribbon = ELSEWHERE[sel.type]?.tab ? ELSEWHERE[sel.type] : null;
     const skip = skipped(sel.type, !!sel.free);
     // Кадр картинки (обрезка, увеличение) нужен реже: отдельный свёрнутый раздел — точно, числами;
-    // мышью — «Кадр» на панели над картинкой. У видео кадр — на вкладке «Видео»
-    const FRAME = schema?.fields.some((f) => f.k === 'zoom') ? ['fit', 'zoom', 'position'] : [];
+    // мышью — «Кадр» на панели над картинкой. У видео кадр — на вкладке «Видео». Узнаётся по «Видимой части»:
+    // «Масштаб» есть и у 3D-модели, но это расстояние камеры — он среди её полей
+    const FRAME = schema?.fields.some((f) => f.type === 'framepos') ? ['fit', 'zoom', 'position'] : [];
     const b = getAt(deck, sel.block) as Block | undefined;
     const all = (schema?.fields ?? []).filter((f) => !skip.has(f.k) && !(f.type === 'rows' && f.hideEmpty && !(Array.isArray(b?.[f.k]) && (b[f.k] as unknown[]).length)));
     const own = all.filter((f) => !FRAME.includes(f.k));
