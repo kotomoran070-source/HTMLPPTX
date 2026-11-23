@@ -3226,15 +3226,76 @@ slides:
         delay: 120
       - type: model
         src: ./assets/robot.glb
-        poster: ./assets/robot-poster.webp
+        poster: ./assets/robot-l.webp
         animation: Dance
-        orbit: -12deg 80deg
+        orbit: 22deg 80deg
+        zoom: 0.6
+        exposure: 0.7
         controls: false
         place:
-          x: 660
-          y: 30
-          w: 580
-          h: 680
+          x: 616
+          y: 110
+          w: 187
+          h: 220
+        enter: ufx-slam
+        delay: 667
+      - type: model
+        src: ./assets/robot.glb
+        poster: ./assets/robot-r.webp
+        animation: Dance
+        orbit: -22deg 80deg
+        zoom: 0.6
+        exposure: 0.7
+        controls: false
+        place:
+          x: 1086
+          y: 110
+          w: 187
+          h: 220
+        enter: ufx-slam
+        delay: 667
+      - type: model
+        src: ./assets/robot.glb
+        poster: ./assets/robot-l.webp
+        animation: Dance
+        orbit: 22deg 80deg
+        zoom: 0.6
+        exposure: 0.85
+        controls: false
+        place:
+          x: 682
+          y: 180
+          w: 255
+          h: 300
+        enter: ufx-slam
+        delay: 333
+      - type: model
+        src: ./assets/robot.glb
+        poster: ./assets/robot-r.webp
+        animation: Dance
+        orbit: -22deg 80deg
+        zoom: 0.6
+        exposure: 0.85
+        controls: false
+        place:
+          x: 962
+          y: 180
+          w: 255
+          h: 300
+        enter: ufx-slam
+        delay: 333
+      - type: model
+        src: ./assets/robot.glb
+        poster: ./assets/robot-c.webp
+        animation: Dance
+        orbit: 0deg 80deg
+        zoom: 0.6
+        controls: false
+        place:
+          x: 775
+          y: 280
+          w: 340
+          h: 400
         enter: ufx-slam
       - type: html
         html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i><b class="v3-hud tl">3D-МОДЕЛИ · <b>GLB, STL, STEP</b></b><i class="v3-fl ac"></i></div>
@@ -3887,7 +3948,7 @@ slides:
           w: 1280
         locked: true
       - type: html
-        html: <div class="v3-o" style="width:100%;height:100%"><div class="v3-pv"><header><span>Режим докладчика</span><b>00:51</b></header><div class="now pic"><img data-i="0"></div><aside><div class="next pic"><img data-i="1"></div><div class="notes">Показать смену темы. Пульт — телефон, «Далее» на удар.</div></aside><footer><i></i></footer></div></div>
+        html: <div class="v3-o" style="width:100%;height:100%"><div class="v3-pv"><header><span>Режим докладчика</span><b>00:51</b></header><div class="now pic"><img data-i="0"></div><aside><div class="next pic"><img data-i="1"></div><div class="notes">Показать смену темы. Пульт — телефон.</div></aside><footer><i></i></footer></div></div>
         place:
           x: 660
           y: 100
@@ -3967,7 +4028,7 @@ slides:
           w: 1280
         locked: true
       - type: html
-        html: <div class="v3-o v9-ph" style="width:100%;height:100%"><div class="v3-phone"><div class="v9-scr"><div class="v9-top"><b>00:51</b><i><svg viewBox="0 0 24 24"><path d="M9 7v10M15 7v10"/></svg></i><span>21:14</span></div><div class="v9-sl"><img data-i="0"></div><div class="v9-bar"><svg viewBox="0 0 24 24"><circle cx="7" cy="17" r="2.5"/><path d="M9 15l10-10M5 13l-1-1M11 21l-1-1"/></svg><svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/></svg><svg viewBox="0 0 24 24"><path d="M8 19l-4-4 9-9 6 6-7 7zM11 19h9"/></svg><hr><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg><i class="v9-act"><svg viewBox="0 0 24 24"><path d="M6 4l13 6-5.5 2L11 18z"/></svg></i></div><p class="v9-nx"><em>ДАЛЕЕ</em>Чёрная дыра</p><p class="v9-lb">ЗАМЕТКИ</p><div class="v9-nt">Пульт в руке. «Далее» — на удар.</div><div class="v9-ft"><u>‹</u><span>39 / 45</span><p class="v9-go"><s>Далее ›</s></p></div></div></div></div>
+        html: <div class="v3-o v9-ph" style="width:100%;height:100%"><div class="v3-phone"><div class="v9-scr"><div class="v9-top"><b>00:51</b><i><svg viewBox="0 0 24 24"><path d="M9 7v10M15 7v10"/></svg></i><span>21:14</span></div><div class="v9-sl"><img data-i="0"></div><div class="v9-bar"><svg viewBox="0 0 24 24"><circle cx="7" cy="17" r="2.5"/><path d="M9 15l10-10M5 13l-1-1M11 21l-1-1"/></svg><svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/></svg><svg viewBox="0 0 24 24"><path d="M8 19l-4-4 9-9 6 6-7 7zM11 19h9"/></svg><hr><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg><i class="v9-act"><svg viewBox="0 0 24 24"><path d="M6 4l13 6-5.5 2L11 18z"/></svg></i></div><p class="v9-nx"><em>ДАЛЕЕ</em>Обучение</p><p class="v9-lb">ЗАМЕТКИ</p><div class="v9-nt">Пульт в руке.</div><div class="v9-ft"><u>‹</u><span>39 / 45</span><p class="v9-go"><s>Далее ›</s></p></div></div></div></div>
         place:
           x: 1052
           y: 289
