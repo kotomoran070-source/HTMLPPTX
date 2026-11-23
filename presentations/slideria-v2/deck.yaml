@@ -1447,11 +1447,11 @@ slides:
           - src: ./assets/embed-getsuga3d.webp
           - src: ./assets/film-poster.png
           - src: ./assets/vista.webp
-          - src: ./assets/art-waves.webp
+          - src: ./assets/art-tide.svg
           - src: ./assets/embed-doom.webp
-          - src: ./assets/art-dusk.webp
+          - src: ./assets/art-peaks.svg
           - src: ./assets/embed-motion.webp
-          - src: ./assets/art-bloom.webp
+          - src: ./assets/art-orbit.svg
         locked: true
       - type: text
         text: ЭФФЕКТЫ · ГРАФИКИ · СХЕМЫ · 3D · ИГРЫ · КОД · ТЕСТЫ · ТЕМЫ · АГЕНТ
@@ -3227,7 +3227,7 @@ slides:
         images:
           - ./assets/embed-anime.webp
           - ./assets/studio.webp
-          - ./assets/art-dusk.webp
+          - ./assets/art-peaks.svg
         flip: click
         radius: 20
         glow: accent
@@ -3299,7 +3299,7 @@ slides:
         enter: fade
       - id: mf-0
         type: image
-        src: ./assets/art-dusk.webp
+        src: ./assets/art-peaks.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -3338,7 +3338,7 @@ slides:
         delay: 100
       - id: mf-3
         type: image
-        src: ./assets/art-bloom.webp
+        src: ./assets/art-orbit.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -3364,7 +3364,7 @@ slides:
         delay: 200
       - id: mf-5
         type: image
-        src: ./assets/art-waves.webp
+        src: ./assets/art-tide.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -3432,7 +3432,7 @@ slides:
           w: 440
       - id: mf-0
         type: image
-        src: ./assets/art-dusk.webp
+        src: ./assets/art-peaks.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -3468,7 +3468,7 @@ slides:
         angle: -8
       - id: mf-3
         type: image
-        src: ./assets/art-bloom.webp
+        src: ./assets/art-orbit.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -3492,7 +3492,7 @@ slides:
         angle: 24
       - id: mf-5
         type: image
-        src: ./assets/art-waves.webp
+        src: ./assets/art-tide.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -3559,7 +3559,7 @@ slides:
           w: 440
       - id: mf-0
         type: image
-        src: ./assets/art-dusk.webp
+        src: ./assets/art-peaks.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -3592,7 +3592,7 @@ slides:
           h: 90
       - id: mf-3
         type: image
-        src: ./assets/art-bloom.webp
+        src: ./assets/art-orbit.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -3614,7 +3614,7 @@ slides:
           h: 90
       - id: mf-5
         type: image
-        src: ./assets/art-waves.webp
+        src: ./assets/art-tide.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -3680,7 +3680,7 @@ slides:
           w: 440
       - id: mf-0
         type: image
-        src: ./assets/art-dusk.webp
+        src: ./assets/art-peaks.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -3716,7 +3716,7 @@ slides:
         angle: -6
       - id: mf-3
         type: image
-        src: ./assets/art-bloom.webp
+        src: ./assets/art-orbit.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2
@@ -3740,7 +3740,7 @@ slides:
         angle: -8
       - id: mf-5
         type: image
-        src: ./assets/art-waves.webp
+        src: ./assets/art-tide.svg
         radius: 16
         stroke: "#FFFFFF"
         width: 2

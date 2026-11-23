@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1E1B4B"/><stop offset=".36" stop-color="#5B21B6"/><stop offset=".66" stop-color="#DB2777"/><stop offset=".86" stop-color="#FDBA74"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#FFF7ED" stop-opacity=".85"/><stop offset=".4" stop-color="#FDBA74" stop-opacity=".45"/><stop offset="1" stop-color="#FB7185" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF7D6"/><stop offset="1" stop-color="#FDA4AF"/></linearGradient>
+    <linearGradient id="m1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A855F7"/><stop offset="1" stop-color="#7E22CE"/></linearGradient>
+    <linearGradient id="m2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7C3AED"/><stop offset="1" stop-color="#4C1D95"/></linearGradient>
+    <linearGradient id="m3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4C1D95"/><stop offset="1" stop-color="#2E1065"/></linearGradient>
+    <linearGradient id="m4" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#231A4F"/><stop offset="1" stop-color="#110C2B"/></linearGradient>
+    <linearGradient id="mist" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F9A8D4" stop-opacity="0"/><stop offset=".7" stop-color="#F9A8D4" stop-opacity=".32"/><stop offset="1" stop-color="#F9A8D4" stop-opacity="0"/></linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#sky)"/>
+  <g fill="#fff"><circle cx="70" cy="62" r="1.8" opacity=".8"/><circle cx="168" cy="118" r="1.2" opacity=".6"/><circle cx="262" cy="44" r="1.6" opacity=".7"/><circle cx="380" cy="96" r="1.1" opacity=".5"/><circle cx="470" cy="36" r="1.5" opacity=".7"/><circle cx="642" cy="74" r="1.9" opacity=".8"/><circle cx="726" cy="132" r="1.2" opacity=".55"/><circle cx="560" cy="150" r="1" opacity=".45"/></g>
+  <circle cx="520" cy="322" r="200" fill="url(#glow)"/>
+  <circle cx="520" cy="322" r="74" fill="url(#sun)"/>
+  <g fill="none" stroke="#2E1065" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" opacity=".55">
+    <path d="M176 196q9-9 18 0q9-9 18 0"/><path d="M226 222q6-6 12 0q6-6 12 0"/>
+  </g>
+  <!-- Дальний хребет: грани к солнцу светлее -->
+  <path d="M0 392 90 330 150 362 240 272 330 352 420 300 520 362 612 290 702 342 800 300V600H0z" fill="url(#m1)" opacity=".92"/>
+  <g fill="#fff" opacity=".1"><path d="M240 272 330 352 268 352z"/><path d="M612 290 702 342 640 342z"/><path d="M420 300 520 362 452 362z"/></g>
+  <rect y="318" width="800" height="120" fill="url(#mist)"/>
+  <!-- Средний хребет со снежной шапкой -->
+  <path d="M0 444 110 362 182 404 300 296 400 402 482 360 562 412 662 330 800 412V600H0z" fill="url(#m2)"/>
+  <g fill="#fff" opacity=".09"><path d="M300 296 400 402 330 402z"/><path d="M662 330 800 412 700 412z"/><path d="M110 362 182 404 132 404z"/></g>
+  <path d="M300 296 324 318 312 315 302 326 292 316 280 320z" fill="#FCE7F3" opacity=".85"/>
+  <path d="M662 330 682 347 672 345 663 354 655 346 645 348z" fill="#FCE7F3" opacity=".75"/>
+  <rect y="384" width="800" height="104" fill="url(#mist)" opacity=".8"/>
+  <!-- Ближний хребет -->
+  <path d="M0 492 140 412 250 470 362 402 472 480 600 420 720 470 800 444V600H0z" fill="url(#m3)"/>
+  <g fill="#fff" opacity=".07"><path d="M362 402 472 480 398 480z"/><path d="M140 412 250 470 170 470z"/><path d="M600 420 720 470 640 470z"/></g>
+  <!-- Передний план — мягкие холмы -->
+  <path d="M0 540C150 500 262 532 400 520S652 488 800 530V600H0z" fill="url(#m4)"/>
+</svg>

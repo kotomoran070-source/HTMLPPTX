@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <defs>
+    <radialGradient id="a" cx=".2" cy=".18" r=".75"><stop offset="0" stop-color="#F472B6"/><stop offset="1" stop-color="#F472B6" stop-opacity="0"/></radialGradient>
+    <radialGradient id="b" cx=".85" cy=".28" r=".65"><stop offset="0" stop-color="#8B5CF6"/><stop offset="1" stop-color="#8B5CF6" stop-opacity="0"/></radialGradient>
+    <radialGradient id="c" cx=".42" cy="1.02" r=".72"><stop offset="0" stop-color="#2DD4BF"/><stop offset="1" stop-color="#2DD4BF" stop-opacity="0"/></radialGradient>
+    <radialGradient id="core" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#fff"/><stop offset=".42" stop-color="#fff"/><stop offset=".48" stop-color="#FCE7F3" stop-opacity=".55"/><stop offset="1" stop-color="#F9A8D4" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="arc" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff"/></linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="#15122E"/>
+  <rect width="800" height="600" fill="url(#a)"/><rect width="800" height="600" fill="url(#b)"/><rect width="800" height="600" fill="url(#c)"/>
+  <g fill="#fff"><circle cx="96" cy="470" r="1.4" opacity=".6"/><circle cx="712" cy="96" r="1.6" opacity=".7"/><circle cx="660" cy="508" r="1.2" opacity=".5"/><circle cx="130" cy="118" r="1.1" opacity=".5"/></g>
+  <g transform="translate(400 300)" fill="none" stroke="#fff">
+    <circle r="236" stroke-opacity=".16"/>
+    <circle r="168" stroke-opacity=".5" stroke-width="2.4" stroke-dasharray="0.1 12" stroke-linecap="round"/>
+    <circle r="102" stroke-opacity=".45" stroke-width="2"/>
+    <!-- Яркая дуга по пунктирной орбите -->
+    <path d="M-168 0A168 168 0 0 1 119-119" stroke="url(#arc)" stroke-width="3.2" stroke-linecap="round"/>
+  </g>
+  <!-- Спутники на орбитах -->
+  <circle cx="519" cy="181" r="8" fill="#fff"/>
+  <circle cx="519" cy="181" r="16" fill="#fff" opacity=".18"/>
+  <circle cx="328" cy="372" r="6" fill="#FBCFE8"/>
+  <circle cx="604" cy="418" r="4.5" fill="#99F6E4"/>
+  <!-- Ядро с ореолом -->
+  <circle cx="400" cy="300" r="84" fill="url(#core)"/>
+</svg>
