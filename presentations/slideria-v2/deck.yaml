@@ -251,17 +251,11 @@ css: |
   .v9-go { position: relative; flex: 1; align-self: stretch; display: grid; margin: 0; }
   .v9-go s { position: relative; display: grid; place-items: center; border-radius: 16px; background: linear-gradient(115deg, #8B5CF6, #EC4899);
     color: #fff; text-decoration: none; white-space: nowrap; font: 800 17px/1 'Onest', var(--font-base); }
-  /* Свечение под кнопкой и круг от нажатия — отдельными слоями: анимируются только прозрачность и масштаб */
+  /* Свечение под кнопкой — отдельным слоем: анимируются только прозрачность и масштаб */
   .v9-go::before { content: ''; position: absolute; inset: 6px 4px 0; border-radius: 16px; background: linear-gradient(115deg, #8B5CF6, #EC4899); filter: blur(12px); opacity: .35; }
-  .v9-go s::after { content: ''; position: absolute; inset: 0; border-radius: inherit; border: 2px solid #F9A8D4; opacity: 0; }
-  /* Слайд — 2 с, удар — 1/3 с. На каждый удар кнопка подскакивает и растёт; на 154 и 156 (шаги слайда) — нажатие:
-     сжатие, отскок крупнее и круг. Первый удар пропущен — телефон в этот момент только падает в кадр */
-  .slide.on .v9-go s { animation: v9-beat 2s linear both; }
-  .slide.on .v9-go::before { animation: v9-glow 2s linear both; }
-  .slide.on .v9-go s::after { animation: v9-ring 2s linear both; }
-  @keyframes v9-beat { 0% { transform: none; } 16.67% { transform: none; animation-timing-function: cubic-bezier(.2, .9, .3, 1); } 18.47% { transform: translateY(-3px) scale(1.12); animation-timing-function: ease-out; } 29.67% { transform: none; } 33.33% { transform: none; animation-timing-function: ease-in; } 34.53% { transform: scale(.88); animation-timing-function: cubic-bezier(.2, .9, .3, 1.2); } 37.33% { transform: translateY(-5px) scale(1.2); animation-timing-function: ease-out; } 47.33% { transform: none; } 50.00% { transform: none; animation-timing-function: cubic-bezier(.2, .9, .3, 1); } 51.80% { transform: translateY(-3px) scale(1.12); animation-timing-function: ease-out; } 63.00% { transform: none; } 66.67% { transform: none; animation-timing-function: ease-in; } 67.87% { transform: scale(.88); animation-timing-function: cubic-bezier(.2, .9, .3, 1.2); } 70.67% { transform: translateY(-5px) scale(1.2); animation-timing-function: ease-out; } 80.67% { transform: none; } 83.33% { transform: none; animation-timing-function: cubic-bezier(.2, .9, .3, 1); } 85.13% { transform: translateY(-3px) scale(1.12); animation-timing-function: ease-out; } 96.33% { transform: none; } }
-  @keyframes v9-glow { 0% { opacity: .35; } 16.67% { opacity: .35; animation-timing-function: cubic-bezier(.2, .9, .3, 1); } 18.47% { opacity: 0.75; animation-timing-function: ease-out; } 30.67% { opacity: .35; } 33.33% { opacity: .35; animation-timing-function: cubic-bezier(.2, .9, .3, 1); } 37.33% { opacity: 1; animation-timing-function: ease-out; } 47.33% { opacity: .35; } 50.00% { opacity: .35; animation-timing-function: cubic-bezier(.2, .9, .3, 1); } 51.80% { opacity: 0.75; animation-timing-function: ease-out; } 64.00% { opacity: .35; } 66.67% { opacity: .35; animation-timing-function: cubic-bezier(.2, .9, .3, 1); } 70.67% { opacity: 1; animation-timing-function: ease-out; } 80.67% { opacity: .35; } 83.33% { opacity: .35; animation-timing-function: cubic-bezier(.2, .9, .3, 1); } 85.13% { opacity: 0.75; animation-timing-function: ease-out; } 97.33% { opacity: .35; } }
-  @keyframes v9-ring { 0% { opacity: 0; } 34.53% { opacity: 0; transform: none; animation-timing-function: ease-out; } 35.53% { opacity: .9; transform: none; animation-timing-function: ease-out; } 48.33% { opacity: 0; transform: scale(1.32, 1.6); } 67.87% { opacity: 0; transform: none; animation-timing-function: ease-out; } 68.87% { opacity: .9; transform: none; animation-timing-function: ease-out; } 81.67% { opacity: 0; transform: scale(1.32, 1.6); } }
+  /* Кнопка дёргается только под бас: размер и свечение — по огибающей баса трека на этом слайде (btn.css, bassbtn.py) */
+  .slide.on .v9-go s { animation: v9-bass 2s linear both; }
+  .slide.on .v9-go::before { animation: v9-bglow 2s linear both; }
 
   /* Код: строки кода цветами редактора */
   .v3-code { inset: 0; box-sizing: border-box; padding: 26px 30px; border-radius: 20px; background: #0D0F17; border: 1px solid #23263A;
@@ -423,6 +417,25 @@ css: |
   .slide.on .v4-imp.d { animation: v4-imp-on .06s .727s linear; }
   @keyframes v4-imp-on { from, to { opacity: 1; } }
   @keyframes v4-imp-k { 0%, 45% { opacity: 1; } to { opacity: 0; } }
+
+  /* Свайп точкой по экрану телефона в конце слайда «Показ» (1,45–1,95 с): слайд уезжает влево, приезжает следующий —
+     тест; счёт и «Далее» сменяются, а через долю сам эдит склеивается в этот тест */
+  .v9-sl > img, .v9-sl > .v9-q { will-change: transform; }
+  .v9-q { position: absolute; inset: 0; left: 100%; width: 100%; box-sizing: border-box; padding: 9px 10px; background: radial-gradient(120% 90% at 20% 20%, #2A1752, #0B0912);
+    display: flex; flex-direction: column; gap: 5px; }
+  .v9-q b { color: #fff; font: 800 10px/1.05 'Unbounded', var(--font-base); letter-spacing: -.02em; margin-bottom: 3px; }
+  .v9-q i { height: 11px; border-radius: 4px; background: rgba(255, 255, 255, .09); border: 1px solid rgba(255, 255, 255, .12); }
+  .slide.on .v9-sl > img, .slide.on .v9-q { animation: v9-swipe .3s cubic-bezier(.5, 0, .2, 1) 1.6s both; }
+  @keyframes v9-swipe { to { transform: translateX(-100%); } }
+  .v9-touch { position: absolute; left: 150px; top: 100px; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; z-index: 3;
+    background: rgba(255, 255, 255, .85); box-shadow: 0 0 0 6px rgba(255, 255, 255, .25), 0 0 18px rgba(255, 255, 255, .6); opacity: 0; }
+  .slide.on .v9-touch { animation: v9-touch .55s cubic-bezier(.5, 0, .2, 1) 1.42s both; }
+  @keyframes v9-touch { 0% { opacity: 0; transform: scale(1.8); } 25% { opacity: 1; transform: none; } 75% { opacity: 1; transform: translateX(-120px); } to { opacity: 0; transform: translateX(-130px) scale(.7); } }
+  .v9-sw { display: inline-grid; }
+  .v9-sw > * { grid-area: 1 / 1; }
+  .v9-sw > :last-child { opacity: 0; }
+  .slide.on .v9-sw > :first-child { animation: v11-out .12s linear 1.85s both; }
+  .slide.on .v9-sw > :last-child { animation: v11-in .12s linear 1.85s both; }
   /* ════════ v5: «ВСЁ», «Графики. Схемы. Эффекты.», карточки тем ════════ */
 
   /* «ВСЁ»: внутри букв проносится монтаж всего, что умеет Slideria. Буквы вырезаны из тёмного слоя
@@ -856,6 +869,31 @@ css: |
     66.65% { transform: translateY(220px); } 83.3% { transform: translateY(220px); }
     83.35% { transform: none; } 99.95% { opacity: 1; transform: none; }
     100% { opacity: 1; transform: translateY(110px); } }
+
+  /* ── Отъезд в студию: снимок студии, холст которого — последний кадр; цветные подсветки, блик ── */
+  .v17 { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; overflow: hidden; perspective: 1800px;
+    background: radial-gradient(70% 70% at 50% 45%, #140C2A, #05060A); }
+  .v17 .g { position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0; }
+  .v17 .g.a { left: -60px; top: 380px; width: 620px; height: 420px; background: #7C3AED; }
+  .v17 .g.b { right: -80px; top: -60px; width: 640px; height: 420px; background: #EC4899; }
+  .v17 .g.c { left: 420px; top: 560px; width: 520px; height: 300px; background: #22D3EE; }
+  .slide.on .v17 .g { animation: v17-glow 1.2s ease-out .55s both, v17-drift 6s ease-in-out 1.75s infinite alternate; }
+  .slide.on .v17 .g.b { animation-delay: .7s, 1.9s; }
+  .slide.on .v17 .g.c { animation-delay: .85s, 2.05s; }
+  @keyframes v17-glow { from { opacity: 0; } to { opacity: .55; } }
+  @keyframes v17-drift { to { transform: translate(40px, -30px) scale(1.12); } }
+  .v17-win { position: absolute; left: 0; top: 0; width: 1600px; height: 1000px; transform-origin: 800px 500px; }
+  .v17-win img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 26px; }
+  /* Обводка и свечение окна — отдельным слоем: проявляется прозрачностью, тень не перерисовывается */
+  .v17-win::before { content: ''; position: absolute; inset: 0; border-radius: 26px; opacity: 0;
+    box-shadow: 0 0 0 2px rgba(196, 181, 253, .7), 0 0 90px 12px rgba(124, 58, 237, .55), 0 0 200px 50px rgba(236, 72, 153, .28); }
+  .v17-win .sh { position: absolute; inset: 0; border-radius: 26px; overflow: hidden; opacity: 0;
+    background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, .16) 47%, rgba(196, 181, 253, .22) 50%, transparent 60%); background-size: 250% 100%; }
+  .slide.on .v17-win { animation: v17-pull 2s linear both; }
+  .slide.on .v17-win::before { animation: v17-edge .6s ease-out .55s both; }
+  .slide.on .v17-win .sh { animation: v17-sheen 1.1s cubic-bezier(.3, .6, .2, 1) 1.45s both; }
+  @keyframes v17-edge { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes v17-sheen { 0% { opacity: 1; background-position: 120% 0; } 100% { opacity: 1; background-position: -60% 0; } }
   /* Визуализатор «жидкость» (eqgen.py): три слоя по спектру трека на отрезке «Любой формат слайда», 8 с */
   @keyframes v8-ls1 { 0% { scale: 1.180; } 1.50% { scale: 1.172; } 2.50% { scale: 1.102; } 3.50% { scale: .958; } 5% { scale: .832; } 6.50% { scale: .768; } 8.50% { scale: .728; } 10% { scale: .752; } 11.50% { scale: .734; } 12% { scale: .764; } 14% { scale: .726; } 16.50% { scale: .709; } 29.50% { scale: .700; } 30% { scale: .820; } 31.50% { scale: .762; } 33.50% { scale: .725; } 34% { scale: 1.180; } 34.50% { scale: 1.180; } 35% { scale: 1.152; } 35.50% { scale: 1.180; } 37% { scale: .999; } 37.50% { scale: 1.052; } 38% { scale: 1.009; } 38.50% { scale: 1.020; } 39% { scale: .996; } 40% { scale: 1.010; } 40.50% { scale: .948; } 41% { scale: .972; } 41.50% { scale: .957; } 42.50% { scale: 1.025; } 44.50% { scale: .965; } 46% { scale: .965; } 46.50% { scale: .912; } 47% { scale: .889; } 47.50% { scale: .923; } 49.50% { scale: .899; } 50.50% { scale: .972; } 51% { scale: .978; } 52.50% { scale: .865; } 54% { scale: .881; } 55% { scale: .834; } 56% { scale: .854; } 58% { scale: .805; } 59% { scale: .821; } 61% { scale: .751; } 63.50% { scale: .717; } 66.50% { scale: .704; } 67% { scale: .906; } 67.50% { scale: 1.180; } 68% { scale: 1.175; } 68.50% { scale: 1.141; } 69% { scale: 1.143; } 70% { scale: 1.010; } 70.50% { scale: 1.009; } 71.50% { scale: .901; } 73% { scale: .923; } 74% { scale: .850; } 74.50% { scale: .841; } 75% { scale: .876; } 75.50% { scale: .863; } 76% { scale: .884; } 77% { scale: .882; } 78.50% { scale: .843; } 79% { scale: .858; } 80% { scale: .813; } 81.50% { scale: .800; } 82.50% { scale: .812; } 83.50% { scale: .797; } 84% { scale: .835; } 85% { scale: .835; } 86.50% { scale: .775; } 87% { scale: .766; } 87.50% { scale: .782; } 90% { scale: .727; } 96% { scale: .702; } 96.50% { scale: .859; } 98% { scale: .781; } 100% { scale: .733; } }
   @keyframes v8-lr1 { 0% { border-radius: 39% 40% 34% 66% / 65% 39% 51% 36%; } 1% { border-radius: 37% 43% 35% 66% / 64% 41% 53% 37%; } 2% { border-radius: 37% 46% 37% 64% / 62% 43% 55% 40%; } 3% { border-radius: 39% 48% 41% 60% / 58% 47% 56% 44%; } 4% { border-radius: 43% 50% 45% 56% / 54% 49% 54% 47%; } 5% { border-radius: 46% 51% 47% 54% / 52% 50% 53% 49%; } 6% { border-radius: 47% 51% 49% 52% / 51% 50% 52% 50%; } 7% { border-radius: 49% 51% 49% 51% / 50% 51% 52% 50%; } 8% { border-radius: 49% 51% 50% 51% / 50% 51% 51% 50%; } 9% { border-radius: 50% 51% 50% 50% / 50% 51% 51% 50%; } 10% { border-radius: 49% 51% 50% 51% / 50% 51% 52% 51%; } 11% { border-radius: 50% 51% 50% 50% / 50% 51% 51% 51%; } 12% { border-radius: 50% 52% 51% 50% / 49% 52% 52% 52%; } 13% { border-radius: 50% 51% 51% 50% / 49% 51% 51% 51%; } 14% { border-radius: 50% 51% 51% 50% / 49% 51% 51% 51%; } 15% { border-radius: 50% 51% 50% 50% / 50% 51% 50% 51%; } 16% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 17% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 18% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 19% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 20% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 21% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 22% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 23% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 24% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 25% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 26% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 27% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 28% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 29% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 30% { border-radius: 48% 46% 51% 48% / 49% 47% 46% 47%; } 31% { border-radius: 48% 48% 50% 49% / 50% 48% 48% 48%; } 32% { border-radius: 49% 48% 50% 50% / 50% 48% 49% 48%; } 33% { border-radius: 49% 49% 50% 50% / 50% 49% 49% 49%; } 34% { border-radius: 34% 34% 44% 50% / 56% 34% 42% 34%; } 35% { border-radius: 35% 36% 42% 52% / 57% 35% 45% 35%; } 36% { border-radius: 36% 38% 41% 54% / 59% 37% 47% 37%; } 37% { border-radius: 41% 43% 43% 54% / 57% 41% 50% 42%; } 38% { border-radius: 41% 43% 41% 56% / 58% 42% 52% 43%; } 39% { border-radius: 43% 45% 41% 56% / 59% 43% 53% 44%; } 40% { border-radius: 44% 46% 40% 58% / 60% 44% 55% 46%; } 41% { border-radius: 47% 48% 41% 58% / 59% 46% 56% 48%; } 42% { border-radius: 48% 50% 40% 59% / 60% 47% 57% 49%; } 43% { border-radius: 50% 51% 40% 60% / 60% 49% 59% 51%; } 44% { border-radius: 52% 53% 41% 59% / 59% 50% 59% 52%; } 45% { border-radius: 53% 54% 42% 59% / 58% 52% 58% 54%; } 46% { border-radius: 55% 55% 43% 59% / 58% 53% 59% 55%; } 47% { border-radius: 55% 55% 45% 56% / 55% 53% 56% 54%; } 48% { border-radius: 56% 56% 46% 56% / 55% 54% 57% 56%; } 49% { border-radius: 56% 56% 47% 56% / 54% 55% 56% 56%; } 50% { border-radius: 58% 57% 47% 56% / 54% 57% 56% 57%; } 51% { border-radius: 59% 59% 48% 56% / 53% 59% 57% 59%; } 52% { border-radius: 56% 57% 49% 54% / 52% 56% 54% 57%; } 53% { border-radius: 55% 56% 50% 52% / 51% 56% 53% 56%; } 54% { border-radius: 55% 56% 51% 52% / 50% 56% 52% 56%; } 55% { border-radius: 53% 54% 51% 51% / 49% 54% 51% 54%; } 56% { border-radius: 53% 54% 52% 50% / 48% 55% 50% 54%; } 57% { border-radius: 51% 53% 52% 49% / 48% 54% 49% 53%; } 58% { border-radius: 50% 52% 52% 49% / 48% 53% 49% 52%; } 59% { border-radius: 50% 51% 53% 48% / 47% 53% 48% 51%; } 60% { border-radius: 49% 51% 52% 49% / 48% 51% 48% 50%; } 61% { border-radius: 49% 50% 52% 49% / 49% 51% 49% 50%; } 62% { border-radius: 49% 50% 51% 49% / 49% 50% 49% 50%; } 63% { border-radius: 49% 50% 51% 49% / 49% 50% 49% 50%; } 64% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 65% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 66% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 67% { border-radius: 43% 44% 56% 43% / 43% 46% 43% 44%; } 68% { border-radius: 35% 36% 63% 34% / 36% 39% 36% 35%; } 69% { border-radius: 37% 36% 60% 36% / 38% 38% 38% 35%; } 70% { border-radius: 42% 40% 56% 41% / 42% 41% 43% 40%; } 71% { border-radius: 45% 42% 54% 43% / 45% 42% 46% 42%; } 72% { border-radius: 47% 44% 52% 45% / 47% 44% 47% 44%; } 73% { border-radius: 48% 43% 51% 45% / 47% 43% 48% 44%; } 74% { border-radius: 50% 46% 50% 47% / 49% 45% 50% 46%; } 75% { border-radius: 51% 45% 49% 48% / 49% 44% 51% 46%; } 76% { border-radius: 52% 46% 48% 48% / 50% 45% 52% 47%; } 77% { border-radius: 53% 47% 48% 49% / 51% 45% 53% 48%; } 78% { border-radius: 54% 48% 47% 50% / 51% 47% 53% 49%; } 79% { border-radius: 54% 49% 47% 51% / 52% 47% 54% 50%; } 80% { border-radius: 53% 50% 47% 51% / 52% 48% 53% 51%; } 81% { border-radius: 54% 50% 47% 52% / 52% 49% 53% 51%; } 82% { border-radius: 54% 51% 47% 52% / 53% 50% 53% 52%; } 83% { border-radius: 53% 51% 47% 52% / 53% 50% 53% 52%; } 84% { border-radius: 54% 53% 46% 53% / 54% 51% 54% 54%; } 85% { border-radius: 54% 53% 46% 54% / 54% 52% 54% 54%; } 86% { border-radius: 52% 52% 47% 53% / 53% 52% 53% 53%; } 87% { border-radius: 51% 52% 48% 52% / 52% 51% 52% 52%; } 88% { border-radius: 51% 52% 48% 52% / 52% 52% 52% 52%; } 89% { border-radius: 50% 51% 49% 51% / 51% 51% 51% 51%; } 90% { border-radius: 50% 51% 49% 51% / 51% 51% 50% 51%; } 91% { border-radius: 50% 51% 50% 51% / 50% 51% 50% 50%; } 92% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 93% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 94% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 95% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 96% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } 97% { border-radius: 46% 52% 51% 52% / 51% 53% 47% 50%; } 98% { border-radius: 47% 51% 51% 51% / 50% 52% 48% 49%; } 99% { border-radius: 48% 50% 51% 50% / 50% 51% 49% 49%; } 100% { border-radius: 49% 50% 51% 50% / 50% 50% 49% 49%; } }
@@ -898,6 +936,9 @@ css: |
   .slide.on .v11-wave i:nth-child(2), .slide.on .v11-wave i:nth-child(27) { animation: v11-w12 3.3333s linear both; }
   @keyframes v11-w13 { 0% { transform: scaleY(0.21); } 8% { transform: scaleY(0.13); } 10% { transform: scaleY(0.18); } 11% { transform: scaleY(1.00); } 12% { transform: scaleY(0.87); } 14% { transform: scaleY(0.51); } 15% { transform: scaleY(0.40); } 17% { transform: scaleY(0.33); } 21% { transform: scaleY(0.31); } 24% { transform: scaleY(0.19); } 25% { transform: scaleY(0.37); } 26% { transform: scaleY(0.93); } 27% { transform: scaleY(0.70); } 28% { transform: scaleY(0.54); } 30% { transform: scaleY(0.34); } 31% { transform: scaleY(0.99); } 33% { transform: scaleY(0.63); } 35% { transform: scaleY(0.39); } 37% { transform: scaleY(0.26); } 39% { transform: scaleY(0.19); } 40% { transform: scaleY(0.29); } 41% { transform: scaleY(0.91); } 42% { transform: scaleY(0.69); } 43% { transform: scaleY(0.53); } 45% { transform: scaleY(0.34); } 46% { transform: scaleY(0.49); } 48% { transform: scaleY(0.31); } 50% { transform: scaleY(0.36); } 51% { transform: scaleY(0.65); } 52% { transform: scaleY(0.46); } 54% { transform: scaleY(0.25); } 55% { transform: scaleY(0.21); } 56% { transform: scaleY(0.25); } 58% { transform: scaleY(0.16); } 60% { transform: scaleY(0.15); } 61% { transform: scaleY(0.21); } 65% { transform: scaleY(0.15); } 74% { transform: scaleY(0.15); } 76% { transform: scaleY(0.22); } 81% { transform: scaleY(0.14); } 89% { transform: scaleY(0.12); } 90% { transform: scaleY(0.14); } 91% { transform: scaleY(0.23); } 95% { transform: scaleY(0.15); } 100% { transform: scaleY(0.14); } }
   .slide.on .v11-wave i:nth-child(1), .slide.on .v11-wave i:nth-child(28) { animation: v11-w13 3.3333s linear both; }
+  /* «Далее» на телефоне — только под бас (bassbtn.py): огибающая баса трека на слайде «Показ», 2 с */
+  @keyframes v9-bass { 0% { transform: translateY(-1.0px) scale(1.032); } 1.7% { transform: translateY(-6.0px) scale(1.200); } 3.3% { transform: translateY(-6.0px) scale(1.200); } 5% { transform: translateY(-4.4px) scale(1.148); } 6.7% { transform: translateY(-3.3px) scale(1.110); } 10% { transform: translateY(-1.8px) scale(1.060); } 13.3% { transform: translateY(-1.0px) scale(1.033); } 16.7% { transform: translateY(-0.5px) scale(1.018); } 20% { transform: translateY(-1.3px) scale(1.043); } 21.7% { transform: translateY(-1.3px) scale(1.043); } 25% { transform: translateY(-1.9px) scale(1.062); } 28.3% { transform: translateY(-1.4px) scale(1.046); } 33.3% { transform: translateY(-1.5px) scale(1.049); } 35% { transform: translateY(-4.2px) scale(1.139); } 36.7% { transform: translateY(-6.0px) scale(1.200); } 38.3% { transform: translateY(-4.9px) scale(1.162); } 40% { transform: translateY(-4.1px) scale(1.137); } 41.7% { transform: translateY(-3.8px) scale(1.125); } 43.3% { transform: translateY(-4.1px) scale(1.138); } 48.3% { transform: translateY(-2.1px) scale(1.070); } 50% { transform: translateY(-2.2px) scale(1.072); } 51.7% { transform: translateY(-1.6px) scale(1.054); } 55% { transform: translateY(-0.9px) scale(1.030); } 56.7% { transform: translateY(-1.4px) scale(1.045); } 61.7% { transform: translateY(-1.3px) scale(1.044); } 63.3% { transform: translateY(-1.6px) scale(1.054); } 66.7% { transform: translateY(-1.7px) scale(1.057); } 68.3% { transform: translateY(-4.1px) scale(1.136); } 70% { transform: translateY(-6.0px) scale(1.200); } 71.7% { transform: translateY(-4.9px) scale(1.162); } 76.7% { transform: translateY(-2.3px) scale(1.077); } 80% { transform: translateY(-1.3px) scale(1.042); } 83.3% { transform: translateY(-0.7px) scale(1.023); } 86.7% { transform: translateY(-0.4px) scale(1.013); } 100% { transform: translateY(-0.0px) scale(1.001); } }
+  @keyframes v9-bglow { 0% { opacity: 0.41; } 1.7% { opacity: 1.00; } 3.3% { opacity: 1.00; } 5% { opacity: 0.82; } 6.7% { opacity: 0.68; } 10% { opacity: 0.51; } 13.3% { opacity: 0.41; } 16.7% { opacity: 0.36; } 20% { opacity: 0.45; } 21.7% { opacity: 0.45; } 25% { opacity: 0.52; } 28.3% { opacity: 0.46; } 33.3% { opacity: 0.47; } 35% { opacity: 0.79; } 36.7% { opacity: 1.00; } 38.3% { opacity: 0.87; } 40% { opacity: 0.78; } 41.7% { opacity: 0.74; } 43.3% { opacity: 0.78; } 48.3% { opacity: 0.55; } 50% { opacity: 0.55; } 51.7% { opacity: 0.49; } 55% { opacity: 0.40; } 56.7% { opacity: 0.46; } 61.7% { opacity: 0.45; } 63.3% { opacity: 0.49; } 66.7% { opacity: 0.50; } 68.3% { opacity: 0.78; } 70% { opacity: 1.00; } 71.7% { opacity: 0.87; } 76.7% { opacity: 0.57; } 80% { opacity: 0.45; } 83.3% { opacity: 0.38; } 86.7% { opacity: 0.34; } 100% { opacity: 0.30; } }
 
   .th-winter { --tx: #E8F1FF; --tx2: #D6E5FA; --mu: #A9C0E4; --bg: #0A2A70; --surf: rgba(255, 255, 255, .06); --alt: rgba(255, 255, 255, .08); --bd: rgba(255, 255, 255, .16); --bd2: rgba(255, 255, 255, .24); --font: 'Onest', var(--font-base); --font-head: 'Unbounded', var(--font-base); }
   .th-party { --tx: #2A1316; --tx2: #4D2C30; --mu: #8C6A6D; --bg: #FFFAF3; --surf: #FFFFFF; --alt: color-mix(in srgb, #EF3E6B 8%, #FFFFFF); --bd: color-mix(in srgb, #EF3E6B 18%, #FFFFFF); --bd2: color-mix(in srgb, #EF3E6B 28%, #FFFFFF); --font: 'Montserrat', var(--font-base); --font-head: 'Montserrat', var(--font-base); }
@@ -925,13 +966,14 @@ css: |
   @keyframes v11-m1 { from { left: 30px; top: 160px; width: 440px; height: 56px; border-radius: 12px; } to { left: 160px; top: 198px; width: 80px; height: 182px; border-radius: 14px 14px 4px 4px; } }
   @keyframes v11-m2 { from { left: 30px; top: 224px; width: 440px; height: 56px; border-radius: 12px; } to { left: 260px; top: 220px; width: 80px; height: 160px; border-radius: 14px 14px 4px 4px; } }
   @keyframes v11-m3 { from { left: 30px; top: 288px; width: 440px; height: 56px; border-radius: 12px; } to { left: 360px; top: 110px; width: 80px; height: 270px; border-radius: 14px 14px 4px 4px; } }
+  @keyframes v17-pull { 0%, 7% { transform: translate(-109.4px, -161.5px) scale(1.2651); animation-timing-function: cubic-bezier(.55, 0, .8, .5); } 45% { transform: translate(-140px, -160px) scale(.86) rotateX(12deg) rotateY(-14deg) rotateZ(-2deg); animation-timing-function: cubic-bezier(.2, .5, .3, 1); } 78% { transform: translate(-160px, -162px) scale(0.625); } 100% { transform: translate(-160px, -162px) scale(0.64); } }
   @keyframes ufx-flashs { from { opacity: .45; } to { opacity: 0; } }
   @keyframes ufx-late { 0%, 55% { opacity: 0; letter-spacing: .9em; } to { opacity: .85; } }
 music:
   src: ./assets/gloria.m4a
   volume: 1
-  fadeOut: 1.8
-  end: 64.677
+  fadeOut: 2.4
+  end: 66.677
 autoplay:
   music: true
 slides:
@@ -3691,7 +3733,7 @@ slides:
           w: 1280
         locked: true
       - type: html
-        html: <div class="v3-o v9-ph" style="width:100%;height:100%"><div class="v3-phone"><div class="v9-scr"><div class="v9-top"><b>00:51</b><i><svg viewBox="0 0 24 24"><path d="M9 7v10M15 7v10"/></svg></i><span>21:14</span></div><div class="v9-sl"><img data-i="0"></div><div class="v9-bar"><svg viewBox="0 0 24 24"><circle cx="7" cy="17" r="2.5"/><path d="M9 15l10-10M5 13l-1-1M11 21l-1-1"/></svg><svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/></svg><svg viewBox="0 0 24 24"><path d="M8 19l-4-4 9-9 6 6-7 7zM11 19h9"/></svg><hr><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg><i class="v9-act"><svg viewBox="0 0 24 24"><path d="M6 4l13 6-5.5 2L11 18z"/></svg></i></div><p class="v9-nx"><em>ДАЛЕЕ</em>Обучение</p><p class="v9-lb">ЗАМЕТКИ</p><div class="v9-nt">Пульт в руке.</div><div class="v9-ft"><u>‹</u><span>39 / 45</span><p class="v9-go"><s>Далее ›</s></p></div></div></div></div>
+        html: <div class="v3-o v9-ph" style="width:100%;height:100%"><div class="v3-phone"><div class="v9-scr"><div class="v9-top"><b>00:51</b><i><svg viewBox="0 0 24 24"><path d="M9 7v10M15 7v10"/></svg></i><span>21:14</span></div><div class="v9-sl"><img data-i="0"><div class="v9-q"><b>Что откроется без интернета?</b><i></i><i></i><i></i></div></div><i class="v9-touch"></i><div class="v9-bar"><svg viewBox="0 0 24 24"><circle cx="7" cy="17" r="2.5"/><path d="M9 15l10-10M5 13l-1-1M11 21l-1-1"/></svg><svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/></svg><svg viewBox="0 0 24 24"><path d="M8 19l-4-4 9-9 6 6-7 7zM11 19h9"/></svg><hr><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg><i class="v9-act"><svg viewBox="0 0 24 24"><path d="M6 4l13 6-5.5 2L11 18z"/></svg></i></div><p class="v9-nx"><em>ДАЛЕЕ</em><span class="v9-sw"><span>Обучение</span><span>Карточки</span></span></p><p class="v9-lb">ЗАМЕТКИ</p><div class="v9-nt">Пульт в руке.</div><div class="v9-ft"><u>‹</u><span class="v9-sw"><span>39 / 45</span><span>40 / 45</span></span><p class="v9-go"><s>Далее ›</s></p></div></div></div></div>
         place:
           x: 1052
           y: 289
@@ -4128,3 +4170,36 @@ slides:
           y: 0
           w: 1280
         locked: true
+  - id: outro
+    template: canvas
+    label: Сделано в студии
+    bg: "#05060A"
+    transition: none
+    at: 64.677
+    logo: false
+    free:
+      - type: html
+        html: <div class="v17"><i class="g a"></i><i class="g b"></i><i class="g c"></i><div class="v17-win"><img data-i="0"><i class="sh"></i></div></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        images:
+          - src: ./assets/studio-fin.webp
+        locked: true
+      - type: text
+        text: СДЕЛАНО В SLIDERIA
+        styles:
+          text:
+            size: 16
+            weight: 800
+            leading: 1.2
+            spacing: 0.5
+            color: text2
+            align: center
+        place:
+          x: 0
+          y: 672
+          w: 1280
+        enter: fade
+        delay: 1500
