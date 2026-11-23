@@ -759,6 +759,106 @@ export function createDecksCore(opts: CoreOptions) {
     });
   }
 
+  // ---------------- удаление из истории («Версии»: строка, «Очистить историю») ----------------
+  // Ничего не стирается: точки и строки журнала уходят в корзину .trash/<имя>-history-<время> (checkpoints/ —
+  // как в .checkpoints/<имя>, journal.jsonl — убранные строки), «Отменить» возвращает их оттуда по имени папки
+
+  const HISTORY_TOKEN = /^\d{8}-\d{6}(?:-\d+)?$/;
+  function historyTrash(name: string): { token: string; path: string } {
+    const base = `${name}-history-${stamp()}`;
+    let token = base;
+    // Две очистки в одну секунду — разные папки, иначе «Отменить» первой вернула бы и вторую
+    for (let i = 2; fs.existsSync(path.join(dir, '.trash', token)); i++) token = `${base}-${i}`;
+    return { token, path: path.join(dir, '.trash', token) };
+  }
+  /** Все файлы папки (с вложенными) — пути от неё */
+  function filesIn(base: string): string[] {
+    const out: string[] = [];
+    const walk = (d: string) => {
+      if (!fs.existsSync(d)) return;
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        const p = path.join(d, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (e.isFile()) out.push(path.relative(base, p));
+      }
+    };
+    walk(base);
+    return out;
+  }
+
+  /** Сколько занимает история: точки в «Версиях», правки агентов и скриптов в журнале, байты на диске (точки и журнал) */
+  function historyInfo(name: string): { points: number; edits: number; bytes: number } {
+    assertDeck(name);
+    adoptHistory(name);
+    const base = cpRoot(name);
+    const bytes = filesIn(base).reduce((s, f) => s + fs.statSync(path.join(base, f)).size, 0) + integrations.journalBytes(name);
+    return {
+      points: checkpoints(name).length,
+      edits: integrations.journal(name, Infinity).reduce((s, e) => s + e.changes.length, 0),
+      bytes,
+    };
+  }
+
+  /**
+   * Убрать из истории точки (id) и правки журнала (их время t) — в корзину. У правок уходят и их точки до и после,
+   * если на них не ссылаются оставшиеся правки. keep — точка, с которой студия сравнивает правки при выходе
+   * («Не сохранять» вернёт к ней): она остаётся
+   */
+  function dropHistory(name: string, o: { points?: unknown; edits?: unknown; keep?: unknown } = {}): { token: string; points: number; edits: number } {
+    assertDeck(name);
+    adoptHistory(name);
+    const strs = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && !!x) : []);
+    const keep = typeof o.keep === 'string' ? o.keep : '';
+    const ids = strs(o.points).filter((id) => id !== keep && pointExists(name, id));
+    const ts = new Set(strs(o.edits));
+    const trash = historyTrash(name);
+    const files = new Set(ids.map((id) => pointFile(name, id)));
+    const gone = ts.size ? integrations.dropJournal(name, ts, path.join(trash.path, 'journal.jsonl')) : [];
+    if (gone.length) {
+      const used = new Set(integrations.journal(name, Infinity).flatMap((e) => [e.checkpoint, e.after]));
+      for (const e of gone) {
+        for (const id of [e.checkpoint, e.after]) if (id && id !== keep && !used.has(id) && pointExists(name, id)) files.add(pointFile(name, id));
+      }
+    }
+    if (!files.size && !gone.length) throw new Error('Этого в истории уже нет');
+    for (const f of files) move(f, path.join(trash.path, 'checkpoints', path.relative(cpRoot(name), f)));
+    return { token: trash.token, points: ids.length, edits: gone.reduce((s, e) => s + e.changes.length, 0) };
+  }
+
+  /** «Очистить историю»: все точки и журнал правок — в корзину; keep (точка выхода студии) остаётся */
+  function clearHistory(name: string, o: { keep?: unknown } = {}): { token: string } {
+    assertDeck(name);
+    adoptHistory(name);
+    const trash = historyTrash(name);
+    const keep = typeof o.keep === 'string' && pointExists(name, o.keep) ? pointFile(name, o.keep) : '';
+    const rel = keep && path.relative(cpRoot(name), keep);
+    if (fs.existsSync(cpRoot(name))) move(cpRoot(name), path.join(trash.path, 'checkpoints'));
+    if (keep) move(path.join(trash.path, 'checkpoints', rel), keep);
+    integrations.takeJournal(name, path.join(trash.path, 'journal.jsonl'));
+    return { token: trash.token };
+  }
+
+  /** «Отменить» удаление из истории: точки и строки журнала — из корзины на место (что уже есть — не трогается) */
+  function restoreHistory(name: string, token: unknown): { points: number; edits: number } {
+    assertDeck(name);
+    const t = String(token ?? '');
+    const prefix = `${name}-history-`;
+    if (!t.startsWith(prefix) || !HISTORY_TOKEN.test(t.slice(prefix.length))) throw new Error('Не та запись корзины');
+    const src = path.join(dir, '.trash', t);
+    if (!fs.existsSync(src)) throw new Error('В корзине этого уже нет');
+    const cps = path.join(src, 'checkpoints');
+    let points = 0;
+    for (const f of filesIn(cps)) {
+      const to = path.join(cpRoot(name), f);
+      if (fs.existsSync(to)) continue;
+      move(path.join(cps, f), to);
+      points++;
+    }
+    const edits = integrations.restoreJournal(name, path.join(src, 'journal.jsonl'));
+    fs.rmSync(src, { recursive: true, force: true });
+    return { points, edits };
+  }
+
   // ---------------- файлы презентации ----------------
   /** Файлы презентации (assets/, вложенные папки тоже) с размерами — для сводки */
   function assets(name: string): { path: string; size: number }[] {
@@ -1082,6 +1182,10 @@ export function createDecksCore(opts: CoreOptions) {
     checkpoints,
     readCheckpoint,
     discard,
+    historyInfo,
+    dropHistory,
+    clearHistory,
+    restoreHistory,
     assets,
     trashAssets,
     addAsset,

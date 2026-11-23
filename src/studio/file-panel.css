@@ -184,6 +184,19 @@
 .fp-ver-who i .lg { width: 15px; height: 15px; }
 .fp-ver-a { display: flex; align-items: center; gap: 6px; }
 .fp-ver-gone { color: var(--mu); font-size: 12px; white-space: nowrap; }
+/* Корзина у строки — квадратная, значок красный при наведении */
+.fp-ver .fp-btn.fp-ver-del { width: 30px; padding: 0; }
+.fp-ver-del .ic { transition: color .15s; }
+.fp-ver-del:hover .ic { color: #DC2626; }
+/* На месте убранной строки — подпись и «Отменить» */
+.fp-ver.fp-ver-undo { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 16px; color: var(--mu); }
+.fp-ver-undo b { color: var(--tx); font-weight: 500; }
+.fp-ver-undo .fp-link { font-size: 13px; }
+/* «История»: сколько занимает и «Очистить историю» */
+.fp-hist { display: flex; align-items: center; gap: 14px; padding: 16px 18px; }
+.fp-hist > div { flex: 1; min-width: 0; }
+.fp-hist small { display: block; color: var(--mu); font-size: 12px; }
+.fp-hist .fp-btn[disabled] { opacity: .5; cursor: default; }
 .fp-ver .fp-btn { height: 30px; opacity: 0; transition: opacity .12s; }
 .fp-ver:is(:hover, :focus-within) .fp-btn { opacity: 1; }
 @media (hover: none) { .fp-ver .fp-btn { opacity: 1; } }

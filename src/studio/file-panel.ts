@@ -5,7 +5,8 @@
  * - Экспорт — форматы карточками, справа — настройки выбранного и «Сохранить»;
  * - Версии — история по дням: свои точки (Ctrl+S), «когда открыли» и «когда закрыли», сеансы агентов и запуски
  *   скриптов (из журнала); «Вернуть» точку — вся презентация как в ней, сеанс агента или скрипт — только их правки
- *   (то, что поправили после, остаётся); одной правкой, Ctrl+Z — обратно;
+ *   (то, что поправили после, остаётся); одной правкой, Ctrl+Z — обратно. Строку можно убрать из истории
+ *   (корзина у строки, «Отменить» на её месте), внизу — «Очистить историю»: всё уходит в корзину проекта (.trash);
  * - Параметры — лента (ribbon-setup.ts) и интерфейс: тема, цвет, вид слайдов, облегчённый режим; модель распознавания
  *   речи для голосового ввода — «Удалить модель»;
  * - Интеграции — агенты, скрипты, журнал правок, плагины, коннекторы (integrations-file.ts; точка — агент на связи);
@@ -27,6 +28,8 @@ import { licensesSummary, loadLicenses, mountLicenses, newLicensesState } from '
 import { agentLook, agentMark, canRevert, edits, type JournalEntry } from './integrations';
 import { onThemeChange } from '../engine/theme';
 import { collectSummary, fileSize, numText, removeFont, replaceFont, trashUnused, type Summary, type ToolsHost } from './tools';
+import { leave as fadeOut } from '../engine/motion';
+import type { HistoryInfo } from '../engine/editor/persist';
 import { VIDEO_SIZES, type VideoExport, type VideoRun, type VideoSize } from './video-export';
 import './file-panel.css';
 
@@ -291,9 +294,17 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     </div>`;
   }
 
-  /** Строка «Версий»: точка (своя, открытие, закрытие, отброшенное при выходе) или правки из журнала (сеанс агента, запуск скрипта) */
-  type Item = { kind: 'point'; id: string; time: number; point: PointKind } | { kind: 'edits'; key: string; time: number; end: number; by: JournalEntry['by']; list: JournalEntry[] };
+  /**
+   * Строка «Версий»: точка (своя, открытие, закрытие, отброшенное при выходе), правки из журнала (сеанс агента,
+   * запуск скрипта) или убранная из истории строка — с «Отменить» на её месте
+   */
+  type Gone = { kind: 'gone'; time: number; token: string; key: string; html: string };
+  type Item = { kind: 'point'; id: string; time: number; point: PointKind } | { kind: 'edits'; key: string; time: number; end: number; by: JournalEntry['by']; list: JournalEntry[] } | Gone;
   let points: { id: string; time: number; kind: PointKind }[] | null = null;
+  /** Сколько занимает история — для «Очистить историю» */
+  let hist: HistoryInfo | null = null;
+  /** Убранные строки, пока раздел открыт: их ещё можно вернуть */
+  let gone: Gone[] = [];
   /** Сеансы агентов и скрипты — по ключу строки: для «Вернуть» */
   const groups = new Map<string, Item & { kind: 'edits' }>();
   let vfilter: 'all' | 'points' | 'edits' = 'all';
@@ -322,8 +333,14 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     if (ed.mode !== 'project') {
       return `${head}<div class="fp-card fp-empty">${icon('clock')}<div><span class="fp-sw-t">Версии — у презентаций из папки программы</span><small>Файл открыт с диска, изменения сохраняются в него по Ctrl+S</small></div></div>`;
     }
-    const [pts, journal] = await within(Promise.all([ed.checkpoints(), host.history?.journal().catch(() => []) ?? Promise.resolve([])]), 8000);
+    const [pts, journal, info] = await within(Promise.all([
+      ed.checkpoints(),
+      host.history?.journal().catch(() => []) ?? Promise.resolve([]),
+      ed.files.historyInfo?.(host.tools.deckKey).catch(() => null) ?? Promise.resolve(null),
+    ]), 8000);
     points = pts;
+    hist = info;
+    const exit = ed.exitPoint;
     const st = ed.statusInfo;
     const last = points[0];
     groups.clear();
@@ -332,20 +349,27 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     const all: Item[] = [
       ...points.map((p) => ({ kind: 'point' as const, id: p.id, time: p.time, point: p.kind })),
       ...edited,
+      ...gone,
     ].sort((a, b) => b.time - a.time);
     const both = points.length > 0 && edited.length > 0;
-    const shown = all.filter((x) => vfilter === 'all' || !both || (vfilter === 'points' ? x.kind === 'point' : x.kind === 'edits')).slice(0, 60);
+    const shown = all.filter((x) => vfilter === 'all' || !both || x.kind === 'gone' || (vfilter === 'points' ? x.kind === 'point' : x.kind === 'edits')).slice(0, 60);
     const days = new Map<string, Item[]>();
     for (const x of shown) {
       const d = dayOf(x.time);
       days.set(d, [...(days.get(d) ?? []), x]);
     }
+    // Корзина у строки; у точки, с которой сравниваются правки при выходе («Не сохранять» вернёт к ней), — нет
+    const del = (key: string, tip: string) => (ed.files.dropHistory ? `<button type="button" class="fp-btn fp-ver-del" data-del="${esc(key)}" title="${tip}" aria-label="${tip}">${icon('trash')}</button>` : '');
     const row = (x: Item) => {
+      if (x.kind === 'gone') {
+        return `<div class="fp-ver fp-ver-undo" role="status"><span>${x.html}</span><button type="button" class="fp-link" data-undo="${esc(x.token)}">Отменить</button></div>`;
+      }
       if (x.kind === 'point') {
         const tip = 'Вернуть всю презентацию к этой точке. Ctrl+Z — обратно';
         return `<div class="fp-ver" data-cp="${esc(x.id)}"><time>${clock(x.time)}</time><span class="fp-ver-th" data-th="${esc(x.id)}"></span>`
           + `<span class="fp-ver-x"><span class="fp-ver-t${x.point === 'mine' ? ' mine' : ''}">${POINT_NAME[x.point]}</span><span class="fp-ver-n" data-n="${esc(x.id)}"></span></span>`
-          + `<button type="button" class="fp-btn" data-restore="${esc(x.id)}" data-time="${x.time}" title="${tip}">Вернуть</button></div>`;
+          + `<span class="fp-ver-a"><button type="button" class="fp-btn" data-restore="${esc(x.id)}" data-time="${x.time}" title="${tip}">Вернуть</button>`
+          + `${x.id === exit ? '' : del(`p:${x.id}`, 'Удалить точку из истории')}</span></div>`;
       }
       const n = x.list.reduce((s, e) => s + e.changes.length, 0);
       const labels = x.list.flatMap((e) => e.changes.map((c) => c.label));
@@ -359,17 +383,133 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
         + `<span class="fp-ver-x"><span class="fp-ver-t">${script ? `Скрипт «${esc(x.by.name)}»` : esc(x.by.name)} <small>${edits(n)}${when.includes('–') ? ` · ${when}` : ''}</small></span><span class="fp-ver-n">${esc(sub)}</span></span>`
         + `<span class="fp-ver-a">${script ? '' : '<button type="button" class="fp-btn fp-ver-log" data-a="log">Журнал</button>'}${ok
           ? `<button type="button" class="fp-btn" data-revert="${esc(x.key)}" title="Вернуть как было до ${script ? 'скрипта' : 'этих правок'} — то, что поправили после, останется. Ctrl+Z — обратно">Вернуть</button>`
-          : '<span class="fp-ver-gone" title="Точки этих правок уже не хранятся (старше 30 дней)">точек нет</span>'}</span></div>`;
+          : '<span class="fp-ver-gone" title="Точки этих правок уже не хранятся (старше 30 дней)">точек нет</span>'}`
+        + `${del(`g:${x.key}`, 'Убрать из истории: правки останутся в презентации, вернуть их будет нельзя')}</span></div>`;
     };
+    const histCard = hist ? `<section><h3 class="fp-k">История</h3><div class="fp-card fp-hist"><div><span class="fp-sw-t">Точки и журнал правок</span><small>${histText(hist)}</small></div>`
+      + `<button type="button" class="fp-btn" data-a="hclear"${hist.points || hist.edits ? '' : ' disabled'}>Очистить историю</button></div></section>` : '';
     return `${head}<div class="fp-v-list">
       <div class="fp-card fp-now"><i class="fp-led ${esc(st.cls)}"></i><div><span class="fp-sw-t">${esc(st.cls === 'err' ? st.text : st.cls === 'ok' ? 'Всё сохранено' : st.text || 'Всё сохранено')}</span><small>${last ? `Последняя точка — ${dayOf(last.time).toLowerCase()} в ${clock(last.time)}` : 'Каждая правка сразу записывается в файл'}</small></div><button type="button" class="fp-btn go" data-a="point">${icon('save')}Сделать точку<kbd>Ctrl+S</kbd></button></div>
       ${both ? `<div>${seg('vf', 'Что показать', [['all', 'Всё'], ['points', 'Точки'], ['edits', 'Агенты и скрипты']], vfilter)}</div>` : ''}
       ${shown.length ? [...days].map(([day, list]) => `<section><h3 class="fp-k">${esc(day)}</h3><div class="fp-card">${list.map(row).join('')}</div></section>`).join('')
         : `<div class="fp-card fp-empty">${icon('clock')}<div><span class="fp-sw-t">Точек пока нет</span><small>Первая появится, когда откроете презентацию снова; перед большими правками — Ctrl+S</small></div></div>`}
+      ${histCard}
     </div>`;
   }
-  /** Точка не меняется: её миниатюра и подпись читаются с диска один раз */
-  const seen = new Map<string, { thumb: HTMLElement; label: string } | null>();
+  /** «42 точки · журнал — 15 правок агентов и скриптов · 3,1 МБ»; short — в окне, без «агентов и скриптов» */
+  const histText = (h: HistoryInfo, short = false) => `${h.points} ${plural(h.points, 'точка', 'точки', 'точек')} · ${h.edits ? `журнал — ${edits(h.edits)}${short ? '' : ' агентов и скриптов'}` : 'журнал пуст'}${h.bytes ? ` · ${fileSize(h.bytes)}` : ''}`;
+
+  /**
+   * Корзина у строки: точка или правки агента (скрипта) — из истории в корзину проекта, на месте строки —
+   * «… удалена из истории · Отменить». Правки в самой презентации остаются, «Вернуть» их — уже нет
+   */
+  async function dropRow(key: string): Promise<void> {
+    const drop = ed.files.dropHistory;
+    if (!drop) return;
+    let what: { points?: string[]; edits?: string[] };
+    let item: Omit<Gone, 'token'>;
+    if (key.startsWith('p:')) {
+      const p = points?.find((x) => x.id === key.slice(2));
+      if (!p) return;
+      what = { points: [p.id] };
+      item = { kind: 'gone', time: p.time, key, html: `<b>Точка «${POINT_NAME[p.kind]}», ${clock(p.time)}</b> удалена из истории` };
+    } else {
+      const g = groups.get(key.slice(2));
+      if (!g) return;
+      what = { edits: g.list.map((e) => e.t) };
+      const who = g.by.kind === 'script' ? `Скрипт «${esc(g.by.name)}», ${clock(g.end)}</b> убран` : `Правки «${esc(g.by.name)}», ${clock(g.end)}</b> убраны`;
+      item = { kind: 'gone', time: g.time, key, html: `<b>${who} из истории` };
+    }
+    const had = main.contains(document.activeElement);
+    try {
+      const r = await drop(host.tools.deckKey, { ...what, keep: ed.exitPoint ?? undefined });
+      gone = [...gone, { ...item, token: r.token }];
+    } catch (e) {
+      ed.toast(`Не удалось удалить: ${(e as Error).message}`, 4000, true);
+    }
+    await render();
+    // С клавиатуры — фокус на «Отменить» на месте строки
+    const g = gone.at(-1);
+    if (had && g?.key === key) main.querySelector<HTMLElement>(`[data-undo="${CSS.escape(g.token)}"]`)?.focus({ preventScroll: true });
+  }
+  /** «Отменить»: строка — из корзины обратно в историю */
+  async function undoDrop(token: string): Promise<void> {
+    const restore = ed.files.restoreHistory;
+    const g = gone.find((x) => x.token === token);
+    if (!restore || !g) return;
+    const had = main.contains(document.activeElement);
+    try {
+      await restore(host.tools.deckKey, token);
+      gone = gone.filter((x) => x !== g);
+    } catch (e) {
+      ed.toast(`Не удалось вернуть: ${(e as Error).message}`, 4000, true);
+    }
+    await render();
+    if (had) main.querySelector<HTMLElement>(`[data-del="${CSS.escape(g.key)}"]`)?.focus({ preventScroll: true });
+  }
+
+  /**
+   * «Очистить историю» — после вопроса, как удаление скрипта: все точки и журнал правок этой презентации — в корзину
+   * проекта. Точка, с которой сравниваются правки при выходе, остаётся: «Не сохранять» должно к чему-то вернуть
+   */
+  async function askClear(): Promise<void> {
+    const clear = ed.files.clearHistory;
+    const h = hist;
+    if (!clear || !h) return;
+    // Окно — как «Удалить скрипт?» в «Интеграциях»: его оформление грузится вместе с ними
+    await Promise.all([import('../engine/import-ui.css'), import('./integrations.css')]);
+    const exit = ed.exitPoint;
+    const keeps = !!exit && !!points?.some((p) => p.id === exit);
+    const before = document.activeElement as HTMLElement | null;
+    const box = document.createElement('div');
+    box.className = 'imp-bd';
+    box.innerHTML = `<div class="imp ig-dlg" role="alertdialog" aria-modal="true" aria-labelledby="ig-dlg-h" aria-describedby="ig-dlg-d">
+      <div class="ig-dlg-head"><span class="ig-dlg-icon">${icon('trash')}</span><h2 id="ig-dlg-h">Очистить историю?</h2></div>
+      <div class="ig-dlg-item"><span class="ig-si">${icon('clock')}</span><div><b>${esc(deck().title || host.tools.deckKey)}</b><span>${histText(h, true)}</span></div></div>
+      <p class="ig-dlg-note" id="ig-dlg-d">Все точки «Версий» и журнал правок агентов и скриптов переместятся в корзину — папку «.trash» рядом с презентациями. Сама презентация не изменится, а «Вернуть» к прежним точкам станет недоступно.${keeps ? ' Останется одна точка — с ней сравниваются правки при выходе из студии.' : ''}</p>
+      <p class="imp-err" role="alert" hidden></p>
+      <div class="imp-actions"><button type="button" class="btn ig-dlg-n" data-k="cancel">Отмена</button><button type="button" class="btn ig-dlg-ok" data-k="ok">${icon('trash')}Очистить</button></div>
+    </div>`;
+    document.body.append(box);
+    const ok = box.querySelector<HTMLButtonElement>('[data-k="ok"]')!;
+    const cancel = box.querySelector<HTMLButtonElement>('[data-k="cancel"]')!;
+    const err = box.querySelector<HTMLElement>('.imp-err')!;
+    const shut = () => {
+      removeEventListener('keydown', onKey, true);
+      fadeOut(box, { box: '.imp' });
+      before?.focus?.({ preventScroll: true });
+    };
+    // Клавиши студии и «Файла» до окна не доходят: Esc — отмена, Tab — по двум кнопкам
+    const onKey = (e: KeyboardEvent) => {
+      e.stopPropagation();
+      if (e.key === 'Escape') { e.preventDefault(); if (!ok.disabled) shut(); }
+      if (e.key === 'Tab') { e.preventDefault(); (document.activeElement === ok ? cancel : ok).focus(); }
+    };
+    addEventListener('keydown', onKey, true);
+    box.addEventListener('mousedown', (e) => { if (e.target === box && !ok.disabled) shut(); });
+    cancel.onclick = shut;
+    ok.onclick = async () => {
+      ok.disabled = cancel.disabled = true;
+      err.hidden = true;
+      try {
+        await clear(host.tools.deckKey, exit ?? undefined);
+        gone = [];
+        shut();
+        ed.toast('История — в корзине', 2600);
+        if (!root.hidden && section === 'versions') void render();
+      } catch (e) {
+        err.textContent = `Не удалось очистить: ${(e as Error).message}`;
+        err.hidden = false;
+        ok.disabled = cancel.disabled = false;
+      }
+    };
+    cancel.focus();
+  }
+  /**
+   * Точка не меняется: её миниатюра и подпись читаются с диска один раз. Миниатюра — готовой разметкой: сам
+   * элемент вне страницы следит за своей шириной (0) и сжимается в точку — его копии при перерисовке были пустыми
+   */
+  const seen = new Map<string, { thumb: string; label: string } | null>();
   /** Первый слайд и число слайдов каждой точки — по мере чтения, сверху вниз */
   async function fillVersions(): Promise<void> {
     const read = ed.files.readCheckpoint;
@@ -382,13 +522,13 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
         try {
           const d = (await read(host.tools.deckKey, id)).deck as Deck;
           seen.set(id, d && Array.isArray(d.slides) && d.slides.length
-            ? { thumb: staticSlide(d, 0, 96), label: `${d.title ? `${d.title} · ` : ''}${d.slides.length} ${plural(d.slides.length, 'слайд', 'слайда', 'слайдов')}` }
+            ? { thumb: staticSlide(d, 0, 96).outerHTML, label: `${d.title ? `${d.title} · ` : ''}${d.slides.length} ${plural(d.slides.length, 'слайд', 'слайда', 'слайдов')}` }
             : null);
         } catch { seen.set(id, null); /* точку не прочитать — строка остаётся без миниатюры */ }
       }
       const got = seen.get(id);
       if (!got || !th.isConnected) continue;
-      th.replaceChildren(got.thumb.cloneNode(true));
+      th.innerHTML = got.thumb;
       const n = main.querySelector<HTMLElement>(`[data-n="${CSS.escape(id)}"]`);
       if (n) n.textContent = got.label;
     }
@@ -482,6 +622,8 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
   let drawn = 0;
   async function render(focusMain = false): Promise<void> {
     const n = ++drawn;
+    // Ушли из «Версий» — «Отменить» у убранных строк больше не показывается (в корзине они остаются)
+    if (section !== 'versions') gone = [];
     root.querySelectorAll<HTMLElement>('[data-fs]').forEach((t) => {
       const on = t.dataset.fs === section;
       t.setAttribute('aria-selected', String(on));
@@ -587,6 +729,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
       root.classList.add('out');
       fading = window.setTimeout(() => { fading = 0; root.classList.remove('out'); root.hidden = true; }, ms + 20);
     } else root.hidden = true;
+    gone = [];
     document.body.classList.remove('fp-open');
     button.setAttribute('aria-expanded', 'false');
     host.toggled(false);
@@ -631,6 +774,10 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     if (d.unfont !== undefined) { removeFont(host.tools, d.unfont); return; }
     if (d.vf) { vfilter = d.vf as typeof vfilter; void render(); return; }
     if (d.a === 'log') { host.history?.log(); return; }
+    // Повторный щелчок, пока ждём сервер, — не второй запрос
+    if (d.del) { b.setAttribute('disabled', ''); void dropRow(d.del); return; }
+    if (d.undo) { b.setAttribute('disabled', ''); void undoDrop(d.undo); return; }
+    if (d.a === 'hclear') { void askClear(); return; }
     if (d.revert) {
       const g = groups.get(d.revert);
       if (!g || !host.history) return;

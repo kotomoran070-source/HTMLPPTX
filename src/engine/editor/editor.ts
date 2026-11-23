@@ -880,6 +880,12 @@ export class Editor {
     return (await this.storage.checkpoints?.(this.host.deckKey).catch(() => [])) ?? [];
   }
 
+  /**
+   * Точка, с которой сравниваются правки при выходе («Не сохранять» вернёт файл к ней): из истории её не убрать,
+   * и «Очистить историю» её оставляет
+   */
+  get exitPoint(): string | null { return this.baseline?.id ?? null; }
+
   private accentFrame = 0;
   private accentTimer = 0;
   private accentAt = 0;

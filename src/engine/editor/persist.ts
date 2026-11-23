@@ -140,6 +140,24 @@ export function readCheckpoint(deckKey: string, id: string): Promise<{ deck: unk
   return api(`/__htmlpptx/checkpoint-read?deck=${encodeURIComponent(deckKey)}&id=${encodeURIComponent(id)}`, '', 'text/plain');
 }
 
+/**
+ * История «Версий»: сколько занимает; убрать точки (id) и правки журнала (их время) — в корзину, keep — точка,
+ * которая остаётся (с ней студия сравнивает правки при выходе); вся история — в корзину; «Отменить» — по token
+ */
+export type HistoryInfo = { points: number; edits: number; bytes: number };
+export function historyInfo(deckKey: string): Promise<HistoryInfo> {
+  return api(`/__htmlpptx/history-info?deck=${encodeURIComponent(deckKey)}`, '', 'text/plain');
+}
+export function dropHistory(deckKey: string, what: { points?: string[]; edits?: string[]; keep?: string }): Promise<{ token: string; points: number; edits: number }> {
+  return api(`/__htmlpptx/history-drop?deck=${encodeURIComponent(deckKey)}`, JSON.stringify(what), 'application/json');
+}
+export function clearHistory(deckKey: string, keep?: string): Promise<{ token: string }> {
+  return api(`/__htmlpptx/history-clear?deck=${encodeURIComponent(deckKey)}${keep ? `&keep=${encodeURIComponent(keep)}` : ''}`, '', 'text/plain');
+}
+export function restoreHistory(deckKey: string, token: string): Promise<{ points: number; edits: number }> {
+  return api(`/__htmlpptx/history-restore?deck=${encodeURIComponent(deckKey)}&token=${encodeURIComponent(token)}`, '', 'text/plain');
+}
+
 /** Общая библиотека шрифтов (папка fonts/ проекта) */
 export function listLibraryFonts(): Promise<{ file: string; url: string }[]> {
   return api('/__htmlpptx/font-list', '', 'text/plain');

@@ -444,6 +444,11 @@ async function route(core: DecksCore, o: HttpOptions, chat: AgentChat, clients: 
     case 'discard': return send(res, 200, core.discard(name, q.get('to') ?? ''));
     case 'checkpoints': return send(res, 200, core.checkpoints(name));
     case 'checkpoint-read': return send(res, 200, core.readCheckpoint(name, q.get('id') ?? ''));
+    // «Версии»: сколько занимает история; строку — из истории, вся история — в корзину; «Отменить» — обратно
+    case 'history-info': return send(res, 200, core.historyInfo(name));
+    case 'history-drop': return send(res, 200, core.dropHistory(name, ((await json(req)) ?? {}) as never));
+    case 'history-clear': return send(res, 200, core.clearHistory(name, { keep: q.get('keep') ?? undefined }));
+    case 'history-restore': return send(res, 200, core.restoreHistory(name, q.get('token') ?? ''));
     case 'font-use': return send(res, 200, await core.useFont(name, q.get('file') ?? ''));
     case 'bind-theme': return send(res, 200, core.bindTheme(name, q.get('dry') === '1'));
     case 'asset': return send(res, 200, await core.addAsset(name, q.get('name') ?? 'image.png', await readBody(req)));

@@ -1,5 +1,5 @@
 import type { Deck } from '../types';
-import { discardToPoint, listCheckpoints, listDeckAssets, listLibraryFonts, makeCheckpoint, readCheckpoint, saveLibraryFont, saveToProject, trashDeckAssets, uploadAsset, useLibraryFont, type PointKind } from './editor/persist';
+import { clearHistory, discardToPoint, dropHistory, historyInfo, listCheckpoints, listDeckAssets, listLibraryFonts, makeCheckpoint, readCheckpoint, restoreHistory, saveLibraryFont, saveToProject, trashDeckAssets, uploadAsset, useLibraryFont, type HistoryInfo, type PointKind } from './editor/persist';
 
 /**
  * Где хранятся презентации. Редактор и студия работают только через этот интерфейс:
@@ -33,6 +33,14 @@ export interface DeckStorage {
   readCheckpoint?(deckKey: string, id: string): Promise<{ deck: unknown }>;
   /** «Не сохранять» при выходе: файл — как в точке to, отброшенное — точкой «Не сохранено при выходе» (drop) */
   discard?(deckKey: string, to: string): Promise<{ changed: boolean; dropped?: string }>;
+  /**
+   * «Версии»: сколько занимает история; точки и правки журнала (их время) — в корзину (keep — точка, которая
+   * остаётся); вся история — в корзину; «Отменить» — по token
+   */
+  historyInfo?(deckKey: string): Promise<HistoryInfo>;
+  dropHistory?(deckKey: string, what: { points?: string[]; edits?: string[]; keep?: string }): Promise<{ token: string; points: number; edits: number }>;
+  clearHistory?(deckKey: string, keep?: string): Promise<{ token: string }>;
+  restoreHistory?(deckKey: string, token: string): Promise<{ points: number; edits: number }>;
 }
 
 /** Файлы проекта через API сервера Slideria (server/http.ts). */
@@ -48,6 +56,10 @@ export const projectStorage: DeckStorage = {
   checkpoints: listCheckpoints,
   readCheckpoint,
   discard: discardToPoint,
+  historyInfo,
+  dropHistory,
+  clearHistory,
+  restoreHistory,
   async exportHtml(deckKey, clean, compact = false, same = {}) {
     const q = `${compact ? '&quality=compact' : ''}${same.look ? `&look=${same.look}` : ''}${same.motion ? '&motion=1' : ''}`;
     const r = await fetch(`/__htmlpptx/export?deck=${encodeURIComponent(deckKey)}&mode=${clean ? 'clean' : 'edit'}${q}`, { method: 'POST' });

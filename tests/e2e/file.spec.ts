@@ -1,8 +1,9 @@
 // Раздел «Файл» студии (studio/file-panel.ts): открывается кнопкой «Файл» и щелчком по «Сохранено», закрывается
 // Esc; клавиши студии до слайдов не доходят; сведения, экспорт, версии, параметры и лицензии
 import fs from 'node:fs';
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { deckFile, readDeck, waitFile, watchErrors } from './helpers';
+import { DECKS, api, deckFile, readDeck, waitFile, watchErrors } from './helpers';
 
 // «Вернуть» переписывает deck.yaml целиком: данные те же, но YAML — блочным стилем, а тесты студии ищут
 // объект по одной строке файла. Поэтому после теста файл презентации возвращается как был
@@ -144,6 +145,89 @@ test('«Файл»: экспорт — настройки по формату; �
   await expect(page.locator(`.fp [data-uitheme="${other}"]`)).toHaveAttribute('aria-checked', 'false');
   await expect(page.locator('.fp')).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test('«Версии»: строка — из истории с «Отменить» на её месте; «Очистить историю» — после вопроса, точка выхода остаётся', async ({ page }) => {
+  const errors = watchErrors(page);
+  const NAME = 'zz-hist';
+  const trashed = () => (fs.existsSync(path.join(DECKS, '.trash')) ? fs.readdirSync(path.join(DECKS, '.trash')).filter((f) => f.startsWith(`${NAME}-history-`)) : []);
+  const clean = () => {
+    fs.rmSync(path.join(DECKS, NAME), { recursive: true, force: true });
+    fs.rmSync(path.join(DECKS, '.checkpoints', NAME), { recursive: true, force: true });
+    fs.rmSync(path.join(DECKS, '.slideria', 'journal', `${NAME}.jsonl`), { force: true });
+    for (const f of trashed()) fs.rmSync(path.join(DECKS, '.trash', f), { recursive: true, force: true });
+  };
+  clean();
+  fs.mkdirSync(path.join(DECKS, NAME), { recursive: true });
+  fs.writeFileSync(deckFile(NAME), 'title: История\nslides:\n  - template: canvas\n    free:\n      - {type: text, text: Первый, place: {x: 80, y: 80, w: 600}}\n');
+  try {
+    // Открыли — точка «Когда открыли» (с ней сравниваются правки при выходе); потом правка агента и своя точка
+    await page.goto(`/?deck=${NAME}&studio#1`);
+    await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
+    await expect.poll(() => fs.existsSync(path.join(DECKS, '.checkpoints', NAME, 'session'))).toBe(true);
+    const by = { kind: 'agent', id: 'zz', name: 'Тестовый агент' };
+    expect((await api(page, `apply?deck=${NAME}&from=mcp`, JSON.stringify({ ops: [{ op: 'slide.set', slide: 1, set: { notes: 'от агента' } }], by }))).status).toBe(200);
+    expect((await api(page, `checkpoint?deck=${NAME}`)).status).toBe(200);
+
+    await page.locator('#st-file').click();
+    await page.locator('.fp [data-fs="versions"]').click();
+    const rows = page.locator('.fp-ver');
+    await expect(rows).toHaveCount(3);
+    const hist = page.locator('.fp-hist');
+    await expect(hist).toContainText('2 точки · журнал — 1 правка агентов и скриптов');
+    // У точки выхода корзины нет: «Не сохранять» вернёт к ней
+    await expect(page.locator('.fp-ver[data-cp^="open:"] [data-del]')).toHaveCount(0);
+    await expect(page.locator('.fp-ver-e [data-del]')).toHaveCount(1);
+
+    // Своя точка — из истории; на её месте — «Отменить»
+    const mine = page.locator('.fp-ver[data-cp]:not([data-cp*=":"])');
+    await mine.hover();
+    await mine.locator('[data-del]').click();
+    const undo = page.locator('.fp-ver-undo');
+    await expect(undo).toContainText('Точка «Ваша точка»');
+    await expect(undo).toContainText('удалена из истории');
+    await expect(mine).toHaveCount(0);
+    await expect(hist).toContainText('1 точка ·');
+    expect(trashed()).toHaveLength(1);
+    await undo.locator('[data-undo]').click();
+    await expect(undo).toHaveCount(0);
+    await expect(mine).toHaveCount(1);
+    await expect(hist).toContainText('2 точки ·');
+    // Раздел перерисовался — миниатюры точек те же (а не сжатые в точку копии)
+    await expect.poll(() => page.locator('.fp-ver[data-cp^="open:"] .thumb-stage .slide').evaluate((e) => e.getBoundingClientRect().width)).toBeGreaterThan(90);
+    expect(trashed()).toHaveLength(0);
+
+    // Правки агента — из истории (в презентации остаются), с клавиатуры: фокус — на «Отменить»
+    await page.locator('.fp-ver-e [data-del]').focus();
+    await page.keyboard.press('Enter');
+    await expect(undo).toContainText('Правки «Тестовый агент»');
+    await expect(undo.locator('[data-undo]')).toBeFocused();
+    await expect(page.locator('.fp-ver-e')).toHaveCount(0);
+    await expect(hist).toContainText('журнал пуст');
+    expect(readDeck(NAME)).toContain('от агента');
+
+    // «Очистить историю»: вопрос; Esc — ничего не меняется
+    await page.locator('.fp-hist [data-a="hclear"]').click();
+    const dlg = page.locator('.ig-dlg');
+    await expect(dlg.locator('h2')).toHaveText('Очистить историю?');
+    await expect(dlg.locator('.ig-dlg-item')).toContainText('История');
+    await expect(dlg).toContainText('Останется одна точка');
+    await page.keyboard.press('Escape');
+    await expect(dlg).toHaveCount(0);
+    await expect(page.locator('.fp')).toBeVisible();
+    await expect(rows).toHaveCount(3);
+    await page.locator('.fp-hist [data-a="hclear"]').click();
+    await dlg.locator('[data-k="ok"]').click();
+    await expect(page.locator('#ed-toast')).toContainText('История — в корзине');
+    // Осталась только точка «Когда открыли»; «Отменить» у убранной раньше строки — больше не нужна
+    await expect(rows).toHaveCount(1);
+    await expect(page.locator('.fp-ver[data-cp^="open:"]')).toHaveCount(1);
+    await expect(hist).toContainText('1 точка · журнал пуст');
+    expect(trashed()).toHaveLength(2);
+    expect(errors).toEqual([]);
+  } finally {
+    clean();
+  }
 });
 
 test('«Файл → Лицензии»: список и текст, фильтр, поиск, клавиатура, узкое место; страница выбора — своя страница', async ({ page }) => {

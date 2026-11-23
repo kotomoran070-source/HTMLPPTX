@@ -285,6 +285,45 @@ export function createIntegrations(o: IntegrationsOptions) {
     try { fs.renameSync(from, journalFile(deck)); } catch { fs.copyFileSync(from, journalFile(deck)); }
   }
 
+  /**
+   * «Версии»: убрать из журнала правки со временем из ts — их строки дописываются в to (корзина истории),
+   * restoreJournal возвращает их оттуда. Недописанные строки остаются как были
+   */
+  function dropJournal(deck: string, ts: Set<string>, to: string): JournalEntry[] {
+    const file = journalFile(deck);
+    if (!fs.existsSync(file)) return [];
+    const keep: string[] = [];
+    const gone: string[] = [];
+    const out: JournalEntry[] = [];
+    for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+      if (!line) continue;
+      let e: JournalEntry | null = null;
+      try { e = JSON.parse(line) as JournalEntry; } catch { /* недописанная */ }
+      if (e && ts.has(e.t)) {
+        gone.push(line);
+        out.push(e);
+      } else keep.push(line);
+    }
+    if (!gone.length) return [];
+    fs.mkdirSync(path.dirname(to), { recursive: true });
+    fs.appendFileSync(to, gone.join('\n') + '\n');
+    fs.writeFileSync(`${file}.tmp`, keep.length ? keep.join('\n') + '\n' : '');
+    fs.renameSync(`${file}.tmp`, file);
+    return out;
+  }
+  /** Строки журнала из корзины — обратно (уже записанные не повторяются); сколько правок вернулось */
+  function restoreJournal(deck: string, from: string): number {
+    if (!fs.existsSync(from)) return 0;
+    const file = journalFile(deck);
+    const have = new Set(fs.existsSync(file) ? fs.readFileSync(file, 'utf8').split('\n') : []);
+    const add = fs.readFileSync(from, 'utf8').split('\n').filter((line) => line && !have.has(line));
+    if (!add.length) return 0;
+    fs.mkdirSync(journalDir, { recursive: true });
+    fs.appendFileSync(file, add.join('\n') + '\n');
+    return add.reduce((n, line) => { try { return n + ((JSON.parse(line) as JournalEntry).changes?.length ?? 0); } catch { return n; } }, 0);
+  }
+  const journalBytes = (deck: string): number => { try { return fs.statSync(journalFile(deck)).size; } catch { return 0; } };
+
   /** Журнал: новые первыми; deck — одной презентации, без него — всех */
   function journal(deck?: string, limit = 200): JournalEntry[] {
     const files = deck ? [journalFile(deck)] : (fs.existsSync(journalDir) ? fs.readdirSync(journalDir).filter((f) => f.endsWith('.jsonl')).map((f) => path.join(journalDir, f)) : []);
@@ -358,7 +397,7 @@ export function createIntegrations(o: IntegrationsOptions) {
   return {
     access, setAccess, allow,
     agents: list, hello, bye,
-    record, journal, takeJournal, adoptJournal,
+    record, journal, takeJournal, adoptJournal, dropJournal, restoreJournal, journalBytes,
     scripts, scriptCode, saveScript, deleteScript,
     scriptsDir,
     close: () => clearInterval(sweep),

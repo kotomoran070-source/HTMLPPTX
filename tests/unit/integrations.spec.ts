@@ -279,6 +279,74 @@ test('«Не сохранять» при выходе: файл — как в т
   }
 });
 
+test('«Версии»: точка и правки агента — из истории в корзину, «Отменить» — обратно; «Очистить историю» оставляет точку выхода', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-hdel-'));
+  try {
+    const dir = path.join(tmp, 'decks');
+    const file = path.join(dir, 'talk', 'deck.yaml');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, 'title: Доклад\nslides:\n  - title: Первый\n');
+    const core = createDecksCore({ dir, root: ROOT });
+    const open = core.checkpoint('talk', { kind: 'open' });
+    fs.writeFileSync(file, 'title: Доклад 2\nslides:\n  - title: Первый\n');
+    const mine = core.checkpoint('talk');
+    // Две правки агента: точка «после» первой — она же «до» второй (3 файла)
+    const by = { kind: 'agent', id: 'a', name: 'Cursor' } as const;
+    core.apply('talk', { ops: [{ op: 'slide.set', slide: 1, set: { notes: 'a' } }], by });
+    core.apply('talk', { ops: [{ op: 'slide.set', slide: 1, set: { notes: 'b' } }], by });
+    const [second, first] = core.journal('talk');
+    expect(first.t).not.toBe(second.t);
+    const auto = path.join(dir, '.checkpoints', 'talk', 'auto');
+    expect(fs.readdirSync(auto)).toHaveLength(3);
+    const info = core.historyInfo('talk');
+    expect(info).toMatchObject({ points: 2, edits: 2 });
+    expect(info.bytes).toBeGreaterThan(0);
+
+    // Своя точка — в корзину (.trash/talk-history-…), «Отменить» — на место, папка корзины уходит
+    const p = core.dropHistory('talk', { points: [mine.id] });
+    expect(p).toMatchObject({ token: expect.stringMatching(/^talk-history-\d{8}-\d{6}$/), points: 1, edits: 0 });
+    expect(core.checkpoints('talk').map((x) => x.id)).toEqual([open.id]);
+    const binned = path.join(dir, '.trash', p.token);
+    expect(fs.existsSync(path.join(binned, 'checkpoints', `${mine.id}.yaml`))).toBe(true);
+    expect(core.restoreHistory('talk', p.token)).toEqual({ points: 1, edits: 0 });
+    expect(core.checkpoints('talk').map((x) => x.id)).toEqual([mine.id, open.id]);
+    expect(fs.existsSync(binned)).toBe(false);
+
+    // Первая правка — из журнала; её точка «до» уходит, «после» остаётся: она «до» второй правки
+    const e = core.dropHistory('talk', { edits: [first.t] });
+    expect(e).toMatchObject({ points: 0, edits: 1 });
+    expect(core.journal('talk').map((x) => x.t)).toEqual([second.t]);
+    expect(core.journal('talk')[0]).toMatchObject({ checkpoint: second.checkpoint, after: second.after });
+    expect(fs.readdirSync(auto)).toHaveLength(2);
+    // Сама презентация не меняется
+    expect(fs.readFileSync(file, 'utf8')).toContain('notes: b');
+    expect(core.restoreHistory('talk', e.token)).toEqual({ points: 1, edits: 1 });
+    expect(core.journal('talk').map((x) => x.t)).toEqual([second.t, first.t]);
+    expect(core.journal('talk')[1]).toMatchObject({ checkpoint: first.checkpoint, after: first.after });
+
+    // Точка выхода (keep) не уходит; уже убранное — ошибка; чужие папки корзины не трогаются
+    expect(() => core.dropHistory('talk', { points: [open.id], keep: open.id })).toThrow('уже нет');
+    expect(() => core.restoreHistory('talk', 'other-history-20260101-000000')).toThrow('Не та');
+    expect(() => core.restoreHistory('talk', 'talk-history-../../x')).toThrow('Не та');
+    expect(() => core.restoreHistory('talk', 'talk-history-20200101-000000')).toThrow('уже нет');
+
+    // «Очистить историю»: всё — в корзину, кроме точки выхода
+    const c = core.clearHistory('talk', { keep: open.id });
+    expect(core.checkpoints('talk').map((x) => x.id)).toEqual([open.id]);
+    expect(core.journal('talk')).toEqual([]);
+    expect(core.historyInfo('talk')).toMatchObject({ points: 1, edits: 0 });
+    const bin = path.join(dir, '.trash', c.token);
+    expect(fs.readFileSync(path.join(bin, 'journal.jsonl'), 'utf8').trim().split('\n')).toHaveLength(2);
+    expect(fs.readdirSync(path.join(bin, 'checkpoints', 'auto'))).toHaveLength(3);
+    expect(fs.existsSync(path.join(bin, 'checkpoints', `${mine.id}.yaml`))).toBe(true);
+    // Вторая очистка в ту же секунду — своя папка; без точки выхода — пусто совсем
+    expect(core.clearHistory('talk').token).not.toBe(c.token);
+    expect(core.historyInfo('talk')).toEqual({ points: 0, edits: 0, bytes: 0 });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('журнал: старше 90 дней — прочь, когда файл разросся', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slideria-jrn-'));
   try {
