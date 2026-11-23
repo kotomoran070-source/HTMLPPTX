@@ -27,6 +27,7 @@ import { licensesSummary, loadLicenses, mountLicenses, newLicensesState } from '
 import { agentLook, agentMark, canRevert, edits, type JournalEntry } from './integrations';
 import { onThemeChange } from '../engine/theme';
 import { collectSummary, fileSize, numText, removeFont, replaceFont, trashUnused, type Summary, type ToolsHost } from './tools';
+import { VIDEO_SIZES, type VideoExport, type VideoRun, type VideoSize } from './video-export';
 import './file-panel.css';
 
 export type FileSection = 'info' | 'export' | 'versions' | 'prefs' | 'int' | 'licenses';
@@ -51,6 +52,8 @@ export interface FileHost {
     setSame(v: boolean): void;
     fileName(mode: string): string;
     run(mode: string): void;
+    /** «Видео»: настройки, подписи и идущая запись (video-export.ts) */
+    video?: VideoExport;
   };
   ribbon: { mount(el: HTMLElement): void };
   /** Панель быстрого доступа (qat.ts) */
@@ -107,8 +110,19 @@ const BADGE: Record<string, [string, string]> = {
   pptx: ['PPTX', '#C2410C'],
   pptx2007: ['PPTX', '#9A3412'],
   pdf: ['PDF', '#DC2626'],
+  video: ['MP4', '#DB2777'],
 };
 const FORMAT_KEY = 'slideria-export-format';
+
+/** Полоса записи видео, % */
+const videoPct = (r: VideoRun) => (r.total ? Math.min(100, Math.round((r.frame / r.total) * 1000) / 10) : 0);
+/** «Кадр 1640 из 4020 · слайд 14 «Цвет: Кино» · осталось около минуты» */
+function videoText(r: VideoRun): string {
+  if (!r.total) return 'Подготовка показа…';
+  const ms = r.leftMs;
+  const left = ms === null ? '' : ms < 45_000 ? ' · осталось меньше минуты' : ms < 90_000 ? ' · осталось около минуты' : ` · осталось около ${Math.round(ms / 60_000)} мин`;
+  return `Кадр ${r.frame} из ${r.total} · слайд ${r.slide}${r.label ? ` «${r.label}»` : ''}${left}`;
+}
 
 const sw = (on: boolean, attrs: string, title: string, sub = '') =>
   `<label class="fp-sw"><input type="checkbox" ${attrs}${on ? ' checked' : ''}><span><span class="fp-sw-t">${title}</span>${sub ? `<small>${sub}</small>` : ''}</span></label>`;
@@ -141,6 +155,8 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
   sync(): void;
   /** Перерисовать открытый раздел сейчас (сделана точка) */
   refresh(): void;
+  /** Запись видео продвинулась (full — началась или кончилась) */
+  video(full: boolean): void;
 } {
   const ed = host.tools.editor;
   const deck = (): Deck => host.tools.deck;
@@ -220,12 +236,49 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     </div>`;
   }
 
+  /** «Видео»: размер, кадры, время слайдов, музыка; во время записи — полоса, где запись, и «Отменить» */
+  function videoSide(v: VideoExport, file: string): string {
+    const o = v.opts;
+    const r = v.run;
+    const off = !!r;
+    const size = VIDEO_SIZES.find(([h]) => h === o.size) ?? VIDEO_SIZES[1];
+    const m = v.music();
+    return `<h3>Видео</h3>
+        <div class="fp-field"><span class="fp-k">Размер</span>${seg('vs', 'Размер видео', VIDEO_SIZES.map(([h, t]) => [String(h), t]), String(o.size), off)}<small>${esc(size[2])}</small></div>
+        <div class="fp-field"><span class="fp-k">Кадров в секунду</span>${seg('vr', 'Кадров в секунду', [['30', '30'], ['60', '60']], String(o.fps), off)}<small>${o.fps === 60 ? '60 — плавнее движение, файл больше' : '30 — файл меньше, запись быстрее'}</small></div>
+        <div class="fp-field"><span class="fp-k">Время слайдов</span>${seg('vt', 'Время слайдов', [['0', 'Как в автопоказе'], ['5', 'По 5 с']], String(o.each), off)}<small>${esc(v.timing())}</small></div>
+        ${m ? sw(o.music, `data-vmusic${off ? ' disabled' : ''}`, 'Музыка показа', esc(`${m.name}${m.fade ? ', с затуханием в конце' : ''}`)) : ''}
+        ${r ? `<div class="fp-field fp-vrun"><span class="fp-k">Запись</span><div class="fp-vbar"><i style="width:${videoPct(r)}%"></i></div><small class="fp-vtxt">${esc(videoText(r))}</small></div>` : ''}
+        ${v.available ? '' : '<small class="fp-vnote">Видео записывает программа Slideria: в браузере этой кнопки нет</small>'}
+        <div class="fp-file"><span>Файл</span><span title="${esc(file)}">${esc(file)}</span></div>
+        ${r ? '<button type="button" class="fp-btn" data-a="vcancel">Отменить</button>'
+          : `<button type="button" class="fp-btn go" data-a="export"${v.available ? '' : ' disabled'}>${icon('save')}Сохранить MP4</button>`}`;
+  }
+  /** Запись продвинулась: только полоса и подпись, раздел целиком не перерисовывается */
+  function videoProgress(full: boolean): void {
+    if (root.hidden || section !== 'export') return;
+    if (full) { void render(); return; }
+    // Открыт другой формат — полосы нет, раздел не перерисовывается на каждом кадре
+    const r = host.exporter.video?.run;
+    const bar = main.querySelector<HTMLElement>('.fp-vbar > i');
+    if (!r || !bar) return;
+    bar.style.width = `${videoPct(r)}%`;
+    const txt = main.querySelector('.fp-vtxt');
+    const t = videoText(r);
+    if (txt && txt.textContent !== t) txt.textContent = t;
+  }
+
   function exportHtml(): string {
     const x = host.exporter;
     const k = x.kinds.find(([m]) => m === format) ?? x.kinds[0];
     const html = k[0] === 'clean' || k[0] === 'edit';
     const q = x.qualities.find(([v]) => v === x.quality())!;
     const [ext] = BADGE[k[0]] ?? ['', ''];
+    const side = k[0] === 'video' && x.video ? videoSide(x.video, x.fileName('video')) : `<h3>${esc(k[2])}</h3>
+        <div class="fp-field"><span class="fp-k">Качество</span>${seg('q', 'Качество файла', x.qualities.map(([v, t]) => [v, t]), q[0])}<small>${esc(q[2])}</small></div>
+        ${html ? sw(x.same(), 'data-same', 'Как на этом компьютере', 'Тот же вид слайдов и анимации на любом компьютере') : ''}
+        <div class="fp-file"><span>Файл</span><span title="${esc(x.fileName(k[0]))}">${esc(x.fileName(k[0]))}</span></div>
+        <button type="button" class="fp-btn go" data-a="export">${icon('save')}Сохранить ${esc(ext)}</button>`;
     return `<header class="fp-head"><h2>Экспорт</h2><p>Один файл, чтобы показать, отправить или открыть в другой программе</p></header>
     <div class="fp-x">
       <div class="fp-formats" role="radiogroup" aria-label="Формат">${x.kinds.map(([m, , t, about]) => {
@@ -233,11 +286,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
         return `<button type="button" class="fp-card fp-fmt" role="radio" aria-checked="${m === k[0]}" data-x="${m}"><span class="fp-badge" style="--c:${c}">${b}</span><span class="fp-fmt-t">${esc(t)}</span><small>${esc(about)}</small><i class="fp-radio" aria-hidden="true"></i></button>`;
       }).join('')}</div>
       <div class="fp-card fp-side">
-        <h3>${esc(k[2])}</h3>
-        <div class="fp-field"><span class="fp-k">Качество</span>${seg('q', 'Качество файла', x.qualities.map(([v, t]) => [v, t]), q[0])}<small>${esc(q[2])}</small></div>
-        ${html ? sw(x.same(), 'data-same', 'Как на этом компьютере', 'Тот же вид слайдов и анимации на любом компьютере') : ''}
-        <div class="fp-file"><span>Файл</span><span title="${esc(x.fileName(k[0]))}">${esc(x.fileName(k[0]))}</span></div>
-        <button type="button" class="fp-btn go" data-a="export">${icon('save')}Сохранить ${esc(ext)}</button>
+        ${side}
       </div>
     </div>`;
   }
@@ -489,11 +538,12 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
   function focusKey(): string {
     const a = document.activeElement as HTMLElement | null;
     if (!a || !main.contains(a)) return '';
-    for (const k of ['x', 'q', 'uitheme', 'color', 'look', 'a', 'restore', 'revert', 'vf', 'go', 'font', 'unfont', 'voice']) {
+    for (const k of ['x', 'q', 'vs', 'vr', 'vt', 'uitheme', 'color', 'look', 'a', 'restore', 'revert', 'vf', 'go', 'font', 'unfont', 'voice']) {
       const v = a.dataset[k];
       if (v !== undefined) return `[data-${k}="${CSS.escape(v)}"]`;
     }
     if (a.hasAttribute('data-same')) return '[data-same]';
+    if (a.hasAttribute('data-vmusic')) return '[data-vmusic]';
     if (a.hasAttribute('data-lite')) return '[data-lite]';
     if (a.hasAttribute('data-smooth')) return '[data-smooth]';
     return a.id ? `#${CSS.escape(a.id)}` : '';
@@ -560,8 +610,18 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     if (d.a === 'reveal') return host.reveal?.();
     if (d.a === 'export') {
       const mode = format;
-      close();
+      // Видео пишется долго: раздел остаётся открытым — на нём полоса записи и «Отменить»
+      if (mode !== 'video') close();
       host.exporter.run(mode);
+      return;
+    }
+    if (d.a === 'vcancel') { host.exporter.video?.cancel(); return; }
+    const v = host.exporter.video;
+    if (v && (d.vs || d.vr || d.vt)) {
+      if (d.vs) v.set({ size: Number(d.vs) as VideoSize });
+      if (d.vr) v.set({ fps: Number(d.vr) === 30 ? 30 : 60 });
+      if (d.vt) v.set({ each: Number(d.vt) === 5 ? 5 : 0 });
+      void render();
       return;
     }
     if (d.a === 'point') { void ed.save().then(() => render()); return; }
@@ -618,7 +678,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     // Двойной щелчок по формату — сразу сохранить
     const f = (e.target as Element).closest<HTMLElement>('[data-x]');
     if (!f) return;
-    close();
+    if (f.dataset.x !== 'video') close();
     host.exporter.run(f.dataset.x!);
   });
   // Свой цвет: пока тянут — интерфейс сразу в нём, выбрали — запоминается
@@ -638,6 +698,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
       return;
     }
     if (t.hasAttribute('data-same')) host.exporter.setSame(t.checked);
+    else if (t.hasAttribute('data-vmusic')) host.exporter.video?.set({ music: t.checked });
     else if (t.hasAttribute('data-lite')) host.ui.setLite(t.checked);
     else if (t.hasAttribute('data-smooth')) host.ui.setSmooth(t.checked);
     else if (t.id === 'fp-name') {
@@ -712,6 +773,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
   return {
     open,
     close,
+    video: videoProgress,
     isOpen: () => !root.hidden && !fading,
     section: () => section,
     sync() {

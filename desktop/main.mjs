@@ -17,6 +17,7 @@ import { FIX_FLAG, allowFirewall, runFirewallFix } from './firewall.mjs';
 import { flush, mcpInput } from './mcp-input.mjs';
 import { shootPages } from './shot.mjs';
 import { splashPage } from './splash.mjs';
+import { setupVideo } from './video.mjs';
 
 // Экземпляр, запущенный кнопкой «Разрешить в брандмауэре» с правами администратора:
 // меняет правила и выходит, окно не открывает
@@ -501,6 +502,9 @@ ipcMain.handle('slideria:pdf', async (e, name) => {
   if (!process.env.SLIDERIA_SAVE_DIR) shell.showItemInFolder(out);
   return out;
 });
+
+// «Экспорт → Видео»: покадровая запись показа в невидимом окне (desktop/video.mjs)
+setupVideo({ ours, origin: () => origin, decks: DECKS, log, parent: () => main });
 
 /** Новое окно (показ, заметки) — крупное, по центру экрана, где открыт редактор: 80 % рабочей области */
 function openSize(from) {

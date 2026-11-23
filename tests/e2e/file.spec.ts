@@ -29,7 +29,8 @@ test('«Файл»: разделы, клавиатура, Esc, сведения 
   // Стрелки — по разделам
   await page.keyboard.press('ArrowDown');
   await expect(page.locator('.fp [data-fs="export"]')).toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator('.fp-fmt')).toHaveCount(5);
+  // HTML для показа, HTML с правкой, PowerPoint, PowerPoint 2007, PDF, Видео
+  await expect(page.locator('.fp-fmt')).toHaveCount(6);
   // Клавиши студии, пока раздел открыт, слайды не трогают
   await page.keyboard.press('Delete');
   await page.keyboard.press('Control+m');

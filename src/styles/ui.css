@@ -74,6 +74,9 @@ body.fs .stage { border: 0; border-radius: 0; box-shadow: none; }
 body.fs .navbar { transform: translateY(100%); opacity: 0; background: color-mix(in srgb, var(--alt) 88%, transparent); }
 body.fs.peek .navbar { transform: none; opacity: 1; }
 body.fs .progress-top { opacity: .7; }
+/* Кадр видео (engine/render-clock.ts): только то, что видят зрители, — без панели, подсказок и значков показа */
+body.rendering .navbar, body.rendering .show-note, body.rendering .zoom-pill, body.rendering .ap-flash { display: none; }
+body.rendering { cursor: none; }
 
 /* «Крупнее» при показе: на миг посередине сверху */
 .zoom-pill { position: fixed; left: 50%; top: 18px; z-index: 6; padding: 5px 12px; border-radius: 999px; background: rgba(15, 23, 42, .72); color: #fff; font: 600 13px/1.2 var(--font, system-ui); font-variant-numeric: tabular-nums; pointer-events: none; opacity: 0; transform: translate(-50%, -4px); transition: opacity .18s, transform .18s; }

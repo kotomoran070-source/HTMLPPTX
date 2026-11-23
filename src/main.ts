@@ -1,3 +1,5 @@
+// Покадровая запись видео: часы страницы подменяются раньше, чем их застанет остальной код
+import './engine/render-clock';
 import './engine/editor/snapshot';
 import './styles/tokens.css';
 import './styles/base.css';
@@ -13,6 +15,7 @@ import { startPresenter } from './engine/presenter';
 import { shotDeck } from './engine/print';
 import { widthOf } from './engine/slide-size';
 import { startShow, updateFavicon } from './engine/show';
+import { RENDER } from './engine/render-clock';
 import { setupSelectMenus } from './engine/select-menu';
 import { initTheme } from './engine/theme';
 import type { Deck } from './types';
@@ -82,7 +85,7 @@ async function boot(): Promise<void> {
   if (!open) return bootDone();
   const { name, deck } = open;
   mark('deck');
-  if (__SERVED__) {
+  if (__SERVED__ && !RENDER) {
     // Открытую презентацию удалили или поправили её файл со стороны (текстовый редактор, git) — заново.
     // Страница, открытая уже после правки, показывает свежую версию: её не перезагружаем
     onServer('deck-removed', (d) => { if (d.name === name) location.href = './?all'; });

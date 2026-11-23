@@ -25,6 +25,8 @@ import { Sync } from './sync';
 import { currentTheme, onThemeChange, setTheme, toggleTheme } from './theme';
 import { themeMode } from './deck-theme';
 import { warmDeckFonts } from './fonts';
+import { RENDER, renderDeck, renderReady } from './render-clock';
+import { videoLength, videoTail } from './video-plan';
 
 const NAV_H = 56;
 
@@ -43,6 +45,11 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   const count = () => deck.slides.length;
   const editable = __EDITABLE__ && (devServer || canSaveFile());
   document.body.classList.add('show');
+  // Кадр видео (render-clock.ts): только слайд, как у зрителей во весь экран; автопоказ — по команде записи
+  if (RENDER) {
+    renderDeck(deck);
+    document.body.classList.add('fs', 'rendering');
+  }
   document.body.insertAdjacentHTML('beforeend', `
 <div class="progress-top" id="pg"></div>
 <div class="pg-seg" id="pgs" hidden aria-hidden="true"></div>
@@ -85,7 +92,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   // Ответы на тесты при показе запоминаются (до «Пройти заново»): до отрисовки — тесты сразу с ответами
   quizStore.persist(deckKey);
   const view = new DeckView(deck, vp);
-  const sync = new Sync(deckKey);
+  // Запись видео — сама по себе: её смена слайдов не должна листать открытые окна этой презентации
+  const sync = new Sync(RENDER ? `${deckKey}:render:${Math.random().toString(36).slice(2)}` : deckKey);
   // Музыка показа (music.ts): звучит только в окне показа — у докладчика и на телефоне её нет
   const m0 = musicOf(deck);
   const music = m0 ? new ShowMusic(m0) : null;
@@ -100,7 +108,7 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   };
   const openRemote = () => void import('./remote').then((m) => m.openRemoteDialog({ deckKey, main: sync.self, room: () => startRemote(m), onPhone: (cb) => phones.push(cb) }));
   const seenPhones = new Set<string>();
-  if (location.protocol !== 'file:') {
+  if (location.protocol !== 'file:' && !RENDER) {
     void import('./remote').then((m) => {
       const room = m.remoteRoom(deckKey);
       if (room) sync.relay(room);
@@ -221,7 +229,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   /** «Далее» и «Назад»: сначала шаги слайда (формула по шагам), потом листание; тест — по ветке ответа */
   function next(): void {
     if (!editor?.active && view.stepFwd()) { moved(); return; }
-    if (!editor?.active) {
+    // В видео тест не ждёт ответа: ролик идёт дальше по порядку
+    if (!editor?.active && !RENDER) {
       const g = quizGate(deck, index);
       // Вопрос «дальше только после ответа» без ответа — тест напоминает о себе
       if (g.locked) { window.dispatchEvent(new CustomEvent(QUIZ_NUDGE)); return; }
@@ -260,6 +269,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   };
   /** Шаг или слайд сменил сам автопоказ — трек не перематывать (syncMusic) */
   let autoMove = false;
+  /** Автопоказ дошёл до конца сам (запись видео заканчивает ролик) */
+  let renderEnded = false;
   const auto = new Autoplay({
     slide: () => view.slides[index] ?? null,
     stepsTotal: () => view.stepsTotal(),
@@ -267,7 +278,8 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     atEnd: () => (skip() ? stepVisible(deck, index, 1) < 0 : index >= count() - 1),
     // Своё время слайда — вместо общего
     options: () => ({ ...deck.autoplay, after: deck.slides[index]?.after ?? deck.autoplay?.after }),
-    hold: () => deck.slides[index]?.repeat === true,
+    // В видео слайд с повтором тоже уходит дальше в своё время
+    hold: () => !RENDER && deck.slides[index]?.repeat === true,
     next: () => {
       autoMove = true;
       try {
@@ -287,7 +299,10 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
     music: () => (byMusic() ? musicCue() : null),
     musicNow: () => (music?.playing ? music.time() : null),
     // Дошли до конца — музыка затухает
-    ended: () => music?.stop(),
+    ended: () => {
+      music?.stop();
+      renderEnded = true;
+    },
     bar,
     changed: (on) => {
       const b = $('ap');
@@ -1005,7 +1020,24 @@ export function startShow(deck: Deck, deckKey: string, devServer: boolean): void
   setTimeout(() => warmDeckFonts(deck.fonts), 400);
   // Автопоказ: кнопка «Автопоказ» в студии (?autoplay) или «Сразу при открытии» у презентации
   const params = new URLSearchParams(location.search);
-  if (music && params.has('rehearse')) {
+  if (RENDER) {
+    renderReady({
+      start: () => {
+        // Первый слайд отыграл появления, пока страница грузилась, — в ролике он с начала
+        view.replay(index, false);
+        view.startSteps(index, false);
+        if (music && !byMusic()) void music.play(trackStart(deck.music!));
+        else musicFollow(true);
+        auto.toggle(true);
+      },
+      where: () => ({ slide: index + 1, label: deck.slides[index] ? slideLabel(deck.slides[index], index) : '' }),
+      ended: () => renderEnded,
+      // Деку запись уже переписала под ролик (renderDeck): «По N с» в ней самой
+      estimate: () => videoLength(deck, 0, music?.el.duration) ?? 0,
+      tail: () => videoTail(deck),
+      music: () => music?.el ?? null,
+    });
+  } else if (music && params.has('rehearse')) {
     // «Записать время» из студии: показ с начала, окно записи поверх. Адрес — уже без него: перезагрузка
     // (файл сохранили) открывает обычный показ
     rehearsing = true;

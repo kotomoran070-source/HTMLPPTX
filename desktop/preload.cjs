@@ -1,6 +1,7 @@
 // Мост страницы и окна приложения: только то, что нужно странице от окна.
 //   theme — заголовок окна Windows становится тёмным или светлым вместе с темой;
 //   pdf — «Экспорт → PDF» средствами Electron (в окне печати Electron нет «Сохранить как PDF»);
+//   video — «Экспорт → Видео»: покадровая запись показа (desktop/video.mjs);
 //   build — какая это сборка программы (страница выбора показывает, от какого она числа).
 const { contextBridge, ipcRenderer } = require('electron');
 
@@ -26,6 +27,18 @@ contextBridge.exposeInMainWorld('slideriaApp', {
   theme: (mode) => ipcRenderer.send('slideria:theme', mode),
   /** Страница (уже с листами для печати) → PDF; ответ — путь к файлу или null, если не сохранили */
   pdf: (name) => ipcRenderer.invoke('slideria:pdf', name),
+  /**
+   * «Экспорт → Видео» (desktop/video.mjs): pick(имя) — диалог «Сохранить» (путь или null); open({ deck, width, height,
+   * each }) — показ в невидимом окне, ответ { estimate, musicUrl }; frame(k, fps) — кадр k: { data (BGRA), width, height,
+   * t, slide, label, done, music }; write(позиция, байты) — кусок MP4 в файл; close(ok) — готово (путь) или бросить
+   */
+  video: {
+    pick: (name) => ipcRenderer.invoke('slideria:video-pick', name),
+    open: (o) => ipcRenderer.invoke('slideria:video-open', o),
+    frame: (k, fps) => ipcRenderer.invoke('slideria:video-frame', k, fps),
+    write: (pos, data) => ipcRenderer.invoke('slideria:video-write', pos, data),
+    close: (ok) => ipcRenderer.invoke('slideria:video-close', ok),
+  },
   /** { version, date, commit } — сборка установленной программы; date пустая — запуск из проекта */
   build: ipcRenderer.sendSync('slideria:build'),
   /** Скачанный файл сохранён: cb({ file }) — путь, или file: null, если сохранение отменили */

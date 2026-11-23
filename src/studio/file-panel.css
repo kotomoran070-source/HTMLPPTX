@@ -149,6 +149,11 @@
 .fp-side h3 { margin: 0; font: 500 16px/1.25 "SL Display", var(--font); letter-spacing: -.01em; }
 .fp-file { display: flex; justify-content: space-between; gap: 12px; color: var(--mu); font-size: 12.5px; }
 .fp-file span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx2); }
+/* «Экспорт → Видео»: полоса записи (во всю ширину карточки) и подпись, почему кнопки нет */
+.fp-vrun { justify-items: stretch; }
+.fp-vbar { height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--tx) 12%, transparent); overflow: hidden; }
+.fp-vbar > i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--ac), color-mix(in srgb, var(--ac) 45%, #EC4899)); transition: width .25s linear; }
+.fp-vnote { color: var(--mu); font-size: 12px; }
 .fp-side .fp-btn.go { height: 40px; font-size: 14px; }
 
 /* ---------- Версии ---------- */

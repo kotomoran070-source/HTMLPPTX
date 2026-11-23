@@ -55,6 +55,7 @@ import { inkTabs, themeFade, warmGhosts } from '../engine/motion';
 import { THEME_PRESETS } from './theme-presets';
 import { initRibbonSetup } from './ribbon-setup';
 import { initFilePanel, type Quality } from './file-panel';
+import { VideoExport } from './video-export';
 import { staticSlide } from '../engine/deck-view';
 import { pictureName, savePicture } from './save-picture';
 import { contextCommands, tableMenu, contextPanelsHtml, contextTab, contextTabsHtml, syncSwatches, type ContextTab } from './context-tabs';
@@ -879,6 +880,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     ['pptx', 'layers', 'PowerPoint', 'PPTX: тексты, фигуры и таблицы правятся в PowerPoint'],
     ['pptx2007', 'layers', 'PowerPoint 2007', 'Для PowerPoint 2007 и 2010: формулы — картинками'],
     ['pdf', 'notes', 'PDF', 'Один слайд на странице'],
+    ['video', 'frames', 'Видео', 'Ролик со всеми анимациями и музыкой'],
   ];
   /** Качество файла: запоминается для следующих экспортов */
   const QUALITIES: [ExportQuality, string, string][] = [
@@ -899,7 +901,9 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   let exporting = false;
   /** Имя файла экспорта — как у папки презентации (и у yarn build): латиница открывается везде; PDF — по названию */
   const exportName = (m: string) => (m === 'pptx' ? `${deckKey}.pptx` : m === 'pptx2007' ? `${deckKey}-2007.pptx`
-    : m === 'pdf' ? `${(deck.title || deckKey).replace(/[\\/:*?"<>|]/g, '')}.pdf` : `${deckKey}${m === 'clean' ? '' : '-edit'}.html`);
+    : m === 'pdf' ? `${(deck.title || deckKey).replace(/[\\/:*?"<>|]/g, '')}.pdf` : m === 'video' ? `${deckKey}.mp4` : `${deckKey}${m === 'clean' ? '' : '-edit'}.html`);
+  /** «Экспорт → Видео» (video-export.ts): ролик покадрово; полоса записи — в разделе «Экспорт» */
+  const video = new VideoExport(() => deck, () => deckKey, (t, ms, err) => ed.toast(t, ms, err), (full) => filePanel?.video(full));
   const sizeText = (n: number) => (n >= 1048576 ? `${(n / 1048576).toFixed(1).replace('.', ',')} МБ` : `${Math.max(1, Math.round(n / 1024))} КБ`);
   function download(blob: Blob, name: string): void {
     const a = document.createElement('a');
@@ -926,6 +930,11 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   async function runExport(mode: string): Promise<void> {
     if (exporting) return;
     await ed.settle();
+    // Окно записи открывает презентацию с диска: правки уже записаны (settle)
+    if (mode === 'video') {
+      void video.start();
+      return;
+    }
     if (mode === 'pdf') {
       ed.toast('PDF: готовлю листы…', 60000);
       const u = new URL(location.href);
@@ -2181,6 +2190,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       setSame: (v: boolean) => { same = v; try { localStorage.setItem(SAME_KEY, v ? '1' : '0'); } catch { /* нет доступа */ } },
       fileName: exportName,
       run: (m: string) => void runExport(m),
+      video,
     },
     ribbon: { mount: (el) => ribbonSetup.mount(el) },
     qat: { mount: (el) => qat.mount(el) },
