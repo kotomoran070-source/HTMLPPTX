@@ -776,7 +776,7 @@ export function designCommands(h: DesignHost): Record<string, Command> {
     'design.gradient': { run: gradient },
     'design.font.head': { run: () => pickFont('head') },
     'design.font.body': { run: () => pickFont('font') },
-    'design.bg': { run: () => themed('design.bg', 'bg', Object.entries(THEME_BGS).map(([k, b]) => [k, b.name] as [string, string]), 'dots', () => '', 'bgs') },
+    'design.bg': { run: () => themed('design.bg', 'bg', Object.entries(THEME_BGS).map(([k, b]) => [k, b.name] as [string, string]), 'plain', () => '', 'bgs') },
     'design.cards': { run: () => themed('design.cards', 'cards', Object.entries(CARD_STYLES).map(([k, c]) => [k, c.name] as [string, string]), 'soft', () => card, 'cards') },
     'design.radius': {
       run: () => options('design.radius', RADII, typeof theme().radius === 'number' ? theme().radius! : 1,

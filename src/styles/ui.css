@@ -1,5 +1,5 @@
 /* Интерфейс вокруг слайдов: панель навигации, обзор, окно докладчика, выбор презентации, печать. */
-.canvas { background: radial-gradient(var(--bd) 1px, transparent 1px) 0 0 / 26px 26px, var(--bg); }
+.canvas { background: var(--bg); }
 
 .viewport { position: fixed; inset: 0; }
 

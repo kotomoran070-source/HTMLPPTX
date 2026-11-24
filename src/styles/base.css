@@ -24,7 +24,7 @@ body {
   border-radius: 14px;
   border: 1px solid var(--bd);
   box-shadow: var(--shadow-md);
-  background: radial-gradient(var(--bd) 1px, transparent 1px) 0 0 / 26px 26px, var(--bg);
+  background: var(--bg);
 }
 /* «Крупнее» при показе (DeckView.fitContent): шаг клавишей — плавно */
 .stage.zoom-anim { transition: transform .3s cubic-bezier(.22, 1, .36, 1); }
@@ -51,7 +51,7 @@ body {
 :where(.slide) { background: var(--slide-bg, none); }
 /* Слайд с постоянным видом (data-mode: тема презентации или свой вид слайдов в студии) — свой фон, как у
    сцены, но своими цветами: сцена под ним — в цветах интерфейса */
-:where(.slide[data-mode]) { background: var(--slide-bg, radial-gradient(var(--bd) 1px, transparent 1px) 0 0 / 26px 26px, var(--bg)); }
+:where(.slide[data-mode]) { background: var(--slide-bg, var(--bg)); }
 
 /* Переходы между слайдами: data-tr у входящего слайда, уходящий — .out (deck-view.ts) */
 /* Направление (data-trd, engine/transitions): откуда идёт новый слайд — вектор (--tr-x, --tr-y); назад — обратно */
@@ -61,7 +61,7 @@ body {
 .stage[data-trd="bottom"] { --tr-x: 0; --tr-y: 1; }
 .stage > .slide.out { display: block; z-index: 0; pointer-events: none; }
 /* На время перехода у слайда свой фон (если шаблон не задал другой), чтобы слайды не просвечивали */
-:where(.stage[data-tr] > .slide) { background: var(--slide-bg, radial-gradient(var(--bd) 1px, transparent 1px) 0 0 / 26px 26px, var(--bg)); }
+:where(.stage[data-tr] > .slide) { background: var(--slide-bg, var(--bg)); }
 .stage > .slide.on[data-tr] { z-index: 1; }
 .stage .slide.on[data-tr="none"] { animation: none; }
 /* Морф (engine/morph.ts): новый слайд на месте сразу, поверх — растворяющийся снимок старого

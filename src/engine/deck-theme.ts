@@ -130,12 +130,15 @@ export function ownBg(v: unknown): 'color' | 'image' | null {
   return /^(\/|\.{1,2}\/|data:image\/|https?:|blob:)/.test(v) ? 'image' : null;
 }
 
-/** Фон слайдов темы: узор, свой цвет или своя картинка на весь слайд (заметность — пеленой цвета фона темы) */
+/**
+ * Фон слайдов темы: узор, свой цвет или своя картинка на весь слайд (заметность — пеленой цвета фона темы).
+ * Не выбран — ровный цвет фона темы: узор только тот, что выбрали сами
+ */
 function bgCss(t: DeckTheme, dark: boolean): string {
   const v = String(t.bg);
   const own = ownBg(t.bg);
   if (own === 'color') return v;
-  if (own !== 'image') return (THEME_BGS[v] ?? THEME_BGS.dots).css(dark);
+  if (own !== 'image') return (THEME_BGS[v] ?? THEME_BGS.plain).css(dark);
   const op = Number(t.bgOpacity);
   const veil = Number.isFinite(op) && op < 1 ? cm('var(--bg)', Math.round((1 - Math.max(0.1, op)) * 100)) : '';
   return `${veil ? `linear-gradient(${veil}, ${veil}), ` : ''}url("${v.replace(/["\\\n\r]/g, '')}") center / cover no-repeat, var(--bg)`;

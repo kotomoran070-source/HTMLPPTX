@@ -110,7 +110,7 @@ theme:
   mode: dark                # слайды всегда тёмные (light — всегда светлые; без поля — как тема у зрителя)
   light: { bg: "#F4F6FD", tx: "#0B1020" }   # цвета слайдов: фон и текст, остальное выводится из них
   dark: { bg: "#070B18", tx: "#E8ECFA", surf: "#0F1529" }   # можно задать и surf, alt, tx2, mu, bd, bd2
-  bg: glow                  # фон: dots, plain, grid, glow, mesh, paper, notebook, band, arc, spot, neon, halftone
+  bg: glow                  # фон: plain (без поля — он), dots, grid, glow, mesh, paper, notebook, band, arc, spot, neon, halftone
                             # или свой: цвет "#1E293B" или картинка ./assets/фон.jpg (на весь слайд)
   bgOpacity: 0.6            # непрозрачность своей картинки, 0.1–1 (сквозь неё — цвет фона темы, текст читается)
   cards: glass              # карточки: soft, flat, outline, raised, glass, poster

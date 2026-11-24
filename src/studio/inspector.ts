@@ -68,10 +68,10 @@ const sec = (key: string, title: string, body: string, extra = '') =>
 
 /**
  * Готовые фоны холста: значение поля bg и как выглядит образец. Первый — своего фона нет:
- * виден фон темы (какой он у презентации, такой и образец; без темы — точки)
+ * виден фон темы (какой он у презентации, такой и образец; без темы — ровный цвет)
  */
 const BACKGROUNDS: [string, string, string][] = [
-  ['', 'Без фона', 'var(--slide-bg, radial-gradient(var(--bd) 1px, transparent 1px) 0 0 / 26px 26px, var(--bg))'],
+  ['', 'Без фона', 'var(--slide-bg, var(--bg))'],
   ['var(--bg)', 'Ровный', 'var(--bg)'],
   ['var(--surf)', 'Светлый', 'var(--surf)'],
   ['var(--acs)', 'Акцентный', 'var(--acs)'],
