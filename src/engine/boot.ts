@@ -5,6 +5,7 @@
  * Вызывать один раз, когда страница нарисована целиком (студия построена, видимые миниатюры на месте);
  * повторные вызовы ничего не делают.
  */
+import { RENDER } from './render-clock';
 import { initTitlebar } from './titlebar';
 
 let done = false;
@@ -13,7 +14,9 @@ export function bootDone(): void {
   if (done) return;
   done = true;
   const el = document.getElementById('boot');
-  if (el) {
+  // Запись видео: растворение шло бы по часам записи и попадало в первые кадры ролика — каркас убирается сразу
+  if (el && RENDER) el.remove();
+  else if (el) {
     // Растворение начинается, когда настоящая страница уже нарисована под каркасом
     requestAnimationFrame(() => {
       el.classList.add('out');

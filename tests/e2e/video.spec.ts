@@ -60,6 +60,8 @@ async function record(page: Page, fps: number): Promise<{ frames: Frame[]; fade:
   await page.waitForFunction(() => (window as unknown as { slideriaRender?: { ready: boolean } }).slideriaRender?.ready);
   const start = await page.evaluate(() => (window as unknown as { slideriaRender: { start(): Promise<{ estimate: number; musicUrl: string | null }> } }).slideriaRender.start());
   expect(start.musicUrl).toContain('tone.wav');
+  // Каркас загрузки (#boot) не растворяется по часам записи в первых кадрах — его уже нет
+  expect(await page.locator('#boot').count()).toBe(0);
   const frames: Frame[] = [];
   const fade: number[] = [];
   for (let k = 0; k < 400; k++) {
