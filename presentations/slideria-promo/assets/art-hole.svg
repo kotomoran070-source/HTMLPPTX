@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <defs>
+    <!-- Глубокий космос: почти чёрный, к центру — густой фиолет -->
+    <radialGradient id="sky" cx=".5" cy=".5" r=".75"><stop offset="0" stop-color="#2E0B5E"/><stop offset=".4" stop-color="#14052E"/><stop offset="1" stop-color="#040108"/></radialGradient>
+    <radialGradient id="haze" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#A21CAF" stop-opacity=".5"/><stop offset=".5" stop-color="#6D28D9" stop-opacity=".2"/><stop offset="1" stop-color="#6D28D9" stop-opacity="0"/></radialGradient>
+    <!-- Свечение у края тени: узкое белое каление, дальше — пурпур и фиолет -->
+    <radialGradient id="halo" cx=".5" cy=".5" r=".5"><stop offset=".55" stop-color="#FFFFFF"/><stop offset=".59" stop-color="#F0ABFC"/><stop offset=".67" stop-color="#C026D3" stop-opacity=".75"/><stop offset=".8" stop-color="#7C3AED" stop-opacity=".3"/><stop offset="1" stop-color="#7C3AED" stop-opacity="0"/></radialGradient>
+    <!-- Дуга линзы: свет дальней стороны диска огибает тень; сверху ярче и толще -->
+    <linearGradient id="arc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".25" stop-color="#F5D0FE"/><stop offset=".55" stop-color="#D946EF"/><stop offset="1" stop-color="#7E22CE" stop-opacity=".6"/></linearGradient>
+    <!-- Диск: левая сторона летит к зрителю — белая и горячая, правая — тёмный пурпур, края гаснут -->
+    <linearGradient id="disk" gradientUnits="userSpaceOnUse" x1="10" y1="0" x2="790" y2="0"><stop offset="0" stop-color="#7C3AED" stop-opacity="0"/><stop offset=".14" stop-color="#A855F7"/><stop offset=".32" stop-color="#FFFFFF"/><stop offset=".5" stop-color="#F0ABFC"/><stop offset=".72" stop-color="#A21CAF"/><stop offset=".9" stop-color="#6B21A8" stop-opacity=".6"/><stop offset="1" stop-color="#581C87" stop-opacity="0"/></linearGradient>
+    <linearGradient id="streak" gradientUnits="userSpaceOnUse" x1="40" y1="0" x2="760" y2="0"><stop offset="0" stop-color="#F5D0FE" stop-opacity="0"/><stop offset=".3" stop-color="#FFFFFF"/><stop offset=".7" stop-color="#E879F9" stop-opacity=".5"/><stop offset="1" stop-color="#E879F9" stop-opacity="0"/></linearGradient>
+    <linearGradient id="sw1" gradientUnits="userSpaceOnUse" x1="90" y1="0" x2="760" y2="0"><stop offset="0" stop-color="#7C3AED" stop-opacity="0"/><stop offset=".5" stop-color="#C084FC"/><stop offset="1" stop-color="#E879F9" stop-opacity="0"/></linearGradient>
+    <linearGradient id="sw2" gradientUnits="userSpaceOnUse" x1="740" y1="0" x2="60" y2="0"><stop offset="0" stop-color="#A21CAF" stop-opacity="0"/><stop offset=".5" stop-color="#D946EF"/><stop offset="1" stop-color="#7C3AED" stop-opacity="0"/></linearGradient>
+    <filter id="bloom" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="9"/></filter>
+  </defs>
+  <rect width="800" height="600" fill="url(#sky)"/>
+  <!-- Редкие тусклые звёзды -->
+  <g fill="#E9D5FF"><circle cx="64" cy="58" r="1.1" opacity=".55"/><circle cx="188" cy="128" r=".8" opacity=".4"/><circle cx="292" cy="40" r="1" opacity=".45"/><circle cx="560" cy="48" r=".9" opacity=".4"/><circle cx="702" cy="96" r="1.2" opacity=".55"/><circle cx="748" cy="226" r=".8" opacity=".35"/><circle cx="40" cy="388" r=".9" opacity=".4"/><circle cx="118" cy="540" r="1.1" opacity=".45"/><circle cx="664" cy="520" r="1" opacity=".45"/><circle cx="476" cy="566" r=".8" opacity=".35"/><circle cx="770" cy="430" r="1" opacity=".4"/><circle cx="236" cy="470" r=".7" opacity=".3"/></g>
+  <circle cx="400" cy="300" r="390" fill="url(#haze)"/>
+  <!-- Газ, закрученный тяготением: широкие спирали вокруг дыры -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M90 210C160 90 380 40 560 92S780 280 700 380" stroke="url(#sw1)" stroke-width="14" opacity=".22" filter="url(#bloom)"/>
+    <path d="M90 210C160 90 380 40 560 92S780 280 700 380" stroke="url(#sw1)" stroke-width="2" opacity=".55"/>
+    <path d="M720 400C640 520 420 566 240 512S30 330 110 222" stroke="url(#sw2)" stroke-width="12" opacity=".2" filter="url(#bloom)"/>
+    <path d="M720 400C640 520 420 566 240 512S30 330 110 222" stroke="url(#sw2)" stroke-width="1.6" opacity=".5"/>
+    <path d="M170 150C280 70 470 64 610 140" stroke="#C084FC" stroke-width="1" opacity=".3"/>
+    <path d="M640 462C520 540 330 548 196 470" stroke="#E879F9" stroke-width="1" opacity=".25"/>
+  </g>
+  <g transform="rotate(-8 400 300)">
+    <!-- Задняя половина диска — за тенью -->
+    <path d="M10 300A390 50 0 0 1 790 300L690 300A290 30 0 0 0 110 300z" fill="url(#disk)" opacity=".8"/>
+    <circle cx="400" cy="300" r="232" fill="url(#halo)"/>
+    <!-- Дуга линзы: свечение и сама дуга (центры кругов сдвинуты — сверху толще) -->
+    <path d="M400 126a160 160 0 1 1 0 320a160 160 0 1 1 0-320zM400 172a128 128 0 1 0 0 256a128 128 0 1 0 0-256z" fill="#E879F9" fill-rule="evenodd" filter="url(#bloom)" opacity=".8"/>
+    <path d="M400 126a160 160 0 1 1 0 320a160 160 0 1 1 0-320zM400 172a128 128 0 1 0 0 256a128 128 0 1 0 0-256z" fill="url(#arc)" fill-rule="evenodd"/>
+    <!-- Тень и фотонное кольцо -->
+    <circle cx="400" cy="300" r="126" fill="#030006"/>
+    <circle cx="400" cy="300" r="127.5" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+    <!-- Передняя половина диска — поверх тени: свечение и тонкая яркая полоса -->
+    <path d="M10 300A390 50 0 0 0 790 300L690 300A290 30 0 0 1 110 300z" fill="#D946EF" filter="url(#bloom)" opacity=".7"/>
+    <path d="M10 300A390 50 0 0 0 790 300L690 300A290 30 0 0 1 110 300z" fill="url(#disk)"/>
+    <!-- Прожилки скорости -->
+    <g fill="none" stroke="url(#streak)" stroke-linecap="round">
+      <path d="M60 300A340 42 0 0 0 740 300" stroke-width="1.6" opacity=".8"/>
+      <path d="M140 300A260 26 0 0 0 660 300" stroke-width="2.2" opacity=".9"/>
+      <path d="M30 300A370 47 0 0 0 770 300" stroke-width="1" opacity=".5"/>
+    </g>
+    <!-- Вещество, сорванное с диска -->
+    <g fill="#F5D0FE"><circle cx="132" cy="318" r="1.6" opacity=".8"/><circle cx="214" cy="330" r="1.2" opacity=".7"/><circle cx="604" cy="330" r="1.3" opacity=".6"/><circle cx="700" cy="316" r="1" opacity=".5"/><circle cx="88" cy="292" r="1" opacity=".6"/></g>
+  </g>
+</svg>
