@@ -112,9 +112,20 @@ test('«Файл → Экспорт → Видео»: размер, кадры, 
   await side.locator('[data-vr="30"]').click();
   await expect(side).toContainText('30 — файл меньше');
   await expect(side).toContainText('По времени слайдов: 3 слайда, около 0:04');
+  // Сколько займёт: 2K, 30 кадров — 16,6 Мбит/с видео и звук на 3,5 с
+  const size = side.locator('.fp-vsize');
+  await expect(size).toContainText('Займёт');
+  await expect(size).toContainText('до 7,1 МБ');
+  await expect(size.locator('span').last()).toHaveAttribute('title', /16,6 Мбит\/с/);
   await side.locator('[data-vt="5"]').click();
   await expect(side).toContainText('По 5 с на слайд: 3 слайда, около 0:16');
+  await expect(size).toContainText('до 32 МБ');
   await expect(side).toContainText('tone.wav, с затуханием в конце');
+  // Без музыки — без звука
+  await side.locator('[data-vmusic]').uncheck();
+  await expect(size).toContainText('до 31 МБ');
+  await side.locator('[data-vmusic]').check();
+  await expect(size).toContainText('до 32 МБ');
   await expect(side.locator('.fp-file')).toContainText(`${NAME}.mp4`);
   // Видео записывает программа: в браузере кнопка не работает и сказано почему
   await expect(side.locator('[data-a="export"]')).toBeDisabled();

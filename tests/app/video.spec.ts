@@ -92,6 +92,9 @@ slides:
     await side.locator('[data-vs="720"]').click();
     await side.locator('[data-vr="30"]').click();
     await side.locator('[data-vt="0"]').click();
+    // Сколько займёт — оценка сверху
+    const est = /до ([\d,]+) МБ/.exec((await side.locator('.fp-vsize span').last().textContent()) ?? '');
+    expect(est).not.toBeNull();
     await side.locator('[data-a="export"]').click();
     // Пока пишется — полоса и «Отменить»; готово — файл и сообщение
     await expect(side.locator('.fp-vbar')).toBeVisible();
@@ -99,6 +102,8 @@ slides:
     await expect(side.locator('[data-a="export"]')).toBeEnabled();
     const file = path.join(saves, 'zz-video.mp4');
     expect(fs.existsSync(`${file}.part`)).toBe(false);
+    // Настоящий файл — не больше оценки
+    expect(fs.statSync(file).size).toBeLessThanOrEqual(Number(est![1].replace(',', '.')) * 1048576);
     const info = mp4Info(fs.readFileSync(file));
     // Первый слайд: проявление 1 с и ещё 1 с; второй — 1 с; затухание музыки — 0,5 с
     expect(info.duration).toBeGreaterThan(3.2);

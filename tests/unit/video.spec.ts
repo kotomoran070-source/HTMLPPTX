@@ -1,9 +1,9 @@
 // «Экспорт → Видео»: длина ролика по данным, звуковая дорожка по ходу трека в кадрах, уровень H.264 и поток
 import { expect, test } from '@playwright/test';
 import type { Deck } from '../../src/types';
-import { clockText, shownSlides, videoLength, videoTail } from '../../src/engine/video-plan';
+import { clockText, shownSlides, sizeText, videoBitrate, videoBytes, videoLength, videoTail } from '../../src/engine/video-plan';
 import { TrackMixer } from '../../src/studio/video-audio';
-import { avcCodec, videoBitrate } from '../../src/studio/video-encode';
+import { avcCodec } from '../../src/studio/video-encode';
 
 const slides = (n: number, extra: Record<string, unknown> = {}) => Array.from({ length: n }, () => ({ template: 'canvas', free: [], ...extra }));
 
@@ -32,6 +32,28 @@ test('длина ролика: по музыке — до конца трека 
   expect(shownSlides(timer)).toBe(2);
   expect(clockText(69_067)).toBe('1:09');
   expect(clockText(4_000)).toBe('0:04');
+});
+
+test('сколько займёт файл: поток видео и звука на длину ролика, оценка сверху — две значащие цифры вверх', () => {
+  // По 5 с на 3 слайда и секунда в конце, без музыки: 1080p60 — 18,7 Мбит/с × 16 с
+  const timer = { title: 't', slides: slides(3) } as unknown as Deck;
+  const hd = { width: 1920, height: 1080, fps: 60, each: 5 };
+  expect(videoBytes(timer, hd)).toBeCloseTo((videoBitrate(1920, 1080, 60) * 16 / 8) * 1.01, 0);
+  expect(sizeText(videoBytes(timer, hd)!)).toBe('36 МБ');
+  // С музыкой — ещё звук; музыку выключили — без него; 30 кадров — меньше
+  const music = { ...timer, music: { src: './a.m4a' } } as Deck;
+  expect(videoBytes(music, hd)! - videoBytes(timer, hd)!).toBeCloseTo((192_000 * 15.5 / 8) * 1.01 + (videoBitrate(1920, 1080, 60) * -0.5 / 8) * 1.01, 0);
+  expect(videoBytes(music, { ...hd, music: false })).toBeCloseTo((videoBitrate(1920, 1080, 60) * 15.5 / 8) * 1.01, 0);
+  expect(videoBytes(timer, { ...hd, fps: 30 })!).toBeLessThan(videoBytes(timer, hd)!);
+  // По музыке, а конец трека не записан — длины нет, размера тоже
+  expect(videoBytes({ ...music, autoplay: { music: true } } as Deck, { ...hd, each: 0 })).toBeNull();
+  // Подписи: вверх до двух значащих цифр; от 1000 МБ — в ГБ
+  const MB = 1048576;
+  expect(sizeText(153.7 * MB)).toBe('160 МБ');
+  expect(sizeText(36 * MB)).toBe('36 МБ');
+  expect(sizeText(8.31 * MB)).toBe('8,4 МБ');
+  expect(sizeText(1.27 * 1024 * MB)).toBe('1,3 ГБ');
+  expect(sizeText(1000)).toBe('0,1 МБ');
 });
 
 test('звуковая дорожка: трек со своей секунды, громкость между кадрами плавно, до начала и после конца — тишина', () => {

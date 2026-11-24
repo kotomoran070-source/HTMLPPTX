@@ -7,7 +7,7 @@
  */
 import type { Deck } from '../types';
 import { musicOf } from '../engine/music';
-import { clockText, shownSlides, videoByMusic, videoLength } from '../engine/video-plan';
+import { clockText, shownSlides, sizeText, videoBitrate, videoByMusic, videoBytes, videoLength } from '../engine/video-plan';
 
 export type VideoSize = 720 | 1080 | 1440 | 2160;
 export interface VideoOpts { size: VideoSize; fps: 30 | 60; each: 0 | 5; music: boolean }
@@ -84,6 +84,18 @@ export class VideoExport {
     const byMusic = videoByMusic(deck, this.opts.each);
     const how = this.opts.each ? `По ${this.opts.each} с на слайд` : byMusic ? 'По музыке и времени слайдов' : 'По времени слайдов';
     return `${how}: ${slides}${ms === null ? '' : `, ${byMusic ? '' : 'около '}${clockText(ms)}`}`;
+  }
+
+  /**
+   * Сколько займёт файл при выбранных настройках — «до 160 МБ» (оценка сверху) и откуда она; null — длина ролика
+   * неизвестна (листается по музыке, а конец трека не записан)
+   */
+  size(): { text: string; tip: string } | null {
+    const { size, fps, each, music } = this.opts;
+    const bytes = videoBytes(this.deck(), { width: WIDTH[size], height: size, fps, each, music });
+    if (bytes === null) return null;
+    const mbps = String(Math.round(videoBitrate(WIDTH[size], size, fps) / 1e5) / 10).replace('.', ',');
+    return { text: `до ${sizeText(bytes)}`, tip: `Оценка сверху: ${mbps} Мбит/с видео на всю длину ролика. Чем меньше движения на слайдах, тем меньше файл` };
   }
 
   /** Трек показа: имя файла и есть ли затухание */

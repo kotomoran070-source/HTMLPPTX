@@ -246,6 +246,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     const off = !!r;
     const size = VIDEO_SIZES.find(([h]) => h === o.size) ?? VIDEO_SIZES[1];
     const m = v.music();
+    const bytes = v.size();
     return `<h3>Видео</h3>
         <div class="fp-field"><span class="fp-k">Размер</span>${seg('vs', 'Размер видео', VIDEO_SIZES.map(([h, t]) => [String(h), t]), String(o.size), off)}<small>${esc(size[2])}</small></div>
         <div class="fp-field"><span class="fp-k">Кадров в секунду</span>${seg('vr', 'Кадров в секунду', [['30', '30'], ['60', '60']], String(o.fps), off)}<small>${o.fps === 60 ? '60 — плавнее движение, файл больше' : '30 — файл меньше, запись быстрее'}</small></div>
@@ -254,6 +255,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
         ${r ? `<div class="fp-field fp-vrun"><span class="fp-k">Запись</span><div class="fp-vbar"><i style="width:${videoPct(r)}%"></i></div><small class="fp-vtxt">${esc(videoText(r))}</small></div>` : ''}
         ${v.available ? '' : '<small class="fp-vnote">Видео записывает программа Slideria: в браузере этой кнопки нет</small>'}
         <div class="fp-file"><span>Файл</span><span title="${esc(file)}">${esc(file)}</span></div>
+        ${bytes ? `<div class="fp-vsize"><span>Займёт</span><span title="${esc(bytes.tip)}">${esc(bytes.text)}</span></div>` : ''}
         ${r ? '<button type="button" class="fp-btn" data-a="vcancel">Отменить</button>'
           : `<button type="button" class="fp-btn go" data-a="export"${v.available ? '' : ' disabled'}>${icon('save')}Сохранить MP4</button>`}`;
   }
@@ -845,7 +847,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
       return;
     }
     if (t.hasAttribute('data-same')) host.exporter.setSame(t.checked);
-    else if (t.hasAttribute('data-vmusic')) host.exporter.video?.set({ music: t.checked });
+    else if (t.hasAttribute('data-vmusic')) { host.exporter.video?.set({ music: t.checked }); void render(); }
     else if (t.hasAttribute('data-lite')) host.ui.setLite(t.checked);
     else if (t.hasAttribute('data-smooth')) host.ui.setSmooth(t.checked);
     else if (t.id === 'fp-name') {

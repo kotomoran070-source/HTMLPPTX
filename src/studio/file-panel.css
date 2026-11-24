@@ -147,8 +147,10 @@
 .fp-fmt[aria-checked="true"] .fp-radio { border: 5px solid var(--ac); }
 .fp-side { position: sticky; top: 0; display: grid; gap: 18px; padding: 18px; }
 .fp-side h3 { margin: 0; font: 500 16px/1.25 "SL Display", var(--font); letter-spacing: -.01em; }
-.fp-file { display: flex; justify-content: space-between; gap: 12px; color: var(--mu); font-size: 12.5px; }
-.fp-file span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx2); }
+/* «Файл» и «Займёт» (видео) — подпись слева, значение справа */
+.fp-file, .fp-vsize { display: flex; justify-content: space-between; gap: 12px; color: var(--mu); font-size: 12.5px; }
+.fp-vsize { margin-top: -10px; }
+.fp-file span:last-child, .fp-vsize span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx2); }
 /* «Экспорт → Видео»: полоса записи (во всю ширину карточки) и подпись, почему кнопки нет */
 .fp-vrun { justify-items: stretch; }
 .fp-vbar { height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--tx) 12%, transparent); overflow: hidden; }

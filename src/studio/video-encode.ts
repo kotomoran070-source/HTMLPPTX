@@ -4,6 +4,7 @@
  * программа сразу пишет на диск. Модуль подгружается, только когда видео записывают.
  */
 import { Muxer, StreamTarget } from 'mp4-muxer';
+import { AUDIO_BITRATE, videoBitrate } from '../engine/video-plan';
 import { TrackMixer } from './video-audio';
 import type { AppFrame, AppVideo, VideoSize } from './video-export';
 
@@ -17,9 +18,6 @@ export function avcCodec(height: VideoSize, fps: number): string {
   return `avc1.6400${level.toString(16).padStart(2, '0').toUpperCase()}`;
 }
 
-/** Поток видео: 0,15 бита на пиксель кадра — градиенты, зерно и мелкий текст без «ступенек»; не меньше 6 Мбит/с */
-export const videoBitrate = (w: number, h: number, fps: number): number => Math.round(Math.min(80e6, Math.max(6e6, w * h * fps * 0.15)));
-
 /** Трек показа — в 48 кГц, как дорожка ролика */
 export async function decodeTrack(url: string): Promise<{ channels: Float32Array[]; rate: number }> {
   const buf = await (await fetch(url)).arrayBuffer();
@@ -31,7 +29,7 @@ export async function decodeTrack(url: string): Promise<{ channels: Float32Array
 /** Кодек звука: AAC, если система его кодирует (Windows, macOS), иначе Opus */
 async function audioCodec(rate: number): Promise<{ muxer: 'aac' | 'opus'; config: AudioEncoderConfig } | null> {
   for (const [muxer, codec] of [['aac', 'mp4a.40.2'], ['opus', 'opus']] as const) {
-    const config: AudioEncoderConfig = { codec, sampleRate: rate, numberOfChannels: 2, bitrate: 192_000 };
+    const config: AudioEncoderConfig = { codec, sampleRate: rate, numberOfChannels: 2, bitrate: AUDIO_BITRATE };
     try {
       if ((await AudioEncoder.isConfigSupported(config)).supported) return { muxer, config };
     } catch { /* не поддерживается */ }
