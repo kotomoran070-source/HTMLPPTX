@@ -253,9 +253,8 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
         <div class="fp-field"><span class="fp-k">Время слайдов</span>${seg('vt', 'Время слайдов', [['0', 'Как в автопоказе'], ['5', 'По 5 с']], String(o.each), off)}<small>${esc(v.timing())}</small></div>
         ${m ? sw(o.music, `data-vmusic${off ? ' disabled' : ''}`, 'Музыка показа', esc(`${m.name}${m.fade ? ', с затуханием в конце' : ''}`)) : ''}
         ${r ? `<div class="fp-field fp-vrun"><span class="fp-k">Запись</span><div class="fp-vbar"><i style="width:${videoPct(r)}%"></i></div><small class="fp-vtxt">${esc(videoText(r))}</small></div>` : ''}
-        ${v.available ? '' : '<small class="fp-vnote">Видео записывает программа Slideria: в браузере этой кнопки нет</small>'}
         <div class="fp-file"><span>Файл</span><span title="${esc(file)}">${esc(file)}</span></div>
-        ${bytes ? `<div class="fp-vsize"><span>Займёт</span><span title="${esc(bytes.tip)}">${esc(bytes.text)}</span></div>` : ''}
+        ${bytes ? `<div class="fp-vsize"><span>Оценка</span><span title="${esc(bytes.tip)}">${esc(bytes.text)}</span></div>` : ''}
         ${r ? '<button type="button" class="fp-btn" data-a="vcancel">Отменить</button>'
           : `<button type="button" class="fp-btn go" data-a="export"${v.available ? '' : ' disabled'}>${icon('save')}Сохранить MP4</button>`}`;
   }

@@ -95,7 +95,7 @@ export class VideoExport {
     const bytes = videoBytes(this.deck(), { width: WIDTH[size], height: size, fps, each, music });
     if (bytes === null) return null;
     const mbps = String(Math.round(videoBitrate(WIDTH[size], size, fps) / 1e5) / 10).replace('.', ',');
-    return { text: `до ${sizeText(bytes)}`, tip: `Оценка сверху: ${mbps} Мбит/с видео на всю длину ролика. Чем меньше движения на слайдах, тем меньше файл` };
+    return { text: `до ${sizeText(bytes)}`, tip: `Поток видео ${mbps} Мбит/с. Слайды без движения сжимаются сильнее — файл обычно меньше` };
   }
 
   /** Трек показа: имя файла и есть ли затухание */

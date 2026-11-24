@@ -98,7 +98,7 @@ test('покадровая запись: время кадра — свои ча
   expect(errors).toEqual([]);
 });
 
-test('«Файл → Экспорт → Видео»: размер, кадры, время слайдов, музыка; в браузере — подсказка про программу', async ({ page }) => {
+test('«Файл → Экспорт → Видео»: размер, кадры, время слайдов, музыка, оценка размера; в браузере кнопка выключена', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto(`/?deck=${NAME}&studio`);
   await page.locator('#st-file').click();
@@ -114,9 +114,9 @@ test('«Файл → Экспорт → Видео»: размер, кадры, 
   await expect(side).toContainText('По времени слайдов: 3 слайда, около 0:04');
   // Сколько займёт: 2K, 30 кадров — 16,6 Мбит/с видео и звук на 3,5 с
   const size = side.locator('.fp-vsize');
-  await expect(size).toContainText('Займёт');
+  await expect(size).toContainText('Оценка');
   await expect(size).toContainText('до 7,1 МБ');
-  await expect(size.locator('span').last()).toHaveAttribute('title', /16,6 Мбит\/с/);
+  await expect(size.locator('span').last()).toHaveAttribute('title', /Поток видео 16,6 Мбит\/с/);
   await side.locator('[data-vt="5"]').click();
   await expect(side).toContainText('По 5 с на слайд: 3 слайда, около 0:16');
   await expect(size).toContainText('до 32 МБ');
@@ -127,9 +127,8 @@ test('«Файл → Экспорт → Видео»: размер, кадры, 
   await side.locator('[data-vmusic]').check();
   await expect(size).toContainText('до 32 МБ');
   await expect(side.locator('.fp-file')).toContainText(`${NAME}.mp4`);
-  // Видео записывает программа: в браузере кнопка не работает и сказано почему
+  // Видео записывает программа: в браузере кнопка выключена
   await expect(side.locator('[data-a="export"]')).toBeDisabled();
-  await expect(side.locator('.fp-vnote')).toContainText('программа Slideria');
   // Выбор запоминается
   await page.reload();
   await page.locator('#st-file').click();
