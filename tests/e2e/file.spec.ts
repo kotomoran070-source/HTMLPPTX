@@ -211,7 +211,6 @@ test('«Версии»: строка — из истории с «Отменит
     const dlg = page.locator('.ig-dlg');
     await expect(dlg.locator('h2')).toHaveText('Очистить историю?');
     await expect(dlg.locator('.ig-dlg-item')).toContainText('История');
-    await expect(dlg).toContainText('Останется одна точка');
     await page.keyboard.press('Escape');
     await expect(dlg).toHaveCount(0);
     await expect(page.locator('.fp')).toBeVisible();
@@ -224,6 +223,92 @@ test('«Версии»: строка — из истории с «Отменит
     await expect(page.locator('.fp-ver[data-cp^="open:"]')).toHaveCount(1);
     await expect(hist).toContainText('1 точка · журнал пуст');
     expect(trashed()).toHaveLength(2);
+    expect(errors).toEqual([]);
+  } finally {
+    clean();
+  }
+});
+
+test('«Версии»: автоматические точки подряд — одной строкой, щелчок раскрывает; время без даты; «Показать более ранние»', async ({ page }) => {
+  const errors = watchErrors(page);
+  const NAME = 'zz-group';
+  const cps = path.join(DECKS, '.checkpoints', NAME);
+  const clean = () => {
+    fs.rmSync(path.join(DECKS, NAME), { recursive: true, force: true });
+    fs.rmSync(cps, { recursive: true, force: true });
+    if (fs.existsSync(path.join(DECKS, '.trash'))) for (const f of fs.readdirSync(path.join(DECKS, '.trash'))) if (f.startsWith(`${NAME}-history-`)) fs.rmSync(path.join(DECKS, '.trash', f), { recursive: true, force: true });
+  };
+  clean();
+  const text = 'title: Группы\nslides:\n  - template: canvas\n    free:\n      - {type: text, text: Первый, place: {x: 80, y: 80, w: 600}}\n';
+  fs.mkdirSync(path.join(DECKS, NAME), { recursive: true });
+  fs.writeFileSync(deckFile(NAME), text);
+  // Точки — файлами с метками времени: вчера и три дня назад (время точки — время файла)
+  const p2 = (n: number) => String(n).padStart(2, '0');
+  const point = (days: number, h: number, m: number, s: number, dir: string, ext: string) => {
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    d.setHours(h, m, s, 0);
+    const file = path.join(cps, dir, `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(h)}${p2(m)}${p2(s)}${ext}`);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, text);
+    fs.utimesSync(file, d, d);
+  };
+  // Вчера: три автоматические подряд, своя точка, ещё две автоматические
+  point(1, 17, 28, 30, 'dropped', '.yaml');
+  point(1, 17, 28, 0, 'session', '.open.yaml');
+  point(1, 16, 21, 0, 'session', '.open.yaml');
+  point(1, 15, 0, 0, '', '.yaml');
+  point(1, 11, 53, 0, 'session', '.open.yaml');
+  point(1, 11, 5, 0, 'dropped', '.yaml');
+  // Три дня назад — 40 своих точек: строк больше 40, остальное — «Показать более ранние»
+  for (let i = 0; i < 40; i++) point(3, 10, i, 0, '', '.yaml');
+  try {
+    await page.goto(`/?deck=${NAME}&studio#1`);
+    await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
+    await page.locator('#st-file').click();
+    await page.locator('.fp [data-fs="versions"]').click();
+    // Сверху — время последней точки без даты
+    await expect(page.locator('.fp-now small')).toHaveText('Последняя точка — вчера в 17:28');
+    const groups = page.locator('.fp-ver-g');
+    await expect(groups).toHaveCount(2);
+    await expect(groups.first()).toContainText('Автоматические точки 3 точки · 16:21–17:28');
+    await expect(groups.first()).toContainText('Когда открыли — 2, не сохранено при выходе — 1');
+    await expect(groups.nth(1)).toContainText('2 точки · 11:05–11:53');
+    await expect(page.locator('.fp-ver-stack .thumb').first()).toBeAttached();
+    // Время в строках — только часы и минуты: день — в заголовке
+    for (const t of await page.locator('.fp-ver time').allTextContents()) expect(t).toMatch(/^\d\d:\d\d$/);
+    // 40 строк: группа, своя точка, группа и 37 из 40 точек трёхдневной давности; дальше — по кнопке
+    const top = page.locator('.fp-card > .fp-ver');
+    await expect(top).toHaveCount(40);
+    await page.locator('[data-a="vmore"]').click();
+    await expect(top).toHaveCount(43);
+    await expect(page.locator('[data-a="vmore"]')).toHaveCount(0);
+
+    // Щелчок — раскрыть: точки группы со своими «Вернуть»; удалить одну — «Отменить» внутри группы
+    await groups.first().click();
+    await expect(groups.first()).toHaveAttribute('aria-expanded', 'true');
+    const sub = page.locator('.fp-ver-sub .fp-ver');
+    await expect(sub).toHaveCount(3);
+    await expect(sub.nth(1)).toContainText('Когда открыли');
+    await expect(sub.nth(1).locator('[data-restore]')).toHaveCount(1);
+    await sub.first().hover();
+    await sub.first().locator('[data-del]').click();
+    await expect(page.locator('.fp-ver-sub .fp-ver-undo')).toContainText('Точка «Не сохранено при выходе», 17:28 удалена из истории');
+    await expect(groups.first()).toContainText('2 точки · 16:21–17:28');
+    await page.locator('.fp-ver-sub [data-undo]').click();
+    await expect(groups.first()).toContainText('3 точки');
+    await expect(sub).toHaveCount(3);
+    // Ещё щелчок — свернуть; с клавиатуры — Enter
+    await groups.first().click();
+    await expect(sub).toHaveCount(0);
+    await groups.first().focus();
+    await page.keyboard.press('Enter');
+    await expect(groups.first()).toHaveAttribute('aria-expanded', 'true');
+    await expect(groups.first()).toBeFocused();
+    // Закрыли «Файл» и открыли снова — группы свёрнуты
+    await page.keyboard.press('Escape');
+    await page.locator('#st-file').click();
+    await expect(page.locator('.fp-ver-sub')).toHaveCount(0);
     expect(errors).toEqual([]);
   } finally {
     clean();

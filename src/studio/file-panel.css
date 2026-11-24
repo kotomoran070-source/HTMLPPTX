@@ -193,6 +193,31 @@
 .fp-ver.fp-ver-undo { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 16px; color: var(--mu); }
 .fp-ver-undo b { color: var(--tx); font-weight: 500; }
 .fp-ver-undo .fp-link { font-size: 13px; }
+.fp-ver time { white-space: nowrap; }
+/* Автоматические точки подряд — одной строкой-кнопкой: щелчок раскрывает */
+.fp-ver.fp-ver-g { width: 100%; margin: 0; border: 0; border-bottom: 1px solid var(--bd); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.fp-ver.fp-ver-g:last-child { border-bottom: 0; }
+.fp-ver-g:focus-visible { outline: 2px solid var(--ac); outline-offset: -2px; }
+.fp-ver-chev { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; color: var(--mu); transition: color .15s; }
+.fp-ver-chev .ic { width: 16px; height: 16px; transition: transform .15s; }
+.fp-ver-g[aria-expanded="true"] .fp-ver-chev .ic { transform: rotate(180deg); }
+.fp-ver-g:hover .fp-ver-chev { color: var(--tx); }
+/* У группы под миниатюрой — «стопка»: строк внутри несколько */
+.fp-ver-th.fp-ver-stack { position: relative; overflow: visible; isolation: isolate; }
+.fp-ver-stack::before, .fp-ver-stack::after { content: ''; position: absolute; inset: 0; border-radius: 4px; box-shadow: 0 0 0 1px var(--bd); }
+.fp-ver-stack::before { transform: translate(8px, -6px) scale(.92); background: color-mix(in srgb, var(--tx) 10%, var(--surf)); z-index: -2; }
+.fp-ver-stack::after { transform: translate(4px, -3px) scale(.96); background: color-mix(in srgb, var(--tx) 18%, var(--surf)); z-index: -1; }
+.fp-ver-stack .thumb { position: relative; border-radius: 4px; overflow: hidden; }
+/* Раскрытая группа: её точки — с отступом, миниатюры меньше */
+.fp-ver-sub { padding: 4px 0 6px; border-bottom: 1px solid var(--bd); background: color-mix(in srgb, var(--tx) 2%, transparent); }
+.fp-ver-sub:last-child { border-bottom: 0; }
+.fp-ver-sub .fp-ver { grid-template-columns: 52px 64px minmax(0, 1fr) auto; position: relative; padding: 6px 16px 6px 82px; border-bottom: 0; }
+.fp-ver-sub .fp-ver::before { content: ''; position: absolute; left: 66px; top: 0; bottom: 0; width: 2px; border-radius: 1px; background: var(--bd); }
+.fp-ver-sub time { color: var(--tx2); font-size: 12.5px; }
+.fp-ver-sub .fp-ver-th { width: 64px; }
+.fp-ver-sub .fp-ver-th .thumb { transform: scale(.6667); transform-origin: 0 0; }
+.fp-ver-sub .fp-ver-t { font-size: 13px; }
+.fp-ver-more { display: flex; justify-content: center; }
 /* «История»: сколько занимает и «Очистить историю» */
 .fp-hist { display: flex; align-items: center; gap: 14px; padding: 16px 18px; }
 .fp-hist > div { flex: 1; min-width: 0; }

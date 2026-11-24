@@ -102,7 +102,9 @@ test('«Не сохранять» при уходе из студии: файл 
   await page.goto('/?deck=save&studio#1');
   await expect(page.locator('.st-slides-list > *')).toHaveCount(slides);
   await page.locator('#st-status').click();
-  const row = page.locator('.fp-ver').first();
+  // «Когда открыли» и «Не сохранено при выходе» подряд — одной строкой: раскрыть
+  await page.locator('.fp-ver-g').first().click();
+  const row = page.locator('.fp-ver-sub .fp-ver').first();
   await expect(row).toContainText('Не сохранено при выходе');
   await row.hover();
   await row.locator('[data-restore]').click();
