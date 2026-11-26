@@ -514,7 +514,7 @@ body.studio { scrollbar-color: var(--scroll) transparent; }
 
 /* Миниатюры */
 .st-slides { overflow-y: auto; margin-right: var(--isl-gap); padding: 12px 10px 16px 4px; border: 1px solid var(--isl-bd); border-radius: var(--isl-r); background: var(--isl2); box-shadow: var(--isl-sh); }
-.st-slides-list { display: flex; flex-direction: column; gap: 8px; }
+.st-slides-list { position: relative; display: flex; flex-direction: column; gap: 8px; user-select: none; }
 /* Заголовок ленты: «Слайды», их число и «+». Липкий: при прокрутке остаётся сверху, фон острова под ним
    закрывает уезжающие миниатюры; поля — до краёв острова (у .st-slides свои отступы) */
 .st-slides-head { position: sticky; top: -12px; z-index: 3; display: flex; align-items: center; gap: 6px; margin: -12px -10px 10px -4px; padding: 12px 10px 8px 16px; background: var(--isl2); }
@@ -546,16 +546,21 @@ body.studio { scrollbar-color: var(--scroll) transparent; }
  */
 .st-tbox > .thumb, .st-dz-shot > .thumb { content-visibility: auto; contain-intrinsic-size: auto 120px; }
 /* Сколько совпадений поиска на слайде */
-.st-thumb[data-hits]:not(.drop-after)::after { content: attr(data-hits); position: absolute; top: 9px; right: 9px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: #FDE68A; color: #713F12; font: 700 11px/18px var(--font); text-align: center; box-shadow: 0 1px 3px rgb(0 0 0 / .25); pointer-events: none; }
+.st-thumb[data-hits]::after { content: attr(data-hits); position: absolute; top: 9px; right: 9px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: #FDE68A; color: #713F12; font: 700 11px/18px var(--font); text-align: center; box-shadow: 0 1px 3px rgb(0 0 0 / .25); pointer-events: none; }
 .st-thumb:hover .st-tbox { box-shadow: 0 0 0 2px var(--acb), 0 2px 6px rgba(15, 23, 42, .06); }
 .st-thumb.cur .st-tbox { box-shadow: 0 0 0 2px var(--isl2), 0 0 0 4px var(--ac), 0 8px 20px -6px color-mix(in srgb, var(--ac) 45%, transparent); }
 .st-thumb.cur .st-num { color: var(--ach); font-weight: 700; }
 /* Меню открыто правым щелчком у этого слайда (не текущего): к нему его команды */
 .st-thumb.ctx:not(.cur) .st-tbox { outline: 2px dashed color-mix(in srgb, var(--ac) 55%, transparent); outline-offset: 2px; }
 .st-thumb.dragging { opacity: .45; }
-.st-thumb.drop-before::before, .st-thumb.drop-after::after { content: ""; position: absolute; left: 32px; right: 4px; height: 3px; border-radius: 2px; background: var(--ac); }
-.st-thumb.drop-before::before { top: -3px; }
-.st-thumb.drop-after::after { bottom: -3px; }
+.st-drop-line { position: absolute; z-index: 2; left: 32px; right: 4px; height: 3px; margin-top: -1.5px; border-radius: 2px; background: var(--ac); pointer-events: none; }
+.st-drop-line::before, .st-drop-line::after { content: ""; position: absolute; top: -3px; width: 9px; height: 9px; box-sizing: border-box; border: 2px solid var(--ac); border-radius: 50%; background: var(--isl2); }
+.st-drop-line::before { left: -6px; }
+.st-drop-line::after { right: -6px; }
+.st-drag-ghost { position: fixed; left: 0; top: 0; z-index: 10000; pointer-events: none; opacity: .92; box-shadow: 0 0 0 2px var(--ac), 0 16px 36px -10px rgb(15 23 42 / .5); will-change: transform; transition: opacity .12s; }
+.st-drag-ghost.out { opacity: .45; }
+html.st-slide-drag, html.st-slide-drag * { cursor: grabbing !important; }
+html.st-slide-drag-out, html.st-slide-drag-out * { cursor: no-drop !important; }
 .st-slides-add { display: flex; align-items: center; justify-content: center; gap: 6px; width: calc(100% - 32px); margin: 14px 0 0 32px; padding: 8px; border: 1px dashed var(--bd2); border-radius: 9px; background: none; color: var(--mu); font: 600 12.5px var(--font); cursor: pointer; }
 .st-slides-add:hover { border-color: var(--ac); color: var(--ach); background: var(--acs); }
 

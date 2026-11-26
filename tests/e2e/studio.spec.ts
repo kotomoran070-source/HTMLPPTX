@@ -2594,3 +2594,76 @@ test('«Вставка → Из текста»: вопросы текстом �
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('лента слайдов: перетаскивание — линия в зазоре, колёсико и край ленты прокручивают её на ходу, Esc отменяет', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'slidedrag');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'deck.yaml');
+  const N = 16;
+  fs.writeFileSync(file, `title: Порядок\nslides:\n${Array.from({ length: N }, (_, i) => `  - template: canvas\n    label: S${i + 1}\n`).join('')}`);
+  const order = () => (parse(fs.readFileSync(file, 'utf8')) as { slides: { label: string }[] }).slides.map((s) => s.label);
+  const thumb = (i: number) => page.locator('.st-thumb').nth(i);
+  const box = async (i: number) => (await thumb(i).boundingBox())!;
+  const panel = page.locator('#st-slides');
+  const scrollTop = () => panel.evaluate((el) => el.scrollTop);
+  const ghost = page.locator('.st-drag-ghost');
+  const line = page.locator('.st-drop-line');
+  try {
+    await page.goto('/?deck=slidedrag&studio#1');
+    await expect(page.locator('.st-thumb')).toHaveCount(N);
+    const p = (await panel.boundingBox())!;
+
+    // S1 — в зазор между S2 и S3: за курсором копия слайда, линия видна; отпустили — слайд там и остался текущим
+    let b = await box(0);
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    b = await box(1);
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height - 6, { steps: 8 });
+    await expect(ghost).toBeVisible();
+    await expect(line).toBeVisible();
+    await page.mouse.up();
+    await expect(ghost).toHaveCount(0);
+    await expect(line).toBeHidden();
+    await expect.poll(order).toEqual(['S2', 'S1', ...Array.from({ length: N - 2 }, (_, i) => `S${i + 3}`)]);
+    await expect(page.locator('.st-thumb.cur')).toHaveAttribute('data-i', '1');
+
+    // Колёсико во время перетаскивания прокручивает ленту — S2 уносится в самый конец
+    b = await box(0);
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(p.x + p.width / 2, p.y + p.height / 2, { steps: 8 });
+    await expect(ghost).toBeVisible();
+    expect(await scrollTop()).toBe(0);
+    await page.mouse.wheel(0, 300);
+    await expect.poll(scrollTop).toBeGreaterThan(0);
+    await page.mouse.wheel(0, 5000);
+    await expect.poll(() => panel.evaluate((el) => el.scrollTop + el.clientHeight >= el.scrollHeight - 1)).toBe(true);
+    b = await box(N - 1);
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height - 6, { steps: 4 });
+    await page.mouse.up();
+    await expect.poll(() => order().at(-1)).toBe('S2');
+    await expect(thumb(N - 1)).toHaveAttribute('aria-label', `Слайд ${N}: S2`);
+
+    // У нижнего края лента едет сама; Esc — слайд остаётся на месте
+    await panel.evaluate((el) => { el.scrollTop = 0; });
+    b = await box(0);
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(p.x + p.width / 2, p.y + p.height - 4, { steps: 8 });
+    await expect.poll(scrollTop).toBeGreaterThan(150);
+    await page.keyboard.press('Escape');
+    await expect(ghost).toHaveCount(0);
+    await expect(line).toBeHidden();
+    await page.mouse.up();
+    await expect(thumb(0)).toHaveAttribute('aria-label', 'Слайд 1: S1');
+    await expect(thumb(N - 1)).toHaveAttribute('aria-label', `Слайд ${N}: S2`);
+
+    // Обычный щелчок по миниатюре — по-прежнему переход на слайд
+    await thumb(4).click();
+    await expect(page.locator('.st-thumb.cur')).toHaveAttribute('data-i', '4');
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

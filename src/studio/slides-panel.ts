@@ -16,6 +16,20 @@ export interface SlidesHost {
   menu(i: number, at: { x: number; y: number }, onClose?: () => void): void;
 }
 
+interface Drag {
+  from: number;
+  id: number;
+  x: number;
+  y: number;
+  cx: number;
+  cy: number;
+  on: boolean;
+  dx: number;
+  dy: number;
+  ghost: HTMLElement | null;
+  raf: number;
+}
+
 /** Всё, что влияет на вид любого слайда, кроме самих слайдов: тема, логотип, стили, символы. */
 function deckSignature(deck: Deck): string {
   const { slides: _s, ...rest } = deck;
@@ -30,19 +44,24 @@ function deckSignature(deck: Deck): string {
 export class SlidesPanel {
   private list: HTMLElement;
   private count: HTMLElement;
+  private head: HTMLElement;
+  private line: HTMLElement;
   private items: HTMLElement[] = [];
   private sigs: string[] = [];
   private deckSig = '';
-  private dragFrom = -1;
+  private drag: Drag | null = null;
+  private noClick = false;
 
-  constructor(root: HTMLElement, private host: SlidesHost) {
+  constructor(private root: HTMLElement, private host: SlidesHost) {
     // Заголовок с числом слайдов и «+» — над лентой и при прокрутке остаётся на месте (studio.css, .st-slides-head)
     root.innerHTML = `<div class="st-slides-head"><b>Слайды</b><span class="st-slides-n"></span>`
       + `<button type="button" class="st-slides-plus" title="Новый слайд (Ctrl+M)" aria-label="Новый слайд">${icon('plus')}</button></div>
-<div class="st-slides-list" role="listbox" aria-label="Слайды" aria-orientation="vertical"></div>
+<div class="st-slides-list" role="listbox" aria-label="Слайды" aria-orientation="vertical"><div class="st-drop-line" aria-hidden="true" hidden></div></div>
 <button type="button" class="st-slides-add" title="Новый слайд (Ctrl+M)">${icon('plus')}<span>Новый слайд</span></button>`;
     this.list = root.querySelector('.st-slides-list')!;
     this.count = root.querySelector('.st-slides-n')!;
+    this.head = root.querySelector('.st-slides-head')!;
+    this.line = root.querySelector('.st-drop-line')!;
     for (const b of root.querySelectorAll<HTMLElement>('.st-slides-add, .st-slides-plus')) b.onclick = () => host.add(host.index(), b);
     this.bind();
   }
@@ -67,7 +86,6 @@ export class SlidesPanel {
         item.className = 'st-thumb';
         item.setAttribute('role', 'option');
         item.dataset.i = String(i);
-        item.draggable = true;
         item.innerHTML = `<span class="st-num">${i + 1}<span class="st-tmarks"></span></span><div class="st-tbox"></div>`;
         this.list.appendChild(item);
         this.items[i] = item;
@@ -150,6 +168,7 @@ export class SlidesPanel {
   private bind(): void {
     const h = this.host;
     this.list.addEventListener('click', (e) => {
+      if (this.noClick) return;
       const i = this.at(e);
       if (i >= 0) h.go(i);
     });
@@ -190,39 +209,144 @@ export class SlidesPanel {
     });
 
     // Перетаскивание: линия-указатель до или после слайда
-    const clearMarks = () => this.items.forEach((c) => c.classList.remove('dragging', 'drop-before', 'drop-after'));
-    this.list.addEventListener('dragstart', (e) => {
+    this.list.addEventListener('dragstart', (e) => e.preventDefault());
+    this.list.addEventListener('pointerdown', (e) => {
       const i = this.at(e);
-      if (i < 0) return;
-      this.dragFrom = i;
-      this.items[i].classList.add('dragging');
-      e.dataTransfer?.setData('text/plain', String(i));
-      if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+      if (i < 0 || e.button !== 0 || e.pointerType === 'touch' || this.drag) return;
+      this.drag = { from: i, id: e.pointerId, x: e.clientX, y: e.clientY, cx: e.clientX, cy: e.clientY, on: false, dx: 0, dy: 0, ghost: null, raf: 0 };
+      window.addEventListener('pointermove', this.onMove);
+      window.addEventListener('pointerup', this.onUp);
+      window.addEventListener('pointercancel', this.onCancel);
+      window.addEventListener('blur', this.onCancel);
+      window.addEventListener('keydown', this.onKey, true);
     });
-    this.list.addEventListener('dragend', () => {
-      this.dragFrom = -1;
-      clearMarks();
-    });
-    this.list.addEventListener('dragover', (e) => {
-      const i = this.at(e);
-      if (this.dragFrom < 0 || i < 0) return;
-      e.preventDefault();
-      const r = this.items[i].getBoundingClientRect();
-      const after = e.clientY > r.top + r.height / 2;
-      this.items.forEach((c) => c.classList.remove('drop-before', 'drop-after'));
-      this.items[i].classList.add(after ? 'drop-after' : 'drop-before');
-    });
-    this.list.addEventListener('drop', (e) => {
-      const i = this.at(e);
-      if (this.dragFrom < 0 || i < 0) return;
-      e.preventDefault();
-      const r = this.items[i].getBoundingClientRect();
-      let to = i + (e.clientY > r.top + r.height / 2 ? 1 : 0);
-      if (this.dragFrom < to) to -= 1;
-      const from = this.dragFrom;
-      this.dragFrom = -1;
-      clearMarks();
-      h.move(from, to);
-    });
+    this.root.addEventListener('scroll', () => this.queue());
+  }
+
+  private onMove = (e: PointerEvent): void => {
+    const d = this.drag;
+    if (!d || e.pointerId !== d.id) return;
+    if (!(e.buttons & 1)) {
+      this.endDrag(false);
+      return;
+    }
+    d.cx = e.clientX;
+    d.cy = e.clientY;
+    if (!d.on) {
+      if (Math.hypot(d.cx - d.x, d.cy - d.y) < 5) return;
+      this.lift(d);
+    }
+    this.queue();
+  };
+
+  private onUp = (e: PointerEvent): void => {
+    const d = this.drag;
+    if (!d || e.pointerId !== d.id) return;
+    d.cx = e.clientX;
+    d.cy = e.clientY;
+    this.endDrag(true);
+  };
+
+  private onCancel = (): void => this.endDrag(false);
+
+  private onKey = (e: KeyboardEvent): void => {
+    if (e.key !== 'Escape' || !this.drag?.on) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    this.endDrag(false);
+  };
+
+  private lift(d: Drag): void {
+    d.on = true;
+    const item = this.items[d.from];
+    const box = item.querySelector<HTMLElement>('.st-tbox')!;
+    const r = box.getBoundingClientRect();
+    const g = box.cloneNode(true) as HTMLElement;
+    g.className = 'st-tbox st-drag-ghost';
+    g.setAttribute('aria-hidden', 'true');
+    g.style.width = `${r.width}px`;
+    d.dx = d.x - r.left;
+    d.dy = d.y - r.top;
+    g.style.transformOrigin = `${d.dx}px ${d.dy}px`;
+    document.body.appendChild(g);
+    d.ghost = g;
+    item.classList.add('dragging');
+    document.documentElement.classList.add('st-slide-drag');
+    this.list.setPointerCapture(d.id);
+  }
+
+  private queue(): void {
+    const d = this.drag;
+    if (d?.on && !d.raf) d.raf = requestAnimationFrame(() => { d.raf = 0; this.frame(d); });
+  }
+
+  private frame(d: Drag): void {
+    if (this.drag !== d) return;
+    d.ghost!.style.transform = `translate(${d.cx - d.dx}px, ${d.cy - d.dy}px) scale(.7)`;
+    let a = this.aim(d);
+    if (a.v) {
+      const was = this.root.scrollTop;
+      this.root.scrollTop += a.v;
+      if (this.root.scrollTop !== was) {
+        a = this.aim(d);
+        this.queue();
+      }
+    }
+    d.ghost!.classList.toggle('out', a.out);
+    document.documentElement.classList.toggle('st-slide-drag-out', a.out);
+    this.line.hidden = a.gap < 0;
+    if (a.gap >= 0) this.line.style.top = `${this.gapY(a.gap)}px`;
+  }
+
+  private aim(d: Drag): { gap: number; v: number; out: boolean } {
+    const r = this.root.getBoundingClientRect();
+    if (d.cx < r.left - 24 || d.cx > r.right + 24) return { gap: -1, v: 0, out: true };
+    const top = this.head.getBoundingClientRect().bottom;
+    const zone = Math.min(48, (r.bottom - top) / 4);
+    const k = d.cy < top + zone ? d.cy - top - zone : d.cy > r.bottom - zone ? d.cy - r.bottom + zone : 0;
+    const v = Math.sign(k) * Math.ceil(Math.min(1, Math.abs(k) / zone) ** 2 * 22);
+    const y = Math.min(Math.max(d.cy, top), r.bottom);
+    let lo = 0;
+    let hi = this.items.length;
+    while (lo < hi) {
+      const m = (lo + hi) >> 1;
+      const b = this.items[m].getBoundingClientRect();
+      if (y < b.top + b.height / 2) hi = m;
+      else lo = m + 1;
+    }
+    return { gap: lo === d.from || lo === d.from + 1 ? -1 : lo, v, out: false };
+  }
+
+  private gapY(g: number): number {
+    const it = this.items;
+    const end = (el: HTMLElement) => el.offsetTop + el.offsetHeight;
+    const half = it.length > 1 ? (it[1].offsetTop - end(it[0])) / 2 : 4;
+    if (g === 0) return it[0].offsetTop - half;
+    if (g === it.length) return end(it[g - 1]) + half;
+    return (end(it[g - 1]) + it[g].offsetTop) / 2;
+  }
+
+  private endDrag(drop: boolean): void {
+    const d = this.drag;
+    if (!d) return;
+    this.drag = null;
+    window.removeEventListener('pointermove', this.onMove);
+    window.removeEventListener('pointerup', this.onUp);
+    window.removeEventListener('pointercancel', this.onCancel);
+    window.removeEventListener('blur', this.onCancel);
+    window.removeEventListener('keydown', this.onKey, true);
+    if (!d.on) return;
+    cancelAnimationFrame(d.raf);
+    const to = drop ? this.aim(d).gap : -1;
+    d.ghost?.remove();
+    this.line.hidden = true;
+    this.items[d.from]?.classList.remove('dragging');
+    document.documentElement.classList.remove('st-slide-drag', 'st-slide-drag-out');
+    if (this.list.hasPointerCapture(d.id)) this.list.releasePointerCapture(d.id);
+    this.noClick = true;
+    setTimeout(() => { this.noClick = false; });
+    if (to < 0) return;
+    this.host.move(d.from, to > d.from ? to - 1 : to);
+    requestAnimationFrame(() => this.focus());
   }
 }
