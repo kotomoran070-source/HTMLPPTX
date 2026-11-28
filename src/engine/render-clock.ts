@@ -80,6 +80,9 @@ export function renderReady(s: RenderShow): void {
   api.ready = true;
 }
 
+/** Перемотка видео в кадре записи — на столько секунд позже его времени (меньше кадра даже при 240 к/с) */
+const SEEK_AHEAD = 0.002;
+
 type Timer = { id: number; due: number; fn: (...a: unknown[]) => void; args: unknown[]; every: number; level: number };
 
 const api = {
@@ -95,6 +98,7 @@ function install(): void {
     now: performance.now.bind(performance),
     dateNow: Date.now,
     setTimeout: window.setTimeout.bind(window),
+    clearTimeout: window.clearTimeout.bind(window),
     raf: window.requestAnimationFrame.bind(window),
   };
   const perf0 = native.now();
@@ -354,7 +358,10 @@ function install(): void {
         fire(el, 'timeupdate');
       }
       if (el instanceof HTMLVideoElement && el.readyState >= 1 && shown(el)) {
-        const want = posOf(el, s);
+        // Чуть позже нужной секунды: кадр записи часто приходится ровно на начало кадра ролика, а метка кадра в файле
+        // округлена вверх — браузер показал бы предыдущий кадр, и ролик шёл бы рывками (повтор, потом пропуск)
+        const d = el.duration;
+        const want = Math.min(posOf(el, s) + SEEK_AHEAD, Number.isFinite(d) && d > 0 ? d : Infinity);
         if (Math.abs(Number(cur.get!.call(el)) - want) > 0.004) {
           cur.set!.call(el, want);
           wait.push(seeked(el));
@@ -371,6 +378,43 @@ function install(): void {
       native.raf(() => native.raf(() => native.setTimeout(r, 30)));
     }, { once: true });
   }), 3000);
+
+  /**
+   * Вставки в рамках (песочница, живые HTML-слайды): у документа рамки свои часы — время кадра ему приходит
+   * сообщением (engine/frame-bridge.ts), кадр снимается, когда рамка ответила, что нарисовала его.
+   * Время шлётся только рамкам, приславшим slideriaBridge (приёмник загрузился): чужие документы и рамки, которые
+   * ещё грузятся, кадр не задерживают. Не ответила — ждём, пока приёмник объявится снова (рамку перезагрузили)
+   */
+  let clockSeq = 0;
+  const bridged = new WeakSet<object>();
+  addEventListener('message', (e) => {
+    const d = e.data as { slideriaBridge?: unknown } | null;
+    if (e.source && d?.slideriaBridge === 1) bridged.add(e.source);
+  });
+  function stepFrames(): Promise<unknown>[] {
+    const wait: Promise<unknown>[] = [];
+    for (const f of document.querySelectorAll('iframe')) {
+      const win = f.contentWindow;
+      if (!win || !bridged.has(win) || !shown(f)) continue;
+      const n = ++clockSeq;
+      wait.push(new Promise<void>((r) => {
+        let late = 0;
+        const done = (ok: boolean) => {
+          native.clearTimeout(late);
+          removeEventListener('message', on);
+          if (!ok) bridged.delete(win);
+          r();
+        };
+        const on = (e: MessageEvent) => {
+          if (e.source === win && (e.data as { slideriaClockDone?: unknown } | null)?.slideriaClockDone === n) done(true);
+        };
+        addEventListener('message', on);
+        late = native.setTimeout(() => done(false), 1000);
+        win.postMessage({ slideriaClock: vnow, n }, '*');
+      }));
+    }
+    return wait;
+  }
 
   /** Элемент на странице нарисован: не display:none (закрытые слайды — display:none, base.css) */
   const shown = (el: Element) => el.getClientRects().length > 0;
@@ -428,7 +472,7 @@ function install(): void {
       adopt();
       stepAnimations();
       stepSvg();
-      const seeks = stepMedia();
+      const seeks = [...stepMedia(), ...stepFrames()];
       // timeupdate и конец роликов — событиями в это же мгновение
       await runTimers(T);
       await ready(seeks);

@@ -100,6 +100,67 @@ test('покадровая запись: время кадра — свои ча
   expect(errors).toEqual([]);
 });
 
+test('покадровая запись: ролик — кадр в кадр без повторов, песочница — по часам записи', async ({ page }) => {
+  // Ролик 30 к/с (кадр — 1/30 с) и песочница, которая пишет своё время в data-t на каждом своём кадре. Они — на втором
+  // слайде: он открывается ровно через секунду записи, и ролик начинается точно в кадр записи, как в настоящем показе
+  const name = 'zz-video-frames';
+  const dir = path.join(DECKS, name);
+  fs.mkdirSync(path.join(dir, 'assets'), { recursive: true });
+  fs.copyFileSync('tests/fixtures/frames30.mp4', path.join(dir, 'assets', 'frames30.mp4'));
+  fs.writeFileSync(deckFile(name), `title: Кадры
+autoplay: {after: 1}
+progress: false
+slides:
+  - template: canvas
+    free: []
+  - template: canvas
+    after: 5
+    free:
+      - {type: video, src: ./assets/frames30.mp4, autoplay: true, muted: true, loop: false, controls: false, place: {x: 0, y: 0, w: 640, h: 360}}
+      - type: sandbox
+        place: {x: 640, y: 0, w: 640, h: 360}
+        code: |
+          <body><script>
+          var t0 = performance.now();
+          function f() { document.body.dataset.t = String(Math.round(performance.now() - t0)); requestAnimationFrame(f); }
+          requestAnimationFrame(f);
+          </script></body>
+`);
+  try {
+    const errors = watchErrors(page);
+    type W = { slideriaRender: { ready: boolean; start(): Promise<unknown>; frame(k: number, fps: number): Promise<unknown> }; __mt: number | null };
+    await page.goto(`/?deck=${name}&render=video`);
+    await page.waitForFunction(() => (window as unknown as Partial<W>).slideriaRender?.ready);
+    await page.evaluate(() => (window as unknown as W).slideriaRender.start());
+    const frame = (k: number) => page.evaluate((k) => (window as unknown as W).slideriaRender.frame(k, 30), k);
+    // Кадр ролика, который виден в кадре записи k: при перемотке ровно на начало кадра браузер показывал предыдущий —
+    // ролик шёл «повтор, пропуск»
+    // До второго слайда (после секунды и перехода), ещё пара кадров — ролик пошёл
+    let k0 = 1;
+    while (((await frame(k0)) as { slide: number }).slide < 2 && k0 < 120) k0++;
+    for (let k = k0 + 1; k <= k0 + 2; k++) await frame(k);
+    const shown: number[] = [];
+    for (let k = k0 + 3; k <= k0 + 14; k++) {
+      await page.evaluate(() => {
+        const w = window as unknown as W;
+        w.__mt = null;
+        document.querySelector<HTMLVideoElement>('.slide.on video')?.requestVideoFrameCallback((_, m) => { w.__mt = m.mediaTime; });
+      });
+      await frame(k);
+      shown.push(Math.round(Number(await page.evaluate(() => (window as unknown as W).__mt)) * 30));
+    }
+    expect(shown.slice(1).map((n, i) => n - shown[i])).toEqual(Array(11).fill(1));
+    // Песочница: за 30 кадров у неё прошла ровно секунда, сколько бы ни считались кадры
+    const t = async () => Number(await page.frameLocator('.slide.on iframe').first().locator('body').getAttribute('data-t'));
+    const a = await t();
+    for (let k = k0 + 15; k <= k0 + 44; k++) await frame(k);
+    expect((await t()) - a).toBeCloseTo(1000, -1);
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('«Файл → Экспорт → Видео»: размер, кадры, время слайдов, музыка, оценка размера; в браузере кнопка выключена', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto(`/?deck=${NAME}&studio`);
