@@ -7,6 +7,7 @@
 import { icon } from '../components/icons';
 import { replaceContents } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
+import { uploadAsset } from '../engine/editor/persist';
 import { applyOps } from '../engine/ops';
 import { permissionsOf, type PluginManifest } from '../engine/plugin-manifest';
 import type { Deck } from '../types';
@@ -75,6 +76,8 @@ export function startPlugins(h: PluginsHost) {
     apply,
     file: (id, rel) => api(`plugin-file?id=${encodeURIComponent(id)}&file=${encodeURIComponent(rel)}`),
     data: (id, set) => api(`plugin-data?id=${encodeURIComponent(id)}`, set),
+    assets: () => api(`plugin-assets?deck=${encodeURIComponent(h.deckKey)}`),
+    addFile: (name, blob) => uploadAsset(h.deckKey, blob, name),
     toast: (t, err) => ed.toast(t, err ? 5000 : 3000, err),
     changed: () => paint(),
   }) : null;

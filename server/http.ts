@@ -443,6 +443,7 @@ async function route(core: DecksCore, o: HttpOptions, chat: AgentChat, clients: 
     }
     case 'delete': return send(res, 200, await core.trash(name));
     case 'assets-list': return send(res, 200, core.assets(name));
+    case 'plugin-assets': return send(res, 200, core.pluginAssets(name));
     case 'assets-trash': return send(res, 200, core.trashAssets(name, (await json(req)) ?? []));
     // Точка: своя (Ctrl+S); kind=auto — до и после скрипта, open — когда студию открыли, close — «Сохранить» при выходе
     case 'checkpoint': {

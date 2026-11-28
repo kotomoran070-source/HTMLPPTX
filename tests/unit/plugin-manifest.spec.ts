@@ -48,6 +48,11 @@ test('разрешения: правка, панель, каждый адрес 
   // Обновление попросило ещё адрес — его нет среди разрешённых
   const next = ok({ ...base, edit: true, network: ['api.unsplash.com', 'api.pexels.com', 'api.iconify.design'] });
   expect(missing(next, ['edit', 'panel', 'net:api.unsplash.com', 'net:api.pexels.com'])).toEqual(['net:api.iconify.design']);
+  // Файлы презентации — только по явной просьбе
+  expect(m.files).toBe(false);
+  const media = ok({ ...base, edit: true, files: true });
+  expect(permissionsOf(media)).toEqual(['edit', 'files', 'panel']);
+  expect(missing(media, ['edit', 'panel'])).toEqual(['files']);
   expect(PLUGIN_PATH.test('img/logo.png')).toBe(true);
   expect(PLUGIN_PATH.test('img/../logo.png')).toBe(false);
 });

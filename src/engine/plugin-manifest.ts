@@ -19,12 +19,14 @@ export interface PluginManifest {
   button: { label: string; title: string };
   /** Править презентацию операциями (docs/OPS.md) */
   edit: boolean;
+  /** Читать файлы презентации и добавлять новые (assets/) */
+  files: boolean;
   /** Адреса, к которым можно ходить по сети (точные имена, только https) */
   network: string[];
 }
 
-/** Разрешение: правка, своя панель, сеть к одному адресу */
-export type Permission = 'edit' | 'panel' | `net:${string}`;
+/** Разрешение: правка, файлы презентации, своя панель, сеть к одному адресу */
+export type Permission = 'edit' | 'files' | 'panel' | `net:${string}`;
 
 /** Папка плагина: буквы, цифры, пробел, точка, дефис, подчёркивание — как имя файла скрипта */
 export const PLUGIN_DIR = /^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,80}$/u;
@@ -71,6 +73,7 @@ export function readManifest(raw: unknown): { manifest: PluginManifest } | { err
       panel,
       button: { label: str(b.label, 30) || name, title: str(b.title, 120) || str(o.description, 120) || name },
       edit: o.edit === true,
+      files: o.files === true,
       network,
     },
   };
@@ -78,7 +81,7 @@ export function readManifest(raw: unknown): { manifest: PluginManifest } | { err
 
 /** Что плагин просит: всё это показывается до включения */
 export function permissionsOf(m: PluginManifest): Permission[] {
-  return [...(m.edit ? ['edit' as const] : []), ...(m.panel ? ['panel' as const] : []), ...m.network.map((h) => `net:${h}` as const)];
+  return [...(m.edit ? ['edit' as const] : []), ...(m.files ? ['files' as const] : []), ...(m.panel ? ['panel' as const] : []), ...m.network.map((h) => `net:${h}` as const)];
 }
 
 /** Чего из нужного плагину ещё не разрешили (новый адрес в обновлении — снова вопрос) */

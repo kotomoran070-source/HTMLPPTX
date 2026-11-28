@@ -880,6 +880,14 @@ export function createDecksCore(opts: CoreOptions) {
     return out;
   }
 
+  /**
+   * Файлы презентации для плагина — пути, как в deck.yaml (./assets/…), и начало адреса папки: в студии данные
+   * держат адреса (read с urls), а плагину отдаются и от него принимаются пути
+   */
+  function pluginAssets(name: string): { base: string; files: { path: string; size: number }[] } {
+    return { base: urlOf(path.join(dir, assertDeck(name))) + '/', files: assets(name).map((f) => ({ path: './' + f.path, size: f.size })) };
+  }
+
   /** Неиспользуемые файлы — в корзину проекта (.trash/<презентация>-files-<время>), не насовсем */
   function trashAssets(name: string, list: unknown): { moved: number } {
     if (!Array.isArray(list)) throw new Error('Нужен список файлов');
@@ -1196,6 +1204,7 @@ export function createDecksCore(opts: CoreOptions) {
     clearHistory,
     restoreHistory,
     assets,
+    pluginAssets,
     trashAssets,
     addAsset,
     writeAssetText,

@@ -148,6 +148,7 @@ const tryIt = async (k, f) => { try { await f(); out[k] = 'открыто'; } ca
   await tryIt('page', () => parent.document.title);
   await tryIt('storage', () => localStorage.getItem('x'));
   await tryIt('edit', () => slideria.apply({ op: 'slide.set', slide: 1, set: { title: 'x' } }));
+  await tryIt('files', () => slideria.files.list());
   document.body.dataset.out = JSON.stringify(out);
 })();
 document.getElementById('go').onclick = () => { location.href = 'about:blank'; };`,
@@ -158,7 +159,7 @@ document.getElementById('go').onclick = () => { location.href = 'about:blank'; }
   await page.locator('[data-tab="tools"]').click();
   await page.locator(`#st-plugs [data-plugin="${ID}"]`).click();
   const frame = page.frameLocator('#st-ppane .st-pp-frame');
-  await expect(frame.locator('body')).toHaveAttribute('data-out', JSON.stringify({ api: 'закрыто', net: 'закрыто', page: 'закрыто', storage: 'закрыто', edit: 'закрыто' }));
+  await expect(frame.locator('body')).toHaveAttribute('data-out', JSON.stringify({ api: 'закрыто', net: 'закрыто', page: 'закрыто', storage: 'закрыто', edit: 'закрыто', files: 'закрыто' }));
   expect(readDeck(DECK)).not.toContain("title: x");
   // Сервер сам отказывает странице без адреса (рамке)
   expect((await post('plugins', undefined, { Origin: 'null' })).status).toBe(403);
@@ -166,6 +167,60 @@ document.getElementById('go').onclick = () => { location.href = 'about:blank'; }
   await frame.locator('#go').click();
   await expect(page.locator('#st-ppane')).toBeHidden();
   await expect(page.locator('#ed-toast')).toContainText('ушла со своей страницы');
+});
+
+test('файлы презентации: список, чтение, новый файл — сразу на слайде; пути — как в deck.yaml; код и чужие папки — нет; медиа — в самой панели', async ({ page }) => {
+  test.setTimeout(60_000);
+  const errors = watchErrors(page);
+  // Картинка 1×1 — уже лежит в презентации
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==', 'base64');
+  fs.mkdirSync(path.join(DECKS, DECK, 'assets'), { recursive: true });
+  fs.writeFileSync(path.join(DECKS, DECK, 'assets', 'old.png'), png);
+  writePlugin({ edit: true, files: true }, {
+    'panel.html': '<script src="panel.js"></script>',
+    'panel.js': `(async () => {
+  const out = {};
+  out.list = (await slideria.files.list()).map((f) => f.path + ':' + f.size);
+  const old = await slideria.files.read('./assets/old.png');
+  out.read = [old instanceof Blob, old.size, old.type];
+  const c = new OffscreenCanvas(40, 20);
+  const g = c.getContext('2d'); g.fillStyle = '#e33'; g.fillRect(0, 0, 40, 20);
+  out.path = (await slideria.files.add('из плагина.png', await c.convertToBlob({ type: 'image/png' }))).path;
+  await slideria.apply({ op: 'object.add', slide: 1, object: { type: 'image', src: out.path, place: { x: 600, y: 100, w: 200 } } });
+  out.deck = JSON.stringify(await slideria.deck()).match(/"src":"([^"]+)"/)?.[1];
+  const no = async (f) => { try { await f(); return 'можно'; } catch { return 'нельзя'; } };
+  out.code = await no(() => slideria.files.add('x.html', '<script>1</script>'));
+  out.out = await no(() => slideria.files.read('./assets/../deck.yaml'));
+  out.other = await no(() => slideria.files.read('../other/assets/a.png'));
+  out.codecs = typeof VideoEncoder === 'function' && typeof AudioDecoder === 'function';
+  const w = new Worker(URL.createObjectURL(new Blob(['onmessage = (e) => postMessage(e.data * 2)'], { type: 'text/javascript' })));
+  out.worker = await new Promise((ok) => { w.onmessage = (e) => ok(e.data); w.onerror = () => ok('ошибка'); w.postMessage(21); });
+  out.wasm = await WebAssembly.instantiate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0])).then(() => 'да', () => 'нет');
+  document.body.dataset.out = JSON.stringify(out);
+})().catch((e) => { document.body.dataset.out = 'ошибка: ' + e.message; });`,
+  });
+  await post(`plugin-set?id=${encodeURIComponent(ID)}`, { enabled: true, granted: ['edit', 'files', 'panel'] });
+  await page.goto(`/?deck=${DECK}&studio#1`);
+  await expect(page.locator('#st-canvas .slide.on')).toContainText('Первый объект');
+  await page.locator('[data-tab="tools"]').click();
+  await page.locator(`#st-plugs [data-plugin="${ID}"]`).click();
+  const body = page.frameLocator('#st-ppane .st-pp-frame').locator('body');
+  await expect(body).toHaveAttribute('data-out', /\{/);
+  const out = JSON.parse(await body.getAttribute('data-out') ?? '{}');
+  expect(out).toEqual({
+    list: [`./assets/old.png:${png.length}`], read: [true, png.length, 'image/png'],
+    path: './assets/из-плагина.png', deck: './assets/из-плагина.png',
+    code: 'нельзя', out: 'нельзя', other: 'нельзя', codecs: true, worker: 42, wasm: 'да',
+  });
+  // Новый файл — в папке презентации и сразу на слайде; в deck.yaml — путем
+  expect(fs.existsSync(path.join(DECKS, DECK, 'assets', 'из-плагина.png'))).toBe(true);
+  const img = page.locator('#st-canvas .slide.on img').first();
+  await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBe(40);
+  await expect.poll(() => readDeck(DECK)).toContain('./assets/из-плагина.png');
+  // В разрешениях — и файлы
+  await openPlugins(page);
+  await expect(page.locator('.ig-perms')).toContainText('Файлы презентации');
+  expect(errors).toEqual([]);
 });
 
 test('новое разрешение в обновлении — плагин не работает, пока его не разрешат; удалить — папка в корзину проекта', async ({ page }) => {

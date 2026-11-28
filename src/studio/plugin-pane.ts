@@ -25,6 +25,10 @@ export interface PaneHost {
   file(id: string, rel: string): Promise<{ text: string } | { data: string; type: string }>;
   /** Настройки плагина: прочитать все или записать одну */
   data(id: string, set?: { key: string; value: unknown }): Promise<Record<string, unknown>>;
+  /** Файлы презентации: начало адреса её папки и список (пути — как в deck.yaml) */
+  assets(): Promise<{ base: string; files: { path: string; size: number }[] }>;
+  /** Новый файл в assets/ презентации: такой же уже есть — его путь, имя занято — с номером */
+  addFile(name: string, data: Blob): Promise<{ path: string }>;
   toast(text: string, err?: boolean): void;
   /** Панель открылась или закрылась — кнопка на ленте горит */
   changed(): void;
@@ -69,6 +73,7 @@ const BOOT = `(() => {
     apply: (ops, o) => call('apply', Array.isArray(ops) ? ops : [ops], o || {}),
     toast: (text) => call('toast', String(text)),
     file: (path) => call('file', String(path)),
+    files: Object.freeze({ list: () => call('files.list'), read: (path) => call('files.read', String(path)), add: (name, data) => call('files.add', String(name), data) }),
     storage: Object.freeze({ get: (key) => call('data.get', key), set: (key, value) => call('data.set', String(key), value) }),
     on: (ev, f) => { (subs[ev] = subs[ev] || []).push(f); return () => { subs[ev] = subs[ev].filter((x) => x !== f); }; },
     close: () => call('close'),
@@ -89,17 +94,34 @@ input[type=checkbox],input[type=radio]{accent-color:var(--ac)}
 label{display:flex;align-items:center;gap:8px}
 a{color:var(--ac)}`;
 
-/** Политика безопасности панели: сеть — только адреса из разрешения «Сеть» (выданного) */
+/**
+ * Политика безопасности панели: сеть — только адреса из разрешения «Сеть» (выданного). Обработка медиа —
+ * в самой панели: WebAssembly и потоки из своего кода (blob:) сеть не открывают — у них та же политика
+ */
 function policy(m: PluginManifest, granted: string[]): string {
   const hosts = m.network.filter((h) => granted.includes(`net:${h}`)).map((h) => `https://${h}`).join(' ');
   return [
-    "default-src 'none'", "script-src 'unsafe-inline'", "style-src 'unsafe-inline'", 'font-src data:',
+    "default-src 'none'", "script-src 'unsafe-inline' 'wasm-unsafe-eval'", 'worker-src blob:', "style-src 'unsafe-inline'", 'font-src data:',
     `img-src data: blob:${hosts ? ` ${hosts}` : ''}`, `media-src data: blob:${hosts ? ` ${hosts}` : ''}`,
     `connect-src ${hosts || "'none'"}`, "form-action 'none'", "base-uri 'none'",
   ].join('; ');
 }
 
 const scriptSafe = (code: string) => code.replace(/<\/(script)/gi, '<\\/$1');
+
+/** Все строки данных через f */
+const mapStr = (v: unknown, f: (s: string) => string): unknown => typeof v === 'string' ? f(v)
+  : Array.isArray(v) ? v.map((x) => mapStr(x, f))
+  : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, mapStr(x, f)])) : v;
+/** Путь в assets/ презентации (./assets/… или assets/…) без «..» — хвост после assets/, иначе null */
+function assetRest(s: string): string | null {
+  const m = /^(?:\.\/)?assets\/(\S+)$/.exec(s);
+  if (!m || m[1].includes('\\')) return null;
+  const parts = m[1].split('/');
+  return parts.length <= 6 && parts.every((x) => x && x !== '.' && x !== '..') ? m[1] : null;
+}
+/** Файлы с кодом плагин не добавляет: код в презентации — только через блок, со своим разрешением */
+const CODE_FILE = /\.(?:html?|wasm|wad|js|mjs)$/i;
 const attr = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 
 export class PluginPane {
@@ -109,6 +131,8 @@ export class PluginPane {
   private queue: Promise<unknown> = Promise.resolve();
   /** Что уже сообщили панели: слайд и выделение — только при смене */
   private sent = '';
+  /** Начало адреса папки презентации: в студии данные держат адреса файлов, плагину отдаются пути */
+  private base: Promise<string> | null = null;
 
   constructor(private root: HTMLElement, private h: PaneHost) {
     root.innerHTML = `<header class="st-lyr-head"><b class="st-pp-name"></b>
@@ -132,6 +156,7 @@ export class PluginPane {
     this.cur = p;
     this.loads = 0;
     this.sent = '';
+    this.base = null;
     const nameEl = this.root.querySelector<HTMLElement>('.st-pp-name')!;
     nameEl.innerHTML = `<span class="st-pp-i">${icon(p.manifest.icon)}</span>`;
     nameEl.append(p.manifest.name);
@@ -264,15 +289,51 @@ export class PluginPane {
     this.queue = this.queue.then(() => this.handle(p, d.m!, a)).then((r) => reply(true, r), (err) => reply(false, (err as Error).message ?? err));
   }
 
+  private folder(): Promise<string> {
+    return (this.base ??= this.h.assets().then((r) => r.base, (e: unknown) => { this.base = null; throw e; }));
+  }
+
   private async handle(p: PluginRef, m: string, a: unknown[]): Promise<unknown> {
+    const files = () => {
+      if (!p.manifest.files || !p.granted.includes('files')) throw new Error('Плагину не разрешены файлы презентации (files в plugin.json)');
+    };
     switch (m) {
       case 'outline': return outline(this.h.deck);
-      case 'deck': return JSON.parse(JSON.stringify(this.h.deck));
+      case 'deck': {
+        // Пути — как в deck.yaml: адреса сервера (с папками компьютера) плагину ни к чему
+        const base = await this.folder();
+        return mapStr(JSON.parse(JSON.stringify(this.h.deck)), (s) => (s.startsWith(base) ? './' + s.slice(base.length) : s));
+      }
       case 'selection': return this.selection();
       case 'apply': {
         if (!p.manifest.edit || !p.granted.includes('edit')) throw new Error('Плагину не разрешено править презентацию (edit в plugin.json)');
         const o = (a[1] ?? {}) as { label?: unknown };
-        return this.h.apply(p, Array.isArray(a[0]) ? a[0] : [a[0]], typeof o.label === 'string' ? o.label.slice(0, 80) : undefined);
+        const base = await this.folder();
+        // Пути файлов из плагина — адресами, как у остальных данных студии: новый файл виден на слайде сразу
+        const ops = mapStr(Array.isArray(a[0]) ? a[0] : [a[0]], (s) => { const rest = assetRest(s); return rest !== null && s.startsWith('./') ? base + 'assets/' + rest : s; }) as unknown[];
+        return this.h.apply(p, ops, typeof o.label === 'string' ? o.label.slice(0, 80) : undefined);
+      }
+      case 'files.list': {
+        files();
+        return (await this.h.assets()).files;
+      }
+      case 'files.read': {
+        files();
+        const rest = assetRest(String(a[0] ?? ''));
+        if (rest === null) throw new Error('Путь — файл в assets/ презентации, например ./assets/video.mp4');
+        const r = await fetch((await this.folder()) + 'assets/' + rest.split('/').map(encodeURIComponent).join('/'));
+        if (!r.ok) throw new Error(`Файл не найден: ./assets/${rest}`);
+        return r.blob();
+      }
+      case 'files.add': {
+        files();
+        const name = String(a[0] ?? '').split(/[\\/]/).pop() ?? '';
+        if (!name) throw new Error('Нужно имя файла, например clip.mp4');
+        if (CODE_FILE.test(name)) throw new Error('Файлы с кодом (.html, .js, .wasm) плагин в презентацию не добавляет');
+        const d = a[1];
+        const blob = d instanceof Blob ? d : d instanceof ArrayBuffer || ArrayBuffer.isView(d) ? new Blob([d as BlobPart]) : typeof d === 'string' ? new Blob([d]) : null;
+        if (!blob) throw new Error('Данные файла — Blob, ArrayBuffer, массив байтов или строка');
+        return { path: (await this.h.addFile(name, blob)).path };
       }
       case 'toast': this.h.toast(`${p.manifest.name}: ${String(a[0] ?? '').slice(0, 200)}`); return null;
       case 'file': {
@@ -295,6 +356,7 @@ export function permissionRows(m: PluginManifest): { icon: string; title: string
   const rows: { icon: string; title: string; sub: string }[] = [];
   const perms = permissionsOf(m);
   if (perms.includes('edit')) rows.push({ icon: 'pencil', title: 'Править презентацию', sub: 'Каждая правка — в журнале, отменяется Ctrl+Z' });
+  if (perms.includes('files')) rows.push({ icon: 'clip', title: 'Файлы презентации', sub: 'Читать и добавлять картинки, видео и звук' });
   if (perms.includes('panel')) rows.push({ icon: 'layers', title: 'Своя панель', sub: 'Рядом со слайдом, без доступа к остальной студии' });
   if (m.network.length) rows.push({ icon: 'globe', title: `Сеть: ${m.network.join(', ')}`, sub: 'Только эти адреса' });
   return rows;
