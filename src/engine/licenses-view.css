@@ -47,8 +47,10 @@
 .lc-row[aria-selected="true"] { background: var(--acs); }
 .lc-row[aria-selected="true"] .lc-nm { color: var(--ac); }
 .lc-view .lc-row:focus-visible { outline-offset: -2px; }
-.lc-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; font-weight: 500; }
-.lc-ver { margin-left: 6px; font: 400 12px ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: var(--mu); font-variant-numeric: tabular-nums; }
+/* В узком списке обрезается имя, версия — целиком (иначе от «7.29.13» оставалось «7…») */
+.lc-nm { display: flex; align-items: baseline; min-width: 0; white-space: nowrap; font-size: 13.5px; font-weight: 500; }
+.lc-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.lc-ver { flex: none; margin-left: 6px; font: 400 12px ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: var(--mu); font-variant-numeric: tabular-nums; }
 .lc-empty { padding: 30px 12px; text-align: center; color: var(--mu); font-size: 13px; }
 
 /* Значок лицензии: точка цвета семейства и название */

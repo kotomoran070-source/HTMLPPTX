@@ -107,7 +107,8 @@
 
 /* ---------- Сведения ---------- */
 .fp-info { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 22px; align-items: start; }
-.fp-col { display: grid; gap: 16px; align-content: start; min-width: 0; }
+/* Колонка не шире своей половины: иначе длинное название или имя папки тянут карточку за край окна */
+.fp-col { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-content: start; min-width: 0; }
 .fp-cover { padding: 12px; cursor: pointer; transition: border-color .15s; }
 .fp-cover:hover { border-color: var(--bd2); }
 .fp-cover .thumb { width: 100%; border-radius: 6px; overflow: hidden; box-shadow: 0 0 0 1px var(--bd); }

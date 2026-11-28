@@ -5,7 +5,7 @@ import { toolsCommands } from './tools';
 import { integrationsRibbon, startIntegrations } from './integrations';
 import { accentTail, applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, setUiAccent, slideAccent, uiAccent, uiSafeAccent } from '../engine/accent';
 import { applyThemeSwatches, themeMode } from '../engine/deck-theme';
-import { smoothWheel, smoothWheelOn, setSmoothWheel, stripWheel } from '../engine/hscroll';
+import { smoothWheel, smoothWheelOn, setSmoothWheel, stripWheel, wheelStrip } from '../engine/hscroll';
 import { getAt, setAt, type Path } from '../engine/data';
 import { DeckView, H, W } from '../engine/deck-view';
 import { fitChoices, isSlideSize, resizeDeck, type ResizeReport } from '../engine/slide-resize';
@@ -49,6 +49,7 @@ import { gridOf, pasteTable, tableText } from '../engine/editor/paste-table';
 import { onLibraryError } from './user-library';
 import { addEffect, addTemplate, assetUrls, findEntrance, deckWithTemplate, listTemplates, pickCss, pickDefs, removeTemplate, replaceUrls, type Template } from './templates';
 import { animCommands, animPanelHtml, animTabHtml, bindDelayField, bindFxGallery, syncAnimTab, type AnimHost } from './anim-tab';
+import { bindRail } from './backdrop-pick';
 import { bindDesignStrip, designCommands, designPanelHtml, designTabHtml, importThemeFiles, isThemeFile, syncDesignTab, themeWarmTasks, type DesignHost } from './design-tab';
 import { warmLater } from './warm';
 import { inkTabs, themeFade, warmGhosts } from '../engine/motion';
@@ -190,8 +191,8 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       <button type="button" role="tab" data-tab="tools" aria-selected="false">Инструменты</button>
       <button type="button" role="tab" data-tab="view" aria-selected="false">Вид</button>
       ${contextTabsHtml()}
-      <button type="button" class="st-ribbon-toggle" id="st-rt" title="Свернуть ленту (Ctrl+F1)" aria-label="Свернуть ленту" aria-expanded="true">${icon('chev-up')}</button>
     </nav>
+    <button type="button" class="st-ribbon-toggle" id="st-rt" title="Свернуть ленту (Ctrl+F1)" aria-label="Свернуть ленту" aria-expanded="true">${icon('chev-up')}</button>
     </div>
     <div class="st-pal" id="st-pal" role="search"></div>
     <div class="st-top-r">
@@ -1962,6 +1963,9 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   Object.assign(cmds, animCommands(animHost));
   bindDelayField(animHost);
   bindFxGallery();
+  // Стили таблицы в узком окне ужаты (fitRibbon): по краям — стрелки, как у лент «Анимации»
+  const tvPick = document.querySelector<HTMLElement>('.st-tvpick');
+  if (tvPick) bindRail(tvPick, tvPick.querySelector<HTMLElement>('.st-gallery')!);
   const designHost: DesignHost = { deck, editor: ed, stage: () => view.stage, askName: (a, t, n, sg, save) => askName(a, t, n, sg, save) };
   Object.assign(cmds, designCommands(designHost));
   // Галерея тем — в запас, пока студия простаивает: шрифты тем и кадры живых фонов плиток (design-tab.ts)
@@ -2085,6 +2089,29 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     document.querySelectorAll<HTMLElement>('.st-tabs [data-tab]').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
     document.querySelectorAll<HTMLElement>('.st-rpanel').forEach((p) => { p.hidden = p.dataset.panel !== name; });
     fitRibbon();
+    revealTab();
+  }
+
+  /** Ряд вкладок шире места: листается (.over), затухание по краю, где есть ещё; класс пишется только при смене */
+  function fitTabs(): void {
+    const row = document.querySelector<HTMLElement>('.st-tabs');
+    if (!row) return;
+    const max = row.scrollWidth - row.clientWidth;
+    const over = max > 2;
+    row.classList.toggle('over', over);
+    row.classList.toggle('fl', over && row.scrollLeft > 2);
+    row.classList.toggle('fr', over && row.scrollLeft < max - 2);
+  }
+  /** Выбранная вкладка (и вкладка объекта, что выбралась сама) — на виду в ряду, который листается */
+  function revealTab(): void {
+    const row = document.querySelector<HTMLElement>('.st-tabs.over');
+    const on = row?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    if (!row || !on?.offsetWidth) return;
+    const pad = 28;
+    const l = on.offsetLeft - pad;
+    const r = on.offsetLeft + on.offsetWidth + pad - row.clientWidth;
+    const to = l < row.scrollLeft ? Math.max(0, l) : r > row.scrollLeft ? r : row.scrollLeft;
+    if (to !== row.scrollLeft) row.scrollLeft = to;
   }
 
   /**
@@ -2147,6 +2174,14 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   // «Главная» → «Текст» сразу применяется к нему, а не завершает правку
   // Полоска под выбранной вкладкой — переезжает к новой (engine/motion.ts)
   inkTabs(document.querySelector<HTMLElement>('.st-tabs')!);
+  // Вкладки не помещаются: ряд листается колесом, по краю с невидимыми вкладками — затухание (studio.css)
+  const tabRow = document.querySelector<HTMLElement>('.st-tabs')!;
+  wheelStrip(tabRow);
+  tabRow.addEventListener('scroll', fitTabs, { passive: true });
+  const tabsRo = new ResizeObserver(() => { fitTabs(); revealTab(); });
+  tabsRo.observe(tabRow);
+  // Вкладка объекта появилась или скрыта (своя лента) — меняется ширина кнопки, а не ряда
+  tabRow.querySelectorAll('button').forEach((b) => tabsRo.observe(b));
   document.querySelector('.st-tabs')!.addEventListener('mousedown', (e) => {
     if ((document.activeElement as HTMLElement | null)?.isContentEditable && (e.target as Element).closest('[data-tab]')) e.preventDefault();
   });

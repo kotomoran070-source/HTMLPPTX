@@ -168,13 +168,25 @@ test('«Файл»: длинное название и имя папки — н�
   const key = 'sistema-avtomaticheskogo-monitoringa-parametrov-na-baze-seti-lorawan';
   const title = 'Система автоматического мониторинга параметров на базе сети LoRaWAN';
   const dir = path.join(DECKS, key);
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, 'deck.yaml'), `title: ${title}\nauthor: Константин Константинопольский, кафедра информационно-измерительных систем\nslides:\n  - template: canvas\n    free:\n      - {type: text, text: Слайд, place: {x: 100, y: 100, w: 600}}\n`);
+  // Картинка с длинным именем — в «Сведениях» она в списке «Самые тяжёлые файлы»
+  const img = 'Фотография_базовой_станции_LoRaWAN_на_крыше_корпуса_Б_вид_с_северо-западной_стороны.png';
+  fs.mkdirSync(path.join(dir, 'assets'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'assets', img), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64'));
+  fs.writeFileSync(path.join(dir, 'deck.yaml'), `title: ${title}\nauthor: Константин Константинопольский, кафедра информационно-измерительных систем\nslides:\n  - template: canvas\n    free:\n      - {type: text, text: Слайд, place: {x: 100, y: 100, w: 600}}\n      - {type: image, src: ./assets/${img}, place: {x: 100, y: 300, w: 200, h: 200}}\n`);
   try {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/?deck=${key}&studio#1`);
     await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
     await page.locator('#st-file').click();
+    // «Сведения» и в узком окне (одной колонкой): карточка с названием и папкой — не шире окна
+    await page.locator('.fp [data-fs="info"]').first().click();
+    await expect(page.locator('.fp-list .fp-n')).toContainText('LoRaWAN');
+    for (const width of [1093, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.waitForTimeout(200);
+      expect(await page.evaluate(escapes), `сведения, окно ${width}`).toEqual([]);
+      expect(await page.locator('#fp-main').evaluate((m) => m.scrollWidth - m.clientWidth), `сведения, окно ${width}: вбок`).toBeLessThanOrEqual(1);
+    }
     for (const s of await page.locator('.fp [data-fs]').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.fs!))) {
       await page.locator(`.fp [data-fs="${s}"]`).first().click();
       await expect(page.locator(`.fp #fp-t-${s}`)).toHaveAttribute('aria-selected', 'true');
@@ -407,6 +419,9 @@ test('«Файл → Лицензии»: список и текст, фильт�
   await page.keyboard.press('ArrowDown');
   await expect(page.locator('.lc-name')).not.toHaveText('qrcode-generator');
   await expect(page.locator('.lc-row[aria-selected="true"]')).toBeFocused();
+  // Окно поуже (список — узкой колонкой): длинное имя обрезается, а версия — целиком
+  await page.setViewportSize({ width: 1093, height: 614 });
+  expect(await page.locator('.lc-row .lc-ver').evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().right > e.parentElement!.getBoundingClientRect().right + 1).map((e) => e.textContent))).toEqual([]);
   // Узкое окно: один список, текст — вместо него, Esc — обратно к списку, ещё Esc — к слайдам
   await page.setViewportSize({ width: 760, height: 800 });
   await expect(page.locator('.lc-pane')).toBeHidden();

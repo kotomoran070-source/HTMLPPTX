@@ -99,7 +99,7 @@ export function mountLicenses(el: HTMLElement, data: LicensesData, st: LicensesS
       const m = items.filter((e) => e.kind === kind && match(e));
       return m.length ? `<div class="lc-grp" role="presentation"><span>${title}</span><span>${m.length}</span></div>`
         + m.map((e) => `<button class="lc-row" type="button" role="option" data-id="${esc(e.id)}" aria-selected="${e.id === st.sel}" tabindex="${e.id === st.sel ? 0 : -1}">`
-          + `<span class="lc-nm">${esc(e.name)}${sub(e) ? `<span class="lc-ver">${esc(sub(e))}</span>` : ''}</span>${pill(e)}</button>`).join('')
+          + `<span class="lc-nm"><span class="lc-n">${esc(e.name)}</span>${sub(e) ? `<span class="lc-ver">${esc(sub(e))}</span>` : ''}</span>${pill(e)}</button>`).join('')
         : '';
     }).join('');
     list.innerHTML = html || '<div class="lc-empty">Ничего не нашлось</div>';

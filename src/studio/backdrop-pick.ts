@@ -44,6 +44,8 @@ export function bindRail(root: HTMLElement, strip: HTMLElement): void {
     root.querySelector(':scope > [data-nav="1"]')?.classList.toggle('off', strip.scrollLeft > strip.scrollWidth - strip.clientWidth - 4);
   };
   strip.addEventListener('scroll', ends, { passive: true });
+  // Ленту ужали (узкое окно) или показали — стрелки по тому, есть ли куда листать
+  new ResizeObserver(ends).observe(strip);
   // Колесо листает ровно, к краю плитки (engine/hscroll.ts), а не прыжком на 100 px за щелчок
   const { go } = wheelStrip(strip);
   root.querySelectorAll<HTMLElement>(':scope > [data-nav]').forEach((b) => b.addEventListener('click', (e) => {

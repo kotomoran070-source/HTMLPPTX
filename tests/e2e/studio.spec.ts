@@ -1664,6 +1664,43 @@ test('примерка при наведении: стиль, форма и за
   expect(errors).toEqual([]);
 });
 
+test('узкое окно: вкладка объекта — ряд вкладок листается, кнопки справа на месте; стили таблицы — со стрелками', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.setViewportSize({ width: 1093, height: 614 });
+  await page.goto('/?deck=table&studio#7');
+  await page.locator('#st-canvas .slide.on td', { hasText: '70' }).first().click();
+  if (await page.locator('#st-canvas [contenteditable="true"]').count()) await page.keyboard.press('Escape');
+  await ctxTab(page, 'table');
+  // Вкладка «Таблица» не помещается в ряд: он листается, а «Показ», «Агент» и «Свернуть ленту» — в окне
+  const row = page.locator('.st-tabs');
+  await expect(row).toHaveClass(/\bover\b/);
+  expect(await page.evaluate(() => document.querySelector('.st-top-r')!.getBoundingClientRect().right <= innerWidth)).toBe(true);
+  await expect(page.locator('#st-rt')).toBeInViewport({ ratio: 1 });
+  expect(await row.evaluate((r) => {
+    const box = r.getBoundingClientRect();
+    const on = r.querySelector('[aria-selected="true"]')!.getBoundingClientRect();
+    return on.left >= box.left - 1 && on.right <= box.right + 1;
+  })).toBe(true);
+  // Колесо над вкладками листает ряд к началу; невидимые вкладки — справа, там затухание
+  const b = (await row.boundingBox())!;
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.wheel(0, -600);
+  await expect.poll(() => row.evaluate((r) => r.scrollLeft)).toBe(0);
+  await expect(row).toHaveClass(/\bfr\b/);
+  // Стили таблицы ужаты: стрелка вправо листает к спрятанным, у конца гаснет, слева — появляется
+  const gal = page.locator('.st-tvpick .st-gallery');
+  expect(await gal.evaluate((g) => g.scrollWidth > g.clientWidth)).toBe(true);
+  const next = page.locator('.st-tvpick [data-nav="1"]');
+  const prev = page.locator('.st-tvpick [data-nav="-1"]');
+  await expect(prev).toHaveClass(/\boff\b/);
+  await next.click();
+  await expect.poll(() => gal.evaluate((g) => Math.round(g.scrollWidth - g.clientWidth - g.scrollLeft))).toBeLessThanOrEqual(4);
+  await expect(next).toHaveClass(/\boff\b/);
+  await expect(prev).not.toHaveClass(/\boff\b/);
+  await expect(page.locator('[data-cmd="table.variant.heat"]')).toBeInViewport({ ratio: 1 });
+  expect(errors).toEqual([]);
+});
+
 test('примерка при наведении: стиль рисунка на ленте', async ({ page }) => {
   await page.goto('/?deck=fx&studio#1');
   const img = page.locator('#st-canvas .slide.on > .free').nth(4);

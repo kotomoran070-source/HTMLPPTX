@@ -48,6 +48,7 @@ interface LookSlider {
 import { BOX_GLOW, boxFxCss, FLOW_COLORS, FLOW_KEYS, GLASS_KEYS, SHADOW_TUNE } from '../engine/box-fx';
 import { applyImageLook, applyShapeLook, blockEl, imageEl, putStyle, shapeEl } from './look-apply';
 import { B_GLOW_COLORS } from './fx-panel';
+import { railNav } from './backdrop-pick';
 import { getAt, setAt, type Path } from '../engine/data';
 import type { Editor } from '../engine/editor/editor';
 import type { TextTarget } from '../engine/editor/text-edit';
@@ -283,7 +284,7 @@ export function contextPanelsHtml(): string {
   ${ORDER}
 </div>
 <div class="st-rpanel" data-panel="table" hidden>
-  ${group('Стиль таблицы', `<div class="st-gallery t" data-shrink="66 194">${VARIANTS.map(tableTile).join('')}</div>` + btn('table.fill', 'fill', 'Заливка', { big: true, menu: true, title: 'Заливка выделенных ячеек' }) + btn('table.borders', 'borders', 'Границы', { big: true, menu: true, title: 'Границы выделенных ячеек или всей таблицы' }))}
+  ${group('Стиль таблицы', `<div class="st-bdpick st-tvpick">${railNav().join(`<div class="st-gallery t" data-shrink="66 194">${VARIANTS.map(tableTile).join('')}</div>`)}</div>` + btn('table.fill', 'fill', 'Заливка', { big: true, menu: true, title: 'Заливка выделенных ячеек' }) + btn('table.borders', 'borders', 'Границы', { big: true, menu: true, title: 'Границы выделенных ячеек или всей таблицы' }))}
   ${group('Показать', stack(btn('table.head', '', 'Строка заголовка', { chk: true }), btn('table.total', '', 'Строка итогов', { chk: true, title: 'Последняя строка как итог' }), btn('table.bands', '', 'Чередующиеся строки', { chk: true }))
     + stack(btn('table.labels', '', 'Первый столбец', { chk: true, title: 'Первый столбец жирным' }), btn('table.lastcol', '', 'Последний столбец', { chk: true, title: 'Последний столбец жирным' }), btn('table.highlight', '', 'Выделить строку', { chk: true, title: 'Выделить строку с курсором' })))}
   ${group('Строки и столбцы', btn('table.select', 'cursor', 'Выделить', { big: true, menu: true, title: 'Выделить строку, столбец или всю таблицу' })
