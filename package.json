@@ -31,6 +31,7 @@
     "test:app": "playwright test --project=app",
     "test:perf": "playwright test --project=perf",
     "perf": "node scripts/perf.mjs",
+    "layout": "node scripts/layout-check.mjs",
     "mcp": "node scripts/mcp.mjs",
     "test:stage": "node scripts/test-stage.mjs"
   },
