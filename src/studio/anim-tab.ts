@@ -8,6 +8,7 @@ import { TEXT_FX, TEXT_FX_NAMES, textFxPreview, type TextFx } from '../engine/te
 import { TR_DIR_DEFAULT, TR_DIRS, trDir, TRANSITIONS } from '../engine/transitions';
 import type { Block, Deck } from '../types';
 import { bindRail, railNav } from './backdrop-pick';
+import { rowDrag } from './row-drag';
 import { snippet } from './snippet';
 import { showMenu, showPopover, type MenuHead, type MenuItem } from './menu';
 import { deckWithEffect, listEffects, removeEffect, type UserEffect } from './templates';
@@ -778,7 +779,7 @@ class OrderPane {
         ? `<button type="button" class="st-aorder-with${o.together ? ' on' : ''}" data-with="${n}" aria-pressed="${o.together}" title="${o.together ? 'Вместе с предыдущим — нажмите, чтобы отдельным щелчком' : 'Отдельным щелчком — нажмите, чтобы вместе с предыдущим'}" aria-label="Вместе с предыдущим">${icon('link')}</button>`
         : '';
       return (both && first ? `<p class="st-aorder-head">${o.click ? 'По щелчку' : 'При открытии слайда'}</p>` : '')
-        + `<div class="st-aorder-row${this.picked.has(rowId(o)) ? ' sel' : ''}" draggable="true" data-n="${n}" data-kind="${o.kind}" data-group="${o.click ? 'click' : 'open'}">
+        + `<div class="st-aorder-row${this.picked.has(rowId(o)) ? ' sel' : ''}" data-n="${n}" data-kind="${o.kind}" data-group="${o.click ? 'click' : 'open'}">
   <button type="button" class="st-aorder-pick" data-pick="${n}" title="Ctrl — добавить, Shift — подряд; перетащите — переставить"><b>${o.click ? steps.get(rowId(o)) ?? ++num : ++num}</b><span><em>${esc(blockName(o.b.type))}</em>${label ? ` · ${esc(label)}` : ''}</span><small>${esc(itemName(this.h.deck, o))} · ${o.click ? (o.together && !first ? 'вместе с предыдущим' : 'по щелчку') : o.key ? sec(o.key) : 'сразу'}</small></button>
   ${link}
   <button type="button" class="st-aorder-mv" data-mv="${n}" data-dir="-1" title="Раньше" aria-label="Раньше"${swapped(on, n, -1) ? '' : ' disabled'}>${icon('up')}</button>
@@ -834,10 +835,10 @@ ${still ? `<p class="st-aorder-still">Без анимации, видны сра
   }
 
   // ---------- перетаскивание ----------
+  /** Строки переставляются мышью; колёсико и край области прокручивают её на ходу (row-drag.ts) */
   private dnd(): void {
     const el = this.body;
     const rows = () => [...el.querySelectorAll<HTMLElement>('.st-aorder-row')];
-    const marks = () => rows().forEach((r) => r.classList.remove('drop-before', 'drop-after'));
     /** Куда бросают: строка под мышью — перед ней (верхняя половина) или после (нижняя), в её группу */
     const dropAt = (y: number) => {
       const rs = rows();
@@ -848,50 +849,43 @@ ${still ? `<p class="st-aorder-still">Без анимации, видны сра
       const n = Number(r.dataset.n);
       return { r, after, p: n + (after ? 1 : 0), click: !!this.list()[n]?.click };
     };
-    el.addEventListener('dragstart', (e) => {
-      const r = (e.target as Element).closest?.<HTMLElement>('.st-aorder-row');
-      const on = this.list();
-      const o = r ? on[Number(r.dataset.n)] : undefined;
-      if (!o) return;
-      // Строка из выделенных — тянутся все выделенные, иначе только она
-      if (!this.picked.has(rowId(o))) this.picked = new Set([rowId(o)]);
-      const drag = new Set(this.picked);
-      this.drag = drag;
-      rows().forEach((x) => {
-        const it = on[Number(x.dataset.n)];
-        x.classList.toggle('sel', !!it && this.picked.has(rowId(it)));
-        x.classList.toggle('dragging', !!it && drag.has(rowId(it)));
-      });
-      e.dataTransfer!.effectAllowed = 'move';
-      e.dataTransfer!.setData('text/plain', '');
-    });
-    el.addEventListener('dragover', (e) => {
-      if (!this.drag) return;
-      const at = dropAt(e.clientY);
-      marks();
-      // Нельзя (исчезновение — в «При открытии», исчезновение раньше появления) или ничего не меняется — без отметки
-      if (!at || !placed(this.list(), this.drag, at.p, at.click)) return;
-      e.preventDefault();
-      e.dataTransfer!.dropEffect = 'move';
-      at.r.classList.add(at.after ? 'drop-after' : 'drop-before');
-    });
-    el.addEventListener('drop', (e) => {
-      if (!this.drag) return;
-      e.preventDefault();
-      const at = dropAt(e.clientY);
-      const ids = this.drag;
-      this.drag = null;
-      if (at && this.act.place(ids, at.p, at.click)) {
-        this.picked = new Set(ids);
-        this.sync();
-      }
-      this.update();
-    });
-    el.addEventListener('dragend', () => {
-      if (!this.drag) return;
-      this.drag = null;
-      marks();
-      rows().forEach((r) => r.classList.remove('dragging'));
+    rowDrag({
+      list: el,
+      scroller: el,
+      row: '.st-aorder-row',
+      pick: (r) => {
+        const on = this.list();
+        const o = on[Number(r.dataset.n)];
+        if (!o) return null;
+        // Строка из выделенных — тянутся все выделенные, иначе только она
+        if (!this.picked.has(rowId(o))) this.picked = new Set([rowId(o)]);
+        const drag = new Set(this.picked);
+        this.drag = drag;
+        const moved: HTMLElement[] = [];
+        rows().forEach((x) => {
+          const it = on[Number(x.dataset.n)];
+          x.classList.toggle('sel', !!it && this.picked.has(rowId(it)));
+          if (it && drag.has(rowId(it))) moved.push(x);
+        });
+        return { rows: moved, count: drag.size };
+      },
+      // Нельзя (исчезновение — в «При открытии», исчезновение раньше появления) или ничего не меняется — без линии
+      aim: (y) => {
+        const at = dropAt(y);
+        return at && this.drag && placed(this.list(), this.drag, at.p, at.click) ? { row: at.r, after: at.after, data: at } : null;
+      },
+      drop: (at) => {
+        const ids = this.drag!;
+        if (this.act.place(ids, at.p, at.click)) {
+          this.picked = new Set(ids);
+          this.sync();
+        }
+      },
+      end: () => {
+        if (!this.drag) return;
+        this.drag = null;
+        this.update();
+      },
     });
   }
 }

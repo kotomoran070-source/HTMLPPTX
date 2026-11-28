@@ -2737,3 +2737,81 @@ test('лента слайдов: Shift и Ctrl выделяют нескольк
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('область выделения и «Порядок»: строки перетаскиваются — колёсико и край прокручивают список на ходу, линия в зазоре, Esc отменяет', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'rowdrag');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'deck.yaml');
+  const N = 24;
+  // Объекты T1…T24; у каждого — появление при открытии (строка в «Порядке»)
+  fs.writeFileSync(file, `title: Строки\nslides:\n  - template: canvas\n    free:\n${Array.from({ length: N }, (_, i) => `      - {type: text, text: T${i + 1}, enter: fade, place: {x: ${40 + (i % 6) * 200}, y: ${40 + Math.floor(i / 6) * 160}, w: 180}}\n`).join('')}`);
+  const texts = () => (parse(fs.readFileSync(file, 'utf8')) as { slides: { free: { text: string }[] }[] }).slides[0].free.map((b) => b.text);
+  const ghost = page.locator('.st-row-ghost');
+  const line = page.locator('.st-row-line');
+  try {
+    await page.goto('/?deck=rowdrag&studio#1');
+    await expect(page.locator('#st-canvas .slide.on .free')).toHaveCount(N);
+    // Область выделения: сверху — передний план (T24), снизу — T1
+    await page.keyboard.press('Alt+F10');
+    const rows = page.locator('.st-lyr');
+    const pane = page.locator('.st-lyr-list');
+    await expect(rows).toHaveCount(N);
+    expect(await pane.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+    const p = (await pane.boundingBox())!;
+    // Верхнюю строку (T24) взяли, колёсиком докрутили до низа — и под самый низ: T24 уходит на задний план
+    let b = (await rows.nth(0).boundingBox())!;
+    await page.mouse.move(b.x + 40, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(p.x + 40, p.y + p.height / 2, { steps: 6 });
+    await expect(ghost).toBeVisible();
+    await expect(line).toBeVisible();
+    await page.mouse.wheel(0, 5000);
+    await expect.poll(() => pane.evaluate((el) => el.scrollTop + el.clientHeight >= el.scrollHeight - 1)).toBe(true);
+    b = (await rows.nth(N - 1).boundingBox())!;
+    await page.mouse.move(b.x + 40, b.y + b.height - 3, { steps: 4 });
+    await page.mouse.up();
+    await expect(ghost).toHaveCount(0);
+    await expect(line).toHaveCount(0);
+    await expect.poll(() => texts()[0]).toBe('T24');
+    // У верхнего края список едет сам; Esc — порядок прежний
+    b = (await rows.nth(N - 1).boundingBox())!;
+    await page.mouse.move(b.x + 40, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(p.x + 40, p.y + 3, { steps: 8 });
+    await expect.poll(() => pane.evaluate((el) => el.scrollTop)).toBe(0);
+    await page.keyboard.press('Escape');
+    await expect(ghost).toHaveCount(0);
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    expect(texts()[0]).toBe('T24');
+    expect(texts()[1]).toBe('T1');
+
+    // «Порядок»: та же механика — строка из конца списка уходит в начало через колёсико
+    await page.keyboard.press('Alt+F10');
+    await page.locator('[data-tab="anim"]').first().click();
+    await page.locator('[data-cmd="anim.order"]').click();
+    const arows = page.locator('.st-aorder-row');
+    const body = page.locator('.st-apane-body');
+    await expect(arows).toHaveCount(N);
+    const first = () => arows.first().locator('span').textContent();
+    const a = (await body.boundingBox())!;
+    await body.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+    b = (await arows.nth(N - 1).boundingBox())!;
+    await page.mouse.move(b.x + 60, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(a.x + 60, a.y + a.height / 2, { steps: 6 });
+    await expect(ghost).toBeVisible();
+    await page.mouse.wheel(0, -5000);
+    await expect.poll(() => body.evaluate((el) => el.scrollTop)).toBe(0);
+    b = (await arows.nth(0).boundingBox())!;
+    await page.mouse.move(b.x + 60, b.y + 3, { steps: 4 });
+    await expect(line).toBeVisible();
+    const last = (await arows.nth(N - 1).locator('span').textContent())!;
+    await page.mouse.up();
+    await expect.poll(first).toBe(last);
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

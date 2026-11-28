@@ -3,6 +3,7 @@ import type { Editor } from '../engine/editor/editor';
 import { blockName } from '../engine/editor/block-edit';
 import { esc } from '../engine/html';
 import type { Block, Deck } from '../types';
+import { rowDrag } from './row-drag';
 import { snippet } from './snippet';
 
 /**
@@ -48,31 +49,22 @@ export class LayersPane {
       this.update();
     });
     this.list.addEventListener('click', (e) => this.onClick(e as MouseEvent));
-    this.list.addEventListener('dragstart', (e) => {
-      const row = (e.target as Element).closest<HTMLElement>('.st-lyr');
-      if (!row) return;
-      this.drag = Number(row.dataset.k);
-      row.classList.add('dragging');
-      e.dataTransfer!.effectAllowed = 'move';
-      e.dataTransfer!.setData('text/plain', '');
-    });
-    this.list.addEventListener('dragover', (e) => {
-      if (this.drag < 0) return;
-      e.preventDefault();
-      const at = this.dropAt(e.clientY);
-      this.list.querySelectorAll('.st-lyr').forEach((r, j) => {
-        r.classList.toggle('drop-before', j === at.row && !at.after);
-        r.classList.toggle('drop-after', j === at.row && at.after);
-      });
-    });
-    this.list.addEventListener('drop', (e) => {
-      if (this.drag < 0) return;
-      e.preventDefault();
-      this.reorder(this.drag, this.dropAt(e.clientY));
-    });
-    this.list.addEventListener('dragend', () => {
-      this.drag = -1;
-      this.list.querySelectorAll('.st-lyr').forEach((r) => r.classList.remove('dragging', 'drop-before', 'drop-after'));
+    // Перетаскивание строки — порядок слоёв; колёсико и край списка прокручивают его на ходу (row-drag.ts)
+    rowDrag({
+      list: this.list,
+      scroller: this.list,
+      row: '.st-lyr',
+      pick: (row) => {
+        this.drag = Number(row.dataset.k);
+        return { rows: [row], count: 1 };
+      },
+      aim: (y) => {
+        const at = this.dropAt(y);
+        const row = this.list.querySelectorAll<HTMLElement>('.st-lyr')[at.row];
+        return row && this.target(this.drag, at) !== this.drag ? { row, after: at.after, data: at } : null;
+      },
+      drop: (at) => this.reorder(this.drag, at),
+      end: () => { this.drag = -1; },
     });
   }
 
@@ -128,7 +120,7 @@ export class LayersPane {
       const locked = b.locked === true;
       const hid = this.isHidden(i, k);
       const label = snippet(b as Record<string, unknown>) || (Array.isArray(b.items) ? `объектов: ${b.items.length}` : '');
-      return `<div class="st-lyr${picked.has(k) ? ' on' : ''}${hid ? ' hid' : ''}${locked ? ' locked' : ''}" role="listitem" data-k="${k}" draggable="true">`
+      return `<div class="st-lyr${picked.has(k) ? ' on' : ''}${hid ? ' hid' : ''}${locked ? ' locked' : ''}" role="listitem" data-k="${k}">`
         + `<button type="button" class="st-lyr-name" aria-pressed="${picked.has(k)}" title="Выделить (Ctrl — добавить к выделению)"><b>${blockName(b.type)}</b>${label ? `<span>${esc(label)}</span>` : ''}</button>`
         + `<button type="button" class="st-lyr-eye" data-a="eye" aria-pressed="${hid}" title="${hid ? 'Показать' : 'Скрыть на время правки'}" aria-label="${hid ? 'Показать' : 'Скрыть'}">${icon(hid ? 'eye-off' : 'eye')}</button>`
         + `<button type="button" class="st-lyr-lock" data-a="lock" aria-pressed="${locked}" title="${locked ? 'Открепить' : 'Закрепить: не выделяется и не двигается мышью'}" aria-label="${locked ? 'Открепить' : 'Закрепить'}">${icon(locked ? 'lock' : 'unlock')}</button>`
@@ -182,15 +174,18 @@ export class LayersPane {
     return { row: rows.length - 1, after: true };
   }
 
-  /** Строки идут сверху вниз от переднего плана: номер в списке объектов обратный */
-  private reorder(from: number, at: { row: number; after: boolean }): void {
+  /** Новый номер объекта from в списке слайда, если бросить его у строки at */
+  private target(from: number, at: { row: number; after: boolean }): number {
     const n = this.items().length;
-    const target = n - 1 - at.row;
-    // Выше строки — ближе к переднему плану
-    let to = at.after ? target : target + 1;
+    // Строки идут сверху вниз от переднего плана: номер в списке объектов обратный; выше строки — ближе к переднему
+    let to = at.after ? n - 1 - at.row : n - at.row;
     if (from < to) to -= 1;
-    to = Math.max(0, Math.min(n - 1, to));
-    if (to === from) return;
+    return Math.max(0, Math.min(n - 1, to));
+  }
+
+  private reorder(from: number, at: { row: number; after: boolean }): void {
+    const to = this.target(from, at);
+    if (from < 0 || to === from) return;
     const i = this.host.index();
     const ed = this.host.editor();
     if (ed.commit((d) => {
