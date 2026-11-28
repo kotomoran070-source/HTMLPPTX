@@ -68,6 +68,17 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px s
   .navc .btn { padding: 8px 12px; }
   #pr, #fs { display: none; }
 }
+/* Телефон стоя: справа бывает три кнопки (пауза автопоказа, правка, все слайды) — плотнее, чтобы все были в окне */
+@media (max-width: 420px) {
+  .navbar { padding: 0 6px env(safe-area-inset-bottom, 0px); }
+  .navc, .navside { gap: 4px; }
+  .navc .btn { padding: 8px 10px; }
+  .counter { min-width: 0; }
+}
+/* Самый узкий телефон (320): круглые кнопки панели на 4 px меньше — по-прежнему под палец */
+@media (max-width: 340px) {
+  .navbar .ibtn { width: 36px; height: 36px; }
+}
 
 /* Полноэкранный режим: сцена без рамки, панель появляется при подводе мыши к низу */
 body.fs .stage { border: 0; border-radius: 0; box-shadow: none; }

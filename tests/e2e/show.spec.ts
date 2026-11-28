@@ -78,6 +78,27 @@ test('обзор всех слайдов (O) открывает слайд по 
   await expect(page.locator('#ct')).toHaveText(/^7 из/);
 });
 
+test('телефон стоя: панель показа с паузой автопоказа и правкой — все кнопки в окне, друг на друга не наезжают', async ({ page }) => {
+  const errors = watchErrors(page);
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto('/?deck=tpl#3');
+    await expect(page.locator('.slide.on')).toHaveCount(1);
+    // На телефоне показ — выгруженный файл: кнопки «Открыть в редакторе» сервера разработки там нет
+    await page.addStyleTag({ content: '#studio-btn { display: none !important; }' });
+    await page.keyboard.press('a');
+    await expect(page.locator('#ap')).toBeVisible();
+    await expect(page.locator('#ed-btn')).toBeVisible();
+    const fit = await page.evaluate(() => {
+      const r = [...document.querySelectorAll('#nav button, #nav .counter')].filter((e) => (e as HTMLElement).checkVisibility()).map((e) => e.getBoundingClientRect());
+      return { right: Math.max(...r.map((x) => x.right)) <= innerWidth, apart: r.every((x, i) => i === 0 || r[i - 1].right <= x.left + 0.5) };
+    });
+    expect(fit, `окно ${width}`).toEqual({ right: true, apart: true });
+    await page.keyboard.press('a');
+  }
+  expect(errors).toEqual([]);
+});
+
 test('длинное слово в названии слайда: «Все слайды» — колонки поровну, окно докладчика не шире окна', async ({ page, context }) => {
   const errors = watchErrors(page);
   const dir = path.join(DECKS, 'longword');
