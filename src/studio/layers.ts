@@ -63,7 +63,8 @@ export class LayersPane {
         return this.target(this.drag, at) !== this.drag ? at : null;
       },
       drop: (at) => this.reorder(this.drag, at),
-      end: () => { this.drag = -1; },
+      // Пока тянут, список не перерисовывается (update) — после отпускания догоняет
+      end: () => { this.drag = -1; this.update(); },
     });
   }
 
@@ -95,9 +96,12 @@ export class LayersPane {
     });
   }
 
-  /** Список текущего слайда; выделенные строки — как на слайде */
+  /**
+   * Список текущего слайда; выделенные строки — как на слайде. Во время перетаскивания — нет: строки, места которых
+   * запомнило перетаскивание, остались бы вне страницы
+   */
   update(): void {
-    if (this.root.hidden) return;
+    if (this.root.hidden || this.drag >= 0) return;
     const i = this.host.index();
     const items = this.items(i);
     const sel = this.host.editor().selection;

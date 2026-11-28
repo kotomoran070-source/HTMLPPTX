@@ -105,6 +105,13 @@ export function rowDrag<T>(o: RowDrag<T>): void {
   };
 
   function lift(s: State): boolean {
+    // Между нажатием и сдвигом список могли перерисовать (смена выделения, запись правки): взятая строка уже не на
+    // странице, её размеры нулевые — копия встала бы в левый верхний угол. Строка — та, что теперь под точкой нажатия
+    if (!s.row.isConnected) {
+      const now = document.elementFromPoint(s.x, s.y)?.closest<HTMLElement>(o.row);
+      if (!now || !o.list.contains(now)) return false;
+      s.row = now;
+    }
     const got = o.pick(s.row);
     if (!got) return false;
     s.on = true;

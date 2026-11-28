@@ -572,7 +572,9 @@ body.studio { scrollbar-color: var(--scroll) transparent; }
 .st-slides-caret-add { position: absolute; left: 50%; top: 50%; display: grid; place-items: center; width: 22px; height: 22px; margin: -11px 0 0 -11px; padding: 0; border: 0; border-radius: 50%;
   background: var(--ac); color: var(--on-ac, #fff); cursor: pointer; pointer-events: auto;
   box-shadow: 0 0 0 3px var(--isl2), 0 4px 12px -2px color-mix(in srgb, var(--ac) 70%, transparent); transition: transform .15s cubic-bezier(.2, .8, .2, 1); }
-.st-slides-caret-add .ic { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+/* Значок 12 px: отступ в кружке целый (5 px) — иначе браузер округляет его отдельно от кружка и «+» съезжает на
+   полпикселя, по-разному в разных зазорах */
+.st-slides-caret-add .ic { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; }
 .st-slides-caret-add:hover { transform: scale(1.12); }
 .st-slides-caret-add:focus-visible { outline: 2px solid var(--acb); outline-offset: 3px; }
 .st-drag-ghost { position: fixed; left: 0; top: 0; z-index: 10000; pointer-events: none; opacity: .92; box-shadow: 0 0 0 2px var(--ac), 0 16px 36px -10px rgb(15 23 42 / .5); will-change: transform; transition: opacity .12s; }

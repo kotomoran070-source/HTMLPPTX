@@ -2810,6 +2810,21 @@ test('область выделения и «Порядок»: строки пе
     await page.waitForTimeout(300);
     expect(texts()[0]).toBe('T24');
     expect(texts()[1]).toBe('T1');
+    // Список перерисовали между нажатием и сдвигом (смена выделения, запись правки) — копия всё равно под курсором,
+    // а не в левом верхнем углу
+    b = (await rows.nth(3).boundingBox())!;
+    await page.mouse.move(b.x + 40, b.y + b.height / 2);
+    await page.mouse.down();
+    await pane.evaluate((el) => { el.innerHTML = el.innerHTML; });
+    await page.mouse.move(b.x + 40, b.y + b.height / 2 + 30, { steps: 4 });
+    await expect(ghost).toBeVisible();
+    const gb = (await ghost.boundingBox())!;
+    expect(Math.abs(gb.x - b.x)).toBeLessThan(4);
+    expect(Math.abs(gb.y - (b.y + 30))).toBeLessThan(4);
+    expect(gb.width).toBeGreaterThan(b.width - 4);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(ghost).toHaveCount(0);
 
     // «Порядок»: та же механика — строка из конца списка уходит в начало через колёсико
     await page.keyboard.press('Alt+F10');
