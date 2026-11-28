@@ -433,6 +433,8 @@ body.studio { scrollbar-color: var(--scroll) transparent; }
 .st-rpanel[hidden] { display: none; }
 /* Группы разделены тонкой чертой, которая тает к подписи группы */
 .st-rgroup { position: relative; display: flex; flex-direction: column; padding: 0 9px; flex: none; }
+/* Группа без кнопок (нет включённых плагинов) — не видна: display у группы перебивал бы hidden */
+.st-rgroup[hidden] { display: none; }
 .st-rgroup::after { content: ""; position: absolute; right: 0; top: 4px; bottom: 18px; width: 1px; background: linear-gradient(var(--bd), var(--bd) 70%, transparent); }
 .st-rgroup:last-child::after { content: none; }
 .st-rgroup-body { display: flex; align-items: center; gap: 4px; flex: 1; }
@@ -483,6 +485,12 @@ body.studio { scrollbar-color: var(--scroll) transparent; }
 /* Область анимации — своя колонка справа или слева от слайда (ширина — --apr / --apl, anim-tab) */
 .st-body > .st-apane { grid-column: 4; grid-row: 1; }
 .st-body > .st-apane.left { grid-column: 2; }
+/* Панель плагина (plugin-pane.ts) — в той же колонке справа, по одной с областью анимации; внутри — рамка плагина */
+.st-pp-body { flex: 1; display: flex; min-height: 0; overflow: hidden; }
+.st-pp-frame { flex: 1; width: 100%; min-height: 0; border: 0; border-radius: 0 0 var(--isl-r) var(--isl-r); background: transparent; }
+.st-pp-name { display: inline-flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; }
+.st-pp-i { display: inline-grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 6px; background: var(--acs); color: var(--ac); }
+.st-pp-err { margin: 12px 14px; color: var(--mu); font-size: 13px; }
 /* Скрытые панели: их место отдаётся слайду */
 .no-left .st-body { --lw: 0px; }
 .no-right .st-body { --rw: 0px; }

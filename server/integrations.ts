@@ -7,18 +7,22 @@
  *   .slideria/agents.json          агенты, которые подключались: имя, когда были, сколько правок
  *   .slideria/journal/<имя>.jsonl  журнал правок презентации: кто, когда, что (было → стало), точка перед правкой
  *   scripts/*.js                   скрипты пользователя (встроенные — templates/scripts)
+ *   plugins/<папка>/plugin.json    плагины пользователя (встроенные — templates/plugins; docs/PLUGINS.md)
+ *   .slideria/plugins.json         какие плагины включены и что им разрешили
+ *   .slideria/plugin-data/<id>.json  настройки плагина (его хранилище)
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { stamp } from './deck-files';
 import type { Change } from '../src/engine/ops';
+import { PLUGIN_DIR, PLUGIN_PATH, missing, readManifest, type PluginManifest } from '../src/engine/plugin-manifest';
 
 /** Что можно агентам: смотреть (читать и экспорт), править (и создавать новые презентации), всё (и сохранять скрипты) */
 export type AgentAccess = 'view' | 'edit' | 'all';
 const ACCESS: AgentAccess[] = ['view', 'edit', 'all'];
 
-/** Кто правил: агент (MCP), скрипт или человек в студии */
-export interface By { kind: 'agent' | 'script'; id?: string; name: string }
+/** Кто правил: агент (MCP), скрипт, плагин или человек в студии */
+export interface By { kind: 'agent' | 'script' | 'plugin'; id?: string; name: string }
 
 /** Переписка чата «Агент» студии с этой презентацией (server/agent.ts): в .slideria, рядом с журналом */
 export const chatsDir = (dir: string, deck: string) => path.join(dir, '.slideria', 'chats', deck);
@@ -52,11 +56,26 @@ export interface AgentInfo {
 
 export interface ScriptParam { key: string; type: 'text' | 'lines' | 'number' | 'bool' | 'choice'; label: string; value: unknown; options?: { value: string; label: string }[] }
 export interface ScriptInfo { id: string; name: string; description: string; params: ScriptParam[]; builtin: boolean; file: string }
+/**
+ * Плагин в списке: описание (или почему его не включить), включён ли, что ему разрешили и чего из нужного
+ * ещё нет (тогда он не работает, пока не разрешат)
+ */
+export interface PluginInfo {
+  id: string; folder: string; builtin: boolean;
+  manifest: PluginManifest | null; error?: string;
+  enabled: boolean; granted: string[]; needs: string[];
+}
 
 /** Агент на связи, если давал о себе знать не дольше этого (MCP напоминает о себе раз в 15 с) */
 const ONLINE_MS = 40_000;
 const SCRIPT_FILE = /^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,80}\.js$/u;
 const MAX_SCRIPT = 256 * 1024;
+/** Файл плагина, который отдаёт сервер: текст панели, её код и стили, картинки и шрифты (данными) */
+const PLUGIN_TEXT = /\.(html?|m?js|css|json|svg|txt)$/i;
+const PLUGIN_BIN: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.woff2': 'font/woff2' };
+const MAX_PLUGIN_FILE = 2 * 1024 * 1024;
+/** Хранилище настроек плагина — небольшое: это не место для файлов */
+const MAX_PLUGIN_DATA = 256 * 1024;
 
 /** Красивое имя клиента MCP по его clientInfo.name */
 const CLIENTS: Record<string, string> = {
@@ -110,6 +129,10 @@ export function createIntegrations(o: IntegrationsOptions) {
   const journalDir = path.join(base, 'journal');
   const scriptsDir = path.join(o.dir, 'scripts');
   const builtinDir = path.join(o.root, 'templates', 'scripts');
+  const pluginsDir = path.join(o.dir, 'plugins');
+  const builtinPluginsDir = path.join(o.root, 'templates', 'plugins');
+  const pluginsFile = path.join(base, 'plugins.json');
+  const pluginDataDir = path.join(base, 'plugin-data');
 
   const readJson = <T>(file: string, fallback: T): T => {
     try { return JSON.parse(fs.readFileSync(file, 'utf8')) as T; } catch { return fallback; }
@@ -394,12 +417,119 @@ export function createIntegrations(o: IntegrationsOptions) {
     return { trashed: path.relative(o.dir, path.join(to, m[1])).split(path.sep).join('/') };
   }
 
+  // ---------------- плагины ----------------
+
+  type PluginState = Record<string, { enabled?: boolean; granted?: string[] }>;
+  const pluginState = () => readJson<PluginState>(pluginsFile, {});
+
+  /** Папка плагина по id (builtin:<папка> или user:<папка>) — только существующая и с допустимым именем */
+  function pluginDir(id: string): { dir: string; folder: string; builtin: boolean } {
+    const m = /^(builtin|user):(.+)$/.exec(id ?? '');
+    if (!m || !PLUGIN_DIR.test(m[2])) throw new Error('Нет такого плагина');
+    const dir = path.join(m[1] === 'builtin' ? builtinPluginsDir : pluginsDir, m[2]);
+    if (!fs.existsSync(path.join(dir, 'plugin.json'))) throw new Error(`Плагин «${m[2]}» не найден в папке плагинов`);
+    return { dir, folder: m[2], builtin: m[1] === 'builtin' };
+  }
+
+  function pluginInfo(id: string, folder: string, builtin: boolean, dir: string, st: PluginState): PluginInfo {
+    let manifest: PluginManifest | null = null;
+    let error: string | undefined;
+    try {
+      const r = readManifest(JSON.parse(fs.readFileSync(path.join(dir, 'plugin.json'), 'utf8')));
+      if ('error' in r) error = r.error;
+      else manifest = r.manifest;
+    } catch (e) {
+      error = `plugin.json не читается: ${(e as Error).message}`;
+    }
+    const granted = (st[id]?.granted ?? []).filter((g) => typeof g === 'string');
+    const needs = manifest ? missing(manifest, granted) : [];
+    return { id, folder, builtin, manifest, ...(error ? { error } : {}), enabled: !!manifest && st[id]?.enabled === true, granted, needs };
+  }
+
+  /** Плагины: встроенные, затем свои — папки с plugin.json */
+  function plugins(): PluginInfo[] {
+    const st = pluginState();
+    const read = (root: string, builtin: boolean) => (fs.existsSync(root) ? fs.readdirSync(root) : [])
+      .filter((f) => PLUGIN_DIR.test(f) && fs.existsSync(path.join(root, f, 'plugin.json')))
+      .sort()
+      .map((f) => pluginInfo(`${builtin ? 'builtin' : 'user'}:${f}`, f, builtin, path.join(root, f), st));
+    return [...read(builtinPluginsDir, true), ...read(pluginsDir, false)];
+  }
+
+  /**
+   * Файл плагина для его панели: текст (HTML, код, стили) или данные (картинка, шрифт) — только из его папки.
+   * Панель сама сервер не спрашивает: файлы ей встраивает студия (src/studio/plugin-pane.ts)
+   */
+  function pluginFile(id: string, rel: string): { text: string } | { data: string; type: string } {
+    const { dir } = pluginDir(id);
+    if (typeof rel !== 'string' || !PLUGIN_PATH.test(rel)) throw new Error('Путь файла плагина: внутри его папки, без «..»');
+    const file = path.resolve(dir, rel);
+    if (!file.startsWith(path.resolve(dir) + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) throw new Error(`Нет файла «${rel}» в папке плагина`);
+    if (fs.statSync(file).size > MAX_PLUGIN_FILE) throw new Error(`Файл «${rel}» больше 2 МБ`);
+    if (PLUGIN_TEXT.test(rel)) return { text: fs.readFileSync(file, 'utf8') };
+    const type = PLUGIN_BIN[path.extname(rel).toLowerCase()];
+    if (!type) throw new Error(`Файл «${rel}»: такие плагину не отдаются`);
+    return { data: fs.readFileSync(file).toString('base64'), type };
+  }
+
+  /**
+   * Включить или выключить плагин. Включить — с разрешениями, которые показали человеку: их сервер и запоминает.
+   * Выключили — разрешения остаются: включить снова можно без вопросов, пока плагин не попросит нового
+   */
+  function setPlugin(id: string, v: { enabled?: unknown; granted?: unknown }): PluginInfo {
+    const { dir, folder, builtin } = pluginDir(id);
+    const st = pluginState();
+    const cur = st[id] ?? {};
+    if (Array.isArray(v.granted)) cur.granted = [...new Set([...(cur.granted ?? []), ...v.granted.filter((g): g is string => typeof g === 'string' && g.length < 300)])];
+    if (typeof v.enabled === 'boolean') cur.enabled = v.enabled;
+    st[id] = cur;
+    const info = pluginInfo(id, folder, builtin, dir, st);
+    if (info.enabled && info.needs.length) throw new Error('Плагину не разрешено всё, что ему нужно');
+    if (v.enabled === true && !info.manifest) throw new Error(info.error ?? 'Плагин не включить');
+    writeJson(pluginsFile, st);
+    return info;
+  }
+
+  const dataFile = (id: string) => path.join(pluginDataDir, `${id.replace(/[^\p{L}\p{N}._-]/gu, '_')}.json`);
+  /** Настройки плагина: прочитать все или записать одну (значение null — убрать) */
+  function pluginData(id: string, set?: { key?: unknown; value?: unknown }): Record<string, unknown> {
+    pluginDir(id);
+    const file = dataFile(id);
+    const data = readJson<Record<string, unknown>>(file, {});
+    if (!set) return data;
+    const key = typeof set.key === 'string' ? set.key.slice(0, 100) : '';
+    if (!key) throw new Error('Настройка плагина: нужен ключ');
+    if (set.value === null || set.value === undefined) delete data[key];
+    else data[key] = set.value;
+    if (JSON.stringify(data).length > MAX_PLUGIN_DATA) throw new Error('Настройки плагина больше 256 КБ');
+    writeJson(file, data);
+    return data;
+  }
+
+  /**
+   * Удалить свой плагин: папка не стирается, а уходит в корзину проекта (.trash/plugins-<время>/) — вернуть можно,
+   * перенеся её обратно в папку плагинов. Встроенные плагины не удаляются
+   */
+  function deletePlugin(id: string): { trashed: string } {
+    const { dir, folder, builtin } = pluginDir(id);
+    if (builtin) throw new Error('Встроенный плагин не удаляется — его можно выключить');
+    const to = path.join(o.dir, '.trash', `plugins-${stamp()}`);
+    fs.mkdirSync(to, { recursive: true });
+    fs.renameSync(dir, path.join(to, folder));
+    const st = pluginState();
+    delete st[id];
+    writeJson(pluginsFile, st);
+    fs.rmSync(dataFile(id), { force: true });
+    return { trashed: path.relative(o.dir, path.join(to, folder)).split(path.sep).join('/') };
+  }
+
   return {
     access, setAccess, allow,
     agents: list, hello, bye,
     record, journal, takeJournal, adoptJournal, dropJournal, restoreJournal, journalBytes,
     scripts, scriptCode, saveScript, deleteScript,
-    scriptsDir,
+    plugins, pluginFile, setPlugin, pluginData, deletePlugin,
+    scriptsDir, pluginsDir,
     close: () => clearInterval(sweep),
   };
 }

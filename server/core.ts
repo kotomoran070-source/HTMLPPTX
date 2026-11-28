@@ -605,9 +605,11 @@ export function createDecksCore(opts: CoreOptions) {
    * Правка скрипта студии — в журнал (сама правка уже в окне студии и запишется его сохранением). Подписи —
    * от операций скрипта; проверяются только виды полей
    */
-  function recordScript(name: string, e: { name?: unknown; changes?: unknown; checkpoint?: unknown; after?: unknown }): JournalEntry {
+  function recordScript(name: string, e: { name?: unknown; kind?: unknown; id?: unknown; changes?: unknown; checkpoint?: unknown; after?: unknown }): JournalEntry {
     assertDeck(name);
     if (typeof e?.name !== 'string' || !e.name.trim() || !Array.isArray(e.changes)) throw new Error('Журнал: имя скрипта и список правок');
+    // Правка из панели плагина — та же запись, только автор — плагин (его id — чтобы найти в «Плагинах»)
+    const plugin = e.kind === 'plugin';
     const str = (v: unknown, n: number) => (typeof v === 'string' && v ? v.slice(0, n) : undefined);
     const changes = e.changes.slice(0, 500).filter((c) => c && typeof c === 'object' && typeof (c as { label?: unknown }).label === 'string').map((c) => {
       const x = c as Record<string, unknown>;
@@ -617,7 +619,8 @@ export function createDecksCore(opts: CoreOptions) {
     const point = (v: unknown) => (typeof v === 'string' && v.startsWith('auto:') && pointExists(name, v) ? v : undefined);
     const cp = point(e.checkpoint);
     const after = point(e.after);
-    return record(name, { by: { kind: 'script', name: e.name.trim().slice(0, 80) }, changes, ...(cp && after ? { checkpoint: cp, after } : {}) });
+    const by = plugin ? { kind: 'plugin' as const, name: e.name.trim().slice(0, 80), ...(str(e.id, 120) ? { id: str(e.id, 120) } : {}) } : { kind: 'script' as const, name: e.name.trim().slice(0, 80) };
+    return record(name, { by, changes, ...(cp && after ? { checkpoint: cp, after } : {}) });
   }
 
   // ---------------- контрольные точки (виды и сроки — KINDS вверху) ----------------
@@ -1169,6 +1172,12 @@ export function createDecksCore(opts: CoreOptions) {
     saveScript: (file: string, code: string, o?: { by?: unknown; replace?: boolean }) => integrations.saveScript(file, code, { by: byOf(o?.by), replace: o?.replace }),
     deleteScript: (id: string) => integrations.deleteScript(id),
     scriptsDir: integrations.scriptsDir,
+    plugins: () => integrations.plugins(),
+    pluginFile: (id: string, file: string) => integrations.pluginFile(id, file),
+    setPlugin: (id: string, v: { enabled?: unknown; granted?: unknown }) => integrations.setPlugin(id, v),
+    pluginData: (id: string, set?: { key?: unknown; value?: unknown }) => integrations.pluginData(id, set),
+    deletePlugin: (id: string) => integrations.deletePlugin(id),
+    pluginsDir: integrations.pluginsDir,
     /**
      * Как запустить MCP этой папки (docs/MCP.md): программа — сама собой с ключом --mcp (desktop/main.mjs),
      * при разработке — Node и scripts/mcp.mjs

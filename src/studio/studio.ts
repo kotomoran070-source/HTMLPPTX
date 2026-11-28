@@ -3,6 +3,7 @@ import { CommandPalette } from './palette';
 import { guessGap, rowOf } from '../engine/editor/rows';
 import { toolsCommands } from './tools';
 import { integrationsRibbon, startIntegrations } from './integrations';
+import { startPlugins, type Plugins } from './plugins';
 import { accentTail, applyAccent, applyAccentFlow, DEFAULT_ACCENT, HEX_RE, setUiAccent, slideAccent, uiAccent, uiSafeAccent } from '../engine/accent';
 import { applyThemeSwatches, themeMode } from '../engine/deck-theme';
 import { smoothWheel, smoothWheelOn, setSmoothWheel, stripWheel, wheelStrip } from '../engine/hscroll';
@@ -244,6 +245,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       ${group('Заметки', rb('tools.notes-clear', 'notes', 'Удалить заметки', { big: true, title: 'Заметки докладчика со всех слайдов' }))}
       ${group('Программа', rb('tools.licenses', 'shield', 'Лицензии', { big: true, title: 'Лицензии Slideria, библиотек и шрифтов' }))}
       ${group('Интеграции', integrationsRibbon(rb))}
+      <div class="st-rgroup" role="group" aria-label="Плагины" id="st-plug-group" hidden><div class="st-rgroup-body" id="st-plugs"></div><div class="st-rgroup-label">Плагины</div></div>
     </div>
     <div class="st-rpanel" data-panel="view" hidden>
       ${group('Панели', rb('view.slides', 'grid', 'Слайды', { big: true, key: 'Ctrl+Shift+1', title: 'Список слайдов слева' }) + rb('view.props', 'sliders', 'Свойства', { big: true, key: 'Ctrl+Shift+2', title: 'Панель свойств справа' }) + rb('view.notes', 'notes', 'Заметки', { big: true, key: 'Ctrl+Shift+3' }) + rb('view.code', 'terminal', 'Код слайда', { big: true, key: 'Ctrl+`', title: 'Код слайда (YAML), стили (CSS) и анимации (HTML/JS)' }) + rb('view.layers', 'layers', 'Область выделения', { big: true, key: 'Alt+F10', title: 'Объекты слайда списком' }))}
@@ -280,6 +282,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     </main>
     <section class="st-apane" id="st-apane" data-ed-keep hidden aria-label="Область анимации"></section>
     <div class="st-split v st-sa" id="st-sa" role="separator" aria-orientation="vertical" aria-label="Ширина области анимации" tabindex="0" title="Двойной щелчок — сбросить ширину" hidden></div>
+    <section class="st-apane st-ppane" id="st-ppane" data-ed-keep hidden aria-label="Плагин"></section>
     <aside class="st-props" id="st-props" aria-label="Свойства" data-ed-keep></aside>
     <aside class="st-chat" id="st-chat" aria-label="Агент" data-ed-keep hidden></aside>
   </div>
@@ -388,6 +391,8 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
 
   // ---------------- редактор ----------------
   let editor: Editor | null = null;
+  /** Плагины (plugins.ts) — заводятся после редактора; панели плагина нужны слайд, выделение и правки */
+  let plugins: Plugins | null = null;
   /** Область выделения: создаётся ниже, но перерисовки слайдов уже её учитывают */
   let layers: LayersPane | null = null;
   let stateQueued = false;
@@ -464,6 +469,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       code?.update();
       // Скрытые на время правки остаются скрытыми после перерисовки — без мигания
       layers?.apply();
+      plugins?.notify(true);
       queueState();
     },
     relayout: layout,
@@ -1974,8 +1980,11 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   bindDesignStrip(designHost, cmds);
   Object.assign(cmds, toolsCommands({ deck, deckKey, editor: ed, go, slide: () => index, info: () => filePanel?.open('info'), licenses: () => filePanel?.open('licenses') }));
   // Интеграции: группа на ленте «Инструменты» и раздел «Файл → Интеграции» (integrations.ts, integrations-file.ts)
+  // Плагины: кнопки в группе «Плагины» на «Инструментах», Ctrl+K, панель рядом со слайдом (plugins.ts)
+  const plugs = startPlugins({ deck, deckKey, editor: ed, index: () => index, fit: () => fitRibbon() });
+  plugins = plugs;
   const integrations = startIntegrations({
-    deck, deckKey, editor: ed, go, index: () => index,
+    deck, deckKey, editor: ed, go, index: () => index, plugins: plugs,
     file: { open: () => filePanel?.open('int'), close: () => filePanel?.close(), shown: () => !!filePanel?.isOpen() },
   });
   Object.assign(cmds, integrations.commands);
@@ -2045,8 +2054,9 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       { id: 'obj.front', label: 'На передний план', path: 'Главная · Упорядочить', words: 'поверх всех порядок наверх', key: 'Ctrl+Shift+]', ico: icon('front'), run: () => run('obj.front'), enabled: single },
       { id: 'obj.back', label: 'На задний план', path: 'Главная · Упорядочить', words: 'под всеми порядок вниз', key: 'Ctrl+Shift+[', ico: icon('back'), run: () => run('obj.back'), enabled: single },
       { id: 'edit.replace', label: 'Заменить', path: 'Главная · Правка', words: 'найти и заменить текст', key: 'Ctrl+H', ico: icon('search'), run: () => find?.show(true), enabled: () => true },
-      // Скрипты пользователя и встроенные: «Скрипт: Оглавление»
+      // Скрипты пользователя и встроенные: «Скрипт: Оглавление»; включённые плагины: «Плагин: …»
       ...integrations.palette(),
+      ...plugs.palette(),
     ];
   }
 
@@ -2597,6 +2607,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
 
   function syncUi(): void {
     find?.refresh();
+    plugins?.notify();
     // Образцы цветов в панелях — в цветах открытого слайда (у него могут быть свои)
     const own = slideAccent(deck.slides[index]?.theme);
     const root = document.querySelector('.studio-app');

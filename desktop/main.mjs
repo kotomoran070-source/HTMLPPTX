@@ -536,6 +536,15 @@ function guard(win) {
     e.preventDefault();
     if (/^https?:|^mailto:/i.test(url)) void shell.openExternal(url);
   });
+  // Рамка без адреса (origin «null»: панель плагина — src/studio/plugin-pane.ts, блок «Песочница») на чужой адрес
+  // не уходит: так панель унесла бы данные презентации в самом адресе, минуя запрет сети. Рамки слайдов со своим
+  // адресом (видео, вставки) это не задевает
+  win.webContents.on('will-frame-navigate', (e) => {
+    if (e.isMainFrame || !e.frame) return;
+    let origin = '';
+    try { origin = e.frame.origin; } catch { return; }
+    if (origin === 'null' && !/^about:(srcdoc|blank)/.test(e.url) && !ours(e.url)) e.preventDefault();
+  });
   watchPage(win.webContents);
 }
 

@@ -9,9 +9,11 @@ import '../engine/import-ui.css';
 import './integrations.css';
 import { LOGOS } from './brand-logos';
 import { agentLook, agentMark, ago, api, canRevert, defaults, edits, revertAgent, runScript, sessionsOf, slideOf, type AgentInfo, type IntegrationsCtx, type JournalEntry, type ScriptInfo, type ScriptParam, type Section } from './integrations';
+import { permissionRows } from './plugin-pane';
+import type { PluginInfo } from './plugins';
 
 type Access = 'view' | 'edit' | 'all';
-interface Info { access: Access; agents: AgentInfo[]; mcp: { command: string; args: string[] } | null; scripts: string }
+interface Info { access: Access; agents: AgentInfo[]; mcp: { command: string; args: string[] } | null; scripts: string; plugins?: string }
 type Cmd = { command: string; args: string[] };
 /**
  * Клиент на этом компьютере (server/connect.ts): стоит ли и подключена ли к нему Slideria; via — расширением
@@ -102,6 +104,8 @@ const state = {
   scope: 'deck' as 'deck' | 'all',
   client: (() => { try { const c = localStorage.getItem(CLIENT_KEY); if (CLIENTS.some((x) => x.id === c)) return c!; } catch { /* нет доступа */ } return 'claude-code'; })(),
   variant: 0,
+  /** Выбранный плагин в «Плагинах» */
+  plugin: null as string | null,
   /** Итог последнего запуска скрипта; «!» в начале — ошибка */
   results: {} as Record<string, string>,
   busy: '',
@@ -124,12 +128,20 @@ const values = new Map<string, Record<string, unknown>>();
 /** Развёрнутые длинные пакеты журнала */
 const expanded = new Set<string>();
 const bound = new WeakSet<HTMLElement>();
+/** Подписка на список плагинов: новый — «Плагины» перерисовываются (одна на раздел) */
+let unPlugins: (() => void) | null = null;
 
 /** Нарисовать раздел в el (file-panel.ts перерисовывает «Файл» — el каждый раз новый) */
 export function mount(el: HTMLElement, c: IntegrationsCtx): void {
   ctx = c;
   root = el;
   state.shown = '';
+  unPlugins?.();
+  unPlugins = c.host.plugins?.onChange(() => {
+    if (!root?.isConnected) return;
+    if (ctx?.view.sub === 'plugins') render();
+    else paintTabs();
+  }) ?? null;
   if (!bound.has(el)) {
     bound.add(el);
     el.addEventListener('click', onClick);
@@ -151,7 +163,7 @@ export function update(c: IntegrationsCtx, what: 'agents' | 'log'): void {
 
 async function load(): Promise<void> {
   try {
-    const [info, scripts] = await Promise.all([api<Info>('integrations'), api<ScriptInfo[]>('scripts'), loadClients()]);
+    const [info, scripts] = await Promise.all([api<Info>('integrations'), api<ScriptInfo[]>('scripts'), loadClients(), ctx?.host.plugins?.refresh()]);
     state.info = info;
     ctx?.setAgents(info.agents);
     ctx?.setScripts(scripts);
@@ -181,7 +193,7 @@ function tabsHtml(): string {
     agents: online ? `<i class="live">${online} на связи</i>` : '',
     scripts: c.scripts().length ? `<i>${c.scripts().length}</i>` : '',
     log: c.recent() ? `<i title="Правки агентов за сутки">${c.recent()}</i>` : '',
-    plugins: '<i class="soon">скоро</i>',
+    plugins: c.host.plugins?.list().length ? `<i>${c.host.plugins.list().length}</i>` : '',
     connectors: '<i class="soon">с облаком</i>',
   };
   return SUBS.map(([id, ic, name]) => `<button type="button" class="ig-tab" role="tab" id="ig-t-${id}" data-sub="${id}" aria-controls="ig-pane" aria-selected="${c.view.sub === id}" tabindex="${c.view.sub === id ? 0 : -1}">${icon(ic)}${name}${badge[id]}</button>`).join('');
@@ -220,8 +232,8 @@ function focusKey(): string {
   return '';
 }
 
-function avatar(name: string, online?: boolean, size = '', script = false): string {
-  if (script) return `<span class="ig-av k ${size}">${icon('script')}</span>`;
+function avatar(name: string, online?: boolean, size = '', kind: 'agent' | 'script' | 'plugin' = 'agent'): string {
+  if (kind !== 'agent') return `<span class="ig-av k ${size}">${icon(kind === 'plugin' ? 'plug' : 'script')}</span>`;
   const l = agentLook(name);
   return `<span class="ig-av ${size}${online === undefined ? '' : online ? ' on' : ' off'}" style="background:${l.bg}">${agentMark(l)}<i></i></span>`;
 }
@@ -432,7 +444,7 @@ function logHtml(): string {
     const rows = (long ? e.changes.slice(0, 3) : e.changes).map((c) => `<div class="ig-row"><div><div class="ig-rl">${esc(c.label)}</div>${c.was || c.now ? `<div class="ig-diff">${c.was ? `<del>${esc(c.was)}</del>` : ''}${c.was && c.now ? '<span>→</span>' : ''}${c.now ? `<ins>${esc(c.now)}</ins>` : ''}</div>` : ''}</div>`
       + `${(() => { const at = here ? slideOf(h.deck, c) : -1; return at >= 0 ? `<button type="button" class="ig-sl" data-go="${at + 1}" title="Перейти к слайду">${icon('frame')}Слайд ${at + 1}</button>` : '<span></span>'; })()}</div>`).join('');
     const html = `<section class="fp-card ig-entry">
-      <div class="ig-eh">${avatar(e.by.name, undefined, 's', e.by.kind === 'script')}<div class="ig-who2"><b>${esc(e.by.name)}</b><span class="ig-m">${e.by.kind === 'script' ? 'скрипт · ' : ''}${hm(Date.parse(e.t))}${here ? '' : ` · «${esc(e.deck)}»`} · ${edits(e.changes.length)}</span></div>
+      <div class="ig-eh">${avatar(e.by.name, undefined, 's', e.by.kind)}<div class="ig-who2"><b>${esc(e.by.name)}</b><span class="ig-m">${e.by.kind === 'script' ? 'скрипт · ' : e.by.kind === 'plugin' ? 'плагин · ' : ''}${hm(Date.parse(e.t))}${here ? '' : ` · «${esc(e.deck)}»`} · ${edits(e.changes.length)}</span></div>
         ${canUndo ? `<button type="button" class="fp-btn" data-undo="${k}">${icon('undo')}Вернуть</button>` : ''}</div>
       <div class="ig-rows">${rows}</div>
       ${long ? `<button type="button" class="ig-more" data-more="${esc(key)}">Ещё ${edits(e.changes.length - 3)}</button>` : ''}
@@ -444,11 +456,137 @@ function logHtml(): string {
 }
 
 const kind = (ic: string, n: string, p: string, eg: string) => `<div class="fp-card ig-kind"><span class="ig-si">${icon(ic)}</span><b>${n}</b><p>${p}</p><div class="ig-eg"><span>например:</span> ${eg}</div></div>`;
-function pluginsHtml(): string {
-  return `<section class="fp-card ig-hero"><span class="ig-hero-i">${icon('plug')}</span><div><h3>Плагины — следующий шаг</h3><p>Как скрипт, но пакетом: свои блоки на слайдах, кнопки на ленте и форматы. Установка — из папки и каталога, с разрешениями, как у расширений браузера. Правят теми же операциями, что агенты: каждая правка видна в журнале и отменяется.</p></div></section>
-    <div class="ig-kinds">${kind('grid', 'Свой блок', 'Новый вид объекта или слайда: со своими полями в «Свойствах», в PowerPoint и PDF.', 'карта офисов, таймлайн из задач')}${kind('script', 'Команда', 'Кнопка на ленте или в Ctrl+K: действие над презентацией операциями правки.', '«Проверить фирменный стиль»')}${kind('cycle', 'Импорт и экспорт', 'Свой формат на входе или выходе: из таблицы, из базы знаний, в свою систему.', 'слайды из таблицы')}</div>
-    <div class="ig-callout">${icon('agent')}<span>Плагин с собственным MCP-сервером подключается как агент в разделе «Агенты», а команды плагина появятся здесь.</span></div>`;
+
+/** Состояние плагина одним словом — на карточке */
+function plugTag(p: PluginInfo): string {
+  if (!p.manifest) return 'ошибка';
+  if (p.enabled && p.needs.length) return 'нужно разрешение';
+  if (p.enabled) return 'включён';
+  return p.builtin ? 'встроенный' : 'выключен';
 }
+
+/** Плагины: карточки слева, выбранный справа — что делает, что ему можно, «Включён», панель, удалить */
+function pluginsHtml(): string {
+  const pl = ctx!.host.plugins;
+  const list = pl?.list() ?? [];
+  const dir = state.info?.plugins ?? '';
+  const openDir = (window as unknown as { slideriaApp?: { openPath?: unknown } }).slideriaApp?.openPath;
+  const how = `<section class="fp-card ig-how"><span class="ig-hi">${icon('plug')}</span>
+      <div><b>Плагин — папка с файлом plugin.json</b><span class="ig-m">Положите папку плагина в папку плагинов — он появится в этом списке выключенным. Что ему будет можно, видно до включения. Папка плагинов</span>${dir ? `<code>${esc(dir)}</code>` : ''}</div>
+      <div class="ig-acts">${openDir ? `<button type="button" class="fp-btn" data-a="open-plugins">${icon('frame')}Открыть папку</button>` : `<button type="button" class="fp-btn" data-copy="${esc(dir)}">${icon('copy')}<span>Путь к папке</span></button>`}</div>
+    </section>`;
+  if (!list.length) {
+    return `<section class="fp-card ig-hero"><span class="ig-hero-i">${icon('plug')}</span><div><h3>Плагинов пока нет</h3><p>Плагин добавляет в студию свою панель рядом со слайдом: кнопка — на вкладке «Инструменты» и в Ctrl+K. Правит презентацию теми же операциями, что агенты и скрипты: каждая правка видна в журнале и отменяется.</p></div></section>
+    ${how}`;
+  }
+  if (!list.some((p) => p.id === state.plugin)) state.plugin = list[0].id;
+  const p = list.find((x) => x.id === state.plugin)!;
+  const cards = list.map((x) => `<button type="button" class="ig-sc" role="radio" data-plugin-pick="${esc(x.id)}" aria-checked="${x.id === state.plugin}"><span class="ig-si">${icon(x.manifest?.icon ?? 'plug')}</span>
+      <span class="ig-n">${esc(x.manifest?.name ?? x.folder)}<i class="ig-tag${x.enabled && !x.needs.length ? ' on' : ''}">${plugTag(x)}</i></span><small>${esc(x.manifest?.description || x.error || x.folder)}</small><span class="ig-rd"></span></button>`).join('');
+  const m = p.manifest;
+  const meta = m ? [m.version && `Версия ${m.version}`, m.author].filter(Boolean).join(' · ') : '';
+  const rows = m ? permissionRows(m).map((r) => `<div class="ig-perm"><span class="ig-si">${icon(r.icon)}</span><div><b>${esc(r.title)}</b><span>${esc(r.sub)}</span></div></div>`).join('') : '';
+  const usable = !!m && p.enabled && !p.needs.length;
+  const opened = pl?.openId() === p.id;
+  const side = `<aside class="fp-card ig-side">
+      <h3>${esc(m?.name ?? p.folder)}</h3>${m?.description ? `<p>${esc(m.description)}</p>` : ''}${meta ? `<p class="ig-meta">${esc(meta)}</p>` : ''}
+      ${p.error ? `<div class="ig-res err">${esc(p.error)}</div>` : ''}
+      ${m ? `<div class="ig-perms"><h4 class="fp-k">Разрешения</h4>${rows}</div>` : ''}
+      ${p.enabled && p.needs.length ? '<div class="ig-res err">Плагин просит новое разрешение: выключите и включите его снова, чтобы посмотреть и разрешить.</div>' : ''}
+      ${m ? `<label class="ig-fb ig-on"><span>Включён</span><input type="checkbox" role="switch" data-plugin-on="${esc(p.id)}"${p.enabled ? ' checked' : ''}></label>` : ''}
+      ${usable ? `<button type="button" class="fp-btn go" data-plugin-open="${esc(p.id)}">${icon('layers')}${opened ? 'Закрыть панель' : 'Открыть панель'}</button>
+      <div class="ig-hint">${icon('plug')}<span>Кнопка — на вкладке «Инструменты» и в Ctrl+K: «${esc(m!.button.label)}».</span></div>` : ''}
+      ${p.builtin ? '' : `<button type="button" class="ig-del" data-a="del-plugin">${icon('trash')}Удалить плагин…</button>`}
+    </aside>`;
+  return `<div class="ig-sx">
+      <div class="ig-scs" role="radiogroup" aria-label="Плагин">${cards}</div>
+      ${side}
+    </div>
+    ${how}`;
+}
+
+/**
+ * Включить плагин — после вопроса со списком того, что ему будет можно: без согласия плагин не включается.
+ * Ответ сервер запоминает: включить снова можно без вопроса, пока плагин не попросит нового
+ */
+function askEnablePlugin(p: PluginInfo): void {
+  const c = ctx!;
+  const m = p.manifest;
+  if (!m) return;
+  const before = document.activeElement as HTMLElement | null;
+  const box = document.createElement('div');
+  box.className = 'imp-bd';
+  const rows = permissionRows(m).map((r) => `<div class="ig-dlg-item"><span class="ig-si">${icon(r.icon)}</span><div><b>${esc(r.title)}</b><span>${esc(r.sub)}</span></div></div>`).join('');
+  const who = [m.author && `Автор: ${m.author}`, m.version && `версия ${m.version}`].filter(Boolean).join(' · ');
+  box.innerHTML = `<div class="imp ig-dlg" role="alertdialog" aria-modal="true" aria-labelledby="ig-dlg-h" aria-describedby="ig-dlg-d">
+    <div class="ig-dlg-head"><span class="ig-dlg-icon ac">${icon('plug')}</span><h2 id="ig-dlg-h">Включить «${esc(m.name)}»?</h2></div>
+    <p class="ig-dlg-note" id="ig-dlg-d">Плагину будет можно:</p>
+    ${rows}
+    <p class="ig-dlg-note">${who ? `${esc(who)}. ` : ''}Выключить или удалить — здесь же, в «Плагинах».</p>
+    <p class="imp-err" role="alert" hidden></p>
+    <div class="imp-actions"><button type="button" class="btn ig-dlg-n" data-k="cancel">Отмена</button><button type="button" class="btn ig-dlg-ok ac" data-k="ok">${icon('check')}Включить</button></div>
+  </div>`;
+  dialog(box, before, async () => {
+    await c.host.plugins!.setEnabled(p.id, true);
+    c.host.editor.toast(`Плагин «${m.name}» включён: кнопка — на вкладке «Инструменты»`, 3000);
+  }, () => { if (root?.isConnected) render(); });
+}
+
+/** Удалить свой плагин — после вопроса: папка уходит в корзину проекта (.trash), её можно вернуть */
+function askDeletePlugin(): void {
+  const c = ctx!;
+  const p = c.host.plugins?.list().find((x) => x.id === state.plugin);
+  if (!p || p.builtin) return;
+  const before = document.activeElement as HTMLElement | null;
+  const box = document.createElement('div');
+  box.className = 'imp-bd';
+  box.innerHTML = `<div class="imp ig-dlg" role="alertdialog" aria-modal="true" aria-labelledby="ig-dlg-h" aria-describedby="ig-dlg-d">
+    <div class="ig-dlg-head"><span class="ig-dlg-icon">${icon('trash')}</span><h2 id="ig-dlg-h">Удалить плагин?</h2></div>
+    <div class="ig-dlg-item"><span class="ig-si">${icon(p.manifest?.icon ?? 'plug')}</span><div><b>${esc(p.manifest?.name ?? p.folder)}</b><span>${esc(p.folder)}</span></div></div>
+    <p class="ig-dlg-note" id="ig-dlg-d">Папка переместится в корзину — папку «.trash» рядом с презентациями. Чтобы вернуть плагин, перенесите папку обратно в папку плагинов.</p>
+    <p class="imp-err" role="alert" hidden></p>
+    <div class="imp-actions"><button type="button" class="btn ig-dlg-n" data-k="cancel">Отмена</button><button type="button" class="btn ig-dlg-ok" data-k="ok">${icon('trash')}Удалить</button></div>
+  </div>`;
+  dialog(box, before, async () => {
+    await c.host.plugins!.remove(p.id);
+    c.host.editor.toast(`Плагин «${p.manifest?.name ?? p.folder}» — в корзине`, 3000);
+  });
+}
+
+/**
+ * Окно-вопрос: «Отмена» и Esc закрывают, кнопка действия — выполняет; ошибка — в окне. Клавиши студии
+ * и «Файла» до окна не доходят, Tab ходит по двум кнопкам
+ */
+function dialog(box: HTMLElement, before: HTMLElement | null, act: () => Promise<void>, after?: () => void): void {
+  document.body.append(box);
+  const ok = box.querySelector<HTMLButtonElement>('[data-k="ok"]')!;
+  const cancel = box.querySelector<HTMLButtonElement>('[data-k="cancel"]')!;
+  const err = box.querySelector<HTMLElement>('.imp-err')!;
+  const close = () => {
+    removeEventListener('keydown', onKey, true);
+    fadeOut(box, { box: '.imp' });
+    before?.focus?.();
+    after?.();
+  };
+  const onKey = (e: KeyboardEvent) => {
+    e.stopPropagation();
+    if (e.key === 'Escape') { e.preventDefault(); if (!ok.disabled) close(); }
+    if (e.key === 'Tab') { e.preventDefault(); (document.activeElement === ok ? cancel : ok).focus(); }
+  };
+  addEventListener('keydown', onKey, true);
+  box.addEventListener('mousedown', (e) => { if (e.target === box && !ok.disabled) close(); });
+  cancel.addEventListener('click', close);
+  ok.addEventListener('click', () => {
+    ok.disabled = true;
+    act().then(close, (e) => {
+      ok.disabled = false;
+      err.hidden = false;
+      err.textContent = (e as Error).message;
+    });
+  });
+  ok.focus();
+}
+
 function connectorsHtml(): string {
   return `<section class="fp-card ig-hero"><span class="ig-hero-i">${icon('cloud')}</span><div><h3>Коннекторы — вместе с облаком</h3><p>Данные из других сервисов прямо на слайдах: вход один раз, обновление по кнопке или перед показом, а в экспорт — снимок на момент сохранения.</p></div></section>
     <div class="ig-kinds">${kind('database', 'Таблицы и базы', 'Цифры для графиков и таблиц — из таблицы или базы, всегда свежие.', 'выручка по месяцам')}${kind('users', 'Рабочие сервисы', 'Задачи, сделки, люди — карточками и списками на слайде.', 'статус проекта на планёрку')}${kind('link', 'Через агента', 'Уже сейчас — через агента по MCP: данные из сервиса и правка слайдов. Коннекторы — то же без участия агента.', '«возьмите цифры из отчёта»')}</div>`;
@@ -498,6 +636,13 @@ function onClick(e: MouseEvent): void {
     return;
   }
   if (d.script) { ctx.view.script = d.script; return render(); }
+  if (d.pluginPick) { state.plugin = d.pluginPick; return render(); }
+  if (d.pluginOpen) {
+    // Панель — рядом со слайдом: «Файл» закрывается
+    if (ctx.host.plugins?.openId() !== d.pluginOpen) ctx.close();
+    ctx.host.plugins?.toggle(d.pluginOpen);
+    return render();
+  }
   if (d.scope) { state.scope = d.scope as 'deck' | 'all'; expanded.clear(); void loadJournal().then(render); return; }
   if (d.more) { expanded.add(d.more); return render(); }
   if (d.go) { ctx.close(); h.go(Number(d.go) - 1); return; }
@@ -509,12 +654,29 @@ function onClick(e: MouseEvent): void {
   if (d.run) return void run(d.run);
   if (d.a === 'new-script') return void newScript();
   if (d.a === 'del-script') return askDeleteScript();
+  if (d.a === 'del-plugin') return askDeletePlugin();
+  if (d.a === 'open-plugins') return void (window as unknown as { slideriaApp: { openPath(p: string): Promise<void> } }).slideriaApp.openPath(state.info?.plugins ?? '');
   if (d.a === 'open-dir') void (window as unknown as { slideriaApp: { openPath(p: string): Promise<void> } }).slideriaApp.openPath(state.info?.scripts ?? '');
 }
 
 /** Поле скрипта поменяли — значение запоминается (до запуска и после перерисовки) */
 function onChange(e: Event): void {
   const el = e.target as HTMLInputElement;
+  // «Включён» у плагина: включить — после вопроса о разрешениях, выключить — сразу
+  const plug = el.dataset.pluginOn;
+  if (plug && ctx) {
+    const p = ctx.host.plugins?.list().find((x) => x.id === plug);
+    if (!p) return;
+    if (el.checked) {
+      el.checked = false;
+      return askEnablePlugin(p);
+    }
+    void ctx.host.plugins!.setEnabled(plug, false).then(
+      () => ctx?.host.editor.toast(`Плагин «${p.manifest?.name ?? p.folder}» выключен`, 2500),
+      (err) => ctx?.host.editor.toast((err as Error).message, 4000, true),
+    );
+    return;
+  }
   const key = el.dataset.p;
   if (!key) return;
   const [sid, pk] = key.split('::');

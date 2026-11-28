@@ -679,12 +679,15 @@ class OrderPane {
     this.body.addEventListener('pointerleave', () => this.light(null));
     this.dnd();
     this.resizer();
+    // Открылась панель плагина — область уступает ей колонку (plugin-pane.ts); при открытии студии — не мешает
+    document.addEventListener('st-sidepane', (e) => { if ((e as CustomEvent).detail !== 'anim' && this.st.open) this.toggle(false); });
     this.apply(false);
   }
 
   get open(): boolean { return this.st.open; }
 
   toggle(on = !this.st.open): void {
+    if (on && !this.st.open) document.dispatchEvent(new CustomEvent('st-sidepane', { detail: 'anim' }));
     this.st.open = on;
     if (!on) this.light(null);
     this.apply();

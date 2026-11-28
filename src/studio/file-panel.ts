@@ -399,15 +399,16 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
       const n = x.list.reduce((s, e) => s + e.changes.length, 0);
       const labels = x.list.flatMap((e) => e.changes.map((c) => c.label));
       const sub = labels.slice(0, 2).join(', ') + (labels.length > 2 ? ` и ещё ${labels.length - 2}` : '');
-      const script = x.by.kind === 'script';
+      // Скрипт и плагин — значком своего вида и подписью «Скрипт «…»» / «Плагин «…»»; агент — своим знаком
+      const kind = x.by.kind === 'agent' ? '' : x.by.kind;
       const look = agentLook(x.by.name);
       const ok = x.list.every(canRevert);
       const when = x.end - x.time >= 60_000 ? `${hm(x.time)}–${hm(x.end)}` : hm(x.time);
       return `<div class="fp-ver fp-ver-e" data-g="${esc(x.key)}"><time title="${esc(when)}">${hm(x.end)}</time>`
-        + `<span class="fp-ver-who">${script ? `<i class="k">${icon('script')}</i>` : `<i style="background:${look.bg}">${agentMark(look)}</i>`}</span>`
-        + `<span class="fp-ver-x"><span class="fp-ver-t">${script ? `Скрипт «${esc(x.by.name)}»` : esc(x.by.name)} <small>${edits(n)}${when.includes('–') ? ` · ${when}` : ''}</small></span><span class="fp-ver-n">${esc(sub)}</span></span>`
-        + `<span class="fp-ver-a">${script ? '' : '<button type="button" class="fp-btn fp-ver-log" data-a="log">Журнал</button>'}${ok
-          ? `<button type="button" class="fp-btn" data-revert="${esc(x.key)}" title="Вернуть как было до ${script ? 'скрипта' : 'этих правок'} — то, что поправили после, останется. Ctrl+Z — обратно">Вернуть</button>`
+        + `<span class="fp-ver-who">${kind ? `<i class="k">${icon(kind === 'plugin' ? 'plug' : 'script')}</i>` : `<i style="background:${look.bg}">${agentMark(look)}</i>`}</span>`
+        + `<span class="fp-ver-x"><span class="fp-ver-t">${kind ? `${kind === 'plugin' ? 'Плагин' : 'Скрипт'} «${esc(x.by.name)}»` : esc(x.by.name)} <small>${edits(n)}${when.includes('–') ? ` · ${when}` : ''}</small></span><span class="fp-ver-n">${esc(sub)}</span></span>`
+        + `<span class="fp-ver-a">${kind ? '' : '<button type="button" class="fp-btn fp-ver-log" data-a="log">Журнал</button>'}${ok
+          ? `<button type="button" class="fp-btn" data-revert="${esc(x.key)}" title="Вернуть как было до ${kind === 'script' ? 'скрипта' : kind === 'plugin' ? 'правки плагина' : 'этих правок'} — то, что поправили после, останется. Ctrl+Z — обратно">Вернуть</button>`
           : '<span class="fp-ver-gone" title="Точки этих правок уже не хранятся (старше 30 дней)">точек нет</span>'}`
         + `${del(`g:${x.key}`, 'Удалить из истории')}</span></div>`;
     };
@@ -464,7 +465,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
       const g = groups.get(key.slice(2));
       if (!g) return;
       what = { edits: g.list.map((e) => e.t) };
-      const who = g.by.kind === 'script' ? `Скрипт «${esc(g.by.name)}», ${hm(g.end)}</b> убран` : `Правки «${esc(g.by.name)}», ${hm(g.end)}</b> убраны`;
+      const who = g.by.kind !== 'agent' ? `${g.by.kind === 'plugin' ? 'Плагин' : 'Скрипт'} «${esc(g.by.name)}», ${hm(g.end)}</b> убран` : `Правки «${esc(g.by.name)}», ${hm(g.end)}</b> убраны`;
       item = { kind: 'gone', time: g.time, key, auto: false, html: `<b>${who} из истории` };
     }
     const had = main.contains(document.activeElement);
@@ -835,7 +836,7 @@ export function initFilePanel(host: FileHost, app: HTMLElement, button: HTMLElem
     if (d.revert) {
       const g = groups.get(d.revert);
       if (!g || !host.history) return;
-      const who = g.by.kind === 'script' ? `скрипта «${g.by.name}»` : `«${g.by.name}»`;
+      const who = g.by.kind === 'script' ? `скрипта «${g.by.name}»` : g.by.kind === 'plugin' ? `плагина «${g.by.name}»` : `«${g.by.name}»`;
       void host.history.revert(g.list, who).then(() => render(), (err: Error) => host.tools.editor.toast(`Не удалось вернуть: ${err.message}`, 4000, true));
       return;
     }

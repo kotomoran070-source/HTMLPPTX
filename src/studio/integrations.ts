@@ -15,6 +15,7 @@ import type { Deck } from '../types';
 import { LOGOS } from './brand-logos';
 import { showMenu } from './menu';
 import type { Entry } from './palette';
+import type { Plugins } from './plugins';
 
 export interface IntegrationsHost {
   deck: Deck;
@@ -25,12 +26,14 @@ export interface IntegrationsHost {
   index(): number;
   /** Раздел «Файл → Интеграции»: открыть, закрыть «Файл», открыт ли «Файл» */
   file: { open(): void; close(): void; shown(): boolean };
+  /** Плагины (plugins.ts): их список, включение и удаление — в «Интеграции → Плагины» */
+  plugins?: Plugins;
 }
 
 /** Агент — строкой на агента; sessions — живых сеансов (два окна, два терминала), только у того, кто на связи */
 export interface AgentInfo { id: string; name: string; version?: string; since: number; seen: number; online: boolean; edits: number; sessions?: number }
 /** Запись журнала; checkpoint и after — точки до и после правки (нет — уже не хранятся: «Вернуть» недоступно) */
-export interface JournalEntry { t: string; deck: string; by: { kind: 'agent' | 'script'; id?: string; name: string }; changes: Change[]; checkpoint?: string; after?: string }
+export interface JournalEntry { t: string; deck: string; by: { kind: 'agent' | 'script' | 'plugin'; id?: string; name: string }; changes: Change[]; checkpoint?: string; after?: string }
 export interface ScriptParam { key: string; type: 'text' | 'lines' | 'number' | 'bool' | 'choice'; label: string; value: unknown; options?: { value: string; label: string }[] }
 export interface ScriptInfo { id: string; name: string; description: string; params: ScriptParam[]; builtin: boolean; file: string }
 export type Section = 'agents' | 'scripts' | 'log' | 'plugins' | 'connectors';

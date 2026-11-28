@@ -192,6 +192,23 @@
 .ig-dlg .btn.ig-dlg-ok:hover:not([disabled]) { background: #B91C1C; }
 .ig-dlg .btn.ig-dlg-ok:focus-visible { outline-color: #DC2626; }
 .ig-hint .ic { width: 15px; height: 15px; margin-top: 1px; }
+/* Окно «Включить «…»?» (плагин): значок и кнопка — в цвете программы, а не красные, как у «Удалить» */
+.ig-dlg-icon.ac { color: var(--ac); background: var(--acs); border-color: color-mix(in srgb, var(--ac) 25%, var(--surf)); }
+.ig-dlg .btn.ig-dlg-ok.ac { background: var(--ac); }
+.ig-dlg .btn.ig-dlg-ok.ac:hover:not([disabled]) { background: color-mix(in srgb, #000 12%, var(--ac)); }
+.ig-dlg .btn.ig-dlg-ok.ac:focus-visible { outline-color: var(--ac); }
+.ig-dlg-item + .ig-dlg-item { margin-top: 8px; }
+.ig-dlg .ig-dlg-note + .ig-dlg-item { margin-top: 10px; }
+/* Плагины: состояние на карточке, что можно выбранному, «Включён» */
+.ig-tag.on { background: color-mix(in srgb, var(--ig-ok) 14%, var(--surf)); color: color-mix(in srgb, var(--ig-ok) 75%, var(--tx)); }
+.ig-side > .ig-meta { margin-top: -8px; font-size: 12px; }
+.ig-perms { display: grid; }
+.ig-perms h4 { margin: 0 0 4px; }
+.ig-perm { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: start; padding: 9px 0; border-top: 1px solid var(--bd); }
+.ig-perm .ig-si { width: 28px; height: 28px; }
+.ig-perm b { display: block; font-weight: 500; font-size: 13px; overflow-wrap: anywhere; }
+.ig-perm span:not(.ig-si) { color: var(--mu); font-size: 12px; }
+.ig-on { justify-content: space-between; font-size: 13px; }
 .ig-res { padding: 10px 12px; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--ig-ok) 25%, var(--bd)); background: color-mix(in srgb, var(--ig-ok) 10%, var(--surf)); color: var(--tx2); font-size: 12.5px; overflow-wrap: anywhere; }
 .ig-res.err { border-color: color-mix(in srgb, #DC2626 30%, var(--bd)); background: color-mix(in srgb, #DC2626 9%, var(--surf)); }
 .ig-how { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 16px 18px; }

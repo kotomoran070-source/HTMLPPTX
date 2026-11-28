@@ -295,8 +295,9 @@ async function route(core: DecksCore, o: HttpOptions, chat: AgentChat, clients: 
   if (!isLocal(req)) return send(res, 403, { error: 'Правка проекта — только с этого компьютера' });
   if (req.method !== 'POST') return send(res, 405, { error: 'Только POST' });
   // Запросы только со страниц этого же сервера
+  // «null» — страница без адреса (рамка-песочница: панель плагина, блок «Песочница»): ей команды проекта закрыты
   const origin = req.headers.origin;
-  if (origin && new URL(origin).host !== req.headers.host) return send(res, 403, { error: 'Чужой источник запроса' });
+  if (origin && (origin === 'null' || new URL(origin).host !== req.headers.host)) return send(res, 403, { error: 'Чужой источник запроса' });
   const url = new URL(req.url!, 'http://localhost');
   const q = url.searchParams;
   const cmd = url.pathname.slice(API.length);
@@ -329,9 +330,9 @@ async function route(core: DecksCore, o: HttpOptions, chat: AgentChat, clients: 
       const body = (await json(req)) as { by?: unknown } | null;
       return send(res, 200, core.create(q.get('title') ?? '', q.get('sample') === '1', { by: body?.by }));
     }
-    // Интеграции (server/integrations.ts): агенты, что им можно, журнал, скрипты
+    // Интеграции (server/integrations.ts): агенты, что им можно, журнал, скрипты, плагины
     case 'integrations':
-      return send(res, 200, { access: core.access(), agents: core.agents(), mcp: core.mcpCommand(), scripts: core.scriptsDir });
+      return send(res, 200, { access: core.access(), agents: core.agents(), mcp: core.mcpCommand(), scripts: core.scriptsDir, plugins: core.pluginsDir });
     // Подключить агента в один щелчок (server/connect.ts): Claude Desktop, Claude Code, Codex
     case 'agents-clients': return send(res, 200, { clients: clients.state() });
     case 'agents-connect': return send(res, 200, await clients.connect(q.get('client'), core.mcpCommand(), q.get('via')));
@@ -358,6 +359,15 @@ async function route(core: DecksCore, o: HttpOptions, chat: AgentChat, clients: 
       const body = (await json(req)) as { file?: string; code?: string; replace?: boolean; by?: unknown } | null;
       return send(res, 200, core.saveScript(String(body?.file ?? ''), String(body?.code ?? ''), { by: body?.by, replace: !!body?.replace }));
     }
+    // Плагины (docs/PLUGINS.md): список, файлы панели, включить с разрешениями, настройки плагина, удалить
+    case 'plugins': return send(res, 200, core.plugins());
+    case 'plugin-file': return send(res, 200, core.pluginFile(q.get('id') ?? '', q.get('file') ?? ''));
+    case 'plugin-set': return send(res, 200, core.setPlugin(q.get('id') ?? '', ((await json(req)) ?? {}) as never));
+    case 'plugin-data': {
+      const body = (await json(req)) as { key?: unknown; value?: unknown } | null;
+      return send(res, 200, core.pluginData(q.get('id') ?? '', body ?? undefined));
+    }
+    case 'plugin-delete': return send(res, 200, core.deletePlugin(q.get('id') ?? ''));
     // Общая библиотека шрифтов — видна во всех презентациях
     case 'font-list': return send(res, 200, core.fonts());
     case 'font-save': return send(res, 200, await core.addFont(q.get('file') ?? '', await readBody(req)));
