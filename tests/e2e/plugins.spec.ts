@@ -69,7 +69,7 @@ slideria.storage.set('k', { a: 1 }).then(() => slideria.storage.get('k')).then((
   await expect(card).toContainText('E2E плагин');
   await expect(card.locator('.ig-tag')).toHaveText('выключен');
   await expect(page.locator('.ig-perms')).toContainText('Править презентацию');
-  await expect(page.locator('.ig-perms')).toContainText('Своя панель');
+  await expect(page.locator('.ig-perms')).toContainText('Показывать панель рядом со слайдом');
   // Включить — сначала вопрос: «Отмена» оставляет выключенным
   const sw = page.locator(`[data-plugin-on="${ID}"]`);
   await sw.click();
@@ -166,7 +166,7 @@ document.getElementById('go').onclick = () => { location.href = 'about:blank'; }
   // Панель ушла со своей страницы — закрыта, данные ей больше не отдаются
   await frame.locator('#go').click();
   await expect(page.locator('#st-ppane')).toBeHidden();
-  await expect(page.locator('#ed-toast')).toContainText('ушла со своей страницы');
+  await expect(page.locator('#ed-toast')).toContainText('закрыта: переход на другую страницу');
 });
 
 test('файлы презентации: список, чтение, новый файл — сразу на слайде; пути — как в deck.yaml; код и чужие папки — нет; медиа — в самой панели', async ({ page }) => {
@@ -219,7 +219,7 @@ test('файлы презентации: список, чтение, новый 
   await expect.poll(() => readDeck(DECK)).toContain('./assets/из-плагина.png');
   // В разрешениях — и файлы
   await openPlugins(page);
-  await expect(page.locator('.ig-perms')).toContainText('Файлы презентации');
+  await expect(page.locator('.ig-perms')).toContainText('Читать и добавлять файлы презентации');
   expect(errors).toEqual([]);
 });
 
@@ -234,11 +234,12 @@ test('новое разрешение в обновлении — плагин �
   await openPlugins(page);
   await expect(page.locator(`[data-plugin-pick="${ID}"] .ig-tag`)).toHaveText('нужно разрешение');
   await expect(page.locator('#st-plug-group')).toBeHidden();
-  // Выключить и включить — в вопросе и новый адрес
-  await page.locator(`[data-plugin-on="${ID}"]`).click();
-  await page.locator(`[data-plugin-on="${ID}"]`).click();
-  await expect(page.locator('.ig-dlg')).toContainText('Сеть: api.example.org');
+  // «Разрешить…» — вопрос и с новым адресом
+  await page.locator(`[data-plugin-allow="${ID}"]`).click();
+  await expect(page.locator('.ig-dlg h2')).toHaveText('Разрешения для «E2E плагин»');
+  await expect(page.locator('.ig-dlg')).toContainText('api.example.org');
   await page.locator('.ig-dlg [data-k="ok"]').click();
+  await expect(page.locator('#ed-toast')).toContainText('Разрешения плагина «E2E плагин» обновлены');
   await expect(page.locator(`[data-plugin-pick="${ID}"] .ig-tag`)).toHaveText('включён');
   await expect(page.locator('#st-plug-group')).toBeAttached();
   expect((await post('plugins')).data.find((p: { id: string }) => p.id === ID).needs).toEqual([]);
@@ -247,7 +248,7 @@ test('новое разрешение в обновлении — плагин �
   await page.locator('.ig-side [data-a="del-plugin"]').click();
   await expect(page.locator('.ig-dlg')).toContainText('Удалить плагин?');
   await page.locator('.ig-dlg [data-k="ok"]').click();
-  await expect(page.locator('.ig-hero')).toContainText('Плагинов пока нет');
+  await expect(page.locator('.ig-hero')).toContainText('Нет установленных плагинов');
   expect(fs.existsSync(DIR)).toBe(false);
   const trash = fs.readdirSync(path.join(DECKS, '.trash')).filter((d) => d.startsWith('plugins-'));
   expect(trash.some((d) => fs.existsSync(path.join(DECKS, '.trash', d, 'e2e-plugin', 'plugin.json')))).toBe(true);

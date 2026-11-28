@@ -194,7 +194,7 @@ function tabsHtml(): string {
     scripts: c.scripts().length ? `<i>${c.scripts().length}</i>` : '',
     log: c.recent() ? `<i title="Правки агентов за сутки">${c.recent()}</i>` : '',
     plugins: c.host.plugins?.list().length ? `<i>${c.host.plugins.list().length}</i>` : '',
-    connectors: '<i class="soon">с облаком</i>',
+    connectors: '',
   };
   return SUBS.map(([id, ic, name]) => `<button type="button" class="ig-tab" role="tab" id="ig-t-${id}" data-sub="${id}" aria-controls="ig-pane" aria-selected="${c.view.sub === id}" tabindex="${c.view.sub === id ? 0 : -1}">${icon(ic)}${name}${badge[id]}</button>`).join('');
 }
@@ -212,8 +212,8 @@ function render(): void {
   const fresh = state.shown !== sub;
   const focus = focusKey();
   const body = { agents: agentsHtml, scripts: scriptsHtml, log: logHtml, plugins: pluginsHtml, connectors: connectorsHtml }[sub]();
-  root.innerHTML = `<div class="fp-head ig-head"><div><h2>Интеграции</h2><p>Агенты, скрипты и плагины правят презентацию теми же операциями, что и вы: с проверкой, журналом и «Вернуть».</p></div>
-      <span class="ig-local">${icon('lock')}Всё на этом компьютере, без интернета</span></div>
+  root.innerHTML = `<div class="fp-head ig-head"><div><h2>Интеграции</h2><p>Агенты, скрипты, плагины и данные других сервисов</p></div>
+      <span class="ig-local">${icon('lock')}Презентации — на этом компьютере</span></div>
     <div class="ig-tabs" role="tablist" aria-label="Интеграции">${tabsHtml()}</div>
     <div class="ig-pane${fresh ? ' in' : ''}" id="ig-pane" role="tabpanel" aria-labelledby="ig-t-${sub}">${body}</div>`;
   state.shown = sub;
@@ -262,13 +262,13 @@ function agentsHtml(): string {
   };
   const row = (a: AgentInfo) => `<div class="ig-ag">${avatar(a.name, false, 's')}<div><div class="ig-n">${esc(a.name)}</div><div class="ig-m">последний раз на связи ${ago(a.seen)}${a.version ? ` · ${esc(a.version)}` : ''}</div></div><div class="ig-m">${edits(a.edits)}</div></div>`;
   const who = agents.length ? on.map(live).join('') + off.map(row).join('')
-    : `<div class="ig-none">${icon('agent')}<div><b>Пока никто не подключался</b><span>Подключите агента ниже — он появится здесь, а его правки — в журнале.</span></div></div>`;
+    : `<div class="ig-none">${icon('agent')}<div><b>Нет подключённых агентов</b><span>Подключите агента ниже.</span></div></div>`;
   const access = info?.access ?? 'edit';
   return `<div class="ig-top">
       <section class="fp-card ig-who"><h3 class="fp-k ig-cap">Подключены <button type="button" class="fp-link" data-sub="log">Журнал правок →</button></h3>${who}</section>
       <section class="fp-card ig-access"><h3 class="fp-k">Что можно агентам</h3>
         <div class="ig-acc" role="radiogroup" aria-label="Что можно агентам">${ACCESS.map((a) => `<button type="button" role="radio" data-access="${a.id}" aria-checked="${a.id === access}"><span class="ig-ai">${icon(a.icon)}</span><b>${a.name}</b><small>${a.sub}</small><span class="ig-rd"></span></button>`).join('')}</div>
-        <div class="ig-note">${icon('shield')}<span>Удалить презентацию агент не может. Каждая правка проверяется и применяется целиком — или не применяется; перед ней — контрольная точка.</span></div>
+        <div class="ig-note">${icon('shield')}<span>Удалять презентации агенты не могут. Каждую их правку можно вернуть в журнале.</span></div>
       </section>
     </div>
     <section class="fp-card ig-connect"><h3 class="fp-k">Подключить агента</h3>${connectHtml(info)}</section>`;
@@ -277,7 +277,7 @@ function agentsHtml(): string {
 function connectHtml(info: Info | null): string {
   if (!info) return '<div class="ig-m">Загрузка…</div>';
   if (!info.mcp) {
-    return `<div class="ig-none">${icon('clock')}<div><b>Подключение агентов здесь недоступно</b><span>Агенты подключаются к программе Slideria и к Slideria, запущенной из папки проекта (docs/MCP.md).</span></div></div>`;
+    return `<div class="ig-none">${icon('clock')}<div><b>Подключение агентов недоступно</b></div></div>`;
   }
   const c = CLIENTS.find((x) => x.id === state.client) ?? CLIENTS[0];
   const v = c.variants[Math.min(state.variant, c.variants.length - 1)];
@@ -403,7 +403,7 @@ function scriptsHtml(): string {
       ${s.params.map((p) => field(s.id, p, v[p.key])).join('')}
       ${res ? `<div class="ig-res${res.startsWith('!') ? ' err' : ''}">${esc(res.replace(/^!/, ''))}</div>` : ''}
       <button type="button" class="fp-btn go" data-run="${esc(s.id)}"${state.busy === s.id ? ' disabled' : ''}>${icon('play')}${state.busy === s.id ? 'Выполняется…' : 'Запустить'}</button>
-      <div class="ig-hint">${icon('undo')}<span>«Файл» закроется — результат сразу на слайдах. Весь запуск — один шаг Ctrl+Z, запись — в журнале.</span></div>
+      <div class="ig-hint">${icon('undo')}<span>Отменить запуск — Ctrl+Z</span></div>
       ${s.builtin ? '' : `<button type="button" class="ig-del" data-a="del-script">${icon('trash')}Удалить скрипт…</button>`}
     </aside>` : '';
   const openDir = (window as unknown as { slideriaApp?: { openPath?: unknown } }).slideriaApp?.openPath;
@@ -411,8 +411,8 @@ function scriptsHtml(): string {
       <div class="ig-scs" role="radiogroup" aria-label="Скрипт">${cards}<button type="button" class="ig-sc add" data-a="new-script">${icon('plus')}<span>Новый скрипт</span></button></div>
       ${side}
     </div>
-    <section class="fp-card ig-how"><span class="ig-hi">${icon('agent')}</span>
-      <div><b>Скрипт может написать агент</b><span class="ig-m">Достаточно попросить: «Напиши скрипт для Slideria, который…» — скрипт появится в этом списке, если у агента разрешение «Всё». Свои скрипты — файлы .js в папке</span>${dir ? `<code>${esc(dir)}</code>` : ''}</div>
+    <section class="fp-card ig-how"><span class="ig-hi">${icon('script')}</span>
+      <div><b>Папка скриптов</b><span class="ig-m">Скрипты — файлы .js в этой папке. Агент с доступом «Всё» тоже сохраняет скрипты сюда.</span>${dir ? `<code>${esc(dir)}</code>` : ''}</div>
       <div class="ig-acts"><button type="button" class="fp-btn" data-a="new-script">${icon('plus')}Новый скрипт</button>${openDir ? `<button type="button" class="fp-btn" data-a="open-dir">${icon('frame')}Открыть папку</button>` : `<button type="button" class="fp-btn" data-copy="${esc(dir)}">${icon('copy')}<span>Путь к папке</span></button>`}</div>
     </section>`;
 }
@@ -430,9 +430,9 @@ function dayLabel(ms: number): string {
 function logHtml(): string {
   const h = ctx!.host;
   const scope = `<div class="fp-seg" role="radiogroup" aria-label="Чьи правки">${[['deck', 'Эта презентация'], ['all', 'Все презентации']].map(([id, n]) => `<button type="button" role="radio" data-scope="${id}" aria-checked="${state.scope === id}">${n}</button>`).join('')}</div>`;
-  const bar = `<div class="ig-lbar">${scope}<span class="ig-m">«Вернуть» отменяет одну правку агента; более поздние правки сохраняются.</span></div>`;
+  const bar = `<div class="ig-lbar">${scope}</div>`;
   if (!state.journal.length) {
-    return `${bar}<div class="fp-card ig-empty">${icon('journal')}<div><b>Пока пусто</b><span>Здесь появятся правки агентов и скриптов — с тем, что было и что стало.</span></div></div>`;
+    return `${bar}<div class="fp-card ig-empty">${icon('journal')}<div><b>Нет правок</b><span>Здесь появятся правки агентов, скриптов и плагинов.</span></div></div>`;
   }
   const days = new Map<string, string[]>();
   state.journal.forEach((e, k) => {
@@ -455,7 +455,7 @@ function logHtml(): string {
   return `${bar}${[...days].map(([d, list]) => `<div class="ig-day"><h3 class="fp-k">${esc(d)}</h3>${list.join('')}</div>`).join('')}`;
 }
 
-const kind = (ic: string, n: string, p: string, eg: string) => `<div class="fp-card ig-kind"><span class="ig-si">${icon(ic)}</span><b>${n}</b><p>${p}</p><div class="ig-eg"><span>например:</span> ${eg}</div></div>`;
+const kind = (ic: string, n: string, p: string) => `<div class="fp-card ig-kind"><span class="ig-si">${icon(ic)}</span><b>${n}</b><p>${p}</p></div>`;
 
 /** Состояние плагина одним словом — на карточке */
 function plugTag(p: PluginInfo): string {
@@ -472,11 +472,11 @@ function pluginsHtml(): string {
   const dir = state.info?.plugins ?? '';
   const openDir = (window as unknown as { slideriaApp?: { openPath?: unknown } }).slideriaApp?.openPath;
   const how = `<section class="fp-card ig-how"><span class="ig-hi">${icon('plug')}</span>
-      <div><b>Плагин — папка с файлом plugin.json</b><span class="ig-m">Положите папку плагина в папку плагинов — он появится в этом списке выключенным. Что ему будет можно, видно до включения. Папка плагинов</span>${dir ? `<code>${esc(dir)}</code>` : ''}</div>
+      <div><b>Папка плагинов</b><span class="ig-m">Чтобы установить плагин, скопируйте его папку сюда.</span>${dir ? `<code>${esc(dir)}</code>` : ''}</div>
       <div class="ig-acts">${openDir ? `<button type="button" class="fp-btn" data-a="open-plugins">${icon('frame')}Открыть папку</button>` : `<button type="button" class="fp-btn" data-copy="${esc(dir)}">${icon('copy')}<span>Путь к папке</span></button>`}</div>
     </section>`;
   if (!list.length) {
-    return `<section class="fp-card ig-hero"><span class="ig-hero-i">${icon('plug')}</span><div><h3>Плагинов пока нет</h3><p>Плагин добавляет в студию свою панель рядом со слайдом: кнопка — на вкладке «Инструменты» и в Ctrl+K. Правит презентацию теми же операциями, что агенты и скрипты: каждая правка видна в журнале и отменяется.</p></div></section>
+    return `<section class="fp-card ig-hero"><span class="ig-hero-i">${icon('plug')}</span><div><h3>Нет установленных плагинов</h3><p>Плагины добавляют в студию новые панели и команды.</p></div></section>
     ${how}`;
   }
   if (!list.some((p) => p.id === state.plugin)) state.plugin = list[0].id;
@@ -485,17 +485,16 @@ function pluginsHtml(): string {
       <span class="ig-n">${esc(x.manifest?.name ?? x.folder)}<i class="ig-tag${x.enabled && !x.needs.length ? ' on' : ''}">${plugTag(x)}</i></span><small>${esc(x.manifest?.description || x.error || x.folder)}</small><span class="ig-rd"></span></button>`).join('');
   const m = p.manifest;
   const meta = m ? [m.version && `Версия ${m.version}`, m.author].filter(Boolean).join(' · ') : '';
-  const rows = m ? permissionRows(m).map((r) => `<div class="ig-perm"><span class="ig-si">${icon(r.icon)}</span><div><b>${esc(r.title)}</b><span>${esc(r.sub)}</span></div></div>`).join('') : '';
+  const rows = m ? permissionRows(m).map((r) => `<div class="ig-perm"><span class="ig-si">${icon(r.icon)}</span><div><b>${esc(r.title)}</b>${r.sub ? `<span>${esc(r.sub)}</span>` : ''}</div></div>`).join('') : '';
   const usable = !!m && p.enabled && !p.needs.length;
   const opened = pl?.openId() === p.id;
   const side = `<aside class="fp-card ig-side">
       <h3>${esc(m?.name ?? p.folder)}</h3>${m?.description ? `<p>${esc(m.description)}</p>` : ''}${meta ? `<p class="ig-meta">${esc(meta)}</p>` : ''}
       ${p.error ? `<div class="ig-res err">${esc(p.error)}</div>` : ''}
       ${m ? `<div class="ig-perms"><h4 class="fp-k">Разрешения</h4>${rows}</div>` : ''}
-      ${p.enabled && p.needs.length ? '<div class="ig-res err">Плагин просит новое разрешение: выключите и включите его снова, чтобы посмотреть и разрешить.</div>' : ''}
+      ${p.enabled && p.needs.length ? `<div class="ig-res err">Плагину нужно новое разрешение</div><button type="button" class="fp-btn go" data-plugin-allow="${esc(p.id)}">${icon('check')}Разрешить…</button>` : ''}
       ${m ? `<label class="ig-fb ig-on"><span>Включён</span><input type="checkbox" role="switch" data-plugin-on="${esc(p.id)}"${p.enabled ? ' checked' : ''}></label>` : ''}
-      ${usable ? `<button type="button" class="fp-btn go" data-plugin-open="${esc(p.id)}">${icon('layers')}${opened ? 'Закрыть панель' : 'Открыть панель'}</button>
-      <div class="ig-hint">${icon('plug')}<span>Кнопка — на вкладке «Инструменты» и в Ctrl+K: «${esc(m!.button.label)}».</span></div>` : ''}
+      ${usable ? `<button type="button" class="fp-btn go" data-plugin-open="${esc(p.id)}">${icon('layers')}${opened ? 'Закрыть панель' : 'Открыть панель'}</button>` : ''}
       ${p.builtin ? '' : `<button type="button" class="ig-del" data-a="del-plugin">${icon('trash')}Удалить плагин…</button>`}
     </aside>`;
   return `<div class="ig-sx">
@@ -516,19 +515,21 @@ function askEnablePlugin(p: PluginInfo): void {
   const before = document.activeElement as HTMLElement | null;
   const box = document.createElement('div');
   box.className = 'imp-bd';
-  const rows = permissionRows(m).map((r) => `<div class="ig-dlg-item"><span class="ig-si">${icon(r.icon)}</span><div><b>${esc(r.title)}</b><span>${esc(r.sub)}</span></div></div>`).join('');
+  const rows = permissionRows(m).map((r) => `<div class="ig-dlg-item"><span class="ig-si">${icon(r.icon)}</span><div><b>${esc(r.title)}</b>${r.sub ? `<span>${esc(r.sub)}</span>` : ''}</div></div>`).join('');
   const who = [m.author && `Автор: ${m.author}`, m.version && `версия ${m.version}`].filter(Boolean).join(' · ');
+  // Включённый плагин попросил нового в обновлении — тот же вопрос, но о разрешениях
+  const more = p.enabled && p.needs.length > 0;
   box.innerHTML = `<div class="imp ig-dlg" role="alertdialog" aria-modal="true" aria-labelledby="ig-dlg-h" aria-describedby="ig-dlg-d">
-    <div class="ig-dlg-head"><span class="ig-dlg-icon ac">${icon('plug')}</span><h2 id="ig-dlg-h">Включить «${esc(m.name)}»?</h2></div>
-    <p class="ig-dlg-note" id="ig-dlg-d">Плагину будет можно:</p>
+    <div class="ig-dlg-head"><span class="ig-dlg-icon ac">${icon('plug')}</span><h2 id="ig-dlg-h">${more ? `Разрешения для «${esc(m.name)}»` : `Включить «${esc(m.name)}»?`}</h2></div>
+    <p class="ig-dlg-note" id="ig-dlg-d">Плагин сможет:</p>
     ${rows}
-    <p class="ig-dlg-note">${who ? `${esc(who)}. ` : ''}Выключить или удалить — здесь же, в «Плагинах».</p>
+    ${who ? `<p class="ig-dlg-note">${esc(who)}</p>` : ''}
     <p class="imp-err" role="alert" hidden></p>
-    <div class="imp-actions"><button type="button" class="btn ig-dlg-n" data-k="cancel">Отмена</button><button type="button" class="btn ig-dlg-ok ac" data-k="ok">${icon('check')}Включить</button></div>
+    <div class="imp-actions"><button type="button" class="btn ig-dlg-n" data-k="cancel">Отмена</button><button type="button" class="btn ig-dlg-ok ac" data-k="ok">${icon('check')}${more ? 'Разрешить' : 'Включить'}</button></div>
   </div>`;
   dialog(box, before, async () => {
     await c.host.plugins!.setEnabled(p.id, true);
-    c.host.editor.toast(`Плагин «${m.name}» включён: кнопка — на вкладке «Инструменты»`, 3000);
+    c.host.editor.toast(more ? `Разрешения плагина «${m.name}» обновлены` : `Плагин «${m.name}» включён. Кнопка — на вкладке «Инструменты»`, 3000);
   }, () => { if (root?.isConnected) render(); });
 }
 
@@ -543,13 +544,13 @@ function askDeletePlugin(): void {
   box.innerHTML = `<div class="imp ig-dlg" role="alertdialog" aria-modal="true" aria-labelledby="ig-dlg-h" aria-describedby="ig-dlg-d">
     <div class="ig-dlg-head"><span class="ig-dlg-icon">${icon('trash')}</span><h2 id="ig-dlg-h">Удалить плагин?</h2></div>
     <div class="ig-dlg-item"><span class="ig-si">${icon(p.manifest?.icon ?? 'plug')}</span><div><b>${esc(p.manifest?.name ?? p.folder)}</b><span>${esc(p.folder)}</span></div></div>
-    <p class="ig-dlg-note" id="ig-dlg-d">Папка переместится в корзину — папку «.trash» рядом с презентациями. Чтобы вернуть плагин, перенесите папку обратно в папку плагинов.</p>
+    <p class="ig-dlg-note" id="ig-dlg-d">Папка плагина будет перемещена в корзину проекта (.trash).</p>
     <p class="imp-err" role="alert" hidden></p>
     <div class="imp-actions"><button type="button" class="btn ig-dlg-n" data-k="cancel">Отмена</button><button type="button" class="btn ig-dlg-ok" data-k="ok">${icon('trash')}Удалить</button></div>
   </div>`;
   dialog(box, before, async () => {
     await c.host.plugins!.remove(p.id);
-    c.host.editor.toast(`Плагин «${p.manifest?.name ?? p.folder}» — в корзине`, 3000);
+    c.host.editor.toast(`Плагин «${p.manifest?.name ?? p.folder}» удалён`, 3000);
   });
 }
 
@@ -588,8 +589,9 @@ function dialog(box: HTMLElement, before: HTMLElement | null, act: () => Promise
 }
 
 function connectorsHtml(): string {
-  return `<section class="fp-card ig-hero"><span class="ig-hero-i">${icon('cloud')}</span><div><h3>Коннекторы — вместе с облаком</h3><p>Данные из других сервисов прямо на слайдах: вход один раз, обновление по кнопке или перед показом, а в экспорт — снимок на момент сохранения.</p></div></section>
-    <div class="ig-kinds">${kind('database', 'Таблицы и базы', 'Цифры для графиков и таблиц — из таблицы или базы, всегда свежие.', 'выручка по месяцам')}${kind('users', 'Рабочие сервисы', 'Задачи, сделки, люди — карточками и списками на слайде.', 'статус проекта на планёрку')}${kind('link', 'Через агента', 'Уже сейчас — через агента по MCP: данные из сервиса и правка слайдов. Коннекторы — то же без участия агента.', '«возьмите цифры из отчёта»')}</div>`;
+  return `<section class="fp-card ig-hero act"><span class="ig-hero-i">${icon('cloud')}</span><div><h3>Коннекторы</h3><p>Подключите сервис, чтобы вставлять его данные на слайды и обновлять их.</p></div>
+      <div class="ig-acts"><button type="button" class="fp-btn go" disabled>${icon('plus')}Подключить сервис…</button></div></section>
+    <div class="ig-kinds">${kind('database', 'Таблицы и базы данных', 'Числа для таблиц и графиков')}${kind('users', 'Рабочие сервисы', 'Задачи, сделки и контакты — карточками и списками')}</div>`;
 }
 
 // ---------------- действия ----------------
@@ -637,6 +639,11 @@ function onClick(e: MouseEvent): void {
   }
   if (d.script) { ctx.view.script = d.script; return render(); }
   if (d.pluginPick) { state.plugin = d.pluginPick; return render(); }
+  if (d.pluginAllow) {
+    const p = ctx.host.plugins?.list().find((x) => x.id === d.pluginAllow);
+    if (p) askEnablePlugin(p);
+    return;
+  }
   if (d.pluginOpen) {
     // Панель — рядом со слайдом: «Файл» закрывается
     if (ctx.host.plugins?.openId() !== d.pluginOpen) ctx.close();
@@ -739,7 +746,7 @@ function askDeleteScript(): void {
   box.innerHTML = `<div class="imp ig-dlg" role="alertdialog" aria-modal="true" aria-labelledby="ig-dlg-h" aria-describedby="ig-dlg-d">
     <div class="ig-dlg-head"><span class="ig-dlg-icon">${icon('trash')}</span><h2 id="ig-dlg-h">Удалить скрипт?</h2></div>
     <div class="ig-dlg-item"><span class="ig-si">${icon('script')}</span><div><b>${esc(s.name)}</b><span>${esc(s.file)}</span></div></div>
-    <p class="ig-dlg-note" id="ig-dlg-d">Файл переместится в корзину — папку «.trash» рядом с презентациями. Чтобы вернуть скрипт, перенесите файл обратно в папку скриптов.</p>
+    <p class="ig-dlg-note" id="ig-dlg-d">Файл скрипта будет перемещён в корзину проекта (.trash).</p>
     <p class="imp-err" role="alert" hidden></p>
     <div class="imp-actions"><button type="button" class="btn ig-dlg-n" data-k="cancel">Отмена</button><button type="button" class="btn ig-dlg-ok" data-k="ok">${icon('trash')}Удалить</button></div>
   </div>`;
@@ -771,7 +778,7 @@ function askDeleteScript(): void {
       delete state.results[s.id];
       values.delete(s.id);
       close();
-      c.host.editor.toast(`Скрипт «${s.name}» — в корзине`, 2600);
+      c.host.editor.toast(`Скрипт «${s.name}» удалён`, 2600);
       if (root?.isConnected) render();
     } catch (e) {
       err.textContent = `Не удалось удалить: ${(e as Error).message}`;

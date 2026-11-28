@@ -53,7 +53,7 @@ export function readManifest(raw: unknown): { manifest: PluginManifest } | { err
     const w = Number(p.width ?? 320);
     panel = { file, width: Number.isFinite(w) ? Math.round(Math.min(480, Math.max(260, w))) : 320 };
   }
-  if (!panel) return { error: 'У плагина нет панели (panel): пока плагин — это панель рядом со слайдом' };
+  if (!panel) return { error: 'В plugin.json нет панели (panel)' };
   const net = o.network === undefined ? [] : o.network;
   if (!Array.isArray(net) || net.length > 20) return { error: 'network — список адресов, не больше 20' };
   const network: string[] = [];

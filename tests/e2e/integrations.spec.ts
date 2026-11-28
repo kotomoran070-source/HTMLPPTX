@@ -265,7 +265,7 @@ test('свой скрипт удаляется после вопроса — ф�
   await page.locator('.ig-dlg [data-k="ok"]').click();
   await expect(page.locator('.ig-dlg')).toHaveCount(0);
   await expect(fp.locator(`.ig-sc[data-script="user:${file}"]`)).toHaveCount(0);
-  await expect(page.locator('.edtoast')).toContainText('в корзине');
+  await expect(page.locator('.edtoast')).toContainText('удалён');
   expect(fs.existsSync(own)).toBe(false);
   const trash = fs.readdirSync(path.join(DECKS, '.trash')).filter((d) => d.startsWith('scripts-'));
   expect(trash.some((d) => fs.existsSync(path.join(DECKS, '.trash', d, file)))).toBe(true);

@@ -178,7 +178,7 @@ export class PluginPane {
       f.addEventListener('load', () => {
         if (++this.loads > 1 && this.cur === p) {
           this.close();
-          this.h.toast(`Плагин «${p.manifest.name}» закрыт: его панель ушла со своей страницы`, true);
+          this.h.toast(`Панель плагина «${p.manifest.name}» закрыта: переход на другую страницу`, true);
         }
       });
       f.srcdoc = doc;
@@ -186,7 +186,7 @@ export class PluginPane {
       this.frame = f;
     } catch (e) {
       body.innerHTML = `<p class="st-pp-err"></p>`;
-      body.querySelector('p')!.textContent = `Панель не открылась: ${(e as Error).message}`;
+      body.querySelector('p')!.textContent = `Не удалось открыть панель: ${(e as Error).message}`;
     }
     this.h.changed();
   }
@@ -352,12 +352,12 @@ export class PluginPane {
 }
 
 /** Что плагину будет можно — строками для окна «Включить?» и раздела «Плагины» */
-export function permissionRows(m: PluginManifest): { icon: string; title: string; sub: string }[] {
-  const rows: { icon: string; title: string; sub: string }[] = [];
+export function permissionRows(m: PluginManifest): { icon: string; title: string; sub?: string }[] {
+  const rows: { icon: string; title: string; sub?: string }[] = [];
   const perms = permissionsOf(m);
-  if (perms.includes('edit')) rows.push({ icon: 'pencil', title: 'Править презентацию', sub: 'Каждая правка — в журнале, отменяется Ctrl+Z' });
-  if (perms.includes('files')) rows.push({ icon: 'clip', title: 'Файлы презентации', sub: 'Читать и добавлять картинки, видео и звук' });
-  if (perms.includes('panel')) rows.push({ icon: 'layers', title: 'Своя панель', sub: 'Рядом со слайдом, без доступа к остальной студии' });
-  if (m.network.length) rows.push({ icon: 'globe', title: `Сеть: ${m.network.join(', ')}`, sub: 'Только эти адреса' });
+  if (perms.includes('edit')) rows.push({ icon: 'pencil', title: 'Править презентацию' });
+  if (perms.includes('files')) rows.push({ icon: 'clip', title: 'Читать и добавлять файлы презентации' });
+  if (perms.includes('panel')) rows.push({ icon: 'layers', title: 'Показывать панель рядом со слайдом' });
+  if (m.network.length) rows.push({ icon: 'globe', title: 'Обращаться к сайтам', sub: m.network.join(', ') });
   return rows;
 }
