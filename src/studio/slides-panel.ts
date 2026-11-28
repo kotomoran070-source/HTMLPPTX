@@ -3,6 +3,7 @@ import { keepStills, stillBackdrops } from '../components/backdrop/backdrop';
 import { staticSlide, thumbRenderer } from '../engine/deck-view';
 import { slideLabel } from '../engine/render';
 import type { Deck } from '../types';
+import { dropOrder, shiftOrder } from './slide-order';
 
 export interface SlidesHost {
   deck(): Deck;
@@ -16,41 +17,27 @@ export interface SlidesHost {
   menu(i: number, at: { x: number; y: number }, onClose?: () => void): void;
 }
 
+/**
+ * Перетаскивание своё, на событиях указателя, а не системное (draggable): при системном браузер не отдаёт
+ * колёсико и не прокручивает ленту — длинную презентацию было не перетащить дальше видимого
+ */
 interface Drag {
+  /** Слайд, за который взяли, и вся переносимая группа (выделенные, если взяли один из них) */
   from: number;
   group: number[];
   id: number;
+  /** Где нажали и где указатель сейчас */
   x: number;
   y: number;
   cx: number;
   cy: number;
+  /** Сдвинули дальше порога — перетаскивание началось (до него это обычный щелчок) */
   on: boolean;
+  /** Точка, за которую взяли, внутри миниатюры: копия за курсором держится за неё же */
   dx: number;
   dy: number;
   ghost: HTMLElement | null;
   raf: number;
-}
-
-export function shiftOrder(n: number, list: number[], dir: -1 | 1): number[] | null {
-  const order = Array.from({ length: n }, (_, i) => i);
-  const sel = new Set(list);
-  const on = order.map((i) => sel.has(i));
-  for (let k = dir < 0 ? 1 : n - 2; dir < 0 ? k < n : k >= 0; k -= dir) {
-    const j = k + dir;
-    if (on[k] && !on[j]) {
-      [order[k], order[j]] = [order[j], order[k]];
-      [on[k], on[j]] = [on[j], on[k]];
-    }
-  }
-  return order.some((v, k) => v !== k) ? order : null;
-}
-
-function dropOrder(n: number, group: number[], gap: number): number[] | null {
-  const set = new Set(group);
-  const rest = Array.from({ length: n }, (_, i) => i).filter((i) => !set.has(i));
-  const at = rest.filter((i) => i < gap).length;
-  const order = [...rest.slice(0, at), ...group, ...rest.slice(at)];
-  return order.some((v, k) => v !== k) ? order : null;
 }
 
 /** Всё, что влияет на вид любого слайда, кроме самих слайдов: тема, логотип, стили, символы. */
@@ -62,6 +49,9 @@ function deckSignature(deck: Deck): string {
 /**
  * Лента миниатюр слева, как в PowerPoint: выбор слайда, перетаскивание для смены порядка,
  * контекстное меню, клавиатура (стрелки, Delete, Alt+стрелки — переставить).
+ * Несколько слайдов: Shift — подряд, Ctrl — по одному, Ctrl+A — все; переносятся, дублируются, копируются,
+ * скрываются и удаляются вместе. Щелчок между миниатюрами — место вставки (мигающая линия): туда встают
+ * новый слайд и вставка из буфера.
  * Миниатюры перерисовываются только у изменившихся слайдов.
  */
 export class SlidesPanel {
@@ -73,9 +63,14 @@ export class SlidesPanel {
   private sigs: string[] = [];
   private deckSig = '';
   private drag: Drag | null = null;
+  /** Сразу после перетаскивания: отпускание кнопки не считается щелчком по миниатюре */
   private noClick = false;
+  /** Выделенные слайды (с текущим); anchor — откуда считается Shift-диапазон */
   private picked = new Set<number>();
   private anchor = -1;
+  /** Выделение только что найдено по содержимому: текущий слайд ещё может смениться (отмена переходит к правке) */
+  private follow = false;
+  /** Место вставки: номер зазора (0 — перед первым) и текущий слайд, при котором его поставили; -1 — нет */
   private caretEl: HTMLElement;
   private caret = -1;
   private caretAt = -1;
@@ -83,8 +78,10 @@ export class SlidesPanel {
   constructor(private root: HTMLElement, private host: SlidesHost) {
     // Заголовок с числом слайдов и «+» — над лентой и при прокрутке остаётся на месте (studio.css, .st-slides-head)
     root.innerHTML = `<div class="st-slides-head"><b>Слайды</b><span class="st-slides-n"></span>`
-      + `<button type="button" class="st-slides-plus" title="Новый слайд (Ctrl+M)" aria-label="Новый слайд">${icon('plus')}</button></div>
-<div class="st-slides-list" role="listbox" aria-label="Слайды" aria-orientation="vertical" aria-multiselectable="true"><div class="st-drop-line" aria-hidden="true" hidden></div><div class="st-drop-line st-slides-caret" aria-hidden="true" hidden></div></div>
+      + `<button type="button" class="st-slides-plus" title="Новый слайд (Ctrl+M)" aria-label="Новый слайд">${icon('plus')}</button></div>`
+      + `<div class="st-slides-body"><div class="st-slides-list" role="listbox" aria-label="Слайды" aria-orientation="vertical" aria-multiselectable="true"></div>`
+      // Линии — рядом со списком, не в нём: в списке только слайды (и для чтения с экрана, и для подсчёта)
+      + `<div class="st-drop-line" aria-hidden="true" hidden></div><div class="st-slides-caret" aria-hidden="true" hidden></div></div>
 <button type="button" class="st-slides-add" title="Новый слайд (Ctrl+M)">${icon('plus')}<span>Новый слайд</span></button>`;
     this.list = root.querySelector('.st-slides-list')!;
     this.count = root.querySelector('.st-slides-n')!;
@@ -105,10 +102,10 @@ export class SlidesPanel {
     const full = all !== this.deckSig;
     this.deckSig = all;
     const n = deck.slides.length;
-    if (n !== this.sigs.length) {
-      this.picked.clear();
-      this.caret = -1;
-    }
+    if (n !== this.sigs.length) this.caret = -1;
+    // Выделенные — по содержимому: после отмены, повтора или правки агентом выделение остаётся на тех же слайдах,
+    // где бы они теперь ни стояли; не нашлись все — остаётся один текущий
+    const keep = this.picked.size > 1 ? [...this.picked].map((i) => this.sigs[i]) : [];
     // Один отрисовщик на все миниатюры этого прохода (создаётся, если хоть одна перерисовывается)
     let r = shared;
     for (let i = 0; i < n; i++) {
@@ -155,7 +152,33 @@ export class SlidesPanel {
     }
     this.items.splice(n).forEach((el) => el.remove());
     this.sigs.length = n;
+    if (keep.length) {
+      const left = [...keep];
+      const found = this.sigs.flatMap((sig, i) => {
+        const k = left.indexOf(sig);
+        if (k < 0) return [];
+        left.splice(k, 1);
+        return [i];
+      });
+      this.picked = new Set(left.length ? [] : found);
+      if (this.picked.size) this.settle();
+    }
     this.mark();
+  }
+
+  /**
+   * Отмена и повтор сначала перерисовывают ленту, потом переходят к изменённому слайду. Выделение сверяется
+   * с текущим после этого: текущий вне выделенных — переход к первому из них, как после отмены в PowerPoint
+   */
+  private settle(): void {
+    if (this.follow) return;
+    this.follow = true;
+    queueMicrotask(() => {
+      this.follow = false;
+      const cur = this.host.index();
+      if (this.picked.size > 1 && !this.picked.has(cur)) this.host.go(Math.min(...this.picked));
+      else this.mark();
+    });
   }
 
   /** Сменилась тема: кадры живых фонов в миниатюрах — в новых цветах */
@@ -175,7 +198,7 @@ export class SlidesPanel {
    */
   mark(): void {
     const cur = this.host.index();
-    if (!this.picked.has(cur)) {
+    if (!this.picked.has(cur) && !this.follow) {
       this.picked = new Set([cur]);
       this.anchor = cur;
     }
@@ -205,33 +228,41 @@ export class SlidesPanel {
     this.items[this.host.index()]?.focus({ preventScroll: true });
   }
 
+  /** Место вставки (номер зазора) или -1 */
   gap(): number {
     return this.caret;
   }
 
+  /** Выделенные слайды по порядку; при месте вставки — ни одного (команды над слайдами ни к чему не относятся) */
   selected(): number[] {
     if (this.caret >= 0) return [];
     const cur = this.host.index();
     return this.picked.has(cur) ? [...this.picked].sort((a, b) => a - b) : [cur];
   }
 
+  /** Выделить слайды (после дублирования и вставки — новые копии) */
   select(list: number[]): void {
     this.caret = -1;
     this.picked = new Set(list.filter((i) => i >= 0 && i < this.items.length));
     this.mark();
   }
 
+  /** Оставить один текущий слайд: работа перешла на сам слайд */
   single(): void {
     if (this.picked.size > 1 || this.caret >= 0) this.select([this.host.index()]);
   }
 
+  /** Место вставки в зазор g: текущий слайд остаётся, выделение — только у него */
   private place(g: number): void {
     this.caret = g;
     this.caretAt = this.host.index();
     this.picked = new Set([this.caretAt]);
     this.mark();
+    // Клавиши — ленте: Esc убирает место вставки, Ctrl+V и Ctrl+M вставляют туда
+    this.focus();
   }
 
+  /** Зазор под точкой y экрана: перед первой миниатюрой, чья середина ниже */
   private gapAt(y: number): number {
     let lo = 0;
     let hi = this.items.length;
@@ -244,6 +275,7 @@ export class SlidesPanel {
     return lo;
   }
 
+  /** Alt+↑/↓ и «Переместить выше/ниже»: группа — на шаг */
   shift(list: number[], dir: -1 | 1): void {
     const order = shiftOrder(this.items.length, list, dir);
     if (order) this.reorder(order, list);
@@ -254,6 +286,7 @@ export class SlidesPanel {
     this.select(group.map((i) => order.indexOf(i)));
   }
 
+  /** Щелчок (и стрелки): один слайд, Ctrl — добавить или убрать, Shift — подряд от anchor */
   private pick(i: number, how: 'one' | 'add' | 'range'): void {
     this.caret = -1;
     const cur = this.host.index();
@@ -285,6 +318,7 @@ export class SlidesPanel {
 
   private bind(): void {
     const h = this.host;
+    // Щелчок по миниатюре — выбор; между ними (или ниже последней) — место вставки, как в PowerPoint
     this.root.addEventListener('click', (e) => {
       const t = e.target as Element;
       if (this.noClick || !this.items.length || t.closest('button, .st-slides-head')) return;
@@ -319,7 +353,7 @@ export class SlidesPanel {
       else if (e.key === 'Home') this.pick(0, how);
       else if (e.key === 'End') this.pick(n - 1, how);
       else if (mod && !e.shiftKey && (k === 'a' || k === 'ф')) this.select([...Array(n).keys()]);
-      else if (e.key === 'Escape' && this.picked.size > 1) this.single();
+      else if (e.key === 'Escape' && (this.picked.size > 1 || this.caret >= 0)) this.single();
       else if (e.key === 'Delete' || e.key === 'Backspace') h.remove(this.selected());
       else if (mod && (k === 'd' || k === 'в')) h.duplicate(this.selected());
       else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
@@ -333,7 +367,8 @@ export class SlidesPanel {
       }
     });
 
-    // Перетаскивание: линия-указатель до или после слайда
+    // Перетаскивание: копия миниатюры за курсором, линия в зазоре, куда встанет группа. С Shift и Ctrl — это
+    // выделение, не перетаскивание; пальцем — прокрутка ленты
     this.list.addEventListener('dragstart', (e) => e.preventDefault());
     this.list.addEventListener('pointerdown', (e) => {
       const i = this.at(e);
@@ -432,6 +467,10 @@ export class SlidesPanel {
     if (a.gap >= 0) this.line.style.top = `${this.gapY(a.gap)}px`;
   }
 
+  /**
+   * Куда целится перетаскивание: зазор (-1 — порядок не изменится), скорость прокрутки у верхнего и нижнего края
+   * (чем ближе к краю, тем быстрее) и «мимо ленты» — тогда отпускание ничего не меняет
+   */
   private aim(d: Drag): { gap: number; v: number; out: boolean } {
     const r = this.root.getBoundingClientRect();
     if (d.cx < r.left - 24 || d.cx > r.right + 24) return { gap: -1, v: 0, out: true };
@@ -443,6 +482,7 @@ export class SlidesPanel {
     return { gap: dropOrder(this.items.length, d.group, lo) ? lo : -1, v, out: false };
   }
 
+  /** Середина зазора g по высоте ленты — там рисуется линия */
   private gapY(g: number): number {
     const it = this.items;
     const end = (el: HTMLElement) => el.offsetTop + el.offsetHeight;

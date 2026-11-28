@@ -2699,12 +2699,39 @@ test('лента слайдов: Shift и Ctrl выделяют нескольк
     await page.mouse.up();
     await expect.poll(order).toEqual(['S4', 'S1', 'S2', 'S3', 'S5', 'S6']);
     await expect(count).toHaveText('3 из 6');
+    // Ctrl+Z и Ctrl+Y: слайды ездят обратно и вперёд, выделение остаётся на них же
+    const picked = () => page.locator('.st-thumb[aria-selected="true"]').evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')!.split(': ')[1]));
+    await page.keyboard.press('Control+z');
+    await expect.poll(order).toEqual(['S1', 'S2', 'S3', 'S4', 'S5', 'S6']);
+    await expect.poll(picked).toEqual(['S1', 'S2', 'S3']);
+    await page.keyboard.press('Control+y');
+    await expect.poll(order).toEqual(['S4', 'S1', 'S2', 'S3', 'S5', 'S6']);
+    await expect.poll(picked).toEqual(['S1', 'S2', 'S3']);
     // Ctrl+D — копии группы сразу после неё и выделены они; Delete — удаляются одним шагом
     await page.keyboard.press('Control+d');
     await expect.poll(order).toEqual(['S4', 'S1', 'S2', 'S3', 'S1', 'S2', 'S3', 'S5', 'S6']);
     await expect(count).toHaveText('3 из 9');
     await page.keyboard.press('Delete');
     await expect.poll(order).toEqual(['S4', 'S1', 'S2', 'S3', 'S5', 'S6']);
+    // Щелчок между S4 и S1 — мигающее место вставки, выделение — только у текущего; Esc убирает его
+    const caret = page.locator('.st-slides-caret');
+    const gapClick = async () => {
+      const a = (await thumb(0).boundingBox())!;
+      const c = (await thumb(1).boundingBox())!;
+      await page.mouse.click(a.x + a.width / 2, (a.y + a.height + c.y) / 2);
+    };
+    await gapClick();
+    await expect(caret).toBeVisible();
+    await expect(count).toHaveText('6');
+    await page.keyboard.press('Escape');
+    await expect(caret).toBeHidden();
+    // Ctrl+M при месте вставки — новый слайд встаёт туда
+    await gapClick();
+    await page.keyboard.press('Control+m');
+    await expect.poll(() => order().length).toBe(7);
+    expect(order()[0]).toBe('S4');
+    expect(order()[2]).toBe('S1');
+    await expect(caret).toBeHidden();
     expect(errors).toEqual([]);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

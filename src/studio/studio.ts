@@ -72,7 +72,8 @@ import { closeMathEditor, editMath } from './math-edit';
 import { loadMath } from '../components/math/math';
 import { projectStorage } from '../engine/storage';
 import { LayersPane } from './layers';
-import { SlidesPanel, shiftOrder } from './slides-panel';
+import { SlidesPanel } from './slides-panel';
+import { shiftOrder } from './slide-order';
 import { crumbs, type Crumb } from './structure';
 import { canUngroup, groupObjects, ungroup } from './ungroup';
 import { connectTool, lineEnds, pickedPair } from './connect';
@@ -985,10 +986,10 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   }
 
   // ---------------- меню ----------------
-  /** Скрыть слайд или вернуть его в показ */
+  /** Скрыть слайды или вернуть их в показ: есть видимые среди выделенных — скрываются все, как в PowerPoint */
   function toggleHidden(list: number[]): void {
     const hide = list.some((i) => !deck.slides[i]?.hidden);
-    ed.commit((d) => {
+    const done = ed.commit((d) => {
       for (const i of list) {
         const s = d.slides[i];
         if (!s) continue;
@@ -996,7 +997,10 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
         else delete s.hidden;
       }
     }, { rebuild: false });
+    // Слайды изменились — выделение не узнало бы их по содержимому: остаются выделенными те же
+    if (done && list.length > 1) slides.select(list);
   }
+  /** Дублировать слайды: копии — сразу после последнего, выделены они */
   function duplicateSlides(list: number[]): void {
     const at = ed.duplicateSlides(list);
     if (at >= 0 && list.length > 1) slides.select(Array.from({ length: list.length }, (_, k) => at + k));
@@ -1237,11 +1241,13 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     return true;
   }
 
+  /** После какого слайда встаёт новый: место вставки в ленте или текущий */
   function slideAfter(): number {
     const g = slides.gap();
     return g >= 0 ? g - 1 : index;
   }
 
+  /** Куда вставить слайды из буфера: в место вставки или после последнего выделенного */
   function pasteAt(): number {
     const g = slides.gap();
     if (g >= 0) return g;
@@ -1751,7 +1757,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     redo: { run: () => ed.redo(), enabled: () => ed.canRedo },
     'slide.new': { run: () => newSlideMenu(document.querySelector<HTMLElement>('[data-cmd="slide.new"]')!) },
     'slide.dup': { run: () => duplicateSlides(slides.selected()) },
-    'slide.del': { run: () => ed.deleteSlides(slides.selected()), enabled: () => count() > slides.selected().length },
+    'slide.del': { run: () => ed.deleteSlides(slides.selected()), enabled: () => { const n = slides.selected().length; return n > 0 && n < count(); } },
     'insert.text': { run: () => ed.addBlock('text') },
     'insert.blocks': { run: () => openLibrary() },
     'ins.video': { run: () => { const p = presetOf('Медиа', 'Видео'); if (p) insertPreset(p); } },

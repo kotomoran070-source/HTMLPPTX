@@ -514,6 +514,7 @@ body.studio { scrollbar-color: var(--scroll) transparent; }
 
 /* Миниатюры */
 .st-slides { overflow-y: auto; margin-right: var(--isl-gap); padding: 12px 10px 16px 4px; border: 1px solid var(--isl-bd); border-radius: var(--isl-r); background: var(--isl2); box-shadow: var(--isl-sh); }
+.st-slides-body { position: relative; }
 .st-slides-list { position: relative; display: flex; flex-direction: column; gap: 8px; user-select: none; }
 /* Заголовок ленты: «Слайды», их число и «+». Липкий: при прокрутке остаётся сверху, фон острова под ним
    закрывает уезжающие миниатюры; поля — до краёв острова (у .st-slides свои отступы) */
@@ -561,8 +562,9 @@ body.studio { scrollbar-color: var(--scroll) transparent; }
 .st-drop-line::before, .st-drop-line::after { content: ""; position: absolute; top: -3px; width: 9px; height: 9px; box-sizing: border-box; border: 2px solid var(--ac); border-radius: 50%; background: var(--isl2); }
 .st-drop-line::before { left: -6px; }
 .st-drop-line::after { right: -6px; }
-.st-slides-caret { animation: st-slides-caret 1.1s steps(1) infinite; }
-.st-slides-caret::before, .st-slides-caret::after { display: none; }
+/* Место вставки (щелчок между миниатюрами): та же линия без кружков, мигает, как курсор в тексте */
+.st-slides-caret { position: absolute; z-index: 2; left: 32px; right: 4px; height: 3px; margin-top: -1.5px; border-radius: 2px; background: var(--ac); pointer-events: none;
+  animation: st-slides-caret 1.1s steps(1) infinite; }
 @keyframes st-slides-caret { 50% { opacity: 0; } }
 .st-drag-ghost { position: fixed; left: 0; top: 0; z-index: 10000; pointer-events: none; opacity: .92; box-shadow: 0 0 0 2px var(--ac), 0 16px 36px -10px rgb(15 23 42 / .5); will-change: transform; transition: opacity .12s; }
 .st-drag-ghost.out { opacity: .45; }
