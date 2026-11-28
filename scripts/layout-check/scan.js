@@ -5,9 +5,9 @@
 window.__layoutScan = () => {
   const vw = innerWidth, vh = innerHeight;
   const cs = (e) => getComputedStyle(e);
-  // Слайды, миниатюры и превью слайдов, образцы переходов и эффектов (мини-сцены: их части нарочно за краем
+  // Слайды (и сцена показа: «Крупнее» нарочно растит слайд), миниатюры и превью слайдов, образцы переходов и эффектов (мини-сцены: их части нарочно за краем
   // плитки), холст правки (рамка выделения и ручки выходят за объект нарочно), служебное
-  const SKIP = '#st-canvas, .slide, .thumb, .thumb-stage, .st-trv, .st-fxv, svg, canvas, video, iframe, .layout-mark, #boot';
+  const SKIP = '#st-canvas, .stage, .slide, .thumb, .thumb-stage, .st-trv, .st-fxv, svg, canvas, video, iframe, .layout-mark, #boot';
   // Задумано выходить за край: ручка высоты заметок, стрелки листания поверх края ленты
   const OWN = '.st-split, .st-bdnav';
   const alpha = (c) => {
@@ -21,6 +21,8 @@ window.__layoutScan = () => {
   /** Блок — то, что видно рамкой, фоном или тенью, или что обрезает содержимое */
   const isBox = (a) => {
     const s = cs(a);
+    // Обёртка без своего прямоугольника (display: contents): её размеры нулевые, блоком она не бывает
+    if (s.display === 'contents') return false;
     if (clips(s)) return true;
     if (alpha(s.backgroundColor) > 0.05 || s.backgroundImage !== 'none') return true;
     if (['Top', 'Right', 'Bottom', 'Left'].some((k) => parseFloat(s[`border${k}Width`]) > 0 && alpha(s[`border${k}Color`]) > 0.05)) return true;
@@ -81,7 +83,12 @@ window.__layoutScan = () => {
       const side = Math.max(r.right - c.right, c.left - r.left);
       // Лента, что листается только вбок, — так задумано; остальное, что шире своей области, срезано или уезжает вбок
       const hs = /auto|scroll/.test(bs.overflowX) && !/auto|scroll/.test(bs.overflowY);
-      if (!clips(bs)) add(s.position === 'absolute' ? 'вылезает (позиционирован)' : 'вылезает за блок', e, over, r);
+      // Поставленное поверх (меню у кнопки, подпись у полосы, значок) выходит за свой блок нарочно — ему только
+      // целиком в окне
+      if (!clips(bs) && s.position === 'absolute') {
+        const out = Math.max(r.right - vw, r.bottom - vh, -r.left, -r.top);
+        if (out > 1) add('за краем окна', e, out, r);
+      } else if (!clips(bs)) add('вылезает за блок', e, over, r);
       else if (side > 2 && !hs && !rail(box, bs)) add(own(e) ? 'текст срезан рамкой' : 'срезано сбоку', e, side, r);
     }
     // Текст не влез в свой блок и срезан без «…»

@@ -1,9 +1,14 @@
-// Проверка раскладки интерфейса студии: yarn layout [-- параметры]. Не тест: в yarn test и в проекты Playwright не входит,
-// запускается руками после правок вёрстки студии. Свой сервер (Vite) — на своей папке презентаций в .tmp/layout-check,
+// Проверка раскладки интерфейса: yarn layout [-- параметры]. Не тест: в yarn test и в проекты Playwright не входит,
+// запускается руками после правок вёрстки. Свой сервер (Vite) — на своей папке презентаций в .tmp/layout-check,
 // в ней — нагрузочная презентация: длинные название, автор, имя папки, тексты, подписи слайдов, имя картинки,
-// заметки; 40 слайдов, на холсте 20 объектов с анимацией. Студия обходится в нескольких размерах окна и в обеих
-// темах: вкладки ленты и все их выпадающие, объекты разных видов с их вкладками и выпадающими, область выделения,
-// «Порядок» анимаций, контекстные меню, поиск команд (Ctrl+K), агент, все разделы «Файла» и форматы экспорта.
+// заметки; 40 слайдов, на холсте 20 объектов с анимацией. Обход — в нескольких размерах окна и в обеих темах:
+//   студия    — вкладки ленты и все их выпадающие, объекты разных видов с их вкладками и выпадающими, область
+//               выделения, «Порядок» анимаций, контекстные меню, поиск команд (Ctrl+K), агент, все разделы «Файла»
+//               и форматы экспорта;
+//   показ     — панель на слайдах, «Все слайды», «Крупнее», чёрный экран, автопоказ, пульт, режим правки;
+//   докладчик — вместе с окном показа: слайды, заметки и их правка, крупные заметки, «Все слайды», указка, перо,
+//               «Мышь и 3D», пульт, чёрный экран, автопоказ.
+// Показ и докладчик — ещё и на телефоне (у докладчика — раскладка пульта; само подключение по QR идёт по сети).
 // На каждом шаге — сканер (layout-check/scan.js): вылезает за свой блок, срезано сбоку или без «…», уходит за край
 // окна, текст на тексте. Содержимое слайдов не проверяется — там выход за рамки нормален.
 // Итог — .tmp/layout-check/: report.html (находки по видам, где встретились, снимок с рамкой и номером),
@@ -12,6 +17,8 @@
 //   --sizes 1093x614,1536x864  размеры окна; по умолчанию 1093×614 (экран 1366×768 при масштабе 125 %), 1280×720,
 //                              1536×864 (1920×1080 при 125 %) и 1920×1080
 //   --themes light,dark        темы (по умолчанию обе)
+//   --only studio,show,presenter  что обходить (по умолчанию всё)
+//   --phones 390x844,844x390   телефон стоя и лёжа — у показа и докладчика; пусто — без телефона
 //   --jobs N                   окон одновременно (по умолчанию 4)
 //   --port P                   порт своего сервера (по умолчанию 5197)
 import { spawn } from 'node:child_process';
@@ -25,6 +32,9 @@ const OUT = path.join(ROOT, '.tmp', 'layout-check');
 const arg = (k, d) => { const i = process.argv.indexOf(`--${k}`); return i > 0 ? process.argv[i + 1] : d; };
 const SIZES = arg('sizes', '1093x614,1280x720,1536x864,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const THEMES = arg('themes', 'light,dark').split(',');
+const ONLY = arg('only', 'studio,show,presenter').split(',');
+// Телефон — у показа (презентацию открыли на телефоне) и у докладчика (пульт по QR); у студии его нет
+const PHONES = arg('phones', '390x844,844x390').split(',').filter(Boolean).map((x) => Object.assign(x.split('x').map(Number), { phone: true }));
 const JOBS = Math.max(1, Number(arg('jobs', 4)));
 const PORT = Number(arg('port', 5197));
 const THEME_NAME = { light: 'светлая', dark: 'тёмная' };
@@ -82,27 +92,21 @@ async function startServer() {
   }
 }
 
-// ---------- обход студии ----------
+// ---------- обход ----------
 const SCAN = fs.readFileSync(path.join(ROOT, 'scripts', 'layout-check', 'scan.js'), 'utf8');
 const found = [];
 const failed = [];
 const pageErrors = [];
+const SURFACE = { studio: 'Студия', show: 'Показ', presenter: 'Докладчик' };
 
-async function pass(browser, [w, h], theme) {
-  const tag = `${w}x${h}-${theme}`;
-  const label = `${w}×${h}, ${THEME_NAME[theme] ?? theme}`;
-  const ctx = await browser.newContext({ viewport: { width: w, height: h }, colorScheme: theme });
-  await ctx.addInitScript(SCAN);
-  const p = await ctx.newPage();
-  p.on('pageerror', (e) => pageErrors.push(`${label}: ${e.message}`));
-  await p.goto(`http://localhost:${PORT}/?deck=${KEY}&studio#3`);
-  await p.waitForSelector('#st-canvas .slide.on', { timeout: 60_000 });
-  await p.waitForTimeout(1500);
-  // Одно и то же место (вид находки + элемент) — один раз за проход, со снимком того шага, где нашлось впервые
+/** Сканер на странице: шаг — действие и проверка; одно и то же место — один раз за проход, со снимком первого шага */
+function session(p, tag, label) {
   const seen = new Set();
-  let shot = 0, steps = 0, hits = 0;
-  const scan = async (state) => {
-    steps++;
+  let shot = 0;
+  const st = { steps: 0, hits: 0 };
+  p.on('pageerror', (e) => pageErrors.push(`${label}: ${e.message}`));
+  st.scan = async (state) => {
+    st.steps++;
     await p.waitForTimeout(250);
     const list = (await p.evaluate(() => window.__layoutScan())).filter((it) => !seen.has(`${it.kind}|${it.path}`));
     if (!list.length) return;
@@ -112,13 +116,23 @@ async function pass(browser, [w, h], theme) {
     await p.screenshot({ path: path.join(OUT, 'shots', file) });
     await p.evaluate(() => window.__layoutMark([]));
     list.forEach((it, n) => found.push({ ...it, n: n + 1, tag, label, state, file }));
-    hits += list.length;
+    st.hits += list.length;
   };
-  const step = async (state, fn) => {
-    try { await fn(); await scan(state); }
+  st.step = async (state, fn) => {
+    try { await fn(); await st.scan(state); }
     catch (e) { failed.push(`${label} · ${state}: ${e.message.split('\n')[0]}`); }
   };
-  const esc = async (n = 2) => { for (let i = 0; i < n; i++) { await p.keyboard.press('Escape'); await p.waitForTimeout(120); } };
+  st.esc = async (n = 2) => { for (let i = 0; i < n; i++) { await p.keyboard.press('Escape'); await p.waitForTimeout(120); } };
+  return st;
+}
+
+async function studioPass(ctx, s) {
+  const p = await ctx.newPage();
+  const st = session(p, s.tag, s.label);
+  const { step, esc } = st;
+  await p.goto(`http://localhost:${PORT}/?deck=${KEY}&studio#3`);
+  await p.waitForSelector('#st-canvas .slide.on', { timeout: 60_000 });
+  await p.waitForTimeout(1500);
   const tabs = () => p.$$eval('[data-tab]', (els) => els.filter((e) => e.checkVisibility()).map((e) => e.dataset.tab));
   // Кнопки с выпадающим помечаются номером заново перед каждым нажатием: лента перерисовывается после окон
   const popups = () => p.evaluate(() => {
@@ -194,14 +208,119 @@ async function pass(browser, [w, h], theme) {
   await esc();
   await agent.click({ timeout: 3000 }).catch(() => {});
   await p.locator('#st-file').click();
-  for (const s of await p.$$eval('.fp [data-fs]', (els) => [...new Set(els.map((e) => e.dataset.fs))])) {
-    await step(`Файл → ${s}`, () => p.locator(`.fp [data-fs="${s}"]`).first().click());
-    if (s === 'export') {
+  for (const sec of await p.$$eval('.fp [data-fs]', (els) => [...new Set(els.map((e) => e.dataset.fs))])) {
+    await step(`Файл → ${sec}`, () => p.locator(`.fp [data-fs="${sec}"]`).first().click());
+    if (sec === 'export') {
       for (const x of await p.$$eval('.fp [data-x]', (els) => els.map((e) => e.dataset.x))) await step(`Файл → экспорт ${x}`, () => p.locator(`.fp [data-x="${x}"]`).click());
     }
   }
+  return st;
+}
+
+/** Окно показа; панель снизу появляется, когда мышь у нижнего края */
+async function openShow(ctx, slide = 1) {
+  const p = await ctx.newPage();
+  await p.goto(`http://localhost:${PORT}/?deck=${KEY}#${slide}`);
+  await p.waitForSelector('.slide.on', { timeout: 60_000 });
+  await p.waitForTimeout(1200);
+  return p;
+}
+const peek = async (p) => { const v = p.viewportSize(); await p.mouse.move(v.width / 2, v.height - 8); await p.waitForTimeout(400); };
+
+async function showPass(ctx, s) {
+  const p = await openShow(ctx);
+  const st = session(p, s.tag, s.label);
+  const { step, esc } = st;
+  const key = (k) => async () => { await p.keyboard.press(k); await p.waitForTimeout(400); await peek(p); };
+  await step('слайд 1, панель', () => peek(p));
+  for (const n of [2, 3]) await step(`слайд ${n}, панель`, async () => { await p.evaluate((i) => { location.hash = `#${i}`; }, n); await p.waitForTimeout(800); await peek(p); });
+  await step('все слайды (O)', key('o'));
+  await esc(1);
+  await step('крупнее (+)', async () => { for (let i = 0; i < 5; i++) await p.keyboard.press('+'); await p.waitForTimeout(300); await peek(p); });
+  await p.keyboard.press('0');
+  await step('чёрный экран (B)', key('b'));
+  await p.keyboard.press('b');
+  await step('автопоказ (A)', key('a'));
+  await p.keyboard.press('a');
+  await step('пульт (R)', key('r'));
+  await esc(1);
+  if (await p.locator('#ed-btn:visible').count()) {
+    await step('режим правки (E)', key('e'));
+    await step('режим правки: объект выделен', async () => {
+      const r = await p.locator('.slide.on > .free').nth(2).boundingBox();
+      await p.mouse.click(r.x + r.width / 2, r.y + r.height / 2);
+      await p.waitForTimeout(400);
+    });
+    await esc(1);
+    await p.keyboard.press('e');
+  }
+  return st;
+}
+
+async function presenterPass(ctx, s) {
+  // Докладчик связан с окном показа (как при P): «Окно показа подключено», слайды и часы общие
+  await openShow(ctx);
+  const p = await ctx.newPage();
+  const st = session(p, s.tag, s.label);
+  const { step, esc } = st;
+  await p.goto(`http://localhost:${PORT}/?deck=${KEY}&view=presenter`);
+  await p.waitForSelector('#cur .slide.on', { timeout: 60_000 });
+  await p.waitForTimeout(1500);
+  // Телефон: то же окно, что открывает пульт по QR (подключение пульта — по сети, здесь только раскладка)
+  if (s.phone) await p.evaluate(() => document.body.classList.add('pres-phone'));
+  const click = (sel) => async () => { await p.locator(sel).first().click({ timeout: 3000 }); await p.waitForTimeout(400); };
+  await step('слайд 1: заметки', async () => {});
+  await step('слайд 2', click('#nx'));
+  await step('слайд 3', click('#nx'));
+  await p.locator('#pv').first().click();
+  await p.locator('#pv').first().click();
+  await step('все слайды (G)', click('#tgrid'));
+  await esc(1);
+  // Заметки на телефоне лёжа не показываются — там их шагов нет
+  if (await p.locator('#ned:visible').count()) {
+    await step('правка заметок (E)', click('#ned'));
+    await esc(1);
+    await step('заметки крупнее', async () => { for (let i = 0; i < 6; i++) await p.locator('#fp').click(); await p.waitForTimeout(300); });
+    for (let i = 0; i < 6; i++) await p.locator('#fm').click().catch(() => {});
+  }
+  if (!s.phone) {
+    await step('указка', click('.pd-btn[title^="Указка"]'));
+    await step('перо', click('.pd-btn[title^="Перо"]'));
+    await esc(1);
+    await step('мышь и 3D: настройки', async () => {
+      const b = await p.locator('#tmir').boundingBox();
+      await p.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+      await p.mouse.down();
+      await p.waitForTimeout(800);
+      await p.mouse.up();
+      await p.waitForTimeout(300);
+    });
+    await esc(1);
+    await step('пульт с телефона (R)', click('#trmt'));
+    await esc(1);
+    await step('чёрный экран (B)', click('#bk'));
+    await p.locator('#bk').click();
+    await step('автопоказ (A)', click('#tauto'));
+    await p.locator('#tauto').click();
+  }
+  return st;
+}
+
+const PASS = { studio: studioPass, show: showPass, presenter: presenterPass };
+async function pass(browser, job) {
+  const [w, h] = job.size;
+  const phone = job.size.phone === true;
+  const s = { tag: `${job.surface}-${w}x${h}-${job.theme}`, label: `${SURFACE[job.surface]} · ${w}×${h}${phone ? ' (телефон)' : ''}, ${THEME_NAME[job.theme] ?? job.theme}`, phone };
+  const ctx = await browser.newContext({ viewport: { width: w, height: h }, colorScheme: job.theme, ...(phone ? { isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : {}) });
+  await ctx.addInitScript(SCAN);
+  let st = { steps: 0, hits: 0 };
+  try {
+    st = await PASS[job.surface](ctx, s);
+  } catch (e) {
+    failed.push(`${s.label}: ${e.message.split('\n')[0]}`);
+  }
   await ctx.close();
-  console.log(`${label}: шагов ${steps}, находок ${hits}`);
+  console.log(`${s.label}: шагов ${st.steps}, находок ${st.hits}`);
 }
 
 // ---------- отчёт ----------
@@ -224,11 +343,11 @@ function report() {
 <p class="mu">Где: ${esc([...g.where].join('; '))}<br>Шаги: ${esc([...g.states].slice(0, 4).join('; '))}${g.states.size > 4 ? ` и ещё ${g.states.size - 4}` : ''}</p>
 <p class="mu">Снимок — рамка №${g.n}</p><a href="shots/${g.file}"><img src="shots/${g.file}" loading="lazy" alt=""></a></section>`;
   const list = (t, a) => (a.length ? `<h2>${t}</h2><ul>${a.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '');
-  fs.writeFileSync(path.join(OUT, 'report.html'), `<!doctype html><html lang="ru"><meta charset="utf-8"><title>Раскладка студии</title>
+  fs.writeFileSync(path.join(OUT, 'report.html'), `<!doctype html><html lang="ru"><meta charset="utf-8"><title>Раскладка интерфейса</title>
 <style>body{margin:0 auto;max-width:1100px;padding:24px;font:14px/1.5 system-ui;color:#0f172a;background:#f8fafc}h1{font-size:22px}h2{font-size:16px;margin:0 0 4px}
 section{margin:0 0 28px;padding:16px;background:#fff;border:1px solid #e2e8f0;border-radius:10px}small,.mu{color:#64748b}code{font-size:12.5px}img{max-width:100%;border:1px solid #e2e8f0;border-radius:6px}</style>
-<h1>Раскладка студии: ${rows.length ? `разных находок ${rows.length}` : 'находок нет'}</h1>
-<p class="mu">${esc(`${new Date().toLocaleString('ru-RU')} · окна: ${SIZES.map(([a, b]) => `${a}×${b}`).join(', ')} · темы: ${THEMES.map((t) => THEME_NAME[t] ?? t).join(', ')}`)}</p>
+<h1>Раскладка интерфейса: ${rows.length ? `разных находок ${rows.length}` : 'находок нет'}</h1>
+<p class="mu">${esc(`${new Date().toLocaleString('ru-RU')} · ${ONLY.map((o) => SURFACE[o] ?? o).join(', ')} · окна: ${[...SIZES, ...PHONES].map(([a, b]) => `${a}×${b}`).join(', ')} · темы: ${THEMES.map((t) => THEME_NAME[t] ?? t).join(', ')}`)}</p>
 ${rows.map(item).join('\n')}${list('Шаги, которые не удалось сделать', failed)}${list('Ошибки страницы', pageErrors)}</html>`);
   return rows.length;
 }
@@ -241,10 +360,11 @@ process.on('SIGINT', () => { stop(); process.exit(130); });
 let distinct = 0;
 try {
   const browser = await chromium.launch();
-  const combos = SIZES.flatMap((s) => THEMES.map((t) => [s, t]));
+  const jobs = ONLY.flatMap((surface) => [...SIZES, ...(surface === 'studio' ? [] : PHONES)]
+    .flatMap((size) => THEMES.map((theme) => ({ surface, size, theme }))));
   let next = 0;
-  await Promise.all(Array.from({ length: Math.min(JOBS, combos.length) }, async () => {
-    while (next < combos.length) await pass(browser, ...combos[next++]);
+  await Promise.all(Array.from({ length: Math.min(JOBS, jobs.length) }, async () => {
+    while (next < jobs.length) await pass(browser, jobs[next++]);
   }));
   await browser.close();
   distinct = report();
