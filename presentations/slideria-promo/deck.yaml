@@ -993,6 +993,15 @@ css: |
   .slide.on .v20-end { animation: v20-drift 3.9024s cubic-bezier(.25, .1, .25, 1) both; }
   @keyframes ufx-flashs { from { opacity: .45; } to { opacity: 0; } }
   @keyframes ufx-late { 0%, 55% { opacity: 0; letter-spacing: .9em; } to { opacity: .85; } }
+
+  /* Знак держит паузу до первой бочки — кадр медленно наезжает */
+  @keyframes v20-push { from { transform: scale(1); } to { transform: scale(1.16); } }
+  /* «ЖИВУТ»: толчок на каждую вторую бочку */
+  .slide.on .v4-echo { animation: v3-kick .9756s cubic-bezier(.2, .8, .3, 1) infinite; }
+  /* «Место, где можно»: наезд с разгоном к дропу (transform — отдельно от толчка: он двигает scale) */
+  @keyframes v20-rush { from { transform: none; } to { transform: scale(1.08); } }
+  /* Финальный знак: второй блик по плитке, пока трек затихает */
+  .slide.on .v20-end .v3-mark::after { animation: v4-sheen 1.25s .25s cubic-bezier(.3, .6, .2, 1) both, v4-sheen 1.4s 2.2s cubic-bezier(.3, .6, .2, 1); }
 music:
   src: ./assets/particle-house-60.m4a
   volume: 1
@@ -1057,7 +1066,7 @@ slides:
           y: 0
           w: 1280
           h: 720
-        style: "animation: v20-drift 3.9024s cubic-bezier(.25, .1, .25, 1) both"
+        style: "animation: v20-push 3.9024s cubic-bezier(.3, 0, .6, 1) both"
         locked: true
       - type: video
         src: ./assets/mark-forge.mp4
@@ -1072,7 +1081,7 @@ slides:
           y: 0
           w: 1280
           h: 720
-        style: "--rk: 0; animation: v20-drift 3.9024s cubic-bezier(.25, .1, .25, 1) both"
+        style: "--rk: 0; animation: v20-push 3.9024s cubic-bezier(.3, 0, .6, 1) both"
         locked: true
       - type: html
         html: <div class="v4-word">SLIDERIA</div>
@@ -1088,6 +1097,13 @@ slides:
           y: 580
           w: 1280
           h: 20
+      - type: html
+        html: <div class="v3-o"><i class="v4-dust"></i></div>
+        place:
+          x: 0
+          y: 0
+          w: 1280
+        locked: true
       - type: html
         html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-vig"></i></div>
         place:
@@ -1107,7 +1123,7 @@ slides:
     logo: false
     free:
       - type: html
-        html: <div class="v3-o"><i class="v4-bloom" style="--y:62%;--s:1100px"></i><i class="v4-dust"></i></div>
+        html: <div class="v3-o"><i class="v3-glow" style="--gx:50%;--gy:62%"></i><i class="v4-bloom" style="--y:62%;--s:1100px"></i><i class="v4-dust"></i></div>
         place:
           x: 0
           y: 0
@@ -1771,7 +1787,7 @@ slides:
           x: 92
           y: 160
           w: 1150
-        style: "animation: v3-kick .5s cubic-bezier(.2, .8, .3, 1) 1.4634s"
+        style: "animation: v3-kick .5s cubic-bezier(.2, .8, .3, 1) 1.4634s, v20-rush 1.9512s cubic-bezier(.6, 0, .9, .4) both"
         locked: true
       - type: html
         html: <div class="v15-row"><div class="v6-slit b" style="--d:0.4878s"><i class="v6-sz">ГДЕ</i><b style="--k:0;--s:1">ГДЕ</b><b style="--k:1;--s:-1">ГДЕ</b><b style="--k:2;--s:1">ГДЕ</b><b style="--k:3;--s:-1">ГДЕ</b><b style="--k:4;--s:1">ГДЕ</b><b style="--k:5;--s:-1">ГДЕ</b><b style="--k:6;--s:1">ГДЕ</b><b class="v6-ghost">ГДЕ</b></div><div class="v6-slit b" style="--d:0.9756s"><i class="v6-sz">МОЖНО</i><b style="--k:0;--s:1">МОЖНО</b><b style="--k:1;--s:-1">МОЖНО</b><b style="--k:2;--s:1">МОЖНО</b><b style="--k:3;--s:-1">МОЖНО</b><b style="--k:4;--s:1">МОЖНО</b><b style="--k:5;--s:-1">МОЖНО</b><b style="--k:6;--s:1">МОЖНО</b><b class="v6-ghost">МОЖНО</b></div></div>
@@ -1779,7 +1795,7 @@ slides:
           x: 96
           y: 300
           w: 1150
-        style: "animation: v3-kick .5s cubic-bezier(.2, .8, .3, 1) 1.4634s"
+        style: "animation: v3-kick .5s cubic-bezier(.2, .8, .3, 1) 1.4634s, v20-rush 1.9512s cubic-bezier(.6, 0, .9, .4) both"
         locked: true
       - type: html
         html: <div class="v3-o"><i class="v3-grain"></i><i class="v3-scan"></i><i class="v3-vig"></i></div>
@@ -3851,7 +3867,7 @@ slides:
           <style>body { margin: 0 } canvas { width: 100vw; height: 100vh; display: block }</style>
           <script>
             const petals = 7;   // лепестки — поменяйте на 4, 12 или 30
-            const speed = 1;    // скорость
+            const speed = 2.5;  // скорость
             const css = getComputedStyle(document.documentElement);
             const g = c.getContext('2d');
             c.width = innerWidth * 2; c.height = innerHeight * 2;
