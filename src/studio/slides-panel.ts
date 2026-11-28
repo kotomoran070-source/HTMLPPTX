@@ -40,6 +40,9 @@ interface Drag {
   raf: number;
 }
 
+/** На сколько расходятся миниатюры у зазора при перетаскивании: зазор 8 px становится 26 px — в нём гнездо 14 px */
+const PART = 9;
+
 /** Всё, что влияет на вид любого слайда, кроме самих слайдов: тема, логотип, стили, символы. */
 function deckSignature(deck: Deck): string {
   const { slides: _s, ...rest } = deck;
@@ -77,18 +80,24 @@ export class SlidesPanel {
 
   constructor(private root: HTMLElement, private host: SlidesHost) {
     // Заголовок с числом слайдов и «+» — над лентой и при прокрутке остаётся на месте (studio.css, .st-slides-head)
-    root.innerHTML = `<div class="st-slides-head"><b>Слайды</b><span class="st-slides-n"></span>`
-      + `<button type="button" class="st-slides-plus" title="Новый слайд (Ctrl+M)" aria-label="Новый слайд">${icon('plus')}</button></div>`
+    // Новый слайд — кнопкой внизу ленты и «+» в месте вставки (щелчок между миниатюрами), в заголовке кнопки нет
+    root.innerHTML = `<div class="st-slides-head"><b>Слайды</b><span class="st-slides-n"></span></div>`
       + `<div class="st-slides-body"><div class="st-slides-list" role="listbox" aria-label="Слайды" aria-orientation="vertical" aria-multiselectable="true"></div>`
       // Линии — рядом со списком, не в нём: в списке только слайды (и для чтения с экрана, и для подсчёта)
-      + `<div class="st-drop-line" aria-hidden="true" hidden></div><div class="st-slides-caret" aria-hidden="true" hidden></div></div>
+      + `<div class="st-drop-line" aria-hidden="true" hidden></div>`
+      + `<div class="st-slides-caret" hidden><button type="button" class="st-slides-caret-add" title="Новый слайд (Ctrl+M)" aria-label="Новый слайд сюда">${icon('plus')}</button></div></div>
 <button type="button" class="st-slides-add" title="Новый слайд (Ctrl+M)">${icon('plus')}<span>Новый слайд</span></button>`;
     this.list = root.querySelector('.st-slides-list')!;
     this.count = root.querySelector('.st-slides-n')!;
     this.head = root.querySelector('.st-slides-head')!;
     this.line = root.querySelector('.st-drop-line')!;
     this.caretEl = root.querySelector('.st-slides-caret')!;
-    for (const b of root.querySelectorAll<HTMLElement>('.st-slides-add, .st-slides-plus')) b.onclick = () => host.add(host.index(), b);
+    for (const b of root.querySelectorAll<HTMLElement>('.st-slides-add, .st-slides-caret-add')) {
+      b.onclick = () => host.add(host.index(), b);
+      // Мышью — без фокуса: у края ленты фокус докручивал её до кнопки, и меню, только что открытое, закрывалось
+      // от этой прокрутки. С клавиатуры (Tab) — фокус как обычно
+      b.addEventListener('pointerdown', (e) => e.preventDefault());
+    }
     this.bind();
   }
 
@@ -262,18 +271,37 @@ export class SlidesPanel {
     this.focus();
   }
 
-  /** Зазор под точкой y экрана: перед первой миниатюрой, чья середина ниже */
+  /**
+   * Зазор под точкой y экрана: перед первой миниатюрой, чья середина ниже. По раскладке (offsetTop), не по экрану:
+   * при перетаскивании миниатюры раздвинуты (transform), и по экранным местам зазор прыгал бы туда-обратно
+   */
   private gapAt(y: number): number {
+    const top = this.list.getBoundingClientRect().top;
     let lo = 0;
     let hi = this.items.length;
     while (lo < hi) {
       const m = (lo + hi) >> 1;
-      const b = this.items[m].getBoundingClientRect();
-      if (y < b.top + b.height / 2) hi = m;
+      const el = this.items[m];
+      if (y < top + el.offsetTop + el.offsetHeight / 2) hi = m;
       else lo = m + 1;
     }
     return lo;
   }
+
+  /**
+   * Миниатюры расходятся у зазора g, куда встанет группа: выше — вверх, ниже — вниз, в зазоре — гнездо
+   * (.st-drop-line). -1 — все на место. Стиль пишется только при смене зазора
+   */
+  private part(g: number): void {
+    if (g === this.parted) return;
+    this.parted = g;
+    this.items.forEach((el, i) => {
+      const t = g < 0 ? '' : `translateY(${i < g ? -PART : PART}px)`;
+      if (el.style.transform !== t) el.style.transform = t;
+    });
+  }
+  private parted = -1;
+  private unpart = 0;
 
   /** Alt+↑/↓ и «Переместить выше/ниже»: группа — на шаг */
   shift(list: number[], dir: -1 | 1): void {
@@ -441,6 +469,9 @@ export class SlidesPanel {
     d.ghost = g;
     for (const k of d.group) this.items[k]?.classList.add('dragging');
     document.documentElement.classList.add('st-slide-drag');
+    // Расхождение миниатюр — плавное, только пока тянут и пока они возвращаются на место
+    clearTimeout(this.unpart);
+    this.list.classList.add('parting');
     this.list.setPointerCapture(d.id);
   }
 
@@ -463,8 +494,16 @@ export class SlidesPanel {
     }
     d.ghost!.classList.toggle('out', a.out);
     document.documentElement.classList.toggle('st-slide-drag-out', a.out);
+    // Гнездо появляется сразу на своём месте (а не выезжает из прошлого), дальше — скользит за курсором
+    const appear = this.line.hidden && a.gap >= 0;
+    if (appear) this.line.style.transition = 'none';
     this.line.hidden = a.gap < 0;
     if (a.gap >= 0) this.line.style.top = `${this.gapY(a.gap)}px`;
+    if (appear) {
+      void this.line.offsetTop;
+      this.line.style.transition = '';
+    }
+    this.part(a.gap);
   }
 
   /**
@@ -506,6 +545,8 @@ export class SlidesPanel {
     const gap = drop ? this.aim(d).gap : -1;
     d.ghost?.remove();
     this.line.hidden = true;
+    this.part(-1);
+    this.unpart = window.setTimeout(() => this.list.classList.remove('parting'), 260);
     this.items.forEach((el) => el.classList.remove('dragging'));
     document.documentElement.classList.remove('st-slide-drag', 'st-slide-drag-out');
     if (this.list.hasPointerCapture(d.id)) this.list.releasePointerCapture(d.id);

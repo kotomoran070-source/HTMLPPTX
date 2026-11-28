@@ -839,20 +839,12 @@ ${still ? `<p class="st-aorder-still">Без анимации, видны сра
   private dnd(): void {
     const el = this.body;
     const rows = () => [...el.querySelectorAll<HTMLElement>('.st-aorder-row')];
-    /** Куда бросают: строка под мышью — перед ней (верхняя половина) или после (нижняя), в её группу */
-    const dropAt = (y: number) => {
-      const rs = rows();
-      if (!rs.length) return null;
-      const r = rs.find((x) => y < x.getBoundingClientRect().bottom) ?? rs[rs.length - 1];
-      const box = r.getBoundingClientRect();
-      const after = y >= box.top + box.height / 2;
-      const n = Number(r.dataset.n);
-      return { r, after, p: n + (after ? 1 : 0), click: !!this.list()[n]?.click };
-    };
     rowDrag({
       list: el,
       scroller: el,
       row: '.st-aorder-row',
+      // Заголовки групп и подписи расходятся вместе со строками
+      shift: '.st-aorder > *',
       pick: (r) => {
         const on = this.list();
         const o = on[Number(r.dataset.n)];
@@ -869,10 +861,12 @@ ${still ? `<p class="st-aorder-still">Без анимации, видны сра
         });
         return { rows: moved, count: drag.size };
       },
-      // Нельзя (исчезновение — в «При открытии», исчезновение раньше появления) или ничего не меняется — без линии
-      aim: (y) => {
-        const at = dropAt(y);
-        return at && this.drag && placed(this.list(), this.drag, at.p, at.click) ? { row: at.r, after: at.after, data: at } : null;
+      // Встаёт в группу строки, до или после неё. Нельзя (исчезновение — в «При открытии», исчезновение раньше
+      // появления) или ничего не меняется — без гнезда
+      allow: (r, after) => {
+        const n = Number(r.dataset.n);
+        const at = { p: n + (after ? 1 : 0), click: !!this.list()[n]?.click };
+        return this.drag && placed(this.list(), this.drag, at.p, at.click) ? at : null;
       },
       drop: (at) => {
         const ids = this.drag!;

@@ -2622,6 +2622,9 @@ test('лента слайдов: перетаскивание — линия в 
     await page.mouse.move(b.x + b.width / 2, b.y + b.height - 6, { steps: 8 });
     await expect(ghost).toBeVisible();
     await expect(line).toBeVisible();
+    // Миниатюры у зазора расходятся: S2 — вверх, S3 — вниз, в зазоре гнездо
+    await expect(thumb(1)).toHaveCSS('transform', /matrix\(1, 0, 0, 1, 0, -\d/);
+    await expect(thumb(2)).toHaveCSS('transform', /matrix\(1, 0, 0, 1, 0, \d/);
     await page.mouse.up();
     await expect(ghost).toHaveCount(0);
     await expect(line).toBeHidden();
@@ -2732,6 +2735,27 @@ test('лента слайдов: Shift и Ctrl выделяют нескольк
     expect(order()[0]).toBe('S4');
     expect(order()[2]).toBe('S1');
     await expect(caret).toBeHidden();
+    // «+» в месте вставки — выбор вида нового слайда, он встаёт туда же: между S5 и S6
+    const s5 = order().indexOf('S5');
+    // Зазор — посередине ленты: иначе Playwright перед щелчком докрутит ленту до «+», а прокрутка закрывает меню
+    await thumb(s5).evaluate((el) => el.scrollIntoView({ block: 'center' }));
+    // Лента доехала
+    let last = -1;
+    await expect.poll(async () => {
+      const v = await page.locator('#st-slides').evaluate((el) => el.scrollTop);
+      const same = v === last;
+      last = v;
+      return same;
+    }).toBe(true);
+    const a5 = (await thumb(s5).boundingBox())!;
+    const a6 = (await thumb(s5 + 1).boundingBox())!;
+    await page.mouse.click(a5.x + a5.width / 2, (a5.y + a5.height + a6.y) / 2);
+    await expect(caret).toBeVisible();
+    await page.locator('.st-slides-caret-add').click();
+    await page.locator('.st-menu button').first().click();
+    await expect.poll(() => order().length).toBe(8);
+    expect(order()[s5]).toBe('S5');
+    expect(order()[s5 + 2]).toBe('S6');
     expect(errors).toEqual([]);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

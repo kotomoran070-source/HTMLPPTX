@@ -58,10 +58,9 @@ export class LayersPane {
         this.drag = Number(row.dataset.k);
         return { rows: [row], count: 1 };
       },
-      aim: (y) => {
-        const at = this.dropAt(y);
-        const row = this.list.querySelectorAll<HTMLElement>('.st-lyr')[at.row];
-        return row && this.target(this.drag, at) !== this.drag ? { row, after: at.after, data: at } : null;
+      allow: (row, after) => {
+        const at = { row: [...this.list.querySelectorAll('.st-lyr')].indexOf(row), after };
+        return this.target(this.drag, at) !== this.drag ? at : null;
       },
       drop: (at) => this.reorder(this.drag, at),
       end: () => { this.drag = -1; },
@@ -162,16 +161,6 @@ export class LayersPane {
     } else {
       ed.selectFree(i, k);
     }
-  }
-
-  /** Куда бросают строку: номер строки в списке и до/после неё */
-  private dropAt(y: number): { row: number; after: boolean } {
-    const rows = [...this.list.querySelectorAll<HTMLElement>('.st-lyr')];
-    for (let j = 0; j < rows.length; j++) {
-      const r = rows[j].getBoundingClientRect();
-      if (y < r.top + r.height / 2) return { row: j, after: false };
-    }
-    return { row: rows.length - 1, after: true };
   }
 
   /** Новый номер объекта from в списке слайда, если бросить его у строки at */
