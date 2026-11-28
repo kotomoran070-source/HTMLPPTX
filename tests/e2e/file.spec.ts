@@ -147,6 +147,58 @@ test('«Файл»: экспорт — настройки по формату; �
   expect(errors).toEqual([]);
 });
 
+/** Что вылезает за свою карточку (или за раздел, если карточки нет) — то, что не обрезано по дороге */
+function escapes(): string[] {
+  const main = document.querySelector('#fp-main')!;
+  const out: string[] = [];
+  for (const el of main.querySelectorAll<HTMLElement>('*')) {
+    const r = el.getBoundingClientRect();
+    if (!r.width) continue;
+    const box = el.parentElement!.closest('.fp-card') ?? main;
+    let cut = false;
+    for (let a = el.parentElement; a && a !== box; a = a.parentElement) if (getComputedStyle(a).overflow !== 'visible') cut = true;
+    const c = box.getBoundingClientRect();
+    if (!cut && (r.right > c.right + 1 || r.left < c.left - 1)) out.push(`${el.tagName.toLowerCase()}.${el.className} «${el.textContent!.trim().slice(0, 40)}»`);
+  }
+  return out;
+}
+
+test('«Файл»: длинное название и имя папки — ничего не выходит за карточки; имя файла — до двух строк, целиком в подсказке', async ({ page }) => {
+  const errors = watchErrors(page);
+  const key = 'sistema-avtomaticheskogo-monitoringa-parametrov-na-baze-seti-lorawan';
+  const title = 'Система автоматического мониторинга параметров на базе сети LoRaWAN';
+  const dir = path.join(DECKS, key);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'deck.yaml'), `title: ${title}\nauthor: Константин Константинопольский, кафедра информационно-измерительных систем\nslides:\n  - template: canvas\n    free:\n      - {type: text, text: Слайд, place: {x: 100, y: 100, w: 600}}\n`);
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`/?deck=${key}&studio#1`);
+    await expect(page.locator('#st-canvas .slide')).not.toHaveCount(0);
+    await page.locator('#st-file').click();
+    for (const s of await page.locator('.fp [data-fs]').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.fs!))) {
+      await page.locator(`.fp [data-fs="${s}"]`).first().click();
+      await expect(page.locator(`.fp #fp-t-${s}`)).toHaveAttribute('aria-selected', 'true');
+      await page.waitForTimeout(300);
+      expect(await page.evaluate(escapes), `раздел ${s}`).toEqual([]);
+      if (s !== 'export') continue;
+      // Каждый формат: имя файла — из названия (PDF) или из папки, оба длинные
+      for (const x of await page.locator('.fp [data-x]').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.x!))) {
+        await page.locator(`.fp [data-x="${x}"]`).click();
+        await expect(page.locator(`.fp [data-x="${x}"]`)).toHaveAttribute('aria-checked', 'true');
+        expect(await page.evaluate(escapes), `экспорт ${x}`).toEqual([]);
+        const name = page.locator('.fp-file span').last();
+        const lines = await name.evaluate((el) => Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)));
+        expect(lines, `экспорт ${x}: строк в имени файла`).toBe(2);
+        if (x === 'pdf') await expect(name).toHaveAttribute('title', `${title}.pdf`);
+        else await expect(name).toHaveAttribute('title', new RegExp(`^${key}`));
+      }
+    }
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('«Версии»: строка — из истории с «Отменить» на её месте; «Очистить историю» — после вопроса, точка выхода остаётся', async ({ page }) => {
   const errors = watchErrors(page);
   const NAME = 'zz-hist';

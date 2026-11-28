@@ -145,12 +145,18 @@
 .fp-fmt small { color: var(--mu); font-size: 12.5px; line-height: 1.4; }
 .fp-radio { position: absolute; right: 14px; top: 14px; width: 18px; height: 18px; border: 1.5px solid var(--bd2); border-radius: 50%; transition: border .15s; }
 .fp-fmt[aria-checked="true"] .fp-radio { border: 5px solid var(--ac); }
-.fp-side { position: sticky; top: 0; display: grid; gap: 18px; padding: 18px; }
+/* Колонка не шире карточки: иначе длинное имя файла растягивает её вместе с кнопкой за край */
+.fp-side { position: sticky; top: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; padding: 18px; }
 .fp-side h3 { margin: 0; font: 500 16px/1.25 "SL Display", var(--font); letter-spacing: -.01em; }
-/* «Файл» и «Оценка» (видео) — подпись слева, значение справа */
-.fp-file, .fp-vsize { display: flex; justify-content: space-between; gap: 12px; color: var(--mu); font-size: 12.5px; }
+/* «Файл» и «Оценка» (видео): подпись, за ней значение. Имя файла — целиком, до двух строк, дальше «…» (полное — в подсказке) */
+.fp-file, .fp-vsize { display: flex; gap: 12px; color: var(--mu); font-size: 12.5px; }
 .fp-vsize { margin-top: -10px; }
-.fp-file span:last-child, .fp-vsize span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx2); }
+.fp-file span:first-child, .fp-vsize span:first-child { flex: none; }
+/* У видео две строки подряд — значения с одной линии (по самой широкой подписи, «Оценка») */
+.fp-file:has(+ .fp-vsize) span:first-child, .fp-vsize span:first-child { min-width: 3.6em; }
+.fp-file span:last-child, .fp-vsize span:last-child { min-width: 0; overflow: hidden; color: var(--tx2); }
+.fp-file span:last-child { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
+.fp-vsize span:last-child { text-overflow: ellipsis; white-space: nowrap; }
 /* «Экспорт → Видео»: полоса записи (во всю ширину карточки) и подпись, почему кнопки нет */
 .fp-vrun { justify-items: stretch; }
 .fp-vbar { height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--tx) 12%, transparent); overflow: hidden; }
