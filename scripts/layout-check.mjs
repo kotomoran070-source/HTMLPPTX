@@ -229,6 +229,9 @@ const peek = async (p) => { const v = p.viewportSize(); await p.mouse.move(v.wid
 
 async function showPass(ctx, s) {
   const p = await openShow(ctx);
+  // На телефоне показ открывают выгруженным файлом: кнопок сервера разработки («Открыть в редакторе», «Импорт…»,
+  // «Все презентации») там нет — без них и проверяется
+  if (s.phone) await p.addStyleTag({ content: '#studio-btn, .ovtools-dev { display: none !important; }' });
   const st = session(p, s.tag, s.label);
   const { step, esc } = st;
   const key = (k) => async () => { await p.keyboard.press(k); await p.waitForTimeout(400); await peek(p); };

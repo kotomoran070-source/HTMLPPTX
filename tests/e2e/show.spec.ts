@@ -78,6 +78,49 @@ test('обзор всех слайдов (O) открывает слайд по 
   await expect(page.locator('#ct')).toHaveText(/^7 из/);
 });
 
+test('длинное слово в названии слайда: «Все слайды» — колонки поровну, окно докладчика не шире окна', async ({ page, context }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'longword');
+  // Адрес без пробелов — как имя файла или ссылка в названии слайда
+  const url = 'https://example.com/downloads/slideria/releases/2026/11/Slideria-Setup-1.0.0-x64-full-offline-installer-with-all-fonts-and-templates.exe';
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'deck.yaml'), `title: Длинное слово\nslides:\n  - id: a\n    title: Первый\n    notes: Что сказать.\n  - id: b\n    label: ${JSON.stringify(url)}\n    title: ${JSON.stringify(url)}\n  - id: c\n    title: Третий\n`);
+  try {
+    await page.goto('/?deck=longword#1');
+    await expect(page.locator('#ct')).toHaveText(/^1 из 3/);
+    // «Все слайды»: три колонки поровну, сетка не шире своей панели, подпись — в пределах карточки
+    await page.keyboard.press('o');
+    const grid = page.locator('#ovgrid');
+    await expect(page.locator('#ovbd')).toHaveClass(/\bon\b/);
+    const cols = await grid.evaluate((g) => getComputedStyle(g).gridTemplateColumns.split(' ').map(parseFloat));
+    expect(cols).toHaveLength(3);
+    expect(Math.max(...cols) - Math.min(...cols)).toBeLessThan(2);
+    expect(await grid.evaluate((g) => g.scrollWidth - g.clientWidth)).toBeLessThanOrEqual(1);
+    expect(await page.locator('#ovgrid .ovcard').nth(1).evaluate((c) => {
+      const t = c.querySelector('.ovttl')!.getBoundingClientRect();
+      return t.right <= c.getBoundingClientRect().right;
+    })).toBe(true);
+    await page.keyboard.press('Escape');
+    // Окно докладчика: «Далее» — этот слайд; страница не шире окна и не уезжает вбок при правке заметок
+    const pres = await context.newPage();
+    const presErrors = watchErrors(pres);
+    await pres.goto('/?deck=longword&view=presenter');
+    await expect(pres.locator('#cur .slide.on')).toHaveCount(1);
+    await expect(pres.locator('#next .mu')).toHaveText(url);
+    const wide = () => pres.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+    expect(await wide()).toBeLessThanOrEqual(0);
+    await pres.locator('#ned').click();
+    await expect(pres.locator('#notesed')).toBeVisible();
+    expect(await wide()).toBeLessThanOrEqual(0);
+    expect(await pres.evaluate(() => scrollX)).toBe(0);
+    await pres.close();
+    expect(errors).toEqual([]);
+    expect(presErrors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('«Крупнее»: + — содержимое крупнее (шаг 2 %, до 110 %), но целиком в окне; при листании и после перезагрузки остаётся; − ниже 100 % — мельче; Ctrl+0 — как было', async ({ page }) => {
   await page.goto('/?deck=tpl#2');
   await expect(page.locator('#ct')).toHaveText(/^2 из/);

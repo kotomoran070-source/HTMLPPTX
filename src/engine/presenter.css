@@ -3,7 +3,9 @@
 .pres .pres-cur { gap: 10px; }
 /* Слайд занимает ровно свою высоту по ширине колонки: панель инструментов сразу под ним */
 .pres .pres-vp { flex: 0 1 auto; width: 100%; aspect-ratio: var(--sar, 16 / 9); max-height: calc(100% - 90px); }
-.pres .pres-side { display: grid; grid-template-rows: minmax(0, var(--nh, 40%)) 14px minmax(0, 1fr); gap: 0; min-height: 0; }
+/* Колонка не шире своей доли: длинное слово в названии следующего слайда (адрес, имя файла) раздувало её, и вся
+   страница уезжала вбок */
+.pres .pres-side { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, var(--nh, 40%)) 14px minmax(0, 1fr); gap: 0; min-height: 0; }
 .pres-nextbox, .pres-notesbox { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .pres .pres-next { flex: 1; min-height: 0; overflow: hidden; align-items: flex-start; }
 .pres .pres-next .thumb { max-width: 100%; border-radius: 8px; box-shadow: var(--shadow-sm); }
