@@ -72,7 +72,7 @@ import { closeMathEditor, editMath } from './math-edit';
 import { loadMath } from '../components/math/math';
 import { projectStorage } from '../engine/storage';
 import { LayersPane } from './layers';
-import { SlidesPanel } from './slides-panel';
+import { SlidesPanel, shiftOrder } from './slides-panel';
 import { crumbs, type Crumb } from './structure';
 import { canUngroup, groupObjects, ungroup } from './ungroup';
 import { connectTool, lineEnds, pickedPair } from './connect';
@@ -488,9 +488,9 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     deck: () => deck,
     index: () => index,
     go,
-    move: (from, to) => ed.moveSlide(from, to),
-    duplicate: (i) => ed.duplicateSlide(i),
-    remove: (i) => ed.deleteSlide(i),
+    reorder: (order) => ed.reorderSlides(order),
+    duplicate: (list) => duplicateSlides(list),
+    remove: (list) => ed.deleteSlides(list),
     add: (_after, anchor) => newSlideMenu(anchor),
     menu: (i, at, onClose) => showMenu(at, slideMenu(i), onClose),
   });
@@ -986,13 +986,20 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
 
   // ---------------- меню ----------------
   /** Скрыть слайд или вернуть его в показ */
-  function toggleHidden(i: number): void {
+  function toggleHidden(list: number[]): void {
+    const hide = list.some((i) => !deck.slides[i]?.hidden);
     ed.commit((d) => {
-      const s = d.slides[i];
-      if (!s) return;
-      if (s.hidden) delete s.hidden;
-      else s.hidden = true;
+      for (const i of list) {
+        const s = d.slides[i];
+        if (!s) continue;
+        if (hide) s.hidden = true;
+        else delete s.hidden;
+      }
     }, { rebuild: false });
+  }
+  function duplicateSlides(list: number[]): void {
+    const at = ed.duplicateSlides(list);
+    if (at >= 0 && list.length > 1) slides.select(Array.from({ length: list.length }, (_, k) => at + k));
   }
   /** Настройка автопоказа (engine/autoplay.ts); пустая — поля в данных нет */
   function setAutoplay(key: 'after' | 'loop' | 'start' | 'timeline', value: number | boolean | undefined): void {
@@ -1051,7 +1058,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   }
   function newSlideMenu(anchor: HTMLElement): void {
     showMenu(anchor, SLIDE_PRESETS.map((p, k) => ({
-      label: p.name, icon: ['text', 'grid', 'image', 'frame'][k] ?? 'slide-add', run: () => ed.addSlide(index, k),
+      label: p.name, icon: ['text', 'grid', 'image', 'frame'][k] ?? 'slide-add', run: () => ed.addSlide(slideAfter(), k),
     })));
   }
   /** Видимая кнопка команды: «Упорядочить» есть и на «Главной», и на вкладке объекта */
@@ -1069,13 +1076,19 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     const n = count();
     const clip = takeClip();
     const part = i === index ? targetEntrance() : null;
+    const sel = slides.selected();
+    const list = sel.length > 1 && sel.includes(i) ? sel : [i];
+    const k = list.length;
+    const many = k > 1;
+    const hide = list.some((j) => !deck.slides[j]?.hidden);
     return [
       // Правый щелчок по части слайда с красивым появлением: его можно забрать себе
       ...(part ? [{ label: 'Сохранить появление как эффект…', icon: 'sparkle', run: () => askEffectName(part) }, null] : []),
       // Меню открывают и у другого слайда (правым щелчком по миниатюре — без перехода): команды — для него.
       // Вставка, разбор и открепление — на нём самом: сначала переход
-      { label: 'Копировать слайд', icon: 'copy', hint: 'Ctrl+C', run: () => copySlide(i) },
-      { label: 'Вставить', icon: 'paste', hint: 'Ctrl+V', disabled: !clip, run: () => { if (!clip) return; go(i); pasteClip(clip); } },
+      { label: many ? `Вырезать слайды (${k})` : 'Вырезать слайд', icon: 'cut', hint: 'Ctrl+X', disabled: k >= n, run: () => { copySlides(list); ed.deleteSlides(list); } },
+      { label: many ? `Копировать слайды (${k})` : 'Копировать слайд', icon: 'copy', hint: 'Ctrl+C', run: () => copySlides(list) },
+      { label: 'Вставить', icon: 'paste', hint: 'Ctrl+V', disabled: !clip, run: () => { if (!clip) return; go(i); pasteClip(clip, i + 1); } },
       null,
       ...(canExplode(deck.slides[i]) ? [{ label: 'Разобрать на объекты', icon: 'ungroup', run: () => { go(i); run('slide.explode'); } }, null] : []),
       // Закреплённые объекты правым щелчком не достать: открепить их можно отсюда
@@ -1085,15 +1098,15 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
         null,
       ] : []),
       { label: 'Новый слайд после этого', icon: 'slide-add', hint: 'Ctrl+M', run: () => ed.addSlide(i, 0) },
-      { label: 'Дублировать слайд', icon: 'copy', hint: 'Ctrl+D', run: () => ed.duplicateSlide(i) },
+      { label: many ? `Дублировать слайды (${k})` : 'Дублировать слайд', icon: 'copy', hint: 'Ctrl+D', run: () => duplicateSlides(list) },
       null,
-      { label: 'Переместить выше', icon: 'up', hint: 'Alt+↑', disabled: i === 0, run: () => ed.moveSlide(i, i - 1) },
-      { label: 'Переместить ниже', icon: 'back', hint: 'Alt+↓', disabled: i === n - 1, run: () => ed.moveSlide(i, i + 1) },
+      { label: 'Переместить выше', icon: 'up', hint: 'Alt+↑', disabled: !shiftOrder(n, list, -1), run: () => slides.shift(list, -1) },
+      { label: 'Переместить ниже', icon: 'back', hint: 'Alt+↓', disabled: !shiftOrder(n, list, 1), run: () => slides.shift(list, 1) },
       null,
       { label: 'Показ с этого слайда', icon: 'play', run: () => void openShow(i) },
       null,
-      { label: deck.slides[i]?.hidden ? 'Показать слайд' : 'Скрыть слайд', icon: deck.slides[i]?.hidden ? 'eye' : 'eye-off', run: () => toggleHidden(i) },
-      { label: 'Удалить слайд', icon: 'trash', danger: true, disabled: n <= 1, hint: 'Delete', run: () => ed.deleteSlide(i) },
+      { label: `${hide ? 'Скрыть' : 'Показать'} ${many ? `слайды (${k})` : 'слайд'}`, icon: hide ? 'eye-off' : 'eye', run: () => toggleHidden(list) },
+      { label: many ? `Удалить слайды (${k})` : 'Удалить слайд', icon: 'trash', danger: true, disabled: k >= n, hint: 'Delete', run: () => ed.deleteSlides(list) },
     ];
   }
   /** Вырезать, копировать, вставить: в меню объекта и в меню ячейки таблицы */
@@ -1195,18 +1208,18 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
       const text = items.map((b) => [b.text, b.title, ...(Array.isArray(b.texts) ? b.texts : [])].filter((x) => typeof x === 'string').join('\n')).filter(Boolean).join('\n\n');
       return { clip: putClip({ deck: deckKey, kind: 'objects', items, slide: index, ...carry(items) }), text };
     }
-    const s = deck.slides[index];
-    const items = [JSON.parse(JSON.stringify(s))];
-    return { clip: putClip({ deck: deckKey, kind: 'slides', items, slide: index, ...carry(items) }), text: slideLabel(s, index) };
+    const list = slides.selected();
+    if (!list.length) return null;
+    const items = list.map((i) => JSON.parse(JSON.stringify(deck.slides[i])));
+    return { clip: putClip({ deck: deckKey, kind: 'slides', items, slide: index, ...carry(items) }), text: list.map((i) => slideLabel(deck.slides[i], i)).join('\n') };
   }
 
   /** Слайд i — в буфер (меню слайда): не выделенный на текущем объект и не текущий слайд */
-  function copySlide(i: number): void {
-    const s = deck.slides[i];
-    if (!s) return;
-    const items = [JSON.parse(JSON.stringify(s))];
-    putClip({ deck: deckKey, kind: 'slides', items, slide: i, ...carry(items) });
-    ed.toast('Слайд скопирован', 1400);
+  function copySlides(list: number[]): void {
+    const items = list.filter((i) => deck.slides[i]).map((i) => JSON.parse(JSON.stringify(deck.slides[i])));
+    if (!items.length) return;
+    putClip({ deck: deckKey, kind: 'slides', items, slide: list[0], ...carry(items) });
+    ed.toast(items.length > 1 ? `Скопировано слайдов: ${items.length}` : 'Слайд скопирован', 1400);
   }
 
   function copy(cut: boolean, data?: DataTransfer | null): boolean {
@@ -1216,23 +1229,36 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     data?.setData('text/plain', made.text);
     const n = made.clip.items.length;
     if (cut) {
-      if (made.clip.kind === 'slides') ed.deleteSlide(index);
+      if (made.clip.kind === 'slides') ed.deleteSlides(slides.selected());
       else ed.blockEditor.remove();
     } else {
-      ed.toast(made.clip.kind === 'slides' ? 'Слайд скопирован' : n > 1 ? `Скопировано объектов: ${n}` : 'Скопировано', 1400);
+      ed.toast(made.clip.kind === 'slides' ? (n > 1 ? `Скопировано слайдов: ${n}` : 'Слайд скопирован') : n > 1 ? `Скопировано объектов: ${n}` : 'Скопировано', 1400);
     }
     return true;
   }
 
-  function uniqueSlideId(base: string): string {
-    const ids = new Set(deck.slides.map((s) => s.id));
+  function slideAfter(): number {
+    const g = slides.gap();
+    return g >= 0 ? g - 1 : index;
+  }
+
+  function pasteAt(): number {
+    const g = slides.gap();
+    if (g >= 0) return g;
+    const sel = slides.selected();
+    return sel[sel.length - 1] + 1;
+  }
+
+  function uniqueSlideId(base: string, ids: Set<unknown>): string {
     const stem = (base || 'slide').replace(/-\d+$/, '');
-    if (!ids.has(stem)) return stem;
-    for (let n = 2; ; n++) if (!ids.has(`${stem}-${n}`)) return `${stem}-${n}`;
+    let id = stem;
+    for (let n = 2; ids.has(id); n++) id = `${stem}-${n}`;
+    ids.add(id);
+    return id;
   }
 
   /** Из другой презентации: файлы копируются, стили и определения — изолированно (cross-paste.ts) */
-  async function pasteForeign(clip: Clip): Promise<void> {
+  async function pasteForeign(clip: Clip, at: number): Promise<void> {
     ed.toast('Перенос из другой презентации…', 0);
     const upload = async (blob: Blob, name: string) => (ed.mode === 'project'
       ? (await projectStorage.uploadAsset(deckKey, blob, name)).url
@@ -1246,10 +1272,11 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     }
     const files = res.files ? ` Файлов скопировано: ${res.files}.` : '';
     if (clip.kind === 'slides') {
-      const copies = (res.items as Deck['slides']).map((s) => ({ ...s, id: uniqueSlideId(typeof s.id === 'string' ? s.id : 'slide') }));
-      const at = index + 1;
+      const ids = new Set<unknown>(deck.slides.map((s) => s.id));
+      const copies = (res.items as Deck['slides']).map((s) => ({ ...s, id: uniqueSlideId(typeof s.id === 'string' ? s.id : 'slide', ids) }));
       if (ed.commit((d) => { res.apply(d); d.slides.splice(at, 0, ...copies); })) {
         go(at);
+        slides.select(copies.map((_s, k) => at + k));
         ed.toast(`Вставлено из другой презентации: ${copies.length > 1 ? `${copies.length} слайда` : 'слайд'}.${files} Вернуть — Ctrl+Z`, 3500);
       }
       return;
@@ -1270,19 +1297,22 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     ed.toast(`Вставлено из другой презентации.${files} Вернуть — Ctrl+Z`, 3000);
   }
 
-  function pasteClip(clip: Clip): void {
+  function pasteClip(clip: Clip, at = pasteAt()): void {
     if (clip.deck !== deckKey) {
-      void pasteForeign(clip);
+      void pasteForeign(clip, at);
       return;
     }
     if (clip.kind === 'slides') {
+      const ids = new Set<unknown>(deck.slides.map((s) => s.id));
       const copies = clip.items.map((raw) => {
         const s = JSON.parse(JSON.stringify(raw)) as Deck['slides'][number];
-        s.id = uniqueSlideId(typeof s.id === 'string' ? s.id : 'slide');
+        s.id = uniqueSlideId(typeof s.id === 'string' ? s.id : 'slide', ids);
         return s;
       });
-      const at = index + 1;
-      if (ed.commit((d) => d.slides.splice(at, 0, ...copies))) go(at);
+      if (ed.commit((d) => d.slides.splice(at, 0, ...copies))) {
+        go(at);
+        slides.select(copies.map((_s, k) => at + k));
+      }
       return;
     }
     // На тот же слайд — со сдвигом, чтобы копия не легла ровно поверх; на другой — на то же место
@@ -1720,8 +1750,8 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     undo: { run: () => ed.undo(), enabled: () => ed.canUndo },
     redo: { run: () => ed.redo(), enabled: () => ed.canRedo },
     'slide.new': { run: () => newSlideMenu(document.querySelector<HTMLElement>('[data-cmd="slide.new"]')!) },
-    'slide.dup': { run: () => ed.duplicateSlide(index) },
-    'slide.del': { run: () => ed.deleteSlide(index), enabled: () => count() > 1 },
+    'slide.dup': { run: () => duplicateSlides(slides.selected()) },
+    'slide.del': { run: () => ed.deleteSlides(slides.selected()), enabled: () => count() > slides.selected().length },
     'insert.text': { run: () => ed.addBlock('text') },
     'insert.blocks': { run: () => openLibrary() },
     'ins.video': { run: () => { const p = presetOf('Медиа', 'Видео'); if (p) insertPreset(p); } },
@@ -1851,7 +1881,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     'edit.find': { run: () => find?.show() },
     'design.theme': { run: () => themeFade(toggleTheme) },
     'show.start': { run: () => void openShow(0) },
-    'show.hide': { run: () => toggleHidden(index), active: () => deck.slides[index]?.hidden === true },
+    'show.hide': { run: () => toggleHidden(slides.selected()), active: () => deck.slides[index]?.hidden === true },
     'show.current': { run: () => void openShow(index) },
     'show.presenter': { run: () => void openShow(index, true) },
     'show.auto': { run: () => void openShow(0, false, true) },
@@ -1956,7 +1986,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
   cmds['tab.video'] = { run: () => setTab('video') };
   cmds['tab.text'] = { run: () => setTab('text') };
   for (const k of ['left', 'center', 'right', 'top', 'middle', 'bottom']) cmds[`align.${k}`] = { run: () => align(k), enabled: hasFree };
-  SLIDE_PRESETS.forEach((_p, k) => { cmds[`slide.preset.${k}`] = { run: () => ed.addSlide(index, k) }; });
+  SLIDE_PRESETS.forEach((_p, k) => { cmds[`slide.preset.${k}`] = { run: () => ed.addSlide(slideAfter(), k) }; });
   /** Галереи вкладки «Вставка»: только свои разделы библиотеки */
   const GALLERIES: Record<string, string[]> = {
     text: ['Текст'], shapes: ['Фигуры', 'Плашки'], table: ['Таблицы'], chart: ['Графики'], numbers: ['Числа'], math: ['Уравнения'],
@@ -2027,7 +2057,10 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     const el = t as Element | null;
     if (!el?.closest) return;
     if (el.closest('#st-slides')) pane = 'slides';
-    else if (el.closest('#st-body')) pane = 'slide';
+    else if (el.closest('#st-body')) {
+      pane = 'slide';
+      slides.single();
+    }
   };
   document.addEventListener('pointerdown', (e) => paneOf(e.target), true);
   document.addEventListener('focusin', (e) => paneOf(e.target));
@@ -2738,7 +2771,7 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     // Работали на самом слайде — Delete удаляет выделенное (редактор ниже), без выделения — ничего
     if ((e.key === 'Delete' || e.key === 'Backspace') && !mod && !e.altKey && !e.shiftKey && pane === 'slides') {
       e.preventDefault();
-      if (count() > 1) ed.deleteSlide(index);
+      if (count() > 1) ed.deleteSlides(slides.selected());
       return;
     }
     if (ed.handleKey(e)) return;
@@ -2758,11 +2791,11 @@ ${framed ? `<div class="st-tbar" data-titlebar data-ed-keep>
     }
     if (mod && !e.shiftKey && (k === 'm' || k === 'ь')) {
       e.preventDefault();
-      return ed.addSlide(index, 0);
+      return ed.addSlide(slideAfter(), 0);
     }
     if (mod && (k === 'd' || k === 'в') && !ed.selection) {
       e.preventDefault();
-      return ed.duplicateSlide(index);
+      return duplicateSlides(slides.selected());
     }
     if (mod || e.altKey) return;
     if (ed.selection) return;

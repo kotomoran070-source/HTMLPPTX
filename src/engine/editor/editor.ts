@@ -2051,29 +2051,59 @@ export class Editor {
 
   // ---------------- слайды ----------------
 
-  private uniqueId(base: string): string {
-    const ids = new Set(this.host.deck.slides.map((s) => s.id));
+  private uniqueId(base: string, ids = new Set(this.host.deck.slides.map((s) => s.id))): string {
     const stem = (base || 'slide').replace(/-\d+$/, '');
-    for (let i = 2; ; i++) if (!ids.has(`${stem}-${i}`)) return `${stem}-${i}`;
+    for (let i = 2; ; i++) {
+      const id = `${stem}-${i}`;
+      if (!ids.has(id)) {
+        ids.add(id);
+        return id;
+      }
+    }
   }
 
   duplicateSlide(i: number): void {
-    const copy = clone(this.host.deck.slides[i]);
-    copy.id = this.uniqueId(copy.id ?? 'slide');
-    if (this.commit((d) => d.slides.splice(i + 1, 0, copy))) {
-      this.host.go(i + 1);
-      this.toast('Слайд продублирован', 1800);
-    }
+    this.duplicateSlides([i]);
+  }
+
+  duplicateSlides(list: number[]): number {
+    const slides = this.host.deck.slides;
+    const src = [...new Set(list)].filter((i) => slides[i]).sort((a, b) => a - b);
+    if (!src.length) return -1;
+    const ids = new Set(slides.map((s) => s.id));
+    const copies = src.map((i) => {
+      const copy = clone(slides[i]);
+      copy.id = this.uniqueId(copy.id ?? 'slide', ids);
+      return copy;
+    });
+    const at = src[src.length - 1] + 1;
+    if (!this.commit((d) => d.slides.splice(at, 0, ...copies))) return -1;
+    this.host.go(at);
+    this.toast(copies.length > 1 ? `Продублировано слайдов: ${copies.length}` : 'Слайд продублирован', 1800);
+    return at;
   }
 
   deleteSlide(i: number): void {
+    this.deleteSlides([i]);
+  }
+
+  deleteSlides(list: number[]): void {
     const n = this.host.deck.slides.length;
-    if (n <= 1) return this.toast('Нельзя удалить единственный слайд', 2500, true);
+    const del = new Set(list.filter((i) => i >= 0 && i < n));
+    if (!del.size) return;
+    if (del.size >= n) return this.toast(n > 1 ? 'Нельзя удалить все слайды' : 'Нельзя удалить единственный слайд', 2500, true);
     const cur = this.host.index();
-    if (this.commit((d) => d.slides.splice(i, 1))) {
-      this.host.go(cur > i ? cur - 1 : Math.min(cur, n - 2));
-      this.toast('Слайд удалён. Вернуть — Ctrl+Z', 3000);
+    if (this.commit((d) => { d.slides = d.slides.filter((_s, i) => !del.has(i)); })) {
+      const left = [...Array(n).keys()].filter((i) => !del.has(i));
+      const next = left.findIndex((i) => i >= cur);
+      this.host.go(next < 0 ? left.length - 1 : next);
+      this.toast(del.size > 1 ? `Удалено слайдов: ${del.size}. Вернуть — Ctrl+Z` : 'Слайд удалён. Вернуть — Ctrl+Z', 3000);
     }
+  }
+
+  reorderSlides(order: number[]): void {
+    const cur = this.host.index();
+    if (this.commit((d) => { d.slides = order.map((i) => d.slides[i]); })) this.host.go(order.indexOf(cur));
   }
 
   moveSlide(from: number, to: number): void {

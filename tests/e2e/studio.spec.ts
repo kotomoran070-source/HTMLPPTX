@@ -2667,3 +2667,46 @@ test('лента слайдов: перетаскивание — линия в 
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('лента слайдов: Shift и Ctrl выделяют несколько слайдов — переносятся, дублируются и удаляются вместе', async ({ page }) => {
+  const errors = watchErrors(page);
+  const dir = path.join(DECKS, 'slidemulti');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'deck.yaml');
+  fs.writeFileSync(file, `title: Группа\nslides:\n${Array.from({ length: 6 }, (_, i) => `  - template: canvas\n    label: S${i + 1}\n`).join('')}`);
+  const order = () => (parse(fs.readFileSync(file, 'utf8')) as { slides: { label: string }[] }).slides.map((s) => s.label);
+  const thumb = (i: number) => page.locator('.st-thumb').nth(i);
+  const count = page.locator('.st-slides-n');
+  try {
+    await page.goto('/?deck=slidemulti&studio#1');
+    await expect(page.locator('.st-thumb')).toHaveCount(6);
+    // S1, Shift+щелчок по S3 — выделены три; Ctrl+щелчок по S5 — четвёртый, повторный — снова три
+    await thumb(0).click();
+    await thumb(2).click({ modifiers: ['Shift'] });
+    await expect(page.locator('.st-thumb[aria-selected="true"]')).toHaveCount(3);
+    await expect(count).toHaveText('3 из 6');
+    await thumb(4).click({ modifiers: ['Control'] });
+    await expect(count).toHaveText('4 из 6');
+    await thumb(4).click({ modifiers: ['Control'] });
+    await expect(count).toHaveText('3 из 6');
+    // Потянули любой из выделенных — едет вся группа, в зазор после S4, в своём порядке
+    let b = (await thumb(1).boundingBox())!;
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    b = (await thumb(3).boundingBox())!;
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height - 6, { steps: 8 });
+    await expect(page.locator('.st-drag-ghost')).toHaveAttribute('data-n', '3');
+    await page.mouse.up();
+    await expect.poll(order).toEqual(['S4', 'S1', 'S2', 'S3', 'S5', 'S6']);
+    await expect(count).toHaveText('3 из 6');
+    // Ctrl+D — копии группы сразу после неё и выделены они; Delete — удаляются одним шагом
+    await page.keyboard.press('Control+d');
+    await expect.poll(order).toEqual(['S4', 'S1', 'S2', 'S3', 'S1', 'S2', 'S3', 'S5', 'S6']);
+    await expect(count).toHaveText('3 из 9');
+    await page.keyboard.press('Delete');
+    await expect.poll(order).toEqual(['S4', 'S1', 'S2', 'S3', 'S5', 'S6']);
+    expect(errors).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

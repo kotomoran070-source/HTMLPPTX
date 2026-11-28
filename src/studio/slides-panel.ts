@@ -8,9 +8,9 @@ export interface SlidesHost {
   deck(): Deck;
   index(): number;
   go(i: number): void;
-  move(from: number, to: number): void;
-  duplicate(i: number): void;
-  remove(i: number): void;
+  reorder(order: number[]): void;
+  duplicate(list: number[]): void;
+  remove(list: number[]): void;
   add(after: number, anchor: HTMLElement): void;
   /** Меню слайда i (не обязательно текущего); onClose — меню закрылось */
   menu(i: number, at: { x: number; y: number }, onClose?: () => void): void;
@@ -18,6 +18,7 @@ export interface SlidesHost {
 
 interface Drag {
   from: number;
+  group: number[];
   id: number;
   x: number;
   y: number;
@@ -28,6 +29,28 @@ interface Drag {
   dy: number;
   ghost: HTMLElement | null;
   raf: number;
+}
+
+export function shiftOrder(n: number, list: number[], dir: -1 | 1): number[] | null {
+  const order = Array.from({ length: n }, (_, i) => i);
+  const sel = new Set(list);
+  const on = order.map((i) => sel.has(i));
+  for (let k = dir < 0 ? 1 : n - 2; dir < 0 ? k < n : k >= 0; k -= dir) {
+    const j = k + dir;
+    if (on[k] && !on[j]) {
+      [order[k], order[j]] = [order[j], order[k]];
+      [on[k], on[j]] = [on[j], on[k]];
+    }
+  }
+  return order.some((v, k) => v !== k) ? order : null;
+}
+
+function dropOrder(n: number, group: number[], gap: number): number[] | null {
+  const set = new Set(group);
+  const rest = Array.from({ length: n }, (_, i) => i).filter((i) => !set.has(i));
+  const at = rest.filter((i) => i < gap).length;
+  const order = [...rest.slice(0, at), ...group, ...rest.slice(at)];
+  return order.some((v, k) => v !== k) ? order : null;
 }
 
 /** Всё, что влияет на вид любого слайда, кроме самих слайдов: тема, логотип, стили, символы. */
@@ -51,17 +74,23 @@ export class SlidesPanel {
   private deckSig = '';
   private drag: Drag | null = null;
   private noClick = false;
+  private picked = new Set<number>();
+  private anchor = -1;
+  private caretEl: HTMLElement;
+  private caret = -1;
+  private caretAt = -1;
 
   constructor(private root: HTMLElement, private host: SlidesHost) {
     // Заголовок с числом слайдов и «+» — над лентой и при прокрутке остаётся на месте (studio.css, .st-slides-head)
     root.innerHTML = `<div class="st-slides-head"><b>Слайды</b><span class="st-slides-n"></span>`
       + `<button type="button" class="st-slides-plus" title="Новый слайд (Ctrl+M)" aria-label="Новый слайд">${icon('plus')}</button></div>
-<div class="st-slides-list" role="listbox" aria-label="Слайды" aria-orientation="vertical"><div class="st-drop-line" aria-hidden="true" hidden></div></div>
+<div class="st-slides-list" role="listbox" aria-label="Слайды" aria-orientation="vertical" aria-multiselectable="true"><div class="st-drop-line" aria-hidden="true" hidden></div><div class="st-drop-line st-slides-caret" aria-hidden="true" hidden></div></div>
 <button type="button" class="st-slides-add" title="Новый слайд (Ctrl+M)">${icon('plus')}<span>Новый слайд</span></button>`;
     this.list = root.querySelector('.st-slides-list')!;
     this.count = root.querySelector('.st-slides-n')!;
     this.head = root.querySelector('.st-slides-head')!;
     this.line = root.querySelector('.st-drop-line')!;
+    this.caretEl = root.querySelector('.st-slides-caret')!;
     for (const b of root.querySelectorAll<HTMLElement>('.st-slides-add, .st-slides-plus')) b.onclick = () => host.add(host.index(), b);
     this.bind();
   }
@@ -76,6 +105,10 @@ export class SlidesPanel {
     const full = all !== this.deckSig;
     this.deckSig = all;
     const n = deck.slides.length;
+    if (n !== this.sigs.length) {
+      this.picked.clear();
+      this.caret = -1;
+    }
     // Один отрисовщик на все миниатюры этого прохода (создаётся, если хоть одна перерисовывается)
     let r = shared;
     for (let i = 0; i < n; i++) {
@@ -121,8 +154,6 @@ export class SlidesPanel {
       item.classList.toggle('has-jots', jots);
     }
     this.items.splice(n).forEach((el) => el.remove());
-    // Та же запись в текст — всё равно пересчёт стилей: пишется только новое число
-    if (this.count.textContent !== String(n)) this.count.textContent = String(n);
     this.sigs.length = n;
     this.mark();
   }
@@ -144,13 +175,27 @@ export class SlidesPanel {
    */
   mark(): void {
     const cur = this.host.index();
+    if (!this.picked.has(cur)) {
+      this.picked = new Set([cur]);
+      this.anchor = cur;
+    }
+    if (this.caret >= 0 && (cur !== this.caretAt || this.caret > this.items.length)) this.caret = -1;
+    this.list.classList.toggle('caret', this.caret >= 0);
+    this.caretEl.hidden = this.caret < 0;
+    if (this.caret >= 0) this.caretEl.style.top = `${this.gapY(this.caret)}px`;
+    const multi = this.picked.size > 1;
     const item = this.items[cur];
     this.items.forEach((el, i) => {
       const on = i === cur;
       el.classList.toggle('cur', on);
-      el.setAttribute('aria-selected', String(on));
+      el.classList.toggle('sel', multi && this.picked.has(i));
+      el.setAttribute('aria-selected', String(this.picked.has(i)));
       el.tabIndex = on ? 0 : -1;
     });
+    // Та же запись в текст — всё равно пересчёт стилей: пишется только новое число
+    const n = String(this.items.length);
+    const text = multi ? `${this.picked.size} из ${n}` : n;
+    if (this.count.textContent !== text) this.count.textContent = text;
     if (item && item !== this.marked) item.scrollIntoView({ block: 'nearest' });
     this.marked = item ?? null;
   }
@@ -160,6 +205,79 @@ export class SlidesPanel {
     this.items[this.host.index()]?.focus({ preventScroll: true });
   }
 
+  gap(): number {
+    return this.caret;
+  }
+
+  selected(): number[] {
+    if (this.caret >= 0) return [];
+    const cur = this.host.index();
+    return this.picked.has(cur) ? [...this.picked].sort((a, b) => a - b) : [cur];
+  }
+
+  select(list: number[]): void {
+    this.caret = -1;
+    this.picked = new Set(list.filter((i) => i >= 0 && i < this.items.length));
+    this.mark();
+  }
+
+  single(): void {
+    if (this.picked.size > 1 || this.caret >= 0) this.select([this.host.index()]);
+  }
+
+  private place(g: number): void {
+    this.caret = g;
+    this.caretAt = this.host.index();
+    this.picked = new Set([this.caretAt]);
+    this.mark();
+  }
+
+  private gapAt(y: number): number {
+    let lo = 0;
+    let hi = this.items.length;
+    while (lo < hi) {
+      const m = (lo + hi) >> 1;
+      const b = this.items[m].getBoundingClientRect();
+      if (y < b.top + b.height / 2) hi = m;
+      else lo = m + 1;
+    }
+    return lo;
+  }
+
+  shift(list: number[], dir: -1 | 1): void {
+    const order = shiftOrder(this.items.length, list, dir);
+    if (order) this.reorder(order, list);
+  }
+
+  private reorder(order: number[], group: number[]): void {
+    this.host.reorder(order);
+    this.select(group.map((i) => order.indexOf(i)));
+  }
+
+  private pick(i: number, how: 'one' | 'add' | 'range'): void {
+    this.caret = -1;
+    const cur = this.host.index();
+    let to = i;
+    if (how === 'range') {
+      const a = this.anchor >= 0 && this.anchor < this.items.length ? this.anchor : cur;
+      this.picked = new Set(Array.from({ length: Math.abs(i - a) + 1 }, (_, k) => Math.min(a, i) + k));
+    } else if (how === 'add') {
+      if (!this.picked.has(cur)) this.picked = new Set([cur]);
+      if (this.picked.has(i) && this.picked.size > 1) {
+        this.picked.delete(i);
+        const rest = [...this.picked].sort((a, b) => a - b);
+        if (i === cur) to = rest.filter((k) => k < i).pop() ?? rest[0];
+        else to = cur;
+      } else this.picked.add(i);
+      this.anchor = i;
+    } else {
+      this.picked = new Set([i]);
+      this.anchor = i;
+    }
+    this.host.go(to);
+    this.mark();
+  }
+
   private at(e: Event): number {
     const el = (e.target as Element).closest<HTMLElement>('.st-thumb');
     return el ? Number(el.dataset.i) : -1;
@@ -167,10 +285,14 @@ export class SlidesPanel {
 
   private bind(): void {
     const h = this.host;
-    this.list.addEventListener('click', (e) => {
-      if (this.noClick) return;
-      const i = this.at(e);
-      if (i >= 0) h.go(i);
+    this.root.addEventListener('click', (e) => {
+      const t = e.target as Element;
+      if (this.noClick || !this.items.length || t.closest('button, .st-slides-head')) return;
+      const el = t.closest<HTMLElement>('.st-thumb');
+      const box = el?.querySelector('.st-tbox')?.getBoundingClientRect();
+      if (el && box && e.clientY >= box.top && e.clientY <= box.bottom) {
+        this.pick(Number(el.dataset.i), e.shiftKey ? 'range' : e.ctrlKey || e.metaKey ? 'add' : 'one');
+      } else this.place(this.gapAt(e.clientY));
     });
     // Правый щелчок — только меню этого слайда: на него не переходит. Пока меню открыто, миниатюра обведена —
     // видно, к какому слайду команды
@@ -188,15 +310,18 @@ export class SlidesPanel {
       const n = h.deck().slides.length;
       const mod = e.ctrlKey || e.metaKey;
       const k = e.key.toLowerCase();
+      const how = e.shiftKey ? 'range' : 'one';
       let handled = true;
       if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-        h.move(i, i + (e.key === 'ArrowUp' ? -1 : 1));
-      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') h.go(Math.max(0, i - 1));
-      else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') h.go(Math.min(n - 1, i + 1));
-      else if (e.key === 'Home') h.go(0);
-      else if (e.key === 'End') h.go(n - 1);
-      else if (e.key === 'Delete' || e.key === 'Backspace') h.remove(i);
-      else if (mod && (k === 'd' || k === 'в')) h.duplicate(i);
+        this.shift(this.selected(), e.key === 'ArrowUp' ? -1 : 1);
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') this.pick(Math.max(0, i - 1), how);
+      else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') this.pick(Math.min(n - 1, i + 1), how);
+      else if (e.key === 'Home') this.pick(0, how);
+      else if (e.key === 'End') this.pick(n - 1, how);
+      else if (mod && !e.shiftKey && (k === 'a' || k === 'ф')) this.select([...Array(n).keys()]);
+      else if (e.key === 'Escape' && this.picked.size > 1) this.single();
+      else if (e.key === 'Delete' || e.key === 'Backspace') h.remove(this.selected());
+      else if (mod && (k === 'd' || k === 'в')) h.duplicate(this.selected());
       else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
         const r = this.items[i].getBoundingClientRect();
         h.menu(i, { x: r.left + 24, y: r.top + 24 });
@@ -212,8 +337,8 @@ export class SlidesPanel {
     this.list.addEventListener('dragstart', (e) => e.preventDefault());
     this.list.addEventListener('pointerdown', (e) => {
       const i = this.at(e);
-      if (i < 0 || e.button !== 0 || e.pointerType === 'touch' || this.drag) return;
-      this.drag = { from: i, id: e.pointerId, x: e.clientX, y: e.clientY, cx: e.clientX, cy: e.clientY, on: false, dx: 0, dy: 0, ghost: null, raf: 0 };
+      if (i < 0 || e.button !== 0 || e.pointerType === 'touch' || e.shiftKey || e.ctrlKey || e.metaKey || this.drag) return;
+      this.drag = { from: i, group: [i], id: e.pointerId, x: e.clientX, y: e.clientY, cx: e.clientX, cy: e.clientY, on: false, dx: 0, dy: 0, ghost: null, raf: 0 };
       window.addEventListener('pointermove', this.onMove);
       window.addEventListener('pointerup', this.onUp);
       window.addEventListener('pointercancel', this.onCancel);
@@ -268,9 +393,18 @@ export class SlidesPanel {
     d.dx = d.x - r.left;
     d.dy = d.y - r.top;
     g.style.transformOrigin = `${d.dx}px ${d.dy}px`;
+    if (this.caret >= 0) {
+      this.caret = -1;
+      this.mark();
+    }
+    if (this.picked.has(d.from) && this.picked.size > 1) d.group = this.selected();
+    if (d.group.length > 1) {
+      g.classList.add('multi');
+      g.dataset.n = String(d.group.length);
+    }
     document.body.appendChild(g);
     d.ghost = g;
-    item.classList.add('dragging');
+    for (const k of d.group) this.items[k]?.classList.add('dragging');
     document.documentElement.classList.add('st-slide-drag');
     this.list.setPointerCapture(d.id);
   }
@@ -305,16 +439,8 @@ export class SlidesPanel {
     const zone = Math.min(48, (r.bottom - top) / 4);
     const k = d.cy < top + zone ? d.cy - top - zone : d.cy > r.bottom - zone ? d.cy - r.bottom + zone : 0;
     const v = Math.sign(k) * Math.ceil(Math.min(1, Math.abs(k) / zone) ** 2 * 22);
-    const y = Math.min(Math.max(d.cy, top), r.bottom);
-    let lo = 0;
-    let hi = this.items.length;
-    while (lo < hi) {
-      const m = (lo + hi) >> 1;
-      const b = this.items[m].getBoundingClientRect();
-      if (y < b.top + b.height / 2) hi = m;
-      else lo = m + 1;
-    }
-    return { gap: lo === d.from || lo === d.from + 1 ? -1 : lo, v, out: false };
+    const lo = this.gapAt(Math.min(Math.max(d.cy, top), r.bottom));
+    return { gap: dropOrder(this.items.length, d.group, lo) ? lo : -1, v, out: false };
   }
 
   private gapY(g: number): number {
@@ -337,16 +463,17 @@ export class SlidesPanel {
     window.removeEventListener('keydown', this.onKey, true);
     if (!d.on) return;
     cancelAnimationFrame(d.raf);
-    const to = drop ? this.aim(d).gap : -1;
+    const gap = drop ? this.aim(d).gap : -1;
     d.ghost?.remove();
     this.line.hidden = true;
-    this.items[d.from]?.classList.remove('dragging');
+    this.items.forEach((el) => el.classList.remove('dragging'));
     document.documentElement.classList.remove('st-slide-drag', 'st-slide-drag-out');
     if (this.list.hasPointerCapture(d.id)) this.list.releasePointerCapture(d.id);
     this.noClick = true;
     setTimeout(() => { this.noClick = false; });
-    if (to < 0) return;
-    this.host.move(d.from, to > d.from ? to - 1 : to);
+    const order = gap < 0 ? null : dropOrder(this.items.length, d.group, gap);
+    if (!order) return;
+    this.reorder(order, d.group);
     requestAnimationFrame(() => this.focus());
   }
 }
